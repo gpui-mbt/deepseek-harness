@@ -1,7 +1,22 @@
 /** Append historical child facts after converting V3 source events to V4. */
 
-import { defineSessionFormatMigration, SessionFormatError, SessionFormatUnsupportedMigrationError, isSessionFormatJsonObject, sessionFormatCount } from '@deepseek-ai/dsh-session-format'
-import type { SessionFormatEvent, SessionFormatEventRun, SessionFormatJsonObject, SessionFormatJsonValue, SessionFormatMigration, SessionFormatMigrationContext, SessionFormatMigrationStage, SessionFormatMigrationStageInput } from '@deepseek-ai/dsh-session-format'
+import {
+  defineSessionFormatMigration,
+  SessionFormatError,
+  SessionFormatUnsupportedMigrationError,
+  isSessionFormatJsonObject,
+  sessionFormatCount,
+} from '@deepseek-ai/dsh-session-format'
+import type {
+  SessionFormatEvent,
+  SessionFormatEventRun,
+  SessionFormatJsonObject,
+  SessionFormatJsonValue,
+  SessionFormatMigration,
+  SessionFormatMigrationContext,
+  SessionFormatMigrationStage,
+  SessionFormatMigrationStageInput,
+} from '@deepseek-ai/dsh-session-format'
 import { assertReleasedV3Header } from '@deepseek-ai/dsh-session-format-v2-to-v3'
 import { mapEventMessages, rewriteV3MessageSource } from './sources.ts'
 import { liftToolResult } from './tool-role.ts'
@@ -21,7 +36,9 @@ export const sessionFormatV3ToV4 = defineSessionFormatMigration({
     return { ...header, version: 4 }
   },
   createStage() {
-    throw new SessionFormatUnsupportedMigrationError('V3 catalog migration requires explicit historical child facts, including an empty array for a parent without children')
+    throw new SessionFormatUnsupportedMigrationError(
+      'V3 catalog migration requires explicit historical child facts, including an empty array for a parent without children',
+    )
   },
   validateTargetHeader: assertReleasedV4Header,
 })
@@ -52,10 +69,17 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
   private time: number
   private foreignDeliverySeq: number | undefined
 
-  constructor(private readonly input: SessionFormatMigrationStageInput, children: readonly SessionFormatJsonValue[]) {
-    this.candidates = children.map(childCatalogSource).sort((left, right) =>
-      (left['childCreatedAt'] as number) - (right['childCreatedAt'] as number)
-      || (left['childId'] === right['childId'] ? 0 : (left['childId'] as string) < (right['childId'] as string) ? -1 : 1))
+  constructor(
+    private readonly input: SessionFormatMigrationStageInput,
+    children: readonly SessionFormatJsonValue[],
+  ) {
+    this.candidates = children
+      .map(childCatalogSource)
+      .sort(
+        (left, right) =>
+          (left['childCreatedAt'] as number) - (right['childCreatedAt'] as number) ||
+          (left['childId'] === right['childId'] ? 0 : (left['childId'] as string) < (right['childId'] as string) ? -1 : 1),
+      )
     this.cut = input.sourceHeader.isSeeded ? undefined : 0
     this.sourceCut = this.cut
     if (!input.sourceHeader.isSeeded) this.headerInheritedEventCount = 0
@@ -66,13 +90,18 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
     if (event.seq !== this.mapping.length) throw new SessionFormatError('V3 source events must be dense')
     const interrupted = this.observeRestart(event)
     if (interrupted !== undefined) {
-      context.emitEvent({ type: 'turn/end', seq: this.nextSeq++, time: event.time,
-        data: { turn: interrupted, reason: { kind: 'interrupted' } } })
+      context.emitEvent({
+        type: 'turn/end',
+        seq: this.nextSeq++,
+        time: event.time,
+        data: { turn: interrupted, reason: { kind: 'interrupted' } },
+      })
     }
     const targetSeq = this.nextSeq++
     this.time = event.time
     if (event.type === 'session/end-seed' && isSessionFormatJsonObject(event.data) && event.data['inherited'] === true) {
-      if (!this.input.sourceHeader.isSeeded) throw new SessionFormatError('unseeded format v3 Session contains an inherited end-seed marker')
+      if (!this.input.sourceHeader.isSeeded)
+        throw new SessionFormatError('unseeded format v3 Session contains an inherited end-seed marker')
       this.sourceCut = event.seq
       this.cut = targetSeq
       this.catalogs.length = 0
@@ -101,7 +130,7 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
     }
     const remapped = remapV3References(event, targetSeq, this.mapping)
     this.mapping.push(targetSeq)
-    const rewritten = mapEventMessages(remapped, (message) => {
+    const rewritten = mapEventMessages(remapped, message => {
       const source = message['source']
       if (!isSessionFormatJsonObject(source)) return message
       const converted = rewriteV3MessageSource(source, event.seq, message['role'])
@@ -116,11 +145,21 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
 
   private observeRestart(event: SessionFormatEvent): number | undefined {
     const data = event.data
-    const interrupted = event.type === 'turn/start' && this.turn !== undefined && !this.stepOpen
-      && this.nextTurnSpliced && isSessionFormatJsonObject(data) && data['turn'] === this.turn + 1
-      ? this.turn : undefined
-    this.nextTurnSpliced = event.type === 'agent/inbox/spliced' && isSessionFormatJsonObject(data)
-      && data['target'] === 'next-turn' && Array.isArray(data['inserted']) && data['inserted'].length > 0
+    const interrupted =
+      event.type === 'turn/start' &&
+      this.turn !== undefined &&
+      !this.stepOpen &&
+      this.nextTurnSpliced &&
+      isSessionFormatJsonObject(data) &&
+      data['turn'] === this.turn + 1
+        ? this.turn
+        : undefined
+    this.nextTurnSpliced =
+      event.type === 'agent/inbox/spliced' &&
+      isSessionFormatJsonObject(data) &&
+      data['target'] === 'next-turn' &&
+      Array.isArray(data['inserted']) &&
+      data['inserted'].length > 0
     if (event.type === 'turn/start' && isSessionFormatJsonObject(data) && typeof data['turn'] === 'number') {
       this.turn = data['turn']
     } else if (event.type === 'turn/end') {
@@ -148,8 +187,10 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
     if (this.input.sourceInheritedEventCount !== undefined && sourceCut !== this.input.sourceInheritedEventCount) {
       throw new SessionFormatError('format v3 inherited cut disagrees with its source marker')
     }
-    if (this.foreignDeliverySeq !== undefined
-      && (this.input.sourceHeader.parentSession === undefined || this.foreignDeliverySeq >= sourceCut)) {
+    if (
+      this.foreignDeliverySeq !== undefined &&
+      (this.input.sourceHeader.parentSession === undefined || this.foreignDeliverySeq >= sourceCut)
+    ) {
       throw new SessionFormatError('current-generation delivery marker names the wrong Session')
     }
     for (const source of this.candidates) {
@@ -167,8 +208,7 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
       }
       const entry = fact ?? { version: 1, childId: id, childCreatedAt: source['childCreatedAt'] as number, mode: 'unknown' }
       existingCatalogs.set(id, entry)
-      context.emitEvent({ type: 'subagent/catalog',
-        seq: this.nextSeq++, time: this.time, data: entry })
+      context.emitEvent({ type: 'subagent/catalog', seq: this.nextSeq++, time: this.time, data: entry })
     }
     return cut
   }

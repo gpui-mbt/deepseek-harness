@@ -1,19 +1,31 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { fileMediaUrl } from '@deepseek-ai/dsh-util-workspace-path'
 import { MarkdownDelegateProvider } from '../src/markdown/MarkdownDelegate.tsx'
 import { MarkdownText } from './markdown-test-components.tsx'
 import { parseGfm, parseGfmWithMath } from '../src/markdown/parse.ts'
 
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks() })
-const labels = { open: 'View full image', dialog: 'Image preview', close: 'Close preview', loading: 'Loading image', failed: 'Image unavailable' }
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
+const labels = {
+  open: 'View full image',
+  dialog: 'Image preview',
+  close: 'Close preview',
+  loading: 'Loading image',
+  failed: 'Image unavailable',
+}
 const fileImages = { resolve: (path: string) => `https://example.com/api/file?path=${encodeURIComponent('/workspace/' + path)}`, labels }
 function mount(text: string, streaming = false) {
   const openFile = vi.fn()
-  const view = render(<MarkdownDelegateProvider openFile={openFile} fileImages={fileImages}>
-    <MarkdownText text={text} streaming={streaming} />
-  </MarkdownDelegateProvider>)
+  const view = render(
+    <MarkdownDelegateProvider openFile={openFile} fileImages={fileImages}>
+      <MarkdownText text={text} streaming={streaming} />
+    </MarkdownDelegateProvider>,
+  )
   return { ...view, openFile }
 }
 
@@ -24,9 +36,11 @@ it('loads Desktop inline and hover previews through the file route after streami
   const images = { resolve: (value: string) => fileMediaUrl('dsh-app://app/', value), labels }
   const text = `![图片](<${encodeURI(path).replace('#', '%23')}>)\n\n[打开图片](<${encodeURI(path).replace('#', '%23')}>)`
   const openFile = vi.fn()
-  const content = (streaming: boolean) => <MarkdownDelegateProvider fileImages={images} openFile={openFile}>
-    <MarkdownText text={text} streaming={streaming} />
-  </MarkdownDelegateProvider>
+  const content = (streaming: boolean) => (
+    <MarkdownDelegateProvider fileImages={images} openFile={openFile}>
+      <MarkdownText text={text} streaming={streaming} />
+    </MarkdownDelegateProvider>
+  )
   const view = render(content(true))
   expect(view.container.querySelector('img')).toBeNull()
   view.rerender(content(false))
@@ -40,7 +54,9 @@ it('loads Desktop inline and hover previews through the file route after streami
   expect(document.activeElement).toBe(trigger)
   const link = screen.getByRole('button', { name: '打开图片' })
   fireEvent.pointerEnter(link.parentElement!)
-  act(() => { vi.advanceTimersByTime(500) })
+  act(() => {
+    vi.advanceTimersByTime(500)
+  })
   expect(screen.getByAltText(path).getAttribute('src')).toBe(src)
   fireEvent.error(screen.getByAltText(path))
   expect(screen.getByText(labels.failed)).toBeTruthy()
@@ -69,9 +85,13 @@ it('loads a link preview only after hover dwell and keeps its existing sidebar a
   const link = screen.getByRole('button', { name: 'View comparison' })
   expect(screen.queryByRole('img')).toBeNull()
   fireEvent.pointerEnter(link.parentElement!)
-  act(() => { vi.advanceTimersByTime(499) })
+  act(() => {
+    vi.advanceTimersByTime(499)
+  })
   expect(screen.queryByRole('img')).toBeNull()
-  act(() => { vi.advanceTimersByTime(1) })
+  act(() => {
+    vi.advanceTimersByTime(1)
+  })
   const image = screen.getByRole('img')
   expect(new URL(image.getAttribute('src')!).searchParams.get('path')).toBe('/workspace/.artifacts/对比 image.png')
   fireEvent.load(image)
@@ -87,7 +107,9 @@ it('supports keyboard previews, Escape dismissal, and an inert failure state', (
   const link = screen.getByRole('button', { name: 'View comparison' })
   // jsdom does not model keyboard input modality for :focus-visible.
   vi.spyOn(link, 'matches').mockReturnValue(true)
-  act(() => { link.focus() })
+  act(() => {
+    link.focus()
+  })
   fireEvent.error(screen.getByRole('img'))
   expect(screen.getByText('Image unavailable')).toBeTruthy()
   fireEvent.keyDown(link, { key: 'Escape' })
@@ -111,20 +133,28 @@ it('keeps image-only links as one activation target', () => {
   expect(screen.queryByRole('dialog')).toBeNull()
 })
 
-it.each([parseGfm, parseGfmWithMath])('recovers standalone bare-space paths without promoting code or escaped syntax', (parse) => {
+it.each([parseGfm, parseGfmWithMath])('recovers standalone bare-space paths without promoting code or escaped syntax', parse => {
   const source = '![图](/work/test workspace/测试文件/图.png)'
   expect(parse(source).children[0]).toMatchObject({ children: [{ type: 'image', url: '/work/test workspace/测试文件/图.png' }] })
-  for (const example of ['`' + source + '`', '```md\n' + source + '\n```', '\\' + source, 'Example: ' + source,
-    '![图](https://example.com/test image.png)', '![图](/work/test (image).png)']) {
+  for (const example of [
+    '`' + source + '`',
+    '```md\n' + source + '\n```',
+    '\\' + source,
+    'Example: ' + source,
+    '![图](https://example.com/test image.png)',
+    '![图](/work/test (image).png)',
+  ]) {
     expect(JSON.stringify(parse(example))).not.toContain('"type":"image"')
   }
 })
 
 it('keeps an unavailable image link navigable without showing a hover preview', () => {
   const openFile = vi.fn()
-  render(<MarkdownDelegateProvider openFile={openFile} fileImages={{ ...fileImages, resolve: () => undefined }}>
-    <MarkdownText text="[Image](relative.png)" />
-  </MarkdownDelegateProvider>)
+  render(
+    <MarkdownDelegateProvider openFile={openFile} fileImages={{ ...fileImages, resolve: () => undefined }}>
+      <MarkdownText text="[Image](relative.png)" />
+    </MarkdownDelegateProvider>,
+  )
   const link = screen.getByRole('button', { name: 'Image' })
   fireEvent.focus(link)
   expect(screen.queryByRole('img')).toBeNull()
@@ -140,10 +170,11 @@ it('labels empty-alt image activation and retains a localized failure descriptio
   expect(screen.queryByRole('button')).toBeNull()
 })
 
-it.each([parseGfm, parseGfmWithMath])('uses the shared image categories for bare-space recovery', (parse) => {
+it.each([parseGfm, parseGfmWithMath])('uses the shared image categories for bare-space recovery', parse => {
   for (const extension of ['avif', 'tif', 'tiff', 'heic', 'heif']) {
-    expect(parse(`![图](/work/test dir/photo.${extension})`).children[0])
-      .toMatchObject({ children: [{ type: 'image', url: `/work/test dir/photo.${extension}` }] })
+    expect(parse(`![图](/work/test dir/photo.${extension})`).children[0]).toMatchObject({
+      children: [{ type: 'image', url: `/work/test dir/photo.${extension}` }],
+    })
   }
   expect(JSON.stringify(parse('![report](/work/test dir/report.pdf)'))).not.toContain('"type":"image"')
 })

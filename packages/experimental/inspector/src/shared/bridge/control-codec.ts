@@ -1,11 +1,6 @@
 /** Exact decoders for Host, Worker, and injected Client lifecycle values. */
 
-import type {
-  InspectorClientBootstrap,
-  InspectorHostControl,
-  InspectorWorkerConfig,
-  InspectorWorkerControl,
-} from './messages/control.ts'
+import type { InspectorClientBootstrap, InspectorHostControl, InspectorWorkerConfig, InspectorWorkerControl } from './messages/control.ts'
 import { isPlainObject } from '../json.ts'
 import { exactKeys, exactObject } from '../validation.ts'
 
@@ -15,11 +10,25 @@ import { exactKeys, exactObject } from '../validation.ts'
  * @returns The validated Worker configuration.
  */
 export function parseInspectorWorkerConfig(value: unknown): InspectorWorkerConfig {
-  const record = exactObject(value, [
-    'host', 'startPort', 'targetId', 'clientToken', 'clientOrigins', 'maxSourceFrameBytes',
-    'maxSourceRecordsPerFrame', 'maxRetainedRequests', 'maxJournalBytes', 'clientRuntimeTimeoutMs', 'maxCordisNodes',
-    'maxDisconnectedCordisTrees', 'maxClientSourceBytes',
-  ], 'Worker config')
+  const record = exactObject(
+    value,
+    [
+      'host',
+      'startPort',
+      'targetId',
+      'clientToken',
+      'clientOrigins',
+      'maxSourceFrameBytes',
+      'maxSourceRecordsPerFrame',
+      'maxRetainedRequests',
+      'maxJournalBytes',
+      'clientRuntimeTimeoutMs',
+      'maxCordisNodes',
+      'maxDisconnectedCordisTrees',
+      'maxClientSourceBytes',
+    ],
+    'Worker config',
+  )
   if (record.host !== '127.0.0.1') throw new Error('inspector protocol: Worker host must be 127.0.0.1')
   if (typeof record.targetId !== 'string' || record.targetId.length === 0) {
     throw new Error('inspector protocol: Worker targetId must be a non-empty string')
@@ -97,11 +106,25 @@ export function parseInspectorWorkerControl(value: unknown): InspectorWorkerCont
  * @returns The validated Client bootstrap.
  */
 export function parseInspectorClientBootstrap(value: unknown): InspectorClientBootstrap {
-  const record = exactObject(value, [
-    'endpoint', 'protocol', 'maxQueuedRecords', 'maxQueuedBytes', 'maxRecordsPerFrame', 'maxFrameBytes',
-    'reconnectBaseMs', 'reconnectMaxMs', 'queryTimeoutMs', 'maxRuntimeObjectsPerSession',
-    'maxRuntimePropertiesPerResult', 'maxCordisNodes', 'maxClientSourceBytes',
-  ], 'Client bootstrap')
+  const record = exactObject(
+    value,
+    [
+      'endpoint',
+      'protocol',
+      'maxQueuedRecords',
+      'maxQueuedBytes',
+      'maxRecordsPerFrame',
+      'maxFrameBytes',
+      'reconnectBaseMs',
+      'reconnectMaxMs',
+      'queryTimeoutMs',
+      'maxRuntimeObjectsPerSession',
+      'maxRuntimePropertiesPerResult',
+      'maxCordisNodes',
+      'maxClientSourceBytes',
+    ],
+    'Client bootstrap',
+  )
   if (typeof record.endpoint !== 'string' || typeof record.protocol !== 'string') {
     throw new Error('inspector protocol: Client bootstrap endpoint and protocol must be strings')
   }

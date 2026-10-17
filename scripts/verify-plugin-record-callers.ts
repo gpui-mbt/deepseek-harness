@@ -37,10 +37,7 @@ export const OWNER_FILE = 'packages/core/session/src/index.ts'
 export const EXPERIMENTAL_PREFIX = 'packages/experimental/'
 
 /** This gate and its spec name the restricted function to find it. */
-const GATE_FILES: ReadonlySet<string> = new Set([
-  'scripts/verify-plugin-record-callers.ts',
-  'scripts/verify-plugin-record-callers.spec.ts',
-])
+const GATE_FILES: ReadonlySet<string> = new Set(['scripts/verify-plugin-record-callers.ts', 'scripts/verify-plugin-record-callers.spec.ts'])
 
 const SOURCE_EXTENSION = /\.(?:[cm]?[jt]s|[jt]sx)$/u
 
@@ -92,8 +89,7 @@ export interface PluginRecordCaller {
  * @returns whether the file is a package, app, or example test, or a script spec.
  */
 export function isTestFile(file: string): boolean {
-  return /^(?:packages\/[^/]+\/[^/]+|apps\/[^/]+|examples\/[^/]+)\/tests\//u.test(file)
-    || /^scripts\/.+\.spec\.tsx?$/u.test(file)
+  return /^(?:packages\/[^/]+\/[^/]+|apps\/[^/]+|examples\/[^/]+)\/tests\//u.test(file) || /^scripts\/.+\.spec\.tsx?$/u.test(file)
 }
 
 /**
@@ -124,9 +120,7 @@ export function findPluginRecordReferences(file: string, source: string): Plugin
   const lines = source.split(/\r?\n/u)
   const references: PluginRecordCaller[] = []
   const visit = (node: ts.Node): void => {
-    const named = ts.isIdentifier(node)
-      || ts.isStringLiteral(node)
-      || ts.isNoSubstitutionTemplateLiteral(node)
+    const named = ts.isIdentifier(node) || ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
     if (named && node.text === RESTRICTED_NAME) {
       const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line
       references.push({ file, line: line + 1, text: lines[line]?.trim() ?? '' })
@@ -140,9 +134,12 @@ export function findPluginRecordReferences(file: string, source: string): Plugin
 /** Whether the owner still exports a function declaration under the restricted name. */
 function declaresRestrictedFunction(source: string): boolean {
   const sourceFile = ts.createSourceFile(OWNER_FILE, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-  return sourceFile.statements.some(statement => ts.isFunctionDeclaration(statement)
-    && statement.name?.text === RESTRICTED_NAME
-    && ts.getModifiers(statement)?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword) === true)
+  return sourceFile.statements.some(
+    statement =>
+      ts.isFunctionDeclaration(statement) &&
+      statement.name?.text === RESTRICTED_NAME &&
+      ts.getModifiers(statement)?.some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword) === true,
+  )
 }
 
 /**
@@ -155,16 +152,20 @@ function declaresRestrictedFunction(source: string): boolean {
 export function checkPluginRecordCallers(files: ReadonlyMap<string, string>): PluginRecordCaller[] {
   const owner = files.get(OWNER_FILE)
   if (owner === undefined || !declaresRestrictedFunction(owner)) {
-    throw new Error(`verify-plugin-record-callers: ${OWNER_FILE} no longer exports function ${RESTRICTED_NAME}; update this gate with the move or rename.`)
+    throw new Error(
+      `verify-plugin-record-callers: ${OWNER_FILE} no longer exports function ${RESTRICTED_NAME}; update this gate with the move or rename.`,
+    )
   }
   const paths = [...files.keys()]
-  if (!paths.some(file => file.startsWith(EXPERIMENTAL_PREFIX))
-    || !paths.some(file => file.startsWith('packages/') && !isAdmittedCaller(file))) {
-    throw new Error('verify-plugin-record-callers: the corpus lacks experimental or release package source; the file listing no longer matches the repository.')
+  if (
+    !paths.some(file => file.startsWith(EXPERIMENTAL_PREFIX)) ||
+    !paths.some(file => file.startsWith('packages/') && !isAdmittedCaller(file))
+  ) {
+    throw new Error(
+      'verify-plugin-record-callers: the corpus lacks experimental or release package source; the file listing no longer matches the repository.',
+    )
   }
-  return paths
-    .filter(file => !isAdmittedCaller(file))
-    .flatMap(file => findPluginRecordReferences(file, files.get(file) ?? ''))
+  return paths.filter(file => !isAdmittedCaller(file)).flatMap(file => findPluginRecordReferences(file, files.get(file) ?? ''))
 }
 
 /**
@@ -174,13 +175,11 @@ export function checkPluginRecordCallers(files: ReadonlyMap<string, string>): Pl
  * @param files - tracked and unignored repository sources.
  * @returns compiler errors in experimental production consumers, including undeclared write keys.
  */
-export function checkDeclaredPluginRecordWrites(
-  repoRoot: string,
-  files: ReadonlyMap<string, string>,
-): PluginRecordCaller[] {
+export function checkDeclaredPluginRecordWrites(repoRoot: string, files: ReadonlyMap<string, string>): PluginRecordCaller[] {
   const declared = new Set(collectPluginRecords(repoRoot).map(record => record.name))
-  const candidates = [...files.keys()].filter(file => file.startsWith(EXPERIMENTAL_PREFIX) && !isTestFile(file)
-    && findPluginRecordReferences(file, files.get(file) ?? '').length > 0)
+  const candidates = [...files.keys()].filter(
+    file => file.startsWith(EXPERIMENTAL_PREFIX) && !isTestFile(file) && findPluginRecordReferences(file, files.get(file) ?? '').length > 0,
+  )
   if (candidates.length === 0) return []
   const remaining = new Set(candidates)
   const violations: PluginRecordCaller[] = []
@@ -204,8 +203,9 @@ export function checkDeclaredPluginRecordWrites(
       incremental: false,
     })
     const owner = program.getSourceFile(resolve(repoRoot, 'packages/core/session/src/types.ts'))
-    const map = owner?.statements.find((node): node is ts.InterfaceDeclaration =>
-      ts.isInterfaceDeclaration(node) && node.name.text === 'PluginRecordMap')
+    const map = owner?.statements.find(
+      (node): node is ts.InterfaceDeclaration => ts.isInterfaceDeclaration(node) && node.name.text === 'PluginRecordMap',
+    )
     if (map === undefined) throw new Error('production compiler did not load the owning PluginRecordMap')
     for (const member of program.getTypeChecker().getTypeAtLocation(map).getProperties()) {
       if (declared.has(member.name)) continue
@@ -275,7 +275,8 @@ function main(): void {
     return
   }
   console.error('verify-plugin-record-callers: invalid production record callers.\n')
-  for (const caller of callers) console.error(`  ${caller.file}:${String(caller.line)} ${caller.text}${caller.reason === undefined ? '' : ` — ${caller.reason}`}`)
+  for (const caller of callers)
+    console.error(`  ${caller.file}:${String(caller.line)} ${caller.text}${caller.reason === undefined ? '' : ` — ${caller.reason}`}`)
   console.error('\nA release package declares its events in SessionEventMap instead of writing plugin records.')
   process.exit(1)
 }

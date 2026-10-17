@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -29,9 +29,13 @@ function scriptedReader(state: { text: string }) {
 }
 
 /** A running fake background handle over scripted non-consuming observed streams. */
-function observableProcess(streams: { stdout: { text: string }; stderr: { text: string } } = { stdout: { text: '' }, stderr: { text: '' } }) {
+function observableProcess(
+  streams: { stdout: { text: string }; stderr: { text: string } } = { stdout: { text: '' }, stderr: { text: '' } },
+) {
   let resolveDone: () => void = () => {}
-  const done = new Promise<void>((resolve) => { resolveDone = resolve })
+  const done = new Promise<void>(resolve => {
+    resolveDone = resolve
+  })
   const proc: ShellProcess = {
     status: 'running',
     exitCode: null,
@@ -53,9 +57,13 @@ function observableProcess(streams: { stdout: { text: string }; stderr: { text: 
 
 class FakePwsh extends ShellExecutor {
   /** Scripts every `none` execution: a background start, or a foreground call registered as a job. */
-  backgroundHandler: (spec: ShellExecSpec) => ShellProcess | ShellExecution = () => { throw new Error('unscripted start') }
+  backgroundHandler: (spec: ShellExecSpec) => ShellProcess | ShellExecution = () => {
+    throw new Error('unscripted start')
+  }
   /** Scripts the deadline-killed foreground path (`kill`), which no job wraps. */
-  foregroundHandler: (spec: ShellExecSpec) => ShellExecution = () => { throw new Error('foreground is not exercised here') }
+  foregroundHandler: (spec: ShellExecSpec) => ShellExecution = () => {
+    throw new Error('foreground is not exercised here')
+  }
 
   override resolve(request: ShellExecRequest): ShellExecSpec {
     return {
@@ -64,8 +72,8 @@ class FakePwsh extends ShellExecutor {
       timeoutMs: request.timeoutMs ?? 60_000,
       onExpiry: request.onExpiry ?? 'kill',
       stdoutMaxBytes: request.stdoutMaxBytes ?? 64_000,
-      ...request.signal ? { signal: request.signal } : {},
-      ...request.dshEnv !== undefined ? { dshEnv: request.dshEnv } : {},
+      ...(request.signal ? { signal: request.signal } : {}),
+      ...(request.dshEnv !== undefined ? { dshEnv: request.dshEnv } : {}),
       sandboxPolicy: request.sandboxPolicy,
     }
   }
@@ -75,9 +83,11 @@ class FakePwsh extends ShellExecutor {
     // Augment the scripted handle in place: the scenarios mutate the original
     // object (finish()), so a spread copy would freeze its lifecycle.
     const proc = this.backgroundHandler(spec)
-    return 'result' in proc ? proc : Object.assign(proc, {
-      result: () => Promise.reject(new Error('foreground projection unused')),
-    })
+    return 'result' in proc
+      ? proc
+      : Object.assign(proc, {
+          result: () => Promise.reject(new Error('foreground projection unused')),
+        })
   }
 }
 
@@ -134,8 +144,7 @@ describe('background pwsh output', () => {
     stderr.text = 'warn-line\n'
     await until(() => {
       const chunks = jobs.readAt(job!.id, 0).chunks
-      return chunks.some(chunk => chunk.text.includes('progress-line'))
-        && chunks.some(chunk => chunk.text.includes('warn-line'))
+      return chunks.some(chunk => chunk.text.includes('progress-line')) && chunks.some(chunk => chunk.text.includes('warn-line'))
         ? true
         : undefined
     })
@@ -144,7 +153,7 @@ describe('background pwsh output', () => {
     expect(chunks.find(chunk => chunk.text.includes('warn-line'))?.channel).toBe('stderr')
 
     scripted.finish()
-    await until(() => jobs.get(job!.id).status === 'completed' ? true : undefined)
+    await until(() => (jobs.get(job!.id).status === 'completed' ? true : undefined))
     expect(jobs.get(job!.id).detail).toBe('exit code: 0')
   })
 
@@ -153,7 +162,9 @@ describe('background pwsh output', () => {
     const warn = vi.fn()
     ctx.logger.warn = warn as never
     let resolveDone: () => void = () => {}
-    const done = new Promise<void>((resolve) => { resolveDone = resolve })
+    const done = new Promise<void>(resolve => {
+      resolveDone = resolve
+    })
     const proc: ShellProcess = {
       status: 'running',
       exitCode: null,
@@ -162,7 +173,11 @@ describe('background pwsh output', () => {
       readOutput: () => ({ delta: '', lossy: false }),
       kill: () => false,
       observed: {
-        stdout: { readFrom() { throw new Error('reader boom') } },
+        stdout: {
+          readFrom() {
+            throw new Error('reader boom')
+          },
+        },
         stderr: { readFrom: () => ({ text: '', nextOffset: 0, lossy: false }) },
       },
     }
@@ -170,7 +185,7 @@ describe('background pwsh output', () => {
     await call(ctx, { command: 'Get-Broken', description: 'test command', run_in_background: true })
     const jobs = ctx.jobs
     const job = jobs.list()[0]
-    await until(() => warn.mock.calls.some(args => String(args[0]).includes('output source for')) ? true : undefined)
+    await until(() => (warn.mock.calls.some(args => String(args[0]).includes('output source for')) ? true : undefined))
     // The reader already failed; the job must wait for real settlement rather
     // than freezing a fake terminal state onto the running process.
     await new Promise(resolve => setTimeout(resolve, 50))
@@ -179,7 +194,7 @@ describe('background pwsh output', () => {
     proc.status = 'completed'
     proc.exitCode = 0
     resolveDone()
-    await until(() => jobs.get(job!.id).status !== 'running' ? true : undefined)
+    await until(() => (jobs.get(job!.id).status !== 'running' ? true : undefined))
     expect(jobs.get(job!.id)).toMatchObject({ status: 'completed', detail: 'exit code: 0' })
   })
 
@@ -194,7 +209,7 @@ describe('background pwsh output', () => {
     expect(jobs.readAt(job!.id, 0).chunks).toEqual([])
 
     scripted.finish()
-    await until(() => jobs.get(job!.id).status === 'completed' ? true : undefined)
+    await until(() => (jobs.get(job!.id).status === 'completed' ? true : undefined))
     expect(jobs.get(job!.id).output).toEqual({ total: 0, earliest: 0 })
   })
 })
@@ -207,7 +222,11 @@ describe('owned background output (pwsh)', () => {
       id: ownerId,
       options: {},
       session: Session.create(ownerId, undefined, {
-        version: SESSION_FORMAT_VERSION, id: ownerId, createdAt: 0, cwd: process.cwd(), isSeeded: false,
+        version: SESSION_FORMAT_VERSION,
+        id: ownerId,
+        createdAt: 0,
+        cwd: process.cwd(),
+        isSeeded: false,
       }),
       inbox: unsupportedInbox(),
       status: 'idle',
@@ -237,7 +256,7 @@ describe('owned background output (pwsh)', () => {
     expect(() => ctx.jobs.readAt(job!.id, 0)).toThrow(/belongs to another session/)
     expect(owned.readAt(job!.id, 0, owner.id).chunks).toEqual([])
     scripted.finish()
-    await until(() => owned.get(job!.id, owner.id).status === 'completed' ? true : undefined)
+    await until(() => (owned.get(job!.id, owner.id).status === 'completed' ? true : undefined))
   })
 })
 
@@ -250,7 +269,9 @@ describe('foreground commands as jobs (pwsh)', () => {
       status: 'running',
       exitCode: null,
       signal: null,
-      done: new Promise<void>((resolve) => { resolveDone = resolve }),
+      done: new Promise<void>(resolve => {
+        resolveDone = resolve
+      }),
       readOutput: () => ({ delta: '', lossy: false }),
       observed: { stdout: scriptedReader({ text: partial }), stderr: scriptedReader({ text: '' }) },
       kill: () => {
@@ -261,15 +282,16 @@ describe('foreground commands as jobs (pwsh)', () => {
         resolveDone()
         return true
       },
-      result: () => proc.done.then(() => ({
-        exitCode: proc.exitCode,
-        signal: proc.signal,
-        timedOut: false,
-        aborted: killed,
-        timeoutMs: 250,
-        stdout: { text: partial, truncated: false },
-        stderr: { text: '', truncated: false },
-      })),
+      result: () =>
+        proc.done.then(() => ({
+          exitCode: proc.exitCode,
+          signal: proc.signal,
+          timedOut: false,
+          aborted: killed,
+          timeoutMs: 250,
+          stdout: { text: partial, truncated: false },
+          stderr: { text: '', truncated: false },
+        })),
     }
     const finish = (): void => {
       if (proc.status !== 'running') return
@@ -299,18 +321,22 @@ describe('foreground commands as jobs (pwsh)', () => {
     // The hand-over was one consuming read: the next read repeats nothing.
     expect(jobs.read(job!.id).chunks).toEqual([])
     scripted.finish()
-    await until(() => jobs.get(job!.id).status === 'completed' ? true : undefined)
+    await until(() => (jobs.get(job!.id).status === 'completed' ? true : undefined))
   })
 
   it('a command that finishes within the wait returns the foreground result and leaves no job behind', async () => {
     const { ctx, pwsh } = await setup()
     const scripted = runningExecution('done\n')
     pwsh.backgroundHandler = () => {
-      queueMicrotask(() => { scripted.finish() })
+      queueMicrotask(() => {
+        scripted.finish()
+      })
       return scripted.proc
     }
     const seen: string[] = []
-    ctx.jobs.events.subscribe({ owners: 'all' }, (event) => { seen.push(event.type === 'settled' ? `settled:${String(event.awaited)}` : event.type) })
+    ctx.jobs.events.subscribe({ owners: 'all' }, event => {
+      seen.push(event.type === 'settled' ? `settled:${String(event.awaited)}` : event.type)
+    })
     const result = await call(ctx, { command: 'Get-Quick', description: 'test command', timeoutMs: 5_000 })
     expect(result.isError).toBe(false)
     if (result.isError) throw new Error('expected a foreground result')
@@ -338,7 +364,9 @@ describe('foreground commands as jobs (pwsh)', () => {
 
   it('a command whose start fails reports the failure as an error result and leaves no job behind', async () => {
     const { ctx, pwsh } = await setup()
-    pwsh.backgroundHandler = () => { throw new Error('spawn pwsh ENOENT') }
+    pwsh.backgroundHandler = () => {
+      throw new Error('spawn pwsh ENOENT')
+    }
     const result = await call(ctx, { command: 'Get-Missing', description: 'test command' })
     expect(result.isError).toBe(true)
     expect((result.content[0] as { text: string }).text).toBe('Error: spawn pwsh ENOENT')
@@ -385,15 +413,26 @@ describe('foreground commands as jobs (pwsh)', () => {
     expect(result.isError).toBe(true)
     expect(ctx.jobs.get(job.id).status).toBe('stopping')
     scripted.finish()
-    await until(() => ctx.jobs.get(job.id).status === 'completed' ? true : undefined)
+    await until(() => (ctx.jobs.get(job.id).status === 'completed' ? true : undefined))
   })
 
   it('a wait that expires before the process spawned ends as the preparation timeout, not a hand-over', async () => {
     const { ctx, pwsh } = await setup()
-    pwsh.backgroundHandler = () => { throw new Error('unreachable: preparation never finishes') }
-    vi.spyOn(pwsh, 'execute').mockImplementation(spec => new Promise((_resolve, reject) => {
-      spec.signal?.addEventListener('abort', () => { reject(new Error('fixture preparation aborted')) }, { once: true })
-    }))
+    pwsh.backgroundHandler = () => {
+      throw new Error('unreachable: preparation never finishes')
+    }
+    vi.spyOn(pwsh, 'execute').mockImplementation(
+      spec =>
+        new Promise((_resolve, reject) => {
+          spec.signal?.addEventListener(
+            'abort',
+            () => {
+              reject(new Error('fixture preparation aborted'))
+            },
+            { once: true },
+          )
+        }),
+    )
     const result = await call(ctx, { command: 'Get-Slow', description: 'test command', timeoutMs: 250 })
     expect(result.isError).toBe(false)
     if (result.isError) throw new Error('expected a foreground result')
@@ -409,7 +448,11 @@ describe('foreground commands as jobs (pwsh)', () => {
       id: ownerId,
       options: {},
       session: Session.create(ownerId, undefined, {
-        version: SESSION_FORMAT_VERSION, id: ownerId, createdAt: 0, cwd: process.cwd(), isSeeded: false,
+        version: SESSION_FORMAT_VERSION,
+        id: ownerId,
+        createdAt: 0,
+        cwd: process.cwd(),
+        isSeeded: false,
       }),
       inbox: unsupportedInbox(),
       status: 'idle',
@@ -440,7 +483,7 @@ describe('foreground commands as jobs (pwsh)', () => {
     expect(job!.owner).toBe(owner.id)
 
     expect(owned.kill(job!.id, owner.id, 'test cleanup')).toBe('requested')
-    await until(() => scripted.killed() ? true : undefined)
+    await until(() => (scripted.killed() ? true : undefined))
     const settled = await until(() => {
       const view = owned.get(job!.id, owner.id)
       return view.status === 'killed' ? view : undefined
@@ -464,19 +507,20 @@ describe('foreground commands as jobs (pwsh)', () => {
     const pwsh = ctx.shell as FakePwsh
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
     const specs: ShellExecSpec[] = []
-    pwsh.foregroundHandler = (spec) => {
+    pwsh.foregroundHandler = spec => {
       specs.push(spec)
       const scripted = runningExecution('')
       return Object.assign(scripted.proc, {
-        result: () => Promise.resolve({
-          exitCode: 1,
-          signal: null,
-          timedOut: true,
-          aborted: false,
-          timeoutMs: 250,
-          stdout: { text: '', truncated: false },
-          stderr: { text: '', truncated: false },
-        }),
+        result: () =>
+          Promise.resolve({
+            exitCode: 1,
+            signal: null,
+            timedOut: true,
+            aborted: false,
+            timeoutMs: 250,
+            stdout: { text: '', truncated: false },
+            stderr: { text: '', truncated: false },
+          }),
       })
     }
 
@@ -502,19 +546,20 @@ describe('foreground commands as jobs (pwsh)', () => {
     await ctx.plugin(ToolPwsh, { promoteOnTimeout: false })
     const pwsh = ctx.shell as FakePwsh
     const specs: ShellExecSpec[] = []
-    pwsh.foregroundHandler = (spec) => {
+    pwsh.foregroundHandler = spec => {
       specs.push(spec)
       const scripted = runningExecution('')
       return Object.assign(scripted.proc, {
-        result: () => Promise.resolve({
-          exitCode: 1,
-          signal: null,
-          timedOut: true,
-          aborted: false,
-          timeoutMs: 250,
-          stdout: { text: '', truncated: false },
-          stderr: { text: '', truncated: false },
-        }),
+        result: () =>
+          Promise.resolve({
+            exitCode: 1,
+            signal: null,
+            timedOut: true,
+            aborted: false,
+            timeoutMs: 250,
+            stdout: { text: '', truncated: false },
+            stderr: { text: '', truncated: false },
+          }),
       })
     }
     const result = await call(ctx, { command: 'Get-Slow', description: 'test command', timeoutMs: 250 })
@@ -536,25 +581,27 @@ describe('foreground commands as jobs (pwsh)', () => {
 describe('renderPwshPromoted', () => {
   it('pins the promoted text with and without pre-promotion output', () => {
     expect(renderPwshPromoted({ jobId: 'pwsh-7', timeoutMs: 120_000, output: '' })).toBe(
-      '[still running after 120000ms; moved to background job pwsh-7]\n'
-      + 'The command keeps running in the background. You will be notified when it finishes; '
-      + 'read newer output with job_output, stop it with job_kill.',
+      '[still running after 120000ms; moved to background job pwsh-7]\n' +
+        'The command keeps running in the background. You will be notified when it finishes; ' +
+        'read newer output with job_output, stop it with job_kill.',
     )
-    expect(renderPwshPromoted({ jobId: 'pwsh-7', timeoutMs: 250, output: 'partial' }))
-      .toContain('partial\n[still running after 250ms; moved to background job pwsh-7]')
-    expect(renderPwshPromoted({ jobId: 'pwsh-7', timeoutMs: 250, output: 'line\n' }))
-      .toContain('line\n[still running after 250ms')
+    expect(renderPwshPromoted({ jobId: 'pwsh-7', timeoutMs: 250, output: 'partial' })).toContain(
+      'partial\n[still running after 250ms; moved to background job pwsh-7]',
+    )
+    expect(renderPwshPromoted({ jobId: 'pwsh-7', timeoutMs: 250, output: 'line\n' })).toContain('line\n[still running after 250ms')
   })
 })
 
 describe('ringDelta (pwsh)', () => {
   it('renders stdout chunks in order and every stderr chunk in one trailing section', () => {
     expect(ringDelta([])).toBe('')
-    expect(ringDelta([
-      { at: 0, text: 'a\n', channel: 'stdout' },
-      { at: 2, text: 'warn\n', channel: 'stderr' },
-      { at: 7, text: 'b', channel: 'stdout' },
-    ])).toBe('a\nb\n[stderr]\nwarn\n')
+    expect(
+      ringDelta([
+        { at: 0, text: 'a\n', channel: 'stdout' },
+        { at: 2, text: 'warn\n', channel: 'stderr' },
+        { at: 7, text: 'b', channel: 'stdout' },
+      ]),
+    ).toBe('a\nb\n[stderr]\nwarn\n')
     expect(ringDelta([{ at: 0, text: 'only\n', channel: 'stderr' }])).toBe('[stderr]\nonly\n')
   })
 })

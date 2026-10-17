@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import { ToolCallId, MessageId } from '@deepseek-ai/dsh-llm'
 import { SessionSeq, type Session, type SessionEvent } from '@deepseek-ai/dsh-session'
@@ -24,7 +24,7 @@ function assistantEvent(
         source: { kind: 'model', provider: 'mock', model: 'mock' },
         content,
       },
-      ...usage === undefined ? {} : { usage },
+      ...(usage === undefined ? {} : { usage }),
     },
   }
 }
@@ -43,16 +43,14 @@ describe('standard ACP update projection', () => {
 
   it('requires both measured usage and context capacity', async () => {
     const meter = { measure: vi.fn(() => ({ totalTokens: 7 })) }
-    const withMeter = { get: (name: string) => name === 'tokenMeter' ? meter : undefined } as unknown as Context
+    const withMeter = { get: (name: string) => (name === 'tokenMeter' ? meter : undefined) } as unknown as Context
     const withoutMeter = { get: () => undefined } as unknown as Context
     const withCapacity = { requestContext: () => ({ contextWindow: 100 }) } as unknown as Session
     const withoutCapacity = { requestContext: () => undefined } as unknown as Session
     const event = assistantEvent([{ type: 'text', text: 'done' }], { inputTokens: 1, outputTokens: 1 })
 
-    expect((await assistantUpdates(withMeter, withoutCapacity, event)).map(update => update.sessionUpdate))
-      .toEqual(['agent_message_chunk'])
-    expect((await assistantUpdates(withoutMeter, withCapacity, event)).map(update => update.sessionUpdate))
-      .toEqual(['agent_message_chunk'])
+    expect((await assistantUpdates(withMeter, withoutCapacity, event)).map(update => update.sessionUpdate)).toEqual(['agent_message_chunk'])
+    expect((await assistantUpdates(withoutMeter, withCapacity, event)).map(update => update.sessionUpdate)).toEqual(['agent_message_chunk'])
     expect(meter.measure).not.toHaveBeenCalled()
   })
 

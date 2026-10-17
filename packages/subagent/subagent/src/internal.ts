@@ -30,8 +30,10 @@ export function markAdjacentAgentSendMessageTool(definition: ToolDefinition): To
  * @returns whether the definition carries the internal standard-tool identity.
  */
 export function isAdjacentAgentSendMessageTool(definition: ToolDefinition | undefined): boolean {
-  return definition !== undefined
-    && (definition as ToolDefinition & { [adjacentAgentSendMessageTool]?: true })[adjacentAgentSendMessageTool] === true
+  return (
+    definition !== undefined &&
+    (definition as ToolDefinition & { [adjacentAgentSendMessageTool]?: true })[adjacentAgentSendMessageTool] === true
+  )
 }
 
 /**
@@ -71,14 +73,7 @@ export function queueHostSubagentPrompt(
   source: MessageSource,
   signal: AbortSignal,
 ): Promise<MessageId> {
-  return (runtime as unknown as HostPromptDeliverer)[deliverSubagentPrompt](
-    parent,
-    childId,
-    content,
-    source,
-    signal,
-    'queue',
-  )
+  return (runtime as unknown as HostPromptDeliverer)[deliverSubagentPrompt](parent, childId, content, source, signal, 'queue')
 }
 
 /**
@@ -99,12 +94,5 @@ export function steerHostSubagentPrompt(
   source: MessageSource,
   signal: AbortSignal,
 ): Promise<MessageId> {
-  return (runtime as unknown as HostPromptDeliverer)[deliverSubagentPrompt](
-    parent,
-    childId,
-    content,
-    source,
-    signal,
-    'steer',
-  )
+  return (runtime as unknown as HostPromptDeliverer)[deliverSubagentPrompt](parent, childId, content, source, signal, 'steer')
 }

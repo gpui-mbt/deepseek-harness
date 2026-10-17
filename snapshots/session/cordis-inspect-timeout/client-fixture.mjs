@@ -12,12 +12,17 @@ export const inject = ['cordisInspect', 'agents', 'llm', 'typertGateway']
  * @returns opener resolving after readiness, with abort and quiescent close operations.
  */
 export function registerSilentClientTransport(ctx) {
-  ctx.effect(() => ctx.typertGateway.registerRemoteEvents(async function* (signal) {
-    await new Promise(resolve => {
-      if (signal.aborted) resolve()
-      else signal.addEventListener('abort', resolve, { once: true })
-    })
-  }, { home: '/snapshot-host' }))
+  ctx.effect(() =>
+    ctx.typertGateway.registerRemoteEvents(
+      async function* (signal) {
+        await new Promise(resolve => {
+          if (signal.aborted) resolve()
+          else signal.addEventListener('abort', resolve, { once: true })
+        })
+      },
+      { home: '/snapshot-host' },
+    ),
+  )
   // The owner's in-process Client: every Gateway carrier names its Peer.
   const peer = {
     id: 'snapshot-client-peer',
@@ -29,9 +34,7 @@ export function registerSilentClientTransport(ctx) {
   }
   return async () => {
     const controller = new AbortController()
-    const stream = await ctx.typertGateway.wireStream.open(
-      '$events', { args: {} }, (async function* () {})(), peer, controller.signal,
-    )
+    const stream = await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, controller.signal)
     const iterator = stream[Symbol.asyncIterator]()
     const close = ctx.effect(() => async () => {
       controller.abort()
@@ -41,7 +44,12 @@ export function registerSilentClientTransport(ctx) {
     assert.equal(ready.done, false)
     assert.equal(ready.value.type, 'ready')
     assert.equal(ctx.typertGateway.hasLiveClient(), true)
-    return { abort: () => { controller.abort() }, close }
+    return {
+      abort: () => {
+        controller.abort()
+      },
+      close,
+    }
   }
 }
 
@@ -52,7 +60,9 @@ export function registerSilentClientTransport(ctx) {
  */
 export async function apply(ctx) {
   await registerSilentClientTransport(ctx)()
-  const expected = readFileSync(process.env.DSH_SNAPSHOT_FILE, 'utf8').trim().split('\n')
+  const expected = readFileSync(process.env.DSH_SNAPSHOT_FILE, 'utf8')
+    .trim()
+    .split('\n')
     .map(line => JSON.parse(line))
     .filter(event => event.type === 'tool/result')
     .map(event => event.data.message)
@@ -73,22 +83,26 @@ export async function apply(ctx) {
     )
     return next()
   })
-  ctx.cordisInspect.syncClientManifest([{
-    id: 'Service',
-    description: 'Snapshot Client Service provider.',
-    methods: [{
-      name: 'listService',
-      description: 'Inspect one Client Service.',
-      inputSchema: {
-        type: 'object',
-        properties: { service: { type: 'string' } },
-        additionalProperties: false,
-      },
-      outputSchema: { type: 'object' },
-    }],
-  }])
+  ctx.cordisInspect.syncClientManifest([
+    {
+      id: 'Service',
+      description: 'Snapshot Client Service provider.',
+      methods: [
+        {
+          name: 'listService',
+          description: 'Inspect one Client Service.',
+          inputSchema: {
+            type: 'object',
+            properties: { service: { type: 'string' } },
+            additionalProperties: false,
+          },
+          outputSchema: { type: 'object' },
+        },
+      ],
+    },
+  ])
   let queries = 0
-  ctx.on('cordis/inspect-query', (request) => {
+  ctx.on('cordis/inspect-query', request => {
     if (++queries !== 1) return
     const agent = ctx.agents.get(request.agentId)
     if (agent === undefined) throw new Error('Client inspect request has no owning Agent')

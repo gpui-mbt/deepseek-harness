@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import primaryRuntimeLock from './primary-runtime/lock.json' with { type: 'json' }
 import {
   CLAUDE_AGENT_SDK_PACKAGE,
@@ -28,18 +28,26 @@ describe('THIRD_PARTY_NOTICES.md', () => {
   // Pre-commit regenerates the file whenever a manifest is staged, so reaching
   // this assertion means the notices were committed without that hook.
   // This case resolves all browser build graphs as well as installed license metadata.
-  it('matches what the generator produces from the current manifests', {
-    timeout: 120_000,
-  }, async () => {
-    const generated = await render()
-    expect(generated).toContain('It depends on the third-party software listed below.')
-    expect(generated).toContain(`| [\`numpy\`](https://github.com/numpy/numpy) | ${primaryRuntimeLock.pythonPackages.numpy} | BSD-3-Clause |`)
-    expect(generated).toContain('## LibreOffice conversion kit')
-    expect(generated).toContain('Recipients must have access to those corresponding sources and notices.')
-    expect(generated.split('## Development-only npm dependencies')[0]).toContain('| [`chrome-devtools-frontend`]')
-    expect(generated).toContain('third-party license and notice files supplied by the npm source')
-    expect(readFileSync(resolve(root, 'THIRD_PARTY_NOTICES.md'), 'utf8'), 'stale notices — run `pnpm run gen-third-party-notices`').toBe(generated)
-  })
+  it(
+    'matches what the generator produces from the current manifests',
+    {
+      timeout: 120_000,
+    },
+    async () => {
+      const generated = await render()
+      expect(generated).toContain('It depends on the third-party software listed below.')
+      expect(generated).toContain(
+        `| [\`numpy\`](https://github.com/numpy/numpy) | ${primaryRuntimeLock.pythonPackages.numpy} | BSD-3-Clause |`,
+      )
+      expect(generated).toContain('## LibreOffice conversion kit')
+      expect(generated).toContain('Recipients must have access to those corresponding sources and notices.')
+      expect(generated.split('## Development-only npm dependencies')[0]).toContain('| [`chrome-devtools-frontend`]')
+      expect(generated).toContain('third-party license and notice files supplied by the npm source')
+      expect(readFileSync(resolve(root, 'THIRD_PARTY_NOTICES.md'), 'utf8'), 'stale notices — run `pnpm run gen-third-party-notices`').toBe(
+        generated,
+      )
+    },
+  )
 })
 
 /** Build the (manifests, names) pair `tierExternalDeps` consumes. */
@@ -55,12 +63,19 @@ function workspace(entries: Record<string, Manifest>): { manifests: Map<string, 
 describe('tierExternalDeps', () => {
   it('limits the LibreOffice exception to its reviewed package identity and MPL terms', () => {
     for (const name of [
-      '@deepseek-ai/libreoffice-kit', '@deepseek-ai/libreoffice-kit-wasm',
-      '@deepseek-ai/libreoffice-kit-darwin-arm64', '@deepseek-ai/libreoffice-kit-darwin-x64',
-      '@deepseek-ai/libreoffice-kit-win32-arm64', '@deepseek-ai/libreoffice-kit-win32-x64',
+      '@deepseek-ai/libreoffice-kit',
+      '@deepseek-ai/libreoffice-kit-wasm',
+      '@deepseek-ai/libreoffice-kit-darwin-arm64',
+      '@deepseek-ai/libreoffice-kit-darwin-x64',
+      '@deepseek-ai/libreoffice-kit-win32-arm64',
+      '@deepseek-ai/libreoffice-kit-win32-x64',
     ]) {
-      expect(() => { assertRuntimeLicenses([{ name, license: 'MPL-2.0' }]) }).not.toThrow()
-      expect(() => { assertRuntimeLicenses([{ name, license: 'GPL-3.0-only' }]) }).toThrow(name)
+      expect(() => {
+        assertRuntimeLicenses([{ name, license: 'MPL-2.0' }])
+      }).not.toThrow()
+      expect(() => {
+        assertRuntimeLicenses([{ name, license: 'GPL-3.0-only' }])
+      }).toThrow(name)
     }
     for (const dependency of [
       { name: 'unrelated-library', license: 'MPL-2.0' },
@@ -69,7 +84,9 @@ describe('tierExternalDeps', () => {
       { name: '@deepseek-ai/libreoffice-kit', license: 'GPL-3.0-only' },
       { name: '@deepseek-ai/libreoffice-kit', license: 'UNKNOWN' },
     ]) {
-      expect(() => { assertRuntimeLicenses([dependency]) }).toThrow(`${dependency.name} (${dependency.license})`)
+      expect(() => {
+        assertRuntimeLicenses([dependency])
+      }).toThrow(`${dependency.name} (${dependency.license})`)
     }
     expect(isPermissive('MPL-2.0')).toBe(false)
   })
@@ -79,30 +96,44 @@ describe('tierExternalDeps', () => {
       'packages/client/ui/package.json': { devDependencies: { 'browser-lib': '^1', 'test-tool': '^1' } },
     })
     const tiers = tierExternalDeps(manifests, names, new Set(['browser-lib']))
-    const dependencies = [{ name: 'browser-lib', license: 'GPL-3.0-only' }, { name: 'test-tool', license: 'GPL-3.0-only' }]
-      .filter(dep => tiers.get(dep.name))
+    const dependencies = [
+      { name: 'browser-lib', license: 'GPL-3.0-only' },
+      { name: 'test-tool', license: 'GPL-3.0-only' },
+    ].filter(dep => tiers.get(dep.name))
     expect(dependencies.map(dep => dep.name)).toEqual(['browser-lib'])
-    expect(() => { assertRuntimeLicenses(dependencies) }).toThrow('browser-lib (GPL-3.0-only)')
-    expect(() => { assertRuntimeLicenses([{ name: 'browser-lib', license: 'MIT' }]) }).not.toThrow()
-    expect(() => { assertRuntimeLicenses([{ name: CLAUDE_AGENT_SDK_PACKAGE, license: 'SEE LICENSE IN README.md' }]) })
-      .not.toThrow()
+    expect(() => {
+      assertRuntimeLicenses(dependencies)
+    }).toThrow('browser-lib (GPL-3.0-only)')
+    expect(() => {
+      assertRuntimeLicenses([{ name: 'browser-lib', license: 'MIT' }])
+    }).not.toThrow()
+    expect(() => {
+      assertRuntimeLicenses([{ name: CLAUDE_AGENT_SDK_PACKAGE, license: 'SEE LICENSE IN README.md' }])
+    }).not.toThrow()
   })
 
   it('keeps browser-bundled development dependencies in runtime disclosures', () => {
     const { manifests, names } = workspace({
       'packages/client/ui/package.json': {
-        name: '@fixture/ui', devDependencies: { react: '^18', 'browser-lib': '^1', 'type-only': '^1' },
+        name: '@fixture/ui',
+        devDependencies: { react: '^18', 'browser-lib': '^1', 'type-only': '^1' },
       },
     })
-    expect(tierExternalDeps(manifests, names, new Set(['react', 'browser-lib']))).toEqual(new Map([
-      ['tsx', true], ['react', true], ['browser-lib', true], ['type-only', false],
-    ]))
+    expect(tierExternalDeps(manifests, names, new Set(['react', 'browser-lib']))).toEqual(
+      new Map([
+        ['tsx', true],
+        ['react', true],
+        ['browser-lib', true],
+        ['type-only', false],
+      ]),
+    )
   })
 
   it('rejects a browser library missing from the disclosed declarations', () => {
     const { manifests, names } = workspace({})
-    expect(() => tierExternalDeps(manifests, names, new Set(['missing-lib'])))
-      .toThrow('browser package missing-lib has no workspace dependency declaration')
+    expect(() => tierExternalDeps(manifests, names, new Set(['missing-lib']))).toThrow(
+      'browser package missing-lib has no workspace dependency declaration',
+    )
   })
 
   it('tiers by declaring area, not by the declaring section name', () => {
@@ -110,30 +141,45 @@ describe('tierExternalDeps', () => {
       // Root tooling and test infrastructure never ship, whichever section declares them.
       'package.json': { dependencies: { 'root-runtime-looking': '^1' }, devDependencies: { 'lint-tool': '^1' } },
       'packages/test-support/loader-smoke/package.json': { name: '@deepseek-ai/dsh-loader-smoke', dependencies: { 'smoke-helper': '^1' } },
-      'packages/test-support/client-runtime/package.json': { name: '@deepseek-ai/dsh-client-test-runtime', dependencies: { 'test-lib': '^1' } },
+      'packages/test-support/client-runtime/package.json': {
+        name: '@deepseek-ai/dsh-client-test-runtime',
+        dependencies: { 'test-lib': '^1' },
+      },
       'website/package.json': { devDependencies: { 'site-tool': '^1' } },
       // A plugin package's runtime dependency ships even when no app mounts it by default.
-      'packages/mcp/mcp-client/package.json': { name: '@deepseek-ai/dsh-mcp-client', dependencies: { 'protocol-sdk': '^1' }, devDependencies: { 'protocol-fixture-server': '^1' } },
-      'apps/cli/package.json': { name: '@deepseek-ai/dsh-cli', dependencies: { 'cli-lib': '^1', '@deepseek-ai/dsh-mcp-client': 'workspace:^' } },
+      'packages/mcp/mcp-client/package.json': {
+        name: '@deepseek-ai/dsh-mcp-client',
+        dependencies: { 'protocol-sdk': '^1' },
+        devDependencies: { 'protocol-fixture-server': '^1' },
+      },
+      'apps/cli/package.json': {
+        name: '@deepseek-ai/dsh-cli',
+        dependencies: { 'cli-lib': '^1', '@deepseek-ai/dsh-mcp-client': 'workspace:^' },
+      },
     })
 
-    expect(tierExternalDeps(manifests, names)).toEqual(new Map([
-      ['tsx', true],
-      ['root-runtime-looking', false],
-      ['lint-tool', false],
-      ['smoke-helper', false],
-      ['test-lib', false],
-      ['site-tool', false],
-      ['protocol-sdk', true],
-      ['protocol-fixture-server', false],
-      ['cli-lib', true],
-    ]))
+    expect(tierExternalDeps(manifests, names)).toEqual(
+      new Map([
+        ['tsx', true],
+        ['root-runtime-looking', false],
+        ['lint-tool', false],
+        ['smoke-helper', false],
+        ['test-lib', false],
+        ['site-tool', false],
+        ['protocol-sdk', true],
+        ['protocol-fixture-server', false],
+        ['cli-lib', true],
+      ]),
+    )
   })
 
   it('keeps a package runtime when any shipping area declares it, and excludes workspace links', () => {
     const { manifests, names } = workspace({
       'package.json': { devDependencies: { shared: '^1' } },
-      'packages/interaction/tui/package.json': { name: '@deepseek-ai/dsh-tui', dependencies: { shared: '^1', '@deepseek-ai/dsh-cli': 'workspace:^' } },
+      'packages/interaction/tui/package.json': {
+        name: '@deepseek-ai/dsh-tui',
+        dependencies: { shared: '^1', '@deepseek-ai/dsh-cli': 'workspace:^' },
+      },
       'apps/cli/package.json': { name: '@deepseek-ai/dsh-cli' },
     })
 
@@ -244,67 +290,80 @@ describe('parsePyprojectRequirements', () => {
   })
 
   it('locates requirement arrays by TOML table, so author-named groups are not missed', () => {
-    expect(parsePyprojectRequirements([
-      '[build-system]',
-      'requires = ["hatchling>=1.24.0"]',
-      '',
-      '[project]',
-      'name = "not-a-requirement"',
-      'dependencies = ["pydantic>=2.12"]',
-      '',
-      '[project.optional-dependencies]',
-      'cli = ["click"]',
-      '',
-      '[dependency-groups]',
-      'docs = ["sphinx>=7"]',
-      '',
-      '[tool.hatch.build.targets.wheel]',
-      'packages = ["src/deepseek_harness"]',
-      '',
-      '[tool.pytest.ini_options]',
-      'testpaths = ["tests"]',
-    ].join('\n'))).toEqual(['hatchling', 'pydantic', 'click', 'sphinx'])
+    expect(
+      parsePyprojectRequirements(
+        [
+          '[build-system]',
+          'requires = ["hatchling>=1.24.0"]',
+          '',
+          '[project]',
+          'name = "not-a-requirement"',
+          'dependencies = ["pydantic>=2.12"]',
+          '',
+          '[project.optional-dependencies]',
+          'cli = ["click"]',
+          '',
+          '[dependency-groups]',
+          'docs = ["sphinx>=7"]',
+          '',
+          '[tool.hatch.build.targets.wheel]',
+          'packages = ["src/deepseek_harness"]',
+          '',
+          '[tool.pytest.ini_options]',
+          'testpaths = ["tests"]',
+        ].join('\n'),
+      ),
+    ).toEqual(['hatchling', 'pydantic', 'click', 'sphinx'])
   })
 
   it('does not truncate an array at a bracket inside extras', () => {
-    expect(parsePyprojectRequirements('[project]\ndependencies = ["httpx[http2]", "requests"]\n'))
-      .toEqual(['httpx', 'requests'])
+    expect(parsePyprojectRequirements('[project]\ndependencies = ["httpx[http2]", "requests"]\n')).toEqual(['httpx', 'requests'])
   })
 
   it('reads names whether or not requirements carry versions, extras, or markers', () => {
-    expect(parsePyprojectRequirements("[project]\ndependencies = [\"pydantic>=2.12\", \"requests\", \"httpx[http2]\", \"tomli ; python_version < '3.11'\", \"hatchling >= 1.24.0\"]\n"))
-      .toEqual(['pydantic', 'requests', 'httpx', 'tomli', 'hatchling'])
+    expect(
+      parsePyprojectRequirements(
+        '[project]\ndependencies = ["pydantic>=2.12", "requests", "httpx[http2]", "tomli ; python_version < \'3.11\'", "hatchling >= 1.24.0"]\n',
+      ),
+    ).toEqual(['pydantic', 'requests', 'httpx', 'tomli', 'hatchling'])
   })
 
   it('reads single-quoted TOML literals and rejects an unreadable requirement', () => {
-    expect(parsePyprojectRequirements("[project]\ndependencies = ['requests', \"pydantic>=2\"]\n")).toEqual(['requests', 'pydantic'])
+    expect(parsePyprojectRequirements('[project]\ndependencies = [\'requests\', "pydantic>=2"]\n')).toEqual(['requests', 'pydantic'])
     expect(() => parsePyprojectRequirements('[project]\ndependencies = ["!!broken"]\n')).toThrow(/cannot read a distribution name/)
   })
 
   it('reads a multi-line array', () => {
-    expect(parsePyprojectRequirements('[project]\ndependencies = [\n  "pydantic>=2.12",\n  "typing-extensions",\n]\n'))
-      .toEqual(['pydantic', 'typing-extensions'])
+    expect(parsePyprojectRequirements('[project]\ndependencies = [\n  "pydantic>=2.12",\n  "typing-extensions",\n]\n')).toEqual([
+      'pydantic',
+      'typing-extensions',
+    ])
   })
 
   it('obeys TOML comments, quoted keys, and escaped strings', () => {
-    expect(parsePyprojectRequirements([
-      '[project] # a legal header comment',
-      'dependencies = [',
-      '  "pydantic", # ] does not close the array',
-      '  # "old-package" is not a dependency',
-      '  "tomli; python_version < \'3.11\'",',
-      ']',
-      '',
-      '[dependency-groups]',
-      '"test.docs" = ["pytest"]',
-    ].join('\n'))).toEqual(['pydantic', 'tomli', 'pytest'])
+    expect(
+      parsePyprojectRequirements(
+        [
+          '[project] # a legal header comment',
+          'dependencies = [',
+          '  "pydantic", # ] does not close the array',
+          '  # "old-package" is not a dependency',
+          '  "tomli; python_version < \'3.11\'",',
+          ']',
+          '',
+          '[dependency-groups]',
+          '"test.docs" = ["pytest"]',
+        ].join('\n'),
+      ),
+    ).toEqual(['pydantic', 'tomli', 'pytest'])
   })
 
   it('accepts dependency-group includes and rejects unsupported requirement forms', () => {
-    expect(parsePyprojectRequirements('[dependency-groups]\nbase = ["pytest"]\nall = [{ include-group = "base" }]\n'))
-      .toEqual(['pytest'])
+    expect(parsePyprojectRequirements('[dependency-groups]\nbase = ["pytest"]\nall = [{ include-group = "base" }]\n')).toEqual(['pytest'])
     expect(() => parsePyprojectRequirements('[project]\ndependencies = "pytest"\n')).toThrow(/must be an array/)
-    expect(() => parsePyprojectRequirements('[dependency-groups]\ntest = [{ unknown = "pytest" }]\n')).toThrow(/unsupported requirement entry/)
+    expect(() => parsePyprojectRequirements('[dependency-groups]\ntest = [{ unknown = "pytest" }]\n')).toThrow(
+      /unsupported requirement entry/,
+    )
   })
 })
 
@@ -319,9 +378,7 @@ describe('collectPythonDependencies', () => {
       '[project]\nname = "deepseek-harness-runtime-bin"\ndependencies = ["pydantic"]\n',
       '[project]\nname = "deepseek-harness-sdk"\ndependencies = ["DeepSeek.Harness_Runtime-Bin", "deepseek-unrelated"]\n',
     ]
-    expect(() => collectPythonDependencies(pyprojects)).toThrow(
-      'python dependency deepseek-unrelated is missing from PYTHON_METADATA',
-    )
+    expect(() => collectPythonDependencies(pyprojects)).toThrow('python dependency deepseek-unrelated is missing from PYTHON_METADATA')
   })
 })
 
@@ -330,26 +387,30 @@ describe('collectBundledPythonDependencies', () => {
     const dependencies = collectBundledPythonDependencies(primaryRuntimeLock.pythonPackages)
     expect(dependencies).toHaveLength(Object.keys(primaryRuntimeLock.pythonPackages).length)
     expect(dependencies).toContainEqual({
-      name: 'pillow', version: primaryRuntimeLock.pythonPackages.Pillow,
-      license: 'MIT-CMU', repo: 'https://github.com/python-pillow/Pillow',
+      name: 'pillow',
+      version: primaryRuntimeLock.pythonPackages.Pillow,
+      license: 'MIT-CMU',
+      repo: 'https://github.com/python-pillow/Pillow',
     })
     expect(dependencies).toContainEqual({
-      name: 'typing-extensions', version: primaryRuntimeLock.pythonPackages.typing_extensions,
-      license: 'PSF-2.0', repo: 'https://github.com/python/typing_extensions',
+      name: 'typing-extensions',
+      version: primaryRuntimeLock.pythonPackages.typing_extensions,
+      license: 'PSF-2.0',
+      repo: 'https://github.com/python/typing_extensions',
     })
   })
 
   it('normalizes names while preserving pinned version strings', () => {
-    expect(collectBundledPythonDependencies({ 'typing_extensions': '4.16.0', 'Pillow': '12.3.0' }))
-      .toEqual([
-        { name: 'pillow', version: '12.3.0', license: 'MIT-CMU', repo: 'https://github.com/python-pillow/Pillow' },
-        { name: 'typing-extensions', version: '4.16.0', license: 'PSF-2.0', repo: 'https://github.com/python/typing_extensions' },
-      ])
+    expect(collectBundledPythonDependencies({ typing_extensions: '4.16.0', Pillow: '12.3.0' })).toEqual([
+      { name: 'pillow', version: '12.3.0', license: 'MIT-CMU', repo: 'https://github.com/python-pillow/Pillow' },
+      { name: 'typing-extensions', version: '4.16.0', license: 'PSF-2.0', repo: 'https://github.com/python/typing_extensions' },
+    ])
   })
 
   it('rejects duplicate normalized distribution names with the same locked version', () => {
-    expect(() => collectBundledPythonDependencies({ typing_extensions: '4.16.0', 'typing.extensions': '4.16.0' }))
-      .toThrow('duplicate normalized names')
+    expect(() => collectBundledPythonDependencies({ typing_extensions: '4.16.0', 'typing.extensions': '4.16.0' })).toThrow(
+      'duplicate normalized names',
+    )
   })
 
   it('rejects missing distribution metadata and conflicting normalized versions', () => {
@@ -358,25 +419,34 @@ describe('collectBundledPythonDependencies', () => {
   })
 
   it('applies the runtime license check to bundled Python distributions', () => {
-    expect(() => { assertRuntimeLicenses(collectBundledPythonDependencies(primaryRuntimeLock.pythonPackages)) }).not.toThrow()
-    const dependencies = collectBundledPythonDependencies({ 'copyleft-wheel': '1.0' }, {
-      'copyleft-wheel': { license: 'GPL-3.0-only', repo: 'https://example.com/project' },
-    })
-    expect(() => { assertRuntimeLicenses(dependencies) }).toThrow('copyleft-wheel (GPL-3.0-only)')
+    expect(() => {
+      assertRuntimeLicenses(collectBundledPythonDependencies(primaryRuntimeLock.pythonPackages))
+    }).not.toThrow()
+    const dependencies = collectBundledPythonDependencies(
+      { 'copyleft-wheel': '1.0' },
+      {
+        'copyleft-wheel': { license: 'GPL-3.0-only', repo: 'https://example.com/project' },
+      },
+    )
+    expect(() => {
+      assertRuntimeLicenses(dependencies)
+    }).toThrow('copyleft-wheel (GPL-3.0-only)')
   })
 })
 
 describe('isPermissive', () => {
   it('accepts the licenses this project ships and rejects copyleft or unknown ones', () => {
     expect(['MIT', 'ISC', 'BSD-3-Clause', 'Apache-2.0', 'MIT / Apache-2.0', '(MIT OR CC0-1.0)'].every(isPermissive)).toBe(true)
-    expect([
-      'LGPL-3.0-only',
-      'MPL-2.0',
-      'GPL-3.0-or-later',
-      'SEE LICENSE IN LICENSE',
-      'SEE LICENSE IN README.md',
-      'SEE LICENSE IN LICENSE.md',
-    ].some(isPermissive)).toBe(false)
+    expect(
+      [
+        'LGPL-3.0-only',
+        'MPL-2.0',
+        'GPL-3.0-or-later',
+        'SEE LICENSE IN LICENSE',
+        'SEE LICENSE IN README.md',
+        'SEE LICENSE IN LICENSE.md',
+      ].some(isPermissive),
+    ).toBe(false)
   })
 
   it('requires every operand of an AND, so a copyleft conjunct cannot ride along', () => {
@@ -401,23 +471,24 @@ describe('isPermissive', () => {
 describe('official Claude distribution authorization', () => {
   it('authorizes only the direct SDK identity without relabeling its license', () => {
     expect(isOwnerAuthorizedRuntime(CLAUDE_AGENT_SDK_PACKAGE)).toBe(true)
-    expect(isOwnerAuthorizedRuntime(`${CLAUDE_AGENT_SDK_PACKAGE}-linux-x64`))
-      .toBe(false)
+    expect(isOwnerAuthorizedRuntime(`${CLAUDE_AGENT_SDK_PACKAGE}-linux-x64`)).toBe(false)
     expect(isOwnerAuthorizedRuntime('@anthropic-ai/unrelated')).toBe(false)
     expect(isPermissive('SEE LICENSE IN README.md')).toBe(false)
   })
 
   it('derives version-independent platform payloads from the official SDK manifest', () => {
-    expect(claudeDistributionFromManifest({
-      name: CLAUDE_AGENT_SDK_PACKAGE,
-      version: '9.8.7',
-      license: 'future declared terms',
-      claudeCodeVersion: '6.5.4',
-      optionalDependencies: {
-        [`${CLAUDE_AGENT_SDK_PACKAGE}-linux-x64`]: '9.8.7',
-        [`${CLAUDE_AGENT_SDK_PACKAGE}-darwin-arm64`]: '9.8.7',
-      },
-    })).toEqual({
+    expect(
+      claudeDistributionFromManifest({
+        name: CLAUDE_AGENT_SDK_PACKAGE,
+        version: '9.8.7',
+        license: 'future declared terms',
+        claudeCodeVersion: '6.5.4',
+        optionalDependencies: {
+          [`${CLAUDE_AGENT_SDK_PACKAGE}-linux-x64`]: '9.8.7',
+          [`${CLAUDE_AGENT_SDK_PACKAGE}-darwin-arm64`]: '9.8.7',
+        },
+      }),
+    ).toEqual({
       sdkVersion: '9.8.7',
       claudeCodeVersion: '6.5.4',
       payloads: [
@@ -434,27 +505,33 @@ describe('official Claude distribution authorization', () => {
   })
 
   it('rejects a wrong SDK identity, missing payloads, and unrelated optionals', () => {
-    expect(() => claudeDistributionFromManifest({
-      name: '@anthropic-ai/unrelated',
-      version: '1.0.0',
-      claudeCodeVersion: '1.0.0',
-      optionalDependencies: {
-        [`${CLAUDE_AGENT_SDK_PACKAGE}-linux-x64`]: '1.0.0',
-      },
-    })).toThrow(`expected ${CLAUDE_AGENT_SDK_PACKAGE} manifest`)
-    expect(() => claudeDistributionFromManifest({
-      name: CLAUDE_AGENT_SDK_PACKAGE,
-      version: '1.0.0',
-      claudeCodeVersion: '1.0.0',
-    })).toThrow('declares no optional platform payloads')
-    expect(() => claudeDistributionFromManifest({
-      name: CLAUDE_AGENT_SDK_PACKAGE,
-      version: '1.0.0',
-      claudeCodeVersion: '1.0.0',
-      optionalDependencies: {
-        '@anthropic-ai/unrelated': '1.0.0',
-      },
-    })).toThrow('outside its authorized platform-payload identity')
+    expect(() =>
+      claudeDistributionFromManifest({
+        name: '@anthropic-ai/unrelated',
+        version: '1.0.0',
+        claudeCodeVersion: '1.0.0',
+        optionalDependencies: {
+          [`${CLAUDE_AGENT_SDK_PACKAGE}-linux-x64`]: '1.0.0',
+        },
+      }),
+    ).toThrow(`expected ${CLAUDE_AGENT_SDK_PACKAGE} manifest`)
+    expect(() =>
+      claudeDistributionFromManifest({
+        name: CLAUDE_AGENT_SDK_PACKAGE,
+        version: '1.0.0',
+        claudeCodeVersion: '1.0.0',
+      }),
+    ).toThrow('declares no optional platform payloads')
+    expect(() =>
+      claudeDistributionFromManifest({
+        name: CLAUDE_AGENT_SDK_PACKAGE,
+        version: '1.0.0',
+        claudeCodeVersion: '1.0.0',
+        optionalDependencies: {
+          '@anthropic-ai/unrelated': '1.0.0',
+        },
+      }),
+    ).toThrow('outside its authorized platform-payload identity')
   })
 })
 

@@ -12,7 +12,7 @@ import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@de
 import type { Session, SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createSessionTestRemote, testSessionPersistence } from './test-remote.ts'
 
 /** Booted contexts and their temp roots, torn down after each test. */
@@ -73,7 +73,8 @@ async function harness(options: HarnessOptions = {}) {
       const wanted = id ?? presets[0] ?? ''
       if (!presets.includes(wanted)) {
         throw new RemoteError('agent-preset/not-found', `Unknown agent preset: ${wanted}`, {
-          agentPreset: wanted, available: [...presets],
+          agentPreset: wanted,
+          available: [...presets],
         })
       }
       return wanted
@@ -87,14 +88,14 @@ async function harness(options: HarnessOptions = {}) {
     }
     ctx.provide('agentPresets', {
       defaultId: presets[0],
-      resolve: (id?: string) => Promise.resolve(id === undefined ? undefined : options.resolving?.get(id))
-        .then(() => ({ id: known(id) })),
+      resolve: (id?: string) => Promise.resolve(id === undefined ? undefined : options.resolving?.get(id)).then(() => ({ id: known(id) })),
       mount: (_ctx: Context, id?: string) => Promise.resolve().then(() => ({ id: usable(id) })),
       select: async (agent: Agent, agentPreset: string) => {
         usable(agentPreset)
         if (options.locked?.has(agent.id) === true) {
           throw new RemoteError('agent-preset/locked', 'This session has already started', {
-            sessionId: agent.id, agentPreset,
+            sessionId: agent.id,
+            agentPreset,
           })
         }
         selections.push({ sessionId: agent.id, agentPreset })
@@ -104,17 +105,20 @@ async function harness(options: HarnessOptions = {}) {
     } as never)
   }
   const stored = options.stored ?? new Map<SessionId, StoredSession>()
-  ctx.provide('sessionPersistence', testSessionPersistence(ctx, {
-    list: () => Promise.resolve([...stored.values()].map(record => record.header)),
-    inspect: (id: SessionId) => {
-      const record = stored.get(id)
-      return Promise.resolve(record === undefined ? undefined : { meta: record.header, events: [...record.events] })
-    },
-  }) as never)
+  ctx.provide(
+    'sessionPersistence',
+    testSessionPersistence(ctx, {
+      list: () => Promise.resolve([...stored.values()].map(record => record.header)),
+      inspect: (id: SessionId) => {
+        const record = stored.get(id)
+        return Promise.resolve(record === undefined ? undefined : { meta: record.header, events: [...record.events] })
+      },
+    }) as never,
+  )
   const { members, archived } = options.workspace ?? { members: [], archived: [] }
   const workspace = { id: WORKSPACE, path: cwd, sessionIds: members, attachSession: () => Promise.resolve() }
   ctx.provide('workspaceRegistry', {
-    get: (id: WorkspaceId) => id === WORKSPACE ? workspace : undefined,
+    get: (id: WorkspaceId) => (id === WORKSPACE ? workspace : undefined),
     list: () => [workspace],
     archivedSessionIds: archived,
   } as never)
@@ -132,7 +136,12 @@ async function harness(options: HarnessOptions = {}) {
       ctx.sessions.announce(session)
     }, 'test: published Session')
     const unregister = await ctx.agents.register(agent)
-    return { agent, dispose: async () => { await unregister() } }
+    return {
+      agent,
+      dispose: async () => {
+        await unregister()
+      },
+    }
   }
   const factory: AgentFactory = {
     async createAgent(_ownerCtx, create) {
@@ -155,7 +164,7 @@ async function harness(options: HarnessOptions = {}) {
       resumed.push(id)
       const session = ctx.sessions.prepare(id, {
         meta: record.header,
-        seed: [...record.events, ...options.writtenSinceObservation?.get(id) ?? []],
+        seed: [...record.events, ...(options.writtenSinceObservation?.get(id) ?? [])],
       })
       return publish(session, resume.setup)
     },
@@ -173,9 +182,12 @@ async function harness(options: HarnessOptions = {}) {
   }
   const selectedEvents = (id: SessionId): unknown[] => {
     const session = ctx.sessions.get(id)
-    return session === undefined ? [] : session.snapshotEvents()
-      .filter(event => event.type === 'agent-preset/selected')
-      .map(event => event.data)
+    return session === undefined
+      ? []
+      : session
+          .snapshotEvents()
+          .filter(event => event.type === 'agent-preset/selected')
+          .map(event => event.data)
   }
   return { ctx, remote, cwd, selections, resumed, presetOf, selectedEvents }
 }
@@ -342,7 +354,8 @@ describe('session.create reuse of a live blank Session', () => {
   it('claims one Session in arrival order when an earlier preset resolves later', async () => {
     const minimal = Promise.withResolvers<undefined>()
     const { remote, selections, presetOf } = await harness({
-      presets: ['standard', 'minimal'], resolving: new Map([['minimal', minimal.promise]]),
+      presets: ['standard', 'minimal'],
+      resolving: new Map([['minimal', minimal.promise]]),
     })
     await remote.create({ sessionId: SessionId('draft') })
 
@@ -363,10 +376,7 @@ describe('session.create reuse of a live blank Session', () => {
   it('shares one creation between concurrent callers of a new identity', async () => {
     const { ctx, remote } = await harness({ presets: ['standard'] })
 
-    const results = await Promise.all([
-      remote.create({ sessionId: SessionId('fresh') }),
-      remote.create({ sessionId: SessionId('fresh') }),
-    ])
+    const results = await Promise.all([remote.create({ sessionId: SessionId('fresh') }), remote.create({ sessionId: SessionId('fresh') })])
 
     expect(results).toMatchObject([
       { ok: true, value: { sessionId: 'fresh' } },
@@ -468,7 +478,9 @@ describe('session.create reuse of a stored blank Session', () => {
     tempDirs.push(cwd)
     const { remote, presetOf, selectedEvents } = await harness({
       presets: ['standard', 'minimal'],
-      stored: new Map([[draft, { header: storedHeader(draft, cwd, { agentPreset: 'standard' }), events: [presetSelection(0, 'minimal')] }]]),
+      stored: new Map([
+        [draft, { header: storedHeader(draft, cwd, { agentPreset: 'standard' }), events: [presetSelection(0, 'minimal')] }],
+      ]),
     })
 
     const reused = await remote.create({ sessionId: draft, cwd })
@@ -484,7 +496,9 @@ describe('session.create reuse of a stored blank Session', () => {
     tempDirs.push(cwd)
     const { remote, presetOf, selectedEvents } = await harness({
       presets: ['standard', 'minimal'],
-      stored: new Map([[draft, { header: storedHeader(draft, cwd, { agentPreset: 'standard' }), events: [presetSelection(0, 'minimal')] }]]),
+      stored: new Map([
+        [draft, { header: storedHeader(draft, cwd, { agentPreset: 'standard' }), events: [presetSelection(0, 'minimal')] }],
+      ]),
     })
 
     const reused = await remote.create({ sessionId: draft, cwd, agentPreset: 'minimal' })
@@ -632,10 +646,15 @@ describe('session.create reuse of a stored blank Session', () => {
     tempDirs.push(cwd)
     const { remote, resumed } = await harness({
       presets: ['standard'],
-      stored: new Map([[child, {
-        header: storedHeader(child, cwd, { parentSession: SessionId('parent'), origin: 'subagent' }),
-        events: [modelSelection(0)],
-      }]]),
+      stored: new Map([
+        [
+          child,
+          {
+            header: storedHeader(child, cwd, { parentSession: SessionId('parent'), origin: 'subagent' }),
+            events: [modelSelection(0)],
+          },
+        ],
+      ]),
     })
 
     const response = await remote.create({ sessionId: child, cwd })

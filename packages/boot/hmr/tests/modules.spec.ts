@@ -8,7 +8,7 @@ import { Context, type Plugin } from '@deepseek-ai/cordis'
 import Loader, { type ModuleJob, type ModuleLoader } from '@deepseek-ai/cordis-plugin-loader'
 import Timer from '@deepseek-ai/cordis-plugin-timer'
 import z from '@deepseek-ai/schemastery'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import Hmr from '../src/index.ts'
 
 interface ModuleReload {
@@ -25,7 +25,10 @@ async function fixture(version: 'v1' | 'v2' = 'v2') {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-hmr-graph-'))
   const ctx = new Context()
   ctx.baseUrl = pathToFileURL(dir).href + '/'
-  onTestFinished(async () => { await ctx.fiber.dispose(); rmSync(dir, { recursive: true, force: true }) })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+    rmSync(dir, { recursive: true, force: true })
+  })
   await ctx.plugin(Loader)
   await ctx.plugin(Timer)
   await ctx.plugin(Hmr, { root: [], ignored: [], debounce: 0 })
@@ -33,7 +36,10 @@ async function fixture(version: 'v1' | 'v2' = 'v2') {
   const imports = new Map<string, Plugin>()
   const resolve = vi.fn((name: string) => ({ url: name }))
   // The adapter supplies only the Node loader operations exercised by HMR.
-  const internal = { version, loadCache: cache, resolve,
+  const internal = {
+    version,
+    loadCache: cache,
+    resolve,
     resolveSync: (_parent: string, request: { specifier: string }) => resolve(request.specifier),
   } as unknown as ModuleLoader
   const reload = ctx.hmr as unknown as ModuleReload
@@ -48,9 +54,7 @@ async function fixture(version: 'v1' | 'v2' = 'v2') {
   function module(name: string, plugin?: Plugin, children: ModuleJob[] = []): ModuleJob {
     const location = name.startsWith('node:') ? name : url(name)
     // ModuleJob's execution methods belong to Node; this fixture owns its graph and namespace.
-    const job = { url: location, linked: Promise.resolve(children),
-      module: { url: location, getNamespace: () => plugin },
-    } as ModuleJob
+    const job = { url: location, linked: Promise.resolve(children), module: { url: location, getNamespace: () => plugin } } as ModuleJob
     cache.set(location, job)
     if (plugin !== undefined) imports.set(location, plugin)
     return job
@@ -69,11 +73,16 @@ it('does not reactivate a runtime removed during dependency traversal', async ()
   const fiber = entry.fiber!
   const reached = Promise.withResolvers<undefined>()
   const linked = Promise.withResolvers<ModuleJob[]>()
-  Object.defineProperty(job, 'linked', { configurable: true, get() {
-    reached.resolve(undefined)
-    return linked.promise
-  } })
-  onTestFinished(() => { linked.resolve([dependency]) })
+  Object.defineProperty(job, 'linked', {
+    configurable: true,
+    get() {
+      reached.resolve(undefined)
+      return linked.promise
+    },
+  })
+  onTestFinished(() => {
+    linked.resolve([dependency])
+  })
   imports.set(job.url, replacement)
   imported.mockClear()
   reload.stashed.add(dependency.url)
@@ -94,18 +103,26 @@ it('does not reactivate a runtime removed during dependency traversal', async ()
   }
 })
 
-it.each(['v1', 'v2'] as const)('replaces a %s module and retains the latest Loader entry configuration', async (version) => {
+it.each(['v1', 'v2'] as const)('replaces a %s module and retains the latest Loader entry configuration', async version => {
   const { ctx, module, imports, reload } = await fixture(version)
   const mounted: string[] = []
   const disposed: string[] = []
-  const before = { apply(ctx: Context, config: { value: string }) {
-    mounted.push(`before:${config.value}`)
-    ctx.effect(() => () => { disposed.push('before') })
-  } }
-  const after = { apply(ctx: Context, config: { value: string }) {
-    mounted.push(`after:${config.value}`)
-    ctx.effect(() => () => { disposed.push('after') })
-  } }
+  const before = {
+    apply(ctx: Context, config: { value: string }) {
+      mounted.push(`before:${config.value}`)
+      ctx.effect(() => () => {
+        disposed.push('before')
+      })
+    },
+  }
+  const after = {
+    apply(ctx: Context, config: { value: string }) {
+      mounted.push(`after:${config.value}`)
+      ctx.effect(() => () => {
+        disposed.push('after')
+      })
+    },
+  }
   const job = module('plugin.mjs', before)
   const entry = ctx.loader.resolve(await ctx.loader.create({ name: job.url, config: { value: 'initial' } }))
   await ctx.loader.await()
@@ -128,8 +145,18 @@ it('replaces volatile references on code HMR after an in-place config update', a
   const { ctx, module, imports, reload } = await fixture()
   const Config = z.object({ value: z.string().volatile() })
   const configs: ReturnType<typeof Config>[] = []
-  const before = { Config, apply(_ctx: Context, config: ReturnType<typeof Config>) { configs.push(config) } }
-  const after = { Config, apply(_ctx: Context, config: ReturnType<typeof Config>) { configs.push(config) } }
+  const before = {
+    Config,
+    apply(_ctx: Context, config: ReturnType<typeof Config>) {
+      configs.push(config)
+    },
+  }
+  const after = {
+    Config,
+    apply(_ctx: Context, config: ReturnType<typeof Config>) {
+      configs.push(config)
+    },
+  }
   const job = module('volatile.mjs', before)
   const entry = ctx.loader.resolve(await ctx.loader.create({ name: job.url, config: { value: 'initial' } }))
   await ctx.loader.await()
@@ -152,13 +179,18 @@ it('replaces volatile references on code HMR after an in-place config update', a
 it('reactivates a source-replaced consumer after provider and consumer configuration changes', async () => {
   const { ctx, module, imports, reload } = await fixture()
   const mounted: string[] = []
-  const provider = module('provider.mjs', { apply(ctx: Context, config: { revision: number }) {
-    ctx.provide('test.revision', config.revision)
-  } })
+  const provider = module('provider.mjs', {
+    apply(ctx: Context, config: { revision: number }) {
+      ctx.provide('test.revision', config.revision)
+    },
+  })
   const before = { inject: ['test.revision'], apply() {} }
-  const after = { inject: ['test.revision'], apply(ctx: Context, config: { value: string }) {
-    mounted.push(`${config.value}:${ctx.get('test.revision')}`)
-  } }
+  const after = {
+    inject: ['test.revision'],
+    apply(ctx: Context, config: { value: string }) {
+      mounted.push(`${config.value}:${ctx.get('test.revision')}`)
+    },
+  }
   const consumer = module('consumer.mjs', before)
   const providerEntry = ctx.loader.resolve(await ctx.loader.create({ name: provider.url, config: { revision: 1 } }))
   const consumerEntry = ctx.loader.resolve(await ctx.loader.create({ name: consumer.url, config: { value: 'initial' } }))
@@ -167,10 +199,7 @@ it('reactivates a source-replaced consumer after provider and consumer configura
   reload.stashed.add(consumer.url)
   await reload.partialReload()
   expect(mounted).toEqual(['initial:1'])
-  await Promise.all([
-    providerEntry.update({ config: { revision: 2 } }),
-    consumerEntry.update({ config: { value: 'updated' } }),
-  ])
+  await Promise.all([providerEntry.update({ config: { revision: 2 } }), consumerEntry.update({ config: { value: 'updated' } })])
   await ctx.loader.await()
   expect(mounted.at(-1)).toBe('updated:2')
 })
@@ -267,11 +296,19 @@ it('classifies dependency cycles and excludes builtins and unchanged leaf module
 it('rejects failed replacement activation and restores the prior plugin', async () => {
   const { ctx, module, imports, cache, reload } = await fixture()
   const mounted: string[] = []
-  const original = { apply: () => { mounted.push('original') } }
+  const original = {
+    apply: () => {
+      mounted.push('original')
+    },
+  }
   const job = module('plugin.mjs', original)
   const entry = ctx.loader.resolve(await ctx.loader.create({ name: job.url }))
   await ctx.loader.await()
-  imports.set(job.url, { apply() { throw new Error('activation failed') } })
+  imports.set(job.url, {
+    apply() {
+      throw new Error('activation failed')
+    },
+  })
   const event = vi.fn()
   ctx.on('hmr/reload', event)
   reload.stashed.add(job.url)
@@ -282,17 +319,24 @@ it('rejects failed replacement activation and restores the prior plugin', async 
   expect(event).not.toHaveBeenCalled()
 })
 
-
 it('leaves disposed child instances to their replacing parent', async () => {
   const { ctx, module, imports, reload } = await fixture()
   const seen: string[] = []
-  const original = { apply(_ctx: Context, config: { value: string }) { seen.push(config.value) } }
+  const original = {
+    apply(_ctx: Context, config: { value: string }) {
+      seen.push(config.value)
+    },
+  }
   const job = module('plugin.mjs', original)
   const entry = ctx.loader.resolve(await ctx.loader.create({ name: job.url, config: { value: 'entry' } }))
   await ctx.loader.await()
   await entry.fiber!.ctx.plugin(original, { value: 'child' })
   await ctx.plugin(original, { value: 'independent' })
-  imports.set(job.url, { apply(_ctx: Context, config: { value: string }) { seen.push(`new:${config.value}`) } })
+  imports.set(job.url, {
+    apply(_ctx: Context, config: { value: string }) {
+      seen.push(`new:${config.value}`)
+    },
+  })
   reload.stashed.add(job.url)
   await reload.partialReload()
   expect(seen).toContain('new:entry')
@@ -301,7 +345,7 @@ it('leaves disposed child instances to their replacing parent', async () => {
   expect(entry.fiber?._config).toEqual({ value: 'entry' })
 })
 
-it.each(['v1', 'v2'] as const)('invalidates a disabled %s module without activating it', async (version) => {
+it.each(['v1', 'v2'] as const)('invalidates a disabled %s module without activating it', async version => {
   const { ctx, module, imports, resolve, reload } = await fixture(version)
   const job = module('disabled.mjs', { apply() {} })
   const id = await ctx.loader.create({ name: job.url, disabled: true })
@@ -319,9 +363,16 @@ it('does not disturb an unchanged runtime after an earlier replacement fails', a
   const first = module('first.mjs', { apply() {} })
   const untouched = vi.fn()
   const second = module('second.mjs', { apply: untouched })
-  await ctx.loader.root.update([{ id: 'first', name: first.url }, { id: 'second', name: second.url }])
+  await ctx.loader.root.update([
+    { id: 'first', name: first.url },
+    { id: 'second', name: second.url },
+  ])
   await ctx.loader.await()
-  imports.set(first.url, { apply() { throw new Error('failed before second') } })
+  imports.set(first.url, {
+    apply() {
+      throw new Error('failed before second')
+    },
+  })
   reload.stashed.add(first.url)
   reload.stashed.add(second.url)
   await expect(reload.partialReload()).rejects.toThrow('failed before second')
@@ -332,10 +383,18 @@ it('cleans up a shared replacement runtime once when a later plugin activation f
   const { ctx, module, imports, cache, reload } = await fixture()
   const mounted: string[] = []
   const disposed: string[] = []
-  const original = { apply(_ctx: Context, config: { label: string }) { mounted.push(config.label) } }
-  const replacement = { apply(ctx: Context, config: { label: string }) {
-    ctx.effect(() => () => { disposed.push(config.label) })
-  } }
+  const original = {
+    apply(_ctx: Context, config: { label: string }) {
+      mounted.push(config.label)
+    },
+  }
+  const replacement = {
+    apply(ctx: Context, config: { label: string }) {
+      ctx.effect(() => () => {
+        disposed.push(config.label)
+      })
+    },
+  }
   const first = module('shared.mjs', original)
   const second = module('failing.mjs', { apply() {} })
   await ctx.loader.root.update([
@@ -345,7 +404,11 @@ it('cleans up a shared replacement runtime once when a later plugin activation f
   ])
   await ctx.loader.await()
   imports.set(first.url, replacement)
-  imports.set(second.url, { apply() { throw new Error('later activation failed') } })
+  imports.set(second.url, {
+    apply() {
+      throw new Error('later activation failed')
+    },
+  })
   const remove = vi.spyOn(ctx.registry, 'delete')
   const event = vi.fn()
   ctx.on('hmr/reload', event)
@@ -399,7 +462,7 @@ it('ignores framework entries and reports unresolved entry modules', async () =>
   await ctx.loader.create({ name: uncached.url, disabled: true })
   await ctx.loader.await()
   reload.externals.add(framework.url)
-  resolve.mockImplementation((name) => {
+  resolve.mockImplementation(name => {
     if (name === uncached.url) throw new Error('entry gone')
     return { url: name }
   })
@@ -410,8 +473,7 @@ it('ignores framework entries and reports unresolved entry modules', async () =>
   expect(await ctx.hmr.getLinked('missing')).toEqual([])
 })
 
-
-it.each(['uncached', 'no-plugin'])('leaves an entry alone when its cache is %s', async (state) => {
+it.each(['uncached', 'no-plugin'])('leaves an entry alone when its cache is %s', async state => {
   const { ctx, module, cache, imported, reload } = await fixture()
   const job = module('plugin.mjs', { apply() {} })
   await ctx.loader.create({ name: job.url })
@@ -433,7 +495,9 @@ it('restores the CommonJS cache when an ESM replacement import fails', async () 
   const filename = fileURLToPath(job.url)
   const cached = new NodeModule(filename)
   require.cache[filename] = cached
-  onTestFinished(() => { Reflect.deleteProperty(require.cache, filename) })
+  onTestFinished(() => {
+    Reflect.deleteProperty(require.cache, filename)
+  })
   imported.mockRejectedValueOnce(new Error('compile failed'))
   reload.stashed.add(job.url)
   await expect(reload.partialReload()).rejects.toThrow('compile failed')
@@ -442,7 +506,11 @@ it('restores the CommonJS cache when an ESM replacement import fails', async () 
 
 it('can replace a plugin that has an earlier activation failure', async () => {
   const { ctx, module, imports, reload } = await fixture()
-  const job = module('plugin.mjs', { apply() { throw new Error('earlier activation failed') } })
+  const job = module('plugin.mjs', {
+    apply() {
+      throw new Error('earlier activation failed')
+    },
+  })
   await ctx.loader.create({ name: job.url })
   await ctx.loader.await()
   const apply = vi.fn()
@@ -455,13 +523,19 @@ it('can replace a plugin that has an earlier activation failure', async () => {
 it('reports the original replacement failure when restoring the old plugin also fails', async () => {
   const { ctx, module, imports, reload } = await fixture()
   let restoring = false
-  const job = module('plugin.mjs', { apply() {
-    if (restoring) throw new Error('restore failed')
-  } })
+  const job = module('plugin.mjs', {
+    apply() {
+      if (restoring) throw new Error('restore failed')
+    },
+  })
   await ctx.loader.create({ name: job.url })
   await ctx.loader.await()
   restoring = true
-  imports.set(job.url, { apply() { throw new Error('replacement failed') } })
+  imports.set(job.url, {
+    apply() {
+      throw new Error('replacement failed')
+    },
+  })
   const warn = vi.spyOn(ctx.logger, 'warn')
   reload.stashed.add(job.url)
   await expect(reload.partialReload()).rejects.toThrow('replacement failed')

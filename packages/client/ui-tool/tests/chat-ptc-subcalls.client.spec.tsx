@@ -1,19 +1,24 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type {
-  ChatSnapshot, StartedToolCall, ToolCallBlock, ToolResultNode,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { ChatSnapshot, StartedToolCall, ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { SlotTestRuntime, stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  ConversationEventRegistry, ConversationViewRegistry, EMPTY_CONVERSATION_SNAPSHOT, type ConvViewOwnerProps,
+  ConversationEventRegistry,
+  ConversationViewRegistry,
+  EMPTY_CONVERSATION_SNAPSHOT,
+  type ConvViewOwnerProps,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import { en as conversationEn, NS as CONVERSATION_NS, zh as conversationZh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
+import {
+  en as conversationEn,
+  NS as CONVERSATION_NS,
+  zh as conversationZh,
+} from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
 import { apply as applyChat, inject as injectChat } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import { apply as applyTool, inject as injectTool } from '../src/client/apply.ts'
@@ -44,37 +49,55 @@ const PROGRAM = 'const listing = await tools.bash({ command: "ls notes", descrip
 const RUN_CODE_ARGS = JSON.stringify({ code: PROGRAM, description: 'List the notes directory' })
 
 const codeResult = (seq: number, callId: string): ToolResultNode => ({
-  kind: 'tool-result', seq, time: seq * 1_000, callId,
-  name: 'run_code', args: PartialArguments.fromText(RUN_CODE_ARGS),
+  kind: 'tool-result',
+  seq,
+  time: seq * 1_000,
+  callId,
+  name: 'run_code',
+  args: PartialArguments.fromText(RUN_CODE_ARGS),
   call: { name: 'run_code', argsRaw: RUN_CODE_ARGS },
   callTime: seq * 1_000 - 500,
-  content: [{ type: 'text', text: 'demo.txt' }], isError: false,
+  content: [{ type: 'text', text: 'demo.txt' }],
+  isError: false,
   subCalls: [],
 })
 
 const runningCode = (callId: string): StartedToolCall => ({
-  phase: 'start' as const, args: PartialArguments.fromText(RUN_CODE_ARGS), callId, name: 'run_code', argsRaw: RUN_CODE_ARGS, turn: 9, step: 0, time: 9_000,
+  phase: 'start' as const,
+  args: PartialArguments.fromText(RUN_CODE_ARGS),
+  callId,
+  name: 'run_code',
+  argsRaw: RUN_CODE_ARGS,
+  turn: 9,
+  step: 0,
+  time: 9_000,
   subCalls: [],
 })
 
 const subCall = (
-  seq: number, parent: string, n: number, name: string, args: object, resultText: string, isError = false,
+  seq: number,
+  parent: string,
+  n: number,
+  name: string,
+  args: object,
+  resultText: string,
+  isError = false,
 ): ToolCallBlock => ({
-  kind: 'tool-result', seq, time: seq * 1_000,
+  kind: 'tool-result',
+  seq,
+  time: seq * 1_000,
   callId: `${parent}:code:${n}`,
-  name, args: PartialArguments.fromText(JSON.stringify(args)),
+  name,
+  args: PartialArguments.fromText(JSON.stringify(args)),
   parentCallId: parent,
   call: { name, argsRaw: JSON.stringify(args) },
   callTime: seq * 1_000,
-  content: [{ type: 'text', text: resultText }], isError,
+  content: [{ type: 'text', text: resultText }],
+  isError,
   subCalls: [],
 })
 
-function snapshotWith(
-  nodes: ToolResultNode[],
-  subCalls: readonly ToolCallBlock[],
-  runningCalls: StartedToolCall[] = [],
-): ChatSnapshot {
+function snapshotWith(nodes: ToolResultNode[], subCalls: readonly ToolCallBlock[], runningCalls: StartedToolCall[] = []): ChatSnapshot {
   const nestedNodes = nodes.map(node => ({ ...node, subCalls }))
   const nestedRunningCalls = runningCalls.map(call => ({ ...call, subCalls }))
   return toolChatSnapshot(nestedNodes, nestedRunningCalls)
@@ -218,9 +241,7 @@ describe('run_code sub-calls through the real chat machinery', () => {
 
   it('an isError sub-call renders the same error row state as a failed native row', async () => {
     const parent = 'call-64'
-    const subCalls = [
-      subCall(11, parent, 1, 'mystery', { n: 1 }, 'Error: boom', true),
-    ]
+    const subCalls = [subCall(11, parent, 1, 'mystery', { n: 1 }, 'Error: boom', true)]
     const b = await bench(snapshotWith([codeResult(10, parent)], subCalls))
     const view = mountApp(b.runtime)
     const nested = view.container.querySelector('[data-subcalls] [data-variant][data-state="error"]')
@@ -246,9 +267,7 @@ describe('run_code sub-calls through the real chat machinery', () => {
 
   it('a RUNNING run_code call nests its so-far dispatches under the spinner row', async () => {
     const parent = 'call-live'
-    const subCalls = [
-      subCall(21, parent, 1, 'bash', { command: 'ls notes', description: 'List notes' }, 'demo.txt'),
-    ]
+    const subCalls = [subCall(21, parent, 1, 'bash', { command: 'ls notes', description: 'List notes' }, 'demo.txt')]
     const b = await bench(snapshotWith([], subCalls, [runningCode(parent)]))
     const view = mountApp(b.runtime)
     const running = view.container.querySelector('[data-variant="code"][data-state="running"]')
@@ -261,9 +280,16 @@ describe('run_code sub-calls through the real chat machinery', () => {
   it('a started-but-unsettled sub-call renders the running state exactly like a native in-flight row', async () => {
     const parent = 'call-live'
     const runningSub: ToolCallBlock = {
-      phase: 'start' as const, args: PartialArguments.fromText('{"pattern":"todo"}'), callId: `${parent}:code:1`, name: 'grep', argsRaw: '{"pattern":"todo"}',
+      phase: 'start' as const,
+      args: PartialArguments.fromText('{"pattern":"todo"}'),
+      callId: `${parent}:code:1`,
+      name: 'grep',
+      argsRaw: '{"pattern":"todo"}',
       parentCallId: parent,
-      turn: 0, step: 0, time: 21_000, subCalls: [],
+      turn: 0,
+      step: 0,
+      time: 21_000,
+      subCalls: [],
     }
     const b = await bench(snapshotWith([], [runningSub], [runningCode(parent)]))
     const view = mountApp(b.runtime)
@@ -276,11 +302,17 @@ describe('run_code sub-calls through the real chat machinery', () => {
   it('an ordinary tool row renders no sub-call nest', async () => {
     const parent = 'call-64'
     const plain: ToolResultNode = {
-      kind: 'tool-result', seq: 10, time: 10_000, callId: parent,
-      name: 'mystery', args: PartialArguments.fromText('{"n":1}'),
+      kind: 'tool-result',
+      seq: 10,
+      time: 10_000,
+      callId: parent,
+      name: 'mystery',
+      args: PartialArguments.fromText('{"n":1}'),
       call: { name: 'mystery', argsRaw: '{"n":1}' },
       callTime: 9_500,
-      content: [], isError: false, subCalls: [],
+      content: [],
+      isError: false,
+      subCalls: [],
     }
     const b = await bench(snapshotWith([plain], []))
     const view = mountApp(b.runtime)

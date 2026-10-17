@@ -7,7 +7,7 @@ const CAP_COUNT = 100
  * @returns {number} Author approval points.
  */
 export function authorCreditPoints(mergedCount) {
-  return Math.min(CAP_COUNT, mergedCount) * 11 / 1000
+  return (Math.min(CAP_COUNT, mergedCount) * 11) / 1000
 }
 
 /**
@@ -38,13 +38,11 @@ export async function countMergedAuthorPulls(pull, api) {
       },
     })
     const connection = response.data?.repository?.pullRequests
-    if (response.errors?.length || !Array.isArray(connection?.nodes)
-      || typeof connection.pageInfo?.hasNextPage !== 'boolean') {
+    if (response.errors?.length || !Array.isArray(connection?.nodes) || typeof connection.pageInfo?.hasNextPage !== 'boolean') {
       throw new Error('GitHub merged PR history is incomplete')
     }
     for (const entry of connection.nodes) {
-      if (!Number.isSafeInteger(entry?.number) || entry.number <= 0
-        || (entry.author !== null && typeof entry.author?.id !== 'string')) {
+      if (!Number.isSafeInteger(entry?.number) || entry.number <= 0 || (entry.author !== null && typeof entry.author?.id !== 'string')) {
         throw new Error('GitHub returned an invalid merged PR')
       }
       if (seen.has(entry.number)) continue

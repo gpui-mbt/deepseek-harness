@@ -1,6 +1,6 @@
 /** Path controller behavior: the once-per-page desktop read and the open/reveal outcomes over the Session Remote. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionOpenWorkspacePathRequest } from '@deepseek-ai/dsh-api-session-controller/types'
 import { OpenInAppPathController, type OpenInAppPathRemote } from '../src/client/open-path.ts'
@@ -34,9 +34,11 @@ describe('OpenInAppPathController desktop availability', () => {
     await refusing.load()
     expect(refusing.desktop.getSnapshot()).toBe(false)
 
-    const failed = new OpenInAppPathController(remoteOf({
-      canOpenWorkspacePath: async () => ({ ok: false, error: new RemoteError('gateway/internal', 'boom', {}) }),
-    }))
+    const failed = new OpenInAppPathController(
+      remoteOf({
+        canOpenWorkspacePath: async () => ({ ok: false, error: new RemoteError('gateway/internal', 'boom', {}) }),
+      }),
+    )
     await failed.load()
     expect(failed.desktop.getSnapshot()).toBe(false)
 
@@ -48,21 +50,22 @@ describe('OpenInAppPathController desktop availability', () => {
 
 describe('OpenInAppPathController gestures', () => {
   it('sends the default-application open without an action and the reveal with one', async () => {
-    const openWorkspacePath = vi.fn(async (_request: SessionOpenWorkspacePathRequest, _signal?: AbortSignal) =>
-      ({ ok: true as const, value: { opened: true as const } }))
+    const openWorkspacePath = vi.fn(async (_request: SessionOpenWorkspacePathRequest, _signal?: AbortSignal) => ({
+      ok: true as const,
+      value: { opened: true as const },
+    }))
     const controller = new OpenInAppPathController(remoteOf({ openWorkspacePath }))
     expect(await controller.openPath('/w/clip.mp4', 'open')).toBeNull()
     expect(await controller.openPath('/w/clip.mp4', 'reveal')).toBeNull()
-    expect(openWorkspacePath.mock.calls.map(call => call[0])).toEqual([
-      { path: '/w/clip.mp4' },
-      { path: '/w/clip.mp4', action: 'reveal' },
-    ])
+    expect(openWorkspacePath.mock.calls.map(call => call[0])).toEqual([{ path: '/w/clip.mp4' }, { path: '/w/clip.mp4', action: 'reveal' }])
   })
 
   it('names the failed gesture for a refused answer and for a rejecting carrier', async () => {
-    const refused = new OpenInAppPathController(remoteOf({
-      openWorkspacePath: async () => ({ ok: false, error: new RemoteError('gateway/internal', 'boom', {}) }),
-    }))
+    const refused = new OpenInAppPathController(
+      remoteOf({
+        openWorkspacePath: async () => ({ ok: false, error: new RemoteError('gateway/internal', 'boom', {}) }),
+      }),
+    )
     expect(await refused.openPath('/w/clip.mp4', 'open')).toBe('openError')
     expect(await refused.openPath('/w/clip.mp4', 'reveal')).toBe('revealError')
 
@@ -70,7 +73,6 @@ describe('OpenInAppPathController gestures', () => {
     expect(await rejecting.openPath('/w/clip.mp4', 'open')).toBe('openError')
   })
 })
-
 
 it('queries current handlers and carries an explicit application without changing the default gesture', async () => {
   const applications = [{ id: '/Applications/Music.app', name: 'Music', default: true, icon: null }]
@@ -86,11 +88,18 @@ it('queries current handlers and carries an explicit application without changin
   expect(open).toHaveBeenLastCalledWith({ path: '/file.mp3' })
 })
 
-
 it('distinguishes failed association queries from an empty application list', async () => {
-  const remote = remoteOf({ workspacePathApplications: async () => ({ ok: false, error: new RemoteError('gateway/internal', 'unavailable', {}) }) })
+  const remote = remoteOf({
+    workspacePathApplications: async () => ({ ok: false, error: new RemoteError('gateway/internal', 'unavailable', {}) }),
+  })
   const controller = new OpenInAppPathController(remote)
   expect(await controller.applications('/file.mp3', new AbortController().signal)).toBeNull()
-  const rejecting = new OpenInAppPathController(remoteOf({ workspacePathApplications: async () => { throw new Error('disconnected') } }))
+  const rejecting = new OpenInAppPathController(
+    remoteOf({
+      workspacePathApplications: async () => {
+        throw new Error('disconnected')
+      },
+    }),
+  )
   expect(await rejecting.applications('/file.mp3', new AbortController().signal)).toBeNull()
 })

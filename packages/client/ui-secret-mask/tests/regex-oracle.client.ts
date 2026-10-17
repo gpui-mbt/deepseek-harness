@@ -11,8 +11,7 @@ const MASK = '*'
 const VISIBLE_PREFIX = 8
 
 const maskRun = (value: string): string => value.replace(/[^\r\n]/gu, MASK)
-const maskAfterPrefix = (value: string): string =>
-  value.slice(0, VISIBLE_PREFIX) + maskRun(value.slice(VISIBLE_PREFIX))
+const maskAfterPrefix = (value: string): string => value.slice(0, VISIBLE_PREFIX) + maskRun(value.slice(VISIBLE_PREFIX))
 /**
  * Keeps the `BEGIN` line, the `END` line when present, and every line break.
  * A block written on one line has no line to keep and is masked whole.
@@ -89,7 +88,7 @@ export const regexSecretRule: UserTextRule<'secret'> = {
   id: 'secret',
   order: 0,
   match(text, from) {
-    const scans = FORMATS.map((format) => {
+    const scans = FORMATS.map(format => {
       const regex = new RegExp(format.pattern)
       return { format, regex, hit: find(regex, text, from) }
     })

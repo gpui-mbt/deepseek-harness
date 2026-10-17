@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { BrowserWindow, IpcMainInvokeEvent, OpenDialogReturnValue } from 'electron'
 import { DESKTOP_IPC } from '../src/ipc.ts'
 
@@ -9,7 +9,9 @@ const electron = vi.hoisted(() => ({
 vi.mock('electron', () => ({ ipcMain: { handle: electron.handle }, dialog: electron }))
 const { installDesktopDirectoryPicker } = await import('../src/directory-picker.ts')
 
-beforeEach(() => { vi.resetAllMocks() })
+beforeEach(() => {
+  vi.resetAllMocks()
+})
 
 function fixture() {
   const frame = { url: 'dsh-app://app/' }
@@ -26,7 +28,15 @@ function fixture() {
   expect(electron.handle.mock.calls[0]?.[0]).toBe(DESKTOP_IPC.directoryPick)
   const handler = electron.handle.mock.calls[0]![1]
   const event = { sender: window.webContents, senderFrame: frame } as unknown as IpcMainInvokeEvent
-  return { window, frame, event, handler, detach: () => { current = undefined } }
+  return {
+    window,
+    frame,
+    event,
+    handler,
+    detach: () => {
+      current = undefined
+    },
+  }
 }
 
 describe('Desktop directory picker', () => {
@@ -34,7 +44,12 @@ describe('Desktop directory picker', () => {
     const f = fixture()
     f.window.isMinimized.mockReturnValue(true)
     let settle!: (value: OpenDialogReturnValue) => void
-    electron.showOpenDialog.mockImplementation(() => new Promise((resolve) => { settle = resolve }))
+    electron.showOpenDialog.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          settle = resolve
+        }),
+    )
     const first = f.handler(f.event)
     const second = f.handler(f.event)
     expect(electron.showOpenDialog).toHaveBeenCalledExactlyOnceWith(f.window, { properties: ['openDirectory', 'createDirectory'] })

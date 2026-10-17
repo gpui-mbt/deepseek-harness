@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { resolveOxlintInvocation } from './run-oxlint.ts'
 
 describe('Oxlint invocation', () => {
-  it('keeps Oxlint\'s own worker default in CI', () => {
+  it("keeps Oxlint's own worker default in CI", () => {
     expect(resolveOxlintInvocation(['.'], { CI: 'true', PATH: '/bin' }, 256)).toEqual({
       args: ['.', '--format=default'],
       env: { CI: 'true', PATH: '/bin' },
@@ -17,7 +17,7 @@ describe('Oxlint invocation', () => {
     expect(resolveOxlintInvocation(['.'], {}, 4).args).toEqual(['.', '--threads=4'])
   })
 
-  it('passes a caller\'s own worker bound through without the environment setting', () => {
+  it("passes a caller's own worker bound through without the environment setting", () => {
     expect(resolveOxlintInvocation(['.', '--threads=2'], { PATH: '/bin' }, 256)).toEqual({
       args: ['.', '--threads=2'],
       env: { PATH: '/bin' },
@@ -39,17 +39,14 @@ describe('Oxlint invocation', () => {
   })
 
   it('preserves an explicitly selected CI formatter', () => {
-    expect(resolveOxlintInvocation(['.', '--format', 'github'], { CI: 'true' }).args)
-      .toEqual(['.', '--format', 'github'])
+    expect(resolveOxlintInvocation(['.', '--format', 'github'], { CI: 'true' }).args).toEqual(['.', '--format', 'github'])
   })
 
-  it.each(['0', '-1', '1.5', 'auto'])('rejects invalid worker bound %s', (value) => {
-    expect(() => resolveOxlintInvocation(['.'], { DSH_OXLINT_THREADS: value }))
-      .toThrow('DSH_OXLINT_THREADS must be a positive integer')
+  it.each(['0', '-1', '1.5', 'auto'])('rejects invalid worker bound %s', value => {
+    expect(() => resolveOxlintInvocation(['.'], { DSH_OXLINT_THREADS: value })).toThrow('DSH_OXLINT_THREADS must be a positive integer')
   })
 
   it('rejects a competing direct worker bound', () => {
-    expect(() => resolveOxlintInvocation(['.', '--threads=2'], { DSH_OXLINT_THREADS: '4' }))
-      .toThrow('use DSH_OXLINT_THREADS instead')
+    expect(() => resolveOxlintInvocation(['.', '--threads=2'], { DSH_OXLINT_THREADS: '4' })).toThrow('use DSH_OXLINT_THREADS instead')
   })
 })

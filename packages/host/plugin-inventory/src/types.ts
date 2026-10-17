@@ -5,13 +5,7 @@ import type { PluginLocalizedMeta } from '@deepseek-ai/dsh-package-manifest'
 export type PluginEntryId = Branded<'PluginEntryId'>
 
 /** Lifecycle state of an entry's root Fiber, or null when it has no live root Fiber. */
-export type PluginFiberPhase =
-  | 'pending'
-  | 'loading'
-  | 'active'
-  | 'failed'
-  | 'unloading'
-  | null
+export type PluginFiberPhase = 'pending' | 'loading' | 'active' | 'failed' | 'unloading' | null
 
 /** One non-group Loader entry exposed to trusted clients. */
 export interface PluginInventoryEntry {

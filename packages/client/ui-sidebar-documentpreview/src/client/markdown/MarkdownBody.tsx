@@ -15,11 +15,13 @@ function FrontmatterFallback({ fallback }: FrontmatterFieldsProps): ReactNode {
   return fallback
 }
 
-const FrontmatterFields = lazy(() => import('./frontmatter-fields.tsx').then(
-  module => ({ default: module.FrontmatterFields }),
-  // The failed chunk only removes the field layout; the body and verbatim metadata stay usable.
-  () => ({ default: FrontmatterFallback }),
-))
+const FrontmatterFields = lazy(() =>
+  import('./frontmatter-fields.tsx').then(
+    module => ({ default: module.FrontmatterFields }),
+    // The failed chunk only removes the field layout; the body and verbatim metadata stay usable.
+    () => ({ default: FrontmatterFallback }),
+  ),
+)
 
 /** Standard document inputs and this implementation's locale. */
 export type MarkdownBodyProps = DocumentPreviewProps & PropsLocale<'documentMarkdown'>
@@ -33,18 +35,25 @@ export type MarkdownBodyProps = DocumentPreviewProps & PropsLocale<'documentMark
  */
 export function MarkdownBody({ content, resourceAddress, useResource, t }: MarkdownBodyProps): ReactNode {
   const absolutePath = useResource<'file'>(resourceAddress).value?.absolutePath
-  const pathImages = useMemo<MarkdownPathImages>(() => ({
-    resolve: value => markdownImageUrl(document.baseURI, absolutePath, value),
-  }), [absolutePath])
+  const pathImages = useMemo<MarkdownPathImages>(
+    () => ({
+      resolve: value => markdownImageUrl(document.baseURI, absolutePath, value),
+    }),
+    [absolutePath],
+  )
   const copyLabel = t('code.copy')
   const copiedLabel = t('code.copied')
   const footnotes = t('footnotes')
   const codeLabel = t('codeBlock.title')
   const wrapLabel = t('codeBlock.wrap')
   const unwrapLabel = t('codeBlock.unwrap')
-  const labels = useMemo<MarkdownLabels>(() => ({
-    code: { copyLabel, copiedLabel, toolbarLabels: { codeLabel, wrapLabel, unwrapLabel } }, footnotes,
-  }), [copyLabel, copiedLabel, footnotes, codeLabel, wrapLabel, unwrapLabel])
+  const labels = useMemo<MarkdownLabels>(
+    () => ({
+      code: { copyLabel, copiedLabel, toolbarLabels: { codeLabel, wrapLabel, unwrapLabel } },
+      footnotes,
+    }),
+    [copyLabel, copiedLabel, footnotes, codeLabel, wrapLabel, unwrapLabel],
+  )
   const text = content.kind === 'text' ? content.text : ''
   const split = useMemo(() => splitFrontmatter(text), [text])
   if (content.kind !== 'text') return null
@@ -65,7 +74,9 @@ function FrontmatterBox({ source }: { source: string }): ReactNode {
   const verbatim = <pre className={css.frontmatterSource}>{source}</pre>
   return (
     <div className={css.frontmatter} data-document-frontmatter>
-      <Suspense fallback={verbatim}><FrontmatterFields source={source} fallback={verbatim} /></Suspense>
+      <Suspense fallback={verbatim}>
+        <FrontmatterFields source={source} fallback={verbatim} />
+      </Suspense>
     </div>
   )
 }

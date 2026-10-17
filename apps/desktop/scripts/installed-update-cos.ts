@@ -18,7 +18,10 @@ function isMissingObject(error: unknown): boolean {
 async function hashStream(stream: AsyncIterable<Uint8Array>): Promise<InstalledUpdateRemoteObject> {
   const hash = createHash('sha512')
   let size = 0
-  for await (const bytes of stream) { hash.update(bytes); size += bytes.length }
+  for await (const bytes of stream) {
+    hash.update(bytes)
+    size += bytes.length
+  }
   return { sha512: hash.digest('base64'), size }
 }
 
@@ -30,9 +33,14 @@ async function hashStream(stream: AsyncIterable<Uint8Array>): Promise<InstalledU
  */
 export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
   const environment = loadDesktopPackageEnvironment('win32')
-  if (environment.DSH_DESKTOP_AUTO_UPDATE_ENV !== 'test' || environment.DOWNLOAD_TEST_ORIGIN !== ORIGIN
-    || environment.DOWNLOAD_TEST_COS_BUCKET !== BUCKET || !environment.DOWNLOAD_TEST_COS_SECRET_ID?.trim()
-    || !environment.DOWNLOAD_TEST_COS_SECRET_KEY?.trim()) throw new Error('installed update: complete test upload settings are required')
+  if (
+    environment.DSH_DESKTOP_AUTO_UPDATE_ENV !== 'test' ||
+    environment.DOWNLOAD_TEST_ORIGIN !== ORIGIN ||
+    environment.DOWNLOAD_TEST_COS_BUCKET !== BUCKET ||
+    !environment.DOWNLOAD_TEST_COS_SECRET_ID?.trim() ||
+    !environment.DOWNLOAD_TEST_COS_SECRET_KEY?.trim()
+  )
+    throw new Error('installed update: complete test upload settings are required')
   const credentials = {
     secretId: environment.DOWNLOAD_TEST_COS_SECRET_ID,
     secretKey: environment.DOWNLOAD_TEST_COS_SECRET_KEY,
@@ -56,7 +64,11 @@ export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
       let size = 0
       // Output keeps the object out of memory and makes the SDK wait for the write to finish.
       const output = new Writable({
-        write(bytes: Buffer, _encoding, done) { hash.update(bytes); size += bytes.length; done() },
+        write(bytes: Buffer, _encoding, done) {
+          hash.update(bytes)
+          size += bytes.length
+          done()
+        },
       })
       try {
         const cos = client()
@@ -64,7 +76,9 @@ export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
       } catch (error) {
         if (isMissingObject(error)) return null
         throw error
-      } finally { output.destroy() }
+      } finally {
+        output.destroy()
+      }
       return { sha512: hash.digest('base64'), size }
     },
     async publicRead(url) {
@@ -72,13 +86,29 @@ export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
       if (parsed.origin !== ORIGIN || parsed.search || parsed.hash) throw new Error('installed update: exact test public URL is required')
       keyAllowed(parsed.pathname.slice(1))
       const response = await fetch(url, { redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(900_000) })
-      if (response.status === 404) { await response.body?.cancel(); return null }
-      if (!response.ok || !response.body) { await response.body?.cancel(); throw new Error('installed update: public object read failed') }
+      if (response.status === 404) {
+        await response.body?.cancel()
+        return null
+      }
+      if (!response.ok || !response.body) {
+        await response.body?.cancel()
+        throw new Error('installed update: public object read failed')
+      }
       const reader = response.body.getReader()
       async function* bytes() {
         try {
-          for (;;) { const next = await reader.read(); if (next.done) return; yield next.value }
-        } finally { try { await reader.cancel() } finally { reader.releaseLock() } }
+          for (;;) {
+            const next = await reader.read()
+            if (next.done) return
+            yield next.value
+          }
+        } finally {
+          try {
+            await reader.cancel()
+          } finally {
+            reader.releaseLock()
+          }
+        }
       }
       return hashStream(bytes())
     },
@@ -87,7 +117,11 @@ export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
       const md5 = createHash('md5')
       const sha512 = createHash('sha512')
       let size = 0
-      const add = (bytes: Buffer): void => { md5.update(bytes); sha512.update(bytes); size += bytes.length }
+      const add = (bytes: Buffer): void => {
+        md5.update(bytes)
+        sha512.update(bytes)
+        size += bytes.length
+      }
       if ('path' in object.source) {
         for await (const bytes of createReadStream(object.source.path)) add(bytes as Buffer)
       } else add(Buffer.from(object.source.contents))
@@ -96,17 +130,25 @@ export function createInstalledUpdateCos(): InstalledUpdatePublicationStore {
       }
       const headers: Record<string, string> = { 'Content-MD5': md5.digest('base64') }
       if (object.forbidOverwrite) headers['x-cos-forbid-overwrite'] = 'true'
-      const body = 'path' in object.source
-        ? createReadStream(object.source.path)
-        : Readable.from([Buffer.from(object.source.contents)])
+      const body = 'path' in object.source ? createReadStream(object.source.path) : Readable.from([Buffer.from(object.source.contents)])
       try {
         const cos = client()
-        const response = await cosOperation(cos, 900_000, () => cos.putObject({
-          Bucket: BUCKET, Region: DESKTOP_COS_REGION, Key: key, Body: body,
-          ContentLength: object.size, ContentType: key.endsWith('.yml') ? 'application/yaml' : 'application/octet-stream',
-          CacheControl: 'no-store', Headers: headers }))
+        const response = await cosOperation(cos, 900_000, () =>
+          cos.putObject({
+            Bucket: BUCKET,
+            Region: DESKTOP_COS_REGION,
+            Key: key,
+            Body: body,
+            ContentLength: object.size,
+            ContentType: key.endsWith('.yml') ? 'application/yaml' : 'application/octet-stream',
+            CacheControl: 'no-store',
+            Headers: headers,
+          }),
+        )
         return response.RequestId === undefined ? {} : { requestId: response.RequestId }
-      } finally { body.destroy() }
+      } finally {
+        body.destroy()
+      }
     },
   }
 }

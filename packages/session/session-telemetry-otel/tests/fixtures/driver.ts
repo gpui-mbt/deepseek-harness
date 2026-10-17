@@ -58,7 +58,7 @@ try {
   await writeFile('./otlp-captures.json', JSON.stringify(captures))
 } finally {
   await new Promise<void>((resolve, reject) => {
-    server.close((error) => {
+    server.close(error => {
       if (error === undefined) resolve()
       else reject(error)
     })

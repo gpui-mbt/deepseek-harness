@@ -6,12 +6,10 @@
  * serialize per Session, and a disposed controller stops publishing.
  */
 import { RemoteMock, ok } from '@deepseek-ai/dsh-remote-mock'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { MessageId, SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import type {
-  MessageFeedbackItem, MessageFeedbackVersion,
-} from '@deepseek-ai/dsh-message-feedback/types'
+import type { MessageFeedbackItem, MessageFeedbackVersion } from '@deepseek-ai/dsh-message-feedback/types'
 import { MessageFeedbackController } from '../src/client/controller.ts'
 
 const SESSION = 's-1' as SessionId
@@ -66,10 +64,14 @@ describe('MessageFeedbackController', () => {
   it('sends ifVersion null for a first rating and the observed version afterwards', async () => {
     const first = item({ version: version('v1') })
     const second = item({ version: version('v2'), rating: 'negative' })
-    mock.remote.messageFeedback.put.mockImplementation(request => Promise.resolve(ok({
-      ok: true,
-      value: request.rating === 'positive' ? first : second,
-    })))
+    mock.remote.messageFeedback.put.mockImplementation(request =>
+      Promise.resolve(
+        ok({
+          ok: true,
+          value: request.rating === 'positive' ? first : second,
+        }),
+      ),
+    )
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
 
     expect(await controller.rate(MSG, 'positive')).toEqual({ ok: true })
@@ -94,9 +96,12 @@ describe('MessageFeedbackController', () => {
   })
 
   it('retract deletes a matching rating and ignores an opposite judgment', async () => {
-    mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({
-      ok: true, value: { items: [item({ note: 'stored', category: 'other' })] },
-    }))
+    mock.remote.messageFeedback.list.mockResolvedValueOnce(
+      ok({
+        ok: true,
+        value: { items: [item({ note: 'stored', category: 'other' })] },
+      }),
+    )
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
 
     expect(await controller.retract(MSG, 'negative')).toEqual({ ok: true })
@@ -104,7 +109,9 @@ describe('MessageFeedbackController', () => {
 
     expect(mock.remote.messageFeedback.put).not.toHaveBeenCalled()
     expect(mock.remote.messageFeedback.delete).toHaveBeenCalledExactlyOnceWith({
-      sessionId: SESSION, messageId: MSG, ifVersion: version('v1'),
+      sessionId: SESSION,
+      messageId: MSG,
+      ifVersion: version('v1'),
     })
   })
 
@@ -128,10 +135,12 @@ describe('MessageFeedbackController', () => {
 
   it('reconciles a version conflict from the authoritative item without refetching', async () => {
     const authoritative = item({ version: version('v9'), rating: 'negative', note: 'changed elsewhere' })
-    mock.remote.messageFeedback.put.mockResolvedValueOnce(ok({
-      ok: false,
-      error: { code: 'version-conflict', current: authoritative },
-    }))
+    mock.remote.messageFeedback.put.mockResolvedValueOnce(
+      ok({
+        ok: false,
+        error: { code: 'version-conflict', current: authoritative },
+      }),
+    )
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
 
     expect(await controller.rate(MSG, 'positive')).toEqual({
@@ -145,10 +154,12 @@ describe('MessageFeedbackController', () => {
 
   it('drops the local item when a conflict reports the feedback is gone', async () => {
     mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({ ok: true, value: { items: [item()] } }))
-    mock.remote.messageFeedback.delete.mockResolvedValueOnce(ok({
-      ok: false,
-      error: { code: 'version-conflict', current: null },
-    }))
+    mock.remote.messageFeedback.delete.mockResolvedValueOnce(
+      ok({
+        ok: false,
+        error: { code: 'version-conflict', current: null },
+      }),
+    )
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
     await controller.ensure()
 
@@ -157,16 +168,21 @@ describe('MessageFeedbackController', () => {
   })
 
   it('deletes with the observed version and removes the item on success', async () => {
-    mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({
-      ok: true, value: { items: [item({ version: version('v7') })] },
-    }))
+    mock.remote.messageFeedback.list.mockResolvedValueOnce(
+      ok({
+        ok: true,
+        value: { items: [item({ version: version('v7') })] },
+      }),
+    )
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
     await controller.ensure()
 
     expect(await controller.retract(MSG, 'positive')).toEqual({ ok: true })
 
     expect(mock.remote.messageFeedback.delete).toHaveBeenCalledExactlyOnceWith({
-      sessionId: SESSION, messageId: MSG, ifVersion: version('v7'),
+      sessionId: SESSION,
+      messageId: MSG,
+      ifVersion: version('v7'),
     })
     expect(controller.getSnapshot().items.has(MSG)).toBe(false)
   })
@@ -196,9 +212,12 @@ describe('MessageFeedbackController', () => {
   })
 
   it('publishes an error status when the list read is rejected by the Host', async () => {
-    mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({
-      ok: false, error: { code: 'session-not-found', sessionId: SESSION },
-    }))
+    mock.remote.messageFeedback.list.mockResolvedValueOnce(
+      ok({
+        ok: false,
+        error: { code: 'session-not-found', sessionId: SESSION },
+      }),
+    )
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
 
     expect(await controller.ensure()).toMatchObject({ ok: false, error: { code: 'session-not-found' } })
@@ -225,7 +244,9 @@ describe('MessageFeedbackController', () => {
   it('contains a throwing subscriber at the observable boundary', async () => {
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    controller.subscribe(() => { throw new Error('subscriber exploded') })
+    controller.subscribe(() => {
+      throw new Error('subscriber exploded')
+    })
     const healthy = vi.fn()
     controller.subscribe(healthy)
 
@@ -258,9 +279,12 @@ describe('MessageFeedbackController', () => {
       ['note-too-large', 'the note is too long'],
     ] as const
     for (const [code, message] of codes) {
-      mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({
-        ok: false, error: { code, sessionId: SESSION },
-      } as never))
+      mock.remote.messageFeedback.list.mockResolvedValueOnce(
+        ok({
+          ok: false,
+          error: { code, sessionId: SESSION },
+        } as never),
+      )
       const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
       expect(await controller.ensure()).toMatchObject({ ok: false, error: { code } })
       expect(controller.getSnapshot().error).toBe(message)
@@ -268,9 +292,12 @@ describe('MessageFeedbackController', () => {
   })
 
   it('falls back to the raw code for an unrecognized failure', async () => {
-    mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({
-      ok: false, error: { code: 'brand-new-code' },
-    } as never))
+    mock.remote.messageFeedback.list.mockResolvedValueOnce(
+      ok({
+        ok: false,
+        error: { code: 'brand-new-code' },
+      } as never),
+    )
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
 
     expect(await controller.ensure()).toMatchObject({ ok: false, error: { code: 'brand-new-code' } })
@@ -279,7 +306,9 @@ describe('MessageFeedbackController', () => {
 
   it('publishes nothing when the list settles after disposal', async () => {
     let release = (): void => {}
-    const gate = new Promise<void>((resolve) => { release = resolve })
+    const gate = new Promise<void>(resolve => {
+      release = resolve
+    })
     mock.remote.messageFeedback.list.mockImplementationOnce(async () => {
       await gate
       return ok({ ok: true, value: { items: [item()] } })
@@ -298,9 +327,12 @@ describe('MessageFeedbackController', () => {
   })
 
   it('propagates a failed load to a queued mutation without calling the wire', async () => {
-    mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({
-      ok: false, error: { code: 'session-not-found', sessionId: SESSION },
-    }))
+    mock.remote.messageFeedback.list.mockResolvedValueOnce(
+      ok({
+        ok: false,
+        error: { code: 'session-not-found', sessionId: SESSION },
+      }),
+    )
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
 
     expect(await controller.rate(MSG, 'positive')).toMatchObject({
@@ -321,10 +353,7 @@ describe('MessageFeedbackController', () => {
     })
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
 
-    const [a, b] = await Promise.all([
-      controller.rate(MSG, 'positive'),
-      controller.rate(MSG, 'negative'),
-    ])
+    const [a, b] = await Promise.all([controller.rate(MSG, 'positive'), controller.rate(MSG, 'negative')])
 
     expect(a).toMatchObject({ ok: false, error: { code: 'gateway/internal' } })
     expect(b).toEqual({ ok: true })
@@ -336,10 +365,15 @@ describe('MessageFeedbackController', () => {
     // exercises commit()'s own guard: the call is already in flight when the
     // fiber unloads, and its authoritative item must not be published.
     let release = (): void => {}
-    const gate = new Promise<void>((resolve) => { release = resolve })
-    mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({
-      ok: true, value: { items: [item({ version: version('v1') })] },
-    }))
+    const gate = new Promise<void>(resolve => {
+      release = resolve
+    })
+    mock.remote.messageFeedback.list.mockResolvedValueOnce(
+      ok({
+        ok: true,
+        value: { items: [item({ version: version('v1') })] },
+      }),
+    )
     mock.remote.messageFeedback.put.mockImplementationOnce(async () => {
       await gate
       return ok({
@@ -363,7 +397,9 @@ describe('MessageFeedbackController', () => {
 
   it('drops a delete conflict reconciliation once disposed mid-flight', async () => {
     let release = (): void => {}
-    const gate = new Promise<void>((resolve) => { release = resolve })
+    const gate = new Promise<void>(resolve => {
+      release = resolve
+    })
     mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({ ok: true, value: { items: [item()] } }))
     mock.remote.messageFeedback.delete.mockImplementationOnce(async () => {
       await gate
@@ -386,9 +422,12 @@ describe('MessageFeedbackController', () => {
   it('leaves the local item untouched when a rating fails for a non-conflict reason', async () => {
     const existing = item({ version: version('v3'), rating: 'positive' })
     mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({ ok: true, value: { items: [existing] } }))
-    mock.remote.messageFeedback.put.mockResolvedValueOnce(ok({
-      ok: false, error: { code: 'note-too-large', maxBytes: 8, actualBytes: 9 },
-    }))
+    mock.remote.messageFeedback.put.mockResolvedValueOnce(
+      ok({
+        ok: false,
+        error: { code: 'note-too-large', maxBytes: 8, actualBytes: 9 },
+      }),
+    )
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
     await controller.ensure()
 
@@ -402,9 +441,12 @@ describe('MessageFeedbackController', () => {
   it('leaves the local item untouched when a delete fails for a non-conflict reason', async () => {
     const existing = item({ version: version('v4') })
     mock.remote.messageFeedback.list.mockResolvedValueOnce(ok({ ok: true, value: { items: [existing] } }))
-    mock.remote.messageFeedback.delete.mockResolvedValueOnce(ok({
-      ok: false, error: { code: 'session-not-found', sessionId: SESSION },
-    }))
+    mock.remote.messageFeedback.delete.mockResolvedValueOnce(
+      ok({
+        ok: false,
+        error: { code: 'session-not-found', sessionId: SESSION },
+      }),
+    )
     const controller = new MessageFeedbackController(mock.remote.messageFeedback, SESSION)
     await controller.ensure()
 
@@ -420,7 +462,9 @@ describe('MessageFeedbackController', () => {
     // and resurrect the version that put had already replaced.
     const order: string[] = []
     let releasePut = (): void => {}
-    const putGate = new Promise<void>((r) => { releasePut = r })
+    const putGate = new Promise<void>(r => {
+      releasePut = r
+    })
     mock.remote.messageFeedback.list.mockImplementation(() => {
       order.push('list')
       return Promise.resolve(ok({ ok: true, value: { items: [item({ version: version('v1') })] } }))
@@ -448,9 +492,13 @@ describe('MessageFeedbackController', () => {
     // mutation is already past the admission check and must be stopped by the
     // second guard that runs after ensure() resolves.
     let release = (): void => {}
-    const gate = new Promise<void>((r) => { release = r })
+    const gate = new Promise<void>(r => {
+      release = r
+    })
     let started = (): void => {}
-    const listStarted = new Promise<void>((r) => { started = r })
+    const listStarted = new Promise<void>(r => {
+      started = r
+    })
     mock.remote.messageFeedback.list.mockImplementationOnce(async () => {
       started()
       await gate

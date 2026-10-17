@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 
 import { Profiler } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
-  TeamMemberProjection, TeamProjection, TeamTaskId, TeamTaskView as TeamTask,
+  TeamMemberProjection,
+  TeamProjection,
+  TeamTaskId,
+  TeamTaskView as TeamTask,
 } from '@deepseek-ai/dsh-experimental-agent-team/client'
 import type { SessionListState, SessionSnapshot, SessionSummary, UseProjection } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
@@ -40,7 +43,10 @@ const task: TeamTask = {
 }
 const lead: TeamMemberProjection = { id: SESSION, name: 'lead', role: 'lead', phase: 'active' }
 const worker: TeamMemberProjection = {
-  id: WORKER, name: 'worker', role: 'teammate', phase: 'active',
+  id: WORKER,
+  name: 'worker',
+  role: 'teammate',
+  phase: 'active',
 }
 const team: TeamProjection = { members: [lead, worker], tasks: [task] }
 
@@ -50,19 +56,23 @@ function summary(id: SessionId, running: boolean): SessionSummary {
   return { id, displayTitle: id, running, retainedBy: {}, blank: false, updatedAt: 0 }
 }
 
-function bench(options: {
-  projections?: Projections
-  sessionId?: SessionId
-  parentSessionId?: SessionId
-  openState?: SessionSnapshot['openState']
-  statuses?: SessionStatusSnapshot
-  running?: Record<SessionId, boolean>
-} = {}) {
+function bench(
+  options: {
+    projections?: Projections
+    sessionId?: SessionId
+    parentSessionId?: SessionId
+    openState?: SessionSnapshot['openState']
+    statuses?: SessionStatusSnapshot
+    running?: Record<SessionId, boolean>
+  } = {},
+) {
   const sessionId = options.sessionId ?? SESSION
   const byId: Record<SessionId, SessionSummary> = {}
   for (const [id, running] of Object.entries(options.running ?? {}) as [SessionId, boolean][]) byId[id] = summary(id, running)
   const sessions = createSnapshotStore<SessionListState>({
-    ids: Object.keys(byId) as SessionId[], byId, phase: 'ready',
+    ids: Object.keys(byId) as SessionId[],
+    byId,
+    phase: 'ready',
     projectionsBySession: options.projections ?? { [SESSION]: { state: 'ready', error: null, values: { agentTeam: team } } },
   })
   const statuses = createSnapshotStore<SessionStatusSnapshot>(options.statuses ?? new Map())
@@ -70,9 +80,10 @@ function bench(options: {
     sessionId,
     pendingSubmissions: [],
     running: false,
-    subagent: options.parentSessionId === undefined
-      ? null
-      : { address: { parentSessionId: options.parentSessionId, childSessionId: sessionId, mode: 'continuable' } },
+    subagent:
+      options.parentSessionId === undefined
+        ? null
+        : { address: { parentSessionId: options.parentSessionId, childSessionId: sessionId, mode: 'continuable' } },
     removed: false,
     openState: options.openState ?? 'open',
     openError: null,
@@ -90,9 +101,9 @@ function bench(options: {
     sessionId,
     useSession: bindSnapshotSelector(session),
     useProjection: ((key: string, select?: (value: unknown) => unknown) => {
-      const value = useSessions(state => state.projectionsBySession[sessionId]?.values[
-        key as keyof SessionListState['projectionsBySession'][SessionId]['values']
-      ])
+      const value = useSessions(
+        state => state.projectionsBySession[sessionId]?.values[key as keyof SessionListState['projectionsBySession'][SessionId]['values']],
+      )
       return select === undefined ? value : select(value)
     }) as UseProjection,
     useSessions,
@@ -148,12 +159,16 @@ describe('TeamAction', () => {
       running: { [SESSION]: true },
       projections: {
         [SESSION]: {
-          state: 'ready', error: null,
+          state: 'ready',
+          error: null,
           values: { agentTeam: team, modelSelection: { lastUsed: null, next: { provider: 'p', model: 'lead-model' } } },
         },
         [WORKER]: {
-          state: 'ready', error: null,
-          values: { modelSelection: { lastUsed: { provider: 'p', model: 'worker-model' }, next: { provider: 'p', model: 'worker-model' } } },
+          state: 'ready',
+          error: null,
+          values: {
+            modelSelection: { lastUsed: { provider: 'p', model: 'worker-model' }, next: { provider: 'p', model: 'worker-model' } },
+          },
         },
       },
     })
@@ -163,12 +178,16 @@ describe('TeamAction', () => {
     const row = screen.getByRole('button', { name: new RegExp(`worker.*${zh['memberStatus.running']}.*worker-model`, 'u') })
     expect(row.querySelector('[data-state="ongoing"]')).not.toBeNull()
 
-    act(() => { b.statuses.set(new Map([[WORKER, { running: false, pendingInteraction: undefined, completionUnread: false }]])) })
+    act(() => {
+      b.statuses.set(new Map([[WORKER, { running: false, pendingInteraction: undefined, completionUnread: false }]]))
+    })
     expect(screen.getByRole('button', { name: /^worker.*未运行/u })).toBeTruthy()
 
     act(() => {
       b.statuses.set(new Map())
-      b.sessions.update((draft) => { draft.byId[WORKER] = summary(WORKER, true) })
+      b.sessions.update(draft => {
+        draft.byId[WORKER] = summary(WORKER, true)
+      })
     })
     expect(screen.getByRole('button', { name: /^worker.*运行中/u })).toBeTruthy()
   })
@@ -183,15 +202,18 @@ describe('TeamAction', () => {
     expect(b.injected.openTeammate).toHaveBeenCalledWith(WORKER, SESSION)
   })
 
-  it.each([false, true])('accepts shared baselines and late capability updates (teammate page: %s)', (addressed) => {
+  it.each([false, true])('accepts shared baselines and late capability updates (teammate page: %s)', addressed => {
     const b = bench({
       ...(addressed ? { sessionId: WORKER, parentSessionId: SESSION } : {}),
-      projections: {}, openState: 'loading',
+      projections: {},
+      openState: 'loading',
     })
     render(<TeamAction {...b.props} />)
     openPanel()
     expect(screen.getByRole('status').textContent).toBe(zh.loading)
-    act(() => { b.session.set({ ...b.session.getSnapshot(), openState: 'open' }) })
+    act(() => {
+      b.session.set({ ...b.session.getSnapshot(), openState: 'open' })
+    })
     expect(screen.getByRole('status').textContent).toBe(zh.unavailable)
     setProjectionSnapshot(b.sessions, SESSION, { state: 'idle', error: null, values: { agentTeam: team } })
     expect(screen.getByText('Implement runtime')).toBeTruthy()
@@ -204,29 +226,39 @@ describe('TeamAction', () => {
 
   it('waits for the shared Session list and accepts cached projections without an explicit read', () => {
     const b = bench({ projections: {} })
-    b.sessions.update((draft) => { draft.phase = 'pending' })
+    b.sessions.update(draft => {
+      draft.phase = 'pending'
+    })
     render(<TeamAction {...b.props} />)
     openPanel()
     expect(screen.getByRole('status').textContent).toBe(zh.loading)
-    act(() => { b.sessions.set({
-      ...b.sessions.getSnapshot(), phase: 'ready',
-      projectionsBySession: { [SESSION]: { state: 'idle', error: null, values: { agentTeam: team } } },
-    }) })
+    act(() => {
+      b.sessions.set({
+        ...b.sessions.getSnapshot(),
+        phase: 'ready',
+        projectionsBySession: { [SESSION]: { state: 'idle', error: null, values: { agentTeam: team } } },
+      })
+    })
     expect(screen.getByText('Implement runtime')).toBeTruthy()
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it.each([false, true])('ignores unrelated Session updates (teammate page: %s)', (addressed) => {
+  it.each([false, true])('ignores unrelated Session updates (teammate page: %s)', addressed => {
     const b = bench(addressed ? { sessionId: WORKER, parentSessionId: SESSION } : {})
     const onRender = vi.fn()
-    render(<Profiler id="team" onRender={onRender}><TeamAction {...b.props} /></Profiler>)
+    render(
+      <Profiler id="team" onRender={onRender}>
+        <TeamAction {...b.props} />
+      </Profiler>,
+    )
     openPanel()
     onRender.mockClear()
 
     act(() => {
       const current = b.sessions.getSnapshot()
-      const projectionsBySession = Object.fromEntries(Object.entries(current.projectionsBySession)
-        .map(([id, snapshot]) => [id, { ...snapshot }]))
+      const projectionsBySession = Object.fromEntries(
+        Object.entries(current.projectionsBySession).map(([id, snapshot]) => [id, { ...snapshot }]),
+      )
       b.sessions.set({
         ...current,
         byId: { ...current.byId, ['unrelated' as SessionId]: summary('unrelated' as SessionId, true) },
@@ -240,7 +272,8 @@ describe('TeamAction', () => {
     expect(onRender).not.toHaveBeenCalled()
 
     setProjectionSnapshot(b.sessions, WORKER, {
-      state: 'ready', error: null,
+      state: 'ready',
+      error: null,
       values: { modelSelection: { lastUsed: null, next: { provider: 'p', model: 'updated-worker-model' } } },
     })
     expect(screen.getByRole('button', { name: /worker.*updated-worker-model/u })).toBeTruthy()
@@ -258,7 +291,9 @@ describe('TeamAction', () => {
 
   it('surfaces a Team projection failure beside the last valid state', () => {
     const b = bench({
-      projections: { [SESSION]: { state: 'ready', error: null, values: { agentTeam: { ...team, failure: 'revision is not contiguous' } } } },
+      projections: {
+        [SESSION]: { state: 'ready', error: null, values: { agentTeam: { ...team, failure: 'revision is not contiguous' } } },
+      },
     })
     render(<TeamAction {...b.props} />)
     openPanel()
@@ -271,7 +306,8 @@ describe('TeamAction', () => {
     const b = bench({
       projections: {
         [SESSION]: {
-          state: 'ready', error: null,
+          state: 'ready',
+          error: null,
           values: {
             agentTeam: {
               members: [
@@ -290,7 +326,9 @@ describe('TeamAction', () => {
         },
       },
     })
-    b.injected.openTeammate = vi.fn(() => { throw new Error('navigation failed') })
+    b.injected.openTeammate = vi.fn(() => {
+      throw new Error('navigation failed')
+    })
     render(<TeamAction {...b.props} {...b.injected} />)
     openPanel()
     expect(screen.getByText('provider failed')).toBeTruthy()
@@ -306,8 +344,7 @@ describe('TeamAction', () => {
     expect(provisioningMember.querySelector('[data-state="ongoing"]')).not.toBeNull()
     expect(screen.getByRole<HTMLButtonElement>('button', { name: /^lead/u }).disabled).toBe(true)
     const tasks = [...document.querySelectorAll('article')]
-    expect(tasks.map(card => card.querySelector('[data-state]')?.getAttribute('data-state')))
-      .toEqual(['idle', 'warning', 'done'])
+    expect(tasks.map(card => card.querySelector('[data-state]')?.getAttribute('data-state'))).toEqual(['idle', 'warning', 'done'])
     for (const card of tasks) expect(card.querySelector('button, input, select, textarea')).toBeNull()
 
     fireEvent.click(screen.getByRole('button', { name: /^worker/u }))
@@ -319,7 +356,9 @@ describe('TeamAction', () => {
 
   it('closes the panel and clears a navigation failure when the conversation switches sessions', () => {
     const b = bench()
-    b.injected.openTeammate = vi.fn(() => { throw new Error('navigation failed') })
+    b.injected.openTeammate = vi.fn(() => {
+      throw new Error('navigation failed')
+    })
     const rendered = render(<TeamAction {...b.props} {...b.injected} />)
     openPanel()
     fireEvent.click(screen.getByRole('button', { name: /^worker/u }))
@@ -357,7 +396,7 @@ describe('TeamAction', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it.each([true, false])('clamps a long task description behind an expand toggle (ResizeObserver: %s)', async (resizeObserver) => {
+  it.each([true, false])('clamps a long task description behind an expand toggle (ResizeObserver: %s)', async resizeObserver => {
     if (!resizeObserver) vi.stubGlobal('ResizeObserver', undefined)
     const scrollHeight = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(120)
     const clientHeight = vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(60)
@@ -385,7 +424,9 @@ describe('TeamAction', () => {
   it('opens on hover and preserves the trigger-to-panel crossing grace', async () => {
     vi.useFakeTimers()
     const advance = async (duration: number): Promise<void> => {
-      await act(async () => { await vi.advanceTimersByTimeAsync(duration) })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(duration)
+      })
     }
     const b = bench()
     const rendered = render(<TeamAction {...b.props} />)
@@ -421,7 +462,9 @@ describe('TeamAction', () => {
   it('pins a click-opened panel through hover-out until explicit dismissal', async () => {
     vi.useFakeTimers()
     const advance = async (duration: number): Promise<void> => {
-      await act(async () => { await vi.advanceTimersByTimeAsync(duration) })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(duration)
+      })
     }
     render(<TeamAction {...bench().props} />)
     const trigger = screen.getByRole('button', { name: /智能体团队/u })
@@ -458,14 +501,17 @@ describe('TeamAction', () => {
   it('opens by click only while the trigger is collapsed to its icon', async () => {
     vi.useFakeTimers()
     const advance = async (duration: number): Promise<void> => {
-      await act(async () => { await vi.advanceTimersByTimeAsync(duration) })
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(duration)
+      })
     }
     render(<TeamAction {...bench().props} />)
     const trigger = screen.getByRole('button', { name: /智能体团队/u })
     const label = screen.getByText(zh.trigger)
     const computedStyle = window.getComputedStyle.bind(window)
     vi.spyOn(window, 'getComputedStyle').mockImplementation(element =>
-      element === label ? { display: 'none' } as CSSStyleDeclaration : computedStyle(element))
+      element === label ? ({ display: 'none' } as CSSStyleDeclaration) : computedStyle(element),
+    )
 
     fireEvent.mouseEnter(trigger)
     await advance(300)
@@ -480,7 +526,9 @@ describe('TeamAction', () => {
     const b = bench()
     render(<TeamAction {...b.props} />)
     openPanel()
-    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000)
+    })
     setProjection(b.sessions, SESSION, { ...team, tasks: [{ ...task, subject: 'Pushed while pinned' }] })
     expect(screen.getByText('Pushed while pinned')).toBeTruthy()
   })
@@ -493,11 +541,18 @@ describe('TeamAction', () => {
 
   it('dismisses a hovered panel with Escape without stealing composer focus', async () => {
     vi.useFakeTimers()
-    render(<><textarea aria-label="Composer" /><TeamAction {...bench().props} /></>)
+    render(
+      <>
+        <textarea aria-label="Composer" />
+        <TeamAction {...bench().props} />
+      </>,
+    )
     const composer = screen.getByRole('textbox')
     composer.focus()
     fireEvent.mouseEnter(screen.getByRole('button', { name: zh.trigger }))
-    await act(async () => { await vi.advanceTimersByTimeAsync(150) })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(150)
+    })
     expect(screen.getByRole('dialog')).toBeTruthy()
     fireEvent.keyDown(composer, { key: 'a' })
     expect(screen.getByRole('dialog')).toBeTruthy()
@@ -512,15 +567,21 @@ it('keeps the hover panel open when the pointer returns directly to its trigger'
   render(<TeamAction {...bench().props} />)
   const trigger = screen.getByRole('button', { name: zh.trigger })
   fireEvent.mouseOver(trigger, { relatedTarget: document.body })
-  await act(async () => { await vi.advanceTimersByTimeAsync(150) })
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(150)
+  })
   const panel = screen.getByRole('dialog')
   fireEvent.mouseOut(trigger, { relatedTarget: panel })
   fireEvent.mouseOver(panel, { relatedTarget: trigger })
-  await act(async () => { await vi.advanceTimersByTimeAsync(150) })
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(150)
+  })
   expect(screen.getByRole('dialog')).toBe(panel)
   fireEvent.mouseOut(panel, { relatedTarget: trigger })
   fireEvent.mouseOver(trigger, { relatedTarget: panel })
-  await act(async () => { await vi.advanceTimersByTimeAsync(150) })
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(150)
+  })
   expect(screen.getByRole('dialog')).toBe(panel)
 })
 
@@ -530,10 +591,14 @@ it('cancels pending hover dismissal when the trigger is activated from the keybo
   const trigger = screen.getByRole('button', { name: zh.trigger })
   trigger.focus()
   fireEvent.mouseOver(trigger, { relatedTarget: document.body })
-  await act(async () => { await vi.advanceTimersByTimeAsync(150) })
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(150)
+  })
   fireEvent.mouseOut(trigger, { relatedTarget: document.body })
   fireEvent.click(trigger, { detail: 0 })
-  await act(async () => { await vi.advanceTimersByTimeAsync(120) })
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(120)
+  })
   expect(screen.getByRole('dialog')).toBe(document.activeElement)
 })
 
@@ -543,7 +608,9 @@ it('updates expansion availability on paragraph resize and disconnects its obser
     observe = vi.fn<ResizeObserver['observe']>()
     unobserve = vi.fn<ResizeObserver['unobserve']>()
     disconnect = vi.fn()
-    constructor(readonly callback: ResizeObserverCallback) { observers.push(this) }
+    constructor(readonly callback: ResizeObserverCallback) {
+      observers.push(this)
+    }
   }
   vi.stubGlobal('ResizeObserver', TestResizeObserver)
   const scrollHeight = vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(36)
@@ -555,10 +622,14 @@ it('updates expansion availability on paragraph resize and disconnects its obser
   expect(observer).toBeDefined()
   expect(screen.queryByRole('button', { name: zh['task.expand'] })).toBeNull()
   scrollHeight.mockReturnValue(72)
-  act(() => { observer.callback([], observer) })
+  act(() => {
+    observer.callback([], observer)
+  })
   expect(screen.getByRole('button', { name: zh['task.expand'] })).toBeTruthy()
   scrollHeight.mockReturnValue(36)
-  act(() => { observer.callback([], observer) })
+  act(() => {
+    observer.callback([], observer)
+  })
   expect(screen.queryByRole('button', { name: zh['task.expand'] })).toBeNull()
   view.unmount()
   expect(observer.disconnect).toHaveBeenCalledOnce()

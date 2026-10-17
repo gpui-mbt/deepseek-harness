@@ -30,9 +30,9 @@ function reportPublishOrder(family: ReleaseFamily, plan: PublishPlan): void {
   }
   if (plan.droppedPeerEdges.length === 0) return
   console.log(
-    `release verify: ${String(plan.droppedPeerEdges.length)} peer declaration(s) publish unordered,`
-    + ' because the peer cannot precede the package declaring it without contradicting a dependency edge'
-    + ' or its own cycle. npm treats an unmet peer as a warning, so this orders nothing and blocks nothing:',
+    `release verify: ${String(plan.droppedPeerEdges.length)} peer declaration(s) publish unordered,` +
+      ' because the peer cannot precede the package declaring it without contradicting a dependency edge' +
+      ' or its own cycle. npm treats an unmet peer as a warning, so this orders nothing and blocks nothing:',
   )
   for (const edge of plan.droppedPeerEdges) console.log(`  ${edge.consumer} -> ${edge.peer}`)
 }
@@ -86,9 +86,7 @@ function main(): void {
   // rather than when pack is already writing tarballs.
   const plan = family.publishOrder(members)
   if (plan.order.length !== members.length) {
-    throw new Error(
-      `release family ${family.id}: publish order covers ${String(plan.order.length)} of ${String(members.length)} members`,
-    )
+    throw new Error(`release family ${family.id}: publish order covers ${String(plan.order.length)} of ${String(members.length)} members`)
   }
   reportPublishOrder(family, plan)
 
@@ -101,9 +99,9 @@ function main(): void {
   const versions = [...new Set(members.map(member => member.version))]
   const summary = versions.length === 1 ? versions[0] : `${String(versions.length)} versions`
   console.log(
-    `release verify: family ${family.id}, ${String(members.length)} member(s), ${summary},`
-    + ` publish order resolved, ${String(plan.droppedPeerEdges.length)} peer declaration(s) unordered`
-    + (publishing ? ', publish gates passed' : ''),
+    `release verify: family ${family.id}, ${String(members.length)} member(s), ${summary},` +
+      ` publish order resolved, ${String(plan.droppedPeerEdges.length)} peer declaration(s) unordered` +
+      (publishing ? ', publish gates passed' : ''),
   )
 }
 

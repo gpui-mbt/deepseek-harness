@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { AGENT_A, CLIENT_CODE, setup } from './helpers.ts'
 
 const HOST = 'return { apply() {} }'
@@ -22,8 +22,10 @@ describe('dynamic Plugin versions', () => {
       purpose: 'show time',
       code: { host: 'throw new Error("broken update")' },
     })
-    await expect(runner.run(AGENT_A, first.pluginId, second.packageId, 'update'))
-      .resolves.toMatchObject({ ok: false, reason: 'host-half-failed' })
+    await expect(runner.run(AGENT_A, first.pluginId, second.packageId, 'update')).resolves.toMatchObject({
+      ok: false,
+      reason: 'host-half-failed',
+    })
     expect(runner.inventory()[0]).toMatchObject({
       currentPackageId: first.packageId,
       nextPackageId: second.packageId,
@@ -55,14 +57,9 @@ describe('dynamic Plugin versions', () => {
     const approval = request as {
       requestId: Parameters<typeof runner.runHostHalf>[4]
     }
-    await expect(runner.runHostHalf(
-      AGENT_A,
-      defined.pluginId,
-      defined.packageId,
-      'run',
-      approval.requestId,
-      false,
-    )).resolves.toMatchObject({ ok: true, startedHere: true })
+    await expect(runner.runHostHalf(AGENT_A, defined.pluginId, defined.packageId, 'run', approval.requestId, false)).resolves.toMatchObject(
+      { ok: true, startedHere: true },
+    )
 
     controller.abort()
 
@@ -84,21 +81,25 @@ describe('dynamic Plugin versions', () => {
     const first = await runner.runHostHalf(AGENT_A, defined.pluginId, defined.packageId, 'run', null, false)
     expect(first).toMatchObject({ ok: true, startedHere: true })
     if (!first.ok) throw new Error(first.message)
-    await expect(runner.settleUserRun(AGENT_A, defined.pluginId, {
-      ok: true,
-      pluginRunId: first.pluginRunId,
-    })).resolves.toMatchObject({ ok: true })
+    await expect(
+      runner.settleUserRun(AGENT_A, defined.pluginId, {
+        ok: true,
+        pluginRunId: first.pluginRunId,
+      }),
+    ).resolves.toMatchObject({ ok: true })
 
     const attached = await runner.runHostHalf(AGENT_A, defined.pluginId, defined.packageId, 'run', null, false)
     expect(attached).toMatchObject({ ok: true, startedHere: false })
     if (!attached.ok) throw new Error(attached.message)
-    await expect(runner.settleUserRun(AGENT_A, defined.pluginId, {
-      ok: false,
-      reason: 'client-half-failed',
-      pluginRunId: attached.pluginRunId,
-      startedHere: attached.startedHere,
-      message: 'this page cannot load it',
-    })).resolves.toMatchObject({ ok: false, reason: 'client-half-failed' })
+    await expect(
+      runner.settleUserRun(AGENT_A, defined.pluginId, {
+        ok: false,
+        reason: 'client-half-failed',
+        pluginRunId: attached.pluginRunId,
+        startedHere: attached.startedHere,
+        message: 'this page cannot load it',
+      }),
+    ).resolves.toMatchObject({ ok: false, reason: 'client-half-failed' })
 
     expect(runner.inventory()[0]?.activeRun).toEqual({
       packageId: defined.packageId,

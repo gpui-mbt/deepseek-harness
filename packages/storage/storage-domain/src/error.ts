@@ -4,12 +4,7 @@
  */
 
 /** Discriminant codes carried by every {@link DomainError}. */
-export type DomainErrorCode =
-  | 'already-open'
-  | 'facet-unsupported'
-  | 'invalid-record'
-  | 'missing-key'
-  | 'closed'
+export type DomainErrorCode = 'already-open' | 'facet-unsupported' | 'invalid-record' | 'missing-key' | 'closed'
 
 /** Location of the record that failed schema validation at the durable boundary. */
 export interface InvalidRecordDetail {

@@ -2,7 +2,7 @@
  * Shared `/` menu ranker: case-insensitive ordered-subsequence matching,
  * prefix hits first, alignment score next, source order for ties.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { rankByName } from '@deepseek-ai/dsh-client-ui-primitives'
 
 const named = (...names: string[]) => names.map(name => ({ name }))
@@ -49,7 +49,10 @@ describe('rankByName', () => {
   })
 
   it('returns the ranked items with their payload intact', () => {
-    const items = [{ name: 'goal', description: 'g' }, { name: 'plan', description: 'p' }]
+    const items = [
+      { name: 'goal', description: 'g' },
+      { name: 'plan', description: 'p' },
+    ]
     expect(rankByName(items, 'pl')).toEqual([{ name: 'plan', description: 'p' }])
   })
 })

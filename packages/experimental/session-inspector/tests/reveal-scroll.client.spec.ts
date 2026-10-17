@@ -1,15 +1,20 @@
 // @vitest-environment jsdom
 /** Smooth Chat navigation waits for all moving ancestors and releases its callbacks on cancellation. */
 
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { InspectorChatRevealer } from '../src/client/views/chat-node/reveal.ts'
 
 function fixture(reducedMotion = false) {
   vi.useFakeTimers()
   const frames = new Map<number, FrameRequestCallback>()
   let nextFrame = 0
-  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++nextFrame, callback); return nextFrame })
-  vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id) })
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback)
+    return nextFrame
+  })
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+    frames.delete(id)
+  })
   vi.stubGlobal('matchMedia', () => ({ matches: reducedMotion }))
   const scroller = document.createElement('div')
   scroller.dataset.conversationScroll = ''
@@ -19,7 +24,10 @@ function fixture(reducedMotion = false) {
   group.dataset.stepProcessBody = ''
   const row = document.createElement('div')
   row.dataset.chatNodeKey = 'node'
-  group.append(row); root.append(group); scroller.append(root); document.body.append(scroller)
+  group.append(row)
+  root.append(group)
+  scroller.append(root)
+  document.body.append(scroller)
   let top = 500
   row.getBoundingClientRect = () => new DOMRect(20, top, 180, 60)
   group.getBoundingClientRect = () => new DOMRect(0, 0, 300, 250)
@@ -35,14 +43,16 @@ function fixture(reducedMotion = false) {
   const animate = vi.fn(() => {
     const animation = { cancel: vi.fn(), onfinish: null as (() => void) | null }
     animations.push(animation)
-    finish = () => { animation.onfinish?.() }
+    finish = () => {
+      animation.onfinish?.()
+    }
     return animation
   })
   Object.defineProperty(Element.prototype, 'animate', { configurable: true, value: animate })
   const navigation = vi.fn()
   scroller.addEventListener('beforematch', navigation)
   let current = true
-  const locator = new InspectorChatRevealer(() => current ? root : undefined)
+  const locator = new InspectorChatRevealer(() => (current ? root : undefined))
   onTestFinished(() => {
     locator.dispose()
     scroller.remove()
@@ -51,11 +61,38 @@ function fixture(reducedMotion = false) {
     vi.unstubAllGlobals()
     vi.useRealTimers()
   })
-  const tick = () => { const pending = [...frames.values()]; frames.clear(); for (const callback of pending) callback(0) }
-  const reveal = () => { locator.reveal([{ nodeKey: 'node' }]); tick() }
-  return { root, scroller, scrollTo, group, row, locator, scroll, animate, animations, tick, reveal, navigation,
-    setCurrent: (value: boolean) => { current = value },
-    finish: () => { finish() }, setTop: (value: number) => { top = value } }
+  const tick = () => {
+    const pending = [...frames.values()]
+    frames.clear()
+    for (const callback of pending) callback(0)
+  }
+  const reveal = () => {
+    locator.reveal([{ nodeKey: 'node' }])
+    tick()
+  }
+  return {
+    root,
+    scroller,
+    scrollTo,
+    group,
+    row,
+    locator,
+    scroll,
+    animate,
+    animations,
+    tick,
+    reveal,
+    navigation,
+    setCurrent: (value: boolean) => {
+      current = value
+    },
+    finish: () => {
+      finish()
+    },
+    setTop: (value: number) => {
+      top = value
+    },
+  }
 }
 
 it('uses native smooth scrolling and flashes only after both main and group scrolling end', () => {
@@ -77,7 +114,8 @@ it('uses native smooth scrolling and flashes only after both main and group scro
   tick()
   expect(animate).not.toHaveBeenCalled()
   group.dispatchEvent(new Event('scrollend'))
-  tick(); tick()
+  tick()
+  tick()
   expect(animate).toHaveBeenCalledOnce()
   expect((document.body.lastElementChild as HTMLElement).style.top).toBe('100px')
   expect(vi.getTimerCount()).toBe(0)
@@ -87,13 +125,14 @@ it('uses native smooth scrolling and flashes only after both main and group scro
 it('only flashes an already visible target without releasing its Chat scroll policy', () => {
   const { reveal, scroll, animate, tick, setTop, navigation } = fixture()
   setTop(100)
-  reveal(); tick()
+  reveal()
+  tick()
   expect(navigation).not.toHaveBeenCalled()
   expect(scroll).not.toHaveBeenCalled()
   expect(animate).toHaveBeenCalledOnce()
 })
 
-it.each(['hidden', 'empty'])('continues past %s exact content to a visible Turn occurrence', (kind) => {
+it.each(['hidden', 'empty'])('continues past %s exact content to a visible Turn occurrence', kind => {
   const { root, row, locator, tick, animate, scroll } = fixture()
   if (kind === 'hidden') row.hidden = true
   else row.getBoundingClientRect = () => new DOMRect(20, 100, 180, 0)
@@ -102,7 +141,8 @@ it.each(['hidden', 'empty'])('continues past %s exact content to a visible Turn 
   nearby.getBoundingClientRect = () => new DOMRect(20, 120, 180, 60)
   root.append(nearby)
   locator.reveal([{ nodeKey: 'node', turn: 1 }])
-  tick(); tick()
+  tick()
+  tick()
   expect(animate).toHaveBeenCalledOnce()
   expect(scroll).not.toHaveBeenCalled()
   expect((document.body.lastElementChild as HTMLElement).style.top).toBe('120px')
@@ -116,7 +156,8 @@ it('uses the next ranked Node when the exact identity cannot be displayed', () =
   nearby.getBoundingClientRect = () => new DOMRect(20, 80, 180, 60)
   root.append(nearby)
   locator.reveal([{ nodeKey: 'node' }, { nodeKey: 'nearby' }])
-  tick(); tick()
+  tick()
+  tick()
   expect(animate).toHaveBeenCalledOnce()
   expect((document.body.lastElementChild as HTMLElement).style.top).toBe('80px')
 })
@@ -126,14 +167,16 @@ it('highlights the displayed Chat column when no candidate has a rendered box', 
   row.hidden = true
   root.getBoundingClientRect = () => new DOMRect(10, 40, 240, 200)
   locator.reveal([{ nodeKey: 'node' }])
-  tick(); tick()
+  tick()
+  tick()
   expect(animate).toHaveBeenCalledOnce()
   expect((document.body.lastElementChild as HTMLElement).style.height).toBe('200px')
   locator.dispose()
   animate.mockClear()
   root.remove()
   locator.reveal([{ nodeKey: 'node' }])
-  tick(); tick()
+  tick()
+  tick()
   expect(animate).not.toHaveBeenCalled()
 })
 
@@ -142,9 +185,16 @@ it('finds a replacement Node after revealing its folded ancestor', () => {
   const replacement = document.createElement('div')
   replacement.dataset.chatNodeKey = 'node'
   replacement.getBoundingClientRect = () => new DOMRect(20, 70, 180, 60)
-  scroller.addEventListener('beforematch', () => { row.replaceWith(replacement) }, { once: true })
+  scroller.addEventListener(
+    'beforematch',
+    () => {
+      row.replaceWith(replacement)
+    },
+    { once: true },
+  )
   locator.reveal([{ nodeKey: 'node' }])
-  tick(); tick()
+  tick()
+  tick()
   expect(animate).toHaveBeenCalledOnce()
   expect((document.body.lastElementChild as HTMLElement).style.top).toBe('70px')
 })
@@ -172,7 +222,8 @@ it('highlights the visible Chat column if the scrolled target becomes hidden', (
   scroller.dispatchEvent(new Event('scroll'))
   row.hidden = true
   scroller.dispatchEvent(new Event('scrollend'))
-  tick(); tick()
+  tick()
+  tick()
   expect(animate).toHaveBeenCalledOnce()
   expect((document.body.lastElementChild as HTMLElement).style.height).toBe('200px')
 })
@@ -184,9 +235,16 @@ it('does not visit a fallback removed while an earlier candidate is being reveal
   nearby.dataset.chatNodeKey = 'nearby'
   nearby.getBoundingClientRect = () => new DOMRect(20, 80, 180, 60)
   root.append(nearby)
-  scroller.addEventListener('beforematch', () => { nearby.remove() }, { once: true })
+  scroller.addEventListener(
+    'beforematch',
+    () => {
+      nearby.remove()
+    },
+    { once: true },
+  )
   locator.reveal([{ nodeKey: 'node' }, { nodeKey: 'nearby' }])
-  tick(); tick()
+  tick()
+  tick()
   expect(animate).not.toHaveBeenCalled()
 })
 
@@ -207,7 +265,8 @@ it('smoothly reveals an earlier row above the loaded viewport', () => {
   scroller.dispatchEvent(new Event('scroll'))
   setTop(60)
   scroller.dispatchEvent(new Event('scrollend'))
-  tick(); tick()
+  tick()
+  tick()
   expect(animate).toHaveBeenCalledOnce()
   expect((document.body.lastElementChild as HTMLElement).style.top).toBe('60px')
 })
@@ -246,7 +305,9 @@ it('stops a pending native scroll on user input and discards an older request on
 
 it('keeps reduced-motion navigation immediate and does not flash', () => {
   const { reveal, scroll, animate, tick, setTop } = fixture(true)
-  scroll.mockImplementation(() => { setTop(100) })
+  scroll.mockImplementation(() => {
+    setTop(100)
+  })
   reveal()
   expect(scroll).toHaveBeenCalledWith({ behavior: 'instant', block: 'center', inline: 'nearest' })
   tick()
@@ -257,15 +318,30 @@ it('keeps reduced-motion navigation immediate and does not flash', () => {
 it('drops a missing or changed Session and removed targets during disclosure', () => {
   const { scroller, row, locator, tick, scroll, animate, setCurrent } = fixture()
   setCurrent(false)
-  locator.reveal([{ nodeKey: 'node' }]); tick()
+  locator.reveal([{ nodeKey: 'node' }])
+  tick()
   expect(scroll).not.toHaveBeenCalled()
   setCurrent(true)
-  scroller.addEventListener('beforematch', () => { setCurrent(false) }, { once: true })
-  locator.reveal([{ nodeKey: 'node' }]); tick()
+  scroller.addEventListener(
+    'beforematch',
+    () => {
+      setCurrent(false)
+    },
+    { once: true },
+  )
+  locator.reveal([{ nodeKey: 'node' }])
+  tick()
   expect(scroll).not.toHaveBeenCalled()
   setCurrent(true)
-  scroller.addEventListener('beforematch', () => { row.remove() }, { once: true })
-  locator.reveal([{ nodeKey: 'node' }]); tick()
+  scroller.addEventListener(
+    'beforematch',
+    () => {
+      row.remove()
+    },
+    { once: true },
+  )
+  locator.reveal([{ nodeKey: 'node' }])
+  tick()
   expect(scroll).not.toHaveBeenCalled()
   expect(animate).not.toHaveBeenCalled()
 })
@@ -305,7 +381,8 @@ it('ignores unrelated scrolls and restarts settlement when movement resumes befo
   scroller.dispatchEvent(new Event('scroll'))
   scroller.dispatchEvent(new Event('scrollend'))
   setTop(100)
-  tick(); tick()
+  tick()
+  tick()
   expect(animate).toHaveBeenCalledOnce()
 })
 
@@ -313,7 +390,10 @@ it('contains late quiet and interruption callbacks after cancelling a pending se
   const { scroller, reveal, tick, animate } = fixture()
   const timers = vi.spyOn(window, 'setTimeout')
   const listeners = vi.spyOn(window, 'addEventListener')
-  onTestFinished(() => { timers.mockRestore(); listeners.mockRestore() })
+  onTestFinished(() => {
+    timers.mockRestore()
+    listeners.mockRestore()
+  })
   reveal()
   const quiet = timers.mock.calls[0]![0]
   const interrupt = listeners.mock.calls.find(([type]) => type === 'wheel')![1] as EventListener
@@ -332,9 +412,11 @@ it('contains late quiet and interruption callbacks after cancelling a pending se
 it('does not let a replaced animation remove the new highlight', () => {
   const { reveal, tick, animate, animations, setTop } = fixture()
   setTop(100)
-  reveal(); tick()
+  reveal()
+  tick()
   const oldFinish = animations[0]!.onfinish!
-  reveal(); tick()
+  reveal()
+  tick()
   expect(animate).toHaveBeenCalledTimes(2)
   oldFinish()
   expect(document.querySelector('[data-session-inspector-highlight="reveal"]')).not.toBeNull()

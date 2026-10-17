@@ -2,10 +2,8 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
-import {
-  classifyFileType, FileTypeIcon, type CodeFileType, type FileTypeProjectContext,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { classifyFileType, FileTypeIcon, type CodeFileType, type FileTypeProjectContext } from '@deepseek-ai/dsh-client-ui-primitives'
 import { CODE_FILE_ARTWORK, CODE_FILE_ICON_ID_TOKEN } from '../src/code-file-icon-artwork.ts'
 import { CODE_FILE_TYPES } from '../src/code-file-types.ts'
 
@@ -87,8 +85,7 @@ describe('code-file classification', () => {
 
     const view = render(<FileTypeIcon path="lib/main.dart" context={flutter} />)
     const explicit = render(<FileTypeIcon kind="flutter" />)
-    expect(normalizeCodeIconIds(view.container.innerHTML))
-      .toBe(normalizeCodeIconIds(explicit.container.innerHTML))
+    expect(normalizeCodeIconIds(view.container.innerHTML)).toBe(normalizeCodeIconIds(explicit.container.innerHTML))
   })
 
   it('keeps Markdown and SVG on the traditional file artwork', () => {
@@ -132,7 +129,7 @@ describe('full-color code-file artwork', () => {
     expect(manifest.excluded).toEqual(['markdown'])
   })
 
-  it.each(CODE_FILE_TYPES)('%s renders its supplied square SVG', (type) => {
+  it.each(CODE_FILE_TYPES)('%s renders its supplied square SVG', type => {
     const { container } = render(<FileTypeIcon kind={type} />)
     const svg = container.querySelector('svg')!
     expect(svg.getAttribute('viewBox')).toBe('0 0 20 20')
@@ -143,7 +140,7 @@ describe('full-color code-file artwork', () => {
   })
 
   it('keeps every code category visually distinct', () => {
-    const artwork = CODE_FILE_TYPES.map((type) => {
+    const artwork = CODE_FILE_TYPES.map(type => {
       const { container } = render(<FileTypeIcon kind={type} />)
       return container.querySelector('svg')!.innerHTML
     })
@@ -151,14 +148,18 @@ describe('full-color code-file artwork', () => {
   })
 
   it('uses instance-safe gradient ids and forwards sizing classes', () => {
-    const { container } = render(<><FileTypeIcon kind="elixir" /><FileTypeIcon kind="elixir" /></>)
+    const { container } = render(
+      <>
+        <FileTypeIcon kind="elixir" />
+        <FileTypeIcon kind="elixir" />
+      </>,
+    )
     const ids = [...container.querySelectorAll('[id]')].map(element => element.id)
     expect(ids.length).toBeGreaterThan(2)
     expect(new Set(ids).size).toBe(ids.length)
     expect(container.innerHTML).not.toContain(CODE_FILE_ICON_ID_TOKEN)
     const references = [...container.querySelectorAll('*')].flatMap(element =>
-      [...element.attributes].flatMap(attribute =>
-        [...attribute.value.matchAll(/url\(#([^)]+)\)/gu)].map(match => match[1])),
+      [...element.attributes].flatMap(attribute => [...attribute.value.matchAll(/url\(#([^)]+)\)/gu)].map(match => match[1])),
     )
     expect(references.length).toBeGreaterThan(0)
     for (const reference of references) expect(ids).toContain(reference)

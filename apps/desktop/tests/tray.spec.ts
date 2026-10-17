@@ -1,5 +1,5 @@
 import type { MenuItemConstructorOptions } from 'electron'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import { DesktopTray } from '../src/tray.ts'
 
@@ -10,13 +10,21 @@ const native = await vi.hoisted(async () => {
     readonly setToolTip = vi.fn()
     readonly setContextMenu = vi.fn()
     readonly destroy = vi.fn()
-    constructor(readonly image: unknown) { super(); trays.push(this) }
+    constructor(readonly image: unknown) {
+      super()
+      trays.push(this)
+    }
   }
   const menus: MenuItemConstructorOptions[][] = []
   return {
-    trays, FakeTray, menus,
+    trays,
+    FakeTray,
+    menus,
     createFromPath: vi.fn((path: string) => ({ path })),
-    buildFromTemplate: vi.fn((template: MenuItemConstructorOptions[]) => { menus.push(template); return { template } }),
+    buildFromTemplate: vi.fn((template: MenuItemConstructorOptions[]) => {
+      menus.push(template)
+      return { template }
+    }),
   }
 })
 vi.mock('electron', () => ({
@@ -25,18 +33,30 @@ vi.mock('electron', () => ({
   Menu: { buildFromTemplate: native.buildFromTemplate },
 }))
 
-afterEach(() => { native.trays.length = 0; native.menus.length = 0; vi.clearAllMocks() })
+afterEach(() => {
+  native.trays.length = 0
+  native.menus.length = 0
+  vi.clearAllMocks()
+})
 
 function setup(locale = 'en') {
   let current = resolveDesktopLocale(locale)
   const open = vi.fn()
   const quit = vi.fn()
   const tray = new DesktopTray({ iconPath: 'C:/app/resources/tray.ico', locale: () => current, open, quit })
-  return { tray, open, quit, native: native.trays[0]!, setLocale: (next: string) => { current = resolveDesktopLocale(next) } }
+  return {
+    tray,
+    open,
+    quit,
+    native: native.trays[0]!,
+    setLocale: (next: string) => {
+      current = resolveDesktopLocale(next)
+    },
+  }
 }
 
 function labels(menu: MenuItemConstructorOptions[]): (string | undefined)[] {
-  return menu.map(item => item.type === 'separator' ? 'separator' : item.label)
+  return menu.map(item => (item.type === 'separator' ? 'separator' : item.label))
 }
 
 it('shows the application icon with its name as the tooltip and an Open / Quit menu', () => {

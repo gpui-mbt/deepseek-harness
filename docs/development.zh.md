@@ -10,9 +10,10 @@
 
 ### 前置条件
 
-- Node.js 支持 22.19+ 与 24+。CI 覆盖 22.19、24 和 26；见 [Node 引擎下限 Agent Note](../.agents/notes/implemented/process/2026-07-06-node-engine-floor.zh.md)。
+- Node.js 支持 22.19+ 与 24+。Vite+ 工具链在 24.x 上要求 24.11+；CI 覆盖 22.19、24 和 26；见 [Node 引擎下限 Agent Note](../.agents/notes/implemented/process/2026-07-06-node-engine-floor.zh.md)。
 - 启用 Node.js TypeScript 类型剥离。仓库构建脚本用 tsdown 的 native 配置加载器加载 `tsdown.config.ts`，因此当 `NODE_OPTIONS` 含 `--no-experimental-strip-types` 或 Node.js 构建缺少 TypeScript 支持时会失败；`pnpm run build` 会先检查这一条件并指出原因。
 - 启用了 Corepack 的 pnpm。仓库在 `package.json` 中固定使用 `pnpm@11.28.5`；如果 `pnpm --version` 无法通过 Corepack 解析，请先运行 `corepack enable`。
+- 项目本地的 `vite-plus` 提供 `vp`；无需全局安装 Vite+。请从仓库根目录运行 `vp` 命令：`apps/web` 与 `website` 有意保留各自的 Vite 版本。
 - Git 2.26 或更高版本；钩子设置会启用 Git 的 worktree 专属配置扩展。
 - 可选：一个 DeepSeek API key，用于 Web、headless 和 ACP（Agent Client Protocol）自动化 agent（智能体）演示以及真实 API 的 e2e 测试。
 
@@ -76,6 +77,8 @@ Host 与 Client 保持两个 aggregate program，是因为两侧在相同键下�
 - 构造全仓 `ts.Program` 的脚本显式以 `tsconfig.host.json` 或 `tsconfig.client.json` 为种子——根 solution 永不作为种子，因为把两个 aggregate 展平进一个 program 会撞上 `Context` 合并冲突。
 - 新包只登记进一个 aggregate；只有上述拆分包同时携带两个 leaf 配置，共享 leaf 因两侧需要对同一份源码做类型检查而登记进两个 aggregate。包同时具有 Node loader 入口和 browser 入口并不构成拆分理由；普通 Client 插件的两份运行时产物都在 Client 构建阶段生成。
 
+每个 Vitest 配置都为 `vitest`、`@vitest/spy` 与 `vite-plus` 设置 `resolve.dedupe`。Vite+ 可能安装不止一份物理 Vitest 副本；没有该去重时，setup 文件与测试文件会绑定到不同的 runner 模块图，并报 `failed to find the runner` 或 `failed to find the current suite`。
+
 拆分 Host/Client tsconfig 的包有六个：`api/remotes`、`api/gateway`、`api/session-controller`、`api/workspace-controller`、`client/connection` 与 `session-query/session-log-export`。`api/remotes` 的 Host 入口进入 Host Typert 图，而 Client 入口导入生成的 `/remote` 声明；`session-log-export` 则让 Node archive 生产代码不进入浏览器 controller。每个拆分包根 `tsconfig.json` 因此只作为 solution，两个 aggregate 和直接消费方分别引用 `tsconfig.host.json` 或 `tsconfig.client.json`。workspace `constraints` 门禁遍历可达的 Project Reference 图，并按各引用 project 自身的 compiler face 检查：只有单一配置的目标可由任一 face 引用，拆分配置的目标则必须引用匹配的 leaf，不得引用 solution 根或另一侧 leaf；该门禁按「两个 leaf 配置同时存在」自动发现拆分包，所以新拆分的包会自动纳入管辖。[`api-remotes` README](../packages/api/remotes/README.zh.md) 与 [`session-log-export` README](../packages/session-query/session-log-export/README.zh.md)分别说明其拆分。
 
 `pnpm run build:artifacts` 按生成依赖顺序产出全部产物，只检查并编译各 compiler face 的包 reference：
@@ -101,6 +104,7 @@ pnpm run build:web
 | 声明 TypeScript 工作完成之前 | 在最近一次 `build:artifacts` 之后运行 `pnpm run build:check`，或运行 `pnpm run build` |
 | 完整验证（与 CI 必需的构建 lane 相同） | `pnpm run build` |
 | 只做类型检查、不需要 Web 与 Desktop 产物 | `pnpm run typecheck` |
+| 格式化或格式化 + lint | `pnpm run fmt` 写入；`pnpm run fmt:check` 与 `pnpm run check` 验证。`pnpm run check` 会先准备 `host-contracts`。 |
 | lint 或文档代码块检查 | `pnpm run lint` 或 `pnpm run doc-typecheck`；它们各自先准备 `host-contracts` |
 
 PR 产物 builder 运行 `build:artifacts`；必需的 Linux 与 Windows 普通构建以及公开 `typecheck` 还检查仓库级测试和脚本 program。CI benchmark 准备阶段还对其临时 library 输出使用 `--noCheck`，由这些必需构建负责诊断；其他产物 builder 保留包检查（[理由](../.agents/notes/implemented/process/2026-10-05-pr-artifact-typechecks.zh.md)）。
@@ -141,7 +145,7 @@ DEEPSEEK_BASE_URL=https://... # optional
 
 lefthook 在 `lefthook.yml` 中配置，作为快速的本地检查点：
 
-- `pre-commit` 对照暂存的配对文档 blob 校验暂存的配对记录，使用不加载项目的 `.oxlintrc.staged.json` 配置验证暂存文件，并通过一次有界重试应用 Oxlint 修复，然后检查暂存 diff 中的空白错误，在 pi-ai 提供方元数据的输入或生成文件已暂存时校验元数据，并运行 vendor manifest（元数据清单）守卫；
+- `pre-commit` 对照暂存的配对文档 blob 校验暂存的配对记录，使用不加载项目的 `vite.staged.config.ts` 配置验证暂存文件，并通过一次有界重试应用 Oxlint 修复，然后检查暂存 diff 中的空白错误，在 pi-ai 提供方元数据的输入或生成文件已暂存时校验元数据，并运行 vendor manifest（元数据清单）守卫；
 - `pre-merge-commit` 在 Git 创建自动合并提交前执行同样以索引为准的配对检查；
 - `pre-push` 运行 `pnpm run typecheck`；该命令先不打包地生成 Typert 约定，再运行 Client TypeScript 检查，并检查两个 aggregate。
 
@@ -153,7 +157,7 @@ pi-ai 检查会在内存中重新生成预期元数据。数据过期时，检�
 
 贡献者可以选择运行 `pnpm run check:all`，执行全面的本地门禁集。该命令独立于 Git 钩子，也不是对 agent 的指令。
 
-在 CI 之外（`CI` 不为 `true`），默认 worker 数遵循[本地 worker 预算](../scripts/parallelism.ts)：门禁调度器、`build`、`typecheck`、Oxlint 与 publint 为 12，Vitest fork 与本地覆盖率为 48。`doc-sync`、`test:docs`、`hygiene` 与 `check:all` 最多同时运行 8 个门禁，CI 中同样如此。`os.availableParallelism()` 报告的是宿主 CPU 数而不是容器的 CPU 配额，因此不设上限的默认值会在共享主机上超额订阅。CI 仍使用 runner 的 CPU 数。`DSH_GATE_CONCURRENCY`、`DSH_OXLINT_THREADS`、`DSH_COVERAGE_MAX_WORKERS` 与 Vitest 的 `--maxWorkers` 可覆盖这些默认值。
+在 CI 之外（`CI` 不为 `true`），默认 worker 数遵循[本地 worker 预算](../scripts/parallelism.ts)：门禁调度器、`build`、`typecheck`、Vite+ Oxlint 与 publint 为 12，Vitest fork 与本地覆盖率为 48。`doc-sync`、`test:docs`、`hygiene` 与 `check:all` 最多同时运行 8 个门禁，CI 中同样如此。`os.availableParallelism()` 报告的是宿主 CPU 数而不是容器的 CPU 配额，因此不设上限的默认值会在共享主机上超额订阅。CI 仍使用 runner 的 CPU 数。`DSH_GATE_CONCURRENCY`、`DSH_OXLINT_THREADS`、`DSH_COVERAGE_MAX_WORKERS` 与 Vitest 的 `--maxWorkers` 可覆盖这些默认值。
 
 ### CI 门禁
 

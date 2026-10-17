@@ -58,14 +58,11 @@ export function TrajectoryToolbar({
             aria-label={t('toolbar.useActualDuration')}
             aria-pressed={actualDuration}
             title={actualDuration ? t('toolbar.useEqualWidth') : t('toolbar.useActualDuration')}
-            onClick={() => { onActualDurationChange(!actualDuration) }}
+            onClick={() => {
+              onActualDurationChange(!actualDuration)
+            }}
           >
-            <svg
-              className={css.toggleIcon}
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden="true"
-            >
+            <svg className={css.toggleIcon} viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <circle cx="8" cy="8" r="5.25" />
               <path d="M8 4.75V8l2.25 1.5" />
             </svg>
@@ -77,7 +74,9 @@ export function TrajectoryToolbar({
             role="switch"
             aria-checked={actualTime}
             hidden
-            onClick={() => { onActualTimeChange(!actualTime) }}
+            onClick={() => {
+              onActualTimeChange(!actualTime)
+            }}
           >
             <span>{t('toolbar.actualTime')}</span>
             <span className={css.controlTrack} data-on={actualTime || undefined} aria-hidden="true">
@@ -119,7 +118,9 @@ export function TrajectoryToolbar({
             aria-label={t('toolbar.search')}
             placeholder={t('toolbar.searchPlaceholder')}
             value={searchQuery}
-            onChange={(event) => { onSearchQueryChange(event.currentTarget.value) }}
+            onChange={event => {
+              onSearchQueryChange(event.currentTarget.value)
+            }}
           />
         </div>
       </div>

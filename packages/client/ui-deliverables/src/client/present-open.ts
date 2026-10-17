@@ -38,7 +38,11 @@ export class PresentedOpenController {
    * @returns null after a successful handoff, or the failure to announce after publishing card status.
    */
   open(
-    sessionId: SessionId, seq: number, index: number, action: PresentedAction = 'open', application?: string,
+    sessionId: SessionId,
+    seq: number,
+    index: number,
+    action: PresentedAction = 'open',
+    application?: string,
   ): Promise<PresentedOpenFailure> {
     return this.openUrl(presentedFileUrl(sessionId, seq, index), action, application)
   }
@@ -53,7 +57,11 @@ export class PresentedOpenController {
    * @returns null after a successful handoff, or the failure to announce after publishing card status.
    */
   openChanged(
-    sessionId: SessionId, seq: number, index: number, action: PresentedAction = 'open', application?: string,
+    sessionId: SessionId,
+    seq: number,
+    index: number,
+    action: PresentedAction = 'open',
+    application?: string,
   ): Promise<PresentedOpenFailure> {
     return this.openUrl(changedFileUrl(sessionId, seq, index), action, application)
   }
@@ -62,7 +70,9 @@ export class PresentedOpenController {
     const phase = this.state.getSnapshot()[url]
     if (this.lifetime.signal.aborted || phase === 'opening' || phase === 'revealing') return null
     this.clearExpiry(url)
-    this.state.update((state) => { state[url] = action === 'open' ? 'opening' : 'revealing' })
+    this.state.update(state => {
+      state[url] = action === 'open' ? 'opening' : 'revealing'
+    })
     const task = this.request(url, action, application)
     this.pending.add(task)
     try {
@@ -83,8 +93,9 @@ export class PresentedOpenController {
     const task = this.readHost(AbortSignal.any([this.lifetime.signal, this.metadata.signal]))
     this.loading = task
     this.pending.add(task)
-    try { await task }
-    finally {
+    try {
+      await task
+    } finally {
       if (this.loading === task) this.loading = undefined
       this.pending.delete(task)
     }
@@ -130,8 +141,12 @@ export class PresentedOpenController {
     const failure = action === 'open' ? 'error' : 'revealError'
     let phase: PresentedOpenPhase = action === 'open' ? 'opened' : 'revealed'
     try {
-      const target = action === 'reveal' ? `${url}&action=reveal`
-        : application === undefined ? url : `${url}&application=${encodeURIComponent(application)}`
+      const target =
+        action === 'reveal'
+          ? `${url}&action=reveal`
+          : application === undefined
+            ? url
+            : `${url}&application=${encodeURIComponent(application)}`
       const response = await fetch(target, { method: 'POST', signal: this.lifetime.signal })
       if (!response.ok) phase = response.status === 422 ? 'nativeUnavailable' : failure
     } catch {
@@ -140,12 +155,19 @@ export class PresentedOpenController {
     }
     if (!this.lifetime.signal.aborted) {
       if (phase === 'opened' || phase === 'revealed') {
-        this.expiry.set(url, setTimeout(() => {
-          this.expiry.delete(url)
-          this.state.update((state) => { Reflect.deleteProperty(state, url) })
-        }, PRESENTED_SUCCESS_HOLD_MS + PRESENTED_SUCCESS_FADE_MS))
+        this.expiry.set(
+          url,
+          setTimeout(() => {
+            this.expiry.delete(url)
+            this.state.update(state => {
+              Reflect.deleteProperty(state, url)
+            })
+          }, PRESENTED_SUCCESS_HOLD_MS + PRESENTED_SUCCESS_FADE_MS),
+        )
       }
-      this.state.update((state) => { state[url] = phase })
+      this.state.update(state => {
+        state[url] = phase
+      })
     }
     return phase === 'opened' || phase === 'revealed' ? null : action === 'reveal' ? 'revealError' : 'openError'
   }

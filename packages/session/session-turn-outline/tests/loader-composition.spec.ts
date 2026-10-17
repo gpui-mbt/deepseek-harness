@@ -9,7 +9,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -72,22 +72,31 @@ describe('real Loader composition', () => {
 
     const session = loaded.sessions.create(SessionId('composed'))
     const boundary = session.append('turn/start', { turn: 1 }).seq
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'composed prompt' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    session.append('assistant/message', {
-      stream: [],
-      turn: 1,
-      step: 1,
-      message: createAssistantMessage({
-        content: [{ type: 'text', text: 'composed answer' }],
-        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'composed prompt' }],
+        source: { kind: 'user' },
       }),
-    }, { surfaceOp: 'append' })
+      { surfaceOp: 'append' },
+    )
+    session.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn: 1,
+        step: 1,
+        message: createAssistantMessage({
+          content: [{ type: 'text', text: 'composed answer' }],
+          source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
-    expect(loaded.sessionProjections.snapshot(session).values.turnOutline)
-      .toEqual([{ turn: 1, seq: boundary, prompt: 'composed prompt', response: 'composed answer' }])
+    expect(loaded.sessionProjections.snapshot(session).values.turnOutline).toEqual([
+      { turn: 1, seq: boundary, prompt: 'composed prompt', response: 'composed answer' },
+    ])
   })
 
   it('keeps the function-plugin namespace free of a default export', () => {

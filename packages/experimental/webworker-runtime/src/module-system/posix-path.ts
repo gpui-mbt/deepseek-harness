@@ -119,8 +119,12 @@ export function isAbsolute(path: string): boolean {
  * @returns Relative path using `..` segments.
  */
 export function relative(from: string, to: string): string {
-  const source = resolve(from).split(SEP).filter(segment => segment !== '')
-  const target = resolve(to).split(SEP).filter(segment => segment !== '')
+  const source = resolve(from)
+    .split(SEP)
+    .filter(segment => segment !== '')
+  const target = resolve(to)
+    .split(SEP)
+    .filter(segment => segment !== '')
   let shared = 0
   while (shared < source.length && shared < target.length && source[shared] === target[shared]) shared += 1
   const up = new Array(source.length - shared).fill('..') as string[]
@@ -155,7 +159,10 @@ export function toNamespacedPath(path: string): string {
  */
 export function pathToFileUrl(path: string): string {
   const absolute = resolve(path)
-  return `file://${absolute.split(SEP).map(segment => encodeURIComponent(segment)).join(SEP)}`
+  return `file://${absolute
+    .split(SEP)
+    .map(segment => encodeURIComponent(segment))
+    .join(SEP)}`
 }
 
 /**

@@ -8,7 +8,8 @@ function record(value: unknown, subject: string): Readonly<Record<string, unknow
 }
 
 function string(value: unknown, subject: string, nonempty = false): void {
-  if (typeof value !== 'string' || nonempty && value.length === 0) throw new SessionFormatError(`format v4 ${subject} requires a string${nonempty ? ' with content' : ''}`)
+  if (typeof value !== 'string' || (nonempty && value.length === 0))
+    throw new SessionFormatError(`format v4 ${subject} requires a string${nonempty ? ' with content' : ''}`)
 }
 
 function positive(value: unknown, subject: string): void {
@@ -18,7 +19,8 @@ function positive(value: unknown, subject: string): void {
 function image(value: unknown): void {
   const attachment = record(value, 'system image attachment')
   string(attachment['attachmentId'], 'system image attachmentId', true)
-  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(attachment['mediaType'] as string)) throw new SessionFormatError('format v4 system image requires a supported mediaType')
+  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(attachment['mediaType'] as string))
+    throw new SessionFormatError('format v4 system image requires a supported mediaType')
   sessionFormatCount(attachment['bytes'], 'system image bytes')
   positive(attachment['width'], 'system image width')
   positive(attachment['height'], 'system image height')
@@ -48,14 +50,20 @@ export function assertV4SystemMessageFields(row: unknown): void {
     const block = record(value, 'system content block')
     string(block['type'], 'system content type', true)
     switch (block['type']) {
-      case 'text': case 'reasoning': string(block['text'], 'system content text'); break
+      case 'text':
+      case 'reasoning':
+        string(block['text'], 'system content text')
+        break
       case 'tool-call':
         string(block['id'], 'system tool-call id', true)
         string(block['name'], 'system tool-call name', true)
         string(block['arguments'], 'system tool-call arguments')
         break
-      case 'image': image(block['attachment']); break
-      case 'tool-result': throw new SessionFormatError('format v4 system content rejects retired tool-result wrappers')
+      case 'image':
+        image(block['attachment'])
+        break
+      case 'tool-result':
+        throw new SessionFormatError('format v4 system content rejects retired tool-result wrappers')
       default:
         // ContentBlockMap is merge-extensible; only known block fields are interpreted here.
         break

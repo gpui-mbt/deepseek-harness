@@ -10,15 +10,19 @@ import { chromium } from 'playwright'
 import { FiberState } from '@deepseek-ai/cordis'
 import { ON_DEMAND_BUNDLES, OPTIONAL_BUNDLES } from '@deepseek-ai/dsh-app-boot'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed, onTestFinished, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed, onTestFinished, vi } from 'vite-plus/test'
 import { join } from 'node:path'
 import {
-  SCAFFOLD_DEFAULTS_BUNDLE, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
+  SCAFFOLD_DEFAULTS_BUNDLE,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
-import {
-  ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, openSettings, PLUGIN_TOGGLE_SETTLE_MS, saveFailureShot,
-} from './support.ts'
+import { ZH_BROWSER_LOCALE, connectFreshWorkspaceZh, openSettings, PLUGIN_TOGGLE_SETTLE_MS, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/plugin-manager', import.meta.url))
 const MANAGER_EXPECTED = join(SNAPSHOT_DIR, 'manager.expected.md')
@@ -26,9 +30,9 @@ const LIVE_EXPECTED = join(SNAPSHOT_DIR, 'live-enabled.expected.md')
 const EXPORTS_EXPECTED = join(SNAPSHOT_DIR, 'exports.expected.md')
 const EXPORTS_EN_EXPECTED = join(SNAPSHOT_DIR, 'exports-en.expected.md')
 const FIXTURE_PLUGINS = fileURLToPath(new URL('./fixtures/plugins', import.meta.url))
-const { version: badgeVersion } = JSON.parse(await readFile(
-  new URL('../../../packages/experimental/badge-skill-bundle/package.json', import.meta.url), 'utf8',
-)) as { version: string }
+const { version: badgeVersion } = JSON.parse(
+  await readFile(new URL('../../../packages/experimental/badge-skill-bundle/package.json', import.meta.url), 'utf8'),
+) as { version: string }
 const MODE = webSnapshotMode()
 /** The profile manifest's bundles as the scaffold initializes them. */
 const SCAFFOLD_BUNDLES = ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', SCAFFOLD_DEFAULTS_BUNDLE]
@@ -58,7 +62,7 @@ describe('web e2e: plugin manager', () => {
 
   /** Close any open settings dialog, so the sidebar and the main column are clickable. */
   async function closeSettings() {
-    if (await page.getByRole('dialog', { name: '设置' }).count() > 0) {
+    if ((await page.getByRole('dialog', { name: '设置' }).count()) > 0) {
       await page.keyboard.press('Escape')
       await expect.poll(() => page.getByRole('dialog', { name: '设置' }).count(), { timeout: 5_000 }).toBe(0)
     }
@@ -66,11 +70,11 @@ describe('web e2e: plugin manager', () => {
 
   /** Change the UI language through Settings and close the dialog. */
   async function setLanguage(language: 'en' | 'zh'): Promise<void> {
-    if (await page.locator('html').getAttribute('lang') === language) return
+    if ((await page.locator('html').getAttribute('lang')) === language) return
     const settings = language === 'en' ? '设置' : 'Settings'
     const source = language === 'en' ? '中文' : 'English'
     const target = language === 'en' ? 'English' : '中文'
-    if (await page.getByRole('dialog', { name: settings }).count() === 0) {
+    if ((await page.getByRole('dialog', { name: settings }).count()) === 0) {
       await openSettings(page, language === 'en' ? 'zh' : 'en')
     }
     await page.getByRole('dialog', { name: settings }).getByRole('button', { name: source }).click()
@@ -87,8 +91,11 @@ describe('web e2e: plugin manager', () => {
     await page.getByRole('navigation', { name: '全局面板' }).getByRole('button', { name: '插件', exact: true }).click()
     const panel = page.locator('[data-plugin-panel]')
     await panel.waitFor({ timeout: 10_000 })
-    while (await panel.getByRole('button', { name: /^返回/ }).count() > 0) {
-      await panel.getByRole('button', { name: /^返回/ }).first().click()
+    while ((await panel.getByRole('button', { name: /^返回/ }).count()) > 0) {
+      await panel
+        .getByRole('button', { name: /^返回/ })
+        .first()
+        .click()
     }
     await panel.getByRole('heading', { name: '插件', exact: true }).waitFor({ timeout: 10_000 })
     return panel
@@ -111,7 +118,8 @@ describe('web e2e: plugin manager', () => {
       const PINNED_PLACEMENT: Record<number, 'beside' | 'below'> = { 1680: 'beside', 1024: 'beside', 390: 'below', 430: 'below' }
       for (const language of ['en', 'zh'] as const) {
         const context = await browser.newContext({
-          viewport: { width: 1680, height: 1000 }, locale: language === 'en' ? 'en-US' : ZH_BROWSER_LOCALE,
+          viewport: { width: 1680, height: 1000 },
+          locale: language === 'en' ? 'en-US' : ZH_BROWSER_LOCALE,
           reducedMotion: 'reduce',
         })
         try {
@@ -127,75 +135,104 @@ describe('web e2e: plugin manager', () => {
           const add = header.getByRole('button', { name: language === 'en' ? 'Add plugin' : '添加插件', exact: true })
           await expect.poll(() => add.isEnabled()).toBe(true)
           await add.focus()
-          const measure = () => header.evaluate((element) => {
-            const heading = element.firstElementChild!
-            const actions = element.lastElementChild!
-            const headingRect = heading.getBoundingClientRect()
-            const actionRect = actions.getBoundingClientRect()
-            const headerRect = element.getBoundingClientRect()
-            const intrinsicHeading = heading.cloneNode(true) as HTMLElement
-            Object.assign(intrinsicHeading.style, {
-              position: 'absolute', width: 'max-content', maxWidth: 'none', visibility: 'hidden', pointerEvents: 'none',
-            })
-            element.append(intrinsicHeading)
-            let intrinsicHeadingWidth: number
-            try {
-              intrinsicHeadingWidth = intrinsicHeading.getBoundingClientRect().width
-            } finally {
-              intrinsicHeading.remove()
-            }
-            const headerStyle = getComputedStyle(element)
-            const contentWidth = headerRect.width - Number.parseFloat(headerStyle.paddingLeft) - Number.parseFloat(headerStyle.paddingRight)
-            const fitsBeside = intrinsicHeadingWidth + actionRect.width + Number.parseFloat(headerStyle.columnGap) <= contentWidth + 1
-            const subtitle = heading.querySelector('h1 + div > span')!
-            const range = document.createRange()
-            range.selectNodeContents(subtitle)
-            const lastText = Array.from(range.getClientRects()).at(-1)!
-            const info = heading.querySelector('button')!.getBoundingClientRect()
-            const buttons = Array.from(actions.querySelectorAll('button'))
-            const singleLine = buttons.every((button) => {
-              const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT)
-              const tops: number[] = []
-              while (walker.nextNode()) {
-                if (!walker.currentNode.textContent?.trim()) continue
-                range.selectNodeContents(walker.currentNode)
-                for (const rect of range.getClientRects()) tops.push(rect.top)
+          const measure = () =>
+            header.evaluate(element => {
+              const heading = element.firstElementChild!
+              const actions = element.lastElementChild!
+              const headingRect = heading.getBoundingClientRect()
+              const actionRect = actions.getBoundingClientRect()
+              const headerRect = element.getBoundingClientRect()
+              const intrinsicHeading = heading.cloneNode(true) as HTMLElement
+              Object.assign(intrinsicHeading.style, {
+                position: 'absolute',
+                width: 'max-content',
+                maxWidth: 'none',
+                visibility: 'hidden',
+                pointerEvents: 'none',
+              })
+              element.append(intrinsicHeading)
+              let intrinsicHeadingWidth: number
+              try {
+                intrinsicHeadingWidth = intrinsicHeading.getBoundingClientRect().width
+              } finally {
+                intrinsicHeading.remove()
               }
-              return tops.length === 0 || Math.max(...tops) - Math.min(...tops) < 1
+              const headerStyle = getComputedStyle(element)
+              const contentWidth =
+                headerRect.width - Number.parseFloat(headerStyle.paddingLeft) - Number.parseFloat(headerStyle.paddingRight)
+              const fitsBeside = intrinsicHeadingWidth + actionRect.width + Number.parseFloat(headerStyle.columnGap) <= contentWidth + 1
+              const subtitle = heading.querySelector('h1 + div > span')!
+              const range = document.createRange()
+              range.selectNodeContents(subtitle)
+              const lastText = Array.from(range.getClientRects()).at(-1)!
+              const info = heading.querySelector('button')!.getBoundingClientRect()
+              const buttons = Array.from(actions.querySelectorAll('button'))
+              const singleLine = buttons.every(button => {
+                const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT)
+                const tops: number[] = []
+                while (walker.nextNode()) {
+                  if (!walker.currentNode.textContent?.trim()) continue
+                  range.selectNodeContents(walker.currentNode)
+                  for (const rect of range.getClientRects()) tops.push(rect.top)
+                }
+                return tops.length === 0 || Math.max(...tops) - Math.min(...tops) < 1
+              })
+              return {
+                singleLine,
+                fitsBeside,
+                diagnostic: {
+                  flexWrap: headerStyle.flexWrap,
+                  headingMaxWidth: getComputedStyle(heading).maxWidth,
+                  introDisplay: getComputedStyle(heading.querySelector('h1 + div')!).display,
+                  intrinsicHeadingWidth,
+                  headingWidth: headingRect.width,
+                  actionsWidth: actionRect.width,
+                  contentWidth,
+                  gap: Number.parseFloat(headerStyle.columnGap),
+                  subtitleRight: lastText.right,
+                  infoLeft: info.left,
+                },
+                placement:
+                  actionRect.left >= headingRect.right - 1
+                    ? ('beside' as const)
+                    : actionRect.top >= headingRect.bottom - 1
+                      ? ('below' as const)
+                      : ('overlapping' as const),
+                contained: actionRect.left >= headerRect.left - 1 && actionRect.right <= headerRect.right + 1,
+                infoFollowsText:
+                  info.left >= lastText.right &&
+                  info.left - lastText.right <= 5 &&
+                  info.top < lastText.bottom &&
+                  info.bottom > lastText.top,
+                focused: buttons.includes(document.activeElement as HTMLButtonElement),
+              }
             })
-            return {
-              singleLine, fitsBeside,
-              diagnostic: { flexWrap: headerStyle.flexWrap, headingMaxWidth: getComputedStyle(heading).maxWidth,
-                introDisplay: getComputedStyle(heading.querySelector('h1 + div')!).display,
-                intrinsicHeadingWidth, headingWidth: headingRect.width, actionsWidth: actionRect.width,
-                contentWidth, gap: Number.parseFloat(headerStyle.columnGap),
-                subtitleRight: lastText.right, infoLeft: info.left,
-              },
-              placement: actionRect.left >= headingRect.right - 1
-                ? 'beside' as const
-                : actionRect.top >= headingRect.bottom - 1 ? 'below' as const : 'overlapping' as const,
-              contained: actionRect.left >= headerRect.left - 1 && actionRect.right <= headerRect.right + 1,
-              infoFollowsText: info.left >= lastText.right && info.left - lastText.right <= 5
-                && info.top < lastText.bottom && info.bottom > lastText.top,
-              focused: buttons.includes(document.activeElement as HTMLButtonElement),
-            }
-          })
           const validLayout = (layout: Awaited<ReturnType<typeof measure>>) =>
-            layout.singleLine && layout.contained && layout.infoFollowsText && layout.focused
-            && layout.placement === (layout.fitsBeside ? 'beside' : 'below')
+            layout.singleLine &&
+            layout.contained &&
+            layout.infoFollowsText &&
+            layout.focused &&
+            layout.placement === (layout.fitsBeside ? 'beside' : 'below')
           for (const width of [1680, 768, 520, 440, 390, 430, 1024]) {
             await probe.setViewportSize({ width, height: 1000 })
-            await expect.poll(async () => {
-              const layout = await measure()
-              return validLayout(layout) ? true : layout
-            }, { message: `${language} ${width}px plugin header geometry` }).toBe(true)
+            await expect
+              .poll(
+                async () => {
+                  const layout = await measure()
+                  return validLayout(layout) ? true : layout
+                },
+                { message: `${language} ${width}px plugin header geometry` },
+              )
+              .toBe(true)
             const { placement } = await measure()
             const pinned = PINNED_PLACEMENT[width]
             if (pinned !== undefined) expect(placement).toBe(pinned)
-            facts.push(`${language} ${width}px: actions ${pinned === undefined ? 'beside or below (according to intrinsic fit)' : placement} the heading, single-line; contained; information follows subtitle; focus retained`)
+            facts.push(
+              `${language} ${width}px: actions ${pinned === undefined ? 'beside or below (according to intrinsic fit)' : placement} the heading, single-line; contained; information follows subtitle; focus retained`,
+            )
           }
           await probe.setViewportSize({ width: 390, height: 1000 })
-          const previousWrap = await header.evaluate((element) => {
+          const previousWrap = await header.evaluate(element => {
             const style = element.style
             const previous = { value: style.getPropertyValue('flex-wrap'), priority: style.getPropertyPriority('flex-wrap') }
             style.setProperty('flex-wrap', 'nowrap')
@@ -271,34 +308,45 @@ describe('web e2e: plugin manager', () => {
         if (aria === '') aria = loadingAria
         else expect(loadingAria).toBe(aria)
 
-        const measure = (group: Locator, rowSelector = ':scope > ul > li') => group.evaluate((element, selector) => {
-          const rect = (node: Element | null | undefined) => {
-            if (node === null || node === undefined) throw new Error('Missing plugin layout element')
-            const { x, y, width, height } = node.getBoundingClientRect()
-            return { x, y, width, height }
-          }
-          return {
-            pageHeader: rect(element.closest('[data-plugin-panel]')?.querySelector(':scope > header')),
-            groupHeader: rect(element.firstElementChild),
-            rows: Array.from(element.querySelectorAll(selector)).slice(0, 4).map((row) => {
-              const head = row.firstElementChild
-              const main = head?.children[1]
-              return {
-                row: rect(row), head: rect(head), icon: rect(head?.children[0]), main: rect(main),
-                titleRow: rect(main?.children[0]), title: rect(main?.children[0]?.firstElementChild),
-                description: rect(main?.children[1]),
-              }
-            }),
-          }
-        }, rowSelector)
+        const measure = (group: Locator, rowSelector = ':scope > ul > li') =>
+          group.evaluate((element, selector) => {
+            const rect = (node: Element | null | undefined) => {
+              if (node === null || node === undefined) throw new Error('Missing plugin layout element')
+              const { x, y, width, height } = node.getBoundingClientRect()
+              return { x, y, width, height }
+            }
+            return {
+              pageHeader: rect(element.closest('[data-plugin-panel]')?.querySelector(':scope > header')),
+              groupHeader: rect(element.firstElementChild),
+              rows: Array.from(element.querySelectorAll(selector))
+                .slice(0, 4)
+                .map(row => {
+                  const head = row.firstElementChild
+                  const main = head?.children[1]
+                  return {
+                    row: rect(row),
+                    head: rect(head),
+                    icon: rect(head?.children[0]),
+                    main: rect(main),
+                    titleRow: rect(main?.children[0]),
+                    title: rect(main?.children[0]?.firstElementChild),
+                    description: rect(main?.children[1]),
+                  }
+                }),
+            }
+          }, rowSelector)
         const loading = await measure(skeleton)
-        const blankActions = await skeleton.locator(':scope > ul > li > div > div:last-child').evaluateAll(nodes => nodes.map(node => ({
-          children: node.childElementCount,
-          background: getComputedStyle(node).backgroundColor,
-          width: node.getBoundingClientRect().width,
-          height: node.getBoundingClientRect().height,
-        })))
-        expect(blankActions).toEqual(Array.from({ length: 4 }, () => ({ children: 0, background: 'rgba(0, 0, 0, 0)', width: 36, height: 20 })))
+        const blankActions = await skeleton.locator(':scope > ul > li > div > div:last-child').evaluateAll(nodes =>
+          nodes.map(node => ({
+            children: node.childElementCount,
+            background: getComputedStyle(node).backgroundColor,
+            width: node.getBoundingClientRect().width,
+            height: node.getBoundingClientRect().height,
+          })),
+        )
+        expect(blankActions).toEqual(
+          Array.from({ length: 4 }, () => ({ children: 0, background: 'rgba(0, 0, 0, 0)', width: 36, height: 20 })),
+        )
         if (shots !== undefined) {
           for (const colorScheme of ['light', 'dark'] as const) {
             await probe.emulateMedia({ colorScheme })
@@ -307,11 +355,14 @@ describe('web e2e: plugin manager', () => {
             console.log(`Plugin loading screenshot: ${path}`)
           }
         }
-        const motion = await skeleton.evaluate(element => element.getAnimations({ subtree: true }).map(animation => ({
-          duration: animation.effect?.getTiming().duration,
-          opacityOnly: animation.effect instanceof KeyframeEffect
-            && animation.effect.getKeyframes().every(frame => frame.opacity !== undefined && frame.transform === undefined),
-        })))
+        const motion = await skeleton.evaluate(element =>
+          element.getAnimations({ subtree: true }).map(animation => ({
+            duration: animation.effect?.getTiming().duration,
+            opacityOnly:
+              animation.effect instanceof KeyframeEffect &&
+              animation.effect.getKeyframes().every(frame => frame.opacity !== undefined && frame.transform === undefined),
+          })),
+        )
         expect(motion.length).toBe(13)
         expect(motion.every(animation => animation.duration === 2000 && animation.opacityOnly)).toBe(true)
         await probe.emulateMedia({ reducedMotion: 'reduce' })
@@ -328,9 +379,16 @@ describe('web e2e: plugin manager', () => {
         const loaded = await measure(basic)
         expect(await basic.locator(':scope > ul > li[data-plugin-item]').count()).toBe(5)
         expect(loaded.rows).toHaveLength(loading.rows.length)
-        const compare = (name: string, a: typeof loading.pageHeader, b: typeof loaded.pageHeader, axes: readonly (keyof typeof a)[] = ['x', 'y', 'width', 'height']) => {
+        const compare = (
+          name: string,
+          a: typeof loading.pageHeader,
+          b: typeof loaded.pageHeader,
+          axes: readonly (keyof typeof a)[] = ['x', 'y', 'width', 'height'],
+        ) => {
           for (const axis of axes) {
-            expect(Math.abs(a[axis] - b[axis]), `${width}px ${name}.${axis}: loading=${a[axis]}, loaded=${b[axis]}`).toBeLessThanOrEqual(0.1)
+            expect(Math.abs(a[axis] - b[axis]), `${width}px ${name}.${axis}: loading=${a[axis]}, loaded=${b[axis]}`).toBeLessThanOrEqual(
+              0.1,
+            )
           }
         }
         compare('pageHeader', loading.pageHeader, loaded.pageHeader)
@@ -340,7 +398,8 @@ describe('web e2e: plugin manager', () => {
           if (real === undefined) break
           for (const part of ['row', 'head', 'icon'] as const) compare(`row ${index + 1} ${part}`, row[part], real[part])
           // Painted text bars are deliberately shorter than real copy; their line origins and heights align.
-          for (const part of ['main', 'titleRow', 'title', 'description'] as const) compare(`row ${index + 1} ${part}`, row[part], real[part], ['x', 'y', 'height'])
+          for (const part of ['main', 'titleRow', 'title', 'description'] as const)
+            compare(`row ${index + 1} ${part}`, row[part], real[part], ['x', 'y', 'height'])
         }
         facts.push(`${width}px: ${loaded.rows.length} rows; page/group headers, rows, icons and text line origins align within 0.1px`)
         expect(consoleWatch.pageErrors).toEqual([])
@@ -354,12 +413,18 @@ describe('web e2e: plugin manager', () => {
         }
       }
     }
-    await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'loading.expected.md'), [
-      aria, '', ...facts,
-      'Loading: header actions disabled; action spaces are empty 36×20 areas, with no switch placeholders',
-      'Loaded: skeleton removed; header actions enabled',
-      'Motion: 13 opacity-only pulses, 2000ms; reduced motion stops all pulses',
-    ].join('\n'), MODE)
+    await compareOrRefreshGolden(
+      join(SNAPSHOT_DIR, 'loading.expected.md'),
+      [
+        aria,
+        '',
+        ...facts,
+        'Loading: header actions disabled; action spaces are empty 36×20 areas, with no switch placeholders',
+        'Loaded: skeleton removed; header actions enabled',
+        'Motion: 13 opacity-only pulses, 2000ms; reduced motion stops all pulses',
+      ].join('\n'),
+      MODE,
+    )
   })
 
   it('delays refresh hints and keeps cards through manual refresh, failure, and retry', async () => {
@@ -385,15 +450,19 @@ describe('web e2e: plugin manager', () => {
       const tooltip = probe.getByRole('tooltip').filter({ hasText: '刷新' })
       const trace: string[] = []
       const recordRefresh = async (phase: string) => {
-        trace.push(phase, await refresh.ariaSnapshot(), JSON.stringify({
-          busy: await panel.getAttribute('aria-busy'),
-          spinners: await refresh.locator('[data-state="ongoing"]').count(),
-          cards: await cards.count(),
-          skeletons: await panel.locator('[data-plugin-loading]').count(),
-          alerts: await panel.getByRole('alert').allTextContents(),
-          retry: await panel.getByRole('button', { name: '重试', exact: true }).count(),
-          toasts: await probe.locator('body > [role="alert"]').allTextContents(),
-        }))
+        trace.push(
+          phase,
+          await refresh.ariaSnapshot(),
+          JSON.stringify({
+            busy: await panel.getAttribute('aria-busy'),
+            spinners: await refresh.locator('[data-state="ongoing"]').count(),
+            cards: await cards.count(),
+            skeletons: await panel.locator('[data-plugin-loading]').count(),
+            alerts: await panel.getByRole('alert').allTextContents(),
+            retry: await panel.getByRole('button', { name: '重试', exact: true }).count(),
+            toasts: await probe.locator('body > [role="alert"]').allTextContents(),
+          }),
+        )
       }
       const bounds = await refresh.boundingBox()
       if (bounds === null) throw new Error('Refresh button has no visible bounds')
@@ -435,7 +504,9 @@ describe('web e2e: plugin manager', () => {
           const release = Promise.withResolvers<undefined>()
           const called = spy.mock.calls.length
           spy.mockImplementationOnce(() => {
-            const read = release.promise.then(() => { throw new Error('Fixture plugin refresh failed') })
+            const read = release.promise.then(() => {
+              throw new Error('Fixture plugin refresh failed')
+            })
             reads.push(read)
             return read
           })
@@ -496,22 +567,38 @@ describe('web e2e: plugin manager', () => {
     expect(await toggle.getAttribute('aria-checked')).toBe('true')
     expect(await toggle.isDisabled()).toBe(false)
     await panel.getByText(/cannot resolve profile bundle/).waitFor({ timeout: 10_000 })
-    expect((await scaffold.ctx.pluginManager.listBundles()).find(row => row.name === '@fixture/missing-bundle'))
-      .toMatchObject({ enabled: true, installed: false, removable: true, error: { code: 'operation-error' }, rows: [] })
-    await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'missing-bundle.expected.md'),
+    expect((await scaffold.ctx.pluginManager.listBundles()).find(row => row.name === '@fixture/missing-bundle')).toMatchObject({
+      enabled: true,
+      installed: false,
+      removable: true,
+      error: { code: 'operation-error' },
+      rows: [],
+    })
+    await compareOrRefreshGolden(
+      join(SNAPSHOT_DIR, 'missing-bundle.expected.md'),
       await captureStableAria(page, '[data-plugin-panel]', scaffold.workspaceCwd, {
         replacements: [[scaffold.harnessHome, '{{home}}']],
-      }), MODE)
+      }),
+      MODE,
+    )
     await toggle.click()
-    await expect.poll(async () => (JSON.parse(await homeFile('profiles', 'scaffold', 'package.json')) as {
-      dsh: { profile: { bundles: string[] } }
-    }).dsh.profile.bundles, { timeout: 10_000 }).toEqual(SCAFFOLD_BUNDLES)
+    await expect
+      .poll(
+        async () =>
+          (
+            JSON.parse(await homeFile('profiles', 'scaffold', 'package.json')) as {
+              dsh: { profile: { bundles: string[] } }
+            }
+          ).dsh.profile.bundles,
+        { timeout: 10_000 },
+      )
+      .toEqual(SCAFFOLD_BUNDLES)
     await expect.poll(() => panel.getByText(/cannot resolve profile bundle/).count(), { timeout: 10_000 }).toBe(0)
     expect((await scaffold.ctx.pluginManager.listBundles()).some(row => row.name === '@fixture/missing-bundle')).toBe(false)
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
-  it('lists the installed bundles with their switches and leaves the installation\'s own to Settings', async () => {
+  it("lists the installed bundles with their switches and leaves the installation's own to Settings", async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-plugin-manager-list'))
     const panel = await openPluginsPanel()
 
@@ -531,7 +618,9 @@ describe('web e2e: plugin manager', () => {
     await info.hover()
     const hoverHelp = page.getByRole('tooltip')
     await hoverHelp.waitFor()
-    expect(await hoverHelp.textContent()).toBe('在这里配置官方插件，安装和管理其他插件。内置插件列表及运行状态可在「设置 → 内置插件」中查看')
+    expect(await hoverHelp.textContent()).toBe(
+      '在这里配置官方插件，安装和管理其他插件。内置插件列表及运行状态可在「设置 → 内置插件」中查看',
+    )
     await panel.getByRole('heading', { name: '插件', exact: true }).hover()
     await hoverHelp.waitFor({ state: 'hidden' })
     await info.focus()
@@ -559,7 +648,7 @@ describe('web e2e: plugin manager', () => {
     await toggle.focus()
     await page.keyboard.press('Shift+Tab')
     expect(await open.evaluate(element => element.matches(':focus-visible'))).toBe(true)
-    const focusRing = await open.evaluate((element) => {
+    const focusRing = await open.evaluate(element => {
       const style = getComputedStyle(element, '::after')
       return {
         radius: style.borderRadius,
@@ -582,10 +671,12 @@ describe('web e2e: plugin manager', () => {
     expect(await panel.getByText(/Cordis|Chrome DevTools/).count()).toBe(0)
     await panel.getByRole('button', { name: '更多', exact: true }).click()
     await panel.getByRole('heading', { name: '实验性插件', exact: true, level: 1 }).waitFor()
-    expect(await panel.locator('[data-plugin-group="more"] [data-plugin-package]').count())
-      .toBe(OPTIONAL_BUNDLES.length + ON_DEMAND_BUNDLES.length)
-    expect(await panel.getByText('实验性', { exact: true }).count())
-      .toBe(OPTIONAL_BUNDLES.filter(name => name.startsWith('@deepseek-ai/dsh-experimental-')).length)
+    expect(await panel.locator('[data-plugin-group="more"] [data-plugin-package]').count()).toBe(
+      OPTIONAL_BUNDLES.length + ON_DEMAND_BUNDLES.length,
+    )
+    expect(await panel.getByText('实验性', { exact: true }).count()).toBe(
+      OPTIONAL_BUNDLES.filter(name => name.startsWith('@deepseek-ai/dsh-experimental-')).length,
+    )
     expect(await panel.locator('[data-plugin-group="bundles"]').count()).toBe(0)
     await panel.getByRole('button', { name: '返回插件', exact: true }).click()
     expect(await panel.locator('[data-plugin-group="bundles"] [data-plugin-package]').count()).toBe(2)
@@ -605,7 +696,10 @@ describe('web e2e: plugin manager', () => {
   it('keeps off-state switch thumbs light in both themes', async () => {
     // The off-state thumb must stay light so an operable toggle cannot read as
     // disabled, whose only other difference is reduced opacity.
-    for (const [theme, label] of [['light', '浅色'], ['dark', '深色']] as const) {
+    for (const [theme, label] of [
+      ['light', '浅色'],
+      ['dark', '深色'],
+    ] as const) {
       await openSettings(page, 'zh')
       const settings = page.getByRole('dialog', { name: '设置', exact: true })
       await settings.getByRole('button', { name: '通用设置', exact: true }).click()
@@ -614,7 +708,7 @@ describe('web e2e: plugin manager', () => {
       const panel = await openPluginsPanel()
       const toggle = panel.getByRole('switch', { name: '启用 @fixture/bundle', exact: true })
       await expect.poll(() => toggle.getAttribute('aria-checked')).toBe('false')
-      const appearance = await toggle.evaluate((element) => {
+      const appearance = await toggle.evaluate(element => {
         const thumb = element.firstElementChild
         if (thumb === null) throw new Error('Switch thumb is missing')
         const bounds = element.getBoundingClientRect()
@@ -652,9 +746,13 @@ describe('web e2e: plugin manager', () => {
       const image = panel.locator(`${selector} img`).first()
       await image.waitFor()
       expect(await image.getAttribute('src')).toBe(source)
-      await image.evaluate(async (node: HTMLImageElement) => { await node.decode() })
+      await image.evaluate(async (node: HTMLImageElement) => {
+        await node.decode()
+      })
       const size = await image.evaluate((node: HTMLImageElement) => ({
-        width: node.width, height: node.height, naturalWidth: node.naturalWidth,
+        width: node.width,
+        height: node.height,
+        naturalWidth: node.naturalWidth,
       }))
       expect(size.naturalWidth).toBeGreaterThan(0)
       images.push(`${label}: image, ${size.width}×${size.height}, decoded`)
@@ -698,7 +796,9 @@ describe('web e2e: plugin manager', () => {
     const detail = panel.locator('[data-plugin-detail]')
     const preview = detail.getByRole('img', { name: 'DSH 徽章技能功能预览', exact: true })
     await preview.waitFor()
-    await preview.evaluate(async (image: HTMLImageElement) => { await image.decode() })
+    await preview.evaluate(async (image: HTMLImageElement) => {
+      await image.decode()
+    })
     expect(await preview.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(640)
     expect(await detail.getByRole('switch').getAttribute('aria-checked')).toBe('false')
     const fits = await preview.evaluate((image: HTMLImageElement) => {
@@ -709,16 +809,21 @@ describe('web e2e: plugin manager', () => {
     expect(fits).toBe(true)
     await detail.getByText(`v${badgeVersion}`, { exact: true }).waitFor()
     await detail.getByText(badgeVersion, { exact: true }).waitFor()
-    await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'preview.expected.md'),
+    await compareOrRefreshGolden(
+      join(SNAPSHOT_DIR, 'preview.expected.md'),
       await captureStableAria(page, '[data-plugin-panel]', scaffold.workspaceCwd, {
         replacements: [[badgeVersion, '{{version}}']],
-      }), MODE)
+      }),
+      MODE,
+    )
     const chineseSource = await preview.getAttribute('src')
     try {
       await setLanguage('en')
       const englishPreview = detail.getByRole('img', { name: 'DSH badge skill feature preview', exact: true })
       await englishPreview.waitFor()
-      await englishPreview.evaluate(async (image: HTMLImageElement) => { await image.decode() })
+      await englishPreview.evaluate(async (image: HTMLImageElement) => {
+        await image.decode()
+      })
       expect(await englishPreview.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(640)
       expect(await englishPreview.getAttribute('src')).not.toBe(chineseSource)
     } finally {
@@ -746,18 +851,26 @@ describe('web e2e: plugin manager', () => {
     expect(await review.getByText('审查工作区中的改动。', { exact: true }).count()).toBe(1)
     await panel.getByText('Registry description for the fixture bundle.', { exact: true }).first().waitFor()
     expect([...scaffold.ctx.loader.entries()].some(entry => entry.options.name.startsWith('@fixture/bundle'))).toBe(false)
-    await compareOrRefreshGolden(EXPORTS_EXPECTED, await captureStableAria(page, '[data-plugin-panel]', scaffold.workspaceCwd, {
-      replacements: [[FIXTURE_PLUGINS, '{{fixtures}}']],
-    }), MODE)
+    await compareOrRefreshGolden(
+      EXPORTS_EXPECTED,
+      await captureStableAria(page, '[data-plugin-panel]', scaffold.workspaceCwd, {
+        replacements: [[FIXTURE_PLUGINS, '{{fixtures}}']],
+      }),
+      MODE,
+    )
     try {
       await setLanguage('en')
       await search.getByText('File Search', { exact: true }).waitFor()
       expect(await review.getByText('@fixture/bundle/review', { exact: true }).count()).toBeGreaterThan(0)
       expect(await search.getByText('Search package introduction.', { exact: true }).count()).toBe(0)
       expect(await review.getByText('审查工作区中的改动。', { exact: true }).count()).toBe(0)
-      await compareOrRefreshGolden(EXPORTS_EN_EXPECTED, await captureStableAria(page, '[data-plugin-panel]', scaffold.workspaceCwd, {
-        replacements: [[FIXTURE_PLUGINS, '{{fixtures}}']],
-      }), MODE)
+      await compareOrRefreshGolden(
+        EXPORTS_EN_EXPECTED,
+        await captureStableAria(page, '[data-plugin-panel]', scaffold.workspaceCwd, {
+          replacements: [[FIXTURE_PLUGINS, '{{fixtures}}']],
+        }),
+        MODE,
+      )
       expect(await panel.locator('[data-plugin-name]').textContent()).toBe('@fixture/bundle')
     } finally {
       await setLanguage('zh')
@@ -783,7 +896,11 @@ describe('web e2e: plugin manager', () => {
       expect(await packageName.textContent()).toBe('@deepseek-ai/dsh-experimental-agent-team-profile')
       expect(await panel.getByText('Enable team collaboration, team tools, the member roster, and the shared task board.').count()).toBe(1)
       await child.getByText('Team Tools', { exact: true }).waitFor()
-      expect(await child.getByText('Give agents tools to coordinate members, exchange messages, and manage shared tasks.', { exact: true }).count()).toBe(1)
+      expect(
+        await child
+          .getByText('Give agents tools to coordinate members, exchange messages, and manage shared tasks.', { exact: true })
+          .count(),
+      ).toBe(1)
       await panel.getByRole('button', { name: 'Back to plugins' }).click()
       await panel.getByRole('button', { name: 'View Agent Teams', exact: true }).waitFor()
       expect(await panel.getByRole('switch', { name: 'Enable Agent Teams', exact: true }).count()).toBe(1)
@@ -804,8 +921,8 @@ describe('web e2e: plugin manager', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-plugin-manager-team'))
     const panel = await openPluginsPanel()
     const toggle = panel.getByRole('switch', { name: '启用 智能体团队', exact: true })
-    const teamRows = () => [...scaffold.ctx.loader.entries()]
-      .filter(entry => ['agent-team', 'tool-agent-team', 'ui-agent-team'].includes(entry.options.id))
+    const teamRows = () =>
+      [...scaffold.ctx.loader.entries()].filter(entry => ['agent-team', 'tool-agent-team', 'ui-agent-team'].includes(entry.options.id))
     const teamPage = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
     const teamTripwire = watchConsole(teamPage)
     try {
@@ -815,14 +932,18 @@ describe('web e2e: plugin manager', () => {
       if (agent === undefined) throw new Error('connected Team workspace did not create an Agent')
       // Session actions render only after the conversation leaves its blank state.
       agent.session.append('turn/start', { turn: 1 })
-      agent.session.append('user/message', createUserMessage({
-        content: [{ type: 'text', text: 'Team UI lifecycle' }], source: { kind: 'user' },
-      }), { surfaceOp: 'append' })
+      agent.session.append(
+        'user/message',
+        createUserMessage({
+          content: [{ type: 'text', text: 'Team UI lifecycle' }],
+          source: { kind: 'user' },
+        }),
+        { surfaceOp: 'append' },
+      )
       agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
       await scaffold.ctx.sessions.flush(agent.session)
       // The current crumb renders as plain text inside the zh-labeled hierarchy nav.
-      await teamPage.getByRole('navigation', { name: '会话层级' })
-        .getByText('Team UI lifecycle', { exact: true }).waitFor()
+      await teamPage.getByRole('navigation', { name: '会话层级' }).getByText('Team UI lifecycle', { exact: true }).waitFor()
       const action = teamPage.locator('[data-team-action]')
       expect(await action.count()).toBe(0)
       await toggle.click()
@@ -848,8 +969,8 @@ describe('web e2e: plugin manager', () => {
         await panel.getByRole('button', { name: '返回插件' }).click()
       } finally {
         const back = panel.getByRole('button', { name: '返回插件' })
-        if (await back.count() > 0) await back.click()
-        if (await toggle.getAttribute('aria-checked') === 'true') await toggle.click()
+        if ((await back.count()) > 0) await back.click()
+        if ((await toggle.getAttribute('aria-checked')) === 'true') await toggle.click()
         await expect.poll(() => teamRows().filter(entry => entry.fiber?.state === FiberState.ACTIVE).length, { timeout: 20_000 }).toBe(0)
         await expect.poll(() => action.count(), { timeout: 20_000 }).toBe(0)
       }
@@ -864,8 +985,7 @@ describe('web e2e: plugin manager', () => {
   it('mounts the delivered Automation tasks rows without a bundle switch', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-plugin-manager-schedule'))
     const panel = await openPluginsPanel()
-    const scheduleRows = () => [...scaffold.ctx.loader.entries()]
-      .filter(entry => ['schedule', 'ui-schedule'].includes(entry.options.id))
+    const scheduleRows = () => [...scaffold.ctx.loader.entries()].filter(entry => ['schedule', 'ui-schedule'].includes(entry.options.id))
     // The delivered Web composition ships both rows enabled, so no bundle card
     // offers a switch for them.
     expect(scheduleRows()).toHaveLength(2)
@@ -881,13 +1001,23 @@ describe('web e2e: plugin manager', () => {
     const manager = scaffold.ctx.pluginManager
     const manifest = await homeFile('profiles', 'scaffold', 'package.json')
     const registrySpy = vi.spyOn(manager, 'registries').mockResolvedValue({
-      registry: null, fallbackRegistries: [], resolved: 'https://registry.npmjs.org/',
+      registry: null,
+      fallbackRegistries: [],
+      resolved: 'https://registry.npmjs.org/',
     })
     const inspectSpy = vi.spyOn(manager, 'inspect').mockImplementation(async (spec, options) => ({
-      status: 'accepted', kind: 'registry', name: spec, version: '1.0.0', bundle: true, registry: options?.registry ?? null,
+      status: 'accepted',
+      kind: 'registry',
+      name: spec,
+      version: '1.0.0',
+      bundle: true,
+      registry: options?.registry ?? null,
     }))
     const installSpy = vi.spyOn(manager, 'installBundle').mockImplementation(async spec => ({
-      changed: false, application: 'failed', stage: 'install', target: spec,
+      changed: false,
+      application: 'failed',
+      stage: 'install',
+      target: spec,
       error: { code: 'operation-error', diagnostic: 'IME fixture: no package was installed' },
     }))
     try {
@@ -966,8 +1096,12 @@ describe('web e2e: plugin manager', () => {
             { label: 'Safari isComposing=false, keyCode=229', isComposing: false, keyCode: 229 },
           ]) {
             await field.dispatchEvent('keydown', {
-              key: 'Enter', code: 'Enter', bubbles: true, cancelable: true,
-              isComposing: event.isComposing, keyCode: event.keyCode,
+              key: 'Enter',
+              code: 'Enter',
+              bubbles: true,
+              cancelable: true,
+              isComposing: event.isComposing,
+              keyCode: event.keyCode,
             })
             await assertUnsubmitted(event.label)
           }
@@ -1002,8 +1136,9 @@ describe('web e2e: plugin manager', () => {
       trace.push('Profile manifest unchanged; controlled Host result performed no package installation.')
       await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'ime-enter.expected.md'), trace.join('\n'), MODE)
     } finally {
-      try { await context.close() }
-      finally {
+      try {
+        await context.close()
+      } finally {
         registrySpy.mockRestore()
         inspectSpy.mockRestore()
         installSpy.mockRestore()
@@ -1079,9 +1214,12 @@ describe('web e2e: plugin manager', () => {
 
     await toggle.click()
 
-    const bundles = async () => (JSON.parse(await homeFile('profiles', 'scaffold', 'package.json')) as {
-      dsh: { profile: { bundles: string[] } }
-    }).dsh.profile.bundles
+    const bundles = async () =>
+      (
+        JSON.parse(await homeFile('profiles', 'scaffold', 'package.json')) as {
+          dsh: { profile: { bundles: string[] } }
+        }
+      ).dsh.profile.bundles
     await expect.poll(bundles, { timeout: PLUGIN_TOGGLE_SETTLE_MS }).toEqual([...SCAFFOLD_BUNDLES, '@fixture/bundle'])
     // A live profile: the row mounts once the whole tree recomposed, the switch is on, and nothing waits for a restart.
     await expect.poll(() => mounted()?.fiber?.state, { timeout: 20_000 }).toBe(2)
@@ -1095,7 +1233,11 @@ describe('web e2e: plugin manager', () => {
     await rowSwitch.waitFor({ timeout: 10_000 })
     expect(await rowSwitch.getAttribute('aria-checked')).toBe('true')
     await rowSwitch.click()
-    await expect.poll(async () => (await homeFile('profiles', 'scaffold', 'cordis.patch.yml')).includes('fixture-row'), { timeout: PLUGIN_TOGGLE_SETTLE_MS }).toBe(true)
+    await expect
+      .poll(async () => (await homeFile('profiles', 'scaffold', 'cordis.patch.yml')).includes('fixture-row'), {
+        timeout: PLUGIN_TOGGLE_SETTLE_MS,
+      })
+      .toBe(true)
     await expect.poll(() => rowSwitch.getAttribute('aria-checked'), { timeout: PLUGIN_TOGGLE_SETTLE_MS }).toBe('false')
     // A disabled entry keeps its disposed fiber; only an active one counts as mounted.
     await expect.poll(() => mounted()?.fiber?.state, { timeout: 20_000 }).not.toBe(2)
@@ -1112,12 +1254,20 @@ describe('web e2e: plugin manager', () => {
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
     expect(tripwire.warnings).toEqual([])
     await assertFixtureInventory(SNAPSHOT_DIR, [
-      'manager.expected.md', 'live-enabled.expected.md', 'missing-bundle.expected.md', 'exports.expected.md', 'exports-en.expected.md', 'icons.expected.md', 'loading.expected.md', 'refresh.expected.md',
-      'ime-enter.expected.md', 'header-responsive.expected.md', 'preview.expected.md',
+      'manager.expected.md',
+      'live-enabled.expected.md',
+      'missing-bundle.expected.md',
+      'exports.expected.md',
+      'exports-en.expected.md',
+      'icons.expected.md',
+      'loading.expected.md',
+      'refresh.expected.md',
+      'ime-enter.expected.md',
+      'header-responsive.expected.md',
+      'preview.expected.md',
     ])
   })
 })
-
 
 describe('web e2e: startup-applied plugin management', () => {
   it('saves a bundle selection that waits for the next start and keeps its rows read-only', async () => {

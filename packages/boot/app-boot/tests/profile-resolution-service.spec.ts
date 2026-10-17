@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { getEnvironmentData } from 'node:worker_threads'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { PluginPackages } from '../src/profile-resolution/service.ts'
 import { createRuntimeResolution, initProfile, loadProfileDirectory, type RuntimeResolution } from '../src/profile.ts'
 
@@ -25,24 +25,25 @@ function file(path: string, text: string): void {
 }
 
 function pkg(dir: string, version: string, name = 'metadata-lib'): string {
-  file(join(dir, 'package.json'), JSON.stringify({
-    name,
-    version,
-    type: 'module',
-    exports: {
-      '.': { import: './index.js', require: './index.cjs' },
-      './feature': './index.js',
-      './feature/locale/*.json': './feature-locale/*.json',
-    },
-  }))
+  file(
+    join(dir, 'package.json'),
+    JSON.stringify({
+      name,
+      version,
+      type: 'module',
+      exports: {
+        '.': { import: './index.js', require: './index.cjs' },
+        './feature': './index.js',
+        './feature/locale/*.json': './feature-locale/*.json',
+      },
+    }),
+  )
   file(join(dir, 'index.js'), `export const version = ${JSON.stringify(version)}\n`)
   file(join(dir, 'index.cjs'), `exports.version = ${JSON.stringify(version)}\n`)
   return join(dir, 'package.json')
 }
 
-function resolution(
-  profilesDir: string, profileDir: string, packageDir: string, declarer: string, version: string,
-): RuntimeResolution {
+function resolution(profilesDir: string, profileDir: string, packageDir: string, declarer: string, version: string): RuntimeResolution {
   return {
     profilesDir,
     profileDir,
@@ -62,15 +63,25 @@ describe('profile package metadata service', () => {
     initProfile(profileDir, ['extra'])
     const bundleDir = join(profileDir, 'node_modules', 'extra')
     const privateDir = join(bundleDir, 'node_modules', 'metadata-lib')
-    file(join(bundleDir, 'package.json'), JSON.stringify({
-      name: 'extra', version: '1.0.0', dependencies: { 'metadata-lib': '1.0.0' }, dsh: { bundle: { patch: './cordis.patch.yml' } },
-    }))
+    file(
+      join(bundleDir, 'package.json'),
+      JSON.stringify({
+        name: 'extra',
+        version: '1.0.0',
+        dependencies: { 'metadata-lib': '1.0.0' },
+        dsh: { bundle: { patch: './cordis.patch.yml' } },
+      }),
+    )
     file(join(bundleDir, 'cordis.patch.yml'), '[]\n')
     const parentURL = pathToFileURL(join(profileDir, 'caller.mjs')).href
     const ctx = new Context()
     contexts.push(ctx)
     await ctx.plugin(PluginPackages, {
-      resolution: await createRuntimeResolution({ installAnchor, home: root, profile: loadProfileDirectory('dsh', profileDir, installAnchor) }),
+      resolution: await createRuntimeResolution({
+        installAnchor,
+        home: root,
+        profile: loadProfileDirectory('dsh', profileDir, installAnchor),
+      }),
     })
     expect(ctx.pluginPackages.packageOf('metadata-lib', parentURL)).toBeUndefined()
 
@@ -125,9 +136,13 @@ describe('profile package metadata service', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-localized-package-service-'))
     roots.push(root)
     const packageDir = join(root, 'node_modules', 'localized')
-    file(join(packageDir, 'package.json'), JSON.stringify({
-      name: 'localized', exports: { './private': './index.js', './private/locale/*.json': './locale/*.json' },
-    }))
+    file(
+      join(packageDir, 'package.json'),
+      JSON.stringify({
+        name: 'localized',
+        exports: { './private': './index.js', './private/locale/*.json': './locale/*.json' },
+      }),
+    )
     file(join(packageDir, 'index.js'), 'throw new Error("must not execute")\n')
     file(join(packageDir, 'locale', 'en.json'), '{"meta":{"title":"Local plugin"}}')
     file(join(packageDir, 'locale', 'zh.json'), '{"meta":{"title":"本地插件"}}')
@@ -173,7 +188,9 @@ describe('profile package metadata service', () => {
 
     await ctx.fiber.dispose()
     contexts.pop()
-    expect(() => { require.resolve('metadata-lib') }).toThrow(/Cannot find module/u)
+    expect(() => {
+      require.resolve('metadata-lib')
+    }).toThrow(/Cannot find module/u)
   })
 
   it('uses native package lookup without a registration and caches parsed metadata', async () => {
@@ -191,9 +208,15 @@ describe('profile package metadata service', () => {
     expect(ctx.pluginPackages.packageOf('@scope/metadata', parentURL)).toBe(first)
     expect(ctx.pluginPackages.packageOf('missing-package', parentURL)).toBeUndefined()
     expect(ctx.pluginPackages.packageOf('@scope', parentURL)).toBeUndefined()
-    expect(() => { ctx.pluginPackages.replace({
-      profilesDir: join(root, 'profiles'), profileDir: undefined, localPackageNames: [], linkedRoots: [], entries: [],
-    }) }).toThrow(/runtime resolution is not installed/u)
+    expect(() => {
+      ctx.pluginPackages.replace({
+        profilesDir: join(root, 'profiles'),
+        profileDir: undefined,
+        localPackageNames: [],
+        linkedRoots: [],
+        entries: [],
+      })
+    }).toThrow(/runtime resolution is not installed/u)
   })
 
   it('rejects malformed package metadata selected by the resolver', async () => {
@@ -224,9 +247,7 @@ describe('profile package metadata service', () => {
     await ctx.plugin(PluginPackages, {
       resolution: resolution(profilesDir, profileDir, missing, join(root, 'owner.json'), '1.0.0'),
     })
-    expect(ctx.pluginPackages.packageOf(
-      'metadata-lib', pathToFileURL(join(profileDir, 'entry.mjs')).href,
-    )).toBeUndefined()
+    expect(ctx.pluginPackages.packageOf('metadata-lib', pathToFileURL(join(profileDir, 'entry.mjs')).href)).toBeUndefined()
   })
 
   it('removes and restores linked roots while rejecting changes to their historical targets', async () => {
@@ -239,9 +260,13 @@ describe('profile package metadata service', () => {
     const linkedA = join(root, 'work', 'a')
     const linkedB = join(root, 'work', 'b')
     for (const dir of [linkedA, linkedB]) {
-      file(join(dir, 'package.json'), JSON.stringify({
-        name: 'linked-plugin', peerDependencies: { 'metadata-lib': '*' },
-      }))
+      file(
+        join(dir, 'package.json'),
+        JSON.stringify({
+          name: 'linked-plugin',
+          peerDependencies: { 'metadata-lib': '*' },
+        }),
+      )
     }
     const local = join(linkedA, 'node_modules', 'metadata-lib')
     pkg(local, '2.0.0')
@@ -264,7 +289,9 @@ describe('profile package metadata service', () => {
 
     const expectSelectedPackage = (dir: string, version: string): void => {
       expect(ctx.pluginPackages.packageOf('metadata-lib', parentURL)).toMatchObject({
-        name: 'metadata-lib', version, dir,
+        name: 'metadata-lib',
+        version,
+        dir,
       })
       expect(require.resolve('metadata-lib')).toBe(realpathSync.native(join(dir, 'index.cjs')))
     }
@@ -316,18 +343,26 @@ describe('profile package metadata service', () => {
     const addedAnchor = pkg(added, '2.0.0', 'added-metadata')
     const next = {
       ...initial,
-      entries: [...initial.entries, {
-        name: 'added-metadata', packageDir: added, version: '2.0.0',
-        declarer: addedAnchor, scope: 'installation' as const,
-      }],
+      entries: [
+        ...initial.entries,
+        {
+          name: 'added-metadata',
+          packageDir: added,
+          version: '2.0.0',
+          declarer: addedAnchor,
+          scope: 'installation' as const,
+        },
+      ],
     }
     ctx.pluginPackages.replace(next)
     expect(getEnvironmentData(key)).toEqual({
       resolution: next,
     })
-    expect(ctx.pluginPackages.packageOf(
-      'added-metadata', pathToFileURL(join(profileDir, 'entry.mjs')).href,
-    )).toMatchObject({ name: 'added-metadata', version: '2.0.0', dir: added })
+    expect(ctx.pluginPackages.packageOf('added-metadata', pathToFileURL(join(profileDir, 'entry.mjs')).href)).toMatchObject({
+      name: 'added-metadata',
+      version: '2.0.0',
+      dir: added,
+    })
 
     await ctx.fiber.dispose()
     contexts.pop()

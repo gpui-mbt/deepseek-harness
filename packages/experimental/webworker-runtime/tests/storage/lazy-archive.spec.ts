@@ -4,7 +4,7 @@
  * refused by name, one archive is fetched once however many readers wait, and a
  * failed fetch leaves the files registered so a later read retries.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { MemoryVfs } from '../../src/storage/memory.ts'
 import { packTar } from '../../src/storage/tar.ts'
 import { setActiveVfs } from '../../src/storage/active.ts'
@@ -19,10 +19,13 @@ const pdfBytes = encoder.encode('module.exports = "pdf"\n')
 const excelBytes = encoder.encode('module.exports = "excel"\n')
 
 /** One registered archive over `/dsh`, whose loader the caller controls. */
-function deferred(load: () => Promise<Uint8Array>, files = [
-  { path: PDF, size: pdfBytes.length },
-  { path: EXCEL, size: excelBytes.length },
-]): MemoryVfs {
+function deferred(
+  load: () => Promise<Uint8Array>,
+  files = [
+    { path: PDF, size: pdfBytes.length },
+    { path: EXCEL, size: excelBytes.length },
+  ],
+): MemoryVfs {
   const vfs = new MemoryVfs()
   vfs.seedDirectory('/dsh')
   vfs.seed('/dsh/node_modules/@scope/preview/lib/client.js', 'module.exports = "entry"\n')
@@ -50,28 +53,47 @@ describe('registration', () => {
     const refusals = [
       () => vfs.readFileSync(`/dsh/${PDF}`),
       () => vfs.openFileSync(`/dsh/${PDF}`),
-      () => { vfs.writeFileSync(`/dsh/${PDF}`, 'x') },
-      () => { vfs.appendFileSync(`/dsh/${PDF}`, 'x') },
-      () => { vfs.truncateSync(`/dsh/${PDF}`) },
-      () => { vfs.chmodSync(`/dsh/${PDF}`, 0o600) },
-      () => { vfs.linkSync(`/dsh/${PDF}`, '/dsh/alias.js') },
-      () => { vfs.renameSync(`/dsh/${PDF}`, '/dsh/moved.js') },
-      () => { vfs.renameSync('/dsh/node_modules/@scope/preview', '/dsh/moved') },
+      () => {
+        vfs.writeFileSync(`/dsh/${PDF}`, 'x')
+      },
+      () => {
+        vfs.appendFileSync(`/dsh/${PDF}`, 'x')
+      },
+      () => {
+        vfs.truncateSync(`/dsh/${PDF}`)
+      },
+      () => {
+        vfs.chmodSync(`/dsh/${PDF}`, 0o600)
+      },
+      () => {
+        vfs.linkSync(`/dsh/${PDF}`, '/dsh/alias.js')
+      },
+      () => {
+        vfs.renameSync(`/dsh/${PDF}`, '/dsh/moved.js')
+      },
+      () => {
+        vfs.renameSync('/dsh/node_modules/@scope/preview', '/dsh/moved')
+      },
     ]
     for (const refusal of refusals) {
       expect(refusal).toThrow(expect.objectContaining({ code: 'ERR_DSH_VFS_DEFERRED' }))
       expect(refusal).toThrow(/lazy archive lazy\/abc\.tar\.gz supplies/)
     }
-    expect(() => { vfs.mkdirSync(`/dsh/${PDF}`) }).toThrow(expect.objectContaining({ code: 'EEXIST' }))
+    expect(() => {
+      vfs.mkdirSync(`/dsh/${PDF}`)
+    }).toThrow(expect.objectContaining({ code: 'EEXIST' }))
   })
 
   it('leaves an empty destination directory in place when a tree with a registered file is refused', () => {
     const vfs = deferred(() => Promise.resolve(archive()))
     vfs.mkdirSync('/dsh/target')
     const mutations: VfsMutation[] = []
-    vfs.subscribe((mutation) => { mutations.push(mutation) })
-    expect(() => { vfs.renameSync('/dsh/node_modules/@scope/preview', '/dsh/target') })
-      .toThrow(expect.objectContaining({ code: 'ERR_DSH_VFS_DEFERRED' }))
+    vfs.subscribe(mutation => {
+      mutations.push(mutation)
+    })
+    expect(() => {
+      vfs.renameSync('/dsh/node_modules/@scope/preview', '/dsh/target')
+    }).toThrow(expect.objectContaining({ code: 'ERR_DSH_VFS_DEFERRED' }))
     expect(vfs.statSync('/dsh/target').isDirectory()).toBe(true)
     expect(vfs.existsSync(`/dsh/${PDF}`)).toBe(true)
     expect(mutations).toEqual([])
@@ -102,15 +124,19 @@ describe('registration', () => {
 describe('fetch', () => {
   it('fetches one archive once for concurrent readers and keeps each file identity', async () => {
     let resolve: ((bytes: Uint8Array) => void) | undefined
-    const load = vi.fn(() => new Promise<Uint8Array>((settle) => { resolve = settle }))
+    const load = vi.fn(
+      () =>
+        new Promise<Uint8Array>(settle => {
+          resolve = settle
+        }),
+    )
     const vfs = deferred(load)
     const mutations: VfsMutation[] = []
-    vfs.subscribe((mutation) => { mutations.push(mutation) })
+    vfs.subscribe(mutation => {
+      mutations.push(mutation)
+    })
     const before = (vfs.statSync(`/dsh/${PDF}`, { bigint: true }) as VfsBigIntStats).ino
-    const reads = Promise.all([
-      vfs.promises.readFile(`/dsh/${PDF}`, 'utf8'),
-      vfs.promises.readFile(`/dsh/${EXCEL}`, 'utf8'),
-    ])
+    const reads = Promise.all([vfs.promises.readFile(`/dsh/${PDF}`, 'utf8'), vfs.promises.readFile(`/dsh/${EXCEL}`, 'utf8')])
     expect(load).toHaveBeenCalledTimes(1)
     resolve?.(archive())
     expect(await reads).toEqual(['module.exports = "pdf"\n', 'module.exports = "excel"\n'])
@@ -123,11 +149,12 @@ describe('fetch', () => {
   })
 
   it('reports a failed fetch to the reader and retries on the next read', async () => {
-    const load = vi.fn<() => Promise<Uint8Array>>()
-      .mockRejectedValueOnce(new Error('offline'))
-      .mockResolvedValueOnce(archive())
+    const load = vi.fn<() => Promise<Uint8Array>>().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(archive())
     const vfs = deferred(load)
-    const failure: unknown = await vfs.promises.readFile(`/dsh/${PDF}`).then(() => undefined, (error: unknown) => error)
+    const failure: unknown = await vfs.promises.readFile(`/dsh/${PDF}`).then(
+      () => undefined,
+      (error: unknown) => error,
+    )
     expect(failure).toBeInstanceOf(Error)
     expect((failure as Error).message).toBe('webworker vfs: lazy archive lazy/abc.tar.gz could not be fetched')
     expect(((failure as Error).cause as Error).message).toBe('offline')
@@ -137,7 +164,11 @@ describe('fetch', () => {
   })
 
   it.each([
-    ['an unregistered entry', () => packTar({ [PDF]: pdfBytes, [EXCEL]: excelBytes, 'node_modules/extra.js': pdfBytes }), /unregistered entry "node_modules\/extra\.js"/],
+    [
+      'an unregistered entry',
+      () => packTar({ [PDF]: pdfBytes, [EXCEL]: excelBytes, 'node_modules/extra.js': pdfBytes }),
+      /unregistered entry "node_modules\/extra\.js"/,
+    ],
     ['a size other than registered', () => packTar({ [PDF]: excelBytes, [EXCEL]: excelBytes }), /holds \d+ bytes for/],
     ['a missing registered file', () => packTar({ [PDF]: pdfBytes }), /lacks registered file/],
   ])('refuses an archive with %s and leaves its files registered', async (_label, contents, message) => {
@@ -155,11 +186,14 @@ describe('fetch', () => {
 
   it('refuses to register a file twice or over an existing file', () => {
     const vfs = deferred(() => Promise.resolve(archive()))
-    expect(() => { vfs.deferArchive({ name: 'lazy/other.tar.gz', root: '/dsh', files: [{ path: PDF, size: 1 }], load: () => Promise.resolve(archive()) }) })
-      .toThrow(/already registered/)
+    expect(() => {
+      vfs.deferArchive({ name: 'lazy/other.tar.gz', root: '/dsh', files: [{ path: PDF, size: 1 }], load: () => Promise.resolve(archive()) })
+    }).toThrow(/already registered/)
     expect(() => {
       vfs.deferArchive({
-        name: 'lazy/other.tar.gz', root: '/dsh', files: [{ path: 'node_modules/@scope/preview/lib/client.js', size: 1 }],
+        name: 'lazy/other.tar.gz',
+        root: '/dsh',
+        files: [{ path: 'node_modules/@scope/preview/lib/client.js', size: 1 }],
         load: () => Promise.resolve(archive()),
       })
     }).toThrow(/already registered/)

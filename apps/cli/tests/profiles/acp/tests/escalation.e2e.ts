@@ -3,16 +3,9 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
-import {
-  PROTOCOL_VERSION,
-  type RequestPermissionRequest,
-} from '@agentclientprotocol/sdk'
-import {
-  launchAcpTestAgent,
-  type AgentUnderTest,
-  type LaunchedAcpTestAgent,
-} from '@deepseek-ai/dsh-session-snapshot'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { PROTOCOL_VERSION, type RequestPermissionRequest } from '@agentclientprotocol/sdk'
+import { launchAcpTestAgent, type AgentUnderTest, type LaunchedAcpTestAgent } from '@deepseek-ai/dsh-session-snapshot'
 import { bwrapProfileArgs } from '@deepseek-ai/dsh-sandbox-local/src/profiles.ts'
 import { cleanupAcpExampleTest } from './cleanup.ts'
 
@@ -44,23 +37,20 @@ const AGENT: AgentUnderTest = {
 // bwrap on Linux, Seatbelt's sandbox-exec on macOS. Without one the strict
 // attempt would fail closed (SANDBOX_UNAVAILABLE) instead of producing the
 // denial this flow starts from.
-const hasBwrap = spawnSync('bwrap', [...bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], {
-  timeout: 5_000,
-  stdio: 'ignore',
-}).status === 0
-const hasSeatbelt = process.platform === 'darwin' && spawnSync('sandbox-exec', ['-p', '(version 1)(allow default)', 'true'], {
-  timeout: 5_000,
-  stdio: 'ignore',
-}).status === 0
+const hasBwrap =
+  spawnSync('bwrap', [...bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], {
+    timeout: 5_000,
+    stdio: 'ignore',
+  }).status === 0
+const hasSeatbelt =
+  process.platform === 'darwin' &&
+  spawnSync('sandbox-exec', ['-p', '(version 1)(allow default)', 'true'], {
+    timeout: 5_000,
+    stdio: 'ignore',
+  }).status === 0
 const hasRunner = hasBwrap || hasSeatbelt
 
-const STANDARD_EXECUTION_UPDATES = new Set([
-  'agent_message_chunk',
-  'agent_thought_chunk',
-  'tool_call',
-  'tool_call_update',
-  'usage_update',
-])
+const STANDARD_EXECUTION_UPDATES = new Set(['agent_message_chunk', 'agent_thought_chunk', 'tool_call', 'tool_call_update', 'usage_update'])
 
 interface Spawned extends LaunchedAcpTestAgent {
   permissionRequests: RequestPermissionRequest[]
@@ -100,9 +90,11 @@ function launchExampleAcpAgent(
 }
 
 function escalationPrompt(path: string, content: string): string {
-  return `Create ${path} containing exactly ${JSON.stringify(content)} using bash, not filesystem tools. `
-    + 'First try the command without sandbox_permissions. If the sandbox denies it, retry that exact command once '
-    + 'with sandbox_permissions set to workspace-write and a one-sentence justification.'
+  return (
+    `Create ${path} containing exactly ${JSON.stringify(content)} using bash, not filesystem tools. ` +
+    'First try the command without sandbox_permissions. If the sandbox denies it, retry that exact command once ' +
+    'with sandbox_permissions set to workspace-write and a one-sentence justification.'
+  )
 }
 
 let spawned: Spawned | undefined
@@ -134,7 +126,6 @@ describe('default sandbox composition keyless smoke (real cordis.yml via the Loa
     const { sessionId } = await client.newSession({ cwd: workdir, mcpServers: [] })
     expect(sessionId.length).toBeGreaterThan(0)
   }, 30_000)
-
 })
 
 describe.skipIf(!process.env.DEEPSEEK_API_KEY || !hasRunner)('default sandbox composition e2e: the live approval loop', () => {
@@ -147,10 +138,12 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || !hasRunner)('default sandbox co
     const { sessionId } = await client.newSession({ cwd: workdir, mcpServers: [] })
     const res = await client.prompt({
       sessionId,
-      prompt: [{
-        type: 'text',
-        text: `${escalationPrompt(join(workdir, 'escalated.txt'), 'ACP_ESCALATION_OK')} Then stop.`,
-      }],
+      prompt: [
+        {
+          type: 'text',
+          text: `${escalationPrompt(join(workdir, 'escalated.txt'), 'ACP_ESCALATION_OK')} Then stop.`,
+        },
+      ],
     })
     expect(['end_turn', 'max_tokens']).toContain(res.stopReason)
     expectStandardExecutionUpdates(updates)
@@ -179,10 +172,12 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || !hasRunner)('default sandbox co
     const { sessionId } = await client.newSession({ cwd: workdir, mcpServers: [] })
     const res = await client.prompt({
       sessionId,
-      prompt: [{
-        type: 'text',
-        text: `${escalationPrompt(join(workdir, 'refused.txt'), 'NO')} If approval is rejected, stop and say so.`,
-      }],
+      prompt: [
+        {
+          type: 'text',
+          text: `${escalationPrompt(join(workdir, 'refused.txt'), 'NO')} If approval is rejected, stop and say so.`,
+        },
+      ],
     })
     expect(['end_turn', 'max_tokens']).toContain(res.stopReason)
     expectStandardExecutionUpdates(updates)

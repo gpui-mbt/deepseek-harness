@@ -1,5 +1,5 @@
 /** Account configuration resolves the listing endpoint, cache timing, and model overrides in one step. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { Config, plainAccountOptions, resolveAccountOptions } from '../src/config.ts'
 
@@ -16,16 +16,28 @@ it.each([
   [{ models: [] }, /models is no longer configurable/],
   [{ modelOverrides: { '': {} } }, /modelOverrides keys must be non-empty model ids/],
   [{ modelOverrides: { 'deepseek-flash': { id: 'other' } } }, /modelOverrides\.deepseek-flash sets "id"/],
-  [{ modelOverrides: { 'deepseek-flash': { contextWindow: 0 } } }, /modelOverrides\.deepseek-flash is invalid: .*contextWindow must be a positive integer/],
-  [{ modelOverrides: { 'deepseek-flash': { inputModalities: ['text'], imageMaxBytes: 1 } } }, /modelOverrides\.deepseek-flash is invalid: .*cannot declare image request limits/],
+  [
+    { modelOverrides: { 'deepseek-flash': { contextWindow: 0 } } },
+    /modelOverrides\.deepseek-flash is invalid: .*contextWindow must be a positive integer/,
+  ],
+  [
+    { modelOverrides: { 'deepseek-flash': { inputModalities: ['text'], imageMaxBytes: 1 } } },
+    /modelOverrides\.deepseek-flash is invalid: .*cannot declare image request limits/,
+  ],
 ])('rejects %j', (options, message) => {
-  expect(() => { Reflect.apply(resolveAccountOptions, undefined, [options]) }).toThrow(message)
+  expect(() => {
+    Reflect.apply(resolveAccountOptions, undefined, [options])
+  }).toThrow(message)
 })
 
 it('keeps the fields an override declares and drops inherited empty lists', () => {
-  expect(resolveAccountOptions({ modelOverrides: {
-    'deepseek-flash': { contextWindow: 524_288, imagePixelBudget: 'low', inputModalities: [] },
-  } }).modelOverrides).toEqual({ 'deepseek-flash': { contextWindow: 524_288, imagePixelBudget: 'low' } })
+  expect(
+    resolveAccountOptions({
+      modelOverrides: {
+        'deepseek-flash': { contextWindow: 524_288, imagePixelBudget: 'low', inputModalities: [] },
+      },
+    }).modelOverrides,
+  ).toEqual({ 'deepseek-flash': { contextWindow: 524_288, imagePixelBudget: 'low' } })
 })
 
 it('reads the current value behind every Config reference', () => {

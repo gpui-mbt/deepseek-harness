@@ -175,16 +175,16 @@ const POSTCONDITIONS: readonly PostCondition[] = [
   { file: 'vendor/cordis/package.json', text: '"name": "@deepseek-ai/cordis"', count: 1 },
   { file: 'vendor/hmr/package.json', text: '"name": "@deepseek-ai/cordis-plugin-hmr"', count: 1 },
   { file: 'scripts/cordis-walk.ts', text: '@deepseek-ai\\/cordis', count: 1 },
-  { file: 'scripts/cordis-walk.ts', text: '!== \'@deepseek-ai/cordis\'', count: 1 },
-  { file: 'packages/typert/generator/src/analyzer.ts', text: '!== \'@deepseek-ai/cordis\'', count: 2 },
-  { file: 'scripts/check-workspace-constraints.ts', text: '?.[\'@deepseek-ai/cordis\']', count: 2 },
-  { file: 'packages/boot/app-boot/tsdown.config.ts', text: '[\'@deepseek-ai/cordis-plugin-include\']', count: 1 },
+  { file: 'scripts/cordis-walk.ts', text: "!== '@deepseek-ai/cordis'", count: 1 },
+  { file: 'packages/typert/generator/src/analyzer.ts', text: "!== '@deepseek-ai/cordis'", count: 2 },
+  { file: 'scripts/check-workspace-constraints.ts', text: "?.['@deepseek-ai/cordis']", count: 2 },
+  { file: 'packages/boot/app-boot/tsdown.config.ts', text: "['@deepseek-ai/cordis-plugin-include']", count: 1 },
   { file: 'tsconfig.base.json', text: '"@deepseek-ai/cordis-plugin-loader": ["./vendor/loader/src"]', count: 1 },
   // The vendored README owns this required entry; reject its deletion or duplication.
   { file: 'vendor/README.md', text: '17. **`@deepseek-ai` rescope**', count: 1 },
   { file: 'pnpm-workspace.yaml', text: 'cordis@4.0.0-rc.7', count: 0 },
   // The preset ids in this table are product data, not package names.
-  { file: 'packages/client/ui-agent-preset/tests/locales.client.spec.ts', text: '[\'cordis\', \'presetCordisName\'', count: 1 },
+  { file: 'packages/client/ui-agent-preset/tests/locales.client.spec.ts', text: "['cordis', 'presetCordisName'", count: 1 },
   // The preset id the shipped composition documents to its own model.
 ]
 
@@ -243,7 +243,7 @@ const EXACT_EDITS: readonly ExactEdit[] = [
   {
     id: 'publication-set-scope-assertion',
     file: 'scripts/publish-npm-baseline.ts',
-    find: '      if (!isVendored && !name.startsWith(\'@deepseek-ai/\')) {',
+    find: "      if (!isVendored && !name.startsWith('@deepseek-ai/')) {",
     replace: `      // Vendored packages are rescoped too (vendor/README.md), so publication
       // never carries an upstream name that would squat it on the registry.
       if (!name.startsWith('@deepseek-ai/')) {`,
@@ -253,7 +253,8 @@ const EXACT_EDITS: readonly ExactEdit[] = [
     id: 'vendor-readme-preamble',
     file: 'vendor/README.md',
     find: 'All vendored packages keep their **original npm names** (they are resolved through pnpm workspaces) and are marked `private: true` — they are never published from this repo.',
-    replace: 'All vendored packages use the **`@deepseek-ai` scope** (`cordis` → `@deepseek-ai/cordis`, `@cordisjs/plugin-<x>` → `@deepseek-ai/cordis-plugin-<x>`). The manifest table records upstream versions and source commits; each package manifest carries its Harness release version and publication metadata. References to vendored packages use `workspace:~`, so local builds resolve the workspace packages and published ranges permit patch updates within the same minor version.',
+    replace:
+      'All vendored packages use the **`@deepseek-ai` scope** (`cordis` → `@deepseek-ai/cordis`, `@cordisjs/plugin-<x>` → `@deepseek-ai/cordis-plugin-<x>`). The manifest table records upstream versions and source commits; each package manifest carries its Harness release version and publication metadata. References to vendored packages use `workspace:~`, so local builds resolve the workspace packages and published ranges permit patch updates within the same minor version.',
     expect: 1,
   },
   {
@@ -268,7 +269,8 @@ const EXACT_EDITS: readonly ExactEdit[] = [
     id: 'root-agents-vendored-name-contract',
     file: 'AGENTS.md',
     find: 'vendored packages keep upstream names and are `private: true`. `cordis` is a peerDependency (+ dev) of every harness package.',
-    replace: 'vendor is [rescoped](docs/rescope.md) and `private: true`. Harness packages declare `@deepseek-ai/cordis` in `peerDependencies`/`devDependencies`.',
+    replace:
+      'vendor is [rescoped](docs/rescope.md) and `private: true`. Harness packages declare `@deepseek-ai/cordis` in `peerDependencies`/`devDependencies`.',
     expect: 1,
   },
   {
@@ -379,7 +381,8 @@ const VENDORED_LIBRARY = /^@deepseek-ai\\/(cosmokit|schemastery)(\\/|$)/
     id: 'notices-vendored-section',
     file: 'scripts/gen-third-party-notices.ts',
     find: 'The Cordis framework and its foundation libraries are source-vendored into this repository rather than consumed from npm. All are MIT-licensed',
-    replace: 'The Cordis framework and its foundation libraries are source-vendored into this repository rather than consumed from npm, and republished under the \\`@deepseek-ai\\` scope. All are MIT-licensed',
+    replace:
+      'The Cordis framework and its foundation libraries are source-vendored into this repository rather than consumed from npm, and republished under the \\`@deepseek-ai\\` scope. All are MIT-licensed',
     expect: 1,
   },
   {
@@ -396,7 +399,7 @@ const VENDORED_LIBRARY = /^@deepseek-ai\\/(cosmokit|schemastery)(\\/|$)/
   {
     id: 'notices-spec-row-fixture',
     file: 'scripts/gen-third-party-notices.spec.ts',
-    find: '    expect(rows).toContainEqual({ npmName: \'cordis\', upstream: \'https://github.com/cordiverse/cordis\' })',
+    find: "    expect(rows).toContainEqual({ npmName: 'cordis', upstream: 'https://github.com/cordiverse/cordis' })",
     replace: `    expect(rows).toContainEqual({
       npmName: '@deepseek-ai/cordis',
       upstreamName: 'cordis',
@@ -407,8 +410,8 @@ const VENDORED_LIBRARY = /^@deepseek-ai\\/(cosmokit|schemastery)(\\/|$)/
   {
     id: 'notices-spec-shape-fixture',
     file: 'scripts/gen-third-party-notices.spec.ts',
-    find: 'parseVendoredRows(\'| `cordis/` | cordis | 4.0.0 | https://example.com | `abc123` |\\n\')',
-    replace: 'parseVendoredRows(\'| `cordis/` | `@deepseek-ai/cordis` | cordis | 4.0.0 | https://example.com | `abc123` |\\n\')',
+    find: "parseVendoredRows('| `cordis/` | cordis | 4.0.0 | https://example.com | `abc123` |\\n')",
+    replace: "parseVendoredRows('| `cordis/` | `@deepseek-ai/cordis` | cordis | 4.0.0 | https://example.com | `abc123` |\\n')",
     expect: 1,
   },
   {
@@ -484,12 +487,11 @@ interface Pattern {
 }
 
 function patterns(reverse: boolean): Pattern[] {
-  return RENAMES
-    .map(rename => ({
-      upstream: rename.upstream,
-      from: reverse ? rename.scoped : rename.upstream,
-      to: reverse ? rename.upstream : rename.scoped,
-    }))
+  return RENAMES.map(rename => ({
+    upstream: rename.upstream,
+    from: reverse ? rename.scoped : rename.upstream,
+    to: reverse ? rename.upstream : rename.scoped,
+  }))
     .sort((left, right) => right.from.length - left.from.length)
     .map(rename => ({
       ...rename,
@@ -528,7 +530,7 @@ function rewrite(text: string, file: string, all: readonly Pattern[]): { text: s
   const prose = markdown && file.startsWith('docs/')
   let insideFence = false
   let lines = 0
-  const out = text.split('\n').map((line) => {
+  const out = text.split('\n').map(line => {
     if (markdown) {
       if (/^\s*```/.test(line)) {
         insideFence = !insideFence
@@ -636,6 +638,8 @@ function main(): void {
 
   for (const file of files) {
     const path = resolve(root, file)
+    // A tracked path may be deleted in the working tree; only current files carry names to rescope.
+    if (!existsSync(path)) continue
     const before = readFileSync(path, 'utf8')
     const { text: after, lines } = rewrite(before, file, all)
     if (after === before) continue
@@ -658,7 +662,9 @@ function main(): void {
       const path = resolve(root, check.file)
       const hits = existsSync(path) ? readFileSync(path, 'utf8').split(check.text).length - 1 : -1
       if (hits !== check.count) {
-        failures.push(`postcondition: ${check.file} has ${String(hits)} occurrence(s) of ${JSON.stringify(check.text)}, expected ${String(check.count)}`)
+        failures.push(
+          `postcondition: ${check.file} has ${String(hits)} occurrence(s) of ${JSON.stringify(check.text)}, expected ${String(check.count)}`,
+        )
       }
     }
     // The generic pass above already told us which files would still change,
@@ -675,7 +681,9 @@ function main(): void {
   } else if (mode === 'check') {
     console.log('rescope-vendor: post-state verified — no residue, every exact edit landed, idempotent.')
   } else if (mode === 'apply') {
-    console.log('rescope-vendor: applied. Run `pnpm install`, `pnpm run gen-third-party-notices`, and re-record the touched bilingual pairs.')
+    console.log(
+      'rescope-vendor: applied. Run `pnpm install`, `pnpm run gen-third-party-notices`, and re-record the touched bilingual pairs.',
+    )
   }
 }
 

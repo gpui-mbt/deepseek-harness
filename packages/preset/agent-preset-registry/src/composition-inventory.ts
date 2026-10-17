@@ -77,7 +77,7 @@ export function activeCompositionModules(tree: EntryTree): AgentPresetInspection
     const baseUrl = ownerTree.ctx.baseUrl
     modules.push({
       moduleName: entry.options.name,
-      ...baseUrl === undefined ? {} : { baseUrl },
+      ...(baseUrl === undefined ? {} : { baseUrl }),
       useHostBase: ownerTree === tree,
     })
   }
@@ -93,10 +93,7 @@ export function activeCompositionModules(tree: EntryTree): AgentPresetInspection
  * @param evaluateExpression - the Loader-context evaluator for `!!js` nodes.
  * @returns true (disabled), false (enabled), or `'conditional'`.
  */
-function disabledContribution(
-  value: unknown,
-  evaluateExpression: DisabledExpressionEvaluator,
-): boolean | 'conditional' {
+function disabledContribution(value: unknown, evaluateExpression: DisabledExpressionEvaluator): boolean | 'conditional' {
   if (isJsExpr(value)) {
     try {
       return Boolean(evaluateExpression(value.__jsExpr))
@@ -117,10 +114,7 @@ function disabledContribution(
  * @param own - this row's contribution.
  * @returns the row's effective disabled state.
  */
-function combineDisabled(
-  outer: boolean | 'conditional',
-  own: boolean | 'conditional',
-): boolean | 'conditional' {
+function combineDisabled(outer: boolean | 'conditional', own: boolean | 'conditional'): boolean | 'conditional' {
   if (outer === true || own === true) return true
   if (outer === 'conditional' || own === 'conditional') return 'conditional'
   return false
@@ -161,7 +155,7 @@ function flattenRows(
       entryId: typeof row.id === 'string' && row.id !== '' ? row.id : null,
       moduleName: row.name,
       enabled: disabled === true ? false : disabled === 'conditional' ? 'conditional' : true,
-      ...isJsExpr(row.disabled) ? { condition: row.disabled.__jsExpr } : {},
+      ...(isJsExpr(row.disabled) ? { condition: row.disabled.__jsExpr } : {}),
     })
   }
 }
@@ -197,8 +191,8 @@ export function mountedCompositionRows(tree: EntryTree): AgentPresetCompositionR
       entryId: entry.id.slice(prefix.length),
       moduleName: entry.options.name,
       enabled: !entry.disabled,
-      ...isJsExpr(entry.options.disabled) ? { condition: entry.options.disabled.__jsExpr } : {},
-      ...entry.fiber === undefined ? {} : { fiberState: entry.fiber.state },
+      ...(isJsExpr(entry.options.disabled) ? { condition: entry.options.disabled.__jsExpr } : {}),
+      ...(entry.fiber === undefined ? {} : { fiberState: entry.fiber.state }),
     })
   }
   return found

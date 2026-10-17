@@ -46,8 +46,9 @@ export function tagDesktopRelease(options: {
 }): DesktopReleaseTagResult {
   const tag = desktopReleaseTag(options.version)
   const remote = options.remote ?? 'origin'
-  const run = options.run
-    ?? ((command: string, args: readonly string[]) =>
+  const run =
+    options.run ??
+    ((command: string, args: readonly string[]) =>
       execFileSync(command, [...args], { cwd: options.repositoryRoot, encoding: 'utf8' }).trim())
   const create = `git tag ${tag} ${options.commit}`
   const push = `git push ${remote} ${tag}`
@@ -68,8 +69,7 @@ export function tagDesktopRelease(options: {
     tagged = true
     run('git', ['push', remote, tag])
     return { tag, status: 'created' }
-  }
-  catch (error) {
+  } catch (error) {
     return {
       tag,
       status: 'failed',

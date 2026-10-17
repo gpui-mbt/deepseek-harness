@@ -1,7 +1,7 @@
 /** What the browser half registers, when, and that it all leaves with the fiber. */
 
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
@@ -30,9 +30,13 @@ async function bench(served?: string[]) {
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  const describeSettings = vi.fn(() => Promise.resolve(served === undefined
-    ? { ok: false, error: new RemoteError('gateway/internal', 'no provider', {}) }
-    : { ok: true, value: { writable: true, hasDocument: true, namespaces: served.map(ns => view(ns)) } }))
+  const describeSettings = vi.fn(() =>
+    Promise.resolve(
+      served === undefined
+        ? { ok: false, error: new RemoteError('gateway/internal', 'no provider', {}) }
+        : { ok: true, value: { writable: true, hasDocument: true, namespaces: served.map(ns => view(ns)) } },
+    ),
+  )
   const remote = new TestRemote(ctx, { settings: { describe: describeSettings } })
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return { ctx, slots: ctx.get('slots') as SlotRegistry, describeSettings, remote }
@@ -40,10 +44,13 @@ async function bench(served?: string[]) {
 
 /** The Plugins page's item slot, as its owner declares it. */
 function declareRoot(slots: SlotRegistry): () => void {
-  return slots.register({
-    name: 'root',
-    children: { 'plugins.item': { kind: 'list', scope: 'root' } },
-  } as never, () => null)
+  return slots.register(
+    {
+      name: 'root',
+      children: { 'plugins.item': { kind: 'list', scope: 'root' } },
+    } as never,
+    () => null,
+  )
 }
 
 describe('ui-settings-shell apply', () => {
@@ -61,7 +68,9 @@ describe('ui-settings-shell apply', () => {
 
     await ctx.plugin({ inject: [...inject], apply }).await()
 
-    await vi.waitFor(() => { expect(slots.entries('plugins.item')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(slots.entries('plugins.item')).toHaveLength(1)
+    })
     const entry = slots.entries('plugins.item')[0]!
     expect(entry.options).toMatchObject({ id: 'shell', order: 40 })
     expect(resolveSlotLabel(entry.options.label)).toBe('终端')
@@ -76,25 +85,34 @@ describe('ui-settings-shell apply', () => {
     const { ctx, slots, describeSettings, remote } = await bench(['agent-loop'])
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
-    await vi.waitFor(() => { expect(describeSettings).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(describeSettings).toHaveBeenCalled()
+    })
     expect(slots.entries('plugins.item')).toHaveLength(0)
 
     describeSettings.mockResolvedValue({
-      ok: true, value: { writable: true, hasDocument: true, namespaces: [view('bash-sandbox', 1)] },
+      ok: true,
+      value: { writable: true, hasDocument: true, namespaces: [view('bash-sandbox', 1)] },
     })
     remote.emit('settings/document-updated', ['bash-sandbox', 1])
-    await vi.waitFor(() => { expect(slots.entries('plugins.item')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(slots.entries('plugins.item')).toHaveLength(1)
+    })
 
     describeSettings.mockResolvedValue({ ok: true, value: { writable: true, hasDocument: true, namespaces: [] } })
     remote.emit('settings/document-updated', ['bash-sandbox', 2])
-    await vi.waitFor(() => { expect(slots.entries('plugins.item')).toHaveLength(0) })
+    await vi.waitFor(() => {
+      expect(slots.entries('plugins.item')).toHaveLength(0)
+    })
   })
 
   it('binds the page to the PowerShell executor entry when that is the composed shell', async () => {
     const { ctx, slots } = await bench(['pwsh-sandbox'])
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
-    await vi.waitFor(() => { expect(slots.entries('plugins.item')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(slots.entries('plugins.item')).toHaveLength(1)
+    })
     const face = (slots.entries('plugins.item')[0]!.inject as () => Pick<ShellCardFace, 'hooks'>)()
     expect(Object.keys(face.hooks)).toEqual(['shellCard'])
   })
@@ -105,7 +123,9 @@ describe('ui-settings-shell apply', () => {
 
     declareRoot(slots)
 
-    await vi.waitFor(() => { expect(slots.entries('plugins.item')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(slots.entries('plugins.item')).toHaveLength(1)
+    })
   })
 
   it('collapses the page on teardown', async () => {
@@ -113,7 +133,9 @@ describe('ui-settings-shell apply', () => {
     declareRoot(slots)
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    await vi.waitFor(() => { expect(slots.entries('plugins.item')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(slots.entries('plugins.item')).toHaveLength(1)
+    })
 
     await fiber.dispose()
 

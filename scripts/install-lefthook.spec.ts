@@ -16,7 +16,7 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { removeFixtureSafely } from './test-fixture-cleanup.ts'
 
 const installer = fileURLToPath(new URL('./install-lefthook.mjs', import.meta.url))
@@ -112,10 +112,7 @@ function installFakeLefthook(root: string): void {
   mkdirSync(binDirectory, { recursive: true })
   writeFileSync(join(binDirectory, 'fake-lefthook.mjs'), fakeLefthookSource())
   if (process.platform === 'win32') {
-    writeFileSync(
-      join(binDirectory, 'lefthook.cmd'),
-      `@echo off\r\n"${process.execPath}" "%~dp0\\fake-lefthook.mjs" %*\r\n`,
-    )
+    writeFileSync(join(binDirectory, 'lefthook.cmd'), `@echo off\r\n"${process.execPath}" "%~dp0\\fake-lefthook.mjs" %*\r\n`)
     return
   }
   const shim = join(binDirectory, 'lefthook')
@@ -186,12 +183,7 @@ async function waitForPath(path: string): Promise<void> {
   }
 }
 
-function runInstaller(
-  fixture: Fixture,
-  root: string,
-  extraEnv: NodeJS.ProcessEnv = {},
-  nodeArgs: string[] = [],
-): Promise<CommandResult> {
+function runInstaller(fixture: Fixture, root: string, extraEnv: NodeJS.ProcessEnv = {}, nodeArgs: string[] = []): Promise<CommandResult> {
   return new Promise((resolveResult, reject) => {
     const child = spawn(process.execPath, [...nodeArgs, installer], {
       cwd: root,
@@ -200,10 +192,16 @@ function runInstaller(
     })
     let stdout = ''
     let stderr = ''
-    child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
-    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString()
+    })
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString()
+    })
     child.on('error', reject)
-    child.on('close', (status) => { resolveResult({ status, stderr, stdout }) })
+    child.on('close', status => {
+      resolveResult({ status, stderr, stdout })
+    })
   })
 }
 
@@ -224,12 +222,7 @@ describe('worktree-local Lefthook installer', { timeout: 90_000 }, () => {
       const fixture = createFixture()
       const common = commonDirectory(fixture)
       const missingInclude = join(fixture.container, 'missing-ci-credentials.gitconfig')
-      git(fixture, fixture.main, [
-        'config',
-        '--local',
-        'includeIf.gitdir:/github/workspace/.git.path',
-        missingInclude,
-      ])
+      git(fixture, fixture.main, ['config', '--local', 'includeIf.gitdir:/github/workspace/.git.path', missingInclude])
 
       const result = await runInstaller(fixture, fixture.main, extraEnv)
 
@@ -301,27 +294,19 @@ describe('worktree-local Lefthook installer', { timeout: 90_000 }, () => {
     const linkedHooks = hooksPath(fixture, lateLinked)
     expect(linkedHooks).not.toBe(mainHooks)
     expect(git(fixture, lateLinked, ['config', '--worktree', '--get', 'core.hooksPath'])).toBe(linkedHooks)
-    expect(readFileSync(join(linkedHooks, 'pre-commit'), 'utf8')).toContain(
-      '# config=late-linked-worktree-config',
-    )
+    expect(readFileSync(join(linkedHooks, 'pre-commit'), 'utf8')).toContain('# config=late-linked-worktree-config')
     expect(readFileSync(join(mainHooks, 'pre-commit'), 'utf8')).toBe(mainHookBefore)
   })
 
   it('serializes concurrent installs and keeps repeated output stable', async () => {
     const fixture = createFixture()
     const delayed = { DSH_TEST_LEFTHOOK_DELAY_MS: '150' }
-    const first = await Promise.all([
-      runInstaller(fixture, fixture.main, delayed),
-      runInstaller(fixture, fixture.linked, delayed),
-    ])
+    const first = await Promise.all([runInstaller(fixture, fixture.main, delayed), runInstaller(fixture, fixture.linked, delayed)])
     for (const result of first) expect(result.status, result.stderr).toBe(0)
 
     const mainHookPath = join(hooksPath(fixture, fixture.main), 'pre-push')
     const initialHook = readFileSync(mainHookPath, 'utf8')
-    const repeated = await Promise.all([
-      runInstaller(fixture, fixture.main, delayed),
-      runInstaller(fixture, fixture.main, delayed),
-    ])
+    const repeated = await Promise.all([runInstaller(fixture, fixture.main, delayed), runInstaller(fixture, fixture.main, delayed)])
     for (const result of repeated) expect(result.status, result.stderr).toBe(0)
     expect(readFileSync(mainHookPath, 'utf8')).toBe(initialHook)
     expect(existsSync(join(commonDirectory(fixture), 'dsh-lefthook-install.lock'))).toBe(false)
@@ -340,7 +325,9 @@ describe('worktree-local Lefthook installer', { timeout: 90_000 }, () => {
       writeFileSync(lockPath, `${process.pid} 00000000-0000-4000-8000-000000000001\n`)
     }
     // The subprocess owns the injected filesystem error and clock; the test process stays unchanged.
-    writeFileSync(preload, `
+    writeFileSync(
+      preload,
+      `
 const fs = require('node:fs')
 const { syncBuiltinESMExports } = require('node:module')
 const lockPath = ${JSON.stringify(lockPath)}
@@ -359,7 +346,8 @@ fs[operation] = function(path, ...args) {
   return original.call(this, path, ...args)
 }
 syncBuiltinESMExports()
-`)
+`,
+    )
 
     const result = await runInstaller(fixture, fixture.main, {}, ['--require', preload])
 
@@ -425,7 +413,7 @@ syncBuiltinESMExports()
       expect(existsSync(lockPath)).toBe(false)
     } finally {
       release()
-      await Promise.allSettled([publishing, ...waiting === undefined ? [] : [waiting]])
+      await Promise.allSettled([publishing, ...(waiting === undefined ? [] : [waiting])])
     }
   })
 
@@ -446,9 +434,7 @@ syncBuiltinESMExports()
     expect(git(fixture, movedRoot, ['config', '--worktree', '--get', 'core.hooksPath'])).toBe(movedHooks)
     const canonicalMoved = git(fixture, movedRoot, ['rev-parse', '--show-toplevel'])
     expect(readFileSync(join(movedHooks, 'pre-commit'), 'utf8')).toContain(`# root=${canonicalMoved}`)
-    expect(readFileSync(join(movedHooks, '.dsh-lefthook-owned'), 'utf8')).toContain(
-      JSON.stringify(movedHooks),
-    )
+    expect(readFileSync(join(movedHooks, '.dsh-lefthook-owned'), 'utf8')).toContain(JSON.stringify(movedHooks))
   })
 
   it.skipIf(process.platform === 'win32')('refuses a multiply linked ownership marker before relocation rewrites it', async () => {
@@ -522,9 +508,7 @@ syncBuiltinESMExports()
 
     expect(result.status).toBe(1)
     expect(result.stderr).toContain('dormant repository extension extensions.dshunknown')
-    expect(git(fixture, fixture.main, [
-      'config', '--file', commonConfig, '--get', 'core.repositoryFormatVersion',
-    ])).toBe('0')
+    expect(git(fixture, fixture.main, ['config', '--file', commonConfig, '--get', 'core.repositoryFormatVersion'])).toBe('0')
     expect(gitResult(fixture, fixture.main, ['config', '--get', 'extensions.worktreeConfig']).status).toBe(1)
     expect(gitResult(fixture, fixture.main, ['status', '--porcelain']).status).toBe(0)
     expect(existsSync(hooksPath(fixture, fixture.main))).toBe(false)
@@ -569,10 +553,7 @@ syncBuiltinESMExports()
     const staleRecord = `${String(completed.pid)} 00000000-0000-4000-8000-000000000000\n`
     writeFileSync(lockPath, staleRecord)
 
-    const results = await Promise.all(Array.from(
-      { length: 4 },
-      () => runInstaller(fixture, fixture.main),
-    ))
+    const results = await Promise.all(Array.from({ length: 4 }, () => runInstaller(fixture, fixture.main)))
 
     for (const result of results) {
       expect(result.status).toBe(1)
@@ -713,9 +694,7 @@ syncBuiltinESMExports()
     expect(result.stderr).toContain('not a regular file')
     expect(lstatSync(worktreeConfig).isSymbolicLink()).toBe(true)
     expect(readFileSync(externalConfig, 'utf8')).toBe(externalContent)
-    expect(gitResult(fixture, fixture.main, [
-      'config', '--file', externalConfig, '--get', 'core.hooksPath',
-    ]).status).toBe(1)
+    expect(gitResult(fixture, fixture.main, ['config', '--file', externalConfig, '--get', 'core.hooksPath']).status).toBe(1)
     expect(existsSync(hooksPath(fixture, fixture.main))).toBe(false)
   })
 
@@ -732,9 +711,7 @@ syncBuiltinESMExports()
         const result = await runInstaller(fixture, fixture.linked)
 
         expect(result.status, result.stderr).toBe(0)
-        expect(git(fixture, fixture.linked, ['config', '--worktree', '--get', 'core.hooksPath'])).toBe(
-          hooksPath(fixture, fixture.linked),
-        )
+        expect(git(fixture, fixture.linked, ['config', '--worktree', '--get', 'core.hooksPath'])).toBe(hooksPath(fixture, fixture.linked))
         expect(existsSync(join(hooksPath(fixture, fixture.linked), 'pre-commit'))).toBe(true)
       })
     }
@@ -865,11 +842,7 @@ syncBuiltinESMExports()
     const realGit = commandResult('which', ['git'], fixture.main, fixture.env).stdout.trim()
     const fakeBin = join(fixture.container, 'fake-bin')
     const fakeGit = join(fakeBin, 'git')
-    write(
-      fakeGit,
-      `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "git version 2.25.0"; exit 0; fi\nexec "${realGit}" "$@"\n`,
-      0o755,
-    )
+    write(fakeGit, `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "git version 2.25.0"; exit 0; fi\nexec "${realGit}" "$@"\n`, 0o755)
 
     const result = await runInstaller(fixture, fixture.main, {
       PATH: `${fakeBin}:${fixture.env.PATH ?? ''}`,

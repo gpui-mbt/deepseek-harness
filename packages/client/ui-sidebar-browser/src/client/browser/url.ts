@@ -29,7 +29,11 @@ export function parseBrowserAddress(input: string, applicationOrigin?: string): 
   const explicitScheme = /^[A-Za-z][A-Za-z\d+.-]*:(?!\d+(?:[/?#]|$))/u.test(trimmed)
   const candidate = explicitScheme ? trimmed : `https://${trimmed}`
   let url: URL
-  try { url = new URL(candidate) } catch { return { ok: false, reason: 'invalid' } }
+  try {
+    url = new URL(candidate)
+  } catch {
+    return { ok: false, reason: 'invalid' }
+  }
   if (url.username !== '' || url.password !== '') return { ok: false, reason: 'credentials' }
   if (url.protocol === 'https:' || url.protocol === 'http:') {
     if (applicationOrigin !== undefined && applicationOrigin !== 'null') {

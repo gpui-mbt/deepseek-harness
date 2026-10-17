@@ -58,7 +58,7 @@ export async function* observeJobOutput(
   let removed: JobView | undefined
   // Subscribe before the first read so an append between the anchor read and
   // the wait cannot be missed.
-  const unsubscribe = registry.events.subscribe({ owners: 'all' }, (event) => {
+  const unsubscribe = registry.events.subscribe({ owners: 'all' }, event => {
     const changed = event.type === 'output' ? event.id : event.job.id
     if (changed !== id) return
     if (event.type === 'removed') removed = event.job
@@ -93,12 +93,7 @@ export async function* observeJobOutput(
 }
 
 /** Split one read into frames along the soft per-frame byte budget. */
-function* outputFrames(
-  chunks: readonly JobChunk[],
-  next: number,
-  lossy: boolean,
-  maxFrameBytes: number,
-): Iterable<JobFollowFrame> {
+function* outputFrames(chunks: readonly JobChunk[], next: number, lossy: boolean, maxFrameBytes: number): Iterable<JobFollowFrame> {
   let batch: JobChunk[] = []
   let batchBytes = 0
   let flaggedLossy = lossy
@@ -114,7 +109,7 @@ function* outputFrames(
         type: 'output',
         chunks: batch,
         next: end,
-        ...flaggedLossy ? { lossy: true as const } : {},
+        ...(flaggedLossy ? { lossy: true as const } : {}),
       }
       flaggedLossy = false
       batch = []
@@ -126,7 +121,7 @@ function* outputFrames(
       type: 'output',
       chunks: batch,
       next,
-      ...flaggedLossy ? { lossy: true as const } : {},
+      ...(flaggedLossy ? { lossy: true as const } : {}),
     }
   }
 }

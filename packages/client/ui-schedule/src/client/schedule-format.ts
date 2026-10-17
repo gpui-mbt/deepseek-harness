@@ -57,8 +57,13 @@ const UNIT_SECONDS: readonly { unit: TimeUnit; seconds: number }[] = [
   SECOND_UNIT,
 ]
 const WEEKDAY_KEYS = [
-  'frequency.weekday.1', 'frequency.weekday.2', 'frequency.weekday.3', 'frequency.weekday.4',
-  'frequency.weekday.5', 'frequency.weekday.6', 'frequency.weekday.7',
+  'frequency.weekday.1',
+  'frequency.weekday.2',
+  'frequency.weekday.3',
+  'frequency.weekday.4',
+  'frequency.weekday.5',
+  'frequency.weekday.6',
+  'frequency.weekday.7',
 ] as const satisfies readonly WeekdayKey[]
 
 /** Localized unit word for one integral magnitude. */
@@ -92,17 +97,18 @@ function clockLabel(time: string): string {
  * @returns Localized weekday list, for example `Mon, Wed`.
  */
 export function formatWeekdays(weekdays: readonly number[], t: FrequencyTranslator): string {
-  return weekdays
-    .map(weekday => t(WEEKDAY_KEYS[weekday - 1] ?? 'frequency.weekday.1'))
-    .join(t('frequency.weekday.join'))
+  return weekdays.map(weekday => t(WEEKDAY_KEYS[weekday - 1] ?? 'frequency.weekday.1')).join(t('frequency.weekday.join'))
 }
 
 /** UTC offset, in minutes, of one IANA zone at the current instant. */
 function zoneOffset(zone: string, at: number): number | undefined {
   try {
     const value = new Intl.DateTimeFormat('en-US', {
-      timeZone: zone, timeZoneName: 'longOffset',
-    }).formatToParts(at).find(part => part.type === 'timeZoneName')?.value
+      timeZone: zone,
+      timeZoneName: 'longOffset',
+    })
+      .formatToParts(at)
+      .find(part => part.type === 'timeZoneName')?.value
     if (value === 'GMT') return 0
     const match = /^GMT([+-])(\d{2}):(\d{2})$/.exec(value ?? '')
     if (match === null) return undefined
@@ -136,8 +142,11 @@ export function zoneLabel(zone: string, t: Translate<ZoneLocaleKey>, at = Date.n
   const offset = zoneOffsetLabel(zone, at, t('time.utcPrefix'))
   try {
     const name = new Intl.DateTimeFormat(t('time.locale'), {
-      timeZone: zone, timeZoneName: 'longGeneric',
-    }).formatToParts(at).find(part => part.type === 'timeZoneName')?.value
+      timeZone: zone,
+      timeZoneName: 'longGeneric',
+    })
+      .formatToParts(at)
+      .find(part => part.type === 'timeZoneName')?.value
     if (offset === undefined) return name ?? zone
     return name === undefined || /^GMT(?:[+-]|$)/.test(name) ? offset : `${offset} · ${name}`
   } catch {
@@ -153,12 +162,7 @@ export function zoneLabel(zone: string, t: Translate<ZoneLocaleKey>, at = Date.n
  * @param at - instant used to resolve the current UTC offset and zone name.
  * @returns UTC offset and localized zone name, with the system suffix when applicable.
  */
-export function zoneName(
-  zone: string,
-  system: string,
-  t: Translate<ZoneLabelKey>,
-  at = Date.now(),
-): string {
+export function zoneName(zone: string, system: string, t: Translate<ZoneLabelKey>, at = Date.now()): string {
   const name = zoneLabel(zone, t, at)
   return zone === system ? `${name}${t('rule.zone.system')}` : name
 }
@@ -226,10 +230,12 @@ export function recordTimeZone(record: ScheduleRecord): string | undefined {
   switch (record.kind) {
     case 'after':
     case 'at':
-    case 'every': return undefined
+    case 'every':
+      return undefined
     case 'daily':
     case 'weekly':
-    case 'cron': return record.timeZone
+    case 'cron':
+      return record.timeZone
   }
 }
 
@@ -246,22 +252,17 @@ export function recordTimeZone(record: ScheduleRecord): string | undefined {
  * and another zone is named by `zone.label`. Without it ICU localizes the stored zone.
  * @returns localized one-shot, fixed-interval, daily, weekly, or cron time-and-zone text.
  */
-export function formatScheduleFrequency(
-  record: ScheduleRecord,
-  t: FrequencyTranslator,
-  zone?: FrequencyZone,
-): string {
+export function formatScheduleFrequency(record: ScheduleRecord, t: FrequencyTranslator, zone?: FrequencyZone): string {
   switch (record.kind) {
     case 'after':
-    case 'at': return t('frequency.once')
+    case 'at':
+      return t('frequency.once')
     case 'cron': {
       const parsed = parseCronExpression(record.expression)
       if (parsed !== undefined) {
         const rule = cronPreview(parsed, t, t('time.locale'))
         if (zone === undefined) return t('frequency.cronRule', { rule, timeZone: zoneLabel(record.timeZone, t) })
-        return zone.system === record.timeZone
-          ? rule
-          : t('frequency.cronRule', { rule, timeZone: zone.label(record.timeZone) })
+        return zone.system === record.timeZone ? rule : t('frequency.cronRule', { rule, timeZone: zone.label(record.timeZone) })
       }
       if (zone === undefined) return t('frequency.cron', { expression: record.expression, timeZone: zoneLabel(record.timeZone, t) })
       return zone.system === record.timeZone
@@ -421,19 +422,12 @@ export function nextRunParts(
  * @param t - relative-time and unit translations.
  * @returns localized future, overdue, or due-now label.
  */
-export function formatScheduleRelative(
-  scheduledAt: string,
-  now: number,
-  t: Translate<RelativeTimeKey>,
-): string {
+export function formatScheduleRelative(scheduledAt: string, now: number, t: Translate<RelativeTimeKey>): string {
   const difference = Date.parse(scheduledAt) - now
   if (difference === 0) return t('relative.now')
   const absoluteSeconds = Math.abs(difference) / SECOND_MS
-  const selected = UNIT_SECONDS.find(candidate => absoluteSeconds >= candidate.seconds)
-    ?? SECOND_UNIT
-  const value = Math.max(1, difference > 0
-    ? Math.ceil(absoluteSeconds / selected.seconds)
-    : Math.floor(absoluteSeconds / selected.seconds))
+  const selected = UNIT_SECONDS.find(candidate => absoluteSeconds >= candidate.seconds) ?? SECOND_UNIT
+  const value = Math.max(1, difference > 0 ? Math.ceil(absoluteSeconds / selected.seconds) : Math.floor(absoluteSeconds / selected.seconds))
   const unit = unitLabel(selected.unit, value, t)
   return t(difference > 0 ? 'relative.future' : 'relative.overdue', { value, unit })
 }
@@ -445,12 +439,15 @@ export function formatScheduleRelative(
  * @returns sorted copy preserving input order for equal targets.
  */
 export function orderScheduleRecords(records: readonly ScheduleRecord[], now: number): ScheduleRecord[] {
-  return records.map((record, index) => ({ record, index })).sort((left, right) => {
-    const leftTime = Date.parse(left.record.scheduledAt)
-    const rightTime = Date.parse(right.record.scheduledAt)
-    const leftOverdue = leftTime <= now
-    const rightOverdue = rightTime <= now
-    if (leftOverdue !== rightOverdue) return Number(rightOverdue) - Number(leftOverdue)
-    return leftTime - rightTime || left.index - right.index
-  }).map(({ record }) => record)
+  return records
+    .map((record, index) => ({ record, index }))
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.record.scheduledAt)
+      const rightTime = Date.parse(right.record.scheduledAt)
+      const leftOverdue = leftTime <= now
+      const rightOverdue = rightTime <= now
+      if (leftOverdue !== rightOverdue) return Number(rightOverdue) - Number(leftOverdue)
+      return leftTime - rightTime || left.index - right.index
+    })
+    .map(({ record }) => record)
 }

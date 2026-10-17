@@ -1,22 +1,29 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { FontNotice, type FontNoticeProps } from '../src/client/office/FontNotice.tsx'
 import { en, zh } from '../src/client/office/locales.ts'
 
 beforeEach(() => {
-  vi.stubGlobal('ResizeObserver', class {
-    observe(): void {}
-    disconnect(): void {}
-  })
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe(): void {}
+      disconnect(): void {}
+    },
+  )
 })
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
 function props(overrides: Partial<FontNoticeProps> = {}): FontNoticeProps {
   return {
     fonts: ['Consolas', 'Missing Serif'],
-    t: makeTranslate(en), ...overrides,
+    t: makeTranslate(en),
+    ...overrides,
   }
 }
 
@@ -47,7 +54,12 @@ it('opens details, restores focus on Escape or close, and dismisses outside with
 })
 
 it('keeps details open while focus moves inside them and closes when focus leaves the notice', () => {
-  render(<><FontNotice {...props()} /><button>Other action</button></>)
+  render(
+    <>
+      <FontNotice {...props()} />
+      <button>Other action</button>
+    </>,
+  )
   const more = screen.getByRole('button', { name: makeTranslate(en)('viewMissingFonts', { count: 2 }) })
   fireEvent.click(more)
   const dialog = screen.getByRole('dialog')

@@ -6,9 +6,9 @@ import { tmpdir } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { finished } from 'node:stream/promises'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 
-it.each([false, true])('settles startup after parent IPC disconnect (boot failure: %s)', async (fail) => {
+it.each([false, true])('settles startup after parent IPC disconnect (boot failure: %s)', async fail => {
   const root = mkdtempSync(join(tmpdir(), 'desktop-disconnect-'))
   const modules = join(root, 'node_modules', '@deepseek-ai')
   const hostDirectory = fileURLToPath(new URL('../../desktop-host/', import.meta.url))
@@ -20,21 +20,24 @@ it.each([false, true])('settles startup after parent IPC disconnect (boot failur
     if (stubbed.has(name)) mkdirSync(destination)
     else symlinkSync(realpathSync(join(hostDirectory, 'node_modules', name)), destination, 'junction')
   }
-  for (const [name, source] of [
-    ['dsh-home-paths', `export const resolveDshHome = () => ${JSON.stringify(root)}`],
-  ] as const) {
+  for (const [name, source] of [['dsh-home-paths', `export const resolveDshHome = () => ${JSON.stringify(root)}`]] as const) {
     writeFileSync(join(modules, name, 'package.json'), '{"type":"module","exports":"./index.js"}')
     writeFileSync(join(modules, name, 'index.js'), source)
   }
   writeFileSync(join(root, 'package.json'), '{"type":"module"}')
   writeFileSync(join(modules, 'dsh-app-boot', 'package.json'), '{"type":"module","exports":"./index.js"}')
-  writeFileSync(join(modules, 'dsh-app-boot', 'index.js'), `
+  writeFileSync(
+    join(modules, 'dsh-app-boot', 'index.js'),
+    `
     export const loadProfileDirectory = () => ({ skippedBundles: [] });
     export const reportSkippedBundles = () => {};
     export const loadLayeredEnv = () => ({});
-  `)
+  `,
+  )
   writeFileSync(join(modules, 'dsh', 'package.json'), '{"type":"module","exports":{"./profile-boot":"./profile-boot.js"}}')
-  writeFileSync(join(modules, 'dsh', 'profile-boot.js'), `
+  writeFileSync(
+    join(modules, 'dsh', 'profile-boot.js'),
+    `
     import { writeFileSync } from 'node:fs';
     export function runProfile(options) {
       process.send({ type: 'booting', packageManager: options.packageManager });
@@ -45,14 +48,17 @@ it.each([false, true])('settles startup after parent IPC disconnect (boot failur
           shutdown: { shutdown: async () => writeFileSync(${JSON.stringify(join(root, 'stopped'))}, 'stopped') } });
       }));
     }
-  `)
+  `,
+  )
   const entry = join(root, 'index.js')
   copyFileSync(join(hostDirectory, 'lib', 'index.js'), entry)
   const pnpm = join(root, 'bundled-pnpm.mjs')
   const nodeBin = join(root, 'bin')
   const child = fork(entry, [root, root, root, pnpm, nodeBin], { execArgv: [], stdio: ['ignore', 'ignore', 'pipe', 'ipc'] })
   let stderr = ''
-  child.stderr!.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk })
+  child.stderr!.setEncoding('utf8').on('data', (chunk: string) => {
+    stderr += chunk
+  })
   const exited = new Promise<number | null>(resolve => child.once('exit', resolve))
   const drained = finished(child.stderr!, { cleanup: true })
   onTestFinished(async () => {
@@ -66,7 +72,9 @@ it.each([false, true])('settles startup after parent IPC disconnect (boot failur
     }>((resolve, reject) => {
       child.once('message', resolve)
       child.once('error', reject)
-      child.once('exit', (code) => { reject(new Error(`Host exited before booting: ${String(code)} ${stderr}`)) })
+      child.once('exit', code => {
+        reject(new Error(`Host exited before booting: ${String(code)} ${stderr}`))
+      })
     })
     expect(boot.packageManager.command).toBe(process.execPath)
     expect(boot.packageManager.args).toEqual(['--expose-internals', pnpm])

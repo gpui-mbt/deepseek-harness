@@ -1,5 +1,5 @@
 import { setImmediate } from 'node:timers/promises'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -66,13 +66,22 @@ function dueWorkProducer(sessionId: SessionId, plugin: string) {
       const attempt = async (): Promise<void> => {
         const controller = ctx.get('sessionController') as DueWorkSessionController
         const { agent } = await controller.resolveAgent(sessionId)
-        agent.followup(createUserMessage({
-          content: [{ type: 'text', text: 'Due plugin follow-up' }],
-          source: { kind: 'due-work', plugin },
-        }))
+        agent.followup(
+          createUserMessage({
+            content: [{ type: 'text', text: 'Due plugin follow-up' }],
+            source: { kind: 'due-work', plugin },
+          }),
+        )
         await ctx.sessions.flush(agent.session)
       }
-      void attempt().then(() => { delivery.resolve(undefined) }, (error: unknown) => { delivery.reject(error) })
+      void attempt().then(
+        () => {
+          delivery.resolve(undefined)
+        },
+        (error: unknown) => {
+          delivery.reject(error)
+        },
+      )
     },
   }
   return { producer, delivery: delivery.promise }
@@ -82,15 +91,19 @@ describe('serial creation listener integrations', () => {
   it('rolls back creation when file-reference prompt installation fails', async () => {
     const ctx = await core()
     const errors: string[] = []
-    ctx.logger.error = ((error: unknown) => { errors.push(String(error)) }) as typeof ctx.logger.error
+    ctx.logger.error = ((error: unknown) => {
+      errors.push(String(error))
+    }) as typeof ctx.logger.error
     await ctx.plugin(LocalFileReference)
     try {
-      await expect(ctx.agents.create({
-        sessionId: SessionId('review-file-reference'),
-        setup(agentCtx) {
-          agentCtx.systemPrompt.section({ name: 'context:file-reference', order: 0, text: 'occupied' })
-        },
-      })).rejects.toThrow('context:file-reference')
+      await expect(
+        ctx.agents.create({
+          sessionId: SessionId('review-file-reference'),
+          setup(agentCtx) {
+            agentCtx.systemPrompt.section({ name: 'context:file-reference', order: 0, text: 'occupied' })
+          },
+        }),
+      ).rejects.toThrow('context:file-reference')
       expect(errors.some(error => error.includes('context:file-reference'))).toBe(true)
       expect(ctx.agents.list()).toEqual([])
       expect(ctx.sessions.list()).toEqual([])
@@ -102,20 +115,26 @@ describe('serial creation listener integrations', () => {
   it('rolls back creation when a shared preset tool installation fails', async () => {
     const ctx = await core()
     const errors: string[] = []
-    ctx.logger.error = ((error: unknown) => { errors.push(String(error)) }) as typeof ctx.logger.error
+    ctx.logger.error = ((error: unknown) => {
+      errors.push(String(error))
+    }) as typeof ctx.logger.error
     await ctx.plugin(Selection)
     await ctx.plugin(SubagentRuntime)
     await ctx.plugin(SubagentSpawn, { providerName: 'spawn' })
     const preset = createScope(ctx, { preset: 'review' })
     await preset.ctx.plugin(SubagentTool, { provider: 'spawn', modelSelectionSettings: true })
     try {
-      await expect(ctx.agents.create({
-        sessionId: SessionId('review-tool'),
-        setup(agentCtx) {
-          bindScopeParent(scopeOf(agentCtx)!, scopeOf(preset.ctx)!)
-          agentCtx.tools.register(defineContentToolFixture({ name: 'subagent', description: 'occupied', parameters: {}, execute: () => Promise.resolve([]) }))
-        },
-      })).rejects.toThrow('subagent')
+      await expect(
+        ctx.agents.create({
+          sessionId: SessionId('review-tool'),
+          setup(agentCtx) {
+            bindScopeParent(scopeOf(agentCtx)!, scopeOf(preset.ctx)!)
+            agentCtx.tools.register(
+              defineContentToolFixture({ name: 'subagent', description: 'occupied', parameters: {}, execute: () => Promise.resolve([]) }),
+            )
+          },
+        }),
+      ).rejects.toThrow('subagent')
       expect(errors.some(error => error.includes('subagent'))).toBe(true)
       expect(ctx.agents.list()).toEqual([])
       expect(ctx.sessions.list()).toEqual([])
@@ -141,7 +160,9 @@ describe('serial creation listener integrations', () => {
     const { producer, delivery } = dueWorkProducer(sessionId, plugin)
     await ctx.plugin(producer)
     const inserted: unknown[] = []
-    ctx.on('agent/inbox/inserted', ({ message }) => { inserted.push(message.source) })
+    ctx.on('agent/inbox/inserted', ({ message }) => {
+      inserted.push(message.source)
+    })
     const entered = Promise.withResolvers<undefined>()
     const release = Promise.withResolvers<undefined>()
     const turn = Promise.withResolvers<undefined>()
@@ -154,8 +175,15 @@ describe('serial creation listener integrations', () => {
       await release.promise
       created = true
     })
-    ctx.on('agent/created', () => { laterCreated = true })
-    ctx.on('session/event', (_session, event) => { if (event.type === 'turn/start') { turns += 1; turn.resolve(undefined) } })
+    ctx.on('agent/created', () => {
+      laterCreated = true
+    })
+    ctx.on('session/event', (_session, event) => {
+      if (event.type === 'turn/start') {
+        turns += 1
+        turn.resolve(undefined)
+      }
+    })
     const creating = ctx.agents.create({ sessionId })
     try {
       await entered.promise

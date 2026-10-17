@@ -1,6 +1,6 @@
 /** The `web-search-deepseek` settings section layered over the composition entry. */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 import WebRuntime from '@deepseek-ai/dsh-web'
@@ -29,7 +29,6 @@ async function boot() {
   await ctx.plugin(WebRuntime, {})
   const live = await liveConfig(ctx, deepseekPlugin, { apiKey: 'ds-key', baseURL: 'https://search.entry.test/v1' })
   return { ctx, live }
-
 }
 
 afterEach(() => {
@@ -44,8 +43,7 @@ afterEach(() => {
  * @returns the URL the provider fetched.
  */
 async function searchOnce(ctx: Context): Promise<string> {
-  const fetchSpy = vi.spyOn(globalThis, 'fetch')
-    .mockImplementation(() => Promise.resolve(jsonResponse(ONE_RESULT)))
+  const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(jsonResponse(ONE_RESULT)))
   fetchSpy.mockClear()
   await ctx.web.search({ query: 'anything' })
   return String((fetchSpy.mock.calls.at(-1)?.[0] as URL | string | undefined) ?? '')
@@ -63,5 +61,4 @@ describe('web-search-deepseek settings section', () => {
     expect(await searchOnce(bench.ctx)).toContain('https://search.stored.test/v1')
     await bench.ctx.fiber.dispose()
   })
-
 })

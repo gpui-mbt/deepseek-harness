@@ -23,8 +23,16 @@ export class HistoricalImageCache {
    * @param ctx - Owning ui-conversation fiber.
    * @param sessions - Session Controller object layer.
    */
-  constructor(ctx: Context, private readonly sessions: ISessions) {
-    ctx.effect(() => () => { this.dispose() }, 'ui-conversation historical image cache')
+  constructor(
+    ctx: Context,
+    private readonly sessions: ISessions,
+  ) {
+    ctx.effect(
+      () => () => {
+        this.dispose()
+      },
+      'ui-conversation historical image cache',
+    )
   }
 
   /**
@@ -100,13 +108,10 @@ export class HistoricalImageCache {
     return true
   }
 
-  private loadCanonical(
-    key: string,
-    entry: ImageUrlEntry,
-    attachment: ImageAttachmentRef,
-  ): Promise<string> {
-    return entry.binding.session.readAttachment(attachment.attachmentId)
-      .then((result) => {
+  private loadCanonical(key: string, entry: ImageUrlEntry, attachment: ImageAttachmentRef): Promise<string> {
+    return entry.binding.session
+      .readAttachment(attachment.attachmentId)
+      .then(result => {
         if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
         this.assertLive(key, entry)
         let url: string
@@ -142,11 +147,16 @@ export class HistoricalImageCache {
     if (existing !== undefined) return existing
     const entries = new Map<string, ImageUrlEntry>()
     this.entries.set(binding, entries)
-    const dispose = binding.ctx.effect(() => () => {
-      this.scopeDisposers.delete(binding)
-      this.release(binding, entries)
-    }, 'ui-conversation historical image scope')
-    const release = (): void => { void dispose() }
+    const dispose = binding.ctx.effect(
+      () => () => {
+        this.scopeDisposers.delete(binding)
+        this.release(binding, entries)
+      },
+      'ui-conversation historical image scope',
+    )
+    const release = (): void => {
+      void dispose()
+    }
     this.scopeDisposers.set(binding, release)
     return entries
   }

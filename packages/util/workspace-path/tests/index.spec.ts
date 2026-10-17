@@ -1,7 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
-  abbreviateHomePath, fileAddressFor, isAbsoluteWorkspacePath, parseFileAddress, pathPartsOf, relativizeToCwd,
-  resolveWorkspacePath, workspaceTitleOf,
+  abbreviateHomePath,
+  fileAddressFor,
+  isAbsoluteWorkspacePath,
+  parseFileAddress,
+  pathPartsOf,
+  relativizeToCwd,
+  resolveWorkspacePath,
+  workspaceTitleOf,
 } from '@deepseek-ai/dsh-util-workspace-path'
 
 describe('Workspace path helpers', () => {
@@ -18,7 +24,7 @@ describe('Workspace path helpers', () => {
     expect(fileAddressFor('s', '\\\\server\\share', '\\\\server\\share\\x.ts')).toBe('dsh-resource://file/session/s/x.ts')
   })
 
-  it.each(['/workspace', undefined])('round-trips a parent-relative address with workspace root %s', (cwd) => {
+  it.each(['/workspace', undefined])('round-trips a parent-relative address with workspace root %s', cwd => {
     const address = fileAddressFor('s', cwd, '../outside/a.txt')
     expect(address).toBe('dsh-resource://file/session/s/../outside/a.txt')
     expect(parseFileAddress(address)).toEqual({ scope: 'session', sessionId: 's', path: '../outside/a.txt' })
@@ -57,8 +63,7 @@ describe('Workspace path helpers', () => {
     expect(abbreviateHomePath('/Users/u/a.ts', '')).toBe('/Users/u/a.ts')
     expect(abbreviateHomePath('/etc/hosts', '/')).toBe('/etc/hosts')
     expect(abbreviateHomePath('C:\\Users\\u\\project', 'C:\\Users\\u')).toBe('C:\\Users\\u\\project')
-    expect(abbreviateHomePath('\\\\server\\share\\u', '\\\\server\\share\\u'))
-      .toBe('\\\\server\\share\\u')
+    expect(abbreviateHomePath('\\\\server\\share\\u', '\\\\server\\share\\u')).toBe('\\\\server\\share\\u')
   })
 
   it('reads the final path segment on both path styles', () => {

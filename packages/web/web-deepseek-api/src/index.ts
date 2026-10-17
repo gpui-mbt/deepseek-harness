@@ -19,8 +19,11 @@ import { deepSeekWebAuth } from './transport.ts'
 export { DEEPSEEK_FETCH_API_PROVIDER_ID, DeepSeekFetchApiProvider } from './fetch.ts'
 export type { DeepSeekFetchApiOptions } from './fetch.ts'
 export {
-  DEEPSEEK_DEFAULT_COUNT, DEEPSEEK_SEARCH_API_PROVIDER_ID, DEEPSEEK_WEB_API_BASE_URL,
-  DeepSeekSearchApiProvider, mapSearchResponse,
+  DEEPSEEK_DEFAULT_COUNT,
+  DEEPSEEK_SEARCH_API_PROVIDER_ID,
+  DEEPSEEK_WEB_API_BASE_URL,
+  DeepSeekSearchApiProvider,
+  mapSearchResponse,
 } from './search.ts'
 export type { DeepSeekSearchApiOptions } from './search.ts'
 
@@ -61,7 +64,7 @@ export const Config = z.object({
 function latestUserQuestion(session: Session | undefined): string | undefined {
   const prompt = session?.deriveMessages().findLast(message => message.role === 'user' && message.source.kind === 'user')
   if (prompt === undefined) return undefined
-  return prompt.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n')
+  return prompt.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('\n')
 }
 
 /**
@@ -71,13 +74,17 @@ function latestUserQuestion(session: Session | undefined): string | undefined {
  */
 export function apply(ctx: Context, config: Config): void {
   const auth = () => deepSeekWebAuth(ctx, { apiKey: config.apiKey.get(), apiKeyEnv: config.apiKeyEnv.get() })
-  ctx.web.registerSearchProvider(new DeepSeekSearchApiProvider(() => ({
-    ...auth(),
-    baseURL: config.baseURL.get(),
-    count: config.count.get(),
-    ...config.sendOriginalQuestion.get() ? {
-      originalQuestion: () => latestUserQuestion(ctx.get('agents')?.currentInitiator()?.session),
-    } : {},
-  })))
+  ctx.web.registerSearchProvider(
+    new DeepSeekSearchApiProvider(() => ({
+      ...auth(),
+      baseURL: config.baseURL.get(),
+      count: config.count.get(),
+      ...(config.sendOriginalQuestion.get()
+        ? {
+            originalQuestion: () => latestUserQuestion(ctx.get('agents')?.currentInitiator()?.session),
+          }
+        : {}),
+    })),
+  )
   ctx.web.registerFetchProvider(new DeepSeekFetchApiProvider(() => ({ ...auth(), baseURL: config.baseURL.get() })))
 }

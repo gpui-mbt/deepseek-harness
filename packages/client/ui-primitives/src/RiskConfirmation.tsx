@@ -48,21 +48,16 @@ export function RiskConfirmation({
       closeLabel={closeLabel}
       className={css.confirmation ?? ''}
       contentClassName={css.confirmationContent ?? ''}
-      footer={(
+      footer={
         <>
           <Button variant="outline" className={css.modalAction} onClick={onCancel}>
             {cancelLabel}
           </Button>
-          <Button
-            variant="primary"
-            className={css.confirmAction}
-            disabled={disabled || !acknowledged}
-            onClick={onConfirm}
-          >
+          <Button variant="primary" className={css.confirmAction} disabled={disabled || !acknowledged} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </>
-      )}
+      }
     >
       <div className={css.warning}>
         <IconWarningOutlineRegular size={18} className={css.warningIcon} />
@@ -74,7 +69,9 @@ export function RiskConfirmation({
           checked={acknowledged}
           disabled={disabled}
           data-modal-autofocus
-          onChange={(event) => { onAcknowledgedChange(event.currentTarget.checked) }}
+          onChange={event => {
+            onAcknowledgedChange(event.currentTarget.checked)
+          }}
         />
         <span>{acknowledgeLabel}</span>
       </label>

@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process'
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vite-plus/test'
 import { Context, Service } from '@deepseek-ai/cordis'
 import { SandboxProvider, SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox'
 import type { ConfinedArgv, RunnerFailureRule, SandboxExecutionPolicy, SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
@@ -32,7 +32,6 @@ function start(x: { execute(spec: ShellExecSpec): Promise<ShellExecution> }, spe
   return x.execute({ ...spec, onExpiry: 'none' })
 }
 
-
 // The same probe pwsh-local's suites and the vitest coverage exemption use:
 // spawnSync never throws on a missing binary (it reports status null), and
 // `where.exe pwsh` exits 1 when pwsh is absent — only the status is truth.
@@ -49,8 +48,12 @@ interface ConfineCall {
 }
 
 /** A passthrough wrap: the caller's argv unchanged, asserted full — commands run unconfined, deterministically. */
-const passthrough = (argv: readonly string[]): ConfinedArgv =>
-  ({ argv: [...argv], enforcement: 'full', denialSignatures: ['access is denied', 'access to the path'], runnerFailureRules: [] })
+const passthrough = (argv: readonly string[]): ConfinedArgv => ({
+  argv: [...argv],
+  enforcement: 'full',
+  denialSignatures: ['access is denied', 'access to the path'],
+  runnerFailureRules: [],
+})
 
 /** A subprocess service whose spawn() throws SYNCHRONOUSLY — the paths the async service never produces. */
 function throwingSubprocessRuntime(error: unknown): new (ctx: Context) => Service {
@@ -101,8 +104,12 @@ describe('helpers (pure)', () => {
 
     it('attributes ENOENT/EACCES when path or syscall identifies argv[0] and the workdir is usable', () => {
       for (const runnerProgram of [absolute, bare, relative]) {
-        expect(isRunnerSpawnFailure({ code: 'ENOENT', syscall: `spawn ${runnerProgram}`, path: runnerProgram }, runnerProgram, workdir)).toBe(true)
-        expect(isRunnerSpawnFailure({ code: 'EACCES', syscall: `spawn ${runnerProgram}`, path: runnerProgram }, runnerProgram, workdir)).toBe(true)
+        expect(
+          isRunnerSpawnFailure({ code: 'ENOENT', syscall: `spawn ${runnerProgram}`, path: runnerProgram }, runnerProgram, workdir),
+        ).toBe(true)
+        expect(
+          isRunnerSpawnFailure({ code: 'EACCES', syscall: `spawn ${runnerProgram}`, path: runnerProgram }, runnerProgram, workdir),
+        ).toBe(true)
         expect(isRunnerSpawnFailure({ code: 'ENOENT', syscall: 'spawn', path: runnerProgram }, runnerProgram, workdir)).toBe(true)
         expect(isRunnerSpawnFailure({ code: 'ENOENT', syscall: `spawn ${runnerProgram}` }, runnerProgram, workdir)).toBe(true)
       }
@@ -125,15 +132,18 @@ describe('helpers (pure)', () => {
   })
 
   describe('classifyRunnerFailure', () => {
-    const rules: readonly RunnerFailureRule[] = [{
-      allowedExitCodes: [127],
-      fatalSignatures: ['fake-runner: '],
-      informationalLines: ['fake-runner: partial enforcement'],
-    }]
+    const rules: readonly RunnerFailureRule[] = [
+      {
+        allowedExitCodes: [127],
+        fatalSignatures: ['fake-runner: '],
+        informationalLines: ['fake-runner: partial enforcement'],
+      },
+    ]
 
     it('matches a fatal signature on a gated exit code, skipping informational lines', () => {
-      expect(classifyRunnerFailure(127, 'fake-runner: partial enforcement\nfake-runner: profile refused\n', rules))
-        .toEqual({ detail: 'fake-runner: profile refused' })
+      expect(classifyRunnerFailure(127, 'fake-runner: partial enforcement\nfake-runner: profile refused\n', rules)).toEqual({
+        detail: 'fake-runner: profile refused',
+      })
     })
 
     it('rejects zero/null exits, gate mismatches, and empty signatures', () => {
@@ -147,8 +157,9 @@ describe('helpers (pure)', () => {
     it('the windows-acl rule is exit-gated on 127: a confined command that merely prints the signature on a non-127 exit is NOT a runner failure', () => {
       const windowsAclRules: readonly RunnerFailureRule[] = [{ allowedExitCodes: [127], fatalSignatures: ['windows-acl-run: '] }]
       expect(classifyRunnerFailure(3, 'windows-acl-run: something the command printed', windowsAclRules)).toBeUndefined()
-      expect(classifyRunnerFailure(127, 'windows-acl-run: missing --workspace', windowsAclRules))
-        .toEqual({ detail: 'windows-acl-run: missing --workspace' })
+      expect(classifyRunnerFailure(127, 'windows-acl-run: missing --workspace', windowsAclRules)).toEqual({
+        detail: 'windows-acl-run: missing --workspace',
+      })
     })
   })
 
@@ -174,7 +185,9 @@ describe('SandboxPwshExecutor asynchronous confinement', () => {
       await execution.done
       controller.abort(reason)
       await expect(execution.result()).rejects.toBe(reason)
-    } finally { await ctx.fiber.dispose() }
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('reports synchronous subprocess spawn errors through the prepared handle result', async () => {
@@ -182,19 +195,28 @@ describe('SandboxPwshExecutor asynchronous confinement', () => {
     const contexts: Context[] = []
     try {
       const attributable = Object.assign(new Error('sync-enoent-start'), { code: 'ENOENT', syscall: 'spawn node', path: 'node' })
-      const closed = await setup(() => ({
-        argv: ['node', '--', 'pwsh'], enforcement: 'full', denialSignatures: [],
-        runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
-      }), throwingSubprocessRuntime(attributable))
+      const closed = await setup(
+        () => ({
+          argv: ['node', '--', 'pwsh'],
+          enforcement: 'full',
+          denialSignatures: [],
+          runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
+        }),
+        throwingSubprocessRuntime(attributable),
+      )
       contexts.push(closed.ctx)
-      await expect(run(closed.executor, closed.executor.resolve({ command: 'echo never', sandboxPolicy: RO })))
-        .rejects.toThrow(SandboxUnavailableError)
+      await expect(run(closed.executor, closed.executor.resolve({ command: 'echo never', sandboxPolicy: RO }))).rejects.toThrow(
+        SandboxUnavailableError,
+      )
       const foreign = Object.assign(new Error('sync-emfile-start'), { code: 'EMFILE', syscall: 'spawn', path: 'node' })
       const passthroughError = await setup(undefined, throwingSubprocessRuntime(foreign))
       contexts.push(passthroughError.ctx)
-      await expect(run(passthroughError.executor, passthroughError.executor.resolve({ command: 'echo never', sandboxPolicy: RO })))
-        .rejects.toThrow('sync-emfile-start')
-    } finally { await Promise.all(contexts.map(ctx => ctx.fiber.dispose())) }
+      await expect(
+        run(passthroughError.executor, passthroughError.executor.resolve({ command: 'echo never', sandboxPolicy: RO })),
+      ).rejects.toThrow('sync-emfile-start')
+    } finally {
+      await Promise.all(contexts.map(ctx => ctx.fiber.dispose()))
+    }
   })
 
   it('preserves cancellation when a pending subprocess launch later rejects', async () => {
@@ -203,13 +225,17 @@ describe('SandboxPwshExecutor asynchronous confinement', () => {
     const controller = new AbortController()
     const reason = new Error('caller cancelled pending launch')
     class Subprocess extends Service {
-      constructor(ctx: Context) { super(ctx, 'subprocess') }
+      constructor(ctx: Context) {
+        super(ctx, 'subprocess')
+      }
       spawn() {
         entered.resolve(undefined)
         const reader = { readFrom: () => ({ text: '', nextOffset: 0, lossy: false }) }
         return {
-          collected: { stdout: reader, stderr: reader }, done: completion.promise,
-          terminate: () => {}, waitForExit: () => Promise.resolve(true),
+          collected: { stdout: reader, stderr: reader },
+          done: completion.promise,
+          terminate: () => {},
+          waitForExit: () => Promise.resolve(true),
         }
       }
     }
@@ -221,16 +247,25 @@ describe('SandboxPwshExecutor asynchronous confinement', () => {
       controller.abort(reason)
       completion.reject(Object.assign(new Error('launch refused'), { code: 'ENOENT', syscall: 'spawn node', path: 'node' }))
       await rejected
-    } finally { completion.reject(reason); await pending.catch(() => {}); await ctx.fiber.dispose() }
+    } finally {
+      completion.reject(reason)
+      await pending.catch(() => {})
+      await ctx.fiber.dispose()
+    }
   })
 
-  it.each(['kill', 'none'] as const)('cancels %s before a late confinement reply can spawn', async (onExpiry) => {
+  it.each(['kill', 'none'] as const)('cancels %s before a late confinement reply can spawn', async onExpiry => {
     const entered = Promise.withResolvers<AbortSignal>()
     const response = Promise.withResolvers<ConfinedArgv>()
     const spawned = vi.fn()
     class Subprocess extends Service {
-      constructor(ctx: Context) { super(ctx, 'subprocess') }
-      spawn(): never { spawned(); throw new Error('unexpected process allocation') }
+      constructor(ctx: Context) {
+        super(ctx, 'subprocess')
+      }
+      spawn(): never {
+        spawned()
+        throw new Error('unexpected process allocation')
+      }
     }
     const { executor } = await setup((_argv, _policy, signal) => {
       entered.resolve(signal!)
@@ -291,7 +326,10 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
 
   it('danger-full-access bypasses confine entirely and stamps full-access facts', async () => {
     const { executor, calls } = await setup()
-    const result = await run(executor, executor.resolve({ command: 'echo full', sandboxPolicy: { mode: 'danger-full-access', workspaceRoot: '/ws' } }))
+    const result = await run(
+      executor,
+      executor.resolve({ command: 'echo full', sandboxPolicy: { mode: 'danger-full-access', workspaceRoot: '/ws' } }),
+    )
     expect(result.exitCode).toBe(0)
     expect(calls).toHaveLength(0)
     expect(result.sandbox).toEqual({ mode: 'danger-full-access', denied: false })
@@ -306,22 +344,30 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
       denialSignatures: [],
       runnerFailureRules: [],
     }))
-    await expect(run(executor, executor.resolve({ command: 'echo never', sandboxPolicy: RO, signal: controller.signal })))
-      .rejects.toThrow('caller-cancel')
+    await expect(run(executor, executor.resolve({ command: 'echo never', sandboxPolicy: RO, signal: controller.signal }))).rejects.toThrow(
+      'caller-cancel',
+    )
   }, 30_000)
 
   // POSIX-only: the denial device is a mode-0555 scratch dir. On win32 the
   // real-sandbox denial classification is covered by tests/acl.e2e.ts
   // (the ACL runner denies scratch paths — unit tests never leave temp).
-  it.skipIf(process.platform === 'win32')('classifies a failed write against the backend denial dialect', async () => {
-    const { executor } = await setup()
-    const result = await run(executor, executor.resolve({
-      command: deniedWriteCommand,
-      sandboxPolicy: RO,
-    }))
-    expect(result.exitCode).not.toBe(0)
-    expect(result.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'full' })
-  }, 30_000)
+  it.skipIf(process.platform === 'win32')(
+    'classifies a failed write against the backend denial dialect',
+    async () => {
+      const { executor } = await setup()
+      const result = await run(
+        executor,
+        executor.resolve({
+          command: deniedWriteCommand,
+          sandboxPolicy: RO,
+        }),
+      )
+      expect(result.exitCode).not.toBe(0)
+      expect(result.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'full' })
+    },
+    30_000,
+  )
 
   it('a runner launch refusal fails closed with SANDBOX_UNAVAILABLE, never unconfined', async () => {
     const { executor } = await setup(() => ({
@@ -330,25 +376,29 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
       denialSignatures: [],
       runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
     }))
-    await expect(run(executor, executor.resolve({ command: 'echo never-runs', sandboxPolicy: RO })))
-      .rejects.toThrow(SandboxUnavailableError)
+    await expect(run(executor, executor.resolve({ command: 'echo never-runs', sandboxPolicy: RO }))).rejects.toThrow(
+      SandboxUnavailableError,
+    )
   }, 30_000)
 
   it('a SYNCHRONOUS attributable spawn rejection in run() fails closed, an unattributable one rethrows', async () => {
     const attributable = Object.assign(new Error('sync-enoent'), { code: 'ENOENT', syscall: 'spawn node', path: 'node' })
-    const { executor: closed } = await setup(() => ({
-      argv: ['node', '--', 'pwsh'],
-      enforcement: 'full',
-      denialSignatures: [],
-      runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
-    }), throwingSubprocessRuntime(attributable))
-    await expect(run(closed, closed.resolve({ command: 'echo never', sandboxPolicy: RO })))
-      .rejects.toThrow(SandboxUnavailableError)
+    const { executor: closed } = await setup(
+      () => ({
+        argv: ['node', '--', 'pwsh'],
+        enforcement: 'full',
+        denialSignatures: [],
+        runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
+      }),
+      throwingSubprocessRuntime(attributable),
+    )
+    await expect(run(closed, closed.resolve({ command: 'echo never', sandboxPolicy: RO }))).rejects.toThrow(SandboxUnavailableError)
 
     const foreign = Object.assign(new Error('sync-emfile'), { code: 'EMFILE', syscall: 'spawn', path: 'node' })
     const { executor: passthroughError } = await setup(undefined, throwingSubprocessRuntime(foreign))
-    await expect(run(passthroughError, passthroughError.resolve({ command: 'echo never', sandboxPolicy: RO })))
-      .rejects.toThrow('sync-emfile')
+    await expect(run(passthroughError, passthroughError.resolve({ command: 'echo never', sandboxPolicy: RO }))).rejects.toThrow(
+      'sync-emfile',
+    )
   }, 30_000)
 
   it('a SYNCHRONOUS spawn rejection in start() is contained into the settled handle with the same attribution split', async () => {
@@ -356,20 +406,23 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
     // a sync spawn throw surfaces exactly like the async one — through the
     // killed handle and the foreground projection's attribution.
     const attributable = Object.assign(new Error('sync-enoent-start'), { code: 'ENOENT', syscall: 'spawn node', path: 'node' })
-    const { executor: closed } = await setup(() => ({
-      argv: ['node', '--', 'pwsh'],
-      enforcement: 'full',
-      denialSignatures: [],
-      runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
-    }), throwingSubprocessRuntime(attributable))
-    const contained = (await start(closed, closed.resolve({ command: 'echo never', sandboxPolicy: RO })))
+    const { executor: closed } = await setup(
+      () => ({
+        argv: ['node', '--', 'pwsh'],
+        enforcement: 'full',
+        denialSignatures: [],
+        runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
+      }),
+      throwingSubprocessRuntime(attributable),
+    )
+    const contained = await start(closed, closed.resolve({ command: 'echo never', sandboxPolicy: RO }))
     await contained.done
     expect(contained.status).toBe('killed')
     await expect(contained.result()).rejects.toThrow(SandboxUnavailableError)
 
     const foreign = Object.assign(new Error('sync-emfile-start'), { code: 'EMFILE', syscall: 'spawn', path: 'node' })
     const { executor: passthroughError } = await setup(undefined, throwingSubprocessRuntime(foreign))
-    const passed = (await start(passthroughError, passthroughError.resolve({ command: 'echo never', sandboxPolicy: RO })))
+    const passed = await start(passthroughError, passthroughError.resolve({ command: 'echo never', sandboxPolicy: RO }))
     await passed.done
     expect(passed.status).toBe('killed')
     await expect(passed.result()).rejects.toThrow('sync-emfile-start')
@@ -377,33 +430,41 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
 
   it('a runner that REFUSES at runtime (fatal signature, nonzero exit) fails closed too', async () => {
     const { executor } = await setup(() => ({
-      argv: [process.execPath, '-e', 'console.error(\'fake-runner: profile refused\'); process.exit(127)', '--'],
+      argv: [process.execPath, '-e', "console.error('fake-runner: profile refused'); process.exit(127)", '--'],
       enforcement: 'full',
       denialSignatures: [],
       runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
     }))
-    await expect(run(executor, executor.resolve({ command: 'echo never-runs', sandboxPolicy: RO })))
-      .rejects.toThrow(SandboxUnavailableError)
+    await expect(run(executor, executor.resolve({ command: 'echo never-runs', sandboxPolicy: RO }))).rejects.toThrow(
+      SandboxUnavailableError,
+    )
   }, 30_000)
 
   it('background confined runs stamp clean facts at settlement', async () => {
     const { executor } = await setup()
-    const clean = (await start(executor, executor.resolve({ command: 'echo background-ok', sandboxPolicy: RO })))
+    const clean = await start(executor, executor.resolve({ command: 'echo background-ok', sandboxPolicy: RO }))
     await clean.done
     expect(clean.sandbox).toEqual({ mode: 'read-only', denied: false, enforcement: 'full' })
   }, 30_000)
 
   // POSIX-only denial device (mode-0555 scratch); win32 real-sandbox denial
   // coverage lives in tests/acl.e2e.ts.
-  it.skipIf(process.platform === 'win32')('background denied writes stamp denied facts at settlement', async () => {
-    const { executor } = await setup()
-    const denied = (await start(executor, executor.resolve({
-      command: deniedWriteCommand,
-      sandboxPolicy: RO,
-    })))
-    await denied.done
-    expect(denied.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'full' })
-  }, 30_000)
+  it.skipIf(process.platform === 'win32')(
+    'background denied writes stamp denied facts at settlement',
+    async () => {
+      const { executor } = await setup()
+      const denied = await start(
+        executor,
+        executor.resolve({
+          command: deniedWriteCommand,
+          sandboxPolicy: RO,
+        }),
+      )
+      await denied.done
+      expect(denied.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'full' })
+    },
+    30_000,
+  )
 
   it('background provider rejections with runner identity settle as runnerFailed facts', async () => {
     const { executor } = await setup(() => ({
@@ -412,7 +473,7 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
       denialSignatures: [],
       runnerFailureRules: [{ fatalSignatures: ['fake-runner: '] }],
     }))
-    const proc = (await start(executor, executor.resolve({ command: 'echo never', sandboxPolicy: RO })))
+    const proc = await start(executor, executor.resolve({ command: 'echo never', sandboxPolicy: RO }))
     await proc.done
     expect(proc.sandbox).toEqual({ mode: 'read-only', denied: false, enforcement: 'full', runnerFailed: true })
     // The failure note surfaces through the read path.
@@ -422,10 +483,13 @@ describe.skipIf(!pwshAvailable())('SandboxPwshExecutor', () => {
 
   it('danger-full-access background runs bypass confine and carry no facts', async () => {
     const { executor, calls } = await setup()
-    const proc = (await start(executor, executor.resolve({
-      command: 'echo full-bg',
-      sandboxPolicy: { mode: 'danger-full-access', workspaceRoot: '/ws' },
-    })))
+    const proc = await start(
+      executor,
+      executor.resolve({
+        command: 'echo full-bg',
+        sandboxPolicy: { mode: 'danger-full-access', workspaceRoot: '/ws' },
+      }),
+    )
     await proc.done
     expect(calls).toHaveLength(0)
     expect(proc.sandbox).toBeUndefined()

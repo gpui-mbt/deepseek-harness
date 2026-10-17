@@ -1,7 +1,7 @@
 /** Real Slot/Factory rendering seats for standalone reasoning component tests. */
 import { useState, type ReactNode } from 'react'
 import { act, type RenderResult } from '@testing-library/react'
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
@@ -31,20 +31,25 @@ export async function createReasoningRenderFixture(language = 'zh') {
   locale.setLocale(language)
   runtime.slots.installLocale(locale)
   const captured: { seats?: RenderSeats; setContent?: (content: ReactNode) => void } = {}
-  await runtime.root.declare({
-    'conversation.chat.reasoning.body': { kind: 'single', scope: 'session' },
-  }, function TestRoot(props) {
-    const [content, setContent] = useState<ReactNode>(null)
-    captured.seats = props
-    captured.setContent = setContent
-    return content
-  })
+  await runtime.root.declare(
+    {
+      'conversation.chat.reasoning.body': { kind: 'single', scope: 'session' },
+    },
+    function TestRoot(props) {
+      const [content, setContent] = useState<ReactNode>(null)
+      captured.seats = props
+      captured.setContent = setContent
+      return content
+    },
+  )
   const owner = await runtime.mount({
     inject: ['slots'],
-    apply: (ctx) => {
-      registerChatNodeRenderers(ctx,
+    apply: ctx => {
+      registerChatNodeRenderers(
+        ctx,
         createSnapshotStore<PerformanceUsageMode>('detailed'),
-        derivePresentationPolicy(createSnapshotStore<TranscriptViewMode>('detailed'), createSnapshotStore<CollapseTiming>('completion')))
+        derivePresentationPolicy(createSnapshotStore<TranscriptViewMode>('detailed'), createSnapshotStore<CollapseTiming>('completion')),
+      )
     },
   })
   await runtime.sessions.add({ id: 'reasoning-fixture' })
@@ -56,7 +61,11 @@ export async function createReasoningRenderFixture(language = 'zh') {
   const renderSlot: RenderSeats['renderSlot'] = (key, props, options) => (
     <SessionProvider session={session}>{seats.renderSlot(key, props, options)}</SessionProvider>
   )
-  const update = (content: ReactNode): void => { act(() => { setContent(content) }) }
+  const update = (content: ReactNode): void => {
+    act(() => {
+      setContent(content)
+    })
+  }
   const render = (content: ReactNode): RenderResult => {
     update(content)
     return { ...view, rerender: update }

@@ -11,8 +11,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { GoalActivation, GoalSnapshot } from '@deepseek-ai/dsh-goal/client'
 import {
-  IconCheckOutlineRegular, IconCloseOutlineRegular, IconEditOutlineRegular, IconGoalOutlineRegular,
-  IconPauseOutlineRegular, IconPlayOutlineRegular, IconTrashOutlineRegular, InlineEditor, Tooltip,
+  IconCheckOutlineRegular,
+  IconCloseOutlineRegular,
+  IconEditOutlineRegular,
+  IconGoalOutlineRegular,
+  IconPauseOutlineRegular,
+  IconPlayOutlineRegular,
+  IconTrashOutlineRegular,
+  InlineEditor,
+  Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GoalActionResult, GoalBarActions, GoalBarInjected } from './slots.ts'
@@ -77,10 +84,13 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
     if (result?.ok) setEditing(false)
   }, [draft, onEdit, runAction])
 
-  const handleClear = useCallback(async (clearedId: GoalSnapshot['id']) => {
-    const result = await runAction(onClear)
-    if (result?.ok) setClearedGoalId(clearedId)
-  }, [onClear, runAction])
+  const handleClear = useCallback(
+    async (clearedId: GoalSnapshot['id']) => {
+      const result = await runAction(onClear)
+      if (result?.ok) setClearedGoalId(clearedId)
+    },
+    [onClear, runAction],
+  )
 
   // Loading, absent, and complete goals have no strip at all.
   if (goal === undefined || goal === null || goal.phase === 'complete' || goal.id === clearedGoalId) return null
@@ -93,16 +103,26 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
             value={draft}
             label={t('objective.aria')}
             onChange={setDraft}
-            onSave={() => { void handleEdit() }}
-            onCancel={() => { setEditing(false) }}
+            onSave={() => {
+              void handleEdit()
+            }}
+            onCancel={() => {
+              setEditing(false)
+            }}
           />
-          {actionError !== null && <span className={css.error} role="alert">{actionError}</span>}
+          {actionError !== null && (
+            <span className={css.error} role="alert">
+              {actionError}
+            </span>
+          )}
           <div className={css.actions}>
             <Tooltip portal label={t('action.save')} side="bottom" delayMs={500}>
               <button
                 type="button"
                 className={css.iconBtn}
-                onClick={() => { void handleEdit() }}
+                onClick={() => {
+                  void handleEdit()
+                }}
                 disabled={pending || draft.trim() === ''}
                 aria-label={t('action.save')}
               >
@@ -113,7 +133,9 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
               <button
                 type="button"
                 className={css.iconBtn}
-                onClick={() => { setEditing(false) }}
+                onClick={() => {
+                  setEditing(false)
+                }}
                 disabled={pending}
                 aria-label={t('action.cancel')}
               >
@@ -128,26 +150,47 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
 
   const title = goal.phase === 'blocked' ? goal.blockedReason?.message : undefined
   const label = goal.phase === 'active' ? activeLabel(activation, t) : t(PHASE_LABELS[goal.phase])
-  const showResume = goal.phase === 'paused'
-    || (goal.phase === 'active' && activation === 'disarmed')
+  const showResume = goal.phase === 'paused' || (goal.phase === 'active' && activation === 'disarmed')
   return (
     <div className={css.dock} data-goal-bar>
       <div className={css.bar} title={title}>
-        <span className={css.goalGlyph}><IconGoalOutlineRegular size={14} /></span>
+        <span className={css.goalGlyph}>
+          <IconGoalOutlineRegular size={14} />
+        </span>
         <span className={css.label}>{label}</span>
         <span className={css.objective}>{goal.objective}</span>
-        {actionError !== null && <span className={css.error} role="alert">{actionError}</span>}
+        {actionError !== null && (
+          <span className={css.error} role="alert">
+            {actionError}
+          </span>
+        )}
         <div className={css.actions}>
           {goal.phase === 'active' && activation === 'armed' && (
             <Tooltip portal label={t('action.pause')} side="bottom" delayMs={500}>
-              <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void runAction(onPause) }} aria-label={t('action.pause')}>
+              <button
+                type="button"
+                className={css.iconBtn}
+                disabled={pending}
+                onClick={() => {
+                  void runAction(onPause)
+                }}
+                aria-label={t('action.pause')}
+              >
                 <IconPauseOutlineRegular size={14} />
               </button>
             </Tooltip>
           )}
           {showResume && (
             <Tooltip portal label={t('action.resume')} side="bottom" delayMs={500}>
-              <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void runAction(onResume) }} aria-label={t('action.resume')}>
+              <button
+                type="button"
+                className={css.iconBtn}
+                disabled={pending}
+                onClick={() => {
+                  void runAction(onResume)
+                }}
+                aria-label={t('action.resume')}
+              >
                 <IconPlayOutlineRegular size={14} />
               </button>
             </Tooltip>
@@ -157,14 +200,25 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
               type="button"
               className={css.iconBtn}
               disabled={pending}
-              onClick={() => { setDraft(goal.objective); setEditing(true) }}
+              onClick={() => {
+                setDraft(goal.objective)
+                setEditing(true)
+              }}
               aria-label={t('action.edit')}
             >
               <IconEditOutlineRegular size={14} />
             </button>
           </Tooltip>
           <Tooltip portal label={t('action.clear')} side="bottom" delayMs={500}>
-            <button type="button" className={css.iconBtn} disabled={pending} onClick={() => { void handleClear(goal.id) }} aria-label={t('action.clear')}>
+            <button
+              type="button"
+              className={css.iconBtn}
+              disabled={pending}
+              onClick={() => {
+                void handleClear(goal.id)
+              }}
+              aria-label={t('action.clear')}
+            >
               <IconTrashOutlineRegular size={14} />
             </button>
           </Tooltip>
@@ -175,27 +229,22 @@ export function GoalBar({ goal, activation, onEdit, onPause, onResume, onClear, 
 }
 
 /** Full props of the dock entry: InputZone owner share + injected verbs/activation hook + the locale seat. */
-export type GoalDockProps =
-  import('@deepseek-ai/dsh-client-ui-slots').PropsRuntime<'conversation.input.dock'>
-  & InjectFace<GoalBarInjected>
-  & PropsLocale<'goal'>
+export type GoalDockProps = import('@deepseek-ai/dsh-client-ui-slots').PropsRuntime<'conversation.input.dock'> &
+  InjectFace<GoalBarInjected> &
+  PropsLocale<'goal'>
 
 /** Dock adapter: overlays process-local activation on the durable goal projection. */
-export function GoalDock({
-  useProjection, useGoalActivation, onEdit, onPause, onResume, onClear, t,
-}: GoalDockProps) {
+export function GoalDock({ useProjection, useGoalActivation, onEdit, onPause, onResume, onClear, t }: GoalDockProps) {
   const projection = useProjection('goal')
   const goal = projection === undefined || projection === null ? projection : projection.goal
   const goalId = goal?.id
   const revision = goal?.revision
-  const activation = useGoalActivation(next => (
-    next.id === goalId && next.revision === revision ? next.activation : undefined
-  ))
+  const activation = useGoalActivation(next => (next.id === goalId && next.revision === revision ? next.activation : undefined))
 
   return (
     <GoalBar
       goal={goal}
-      {...activation === undefined ? {} : { activation }}
+      {...(activation === undefined ? {} : { activation })}
       onEdit={onEdit}
       onPause={onPause}
       onResume={onResume}

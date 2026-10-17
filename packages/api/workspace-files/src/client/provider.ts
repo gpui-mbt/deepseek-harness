@@ -43,10 +43,7 @@ interface HostFile {
  * @param changes - target-scoped change streams shared by file resources.
  * @returns the provider to register into `ctx.resources`.
  */
-export function createFileResourceProvider(
-  remote: WorkspaceFilesRemote,
-  changes: ChangeFeed,
-): ResourceProvider<'file'> {
+export function createFileResourceProvider(remote: WorkspaceFilesRemote, changes: ChangeFeed): ResourceProvider<'file'> {
   return {
     protocol: 'file',
     async *open(address, { signal }): AsyncIterable<RemoteResult<WorkspaceFileStat>> {
@@ -66,7 +63,7 @@ export function createFileResourceProvider(
       // on the file, so a write can still bring the file live.
       let current: WorkspaceFileStat | undefined
       try {
-        if (!await notices.ready) {
+        if (!(await notices.ready)) {
           if (aborted()) return
           const result = await stat()
           if (!aborted()) yield result

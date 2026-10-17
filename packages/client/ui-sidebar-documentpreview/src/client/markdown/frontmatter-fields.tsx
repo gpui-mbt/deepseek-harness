@@ -47,7 +47,10 @@ function nodeText(source: string, node: unknown): string {
   /* v8 ignore next -- parsed nodes always carry their source range. */
   const [start, end] = node.range ?? [0, 0]
   const indent = start - source.lastIndexOf('\n', start - 1) - 1
-  return source.slice(start, end).replace(new RegExp(`\\n {0,${indent}}`, 'gu'), '\n').trimEnd()
+  return source
+    .slice(start, end)
+    .replace(new RegExp(`\\n {0,${indent}}`, 'gu'), '\n')
+    .trimEnd()
 }
 
 /**

@@ -3,10 +3,15 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import {
-  captureStableAria, compareOrRefreshGolden, fixtureUserPrompts, launchWebScaffold,
-  recordFixture, watchConsole, webSnapshotMode,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
 } from './scaffold.ts'
 import { connectFreshWorkspace, expandTurnProcesses, newEnglishPage } from './support.ts'
 
@@ -14,15 +19,21 @@ const DIR = fileURLToPath(new URL('../../../snapshots/web/code-language', import
 const FIXTURE = join(DIR, 'session.v4.jsonl')
 const MODE = webSnapshotMode()
 const FILES = [
-  { name: 'sample.pyi', lang: 'py', previewLang: 'python', text: 'from typing import Protocol\n\nclass Greeter(Protocol):\n    def greet(self, name: str) -> str: ...\n' },
+  {
+    name: 'sample.pyi',
+    lang: 'py',
+    previewLang: 'python',
+    text: 'from typing import Protocol\n\nclass Greeter(Protocol):\n    def greet(self, name: str) -> str: ...\n',
+  },
   { name: 'deploy.ps1', lang: 'ps1', previewLang: 'powershell', text: 'param([string]$Name = "World")\nWrite-Host "Hello, $Name"\n' },
   { name: 'table.csv', lang: 'csv', previewLang: 'csv', text: 'name,count\napples,12\npears,7\n' },
 ] as const
 
 it('replays highlighted Python stubs, PowerShell and CSV reads with their document previews', async () => {
-  const prompt = MODE === 'record'
-    ? 'Use the read tool exactly once per file to read sample.pyi, deploy.ps1 and table.csv in the current directory. Use these relative paths. Do not run commands or change files. Then reply exactly: Read all three files.'
-    : fixtureUserPrompts(await readFile(FIXTURE, 'utf8'))[0]!
+  const prompt =
+    MODE === 'record'
+      ? 'Use the read tool exactly once per file to read sample.pyi, deploy.ps1 and table.csv in the current directory. Use these relative paths. Do not run commands or change files. Then reply exactly: Read all three files.'
+      : fixtureUserPrompts(await readFile(FIXTURE, 'utf8'))[0]!
   const scaffold = await launchWebScaffold({
     ...(MODE === 'record' ? {} : { replayFixture: FIXTURE }),
     compareReplaySession: true,
@@ -44,7 +55,7 @@ it('replays highlighted Python stubs, PowerShell and CSV reads with their docume
     const sessionId = await settled
     const session = scaffold.ctx.agents.get(sessionId)?.session
     if (session === undefined) throw new Error('read turn has no Session')
-    const reads = session.snapshotEvents().flatMap(event => event.type === 'tool/result' ? [event.data.meta] : [])
+    const reads = session.snapshotEvents().flatMap(event => (event.type === 'tool/result' ? [event.data.meta] : []))
     expect(reads).toHaveLength(FILES.length)
     for (const file of FILES) {
       expect(reads).toContainEqual(expect.objectContaining({ path: join(cwd, file.name), lang: file.lang }))

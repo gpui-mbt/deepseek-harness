@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import ComputerUseRegistry from '../src/index.ts'
 import { ComputerUseProviderName } from '../src/brand.ts'
 
@@ -35,7 +35,9 @@ describe('computer-use provider registration', () => {
       const provider = ctx.plugin({
         name: 'test-computer-use-provider',
         inject: ['computerUse'],
-        apply(ctx: Context) { ctx.computerUse.register(MCP) },
+        apply(ctx: Context) {
+          ctx.computerUse.register(MCP)
+        },
       })
       await provider
       expect(ctx.computerUse.providerName).toBe(MCP)

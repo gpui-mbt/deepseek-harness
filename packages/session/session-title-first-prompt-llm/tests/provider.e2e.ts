@@ -1,5 +1,5 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import * as LlmDeepSeek from '@deepseek-ai/dsh-llm-deepseek-api-key'
@@ -40,10 +40,14 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('first-prompt title provider with
     session.append('turn/start', {
       turn: 1,
     })
-    const message = session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'Explain why append-only logs make session titles durable.' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const message = session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'Explain why append-only logs make session titles durable.' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
 
     const title = await ctx.sessionTitle.refresh(session)
 

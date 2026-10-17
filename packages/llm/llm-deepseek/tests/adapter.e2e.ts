@@ -9,13 +9,20 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context, LoggerLevel } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import LocalAttachments from '@deepseek-ai/dsh-attachment-local'
 import DeepSeekLlmApiExtensionRegistry from '@deepseek-ai/dsh-deepseek-llm-api-extensions'
-import LlmRuntime, { BlockAssembler, createAssistantMessage, createSystemMessage, createToolResultMessage, ReasoningEffortId, ToolCallId } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, {
+  BlockAssembler,
+  createAssistantMessage,
+  createSystemMessage,
+  createToolResultMessage,
+  ReasoningEffortId,
+  ToolCallId,
+} from '@deepseek-ai/dsh-llm'
 import type { Message } from '@deepseek-ai/dsh-llm'
 import * as PluginPackageInventoryDeepSeek from '@deepseek-ai/dsh-plugin-package-inventory-deepseek'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
@@ -42,23 +49,35 @@ async function boot(models?: Messages.Options['models']) {
   await ctx.plugin(Messages, {
     baseURL: Protocol.PUBLIC_BASE_URL,
     maxTokens: 4096,
-    ...models === undefined ? {} : { models },
+    ...(models === undefined ? {} : { models }),
   })
   return ctx
 }
-const tool = { name: 'lookup_value', description: 'Read the requested value. Always call this tool to obtain a value.', parameters: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] } }
+const tool = {
+  name: 'lookup_value',
+  description: 'Read the requested value. Always call this tool to obtain a value.',
+  parameters: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] },
+}
 
 describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () => {
-  it.skipIf(!IN_HISTORY_MODEL).each([false, true])('updates system instructions during a conversation, in-history=%s', async (inHistory) => {
+  it.skipIf(!IN_HISTORY_MODEL).each([false, true])('updates system instructions during a conversation, in-history=%s', async inHistory => {
     const model = IN_HISTORY_MODEL as string
     // Each case owns the capability, even for a model with an in-history catalog default.
-    const ctx = await boot([{ id: model, ...inHistory ? { systemPromptUpdate: 'in-history' as const } : {} }])
+    const ctx = await boot([{ id: model, ...(inHistory ? { systemPromptUpdate: 'in-history' as const } : {}) }])
     const history: Message[] = [createSystemMessage('Reply to every user message with exactly PROMPT_FIRST.'), user('Answer now.')]
     const reply = async (expected: string) => {
       const saved = JSON.stringify(history)
-      const response = await assemble(ctx.llm.stream(options({ model, messages: history, reasoningEffort: ReasoningEffortId('high') })), model)
+      const response = await assemble(
+        ctx.llm.stream(options({ model, messages: history, reasoningEffort: ReasoningEffortId('high') })),
+        model,
+      )
       expect(response.assembler.finish.kind).toBe('stop')
-      expect(response.message.content.filter(block => block.type === 'text').map(block => block.text).join('')).toContain(expected)
+      expect(
+        response.message.content
+          .filter(block => block.type === 'text')
+          .map(block => block.text)
+          .join(''),
+      ).toContain(expected)
       expect(JSON.stringify(history)).toBe(saved)
       history.push(response.message)
     }
@@ -77,7 +96,9 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
     const uploads: string[] = []
     const bodies: string[] = []
     const files = new DeepSeekFilesClient({
-      baseURL: Protocol.PUBLIC_BASE_URL, headers: { 'x-api-key': process.env.DEEPSEEK_API_KEY as string }, fetch: fetchImpl,
+      baseURL: Protocol.PUBLIC_BASE_URL,
+      headers: { 'x-api-key': process.env.DEEPSEEK_API_KEY as string },
+      fetch: fetchImpl,
     })
     const ownedFiles = new Set<ReturnType<typeof Protocol.DeepSeekFileId>>()
     cleanups.push(async () => {
@@ -87,7 +108,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
       const response = await fetchImpl(input, init)
       if (url === `${Protocol.PUBLIC_BASE_URL}/v1/files` && init?.method === 'POST' && response.ok) {
-        const file = await response.clone().json() as { id: string }
+        const file = (await response.clone().json()) as { id: string }
         uploads.push(file.id)
         ownedFiles.add(Protocol.DeepSeekFileId(file.id))
       }
@@ -98,16 +119,26 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
       }
       return response
     })
-    const attachment = await ctx.attachments.saveImage({ data: await readFile(new URL('fixtures/red.png', import.meta.url)), mediaType: 'image/png' })
+    const attachment = await ctx.attachments.saveImage({
+      data: await readFile(new URL('fixtures/red.png', import.meta.url)),
+      mediaType: 'image/png',
+    })
     const message = user('What is the dominant color of this image? Reply with one English color word.')
     const request = options({
-      model: 'deepseek-flash', reasoningEffort: ReasoningEffortId('off'),
+      model: 'deepseek-flash',
+      reasoningEffort: ReasoningEffortId('off'),
       messages: [{ ...message, content: [...message.content, { type: 'image', attachment }] }],
     })
     for (let run = 0; run < 2; run++) {
       const result = await assemble(ctx.llm.stream(request), request.model)
       expect(result.assembler.finish.kind).toBe('stop')
-      expect(result.message.content.filter(block => block.type === 'text').map(block => block.text).join('').toLowerCase()).toContain('red')
+      expect(
+        result.message.content
+          .filter(block => block.type === 'text')
+          .map(block => block.text)
+          .join('')
+          .toLowerCase(),
+      ).toContain('red')
     }
     expect(uploads).toHaveLength(1)
     expect(bodies).toHaveLength(2)
@@ -130,7 +161,13 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
     ownedFiles.delete(fileId)
     const recovered = await assemble(ctx.llm.stream(request), request.model)
     expect(recovered.assembler.finish.kind).toBe('stop')
-    expect(recovered.message.content.filter(block => block.type === 'text').map(block => block.text).join('').toLowerCase()).toContain('red')
+    expect(
+      recovered.message.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join('')
+        .toLowerCase(),
+    ).toContain('red')
     expect(uploads).toHaveLength(2)
     expect(uploads[1]).not.toBe(fileId)
     expect(bodies).toHaveLength(4)
@@ -139,7 +176,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
     expect(bodies[3]).not.toContain('"type":"base64"')
   })
 
-  it.each([false, true])('submits Loader package inventory and records HTTP acceptance with session-log enabled=%s', async (enabled) => {
+  it.each([false, true])('submits Loader package inventory and records HTTP acceptance with session-log enabled=%s', async enabled => {
     const pluginRoot = await mkdtemp(join(tmpdir(), 'dsh-unversioned-plugin-e2e-'))
     cleanups.push(() => rm(pluginRoot, { recursive: true, force: true }))
     const unversionedName = 'unversioned-e2e-plugin'
@@ -154,7 +191,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
     await ctx.plugin(SessionLogDeepSeek, enabled ? {} : { enabled: false })
     ctx.baseUrl = import.meta.url
     // Select the source module while Loader owns its active package entry.
-    ctx.loader.internal = sourceModuleLoader(async (specifier) => {
+    ctx.loader.internal = sourceModuleLoader(async specifier => {
       if (specifier === unversionedModule) return import(specifier)
       if (specifier !== '@deepseek-ai/dsh-plugin-package-inventory-deepseek') throw new Error(`unexpected Loader import: ${specifier}`)
       return PluginPackageInventoryDeepSeek
@@ -176,17 +213,20 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
       if (typeof init?.body !== 'string') throw new Error('expected a JSON Messages request')
       const body = JSON.parse(init.body) as Record<string, unknown>
       expect(body.dsh_plugin_packages).toStrictEqual({
-        version: 1, packages: [
-          { name: packageIdentity.name, version: packageIdentity.version },
-          { name: unversionedName },
-        ],
+        version: 1,
+        packages: [{ name: packageIdentity.name, version: packageIdentity.version }, { name: unversionedName }],
       })
       if (enabled) {
-        expect(body).toMatchObject({ dsh_session_log: {
-          version: 1, sessionFormatVersion: session.header.version, session: { id: session.id },
-          afterSeq, throughSeq,
-          events: Array.from({ length: throughSeq - afterSeq }, (_, index) => ({ seq: afterSeq + index + 1 })),
-        } })
+        expect(body).toMatchObject({
+          dsh_session_log: {
+            version: 1,
+            sessionFormatVersion: session.header.version,
+            session: { id: session.id },
+            afterSeq,
+            throughSeq,
+            events: Array.from({ length: throughSeq - afterSeq }, (_, index) => ({ seq: afterSeq + index + 1 })),
+          },
+        })
       } else expect(body).not.toHaveProperty('dsh_session_log')
       expect(SessionLogDeepSeek.acceptedThrough(session)).toBe(afterSeq)
       const response = await fetchImpl(input, init)
@@ -199,30 +239,47 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
       afterSeq = SessionLogDeepSeek.acceptedThrough(session)
       throughSeq = Number(session.seq) - 1
       const assembler = new BlockAssembler()
-      for await (const chunk of ctx.llm.stream(options({ sessionId: session.id, reasoningEffort: ReasoningEffortId('off'), messages: [user('Reply with exactly PONG.')] }))) {
+      for await (const chunk of ctx.llm.stream(
+        options({ sessionId: session.id, reasoningEffort: ReasoningEffortId('off'), messages: [user('Reply with exactly PONG.')] }),
+      )) {
         expect(SessionLogDeepSeek.acceptedThrough(session)).toBe(enabled ? throughSeq : -1)
         assembler.push(chunk)
       }
       expect(assembler.finish.kind).toBe('stop')
-      expect(assembler.blocks().filter(block => block.type === 'text').map(block => block.text).join('')).toContain('PONG')
+      expect(
+        assembler
+          .blocks()
+          .filter(block => block.type === 'text')
+          .map(block => block.text)
+          .join(''),
+      ).toContain('PONG')
       expect(requests).toBe(run + 1)
       if (run === 0) session.append('step/start', { turn: 1, step: 1 })
     }
     expect(session.snapshotEvents().filter(event => event.type === 'session-log-deepseek/delivery-accepted')).toHaveLength(enabled ? 2 : 0)
   })
 
-  it.each(['off', 'low', 'high', 'max'])('streams text with %s effort', async (effort) => {
+  it.each(['off', 'low', 'high', 'max'])('streams text with %s effort', async effort => {
     const ctx = await boot()
-    const result = await assemble(ctx.llm.stream(options({ reasoningEffort: ReasoningEffortId(effort), temperature: 0, messages: [user('Reply with exactly PONG.')] })))
+    const result = await assemble(
+      ctx.llm.stream(options({ reasoningEffort: ReasoningEffortId(effort), temperature: 0, messages: [user('Reply with exactly PONG.')] })),
+    )
     expect(result.assembler.finish).toEqual({ kind: 'stop' })
-    expect(result.message.content.filter(block => block.type === 'text').map(block => block.text).join('')).toContain('PONG')
+    expect(
+      result.message.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join(''),
+    ).toContain('PONG')
     expect(result.assembler.usage?.outputTokens).toBeGreaterThan(0)
     expect(result.message.source.replayState).toBeDefined()
   })
 
   it('replays a JSON-persisted thinking/tool turn and an error result before continuing', async () => {
     const ctx = await boot()
-    const history: Message[] = [user('Use lookup_value with key secret. If the tool returns an error, report its exact error text and stop.')]
+    const history: Message[] = [
+      user('Use lookup_value with key secret. If the tool returns an error, report its exact error text and stop.'),
+    ]
     const request = options({ messages: history, tools: [tool], reasoningEffort: ReasoningEffortId('high') })
     const first = await assemble(ctx.llm.stream(request))
     expect(first.assembler.finish.kind).toBe('tool-calls')
@@ -230,10 +287,16 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
     expect(calls).toHaveLength(1)
     const restored = JSON.parse(JSON.stringify(first.message)) as Message
     history.push(restored)
-    for (const call of calls) history.push(createToolResultMessage({ callId: call.id, content: [{ type: 'text', text: 'LOOKUP_DENIED_731' }], isError: true }))
+    for (const call of calls)
+      history.push(createToolResultMessage({ callId: call.id, content: [{ type: 'text', text: 'LOOKUP_DENIED_731' }], isError: true }))
     const second = await assemble(ctx.llm.stream({ ...request, messages: history }))
     expect(second.assembler.finish.kind).toBe('stop')
-    expect(second.message.content.filter(block => block.type === 'text').map(block => block.text).join('')).toContain('LOOKUP_DENIED_731')
+    expect(
+      second.message.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join(''),
+    ).toContain('LOOKUP_DENIED_731')
     history.push(second.message, user('Reply with exactly DONE.'))
     const third = await assemble(ctx.llm.stream({ ...request, messages: history }))
     expect(third.assembler.finish.kind).toBe('stop')
@@ -242,18 +305,30 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
   it('continues saved Responses tool history with an empty trailing text item', async () => {
     const ctx = await boot()
     const calls = [0, 1, 2].map(index => ({
-      type: 'tool-call' as const, id: ToolCallId(`call_${index}|item_${index}`), name: 'lookup_value', arguments: '{"key":"secret"}',
+      type: 'tool-call' as const,
+      id: ToolCallId(`call_${index}|item_${index}`),
+      name: 'lookup_value',
+      arguments: '{"key":"secret"}',
     }))
     const history = [
       user('Look up the secret value.'),
       createAssistantMessage({ source: { provider: 'foreign', model: 'claude' }, content: [...calls, { type: 'text', text: '' }] }),
-      ...calls.map(call => createToolResultMessage({ callId: call.id, content: [{ type: 'text', text: 'EMPTY_TEXT_RECOVERED_731' }], isError: false })),
+      ...calls.map(call =>
+        createToolResultMessage({ callId: call.id, content: [{ type: 'text', text: 'EMPTY_TEXT_RECOVERED_731' }], isError: false }),
+      ),
       user('Do not call tools. Reply with exactly EMPTY_TEXT_RECOVERED_731.'),
     ]
     const saved = JSON.stringify(history)
-    const response = await assemble(ctx.llm.stream(options({ model: 'deepseek-flash', messages: history, tools: [tool], reasoningEffort: ReasoningEffortId('off') })))
+    const response = await assemble(
+      ctx.llm.stream(options({ model: 'deepseek-flash', messages: history, tools: [tool], reasoningEffort: ReasoningEffortId('off') })),
+    )
     expect(response.assembler.finish.kind).toBe('stop')
-    expect(response.message.content.filter(block => block.type === 'text').map(block => block.text).join('')).toContain('EMPTY_TEXT_RECOVERED_731')
+    expect(
+      response.message.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join(''),
+    ).toContain('EMPTY_TEXT_RECOVERED_731')
     expect(JSON.stringify(history)).toBe(saved)
   })
 
@@ -262,28 +337,41 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
     const callId = ToolCallId('historical_lookup')
     const history = [
       user('Look up the secret value.'),
-      createAssistantMessage({ source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, content: [
-        { type: 'tool-call', id: callId, name: 'lookup_value', arguments: '{"key":"the "secret""}' },
-      ] }),
+      createAssistantMessage({
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        content: [{ type: 'tool-call', id: callId, name: 'lookup_value', arguments: '{"key":"the "secret""}' }],
+      }),
       createToolResultMessage({ callId, content: [{ type: 'text', text: 'Invalid arguments: expected an object' }], isError: true }),
       user('Do not retry the lookup. Reply with exactly HISTORY_RECOVERED_731.'),
     ]
     const saved = JSON.stringify(history)
     const restored = JSON.parse(saved) as Message[]
-    const response = await assemble(ctx.llm.stream(options({ messages: restored, tools: [tool], reasoningEffort: ReasoningEffortId('off') })))
+    const response = await assemble(
+      ctx.llm.stream(options({ messages: restored, tools: [tool], reasoningEffort: ReasoningEffortId('off') })),
+    )
     expect(response.assembler.finish.kind).toBe('stop')
-    expect(response.message.content.filter(block => block.type === 'text').map(block => block.text).join('')).toContain('HISTORY_RECOVERED_731')
+    expect(
+      response.message.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join(''),
+    ).toContain('HISTORY_RECOVERED_731')
     expect(JSON.stringify(restored)).toBe(saved)
   })
 
   it('cancels an active stream without committing a successful response', async () => {
     const ctx = await boot()
     const controller = new AbortController()
-    const stream = ctx.llm.stream(options({ signal: controller.signal, messages: [user('List the integers from one to one thousand, one per line.')] }))
+    const stream = ctx.llm.stream(
+      options({ signal: controller.signal, messages: [user('List the integers from one to one thousand, one per line.')] }),
+    )
     let cancelled = false
     let finish: unknown
     for await (const chunk of stream) {
-      if (!cancelled && (chunk.type === 'text-delta' || chunk.type === 'reasoning-delta')) { cancelled = true; controller.abort() }
+      if (!cancelled && (chunk.type === 'text-delta' || chunk.type === 'reasoning-delta')) {
+        cancelled = true
+        controller.abort()
+      }
       if (chunk.type === 'finish') finish = chunk.reason
     }
     expect(cancelled).toBe(true)
@@ -293,7 +381,12 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
   it('continues a thinking/tool turn after degrading unusable persisted replay metadata', async () => {
     const ctx = await boot()
     const warnings: unknown[][] = []
-    ctx.logger.exporter({ levels: { default: LoggerLevel.WARN }, export: (message) => { if (message.type === 'warn') warnings.push(message.args) } })
+    ctx.logger.exporter({
+      levels: { default: LoggerLevel.WARN },
+      export: message => {
+        if (message.type === 'warn') warnings.push(message.args)
+      },
+    })
     const history: Message[] = [user('Use lookup_value with key secret. Then reply with the exact tool result and stop.')]
     const request = options({ messages: history, tools: [tool], reasoningEffort: ReasoningEffortId('high') })
     const first = await assemble(ctx.llm.stream(request))
@@ -303,10 +396,20 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('DeepSeek Messages real API', () 
     const restored = JSON.parse(JSON.stringify(first.message)) as typeof first.message
     restored.source.replayState = { response: { kind: 'deepseek-messages', version: 2 }, blocks: [] }
     const saved = JSON.stringify(restored)
-    history.push(restored, ...calls.map(call => createToolResultMessage({ callId: call.id, content: [{ type: 'text', text: 'REPLAY_RECOVERED_731' }], isError: false })))
+    history.push(
+      restored,
+      ...calls.map(call =>
+        createToolResultMessage({ callId: call.id, content: [{ type: 'text', text: 'REPLAY_RECOVERED_731' }], isError: false }),
+      ),
+    )
     const second = await assemble(ctx.llm.stream({ ...request, messages: history }))
     expect(second.assembler.finish.kind).toBe('stop')
-    expect(second.message.content.filter(block => block.type === 'text').map(block => block.text).join('')).toContain('REPLAY_RECOVERED_731')
+    expect(
+      second.message.content
+        .filter(block => block.type === 'text')
+        .map(block => block.text)
+        .join(''),
+    ).toContain('REPLAY_RECOVERED_731')
     expect(warnings).toEqual([[expect.stringContaining('unsupported kind or version')]])
     expect(JSON.stringify(restored)).toBe(saved)
   })

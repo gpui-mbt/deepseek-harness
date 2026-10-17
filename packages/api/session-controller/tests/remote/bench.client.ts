@@ -1,5 +1,5 @@
 /** Session objects owned by a client test's explicitly started Gateway assembly. */
-import { onTestFinished } from 'vitest'
+import { onTestFinished } from 'vite-plus/test'
 import type { RemoteMock } from '@deepseek-ai/dsh-remote-mock'
 import type { TestClient } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'

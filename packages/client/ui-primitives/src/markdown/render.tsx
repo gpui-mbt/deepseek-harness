@@ -81,8 +81,11 @@ function remoteImageUrl(url: string): string | undefined {
 function vocabularyImageUrl(url: string): string | undefined {
   try {
     const protocol = new URL(url).protocol
-    return protocol === 'http:' || protocol === 'https:' || protocol === 'blob:' || protocol === 'data:'
-      || url.startsWith('dsh-app://app/api/file?')
+    return protocol === 'http:' ||
+      protocol === 'https:' ||
+      protocol === 'blob:' ||
+      protocol === 'data:' ||
+      url.startsWith('dsh-app://app/api/file?')
       ? url
       : undefined
   } catch {
@@ -129,10 +132,7 @@ export function createReferenceTargets(): ReferenceTargets {
  * @param nodes - Subtrees to walk (top-level blocks or any nested children).
  * @param targets - Accumulator, typically shared across incremental segments.
  */
-export function collectReferenceTargets(
-  nodes: readonly Md.RootContent[],
-  targets: ReferenceTargets,
-): void {
+export function collectReferenceTargets(nodes: readonly Md.RootContent[], targets: ReferenceTargets): void {
   for (const node of nodes) {
     if (node.type === 'definition') {
       const id = node.identifier.toUpperCase()
@@ -211,13 +211,8 @@ export interface MarkdownRenderContext {
  * @param context - The pass state; footnote numbering mutates in document order.
  * @returns One React node per rendered block.
  */
-export function renderBlocks(
-  blocks: readonly PositionedBlock[],
-  context: MarkdownRenderContext,
-): ReactNode[] {
-  return blocks
-    .map(block => renderNode(block.node, block.key, context))
-    .filter(element => element !== null)
+export function renderBlocks(blocks: readonly PositionedBlock[], context: MarkdownRenderContext): ReactNode[] {
+  return blocks.map(block => renderNode(block.node, block.key, context)).filter(element => element !== null)
 }
 
 /**
@@ -247,10 +242,7 @@ export function wrapBlockChildren(elements: readonly ReactNode[], edges: boolean
 type BlockEntry = { paragraph: ReactNode[] } | { element: ReactNode }
 
 /** Render container children into {@link BlockEntry} values, dropping empty renders. */
-function renderBlockEntries(
-  blocks: readonly Md.RootContent[],
-  context: MarkdownRenderContext,
-): BlockEntry[] {
+function renderBlockEntries(blocks: readonly Md.RootContent[], context: MarkdownRenderContext): BlockEntry[] {
   const entries: BlockEntry[] = []
   for (const [index, block] of blocks.entries()) {
     if (block.type === 'paragraph') {
@@ -263,10 +255,7 @@ function renderBlockEntries(
   return entries
 }
 
-function renderChildren(
-  nodes: readonly Md.RootContent[],
-  context: MarkdownRenderContext,
-): ReactNode[] {
+function renderChildren(nodes: readonly Md.RootContent[], context: MarkdownRenderContext): ReactNode[] {
   return nodes.map((node, index) => renderNode(node, index, context))
 }
 
@@ -291,7 +280,12 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
       return <hr key={key} />
     case 'break':
       // The replaced pipeline emitted a newline text node after each <br>.
-      return <Fragment key={key}><br />{'\n'}</Fragment>
+      return (
+        <Fragment key={key}>
+          <br />
+          {'\n'}
+        </Fragment>
+      )
     case 'strong':
       return <strong key={key}>{renderChildren(node.children, context)}</strong>
     case 'emphasis':
@@ -315,13 +309,7 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
       if (mention !== undefined) {
         return (
           <code key={key}>
-            <button
-              type="button"
-              className={css.fileMention}
-              title={mention.title}
-              aria-label={mention.label}
-              onClick={mention.open}
-            >
+            <button type="button" className={css.fileMention} title={mention.title} aria-label={mention.label} onClick={mention.open}>
               <LinkIconMedium kind={classifyLinkPath(value)} className={css.linkIcon} />
               {value}
             </button>
@@ -348,8 +336,11 @@ function renderNode(node: Md.RootContent, key: Key, context: MarkdownRenderConte
       return renderTable(node, key, context)
     case 'link':
       return renderAnchor(
-        node.url, renderChildren(node.children, { ...context, inLink: true }), key,
-        !anchorWrapsOnlyImages(node.children), context.streaming,
+        node.url,
+        renderChildren(node.children, { ...context, inLink: true }),
+        key,
+        !anchorWrapsOnlyImages(node.children),
+        context.streaming,
       )
     case 'linkReference':
       return renderLinkReference(node, key, context)
@@ -434,12 +425,7 @@ function renderList(node: Md.List, key: Key, context: MarkdownRenderContext): Re
   )
 }
 
-function renderListItem(
-  item: Md.ListItem,
-  loose: boolean,
-  key: Key,
-  context: MarkdownRenderContext,
-): ReactNode {
+function renderListItem(item: Md.ListItem, loose: boolean, key: Key, context: MarkdownRenderContext): ReactNode {
   const entries = renderBlockEntries(item.children, context)
   const task = typeof item.checked === 'boolean'
   if (task) {
@@ -475,7 +461,7 @@ function renderListItem(
 function renderTable(node: Md.Table, key: Key, context: MarkdownRenderContext): ReactNode {
   const align = node.align ?? null
   const [headRow, ...bodyRows] = node.children
-  const columns = align === null ? headRow?.children.length ?? 0 : align.length
+  const columns = align === null ? (headRow?.children.length ?? 0) : align.length
   // Four or more columns read as a comparison matrix: the block keeps the
   // table at natural width and exposes the stable `md-table-wide` hook so a
   // hosting layout (the chat transcript) can widen it past the message
@@ -487,18 +473,10 @@ function renderTable(node: Md.Table, key: Key, context: MarkdownRenderContext): 
     // MarkdownText.module.css), which drops Chromium's implicit scroller
     // focusability — the explicit tabindex keeps them keyboard-reachable,
     // and :focus-visible restores scrolling.
-    <div
-      key={key}
-      className={clsx(css.tableScroll, wide ? 'md-table-wide' : css.tableFill)}
-      tabIndex={wide ? 0 : undefined}
-    >
+    <div key={key} className={clsx(css.tableScroll, wide ? 'md-table-wide' : css.tableFill)} tabIndex={wide ? 0 : undefined}>
       <table>
         {headRow !== undefined && <thead>{renderTableRow(headRow, 'th', align, 0, context)}</thead>}
-        {bodyRows.length > 0 && (
-          <tbody>
-            {bodyRows.map((row, index) => renderTableRow(row, 'td', align, index + 1, context))}
-          </tbody>
-        )}
+        {bodyRows.length > 0 && <tbody>{bodyRows.map((row, index) => renderTableRow(row, 'td', align, index + 1, context))}</tbody>}
       </table>
     </div>
   )
@@ -518,13 +496,15 @@ function renderTableRow(
   for (let index = 0; index < length; index++) {
     const cell = row.children[index]
     const alignValue = align?.[index]
-    cells.push(createElement(
-      cellTag,
-      // hast-util-to-jsx-runtime's default tableCellAlignToStyle turned the
-      // deprecated align attribute into an inline style; keep that DOM.
-      { key: index, style: alignValue == null ? undefined : { textAlign: alignValue } },
-      ...(cell === undefined ? [] : renderChildren(cell.children, context)),
-    ))
+    cells.push(
+      createElement(
+        cellTag,
+        // hast-util-to-jsx-runtime's default tableCellAlignToStyle turned the
+        // deprecated align attribute into an inline style; keep that DOM.
+        { key: index, style: alignValue == null ? undefined : { textAlign: alignValue } },
+        ...(cell === undefined ? [] : renderChildren(cell.children, context)),
+      ),
+    )
   }
   return <tr key={key}>{cells}</tr>
 }
@@ -542,10 +522,18 @@ function anchorWrapsOnlyImages(children: Md.PhrasingContent[]): boolean {
 function renderSafeLink(href: string, children: ReactNode[], key: Key, glyph = true): ReactNode {
   const safeHref = sanitizeUrl(href)
   if (safeHref === '') return <Fragment key={key}>{children}</Fragment>
-  return <MarkdownAnchor key={key} href={safeHref} glyph={glyph}>{children}</MarkdownAnchor>
+  return (
+    <MarkdownAnchor key={key} href={safeHref} glyph={glyph}>
+      {children}
+    </MarkdownAnchor>
+  )
 }
 
-function MarkdownAnchor({ href, glyph, children }: {
+function MarkdownAnchor({
+  href,
+  glyph,
+  children,
+}: {
   readonly href: string
   readonly glyph: boolean
   readonly children: ReactNode[]
@@ -557,11 +545,15 @@ function MarkdownAnchor({ href, glyph, children }: {
     <a
       href={href}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-      onClick={open === undefined ? undefined : (event) => {
-        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
-        event.preventDefault()
-        open(href)
-      }}
+      onClick={
+        open === undefined
+          ? undefined
+          : event => {
+              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+              event.preventDefault()
+              open(href)
+            }
+      }
     >
       {glyph && <LinkIconMedium kind="url" href={href} className={css.linkIcon} />}
       {children}
@@ -573,12 +565,20 @@ function MarkdownAnchor({ href, glyph, children }: {
 function renderAnchor(url: string, children: ReactNode[], key: Key, glyph = true, streaming = false): ReactNode {
   const file = streaming ? undefined : parseFileLink(url)
   if (file !== undefined) {
-    return <MarkdownFileLink key={key} file={file} glyph={glyph}>{children}</MarkdownFileLink>
+    return (
+      <MarkdownFileLink key={key} file={file} glyph={glyph}>
+        {children}
+      </MarkdownFileLink>
+    )
   }
   return renderSafeLink(normalizeUri(url), children, key, glyph)
 }
 
-function MarkdownFileLink({ file, glyph, children }: {
+function MarkdownFileLink({
+  file,
+  glyph,
+  children,
+}: {
   readonly file: { path: string; line?: number }
   readonly glyph: boolean
   readonly children: ReactNode[]
@@ -593,18 +593,27 @@ function MarkdownFileLink({ file, glyph, children }: {
       type="button"
       className={clsx(css.fileMention, css.fileLink)}
       title={src === undefined ? file.path : undefined}
-      onClick={() => { openFile(file.path, file.line === undefined ? undefined : { line: file.line }) }}
+      onClick={() => {
+        openFile(file.path, file.line === undefined ? undefined : { line: file.line })
+      }}
     >
       {glyph && <LinkIconMedium kind={classifyLinkPath(file.path)} className={css.linkIcon} />}
       {children}
     </button>
   )
   if (src === undefined || preview === undefined) return anchor
-  return <HoverCard inline anchor={anchor}
-    content={<>
-      <ImagePreview src={src} alt={file.path} loadingLabel={preview.labels.loading} failedLabel={preview.labels.failed} />
-      <span className={css.previewName}>{file.path.split(/[\\/]/u).pop()}</span>
-    </>} />
+  return (
+    <HoverCard
+      inline
+      anchor={anchor}
+      content={
+        <>
+          <ImagePreview src={src} alt={file.path} loadingLabel={preview.labels.loading} failedLabel={preview.labels.failed} />
+          <span className={css.previewName}>{file.path.split(/[\\/]/u).pop()}</span>
+        </>
+      }
+    />
+  )
 }
 
 /**
@@ -623,11 +632,25 @@ function inlineCodeHttpUrl(value: string): string | undefined {
 }
 
 function renderImage(url: string, alt: string, key: Key, context: MarkdownRenderContext): ReactNode {
-  return <MarkdownImage key={`${key}:${url}`} destination={url} alt={alt}
-    pathImages={context.pathImages} streaming={context.streaming} inLink={context.inLink === true} />
+  return (
+    <MarkdownImage
+      key={`${key}:${url}`}
+      destination={url}
+      alt={alt}
+      pathImages={context.pathImages}
+      streaming={context.streaming}
+      inLink={context.inLink === true}
+    />
+  )
 }
 
-function MarkdownImage({ destination, alt, pathImages, streaming, inLink }: {
+function MarkdownImage({
+  destination,
+  alt,
+  pathImages,
+  streaming,
+  inLink,
+}: {
   destination: string
   alt: string
   pathImages: MarkdownPathImages | undefined
@@ -641,7 +664,12 @@ function MarkdownImage({ destination, alt, pathImages, streaming, inLink }: {
   return <LoadedMarkdownImage key={src} src={src} alt={alt} destination={destination} preview={inLink ? undefined : fileImages} />
 }
 
-function LoadedMarkdownImage({ src, alt, destination, preview }: {
+function LoadedMarkdownImage({
+  src,
+  alt,
+  destination,
+  preview,
+}: {
   src: string
   alt: string
   destination: string
@@ -649,17 +677,46 @@ function LoadedMarkdownImage({ src, alt, destination, preview }: {
 }): ReactNode {
   const [failed, setFailed] = useState(false)
   const [open, setOpen] = useState(false)
-  const close = useCallback(() => { setOpen(false) }, [])
-  if (failed) return <span className={css.imageAlt}>{preview === undefined ? '' : `${preview.labels.failed} · `}{alt || destination}</span>
-  const img = <img className={css.image} src={src} alt={alt}
-    onError={() => { setFailed(true) }} loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+  const close = useCallback(() => {
+    setOpen(false)
+  }, [])
+  if (failed)
+    return (
+      <span className={css.imageAlt}>
+        {preview === undefined ? '' : `${preview.labels.failed} · `}
+        {alt || destination}
+      </span>
+    )
+  const img = (
+    <img
+      className={css.image}
+      src={src}
+      alt={alt}
+      onError={() => {
+        setFailed(true)
+      }}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+    />
+  )
   if (preview === undefined) return img
-  return <>
-    <button type="button" className={css.imageButton} title={preview.labels.open}
-      aria-label={alt ? `${preview.labels.open}: ${alt}` : preview.labels.open}
-      onClick={() => { setOpen(true) }}>{img}</button>
-    {open && <ImageLightbox src={src} alt={alt} labels={preview.labels} onClose={close} />}
-  </>
+  return (
+    <>
+      <button
+        type="button"
+        className={css.imageButton}
+        title={preview.labels.open}
+        aria-label={alt ? `${preview.labels.open}: ${alt}` : preview.labels.open}
+        onClick={() => {
+          setOpen(true)
+        }}
+      >
+        {img}
+      </button>
+      {open && <ImageLightbox src={src} alt={alt} labels={preview.labels} onClose={close} />}
+    </>
+  )
 }
 
 /** The bracketed source text a reference reverts to when its definition is missing. */
@@ -669,38 +726,32 @@ function referenceSuffix(node: Md.LinkReference | Md.ImageReference): string {
   return ']'
 }
 
-function renderLinkReference(
-  node: Md.LinkReference,
-  key: Key,
-  context: MarkdownRenderContext,
-): ReactNode {
+function renderLinkReference(node: Md.LinkReference, key: Key, context: MarkdownRenderContext): ReactNode {
   const definition = context.targets.definitions.get(node.identifier.toUpperCase())
   if (definition === undefined) {
     // The grammar only emits references whose definitions exist somewhere in
     // the same parse, but incremental segments and hand-built trees may still
     // present unresolved ones: revert to the bracketed source text — which is
     // not an anchor, so mentions inside it stay live.
-    return <Fragment key={key}>{'['}{renderChildren(node.children, context)}{referenceSuffix(node)}</Fragment>
+    return (
+      <Fragment key={key}>
+        {'['}
+        {renderChildren(node.children, context)}
+        {referenceSuffix(node)}
+      </Fragment>
+    )
   }
   const rendered = renderChildren(node.children, { ...context, inLink: true })
   return renderAnchor(definition.url, rendered, key, !anchorWrapsOnlyImages(node.children), context.streaming)
 }
 
-function renderImageReference(
-  node: Md.ImageReference,
-  key: Key,
-  context: MarkdownRenderContext,
-): ReactNode {
+function renderImageReference(node: Md.ImageReference, key: Key, context: MarkdownRenderContext): ReactNode {
   const definition = context.targets.definitions.get(node.identifier.toUpperCase())
   if (definition === undefined) return `![${node.alt ?? ''}${referenceSuffix(node)}`
   return renderImage(definition.url, node.alt ?? '', key, context)
 }
 
-function renderFootnoteReference(
-  node: Md.FootnoteReference,
-  key: Key,
-  context: MarkdownRenderContext,
-): ReactNode {
+function renderFootnoteReference(node: Md.FootnoteReference, key: Key, context: MarkdownRenderContext): ReactNode {
   const id = node.identifier.toUpperCase()
   const seen = context.footnoteCounts.get(id)
   if (seen === undefined) context.footnoteOrder.push(id)
@@ -731,16 +782,16 @@ export function renderFootnoteSection(context: MarkdownRenderContext): ReactNode
     }
     const entries = renderBlockEntries(definition.children, context)
     const tail = entries[entries.length - 1]
-    const body: ReactNode[] = entries.map((entry, index) => (
-      'paragraph' in entry
-        ? (
-          <p key={`p-${index}`}>
-            {entry.paragraph}
-            {entry === tail && <>{' '}{backrefs}</>}
-          </p>
-        )
-        : entry.element
-    ))
+    const body: ReactNode[] = entries.map((entry, index) =>
+      'paragraph' in entry ? (
+        <p key={`p-${index}`}>
+          {entry.paragraph}
+          {entry === tail && <> {backrefs}</>}
+        </p>
+      ) : (
+        entry.element
+      ),
+    )
     // Without a trailing paragraph the back-references join the block list
     // itself (and pick up the wrap newlines), as in the replaced pipeline.
     if (tail === undefined || !('paragraph' in tail)) body.push(...backrefs)
@@ -753,7 +804,9 @@ export function renderFootnoteSection(context: MarkdownRenderContext): ReactNode
   if (items.length === 0) return null
   return (
     <section key="footnotes" data-footnotes className="footnotes">
-      <h2 id="footnote-label" className="sr-only">{context.labels.footnotes}</h2>
+      <h2 id="footnote-label" className="sr-only">
+        {context.labels.footnotes}
+      </h2>
       <ol>{items}</ol>
     </section>
   )

@@ -4,21 +4,13 @@ import { createHash } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { performance } from 'node:perf_hooks'
 import { brotliCompressSync, gzipSync } from 'node:zlib'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { z } from 'zod'
-import {
-  createAssistantMessage,
-  createUserMessage,
-  expandAssistantStream,
-} from '@deepseek-ai/dsh-llm'
+import { createAssistantMessage, createUserMessage, expandAssistantStream } from '@deepseek-ai/dsh-llm'
 import type { AssistantStreamRecord } from '@deepseek-ai/dsh-llm'
 import { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { SessionEvent, SessionEventMap } from '@deepseek-ai/dsh-session/types'
-import type {
-  SessionEventEntry,
-  SessionHistoryRecord,
-  SessionWireEvent,
-} from '@deepseek-ai/dsh-api-session-controller/types'
+import type { SessionEventEntry, SessionHistoryRecord, SessionWireEvent } from '@deepseek-ai/dsh-api-session-controller/types'
 import { historyEntries } from '@deepseek-ai/dsh-api-session-controller/src/client/sessions/history-records.ts'
 import type { SessionEventLikeEntry } from '@deepseek-ai/dsh-api-session-controller/client'
 import { ConversationNodeAssembler } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -85,19 +77,23 @@ interface HistoryFixture {
 }
 
 const safeIntegerSchema = z.number().int().min(Number.MIN_SAFE_INTEGER).max(Number.MAX_SAFE_INTEGER)
-const sessionWireEventSchema = z.object({
-  type: z.string(),
-  seq: safeIntegerSchema,
-  time: safeIntegerSchema,
-  data: z.json(),
-  ignorable: z.literal(true).optional(),
-  sourceEventSeqs: z.array(safeIntegerSchema).optional(),
-  surfaceOp: z.json().optional(),
-}).strict()
-const historyEntrySchema = z.object({
-  type: z.literal('event'),
-  event: sessionWireEventSchema,
-}).strict()
+const sessionWireEventSchema = z
+  .object({
+    type: z.string(),
+    seq: safeIntegerSchema,
+    time: safeIntegerSchema,
+    data: z.json(),
+    ignorable: z.literal(true).optional(),
+    sourceEventSeqs: z.array(safeIntegerSchema).optional(),
+    surfaceOp: z.json().optional(),
+  })
+  .strict()
+const historyEntrySchema = z
+  .object({
+    type: z.literal('event'),
+    event: sessionWireEventSchema,
+  })
+  .strict()
 const historyValueSchema: z.ZodType<HistoryValue> = z.object({
   records: z.array(historyEntrySchema),
   hasMore: z.boolean(),
@@ -124,7 +120,9 @@ function median(values: readonly number[]): number {
 
 async function listen(server: Server): Promise<number> {
   await new Promise<void>((resolve, reject) => {
-    const failed = (error: Error): void => { reject(error) }
+    const failed = (error: Error): void => {
+      reject(error)
+    }
     server.once('error', failed)
     server.listen(0, '127.0.0.1', () => {
       server.off('error', failed)
@@ -141,7 +139,7 @@ async function listen(server: Server): Promise<number> {
 async function close(server: Server): Promise<void> {
   if (!server.listening) return
   await new Promise<void>((resolve, reject) => {
-    server.close((error) => {
+    server.close(error => {
       if (error === undefined) resolve()
       else reject(error)
     })
@@ -232,7 +230,7 @@ function appendSeparator(events: SessionEvent[], separator: number): void {
 }
 
 function fragment(run: number, index: number): string {
-  const value = (Math.imul(run + 1, 0x9E3779B1) ^ Math.imul(index + 1, 0x85EBCA6B)) >>> 0
+  const value = (Math.imul(run + 1, 0x9e3779b1) ^ Math.imul(index + 1, 0x85ebca6b)) >>> 0
   return value.toString(36).padStart(7, '0').slice(-2)
 }
 
@@ -271,10 +269,15 @@ function buildFixture(): HistoryFixture {
   })
   const prefix: SessionEvent[] = []
   append(prefix, 'turn/start', { turn: 1 })
-  append(prefix, 'user/message', createUserMessage({
-    content: [{ type: 'text', text: 'synthetic history transport benchmark' }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  append(
+    prefix,
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'synthetic history transport benchmark' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
   append(prefix, 'step/start', { turn: 1, step: 1 })
   for (let separator = 0; separator < DURABLE_EVENTS - 4; separator++) {
     appendSeparator(prefix, separator)
@@ -283,9 +286,17 @@ function buildFixture(): HistoryFixture {
   const rawEvents = [...prefix]
   const compactEvents = [...prefix]
   append(rawEvents, 'assistant/message', { turn: 1, step: 1, message, stream: rawStream }, { surfaceOp: 'append' })
-  append(compactEvents, 'assistant/message', {
-    turn: 1, step: 1, message, stream: compactStream,
-  }, { surfaceOp: 'append' })
+  append(
+    compactEvents,
+    'assistant/message',
+    {
+      turn: 1,
+      step: 1,
+      message,
+      stream: compactStream,
+    },
+    { surfaceOp: 'append' },
+  )
   return {
     rawEvents,
     compactEvents,
@@ -298,7 +309,7 @@ function foldDefinition(kind: string, target: string): ConversationNodeDefinitio
   return {
     kind,
     target,
-    match: (event) => {
+    match: event => {
       if (event.type === 'step/start') {
         return { id: `${String(event.data.turn)}:${String(event.data.step)}`, role: 'start' }
       }
@@ -335,15 +346,16 @@ function foldDefinition(kind: string, target: string): ConversationNodeDefinitio
         ...(firstVisibleTime === undefined ? {} : { firstVisibleTime }),
       }
     },
-    buildViewNode: context => context.state === undefined
-      ? null
-      : {
-        key: context.key,
-        kind: context.kind,
-        id: context.id,
-        target,
-        data: context.state,
-      },
+    buildViewNode: context =>
+      context.state === undefined
+        ? null
+        : {
+            key: context.key,
+            kind: context.kind,
+            id: context.id,
+            target,
+            data: context.state,
+          },
   }
 }
 
@@ -367,10 +379,7 @@ function wireEntries(events: readonly SessionEvent[]): SessionEventEntry[] {
 }
 
 function assemble(entries: readonly SessionEventLikeEntry[]): FoldSnapshots {
-  const definitions = [
-    foldDefinition('benchmark-chat-assistant', 'chat'),
-    foldDefinition('benchmark-trajectory-assistant', 'trajectory'),
-  ]
+  const definitions = [foldDefinition('benchmark-chat-assistant', 'chat'), foldDefinition('benchmark-trajectory-assistant', 'trajectory')]
   const assembler = new ConversationNodeAssembler(
     { entries: () => definitions, fallbackEntry: () => undefined },
     { entries: () => [viewDefinition('chat'), viewDefinition('trajectory')] },
@@ -392,14 +401,14 @@ it('reports v2 embedded stream compaction and exact replay costs', async () => {
   const fixture = timed(buildFixture)
   assemble(historyEntries(wireEntries(fixture.value.compactEvents.slice(0, 100))))
 
-  const rawHostHeap = sampledPeakHeap((sample) => {
+  const rawHostHeap = sampledPeakHeap(sample => {
     const records = wireEntries(fixture.value.rawEvents)
     sample()
     const json = JSON.stringify({ records, hasMore: false } satisfies HistoryValue)
     sample()
     return Buffer.byteLength(json)
   })
-  const compactHostHeap = sampledPeakHeap((sample) => {
+  const compactHostHeap = sampledPeakHeap(sample => {
     const records = wireEntries(fixture.value.compactEvents)
     sample()
     const json = JSON.stringify({ records, hasMore: false } satisfies HistoryValue)
@@ -420,7 +429,7 @@ it('reports v2 embedded stream compaction and exact replay costs', async () => {
   const rawTransfer = await loopbackTransfer(rawJson.value)
   const compactTransfer = await loopbackTransfer(compactJson.value)
 
-  const rawClientHeap = sampledPeakHeap((sample) => {
+  const rawClientHeap = sampledPeakHeap(sample => {
     const wire: unknown = JSON.parse(rawJson.value)
     sample()
     const parsed = historyValueSchema.parse(wire)
@@ -431,7 +440,7 @@ it('reports v2 embedded stream compaction and exact replay costs', async () => {
     sample()
     return digest(folded)
   })
-  const compactClientHeap = sampledPeakHeap((sample) => {
+  const compactClientHeap = sampledPeakHeap(sample => {
     const wire: unknown = JSON.parse(compactJson.value)
     sample()
     const parsed = historyValueSchema.parse(wire)
@@ -474,110 +483,113 @@ it('reports v2 embedded stream compaction and exact replay costs', async () => {
   const rawClientMs = parsedRaw.ms + rawValidation.ms + rawPreparation.ms + rawFold.ms
   const compactClientMs = parsedCompact.ms + compactValidation.ms + compactPreparation.ms + compactFold.ms
   const rawSyntheticApiWaitMs = rawResponseMs + rawTransfer.totalMs + parsedRaw.ms + rawValidation.ms
-  const compactSyntheticApiWaitMs = compactResponseMs + compactTransfer.totalMs
-    + parsedCompact.ms + compactValidation.ms
+  const compactSyntheticApiWaitMs = compactResponseMs + compactTransfer.totalMs + parsedCompact.ms + compactValidation.ms
   const rawSyntheticReadyMs = rawResponseMs + rawTransfer.totalMs + rawClientMs
   const compactSyntheticReadyMs = compactResponseMs + compactTransfer.totalMs + compactClientMs
-  process.stdout.write(`HISTORY_TRANSPORT_PERF_RESULT ${JSON.stringify({
-    fixture: {
-      buildMs: rounded(fixture.ms),
-      logicalItems: LOGICAL_ITEMS,
-      durableEvents: DURABLE_EVENTS,
-      streamMembers: STREAM_MEMBERS,
-      rawStreamRecords: fixture.value.rawRecordCount,
-      compactStreamRecords: fixture.value.compactRecordCount,
-      historyRecords: compactPreparation.value.length,
-    },
-    bytes: {
-      rawJson: rawBytes,
-      compactJson: compactBytes,
-      jsonReductionPct: reduction(rawBytes, compactBytes),
-      rawGzip: rawGzip.value,
-      compactGzip: compactGzip.value,
-      gzipReductionPct: reduction(rawGzip.value, compactGzip.value),
-      rawBrotli: rawBrotli.value,
-      compactBrotli: compactBrotli.value,
-      brotliReductionPct: reduction(rawBrotli.value, compactBrotli.value),
-    },
-    memory: {
-      samples: 3,
-      rawHostAdditionalHeapPeakBytes: rawHostHeap.medianPeakBytes,
-      compactHostAdditionalHeapPeakBytes: compactHostHeap.medianPeakBytes,
-      hostReductionPct: reduction(rawHostHeap.medianPeakBytes, compactHostHeap.medianPeakBytes),
-      rawClientAdditionalHeapPeakBytes: rawClientHeap.medianPeakBytes,
-      compactClientAdditionalHeapPeakBytes: compactClientHeap.medianPeakBytes,
-      clientReductionPct: reduction(rawClientHeap.medianPeakBytes, compactClientHeap.medianPeakBytes),
-      rawHostPeakSamples: rawHostHeap.peakBytes,
-      compactHostPeakSamples: compactHostHeap.peakBytes,
-      rawClientPeakSamples: rawClientHeap.peakBytes,
-      compactClientPeakSamples: compactClientHeap.peakBytes,
-    },
-    host: {
-      rawEntryWrapMs: rounded(rawEntries.ms),
-      compactEntryWrapMs: rounded(compactEntries.ms),
-      rawStringifyMs: rounded(rawJson.ms),
-      compactStringifyMs: rounded(compactJson.ms),
-      rawGzipMs: rounded(rawGzip.ms),
-      compactGzipMs: rounded(compactGzip.ms),
-      rawBrotliMs: rounded(rawBrotli.ms),
-      compactBrotliMs: rounded(compactBrotli.ms),
-      rawResponseMs: rounded(rawResponseMs),
-      compactResponseMs: rounded(compactResponseMs),
-      responseReductionPct: reduction(rawResponseMs, compactResponseMs),
-    },
-    transport: {
-      samples: 5,
-      rawHeadersMs: rounded(rawTransfer.headersMs),
-      compactHeadersMs: rounded(compactTransfer.headersMs),
-      rawBodyMs: rounded(rawTransfer.bodyMs),
-      compactBodyMs: rounded(compactTransfer.bodyMs),
-      rawTotalMs: rounded(rawTransfer.totalMs),
-      compactTotalMs: rounded(compactTransfer.totalMs),
-      totalReductionPct: reduction(rawTransfer.totalMs, compactTransfer.totalMs),
-      rawSamples: rawTransfer.samples.map(sample => ({
-        headersMs: rounded(sample.headersMs),
-        bodyMs: rounded(sample.bodyMs),
-        totalMs: rounded(sample.totalMs),
-      })),
-      compactSamples: compactTransfer.samples.map(sample => ({
-        headersMs: rounded(sample.headersMs),
-        bodyMs: rounded(sample.bodyMs),
-        totalMs: rounded(sample.totalMs),
-      })),
-    },
-    client: {
-      rawParseMs: rounded(parsedRaw.ms),
-      compactParseMs: rounded(parsedCompact.ms),
-      rawValidationMs: rounded(rawValidation.ms),
-      compactValidationMs: rounded(compactValidation.ms),
-      rawPrepareMs: rounded(rawPreparation.ms),
-      compactPrepareMs: rounded(compactPreparation.ms),
-      rawFoldMs: rounded(rawFold.ms),
-      compactFoldMs: rounded(compactFold.ms),
-      rawHistoryMs: rounded(rawClientMs),
-      compactHistoryMs: rounded(compactClientMs),
-      historyReductionPct: reduction(rawClientMs, compactClientMs),
-    },
-    combined: {
-      rawSyntheticApiWaitMs: rounded(rawSyntheticApiWaitMs),
-      compactSyntheticApiWaitMs: rounded(compactSyntheticApiWaitMs),
-      syntheticApiWaitReductionPct: reduction(rawSyntheticApiWaitMs, compactSyntheticApiWaitMs),
-      rawSyntheticReadyMs: rounded(rawSyntheticReadyMs),
-      compactSyntheticReadyMs: rounded(compactSyntheticReadyMs),
-      syntheticReadyReductionPct: reduction(rawSyntheticReadyMs, compactSyntheticReadyMs),
-    },
-  })}\n`)
+  process.stdout.write(
+    `HISTORY_TRANSPORT_PERF_RESULT ${JSON.stringify({
+      fixture: {
+        buildMs: rounded(fixture.ms),
+        logicalItems: LOGICAL_ITEMS,
+        durableEvents: DURABLE_EVENTS,
+        streamMembers: STREAM_MEMBERS,
+        rawStreamRecords: fixture.value.rawRecordCount,
+        compactStreamRecords: fixture.value.compactRecordCount,
+        historyRecords: compactPreparation.value.length,
+      },
+      bytes: {
+        rawJson: rawBytes,
+        compactJson: compactBytes,
+        jsonReductionPct: reduction(rawBytes, compactBytes),
+        rawGzip: rawGzip.value,
+        compactGzip: compactGzip.value,
+        gzipReductionPct: reduction(rawGzip.value, compactGzip.value),
+        rawBrotli: rawBrotli.value,
+        compactBrotli: compactBrotli.value,
+        brotliReductionPct: reduction(rawBrotli.value, compactBrotli.value),
+      },
+      memory: {
+        samples: 3,
+        rawHostAdditionalHeapPeakBytes: rawHostHeap.medianPeakBytes,
+        compactHostAdditionalHeapPeakBytes: compactHostHeap.medianPeakBytes,
+        hostReductionPct: reduction(rawHostHeap.medianPeakBytes, compactHostHeap.medianPeakBytes),
+        rawClientAdditionalHeapPeakBytes: rawClientHeap.medianPeakBytes,
+        compactClientAdditionalHeapPeakBytes: compactClientHeap.medianPeakBytes,
+        clientReductionPct: reduction(rawClientHeap.medianPeakBytes, compactClientHeap.medianPeakBytes),
+        rawHostPeakSamples: rawHostHeap.peakBytes,
+        compactHostPeakSamples: compactHostHeap.peakBytes,
+        rawClientPeakSamples: rawClientHeap.peakBytes,
+        compactClientPeakSamples: compactClientHeap.peakBytes,
+      },
+      host: {
+        rawEntryWrapMs: rounded(rawEntries.ms),
+        compactEntryWrapMs: rounded(compactEntries.ms),
+        rawStringifyMs: rounded(rawJson.ms),
+        compactStringifyMs: rounded(compactJson.ms),
+        rawGzipMs: rounded(rawGzip.ms),
+        compactGzipMs: rounded(compactGzip.ms),
+        rawBrotliMs: rounded(rawBrotli.ms),
+        compactBrotliMs: rounded(compactBrotli.ms),
+        rawResponseMs: rounded(rawResponseMs),
+        compactResponseMs: rounded(compactResponseMs),
+        responseReductionPct: reduction(rawResponseMs, compactResponseMs),
+      },
+      transport: {
+        samples: 5,
+        rawHeadersMs: rounded(rawTransfer.headersMs),
+        compactHeadersMs: rounded(compactTransfer.headersMs),
+        rawBodyMs: rounded(rawTransfer.bodyMs),
+        compactBodyMs: rounded(compactTransfer.bodyMs),
+        rawTotalMs: rounded(rawTransfer.totalMs),
+        compactTotalMs: rounded(compactTransfer.totalMs),
+        totalReductionPct: reduction(rawTransfer.totalMs, compactTransfer.totalMs),
+        rawSamples: rawTransfer.samples.map(sample => ({
+          headersMs: rounded(sample.headersMs),
+          bodyMs: rounded(sample.bodyMs),
+          totalMs: rounded(sample.totalMs),
+        })),
+        compactSamples: compactTransfer.samples.map(sample => ({
+          headersMs: rounded(sample.headersMs),
+          bodyMs: rounded(sample.bodyMs),
+          totalMs: rounded(sample.totalMs),
+        })),
+      },
+      client: {
+        rawParseMs: rounded(parsedRaw.ms),
+        compactParseMs: rounded(parsedCompact.ms),
+        rawValidationMs: rounded(rawValidation.ms),
+        compactValidationMs: rounded(compactValidation.ms),
+        rawPrepareMs: rounded(rawPreparation.ms),
+        compactPrepareMs: rounded(compactPreparation.ms),
+        rawFoldMs: rounded(rawFold.ms),
+        compactFoldMs: rounded(compactFold.ms),
+        rawHistoryMs: rounded(rawClientMs),
+        compactHistoryMs: rounded(compactClientMs),
+        historyReductionPct: reduction(rawClientMs, compactClientMs),
+      },
+      combined: {
+        rawSyntheticApiWaitMs: rounded(rawSyntheticApiWaitMs),
+        compactSyntheticApiWaitMs: rounded(compactSyntheticApiWaitMs),
+        syntheticApiWaitReductionPct: reduction(rawSyntheticApiWaitMs, compactSyntheticApiWaitMs),
+        rawSyntheticReadyMs: rounded(rawSyntheticReadyMs),
+        compactSyntheticReadyMs: rounded(compactSyntheticReadyMs),
+        syntheticReadyReductionPct: reduction(rawSyntheticReadyMs, compactSyntheticReadyMs),
+      },
+    })}\n`,
+  )
 }, 600_000)
 
 it('reports compact folding cost for long whitespace-prefix streams', () => {
-  const results = [10_000, 20_000, 40_000].map((members) => {
-    const stream: readonly AssistantStreamRecord[] = [{
-      type: 'reasoning-chunks',
-      time0: TIME_ZERO + 1,
-      index: 0,
-      dt: Array.from({ length: members - 1 }, () => 1),
-      texts: Array.from({ length: members }, (_, index) => index === members - 1 ? 'x' : ' '),
-    }]
+  const results = [10_000, 20_000, 40_000].map(members => {
+    const stream: readonly AssistantStreamRecord[] = [
+      {
+        type: 'reasoning-chunks',
+        time0: TIME_ZERO + 1,
+        index: 0,
+        dt: Array.from({ length: members - 1 }, () => 1),
+        texts: Array.from({ length: members }, (_, index) => (index === members - 1 ? 'x' : ' ')),
+      },
+    ]
     const start = wireEntry({
       type: 'step/start',
       seq: SessionSeq(0),

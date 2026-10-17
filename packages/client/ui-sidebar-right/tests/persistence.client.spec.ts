@@ -1,5 +1,5 @@
 /** Per-Session layout recovery precedes resource-body rendering. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
@@ -7,14 +7,21 @@ import { createSidebarRightStore } from '../src/client/stores.ts'
 import { createSidebarRightController } from '../src/client/service.ts'
 import { SidebarRightTabRegistry } from '../src/client/tab-registry.ts'
 
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 function storage() {
   const values = new Map<string, string>()
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => values.get(key) ?? null,
-    setItem: (key: string, value: string) => { values.set(key, value) },
-    removeItem: (key: string) => { values.delete(key) },
+    setItem: (key: string, value: string) => {
+      values.set(key, value)
+    },
+    removeItem: (key: string) => {
+      values.delete(key)
+    },
   })
   return values
 }
@@ -27,10 +34,14 @@ it('restores current layout independently by Session with a fresh undo history',
   const handle = createSidebarRightStore(seed)
   const first = handle.create(sessionId)
   let file!: TabId
-  first.actions.openContent(sessionId, { kind: 'text', contentId: 'file:a', title: 'a' }, (id) => { file = id })
+  first.actions.openContent(sessionId, { kind: 'text', contentId: 'file:a', title: 'a' }, id => {
+    file = id
+  })
   first.actions.splitPane(sessionId)
   let floating!: TabId
-  first.actions.openContent(sessionId, { kind: 'text', contentId: 'file:b', title: 'b' }, (id) => { floating = id })
+  first.actions.openContent(sessionId, { kind: 'text', contentId: 'file:b', title: 'b' }, id => {
+    floating = id
+  })
   first.actions.floatTab(sessionId, floating, { x: 20, y: 30, width: 480, height: 320 })
   const layout = first.getSnapshot().bySession[sessionId]!.layout
   const split = Object.values(layout.nodes).find(node => node.kind === 'split')!
@@ -60,13 +71,19 @@ it('pins restored records during adoption before the first render or store mutat
   const first = createSidebarRightStore(seed).create(sessionId)
   let file!: TabId
   const address = 'dsh-resource://file/session/first/a.txt'
-  first.actions.openContent(sessionId, { kind: 'text', contentId: address, title: 'a' }, (id) => { file = id })
+  first.actions.openContent(sessionId, { kind: 'text', contentId: address, title: 'a' }, id => {
+    file = id
+  })
   const ctx = new Context()
   const pin = vi.fn()
   const { controller, adopt } = createSidebarRightController(new SidebarRightTabRegistry(ctx), pin, {
     autoFullscreen: () => false,
-    openWithFocus: (_sessionId, open) => { open() },
-    closeWithFocus: (_sessionId, _paneId, close) => { close() },
+    openWithFocus: (_sessionId, open) => {
+      open()
+    },
+    closeWithFocus: (_sessionId, _paneId, close) => {
+      close()
+    },
   })
   expect(controller.tabsIn(sessionId)).toEqual([])
   const restored = createSidebarRightStore(seed).create(sessionId)
@@ -91,7 +108,9 @@ it('starts from an empty layout when stored JSON is corrupt and keeps working wh
   vi.spyOn(console, 'error').mockImplementation(() => {})
   const instance = createSidebarRightStore(seed).create(sessionId)
   expect(instance.getSnapshot()).toEqual({ bySession: {} })
-  vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw new Error('Storage full') })
+  vi.spyOn(localStorage, 'setItem').mockImplementation(() => {
+    throw new Error('Storage full')
+  })
   instance.actions.setExpanded(sessionId, true)
   expect(instance.getSnapshot().bySession[sessionId]!.layout.expanded).toBe(true)
 })

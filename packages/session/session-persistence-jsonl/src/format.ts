@@ -9,18 +9,13 @@
  */
 
 import { isAbsolute, join } from 'node:path'
+import { SESSION_FORMAT_VERSION, KNOWN_SESSION_EVENT_TYPES, SessionLogOffset } from '@deepseek-ai/dsh-session'
+import type { SessionEvent, SessionHeader, SessionId, SessionLogOffset as SessionLogOffsetType } from '@deepseek-ai/dsh-session'
 import {
-  SESSION_FORMAT_VERSION,
-  KNOWN_SESSION_EVENT_TYPES,
-  SessionLogOffset,
-} from '@deepseek-ai/dsh-session'
-import type {
-  SessionEvent,
-  SessionHeader,
-  SessionId,
-  SessionLogOffset as SessionLogOffsetType,
-} from '@deepseek-ai/dsh-session'
-import { parseSessionFormatLogFilename, sessionFormatLogFilename, SessionFormatUnsupportedMigrationError } from '@deepseek-ai/dsh-session-format'
+  parseSessionFormatLogFilename,
+  sessionFormatLogFilename,
+  SessionFormatUnsupportedMigrationError,
+} from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatEvent } from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatRecovery, SessionFormatRestore } from '@deepseek-ai/dsh-session-format'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
@@ -67,10 +62,7 @@ export function generationLogFilename(version: number, compression: JsonlCompres
  * @param compression - configured JSONL artifact encoding.
  * @returns its format version, or `undefined` when the name is not canonical.
  */
-export function parseGenerationLogFilename(
-  filename: string,
-  compression: JsonlCompression,
-): number | undefined {
+export function parseGenerationLogFilename(filename: string, compression: JsonlCompression): number | undefined {
   const suffix = compressionSuffix(compression)
   if (!filename.endsWith(suffix)) return undefined
   return parseSessionFormatLogFilename(filename.slice(0, filename.length - suffix.length))
@@ -116,10 +108,7 @@ export function assertNoRetiredHeaderFields(value: unknown): void {
  * seeded header and omitted only for an unseeded header.
  * @returns the `type: 'session'`-tagged line object, absent optional fields omitted (never null).
  */
-export function toHeaderLine(
-  header: SessionHeader,
-  inheritedEventCount?: SessionLogOffsetType,
-): HeaderLine {
+export function toHeaderLine(header: SessionHeader, inheritedEventCount?: SessionLogOffsetType): HeaderLine {
   if (header.isSeeded && inheritedEventCount === undefined) {
     throw new Error('seeded session header requires an inherited event count')
   }
@@ -127,10 +116,13 @@ export function toHeaderLine(
   if (!header.isSeeded && cut !== 0) {
     throw new Error('unseeded session header inherited event count must be 0')
   }
-  return sessionFormatCatalog.encodeCurrentHeader({
-    ...header,
-    delegationDepth: header.delegationDepth ?? 0,
-  }, cut) as unknown as HeaderLine
+  return sessionFormatCatalog.encodeCurrentHeader(
+    {
+      ...header,
+      delegationDepth: header.delegationDepth ?? 0,
+    },
+    cut,
+  ) as unknown as HeaderLine
 }
 
 /**
@@ -144,12 +136,12 @@ function fromHeaderLine(line: HeaderLine): SessionStorageMetadata {
       version: SESSION_FORMAT_VERSION,
       id: line.id,
       createdAt: line.createdAt,
-      ...line.cwd !== undefined ? { cwd: line.cwd } : {},
-      ...line.parentSession !== undefined ? { parentSession: line.parentSession } : {},
+      ...(line.cwd !== undefined ? { cwd: line.cwd } : {}),
+      ...(line.parentSession !== undefined ? { parentSession: line.parentSession } : {}),
       isSeeded: line.isSeeded,
-      ...line.origin !== undefined ? { origin: line.origin } : {},
+      ...(line.origin !== undefined ? { origin: line.origin } : {}),
       delegationDepth: line.delegationDepth,
-      ...line.agentPreset !== undefined ? { agentPreset: line.agentPreset } : {},
+      ...(line.agentPreset !== undefined ? { agentPreset: line.agentPreset } : {}),
     },
     inheritedEventCount: SessionLogOffset(0),
   }
@@ -158,30 +150,29 @@ function fromHeaderLine(line: HeaderLine): SessionStorageMetadata {
 /** Type guard: a parsed first line is a well-formed session header. */
 function isHeaderLine(value: unknown): value is HeaderLine {
   return (
-    typeof value === 'object' && value !== null && !Array.isArray(value)
-    && HEADER_REQUIRED_KEYS.every(key => Object.hasOwn(value, key))
-    && Object.keys(value).every(key => HEADER_KEYS.has(key))
-    && (value as { type?: unknown }).type === 'session'
-    && typeof (value as { version?: unknown }).version === 'number'
-    && typeof (value as { id?: unknown }).id === 'string'
-    && typeof (value as { createdAt?: unknown }).createdAt === 'number'
-    && Number.isSafeInteger((value as { createdAt: number }).createdAt)
-    && (value as { createdAt: number }).createdAt >= 0
-    && !Object.is((value as { createdAt: number }).createdAt, -0)
-    && typeof (value as { delegationDepth?: unknown }).delegationDepth === 'number'
-    && Number.isSafeInteger((value as { delegationDepth: number }).delegationDepth)
-    && (value as { delegationDepth: number }).delegationDepth >= 0
-    && !Object.is((value as { delegationDepth: number }).delegationDepth, -0)
-    && ((value as { cwd?: unknown }).cwd === undefined
-      || (typeof (value as { cwd?: unknown }).cwd === 'string'
-        && isAbsolute((value as { cwd: string }).cwd)))
-    && ((value as { parentSession?: unknown }).parentSession === undefined
-      || typeof (value as { parentSession?: unknown }).parentSession === 'string')
-    && typeof (value as { isSeeded?: unknown }).isSeeded === 'boolean'
-    && ((value as { origin?: unknown }).origin === undefined
-      || (value as { origin?: unknown }).origin === 'subagent')
-    && ((value as { agentPreset?: unknown }).agentPreset === undefined
-      || typeof (value as { agentPreset?: unknown }).agentPreset === 'string')
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    HEADER_REQUIRED_KEYS.every(key => Object.hasOwn(value, key)) &&
+    Object.keys(value).every(key => HEADER_KEYS.has(key)) &&
+    (value as { type?: unknown }).type === 'session' &&
+    typeof (value as { version?: unknown }).version === 'number' &&
+    typeof (value as { id?: unknown }).id === 'string' &&
+    typeof (value as { createdAt?: unknown }).createdAt === 'number' &&
+    Number.isSafeInteger((value as { createdAt: number }).createdAt) &&
+    (value as { createdAt: number }).createdAt >= 0 &&
+    !Object.is((value as { createdAt: number }).createdAt, -0) &&
+    typeof (value as { delegationDepth?: unknown }).delegationDepth === 'number' &&
+    Number.isSafeInteger((value as { delegationDepth: number }).delegationDepth) &&
+    (value as { delegationDepth: number }).delegationDepth >= 0 &&
+    !Object.is((value as { delegationDepth: number }).delegationDepth, -0) &&
+    ((value as { cwd?: unknown }).cwd === undefined ||
+      (typeof (value as { cwd?: unknown }).cwd === 'string' && isAbsolute((value as { cwd: string }).cwd))) &&
+    ((value as { parentSession?: unknown }).parentSession === undefined ||
+      typeof (value as { parentSession?: unknown }).parentSession === 'string') &&
+    typeof (value as { isSeeded?: unknown }).isSeeded === 'boolean' &&
+    ((value as { origin?: unknown }).origin === undefined || (value as { origin?: unknown }).origin === 'subagent') &&
+    ((value as { agentPreset?: unknown }).agentPreset === undefined || typeof (value as { agentPreset?: unknown }).agentPreset === 'string')
   )
 }
 
@@ -295,12 +286,7 @@ export function generationLogPath(
  * @param compression - physical artifact encoding and filename suffix.
  * @returns the current Session format generation path.
  */
-export function logPath(
-  root: string,
-  cwd: string | undefined,
-  id: SessionId,
-  compression: JsonlCompression,
-): string {
+export function logPath(root: string, cwd: string | undefined, id: SessionId, compression: JsonlCompression): string {
   return generationLogPath(root, cwd, id, SESSION_FORMAT_VERSION, compression)
 }
 
@@ -340,14 +326,12 @@ interface SessionLogScan {
 function refuseForeignFormatVersion(parsed: object): void {
   const { version, id } = parsed as { version?: unknown; id?: unknown }
   if (typeof version !== 'number' || version === SESSION_FORMAT_VERSION) return
-  throw new SessionFormatUnsupportedError(
-    sessionFormatVersionRefusal(typeof id === 'string' ? id : String(id), version),
-  )
+  throw new SessionFormatUnsupportedError(sessionFormatVersionRefusal(typeof id === 'string' ? id : String(id), version))
 }
 
 /** Parse one complete header record supplied independently from event rows. */
 function parseHeaderRecord(record: Buffer): { readonly meta: SessionHeader; readonly restore: SessionFormatRestore } {
-  if (record.length === 0 || record.at(-1) !== 0x0A || record.indexOf(0x0A) !== record.length - 1) {
+  if (record.length === 0 || record.at(-1) !== 0x0a || record.indexOf(0x0a) !== record.length - 1) {
     throw new Error('empty or header-less session log')
   }
   let parsed: unknown
@@ -419,11 +403,7 @@ export class SessionLogScanner {
     const chunkStart = this.inputBytes
     this.inputBytes += chunk.length
     let lineStart = 0
-    for (
-      let newline = chunk.indexOf(0x0A);
-      newline !== -1;
-      newline = chunk.indexOf(0x0A, lineStart)
-    ) {
+    for (let newline = chunk.indexOf(0x0a); newline !== -1; newline = chunk.indexOf(0x0a, lineStart)) {
       const fragment = chunk.subarray(lineStart, newline)
       let line = fragment
       if (this.fragments.length > 0) {
@@ -497,8 +477,7 @@ export class SessionLogScanner {
     }
 
     if (this.issue !== undefined) {
-      if (typeof decoded === 'object' && decoded !== null
-        && (decoded as { type?: unknown }).type === 'turn/end') throw this.issue
+      if (typeof decoded === 'object' && decoded !== null && (decoded as { type?: unknown }).type === 'turn/end') throw this.issue
       return
     }
     try {
@@ -512,8 +491,7 @@ export class SessionLogScanner {
       })
       if (this.recovery === 'strict') throw issue
       this.issue = issue
-      if (typeof decoded === 'object' && decoded !== null
-        && (decoded as { type?: unknown }).type === 'turn/end') throw issue
+      if (typeof decoded === 'object' && decoded !== null && (decoded as { type?: unknown }).type === 'turn/end') throw issue
       return
     }
     this.eventCount += 1
@@ -530,7 +508,7 @@ export class SessionLogScanner {
  * @returns the header, preserved event prefix, and byte offset safe to append at.
  */
 export function scanLog(buffer: Buffer): SessionLogScan {
-  const headerEnd = buffer.indexOf(0x0A)
+  const headerEnd = buffer.indexOf(0x0a)
   if (headerEnd === -1) throw new Error('empty or header-less session log')
   const scanner = new SessionLogScanner(buffer.subarray(0, headerEnd + 1))
   scanner.write(buffer.subarray(headerEnd + 1))

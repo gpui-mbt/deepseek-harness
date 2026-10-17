@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import AttachmentStore, {
   AttachmentError,
   AttachmentId,
@@ -46,7 +46,7 @@ class RecordingStore extends AttachmentStore {
       bytes: input.data.byteLength,
       width: 1,
       height: 1,
-      ...input.name === undefined ? {} : { name: input.name },
+      ...(input.name === undefined ? {} : { name: input.name }),
     }
   }
 
@@ -54,10 +54,7 @@ class RecordingStore extends AttachmentStore {
     throw new Error('not used')
   }
 
-  override readImageRequest(
-    ref: ImageAttachmentRef,
-    _target: ImageRequestTarget,
-  ): Promise<RequestImageAttachment> {
+  override readImageRequest(ref: ImageAttachmentRef, _target: ImageRequestTarget): Promise<RequestImageAttachment> {
     this.calls.push(`request:${ref.name}`)
     return Promise.resolve({
       variantId: ImageVariantId(`sha256:${String(ref.bytes).padStart(64, '0')}`),
@@ -120,14 +117,14 @@ describe('AttachmentStore.saveImages', () => {
   it('rejects count, aggregate bytes, and deployment media types before validation', async () => {
     const store = new RecordingStore(new Context())
 
-    await expect(store.saveImages([image(1), image(2), image(3)]))
-      .rejects.toMatchObject({ code: 'TOO_MANY_IMAGES' })
-    await expect(store.saveImages([
-      { data: Uint8Array.of(1, 2, 3), mediaType: 'image/png' },
-      { data: Uint8Array.of(4, 5, 6), mediaType: 'image/png' },
-    ])).rejects.toMatchObject({ code: 'IMAGES_TOO_LARGE' })
-    await expect(store.saveImages([image(1, 'image/jpeg')]))
-      .rejects.toMatchObject({ code: 'UNSUPPORTED_IMAGE_TYPE' })
+    await expect(store.saveImages([image(1), image(2), image(3)])).rejects.toMatchObject({ code: 'TOO_MANY_IMAGES' })
+    await expect(
+      store.saveImages([
+        { data: Uint8Array.of(1, 2, 3), mediaType: 'image/png' },
+        { data: Uint8Array.of(4, 5, 6), mediaType: 'image/png' },
+      ]),
+    ).rejects.toMatchObject({ code: 'IMAGES_TOO_LARGE' })
+    await expect(store.saveImages([image(1, 'image/jpeg')])).rejects.toMatchObject({ code: 'UNSUPPORTED_IMAGE_TYPE' })
     expect(store.calls).toEqual([])
   })
 
@@ -135,8 +132,7 @@ describe('AttachmentStore.saveImages', () => {
     const store = new RecordingStore(new Context())
     store.rejectValidationAt = 2
 
-    await expect(store.saveImages([image(1), image(2)]))
-      .rejects.toThrow('invalid:2')
+    await expect(store.saveImages([image(1), image(2)])).rejects.toThrow('invalid:2')
     expect(store.calls).toEqual(['validate:1', 'validate:2'])
   })
 
@@ -144,8 +140,7 @@ describe('AttachmentStore.saveImages', () => {
     const store = new RecordingStore(new Context())
     store.rejectSaveAt = 2
 
-    await expect(store.saveImages([image(1), image(2)]))
-      .rejects.toThrow('write:2')
+    await expect(store.saveImages([image(1), image(2)])).rejects.toThrow('write:2')
     expect(store.calls).toEqual(['validate:1', 'validate:2', 'save:1', 'save:2'])
   })
 })
@@ -154,8 +149,9 @@ describe('AttachmentStore.readImageRequest', () => {
   it('reports unsupported request projection while preserving cancellation', async () => {
     const store = new UnsupportedProjectionStore(new Context())
     const ref = await new RecordingStore(new Context()).saveImage(image(1))
-    await expect(store.readImageRequest(ref, { width: 1, height: 1, maxBytes: 1 }))
-      .rejects.toMatchObject({ code: 'ATTACHMENT_PROJECTION_UNSUPPORTED' })
+    await expect(store.readImageRequest(ref, { width: 1, height: 1, maxBytes: 1 })).rejects.toMatchObject({
+      code: 'ATTACHMENT_PROJECTION_UNSUPPORTED',
+    })
     const controller = new AbortController()
     const reason = new Error('cancel unsupported projection')
     controller.abort(reason)
@@ -166,12 +162,17 @@ describe('AttachmentStore.readImageRequest', () => {
     const store = new RecordingStore(new Context())
     const ref = await store.saveImage(image(1))
     expect(store.imageHostPath(ref)).toBeUndefined()
-    await expect(store.saveFile({ data: Uint8Array.of(1), name: 'notes.txt' }))
-      .rejects.toMatchObject({ code: 'ATTACHMENT_FILES_UNSUPPORTED' })
-    await expect(store.saveFileStream({
-      data: (async function* (): AsyncIterable<Uint8Array> { yield Uint8Array.of(1) })(),
-      name: 'notes.txt',
-    })).rejects.toMatchObject({ code: 'ATTACHMENT_FILES_UNSUPPORTED' })
+    await expect(store.saveFile({ data: Uint8Array.of(1), name: 'notes.txt' })).rejects.toMatchObject({
+      code: 'ATTACHMENT_FILES_UNSUPPORTED',
+    })
+    await expect(
+      store.saveFileStream({
+        data: (async function* (): AsyncIterable<Uint8Array> {
+          yield Uint8Array.of(1)
+        })(),
+        name: 'notes.txt',
+      }),
+    ).rejects.toMatchObject({ code: 'ATTACHMENT_FILES_UNSUPPORTED' })
     const fileRef = {
       attachmentId: AttachmentId(`sha256:${'ab'.repeat(32)}`),
       name: 'notes.txt',
@@ -221,9 +222,13 @@ describe('isImageAdmissionError', () => {
 describe('isAttachmentError', () => {
   it('recognizes attachment failures from another package installation by code', () => {
     expect(isAttachmentError(new AttachmentError('bad base64', 'INVALID_FILE_BASE64'))).toBe(true)
-    expect(isAttachmentError(Object.assign(new Error('foreign storage error'), {
-      code: 'ATTACHMENT_WRITE_FAILED',
-    }))).toBe(true)
+    expect(
+      isAttachmentError(
+        Object.assign(new Error('foreign storage error'), {
+          code: 'ATTACHMENT_WRITE_FAILED',
+        }),
+      ),
+    ).toBe(true)
     expect(isAttachmentError(Object.assign(new Error('other failure'), { code: 'OTHER' }))).toBe(false)
     expect(isAttachmentError({ code: 'ATTACHMENT_WRITE_FAILED' })).toBe(false)
   })

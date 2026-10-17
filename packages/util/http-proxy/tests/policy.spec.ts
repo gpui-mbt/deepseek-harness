@@ -1,12 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { EnvLookup } from '../src/policy.ts'
-import {
-  bypassesProxy,
-  isLoopbackHost,
-  proxyForUrl,
-  resolveProxyPolicy,
-  DIRECT_POLICY,
-} from '../src/policy.ts'
+import { bypassesProxy, isLoopbackHost, proxyForUrl, resolveProxyPolicy, DIRECT_POLICY } from '../src/policy.ts'
 
 /** Windows folds environment names, so a case distinction cannot be expressed there at all. */
 const FOLDS_ENV_CASE = process.platform === 'win32'
@@ -20,15 +14,14 @@ const OTHER = 'http://127.0.0.1:8080'
  * assert POSIX behaviour on a platform that cannot have it.
  */
 function env(values: Record<string, string>): EnvLookup {
-  const folded = FOLDS_ENV_CASE
-    ? Object.fromEntries(Object.entries(values).map(([name, value]) => [name.toUpperCase(), value]))
-    : values
-  return { get: (name) => {
-    const value = folded[FOLDS_ENV_CASE ? name.toUpperCase() : name]
-    return value === undefined ? undefined : { value }
-  } }
+  const folded = FOLDS_ENV_CASE ? Object.fromEntries(Object.entries(values).map(([name, value]) => [name.toUpperCase(), value])) : values
+  return {
+    get: name => {
+      const value = folded[FOLDS_ENV_CASE ? name.toUpperCase() : name]
+      return value === undefined ? undefined : { value }
+    },
+  }
 }
-
 
 describe('loopback routing', () => {
   const proxied = { httpProxy: PROXY, httpsProxy: PROXY, noProxy: '', source: 'env' } as const
@@ -37,15 +30,22 @@ describe('loopback routing', () => {
   // environment. Matching only those left the rest of `127.0.0.0/8` — including the resolver stub
   // at `127.0.0.53` — routed through a proxy that could then reach it on the caller's behalf.
   it.each([
-    '127.0.0.1', '127.0.0.2', '127.0.0.53', '127.255.255.254',
-    'localhost', 'app.localhost', '[::1]', '[::ffff:127.0.0.1]', '0.0.0.0',
-  ])('never routes %s through a proxy', (host) => {
+    '127.0.0.1',
+    '127.0.0.2',
+    '127.0.0.53',
+    '127.255.255.254',
+    'localhost',
+    'app.localhost',
+    '[::1]',
+    '[::ffff:127.0.0.1]',
+    '0.0.0.0',
+  ])('never routes %s through a proxy', host => {
     expect(proxyForUrl(proxied, new URL(`http://${host}:8080/`))).toBeUndefined()
   })
 
   it.each(['128.0.0.1', '10.0.0.5', '[::ffff:10.0.0.1]', 'notlocalhost', 'example.com'])(
     'still routes %s, which is not this machine',
-    (host) => {
+    host => {
       expect(proxyForUrl(proxied, new URL(`http://${host}:8080/`))).toBe(PROXY)
     },
   )
@@ -167,7 +167,6 @@ describe('resolveProxyPolicy', () => {
     const { diagnostics } = resolveProxyPolicy(env({ HTTP_PROXY: 'ftp://proxy.example' }))
     expect(diagnostics[0]?.message).toMatch(/unsupported ftp:\/\/ scheme/)
   })
-
 })
 
 describe('bypassesProxy', () => {

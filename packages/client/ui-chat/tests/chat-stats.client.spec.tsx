@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ReactNode } from 'react'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import type {
-  AssistantMessageNode, ChatSnapshot, LegacyConversationSlice, ToolResultNode,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { AssistantMessageNode, ChatSnapshot, LegacyConversationSlice, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { en as commonEn } from '@deepseek-ai/dsh-client-locale/src/locales/en.ts'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
@@ -24,7 +22,12 @@ afterEach(() => {
 })
 
 const assistant = (seq: number, turn: number, usage?: unknown): AssistantMessageNode => ({
-  kind: 'assistant', seq, time: seq * 1_000, turn, step: seq, blocks: [{ kind: 'text', text: `t${seq}` }],
+  kind: 'assistant',
+  seq,
+  time: seq * 1_000,
+  turn,
+  step: seq,
+  blocks: [{ kind: 'text', text: `t${seq}` }],
   ...(usage === undefined ? {} : { usage }),
 })
 
@@ -62,16 +65,22 @@ describe('deriveStats', () => {
     // source either, so the fold exposes no billing fields (billing rides the
     // tokenUsage projection); decodeTokens is a throughput input, not a
     // billed total.
-    expect(Object.keys(stats).sort()).toEqual(
-      ['decodeMs', 'decodeTokens', 'llmMs', 'steps', 'toolMs', 'ttftMs', 'ttftSteps', 'turns'],
-    )
+    expect(Object.keys(stats).sort()).toEqual(['decodeMs', 'decodeTokens', 'llmMs', 'steps', 'toolMs', 'ttftMs', 'ttftSteps', 'turns'])
   })
 
   it('ignores tool results with no call time', () => {
     const tool: ToolResultNode = {
-      kind: 'tool-result', seq: 5, time: 5_000, callId: 'c', call: null, callTime: null, content: [],
-      name: '', args: PartialArguments.EMPTY,
-      isError: false, subCalls: [],
+      kind: 'tool-result',
+      seq: 5,
+      time: 5_000,
+      callId: 'c',
+      call: null,
+      callTime: null,
+      content: [],
+      name: '',
+      args: PartialArguments.EMPTY,
+      isError: false,
+      subCalls: [],
     }
     const stats = deriveStats([tool, assistant(1, 1)])
     expect(stats.steps).toBe(1)
@@ -88,9 +97,17 @@ describe('deriveStats', () => {
       timing: { stepStartTime: null, firstTokenTime: null, completedTime: 9_000 },
     }
     const tool: ToolResultNode = {
-      kind: 'tool-result', seq: 5, time: 7_000, callId: 'c', call: null, callTime: 4_000, content: [],
-      name: '', args: PartialArguments.EMPTY,
-      isError: false, subCalls: [],
+      kind: 'tool-result',
+      seq: 5,
+      time: 7_000,
+      callId: 'c',
+      call: null,
+      callTime: 4_000,
+      content: [],
+      name: '',
+      args: PartialArguments.EMPTY,
+      isError: false,
+      subCalls: [],
     }
     const stats = deriveStats([timed, untimed, tool])
     expect(stats.llmMs).toBe(2_500)
@@ -135,7 +152,14 @@ describe('composer stats pills', () => {
   /** A whole-log sessionStats value: zeros plus overrides. */
   function sessionStats(overrides: Record<string, number>): Record<string, number> {
     return {
-      turns: 0, steps: 0, llmMs: 0, toolMs: 0, ttftMs: 0, ttftSteps: 0, decodeMs: 0, decodeTokens: 0,
+      turns: 0,
+      steps: 0,
+      llmMs: 0,
+      toolMs: 0,
+      ttftMs: 0,
+      ttftSteps: 0,
+      decodeMs: 0,
+      decodeTokens: 0,
       ...overrides,
     }
   }
@@ -203,10 +227,14 @@ describe('composer stats pills', () => {
     expect(usagePill.map(pill => pill.textContent)).toEqual(['105 tok·Cache hit 90%'])
     expect(usagePill[0]!.getAttribute('aria-label')).toBe('105 tok · Cache hit 90%')
     const empty = makeSource()
-    const emptyView = render(<StatsPills {...props(empty.source, {
-      tokenUsage: { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
-      contextPressure: {},
-    })} />)
+    const emptyView = render(
+      <StatsPills
+        {...props(empty.source, {
+          tokenUsage: { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+          contextPressure: {},
+        })}
+      />,
+    )
     expect(emptyView.container.textContent).toBe('')
   })
 
@@ -226,10 +254,7 @@ describe('composer stats pills', () => {
     // below the checkout chip so a wide branch name cannot crowd the readings.
     const [seatLine, figuresLine] = [...row.children] as [HTMLElement, HTMLElement]
     expect(seatLine.textContent).toBe('⎇ main')
-    expect([...figuresLine.children].map(child => child.textContent)).toEqual([
-      '1 turns 1 steps',
-      '105 tok·Cache hit 90%',
-    ])
+    expect([...figuresLine.children].map(child => child.textContent)).toEqual(['1 turns 1 steps', '105 tok·Cache hit 90%'])
 
     // Compact keeps the same lead position: the seat leads the two readings.
     seatOnly.rerender(
@@ -405,10 +430,14 @@ describe('composer stats pills', () => {
 
   it('keeps the durable usage pill after the visible step window is empty', () => {
     const { source } = makeSource()
-    const view = render(<StatsPills {...props(source, {
-      tokenUsage: USAGE,
-      contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
-    })} />)
+    const view = render(
+      <StatsPills
+        {...props(source, {
+          tokenUsage: USAGE,
+          contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
+        })}
+      />,
+    )
     // Context occupancy lives on the composer's ContextMeter ring, not here.
     const pills = view.getAllByRole('button')
     expect(pills).toHaveLength(1)
@@ -427,10 +456,14 @@ describe('composer stats pills', () => {
     // The bug's acceptance at unit level: one loaded page must not scope the
     // counter — the durable projection's totals win over the window fold.
     const { source } = makeSource({ nodes: [assistant(1, 1)] })
-    const view = render(<StatsPills {...props(source, {
-      tokenUsage: USAGE,
-      sessionStats: sessionStats({ turns: 10, steps: 89 }),
-    })} />)
+    const view = render(
+      <StatsPills
+        {...props(source, {
+          tokenUsage: USAGE,
+          sessionStats: sessionStats({ turns: 10, steps: 89 }),
+        })}
+      />,
+    )
     expect(view.getByText('10 turns 89 steps')).toBeTruthy()
   })
 
@@ -438,10 +471,14 @@ describe('composer stats pills', () => {
     // A composed unit always serves the key; all-zero genuinely means no
     // closed step in the whole log, so nothing renders on a brand-new session.
     const empty = makeSource()
-    const view = render(<StatsPills {...props(empty.source, {
-      tokenUsage: { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
-      sessionStats: sessionStats({}),
-    })} />)
+    const view = render(
+      <StatsPills
+        {...props(empty.source, {
+          tokenUsage: { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+          sessionStats: sessionStats({}),
+        })}
+      />,
+    )
     expect(view.container.textContent).toBe('')
   })
 
@@ -449,10 +486,14 @@ describe('composer stats pills', () => {
     // A session whose only turn failed before billing (e.g. an auth error):
     // the counts pill renders alone, not an uninformative zero-token pill.
     const { source } = makeSource()
-    const view = render(<StatsPills {...props(source, {
-      tokenUsage: { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
-      sessionStats: sessionStats({ turns: 1, steps: 1 }),
-    })} />)
+    const view = render(
+      <StatsPills
+        {...props(source, {
+          tokenUsage: { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+          sessionStats: sessionStats({ turns: 1, steps: 1 }),
+        })}
+      />,
+    )
     expect(view.container.textContent).toBe('1 turns 1 steps')
     expect(view.queryAllByRole('button')).toHaveLength(0)
   })
@@ -461,10 +502,14 @@ describe('composer stats pills', () => {
     // Extends the durable-groups guarantee: full-session counts survive a
     // window that compaction (or paging) left without assistant nodes.
     const { source } = makeSource()
-    const view = render(<StatsPills {...props(source, {
-      tokenUsage: USAGE,
-      sessionStats: sessionStats({ turns: 7, steps: 44 }),
-    })} />)
+    const view = render(
+      <StatsPills
+        {...props(source, {
+          tokenUsage: USAGE,
+          sessionStats: sessionStats({ turns: 7, steps: 44 }),
+        })}
+      />,
+    )
     expect(view.getByText('7 turns 44 steps')).toBeTruthy()
   })
 
@@ -473,13 +518,23 @@ describe('composer stats pills', () => {
     // dialog's time split, TTFT, and throughput must not grow per loaded page
     // either. An untimed 1-node window renders the projection's whole-log figures.
     const { source } = makeSource({ nodes: [assistant(1, 1)] })
-    const view = render(<StatsPills {...props(source, {
-      tokenUsage: USAGE,
-      sessionStats: sessionStats({
-        turns: 200, steps: 200, llmMs: 100_000, toolMs: 62_000,
-        ttftMs: 1_600, ttftSteps: 2, decodeMs: 3_000, decodeTokens: 60,
-      }),
-    })} />)
+    const view = render(
+      <StatsPills
+        {...props(source, {
+          tokenUsage: USAGE,
+          sessionStats: sessionStats({
+            turns: 200,
+            steps: 200,
+            llmMs: 100_000,
+            toolMs: 62_000,
+            ttftMs: 1_600,
+            ttftSteps: 2,
+            decodeMs: 3_000,
+            decodeTokens: 60,
+          }),
+        })}
+      />,
+    )
     const timePill = view.getAllByRole('button')[0]!
     expect(timePill.textContent).toBe('200 turns 200 steps·20 tok/s')
     fireEvent.click(timePill)
@@ -492,9 +547,13 @@ describe('composer stats pills', () => {
 
   it('omits the cache-hit segment when nothing was billed on the input side', () => {
     const { source } = makeSource({ nodes: [assistant(1, 1)] })
-    const view = render(<StatsPills {...props(source, {
-      tokenUsage: { uncachedInputTokens: 0, outputTokens: 7, cacheReadTokens: 0, cacheWriteTokens: 0 },
-    })} />)
+    const view = render(
+      <StatsPills
+        {...props(source, {
+          tokenUsage: { uncachedInputTokens: 0, outputTokens: 7, cacheReadTokens: 0, cacheWriteTokens: 0 },
+        })}
+      />,
+    )
     const usagePill = view.getAllByRole('button')[0]!
     expect(usagePill.textContent).toBe('7 tok')
     expect(usagePill.getAttribute('aria-label')).toBe('7 tok')
@@ -505,14 +564,18 @@ describe('composer stats pills', () => {
 
   it('includes cache writes in the total and the cache-hit denominator', () => {
     const { source } = makeSource({ nodes: [assistant(1, 1)] })
-    const view = render(<StatsPills {...props(source, {
-      tokenUsage: {
-        uncachedInputTokens: 10,
-        outputTokens: 7,
-        cacheReadTokens: 90,
-        cacheWriteTokens: 100,
-      },
-    })} />)
+    const view = render(
+      <StatsPills
+        {...props(source, {
+          tokenUsage: {
+            uncachedInputTokens: 10,
+            outputTokens: 7,
+            cacheReadTokens: 90,
+            cacheWriteTokens: 100,
+          },
+        })}
+      />,
+    )
     expect(view.getAllByRole('button')[0]!.textContent).toBe('207 tok·Cache hit 45%')
     // A session that did write cache keeps the row, exact.
     fireEvent.click(view.getAllByRole('button')[0]!)
@@ -529,8 +592,12 @@ describe('composer stats pills', () => {
     render(<Counting {...props(source)} />)
     const before = renders
     // Chunk frames swap partial only; nodes keeps its reference (object-layer contract).
-    act(() => { set({ partial: { turn: 1, step: 2, blocks: [{ kind: 'text', text: 'a' }] } }) })
-    act(() => { set({ partial: { turn: 1, step: 2, blocks: [{ kind: 'text', text: 'ab' }] } }) })
+    act(() => {
+      set({ partial: { turn: 1, step: 2, blocks: [{ kind: 'text', text: 'a' }] } })
+    })
+    act(() => {
+      set({ partial: { turn: 1, step: 2, blocks: [{ kind: 'text', text: 'ab' }] } })
+    })
     expect(renders).toBe(before)
   })
 })

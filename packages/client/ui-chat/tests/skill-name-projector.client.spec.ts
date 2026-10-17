@@ -3,7 +3,7 @@
  * direct messages of the same batch, incrementally — an assistant-only apply
  * must neither scan the store nor re-emit message Nodes.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { ChatConversationViewNode } from '../src/client/contract/chat-nodes.ts'
 import type { ChatNodeStore } from '../src/client/contract/snapshot.ts'
 import { SkillNameProjector } from '../src/client/conversation-nodes/chat-snapshot-builder.ts'
@@ -20,12 +20,10 @@ function viewNode(kind: string, seq: number, data: Record<string, unknown>): Cha
     data: { kind, seq, time: seq, ...data },
   }
 }
-const user = (seq: number, text: string) =>
-  viewNode('user', seq, { content: [{ type: 'text', text }], source: { kind: 'user' } })
+const user = (seq: number, text: string) => viewNode('user', seq, { content: [{ type: 'text', text }], source: { kind: 'user' } })
 const skill = (seq: number, name: string) =>
   viewNode('context', seq, { content: [], source: { kind: 'skill-invocation', name, form: 'instructions' } })
-const instructions = (seq: number) =>
-  viewNode('context', seq, { content: [], source: { kind: 'agent-instructions', changes: [] } })
+const instructions = (seq: number) => viewNode('context', seq, { content: [], source: { kind: 'agent-instructions', changes: [] } })
 const assistant = (seq: number, text = 'answer') => viewNode('assistant-step', seq, { text })
 
 function storeOf(nodes: readonly ChatConversationViewNode[]): ChatNodeStore & { valuesCalls: number } {
@@ -37,19 +35,26 @@ function storeOf(nodes: readonly ChatConversationViewNode[]): ChatNodeStore & { 
       store.valuesCalls += 1
       return [...byKey.values()]
     },
-    source: () => { throw new Error('unused') },
-    bottomSource: () => { throw new Error('unused') },
-    turnDataSource: () => { throw new Error('unused') },
-    processSource: () => { throw new Error('unused') },
+    source: () => {
+      throw new Error('unused')
+    },
+    bottomSource: () => {
+      throw new Error('unused')
+    },
+    turnDataSource: () => {
+      throw new Error('unused')
+    },
+    processSource: () => {
+      throw new Error('unused')
+    },
   }
   return store
 }
 
-const names = (node: ChatConversationViewNode | undefined) =>
-  (node?.data as { skillNames?: readonly string[] } | undefined)?.skillNames
+const names = (node: ChatConversationViewNode | undefined) => (node?.data as { skillNames?: readonly string[] } | undefined)?.skillNames
 
 describe('SkillNameProjector', () => {
-  it('attaches a batch\'s injected skill names on replace and leaves other Nodes untouched', () => {
+  it("attaches a batch's injected skill names on replace and leaves other Nodes untouched", () => {
     const projector = new SkillNameProjector()
     const answer = assistant(6)
     const out = projector.replace([user(2, '/demo go'), instructions(4), skill(5, 'demo'), answer, user(10, '/demo later?')])

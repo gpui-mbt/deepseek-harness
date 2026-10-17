@@ -25,13 +25,24 @@ const nodeStream = Stream as unknown as StreamRuntime
 
 /* oxlint-disable typescript/unbound-method -- readable-stream's namespace statics do not read `this`. */
 const {
-  Duplex, PassThrough, Readable, Stream: StreamBase, Transform, Writable,
-  addAbortSignal, compose, destroy, finished, isDisturbed, isErrored, isReadable, pipeline, promises,
+  Duplex,
+  PassThrough,
+  Readable,
+  Stream: StreamBase,
+  Transform,
+  Writable,
+  addAbortSignal,
+  compose,
+  destroy,
+  finished,
+  isDisturbed,
+  isErrored,
+  isReadable,
+  pipeline,
+  promises,
 } = nodeStream
 const streamStatics = StreamBase as StreamStatics
-const {
-  getDefaultHighWaterMark, isDestroyed, isWritable, setDefaultHighWaterMark,
-} = streamStatics
+const { getDefaultHighWaterMark, isDestroyed, isWritable, setDefaultHighWaterMark } = streamStatics
 /* oxlint-enable typescript/unbound-method */
 
 // readable-stream tracks Node 18's 16 KiB byte default; this repository runs

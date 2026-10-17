@@ -49,7 +49,7 @@ function groupOf(path: string): string {
 /** Return canonical subsystem-page targets linked by one group README. */
 function subsystemLinks(source: string): string[] {
   const links = new Set<string>()
-  visitMarkdown(parseMarkdown(source), (node) => {
+  visitMarkdown(parseMarkdown(source), node => {
     if (node.type !== 'link') return
     const match = /^\.\.\/\.\.\/docs\/subsystems\/([^/#?]+\.md)(?:#[^?#]*)?$/.exec(node.url)
     const page = match?.[1]
@@ -99,8 +99,8 @@ export function auditSubsystemPages(
         exempt += 1
       } else {
         violations.push(
-          `${readme}: no reader-visible direct docs/subsystems/*.md link; add the owning page and link,`
-          + ' or add a justified GROUPS_WITHOUT_SUBSYSTEM_PAGE entry',
+          `${readme}: no reader-visible direct docs/subsystems/*.md link; add the owning page and link,` +
+            ' or add a justified GROUPS_WITHOUT_SUBSYSTEM_PAGE entry',
         )
       }
       continue
@@ -129,8 +129,8 @@ function main(): void {
     process.exit(1)
   }
   console.log(
-    `verify-subsystem-pages: ${String(audit.groups)} group(s) checked`
-    + ` (${String(audit.linked)} linked, ${String(audit.exempt)} explicitly exempt), all conform.`,
+    `verify-subsystem-pages: ${String(audit.groups)} group(s) checked` +
+      ` (${String(audit.linked)} linked, ${String(audit.exempt)} explicitly exempt), all conform.`,
   )
 }
 

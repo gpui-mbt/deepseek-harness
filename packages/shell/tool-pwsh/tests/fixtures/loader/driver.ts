@@ -25,7 +25,10 @@ try {
     name: 'pwsh',
     arguments: { command: 'Write-Output loader-ok', description: 'loader foreground' },
   })
-  const foregroundText = foreground.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  const foregroundText = foreground.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 
   const background = await ctx.tools.execute({
     signal: new AbortController().signal,
@@ -50,22 +53,28 @@ try {
       name: 'job_output',
       arguments: { job_id: jobId },
     })
-    backgroundText += read.content.filter(block => block.type === 'text').map(block => block.text).join('')
+    backgroundText += read.content
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
+      .join('')
     if (backgroundText.includes('loader-bg-ok') && backgroundText.includes('[status: completed')) break
     await new Promise(resolve => setTimeout(resolve, 50))
   }
 
-  await writeFile('./pwsh-loader-report.json', JSON.stringify({
-    schemaHasRunInBackground: Object.hasOwn(schema.parameters.properties as object, 'run_in_background'),
-    promptHasMarkerSection: prompt?.text.includes('Non-zero exits are reported as `[exit code: N]` markers') === true,
-    // Normalize PowerShell's platform line endings (CRLF on Windows, LF elsewhere).
-    foregroundText: foregroundText.replace(/\r\n/g, '\n'),
-    foregroundCwd: (foreground.value as { cwd: string }).cwd,
-    foregroundMeta: foreground.meta,
-    backgroundText: backgroundText.replace(/\r\n/g, '\n'),
-    backgroundCwd: (background.value as { cwd: string }).cwd,
-    backgroundMeta: background.meta,
-  }))
+  await writeFile(
+    './pwsh-loader-report.json',
+    JSON.stringify({
+      schemaHasRunInBackground: Object.hasOwn(schema.parameters.properties as object, 'run_in_background'),
+      promptHasMarkerSection: prompt?.text.includes('Non-zero exits are reported as `[exit code: N]` markers') === true,
+      // Normalize PowerShell's platform line endings (CRLF on Windows, LF elsewhere).
+      foregroundText: foregroundText.replace(/\r\n/g, '\n'),
+      foregroundCwd: (foreground.value as { cwd: string }).cwd,
+      foregroundMeta: foreground.meta,
+      backgroundText: backgroundText.replace(/\r\n/g, '\n'),
+      backgroundCwd: (background.value as { cwd: string }).cwd,
+      backgroundMeta: background.meta,
+    }),
+  )
 } finally {
   await ctx.fiber.dispose()
 }

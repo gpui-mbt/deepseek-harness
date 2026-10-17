@@ -25,7 +25,11 @@ const CONTRACT_DIRS = new Set(['contract'])
 /** Top-level client files allowed to import across domains (assembly layer). */
 const ASSEMBLY_FILES = new Set(['apply.ts', 'index.ts', 'index.tsx'])
 
-interface Violation { file: string; imported: string; reason: string }
+interface Violation {
+  file: string
+  imported: string
+  reason: string
+}
 
 /** Recursively list .ts/.tsx files under dir (relative paths). */
 function listSources(dir: string): string[] {
@@ -70,9 +74,10 @@ function checkPackage(pkgName: string, clientDir: string): Violation[] {
       violations.push({
         file: `${pkgName}/src/client/${rel}`,
         imported: spec,
-        reason: fromDomain === ''
-          ? `top-level non-assembly file imports domain "${toDomain}" (only apply/index may assemble)`
-          : `domain "${fromDomain}" imports sibling domain "${toDomain}" (route shared API through contract/)`,
+        reason:
+          fromDomain === ''
+            ? `top-level non-assembly file imports domain "${toDomain}" (only apply/index may assemble)`
+            : `domain "${fromDomain}" imports sibling domain "${toDomain}" (route shared API through contract/)`,
       })
     }
   }

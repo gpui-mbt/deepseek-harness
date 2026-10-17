@@ -10,8 +10,13 @@ import LocalAttachments from '@deepseek-ai/dsh-attachment-local'
 import FileSystem from '@deepseek-ai/dsh-fs-local'
 import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import {
-  createAssistantMessage, createToolResultMessage, createUserMessage, LlmAdapter, LlmRuntime,
-  resolveImageAttachmentAccess, ToolCallId,
+  createAssistantMessage,
+  createToolResultMessage,
+  createUserMessage,
+  LlmAdapter,
+  LlmRuntime,
+  resolveImageAttachmentAccess,
+  ToolCallId,
 } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, ImageBlock, StreamChunk, UserMessage } from '@deepseek-ai/dsh-llm'
 import { deepSeekImageRequestPricing, resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek'
@@ -30,7 +35,7 @@ import { estimateContent } from '@deepseek-ai/dsh-token-meter/estimate'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import sharp from 'sharp'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import * as SpillPolicy from '../src/index.ts'
 
 const CAP = 12500
@@ -39,7 +44,11 @@ const LONG = `${'X'.repeat(100)}\n`.repeat(600)
 const SMALL = 'S'.repeat(36000)
 const connection = resolveAdapterOptions({ models: [{ id: MODEL, inputModalities: ['text', 'image'] }] })
 const text = (value: string): ContentBlock => ({ type: 'text', text: value })
-const textOf = (content: readonly ContentBlock[]): string => content.filter(block => block.type === 'text').map(block => block.text).join('')
+const textOf = (content: readonly ContentBlock[]): string =>
+  content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 const imagesOf = (content: readonly ContentBlock[]): ImageBlock[] => content.filter((block): block is ImageBlock => block.type === 'image')
 
 async function setup(mode: 'native' | 'ptc' = 'native') {
@@ -47,7 +56,11 @@ async function setup(mode: 'native' | 'ptc' = 'native') {
   const ctx = new Context()
   provideWorkingDirectoryFixture(ctx, root)
   onTestFinished(async () => {
-    try { await ctx.fiber.dispose() } finally { await rm(root, { recursive: true, force: true }) }
+    try {
+      await ctx.fiber.dispose()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime, { mode })
@@ -58,28 +71,42 @@ async function setup(mode: 'native' | 'ptc' = 'native') {
   await ctx.plugin(SessionProjections)
   await ctx.plugin(SessionStore)
   await ctx.plugin(LlmRuntime)
-  const access = (ref: ImageAttachmentRef) => resolveImageAttachmentAccess(
-    ctx.attachments, path => ctx.fs.processPathFromHostPath(path), ref,
-  )
+  const access = (ref: ImageAttachmentRef) =>
+    resolveImageAttachmentAccess(ctx.attachments, path => ctx.fs.processPathFromHostPath(path), ref)
   const pricing = deepSeekImageRequestPricing(connection, MODEL, access)
   class VisionRoute extends LlmAdapter {
     override async resolveModel(provider: string, model: string) {
       return { provider, id: model, name: model, inputModalities: ['text', 'image'] as Array<'text' | 'image'> }
     }
-    override imageRequestPricing() { return pricing }
-    stream(_options: GenerateOptions): AsyncIterable<StreamChunk> { throw new Error('keyless fixture does not infer') }
+    override imageRequestPricing() {
+      return pricing
+    }
+    stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+      throw new Error('keyless fixture does not infer')
+    }
   }
   ctx.llm.registerAdapter(['vision'], new VisionRoute())
   await ctx.plugin(SpillPolicy, { maxInlineTokens: CAP })
   const session = ctx.sessions.create(SessionId('recovery'), { meta: { cwd: root } })
   const agent = { session, options: { provider: 'vision', model: MODEL }, ctx } as Agent
   let ordinal = 0
-  const execute = (name: string, args: JsonValue = {}) => ctx.tools.execute({
-    name, arguments: args, callId: ToolCallId(`recovery-${++ordinal}`), agent, signal: new AbortController().signal,
-  })
-  const red = await sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#ff0000' } }).png().toBuffer()
-  const blue = await sharp({ create: { width: 1080, height: 1920, channels: 3, background: '#0000ff' } }).png().toBuffer()
-  const green = await sharp({ create: { width: 2048, height: 2048, channels: 3, background: '#00ff00' } }).png().toBuffer()
+  const execute = (name: string, args: JsonValue = {}) =>
+    ctx.tools.execute({
+      name,
+      arguments: args,
+      callId: ToolCallId(`recovery-${++ordinal}`),
+      agent,
+      signal: new AbortController().signal,
+    })
+  const red = await sharp({ create: { width: 1920, height: 1080, channels: 3, background: '#ff0000' } })
+    .png()
+    .toBuffer()
+  const blue = await sharp({ create: { width: 1080, height: 1920, channels: 3, background: '#0000ff' } })
+    .png()
+    .toBuffer()
+  const green = await sharp({ create: { width: 2048, height: 2048, channels: 3, background: '#00ff00' } })
+    .png()
+    .toBuffer()
   const image = (data: Buffer): JsonValue => ({ type: 'image', mimeType: 'image/png', data: data.toString('base64') })
   const originals: Record<string, JsonValue[]> = {
     ends: [{ type: 'text', text: 'A' }, image(red), { type: 'text', text: LONG }, image(blue), { type: 'text', text: 'C' }],
@@ -90,34 +117,52 @@ async function setup(mode: 'native' | 'ptc' = 'native') {
   for (const [name, content] of Object.entries(originals)) {
     ctx.tools.register({
       ...createMcpToolDefinition(ctx, {
-        name, rawName: name, description: 'Return a fixed text and image sequence.', inputSchema: { type: 'object' },
-        call: async () => { await gates.get(name)?.(); return { content } },
+        name,
+        rawName: name,
+        description: 'Return a fixed text and image sequence.',
+        inputSchema: { type: 'object' },
+        call: async () => {
+          await gates.get(name)?.()
+          return { content }
+        },
       }),
       isConcurrencySafe: () => true,
     })
   }
-  const cost = (content: ContentBlock[]) => estimateContent(content.filter(block => block.type === 'text'))
-    + pricing.priceImages(imagesOf(content)).reduce((sum, price) => sum + price.visualTokens + estimateContent([text(price.text)]), 0)
+  const cost = (content: ContentBlock[]) =>
+    estimateContent(content.filter(block => block.type === 'text')) +
+    pricing.priceImages(imagesOf(content)).reduce((sum, price) => sum + price.visualTokens + estimateContent([text(price.text)]), 0)
   const requestImages = async (content: ContentBlock[], contexts: UserMessage[] = []) => {
     const callId = ToolCallId('visible-result')
     const history = [
       createUserMessage({ source: { kind: 'user' }, content: [text('Inspect the supplied images.')] }),
-      createAssistantMessage({ source: { provider: 'vision', model: MODEL }, content: [
-        { type: 'tool-call', id: callId, name: 'inspect', arguments: '{}' },
-      ] }),
+      createAssistantMessage({
+        source: { provider: 'vision', model: MODEL },
+        content: [{ type: 'tool-call', id: callId, name: 'inspect', arguments: '{}' }],
+      }),
       createToolResultMessage({ callId, content, isError: false }),
       ...contexts,
     ]
     const prepared = await prepareImages(history, connection, MODEL, ctx.attachments, access, new AbortController().signal)
-    const body = serialize({ provider: 'vision', model: MODEL, messages: history }, connection, prepared.messages, prepared.versions, access)
-    const blocks = body.messages.flatMap(message => message.content.flatMap(block => block.type === 'tool_result' ? block.content : [block]))
+    const body = serialize(
+      { provider: 'vision', model: MODEL, messages: history },
+      connection,
+      prepared.messages,
+      prepared.versions,
+      access,
+    )
+    const blocks = body.messages.flatMap(message =>
+      message.content.flatMap(block => (block.type === 'tool_result' ? block.content : [block])),
+    )
     const images = blocks.filter(block => block.type === 'image')
-    return Promise.all(images.map(async (block) => {
-      if (block.source.type !== 'base64') throw new Error('expected prepared inline image bytes')
-      const data = Buffer.from(block.source.data, 'base64')
-      const { dominant } = await sharp(data).stats()
-      return dominant.r > 200 ? 'red' : dominant.g > 200 ? 'green' : dominant.b > 200 ? 'blue' : 'unexpected'
-    }))
+    return Promise.all(
+      images.map(async block => {
+        if (block.source.type !== 'base64') throw new Error('expected prepared inline image bytes')
+        const data = Buffer.from(block.source.data, 'base64')
+        const { dominant } = await sharp(data).stats()
+        return dominant.r > 200 ? 'red' : dominant.g > 200 ? 'green' : dominant.b > 200 ? 'blue' : 'unexpected'
+      }),
+    )
   }
   return { ctx, root, session, execute, originals, green, cost, requestImages, gates }
 }
@@ -176,7 +221,7 @@ describe('multimodal recovery through real providers', () => {
     expect(await requestImages(recovered.content)).toEqual(['green'])
   })
 
-  it.each(['sequential', 'parallel'] as const)('keeps budgets and image identities separate across %s Node PTC calls', async (mode) => {
+  it.each(['sequential', 'parallel'] as const)('keeps budgets and image identities separate across %s Node PTC calls', async mode => {
     const { ctx, session, execute, cost, requestImages, gates } = await setup('ptc')
     await ctx.plugin(Subprocess)
     await ctx.plugin(Sandbox, {})
@@ -184,22 +229,31 @@ describe('multimodal recovery through real providers', () => {
     await ctx.plugin(NodeRuntime)
     if (mode === 'parallel') {
       const overlap = Promise.withResolvers<undefined>()
-      onTestFinished(() => { overlap.resolve(undefined) })
+      onTestFinished(() => {
+        overlap.resolve(undefined)
+      })
       let entered = 0
-      const gate = () => { if (++entered === 2) overlap.resolve(undefined); return overlap.promise }
+      const gate = () => {
+        if (++entered === 2) overlap.resolve(undefined)
+        return overlap.promise
+      }
       gates.set('ends', gate)
       gates.set('middle', gate)
     }
-    const calls = mode === 'parallel'
-      ? 'await Promise.all([tools.ends({}), tools.middle({}), tools.small({})])'
-      : '[await tools.ends({}), await tools.middle({}), await tools.small({})]'
+    const calls =
+      mode === 'parallel'
+        ? 'await Promise.all([tools.ends({}), tools.middle({}), tools.small({})])'
+        : '[await tools.ends({}), await tools.middle({}), await tools.small({})]'
     const result = await execute('run_code', {
       code: `const [ends, middle, small] = ${calls}; return { ends: ends.content[2].text.length, middle: middle.content[0].text.length, small: small.content[0].text.length };`,
       description: 'Inspect independent image result budgets',
     })
     expect(result.isError).toBe(false)
     expect(result.value).toMatchObject({ result: { ends: LONG.length, middle: LONG.length, small: SMALL.length } })
-    const dispatches = session.snapshotEvents().filter(event => event.type === 'tool/ptc-dispatch').map(event => event.data)
+    const dispatches = session
+      .snapshotEvents()
+      .filter(event => event.type === 'tool/ptc-dispatch')
+      .map(event => event.data)
     expect(dispatches).toHaveLength(3)
     for (const dispatch of dispatches) expect(cost(dispatch.content)).toBeLessThanOrEqual(CAP)
     expect(dispatches.find(event => event.name === 'ends')?.content.filter(block => block.type === 'image')).toHaveLength(2)

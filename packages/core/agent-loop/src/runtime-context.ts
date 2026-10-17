@@ -93,7 +93,9 @@ export class SystemPromptProjection {
     }
     const latest = nodes.findLast(node => node.text !== '') ?? head
     if (!input.inHistory || input.startsSeries || rendered.length === 0) {
-      const updates = nodes.slice(1).filter(node => node.text !== '')
+      const updates = nodes
+        .slice(1)
+        .filter(node => node.text !== '')
         .map(node => this.replace(node.seq, ''))
       if (head.text !== rendered) updates.push(this.replace(head.seq, rendered))
       return updates
@@ -135,9 +137,7 @@ export class RuntimeContextProjection {
       if (subject !== session) return
       if (event.type === 'user/message' && isOwned(event.data)) {
         this.retained = { seq: event.seq, text: textOf(event.data) }
-      } else if (this.retained
-        && isReplacementSurfaceEvent(event)
-        && event.sourceEventSeqs?.includes(this.retained.seq) === true) {
+      } else if (this.retained && isReplacementSurfaceEvent(event) && event.sourceEventSeqs?.includes(this.retained.seq) === true) {
         this.retained = null
       }
     })
@@ -156,9 +156,7 @@ export class RuntimeContextProjection {
     return createUserMessage({
       content: [{ type: 'text', text: snapshot }],
       // The cleared marker has no contributions left to attribute.
-      source: sections.length === 0
-        ? { kind: SOURCE }
-        : { kind: SOURCE, form: 'snapshot', sections },
+      source: sections.length === 0 ? { kind: SOURCE } : { kind: SOURCE, form: 'snapshot', sections },
     })
   }
 }

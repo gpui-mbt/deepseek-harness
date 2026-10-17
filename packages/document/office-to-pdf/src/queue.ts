@@ -45,8 +45,11 @@ export class ConversionQueue {
    * @param generation - provider lifetime; prevents reuse after engine or font replacement.
    * @param convert - executes one admitted conversion and settles after scratch cleanup.
    */
-  constructor(private readonly config: Config, private readonly generation: OfficeToPdfGeneration,
-    private readonly convert: Convert) {}
+  constructor(
+    private readonly config: Config,
+    private readonly generation: OfficeToPdfGeneration,
+    private readonly convert: Convert,
+  ) {}
 
   /**
    * Admit metadata before loading source bytes and share conversion across authorized readers.
@@ -80,7 +83,14 @@ export class ConversionQueue {
         if (obsolete === undefined) throw this.busy()
         this.fail(obsolete, this.busy())
       }
-      job = { request, priority: request.priority, controller: new AbortController(), readers: new Set(), sources: new Set([source]), state: 'queued' }
+      job = {
+        request,
+        priority: request.priority,
+        controller: new AbortController(),
+        readers: new Set(),
+        sources: new Set([source]),
+        state: 'queued',
+      }
       this.sources.set(source, job)
       this.jobs.add(job)
       this.queue.push(job)
@@ -97,7 +107,14 @@ export class ConversionQueue {
         // Cancellation or demotion can unblock queued background work.
         this.drain()
       }
-      const reader: Reader = { job: shared, source, priority: request.priority, resolve, reject, cleanup: () => signal?.removeEventListener('abort', abort) }
+      const reader: Reader = {
+        job: shared,
+        source,
+        priority: request.priority,
+        resolve,
+        reject,
+        cleanup: () => signal?.removeEventListener('abort', abort),
+      }
       shared.readers.add(reader)
       signal?.addEventListener('abort', abort, { once: true })
     })
@@ -115,8 +132,12 @@ export class ConversionQueue {
     await Promise.allSettled(this.tasks)
   }
 
-  private busy(): OfficeToPdfError { return new OfficeToPdfError('busy', 'The document converter has reached its admission limit.') }
-  private unavailable(): OfficeToPdfError { return new OfficeToPdfError('unavailable', 'The document converter is unavailable.') }
+  private busy(): OfficeToPdfError {
+    return new OfficeToPdfError('busy', 'The document converter has reached its admission limit.')
+  }
+  private unavailable(): OfficeToPdfError {
+    return new OfficeToPdfError('unavailable', 'The document converter is unavailable.')
+  }
   private copy(result: OfficeToPdfResult): OfficeToPdfResult {
     return { ...result, pdf: Uint8Array.from(result.pdf), missingFonts: [...result.missingFonts] }
   }
@@ -141,15 +162,22 @@ export class ConversionQueue {
     }
   }
   private fail(job: Job, error: unknown): void {
-    for (const reader of job.readers) { this.release(reader); reader.reject(error) }
+    for (const reader of job.readers) {
+      this.release(reader)
+      reader.reject(error)
+    }
     this.cancel(job)
   }
-  private reservation(job: Job): number { return Math.max(1, job.request.source.bytes ?? this.config.maxInputBytes) }
+  private reservation(job: Job): number {
+    return Math.max(1, job.request.source.bytes ?? this.config.maxInputBytes)
+  }
 
   private drain(): void {
     while (!this.disposed && this.running < this.config.maxConcurrentConversions) {
-      const eligible = (job: Job): boolean => this.sourceBytes + this.reservation(job) <= this.config.maxSourceBytes
-        && (job.priority === 'foreground' || this.background < Math.min(this.config.maxBackgroundConversions, Math.max(1, this.config.maxConcurrentConversions - 1)))
+      const eligible = (job: Job): boolean =>
+        this.sourceBytes + this.reservation(job) <= this.config.maxSourceBytes &&
+        (job.priority === 'foreground' ||
+          this.background < Math.min(this.config.maxBackgroundConversions, Math.max(1, this.config.maxConcurrentConversions - 1)))
       const foregroundWaiting = this.queue.some(item => item.priority === 'foreground')
       const job = this.queue.find(item => (!foregroundWaiting || item.priority === 'foreground') && eligible(item))
       if (job === undefined) return
@@ -160,15 +188,19 @@ export class ConversionQueue {
       this.running++
       if (background) this.background++
       this.sourceBytes += reserved
-      const task = this.execute(job, reserved).catch((error: unknown) => { this.fail(job, error) }).finally(() => {
-        this.running--
-        if (background) this.background--
-        this.sourceBytes -= reserved
-        job.state = 'finished'
-        this.jobs.delete(job)
-        this.tasks.delete(task)
-        this.drain()
-      })
+      const task = this.execute(job, reserved)
+        .catch((error: unknown) => {
+          this.fail(job, error)
+        })
+        .finally(() => {
+          this.running--
+          if (background) this.background--
+          this.sourceBytes -= reserved
+          job.state = 'finished'
+          this.jobs.delete(job)
+          this.tasks.delete(task)
+          this.drain()
+        })
       this.tasks.add(task)
     }
   }
@@ -178,7 +210,8 @@ export class ConversionQueue {
     signal.throwIfAborted()
     const input = await job.request.source.read(signal, reserved)
     signal.throwIfAborted()
-    if (input.version !== job.request.source.version) throw new OfficeToPdfError('source-changed', 'The source changed while waiting for conversion.')
+    if (input.version !== job.request.source.version)
+      throw new OfficeToPdfError('source-changed', 'The source changed while waiting for conversion.')
     if (input.bytes.byteLength > reserved) throw new OfficeToPdfError('input-too-large', 'The source exceeds its reserved read capacity.')
     const digest = createHash('sha256').update(job.request.extension).update('\0').update(input.bytes).digest('hex')
     const key = OfficeToPdfKey(`${this.generation}:${digest}`)
@@ -192,9 +225,15 @@ export class ConversionQueue {
     const existing = this.digests.get(key)
     if (existing !== undefined && !existing.controller.signal.aborted) {
       if (job.priority === 'foreground') existing.priority = 'foreground'
-      for (const reader of job.readers) { reader.job = existing; existing.readers.add(reader) }
+      for (const reader of job.readers) {
+        reader.job = existing
+        existing.readers.add(reader)
+      }
       job.readers.clear()
-      for (const source of job.sources) { existing.sources.add(source); this.sources.set(source, existing) }
+      for (const source of job.sources) {
+        existing.sources.add(source)
+        this.sources.set(source, existing)
+      }
       job.sources.clear()
       return
     }
@@ -205,7 +244,9 @@ export class ConversionQueue {
       const result = { ...converted, cacheKey: key, generation: this.generation }
       this.retain(result)
       this.finish(job, result)
-    } finally { if (this.digests.get(key) === job) this.digests.delete(key) }
+    } finally {
+      if (this.digests.get(key) === job) this.digests.delete(key)
+    }
   }
 
   private finish(job: Job, result: OfficeToPdfResult): void {
@@ -217,7 +258,10 @@ export class ConversionQueue {
         while (this.aliases.size > this.config.maxSourceEntries) this.aliases.delete(this.aliases.keys().next().value as string)
       }
     }
-    for (const reader of job.readers) { this.release(reader); reader.resolve(this.copy(result)) }
+    for (const reader of job.readers) {
+      this.release(reader)
+      reader.resolve(this.copy(result))
+    }
   }
   private retain(result: OfficeToPdfResult): void {
     if (result.pdf.byteLength > this.config.maxCachedBytes) return

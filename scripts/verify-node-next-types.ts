@@ -35,10 +35,7 @@ function readPackage(path: string): WorkspacePackage | null {
 }
 
 function workspacePackages(): WorkspacePackage[] {
-  return [
-    ...globSync('vendor/*/package.json', { cwd: root }),
-    ...globSync('packages/*/*/package.json', { cwd: root }),
-  ]
+  return [...globSync('vendor/*/package.json', { cwd: root }), ...globSync('packages/*/*/package.json', { cwd: root })]
     .map(path => readPackage(resolve(root, path)))
     .filter(pkg => pkg !== null)
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -121,24 +118,32 @@ try {
   }
 
   writeFileSync(resolve(tmp, 'package.json'), `${JSON.stringify({ type: 'module', private: true }, null, 2)}\n`)
-  writeFileSync(resolve(tmp, 'tsconfig.json'), `${JSON.stringify({
-    compilerOptions: {
-      target: 'es2024',
-      module: 'NodeNext',
-      moduleResolution: 'NodeNext',
-      strict: true,
-      // Third-party SDK declarations can have their own lib-check noise under a
-      // symlinked temp install. The explicit scan above owns our regression:
-      // relative specifiers without file extensions in built declarations.
-      skipLibCheck: true,
-      preserveSymlinks: true,
-      noEmit: true,
-      types: ['node'],
-    },
-    include: ['index.ts'],
-  }, null, 2)}\n`)
+  writeFileSync(
+    resolve(tmp, 'tsconfig.json'),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          target: 'es2024',
+          module: 'NodeNext',
+          moduleResolution: 'NodeNext',
+          strict: true,
+          // Third-party SDK declarations can have their own lib-check noise under a
+          // symlinked temp install. The explicit scan above owns our regression:
+          // relative specifiers without file extensions in built declarations.
+          skipLibCheck: true,
+          preserveSymlinks: true,
+          noEmit: true,
+          types: ['node'],
+        },
+        include: ['index.ts'],
+      },
+      null,
+      2,
+    )}\n`,
+  )
 
-  const imports = packages.flatMap(publicSpecifiers)
+  const imports = packages
+    .flatMap(publicSpecifiers)
     .map((specifier, index) => `import * as mod${index} from ${JSON.stringify(specifier)};\nvoid mod${index};`)
     .join('\n')
   writeFileSync(resolve(tmp, 'index.ts'), `${imports}\n`)

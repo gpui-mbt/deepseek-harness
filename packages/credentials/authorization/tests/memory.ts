@@ -42,9 +42,9 @@ export class MemoryCredentials extends CredentialProvider {
 
   override describeRecord(key: CredentialKey): Promise<CredentialRecordInfo> {
     const stored = this.records.get(key)
-    return Promise.resolve(stored === undefined
-      ? { configured: false, writable: true }
-      : { configured: true, kind: stored.kind, writable: true })
+    return Promise.resolve(
+      stored === undefined ? { configured: false, writable: true } : { configured: true, kind: stored.kind, writable: true },
+    )
   }
 
   override listRecords(): Promise<readonly CredentialRecordEntry[]> {

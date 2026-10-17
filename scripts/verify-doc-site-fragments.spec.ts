@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { inspectSiteFragments, missingSiteFiles } from './verify-doc-site-fragments.ts'
 
 const roots: string[] = []
@@ -17,14 +17,17 @@ function fixture(): string {
   roots.push(root)
   mkdirSync(join(root, 'guide'), { recursive: true })
   writeFileSync(join(root, 'index.html'), '<a id="home"></a><a href="/guide/start#ready">start</a>')
-  writeFileSync(join(root, 'guide/start.html'), [
-    '<h1 id="ready">Ready</h1>',
-    '<a name="legacy"></a>',
-    '<a href="#ready">same page</a>',
-    '<a href="./start.html#legacy">html alias</a>',
-    '<a href="../#home">root</a>',
-    '<a href="https://example.com/page#missing">external</a>',
-  ].join(''))
+  writeFileSync(
+    join(root, 'guide/start.html'),
+    [
+      '<h1 id="ready">Ready</h1>',
+      '<a name="legacy"></a>',
+      '<a href="#ready">same page</a>',
+      '<a href="./start.html#legacy">html alias</a>',
+      '<a href="../#home">root</a>',
+      '<a href="https://example.com/page#missing">external</a>',
+    ].join(''),
+  )
   return root
 }
 
@@ -58,17 +61,12 @@ describe('inspectSiteFragments', () => {
     const root = fixture()
     writeFileSync(join(root, 'guide/invalid.html'), '<a href="http://[invalid]#fragment">invalid</a>')
 
-    expect(() => inspectSiteFragments(root)).toThrow(
-      'guide/invalid.html has invalid fragment href "http://[invalid]#fragment"',
-    )
+    expect(() => inspectSiteFragments(root)).toThrow('guide/invalid.html has invalid fragment href "http://[invalid]#fragment"')
   })
 
   it('reports missing ids and missing built routes', () => {
     const root = fixture()
-    writeFileSync(join(root, 'guide/broken.html'), [
-      '<a href="./start#missing">id</a>',
-      '<a href="./absent#missing">route</a>',
-    ].join(''))
+    writeFileSync(join(root, 'guide/broken.html'), ['<a href="./start#missing">id</a>', '<a href="./absent#missing">route</a>'].join(''))
 
     expect(inspectSiteFragments(root).broken).toEqual([
       {
@@ -91,7 +89,6 @@ describe('missingSiteFiles', () => {
     const root = fixture()
     writeFileSync(join(root, 'guide/start.md'), '# Ready\n')
 
-    expect(missingSiteFiles(root, ['guide/start.md', 'guide/absent.md', 'llms.txt']))
-      .toEqual(['guide/absent.md', 'llms.txt'])
+    expect(missingSiteFiles(root, ['guide/start.md', 'guide/absent.md', 'llms.txt'])).toEqual(['guide/absent.md', 'llms.txt'])
   })
 })

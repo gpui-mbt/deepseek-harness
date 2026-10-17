@@ -40,7 +40,11 @@ export interface ProfilePluginReconciliation {
 
 /** Unavailable installed metadata must not prevent listing or removing dependencies. */
 function optionalManifest(binName: string, packageDir: string): ProfileManifest | undefined {
-  try { return readProfileManifest(binName, packageDir) } catch { return undefined }
+  try {
+    return readProfileManifest(binName, packageDir)
+  } catch {
+    return undefined
+  }
 }
 
 /** Resolve activation metadata with the same installation precedence as profile loading. */
@@ -83,9 +87,7 @@ export function readProfilePlugins(location: ProfilePluginLocation): ProfilePlug
  * @param bundles - ordered active bundle names, including any template entries.
  * @returns the written manifest.
  */
-export function writeProfileBundles(
-  profileDir: string, manifest: ProfileManifest, bundles: readonly string[],
-): ProfileManifest {
+export function writeProfileBundles(profileDir: string, manifest: ProfileManifest, bundles: readonly string[]): ProfileManifest {
   const updated = { ...manifest, dsh: { ...manifest.dsh, profile: { ...manifest.dsh?.profile, bundles: [...bundles] } } }
   writeProfileManifest(profileDir, updated)
   return updated
@@ -98,17 +100,21 @@ export function writeProfileBundles(
  * @param options - location, inventory captured before pnpm, and whether explicitly disabled bundles remain disabled.
  * @returns updated inventory and newly added ordinary dependencies for caller-owned warnings.
  */
-export function reconcileProfilePlugins(options: ProfilePluginLocation & {
-  readonly before: ProfilePluginInventory
-  readonly preserveDisabled: boolean
-}): ProfilePluginReconciliation {
+export function reconcileProfilePlugins(
+  options: ProfilePluginLocation & {
+    readonly before: ProfilePluginInventory
+    readonly preserveDisabled: boolean
+  },
+): ProfilePluginReconciliation {
   const after = readProfilePlugins(options)
   const beforeNames = new Set(options.before.dependencies.map(dependency => dependency.name))
   const afterNames = new Set(after.dependencies.map(dependency => dependency.name))
   const bundleNames = new Set(after.dependencies.filter(dependency => dependency.bundle).map(dependency => dependency.name))
-  const disabled = new Set(options.preserveDisabled
-    ? options.before.dependencies.filter(dependency => dependency.bundle && !dependency.enabled).map(dependency => dependency.name)
-    : [])
+  const disabled = new Set(
+    options.preserveDisabled
+      ? options.before.dependencies.filter(dependency => dependency.bundle && !dependency.enabled).map(dependency => dependency.name)
+      : [],
+  )
   const previous = after.manifest.dsh?.profile?.bundles ?? []
   const bundles = previous.filter(name => !(beforeNames.has(name) || afterNames.has(name)) || bundleNames.has(name))
   for (const dependency of after.dependencies) {
@@ -121,7 +127,8 @@ export function reconcileProfilePlugins(options: ProfilePluginLocation & {
       manifest,
       dependencies: after.dependencies.map(dependency => ({ ...dependency, enabled: bundles.includes(dependency.name) })),
     },
-    addedPlainDependencies: after.dependencies.filter(dependency => !dependency.bundle && !beforeNames.has(dependency.name))
+    addedPlainDependencies: after.dependencies
+      .filter(dependency => !dependency.bundle && !beforeNames.has(dependency.name))
       .map(dependency => dependency.name),
   }
 }

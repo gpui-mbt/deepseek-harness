@@ -60,24 +60,29 @@ declare module '@deepseek-ai/cordis' {
 }
 
 const timestamp = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
-const itemSchema = z.object({
-  messageId: z.string().min(1),
-  rating: z.enum(['positive', 'negative']),
-  note: z.string().refine(note => note.trim().length > 0).optional(),
-  category: z.enum(FEEDBACK_CATEGORIES).optional(),
-  version: z.uuid(),
-  createdAt: timestamp,
-  updatedAt: timestamp,
-}).refine(item => item.updatedAt >= item.createdAt)
+const itemSchema = z
+  .object({
+    messageId: z.string().min(1),
+    rating: z.enum(['positive', 'negative']),
+    note: z
+      .string()
+      .refine(note => note.trim().length > 0)
+      .optional(),
+    category: z.enum(FEEDBACK_CATEGORIES).optional(),
+    version: z.uuid(),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  })
+  .refine(item => item.updatedAt >= item.createdAt)
 const putSchema = z.object({ sessionId: z.string().min(1), item: itemSchema })
 const deleteSchema = z.object({ sessionId: z.string().min(1), messageId: z.string().min(1) })
 
 type FeedbackEvent = SessionEvent<'feedback/message-put' | 'feedback/message-delete'>
-type Mutation = Pick<SessionEvent<'feedback/message-put'>, 'type' | 'data'>
-  | Pick<SessionEvent<'feedback/message-delete'>, 'type' | 'data'>
+type Mutation = Pick<SessionEvent<'feedback/message-put'>, 'type' | 'data'> | Pick<SessionEvent<'feedback/message-delete'>, 'type' | 'data'>
 type Append = (event?: Mutation) => Promise<void>
 type MissingSession = MessageFeedbackRejected<MessageFeedbackSessionNotFound>
-type ResolvedNote = MessageFeedbackSuccess<string | undefined>
+type ResolvedNote =
+  | MessageFeedbackSuccess<string | undefined>
   | MessageFeedbackRejected<MessageFeedbackNoteBlank | MessageFeedbackNoteTooLarge>
 
 /** Return a caller-owned immutable value, detached from the log. */
@@ -140,10 +145,13 @@ export class MessageFeedbackService extends TypertRemoteService {
   }
 
   protected [Service.init](): void {
-    this.ctx.effect(() => async () => {
-      this.mutationAdmissionOpen = false
-      await Promise.all(this.operationTails.values())
-    }, 'message-feedback.drain')
+    this.ctx.effect(
+      () => async () => {
+        this.mutationAdmissionOpen = false
+        await Promise.all(this.operationTails.values())
+      },
+      'message-feedback.drain',
+    )
   }
 
   /**
@@ -153,8 +161,11 @@ export class MessageFeedbackService extends TypertRemoteService {
    */
   @Remote('list')
   list(request: MessageFeedbackListRequest): Promise<MessageFeedbackListResult> {
-    return this.enqueue(request.sessionId, () => this.withSession(request.sessionId, false, events =>
-      success(Object.freeze({ items: Object.freeze(currentItems(request.sessionId, events).map(snapshotItem)) }))))
+    return this.enqueue(request.sessionId, () =>
+      this.withSession(request.sessionId, false, events =>
+        success(Object.freeze({ items: Object.freeze(currentItems(request.sessionId, events).map(snapshotItem)) })),
+      ),
+    )
   }
 
   /**
@@ -167,35 +178,44 @@ export class MessageFeedbackService extends TypertRemoteService {
   put(request: MessageFeedbackPutRequest): Promise<MessageFeedbackPutResult> {
     const note = this.resolveNote(request.note)
     if (!note.ok) return Promise.resolve(note)
-    return this.enqueue(request.sessionId, () => this.withSession(request.sessionId, true, async (events, append) => {
-      const items = currentItems(request.sessionId, events)
-      if (!events.some(event => event.type === 'assistant/message'
-        && isAppendSurfaceEvent(event)
-        && deriveEventMessage(event)?.id === request.messageId)) {
-        return rejected({ code: 'target-not-found', sessionId: request.sessionId, messageId: request.messageId })
-      }
-      const existing = items.find(item => item.messageId === request.messageId)
-      if (request.ifVersion !== (existing?.version ?? null)) {
-        return rejected(this.versionConflict(existing ?? null))
-      }
-      if (existing !== undefined && existing.rating === request.rating && existing.note === note.value
-        && existing.category === request.category) {
-        await append()
-        return success(snapshotItem(existing))
-      }
-      const now = Date.now()
-      const item: MessageFeedbackItem = {
-        messageId: request.messageId,
-        rating: request.rating,
-        ...(note.value === undefined ? {} : { note: note.value }),
-        ...(request.category === undefined ? {} : { category: request.category }),
-        version: randomUUID() as MessageFeedbackVersion,
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: existing === undefined ? now : Math.max(now, existing.updatedAt),
-      }
-      await append({ type: 'feedback/message-put', data: { sessionId: request.sessionId, item } })
-      return success(snapshotItem(item))
-    }))
+    return this.enqueue(request.sessionId, () =>
+      this.withSession(request.sessionId, true, async (events, append) => {
+        const items = currentItems(request.sessionId, events)
+        if (
+          !events.some(
+            event =>
+              event.type === 'assistant/message' && isAppendSurfaceEvent(event) && deriveEventMessage(event)?.id === request.messageId,
+          )
+        ) {
+          return rejected({ code: 'target-not-found', sessionId: request.sessionId, messageId: request.messageId })
+        }
+        const existing = items.find(item => item.messageId === request.messageId)
+        if (request.ifVersion !== (existing?.version ?? null)) {
+          return rejected(this.versionConflict(existing ?? null))
+        }
+        if (
+          existing !== undefined &&
+          existing.rating === request.rating &&
+          existing.note === note.value &&
+          existing.category === request.category
+        ) {
+          await append()
+          return success(snapshotItem(existing))
+        }
+        const now = Date.now()
+        const item: MessageFeedbackItem = {
+          messageId: request.messageId,
+          rating: request.rating,
+          ...(note.value === undefined ? {} : { note: note.value }),
+          ...(request.category === undefined ? {} : { category: request.category }),
+          version: randomUUID() as MessageFeedbackVersion,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: existing === undefined ? now : Math.max(now, existing.updatedAt),
+        }
+        await append({ type: 'feedback/message-put', data: { sessionId: request.sessionId, item } })
+        return success(snapshotItem(item))
+      }),
+    )
   }
 
   /**
@@ -205,16 +225,18 @@ export class MessageFeedbackService extends TypertRemoteService {
    */
   @Remote('delete')
   delete(request: MessageFeedbackDeleteRequest): Promise<MessageFeedbackDeleteResult> {
-    return this.enqueue(request.sessionId, () => this.withSession(request.sessionId, true, async (events, append) => {
-      const existing = currentItems(request.sessionId, events).find(item => item.messageId === request.messageId)
-      if (existing !== undefined) {
-        if (request.ifVersion !== existing.version) return rejected(this.versionConflict(existing))
-        await append({ type: 'feedback/message-delete', data: { sessionId: request.sessionId, messageId: request.messageId } })
-      } else {
-        await append()
-      }
-      return success(Object.freeze({ absent: true as const }))
-    }))
+    return this.enqueue(request.sessionId, () =>
+      this.withSession(request.sessionId, true, async (events, append) => {
+        const existing = currentItems(request.sessionId, events).find(item => item.messageId === request.messageId)
+        if (existing !== undefined) {
+          if (request.ifVersion !== existing.version) return rejected(this.versionConflict(existing))
+          await append({ type: 'feedback/message-delete', data: { sessionId: request.sessionId, messageId: request.messageId } })
+        } else {
+          await append()
+        }
+        return success(Object.freeze({ absent: true as const }))
+      }),
+    )
   }
 
   /** Hold cold write ownership across read/compare/append; use live owners directly. */
@@ -223,34 +245,36 @@ export class MessageFeedbackService extends TypertRemoteService {
     write: boolean,
     operation: (events: readonly SessionEvent[], append: Append) => T | Promise<T>,
   ): Promise<T | MissingSession> {
-    if (this.ctx.sessions.get(sessionId) === undefined
-      && await this.ctx.sessionPersistence.stat(sessionId) === undefined
-      && this.ctx.sessions.get(sessionId) === undefined) {
+    if (
+      this.ctx.sessions.get(sessionId) === undefined &&
+      (await this.ctx.sessionPersistence.stat(sessionId)) === undefined &&
+      this.ctx.sessions.get(sessionId) === undefined
+    ) {
       return rejected({ code: 'session-not-found', sessionId })
     }
     const live = this.ctx.sessions.get(sessionId)
     if (live !== undefined) {
       // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
-      return operation(live.snapshotEvents(), async (event) => {
+      return operation(live.snapshotEvents(), async event => {
         if (event !== undefined) {
           live.append(event.type, event.data)
         }
         // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
         const last = live.snapshotEvents().at(-1)
         if (!(await this.ctx.sessions.flush(live))) {
-          throw new Error(
-            `message-feedback: no durability listener participated for live session '${sessionId}'`,
-          )
+          throw new Error(`message-feedback: no durability listener participated for live session '${sessionId}'`)
         }
         // Listener participation alone does not prove this Session has a persistence writer.
         const handle = await this.ctx.sessionPersistence.open(sessionId, 'read')
         try {
           const { events: stored } = await handle.read(last?.seq ?? 0, 1)
-          if (!isDeepStrictEqual(
-            [handle.header.id, handle.header.createdAt, handle.header.cwd],
-            [live.header.id, live.header.createdAt, live.header.cwd],
-          )
-            || (last !== undefined && !isDeepStrictEqual(stored[0], last))) {
+          if (
+            !isDeepStrictEqual(
+              [handle.header.id, handle.header.createdAt, handle.header.cwd],
+              [live.header.id, live.header.createdAt, live.header.cwd],
+            ) ||
+            (last !== undefined && !isDeepStrictEqual(stored[0], last))
+          ) {
             throw new Error(`message-feedback: feedback prefix is not durable for live session '${sessionId}'`)
           }
         } finally {
@@ -261,9 +285,9 @@ export class MessageFeedbackService extends TypertRemoteService {
     const handle = await this.ctx.sessionPersistence.open(sessionId, write ? 'write' : 'read')
     try {
       const { events } = await handle.read()
-      return await operation(events, async (event) => {
-        const entry: FeedbackEvent | undefined = event === undefined ? undefined
-          : { ...event, seq: SessionSeq(events.length), time: Date.now() }
+      return await operation(events, async event => {
+        const entry: FeedbackEvent | undefined =
+          event === undefined ? undefined : { ...event, seq: SessionSeq(events.length), time: Date.now() }
         if (entry !== undefined) await handle.append([entry])
         await handle.flush()
         if (entry !== undefined) {
@@ -302,7 +326,10 @@ export class MessageFeedbackService extends TypertRemoteService {
     if (!this.mutationAdmissionOpen) return Promise.reject(new Error('message-feedback: service is disposing'))
     const previous = this.operationTails.get(sessionId) ?? Promise.resolve()
     const result = previous.then(operation)
-    const tail = result.then(() => undefined, () => undefined)
+    const tail = result.then(
+      () => undefined,
+      () => undefined,
+    )
     this.operationTails.set(sessionId, tail)
     return result.finally(() => {
       if (this.operationTails.get(sessionId) === tail) this.operationTails.delete(sessionId)

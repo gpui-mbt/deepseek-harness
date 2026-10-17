@@ -16,22 +16,12 @@ declare module '@deepseek-ai/dsh-llm' {
   }
 }
 
-import type {
-  ContentBlock,
-  FinishReason,
-  GenerateOptions,
-  LlmResolvedModelInfo,
-  Message,
-  ReasoningEffortId,
-} from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, FinishReason, GenerateOptions, LlmResolvedModelInfo, Message, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { deadline, MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { assertNever, deepFreeze } from '@deepseek-ai/dsh-util-values'
 import type { SessionSeq } from '@deepseek-ai/dsh-session'
 import { SessionTitleProviderId } from '@deepseek-ai/dsh-session-title'
-import type {
-  SessionTitleModelIdentity,
-  SessionTitleProviderRequest,
-} from '@deepseek-ai/dsh-session-title'
+import type { SessionTitleModelIdentity, SessionTitleProviderRequest } from '@deepseek-ai/dsh-session-title'
 
 /** Exact model-visible request recorded before one auxiliary title dispatch. */
 export interface SessionTitleLlmRequestEventData {
@@ -91,13 +81,7 @@ export const SessionTitleLlmConfigFields = {
 export const SessionTitleLlmConfigSchema: z<SessionTitleLlmConfig> = z.object(SessionTitleLlmConfigFields)
 
 /** Complete execution-control key set for direct construction validation. */
-const CONFIG_KEYS: ReadonlySet<string> = new Set([
-  'maxInputBytes',
-  'maxOutputTokens',
-  'timeoutMs',
-  'provider',
-  'model',
-])
+const CONFIG_KEYS: ReadonlySet<string> = new Set(['maxInputBytes', 'maxOutputTokens', 'timeoutMs', 'provider', 'model'])
 
 /** Validate one positive integer limit. */
 function assertPositiveInteger(name: string, value: number): void {
@@ -111,9 +95,7 @@ function assertPositiveInteger(name: string, value: number): void {
  * @param config - untrusted execution configuration.
  * @returns immutable controls with optional route absence preserved.
  */
-export function resolveSessionTitleLlmConfig(
-  config: SessionTitleLlmConfig,
-): ResolvedSessionTitleLlmConfig {
+export function resolveSessionTitleLlmConfig(config: SessionTitleLlmConfig): ResolvedSessionTitleLlmConfig {
   const candidate: unknown = config
   if (candidate === null || typeof candidate !== 'object') {
     throw new Error('session-title-llm: configuration is required')
@@ -133,9 +115,10 @@ export function resolveSessionTitleLlmConfig(
   if (hasProvider !== hasModel) {
     throw new Error('session-title-llm: provider and model must be supplied together')
   }
-  if (hasProvider
-    && (typeof value.provider !== 'string' || value.provider.length === 0
-      || typeof value.model !== 'string' || value.model.length === 0)) {
+  if (
+    hasProvider &&
+    (typeof value.provider !== 'string' || value.provider.length === 0 || typeof value.model !== 'string' || value.model.length === 0)
+  ) {
     throw new Error('session-title-llm: provider and model overrides must be non-empty strings')
   }
   return deepFreeze({ ...value })
@@ -175,10 +158,7 @@ export interface SessionTitleLlmResponse {
 }
 
 /** Resolve the explicit pair or the exact route captured from `request/header`. */
-function resolveRoute(
-  config: ResolvedSessionTitleLlmConfig,
-  request: SessionTitleProviderRequest,
-): SessionTitleModelIdentity {
+function resolveRoute(config: ResolvedSessionTitleLlmConfig, request: SessionTitleProviderRequest): SessionTitleModelIdentity {
   if (config.provider !== undefined && config.model !== undefined) {
     return { provider: config.provider, model: config.model }
   }
@@ -208,7 +188,8 @@ function terminalFinish(finish: FinishReason): SessionTitleLlmFinish {
       throw error
     }
     /* v8 ignore next -- closed FinishReason union exhaustiveness guard */
-    default: return assertNever(finish, 'FinishReason')
+    default:
+      return assertNever(finish, 'FinishReason')
   }
 }
 
@@ -243,19 +224,25 @@ export async function executeSessionTitleLlm(
     throw new Error(`session-title-llm: input is ${inputBytes} bytes, exceeding maxInputBytes ${config.maxInputBytes}`)
   }
   const route = resolveRoute(config, request)
-  const messages: Message[] = [createUserMessage({
-    content: [{ type: 'text', text: prepared.input }],
-    source: { kind: 'dsh-session-title-llm' },
-  })]
+  const messages: Message[] = [
+    createUserMessage({
+      content: [{ type: 'text', text: prepared.input }],
+      source: { kind: 'dsh-session-title-llm' },
+    }),
+  ]
   using callDeadline = deadline(request.signal, config.timeoutMs, SESSION_TITLE_TIMEOUT_CODE)
   const maxTokens = config.maxOutputTokens
-  const call = await ctx.llm.prepareCall({
-    ...route,
-    maxTokens,
-  }, callDeadline.signal, (controls, model) => {
-    const effort = prepared.selectReasoningEffort(model)
-    return { ...controls, ...effort === undefined ? {} : { reasoningEffort: effort } }
-  })
+  const call = await ctx.llm.prepareCall(
+    {
+      ...route,
+      maxTokens,
+    },
+    callDeadline.signal,
+    (controls, model) => {
+      const effort = prepared.selectReasoningEffort(model)
+      return { ...controls, ...(effort === undefined ? {} : { reasoningEffort: effort }) }
+    },
+  )
   const options: GenerateOptions = deepFreeze({
     ...call.config,
     messages,
@@ -271,7 +258,7 @@ export async function executeSessionTitleLlm(
     system: prepared.system,
     messages,
     maxTokens,
-    ...call.config.reasoningEffort === undefined ? {} : { reasoningEffort: call.config.reasoningEffort },
+    ...(call.config.reasoningEffort === undefined ? {} : { reasoningEffort: call.config.reasoningEffort }),
   })
   callDeadline.signal.throwIfAborted()
   const assembler = new BlockAssembler()

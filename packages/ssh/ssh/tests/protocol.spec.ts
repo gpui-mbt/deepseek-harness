@@ -1,6 +1,6 @@
 import { PassThrough } from 'node:stream'
 import { once } from 'node:events'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { z } from 'zod'
 import { SshRpcPeer, RemoteOperationError } from '../src/protocol.ts'
 
@@ -17,7 +17,10 @@ describe('SSH helper protocol', () => {
       await expect(client.request('echo', { value: 'a\0b\n中文' }, z.string())).resolves.toBe('a\0b\n中文')
       await expect(client.request('write', {}, z.null())).rejects.toMatchObject({ code: 'FS_STALE_VERSION', message: 'stale' })
       await expect(client.request('echo', { value: 'not a number' }, z.number())).rejects.toThrow()
-    } finally { client.close(); server.close() }
+    } finally {
+      client.close()
+      server.close()
+    }
   })
 
   it('rejects excessive lengths before waiting for the payload', async () => {
@@ -39,7 +42,13 @@ describe('SSH helper protocol', () => {
     let calls = 0
     const server = new SshRpcPeer(outbound, inbound, 4096, 8, async (_method, _raw, signal) => {
       calls++
-      signal.addEventListener('abort', () => { aborted.resolve(undefined) }, { once: true })
+      signal.addEventListener(
+        'abort',
+        () => {
+          aborted.resolve(undefined)
+        },
+        { once: true },
+      )
       entered.resolve(undefined)
       await aborted.promise
       return null
@@ -54,7 +63,10 @@ describe('SSH helper protocol', () => {
       await rejection
       await aborted.promise
       expect(calls).toBe(1)
-    } finally { client.close(); server.close() }
+    } finally {
+      client.close()
+      server.close()
+    }
   })
 
   it('reports an unknown outcome when a connection disappears after admission', async () => {
@@ -63,7 +75,15 @@ describe('SSH helper protocol', () => {
     const entered = Promise.withResolvers<undefined>()
     const server = new SshRpcPeer(outbound, inbound, 4096, 8, async (_method, _raw, signal) => {
       entered.resolve(undefined)
-      await new Promise<void>((resolve) => { signal.addEventListener('abort', () => { resolve() }, { once: true }) })
+      await new Promise<void>(resolve => {
+        signal.addEventListener(
+          'abort',
+          () => {
+            resolve()
+          },
+          { once: true },
+        )
+      })
       return null
     })
     const client = new SshRpcPeer(inbound, outbound, 4096, 8)

@@ -28,10 +28,7 @@ export type SessionScheduleSourceFactory = (sessionId: SessionId) => CatalogInje
  * @param sessionId - Session whose tasks are read; reading never activates it.
  * @returns observable catalog plus its mutation callbacks.
  */
-export function createSessionScheduleSource(
-  ctx: ClientContext,
-  sessionId: SessionId,
-): CatalogInjected {
+export function createSessionScheduleSource(ctx: ClientContext, sessionId: SessionId): CatalogInjected {
   return createCatalogSource({
     list: () => ctx.remote.schedule.list({ sessionId }),
     remove: id => ctx.remote.schedule.delete({ sessionId, id }),
@@ -70,14 +67,9 @@ const NO_RECORDS: readonly ScheduleCatalogEntry[] = []
  * @param sessionId - Session whose facts are selected.
  * @returns this Session's active-task facts.
  */
-export function selectSessionScheduleFacts(
-  snapshot: CatalogSnapshot<ScheduleCatalogEntry>,
-  sessionId: SessionId,
-): SessionScheduleFacts {
+export function selectSessionScheduleFacts(snapshot: CatalogSnapshot<ScheduleCatalogEntry>, sessionId: SessionId): SessionScheduleFacts {
   if (!snapshot.settled) return { hasActive: false, records: NO_RECORDS }
-  const records = snapshot.records.filter(
-    record => record.sessionId === sessionId && record.status === 'active',
-  )
+  const records = snapshot.records.filter(record => record.sessionId === sessionId && record.status === 'active')
   return { hasActive: records.length > 0, records }
 }
 
@@ -89,9 +81,11 @@ export function selectSessionScheduleFacts(
  * @returns whether both projections describe the same active tasks.
  */
 function sameSessionScheduleFacts(left: SessionScheduleFacts, right: SessionScheduleFacts): boolean {
-  return left.hasActive === right.hasActive
-    && left.records.length === right.records.length
-    && left.records.every((record, index) => record === right.records[index])
+  return (
+    left.hasActive === right.hasActive &&
+    left.records.length === right.records.length &&
+    left.records.every((record, index) => record === right.records[index])
+  )
 }
 
 /**
@@ -100,12 +94,6 @@ function sameSessionScheduleFacts(left: SessionScheduleFacts, right: SessionSche
  * @param sessionId - Session whose row is observed; reading activates nothing.
  * @returns this Session's facts, stable across other Sessions' updates.
  */
-export function useSessionScheduleFacts(
-  useCatalog: SessionScheduleCatalogHook,
-  sessionId: SessionId,
-): SessionScheduleFacts {
-  return useCatalog(
-    snapshot => selectSessionScheduleFacts(snapshot, sessionId),
-    sameSessionScheduleFacts,
-  )
+export function useSessionScheduleFacts(useCatalog: SessionScheduleCatalogHook, sessionId: SessionId): SessionScheduleFacts {
+  return useCatalog(snapshot => selectSessionScheduleFacts(snapshot, sessionId), sameSessionScheduleFacts)
 }

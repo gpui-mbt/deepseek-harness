@@ -90,19 +90,21 @@ export function subagentModelCandidates(
   selected: ReadonlySet<string>,
 ): SubagentModelCandidate[] {
   const storedByKey = new Map(stored.map(route => [subagentModelKey(route), route]))
-  const candidates = groups.flatMap(group => group.models.map((model): SubagentModelCandidate => {
-    const route = { provider: group.id, model: model.id }
-    const key = subagentModelKey(route)
-    storedByKey.delete(key)
-    return {
-      ...route,
-      key,
-      providerName: group.name,
-      modelName: model.name,
-      available: true,
-      selected: selected.has(key),
-    }
-  }))
+  const candidates = groups.flatMap(group =>
+    group.models.map((model): SubagentModelCandidate => {
+      const route = { provider: group.id, model: model.id }
+      const key = subagentModelKey(route)
+      storedByKey.delete(key)
+      return {
+        ...route,
+        key,
+        providerName: group.name,
+        modelName: model.name,
+        available: true,
+        selected: selected.has(key),
+      }
+    }),
+  )
   for (const route of storedByKey.values()) {
     const key = subagentModelKey(route)
     candidates.push({
@@ -151,10 +153,8 @@ export class SubagentModelSelectionCardController {
   ) {
     this.store = createSnapshotStore(this.projection())
     this.unsubscribe = scope.subscribe(() => {
-      if (!this.saving && this.draftRoutes !== undefined
-        && this.scope.getSnapshot().revision !== this.draftRevision) {
-        if (this.currentEnabled() === this.enabled()
-          && sameRoutes(this.currentRoutes(), this.desiredRoutes())) this.clearDraft()
+      if (!this.saving && this.draftRoutes !== undefined && this.scope.getSnapshot().revision !== this.draftRevision) {
+        if (this.currentEnabled() === this.enabled() && sameRoutes(this.currentRoutes(), this.desiredRoutes())) this.clearDraft()
         else this.conflicted = true
       }
       if (this.enabled() && this.catalogStatus === 'idle') void this.loadCatalog()
@@ -178,11 +178,21 @@ export class SubagentModelSelectionCardController {
   inject(): SubagentModelSelectionCardFace {
     return {
       hooks: { subagentModelSelectionCard: this.store },
-      toggleEnabled: () => { this.toggleEnabled() },
-      toggleModel: (key) => { this.toggleModel(key) },
-      retryCatalog: () => { void this.loadCatalog() },
-      save: () => { void this.save() },
-      discard: () => { this.discard() },
+      toggleEnabled: () => {
+        this.toggleEnabled()
+      },
+      toggleModel: key => {
+        this.toggleModel(key)
+      },
+      retryCatalog: () => {
+        void this.loadCatalog()
+      },
+      save: () => {
+        void this.save()
+      },
+      discard: () => {
+        this.discard()
+      },
     }
   }
 
@@ -206,9 +216,7 @@ export class SubagentModelSelectionCardController {
     if (this.draftRoutes === undefined) {
       const snapshot = this.scope.getSnapshot()
       this.draftEnabled = snapshot.value?.enabled ?? false
-      this.draftRoutes = new Map(
-        snapshot.value?.allowedModels.map(route => [subagentModelKey(route), { ...route }]) ?? [],
-      )
+      this.draftRoutes = new Map(snapshot.value?.allowedModels.map(route => [subagentModelKey(route), { ...route }]) ?? [])
       this.draftRevision = snapshot.revision
     }
     return this.draftRoutes
@@ -256,16 +264,22 @@ export class SubagentModelSelectionCardController {
   }
 
   private desiredRoutes(): AllowedSubagentModel[] {
-    return [...this.draftRoutes?.values() ?? this.currentRoutes()].map(route => ({ ...route }))
+    return [...(this.draftRoutes?.values() ?? this.currentRoutes())].map(route => ({ ...route }))
   }
 
   private async save(): Promise<void> {
     const snapshot = this.scope.getSnapshot()
     const desiredEnabled = this.enabled()
     const desired = this.desiredRoutes()
-    if (this.disposed || snapshot.status !== 'ready' || !snapshot.writable || this.saving
-      || (this.currentEnabled() === desiredEnabled && sameRoutes(this.currentRoutes(), desired))
-      || (desiredEnabled && desired.length === 0)) return
+    if (
+      this.disposed ||
+      snapshot.status !== 'ready' ||
+      !snapshot.writable ||
+      this.saving ||
+      (this.currentEnabled() === desiredEnabled && sameRoutes(this.currentRoutes(), desired)) ||
+      (desiredEnabled && desired.length === 0)
+    )
+      return
     if (this.draftRoutes !== undefined && snapshot.revision !== this.draftRevision) {
       this.conflicted = true
       this.publish()
@@ -276,14 +290,17 @@ export class SubagentModelSelectionCardController {
     this.failed = false
     this.conflicted = false
     this.publish()
-    await this.scope.mutate([
-      { op: 'set', path: ['enabled'], value: desiredEnabled },
-      {
-        op: 'set',
-        path: ['allowedModels'],
-        value: desired.map(route => ({ provider: route.provider, model: route.model })),
-      },
-    ], this.draftRevision)
+    await this.scope.mutate(
+      [
+        { op: 'set', path: ['enabled'], value: desiredEnabled },
+        {
+          op: 'set',
+          path: ['allowedModels'],
+          value: desired.map(route => ({ provider: route.provider, model: route.model })),
+        },
+      ],
+      this.draftRevision,
+    )
     if (generation !== this.saveGeneration) return
     const landed = this.currentEnabled() === desiredEnabled && sameRoutes(this.currentRoutes(), desired)
     this.saving = false

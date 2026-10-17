@@ -100,11 +100,13 @@ export interface RemoteEventResult {
  * @returns validated event correlation and outcome fields.
  */
 export function parseRemoteEventResult(value: unknown): RemoteEventResult {
-  if (!isRecord(value)
-    || !exactKeys(value, ['clientId', 'eventId', 'outcome'])
-    || !isRemoteEventClientId(value.clientId)
-    || !isRemoteEventId(value.eventId)
-    || !isRecord(value.outcome)) {
+  if (
+    !isRecord(value) ||
+    !exactKeys(value, ['clientId', 'eventId', 'outcome']) ||
+    !isRemoteEventClientId(value.clientId) ||
+    !isRemoteEventId(value.eventId) ||
+    !isRecord(value.outcome)
+  ) {
     throw new Error('api gateway: invalid Remote event result')
   }
   const outcome = value.outcome
@@ -115,19 +117,18 @@ export function parseRemoteEventResult(value: unknown): RemoteEventResult {
       outcome: { kind: 'next' },
     }
   }
-  if (outcome.kind === 'result'
-    && (exactKeys(outcome, ['kind']) || exactKeys(outcome, ['kind', 'value']))
-    && (!Object.hasOwn(outcome, 'value') || isRemoteJsonValue(outcome.value))) {
+  if (
+    outcome.kind === 'result' &&
+    (exactKeys(outcome, ['kind']) || exactKeys(outcome, ['kind', 'value'])) &&
+    (!Object.hasOwn(outcome, 'value') || isRemoteJsonValue(outcome.value))
+  ) {
     return {
       clientId: value.clientId,
       eventId: value.eventId,
-      outcome: Object.hasOwn(outcome, 'value')
-        ? { kind: 'result', value: outcome.value }
-        : { kind: 'result' },
+      outcome: Object.hasOwn(outcome, 'value') ? { kind: 'result', value: outcome.value } : { kind: 'result' },
     }
   }
-  if (outcome.kind === 'rejected'
-    && exactKeys(outcome, ['kind', 'error'])) {
+  if (outcome.kind === 'rejected' && exactKeys(outcome, ['kind', 'error'])) {
     return {
       clientId: value.clientId,
       eventId: value.eventId,
@@ -143,10 +144,7 @@ export function parseRemoteEventResult(value: unknown): RemoteEventResult {
  * @param subject - Agent used by the Cordis scope carrier.
  * @returns JSON-safe request fields and the optional Host cancellation signal.
  */
-export function projectRemoteEventRequest(
-  value: unknown,
-  subject: object,
-): ProjectedRemoteEventRequest {
+export function projectRemoteEventRequest(value: unknown, subject: object): ProjectedRemoteEventRequest {
   if (!isPlainRecord(value) || !Object.hasOwn(value, 'agent') || value.agent !== subject) {
     throw new TypeError('api gateway: Remote event request must carry its scoped Agent directly')
   }
@@ -182,7 +180,7 @@ export function projectRemoteEventRejection(reason: unknown): RemoteEventRejecti
   const name = stringProperty(record, 'name') ?? 'Error'
   const message = stringProperty(record, 'message') ?? String(reason)
   const code = stringProperty(record, 'code')
-  const details = record === undefined ? undefined : Reflect.get(record, 'details') as unknown
+  const details = record === undefined ? undefined : (Reflect.get(record, 'details') as unknown)
   return {
     name,
     message,
@@ -234,11 +232,11 @@ export function isRemoteEventAgentId(value: unknown): value is RemoteEventAgentI
 /** One logical stream request sent from the browser: open, one uplink item, uplink half-close, or cancel. */
 export type RemoteStreamClientMessage =
   | {
-    readonly type: 'open'
-    readonly streamId: string
-    readonly endpoint: string
-    readonly payload: unknown
-  }
+      readonly type: 'open'
+      readonly streamId: string
+      readonly endpoint: string
+      readonly payload: unknown
+    }
   | { readonly type: 'item'; readonly streamId: string; readonly value?: unknown }
   | { readonly type: 'end'; readonly streamId: string }
   | { readonly type: 'cancel'; readonly streamId: string }
@@ -262,23 +260,25 @@ export type RemoteStreamServerMessage =
  * @returns the validated logical-stream request.
  */
 export function parseRemoteStreamClientMessage(text: string): RemoteStreamClientMessage {
-  return parseMessage(text, (value) => {
-    if ((value.type === 'cancel' || value.type === 'end')
-      && exactKeys(value, ['type', 'streamId'])
-      && validId(value.streamId)) {
+  return parseMessage(text, value => {
+    if ((value.type === 'cancel' || value.type === 'end') && exactKeys(value, ['type', 'streamId']) && validId(value.streamId)) {
       return value as RemoteStreamClientMessage
     }
-    if (value.type === 'item'
-      && (exactKeys(value, ['type', 'streamId']) || exactKeys(value, ['type', 'streamId', 'value']))
-      && validId(value.streamId)
-      && (!Object.hasOwn(value, 'value') || isRemoteJsonValue(value.value))) {
+    if (
+      value.type === 'item' &&
+      (exactKeys(value, ['type', 'streamId']) || exactKeys(value, ['type', 'streamId', 'value'])) &&
+      validId(value.streamId) &&
+      (!Object.hasOwn(value, 'value') || isRemoteJsonValue(value.value))
+    ) {
       return value as RemoteStreamClientMessage
     }
-    if (value.type === 'open'
-      && exactKeys(value, ['type', 'streamId', 'endpoint', 'payload'])
-      && validId(value.streamId)
-      && typeof value.endpoint === 'string'
-      && value.endpoint.length > 0) {
+    if (
+      value.type === 'open' &&
+      exactKeys(value, ['type', 'streamId', 'endpoint', 'payload']) &&
+      validId(value.streamId) &&
+      typeof value.endpoint === 'string' &&
+      value.endpoint.length > 0
+    ) {
       return value as RemoteStreamClientMessage
     }
     throw new Error('api gateway: invalid Remote stream client message')
@@ -291,23 +291,27 @@ export function parseRemoteStreamClientMessage(text: string): RemoteStreamClient
  * @returns the validated logical-stream frame.
  */
 export function parseRemoteStreamServerMessage(text: string): RemoteStreamServerMessage {
-  return parseMessage(text, (value) => {
-    if (value.type === 'item'
-      && (exactKeys(value, ['type', 'streamId']) || exactKeys(value, ['type', 'streamId', 'value']))
-      && validId(value.streamId)) {
+  return parseMessage(text, value => {
+    if (
+      value.type === 'item' &&
+      (exactKeys(value, ['type', 'streamId']) || exactKeys(value, ['type', 'streamId', 'value'])) &&
+      validId(value.streamId)
+    ) {
       return value as RemoteStreamServerMessage
     }
     if (value.type === 'end' && exactKeys(value, ['type', 'streamId']) && validId(value.streamId)) {
       return value as RemoteStreamServerMessage
     }
-    if (value.type === 'error'
-      && exactKeys(value, ['type', 'streamId', 'error'])
-      && validId(value.streamId)
-      && isRecord(value.error)
-      && exactKeys(value.error, ['code', 'message', 'details'])
-      && typeof value.error.code === 'string'
-      && typeof value.error.message === 'string'
-      && isRecord(value.error.details)) {
+    if (
+      value.type === 'error' &&
+      exactKeys(value, ['type', 'streamId', 'error']) &&
+      validId(value.streamId) &&
+      isRecord(value.error) &&
+      exactKeys(value.error, ['code', 'message', 'details']) &&
+      typeof value.error.code === 'string' &&
+      typeof value.error.message === 'string' &&
+      isRecord(value.error.details)
+    ) {
       return value as RemoteStreamServerMessage
     }
     throw new Error('api gateway: invalid Remote stream server message')
@@ -326,9 +330,7 @@ function parseMessage<T>(text: string, validate: (value: Record<string, unknown>
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object'
-    && value !== null
-    && !Array.isArray(value)
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -347,13 +349,15 @@ function validId(value: unknown): value is string {
 }
 
 function parseRemoteEventRejection(value: unknown): RemoteEventRejection {
-  if (!isRecord(value)
-    || !hasOnlyKeys(value, ['name', 'message'], ['code', 'details'])
-    || typeof value.name !== 'string'
-    || value.name.length === 0
-    || typeof value.message !== 'string'
-    || (Object.hasOwn(value, 'code') && typeof value.code !== 'string')
-    || (Object.hasOwn(value, 'details') && !isRemoteJsonValue(value.details))) {
+  if (
+    !isRecord(value) ||
+    !hasOnlyKeys(value, ['name', 'message'], ['code', 'details']) ||
+    typeof value.name !== 'string' ||
+    value.name.length === 0 ||
+    typeof value.message !== 'string' ||
+    (Object.hasOwn(value, 'code') && typeof value.code !== 'string') ||
+    (Object.hasOwn(value, 'details') && !isRemoteJsonValue(value.details))
+  ) {
     throw new Error('api gateway: invalid Remote event rejection')
   }
   return {
@@ -364,14 +368,12 @@ function parseRemoteEventRejection(value: unknown): RemoteEventRejection {
   }
 }
 
-function hasOnlyKeys(
-  value: Record<string, unknown>,
-  required: readonly string[],
-  optional: readonly string[],
-): boolean {
+function hasOnlyKeys(value: Record<string, unknown>, required: readonly string[], optional: readonly string[]): boolean {
   const keys = Reflect.ownKeys(value)
-  return required.every(key => Object.hasOwn(value, key))
-    && keys.every(key => typeof key === 'string' && (required.includes(key) || optional.includes(key)))
+  return (
+    required.every(key => Object.hasOwn(value, key)) &&
+    keys.every(key => typeof key === 'string' && (required.includes(key) || optional.includes(key)))
+  )
 }
 
 function stringProperty(value: object | undefined, key: string): string | undefined {

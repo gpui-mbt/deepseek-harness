@@ -13,11 +13,7 @@ export const DEFAULTS: ResolvedConfig = deepFreeze({
   tailChars: 1024,
 })
 
-const CONFIG_KEYS: ReadonlySet<string> = new Set([
-  'thresholdChars',
-  'headChars',
-  'tailChars',
-])
+const CONFIG_KEYS: ReadonlySet<string> = new Set(['thresholdChars', 'headChars', 'tailChars'])
 
 /**
  * Count Unicode code points without splitting surrogate pairs.
@@ -36,10 +32,7 @@ export function codePointLength(text: string): number {
 export function resolveConfig(config: ToolResultPruneConfig = {}): ResolvedConfig {
   for (const key of Object.keys(config)) {
     if (!CONFIG_KEYS.has(key)) {
-      throw new Error(
-        `ToolResultPruneConfig: unknown key "${key}" `
-        + '(allowed: thresholdChars, headChars, tailChars)',
-      )
+      throw new Error(`ToolResultPruneConfig: unknown key "${key}" ` + '(allowed: thresholdChars, headChars, tailChars)')
     }
   }
 
@@ -52,13 +45,11 @@ export function resolveConfig(config: ToolResultPruneConfig = {}): ResolvedConfi
   assertNonNegativeInteger('headChars', resolved.headChars)
   assertNonNegativeInteger('tailChars', resolved.tailChars)
 
-  const emittedChars = resolved.headChars
-    + codePointLength(PRUNE_MARKER)
-    + resolved.tailChars
+  const emittedChars = resolved.headChars + codePointLength(PRUNE_MARKER) + resolved.tailChars
   if (emittedChars > resolved.thresholdChars) {
     throw new Error(
-      `ToolResultPruneConfig: headChars + marker + tailChars (${emittedChars}) `
-      + `must be at most thresholdChars (${resolved.thresholdChars})`,
+      `ToolResultPruneConfig: headChars + marker + tailChars (${emittedChars}) ` +
+        `must be at most thresholdChars (${resolved.thresholdChars})`,
     )
   }
   return deepFreeze(structuredClone(resolved))

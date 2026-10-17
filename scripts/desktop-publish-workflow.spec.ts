@@ -2,20 +2,23 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import yaml from 'js-yaml'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const workflow = yaml.load(readFileSync(resolve(import.meta.dirname, '../.github/workflows/desktop-publish.yml'), 'utf8')) as {
   on: Record<string, unknown>
   permissions: Record<string, string>
-  jobs: Record<string, {
-    defaults?: unknown
-    needs?: string | string[]
-    env?: Record<string, string>
-    if?: string
-    environment?: string
-    'runs-on': string | string[]
-    steps: Array<{ id?: string; if?: string; uses?: string; run?: string; env?: Record<string, string>; with?: Record<string, unknown> }>
-  }>
+  jobs: Record<
+    string,
+    {
+      defaults?: unknown
+      needs?: string | string[]
+      env?: Record<string, string>
+      if?: string
+      environment?: string
+      'runs-on': string | string[]
+      steps: Array<{ id?: string; if?: string; uses?: string; run?: string; env?: Record<string, string>; with?: Record<string, unknown> }>
+    }
+  >
 }
 
 it('rejects debugging packages before dependency setup and pins the checked attempt for routing', () => {
@@ -29,10 +32,12 @@ it('rejects debugging packages before dependency setup and pins the checked atte
 
 it('selects packages manually and gates production secrets with the production Environment', () => {
   expect(Object.keys(workflow.on)).toEqual(['workflow_dispatch'])
-  expect(workflow.on.workflow_dispatch).toMatchObject({ inputs: {
-    package_run_id: { type: 'string', required: true },
-    package_run_attempt: { type: 'string', required: false, default: '' },
-  } })
+  expect(workflow.on.workflow_dispatch).toMatchObject({
+    inputs: {
+      package_run_id: { type: 'string', required: true },
+      package_run_attempt: { type: 'string', required: false, default: '' },
+    },
+  })
   expect(workflow.permissions).toEqual({ contents: 'read', actions: 'read' })
   expect(workflow.jobs.route?.if).toBeUndefined()
   const publish = workflow.jobs.publish!
@@ -45,12 +50,11 @@ it('selects packages manually and gates production secrets with the production E
   expect(ids.indexOf('check')).toBeLessThan(ids.indexOf('key'))
   expect(ids.indexOf('key')).toBeLessThan(ids.indexOf('app'))
   expect(ids.indexOf('app')).toBeLessThan(ids.indexOf('publish'))
-  for (const id of ['key', 'app']) expect(publish.steps.find(step => step.id === id)?.if)
-    .toBe("needs.prepare.outputs.preset == 'production'")
+  for (const id of ['key', 'app'])
+    expect(publish.steps.find(step => step.id === id)?.if).toBe("needs.prepare.outputs.preset == 'production'")
   expect(publish.steps.find(step => step.id === 'app')?.with).toMatchObject({ 'permission-contents': 'write' })
   expect(publish.steps.find(step => step.id === 'publish')?.env?.DESKTOP_TAG_TOKEN).toBe('${{ steps.app.outputs.token }}')
 })
-
 
 it('prepares an approval digest without an Environment and binds the approved job to it', () => {
   const prepare = workflow.jobs.prepare!
@@ -64,7 +68,6 @@ it('prepares an approval digest without an Environment and binds the approved jo
   expect(publish.needs).toEqual(['route', 'prepare'])
   expect(publish.env?.DESKTOP_APPROVED_PACKAGE).toBe('${{ needs.prepare.outputs.approval }}')
 })
-
 
 it('rejects non-master dispatch before scheduling a self-hosted job', () => {
   const command = workflow.jobs.route!.steps[0]!.run!

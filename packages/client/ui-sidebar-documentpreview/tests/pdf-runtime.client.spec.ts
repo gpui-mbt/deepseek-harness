@@ -1,13 +1,18 @@
 // @vitest-environment jsdom
 /** Browser Worker ownership, handshake, and PDF.js teardown under controlled completions. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { PdfDocument, PdfSession } from '../src/client/pdf/document.ts'
 
 const api = vi.hoisted(() => ({ getDocument: vi.fn(), createWorker: vi.fn(), destroyBridge: vi.fn() }))
 vi.mock('pdfjs-dist', () => ({ getDocument: api.getDocument, PDFWorker: { create: api.createWorker } }))
 vi.mock('../src/client/pdf/assets.ts', () => ({
   workerSource: 'export const WorkerMessageHandler = {}',
-  createPdfBinaryDataFactory: () => class { fetch() { return Promise.resolve(new Uint8Array()) } },
+  createPdfBinaryDataFactory: () =>
+    class {
+      fetch() {
+        return Promise.resolve(new Uint8Array())
+      }
+    },
 }))
 import { openPdf } from '../src/client/pdf/runtime.ts'
 import { PdfWorkerFailure } from '../src/client/pdf/errors.ts'
@@ -21,11 +26,16 @@ const revokeURL = vi.fn()
 
 class ControlledWorker extends EventTarget {
   readonly terminate = vi.fn()
-  constructor(readonly url: string, readonly options: WorkerOptions) {
+  constructor(
+    readonly url: string,
+    readonly options: WorkerOptions,
+  ) {
     super()
     workers.push(this)
   }
-  ready(): void { this.dispatchEvent(new MessageEvent('message', { data: { type: 'dsh-pdf-worker-ready' } })) }
+  ready(): void {
+    this.dispatchEvent(new MessageEvent('message', { data: { type: 'dsh-pdf-worker-ready' } }))
+  }
 }
 
 beforeEach(() => {
@@ -35,10 +45,13 @@ beforeEach(() => {
   vi.clearAllMocks()
   api.createWorker.mockReturnValue({ destroy: api.destroyBridge })
   vi.stubGlobal('Worker', ControlledWorker)
-  vi.stubGlobal('URL', class extends NativeURL {
-    static override createObjectURL = createURL
-    static override revokeObjectURL = revokeURL
-  })
+  vi.stubGlobal(
+    'URL',
+    class extends NativeURL {
+      static override createObjectURL = createURL
+      static override revokeObjectURL = revokeURL
+    },
+  )
 })
 
 afterEach(async () => {
@@ -72,10 +85,13 @@ describe('PDF Worker lifecycle', () => {
     expect(workers[0]!.options).toEqual({ type: 'module', name: 'dsh-pdf' })
     expect(api.getDocument).not.toHaveBeenCalled()
     workers[0]!.ready()
-    const options = await h.entered.promise as { data: Uint8Array<ArrayBuffer>; BinaryDataFactory: unknown }
+    const options = (await h.entered.promise) as { data: Uint8Array<ArrayBuffer>; BinaryDataFactory: unknown }
     expect(api.createWorker).toHaveBeenCalledWith({ port: workers[0] })
     expect(options).toMatchObject({
-      useWorkerFetch: false, enableXfa: false, cMapPacked: true, isEvalSupported: false,
+      useWorkerFetch: false,
+      enableXfa: false,
+      cMapPacked: true,
+      isEvalSupported: false,
     })
     expect(typeof options.BinaryDataFactory).toBe('function')
     expect(Array.from(options.data)).toEqual([37, 80, 68, 70, 45, 116, 101, 115, 116])
@@ -113,8 +129,13 @@ describe('PDF Worker lifecycle', () => {
     await h.entered.promise
     const destruction = Promise.withResolvers<undefined>()
     const destroying = Promise.withResolvers<undefined>()
-    releases.push(() => { destruction.resolve(undefined) })
-    h.destroy.mockImplementation(async () => { destroying.resolve(undefined); await destruction.promise })
+    releases.push(() => {
+      destruction.resolve(undefined)
+    })
+    h.destroy.mockImplementation(async () => {
+      destroying.resolve(undefined)
+      await destruction.promise
+    })
     h.controller.abort()
     await destroying.promise
     expect(workers[0]!.terminate).not.toHaveBeenCalled()
@@ -176,7 +197,9 @@ describe('PDF Worker lifecycle', () => {
 
   it('terminates after messageerror even when the failure callback throws', async () => {
     const callbackError = new Error('listener failed')
-    const failed = vi.fn(() => { throw callbackError })
+    const failed = vi.fn(() => {
+      throw callbackError
+    })
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
     const h = setup(new AbortController(), failed)
     workers[0]!.dispatchEvent(new MessageEvent('messageerror'))
@@ -195,8 +218,13 @@ describe('PDF Worker lifecycle', () => {
     await h.session.document
     const destruction = Promise.withResolvers<undefined>()
     const destroying = Promise.withResolvers<undefined>()
-    releases.push(() => { destruction.resolve(undefined) })
-    h.destroy.mockImplementation(async () => { destroying.resolve(undefined); await destruction.promise })
+    releases.push(() => {
+      destruction.resolve(undefined)
+    })
+    h.destroy.mockImplementation(async () => {
+      destroying.resolve(undefined)
+      await destruction.promise
+    })
     h.controller.abort()
     await destroying.promise
     workers[0]!.dispatchEvent(new MessageEvent('messageerror'))
@@ -223,9 +251,12 @@ describe('PDF Worker lifecycle', () => {
   })
 
   it('revokes its source URL when browser policy refuses Worker construction', async () => {
-    vi.stubGlobal('Worker', vi.fn(function blockedWorker() {
-      throw new DOMException('Worker blocked by policy', 'SecurityError')
-    }))
+    vi.stubGlobal(
+      'Worker',
+      vi.fn(function blockedWorker() {
+        throw new DOMException('Worker blocked by policy', 'SecurityError')
+      }),
+    )
     const h = setup()
     await expect(h.session.document).rejects.toMatchObject({ name: 'SecurityError' })
     expect(revokeURL).toHaveBeenCalledOnce()

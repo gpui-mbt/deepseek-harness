@@ -7,7 +7,19 @@
  * @module @deepseek-ai/dsh-sandbox-windows-acl/token
  */
 
-import { allocBytes, allocPtrSlot, allocUint32, decodePtr, decodePtrAt, decodeUint32, encodeUint32, isNullPtr, ptrAddress, throwLastError, throwWin32 } from './ffi.ts'
+import {
+  allocBytes,
+  allocPtrSlot,
+  allocUint32,
+  decodePtr,
+  decodePtrAt,
+  decodeUint32,
+  encodeUint32,
+  isNullPtr,
+  ptrAddress,
+  throwLastError,
+  throwWin32,
+} from './ffi.ts'
 import type { NativePtr, Win32Bindings } from './ffi.ts'
 import { buildExplicitAccess } from './acl.ts'
 import * as abi from './win32-abi.ts'
@@ -65,7 +77,7 @@ export function findLogonSid(api: Win32Bindings, token: NativePtr): NativePtr {
     const sidPtr = decodePtrAt(groups, abi.TOKEN_GROUPS_OFFSET + index * abi.SID_AND_ATTRIBUTES_SIZE)
     const attributes = groups.readUInt32LE(abi.TOKEN_GROUPS_OFFSET + index * abi.SID_AND_ATTRIBUTES_SIZE + 8)
     // >>> 0: JS bitwise & is signed 32-bit; SE_GROUP_LOGON_ID has bit 31 set.
-    const isLogonId = ((attributes & abi.SE_GROUP_LOGON_ID) >>> 0) === (abi.SE_GROUP_LOGON_ID >>> 0)
+    const isLogonId = (attributes & abi.SE_GROUP_LOGON_ID) >>> 0 === abi.SE_GROUP_LOGON_ID >>> 0
     if (sidPtr === null || !isLogonId) continue
     const sidLength = api.getLengthSid(sidPtr)
     if (sidLength === 0) throwLastError(api, 'GetLengthSid', `logon SID group ${index}`)
@@ -123,12 +135,7 @@ export function setTokenDefaultDaclGrant(api: Win32Bindings, token: NativePtr, s
     throw new Error('setTokenDefaultDaclGrant: the token carries no default DACL to extend')
   }
   const newDaclSlot = allocPtrSlot()
-  const result = api.setEntriesInAclW(
-    1,
-    buildExplicitAccess(sidPtr, abi.GRANT_ACCESS, abi.FILE_ALL_ACCESS),
-    currentDacl,
-    newDaclSlot,
-  )
+  const result = api.setEntriesInAclW(1, buildExplicitAccess(sidPtr, abi.GRANT_ACCESS, abi.FILE_ALL_ACCESS), currentDacl, newDaclSlot)
   if (result !== abi.ERROR_SUCCESS) throwWin32(api, 'SetEntriesInAclW', result, 'default DACL merge')
   const newDacl = decodePtr(newDaclSlot)
   if (newDacl === null) throwWin32(api, 'SetEntriesInAclW', result, 'null merged default DACL')
@@ -221,22 +228,29 @@ export function createRestrictedToken(
   known: RestrictingSidSet,
   mode: 'read-only' | 'workspace-write',
 ): NativePtr {
-  const restrictingSids = buildRestrictingSids(mode === 'read-only'
-    ? [logonSid, known.world]
-    : writeSids.length === 0
-      ? (() => { throw new Error('createRestrictedToken: workspace-write restricting list requires at least one write SID') })()
-      : [logonSid, known.world, ...writeSids])
+  const restrictingSids = buildRestrictingSids(
+    mode === 'read-only'
+      ? [logonSid, known.world]
+      : writeSids.length === 0
+        ? (() => {
+            throw new Error('createRestrictedToken: workspace-write restricting list requires at least one write SID')
+          })()
+        : [logonSid, known.world, ...writeSids],
+  )
   const tokenSlot = allocPtrSlot()
   const created = api.createRestrictedToken(
     currentToken,
     abi.DISABLE_MAX_PRIVILEGE | abi.LUA_TOKEN | abi.WRITE_RESTRICTED,
-    0, null, // no SIDs disabled
-    0, null, // no privileges deleted
+    0,
+    null, // no SIDs disabled
+    0,
+    null, // no privileges deleted
     restrictingSids.length / abi.SID_AND_ATTRIBUTES_SIZE,
     restrictingSids,
     tokenSlot,
   )
-  if (created === 0) throwLastError(api, 'CreateRestrictedToken', `restricting SIDs: ${restrictingSids.length / abi.SID_AND_ATTRIBUTES_SIZE}`)
+  if (created === 0)
+    throwLastError(api, 'CreateRestrictedToken', `restricting SIDs: ${restrictingSids.length / abi.SID_AND_ATTRIBUTES_SIZE}`)
   const token = decodePtr(tokenSlot)
   if (token === null) throwWin32(api, 'CreateRestrictedToken', api.getLastError(), 'null token handle')
   return token

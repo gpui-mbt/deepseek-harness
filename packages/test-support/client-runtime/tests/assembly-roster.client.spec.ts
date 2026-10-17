@@ -1,6 +1,11 @@
 /** ClientRoster: construction, duplicate refusal, order-preserving pick/closure/without with loud unknown names; graphFromRoster. */
-import { createClientModuleSystem, parseBootManifest, type ClientBundleRegistration, type ClientModuleLoaderTarget } from '@deepseek-ai/dsh-client-modules/client'
-import { describe, expect, it } from 'vitest'
+import {
+  createClientModuleSystem,
+  parseBootManifest,
+  type ClientBundleRegistration,
+  type ClientModuleLoaderTarget,
+} from '@deepseek-ai/dsh-client-modules/client'
+import { describe, expect, it } from 'vite-plus/test'
 import { ClientRoster, graphFromRoster, type ClientRosterRow } from '../src/assembly/roster.ts'
 import { MODULES_PACKAGE } from '../src/assembly/modules.ts'
 
@@ -38,7 +43,9 @@ describe('graphFromRoster', () => {
     const target: ClientModuleLoaderTarget = {
       mode: 'queue',
       pendingQueue,
-      load: (registration) => { pendingQueue.push(registration) },
+      load: registration => {
+        pendingQueue.push(registration)
+      },
       create: options => createClientModuleSystem(target, { id: MODULES_PACKAGE, exports: {} }, options),
     }
     const a = { apply() {} }
@@ -46,7 +53,9 @@ describe('graphFromRoster', () => {
     const modules = target.create({
       boot: graphFromRoster(ROWS),
       staticModules: { '@x/a': a, '@x/b': b },
-      loadBundle: async (url) => { loaded.push(url) },
+      loadBundle: async url => {
+        loaded.push(url)
+      },
     })
     await expect(modules.import('@x/a')).resolves.toBe(a)
     await expect(modules.import('@x/b')).resolves.toBe(b)
@@ -107,6 +116,10 @@ describe('ClientRoster', () => {
 
   it('closure treats the platform seed modules as satisfied without a row', () => {
     const seeded = { name: 'seeded', inject: ['@deepseek-ai/dsh-client-ui-primitives', 'react', 'a'], immediately: false }
-    expect(ClientRoster.of([A, seeded]).closure(['seeded']).rows.map(row => row.name)).toEqual(['a', 'seeded'])
+    expect(
+      ClientRoster.of([A, seeded])
+        .closure(['seeded'])
+        .rows.map(row => row.name),
+    ).toEqual(['a', 'seeded'])
   })
 })

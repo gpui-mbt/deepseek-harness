@@ -16,7 +16,7 @@ export class ChangesDiffStore extends HostReadStore<ChangesDiffState> {
       loading: 'loading',
       failed: 'error',
       retryable: state => state === 'error',
-      decode: async (response) => {
+      decode: async response => {
         if (response.status === 404) return 'missing'
         if (!response.ok) return 'error'
         const value: unknown = await response.json()

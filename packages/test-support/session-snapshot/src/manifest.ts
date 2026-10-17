@@ -136,10 +136,7 @@ export type SnapshotSessionWriteMode = 'replay' | 'record' | 'refresh'
  * @param mode - Snapshot execution mode.
  * @returns True only when a write-capable mode tracks the current writer.
  */
-export function writesCurrentSessionFixtures(
-  manifest: SnapshotManifest,
-  mode: SnapshotSessionWriteMode,
-): boolean {
+export function writesCurrentSessionFixtures(manifest: SnapshotManifest, mode: SnapshotSessionWriteMode): boolean {
   return mode !== 'replay' && manifest.session === undefined && manifest.sessionFormat === undefined
 }
 
@@ -165,7 +162,9 @@ function record(value: unknown, label: string): Record<string, unknown> {
 }
 
 function exactKeys(value: Record<string, unknown>, allowed: readonly string[], label: string): void {
-  const unknown = Object.keys(value).filter(key => !allowed.includes(key)).sort()
+  const unknown = Object.keys(value)
+    .filter(key => !allowed.includes(key))
+    .sort()
   if (unknown.length > 0) throw new Error(`${label} has unknown field(s): ${unknown.join(', ')}`)
 }
 
@@ -184,12 +183,10 @@ function scenarioSource(value: unknown, label: string): string {
 }
 
 function positiveIndexes(value: unknown, label: string): number[] {
-  if (!Array.isArray(value)
-    || value.some(item => !Number.isInteger(item) || Number(item) < 1)
-    || new Set(value).size !== value.length) {
+  if (!Array.isArray(value) || value.some(item => !Number.isInteger(item) || Number(item) < 1) || new Set(value).size !== value.length) {
     throw new Error(`${label} must be an array of unique positive integers`)
   }
-  return [...value as number[]]
+  return [...(value as number[])]
 }
 
 /**
@@ -208,31 +205,33 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
 
   try {
     const root = record(parsed, 'manifest')
-    exactKeys(root, [
-      'version',
-      'scenario',
-      'profile',
-      'composition',
-      'recording',
-      'header',
-      'replay',
-      'platform',
-      'permission',
-      'environment',
-      'workspace',
-      'input',
-      'session',
-      'sessionFormat',
-    ], 'manifest')
+    exactKeys(
+      root,
+      [
+        'version',
+        'scenario',
+        'profile',
+        'composition',
+        'recording',
+        'header',
+        'replay',
+        'platform',
+        'permission',
+        'environment',
+        'workspace',
+        'input',
+        'session',
+        'sessionFormat',
+      ],
+      'manifest',
+    )
     if (root.version !== 1) throw new Error('manifest.version must equal 1')
     const scenario = root.scenario === undefined ? undefined : name(root.scenario, 'manifest.scenario')
     if (typeof root.profile !== 'string' || !PROFILES.has(root.profile as SnapshotProfile)) {
       throw new Error('manifest.profile must be headless, sdk, sdk-minimal, acp, or web')
     }
 
-    const composition = root.composition === undefined
-      ? undefined
-      : name(root.composition, 'manifest.composition')
+    const composition = root.composition === undefined ? undefined : name(root.composition, 'manifest.composition')
     let recording: SnapshotRecording | undefined
     if (root.recording !== undefined) {
       if (typeof root.recording !== 'string' || !RECORDINGS.has(root.recording as SnapshotRecording)) {
@@ -244,16 +243,11 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
     let header: SnapshotHeaderManifest | undefined
     if (root.header !== undefined) {
       const value = record(root.header, 'manifest.header')
-      exactKeys(value, [
-        'class',
-        'pin',
-        'systemPromptSource',
-        'toolSchemasSource',
-        'childSystemPrompts',
-        'childToolSchemas',
-        'changes',
-        'promptChanges',
-      ], 'manifest.header')
+      exactKeys(
+        value,
+        ['class', 'pin', 'systemPromptSource', 'toolSchemasSource', 'childSystemPrompts', 'childToolSchemas', 'changes', 'promptChanges'],
+        'manifest.header',
+      )
       if (value.pin !== undefined && value.pin !== true) {
         throw new Error('manifest.header.pin must equal true when present')
       }
@@ -392,20 +386,20 @@ export function parseSnapshotManifest(source: string, path = 'snapshot.yml'): Sn
       if (!Number.isSafeInteger(value.version) || Number(value.version) < 0 || Object.is(value.version, -0)) {
         throw new Error('manifest.sessionFormat.version must be a non-negative safe integer')
       }
-      if (!Array.isArray(value.coverage) || value.coverage.length === 0
-        || value.coverage.some(item => typeof item !== 'string'
-          || !SESSION_FORMAT_COVERAGE.has(item as SnapshotSessionFormatCoverage))
-        || new Set(value.coverage).size !== value.coverage.length) {
-        throw new Error(
-          'manifest.sessionFormat.coverage must be a non-empty array of unique supported coverage names',
-        )
+      if (
+        !Array.isArray(value.coverage) ||
+        value.coverage.length === 0 ||
+        value.coverage.some(item => typeof item !== 'string' || !SESSION_FORMAT_COVERAGE.has(item as SnapshotSessionFormatCoverage)) ||
+        new Set(value.coverage).size !== value.coverage.length
+      ) {
+        throw new Error('manifest.sessionFormat.coverage must be a non-empty array of unique supported coverage names')
       }
       if (session !== undefined) {
         throw new Error('manifest.sessionFormat is only valid when the scenario owns its Session fixtures')
       }
       sessionFormat = {
         version: Number(value.version),
-        coverage: [...value.coverage as SnapshotSessionFormatCoverage[]],
+        coverage: [...(value.coverage as SnapshotSessionFormatCoverage[])],
       }
     }
 

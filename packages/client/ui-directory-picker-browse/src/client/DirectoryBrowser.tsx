@@ -37,8 +37,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconCheckOutlineRegular, IconChevronRightOutlineRegular, IconEditOutlineRegular, IconFolderCloseRegular, IconFolderOpenRegular,
-  IconPlusOutlineRegular, Modal,
+  Button,
+  IconCheckOutlineRegular,
+  IconChevronRightOutlineRegular,
+  IconEditOutlineRegular,
+  IconFolderCloseRegular,
+  IconFolderOpenRegular,
+  IconPlusOutlineRegular,
+  Modal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DirectoryEntry, DirectoryListing } from '@deepseek-ai/dsh-api-remotes/client'
 import type { Translate } from '@deepseek-ai/dsh-client-locale/client'
@@ -75,8 +81,8 @@ export interface DirectoryBrowserProps {
 function failureText(error: unknown): string {
   if (error !== null && typeof error === 'object' && 'rpcError' in error) {
     const rpcError = error.rpcError
-    if (rpcError !== null && typeof rpcError === 'object' && 'message' in rpcError
-      && typeof rpcError.message === 'string') return rpcError.message
+    if (rpcError !== null && typeof rpcError === 'object' && 'message' in rpcError && typeof rpcError.message === 'string')
+      return rpcError.message
   }
   return error instanceof Error ? error.message : String(error)
 }
@@ -155,9 +161,7 @@ interface ScannedDirectory {
  * backslash is a legal name character and never separates.
  */
 function draftDirectory(listing: DirectoryListing, draft: string): string | null {
-  const cut = separatorOf(listing) === '\\'
-    ? Math.max(draft.lastIndexOf('\\'), draft.lastIndexOf('/'))
-    : draft.lastIndexOf('/')
+  const cut = separatorOf(listing) === '\\' ? Math.max(draft.lastIndexOf('\\'), draft.lastIndexOf('/')) : draft.lastIndexOf('/')
   return cut === -1 ? null : draft.slice(0, cut + 1)
 }
 
@@ -182,8 +186,8 @@ function readDraft(
 ): { directory: string | null; tail: string | null } {
   const directory = draftDirectory(listing, draft)
   if (directory === null) return { directory: null, tail: null }
-  const answers = directory === levelDirectory(listing)
-    || (scanned !== null && scanned.directory === directory && scanned.landed === listing.path)
+  const answers =
+    directory === levelDirectory(listing) || (scanned !== null && scanned.directory === directory && scanned.landed === listing.path)
   return { directory, tail: answers ? draft.slice(directory.length) : null }
 }
 
@@ -210,7 +214,7 @@ function visibleEntries(
   const displayable = (entry: DirectoryEntry): boolean => showHidden || !entry.hidden || needle.startsWith('.')
   const matches = (entry: DirectoryEntry): boolean => displayable(entry) && entry.name.toLowerCase().startsWith(needle)
   const narrowing = needle !== '' && entries.some(matches)
-  return entries.filter((entry) => {
+  return entries.filter(entry => {
     if (entry.path === selectedPath) return true
     if (narrowing) return matches(entry)
     return showHidden || !entry.hidden
@@ -218,7 +222,15 @@ function visibleEntries(
 }
 
 /** One column of folder rows (the Miller view renders one or two of these). */
-function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPrefix, pathEditing }: {
+function LevelColumn({
+  entries,
+  selectedPath,
+  busy,
+  onPick,
+  showHidden,
+  filterPrefix,
+  pathEditing,
+}: {
   entries: readonly DirectoryEntry[]
   selectedPath: string | null
   busy: boolean
@@ -230,7 +242,7 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
   const visible = visibleEntries(entries, selectedPath, showHidden, filterPrefix)
   return (
     <div className={css.column} role="list">
-      {visible.map((entry) => {
+      {visible.map(entry => {
         const selected = entry.path === selectedPath
         return (
           // The wrapper carries the list semantics; the row keeps its NATIVE
@@ -245,16 +257,26 @@ function LevelColumn({ entries, selectedPath, busy, onPick, showHidden, filterPr
               // steal on mousedown would blur the editor and (in engines
               // where the blur lands before our guards) drop this click.
               // Outside editing, rows keep native focus behavior.
-              onMouseDown={pathEditing ? (event) => { event.preventDefault() } : undefined}
+              onMouseDown={
+                pathEditing
+                  ? event => {
+                      event.preventDefault()
+                    }
+                  : undefined
+              }
               // Editing-time focus parking happens after commit (the
               // DirectoryBrowser refocus effect): a right-pane pick replaces
               // this very column, so focusing the clicked node here would
               // still fall to body.
-              onClick={() => { onPick(entry) }}
+              onClick={() => {
+                onPick(entry)
+              }}
             >
-              {selected
-                ? <IconFolderOpenRegular size={16} className={css.rowIconSelected} />
-                : <IconFolderCloseRegular size={16} className={css.rowIcon} />}
+              {selected ? (
+                <IconFolderOpenRegular size={16} className={css.rowIconSelected} />
+              ) : (
+                <IconFolderCloseRegular size={16} className={css.rowIcon} />
+              )}
               <span className={css.rowName}>{entry.name}</span>
               <IconChevronRightOutlineRegular size={12} className={css.rowChevron} />
             </button>
@@ -310,14 +332,21 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   const composingRef = useRef(false)
   // HMR/unmount invalidation: a completion from a disposed flow must not
   // update state or issue follow-up requests from a dead component.
-  useEffect(() => () => {
-    requestSeq.current += 1
-    openGeneration.current += 1
-    scanController.current?.abort()
-  }, [])
+  useEffect(
+    () => () => {
+      requestSeq.current += 1
+      openGeneration.current += 1
+      scanController.current?.abort()
+    },
+    [],
+  )
   const compositionGuard = {
-    onCompositionStart: () => { composingRef.current = true },
-    onCompositionEnd: () => { composingRef.current = false },
+    onCompositionStart: () => {
+      composingRef.current = true
+    },
+    onCompositionEnd: () => {
+      composingRef.current = false
+    },
   }
 
   /** Newer intent wins: invalidate the pending listing's settlement AND abort its wire request. */
@@ -334,24 +363,30 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [])
 
   /** Launch one listing under a fresh controller so a later supersession can abort it. */
-  const launchListing = useCallback((path: string | undefined): { seq: number; scan: Promise<DirectoryListing> } => {
-    const seq = supersede()
-    const controller = new AbortController()
-    scanController.current = controller
-    restartSlowScanWindow()
-    return { seq, scan: listDirectory(path, controller.signal) }
-  }, [supersede, restartSlowScanWindow, listDirectory])
+  const launchListing = useCallback(
+    (path: string | undefined): { seq: number; scan: Promise<DirectoryListing> } => {
+      const seq = supersede()
+      const controller = new AbortController()
+      scanController.current = controller
+      restartSlowScanWindow()
+      return { seq, scan: listDirectory(path, controller.signal) }
+    },
+    [supersede, restartSlowScanWindow, listDirectory],
+  )
 
   /**
    * Launch a follow-up listing under the CURRENT supersession seq: a newer
    * intent aborts it like the leg it continues, and it supersedes nothing.
    */
-  const continueScan = useCallback((path: string): Promise<DirectoryListing> => {
-    const controller = new AbortController()
-    scanController.current = controller
-    restartSlowScanWindow()
-    return listDirectory(path, controller.signal)
-  }, [restartSlowScanWindow, listDirectory])
+  const continueScan = useCallback(
+    (path: string): Promise<DirectoryListing> => {
+      const controller = new AbortController()
+      scanController.current = controller
+      restartSlowScanWindow()
+      return listDirectory(path, controller.signal)
+    },
+    [restartSlowScanWindow, listDirectory],
+  )
 
   /**
    * Enter owns the view from submission until its navigation lands, so the
@@ -365,7 +400,9 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   // The panes as the draft-following scan must read them when its wait
   // fires: current, but NOT a dependency of the wait (see the effect below).
   const viewRef = useRef<{ parent: DirectoryListing | null; child: DirectoryListing | null }>({ parent: null, child: null })
-  useEffect(() => { viewRef.current = { parent, child } }, [parent, child])
+  useEffect(() => {
+    viewRef.current = { parent, child }
+  }, [parent, child])
 
   // What the last draft-following scan asked for and what came back, so a
   // level still answers the text that produced it after the host respelled
@@ -409,80 +446,101 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * bounds the wait for the parent leg; `announce` surfaces a failure as the
    * dialog's alert.
    */
-  const land = useCallback((path: string | undefined, options: { closeEditor: boolean; announce: boolean }) => {
-    const { seq, scan } = launchListing(path)
-    setLoading(true)
-    if (options.announce) setError(null)
-    // What every landing does once its panes are committed, whichever shape
-    // committed them.
-    const settle = (): void => {
-      setLoading(false)
-      if (options.closeEditor) {
-        setPathDraft(null)
-        return
+  const land = useCallback(
+    (path: string | undefined, options: { closeEditor: boolean; announce: boolean }) => {
+      const { seq, scan } = launchListing(path)
+      setLoading(true)
+      if (options.announce) setError(null)
+      // What every landing does once its panes are committed, whichever shape
+      // committed them.
+      const settle = (): void => {
+        setLoading(false)
+        if (options.closeEditor) {
+          setPathDraft(null)
+          return
+        }
+        setError(null)
+        refocusPathInput.current = true
       }
-      setError(null)
-      refocusPathInput.current = true
-    }
-    scan.then((target) => {
-      if (seq !== requestSeq.current) return
-      // The level the panes will present as current answers this exact
-      // directory text, however the host respelled it (`..`, a Windows
-      // forward slash): the tail filters, and the same text asks for no
-      // second scan.
-      if (!options.closeEditor && path !== undefined) scanned.current = { directory: path, landed: target.path }
-      // The single-pane landing; `landed` makes it first-commit-only, while
-      // the two-pane commit below may still upgrade an already-landed view.
-      let landed = false
-      const landSingle = (): void => {
-        if (landed || seq !== requestSeq.current) return
-        landed = true
-        setParent(target)
-        setSelected(null)
-        setChild(null)
-        settle()
-      }
-      // Arity is label-independent: only the collapsed chain's depth decides.
-      if (displayCrumbs(target, '').length < 2) { landSingle(); return }
-      const parentCrumb = target.crumbs.at(-2)
-      /* v8 ignore next -- narrowing: a two-deep display chain implies a parent crumb (root-to-target inclusive). */
-      if (parentCrumb === undefined) { landSingle(); return }
-      continueScan(parentCrumb.path).then((parentLevel) => {
-        if (seq !== requestSeq.current) return
-        // Windows resolves a typed path preserving its case; anchor on the
-        // parent level's actual entry so selection comparisons hold.
-        const sep = separatorOf(parentLevel)
-        const fold = (value: string): string => (sep === '\\' ? value.toLowerCase() : value)
-        const match = parentLevel.entries.find(entry => fold(entry.path) === fold(target.path))
-        if (match === undefined) { landSingle(); return }
-        landed = true
-        setParent(parentLevel)
-        setSelected(match)
-        setChild(target)
-        // Idempotent on a late upgrade of a timed-out landing: reopening the
-        // editor or starting a newer scan supersedes this seq, so reaching
-        // here means the settlement is still this landing's own.
-        settle()
-      }, () => {
-        // The parent-leg failure (its abort included) never surfaces: the
-        // target listed fine, and nobody asked to see the parent level.
-        landSingle()
-      })
-      // Only a submitted navigation is bounded: the walk waits both legs out
-      // (see the contract above), and a keystroke aborts it if the operator
-      // moves on first.
-      if (options.closeEditor) window.setTimeout(landSingle, PARENT_LEG_WAIT_MS)
-    }, (reason: unknown) => {
-      if (seq !== requestSeq.current) return
-      setLoading(false)
-      if (options.announce) setError(failureText(reason))
-    })
-  }, [launchListing, continueScan])
+      scan.then(
+        target => {
+          if (seq !== requestSeq.current) return
+          // The level the panes will present as current answers this exact
+          // directory text, however the host respelled it (`..`, a Windows
+          // forward slash): the tail filters, and the same text asks for no
+          // second scan.
+          if (!options.closeEditor && path !== undefined) scanned.current = { directory: path, landed: target.path }
+          // The single-pane landing; `landed` makes it first-commit-only, while
+          // the two-pane commit below may still upgrade an already-landed view.
+          let landed = false
+          const landSingle = (): void => {
+            if (landed || seq !== requestSeq.current) return
+            landed = true
+            setParent(target)
+            setSelected(null)
+            setChild(null)
+            settle()
+          }
+          // Arity is label-independent: only the collapsed chain's depth decides.
+          if (displayCrumbs(target, '').length < 2) {
+            landSingle()
+            return
+          }
+          const parentCrumb = target.crumbs.at(-2)
+          /* v8 ignore next -- narrowing: a two-deep display chain implies a parent crumb (root-to-target inclusive). */
+          if (parentCrumb === undefined) {
+            landSingle()
+            return
+          }
+          continueScan(parentCrumb.path).then(
+            parentLevel => {
+              if (seq !== requestSeq.current) return
+              // Windows resolves a typed path preserving its case; anchor on the
+              // parent level's actual entry so selection comparisons hold.
+              const sep = separatorOf(parentLevel)
+              const fold = (value: string): string => (sep === '\\' ? value.toLowerCase() : value)
+              const match = parentLevel.entries.find(entry => fold(entry.path) === fold(target.path))
+              if (match === undefined) {
+                landSingle()
+                return
+              }
+              landed = true
+              setParent(parentLevel)
+              setSelected(match)
+              setChild(target)
+              // Idempotent on a late upgrade of a timed-out landing: reopening the
+              // editor or starting a newer scan supersedes this seq, so reaching
+              // here means the settlement is still this landing's own.
+              settle()
+            },
+            () => {
+              // The parent-leg failure (its abort included) never surfaces: the
+              // target listed fine, and nobody asked to see the parent level.
+              landSingle()
+            },
+          )
+          // Only a submitted navigation is bounded: the walk waits both legs out
+          // (see the contract above), and a keystroke aborts it if the operator
+          // moves on first.
+          if (options.closeEditor) window.setTimeout(landSingle, PARENT_LEG_WAIT_MS)
+        },
+        (reason: unknown) => {
+          if (seq !== requestSeq.current) return
+          setLoading(false)
+          if (options.announce) setError(failureText(reason))
+        },
+      )
+    },
+    [launchListing, continueScan],
+  )
 
   /** Commit a submitted path (Enter, a crumb, the initial home listing): the editor closes, failures surface. */
-  const navigate = useCallback((path?: string) => {
-    land(path, { closeEditor: true, announce: true })
-  }, [land])
+  const navigate = useCallback(
+    (path?: string) => {
+      land(path, { closeEditor: true, announce: true })
+    },
+    [land],
+  )
 
   // Editor-close focus parking (consumed by the refocus effect below the
   // miller-row ref): a pick parks on the selection's row, Enter and an
@@ -503,34 +561,40 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * rule governs whole-view replacement, where nothing acknowledges the
    * click but the swap itself.
    */
-  const select = useCallback((entry: DirectoryEntry) => {
-    const { seq, scan } = launchListing(entry.path)
-    // A pick while the path editor is open adopts the (filtered) row and
-    // closes the editor — the draft served its purpose. Focus re-parks on
-    // the selection after commit (see the refocus effect below).
-    if (pathDraft !== null) refocusPick.current = true
-    setPathDraft(null)
-    setSelected(entry)
-    setChild(null)
-    setLoading(true)
-    setError(null)
-    scan.then((next) => {
-      if (seq !== requestSeq.current) return
-      setChild(next)
-      setLoading(false)
-    }, (reason: unknown) => {
-      if (seq !== requestSeq.current) return
-      setLoading(false)
-      setError(failureText(reason))
-      // An unreadable selection cannot be the committing target while the
-      // breadcrumb still names the level: fall back to the single pane.
-      setSelected(null)
-      // Clearing the selection can unmount the very row the pick parked
-      // focus on (a dot-revealed hidden row re-hides); the refocus effect
-      // re-parks on the edit zone only if focus actually fell to body.
-      refocusEditZone.current = true
-    })
-  }, [launchListing, pathDraft])
+  const select = useCallback(
+    (entry: DirectoryEntry) => {
+      const { seq, scan } = launchListing(entry.path)
+      // A pick while the path editor is open adopts the (filtered) row and
+      // closes the editor — the draft served its purpose. Focus re-parks on
+      // the selection after commit (see the refocus effect below).
+      if (pathDraft !== null) refocusPick.current = true
+      setPathDraft(null)
+      setSelected(entry)
+      setChild(null)
+      setLoading(true)
+      setError(null)
+      scan.then(
+        next => {
+          if (seq !== requestSeq.current) return
+          setChild(next)
+          setLoading(false)
+        },
+        (reason: unknown) => {
+          if (seq !== requestSeq.current) return
+          setLoading(false)
+          setError(failureText(reason))
+          // An unreadable selection cannot be the committing target while the
+          // breadcrumb still names the level: fall back to the single pane.
+          setSelected(null)
+          // Clearing the selection can unmount the very row the pick parked
+          // focus on (a dot-revealed hidden row re-hides); the refocus effect
+          // re-parks on the edit zone only if focus actually fell to body.
+          refocusEditZone.current = true
+        },
+      )
+    },
+    [launchListing, pathDraft],
+  )
 
   /**
    * Walk the panes to the directory the draft addresses, WITHOUT closing the
@@ -539,9 +603,12 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
    * exactly as a crumb jump does, and the draft's final segment
    * prefix-filters the arrival from the next render on.
    */
-  const previewDraftLevel = useCallback((directory: string) => {
-    land(directory, { closeEditor: false, announce: false })
-  }, [land])
+  const previewDraftLevel = useCallback(
+    (directory: string) => {
+      land(directory, { closeEditor: false, announce: false })
+    },
+    [land],
+  )
 
   /** Abandon path editing (Escape or clicking away) and restore the crumb view. */
   const cancelPathEdit = useCallback(() => {
@@ -563,12 +630,15 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   }, [supersede, child, parent, navigate])
 
   /** A right-column pick advances the view one level: child becomes the level. */
-  const advance = useCallback((entry: DirectoryEntry) => {
-    /* v8 ignore next -- narrowing guard: the right column only renders with a child listing. */
-    if (child === null) return
-    setParent(child)
-    select(entry)
-  }, [child, select])
+  const advance = useCallback(
+    (entry: DirectoryEntry) => {
+      /* v8 ignore next -- narrowing guard: the right column only renders with a child listing. */
+      if (child === null) return
+      setParent(child)
+      select(entry)
+    },
+    [child, select],
+  )
 
   // Every open starts fresh at the Host home directory; closing invalidates
   // any in-flight response so a late arrival cannot repopulate a closed dialog.
@@ -601,8 +671,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
 
   /** The folder a create or Open acts on: the selection, else the listed level. */
   const targetPath = selected?.path ?? parent?.path ?? null
-  const targetName = selected?.name
-    ?? (parent === null ? '' : (displayCrumbs(parent, t('browser.home')).at(-1)?.name ?? parent.path))
+  const targetName = selected?.name ?? (parent === null ? '' : (displayCrumbs(parent, t('browser.home')).at(-1)?.name ?? parent.path))
 
   const confirmCreate = (): void => {
     /* v8 ignore next -- reentry fence: the nested dialog only renders with a target and disables while creating. */
@@ -615,37 +684,43 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
     setCreatingFolder(true)
     setCreateError(null)
     const generation = openGeneration.current
-    createDirectory(targetPath, name).then((createdPath) => {
-      // A settlement from a closed (possibly reopened) flow must not touch
-      // the fresh dialog or issue a relist against the stale target.
-      if (generation !== openGeneration.current) return
-      setCreatingFolder(false)
-      setFolderDraft(null)
-      // Land like a right-column pick (figma 802:57446 → 813:23278 flow): the
-      // create target becomes the listed level and the new folder its selection.
-      const { seq, scan } = launchListing(targetPath)
-      setLoading(true)
-      // Symmetric with navigate/select: a launched scan clears the stale
-      // failure text (and keeps the floating indicator's corner the only
-      // occupant of the content's right edge while it shows).
-      setError(null)
-      scan.then((level) => {
-        /* v8 ignore next -- same fence as navigate/select; the modal blocks superseding input */
-        if (seq !== requestSeq.current) return
-        setParent(level)
-        setLoading(false)
-        select({ name, path: createdPath, hidden: false })
-      }, (reason: unknown) => {
-        /* v8 ignore next -- same fence as navigate/select; the modal blocks superseding input */
-        if (seq !== requestSeq.current) return
-        setLoading(false)
-        setError(failureText(reason))
-      })
-    }, (reason: unknown) => {
-      if (generation !== openGeneration.current) return
-      setCreatingFolder(false)
-      setCreateError(failureText(reason))
-    })
+    createDirectory(targetPath, name).then(
+      createdPath => {
+        // A settlement from a closed (possibly reopened) flow must not touch
+        // the fresh dialog or issue a relist against the stale target.
+        if (generation !== openGeneration.current) return
+        setCreatingFolder(false)
+        setFolderDraft(null)
+        // Land like a right-column pick (figma 802:57446 → 813:23278 flow): the
+        // create target becomes the listed level and the new folder its selection.
+        const { seq, scan } = launchListing(targetPath)
+        setLoading(true)
+        // Symmetric with navigate/select: a launched scan clears the stale
+        // failure text (and keeps the floating indicator's corner the only
+        // occupant of the content's right edge while it shows).
+        setError(null)
+        scan.then(
+          level => {
+            /* v8 ignore next -- same fence as navigate/select; the modal blocks superseding input */
+            if (seq !== requestSeq.current) return
+            setParent(level)
+            setLoading(false)
+            select({ name, path: createdPath, hidden: false })
+          },
+          (reason: unknown) => {
+            /* v8 ignore next -- same fence as navigate/select; the modal blocks superseding input */
+            if (seq !== requestSeq.current) return
+            setLoading(false)
+            setError(failureText(reason))
+          },
+        )
+      },
+      (reason: unknown) => {
+        if (generation !== openGeneration.current) return
+        setCreatingFolder(false)
+        setCreateError(failureText(reason))
+      },
+    )
   }
 
   // The slow-scan gate for the loading indicator: each listing call restarts
@@ -657,8 +732,12 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       setSlowScan(false)
       return
     }
-    const timer = window.setTimeout(() => { setSlowScan(true) }, SLOW_SCAN_DELAY_MS)
-    return () => { window.clearTimeout(timer) }
+    const timer = window.setTimeout(() => {
+      setSlowScan(true)
+    }, SLOW_SCAN_DELAY_MS)
+    return () => {
+      window.clearTimeout(timer)
+    }
   }, [loading, scanWindow])
 
   // The panes follow the draft: EVERY keystroke replaces the pending timer,
@@ -682,7 +761,9 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       if (directory === null || tail !== null) return
       previewDraftLevel(directory)
     }, DRAFT_PREVIEW_DEBOUNCE_MS)
-    return () => { window.clearTimeout(timer) }
+    return () => {
+      window.clearTimeout(timer)
+    }
   }, [pathDraft, previewDraftLevel])
 
   // After the hooks: a closed dialog renders nothing and evaluates no copy.
@@ -692,9 +773,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
   // Narrowing that stale pane would move the view twice for one keystroke:
   // once as it narrows, again as its landing replaces it. It holds still
   // instead, and the filter arrives with the level it belongs to.
-  const typedPrefix = crumbSource === null || pathDraft === null
-    ? null
-    : readDraft(crumbSource, pathDraft, scanned.current).tail
+  const typedPrefix = crumbSource === null || pathDraft === null ? null : readDraft(crumbSource, pathDraft, scanned.current).tail
   const crumbs = crumbSource === null ? [] : displayCrumbs(crumbSource, t('browser.home'))
   const crumbTail = crumbs.at(-1)?.path
   useEffect(() => {
@@ -767,20 +846,22 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       // (its own guard keeps an in-flight creation open), and an in-flight
       // adoption pins the flow — dismissing it would leave the owner's
       // createWorkspace to land after an apparent cancel.
-      onClose={() => { if (folderDraft === null && !busy) onClose() }}
+      onClose={() => {
+        if (folderDraft === null && !busy) onClose()
+      }}
       title={t('browser.title')}
       className={clsx(css.dialog)}
       headless
     >
       {/* Path-edit cancellation is observed at the card scope, not the
-        * input: once Tab parks focus on a filtered row the input is off the
-        * event path, yet Escape must still collapse the editor (not the
-        * dialog) and a further focus move out of the card must still
-        * cancel. display:contents keeps header/content/footer as direct
-        * flex children of the Modal card. */}
+       * input: once Tab parks focus on a filtered row the input is off the
+       * event path, yet Escape must still collapse the editor (not the
+       * dialog) and a further focus move out of the card must still
+       * cancel. display:contents keeps header/content/footer as direct
+       * flex children of the Modal card. */}
       <div
         className={css.editorScope}
-        onKeyDown={(event) => {
+        onKeyDown={event => {
           if (event.key !== 'Escape' || pathDraft === null) return
           // stopPropagation keeps the card-scope Escape from the Modal's
           // document listener.
@@ -801,7 +882,7 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
         // input while its navigation is in flight, so a submitted path is
         // never withdrawn here. Anchored to this card via closest, not any
         // [role="dialog"], so focus escaping into a sibling overlay cancels.
-        onBlur={(event) => {
+        onBlur={event => {
           if (pathDraft === null) return
           if (!document.hasFocus()) return
           const card = event.currentTarget.closest('[role="dialog"]')
@@ -818,109 +899,109 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
         <div className={css.header}>
           <h2 className={css.title}>{t('browser.title')}</h2>
           <div className={css.crumbBar}>
-            {pathDraft === null
-              ? (
-                <>
-                  <span className={css.crumbTrail} role="navigation" ref={crumbTrailRef}>
-                    {crumbs.map((crumb, index) => (
-                      <span key={crumb.path} className={css.crumbSeat}>
-                        {index > 0 && <IconChevronRightOutlineRegular size={12} className={css.crumbChevron} />}
-                        <button
-                          type="button"
-                          className={css.crumb}
-                          disabled={parentInert}
-                          onClick={() => { navigate(crumb.path) }}
-                        >
-                          {crumb.name}
-                        </button>
-                      </span>
-                    ))}
-                  </span>
-                  {/* The empty zone right of the crumbs is the path-edit
-                    * affordance: the whole remainder of the bar clicks into
-                    * the editor, and the pencil glyph parked at its right
-                    * edge (with the same tooltip) is what says so — an
-                    * invisible target the operator must guess at is the one
-                    * way into typing a path. */}
-                  <button
-                    type="button"
-                    className={css.crumbEditZone}
-                    aria-label={t('browser.editPath')}
-                    title={t('browser.editPath')}
-                    // Stays available with no listed level: when the home
-                    // listing itself fails, typing an absolute path is the one
-                    // remaining way forward.
-                    disabled={parentInert}
-                    ref={editZoneRef}
-                    onClick={() => {
+            {pathDraft === null ? (
+              <>
+                <span className={css.crumbTrail} role="navigation" ref={crumbTrailRef}>
+                  {crumbs.map((crumb, index) => (
+                    <span key={crumb.path} className={css.crumbSeat}>
+                      {index > 0 && <IconChevronRightOutlineRegular size={12} className={css.crumbChevron} />}
+                      <button
+                        type="button"
+                        className={css.crumb}
+                        disabled={parentInert}
+                        onClick={() => {
+                          navigate(crumb.path)
+                        }}
+                      >
+                        {crumb.name}
+                      </button>
+                    </span>
+                  ))}
+                </span>
+                {/* The empty zone right of the crumbs is the path-edit
+                 * affordance: the whole remainder of the bar clicks into
+                 * the editor, and the pencil glyph parked at its right
+                 * edge (with the same tooltip) is what says so — an
+                 * invisible target the operator must guess at is the one
+                 * way into typing a path. */}
+                <button
+                  type="button"
+                  className={css.crumbEditZone}
+                  aria-label={t('browser.editPath')}
+                  title={t('browser.editPath')}
+                  // Stays available with no listed level: when the home
+                  // listing itself fails, typing an absolute path is the one
+                  // remaining way forward.
+                  disabled={parentInert}
+                  ref={editZoneRef}
+                  onClick={() => {
                     // Opening the editor supersedes any pending listing: a
                     // settlement landing before the first keystroke would
                     // otherwise close the editor via navigate's draft reset.
-                      supersede()
-                      setLoading(false)
-                      previewSuspended.current = false
-                      // Seed with a trailing separator so typing immediately
-                      // continues into child names (and prefix-filters below).
-                      // No listed level means nothing to seed from (the editor
-                      // is the recovery path for a failed home listing).
-                      if (parent === null) {
-                        setPathDraft('')
-                        return
-                      }
-                      const base = selected?.path ?? parent.path
-                      const sep = separatorOf(parent)
-                      setPathDraft(base.endsWith(sep) ? base : `${base}${sep}`)
-                    }}
-                  >
-                    <IconEditOutlineRegular size={14} className={css.crumbEditGlyph} />
-                  </button>
-                </>
-              )
-              : (
-                <input
-                  className={css.pathInput}
-                  value={pathDraft}
-                  aria-label={t('browser.editPath')}
-                  autoFocus
-                  ref={pathInputRef}
-                  disabled={parentInert}
-                  onChange={(event) => {
+                    supersede()
+                    setLoading(false)
+                    previewSuspended.current = false
+                    // Seed with a trailing separator so typing immediately
+                    // continues into child names (and prefix-filters below).
+                    // No listed level means nothing to seed from (the editor
+                    // is the recovery path for a failed home listing).
+                    if (parent === null) {
+                      setPathDraft('')
+                      return
+                    }
+                    const base = selected?.path ?? parent.path
+                    const sep = separatorOf(parent)
+                    setPathDraft(base.endsWith(sep) ? base : `${base}${sep}`)
+                  }}
+                >
+                  <IconEditOutlineRegular size={14} className={css.crumbEditGlyph} />
+                </button>
+              </>
+            ) : (
+              <input
+                className={css.pathInput}
+                value={pathDraft}
+                aria-label={t('browser.editPath')}
+                autoFocus
+                ref={pathInputRef}
+                disabled={parentInert}
+                onChange={event => {
                   // Editing the draft supersedes any in-flight navigation:
                   // its completion must neither clear the newer text nor
                   // repopulate the view with the older path.
-                    supersede()
-                    setLoading(false)
-                    // A fresh edit releases the submission hold: the panes
-                    // may follow the new text wherever it points.
-                    previewSuspended.current = false
-                    setPathDraft(event.target.value)
-                  }}
-                  {...compositionGuard}
-                  // Escape and focus-leave cancellation live on the card-scope
-                  // wrapper above (they must work after focus Tabs onto the
-                  // rows); this handler owns only submission.
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !composingRef.current) {
-                      event.preventDefault()
-                      // Trim only detects a blank draft; the Host gets the
-                      // original text — a real directory name may end in
-                      // whitespace, and trimming would list its sibling.
-                      if (pathDraft.trim() !== '') {
-                        // Success will unmount the still-focused input; park
-                        // focus on the returning crumb edit zone (a failure
-                        // keeps the editor, so the flag waits until close).
-                        refocusEditZone.current = true
-                        // The submitted path owns the view now: a debounce
-                        // timer still pending from these keystrokes would
-                        // otherwise supersede this navigation and land the
-                        // draft's parent directory instead.
-                        previewSuspended.current = true
-                        navigate(pathDraft)
-                      }
+                  supersede()
+                  setLoading(false)
+                  // A fresh edit releases the submission hold: the panes
+                  // may follow the new text wherever it points.
+                  previewSuspended.current = false
+                  setPathDraft(event.target.value)
+                }}
+                {...compositionGuard}
+                // Escape and focus-leave cancellation live on the card-scope
+                // wrapper above (they must work after focus Tabs onto the
+                // rows); this handler owns only submission.
+                onKeyDown={event => {
+                  if (event.key === 'Enter' && !composingRef.current) {
+                    event.preventDefault()
+                    // Trim only detects a blank draft; the Host gets the
+                    // original text — a real directory name may end in
+                    // whitespace, and trimming would list its sibling.
+                    if (pathDraft.trim() !== '') {
+                      // Success will unmount the still-focused input; park
+                      // focus on the returning crumb edit zone (a failure
+                      // keeps the editor, so the flag waits until close).
+                      refocusEditZone.current = true
+                      // The submitted path owns the view now: a debounce
+                      // timer still pending from these keystrokes would
+                      // otherwise supersede this navigation and land the
+                      // draft's parent directory instead.
+                      previewSuspended.current = true
+                      navigate(pathDraft)
                     }
-                  }}
-                />
-              )}
+                  }
+                }}
+              />
+            )}
           </div>
         </div>
         <div className={css.content}>
@@ -949,17 +1030,27 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
               />
             )}
           </div>
-          {loading && slowScan
-          && <div className={clsx(css.status, css.loadingFloat)} role="status">{t('browser.loading')}</div>}
+          {loading && slowScan && (
+            <div className={clsx(css.status, css.loadingFloat)} role="status">
+              {t('browser.loading')}
+            </div>
+          )}
           {/* The backend bounds a level at its complete-result limit; say so
-          * whenever a visible pane was cut instead of letting the tail of a
-          * huge directory go silently missing. The note describes the panes
-          * on screen, so an in-flight scan leaves it alone — hiding it while
-          * the stale view still shows the cut level would shift the columns
-          * on every navigation away from it. */}
-          {(parent?.truncated === true || child?.truncated === true)
-          && <div className={css.status} role="status">{t('browser.truncated')}</div>}
-          {error !== null && <div className={css.error} role="alert">{error}</div>}
+           * whenever a visible pane was cut instead of letting the tail of a
+           * huge directory go silently missing. The note describes the panes
+           * on screen, so an in-flight scan leaves it alone — hiding it while
+           * the stale view still shows the cut level would shift the columns
+           * on every navigation away from it. */}
+          {(parent?.truncated === true || child?.truncated === true) && (
+            <div className={css.status} role="status">
+              {t('browser.truncated')}
+            </div>
+          )}
+          {error !== null && (
+            <div className={css.error} role="alert">
+              {error}
+            </div>
+          )}
         </div>
         <div className={css.footerBar}>
           <Button
@@ -982,22 +1073,34 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
             // this filter interleave): while editing, don't steal focus, so
             // toggling never blur-cancels a draft mid-thought. Outside editing
             // it keeps native focus behavior.
-            onMouseDown={draftPending ? (event) => { event.preventDefault() } : undefined}
-            onClick={() => { setShowHidden(prev => !prev) }}
+            onMouseDown={
+              draftPending
+                ? event => {
+                    event.preventDefault()
+                  }
+                : undefined
+            }
+            onClick={() => {
+              setShowHidden(prev => !prev)
+            }}
           >
             {t('browser.showHidden')}
             {/* Trailing check (Menu's selected vocabulary): the label never
-              * shifts when the pressed state toggles. */}
+             * shifts when the pressed state toggles. */}
             {showHidden && <IconCheckOutlineRegular size={14} />}
           </button>
           <span className={css.footerGap} />
-          <Button variant="outline" className={clsx(css.footerAction)} disabled={parentInert} onClick={onClose}>{t('browser.cancel')}</Button>
+          <Button variant="outline" className={clsx(css.footerAction)} disabled={parentInert} onClick={onClose}>
+            {t('browser.cancel')}
+          </Button>
           <Button
             variant="primary"
             className={clsx(css.footerAction)}
             disabled={targetPath === null || loading || parentInert || draftPending}
             /* v8 ignore next -- narrowing guard: Open disables while no target exists. */
-            onClick={() => { if (targetPath !== null) onOpen(targetPath) }}
+            onClick={() => {
+              if (targetPath !== null) onOpen(targetPath)
+            }}
           >
             {t('browser.open')}
           </Button>
@@ -1006,7 +1109,9 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
       {/* Nested create dialog (figma 813:23278): names one folder inside the target. */}
       <Modal
         open={folderDraft !== null}
-        onClose={() => { if (!creatingFolder) setFolderDraft(null) }}
+        onClose={() => {
+          if (!creatingFolder) setFolderDraft(null)
+        }}
         title={t('browser.newFolder')}
         className={clsx(css.createDialog)}
         headless
@@ -1021,9 +1126,11 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
             placeholder={t('browser.untitledFolder')}
             data-modal-autofocus
             disabled={creatingFolder}
-            onChange={(event) => { setFolderDraft(event.target.value) }}
+            onChange={event => {
+              setFolderDraft(event.target.value)
+            }}
             {...compositionGuard}
-            onKeyDown={(event) => {
+            onKeyDown={event => {
               if (event.key === 'Enter' && !composingRef.current) {
                 event.preventDefault()
                 confirmCreate()
@@ -1034,9 +1141,21 @@ export function DirectoryBrowser({ open, listDirectory, createDirectory, onOpen,
               }
             }}
           />
-          {createError !== null && <div className={css.error} role="alert">{createError}</div>}
+          {createError !== null && (
+            <div className={css.error} role="alert">
+              {createError}
+            </div>
+          )}
           <div className={css.createActions}>
-            <Button variant="outline" disabled={creatingFolder} onClick={() => { setFolderDraft(null) }}>{t('browser.cancel')}</Button>
+            <Button
+              variant="outline"
+              disabled={creatingFolder}
+              onClick={() => {
+                setFolderDraft(null)
+              }}
+            >
+              {t('browser.cancel')}
+            </Button>
             <Button
               variant="primary"
               disabled={creatingFolder || folderDraft === null || folderDraft.trim() === ''}

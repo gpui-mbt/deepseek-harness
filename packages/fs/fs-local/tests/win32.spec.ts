@@ -1,24 +1,11 @@
 /** Host-independent binding tests for the Win32 DACL and replacement helpers. */
 
 import { toNamespacedPath } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 
-type GetFileSecurityW = (
-  path: string,
-  requestedInformation: number,
-  descriptor: Buffer | null,
-  length: number,
-  needed: [number],
-) => number
+type GetFileSecurityW = (path: string, requestedInformation: number, descriptor: Buffer | null, length: number, needed: [number]) => number
 type SetFileSecurityW = (path: string, securityInformation: number, descriptor: Buffer) => number
-type ReplaceFileW = (
-  replaced: string,
-  replacement: string,
-  backup: null,
-  flags: number,
-  exclude: null,
-  reserved: null,
-) => number
+type ReplaceFileW = (replaced: string, replacement: string, backup: null, flags: number, exclude: null, reserved: null) => number
 
 interface NativeMock {
   getFileSecurityW: GetFileSecurityW
@@ -97,7 +84,12 @@ describe('Windows file-security helpers', () => {
   })
 
   it('maps descriptor-size probe failures to Node-style codes', async () => {
-    const cases = [[2, 'ENOENT'], [3, 'ENOENT'], [5, 'EACCES'], [9999, 'EIO']] as const
+    const cases = [
+      [2, 'ENOENT'],
+      [3, 'ENOENT'],
+      [5, 'EACCES'],
+      [9999, 'EIO'],
+    ] as const
     for (const [win32Code, code] of cases) {
       const native = successfulNative(Buffer.from([1]))
       native.getFileSecurityW = (_path, _requested, _output, _length, needed) => {

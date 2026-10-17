@@ -90,10 +90,7 @@ function entry(seq: number, type: string, data: unknown, extra: Record<string, u
   }
 }
 
-function synthesizeWindow(
-  turns: number,
-  deltas: number,
-): { readonly entries: readonly SessionEventLikeEntry[]; readonly records: number } {
+function synthesizeWindow(turns: number, deltas: number): { readonly entries: readonly SessionEventLikeEntry[]; readonly records: number } {
   const entries: SessionEventLikeEntry[] = []
   let seq = 0
   let records = 0
@@ -104,12 +101,16 @@ function synthesizeWindow(
   const reasoningDeltas = Math.floor(deltas / 4)
   for (let turn = 1; turn <= turns; turn += 1) {
     push('turn/start', { turn })
-    push('user/message', {
-      id: `user-${String(turn)}`,
-      role: 'user',
-      content: [{ type: 'text', text: `prompt ${String(turn)}` }],
-      source: { kind: 'user' },
-    }, { surfaceOp: 'append' })
+    push(
+      'user/message',
+      {
+        id: `user-${String(turn)}`,
+        role: 'user',
+        content: [{ type: 'text', text: `prompt ${String(turn)}` }],
+        source: { kind: 'user' },
+      },
+      { surfaceOp: 'append' },
+    )
     push('step/start', { turn, step: 1 })
     const accumulator = new AssistantStreamAccumulator()
     let time = TIME_ZERO + seq * 1_000
@@ -138,25 +139,35 @@ function synthesizeWindow(
     stream({ type: 'finish', reason: { kind: 'stop' } })
     const snapshot = accumulator.snapshot()
     records += snapshot.length
-    push('assistant/message', {
-      turn,
-      step: 1,
-      message: {
-        id: `assistant-${String(turn)}`,
-        role: 'assistant',
-        content: [{ type: 'reasoning', text: reasoning }, { type: 'text', text }],
-        source: { kind: 'model', provider: 'bench', model: 'bench' },
+    push(
+      'assistant/message',
+      {
+        turn,
+        step: 1,
+        message: {
+          id: `assistant-${String(turn)}`,
+          role: 'assistant',
+          content: [
+            { type: 'reasoning', text: reasoning },
+            { type: 'text', text },
+          ],
+          source: { kind: 'model', provider: 'bench', model: 'bench' },
+        },
+        usage,
+        stream: snapshot,
       },
-      usage,
-      stream: snapshot,
-    }, { surfaceOp: 'append' })
+      { surfaceOp: 'append' },
+    )
     push('step/end', { turn, step: 1 })
     push('turn/end', { turn, reason: { kind: 'completed' } })
   }
   return { entries, records }
 }
 
-function foldOnce(entries: readonly SessionEventLikeEntry[], definitions: ConversationEventRegistry): { readonly ms: number; readonly nodes: number } {
+function foldOnce(
+  entries: readonly SessionEventLikeEntry[],
+  definitions: ConversationEventRegistry,
+): { readonly ms: number; readonly nodes: number } {
   const started = performance.now()
   const assembler = new ConversationNodeAssembler(definitions, new BenchViewDefinitions())
   assembler.replaceWindow(entries, false)
@@ -195,24 +206,37 @@ function preparingTool(tool: 'write' | 'bash', characters: number, definitions: 
   const delta = (index: number, argumentsDelta: string): SessionEventLikeEntry => ({
     type: 'transient',
     event: {
-      type: 'assistant/live-chunk', seq: 2 + index / (tail.length + 1), time: TIME_ZERO + index,
-      data: { turn: 1, step: 1, attemptId, chunk: {
-        type: 'tool-call-delta', index: 0, id: callId, argumentsDelta,
-        ...index === 0 ? { name: tool } : {},
-      } },
+      type: 'assistant/live-chunk',
+      seq: 2 + index / (tail.length + 1),
+      time: TIME_ZERO + index,
+      data: {
+        turn: 1,
+        step: 1,
+        attemptId,
+        chunk: {
+          type: 'tool-call-delta',
+          index: 0,
+          id: callId,
+          argumentsDelta,
+          ...(index === 0 ? { name: tool } : {}),
+        },
+      },
     },
   })
   const chunks: SessionEventLikeEntry[] = []
   for (let at = 0; at < tail.length; at += chunkSize) chunks.push(delta(at + 1, tail.slice(at, at + chunkSize)))
-  const assembler = new ConversationNodeAssembler(
-    definitions, new BenchViewDefinitions(),
-    { entries: () => [processGroupDefinition], forTarget: target => target === 'chat' ? processGroupDefinition : undefined },
+  const assembler = new ConversationNodeAssembler(definitions, new BenchViewDefinitions(), {
+    entries: () => [processGroupDefinition],
+    forTarget: target => (target === 'chat' ? processGroupDefinition : undefined),
+  })
+  assembler.replaceWindow(
+    [
+      entry(0, 'turn/start', { turn: 1 }),
+      entry(1, 'step/start', { turn: 1, step: 1 }),
+      delta(0, tool === 'write' ? '{"file_path":"preview.md","content":"' : '{"command":"'),
+    ],
+    false,
   )
-  assembler.replaceWindow([
-    entry(0, 'turn/start', { turn: 1 }),
-    entry(1, 'step/start', { turn: 1, step: 1 }),
-    delta(0, tool === 'write' ? '{"file_path":"preview.md","content":"' : '{"command":"'),
-  ], false)
   assembler.activateTarget('chat')
   const snapshot = assembler.get('chat')
   const node = snapshot?.nodes.values().find((candidate): candidate is ChatNode<'tool-call'> => candidate.kind === 'tool-call')
@@ -250,9 +274,15 @@ function preparingTool(tool: 'write' | 'bash', characters: number, definitions: 
   const groups = assembler.grouped('chat')
   const group = groups?.entries.find(reference => reference.kind === 'group')
   return {
-    tool, characters: args.stringLength(tool === 'write' ? 'content' : 'command'), fragments: chunks.length,
-    elapsedMs, retainedMb, maxRssMb: process.resourceUsage().maxRSS / 1024,
-    rowReads, progressKb, filePath,
+    tool,
+    characters: args.stringLength(tool === 'write' ? 'content' : 'command'),
+    fragments: chunks.length,
+    elapsedMs,
+    retainedMb,
+    maxRssMb: process.resourceUsage().maxRSS / 1024,
+    rowReads,
+    progressKb,
+    filePath,
     detail: group === undefined ? undefined : groups?.groupSource(group.key).getSnapshot()?.data.summary.runningDetail,
   }
 }

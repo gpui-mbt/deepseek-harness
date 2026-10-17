@@ -179,10 +179,10 @@ function peakRoutingOptions(
 function adopt(candidate: LlmDiscoveredModel): ModelDraft {
   return {
     id: candidate.id,
-    ...candidate.name === undefined ? {} : { name: candidate.name },
-    ...candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow },
-    ...candidate.maxTokens === undefined ? {} : { maxTokens: candidate.maxTokens },
-    ...candidate.inputModalities === undefined ? {} : { input: [...candidate.inputModalities] },
+    ...(candidate.name === undefined ? {} : { name: candidate.name }),
+    ...(candidate.contextWindow === undefined ? {} : { contextWindow: candidate.contextWindow }),
+    ...(candidate.maxTokens === undefined ? {} : { maxTokens: candidate.maxTokens }),
+    ...(candidate.inputModalities === undefined ? {} : { input: [...candidate.inputModalities] }),
   }
 }
 
@@ -195,21 +195,28 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const { models, onChange, probe, operations, t, disabled, onBusyChange } = props
   const { catalogProvider } = props
   const [busy, setBusy] = useState(false)
-  useEffect(() => { onBusyChange(busy) }, [busy, onBusyChange])
+  useEffect(() => {
+    onBusyChange(busy)
+  }, [busy, onBusyChange])
   const [failure, setFailure] = useState<string | undefined>(undefined)
-  const [inheritedCatalog, setInheritedCatalog] = useState<{
-    provider: string
-    models: readonly LlmDiscoveredModel[]
-  } | undefined>(undefined)
+  const [inheritedCatalog, setInheritedCatalog] = useState<
+    | {
+        provider: string
+        models: readonly LlmDiscoveredModel[]
+      }
+    | undefined
+  >(undefined)
   useEffect(() => {
     if (catalogProvider === undefined) return
     let current = true
-    void operations.discoverModels(probe.settingsNs, { provider: catalogProvider }).then((answer) => {
+    void operations.discoverModels(probe.settingsNs, { provider: catalogProvider }).then(answer => {
       if (!current) return
       setInheritedCatalog({ provider: catalogProvider, models: answer.kind === 'found' ? answer.models : [] })
       setFailure(answer.kind === 'refused' ? answer.message : undefined)
     })
-    return () => { current = false }
+    return () => {
+      current = false
+    }
   }, [catalogProvider, operations, probe.settingsNs])
   const catalog = inheritedCatalog?.provider === catalogProvider ? inheritedCatalog?.models : undefined
   const catalogById = useMemo(() => new Map(catalog?.map(model => [model.id, model])), [catalog])
@@ -248,10 +255,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     editing.get(bufferKey(index, field)) ?? capacitySpelling(numberOf(model, field))
 
   /** Drop one row's entries and shift the rows after it down, in one pass. */
-  const reindexOnRemove = (
-    current: ReadonlyMap<string, string>,
-    index: number,
-  ): Map<string, string> => {
+  const reindexOnRemove = (current: ReadonlyMap<string, string>, index: number): Map<string, string> => {
     const next = new Map<string, string>()
     for (const [key, value] of current) {
       const at = Number(key.slice(0, key.indexOf(':')))
@@ -263,7 +267,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   }
 
   const toggleExpanded = (index: number): void => {
-    setExpanded((current) => {
+    setExpanded(current => {
       const next = new Set(current)
       if (!next.delete(index)) next.add(index)
       return next
@@ -280,40 +284,46 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
    * @param next - the edited route, or `undefined` to clear it.
    */
   const setRouting = (index: number, next: RoutingDraft | undefined): void => {
-    onChange(models.map((model, at) => {
-      if (at !== index) return model
-      if (next === undefined) {
-        const { peak: _peak, ...rest } = model
-        return rest
-      }
-      return {
-        ...model,
-        // The period is the model's published price policy and lives with the
-        // catalog data, so this page stores the destination alone.
-        peak: [{
-          provider: next.provider,
-          ...next.model === '' ? {} : { model: next.model },
-          ...next.apiKeyEnv === undefined ? {} : { apiKeyEnv: next.apiKeyEnv },
-        }],
-      }
-    }))
+    onChange(
+      models.map((model, at) => {
+        if (at !== index) return model
+        if (next === undefined) {
+          const { peak: _peak, ...rest } = model
+          return rest
+        }
+        return {
+          ...model,
+          // The period is the model's published price policy and lives with the
+          // catalog data, so this page stores the destination alone.
+          peak: [
+            {
+              provider: next.provider,
+              ...(next.model === '' ? {} : { model: next.model }),
+              ...(next.apiKeyEnv === undefined ? {} : { apiKeyEnv: next.apiKeyEnv }),
+            },
+          ],
+        }
+      }),
+    )
   }
 
   const patch = (index: number, next: Record<string, string | number | undefined>): void => {
-    onChange(models.map((model, at) => {
-      if (at !== index) return model
-      // Rebuilt rather than spread over: an emptied optional field has to leave
-      // the profile, not be stored as a value its schema would reject.
-      // Spread first so a field this card does not edit survives; an emptied
-      // optional field is then dropped rather than stored as a value its
-      // schema would reject.
-      const cleared = new Set(
-        Object.entries(next).filter(([, value]) => value === undefined || value === '').map(([key]) => key),
-      )
-      return Object.fromEntries(
-        Object.entries({ ...model, ...next }).filter(([key]) => !cleared.has(key)),
-      )
-    }))
+    onChange(
+      models.map((model, at) => {
+        if (at !== index) return model
+        // Rebuilt rather than spread over: an emptied optional field has to leave
+        // the profile, not be stored as a value its schema would reject.
+        // Spread first so a field this card does not edit survives; an emptied
+        // optional field is then dropped rather than stored as a value its
+        // schema would reject.
+        const cleared = new Set(
+          Object.entries(next)
+            .filter(([, value]) => value === undefined || value === '')
+            .map(([key]) => key),
+        )
+        return Object.fromEntries(Object.entries({ ...model, ...next }).filter(([key]) => !cleared.has(key)))
+      }),
+    )
   }
 
   const fetchModels = async (): Promise<void> => {
@@ -321,10 +331,10 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     setFailure(undefined)
     try {
       const answer = await operations.discoverModels(probe.settingsNs, {
-        ...probe.provider === undefined ? {} : { provider: probe.provider },
-        ...probe.baseURL === undefined || probe.baseURL.length === 0 ? {} : { baseURL: probe.baseURL },
-        ...probe.api === undefined ? {} : { api: probe.api },
-        ...probe.apiKey === undefined ? {} : { apiKey: probe.apiKey },
+        ...(probe.provider === undefined ? {} : { provider: probe.provider }),
+        ...(probe.baseURL === undefined || probe.baseURL.length === 0 ? {} : { baseURL: probe.baseURL }),
+        ...(probe.api === undefined ? {} : { api: probe.api }),
+        ...(probe.apiKey === undefined ? {} : { apiKey: probe.apiKey }),
       })
       if (answer.kind === 'refused') {
         setFailure(answer.message)
@@ -370,7 +380,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   }
 
   const toggle = (id: string): void => {
-    setPicked((current) => {
+    setPicked(current => {
       const next = new Set(current)
       if (!next.delete(id)) next.add(id)
       return next
@@ -379,15 +389,18 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
 
   const activeCandidates = candidates ?? []
   const normalizedCandidateQuery = candidateQuery.trim().toLowerCase()
-  const visibleCandidates = normalizedCandidateQuery.length === 0
-    ? activeCandidates
-    : activeCandidates.filter(candidate => candidate.id.toLowerCase().includes(normalizedCandidateQuery)
-      || candidate.name?.toLowerCase().includes(normalizedCandidateQuery) === true)
-  const allVisibleCandidatesPicked = visibleCandidates.length > 0
-    && visibleCandidates.every(candidate => picked.has(candidate.id))
+  const visibleCandidates =
+    normalizedCandidateQuery.length === 0
+      ? activeCandidates
+      : activeCandidates.filter(
+          candidate =>
+            candidate.id.toLowerCase().includes(normalizedCandidateQuery) ||
+            candidate.name?.toLowerCase().includes(normalizedCandidateQuery) === true,
+        )
+  const allVisibleCandidatesPicked = visibleCandidates.length > 0 && visibleCandidates.every(candidate => picked.has(candidate.id))
 
   const toggleVisibleCandidates = (): void => {
-    setPicked((current) => {
+    setPicked(current => {
       if (visibleCandidates.every(candidate => current.has(candidate.id))) {
         return new Set()
       }
@@ -405,34 +418,23 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
       <div className={styles['modelListHead']}>
         <div className={styles['modelCatalogHeading']}>
           <span className={styles['modelCatalogTitle']}>{t('models')}</span>
-          {props.overridden === undefined
-            ? null
-            : (
-              <span className={styles['modelCatalogMeta']}>
-                {props.overridden ? t('modelsCustomized') : t('modelsInherited')}
-              </span>
-            )}
+          {props.overridden === undefined ? null : (
+            <span className={styles['modelCatalogMeta']}>{props.overridden ? t('modelsCustomized') : t('modelsInherited')}</span>
+          )}
         </div>
-        {props.overridden === true && props.onReset !== undefined
-          ? (
-            <button
-              type="button"
-              className={styles['linkButton']}
-              disabled={disabled}
-              onClick={props.onReset}
-            >
-              {t('resetModels')}
-            </button>
-          )
-          : null}
+        {props.overridden === true && props.onReset !== undefined ? (
+          <button type="button" className={styles['linkButton']} disabled={disabled} onClick={props.onReset}>
+            {t('resetModels')}
+          </button>
+        ) : null}
         <button
           type="button"
           className={styles['linkButton']}
           disabled={disabled || busy || !askable || props.probeBlocked !== undefined}
-          title={props.probeBlocked !== undefined
-            ? t(props.probeBlocked)
-            : askable ? undefined : t('fetchNeedsBaseUrl')}
-          onClick={() => { void fetchModels() }}
+          title={props.probeBlocked !== undefined ? t(props.probeBlocked) : askable ? undefined : t('fetchNeedsBaseUrl')}
+          onClick={() => {
+            void fetchModels()
+          }}
         >
           {busy ? t('fetching') : t('fetchModels')}
         </button>
@@ -454,21 +456,33 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             contextWindow={{
               value: capacityText(model, index, 'contextWindow'),
               placeholder: capacityPlaceholder(textOf(model, 'id'), 'contextWindow'),
-              onChange: (text) => { editCapacity(index, 'contextWindow', text) },
+              onChange: text => {
+                editCapacity(index, 'contextWindow', text)
+              },
             }}
             maxTokens={{
               value: capacityText(model, index, 'maxTokens'),
               placeholder: capacityPlaceholder(textOf(model, 'id'), 'maxTokens'),
-              onChange: (text) => { editCapacity(index, 'maxTokens', text) },
+              onChange: text => {
+                editCapacity(index, 'maxTokens', text)
+              },
             }}
-            onFieldChange={(field, value) => { patch(index, { [field]: value }) }}
+            onFieldChange={(field, value) => {
+              patch(index, { [field]: value })
+            }}
             routingProviders={peakRoutingOptions(props.routingProviders, probe.provider, textOf(model, 'id'))}
-            onRoutingChange={(next) => { setRouting(index, next) }}
-            onChange={(next) => { onChange(models.map((row, at) => at === index ? next : row)) }}
-            onToggle={() => { toggleExpanded(index) }}
+            onRoutingChange={next => {
+              setRouting(index, next)
+            }}
+            onChange={next => {
+              onChange(models.map((row, at) => (at === index ? next : row)))
+            }}
+            onToggle={() => {
+              toggleExpanded(index)
+            }}
             onRemove={() => {
               onChange(models.filter((_model, at) => at !== index))
-              setExpanded((current) => {
+              setExpanded(current => {
                 const next = new Set<number>()
                 for (const at of current) {
                   if (at < index) next.add(at)
@@ -485,7 +499,9 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
         type="button"
         className={styles['addModelButton']}
         disabled={disabled}
-        onClick={() => { onChange([...models, { id: '' }]) }}
+        onClick={() => {
+          onChange([...models, { id: '' }])
+        }}
       >
         <IconPlusOutlineRegular size={14} />
         {t('addModel')}
@@ -498,12 +514,16 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
         closeLabel={t('close')}
         description={t('fetchDescription')}
         className={styles['fetchDialog'] as string}
-        footer={(
+        footer={
           <>
-            <Button variant="outline" onClick={closePicker}>{t('cancel')}</Button>
-            <Button variant="outline" onClick={adoptPicked}>{t('fetchAdopt')}</Button>
+            <Button variant="outline" onClick={closePicker}>
+              {t('cancel')}
+            </Button>
+            <Button variant="outline" onClick={adoptPicked}>
+              {t('fetchAdopt')}
+            </Button>
           </>
-        )}
+        }
       >
         <div className={styles['candidateToolbar']}>
           <input
@@ -512,37 +532,38 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             value={candidateQuery}
             placeholder={t('fetchSearch')}
             aria-label={t('fetchSearch')}
-            onChange={(event) => { setCandidateQuery(event.target.value) }}
+            onChange={event => {
+              setCandidateQuery(event.target.value)
+            }}
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={visibleCandidates.length === 0}
-            onClick={toggleVisibleCandidates}
-          >
+          <Button variant="ghost" size="sm" disabled={visibleCandidates.length === 0} onClick={toggleVisibleCandidates}>
             {t(allVisibleCandidatesPicked ? 'fetchDeselectAll' : 'fetchSelectAll')}
           </Button>
         </div>
-        {visibleCandidates.length === 0
-          ? <p className={styles['candidateEmpty']} role="status">{t('fetchNoMatches')}</p>
-          : (
-            <ul className={styles['candidateList']}>
-              {visibleCandidates.map(candidate => (
-                <li key={candidate.id} className={styles['candidate']}>
-                  <label className={styles['candidateLabel']}>
-                    <input
-                      type="checkbox"
-                      checked={picked.has(candidate.id)}
-                      onChange={() => { toggle(candidate.id) }}
-                    />
-                    <span className={styles['candidateId']} title={candidate.name ?? candidate.id}>
-                      {candidate.id}
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
+        {visibleCandidates.length === 0 ? (
+          <p className={styles['candidateEmpty']} role="status">
+            {t('fetchNoMatches')}
+          </p>
+        ) : (
+          <ul className={styles['candidateList']}>
+            {visibleCandidates.map(candidate => (
+              <li key={candidate.id} className={styles['candidate']}>
+                <label className={styles['candidateLabel']}>
+                  <input
+                    type="checkbox"
+                    checked={picked.has(candidate.id)}
+                    onChange={() => {
+                      toggle(candidate.id)
+                    }}
+                  />
+                  <span className={styles['candidateId']} title={candidate.name ?? candidate.id}>
+                    {candidate.id}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
       </Modal>
     </section>
   )

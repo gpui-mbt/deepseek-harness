@@ -27,7 +27,6 @@ import { z } from 'zod'
 import { assistantStreamFirstTokenTime } from '@deepseek-ai/dsh-llm'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 
-
 /** Accumulated whole-log figures (the view is exactly these totals). */
 interface SessionStatsTotals {
   /** Distinct turns with at least one closed step so far. */
@@ -69,16 +68,18 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
   }
 }
 
-const sessionStatsSchema = z.object({
-  turns: z.number().int().nonnegative(),
-  steps: z.number().int().nonnegative(),
-  llmMs: z.number().nonnegative(),
-  toolMs: z.number().nonnegative(),
-  ttftMs: z.number().nonnegative(),
-  ttftSteps: z.number().int().nonnegative(),
-  decodeMs: z.number().nonnegative(),
-  decodeTokens: z.number().nonnegative(),
-}).strict()
+const sessionStatsSchema = z
+  .object({
+    turns: z.number().int().nonnegative(),
+    steps: z.number().int().nonnegative(),
+    llmMs: z.number().nonnegative(),
+    toolMs: z.number().nonnegative(),
+    ttftMs: z.number().nonnegative(),
+    ttftSteps: z.number().int().nonnegative(),
+    decodeMs: z.number().nonnegative(),
+    decodeTokens: z.number().nonnegative(),
+  })
+  .strict()
 
 /**
  * The fold state's shape (totals plus in-flight boundaries), validated on
@@ -88,12 +89,14 @@ const sessionStatsSchema = z.object({
  */
 const sessionStatsStateSchema = sessionStatsSchema.extend({
   lastTurn: z.number().int().nonnegative().nullable(),
-  openStep: z.object({
-    turn: z.number().int().nonnegative(),
-    step: z.number().int().nonnegative(),
-    startTime: z.number().nonnegative(),
-    firstTokenTime: z.number().nonnegative().nullable(),
-  }).nullable(),
+  openStep: z
+    .object({
+      turn: z.number().int().nonnegative(),
+      step: z.number().int().nonnegative(),
+      startTime: z.number().nonnegative(),
+      firstTokenTime: z.number().nonnegative().nullable(),
+    })
+    .nullable(),
   pendingCalls: z.record(z.string(), z.number().nonnegative()),
 })
 
@@ -174,9 +177,7 @@ export const sessionStatsProjectionDefinition = {
         const callId = event.data.message.source.callId
         const dispatched = Object.hasOwn(state.pendingCalls, callId) ? state.pendingCalls[callId] : undefined
         if (dispatched === undefined) return state
-        const pendingCalls = Object.fromEntries(
-          Object.entries(state.pendingCalls).filter(([id]) => id !== callId),
-        )
+        const pendingCalls = Object.fromEntries(Object.entries(state.pendingCalls).filter(([id]) => id !== callId))
         return { ...state, toolMs: state.toolMs + Math.max(0, event.time - dispatched), pendingCalls }
       }
       case 'step/end':

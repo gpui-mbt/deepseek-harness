@@ -17,7 +17,7 @@ import type { ChildProcess } from 'node:child_process'
  */
 function exitsWithin(child: ChildProcess, ms: number): Promise<boolean> {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve(true)
-  return new Promise<boolean>((resolve) => {
+  return new Promise<boolean>(resolve => {
     const onExit = (): void => {
       clearTimeout(timer)
       resolve(true)
@@ -48,8 +48,14 @@ function forceTerminateWithin(child: ChildProcess, ms: number): Promise<void> {
       cleanup()
       complete()
     }
-    const onExit = (): void => { settle(resolve) }
-    const onError = (error: Error): void => { settle(() => { reject(error) }) }
+    const onExit = (): void => {
+      settle(resolve)
+    }
+    const onError = (error: Error): void => {
+      settle(() => {
+        reject(error)
+      })
+    }
     child.once('exit', onExit)
     child.once('error', onError)
     const timer = setTimeout(() => {
@@ -62,7 +68,9 @@ function forceTerminateWithin(child: ChildProcess, ms: number): Promise<void> {
       accepted = child.kill('SIGKILL')
       if (child.exitCode !== null || child.signalCode !== null) settle(resolve)
     } catch (error: unknown) {
-      settle(() => { reject(new Error('SIGKILL failed', { cause: error })) })
+      settle(() => {
+        reject(new Error('SIGKILL failed', { cause: error }))
+      })
     }
   })
 }

@@ -119,7 +119,10 @@ async function resolveRoot(path: string, allowSymlink: boolean, warn: WarnFn): P
   if (initial.isSymbolicLink()) {
     if (!allowSymlink) return undefined
   } else if (!isTrustedDirectory(initial)) {
-    warnSafely(warn, `spill-local: skipped unsafe root ${path}: expected a directory owned by the current user and not writable by group or others`)
+    warnSafely(
+      warn,
+      `spill-local: skipped unsafe root ${path}: expected a directory owned by the current user and not writable by group or others`,
+    )
     return undefined
   }
 
@@ -148,7 +151,10 @@ async function resolveRoot(path: string, allowSymlink: boolean, warn: WarnFn): P
   /* v8 ignore start -- Windows has no POSIX ownership or mode rejection path;
      POSIX tests exercise both unsafe-directory conditions. */
   if (!isTrustedDirectory(stats) || !protectedAncestors) {
-    warnSafely(warn, `spill-local: skipped unsafe root ${canonical}: expected a current-user-owned directory with protected write and ancestor permissions`)
+    warnSafely(
+      warn,
+      `spill-local: skipped unsafe root ${canonical}: expected a current-user-owned directory with protected write and ancestor permissions`,
+    )
     return undefined
   }
   /* v8 ignore stop */
@@ -245,7 +251,10 @@ async function sweepSessionDir(dir: string, cutoffMs: number, warn: WarnFn): Pro
       /* v8 ignore start -- an entry that readdir just returned then fails to
          lstat only by racing away (ENOENT) or a permission/IO fault; keep it out
          of the deterministic test surface. */
-      if (isErrno(error, 'ENOENT')) { remaining--; continue }
+      if (isErrno(error, 'ENOENT')) {
+        remaining--
+        continue
+      }
       warnSafely(warn, `spill-local: failed to stat ${path}: ${String(error)}`)
       continue
       /* v8 ignore stop */
@@ -303,7 +312,10 @@ export async function sweepSpillRoots(options: SweepOptions): Promise<void> {
       // Only the backend's own `session-<12 hex>` directories are swept; an
       // unrelated sibling (`session-backup`, a stray file) is left untouched and
       // blocks pruning the root.
-      if (!SESSION_DIR_RE.test(name)) { rootEmptiable = false; continue }
+      if (!SESSION_DIR_RE.test(name)) {
+        rootEmptiable = false
+        continue
+      }
       const dir = join(root.path, name)
       let stats
       try {
@@ -325,7 +337,10 @@ export async function sweepSpillRoots(options: SweepOptions): Promise<void> {
         continue
       }
       const empty = await sweepSessionDir(dir, cutoffMs, warn)
-      if (!empty) { rootEmptiable = false; continue }
+      if (!empty) {
+        rootEmptiable = false
+        continue
+      }
       try {
         await rmdir(dir)
       } catch (error: unknown) {
@@ -415,15 +430,8 @@ export async function discoverDefaultRoots(warn: WarnFn, base: string = tmpdir()
  * @param defaultRootsBase Directory holding prior default roots.
  * @returns Trusted roots with the active identity marked non-prunable.
  */
-export async function gatherSweepRoots(
-  activeRoot: string,
-  warn: WarnFn,
-  defaultRootsBase: string = tmpdir(),
-): Promise<SweepRoot[]> {
-  const [discovered, active] = await Promise.all([
-    discoverDefaultRootRecords(warn, defaultRootsBase),
-    resolveRoot(activeRoot, true, warn),
-  ])
+export async function gatherSweepRoots(activeRoot: string, warn: WarnFn, defaultRootsBase: string = tmpdir()): Promise<SweepRoot[]> {
+  const [discovered, active] = await Promise.all([discoverDefaultRootRecords(warn, defaultRootsBase), resolveRoot(activeRoot, true, warn)])
   const roots = new Map<string, SweepRoot>()
   for (const root of discovered) roots.set(root.identity, { path: root.path, pruneWhenEmpty: true })
   if (active !== undefined) roots.set(active.identity, { path: active.path, pruneWhenEmpty: false })

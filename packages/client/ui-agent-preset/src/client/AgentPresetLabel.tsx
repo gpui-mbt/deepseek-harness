@@ -30,20 +30,17 @@ export interface AgentPresetLabelInjected {
 }
 
 /** Full component props. */
-export type AgentPresetLabelProps =
-  PropsRuntime<'conversation.session.header.actions'>
-  & PropsLocale<'settings.agentPreset'>
-  & InjectFace<AgentPresetLabelInjected>
+export type AgentPresetLabelProps = PropsRuntime<'conversation.session.header.actions'> &
+  PropsLocale<'settings.agentPreset'> &
+  InjectFace<AgentPresetLabelInjected>
 
 /**
  * Render this session's agent-preset name beside its title.
  * @param props - composed slot props.
  * @returns the label, or null when the session records no preset.
  */
-export function AgentPresetLabel({
-  sessionId, useSessions, useAgentPresets, load, t,
-}: AgentPresetLabelProps) {
-  const preset = useSessions((state) => {
+export function AgentPresetLabel({ sessionId, useSessions, useAgentPresets, load, t }: AgentPresetLabelProps) {
+  const preset = useSessions(state => {
     const value = state.byId[sessionId]?.projectionValues?.agentPreset
     return typeof value === 'string' ? value : undefined
   })

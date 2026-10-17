@@ -84,10 +84,6 @@ declare module '@deepseek-ai/cordis' {
      * @param req - pending approval request.
      * @mode waterfall
      */
-    'approval/request'(
-      this: Scoped<Agent>,
-      req: ApprovalRequestEvent,
-      next: () => Promise<ApprovalOutcome>,
-    ): Promise<ApprovalOutcome>
+    'approval/request'(this: Scoped<Agent>, req: ApprovalRequestEvent, next: () => Promise<ApprovalOutcome>): Promise<ApprovalOutcome>
   }
 }

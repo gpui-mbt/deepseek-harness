@@ -8,9 +8,7 @@ interface Loading {
   readonly promise: Promise<Inventory>
   readonly updates: Map<WebTerminalId, WebTerminalInfo | undefined>
 }
-type LoadState = { readonly kind: 'unloaded' | 'ready' | 'disposed' }
-  | { readonly kind: 'failed'; readonly error: Error }
-  | Loading
+type LoadState = { readonly kind: 'unloaded' | 'ready' | 'disposed' } | { readonly kind: 'failed'; readonly error: Error } | Loading
 
 /** One Session's cached list, retained failures and in-flight mutation reconciliation. */
 export class TerminalInventory {
@@ -36,7 +34,14 @@ export class TerminalInventory {
     this.state = request
     this.pending.add(completed.promise)
     void this.loadRequest(request).then(completed.resolve, completed.reject)
-    void completed.promise.then(() => { this.pending.delete(completed.promise) }, () => { this.pending.delete(completed.promise) })
+    void completed.promise.then(
+      () => {
+        this.pending.delete(completed.promise)
+      },
+      () => {
+        this.pending.delete(completed.promise)
+      },
+    )
     return completed.promise
   }
 

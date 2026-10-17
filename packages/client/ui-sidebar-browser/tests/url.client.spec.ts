@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseBrowserAddress } from '../src/client/browser/url.ts'
 
 const APP = 'https://dsh.example'
@@ -6,31 +6,38 @@ const APP = 'https://dsh.example'
 describe('Browser address policy', () => {
   it('normalizes host names and HTTPS addresses', () => {
     expect(parseBrowserAddress('example.com/path', APP)).toEqual({
-      ok: true, target: { kind: 'https', url: 'https://example.com/path', title: 'example.com' },
+      ok: true,
+      target: { kind: 'https', url: 'https://example.com/path', title: 'example.com' },
     })
     expect(parseBrowserAddress('https://docs.example/a?q=1#x', APP)).toEqual({
-      ok: true, target: { kind: 'https', url: 'https://docs.example/a?q=1#x', title: 'docs.example' },
+      ok: true,
+      target: { kind: 'https', url: 'https://docs.example/a?q=1#x', title: 'docs.example' },
     })
     expect(parseBrowserAddress('example.com:8443/path', APP)).toEqual({
-      ok: true, target: { kind: 'https', url: 'https://example.com:8443/path', title: 'example.com' },
+      ok: true,
+      target: { kind: 'https', url: 'https://example.com:8443/path', title: 'example.com' },
     })
   })
 
   it('accepts HTTP including loopback hosts', () => {
     expect(parseBrowserAddress('http://localhost:5173/app', APP)).toEqual({
-      ok: true, target: { kind: 'http', url: 'http://localhost:5173/app', title: 'localhost' },
+      ok: true,
+      target: { kind: 'http', url: 'http://localhost:5173/app', title: 'localhost' },
     })
     expect(parseBrowserAddress('http://127.42.0.9/', APP)).toMatchObject({ ok: true, target: { kind: 'http' } })
     expect(parseBrowserAddress('http://[::1]:8080/', APP)).toMatchObject({ ok: true, target: { kind: 'http' } })
     expect(parseBrowserAddress('http://example.com/', APP)).toEqual({
-      ok: true, target: { kind: 'http', url: 'http://example.com/', title: 'example.com' },
+      ok: true,
+      target: { kind: 'http', url: 'http://example.com/', title: 'example.com' },
     })
     expect(parseBrowserAddress('http://128.0.0.1/', APP)).toMatchObject({ ok: true, target: { kind: 'http' } })
     expect(parseBrowserAddress('http:/example.com/path', APP)).toEqual({
-      ok: true, target: { kind: 'http', url: 'http://example.com/path', title: 'example.com' },
+      ok: true,
+      target: { kind: 'http', url: 'http://example.com/path', title: 'example.com' },
     })
     expect(parseBrowserAddress('https:/example.com/path', APP)).toEqual({
-      ok: true, target: { kind: 'https', url: 'https://example.com/path', title: 'example.com' },
+      ok: true,
+      target: { kind: 'https', url: 'https://example.com/path', title: 'example.com' },
     })
   })
 

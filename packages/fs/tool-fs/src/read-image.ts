@@ -127,7 +127,9 @@ export async function assertImageCapableRoute(ctx: Context, exec: ToolExecution,
   }
   const active = await llm.resolveModelInfo(provider, model, exec.signal)
   if (active.inputModalities === undefined || !active.inputModalities.includes('image')) {
-    throw new Error(`cannot read "${requestedPath}" as an image: model "${model}" does not declare image input; switch to an image-capable model to read images`)
+    throw new Error(
+      `cannot read "${requestedPath}" as an image: model "${model}" does not declare image input; switch to an image-capable model to read images`,
+    )
   }
 }
 
@@ -151,10 +153,12 @@ export function imageRefFromValue(image: ImageReadValue['image']): ImageAttachme
     bytes: image.bytes,
     width: image.width,
     height: image.height,
-    ...image.name === undefined ? {} : { name: image.name },
-    ...image.originalDimensions === undefined ? {} : {
-      originalDimensions: { ...image.originalDimensions },
-    },
+    ...(image.name === undefined ? {} : { name: image.name }),
+    ...(image.originalDimensions === undefined
+      ? {}
+      : {
+          originalDimensions: { ...image.originalDimensions },
+        }),
   }
 }
 
@@ -173,9 +177,7 @@ export function formatImageReadOutput(displayPath: string, image: ImageReadValue
     // advice names one multiplier only when both round to the same value.
     const x = (image.originalDimensions.width / image.width).toFixed(2)
     const y = (image.originalDimensions.height / image.height).toFixed(2)
-    const advice = x === y
-      ? `multiply coordinates by ${x}`
-      : `multiply x coordinates by ${x} and y coordinates by ${y}`
+    const advice = x === y ? `multiply coordinates by ${x}` : `multiply x coordinates by ${x} and y coordinates by ${y}`
     scaled = ` (downscaled from ${image.originalDimensions.width}x${image.originalDimensions.height} px; ${advice} to locate features in the original file)`
   }
   return `<path>${displayPath}</path>
@@ -207,144 +209,153 @@ function imageReadContent(value: ImageReadValue): ContentBlock[] {
  *   the optional `attachments`/`llm` services.
  */
 export function applyReadImageTool(ctx: Context): void {
-  ctx.tools.register(defineTool({
-    name: 'read_image',
-    description: 'Read a PNG/JPEG/WebP/GIF file and return the image itself. '
-      + 'Large images are downscaled automatically; do not install image libraries or create thumbnails to inspect an image.',
-    parameters: {
-      file_path: { type: 'string', required: true, description: 'Path to the image file, resolved by the filesystem backend.' },
-    },
-    output: {
-      schema: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          path: { type: 'string', required: true, description: 'Canonical absolute path in the filesystem execution world.' },
-          image: IMAGE_VALUE_SCHEMA,
-        },
+  ctx.tools.register(
+    defineTool({
+      name: 'read_image',
+      description:
+        'Read a PNG/JPEG/WebP/GIF file and return the image itself. ' +
+        'Large images are downscaled automatically; do not install image libraries or create thumbnails to inspect an image.',
+      parameters: {
+        file_path: { type: 'string', required: true, description: 'Path to the image file, resolved by the filesystem backend.' },
       },
-      render: (_args, value) => imageReadContent(value),
-      // Persist the resolved path only. The attachment reference is NOT copied
-      // here: the settled `content` already carries the image block with the
-      // complete reference, so a second copy would keep two records of one fact —
-      // and a `tools/post-execute` hook that legitimately replaces the content
-      // would leave the stale copy behind, showing an image the result no longer
-      // returns. The path needs its own structured record because the content
-      // carries it only as model-facing envelope text, which the client does not
-      // parse.
-      presentationMeta: (_args, value) => ({ path: value.path }),
-    },
-    // Content-addressed attachment writes are idempotent, so concurrent reads
-    // of the same file cannot conflict.
-    isConcurrencySafe: () => true,
-    async execute(args, exec) {
-      if (args.file_path.trim().length === 0) throw new Error('file_path must be a non-empty string')
-
-      // Every pre-read gate runs before any filesystem I/O so a refusal never
-      // leaks partial reads or attachment writes. An extension-less path
-      // declares no format, so only its format and deployment media-type
-      // checks wait for the bytes.
-      const extension = extname(args.file_path).toLowerCase()
-      const declared = imageMediaTypeForPath(args.file_path)
-      if (declared === undefined && extension !== '') {
-        throw new Error(`cannot read "${args.file_path}": the ${extension} extension does not declare a supported image format; read_image accepts PNG/JPEG/WebP/GIF files, including extension-less files in those formats`)
-      }
-      const attachments = ctx.get('attachments')
-      if (attachments === undefined) {
-        throw new Error(`cannot read "${args.file_path}" as an image: no attachment service is mounted`)
-      }
-      if (declared !== undefined) assertDeploymentAccepts(attachments, declared, args.file_path)
-      await assertImageCapableRoute(ctx, exec, args.file_path)
-
-      const { target, info } = await resolveRegularReadTarget(ctx, exec, args.file_path)
-
-      // The tool result is one message carrying one image, so the per-message
-      // aggregate bound applies beside the per-image bound.
-      const byteCap = Math.min(attachments.imageLimits.maxImageBytes, attachments.imageLimits.maxMessageImageBytes)
-      const data = await ctx.fs.readBytes(target, exec.signal, byteCap)
-      const mediaType = declared ?? sniffImageMediaType(data)
-      if (mediaType === undefined) {
-        throw new Error(`cannot read "${target.displayPath}": the file content is not a supported image format; read_image accepts PNG/JPEG/WebP/GIF`)
-      }
-      if (declared === undefined) assertDeploymentAccepts(attachments, mediaType, target.displayPath)
-      // Persist before returning: the image block must reference a durably
-      // committed object by the time the tool/result event is appended.
-      let ref: ImageAttachmentRef
-      try {
-        ref = await attachments.saveImage({ data, mediaType, name: basename(target.displayPath) })
-      } catch (error: unknown) {
-        if (!(error instanceof AttachmentError)) throw error
-        // Dimension refusals stay recoverable tool errors: an oversized image
-        // must never enter durable history, where it would ride every later
-        // model request past provider-side dimension rejections.
-        if (error.code === 'IMAGE_DIMENSION_TOO_LARGE') {
-          throw new Error(
-            `cannot read "${target.displayPath}": at least one image side exceeds the ${attachments.imageLimits.maxImageDimension}px limit; downscale the image and read the smaller copy`,
-            { cause: error },
-          )
-        }
-        if (error.code === 'IMAGE_TOO_MANY_PIXELS') {
-          throw new Error(
-            `cannot read "${target.displayPath}": the image exceeds the ${attachments.imageLimits.maxImagePixels}-pixel decoded-size limit; downscale the image and read the smaller copy`,
-            { cause: error },
-          )
-        }
-        if (error.code === 'IMAGE_TOO_LARGE') {
-          throw new Error(
-            `cannot read "${target.displayPath}": the image cannot be stored within the deployment's byte limits; downscale the image and read the smaller copy`,
-            { cause: error },
-          )
-        }
-        if (error.code === 'ATTACHMENT_WRITE_FAILED' && /16-bit PNG/iu.test(error.message)) {
-          throw new Error(
-            `cannot read "${target.displayPath}": the 16-bit PNG could not be converted to the normalized 8-bit sRGB form; convert it to an 8-bit PNG/JPEG/WebP and retry`,
-            { cause: error },
-          )
-        }
-        if (error.code === 'INVALID_IMAGE' && declared === undefined) {
-          throw new Error(
-            `cannot read "${target.displayPath}": the bytes do not decode as a supported PNG/JPEG/WebP/GIF image; the file may be truncated or corrupt`,
-            { cause: error },
-          )
-        }
-        if (error.code !== 'IMAGE_TYPE_MISMATCH') throw error
-        if (declared === undefined) {
-          throw new Error(
-            `cannot read "${target.displayPath}": the file signature claims ${mediaType}, but the bytes decode as a different image format; the file may be corrupt`,
-            { cause: error },
-          )
-        }
-        throw new Error(
-          `cannot read "${target.displayPath}": the ${extension} extension declares ${mediaType}, but the bytes use a different image format; rename the file to match its actual format if it is PNG/JPEG/WebP/GIF, or convert it to one of those formats`,
-          { cause: error },
-        )
-      }
-      ctx.emit('fs/observed', target, { kind: 'present', version: info.version }, exec)
-      const value: ImageReadValue = {
-        path: ctx.fs.processPath(target),
-        image: {
-          attachmentId: ref.attachmentId,
-          mediaType: ref.mediaType,
-          bytes: ref.bytes,
-          width: ref.width,
-          height: ref.height,
-          ...ref.name === undefined ? {} : { name: ref.name },
-          ...ref.originalDimensions === undefined ? {} : {
-            originalDimensions: { ...ref.originalDimensions },
+      output: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            path: { type: 'string', required: true, description: 'Canonical absolute path in the filesystem execution world.' },
+            image: IMAGE_VALUE_SCHEMA,
           },
         },
-      }
-      return value
-    },
-    // Pure display: a generic card in the read family with a follow-along
-    // location on the image file.
-    presentCall(args): GenericCallView {
-      return {
-        card: 'generic',
-        title: `Read image ${args.file_path}`,
-        kind: 'read',
-        locations: [{ path: args.file_path }],
-      }
-    },
-  }))
+        render: (_args, value) => imageReadContent(value),
+        // Persist the resolved path only. The attachment reference is NOT copied
+        // here: the settled `content` already carries the image block with the
+        // complete reference, so a second copy would keep two records of one fact —
+        // and a `tools/post-execute` hook that legitimately replaces the content
+        // would leave the stale copy behind, showing an image the result no longer
+        // returns. The path needs its own structured record because the content
+        // carries it only as model-facing envelope text, which the client does not
+        // parse.
+        presentationMeta: (_args, value) => ({ path: value.path }),
+      },
+      // Content-addressed attachment writes are idempotent, so concurrent reads
+      // of the same file cannot conflict.
+      isConcurrencySafe: () => true,
+      async execute(args, exec) {
+        if (args.file_path.trim().length === 0) throw new Error('file_path must be a non-empty string')
+
+        // Every pre-read gate runs before any filesystem I/O so a refusal never
+        // leaks partial reads or attachment writes. An extension-less path
+        // declares no format, so only its format and deployment media-type
+        // checks wait for the bytes.
+        const extension = extname(args.file_path).toLowerCase()
+        const declared = imageMediaTypeForPath(args.file_path)
+        if (declared === undefined && extension !== '') {
+          throw new Error(
+            `cannot read "${args.file_path}": the ${extension} extension does not declare a supported image format; read_image accepts PNG/JPEG/WebP/GIF files, including extension-less files in those formats`,
+          )
+        }
+        const attachments = ctx.get('attachments')
+        if (attachments === undefined) {
+          throw new Error(`cannot read "${args.file_path}" as an image: no attachment service is mounted`)
+        }
+        if (declared !== undefined) assertDeploymentAccepts(attachments, declared, args.file_path)
+        await assertImageCapableRoute(ctx, exec, args.file_path)
+
+        const { target, info } = await resolveRegularReadTarget(ctx, exec, args.file_path)
+
+        // The tool result is one message carrying one image, so the per-message
+        // aggregate bound applies beside the per-image bound.
+        const byteCap = Math.min(attachments.imageLimits.maxImageBytes, attachments.imageLimits.maxMessageImageBytes)
+        const data = await ctx.fs.readBytes(target, exec.signal, byteCap)
+        const mediaType = declared ?? sniffImageMediaType(data)
+        if (mediaType === undefined) {
+          throw new Error(
+            `cannot read "${target.displayPath}": the file content is not a supported image format; read_image accepts PNG/JPEG/WebP/GIF`,
+          )
+        }
+        if (declared === undefined) assertDeploymentAccepts(attachments, mediaType, target.displayPath)
+        // Persist before returning: the image block must reference a durably
+        // committed object by the time the tool/result event is appended.
+        let ref: ImageAttachmentRef
+        try {
+          ref = await attachments.saveImage({ data, mediaType, name: basename(target.displayPath) })
+        } catch (error: unknown) {
+          if (!(error instanceof AttachmentError)) throw error
+          // Dimension refusals stay recoverable tool errors: an oversized image
+          // must never enter durable history, where it would ride every later
+          // model request past provider-side dimension rejections.
+          if (error.code === 'IMAGE_DIMENSION_TOO_LARGE') {
+            throw new Error(
+              `cannot read "${target.displayPath}": at least one image side exceeds the ${attachments.imageLimits.maxImageDimension}px limit; downscale the image and read the smaller copy`,
+              { cause: error },
+            )
+          }
+          if (error.code === 'IMAGE_TOO_MANY_PIXELS') {
+            throw new Error(
+              `cannot read "${target.displayPath}": the image exceeds the ${attachments.imageLimits.maxImagePixels}-pixel decoded-size limit; downscale the image and read the smaller copy`,
+              { cause: error },
+            )
+          }
+          if (error.code === 'IMAGE_TOO_LARGE') {
+            throw new Error(
+              `cannot read "${target.displayPath}": the image cannot be stored within the deployment's byte limits; downscale the image and read the smaller copy`,
+              { cause: error },
+            )
+          }
+          if (error.code === 'ATTACHMENT_WRITE_FAILED' && /16-bit PNG/iu.test(error.message)) {
+            throw new Error(
+              `cannot read "${target.displayPath}": the 16-bit PNG could not be converted to the normalized 8-bit sRGB form; convert it to an 8-bit PNG/JPEG/WebP and retry`,
+              { cause: error },
+            )
+          }
+          if (error.code === 'INVALID_IMAGE' && declared === undefined) {
+            throw new Error(
+              `cannot read "${target.displayPath}": the bytes do not decode as a supported PNG/JPEG/WebP/GIF image; the file may be truncated or corrupt`,
+              { cause: error },
+            )
+          }
+          if (error.code !== 'IMAGE_TYPE_MISMATCH') throw error
+          if (declared === undefined) {
+            throw new Error(
+              `cannot read "${target.displayPath}": the file signature claims ${mediaType}, but the bytes decode as a different image format; the file may be corrupt`,
+              { cause: error },
+            )
+          }
+          throw new Error(
+            `cannot read "${target.displayPath}": the ${extension} extension declares ${mediaType}, but the bytes use a different image format; rename the file to match its actual format if it is PNG/JPEG/WebP/GIF, or convert it to one of those formats`,
+            { cause: error },
+          )
+        }
+        ctx.emit('fs/observed', target, { kind: 'present', version: info.version }, exec)
+        const value: ImageReadValue = {
+          path: ctx.fs.processPath(target),
+          image: {
+            attachmentId: ref.attachmentId,
+            mediaType: ref.mediaType,
+            bytes: ref.bytes,
+            width: ref.width,
+            height: ref.height,
+            ...(ref.name === undefined ? {} : { name: ref.name }),
+            ...(ref.originalDimensions === undefined
+              ? {}
+              : {
+                  originalDimensions: { ...ref.originalDimensions },
+                }),
+          },
+        }
+        return value
+      },
+      // Pure display: a generic card in the read family with a follow-along
+      // location on the image file.
+      presentCall(args): GenericCallView {
+        return {
+          card: 'generic',
+          title: `Read image ${args.file_path}`,
+          kind: 'read',
+          locations: [{ path: args.file_path }],
+        }
+      },
+    }),
+  )
 }

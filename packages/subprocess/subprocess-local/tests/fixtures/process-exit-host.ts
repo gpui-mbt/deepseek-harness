@@ -5,10 +5,11 @@ import { Context } from '@deepseek-ai/cordis'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 
 const [kind, trigger, root] = process.argv.slice(2)
-if ((kind !== 'ordinary' && kind !== 'terminal')
-  || (trigger !== 'direct' && trigger !== 'uncaught-exception'
-    && trigger !== 'unhandled-rejection' && trigger !== 'dispose')
-  || root === undefined) {
+if (
+  (kind !== 'ordinary' && kind !== 'terminal') ||
+  (trigger !== 'direct' && trigger !== 'uncaught-exception' && trigger !== 'unhandled-rejection' && trigger !== 'dispose') ||
+  root === undefined
+) {
   throw new Error('usage: process-exit-host.ts <ordinary|terminal> <direct|uncaught-exception|unhandled-rejection|dispose> <root>')
 }
 
@@ -65,15 +66,20 @@ await waitForFile(proceed)
 
 if (trigger === 'dispose') {
   await fiber.dispose()
-  await writeFile(join(root, 'dispose.json'), JSON.stringify({
-    ownedListenersAfterLoad: ownedListeners.length,
-    ownedListenersAfterDispose: ownedListeners.filter(listener => process.listeners('exit').includes(listener)).length,
-    unrelatedListenerPreserved: process.listeners('exit').includes(unrelatedListener),
-  }))
+  await writeFile(
+    join(root, 'dispose.json'),
+    JSON.stringify({
+      ownedListenersAfterLoad: ownedListeners.length,
+      ownedListenersAfterDispose: ownedListeners.filter(listener => process.listeners('exit').includes(listener)).length,
+      unrelatedListenerPreserved: process.listeners('exit').includes(unrelatedListener),
+    }),
+  )
 } else if (trigger === 'direct') {
   process.exit(23)
 } else if (trigger === 'uncaught-exception') {
-  setImmediate(() => { throw new Error('host-exit-uncaught-exception') })
+  setImmediate(() => {
+    throw new Error('host-exit-uncaught-exception')
+  })
   await new Promise(() => {})
 } else {
   void Promise.reject(new Error('host-exit-unhandled-rejection'))

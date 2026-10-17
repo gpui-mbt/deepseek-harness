@@ -2,7 +2,10 @@
 
 /** Capture failure whose message is localized by the caller. */
 export class RecordingError extends Error {
-  constructor(readonly kind: 'unavailable' | 'permission' | 'empty' | 'cancelled' | 'interrupted' | 'deviceMissing') { super(kind); this.name = 'RecordingError' }
+  constructor(readonly kind: 'unavailable' | 'permission' | 'empty' | 'cancelled' | 'interrupted' | 'deviceMissing') {
+    super(kind)
+    this.name = 'RecordingError'
+  }
 }
 
 /**
@@ -13,11 +16,21 @@ export class RecordingError extends Error {
 export function encodeWave(samples: Float32Array): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(44 + samples.length * 2)
   const view = new DataView(bytes.buffer)
-  const text = (at: number, value: string): void => { for (let i = 0; i < value.length; i++) bytes[at + i] = value.charCodeAt(i) }
-  text(0, 'RIFF'); view.setUint32(4, bytes.length - 8, true); text(8, 'WAVE'); text(12, 'fmt ')
-  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true)
-  view.setUint32(24, 16000, true); view.setUint32(28, 32000, true)
-  view.setUint16(32, 2, true); view.setUint16(34, 16, true); text(36, 'data')
+  const text = (at: number, value: string): void => {
+    for (let i = 0; i < value.length; i++) bytes[at + i] = value.charCodeAt(i)
+  }
+  text(0, 'RIFF')
+  view.setUint32(4, bytes.length - 8, true)
+  text(8, 'WAVE')
+  text(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true)
+  view.setUint16(22, 1, true)
+  view.setUint32(24, 16000, true)
+  view.setUint32(28, 32000, true)
+  view.setUint16(32, 2, true)
+  view.setUint16(34, 16, true)
+  text(36, 'data')
   view.setUint32(40, samples.length * 2, true)
   for (const [i, sample] of samples.entries()) {
     const value = Math.max(-1, Math.min(1, sample))
@@ -48,7 +61,10 @@ export class Recording {
   private readonly lifetime = new AbortController()
   private disposal: Promise<void> | undefined
 
-  constructor(private readonly onDispose: () => void, private readonly deviceId = '') {}
+  constructor(
+    private readonly onDispose: () => void,
+    private readonly deviceId = '',
+  ) {}
 
   /**
    * Acquire the selected microphone without recording or playing audio.
@@ -60,8 +76,10 @@ export class Recording {
     if (!devices) throw new RecordingError('unavailable')
     let stream: MediaStream
     try {
-      stream = await devices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true,
-        ...(this.deviceId === '' ? {} : { deviceId: { exact: this.deviceId } }) }, video: false })
+      stream = await devices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, ...(this.deviceId === '' ? {} : { deviceId: { exact: this.deviceId } }) },
+        video: false,
+      })
     } catch (error) {
       if (error instanceof DOMException) {
         if (error.name === 'NotAllowedError') throw new RecordingError('permission')
@@ -69,17 +87,30 @@ export class Recording {
       }
       throw error
     }
-    if (this.lifetime.signal.aborted) { stream.getTracks().forEach((track) => { track.stop() }); throw new RecordingError('cancelled') }
+    if (this.lifetime.signal.aborted) {
+      stream.getTracks().forEach(track => {
+        track.stop()
+      })
+      throw new RecordingError('cancelled')
+    }
     this.stream = stream
     try {
       this.context = new AudioContext()
       this.analyser = this.context.createAnalyser()
       this.analyser.fftSize = this.samples.length
       this.context.createMediaStreamSource(stream).connect(this.analyser)
-      for (const track of stream.getTracks()) track.addEventListener('ended', () => {
-        this.interrupted(onError)
-      }, { signal: this.lifetime.signal })
-    } catch (error) { await this.dispose(); throw error }
+      for (const track of stream.getTracks())
+        track.addEventListener(
+          'ended',
+          () => {
+            this.interrupted(onError)
+          },
+          { signal: this.lifetime.signal },
+        )
+    } catch (error) {
+      await this.dispose()
+      throw error
+    }
   }
 
   /**
@@ -93,16 +124,25 @@ export class Recording {
     if (this.lifetime.signal.aborted) throw new RecordingError('cancelled')
     try {
       this.recorder = new MediaRecorder(this.stream as MediaStream)
-      this.recorder.ondataavailable = (event) => { if (!this.lifetime.signal.aborted && event.data.size > 0) this.chunks.push(event.data) }
-      this.recorder.onerror = () => { this.interrupted(onError) }
+      this.recorder.ondataavailable = event => {
+        if (!this.lifetime.signal.aborted && event.data.size > 0) this.chunks.push(event.data)
+      }
+      this.recorder.onerror = () => {
+        this.interrupted(onError)
+      }
       this.recorder.start()
-    } catch (error) { await this.dispose(); throw error }
+    } catch (error) {
+      await this.dispose()
+      throw error
+    }
   }
 
   private interrupted(onError: ((error: RecordingError) => void) | undefined): void {
     if (this.lifetime.signal.aborted) return
     void this.dispose().catch(() => undefined)
-    try { onError?.(new RecordingError('interrupted')) } catch (error) {
+    try {
+      onError?.(new RecordingError('interrupted'))
+    } catch (error) {
       console.error('Speech recording error handler failed', error)
     }
   }
@@ -136,14 +176,23 @@ export class Recording {
   async stop(maxDurationSeconds: number): Promise<Uint8Array<ArrayBuffer>> {
     const recorder = this.recorder
     const context = this.context
-    if (!recorder || !context || recorder.state !== 'recording') { await this.dispose(); throw new RecordingError('empty') }
+    if (!recorder || !context || recorder.state !== 'recording') {
+      await this.dispose()
+      throw new RecordingError('empty')
+    }
     try {
       await new Promise<void>((resolve, reject) => {
-        recorder.onstop = () => { resolve() }
-        recorder.onerror = () => { reject(new RecordingError('empty')) }
+        recorder.onstop = () => {
+          resolve()
+        }
+        recorder.onerror = () => {
+          reject(new RecordingError('empty'))
+        }
         recorder.stop()
       })
-      this.stream?.getTracks().forEach((track) => { track.stop() })
+      this.stream?.getTracks().forEach(track => {
+        track.stop()
+      })
       this.lifetime.signal.throwIfAborted()
       const blob = new Blob(this.chunks, { type: recorder.mimeType })
       if (blob.size === 0) throw new RecordingError('empty')
@@ -157,7 +206,9 @@ export class Recording {
       const resampled = await offline.startRendering()
       this.lifetime.signal.throwIfAborted()
       return encodeWave(resampled.getChannelData(0))
-    } finally { await this.dispose() }
+    } finally {
+      await this.dispose()
+    }
   }
 
   /**
@@ -176,13 +227,18 @@ export class Recording {
   private async release(): Promise<void> {
     this.lifetime.abort(new RecordingError('cancelled'))
     if (this.recorder?.state === 'recording') this.recorder.stop()
-    this.stream?.getTracks().forEach((track) => { track.stop() })
+    this.stream?.getTracks().forEach(track => {
+      track.stop()
+    })
     this.stream = undefined
     const context = this.context
     this.context = undefined
     this.analyser = undefined
     this.chunks = []
-    try { if (context && context.state !== 'closed') await context.close() }
-    finally { this.onDispose() }
+    try {
+      if (context && context.state !== 'closed') await context.close()
+    } finally {
+      this.onDispose()
+    }
   }
 }

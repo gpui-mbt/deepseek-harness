@@ -26,10 +26,10 @@ export interface ServerContext {
  * @param connection - live resource operations and successful instruction snapshot.
  */
 export function registerServerContext(ctx: Context, server: string, connection: ServerContext): void {
-  ctx.inject(['mcpResources'], (inner) => {
+  ctx.inject(['mcpResources'], inner => {
     inner.mcpResources.register(server, connection.resources)
   })
-  ctx.inject(['systemPrompt'], (inner) => {
+  ctx.inject(['systemPrompt'], inner => {
     inner.systemPrompt.section({
       name: `mcp:${server}`,
       order: inner.systemPrompt.getSectionOrder('MCP_SERVERS'),

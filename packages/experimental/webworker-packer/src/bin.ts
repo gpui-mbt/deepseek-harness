@@ -12,12 +12,11 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  PREVIEW_FIXTURE_MANIFEST_FILE, PREVIEW_FIXTURE_MANIFEST_VERSION,
+  PREVIEW_FIXTURE_MANIFEST_FILE,
+  PREVIEW_FIXTURE_MANIFEST_VERSION,
   type PreviewFixtureManifest,
 } from '@deepseek-ai/dsh-experimental-webworker-runtime'
-import {
-  describePack, packPreviewFixture, packRepositoryImage, previewFixtures,
-} from './repository.ts'
+import { describePack, packPreviewFixture, packRepositoryImage, previewFixtures } from './repository.ts'
 
 /**
  * Read one `--flag value` pair.
@@ -64,7 +63,7 @@ const fixtureDefinitions = previewFixtures(repoRoot)
 const fixtureDirectory = join(dirname(outputFile), 'fixtures')
 mkdirSync(fixtureDirectory, { recursive: true })
 const fixtureLines: string[] = []
-const fixtures = fixtureDefinitions.map((fixture) => {
+const fixtures = fixtureDefinitions.map(fixture => {
   const packed = packPreviewFixture(fixture.trees)
   const file = `fixtures/${fixture.id}.tar.gz`
   writeFileSync(join(dirname(outputFile), file), packed.image)
@@ -81,8 +80,5 @@ const manifest: PreviewFixtureManifest = {
   defaultFixture: fixtures[0]?.id ?? null,
   fixtures,
 }
-writeFileSync(
-  join(dirname(outputFile), PREVIEW_FIXTURE_MANIFEST_FILE),
-  `${JSON.stringify(manifest, null, 2)}\n`,
-)
+writeFileSync(join(dirname(outputFile), PREVIEW_FIXTURE_MANIFEST_FILE), `${JSON.stringify(manifest, null, 2)}\n`)
 process.stdout.write([...describePack(result, repoRoot, outputFile), ...fixtureLines, ''].join('\n'))

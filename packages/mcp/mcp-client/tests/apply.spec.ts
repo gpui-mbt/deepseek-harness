@@ -3,7 +3,7 @@
  * Isolated file so vi.mock of the MCP SDK doesn't pollute other test suites.
  */
 import assert from 'node:assert/strict'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
@@ -18,9 +18,7 @@ const { mockConnect, mockClose, mockListTools, mockCallTool, mockSetNotification
   const mockConnect = vi.fn<() => Promise<void>>()
   const mockClose = vi.fn<() => Promise<void>>()
   const mockListTools = vi.fn<(_params?: Record<string, unknown>) => Promise<unknown>>()
-  const mockCallTool = vi.fn<(
-    _params?: Record<string, unknown>, _options?: unknown,
-  ) => Promise<unknown>>()
+  const mockCallTool = vi.fn<(_params?: Record<string, unknown>, _options?: unknown) => Promise<unknown>>()
   const mockSetNotificationHandler = vi.fn()
   class MockClient {
     transport = {}
@@ -32,7 +30,9 @@ const { mockConnect, mockClose, mockListTools, mockCallTool, mockSetNotification
       mockSetNotificationHandler('notifications/tools/list_changed', options.listChanged.tools.onChanged)
     }
     getServerCapabilities = () => ({ tools: {} })
-    getInstructions(): string | undefined { return undefined }
+    getInstructions(): string | undefined {
+      return undefined
+    }
   }
   return { mockConnect, mockClose, mockListTools, mockCallTool, mockSetNotificationHandler, MockClient }
 })
@@ -89,25 +89,31 @@ describe('mcp-client plugin module exports', () => {
   })
 
   it('Config schema rejects a missing serverName', () => {
-    expect(() => ConfigSchema({
-      transport: 'stdio',
-      command: 'echo',
-    } as never)).toThrow()
+    expect(() =>
+      ConfigSchema({
+        transport: 'stdio',
+        command: 'echo',
+      } as never),
+    ).toThrow()
   })
 
   it('Config schema rejects an invalid serverName', () => {
     // schemastery unions wrap branch errors in a generic "expected ... but got"
     // message, so assert the throw, not the inner pattern text.
-    expect(() => ConfigSchema({
-      transport: 'stdio',
-      serverName: 'bad name!',
-      command: 'echo',
-    } as never)).toThrow()
-    expect(() => ConfigSchema({
-      transport: 'stdio',
-      serverName: 'x'.repeat(33),
-      command: 'echo',
-    } as never)).toThrow()
+    expect(() =>
+      ConfigSchema({
+        transport: 'stdio',
+        serverName: 'bad name!',
+        command: 'echo',
+      } as never),
+    ).toThrow()
+    expect(() =>
+      ConfigSchema({
+        transport: 'stdio',
+        serverName: 'x'.repeat(33),
+        command: 'echo',
+      } as never),
+    ).toThrow()
   })
 
   it('Config schema accepts a valid serverName', () => {
@@ -138,12 +144,14 @@ describe('mcp-client plugin module exports', () => {
 
   it('Config schema rejects an invalid reconnect block', () => {
     // schemastery unions wrap branch errors, so assert the throw only.
-    expect(() => ConfigSchema({
-      transport: 'stdio',
-      serverName: 'srv',
-      command: 'echo',
-      reconnect: { maxAttempts: 0 },
-    } as never)).toThrow()
+    expect(() =>
+      ConfigSchema({
+        transport: 'stdio',
+        serverName: 'srv',
+        command: 'echo',
+        reconnect: { maxAttempts: 0 },
+      } as never),
+    ).toThrow()
   })
 })
 
@@ -166,11 +174,15 @@ describe('apply (plugin lifecycle)', () => {
   })
 
   it.each([undefined, '', ' \n\t'])(
-    'connects without attributed prompt text when server instructions are absent or blank (%j)', async (instructions) => {
+    'connects without attributed prompt text when server instructions are absent or blank (%j)',
+    async instructions => {
       const spy = vi.spyOn(MockClient.prototype, 'getInstructions').mockReturnValue(instructions)
       try {
         await apply(ctx, {
-          ...stdioConfig, failOnStartupError: true, reconnect: { enabled: false }, maxInstructionBytes: 1,
+          ...stdioConfig,
+          failOnStartupError: true,
+          reconnect: { enabled: false },
+          maxInstructionBytes: 1,
         })
         expect(ctx.tools.get('mcp__srv__remote')).toBeDefined()
         expect(renderPrompt(await ctx.systemPrompt.assemble())).not.toContain('### MCP server:')
@@ -198,9 +210,13 @@ describe('apply (plugin lifecycle)', () => {
     })
     const fiber = ctx.plugin({ name: 'mcp-client-lifecycle', inject, apply }, stdioConfig)
     let activated = false
-    const activation = Promise.resolve(fiber).then(() => { activated = true })
+    const activation = Promise.resolve(fiber).then(() => {
+      activated = true
+    })
 
-    await vi.waitFor(() => { expect(mockConnect).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(mockConnect).toHaveBeenCalled()
+    })
     expect(activated).toBe(false)
     expect(ctx.tools.get('mcp__srv__remote')).toBeUndefined()
 
@@ -229,7 +245,9 @@ describe('apply (plugin lifecycle)', () => {
     const fiber = ctx.plugin({ name: 'mcp-pending-startup', inject, apply }, { ...stdioConfig, reconnect: { enabled: false } })
     const activation = Promise.resolve(fiber).catch((error: unknown) => error)
     try {
-      await vi.waitFor(() => { expect(mockConnect).toHaveBeenCalledTimes(1) })
+      await vi.waitFor(() => {
+        expect(mockConnect).toHaveBeenCalledTimes(1)
+      })
       await fiber.dispose()
       await activation
       expect(mockClose).toHaveBeenCalledTimes(1)
@@ -299,10 +317,12 @@ describe('apply (plugin lifecycle)', () => {
   it('rejects activation and still closes the client when startup failure is configured as fatal', async () => {
     const cause = new Error('connection refused')
     mockConnect.mockRejectedValue(cause)
-    await expect(apply(ctx, {
-      ...stdioConfig,
-      failOnStartupError: true,
-    })).rejects.toMatchObject({
+    await expect(
+      apply(ctx, {
+        ...stdioConfig,
+        failOnStartupError: true,
+      }),
+    ).rejects.toMatchObject({
       message: 'mcp-client(srv): initial connection or tool synchronization failed',
       cause,
     })
@@ -325,10 +345,12 @@ describe('apply (plugin lifecycle)', () => {
       execute: async () => 'foreign',
     })
 
-    await expect(apply(ctx, {
-      ...stdioConfig,
-      failOnStartupError: true,
-    })).rejects.toThrow('initial connection or tool synchronization failed')
+    await expect(
+      apply(ctx, {
+        ...stdioConfig,
+        failOnStartupError: true,
+      }),
+    ).rejects.toThrow('initial connection or tool synchronization failed')
 
     expect(ctx.tools.get('mcp__srv__remote')).toBeDefined()
     await ctx.fiber.dispose()
@@ -351,10 +373,12 @@ describe('apply (plugin lifecycle)', () => {
       handler()
     })
 
-    await expect(apply(ctx, {
-      ...stdioConfig,
-      failOnStartupError: true,
-    })).rejects.toThrow('initial connection or tool synchronization failed')
+    await expect(
+      apply(ctx, {
+        ...stdioConfig,
+        failOnStartupError: true,
+      }),
+    ).rejects.toThrow('initial connection or tool synchronization failed')
 
     expect(mockListTools).toHaveBeenCalledTimes(2)
     expect(ctx.tools.get('mcp__srv__remote')?.description).toBe('Foreign squatter')
@@ -374,7 +398,9 @@ describe('apply (plugin lifecycle)', () => {
     const handler = mockSetNotificationHandler.mock.calls[0]![1] as () => void
     handler()
 
-    await vi.waitFor(() => { expect(ctx.tools.get('mcp__srv__updated')).toBeDefined() })
+    await vi.waitFor(() => {
+      expect(ctx.tools.get('mcp__srv__updated')).toBeDefined()
+    })
   })
 
   it('keeps the previous generation when a re-sync fails', async () => {
@@ -385,7 +411,9 @@ describe('apply (plugin lifecycle)', () => {
     mockListTools.mockRejectedValue(new Error('flaky server'))
     const handler = mockSetNotificationHandler.mock.calls[0]![1] as () => void
     handler()
-    await vi.waitFor(() => { expect(reported).toHaveBeenCalledWith(expect.stringContaining('flaky server')) })
+    await vi.waitFor(() => {
+      expect(reported).toHaveBeenCalledWith(expect.stringContaining('flaky server'))
+    })
 
     expect(ctx.tools.get('mcp__srv__remote')).toBeDefined()
   })
@@ -403,7 +431,9 @@ describe('apply (plugin lifecycle)', () => {
     })
     const handler = mockSetNotificationHandler.mock.calls[0]![1] as () => void
     handler()
-    await vi.waitFor(() => { expect(ctx.tools.get('mcp__srv__updated')).toBeDefined() })
+    await vi.waitFor(() => {
+      expect(ctx.tools.get('mcp__srv__updated')).toBeDefined()
+    })
 
     await fiber.dispose()
     await sleep(50)
@@ -445,7 +475,6 @@ describe('apply (plugin lifecycle)', () => {
   })
 })
 
-
 describe('server instruction limits', () => {
   it('counts the complete attributed UTF-8 text before publishing tools', async () => {
     const ctx = await mountRegistry()
@@ -454,7 +483,9 @@ describe('server instruction limits', () => {
     const exactBytes = Buffer.byteLength(`### MCP server: srv\n\n${text}`)
     try {
       const failure: unknown = await apply(ctx, {
-        ...stdioConfig, failOnStartupError: true, reconnect: { enabled: false },
+        ...stdioConfig,
+        failOnStartupError: true,
+        reconnect: { enabled: false },
         maxInstructionBytes: exactBytes - 1,
       }).catch((error: unknown) => error)
       assert(failure instanceof Error)
@@ -469,7 +500,9 @@ describe('server instruction limits', () => {
     const validSpy = vi.spyOn(MockClient.prototype, 'getInstructions').mockReturnValue(text)
     try {
       await apply(valid, {
-        ...stdioConfig, failOnStartupError: true, reconnect: { enabled: false },
+        ...stdioConfig,
+        failOnStartupError: true,
+        reconnect: { enabled: false },
         maxInstructionBytes: exactBytes,
       })
     } finally {

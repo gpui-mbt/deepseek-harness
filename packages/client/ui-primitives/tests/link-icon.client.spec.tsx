@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { LinkIconMedium, LinkIconRegular, classifyLinkPath, type LinkIconKind } from '@deepseek-ai/dsh-client-ui-primitives'
 
 afterEach(cleanup)
@@ -41,7 +41,7 @@ describe('classifyLinkPath', () => {
 describe('LinkIcon', () => {
   const kinds: LinkIconKind[] = ['url', 'folder', 'code', 'image', 'document', 'other']
 
-  it.each(kinds)('%s renders a distinct aria-hidden svg with currentColor artwork only', (kind) => {
+  it.each(kinds)('%s renders a distinct aria-hidden svg with currentColor artwork only', kind => {
     const { container } = render(<LinkIconRegular kind={kind} />)
     const svg = container.querySelector('svg')!
     expect(svg).not.toBeNull()
@@ -52,7 +52,7 @@ describe('LinkIcon', () => {
   })
 
   it('every kind draws its own glyph', () => {
-    const paths = kinds.map((kind) => {
+    const paths = kinds.map(kind => {
       const { container } = render(<LinkIconRegular kind={kind} />)
       return container.querySelector('path')!.getAttribute('d')
     })
@@ -124,7 +124,9 @@ function glyphPath(href: string): string {
 
 describe('LinkIcon site marks', () => {
   it('draws each mapped site its own mark, not the globe', () => {
-    const globe = render(<LinkIconMedium kind="url" />).container.querySelector('path')!.getAttribute('d')
+    const globe = render(<LinkIconMedium kind="url" />)
+      .container.querySelector('path')!
+      .getAttribute('d')
     const marks = SITE_URLS.map(glyphPath)
     expect(marks).not.toContain(globe)
     // Thirty-seven destinations, thirty-four mapped sites: the three extra

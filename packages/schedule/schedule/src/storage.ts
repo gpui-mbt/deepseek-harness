@@ -19,42 +19,60 @@ const instantSchema = z.iso.datetime({ precision: 3 }).refine(value => !value.st
   message: 'Expected a canonical four-digit-year UTC calendar instant',
 })
 
-const deliveryReceiptSchema = z.object({
-  scheduledAt: instantSchema,
-  deliveredAt: instantSchema,
-  messageId: z.string().min(1).refine(value => value.trim() === value).transform(MessageId),
-}).strict()
+const deliveryReceiptSchema = z
+  .object({
+    scheduledAt: instantSchema,
+    deliveredAt: instantSchema,
+    messageId: z
+      .string()
+      .min(1)
+      .refine(value => value.trim() === value)
+      .transform(MessageId),
+  })
+  .strict()
 
-const deliveryHistorySchema = z.object({
-  records: z.array(deliveryReceiptSchema.extend({ prompt: z.string().optional() }).strict()),
-  earlierRecordsUnavailable: z.boolean(),
-  earlierRecordsPruned: z.boolean().optional(),
-}).strict().refine(history => new Set(history.records.map(record => record.messageId)).size === history.records.length, {
-  message: 'Delivery history message identities must be unique within a task',
-})
+const deliveryHistorySchema = z
+  .object({
+    records: z.array(deliveryReceiptSchema.extend({ prompt: z.string().optional() }).strict()),
+    earlierRecordsUnavailable: z.boolean(),
+    earlierRecordsPruned: z.boolean().optional(),
+  })
+  .strict()
+  .refine(history => new Set(history.records.map(record => record.messageId)).size === history.records.length, {
+    message: 'Delivery history message identities must be unique within a task',
+  })
 
 /** Stored task binds one schedule to its original Session; absent status decodes as active. */
-export const scheduleTaskSchema = z.object({
-  sessionId: z.string().min(1).transform(SessionId),
-  record: recordSchema,
-  status: z.enum(['active', 'inactive']).default('active'),
-  lastDelivery: deliveryReceiptSchema.optional(),
-  deliveryHistory: deliveryHistorySchema.optional(),
-}).strict().refine((task) => {
-  if (task.deliveryHistory === undefined) return true
-  const latest = task.deliveryHistory.records.at(-1)
-  if (latest === undefined) return task.lastDelivery === undefined
-  return task.lastDelivery !== undefined
-    && latest.scheduledAt === task.lastDelivery.scheduledAt
-    && latest.deliveredAt === task.lastDelivery.deliveredAt
-    && latest.messageId === task.lastDelivery.messageId
-}, { message: 'Last delivery must match the latest saved delivery receipt' })
+export const scheduleTaskSchema = z
+  .object({
+    sessionId: z.string().min(1).transform(SessionId),
+    record: recordSchema,
+    status: z.enum(['active', 'inactive']).default('active'),
+    lastDelivery: deliveryReceiptSchema.optional(),
+    deliveryHistory: deliveryHistorySchema.optional(),
+  })
+  .strict()
+  .refine(
+    task => {
+      if (task.deliveryHistory === undefined) return true
+      const latest = task.deliveryHistory.records.at(-1)
+      if (latest === undefined) return task.lastDelivery === undefined
+      return (
+        task.lastDelivery !== undefined &&
+        latest.scheduledAt === task.lastDelivery.scheduledAt &&
+        latest.deliveredAt === task.lastDelivery.deliveredAt &&
+        latest.messageId === task.lastDelivery.messageId
+      )
+    },
+    { message: 'Last delivery must match the latest saved delivery receipt' },
+  )
 
 /** Persistent task value; absent history retains only its legacy last receipt without a read-time rewrite. */
 export type ScheduleTask = z.infer<typeof scheduleTaskSchema>
 
 /** Authoritative Schedule storage; malformed tasks reject opening the domain. */
 export const scheduleDomain = defineDomain({
-  name: 'schedule', version: 1,
+  name: 'schedule',
+  version: 1,
   tables: { tasks: domainTable<ScheduleId, ScheduleTask>(scheduleTaskSchema) },
 })

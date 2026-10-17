@@ -36,15 +36,12 @@ function limitSubagentDiagnostic(diagnostic: string): string {
   while (((bytes[prefixBytes] as number) & 0b1100_0000) === 0b1000_0000) {
     prefixBytes -= 1
   }
-  return utf8Decoder.decode(bytes.subarray(0, prefixBytes))
-    + DIAGNOSTIC_TRUNCATION_SUFFIX
+  return utf8Decoder.decode(bytes.subarray(0, prefixBytes)) + DIAGNOSTIC_TRUNCATION_SUFFIX
 }
 
 /** Enforce the byte limit on a provider-returned diagnostic. */
 function normalizeSubagentDiagnostic(result: SubagentResult): SubagentResult {
-  return result.diagnostic === undefined
-    ? result
-    : { ...result, diagnostic: limitSubagentDiagnostic(result.diagnostic) }
+  return result.diagnostic === undefined ? result : { ...result, diagnostic: limitSubagentDiagnostic(result.diagnostic) }
 }
 
 /**
@@ -151,9 +148,7 @@ export interface RunResultSettlement {
 export async function settleRunResult(parts: RunResultSettlement): Promise<SubagentResult> {
   try {
     const result = await parts.attempt()
-    return parts.cancelled()
-      ? { output: parts.collectOutput(), stopReason: 'aborted' }
-      : normalizeSubagentDiagnostic(result)
+    return parts.cancelled() ? { output: parts.collectOutput(), stopReason: 'aborted' } : normalizeSubagentDiagnostic(result)
   } catch (error: unknown) {
     // Cover a rejection already queued when cancellation arrives.
     if (parts.cancelled()) return { output: parts.collectOutput(), stopReason: 'aborted' }
@@ -164,12 +159,10 @@ export async function settleRunResult(parts: RunResultSettlement): Promise<Subag
       // The diagnostic sink cannot reject the run result.
     }
     const collected = parts.collectDiagnostic?.()
-    const diagnostic = collected === undefined
-      ? undefined
-      : limitSubagentDiagnostic(collected)
+    const diagnostic = collected === undefined ? undefined : limitSubagentDiagnostic(collected)
     return {
       output: parts.collectOutput(),
-      ...diagnostic === undefined ? {} : { diagnostic },
+      ...(diagnostic === undefined ? {} : { diagnostic }),
       stopReason: 'error',
     }
   } finally {

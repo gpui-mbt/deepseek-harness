@@ -19,9 +19,7 @@ import { dshCachePath, resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { NormalizationPolicy } from './normalization.ts'
 import { CompressionLimiter, compressionFailure } from './compression-limiter.ts'
 import { commitPreparedImageFile, normalizedImagePath, prepareImageFile, readImageFile, validateImageFile } from './store.ts'
-import {
-  readFileStreamVerbatim, saveFileStreamVerbatim, saveFileVerbatim, storedFilePath,
-} from './file-store.ts'
+import { readFileStreamVerbatim, saveFileStreamVerbatim, saveFileVerbatim, storedFilePath } from './file-store.ts'
 import { readRequestImageFile, requestImageVariantId } from './request-image.ts'
 
 export { canPassThroughNormalization, normalizeImage } from './normalization.ts'
@@ -86,9 +84,7 @@ export interface Config {
 
 function abortReason(signal: AbortSignal): Error {
   const reason: unknown = signal.reason
-  return reason instanceof Error
-    ? reason
-    : new Error('Attachment request cancelled with a non-Error reason.', { cause: reason })
+  return reason instanceof Error ? reason : new Error('Attachment request cancelled with a non-Error reason.', { cause: reason })
 }
 
 class SharedRequest<T> {
@@ -123,15 +119,18 @@ class SharedRequest<T> {
         reject(abortReason(signal))
       }
       signal.addEventListener('abort', abort, { once: true })
-      void this.promise.then((value) => {
-        signal.removeEventListener('abort', abort)
-        release(false)
-        resolve(value)
-      }, (error: unknown) => {
-        signal.removeEventListener('abort', abort)
-        release(false)
-        reject(compressionFailure(error))
-      })
+      void this.promise.then(
+        value => {
+          signal.removeEventListener('abort', abort)
+          release(false)
+          resolve(value)
+        },
+        (error: unknown) => {
+          signal.removeEventListener('abort', abort)
+          release(false)
+          reject(compressionFailure(error))
+        },
+      )
     })
   }
 
@@ -155,7 +154,11 @@ export class LocalAttachmentStore extends AttachmentStore {
     normalizedImageMaxPixels: z.number().step(1).min(1).default(DEFAULT_NORMALIZED_IMAGE_MAX_PIXELS),
     normalizedImageMaxDimension: z.number().step(1).min(1).default(DEFAULT_NORMALIZED_IMAGE_MAX_DIMENSION),
     normalizedImageMaxBytes: z.number().step(1).min(1).default(DEFAULT_NORMALIZED_IMAGE_MAX_BYTES),
-    imageCompressionConcurrency: z.number().step(1).min(1).max(MAX_IMAGE_COMPRESSION_CONCURRENCY)
+    imageCompressionConcurrency: z
+      .number()
+      .step(1)
+      .min(1)
+      .max(MAX_IMAGE_COMPRESSION_CONCURRENCY)
       .default(DEFAULT_IMAGE_COMPRESSION_CONCURRENCY),
   })
 
@@ -189,9 +192,11 @@ export class LocalAttachmentStore extends AttachmentStore {
       maxBytes: config.normalizedImageMaxBytes ?? DEFAULT_NORMALIZED_IMAGE_MAX_BYTES,
     })
     const compressionConcurrency = config.imageCompressionConcurrency ?? DEFAULT_IMAGE_COMPRESSION_CONCURRENCY
-    if (!Number.isSafeInteger(compressionConcurrency)
-      || compressionConcurrency < 1
-      || compressionConcurrency > MAX_IMAGE_COMPRESSION_CONCURRENCY) {
+    if (
+      !Number.isSafeInteger(compressionConcurrency) ||
+      compressionConcurrency < 1 ||
+      compressionConcurrency > MAX_IMAGE_COMPRESSION_CONCURRENCY
+    ) {
       throw new Error(
         `attachment-local: imageCompressionConcurrency must be an integer from 1 through ${MAX_IMAGE_COMPRESSION_CONCURRENCY}`,
       )
@@ -206,18 +211,16 @@ export class LocalAttachmentStore extends AttachmentStore {
 
   override async saveImages(inputs: readonly SaveImageAttachment[]): Promise<readonly ImageAttachmentRef[]> {
     this.validateImageBatch(inputs)
-    const prepared = await Promise.all(inputs.map(input => this.compression.run(
-      () => prepareImageFile(input, this.imageLimits, this.normalizationPolicy),
-    )))
+    const prepared = await Promise.all(
+      inputs.map(input => this.compression.run(() => prepareImageFile(input, this.imageLimits, this.normalizationPolicy))),
+    )
     const refs: ImageAttachmentRef[] = []
     for (const image of prepared) refs.push(await commitPreparedImageFile(this.root, image))
     return refs
   }
 
   async saveImage(input: SaveImageAttachment): Promise<ImageAttachmentRef> {
-    const prepared = await this.compression.run(
-      () => prepareImageFile(input, this.imageLimits, this.normalizationPolicy),
-    )
+    const prepared = await this.compression.run(() => prepareImageFile(input, this.imageLimits, this.normalizationPolicy))
     return commitPreparedImageFile(this.root, prepared)
   }
 
@@ -268,24 +271,27 @@ export class LocalAttachmentStore extends AttachmentStore {
       operation = undefined
     }
     if (operation === undefined) {
-      const shared = new SharedRequest<RequestImageAttachment>(sharedSignal => this.compression.run(async () => {
-        const request = await readRequestImageFile(
-          this.cacheRoot,
-          stored ?? await this.readImage(ref, sharedSignal),
-          target,
-          sharedSignal,
-        )
-        return request
-      }))
+      const shared = new SharedRequest<RequestImageAttachment>(sharedSignal =>
+        this.compression.run(async () => {
+          const request = await readRequestImageFile(
+            this.cacheRoot,
+            stored ?? (await this.readImage(ref, sharedSignal)),
+            target,
+            sharedSignal,
+          )
+          return request
+        }),
+      )
       operation = shared
       this.requestInflight.set(key, shared)
-      void shared.promise.finally(() => {
-        if (this.requestInflight.get(key) === shared) this.requestInflight.delete(key)
-      }).catch(() => {})
+      void shared.promise
+        .finally(() => {
+          if (this.requestInflight.get(key) === shared) this.requestInflight.delete(key)
+        })
+        .catch(() => {})
     }
     return operation.wait(signal)
   }
-
 }
 
 export default LocalAttachmentStore

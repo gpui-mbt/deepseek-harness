@@ -4,9 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-agent/types'
 import type { InjectFace, PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 // Also merges the userQuestions key into SessionProjectionMap for useProjection.
-import type {
-  AskUserQuestionAnswerItem, AskUserQuestionItem, AskUserQuestionOption,
-} from '@deepseek-ai/dsh-user-questions/types'
+import type { AskUserQuestionAnswerItem, AskUserQuestionItem, AskUserQuestionOption } from '@deepseek-ai/dsh-user-questions/types'
 import type { ToolCallViewProps, UserQuestionRecord } from '../../contract/slots.ts'
 import type { AskQuestionCardModel } from '../models/ask-question-card-model.ts'
 import { singleResultText } from '../models/raw-tool-call.ts'
@@ -51,10 +49,13 @@ function answerEntries(text: string): AskUserQuestionAnswerItem[] | null {
   if (!Array.isArray(answers) || !answers.every(isRecord)) return null
   const entries: AskUserQuestionAnswerItem[] = []
   for (const answer of answers) {
-    if (typeof answer.id !== 'string'
-      || !Array.isArray(answer.selected)
-      || !answer.selected.every(item => typeof item === 'string')
-      || (answer.custom !== undefined && typeof answer.custom !== 'string')) return null
+    if (
+      typeof answer.id !== 'string' ||
+      !Array.isArray(answer.selected) ||
+      !answer.selected.every(item => typeof item === 'string') ||
+      (answer.custom !== undefined && typeof answer.custom !== 'string')
+    )
+      return null
     entries.push({
       id: answer.id,
       selected: answer.selected,
@@ -101,10 +102,7 @@ function questionEntries(argsRaw: string): AskUserQuestionItem[] | null {
   const questions: AskUserQuestionItem[] = []
   const ids = new Set<string>()
   for (const question of parsed.questions) {
-    if (!isRecord(question)
-      || typeof question.id !== 'string'
-      || typeof question.question !== 'string'
-      || ids.has(question.id)) return null
+    if (!isRecord(question) || typeof question.id !== 'string' || typeof question.question !== 'string' || ids.has(question.id)) return null
     ids.add(question.id)
     const options = optionEntries(question.options)
     questions.push({
@@ -121,10 +119,7 @@ function questionEntries(argsRaw: string): AskUserQuestionItem[] | null {
 }
 
 /** Pair questions with result entries by their echoed stable ids. */
-function pairAnswers(
-  questions: readonly AskUserQuestionItem[],
-  answers: readonly AskUserQuestionAnswerItem[],
-): AnsweredQuestion[] | null {
+function pairAnswers(questions: readonly AskUserQuestionItem[], answers: readonly AskUserQuestionAnswerItem[]): AnsweredQuestion[] | null {
   if (questions.length !== answers.length) return null
   const byId = new Map<string, AskUserQuestionAnswerItem>()
   for (const answer of answers) {
@@ -138,10 +133,7 @@ function pairAnswers(
     paired.push({
       id: question.id,
       question: question.question,
-      answers: [
-        ...answer.selected,
-        ...(answer.custom === undefined || answer.custom === '' ? [] : [answer.custom]),
-      ],
+      answers: [...answer.selected, ...(answer.custom === undefined || answer.custom === '' ? [] : [answer.custom])],
     })
   }
   return paired
@@ -179,9 +171,9 @@ function answeredSummary(text: string, t: AskQuestionRowProps['t']): string | nu
   if (!isRecord(parsed)) return null
   const answers = parsed.answers
   if (!Array.isArray(answers) || !answers.every(isRecord)) return null
-  const answered = answers.filter(a =>
-    (Array.isArray(a.selected) && a.selected.length > 0)
-    || (typeof a.custom === 'string' && a.custom !== '')).length
+  const answered = answers.filter(
+    a => (Array.isArray(a.selected) && a.selected.length > 0) || (typeof a.custom === 'string' && a.custom !== ''),
+  ).length
   return t('ask.answered', { answered, total: answers.length })
 }
 
@@ -212,7 +204,15 @@ type AskQuestionRowProps = ToolCallViewProps & PropsLocale<'conversation'> & Inj
 
 /** Summarizes a pending, answered, cancelled, or interrupted question set. */
 export function AskQuestionRow({
-  callId, toolName, block, inspect, useDisclosure, useProjection, revealPanel, reviewPanel, t,
+  callId,
+  toolName,
+  block,
+  inspect,
+  useDisclosure,
+  useProjection,
+  revealPanel,
+  reviewPanel,
+  t,
 }: AskQuestionRowProps) {
   const model = toolRowModel(toolName, block)
   // The `userQuestions` projection lists exactly the timed calls that can still
@@ -221,18 +221,16 @@ export function AskQuestionRow({
   // A recorded pending result stays recorded after the reply, the skip, or the
   // timeout lands, and a legacy blocking call is never listed: its row reads
   // exactly as it did before timed questions existed.
-  const answerable = useProjection('userQuestions', view =>
-    view?.active.some(row => row.callId === callId) ?? false)
+  const answerable = useProjection('userQuestions', view => view?.active.some(row => row.callId === callId) ?? false)
   // The same projection settles every answered timed call with its batch: the
   // one its own result carried, or the one a late reply carried after the
   // result recorded the timeout. A legacy call is never settled there, so its
   // answers come from its result text alone, without a panel to read back.
-  const settled = useProjection('userQuestions', view =>
-    view?.settled.find(row => row.callId === callId))
+  const settled = useProjection('userQuestions', view => view?.settled.find(row => row.callId === callId))
   // A continued call stays answerable until its steered reply is admitted.
   // Select the durable Inbox entry so its submitted answers can be reviewed
   // read-only during that interval, including after a browser reconnect.
-  const queuedReply = useProjection('inbox', (view) => {
+  const queuedReply = useProjection('inbox', view => {
     const matches = (message: unknown): boolean => {
       const source = isRecord(message) ? message.source : undefined
       return isRecord(source) && source.kind === 'user-question-reply' && source.callId === callId
@@ -343,12 +341,21 @@ export function AskQuestionRow({
       rowActionLabel = t('ask.review')
     }
   }
-  if (rowAction !== undefined) return (
-    <QuestionToolRow useDisclosure={useDisclosure} t={t} summary={summary}
-      bodyRaw={transcript === null ? model.bodyRaw : null} output={transcript === null ? model.output : null}
-      askQuestion={transcript} state={state} inspect={inspect}
-      openPanel={rowAction} panelLabel={rowActionLabel} />
-  )
+  if (rowAction !== undefined)
+    return (
+      <QuestionToolRow
+        useDisclosure={useDisclosure}
+        t={t}
+        summary={summary}
+        bodyRaw={transcript === null ? model.bodyRaw : null}
+        output={transcript === null ? model.output : null}
+        askQuestion={transcript}
+        state={state}
+        inspect={inspect}
+        openPanel={rowAction}
+        panelLabel={rowActionLabel}
+      />
+    )
   return (
     <ToolRow
       useDisclosure={useDisclosure}
@@ -372,15 +379,21 @@ export const askQuestionToolview = {
   name: 'ask-question-toolview',
   inject: ['slots'],
   apply(ctx: Context): void {
-    ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({
-      name: 'tool.call.toolview', key: 'ask_user_question', locale: NS,
-      // Read per click, not per render: a composition with no question UI
-      // provides no panels, and the row then falls back to its own record.
-      inject: (sessionId): AskQuestionPanelInjected => ({
-        revealPanel: callId => ctx.get('userQuestionPanels')?.reveal(sessionId, callId) ?? false,
-        reviewPanel: (callId, record) =>
-          ctx.get('userQuestionPanels')?.review(sessionId, callId, record) ?? false,
-      }),
-    }, AskQuestionRow))
+    ctx.slots.inject('tool.call.toolview', () =>
+      ctx.slots.register(
+        {
+          name: 'tool.call.toolview',
+          key: 'ask_user_question',
+          locale: NS,
+          // Read per click, not per render: a composition with no question UI
+          // provides no panels, and the row then falls back to its own record.
+          inject: (sessionId): AskQuestionPanelInjected => ({
+            revealPanel: callId => ctx.get('userQuestionPanels')?.reveal(sessionId, callId) ?? false,
+            reviewPanel: (callId, record) => ctx.get('userQuestionPanels')?.review(sessionId, callId, record) ?? false,
+          }),
+        },
+        AskQuestionRow,
+      ),
+    )
   },
 }

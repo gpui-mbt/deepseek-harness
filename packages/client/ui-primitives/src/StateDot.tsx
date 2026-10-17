@@ -19,7 +19,9 @@ export type StateDotState = 'done' | 'warning' | 'ongoing' | 'error' | 'idle'
 function syncSpinner(element: SVGSVGElement | null): void {
   if (element === null) return
   pinSpinner(element)
-  element.addEventListener('animationstart', () => { pinSpinner(element) })
+  element.addEventListener('animationstart', () => {
+    pinSpinner(element)
+  })
 }
 
 /**
@@ -41,7 +43,12 @@ function pinSpinner(element: SVGSVGElement): void {
  * @param props.appearance - compact dot by default; step uses a filled check or hollow pending circle.
  * @returns the dot element (aria-hidden; pair with text for accessibility).
  */
-export function StateDot({ state, size, className, appearance = 'dot' }: {
+export function StateDot({
+  state,
+  size,
+  className,
+  appearance = 'dot',
+}: {
   state: StateDotState
   size?: number | undefined
   className?: string | undefined
@@ -72,6 +79,8 @@ export function StateDot({ state, size, className, appearance = 'dot' }: {
       data-state={state}
       style={{ width: edge, height: edge }}
       aria-hidden="true"
-    >{appearance === 'step' && state === 'done' && <IconCheckOutlineRegular size={edge - 2} />}</span>
+    >
+      {appearance === 'step' && state === 'done' && <IconCheckOutlineRegular size={edge - 2} />}
+    </span>
   )
 }

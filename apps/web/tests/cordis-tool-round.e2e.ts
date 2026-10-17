@@ -4,10 +4,18 @@ import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import {
-  captureStableAria, compareOrRefreshGolden, launchWebScaffold, seedSession, readPersistedEvents, parseSeedFixture, realizeSeedFixture,
-  watchConsole, webSnapshotMode, type WebScaffold,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  readPersistedEvents,
+  parseSeedFixture,
+  realizeSeedFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { expandOwningTurnProcess, newEnglishPage } from './support.ts'
 
@@ -41,8 +49,10 @@ describe.skipIf(MODE === 'record')('web e2e: historical Cordis cards', () => {
   it('renders recorded definition source and lifecycle results without registering retired tools', async () => {
     const persisted = await readPersistedEvents(scaffold, SessionId(SEED_ID))
     const expected = parseSeedFixture(realizeSeedFixture(scaffold, await readFile(FIXTURE, 'utf8'), SEED_ID)).events
-    const tools = (events: typeof persisted) => events.filter(event => event.type === 'tool/call' || event.type === 'tool/result')
-      .map(event => ({ type: event.type, data: event.data }))
+    const tools = (events: typeof persisted) =>
+      events
+        .filter(event => event.type === 'tool/call' || event.type === 'tool/result')
+        .map(event => ({ type: event.type, data: event.data }))
     expect(tools(persisted)).toEqual(tools(expected))
     const names = scaffold.ctx.tools.schemas().map(tool => tool.name)
     expect(names).not.toEqual(expect.arrayContaining(['cordis_define']))
@@ -56,10 +66,11 @@ describe.skipIf(MODE === 'record')('web e2e: historical Cordis cards', () => {
     await expect.poll(() => stop.getAttribute('data-state')).toBe('ok')
     // The golden shows a reader above the tail; tool expansion can leave scroll sampling pending.
     const scrollport = page.locator('[data-conversation-scroll]')
-    await scrollport.evaluate((element) => { element.scrollTop = 0 })
+    await scrollport.evaluate(element => {
+      element.scrollTop = 0
+    })
     await page.getByRole('button', { name: 'Back to bottom', exact: true }).waitFor()
-    const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(SEED_ID).join('{{seededId}}')
+    const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)).split(SEED_ID).join('{{seededId}}')
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])
   })

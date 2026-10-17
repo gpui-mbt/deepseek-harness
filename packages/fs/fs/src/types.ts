@@ -49,9 +49,7 @@ export function FsVersion(v: string): FsVersion {
  * version used by guarded replacement; an absent observation authorizes only a
  * guarded create, never an edit.
  */
-export type FsObservation =
-  | { readonly kind: 'present'; readonly version: FsVersion }
-  | { readonly kind: 'absent' }
+export type FsObservation = { readonly kind: 'present'; readonly version: FsVersion } | { readonly kind: 'absent' }
 
 /**
  * A path resolved by a backend into a stable identity. `resolve()` produces
@@ -120,9 +118,7 @@ export interface FsDirEntry {
  * `FS_STALE_VERSION`. Omitting the intent from `writeText` means unconditional
  * create-or-overwrite, not a third union arm.
  */
-export type FsWriteIntent =
-  | { kind: 'createIfAbsent' }
-  | { kind: 'replaceIfVersion'; version: FsVersion }
+export type FsWriteIntent = { kind: 'createIfAbsent' } | { kind: 'replaceIfVersion'; version: FsVersion }
 
 /** Outcome of a full-file write. */
 export interface FsWriteOutcome {

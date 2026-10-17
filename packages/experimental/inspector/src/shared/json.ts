@@ -4,10 +4,7 @@
 export type InspectorJsonPrimitive = null | boolean | number | string
 
 /** Recursively JSON-compatible value accepted by Inspector transports. */
-export type InspectorJsonValue =
-  | InspectorJsonPrimitive
-  | readonly InspectorJsonValue[]
-  | InspectorJsonObject
+export type InspectorJsonValue = InspectorJsonPrimitive | readonly InspectorJsonValue[] | InspectorJsonObject
 
 /** JSON-compatible object accepted by Inspector transports. */
 export interface InspectorJsonObject {

@@ -15,10 +15,16 @@ export function experimentalRuntimeReferences(roster: RuntimeRoster): string[] {
     ...roster.entries.map(entry => entry.name),
     ...roster.plugins.flatMap(plugin => [plugin.owner ?? '', ...plugin.modules]),
     ...roster.modules,
-    ...roster.client.entries.flatMap(entry => [entry.id, ...entry.inject ?? [], ...entry.external ?? []]),
+    ...roster.client.entries.flatMap(entry => [entry.id, ...(entry.inject ?? []), ...(entry.external ?? [])]),
     ...roster.client.batches.flatMap(batch => batch.entries),
   ])
-  return [...references].filter(reference => hasExperimentalPackageReference(reference)
-    || (reference.startsWith('file:') && (fileURLToPath(reference).replaceAll('\\', '/').includes('/packages/experimental/')
-      || isExperimentalPackageName(modulePackage(reference) ?? '')))).sort()
+  return [...references]
+    .filter(
+      reference =>
+        hasExperimentalPackageReference(reference) ||
+        (reference.startsWith('file:') &&
+          (fileURLToPath(reference).replaceAll('\\', '/').includes('/packages/experimental/') ||
+            isExperimentalPackageName(modulePackage(reference) ?? ''))),
+    )
+    .sort()
 }

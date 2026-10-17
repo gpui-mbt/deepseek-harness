@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, { PromptAssembly, TOOL_ORDER_REST } from '@deepseek-ai/dsh-system-prompt'
 import type { ToolSchema } from '@deepseek-ai/dsh-llm'
@@ -52,13 +52,13 @@ describe('SystemPrompt tool order', () => {
     const ctx = await mount({ toolOrder: ['todo_write', 'ghost', TOOL_ORDER_REST, 'wraith'] })
     ctx.systemPrompt.tools(() => ({ schemas: [tool('bash'), tool('todo_write')] }))
     await expect(ctx.systemPrompt.assemble()).rejects.toThrow(
-      'toolOrder lists unregistered tools "ghost", "wraith"; known tools: bash, todo_write')
+      'toolOrder lists unregistered tools "ghost", "wraith"; known tools: bash, todo_write',
+    )
   })
 
   it('names the single unregistered tool when no tools are registered at all', async () => {
     const ctx = await mount({ toolOrder: ['ghost', TOOL_ORDER_REST] })
-    await expect(ctx.systemPrompt.assemble()).rejects.toThrow(
-      'toolOrder lists unregistered tool "ghost"; known tools: (none)')
+    await expect(ctx.systemPrompt.assemble()).rejects.toThrow('toolOrder lists unregistered tool "ghost"; known tools: (none)')
   })
 
   it.each([
@@ -67,8 +67,7 @@ describe('SystemPrompt tool order', () => {
   ])('rejects a provider tool named like the reserved rest entry %s', async (_case, toolOrder) => {
     const ctx = await mount(toolOrder === undefined ? {} : { toolOrder })
     ctx.systemPrompt.tools(() => ({ schemas: [tool(TOOL_ORDER_REST)] }))
-    await expect(ctx.systemPrompt.assemble()).rejects.toThrow(
-      `tool provider returned reserved tool name "${TOOL_ORDER_REST}"`)
+    await expect(ctx.systemPrompt.assemble()).rejects.toThrow(`tool provider returned reserved tool name "${TOOL_ORDER_REST}"`)
   })
 
   it('keeps collection order between tools that share a name (stable sort)', async () => {

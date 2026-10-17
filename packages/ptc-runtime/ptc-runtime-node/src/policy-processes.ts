@@ -21,17 +21,26 @@ export class PolicyProcesses {
    * @param ctx - Node provider lifecycle and Session services.
    */
   constructor(private readonly ctx: Context) {
-    ctx.on('session/event', (session, event) => {
-      if (event.type !== 'sandbox/mode') return
-      for (const process of this.processes) {
-        if (process.sessionId !== session.id || process.mode === event.data.mode) continue
-        process.invalidated = true
-        void this.release(process).catch((error: unknown) => { ctx.logger.warn(error) })
-      }
-    }, { global: true })
-    ctx.effect(() => async () => {
-      await this.settle([...this.processes])
-    }, 'Node PTC policy cleanup')
+    ctx.on(
+      'session/event',
+      (session, event) => {
+        if (event.type !== 'sandbox/mode') return
+        for (const process of this.processes) {
+          if (process.sessionId !== session.id || process.mode === event.data.mode) continue
+          process.invalidated = true
+          void this.release(process).catch((error: unknown) => {
+            ctx.logger.warn(error)
+          })
+        }
+      },
+      { global: true },
+    )
+    ctx.effect(
+      () => async () => {
+        await this.settle([...this.processes])
+      },
+      'Node PTC policy cleanup',
+    )
   }
 
   /**
@@ -50,7 +59,9 @@ export class PolicyProcesses {
       invalidated: false,
     }
     this.processes.add(process)
-    return () => { this.processes.delete(process) }
+    return () => {
+      this.processes.delete(process)
+    }
   }
 
   /**
@@ -64,10 +75,15 @@ export class PolicyProcesses {
 
   private release(process: Process): Promise<void> {
     if (process.cleanup !== undefined) return process.cleanup
-    process.cleanup = process.release().then(() => { this.processes.delete(process) }, (error: unknown) => {
-      delete process.cleanup
-      throw error
-    })
+    process.cleanup = process.release().then(
+      () => {
+        this.processes.delete(process)
+      },
+      (error: unknown) => {
+        delete process.cleanup
+        throw error
+      },
+    )
     return process.cleanup
   }
 

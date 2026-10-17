@@ -44,7 +44,12 @@ export interface CommandManagerOptions {
 }
 
 class CommandWorkerError extends Error {
-  constructor(readonly code: string, message: string) { super(message) }
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message)
+  }
 }
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -52,32 +57,45 @@ function object(value: unknown): value is Record<string, unknown> {
 }
 
 function parseState(value: unknown, platform: NodeJS.Platform): CommandState {
-  if (!object(value) || typeof value.fingerprint !== 'string' || !/^[a-f0-9]{64}$/u.test(value.fingerprint)
-    || typeof value.managed !== 'boolean' || typeof value.available !== 'boolean') throw new Error('Invalid command-manager response.')
-  const destination = platform === 'win32' && typeof value.directory === 'string'
-    ? join(value.directory, 'dsh.cmd') : value.destination
+  if (
+    !object(value) ||
+    typeof value.fingerprint !== 'string' ||
+    !/^[a-f0-9]{64}$/u.test(value.fingerprint) ||
+    typeof value.managed !== 'boolean' ||
+    typeof value.available !== 'boolean'
+  )
+    throw new Error('Invalid command-manager response.')
+  const destination = platform === 'win32' && typeof value.directory === 'string' ? join(value.directory, 'dsh.cmd') : value.destination
   const launcher = platform === 'win32' ? destination : value.launcher
   if (typeof destination !== 'string' || !isAbsolute(destination) || typeof launcher !== 'string' || !isAbsolute(launcher)) {
     throw new Error('Invalid command-manager locations.')
   }
   for (const name of ['target', 'activeCommand', 'backup', 'preservedBackup']) {
-    if (value[name] !== undefined && value[name] !== null && typeof value[name] !== 'string') throw new Error('Invalid command-manager detail.')
+    if (value[name] !== undefined && value[name] !== null && typeof value[name] !== 'string')
+      throw new Error('Invalid command-manager detail.')
   }
   return {
-    fingerprint: value.fingerprint, managed: value.managed, available: value.available,
-    destination, launcher,
+    fingerprint: value.fingerprint,
+    managed: value.managed,
+    available: value.available,
+    destination,
+    launcher,
     occupied: platform === 'win32' ? typeof value.activeCommand === 'string' : value.kind !== 'missing',
-    ...typeof value.target === 'string' ? { target: value.target } : {},
-    ...typeof value.activeCommand === 'string' ? { activeCommand: value.activeCommand } : {},
-    ...typeof value.backup === 'string' ? { backup: value.backup } : {},
-    ...typeof value.preservedBackup === 'string' ? { preservedBackup: value.preservedBackup } : {},
+    ...(typeof value.target === 'string' ? { target: value.target } : {}),
+    ...(typeof value.activeCommand === 'string' ? { activeCommand: value.activeCommand } : {}),
+    ...(typeof value.backup === 'string' ? { backup: value.backup } : {}),
+    ...(typeof value.preservedBackup === 'string' ? { preservedBackup: value.preservedBackup } : {}),
   }
 }
 
-function format(text: string, path: string): string { return text.replace('{path}', path) }
+function format(text: string, path: string): string {
+  return text.replace('{path}', path)
+}
 
 function sameCommand(left: string, right: string, platform: NodeJS.Platform): boolean {
-  return platform === 'win32' ? win32.normalize(left).toLowerCase() === win32.normalize(right).toLowerCase() : normalize(left) === normalize(right)
+  return platform === 'win32'
+    ? win32.normalize(left).toLowerCase() === win32.normalize(right).toLowerCase()
+    : normalize(left) === normalize(right)
 }
 
 /**
@@ -88,24 +106,28 @@ function sameCommand(left: string, right: string, platform: NodeJS.Platform): bo
  * @returns Native dialog with stable Close/Repair/Remove or Install/Cancel indices.
  */
 export function presentCommandManagement(
-  state: CommandPresentation, messages: DesktopMessages, platform: NodeJS.Platform,
+  state: CommandPresentation,
+  messages: DesktopMessages,
+  platform: NodeJS.Platform,
 ): MessageBoxOptions {
   const other = state.activeCommand !== undefined && !sameCommand(state.activeCommand, state.destination, platform)
   const detail = [
     format(messages.cliCommandLocation, state.destination),
-    ...state.activeCommand === undefined ? [] : [format(messages.cliCommandSelected, state.activeCommand)],
-    ...state.target === undefined ? [] : [format(messages.cliCommandTarget, state.target)],
-    ...other ? [messages.cliCommandShadowed] : [],
-    ...state.selectionUnknown ? [messages.cliCommandSelectionUnknown] : [],
+    ...(state.activeCommand === undefined ? [] : [format(messages.cliCommandSelected, state.activeCommand)]),
+    ...(state.target === undefined ? [] : [format(messages.cliCommandTarget, state.target)]),
+    ...(other ? [messages.cliCommandShadowed] : []),
+    ...(state.selectionUnknown ? [messages.cliCommandSelectionUnknown] : []),
   ].join('\n\n')
   return {
-    type: other ? 'warning' : 'info', title: messages.cliCommandTitle,
+    type: other ? 'warning' : 'info',
+    title: messages.cliCommandTitle,
     message: state.managed ? (state.available ? messages.cliCommandInstalled : messages.cliCommandBroken) : messages.cliCommandNotInstalled,
     detail,
     buttons: state.managed
       ? [messages.cliCommandClose, messages.cliCommandRepair, messages.cliCommandRemove]
       : [messages.cliCommandInstall, messages.cancel],
-    defaultId: 0, cancelId: state.managed ? 0 : 1,
+    defaultId: 0,
+    cancelId: state.managed ? 0 : 1,
   }
 }
 
@@ -129,26 +151,47 @@ export class DesktopCommandManager {
 
   /** Open or join the command-management operation. */
   show(): Promise<void> {
-    return this.operation ??= this.run().finally(() => { this.operation = undefined })
+    return (this.operation ??= this.run().finally(() => {
+      this.operation = undefined
+    }))
   }
 
   /** Wait for a command operation already started by the user. */
-  async idle(): Promise<void> { await this.operation }
+  async idle(): Promise<void> {
+    await this.operation
+  }
 
   private async worker(operation: string, expected?: string, elevated = false): Promise<CommandState> {
-    const node = join(this.options.resources, 'runtime', 'primary-runtime', 'dependencies', 'node', 'bin', process.platform === 'win32' ? 'node.exe' : 'node')
+    const node = join(
+      this.options.resources,
+      'runtime',
+      'primary-runtime',
+      'dependencies',
+      'node',
+      'bin',
+      process.platform === 'win32' ? 'node.exe' : 'node',
+    )
     const entry = join(this.options.resources, 'runtime', 'cli', 'command-manager.js')
     let stdout: string
     try {
       if (elevated) {
-        const appleScript = 'on run argv\nset cmd to "/usr/bin/env -i " & quoted form of (item 1 of argv) & " " & quoted form of (item 2 of argv) & " " & quoted form of (item 3 of argv) & " " & quoted form of (item 4 of argv)\ndo shell script cmd with administrator privileges\nend run'
-        stdout = (await promisify(execFile)('/usr/bin/osascript', ['-e', appleScript, node, entry, operation, expected ?? ''],
-          { maxBuffer: 65536 })).stdout
+        const appleScript =
+          'on run argv\nset cmd to "/usr/bin/env -i " & quoted form of (item 1 of argv) & " " & quoted form of (item 2 of argv) & " " & quoted form of (item 3 of argv) & " " & quoted form of (item 4 of argv)\ndo shell script cmd with administrator privileges\nend run'
+        stdout = (
+          await promisify(execFile)('/usr/bin/osascript', ['-e', appleScript, node, entry, operation, expected ?? ''], { maxBuffer: 65536 })
+        ).stdout
       } else {
-        const env = Object.fromEntries(Object.entries(process.env)
-          .filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$|^NODE_PATH$/iu.test(name)))
-        stdout = (await promisify(execFile)(node, [entry, operation, ...expected === undefined ? [] : [expected]],
-          { timeout: 30000, maxBuffer: 65536, windowsHide: true, env })).stdout
+        const env = Object.fromEntries(
+          Object.entries(process.env).filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$|^NODE_PATH$/iu.test(name)),
+        )
+        stdout = (
+          await promisify(execFile)(node, [entry, operation, ...(expected === undefined ? [] : [expected])], {
+            timeout: 30000,
+            maxBuffer: 65536,
+            windowsHide: true,
+            env,
+          })
+        ).stdout
       }
     } catch (error) {
       if (elevated && object(error) && typeof error.stderr === 'string' && /\(-128\)\s*$/u.test(error.stderr)) {
@@ -173,7 +216,7 @@ export class DesktopCommandManager {
     const state = await this.worker('inspect')
     if (process.platform !== 'darwin') return state
     try {
-      return { ...state, ...await shellCommand() }
+      return { ...state, ...(await shellCommand()) }
     } catch {
       // A custom login shell can fail or wait for interaction; its output is not a diagnostic.
       return { ...state, selectionUnknown: true }
@@ -183,29 +226,56 @@ export class DesktopCommandManager {
   private async run(): Promise<void> {
     const messages = this.options.messages()
     if (!this.options.isPackaged || !this.options.isInstalledLocation()) {
-      await this.options.show({ type: 'info', title: messages.cliCommandTitle, message: messages.cliCommandInstallApp, buttons: [messages.cliCommandClose] })
+      await this.options.show({
+        type: 'info',
+        title: messages.cliCommandTitle,
+        message: messages.cliCommandInstallApp,
+        buttons: [messages.cliCommandClose],
+      })
       return
     }
     if (this.options.isInstalling()) {
-      await this.options.show({ type: 'info', title: messages.cliCommandTitle, message: messages.cliCommandUpdating, buttons: [messages.cliCommandClose] })
+      await this.options.show({
+        type: 'info',
+        title: messages.cliCommandTitle,
+        message: messages.cliCommandUpdating,
+        buttons: [messages.cliCommandClose],
+      })
       return
     }
     try {
       const state = await this.inspect()
       const choice = await this.options.show(presentCommandManagement(state, messages, process.platform))
       if (this.options.isQuitting()) return
-      const operation = state.managed ? (choice.response === 1 ? 'install' : choice.response === 2 ? 'remove' : undefined)
-        : choice.response === 0 ? 'install' : undefined
+      const operation = state.managed
+        ? choice.response === 1
+          ? 'install'
+          : choice.response === 2
+            ? 'remove'
+            : undefined
+        : choice.response === 0
+          ? 'install'
+          : undefined
       if (operation === undefined) return
-      const ownsSelection = state.managed
-        && (state.activeCommand === undefined || sameCommand(state.activeCommand, state.destination, process.platform))
-      if (operation === 'install' && (state.selectionUnknown || (!ownsSelection && (state.occupied || state.activeCommand !== undefined)))) {
+      const ownsSelection =
+        state.managed && (state.activeCommand === undefined || sameCommand(state.activeCommand, state.destination, process.platform))
+      if (
+        operation === 'install' &&
+        (state.selectionUnknown || (!ownsSelection && (state.occupied || state.activeCommand !== undefined)))
+      ) {
         const confirmation = await this.options.show({
-          type: 'warning', title: messages.cliCommandTitle, message: messages.cliCommandSwitch,
-          detail: (state.selectionUnknown ? messages.cliCommandSelectionUnknown
-            : format(messages.cliCommandSelected, state.activeCommand ?? state.destination))
-            + '\n\n' + messages.cliCommandPreserve,
-          buttons: [messages.cliCommandContinue, messages.cancel], defaultId: 1, cancelId: 1,
+          type: 'warning',
+          title: messages.cliCommandTitle,
+          message: messages.cliCommandSwitch,
+          detail:
+            (state.selectionUnknown
+              ? messages.cliCommandSelectionUnknown
+              : format(messages.cliCommandSelected, state.activeCommand ?? state.destination)) +
+            '\n\n' +
+            messages.cliCommandPreserve,
+          buttons: [messages.cliCommandContinue, messages.cancel],
+          defaultId: 1,
+          cancelId: 1,
         })
         if (confirmation.response !== 0 || this.options.isQuitting()) return
       }
@@ -214,13 +284,20 @@ export class DesktopCommandManager {
       const current = await this.inspect()
       const shadowed = current.activeCommand !== undefined && !sameCommand(current.activeCommand, current.destination, process.platform)
       await this.options.show({
-        type: shadowed && operation === 'install' ? 'warning' : 'info', title: messages.cliCommandTitle,
+        type: shadowed && operation === 'install' ? 'warning' : 'info',
+        title: messages.cliCommandTitle,
         message: operation === 'remove' ? messages.cliCommandRemoved : messages.cliCommandInstalled,
-        detail: [operation === 'install' ? messages.cliCommandNewTerminal : state.backup !== undefined && state.managed ? messages.cliCommandPreviousRestored : messages.cliCommandOtherKept,
-          ...shadowed && operation === 'install' && current.activeCommand !== undefined
-            ? [format(messages.cliCommandSelected, current.activeCommand), messages.cliCommandShadowed] : [],
-          ...current.selectionUnknown && operation === 'install' ? [messages.cliCommandSelectionUnknown] : [],
-          ...result.preservedBackup === undefined ? [] : [format(messages.cliCommandBackupKept, result.preservedBackup)],
+        detail: [
+          operation === 'install'
+            ? messages.cliCommandNewTerminal
+            : state.backup !== undefined && state.managed
+              ? messages.cliCommandPreviousRestored
+              : messages.cliCommandOtherKept,
+          ...(shadowed && operation === 'install' && current.activeCommand !== undefined
+            ? [format(messages.cliCommandSelected, current.activeCommand), messages.cliCommandShadowed]
+            : []),
+          ...(current.selectionUnknown && operation === 'install' ? [messages.cliCommandSelectionUnknown] : []),
+          ...(result.preservedBackup === undefined ? [] : [format(messages.cliCommandBackupKept, result.preservedBackup)]),
         ].join('\n\n'),
         buttons: [messages.cliCommandClose],
       })
@@ -229,8 +306,14 @@ export class DesktopCommandManager {
       const code = error instanceof CommandWorkerError ? error.code : 'EIO'
       if (code === 'ECANCELED') return
       await this.options.show({
-        type: 'error', title: messages.cliCommandTitle,
-        message: code === 'ESTALE' ? messages.cliCommandChanged : code === 'EOWNERSHIP' ? messages.cliCommandOwnershipError : messages.cliCommandFailed,
+        type: 'error',
+        title: messages.cliCommandTitle,
+        message:
+          code === 'ESTALE'
+            ? messages.cliCommandChanged
+            : code === 'EOWNERSHIP'
+              ? messages.cliCommandOwnershipError
+              : messages.cliCommandFailed,
         technicalDetails: error instanceof Error ? error.message : '',
         buttons: [messages.cliCommandClose],
       })

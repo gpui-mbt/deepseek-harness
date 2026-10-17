@@ -29,8 +29,12 @@ export const RELATIVE_CLOCK_PERIOD_MS = 30_000
 export function useRelativeClock(periodMs: number = RELATIVE_CLOCK_PERIOD_MS): number {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    const timer = setInterval(() => { setNow(Date.now()) }, periodMs)
-    return () => { clearInterval(timer) }
+    const timer = setInterval(() => {
+      setNow(Date.now())
+    }, periodMs)
+    return () => {
+      clearInterval(timer)
+    }
   }, [periodMs])
   return now
 }

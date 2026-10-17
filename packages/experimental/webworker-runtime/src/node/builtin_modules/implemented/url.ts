@@ -64,10 +64,13 @@ export const __esModule = true
  * `URL.createObjectURL` and the `URLSearchParams` initializer union differently,
  * and re-declaring either would replace the objects the platform hands out.
  */
-type NodeFace = Partial<Omit<typeof import('node:url'), 'URL' | 'URLSearchParams'>>
-  & Record<'URL' | 'URLSearchParams', unknown>
+type NodeFace = Partial<Omit<typeof import('node:url'), 'URL' | 'URLSearchParams'>> & Record<'URL' | 'URLSearchParams', unknown>
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
-  fileURLToPath, pathToFileURL, resolve, URL: UrlClass, URLSearchParams: UrlSearchParamsClass,
+  fileURLToPath,
+  pathToFileURL,
+  resolve,
+  URL: UrlClass,
+  URLSearchParams: UrlSearchParamsClass,
 } satisfies NodeFace

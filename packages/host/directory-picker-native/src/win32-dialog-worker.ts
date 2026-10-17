@@ -16,7 +16,9 @@ import { loadWin32DialogBindings } from './win32-dialog-bindings.ts'
 import { runFolderDialog } from './win32-dialog-logic.ts'
 
 /** The driver-to-child payload: the dialog title (passed via env). */
-export interface Win32DialogWorkerData { title: string }
+export interface Win32DialogWorkerData {
+  title: string
+}
 
 /** One notice or outcome posted back to the driver. */
 export type Win32DialogWorkerMessage =
@@ -33,7 +35,9 @@ const send = process.send.bind(process)
 const post = (message: Win32DialogWorkerMessage): void => {
   // Flush before closing the channel; the process exits when the loop drains.
   /* v8 ignore next 3 -- disconnect needs a live IPC channel the unit lane must not sever (built-worker.e2e.ts owns the real close path). */
-  send(message, () => { if (process.connected) process.disconnect() })
+  send(message, () => {
+    if (process.connected) process.disconnect()
+  })
 }
 
 // A settled driver (or a dead parent) must not orphan a dialog still on screen.
@@ -44,7 +48,7 @@ process.on('disconnect', () => process.exit(0))
 void (async () => {
   try {
     const bindings = await loadWin32DialogBindings()
-    const path = runFolderDialog(bindings, title, (threadId) => {
+    const path = runFolderDialog(bindings, title, threadId => {
       post({ kind: 'showing', threadId } satisfies Win32DialogWorkerMessage)
     })
     post({ kind: 'done', path } satisfies Win32DialogWorkerMessage)

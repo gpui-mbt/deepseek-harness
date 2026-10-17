@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -47,8 +47,9 @@ describe('JSONL retry-event persistence', () => {
         failure: { message: 'provider busy', code: 'RATE_LIMIT', status: 429 },
       })
       session.append('step/end', { turn: 1, step: 1 })
-      session.append('turn/end', { turn: 1, reason: { kind: 'error', error: { message: 'provider busy', code: 'RATE_LIMIT', status: 429 },
-      },
+      session.append('turn/end', {
+        turn: 1,
+        reason: { kind: 'error', error: { message: 'provider busy', code: 'RATE_LIMIT', status: 429 } },
       })
 
       expect(session.deriveMessages()).toEqual([])

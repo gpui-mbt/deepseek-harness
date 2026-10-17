@@ -1,50 +1,88 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { DesktopPolicyTestAuth } from '../src/policy-test-auth.ts'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import type { BrowserWindowConstructorOptions } from 'electron'
 
 const native = vi.hoisted(() => ({ create: vi.fn<(options: BrowserWindowConstructorOptions) => object>(), partition: vi.fn() }))
-vi.mock('electron', () => ({ BrowserWindow: function (options: BrowserWindowConstructorOptions) { return native.create(options) },
-  session: { fromPartition: native.partition } }))
+vi.mock('electron', () => ({
+  BrowserWindow: function (options: BrowserWindowConstructorOptions) {
+    return native.create(options)
+  },
+  session: { fromPartition: native.partition },
+}))
 
 let auth: DesktopPolicyTestAuth
 let browserSession: ReturnType<typeof makeSession>
 let window: ReturnType<typeof makeWindow>
 const record = vi.fn()
 function makeSession() {
-  return Object.assign(new EventEmitter(), { fetch: vi.fn(async () => Response.json({ code: 0 })),
-    setPermissionRequestHandler: vi.fn<(handler: (
-      contents: unknown, permission: string, callback: (allowed: boolean) => void) => void) => void>(),
+  return Object.assign(new EventEmitter(), {
+    fetch: vi.fn(async () => Response.json({ code: 0 })),
+    setPermissionRequestHandler:
+      vi.fn<(handler: (contents: unknown, permission: string, callback: (allowed: boolean) => void) => void) => void>(),
     setPermissionCheckHandler: vi.fn<(handler: () => boolean) => void>(),
     setDevicePermissionHandler: vi.fn<(handler: () => boolean) => void>(),
-    webRequest: { onBeforeRequest: vi.fn<(handler: (details: { resourceType: string; url: string },
-      callback: (result: { cancel: boolean }) => void) => void) => void>() }, closeAllConnections: vi.fn(async () => {}),
-    clearStorageData: vi.fn(async () => {}), clearAuthCache: vi.fn(async () => {}) })
+    webRequest: {
+      onBeforeRequest:
+        vi.fn<
+          (handler: (details: { resourceType: string; url: string }, callback: (result: { cancel: boolean }) => void) => void) => void
+        >(),
+    },
+    closeAllConnections: vi.fn(async () => {}),
+    clearStorageData: vi.fn(async () => {}),
+    clearAuthCache: vi.fn(async () => {}),
+  })
 }
 function makeWindow() {
   let destroyed = false
-  const instance = Object.assign(new EventEmitter(), { webContents: Object.assign(new EventEmitter(), {
-    setWindowOpenHandler: vi.fn<(handler: () => { action: string }) => void>(), openDevTools: vi.fn() }),
-  show: vi.fn(), focus: vi.fn(), setMenu: vi.fn(), loadFile: vi.fn(async () => {}),
-  loadURL: vi.fn(async () => {}), isDestroyed: () => destroyed,
-  destroy: () => { if (!destroyed) { destroyed = true; instance.emit('closed') } } })
+  const instance = Object.assign(new EventEmitter(), {
+    webContents: Object.assign(new EventEmitter(), {
+      setWindowOpenHandler: vi.fn<(handler: () => { action: string }) => void>(),
+      openDevTools: vi.fn(),
+    }),
+    show: vi.fn(),
+    focus: vi.fn(),
+    setMenu: vi.fn(),
+    loadFile: vi.fn(async () => {}),
+    loadURL: vi.fn(async () => {}),
+    isDestroyed: () => destroyed,
+    destroy: () => {
+      if (!destroyed) {
+        destroyed = true
+        instance.emit('closed')
+      }
+    },
+  })
   return instance
 }
 beforeEach(() => {
   vi.clearAllMocks()
-  browserSession = makeSession(); window = makeWindow()
-  native.partition.mockReturnValue(browserSession); native.create.mockReturnValue(window)
-  auth = new DesktopPolicyTestAuth('https://policy.example.com', ['https://login.example.com'], resolveDesktopLocale('zh'), () => undefined, record)
+  browserSession = makeSession()
+  window = makeWindow()
+  native.partition.mockReturnValue(browserSession)
+  native.create.mockReturnValue(window)
+  auth = new DesktopPolicyTestAuth(
+    'https://policy.example.com',
+    ['https://login.example.com'],
+    resolveDesktopLocale('zh'),
+    () => undefined,
+    record,
+  )
 })
-afterEach(async () => { await auth.dispose() })
+afterEach(async () => {
+  await auth.dispose()
+})
 
 it('shares an isolated memory Session with policy fetches, without opening a login automatically', async () => {
   expect(native.partition.mock.calls[0]![0]).toMatch(/^dsh-policy-auth-/)
   expect(native.create).not.toHaveBeenCalled()
   await auth.request('https://policy.example.com/api/v0/check_client_update?scenario=manual', { credentials: 'omit', redirect: 'follow' })
-  expect(browserSession.fetch).toHaveBeenCalledWith('https://policy.example.com/api/v0/check_client_update?scenario=manual',
-    { credentials: 'include', redirect: 'error', cache: 'no-store' })
+  expect(browserSession.fetch).toHaveBeenCalledWith('https://policy.example.com/api/v0/check_client_update?scenario=manual', {
+    credentials: 'include',
+    redirect: 'error',
+    cache: 'no-store',
+  })
   await expect(auth.request('https://other.example.com/api/v0/check_client_update')).rejects.toThrow('disallowed')
   await expect(auth.request('https://policy.example.com/other')).rejects.toThrow('disallowed')
   await expect(auth.request('https://user:secret@policy.example.com/api/v0/check_client_update')).rejects.toThrow('disallowed')
@@ -55,14 +93,25 @@ it('opens a sandboxed window on explicit action and coalesces logins without aut
   const pending = auth.login()
   expect(auth.login()).toBe(pending)
   expect(native.create).toHaveBeenCalledTimes(1)
-  expect(native.create.mock.calls[0]![0]).toMatchObject({ title: '登录测试环境', webPreferences: {
-    session: browserSession, nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true,
-    webviewTag: false, devTools: true } })
+  expect(native.create.mock.calls[0]![0]).toMatchObject({
+    title: '登录测试环境',
+    webPreferences: {
+      session: browserSession,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      webviewTag: false,
+      devTools: true,
+    },
+  })
   expect(native.create.mock.calls[0]![0].webPreferences?.preload).toBeUndefined()
   expect(window.loadFile).toHaveBeenCalledWith('renderer/policy-login-loading.html', { query: { label: '正在加载登录页面…' } })
   // The placeholder is the first document: the remote page waits for it.
   expect(window.loadURL).not.toHaveBeenCalled()
-  await vi.waitFor(() => { expect(window.loadURL).toHaveBeenCalledWith('https://policy.example.com/') })
+  await vi.waitFor(() => {
+    expect(window.loadURL).toHaveBeenCalledWith('https://policy.example.com/')
+  })
   expect(window.loadFile).toHaveBeenCalledTimes(1)
   window.webContents.emit('did-navigate', {}, 'https://login.example.com/open-apis/authen/v1/index?state=secret')
   expect(window.isDestroyed()).toBe(false)
@@ -99,7 +148,9 @@ it('shows the placeholder without letting it outlive the first remote document',
   // A placeholder that cannot load must not fail the login or hold it back.
   window.webContents.emit('did-fail-load', {}, -6, 'ERR_FILE_NOT_FOUND', placeholder.url, true)
   expect(window.isDestroyed()).toBe(false)
-  await vi.waitFor(() => { expect(window.loadURL).toHaveBeenCalledWith('https://policy.example.com/') })
+  await vi.waitFor(() => {
+    expect(window.loadURL).toHaveBeenCalledWith('https://policy.example.com/')
+  })
   // Entering the placeholder never covers the remote page: it is replaced by
   // navigation and is never loaded again.
   window.webContents.emit('did-navigate', {}, 'https://policy.example.com/')
@@ -118,7 +169,7 @@ it('cancels a login closed while the placeholder is still loading, without start
   expect(window.loadURL).not.toHaveBeenCalled()
 })
 
-it.each(['will-navigate', 'will-redirect'])('refuses unapproved %s targets without logging OAuth data', async (eventName) => {
+it.each(['will-navigate', 'will-redirect'])('refuses unapproved %s targets without logging OAuth data', async eventName => {
   const pending = auth.login()
   const event = { preventDefault: vi.fn() }
   window.webContents.emit(eventName, event, 'https://login.example.com.evil.example/?code=secret')
@@ -129,7 +180,8 @@ it.each(['will-navigate', 'will-redirect'])('refuses unapproved %s targets witho
 
 it('rejects child-frame escapes, permissions, downloads, new windows and HTTP authentication', async () => {
   const pending = auth.login()
-  const preventDefault = vi.fn(), callback = vi.fn()
+  const preventDefault = vi.fn(),
+    callback = vi.fn()
   browserSession.setPermissionRequestHandler.mock.calls[0]![0](null, 'camera', callback)
   expect(callback).toHaveBeenCalledWith(false)
   expect(browserSession.setPermissionCheckHandler.mock.calls[0]![0]()).toBe(false)
@@ -144,18 +196,21 @@ it('rejects child-frame escapes, permissions, downloads, new windows and HTTP au
   expect(await pending).toBe('failed')
 })
 
-it.each(['https://login.example.com/', 'https://login.example.com/', 'https://login.example.com/',
-  'https://login.example.com/'])('allows reviewed login documents: %s', (url) => {
-  const callback = vi.fn()
-  browserSession.webRequest.onBeforeRequest.mock.calls[0]![0]({ resourceType: 'mainFrame', url }, callback)
-  expect(callback).toHaveBeenCalledWith({ cancel: false })
-})
+it.each(['https://login.example.com/', 'https://login.example.com/', 'https://login.example.com/', 'https://login.example.com/'])(
+  'allows reviewed login documents: %s',
+  url => {
+    const callback = vi.fn()
+    browserSession.webRequest.onBeforeRequest.mock.calls[0]![0]({ resourceType: 'mainFrame', url }, callback)
+    expect(callback).toHaveBeenCalledWith({ cancel: false })
+  },
+)
 
 it('keeps manual login open until close, reports cancellation once, and permits a fresh retry', async () => {
   const pending = auth.login()
   window.destroy()
   expect(await pending).toBe('cancelled')
-  window = makeWindow(); native.create.mockReturnValue(window)
+  window = makeWindow()
+  native.create.mockReturnValue(window)
   const retry = auth.login()
   window.webContents.emit('did-fail-load', {}, -105, 'raw URL error', 'https://login.example.com/?state=secret', true)
   expect(await retry).toBe('failed')

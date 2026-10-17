@@ -21,11 +21,21 @@ import { dirname, join, relative } from 'node:path'
 import { gzipSync } from 'node:zlib'
 
 import {
-  lowerModuleSource, MemoryVfs, packTar, WorkerModuleLoader,
-  DEFAULT_ROOT, IMAGE_EMPTY_DIRECTORIES, IMAGE_HOME_DIRECTORY, IMAGE_LAZY_DIRECTORY, IMAGE_MANIFEST_PATH,
+  lowerModuleSource,
+  MemoryVfs,
+  packTar,
+  WorkerModuleLoader,
+  DEFAULT_ROOT,
+  IMAGE_EMPTY_DIRECTORIES,
+  IMAGE_HOME_DIRECTORY,
+  IMAGE_LAZY_DIRECTORY,
+  IMAGE_MANIFEST_PATH,
   IMAGE_OVERLAY_DIRECTORIES,
-  MODULE_PROXIES, MODULE_PROXY_PREFIXES, REPLACED_EXTERNAL_PACKAGES,
-  type ImageLazyArchive, type ImageManifest,
+  MODULE_PROXIES,
+  MODULE_PROXY_PREFIXES,
+  REPLACED_EXTERNAL_PACKAGES,
+  type ImageLazyArchive,
+  type ImageManifest,
 } from '@deepseek-ai/dsh-experimental-webworker-runtime'
 import picomatch from 'picomatch'
 import yaml from 'js-yaml'
@@ -157,8 +167,7 @@ export interface PackOverlayResult {
   readonly files: ImageFiles
 }
 
-const readJson = (file: string): Record<string, unknown> =>
-  JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
+const readJson = (file: string): Record<string, unknown> => JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
 
 /**
  * Package name of a module specifier.
@@ -280,8 +289,14 @@ function publishedFilter(patterns: readonly unknown[]): (path: string) => boolea
   const strings = patterns.filter((pattern): pattern is string => typeof pattern === 'string')
   const normalize = (pattern: string): string => pattern.replace(/^\.\//, '').replace(/\/+$/, '')
   const widen = (pattern: string): string[] => [pattern, `${pattern}/**`]
-  const positive = strings.filter(pattern => !pattern.startsWith('!')).map(normalize).flatMap(widen)
-  const negative = strings.filter(pattern => pattern.startsWith('!')).map(pattern => normalize(pattern.slice(1))).flatMap(widen)
+  const positive = strings
+    .filter(pattern => !pattern.startsWith('!'))
+    .map(normalize)
+    .flatMap(widen)
+  const negative = strings
+    .filter(pattern => pattern.startsWith('!'))
+    .map(pattern => normalize(pattern.slice(1)))
+    .flatMap(widen)
   const admits = picomatch(positive, { dot: true })
   const denies = negative.length > 0 ? picomatch(negative, { dot: true }) : (): boolean => false
   return path => path === 'package.json' || (admits(path) && !denies(path))
@@ -353,14 +368,12 @@ function nameForDebugger(bytes: Uint8Array, name: string, decoder: TextDecoder, 
  * @returns Mapper from an image key to the entry's debugger name.
  */
 function debuggerNamer(workspaces: ReadonlyMap<string, string>, resolveFrom: string): (key: string) => string {
-  const repoDirs = new Map(
-    [...workspaces].map(([name, directory]) => [name, relative(resolveFrom, directory).replaceAll('\\', '/')]),
-  )
+  const repoDirs = new Map([...workspaces].map(([name, directory]) => [name, relative(resolveFrom, directory).replaceAll('\\', '/')]))
   return (key: string): string => {
     if (!key.startsWith('node_modules/')) return key
     const rest = key.slice('node_modules/'.length)
     const segments = rest.split('/')
-    const packageName = segments[0]?.startsWith('@') === true ? segments.slice(0, 2).join('/') : segments[0] ?? ''
+    const packageName = segments[0]?.startsWith('@') === true ? segments.slice(0, 2).join('/') : (segments[0] ?? '')
     const directory = repoDirs.get(packageName)
     return directory === undefined ? key : `${directory}${rest.slice(packageName.length)}`
   }
@@ -371,16 +384,13 @@ function isDeclarationOnlyExport(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false
   if (Array.isArray(value)) return value.length > 0 && value.every(isDeclarationOnlyExport)
   const conditions = Object.entries(value)
-  return conditions.length > 0 && conditions.every(([condition, target]) =>
-    condition === 'types' || condition.startsWith('types@') || isDeclarationOnlyExport(target))
+  return (
+    conditions.length > 0 &&
+    conditions.every(([condition, target]) => condition === 'types' || condition.startsWith('types@') || isDeclarationOnlyExport(target))
+  )
 }
 
-function sweepImage(
-  files: ImageFiles,
-  options: PackOptions,
-  rootPackages: readonly string[],
-  root: string,
-): SweepOutcome {
+function sweepImage(files: ImageFiles, options: PackOptions, rootPackages: readonly string[], root: string): SweepOutcome {
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
   const vfs = new MemoryVfs()
@@ -398,8 +408,9 @@ function sweepImage(
     staticModulePrefixes: Object.fromEntries(Object.keys(MODULE_PROXY_PREFIXES).map(name => [name, stub])),
   })
 
-  const queue: { specifier: string; from: string; importer: string; meta?: boolean }[] = (options.entries ?? IMAGE_ENTRY_SEEDS)
-    .map(specifier => ({ specifier, from: root, importer: 'worker assembly entry' }))
+  const queue: { specifier: string; from: string; importer: string; meta?: boolean }[] = (options.entries ?? IMAGE_ENTRY_SEEDS).map(
+    specifier => ({ specifier, from: root, importer: 'worker assembly entry' }),
+  )
   for (const name of rootPackages) {
     const manifestBytes = files[`node_modules/${name}/package.json`]
     if (manifestBytes === undefined) continue // materialize already reported it under `missing`
@@ -411,11 +422,12 @@ function sweepImage(
     }
     // Every non-wildcard runtime face is a root; a face resolving onto a page
     // asset is kept untransformed below rather than excluded here.
-    const subpaths = manifest.exports === undefined
-      ? ['.']
-      : Object.entries(manifest.exports)
-        .filter(([key, target]) => key.startsWith('.') && !key.includes('*') && !isDeclarationOnlyExport(target))
-        .map(([key]) => key)
+    const subpaths =
+      manifest.exports === undefined
+        ? ['.']
+        : Object.entries(manifest.exports)
+            .filter(([key, target]) => key.startsWith('.') && !key.includes('*') && !isDeclarationOnlyExport(target))
+            .map(([key]) => key)
     for (const subpath of subpaths) {
       queue.push({ specifier: subpath === '.' ? name : `${name}/${subpath.slice(2)}`, from: root, importer: `workspace face ${name}` })
     }
@@ -467,9 +479,9 @@ function sweepImage(
   }
   if (failures.length > 0) {
     throw new Error(
-      `vfs image: ${String(failures.length)} unresolvable module request(s); `
-      + 'an undeclared or missing dependency fails the pack rather than the boot:\n  '
-      + failures.join('\n  '),
+      `vfs image: ${String(failures.length)} unresolvable module request(s); ` +
+        'an undeclared or missing dependency fails the pack rather than the boot:\n  ' +
+        failures.join('\n  '),
     )
   }
 
@@ -557,8 +569,12 @@ function materialize(
       // minus the workspace exclude table (no sources, no dist: the page
       // serves its own assets).
       const published = Array.isArray(manifest.files) ? publishedFilter(manifest.files) : undefined
-      collectTree(directory, files, prefix, relativePath =>
-        !workspaceExcluded(relativePath) && (published === undefined || published(relativePath)))
+      collectTree(
+        directory,
+        files,
+        prefix,
+        relativePath => !workspaceExcluded(relativePath) && (published === undefined || published(relativePath)),
+      )
     } else {
       collectTree(directory, files, prefix, relativePath => !excluded(relativePath))
     }
@@ -683,10 +699,9 @@ export function packVfsImage(options: PackOptions): PackResult {
     }
   }
 
-  const roster = [...new Set([
-    ...options.roster,
-    ...configTrees.filter(tree => tree.scanRoster === true).flatMap(tree => treeRosterOf(tree.directory)),
-  ])]
+  const roster = [
+    ...new Set([...options.roster, ...configTrees.filter(tree => tree.scanRoster === true).flatMap(tree => treeRosterOf(tree.directory))]),
+  ]
   const { files, packages, missing } = materialize(roster, options)
   const installation = options.installation
   if (installation !== undefined) {
@@ -703,8 +718,12 @@ export function packVfsImage(options: PackOptions): PackResult {
 
   const executables = dropExecutables(files)
   const rootPackages = [...packages.keys()].filter(name => options.workspaces.has(name))
-  const { swept, transform, javascriptEntries, droppedJavascriptEntries, unresolvedExternalRequests } =
-    sweepImage(files, options, rootPackages, root)
+  const { swept, transform, javascriptEntries, droppedJavascriptEntries, unresolvedExternalRequests } = sweepImage(
+    files,
+    options,
+    rootPackages,
+    root,
+  )
 
   const lazyArchives: PackedLazyArchive[] = []
   const lazy: ImageLazyArchive[] = []
@@ -721,7 +740,7 @@ export function packVfsImage(options: PackOptions): PackResult {
   const manifest: ImageManifest = {
     root,
     profile: options.profile,
-    ...installation === undefined ? {} : { installation: installation.name },
+    ...(installation === undefined ? {} : { installation: installation.name }),
     lowered: WRAPPER_CONTRACT,
     javascriptEntries: javascriptEntries - lazy.length,
     visitedEntries: transform.visited,
@@ -770,11 +789,13 @@ export function packVfsOverlay(trees: readonly ImageTree[]): PackOverlayResult {
     }
     const mount = tree.mount.replace(/^\.\//, '').replace(/\/$/, '')
     const first = mount.split('/')[0]
-    if (mount === '' || first === undefined || !IMAGE_OVERLAY_DIRECTORIES.includes(first)
-      || mount.split('/').some(segment => segment === '' || segment === '.' || segment === '..')) {
-      throw new Error(
-        `vfs overlay: mount ${JSON.stringify(tree.mount)} must stay under ${IMAGE_OVERLAY_DIRECTORIES.join(' or ')}`,
-      )
+    if (
+      mount === '' ||
+      first === undefined ||
+      !IMAGE_OVERLAY_DIRECTORIES.includes(first) ||
+      mount.split('/').some(segment => segment === '' || segment === '.' || segment === '..')
+    ) {
+      throw new Error(`vfs overlay: mount ${JSON.stringify(tree.mount)} must stay under ${IMAGE_OVERLAY_DIRECTORIES.join(' or ')}`)
     }
     collectTree(tree.directory, files, mount, () => true, true)
   }

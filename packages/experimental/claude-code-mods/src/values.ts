@@ -20,7 +20,7 @@ export function messageOf(error: unknown): string {
  * @returns the fields, or an empty record.
  */
 export function record(input: unknown): Record<string, unknown> {
-  return typeof input === 'object' && input !== null ? input as Record<string, unknown> : {}
+  return typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {}
 }
 
 /**

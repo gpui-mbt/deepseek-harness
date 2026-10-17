@@ -14,20 +14,10 @@ import type {} from '@deepseek-ai/dsh-compaction'
 // Type-only: the `ctx.tokenMeter` Context merge for the declared injection.
 import type {} from '@deepseek-ai/dsh-token-meter'
 import { codePointLength, DEFAULTS, PRUNE_MARKER, resolveConfig } from './config.ts'
-import type {
-  PrunedEntry,
-  PruneResult,
-  ResolvedConfig,
-  ToolResultPruneConfig,
-} from './types.ts'
+import type { PrunedEntry, PruneResult, ResolvedConfig, ToolResultPruneConfig } from './types.ts'
 
 export { codePointLength, DEFAULTS, PRUNE_MARKER, resolveConfig } from './config.ts'
-export type {
-  PrunedEntry,
-  PruneResult,
-  ResolvedConfig,
-  ToolResultPruneConfig,
-} from './types.ts'
+export type { PrunedEntry, PruneResult, ResolvedConfig, ToolResultPruneConfig } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -104,9 +94,7 @@ export class ToolResultPruner extends Service {
       const intersectsRemoved = blockStart < removedEnd && blockEnd > removedStart
       const marker = intersectsRemoved && !markerInserted ? PRUNE_MARKER : ''
       if (marker.length > 0) markerInserted = true
-      const text = points.slice(0, headEnd).join('')
-        + marker
-        + points.slice(tailStart).join('')
+      const text = points.slice(0, headEnd).join('') + marker + points.slice(tailStart).join('')
       if (text.length > 0) pruned.push({ ...block, text })
       consumed = blockEnd
     }
@@ -162,13 +150,17 @@ export class ToolResultPruner extends Service {
         shadowedSeqs: [seq],
         shadowedTokenCount: this.ctx.tokenMeter.estimateMessage(original),
       })
-      const replacement = session.append('tool/result', {
-        ...event.data,
-        message,
-      }, {
-        surfaceOp: { op: 'replace', startSeq: seq, endSeq: seq },
-        sourceEventSeqs: [seq],
-      })
+      const replacement = session.append(
+        'tool/result',
+        {
+          ...event.data,
+          message,
+        },
+        {
+          surfaceOp: { op: 'replace', startSeq: seq, endSeq: seq },
+          sourceEventSeqs: [seq],
+        },
+      )
       pruned.push({
         originalSeq: seq,
         replacementSeq: replacement.seq,

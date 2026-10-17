@@ -7,11 +7,11 @@
  * read, behind one documented cast, so the specs exercise the components and
  * not the slot runtime.
  */
-import { onTestFinished, vi } from 'vitest'
+import { onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { ResourceRegistry } from '../../resources/src/client/resources.ts'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import type { Mock } from 'vitest'
+import type { Mock } from 'vite-plus/test'
 import { act } from '@testing-library/react'
 import { createElement, useSyncExternalStore } from 'react'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
@@ -39,9 +39,8 @@ export function createResources(): ResourceRegistry {
 
 /** Preserve the body-slot callback used by component fixtures. */
 export function documentSlots(body: BodySlot): TextPreviewProps['renderSlot'] {
-  return (name: string, owner: unknown, options?: unknown) => name === 'sidebar.right.tab.document'
-    ? body(name, owner as Parameters<BodySlot>[1], options as Parameters<BodySlot>[2])
-    : null
+  return (name: string, owner: unknown, options?: unknown) =>
+    name === 'sidebar.right.tab.document' ? body(name, owner as Parameters<BodySlot>[1], options as Parameters<BodySlot>[2]) : null
 }
 
 export const TAB_ID = 'tab-1' as TabId
@@ -65,9 +64,7 @@ export function failure(code: string, details: Record<string, unknown> = {}): Re
 }
 
 /** The `file` resource's metadata: live, or failed beside the last live value. */
-function meta(
-  version: string | undefined, failure: RemoteFailure | undefined,
-): ResourceSnapshot<WorkspaceFileStat> {
+function meta(version: string | undefined, failure: RemoteFailure | undefined): ResourceSnapshot<WorkspaceFileStat> {
   const value = version === undefined ? undefined : { absolutePath: ABSOLUTE_PATH, version, bytes: 100 }
   return failure === undefined
     ? { status: version === undefined ? 'loading' : 'live', value, failure: undefined }
@@ -83,7 +80,11 @@ function hookOf<T>(inst: { subscribe: (fn: () => void) => () => void; getSnapsho
 
 /** Key-echoing translate that also shows its parameters. */
 export function t(key: string, params?: Record<string, unknown>): string {
-  return params === undefined ? key : `${key}(${Object.entries(params).map(([k, v]) => `${k}=${String(v)}`).join(',')})`
+  return params === undefined
+    ? key
+    : `${key}(${Object.entries(params)
+        .map(([k, v]) => `${k}=${String(v)}`)
+        .join(',')})`
 }
 
 /** Flush page reads that resolved since the last render, then React's work. */
@@ -130,14 +131,19 @@ export function harness(script: Record<number, RemoteResult<WorkspaceFileText>> 
   const instance = createTextStore().create()
   const pages: Record<number, RemoteResult<WorkspaceFileText>> = { ...script }
   const read = vi.fn<ReadWorkspaceFilePage>((_session, _path, offset) =>
-    Promise.resolve(pages[offset] ?? failure('workspace-file/not-found', { path: PATH })))
+    Promise.resolve(pages[offset] ?? failure('workspace-file/not-found', { path: PATH })),
+  )
   const bytes = vi.fn<ReadDocumentBytes>()
   const face = textFace(read, bytes, createResources())(SESSION, instance.actions)
   const current = { version: 'v1' as string | undefined, failure: undefined as RemoteFailure | undefined, snapshot: meta('v1', undefined) }
-  const refresh = (): void => { current.snapshot = meta(current.version, current.failure) }
+  const refresh = (): void => {
+    current.snapshot = meta(current.version, current.failure)
+  }
   const useResource = vi.fn<() => ResourceSnapshot<WorkspaceFileStat>>(() => current.snapshot)
   const controller = new AbortController()
-  onTestFinished(() => { controller.abort() })
+  onTestFinished(() => {
+    controller.abort()
+  })
   const tabActions = { bindCommands: vi.fn(() => vi.fn()), openResource: vi.fn(), openTab: vi.fn(), close: vi.fn(), replace: vi.fn() }
   const definitions = [textBodyDefinition(() => t('viewer.text'))]
   // The document seat renders the plain body; the file-handoff seats render a
@@ -145,48 +151,70 @@ export function harness(script: Record<number, RemoteResult<WorkspaceFileText>> 
   const renderSlot: TextPreviewProps['renderSlot'] = (key: string, owner: unknown, opts?: { hookContext?: unknown }) =>
     key === 'sidebar.right.tab.document'
       ? createElement(TextBody, {
-        ...owner as object, useTabInfo: opts?.hookContext, sessionId: SESSION, useResource,
-      } as unknown as DocumentPreviewProps)
-      : key === 'sidebar.right.tab.document.action' ? null : createElement('div', {
-        'data-slot': key,
-        'data-slot-path': (owner as { absolutePath: string }).absolutePath,
-      })
-  const props = (navigation: { params?: unknown; revision: number } = { revision: 1 }) => ({
-    useTabInfo: () => ({
-      sidebar: { expanded: true, fullscreen: false },
-      panel: { id: 'pane-1' },
-      tab: {
-        id: tabId, kind: 'text', contentId: ADDRESS, title: 'notes.md', visible: true,
-        navigation: { address: ADDRESS, params: navigation.params, revision: navigation.revision },
-        signal: controller.signal,
-        actions: tabActions,
-      },
-    }),
-    sessionId: SESSION,
-    useResource,
-    useStore: hookOf(instance),
-    actions: instance.actions,
-    loadPage: face.loadPage,
-    reloadPages: face.reloadPages,
-    prepareRenderer: face.prepareRenderer, loadAll: face.loadAll,
-    reloadAll: face.reloadAll,
-    addResource: face.addResource, setResources: face.setResources,
-    useDocumentPreviews: () => definitions,
-    renderSlot,
-    t,
-  }) as unknown as TextPreviewProps
+          ...(owner as object),
+          useTabInfo: opts?.hookContext,
+          sessionId: SESSION,
+          useResource,
+        } as unknown as DocumentPreviewProps)
+      : key === 'sidebar.right.tab.document.action'
+        ? null
+        : createElement('div', {
+            'data-slot': key,
+            'data-slot-path': (owner as { absolutePath: string }).absolutePath,
+          })
+  const props = (navigation: { params?: unknown; revision: number } = { revision: 1 }) =>
+    ({
+      useTabInfo: () => ({
+        sidebar: { expanded: true, fullscreen: false },
+        panel: { id: 'pane-1' },
+        tab: {
+          id: tabId,
+          kind: 'text',
+          contentId: ADDRESS,
+          title: 'notes.md',
+          visible: true,
+          navigation: { address: ADDRESS, params: navigation.params, revision: navigation.revision },
+          signal: controller.signal,
+          actions: tabActions,
+        },
+      }),
+      sessionId: SESSION,
+      useResource,
+      useStore: hookOf(instance),
+      actions: instance.actions,
+      loadPage: face.loadPage,
+      reloadPages: face.reloadPages,
+      prepareRenderer: face.prepareRenderer,
+      loadAll: face.loadAll,
+      reloadAll: face.reloadAll,
+      addResource: face.addResource,
+      setResources: face.setResources,
+      useDocumentPreviews: () => definitions,
+      renderSlot,
+      t,
+    }) as unknown as TextPreviewProps
   return {
     instance,
     face,
     read,
     bytes,
     controller,
-    get file() { return current.snapshot.value },
+    get file() {
+      return current.snapshot.value
+    },
     useResource,
     props,
-    script(offset, result) { pages[offset] = result },
-    setVersion(version) { current.version = version; refresh() },
-    setFailure(failure) { current.failure = failure; refresh() },
+    script(offset, result) {
+      pages[offset] = result
+    },
+    setVersion(version) {
+      current.version = version
+      refresh()
+    },
+    setFailure(failure) {
+      current.failure = failure
+      refresh()
+    },
   }
 }
 

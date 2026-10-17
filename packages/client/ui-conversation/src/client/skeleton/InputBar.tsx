@@ -16,9 +16,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react'
 import clsx from 'clsx'
-import {
-  IconPlusOutlineMedium, IconWarningOutlineRegular, Toast, Tooltip,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconPlusOutlineMedium, IconWarningOutlineRegular, Toast, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: the `plan` projection key merge (the TodoDock posture — the
 // composer reads a host-computed value; the domain owns the key).
 import type {} from '@deepseek-ai/dsh-plan-mode/client'
@@ -31,8 +29,12 @@ import type { Translate } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ComposerBarProps } from '../contract/slots.ts'
 import { DraftEditor } from '../input/editor/DraftEditor.tsx'
 import {
-  focusDraftEditor, installDraftFilePicker, installDraftKeymap, installDraftWheel,
-  keepDraftFocus, revealDraftSelection,
+  focusDraftEditor,
+  installDraftFilePicker,
+  installDraftKeymap,
+  installDraftWheel,
+  keepDraftFocus,
+  revealDraftSelection,
 } from '../input/editor/view-binding.ts'
 import { resolveSubmitMode } from '../input/submission-policy.ts'
 import { attachmentErrorText, imageSizeText } from '../image-labels.ts'
@@ -44,13 +46,33 @@ import css from './InputBar.module.css'
 export type InputBarProps = ComposerBarProps
 
 export const InputBar = memo(function InputBar({
-  useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
+  useSession,
+  useInput,
+  inputActions,
+  keyboard,
+  addFiles,
+  removeAttachment,
+  resolveDraftAttachments,
   retryFileUpload,
-  toggleCommandMenu, stop, t,
-  renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut,
-  useProjection, sessionId, variant, disabled: inert = false, blocked,
-  workspacePickerOpen = false, onRequestWorkspace,
-  placeholder, accessory,
+  toggleCommandMenu,
+  stop,
+  t,
+  renderSlot,
+  useBusyEnter,
+  useFileUploads,
+  useNotices,
+  useLexicon,
+  useMenuLauncher,
+  useStopShortcut,
+  useProjection,
+  sessionId,
+  variant,
+  disabled: inert = false,
+  blocked,
+  workspacePickerOpen = false,
+  onRequestWorkspace,
+  placeholder,
+  accessory,
 }: InputBarProps) {
   const input = useInput(s => s)
   const notice = useNotices(s => s)
@@ -59,7 +81,9 @@ export const InputBar = memo(function InputBar({
   void useLexicon // hook seat stays bound by the inject compartment; text-ref decoration rides the shell's editor transforms
   const commandMenuOpen = useMenuLauncher(source => source === 'command')
   const [activity, setActivity] = useState(false)
-  useEffect(() => { setActivity(false) }, [sessionId])
+  useEffect(() => {
+    setActivity(false)
+  }, [sessionId])
   const promptError = useSession(s => s.promptError) ?? null
   const running = useSession(s => s.running) ?? false
   const subagent = useSession(s => s.subagent) ?? null
@@ -75,16 +99,14 @@ export const InputBar = memo(function InputBar({
   const draft = input?.draft ?? ''
   const editor = keyboard?.editor ?? null
   const attachments = useMemo(
-    () => input === undefined || resolveDraftAttachments === undefined ? [] : resolveDraftAttachments(input.attachmentIds),
+    () => (input === undefined || resolveDraftAttachments === undefined ? [] : resolveDraftAttachments(input.attachmentIds)),
     [resolveDraftAttachments, input?.attachmentIds],
   )
   const empty = draft.trim() === '' && attachments.length === 0
   const uploads = useFileUploads(snapshot => snapshot)
   // Send waits for every picked file: uploading and failed drafts both hold
   // the gate (a failed upload is retried or removed, never silently dropped).
-  const uploadsPending = attachments.some(
-    attachment => attachment.kind === 'file' && uploads[attachment.id]?.status !== 'ready',
-  )
+  const uploadsPending = attachments.some(attachment => attachment.kind === 'file' && uploads[attachment.id]?.status !== 'ready')
   // Transient error banner (machine notices, image-intake rejections, and
   // prompt failures): the seq keys the Toast so an identical repeated message
   // restarts the hold-then-fade cycle instead of reusing the faded one.
@@ -94,7 +116,9 @@ export const InputBar = memo(function InputBar({
     toastSeq.current += 1
     setToast({ seq: toastSeq.current, text })
   }, [])
-  const dismissToast = useCallback(() => { setToast(null) }, [])
+  const dismissToast = useCallback(() => {
+    setToast(null)
+  }, [])
   // The deployment's image-intake limits (absent while no attachment service
   // is composed — the pre-check below then defers entirely to the host).
   const imageLimits = useProjection('imageLimits')
@@ -113,9 +137,11 @@ export const InputBar = memo(function InputBar({
       showToast(t('error.sessionInUse'))
       return
     }
-    showToast(error.code === 'session/attachment-invalid' || error.code === 'subagent/attachment-invalid'
-      ? attachmentErrorText(t, error.details.reason, imageLimits)
-      : `${error.message} (${error.code})`)
+    showToast(
+      error.code === 'session/attachment-invalid' || error.code === 'subagent/attachment-invalid'
+        ? attachmentErrorText(t, error.details.reason, imageLimits)
+        : `${error.message} (${error.code})`,
+    )
   }, [promptError, showToast, t, imageLimits])
   useEffect(() => {
     if (notice?.level === 'error') showToast(notice.text)
@@ -153,8 +179,7 @@ export const InputBar = memo(function InputBar({
   const editorDisabled = removed || (locked && !workspaceTrigger)
   const editable = live && !locked && !machineBusy
   const steeringAvailable = subagent === null || subagent.address.mode === 'continuable'
-  const canSteerQueue = !locked && !machineBusy && !commandMenuOpen && empty && running && steeringAvailable
-    && input.queue.length > 0
+  const canSteerQueue = !locked && !machineBusy && !commandMenuOpen && empty && running && steeringAvailable && input.queue.length > 0
 
   useEffect(() => {
     if (input === undefined || inputActions === undefined) return
@@ -209,34 +234,37 @@ export const InputBar = memo(function InputBar({
   // client-side size or count limit and upload as soon as they are picked.
   // The host enforces the same image limits at submit for callers that bypass
   // this composer.
-  const intakeFiles = useCallback((files: readonly File[], directories?: ReadonlySet<File>): void => {
-    if (locked || machineBusy || (subagent !== null && !continuable) || addFiles === undefined || files.length === 0) return
-    const rejected = ((): string | null => {
-      // Child prompts support images, but not generic file receipts or the
-      // Desktop path-reference fallback. Refuse mixed batches before intake.
-      if (continuable && files.some(file => directories?.has(file) || !isImageMediaType(file.type))) {
-        return t('image.unsupportedType')
-      }
-      if (imageLimits !== undefined) {
-        const mediaTypes = imageLimits.mediaTypes as readonly string[]
-        const images = files.filter(file => mediaTypes.includes(file.type))
-        const imageAttachments = attachments.filter(attachment => attachment.kind === 'image')
-        if (imageAttachments.length + images.length > imageLimits.maxImagesPerMessage) {
-          return t('image.tooMany', { count: imageLimits.maxImagesPerMessage })
+  const intakeFiles = useCallback(
+    (files: readonly File[], directories?: ReadonlySet<File>): void => {
+      if (locked || machineBusy || (subagent !== null && !continuable) || addFiles === undefined || files.length === 0) return
+      const rejected = ((): string | null => {
+        // Child prompts support images, but not generic file receipts or the
+        // Desktop path-reference fallback. Refuse mixed batches before intake.
+        if (continuable && files.some(file => directories?.has(file) || !isImageMediaType(file.type))) {
+          return t('image.unsupportedType')
         }
-        if (images.some(file => file.size > imageLimits.maxImageBytes)) {
-          return t('image.fileTooLarge', { size: imageSizeText(imageLimits.maxImageBytes) })
+        if (imageLimits !== undefined) {
+          const mediaTypes = imageLimits.mediaTypes as readonly string[]
+          const images = files.filter(file => mediaTypes.includes(file.type))
+          const imageAttachments = attachments.filter(attachment => attachment.kind === 'image')
+          if (imageAttachments.length + images.length > imageLimits.maxImagesPerMessage) {
+            return t('image.tooMany', { count: imageLimits.maxImagesPerMessage })
+          }
+          if (images.some(file => file.size > imageLimits.maxImageBytes)) {
+            return t('image.fileTooLarge', { size: imageSizeText(imageLimits.maxImageBytes) })
+          }
+          const total =
+            imageAttachments.reduce((sum, attachment) => sum + attachment.file.size, 0) + images.reduce((sum, file) => sum + file.size, 0)
+          if (total > imageLimits.maxMessageImageBytes) {
+            return t('image.totalTooLarge', { size: imageSizeText(imageLimits.maxMessageImageBytes) })
+          }
         }
-        const total = imageAttachments.reduce((sum, attachment) => sum + attachment.file.size, 0)
-          + images.reduce((sum, file) => sum + file.size, 0)
-        if (total > imageLimits.maxMessageImageBytes) {
-          return t('image.totalTooLarge', { size: imageSizeText(imageLimits.maxMessageImageBytes) })
-        }
-      }
-      return addFiles(files, directories)
-    })()
-    if (rejected !== null) showToast(rejected)
-  }, [locked, machineBusy, subagent, continuable, addFiles, attachments, imageLimits, showToast, t])
+        return addFiles(files, directories)
+      })()
+      if (rejected !== null) showToast(rejected)
+    },
+    [locked, machineBusy, subagent, continuable, addFiles, attachments, imageLimits, showToast, t],
+  )
 
   const canAcceptDrop = (subagent === null || continuable) && !locked && !machineBusy && addFiles !== undefined
 
@@ -251,12 +279,30 @@ export const InputBar = memo(function InputBar({
   // The keymap handlers read live bar state through this ref so the editor
   // registration survives re-renders without re-arming per keystroke.
   const gate = useRef({
-    locked, machineBusy, canSteerQueue, running, steeringAvailable, busyEnter,
-    intakeFiles, uploadsPending, showToast, t, canAcceptDrop,
+    locked,
+    machineBusy,
+    canSteerQueue,
+    running,
+    steeringAvailable,
+    busyEnter,
+    intakeFiles,
+    uploadsPending,
+    showToast,
+    t,
+    canAcceptDrop,
   })
   gate.current = {
-    locked, machineBusy, canSteerQueue, running, steeringAvailable, busyEnter,
-    intakeFiles, uploadsPending, showToast, t, canAcceptDrop,
+    locked,
+    machineBusy,
+    canSteerQueue,
+    running,
+    steeringAvailable,
+    busyEnter,
+    intakeFiles,
+    uploadsPending,
+    showToast,
+    t,
+    canAcceptDrop,
   }
 
   useEffect(() => {
@@ -344,12 +390,10 @@ export const InputBar = memo(function InputBar({
   // Claim ghost hint: rendered by CSS as generated content after the last
   // paragraph while the claim's args are blank (a hint implies a single-line
   // token draft). The translated per-command hint wins over the claim's own.
-  const claimActive = (input?.phase === 'claimed' || input?.phase === 'submitting')
-    && input.claim !== undefined && draft.startsWith(input.claim.token)
-  const rawHint = claimActive && input.claim.hint !== undefined
-    && draft.slice(input.claim.token.length).trim() === ''
-    ? input.claim.hint
-    : null
+  const claimActive =
+    (input?.phase === 'claimed' || input?.phase === 'submitting') && input.claim !== undefined && draft.startsWith(input.claim.token)
+  const rawHint =
+    claimActive && input.claim.hint !== undefined && draft.slice(input.claim.token.length).trim() === '' ? input.claim.hint : null
   const hint = ((): string | null => {
     if (rawHint === null) return null
     const commandName = input?.claim?.name ?? ''
@@ -360,27 +404,25 @@ export const InputBar = memo(function InputBar({
     return translated !== hintKey ? translated : rawHint
   })()
 
-  const placeholderText = placeholder ?? (parentOffline
-    ? t('placeholder.parentOffline')
-    : disabled
-      ? t('placeholder.unavailable')
-      // The steer hint deliberately outranks the plan placeholder:
-      // while it shows, the whole-queue gesture is genuinely available
-      // (the gate never consults plan mode), so the actionable hint wins.
-      : canSteerQueue
-        ? t('placeholder.steerQueue')
-        : planActive ? t('placeholder.plan') : t('placeholder.default'))
+  const placeholderText =
+    placeholder ??
+    (parentOffline
+      ? t('placeholder.parentOffline')
+      : disabled
+        ? t('placeholder.unavailable')
+        : // The steer hint deliberately outranks the plan placeholder:
+          // while it shows, the whole-queue gesture is genuinely available
+          // (the gate never consults plan mode), so the actionable hint wins.
+          canSteerQueue
+          ? t('placeholder.steerQueue')
+          : planActive
+            ? t('placeholder.plan')
+            : t('placeholder.default'))
 
   return (
     <div className={clsx(css.root, variant === 'hero' && css.hero)}>
       {toast !== null && (
-        <Toast
-          key={toast.seq}
-          text={toast.text}
-          icon={<IconWarningOutlineRegular />}
-          anchor={cardRef.current}
-          onDone={dismissToast}
-        />
+        <Toast key={toast.seq} text={toast.text} icon={<IconWarningOutlineRegular />} anchor={cardRef.current} onDone={dismissToast} />
       )}
       {notice?.level === 'info' && (
         <div className={css.notice} role="status">
@@ -397,24 +439,39 @@ export const InputBar = memo(function InputBar({
         className={clsx(css.card, workspaceTrigger && css.cardWorkspaceTrigger)}
         data-composer-card
         onClick={workspaceTrigger ? onRequestWorkspace : undefined}
-        onPointerDown={workspaceTrigger ? (e) => { e.stopPropagation() } : undefined}
+        onPointerDown={
+          workspaceTrigger
+            ? e => {
+                e.stopPropagation()
+              }
+            : undefined
+        }
         onMouseDown={onCardMouseDown}
       >
         {sessionId !== undefined && (
-          <div className={css.overlayAnchor} data-composer-overlay>{renderSlot('conversation.input.overlay', {})}</div>
+          <div className={css.overlayAnchor} data-composer-overlay>
+            {renderSlot('conversation.input.overlay', {})}
+          </div>
         )}
         {accessory !== undefined && <div className={css.accessory}>{accessory}</div>}
         {renderSlot('conversation.input.attachments', {
           attachments,
           canAcceptDrop,
           onAddFiles: intakeFiles,
-          onRemoveAttachment: (id) => { removeAttachment?.(id) },
-          uploads,
-          onRetryFile: (id) => { retryFileUpload?.(id) },
-          dropLimits: imageLimits === undefined ? undefined : {
-            count: imageLimits.maxImagesPerMessage,
-            size: imageSizeText(imageLimits.maxImageBytes),
+          onRemoveAttachment: id => {
+            removeAttachment?.(id)
           },
+          uploads,
+          onRetryFile: id => {
+            retryFileUpload?.(id)
+          },
+          dropLimits:
+            imageLimits === undefined
+              ? undefined
+              : {
+                  count: imageLimits.maxImagesPerMessage,
+                  size: imageSizeText(imageLimits.maxImageBytes),
+                },
         })}
         {/* One scrollport, one text surface: the contenteditable grows with
             its content and .scroll — capped at 14 lines in CSS — is the only
@@ -452,32 +509,23 @@ export const InputBar = memo(function InputBar({
                 <IconPlusOutlineMedium size={14} />
               </button>
             </Tooltip>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              disabled={subagent !== null}
-              hidden
-              onChange={onPickFiles}
-            />
+            <input ref={fileInputRef} type="file" multiple disabled={subagent !== null} hidden onChange={onPickFiles} />
             <div className={css.modes}>
               {sessionId === undefined ? null : renderSlot('conversation.input.permission', { locked })}
               {sessionId === undefined ? null : renderSlot('conversation.input.plan', { locked })}
             </div>
-            {input === undefined || sessionId === undefined
-              ? null
-              : renderSlot('conversation.input.left', {})}
+            {input === undefined || sessionId === undefined ? null : renderSlot('conversation.input.left', {})}
           </div>
           <div className={clsx(css.trailing, activity && css.trailingActive)}>
             <div className={css.standardControls} hidden={activity}>
-              {input === undefined || sessionId === undefined
-                ? null
-                : renderSlot('conversation.input.right', {})}
+              {input === undefined || sessionId === undefined ? null : renderSlot('conversation.input.right', {})}
               {sessionId === undefined ? null : renderSlot('conversation.input.model', { locked: modelSeatLocked })}
             </div>
-            {input === undefined || sessionId === undefined ? null : <div className={activity ? css.activityExpanded : css.activity}>
-              {renderSlot('conversation.input.activity', { locked, onActiveChange: setActivity })}
-            </div>}
+            {input === undefined || sessionId === undefined ? null : (
+              <div className={activity ? css.activityExpanded : css.activity}>
+                {renderSlot('conversation.input.activity', { locked, onActiveChange: setActivity })}
+              </div>
+            )}
             {interruptible && (
               <Tooltip label={t('input.stop')} shortcutKeys={stopKeys} side="top" delayMs={500} disabled={stop === undefined}>
                 <button
@@ -494,7 +542,13 @@ export const InputBar = memo(function InputBar({
                 </button>
               </Tooltip>
             )}
-            <Tooltip label={primaryStops ? t('input.stop') : primaryLabel} shortcutKeys={primaryStops ? stopKeys : undefined} side="top" delayMs={500} disabled={primaryDisabled}>
+            <Tooltip
+              label={primaryStops ? t('input.stop') : primaryLabel}
+              shortcutKeys={primaryStops ? stopKeys : undefined}
+              side="top"
+              delayMs={500}
+              disabled={primaryDisabled}
+            >
               <button
                 type="button"
                 className={css.primary}
@@ -509,7 +563,10 @@ export const InputBar = memo(function InputBar({
                   </svg>
                 ) : (
                   <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden>
-                    <path d="M8.3125 0.980183C8.66767 1.0531 8.97902 1.20418 9.2627 1.43233C9.48724 1.61297 9.73029 1.85793 9.97949 2.10714L14.707 6.83468L13.293 8.24874L9 3.95577V15.0417H7V3.95577L2.70703 8.24874L1.29297 6.83468L6.02051 2.10714C6.26971 1.85793 6.51277 1.61297 6.7373 1.43233C6.97662 1.23986 7.28445 1.04402 7.6875 0.980183C7.8973 0.947006 8.1031 0.95516 8.3125 0.980183Z" fill="currentColor" />
+                    <path
+                      d="M8.3125 0.980183C8.66767 1.0531 8.97902 1.20418 9.2627 1.43233C9.48724 1.61297 9.73029 1.85793 9.97949 2.10714L14.707 6.83468L13.293 8.24874L9 3.95577V15.0417H7V3.95577L2.70703 8.24874L1.29297 6.83468L6.02051 2.10714C6.26971 1.85793 6.51277 1.61297 6.7373 1.43233C6.97662 1.23986 7.28445 1.04402 7.6875 0.980183C7.8973 0.947006 8.1031 0.95516 8.3125 0.980183Z"
+                      fill="currentColor"
+                    />
                   </svg>
                 )}
               </button>
@@ -518,9 +575,7 @@ export const InputBar = memo(function InputBar({
         </div>
       </div>
       <div className={css.dock} data-composer-dock>
-        {variant === 'composer' && input !== undefined && sessionId !== undefined
-          ? renderSlot('conversation.composer.dock', {})
-          : null}
+        {variant === 'composer' && input !== undefined && sessionId !== undefined ? renderSlot('conversation.composer.dock', {}) : null}
         {activity ? null : <ContextMeter useProjection={useProjection} t={t} />}
       </div>
     </div>

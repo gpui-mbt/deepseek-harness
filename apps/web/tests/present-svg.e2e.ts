@@ -4,13 +4,19 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import type {} from '@deepseek-ai/dsh-tool-present/types'
 import { deriveReplayScript, parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
 import {
-  assertFinalWorkspaceSnapshot, captureExpandedTurnProcessAria, compareOrRefreshGolden,
-  fixtureUserPrompts, launchWebScaffold, recordFixture, watchConsole,
-  webSnapshotMode, type WebScaffold,
+  assertFinalWorkspaceSnapshot,
+  captureExpandedTurnProcessAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspaceZh, ZH_BROWSER_LOCALE } from './support.ts'
 
@@ -46,17 +52,23 @@ describe('web e2e: requested SVG is explicitly delivered', () => {
     })
     browser = await chromium.launch()
     page = await browser.newPage({
-      viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE, timezoneId: 'Asia/Shanghai',
+      viewport: { width: 1680, height: 1000 },
+      locale: ZH_BROWSER_LOCALE,
+      timezoneId: 'Asia/Shanghai',
     })
     tripwire = watchConsole(page)
-    page.on('console', (message) => {
+    page.on('console', message => {
       if (message.text().startsWith('[connection]')) connectionDiagnostics.push(message.text())
     })
-    page.on('websocket', (socket) => {
+    page.on('websocket', socket => {
       const openedAt = Date.now()
       let received = 0
-      socket.on('framereceived', () => { received++ })
-      socket.on('socketerror', (error) => { connectionDiagnostics.push(error) })
+      socket.on('framereceived', () => {
+        received++
+      })
+      socket.on('socketerror', error => {
+        connectionDiagnostics.push(error)
+      })
       socket.on('close', () => {
         connectionDiagnostics.push(`WebSocket closed after ${Date.now() - openedAt}ms and ${received} received frames`)
       })
@@ -92,7 +104,7 @@ describe('web e2e: requested SVG is explicitly delivered', () => {
     if (MODE === 'record') await recordFixture(scaffold, sessionId, FIXTURE)
 
     const svg = await readFile(join(cwd, FILE), 'utf8')
-    const parsedSvg = await page.evaluate((source) => {
+    const parsedSvg = await page.evaluate(source => {
       const parsed = new DOMParser().parseFromString(source, 'image/svg+xml')
       return {
         root: parsed.documentElement.localName,
@@ -107,14 +119,22 @@ describe('web e2e: requested SVG is explicitly delivered', () => {
     const delivery = declarations.find(event => event.data.files.some(file => resolve(cwd, file.path) === join(cwd, FILE)))
     expect(delivery, 'explicit file-card delivery requires a successful present declaration').toBeDefined()
     if (delivery === undefined) throw new Error('SVG was written but not delivered')
-    expect(events.some(event => (
-      event.type === 'tool/call' && event.data.name === 'present' && event.data.callId === delivery.data.callId
-    ) || (
-      event.type === 'tool/ptc-dispatch' && event.data.name === 'present'
-      && event.data.subCallId === delivery.data.callId && !event.data.isError
-    ))).toBe(true)
-    expect(events.some(event => event.type === 'assistant/message' && event.seq > delivery.seq
-      && event.data.message.content.some(block => block.type === 'text'))).toBe(true)
+    expect(
+      events.some(
+        event =>
+          (event.type === 'tool/call' && event.data.name === 'present' && event.data.callId === delivery.data.callId) ||
+          (event.type === 'tool/ptc-dispatch' &&
+            event.data.name === 'present' &&
+            event.data.subCallId === delivery.data.callId &&
+            !event.data.isError),
+      ),
+    ).toBe(true)
+    expect(
+      events.some(
+        event =>
+          event.type === 'assistant/message' && event.seq > delivery.seq && event.data.message.content.some(block => block.type === 'text'),
+      ),
+    ).toBe(true)
 
     const card = page.locator('[data-presented-file]').filter({ hasText: FILE })
     await card.waitFor({ state: 'visible' })
@@ -127,22 +147,27 @@ describe('web e2e: requested SVG is explicitly delivered', () => {
     expect(await changes.count()).toBe(1)
     expect(await changes.getByText(`已编辑 ${FILE}`, { exact: true }).count()).toBe(1)
     expect(await changes.getByRole('list').count()).toBe(0)
-    expect(await changes.locator('svg').evaluate(icon => icon.innerHTML))
-      .toBe(await card.locator('svg').evaluate(icon => icon.innerHTML))
+    expect(await changes.locator('svg').evaluate(icon => icon.innerHTML)).toBe(await card.locator('svg').evaluate(icon => icon.innerHTML))
     expect(await changes.evaluate(element => element.getBoundingClientRect().height)).toBe(62)
     const appearance = await page.evaluate(() => {
       const previous = document.body.getAttribute('data-ds-dark-theme')
       try {
-        return [false, true].map((dark) => {
+        return [false, true].map(dark => {
           document.body.toggleAttribute('data-ds-dark-theme', dark)
-          const cards = ['[data-presented-file]', '[data-changed-files]'].map((selector) => {
+          const cards = ['[data-presented-file]', '[data-changed-files]'].map(selector => {
             const card = document.querySelector(selector)!
             const tile = card.querySelector('svg')!.parentElement!
-            return { fill: getComputedStyle(tile).backgroundColor, tileBorder: getComputedStyle(tile).border,
-              cardBorder: getComputedStyle(card).border }
+            return {
+              fill: getComputedStyle(tile).backgroundColor,
+              tileBorder: getComputedStyle(tile).border,
+              cardBorder: getComputedStyle(card).border,
+            }
           })
-          return { fills: cards.map(card => card.fill), matchingTiles: cards[0]!.tileBorder === cards[1]!.tileBorder,
-            matchingCards: cards[0]!.cardBorder === cards[1]!.cardBorder }
+          return {
+            fills: cards.map(card => card.fill),
+            matchingTiles: cards[0]!.tileBorder === cards[1]!.tileBorder,
+            matchingCards: cards[0]!.cardBorder === cards[1]!.cardBorder,
+          }
         })
       } finally {
         if (previous === null) document.body.removeAttribute('data-ds-dark-theme')
@@ -166,7 +191,10 @@ describe('web e2e: requested SVG is explicitly delivered', () => {
   })
 
   it('opens the single edited file from its compact card', async () => {
-    await page.locator('[data-changed-files]').getByRole('button', { name: `查看 ${FILE} 的改动` }).click()
+    await page
+      .locator('[data-changed-files]')
+      .getByRole('button', { name: `查看 ${FILE} 的改动` })
+      .click()
     const review = page.locator('[data-changes-review]')
     await review.waitFor({ state: 'visible' })
     expect(await review.getByRole('button', { name: '选择要查看的文件' }).innerText()).toContain(FILE)

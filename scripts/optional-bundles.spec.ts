@@ -4,11 +4,18 @@ import { globSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
 import { loadOverlayPatches } from '../packages/boot/app-boot/src/index.ts'
 import { readPluginMeta } from '../packages/boot/app-boot/src/package-meta.ts'
-import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES, bundlePatchPaths, composeEntries, initProfile, readProfileManifest } from '../packages/boot/app-boot/src/profile.ts'
+import {
+  OPTIONAL_BUNDLES,
+  PROFILE_TEMPLATES,
+  bundlePatchPaths,
+  composeEntries,
+  initProfile,
+  readProfileManifest,
+} from '../packages/boot/app-boot/src/profile.ts'
 import type { DshBundleManifest } from '../packages/util/package-manifest/src/types.ts'
 import { createPluginProfile } from '../apps/desktop/src/project-manager.ts'
 
@@ -19,15 +26,20 @@ interface Manifest {
   dsh?: { bundle?: DshBundleManifest }
 }
 
-const bundles = new Map(globSync('packages/*/*/package.json', { cwd: root }).map((path) => {
-  const manifest = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as Manifest
-  return [manifest.name, { dir: dirname(resolve(root, path)), manifest }]
-}))
+const bundles = new Map(
+  globSync('packages/*/*/package.json', { cwd: root }).map(path => {
+    const manifest = JSON.parse(readFileSync(resolve(root, path), 'utf8')) as Manifest
+    return [manifest.name, { dir: dirname(resolve(root, path)), manifest }]
+  }),
+)
 
 function bundle(name: string): { dir: string; patches: ReturnType<typeof loadOverlayPatches> } {
   const entry = bundles.get(name)
   if (entry?.manifest.dsh?.bundle === undefined) throw new Error(`${name} is not a workspace bundle`)
-  return { dir: entry.dir, patches: bundlePatchPaths(entry.dir, entry.manifest.dsh.bundle).flatMap(path => loadOverlayPatches('test', path)) }
+  return {
+    dir: entry.dir,
+    patches: bundlePatchPaths(entry.dir, entry.manifest.dsh.bundle).flatMap(path => loadOverlayPatches('test', path)),
+  }
 }
 
 const lightweight = [
@@ -45,12 +57,17 @@ function presetRows(entries: EntryOptions[], id: string): EntryOptions[] {
 }
 
 function flattenRows(entries: EntryOptions[]): EntryOptions[] {
-  return entries.flatMap(entry => [entry, ...entry.group && Array.isArray(entry.config) ? flattenRows(entry.config as EntryOptions[]) : []])
+  return entries.flatMap(entry => [
+    entry,
+    ...(entry.group && Array.isArray(entry.config) ? flattenRows(entry.config as EntryOptions[]) : []),
+  ])
 }
 
 function profileLayers(surface: 'web' | 'desktop'): ReturnType<typeof loadOverlayPatches>[] {
   const directory = mkdtempSync(join(tmpdir(), 'dsh-bundle-compatibility-'))
-  onTestFinished(() => { rmSync(directory, { recursive: true, force: true }) })
+  onTestFinished(() => {
+    rmSync(directory, { recursive: true, force: true })
+  })
   if (surface === 'desktop') createPluginProfile(directory)
   else initProfile(directory, PROFILE_TEMPLATES.web!.bundles)
   const names = readProfileManifest('test', directory).dsh?.profile?.bundles
@@ -58,30 +75,46 @@ function profileLayers(surface: 'web' | 'desktop'): ReturnType<typeof loadOverla
   return names.map(name => bundle(name).patches)
 }
 
-describe.each(['web', 'desktop'] as const)('%s optional bundle overrides', (surface) => {
+describe.each(['web', 'desktop'] as const)('%s optional bundle overrides', surface => {
   const selectedNames = ['@deepseek-ai/dsh-experimental-badge-skill-bundle', '@deepseek-ai/dsh-experimental-ralph-bundle']
 
   it('keeps established selectors for later configuration and disabled overrides', () => {
     const shipped = profileLayers(surface)
     const config = { subagentProvider: 'spawn', maxRounds: 3 }
     const warnings: string[] = []
-    const entries = composeEntries([...shipped, ...selectedNames.map(name => bundle(name).patches), [
-      { id: 'skill-badge', disabled: true },
-      { id: 'tool-ralph', config, disabled: true },
-    ]], warning => warnings.push(warning))
+    const entries = composeEntries(
+      [
+        ...shipped,
+        ...selectedNames.map(name => bundle(name).patches),
+        [
+          { id: 'skill-badge', disabled: true },
+          { id: 'tool-ralph', config, disabled: true },
+        ],
+      ],
+      warning => warnings.push(warning),
+    )
     expect(warnings).toEqual([])
     expect(entries.find(row => row.id === 'skill-badge')).toMatchObject({ name: '@deepseek-ai/dsh-skill-badge', disabled: true })
-    expect(flattenRows(entries).find(row => row.id === 'tool-ralph'))
-      .toMatchObject({ name: '@deepseek-ai/dsh-tool-ralph', config, disabled: true })
+    expect(flattenRows(entries).find(row => row.id === 'tool-ralph')).toMatchObject({
+      name: '@deepseek-ai/dsh-tool-ralph',
+      config,
+      disabled: true,
+    })
     expect(entries.find(row => row.id === 'optional-ralph')?.isolate).toEqual({ workflowEngine: true })
   })
 
   it('does not select absent bundles through enable-only row overrides', () => {
     const warnings: string[] = []
-    const entries = composeEntries([...profileLayers(surface), [
-      { id: 'skill-badge', disabled: false },
-      { id: 'tool-ralph', disabled: false },
-    ]], warning => warnings.push(warning))
+    const entries = composeEntries(
+      [
+        ...profileLayers(surface),
+        [
+          { id: 'skill-badge', disabled: false },
+          { id: 'tool-ralph', disabled: false },
+        ],
+      ],
+      warning => warnings.push(warning),
+    )
     expect(warnings).toHaveLength(2)
     expect(warnings.some(warning => warning.includes('skill-badge'))).toBe(true)
     expect(warnings.some(warning => warning.includes('tool-ralph'))).toBe(true)
@@ -101,7 +134,7 @@ describe('optional bundles', () => {
     expect(OPTIONAL_BUNDLES).not.toContain('@deepseek-ai/dsh-experimental-inspector')
   })
 
-  it.each(OPTIONAL_BUNDLES)('%s composes over the Web profile without a skipped patch', (name) => {
+  it.each(OPTIONAL_BUNDLES)('%s composes over the Web profile without a skipped patch', name => {
     const { patches } = bundle(name)
     const warnings: string[] = []
     const composed = composeEntries([...shipped, patches], message => warnings.push(message))
@@ -116,7 +149,7 @@ describe('optional bundles', () => {
     }
     // One top-level row per id: a duplicate declaration leaves the Loader with the last one, silently
     // replacing the layer that declared the id first.
-    const topLevelIds = composed.flatMap(entry => typeof entry.id === 'string' ? [entry.id] : [])
+    const topLevelIds = composed.flatMap(entry => (typeof entry.id === 'string' ? [entry.id] : []))
     expect(topLevelIds).toHaveLength(new Set(topLevelIds).size)
     // An id-targeted patch reaches a row another layer inserted: the id resolves to exactly one top-level
     // row, and the override keeps the package the shipped layer declared on it.
@@ -152,7 +185,7 @@ describe('optional bundles', () => {
     const baseline = composeEntries(shipped)
     const layers = lightweight.map(name => bundle(name).patches)
     for (let mask = 0; mask < 2 ** lightweight.length; mask += 1) {
-      const selected = layers.filter((_layer, index) => (mask & 2 ** index) !== 0)
+      const selected = layers.filter((_layer, index) => (mask & (2 ** index)) !== 0)
       const warnings: string[] = []
       const composed = composeEntries([...shipped, ...selected], warning => warnings.push(warning))
       expect(warnings).toEqual([])
@@ -167,22 +200,25 @@ describe('optional bundles', () => {
   it('contributes global tools from Host rows with independently isolated services', () => {
     const composed = composeEntries([...shipped, ...lightweight.map(name => bundle(name).patches)])
     const names = flattenRows(composed).map(row => row.name)
-    for (const name of [
-      '@deepseek-ai/dsh-tool-session-query',
-      '@deepseek-ai/dsh-tool-ralph', '@deepseek-ai/dsh-tool-terminal',
-    ]) expect(names).toContain(name)
+    for (const name of ['@deepseek-ai/dsh-tool-session-query', '@deepseek-ai/dsh-tool-ralph', '@deepseek-ai/dsh-tool-terminal'])
+      expect(names).toContain(name)
     expect(composed.find(row => row.id === 'optional-ralph')?.isolate).toEqual({ workflowEngine: true })
     expect(composed.find(row => row.id === 'optional-persistent-terminals')?.isolate).toEqual({ terminals: true })
     const search = composed.find(row => row.id === 'optional-session-search')
     expect(search?.isolate).toEqual({ sessionQuery: true })
     expect(search?.config).toEqual([
-      { id: 'optional-session-query-sqlite', name: '@deepseek-ai/dsh-session-query-sqlite', config: { path: ':memory:', openAt: 'first-search' } },
+      {
+        id: 'optional-session-query-sqlite',
+        name: '@deepseek-ai/dsh-session-query-sqlite',
+        config: { path: ':memory:', openAt: 'first-search' },
+      },
       { id: 'optional-tool-session-query', name: '@deepseek-ai/dsh-tool-session-query' },
     ])
     expect(composed.find(row => row.id === 'session-query-sqlite')?.config).toEqual({ path: ':memory:', openAt: 'never' })
     expect(composed.find(row => row.id === 'session-title-llm')?.disabled).toBe(true)
-    expect(composed.find(row => row.id === 'optional-session-title-all-prompts')?.name)
-      .toBe('@deepseek-ai/dsh-session-title-all-prompts-llm')
+    expect(composed.find(row => row.id === 'optional-session-title-all-prompts')?.name).toBe(
+      '@deepseek-ai/dsh-session-title-all-prompts-llm',
+    )
   })
 
   it('delivers the Schedule service and task page without a Host clock row', () => {
@@ -193,8 +229,7 @@ describe('optional bundles', () => {
       { id: 'schedule', name: '@deepseek-ai/dsh-schedule' },
       { id: 'ui-schedule', name: '@deepseek-ai/dsh-client-ui-schedule' },
     ]) {
-      expect(composed.filter(entry => entry.id === row.id && entry.name === row.name && entry.disabled !== true))
-        .toHaveLength(1)
+      expect(composed.filter(entry => entry.id === row.id && entry.name === row.name && entry.disabled !== true)).toHaveLength(1)
     }
     expect(composed.some(entry => entry.id === 'time-context')).toBe(false)
   })
@@ -233,11 +268,14 @@ describe('optional bundles', () => {
       }
     }
     // `minimal` declares neither, so it composes no clock reading and no reminder tool.
-    expect(presetPlugins('preset-minimal').some(row => row.name === '@deepseek-ai/dsh-time-context'
-      || row.name === '@deepseek-ai/dsh-tool-schedule')).toBe(false)
+    expect(
+      presetPlugins('preset-minimal').some(
+        row => row.name === '@deepseek-ai/dsh-time-context' || row.name === '@deepseek-ai/dsh-tool-schedule',
+      ),
+    ).toBe(false)
   })
 
-  it.each(OPTIONAL_BUNDLES)('%s resolves a title, description, and icon in both shipped languages', (name) => {
+  it.each(OPTIONAL_BUNDLES)('%s resolves a title, description, and icon in both shipped languages', name => {
     const meta = readPluginMeta(name, pathToFileURL(`${bundle(name).dir}/package.json`).href)
     expect(meta?.error).toBeUndefined()
     for (const field of [meta?.title, meta?.description]) {

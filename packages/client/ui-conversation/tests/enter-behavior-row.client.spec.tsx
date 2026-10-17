@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { allowAllAccess, bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -21,15 +21,27 @@ afterEach(() => {
 })
 
 function emptySessions() {
-  return bindSnapshotSelector(createSnapshotStore<SessionListState>({
-    ids: [], byId: {}, phase: 'ready', projectionsBySession: {},
-  }))
+  return bindSnapshotSelector(
+    createSnapshotStore<SessionListState>({
+      ids: [],
+      byId: {},
+      phase: 'ready',
+      projectionsBySession: {},
+    }),
+  )
 }
 
 function emptyWorkspaces() {
-  return bindSnapshotSelector(createSnapshotStore<WorkspaceSnapshot>({
-    items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
-  }))
+  return bindSnapshotSelector(
+    createSnapshotStore<WorkspaceSnapshot>({
+      items: [],
+      archivedSessionIds: [],
+      pinnedSessionIds: [],
+      state: 'idle',
+      phase: 'ready',
+      error: null,
+    }),
+  )
 }
 
 function noPendingInteraction() {
@@ -38,7 +50,9 @@ function noPendingInteraction() {
 
 function mount() {
   const policy = new ComposerSubmissionPolicy()
-  const setBusyEnter = vi.fn((behavior: 'queue' | 'steer') => { policy.setBusyEnter(behavior) })
+  const setBusyEnter = vi.fn((behavior: 'queue' | 'steer') => {
+    policy.setBusyEnter(behavior)
+  })
   const props: EnterBehaviorRowProps = {
     usePanelInfo: selector => selector({ activePanelId: null }),
     useSessions: emptySessions(),
@@ -59,7 +73,9 @@ describe('EnterBehaviorRow', () => {
   it('explains the busy-only scope over Enter and Send and shows Queue by default', () => {
     mount()
     expect(screen.getByText('Send behavior while busy')).toBeDefined()
-    expect(screen.getByText('What Enter and the Send button do while the agent is running; Cmd/Ctrl+Enter uses the other behavior')).toBeDefined()
+    expect(
+      screen.getByText('What Enter and the Send button do while the agent is running; Cmd/Ctrl+Enter uses the other behavior'),
+    ).toBeDefined()
     expect(screen.getByRole('button', { name: /Queue/ }).getAttribute('aria-expanded')).toBe('false')
   })
 
@@ -71,7 +87,9 @@ describe('EnterBehaviorRow', () => {
     expect(b.setBusyEnter).toHaveBeenCalledWith('steer')
     expect(screen.getByRole('button', { name: /Steer/ })).toBeDefined()
 
-    act(() => { b.policy.setBusyEnter('queue') })
+    act(() => {
+      b.policy.setBusyEnter('queue')
+    })
     const queueTrigger = screen.getByRole('button', { name: /Queue/ })
     fireEvent.click(queueTrigger)
     expect(screen.getByRole('menuitem', { name: 'Steer' })).toBeDefined()

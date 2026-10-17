@@ -22,11 +22,30 @@ export type { MenuViewInjected } from './slots.ts'
 export type { MenuViewProps } from './MenuView.tsx'
 export type { MenuKey } from './locales.ts'
 export type {
-  ArbitrateKey, ArbitrateOutcome, BeginCommandRequest, CandidateRequest, ClientSessionContext,
-  CommandClaim, ConsumeTokenRequest, HeaderRequest, InsertReferenceRequest, PickOutcome, PickVia,
-  ReferenceCodec, ReferenceInsert, InputTriggerCandidate, InputTriggerCrumb, InputTriggerPick,
-  InputTriggerSource, SubmitAttachment, SubmitEnvelope, SubmitOutcome, TokenSpan, TriggerChar,
-  TriggerGuard, TriggerPosition,
+  ArbitrateKey,
+  ArbitrateOutcome,
+  BeginCommandRequest,
+  CandidateRequest,
+  ClientSessionContext,
+  CommandClaim,
+  ConsumeTokenRequest,
+  HeaderRequest,
+  InsertReferenceRequest,
+  PickOutcome,
+  PickVia,
+  ReferenceCodec,
+  ReferenceInsert,
+  InputTriggerCandidate,
+  InputTriggerCrumb,
+  InputTriggerPick,
+  InputTriggerSource,
+  SubmitAttachment,
+  SubmitEnvelope,
+  SubmitOutcome,
+  TokenSpan,
+  TriggerChar,
+  TriggerGuard,
+  TriggerPosition,
 } from '../types.ts'
 export type { DetectTrigger, ExactMatch, MenuEvent, MenuReduce, MenuState, TriggerHit } from '../core/contract.ts'
 export type { InputTriggerServiceContract } from './contract.ts'
@@ -62,26 +81,39 @@ export function apply(ctx: ClientContext): void {
   ctx.inject(['slots', 'inputTriggers', 'sessions'], (scope: ClientContext) => {
     const inputTriggers = scope.inputTriggers
     const sessions = scope.sessions
-    scope.slots.inject('conversation.input.overlay', () => scope.slots.register({
-      name: 'conversation.input.overlay',
-      id: 'slash-menu',
-      order: 0,
-      locale: MENU_NS,
-      inject: (sessionId): MenuViewInjected => {
-        // Session-scoped slot: resolve this session's controller (the slot
-        // frame hands ids, not ctx — the registered id→ctx interchange).
-        const actx = sessions.scope(sessionId)
-        if (actx === undefined) throw new Error(`ui-input-trigger: session "${String(sessionId)}" resolved no scope`)
-        const controller = inputTriggers.sessionOf(actx)
-        return {
-          menu: controller.menu,
-          headers: controller.headers,
-          onPick: (source, index, action) => { controller.pick(source, index, action) },
-          onCrumb: (source, index) => { controller.pickCrumb(source, index) },
-          onHover: (source, index) => { controller.hover(source, index) },
-          onDismiss: () => { controller.dismiss() },
-        }
-      },
-    }, MenuView))
+    scope.slots.inject('conversation.input.overlay', () =>
+      scope.slots.register(
+        {
+          name: 'conversation.input.overlay',
+          id: 'slash-menu',
+          order: 0,
+          locale: MENU_NS,
+          inject: (sessionId): MenuViewInjected => {
+            // Session-scoped slot: resolve this session's controller (the slot
+            // frame hands ids, not ctx — the registered id→ctx interchange).
+            const actx = sessions.scope(sessionId)
+            if (actx === undefined) throw new Error(`ui-input-trigger: session "${String(sessionId)}" resolved no scope`)
+            const controller = inputTriggers.sessionOf(actx)
+            return {
+              menu: controller.menu,
+              headers: controller.headers,
+              onPick: (source, index, action) => {
+                controller.pick(source, index, action)
+              },
+              onCrumb: (source, index) => {
+                controller.pickCrumb(source, index)
+              },
+              onHover: (source, index) => {
+                controller.hover(source, index)
+              },
+              onDismiss: () => {
+                controller.dismiss()
+              },
+            }
+          },
+        },
+        MenuView,
+      ),
+    )
   })
 }

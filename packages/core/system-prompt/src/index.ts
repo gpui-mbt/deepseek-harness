@@ -28,7 +28,12 @@ declare module '@deepseek-ai/cordis' {
      * @param context - the caller's per-assembly context.
      * @mode waterfall
      */
-    'system-prompt/assemble'(this: Scoped<SystemPrompt>, assembly: PromptAssembly, context: AssembleContext, next: () => Promise<PromptAssembly>): Promise<PromptAssembly>
+    'system-prompt/assemble'(
+      this: Scoped<SystemPrompt>,
+      assembly: PromptAssembly,
+      context: AssembleContext,
+      next: () => Promise<PromptAssembly>,
+    ): Promise<PromptAssembly>
     /**
      * Emitted when any prompt provider changes. This registry notification is
      * unfiltered because a global change affects every scope.
@@ -231,12 +236,13 @@ function orderTools(tools: ToolSchema[], toolOrder: string[] | undefined, knownN
   if (toolOrder === undefined) return tools.sort(compareToolNames)
   const unknown = toolOrder.filter(name => name !== TOOL_ORDER_REST && !knownNames.has(name))
   if (unknown.length > 0) {
-    throw new Error(`toolOrder lists unregistered tool${unknown.length > 1 ? 's' : ''} ${unknown.map(name => `"${name}"`).join(', ')}; known tools: ${[...knownNames].sort().join(', ') || '(none)'}`)
+    throw new Error(
+      `toolOrder lists unregistered tool${unknown.length > 1 ? 's' : ''} ${unknown.map(name => `"${name}"`).join(', ')}; known tools: ${[...knownNames].sort().join(', ') || '(none)'}`,
+    )
   }
   const listed = new Set(toolOrder)
   const rest = tools.filter(tool => !listed.has(tool.name)).sort(compareToolNames)
-  return toolOrder.flatMap(name =>
-    name === TOOL_ORDER_REST ? rest : tools.filter(tool => tool.name === name))
+  return toolOrder.flatMap(name => (name === TOOL_ORDER_REST ? rest : tools.filter(tool => tool.name === name)))
 }
 
 /** Code-unit name comparison — locale-independent, so the order is identical on every machine. */
@@ -289,7 +295,7 @@ export interface Config {
  */
 export function renderPrompt(assembly: PromptAssembly): string {
   return assembly.sections
-    .map(section => section.interpolate === false ? section.text : interpolate(section, assembly.variables, 'section'))
+    .map(section => (section.interpolate === false ? section.text : interpolate(section, assembly.variables, 'section')))
     .filter(text => text.length > 0)
     .join('\n\n')
 }
@@ -350,7 +356,9 @@ function interpolate(
     if (group === null) {
       // A later closing brace makes this malformed; otherwise it is literal prose.
       if (text.indexOf('}}', open + 2) >= 0) {
-        throw new Error(`malformed prompt variable reference at "${text.slice(open, open + 16)}…" in ${kind} "${input.name}" (references are complete simple {{name}} groups)`)
+        throw new Error(
+          `malformed prompt variable reference at "${text.slice(open, open + 16)}…" in ${kind} "${input.name}" (references are complete simple {{name}} groups)`,
+        )
       }
       result += text.slice(last, open + 2)
       last = open + 2
@@ -359,12 +367,16 @@ function interpolate(
     // `{{}}` yields an empty name and follows the malformed-reference path.
     const name = group[0].slice(2, -2)
     if (!VARIABLE_NAME.test(name)) {
-      throw new Error(`malformed prompt variable reference "{{${name}}}" in ${kind} "${input.name}" (variable names match ${String(VARIABLE_NAME)})`)
+      throw new Error(
+        `malformed prompt variable reference "{{${name}}}" in ${kind} "${input.name}" (variable names match ${String(VARIABLE_NAME)})`,
+      )
     }
     // Do not resolve unregistered names through Object.prototype.
     if (!Object.hasOwn(variables, name)) {
       const known = Object.keys(variables)
-      throw new Error(`unknown prompt variable "{{${name}}}" in ${kind} "${input.name}"; registered variables: ${known.length > 0 ? known.join(', ') : '(none)'}`)
+      throw new Error(
+        `unknown prompt variable "{{${name}}}" in ${kind} "${input.name}"; registered variables: ${known.length > 0 ? known.join(', ') : '(none)'}`,
+      )
     }
     const value = variables[name]
     if (value === undefined) {
@@ -381,7 +393,7 @@ function resolveContext(entry: PromptContext, context: AssembleContext): Assembl
   return {
     name: entry.name,
     text: typeof entry.text === 'function' ? entry.text(context) : entry.text,
-    ...entry.interpolate !== undefined ? { interpolate: entry.interpolate } : {},
+    ...(entry.interpolate !== undefined ? { interpolate: entry.interpolate } : {}),
   }
 }
 
@@ -404,24 +416,41 @@ class PromptLayer implements ScopeLayer {
    * @param scope - the scoped owner, or `undefined` for global registrations.
    */
   constructor(scope: ScopeKey | undefined) {
-    this.sections = new NamedEntries(name => new Error(scope === undefined
-      ? `prompt section "${name}" is already registered (for a per-agent override, register through that agent's \`agent.ctx\` instead)`
-      : `prompt section "${name}" is already registered in this scope`))
-    this.contexts = new NamedEntries(name => new Error(scope === undefined
-      ? `prompt context "${name}" is already registered (for a per-agent override, register through that agent's \`agent.ctx\` instead)`
-      : `prompt context "${name}" is already registered in this scope`))
-    this.variables = new NamedEntries(name => new Error(scope === undefined
-      ? `prompt variable "${name}" is already registered (for a per-agent value, register through that agent's \`agent.ctx\` instead)`
-      : `prompt variable "${name}" is already registered in this scope`))
+    this.sections = new NamedEntries(
+      name =>
+        new Error(
+          scope === undefined
+            ? `prompt section "${name}" is already registered (for a per-agent override, register through that agent's \`agent.ctx\` instead)`
+            : `prompt section "${name}" is already registered in this scope`,
+        ),
+    )
+    this.contexts = new NamedEntries(
+      name =>
+        new Error(
+          scope === undefined
+            ? `prompt context "${name}" is already registered (for a per-agent override, register through that agent's \`agent.ctx\` instead)`
+            : `prompt context "${name}" is already registered in this scope`,
+        ),
+    )
+    this.variables = new NamedEntries(
+      name =>
+        new Error(
+          scope === undefined
+            ? `prompt variable "${name}" is already registered (for a per-agent value, register through that agent's \`agent.ctx\` instead)`
+            : `prompt variable "${name}" is already registered in this scope`,
+        ),
+    )
   }
 
   /** @returns whether this layer owns no prompt registrations. */
   isEmpty(): boolean {
-    return this.sections.isEmpty()
-      && this.contexts.isEmpty()
-      && this.runtimeContextSuppressors.isEmpty()
-      && this.toolProviders.isEmpty()
-      && this.variables.isEmpty()
+    return (
+      this.sections.isEmpty() &&
+      this.contexts.isEmpty() &&
+      this.runtimeContextSuppressors.isEmpty() &&
+      this.toolProviders.isEmpty() &&
+      this.variables.isEmpty()
+    )
   }
 }
 
@@ -438,7 +467,9 @@ export class SystemPrompt extends Service {
 
   private readonly layers = new ScopedLayers(
     scope => new PromptLayer(scope),
-    () => { this.ctx.emit('system-prompt/change') },
+    () => {
+      this.ctx.emit('system-prompt/change')
+    },
   )
   private readonly toolOrder: string[] | undefined
 
@@ -479,11 +510,7 @@ export class SystemPrompt extends Service {
     if (!Number.isFinite(section.order)) {
       throw new TypeError(`prompt section "${section.name}" order must be a finite number`)
     }
-    return this.layers.effect(
-      this.ctx,
-      layer => layer.sections.insert(section.name, section),
-      { label: 'systemPrompt.section()' },
-    )
+    return this.layers.effect(this.ctx, layer => layer.sections.insert(section.name, section), { label: 'systemPrompt.section()' })
   }
 
   /**
@@ -514,11 +541,7 @@ export class SystemPrompt extends Service {
     if (!Number.isFinite(context.order)) {
       throw new TypeError(`prompt context "${context.name}" order must be a finite number`)
     }
-    return this.layers.effect(
-      this.ctx,
-      layer => layer.contexts.insert(context.name, context),
-      { label: 'systemPrompt.context()' },
-    )
+    return this.layers.effect(this.ctx, layer => layer.contexts.insert(context.name, context), { label: 'systemPrompt.context()' })
   }
 
   /**
@@ -528,11 +551,9 @@ export class SystemPrompt extends Service {
    * @returns the exact Cordis effect disposer.
    */
   suppressRuntimeContext(): () => void {
-    return this.layers.effect(
-      this.ctx,
-      layer => layer.runtimeContextSuppressors.append(true),
-      { label: 'systemPrompt.suppressRuntimeContext()' },
-    )
+    return this.layers.effect(this.ctx, layer => layer.runtimeContextSuppressors.append(true), {
+      label: 'systemPrompt.suppressRuntimeContext()',
+    })
   }
 
   /**
@@ -543,11 +564,7 @@ export class SystemPrompt extends Service {
    * @returns the exact Cordis effect disposer.
    */
   tools(provider: (context: AssembleContext) => ToolProviderResult): () => void {
-    return this.layers.effect(
-      this.ctx,
-      layer => layer.toolProviders.append(provider),
-      { label: 'systemPrompt.tools()' },
-    )
+    return this.layers.effect(this.ctx, layer => layer.toolProviders.append(provider), { label: 'systemPrompt.tools()' })
   }
 
   /**
@@ -562,11 +579,7 @@ export class SystemPrompt extends Service {
     if (!VARIABLE_NAME.test(name)) {
       throw new Error(`invalid prompt variable name "${name}" (must match ${String(VARIABLE_NAME)})`)
     }
-    return this.layers.effect(
-      this.ctx,
-      layer => layer.variables.insert(name, provider),
-      { label: 'systemPrompt.variable()' },
-    )
+    return this.layers.effect(this.ctx, layer => layer.variables.insert(name, provider), { label: 'systemPrompt.variable()' })
   }
 
   /**
@@ -581,8 +594,9 @@ export class SystemPrompt extends Service {
    */
   refreshContext(assembly: PromptAssembly, context: AssembleContext = {}): PromptAssembly {
     const providers = this.layers.merge(context.scope, layer => layer.contexts)
-    const suppressed = !this.layers.global.runtimeContextSuppressors.isEmpty()
-      || this.layers.chainLayers(context.scope).some(layer => !layer.runtimeContextSuppressors.isEmpty())
+    const suppressed =
+      !this.layers.global.runtimeContextSuppressors.isEmpty() ||
+      this.layers.chainLayers(context.scope).some(layer => !layer.runtimeContextSuppressors.isEmpty())
     const required = new Map([...providers].filter(([, entry]) => entry.required === true))
     const contexts: AssembledContext[] = []
     for (const accepted of assembly.contexts) {
@@ -592,7 +606,7 @@ export class SystemPrompt extends Service {
       contexts.push(provider === undefined ? accepted : resolveContext(provider, context))
     }
     for (const provider of required.values()) {
-      const index = contexts.findIndex((entry) => {
+      const index = contexts.findIndex(entry => {
         const next = providers.get(entry.name)
         return next !== undefined && next.order > provider.order
       })
@@ -614,8 +628,8 @@ export class SystemPrompt extends Service {
   async assemble(context: AssembleContext = {}): Promise<PromptAssembly> {
     const scope = context.scope
     const scopeLayers = this.layers.chainLayers(scope)
-    const runtimeContextSuppressed = !this.layers.global.runtimeContextSuppressors.isEmpty()
-      || scopeLayers.some(layer => !layer.runtimeContextSuppressors.isEmpty())
+    const runtimeContextSuppressed =
+      !this.layers.global.runtimeContextSuppressors.isEmpty() || scopeLayers.some(layer => !layer.runtimeContextSuppressors.isEmpty())
     // Scoped variables shadow globals.
     const variables: Record<string, string | undefined> = {}
     for (const [name, provider] of this.layers.global.variables.entries()) {
@@ -631,10 +645,7 @@ export class SystemPrompt extends Service {
     const sectionByName = this.layers.merge(scope, layer => layer.sections)
     const contextByName = this.layers.merge(scope, layer => layer.contexts)
     // Validate order against pre-restriction names while collecting visible schemas.
-    const providers = [
-      ...this.layers.global.toolProviders.values(),
-      ...scopeLayers.flatMap(layer => [...layer.toolProviders.values()]),
-    ]
+    const providers = [...this.layers.global.toolProviders.values(), ...scopeLayers.flatMap(layer => [...layer.toolProviders.values()])]
     const collected: ToolSchema[] = []
     const knownNames = new Set<string>()
     for (const provider of providers) {
@@ -643,7 +654,7 @@ export class SystemPrompt extends Service {
         name,
         description,
         parameters: structuredClone(parameters),
-        ...deferLoading === true ? { deferLoading } : {},
+        ...(deferLoading === true ? { deferLoading } : {}),
       }))
       const acceptedKnownNames = result.knownNames ?? schemas.map(tool => tool.name)
       collected.push(...schemas)
@@ -652,19 +663,20 @@ export class SystemPrompt extends Service {
     const sectionDefinitions = [...sectionByName.values()].sort(comparePromptSections)
     const completeSections = sectionDefinitions.filter(section => section.complete === true)
     if (completeSections.length > 1) {
-      throw new Error(`multiple complete prompt sections are active: ${completeSections.map(section => JSON.stringify(section.name)).join(', ')}`)
+      throw new Error(
+        `multiple complete prompt sections are active: ${completeSections.map(section => JSON.stringify(section.name)).join(', ')}`,
+      )
     }
     let completeSection: AssembledSection | undefined
-    const sections = sectionDefinitions
-      .map((section) => {
-        const assembled = {
-          name: section.name,
-          text: typeof section.text === 'function' ? section.text(context) : section.text,
-          ...section.interpolate !== undefined ? { interpolate: section.interpolate } : {},
-        }
-        if (section.complete === true) completeSection = { ...assembled }
-        return assembled
-      })
+    const sections = sectionDefinitions.map(section => {
+      const assembled = {
+        name: section.name,
+        text: typeof section.text === 'function' ? section.text(context) : section.text,
+        ...(section.interpolate !== undefined ? { interpolate: section.interpolate } : {}),
+      }
+      if (section.complete === true) completeSection = { ...assembled }
+      return assembled
+    })
     const assembly: PromptAssembly = {
       sections,
       contexts: [...contextByName.values()]
@@ -674,9 +686,8 @@ export class SystemPrompt extends Service {
       tools: orderTools(collected, this.toolOrder, knownNames),
       variables,
     }
-    const transformed = await this.ctx.waterfall(
-      scopeTarget(this, scope), 'system-prompt/assemble', assembly, context,
-      () => Promise.resolve(assembly),
+    const transformed = await this.ctx.waterfall(scopeTarget(this, scope), 'system-prompt/assemble', assembly, context, () =>
+      Promise.resolve(assembly),
     )
     if (completeSection === undefined && !runtimeContextSuppressed) return transformed
     const requiredContexts = new Set([...contextByName.values()].filter(entry => entry.required === true).map(entry => entry.name))

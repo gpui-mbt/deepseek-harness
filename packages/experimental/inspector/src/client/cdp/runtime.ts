@@ -12,11 +12,7 @@ import type {
   ClientRuntimeResult,
   ClientRuntimeRemoteObject,
 } from '../../shared/bridge/messages/runtime/index.ts'
-import type {
-  ClientRemoteObjectHandle,
-  ClientRuntimeRequestId,
-  ClientRuntimeSessionId,
-} from '../../shared/bridge/ids.ts'
+import type { ClientRemoteObjectHandle, ClientRuntimeRequestId, ClientRuntimeSessionId } from '../../shared/bridge/ids.ts'
 import { isJsonValue, jsonByteLength } from '../../shared/json.ts'
 import { INSPECTOR_PROTOCOL_VERSION } from '../../shared/bridge/version.ts'
 import { ClientRuntimeExecutionError } from './errors.ts'
@@ -46,11 +42,14 @@ export interface ClientRuntimeLimits {
 /** Executes Runtime requests while isolating object handles by DevTools session. */
 export class ClientRuntimeExecutor {
   private readonly sessions = new Map<ClientRuntimeSessionId, ClientRuntimeSession>()
-  private readonly responseAllocations = new Map<ClientRuntimeRequestId, {
-    readonly sessionId: ClientRuntimeSessionId
-    readonly session: ClientRuntimeSession
-    readonly allocation: ClientObjectAllocation
-  }>()
+  private readonly responseAllocations = new Map<
+    ClientRuntimeRequestId,
+    {
+      readonly sessionId: ClientRuntimeSessionId
+      readonly session: ClientRuntimeSession
+      readonly allocation: ClientObjectAllocation
+    }
+  >()
 
   constructor(
     private readonly limits: ClientRuntimeLimits,
@@ -64,11 +63,7 @@ export class ClientRuntimeExecutor {
    * @param deferObjectCommit - Keep new object handles provisional until {@link acknowledge}.
    * @returns A success or transport-error response for the same request.
    */
-  async execute(
-    frame: ClientRuntimeRequestFrame,
-    signal?: AbortSignal,
-    deferObjectCommit = false,
-  ): Promise<ClientRuntimeResponseFrame> {
+  async execute(frame: ClientRuntimeRequestFrame, signal?: AbortSignal, deferObjectCommit = false): Promise<ClientRuntimeResponseFrame> {
     const session = this.session(frame.sessionId)
     const allocation = session.beginAllocation()
     try {
@@ -234,11 +229,7 @@ export class ClientRuntimeExecutor {
   private session(sessionId: ClientRuntimeSessionId): ClientRuntimeSession {
     let session = this.sessions.get(sessionId)
     if (session === undefined) {
-      session = new ClientRuntimeSession(
-        this.limits.maxObjectsPerSession,
-        this.limits.maxPropertiesPerResult,
-        this.resolveScript,
-      )
+      session = new ClientRuntimeSession(this.limits.maxObjectsPerSession, this.limits.maxPropertiesPerResult, this.resolveScript)
       this.sessions.set(sessionId, session)
     }
     return session
@@ -268,11 +259,7 @@ class ClientRuntimeSession {
     this.objects.rollback(allocation)
   }
 
-  async execute(
-    command: ClientRuntimeCommand,
-    allocation: ClientObjectAllocation,
-    signal?: AbortSignal,
-  ): Promise<ClientRuntimeResult> {
+  async execute(command: ClientRuntimeCommand, allocation: ClientObjectAllocation, signal?: AbortSignal): Promise<ClientRuntimeResult> {
     switch (command.op) {
       case 'evaluate':
         return { op: command.op, completion: await this.evaluate(command, allocation, signal) }
@@ -305,11 +292,7 @@ class ClientRuntimeSession {
     this.objects.releaseGroup(group)
   }
 
-  serializeAll(
-    values: readonly unknown[],
-    group: string,
-    allocation: ClientObjectAllocation,
-  ): ClientRuntimeRemoteObject[] {
+  serializeAll(values: readonly unknown[], group: string, allocation: ClientObjectAllocation): ClientRuntimeRemoteObject[] {
     return values.map(value => this.objects.serialize(value, { group, generatePreview: true }, allocation))
   }
 
@@ -345,13 +328,7 @@ class ClientRuntimeSession {
       if (error instanceof ClientRuntimeExecutionError) throw error
       return this.exception(error, command.objectGroup, allocation)
     }
-    return this.completion(
-      value,
-      allocation,
-      command.objectGroup,
-      command.generatePreview,
-      command.returnByValue,
-    )
+    return this.completion(value, allocation, command.objectGroup, command.generatePreview, command.returnByValue)
   }
 
   private async callFunction(
@@ -394,19 +371,20 @@ class ClientRuntimeSession {
 
   private resolveArgument(argument: ClientCallArgument): unknown {
     switch (argument.kind) {
-      case 'value': return argument.value
-      case 'object': return this.objects.get(argument.handle)
-      case 'undefined': return undefined
-      case 'unserializable': return parseUnserializable(argument.value)
-      default: return assertNever(argument)
+      case 'value':
+        return argument.value
+      case 'object':
+        return this.objects.get(argument.handle)
+      case 'undefined':
+        return undefined
+      case 'unserializable':
+        return parseUnserializable(argument.value)
+      default:
+        return assertNever(argument)
     }
   }
 
-  private exception(
-    error: unknown,
-    group: string | undefined,
-    allocation: ClientObjectAllocation,
-  ): ClientRuntimeCompletion {
+  private exception(error: unknown, group: string | undefined, allocation: ClientObjectAllocation): ClientRuntimeCompletion {
     const options = { ...(group === undefined ? {} : { group }) }
     const details = this.describeException(error, group, undefined, allocation)
     return { result: this.objects.serialize(error, options, allocation), exceptionDetails: details }
@@ -420,19 +398,20 @@ class ClientRuntimeSession {
     returnByValue: boolean | undefined,
   ): ClientRuntimeCompletion {
     return {
-      result: this.objects.serialize(value, {
-        ...(group === undefined ? {} : { group }),
-        ...(generatePreview === undefined ? {} : { generatePreview }),
-        ...(returnByValue === undefined ? {} : { returnByValue }),
-      }, allocation),
+      result: this.objects.serialize(
+        value,
+        {
+          ...(group === undefined ? {} : { group }),
+          ...(generatePreview === undefined ? {} : { generatePreview }),
+          ...(returnByValue === undefined ? {} : { returnByValue }),
+        },
+        allocation,
+      ),
     }
   }
 }
 
-function responseFrame(
-  request: ClientRuntimeRequestFrame,
-  outcome: ClientRuntimeResponseFrame['outcome'],
-): ClientRuntimeResponseFrame {
+function responseFrame(request: ClientRuntimeRequestFrame, outcome: ClientRuntimeResponseFrame['outcome']): ClientRuntimeResponseFrame {
   return {
     v: INSPECTOR_PROTOCOL_VERSION,
     t: 'client-runtime/response',
@@ -466,28 +445,30 @@ function clientUrl(): { readonly url?: string } {
   return typeof href === 'string' ? { url: href } : {}
 }
 
-async function awaitWithCancellation(
-  value: unknown,
-  signal: AbortSignal | undefined,
-  timeoutMs?: number,
-): Promise<unknown> {
+async function awaitWithCancellation(value: unknown, signal: AbortSignal | undefined, timeoutMs?: number): Promise<unknown> {
   if (signal?.aborted === true) throw new ClientRuntimeExecutionError('timeout', 'Client Runtime request was canceled')
   let timer: ReturnType<typeof setTimeout> | undefined
   let onAbort: (() => void) | undefined
   try {
     const limits: Promise<never>[] = []
     if (timeoutMs !== undefined) {
-      limits.push(new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => {
-          reject(new ClientRuntimeExecutionError('timeout', `Client evaluation exceeded ${String(timeoutMs)}ms`))
-        }, timeoutMs)
-      }))
+      limits.push(
+        new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => {
+            reject(new ClientRuntimeExecutionError('timeout', `Client evaluation exceeded ${String(timeoutMs)}ms`))
+          }, timeoutMs)
+        }),
+      )
     }
     if (signal !== undefined) {
-      limits.push(new Promise<never>((_resolve, reject) => {
-        onAbort = () => { reject(new ClientRuntimeExecutionError('timeout', 'Client Runtime request was canceled')) }
-        signal.addEventListener('abort', onAbort, { once: true })
-      }))
+      limits.push(
+        new Promise<never>((_resolve, reject) => {
+          onAbort = () => {
+            reject(new ClientRuntimeExecutionError('timeout', 'Client Runtime request was canceled'))
+          }
+          signal.addEventListener('abort', onAbort, { once: true })
+        }),
+      )
     }
     return await Promise.race([Promise.resolve(value), ...limits])
   } finally {

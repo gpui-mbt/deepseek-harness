@@ -11,7 +11,10 @@ export class TeamTaskGraphError extends Error {
    * @param message - concrete invalid dependency relation.
    * @param violation - stable relation category used by Team commands.
    */
-  constructor(message: string, readonly violation: TeamTaskGraphViolation) {
+  constructor(
+    message: string,
+    readonly violation: TeamTaskGraphViolation,
+  ) {
     super(message)
     this.name = 'TeamTaskGraphError'
   }
@@ -23,10 +26,7 @@ export class TeamTaskGraphError extends Error {
  * @param candidate - new or next-revision task snapshot.
  * @throws {TeamTaskGraphError} when an active dependency is missing, duplicated, self-referential, or cyclic.
  */
-export function assertTaskGraphCandidate(
-  current: readonly TeamTaskSnapshot[],
-  candidate: TeamTaskSnapshot,
-): void {
+export function assertTaskGraphCandidate(current: readonly TeamTaskSnapshot[], candidate: TeamTaskSnapshot): void {
   const tasks = new Map(current.map(task => [task.id, task]))
   tasks.set(candidate.id, candidate)
 
@@ -42,10 +42,7 @@ export function assertTaskGraphCandidate(
       }
       const blocker = tasks.get(blockerId)
       if (blocker === undefined || blocker.status === 'deleted') {
-        throw new TeamTaskGraphError(
-          `blocker task "${blockerId}" for "${task.id}" is missing or deleted`,
-          'missing',
-        )
+        throw new TeamTaskGraphError(`blocker task "${blockerId}" for "${task.id}" is missing or deleted`, 'missing')
       }
       seen.add(blockerId)
     }

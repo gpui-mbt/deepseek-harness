@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { runNativeCommand } from '@deepseek-ai/dsh-native-command'
 
 const node = process.execPath
@@ -8,7 +8,8 @@ describe('runNativeCommand', () => {
     const result = await runNativeCommand(
       node,
       ['-e', 'process.stdout.write("out✓"); process.stderr.write("err")'],
-      new AbortController().signal, 'hidden',
+      new AbortController().signal,
+      'hidden',
     )
     expect(result).toEqual({ stdout: 'out✓', stderr: 'err' })
   })
@@ -17,18 +18,25 @@ describe('runNativeCommand', () => {
     const failure = await runNativeCommand(
       node,
       ['-e', 'process.stdout.write("partial"); process.stderr.write("boom"); process.exit(3)'],
-      new AbortController().signal, 'hidden',
-    ).then(() => { throw new Error('unexpected resolve') }, (error: unknown) => error)
+      new AbortController().signal,
+      'hidden',
+    ).then(
+      () => {
+        throw new Error('unexpected resolve')
+      },
+      (error: unknown) => error,
+    )
     expect(failure).toMatchObject({ code: 3, stdout: 'partial', stderr: 'boom' })
     expect((failure as Error).cause).toBeInstanceOf(Error)
   })
 
   it('rejects a missing executable with the spawn ENOENT code', async () => {
-    const failure = await runNativeCommand(
-      'dsh-definitely-missing-command',
-      [],
-      new AbortController().signal, 'hidden',
-    ).then(() => { throw new Error('unexpected resolve') }, (error: unknown) => error)
+    const failure = await runNativeCommand('dsh-definitely-missing-command', [], new AbortController().signal, 'hidden').then(
+      () => {
+        throw new Error('unexpected resolve')
+      },
+      (error: unknown) => error,
+    )
     expect(failure).toMatchObject({ code: 'ENOENT' })
   })
 
@@ -36,7 +44,12 @@ describe('runNativeCommand', () => {
     const abort = new AbortController()
     const pending = runNativeCommand(node, ['-e', 'setTimeout(() => {}, 60_000)'], abort.signal, 'hidden')
     abort.abort()
-    const failure = await pending.then(() => { throw new Error('unexpected resolve') }, (error: unknown) => error)
+    const failure = await pending.then(
+      () => {
+        throw new Error('unexpected resolve')
+      },
+      (error: unknown) => error,
+    )
     expect(failure).toBeInstanceOf(Error)
     expect((failure as { code?: unknown }).code).toBe('ABORT_ERR')
   })

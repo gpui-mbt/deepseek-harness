@@ -18,10 +18,9 @@ export interface EnterBehaviorRowInjected {
 }
 
 /** Full Settings-row props. */
-export type EnterBehaviorRowProps =
-  PropsRuntime<'settings.general.item'>
-  & PropsLocale<'conversation'>
-  & InjectFace<EnterBehaviorRowInjected>
+export type EnterBehaviorRowProps = PropsRuntime<'settings.general.item'> &
+  PropsLocale<'conversation'> &
+  InjectFace<EnterBehaviorRowInjected>
 
 const OPTIONS: readonly {
   id: BusyEnterBehavior
@@ -49,27 +48,31 @@ export function EnterBehaviorRow({ useBusyEnter, setBusyEnter, t }: EnterBehavio
       </div>
       <Menu
         open={open}
-        onClose={() => { setOpen(false) }}
+        onClose={() => {
+          setOpen(false)
+        }}
         items={OPTIONS.map(option => ({ id: option.id, label: t(option.label) }))}
         selectedId={behavior}
-        onSelect={(id) => {
+        onSelect={id => {
           setOpen(false)
           setBusyEnter(id as BusyEnterBehavior)
         }}
         align="end"
         portal
-        anchor={(
+        anchor={
           <button
             type="button"
             className={css.selector}
             aria-haspopup="menu"
             aria-expanded={open}
-            onClick={() => { setOpen(value => !value) }}
+            onClick={() => {
+              setOpen(value => !value)
+            }}
           >
             {t(selectedLabel)}
             <IconChevronDownOutlineRegular className={css.chevron} />
           </button>
-        )}
+        }
       />
     </div>
   )

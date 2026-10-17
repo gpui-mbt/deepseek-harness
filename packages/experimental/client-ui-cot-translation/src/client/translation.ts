@@ -2,10 +2,18 @@
 import type { TranslationRequest } from '@deepseek-ai/dsh-experimental-translator/types'
 
 /** One source fragment and its untranslated separator. */
-interface Fragment { text: string; suffix: string; complete: boolean }
+interface Fragment {
+  text: string
+  suffix: string
+  complete: boolean
+}
 
 /** Display-only result retained while this reasoning disclosure is mounted. */
-export interface TranslationState { text: string; pending: boolean; failed: boolean }
+export interface TranslationState {
+  text: string
+  pending: boolean
+  failed: boolean
+}
 
 /** Cancellation-aware callback supplied by the Remote consumer. */
 export type TranslateText = (request: TranslationRequest, signal: AbortSignal) => Promise<string>
@@ -74,19 +82,28 @@ export class ReasoningTranslation {
   }
 
   /** Retry untranslated fragments after a failed request. */
-  retry(): void { this.failed = false; void this.run() }
+  retry(): void {
+    this.failed = false
+    void this.run()
+  }
 
   /** Abort the disclosure's requests and suppress all later publications. */
-  dispose(): void { this.controller.abort() }
+  dispose(): void {
+    this.controller.abort()
+  }
 
-  private isDisposed(): boolean { return this.controller.signal.aborted }
+  private isDisposed(): boolean {
+    return this.controller.signal.aborted
+  }
 
   private emit(): void {
     if (this.isDisposed()) return
-    const text = this.fragments.map((fragment) => {
-      const content = fragment.complete ? this.cache.get(fragment.text) ?? fragment.text : fragment.text
-      return content + fragment.suffix
-    }).join('')
+    const text = this.fragments
+      .map(fragment => {
+        const content = fragment.complete ? (this.cache.get(fragment.text) ?? fragment.text) : fragment.text
+        return content + fragment.suffix
+      })
+      .join('')
     this.publish({ text, pending: this.pending, failed: this.failed })
   }
 

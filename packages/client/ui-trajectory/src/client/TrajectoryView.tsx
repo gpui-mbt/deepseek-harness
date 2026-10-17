@@ -2,28 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
-  AssistantBlock, AssistantMessageNode, ConvViewProps, MessageImageLoader,
+  AssistantBlock,
+  AssistantMessageNode,
+  ConvViewProps,
+  MessageImageLoader,
   ToolCallBlock,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { InjectFace, PropsLocale, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { JsonTreeProps } from '@deepseek-ai/dsh-client-ui-primitives'
-import {
-  TrajectoryTable,
-  type TrajectoryRequestNumber,
-  type TrajectoryUsage,
-} from './TrajectoryTable.tsx'
+import { TrajectoryTable, type TrajectoryRequestNumber, type TrajectoryUsage } from './TrajectoryTable.tsx'
 import { TrajectoryToolbar } from './TrajectoryToolbar.tsx'
 import { TrajectoryTimeline } from './TrajectoryTimeline.tsx'
-import {
-  appendTrajectoryPartialLayout, deriveTrajectoryLayout,
-  type TrajectoryTurnModel,
-} from './layout.ts'
-import {
-  trajectoryTimelineFocusIndexes,
-  type TrajectoryTimelineMode,
-  type TrajectoryTimeRange,
-} from './timeline.ts'
+import { appendTrajectoryPartialLayout, deriveTrajectoryLayout, type TrajectoryTurnModel } from './layout.ts'
+import { trajectoryTimelineFocusIndexes, type TrajectoryTimelineMode, type TrajectoryTimeRange } from './timeline.ts'
 import { trajectoryRecordId } from './trajectory-record.ts'
 import { TrajectorySearchIndex } from './trajectory-search-index.ts'
 import type { TrajectorySnapshot } from './trajectory-contract.ts'
@@ -53,24 +45,29 @@ function lastCellIndex(turns: readonly TrajectoryTurnModel[]): number {
 
 function timelineBlock(block: AssistantBlock): AssistantBlock {
   switch (block.kind) {
-    case 'text': return { kind: 'text', text: '' }
-    case 'reasoning': return { kind: 'reasoning', text: '' }
-    case 'image': return block
-    case 'tool-call': return {
-      kind: 'tool-call',
-      callId: block.callId,
-      name: block.name,
-      argsRaw: '',
-    }
-    case 'other': return { kind: 'other', block: null }
+    case 'text':
+      return { kind: 'text', text: '' }
+    case 'reasoning':
+      return { kind: 'reasoning', text: '' }
+    case 'image':
+      return block
+    case 'tool-call':
+      return {
+        kind: 'tool-call',
+        callId: block.callId,
+        name: block.name,
+        argsRaw: '',
+      }
+    case 'other':
+      return { kind: 'other', block: null }
   }
 }
 
 function partialStructureSignature(partial: TrajectorySnapshot['partial']): string {
   if (partial === null) return ''
-  return partial.blocks.map(block => block.kind === 'tool-call'
-    ? `${block.kind}:${block.callId}:${block.name}`
-    : block.kind).join('\u0000')
+  return partial.blocks
+    .map(block => (block.kind === 'tool-call' ? `${block.kind}:${block.callId}:${block.name}` : block.kind))
+    .join('\u0000')
 }
 
 /** Session-bound controls not already supplied by the conversation view slot. */
@@ -105,24 +102,17 @@ function requestUsage(value: unknown): TrajectoryUsage | undefined {
   }
 }
 
-function addUsage(
-  total: TrajectoryUsage | undefined,
-  usage: TrajectoryUsage | undefined,
-): TrajectoryUsage | undefined {
+function addUsage(total: TrajectoryUsage | undefined, usage: TrajectoryUsage | undefined): TrajectoryUsage | undefined {
   if (usage === undefined) return total
   return {
-    ...(total?.input === undefined && usage.input === undefined
-      ? {}
-      : { input: (total?.input ?? 0) + (usage.input ?? 0) }),
+    ...(total?.input === undefined && usage.input === undefined ? {} : { input: (total?.input ?? 0) + (usage.input ?? 0) }),
     ...(total?.cacheRead === undefined && usage.cacheRead === undefined
       ? {}
       : { cacheRead: (total?.cacheRead ?? 0) + (usage.cacheRead ?? 0) }),
     ...(total?.cacheWrite === undefined && usage.cacheWrite === undefined
       ? {}
       : { cacheWrite: (total?.cacheWrite ?? 0) + (usage.cacheWrite ?? 0) }),
-    ...(total?.output === undefined && usage.output === undefined
-      ? {}
-      : { output: (total?.output ?? 0) + (usage.output ?? 0) }),
+    ...(total?.output === undefined && usage.output === undefined ? {} : { output: (total?.output ?? 0) + (usage.output ?? 0) }),
     ...(total?.reasoning === undefined && usage.reasoning === undefined
       ? {}
       : { reasoning: (total?.reasoning ?? 0) + (usage.reasoning ?? 0) }),
@@ -130,15 +120,23 @@ function addUsage(
 }
 
 export function TrajectoryView({
-  useSession, useTrajectory, useDuration, loadOlder, loadImage, setActualDuration,
-  viewRequest, completeViewRequest, renderSlot, t, jsonStringWrapping,
-}: ConvViewProps
-  & Pick<PropsRenderSlots<'conversation.trajectory.images'>, 'renderSlot'>
-  & InjectFace<TrajectoryViewInjected>
-  & PropsLocale<'trajectory'>) {
+  useSession,
+  useTrajectory,
+  useDuration,
+  loadOlder,
+  loadImage,
+  setActualDuration,
+  viewRequest,
+  completeViewRequest,
+  renderSlot,
+  t,
+  jsonStringWrapping,
+}: ConvViewProps &
+  Pick<PropsRenderSlots<'conversation.trajectory.images'>, 'renderSlot'> &
+  InjectFace<TrajectoryViewInjected> &
+  PropsLocale<'trajectory'>) {
   const [collapsedTurns, setCollapsedTurns] = useState<ReadonlySet<number>>(EMPTY_TURN_IDS)
-  const [collapsedAssistants, setCollapsedAssistants] =
-    useState<ReadonlySet<string>>(EMPTY_RECORD_IDS)
+  const [collapsedAssistants, setCollapsedAssistants] = useState<ReadonlySet<string>>(EMPTY_RECORD_IDS)
   const [timelineSelection, setTimelineSelection] = useState<TrajectoryTimeRange | null>(null)
   const actualDuration = useDuration(value => value)
   const [actualTime, setActualTime] = useState(false)
@@ -159,12 +157,8 @@ export function TrajectoryView({
   const [historyTailSeq, setHistoryTailSeq] = useState(latestNodeSeq)
   const [historyNodeLimit, setHistoryNodeLimit] = useState(HISTORY_PAGE_NODES)
   const fixedTailSeq = historyTailSeq ?? latestNodeSeq
-  const historyTailIndex = fixedTailSeq === undefined
-    ? -1
-    : completeInspection.eventNodes.findLastIndex(node => node.seq <= fixedTailSeq)
-  const historyEndIndex = historyTailIndex < 0 && latestNodeSeq !== undefined
-    ? completeInspection.eventNodes.length
-    : historyTailIndex + 1
+  const historyTailIndex = fixedTailSeq === undefined ? -1 : completeInspection.eventNodes.findLastIndex(node => node.seq <= fixedTailSeq)
+  const historyEndIndex = historyTailIndex < 0 && latestNodeSeq !== undefined ? completeInspection.eventNodes.length : historyTailIndex + 1
   const historyStartIndex = Math.max(0, historyEndIndex - historyNodeLimit)
   useEffect(() => {
     if (latestNodeSeq !== undefined && (historyTailSeq === undefined || historyTailIndex < 0)) {
@@ -178,16 +172,14 @@ export function TrajectoryView({
     return {
       ...completeInspection,
       eventNodes,
-      requests: completeInspection.requests.filter(request =>
-        request.startSeq >= firstSeq || (request.resultSeq ?? -1) >= firstSeq),
+      requests: completeInspection.requests.filter(request => request.startSeq >= firstSeq || (request.resultSeq ?? -1) >= firstSeq),
     }
   }, [completeInspection, historyStartIndex])
   const historyLoading = useSession(snapshot => snapshot.openState === 'loading')
   const olderHistoryLoading = useSession(snapshot => snapshot.loadingOlder)
   const sessionHasOlderHistory = useSession(snapshot => snapshot.hasMore)
   const hasResidentOlderHistory = historyStartIndex > 0
-  const hasOlderHistory = hasResidentOlderHistory
-    || sessionHasOlderHistory
+  const hasOlderHistory = hasResidentOlderHistory || sessionHasOlderHistory
   const nodes = inspection.eventNodes
   const eventLocations = inspection.eventLocations
   const historyBaseSeq = nodes[0]?.seq ?? 0
@@ -196,12 +188,17 @@ export function TrajectoryView({
   const requests = inspection.requests
   const callSchemas = inspection.callSchemas
   const inspectCallId = viewRequest?.view === 'trajectory' ? viewRequest.focus : null
-  const inspectNodeIndex = useMemo(() => inspectCallId === null
-    ? -1
-    : completeInspection.eventNodes.findIndex(node => node.kind === 'assistant'
-      ? node.blocks.some(block => block.kind === 'tool-call' && block.callId === inspectCallId)
-      : node.kind === 'tool-result' && containsCall([node], inspectCallId)),
-  [completeInspection.eventNodes, inspectCallId])
+  const inspectNodeIndex = useMemo(
+    () =>
+      inspectCallId === null
+        ? -1
+        : completeInspection.eventNodes.findIndex(node =>
+            node.kind === 'assistant'
+              ? node.blocks.some(block => block.kind === 'tool-call' && block.callId === inspectCallId)
+              : node.kind === 'tool-result' && containsCall([node], inspectCallId),
+          ),
+    [completeInspection.eventNodes, inspectCallId],
+  )
   useEffect(() => {
     if (inspectNodeIndex < 0 || inspectNodeIndex >= historyStartIndex) return
     setHistoryNodeLimit(limit => limit + historyStartIndex - inspectNodeIndex)
@@ -215,27 +212,24 @@ export function TrajectoryView({
     const requestsByStep = new Map(
       completeInspection.requests
         .filter(request => request.purpose === 'assistant')
-        .map(request => [
-          `${request.turn}\u0000${request.step}`,
-          request,
-        ]),
+        .map(request => [`${request.turn}\u0000${request.step}`, request]),
     )
     const orderedRequests = [
       ...completeInspection.requests.map(request => ({
         seq: request.startSeq,
         request,
-        node: request.purpose === 'assistant'
-          ? assistantsByStep.get(`${request.turn}\u0000${request.step}`)
-          : undefined,
+        node: request.purpose === 'assistant' ? assistantsByStep.get(`${request.turn}\u0000${request.step}`) : undefined,
       })),
       ...[...assistantsByStep.entries()].flatMap(([key, node]) =>
         requestsByStep.has(key)
           ? []
-          : [{
-            seq: node.seq,
-            request: undefined,
-            node,
-          }],
+          : [
+              {
+                seq: node.seq,
+                request: undefined,
+                node,
+              },
+            ],
       ),
     ].sort((left, right) => left.seq - right.seq)
     const numbered: TrajectoryRequestNumber[] = []
@@ -269,9 +263,7 @@ export function TrajectoryView({
           ...(resultSeq === undefined ? {} : { resultSeq }),
           ...(request?.retry === undefined ? {} : { retry: request.retry }),
           ...(request?.maxRetries === undefined ? {} : { maxRetries: request.maxRetries }),
-          ...(request?.retryDelayMs === undefined
-            ? {}
-            : { retryDelayMs: request.retryDelayMs }),
+          ...(request?.retryDelayMs === undefined ? {} : { retryDelayMs: request.retryDelayMs }),
           ...(provider === undefined ? {} : { provider }),
           ...(model === undefined ? {} : { model }),
           ...(requestConfig === undefined ? {} : { requestConfig }),
@@ -294,12 +286,8 @@ export function TrajectoryView({
         ...(request.error === undefined ? {} : { error: request.error }),
         ...(request.errorCode === undefined ? {} : { errorCode: request.errorCode }),
         ...(request.status === 'running' ? {} : { resultSeq: request.startSeq }),
-        ...(request.providerMetadata?.provider === undefined
-          ? {}
-          : { provider: request.providerMetadata.provider }),
-        ...(request.providerMetadata?.model === undefined
-          ? {}
-          : { model: request.providerMetadata.model }),
+        ...(request.providerMetadata?.provider === undefined ? {} : { provider: request.providerMetadata.provider }),
+        ...(request.providerMetadata?.model === undefined ? {} : { model: request.providerMetadata.model }),
         ...(request.requestConfig === undefined ? {} : { requestConfig: request.requestConfig }),
         ...(usage === undefined ? {} : { usage }),
         ...(cumulativeUsage === undefined ? {} : { cumulativeUsage }),
@@ -307,55 +295,49 @@ export function TrajectoryView({
     }
 
     return numbered
-  }, [
-    completeInspection.eventNodes, completeInspection.requests, t,
-  ])
+  }, [completeInspection.eventNodes, completeInspection.requests, t])
   const partialTurn = partial?.turn ?? null
   const partialStep = partial?.step ?? null
   const finalized = useMemo(() => {
-    const turns = deriveTrajectoryLayout({
-      nodes,
-      eventLocations,
-      partial: partialTurn === null || partialStep === null
-        ? null
-        : { turn: partialTurn, step: partialStep, blocks: [] },
-      runningCalls,
-      requests,
-      systemPrompts: inspection.systemPrompts,
-      callSchemas,
-    }, t)
+    const turns = deriveTrajectoryLayout(
+      {
+        nodes,
+        eventLocations,
+        partial: partialTurn === null || partialStep === null ? null : { turn: partialTurn, step: partialStep, blocks: [] },
+        runningCalls,
+        requests,
+        systemPrompts: inspection.systemPrompts,
+        callSchemas,
+      },
+      t,
+    )
     return { turns, lastIndex: lastCellIndex(turns) }
-  }, [
-    nodes, eventLocations, partialTurn, partialStep,
-    runningCalls, requests, inspection.systemPrompts, callSchemas, t,
-  ])
+  }, [nodes, eventLocations, partialTurn, partialStep, runningCalls, requests, inspection.systemPrompts, callSchemas, t])
   const timelinePartialSignature = partialStructureSignature(partial)
   const partialStartTime = partial?.timing?.stepStartTime
   const partialFirstTokenTime = partial?.timing?.firstTokenTime
-  const timelinePartial = useMemo<TrajectorySnapshot['partial']>(() => partial === null
-    ? null
-    : {
-      turn: partial.turn,
-      step: partial.step,
-      blocks: partial.blocks.map(block => timelineBlock(block)),
-      ...(partial.timing === undefined ? {} : { timing: partial.timing }),
-    },
-  [partialStep, partialTurn, timelinePartialSignature, partialStartTime, partialFirstTokenTime])
+  const timelinePartial = useMemo<TrajectorySnapshot['partial']>(
+    () =>
+      partial === null
+        ? null
+        : {
+            turn: partial.turn,
+            step: partial.step,
+            blocks: partial.blocks.map(block => timelineBlock(block)),
+            ...(partial.timing === undefined ? {} : { timing: partial.timing }),
+          },
+    [partialStep, partialTurn, timelinePartialSignature, partialStartTime, partialFirstTokenTime],
+  )
   const timelineTurns = useMemo(
     () => appendTrajectoryPartialLayout(finalized.turns, timelinePartial, finalized.lastIndex, t),
     [finalized, timelinePartial, t],
   )
-  const timelineMode: TrajectoryTimelineMode = actualDuration
-    ? actualTime ? 'actual' : 'duration'
-    : actualTime ? 'time' : 'sequence'
+  const timelineMode: TrajectoryTimelineMode = actualDuration ? (actualTime ? 'actual' : 'duration') : actualTime ? 'time' : 'sequence'
   const partialSearchTurns = useMemo(
     () => appendTrajectoryPartialLayout([], partial, finalized.lastIndex, t),
     [finalized.lastIndex, partial, t],
   )
-  const searchLayouts = useMemo(
-    () => [finalized.turns, partialSearchTurns] as const,
-    [finalized, partialSearchTurns],
-  )
+  const searchLayouts = useMemo(() => [finalized.turns, partialSearchTurns] as const, [finalized, partialSearchTurns])
   const latestSearchLayouts = useRef(searchLayouts)
   latestSearchLayouts.current = searchLayouts
   useEffect(() => {
@@ -374,19 +356,14 @@ export function TrajectoryView({
       }
     }, SEARCH_INDEX_THROTTLE_MS)
   }, [searchIndex, searchLayouts])
-  useEffect(() => () => {
-    if (searchIndexTimer.current !== null) clearTimeout(searchIndexTimer.current)
-  }, [])
-  const streamingCells = useMemo(
-    () => partialSearchTurns.flatMap(turn =>
-      turn.groups.flatMap(group => group.cells),
-    ),
-    [partialSearchTurns],
+  useEffect(
+    () => () => {
+      if (searchIndexTimer.current !== null) clearTimeout(searchIndexTimer.current)
+    },
+    [],
   )
-  const searchMatchRecordIds = useMemo(
-    () => searchIndex.search(searchQuery),
-    [searchIndex, searchIndexRevision, searchQuery],
-  )
+  const streamingCells = useMemo(() => partialSearchTurns.flatMap(turn => turn.groups.flatMap(group => group.cells)), [partialSearchTurns])
+  const searchMatchRecordIds = useMemo(() => searchIndex.search(searchQuery), [searchIndex, searchIndexRevision, searchQuery])
   const searchMatchIndexes = useMemo(() => {
     if (searchMatchRecordIds === null) return null
     const indexes = new Set<number>()
@@ -403,19 +380,17 @@ export function TrajectoryView({
   }, [searchLayouts, searchMatchRecordIds])
   const timelineRange = timelineSelection
   const timelineFocusIndexes = useMemo(
-    () => timelineRange === null
-      ? null
-      : trajectoryTimelineFocusIndexes(timelineTurns, timelineRange, timelineMode),
+    () => (timelineRange === null ? null : trajectoryTimelineFocusIndexes(timelineTurns, timelineRange, timelineMode)),
     [timelineMode, timelineRange, timelineTurns],
   )
-  const handleRecordSelect = useCallback((index: number) => {
-    if (
-      timelineFocusIndexes !== null
-      && !timelineFocusIndexes.has(index)
-    ) {
-      setTimelineSelection(null)
-    }
-  }, [timelineFocusIndexes])
+  const handleRecordSelect = useCallback(
+    (index: number) => {
+      if (timelineFocusIndexes !== null && !timelineFocusIndexes.has(index)) {
+        setTimelineSelection(null)
+      }
+    },
+    [timelineFocusIndexes],
+  )
   const handleTimelineRangeChange = useCallback((range: TrajectoryTimeRange | null) => {
     setTimelineSelection(range)
   }, [])
@@ -428,21 +403,20 @@ export function TrajectoryView({
     setTimelineRecordFocus({ index })
   }, [])
   const collapsibleTurnIds = useMemo(
-    () => timelineTurns
-      .filter(turn =>
-        turn.turn !== null
-        &&
-        turn.groups.reduce(
-          (count, group) =>
-            count + group.cells.filter(cell =>
-              cell.requestOnly !== true && cell.kind !== 'system').length,
-          0,
-        ) > 1)
-      .flatMap(turn => turn.turn === null ? [] : [turn.turn]),
+    () =>
+      timelineTurns
+        .filter(
+          turn =>
+            turn.turn !== null &&
+            turn.groups.reduce(
+              (count, group) => count + group.cells.filter(cell => cell.requestOnly !== true && cell.kind !== 'system').length,
+              0,
+            ) > 1,
+        )
+        .flatMap(turn => (turn.turn === null ? [] : [turn.turn])),
     [timelineTurns],
   )
-  const allTurnsCollapsed = collapsibleTurnIds.length > 0
-    && collapsibleTurnIds.every(turn => collapsedTurns.has(turn))
+  const allTurnsCollapsed = collapsibleTurnIds.length > 0 && collapsibleTurnIds.every(turn => collapsedTurns.has(turn))
   const collapsibleAssistantIds = useMemo(() => {
     const ids: string[] = []
     for (const turn of timelineTurns) {
@@ -458,11 +432,11 @@ export function TrajectoryView({
     }
     return ids
   }, [timelineTurns])
-  const allAssistantsCollapsed = collapsibleAssistantIds.length > 0
-    && collapsibleAssistantIds.every(index => collapsedAssistants.has(index))
+  const allAssistantsCollapsed =
+    collapsibleAssistantIds.length > 0 && collapsibleAssistantIds.every(index => collapsedAssistants.has(index))
 
   const toggleTurn = (turn: number) => {
-    setCollapsedTurns((current) => {
+    setCollapsedTurns(current => {
       const collapsed = new Set(current)
       if (collapsed.has(turn)) collapsed.delete(turn)
       else collapsed.add(turn)
@@ -471,7 +445,7 @@ export function TrajectoryView({
   }
 
   const toggleAllTurns = () => {
-    setCollapsedTurns((current) => {
+    setCollapsedTurns(current => {
       const collapsed = new Set(current)
       if (allTurnsCollapsed) {
         for (const turn of collapsibleTurnIds) collapsed.delete(turn)
@@ -483,7 +457,7 @@ export function TrajectoryView({
   }
 
   const toggleAssistant = (id: string) => {
-    setCollapsedAssistants((current) => {
+    setCollapsedAssistants(current => {
       const collapsed = new Set(current)
       if (collapsed.has(id)) collapsed.delete(id)
       else collapsed.add(id)
@@ -492,7 +466,7 @@ export function TrajectoryView({
   }
 
   const toggleAllAssistants = () => {
-    setCollapsedAssistants((current) => {
+    setCollapsedAssistants(current => {
       const collapsed = new Set(current)
       if (allAssistantsCollapsed) {
         for (const index of collapsibleAssistantIds) collapsed.delete(index)
@@ -504,7 +478,7 @@ export function TrajectoryView({
   }
 
   const loadEarlierHistory = useCallback(async () => {
-    if (!hasResidentOlderHistory && !await loadOlder()) return false
+    if (!hasResidentOlderHistory && !(await loadOlder())) return false
     setHistoryNodeLimit(limit => limit + HISTORY_PAGE_NODES)
     return true
   }, [hasResidentOlderHistory, loadOlder])
@@ -513,12 +487,12 @@ export function TrajectoryView({
     <div className={css.root} data-conversation-composer-overlay="">
       <TrajectoryToolbar
         actualDuration={actualDuration}
-        onActualDurationChange={(nextActualDuration) => {
+        onActualDurationChange={nextActualDuration => {
           setActualDuration(nextActualDuration)
           setTimelineSelection(null)
         }}
         actualTime={actualTime}
-        onActualTimeChange={(nextActualTime) => {
+        onActualTimeChange={nextActualTime => {
           setActualTime(nextActualTime)
           setTimelineSelection(null)
         }}
@@ -546,10 +520,14 @@ export function TrajectoryView({
       <div className={css.ledger}>
         <TrajectoryTable
           t={t}
-          stringWrapping={jsonStringWrapping === undefined ? undefined : {
-            ...jsonStringWrapping,
-            label: t('record.wrapLines'),
-          }}
+          stringWrapping={
+            jsonStringWrapping === undefined
+              ? undefined
+              : {
+                  ...jsonStringWrapping,
+                  label: t('record.wrapLines'),
+                }
+          }
           renderSlot={renderSlot}
           loadImage={loadImage}
           requestNumbers={requestNumbers}
@@ -566,7 +544,9 @@ export function TrajectoryView({
           historyStartSeq={historyBaseSeq}
           hasOlderRecords={hasOlderHistory}
           onLoadOlder={loadEarlierHistory}
-          onClearSelection={() => { setTimelineSelection(null) }}
+          onClearSelection={() => {
+            setTimelineSelection(null)
+          }}
           collapsedTurns={collapsedTurns}
           onToggleTurn={toggleTurn}
           collapsedAssistants={collapsedAssistants}

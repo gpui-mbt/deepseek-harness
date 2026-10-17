@@ -25,29 +25,60 @@ interface InspectorPanelInjected {
   readonly hooks: { readonly panel: HostObservable<PanelState> }
 }
 
-function InspectorPage({ t, frontendUrl, close, bindFrame, usePanel }:
-  PropsRuntime<'shell.bottom'> & PropsLocale<'inspectorPanel'> & InjectFace<InspectorPanelInjected>) {
+function InspectorPage({
+  t,
+  frontendUrl,
+  close,
+  bindFrame,
+  usePanel,
+}: PropsRuntime<'shell.bottom'> & PropsLocale<'inspectorPanel'> & InjectFace<InspectorPanelInjected>) {
   const state = usePanel(value => value)
   const [height, setHeight] = useState(45)
   const panelId = useId()
   const release = useRef<() => void>()
-  const frameRef = useCallback((frame: HTMLIFrameElement | null) => {
-    release.current?.()
-    release.current = frame === null ? undefined : bindFrame(frame)
-  }, [bindFrame])
-  return <section id={panelId} className={css.panel} style={{ '--inspector-height': `${height}dvh` } as CSSProperties}
-    hidden={state !== 'visible'} aria-label={t('title')} data-inspector-panel>
-    {state === 'visible' && <InspectorResizeHandle height={height} onResize={setHeight} label={t('resize')} panelId={panelId} />}
-    <header className={css.header}>
-      <span>{t('title')}</span>
-      <Tooltip label={t('close')} side="top" portal>
-        <Button variant="ghost" size="sm" className={css.close} aria-label={t('close')} onClick={close}
-          icon={<IconCloseOutlineRegular size={14} />} />
-      </Tooltip>
-    </header>
-    {state !== 'unopened' && <iframe ref={frameRef} className={css.page} src={frontendUrl} title={t('frameTitle')}
-      name="dsh-nodejs-inspector" referrerPolicy="no-referrer" data-inspector-devtools />}
-  </section>
+  const frameRef = useCallback(
+    (frame: HTMLIFrameElement | null) => {
+      release.current?.()
+      release.current = frame === null ? undefined : bindFrame(frame)
+    },
+    [bindFrame],
+  )
+  return (
+    <section
+      id={panelId}
+      className={css.panel}
+      style={{ '--inspector-height': `${height}dvh` } as CSSProperties}
+      hidden={state !== 'visible'}
+      aria-label={t('title')}
+      data-inspector-panel
+    >
+      {state === 'visible' && <InspectorResizeHandle height={height} onResize={setHeight} label={t('resize')} panelId={panelId} />}
+      <header className={css.header}>
+        <span>{t('title')}</span>
+        <Tooltip label={t('close')} side="top" portal>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={css.close}
+            aria-label={t('close')}
+            onClick={close}
+            icon={<IconCloseOutlineRegular size={14} />}
+          />
+        </Tooltip>
+      </header>
+      {state !== 'unopened' && (
+        <iframe
+          ref={frameRef}
+          className={css.page}
+          src={frontendUrl}
+          title={t('frameTitle')}
+          name="dsh-nodejs-inspector"
+          referrerPolicy="no-referrer"
+          data-inspector-devtools
+        />
+      )}
+    </section>
+  )
 }
 
 /**
@@ -69,7 +100,9 @@ export function registerInspectorPage(ctx: Context, sourceId: InspectorSourceId)
       if (opener?.isConnected) opener.focus()
     }
     yield ctx.shortcuts.register({
-      id: ID, label: () => t('toggle'), aliases: ['inspector', 'nodejs', 'devtools'],
+      id: ID,
+      label: () => t('toggle'),
+      aliases: ['inspector', 'nodejs', 'devtools'],
       defaults: {
         'desktop:macos': { code: 'Period', modifiers: ['primary', 'shift'] },
         'desktop:windows': { code: 'Period', modifiers: ['primary', 'shift'] },
@@ -78,21 +111,31 @@ export function registerInspectorPage(ctx: Context, sourceId: InspectorSourceId)
         'web:windows': { code: 'Period', modifiers: ['primary', 'shift'] },
         'web:linux': { code: 'Period', modifiers: ['primary', 'shift'] },
       },
-      regions: ['page', 'editable', 'terminal'], modals: [],
-      resolve: ({ target }) => ({ status: 'handled', run: () => {
-        if (panel.getSnapshot() === 'visible') close()
-        else {
-          opener = target instanceof HTMLElement ? target : undefined
-          panel.set('visible')
-        }
-      } }),
-    })
-    yield ctx.slots.register({
-      name: 'shell.bottom', locale: 'inspectorPanel',
-      inject: (): InspectorPanelInjected => ({
-        frontendUrl, close, hooks: { panel },
-        bindFrame: frame => bindInspectorKeyboard(frame, () => ctx.shortcuts.catalog.getSnapshot().find(row => row.id === ID)?.binding),
+      regions: ['page', 'editable', 'terminal'],
+      modals: [],
+      resolve: ({ target }) => ({
+        status: 'handled',
+        run: () => {
+          if (panel.getSnapshot() === 'visible') close()
+          else {
+            opener = target instanceof HTMLElement ? target : undefined
+            panel.set('visible')
+          }
+        },
       }),
-    }, InspectorPage)
+    })
+    yield ctx.slots.register(
+      {
+        name: 'shell.bottom',
+        locale: 'inspectorPanel',
+        inject: (): InspectorPanelInjected => ({
+          frontendUrl,
+          close,
+          hooks: { panel },
+          bindFrame: frame => bindInspectorKeyboard(frame, () => ctx.shortcuts.catalog.getSnapshot().find(row => row.id === ID)?.binding),
+        }),
+      },
+      InspectorPage,
+    )
   })
 }

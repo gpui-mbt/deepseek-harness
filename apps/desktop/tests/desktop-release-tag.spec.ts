@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { desktopReleaseTag, tagDesktopRelease } from '../scripts/desktop-release-tag.ts'
 
 const COMMIT = '0'.repeat(40)
@@ -28,8 +28,10 @@ describe('desktop release tag', () => {
 
   it('creates and pushes a tag for the packaged commit', () => {
     const { run, calls } = recorder({ tag: '' })
-    expect(tagDesktopRelease({ version: VERSION, commit: COMMIT, repositoryRoot: '.', run }))
-      .toEqual({ tag: `desktop-v${VERSION}`, status: 'created' })
+    expect(tagDesktopRelease({ version: VERSION, commit: COMMIT, repositoryRoot: '.', run })).toEqual({
+      tag: `desktop-v${VERSION}`,
+      status: 'created',
+    })
     expect(calls).toEqual([
       ['git', 'tag', '--list', `desktop-v${VERSION}`],
       ['git', 'tag', `desktop-v${VERSION}`, COMMIT],
@@ -39,8 +41,10 @@ describe('desktop release tag', () => {
 
   it('pushes an existing tag that already names the uploaded commit', () => {
     const { run, calls } = recorder({ tag: `desktop-v${VERSION}`, 'rev-list': COMMIT })
-    expect(tagDesktopRelease({ version: VERSION, commit: COMMIT, repositoryRoot: '.', run }))
-      .toEqual({ tag: `desktop-v${VERSION}`, status: 'present' })
+    expect(tagDesktopRelease({ version: VERSION, commit: COMMIT, repositoryRoot: '.', run })).toEqual({
+      tag: `desktop-v${VERSION}`,
+      status: 'present',
+    })
     expect(calls.at(-1)).toEqual(['git', 'push', 'origin', `desktop-v${VERSION}`])
   })
 
@@ -54,21 +58,26 @@ describe('desktop release tag', () => {
 
   it('reports a git failure instead of throwing, because the release is already public', () => {
     const { run } = recorder({ tag: new Error('git unavailable') })
-    expect(tagDesktopRelease({ version: VERSION, commit: COMMIT, repositoryRoot: '.', run }))
-      .toMatchObject({ status: 'failed', detail: 'git unavailable' })
+    expect(tagDesktopRelease({ version: VERSION, commit: COMMIT, repositoryRoot: '.', run })).toMatchObject({
+      status: 'failed',
+      detail: 'git unavailable',
+    })
   })
 
   it('recovers a failed push without repeating the tag that already exists', () => {
     // `git tag` would fail with "already exists" and short-circuit a combined command, leaving the push undone.
     const { run } = recorder({ tag: '', push: new Error('remote rejected') })
-    expect(tagDesktopRelease({ version: VERSION, commit: COMMIT, repositoryRoot: '.', run }))
-      .toMatchObject({ status: 'failed', recovery: [`git push origin desktop-v${VERSION}`] })
+    expect(tagDesktopRelease({ version: VERSION, commit: COMMIT, repositoryRoot: '.', run })).toMatchObject({
+      status: 'failed',
+      recovery: [`git push origin desktop-v${VERSION}`],
+    })
   })
 
   it('recovers a failed tag by creating it before pushing', () => {
     const { run } = recorder({ tag: new Error('cannot write ref') })
-    expect(tagDesktopRelease({ version: VERSION, commit: COMMIT, repositoryRoot: '.', run }))
-      .toMatchObject({ recovery: [`git tag desktop-v${VERSION} ${COMMIT}`, `git push origin desktop-v${VERSION}`] })
+    expect(tagDesktopRelease({ version: VERSION, commit: COMMIT, repositoryRoot: '.', run })).toMatchObject({
+      recovery: [`git tag desktop-v${VERSION} ${COMMIT}`, `git push origin desktop-v${VERSION}`],
+    })
   })
 
   it('pushes to a named remote', () => {

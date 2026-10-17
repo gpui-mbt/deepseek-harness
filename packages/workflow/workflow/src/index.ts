@@ -6,12 +6,7 @@
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import { HarnessError } from '@deepseek-ai/dsh-llm'
-import type {
-  WorkflowAgentEndInfo,
-  WorkflowAgentInfo,
-  WorkflowResultInfo,
-  WorkflowRunInfo,
-} from './types.ts'
+import type { WorkflowAgentEndInfo, WorkflowAgentInfo, WorkflowResultInfo, WorkflowRunInfo } from './types.ts'
 import type { WorkflowRun, WorkflowStartRequest } from './runtime-types.ts'
 
 export { WorkflowRunId } from './types.ts'

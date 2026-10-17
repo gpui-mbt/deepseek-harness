@@ -41,8 +41,10 @@ export default class ShortcutsService extends Service implements Shortcuts {
 
   constructor(ctx: Context) {
     const environment = detectEnvironment(document, navigator)
-    const keyboard = environment.runtime === 'desktop'
-      ? (window as Window & { dshDesktop?: { keyboard?: DesktopKeyboardApi } }).dshDesktop?.keyboard : undefined
+    const keyboard =
+      environment.runtime === 'desktop'
+        ? (window as Window & { dshDesktop?: { keyboard?: DesktopKeyboardApi } }).dshDesktop?.keyboard
+        : undefined
     if (environment.runtime === 'desktop' && keyboard === undefined) throw new Error('Desktop keyboard bridge unavailable')
     super(ctx, 'shortcuts')
     this.keyboard = keyboard
@@ -59,36 +61,75 @@ export default class ShortcutsService extends Service implements Shortcuts {
     }
     const web = this.runtime === 'web' ? webShortcutStorage(window, this.platform, publish) : undefined
     this.adapter = web ?? desktopShortcutStorage(window)
-    if (keyboard !== undefined) ctx.effect(() => installNativeKeyboard(window, keyboard, this.registry,
-      () => this.config.getSnapshot(), () => { this.fixedInput({ type: 'reset' }) }), 'shortcuts: native keyboard')
+    if (keyboard !== undefined)
+      ctx.effect(
+        () =>
+          installNativeKeyboard(
+            window,
+            keyboard,
+            this.registry,
+            () => this.config.getSnapshot(),
+            () => {
+              this.fixedInput({ type: 'reset' })
+            },
+          ),
+        'shortcuts: native keyboard',
+      )
     ctx.effect(() => {
       const off = this.adapter?.subscribe(publish)
-      return () => { this.active = false; off?.(); web?.dispose() }
+      return () => {
+        this.active = false
+        off?.()
+        web?.dispose()
+      }
     }, 'shortcuts: preferences')
     this.syncDefinitions()
     ctx.effect(() => {
-      const off = installKeyboard(window, this.registry, (input) => { this.fixedInput(input) },
-        keyboard !== undefined && (this.platform === 'macos' || this.platform === 'windows'))
-      return () => { off(); this.fixedListeners.clear() }
+      const off = installKeyboard(
+        window,
+        this.registry,
+        input => {
+          this.fixedInput(input)
+        },
+        keyboard !== undefined && (this.platform === 'macos' || this.platform === 'windows'),
+      )
+      return () => {
+        off()
+        this.fixedListeners.clear()
+      }
     }, 'shortcuts: keyboard')
-    ctx.effect(() => ctx.locale.subscribe(() => { this.registry.refreshLabels() }), 'shortcuts: locale')
+    ctx.effect(
+      () =>
+        ctx.locale.subscribe(() => {
+          this.registry.refreshLabels()
+        }),
+      'shortcuts: locale',
+    )
   }
 
   register(command: Parameters<Shortcuts['register']>[0]): () => void {
     const off = this.registry.register(command)
     this.syncDefinitions()
-    return () => { off(); this.syncDefinitions() }
+    return () => {
+      off()
+      this.syncDefinitions()
+    }
   }
 
   registerFixed(command: Parameters<Shortcuts['registerFixed']>[0]): () => void {
     const off = this.registry.registerFixed(command)
     this.syncDefinitions()
-    return () => { off(); this.syncDefinitions() }
+    return () => {
+      off()
+      this.syncDefinitions()
+    }
   }
 
   observeFixedInput(listener: (input: ShortcutFixedInput) => void): () => void {
     this.fixedListeners.add(listener)
-    return () => { this.fixedListeners.delete(listener) }
+    return () => {
+      this.fixedListeners.delete(listener)
+    }
   }
 
   private fixedInput(input: ShortcutFixedInput): void {
@@ -96,9 +137,18 @@ export default class ShortcutsService extends Service implements Shortcuts {
     for (const listener of [...this.fixedListeners]) {
       if (!this.fixedListeners.has(listener)) continue
       try {
-        listener(input.type === 'reset' ? input : { ...input,
-          gesture: { ...input.gesture, defaultPrevented: input.gesture.defaultPrevented || consumed },
-          consume: () => { consumed = true; input.consume() } })
+        listener(
+          input.type === 'reset'
+            ? input
+            : {
+                ...input,
+                gesture: { ...input.gesture, defaultPrevented: input.gesture.defaultPrevented || consumed },
+                consume: () => {
+                  consumed = true
+                  input.consume()
+                },
+              },
+        )
       } catch (error) {
         console.error('Fixed shortcut handler failed', error)
       }
@@ -107,22 +157,41 @@ export default class ShortcutsService extends Service implements Shortcuts {
 
   describeBinding(binding: Parameters<Shortcuts['describeBinding']>[0]): ReturnType<Shortcuts['describeBinding']> {
     const normalized = binding === null ? null : normalizeBinding(binding, this.platform)
-    return { binding: normalized,
+    return {
+      binding: normalized,
       keys: presentBinding(normalized, this.platform).keys,
       issue: normalized === null ? null : bindingIssue(normalized, this.runtime, this.platform),
-      conflicts: normalized === null ? [] : [...this.catalog.getSnapshot().filter(row => row.binding !== null
-        && overlappingBindings(row.binding, normalized)).map(row => row.id),
-      ...this.fixedCatalog.getSnapshot().filter(row => row.bindings.some(binding => overlappingBindings(binding, normalized)))
-        .map(row => row.id)] }
+      conflicts:
+        normalized === null
+          ? []
+          : [
+              ...this.catalog
+                .getSnapshot()
+                .filter(row => row.binding !== null && overlappingBindings(row.binding, normalized))
+                .map(row => row.id),
+              ...this.fixedCatalog
+                .getSnapshot()
+                .filter(row => row.bindings.some(binding => overlappingBindings(binding, normalized)))
+                .map(row => row.id),
+            ],
+    }
   }
 
   private syncDefinitions(): void {
     if (!this.active) return
-    if (this.adapter === undefined) { this.failRead(); return }
-    void this.adapter.get(this.registry.definitions()).then((snapshot) => {
-      this.connected = true
-      if (this.active && snapshot.sequence >= this.config.getSnapshot().sequence) this.registry.configure(snapshot)
-    }, () => { this.failRead() })
+    if (this.adapter === undefined) {
+      this.failRead()
+      return
+    }
+    void this.adapter.get(this.registry.definitions()).then(
+      snapshot => {
+        this.connected = true
+        if (this.active && snapshot.sequence >= this.config.getSnapshot().sequence) this.registry.configure(snapshot)
+      },
+      () => {
+        this.failRead()
+      },
+    )
   }
 
   private failRead(): void {

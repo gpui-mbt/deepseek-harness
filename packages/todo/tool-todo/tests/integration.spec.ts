@@ -1,5 +1,5 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -24,7 +24,7 @@ async function harness(adapter: MockAdapter): Promise<Context> {
 }
 
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()
@@ -39,9 +39,7 @@ function findEvent<T extends SessionEvent['type']>(
   type: T,
   position: 'first' | 'last' = 'first',
 ): Extract<SessionEvent, { type: T }> {
-  const found = position === 'first'
-    ? log.find(event => event.type === type)
-    : log.findLast(event => event.type === type)
+  const found = position === 'first' ? log.find(event => event.type === type) : log.findLast(event => event.type === type)
   if (!found) throw new Error(`no ${type} event in the session log`)
   return found as Extract<SessionEvent, { type: T }>
 }
@@ -49,12 +47,17 @@ function findEvent<T extends SessionEvent['type']>(
 describe('todo_write tool through the agent loop', () => {
   it('model calls todo_write: a tool/call, a non-error tool/result, and a todo/write snapshot land', async () => {
     const adapter = new MockAdapter([
-      toolCallResponse('call-1', 'todo_write', {
-        todos: [
-          { content: 'read the code', status: 'in_progress' },
-          { content: 'write the fix', status: 'pending' },
-        ],
-      }, 'Planning the work.'),
+      toolCallResponse(
+        'call-1',
+        'todo_write',
+        {
+          todos: [
+            { content: 'read the code', status: 'in_progress' },
+            { content: 'write the fix', status: 'pending' },
+          ],
+        },
+        'Planning the work.',
+      ),
       textResponse('Plan recorded.'),
     ])
     const ctx = await harness(adapter)

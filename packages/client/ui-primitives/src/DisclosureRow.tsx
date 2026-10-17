@@ -71,17 +71,15 @@ export const DisclosureRow = memo(function DisclosureRow({
     event.preventDefault()
     onToggle()
   }
-  const collapsedLeading = previewChevron
-    ? (
-      <>
-        <span className={css.iconIdle}>{icon}</span>
-        <IconChevronDownOutlineRegular className={clsx(chevronClassName, css.chevronHover)} />
-      </>
-    )
-    : icon
-  const leading = open
-    ? <IconChevronUpOutlineRegular className={chevronClassName} />
-    : collapsedLeading
+  const collapsedLeading = previewChevron ? (
+    <>
+      <span className={css.iconIdle}>{icon}</span>
+      <IconChevronDownOutlineRegular className={clsx(chevronClassName, css.chevronHover)} />
+    </>
+  ) : (
+    icon
+  )
+  const leading = open ? <IconChevronUpOutlineRegular className={chevronClassName} /> : collapsedLeading
 
   return (
     <div className={clsx(css.root, className)} data-open={open || undefined}>
@@ -107,9 +105,7 @@ export const DisclosureRow = memo(function DisclosureRow({
               {leading}
             </button>
           ) : (
-            <span className={clsx(css.leading, leadingClassName)}>
-              {leading}
-            </span>
+            <span className={clsx(css.leading, leadingClassName)}>{leading}</span>
           )}
           <TextShimmer active={running} className={contentClassName} contentClassName={contentLayoutClassName}>
             <TextShimmer className={clsx(css.title, titleClassName)}>{title}</TextShimmer>

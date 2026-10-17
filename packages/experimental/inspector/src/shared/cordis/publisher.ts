@@ -14,12 +14,12 @@ import { observeCordisTree } from './observer.ts'
  * @param limits - Snapshot node and encoded-byte limits.
  * @returns A disposer that stops observation and releases retained objects.
  */
-export function publishCordisTree(
-  ctx: Context,
-  publisher: InspectorStatePublisher,
-  limits: CordisTreeLimits,
-): () => void {
-  return observeCordisTree(ctx, (snapshot) => {
-    publisher.setState(CORDIS_TREE_TOPIC, snapshot as unknown as InspectorJsonValue)
-  }, limits)
+export function publishCordisTree(ctx: Context, publisher: InspectorStatePublisher, limits: CordisTreeLimits): () => void {
+  return observeCordisTree(
+    ctx,
+    snapshot => {
+      publisher.setState(CORDIS_TREE_TOPIC, snapshot as unknown as InspectorJsonValue)
+    },
+    limits,
+  )
 }

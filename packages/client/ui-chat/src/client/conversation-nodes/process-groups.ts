@@ -1,8 +1,14 @@
 /** Chat-owned segmentation and incremental summaries over materialized Node inputs. */
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type {
-  ConversationGroupDefinition, ConversationGroupInput, GroupKey, GroupSnapshot,
-  GroupUpdate, NodeKey, NodeReference, RenderEntry,
+  ConversationGroupDefinition,
+  ConversationGroupInput,
+  GroupKey,
+  GroupSnapshot,
+  GroupUpdate,
+  NodeKey,
+  NodeReference,
+  RenderEntry,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatConversationViewNode, ChatNode } from '../contract/chat-nodes.ts'
 import type { ProcessActivitySummary, ProcessGroupData } from '../contract/process-groups.ts'
@@ -19,8 +25,7 @@ function turnOf(node: ChatNode): number | undefined {
 }
 
 function reasoning(node: ChatNode): boolean {
-  return node.kind === 'assistant-step'
-    && node.data.blocks.some(block => block.kind === 'reasoning' && block.text.trim() !== '')
+  return node.kind === 'assistant-step' && node.data.blocks.some(block => block.kind === 'reasoning' && block.text.trim() !== '')
 }
 
 function reply(node: ChatNode): boolean {
@@ -28,24 +33,33 @@ function reply(node: ChatNode): boolean {
 }
 
 function sameSummary(left: ProcessActivitySummary, right: ProcessActivitySummary): boolean {
-  return left.running === right.running && left.runningDetail === right.runningDetail
-    && left.preparing === right.preparing
-    && left.counts.length === right.counts.length && left.counts.every((value, index) =>
-    value.kind === right.counts[index]?.kind && value.count === right.counts[index].count)
+  return (
+    left.running === right.running &&
+    left.runningDetail === right.runningDetail &&
+    left.preparing === right.preparing &&
+    left.counts.length === right.counts.length &&
+    left.counts.every((value, index) => value.kind === right.counts[index]?.kind && value.count === right.counts[index].count)
+  )
 }
 
 function sameMembers(left: readonly NodeReference[], right: readonly NodeReference[]): boolean {
-  return left.length === right.length && left.every((value, index) =>
-    value.key === right[index]?.key && value.groupPart === right[index].groupPart)
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value.key === right[index]?.key && value.groupPart === right[index].groupPart)
+  )
 }
 
 function structureChanged(previous: ChatNode | undefined, current: ChatNode): boolean {
   if (!isVisibleChatNode(current) && (previous === undefined || !isVisibleChatNode(previous))) return false
-  return previous === undefined || previous.kind !== current.kind
-    || turnOf(previous) !== turnOf(current)
-    || isVisibleChatNode(previous) !== isVisibleChatNode(current)
-    || previous.groupTree !== current.groupTree
-    || reasoning(previous) !== reasoning(current) || reply(previous) !== reply(current)
+  return (
+    previous === undefined ||
+    previous.kind !== current.kind ||
+    turnOf(previous) !== turnOf(current) ||
+    isVisibleChatNode(previous) !== isVisibleChatNode(current) ||
+    previous.groupTree !== current.groupTree ||
+    reasoning(previous) !== reasoning(current) ||
+    reply(previous) !== reply(current)
+  )
 }
 
 function readNode(input: ProcessInput, key: NodeKey): ChatNode {
@@ -59,7 +73,11 @@ class ProcessGroup {
   private nodes: readonly ChatNode[] = []
   snapshot: GroupSnapshot<ProcessGroupData>
 
-  constructor(readonly key: GroupKey, readonly turn: number, readonly members: readonly NodeReference[]) {
+  constructor(
+    readonly key: GroupKey,
+    readonly turn: number,
+    readonly members: readonly NodeReference[],
+  ) {
     this.snapshot = { key, members, data: { turn, closed: false, summary: { counts: [], running: undefined, runningDetail: '' } } }
   }
 
@@ -72,7 +90,8 @@ class ProcessGroup {
     this.nodes = nodes
     if (previous.closed !== closed || !sameSummary(previous.summary, summary)) {
       this.snapshot = {
-        key: this.key, members: this.members,
+        key: this.key,
+        members: this.members,
         data: { turn: this.turn, closed, summary },
       }
     }
@@ -124,7 +143,7 @@ class TurnGroups {
     let pending: NodeReference[] = []
     const upserts: GroupSnapshot<ProcessGroupData>[] = []
     const emit = (key: NodeKey, entry: RenderEntry): void => {
-      roots.set(key, [...roots.get(key) ?? [], entry])
+      roots.set(key, [...(roots.get(key) ?? []), entry])
     }
     const flush = (closed: boolean): void => {
       const first = pending[0]
@@ -133,8 +152,7 @@ class TurnGroups {
       const key = retained?.key ?? brandString<GroupKey>(JSON.stringify(['process', first.key, first.groupPart ?? null]))
       const previous = this.groups.get(key)
       const before = previous?.snapshot
-      const group = previous !== undefined && sameMembers(previous.members, pending)
-        ? previous : new ProcessGroup(key, this.turn, pending)
+      const group = previous !== undefined && sameMembers(previous.members, pending) ? previous : new ProcessGroup(key, this.turn, pending)
       group.refresh(input, closed || input.timeline.turns.get(this.turn)?.status === 'closed')
       groups.set(group.key, group)
       emit(first.key, { kind: 'group', key: group.key })
@@ -263,21 +281,22 @@ export class ProcessState {
       else this.turns.set(turn, groups)
     }
     for (const [turn, keys] of changed) {
-      if (!regroup.has(turn)) upserts.push(...this.turns.get(turn)?.refresh(input, keys) ?? [])
+      if (!regroup.has(turn)) upserts.push(...(this.turns.get(turn)?.refresh(input, keys) ?? []))
     }
     const reordered = input.order !== this.order || regroup.size > 0
     this.order = input.order
     const installed = new Set(upserts.map(group => group.key))
-    this.pending = reordered || upserts.length > 0 || removes.length > 0
-      ? {
-        ...reordered ? { entries: this.rootEntries(input) } : {},
-        groups: { kind: 'apply', upserts, removes: removes.filter(key => !installed.has(key)) },
-      }
-      : null
+    this.pending =
+      reordered || upserts.length > 0 || removes.length > 0
+        ? {
+            ...(reordered ? { entries: this.rootEntries(input) } : {}),
+            groups: { kind: 'apply', upserts, removes: removes.filter(key => !installed.has(key)) },
+          }
+        : null
   }
 
   private rootEntries(input: ProcessInput): RenderEntry[] {
-    return input.order.flatMap<RenderEntry>((key) => {
+    return input.order.flatMap<RenderEntry>(key => {
       const turn = readPosition(input, key).turn
       if (turn === undefined) return [{ kind: 'node', key }]
       const groups = this.turns.get(turn)
@@ -290,14 +309,21 @@ export class ProcessState {
    * Read pending output without advancing State.
    * @returns the repeatable update for the last input batch.
    */
-  output(): GroupUpdate<ProcessGroupData> | null { return this.pending }
+  output(): GroupUpdate<ProcessGroupData> | null {
+    return this.pending
+  }
 }
 
 /** Chat's registered business grouping; presentation modes never enter its State. */
-export const processGroupDefinition: ConversationGroupDefinition<ChatConversationViewNode, ProcessState, ProcessGroupData>
-  & { readonly target: 'chat' } = {
-    kind: 'process-groups', target: 'chat',
-    create: () => new ProcessState(),
-    update: (context, input) => { context.state.accept(input); return context.state },
-    buildGroups: context => context.state.output(),
-  }
+export const processGroupDefinition: ConversationGroupDefinition<ChatConversationViewNode, ProcessState, ProcessGroupData> & {
+  readonly target: 'chat'
+} = {
+  kind: 'process-groups',
+  target: 'chat',
+  create: () => new ProcessState(),
+  update: (context, input) => {
+    context.state.accept(input)
+    return context.state
+  },
+  buildGroups: context => context.state.output(),
+}

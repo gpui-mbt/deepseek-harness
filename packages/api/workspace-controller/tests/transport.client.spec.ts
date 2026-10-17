@@ -4,7 +4,7 @@
  * roster's own Connection and is answered by endpoint name.
  */
 
-import { describe, expect, onTestFinished, vi } from 'vitest'
+import { describe, expect, onTestFinished, vi } from 'vite-plus/test'
 import { RemoteStreamCarrierError, type ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
@@ -47,9 +47,11 @@ async function gatewayClient(mock: RemoteMock, start: () => Promise<TestClient>)
   return { remote: client.ctx.remote, client }
 }
 
-const carrierLoss = (message: string): StreamScript => (_args, stream) => {
-  stream.fail(new RemoteStreamCarrierError(message))
-}
+const carrierLoss =
+  (message: string): StreamScript =>
+  (_args, stream) => {
+    stream.fail(new RemoteStreamCarrierError(message))
+  }
 
 function accepts(overrides: Partial<WorkspaceFollowSink> = {}): WorkspaceFollowSink {
   const ignore = (): void => {}
@@ -69,21 +71,25 @@ function streamStates(mock: RemoteMock): string[] {
 }
 
 describe('Workspace Controller Client apply', () => {
-  pluginTest('provides the Workspace service and stops its follow generation with the plugin fiber', async ({ mock, start }) => {
-    const client = await pluginClient(mock, start, openStream([baseline('mounted')]))
-    await vi.waitFor(() => {
-      expect(client.ctx.workspaces.list.getSnapshot()).toMatchObject({
-        phase: 'ready',
-        state: 'idle',
-        items: [{ workspaceId: 'mounted' }],
+  pluginTest(
+    'provides the Workspace service and stops its follow generation with the plugin fiber',
+    async ({ mock, start }) => {
+      const client = await pluginClient(mock, start, openStream([baseline('mounted')]))
+      await vi.waitFor(() => {
+        expect(client.ctx.workspaces.list.getSnapshot()).toMatchObject({
+          phase: 'ready',
+          state: 'idle',
+          items: [{ workspaceId: 'mounted' }],
+        })
       })
-    })
 
-    await client.unload(SELF)
+      await client.unload(SELF)
 
-    expect(streamStates(client.mock)).toEqual(['cancelled'])
-    expect(client.ctx.get('workspaces')).toBeUndefined()
-  }, COLD_BOOT_TIMEOUT_MS)
+      expect(streamStates(client.mock)).toEqual(['cancelled'])
+      expect(client.ctx.get('workspaces')).toBeUndefined()
+    },
+    COLD_BOOT_TIMEOUT_MS,
+  )
 
   pluginTest('reopens the follow and re-provides the service across a Loader rebuild', async ({ mock, start }) => {
     const client = await pluginClient(mock, start, openStream([baseline('mounted')]))
@@ -104,10 +110,11 @@ describe('Workspace Controller Client apply', () => {
   pluginTest('publishes exhausted carrier retries as a gateway/internal error state', async ({ mock, start }) => {
     // Neither generation reaches an accepted baseline, so the retry budget runs
     // out and the escaping carrier failure crosses the stream boundary marked.
-    const client = await pluginClient(mock, start, followGenerations([
-      carrierLoss('generation lost'),
-      carrierLoss('generation lost again'),
-    ]))
+    const client = await pluginClient(
+      mock,
+      start,
+      followGenerations([carrierLoss('generation lost'), carrierLoss('generation lost again')]),
+    )
     await vi.waitFor(() => {
       expect(client.ctx.workspaces.list.getSnapshot()).toMatchObject({
         state: 'error',
@@ -124,13 +131,17 @@ describe('Workspace Controller Client apply', () => {
       carrierFailure.mockRestore()
       streamFailure.mockRestore()
     })
-    const client = await pluginClient(mock, start, followGenerations([
-      (_args, stream) => {
-        stream.push(baseline('old'))
-        stream.fail(new RemoteStreamCarrierError('generation lost'))
-      },
-      openStream([baseline('fresh'), baseline('duplicate')]),
-    ]))
+    const client = await pluginClient(
+      mock,
+      start,
+      followGenerations([
+        (_args, stream) => {
+          stream.push(baseline('old'))
+          stream.fail(new RemoteStreamCarrierError('generation lost'))
+        },
+        openStream([baseline('fresh'), baseline('duplicate')]),
+      ]),
+    )
     await vi.waitFor(() => {
       expect(client.ctx.workspaces.list.getSnapshot()).toMatchObject({
         phase: 'ready',
@@ -171,7 +182,9 @@ describe('Workspace state stream', () => {
 
     stream.start()
     stream.start()
-    await vi.waitFor(() => { expect(replacePinned).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(replacePinned).toHaveBeenCalledOnce()
+    })
 
     expect(replaceBaseline).toHaveBeenCalledWith(opening.value)
     expect(upsertView).toHaveBeenCalledWith(view)
@@ -187,25 +200,45 @@ describe('Workspace state stream', () => {
     const { remote } = await gatewayClient(mock, start)
     mock.stream(FOLLOW, openStream([baseline('one', 'two')]))
     const model = new ClientWorkspaceModel(remote.workspace)
-    const carrierFailed = vi.fn(() => { model.handleCarrierFailure() })
-    const failed = vi.fn((error: unknown) => { model.handleStreamFailure(error) })
+    const carrierFailed = vi.fn(() => {
+      model.handleCarrierFailure()
+    })
+    const failed = vi.fn((error: unknown) => {
+      model.handleStreamFailure(error)
+    })
     const stream = createWorkspaceStateStream(remote, { accept: model, carrierFailed, failed })
     const states = new Set<string>()
-    model.subscribe(() => { states.add(model.getSnapshot().state) })
-    const ids = (): string[] => model.getSnapshot().items.map(item => item.workspaceId).sort()
+    model.subscribe(() => {
+      states.add(model.getSnapshot().state)
+    })
+    const ids = (): string[] =>
+      model
+        .getSnapshot()
+        .items.map(item => item.workspaceId)
+        .sort()
     const replace = (...workspaceIds: string[]): WorkspaceFollowFrame => ({ type: 'replace', value: baseline(...workspaceIds).value })
 
     stream.start()
-    await vi.waitFor(() => { expect(ids()).toEqual(['one', 'two']) })
+    await vi.waitFor(() => {
+      expect(ids()).toEqual(['one', 'two'])
+    })
     // Access to `two` is revoked, restored through a replace, revoked again, and restored through an upsert.
     mock.streams.push(FOLLOW, replace('one'))
-    await vi.waitFor(() => { expect(ids()).toEqual(['one']) })
+    await vi.waitFor(() => {
+      expect(ids()).toEqual(['one'])
+    })
     mock.streams.push(FOLLOW, replace('one', 'two'))
-    await vi.waitFor(() => { expect(ids()).toEqual(['one', 'two']) })
+    await vi.waitFor(() => {
+      expect(ids()).toEqual(['one', 'two'])
+    })
     mock.streams.push(FOLLOW, replace('one'))
-    await vi.waitFor(() => { expect(ids()).toEqual(['one']) })
+    await vi.waitFor(() => {
+      expect(ids()).toEqual(['one'])
+    })
     mock.streams.push(FOLLOW, { type: 'upsert', workspace: workspace('two') })
-    await vi.waitFor(() => { expect(ids()).toEqual(['one', 'two']) })
+    await vi.waitFor(() => {
+      expect(ids()).toEqual(['one', 'two'])
+    })
 
     expect(states).not.toContain('error')
     expect(model.getSnapshot()).toMatchObject({ phase: 'ready', state: 'idle', error: null })
@@ -218,13 +251,16 @@ describe('Workspace state stream', () => {
   it('retains the old state across carrier loss and applies the replacement baseline', async ({ mock, start }) => {
     const { remote } = await gatewayClient(mock, start)
     const carrier = new RemoteStreamCarrierError('socket lost')
-    mock.stream(FOLLOW, followGenerations([
-      (_args, stream) => {
-        stream.push(baseline('old'))
-        stream.fail(carrier)
-      },
-      openStream([baseline('fresh')]),
-    ]))
+    mock.stream(
+      FOLLOW,
+      followGenerations([
+        (_args, stream) => {
+          stream.push(baseline('old'))
+          stream.fail(carrier)
+        },
+        openStream([baseline('fresh')]),
+      ]),
+    )
     const replaceBaseline = vi.fn<WorkspaceFollowSink['replaceBaseline']>()
     const carrierFailed = vi.fn()
     const failed = vi.fn()
@@ -235,7 +271,9 @@ describe('Workspace state stream', () => {
     })
 
     stream.start()
-    await vi.waitFor(() => { expect(replaceBaseline).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(replaceBaseline).toHaveBeenCalledTimes(2)
+    })
 
     expect(replaceBaseline.mock.calls.map(([value]) => value.items[0]?.title)).toEqual(['old', 'fresh'])
     expect(carrierFailed).toHaveBeenCalledWith(carrier)
@@ -245,10 +283,7 @@ describe('Workspace state stream', () => {
 
   it('classifies a normal end after the opening baseline as carrier loss', async ({ mock, start }) => {
     const { remote } = await gatewayClient(mock, start)
-    mock.stream(FOLLOW, followGenerations([
-      frames([baseline('old')]),
-      openStream([baseline('fresh')]),
-    ]))
+    mock.stream(FOLLOW, followGenerations([frames([baseline('old')]), openStream([baseline('fresh')])]))
     const replaceBaseline = vi.fn<WorkspaceFollowSink['replaceBaseline']>()
     const carrierFailed = vi.fn()
     const stream = createWorkspaceStateStream(remote, {
@@ -258,7 +293,9 @@ describe('Workspace state stream', () => {
     })
 
     stream.start()
-    await vi.waitFor(() => { expect(replaceBaseline).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(replaceBaseline).toHaveBeenCalledTimes(2)
+    })
     expect(carrierFailed.mock.calls[0]?.[0]).toMatchObject({
       message: 'Workspace state stream ended without a terminal result',
     })
@@ -281,7 +318,9 @@ describe('Workspace state stream', () => {
     })
 
     stream.start()
-    await vi.waitFor(() => { expect(closing).toBeDefined() })
+    await vi.waitFor(() => {
+      expect(closing).toBeDefined()
+    })
     await closing
     expect(failed).not.toHaveBeenCalled()
   })
@@ -309,7 +348,9 @@ describe('Workspace state stream', () => {
     const stream = createWorkspaceStateStream(remote, { accept: accepts(), failed })
 
     stream.start()
-    await vi.waitFor(() => { expect(failed).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(failed).toHaveBeenCalledOnce()
+    })
     const failure: unknown = failed.mock.calls[0]?.[0]
     expect(failure).toBeInstanceOf(Error)
     if (!(failure instanceof Error)) throw new Error('expected Workspace stream failure')
@@ -321,10 +362,7 @@ describe('Workspace state stream', () => {
 
   it('restarts a live generation without reporting cancellation as failure', async ({ mock, start }) => {
     const { remote } = await gatewayClient(mock, start)
-    mock.stream(FOLLOW, followGenerations([
-      openStream([baseline('first')]),
-      openStream([baseline('second')]),
-    ]))
+    mock.stream(FOLLOW, followGenerations([openStream([baseline('first')]), openStream([baseline('second')])]))
     const replaceBaseline = vi.fn<WorkspaceFollowSink['replaceBaseline']>()
     const failed = vi.fn()
     const stream = createWorkspaceStateStream(remote, {
@@ -333,9 +371,13 @@ describe('Workspace state stream', () => {
     })
 
     stream.start()
-    await vi.waitFor(() => { expect(replaceBaseline).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(replaceBaseline).toHaveBeenCalledOnce()
+    })
     stream.restart()
-    await vi.waitFor(() => { expect(replaceBaseline).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(replaceBaseline).toHaveBeenCalledTimes(2)
+    })
     expect(failed).not.toHaveBeenCalled()
     expect(streamStates(mock)).toEqual(['cancelled', 'open'])
     await stream.dispose()
@@ -414,39 +456,43 @@ describe('WorkspaceController', () => {
     // The active-session refusal keeps its structured details so a surface
     // can name what still runs.
     const active = new RemoteError('workspace/session-active', 'session is active', {
-      sessionId: sid('session'), activity: [{ kind: 'probe' }, { kind: 'probe-items', items: [{ id: 'item-1' }] }],
+      sessionId: sid('session'),
+      activity: [{ kind: 'probe' }, { kind: 'probe-items', items: [{ id: 'item-1' }] }],
     })
     mock.remote.workspace.archiveSession.mockResolvedValueOnce(err(active))
     await expect(controller.archiveSession(sid('session'))).rejects.toMatchObject({
       name: 'WorkspaceArchiveError',
-      rpcError: { code: 'workspace/session-active', details: { activity: [{ kind: 'probe' }, { kind: 'probe-items', items: [{ id: 'item-1' }] }] } },
+      rpcError: {
+        code: 'workspace/session-active',
+        details: { activity: [{ kind: 'probe' }, { kind: 'probe-items', items: [{ id: 'item-1' }] }] },
+      },
     })
     mock.remote.workspace.unarchiveSession.mockResolvedValueOnce(err(missingSession))
-    await expect(controller.unarchiveSession(sid('session')))
-      .rejects.toThrow('workspace session unarchive failed: session/not-found: missing session')
+    await expect(controller.unarchiveSession(sid('session'))).rejects.toThrow(
+      'workspace session unarchive failed: session/not-found: missing session',
+    )
     mock.remote.workspace.pinSession.mockResolvedValueOnce(err(missingSession))
-    await expect(controller.pinSession(sid('session')))
-      .rejects.toThrow('workspace session pin failed: session/not-found: missing session')
+    await expect(controller.pinSession(sid('session'))).rejects.toThrow('workspace session pin failed: session/not-found: missing session')
     mock.remote.workspace.unpinSession.mockResolvedValueOnce(err(missingSession))
-    await expect(controller.unpinSession(sid('session')))
-      .rejects.toThrow('workspace session unpin failed: session/not-found: missing session')
-    mock.remote.workspace.insertSessionBefore.mockResolvedValueOnce(err(new RemoteError(
-      'workspace/move-invalid', 'invalid move', { workspaceId: wid('missing'), sessionId: sid('session') },
-    )))
-    await expect(controller.insertSessionBefore(wid('missing'), sid('session')))
-      .rejects.toThrow('workspace move failed: workspace/move-invalid: invalid move')
+    await expect(controller.unpinSession(sid('session'))).rejects.toThrow(
+      'workspace session unpin failed: session/not-found: missing session',
+    )
+    mock.remote.workspace.insertSessionBefore.mockResolvedValueOnce(
+      err(new RemoteError('workspace/move-invalid', 'invalid move', { workspaceId: wid('missing'), sessionId: sid('session') })),
+    )
+    await expect(controller.insertSessionBefore(wid('missing'), sid('session'))).rejects.toThrow(
+      'workspace move failed: workspace/move-invalid: invalid move',
+    )
   })
 
-  it('receives a carrier throw as the client\'s gateway/internal fold, never as a rejection', async ({ mock, start }) => {
+  it("receives a carrier throw as the client's gateway/internal fold, never as a rejection", async ({ mock, start }) => {
     const { remote, client } = await gatewayClient(mock, start)
     const controller = new WorkspaceController(client.ctx, new ClientWorkspaceModel(remote.workspace))
 
     mock.remote.workspace.create.mockImplementation(() => Promise.reject(new Error('create wire down')))
     const create = controller.create({ path: '/work/created' })
     await expect(create).rejects.toBeInstanceOf(WorkspaceCreateError)
-    await expect(create).rejects.toThrow(
-      'workspace create failed: gateway/internal: client api: workspace/create failed: create wire down',
-    )
+    await expect(create).rejects.toThrow('workspace create failed: gateway/internal: client api: workspace/create failed: create wire down')
     expect(mock.log.calls('workspace/create').map(call => call.state)).toEqual(['failed'])
   })
 })

@@ -2,7 +2,7 @@
  * Waits that end only through the lane budget in force. Runs only inside the
  * Vitest child that scripts/lane-test-budget.spec.ts spawns.
  */
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vite-plus/test'
 
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -19,7 +19,15 @@ describe('lane test budget fixture', () => {
   // the poll budget (or longer under load), which the spawning spec reads.
   it('expect.poll budget', { timeout: 5_000 }, async () => {
     let attempts = 0
-    await expect.poll(() => { attempts += 1; return attempts }, { interval: 10 }).toBeGreaterThan(10_000)
+    await expect
+      .poll(
+        () => {
+          attempts += 1
+          return attempts
+        },
+        { interval: 10 },
+      )
+      .toBeGreaterThan(10_000)
   })
 
   describe('hook budget', () => {

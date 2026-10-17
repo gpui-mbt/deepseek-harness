@@ -1,7 +1,7 @@
 /** Unsupported XLSX drawings cannot prevent cell preview or mutate retained file bytes. */
 import ExcelJS from 'exceljs'
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Config } from '../src/config.ts'
 import { convertExcel } from '../src/client/excel/convert.ts'
 import { XlsxPreviewArchive } from '../src/client/excel/xlsx-archive.ts'
@@ -11,7 +11,7 @@ import { excelFixture, excelHtmlFixture } from './excel-fixture.ts'
 const limits = Config({}).excel
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
 
-it.each(['', 'xdr', 'drawing'])('opens charts with DrawingML prefix %j while retaining every displayed cell', async (prefix) => {
+it.each(['', 'xdr', 'drawing'])('opens charts with DrawingML prefix %j while retaining every displayed cell', async prefix => {
   const source = await excelDrawingFixture(prefix)
   const before = source.slice()
   const result = await convertExcel(source, 'xlsx', limits)
@@ -42,7 +42,7 @@ it('keeps ordinary archives byte-identical and does not interpret cell text as d
   expect((await convertExcel(source, 'xlsx', limits)).unsupportedFeatures).toEqual([])
 })
 
-it.each([false, true])('reports images with background=%s without hiding cell content', async (background) => {
+it.each([false, true])('reports images with background=%s without hiding cell content', async background => {
   const workbook = new ExcelJS.Workbook()
   const sheet = workbook.addWorksheet('Image')
   sheet.getCell('A1').value = 'Image data'
@@ -54,10 +54,15 @@ it.each([false, true])('reports images with background=%s without hiding cell co
   expect(result.sheets[0]!.celldata![0]!.v).toMatchObject({ v: 'Image data' })
 })
 
-it.each(['sp', 'grpSp', 'cxnSp'])('reports %s shapes once alongside charts and conditional formatting', async (tag) => {
+it.each(['sp', 'grpSp', 'cxnSp'])('reports %s shapes once alongside charts and conditional formatting', async tag => {
   const files = unzipSync(await excelDrawingFixture())
   const path = 'xl/drawings/drawing1.xml'
-  files[path] = strToU8(strFromU8(files[path]!).replace('</wsDr>', `<absoluteAnchor><pos x="0" y="0"/><ext cx="100" cy="100"/><${tag}><nvSpPr><cNvPr id="2" name="Rectangle"/><cNvSpPr/></nvSpPr><spPr/></${tag}><clientData/></absoluteAnchor></wsDr>`))
+  files[path] = strToU8(
+    strFromU8(files[path]!).replace(
+      '</wsDr>',
+      `<absoluteAnchor><pos x="0" y="0"/><ext cx="100" cy="100"/><${tag}><nvSpPr><cNvPr id="2" name="Rectangle"/><cNvSpPr/></nvSpPr><spPr/></${tag}><clientData/></absoluteAnchor></wsDr>`,
+    ),
+  )
   const result = await convertExcel(new Uint8Array(zipSync(files)), 'xlsx', limits)
   expect(result.unsupportedFeatures).toEqual(['charts', 'shapes', 'conditionalFormatting'])
 })

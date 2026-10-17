@@ -1,5 +1,5 @@
 /** Parser Worker allocation, cancellation, timeout, and message failures. */
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { parseExcel } from '../src/client/excel/parse.ts'
 import { Config } from '../src/config.ts'
 
@@ -18,11 +18,22 @@ class ParserWorker {
 
 beforeEach(() => {
   vi.useFakeTimers()
-  vi.stubGlobal('Worker', vi.fn(function () { instance = new ParserWorker(); return instance }))
+  vi.stubGlobal(
+    'Worker',
+    vi.fn(function () {
+      instance = new ParserWorker()
+      return instance
+    }),
+  )
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:excel-test')
   vi.spyOn(URL, 'revokeObjectURL').mockImplementation(revokeUrl)
 })
-afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); revokeUrl.mockClear() })
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  revokeUrl.mockClear()
+})
 
 it('transfers a private copy and releases the Worker and URL after parsing', async () => {
   const input = new Uint8Array([1, 2, 3])
@@ -65,19 +76,27 @@ it('terminates a parser that exceeds its time budget', async () => {
   expect(instance.terminate).toHaveBeenCalledOnce()
 })
 
-it.each([null, 7, {}, { ok: true, value: null }, { ok: true, value: { sheets: [], missingResults: 0 } },
-  { ok: true, value: { sheets: [{}], missingResults: 0 } }, { ok: true, value: { ...preview, missingResults: -1 } },
+it.each([
+  null,
+  7,
+  {},
+  { ok: true, value: null },
+  { ok: true, value: { sheets: [], missingResults: 0 } },
+  { ok: true, value: { sheets: [{}], missingResults: 0 } },
+  { ok: true, value: { ...preview, missingResults: -1 } },
   { ok: true, value: { ...preview, unsupportedFeatures: undefined } },
   { ok: true, value: { ...preview, unsupportedFeatures: ['unknown'] } },
   { ok: true, value: { ...preview, unsupportedFeatures: [7] } },
-  { ok: false, code: 'surprise' }, { ok: false, code: 'invalid' }])('rejects invalid Worker message %j', async (data) => {
+  { ok: false, code: 'surprise' },
+  { ok: false, code: 'invalid' },
+])('rejects invalid Worker message %j', async data => {
   const result = parseExcel(new Uint8Array(), 'xlsx', limits, new AbortController().signal)
   instance.onmessage!({ data })
   await expect(result).rejects.toThrow('invalid')
   expect(instance.terminate).toHaveBeenCalledOnce()
 })
 
-it.each(['onerror', 'onmessageerror'] as const)('releases a failed parser on %s', async (event) => {
+it.each(['onerror', 'onmessageerror'] as const)('releases a failed parser on %s', async event => {
   const result = parseExcel(new Uint8Array(), 'xlsx', limits, new AbortController().signal)
   instance[event]!()
   await expect(result).rejects.toThrow('invalid')
@@ -85,17 +104,27 @@ it.each(['onerror', 'onmessageerror'] as const)('releases a failed parser on %s'
 })
 
 it('revokes the URL when Worker construction fails', async () => {
-  vi.stubGlobal('Worker', vi.fn(function () { throw new Error('unavailable') }))
+  vi.stubGlobal(
+    'Worker',
+    vi.fn(function () {
+      throw new Error('unavailable')
+    }),
+  )
   await expect(parseExcel(new Uint8Array(), 'xlsx', limits, new AbortController().signal)).rejects.toThrow('invalid')
   expect(revokeUrl).toHaveBeenCalledOnce()
 })
 
 it('terminates the Worker when posting the copied buffer fails', async () => {
-  vi.stubGlobal('Worker', vi.fn(function () {
-    instance = new ParserWorker()
-    instance.postMessage.mockImplementation(() => { throw new Error('transfer failed') })
-    return instance
-  }))
+  vi.stubGlobal(
+    'Worker',
+    vi.fn(function () {
+      instance = new ParserWorker()
+      instance.postMessage.mockImplementation(() => {
+        throw new Error('transfer failed')
+      })
+      return instance
+    }),
+  )
   await expect(parseExcel(new Uint8Array(), 'xlsx', limits, new AbortController().signal)).rejects.toThrow('invalid')
   expect(instance.terminate).toHaveBeenCalledOnce()
   expect(vi.getTimerCount()).toBe(0)

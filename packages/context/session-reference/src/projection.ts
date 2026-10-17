@@ -83,9 +83,7 @@ export function retainReferencedSession(
     sessionId: snapshot.session.id,
     label,
     cwd: snapshot.session.cwd ?? null,
-    capturedThroughSeq: snapshot.capturedThroughSeq === null
-      ? null
-      : SessionSeq(snapshot.capturedThroughSeq),
+    capturedThroughSeq: snapshot.capturedThroughSeq === null ? null : SessionSeq(snapshot.capturedThroughSeq),
     conversation: retained.map(({ role, text }) => ({ role, text })),
   })
   const fullData = data()
@@ -146,7 +144,7 @@ export function retainReferencedSession(
 }
 
 function textContent(content: readonly { type: string; text?: string }[]): string {
-  return content.flatMap(block => block.type === 'text' && typeof block.text === 'string' ? [block.text] : []).join('\n')
+  return content.flatMap(block => (block.type === 'text' && typeof block.text === 'string' ? [block.text] : [])).join('\n')
 }
 
 function truncateWithNotice(text: string, maxOutputBytes: number): { text: string; omittedBytes: number } {

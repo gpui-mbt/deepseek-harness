@@ -50,9 +50,7 @@ function domToReact(node: ChildNode, key: number): ReactNode {
     else props[attribute.name] = attribute.value
   }
   const children = [...element.childNodes].map(domToReact)
-  return children.length === 0
-    ? createElement(element.localName, props)
-    : createElement(element.localName, props, ...children)
+  return children.length === 0 ? createElement(element.localName, props) : createElement(element.localName, props, ...children)
 }
 
 /**
@@ -75,11 +73,7 @@ export function renderTexToReact(value: string, displayMode: boolean): ReactNode
       // internal errors reach here, so mirror rehype-katex's manual span.
       /* v8 ignore next 8 */
       return (
-        <span
-          className="katex-error"
-          style={{ color: '#cc0000' }}
-          title={String(error)}
-        >
+        <span className="katex-error" style={{ color: '#cc0000' }} title={String(error)}>
           {value}
         </span>
       )

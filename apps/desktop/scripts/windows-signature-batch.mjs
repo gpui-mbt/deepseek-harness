@@ -3,7 +3,8 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { scrubWindowsSigningEnvironment } from './windows-sign.mjs'
 
-const command = '$ErrorActionPreference="Stop"; [Console]::InputEncoding=[System.Text.UTF8Encoding]::new(); [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new(); Import-Module "$PSHOME/Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1" -ErrorAction Stop; Import-Module "$PSHOME/Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1" -ErrorAction Stop; $files=[Console]::In.ReadToEnd()|ConvertFrom-Json; foreach($file in $files){ $s=Get-AuthenticodeSignature -LiteralPath $file; [pscustomobject]@{path=$file;status=[string]$s.Status;timestamped=($null -ne $s.TimeStamperCertificate);thumbprint=$s.SignerCertificate.Thumbprint}|ConvertTo-Json -Compress }'
+const command =
+  '$ErrorActionPreference="Stop"; [Console]::InputEncoding=[System.Text.UTF8Encoding]::new(); [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new(); Import-Module "$PSHOME/Modules/Microsoft.PowerShell.Security/Microsoft.PowerShell.Security.psd1" -ErrorAction Stop; Import-Module "$PSHOME/Modules/Microsoft.PowerShell.Utility/Microsoft.PowerShell.Utility.psd1" -ErrorAction Stop; $files=[Console]::In.ReadToEnd()|ConvertFrom-Json; foreach($file in $files){ $s=Get-AuthenticodeSignature -LiteralPath $file; [pscustomobject]@{path=$file;status=[string]$s.Status;timestamped=($null -ne $s.TimeStamperCertificate);thumbprint=$s.SignerCertificate.Thumbprint}|ConvertTo-Json -Compress }'
 
 /**
  * Reject missing, duplicated, reordered or malformed file results.
@@ -17,9 +18,14 @@ export function parseSignatureRows(stdout, stderr, files) {
   if (stderr || rows.length !== files.length) throw new Error('Windows signature batch: incomplete inspection output')
   return rows.map((row, index) => {
     const value = JSON.parse(row)
-    if (value === null || typeof value !== 'object' || value.path !== files[index]
-      || typeof value.status !== 'string' || typeof value.timestamped !== 'boolean'
-      || !(value.thumbprint === null || typeof value.thumbprint === 'string' && /^[A-F\d]{40}$/iu.test(value.thumbprint))) {
+    if (
+      value === null ||
+      typeof value !== 'object' ||
+      value.path !== files[index] ||
+      typeof value.status !== 'string' ||
+      typeof value.timestamped !== 'boolean' ||
+      !(value.thumbprint === null || (typeof value.thumbprint === 'string' && /^[A-F\d]{40}$/iu.test(value.thumbprint)))
+    ) {
       throw new Error(`Windows signature batch: invalid inspection output: ${files[index]}`)
     }
     return { status: value.status, timestamped: value.timestamped, thumbprint: value.thumbprint }
@@ -28,10 +34,15 @@ export function parseSignatureRows(stdout, stderr, files) {
 
 async function inspectBatch(files) {
   const pending = promisify(execFile)('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command], {
-    env: scrubWindowsSigningEnvironment(process.env), encoding: 'utf8', windowsHide: true,
-    timeout: 60_000, maxBuffer: 64 * 1024 * files.length,
+    env: scrubWindowsSigningEnvironment(process.env),
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60_000,
+    maxBuffer: 64 * 1024 * files.length,
   })
-  pending.child.stdin.on('error', () => { /* Process failure is reported by the awaited execFile result. */ })
+  pending.child.stdin.on('error', () => {
+    /* Process failure is reported by the awaited execFile result. */
+  })
   pending.child.stdin.end(JSON.stringify(files))
   const { stdout, stderr } = await pending
   return parseSignatureRows(stdout, stderr, files)

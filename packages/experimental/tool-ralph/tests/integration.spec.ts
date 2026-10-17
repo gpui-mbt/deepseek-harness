@@ -1,4 +1,4 @@
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,7 +6,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createUserMessage, ToolCallId  } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import { STRUCTURED_OUTPUT_TOOL } from '@deepseek-ai/dsh-subagent'
@@ -93,8 +93,10 @@ describe('dsh-tool-ralph over the real spawn and sandboxed PTC stack', () => {
 
     const children: Agent[] = []
     const phases: string[] = []
-    ctx.on('workflow/phase', (_run, title) => { phases.push(title) })
-    ctx.on('subagent/start', (child) => {
+    ctx.on('workflow/phase', (_run, title) => {
+      phases.push(title)
+    })
+    ctx.on('subagent/start', child => {
       const agent = ctx.agents.get(child.id)
       expect(agent).toBeDefined()
       children.push(agent!)
@@ -108,8 +110,7 @@ describe('dsh-tool-ralph over the real spawn and sandboxed PTC stack', () => {
     })
 
     expect(result.isError).toBe(false)
-    expect((result.content[0] as { text: string }).text)
-      .toContain('Ralph worker reported completion after 2 rounds.')
+    expect((result.content[0] as { text: string }).text).toContain('Ralph worker reported completion after 2 rounds.')
     expect(phases).toEqual(['Fresh-agent rounds'])
     expect(children).toHaveLength(2)
     expect(new Set(children.map(child => child.id)).size).toBe(2)
@@ -142,10 +143,10 @@ describe('dsh-tool-ralph over the real spawn and sandboxed PTC stack', () => {
       nextSteps: ['Finish migration-b.ts.'],
       blocker: '',
     }
-    const { ctx, parent, parentHandle } = await mountRalph([
-      toolCallResponse('round-1', STRUCTURED_OUTPUT_TOOL, firstReport),
-      maxTokensResponse('unfinished child output'),
-    ], { maxRounds: 2 })
+    const { ctx, parent, parentHandle } = await mountRalph(
+      [toolCallResponse('round-1', STRUCTURED_OUTPUT_TOOL, firstReport), maxTokensResponse('unfinished child output')],
+      { maxRounds: 2 },
+    )
     const children: Agent[] = []
     ctx.on('workflow/agent-start', (_run, child) => {
       const agent = ctx.agents.get(child.childId)
@@ -237,9 +238,7 @@ describe('dsh-tool-ralph over the real spawn and sandboxed PTC stack', () => {
       expectedText: 'Ralph round report exceeds maxHandoffChars',
     },
   ])('enforces the fixed script for $name', async ({ report, config, expectedError, expectedText }) => {
-    const { ctx, parent, parentHandle } = await mountRalph([
-      toolCallResponse('round-report', STRUCTURED_OUTPUT_TOOL, report),
-    ], config)
+    const { ctx, parent, parentHandle } = await mountRalph([toolCallResponse('round-report', STRUCTURED_OUTPUT_TOOL, report)], config)
 
     const result = await ctx.tools.execute({
       signal: testToolSignal,
@@ -259,7 +258,9 @@ describe('dsh-tool-ralph over the real spawn and sandboxed PTC stack', () => {
     const children: Agent[] = []
     const outcomes: string[] = []
     let resolveChildStarted!: (child: Agent) => void
-    const childStarted = new Promise<Agent>((resolve) => { resolveChildStarted = resolve })
+    const childStarted = new Promise<Agent>(resolve => {
+      resolveChildStarted = resolve
+    })
     ctx.on('workflow/agent-start', (_run, child) => {
       const agent = ctx.agents.get(child.childId)
       if (agent !== undefined) {
@@ -267,7 +268,9 @@ describe('dsh-tool-ralph over the real spawn and sandboxed PTC stack', () => {
         resolveChildStarted(agent)
       }
     })
-    ctx.on('workflow/agent-end', (_run, child) => { outcomes.push(child.outcome) })
+    ctx.on('workflow/agent-end', (_run, child) => {
+      outcomes.push(child.outcome)
+    })
     const controller = new AbortController()
     const pending = ctx.tools.execute({
       callId: ToolCallId('ralph-real-cancel'),
@@ -279,7 +282,9 @@ describe('dsh-tool-ralph over the real spawn and sandboxed PTC stack', () => {
     try {
       await Promise.race([
         childStarted,
-        pending.then((result) => { throw new Error(`Ralph settled before its child started: ${JSON.stringify(result.content)}`) }),
+        pending.then(result => {
+          throw new Error(`Ralph settled before its child started: ${JSON.stringify(result.content)}`)
+        }),
       ])
       controller.abort()
       const result = await pending

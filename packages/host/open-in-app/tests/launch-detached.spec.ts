@@ -1,10 +1,10 @@
 /** Detached launch settlement with controlled process events and watch time. */
 import { ChildProcess, spawn } from 'node:child_process'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { launchDetachedApp } from '../src/resolver.ts'
 
 vi.mock('node:child_process', async importOriginal => ({
-  ...await importOriginal<typeof import('node:child_process')>(),
+  ...(await importOriginal<typeof import('node:child_process')>()),
   spawn: vi.fn(),
 }))
 
@@ -15,7 +15,7 @@ afterEach(() => {
 })
 
 describe('launchDetachedApp watch window', () => {
-  it.each(['exit 0', 'exit 3', 'error'] as const)('ignores late %s after unref without killing the child', async (event) => {
+  it.each(['exit 0', 'exit 3', 'error'] as const)('ignores late %s after unref without killing the child', async event => {
     vi.useFakeTimers()
     const child = new ChildProcess()
     const unref = vi.spyOn(child, 'unref')
@@ -38,9 +38,8 @@ describe('launchDetachedApp watch window', () => {
       expect(kill).not.toHaveBeenCalled()
 
       // emit() invokes the resolver's registered callback before returning.
-      const handled = event === 'error'
-        ? child.emit('error', new Error('late launcher error'))
-        : child.emit('exit', event === 'exit 0' ? 0 : 3, null)
+      const handled =
+        event === 'error' ? child.emit('error', new Error('late launcher error')) : child.emit('exit', event === 'exit 0' ? 0 : 3, null)
       expect(handled).toBe(true)
       expect(unref).toHaveBeenCalledTimes(1)
       expect(kill).not.toHaveBeenCalled()

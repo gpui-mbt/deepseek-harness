@@ -17,7 +17,9 @@ export class BundleInputIsolation {
   }
 
   /** Discard package metadata before a new build or watch rebuild. */
-  reset(): void { this.packages.clear() }
+  reset(): void {
+    this.packages.clear()
+  }
 
   /**
    * Require a recorded input to have non-experimental physical and package ownership.
@@ -42,7 +44,7 @@ export class BundleInputIsolation {
     const file = physicalBundleInput(id)
     if (file === undefined) return
     const lexical = relative(resolve(this.repository, 'packages/experimental'), file)
-    if (lexical === '' || lexical !== '..' && !lexical.startsWith(`..${sep}`) && !isAbsolute(lexical)) {
+    if (lexical === '' || (lexical !== '..' && !lexical.startsWith(`..${sep}`) && !isAbsolute(lexical))) {
       throw new Error(`${this.label}: experimental input ${id}`)
     }
     let existing = file

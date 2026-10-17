@@ -30,11 +30,7 @@ export class SessionFileReferences extends TypertRemoteService {
    * @returns deterministic path-only candidates from the composed provider.
    */
   @Remote
-  list(
-    agent: Agent,
-    query: string,
-    signal: AbortSignal,
-  ): Promise<FileReferenceCandidate[]> {
+  list(agent: Agent, query: string, signal: AbortSignal): Promise<FileReferenceCandidate[]> {
     return this.ctx.fileReferences.list(agent, query, signal)
   }
 }

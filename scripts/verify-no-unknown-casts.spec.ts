@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { countUnknownCasts, findUnknownCasts, scanUnknownCasts, verifyNoUnknownCasts } from './verify-no-unknown-casts.ts'
 
 const roots: string[] = []
@@ -77,7 +77,7 @@ describe('unknown assertion syntax', () => {
     'const result: unknown = value',
     'type Input = unknown; const result = value as Input',
     'type Input = unknown; const result = value as Input | string',
-  ])('accepts source without a direct assertion: %s', (text) => {
+  ])('accepts source without a direct assertion: %s', text => {
     expect(findUnknownCasts('input.ts', text)).toEqual([])
   })
 
@@ -101,8 +101,9 @@ describe('unknown assertion syntax', () => {
     const original = findUnknownCasts('input.ts', 'call(value, "text") as unknown')
     const formatted = findUnknownCasts('input.ts', '\ncall /* call */ (value,\n "text") as /* type */ unknown')
     expect(formatted.map(cast => cast.fingerprint)).toEqual(original.map(cast => cast.fingerprint))
-    expect(findUnknownCasts('input.ts', 'call(value, "other") as unknown').map(cast => cast.fingerprint))
-      .not.toEqual(original.map(cast => cast.fingerprint))
+    expect(findUnknownCasts('input.ts', 'call(value, "other") as unknown').map(cast => cast.fingerprint)).not.toEqual(
+      original.map(cast => cast.fingerprint),
+    )
   })
 
   it.each([
@@ -144,7 +145,7 @@ describe('unknown assertion inventory', () => {
     'const result = value as (unknown | never)\n',
     'const result = value as string | (unknown | number)\n',
     String.raw`const result = value as \u0075nknown`,
-  ])('rejects a new assertion when the inventory is empty: %s', (text) => {
+  ])('rejects a new assertion when the inventory is empty: %s', text => {
     const root = fixture()
     write(root, sourcePath, text)
     expect(() => verifyNoUnknownCasts(root)).toThrow(`${sourcePath}:1`)
@@ -159,9 +160,7 @@ describe('unknown assertion inventory', () => {
     unlinkSync(join(root, 'apps/retired.ts'))
     expect(() => verifyNoUnknownCasts(root)).toThrow(/remove retired baseline entries/u)
     expect(verifyNoUnknownCasts(root, true)).toBe(1)
-    expect(JSON.parse(readFileSync(join(root, baselinePath), 'utf8'))).toEqual(
-      countUnknownCasts(findUnknownCasts(sourcePath, assertion)),
-    )
+    expect(JSON.parse(readFileSync(join(root, baselinePath), 'utf8'))).toEqual(countUnknownCasts(findUnknownCasts(sourcePath, assertion)))
     expect(verifyNoUnknownCasts(root)).toBe(1)
   })
 
@@ -236,7 +235,7 @@ describe('unknown assertion source discovery', () => {
     expect(verifyNoUnknownCasts(root)).toBe(0)
   })
 
-  it.each(['packages', 'apps', 'scripts', 'website'])('rejects discovery missing %s', (area) => {
+  it.each(['packages', 'apps', 'scripts', 'website'])('rejects discovery missing %s', area => {
     const root = fixture()
     unlinkSync(join(root, `${area}/seed.ts`))
     expect(() => verifyNoUnknownCasts(root)).toThrow(`source discovery omitted ${area}/`)

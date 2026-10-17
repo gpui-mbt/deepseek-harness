@@ -22,7 +22,9 @@ export interface DesktopQuitInspection {
  */
 export function installDesktopQuitInspection(ctx: Context): () => Promise<DesktopQuitInspection> {
   let stopped = false
-  ctx.effect(() => () => { stopped = true })
+  ctx.effect(() => () => {
+    stopped = true
+  })
   return async () => {
     if (stopped) throw new Error('desktop quit: Host is stopping')
     const agents = ctx.get('agents')
@@ -33,7 +35,10 @@ export function installDesktopQuitInspection(ctx: Context): () => Promise<Deskto
     let scheduledTasks = false
     for (const agent of liveAgents) {
       const activity = await ctx.waterfall('workspace/session-activity', { sessionId: agent.id }, () => Promise.resolve([]))
-      if (activity.some(entry => entry.kind === 'schedule')) { scheduledTasks = true; break }
+      if (activity.some(entry => entry.kind === 'schedule')) {
+        scheduledTasks = true
+        break
+      }
     }
     return { activeTasks, scheduledTasks }
   }

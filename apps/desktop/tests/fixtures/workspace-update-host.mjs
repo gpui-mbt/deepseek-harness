@@ -21,31 +21,63 @@ export async function apply(ctx) {
     const entry = { method: request.method, url: request.url, startedAt: Date.now() }
     requests.add(entry)
     requestHistory.push(entry)
-    try { await next() } finally { entry.finishedAt = Date.now(); requests.delete(entry) }
+    try {
+      await next()
+    } finally {
+      entry.finishedAt = Date.now()
+      requests.delete(entry)
+    }
   })
   const server = createServer((request, response) => {
-    if (request.method !== 'POST' || request.headers['x-qualification-token'] !== token) { response.writeHead(403).end(); return }
+    if (request.method !== 'POST' || request.headers['x-qualification-token'] !== token) {
+      response.writeHead(403).end()
+      return
+    }
     void (async () => {
       if (request.url === '/queue') {
-        owned ??= await ctx.agents.create({ sessionId: `update-confirmation-race-${randomUUID()}`, meta: { cwd: root },
-          setup: async agentCtx => { await ctx.agentPresets.mount(agentCtx, 'standard') } })
-        owned.agent.send(createUserMessage({ content: [{ type: 'text', text: 'Keep this queued task until explicitly approved' }], source: { kind: 'user' } }), 'next-turn', false)
+        owned ??= await ctx.agents.create({
+          sessionId: `update-confirmation-race-${randomUUID()}`,
+          meta: { cwd: root },
+          setup: async agentCtx => {
+            await ctx.agentPresets.mount(agentCtx, 'standard')
+          },
+        })
+        owned.agent.send(
+          createUserMessage({
+            content: [{ type: 'text', text: 'Keep this queued task until explicitly approved' }],
+            source: { kind: 'user' },
+          }),
+          'next-turn',
+          false,
+        )
       } else if (request.url === '/clear') owned?.agent.inbox.clear()
       else if (request.url === '/hold-shutdown') holdShutdown = true
       else if (request.url !== '/status') throw new Error('Unknown qualification operation')
       response.setHeader('Content-Type', 'application/json')
-      response.end(JSON.stringify({ queued: owned?.agent.inbox.nextTurn.length ?? 0, holdShutdown,
-        requests: [...requests], requestHistory, agents: ctx.agents.list().map(agent => ({ status: agent.status,
-          nextTurn: agent.inbox.nextTurn.length, nextStep: agent.inbox.nextStep.length })),
-      }))
-    })().catch(error => { response.writeHead(500).end(String(error)) })
+      response.end(
+        JSON.stringify({
+          queued: owned?.agent.inbox.nextTurn.length ?? 0,
+          holdShutdown,
+          requests: [...requests],
+          requestHistory,
+          agents: ctx.agents
+            .list()
+            .map(agent => ({ status: agent.status, nextTurn: agent.inbox.nextTurn.length, nextStep: agent.inbox.nextStep.length })),
+        }),
+      )
+    })().catch(error => {
+      response.writeHead(500).end(String(error))
+    })
   })
   ctx.effect(() => async () => {
     server.closeAllConnections()
-    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+    await new Promise((resolve, reject) => server.close(error => (error ? reject(error) : resolve())))
     if (holdShutdown) await new Promise(() => {})
     await owned?.dispose()
   })
-  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve) })
+  await new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
   await writeFile(join(root, 'host-control.json'), JSON.stringify({ url: `http://127.0.0.1:${server.address().port}` }))
 }

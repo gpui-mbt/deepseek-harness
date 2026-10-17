@@ -40,7 +40,7 @@ const IPV4ONLY_SENTINELS = new Set(['192.0.0.170', '192.0.0.171'])
 
 interface Nat64Prefix {
   readonly bytes: readonly number[]
-  readonly length: typeof RFC6052_PREFIX_LENGTHS[number]
+  readonly length: (typeof RFC6052_PREFIX_LENGTHS)[number]
 }
 
 /**
@@ -79,18 +79,17 @@ export async function resolvePublicAddresses(
 ): Promise<PublicAddress[]> {
   const unbracketed = stripIpv6Brackets(hostname)
   const literalFamily = isIP(unbracketed)
-  const resolved = literalFamily === 0
-    ? await raceWithSignal(resolver(unbracketed, { all: true, order: 'verbatim' }), signal)
-    : [{ address: unbracketed, family: literalFamily }]
+  const resolved =
+    literalFamily === 0
+      ? await raceWithSignal(resolver(unbracketed, { all: true, order: 'verbatim' }), signal)
+      : [{ address: unbracketed, family: literalFamily }]
 
   if (resolved.length === 0) {
     throw new WebError(`hostname "${hostname}" resolved to no addresses`, 'WEB_PROVIDER_ERROR')
   }
 
   const hasIpv6 = resolved.some(entry => entry.family === 6 && isIP(entry.address) === 6)
-  const nat64Prefixes = hasIpv6
-    ? await discoverNat64Prefixes(signal, resolver)
-    : []
+  const nat64Prefixes = hasIpv6 ? await discoverNat64Prefixes(signal, resolver) : []
 
   const addresses: PublicAddress[] = []
   for (const entry of resolved) {
@@ -111,10 +110,7 @@ export async function resolvePublicAddresses(
 
 /** Discover the active DNS64 prefix set using RFC 7050's reserved hostname. */
 async function discoverNat64Prefixes(signal: AbortSignal, resolver: AddressResolver): Promise<Nat64Prefix[]> {
-  const discovered = await raceWithSignal(
-    resolver(IPV4ONLY_DISCOVERY_HOST, { all: true, order: 'verbatim' }),
-    signal,
-  )
+  const discovered = await raceWithSignal(resolver(IPV4ONLY_DISCOVERY_HOST, { all: true, order: 'verbatim' }), signal)
   const prefixes: Nat64Prefix[] = []
   const seen = new Set<string>()
   for (const entry of discovered) {
@@ -151,10 +147,7 @@ function embeddedIpv4Address(bytes: readonly number[], prefixLength: Nat64Prefix
   if (bytes[8] !== 0) return undefined
   const prefixBytes = prefixLength / 8
   const beforeReservedOctet = 8 - prefixBytes
-  const ipv4 = [
-    ...bytes.slice(prefixBytes, prefixBytes + beforeReservedOctet),
-    ...bytes.slice(9, 9 + 4 - beforeReservedOctet),
-  ]
+  const ipv4 = [...bytes.slice(prefixBytes, prefixBytes + beforeReservedOctet), ...bytes.slice(9, 9 + 4 - beforeReservedOctet)]
   return ipv4.join('.')
 }
 
@@ -204,7 +197,12 @@ export async function requestPinned(
   try {
     // proxy-exempt: the agent above, whose lifetime is this one request.
     const response = await fetch(url, { method: 'GET', redirect: 'manual', headers, signal, dispatcher })
-    return { response, close: async () => { await dispatcher.close() } }
+    return {
+      response,
+      close: async () => {
+        await dispatcher.close()
+      },
+    }
   } catch (error: unknown) {
     await dispatcher.close()
     throw error
@@ -245,11 +243,7 @@ export const publicHttpNetwork = {
   requestVia,
 }
 
-type LookupCallback = (
-  error: NodeJS.ErrnoException | null,
-  address: string | LookupAddress[],
-  family?: number,
-) => void
+type LookupCallback = (error: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void
 
 /**
  * Build the connector lookup that serves a fixed validated answer set.
@@ -257,15 +251,11 @@ type LookupCallback = (
  * @param addresses - public addresses retained from the preceding resolution.
  * @returns a Node-compatible lookup callback that performs no network resolution.
  */
-export function createPinnedLookup(addresses: readonly PublicAddress[]): (
-  hostname: string,
-  options: LookupOptions,
-  callback: LookupCallback,
-) => void {
+export function createPinnedLookup(
+  addresses: readonly PublicAddress[],
+): (hostname: string, options: LookupOptions, callback: LookupCallback) => void {
   return (hostname: string, options: LookupOptions, callback: LookupCallback): void => {
-    const family = typeof options.family === 'number'
-      ? options.family
-      : options.family === 'IPv4' ? 4 : options.family === 'IPv6' ? 6 : 0
+    const family = typeof options.family === 'number' ? options.family : options.family === 'IPv4' ? 4 : options.family === 'IPv6' ? 6 : 0
     const eligible = family === 0 ? addresses : addresses.filter(address => address.family === family)
     const selected = eligible[0]
     if (selected === undefined) {
@@ -277,7 +267,10 @@ export function createPinnedLookup(addresses: readonly PublicAddress[]): (
       return
     }
     if (options.all === true) {
-      callback(null, eligible.map(address => ({ ...address })))
+      callback(
+        null,
+        eligible.map(address => ({ ...address })),
+      )
       return
     }
     callback(null, selected.address, selected.family)
@@ -289,9 +282,13 @@ function raceWithSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T>
   const abortError = () => new Error('web fetch aborted during hostname resolution', { cause: signal.reason })
   if (signal.aborted) return Promise.reject(abortError())
   return new Promise<T>((resolve, reject) => {
-    const abort = () => { reject(abortError()) }
+    const abort = () => {
+      reject(abortError())
+    }
     signal.addEventListener('abort', abort, { once: true })
-    promise.then(resolve, reject).finally(() => { signal.removeEventListener('abort', abort) })
+    promise.then(resolve, reject).finally(() => {
+      signal.removeEventListener('abort', abort)
+    })
   })
 }
 

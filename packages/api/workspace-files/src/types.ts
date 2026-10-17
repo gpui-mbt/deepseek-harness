@@ -129,26 +129,24 @@ export interface WorkspaceDirectoryListing {
  */
 export type WorkspaceFileChange =
   | {
-    /** Absolute target path, in the same form as {@link WorkspaceFileStat.absolutePath}. */
-    readonly absolutePath: string
-    /** Opaque freshness token from the current stat; never parsed. */
-    readonly version: string
-  }
+      /** Absolute target path, in the same form as {@link WorkspaceFileStat.absolutePath}. */
+      readonly absolutePath: string
+      /** Opaque freshness token from the current stat; never parsed. */
+      readonly version: string
+    }
   | {
-    /** Absolute target path, in the same form as {@link WorkspaceFileStat.absolutePath}. */
-    readonly absolutePath: string
-    /** The target was observed to be gone. */
-    readonly absent: true
-  }
+      /** Absolute target path, in the same form as {@link WorkspaceFileStat.absolutePath}. */
+      readonly absolutePath: string
+      /** The target was observed to be gone. */
+      readonly absent: true
+    }
 
 /**
  * One frame of a workspace file watch generation. `ready` confirms that the
  * Host has initialized the target watcher; queued and live invalidations
  * follow as `change` frames with current target metadata.
  */
-export type WorkspaceFileWatchFrame =
-  | { readonly kind: 'ready' }
-  | { readonly kind: 'change'; readonly change: WorkspaceFileChange }
+export type WorkspaceFileWatchFrame = { readonly kind: 'ready' } | { readonly kind: 'change'; readonly change: WorkspaceFileChange }
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {

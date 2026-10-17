@@ -85,9 +85,11 @@ function hasIntrinsicConstructor(prototype: object, name: 'Array' | 'Object'): b
   const constructor: unknown = descriptor?.value
   if (typeof constructor !== 'function') return false
   try {
-    return constructor.name === name
-      && constructor.prototype === prototype
-      && intrinsicReflectApply(intrinsicFunctionToString, constructor, []) === `function ${name}() { [native code] }`
+    return (
+      constructor.name === name &&
+      constructor.prototype === prototype &&
+      intrinsicReflectApply(intrinsicFunctionToString, constructor, []) === `function ${name}() { [native code] }`
+    )
   } catch {
     return false
   }
@@ -104,17 +106,17 @@ function hasPlainArrayPrototype(value: unknown[]): boolean {
   if (prototype === intrinsicArrayPrototype) return true
   if (!intrinsicArrayIsArray(prototype) || !hasIntrinsicConstructor(prototype, 'Array')) return false
   const objectPrototype: unknown = intrinsicObjectGetPrototypeOf(prototype)
-  return typeof objectPrototype === 'object'
-    && objectPrototype !== null
-    && isForeignIntrinsicObjectPrototype(objectPrototype)
+  return typeof objectPrototype === 'object' && objectPrototype !== null && isForeignIntrinsicObjectPrototype(objectPrototype)
 }
 
 /** Whether an object is a plain or null-prototype record from any JavaScript realm. */
 function hasPlainObjectPrototype(value: object): boolean {
   const prototype: unknown = intrinsicObjectGetPrototypeOf(value)
-  return prototype === null
-    || prototype === intrinsicObjectPrototype
-    || typeof prototype === 'object' && isForeignIntrinsicObjectPrototype(prototype)
+  return (
+    prototype === null ||
+    prototype === intrinsicObjectPrototype ||
+    (typeof prototype === 'object' && isForeignIntrinsicObjectPrototype(prototype))
+  )
 }
 
 /** Return every JSON-visible object key, or reject own data JSON would discard. */
@@ -317,9 +319,7 @@ function containerToken(value: object): ArrayWireToken | ObjectWireToken | undef
   if (token.kind === 'array') {
     if (keys.length !== 2 || !keysContain(keys, 'kind') || !keysContain(keys, 'length')) return undefined
     const length = token.length
-    return typeof length === 'number' && intrinsicNumberIsSafeInteger(length) && length >= 0
-      ? { kind: 'array', length }
-      : undefined
+    return typeof length === 'number' && intrinsicNumberIsSafeInteger(length) && length >= 0 ? { kind: 'array', length } : undefined
   }
   if (token.kind === 'object') {
     if (keys.length !== 2 || !keysContain(keys, 'kind') || !keysContain(keys, 'keys')) return undefined

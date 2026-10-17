@@ -1,9 +1,6 @@
 /** Client-local object handles and CDP-compatible RemoteObject serialization. */
 
-import {
-  inspectorId,
-  type ClientRemoteObjectHandle,
-} from '../../shared/bridge/ids.ts'
+import { inspectorId, type ClientRemoteObjectHandle } from '../../shared/bridge/ids.ts'
 import { isJsonValue, type InspectorJsonValue } from '../../shared/json.ts'
 import type { ClientRuntimeRemoteObject } from '../../shared/bridge/messages/runtime/index.ts'
 import type {
@@ -88,11 +85,7 @@ export class ClientObjectStore {
    * @param allocation - Optional operation that owns any newly retained handle.
    * @returns A primitive value or opaque Client handle with display metadata.
    */
-  serialize(
-    value: unknown,
-    options: ClientRuntimeObjectOptions = {},
-    allocation?: ClientObjectAllocation,
-  ): ClientRuntimeRemoteObject {
+  serialize(value: unknown, options: ClientRuntimeObjectOptions = {}, allocation?: ClientObjectAllocation): ClientRuntimeRemoteObject {
     const primitive = serializePrimitive(value)
     if (primitive !== undefined) return primitive
     if (options.returnByValue === true) {
@@ -163,11 +156,7 @@ export class ClientObjectStore {
     this.allocations.clear()
   }
 
-  private register(
-    value: unknown,
-    group: string | undefined,
-    allocation: ClientObjectAllocation | undefined,
-  ): ClientRemoteObjectHandle {
+  private register(value: unknown, group: string | undefined, allocation: ClientObjectAllocation | undefined): ClientRemoteObjectHandle {
     if (this.objects.size >= this.maxObjects) {
       throw new ClientRuntimeExecutionError('result-too-large', `Client Runtime retained-object limit ${String(this.maxObjects)} reached`)
     }
@@ -217,11 +206,7 @@ function serializeByValue(value: unknown): InspectorJsonValue {
   return result
 }
 
-function preview(
-  value: unknown,
-  type: RuntimeRemoteObjectType,
-  subtype: RuntimeRemoteObjectSubtype | undefined,
-): RuntimeObjectPreview {
+function preview(value: unknown, type: RuntimeRemoteObjectType, subtype: RuntimeRemoteObjectSubtype | undefined): RuntimeObjectPreview {
   const properties: RuntimePropertyPreview[] = []
   let overflow = false
   if ((typeof value === 'object' && value !== null) || typeof value === 'function') {
@@ -380,9 +365,7 @@ function inheritsFrom(value: object, expected: object): boolean {
 function ownString(value: object, key: string): string | undefined {
   try {
     const descriptor = Reflect.getOwnPropertyDescriptor(value, key)
-    return descriptor !== undefined && 'value' in descriptor && typeof descriptor.value === 'string'
-      ? descriptor.value
-      : undefined
+    return descriptor !== undefined && 'value' in descriptor && typeof descriptor.value === 'string' ? descriptor.value : undefined
   } catch {
     return undefined
   }

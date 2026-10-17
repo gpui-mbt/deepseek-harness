@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import type { ReplayOverrideDoc } from '@deepseek-ai/dsh-llm-replay'
 import {
   assertFixtureInventory,
@@ -37,28 +37,33 @@ const REPLY = 'USER_INVOKE_REPLY acknowledged; following the injected skill.'
 async function seedUserOnlySkill(workspaceCwd: string): Promise<void> {
   const directory = join(workspaceCwd, 'workspace', '.agents', 'skills', SKILL_NAME)
   await mkdir(directory, { recursive: true })
-  await writeFile(join(directory, 'SKILL.md'), [
-    '---',
-    `name: ${SKILL_NAME}`,
-    'description: Prove user-explicit invocation of a model-hidden skill',
-    'disable-model-invocation: true',
-    '---',
-    '',
-    'Reply with the fixture acknowledgement line.',
-    '',
-  ].join('\n'))
+  await writeFile(
+    join(directory, 'SKILL.md'),
+    [
+      '---',
+      `name: ${SKILL_NAME}`,
+      'description: Prove user-explicit invocation of a model-hidden skill',
+      'disable-model-invocation: true',
+      '---',
+      '',
+      'Reply with the fixture acknowledgement line.',
+      '',
+    ].join('\n'),
+  )
 }
 
-const REPLAY: ReplayOverrideDoc = [{
-  kind: 'chunks',
-  chunks: [
-    { type: 'block-start', index: 0, blockType: 'text' },
-    { type: 'text-delta', index: 0, text: REPLY },
-    { type: 'block-end', index: 0, block: { type: 'text', text: REPLY } },
-    { type: 'usage', usage: { inputTokens: 256, outputTokens: 16 } },
-    { type: 'finish', reason: { kind: 'stop' } },
-  ],
-}]
+const REPLAY: ReplayOverrideDoc = [
+  {
+    kind: 'chunks',
+    chunks: [
+      { type: 'block-start', index: 0, blockType: 'text' },
+      { type: 'text-delta', index: 0, text: REPLY },
+      { type: 'block-end', index: 0, block: { type: 'text', text: REPLY } },
+      { type: 'usage', usage: { inputTokens: 256, outputTokens: 16 } },
+      { type: 'finish', reason: { kind: 'stop' } },
+    ],
+  },
+]
 
 describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation through the composer', () => {
   let scaffold: WebScaffold
@@ -93,8 +98,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     await browser?.close().catch((error: unknown) => failures.push(error))
     await scaffold?.close().catch((error: unknown) => failures.push(error))
     if (replayDir !== undefined) {
-      await rm(replayDir, { recursive: true, force: true })
-        .catch((error: unknown) => failures.push(error))
+      await rm(replayDir, { recursive: true, force: true }).catch((error: unknown) => failures.push(error))
     }
     if (failures.length === 1) throw failures[0]
     if (failures.length > 1) throw new AggregateError(failures, 'skill-user-invoke e2e cleanup failed')
@@ -108,10 +112,7 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     // The menu lists the user-only skill (its only entry point) before enter.
     await composer.fill(`/${SKILL_NAME}`)
     const menu = page.getByRole('listbox', { name: 'Trigger suggestions' })
-    await expect.poll(
-      () => menu.getByRole('option', { name: new RegExp(SKILL_NAME) }).count(),
-      { timeout: 10_000 },
-    ).toBe(1)
+    await expect.poll(() => menu.getByRole('option', { name: new RegExp(SKILL_NAME) }).count(), { timeout: 10_000 }).toBe(1)
 
     const settled = scaffold.whenTurnSettled()
     await composer.fill(`/${SKILL_NAME} ${ARGS_TEXT}`)
@@ -133,20 +134,21 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     expect(await page.locator('[data-chat-flow-kind="context"]').count()).toBe(0)
     const session = scaffold.ctx.sessions.get(sessionId)
     if (session === undefined) throw new Error('skill invocation session is unavailable')
-    const injected = session.snapshotEvents().flatMap(event => event.type === 'user/message'
-      && event.data.source.kind === 'skill-invocation'
-      ? event.data.content.flatMap(block => block.type === 'text' ? [block.text] : []) : []).join('')
+    const injected = session
+      .snapshotEvents()
+      .flatMap(event =>
+        event.type === 'user/message' && event.data.source.kind === 'skill-invocation'
+          ? event.data.content.flatMap(block => (block.type === 'text' ? [block.text] : []))
+          : [],
+      )
+      .join('')
     expect(injected).toContain(`<skill_content name="${SKILL_NAME}">`)
     expect(injected).toContain('Reply with the fixture acknowledgement line.')
     expect(injected).not.toContain(ARGS_TEXT)
 
     const snapshot = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
-    const expanded = await captureExpandedTurnProcessAria(
-      page,
-      '[class*="centerCol"]',
-      scaffold.workspaceCwd,
-    )
+    const expanded = await captureExpandedTurnProcessAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPANDED_EXPECTED, expanded, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
@@ -163,14 +165,16 @@ describe.skipIf(MODE === 'record')('web e2e: user-explicit skill invocation thro
     await skill.click()
     await expect.poll(() => preview.textContent(), { timeout: 10_000 }).toContain('Reply with the fixture acknowledgement line.')
     const file = page.locator('[data-chat-flow-kind="user"] [data-ref-chip="file"]').first()
-    const bounds = await file.evaluate((element) => {
+    const bounds = await file.evaluate(element => {
       const bubble = element.closest('[class*="bubble"]')
       if (bubble === null) throw new Error('file reference has no user bubble')
       const label = element.getBoundingClientRect()
       const container = bubble.getBoundingClientRect()
       return {
-        left: label.left - container.left, right: container.right - label.right,
-        height: label.height, lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
+        left: label.left - container.left,
+        right: container.right - label.right,
+        height: label.height,
+        lineHeight: Number.parseFloat(getComputedStyle(element).lineHeight),
       }
     })
     expect(bounds.left).toBeGreaterThanOrEqual(0)

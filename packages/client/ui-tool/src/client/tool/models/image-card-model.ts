@@ -62,9 +62,7 @@ const IMAGE_ENVELOPE = /^<path>[^\n]*<\/path>\n<type>image<\/type>\n<content>\n[
  *  boundary needs a runtime check and feature plugins must not import values
  *  from each other; a new member added there must be added here too, or the
  *  decline point below silently degrades that image to the generic card. */
-const IMAGE_MEDIA_TYPES: ReadonlySet<ImageMediaType> = new Set([
-  'image/png', 'image/jpeg', 'image/webp', 'image/gif',
-])
+const IMAGE_MEDIA_TYPES: ReadonlySet<ImageMediaType> = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
 
 /** Runtime membership check; the cast is safe because the set holds exactly the four members. */
 function isImageMediaType(value: string): value is ImageMediaType {
@@ -114,9 +112,7 @@ function imageReferences(content: readonly unknown[]): ImageAttachmentRef[] | nu
     const { type, attachment } = part as { type?: unknown; attachment?: unknown }
     if (type !== 'image') continue
     if (typeof attachment !== 'object' || attachment === null || Array.isArray(attachment)) return null
-    const {
-      attachmentId, mediaType, bytes, width, height, name, originalDimensions,
-    } = attachment as Record<string, unknown>
+    const { attachmentId, mediaType, bytes, width, height, name, originalDimensions } = attachment as Record<string, unknown>
     if (typeof attachmentId !== 'string' || attachmentId === '') return null
     if (typeof mediaType !== 'string' || !isImageMediaType(mediaType)) return null
     // Narrowed one at a time: a loop over the three does validate them, but the
@@ -139,8 +135,8 @@ function imageReferences(content: readonly unknown[]): ImageAttachmentRef[] | nu
       bytes,
       width,
       height,
-      ...name === undefined ? {} : { name },
-      ...inputDimensions === undefined ? {} : { originalDimensions: inputDimensions },
+      ...(name === undefined ? {} : { name }),
+      ...(inputDimensions === undefined ? {} : { originalDimensions: inputDimensions }),
     })
   }
   return refs.length > 0 ? refs : null
@@ -154,9 +150,9 @@ function imageReferences(content: readonly unknown[]): ImageAttachmentRef[] | nu
  * @returns the joined text, or null when there is none.
  */
 function extraTexts(content: readonly { type: string; text?: string }[]): string | null {
-  const parts = content.flatMap(part => part.type === 'text' && typeof part.text === 'string' && !IMAGE_ENVELOPE.test(part.text)
-    ? [part.text]
-    : [])
+  const parts = content.flatMap(part =>
+    part.type === 'text' && typeof part.text === 'string' && !IMAGE_ENVELOPE.test(part.text) ? [part.text] : [],
+  )
   return parts.length > 0 ? parts.join('\n') : null
 }
 
@@ -172,7 +168,7 @@ function extraTexts(content: readonly { type: string; text?: string }[]): string
  * @returns true when every block is a text or image object with usable fields.
  */
 function fullyRendered(content: readonly unknown[]): boolean {
-  return content.every((part) => {
+  return content.every(part => {
     if (typeof part !== 'object' || part === null) return false
     const { type, text } = part as { type?: unknown; text?: unknown }
     return type === 'image' || (type === 'text' && typeof text === 'string')

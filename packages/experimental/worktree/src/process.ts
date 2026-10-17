@@ -16,12 +16,25 @@ export interface ProcessConfig {
 }
 
 /** Clear inherited repository, attribute-tree, command-line configuration, and replacement-ref selectors. */
-const GIT_ENV: NodeJS.ProcessEnv = Object.fromEntries([
-  'GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY',
-  'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_CONFIG', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT',
-  'GIT_CEILING_DIRECTORIES', 'GIT_PREFIX', 'GIT_SHALLOW_FILE', 'GIT_GRAFT_FILE',
-  'GIT_REPLACE_REF_BASE', 'GIT_ATTR_SOURCE',
-].map(key => [key, undefined]))
+const GIT_ENV: NodeJS.ProcessEnv = Object.fromEntries(
+  [
+    'GIT_DIR',
+    'GIT_WORK_TREE',
+    'GIT_COMMON_DIR',
+    'GIT_INDEX_FILE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_CONFIG',
+    'GIT_CONFIG_PARAMETERS',
+    'GIT_CONFIG_COUNT',
+    'GIT_CEILING_DIRECTORIES',
+    'GIT_PREFIX',
+    'GIT_SHALLOW_FILE',
+    'GIT_GRAFT_FILE',
+    'GIT_REPLACE_REF_BASE',
+    'GIT_ATTR_SOURCE',
+  ].map(key => [key, undefined]),
+)
 
 /**
  * Run an argv without a shell and await termination of its managed process range.
@@ -49,9 +62,10 @@ export async function runCommand(
   timeout.signal.throwIfAborted()
   const program = await ctx.subprocess.resolveExecutable(argv[0], undefined, timeout.signal)
   const command = [program, ...argv.slice(1)]
-  const wrapped = policy.mode === 'danger-full-access'
-    ? command
-    : (await ctx.sandbox.confine(command, { ...policy, mode: policy.mode }, timeout.signal)).argv
+  const wrapped =
+    policy.mode === 'danger-full-access'
+      ? command
+      : (await ctx.sandbox.confine(command, { ...policy, mode: policy.mode }, timeout.signal)).argv
   timeout.signal.throwIfAborted()
   const child = ctx.subprocess.spawn({
     argv: wrapped,

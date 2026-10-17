@@ -33,24 +33,19 @@ export function PaneTree({ state, nodeId, callbacks, preview }: PaneTreeProps): 
   if (node.kind === 'pane') return <TabPanel state={state} pane={node} callbacks={callbacks} />
   const sizes = preview !== undefined && preview.splitId === node.id ? preview.sizes : node.sizes
   return (
-    <div
-      className={clsx(css.split, node.axis === 'row' ? css.splitRow : css.splitColumn)}
-      data-dockkit-split={node.id}
-    >
+    <div className={clsx(css.split, node.axis === 'row' ? css.splitRow : css.splitColumn)} data-dockkit-split={node.id}>
       {node.children.map((childId, index) => (
         <Fragment key={childId}>
           {index > 0 && (
             <div
               className={css.divider}
               data-dockkit-divider={`${node.id}:${index - 1}`}
-              onPointerDown={(event) => { callbacks.onDividerPressed(node.id, index - 1, event) }}
+              onPointerDown={event => {
+                callbacks.onDividerPressed(node.id, index - 1, event)
+              }}
             />
           )}
-          <div
-            className={css.splitCell}
-            data-dockkit-cell={`${node.id}:${index}`}
-            style={{ flexGrow: sizes[index] }}
-          >
+          <div className={css.splitCell} data-dockkit-cell={`${node.id}:${index}`} style={{ flexGrow: sizes[index] }}>
             <PaneTree state={state} nodeId={childId} callbacks={callbacks} preview={preview} />
           </div>
         </Fragment>

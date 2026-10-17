@@ -6,7 +6,10 @@
  * @param target - Distribution platform and CPU.
  * @returns Engine package suffix.
  */
-export function selectOfficeEngine(manifest: { optionalDependencies?: Record<string, string> }, target: { platform: string; arch: string }): string
+export function selectOfficeEngine(
+  manifest: { optionalDependencies?: Record<string, string> },
+  target: { platform: string; arch: string },
+): string
 
 /**
  * Return absolute package directories inside the installed project, rejecting an incomplete closure.

@@ -119,7 +119,12 @@ export function createOn(mod: LoadedMod): { on: ModOn; hooks: RegisteredHook[] }
       unmatched.add(event)
     }
     const registered: RegisteredHook = {
-      mod, event, matcher, hook: hook as AnyHook, catchHandler: undefined, reported: new Set(),
+      mod,
+      event,
+      matcher,
+      hook: hook as AnyHook,
+      catchHandler: undefined,
+      reported: new Set(),
     }
     hooks.push(registered)
     return {

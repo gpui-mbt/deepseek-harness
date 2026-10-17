@@ -89,7 +89,11 @@ export interface ModEvents {
 /** The `on` function `register` receives: typed for the events this host raises, open for every other Claude Code event. */
 export interface ModOn {
   <K extends keyof ModEvents>(event: K, hook: ModHook<ModEvents[K]['input'], ModEvents[K]['result']>): HookRegistration
-  <K extends keyof ModEvents>(event: K, matcher: HookMatcher, hook: ModHook<ModEvents[K]['input'], ModEvents[K]['result']>): HookRegistration
+  <K extends keyof ModEvents>(
+    event: K,
+    matcher: HookMatcher,
+    hook: ModHook<ModEvents[K]['input'], ModEvents[K]['result']>,
+  ): HookRegistration
   (event: string, hook: AnyHook): HookRegistration
   (event: string, matcher: HookMatcher, hook: AnyHook): HookRegistration
 }
@@ -154,9 +158,7 @@ export interface UiRenderInput {
 export type UiRenderResult = UiNode
 
 /** Where a prompt or command came from. */
-export type PromptOrigin =
-  | { kind: 'composer' }
-  | { kind: 'plugin'; name: string }
+export type PromptOrigin = { kind: 'composer' } | { kind: 'plugin'; name: string }
 
 /** `session.start`: once per root agent before its first prompt; every loaded mod's hook sees the same event. */
 export interface SessionStartInput {

@@ -1,7 +1,7 @@
 // Card view model: what a definition card can and cannot derive from the frozen
 // call/result slice.
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { StartedToolCall, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import { cordisActionCard, cordisDefineCard } from '../src/client/card-model.ts'
@@ -11,19 +11,35 @@ const ARGS = '{"name":"clock","purpose":"顶栏时钟","code":{"client":"return 
 function running(over: Partial<StartedToolCall> = {}): StartedToolCall {
   const argsRaw = over.argsRaw ?? ARGS
   return {
-    phase: 'start' as const, args: PartialArguments.fromText(argsRaw), callId: 'call-1', name: 'cordis_define', argsRaw, turn: 1, step: 1, time: 1_000,
-    subCalls: [], ...over,
+    phase: 'start' as const,
+    args: PartialArguments.fromText(argsRaw),
+    callId: 'call-1',
+    name: 'cordis_define',
+    argsRaw,
+    turn: 1,
+    step: 1,
+    time: 1_000,
+    subCalls: [],
+    ...over,
   }
 }
 
 function settled(over: Partial<ToolResultNode> = {}): ToolResultNode {
   const call = over.call === undefined ? { name: 'cordis_define', argsRaw: ARGS } : over.call
   return {
-    kind: 'tool-result', seq: 2, time: 2_000, callId: 'call-1',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
-    call, callTime: 1_000,
-    content: [{ type: 'text', text: 'defined dyn-1' }], isError: false,
-    meta: { pluginId: 'dyn-1', packageId: 'pkg-1' }, subCalls: [], ...over,
+    kind: 'tool-result',
+    seq: 2,
+    time: 2_000,
+    callId: 'call-1',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    call,
+    callTime: 1_000,
+    content: [{ type: 'text', text: 'defined dyn-1' }],
+    isError: false,
+    meta: { pluginId: 'dyn-1', packageId: 'pkg-1' },
+    subCalls: [],
+    ...over,
   }
 }
 
@@ -31,7 +47,11 @@ describe('cordisDefineCard', () => {
   it('reads name, purpose and both code halves off the call arguments', () => {
     const card = cordisDefineCard(running())
     expect(card).toMatchObject({
-      name: 'clock', purpose: '顶栏时钟', clientCode: 'return {}', state: 'running', output: null,
+      name: 'clock',
+      purpose: '顶栏时钟',
+      clientCode: 'return {}',
+      state: 'running',
+      output: null,
     })
     expect(card.hostCode).toContain('harness.handle')
     // The host mints the id during define, so an unsettled call has none and the
@@ -55,9 +75,12 @@ describe('cordisDefineCard', () => {
   })
 
   it('classifies the define call’s own lifecycle and never operates a failed one', () => {
-    const failed = cordisDefineCard(settled({
-      isError: true, content: [{ type: 'text', text: 'SyntaxError: unexpected token\n  at line 3' }],
-    }))
+    const failed = cordisDefineCard(
+      settled({
+        isError: true,
+        content: [{ type: 'text', text: 'SyntaxError: unexpected token\n  at line 3' }],
+      }),
+    )
     expect(failed.state).toBe('error')
     expect(failed.errorSummary).toBe('SyntaxError: unexpected token')
     // A definition that failed to register has nothing to run.
@@ -67,8 +90,7 @@ describe('cordisDefineCard', () => {
     expect(cordisDefineCard(settled({ content: [] })).output).toBeNull()
     expect(cordisDefineCard(settled({ content: [], error: { name: 'E', code: 'boom' } })).output).toBe('E: boom')
     // A non-text block has no display text of its own, so the row shows its JSON.
-    expect(cordisDefineCard(settled({ content: [{ type: 'reasoning', text: 'weighing it' }] })).output)
-      .toContain('"type": "reasoning"')
+    expect(cordisDefineCard(settled({ content: [{ type: 'reasoning', text: 'weighing it' }] })).output).toContain('"type": "reasoning"')
   })
 
   it('degrades on a truncated argument stream instead of dropping the row', () => {
@@ -93,11 +115,13 @@ describe('cordisDefineCard', () => {
 
 describe('cordisActionCard', () => {
   it('keeps the Plugin identity and lifecycle result for Stop and Remove cards', () => {
-    const card = cordisActionCard(settled({
-      call: { name: 'cordis_stop', argsRaw: '{"pluginId":"clock-1"}' },
-      content: [{ type: 'text', text: 'Stopped clock-1.' }],
-      meta: undefined,
-    }))
+    const card = cordisActionCard(
+      settled({
+        call: { name: 'cordis_stop', argsRaw: '{"pluginId":"clock-1"}' },
+        content: [{ type: 'text', text: 'Stopped clock-1.' }],
+        meta: undefined,
+      }),
+    )
 
     expect(card).toEqual({
       pluginId: 'clock-1',

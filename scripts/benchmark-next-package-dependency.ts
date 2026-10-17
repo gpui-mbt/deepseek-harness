@@ -62,9 +62,7 @@ export function parseNextPackageBenchmarkOptions(args: readonly string[]): Optio
     allowPositionals: false,
   })
   return {
-    ...(values.candidates === undefined
-      ? {}
-      : { candidates: values.candidates.split(',').filter(Boolean) }),
+    ...(values.candidates === undefined ? {} : { candidates: values.candidates.split(',').filter(Boolean) }),
     coarseRuns: parsePositiveIntegerOption(values.runs, 1, '--runs'),
     finalistRuns: parsePositiveIntegerOption(values['finalist-runs'], 3, '--finalist-runs'),
     finalists: parsePositiveIntegerOption(values.finalists, 5, '--finalists'),
@@ -76,19 +74,16 @@ export function parseNextPackageBenchmarkOptions(args: readonly string[]): Optio
 function median(values: readonly number[]): number {
   const sorted = [...values].sort((left, right) => left - right)
   const middle = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 0
-    ? ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2
-    : sorted[middle] ?? 0
+  return sorted.length % 2 === 0 ? ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2 : (sorted[middle] ?? 0)
 }
 
 function cloneIndex(index: RegistryIndex): Map<string, Map<string, MutableRegistryManifest>> {
-  return new Map([...index].map(([name, versions]) => [
-    name,
-    new Map([...versions].map(([version, manifest]) => [
-      version,
-      structuredClone(manifest) as MutableRegistryManifest,
-    ])),
-  ]))
+  return new Map(
+    [...index].map(([name, versions]) => [
+      name,
+      new Map([...versions].map(([version, manifest]) => [version, structuredClone(manifest) as MutableRegistryManifest])),
+    ]),
+  )
 }
 
 function publishedSection(
@@ -96,10 +91,12 @@ function publishedSection(
   workspaceVersions: ReadonlyMap<string, string>,
 ): Record<string, string> | undefined {
   if (values === undefined) return undefined
-  return Object.fromEntries(Object.entries(values).map(([name, range]) => {
-    const version = workspaceVersions.get(name)
-    return [name, version === undefined ? range : publishWorkspaceRange(range, version)]
-  }))
+  return Object.fromEntries(
+    Object.entries(values).map(([name, range]) => {
+      const version = workspaceVersions.get(name)
+      return [name, version === undefined ? range : publishWorkspaceRange(range, version)]
+    }),
+  )
 }
 
 /** Apply one source-derived policy result to an in-memory registry manifest. */
@@ -149,27 +146,27 @@ export function discoverBenchmarkCandidates(
     const installed = {
       ...manifest.dependencies,
       ...manifest.optionalDependencies,
-      ...Object.fromEntries(Object.entries(manifest.peerDependencies ?? {})
-        .filter(([peer]) => (manifest.peerDependenciesMeta?.[peer] as { optional?: boolean } | undefined)?.optional !== true)),
+      ...Object.fromEntries(
+        Object.entries(manifest.peerDependencies ?? {}).filter(
+          ([peer]) => (manifest.peerDependenciesMeta?.[peer] as { optional?: boolean } | undefined)?.optional !== true,
+        ),
+      ),
     }
     for (const dependency of Object.keys(installed).sort()) {
       if (!reached.has(dependency)) queue.push(dependency)
     }
   }
-  return [...reached].filter((name) => {
-    if (policyPackages.has(name) || !releasePackages.has(name)) return false
-    const version = workspaceVersions.get(name)
-    const manifest = version === undefined ? undefined : index.get(name)?.get(version)
-    return Object.keys(manifest?.peerDependencies ?? {}).some(peer => peer !== CORDIS)
-  }).sort()
+  return [...reached]
+    .filter(name => {
+      if (policyPackages.has(name) || !releasePackages.has(name)) return false
+      const version = workspaceVersions.get(name)
+      const manifest = version === undefined ? undefined : index.get(name)?.get(version)
+      return Object.keys(manifest?.peerDependencies ?? {}).some(peer => peer !== CORDIS)
+    })
+    .sort()
 }
 
-async function measure(
-  index: RegistryIndex,
-  targetVersion: string,
-  runs: number,
-  timeoutMs: number,
-): Promise<number[]> {
+async function measure(index: RegistryIndex, targetVersion: string, runs: number, timeoutMs: number): Promise<number[]> {
   const seconds: number[] = []
   for (let run = 0; run < runs; run += 1) {
     const result = await benchmarkNpmResolution(index, targetVersion, timeoutMs)
@@ -179,22 +176,20 @@ async function measure(
   return seconds
 }
 
-async function mapConcurrent<T, R>(
-  values: readonly T[],
-  jobs: number,
-  operation: (value: T) => Promise<R>,
-): Promise<R[]> {
+async function mapConcurrent<T, R>(values: readonly T[], jobs: number, operation: (value: T) => Promise<R>): Promise<R[]> {
   const results: R[] = []
   let next = 0
-  await Promise.all(Array.from({ length: Math.min(jobs, values.length) }, async () => {
-    while (next < values.length) {
-      const index = next
-      next += 1
-      const value = values[index]
-      if (value === undefined) return
-      results[index] = await operation(value)
-    }
-  }))
+  await Promise.all(
+    Array.from({ length: Math.min(jobs, values.length) }, async () => {
+      while (next < values.length) {
+        const index = next
+        next += 1
+        const value = values[index]
+        if (value === undefined) return
+        results[index] = await operation(value)
+      }
+    }),
+  )
   return results
 }
 
@@ -216,11 +211,15 @@ async function main(): Promise<void> {
   for (const name of candidates) {
     if (!discovered.includes(name)) throw new Error(`${name} is not a reachable unconfigured Host candidate`)
   }
-  const candidateFacts = new Map(await Promise.all(candidates.map(async (name) => {
-    const pkg = releaseByName.get(name)
-    if (pkg === undefined) throw new Error(`release set has no ${name}`)
-    return [name, await readPackageDependencyFacts(root, pkg, 'configured-host', state.workspaceNames)] as const
-  })))
+  const candidateFacts = new Map(
+    await Promise.all(
+      candidates.map(async name => {
+        const pkg = releaseByName.get(name)
+        if (pkg === undefined) throw new Error(`release set has no ${name}`)
+        return [name, await readPackageDependencyFacts(root, pkg, 'configured-host', state.workspaceNames)] as const
+      }),
+    ),
+  )
 
   const baselineSeconds = await measure(base, targetVersion, options.finalistRuns, options.timeoutMs)
   const baseline = median(baselineSeconds)
@@ -236,8 +235,7 @@ async function main(): Promise<void> {
     console.log(JSON.stringify({ type: 'coarse', ...result }))
     return result
   })
-  const finalists = coarse.sort((left, right) => left.medianSeconds - right.medianSeconds)
-    .slice(0, options.finalists)
+  const finalists = coarse.sort((left, right) => left.medianSeconds - right.medianSeconds).slice(0, options.finalists)
   const measured: Measurement[] = []
   for (const finalist of finalists) {
     const index = cloneIndex(base)
@@ -247,18 +245,25 @@ async function main(): Promise<void> {
     const seconds = await measure(index, targetVersion, options.finalistRuns, options.timeoutMs)
     measured.push({ package: finalist.package, seconds, medianSeconds: median(seconds) })
   }
-  const ranking = measured.sort((left, right) => left.medianSeconds - right.medianSeconds)
+  const ranking = measured
+    .sort((left, right) => left.medianSeconds - right.medianSeconds)
     .map(result => ({
       ...result,
       gainSeconds: Number((baseline - result.medianSeconds).toFixed(2)),
     }))
-  console.log(JSON.stringify({
-    type: 'result',
-    baselineSeconds,
-    baselineMedianSeconds: baseline,
-    candidateCount: candidates.length,
-    ranking,
-  }, null, 2))
+  console.log(
+    JSON.stringify(
+      {
+        type: 'result',
+        baselineSeconds,
+        baselineMedianSeconds: baseline,
+        candidateCount: candidates.length,
+        ranking,
+      },
+      null,
+      2,
+    ),
+  )
 }
 
 if (import.meta.main) {

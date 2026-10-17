@@ -79,8 +79,9 @@ function namespaceProxy(namespace: string, connection: ConnectionHandle, mock: R
           if (open === undefined) throw new Error(`client-test-runtime: ${endpoint} is a stream but the carrier has no in-process opener`)
           return open('/api', endpoint, { args }, signal ?? new AbortController().signal)
         }
-        return connection.rpc.call('/api', endpoint, { args }, signal).catch((error: unknown) =>
-          (signal?.aborted === true ? cancelledFailure(endpoint, error) : carrierFailure(endpoint, error)))
+        return connection.rpc
+          .call('/api', endpoint, { args }, signal)
+          .catch((error: unknown) => (signal?.aborted === true ? cancelledFailure(endpoint, error) : carrierFailure(endpoint, error)))
       }
     },
   })

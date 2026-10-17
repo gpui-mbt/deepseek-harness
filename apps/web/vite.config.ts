@@ -9,9 +9,10 @@ import { productWebBundleIsolation } from './product-isolation.ts'
 import { katexWoff2Fonts } from './katex-fonts.ts'
 
 const src = (rel: string): string => fileURLToPath(new URL(rel, import.meta.url))
-const STANDALONE_ERROR = 'apps/web is not a standalone application: bare Vite cannot inject window.__DSH_BOOT__. '
-  + 'From a repository checkout, run `pnpm dsh web`; an installed package uses `dsh web`. '
-  + 'For client-plugin HMR, run `pnpm run dev:web`, which starts `dsh web` and the rebuild watchers together.'
+const STANDALONE_ERROR =
+  'apps/web is not a standalone application: bare Vite cannot inject window.__DSH_BOOT__. ' +
+  'From a repository checkout, run `pnpm dsh web`; an installed package uses `dsh web`. ' +
+  'For client-plugin HMR, run `pnpm run dev:web`, which starts `dsh web` and the rebuild watchers together.'
 const DEFAULT_CLIENT_TITLE = 'DSH Local Build'
 
 /** Escape build-time text before placing it in the HTML title element. */
@@ -83,7 +84,9 @@ function emitPreviewPage(): Plugin {
       }
       if (bootstrapFile === undefined) throw new Error('vite: preview bootstrap entry missing from the bundle')
     },
-    writeBundle() { written = true },
+    writeBundle() {
+      written = true
+    },
     async closeBundle() {
       if (!write || !written || bootstrapFile === undefined) return
       const page = await readFile(resolve(outputDirectory, 'index.html'), 'utf8')
@@ -144,11 +147,7 @@ const VENDOR_PACKAGES: ReadonlySet<string> = new Set([
  * part of the initial load and belong in the vendor chunk; the lazy ones must
  * stay unassigned so each keeps its own on-demand chunk.
  */
-const BOOT_GRAMMAR_FILES: readonly string[] = [
-  'dist/typescript.mjs',
-  'dist/shellscript.mjs',
-  'dist/json.mjs',
-]
+const BOOT_GRAMMAR_FILES: readonly string[] = ['dist/typescript.mjs', 'dist/shellscript.mjs', 'dist/json.mjs']
 
 /** Font asset extensions routed to assets/fonts/. */
 const FONT_EXTENSIONS: readonly string[] = ['.woff2', '.woff', '.ttf']
@@ -171,7 +170,12 @@ export default defineConfig({
   // directory, and the served index resolves identically from the site root.
   base: './',
   plugins: [
-    rejectStandaloneServe(), clientDocumentTitle(), brandFontLicense(), katexWoff2Fonts(), react(), emitPreviewPage(),
+    rejectStandaloneServe(),
+    clientDocumentTitle(),
+    brandFontLicense(),
+    katexWoff2Fonts(),
+    react(),
+    emitPreviewPage(),
     productWebBundleIsolation(src('../..'), src('.')),
   ],
   build: {
@@ -244,9 +248,7 @@ export default defineConfig({
     // beside the bundle. Plugin packages never enter this graph; they arrive as
     // runtime bundles through the client module system. The remaining alias
     // browserizes the vendored Cordis Loader's only Node import.
-    alias: [
-      { find: /^node:module$/, replacement: src('./src/node-module-stub.ts') },
-    ],
+    alias: [{ find: /^node:module$/, replacement: src('./src/node-module-stub.ts') }],
   },
   define: {
     ...clientBuildEnvironmentDefines(process.env),

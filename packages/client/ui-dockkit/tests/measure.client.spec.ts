@@ -3,7 +3,7 @@
  * The DOM side of the room rule, over a hand-built pane tree: which rectangles
  * and computed styles feed `halvesFit`, and what an unmeasured pane reads as.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { fitOf, measurePaneFits, paneElements, sameFits } from '../src/components/measure.ts'
 import type { HalvesFit, Rect } from '../src/engine/geometry.ts'
 import { asPane } from './fixtures.client.ts'
@@ -11,7 +11,12 @@ import { asPane } from './fixtures.client.ts'
 /** Give one element a fixed rectangle, as a browser's layout would. */
 function lay(element: HTMLElement, rect: Rect): void {
   element.getBoundingClientRect = (): DOMRect => ({
-    ...rect, top: rect.y, left: rect.x, right: rect.x + rect.width, bottom: rect.y + rect.height, toJSON: () => ({}),
+    ...rect,
+    top: rect.y,
+    left: rect.x,
+    right: rect.x + rect.width,
+    bottom: rect.y + rect.height,
+    toJSON: () => ({}),
   })
 }
 
@@ -50,7 +55,9 @@ function surface(): HTMLElement {
   return root
 }
 
-afterEach(() => { document.body.replaceChildren() })
+afterEach(() => {
+  document.body.replaceChildren()
+})
 
 describe('measurePaneFits', () => {
   it('keys every pane by the id it carries, and reads an unlaid pane as fitting', () => {
@@ -65,7 +72,7 @@ describe('measurePaneFits', () => {
   })
 
   // 308px: halves of 152px inside the borders, against 104px of controls plus one chip.
-  it('reads the chip minimum from a rendered chip\'s computed style, padding included for a content box', () => {
+  it("reads the chip minimum from a rendered chip's computed style, padding included for a content box", () => {
     const root = surface()
     const narrow = pane('p', 308)
     root.append(narrow)
@@ -85,7 +92,7 @@ describe('measurePaneFits', () => {
   })
 
   // 416px: halves of 204px against 204 with the stylesheet's zero divider, 202 with an 8px one.
-  it('reads the divider\'s thickness from a rendered divider, and the stylesheet\'s before one exists', () => {
+  it("reads the divider's thickness from a rendered divider, and the stylesheet's before one exists", () => {
     const root = surface()
     root.append(pane('p', 416))
     expect(measurePaneFits(root).get(asPane('p'))?.row).toBe(true)

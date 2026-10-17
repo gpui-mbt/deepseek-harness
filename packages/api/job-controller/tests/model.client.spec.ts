@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { JobId } from '@deepseek-ai/dsh-jobs/brand'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -12,7 +12,11 @@ const S2 = 'bob' as SessionId
 
 function view(over: Partial<JobView> = {}): JobView {
   return {
-    id: ID, kind: 'bash', label: 'pnpm run build', status: 'running', startedAt: 5,
+    id: ID,
+    kind: 'bash',
+    label: 'pnpm run build',
+    status: 'running',
+    startedAt: 5,
     output: { total: 0, earliest: 0 },
     ...over,
   }
@@ -30,7 +34,9 @@ describe('ClientJobsModel rows', () => {
   it('replaces a session roster whole, stores an empty set as absence, and drops on release', () => {
     const model = new ClientJobsModel()
     let notified = 0
-    model.subscribe(() => { notified += 1 })
+    model.subscribe(() => {
+      notified += 1
+    })
     model.rowsReplaced(S1, [view()])
     model.rowsReplaced(S2, [view({ id: 'pwsh-1' as JobId, label: 'other' })])
     expect(model.getSnapshot().rows[S1]).toEqual([view()])
@@ -59,7 +65,14 @@ describe('ClientJobsModel observation', () => {
     const model = new ClientJobsModel()
     opened(model)
     expect(model.cursorOf(ID)).toBe(0)
-    model.observeOutput(ID, { type: 'output', chunks: [{ at: 0, text: 'a' }, { at: 1, text: 'b' }], next: 2 })
+    model.observeOutput(ID, {
+      type: 'output',
+      chunks: [
+        { at: 0, text: 'a' },
+        { at: 1, text: 'b' },
+      ],
+      next: 2,
+    })
     model.observeOutput(ID, { type: 'output', chunks: [{ at: 2, text: 'c' }], next: 3 })
     expect(model.cursorOf(ID)).toBe(3)
     const live = model.getSnapshot().observed[String(ID)]
@@ -72,7 +85,9 @@ describe('ClientJobsModel observation', () => {
   it('keeps snapshot identity stable between changes and notifies subscribers', () => {
     const model = new ClientJobsModel()
     let notified = 0
-    const unsubscribe = model.subscribe(() => { notified += 1 })
+    const unsubscribe = model.subscribe(() => {
+      notified += 1
+    })
     const before = model.getSnapshot()
     expect(model.getSnapshot()).toBe(before)
     opened(model)
@@ -117,7 +132,7 @@ describe('ClientJobsModel observation', () => {
   it('bounds the render tail without splitting a surrogate pair', () => {
     const model = new ClientJobsModel()
     opened(model)
-    const emoji = '😀'.repeat((64 * 1024) + 8)
+    const emoji = '😀'.repeat(64 * 1024 + 8)
     model.observeOutput(ID, { type: 'output', chunks: [{ at: 0, text: emoji }], next: emoji.length * 2 })
     const live = model.getSnapshot().observed[String(ID)]
     expect(live?.gapBefore).toBe(true)
@@ -129,7 +144,7 @@ describe('ClientJobsModel observation', () => {
   it('trims a plain-ASCII tail without a boundary shift', () => {
     const model = new ClientJobsModel()
     opened(model)
-    const long = 'x'.repeat((128 * 1024) + 5)
+    const long = 'x'.repeat(128 * 1024 + 5)
     model.observeOutput(ID, { type: 'output', chunks: [{ at: 0, text: long }], next: long.length })
     const live = model.getSnapshot().observed[String(ID)]
     expect(live?.text.length).toBe(128 * 1024)
@@ -140,10 +155,10 @@ describe('ClientJobsModel observation', () => {
     const model = new ClientJobsModel()
     opened(model)
     // 'z' + one emoji + odd ASCII tail puts a low surrogate exactly at the cut index.
-    const text = 'z😀' + 'a'.repeat((128 * 1024) - 1)
+    const text = 'z😀' + 'a'.repeat(128 * 1024 - 1)
     model.observeOutput(ID, { type: 'output', chunks: [{ at: 0, text }], next: text.length })
     const live = model.getSnapshot().observed[String(ID)]
-    expect(live?.text.length).toBe((128 * 1024) - 1)
+    expect(live?.text.length).toBe(128 * 1024 - 1)
     expect(live?.text.startsWith('a')).toBe(true)
   })
 
@@ -211,7 +226,9 @@ class FakeStream<Frame> {
     if (this.deferDispose) {
       // Repeat disposals (releaser plus the consumer's finally) share one
       // deferred promise, so releaseDispose resumes every waiter.
-      this.disposePending ??= new Promise((resolve) => { this.disposeRelease = resolve })
+      this.disposePending ??= new Promise(resolve => {
+        this.disposeRelease = resolve
+      })
       return this.disposePending
     }
     return Promise.resolve()
@@ -227,14 +244,18 @@ class FakeStream<Frame> {
       if (this.failure !== undefined) throw this.failure
       const frame = this.frames.shift()
       if (frame === undefined) {
-        await new Promise<void>((resolve) => { this.waiter = resolve })
+        await new Promise<void>(resolve => {
+          this.waiter = resolve
+        })
         continue
       }
       yield {
         generation,
         value: frame,
         signal: new AbortController().signal,
-        accept: () => { this.accepts.push(generation) },
+        accept: () => {
+          this.accepts.push(generation)
+        },
       }
       generation = 1
     }
@@ -263,11 +284,19 @@ function bench() {
     job: {
       follow: (request: unknown) => {
         observeCalls.push(request)
-        return { [Symbol.asyncIterator]: async function* () { /* never yields */ } }
+        return {
+          [Symbol.asyncIterator]: async function* () {
+            /* never yields */
+          },
+        }
       },
       list: (request: unknown) => {
         rowsCalls.push(request)
-        return { [Symbol.asyncIterator]: async function* () { /* never yields */ } }
+        return {
+          [Symbol.asyncIterator]: async function* () {
+            /* never yields */
+          },
+        }
       },
       kill: async (request: unknown) => {
         killCalls.push(request)
@@ -542,7 +571,9 @@ describe('ClientJobs observation streams', () => {
     await tick()
 
     let settled = false
-    const disposal = ctx.fiber.dispose().then(() => { settled = true })
+    const disposal = ctx.fiber.dispose().then(() => {
+      settled = true
+    })
     await tick()
     // Both carriers were told to stop, but neither iterator has closed yet:
     // the fiber must still be unloading, or a successor plugin instance could

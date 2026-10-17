@@ -1,12 +1,14 @@
 /** Native initialization precedes Client mounting and does not persist automatic locale choices. */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, LocaleRuntime } from '../src/client/index.ts'
 import { parseLocaleBootstrap } from '../src/client/bootstrap.ts'
 import type { LocaleSettings } from '../src/locale-settings.ts'
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('native locale initialization', () => {
   it('reports a failed native read instead of silently choosing a language', async () => {
@@ -68,7 +70,13 @@ describe('native locale initialization', () => {
   it('validates the preload response before reading its fields', () => {
     expect(parseLocaleBootstrap({ languages: ['en-US'], preference: null })).toEqual({ languages: ['en-US'], preference: null })
     expect(parseLocaleBootstrap({ languages: [], preference: 'zh' }).preference).toBe('zh')
-    for (const value of [null, {}, { languages: 'en', preference: null }, { languages: [42], preference: null }, { languages: [], preference: 42 }]) {
+    for (const value of [
+      null,
+      {},
+      { languages: 'en', preference: null },
+      { languages: [42], preference: null },
+      { languages: [], preference: 42 },
+    ]) {
       expect(() => parseLocaleBootstrap(value)).toThrow('invalid native initialization data')
     }
   })

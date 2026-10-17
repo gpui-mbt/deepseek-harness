@@ -3,9 +3,7 @@ import type { CSSProperties, ReactNode, Ref } from 'react'
 import clsx from 'clsx'
 import { writeClipboard } from '../clipboard.ts'
 import { CodeToolbar, type CodeToolbarLabels } from '../CodeToolbar.tsx'
-import {
-  StreamingHighlightSession, grammarLoadCount, highlightToHtml, subscribeGrammarLoaded,
-} from './highlight.ts'
+import { StreamingHighlightSession, grammarLoadCount, highlightToHtml, subscribeGrammarLoaded } from './highlight.ts'
 import type { HighlightSpan, StreamingHighlightFrame } from './highlight.ts'
 import { useViewportHighlighting } from './useViewportHighlighting.ts'
 import css from './CodeBlock.module.css'
@@ -62,14 +60,28 @@ function renderLine(line: readonly HighlightSpan[], index: number): ReactNode {
     <Fragment key={index}>
       {index > 0 && '\n'}
       <span className="line">
-        {line.map((span, spanIndex) => <span key={spanIndex} style={span.style}>{span.text}</span>)}
+        {line.map((span, spanIndex) => (
+          <span key={spanIndex} style={span.style}>
+            {span.text}
+          </span>
+        ))}
       </span>
     </Fragment>
   )
 }
 
 export function CodeBlock({
-  code, lang, streaming, className, contentRef, lineNumbers = false, showHeader = true, copyLabel, copiedLabel, toolbarLabels, wrap,
+  code,
+  lang,
+  streaming,
+  className,
+  contentRef,
+  lineNumbers = false,
+  showHeader = true,
+  copyLabel,
+  copiedLabel,
+  toolbarLabels,
+  wrap,
 }: CodeBlockProps) {
   const trimmed = code.endsWith('\n') ? code.slice(0, -1) : code
   const sourceLines = lineNumbers ? trimmed.split('\n') : undefined
@@ -141,16 +153,28 @@ export function CodeBlock({
     }
     const tail = frame.tail.map((line, index) => renderLine(line, nextLine + index))
     const tailGroup = <Fragment key={nextLine - pending.length}>{[...pending, ...tail]}</Fragment>
-    const body = <pre {...SHIKI_PRE_PROPS}><code>{groups}{tailGroup}</code></pre>
+    const body = (
+      <pre {...SHIKI_PRE_PROPS}>
+        <code>
+          {groups}
+          {tailGroup}
+        </code>
+      </pre>
+    )
     lineCacheRef.current = {
-      code: trimmed, lang, generation: frame.generation, frame, groups, pending, nextLine, body,
+      code: trimmed,
+      lang,
+      generation: frame.generation,
+      frame,
+      groups,
+      pending,
+      nextLine,
+      body,
     }
     return body
   }, [streaming, highlighting, trimmed, lang, loaded])
   const html = useMemo(
-    () => (highlighting && streaming !== true && streamedBody === undefined
-      ? highlightToHtml(trimmed, lang)
-      : undefined),
+    () => (highlighting && streaming !== true && streamedBody === undefined ? highlightToHtml(trimmed, lang) : undefined),
     [streaming, highlighting, streamedBody, trimmed, lang, loaded],
   )
   const [copied, setCopied] = useState(false)
@@ -162,51 +186,87 @@ export function CodeBlock({
     /* v8 ignore next -- both arms always mount a <pre>; trimmed is the
        typed fallback if the DOM shape ever diverges. */
     const text = rootRef.current?.querySelector('pre')?.textContent ?? trimmed
-    void writeClipboard(text).then((ok) => {
+    void writeClipboard(text).then(ok => {
       if (!ok) return
       setCopied(true)
-      window.setTimeout(() => { setCopied(false) }, 1000)
+      window.setTimeout(() => {
+        setCopied(false)
+      }, 1000)
     })
   }, [copied, trimmed])
 
   // shiki's HTML output is a static span tree it generated from `code` (no
   // user HTML passes through), the sanctioned innerHTML consumption path per
   // shiki's own docs.
-  const body = streamedBody !== undefined
-    ? streamedBody
-    : html === undefined
-      ? (
-        <pre className={css.plain}><code>{sourceLines === undefined ? trimmed : sourceLines.map((line, index) => (
-          <Fragment key={index}>{index > 0 && '\n'}<span className="line">{line}</span></Fragment>
-        ))}</code></pre>
-      )
-      : (
-        <div dangerouslySetInnerHTML={{ __html: html }} />
-      )
+  const body =
+    streamedBody !== undefined ? (
+      streamedBody
+    ) : html === undefined ? (
+      <pre className={css.plain}>
+        <code>
+          {sourceLines === undefined
+            ? trimmed
+            : sourceLines.map((line, index) => (
+                <Fragment key={index}>
+                  {index > 0 && '\n'}
+                  <span className="line">{line}</span>
+                </Fragment>
+              ))}
+        </code>
+      </pre>
+    ) : (
+      <div dangerouslySetInnerHTML={{ __html: html }} />
+    )
 
   return (
-    <div ref={rootRef} className={clsx(css.block, 'md-code-block', lineNumbers && css.numbered, toolbarLabels !== undefined && css.card, className)}
+    <div
+      ref={rootRef}
+      className={clsx(css.block, 'md-code-block', lineNumbers && css.numbered, toolbarLabels !== undefined && css.card, className)}
       data-line-numbers={lineNumbers || undefined}
       data-code-wrap={toolbarLabels === undefined ? undefined : wrapped}
-      style={sourceLines === undefined ? undefined : {
-        '--dsl-code-block-line-number-width': `${Math.max(2, String(sourceLines.length).length)}ch`,
-      } as CSSProperties}>
+      style={
+        sourceLines === undefined
+          ? undefined
+          : ({
+              '--dsl-code-block-line-number-width': `${Math.max(2, String(sourceLines.length).length)}ch`,
+            } as CSSProperties)
+      }
+    >
       {/* These paired attributes are stable semantic hooks for owner styling and DOM tests. */}
-      {showHeader && <div className={css.bannerWrap}>
-        {toolbarLabels !== undefined ? <CodeToolbar
-          lang={lang} labels={toolbarLabels} copyLabel={copyLabel} copiedLabel={copiedLabel}
-          copied={copied} wrapped={wrapped} onCopy={onCopy}
-          onWrap={wrap === undefined ? () => { setWrapped(value => !value) } : undefined}
-        /> : <div className={css.banner} data-code-block-banner>
-          <div className={css.infostring}>{lang ?? ''}</div>
-          <div className={css.action}>
-            <button type="button" className={css.copyButton} onClick={onCopy}>
-              {copied ? copiedLabel : copyLabel}
-            </button>
-          </div>
-        </div>}
-      </div>}
-      <div ref={contentRef} className={css.content} data-code-block-content>{body}</div>
+      {showHeader && (
+        <div className={css.bannerWrap}>
+          {toolbarLabels !== undefined ? (
+            <CodeToolbar
+              lang={lang}
+              labels={toolbarLabels}
+              copyLabel={copyLabel}
+              copiedLabel={copiedLabel}
+              copied={copied}
+              wrapped={wrapped}
+              onCopy={onCopy}
+              onWrap={
+                wrap === undefined
+                  ? () => {
+                      setWrapped(value => !value)
+                    }
+                  : undefined
+              }
+            />
+          ) : (
+            <div className={css.banner} data-code-block-banner>
+              <div className={css.infostring}>{lang ?? ''}</div>
+              <div className={css.action}>
+                <button type="button" className={css.copyButton} onClick={onCopy}>
+                  {copied ? copiedLabel : copyLabel}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <div ref={contentRef} className={css.content} data-code-block-content>
+        {body}
+      </div>
     </div>
   )
 }

@@ -45,10 +45,7 @@ export interface RenderablePwshResult {
  *   (default `[]`: no hint).
  * @returns the model-facing text: output body (or `(no output)`), then any timeout/signal/exit markers, each on its own line.
  */
-export function renderPwshResult(
-  result: RenderablePwshResult,
-  escalationModes: readonly SandboxMode[] = [],
-): string {
+export function renderPwshResult(result: RenderablePwshResult, escalationModes: readonly SandboxMode[] = []): string {
   const out = streamText(result.stdout)
   const err = streamText(result.stderr)
 
@@ -95,12 +92,12 @@ export function renderPwshResult(
  * @returns the model-facing text for a promoted call.
  */
 export function renderPwshPromoted(promoted: { jobId: string; timeoutMs: number; output: string }): string {
-  const body = promoted.output.length > 0
-    ? promoted.output.endsWith('\n') ? promoted.output : `${promoted.output}\n`
-    : ''
-  return `${body}[still running after ${promoted.timeoutMs}ms; moved to background job ${promoted.jobId}]\n`
-    + 'The command keeps running in the background. You will be notified when it finishes; '
-    + 'read newer output with job_output, stop it with job_kill.'
+  const body = promoted.output.length > 0 ? (promoted.output.endsWith('\n') ? promoted.output : `${promoted.output}\n`) : ''
+  return (
+    `${body}[still running after ${promoted.timeoutMs}ms; moved to background job ${promoted.jobId}]\n` +
+    'The command keeps running in the background. You will be notified when it finishes; ' +
+    'read newer output with job_output, stop it with job_kill.'
+  )
 }
 
 /**
@@ -128,7 +125,9 @@ export function renderPwshJobRead(
     notices.push(`[some output was dropped from memory; full output: ${spillPaths.length > 0 ? spillPaths.join(', ') : '(unavailable)'}]`)
   }
   if (sandbox?.runnerFailed) {
-    notices.push(`[sandbox: the sandbox runner itself failed under ${sandbox.mode} mode — the command did not run; this is a sandbox problem, not a command failure]`)
+    notices.push(
+      `[sandbox: the sandbox runner itself failed under ${sandbox.mode} mode — the command did not run; this is a sandbox problem, not a command failure]`,
+    )
   } else if (sandbox?.denied) {
     notices.push(sandboxDenialMarker(sandbox.mode))
     if (escalationModes.length > 0) {

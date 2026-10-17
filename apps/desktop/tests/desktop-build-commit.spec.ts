@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   DESKTOP_BUILD_COMMIT_ENV,
   DESKTOP_BUILD_DIRTY_ENV,
@@ -26,18 +26,18 @@ describe('desktop build commit', () => {
 
   it('round-trips a commit and its tree state through a child environment', () => {
     for (const dirty of [true, false]) {
-      expect(resolveDesktopBuildCommit(desktopBuildCommitEnvironment({ commit: COMMIT, dirty })))
-        .toEqual({ commit: COMMIT, dirty })
+      expect(resolveDesktopBuildCommit(desktopBuildCommitEnvironment({ commit: COMMIT, dirty }))).toEqual({ commit: COMMIT, dirty })
     }
   })
 
-  it.each(['abc', `${COMMIT}0`, 'Z'.repeat(40)])('rejects %j, which is not a commit hash', (commit) => {
+  it.each(['abc', `${COMMIT}0`, 'Z'.repeat(40)])('rejects %j, which is not a commit hash', commit => {
     expect(() => resolveDesktopBuildCommit({ [DESKTOP_BUILD_COMMIT_ENV]: commit })).toThrow(/must be a commit hash/u)
   })
 
   it('rejects a tree state that is neither 0 nor 1', () => {
-    expect(() => resolveDesktopBuildCommit({ [DESKTOP_BUILD_COMMIT_ENV]: COMMIT, [DESKTOP_BUILD_DIRTY_ENV]: 'yes' }))
-      .toThrow(/must be 0 or 1/u)
+    expect(() => resolveDesktopBuildCommit({ [DESKTOP_BUILD_COMMIT_ENV]: COMMIT, [DESKTOP_BUILD_DIRTY_ENV]: 'yes' })).toThrow(
+      /must be 0 or 1/u,
+    )
   })
 
   it('reads the checkout this repository is in', () => {
@@ -61,8 +61,7 @@ describe('desktop toolchain preflight', () => {
       const failures = await probeDesktopToolchain('darwin', {})
       expect(failures.map(failure => failure.tool)).toEqual(['tar'])
       expect(failures[0]?.detail).not.toBe('')
-    }
-    finally {
+    } finally {
       Object.assign(process.env, saved)
     }
   })

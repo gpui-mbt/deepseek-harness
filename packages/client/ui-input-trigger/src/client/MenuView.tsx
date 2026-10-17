@@ -62,8 +62,7 @@ export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t
   const maxHeight = useAnchoredMaxHeight(listRef, MAX_HEIGHT, state, TOP_MARGIN)
   const updateOverflowHint = useCallback(() => {
     const viewport = viewportRef.current
-    setHasOverflowBelow(viewport !== null
-      && viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 1)
+    setHasOverflowBelow(viewport !== null && viewport.scrollTop + viewport.clientHeight < viewport.scrollHeight - 1)
   }, [])
   useLayoutEffect(() => {
     updateOverflowHint()
@@ -73,8 +72,7 @@ export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t
   // scrolls the active option into view on keyboard moves — do it here.
   useEffect(() => {
     if (highlight === null) return
-    document.getElementById(optionId(highlight.source, highlight.index))
-      ?.scrollIntoView({ block: 'nearest' })
+    document.getElementById(optionId(highlight.source, highlight.index))?.scrollIntoView({ block: 'nearest' })
   }, [highlight])
   // Dismiss on pointer outside the menu AND outside the composer card
   // (clicking the textarea or bottom bar must not close the menu).
@@ -88,7 +86,9 @@ export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t
       onDismiss()
     }
     document.addEventListener('pointerdown', onPointerDown, true)
-    return () => { document.removeEventListener('pointerdown', onPointerDown, true) }
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+    }
   }, [state.open, onDismiss])
   if (!state.open) return null
   return (
@@ -101,20 +101,24 @@ export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t
       data-trigger-menu=""
       data-overflow-below={hasOverflowBelow || undefined}
     >
-      {state.groups.map((group) => {
+      {state.groups.map(group => {
         const trail = crumbs.get(group.source)
         return trail === undefined ? null : (
           <nav key={group.source} className={css.crumbs} aria-label={t('crumbs.aria')}>
             {trail.map((crumb, index) => (
               <Fragment key={`${String(index)}-${crumb.value}`}>
-                {index > 0 && <span className={css.crumbSeparator} aria-hidden><IconChevronRightOutlineRegular /></span>}
+                {index > 0 && (
+                  <span className={css.crumbSeparator} aria-hidden>
+                    <IconChevronRightOutlineRegular />
+                  </span>
+                )}
                 <button
                   type="button"
                   className={clsx(css.crumb, crumb.current === true && css.crumbCurrent)}
                   aria-current={crumb.current === true ? 'location' : undefined}
                   disabled={crumb.current === true}
                   // mousedown, not click: the composer keeps focus, same as a row.
-                  onMouseDown={(ev) => {
+                  onMouseDown={ev => {
                     ev.preventDefault()
                     onCrumb(group.source, index)
                   }}
@@ -134,30 +138,36 @@ export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t
         aria-activedescendant={highlight !== null ? optionId(highlight.source, highlight.index) : undefined}
         onScroll={updateOverflowHint}
       >
-        {state.groups.map(group => (group.status === 'ready' && group.items.length === 0)
-          ? null
-          : (
+        {state.groups.map(group =>
+          group.status === 'ready' && group.items.length === 0 ? null : (
             <Fragment key={group.source}>
               {/* Source names key the dictionary open-endedly: the lookup chain
                   returns an unknown key verbatim, so an unregistered source
                   shows its raw name — hence the cast past the typed key union. */}
-              {group.showGroupTitle === false || group.items.some(item => item.section !== undefined)
-                ? null
-                : <div className={css.groupTitle} role="presentation" data-source={group.source}>{t(group.source as MenuKey)}</div>}
-              {group.status === 'pending' && group.items.length === 0
-                ? (
-                  <div role="status" aria-label={t('loading')} data-source={group.source}>
-                    <div className={css.skeletonRow}><span className={css.skeletonBar} style={{ width: '32%' }} /></div>
-                    <div className={css.skeletonRow}><span className={css.skeletonBar} style={{ width: '48%' }} /></div>
+              {group.showGroupTitle === false || group.items.some(item => item.section !== undefined) ? null : (
+                <div className={css.groupTitle} role="presentation" data-source={group.source}>
+                  {t(group.source as MenuKey)}
+                </div>
+              )}
+              {group.status === 'pending' && group.items.length === 0 ? (
+                <div role="status" aria-label={t('loading')} data-source={group.source}>
+                  <div className={css.skeletonRow}>
+                    <span className={css.skeletonBar} style={{ width: '32%' }} />
                   </div>
-                )
-                : group.items.map((item, index) => {
+                  <div className={css.skeletonRow}>
+                    <span className={css.skeletonBar} style={{ width: '48%' }} />
+                  </div>
+                </div>
+              ) : (
+                group.items.map((item, index) => {
                   const active = highlight !== null && highlight.source === group.source && highlight.index === index
                   return (
                     <Fragment key={optionId(group.source, index)}>
-                      {item.section !== undefined && item.section !== group.items[index - 1]?.section
-                        ? <div className={css.sectionTitle} role="presentation">{item.section}</div>
-                        : null}
+                      {item.section !== undefined && item.section !== group.items[index - 1]?.section ? (
+                        <div className={css.sectionTitle} role="presentation">
+                          {item.section}
+                        </div>
+                      ) : null}
                       <button
                         id={optionId(group.source, index)}
                         type="button"
@@ -167,20 +177,24 @@ export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t
                         // mousedown, not click: the textarea keeps focus (combobox
                         // pattern) — preventing default stops the focus steal, and the
                         // pick runs before any blur-driven teardown.
-                        onMouseDown={(ev) => {
+                        onMouseDown={ev => {
                           ev.preventDefault()
                           onPick(group.source, index)
                         }}
                         // mousemove, not mouseenter: real pointer motion moves the
                         // shared highlight; keyboard scrolling rows under a resting
                         // pointer must not steal it back.
-                        onMouseMove={active ? undefined : () => { onHover(group.source, index) }}
+                        onMouseMove={
+                          active
+                            ? undefined
+                            : () => {
+                                onHover(group.source, index)
+                              }
+                        }
                       >
                         {item.icon !== undefined && (
                           <span className={css.itemIcon} aria-hidden>
-                            {typeof item.icon === 'string'
-                              ? <ReferenceIconRegular kind={item.icon} size={14} />
-                              : <item.icon size={14} />}
+                            {typeof item.icon === 'string' ? <ReferenceIconRegular kind={item.icon} size={14} /> : <item.icon size={14} />}
                           </span>
                         )}
                         <span className={css.itemName}>{item.label ?? item.name}</span>
@@ -192,15 +206,19 @@ export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t
                           <span className={css.trailing}>
                             {/* Visual hint only: Tab drills the highlighted row (the
                                 keyboard twin of the chevron, which owns the aria label). */}
-                            <span className={css.drillHintText} aria-hidden>{t('drill.hint')}</span>
-                            <kbd className={css.drillHint} aria-hidden>{t('drill.key')}</kbd>
+                            <span className={css.drillHintText} aria-hidden>
+                              {t('drill.hint')}
+                            </span>
+                            <kbd className={css.drillHint} aria-hidden>
+                              {t('drill.key')}
+                            </kbd>
                             <span
                               role="button"
                               aria-label={t('drill.aria')}
                               className={css.drill}
                               // mousedown so the composer keeps focus, same as the row;
                               // stopPropagation keeps the row's settling pick out of it.
-                              onMouseDown={(ev) => {
+                              onMouseDown={ev => {
                                 ev.preventDefault()
                                 ev.stopPropagation()
                                 onPick(group.source, index, 'drill')
@@ -213,9 +231,11 @@ export function MenuView({ menu, headers, onPick, onCrumb, onHover, onDismiss, t
                       </button>
                     </Fragment>
                   )
-                })}
+                })
+              )}
             </Fragment>
-          ))}
+          ),
+        )}
       </div>
     </MenuSurface>
   )

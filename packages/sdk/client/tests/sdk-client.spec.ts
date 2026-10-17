@@ -9,7 +9,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import {
   DeepSeekHarness,
@@ -39,7 +39,7 @@ function fakeLaunch(env: Record<string, string> = {}, extra: LaunchOverrides = {
   return {
     command: process.execPath,
     args: [fakeRuntime],
-    environment: () => ({ ...process.env as Record<string, string>, ...env }),
+    environment: () => ({ ...(process.env as Record<string, string>), ...env }),
     description: 'scripted fake runtime',
     initializeTimeoutMs: 5_000,
     ...extra,
@@ -71,8 +71,7 @@ describe('DeepSeekHarness', () => {
   })
 
   it('propagates resume failures', async () => {
-    await expect(harnessWith({ FAKE_RESUME_ERROR: '1' }).resumeSession('missing'))
-      .rejects.toThrow('session not found')
+    await expect(harnessWith({ FAKE_RESUME_ERROR: '1' }).resumeSession('missing')).rejects.toThrow('session not found')
   })
 
   it('reads and changes directories independently for each lazy Session', async () => {
@@ -134,16 +133,17 @@ describe('DeepSeekHarness', () => {
             return notification
           },
           tryNext: () => notifications.shift(),
-          close: () => { closed = true },
-          async * [Symbol.asyncIterator]() {},
+          close: () => {
+            closed = true
+          },
+          async *[Symbol.asyncIterator]() {},
         }),
       },
     } as unknown as DeepSeekHarness
 
     const result = await new HarnessSession(harness, 'owned').run('go')
 
-    expect(result.notifications.map(notification => notification.method))
-      .toEqual(['session.event', 'session.status'])
+    expect(result.notifications.map(notification => notification.method)).toEqual(['session.event', 'session.status'])
     expect(result.events.map(event => event.type)).toEqual(['agent/inbox/spliced'])
     expect(closed).toBe(true)
   })
@@ -164,12 +164,14 @@ describe('DeepSeekHarness', () => {
         step: 1,
         message: {
           source: { kind: 'tool', callId: 'native-call' },
-          content: [{
-            type: 'tool-result',
-            toolCallId: 'native-call',
-            content: [{ type: 'text', text: 'Error: blocked by policy' }],
-            isError: true,
-          }],
+          content: [
+            {
+              type: 'tool-result',
+              toolCallId: 'native-call',
+              content: [{ type: 'text', text: 'Error: blocked by policy' }],
+              isError: true,
+            },
+          ],
           role: 'user',
           id: 'native-result',
         },
@@ -227,7 +229,7 @@ describe('DeepSeekHarness', () => {
           },
           tryNext: () => notifications.shift(),
           close: () => {},
-          async * [Symbol.asyncIterator]() {},
+          async *[Symbol.asyncIterator]() {},
         }),
       },
     } as unknown as DeepSeekHarness
@@ -235,8 +237,11 @@ describe('DeepSeekHarness', () => {
     const result = await new HarnessSession(harness, 'owned').run('go')
 
     expect(result.events).toEqual([receipt, nativeResult, ptcStart, ptcResult])
-    expect(result.events.find(event => event.type === 'tool/ptc-dispatch')?.data.meta)
-      .toEqual({ cwd: '/selected', path: '/selected/note.txt', view: { line: 3 } })
+    expect(result.events.find(event => event.type === 'tool/ptc-dispatch')?.data.meta).toEqual({
+      cwd: '/selected',
+      path: '/selected/note.txt',
+      view: { line: 3 },
+    })
     for (const event of result.events.filter(event => event.type.startsWith('tool/ptc-dispatch'))) {
       expect(event.data).not.toHaveProperty('description')
       expect(event.data).not.toHaveProperty('parameters')
@@ -248,9 +253,7 @@ describe('DeepSeekHarness', () => {
     const harness = harnessWith({ FAKE_TEXT: 'turn answer' })
     const first = await harness.run('say hi')
     expect(first.finalResponse).toBe('turn answer')
-    expect(first.events.map(event => event.type)).toEqual([
-      'agent/inbox/spliced', 'turn/start', 'assistant/message', 'turn/end',
-    ])
+    expect(first.events.map(event => event.type)).toEqual(['agent/inbox/spliced', 'turn/start', 'assistant/message', 'turn/end'])
     const message = first.events.find(event => event.type === 'assistant/message')
     expect(message?.data.stream).toEqual([
       { type: 'chunk', time: 0, chunk: { type: 'block-start', index: 0, blockType: 'text' } },
@@ -274,7 +277,9 @@ describe('DeepSeekHarness', () => {
     const seen: HarnessNotification[] = []
     const result = await harness.run('delegate', {
       sessionId: 'parent-1',
-      onNotification: (n) => { seen.push(n) },
+      onNotification: n => {
+        seen.push(n)
+      },
     })
 
     // The child session's events arrive through subagent.started lineage.
@@ -284,9 +289,14 @@ describe('DeepSeekHarness', () => {
     expect(childEvents.length).toBeGreaterThan(0)
     // RunResult.events is the root session's typed stream; descendants retain
     // their session ids in the raw notification stream above.
-    expect(result.events.every(event => event.type !== 'assistant/message'
-      || event.data.message.content[0]?.type !== 'text'
-      || event.data.message.content[0].text !== 'child says hi')).toBe(true)
+    expect(
+      result.events.every(
+        event =>
+          event.type !== 'assistant/message' ||
+          event.data.message.content[0]?.type !== 'text' ||
+          event.data.message.content[0].text !== 'child says hi',
+      ),
+    ).toBe(true)
     await harness.close()
   })
 
@@ -304,14 +314,19 @@ describe('DeepSeekHarness', () => {
     await harness.run('one')
     await harness.run('two')
     await harness.close()
-    const records = (await readFile(recordFile, 'utf8')).trim().split('\n').map(line => JSON.parse(line) as object)
-    expect(records).toEqual([{
-      cwd: dir,
-      provider: 'custom-provider',
-      model: 'custom-model',
-      reasoningEffort: 'max',
-      maxTokens: 4096,
-    }])
+    const records = (await readFile(recordFile, 'utf8'))
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line) as object)
+    expect(records).toEqual([
+      {
+        cwd: dir,
+        provider: 'custom-provider',
+        model: 'custom-model',
+        reasoningEffort: 'max',
+        maxTokens: 4096,
+      },
+    ])
   })
 
   it('resolves a relative launch cwd to an absolute workspace before the handshake', async () => {
@@ -335,7 +350,9 @@ describe('DeepSeekHarness', () => {
     expect(identity.serverInfo.version).toBe(await realpath(inner))
     // ...and the handshake wire cwd went out ABSOLUTE, so the child cannot
     // re-resolve a relative string into dir/worker/worker.
-    const records = (await readFile(recordFile, 'utf8')).trim().split('\n')
+    const records = (await readFile(recordFile, 'utf8'))
+      .trim()
+      .split('\n')
       .map(line => (JSON.parse(line) as { cwd: string }).cwd)
     expect(records).toEqual([resolvePath(relativeCwd), inner])
   })
@@ -343,7 +360,9 @@ describe('DeepSeekHarness', () => {
   it('propagates a JSON-RPC error response from initialize and closes the runtime', async () => {
     const harness = harnessWith({ FAKE_INIT_ERROR: '1' })
     const failure = await harness.run('boom').then(
-      () => { throw new Error('run unexpectedly succeeded') },
+      () => {
+        throw new Error('run unexpectedly succeeded')
+      },
       (error: unknown) => error,
     )
     expect(failure).toBeInstanceOf(JsonRpcResponseError)
@@ -375,7 +394,9 @@ describe('DeepSeekHarness', () => {
 
   it('does not replace the client after terminal close wins a failed handshake', async () => {
     let rejectInitialize!: (error: Error) => void
-    const initializeResult = new Promise<never>((_resolve, reject) => { rejectInitialize = reject })
+    const initializeResult = new Promise<never>((_resolve, reject) => {
+      rejectInitialize = reject
+    })
     const start = vi.spyOn(HarnessClient.prototype, 'start').mockImplementation(() => {})
     const initialize = vi.spyOn(HarnessClient.prototype, 'initialize').mockReturnValue(initializeResult)
     const close = vi.spyOn(HarnessClient.prototype, 'close').mockResolvedValue()
@@ -436,33 +457,39 @@ describe('DeepSeekHarness', () => {
 
 describe('HarnessClient', () => {
   it('bounds profile initialization and names the selected profile in its diagnostic', async () => {
-    const client = processClient(fakeLaunch(
-      { FAKE_HANG_INIT: '1' },
-      {
-        description: 'dsh profile "profile-without-sdk-server"',
-        initializeTimeoutMs: 50,
-        disposeEofGraceMs: 100,
-        // Wide SIGKILL confirmation: the hang-init child may still be
-        // starting up on a contended runner when close() escalates, so a
-        // tight window misreports a slow reap as a dispose failure.
-        disposeGraceMs: 3_000,
-      },
-    ))
+    const client = processClient(
+      fakeLaunch(
+        { FAKE_HANG_INIT: '1' },
+        {
+          description: 'dsh profile "profile-without-sdk-server"',
+          initializeTimeoutMs: 50,
+          disposeEofGraceMs: 100,
+          // Wide SIGKILL confirmation: the hang-init child may still be
+          // starting up on a contended runner when close() escalates, so a
+          // tight window misreports a slow reap as a dispose failure.
+          disposeGraceMs: 3_000,
+        },
+      ),
+    )
     cleanups.push(() => client.close())
-    await expect(client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' }))
-      .rejects.toThrow(/initialize timed out after 50ms waiting for dsh profile "profile-without-sdk-server"/)
+    await expect(client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })).rejects.toThrow(
+      /initialize timed out after 50ms waiting for dsh profile "profile-without-sdk-server"/,
+    )
     await client.close()
   })
 
   it('times out a hung request at the per-call bound', async () => {
-    const client = processClient(fakeLaunch({
-      FAKE_HANG_PROMPT: '1',
-      FAKE_STDERR: 'runtime accepted initialize but hung the prompt',
-    }))
+    const client = processClient(
+      fakeLaunch({
+        FAKE_HANG_PROMPT: '1',
+        FAKE_STDERR: 'runtime accepted initialize but hung the prompt',
+      }),
+    )
     cleanups.push(() => client.close())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
-    await expect(client.request('session/prompt', { sessionId: 's', contentBlocks: normalizeInput('hi') }, 200))
-      .rejects.toThrow(/session\/prompt timed out.*stderr tail:\nruntime accepted initialize but hung the prompt/s)
+    await expect(client.request('session/prompt', { sessionId: 's', contentBlocks: normalizeInput('hi') }, 200)).rejects.toThrow(
+      /session\/prompt timed out.*stderr tail:\nruntime accepted initialize but hung the prompt/s,
+    )
     await client.close()
   })
 
@@ -471,8 +498,9 @@ describe('HarnessClient', () => {
     cleanups.push(() => client.close())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
     for (let round = 0; round < 3; round++) {
-      await expect(client.request('session/prompt', { sessionId: 's', contentBlocks: normalizeInput('x') }, 50))
-        .rejects.toThrow(RequestTimeoutError)
+      await expect(client.request('session/prompt', { sessionId: 's', contentBlocks: normalizeInput('x') }, 50)).rejects.toThrow(
+        RequestTimeoutError,
+      )
     }
     // Abandonment removed each pending entry at its timeout; a hung method
     // retains nothing per call. (Private map read is the observable here —
@@ -501,7 +529,9 @@ describe('HarnessClient', () => {
     const client = processClient(fakeLaunch({ FAKE_EXIT_BEFORE_INIT: '1', FAKE_STDERR: 'fatal: scripted death' }))
     cleanups.push(() => client.close())
     const failure = await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' }).then(
-      () => { throw new Error('initialize unexpectedly succeeded') },
+      () => {
+        throw new Error('initialize unexpectedly succeeded')
+      },
       (error: unknown) => error,
     )
     expect(failure).toBeInstanceOf(TransportClosedError)
@@ -515,7 +545,9 @@ describe('HarnessClient', () => {
     const client = processClient(fakeLaunch({ FAKE_STDERR_NO_NEWLINE: 'no trailing newline', FAKE_EXIT_BEFORE_INIT: '1' }))
     cleanups.push(() => client.close())
     const failure = await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' }).then(
-      () => { throw new Error('initialize unexpectedly succeeded') },
+      () => {
+        throw new Error('initialize unexpectedly succeeded')
+      },
       (error: unknown) => error,
     )
     expect(String(failure)).toContain('no trailing newline')
@@ -528,20 +560,26 @@ describe('HarnessClient', () => {
   })
 
   it('reports a generic process spawn failure to internal transports', async () => {
-    const client = processClient(fakeLaunch({}, {
-      command: join(tmpdir(), 'dsh-no-such-process-command'),
-      args: [],
-    }))
+    const client = processClient(
+      fakeLaunch(
+        {},
+        {
+          command: join(tmpdir(), 'dsh-no-such-process-command'),
+          args: [],
+        },
+      ),
+    )
     cleanups.push(() => client.close())
-    await expect(client.request('initialize', {}, 1_000))
-      .rejects.toThrow(/spawn error:.*ENOENT/s)
+    await expect(client.request('initialize', {}, 1_000)).rejects.toThrow(/spawn error:.*ENOENT/s)
   })
 
   it('close() is idempotent, reaps the child, and fails later use', async () => {
     const client = processClient(fakeLaunch())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
     await Promise.all([client.close(), client.close()])
-    expect(() => { client.start() }).toThrow(TransportClosedError)
+    expect(() => {
+      client.start()
+    }).toThrow(TransportClosedError)
     await expect(client.request('anything')).rejects.toThrow(TransportClosedError)
     // Close with no child ever spawned is a no-op.
     const untouched = processClient(fakeLaunch())
@@ -551,10 +589,12 @@ describe('HarnessClient', () => {
   it('escalates through SIGTERM when the runtime ignores EOF', async () => {
     const dir = await tempDir('sdk-client-ladder-')
     const sigtermFile = join(dir, 'sigterm.txt')
-    const client = processClient(fakeLaunch(
-      { FAKE_IGNORE_EOF: '1', FAKE_SIGTERM_FILE: sigtermFile },
-      { shutdownTimeoutMs: 100, disposeEofGraceMs: 100, disposeGraceMs: 3_000 },
-    ))
+    const client = processClient(
+      fakeLaunch(
+        { FAKE_IGNORE_EOF: '1', FAKE_SIGTERM_FILE: sigtermFile },
+        { shutdownTimeoutMs: 100, disposeEofGraceMs: 100, disposeGraceMs: 3_000 },
+      ),
+    )
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
     await client.close()
     if (process.platform === 'win32') {
@@ -565,10 +605,12 @@ describe('HarnessClient', () => {
   })
 
   it('escalates to SIGKILL when the runtime traps SIGTERM too', async () => {
-    const client = processClient(fakeLaunch(
-      { FAKE_IGNORE_EOF: '1', FAKE_TRAP_SIGTERM: '1' },
-      { shutdownTimeoutMs: 100, disposeEofGraceMs: 100, disposeGraceMs: 3_000 },
-    ))
+    const client = processClient(
+      fakeLaunch(
+        { FAKE_IGNORE_EOF: '1', FAKE_TRAP_SIGTERM: '1' },
+        { shutdownTimeoutMs: 100, disposeEofGraceMs: 100, disposeGraceMs: 3_000 },
+      ),
+    )
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
     // Resolves (does not hang or reject): the SIGKILL rung reaped the child.
     await client.close()
@@ -591,7 +633,7 @@ describe('HarnessClient', () => {
     expect(idleOnly.tryNext()).toBeUndefined()
 
     // A bare unbounded request with omitted params sends `{}` on the wire.
-    const identity = await client.request('initialize') as { serverInfo: { name: string } }
+    const identity = (await client.request('initialize')) as { serverInfo: { name: string } }
     expect(identity.serverInfo.name).toBe('deepseek-harness-sdk-runtime')
 
     // Async iteration consumes queued items and then parks.
@@ -613,9 +655,13 @@ describe('HarnessClient', () => {
     cleanups.push(() => client.close())
     await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' })
 
-    const broken = client.subscribe(() => { throw new Error('filter exploded') })
+    const broken = client.subscribe(() => {
+      throw new Error('filter exploded')
+    })
     // A non-Error throw is normalized rather than crashing dispatch.
-    const brokenNonError = client.subscribe(() => { throw 'string boom' })
+    const brokenNonError = client.subscribe(() => {
+      throw 'string boom'
+    })
     const healthy = client.subscribe(n => n.method === 'session.status' && n.params.status === 'idle')
     await client.prompt('filter-contain', normalizeInput('go'))
 
@@ -675,10 +721,14 @@ describe('HarnessClient', () => {
     const tree = client.subscribeSessionTree('root')
     // Lineage edges arrive as subagent.started notifications.
     const inject = (method: string, params: Record<string, unknown>): void => {
-      (client as unknown as { dispatchNotification(n: HarnessNotification): void }).dispatchNotification({ method, params })
+      ;(client as unknown as { dispatchNotification(n: HarnessNotification): void }).dispatchNotification({ method, params })
     }
-    const unknownChild = { type: 'subagent/catalog', seq: 0, time: 1,
-      data: { version: 1, childId: 'unreadable-child', childCreatedAt: 1, mode: 'unknown' } }
+    const unknownChild = {
+      type: 'subagent/catalog',
+      seq: 0,
+      time: 1,
+      data: { version: 1, childId: 'unreadable-child', childCreatedAt: 1, mode: 'unknown' },
+    }
     inject('session.event', { sessionId: 'root', event: unknownChild })
     inject('subagent.started', { parentSessionId: 'root', childSessionId: 'child' })
     inject('subagent.started', { parentSessionId: 'child', childSessionId: 'grandchild' })
@@ -719,7 +769,7 @@ describe('wire payload validation', () => {
     await expect(harness.run('no-data')).rejects.toThrow(SdkProtocolError)
   })
 
-  it.each(['1', 'aborted', 'abort-unknown', 'hook', 'no-data'])('rejects malformed turn/end input %s as a protocol error', async (mode) => {
+  it.each(['1', 'aborted', 'abort-unknown', 'hook', 'no-data'])('rejects malformed turn/end input %s as a protocol error', async mode => {
     const harness = harnessWith({ FAKE_MALFORMED_REASON: mode })
     await expect(harness.run('bad-reason')).rejects.toThrow(SdkProtocolError)
   })
@@ -730,7 +780,6 @@ describe('wire payload validation', () => {
     const end = result.events.findLast(event => event.type === 'turn/end')
     expect(end?.data.reason).toEqual({ kind: 'aborted', reason: { kind: 'hook', reason: 'scripted hook abort' } })
   })
-
 })
 
 describe('stderr tail bound', () => {
@@ -739,7 +788,9 @@ describe('stderr tail bound', () => {
     const client = processClient(fakeLaunch({ FAKE_STDERR: manyLines, FAKE_EXIT_BEFORE_INIT: '1' }))
     cleanups.push(() => client.close())
     const failure = await client.initialize({ cwd: process.cwd(), provider: 'p', model: 'm' }).then(
-      () => { throw new Error('initialize unexpectedly succeeded') },
+      () => {
+        throw new Error('initialize unexpectedly succeeded')
+      },
       (error: unknown) => error,
     )
     const text = String(failure)
@@ -759,9 +810,16 @@ describe('pure helpers', () => {
   it('finalResponse reads the last assistant message and tolerates absence', () => {
     expect(finalResponse([])).toBe('')
     expect(finalResponse([{ type: 'turn/start', seq: 0, time: 0, data: { turn: 0 } } as never])).toBe('')
-    expect(finalResponse([
-      { type: 'assistant/message', seq: 0, time: 0, data: { message: { content: [{ type: 'text', text: 'first' }] } } } as never,
-      { type: 'assistant/message', seq: 1, time: 0, data: { message: { content: [{ type: 'text', text: 'a' }, { type: 'tool-call' }, { type: 'text', text: 'b' }] } } } as never,
-    ])).toBe('ab')
+    expect(
+      finalResponse([
+        { type: 'assistant/message', seq: 0, time: 0, data: { message: { content: [{ type: 'text', text: 'first' }] } } } as never,
+        {
+          type: 'assistant/message',
+          seq: 1,
+          time: 0,
+          data: { message: { content: [{ type: 'text', text: 'a' }, { type: 'tool-call' }, { type: 'text', text: 'b' }] } },
+        } as never,
+      ]),
+    ).toBe('ab')
   })
 })

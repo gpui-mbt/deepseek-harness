@@ -1,10 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import {
-  DUNDER_MEMBER,
-  PORTABLE_RESERVED_WORDS,
-  RESERVED_BINDING_GLOBALS,
-  RESERVED_ERROR_MEMBERS,
-} from '@deepseek-ai/dsh-ptc-runtime'
+import { describe, expect, it } from 'vite-plus/test'
+import { DUNDER_MEMBER, PORTABLE_RESERVED_WORDS, RESERVED_BINDING_GLOBALS, RESERVED_ERROR_MEMBERS } from '@deepseek-ai/dsh-ptc-runtime'
 
 /**
  * The Service Definition owns the portable-identifier exclusion sets so every backend

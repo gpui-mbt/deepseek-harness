@@ -19,20 +19,18 @@ export { WorkerTunnel, type TunnelFetch } from './client.ts'
 export { applyIndexInjections } from './apply-injections.ts'
 export { IMAGE_FILE_NAME } from '../image-layout.ts'
 export {
-  parsePreviewFixtureManifest, PREVIEW_FIXTURE_MANIFEST_FILE, PREVIEW_FIXTURE_MANIFEST_VERSION,
-  type PreviewFixtureManifest, type PreviewFixtureManifestEntry,
+  parsePreviewFixtureManifest,
+  PREVIEW_FIXTURE_MANIFEST_FILE,
+  PREVIEW_FIXTURE_MANIFEST_VERSION,
+  type PreviewFixtureManifest,
+  type PreviewFixtureManifestEntry,
 } from '../fixture-manifest.ts'
 
 /** Transport global the connection plugin reads instead of building an HTTP carrier. */
 interface ClientTransportGlobal {
   __DSH_TRANSPORT__?: {
     fetch: TunnelFetch
-    openStream: (
-      endpoint: string,
-      payload: unknown,
-      signal: AbortSignal,
-      uplink?: AsyncIterable<unknown>,
-    ) => AsyncIterable<unknown>
+    openStream: (endpoint: string, payload: unknown, signal: AbortSignal, uplink?: AsyncIterable<unknown>) => AsyncIterable<unknown>
     loadBundle: (url: string) => Promise<void>
     /** The page spawned the worker the Host runs in, so the page owns it. */
     ownsHost: boolean
@@ -84,7 +82,7 @@ interface BootReadyGlobal {
 }
 
 function bootReadyGate(): PromiseWithResolvers<void> {
-  return (globalThis as BootReadyGlobal).__DSH_BOOT_READY__ ??= Promise.withResolvers<void>()
+  return ((globalThis as BootReadyGlobal).__DSH_BOOT_READY__ ??= Promise.withResolvers<void>())
 }
 
 /**
@@ -107,9 +105,7 @@ function holdWorkerHostBoot(): void {
  * @param options - Base image and optional fixture-catalog locations.
  * @returns The ordered overlays selected by the user.
  */
-export async function chooseWorkerHostSource(
-  options: WorkerHostSourceOptions = {},
-): Promise<WorkerHostSource> {
+export async function chooseWorkerHostSource(options: WorkerHostSourceOptions = {}): Promise<WorkerHostSource> {
   holdWorkerHostBoot()
   const image = new URL(options.image ?? IMAGE_FILE_NAME, document.baseURI)
   const manifest = new URL(options.fixtureManifest ?? PREVIEW_FIXTURE_MANIFEST_FILE, image)

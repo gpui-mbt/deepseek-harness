@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState, type ReactNode } from 'react'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, type RenderResult, within } from '@testing-library/react'
 import { AttachmentId, type FileAttachmentRef, type ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -27,14 +27,21 @@ afterEach(cleanup)
 
 const image: ImageAttachmentRef = {
   attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`),
-  mediaType: 'image/png', bytes: 68, width: 640, height: 320, name: 'history.png',
+  mediaType: 'image/png',
+  bytes: 68,
+  width: 640,
+  height: 320,
+  name: 'history.png',
 }
 const file: FileAttachmentRef = {
-  attachmentId: AttachmentId(`sha256:${'b'.repeat(64)}`), name: 'notes.txt', bytes: 23,
+  attachmentId: AttachmentId(`sha256:${'b'.repeat(64)}`),
+  name: 'notes.txt',
+  bytes: 23,
 }
 const durable: UserContentAttachment = { type: 'image', image: { attachment: image } }
 const preview: UserContentAttachment = {
-  type: 'image', image: { preview: { url: 'blob:local-preview', name: 'preview.png', width: 4, height: 3 } },
+  type: 'image',
+  image: { preview: { url: 'blob:local-preview', name: 'preview.png', width: 4, height: 3 } },
 }
 const filePart: UserContentAttachment = { type: 'file', file }
 const empty: UserContentData = { text: '', attachments: [], extraBlocks: [] }
@@ -53,58 +60,97 @@ async function bench() {
   const imageCalls: PropsRuntime<'conversation.chat.user.images'>[] = []
   const openFile = vi.fn<(path: string) => void>()
   const openSkill = vi.fn<(name: string) => void>()
-  await runtime.mount({ inject: ['slots'], apply: (ctx) => {
-    const userText = new UserTextRegistry(ctx)
-    for (const rule of [
-      sessionReferenceRule, fileReferenceRule, folderReferenceRule, skillReferenceRule,
-      collapseWhitespaceRule, trimWhitespaceRule,
-    ]) {
-      userText.register(rule)
-    }
-    ctx.slots.registerFactory({
-      name: 'conversation.user.text', scope: 'session',
-      children: { 'conversation.user.text.node': { kind: 'keyed', scope: 'session', inline: true } },
-      inject: (): UserTextInjected => ({
-        hooks: { userTextRevision: {
-          getSnapshot: () => userText.getSnapshot(), subscribe: listener => userText.subscribe(listener),
-        } },
-        createUserTextEvaluator: () => userText.createEvaluator(),
-        reportTransformFailure: (error: unknown): never => { throw error },
-      }),
-    }, UserText)
-    ctx.slots.register({ name: 'conversation.user.text.node', key: 'text' }, PlainUserText)
-    ctx.slots.register({ name: 'conversation.user.text.node', key: 'session' }, SessionReference)
-    ctx.slots.register({ name: 'conversation.user.text.node', key: 'file', locale: 'reference',
-      inject: () => ({ openFile }) }, FileReference)
-    ctx.slots.register({ name: 'conversation.user.text.node', key: 'folder' }, FolderReference)
-    ctx.slots.register({ name: 'conversation.user.text.node', key: 'skill', inject: () => ({ openSkill }) }, SkillReference)
-    ctx.slots.inject('conversation.chat.user.images', () => ctx.slots.register({ name: 'conversation.chat.user.images' }, function ImageProbe(props) {
-      imageCalls.push(props)
-      const source = props.images[0]
-      if (source === undefined) throw new Error('User content must pass one image to the image Slot')
-      const name = 'attachment' in source ? source.attachment.name : source.preview.name
-      return <span data-testid="image" data-session={props.sessionId}
-        data-current-session={props.useSession(snapshot => snapshot.sessionId)}>{name}</span>
-    }))
-  } })
-  const mountContent = () => runtime.mount({ inject: ['slots'], apply: (ctx) => {
-    ctx.slots.registerFactory({
-      name: 'conversation.chat.user.content', scope: 'session', locale: NS,
-      children: { 'conversation.chat.user.images': { kind: 'single', scope: 'session' } },
-    }, UserContent)
-  } })
+  await runtime.mount({
+    inject: ['slots'],
+    apply: ctx => {
+      const userText = new UserTextRegistry(ctx)
+      for (const rule of [
+        sessionReferenceRule,
+        fileReferenceRule,
+        folderReferenceRule,
+        skillReferenceRule,
+        collapseWhitespaceRule,
+        trimWhitespaceRule,
+      ]) {
+        userText.register(rule)
+      }
+      ctx.slots.registerFactory(
+        {
+          name: 'conversation.user.text',
+          scope: 'session',
+          children: { 'conversation.user.text.node': { kind: 'keyed', scope: 'session', inline: true } },
+          inject: (): UserTextInjected => ({
+            hooks: {
+              userTextRevision: {
+                getSnapshot: () => userText.getSnapshot(),
+                subscribe: listener => userText.subscribe(listener),
+              },
+            },
+            createUserTextEvaluator: () => userText.createEvaluator(),
+            reportTransformFailure: (error: unknown): never => {
+              throw error
+            },
+          }),
+        },
+        UserText,
+      )
+      ctx.slots.register({ name: 'conversation.user.text.node', key: 'text' }, PlainUserText)
+      ctx.slots.register({ name: 'conversation.user.text.node', key: 'session' }, SessionReference)
+      ctx.slots.register(
+        { name: 'conversation.user.text.node', key: 'file', locale: 'reference', inject: () => ({ openFile }) },
+        FileReference,
+      )
+      ctx.slots.register({ name: 'conversation.user.text.node', key: 'folder' }, FolderReference)
+      ctx.slots.register({ name: 'conversation.user.text.node', key: 'skill', inject: () => ({ openSkill }) }, SkillReference)
+      ctx.slots.inject('conversation.chat.user.images', () =>
+        ctx.slots.register({ name: 'conversation.chat.user.images' }, function ImageProbe(props) {
+          imageCalls.push(props)
+          const source = props.images[0]
+          if (source === undefined) throw new Error('User content must pass one image to the image Slot')
+          const name = 'attachment' in source ? source.attachment.name : source.preview.name
+          return (
+            <span
+              data-testid="image"
+              data-session={props.sessionId}
+              data-current-session={props.useSession(snapshot => snapshot.sessionId)}
+            >
+              {name}
+            </span>
+          )
+        }),
+      )
+    },
+  })
+  const mountContent = () =>
+    runtime.mount({
+      inject: ['slots'],
+      apply: ctx => {
+        ctx.slots.registerFactory(
+          {
+            name: 'conversation.chat.user.content',
+            scope: 'session',
+            locale: NS,
+            children: { 'conversation.chat.user.images': { kind: 'single', scope: 'session' } },
+          },
+          UserContent,
+        )
+      },
+    })
   const owner = await mountContent()
   await runtime.sessions.add({ id: 'user-content' })
   const session = runtime.sessions.retainFor(runtime.ctx, SessionId('user-content'))
   const captured: { seats?: RenderSeats; setContent?: (content: ReactNode) => void } = {}
-  await runtime.root.declare({
-    'conversation.approval.detail': { kind: 'single', scope: 'session' },
-  }, function TestRoot(props) {
-    const [content, setContent] = useState<ReactNode>(null)
-    captured.seats = props
-    captured.setContent = setContent
-    return content
-  })
+  await runtime.root.declare(
+    {
+      'conversation.approval.detail': { kind: 'single', scope: 'session' },
+    },
+    function TestRoot(props) {
+      const [content, setContent] = useState<ReactNode>(null)
+      captured.seats = props
+      captured.setContent = setContent
+      return content
+    },
+  )
   const view = runtime.renderRoot()
   const { seats, setContent } = captured
   if (seats === undefined || setContent === undefined) throw new Error('User content fixture root did not render')
@@ -112,7 +158,9 @@ async function bench() {
   const factory = (input: UserContentInput) => seats.renderFactorySlot('conversation.chat.user.content', input)
   const render = (content: ReactNode, scoped = true): RenderResult => {
     const update = (next: ReactNode): void => {
-      act(() => { setContent(scoped ? <SessionProvider session={session}>{next}</SessionProvider> : next) })
+      act(() => {
+        setContent(scoped ? <SessionProvider session={session}>{next}</SessionProvider> : next)
+      })
     }
     update(content)
     return { ...view, rerender: update }
@@ -135,19 +183,26 @@ describe('user Content Factory', () => {
     expect(view.queryAllByRole('button')).toHaveLength(0)
     expect(view.container.querySelector('[data-message-attachments]')).toBeNull()
     expect(b.runtime.factoryOf('conversation.chat.user.content')).toMatchObject({
-      component: UserContent, scope: 'session', locale: 'chat',
+      component: UserContent,
+      scope: 'session',
+      locale: 'chat',
     })
   })
 
   it('keeps mixed files, durable images, and local previews in their prepared order through its user-image Slot', async () => {
     const b = await bench()
     const content: UserContentData = {
-      ...empty, text: 'Prepared text', attachments: [filePart, durable, { type: 'file', file: { ...file, name: 'last.md' } }, preview],
+      ...empty,
+      text: 'Prepared text',
+      attachments: [filePart, durable, { type: 'file', file: { ...file, name: 'last.md' } }, preview],
     }
     const view = b.render(b.factory({ content, facts: {}, loadImage: b.loadImage }))
     const attachments = view.container.querySelector('[data-message-attachments]')
-    expect([...attachments?.children ?? []].map(child => child.textContent)).toEqual([
-      'notes.txtTXT 23B', 'history.png', 'last.mdMD 23B', 'preview.png',
+    expect([...(attachments?.children ?? [])].map(child => child.textContent)).toEqual([
+      'notes.txtTXT 23B',
+      'history.png',
+      'last.mdMD 23B',
+      'preview.png',
     ])
     expect(view.getByTitle('notes.txt')).toBeTruthy()
     expect(view.getByText('Prepared text')).toBeTruthy()
@@ -180,15 +235,24 @@ describe('user Content Factory', () => {
     await b.runtime.sessions.add({ id: 'other-user-content' })
     const other = b.runtime.sessions.retainFor(b.runtime.ctx, SessionId('other-user-content'))
     const content: UserContentData = Object.freeze({
-      text: 'Already prepared', attachments: Object.freeze([preview]), extraBlocks: Object.freeze([]),
+      text: 'Already prepared',
+      attachments: Object.freeze([preview]),
+      extraBlocks: Object.freeze([]),
     })
     const input: UserContentInput = { content, facts: {}, loadImage: b.loadImage }
     const { SessionProvider } = b
-    const view = b.render(<>
-      <section data-testid="first">{b.factory(input)}</section>
-      <aside data-testid="second"><SessionProvider session={other}>{b.factory(input)}</SessionProvider></aside>
-    </>)
-    for (const [parent, sessionId] of [['first', 'user-content'], ['second', 'other-user-content']] as const) {
+    const view = b.render(
+      <>
+        <section data-testid="first">{b.factory(input)}</section>
+        <aside data-testid="second">
+          <SessionProvider session={other}>{b.factory(input)}</SessionProvider>
+        </aside>
+      </>,
+    )
+    for (const [parent, sessionId] of [
+      ['first', 'user-content'],
+      ['second', 'other-user-content'],
+    ] as const) {
       const section = within(view.getByTestId(parent))
       expect(section.getByText('Already prepared')).toBeTruthy()
       expect(section.getByTestId('image').getAttribute('data-session')).toBe(sessionId)
@@ -208,19 +272,21 @@ describe('user Content Factory', () => {
     expect(view.container.querySelector('pre')?.textContent).toContain(
       `… truncated, ${JSON.stringify(block, null, 2).length} characters total`,
     )
-    act(() => { b.locale.setLocale('zh') })
+    act(() => {
+      b.locale.setLocale('zh')
+    })
     expect(view.getByText('引用会话 · Alpha、Beta')).toBeTruthy()
     expect(view.getByRole('button', { name: '▾ 附加内容块' })).toBeTruthy()
-    expect(view.container.querySelector('pre')?.textContent).toContain(
-      `… 已截断，共 ${JSON.stringify(block, null, 2).length} 字符`,
-    )
+    expect(view.container.querySelector('pre')?.textContent).toContain(`… 已截断，共 ${JSON.stringify(block, null, 2).length} 字符`)
   })
 
   it('opens file and skill references through their own injectors only in interactive content', async () => {
     const b = await bench()
     const labels = ['Alpha']
     const content: UserContentData = {
-      ...empty, text: 'Read @"src/my file.ts" with /review and @Alpha', referenceLabels: labels,
+      ...empty,
+      text: 'Read @"src/my file.ts" with /review and @Alpha',
+      referenceLabels: labels,
     }
     const facts = { sessionLabels: labels, skillNames: ['review'] }
     const view = b.render(b.factory({ content, facts, loadImage: b.loadImage, interactive: true }))
@@ -269,8 +335,9 @@ describe('user Content Factory', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     window.addEventListener('error', suppressExpectedError)
     try {
-      expect(() => b.render(b.factory({ content: { ...empty, text: 'Unbound content' }, facts: {}, loadImage: b.loadImage }), false))
-        .toThrow(message)
+      expect(() =>
+        b.render(b.factory({ content: { ...empty, text: 'Unbound content' }, facts: {}, loadImage: b.loadImage }), false),
+      ).toThrow(message)
     } finally {
       window.removeEventListener('error', suppressExpectedError)
       error.mockRestore()

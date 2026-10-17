@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 
 let ctx: Context | undefined
 let scratch: string | undefined
@@ -18,7 +18,7 @@ afterEach(async () => {
 })
 
 describe.skipIf(process.platform !== 'win32')('managed Windows ACL control pipe', () => {
-  it.each(['read-only', 'workspace-write'])('runs without a visible console in %s mode', async (mode) => {
+  it.each(['read-only', 'workspace-write'])('runs without a visible console in %s mode', async mode => {
     scratch = await mkdtemp(join(tmpdir(), 'dsh-acl-console-'))
     const workspace = join(scratch, 'workspace')
     const temp = join(scratch, 'temp')
@@ -29,8 +29,21 @@ describe.skipIf(process.platform !== 'win32')('managed Windows ACL control pipe'
     const runner = fileURLToPath(new URL('../src/runner.ts', import.meta.url))
     const fixture = fileURLToPath(new URL('../../../subprocess/win32-process/tests/fixtures/console-state.ts', import.meta.url))
     const handle = ctx.subprocess.spawn({
-      argv: [process.execPath, '--import', 'tsx/esm', runner,
-        '--workspace', workspace, '--temp', temp, '--mode', mode, '--', process.execPath, fixture],
+      argv: [
+        process.execPath,
+        '--import',
+        'tsx/esm',
+        runner,
+        '--workspace',
+        workspace,
+        '--temp',
+        temp,
+        '--mode',
+        mode,
+        '--',
+        process.execPath,
+        fixture,
+      ],
       cwd: process.cwd(),
       stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 4096 } },
       graceMs: 1000,
@@ -68,9 +81,25 @@ describe.skipIf(process.platform !== 'win32')('managed Windows ACL control pipe'
       });
     `
     const handle = ctx.subprocess.spawn({
-      argv: [process.execPath, '--import', 'tsx/esm', runner,
-        '--workspace', scratch, '--temp', scratch, '--mode', 'read-only', '--',
-        process.execPath, '--input-type=module', '-e', program, helper, join(scratch, 'denied.txt')],
+      argv: [
+        process.execPath,
+        '--import',
+        'tsx/esm',
+        runner,
+        '--workspace',
+        scratch,
+        '--temp',
+        scratch,
+        '--mode',
+        'read-only',
+        '--',
+        process.execPath,
+        '--input-type=module',
+        '-e',
+        program,
+        helper,
+        join(scratch, 'denied.txt'),
+      ],
       cwd: process.cwd(),
       stdio: { stdin: 'ignore', stdout: { maxBytes: 1024 }, stderr: { maxBytes: 4096 }, control: 'pipe' },
       graceMs: 1000,

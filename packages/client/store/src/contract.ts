@@ -25,8 +25,7 @@ export type SnapshotSelectorHook<T> = <S>(sel: (s: T) => S, eq?: (a: S, b: S) =>
  * current. This keeps hook call sites stable across no-session/session
  * transitions without pretending that a session snapshot exists.
  */
-export type MaybeSnapshotSelectorHook<T> =
-  <S>(sel: (s: T) => S, eq?: (a: S, b: S) => boolean) => S | undefined
+export type MaybeSnapshotSelectorHook<T> = <S>(sel: (s: T) => S, eq?: (a: S, b: S) => boolean) => S | undefined
 
 /**
  * Action declaration table: pure immer-draft transforms over the store state,
@@ -131,9 +130,8 @@ export type BoundActions<H> = H extends StoreHandle<infer T, infer A> ? BakedAct
  * hook plus the baked write set. Components never see the instance itself
  * (no update/set — reads via useStore, writes via the declared actions only).
  */
-export type PropsStore<H> = H extends StoreHandle<infer T, infer A>
-  ? { useStore: SnapshotSelectorHook<T>; actions: BakedActions<T, A> }
-  : object
+export type PropsStore<H> =
+  H extends StoreHandle<infer T, infer A> ? { useStore: SnapshotSelectorHook<T>; actions: BakedActions<T, A> } : object
 
 /**
  * The defineStore contract (implementation lives beside this declaration,

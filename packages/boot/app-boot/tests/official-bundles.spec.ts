@@ -1,6 +1,6 @@
 /** The offline catalog does not depend on installed provider packages or registry requests. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { OFFICIAL_ON_DEMAND_CATALOG, ON_DEMAND_BUNDLES } from '../src/official-bundles.ts'
 
 describe('Official on-demand catalog', () => {

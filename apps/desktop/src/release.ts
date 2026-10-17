@@ -19,10 +19,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Validate release data read from an installed or packaged filesystem resource. */
 export function parseDesktopRelease(value: unknown): DesktopRelease {
-  if (!isRecord(value) || value.schemaVersion !== 1 || typeof value.version !== 'string'
-    || valid(value.version) === null || value.hostProtocolVersion !== DESKTOP_HOST_PROTOCOL_VERSION
-    || typeof value.nodeVersion !== 'string' || valid(value.nodeVersion) === null
-    || typeof value.pnpmVersion !== 'string' || valid(value.pnpmVersion) === null) {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== 1 ||
+    typeof value.version !== 'string' ||
+    valid(value.version) === null ||
+    value.hostProtocolVersion !== DESKTOP_HOST_PROTOCOL_VERSION ||
+    typeof value.nodeVersion !== 'string' ||
+    valid(value.nodeVersion) === null ||
+    typeof value.pnpmVersion !== 'string' ||
+    valid(value.pnpmVersion) === null
+  ) {
     throw new Error('dsh desktop: invalid desktop release metadata')
   }
   return {

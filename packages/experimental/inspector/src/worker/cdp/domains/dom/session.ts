@@ -8,17 +8,17 @@ import type { InspectorRealmDescriptor } from '../../../inspection/realm.ts'
 import type { RuntimeDomainSession } from '../runtime/index.ts'
 import type { RuntimeObjectPresentation } from '../runtime/object-table.ts'
 import type { CordisDomBackend, CordisDomChange, CordisDomMutation, CordisDomNode } from './model.ts'
-import {
-  cdpNumericId,
-  cdpStringId,
-  type CdpBackendNodeId,
-  type CdpNodeId,
-  type CdpRemoteObjectId,
-} from '../../ids.ts'
+import { cdpNumericId, cdpStringId, type CdpBackendNodeId, type CdpNodeId, type CdpRemoteObjectId } from '../../ids.ts'
 
 const READ_ONLY_METHODS = new Set([
-  'DOM.setAttributeValue', 'DOM.setAttributesAsText', 'DOM.setNodeName', 'DOM.setNodeValue',
-  'DOM.setOuterHTML', 'DOM.removeNode', 'DOM.moveTo', 'DOM.copyTo',
+  'DOM.setAttributeValue',
+  'DOM.setAttributesAsText',
+  'DOM.setNodeName',
+  'DOM.setNodeValue',
+  'DOM.setOuterHTML',
+  'DOM.removeNode',
+  'DOM.moveTo',
+  'DOM.copyTo',
 ])
 
 /**
@@ -56,7 +56,9 @@ export class CordisDomSession {
     private readonly backend: CordisDomBackend,
     private readonly runtime: RuntimeDomainSession,
   ) {
-    this.unsubscribe = backend.subscribe((event) => { this.updateDocument(event) })
+    this.unsubscribe = backend.subscribe(event => {
+      this.updateDocument(event)
+    })
   }
 
   /**
@@ -152,7 +154,7 @@ export class CordisDomSession {
       case 'DOM.pushNodesByBackendIdsToFrontend': {
         if (!Array.isArray(params.backendNodeIds)) throw new Error('backendNodeIds must be an array')
         return {
-          nodeIds: params.backendNodeIds.map((value) => {
+          nodeIds: params.backendNodeIds.map(value => {
             if (!Number.isSafeInteger(value) || (value as number) < 1) return 0
             const node = this.backend.document().byBackendId.get(cdpBackendNodeId(value, 'backendNodeId'))
             if (node === undefined) return 0
@@ -234,7 +236,7 @@ export class CordisDomSession {
     })
     if (group === undefined) return
     let ids = this.objectIdsByGroup.get(group)
-    if (ids === undefined) this.objectIdsByGroup.set(group, ids = new Set())
+    if (ids === undefined) this.objectIdsByGroup.set(group, (ids = new Set()))
     ids.add(objectId)
   }
 
@@ -247,9 +249,7 @@ export class CordisDomSession {
     }
     if (typeof params.objectId === 'string') {
       const binding = this.backendByObjectId.get(cdpStringId<'CdpRemoteObjectId'>(params.objectId, 'objectId'))
-      const node = binding === undefined
-        ? undefined
-        : this.backend.document().byBackendId.get(binding.backendNodeId)
+      const node = binding === undefined ? undefined : this.backend.document().byBackendId.get(binding.backendNodeId)
       if (node !== undefined) return node
     }
     throw new Error('Cordis node is not available')
@@ -389,9 +389,7 @@ export class CordisDomSession {
       case 'child-inserted': {
         const parentNodeId = this.sentNodeId(mutation.parentBackendNodeId)
         if (parentNodeId === undefined) return
-        const previousNodeId = mutation.previousBackendNodeId === 0
-          ? 0
-          : this.sentNodeId(mutation.previousBackendNodeId)
+        const previousNodeId = mutation.previousBackendNodeId === 0 ? 0 : this.sentNodeId(mutation.previousBackendNodeId)
         if (previousNodeId === undefined) return
         // A reconnected source reuses backend ids; the collapsed payload resets any earlier delivery record.
         this.forgetSubtree(mutation.node)
@@ -472,10 +470,13 @@ export class CordisDomSession {
       }
     }
     for (const [searchId, nodeIds] of this.searches) {
-      this.searches.set(searchId, nodeIds.filter((nodeId) => {
-        const backendNodeId = this.backendByNodeId.get(nodeId)
-        return backendNodeId !== undefined && document.byBackendId.has(backendNodeId)
-      }))
+      this.searches.set(
+        searchId,
+        nodeIds.filter(nodeId => {
+          const backendNodeId = this.backendByNodeId.get(nodeId)
+          return backendNodeId !== undefined && document.byBackendId.has(backendNodeId)
+        }),
+      )
     }
   }
 

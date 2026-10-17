@@ -48,13 +48,13 @@ export interface MarketInstallation {
 export type MarketCompatibility =
   | { readonly compatible: true }
   | {
-    readonly compatible: false
-    readonly runtimeVersion: string
-    /** The unmet requirement, keyed `engines.dsh`. */
-    readonly requirements: Readonly<Record<string, string>>
-    /** Whether the profile holds a version exemption for this exact package and runtime version. */
-    readonly exempted: boolean
-  }
+      readonly compatible: false
+      readonly runtimeVersion: string
+      /** The unmet requirement, keyed `engines.dsh`. */
+      readonly requirements: Readonly<Record<string, string>>
+      /** Whether the profile holds a version exemption for this exact package and runtime version. */
+      readonly exempted: boolean
+    }
 
 /** One listed version with its compatibility and the arguments that install it. */
 export interface MarketListingVersion extends MarketVersion {

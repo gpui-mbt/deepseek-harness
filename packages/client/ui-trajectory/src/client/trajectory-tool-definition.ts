@@ -1,6 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, StartedToolCall,
+  ConversationMatch,
+  ConversationNodeContext,
+  ConversationNodeDefinition,
+  StartedToolCall,
   ToolResultNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-tools/types'
@@ -49,10 +52,7 @@ function rootCall(match: ConversationMatch): StartedToolCall {
   }
 }
 
-function rootResult(
-  match: ConversationMatch,
-  previous?: StartedToolCall,
-): ToolResultNode | undefined {
+function rootResult(match: ConversationMatch, previous?: StartedToolCall): ToolResultNode | undefined {
   if (match.event.type !== 'tool/result') return undefined
   const message = match.event.data.message
   return {
@@ -73,9 +73,7 @@ function rootResult(
 }
 
 function locationTurn(match: ConversationMatch): number {
-  return match.location.kind === 'step' || match.location.kind === 'turn'
-    ? match.location.turn.turn
-    : 0
+  return match.location.kind === 'step' || match.location.kind === 'turn' ? match.location.turn.turn : 0
 }
 
 function locationStep(match: ConversationMatch): number {
@@ -97,11 +95,7 @@ function childCall(match: ConversationMatch, data: DispatchData): StartedToolCal
   }
 }
 
-function childResult(
-  match: ConversationMatch,
-  data: DispatchData,
-  previous?: ToolCallBlock,
-): ToolResultNode {
+function childResult(match: ConversationMatch, data: DispatchData, previous?: ToolCallBlock): ToolResultNode {
   return {
     kind: 'tool-result',
     seq: match.event.seq,
@@ -157,9 +151,7 @@ function updateDispatch(state: ToolState, match: ConversationMatch): ToolState {
   if (event.type === 'tool/ptc-dispatch-start' && index >= 0) return state
 
   const calls = new Map(state.calls)
-  calls.set(childId, event.type === 'tool/ptc-dispatch-start'
-    ? childCall(match, data)
-    : childResult(match, data, calls.get(childId)))
+  calls.set(childId, event.type === 'tool/ptc-dispatch-start' ? childCall(match, data) : childResult(match, data, calls.get(childId)))
   if (index >= 0) return { ...state, calls }
   const children = new Map(state.children)
   children.set(parentId, [...siblings, childId])
@@ -168,13 +160,10 @@ function updateDispatch(state: ToolState, match: ConversationMatch): ToolState {
   return { ...state, calls, children, parents }
 }
 
-function interruption(
-  context: ConversationNodeContext<ToolState>,
-): { seq: number; time: number } | undefined {
+function interruption(context: ConversationNodeContext<ToolState>): { seq: number; time: number } | undefined {
   const location = context.start?.location
   if (location?.kind === 'step' && location.step.status === 'closed') return location.step.end
-  if ((location?.kind === 'step' || location?.kind === 'turn')
-    && location.turn.status === 'closed') return location.turn.end
+  if ((location?.kind === 'step' || location?.kind === 'turn') && location.turn.status === 'closed') return location.turn.end
   return undefined
 }
 
@@ -190,18 +179,17 @@ function projectCall(
   if (visited.has(callId) || depth > MAX_DEPTH) return { ...block, subCalls: [] }
   const nextVisited = new Set(visited)
   nextVisited.add(callId)
-  const subCalls = (state.children.get(callId) ?? [])
-    .flatMap((childId) => {
-      const child = projectCall(state, childId, interruptedAt, nextVisited, depth + 1)
-      return child === undefined ? [] : [child]
-    })
+  const subCalls = (state.children.get(callId) ?? []).flatMap(childId => {
+    const child = projectCall(state, childId, interruptedAt, nextVisited, depth + 1)
+    return child === undefined ? [] : [child]
+  })
   if ('kind' in block || interruptedAt === undefined) return { ...block, subCalls }
   return {
     kind: 'tool-result',
     seq: interruptedAt.seq - 0.8,
     time: interruptedAt.time,
     callId: block.callId,
-    ...block.parentCallId === undefined ? {} : { parentCallId: block.parentCallId },
+    ...(block.parentCallId === undefined ? {} : { parentCallId: block.parentCallId }),
     name: block.name,
     args: block.args,
     call: { name: block.name, argsRaw: block.argsRaw },
@@ -231,16 +219,14 @@ function fallbackState(context: ConversationNodeContext<ToolState>): ToolState |
 const trajectoryToolDefinition: ConversationNodeDefinition<ToolState> = {
   kind: 'trajectory-tool-call',
   target: 'trajectory',
-  match: (event) => {
+  match: event => {
     if (event.type === 'tool/call') return { id: String(event.data.callId), role: 'start' }
     if (event.type === 'tool/result') {
       return { id: String(event.data.message.source.callId), role: 'update' }
     }
     if (event.type === 'tool/ptc-dispatch-start' || event.type === 'tool/ptc-dispatch') {
       const rootCallId: unknown = event.data.rootCallId
-      return typeof rootCallId === 'string' && rootCallId !== ''
-        ? { id: rootCallId, role: 'update' }
-        : null
+      return typeof rootCallId === 'string' && rootCallId !== '' ? { id: rootCallId, role: 'update' } : null
     }
     return null
   },
@@ -263,13 +249,12 @@ const trajectoryToolDefinition: ConversationNodeDefinition<ToolState> = {
     calls.set(context.state.rootId, result)
     return { ...context.state, calls }
   },
-  buildViewNode: (context) => {
+  buildViewNode: context => {
     const state = context.state ?? fallbackState(context)
     if (state === undefined) return null
     const root = projectCall(state, state.rootId, interruption(context))
     if (root === undefined) return null
-    const anchorSeq = context.start?.event.seq
-      ?? ('kind' in root ? root.seq : context.matches[0]?.event.seq ?? 0)
+    const anchorSeq = context.start?.event.seq ?? ('kind' in root ? root.seq : (context.matches[0]?.event.seq ?? 0))
     return trajectoryNode(context, anchorSeq, { kind: 'tool', root })
   },
 }

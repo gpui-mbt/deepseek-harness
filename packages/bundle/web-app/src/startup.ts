@@ -70,14 +70,22 @@ function webCommand(): Command {
     .description('Serve the DeepSeek Harness browser UI.')
     .helpOption('-h, --help', 'show this help')
     .option('--host <host>', 'bind address: one concrete IPv4 or IPv6 literal of a local interface; wildcard addresses are rejected')
-    .option('--instance', 'namespace this server\'s Session and durable stores under $DSH_HOME/instances/<port>, so concurrent servers sharing one home stay separate; requires an explicit nonzero --port')
+    .option(
+      '--instance',
+      "namespace this server's Session and durable stores under $DSH_HOME/instances/<port>, so concurrent servers sharing one home stay separate; requires an explicit nonzero --port",
+    )
     .option('--no-open', 'do not open the Web UI in the default browser')
     .option('--port <port>', 'listen port; pass 0 to let the OS pick a free one')
-    .option('--public-url <url>', 'advertise this HTTP(S) root in the printed, opened, runtime-context, and DSH_WEB_URL forms; grants no trust')
+    .option(
+      '--public-url <url>',
+      'advertise this HTTP(S) root in the printed, opened, runtime-context, and DSH_WEB_URL forms; grants no trust',
+    )
     .option('--trusted-host <authority...>', 'extra authority the /api browser-trust fence accepts (host or host:port; repeatable)')
     .option('--tls-cert <file>', 'PEM server certificate chain; requires --tls-key')
     .option('--tls-key <file>', 'unencrypted PEM private key; requires --tls-cert')
-    .addHelpText('after', `
+    .addHelpText(
+      'after',
+      `
 Examples:
   dsh --profile web                          serve on the composed host and port
   dsh --profile web --no-open                serve without opening a browser
@@ -88,7 +96,8 @@ Examples:
                                              advertise a prefix-stripping HTTPS proxy entry and admit its authority
   dsh --profile web --tls-cert ./server-chain.pem --tls-key ./server-key.pem
                                              serve HTTPS with an existing certificate and key
-`)
+`,
+    )
 }
 
 /**
@@ -124,7 +133,9 @@ export function apply(ctx: Context): void {
   program.action(() => {
     const options = program.opts<WebOptions>()
     if (options.host !== undefined && isWildcardHost(options.host)) {
-      program.error(`error: --host ${options.host} is an unspecified (wildcard) address, which is not supported: binding every interface would expose remote code execution to the network; bind one concrete IPv4 or IPv6 address instead`)
+      program.error(
+        `error: --host ${options.host} is an unspecified (wildcard) address, which is not supported: binding every interface would expose remote code execution to the network; bind one concrete IPv4 or IPv6 address instead`,
+      )
     }
     if (options.port !== undefined && !/^\d+$/.test(options.port)) {
       program.error(`error: --port must be a number, got ${JSON.stringify(options.port)}`)
@@ -145,11 +156,11 @@ export function apply(ctx: Context): void {
     }
     ctx.provide(WEB_STARTUP_SERVICE, {
       openBrowser: options.open,
-      ...options.host !== undefined && { host: options.host },
-      ...instance !== undefined && { instance },
-      ...options.port !== undefined && { port: Number(options.port) },
-      ...options.publicUrl !== undefined && { publicUrl: options.publicUrl },
-      ...tls !== undefined && { tls },
+      ...(options.host !== undefined && { host: options.host }),
+      ...(instance !== undefined && { instance }),
+      ...(options.port !== undefined && { port: Number(options.port) }),
+      ...(options.publicUrl !== undefined && { publicUrl: options.publicUrl }),
+      ...(tls !== undefined && { tls }),
       trustedHosts: options.trustedHost ?? [],
     } satisfies WebStartupValues)
   })

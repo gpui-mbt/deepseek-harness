@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   inspectSessionFormatVersion,
   sessionFormatCount,
@@ -37,7 +37,9 @@ describe('lossless Session format JSON snapshots', () => {
   it('refuses invalid scalar coordinates, cycles, and custom prototypes', () => {
     const cyclic: { self?: unknown } = {}
     cyclic.self = cyclic
-    class RecordValue { value = 1 }
+    class RecordValue {
+      value = 1
+    }
     class ArrayValue extends Array<number> {}
 
     expect(() => sessionFormatCount(-1, 'count')).toThrow(/non-negative/)
@@ -50,8 +52,13 @@ describe('lossless Session format JSON snapshots', () => {
 
   it('refuses a non-object header snapshot', () => {
     expect(() => snapshotSessionFormatHeader(null as never)).toThrow(/header|object/)
-    expect(() => snapshotSessionFormatHeader({
-      version: 1, id: 'missing-seeded', createdAt: 1, delegationDepth: 0,
-    } as never)).toThrow(/isSeeded/)
+    expect(() =>
+      snapshotSessionFormatHeader({
+        version: 1,
+        id: 'missing-seeded',
+        createdAt: 1,
+        delegationDepth: 0,
+      } as never),
+    ).toThrow(/isSeeded/)
   })
 })

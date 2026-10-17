@@ -24,11 +24,7 @@ import type {
   FsWriteOutcome,
 } from './types.ts'
 
-export {
-  FsError,
-  FsTargetKey,
-  FsVersion,
-} from './types.ts'
+export { FsError, FsTargetKey, FsVersion } from './types.ts'
 export type {
   FsEditOutcome,
   FsEditRequest,
@@ -56,7 +52,11 @@ declare module '@deepseek-ai/cordis' {
      * @param actor - the opaque tool-execution context the decider keys off.
      * @mode waterfall
      */
-    'fs/write-intent'(target: FsTarget, actor: object | undefined, next: () => FsWriteIntent | undefined | Promise<FsWriteIntent | undefined>): Promise<FsWriteIntent | undefined>
+    'fs/write-intent'(
+      target: FsTarget,
+      actor: object | undefined,
+      next: () => FsWriteIntent | undefined | Promise<FsWriteIntent | undefined>,
+    ): Promise<FsWriteIntent | undefined>
     /**
      * Single-slot decision for the next {@link FileSystem.editText}. Calling
      * `next()` yields an unconditional edit; the first returned guard wins.
@@ -64,7 +64,11 @@ declare module '@deepseek-ai/cordis' {
      * @param actor - the opaque tool-execution context the decider keys off.
      * @mode waterfall
      */
-    'fs/edit-intent'(target: FsTarget, actor: object | undefined, next: () => { version: FsVersion } | undefined | Promise<{ version: FsVersion } | undefined>): Promise<{ version: FsVersion } | undefined>
+    'fs/edit-intent'(
+      target: FsTarget,
+      actor: object | undefined,
+      next: () => { version: FsVersion } | undefined | Promise<{ version: FsVersion } | undefined>,
+    ): Promise<{ version: FsVersion } | undefined>
     /**
      * Record an authoritative positive or negative observation. Listeners must
      * be synchronous recorders: throws fail the tool call and returned promises

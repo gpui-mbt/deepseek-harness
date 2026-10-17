@@ -7,7 +7,7 @@
  * dispose with the fiber.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { createScope, scopeOf } from '../src/client/scope.ts'
 
@@ -30,7 +30,7 @@ function bench() {
   const b = createScope(root, sid('b'))
   const seen: string[] = []
   const listen = (label: string, ctx: Context, answer?: true) => {
-    ctx.on('test/scope-probe', (payload) => {
+    ctx.on('test/scope-probe', payload => {
       seen.push(`${label}:${payload.from}`)
       return answer
     })
@@ -44,9 +44,18 @@ describe('createScope', () => {
     const previous = createScope(root, sid('same'))
     const replacement = createScope(root, sid('same'))
     const seen: string[] = []
-    previous.ctx.on('test/scope-probe', () => { seen.push('old'); return undefined })
-    replacement.ctx.on('test/scope-probe', () => { seen.push('new'); return undefined })
-    root.on('test/scope-probe', () => { seen.push('root'); return undefined })
+    previous.ctx.on('test/scope-probe', () => {
+      seen.push('old')
+      return undefined
+    })
+    replacement.ctx.on('test/scope-probe', () => {
+      seen.push('new')
+      return undefined
+    })
+    root.on('test/scope-probe', () => {
+      seen.push('root')
+      return undefined
+    })
     replacement.ctx.emit(replacement.ctx, 'test/scope-probe', { from: 'new' })
     expect(seen).toEqual(['new', 'root'])
     await previous.fiber.dispose()

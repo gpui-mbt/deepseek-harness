@@ -3,7 +3,7 @@ import { access, readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-user-approval'
 import { fixtureUserPrompts, launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
@@ -20,14 +20,21 @@ describe('web e2e: fixed approval rejection keys', () => {
     browser = undefined
     scaffold = undefined
     const failed = results.filter(result => result.status === 'rejected')
-    if (failed.length > 0) throw new AggregateError(failed.map((result): unknown => result.reason), 'fixed shortcut teardown failed')
+    if (failed.length > 0)
+      throw new AggregateError(
+        failed.map((result): unknown => result.reason),
+        'fixed shortcut teardown failed',
+      )
   })
 
   it.skipIf(webSnapshotMode() === 'record').each(['reject-button-enter', 'container-escape'] as const)(
-    'rejects through %s without running the requested write', async (method) => {
+    'rejects through %s without running the requested write',
+    async method => {
       const events: SessionEvent[] = []
       scaffold = await launchWebScaffold({ replayFixture: FIXTURE, compareReplaySession: false })
-      scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { events.push(event) })
+      scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+        events.push(event)
+      })
       browser = await chromium.launch()
       page = await newEnglishPage(browser)
       const tripwire = watchConsole(page)
@@ -52,10 +59,8 @@ describe('web e2e: fixed approval rejection keys', () => {
         await page.keyboard.press('Escape')
       }
       await settled
-      expect(events.filter(event => event.type === 'approval/decided').map(event => event.data))
-        .toMatchObject([{ outcome: 'rejected' }])
-      expect(events.filter(event => event.type === 'turn/end').map(event => event.data.reason.kind))
-        .toEqual(['completed'])
+      expect(events.filter(event => event.type === 'approval/decided').map(event => event.data)).toMatchObject([{ outcome: 'rejected' }])
+      expect(events.filter(event => event.type === 'turn/end').map(event => event.data.reason.kind)).toEqual(['completed'])
       await expect(access(join(scaffold.workspaceCwd, 'workspace', 'notes.txt'))).rejects.toMatchObject({ code: 'ENOENT' })
       expect(await panel.count()).toBe(0)
       expect(tripwire.pageErrors).toEqual([])

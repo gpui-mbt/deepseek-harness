@@ -1,12 +1,15 @@
 /** Worker lifecycle of index parsing, with a scripted Worker. */
 import { EventEmitter } from 'node:events'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 
 const workers: FakeWorker[] = []
 
 class FakeWorker extends EventEmitter {
   readonly terminate = vi.fn(() => Promise.resolve(0))
-  constructor(readonly entry: URL, readonly options: { workerData: unknown; transferList: unknown[] }) {
+  constructor(
+    readonly entry: URL,
+    readonly options: { workerData: unknown; transferList: unknown[] },
+  ) {
     super()
     workers.push(this)
   }
@@ -16,7 +19,9 @@ vi.mock('node:worker_threads', () => ({ Worker: FakeWorker }))
 
 const { parseIndexInWorker } = await import('../src/parse-thread.ts')
 
-afterEach(() => { workers.length = 0 })
+afterEach(() => {
+  workers.length = 0
+})
 
 function start(signal = new AbortController().signal) {
   const body = new Uint8Array([1, 2, 3])
@@ -42,17 +47,14 @@ it('settles when termination fails', async () => {
   await expect(result).resolves.toEqual({ ok: true, index: {} })
 })
 
-it.each([
-  null,
-  { index: {} },
-  { ok: true },
-  { ok: true, index: null },
-  { ok: false, path: '$', reason: 'r' },
-])('refuses the Worker message %j', async (message) => {
-  const { result, worker } = start()
-  worker.emit('message', message)
-  await expect(result).rejects.toThrow('index parser reported an unexpected value')
-})
+it.each([null, { index: {} }, { ok: true }, { ok: true, index: null }, { ok: false, path: '$', reason: 'r' }])(
+  'refuses the Worker message %j',
+  async message => {
+    const { result, worker } = start()
+    worker.emit('message', message)
+    await expect(result).rejects.toThrow('index parser reported an unexpected value')
+  },
+)
 
 it('rejects when the Worker fails or exits without a result', async () => {
   const failing = start()

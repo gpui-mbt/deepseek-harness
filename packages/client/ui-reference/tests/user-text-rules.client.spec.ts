@@ -1,12 +1,14 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { UserTextRule } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UserTextRegistry } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/user-text-registry.ts'
 import { fileReferenceRule, folderReferenceRule } from '../src/client/user-text-rules.ts'
 
 function setup(rules: readonly UserTextRule[] = [folderReferenceRule, fileReferenceRule]) {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   const registry = new UserTextRegistry(ctx)
   for (const rule of rules) registry.register(rule)
   return registry.createEvaluator()
@@ -15,13 +17,26 @@ function setup(rules: readonly UserTextRule[] = [folderReferenceRule, fileRefere
 describe('fileReferenceRule and folderReferenceRule', () => {
   it('reads no facts and reuses the entire result across fact updates', () => {
     const read = vi.fn()
-    const file = vi.fn<UserTextRule<'file'>['match']>((text, from, context) => fileReferenceRule.match(text, from, {
-      read: (key) => { read(key); return context.read(key) },
-    }))
-    const folder = vi.fn<UserTextRule<'folder'>['match']>((text, from, context) => folderReferenceRule.match(text, from, {
-      read: (key) => { read(key); return context.read(key) },
-    }))
-    const evaluate = setup([{ ...fileReferenceRule, match: file }, { ...folderReferenceRule, match: folder }])
+    const file = vi.fn<UserTextRule<'file'>['match']>((text, from, context) =>
+      fileReferenceRule.match(text, from, {
+        read: key => {
+          read(key)
+          return context.read(key)
+        },
+      }),
+    )
+    const folder = vi.fn<UserTextRule<'folder'>['match']>((text, from, context) =>
+      folderReferenceRule.match(text, from, {
+        read: key => {
+          read(key)
+          return context.read(key)
+        },
+      }),
+    )
+    const evaluate = setup([
+      { ...fileReferenceRule, match: file },
+      { ...folderReferenceRule, match: folder },
+    ])
     const text = '@src/a.ts @docs/'
     const before = evaluate({ text, facts: {} })
     expect(before.filter(node => node.id !== 'text').map(node => node.id)).toEqual(['file', 'folder'])
@@ -52,12 +67,11 @@ describe('fileReferenceRule and folderReferenceRule', () => {
     const evaluate = setup()
     const text = '@a.ts，。；：！？ @b.md.,;:!? @"a!.md"， @dir/。'
     const nodes = evaluate({ text, facts: {} })
-    expect(nodes.filter(node => node.id === 'file').map(node => ({ raw: text.slice(node.start, node.end), data: node.data })))
-      .toEqual([
-        { raw: '@a.ts', data: { path: 'a.ts', label: 'a.ts' } },
-        { raw: '@b.md', data: { path: 'b.md', label: 'b.md' } },
-        { raw: '@"a!.md"', data: { path: 'a!.md', label: 'a!.md' } },
-      ])
+    expect(nodes.filter(node => node.id === 'file').map(node => ({ raw: text.slice(node.start, node.end), data: node.data }))).toEqual([
+      { raw: '@a.ts', data: { path: 'a.ts', label: 'a.ts' } },
+      { raw: '@b.md', data: { path: 'b.md', label: 'b.md' } },
+      { raw: '@"a!.md"', data: { path: 'a!.md', label: 'a!.md' } },
+    ])
     expect(nodes.filter(node => node.id === 'folder').map(node => text.slice(node.start, node.end))).toEqual(['@dir/'])
   })
 
@@ -66,11 +80,10 @@ describe('fileReferenceRule and folderReferenceRule', () => {
     const text = '@"/" @/ mail@host prefix@a.ts @。 @'
     const nodes = evaluate({ text, facts: {} })
     expect(nodes.filter(node => node.id === 'folder').map(node => node.data)).toEqual([
-      { path: '/', label: '"/"' }, { path: '/', label: '/' },
+      { path: '/', label: '"/"' },
+      { path: '/', label: '/' },
     ])
     expect(nodes.filter(node => node.id === 'file')).toEqual([])
-    expect(evaluate({ text: '@name', facts: {} })).toEqual([
-      { id: 'file', start: 0, end: 5, data: { path: 'name', label: 'name' } },
-    ])
+    expect(evaluate({ text: '@name', facts: {} })).toEqual([{ id: 'file', start: 0, end: 5, data: { path: 'name', label: 'name' } }])
   })
 })

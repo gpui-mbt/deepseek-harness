@@ -3,10 +3,17 @@ import { readFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page, type WebSocketRoute } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  acknowledgeReloadConnectionLoss, assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  acknowledgeReloadConnectionLoss,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -40,19 +47,23 @@ describe('web e2e: workspace recency', () => {
     }
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
-    await page.routeWebSocket('**/api/remote.mux', (route) => {
+    await page.routeWebSocket('**/api/remote.mux', route => {
       socket = route
       const server = route.connectToServer()
       let heldStream: string | undefined
       const pending: (string | Buffer)[] = []
-      server.onMessage((message) => {
+      server.onMessage(message => {
         const frame = JSON.parse(String(message)) as {
           type: string
           streamId: string
           value?: { type: string; value?: { archivedSessionIds?: string[] } }
         }
-        if (holdWorkspace && frame.type === 'item' && frame.value?.type === 'baseline'
-          && frame.value.value?.archivedSessionIds !== undefined) {
+        if (
+          holdWorkspace &&
+          frame.type === 'item' &&
+          frame.value?.type === 'baseline' &&
+          frame.value.value?.archivedSessionIds !== undefined
+        ) {
           heldStream = frame.streamId
           releaseWorkspace = () => {
             heldStream = undefined
@@ -65,14 +76,22 @@ describe('web e2e: workspace recency', () => {
     })
     await page.clock.setFixedTime(now)
     tripwire = watchConsole(page)
-    await page.addInitScript(({ account, ids }) => {
-      if (localStorage.getItem('dsh.workspace.view.v5') !== null) return
-      localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId: ids[0] }))
-      localStorage.setItem('dsh.workspace.view.v5', JSON.stringify({
-        groupBy: 'workspace', orderBy: 'updated', groupExpansion: { [account]: true },
-        sessionOrderByAccount: { [account]: [...ids].reverse(), __flat_session_order__: [...ids].reverse() },
-      }))
-    }, { account: workspace.id, ids })
+    await page.addInitScript(
+      ({ account, ids }) => {
+        if (localStorage.getItem('dsh.workspace.view.v5') !== null) return
+        localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId: ids[0] }))
+        localStorage.setItem(
+          'dsh.workspace.view.v5',
+          JSON.stringify({
+            groupBy: 'workspace',
+            orderBy: 'updated',
+            groupExpansion: { [account]: true },
+            sessionOrderByAccount: { [account]: [...ids].reverse(), __flat_session_order__: [...ids].reverse() },
+          }),
+        )
+      },
+      { account: workspace.id, ids },
+    )
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
   })
@@ -95,10 +114,7 @@ describe('web e2e: workspace recency', () => {
       return captureStableAria(page, '[role="tree"][aria-label="Sessions"]', scaffold.workspaceCwd)
     }
     await expect.poll(titles).toEqual(TITLES)
-    await compareOrRefreshGolden(
-      join(SNAPSHOT_DIR, 'sidebar.expected.md'),
-      await captureSidebar(), MODE,
-    )
+    await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'sidebar.expected.md'), await captureSidebar(), MODE)
     await pick('Manual')
     await expect.poll(titles).toEqual(TITLES)
     await pick('Last updated')
@@ -131,27 +147,30 @@ describe('web e2e: workspace recency', () => {
     await expect.poll(() => releaseWorkspace !== undefined).toBe(true)
     const workspaceTitle = basename(scaffold.workspaceCwd)
     // Session titles can fall back to the workspace name while reconnect projections reload.
-    await page.locator('[role="treeitem"][aria-expanded]')
-      .filter({ has: page.getByText(workspaceTitle, { exact: true }) }).hover()
+    await page
+      .locator('[role="treeitem"][aria-expanded]')
+      .filter({ has: page.getByText(workspaceTitle, { exact: true }) })
+      .hover()
     await page.getByRole('button', { name: `New session in ${workspaceTitle}` }).click()
     await pick('In one list')
     await expect.poll(titles).toEqual(['New Session', ...TITLES])
-    await expect.poll(() => page.evaluate(() => {
-      const { sessionId } = JSON.parse(localStorage.getItem('dsh.sessions.current')!) as { sessionId: string }
-      const { sessionOrderByAccount } = JSON.parse(localStorage.getItem('dsh.workspace.view.v5')!) as {
-        sessionOrderByAccount: Record<string, string[]>
-      }
-      return sessionOrderByAccount.__flat_session_order__?.[0] === sessionId
-    })).toBe(true)
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const { sessionId } = JSON.parse(localStorage.getItem('dsh.sessions.current')!) as { sessionId: string }
+          const { sessionOrderByAccount } = JSON.parse(localStorage.getItem('dsh.workspace.view.v5')!) as {
+            sessionOrderByAccount: Record<string, string[]>
+          }
+          return sessionOrderByAccount.__flat_session_order__?.[0] === sessionId
+        }),
+      )
+      .toBe(true)
     holdWorkspace = false
     releaseWorkspace!()
     await pick('WorkSpace')
     acknowledgeReloadConnectionLoss(tripwire, reconnectWarningStart)
     await expect.poll(titles).toEqual(['New Session', ...TITLES])
-    await compareOrRefreshGolden(
-      join(SNAPSHOT_DIR, 'manual-blank.expected.md'),
-      await captureSidebar(), MODE,
-    )
+    await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'manual-blank.expected.md'), await captureSidebar(), MODE)
     const blank = page.getByRole('treeitem').filter({ has: page.getByText('New Session', { exact: true }) })
     await expect.poll(() => blank.getAttribute('draggable')).toBe('false')
     const blankWarningStart = tripwire.warnings.length

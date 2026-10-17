@@ -1,5 +1,5 @@
 /** Question-composer Session store behavior. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createQuestionDraftStore, type QuestionDraftProgress } from '../src/client/draft-store.ts'
 
 const FIRST: QuestionDraftProgress = {
@@ -12,8 +12,12 @@ describe('createQuestionDraftStore', () => {
     const values = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => { values.set(key, value) },
-      removeItem: (key: string) => { values.delete(key) },
+      setItem: (key: string, value: string) => {
+        values.set(key, value)
+      },
+      removeItem: (key: string) => {
+        values.delete(key)
+      },
     })
     try {
       const first = createQuestionDraftStore().create('session-one')
@@ -25,8 +29,7 @@ describe('createQuestionDraftStore', () => {
       expect(other.getSnapshot()).toEqual({ progressByRequest: {} })
 
       restored.actions.clear('question:one')
-      expect(createQuestionDraftStore().create('session-one').getSnapshot())
-        .toEqual({ progressByRequest: {} })
+      expect(createQuestionDraftStore().create('session-one').getSnapshot()).toEqual({ progressByRequest: {} })
     } finally {
       vi.unstubAllGlobals()
     }

@@ -1,8 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import {
-  MOCK_LLM_CLI_USAGE,
-  parseMockLlmCliArgs,
-} from '../src/cli.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import { MOCK_LLM_CLI_USAGE, parseMockLlmCliArgs } from '../src/cli.ts'
 
 describe('mock LLM server CLI parser', () => {
   it('returns help without requiring a sequence', () => {
@@ -11,24 +8,41 @@ describe('mock LLM server CLI parser', () => {
   })
 
   it('parses every request and listener option', () => {
-    expect(parseMockLlmCliArgs([
-      '--sequence', 'connection_refused,partial_disconnect,success',
-      '--host', 'localhost',
-      '--port', '9010',
-      '--api-key', 'mock-key',
-      '--listen-delay-ms', '100',
-      '--repeat-last',
-      '--success-text', 'done',
-      '--partial-text', 'half',
-      '--reasoning-text', 'think',
-      '--chunk-size', '2',
-      '--chunk-delay-ms', '3',
-      '--disconnect-delay-ms', '4',
-      '--retry-after-ms', '5000',
-      '--request-id', 'request-1',
-      '--tool-name', 'lookup',
-      '--tool-arguments', '{"id":1}',
-    ])).toEqual({
+    expect(
+      parseMockLlmCliArgs([
+        '--sequence',
+        'connection_refused,partial_disconnect,success',
+        '--host',
+        'localhost',
+        '--port',
+        '9010',
+        '--api-key',
+        'mock-key',
+        '--listen-delay-ms',
+        '100',
+        '--repeat-last',
+        '--success-text',
+        'done',
+        '--partial-text',
+        'half',
+        '--reasoning-text',
+        'think',
+        '--chunk-size',
+        '2',
+        '--chunk-delay-ms',
+        '3',
+        '--disconnect-delay-ms',
+        '4',
+        '--retry-after-ms',
+        '5000',
+        '--request-id',
+        'request-1',
+        '--tool-name',
+        'lookup',
+        '--tool-arguments',
+        '{"id":1}',
+      ]),
+    ).toEqual({
       kind: 'run',
       config: {
         startsUnavailable: true,
@@ -78,12 +92,9 @@ describe('mock LLM server CLI parser', () => {
   })
 
   it('parses a reproducible weighted random profile', () => {
-    expect(parseMockLlmCliArgs([
-      '--sequence', 'random',
-      '--repeat-last',
-      '--seed', '42',
-      '--random-weights', 'success=8,partial_disconnect=2',
-    ])).toEqual({
+    expect(
+      parseMockLlmCliArgs(['--sequence', 'random', '--repeat-last', '--seed', '42', '--random-weights', 'success=8,partial_disconnect=2']),
+    ).toEqual({
       kind: 'run',
       config: {
         startsUnavailable: false,

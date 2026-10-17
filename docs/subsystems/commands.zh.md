@@ -82,11 +82,11 @@ interface CommandInvocation {
 /** Expected command outcome rendered directly by the dispatching UI. */
 type CommandResult =
   | {
-    readonly kind: 'success'
-    readonly text?: string
-    /** Earlier authoritative domain event that owns a richer presentation. */
-    readonly sourceEventSeq?: SessionSeq
-  }
+      readonly kind: 'success'
+      readonly text?: string
+      /** Earlier authoritative domain event that owns a richer presentation. */
+      readonly sourceEventSeq?: SessionSeq
+    }
   | { readonly kind: 'error'; readonly text: string }
 ```
 

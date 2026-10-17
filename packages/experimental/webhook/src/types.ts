@@ -7,8 +7,7 @@ import type { WebhookDeliveryId, WebhookRuleId, WebhookSourceId } from './brand.
 export interface WebhookEventMap {}
 
 /** Event value for a known provider kind, or generic lossless JSON for an out-of-tree kind. */
-export type WebhookEventOf<K extends string> =
-  K extends keyof WebhookEventMap ? WebhookEventMap[K] : JsonValue
+export type WebhookEventOf<K extends string> = K extends keyof WebhookEventMap ? WebhookEventMap[K] : JsonValue
 
 /** One authenticated and parsed provider delivery. */
 export interface VerifiedWebhookDelivery<K extends string = string> {

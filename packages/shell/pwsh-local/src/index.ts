@@ -19,7 +19,15 @@ import type { Volatile } from '@deepseek-ai/cordis'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { ShellExecutor } from '@deepseek-ai/dsh-shell'
-import type { CollectedOutput, ShellExecRequest, ShellExecSpec, ShellExecution, ShellProcess, ShellProcessRead, ShellRunResult } from '@deepseek-ai/dsh-shell'
+import type {
+  CollectedOutput,
+  ShellExecRequest,
+  ShellExecSpec,
+  ShellExecution,
+  ShellProcess,
+  ShellProcessRead,
+  ShellRunResult,
+} from '@deepseek-ai/dsh-shell'
 import type { SubprocessCollect, SubprocessHandle, SubprocessOutputReader, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { clampTimeout, deadline, MAX_TIMER_DELAY_MS, timeoutOf } from '@deepseek-ai/dsh-timeout'
 /* jscpd:ignore-end */
@@ -87,7 +95,7 @@ function finalOutput(reader: SubprocessOutputReader): CollectedOutput {
   return {
     text: read.text,
     truncated: read.lossy,
-    ...read.spillPath !== undefined ? { spillPath: read.spillPath } : {},
+    ...(read.spillPath !== undefined ? { spillPath: read.spillPath } : {}),
   }
 }
 
@@ -149,7 +157,10 @@ export class PwshLocalExecutor extends ShellExecutor {
     return this.resolvedPwshPath
   }
 
-  constructor(ctx: Context, readonly config: Config) {
+  constructor(
+    ctx: Context,
+    readonly config: Config,
+  ) {
     super(ctx)
     this.declaredPwshPath = config.pwshPath.get()
     this.resolvedPwshPath = resolvePwshPath(this.declaredPwshPath)
@@ -176,10 +187,10 @@ export class PwshLocalExecutor extends ShellExecutor {
       timeoutMs,
       onExpiry: request.onExpiry ?? 'kill',
       stdoutMaxBytes,
-      ...request.signal ? { signal: request.signal } : {},
-      ...request.stdin !== undefined ? { stdin: request.stdin } : {},
-      ...request.env !== undefined ? { env: request.env } : {},
-      ...request.dshEnv !== undefined ? { dshEnv: request.dshEnv } : {},
+      ...(request.signal ? { signal: request.signal } : {}),
+      ...(request.stdin !== undefined ? { stdin: request.stdin } : {}),
+      ...(request.env !== undefined ? { env: request.env } : {}),
+      ...(request.dshEnv !== undefined ? { dshEnv: request.dshEnv } : {}),
       sandboxPolicy: request.sandboxPolicy,
     }
   }
@@ -201,8 +212,7 @@ export class PwshLocalExecutor extends ShellExecutor {
     signal: AbortSignal | undefined,
     argv: readonly string[],
   ): SubprocessSpawnSpec {
-    const collect = (maxBytes: number): SubprocessCollect =>
-      ({ maxBytes, spill: { maxBytes: this.config.maxSpillBytes.get() } })
+    const collect = (maxBytes: number): SubprocessCollect => ({ maxBytes, spill: { maxBytes: this.config.maxSpillBytes.get() } })
     return {
       argv: [...argv],
       cwd: spec.workdir,
@@ -263,7 +273,9 @@ export class PwshLocalExecutor extends ShellExecutor {
         const timedOut = timeoutOf(d.signal, 'BASH_TIMEOUT') !== undefined
         return { timedOut, aborted: d.signal.aborted && !timedOut }
       }
-      disarm = () => { d[Symbol.dispose]() }
+      disarm = () => {
+        d[Symbol.dispose]()
+      }
     } else {
       // No deadline: callers stop the process through kill() or spec.signal.
       spawnSignal = spec.signal
@@ -275,11 +287,16 @@ export class PwshLocalExecutor extends ShellExecutor {
     if (typeof argvOrPrepare === 'function') {
       const signal = spawnSignal ?? new AbortController().signal
       const cancelled = Promise.withResolvers<never>()
-      const abort = (): void => { cancelled.reject(signal.reason) }
+      const abort = (): void => {
+        cancelled.reject(signal.reason)
+      }
       signal.addEventListener('abort', abort, { once: true })
       try {
         argv = await Promise.race([
-          Promise.resolve().then(() => { signal.throwIfAborted(); return argvOrPrepare(signal) }),
+          Promise.resolve().then(() => {
+            signal.throwIfAborted()
+            return argvOrPrepare(signal)
+          }),
           cancelled.promise,
         ])
         signal.throwIfAborted()
@@ -289,8 +306,12 @@ export class PwshLocalExecutor extends ShellExecutor {
           throw error
         }
         preparationTimedOut = true
-      } finally { signal.removeEventListener('abort', abort) }
-    } else { argv = argvOrPrepare }
+      } finally {
+        signal.removeEventListener('abort', abort)
+      }
+    } else {
+      argv = argvOrPrepare
+    }
 
     // A synchronous spawn throw (pre-aborted signal, alternative subprocess
     // implementations) is contained into the same settled-killed shape as an
@@ -308,16 +329,15 @@ export class PwshLocalExecutor extends ShellExecutor {
     const emptyReader: SubprocessOutputReader = {
       readFrom: () => ({ text: '', lossy: false, nextOffset: 0 }),
     }
-    const collected = running !== undefined
-      ? PwshLocalExecutor.collected(running)
-      : { stdout: emptyReader, stderr: emptyReader }
+    const collected = running !== undefined ? PwshLocalExecutor.collected(running) : { stdout: emptyReader, stderr: emptyReader }
     const spawnThrow = (): unknown => (syncSpawnError as { error: unknown }).error
     const spawned = preparationTimedOut
       ? Promise.resolve({ exitCode: null, signal: null })
-      : running !== undefined ? running.done
-      // The original throw is preserved for callers even when it was not an Error.
-      // eslint-disable-next-line prefer-promise-reject-errors
-        : Promise.reject(spawnThrow())
+      : running !== undefined
+        ? running.done
+        : // The original throw is preserved for callers even when it was not an Error.
+          // eslint-disable-next-line prefer-promise-reject-errors
+          Promise.reject(spawnThrow())
 
     // A provider rejection produces no process output, so the subprocess
     // service has nothing to buffer: once the provider rejected, its
@@ -333,7 +353,7 @@ export class PwshLocalExecutor extends ShellExecutor {
       return providerFailure.note
     }
     const observedStderr: SubprocessOutputReader = {
-      readFrom: (fromByte) => {
+      readFrom: fromByte => {
         if (providerFailure === undefined) return collected.stderr.readFrom(fromByte)
         const note = Buffer.from(providerFailure.note, 'utf8')
         return { text: note.subarray(Math.min(fromByte, note.length)).toString('utf8'), nextOffset: note.length, lossy: false }
@@ -348,41 +368,44 @@ export class PwshLocalExecutor extends ShellExecutor {
       exitCode: null,
       signal: null,
       observed: { stdout: collected.stdout, stderr: observedStderr },
-      done: spawned.then((outcome) => {
-        // Any signal termination is killed, including a command signaling itself.
-        if (proc.status === 'running') {
-          proc.status = spawnSignal?.aborted === true || outcome.signal !== null ? 'killed' : 'completed'
-        }
-        proc.exitCode = outcome.exitCode
-        proc.signal = outcome.signal
-        this.onProcessDone(proc, collected.stderr.readFrom(0).text, false)
-        disarm()
-      }, (error: unknown) => {
-        // A live handle whose rejection follows this execution's own
-        // termination — kill() or the spawn signal's abort — reports its
-        // terminal outcome: a provider that terminated the range before the
-        // target started has no exit to report and rejects with the
-        // cancellation reason instead. The result projection classifies it
-        // from the deadline wiring; nothing is a provider failure. A
-        // synchronous spawn throw never produced a handle and stays a failure.
-        if (running !== undefined && (proc.status === 'killed' || spawnSignal?.aborted === true)) {
-          proc.status = 'killed'
+      done: spawned.then(
+        outcome => {
+          // Any signal termination is killed, including a command signaling itself.
+          if (proc.status === 'running') {
+            proc.status = spawnSignal?.aborted === true || outcome.signal !== null ? 'killed' : 'completed'
+          }
+          proc.exitCode = outcome.exitCode
+          proc.signal = outcome.signal
           this.onProcessDone(proc, collected.stderr.readFrom(0).text, false)
           disarm()
-          return
-        }
-        // Provider failures settle the handle as killed and surface on stderr for every reader.
-        proc.status = 'killed'
-        let detail = 'unprintable provider failure'
-        try {
-          detail = String(error)
-        } catch {
-          // Provider-owned rejection values cannot make ShellProcess.done reject.
-        }
-        providerFailure = { error, note: `subprocess failed before reporting an outcome: ${detail}` }
-        this.onProcessDone(proc, providerFailure.note, true, error)
-        disarm()
-      }),
+        },
+        (error: unknown) => {
+          // A live handle whose rejection follows this execution's own
+          // termination — kill() or the spawn signal's abort — reports its
+          // terminal outcome: a provider that terminated the range before the
+          // target started has no exit to report and rejects with the
+          // cancellation reason instead. The result projection classifies it
+          // from the deadline wiring; nothing is a provider failure. A
+          // synchronous spawn throw never produced a handle and stays a failure.
+          if (running !== undefined && (proc.status === 'killed' || spawnSignal?.aborted === true)) {
+            proc.status = 'killed'
+            this.onProcessDone(proc, collected.stderr.readFrom(0).text, false)
+            disarm()
+            return
+          }
+          // Provider failures settle the handle as killed and surface on stderr for every reader.
+          proc.status = 'killed'
+          let detail = 'unprintable provider failure'
+          try {
+            detail = String(error)
+          } catch {
+            // Provider-owned rejection values cannot make ShellProcess.done reject.
+          }
+          providerFailure = { error, note: `subprocess failed before reporting an outcome: ${detail}` }
+          this.onProcessDone(proc, providerFailure.note, true, error)
+          disarm()
+        },
+      ),
       readOutput: (): ShellProcessRead => {
         const out = collected.stdout.readFrom(stdoutOffset)
         const err = collected.stderr.readFrom(stderrOffset)
@@ -391,18 +414,16 @@ export class PwshLocalExecutor extends ShellExecutor {
 
         const providerFailure = consumeProviderFailure()
         const failureSeparator = err.text.length > 0 && !err.text.endsWith('\n') ? '\n' : ''
-        const errText = err.text
-          + (providerFailure.length > 0 ? `${failureSeparator}${providerFailure}` : '')
+        const errText = err.text + (providerFailure.length > 0 ? `${failureSeparator}${providerFailure}` : '')
         // Single newline between sections: stdout chunks usually end with one
         // already; add it only when missing.
         const separator = out.text.length > 0 && !out.text.endsWith('\n') ? '\n' : ''
-        const delta = out.text
-          + (errText.length > 0 ? `${separator}[stderr]\n${errText}` : '')
+        const delta = out.text + (errText.length > 0 ? `${separator}[stderr]\n${errText}` : '')
         return {
           delta,
           lossy: out.lossy || err.lossy,
-          ...out.spillPath !== undefined ? { stdoutSpillPath: out.spillPath } : {},
-          ...err.spillPath !== undefined ? { stderrSpillPath: err.spillPath } : {},
+          ...(out.spillPath !== undefined ? { stdoutSpillPath: out.spillPath } : {}),
+          ...(err.spillPath !== undefined ? { stderrSpillPath: err.spillPath } : {}),
         }
       },
       kill: (): boolean => {

@@ -12,14 +12,26 @@ if (process.isMainFrame && location.origin === allowedOrigin) {
     if (value !== 'en_US' && value !== 'zh_CN') return
     locale = value
     for (const listener of localeListeners) {
-      try { listener(value) } catch (error) { console.error('Platform locale listener failed', error) }
+      try {
+        listener(value)
+      } catch (error) {
+        console.error('Platform locale listener failed', error)
+      }
     }
   })
   try {
     const value: unknown = ipcRenderer.sendSync(PLATFORM_IPC.bootstrap)
-    if (typeof value === 'object' && value !== null && 'token' in value && 'origin' in value
-      && typeof value.token === 'string' && value.token.length > 0 && value.origin === location.origin
-      && 'locale' in value && (value.locale === 'en_US' || value.locale === 'zh_CN')) {
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      'token' in value &&
+      'origin' in value &&
+      typeof value.token === 'string' &&
+      value.token.length > 0 &&
+      value.origin === location.origin &&
+      'locale' in value &&
+      (value.locale === 'en_US' || value.locale === 'zh_CN')
+    ) {
       token = value.token
       locale = value.locale
     }
@@ -35,7 +47,9 @@ if (process.isMainFrame && location.origin === allowedOrigin) {
     },
     onLocaleChange: (listener: (locale: PlatformLocale) => void): (() => void) => {
       localeListeners.add(listener)
-      return () => { localeListeners.delete(listener) }
+      return () => {
+        localeListeners.delete(listener)
+      }
     },
     getAuthToken: (): string => {
       if (token === undefined) throw new Error('Platform initialization failed')

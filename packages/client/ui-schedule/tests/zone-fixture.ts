@@ -17,8 +17,14 @@
  * guaranteed to differ from the runner's zone.
  */
 const CANDIDATE_ZONES: readonly string[] = [
-  'Asia/Shanghai', 'Asia/Taipei', 'America/New_York', 'America/Toronto',
-  'Europe/Berlin', 'Europe/Paris', 'Pacific/Auckland', 'UTC',
+  'Asia/Shanghai',
+  'Asia/Taipei',
+  'America/New_York',
+  'America/Toronto',
+  'Europe/Berlin',
+  'Europe/Paris',
+  'Pacific/Auckland',
+  'UTC',
 ]
 
 /**
@@ -28,13 +34,27 @@ const CANDIDATE_ZONES: readonly string[] = [
  * @returns minutes the zone's wall clock is ahead of UTC at that instant.
  */
 export function zoneOffsetMinutes(timeZone: string, instant: string): number {
-  const read = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
-    timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  }).formatToParts(new Date(instant)).map(part => [part.type, part.value]))
+  const read = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+      .formatToParts(new Date(instant))
+      .map(part => [part.type, part.value]),
+  )
   const wallClock = Date.UTC(
-    Number(read['year']), Number(read['month']) - 1, Number(read['day']),
-    Number(read['hour']), Number(read['minute']), Number(read['second']),
+    Number(read['year']),
+    Number(read['month']) - 1,
+    Number(read['day']),
+    Number(read['hour']),
+    Number(read['minute']),
+    Number(read['second']),
   )
   return (wallClock - Date.parse(instant)) / 60_000
 }
@@ -52,10 +72,7 @@ export function zoneOffsetMinutes(timeZone: string, instant: string): number {
  * @throws Error when no candidate zone differs at that instant, so the fixture
  * fails with its reason instead of comparing a wall clock with itself.
  */
-export function zoneDifferingFrom(
-  instant: string,
-  deviceZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone,
-): string {
+export function zoneDifferingFrom(instant: string, deviceZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone): string {
   const deviceOffset = zoneOffsetMinutes(deviceZone, instant)
   const chosen = CANDIDATE_ZONES.find(zone => zoneOffsetMinutes(zone, instant) !== deviceOffset)
   if (chosen === undefined) {

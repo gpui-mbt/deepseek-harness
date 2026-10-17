@@ -5,7 +5,17 @@ import z from '@deepseek-ai/schemastery'
 // entry and `loader/volatile-update` merges.
 import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
-import type { SpeechPreparationOptions, SpeechProvider, SpeechProviderId, SpeechProviderInfo, SpeechSnapshot, SpeechSelectionPatch, SpeechRequest, SpeechSpec, Transcript } from './types.ts'
+import type {
+  SpeechPreparationOptions,
+  SpeechProvider,
+  SpeechProviderId,
+  SpeechProviderInfo,
+  SpeechSnapshot,
+  SpeechSelectionPatch,
+  SpeechRequest,
+  SpeechSpec,
+  Transcript,
+} from './types.ts'
 
 export type * from './types.ts'
 
@@ -44,10 +54,15 @@ export default class SpeechToText extends Service {
   /** Profile-local entry id used by Settings; absent when the plugin was mounted without Loader. */
   private readonly entryId: string | undefined
 
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx, 'speechToText')
     this.entryId = ctx.fiber.entry?.options.id
-    ctx.on('loader/volatile-update', () => { this.changed() })
+    ctx.on('loader/volatile-update', () => {
+      this.changed()
+    })
     ctx.effect(() => async () => {
       this.lifetime.abort(new Error('Speech service disposed'))
       await Promise.all([...this.providers.values()].map(registration => this.remove(registration)))
@@ -63,11 +78,20 @@ export default class SpeechToText extends Service {
   register(provider: SpeechProvider): () => Promise<void> {
     this.lifetime.signal.throwIfAborted()
     if (this.providers.has(provider.info.id)) throw new Error(`Speech provider already registered: ${provider.info.id}`)
-    const registration: Registration = { provider, lifetime: new AbortController(), pending: new Set(),
-      unsubscribe: provider.preparation?.subscribe(() => { this.changed() }) ?? (() => {}) }
+    const registration: Registration = {
+      provider,
+      lifetime: new AbortController(),
+      pending: new Set(),
+      unsubscribe:
+        provider.preparation?.subscribe(() => {
+          this.changed()
+        }) ?? (() => {}),
+    }
     this.providers.set(provider.info.id, registration)
     this.changed()
-    return async () => { await this.remove(registration) }
+    return async () => {
+      await this.remove(registration)
+    }
   }
 
   private async remove(registration: Registration): Promise<void> {
@@ -87,7 +111,9 @@ export default class SpeechToText extends Service {
     return [...this.providers.values()].map(({ provider }) => provider.info)
   }
 
-  private changed(): void { for (const listener of this.listeners) listener() }
+  private changed(): void {
+    for (const listener of this.listeners) listener()
+  }
 
   /**
    * Observe complete readiness snapshots; a slow reader coalesces intermediate progress.
@@ -100,14 +126,18 @@ export default class SpeechToText extends Service {
     let wake = Promise.withResolvers<undefined>()
     let changed = true
     const aborted = (): boolean => signal.aborted
-    const notify = (): void => { changed = true; wake.resolve(undefined) }
+    const notify = (): void => {
+      changed = true
+      wake.resolve(undefined)
+    }
     this.listeners.add(notify)
     signal.addEventListener('abort', notify, { once: true })
     try {
       while (!aborted()) {
         if (!changed) await wake.promise
         if (aborted()) break
-        wake = Promise.withResolvers<undefined>(); changed = false
+        wake = Promise.withResolvers<undefined>()
+        changed = false
         yield this.snapshot()
       }
     } finally {
@@ -121,9 +151,13 @@ export default class SpeechToText extends Service {
    * @returns one detached complete observation.
    */
   snapshot(): SpeechSnapshot {
-    return { providers: [...this.providers.values()].map(({ provider }) => ({ ...provider.info,
-      preparation: provider.preparation?.snapshot() ?? { phase: 'ready' },
-    })), selection: { providerId: this.config.defaultProvider.get() as SpeechProviderId, language: this.config.language.get() } }
+    return {
+      providers: [...this.providers.values()].map(({ provider }) => ({
+        ...provider.info,
+        preparation: provider.preparation?.snapshot() ?? { phase: 'ready' },
+      })),
+      selection: { providerId: this.config.defaultProvider.get() as SpeechProviderId, language: this.config.language.get() },
+    }
   }
 
   /**
@@ -135,10 +169,12 @@ export default class SpeechToText extends Service {
     const settings = this.ctx.get('settings')
     const entry = this.entryId
     if (settings === undefined || entry === undefined) throw new Error('Speech selection requires the settings service and a profile entry')
-    const id = patch.providerId ?? this.config.defaultProvider.get() as SpeechProviderId
+    const id = patch.providerId ?? (this.config.defaultProvider.get() as SpeechProviderId)
     this.selectedProvider(id, patch.language ?? this.config.language.get())
-    await settings.update(entry, { ...patch.providerId === undefined ? {} : { defaultProvider: patch.providerId },
-      ...patch.language === undefined ? {} : { language: patch.language } })
+    await settings.update(entry, {
+      ...(patch.providerId === undefined ? {} : { defaultProvider: patch.providerId }),
+      ...(patch.language === undefined ? {} : { language: patch.language }),
+    })
   }
 
   private selectedProvider(id: SpeechProviderId, language: string): SpeechProvider {
@@ -178,7 +214,7 @@ export default class SpeechToText extends Service {
    * @returns provider-pinned input for transcribe().
    */
   resolve(request: SpeechRequest): SpeechSpec {
-    const id = request.providerId ?? this.config.defaultProvider.get() as SpeechProviderId
+    const id = request.providerId ?? (this.config.defaultProvider.get() as SpeechProviderId)
     const language = request.language ?? this.config.language.get()
     return { provider: this.selectedProvider(id, language), audio: request.audio, language }
   }

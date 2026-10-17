@@ -14,9 +14,16 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 import {
-  ConnectionIndicator, Tooltip, useModalLayer,
-  IconAgentPresetOutlineMedium, IconArchiveOutlineMedium, IconCloseOutlineRegular, IconDataOutlineMedium,
-  IconPersonalizationOutlineMedium, IconSettingsOutlineMedium, IconUserOutlineMedium,
+  ConnectionIndicator,
+  Tooltip,
+  useModalLayer,
+  IconAgentPresetOutlineMedium,
+  IconArchiveOutlineMedium,
+  IconCloseOutlineRegular,
+  IconDataOutlineMedium,
+  IconPersonalizationOutlineMedium,
+  IconSettingsOutlineMedium,
+  IconUserOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConnectionIndicatorState } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SettingsRootComponentProps, SettingsSectionRow } from './shell-contract.ts'
@@ -64,13 +71,22 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
   // inside the root would precede the columns' chrome in document order, so a
   // chrome row that declares window drag after it would override its subtraction.
   // Beside the root, base.css's `body > :not(#root)` rule subtracts it instead.
-  return createPortal((
+  return createPortal(
     <div className={css.overlay} role="presentation">
       <div className={css.mask} aria-hidden="true" onClick={onClose} />
-      <div ref={panel} tabIndex={-1} data-shortcut-modal="settings" className={css.panel} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div
+        ref={panel}
+        tabIndex={-1}
+        data-shortcut-modal="settings"
+        className={css.panel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
         <nav className={css.nav}>
-          <div className={css.navTitle} id={titleId} tabIndex={-1}
-            data-modal-autofocus={active === undefined ? '' : undefined}>{renderSlot('settings.header', {})}</div>
+          <div className={css.navTitle} id={titleId} tabIndex={-1} data-modal-autofocus={active === undefined ? '' : undefined}>
+            {renderSlot('settings.header', {})}
+          </div>
           <div className={css.navList}>
             {rows.map(row => (
               <button
@@ -79,7 +95,9 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
                 className={clsx(css.navCell, row.id === active && css.active)}
                 aria-current={row.id === active ? 'true' : undefined}
                 data-modal-autofocus={row.id === active ? '' : undefined}
-                onClick={() => { onSelect(row.id) }}
+                onClick={() => {
+                  onSelect(row.id)
+                }}
               >
                 {navIcon(row.id)}
                 <span className={css.navLabel}>{row.label}</span>
@@ -95,13 +113,12 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
               <span className={css.hiddenLabel}>{renderSlot('settings.close', {})}</span>
             </button>
           </div>
-          <div className={css.options}>
-            {active !== undefined && renderSlot('settings.section', { close: onClose }, { only: active })}
-          </div>
+          <div className={css.options}>{active !== undefined && renderSlot('settings.section', { close: onClose }, { only: active })}</div>
         </div>
       </div>
-    </div>
-  ), document.body)
+    </div>,
+    document.body,
+  )
 }
 
 /**
@@ -111,8 +128,19 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
  */
 export function SettingsRoot(props: SettingsRootComponentProps) {
   const {
-    wide, reconnect, useConnectionState, useSections, useOnboardingSteps, useSessions, renderSlot, t,
-    useDesktopUpdate, openDesktopUpdate, useStore, actions, useShortcuts,
+    wide,
+    reconnect,
+    useConnectionState,
+    useSections,
+    useOnboardingSteps,
+    useSessions,
+    renderSlot,
+    t,
+    useDesktopUpdate,
+    openDesktopUpdate,
+    useStore,
+    actions,
+    useShortcuts,
   } = props
   const { open, activeId } = useStore(state => state)
   const shortcut = useShortcuts(rows => rows.find(row => row.id === 'settings.open'))
@@ -131,16 +159,16 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   const connectionState = useConnectionState(state => state)
   const previousConnectionState = useRef(connectionState)
   const onboardingSteps = useOnboardingSteps(s => s)
-  const onboardingActive = useSessions((state) => {
-    const main = Object.values(state.byId)
-      .find(session => (session.retainedBy.mainView ?? 0) > 0)
+  const onboardingActive = useSessions(state => {
+    const main = Object.values(state.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)
     return state.phase === 'ready' && (main === undefined || main.blank)
   })
-  const onboardingStep = requestedOnboarding !== undefined
-    ? onboardingSteps.find(step => step.id === requestedOnboarding)
-    : onboardingActive
-      ? onboardingSteps.find(step => !completedOnboarding.has(step.id))
-      : undefined
+  const onboardingStep =
+    requestedOnboarding !== undefined
+      ? onboardingSteps.find(step => step.id === requestedOnboarding)
+      : onboardingActive
+        ? onboardingSteps.find(step => !completedOnboarding.has(step.id))
+        : undefined
 
   useEffect(() => {
     if (onboardingActive) return
@@ -172,8 +200,12 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   // which the connecting minimum-visible hold can delay past the transition.
   useLayoutEffect(() => {
     if (!showRecovery || holdConnecting) return
-    const timeout = window.setTimeout(() => { setShowRecovery(false) }, RECOVERY_CONFIRMATION_MS)
-    return () => { window.clearTimeout(timeout) }
+    const timeout = window.setTimeout(() => {
+      setShowRecovery(false)
+    }, RECOVERY_CONFIRMATION_MS)
+    return () => {
+      window.clearTimeout(timeout)
+    }
   }, [showRecovery, holdConnecting])
 
   useLayoutEffect(() => {
@@ -187,7 +219,9 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
     const remaining = CONNECTING_MIN_VISIBLE_MS - (Date.now() - shownAt)
     if (remaining <= 0) return
     setHoldConnecting(true)
-    const timeout = window.setTimeout(() => { setHoldConnecting(false) }, remaining)
+    const timeout = window.setTimeout(() => {
+      setHoldConnecting(false)
+    }, remaining)
     return () => {
       window.clearTimeout(timeout)
       setHoldConnecting(false)
@@ -196,7 +230,7 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
 
   const completeOnboardingStep = useCallback((id: string) => {
     setRequestedOnboarding(undefined)
-    setCompletedOnboarding((previous) => {
+    setCompletedOnboarding(previous => {
       if (previous.has(id)) return previous
       return new Set([...previous, id])
     })
@@ -214,23 +248,38 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
   return (
     <>
       <div className={clsx(css.triggerRow, !wide && css.railRow)}>
-        {renderSlot('settings.launcher', {
-          wide, settingsOpen: open, openSettings: actions.open,
-          ...(shortcut?.keys.length ? { settingsShortcut: { keys: shortcut.keys, aria: shortcut.aria } } : {}),
-          openOnboarding: (id) => { close(); setRequestedOnboarding(id) },
-        }, { fallback: <Tooltip disabled={open} label={t('trigger')} shortcutKeys={shortcut?.keys}>
-          <button
-            type="button"
-            className={clsx(css.trigger, !wide && css.rail)}
-            aria-label={t('trigger')}
-            aria-keyshortcuts={shortcut?.aria}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            onClick={() => { actions.open() }}
-          >
-            {renderSlot('settings.trigger', { wide })}
-          </button>
-        </Tooltip> })}
+        {renderSlot(
+          'settings.launcher',
+          {
+            wide,
+            settingsOpen: open,
+            openSettings: actions.open,
+            ...(shortcut?.keys.length ? { settingsShortcut: { keys: shortcut.keys, aria: shortcut.aria } } : {}),
+            openOnboarding: id => {
+              close()
+              setRequestedOnboarding(id)
+            },
+          },
+          {
+            fallback: (
+              <Tooltip disabled={open} label={t('trigger')} shortcutKeys={shortcut?.keys}>
+                <button
+                  type="button"
+                  className={clsx(css.trigger, !wide && css.rail)}
+                  aria-label={t('trigger')}
+                  aria-keyshortcuts={shortcut?.aria}
+                  aria-haspopup="dialog"
+                  aria-expanded={open}
+                  onClick={() => {
+                    actions.open()
+                  }}
+                >
+                  {renderSlot('settings.trigger', { wide })}
+                </button>
+              </Tooltip>
+            ),
+          },
+        )}
         <ConnectionIndicator
           state={wide && desktopUpdate.presentation?.phase !== 'installing' ? connectionIndicator : undefined}
           disconnectedLabel={t('connection.error')}
@@ -240,27 +289,31 @@ export function SettingsRoot(props: SettingsRootComponentProps) {
           restartActionLabel={t('connection.restart')}
           onReconnect={reconnect}
         />
-        <DesktopUpdateIndicator wide={wide} hidden={connectionIndicator !== undefined && desktopUpdate.presentation?.phase !== 'installing'}
-          t={t} view={desktopUpdate} onOpen={openDesktopUpdate} />
-      </div>
-      {open && (
-        <SettingsPanel
-          rows={rows}
-          renderSlot={renderSlot}
-          activeId={activeId}
-          onSelect={actions.select}
-          onClose={close}
+        <DesktopUpdateIndicator
+          wide={wide}
+          hidden={connectionIndicator !== undefined && desktopUpdate.presentation?.phase !== 'installing'}
+          t={t}
+          view={desktopUpdate}
+          onOpen={openDesktopUpdate}
         />
-      )}
+      </div>
+      {open && <SettingsPanel rows={rows} renderSlot={renderSlot} activeId={activeId} onSelect={actions.select} onClose={close} />}
       {/* Dialog chrome and `#root` inert ownership live inside each step's
           visible branch. A step still deciding (private facts loading)
           renders null, so nothing paints or blocks while it decides. */}
-      {onboardingStep !== undefined && renderSlot('settings.onboarding', {
-        stepId: onboardingStep.id,
-        explicit: requestedOnboarding !== undefined,
-        complete: () => { completeOnboardingStep(onboardingStep.id) },
-        openSection,
-      }, { only: onboardingStep.id })}
+      {onboardingStep !== undefined &&
+        renderSlot(
+          'settings.onboarding',
+          {
+            stepId: onboardingStep.id,
+            explicit: requestedOnboarding !== undefined,
+            complete: () => {
+              completeOnboardingStep(onboardingStep.id)
+            },
+            openSection,
+          },
+          { only: onboardingStep.id },
+        )}
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { BrowserWindow } from 'electron'
 import { DesktopUpdateDialog, UPDATE_DIALOG_IPC } from '../src/update-dialog.ts'
 import { DesktopUpdateOverlays } from '../src/update-overlay.ts'
@@ -22,19 +22,34 @@ const fixture = await vi.hoisted(async () => {
     readonly hide = vi.fn()
     readonly setBounds = vi.fn()
     readonly loadURL = vi.fn(async () => {})
-    constructor(readonly options: unknown) { super(); windows.push(this) }
-    getContentBounds() { return { x: 10, y: 20, width: 900, height: 650 } }
-    isDestroyed() { return this.destroyed }
-    isVisible() { return true }
-    destroy() { this.destroyed = true; this.emit('closed') }
+    constructor(readonly options: unknown) {
+      super()
+      windows.push(this)
+    }
+    getContentBounds() {
+      return { x: 10, y: 20, width: 900, height: 650 }
+    }
+    isDestroyed() {
+      return this.destroyed
+    }
+    isVisible() {
+      return true
+    }
+    destroy() {
+      this.destroyed = true
+      this.emit('closed')
+    }
     setMenu() {}
   }
   return { handlers, windows, FakeWindow }
 })
-vi.mock('electron', () => ({ BrowserWindow: fixture.FakeWindow, ipcMain: {
-  handle: (name: string, fn: (...args: unknown[]) => unknown) => fixture.handlers.set(name, fn),
-  removeHandler: (name: string) => fixture.handlers.delete(name),
-} }))
+vi.mock('electron', () => ({
+  BrowserWindow: fixture.FakeWindow,
+  ipcMain: {
+    handle: (name: string, fn: (...args: unknown[]) => unknown) => fixture.handlers.set(name, fn),
+    removeHandler: (name: string) => fixture.handlers.delete(name),
+  },
+}))
 
 let dialogs: DesktopUpdateDialog | undefined
 afterEach(() => {
@@ -49,9 +64,13 @@ afterEach(() => {
 function setup(locale: DesktopLocale | (() => DesktopLocale) = resolveDesktopLocale('zh-CN')) {
   const parent = new fixture.FakeWindow({})
   dialogs = new DesktopUpdateDialog('preload-update-dialog.cjs', locale, new DesktopUpdateOverlays())
-  const show = (signal?: AbortSignal) => dialogs!.show(parent as unknown as BrowserWindow, {
-    message: '下载完成', buttons: ['安装并重启'], cancelId: 1, ...(signal === undefined ? {} : { signal }),
-  })
+  const show = (signal?: AbortSignal) =>
+    dialogs!.show(parent as unknown as BrowserWindow, {
+      message: '下载完成',
+      buttons: ['安装并重启'],
+      cancelId: 1,
+      ...(signal === undefined ? {} : { signal }),
+    })
   const invoke = (channel: string, ...args: unknown[]) => {
     const window = fixture.windows.at(-1)!
     const event = { sender: window.webContents, senderFrame: window.webContents.mainFrame }
@@ -154,10 +173,14 @@ it('denies navigation away from the owned document', async () => {
 it('supplies localized disclosure copy without putting diagnostics in the ordinary detail', async () => {
   const f = setup()
   const pending = dialogs!.show(f.parent as unknown as BrowserWindow, {
-    message: '未能安全停止任务', technicalDetails: 'exit 0; shutdown acknowledged false',
+    message: '未能安全停止任务',
+    technicalDetails: 'exit 0; shutdown acknowledged false',
   })
-  expect(f.invoke(UPDATE_DIALOG_IPC.status)).toMatchObject({ detail: '',
-    technicalDetails: 'exit 0; shutdown acknowledged false', technicalDetailsLabel: '查看技术详情' })
+  expect(f.invoke(UPDATE_DIALOG_IPC.status)).toMatchObject({
+    detail: '',
+    technicalDetails: 'exit 0; shutdown acknowledged false',
+    technicalDetailsLabel: '查看技术详情',
+  })
   dialogs!.cancel()
   await pending
 })
@@ -175,9 +198,16 @@ it('replaces content without releasing the backdrop and rejects a response from 
   expect(window.webContents.send.mock.calls).toEqual([[UPDATE_DIALOG_IPC.changed, f.invoke(UPDATE_DIALOG_IPC.status)]])
   expect(f.parent.webContents.removeInsertedCSS).not.toHaveBeenCalled()
   abort.abort()
-  expect(() => fixture.handlers.get(UPDATE_DIALOG_IPC.respond)!({
-    sender: window.webContents, senderFrame: window.webContents.mainFrame,
-  }, old.revision, 0)).toThrow(/stale/)
+  expect(() =>
+    fixture.handlers.get(UPDATE_DIALOG_IPC.respond)!(
+      {
+        sender: window.webContents,
+        senderFrame: window.webContents.mainFrame,
+      },
+      old.revision,
+      0,
+    ),
+  ).toThrow(/stale/)
   f.invoke(UPDATE_DIALOG_IPC.respond, 0)
   expect((await next).response).toBe(0)
 })
@@ -225,7 +255,8 @@ it('reads the current locale for each presentation', async () => {
     const window = fixture.windows.at(-1)!
     const event = { sender: window.webContents, senderFrame: window.webContents.mainFrame }
     expect(fixture.handlers.get(UPDATE_DIALOG_IPC.status)!(event)).toMatchObject({
-      locale: locale.id, closeLabel: locale.messages.updateClose,
+      locale: locale.id,
+      closeLabel: locale.messages.updateClose,
       technicalDetailsLabel: locale.messages.updateTechnicalDetails,
     })
     dialogs!.cancel()

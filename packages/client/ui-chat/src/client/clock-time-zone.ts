@@ -20,7 +20,9 @@ export class ClockTimeZonePolicy {
   }
 
   /** Release the accepted-value subscription. */
-  dispose(): void { this.unsubscribe() }
+  dispose(): void {
+    this.unsubscribe()
+  }
 
   /**
    * Publish a choice immediately and persist it when the scope supports writes.

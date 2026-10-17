@@ -27,21 +27,29 @@ export function sessionLogChatTarget(anchor: SessionLogAnchor): InspectorChatTar
   const data = event.data
   const turn = 'turn' in data && typeof data.turn === 'number' ? data.turn : undefined
   const step = 'step' in data && typeof data.step === 'number' ? data.step : undefined
-  const callId = event.type === 'tool/call' ? event.data.callId
-    : event.type === 'tool/result' ? event.data.message.source.callId
-      : 'subCallId' in data && typeof data.subCallId === 'string' ? data.subCallId
-        : chunk?.type === 'tool-call-delta' ? chunk.id
-          : chunk?.type === 'block-end' && chunk.block.type === 'tool-call' ? chunk.block.id : undefined
+  const callId =
+    event.type === 'tool/call'
+      ? event.data.callId
+      : event.type === 'tool/result'
+        ? event.data.message.source.callId
+        : 'subCallId' in data && typeof data.subCallId === 'string'
+          ? data.subCallId
+          : chunk?.type === 'tool-call-delta'
+            ? chunk.id
+            : chunk?.type === 'block-end' && chunk.block.type === 'tool-call'
+              ? chunk.block.id
+              : undefined
   const rootCallId = 'rootCallId' in data && typeof data.rootCallId === 'string' ? data.rootCallId : callId
   const groupPart = partOf(chunk)
   return {
     anchorSeq: event.seq,
-    ...event.type === 'assistant/message' || event.type === 'assistant/attempt' || event.type === 'assistant/live-chunk'
-      ? { nodeKind: 'assistant-step' } : {},
-    ...turn === undefined ? {} : { turn },
-    ...step === undefined ? {} : { step },
-    ...callId === undefined ? {} : { callId },
-    ...rootCallId === undefined || rootCallId === callId ? {} : { rootCallId },
-    ...groupPart === undefined ? {} : { groupPart },
+    ...(event.type === 'assistant/message' || event.type === 'assistant/attempt' || event.type === 'assistant/live-chunk'
+      ? { nodeKind: 'assistant-step' }
+      : {}),
+    ...(turn === undefined ? {} : { turn }),
+    ...(step === undefined ? {} : { step }),
+    ...(callId === undefined ? {} : { callId }),
+    ...(rootCallId === undefined || rootCallId === callId ? {} : { rootCallId }),
+    ...(groupPart === undefined ? {} : { groupPart }),
   }
 }

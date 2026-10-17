@@ -43,9 +43,10 @@ export function remapEvent(event: SessionFormatEvent, seq: number, mapping: read
     // Workflow seq, stream block indices, turn/step, and numeric tool JSON are not Session seqs.
   }
   return {
-    ...event, seq, data,
+    ...event,
+    seq,
+    data,
     ...(event['sourceEventSeqs'] === undefined ? {} : { sourceEventSeqs: list(event['sourceEventSeqs']) }),
-    ...(event['surfaceOp'] === undefined || event['surfaceOp'] === 'append'
-      ? {} : { surfaceOp: range(event['surfaceOp']) }),
+    ...(event['surfaceOp'] === undefined || event['surfaceOp'] === 'append' ? {} : { surfaceOp: range(event['surfaceOp']) }),
   }
 }

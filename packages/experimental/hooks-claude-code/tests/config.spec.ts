@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseClaudeCodeConfig, substituteCommand } from '@deepseek-ai/dsh-hooks-claude-code/src/config.ts'
 
 describe('substituteCommand', () => {
@@ -31,14 +31,21 @@ describe('parseClaudeCodeConfig', () => {
 
   it('skips non-command hooks (recorded) and keeps the command ones in the same group', () => {
     const { config, skipped } = parseClaudeCodeConfig({
-      PreToolUse: [{ hooks: [
-        { type: 'prompt', prompt: 'hi' },
-        { type: 'command', command: 'ok.sh' },
-        { type: 'http', url: 'http://x' },
-      ] }],
+      PreToolUse: [
+        {
+          hooks: [
+            { type: 'prompt', prompt: 'hi' },
+            { type: 'command', command: 'ok.sh' },
+            { type: 'http', url: 'http://x' },
+          ],
+        },
+      ],
     })
     expect(config.PreToolUse).toEqual([{ hooks: [{ command: 'ok.sh' }] }])
-    expect(skipped).toEqual([{ event: 'PreToolUse', type: 'prompt' }, { event: 'PreToolUse', type: 'http' }])
+    expect(skipped).toEqual([
+      { event: 'PreToolUse', type: 'prompt' },
+      { event: 'PreToolUse', type: 'http' },
+    ])
   })
 
   it('treats a hook with no `type` as a command (CC default)', () => {
@@ -65,9 +72,11 @@ describe('parseClaudeCodeConfig', () => {
   })
 
   it('rejects an invalid regex matcher with its event name', () => {
-    expect(() => parseClaudeCodeConfig({
-      PreToolUse: [{ matcher: '(', hooks: [{ type: 'command', command: 'x.sh' }] }],
-    })).toThrow('invalid claude-code regex matcher "(" on event "PreToolUse"')
+    expect(() =>
+      parseClaudeCodeConfig({
+        PreToolUse: [{ matcher: '(', hooks: [{ type: 'command', command: 'x.sh' }] }],
+      }),
+    ).toThrow('invalid claude-code regex matcher "(" on event "PreToolUse"')
   })
 
   it('discards matcher fields on events without matcher subjects before validation', () => {

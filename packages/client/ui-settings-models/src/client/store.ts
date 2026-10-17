@@ -9,7 +9,12 @@
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {
-  CredentialInfo, LlmConfigurableProvider, LlmNativeAuth, LlmProviderInfo, ModelProviderGroup, SettingsNamespaceView,
+  CredentialInfo,
+  LlmConfigurableProvider,
+  LlmNativeAuth,
+  LlmProviderInfo,
+  ModelProviderGroup,
+  SettingsNamespaceView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -54,11 +59,11 @@ export function joinProviderDirectory(
     settingsNs: entry.settingsNs,
     settingsPath: [...entry.settingsPath],
     active: active.has(entry.provider),
-    ...entry.declared === undefined ? {} : { declared: entry.declared },
-    ...entry.defaultBaseURL === undefined ? {} : { defaultBaseURL: entry.defaultBaseURL },
-    ...entry.baseURLEnv === undefined ? {} : { baseURLEnv: entry.baseURLEnv },
-    ...entry.nativeAuth === undefined ? {} : { nativeAuth: entry.nativeAuth },
-    ...entry.error === undefined ? {} : { error: entry.error },
+    ...(entry.declared === undefined ? {} : { declared: entry.declared }),
+    ...(entry.defaultBaseURL === undefined ? {} : { defaultBaseURL: entry.defaultBaseURL }),
+    ...(entry.baseURLEnv === undefined ? {} : { baseURLEnv: entry.baseURLEnv }),
+    ...(entry.nativeAuth === undefined ? {} : { nativeAuth: entry.nativeAuth }),
+    ...(entry.error === undefined ? {} : { error: entry.error }),
   }))
   for (const provider of registered) {
     if (declared.has(provider.id)) continue
@@ -70,9 +75,11 @@ export function joinProviderDirectory(
       active: true,
     })
   }
-  return rows.toSorted((left, right) =>
-    (left.provider === 'deepseek-account' ? 0 : left.provider === 'deepseek-official' ? 1 : 2)
-      - (right.provider === 'deepseek-account' ? 0 : right.provider === 'deepseek-official' ? 1 : 2))
+  return rows.toSorted(
+    (left, right) =>
+      (left.provider === 'deepseek-account' ? 0 : left.provider === 'deepseek-official' ? 1 : 2) -
+      (right.provider === 'deepseek-account' ? 0 : right.provider === 'deepseek-official' ? 1 : 2),
+  )
 }
 
 /** One provider row the page renders. */
@@ -137,13 +144,10 @@ export function deriveKeyRef(provider: string): string {
  * @param schema - settings schema operations.
  * @returns the protocol identifiers, or an empty list when the schema has none.
  */
-export function protocolChoices(
-  namespace: SettingsNamespaceView | undefined,
-  schema: SettingsSchemaOperations,
-): string[] {
+export function protocolChoices(namespace: SettingsNamespaceView | undefined, schema: SettingsSchemaOperations): string[] {
   if (namespace === undefined) return []
   const node = schema.nodeAtPath(schema.rehydrate(namespace.schema), ['providers', PROBE_ROUTE, 'api'])
-  const list = (node as { type?: string; list?: readonly { value?: unknown }[] } | undefined)
+  const list = node as { type?: string; list?: readonly { value?: unknown }[] } | undefined
   if (list?.type !== 'union' || list.list === undefined) return []
   return list.list.map(entry => entry.value).filter((value): value is string => typeof value === 'string')
 }
@@ -157,10 +161,7 @@ export function protocolChoices(
  * @param schema - settings schema operations.
  * @returns the levels in the schema's escalation order, or an empty list when the schema has none.
  */
-export function reasoningLevelChoices(
-  namespace: SettingsNamespaceView | undefined,
-  schema: SettingsSchemaOperations,
-): string[] {
+export function reasoningLevelChoices(namespace: SettingsNamespaceView | undefined, schema: SettingsSchemaOperations): string[] {
   if (namespace === undefined) return []
   const path = ['providers', PROBE_ROUTE, 'models', '0', 'reasoningEfforts']
   const node = schema.nodeAtPath(schema.rehydrate(namespace.schema), path)
@@ -187,7 +188,12 @@ function apiKeyEnvOf(
 export class ModelsSettingsStore {
   /** The snapshot the section renders from (uSES-safe store). */
   readonly store: SnapshotStore<ModelsSettingsState> = createSnapshotStore<ModelsSettingsState>({
-    status: 'idle', error: null, credentialError: null, writable: false, rows: [], namespaces: new Map(),
+    status: 'idle',
+    error: null,
+    credentialError: null,
+    writable: false,
+    rows: [],
+    namespaces: new Map(),
     catalogGroups: [],
   })
 
@@ -223,23 +229,40 @@ export class ModelsSettingsStore {
     this.pendingLoads.add(pending)
     const generation = ++this.generation
     void this.read(generation).then(
-      () => { this.settleLoads(generation, (load) => { load.resolve() }) },
-      (error: unknown) => { this.settleLoads(generation, (load) => { load.reject(error) }) },
+      () => {
+        this.settleLoads(generation, load => {
+          load.resolve()
+        })
+      },
+      (error: unknown) => {
+        this.settleLoads(generation, load => {
+          load.reject(error)
+        })
+      },
     )
     return pending.promise
   }
 
   /** Publish one joined answer; stale answers leave the current refresh in charge. */
   private async read(generation: number): Promise<void> {
-    this.store.update((s) => { s.status = 'loading'; s.error = null })
+    this.store.update(s => {
+      s.status = 'loading'
+      s.error = null
+    })
     const [registered, declared] = await Promise.all([
       this.ctx.remote.llm.listProviders(),
       this.ctx.remote.llm.listConfigurableProviders(),
       this.describeFace.ensure(),
     ])
     if (generation !== this.generation) return
-    if (!registered.ok) { this.failLoad(registered.error.message); return }
-    if (!declared.ok) { this.failLoad(declared.error.message); return }
+    if (!registered.ok) {
+      this.failLoad(registered.error.message)
+      return
+    }
+    if (!declared.ok) {
+      this.failLoad(declared.error.message)
+      return
+    }
     const mirrored = this.describeFace.getSnapshot()
     if (mirrored.view === undefined) {
       /* v8 ignore next -- SettingsDescribeFace.ensure settles with a view or the read's error */
@@ -251,14 +274,16 @@ export class ModelsSettingsStore {
     const writable = mirrored.view.writable
     const views: readonly SettingsNamespaceView[] = mirrored.view.namespaces
     const namespaces = new Map(views.map(view => [view.ns, view]))
-    const rows: ProviderRow[] = providers.map((entry) => {
+    const rows: ProviderRow[] = providers.map(entry => {
       const namespace = namespaces.get(entry.settingsNs)
-      const configured = namespace !== undefined
-        && (entry.settingsPath.length === 0 || this.schema.getPath(namespace.value, entry.settingsPath) !== undefined)
-      const removable = namespace !== undefined
-        && entry.settingsPath.length > 0
-        && this.schema.hasPath(namespace.user, entry.settingsPath)
-        && !this.schema.hasPath(namespace.base, entry.settingsPath)
+      const configured =
+        namespace !== undefined &&
+        (entry.settingsPath.length === 0 || this.schema.getPath(namespace.value, entry.settingsPath) !== undefined)
+      const removable =
+        namespace !== undefined &&
+        entry.settingsPath.length > 0 &&
+        this.schema.hasPath(namespace.user, entry.settingsPath) &&
+        !this.schema.hasPath(namespace.base, entry.settingsPath)
       return {
         entry,
         configured,
@@ -275,12 +300,19 @@ export class ModelsSettingsStore {
     const catalogGroups = catalog.ok ? catalog.value.groups : this.store.getSnapshot().catalogGroups
     if (rows.some(row => row.entry.provider === 'deepseek-account')) {
       for (const row of rows) {
-        if (row.entry.provider === 'deepseek-account') row.accountAvailable = catalogGroups.some(
-          group => group.id === 'deepseek-account' && group.models.length > 0)
+        if (row.entry.provider === 'deepseek-account')
+          row.accountAvailable = catalogGroups.some(group => group.id === 'deepseek-account' && group.models.length > 0)
       }
     }
-    const refs = [...new Set(rows.filter(row => row.entry.provider !== 'deepseek-account').flatMap(row =>
-      row.apiKeyEnv === undefined ? [deriveKeyRef(row.entry.provider), ...row.entry.nativeAuth?.env ?? []] : [row.apiKeyEnv]))]
+    const refs = [
+      ...new Set(
+        rows
+          .filter(row => row.entry.provider !== 'deepseek-account')
+          .flatMap(row =>
+            row.apiKeyEnv === undefined ? [deriveKeyRef(row.entry.provider), ...(row.entry.nativeAuth?.env ?? [])] : [row.apiKeyEnv],
+          ),
+      ),
+    ]
     const credentials: Record<string, CredentialInfo> = {}
     let credentialError: string | null = null
     // credentials.describe accepts at most 64 references per request.
@@ -290,31 +322,39 @@ export class ModelsSettingsStore {
       // degrades the badge instead of failing the load. The onboarding
       // projection below retains the failure distinction.
       if (response.ok) Object.assign(credentials, response.value)
-      else { credentialError = response.error.message; break }
+      else {
+        credentialError = response.error.message
+        break
+      }
     }
     if (generation !== this.generation) return
-    this.store.update((s) => {
+    this.store.update(s => {
       s.status = 'ready'
       s.error = null
       s.credentialError = credentialError
       s.writable = writable
-      s.rows = rows.filter(row => row.entry.provider !== 'deepseek-account' || row.accountAvailable === true).map((row) => {
-        if (row.entry.provider === 'deepseek-account') return row
-        const named = row.apiKeyEnv === undefined ? undefined : credentials[row.apiKeyEnv]
-        const derived = row.apiKeyEnv !== undefined ? undefined : credentials[deriveKeyRef(row.entry.provider)]
-        return {
-          ...row,
-          ...named === undefined ? {} : { credential: named },
-          ...derived === undefined ? {} : { derivedCredential: derived },
-          ...credentialError === null ? { credentialChecks: Object.fromEntries(
-            (row.apiKeyEnv === undefined ? row.entry.nativeAuth?.env ?? [] : [row.apiKeyEnv])
-              .flatMap((ref) => {
-                const info = credentials[ref]
-                return info === undefined ? [] : [[ref, info] as const]
-              }),
-          ) } : {},
-        }
-      })
+      s.rows = rows
+        .filter(row => row.entry.provider !== 'deepseek-account' || row.accountAvailable === true)
+        .map(row => {
+          if (row.entry.provider === 'deepseek-account') return row
+          const named = row.apiKeyEnv === undefined ? undefined : credentials[row.apiKeyEnv]
+          const derived = row.apiKeyEnv !== undefined ? undefined : credentials[deriveKeyRef(row.entry.provider)]
+          return {
+            ...row,
+            ...(named === undefined ? {} : { credential: named }),
+            ...(derived === undefined ? {} : { derivedCredential: derived }),
+            ...(credentialError === null
+              ? {
+                  credentialChecks: Object.fromEntries(
+                    (row.apiKeyEnv === undefined ? (row.entry.nativeAuth?.env ?? []) : [row.apiKeyEnv]).flatMap(ref => {
+                      const info = credentials[ref]
+                      return info === undefined ? [] : [[ref, info] as const]
+                    }),
+                  ),
+                }
+              : {}),
+          }
+        })
       s.namespaces = namespaces
       s.catalogGroups = catalogGroups
     })
@@ -330,7 +370,7 @@ export class ModelsSettingsStore {
 
   /** Publish the current joined read's failure text. */
   private failLoad(message: string): void {
-    this.store.update((s) => {
+    this.store.update(s => {
       s.status = 'error'
       s.error = message
     })
@@ -376,11 +416,13 @@ export function routingProviderOptions(
   catalogGroups: readonly ModelProviderGroup[],
 ): RoutingProviderOption[] {
   const models = new Map(catalogGroups.map(group => [group.id, group.models.map(model => model.id)]))
-  return rows.filter(row => row.configured).map(row => ({
-    id: row.entry.provider,
-    name: row.entry.displayName,
-    models: models.get(row.entry.provider) ?? [],
-  }))
+  return rows
+    .filter(row => row.configured)
+    .map(row => ({
+      id: row.entry.provider,
+      name: row.entry.displayName,
+      models: models.get(row.entry.provider) ?? [],
+    }))
 }
 
 /** First-run onboarding readiness derived only from the shared Models join. */
@@ -390,14 +432,9 @@ export type OnboardingReadiness =
   | { kind: 'provider-ready' }
   | { kind: 'credential-missing' }
   | {
-    kind: 'unavailable'
-    reason:
-      | 'load-failed'
-      | 'provider-inactive'
-      | 'credentials-unavailable'
-      | 'settings-read-only'
-      | 'credential-read-only'
-  }
+      kind: 'unavailable'
+      reason: 'load-failed' | 'provider-inactive' | 'credentials-unavailable' | 'settings-read-only' | 'credential-read-only'
+    }
 
 /**
  * Project first-run readiness from the provider/settings/credential join used
@@ -420,10 +457,12 @@ export function onboardingReadiness(state: ModelsSettingsState): OnboardingReadi
     }
   }
   if (state.rows.some(providerUsable)) return { kind: 'provider-ready' }
-  const row = state.rows.find(candidate =>
-    candidate.entry.provider === 'deepseek-official'
-    && candidate.entry.settingsNs === 'llm-deepseek'
-    && candidate.entry.settingsPath.length === 0)
+  const row = state.rows.find(
+    candidate =>
+      candidate.entry.provider === 'deepseek-official' &&
+      candidate.entry.settingsNs === 'llm-deepseek' &&
+      candidate.entry.settingsPath.length === 0,
+  )
   if (row === undefined) return { kind: 'adapter-absent' }
   if (!row.entry.active) {
     return {

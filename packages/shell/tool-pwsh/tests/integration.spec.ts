@@ -10,7 +10,7 @@
  */
 
 import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -30,7 +30,8 @@ const testToolSignal = new AbortController().signal
 
 // The probe follows the executor's own resolution (Program Files installs on
 // Windows are found even when bare `pwsh` is not on PATH).
-const hasPwsh = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
+const hasPwsh =
+  spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
 
 /** Normalize PowerShell's platform line endings (CRLF on Windows, LF elsewhere). */
 const lf = (text: string): string => text.replace(/\r\n/g, '\n')
@@ -45,12 +46,15 @@ function call(name: string, args: unknown, agentObj?: object, signal?: AbortSign
     callId: ToolCallId(`it-${++callCounter}`),
     name,
     arguments: args,
-    ...agentObj ? { agent: agentObj as never } : {},
+    ...(agentObj ? { agent: agentObj as never } : {}),
   })
 }
 
 function text(result: { content: { type: string; text?: string }[] }): string {
-  return result.content.filter(b => b.type === 'text').map(b => b.text).join('')
+  return result.content
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('')
 }
 
 describe.skipIf(!hasPwsh)('pwsh tool over the real pwsh executor', () => {
@@ -88,29 +92,41 @@ describe.skipIf(!hasPwsh)('pwsh tool over the real pwsh executor', () => {
   })
 
   it('returns stderr in a marked section and a nonzero exit as a marker, not an error', async () => {
-    const result = await call('pwsh', {
-      command: '[Console]::Error.WriteLine("boom"); exit 3',
-      description: 'fail loudly',
-    }, agent())
+    const result = await call(
+      'pwsh',
+      {
+        command: '[Console]::Error.WriteLine("boom"); exit 3',
+        description: 'fail loudly',
+      },
+      agent(),
+    )
     expect(result.isError).toBe(false)
     expect(lf(text(result))).toBe('[stderr]\nboom\n[exit code: 3]')
   })
 
   it('resolves relative paths in the session workspace', async () => {
-    const result = await call('pwsh', {
-      command: 'Get-Content greeting.txt',
-      description: 'read greeting',
-    }, agent())
+    const result = await call(
+      'pwsh',
+      {
+        command: 'Get-Content greeting.txt',
+        description: 'read greeting',
+      },
+      agent(),
+    )
     expect(result.isError).toBe(false)
     expect(lf(text(result))).toBe('hello pwsh\n')
   })
 
   it('a per-call timeout kills the run and reports the timed-out marker, not an error', async () => {
-    const result = await call('pwsh', {
-      command: 'Start-Sleep -Seconds 60',
-      description: 'sleep forever',
-      timeoutMs: 100,
-    }, agent())
+    const result = await call(
+      'pwsh',
+      {
+        command: 'Start-Sleep -Seconds 60',
+        description: 'sleep forever',
+        timeoutMs: 100,
+      },
+      agent(),
+    )
     expect(result.isError).toBe(false)
     if (result.isError) throw new Error('expected a timed-out foreground result')
     expect(result.value).toMatchObject({ kind: 'foreground', timedOut: true, aborted: false })
@@ -121,11 +137,18 @@ describe.skipIf(!hasPwsh)('pwsh tool over the real pwsh executor', () => {
 
   it('an upstream cancellation aborts the run', async () => {
     const controller = new AbortController()
-    const pending = call('pwsh', {
-      command: 'Start-Sleep -Seconds 60',
-      description: 'sleep forever',
-    }, agent(), controller.signal)
-    setTimeout(() => { controller.abort() }, 50)
+    const pending = call(
+      'pwsh',
+      {
+        command: 'Start-Sleep -Seconds 60',
+        description: 'sleep forever',
+      },
+      agent(),
+      controller.signal,
+    )
+    setTimeout(() => {
+      controller.abort()
+    }, 50)
     const result = await pending
     expect(result.isError).toBe(true)
     expect(result.error).toMatchObject({ info: { name: 'AbortError', code: TOOL_ABORTED } })

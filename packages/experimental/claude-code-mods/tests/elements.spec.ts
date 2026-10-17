@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { findAll, isUiElement, renderText, serializeTree, treeProblem, uiElements } from '../src/elements.ts'
 
 describe('elements', () => {
@@ -21,19 +21,34 @@ describe('elements', () => {
     const held: (() => unknown)[] = []
     const onPress = (): void => {}
     const tree = Box({
-      flexDirection: 'row', paddingX: 1, border: true,
-      children: [Text({ dimColor: true, color: undefined, children: ['a', 'b'] }), Button({ label: 'Proceed', hotkey: '1', onPress }), Button({ label: 'Plain' }), '', 'tail'],
-    })
-    expect(serializeTree(tree, (callback) => { held.push(callback); return `action-${held.length}` })).toEqual([{
-      type: 'Box',
-      props: { flexDirection: 'row', paddingX: 1, border: true },
+      flexDirection: 'row',
+      paddingX: 1,
+      border: true,
       children: [
-        { type: 'Text', props: { dimColor: true }, children: ['a', 'b'] },
-        { type: 'Button', props: { label: 'Proceed', hotkey: '1' }, children: [], actionId: 'action-1' },
-        { type: 'Button', props: { label: 'Plain' }, children: [] },
+        Text({ dimColor: true, color: undefined, children: ['a', 'b'] }),
+        Button({ label: 'Proceed', hotkey: '1', onPress }),
+        Button({ label: 'Plain' }),
+        '',
         'tail',
       ],
-    }])
+    })
+    expect(
+      serializeTree(tree, callback => {
+        held.push(callback)
+        return `action-${held.length}`
+      }),
+    ).toEqual([
+      {
+        type: 'Box',
+        props: { flexDirection: 'row', paddingX: 1, border: true },
+        children: [
+          { type: 'Text', props: { dimColor: true }, children: ['a', 'b'] },
+          { type: 'Button', props: { label: 'Proceed', hotkey: '1' }, children: [], actionId: 'action-1' },
+          { type: 'Button', props: { label: 'Plain' }, children: [] },
+          'tail',
+        ],
+      },
+    ])
     expect(held).toEqual([onPress])
   })
 

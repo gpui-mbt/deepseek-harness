@@ -60,18 +60,13 @@ export type LifecycleEmitter = {
  * @param carrier - resolve the scoped dispatch carrier for one delegating parent.
  * @returns the emitter both observers and the provider registry publish through.
  */
-export function createLifecycleEmitter(
-  ctx: Context,
-  carrier: (parent: Agent) => object,
-): LifecycleEmitter {
+export function createLifecycleEmitter(ctx: Context, carrier: (parent: Agent) => object): LifecycleEmitter {
   return (
     name: 'subagent/start' | 'subagent/end' | 'subagent/provider-removed',
     info: SubagentRunInfo | SubagentRunEndInfo | string,
     parent?: Agent,
   ): void => {
-    const dispatchArgs: unknown[] = parent === undefined
-      ? [name, info]
-      : [carrier(parent), name, info]
+    const dispatchArgs: unknown[] = parent === undefined ? [name, info] : [carrier(parent), name, info]
     for (const callback of ctx.events.dispatch('emit', dispatchArgs)) {
       try {
         const returned: unknown = callback(info)
@@ -93,12 +88,7 @@ export function createLifecycleEmitter(
  * @param parent - the exact live direct parent keying scoped dispatch.
  * @returns the observer whose edges this epoch publishes.
  */
-export function createActivationObserver(
-  emit: LifecycleEmitter,
-  provider: string,
-  childId: SessionId,
-  parent: Agent,
-): ActivationObserver {
+export function createActivationObserver(emit: LifecycleEmitter, provider: string, childId: SessionId, parent: Agent): ActivationObserver {
   const identity = { runId: SubagentRunId(randomUUID()), provider, id: childId, local: false }
   return {
     start: (child?: Agent): void => {
@@ -106,11 +96,15 @@ export function createActivationObserver(
       emit('subagent/start', identity, parent)
     },
     settle: ({ stopReason, output }: SubagentResult): void => {
-      emit('subagent/end', {
-        ...identity,
-        stopReason,
-        ...output.length === 0 ? {} : { lastAssistantMessage: output },
-      }, parent)
+      emit(
+        'subagent/end',
+        {
+          ...identity,
+          stopReason,
+          ...(output.length === 0 ? {} : { lastAssistantMessage: output }),
+        },
+        parent,
+      )
     },
   }
 }

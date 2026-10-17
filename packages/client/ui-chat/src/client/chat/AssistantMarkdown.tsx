@@ -22,14 +22,18 @@ import css from './AssistantMarkdown.module.css'
  */
 export function localPathMediaUrl(base: string, value: string): string | undefined {
   let path: string
-  try { path = decodeURIComponent(value.split(/[?#]/u)[0] ?? '') }
-  catch { return undefined } // Malformed URL escapes cannot identify a file.
+  try {
+    path = decodeURIComponent(value.split(/[?#]/u)[0] ?? '')
+  } catch {
+    return undefined
+  } // Malformed URL escapes cannot identify a file.
   return fileMediaUrl(base, path)
 }
 
-export interface AssistantMarkdownProps extends
-  Pick<PropsRenderSlots<'conversation.chat.reasoning.body' | 'conversation.chat.message.images'>, 'renderSlot'>,
-  Pick<ChatNodeOwnerProps, 'loadImage'> {
+export interface AssistantMarkdownProps
+  extends
+    Pick<PropsRenderSlots<'conversation.chat.reasoning.body' | 'conversation.chat.message.images'>, 'renderSlot'>,
+    Pick<ChatNodeOwnerProps, 'loadImage'> {
   /** Render only the requested business portion, preserving original block indexes. */
   groupPart?: string | undefined
   /** Stable Hook forwarded to each independently expandable reasoning block. */
@@ -54,8 +58,19 @@ export interface AssistantMarkdownProps extends
 
 /** Renders non-blank reasoning blocks as independent disclosures alongside the response. */
 export const AssistantMarkdown = memo(function AssistantMarkdown({
-  blocks, streaming, interrupted, loadImage, groupPart, useDisclosure,
-  reasoningHidden = false, usePresentation, revealProcess, mentions, renderSlot, useGroupAction, t,
+  blocks,
+  streaming,
+  interrupted,
+  loadImage,
+  groupPart,
+  useDisclosure,
+  reasoningHidden = false,
+  usePresentation,
+  revealProcess,
+  mentions,
+  renderSlot,
+  useGroupAction,
+  t,
 }: AssistantMarkdownProps) {
   // Stable per locale revision (t identity changes on switch): a fresh object
   // per render would rebuild MarkdownText's component table every chunk.
@@ -68,9 +83,7 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
   // Tool-call heads render as tool rows in the chat view's grouping pass, so
   // a node that is only those heads (or empty) would paint an empty root
   // between tool groups — skip the shell unless something visible remains.
-  const hasVisible = streaming
-    || interrupted === true
-    || blocks.some(block => block.kind !== 'tool-call')
+  const hasVisible = streaming || interrupted === true || blocks.some(block => block.kind !== 'tool-call')
   if (!hasVisible) return null
   const rendered: ReactNode[] = []
   for (let i = 0; i < blocks.length; i++) {
@@ -81,27 +94,21 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     switch (block.kind) {
       case 'text':
         rendered.push(
-          <MarkdownText
-            key={i}
-            text={block.text}
-            streaming={streaming}
-            labels={labels}
-            fileMentions={mentions}
-            pathImages={pathImages}
-          />,
+          <MarkdownText key={i} text={block.text} streaming={streaming} labels={labels} fileMentions={mentions} pathImages={pathImages} />,
         )
         break
       case 'reasoning':
         if (block.text.trim() === '') break
         rendered.push(
-          <ProcessReasoning
-            key={i}
-            hidden={reasoningHidden}
-            reveal={revealProcess}
-            useGroupAction={useGroupAction}
-          >
-            <ReasoningRow text={block.text} running={streaming && i === last} usePresentation={usePresentation}
-              useDisclosure={useDisclosure} renderSlot={renderSlot} t={t} />
+          <ProcessReasoning key={i} hidden={reasoningHidden} reveal={revealProcess} useGroupAction={useGroupAction}>
+            <ReasoningRow
+              text={block.text}
+              running={streaming && i === last}
+              usePresentation={usePresentation}
+              useDisclosure={useDisclosure}
+              renderSlot={renderSlot}
+              t={t}
+            />
           </ProcessReasoning>,
         )
         break
@@ -122,7 +129,9 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
         rendered.push(
           <Fragment key={start}>
             {renderSlot('conversation.chat.message.images', {
-              images: group.map(({ attachment }) => ({ attachment })), loadImage, align: 'start',
+              images: group.map(({ attachment }) => ({ attachment })),
+              loadImage,
+              align: 'start',
             })}
           </Fragment>,
         )
@@ -146,22 +155,34 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
     <div className={css.root} data-streaming={streaming || undefined}>
       <div className={css.body}>
         {rendered}
-        {interrupted && (groupPart === undefined || groupPart === 'response'
-          || !blocks.some(block => block.kind !== 'reasoning' && block.kind !== 'tool-call'))
-          && <span className={css.stopped}>{t('message.stopped')}</span>}
+        {interrupted &&
+          (groupPart === undefined ||
+            groupPart === 'response' ||
+            !blocks.some(block => block.kind !== 'reasoning' && block.kind !== 'tool-call')) && (
+            <span className={css.stopped}>{t('message.stopped')}</span>
+          )}
       </div>
     </div>
   )
 })
 
-function ProcessReasoning({ hidden, reveal, useGroupAction, children }: {
+function ProcessReasoning({
+  hidden,
+  reveal,
+  useGroupAction,
+  children,
+}: {
   hidden: boolean
   reveal?: (() => void) | undefined
   useGroupAction: UseGroupAction
   children: ReactNode
 }) {
   const ref = useGroupAction(hidden, reveal ?? NOOP)
-  return <div ref={ref} data-turn-process-inline={hidden || undefined}>{children}</div>
+  return (
+    <div ref={ref} data-turn-process-inline={hidden || undefined}>
+      {children}
+    </div>
+  )
 }
 
 const NOOP = (): void => {}

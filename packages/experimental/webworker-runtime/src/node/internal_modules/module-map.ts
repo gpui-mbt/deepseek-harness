@@ -31,7 +31,10 @@ export class ResolveCache extends Map<unknown, unknown> {
   serializeKey(specifier: string, importAttributes: Record<string, string>): string {
     const keys = Object.keys(importAttributes)
     if (keys.length === 0) return `${specifier}::`
-    return `${specifier}::${keys.sort().map(key => JSON.stringify(key) + JSON.stringify(importAttributes[key])).join(',')}`
+    return `${specifier}::${keys
+      .sort()
+      .map(key => JSON.stringify(key) + JSON.stringify(importAttributes[key]))
+      .join(',')}`
   }
 
   #imports(parentURL: unknown): Record<string, unknown> {

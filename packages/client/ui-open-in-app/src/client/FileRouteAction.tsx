@@ -28,10 +28,20 @@ export function FileRouteAction(
 ) {
   const association = useFileApplications(props.actionUrl, queryRoute, props.available)
   if (!props.available) return null
-  return <OpenTargetButton key={props.actionUrl} kind="file" applications={association.apps}
-    defaultId={association.apps.find(app => app.default)?.id} failed={association.failed}
-    loading={association.loading} busy={props.pending} refresh={association.refresh} t={props.t}
-    execute={async (operation) => {
-      return props.onAction(operation.kind === 'reveal' ? 'reveal' : 'open', operation.kind === 'application' ? operation.id : undefined)
-    }} />
+  return (
+    <OpenTargetButton
+      key={props.actionUrl}
+      kind="file"
+      applications={association.apps}
+      defaultId={association.apps.find(app => app.default)?.id}
+      failed={association.failed}
+      loading={association.loading}
+      busy={props.pending}
+      refresh={association.refresh}
+      t={props.t}
+      execute={async operation => {
+        return props.onAction(operation.kind === 'reveal' ? 'reveal' : 'open', operation.kind === 'application' ? operation.id : undefined)
+      }}
+    />
+  )
 }

@@ -15,7 +15,9 @@ function note(stage) {
 }
 
 // A run that never finishes must name its stage in the parent's log even when the child is killed at its deadline.
-setInterval(() => { note(`stalled-at ${lastStage}`) }, 30_000).unref()
+setInterval(() => {
+  note(`stalled-at ${lastStage}`)
+}, 30_000).unref()
 
 export function apply(ctx, config) {
   let active = true
@@ -23,11 +25,21 @@ export function apply(ctx, config) {
   const stop = ctx.appReady.onReady(() => {
     note('ready')
     void exercise(ctx, config).then(
-      value => { if (active) process.stdout.write(`PACKED_OFFICIAL_RESULT=${JSON.stringify({ value })}\n`) },
-      error => { if (active) process.stdout.write(`PACKED_OFFICIAL_RESULT=${JSON.stringify({ error: String(error) })}\n`) },
+      value => {
+        if (active) process.stdout.write(`PACKED_OFFICIAL_RESULT=${JSON.stringify({ value })}\n`)
+      },
+      error => {
+        if (active) process.stdout.write(`PACKED_OFFICIAL_RESULT=${JSON.stringify({ error: String(error) })}\n`)
+      },
     )
   })
-  ctx.effect(() => () => { active = false; stop() }, 'packed-official-observer')
+  ctx.effect(
+    () => () => {
+      active = false
+      stop()
+    },
+    'packed-official-observer',
+  )
 }
 
 function applied(stage, result) {
@@ -47,25 +59,56 @@ function applied(stage, result) {
 async function bounded(label, operation, boundMs, profile) {
   let timer
   const expiry = new Promise((_resolve, reject) => {
-    timer = setTimeout(() => { reject(new Error(`${label} did not settle within ${String(boundMs)}ms`)) }, boundMs)
+    timer = setTimeout(() => {
+      reject(new Error(`${label} did not settle within ${String(boundMs)}ms`))
+    }, boundMs)
   })
   try {
     return await Promise.race([operation(), expiry])
   } catch (error) {
     if (!String(error).includes('did not settle')) throw error
-    const locks = await readdir(profile).then(files => files.filter(file => file.endsWith('.lock')).join(',') || 'none', () => 'none')
-    const record = await readFile(join(profile, '.plugin-manager', 'run.json'), 'utf8')
-      .then(text => JSON.parse(text), () => undefined)
+    const locks = await readdir(profile).then(
+      files => files.filter(file => file.endsWith('.lock')).join(',') || 'none',
+      () => 'none',
+    )
+    const record = await readFile(join(profile, '.plugin-manager', 'run.json'), 'utf8').then(
+      text => JSON.parse(text),
+      () => undefined,
+    )
     const pid = record?.pid
-    const alive = pid === undefined ? false : (() => { try { process.kill(pid, 0); return true } catch { return false } })()
-    const state = alive && existsSync(`/proc/${String(pid)}/status`)
-      ? await readFile(`/proc/${String(pid)}/status`, 'utf8').then(text => text.split('\n').filter(line => /^(State|Threads):/u.test(line)).join(' '), () => '')
-      : ''
-    const cmdline = alive && existsSync(`/proc/${String(pid)}/cmdline`)
-      ? await readFile(`/proc/${String(pid)}/cmdline`, 'utf8').then(text => text.replaceAll('\0', ' ').trim().slice(0, 120), () => '')
-      : ''
+    const alive =
+      pid === undefined
+        ? false
+        : (() => {
+            try {
+              process.kill(pid, 0)
+              return true
+            } catch {
+              return false
+            }
+          })()
+    const state =
+      alive && existsSync(`/proc/${String(pid)}/status`)
+        ? await readFile(`/proc/${String(pid)}/status`, 'utf8').then(
+            text =>
+              text
+                .split('\n')
+                .filter(line => /^(State|Threads):/u.test(line))
+                .join(' '),
+            () => '',
+          )
+        : ''
+    const cmdline =
+      alive && existsSync(`/proc/${String(pid)}/cmdline`)
+        ? await readFile(`/proc/${String(pid)}/cmdline`, 'utf8').then(
+            text => text.replaceAll('\0', ' ').trim().slice(0, 120),
+            () => '',
+          )
+        : ''
     throw new Error(`${String(error)}\nprofile-locks=${locks}\npnpm-run pid=${String(pid)} alive=${String(alive)} ${state} ${cmdline}`)
-  } finally { clearTimeout(timer) }
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 async function exercise(ctx, config) {
@@ -86,7 +129,9 @@ async function exercise(ctx, config) {
     const manifest = JSON.parse(await readFile(join(config.profile, 'package.json'), 'utf8'))
     const installed = (await ctx.pluginManager.listBundles()).find(bundle => bundle.name === name)
     // A transitive repository package the registry served, absent from npm at this version.
-    const localDependency = JSON.parse(await readFile(join(config.profile, 'node_modules', config.localDependency, 'package.json'), 'utf8')).version
+    const localDependency = JSON.parse(
+      await readFile(join(config.profile, 'node_modules', config.localDependency, 'package.json'), 'utf8'),
+    ).version
     const provider = name.endsWith('-codex') ? 'codex' : 'claude-code'
     const providerEnabled = ctx.subagents.list().includes(provider)
     const nativeDir = join(config.profile, 'node_modules', config.nativePackages[name])
@@ -98,7 +143,7 @@ async function exercise(ctx, config) {
     note(`unavailable ${name}`)
     const unavailable = await ctx.pluginManager.installBundle(`${name}@9999.0.0`, options)
     note(`unavailable-done ${name}`)
-    const unchangedAfterUnavailable = beforeUnavailable === await readFile(join(config.profile, 'package.json'), 'utf8')
+    const unchangedAfterUnavailable = beforeUnavailable === (await readFile(join(config.profile, 'package.json'), 'utf8'))
     const off = await ctx.pluginManager.setBundleEnabled(name, false)
     applied(`disable ${name}`, off)
     const disabled = (await ctx.pluginManager.listBundles()).find(bundle => bundle.name === name)
@@ -110,8 +155,24 @@ async function exercise(ctx, config) {
     note(`removed ${name}`)
     applied(`remove ${name}`, removed)
     const absent = (await ctx.pluginManager.listBundles()).find(bundle => bundle.name === name)
-    steps.push({ name, install, savedVersion: manifest.dependencies?.[name], installed, localDependency, providerEnabled, nativeArtifact,
-      presets, unavailable, unchangedAfterUnavailable, off, disabled, on, enabled, removed, absent })
+    steps.push({
+      name,
+      install,
+      savedVersion: manifest.dependencies?.[name],
+      installed,
+      localDependency,
+      providerEnabled,
+      nativeArtifact,
+      presets,
+      unavailable,
+      unchangedAfterUnavailable,
+      off,
+      disabled,
+      on,
+      enabled,
+      removed,
+      absent,
+    })
   }
   return { initial, steps, sessionCount: ctx.sessions.list().length }
 }

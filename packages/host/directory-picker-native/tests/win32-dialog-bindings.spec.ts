@@ -8,7 +8,7 @@
  * real Koffi over test-owned buffers; only the Windows libraries are faked.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { HRESULT_CANCELLED, runFolderDialog } from '../src/win32-dialog-logic.ts'
 
 const E_FAIL = 0x80004005 | 0
@@ -46,25 +46,45 @@ interface ComWorld {
 
 function comWorld(overrides: Partial<ComWorld> = {}): ComWorld {
   return {
-    coInitHr: 0, coCreateHr: 0, showHr: 0, getResultHr: 0, getDisplayNameHr: 0,
-    hasThreadDpi: true, supportedDpiContexts: [-4], enumThrows: false,
+    coInitHr: 0,
+    coCreateHr: 0,
+    showHr: 0,
+    getResultHr: 0,
+    getDisplayNameHr: 0,
+    hasThreadDpi: true,
+    supportedDpiContexts: [-4],
+    enumThrows: false,
     path: 'C:\\选中\\directory',
-    titles: [], options: [], dpiContexts: [], freed: [], released: [], posted: [],
+    titles: [],
+    options: [],
+    dpiContexts: [],
+    freed: [],
+    released: [],
+    posted: [],
     str16PointerSizes: [],
-    registered: 0, unregistered: 0, uninitialized: 0,
-    keyEvents: [], nativeOrder: [],
+    registered: 0,
+    unregistered: 0,
+    uninitialized: 0,
+    keyEvents: [],
+    nativeOrder: [],
     ...overrides,
   }
 }
 
 /** Sentinel pointer addresses standing in for native pointers. */
-interface FakePtr { kind: string; [key: string]: unknown }
+interface FakePtr {
+  kind: string
+  [key: string]: unknown
+}
 
-function installFakeKoffi(world: ComWorld, options: {
-  pointerSize?: number
-  nameAddress?: bigint
-  decodeString?: (pointer: Buffer) => string
-} = {}): void {
+function installFakeKoffi(
+  world: ComWorld,
+  options: {
+    pointerSize?: number
+    nameAddress?: bigint
+    decodeString?: (pointer: Buffer) => string
+  } = {},
+): void {
   const pointerSize = options.pointerSize ?? FAKE_POINTER_SIZE
   const dialogPtr = 0x1100n
   const itemPtr = 0x2200n
@@ -80,16 +100,25 @@ function installFakeKoffi(world: ComWorld, options: {
   const dispatch = (self: FakePtr, slot: number, args: unknown[]): number => {
     if (self.kind === 'dialog') {
       switch (slot) {
-        case 9: world.options.push(args[0] as number); return 0
-        case 17: world.titles.push(args[0] as string); return 0
-        case 3: world.nativeOrder.push('show'); return world.showHr
+        case 9:
+          world.options.push(args[0] as number)
+          return 0
+        case 17:
+          world.titles.push(args[0] as string)
+          return 0
+        case 3:
+          world.nativeOrder.push('show')
+          return world.showHr
         case 20: {
           if (world.getResultHr < 0) return world.getResultHr
           ;(args[0] as unknown[])[0] = itemPtr
           return 0
         }
-        case 2: world.released.push('dialog'); return 0
-        default: throw new Error(`unexpected dialog slot ${slot}`)
+        case 2:
+          world.released.push('dialog')
+          return 0
+        default:
+          throw new Error(`unexpected dialog slot ${slot}`)
       }
     }
     switch (slot) {
@@ -98,8 +127,11 @@ function installFakeKoffi(world: ComWorld, options: {
         ;(args[1] as unknown[])[0] = namePtr
         return 0
       }
-      case 2: world.released.push('item'); return 0
-      default: throw new Error(`unexpected item slot ${slot}`)
+      case 2:
+        world.released.push('item')
+        return 0
+      default:
+        throw new Error(`unexpected item slot ${slot}`)
     }
   }
 
@@ -108,23 +140,33 @@ function installFakeKoffi(world: ComWorld, options: {
       load: (dll: string) => ({
         func: (_convention: string, name: string, _result: string, _args: string[]) => {
           switch (name) {
-            case 'CoInitializeEx': return () => world.coInitHr
-            case 'CoUninitialize': return () => { world.uninitialized += 1 }
-            case 'CoCreateInstance': return (...args: unknown[]) => {
-              if (world.coCreateHr < 0) return world.coCreateHr
-              // The out-pointer must be allocated at the fake's pointer width.
-              if ((args[4] as Buffer).length !== pointerSize) {
-                throw new Error(`CoCreateInstance out buffer must be ${pointerSize} bytes`)
+            case 'CoInitializeEx':
+              return () => world.coInitHr
+            case 'CoUninitialize':
+              return () => {
+                world.uninitialized += 1
               }
-              outBuffers.set(args[4], dialogPtr)
-              return 0
-            }
-            case 'CoTaskMemFree': return (ptr: unknown) => { world.freed.push(ptr) }
-            case 'GetCurrentThreadId': return () => 31337
-            case 'keybd_event': return (vk: number, _scan: number, flags: number, _extra: unknown) => {
-              world.keyEvents.push({ vk, flags })
-              world.nativeOrder.push(flags === 0 ? 'alt-down' : 'alt-up')
-            }
+            case 'CoCreateInstance':
+              return (...args: unknown[]) => {
+                if (world.coCreateHr < 0) return world.coCreateHr
+                // The out-pointer must be allocated at the fake's pointer width.
+                if ((args[4] as Buffer).length !== pointerSize) {
+                  throw new Error(`CoCreateInstance out buffer must be ${pointerSize} bytes`)
+                }
+                outBuffers.set(args[4], dialogPtr)
+                return 0
+              }
+            case 'CoTaskMemFree':
+              return (ptr: unknown) => {
+                world.freed.push(ptr)
+              }
+            case 'GetCurrentThreadId':
+              return () => 31337
+            case 'keybd_event':
+              return (vk: number, _scan: number, flags: number, _extra: unknown) => {
+                world.keyEvents.push({ vk, flags })
+                world.nativeOrder.push(flags === 0 ? 'alt-down' : 'alt-up')
+              }
             case 'SetThreadDpiAwarenessContext': {
               if (!world.hasThreadDpi) throw new Error(`${dll}: SetThreadDpiAwarenessContext not found`)
               return (context: unknown) => {
@@ -132,22 +174,36 @@ function installFakeKoffi(world: ComWorld, options: {
                 return world.supportedDpiContexts.includes(context as number) ? { kind: 'previous-context' } : null
               }
             }
-            case 'EnumThreadWindows': return (_tid: unknown, callback: { fn: (hwnd: unknown, lparam: unknown) => number }, lparam: unknown) => {
-              if (world.enumThrows) throw new Error('EnumThreadWindows refused')
-              callback.fn({ kind: 'hwnd', n: 1 }, lparam)
-              callback.fn({ kind: 'hwnd', n: 2 }, lparam)
-              return 1
-            }
-            case 'PostMessageW': return (hwnd: unknown, message: number) => { world.posted.push({ hwnd, message }); return 1 }
-            default: throw new Error(`unexpected native import ${dll}/${name}`)
+            case 'EnumThreadWindows':
+              return (_tid: unknown, callback: { fn: (hwnd: unknown, lparam: unknown) => number }, lparam: unknown) => {
+                if (world.enumThrows) throw new Error('EnumThreadWindows refused')
+                callback.fn({ kind: 'hwnd', n: 1 }, lparam)
+                callback.fn({ kind: 'hwnd', n: 2 }, lparam)
+                return 1
+              }
+            case 'PostMessageW':
+              return (hwnd: unknown, message: number) => {
+                world.posted.push({ hwnd, message })
+                return 1
+              }
+            default:
+              throw new Error(`unexpected native import ${dll}/${name}`)
           }
         },
       }),
       proto: (declaration: string) => ({ declaration }),
       pointer: (type: unknown) => type,
-      sizeof: (type: string) => { void type; return pointerSize },
-      register: (fn: (hwnd: unknown, lparam: unknown) => number) => { world.registered += 1; return { fn } },
-      unregister: () => { world.unregistered += 1 },
+      sizeof: (type: string) => {
+        void type
+        return pointerSize
+      },
+      register: (fn: (hwnd: unknown, lparam: unknown) => number) => {
+        world.registered += 1
+        return { fn }
+      },
+      unregister: () => {
+        world.unregistered += 1
+      },
       decode: (value: unknown, offsetOrType: unknown): unknown => {
         if (offsetOrType === 'str16') {
           const buffer = value as Buffer
@@ -395,7 +451,9 @@ describe('the worker entry over a mocked process boundary', () => {
   it('posts the failure message when the native surface cannot load', async () => {
     const { posted } = installBoundary()
     vi.doMock('../src/win32-dialog-bindings.ts', () => ({
-      loadWin32DialogBindings: async () => { throw new Error('no ole32 here') },
+      loadWin32DialogBindings: async () => {
+        throw new Error('no ole32 here')
+      },
     }))
     await import('../src/win32-dialog-worker.ts')
     expect(posted).toHaveLength(1)
@@ -406,11 +464,16 @@ describe('the worker entry over a mocked process boundary', () => {
   it('stringifies stackless and non-Error failures', async () => {
     const stackless = new Error('bare message')
     delete stackless.stack
-    for (const [thrown, expected] of [[stackless, 'bare message'], ['plain refusal', 'plain refusal']] as const) {
+    for (const [thrown, expected] of [
+      [stackless, 'bare message'],
+      ['plain refusal', 'plain refusal'],
+    ] as const) {
       vi.resetModules()
       const { posted } = installBoundary()
       vi.doMock('../src/win32-dialog-bindings.ts', () => ({
-        loadWin32DialogBindings: async () => { throw thrown },
+        loadWin32DialogBindings: async () => {
+          throw thrown
+        },
       }))
       await import('../src/win32-dialog-worker.ts')
       expect(posted[0]?.message).toBe(expected)

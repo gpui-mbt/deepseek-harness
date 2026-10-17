@@ -1,12 +1,7 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
-import {
-  MEMORY_PRESSURE_FILES,
-  memoryLimitViolation,
-  memoryPressureMachine,
-  memoryScopeCommand,
-} from './run-memory-pressure-bench.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import { MEMORY_PRESSURE_FILES, memoryLimitViolation, memoryPressureMachine, memoryScopeCommand } from './run-memory-pressure-bench.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
@@ -24,7 +19,17 @@ describe('memory-pressure benchmark launcher', () => {
 
   it('confines the command to the machine memory without swap', () => {
     expect(memoryScopeCommand('4g', ['node', 'x.js'])).toEqual([
-      'systemd-run', '--user', '--scope', '--quiet', '-p', 'MemoryMax=4G', '-p', 'MemorySwapMax=0', '--', 'node', 'x.js',
+      'systemd-run',
+      '--user',
+      '--scope',
+      '--quiet',
+      '-p',
+      'MemoryMax=4G',
+      '-p',
+      'MemorySwapMax=0',
+      '--',
+      'node',
+      'x.js',
     ])
   })
 

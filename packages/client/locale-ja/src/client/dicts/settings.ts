@@ -5,7 +5,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings-general/client'
 
 /** `settings` copy in Japanese, complete against the owner's key union. */
 export const ja: LocaleDictOf<'settings'> = {
-  'trigger': '設定',
+  trigger: '設定',
   'shortcut.open': '設定を開く',
   'desktop.update.available': '更新',
   'desktop.update.checking': '更新を確認しています…',
@@ -19,15 +19,18 @@ export const ja: LocaleDictOf<'settings'> = {
   'desktop.update.checkFailed': '更新の確認に失敗しました。しばらくしてから再試行してください',
   'desktop.update.downloadFailed': '更新のダウンロードに失敗しました。再試行してください',
   'desktop.update.installFailed': '更新のインストールに失敗しました。しばらくしてから再試行してください',
-  'desktop.update.checkNetworkFailed': '更新の確認に失敗しました。しばらくしてから再試行してください。接続が中断されました。ネットワークを確認して再試行してください',
-  'desktop.update.downloadNetworkFailed': '更新のダウンロードに失敗しました。再試行してください。接続が中断されました。ネットワークを確認して再試行してください',
-  'desktop.update.installNetworkFailed': '更新のインストールに失敗しました。しばらくしてから再試行してください。接続が中断されました。ネットワークを確認して再試行してください',
+  'desktop.update.checkNetworkFailed':
+    '更新の確認に失敗しました。しばらくしてから再試行してください。接続が中断されました。ネットワークを確認して再試行してください',
+  'desktop.update.downloadNetworkFailed':
+    '更新のダウンロードに失敗しました。再試行してください。接続が中断されました。ネットワークを確認して再試行してください',
+  'desktop.update.installNetworkFailed':
+    '更新のインストールに失敗しました。しばらくしてから再試行してください。接続が中断されました。ネットワークを確認して再試行してください',
   'desktop.update.stopFailed': 'タスクを安全に停止できませんでした。更新はインストールされていません。しばらくしてから再試行してください',
   'desktop.update.tasksChanged': '新しいタスクが開始されました。更新の確認をもう一度行ってください',
   'desktop.update.tasksUnavailable': 'タスクの状態を確認できません。ワークスペースが準備できてから更新を再試行してください',
-  'title': '設定',
-  'close': '閉じる',
-  'openDocument': '設定ファイルを開く',
+  title: '設定',
+  close: '閉じる',
+  openDocument: '設定ファイルを開く',
   'openDocument.error': '設定ファイルを開けませんでした',
   'general.nav': '一般',
   'connection.error': '接続エラー',
@@ -40,7 +43,8 @@ export const ja: LocaleDictOf<'settings'> = {
   'developerTools.description': '軌跡、このターンのコード差分、新しい会話での Agent プリセット切り替えを表示します',
   'developerTools.error': '設定を保存できませんでした。再試行してください',
   'hostRelease.title': 'サービスのバージョンが変わりました',
-  'hostRelease.description': 'サービスのバージョンが変わりました。このページは自動更新を停止しました。再読み込みすると新しいバージョンが読み込まれます。',
+  'hostRelease.description':
+    'サービスのバージョンが変わりました。このページは自動更新を停止しました。再読み込みすると新しいバージョンが読み込まれます。',
   'hostRelease.service': 'サービス',
   'hostRelease.page': 'ページ',
   'hostRelease.unknown': '不明',

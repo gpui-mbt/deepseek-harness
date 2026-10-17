@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { auditSubsystemPages } from './verify-subsystem-pages.ts'
 
 function fixture(): string {
@@ -48,11 +48,7 @@ describe('package-group subsystem pages', () => {
 
   it('does not treat the subsystem index or a Chinese counterpart as an owning page', () => {
     const root = fixture()
-    write(
-      root,
-      'packages/wrong/README.md',
-      '[index](../../docs/subsystems/README.md) [Chinese](../../docs/subsystems/wrong.zh.md)\n',
-    )
+    write(root, 'packages/wrong/README.md', '[index](../../docs/subsystems/README.md) [Chinese](../../docs/subsystems/wrong.zh.md)\n')
     write(root, 'docs/subsystems/README.md', '# Subsystems\n')
     write(root, 'docs/subsystems/wrong.zh.md', '# Wrong\n')
 
@@ -110,11 +106,13 @@ describe('package-group subsystem pages', () => {
     write(root, 'docs/subsystems/linked.md', '# Linked\n')
     write(root, 'packages/blank/README.md', '# Blank\n')
 
-    expect(auditSubsystemPages(root, {
-      blank: ' ',
-      linked: 'No page.',
-      orphan: 'Removed group.',
-    }).violations).toEqual([
+    expect(
+      auditSubsystemPages(root, {
+        blank: ' ',
+        linked: 'No page.',
+        orphan: 'Removed group.',
+      }).violations,
+    ).toEqual([
       'exemption blank: missing justification for omitting a subsystem page',
       'exemption orphan: no matching package group; remove the stale entry',
       'packages/linked/README.md: links a subsystem page but remains exempt; remove the stale exemption',

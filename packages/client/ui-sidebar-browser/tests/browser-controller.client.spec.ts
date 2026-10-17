@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { BrowserController, createBrowserControllers } from '../src/client/browser/BrowserController.ts'
 import { createBrowserStore } from '../src/client/browser/store.ts'
@@ -32,16 +32,30 @@ function harness() {
   host.id = id
   hosts.push(host)
   document.body.append(host)
-  const mount = (signal: AbortSignal): (() => void) => face.mount({
-    tabId: TAB, signal, viewportId: id, applicationOrigin: APP,
-    initial: store.getSnapshot().byTab[TAB], initialUrl: undefined, openTab: vi.fn(),
-  })
+  const mount = (signal: AbortSignal): (() => void) =>
+    face.mount({
+      tabId: TAB,
+      signal,
+      viewportId: id,
+      applicationOrigin: APP,
+      initial: store.getSnapshot().byTab[TAB],
+      initialUrl: undefined,
+      openTab: vi.fn(),
+    })
   const iframe = (): HTMLIFrameElement => {
     const element = host.querySelector('iframe')
     if (element === null) throw new Error('expected a mounted iframe')
     return element
   }
-  return { store, face, mount, iframe, close: () => { open = false } }
+  return {
+    store,
+    face,
+    mount,
+    iframe,
+    close: () => {
+      open = false
+    },
+  }
 }
 
 afterEach(async () => {
@@ -91,12 +105,28 @@ describe('BrowserController', () => {
     secondHost.id = 'replacement-browser-host'
     document.body.append(secondHost)
     hosts.push(secondHost)
-    h.face.mount({ tabId: TAB, signal: tabLifetime.signal, viewportId: secondHost.id,
-      applicationOrigin: APP, initial: undefined, initialUrl: undefined, openTab: vi.fn() })
+    h.face.mount({
+      tabId: TAB,
+      signal: tabLifetime.signal,
+      viewportId: secondHost.id,
+      applicationOrigin: APP,
+      initial: undefined,
+      initialUrl: undefined,
+      openTab: vi.fn(),
+    })
     oldMount()
     expect(secondHost.querySelector('iframe')?.src).toBe('https://saved.example/')
-    expect(() => h.face.mount({ tabId: TAB, signal: tabLifetime.signal, viewportId: 'missing-browser-host',
-      applicationOrigin: APP, initial: undefined, initialUrl: undefined, openTab: vi.fn() })).toThrow('not mounted')
+    expect(() =>
+      h.face.mount({
+        tabId: TAB,
+        signal: tabLifetime.signal,
+        viewportId: 'missing-browser-host',
+        applicationOrigin: APP,
+        initial: undefined,
+        initialUrl: undefined,
+        openTab: vi.fn(),
+      }),
+    ).toThrow('not mounted')
   })
 
   it('validates provider open requests and ignores late provider callbacks after disposal', async () => {
@@ -104,20 +134,35 @@ describe('BrowserController', () => {
     const frames = createSnapshotStore<BrowserFrameState>(emptyBrowserFrame())
     const callbacks: BrowserPageOptions[] = []
     const pendingNotifications: (() => void)[] = []
-    const pageFactory: BrowserPageFactory = (options) => {
+    const pageFactory: BrowserPageFactory = options => {
       callbacks.push(options)
       return {
-        frame: { getSnapshot: () => frames.getSnapshot(), subscribe: (listener) => {
-          pendingNotifications.push(listener)
-          return frames.subscribe(listener)
-        }, loadUrl: vi.fn(), goBack: vi.fn(), goForward: vi.fn(), reload: vi.fn(), dispose: async () => {} },
+        frame: {
+          getSnapshot: () => frames.getSnapshot(),
+          subscribe: listener => {
+            pendingNotifications.push(listener)
+            return frames.subscribe(listener)
+          },
+          loadUrl: vi.fn(),
+          goBack: vi.fn(),
+          goForward: vi.fn(),
+          reload: vi.fn(),
+          dispose: async () => {},
+        },
         presentation: { mount: () => () => {}, dispose: () => {} },
       }
     }
     const store = createBrowserStore().create('provider-callbacks')
     const openTab = vi.fn()
-    const controller = new BrowserController({ tabId: TAB, signal: lifetime().signal, applicationOrigin: APP,
-      actions: store.actions, initial: saved, createPage: pageFactory, openTab })
+    const controller = new BrowserController({
+      tabId: TAB,
+      signal: lifetime().signal,
+      applicationOrigin: APP,
+      actions: store.actions,
+      initial: saved,
+      createPage: pageFactory,
+      openTab,
+    })
     disposables.push(controller)
     const provider = callbacks[0]!
     provider.openRequested('file:/secret')
@@ -143,8 +188,13 @@ describe('BrowserController', () => {
     const store = createBrowserStore().create('browser-controller-ended-test')
     const tabLifetime = lifetime()
     const controller = new BrowserController({
-      tabId: TAB, signal: tabLifetime.signal, applicationOrigin: APP, actions: store.actions,
-      initial: undefined, createPage: createIframePage, openTab: vi.fn(),
+      tabId: TAB,
+      signal: tabLifetime.signal,
+      applicationOrigin: APP,
+      actions: store.actions,
+      initial: undefined,
+      createPage: createIframePage,
+      openTab: vi.fn(),
     })
     disposables.push(controller)
     tabLifetime.abort()

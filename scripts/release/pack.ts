@@ -44,7 +44,10 @@ function validatePackedMember(family: ReleaseFamily, member: ReleaseMember, dest
  * @returns Validated tarball filenames in publish order.
  */
 async function packMembers(
-  family: ReleaseFamily, members: readonly ReleaseMember[], destination: string, concurrency: number,
+  family: ReleaseFamily,
+  members: readonly ReleaseMember[],
+  destination: string,
+  concurrency: number,
 ): Promise<string[]> {
   if (concurrency === 1) {
     const order: string[] = []
@@ -61,7 +64,8 @@ async function packMembers(
     '--recursive',
     `--workspace-concurrency=${String(concurrency)}`,
     ...members.map(member => `--filter=${member.name}`),
-    '--pack-destination', destination,
+    '--pack-destination',
+    destination,
   ])
   await runConcurrent(invocation.command, invocation.args)
   return members.map(member => validatePackedMember(family, member, destination))

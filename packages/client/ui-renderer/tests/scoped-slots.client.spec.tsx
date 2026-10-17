@@ -8,20 +8,29 @@
  * (declaration conflicts, store instance accounting) belong to the renderer
  * SlotRegistry suite, not here.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { act, fireEvent, render } from '@testing-library/react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Context } from '@deepseek-ai/cordis'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import {
-  SlotOwnershipError, StaleAuthorizationError,
-  type ActionsDecl, type SessionProviderComponent, type SlotEntryDef,
-  type SlotSpec, type StoreHandle, type StoredEntry,
+  SlotOwnershipError,
+  StaleAuthorizationError,
+  type ActionsDecl,
+  type SessionProviderComponent,
+  type SlotEntryDef,
+  type SlotSpec,
+  type StoreHandle,
+  type StoredEntry,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  RenderOpts, ScopedStandardSourceBinding, SlotRendererHost, SlotScopeAdapter,
-  StandardSourceBinding, StoreInstanceLike,
+  RenderOpts,
+  ScopedStandardSourceBinding,
+  SlotRendererHost,
+  SlotScopeAdapter,
+  StandardSourceBinding,
+  StoreInstanceLike,
 } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { createSlotRenderer } from '../src/client/scoped-slots.tsx'
 
@@ -34,8 +43,7 @@ type RenderSlotChainFn = (
 ) => ReactNode
 type DeclaredSpec = SlotSpec<SlotEntryDef>
 /** Entry literal helper: fake entries default the mandatory options bag. */
-const entryOf = (partial: Omit<StoredEntry, 'options'> & { options?: StoredEntry['options'] }): StoredEntry =>
-  ({ options: {}, ...partial })
+const entryOf = (partial: Omit<StoredEntry, 'options'> & { options?: StoredEntry['options'] }): StoredEntry => ({ options: {}, ...partial })
 
 /**
  * Minimal store handle satisfying the StoreDecl contract shape (spec +
@@ -62,7 +70,12 @@ function miniStore<T extends object>(
       }
       return {
         getSnapshot: () => state,
-        subscribe: (fn) => { listeners.add(fn); return () => { listeners.delete(fn) } },
+        subscribe: fn => {
+          listeners.add(fn)
+          return () => {
+            listeners.delete(fn)
+          }
+        },
         actions,
         clearPersisted: () => {},
       } as StoreInstanceLike as ReturnType<StoreHandle<T, ActionsDecl<T>>['create']>
@@ -75,8 +88,16 @@ function observable<T>(initial: T) {
   const subs = new Set<() => void>()
   return {
     getSnapshot: () => value,
-    subscribe: (fn: () => void) => { subs.add(fn); return () => { subs.delete(fn) } },
-    set: (next: T) => { value = next; for (const fn of [...subs]) fn() },
+    subscribe: (fn: () => void) => {
+      subs.add(fn)
+      return () => {
+        subs.delete(fn)
+      }
+    },
+    set: (next: T) => {
+      value = next
+      for (const fn of [...subs]) fn()
+    },
   }
 }
 
@@ -117,10 +138,8 @@ function makeHost() {
   })
   const sessionAdapter: SlotScopeAdapter = {
     current: currentBinding,
-    bindingSource: target => target === undefined ? absent : bindingSources.get(target.sessionId)!,
-    renderArea: (binding, { empty, children }) => binding.key === undefined
-      ? <>{empty?.() ?? null}</>
-      : <>{children}</>,
+    bindingSource: target => (target === undefined ? absent : bindingSources.get(target.sessionId)!),
+    renderArea: (binding, { empty, children }) => (binding.key === undefined ? <>{empty?.() ?? null}</> : <>{children}</>),
   }
   const scopeRevision = observable(0)
   let activeScopeAdapter = sessionAdapter
@@ -134,11 +153,13 @@ function makeHost() {
       const set = subs.get(key) ?? new Set()
       set.add(fn)
       subs.set(key, set)
-      return () => { set.delete(fn) }
+      return () => {
+        set.delete(fn)
+      }
     },
     getVersion: key => versions.get(key) ?? 0,
     entriesOf: key => entries.get(key) ?? [],
-    entriesOfSlot: (key) => {
+    entriesOfSlot: key => {
       const all = entries.get(key) ?? []
       const kind = specs.get(key)?.kind
       if (kind === 'chain') return all
@@ -196,27 +217,35 @@ function makeHost() {
     list,
     workspaces,
     current: {
-      getSnapshot: () => currentId === undefined ? undefined : targets.get(currentId),
+      getSnapshot: () => (currentId === undefined ? undefined : targets.get(currentId)),
       set: (id: string | undefined) => {
         currentId = id
-        currentBinding.set(id === undefined ? absentBinding : bindingSources.get(id)?.getSnapshot() ?? absentBinding)
+        currentBinding.set(id === undefined ? absentBinding : (bindingSources.get(id)?.getSnapshot() ?? absentBinding))
       },
     },
-    declare: (key: string, spec: DeclaredSpec) => { specs.set(key, spec); bump(key) },
+    declare: (key: string, spec: DeclaredSpec) => {
+      specs.set(key, spec)
+      bump(key)
+    },
     add: (key: string, partial: Omit<StoredEntry, 'options'> & { options?: StoredEntry['options'] }) => {
       const entry = entryOf(partial)
       const next = [...(entries.get(key) ?? []), entry]
       // Mirror the ledger contract: entries arrive priority-sorted (stable,
       // ascending; list refines equal priorities by order) — outlets iterate
       // entries() order as-is.
-      next.sort(specs.get(key)?.kind === 'list'
-        ? (a, b) => ((a.options.priority ?? 0) - (b.options.priority ?? 0)) || ((a.options.order ?? 0) - (b.options.order ?? 0))
-        : (a, b) => (a.options.priority ?? 0) - (b.options.priority ?? 0))
+      next.sort(
+        specs.get(key)?.kind === 'list'
+          ? (a, b) => (a.options.priority ?? 0) - (b.options.priority ?? 0) || (a.options.order ?? 0) - (b.options.order ?? 0)
+          : (a, b) => (a.options.priority ?? 0) - (b.options.priority ?? 0),
+      )
       entries.set(key, next)
       live.add(entry)
       bump(key)
       return () => {
-        entries.set(key, (entries.get(key) ?? []).filter(e => e !== entry))
+        entries.set(
+          key,
+          (entries.get(key) ?? []).filter(e => e !== entry),
+        )
         live.delete(entry)
         bump(key)
       }
@@ -258,10 +287,9 @@ function mountRoot(
   body: (renderSlot: RenderSlotFn, SessionProvider: SessionProviderComponent) => ReactNode,
 ) {
   const dispose = h.add('root', {
-    component: (props: {
-      renderSlot: RenderSlotFn
-      SessionProvider: SessionProviderComponent
-    }) => <>{body(props.renderSlot, props.SessionProvider)}</>,
+    component: (props: { renderSlot: RenderSlotFn; SessionProvider: SessionProviderComponent }) => (
+      <>{body(props.renderSlot, props.SessionProvider)}</>
+    ),
     children,
   })
   const renderer = createSlotRenderer()
@@ -292,8 +320,9 @@ function mountChainRoot(
   body: (renderSlotChain: RenderSlotChainFn, Provider: SessionProviderComponent) => ReactNode,
 ) {
   const dispose = h.add('root', {
-    component: (props: { renderSlotChain: RenderSlotChainFn; SessionProvider: SessionProviderComponent }) =>
-      <>{body(props.renderSlotChain, props.SessionProvider)}</>,
+    component: (props: { renderSlotChain: RenderSlotChainFn; SessionProvider: SessionProviderComponent }) => (
+      <>{body(props.renderSlotChain, props.SessionProvider)}</>
+    ),
     children,
   })
   const renderer = createSlotRenderer()
@@ -311,8 +340,7 @@ describe('root outlet', () => {
 
     const empty = makeHost()
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(() => render(<>{createSlotRenderer().renderRoot(empty.host, {})}</>))
-      .toThrow(/boot order/)
+    expect(() => render(<>{createSlotRenderer().renderRoot(empty.host, {})}</>)).toThrow(/boot order/)
     spy.mockRestore()
   })
 
@@ -328,20 +356,24 @@ describe('child outlets and the renderSlot binding', () => {
   it('renders declared single slots live: fallback when empty, register, dispose back', () => {
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
-    const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT },
-      renderSlot => renderSlot('k.single', {}, { fallback: <i>none</i> }))
+    const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}, { fallback: <i>none</i> }))
     expect(view.container.textContent).toBe('none')
     let dispose = () => {}
-    act(() => { dispose = h.add('k.single', { component: () => <b>SB</b> }) })
+    act(() => {
+      dispose = h.add('k.single', { component: () => <b>SB</b> })
+    })
     expect(view.container.textContent).toBe('SB')
-    act(() => { dispose() })
+    act(() => {
+      dispose()
+    })
     expect(view.container.textContent).toBe('none')
   })
 
   it('renders an undeclared key as empty (declaring entry unloaded = natural blank, not a crash)', () => {
     const h = makeHost()
-    const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT },
-      renderSlot => <main>{renderSlot('k.single', {}, { fallback: <i>fb</i> })}</main>)
+    const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => (
+      <main>{renderSlot('k.single', {}, { fallback: <i>fb</i> })}</main>
+    ))
     // Declared by children (authorization) but absent from the ledger (specOf
     // undefined): the outlet renders nothing, not even the fallback path's spec dispatch.
     expect(view.container.querySelector('main')!.textContent).toBe('')
@@ -354,13 +386,18 @@ describe('child outlets and the renderSlot binding', () => {
     h.add('k.list', { component: () => <span>b</span>, options: { id: 'b', order: 2 } })
     h.add('k.list', { component: () => <span>a</span>, options: { id: 'a', order: 1 } })
     h.add('k.keyed', { component: () => <span>goal</span>, options: { key: 'goal' } })
-    const children = { 'k.list': { kind: 'list', scope: 'root' } as DeclaredSpec, 'k.keyed': { kind: 'keyed', scope: 'root' } as DeclaredSpec }
-    const { view } = mountRoot(h, children, renderSlot => <>
-      <main>{renderSlot('k.list', {})}</main>
-      <aside>{renderSlot('k.list', {}, { only: 'b' })}</aside>
-      <nav>{renderSlot('k.keyed', {}, { entryKey: 'goal' })}</nav>
-      <footer>{renderSlot('k.keyed', {}, { entryKey: 'nope', fallback: <i>fb</i> })}</footer>
-    </>)
+    const children = {
+      'k.list': { kind: 'list', scope: 'root' } as DeclaredSpec,
+      'k.keyed': { kind: 'keyed', scope: 'root' } as DeclaredSpec,
+    }
+    const { view } = mountRoot(h, children, renderSlot => (
+      <>
+        <main>{renderSlot('k.list', {})}</main>
+        <aside>{renderSlot('k.list', {}, { only: 'b' })}</aside>
+        <nav>{renderSlot('k.keyed', {}, { entryKey: 'goal' })}</nav>
+        <footer>{renderSlot('k.keyed', {}, { entryKey: 'nope', fallback: <i>fb</i> })}</footer>
+      </>
+    ))
     expect(view.container.querySelector('main')!.textContent).toBe('ab')
     expect(view.container.querySelector('aside')!.textContent).toBe('b')
     expect(view.container.querySelector('nav')!.textContent).toBe('goal')
@@ -371,13 +408,15 @@ describe('child outlets and the renderSlot binding', () => {
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
     const seen: RenderSlotFn[] = []
-    mountRoot(h, { 'k.single': SINGLE_ROOT }, (renderSlot) => {
+    mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => {
       seen.push(renderSlot)
       return renderSlot('k.single', {})
     })
     // Bump the 'root' key to force a root-entry re-render (the single-kind
     // outlet only reads entries[0], so the extra entry is inert).
-    act(() => { h.add('root', { component: () => null }) })
+    act(() => {
+      h.add('root', { component: () => null })
+    })
     expect(seen.length).toBeGreaterThan(1)
     expect(seen.at(-1)).toBe(seen[0])
     expect(() => seen[0]!('k.undeclared', {})).toThrow(SlotOwnershipError)
@@ -386,11 +425,15 @@ describe('child outlets and the renderSlot binding', () => {
   it('isolates a crashing entry without collapsing siblings', () => {
     const h = makeHost()
     h.declare('k.list', { kind: 'list', scope: 'root' })
-    h.add('k.list', { component: () => { throw new Error('entry boom') }, options: { id: 'bad', order: 1 } })
+    h.add('k.list', {
+      component: () => {
+        throw new Error('entry boom')
+      },
+      options: { id: 'bad', order: 1 },
+    })
     h.add('k.list', { component: () => <span>alive</span>, options: { id: 'ok', order: 2 } })
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { view } = mountRoot(h, { 'k.list': { kind: 'list', scope: 'root' } },
-      renderSlot => renderSlot('k.list', {}))
+    const { view } = mountRoot(h, { 'k.list': { kind: 'list', scope: 'root' } }, renderSlot => renderSlot('k.list', {}))
     spy.mockRestore()
     expect(view.container.textContent).toBe('alive')
     expect(view.container.querySelector('[data-slot-error]')).not.toBeNull()
@@ -402,16 +445,21 @@ describe('chain outlets and the renderSlotChain binding', () => {
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     const declinerBody = vi.fn(() => <span>never</span>)
-    h.add('k.chain', chainEntryOf({
-      component: declinerBody,
-      select: () => null,
-    }))
-    h.add('k.chain', chainEntryOf({
-      component: ({ matched }: { matched?: { label: string } }) => <b>{matched?.label}</b>,
-      select: owner => ({ label: `hit:${(owner as { tag: string }).tag}` }),
-    }))
-    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
-      renderSlotChain => renderSlotChain('k.chain', { tag: 'T' }))
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: declinerBody,
+        select: () => null,
+      }),
+    )
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: ({ matched }: { matched?: { label: string } }) => <b>{matched?.label}</b>,
+        select: owner => ({ label: `hit:${(owner as { tag: string }).tag}` }),
+      }),
+    )
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain => renderSlotChain('k.chain', { tag: 'T' }))
     // The declining entry never mounts: the routing decision is select-layer only.
     expect(view.container.textContent).toBe('hit:T')
     expect(declinerBody).not.toHaveBeenCalled()
@@ -420,19 +468,29 @@ describe('chain outlets and the renderSlotChain binding', () => {
   it('contains a throwing selector to its entry: reported, treated as declined, chain and fallback intact', () => {
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
-    h.add('k.chain', chainEntryOf({
-      component: () => <span>never</span>,
-      select: () => { throw new Error('selector boom') },
-    }))
-    h.add('k.chain', chainEntryOf({
-      component: ({ matched }: { matched?: string }) => <b>{matched}</b>,
-      select: owner => (owner as { pick?: string }).pick ?? null,
-    }))
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: () => <span>never</span>,
+        select: () => {
+          throw new Error('selector boom')
+        },
+      }),
+    )
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: ({ matched }: { matched?: string }) => <b>{matched}</b>,
+        select: owner => (owner as { pick?: string }).pick ?? null,
+      }),
+    )
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain => <>
-      <main>{renderSlotChain('k.chain', { pick: 'OK' })}</main>
-      <aside>{renderSlotChain('k.chain', {}, { fallback: <i>fb</i> })}</aside>
-    </>)
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain => (
+      <>
+        <main>{renderSlotChain('k.chain', { pick: 'OK' })}</main>
+        <aside>{renderSlotChain('k.chain', {}, { fallback: <i>fb</i> })}</aside>
+      </>
+    ))
     // The breach never escapes to the owner region: later entries still get
     // tried, and an all-throw/all-null pass still lands on the fallback.
     expect(view.container.querySelector('main')!.textContent).toBe('OK')
@@ -444,24 +502,33 @@ describe('chain outlets and the renderSlotChain binding', () => {
   it('remounts the boundary on re-election: a failed entry does not black out its replacement', () => {
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
-    h.add('k.chain', chainEntryOf({
-      component: () => { throw new Error('entry A boom') },
-      select: owner => (owner as { pick?: string }).pick === 'A' ? {} : null,
-    }))
-    h.add('k.chain', chainEntryOf({
-      component: () => <b>B-ok</b>,
-      select: owner => (owner as { pick?: string }).pick === 'B' ? {} : null,
-    }))
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: () => {
+          throw new Error('entry A boom')
+        },
+        select: owner => ((owner as { pick?: string }).pick === 'A' ? {} : null),
+      }),
+    )
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: () => <b>B-ok</b>,
+        select: owner => ((owner as { pick?: string }).pick === 'B' ? {} : null),
+      }),
+    )
     let pick = 'A'
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
-      renderSlotChain => renderSlotChain('k.chain', { pick }))
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain => renderSlotChain('k.chain', { pick }))
     spy.mockRestore()
     expect(view.container.querySelector('[data-slot-error]')).not.toBeNull()
     // Re-elect entry B: the entry-keyed boundary remounts fresh instead of
     // holding A's failed state over the healthy replacement.
     pick = 'B'
-    act(() => { h.add('root', { component: () => null }) })   // root bump re-renders the dispatch site
+    act(() => {
+      h.add('root', { component: () => null })
+    }) // root bump re-renders the dispatch site
     expect(view.container.textContent).toBe('B-ok')
     expect(view.container.querySelector('[data-slot-error]')).toBeNull()
   })
@@ -469,14 +536,19 @@ describe('chain outlets and the renderSlotChain binding', () => {
   it('falls to the owner fallback when every selector declines, and re-routes live', () => {
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
-    h.add('k.chain', chainEntryOf({
-      component: ({ matched }: { matched?: string }) => <b>{matched}</b>,
-      select: owner => (owner as { pick?: string }).pick ?? null,
-    }))
-    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain => <>
-      <main>{renderSlotChain('k.chain', {}, { fallback: <i>bar</i> })}</main>
-      <aside>{renderSlotChain('k.chain', { pick: 'P' }, { fallback: <i>bar</i> })}</aside>
-    </>)
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: ({ matched }: { matched?: string }) => <b>{matched}</b>,
+        select: owner => (owner as { pick?: string }).pick ?? null,
+      }),
+    )
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain => (
+      <>
+        <main>{renderSlotChain('k.chain', {}, { fallback: <i>bar</i> })}</main>
+        <aside>{renderSlotChain('k.chain', { pick: 'P' }, { fallback: <i>bar</i> })}</aside>
+      </>
+    ))
     // Same chain, two dispatch sites: all-null owner props fall back, matching ones elect.
     expect(view.container.querySelector('main')!.textContent).toBe('bar')
     expect(view.container.querySelector('aside')!.textContent).toBe('P')
@@ -485,18 +557,24 @@ describe('chain outlets and the renderSlotChain binding', () => {
   it('renders the fallback for an empty chain and elects live once an entry registers', () => {
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
-    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
-      renderSlotChain => renderSlotChain('k.chain', {}, { fallback: <i>none</i> }))
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain =>
+      renderSlotChain('k.chain', {}, { fallback: <i>none</i> }),
+    )
     expect(view.container.textContent).toBe('none')
     let dispose = () => {}
     act(() => {
-      dispose = h.add('k.chain', chainEntryOf({
-        component: () => <b>IN</b>,
-        select: () => ({}),
-      }))
+      dispose = h.add(
+        'k.chain',
+        chainEntryOf({
+          component: () => <b>IN</b>,
+          select: () => ({}),
+        }),
+      )
     })
     expect(view.container.textContent).toBe('IN')
-    act(() => { dispose() })
+    act(() => {
+      dispose()
+    })
     expect(view.container.textContent).toBe('none')
   })
 
@@ -504,24 +582,32 @@ describe('chain outlets and the renderSlotChain binding', () => {
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     // Registered first but priority 2: must yield to the later priority-1 entry.
-    h.add('k.chain', chainEntryOf({
-      component: () => <b>late</b>,
-      select: () => ({}),
-      priority: 2,
-    }))
-    h.add('k.chain', chainEntryOf({
-      component: () => <b>early</b>,
-      select: () => ({}),
-      priority: 1,
-    }))
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: () => <b>late</b>,
+        select: () => ({}),
+        priority: 2,
+      }),
+    )
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: () => <b>early</b>,
+        select: () => ({}),
+        priority: 1,
+      }),
+    )
     // Tie pair at priority 1: registration order decides (early wins over tie).
-    h.add('k.chain', chainEntryOf({
-      component: () => <b>tie</b>,
-      select: () => ({}),
-      priority: 1,
-    }))
-    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
-      renderSlotChain => renderSlotChain('k.chain', {}))
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: () => <b>tie</b>,
+        select: () => ({}),
+        priority: 1,
+      }),
+    )
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain => renderSlotChain('k.chain', {}))
     expect(view.container.textContent).toBe('early')
   })
 
@@ -529,11 +615,13 @@ describe('chain outlets and the renderSlotChain binding', () => {
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     const seen: RenderSlotChainFn[] = []
-    mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, (renderSlotChain) => {
+    mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain => {
       seen.push(renderSlotChain)
       return renderSlotChain('k.chain', {}, { fallback: <i>fb</i> })
     })
-    act(() => { h.add('root', { component: () => null }) })   // root bump re-renders the entry
+    act(() => {
+      h.add('root', { component: () => null })
+    }) // root bump re-renders the entry
     expect(seen.length).toBeGreaterThan(1)
     expect(seen.at(-1)).toBe(seen[0])
   })
@@ -554,8 +642,8 @@ describe('chain outlets and the renderSlotChain binding', () => {
     })
     const view = render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
     expect(() => chainFn!('k.undeclared', {})).toThrow(SlotOwnershipError)
-    expect(() => chainFn!('k.single', {})).toThrow(SlotOwnershipError)   // non-chain key via chain face
-    expect(() => slotFn!('k.chain', {})).toThrow(SlotOwnershipError)     // chain key via plain face
+    expect(() => chainFn!('k.single', {})).toThrow(SlotOwnershipError) // non-chain key via chain face
+    expect(() => slotFn!('k.chain', {})).toThrow(SlotOwnershipError) // chain key via plain face
     view.unmount()
     dispose()
     expect(() => chainFn!('k.chain', {})).toThrow(StaleAuthorizationError)
@@ -566,7 +654,10 @@ describe('chain outlets and the renderSlotChain binding', () => {
     h.declare('k.single', SINGLE_ROOT)
     const seen: AnyProps[] = []
     h.add('root', {
-      component: (props: AnyProps) => { seen.push(props); return null },
+      component: (props: AnyProps) => {
+        seen.push(props)
+        return null
+      },
       children: { 'k.single': SINGLE_ROOT },
     })
     render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
@@ -587,15 +678,19 @@ describe('overlay chains (ChainRenderOpts.overlay)', () => {
   it('keeps the fallback mounted and state-holding through a takeover, hidden then restored', () => {
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
-    h.add('k.chain', chainEntryOf({
-      component: () => <b>TAKEOVER</b>,
-      select: owner => (owner as { take?: boolean }).take ? {} : null,
-    }))
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: () => <b>TAKEOVER</b>,
+        select: owner => ((owner as { take?: boolean }).take ? {} : null),
+      }),
+    )
     const mounted = vi.fn()
     const Probe = fallbackProbe(mounted)
     let take = false
-    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
-      renderSlotChain => renderSlotChain('k.chain', { take }, { fallback: <Probe />, overlay: true }))
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain =>
+      renderSlotChain('k.chain', { take }, { fallback: <Probe />, overlay: true }),
+    )
     const wrapper = () => view.container.querySelector<HTMLElement>('[data-chain-overlay-fallback="k.chain"]')!
     const input = () => view.container.querySelector<HTMLInputElement>('input[aria-label="probe"]')!
 
@@ -605,14 +700,18 @@ describe('overlay chains (ChainRenderOpts.overlay)', () => {
 
     // Election: entry overlays, fallback hides in place — same DOM node, no remount.
     take = true
-    act(() => { h.add('root', { component: () => null }) })   // root bump re-renders the dispatch site
+    act(() => {
+      h.add('root', { component: () => null })
+    }) // root bump re-renders the dispatch site
     expect(view.container.textContent).toContain('TAKEOVER')
     expect(wrapper().style.display).toBe('none')
     expect(input().value).toBe('draft-in-flight')
 
     // Takeover ends: fallback shows again with its state intact, still the original mount.
     take = false
-    act(() => { h.add('root', { component: () => null }) })
+    act(() => {
+      h.add('root', { component: () => null })
+    })
     expect(view.container.textContent).not.toContain('TAKEOVER')
     expect(wrapper().style.display).toBe('contents')
     expect(input().value).toBe('draft-in-flight')
@@ -626,15 +725,14 @@ describe('overlay chains (ChainRenderOpts.overlay)', () => {
     const select = vi.fn(() => null)
     h.add('k.chain', chainEntryOf({ component: () => <b>never</b>, select }))
     let fallbackOnly = true
-    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_SESSION },
-      (renderSlotChain, Provider) => {
-        const content = renderSlotChain(
-          'k.chain',
-          {},
-          { fallback: <input aria-label="resident" />, fallbackOnly, overlay: true },
-        )
-        return <Provider session={h.current.getSnapshot()} empty={() => content}>{content}</Provider>
-      })
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_SESSION }, (renderSlotChain, Provider) => {
+      const content = renderSlotChain('k.chain', {}, { fallback: <input aria-label="resident" />, fallbackOnly, overlay: true })
+      return (
+        <Provider session={h.current.getSnapshot()} empty={() => content}>
+          {content}
+        </Provider>
+      )
+    })
     const input = view.getByRole('textbox', { name: 'resident' })
     expect(select).not.toHaveBeenCalled()
 
@@ -650,26 +748,34 @@ describe('overlay chains (ChainRenderOpts.overlay)', () => {
   it('leaves non-overlay chains on the unmount path: a takeover discards fallback state', () => {
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
-    h.add('k.chain', chainEntryOf({
-      component: () => <b>TAKEOVER</b>,
-      select: owner => (owner as { take?: boolean }).take ? {} : null,
-    }))
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: () => <b>TAKEOVER</b>,
+        select: owner => ((owner as { take?: boolean }).take ? {} : null),
+      }),
+    )
     const mounted = vi.fn()
     const Probe = fallbackProbe(mounted)
     let take = false
-    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
-      renderSlotChain => renderSlotChain('k.chain', { take }, { fallback: <Probe /> }))
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain =>
+      renderSlotChain('k.chain', { take }, { fallback: <Probe /> }),
+    )
     fireEvent.change(view.container.querySelector('input[aria-label="probe"]')!, { target: { value: 'gone' } })
     expect(view.container.querySelector('[data-chain-overlay-fallback]')).toBeNull()
 
     take = true
-    act(() => { h.add('root', { component: () => null }) })
-    expect(view.container.querySelector('input[aria-label="probe"]')).toBeNull()   // unmounted
+    act(() => {
+      h.add('root', { component: () => null })
+    })
+    expect(view.container.querySelector('input[aria-label="probe"]')).toBeNull() // unmounted
 
     take = false
-    act(() => { h.add('root', { component: () => null }) })
+    act(() => {
+      h.add('root', { component: () => null })
+    })
     const remounted = view.container.querySelector<HTMLInputElement>('input[aria-label="probe"]')!
-    expect(remounted.value).toBe('')                    // fresh mount, state discarded
+    expect(remounted.value).toBe('') // fresh mount, state discarded
     expect(mounted).toHaveBeenCalledTimes(2)
   })
 
@@ -677,22 +783,33 @@ describe('overlay chains (ChainRenderOpts.overlay)', () => {
     const h = makeHost()
     h.declare('k.chain', CHAIN_ROOT)
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    h.add('k.chain', chainEntryOf({
-      component: () => <span>never</span>,
-      select: () => { throw new Error('selector boom') },
-      priority: 1,
-    }))
-    const dispose = h.add('k.chain', chainEntryOf({
-      component: () => <b>ELECTED</b>,
-      select: () => ({}),
-      priority: 2,
-    }))
-    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT },
-      renderSlotChain => renderSlotChain('k.chain', {}, { fallback: <i>resident</i>, overlay: true }))
+    h.add(
+      'k.chain',
+      chainEntryOf({
+        component: () => <span>never</span>,
+        select: () => {
+          throw new Error('selector boom')
+        },
+        priority: 1,
+      }),
+    )
+    const dispose = h.add(
+      'k.chain',
+      chainEntryOf({
+        component: () => <b>ELECTED</b>,
+        select: () => ({}),
+        priority: 2,
+      }),
+    )
+    const { view } = mountChainRoot(h, { 'k.chain': CHAIN_ROOT }, renderSlotChain =>
+      renderSlotChain('k.chain', {}, { fallback: <i>resident</i>, overlay: true }),
+    )
     expect(view.container.textContent).toContain('ELECTED')
     expect(spy.mock.calls.some(([msg]) => String(msg).includes('chain selector crashed'))).toBe(true)
     spy.mockRestore()
-    act(() => { dispose() })
+    act(() => {
+      dispose()
+    })
     const wrapper = view.container.querySelector<HTMLElement>('[data-chain-overlay-fallback="k.chain"]')!
     expect(wrapper.style.display).toBe('contents')
     expect(view.container.textContent).toBe('resident')
@@ -704,12 +821,13 @@ describe('standard-kit synthesis', () => {
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
     h.add('k.single', {
-      component: ({ useSessions }: { useSessions: <S>(sel: (s: { ids: string[] }) => S) => S }) =>
-        <b>{useSessions(s => s.ids.length)}</b>,
+      component: ({ useSessions }: { useSessions: <S>(sel: (s: { ids: string[] }) => S) => S }) => <b>{useSessions(s => s.ids.length)}</b>,
     })
     const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}))
     expect(view.container.textContent).toBe('0')
-    act(() => { h.list.set({ ids: ['a', 'b'] }) })
+    act(() => {
+      h.list.set({ ids: ['a', 'b'] })
+    })
     expect(view.container.textContent).toBe('2')
   })
 
@@ -717,12 +835,15 @@ describe('standard-kit synthesis', () => {
     const h = makeHost()
     h.declare('k.single', SINGLE_ROOT)
     h.add('k.single', {
-      component: ({ useWorkspaces }: { useWorkspaces: <S>(sel: (s: { ids: string[] }) => S) => S }) =>
-        <b>{useWorkspaces(s => s.ids.length)}</b>,
+      component: ({ useWorkspaces }: { useWorkspaces: <S>(sel: (s: { ids: string[] }) => S) => S }) => (
+        <b>{useWorkspaces(s => s.ids.length)}</b>
+      ),
     })
     const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}))
     expect(view.container.textContent).toBe('0')
-    act(() => { h.workspaces.set({ ids: ['w1'] }) })
+    act(() => {
+      h.workspaces.set({ ids: ['w1'] })
+    })
     expect(view.container.textContent).toBe('1')
   })
 
@@ -738,11 +859,11 @@ describe('standard-kit synthesis', () => {
       },
     })
     mountRoot(h, { 'k.session': SINGLE_SESSION }, (renderSlot, SessionProvider) => (
-      <SessionProvider empty={() => <i>empty</i>}>
-        {renderSlot('k.session', {})}
-      </SessionProvider>
+      <SessionProvider empty={() => <i>empty</i>}>{renderSlot('k.session', {})}</SessionProvider>
     ))
-    act(() => { h.current.set('s1') })
+    act(() => {
+      h.current.set('s1')
+    })
     const props = seen.at(-1)!
     // The hook is BOUND by the machinery from the cell's bare source: it
     // reads the source's snapshot and stays identity-stable across renders
@@ -755,13 +876,15 @@ describe('standard-kit synthesis', () => {
     const h = makeHost()
     const turnDataFactory = vi.fn((standard: AnyProps, turn: unknown) => (key: string) => {
       const useSession = standard['useSession'] as (selector: (snapshot: unknown) => unknown) => unknown
-      return useSession((snapshot) => {
+      return useSession(snapshot => {
         const value = snapshot as { turns: Record<number, Record<string, unknown>> }
         return value.turns[turn as number]?.[key]
       })
     })
     const sessionSpec: DeclaredSpec = {
-      kind: 'single', scope: 'session', inject: { hooks: { turnData: turnDataFactory } },
+      kind: 'single',
+      scope: 'session',
+      inject: { hooks: { turnData: turnDataFactory } },
     }
     h.declare('k.session', sessionSpec)
     h.addSession('s1', {
@@ -780,13 +903,16 @@ describe('standard-kit synthesis', () => {
       },
     })
     const { view } = mountRoot(h, { 'k.session': sessionSpec }, (renderSlot, SessionProvider) => (
-      <SessionProvider><>
-        {renderSlot('k.session', { label: 'one' }, { hookContext: 1 })}
-        {renderSlot('k.session', { label: 'two' }, { hookContext: 2 })}
-      </>
+      <SessionProvider>
+        <>
+          {renderSlot('k.session', { label: 'one' }, { hookContext: 1 })}
+          {renderSlot('k.session', { label: 'two' }, { hookContext: 2 })}
+        </>
       </SessionProvider>
     ))
-    act(() => { h.current.set('s1') })
+    act(() => {
+      h.current.set('s1')
+    })
     expect(view.container.textContent).toBe('onetwo')
     expect(renders).toBe(2)
 
@@ -846,7 +972,10 @@ describe('standard-kit synthesis', () => {
     h2.declare('k.single', SINGLE_ROOT)
     const seen2: AnyProps[] = []
     h2.add('root', {
-      component: (props: AnyProps) => { seen2.push(props); return null },
+      component: (props: AnyProps) => {
+        seen2.push(props)
+        return null
+      },
       children: { 'k.single': SINGLE_ROOT },
     })
     render(<>{createSlotRenderer().renderRoot(h2.host, {})}</>)
@@ -858,9 +987,9 @@ describe('standard-kit synthesis', () => {
     h.declare('k.session', SINGLE_SESSION)
     h.add('k.session', { component: () => <b>x</b> })
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(() => mountRoot(h, { 'k.session': SINGLE_SESSION },
-      renderSlot => renderSlot('k.session', {})))
-      .toThrow("strict session slot 'k.session' rendered without a scope binding")
+    expect(() => mountRoot(h, { 'k.session': SINGLE_SESSION }, renderSlot => renderSlot('k.session', {}))).toThrow(
+      "strict session slot 'k.session' rendered without a scope binding",
+    )
     spy.mockRestore()
   })
 
@@ -870,10 +999,7 @@ describe('standard-kit synthesis', () => {
     const handle = miniStore(() => ({ n: 0 }), { inc: s => ({ n: s.n + 1 }) })
     let bump = () => {}
     h.add('k.single', {
-      component: ({ useStore, actions }: {
-        useStore: <S>(sel: (s: { n: number }) => S) => S
-        actions: { inc: () => void }
-      }) => {
+      component: ({ useStore, actions }: { useStore: <S>(sel: (s: { n: number }) => S) => S; actions: { inc: () => void } }) => {
         bump = actions.inc
         return <b>{useStore(s => s.n)}</b>
       },
@@ -881,7 +1007,9 @@ describe('standard-kit synthesis', () => {
     })
     const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}))
     expect(view.container.textContent).toBe('0')
-    act(() => { bump() })
+    act(() => {
+      bump()
+    })
     expect(view.container.textContent).toBe('1')
   })
 
@@ -893,7 +1021,10 @@ describe('standard-kit synthesis', () => {
     const handle = miniStore(() => ({ draft: '' }), { setDraft: (_s, text: string) => ({ draft: text }) })
     let setDraft: (text: string) => void = () => {}
     h.add('k.session', {
-      component: ({ useStore, actions }: {
+      component: ({
+        useStore,
+        actions,
+      }: {
         useStore: <S>(sel: (s: { draft: string }) => S) => S
         actions: { setDraft: (text: string) => void }
       }) => {
@@ -905,12 +1036,20 @@ describe('standard-kit synthesis', () => {
     const { view } = mountRoot(h, { 'k.session': SINGLE_SESSION }, (renderSlot, SessionProvider) => (
       <SessionProvider>{renderSlot('k.session', {})}</SessionProvider>
     ))
-    act(() => { h.current.set('s1') })
-    act(() => { setDraft('draft-one') })
+    act(() => {
+      h.current.set('s1')
+    })
+    act(() => {
+      setDraft('draft-one')
+    })
     expect(view.container.textContent).toBe('draft-one')
-    act(() => { h.current.set('s2') })
-    expect(view.container.textContent).toBe('(blank)')   // distinct instance per session
-    act(() => { h.current.set('s1') })
+    act(() => {
+      h.current.set('s2')
+    })
+    expect(view.container.textContent).toBe('(blank)') // distinct instance per session
+    act(() => {
+      h.current.set('s1')
+    })
     expect(view.container.textContent).toBe('draft-one') // same scope key = same instance
   })
 })
@@ -923,7 +1062,9 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
     h.add('k.single', { component: ({ tag }: { tag?: string }) => <b>{tag}</b>, inject })
     const { view } = mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}))
     expect(view.container.textContent).toBe('FROM-INJECT')
-    act(() => { h.add('k.single', { component: () => null }) })   // sibling bump re-renders the outlet
+    act(() => {
+      h.add('k.single', { component: () => null })
+    }) // sibling bump re-renders the outlet
     expect(inject).toHaveBeenCalledTimes(1)
     expect(inject).toHaveBeenCalledWith()
   })
@@ -943,7 +1084,9 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
     mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}))
     // The raw compartment is consumed by the binding; the plain member passes through.
     expect(seen.at(-1)).toEqual({ hooks: undefined, plain: 'kept', read: 'cold' })
-    act(() => { badge.set('hot') })
+    act(() => {
+      badge.set('hot')
+    })
     expect(seen.at(-1)!['read']).toBe('hot')
   })
 
@@ -956,11 +1099,7 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
     ])
     const seen: Record<string, unknown>[] = []
     h.add('k.single', {
-      component: (props: {
-        useBadge?: (key: string) => string | undefined
-        keyedHooks?: unknown
-        plain?: string
-      }) => {
+      component: (props: { useBadge?: (key: string) => string | undefined; keyedHooks?: unknown; plain?: string }) => {
         seen.push({
           keyedHooks: props.keyedHooks,
           plain: props.plain,
@@ -976,9 +1115,13 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
     mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', {}))
 
     expect(seen.at(-1)).toEqual({ keyedHooks: undefined, plain: 'kept', read: 'cold' })
-    act(() => { badges.get('second')!.set('ignored') })
+    act(() => {
+      badges.get('second')!.set('ignored')
+    })
     expect(seen).toHaveLength(1)
-    act(() => { badges.get('first')!.set('hot') })
+    act(() => {
+      badges.get('first')!.set('hot')
+    })
     expect(seen.at(-1)!['read']).toBe('hot')
   })
 
@@ -995,14 +1138,20 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
     const { view } = mountRoot(h, { 'k.session': SINGLE_SESSION }, (renderSlot, SessionProvider) => (
       <SessionProvider>{renderSlot('k.session', {})}</SessionProvider>
     ))
-    act(() => { h.current.set('s1') })
+    act(() => {
+      h.current.set('s1')
+    })
     expect(view.container.textContent).toBe('s1')
     expect(inject).toHaveBeenCalledTimes(1)
     expect(inject).toHaveBeenLastCalledWith('s1')
-    act(() => { h.current.set('s2') })
+    act(() => {
+      h.current.set('s2')
+    })
     expect(view.container.textContent).toBe('s2')
     expect(inject).toHaveBeenCalledTimes(2)
-    act(() => { h.current.set('s1') })   // back: (entry x cell) cache hit
+    act(() => {
+      h.current.set('s1')
+    }) // back: (entry x cell) cache hit
     expect(view.container.textContent).toBe('s1')
     expect(inject).toHaveBeenCalledTimes(2)
   })
@@ -1018,20 +1167,30 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
     const seenRoot: AnyProps[] = []
     const seenSession: AnyProps[] = []
     h.add('k.single', {
-      component: (props: object) => { seenRoot.push(props as AnyProps); return null },
+      component: (props: object) => {
+        seenRoot.push(props as AnyProps)
+        return null
+      },
       inject: rootInject,
       store: handle,
     })
     h.add('k.session', {
-      component: (props: object) => { seenSession.push(props as AnyProps); return null },
+      component: (props: object) => {
+        seenSession.push(props as AnyProps)
+        return null
+      },
       inject: sessionInject,
       store: handle,
     })
-    mountRoot(h, { 'k.single': SINGLE_ROOT, 'k.session': SINGLE_SESSION }, (renderSlot, SessionProvider) => <>
-      {renderSlot('k.single', {})}
-      <SessionProvider>{renderSlot('k.session', {})}</SessionProvider>
-    </>)
-    act(() => { h.current.set('s1') })
+    mountRoot(h, { 'k.single': SINGLE_ROOT, 'k.session': SINGLE_SESSION }, (renderSlot, SessionProvider) => (
+      <>
+        {renderSlot('k.single', {})}
+        <SessionProvider>{renderSlot('k.session', {})}</SessionProvider>
+      </>
+    ))
+    act(() => {
+      h.current.set('s1')
+    })
     // The inject-received actions are the same baked callbacks the component
     // gets as props.actions (one instance per entry x scope key).
     expect(rootInject).toHaveBeenCalledTimes(1)
@@ -1047,12 +1206,13 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
     h.add('k.list', {
       component: () => <span>never</span>,
       options: { id: 'bad', order: 1 },
-      inject: () => { throw new Error('inject boom') },
+      inject: () => {
+        throw new Error('inject boom')
+      },
     })
     h.add('k.list', { component: () => <span>alive</span>, options: { id: 'ok', order: 2 } })
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { view } = mountRoot(h, { 'k.list': { kind: 'list', scope: 'root' } },
-      renderSlot => <main>{renderSlot('k.list', {})}</main>)
+    const { view } = mountRoot(h, { 'k.list': { kind: 'list', scope: 'root' } }, renderSlot => <main>{renderSlot('k.list', {})}</main>)
     spy.mockRestore()
     // The failing entry blacks out alone; the sibling and the tree above survive.
     expect(view.container.querySelector('main')).not.toBeNull()
@@ -1065,17 +1225,19 @@ describe('inject: execution point, parameter derivation, cache granularity', () 
     h.declare('k.single', SINGLE_ROOT)
     const seen: AnyProps[] = []
     h.add('k.single', {
-      component: (props: object) => { seen.push(props as AnyProps); return null },
+      component: (props: object) => {
+        seen.push(props as AnyProps)
+        return null
+      },
       inject: () => ({ fromInject: 'inject', shared: 'inject' }),
     })
-    mountRoot(h, { 'k.single': SINGLE_ROOT },
-      renderSlot => renderSlot('k.single', { owner: 'owner', shared: 'owner' }))
+    mountRoot(h, { 'k.single': SINGLE_ROOT }, renderSlot => renderSlot('k.single', { owner: 'owner', shared: 'owner' }))
     const props = seen.at(-1)!
-    expect(typeof props['useSessions']).toBe('function')   // kit always present
+    expect(typeof props['useSessions']).toBe('function') // kit always present
     expect(typeof props['useWorkspaces']).toBe('function')
     expect(props['fromInject']).toBe('inject')
     expect(props['owner']).toBe('owner')
-    expect(props['shared']).toBe('owner')   // owner overrides inject
+    expect(props['shared']).toBe('owner') // owner overrides inject
   })
 })
 
@@ -1095,8 +1257,7 @@ describe('session-maybe adoption identity', () => {
         return <b>{`${sessionId ?? 'blank'}#${mount}`}</b>
       },
     })
-    const { view } = mountRoot(h, { 'k.maybe': SINGLE_MAYBE }, renderSlot =>
-      renderSlot('k.maybe', {}))
+    const { view } = mountRoot(h, { 'k.maybe': SINGLE_MAYBE }, renderSlot => renderSlot('k.maybe', {}))
     return { view, seen }
   }
 
@@ -1105,7 +1266,9 @@ describe('session-maybe adoption identity', () => {
     h.addSession('s1')
     const { view } = mountMaybeCounter(h)
     expect(view.container.textContent).toBe('blank#1')
-    act(() => { h.current.set('s1') })
+    act(() => {
+      h.current.set('s1')
+    })
     // Same incarnation (#1): the blank shell adopted s1.
     expect(view.container.textContent).toBe('s1#1')
   })
@@ -1115,9 +1278,13 @@ describe('session-maybe adoption identity', () => {
     h.addSession('s1')
     h.addSession('s2')
     const { view } = mountMaybeCounter(h)
-    act(() => { h.current.set('s1') })
+    act(() => {
+      h.current.set('s1')
+    })
     expect(view.container.textContent).toBe('s1#1')
-    act(() => { h.current.set('s2') })
+    act(() => {
+      h.current.set('s2')
+    })
     // New incarnation (#2): strict-session behavior after adoption.
     expect(view.container.textContent).toBe('s2#2')
   })
@@ -1127,12 +1294,18 @@ describe('session-maybe adoption identity', () => {
     h.addSession('s1')
     h.addSession('s2')
     const { view } = mountMaybeCounter(h)
-    act(() => { h.current.set('s1') })
+    act(() => {
+      h.current.set('s1')
+    })
     expect(view.container.textContent).toBe('s1#1')
-    act(() => { h.current.set(undefined) })
+    act(() => {
+      h.current.set(undefined)
+    })
     // The adopted incarnation dies with its session; blank state is fresh.
     expect(view.container.textContent).toBe('blank#2')
-    act(() => { h.current.set('s2') })
+    act(() => {
+      h.current.set('s2')
+    })
     // The fresh blank adopts again — still incarnation #2, no flash.
     expect(view.container.textContent).toBe('s2#2')
   })
@@ -1141,8 +1314,12 @@ describe('session-maybe adoption identity', () => {
     const h = makeHost()
     h.addSession('s1')
     const { view } = mountMaybeCounter(h)
-    act(() => { h.current.set('s1') })
-    act(() => { h.current.set('s1') })
+    act(() => {
+      h.current.set('s1')
+    })
+    act(() => {
+      h.current.set('s1')
+    })
     expect(view.container.textContent).toBe('s1#1')
   })
 

@@ -3,7 +3,7 @@
  * disclosure button toggles the font and size rows, and each row routes its
  * write to its own role. */
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -14,7 +14,12 @@ import type { FontSettingsGroupProps } from '../src/client/FontSettingsGroup.tsx
 import { createFontRowStore } from '../src/client/settings-store.ts'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
-const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
+const useResource = (() => ({
+  status: 'none' as const,
+  value: undefined,
+  failure: undefined,
+  reload: () => {},
+})) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
 afterEach(cleanup)
@@ -30,13 +35,17 @@ const COPY: Record<string, string> = {
 
 /** Empty global standard-kit hooks (the row reads neither). */
 function emptySessions() {
-  const store = createSnapshotStore<SessionListState>(
-    { ids: [], byId: {}, phase: 'ready', projectionsBySession: {} })
+  const store = createSnapshotStore<SessionListState>({ ids: [], byId: {}, phase: 'ready', projectionsBySession: {} })
   return bindSnapshotSelector(store)
 }
 function emptyWorkspaces() {
   const store = createSnapshotStore<WorkspaceSnapshot>({
-    items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
+    items: [],
+    archivedSessionIds: [],
+    pinnedSessionIds: [],
+    state: 'idle',
+    phase: 'ready',
+    error: null,
   })
   return bindSnapshotSelector(store)
 }
@@ -53,7 +62,9 @@ function mount() {
   const props: FontSettingsGroupProps = {
     useSessions: emptySessions(),
     useSessionStatus,
-    usePanelInfo, useSessionRetainInfo: () => undefined, useResource,
+    usePanelInfo,
+    useSessionRetainInfo: () => undefined,
+    useResource,
     useWorkspaces: emptyWorkspaces(),
     ...allowAllAccess,
     useStore: bindSnapshotSelector(store),

@@ -15,7 +15,7 @@ export const LOCALE_ID_PATTERN = /^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/u
 export const LOCALE_IDS = ['zh', 'en'] as const
 
 /** Locale identifier shipped by the browser client. */
-export type BuiltInLocaleId = typeof LOCALE_IDS[number]
+export type BuiltInLocaleId = (typeof LOCALE_IDS)[number]
 
 /** Open locale identifier accepted from language-pack plugins. */
 export type LocaleId = string

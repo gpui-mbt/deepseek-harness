@@ -1,20 +1,15 @@
 import { chmod, mkdir, mkdtemp, readdir, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  activeAtToken,
-  DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES,
-  formatFileMention,
-  WorkspaceFileSearch,
-} from '../src/search.ts'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import { activeAtToken, DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES, formatFileMention, WorkspaceFileSearch } from '../src/search.ts'
 
 const fsControl = vi.hoisted(() => ({
   /** Absolute path whose `readdir` rejects; the injectable stand-in for chmod 0. */
   denyReaddir: undefined as string | undefined,
 }))
 
-vi.mock('node:fs/promises', async (importOriginal) => {
+vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...actual,
@@ -86,10 +81,8 @@ describe('file-reference grammar', () => {
   it('formats files, directories, quotes, and rejects unsafe editor values', () => {
     expect(formatFileMention({ path: 'src/index.ts', kind: 'file' }, false)).toBe('@src/index.ts')
     expect(formatFileMention({ path: 'src', kind: 'directory' }, false)).toBe('@src/')
-    expect(formatFileMention({ path: 'docs/design notes.md', kind: 'file' }, false))
-      .toBe('@"docs/design notes.md"')
-    expect(formatFileMention({ path: 'docs/design notes', kind: 'directory' }, false))
-      .toBe('@"docs/design notes/')
+    expect(formatFileMention({ path: 'docs/design notes.md', kind: 'file' }, false)).toBe('@"docs/design notes.md"')
+    expect(formatFileMention({ path: 'docs/design notes', kind: 'directory' }, false)).toBe('@"docs/design notes/')
     expect(formatFileMention({ path: 'README.md', kind: 'file' }, true)).toBe('@"README.md"')
     expect(formatFileMention({ path: 'bad\nname', kind: 'file' }, false)).toBeUndefined()
     expect(formatFileMention({ path: 'bad "name".md', kind: 'file' }, false)).toBeUndefined()
@@ -116,13 +109,9 @@ describe('WorkspaceFileSearch', () => {
       { path: 'src/tui.spec.ts', kind: 'file' },
       { path: 'src/terminal-view.ts', kind: 'file' },
     ])
-    expect(await files.list('docs/design n', signal)).toEqual([
-      { path: 'docs/design notes.md', kind: 'file' },
-    ])
+    expect(await files.list('docs/design n', signal)).toEqual([{ path: 'docs/design notes.md', kind: 'file' }])
     expect(await files.list('node_modules/', signal)).toEqual([])
-    expect(await files.list('.hidden/', signal)).toEqual([
-      { path: '.hidden/secret.txt', kind: 'file' },
-    ])
+    expect(await files.list('.hidden/', signal)).toEqual([{ path: '.hidden/secret.txt', kind: 'file' }])
     const absoluteSrc = `${join(root, 'src').replaceAll('\\', '/')}/`
     expect(await files.list(`${absoluteSrc}tui`, signal)).toEqual([
       { path: `${absoluteSrc}tui.spec.ts`, kind: 'file' },
@@ -138,11 +127,7 @@ describe('WorkspaceFileSearch', () => {
     const outside = await mkdtemp(join(tmpdir(), 'dsh-file-autocomplete-outside-'))
     roots.push(outside)
     await writeFile(join(outside, 'outside-secret.txt'), 'secret')
-    await symlink(
-      outside,
-      join(root, 'escape'),
-      process.platform === 'win32' ? 'junction' : 'dir',
-    )
+    await symlink(outside, join(root, 'escape'), process.platform === 'win32' ? 'junction' : 'dir')
     const files = search(root)
     const signal = new AbortController().signal
 
@@ -160,12 +145,8 @@ describe('WorkspaceFileSearch', () => {
       { path: 'src/tspc-helper.ts', kind: 'file' },
       { path: 'src/tui.spec.ts', kind: 'file' },
     ])
-    expect(await files.list('README.md', signal)).toEqual([
-      { path: 'README.md', kind: 'file' },
-    ])
-    expect(await files.list('terminal', signal)).toEqual([
-      { path: 'src/terminal-view.ts', kind: 'file' },
-    ])
+    expect(await files.list('README.md', signal)).toEqual([{ path: 'README.md', kind: 'file' }])
+    expect(await files.list('terminal', signal)).toEqual([{ path: 'src/terminal-view.ts', kind: 'file' }])
     expect(await files.list('secret', signal)).toEqual([])
     expect(await files.list('.hidden', signal)).toEqual([
       { path: '.hidden', kind: 'directory' },
@@ -185,9 +166,7 @@ describe('WorkspaceFileSearch', () => {
     // The stale entries answer this query; the rebuild runs behind the caret.
     expect(await files.list('fresh-file', signal)).toEqual([])
     await vi.waitFor(async () => {
-      expect(await files.list('fresh-file', signal)).toEqual([
-        { path: 'fresh-file.ts', kind: 'file' },
-      ])
+      expect(await files.list('fresh-file', signal)).toEqual([{ path: 'fresh-file.ts', kind: 'file' }])
     })
     files.dispose()
     expect(await files.list('fresh-file', signal)).toEqual([])
@@ -227,9 +206,7 @@ describe('WorkspaceFileSearch', () => {
   // Windows exposes no directory permission bits for readdir, and root
   // bypasses them. Where the fixture stays readable the sealed candidate is
   // indexed, so the unreadable-branch behavior is pinned on POSIX non-root.
-  it.runIf(
-    process.getuid !== undefined && process.getuid() !== 0,
-  )('lets an unreadable subtree cost only its own candidates', async () => {
+  it.runIf(process.getuid !== undefined && process.getuid() !== 0)('lets an unreadable subtree cost only its own candidates', async () => {
     const root = await workspace()
     const locked = join(root, 'locked')
     await mkdir(locked, { recursive: true })
@@ -272,9 +249,7 @@ describe('WorkspaceFileSearch', () => {
   it('enforces the entry cap', async () => {
     const root = await workspace()
     const capped = search(root, { maxEntries: 2 })
-    expect(await capped.list('README', new AbortController().signal)).toEqual([
-      { path: 'README.md', kind: 'file' },
-    ])
+    expect(await capped.list('README', new AbortController().signal)).toEqual([{ path: 'README.md', kind: 'file' }])
   })
 
   it('never traverses an excluded build output, so generated twins cannot outrank sources', async () => {
@@ -282,9 +257,7 @@ describe('WorkspaceFileSearch', () => {
     await mkdir(join(root, 'dist'), { recursive: true })
     await writeFile(join(root, 'dist', 'terminal-view.js'), 'built')
     const files = search(root, { excludedDirectories: [...DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES] })
-    expect(await files.list('terminal-view', new AbortController().signal)).toEqual([
-      { path: 'src/terminal-view.ts', kind: 'file' },
-    ])
+    expect(await files.list('terminal-view', new AbortController().signal)).toEqual([{ path: 'src/terminal-view.ts', kind: 'file' }])
     expect(await files.list('dist/', new AbortController().signal)).toEqual([])
   })
 
@@ -293,9 +266,7 @@ describe('WorkspaceFileSearch', () => {
     await mkdir(join(root, 'lib'), { recursive: true })
     await writeFile(join(root, 'lib', 'gem-entry.rb'), 'source')
     const files = search(root, { excludedDirectories: [...DEFAULT_FILE_SEARCH_EXCLUDED_DIRECTORIES] })
-    expect(await files.list('gem-entry', new AbortController().signal)).toEqual([
-      { path: 'lib/gem-entry.rb', kind: 'file' },
-    ])
+    expect(await files.list('gem-entry', new AbortController().signal)).toEqual([{ path: 'lib/gem-entry.rb', kind: 'file' }])
   })
 
   it('cancels individual callers, skips missing directories, and validates limits', async () => {

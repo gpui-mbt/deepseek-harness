@@ -61,7 +61,9 @@ function createReplaceHelper<T extends { [K in keyof T]: (...args: never[]) => u
     rawImpl,
     replaceMethod<K extends keyof T>(key: K, replacement: T[K]): () => void {
       target[key] = replacement
-      return () => { if (target[key] === replacement) target[key] = rawImpl[key] }
+      return () => {
+        if (target[key] === replacement) target[key] = rawImpl[key]
+      }
     },
   }
 }
@@ -176,7 +178,9 @@ export class PackageManifests {
     const parent = dirname(path)
     let real = this.realDirectories.get(parent)
     if (real === undefined) {
-      try { real = realpathSync(parent) } catch (_error) {
+      try {
+        real = realpathSync(parent)
+      } catch (_error) {
         // A missing directory keeps its configured spelling; it has no manifest to read through a link.
         real = parent
       }
@@ -188,7 +192,9 @@ export class PackageManifests {
   }
 
   private isUrlInInvalidatedDirectory(url: string): boolean {
-    try { return this.isPathInInvalidatedDirectory(fileURLToPath(url)) } catch (_error) {
+    try {
+      return this.isPathInInvalidatedDirectory(fileURLToPath(url))
+    } catch (_error) {
       // Only file URLs can name an invalidated package directory.
       return false
     }
@@ -217,17 +223,13 @@ export class PackageManifests {
   private hookCommonJsLoad(...[request, parent, isMain, ...options]: Parameters<CommonJsModule['_load']>) {
     const native = this.installPackageHooks()
     // Absolute filenames bypass Node's private request cache without evicting evaluated modules.
-    const filename = request.startsWith('node:') || isBuiltin(request)
-      ? request : native.cjs._resolveFilename(request, parent, isMain)
+    const filename = request.startsWith('node:') || isBuiltin(request) ? request : native.cjs._resolveFilename(request, parent, isMain)
     return this.rawCommonJs._load.call(native.cjs, filename, parent, isMain, ...options)
   }
 
   private hookBindingReadPackageJSON(path: string, isEsm?: boolean, base?: string, specifier?: string) {
     return this.isPathInInvalidatedDirectory(path)
-      ? this.readCachedPackageConfig(
-        path,
-        isEsm && base !== undefined ? { base, specifier } : undefined,
-      )?.serialized
+      ? this.readCachedPackageConfig(path, isEsm && base !== undefined ? { base, specifier } : undefined)?.serialized
       : this.rawBinding.readPackageJSON(path, isEsm, base, specifier)
   }
 
@@ -241,9 +243,7 @@ export class PackageManifests {
   private hookBindingGetPackageType(url: string) {
     if (!this.isUrlInInvalidatedDirectory(url)) return this.rawBinding.getPackageType(url)
     const found = this.findNearestPackageConfig(fileURLToPath(url), true)
-    return typeof found === 'string'
-      ? this.rawBinding.getPackageType(pathToFileURL(found).href)
-      : found.configuration?.data.type
+    return typeof found === 'string' ? this.rawBinding.getPackageType(pathToFileURL(found).href) : found.configuration?.data.type
   }
 
   private hookReaderGetNearestParentPackageJSON(path: string) {
@@ -279,21 +279,27 @@ export class PackageManifests {
   /** @param context - optional ESM import details used only when reporting invalid package configuration. */
   private readPackageConfigFromDisk(path: string, context?: ImportContext): Configuration | undefined {
     let bytes: Buffer
-    try { bytes = readFileSync(path) } catch (_error) {
+    try {
+      bytes = readFileSync(path)
+    } catch (_error) {
       // Node reports a missing manifest as absent configuration.
       return undefined
     }
     const throwInvalidPackageConfig = (): never => {
       // The native reader throws a plain Error carrying only this code.
       const base = context?.base
-      const importing = base === undefined ? ''
-        : ` while importing "${context?.specifier}" from ${base.startsWith('file:') ? fileURLToPath(base) : base}`
-      throw Object.assign(new Error(`Invalid package config ${toNamespacedPath(path)}${importing}.`), { code: 'ERR_INVALID_PACKAGE_CONFIG' })
+      const importing =
+        base === undefined ? '' : ` while importing "${context?.specifier}" from ${base.startsWith('file:') ? fileURLToPath(base) : base}`
+      throw Object.assign(new Error(`Invalid package config ${toNamespacedPath(path)}${importing}.`), {
+        code: 'ERR_INVALID_PACKAGE_CONFIG',
+      })
     }
     if (!isUtf8(bytes)) return throwInvalidPackageConfig()
     const source = bytes.toString('utf8')
     let parsed: unknown
-    try { parsed = JSON.parse(source.charCodeAt(0) === 0xfeff ? source.slice(1) : source) } catch (_error) {
+    try {
+      parsed = JSON.parse(source.charCodeAt(0) === 0xfeff ? source.slice(1) : source)
+    } catch (_error) {
       return throwInvalidPackageConfig()
     }
     if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return throwInvalidPackageConfig()
@@ -307,8 +313,8 @@ export class PackageManifests {
     const normalizePackageJsonField = (value: unknown): unknown =>
       value !== null && (typeof value === 'string' || typeof value === 'object') ? value : undefined
     const data: PackageConfig = {
-      ...typeof fields.name === 'string' ? { name: fields.name } : {},
-      ...typeof fields.main === 'string' && fields.main.isWellFormed() ? { main: fields.main } : {},
+      ...(typeof fields.name === 'string' ? { name: fields.name } : {}),
+      ...(typeof fields.main === 'string' && fields.main.isWellFormed() ? { main: fields.main } : {}),
       type: fields.type === 'module' || fields.type === 'commonjs' ? fields.type : 'none',
       exports: normalizePackageJsonField(fields.exports),
       imports: normalizePackageJsonField(fields.imports),

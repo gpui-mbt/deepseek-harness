@@ -3,7 +3,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
@@ -30,17 +30,27 @@ const REPLY = `${OPEN_REPLY}\n\`\`\``
 
 /** Deterministic model response held after each visible fence-growth frame. */
 class StreamingFenceAdapter extends LlmAdapter {
-  override async listModels(provider: string) { return [{ provider, id: MODEL, name: `${provider}/${MODEL}` }] }
+  override async listModels(provider: string) {
+    return [{ provider, id: MODEL, name: `${provider}/${MODEL}` }]
+  }
   private resolveFirstPaused!: () => void
   private resolveFirstContinuation!: () => void
   private resolveSecondPaused!: () => void
   private resolveSecondContinuation!: () => void
   private firstContinued = false
   private secondContinued = false
-  readonly firstPaused = new Promise<void>((resolve) => { this.resolveFirstPaused = resolve })
-  readonly secondPaused = new Promise<void>((resolve) => { this.resolveSecondPaused = resolve })
-  private readonly firstContinuation = new Promise<void>((resolve) => { this.resolveFirstContinuation = resolve })
-  private readonly secondContinuation = new Promise<void>((resolve) => { this.resolveSecondContinuation = resolve })
+  readonly firstPaused = new Promise<void>(resolve => {
+    this.resolveFirstPaused = resolve
+  })
+  readonly secondPaused = new Promise<void>(resolve => {
+    this.resolveSecondPaused = resolve
+  })
+  private readonly firstContinuation = new Promise<void>(resolve => {
+    this.resolveFirstContinuation = resolve
+  })
+  private readonly secondContinuation = new Promise<void>(resolve => {
+    this.resolveSecondContinuation = resolve
+  })
 
   grow(): void {
     if (this.firstContinued) return
@@ -82,7 +92,7 @@ interface FenceTree {
 
 /** Read the stable, user-visible subset of one rendered code fence. */
 async function fenceTree(block: ReturnType<Page['locator']>): Promise<FenceTree> {
-  return await block.evaluate((element) => {
+  return await block.evaluate(element => {
     const pre = element.querySelector<HTMLPreElement>('pre.shiki')
     if (pre === null) throw new Error('streaming fence did not render through the shiki arm')
     return {
@@ -111,10 +121,7 @@ describe.skipIf(MODE === 'record')('web e2e: streaming code-fence highlighting',
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold()
-    scaffold.ctx.effect(
-      () => scaffold.ctx.llm.registerAdapter([PROVIDER], adapter),
-      'streaming fence highlight adapter',
-    )
+    scaffold.ctx.effect(() => scaffold.ctx.llm.registerAdapter([PROVIDER], adapter), 'streaming fence highlight adapter')
     await scaffold.ctx.agentDefaultModel.saveSelection({ provider: PROVIDER, model: MODEL })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
@@ -142,7 +149,7 @@ describe.skipIf(MODE === 'record')('web e2e: streaming code-fence highlighting',
     await streaming.waitFor({ timeout: 10_000 })
     const block = streaming.locator('.md-code-block').filter({ hasText: 'const first' })
     await block.locator('pre.shiki span[style]').first().waitFor({ timeout: 10_000 })
-    await block.evaluate((element) => {
+    await block.evaluate(element => {
       element.setAttribute('data-stream-block-retained', 'true')
       element.querySelector('pre.shiki')?.setAttribute('data-stream-pre-retained', 'true')
       element.querySelector('pre.shiki .line')?.setAttribute('data-stream-line-retained', 'true')
@@ -151,22 +158,20 @@ describe.skipIf(MODE === 'record')('web e2e: streaming code-fence highlighting',
     adapter.grow()
     await adapter.secondPaused
     await expect.poll(() => block.locator('pre.shiki .line').count()).toBe(3)
-    expect(await block.evaluate(element => ({
-      block: element.getAttribute('data-stream-block-retained'),
-      pre: element.querySelector('pre.shiki')?.getAttribute('data-stream-pre-retained'),
-      line: element.querySelector('pre.shiki .line')?.getAttribute('data-stream-line-retained'),
-    }))).toEqual({ block: 'true', pre: 'true', line: 'true' })
+    expect(
+      await block.evaluate(element => ({
+        block: element.getAttribute('data-stream-block-retained'),
+        pre: element.querySelector('pre.shiki')?.getAttribute('data-stream-pre-retained'),
+        line: element.querySelector('pre.shiki .line')?.getAttribute('data-stream-line-retained'),
+      })),
+    ).toEqual({ block: 'true', pre: 'true', line: 'true' })
     const midTree = await fenceTree(block)
     expect(midTree.language).toBe('ts')
     expect(midTree.lines).toHaveLength(3)
     expect(midTree.lines.flat().map(span => span.style)).toContain('color: var(--shiki-token-keyword);')
 
     const aria = await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)
-    await compareOrRefreshGolden(
-      MID_EXPECTED,
-      `${aria}\n\n---\n\n${JSON.stringify(midTree, null, 2)}`,
-      MODE,
-    )
+    await compareOrRefreshGolden(MID_EXPECTED, `${aria}\n\n---\n\n${JSON.stringify(midTree, null, 2)}`, MODE)
 
     adapter.finish()
     await settled
@@ -174,11 +179,13 @@ describe.skipIf(MODE === 'record')('web e2e: streaming code-fence highlighting',
     const settledBlock = page.locator('.md-code-block').filter({ hasText: 'const first' })
     await settledBlock.locator('pre.shiki').waitFor({ timeout: 10_000 })
     expect(await fenceTree(settledBlock)).toEqual(midTree)
-    expect(await settledBlock.evaluate(element => ({
-      block: element.getAttribute('data-stream-block-retained'),
-      pre: element.querySelector('pre.shiki')?.getAttribute('data-stream-pre-retained'),
-      line: element.querySelector('pre.shiki .line')?.getAttribute('data-stream-line-retained'),
-    }))).toEqual({ block: 'true', pre: 'true', line: 'true' })
+    expect(
+      await settledBlock.evaluate(element => ({
+        block: element.getAttribute('data-stream-block-retained'),
+        pre: element.querySelector('pre.shiki')?.getAttribute('data-stream-pre-retained'),
+        line: element.querySelector('pre.shiki .line')?.getAttribute('data-stream-line-retained'),
+      })),
+    ).toEqual({ block: 'true', pre: 'true', line: 'true' })
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
     await assertFixtureInventory(SNAPSHOT_DIR, ['mid-stream.expected.md'])

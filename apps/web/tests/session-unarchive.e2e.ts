@@ -4,11 +4,9 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import {
-  acknowledgeReloadConnectionLoss, launchWebScaffold, seedSession, watchConsole, type WebScaffold,
-} from './scaffold.ts'
+import { acknowledgeReloadConnectionLoss, launchWebScaffold, seedSession, watchConsole, type WebScaffold } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
 // The seed is another scenario's committed fixture, reused read-only: this
@@ -30,14 +28,19 @@ describe('web e2e: archived sessions are restored from the sidebar filter', () =
   async function ungroupedSection(): Promise<Locator> {
     const header = page.getByText('Ungrouped', { exact: true })
     const groupRow = header.locator('..').locator('..')
-    await expect.poll(async () => {
-      if (await groupRow.count() === 0) return 'absent'
-      if (await groupRow.getAttribute('aria-expanded') !== 'true') {
-        await header.click()
-        return 'collapsed'
-      }
-      return 'expanded'
-    }, { timeout: 15_000 }).toBe('expanded')
+    await expect
+      .poll(
+        async () => {
+          if ((await groupRow.count()) === 0) return 'absent'
+          if ((await groupRow.getAttribute('aria-expanded')) !== 'true') {
+            await header.click()
+            return 'collapsed'
+          }
+          return 'expanded'
+        },
+        { timeout: 15_000 },
+      )
+      .toBe('expanded')
     return groupRow.locator('..')
   }
 
@@ -49,10 +52,15 @@ describe('web e2e: archived sessions are restored from the sidebar filter', () =
    */
   async function clickHoverAction(row: Locator, name: string): Promise<void> {
     const button = row.getByRole('button', { name })
-    await expect.poll(async () => {
-      await row.hover()
-      return await button.isVisible()
-    }, { timeout: 10_000 }).toBe(true)
+    await expect
+      .poll(
+        async () => {
+          await row.hover()
+          return await button.isVisible()
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true)
     await button.click()
   }
 
@@ -77,13 +85,15 @@ describe('web e2e: archived sessions are restored from the sidebar filter', () =
     onTestFailed(() => saveFailureShot(page, 'web-e2e-session-unarchive'))
     // Select the only visible Session, then give it a user-owned title: the
     // locator binds to the seed's own copy on both sides of the round trip.
-    const seededRow = (await ungroupedSection()).locator('[role="treeitem"]')
+    const seededRow = (await ungroupedSection())
+      .locator('[role="treeitem"]')
       .filter({ has: page.locator('button[aria-label^="Session actions for "]') })
     await expect.poll(() => seededRow.count(), { timeout: 10_000 }).toBe(1)
     await seededRow.click()
     await expect.poll(() => seededRow.getAttribute('aria-selected'), { timeout: 10_000 }).toBe('true')
     const { title } = await scaffold.ctx.sessionController.rename({
-      sessionId: SessionId(SEED_ID), title: `Unarchive target ${SEED_ID}`,
+      sessionId: SessionId(SEED_ID),
+      title: `Unarchive target ${SEED_ID}`,
     })
     const sessionRow = page.getByRole('treeitem').filter({ has: page.getByText(title, { exact: true }) })
     await expect.poll(() => sessionRow.count(), { timeout: 10_000 }).toBe(1)
@@ -98,8 +108,7 @@ describe('web e2e: archived sessions are restored from the sidebar filter', () =
     // Durable on the host: the registry-global set carries the id while the
     // Session log itself stays in persistence untouched.
     expect([...scaffold.ctx.workspaceRegistry.archivedSessionIds]).toEqual([SessionId(SEED_ID)])
-    expect((await scaffold.ctx.sessionPersistence.list()).map(snapshot => snapshot.header.id))
-      .toContain(SessionId(SEED_ID))
+    expect((await scaffold.ctx.sessionPersistence.list()).map(snapshot => snapshot.header.id)).toContain(SessionId(SEED_ID))
 
     await page.getByRole('button', { name: 'View options' }).click()
     await page.getByRole('menuitem', { name: 'All conversations (show archived)', exact: true }).click()
@@ -107,10 +116,7 @@ describe('web e2e: archived sessions are restored from the sidebar filter', () =
     await expect.poll(() => sessionRow.count(), { timeout: 10_000 }).toBe(1)
     await clickHoverAction(sessionRow, `Session actions for ${title}`)
     await page.getByRole('menuitem', { name: 'Unarchive session' }).click()
-    await expect.poll(
-      () => [...scaffold.ctx.workspaceRegistry.archivedSessionIds],
-      { timeout: 10_000 },
-    ).toEqual([])
+    await expect.poll(() => [...scaffold.ctx.workspaceRegistry.archivedSessionIds], { timeout: 10_000 }).toEqual([])
     // Back to the default filter: the restored row must be an ordinary row
     // again, visible without any archived rows in the view.
     await page.getByRole('button', { name: 'View options' }).click()

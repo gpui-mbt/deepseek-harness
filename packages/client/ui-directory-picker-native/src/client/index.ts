@@ -7,7 +7,6 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { NativeFlowInjected } from './flow.ts'
 import { NativeDirectoryFlow } from './flow.ts'
 
-
 /** Required services (cordis fiber inject): the slot registry and workspace UI service. */
 export const inject = ['slots', 'uiWorkspace']
 
@@ -18,9 +17,11 @@ export const inject = ['slots', 'uiWorkspace']
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  const desktop = (globalThis as typeof globalThis & {
-    __DSH_DIRECTORY_PICKER__?: NativeFlowInjected
-  }).__DSH_DIRECTORY_PICKER__
+  const desktop = (
+    globalThis as typeof globalThis & {
+      __DSH_DIRECTORY_PICKER__?: NativeFlowInjected
+    }
+  ).__DSH_DIRECTORY_PICKER__
   const pick = desktop === undefined ? () => ctx.uiWorkspace.pickDirectory() : () => desktop.pick()
   const injected = (): NativeFlowInjected => ({ pick })
   // Both declaration lifetimes must be live before the pair installs; the
@@ -28,11 +29,20 @@ export function apply(ctx: ClientContext): void {
   // outer/inner nesting order is arbitrary; neither hole has precedence.
   ctx.slots.inject('conversation.hero.workspace.directoryFlow', () =>
     ctx.slots.inject('sidebar.workspaces.directoryFlow', function* () {
-      yield ctx.slots.register({
-        name: 'conversation.hero.workspace.directoryFlow', inject: injected,
-      }, NativeDirectoryFlow)
-      yield ctx.slots.register({
-        name: 'sidebar.workspaces.directoryFlow', inject: injected,
-      }, NativeDirectoryFlow)
-    }))
+      yield ctx.slots.register(
+        {
+          name: 'conversation.hero.workspace.directoryFlow',
+          inject: injected,
+        },
+        NativeDirectoryFlow,
+      )
+      yield ctx.slots.register(
+        {
+          name: 'sidebar.workspaces.directoryFlow',
+          inject: injected,
+        },
+        NativeDirectoryFlow,
+      )
+    }),
+  )
 }

@@ -109,8 +109,8 @@ export function apply(ctx: Context, config: Config): void {
   try {
     const raw: unknown = JSON.parse(readFileSync(config.configPath, 'utf8'))
     const result = parseClaudeCodeConfig(raw, {
-      ...config.pluginRoot !== undefined ? { pluginRoot: config.pluginRoot } : {},
-      ...config.projectDir !== undefined ? { projectDir: config.projectDir } : {},
+      ...(config.pluginRoot !== undefined ? { pluginRoot: config.pluginRoot } : {}),
+      ...(config.projectDir !== undefined ? { projectDir: config.projectDir } : {}),
     })
     parsed = result.config
     for (const s of result.skipped) {
@@ -149,9 +149,12 @@ export function apply(ctx: Context, config: Config): void {
     const groups = selectHookGroups(parsed[point], matchQuery, 'claude-code')
     if (groups.length === 0) return mergeHookOutputs([])
     const outputs: HookOutput[] = []
-    const workdir = opts.agent === undefined ? undefined
-      : opts.directory === 'committed' ? ctx.workingDirectory.get(opts.agent.session)
-        : await ctx.workingDirectory.ensure(opts.agent, opts.signal)
+    const workdir =
+      opts.agent === undefined
+        ? undefined
+        : opts.directory === 'committed'
+          ? ctx.workingDirectory.get(opts.agent.session)
+          : await ctx.workingDirectory.ensure(opts.agent, opts.signal)
     // CLAUDE_PROJECT_DIR: an explicit config value wins; otherwise default it to the session
     // workspace (the same dir the hook runs in).
     const projectDir = config.projectDir ?? workdir
@@ -162,21 +165,29 @@ export function apply(ctx: Context, config: Config): void {
         const session = opts.agent?.session
         if (session && opts.turn !== undefined) {
           appendHookInvoked(session, {
-            turn: opts.turn, point, dialect: 'claude-code', handlerId,
+            turn: opts.turn,
+            point,
+            dialect: 'claude-code',
+            handlerId,
             matcher: group.matcher,
           })
         }
-        const { output, durationMs } = await runHook(ctx.shell, hook, {
-          payload: { ...payload, cwd: workdir ?? process.cwd() },
-          defaultTimeoutMs,
-          ...hookEnv ? { env: hookEnv } : {},
-          ...workdir !== undefined ? { cwd: workdir } : {},
-          signal: opts.signal,
-          trailingNewline: true,
-          // Discard a `hookSpecificOutput` block whose `hookEventName` names a
-          // different event than the one firing (the schemas key it by event).
-          expectedEventName: point,
-        }, () => performance.now())
+        const { output, durationMs } = await runHook(
+          ctx.shell,
+          hook,
+          {
+            payload: { ...payload, cwd: workdir ?? process.cwd() },
+            defaultTimeoutMs,
+            ...(hookEnv ? { env: hookEnv } : {}),
+            ...(workdir !== undefined ? { cwd: workdir } : {}),
+            signal: opts.signal,
+            trailingNewline: true,
+            // Discard a `hookSpecificOutput` block whose `hookEventName` names a
+            // different event than the one firing (the schemas key it by event).
+            expectedEventName: point,
+          },
+          () => performance.now(),
+        )
         outputs.push(output)
         if (output.updatedInput !== undefined) {
           ctx.logger.warn(`hooks-claude-code: ${point} hook requested updatedInput, which is not yet honored (ignored)`)
@@ -203,13 +214,13 @@ export function apply(ctx: Context, config: Config): void {
 
   /** Prepend one context without flattening source fields or other downstream metadata. */
   function prependContext(ours: UserMessage, theirs: UserMessage[] | undefined): UserMessage[] {
-    return [ours, ...theirs ?? []]
+    return [ours, ...(theirs ?? [])]
   }
 
   ctx.on('agent/created', async ({ agent, source, signal }) => {
     const ownerSignal = signal === undefined ? detached.signal : AbortSignal.any([signal, detached.signal])
     const run = runPoint('SessionStart', source, sessionStartPayload(agent, source), { agent, signal: ownerSignal })
-      .then((merged) => {
+      .then(merged => {
         const context = contextFrom(merged)
         if (context) agent.inject(context)
       })
@@ -243,19 +254,31 @@ export function apply(ctx: Context, config: Config): void {
   // --- PreToolUse → PreToolDecision. Matcher subject is the tool name. ---
   ctx.on('tools/pre-execute', async (exec, next): Promise<PreToolDecision> => {
     const turn = lastTurn(ctx, exec.agent)
-    const merged = await runPoint('PreToolUse', exec.name, preToolPayload(exec), { ...exec.agent ? { agent: exec.agent } : {}, turn, signal: exec.signal })
+    const merged = await runPoint('PreToolUse', exec.name, preToolPayload(exec), {
+      ...(exec.agent ? { agent: exec.agent } : {}),
+      turn,
+      signal: exec.signal,
+    })
     if (merged.decision === 'deny') return { kind: 'deny', reason: merged.reason ?? 'blocked by PreToolUse hook' }
-    if (merged.decision === 'ask') return { kind: 'ask', ...merged.reason !== undefined ? { reason: merged.reason } : {} }
+    if (merged.decision === 'ask') return { kind: 'ask', ...(merged.reason !== undefined ? { reason: merged.reason } : {}) }
     return next()
   })
 
   // --- PostToolUse → PostToolDecision. Matcher subject is the tool name. ---
   ctx.on('tools/post-execute', async (exec, result, next): Promise<PostToolDecision> => {
     const turn = lastTurn(ctx, exec.agent)
-    const merged = await runPoint('PostToolUse', exec.name, postToolPayload(exec, result), { ...exec.agent ? { agent: exec.agent } : {}, turn, signal: exec.signal })
+    const merged = await runPoint('PostToolUse', exec.name, postToolPayload(exec, result), {
+      ...(exec.agent ? { agent: exec.agent } : {}),
+      turn,
+      signal: exec.signal,
+    })
     const context = contextFrom(merged)
     if (merged.decision === 'deny') {
-      return { kind: 'block', feedback: [{ type: 'text', text: merged.reason ?? 'blocked by PostToolUse hook' }], ...context ? { additionalContexts: [context] } : {} }
+      return {
+        kind: 'block',
+        feedback: [{ type: 'text', text: merged.reason ?? 'blocked by PostToolUse hook' }],
+        ...(context ? { additionalContexts: [context] } : {}),
+      }
     }
     // Our hooks did not block. DELEGATE so a later listener can still block/replace,
     // then fold our context onto its decision (a downstream block carries it too).
@@ -284,22 +307,35 @@ export function apply(ctx: Context, config: Config): void {
 
   // SubagentStart may inject child context; SubagentStop only observes. Both
   // use the child's directory and the generic agent-type matcher subject.
-  ctx.on('subagent/start', (info) => {
+  ctx.on('subagent/start', info => {
     const child = ctx.get('agents')?.get(info.id)
     if (child !== undefined) subagentChildren.set(info.runId, child)
-    detached.track(runPoint('SubagentStart', SUBAGENT_TYPE, subagentPayload('SubagentStart', info, child), { ...child ? { agent: child } : {}, signal: detached.signal })
-      .then((merged) => {
-        const context = contextFrom(merged)
-        if (context && child) child.inject(context)
+    detached.track(
+      runPoint('SubagentStart', SUBAGENT_TYPE, subagentPayload('SubagentStart', info, child), {
+        ...(child ? { agent: child } : {}),
+        signal: detached.signal,
       })
-      .catch((error: unknown) => { ctx.logger.warn(`hooks-claude-code: SubagentStart hook failed: ${String(error)}`) }))
+        .then(merged => {
+          const context = contextFrom(merged)
+          if (context && child) child.inject(context)
+        })
+        .catch((error: unknown) => {
+          ctx.logger.warn(`hooks-claude-code: SubagentStart hook failed: ${String(error)}`)
+        }),
+    )
   })
-  ctx.on('subagent/end', (info) => {
+  ctx.on('subagent/end', info => {
     const child = subagentChildren.get(info.runId) ?? ctx.get('agents')?.get(info.id)
     subagentChildren.delete(info.runId)
     // The end edge follows child disposal; committed Session state remains readable.
-    detached.track(runPoint('SubagentStop', SUBAGENT_TYPE, subagentPayload('SubagentStop', info, child), { ...child ? { agent: child, directory: 'committed' } : {}, signal: detached.signal })
-      .catch((error: unknown) => { ctx.logger.warn(`hooks-claude-code: SubagentStop hook failed: ${String(error)}`) }))
+    detached.track(
+      runPoint('SubagentStop', SUBAGENT_TYPE, subagentPayload('SubagentStop', info, child), {
+        ...(child ? { agent: child, directory: 'committed' } : {}),
+        signal: detached.signal,
+      }).catch((error: unknown) => {
+        ctx.logger.warn(`hooks-claude-code: SubagentStop hook failed: ${String(error)}`)
+      }),
+    )
   })
 }
 
@@ -323,7 +359,10 @@ function lastTurn(ctx: Context, agent: Agent | undefined): number {
 
 /** Flatten content blocks to the text a hook payload carries (the common case). */
 function blocksToText(content: ContentBlock[]): string {
-  return content.filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text').map(b => b.text).join('')
+  return content
+    .filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text')
+    .map(b => b.text)
+    .join('')
 }
 
 function base(agent: Agent | undefined, event: string): Record<string, unknown> {
@@ -346,7 +385,13 @@ function preToolPayload(exec: ToolExecution): Record<string, unknown> {
   return { ...base(exec.agent, 'PreToolUse'), tool_name: exec.name, tool_input: exec.arguments, tool_use_id: exec.callId }
 }
 function postToolPayload(exec: ToolExecution, result: ToolExecutionResult): Record<string, unknown> {
-  return { ...base(exec.agent, 'PostToolUse'), tool_name: exec.name, tool_input: exec.arguments, tool_use_id: exec.callId, tool_response: blocksToText(result.content) }
+  return {
+    ...base(exec.agent, 'PostToolUse'),
+    tool_name: exec.name,
+    tool_input: exec.arguments,
+    tool_use_id: exec.callId,
+    tool_response: blocksToText(result.content),
+  }
 }
 function stopPayload(agent: Agent): Record<string, unknown> {
   return { ...base(agent, 'Stop'), stop_hook_active: false }
@@ -362,6 +407,6 @@ function subagentPayload(event: 'SubagentStart' | 'SubagentStop', info: { id: st
     ...base(child, event),
     agent_id: info.id,
     agent_type: SUBAGENT_TYPE,
-    ...event === 'SubagentStop' ? { stop_hook_active: false } : {},
+    ...(event === 'SubagentStop' ? { stop_hook_active: false } : {}),
   }
 }

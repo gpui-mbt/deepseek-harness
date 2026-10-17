@@ -8,18 +8,21 @@ const MESSAGE_FIELDS = new Set(['id', 'role', 'source', 'content'])
 
 /** Preserve unknown fields without merging their original message and result owners. */
 function extensionFields(
-  value: Record<string, SessionFormatJsonValue>, fields: ReadonlySet<string>, owner: 'message' | 'result',
+  value: Record<string, SessionFormatJsonValue>,
+  fields: ReadonlySet<string>,
+  owner: 'message' | 'result',
 ): Record<string, SessionFormatJsonValue> {
-  return Object.fromEntries(Object.entries(value).filter(([key]) => !fields.has(key))
-    .map(([key, field]) => [`plugin:${owner}:${key}`, field]))
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !fields.has(key))
+      .map(([key, field]) => [`plugin:${owner}:${key}`, field]),
+  )
 }
 
 function resultContent(value: SessionFormatJsonValue | undefined, subject: string): SessionFormatJsonValue[] {
   if (!Array.isArray(value)) throw new SessionFormatError(`${subject} tool-result content must be an array`)
   if (value.some(block => isSessionFormatJsonObject(block) && block['type'] === 'tool-result')) {
-    throw new SessionFormatUnsupportedMigrationError(
-      `${subject} contains a nested tool-result unsupported by this converter`,
-    )
+    throw new SessionFormatUnsupportedMigrationError(`${subject} contains a nested tool-result unsupported by this converter`)
   }
   return value as SessionFormatJsonValue[]
 }
@@ -41,17 +44,23 @@ export function liftToolResult(event: SessionFormatEvent): SessionFormatEvent {
   const source = message['source']
   const callId = isSessionFormatJsonObject(source) ? source['callId'] : undefined
   const content = message['content']
-  const block = Array.isArray(content) && content.length === 1
-    ? (content as readonly SessionFormatJsonValue[])[0]
-    : undefined
+  const block = Array.isArray(content) && content.length === 1 ? (content as readonly SessionFormatJsonValue[])[0] : undefined
   const wrapper = isSessionFormatJsonObject(block) ? block : undefined
   const id = message['id']
-  if (typeof id !== 'string' || id.length === 0
-    || !isSessionFormatJsonObject(source) || source['kind'] !== 'tool'
-    || typeof callId !== 'string' || callId.length === 0
-    || wrapper === undefined || wrapper['type'] !== 'tool-result'
-    || wrapper['toolCallId'] !== callId) {
-    throw new SessionFormatError(`format v3 ${event.type} at seq ${event.seq} requires exactly one tool-result wrapper matching its tool source`)
+  if (
+    typeof id !== 'string' ||
+    id.length === 0 ||
+    !isSessionFormatJsonObject(source) ||
+    source['kind'] !== 'tool' ||
+    typeof callId !== 'string' ||
+    callId.length === 0 ||
+    wrapper === undefined ||
+    wrapper['type'] !== 'tool-result' ||
+    wrapper['toolCallId'] !== callId
+  ) {
+    throw new SessionFormatError(
+      `format v3 ${event.type} at seq ${event.seq} requires exactly one tool-result wrapper matching its tool source`,
+    )
   }
   const isError = wrapper['isError']
   if (isError !== undefined && typeof isError !== 'boolean') {

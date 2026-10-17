@@ -5,7 +5,7 @@
  * sessionId, and unregisters on fiber teardown.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { createScope, scopeOf } from '@deepseek-ai/dsh-api-session-controller/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -22,10 +22,7 @@ async function bench() {
   // Stand-in for the ui-conversation composer entry: declare the overlay
   // slot without providing ConversationController, which is not its lifecycle
   // signal.
-  slots.register(
-    { name: 'root', children: { 'conversation.input.overlay': { kind: 'list', scope: 'session' } } } as never,
-    () => null,
-  )
+  slots.register({ name: 'root', children: { 'conversation.input.overlay': { kind: 'list', scope: 'session' } } } as never, () => null)
   // Sessions face: mint one real scope for session 'a' and resolve it by id.
   const scope = createScope(ctx, sid('a'))
   const session = { sessionId: sid('a') }
@@ -33,8 +30,8 @@ async function bench() {
   ctx.provide('sessions', {
     scope: (id: SessionId) => (id === sid('a') ? scope.ctx : undefined),
     scopeOf: (c: Context) => scopeOf(c),
-    sessionOf: (c: Context) => c === scope.ctx ? session : undefined,
-    binding: (id: SessionId) => id === sid('a') ? binding : undefined,
+    sessionOf: (c: Context) => (c === scope.ctx ? session : undefined),
+    binding: (id: SessionId) => (id === sid('a') ? binding : undefined),
   } as never)
   const locale = new LocaleRuntime(ctx)
   // These specs assert the shipped Chinese copy. There is no jsdom `window`
@@ -81,9 +78,7 @@ describe('apply', () => {
     // the erased registration widens it past a direct cast, so hop unknown.
     const injectEntry = entries[0]!.inject as unknown as (sessionId: SessionId) => MenuViewInjected
     const injected = injectEntry(sid('a'))
-    const controller = inputTriggers.sessionOf(
-      ctx.sessions.scope(sid('a'))!,
-    )
+    const controller = inputTriggers.sessionOf(ctx.sessions.scope(sid('a'))!)
     expect(injected.menu).toBe(controller.menu)
     expect(injected.headers).toBe(controller.headers)
     // The pick face routes into the controller pipeline (closed menu → no-op).

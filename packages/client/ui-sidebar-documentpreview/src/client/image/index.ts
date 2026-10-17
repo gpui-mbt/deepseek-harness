@@ -45,10 +45,24 @@ export function apply(ctx: Context): void {
   ctx.effect(() => ctx.documentPreviews.register(imageBodyDefinition(() => t('title'))), 'document-image: metadata')
   const store = createZoomStore()
   const retainTab = retainDocumentTabs(ctx)
-  ctx.effect(() => ctx.slots.inject('sidebar.right.tab.document', () => ctx.slots.register({
-    name: 'sidebar.right.tab.document', key: IMAGE_BODY_ID, locale: 'sidebarImage', store,
-    inject: (_sessionId: SessionId, actions: BoundActions<ZoomStore>): ZoomInjected => ({
-      retainTab: (tabId, signal) => { retainTab(tabId, signal, actions.forget) },
-    }),
-  }, ImageBody)), 'document-image: body')
+  ctx.effect(
+    () =>
+      ctx.slots.inject('sidebar.right.tab.document', () =>
+        ctx.slots.register(
+          {
+            name: 'sidebar.right.tab.document',
+            key: IMAGE_BODY_ID,
+            locale: 'sidebarImage',
+            store,
+            inject: (_sessionId: SessionId, actions: BoundActions<ZoomStore>): ZoomInjected => ({
+              retainTab: (tabId, signal) => {
+                retainTab(tabId, signal, actions.forget)
+              },
+            }),
+          },
+          ImageBody,
+        ),
+      ),
+    'document-image: body',
+  )
 }

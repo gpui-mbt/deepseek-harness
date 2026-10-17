@@ -1,9 +1,7 @@
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 import type {} from '@deepseek-ai/dsh-commands/types'
-import type {
-  ConversationNodeDefinition,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationNodeDefinition } from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 /** The command name whose runs this projection owns. */
 export const GOAL_COMMAND = 'goal'
@@ -39,9 +37,8 @@ export function goalCommandText(event: SessionEvent<'command/run'>): string {
 export const goalCommandInputDefinition: ConversationNodeDefinition<GoalCommandInputState> = {
   kind: 'goal-command-input',
   target: 'chat',
-  match: event => event.type === 'command/run' && event.data.name === GOAL_COMMAND
-    ? { id: String(event.data.commandId), role: 'start' }
-    : null,
+  match: event =>
+    event.type === 'command/run' && event.data.name === GOAL_COMMAND ? { id: String(event.data.commandId), role: 'start' } : null,
   start: (_context, match) => {
     if (match.event.type !== 'command/run') {
       throw new Error('goal-command-input start requires command/run')
@@ -54,7 +51,7 @@ export const goalCommandInputDefinition: ConversationNodeDefinition<GoalCommandI
     }
   },
   update: context => context.state,
-  buildViewNode: (context) => {
+  buildViewNode: context => {
     if (context.state === undefined) return null
     return {
       key: context.key,

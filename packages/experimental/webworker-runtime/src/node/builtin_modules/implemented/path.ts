@@ -51,9 +51,12 @@ function normalizeString(path: string, allowAboveRoot: boolean): string {
       if (lastSlash === i - 1 || dots === 1) {
         // empty segment or `.`
       } else if (dots === 2) {
-        if (res.length < 2 || lastSegmentLength !== 2
-          || res.charCodeAt(res.length - 1) !== CHAR_DOT
-          || res.charCodeAt(res.length - 2) !== CHAR_DOT) {
+        if (
+          res.length < 2 ||
+          lastSegmentLength !== 2 ||
+          res.charCodeAt(res.length - 1) !== CHAR_DOT ||
+          res.charCodeAt(res.length - 2) !== CHAR_DOT
+        ) {
           if (res.length > 2) {
             const lastSlashIndex = res.lastIndexOf('/')
             if (lastSlashIndex === -1) {
@@ -298,8 +301,7 @@ export function extname(path: string): string {
       preDotState = -1
     }
   }
-  if (startDot === -1 || end === -1 || preDotState === 0
-    || (preDotState === 1 && startDot === end - 1 && startDot === startPart + 1)) {
+  if (startDot === -1 || end === -1 || preDotState === 0 || (preDotState === 1 && startDot === end - 1 && startDot === startPart + 1)) {
     return ''
   }
   return path.slice(startDot, end)
@@ -354,15 +356,30 @@ export function toNamespacedPath(path: string): string {
 }
 
 const posixFace = {
-  resolve, normalize, isAbsolute, join, relative, dirname, basename, extname, format, parse,
-  sep, delimiter, toNamespacedPath,
+  resolve,
+  normalize,
+  isAbsolute,
+  join,
+  relative,
+  dirname,
+  basename,
+  extname,
+  format,
+  parse,
+  sep,
+  delimiter,
+  toNamespacedPath,
 }
 
 /** POSIX member set: the module face, plus Node's self-referential namespaces. */
 export const posix: typeof posixFace & { readonly posix: unknown; readonly win32: unknown } = {
   ...posixFace,
-  get posix(): unknown { return posix },
-  get win32(): unknown { return win32 },
+  get posix(): unknown {
+    return posix
+  },
+  get win32(): unknown {
+    return win32
+  },
 }
 
 const win32Member = (name: string) => (): never => {
@@ -390,8 +407,10 @@ function isWindowsDeviceRoot(code: number): boolean {
 function win32IsAbsolute(path: string): boolean {
   if (path.length === 0) return false
   const code = path.charCodeAt(0)
-  return isWin32Separator(code)
-    || (path.length > 2 && isWindowsDeviceRoot(code) && path.charCodeAt(1) === CHAR_COLON && isWin32Separator(path.charCodeAt(2)))
+  return (
+    isWin32Separator(code) ||
+    (path.length > 2 && isWindowsDeviceRoot(code) && path.charCodeAt(1) === CHAR_COLON && isWin32Separator(path.charCodeAt(2)))
+  )
 }
 
 /** Windows member set: reaching a member other than `isAbsolute` means a platform branch went the wrong way. */

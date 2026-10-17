@@ -1,22 +1,34 @@
 /** Pixel mappings follow the delivered screenshot and invalidate independently of AX indices. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { CuaCoordinates } from '../src/coordinates.ts'
 import { Request } from '../src/protocol.ts'
 import type { CuaAppHandle, CuaWindowInfo } from '../src/types.ts'
 
 const handle = 'app' as CuaAppHandle
 const window = (width = 640, height = 480, x = 100): CuaWindowInfo => ({
-  windowId: 7, pid: 17, appName: 'Fixture', title: 'Window', bounds: { x, y: 200, width, height }, isOnScreen: true, onCurrentSpace: true,
+  windowId: 7,
+  pid: 17,
+  appName: 'Fixture',
+  title: 'Window',
+  bounds: { x, y: 200, width, height },
+  isOnScreen: true,
+  onCurrentSpace: true,
 })
 const call = (method: string, params: object) => Request.parse({ method, params: { appHandle: handle, windowId: 7, ...params } })
 
 it('maps Retina and downscaled screenshot pixels to the same native point', () => {
   const coordinates = new CuaCoordinates()
-  for (const pixels of [{ width: 1280, height: 960 }, { width: 320, height: 240 }]) {
+  for (const pixels of [
+    { width: 1280, height: 960 },
+    { width: 320, height: 240 },
+  ]) {
     coordinates.screenshot(handle, 7, window().bounds, pixels)
     for (const method of ['click', 'hover', 'scroll']) {
-      const request = call(method, { x: pixels.width / 2, y: pixels.height / 4,
-        ...method === 'scroll' ? { deltaLinesX: 0, deltaLinesY: -1 } : {} })
+      const request = call(method, {
+        x: pixels.width / 2,
+        y: pixels.height / 4,
+        ...(method === 'scroll' ? { deltaLinesX: 0, deltaLinesY: -1 } : {}),
+      })
       expect(coordinates.parameters(request)).toMatchObject({ x: 320, y: 120 })
     }
   }
@@ -25,7 +37,12 @@ it('maps Retina and downscaled screenshot pixels to the same native point', () =
 it('maps integer ratios after AX observation and keeps endpoint 1000 inside the window', () => {
   const coordinates = new CuaCoordinates()
   coordinates.observe(handle, [window()])
-  expect(coordinates.parameters(call('hover', { x: 500, y: 250, relative: true }))).toEqual({ appHandle: handle, windowId: 7, x: 320, y: 120 })
+  expect(coordinates.parameters(call('hover', { x: 500, y: 250, relative: true }))).toEqual({
+    appHandle: handle,
+    windowId: 7,
+    x: 320,
+    y: 120,
+  })
   expect(coordinates.parameters(call('click', { x: 1000, y: 1000, relative: true }))).toMatchObject({ x: 639, y: 479 })
   coordinates.screenshot(handle, 7, window().bounds, { width: 1280, height: 960 })
   expect(coordinates.parameters(call('click', { x: 1000, y: 1000, relative: true }))).toMatchObject({ x: 639, y: 479 })
@@ -35,9 +52,27 @@ it('maps integer ratios after AX observation and keeps endpoint 1000 inside the 
 it('maps both drag endpoints and preserves button, modifiers and snapshot identity', () => {
   const coordinates = new CuaCoordinates()
   coordinates.screenshot(handle, 7, window().bounds, { width: 1280, height: 960 })
-  const options = { fromX: 320, fromY: 240, toX: 640, toY: 480, relative: false, snapshotId: 'snapshot', mouseButton: 'right', modifiers: ['shift'] }
-  expect(coordinates.parameters(call('drag', options))).toEqual({ appHandle: handle, windowId: 7,
-    fromX: 160, fromY: 120, toX: 320, toY: 240, snapshotId: 'snapshot', mouseButton: 'right', modifiers: ['shift'] })
+  const options = {
+    fromX: 320,
+    fromY: 240,
+    toX: 640,
+    toY: 480,
+    relative: false,
+    snapshotId: 'snapshot',
+    mouseButton: 'right',
+    modifiers: ['shift'],
+  }
+  expect(coordinates.parameters(call('drag', options))).toEqual({
+    appHandle: handle,
+    windowId: 7,
+    fromX: 160,
+    fromY: 120,
+    toX: 320,
+    toY: 240,
+    snapshotId: 'snapshot',
+    mouseButton: 'right',
+    modifiers: ['shift'],
+  })
 })
 
 it('preserves pixels after movement but requires a new image after resize or close', () => {
@@ -61,7 +96,11 @@ it('rejects unobserved, empty and out-of-image targets without native dispatch',
   coordinates.observe(handle, [window(640, 0)])
   expect(() => coordinates.parameters(call('hover', { x: 0, y: 0, relative: true }))).toThrow('STALE_SNAPSHOT')
   coordinates.screenshot(handle, 7, window().bounds, { width: 320, height: 240 })
-  for (const [x, y] of [[320, 0], [0, 240]]) expect(() => coordinates.parameters(call('click', { x, y }))).toThrow('INVALID_ARGUMENT')
+  for (const [x, y] of [
+    [320, 0],
+    [0, 240],
+  ])
+    expect(() => coordinates.parameters(call('click', { x, y }))).toThrow('INVALID_ARGUMENT')
 })
 
 it('keeps different application/window mappings independent and leaves element actions unchanged', () => {

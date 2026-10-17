@@ -6,7 +6,7 @@
 
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -30,12 +30,12 @@ function execution(sessionId?: string): ToolExecution {
     ...(sessionId === undefined
       ? {}
       : {
-        agent: {
-          session: {
-            header: { version: SESSION_FORMAT_VERSION, id: sessionId, createdAt: 0, isSeeded: false },
-          },
-        } as unknown as Agent,
-      }),
+          agent: {
+            session: {
+              header: { version: SESSION_FORMAT_VERSION, id: sessionId, createdAt: 0, isSeeded: false },
+            },
+          } as unknown as Agent,
+        }),
   }
 }
 
@@ -58,16 +58,25 @@ describe('ShellEnvRegistry', () => {
   it('collects the launcher-provided profile name and directory when a profile context exists', () => {
     const ctx = new Context()
     ctx.provide('profileContext', {
-      name: 'web', dir: '/profiles/web', patchPath: '/profiles/web/cordis.patch.yml', installAnchor: '/dsh/package.json',
-      cwd: '/work', home: '/home', startedBundles: [], overlays: [], telemetryDisabledEnv: undefined,
+      name: 'web',
+      dir: '/profiles/web',
+      patchPath: '/profiles/web/cordis.patch.yml',
+      installAnchor: '/dsh/package.json',
+      cwd: '/work',
+      home: '/home',
+      startedBundles: [],
+      overlays: [],
+      telemetryDisabledEnv: undefined,
     })
     const registry = new ShellEnvRegistry(ctx, { dshHome: './test-dsh-home' })
     expect(registry.collect(execution())).toMatchObject({ DSH_PROFILE: 'web', DSH_PROFILE_DIR: '/profiles/web' })
-    expect(() => registry.register({
-      name: 'profile-claimer',
-      variables: { DSH_PROFILE: { description: 'Reserved key.' } },
-      resolve: () => ({}),
-    })).toThrow(/reserved key "DSH_PROFILE"/)
+    expect(() =>
+      registry.register({
+        name: 'profile-claimer',
+        variables: { DSH_PROFILE: { description: 'Reserved key.' } },
+        resolve: () => ({}),
+      }),
+    ).toThrow(/reserved key "DSH_PROFILE"/)
   })
 
   it('resolves DSH_HOME from the ambient override or the user-home default', () => {
@@ -88,7 +97,7 @@ describe('ShellEnvRegistry', () => {
       variables: {
         DSH_SESSION_OPTIONAL: { description: 'Optional session-scoped test fact.' },
       },
-      resolve: exec => exec.agent === undefined ? {} : { DSH_SESSION_OPTIONAL: exec.agent.session.header.id },
+      resolve: exec => (exec.agent === undefined ? {} : { DSH_SESSION_OPTIONAL: exec.agent.session.header.id }),
     })
     registry.register({
       name: 'always-available-fact',
@@ -124,11 +133,13 @@ describe('ShellEnvRegistry', () => {
       resolve: () => ({ DSH_SHARED: 'first' }),
     })
 
-    expect(() => registry.register({
-      name: 'second',
-      variables: { DSH_SHARED: { description: 'Second owner.' } },
-      resolve: () => ({ DSH_SHARED: 'second' }),
-    })).toThrow(/DSH_SHARED.*first.*second|DSH_SHARED.*second.*first/)
+    expect(() =>
+      registry.register({
+        name: 'second',
+        variables: { DSH_SHARED: { description: 'Second owner.' } },
+        resolve: () => ({ DSH_SHARED: 'second' }),
+      }),
+    ).toThrow(/DSH_SHARED.*first.*second|DSH_SHARED.*second.*first/)
   })
 
   it('rejects duplicate contributor names and malformed declarations', () => {
@@ -139,31 +150,41 @@ describe('ShellEnvRegistry', () => {
       resolve: () => ({}),
     })
 
-    expect(() => registry.register({
-      name: 'declared',
-      variables: { DSH_ANOTHER: { description: 'Another fact.' } },
-      resolve: () => ({}),
-    })).toThrow(/already registered/)
-    expect(() => registry.register({
-      name: ' ',
-      variables: { DSH_BLANK_NAME: { description: 'Blank owner.' } },
-      resolve: () => ({}),
-    })).toThrow(/name must be non-empty/)
-    expect(() => registry.register({
-      name: 'invalid-key',
-      variables: { dsh_invalid: { description: 'Invalid key.' } } as unknown as Record<'DSH_INVALID', { description: string }>,
-      resolve: () => ({}),
-    })).toThrow(/invalid key/)
-    expect(() => registry.register({
-      name: 'reserved-key',
-      variables: { DSH_HOME: { description: 'Reserved key.' } },
-      resolve: () => ({}),
-    })).toThrow(/reserved key/)
-    expect(() => registry.register({
-      name: 'blank-description',
-      variables: { DSH_BLANK_DESCRIPTION: { description: ' ' } },
-      resolve: () => ({}),
-    })).toThrow(/must describe/)
+    expect(() =>
+      registry.register({
+        name: 'declared',
+        variables: { DSH_ANOTHER: { description: 'Another fact.' } },
+        resolve: () => ({}),
+      }),
+    ).toThrow(/already registered/)
+    expect(() =>
+      registry.register({
+        name: ' ',
+        variables: { DSH_BLANK_NAME: { description: 'Blank owner.' } },
+        resolve: () => ({}),
+      }),
+    ).toThrow(/name must be non-empty/)
+    expect(() =>
+      registry.register({
+        name: 'invalid-key',
+        variables: { dsh_invalid: { description: 'Invalid key.' } } as unknown as Record<'DSH_INVALID', { description: string }>,
+        resolve: () => ({}),
+      }),
+    ).toThrow(/invalid key/)
+    expect(() =>
+      registry.register({
+        name: 'reserved-key',
+        variables: { DSH_HOME: { description: 'Reserved key.' } },
+        resolve: () => ({}),
+      }),
+    ).toThrow(/reserved key/)
+    expect(() =>
+      registry.register({
+        name: 'blank-description',
+        variables: { DSH_BLANK_DESCRIPTION: { description: ' ' } },
+        resolve: () => ({}),
+      }),
+    ).toThrow(/must describe/)
   })
 
   it('rejects undeclared variables returned by a contributor', () => {

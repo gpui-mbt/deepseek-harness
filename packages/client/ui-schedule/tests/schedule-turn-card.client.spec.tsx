@@ -5,13 +5,21 @@
  * rendering and open wiring.
  */
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import {
-  ConversationNodeAssembler, type ConversationLocationDataSource, type ConversationLocationDataStore,
-  type ConversationMatch, type ConversationNodeDefinition, type ConversationStartMatch,
-  type ConversationTimelineSnapshot, type ConversationTurnDataMap,
-  type ConversationViewDefinition, type ConversationViewNode, type ToolResultNode, type TurnLocation,
+  ConversationNodeAssembler,
+  type ConversationLocationDataSource,
+  type ConversationLocationDataStore,
+  type ConversationMatch,
+  type ConversationNodeDefinition,
+  type ConversationStartMatch,
+  type ConversationTimelineSnapshot,
+  type ConversationTurnDataMap,
+  type ConversationViewDefinition,
+  type ConversationViewNode,
+  type ToolResultNode,
+  type TurnLocation,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionLiveEventEntry } from '@deepseek-ai/dsh-api-session-controller/client'
 import { createToolResultMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
@@ -21,8 +29,11 @@ import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import { ScheduleTurnCard, type ScheduleTurnCardProps } from '../src/client/ScheduleTurnCard.tsx'
 import { zoneLabel } from '../src/client/schedule-format.ts'
 import {
-  scheduleTasksForClosing, scheduleTurnDefinition, selectScheduleTasks,
-  type ScheduleTurnData, type ScheduleTurnOwner,
+  scheduleTasksForClosing,
+  scheduleTurnDefinition,
+  selectScheduleTasks,
+  type ScheduleTurnData,
+  type ScheduleTurnOwner,
 } from '../src/client/schedule-turn.ts'
 import { en, zh } from '../src/client/task-manager-locales.ts'
 
@@ -31,13 +42,22 @@ const PROMPT = 'Check the deployment\nand report'
 const ARGS = { prompt: PROMPT, daily: { time: '23:00:00', time_zone: 'Asia/Shanghai' } }
 
 const dailyTask = {
-  id: 'task-daily', kind: 'daily', prompt: PROMPT, scheduledAt: '2026-10-01T15:00:00.000Z',
-  time: '23:00:00.000', timeZone: 'Asia/Shanghai',
+  id: 'task-daily',
+  kind: 'daily',
+  prompt: PROMPT,
+  scheduledAt: '2026-10-01T15:00:00.000Z',
+  time: '23:00:00.000',
+  timeZone: 'Asia/Shanghai',
 }
 
 const weeklyTask = {
-  id: 'task-weekly', kind: 'weekly', prompt: PROMPT, scheduledAt: '2026-10-01T01:00:00.000Z',
-  time: '09:00:00.000', timeZone: 'Asia/Shanghai', weekdays: [1, 3],
+  id: 'task-weekly',
+  kind: 'weekly',
+  prompt: PROMPT,
+  scheduledAt: '2026-10-01T01:00:00.000Z',
+  time: '09:00:00.000',
+  timeZone: 'Asia/Shanghai',
+  weekdays: [1, 3],
 }
 
 afterEach(cleanup)
@@ -46,9 +66,7 @@ class TestTurnDataStore implements ConversationLocationDataStore<ConversationTur
   private readonly values = new Map<string, unknown>()
   private readonly sources = new Map<string, ConversationLocationDataSource<unknown>>()
 
-  get<Key extends Extract<keyof ConversationTurnDataMap, string>>(
-    key: Key,
-  ): Readonly<ConversationTurnDataMap[Key]> | undefined {
+  get<Key extends Extract<keyof ConversationTurnDataMap, string>>(key: Key): Readonly<ConversationTurnDataMap[Key]> | undefined {
     return this.values.get(key) as Readonly<ConversationTurnDataMap[Key]> | undefined
   }
 
@@ -63,10 +81,7 @@ class TestTurnDataStore implements ConversationLocationDataStore<ConversationTur
     return source as ConversationLocationDataSource<Readonly<ConversationTurnDataMap[Key]> | undefined>
   }
 
-  set<Key extends Extract<keyof ConversationTurnDataMap, string>>(
-    key: Key,
-    value: ConversationTurnDataMap[Key],
-  ): void {
+  set<Key extends Extract<keyof ConversationTurnDataMap, string>>(key: Key, value: ConversationTurnDataMap[Key]): void {
     this.values.set(key, value)
   }
 }
@@ -80,7 +95,7 @@ function turnLocation(turn: number, data?: ScheduleTurnData, endSeq?: number): T
     status: 'closed',
     steps: [],
     data: store,
-    end: endSeq === undefined ? undefined : at(endSeq, 'turn/end', { turn }).event as SessionEvent<'turn/end'>,
+    end: endSeq === undefined ? undefined : (at(endSeq, 'turn/end', { turn }).event as SessionEvent<'turn/end'>),
   }
 }
 
@@ -94,12 +109,18 @@ interface TimelineSnapshot {
 }
 
 class TestEventDefinitions {
-  entries(): readonly ConversationNodeDefinition[] { return [scheduleTurnDefinition] }
-  fallbackEntry(): ConversationNodeDefinition | undefined { return undefined }
+  entries(): readonly ConversationNodeDefinition[] {
+    return [scheduleTurnDefinition]
+  }
+  fallbackEntry(): ConversationNodeDefinition | undefined {
+    return undefined
+  }
 }
 
 class TestViewDefinitions {
-  entries(): readonly ConversationViewDefinition[] { return [timelineViewDefinition] }
+  entries(): readonly ConversationViewDefinition[] {
+    return [timelineViewDefinition]
+  }
 }
 
 const timelineViewDefinition: ConversationViewDefinition<ConversationViewNode, TimelineSnapshot> = {
@@ -118,7 +139,10 @@ function at(seq: number, type: string, data: unknown): SessionLiveEventEntry {
   return {
     type: 'event',
     event: {
-      seq, time: seq * 1_000, type, data,
+      seq,
+      time: seq * 1_000,
+      type,
+      data,
       ...(type === 'tool/result' ? { surfaceOp: 'append' } : {}),
     } as SessionEvent,
   }
@@ -160,8 +184,12 @@ function scheduleOf(value: ConversationNodeAssembler, turn = 1): Readonly<Schedu
 /** One settled result node as the Turn Definition records it. */
 function settledBlock(task: unknown, callId = CALL): ToolResultNode {
   return {
-    kind: 'tool-result', seq: 3, time: 3_000, callId,
-    name: 'schedule_create', args: PartialArguments.fromText(JSON.stringify(ARGS)),
+    kind: 'tool-result',
+    seq: 3,
+    time: 3_000,
+    callId,
+    name: 'schedule_create',
+    args: PartialArguments.fromText(JSON.stringify(ARGS)),
     call: { name: 'schedule_create', argsRaw: JSON.stringify(ARGS) },
     callTime: 2_000,
     content: [{ type: 'text', text: JSON.stringify(task) }],
@@ -185,7 +213,7 @@ function cardProps(
   created: readonly ToolResultNode[],
   openTaskDetail = vi.fn(),
   t = makeTranslate(en),
-  records: readonly ScheduleCatalogEntry[] = created.map((block) => {
+  records: readonly ScheduleCatalogEntry[] = created.map(block => {
     const task = JSON.parse(block.content[0]?.type === 'text' ? block.content[0].text : '{}') as {
       readonly prompt?: string
       readonly title?: string
@@ -333,22 +361,41 @@ describe('ScheduleTurnCard', () => {
     const openTaskDetail = vi.fn()
     const onRetry = vi.fn(async () => {})
     /** Props of the snapshot one later read publishes. */
-    const snapshot = (next: {
-      readonly records?: readonly ScheduleCatalogEntry[]
-      readonly status?: 'loading' | 'ready' | 'error'
-      readonly settled?: boolean
-      readonly readRequest?: number
-      readonly readSettled?: number
-    } = {}): ScheduleTurnCardProps => cardProps(
-      created, openTaskDetail, makeTranslate(en),
-      next.records ?? read, next.status ?? 'ready', next.settled ?? true,
-      next.readRequest ?? 1, next.readSettled ?? 1, onRetry,
+    const snapshot = (
+      next: {
+        readonly records?: readonly ScheduleCatalogEntry[]
+        readonly status?: 'loading' | 'ready' | 'error'
+        readonly settled?: boolean
+        readonly readRequest?: number
+        readonly readSettled?: number
+      } = {},
+    ): ScheduleTurnCardProps =>
+      cardProps(
+        created,
+        openTaskDetail,
+        makeTranslate(en),
+        next.records ?? read,
+        next.status ?? 'ready',
+        next.settled ?? true,
+        next.readRequest ?? 1,
+        next.readSettled ?? 1,
+        onRetry,
+      )
+    const view = render(
+      <ScheduleTurnCard
+        {...cardProps(
+          created,
+          openTaskDetail,
+          makeTranslate(en),
+          mount.records ?? [],
+          mount.status ?? 'loading',
+          mount.settled ?? false,
+          mount.readRequest ?? 0,
+          mount.readSettled ?? 0,
+          onRetry,
+        )}
+      />,
     )
-    const view = render(<ScheduleTurnCard {...cardProps(
-      created, openTaskDetail, makeTranslate(en),
-      mount.records ?? [], mount.status ?? 'loading', mount.settled ?? false,
-      mount.readRequest ?? 0, mount.readSettled ?? 0, onRetry,
-    )} />)
     return { view, snapshot, onRetry, openTaskDetail }
   }
 
@@ -406,9 +453,12 @@ describe('ScheduleTurnCard', () => {
     // The catalog already answered before this card appeared (revision 5), and that
     // answer holds no row for the task. Only a read that lands after the card may
     // state that absence, because an earlier read may predate the creation.
-    const { view, snapshot } = mountTurnCard(
-      [settledBlock(dailyTask)], [], { status: 'ready', settled: true, readRequest: 5, readSettled: 5 },
-    )
+    const { view, snapshot } = mountTurnCard([settledBlock(dailyTask)], [], {
+      status: 'ready',
+      settled: true,
+      readRequest: 5,
+      readSettled: 5,
+    })
     await act(async () => {})
     expect(screen.getByText('Check the deployment')).toBeDefined()
     expect(screen.getByText(`Daily at 23:00 (${zoneLabel('Asia/Shanghai', makeTranslate(en))})`)).toBeDefined()
@@ -425,9 +475,12 @@ describe('ScheduleTurnCard', () => {
     // A read was already in flight when this card appeared, and the card anchored
     // the ordinal it saw at mount (6). That read settling holds no row for the task,
     // but it was sent before the card, so it cannot state the card's absence.
-    const { view, snapshot, onRetry } = mountTurnCard(
-      [settledBlock(dailyTask)], [], { status: 'loading', settled: true, readRequest: 6, readSettled: 5 },
-    )
+    const { view, snapshot, onRetry } = mountTurnCard([settledBlock(dailyTask)], [], {
+      status: 'loading',
+      settled: true,
+      readRequest: 6,
+      readSettled: 5,
+    })
     // The card asks for the read that can answer for it by naming the ordinal it
     // observed at mount, so a read sent before it cannot be handed back.
     expect(onRetry).toHaveBeenCalledWith(6)
@@ -529,10 +582,7 @@ describe('ScheduleTurnCard', () => {
   it('renders one card per created task of the turn', () => {
     const openTaskDetail = vi.fn()
     const later = { ...weeklyTask, id: 'task-later', prompt: 'Summarize the incident' }
-    const view = render(<ScheduleTurnCard {...cardProps([
-      settledBlock(dailyTask),
-      settledBlock(later, 'call-later'),
-    ], openTaskDetail)} />)
+    const view = render(<ScheduleTurnCard {...cardProps([settledBlock(dailyTask), settledBlock(later, 'call-later')], openTaskDetail)} />)
     expect(view.container.querySelectorAll('[data-tool="schedule_create"]')).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: 'Open task details: Check the deployment' }))
     fireEvent.click(screen.getByRole('button', { name: 'Open task details: Summarize the incident' }))
@@ -550,9 +600,7 @@ describe('ScheduleTurnCard', () => {
 
   it('opens the task and shows the weekly frequency in the active locale', () => {
     const openTaskDetail = vi.fn()
-    render(<ScheduleTurnCard {...cardProps(
-      [settledBlock(weeklyTask)], openTaskDetail, makeTranslate(zh),
-    )} />)
+    render(<ScheduleTurnCard {...cardProps([settledBlock(weeklyTask)], openTaskDetail, makeTranslate(zh))} />)
     expect(screen.getByText(`每周一、三 09:00（${zoneLabel('Asia/Shanghai', makeTranslate(zh))}）`)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: '打开任务详情：Check the deployment' }))
     expect(openTaskDetail).toHaveBeenCalledExactlyOnceWith('task-weekly' as ScheduleId)
@@ -581,36 +629,27 @@ describe('schedule-created Definition lifecycle', () => {
   }
 
   it('matches a turn start, a call, and an appended result, and nothing else', () => {
-    expect(scheduleTurnDefinition.match(at(1, 'turn/start', { turn: 1 }).event))
-      .toEqual({ id: '1', role: 'start' })
-    expect(scheduleTurnDefinition.match(call(2, CALL, 'schedule_create', ARGS).event))
-      .toEqual({ id: '1', role: 'update' })
-    expect(scheduleTurnDefinition.match(result(3, CALL, JSON.stringify(dailyTask)).event))
-      .toEqual({ id: '1', role: 'update' })
+    expect(scheduleTurnDefinition.match(at(1, 'turn/start', { turn: 1 }).event)).toEqual({ id: '1', role: 'start' })
+    expect(scheduleTurnDefinition.match(call(2, CALL, 'schedule_create', ARGS).event)).toEqual({ id: '1', role: 'update' })
+    expect(scheduleTurnDefinition.match(result(3, CALL, JSON.stringify(dailyTask)).event)).toEqual({ id: '1', role: 'update' })
     // A replacement copy and an unrelated event belong to no created-task Turn.
-    expect(scheduleTurnDefinition.match(surfaceEvent(result(4, CALL, JSON.stringify(dailyTask)), 'replace')))
-      .toBeNull()
+    expect(scheduleTurnDefinition.match(surfaceEvent(result(4, CALL, JSON.stringify(dailyTask)), 'replace'))).toBeNull()
     expect(scheduleTurnDefinition.match(at(5, 'assistant/message', { turn: 1 }).event)).toBeNull()
   })
 
   it('refuses to start from an event that is not a turn start', () => {
     const refusing = startMatch(call(2, CALL, 'schedule_create', ARGS).event)
-    expect(() => scheduleTurnDefinition.start({} as never, refusing, {} as never))
-      .toThrow('schedule-created start requires turn/start')
+    expect(() => scheduleTurnDefinition.start({} as never, refusing, {} as never)).toThrow('schedule-created start requires turn/start')
   })
 
   it('accumulates only the results of matching calls and ignores an unmatched update', () => {
     const empty = startedTurn()
-    const afterCall = scheduleTurnDefinition.update(
-      { state: empty } as never,
-      updateMatch(call(2, CALL, 'schedule_create', ARGS).event),
-    )
+    const afterCall = scheduleTurnDefinition.update({ state: empty } as never, updateMatch(call(2, CALL, 'schedule_create', ARGS).event))
     expect([...afterCall.calls.keys()]).toEqual([CALL])
     // An update that is neither a call nor a result keeps the accumulated state.
-    expect(scheduleTurnDefinition.update(
-      { state: afterCall } as never,
-      updateMatch(at(3, 'assistant/message', { turn: 1 }).event),
-    )).toBe(afterCall)
+    expect(scheduleTurnDefinition.update({ state: afterCall } as never, updateMatch(at(3, 'assistant/message', { turn: 1 }).event))).toBe(
+      afterCall,
+    )
     const settled = scheduleTurnDefinition.update(
       { state: afterCall } as never,
       updateMatch(result(4, CALL, JSON.stringify(dailyTask)).event),

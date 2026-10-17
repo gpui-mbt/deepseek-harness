@@ -1,6 +1,6 @@
 /** Default model references remain live without a settings service. */
 import { Context } from '@deepseek-ai/cordis'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import DefaultModel from '../src/index.ts'
 import { liveConfig } from '../../../settings/settings/tests/live-config.ts'
 
@@ -40,15 +40,18 @@ it('serializes overlapping saves and continues after a rejected write', async ()
   const editor = ctx.configEditor
   const edit = editor.edit.bind(editor)
   const calls: string[] = []
-  const intercepted = vi.spyOn(editor, 'edit').mockImplementationOnce(async () => {
-    calls.push('rejected')
-    entered.resolve(undefined)
-    await release.promise
-    throw new Error('read-only document')
-  }).mockImplementation(async (entry, change) => {
-    calls.push('saved')
-    await edit(entry, change)
-  })
+  const intercepted = vi
+    .spyOn(editor, 'edit')
+    .mockImplementationOnce(async () => {
+      calls.push('rejected')
+      entered.resolve(undefined)
+      await release.promise
+      throw new Error('read-only document')
+    })
+    .mockImplementation(async (entry, change) => {
+      calls.push('saved')
+      await edit(entry, change)
+    })
   const first = ctx.agentDefaultModel.saveSelection({ provider: 'test', model: 'rejected' })
   const failed = expect(first).rejects.toThrow('read-only document')
   const lastSelection = { provider: 'test', model: 'final' }

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { binSources, excludedEntry, findTopLevelAwaits, scanRepository, sourceCorpus, SOURCE_GLOB } from './verify-no-top-level-await.ts'
 
 const FILE = 'packages/group/pkg/src/entry.ts'
@@ -12,11 +12,13 @@ function forms(source: string, file = FILE): string[] {
 
 describe('module-scope await detection', () => {
   it('rejects the process-entry shape the rule exists for', () => {
-    expect(forms(`
+    expect(
+      forms(`
       const config = parse(process.argv[2])
       const { port } = await startServer(config)
       process.stdout.write(JSON.stringify({ port }))
-    `)).toEqual(['await expression'])
+    `),
+    ).toEqual(['await expression'])
   })
 
   it('reports the offending line number and text', () => {
@@ -56,8 +58,7 @@ describe('module-scope await detection', () => {
   })
 
   it('rejects a module-scope await in a TSX module', () => {
-    expect(forms('const element = <div>{await label()}</div>', 'packages/group/pkg/src/view.tsx'))
-      .toEqual(['await expression'])
+    expect(forms('const element = <div>{await label()}</div>', 'packages/group/pkg/src/view.tsx')).toEqual(['await expression'])
   })
 
   it.each([
@@ -77,12 +78,16 @@ describe('module-scope await detection', () => {
   })
 
   it('accepts the word await in strings, templates, and comments', () => {
-    expect(forms([
-      "const quoted = 'await ready()'",
-      'const template = `var { connect } = await import(${JSON.stringify(url)})`',
-      '// await ready()',
-      '/* for await (const x of y) */',
-    ].join('\n'))).toEqual([])
+    expect(
+      forms(
+        [
+          "const quoted = 'await ready()'",
+          'const template = `var { connect } = await import(${JSON.stringify(url)})`',
+          '// await ready()',
+          '/* for await (const x of y) */',
+        ].join('\n'),
+      ),
+    ).toEqual([])
   })
 
   it('accepts a synchronous using declaration', () => {
@@ -124,9 +129,7 @@ describe('package source corpus', () => {
     expect(scanRepository(directory)).toEqual({
       checked: 4,
       excluded: [],
-      violations: [
-        { file: 'packages/b/two/src/nested/deep.ts', line: 1, what: 'await expression', text: 'await ready()' },
-      ],
+      violations: [{ file: 'packages/b/two/src/nested/deep.ts', line: 1, what: 'await expression', text: 'await ready()' }],
     })
   })
 
@@ -179,7 +182,11 @@ describe('package source corpus', () => {
   it.each([
     ['an absent bin field', undefined, []],
     ['a lib target', 'lib/cli.js', ['packages/a/tool/src/cli.ts', 'packages/a/tool/src/cli.tsx']],
-    ['a dotted lib target in a name map', { tool: './lib/nested/cli.js' }, ['packages/a/tool/src/nested/cli.ts', 'packages/a/tool/src/nested/cli.tsx']],
+    [
+      'a dotted lib target in a name map',
+      { tool: './lib/nested/cli.js' },
+      ['packages/a/tool/src/nested/cli.ts', 'packages/a/tool/src/nested/cli.tsx'],
+    ],
     ['a committed root file', { tool: './bin.js' }, []],
     ['a non-JavaScript lib file', 'lib/cli.sh', []],
     ['a non-string map value', { tool: 1 }, []],

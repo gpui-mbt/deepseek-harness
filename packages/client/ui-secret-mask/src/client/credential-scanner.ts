@@ -9,7 +9,21 @@
  */
 import type { UserTextNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import {
-  ADDRESS, ALNUM, ALNUM_DASH, BOUNDED, GOOGLE, KEY_BLOCK, LABEL, LOWER, PREFIXED, RUN, SCHEME, SK, UPPER_ALNUM, USER, WORD,
+  ADDRESS,
+  ALNUM,
+  ALNUM_DASH,
+  BOUNDED,
+  GOOGLE,
+  KEY_BLOCK,
+  LABEL,
+  LOWER,
+  PREFIXED,
+  RUN,
+  SCHEME,
+  SK,
+  UPPER_ALNUM,
+  USER,
+  WORD,
 } from './credential-formats.ts'
 import { CredentialMasks } from './credential-masks.ts'
 import type { FormatTables } from './format-tables.ts'
@@ -34,8 +48,17 @@ const MEMO_SIZE = 27
 
 /** `\s` above ASCII. */
 function isWideSpace(code: number): boolean {
-  return code === 0xa0 || code === 0x1680 || (code >= 0x2000 && code <= 0x200a) || code === 0x2028 || code === 0x2029
-    || code === 0x202f || code === 0x205f || code === 0x3000 || code === 0xfeff
+  return (
+    code === 0xa0 ||
+    code === 0x1680 ||
+    (code >= 0x2000 && code <= 0x200a) ||
+    code === 0x2028 ||
+    code === 0x2029 ||
+    code === 0x202f ||
+    code === 0x205f ||
+    code === 0x3000 ||
+    code === 0xfeff
+  )
 }
 
 /** Offset after the run that sticky `pattern` matches at `start`. */

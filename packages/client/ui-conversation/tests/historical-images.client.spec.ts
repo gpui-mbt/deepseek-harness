@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import type { SessionFace } from '@deepseek-ai/dsh-api-session-controller/client'
 import { RemoteError, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
@@ -17,7 +17,11 @@ describe('HistoricalImageCache', () => {
     await reference.ready
     const cache = new HistoricalImageCache(runtime.ctx, runtime.ctx.sessions)
     const attachment = {
-      attachmentId: AttachmentId('image-1'), mediaType: 'image/png', bytes: 1, width: 1, height: 1,
+      attachmentId: AttachmentId('image-1'),
+      mediaType: 'image/png',
+      bytes: 1,
+      width: 1,
+      height: 1,
     } as const
 
     const pending = cache.resolve(sessionId, attachment)
@@ -33,7 +37,9 @@ describe('HistoricalImageCache', () => {
     const revoked: string[] = []
     const created = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:canonical')
     const originalRevoke = URL.revokeObjectURL.bind(URL)
-    URL.revokeObjectURL = (url: string) => { revoked.push(url) }
+    URL.revokeObjectURL = (url: string) => {
+      revoked.push(url)
+    }
     try {
       const read = Promise.withResolvers<Awaited<ReturnType<SessionFace['readAttachment']>>>()
       const runtime = await SlotTestRuntime.create()
@@ -42,7 +48,11 @@ describe('HistoricalImageCache', () => {
       await reference.ready
       const cache = new HistoricalImageCache(runtime.ctx, runtime.ctx.sessions)
       const attachment = {
-        attachmentId: AttachmentId('image-seeded'), mediaType: 'image/png', bytes: 1, width: 1, height: 1,
+        attachmentId: AttachmentId('image-seeded'),
+        mediaType: 'image/png',
+        bytes: 1,
+        width: 1,
+        height: 1,
       } as const
 
       expect(cache.seed(sessionId, attachment, 'blob:seeded')).toBe(true)
@@ -71,17 +81,22 @@ describe('HistoricalImageCache', () => {
       const sessionId = await runtime.sessions.add({
         id: 's1',
         session: {
-          readAttachment: () => Promise.resolve({
-            ok: false,
-            error: new RemoteError('session/attachment-invalid', 'missing', { reason: 'missing' }),
-          } as never),
+          readAttachment: () =>
+            Promise.resolve({
+              ok: false,
+              error: new RemoteError('session/attachment-invalid', 'missing', { reason: 'missing' }),
+            } as never),
         },
       })
       const reference = runtime.sessions.retain(sessionId)
       await reference.ready
       const cache = new HistoricalImageCache(runtime.ctx, runtime.ctx.sessions)
       const attachment = {
-        attachmentId: AttachmentId('image-missing'), mediaType: 'image/png', bytes: 1, width: 1, height: 1,
+        attachmentId: AttachmentId('image-missing'),
+        mediaType: 'image/png',
+        bytes: 1,
+        width: 1,
+        height: 1,
       } as const
 
       expect(cache.seed(sessionId, attachment, 'blob:seeded')).toBe(true)
@@ -99,7 +114,11 @@ describe('HistoricalImageCache', () => {
     const runtime = await SlotTestRuntime.create()
     const cache = new HistoricalImageCache(runtime.ctx, runtime.ctx.sessions)
     const attachment = {
-      attachmentId: AttachmentId('image-unknown'), mediaType: 'image/png', bytes: 1, width: 1, height: 1,
+      attachmentId: AttachmentId('image-unknown'),
+      mediaType: 'image/png',
+      bytes: 1,
+      width: 1,
+      height: 1,
     } as const
     expect(cache.seed('missing' as never, attachment, 'blob:orphan')).toBe(false)
     await runtime.dispose()

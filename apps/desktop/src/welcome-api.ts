@@ -54,10 +54,11 @@ export interface WelcomeOperations {
 }
 
 /** The renderer receives localized copy, login operations, and safe account snapshots. */
-export type WelcomeApi = DesktopLocale & WelcomeOperations & {
-  /** @param listener - safe account snapshot recipient. @returns subscription disposer. */
-  onAccountState(listener: (state: AccountView) => void): () => void
-}
+export type WelcomeApi = DesktopLocale &
+  WelcomeOperations & {
+    /** @param listener - safe account snapshot recipient. @returns subscription disposer. */
+    onAccountState(listener: (state: AccountView) => void): () => void
+  }
 
 /** Authentication facts supplied at cold start or after a completed sign-out. */
 export interface WelcomeAuthentication {

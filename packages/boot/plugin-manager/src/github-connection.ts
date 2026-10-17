@@ -26,12 +26,15 @@ export interface GithubConnectionOptions {
  * @returns A failed check with bounded output and a complete log at logPath, or undefined for a reachable repository or an unhandled spec.
  */
 export async function checkGithubConnection(
-  spec: ParsedInstallSpec, dir: string, options: GithubConnectionOptions,
+  spec: ParsedInstallSpec,
+  dir: string,
+  options: GithubConnectionOptions,
 ): Promise<PackageResult | undefined> {
   if (spec.kind !== 'git') return undefined
   const host = spec.host.toLowerCase().replace(/:.*$/, '')
   if (host !== 'github.com' && !host.endsWith('.github.com')) return undefined
-  const repository = spec.spec.replace(/#.*$/s, '')
+  const repository = spec.spec
+    .replace(/#.*$/s, '')
     .replace(/^github:/i, 'https://github.com/')
     .replace(/^gist:/i, 'https://gist.github.com/')
     .replace(/^git\+/i, '')
@@ -44,12 +47,24 @@ export async function checkGithubConnection(
     const result = await execa('git', ['-c', 'credential.helper=', 'ls-remote', '--', repository, 'HEAD'], {
       cwd: dir,
       env: {
-        ...scrubbedParentEnv(), ...options.env, LC_ALL: 'C', GIT_TERMINAL_PROMPT: '0',
-        GIT_ASKPASS: '', SSH_ASKPASS: '', SSH_ASKPASS_REQUIRE: 'never',
+        ...scrubbedParentEnv(),
+        ...options.env,
+        LC_ALL: 'C',
+        GIT_TERMINAL_PROMPT: '0',
+        GIT_ASKPASS: '',
+        SSH_ASKPASS: '',
+        SSH_ASKPASS_REQUIRE: 'never',
       },
       extendEnv: false,
-      stdin: 'ignore', stdout: 'ignore', stderr: { file: logPath, append: true }, buffer: false, reject: false,
-      timeout: options.timeoutMs, cancelSignal: options.signal, killDescendants: true, killSignal: 'SIGKILL',
+      stdin: 'ignore',
+      stdout: 'ignore',
+      stderr: { file: logPath, append: true },
+      buffer: false,
+      reject: false,
+      timeout: options.timeoutMs,
+      cancelSignal: options.signal,
+      killDescendants: true,
+      killSignal: 'SIGKILL',
     })
     if (!result.failed) return undefined
     if (result.timedOut) await log.write(`dsh: connection to ${spec.host} timed out after ${String(options.timeoutMs)}ms\n`)
@@ -59,7 +74,10 @@ export async function checkGithubConnection(
     await log.read(bytes, 0, bytes.length, size - bytes.length)
     const output = bytes.toString('utf8')
     return {
-      exitCode: result.exitCode ?? (result.code === 'ENOENT' ? 127 : 1), output, truncated: size > options.outputBytes, logPath,
+      exitCode: result.exitCode ?? (result.code === 'ENOENT' ? 127 : 1),
+      output,
+      truncated: size > options.outputBytes,
+      logPath,
       kind: classifyInstallFailure({ log: output, timedOut: result.timedOut }),
     }
   } finally {

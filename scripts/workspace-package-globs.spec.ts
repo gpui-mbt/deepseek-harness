@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, win32 } from 'node:path'
 import { build } from 'tsdown'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { workspacePackageGlobs } from './workspace-package-globs.ts'
 
 it('selects workspace packages from Windows and POSIX manifest paths', async () => {

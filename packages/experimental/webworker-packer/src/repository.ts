@@ -10,7 +10,12 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import {
-  bundlePatchPaths, composeEntries, loadOverlayPatches, OPTIONAL_BUNDLES, PROFILE_TEMPLATES, resolveBundleDir,
+  bundlePatchPaths,
+  composeEntries,
+  loadOverlayPatches,
+  OPTIONAL_BUNDLES,
+  PROFILE_TEMPLATES,
+  resolveBundleDir,
 } from '@deepseek-ai/dsh-app-boot'
 import type { PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 import { PLATFORM_ENTRY_CONFIG } from '@deepseek-ai/dsh-experimental-webworker-runtime'
@@ -152,9 +157,11 @@ function shippedTemplate(profile: string): { readonly bundles: readonly string[]
 /** One bundle's patch rows, resolved from the CLI manifest as the launcher resolves them. */
 function bundlePatches(repoRoot: string, bundle: string): PatchOptions[] {
   const directory = resolveBundleDir(BIN_NAME, bundle, installationManifest(repoRoot).manifest, join(repoRoot, CLI_PACKAGE))
-  const declaration = (JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')) as {
-    dsh?: { bundle?: Parameters<typeof bundlePatchPaths>[1] }
-  }).dsh?.bundle
+  const declaration = (
+    JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')) as {
+      dsh?: { bundle?: Parameters<typeof bundlePatchPaths>[1] }
+    }
+  ).dsh?.bundle
   if (declaration === undefined) throw new Error(`vfs image: bundle ${bundle} declares no dsh.bundle`)
   return bundlePatchPaths(directory, declaration).flatMap(file => loadOverlayPatches(BIN_NAME, file))
 }
@@ -182,7 +189,7 @@ export function packRepositoryImage(repoRoot: string, profile: string, root?: st
     profile,
     roster: profileRoster(repoRoot, profile).roster,
     installation: installationManifest(repoRoot),
-    ...root === undefined ? {} : { root },
+    ...(root === undefined ? {} : { root }),
     workspaces: indexWorkspacePackages(repoRoot),
     resolveFrom: repoRoot,
     configTrees: configTrees(repoRoot),
@@ -214,10 +221,15 @@ export function configTrees(repoRoot: string): ConfigTree[] {
   return declared.map((entry, index) => {
     const tree = entry as Partial<ConfigTreeDeclaration> | null
     const at = `${CLI_PACKAGE} dsh.configTrees[${String(index)}]`
-    if (tree === null || typeof tree !== 'object'
-      || typeof tree.mount !== 'string' || tree.mount === ''
-      || typeof tree.path !== 'string' || tree.path === ''
-      || (tree.scanRoster !== undefined && typeof tree.scanRoster !== 'boolean')) {
+    if (
+      tree === null ||
+      typeof tree !== 'object' ||
+      typeof tree.mount !== 'string' ||
+      tree.mount === '' ||
+      typeof tree.path !== 'string' ||
+      tree.path === '' ||
+      (tree.scanRoster !== undefined && typeof tree.scanRoster !== 'boolean')
+    ) {
       throw new Error(`vfs image: ${at} must declare a string mount, a string path, and an optional boolean scanRoster`)
     }
     if (mounts.has(tree.mount)) {
@@ -227,7 +239,7 @@ export function configTrees(repoRoot: string): ConfigTree[] {
     return {
       mount: tree.mount,
       directory: join(packageDir, tree.path),
-      ...tree.scanRoster === undefined ? {} : { scanRoster: tree.scanRoster },
+      ...(tree.scanRoster === undefined ? {} : { scanRoster: tree.scanRoster }),
     }
   })
 }
@@ -241,12 +253,14 @@ export function configTrees(repoRoot: string): ConfigTree[] {
  */
 export function previewFixtures(repoRoot: string): PreviewFixture[] {
   const root = join(repoRoot, PREVIEW_EXAMPLE_ROOT)
-  return [{
-    id: 'vfs-example',
-    label: 'Built-in showcase',
-    description: 'Sample workspace, tool cards, subagents, and paged history.',
-    trees: ['home', 'workspace'].map(mount => ({ mount, directory: join(root, mount) })),
-  }]
+  return [
+    {
+      id: 'vfs-example',
+      label: 'Built-in showcase',
+      description: 'Sample workspace, tool cards, subagents, and paged history.',
+      trees: ['home', 'workspace'].map(mount => ({ mount, directory: join(root, mount) })),
+    },
+  ]
 }
 
 /**
@@ -260,9 +274,10 @@ export function previewFixtures(repoRoot: string): PreviewFixture[] {
  * @returns Lines to print.
  */
 export function describePack(result: PackResult, repoRoot: string, outputFile: string): string[] {
-  const sizeOf = (prefix: string): number => Object.entries(result.files)
-    .filter(([name]) => name.startsWith(prefix))
-    .reduce((sum, [, bytes]) => sum + bytes.byteLength, 0)
+  const sizeOf = (prefix: string): number =>
+    Object.entries(result.files)
+      .filter(([name]) => name.startsWith(prefix))
+      .reduce((sum, [, bytes]) => sum + bytes.byteLength, 0)
   const megabytes = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(2)} MB`
   const workspaceCount = result.workspacePackages
   const heaviest = [...result.packages.entries()]
@@ -279,17 +294,16 @@ export function describePack(result: PackResult, repoRoot: string, outputFile: s
     `  compressed          ${megabytes(result.image.byteLength)}`,
     `  config + presets    ${megabytes(sizeOf('config/'))}`,
     `  lazy archives       ${String(result.lazyArchives.length)} (${megabytes(result.lazyArchives.reduce((sum, archive) => sum + archive.image.byteLength, 0))} compressed)`,
-    ...result.lazyArchives.map(archive =>
-      `    ${megabytes(archive.image.byteLength).padStart(9)}  ${archive.name}  ${archive.files.join(', ')}`),
+    ...result.lazyArchives.map(
+      archive => `    ${megabytes(archive.image.byteLength).padStart(9)}  ${archive.name}  ${archive.files.join(', ')}`,
+    ),
     `  javascript entries  ${String(result.javascriptEntries)} (dropped ${String(result.executables.length)} executable scripts, ${String(result.pageBundles.length)} page bundles verbatim)`,
     `  wrapper contract    ${result.contract}`,
     `  transform           ${String(result.transform.rewritten)} of ${String(result.transform.visited)} reached entries rewritten, ${String(result.droppedJavascriptEntries)} unreachable dropped`,
     `  unresolved          ${String(result.unresolvedExternalRequests.length)} third-party request(s) left to fail loud at require time`,
     '  heaviest packages:',
     ...heaviest.map(entry => `    ${entry.bytes.toString().padStart(9)} B  ${entry.name} (${String(entry.count)} files)`),
-    ...result.missing.length === 0
-      ? []
-      : ['  unresolved dependencies:', ...result.missing.map(entry => `    ${entry}`)],
+    ...(result.missing.length === 0 ? [] : ['  unresolved dependencies:', ...result.missing.map(entry => `    ${entry}`)]),
     '',
   ]
 }

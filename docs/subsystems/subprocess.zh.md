@@ -289,7 +289,7 @@ Implementations must honor these semantics:
  * @param signal - aborts remote or local lookup.
  * @returns a canonical executable path.
  */
-abstract resolveExecutable( command: string, env?: Readonly<Record<string, string>>, signal?: AbortSignal, ): Promise<string>
+abstract resolveExecutable(command: string, env?: Readonly<Record<string, string>>, signal?: AbortSignal): Promise<string>
 
 /**
  * Inspect shell-selection facts in the provider's execution environment.

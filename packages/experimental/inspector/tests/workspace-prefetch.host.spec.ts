@@ -1,6 +1,6 @@
 /** DevTools sources are fixed npm inputs; package installation starts no external resource download. */
 import { readFileSync } from 'node:fs'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 interface Manifest {
   scripts?: Record<string, string>
@@ -27,7 +27,8 @@ it('pins the npm source and uses workspace Vite without a webpack dependency', (
 })
 
 it.each(['../../../../apps/cli/package.json', '../../inspector-profile/package.json', '../package.json'])(
-  'keeps download lifecycle hooks out of the published package %s', (path) => {
+  'keeps download lifecycle hooks out of the published package %s',
+  path => {
     const { scripts = {} } = manifest(path)
     for (const hook of ['preinstall', 'install', 'postinstall', 'prepare']) expect(scripts[hook]).toBeUndefined()
   },

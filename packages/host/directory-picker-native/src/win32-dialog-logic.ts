@@ -116,11 +116,7 @@ function check(hr: number, what: string): number {
  *   blocking `Show`, so a driver on another thread can close the dialog.
  * @returns the selected filesystem path, or null when the user cancels.
  */
-export function runFolderDialog(
-  bindings: Win32DialogBindings,
-  title: string,
-  onShowing: (threadId: number) => void,
-): string | null {
+export function runFolderDialog(bindings: Win32DialogBindings, title: string, onShowing: (threadId: number) => void): string | null {
   bindings.setThreadDpiAwareness()
   check(bindings.coInitializeSta(), 'CoInitializeEx')
   // From here the apartment is initialized (S_OK or S_FALSE) and must be

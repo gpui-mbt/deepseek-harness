@@ -14,9 +14,12 @@ import { deadline, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
 // TODO: Replace the file-search advice; arbitrary command output need not come from a searchable file.
-const TRUNCATED_MESSAGE = '<response clipped><NOTE>To save on context only part of this file has been shown to you. You should retry this tool after you have searched inside the file with `grep -n` in order to find the line numbers of what you are looking for.</NOTE>'
-const LOST_PREFIX_MESSAGE = '<response clipped><NOTE>The beginning of this command output was dropped by the terminal scrollback limit. The following text is the earliest retained output.</NOTE>\n'
-const SHELL_RESET_MESSAGE = 'The persistent bash shell was reset; the next bash call starts from the workspace with a fresh current directory and environment.'
+const TRUNCATED_MESSAGE =
+  '<response clipped><NOTE>To save on context only part of this file has been shown to you. You should retry this tool after you have searched inside the file with `grep -n` in order to find the line numbers of what you are looking for.</NOTE>'
+const LOST_PREFIX_MESSAGE =
+  '<response clipped><NOTE>The beginning of this command output was dropped by the terminal scrollback limit. The following text is the earliest retained output.</NOTE>\n'
+const SHELL_RESET_MESSAGE =
+  'The persistent bash shell was reset; the next bash call starts from the workspace with a fresh current directory and environment.'
 // Status trailer for a command that never reported an exit code; settled
 // commands append `[Command finished with exit code N]` instead (see renderCaptured).
 const TIMEOUT_STATUS_MARKER = '[Command timed out or OOM]'
@@ -26,7 +29,8 @@ const TIMEOUT_CODE = 'PERSISTENT_BASH_TIMEOUT'
 const SCROLLBACK_PAGE_LINES = 1_000
 const POLL_INTERVAL_MS = 25
 
-const DEFAULT_DESCRIPTION = 'Run commands in a persistent bash shell. State, including the current directory and exported environment variables, persists across calls for this agent.'
+const DEFAULT_DESCRIPTION =
+  'Run commands in a persistent bash shell. State, including the current directory and exported environment variables, persists across calls for this agent.'
 
 interface ResolvedConfig {
   backendType: string
@@ -72,11 +76,7 @@ function markers(): CommandMarkers {
 }
 
 function quoteForBash(value: string): string {
-  return `$'${value
-    .replaceAll('\\', '\\\\')
-    .replaceAll("'", "\\'")
-    .replaceAll('\r', '\\r')
-    .replaceAll('\n', '\\n')}'`
+  return `$'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'").replaceAll('\r', '\\r').replaceAll('\n', '\\n')}'`
 }
 
 function wrapCommand(command: string, marker: CommandMarkers): string {
@@ -90,10 +90,7 @@ function trimTrailingNewline(text: string): string {
   return text.replace(/(?:\r?\n)+$/, '')
 }
 
-function commandOutput(
-  snapshot: RetainedOutput,
-  marker: CommandMarkers,
-): CapturedOutput | undefined {
+function commandOutput(snapshot: RetainedOutput, marker: CommandMarkers): CapturedOutput | undefined {
   const text = snapshot.text
   const end = text.lastIndexOf(marker.end)
   const status = /^(\d+)\r?\n/.exec(text.slice(end + marker.end.length))?.[1]
@@ -107,12 +104,7 @@ function commandOutput(
   }
 }
 
-function partialOutput(
-  snapshot: RetainedOutput,
-  marker: CommandMarkers,
-  fallback: string,
-  fallbackTruncated = false,
-): CapturedOutput {
+function partialOutput(snapshot: RetainedOutput, marker: CommandMarkers, fallback: string, fallbackTruncated = false): CapturedOutput {
   const startMarker = snapshot.text.lastIndexOf(marker.start)
   if (startMarker >= 0) {
     return {
@@ -121,9 +113,7 @@ function partialOutput(
     }
   }
   const fallbackStart = fallback.lastIndexOf(marker.start)
-  const afterStart = fallbackStart < 0
-    ? fallback
-    : fallback.slice(fallbackStart + marker.start.length).replace(/^\r?\n/, '')
+  const afterStart = fallbackStart < 0 ? fallback : fallback.slice(fallbackStart + marker.start.length).replace(/^\r?\n/, '')
   const fallbackEnd = afterStart.lastIndexOf(marker.end)
   const beforeEnd = fallbackEnd < 0 ? afterStart : afterStart.slice(0, fallbackEnd)
   return {
@@ -164,12 +154,8 @@ function retainedScrollback(
 
 function renderCaptured(output: CapturedOutput, maxOutputChars: number): string {
   const rendered = maybeTruncate(output.text, maxOutputChars, output.incomplete)
-  const withPrefix = output.incomplete && output.text.length > 0
-    ? LOST_PREFIX_MESSAGE + rendered
-    : rendered
-  const marker = output.exitCode !== undefined
-    ? `[Command finished with exit code ${output.exitCode}]`
-    : undefined
+  const withPrefix = output.incomplete && output.text.length > 0 ? LOST_PREFIX_MESSAGE + rendered : rendered
+  const marker = output.exitCode !== undefined ? `[Command finished with exit code ${output.exitCode}]` : undefined
   return appendStatusMarker(withPrefix, marker)
 }
 
@@ -178,16 +164,9 @@ function appendStatusMarker(content: string, marker: string | undefined): string
   return content.length === 0 ? marker : `${content}\n${marker}`
 }
 
-function renderShellExitStatus(
-  content: string,
-  exitCode: number | null,
-  signal: NodeJS.Signals | null,
-): string {
-  const marker = signal !== null
-    ? `[shell killed by signal: ${signal}]`
-    : exitCode !== null
-      ? `[shell exited: code ${exitCode}]`
-      : '[shell exited]'
+function renderShellExitStatus(content: string, exitCode: number | null, signal: NodeJS.Signals | null): string {
+  const marker =
+    signal !== null ? `[shell killed by signal: ${signal}]` : exitCode !== null ? `[shell exited: code ${exitCode}]` : '[shell exited]'
   return appendStatusMarker(content, marker)
 }
 
@@ -218,7 +197,9 @@ async function respondToSessionExit(
       status.signal,
     ),
     SHELL_RESET_MESSAGE,
-  ].filter(part => part.length > 0).join('\n')
+  ]
+    .filter(part => part.length > 0)
+    .join('\n')
 }
 
 function persistentShells(ctx: Context, config: ResolvedConfig): PersistentShells {
@@ -233,13 +214,18 @@ function persistentShells(ctx: Context, config: ResolvedConfig): PersistentShell
     await ctx.terminals.kill(owner, id, reason)
   }
 
-  ctx.effect(() => async () => {
-    lifecycle.abort(new Error('tool-bash-persistent disposed during shell creation'))
-    await Promise.allSettled([...creating])
-    const closing = [...live].map(async ([owner, id]) => { await close(owner, id, 'tool-bash-persistent disposed') })
-    await Promise.all(closing)
-    live.clear()
-  }, 'tool-bash-persistent shell cleanup')
+  ctx.effect(
+    () => async () => {
+      lifecycle.abort(new Error('tool-bash-persistent disposed during shell creation'))
+      await Promise.allSettled([...creating])
+      const closing = [...live].map(async ([owner, id]) => {
+        await close(owner, id, 'tool-bash-persistent disposed')
+      })
+      await Promise.all(closing)
+      live.clear()
+    },
+    'tool-bash-persistent shell cleanup',
+  )
 
   const reset = async (owner: Agent, reason: string): Promise<void> => {
     pending.delete(owner)
@@ -255,17 +241,24 @@ function persistentShells(ctx: Context, config: ResolvedConfig): PersistentShell
     const creation = (async () => {
       try {
         const cwd = await ctx.workingDirectory.ensure(owner, combinedSignal)
-        const spawned = await ctx.terminals.spawn(owner, {
-          type: config.backendType,
-          cwd,
-        }, combinedSignal)
+        const spawned = await ctx.terminals.spawn(
+          owner,
+          {
+            type: config.backendType,
+            cwd,
+          },
+          combinedSignal,
+        )
         live.set(owner, spawned.sessionId)
         if (!ownerCleanupInstalled.has(owner)) {
           ownerCleanupInstalled.add(owner)
-          owner.ctx.effect(() => () => {
-            pending.delete(owner)
-            live.delete(owner)
-          }, 'tool-bash-persistent owner cache cleanup')
+          owner.ctx.effect(
+            () => () => {
+              pending.delete(owner)
+              live.delete(owner)
+            },
+            'tool-bash-persistent owner cache cleanup',
+          )
         }
         // Echo suppression only: the prompt stays the backend's own, so the
         // backend's prompt-based readiness detection keeps working.
@@ -324,9 +317,7 @@ async function executeCommand(
     // re-observing status before the next send closes that gap.
     const status = ctx.terminals.list(owner).find(session => session.sessionId === id)?.status
     if (status?.kind === 'exited') {
-      return await respondToSessionExit(
-        ctx, shells, owner, id, status, marker, fallback, fallbackTruncated, config,
-      )
+      return await respondToSessionExit(ctx, shells, owner, id, status, marker, fallback, fallbackTruncated, config)
     }
     let operation
     let result
@@ -349,10 +340,7 @@ async function executeCommand(
     const timedOut = timeoutOf(commandDeadline.signal, TIMEOUT_CODE)
     if (timedOut !== undefined) {
       const snapshot = retainedScrollback(ctx, owner, id, latest)
-      const partial = renderCaptured(
-        partialOutput(snapshot, marker, fallback, fallbackTruncated),
-        config.maxOutputChars,
-      )
+      const partial = renderCaptured(partialOutput(snapshot, marker, fallback, fallbackTruncated), config.maxOutputChars)
       await shells.reset(owner, 'persistent bash command timed out')
       return [
         // TODO: Report a timeout only; this signal does not establish an OOM.
@@ -371,9 +359,7 @@ async function executeCommand(
       if (complete !== undefined) return renderCaptured(complete, config.maxOutputChars)
     }
     if (result.sessionStatus.kind === 'exited') {
-      return await respondToSessionExit(
-        ctx, shells, owner, id, result.sessionStatus, marker, fallback, fallbackTruncated, config,
-      )
+      return await respondToSessionExit(ctx, shells, owner, id, result.sessionStatus, marker, fallback, fallbackTruncated, config)
     }
     // The shell reads stdin again (its prompt, or a foreground child's own
     // read) without having printed the end marker — e.g. `exec`, an interrupt,
@@ -381,10 +367,7 @@ async function executeCommand(
     // until the command deadline.
     if (result.waitReason === 'stdin_read') {
       const snapshot = retainedScrollback(ctx, owner, id, latest)
-      return renderCaptured(
-        partialOutput(snapshot, marker, fallback, fallbackTruncated),
-        config.maxOutputChars,
-      )
+      return renderCaptured(partialOutput(snapshot, marker, fallback, fallbackTruncated), config.maxOutputChars)
     }
     await pause()
   }
@@ -402,7 +385,10 @@ function registerPersistentBash(ctx: Context, config: ResolvedConfig): void {
   const serialized = async <T>(owner: Agent, operation: () => Promise<T>): Promise<T> => {
     const prior = queues.get(owner) ?? Promise.resolve()
     const run = prior.then(operation, operation)
-    const tail = run.then(() => undefined, () => undefined)
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    )
     queues.set(owner, tail)
     try {
       return await run
@@ -411,31 +397,33 @@ function registerPersistentBash(ctx: Context, config: ResolvedConfig): void {
     }
   }
 
-  ctx.tools.register(defineTool({
-    name: 'bash',
-    description: config.description,
-    parameters: {
-      command: {
-        type: 'string',
-        required: true,
-        description: 'The bash command to run. Relative path is preferred in the command.',
+  ctx.tools.register(
+    defineTool({
+      name: 'bash',
+      description: config.description,
+      parameters: {
+        command: {
+          type: 'string',
+          required: true,
+          description: 'The bash command to run. Relative path is preferred in the command.',
+        },
       },
-    },
-    output: {
-      schema: { type: 'string' },
-      render: (_args, value) => [{ type: 'text', text: value }],
-    },
-    async execute(args, exec) {
-      if (args.command.trim().length === 0) throw new Error('command must be a non-empty string')
-      const owner = exec.agent
-      if (owner === undefined) throw new Error('bash requires an owning agent session')
-      return serialized(owner, async () => {
-        if (exec.signal.aborted) return '' // ToolRuntime publishes ABORTED after settlement.
-        return executeCommand(ctx, shells, owner, args.command, config, exec.signal)
-      })
-    },
-    presentCall: args => ({ card: 'terminal', title: args.command }),
-  }))
+      output: {
+        schema: { type: 'string' },
+        render: (_args, value) => [{ type: 'text', text: value }],
+      },
+      async execute(args, exec) {
+        if (args.command.trim().length === 0) throw new Error('command must be a non-empty string')
+        const owner = exec.agent
+        if (owner === undefined) throw new Error('bash requires an owning agent session')
+        return serialized(owner, async () => {
+          if (exec.signal.aborted) return '' // ToolRuntime publishes ABORTED after settlement.
+          return executeCommand(ctx, shells, owner, args.command, config, exec.signal)
+        })
+      },
+      presentCall: args => ({ card: 'terminal', title: args.command }),
+    }),
+  )
 }
 
 export const name = 'tool-bash-persistent'

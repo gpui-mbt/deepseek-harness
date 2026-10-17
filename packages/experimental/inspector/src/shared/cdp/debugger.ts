@@ -60,19 +60,19 @@ export interface RuntimeDebuggerResumeRequest {
 /** Debugger lifecycle notification emitted by a realm backend. */
 export type RuntimeDebuggerEvent<Handle extends string> =
   | {
-    readonly type: 'paused'
-    readonly callFrames: readonly RuntimeDebuggerCallFrame<Handle>[]
-    readonly reason: string
-    readonly data?: InspectorJsonValue
-    readonly hitBreakpoints?: readonly string[]
-    readonly asyncStackTrace?: RuntimeStackTrace
-  }
+      readonly type: 'paused'
+      readonly callFrames: readonly RuntimeDebuggerCallFrame<Handle>[]
+      readonly reason: string
+      readonly data?: InspectorJsonValue
+      readonly hitBreakpoints?: readonly string[]
+      readonly asyncStackTrace?: RuntimeStackTrace
+    }
   | { readonly type: 'resumed' }
   | {
-    readonly type: 'breakpoint-resolved'
-    readonly breakpointId: string
-    readonly location: RuntimeDebuggerLocation
-  }
+      readonly type: 'breakpoint-resolved'
+      readonly breakpointId: string
+      readonly location: RuntimeDebuggerLocation
+    }
 
 /** Active debugger operation result containing a Runtime value. */
 export type RuntimeCallFrameEvaluation<Handle extends string> = RuntimeCompletion<Handle>

@@ -62,9 +62,7 @@ export function computeHunkDiffs(path: string, before: string, after: string): F
 function isFileDiff(value: unknown): value is FileDiff {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const { path, oldText, newText } = value as Record<string, unknown>
-  return typeof path === 'string'
-    && (oldText === null || typeof oldText === 'string')
-    && typeof newText === 'string'
+  return typeof path === 'string' && (oldText === null || typeof oldText === 'string') && typeof newText === 'string'
 }
 
 /**

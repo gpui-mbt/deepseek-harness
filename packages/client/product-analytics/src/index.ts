@@ -33,7 +33,8 @@ declare module '@deepseek-ai/cordis' {
 export default class ProductAnalytics extends TypertRemoteService {
   static inject = ['deepseekAccount', 'productTelemetry']
   static Config = z.object({
-    enabled: z.boolean().default(true).volatile(), appVersion: z.string(),
+    enabled: z.boolean().default(true).volatile(),
+    appVersion: z.string(),
     environmentQueryTimeoutMillis: z.number().step(1).min(1).max(2_147_483_647).default(5000),
     environmentQueryMaxOutputBytes: z.number().step(1).min(1).max(2_147_483_647).default(16384),
   })
@@ -42,7 +43,10 @@ export default class ProductAnalytics extends TypertRemoteService {
   private environment: Promise<EnvironmentAttributes> | undefined
   private readonly listeners = new Set<() => void>()
 
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx, 'productAnalytics')
     ctx.effect(() => async () => {
       this.active = false
@@ -50,12 +54,19 @@ export default class ProductAnalytics extends TypertRemoteService {
       this.environmentLifetime.abort()
       await this.environment
     })
-    ctx.on('loader/volatile-update', () => { for (const listener of this.listeners) listener() })
-    ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
+    ctx.on('loader/volatile-update', () => {
+      for (const listener of this.listeners) listener()
+    })
+    ctx.inject(['settings'], child => {
+      child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+    })
     ctx.on('session/event', (session, event) => {
       if (event.type !== 'compaction/start') return
-      void this.report({ eventName: 'context_compression', timestamp: Date.now(),
-        attributes: { session_id: session.id, trigger_type: event.data.turn === null ? 'manual' : 'auto' } })
+      void this.report({
+        eventName: 'context_compression',
+        timestamp: Date.now(),
+        attributes: { session_id: session.id, trigger_type: event.data.turn === null ? 'manual' : 'auto' },
+      })
     })
   }
 
@@ -64,7 +75,9 @@ export default class ProductAnalytics extends TypertRemoteService {
    * @returns whether this Host currently accepts Desktop analytics.
    */
   @Remote
-  enabled(): boolean { return this.active && this.config.enabled.get() }
+  enabled(): boolean {
+    return this.active && this.config.enabled.get()
+  }
 
   /**
    * Stream the effective policy initially and after live configuration edits.
@@ -74,7 +87,9 @@ export default class ProductAnalytics extends TypertRemoteService {
   @Remote({ mode: 'stream' })
   async *watchPolicy(signal: AbortSignal): AsyncIterable<boolean> {
     let update = Promise.withResolvers<void>()
-    const changed = (): void => { update.resolve() }
+    const changed = (): void => {
+      update.resolve()
+    }
     this.listeners.add(changed)
     signal.addEventListener('abort', changed, { once: true })
     try {
@@ -106,21 +121,25 @@ export default class ProductAnalytics extends TypertRemoteService {
         signal: this.environmentLifetime.signal,
       })
       const [environment, identity] = await Promise.all([
-        this.environment, this.ctx.deepseekAccount.getDeviceIdentity().catch(() => undefined),
+        this.environment,
+        this.ctx.deepseekAccount.getDeviceIdentity().catch(() => undefined),
       ])
       if (!this.enabled()) return
       const { missing_fields: missingFields, ...metadata } = environment
-      const missing = Object.entries(missingFields).sort(([a], [b]) => a.localeCompare(b))
-        .map(([field, reason]) => `${field}=${reason}`).join(',')
+      const missing = Object.entries(missingFields)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([field, reason]) => `${field}=${reason}`)
+        .join(',')
       this.ctx.productTelemetry.emit({
-        ...event, body: event.eventName,
+        ...event,
+        body: event.eventName,
         attributes: {
           ...event.attributes,
           ...metadata,
-          ...missing === '' ? {} : { missing_fields: missing },
-          ...identity?.deviceId === undefined ? {} : { device_id: identity.deviceId },
-          ...identity?.userId === undefined ? {} : { user_id: identity.userId },
-          ...this.config.appVersion === undefined ? {} : { app_version: this.config.appVersion },
+          ...(missing === '' ? {} : { missing_fields: missing }),
+          ...(identity?.deviceId === undefined ? {} : { device_id: identity.deviceId }),
+          ...(identity?.userId === undefined ? {} : { user_id: identity.userId }),
+          ...(this.config.appVersion === undefined ? {} : { app_version: this.config.appVersion }),
         },
       })
     } catch (error) {

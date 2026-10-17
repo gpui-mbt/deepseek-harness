@@ -9,17 +9,27 @@
  * pure history functions, so the stateful `Sequencer` embedding and an embedder
  * driving `record`/`stepBack` directly cannot drift apart.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { applyOp } from '../src/engine/operations.ts'
 import { DockController } from '../src/engine/controller.ts'
 import { createIdMinter, createInitialState } from '../src/engine/initial.ts'
 import {
-  activeDockPaneId, findContentTab, findPaneContentTab, planDropTab, planDuplicateTab, planFloatTab, planOpenContent,
-  planPlaceTab, planSetExpanded, planSetMode, planSettle, planSplitPane, planUnfloatPane, planAddTab,
+  activeDockPaneId,
+  findContentTab,
+  findPaneContentTab,
+  planDropTab,
+  planDuplicateTab,
+  planFloatTab,
+  planOpenContent,
+  planPlaceTab,
+  planSetExpanded,
+  planSetMode,
+  planSettle,
+  planSplitPane,
+  planUnfloatPane,
+  planAddTab,
 } from '../src/engine/planner.ts'
-import {
-  EMPTY_HISTORY, record, recordedOps, stepBack, stepForward, type History,
-} from '../src/engine/sequence.ts'
+import { EMPTY_HISTORY, record, recordedOps, stepBack, stepForward, type History } from '../src/engine/sequence.ts'
 import { dockPaneIds, findTabPane, getPane, getSplit } from '../src/engine/tree.ts'
 import type { LayoutOp, LayoutState, PaneId, TabId } from '../src/contract/types.ts'
 import type { Mint } from '../src/engine/planner.ts'
@@ -112,7 +122,9 @@ describe('planPlaceTab', () => {
   }
 
   it('reads the slot as the caret over the strip as drawn, the dragged chip included', () => {
-    const { tabs: [a, b, c] } = threeTabs()
+    const {
+      tabs: [a, b, c],
+    } = threeTabs()
     // Rightward: the caret between b and c is slot 2, and a lands between them.
     expect(after(a, 2)).toEqual([b, a, c])
     expect(after(a, 3)).toEqual([b, c, a])
@@ -122,7 +134,11 @@ describe('planPlaceTab', () => {
   })
 
   it('plans nothing for the slot on either side of the dragged chip', () => {
-    const { state, paneId, tabs: [a, b, c] } = threeTabs()
+    const {
+      state,
+      paneId,
+      tabs: [a, b, c],
+    } = threeTabs()
     expect(planPlaceTab(state, a, paneId, 0)).toEqual([])
     expect(planPlaceTab(state, a, paneId, 1)).toEqual([])
     expect(planPlaceTab(state, b, paneId, 1)).toEqual([])
@@ -132,8 +148,8 @@ describe('planPlaceTab', () => {
   })
 })
 
-describe('planDropTab on the tab\'s own pane', () => {
-  it('plans nothing for a pane\'s only tab released on any of its own edges without a factory', () => {
+describe("planDropTab on the tab's own pane", () => {
+  it("plans nothing for a pane's only tab released on any of its own edges without a factory", () => {
     const { state, minter } = seededState()
     const mint = minter.next
     const tabId = getPane(state, state.rootId).tabs[0]
@@ -143,7 +159,7 @@ describe('planDropTab on the tab\'s own pane', () => {
     }
   })
 
-  it('splits on a sole tab\'s own edge when a factory backfills the pane it vacates', () => {
+  it("splits on a sole tab's own edge when a factory backfills the pane it vacates", () => {
     const { state, minter } = seededState()
     const mint = minter.next
     const paneId = getPane(state, state.rootId).id
@@ -167,8 +183,7 @@ describe('planDropTab on the tab\'s own pane', () => {
     const opened = planOpenContent(state, mint, { contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' })
     const two = applyAll(state, opened.ops)
     const target = getPane(two, two.rootId).id
-    expect(planDropTab(two, mint, opened.tabId, target, 'right')
-      .map(op => op.type)).toEqual(['split', 'moveTab'])
+    expect(planDropTab(two, mint, opened.tabId, target, 'right').map(op => op.type)).toEqual(['split', 'moveTab'])
     const ops = planDropTab(two, mint, opened.tabId, target, 'right', seedTab)
     expect(ops.map(op => op.type)).toEqual(['split', 'moveTab'])
     const split = applyAll(two, ops)
@@ -226,7 +241,8 @@ describe('planSettle', () => {
   it('merges away each pane an intent emptied, one after another', () => {
     const { state, mint, left, right } = twoPanes()
     const third = applyAll(state, planSplitPane(state, mint, right, seedTab))
-    const emptied = dockPaneIds(third).flatMap(id => getPane(third, id).tabs)
+    const emptied = dockPaneIds(third)
+      .flatMap(id => getPane(third, id).tabs)
       .filter(tabId => findTabPane(third, tabId).id !== left)
       .reduce((current, tabId) => applyAll(current, [{ type: 'closeTab', tabId }]), third)
     const ops = planSettle(emptied, mint, seedTab)
@@ -271,8 +287,16 @@ describe('planOpenContent placement and identity', () => {
   it('opens another tab when told not to reveal the existing one', () => {
     const { state, minter } = seededState()
     const mint = minter.next
-    const opened = applyAll(state, planOpenContent(state, mint, { contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' }).ops)
-    const copy = planOpenContent(opened, mint, { contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file', revealIfOpened: false })
+    const opened = applyAll(
+      state,
+      planOpenContent(state, mint, { contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file' }).ops,
+    )
+    const copy = planOpenContent(opened, mint, {
+      contentId: 'dsh-resource://file/session/s/a.txt',
+      title: 'a.txt',
+      kind: 'file',
+      revealIfOpened: false,
+    })
     expect(copy.ops.map(op => op.type)).toEqual(['openTab'])
     const both = applyAll(opened, copy.ops)
     expect(Object.values(both.tabs).filter(tab => tab.contentId === 'dsh-resource://file/session/s/a.txt')).toHaveLength(2)
@@ -282,14 +306,20 @@ describe('planOpenContent placement and identity', () => {
     const { state, minter } = seededState()
     const mint = minter.next
     const paneId = getPane(state, state.rootId).id
-    const planned = planOpenContent(state, mint, { contentId: 'dsh-resource://file/session/s/a.txt', title: 'a.txt', kind: 'file', paneId, index: 0 })
+    const planned = planOpenContent(state, mint, {
+      contentId: 'dsh-resource://file/session/s/a.txt',
+      title: 'a.txt',
+      kind: 'file',
+      paneId,
+      index: 0,
+    })
     expect(planned.ops[0]).toMatchObject({ type: 'openTab', paneId, index: 0 })
     expect(getPane(applyAll(state, planned.ops), paneId).tabs[0]).toBe(planned.tabId)
   })
 })
 
 describe('planAddTab', () => {
-  it('seats the factory\'s tab at the end of the pane, and plans nothing without a factory', () => {
+  it("seats the factory's tab at the end of the pane, and plans nothing without a factory", () => {
     const { state, minter } = seededState()
     const mint = minter.next
     const paneId = getPane(state, state.rootId).id

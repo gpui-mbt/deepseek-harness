@@ -3,9 +3,13 @@
  * loader's `await` rewriting consumes: run boundaries, ambient snapshots, and
  * the context root the tunnel dispatches at.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
-  AsyncLocalStorage, alsCausality, captureAsyncContext, runAtAsyncContextRoot, runWithAsyncContext,
+  AsyncLocalStorage,
+  alsCausality,
+  captureAsyncContext,
+  runAtAsyncContextRoot,
+  runWithAsyncContext,
 } from '../../src/node/builtin_modules/implemented/async_hooks.ts'
 
 describe('AsyncLocalStorage', () => {
@@ -24,7 +28,9 @@ describe('AsyncLocalStorage', () => {
     const als = new AsyncLocalStorage<string>()
     als.run('outer', () => {
       expect(als.getStore()).toBe('outer')
-      als.run('inner', () => { expect(als.getStore()).toBe('inner') })
+      als.run('inner', () => {
+        expect(als.getStore()).toBe('inner')
+      })
       expect(als.getStore()).toBe('outer')
     })
   })
@@ -44,7 +50,9 @@ describe('causality faces', () => {
   it('captures a context and republishes it inside runWithAsyncContext', () => {
     const als = new AsyncLocalStorage<string>()
     let snapshot: ReturnType<typeof captureAsyncContext>
-    als.run('captured', () => { snapshot = captureAsyncContext() })
+    als.run('captured', () => {
+      snapshot = captureAsyncContext()
+    })
     expect(als.getStore()).toBeUndefined()
     runWithAsyncContext(snapshot, () => {
       expect(als.getStore()).toBe('captured')
@@ -57,7 +65,9 @@ describe('causality faces', () => {
     const second = new AsyncLocalStorage<number>()
     let paused: ReturnType<typeof alsCausality.snapshot> | undefined
     first.run('a', () => {
-      second.run(7, () => { paused = alsCausality.snapshot() })
+      second.run(7, () => {
+        paused = alsCausality.snapshot()
+      })
     })
     expect(first.getStore()).toBeUndefined()
     expect(second.getStore()).toBeUndefined()
@@ -67,7 +77,9 @@ describe('causality faces', () => {
     expect(first.getStore()).toBe('a')
     expect(second.getStore()).toBe(7)
     // A fresh boundary still wins over the resumed ambient context.
-    first.run('b', () => { expect(first.getStore()).toBe('b') })
+    first.run('b', () => {
+      expect(first.getStore()).toBe('b')
+    })
   })
 
   it('dispatches at the context root without inheriting the caller boundary', () => {

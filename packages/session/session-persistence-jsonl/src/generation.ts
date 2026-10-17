@@ -29,21 +29,12 @@ import { Session } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { BlockAssembler, expandAssistantStream } from '@deepseek-ai/dsh-llm'
 import { SessionFormatError } from '@deepseek-ai/dsh-session-format'
-import type {
-  SessionFormatArtifact,
-  SessionFormatJsonValue,
-  SessionFormatRestore,
-} from '@deepseek-ai/dsh-session-format'
+import type { SessionFormatArtifact, SessionFormatJsonValue, SessionFormatRestore } from '@deepseek-ai/dsh-session-format'
 import { validateStoredEvents } from '@deepseek-ai/dsh-session-persistence'
 import type { JsonlCompression } from './format.ts'
 import { generationLogFilename, logSuffix, SessionLogScanner } from './format.ts'
 import { publishNewFileWin32 } from './win32.ts'
-import {
-  compressZstdFrame,
-  createZstdFrameDecoder,
-  decompressZstdPrefix,
-  scanZstdFrames,
-} from './zstd.ts'
+import { compressZstdFrame, createZstdFrameDecoder, decompressZstdPrefix, scanZstdFrames } from './zstd.ts'
 
 /** Internal scheduling bounds: preserve old decode cadence and cap each synchronous encode slice. */
 const MIGRATION_DECODE_YIELD_INTERVAL_MS = 500
@@ -80,9 +71,7 @@ export interface PrepareJsonlMigrationOptions {
   readonly compression: JsonlCompression
   readonly format: JsonlGenerationFormatAdapter
   /** Validate one selected historical header's identity before any migration write. */
-  readonly validateHistoricalHeader?: (
-    header: Readonly<Record<string, unknown>>,
-  ) => void | Promise<void>
+  readonly validateHistoricalHeader?: (header: Readonly<Record<string, unknown>>) => void | Promise<void>
   /** Validate the staged file in an isolated worker before publication. */
   readonly verifyCurrentFile: (
     path: string,
@@ -183,9 +172,7 @@ interface GenerationFileSystem {
   rm(path: string): Promise<void>
 }
 
-type GenerationBarrierPhase =
-  | 'before-source-check'
-  | 'after-publication'
+type GenerationBarrierPhase = 'before-source-check' | 'after-publication'
 
 interface JsonlGenerationInternals {
   readonly fs: GenerationFileSystem
@@ -252,18 +239,11 @@ function identity(value: JsonlPhysicalIdentity): string {
  * @param signal - optional cancellation for the stat/read work.
  * @returns the stable bytes (or the committed prefix) and their stat identity.
  */
-export async function readStableJsonlFile(
-  path: string,
-  signal?: AbortSignal,
-): Promise<StablePhysicalFile> {
+export async function readStableJsonlFile(path: string, signal?: AbortSignal): Promise<StablePhysicalFile> {
   return defaultGenerationRuntime.readStable(path, signal)
 }
 
-async function readStableSnapshot(
-  path: string,
-  signal: AbortSignal | undefined,
-  fs: GenerationFileSystem,
-): Promise<StablePhysicalFile> {
+async function readStableSnapshot(path: string, signal: AbortSignal | undefined, fs: GenerationFileSystem): Promise<StablePhysicalFile> {
   signal?.throwIfAborted()
   let before = await fs.stat(path)
   for (let attempt = 0; ; attempt += 1) {
@@ -314,11 +294,7 @@ class MigratingJsonlRows {
   write(chunk: Buffer): void {
     /* jscpd:ignore-start -- migration parsing and readable-log scanning own different recovery and byte-accounting state. */
     let lineStart = 0
-    for (
-      let newline = chunk.indexOf(0x0A);
-      newline !== -1;
-      newline = chunk.indexOf(0x0A, lineStart)
-    ) {
+    for (let newline = chunk.indexOf(0x0a); newline !== -1; newline = chunk.indexOf(0x0a, lineStart)) {
       const fragment = chunk.subarray(lineStart, newline)
       let line = fragment
       if (this.fragments.length > 0) {
@@ -360,8 +336,7 @@ class MigratingJsonlRows {
       return
     }
     if (this.issue !== undefined) {
-      if (typeof row === 'object' && row !== null
-        && (row as { type?: unknown }).type === 'turn/end') throw this.issue
+      if (typeof row === 'object' && row !== null && (row as { type?: unknown }).type === 'turn/end') throw this.issue
       return
     }
     this.restore.decodeRow(row)
@@ -390,11 +365,7 @@ async function startMigrationStream(
   return { parser: new MigratingJsonlRows(stream) }
 }
 
-async function consumeMigrationBytes(
-  rows: MigratingJsonlRows,
-  chunks: Iterable<Buffer>,
-  signal?: AbortSignal,
-): Promise<void> {
+async function consumeMigrationBytes(rows: MigratingJsonlRows, chunks: Iterable<Buffer>, signal?: AbortSignal): Promise<void> {
   signal?.throwIfAborted()
   let yieldDeadline = performance.now() + MIGRATION_DECODE_YIELD_INTERVAL_MS
   for (const bytes of chunks) {
@@ -418,22 +389,13 @@ async function decodeStreamingMigration(
 ): Promise<SessionFormatArtifact> {
   signal?.throwIfAborted()
   if (compression === 'none') {
-    const headerEnd = bytes.indexOf(0x0A)
+    const headerEnd = bytes.indexOf(0x0a)
     if (headerEnd === -1) throw new Error('empty or header-less session log')
-    const stream = await startMigrationStream(
-      bytes.subarray(0, headerEnd + 1),
-      sourceVersion,
-      format,
-      validateHistoricalHeader,
-    )
+    const stream = await startMigrationStream(bytes.subarray(0, headerEnd + 1), sourceVersion, format, validateHistoricalHeader)
     signal?.throwIfAborted()
-    const bodyEnd = bytes.lastIndexOf(0x0A)
+    const bodyEnd = bytes.lastIndexOf(0x0a)
     if (bodyEnd > headerEnd) {
-      await consumeMigrationBytes(
-        stream.parser,
-        [bytes.subarray(headerEnd + 1, bodyEnd + 1)],
-        signal,
-      )
+      await consumeMigrationBytes(stream.parser, [bytes.subarray(headerEnd + 1, bodyEnd + 1)], signal)
     }
     return stream.parser.finish()
   }
@@ -447,12 +409,7 @@ async function decodeStreamingMigration(
     /* v8 ignore next -- a non-empty structural frame list yields once or throws. */
     if (first.done) throw new Error('empty or header-less Zstandard session log')
     assertIndependentHeaderFrame(first.value)
-    const stream = await startMigrationStream(
-      first.value,
-      sourceVersion,
-      format,
-      validateHistoricalHeader,
-    )
+    const stream = await startMigrationStream(first.value, sourceVersion, format, validateHistoricalHeader)
     signal?.throwIfAborted()
     await consumeMigrationBytes(stream.parser, decoded, signal)
     stream.parser.assertCompleteFramesEndOnRecord()
@@ -465,13 +422,9 @@ async function decodeStreamingMigration(
         if (signal?.aborted) signal.throwIfAborted()
       }
       signal?.throwIfAborted()
-      const newline = recovered.lastIndexOf(0x0A)
+      const newline = recovered.lastIndexOf(0x0a)
       if (newline !== -1) {
-        await consumeMigrationBytes(
-          stream.parser,
-          [recovered.subarray(0, newline + 1)],
-          signal,
-        )
+        await consumeMigrationBytes(stream.parser, [recovered.subarray(0, newline + 1)], signal)
       }
     }
     return stream.parser.finish()
@@ -530,9 +483,7 @@ async function verifyCurrentGeneration(
     throw new Error(`current session generation contains id "${generation.meta.id}", expected "${expectedId}"`)
   }
   if (generation.events.length !== expectedEventCount) {
-    throw new Error(
-      `current session generation contains ${generation.events.length} events, expected ${expectedEventCount}`,
-    )
+    throw new Error(`current session generation contains ${generation.events.length} events, expected ${expectedEventCount}`)
   }
   Session.fromRestore(
     generation.meta.id,
@@ -576,12 +527,9 @@ function assertCurrentAssistantStreams(events: readonly SessionEvent[]): void {
   }
 }
 
-function decodeCurrentGeneration(
-  bytes: Buffer,
-  compression: JsonlCompression,
-): ReturnType<SessionLogScanner['finish']> {
+function decodeCurrentGeneration(bytes: Buffer, compression: JsonlCompression): ReturnType<SessionLogScanner['finish']> {
   if (compression === 'none') {
-    const headerEnd = bytes.indexOf(0x0A)
+    const headerEnd = bytes.indexOf(0x0a)
     if (headerEnd === -1) throw new Error('empty or header-less session log')
     const scanner = new SessionLogScanner(bytes.subarray(0, headerEnd + 1), 'strict')
     scanner.write(bytes.subarray(headerEnd + 1))
@@ -605,9 +553,7 @@ function decodeCurrentGeneration(
   }
 }
 
-function finishCurrentGenerationScan(
-  scanner: SessionLogScanner,
-): ReturnType<SessionLogScanner['finish']> {
+function finishCurrentGenerationScan(scanner: SessionLogScanner): ReturnType<SessionLogScanner['finish']> {
   const inputBytes = scanner.checkpoint().inputBytes
   const decoded = scanner.finish()
   if (decoded.committedBytes !== inputBytes) throw new Error('current session generation has a torn physical tail')
@@ -626,7 +572,7 @@ function stringifyJson(value: unknown, subject: string): string {
 }
 
 function assertIndependentHeaderFrame(plaintext: Buffer): void {
-  if (plaintext.length === 0 || plaintext.indexOf(0x0A) !== plaintext.length - 1) {
+  if (plaintext.length === 0 || plaintext.indexOf(0x0a) !== plaintext.length - 1) {
     throw new Error('corrupt Zstandard session log: first frame is not exactly one header line')
   }
 }
@@ -694,21 +640,18 @@ async function* encodeMigrationRows(
   yield Buffer.from(lines.join(''))
 }
 
-async function writeMigrationChunks(
-  chunks: AsyncIterable<Buffer>,
-  write: (chunk: Buffer) => Promise<void>,
-): Promise<void> {
+async function writeMigrationChunks(chunks: AsyncIterable<Buffer>, write: (chunk: Buffer) => Promise<void>): Promise<void> {
   let pending: Buffer[] = []
   let bytes = 0
   for await (const chunk of chunks) {
     pending.push(chunk)
     bytes += chunk.length
     if (bytes < MIGRATION_WRITE_CHUNK_BYTES) continue
-    await write(pending.length === 1 ? pending[0] as Buffer : Buffer.concat(pending, bytes))
+    await write(pending.length === 1 ? (pending[0] as Buffer) : Buffer.concat(pending, bytes))
     pending = []
     bytes = 0
   }
-  if (bytes > 0) await write(pending.length === 1 ? pending[0] as Buffer : Buffer.concat(pending, bytes))
+  if (bytes > 0) await write(pending.length === 1 ? (pending[0] as Buffer) : Buffer.concat(pending, bytes))
 }
 
 /** Encode directly into one synced stage without a whole-artifact row or byte buffer. */
@@ -755,7 +698,9 @@ async function writeSyncedTemp(
           pipeline(
             Readable.from(rows, { objectMode: false, highWaterMark: MIGRATION_WORK_CHUNK_BYTES }),
             createZstdCompress(ZSTD_CHECKSUM_OPTIONS),
-            async (source) => { await writeMigrationChunks(source as AsyncIterable<Buffer>, write) },
+            async source => {
+              await writeMigrationChunks(source as AsyncIterable<Buffer>, write)
+            },
             (error: Error | null | undefined) => {
               if (error instanceof Error) reject(error)
               else resolve()
@@ -772,14 +717,11 @@ async function writeSyncedTemp(
   try {
     await handle.close()
   } catch (error: unknown) {
-    failure = failure === undefined
-      ? error
-      : new AggregateError([failure, error], `failed to write and close migration stage "${path}"`)
+    failure = failure === undefined ? error : new AggregateError([failure, error], `failed to write and close migration stage "${path}"`)
   }
   if (failure !== undefined) {
-    const writeError = failure instanceof Error
-      ? failure
-      : new Error('migration stage write failed with a non-Error rejection', { cause: failure })
+    const writeError =
+      failure instanceof Error ? failure : new Error('migration stage write failed with a non-Error rejection', { cause: failure })
     await removeTemporary(path, writeError, internals)
     throw writeError
   }
@@ -787,26 +729,16 @@ async function writeSyncedTemp(
 }
 
 /** Remove one temporary file without hiding the operation failure that made it disposable. */
-async function removeTemporary(
-  path: string,
-  primaryFailure: unknown,
-  internals: JsonlGenerationInternals,
-): Promise<void> {
+async function removeTemporary(path: string, primaryFailure: unknown, internals: JsonlGenerationInternals): Promise<void> {
   try {
     await internals.fs.rm(path)
   } catch (cleanupFailure: unknown) {
-    throw new AggregateError(
-      [primaryFailure, cleanupFailure],
-      `failed to clean migration temporary "${path}" after an earlier failure`,
-    )
+    throw new AggregateError([primaryFailure, cleanupFailure], `failed to clean migration temporary "${path}" after an earlier failure`)
   }
 }
 
 /** Remove a redundant stage after the target has been validated as committed. */
-async function removeCommittedTemporary(
-  path: string,
-  internals: JsonlGenerationInternals,
-): Promise<void> {
+async function removeCommittedTemporary(path: string, internals: JsonlGenerationInternals): Promise<void> {
   try {
     await internals.fs.rm(path)
   } catch {
@@ -814,11 +746,7 @@ async function removeCommittedTemporary(
   }
 }
 
-async function publishCurrentExclusive(
-  staged: string,
-  currentPath: string,
-  internals: JsonlGenerationInternals,
-): Promise<boolean> {
+async function publishCurrentExclusive(staged: string, currentPath: string, internals: JsonlGenerationInternals): Promise<boolean> {
   if (internals.platform === 'win32') {
     try {
       await internals.publishNewWin32(staged, currentPath)
@@ -843,16 +771,14 @@ async function publishCurrentExclusive(
 }
 
 function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error('current-generation validation failed with a non-Error rejection', {
-    cause: error,
-  })
+  return error instanceof Error
+    ? error
+    : new Error('current-generation validation failed with a non-Error rejection', {
+        cause: error,
+      })
 }
 
-async function inspectExpectedCurrent<T>(
-  currentPath: string,
-  internals: JsonlGenerationInternals,
-  inspect: () => Promise<T>,
-): Promise<T> {
+async function inspectExpectedCurrent<T>(currentPath: string, internals: JsonlGenerationInternals, inspect: () => Promise<T>): Promise<T> {
   try {
     const expectedName = basename(currentPath)
     const names = await internals.fs.readdir(dirname(currentPath))
@@ -893,12 +819,7 @@ async function publishPreparedMigration(
   const eventCount = artifact.events.length
   let staged = await writeSyncedTemp(currentPath, suffix, compression, artifact, options.format, undefined, internals)
   try {
-    const verifiedStage = await verifyCurrentFile(
-      staged.path,
-      compression,
-      artifact.header.id,
-      eventCount,
-    )
+    const verifiedStage = await verifyCurrentFile(staged.path, compression, artifact.header.id, eventCount)
     if (verifiedStage.bytes !== staged.bytes || verifiedStage.digest !== staged.digest) {
       throw new Error('staged session generation changed during verification')
     }
@@ -920,13 +841,7 @@ async function publishPreparedMigration(
       currentIdentity = await internals.fs.stat(currentPath)
     } else {
       const winner = await inspectExpectedCurrent(currentPath, internals, async () => {
-        const candidate = await verifyCurrentFile(
-          currentPath,
-          compression,
-          artifact.header.id,
-          eventCount,
-          staged,
-        )
+        const candidate = await verifyCurrentFile(currentPath, compression, artifact.header.id, eventCount, staged)
         if (candidate.bytes !== staged.bytes || candidate.digest !== staged.digest) {
           throw new Error('target bytes differ from the migrated generation')
         }
@@ -948,27 +863,14 @@ async function prepareMigration(
   internals: JsonlGenerationInternals,
 ): Promise<PreparedJsonlMigration> {
   const { sourcePath, sourceVersion, currentPath, compression, format, signal } = options
-  const suffix = assertGenerationPaths(
-    sourcePath,
-    sourceVersion,
-    currentPath,
-    format.currentVersion,
-    compression,
-  )
+  const suffix = assertGenerationPaths(sourcePath, sourceVersion, currentPath, format.currentVersion, compression)
   if (sourceVersion >= format.currentVersion) {
     throw new Error(`migration preparation requires a historical source, got v${sourceVersion}`)
   }
   const source = await readStableSnapshot(sourcePath, signal, internals.fs)
   let artifact: SessionFormatArtifact
   try {
-    artifact = await decodeStreamingMigration(
-      source.bytes,
-      compression,
-      sourceVersion,
-      format,
-      options.validateHistoricalHeader,
-      signal,
-    )
+    artifact = await decodeStreamingMigration(source.bytes, compression, sourceVersion, format, options.validateHistoricalHeader, signal)
   } catch (error: unknown) {
     if (format.isUnsupportedMigrationError?.(error) === true) {
       throw new JsonlGenerationUnsupportedMigrationError(sourceVersion, error)
@@ -986,13 +888,7 @@ async function prepareMigration(
     artifact,
     publish() {
       if (publication === undefined) {
-        publication = publishPreparedMigration(
-          options,
-          suffix,
-          artifact,
-          sourceIdentity,
-          internals,
-        )
+        publication = publishPreparedMigration(options, suffix, artifact, sourceIdentity, internals)
       }
       return publication
     },
@@ -1004,9 +900,7 @@ async function prepareMigration(
  * @param options - resolved source, current target, format adapter, and load cancellation.
  * @returns the current artifact and an idempotent explicit publication operation.
  */
-export function prepareJsonlMigration(
-  options: PrepareJsonlMigrationOptions,
-): Promise<PreparedJsonlMigration> {
+export function prepareJsonlMigration(options: PrepareJsonlMigrationOptions): Promise<PreparedJsonlMigration> {
   return defaultGenerationRuntime.prepare(options)
 }
 
@@ -1015,16 +909,13 @@ export function prepareJsonlMigration(
  * @param overrides - deterministic filesystem, platform, and race dependencies.
  * @returns bound generation operations.
  */
-export function createJsonlGenerationRuntime(
-  overrides: JsonlGenerationRuntimeOverrides = {},
-): JsonlGenerationRuntime {
+export function createJsonlGenerationRuntime(overrides: JsonlGenerationRuntimeOverrides = {}): JsonlGenerationRuntime {
   const internals = withOverrides(overrides)
   return {
     readStable: (path, signal) => readStableSnapshot(path, signal, internals.fs),
     prepare: options => prepareMigration(options, internals),
-    verify: (path, compression, expectedId, expectedEventCount, expectedPrefix) => verifyCurrentGeneration(
-      path, compression, expectedId, expectedEventCount, internals.fs, expectedPrefix,
-    ),
+    verify: (path, compression, expectedId, expectedEventCount, expectedPrefix) =>
+      verifyCurrentGeneration(path, compression, expectedId, expectedEventCount, internals.fs, expectedPrefix),
   }
 }
 

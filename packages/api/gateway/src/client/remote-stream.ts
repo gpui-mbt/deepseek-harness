@@ -92,7 +92,7 @@ export class RemoteStream<Item> implements AsyncIterable<RemoteStreamItem<Item>>
     return iterator
   }
 
-  private async * read(): AsyncGenerator<RemoteStreamItem<Item>> {
+  private async *read(): AsyncGenerator<RemoteStreamItem<Item>> {
     let attempt = 0
     let generation = 0
     let observedRevision = this.revision
@@ -204,11 +204,9 @@ async function waitForRemoteStreamRetry(
  * and the `ended(true)` retry trigger.
  */
 function terminalStreamFailure(error: unknown): Error {
-  return remoteErrorOf(error) ?? new RemoteError(
-    'gateway/internal',
-    error instanceof Error ? error.message : String(error),
-    {},
-    { cause: error },
+  return (
+    remoteErrorOf(error) ??
+    new RemoteError('gateway/internal', error instanceof Error ? error.message : String(error), {}, { cause: error })
   )
 }
 
@@ -216,9 +214,7 @@ function isAborted(signal: AbortSignal): boolean {
   return signal.aborted
 }
 
-async function closeRemoteStreamIterator<Item>(
-  iterator: AsyncIterator<RemoteStreamItem<Item>>,
-): Promise<void> {
+async function closeRemoteStreamIterator<Item>(iterator: AsyncIterator<RemoteStreamItem<Item>>): Promise<void> {
   try {
     await iterator.return?.()
   } catch {

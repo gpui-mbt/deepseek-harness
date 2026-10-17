@@ -5,9 +5,9 @@ import { ToolCallId, LlmAdapter } from '@deepseek-ai/dsh-llm'
 let nextCall = 0
 
 function calls(messages) {
-  return messages.flatMap(message => message.role === 'assistant'
-    ? message.content.filter(block => block.type === 'tool-call').map(block => block.name)
-    : [])
+  return messages.flatMap(message =>
+    message.role === 'assistant' ? message.content.filter(block => block.type === 'tool-call').map(block => block.name) : [],
+  )
 }
 
 function latestAssistantCalls(messages) {
@@ -16,21 +16,24 @@ function latestAssistantCalls(messages) {
 }
 
 function hasTaskAction(messages, action) {
-  return messages.some(message => message.role === 'assistant'
-    && message.content.some((block) => {
-      if (block.type !== 'tool-call' || block.name !== 'team_task_update') return false
-      try {
-        return JSON.parse(block.arguments).action === action
-      } catch {
-        return false
-      }
-    }))
+  return messages.some(
+    message =>
+      message.role === 'assistant' &&
+      message.content.some(block => {
+        if (block.type !== 'tool-call' || block.name !== 'team_task_update') return false
+        try {
+          return JSON.parse(block.arguments).action === action
+        } catch {
+          return false
+        }
+      }),
+  )
 }
 
 function latestToolText(messages) {
   const message = messages.findLast(candidate => candidate.role === 'tool')
   if (message === undefined) return ''
-  return message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n')
+  return message.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('\n')
 }
 
 function toolChunks(specs) {
@@ -44,10 +47,7 @@ function toolChunks(specs) {
       { type: 'block-end', index, block: { type: 'tool-call', id, name: spec.name, arguments: args } },
     )
   }
-  chunks.push(
-    { type: 'usage', usage: { inputTokens: 10, outputTokens: 5 } },
-    { type: 'finish', reason: { kind: 'tool-calls' } },
-  )
+  chunks.push({ type: 'usage', usage: { inputTokens: 10, outputTokens: 5 } }, { type: 'finish', reason: { kind: 'tool-calls' } })
   return chunks
 }
 
@@ -64,14 +64,28 @@ function textChunks(text) {
 function researcher(messages) {
   const names = calls(messages)
   if (!names.includes('team_task_create')) {
-    return toolChunks([{ name: 'team_task_create', args: {
-      subject: 'Research', description: 'Collect the deterministic finding.', write_scopes: ['research'],
-    } }])
+    return toolChunks([
+      {
+        name: 'team_task_create',
+        args: {
+          subject: 'Research',
+          description: 'Collect the deterministic finding.',
+          write_scopes: ['research'],
+        },
+      },
+    ])
   }
   if (!names.includes('team_task_update')) {
-    return toolChunks([{ name: 'team_task_update', args: {
-      task_id: 'task-1', expected_revision: 1, action: 'claim',
-    } }])
+    return toolChunks([
+      {
+        name: 'team_task_update',
+        args: {
+          task_id: 'task-1',
+          expected_revision: 1,
+          action: 'claim',
+        },
+      },
+    ])
   }
   if (!names.includes('send_message')) {
     return toolChunks([
@@ -86,17 +100,22 @@ function implementer(messages) {
   const names = calls(messages)
   const last = latestAssistantCalls(messages)
   const text = latestToolText(messages)
-  const userText = messages.flatMap(message => message.role === 'user'
-    ? message.content.filter(block => block.type === 'text').map(block => block.text)
-    : []).join('\n')
+  const userText = messages
+    .flatMap(message => (message.role === 'user' ? message.content.filter(block => block.type === 'text').map(block => block.text) : []))
+    .join('\n')
   if (!names.includes('team_task_create')) {
     if (last.includes('team_task_get') && text.includes('"subject":"Research"')) {
-      return toolChunks([{ name: 'team_task_create', args: {
-        subject: 'Implementation',
-        description: 'Apply the deterministic finding.',
-        blocked_by: ['task-1'],
-        write_scopes: ['implementation'],
-      } }])
+      return toolChunks([
+        {
+          name: 'team_task_create',
+          args: {
+            subject: 'Implementation',
+            description: 'Apply the deterministic finding.',
+            blocked_by: ['task-1'],
+            write_scopes: ['implementation'],
+          },
+        },
+      ])
     }
     if (last.includes('wait_agent')) {
       return toolChunks([{ name: 'team_task_get', args: { task_id: 'task-1' } }])
@@ -105,9 +124,16 @@ function implementer(messages) {
   }
   if (!hasTaskAction(messages, 'claim')) {
     if (last.includes('team_task_get') && text.includes('"status":"completed"')) {
-      return toolChunks([{ name: 'team_task_update', args: {
-        task_id: 'task-2', expected_revision: 1, action: 'claim',
-      } }])
+      return toolChunks([
+        {
+          name: 'team_task_update',
+          args: {
+            task_id: 'task-2',
+            expected_revision: 1,
+            action: 'claim',
+          },
+        },
+      ])
     }
     if (last.includes('team_task_get')) {
       return toolChunks([{ name: 'team_task_get', args: { task_id: 'task-1' } }])
@@ -133,33 +159,42 @@ function lead(messages) {
   const names = calls(messages)
   const last = latestAssistantCalls(messages)
   if (!names.includes('workflow')) {
-    return toolChunks([{ name: 'workflow', args: {
-      meta: { name: 'team-preflight', description: 'Check fresh workflow delegation alongside teammates.' },
-      script: 'return await agent("TEAM_WORKFLOW_CHILD");',
-    } }])
+    return toolChunks([
+      {
+        name: 'workflow',
+        args: {
+          meta: { name: 'team-preflight', description: 'Check fresh workflow delegation alongside teammates.' },
+          script: 'return await agent("TEAM_WORKFLOW_CHILD");',
+        },
+      },
+    ])
   }
   const spawned = names.filter(name => name === 'spawn_teammate').length
   if (spawned === 0) {
-    return toolChunks([{
-      name: 'spawn_teammate',
-      args: {
-        name: 'implementer',
-        description: 'Own deterministic implementation.',
-        prompt: 'IMPLEMENTER_MARK: wait for research, complete dependent task 2, report to lead.',
-        context: 'fresh',
+    return toolChunks([
+      {
+        name: 'spawn_teammate',
+        args: {
+          name: 'implementer',
+          description: 'Own deterministic implementation.',
+          prompt: 'IMPLEMENTER_MARK: wait for research, complete dependent task 2, report to lead.',
+          context: 'fresh',
+        },
       },
-    }])
+    ])
   }
   if (spawned === 1) {
-    return toolChunks([{
-      name: 'spawn_teammate',
-      args: {
-        name: 'researcher',
-        description: 'Own deterministic research.',
-        prompt: 'RESEARCHER_MARK: complete research task 1, message implementer, then finish.',
-        context: 'fresh',
+    return toolChunks([
+      {
+        name: 'spawn_teammate',
+        args: {
+          name: 'researcher',
+          description: 'Own deterministic research.',
+          prompt: 'RESEARCHER_MARK: complete research task 1, message implementer, then finish.',
+          context: 'fresh',
+        },
       },
-    }])
+    ])
   }
   const result = latestToolText(messages)
   if (last.includes('team_task_list')) {
@@ -177,7 +212,7 @@ function lead(messages) {
 }
 
 class TeamFixtureAdapter extends LlmAdapter {
-  async * stream(options) {
+  async *stream(options) {
     const tools = options.tools.map(tool => tool.name)
     if (tools.includes('subagent') || tools.includes('subagent_fork')) {
       throw new Error('Team profile exposes a direct subagent tool')

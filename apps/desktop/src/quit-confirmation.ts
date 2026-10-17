@@ -5,7 +5,9 @@ import type { DesktopQuitInspection } from './host-process.ts'
 import type { DesktopLocale, DesktopMessages } from './locale.ts'
 
 /** Locale key of the explanation shown before quitting, or none when quitting interrupts nothing. */
-export type DesktopQuitPrompt = Extract<keyof DesktopMessages, 'quitActiveTasks' | 'quitScheduledTasks' | 'quitActiveAndScheduledTasks'> | undefined
+export type DesktopQuitPrompt =
+  | Extract<keyof DesktopMessages, 'quitActiveTasks' | 'quitScheduledTasks' | 'quitActiveAndScheduledTasks'>
+  | undefined
 
 /**
  * Choose the confirmation copy for one inspection result.
@@ -53,7 +55,9 @@ export class DesktopQuitConfirmation {
       this.options.focus()
       return this.pending
     }
-    const pending = this.decide().finally(() => { if (this.pending === pending) this.pending = undefined })
+    const pending = this.decide().finally(() => {
+      if (this.pending === pending) this.pending = undefined
+    })
     this.pending = pending
     return pending
   }
@@ -63,15 +67,19 @@ export class DesktopQuitConfirmation {
    * false without opening a box, and later requests do the same. An already open native box has no
    * close API and disappears with the process.
    */
-  dispose(): void { this.disposed = true }
+  dispose(): void {
+    this.disposed = true
+  }
 
   private async decide(): Promise<boolean> {
     const inspection = this.options.inspect()
     if (inspection === undefined) return true
-    const prompt = resolveDesktopQuitPrompt(await inspection.catch((error: unknown) => {
-      console.warn('desktop quit: task inspection unavailable', error)
-      return 'unknown' as const
-    }))
+    const prompt = resolveDesktopQuitPrompt(
+      await inspection.catch((error: unknown) => {
+        console.warn('desktop quit: task inspection unavailable', error)
+        return 'unknown' as const
+      }),
+    )
     if (this.disposed) return false
     if (prompt === undefined) return true
     const { messages } = this.options.locale()

@@ -69,8 +69,7 @@ export class ThemePresenter {
   apply(snapshot: ThemeSnapshot): void {
     const scheme = snapshot.active.colorScheme
     document.documentElement.style.colorScheme = scheme
-    document.documentElement.setAttribute(THEME_SOURCE_ATTRIBUTE,
-      snapshot.preference === 'system' ? 'system' : scheme)
+    document.documentElement.setAttribute(THEME_SOURCE_ATTRIBUTE, snapshot.preference === 'system' ? 'system' : scheme)
     const body = document.body
     if (scheme === 'dark') body.setAttribute(DARK_ATTRIBUTE, '')
     else body.removeAttribute(DARK_ATTRIBUTE)

@@ -1,8 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  createProcessShutdown,
-  PROCESS_SHUTDOWN_TIMEOUT_MS,
-} from '../src/process-shutdown.ts'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import { createProcessShutdown, PROCESS_SHUTDOWN_TIMEOUT_MS } from '../src/process-shutdown.ts'
 
 function deferred(): { promise: Promise<void>; resolve: () => void; reject: (error: Error) => void } {
   let resolve!: () => void
@@ -31,11 +28,7 @@ describe('process shutdown', () => {
 
     const rejectedExit = vi.fn()
     const rejectedComplete = vi.fn()
-    const rejected = createProcessShutdown(
-      () => Promise.reject(new Error('dispose failed')),
-      rejectedExit,
-      rejectedComplete,
-    )
+    const rejected = createProcessShutdown(() => Promise.reject(new Error('dispose failed')), rejectedExit, rejectedComplete)
     await rejected.shutdown(1)
     expect(rejectedExit).toHaveBeenCalledOnce()
     expect(rejectedExit).toHaveBeenCalledWith(1)

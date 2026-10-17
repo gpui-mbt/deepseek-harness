@@ -16,10 +16,17 @@ const servers: Server[] = []
 
 /** Close every listener and connection opened since the last call; run from each spec's afterEach. */
 export async function closeMockServers(): Promise<void> {
-  await Promise.all(servers.splice(0).map(server => new Promise<void>((resolve) => {
-    server.close(() => { resolve() })
-    server.closeAllConnections()
-  })))
+  await Promise.all(
+    servers.splice(0).map(
+      server =>
+        new Promise<void>(resolve => {
+          server.close(() => {
+            resolve()
+          })
+          server.closeAllConnections()
+        }),
+    ),
+  )
 }
 
 /** A minimal complete text generation in pi-ai's chat-completions shape. */
@@ -43,8 +50,14 @@ export function anthropicFrame(data: Record<string, unknown>): { event: string; 
 export const anthropicMessageStart = anthropicFrame({
   type: 'message_start',
   message: {
-    id: 'msg_1', type: 'message', role: 'assistant', model: 'm', content: [],
-    stop_reason: null, stop_sequence: null, usage: { input_tokens: 3, output_tokens: 1 },
+    id: 'msg_1',
+    type: 'message',
+    role: 'assistant',
+    model: 'm',
+    content: [],
+    stop_reason: null,
+    stop_sequence: null,
+    usage: { input_tokens: 3, output_tokens: 1 },
   },
 })
 
@@ -59,16 +72,18 @@ export const anthropicTextEvents = [
 ]
 
 /** Local provider stand-in: replays scripted behaviors per request. */
-export async function mockServer(script: {
-  status?: number
-  /** SSE frames: a string is sent as `data:` alone; a pair also names the frame's `event:`. */
-  events?: (string | { event: string; data: string })[]
-  body?: string
-  delayMs?: number
-  /** Keep the SSE response open after its scripted events until the client disconnects. */
-  holdOpen?: boolean
-  headers?: Record<string, string>
-}[]): Promise<MockServer> {
+export async function mockServer(
+  script: {
+    status?: number
+    /** SSE frames: a string is sent as `data:` alone; a pair also names the frame's `event:`. */
+    events?: (string | { event: string; data: string })[]
+    body?: string
+    delayMs?: number
+    /** Keep the SSE response open after its scripted events until the client disconnects. */
+    holdOpen?: boolean
+    headers?: Record<string, string>
+  }[],
+): Promise<MockServer> {
   const paths: string[] = []
   const requests: unknown[] = []
   const headers: IncomingMessage['headers'][] = []
@@ -83,7 +98,9 @@ export async function mockServer(script: {
       responseClosed.resolve(undefined)
     })
     const chunks: Buffer[] = []
-    request.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+    request.on('data', (chunk: Buffer) => {
+      chunks.push(chunk)
+    })
     request.on('end', () => {
       const bytes = Buffer.concat(chunks)
       // Codex SSE requests use zstd compression when the host supports it.
@@ -130,6 +147,8 @@ export async function mockServer(script: {
     headers,
     requestReceived: requestReceived.promise,
     responseClosed: responseClosed.promise,
-    get closedResponses() { return closedResponses },
+    get closedResponses() {
+      return closedResponses
+    },
   }
 }

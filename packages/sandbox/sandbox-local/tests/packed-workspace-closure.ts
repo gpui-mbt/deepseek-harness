@@ -16,10 +16,7 @@ export interface WorkspacePackage {
   manifest: Record<string, unknown>
 }
 
-function dependencyEntries(
-  manifest: Record<string, unknown>,
-  section: (typeof RUNTIME_SECTIONS)[number],
-): [string, string][] {
+function dependencyEntries(manifest: Record<string, unknown>, section: (typeof RUNTIME_SECTIONS)[number]): [string, string][] {
   const value = manifest[section]
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return []
   return Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
@@ -29,8 +26,7 @@ function optionalPeer(manifest: Record<string, unknown>, name: string): boolean 
   const metadata = manifest.peerDependenciesMeta
   if (metadata === null || typeof metadata !== 'object' || Array.isArray(metadata)) return false
   const entry = (metadata as Record<string, unknown>)[name]
-  return entry !== null && typeof entry === 'object' && !Array.isArray(entry)
-    && (entry as Record<string, unknown>).optional === true
+  return entry !== null && typeof entry === 'object' && !Array.isArray(entry) && (entry as Record<string, unknown>).optional === true
 }
 
 /**
@@ -76,10 +72,7 @@ export function readWorkspacePackages(repoRoot: string): Map<string, WorkspacePa
  * @param packages - workspace packages indexed by package name.
  * @returns Transitive runtime closure sorted by package directory.
  */
-export function packedWorkspaceClosure(
-  rootName: string,
-  packages: ReadonlyMap<string, WorkspacePackage>,
-): WorkspacePackage[] {
+export function packedWorkspaceClosure(rootName: string, packages: ReadonlyMap<string, WorkspacePackage>): WorkspacePackage[] {
   const closure: WorkspacePackage[] = []
   const visited = new Set<string>()
   const visit = (name: string): void => {

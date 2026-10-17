@@ -164,7 +164,7 @@ export function parseDshArgs(argv: readonly string[], version: string, manageDes
     .allowUnknownOption()
     .passThroughOptions()
     .enablePositionalOptions()
-    .argument('[args...]', 'arguments for the booted profile\'s app (see: dsh --profile <name> --help)')
+    .argument('[args...]', "arguments for the booted profile's app (see: dsh --profile <name> --help)")
     .option('--profile <name>', 'the profile under $DSH_HOME/profiles to boot', selectProfile)
     .option('--from-default-profile <name>', 'replace a custom profile with a fresh copy of a shipped profile template')
     .option('--patch <path>', 'extra patch-list overlay applied after the profile layer (repeatable)', collect)
@@ -185,7 +185,9 @@ export function parseDshArgs(argv: readonly string[], version: string, manageDes
     })
 
   if (first === 'plugin') {
-    const plugin = program.command('plugin').description('manage a profile\'s plugins by forwarding the remaining arguments to pnpm in the profile directory')
+    const plugin = program
+      .command('plugin')
+      .description("manage a profile's plugins by forwarding the remaining arguments to pnpm in the profile directory")
     plugin
       // Commander copies the launcher's disabled help option into subcommands. The
       // forwarder restores its own help and stops reading options at forwarded pnpm input.
@@ -203,9 +205,7 @@ export function parseDshArgs(argv: readonly string[], version: string, manageDes
   }
 
   try {
-    const expanded = first !== undefined && !first.startsWith('-') && first !== 'plugin'
-      ? ['--profile', ...argv]
-      : argv
+    const expanded = first !== undefined && !first.startsWith('-') && first !== 'plugin' ? ['--profile', ...argv] : argv
     program.parse(expanded, { from: 'user' })
   } catch (error) {
     return process.exit(error instanceof CommanderError ? error.exitCode : 1)

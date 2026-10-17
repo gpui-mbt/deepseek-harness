@@ -3,11 +3,7 @@
 import { Buffer } from 'node:buffer'
 import type { IDisposable, Terminal as HeadlessTerminalType } from '@xterm/headless'
 import { createLazyRequire } from '@deepseek-ai/dsh-lazy-require'
-import type {
-  SubprocessOutcome,
-  SubprocessTerminalForeground,
-  SubprocessTerminalHandle,
-} from '@deepseek-ai/dsh-subprocess'
+import type { SubprocessOutcome, SubprocessTerminalForeground, SubprocessTerminalHandle } from '@deepseek-ai/dsh-subprocess'
 import { TerminalError } from '@deepseek-ai/dsh-terminal'
 import type {
   TerminalBackendSession,
@@ -102,15 +98,11 @@ class BoundedTextBuffer {
       this.tail = chunk
     }
 
-    while (this.head !== undefined
-      && (this.bytes > this.maxBytes || (this.maxLines !== undefined && this.newlines >= this.maxLines))) {
+    while (this.head !== undefined && (this.bytes > this.maxBytes || (this.maxLines !== undefined && this.newlines >= this.maxLines))) {
       const head = this.head
       const first = head.text.charCodeAt(head.start)
-      const second = head.start + 1 < head.text.length
-        ? head.text.charCodeAt(head.start + 1)
-        : head.next?.text.charCodeAt(0)
-      const paired = first >= 0xd800 && first <= 0xdbff
-        && second !== undefined && second >= 0xdc00 && second <= 0xdfff
+      const second = head.start + 1 < head.text.length ? head.text.charCodeAt(head.start + 1) : head.next?.text.charCodeAt(0)
+      const paired = first >= 0xd800 && first <= 0xdbff && second !== undefined && second >= 0xdc00 && second <= 0xdfff
       this.bytes -= paired ? 4 : first < 0x80 ? 1 : first < 0x800 ? 2 : 3
       if (first === 10) this.newlines -= 1
       this.advance(paired ? 2 : 1)
@@ -282,11 +274,15 @@ export class LocalPtySession implements TerminalBackendSession {
     this.pid = terminal.pid
     const { Terminal: HeadlessTerminal } = requireHeadless()
     this.emulator = new HeadlessTerminal({ cols: config.cols, rows: config.rows, scrollback: 0 })
-    this.emulatorData = this.emulator.onData((data) => {
+    this.emulatorData = this.emulator.onData(data => {
       this.pendingResponseWrites += 1
-      const response = this.responseWrites.then(async () => { await this.terminal.write(data) })
+      const response = this.responseWrites.then(async () => {
+        await this.terminal.write(data)
+      })
       this.responseWrites = response.then(
-        () => { this.finishResponseWrite() },
+        () => {
+          this.finishResponseWrite()
+        },
         (error: unknown) => {
           this.finishResponseWrite()
           if (!this.emulatorClosed && !this.closing) this.onTransportFailure(error)
@@ -300,7 +296,9 @@ export class LocalPtySession implements TerminalBackendSession {
     terminal.output.once('error', this.onTerminalError)
     this.completion = terminal.done.then(
       outcome => this.onExit(outcome),
-      (error: unknown) => { this.onTransportFailure(error) },
+      (error: unknown) => {
+        this.onTransportFailure(error)
+      },
     )
   }
 
@@ -312,7 +310,7 @@ export class LocalPtySession implements TerminalBackendSession {
   async initialize(signal?: AbortSignal): Promise<void> {
     this.initializing = true
     try {
-      const operation = this.startSend({ text: '', submit: false, ...signal !== undefined ? { signal } : {} })
+      const operation = this.startSend({ text: '', submit: false, ...(signal !== undefined ? { signal } : {}) })
       const result = await operation.done
       if (result.waitReason === 'session_exit') throw new Error('PTY shell exited during startup')
       if (result.waitReason === 'timeout') throw new Error('PTY shell did not reach readiness before startup timeout')
@@ -329,33 +327,32 @@ export class LocalPtySession implements TerminalBackendSession {
     if (this.closing) throw new Error('PTY session is closing')
     if (this.statusValue.kind === 'exited') throw new Error('PTY session has exited')
     if (this.active !== undefined) {
-      const draining = this.activeWrite !== undefined
-        ? ' or draining provider write'
-        : this.interrupting !== undefined
-          ? ' or draining foreground interrupt'
-          : ''
+      const draining =
+        this.activeWrite !== undefined
+          ? ' or draining provider write'
+          : this.interrupting !== undefined
+            ? ' or draining foreground interrupt'
+            : ''
       throw new TerminalError(`PTY session already has an active send${draining}`, 'SEND_ACTIVE')
     }
     if (request.signal?.aborted === true) throw new Error('PTY send aborted before write')
 
-    const operation = new LocalSendOperation(
-      this.config.maxReadBytes,
-      Date.now(),
-      () => { this.interrupt(operation) },
-    )
+    const operation = new LocalSendOperation(this.config.maxReadBytes, Date.now(), () => {
+      this.interrupt(operation)
+    })
     this.active = operation
     this.resetReadinessEvidence()
 
     if (request.signal !== undefined) {
-      const onAbort = (): void => { operation.cancel() }
+      const onAbort = (): void => {
+        operation.cancel()
+      }
       request.signal.addEventListener('abort', onAbort, { once: true })
       this.activeAbort = () => request.signal?.removeEventListener('abort', onAbort)
     }
     this.activeDeadlineTimer = setTimeout(() => {
       if (this.active === operation) {
-        this.settleActive('timeout', this.activeWrite !== undefined
-          || this.interrupting === operation
-          || this.protocolWorkPending())
+        this.settleActive('timeout', this.activeWrite !== undefined || this.interrupting === operation || this.protocolWorkPending())
       }
     }, this.config.timeoutMs)
     void this.beginSend(operation, request)
@@ -392,7 +389,10 @@ export class LocalPtySession implements TerminalBackendSession {
       if (input.length > 0 && !operation.cancelRequested) {
         this.resetReadinessEvidence()
         const write = this.terminal.write(input)
-        this.activeWrite = write.then(() => true, () => false)
+        this.activeWrite = write.then(
+          () => true,
+          () => false,
+        )
         try {
           await write
         } finally {
@@ -566,15 +566,19 @@ export class LocalPtySession implements TerminalBackendSession {
       if (this.promptSeen && foreground !== undefined && this.shellPgid === undefined) {
         this.shellPgid = foreground.processGroupId
       }
-      if (this.promptSeen && this.promptTextSeen && idleFor >= this.config.pollIntervalMs
-        && foreground?.processGroupId === this.shellPgid) {
+      if (
+        this.promptSeen &&
+        this.promptTextSeen &&
+        idleFor >= this.config.pollIntervalMs &&
+        foreground?.processGroupId === this.shellPgid
+      ) {
         this.settleActive('stdin_read')
         return
       }
       const elapsed = Date.now() - operation.startedAt
       const startupHasOutput = !this.initializing || !this.scrollback.isEmpty
-      const acceptsStdinWait = startupHasOutput && foreground !== undefined
-        && operation.acceptsStdinWait(foreground.processGroupId, foreground.inputWaiting)
+      const acceptsStdinWait =
+        startupHasOutput && foreground !== undefined && operation.acceptsStdinWait(foreground.processGroupId, foreground.inputWaiting)
       if (elapsed >= this.config.exactProbeAfterMs && acceptsStdinWait) {
         this.settleActive('stdin_read')
         return
@@ -614,8 +618,7 @@ export class LocalPtySession implements TerminalBackendSession {
       await emulatorWrites
       const responseWrites = this.responseWrites
       await responseWrites
-      if (emulatorWrites === this.emulatorWrites && responseWrites === this.responseWrites
-        && !this.protocolWorkPending()) return
+      if (emulatorWrites === this.emulatorWrites && responseWrites === this.responseWrites && !this.protocolWorkPending()) return
     }
   }
 
@@ -631,8 +634,7 @@ export class LocalPtySession implements TerminalBackendSession {
   }
 
   private protocolStateChanged(emulatorWrites: Promise<void>, responseWrites: Promise<void>): boolean {
-    return emulatorWrites !== this.emulatorWrites || responseWrites !== this.responseWrites
-      || this.protocolWorkPending()
+    return emulatorWrites !== this.emulatorWrites || responseWrites !== this.responseWrites || this.protocolWorkPending()
   }
 
   private protocolWorkPending(): boolean {
@@ -645,7 +647,9 @@ export class LocalPtySession implements TerminalBackendSession {
     if (this.emulatorWriteDone === undefined) {
       const idle = Promise.withResolvers<undefined>()
       this.emulatorWrites = idle.promise
-      this.emulatorWriteDone = () => { idle.resolve(undefined) }
+      this.emulatorWriteDone = () => {
+        idle.resolve(undefined)
+      }
     }
     this.pumpEmulator()
   }
@@ -685,8 +689,14 @@ export class LocalPtySession implements TerminalBackendSession {
 
   private releaseSettledActive(): void {
     const operation = this.active
-    if (operation === undefined || !operation.settled || this.activeWrite !== undefined
-      || this.interrupting === operation || this.protocolWorkPending()) return
+    if (
+      operation === undefined ||
+      !operation.settled ||
+      this.activeWrite !== undefined ||
+      this.interrupting === operation ||
+      this.protocolWorkPending()
+    )
+      return
     this.clearActive()
   }
 
@@ -755,7 +765,7 @@ export class LocalPtySession implements TerminalBackendSession {
   private async interruptOnce(operation: LocalSendOperation): Promise<void> {
     try {
       const activeWrite = this.activeWrite
-      if (activeWrite !== undefined && !await activeWrite) return
+      if (activeWrite !== undefined && !(await activeWrite)) return
       await this.terminal.signalForeground('SIGINT')
     } catch (error: unknown) {
       if (this.active === operation && !this.closing) this.onTransportFailure(error)

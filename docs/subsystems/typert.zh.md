@@ -49,26 +49,28 @@ interface TypertLookupDefinition {
 ```ts type-equiv
 /** Codec attached to one invocation parameter or result. */
 type TypertCodec<Value = unknown> =
-  | TypertRemoteValue<Value> & {
-    readonly mode: 'strict'
-    readonly typeSymbol: string
-    /**
-     * Decode a unary result whose fields require type-specific handling.
-     * @param value - result reconstructed by the RPC carrier.
-     * @returns the validated result, retaining native byte views.
-     */
-    readonly decode?: ((value: unknown) => unknown) | undefined
-    /**
-     * Project typed binary fields into RPC result attachments.
-     * @param value - native unary result.
-     * @param writeBytes - records a byte view at its result-relative path and returns its JSON placeholder.
-     * @returns JSON metadata with untouched JSON subtrees retained.
-     */
-    readonly encode?: ((value: unknown, writeBytes: (bytes: Uint8Array, path: readonly (string | number)[]) => null) => unknown) | undefined
-  }
+  | (TypertRemoteValue<Value> & {
+      readonly mode: 'strict'
+      readonly typeSymbol: string
+      /**
+       * Decode a unary result whose fields require type-specific handling.
+       * @param value - result reconstructed by the RPC carrier.
+       * @returns the validated result, retaining native byte views.
+       */
+      readonly decode?: ((value: unknown) => unknown) | undefined
+      /**
+       * Project typed binary fields into RPC result attachments.
+       * @param value - native unary result.
+       * @param writeBytes - records a byte view at its result-relative path and returns its JSON placeholder.
+       * @returns JSON metadata with untouched JSON subtrees retained.
+       */
+      readonly encode?:
+        | ((value: unknown, writeBytes: (bytes: Uint8Array, path: readonly (string | number)[]) => null) => unknown)
+        | undefined
+    })
   | {
-    readonly mode: 'src-json'
-  }
+      readonly mode: 'src-json'
+    }
 ```
 
 ```ts type-equiv
@@ -110,11 +112,11 @@ interface InvocationDescriptor {
   readonly invocation:
     | { readonly kind: 'direct' }
     | {
-      readonly kind: 'context'
-      readonly context: string
-      readonly wire: string
-      readonly codec: TypertCodec
-    }
+        readonly kind: 'context'
+        readonly context: string
+        readonly wire: string
+        readonly codec: TypertCodec
+      }
   /** Optional consuming-Context projection for one direct lookup parameter. */
   readonly scope?: {
     /** Context kind whose Client adapter supplies the identity. */
@@ -312,8 +314,8 @@ type RemoteAccessResourceKind = 'global' | TypertResourceKind
 type RemoteAccessResource =
   | { readonly kind: 'global' }
   | {
-    [Kind in TypertResourceKind]: { readonly kind: Kind; readonly id: TypertResourceId<TypertResourceMap[Kind]> }
-  }[TypertResourceKind]
+      [Kind in TypertResourceKind]: { readonly kind: Kind; readonly id: TypertResourceId<TypertResourceMap[Kind]> }
+    }[TypertResourceKind]
 ```
 
 ```ts type-equiv
@@ -436,21 +438,21 @@ type TypertGatewayErrorCode =
 interface TypertGateway {
   /** Carrier adapter shared by WebSocket and in-process transports. */
   readonly wireStream: TypertGatewayWireStream
+
   /**
    * Check for an active owner Client event stream, the only kind that can answer forwarded waterfalls.
    * @returns whether an owner stream is open and has not been cancelled.
    */
   hasLiveClient(): boolean
+
   /**
    * Register the application-selected forwarded-event source.
    * @param source - stream factory installed by the Remote assembly.
    * @param host - stable Host facts included in each Client generation's opening frame.
    * @returns disposer removing this exact source and cancelling its active streams.
    */
-  registerRemoteEvents(
-    source: TypertRemoteEventSource,
-    host: RemoteEventHostInfo,
-  ): () => Promise<void>
+  registerRemoteEvents(source: TypertRemoteEventSource, host: RemoteEventHostInfo): () => Promise<void>
+
   /**
    * Invoke one live Remote method without assuming a carrier or response envelope.
    * @param request - decoded endpoint and named wire arguments.
@@ -458,6 +460,7 @@ interface TypertGateway {
    * @throws {@link TypertGatewayError} for dispatch, provider, or boundary failures; lookup-policy and business errors retain identity.
    */
   invoke(request: InvokeRemoteRequest): Promise<unknown>
+
   /**
    * Open one live stream Remote method without assuming a physical carrier.
    * @param request - decoded endpoint, named wire arguments, and the Client uplink when the carrier has one.
@@ -668,7 +671,7 @@ hasLiveClient(): boolean
  * @param host - stable Host facts included in each Client generation's opening frame.
  * @returns disposer removing this source and cancelling its active streams.
  */
-registerRemoteEvents( source: TypertRemoteEventSource, host: RemoteEventHostInfo, ): () => Promise<void>
+registerRemoteEvents(source: TypertRemoteEventSource, host: RemoteEventHostInfo): () => Promise<void>
 
 /**
  * Invoke one live Remote method through strict generated reflection or SRC markers.

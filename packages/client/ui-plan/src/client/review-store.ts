@@ -17,7 +17,9 @@ export function createPlanReviewStore(): EngineStoreHandle<PlanReviewState, Plan
   return defineStore({
     init: (): PlanReviewState => ({ opened: {} }),
     actions: {
-      markOpened: (draft, reviewKey) => { draft.opened[reviewKey] = true },
+      markOpened: (draft, reviewKey) => {
+        draft.opened[reviewKey] = true
+      },
     },
   })
 }

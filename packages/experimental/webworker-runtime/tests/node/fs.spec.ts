@@ -7,7 +7,7 @@
  * module-level VFS slot. Mixing the bare package's built entry with `/src/*`
  * imports can create two slots, leaving the bridge with no mounted filesystem.
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { MemoryVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/memory.ts'
 import { setActiveVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/active.ts'
 import * as fs from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/fs.ts'
@@ -31,14 +31,18 @@ setActiveVfs(vfs)
 fs.mkdirSync('/dsh/.probe', { recursive: true })
 fs.writeFileSync('/dsh/.probe/instance', 'x')
 if (!vfs.existsSync('/dsh/.probe/instance')) {
-  throw new Error('fs-check: the fs bridge is not reading the VFS this harness mounted '
-    + '(two module instances — check that every import resolves through src/)')
+  throw new Error(
+    'fs-check: the fs bridge is not reading the VFS this harness mounted ' +
+      '(two module instances — check that every import resolves through src/)',
+  )
 }
 vfs.rmSync('/dsh/.probe', { recursive: true })
 
 const check = (label: string, actual: unknown, expected: unknown): void => {
   const [seen, wanted] = [JSON.stringify(actual), JSON.stringify(expected)]
-  test(label, () => { expect(seen).toBe(wanted) })
+  test(label, () => {
+    expect(seen).toBe(wanted)
+  })
 }
 const throws = (label: string, run: () => unknown, code: string): void => {
   let outcome: string
@@ -48,7 +52,9 @@ const throws = (label: string, run: () => unknown, code: string): void => {
   } catch (error) {
     outcome = (error as { code?: string }).code ?? (error as Error).message
   }
-  test(label, () => { expect(outcome).toContain(code) })
+  test(label, () => {
+    expect(outcome).toContain(code)
+  })
 }
 
 fs.mkdirSync('/dsh/config', { recursive: true })
@@ -73,8 +79,10 @@ test('native realpath supports the filesystem provider promise wrapper', async (
 
 test('callback realpath settles after the current call returns', async () => {
   let returned = false
-  const completion = new Promise<unknown>((resolve) => {
-    fs.realpath('/dsh/config/cordis.yml', (error, path) => { resolve({ error, path, returned }) })
+  const completion = new Promise<unknown>(resolve => {
+    fs.realpath('/dsh/config/cordis.yml', (error, path) => {
+      resolve({ error, path, returned })
+    })
   })
   returned = true
   expect(await completion).toEqual({ error: null, path: '/dsh/config/cordis.yml', returned: true })
@@ -87,10 +95,14 @@ fs.mkdirSync('/dsh/config/agent-presets/standard', { recursive: true })
 fs.writeFileSync('/dsh/config/agent-presets/standard/SKILL.md', '# skill\n')
 check('readdirSync names', fs.readdirSync('/dsh/config'), ['agent-presets', 'cordis.yml'])
 const entries = fs.readdirSync('/dsh/config', { withFileTypes: true }) as fs.Dirent[]
-check('readdirSync withFileTypes', entries.map(entry => [entry.name, entry.isFile(), entry.isDirectory()]), [
-  ['agent-presets', false, true],
-  ['cordis.yml', true, false],
-])
+check(
+  'readdirSync withFileTypes',
+  entries.map(entry => [entry.name, entry.isFile(), entry.isDirectory()]),
+  [
+    ['agent-presets', false, true],
+    ['cordis.yml', true, false],
+  ],
+)
 check('Dirent parentPath', entries[0]!.parentPath, '/dsh/config')
 
 const temporary = fs.mkdtempSync('/dsh/tmp/run-')
@@ -99,7 +111,13 @@ check('mkdtempSync unique', fs.mkdtempSync('/dsh/tmp/run-') === temporary, false
 
 throws('readFileSync missing', () => fs.readFileSync('/dsh/missing'), 'ENOENT')
 throws('statSync missing', () => fs.statSync('/dsh/missing'), 'ENOENT')
-throws('accessSync missing', () =>{  fs.accessSync('/dsh/missing') }, 'ENOENT')
+throws(
+  'accessSync missing',
+  () => {
+    fs.accessSync('/dsh/missing')
+  },
+  'ENOENT',
+)
 throws('readdirSync missing', () => fs.readdirSync('/dsh/missing'), 'ENOENT')
 const appendFd = fs.openSync('/dsh/log.jsonl', 'a')
 fs.writeSync(appendFd, '{"a":1}\n')
@@ -132,13 +150,13 @@ check('rmSync removes', fs.existsSync('/dsh/renamed.txt'), false)
 fs.writeFileSync('/dsh/log-handle.jsonl', 'header\n')
 const appendHandle = await fsp.open('/dsh/log-handle.jsonl', 'a')
 check('append handle sees the existing size', (await appendHandle.stat()).size, 7)
-const appendHandleStats = await appendHandle.stat({ bigint: true }) as VfsBigIntStats
-const appendPathStats = await fsp.stat('/dsh/log-handle.jsonl', { bigint: true }) as VfsBigIntStats
-check('bigint handle stat matches the path identity', [
-  typeof appendHandleStats.ino,
-  appendHandleStats.ino === appendPathStats.ino,
-  appendHandleStats.dev === appendPathStats.dev,
-], ['bigint', true, true])
+const appendHandleStats = (await appendHandle.stat({ bigint: true })) as VfsBigIntStats
+const appendPathStats = (await fsp.stat('/dsh/log-handle.jsonl', { bigint: true })) as VfsBigIntStats
+check(
+  'bigint handle stat matches the path identity',
+  [typeof appendHandleStats.ino, appendHandleStats.ino === appendPathStats.ino, appendHandleStats.dev === appendPathStats.dev],
+  ['bigint', true, true],
+)
 await appendHandle.writeFile('batch-1\n')
 await appendHandle.sync()
 check('handle.sync flushes the active VFS', flushes, 1)
@@ -183,9 +201,11 @@ fs.writeFileSync('/dsh/versioned.txt', 'one')
   const stats = bigStats('/dsh/versioned.txt')
   check('bigint stat reports mode as a BigInt', typeof stats.mode, 'bigint')
   check('bigint mode masks to the creation-default file permission', Number(stats.mode & 0o777n), 0o644)
-  check('bigint stat reports the identity fields the version token needs', [
-    typeof stats.dev, typeof stats.ino, typeof stats.size, typeof stats.mtimeNs, typeof stats.ctimeNs,
-  ], ['bigint', 'bigint', 'bigint', 'bigint', 'bigint'])
+  check(
+    'bigint stat reports the identity fields the version token needs',
+    [typeof stats.dev, typeof stats.ino, typeof stats.size, typeof stats.mtimeNs, typeof stats.ctimeNs],
+    ['bigint', 'bigint', 'bigint', 'bigint', 'bigint'],
+  )
   check('bigint nanosecond time scales the millisecond time', stats.mtimeNs === stats.mtimeMs * 1_000_000n, true)
   check('bigint stat still answers the type predicates', [stats.isFile(), stats.isDirectory()], [true, false])
   check('plain stat keeps its number shape', typeof fs.statSync('/dsh/versioned.txt').mode, 'number')

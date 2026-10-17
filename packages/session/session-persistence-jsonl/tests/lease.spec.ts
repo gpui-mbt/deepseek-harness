@@ -15,15 +15,11 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionHeader } from '@deepseek-ai/dsh-session'
-import {
-  SessionAlreadyExistsError,
-  SessionAlreadyOwnedError,
-  SessionPersistenceNotFoundError,
-} from '@deepseek-ai/dsh-session-persistence'
+import { SessionAlreadyExistsError, SessionAlreadyOwnedError, SessionPersistenceNotFoundError } from '@deepseek-ai/dsh-session-persistence'
 import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
 import * as JsonlSessionPersistence from '../src/index.ts'
 import { LEASE_FILENAME, SessionWriteLease } from '../src/lease.ts'
@@ -49,7 +45,7 @@ const refuse = vi.hoisted(() => ({
   dropLockOnStat: false,
 }))
 
-vi.mock('node:fs/promises', async (importOriginal) => {
+vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   const denied = (syscall: string): never => {
     throw Object.assign(new Error(`EACCES: injected ${syscall} refusal`), { code: 'EACCES' })
@@ -84,7 +80,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   }
 })
 
-vi.mock('@deepseek-ai/node-addon-system/flock', async (importOriginal) => {
+vi.mock('@deepseek-ai/node-addon-system/flock', async importOriginal => {
   const actual = await importOriginal<typeof import('@deepseek-ai/node-addon-system/flock')>()
   return {
     tryLockExclusive: async (fd: number): Promise<void> => {
@@ -307,20 +303,23 @@ describe('cross-process write lock', () => {
     await expect(backend.open(SessionId('stat-blocked'), 'write')).rejects.toThrow(/EACCES/)
   })
 
-  it.skipIf(process.platform === 'win32')('retries when the locked inode is no longer the lock path, and wins on a stable pass', async () => {
-    const root = await freshRoot()
-    const backend = await mount(root)
-    const writer = await backend.create(meta('churned'))
-    await writer.append([...EVENTS])
-    await writer.close()
+  it.skipIf(process.platform === 'win32')(
+    'retries when the locked inode is no longer the lock path, and wins on a stable pass',
+    async () => {
+      const root = await freshRoot()
+      const backend = await mount(root)
+      const writer = await backend.create(meta('churned'))
+      await writer.append([...EVENTS])
+      await writer.close()
 
-    // One churn (unlink+recreate under the verify stat) orphans the first
-    // locked inode; the retry locks the fresh file and verifies clean.
-    refuse.swapLockOnStat = 1
-    const reopened = await backend.open(SessionId('churned'), 'write')
-    await reopened.append([{ type: 'turn/start', seq: SessionSeq(2), time: 3, data: { turn: 2 } }])
-    await reopened.close()
-  })
+      // One churn (unlink+recreate under the verify stat) orphans the first
+      // locked inode; the retry locks the fresh file and verifies clean.
+      refuse.swapLockOnStat = 1
+      const reopened = await backend.open(SessionId('churned'), 'write')
+      await reopened.append([{ type: 'turn/start', seq: SessionSeq(2), time: 3, data: { turn: 2 } }])
+      await reopened.close()
+    },
+  )
 
   it.skipIf(process.platform === 'win32')('retries when the lock path vanishes under the verify read', async () => {
     const root = await freshRoot()
@@ -374,7 +373,10 @@ describe('cross-process write lock', () => {
     await writeFile(join(dir, String(log)), `#${stored.slice(1)}`)
 
     failReleaseOnce()
-    const outcome = await backend.open(SessionId('open-and-release-fail'), 'write').then(() => undefined, (error: unknown) => error)
+    const outcome = await backend.open(SessionId('open-and-release-fail'), 'write').then(
+      () => undefined,
+      (error: unknown) => error,
+    )
     expect(outcome).toBeInstanceOf(AggregateError)
     const errors = (outcome as AggregateError).errors as Error[]
     expect(errors).toHaveLength(2)
@@ -388,14 +390,18 @@ describe('cross-process write lock', () => {
   it('a drain failure and a release failure reject close as one AggregateError', async () => {
     const root = await freshRoot()
     const backend = await mount(root)
-    const holder = await backend.create(meta('drain-and-release-fail')) as JsonlSessionHandle
+    const holder = (await backend.create(meta('drain-and-release-fail'))) as JsonlSessionHandle
     await holder.append([...EVENTS])
 
-    vi.spyOn(backend as unknown as { persistBatch: () => Promise<void> }, 'persistBatch')
-      .mockRejectedValueOnce(new Error('injected drain refusal'))
+    vi.spyOn(backend as unknown as { persistBatch: () => Promise<void> }, 'persistBatch').mockRejectedValueOnce(
+      new Error('injected drain refusal'),
+    )
     holder.enqueueLive({ type: 'turn/start', seq: SessionSeq(2), time: 3, data: { turn: 2 } }, () => {})
     failReleaseOnce()
-    const outcome = await holder.close().then(() => undefined, (error: unknown) => error)
+    const outcome = await holder.close().then(
+      () => undefined,
+      (error: unknown) => error,
+    )
     expect(outcome).toBeInstanceOf(AggregateError)
     expect((outcome as AggregateError).errors.map(String).join('\n')).toMatch(/drain refusal[\s\S]*release failure/)
     // Both failures reported, and the id is still not wedged.
@@ -416,7 +422,6 @@ describe('cross-process write lock', () => {
     await successor.release()
     expect(existsSync(join(dir, LOCK))).toBe(true)
   })
-
 
   it('keeps distinct sessions independently lockable', async () => {
     const root = await freshRoot()

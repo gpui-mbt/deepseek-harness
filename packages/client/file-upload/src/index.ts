@@ -62,23 +62,24 @@ export class FileUploads extends TypertRemoteService {
   /** @param ctx - Host context carrying Agent, attachment, command, and Connection services. */
   constructor(ctx: Context) {
     super(ctx, 'fileUploads')
-    const resolve: CommandFileReceiptResolver = (agent, receiptId) =>
-      this.resolve(agent, receiptId as FileUploadReceiptId)
+    const resolve: CommandFileReceiptResolver = (agent, receiptId) => this.resolve(agent, receiptId as FileUploadReceiptId)
+    ctx.effect(() => ctx.commands.registerFileReceiptResolver(resolve), 'file-upload: command file receipt resolver')
     ctx.effect(
-      () => ctx.commands.registerFileReceiptResolver(resolve),
-      'file-upload: command file receipt resolver',
-    )
-    ctx.effect(
-      () => ctx.connection.fetch.register({
-        path: FILE_UPLOAD_PATH,
-        methods: ['POST'],
-        requestBody: 'streaming',
-        fetch: request => handleFileUploadHttp(this, request),
-      }),
+      () =>
+        ctx.connection.fetch.register({
+          path: FILE_UPLOAD_PATH,
+          methods: ['POST'],
+          requestBody: 'streaming',
+          fetch: request => handleFileUploadHttp(this, request),
+        }),
       'file-upload: streaming route',
     )
-    ctx.on('session/event', (session, event) => { this.observeSessionEvent(session, event) })
-    ctx.on('session/disposed', (session) => { this.stagedFiles.delete(session) })
+    ctx.on('session/event', (session, event) => {
+      this.observeSessionEvent(session, event)
+    })
+    ctx.on('session/disposed', session => {
+      this.stagedFiles.delete(session)
+    })
   }
 
   /**
@@ -104,10 +105,12 @@ export class FileUploads extends TypertRemoteService {
   @Remote('upload')
   upload(agent: Agent, request: EncodedFileUploadRequest, signal: AbortSignal): Promise<FileUploadValue> {
     signal.throwIfAborted()
-    return this.commit(agent, async () => this.ctx.attachments.admitEncodedFile({
-      data: request.data,
-      ...(request.name === undefined ? {} : { name: request.name }),
-    }))
+    return this.commit(agent, async () =>
+      this.ctx.attachments.admitEncodedFile({
+        data: request.data,
+        ...(request.name === undefined ? {} : { name: request.name }),
+      }),
+    )
   }
 
   /**
@@ -122,11 +125,13 @@ export class FileUploads extends TypertRemoteService {
     readonly name?: string
   }): Promise<FileUploadValue> {
     const agent = await this.resolveAgent(request.sessionId)
-    return this.commit(agent, async () => this.ctx.attachments.saveFileStream({
-      data: request.data,
-      ...(request.signal === undefined ? {} : { signal: request.signal }),
-      ...(request.name === undefined ? {} : { name: request.name }),
-    }))
+    return this.commit(agent, async () =>
+      this.ctx.attachments.saveFileStream({
+        data: request.data,
+        ...(request.signal === undefined ? {} : { signal: request.signal }),
+        ...(request.name === undefined ? {} : { name: request.name }),
+      }),
+    )
   }
 
   /**
@@ -147,13 +152,9 @@ export class FileUploads extends TypertRemoteService {
    * @param requestId - prompt identity later observed in queue or history.
    * @returns binding kept after commit until queue or history observation retires its receipts.
    */
-  bindPrompt(
-    agent: Agent,
-    receiptIds: readonly FileUploadReceiptId[],
-    requestId: string,
-  ): PromptFileBinding {
+  bindPrompt(agent: Agent, receiptIds: readonly FileUploadReceiptId[], requestId: string): PromptFileBinding {
     const staged = this.stagedFiles.get(agent.session)
-    const bound = receiptIds.map((receiptId) => {
+    const bound = receiptIds.map(receiptId => {
       const upload = staged?.get(receiptId)
       if (upload === undefined) throw fileNotStaged()
       return { upload, previous: upload.requestId }
@@ -185,19 +186,12 @@ export class FileUploads extends TypertRemoteService {
       if (this.ctx.attachments.isAttachmentError(error)) {
         throw new RemoteError('session/attachment-invalid' as never, error.message, { reason: error.code } as never)
       }
-      throw new RemoteError(
-        'gateway/internal',
-        `failed to store file upload: ${String(error)}`,
-        {},
-        { cause: error },
-      )
+      throw new RemoteError('gateway/internal', `failed to store file upload: ${String(error)}`, {}, { cause: error })
     }
     if (this.ctx.agents.get(agent.id) !== agent) {
-      throw new RemoteError(
-        'session/not-found',
-        `session "${agent.id}" was disposed before its file upload completed`,
-        { sessionId: agent.id },
-      )
+      throw new RemoteError('session/not-found', `session "${agent.id}" was disposed before its file upload completed`, {
+        sessionId: agent.id,
+      })
     }
     let staged = this.stagedFiles.get(agent.session)
     if (staged === undefined) {
@@ -221,17 +215,14 @@ export class FileUploads extends TypertRemoteService {
 
   private assertOrdinaryAgent(agent: Agent): void {
     if (agent.session.header.origin === 'subagent') {
-      throw new RemoteError(
-        'subagent/attachment-invalid' as never,
-        'subagent conversations do not accept file uploads',
-        { reason: 'SUBAGENT_FILE_UNSUPPORTED' } as never,
-      )
+      throw new RemoteError('subagent/attachment-invalid' as never, 'subagent conversations do not accept file uploads', {
+        reason: 'SUBAGENT_FILE_UNSUPPORTED',
+      } as never)
     }
   }
 
   private observeSessionEvent(session: Session, event: SessionEvent): void {
-    if (event.type !== 'user/message' || event.data.source.kind !== 'user'
-      || !('rpcId' in event.data.source)) return
+    if (event.type !== 'user/message' || event.data.source.kind !== 'user' || !('rpcId' in event.data.source)) return
     if (typeof event.data.source.rpcId === 'string') this.retire(session, event.data.source.rpcId)
   }
 
@@ -246,11 +237,9 @@ export class FileUploads extends TypertRemoteService {
 }
 
 function fileNotStaged(): RemoteError {
-  return new RemoteError(
-    'session/attachment-invalid' as never,
-    'File was not uploaded for this session.',
-    { reason: 'FILE_NOT_STAGED' } as never,
-  )
+  return new RemoteError('session/attachment-invalid' as never, 'File was not uploaded for this session.', {
+    reason: 'FILE_NOT_STAGED',
+  } as never)
 }
 
 export default FileUploads

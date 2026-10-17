@@ -117,7 +117,7 @@ export class HttpFetchProvider implements WebFetchProvider {
   private async requestOnce(url: URL, signal: AbortSignal) {
     const headers = {
       'user-agent': this.limits.userAgent,
-      'accept': 'text/html,application/xhtml+xml,text/*;q=0.9,application/json;q=0.8',
+      accept: 'text/html,application/xhtml+xml,text/*;q=0.9,application/json;q=0.8',
     }
     try {
       // A proxied hop skips public-address resolution and pinning: the proxy performs the origin's

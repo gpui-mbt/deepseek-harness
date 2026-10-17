@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process'
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const execFileAsync = promisify(execFile)
 const root = resolve(import.meta.dirname, '..')
@@ -13,10 +13,10 @@ const refreshing = process.env.DSH_SNAPSHOT === 'record' || process.env.DSH_SNAP
 
 describe('translation prompt runnable snapshot', () => {
   it('assembles the reviewed examples and consumes a recorded new-pair response', async () => {
-    const { stdout, stderr } = await execFileAsync(process.execPath, [
-      join(root, 'scripts/verify-translation-prompt.ts'),
-      '--snapshot',
-    ], { cwd: root, maxBuffer: 4 * 1024 * 1024 })
+    const { stdout, stderr } = await execFileAsync(process.execPath, [join(root, 'scripts/verify-translation-prompt.ts'), '--snapshot'], {
+      cwd: root,
+      maxBuffer: 4 * 1024 * 1024,
+    })
     expect(stderr).toBe('')
     expect(() => {
       JSON.parse(stdout)

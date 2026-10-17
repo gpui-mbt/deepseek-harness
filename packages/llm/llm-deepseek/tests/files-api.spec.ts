@@ -1,14 +1,9 @@
 import { once } from 'node:events'
 import { createServer } from 'node:http'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { LlmError, userAgent } from '@deepseek-ai/dsh-llm'
 import { DeepSeekFileId } from '../src/file-id.ts'
-import {
-  DeepSeekFilesClient,
-  DeepSeekFilesError,
-  isFilesQuotaError,
-  MAX_FILE_UPLOAD_BYTES,
-} from '../src/files-api.ts'
+import { DeepSeekFilesClient, DeepSeekFilesError, isFilesQuotaError, MAX_FILE_UPLOAD_BYTES } from '../src/files-api.ts'
 
 function requestUrl(input: string | URL | Request): string {
   if (typeof input === 'string') return input
@@ -17,41 +12,57 @@ function requestUrl(input: string | URL | Request): string {
 
 function file(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'file-api-one', type: 'file', size_bytes: 3,
-    created_at: '2023-11-14T22:13:20.000Z', filename: 'image.png', mime_type: 'image/png',
+    id: 'file-api-one',
+    type: 'file',
+    size_bytes: 3,
+    created_at: '2023-11-14T22:13:20.000Z',
+    filename: 'image.png',
+    mime_type: 'image/png',
     ...overrides,
   }
 }
 
 describe('DeepSeekFilesClient', () => {
   describe('successful response JSON', () => {
-    it.each((['upload', 'list', 'retrieve', 'delete'] as const).flatMap(operation =>
-      ['', '{"id":'].map(body => ({ operation, body })),
-    ))('rejects malformed JSON with operation and HTTP status: %j', async ({ operation, body }) => {
-      const fetchImpl = vi.fn<typeof fetch>(async () => new Response(body, { status: 200 }))
-      const client = new DeepSeekFilesClient({ baseURL: 'https://files.example', headers: { 'x-api-key': 'test-key' }, fetch: fetchImpl })
-      const operations = {
-        upload: () => client.upload({ data: Uint8Array.of(1), mediaType: 'image/png', filename: 'image.png', expiresAfterSeconds: 3_600 }),
-        list: () => client.list(),
-        retrieve: () => client.retrieve(DeepSeekFileId('file-api-one')),
-        delete: () => client.delete(DeepSeekFileId('file-api-one')),
-      }
-      const error = await operations[operation]().catch((caught: unknown) => caught)
-      expect(error).toBeInstanceOf(LlmError)
-      if (!(error instanceof LlmError)) throw error
-      expect(error.cause).toBeInstanceOf(SyntaxError)
-      expect(error).toMatchObject({
-        code: 'INVALID_RESPONSE',
-        message: `DeepSeek Files API returned invalid JSON for ${operation} (HTTP 200).`,
-        failure: { status: 200 },
-      })
-      expect(fetchImpl).toHaveBeenCalledOnce()
-    })
+    it.each((['upload', 'list', 'retrieve', 'delete'] as const).flatMap(operation => ['', '{"id":'].map(body => ({ operation, body }))))(
+      'rejects malformed JSON with operation and HTTP status: %j',
+      async ({ operation, body }) => {
+        const fetchImpl = vi.fn<typeof fetch>(async () => new Response(body, { status: 200 }))
+        const client = new DeepSeekFilesClient({ baseURL: 'https://files.example', headers: { 'x-api-key': 'test-key' }, fetch: fetchImpl })
+        const operations = {
+          upload: () =>
+            client.upload({ data: Uint8Array.of(1), mediaType: 'image/png', filename: 'image.png', expiresAfterSeconds: 3_600 }),
+          list: () => client.list(),
+          retrieve: () => client.retrieve(DeepSeekFileId('file-api-one')),
+          delete: () => client.delete(DeepSeekFileId('file-api-one')),
+        }
+        const error = await operations[operation]().catch((caught: unknown) => caught)
+        expect(error).toBeInstanceOf(LlmError)
+        if (!(error instanceof LlmError)) throw error
+        expect(error.cause).toBeInstanceOf(SyntaxError)
+        expect(error).toMatchObject({
+          code: 'INVALID_RESPONSE',
+          message: `DeepSeek Files API returned invalid JSON for ${operation} (HTTP 200).`,
+          failure: { status: 200 },
+        })
+        expect(fetchImpl).toHaveBeenCalledOnce()
+      },
+    )
 
     it.each([new TypeError('body transport failed'), new DOMException('body aborted', 'AbortError')])(
-      'preserves a non-JSON body-read failure: %s', async (failure) => {
-        const client = new DeepSeekFilesClient({ baseURL: 'https://files.example', headers: { 'x-api-key': 'test-key' },
-          fetch: async () => new Response(new ReadableStream({ start(controller) { controller.error(failure) } })),
+      'preserves a non-JSON body-read failure: %s',
+      async failure => {
+        const client = new DeepSeekFilesClient({
+          baseURL: 'https://files.example',
+          headers: { 'x-api-key': 'test-key' },
+          fetch: async () =>
+            new Response(
+              new ReadableStream({
+                start(controller) {
+                  controller.error(failure)
+                },
+              }),
+            ),
         })
         await expect(client.retrieve(DeepSeekFileId('file-api-one'))).rejects.toBe(failure)
       },
@@ -72,8 +83,17 @@ describe('DeepSeekFilesClient', () => {
       expect(form.get('expires_after[seconds]')).toBe('3600')
       return new Response(JSON.stringify(file()))
     }) as typeof fetch
-    const client = new DeepSeekFilesClient({ baseURL: 'https://gateway.example/custom/route///', headers: { 'x-api-key': 'key' }, fetch: fetchImpl })
-    const uploaded = await client.upload({ data: Uint8Array.of(1, 2, 3), mediaType: 'image/png', filename: 'image.png', expiresAfterSeconds: 3_600 })
+    const client = new DeepSeekFilesClient({
+      baseURL: 'https://gateway.example/custom/route///',
+      headers: { 'x-api-key': 'key' },
+      fetch: fetchImpl,
+    })
+    const uploaded = await client.upload({
+      data: Uint8Array.of(1, 2, 3),
+      mediaType: 'image/png',
+      filename: 'image.png',
+      expiresAfterSeconds: 3_600,
+    })
     const createdAt = Math.floor(Date.parse('2023-11-14T22:13:20.000Z') / 1_000)
     expect(uploaded).toEqual({ id: 'file-api-one', bytes: 3, createdAt, filename: 'image.png', expiresAt: createdAt + 3_600 })
   })
@@ -86,7 +106,10 @@ describe('DeepSeekFilesClient', () => {
     const client = new DeepSeekFilesClient({ baseURL, headers: { 'x-api-key': 'key' }, fetch: fetchImpl })
 
     await client.upload({
-      data: Uint8Array.of(1, 2, 3), mediaType: 'image/png', filename: 'image.png', expiresAfterSeconds: 3_600,
+      data: Uint8Array.of(1, 2, 3),
+      mediaType: 'image/png',
+      filename: 'image.png',
+      expiresAfterSeconds: 3_600,
     })
 
     expect(fetchImpl).toHaveBeenCalledOnce()
@@ -103,21 +126,32 @@ describe('DeepSeekFilesClient', () => {
       expect(url.pathname).toBe('/anthropic/v1/files/file-api-one')
       return new Response(JSON.stringify(init?.method === 'DELETE' ? { id: 'file-api-one', type: 'file_deleted' } : file()))
     }) as typeof fetch
-    const client = new DeepSeekFilesClient({ baseURL: 'https://api.deepseek.com/anthropic', headers: { 'x-api-key': 'key' }, fetch: fetchImpl })
-    await expect(client.list({ after: DeepSeekFileId('file-before'), limit: 1_000 })).resolves.toMatchObject({ data: [{ bytes: 3 }], hasMore: false })
+    const client = new DeepSeekFilesClient({
+      baseURL: 'https://api.deepseek.com/anthropic',
+      headers: { 'x-api-key': 'key' },
+      fetch: fetchImpl,
+    })
+    await expect(client.list({ after: DeepSeekFileId('file-before'), limit: 1_000 })).resolves.toMatchObject({
+      data: [{ bytes: 3 }],
+      hasMore: false,
+    })
     await expect(client.retrieve(DeepSeekFileId('file-api-one'))).resolves.toMatchObject({ id: 'file-api-one', bytes: 3 })
     await expect(client.delete(DeepSeekFileId('file-api-one'))).resolves.toBeUndefined()
   })
 
   it('accepts an empty Messages list with null cursors', async () => {
-    const client = new DeepSeekFilesClient({ baseURL: 'https://gateway.example', headers: { 'x-api-key': 'key' },
+    const client = new DeepSeekFilesClient({
+      baseURL: 'https://gateway.example',
+      headers: { 'x-api-key': 'key' },
       fetch: async () => new Response(JSON.stringify({ data: [], first_id: null, last_id: null, has_more: false })),
     })
     await expect(client.list()).resolves.toEqual({ data: [], hasMore: false })
   })
 
-  it.each(['first_id', 'last_id'])('rejects a Messages list with a numeric %s', async (cursor) => {
-    const client = new DeepSeekFilesClient({ baseURL: 'https://gateway.example', headers: { 'x-api-key': 'key' },
+  it.each(['first_id', 'last_id'])('rejects a Messages list with a numeric %s', async cursor => {
+    const client = new DeepSeekFilesClient({
+      baseURL: 'https://gateway.example',
+      headers: { 'x-api-key': 'key' },
       fetch: async () => new Response(JSON.stringify({ data: [], first_id: null, last_id: null, has_more: false, [cursor]: 1 })),
     })
     await expect(client.list()).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
@@ -139,7 +173,7 @@ describe('DeepSeekFilesClient', () => {
       onTestFinished(async () => {
         server.closeAllConnections()
         await new Promise<void>((resolve, reject) => {
-          server.close((error) => {
+          server.close(error => {
             if (error) reject(error)
             else resolve()
           })
@@ -156,15 +190,22 @@ describe('DeepSeekFilesClient', () => {
     expect(error).toMatchObject({ code: 'TRANSPORT' })
   })
 
-  it.each([null, [], { type: 'wrong' }, { mime_type: null }, { created_at: 'invalid' }, { created_at: 123 }, { size_bytes: -1 }])('rejects malformed Messages file metadata %#', async (value) => {
-    const client = new DeepSeekFilesClient({ baseURL: 'https://gateway.example', headers: { 'x-api-key': 'key' },
-      fetch: async () => new Response(JSON.stringify(value === null || Array.isArray(value) ? value : file(value))),
-    })
-    await expect(client.retrieve(DeepSeekFileId('file-api-one'))).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
-  })
+  it.each([null, [], { type: 'wrong' }, { mime_type: null }, { created_at: 'invalid' }, { created_at: 123 }, { size_bytes: -1 }])(
+    'rejects malformed Messages file metadata %#',
+    async value => {
+      const client = new DeepSeekFilesClient({
+        baseURL: 'https://gateway.example',
+        headers: { 'x-api-key': 'key' },
+        fetch: async () => new Response(JSON.stringify(value === null || Array.isArray(value) ? value : file(value))),
+      })
+      await expect(client.retrieve(DeepSeekFileId('file-api-one'))).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+    },
+  )
 
   it('rejects a Messages deletion that returns a different file identity', async () => {
-    const client = new DeepSeekFilesClient({ baseURL: 'https://gateway.example', headers: { 'x-api-key': 'key' },
+    const client = new DeepSeekFilesClient({
+      baseURL: 'https://gateway.example',
+      headers: { 'x-api-key': 'key' },
       fetch: async () => new Response(JSON.stringify({ id: 'wrong', type: 'file_deleted' })),
     })
     await expect(client.delete(DeepSeekFileId('file-api-one'))).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
@@ -191,12 +232,14 @@ describe('DeepSeekFilesClient', () => {
     }) as typeof fetch
     const client = new DeepSeekFilesClient({ baseURL: 'https://api.deepseek.com/', headers: { 'x-api-key': 'key' }, fetch: fetchImpl })
 
-    await expect(client.upload({
-      data: Uint8Array.of(1, 2, 3),
-      mediaType: 'image/png',
-      filename: 'image.png',
-      expiresAfterSeconds: 604_800,
-    })).resolves.toEqual({
+    await expect(
+      client.upload({
+        data: Uint8Array.of(1, 2, 3),
+        mediaType: 'image/png',
+        filename: 'image.png',
+        expiresAfterSeconds: 604_800,
+      }),
+    ).resolves.toEqual({
       id: DeepSeekFileId('file-api-one'),
       bytes: 3,
       createdAt: 1_700_000_000,
@@ -209,9 +252,15 @@ describe('DeepSeekFilesClient', () => {
     const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       const target = requestUrl(url)
       if (target.includes('?')) {
-        return new Response(JSON.stringify({
-          data: [file()], first_id: 'file-api-one', last_id: 'file-api-one', has_more: false,
-        }), { status: 200 })
+        return new Response(
+          JSON.stringify({
+            data: [file()],
+            first_id: 'file-api-one',
+            last_id: 'file-api-one',
+            has_more: false,
+          }),
+          { status: 200 },
+        )
       }
       if (init?.method === 'DELETE') {
         return new Response(JSON.stringify({ id: 'file-api-one', type: 'file_deleted' }), { status: 200 })
@@ -221,21 +270,36 @@ describe('DeepSeekFilesClient', () => {
     const client = new DeepSeekFilesClient({ baseURL: 'https://api.deepseek.com', headers: { 'x-api-key': 'key' }, fetch: fetchImpl })
 
     await expect(client.list({ after: DeepSeekFileId('file-api-before'), limit: 20 })).resolves.toMatchObject({
-      data: [{ id: 'file-api-one' }], firstId: 'file-api-one', lastId: 'file-api-one', hasMore: false,
+      data: [{ id: 'file-api-one' }],
+      firstId: 'file-api-one',
+      lastId: 'file-api-one',
+      hasMore: false,
     })
     await expect(client.retrieve(DeepSeekFileId('file-api-one'))).resolves.toMatchObject({ id: 'file-api-one' })
     await expect(client.delete(DeepSeekFileId('file-api-one'))).resolves.toBeUndefined()
   })
 
   it('retains quota error detail for the one cleanup retry policy', async () => {
-    const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify({
-      error: { message: 'user storage quota exceeded', type: 'invalid_request_error', code: 'file_quota' },
-    }), { status: 400 }))) as typeof fetch
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: { message: 'user storage quota exceeded', type: 'invalid_request_error', code: 'file_quota' },
+          }),
+          { status: 400 },
+        ),
+      ),
+    ) as typeof fetch
     const client = new DeepSeekFilesClient({ baseURL: 'https://api.deepseek.com', headers: { 'x-api-key': 'key' }, fetch: fetchImpl })
 
-    const error = await client.upload({
-      data: Uint8Array.of(1), mediaType: 'image/png', filename: 'image.png', expiresAfterSeconds: 3_600,
-    }).catch((caught: unknown) => caught)
+    const error = await client
+      .upload({
+        data: Uint8Array.of(1),
+        mediaType: 'image/png',
+        filename: 'image.png',
+        expiresAfterSeconds: 3_600,
+      })
+      .catch((caught: unknown) => caught)
     expect(isFilesQuotaError(error)).toBe(true)
     expect(isFilesQuotaError(new Error('storage quota'))).toBe(false)
   })
@@ -259,23 +323,19 @@ describe('DeepSeekFilesClient', () => {
     })
   })
 
-  it.each([
-    null,
-    [],
-    {},
-    { error: null },
-    { error: [] },
-    { error: { message: 1, type: 2, code: 3 } },
-  ])('falls back to the HTTP status for an unstructured provider error %#', async (body) => {
-    const client = new DeepSeekFilesClient({
-      baseURL: 'https://api.deepseek.com',
-      headers: { 'x-api-key': 'key' },
-      fetch: vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status: 400 }))),
-    })
-    const error = await client.retrieve(DeepSeekFileId('missing')).catch((caught: unknown) => caught)
-    expect(error).toBeInstanceOf(DeepSeekFilesError)
-    expect(error).toMatchObject({ message: 'DeepSeek Files API error (HTTP 400)', detail: '' })
-  })
+  it.each([null, [], {}, { error: null }, { error: [] }, { error: { message: 1, type: 2, code: 3 } }])(
+    'falls back to the HTTP status for an unstructured provider error %#',
+    async body => {
+      const client = new DeepSeekFilesClient({
+        baseURL: 'https://api.deepseek.com',
+        headers: { 'x-api-key': 'key' },
+        fetch: vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status: 400 }))),
+      })
+      const error = await client.retrieve(DeepSeekFileId('missing')).catch((caught: unknown) => caught)
+      expect(error).toBeInstanceOf(DeepSeekFilesError)
+      expect(error).toMatchObject({ message: 'DeepSeek Files API error (HTTP 400)', detail: '' })
+    },
+  )
 
   it('wraps transport failures but preserves an aborted request reason', async () => {
     const transport = new Error('socket closed')
@@ -307,7 +367,7 @@ describe('DeepSeekFilesClient', () => {
     file({ created_at: -1 }),
     file({ filename: 1 }),
     file({ filename: '' }),
-  ])('rejects an invalid file object %#', async (body) => {
+  ])('rejects an invalid file object %#', async body => {
     const client = new DeepSeekFilesClient({
       baseURL: 'https://api.deepseek.com',
       headers: { 'x-api-key': 'key' },
@@ -316,16 +376,17 @@ describe('DeepSeekFilesClient', () => {
     await expect(client.retrieve(DeepSeekFileId('one'))).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
   })
 
-  it.each([
-    3_599,
-    2_592_001,
-    3_600.5,
-  ])('refuses invalid file expiry %s before transport', async (expiresAfterSeconds) => {
+  it.each([3_599, 2_592_001, 3_600.5])('refuses invalid file expiry %s before transport', async expiresAfterSeconds => {
     const fetchImpl = vi.fn() as typeof fetch
     const client = new DeepSeekFilesClient({ baseURL: 'https://api.deepseek.com', headers: { 'x-api-key': 'key' }, fetch: fetchImpl })
-    await expect(client.upload({
-      data: Uint8Array.of(1), mediaType: 'image/png', filename: 'image.png', expiresAfterSeconds,
-    })).rejects.toMatchObject({ code: 'INVALID_REQUEST' })
+    await expect(
+      client.upload({
+        data: Uint8Array.of(1),
+        mediaType: 'image/png',
+        filename: 'image.png',
+        expiresAfterSeconds,
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' })
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
@@ -333,9 +394,14 @@ describe('DeepSeekFilesClient', () => {
     const fetchImpl = vi.fn() as typeof fetch
     const client = new DeepSeekFilesClient({ baseURL: 'https://api.deepseek.com', headers: { 'x-api-key': 'key' }, fetch: fetchImpl })
     const data = { byteLength: MAX_FILE_UPLOAD_BYTES + 1 } as Uint8Array
-    await expect(client.upload({
-      data, mediaType: 'image/png', filename: 'image.png', expiresAfterSeconds: 3_600,
-    })).rejects.toMatchObject({ code: 'INVALID_REQUEST' })
+    await expect(
+      client.upload({
+        data,
+        mediaType: 'image/png',
+        filename: 'image.png',
+        expiresAfterSeconds: 3_600,
+      }),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' })
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
@@ -347,7 +413,7 @@ describe('DeepSeekFilesClient', () => {
     { data: [], has_more: 0 },
     { data: [], has_more: false, first_id: 1 },
     { data: [], has_more: false, last_id: 1 },
-  ])('rejects an invalid list response %#', async (body) => {
+  ])('rejects an invalid list response %#', async body => {
     const client = new DeepSeekFilesClient({
       baseURL: 'https://api.deepseek.com',
       headers: { 'x-api-key': 'key' },
@@ -357,9 +423,17 @@ describe('DeepSeekFilesClient', () => {
   })
 
   it('accepts a list without cursors and uses the global fetch default', async () => {
-    const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify({
-      data: [], has_more: false,
-    }), { status: 200 })))
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: [],
+            has_more: false,
+          }),
+          { status: 200 },
+        ),
+      ),
+    )
     vi.stubGlobal('fetch', fetchImpl)
     try {
       const client = new DeepSeekFilesClient({ baseURL: 'https://api.deepseek.com///', headers: { 'x-api-key': 'key' } })
@@ -369,25 +443,23 @@ describe('DeepSeekFilesClient', () => {
     }
   })
 
-  it.each([
-    null,
-    [],
-    {},
-    { id: 'wrong', type: 'file_deleted' },
-    { id: 'file-api-one', type: 'wrong' },
-  ])('rejects an invalid delete response %#', async (body) => {
-    const client = new DeepSeekFilesClient({
-      baseURL: 'https://api.deepseek.com',
-      headers: { 'x-api-key': 'key' },
-      fetch: vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))),
-    })
-    await expect(client.delete(DeepSeekFileId('file-api-one'))).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
-  })
+  it.each([null, [], {}, { id: 'wrong', type: 'file_deleted' }, { id: 'file-api-one', type: 'wrong' }])(
+    'rejects an invalid delete response %#',
+    async body => {
+      const client = new DeepSeekFilesClient({
+        baseURL: 'https://api.deepseek.com',
+        headers: { 'x-api-key': 'key' },
+        fetch: vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))),
+      })
+      await expect(client.delete(DeepSeekFileId('file-api-one'))).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+    },
+  )
 })
 
 it('authenticates Files with the raw DSH token', async () => {
   const client = new DeepSeekFilesClient({
-    baseURL: 'https://api.deepseek.com', headers: { 'x-dsh-auth-token': 'account-token' },
+    baseURL: 'https://api.deepseek.com',
+    headers: { 'x-dsh-auth-token': 'account-token' },
     fetch: (_url, init) => {
       const headers = new Headers(init?.headers)
       expect(headers.get('x-dsh-auth-token')).toBe('account-token')

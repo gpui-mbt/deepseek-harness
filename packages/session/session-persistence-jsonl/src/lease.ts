@@ -40,9 +40,7 @@ import { acquireLockHandleWin32, releaseLockHandleWin32 } from './win32.ts'
 export const LEASE_FILENAME = 'session.lock'
 
 /** The held kernel lock: a POSIX descriptor or a Win32 semaphore handle. */
-type HeldLock =
-  | { readonly kind: 'posix'; readonly handle: FileHandle }
-  | { readonly kind: 'win32'; readonly handle: number }
+type HeldLock = { readonly kind: 'posix'; readonly handle: FileHandle } | { readonly kind: 'win32'; readonly handle: number }
 
 /** Whether a flock failure means another descriptor holds the lock. */
 function isLockContention(error: unknown): boolean {

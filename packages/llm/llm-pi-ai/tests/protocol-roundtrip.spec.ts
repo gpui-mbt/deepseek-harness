@@ -1,5 +1,5 @@
 /** Cross-protocol requests must not overwrite the history needed by its original provider. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { Message } from '@deepseek-ai/dsh-llm'
@@ -18,42 +18,81 @@ afterEach(async () => {
 })
 
 function responsesFrames(tools: boolean): string[] {
-  const items = tools ? [
-    { type: 'reasoning', id: 'rs_original', encrypted_content: 'encrypted-reasoning', summary: [{ type: 'summary_text', text: 'source reasoning' }] },
-    { type: 'message', id: 'msg_original', role: 'assistant', content: [{ type: 'output_text', text: 'source text', annotations: [] }] },
-    ...[0, 1].map(index => ({ type: 'function_call', id: `fc_${index}`, call_id: `call_${index}`, name: 'lookup', arguments: JSON.stringify({ key: index }) })),
-    { type: 'message', id: 'msg_empty', role: 'assistant', content: [{ type: 'output_text', text: '', annotations: [] }] },
-  ] : [{ type: 'message', id: 'msg_reply', role: 'assistant', content: [{ type: 'output_text', text: 'reply', annotations: [] }] }]
+  const items = tools
+    ? [
+        {
+          type: 'reasoning',
+          id: 'rs_original',
+          encrypted_content: 'encrypted-reasoning',
+          summary: [{ type: 'summary_text', text: 'source reasoning' }],
+        },
+        {
+          type: 'message',
+          id: 'msg_original',
+          role: 'assistant',
+          content: [{ type: 'output_text', text: 'source text', annotations: [] }],
+        },
+        ...[0, 1].map(index => ({
+          type: 'function_call',
+          id: `fc_${index}`,
+          call_id: `call_${index}`,
+          name: 'lookup',
+          arguments: JSON.stringify({ key: index }),
+        })),
+        { type: 'message', id: 'msg_empty', role: 'assistant', content: [{ type: 'output_text', text: '', annotations: [] }] },
+      ]
+    : [{ type: 'message', id: 'msg_reply', role: 'assistant', content: [{ type: 'output_text', text: 'reply', annotations: [] }] }]
   return [
     JSON.stringify({ type: 'response.created', response: { id: 'resp_original' } }),
     ...items.flatMap((item, output_index) => [
       JSON.stringify({ type: 'response.output_item.added', output_index, item }),
       JSON.stringify({ type: 'response.output_item.done', output_index, item }),
     ]),
-    JSON.stringify({ type: 'response.completed', response: {
-      id: 'resp_original', status: 'completed', output: items, usage: { input_tokens: 3, output_tokens: 1, total_tokens: 4 },
-    } }),
+    JSON.stringify({
+      type: 'response.completed',
+      response: {
+        id: 'resp_original',
+        status: 'completed',
+        output: items,
+        usage: { input_tokens: 3, output_tokens: 1, total_tokens: 4 },
+      },
+    }),
   ]
 }
 
 function anthropicFrames(tools: boolean): ReturnType<typeof anthropicFrame>[] {
-  const blocks = tools ? [
-    { type: 'thinking', thinking: 'source reasoning', signature: 'signed-reasoning' },
-    { type: 'redacted_thinking', data: 'encrypted-redacted-reasoning' },
-    { type: 'text', text: 'source text' },
-    ...[0, 1].map(index => ({ type: 'tool_use', id: `toolu_${index}`, name: 'lookup', input: { key: index } })),
-    { type: 'text', text: '' },
-  ] : [{ type: 'text', text: 'reply' }]
+  const blocks = tools
+    ? [
+        { type: 'thinking', thinking: 'source reasoning', signature: 'signed-reasoning' },
+        { type: 'redacted_thinking', data: 'encrypted-redacted-reasoning' },
+        { type: 'text', text: 'source text' },
+        ...[0, 1].map(index => ({ type: 'tool_use', id: `toolu_${index}`, name: 'lookup', input: { key: index } })),
+        { type: 'text', text: '' },
+      ]
+    : [{ type: 'text', text: 'reply' }]
   return [
-    anthropicFrame({ type: 'message_start', message: {
-      id: 'msg_original', type: 'message', role: 'assistant', model: 'model', content: [],
-      stop_reason: null, stop_sequence: null, usage: { input_tokens: 3, output_tokens: 1 },
-    } }),
+    anthropicFrame({
+      type: 'message_start',
+      message: {
+        id: 'msg_original',
+        type: 'message',
+        role: 'assistant',
+        model: 'model',
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: { input_tokens: 3, output_tokens: 1 },
+      },
+    }),
     ...blocks.flatMap((content_block, index) => [
       anthropicFrame({ type: 'content_block_start', index, content_block }),
       anthropicFrame({ type: 'content_block_stop', index }),
     ]),
-    anthropicFrame({ type: 'message_delta', delta: { stop_reason: tools ? 'tool_use' : 'end_turn', stop_sequence: null }, usage: { output_tokens: 1 } }),
+    anthropicFrame({
+      type: 'message_delta',
+      delta: { stop_reason: tools ? 'tool_use' : 'end_turn', stop_sequence: null },
+      usage: { output_tokens: 1 },
+    }),
     anthropicFrame({ type: 'message_stop' }),
   ]
 }
@@ -62,14 +101,33 @@ function frames(api: Api, tools = false): (string | ReturnType<typeof anthropicF
   if (api === 'openai-responses') return responsesFrames(tools)
   if (api === 'anthropic-messages') return anthropicFrames(tools)
   return [
-    JSON.stringify({ choices: [{ index: 0, delta: {
-      role: 'assistant', content: tools ? 'source text' : 'reply',
-      ...tools ? {
-        reasoning_content: 'source reasoning',
-        tool_calls: [0, 1].map(index => ({ index, id: `call_${index}`, type: 'function', function: { name: 'lookup', arguments: JSON.stringify({ key: index }) } })),
-      } : {},
-    }, finish_reason: null }] }),
-    JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: tools ? 'tool_calls' : 'stop' }], usage: { prompt_tokens: 3, completion_tokens: 1 } }),
+    JSON.stringify({
+      choices: [
+        {
+          index: 0,
+          delta: {
+            role: 'assistant',
+            content: tools ? 'source text' : 'reply',
+            ...(tools
+              ? {
+                  reasoning_content: 'source reasoning',
+                  tool_calls: [0, 1].map(index => ({
+                    index,
+                    id: `call_${index}`,
+                    type: 'function',
+                    function: { name: 'lookup', arguments: JSON.stringify({ key: index }) },
+                  })),
+                }
+              : {}),
+          },
+          finish_reason: null,
+        },
+      ],
+    }),
+    JSON.stringify({
+      choices: [{ index: 0, delta: {}, finish_reason: tools ? 'tool_calls' : 'stop' }],
+      usage: { prompt_tokens: 3, completion_tokens: 1 },
+    }),
     '[DONE]',
   ]
 }
@@ -105,7 +163,11 @@ function expectToolPairs(request: unknown, api: Api): void {
   expect(results).toEqual(calls)
 }
 
-const tool = { name: 'lookup', description: 'Look up a value.', parameters: { type: 'object', properties: { key: { type: 'number' } }, required: ['key'] } }
+const tool = {
+  name: 'lookup',
+  description: 'Look up a value.',
+  parameters: { type: 'object', properties: { key: { type: 'number' } }, required: ['key'] },
+}
 const pairs: { a: Api; b: Api | 'deepseek-messages' }[] = [
   ...apis.flatMap(a => apis.filter(b => b !== a).map(b => ({ a, b }))),
   ...apis.map(a => ({ a, b: 'deepseek-messages' as const })),
@@ -121,15 +183,29 @@ describe('protocol history round trips', () => {
     const ctx = new Context()
     contexts.push(ctx)
     await ctx.plugin(LlmRuntime)
-    await ctx.plugin(LlmPiAi, { providers: {
-      'route-a': { api: a, baseURL: source.url, apiKeyEnv: 'PROTOCOL_ROUNDTRIP_KEY', cacheRetention: 'none', models: [{ id: 'model' }] },
-      ...b === 'deepseek-messages' ? {} : {
-        'route-b': { api: b, baseURL: target.url, apiKeyEnv: 'PROTOCOL_ROUNDTRIP_KEY', cacheRetention: 'none', models: [{ id: 'model' }] },
+    await ctx.plugin(LlmPiAi, {
+      providers: {
+        'route-a': { api: a, baseURL: source.url, apiKeyEnv: 'PROTOCOL_ROUNDTRIP_KEY', cacheRetention: 'none', models: [{ id: 'model' }] },
+        ...(b === 'deepseek-messages'
+          ? {}
+          : {
+              'route-b': {
+                api: b,
+                baseURL: target.url,
+                apiKeyEnv: 'PROTOCOL_ROUNDTRIP_KEY',
+                cacheRetention: 'none',
+                models: [{ id: 'model' }],
+              },
+            }),
       },
-    } })
-    if (b === 'deepseek-messages') await ctx.plugin(DeepSeek, {
-      baseURL: target.url, apiKeyEnv: 'PROTOCOL_ROUNDTRIP_KEY', models: [{ id: 'model' }], thinking: 'disabled',
     })
+    if (b === 'deepseek-messages')
+      await ctx.plugin(DeepSeek, {
+        baseURL: target.url,
+        apiKeyEnv: 'PROTOCOL_ROUNDTRIP_KEY',
+        models: [{ id: 'model' }],
+        thinking: 'disabled',
+      })
     let history: Message[] = [createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Look up both values.' }] })]
     const original = await assemble(ctx, { provider: 'route-a', model: 'model', messages: history, tools: [tool] })
     expect(original.finish).toEqual({ kind: 'tool-calls' })
@@ -151,14 +227,23 @@ describe('protocol history round trips', () => {
       ])
       expect(original.message.source).toMatchObject({ replayState: { response: { responseId: 'resp_original' }, blocks } })
     }
-    history.push(original.message, ...calls.map(call => createToolResultMessage({
-      callId: call.id, content: [{ type: 'text', text: 'value' }], isError: false,
-    })))
+    history.push(
+      original.message,
+      ...calls.map(call =>
+        createToolResultMessage({
+          callId: call.id,
+          content: [{ type: 'text', text: 'value' }],
+          isError: false,
+        }),
+      ),
+    )
     const saved = JSON.stringify(history)
     history = JSON.parse(saved) as Message[]
 
     // Capture A's request before any foreign conversion, then use the same saved history for B.
-    expect((await assemble(ctx, { provider: 'route-a', model: 'model', messages: history, tools: [tool] })).finish).toEqual({ kind: 'stop' })
+    expect((await assemble(ctx, { provider: 'route-a', model: 'model', messages: history, tools: [tool] })).finish).toEqual({
+      kind: 'stop',
+    })
     const baseline = wireHistory(source.requests[1], a)
     expectToolPairs(source.requests[1], a)
     if (a === 'anthropic-messages') {
@@ -175,10 +260,15 @@ describe('protocol history round trips', () => {
     expect(JSON.stringify(target.requests[0])).not.toContain('encrypted-reasoning')
     expect(JSON.stringify(target.requests[0])).not.toContain('encrypted-redacted-reasoning')
     expect(JSON.stringify(target.requests[0])).not.toContain('signed-reasoning')
-    history.push(foreign.message, createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Continue with the original model.' }] }))
+    history.push(
+      foreign.message,
+      createUserMessage({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Continue with the original model.' }] }),
+    )
     history = JSON.parse(JSON.stringify(history)) as Message[]
     expect(history.slice(0, -2)).toEqual(JSON.parse(saved))
-    expect((await assemble(ctx, { provider: 'route-a', model: 'model', messages: history, tools: [tool] })).finish).toEqual({ kind: 'stop' })
+    expect((await assemble(ctx, { provider: 'route-a', model: 'model', messages: history, tools: [tool] })).finish).toEqual({
+      kind: 'stop',
+    })
     expect(wireHistory(source.requests[2], a).slice(0, baseline.length)).toEqual(baseline)
     expect(history.slice(0, -2)).toEqual(JSON.parse(saved))
     expect(source.requests).toHaveLength(3)

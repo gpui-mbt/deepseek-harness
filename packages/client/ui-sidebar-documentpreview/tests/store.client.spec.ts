@@ -3,7 +3,7 @@
  * file version; a view that survives a reset; one bucket per tab, dropped on
  * `forget` so a closed tab leaves nothing behind.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { RemoteFailure } from '@deepseek-ai/dsh-api-remotes/client'
 import { createTextStore, fresh } from '../src/client/store.ts'
 import { page } from './fixtures.client.ts'
@@ -74,7 +74,11 @@ describe('text store', () => {
     instance.actions.navigated(TAB_1, 3)
     instance.actions.reset(TAB_1)
     expect(instance.getSnapshot().byTab[TAB_1]).toEqual({
-      ...fresh(), loadRevision: 1, scrollTop: 120, wrap: false, revision: 3,
+      ...fresh(),
+      loadRevision: 1,
+      scrollTop: 120,
+      wrap: false,
+      revision: 3,
     })
   })
 

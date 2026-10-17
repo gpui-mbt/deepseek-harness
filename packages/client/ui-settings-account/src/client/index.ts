@@ -37,7 +37,9 @@ export type { AccountSnapshot } from './AccountSection.tsx'
 export type { AccountKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
-  interface LocaleNamespaceMap { 'settings.account': AccountKey }
+  interface LocaleNamespaceMap {
+    'settings.account': AccountKey
+  }
 }
 
 /** Services required by account settings. */
@@ -50,15 +52,35 @@ export function apply(ctx: Context): void {
   const page = globalThis as Partial<Record<typeof CONTACT_CONFIG_GLOBAL, unknown>>
   const config = ContactConfig(page[CONTACT_CONFIG_GLOBAL] ?? {})
   let snapshot: AccountSnapshot = {
-    view: undefined, details: undefined, avatar: undefined, failed: false, loginVisible: false, desktopOnboardingVisible: desktop,
+    view: undefined,
+    details: undefined,
+    avatar: undefined,
+    failed: false,
+    loginVisible: false,
+    desktopOnboardingVisible: desktop,
   }
   // Desktop main opens the authorization page natively; a plain browser opens it in a tab it owns.
   const browser = new BrowserLogin(url => authorizeUrlWithTheme(url, ctx.theme.getTheme().active.colorScheme))
-  ctx.effect(() => () => { browser.dispose() }, 'account: pending browser window')
+  ctx.effect(
+    () => () => {
+      browser.dispose()
+    },
+    'account: pending browser window',
+  )
   const listeners = new Set<() => void>()
-  const publish = (value: AccountSnapshot) => { snapshot = value; for (const listener of listeners) listener() }
-  const avatar = new AccountAvatarLoader((value) => { publish({ ...snapshot, avatar: value }) })
-  ctx.effect(() => () => { avatar.dispose() }, 'account: profile picture lifetime')
+  const publish = (value: AccountSnapshot) => {
+    snapshot = value
+    for (const listener of listeners) listener()
+  }
+  const avatar = new AccountAvatarLoader(value => {
+    publish({ ...snapshot, avatar: value })
+  })
+  ctx.effect(
+    () => () => {
+      avatar.dispose()
+    },
+    'account: profile picture lifetime',
+  )
   /** @returns the client identity for one account call, read at call time so it carries the language and zone in effect then. */
   const client = () => accountClientMetadata(ctx.locale.getSnapshot().active, process.env.DSH_CLIENT_VERSION)
   // The browser half of the notice lifecycle: reads when the account becomes
@@ -78,23 +100,30 @@ export function apply(ctx: Context): void {
       if (!result.ok) throw new Error('account bonus acknowledgement failed')
       return result.value
     },
-    publish: (notices) => {
+    publish: notices => {
       const { notices: _replaced, ...withoutNotices } = snapshot
       publish(notices.length === 0 ? withoutNotices : { ...withoutNotices, notices })
     },
   })
-  ctx.effect(() => () => { notices.end() }, 'account: bonus notice lifetime')
+  ctx.effect(
+    () => () => {
+      notices.end()
+    },
+    'account: bonus notice lifetime',
+  )
   let revision = 0
   let refreshing: Promise<void> | undefined
   const refresh = (): Promise<void> => {
     if (snapshot.view?.status !== 'credential-stored') return Promise.resolve()
     if (refreshing !== undefined) return refreshing
     const generation = revision
-    const read = async <K extends keyof AccountDetails>(field: K,
-      query: () => Promise<AccountDetails[K] | null>) => {
+    const read = async <K extends keyof AccountDetails>(field: K, query: () => Promise<AccountDetails[K] | null>) => {
       let value: AccountDetails[K] | null
-      try { value = await query() }
-      catch { value = { status: 'failed' } }
+      try {
+        value = await query()
+      } catch {
+        value = { status: 'failed' }
+      }
       if (value?.status === 'failed') console.error('[deepseek-account] account read failed', { field })
       if (generation === revision && value !== null) publish({ ...snapshot, details: { ...snapshot.details, [field]: value } })
     }
@@ -112,46 +141,77 @@ export function apply(ctx: Context): void {
       }),
     ]).then(() => undefined)
     refreshing = request
-    void request.finally(() => { if (refreshing === request) refreshing = undefined })
+    void request.finally(() => {
+      if (refreshing === request) refreshing = undefined
+    })
     return request
   }
-  ctx.effect(() => () => { revision++ }, 'account: details request lifetime')
+  ctx.effect(
+    () => () => {
+      revision++
+    },
+    'account: details request lifetime',
+  )
   const stream = ctx.remote.$stream<AccountView>({
-    name: 'account', open: signal => ctx.remote.account.watch(signal), ended: () => new Error('account stream ended'),
+    name: 'account',
+    open: signal => ctx.remote.account.watch(signal),
+    ended: () => new Error('account stream ended'),
   })
   let disposed = false
-  ctx.effect(() => () => { disposed = true; return stream.dispose() }, 'account: state stream')
+  ctx.effect(
+    () => () => {
+      disposed = true
+      return stream.dispose()
+    },
+    'account: state stream',
+  )
   void (async () => {
     for await (const frame of stream) {
       revision++
       refreshing = undefined
       avatar.reset()
-      const initialize = frame.value.status === 'credential-stored' && frame.value.attempt?.phase === 'succeeded'
-        && snapshot.view?.attempt?.phase !== 'succeeded'
+      const initialize =
+        frame.value.status === 'credential-stored' &&
+        frame.value.attempt?.phase === 'succeeded' &&
+        snapshot.view?.attempt?.phase !== 'succeeded'
       const { notices: previousNotices, ...previous } = snapshot
-      publish({ ...previous, view: frame.value, details: undefined, avatar: undefined, failed: false,
-        ...(frame.value.status === 'credential-stored' && previousNotices ? { notices: previousNotices } : {}) })
+      publish({
+        ...previous,
+        view: frame.value,
+        details: undefined,
+        avatar: undefined,
+        failed: false,
+        ...(frame.value.status === 'credential-stored' && previousNotices ? { notices: previousNotices } : {}),
+      })
       browser.update(frame.value)
       frame.accept()
       if (frame.value.status === 'credential-stored') notices.begin()
       else notices.end()
-      if (initialize) void (async () => {
-        try {
-          const initialized = await ctx.remote.session.initializeDefaultModel()
-          if (!initialized.ok) console.error('[deepseek-account] default model initialization failed', { reason: 'refused' })
-        } catch (_error) {
-          console.error('[deepseek-account] default model initialization failed', { reason: 'disconnected' })
-        }
-      })()
+      if (initialize)
+        void (async () => {
+          try {
+            const initialized = await ctx.remote.session.initializeDefaultModel()
+            if (!initialized.ok) console.error('[deepseek-account] default model initialization failed', { reason: 'refused' })
+          } catch (_error) {
+            console.error('[deepseek-account] default model initialization failed', { reason: 'disconnected' })
+          }
+        })()
       void refresh()
     }
-  })().catch(() => { if (!disposed) publish({ ...snapshot, failed: true }) })
+  })().catch(() => {
+    if (!disposed) publish({ ...snapshot, failed: true })
+  })
   const nativePlatform = (globalThis as typeof globalThis & { dshPlatform?: PlatformBridge }).dshPlatform
   // One request channel for the single native Platform view. It always exists
   // so every entry can observe whether a page is showing; only a native bridge
   // lets an entry request one.
   const platformPages = createPlatformPages()
-  ctx.effect(() => () => { platformPages.dispose() }, 'account: platform page request')
+  ctx.effect(
+    () => () => {
+      platformPages.dispose()
+    },
+    'account: platform page request',
+  )
   // One account refresh: the recharge/bonus wallet and the unnotified-bonus read,
   // whichever surface asks — a Settings entry, or returning from top-up. Both
   // reads are independent, and a concurrent refresh shares the in-flight request.
@@ -166,16 +226,20 @@ export function apply(ctx: Context): void {
    * @param reRead - that surface's read after a returned top-up page.
    * @returns the opener that surface injects.
    */
-  const platformPageOpener = (reRead: () => Promise<void>): PlatformPages['open'] =>
-    (page, onClose) => platformPages.open(page, (reason) => {
-      onClose(reason)
-      if (reason === 'returned' && page === 'top-up') void refreshAfterReturn(refreshing, reRead)
-    })
+  const platformPageOpener =
+    (reRead: () => Promise<void>): PlatformPages['open'] =>
+    (page, onClose) =>
+      platformPages.open(page, reason => {
+        onClose(reason)
+        if (reason === 'returned' && page === 'top-up') void refreshAfterReturn(refreshing, reRead)
+      })
   const operations: AccountSectionInjected = {
-    avatarFailed: (value) => { avatar.failed(value) },
+    avatarFailed: value => {
+      avatar.failed(value)
+    },
     subscribeSessionExpired: listener => ctx.remote.$on('deepseek-account/session-expired', listener),
     subscribeModelSignInRequired: listener => ctx.remote.$on('deepseek-account/model-sign-in-required', listener),
-    ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refreshAccount) },
+    ...(nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refreshAccount) }),
     refreshAccount,
     contactUs() {
       // Sample the account, build and environment before awaiting native information, so
@@ -184,14 +248,18 @@ export function apply(ctx: Context): void {
       const context = {
         uid: profile?.status === 'ready' ? profile.value.id : null,
         version: process.env.DSH_CLIENT_VERSION,
-        width: window.screen.width, height: window.screen.height, pixelRatio: window.devicePixelRatio,
+        width: window.screen.width,
+        height: window.screen.height,
+        pixelRatio: window.devicePixelRatio,
       }
       const openForm = (deviceInfo: string): void => {
         window.open(contactUrl(config, { ...context, deviceInfo }), '_blank', 'noopener,noreferrer')
       }
-      const readDeviceInfo = (globalThis as typeof globalThis & {
-        dshDesktop?: { deviceInfo?: () => Promise<string> }
-      }).dshDesktop?.deviceInfo
+      const readDeviceInfo = (
+        globalThis as typeof globalThis & {
+          dshDesktop?: { deviceInfo?: () => Promise<string> }
+        }
+      ).dshDesktop?.deviceInfo
       if (readDeviceInfo === undefined) {
         // A plain browser, or a Desktop bridge without the optional reader, reports the renderer user agent.
         openForm(navigator.userAgent)
@@ -199,21 +267,35 @@ export function apply(ctx: Context): void {
       }
       void (async () => {
         let deviceInfo = ''
-        try { deviceInfo = await readDeviceInfo() }
-        catch (_error) {
+        try {
+          deviceInfo = await readDeviceInfo()
+        } catch (_error) {
           // Native information is optional; the questionnaire opens without it.
         }
         openForm(deviceInfo)
       })()
     },
-    showLogin(visible) { publish({ ...snapshot, loginVisible: visible }) },
-    setOnboarding(active) { publish({ ...snapshot, onboarding: active }) },
-    bonusNoticeShown(orderId) { notices.shown(orderId) },
-    bonusNoticeDismissed(orderId) { notices.dismiss(orderId) },
+    showLogin(visible) {
+      publish({ ...snapshot, loginVisible: visible })
+    },
+    setOnboarding(active) {
+      publish({ ...snapshot, onboarding: active })
+    },
+    bonusNoticeShown(orderId) {
+      notices.shown(orderId)
+    },
+    bonusNoticeDismissed(orderId) {
+      notices.dismiss(orderId)
+    },
     hooks: {
       account: {
         getSnapshot: () => snapshot,
-        subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } },
+        subscribe: listener => {
+          listeners.add(listener)
+          return () => {
+            listeners.delete(listener)
+          }
+        },
       },
       theme: {
         getSnapshot: () => ctx.theme.getTheme(),
@@ -222,13 +304,17 @@ export function apply(ctx: Context): void {
     },
     async start() {
       publish({ ...snapshot, loginVisible: true, loginFailed: false })
-      const transport = (globalThis as typeof globalThis & {
-        __DSH_TRANSPORT__?: { streamBaseUrl?: string }
-      }).__DSH_TRANSPORT__
+      const transport = (
+        globalThis as typeof globalThis & {
+          __DSH_TRANSPORT__?: { streamBaseUrl?: string }
+        }
+      ).__DSH_TRANSPORT__
       const request = async () => {
-        const result = await ctx.remote.account.startSignIn(client(),
+        const result = await ctx.remote.account.startSignIn(
+          client(),
           desktop && transport?.streamBaseUrl !== undefined ? new URL(transport.streamBaseUrl).origin : window.location.origin,
-          desktop ? 'desktop' : 'web')
+          desktop ? 'desktop' : 'web',
+        )
         if (!result.ok) throw new Error('account start failed')
         return result.value
       }
@@ -240,7 +326,10 @@ export function apply(ctx: Context): void {
         throw error
       }
     },
-    async cancel(id) { const result = await ctx.remote.account.cancelSignIn(id); if (!result.ok) throw new Error('account cancel failed') },
+    async cancel(id) {
+      const result = await ctx.remote.account.cancelSignIn(id)
+      if (!result.ok) throw new Error('account cancel failed')
+    },
     async hasRunningAccountTasks() {
       const result = await ctx.remote.account.hasRunningAccountTasks()
       if (!result.ok) throw new Error('account task query failed')
@@ -261,63 +350,114 @@ export function apply(ctx: Context): void {
       readOnboardingApiKeyPresence,
       ctx.configForms.describe(),
     )
-    ctx.effect(() => () => { controller.dispose() }, 'account: desktop onboarding lifetime')
+    ctx.effect(
+      () => () => {
+        controller.dispose()
+      },
+      'account: desktop onboarding lifetime',
+    )
     ctx.effect(() => {
-      const refreshCredentials = () => { controller.invalidateCredentials() }
+      const refreshCredentials = () => {
+        controller.invalidateCredentials()
+      }
       const disposers = [
         ctx.remote.$on('credentials/reference-updated', refreshCredentials),
         ctx.remote.$on('llm/adapters-updated', refreshCredentials),
         ctx.configForms.describe().subscribe(refreshCredentials),
       ]
-      return () => { for (const dispose of disposers) dispose() }
+      return () => {
+        for (const dispose of disposers) dispose()
+      }
     }, 'account: desktop credential readiness')
-    ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-      name: 'shell.overlay', id: 'desktop-onboarding', locale: 'settings.account',
-      inject: (): DesktopOnboardingInjected => ({
-        hooks: { account: operations.hooks.account, onboarding: controller.state },
-        setVisible: (visible: boolean) => {
-          if (snapshot.desktopOnboardingVisible !== visible) publish({ ...snapshot, desktopOnboardingVisible: visible })
+    ctx.slots.inject('shell.overlay', () =>
+      ctx.slots.register(
+        {
+          name: 'shell.overlay',
+          id: 'desktop-onboarding',
+          locale: 'settings.account',
+          inject: (): DesktopOnboardingInjected => ({
+            hooks: { account: operations.hooks.account, onboarding: controller.state },
+            setVisible: (visible: boolean) => {
+              if (snapshot.desktopOnboardingVisible !== visible) publish({ ...snapshot, desktopOnboardingVisible: visible })
+            },
+            // Onboarding's recharge return re-reads profile and balance only.
+            ...(nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refresh) }),
+            update: (change: OnboardingChange) => controller.update(change),
+            complete: (reason: 'completed' | 'skipped') => controller.complete(reason),
+            retry: () => controller.retry(),
+            track: (name, attributes) => ctx.get('productAnalytics')?.track(name, attributes),
+          }),
         },
-        // Onboarding's recharge return re-reads profile and balance only.
-        ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refresh) },
-        update: (change: OnboardingChange) => controller.update(change),
-        complete: (reason: 'completed' | 'skipped') => controller.complete(reason),
-        retry: () => controller.retry(),
-        track: (name, attributes) => ctx.get('productAnalytics')?.track(name, attributes),
-      }),
-    }, DesktopOnboardingEntry))
+        DesktopOnboardingEntry,
+      ),
+    )
   }
-  ctx.slots.inject('settings.models.sign-in', () => ctx.slots.register({
-    name: 'settings.models.sign-in', locale: 'settings.account', inject: () => operations,
-  }, AccountOnboarding))
-  ctx.slots.inject('shell.quota-notice', () => ctx.slots.register({
-    name: 'shell.quota-notice', locale: 'settings.account',
-    select: owner => owner.code === 'ACCOUNT_QUOTA' ? owner : null,
-    inject: (): AccountQuotaNoticeInjected => ({
-      hooks: { account: operations.hooks.account, platformPage: platformPages },
-      ...nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refreshAccount) },
-    }),
-  }, AccountQuotaNotice))
+  ctx.slots.inject('settings.models.sign-in', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.models.sign-in',
+        locale: 'settings.account',
+        inject: () => operations,
+      },
+      AccountOnboarding,
+    ),
+  )
+  ctx.slots.inject('shell.quota-notice', () =>
+    ctx.slots.register(
+      {
+        name: 'shell.quota-notice',
+        locale: 'settings.account',
+        select: owner => (owner.code === 'ACCOUNT_QUOTA' ? owner : null),
+        inject: (): AccountQuotaNoticeInjected => ({
+          hooks: { account: operations.hooks.account, platformPage: platformPages },
+          ...(nativePlatform === undefined ? {} : { openPlatformPage: platformPageOpener(refreshAccount) }),
+        }),
+      },
+      AccountQuotaNotice,
+    ),
+  )
   if (nativePlatform !== undefined) {
-    ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-      name: 'shell.overlay', id: 'account.platform-page', locale: 'settings.account',
-      inject: (): AccountPlatformHostInjected => ({
-        platform: nativePlatform, hooks: { page: platformPages },
-        closePage: platformPages.close,
-      }),
-    }, AccountPlatformHost))
+    ctx.slots.inject('shell.overlay', () =>
+      ctx.slots.register(
+        {
+          name: 'shell.overlay',
+          id: 'account.platform-page',
+          locale: 'settings.account',
+          inject: (): AccountPlatformHostInjected => ({
+            platform: nativePlatform,
+            hooks: { page: platformPages },
+            closePage: platformPages.close,
+          }),
+        },
+        AccountPlatformHost,
+      ),
+    )
   }
-  ctx.slots.inject('settings.launcher', () => ctx.slots.register({
-    name: 'settings.launcher', locale: 'settings.account', inject: () => operations,
-  }, AccountMenu))
+  ctx.slots.inject('settings.launcher', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.launcher',
+        locale: 'settings.account',
+        inject: () => operations,
+      },
+      AccountMenu,
+    ),
+  )
   ctx.slots.inject('settings.section', () => {
     let unregister: (() => void) | undefined
     const update = () => {
       if (snapshot.view?.status === 'credential-stored') {
-        unregister ??= ctx.slots.register({
-          name: 'settings.section', id: 'account', order: -10, label: () => t('nav'),
-          locale: 'settings.account', inject: () => operations,
-        }, AccountSection)
+        unregister ??= ctx.slots.register(
+          {
+            name: 'settings.section',
+            id: 'account',
+            order: -10,
+            label: () => t('nav'),
+            locale: 'settings.account',
+            inject: () => operations,
+          },
+          AccountSection,
+        )
       } else {
         unregister?.()
         unregister = undefined
@@ -325,6 +465,9 @@ export function apply(ctx: Context): void {
     }
     listeners.add(update)
     update()
-    return () => { listeners.delete(update); unregister?.() }
+    return () => {
+      listeners.delete(update)
+      unregister?.()
+    }
   })
 }

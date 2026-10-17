@@ -8,13 +8,7 @@ import type {} from '@deepseek-ai/dsh-app-boot'
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 // Typert-generated ./typert and ./remote artifacts import Zod at runtime.
 import type {} from 'zod'
-import type {
-  AgentPresetPluginGroup,
-  PluginEntryId,
-  PluginFiberPhase,
-  PluginInventoryEntry,
-  PluginInventorySnapshot,
-} from './types.ts'
+import type { AgentPresetPluginGroup, PluginEntryId, PluginFiberPhase, PluginInventoryEntry, PluginInventorySnapshot } from './types.ts'
 
 export type * from './types.ts'
 
@@ -91,24 +85,22 @@ export async function readPluginInventory(ctx: Context): Promise<PluginInventory
       moduleName: entry.options.name,
       enabled: !entry.disabled,
       fiberPhase: entry.fiber === undefined ? null : FIBER_PHASE[entry.fiber.state],
-      ...meta === undefined ? {} : { meta },
+      ...(meta === undefined ? {} : { meta }),
     })
   }
   const presets = ctx.get('agentPresets')
   const management = ctx.get('pluginManager') === undefined ? {} : { managementAvailable: true }
   if (presets === undefined) return { entries, ...management }
-  const agentPresets: AgentPresetPluginGroup[] = (await presets.compositionInventory()).map(
-    composition => ({
-      ...composition,
-      rows: composition.rows.map(({ fiberState, ...row }) => {
-        const meta = ctx.baseUrl === undefined ? undefined : packages?.metaOf(row.moduleName, ctx.baseUrl)
-        return {
-          ...row,
-          fiberPhase: fiberState === undefined ? null : FIBER_PHASE[fiberState],
-          ...meta === undefined ? {} : { meta },
-        }
-      }),
+  const agentPresets: AgentPresetPluginGroup[] = (await presets.compositionInventory()).map(composition => ({
+    ...composition,
+    rows: composition.rows.map(({ fiberState, ...row }) => {
+      const meta = ctx.baseUrl === undefined ? undefined : packages?.metaOf(row.moduleName, ctx.baseUrl)
+      return {
+        ...row,
+        fiberPhase: fiberState === undefined ? null : FIBER_PHASE[fiberState],
+        ...(meta === undefined ? {} : { meta }),
+      }
     }),
-  )
+  }))
   return { entries, agentPresets, ...management }
 }

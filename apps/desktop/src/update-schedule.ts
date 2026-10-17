@@ -63,16 +63,21 @@ export class DesktopUpdateSchedule {
     clearTimeout(this.timer)
     this.timer = undefined
     this.activeChecks++
-    this.pending = Promise.resolve().then(() => {
-      if (this.disposed) throw new Error('desktop update: polling is disposed')
-      return this.updates.check(manual)
-    }).then(
-      (state) => {
-        this.complete(state.phase === 'error' && state.failedOperation === 'check')
-        return state
-      },
-      (error: unknown) => { this.complete(true); throw error },
-    )
+    this.pending = Promise.resolve()
+      .then(() => {
+        if (this.disposed) throw new Error('desktop update: polling is disposed')
+        return this.updates.check(manual)
+      })
+      .then(
+        state => {
+          this.complete(state.phase === 'error' && state.failedOperation === 'check')
+          return state
+        },
+        (error: unknown) => {
+          this.complete(true)
+          throw error
+        },
+      )
     return this.pending
   }
 
@@ -99,7 +104,9 @@ export class DesktopUpdateSchedule {
     const delay = Math.round(lower + (upper - lower) * this.random())
     this.nextCheck = this.now() + delay
     this.timer = setTimeout(() => {
-      void this.check(false, true).catch((error: unknown) => { console.error(error) })
+      void this.check(false, true).catch((error: unknown) => {
+        console.error(error)
+      })
     }, delay)
   }
 }

@@ -34,7 +34,12 @@ export function inheritedControlStdio(api: Pick<Win32ProcessBindings, 'getFileTy
   for (let index = 0; index < count; index++) {
     bytes.writeBigUInt64LE(INVALID_HANDLE, handleOffset + index * HANDLE_BYTES)
   }
-  const entries = [[0, stdio.stdin], [1, stdio.stdout], [2, stdio.stderr], [stdio.control.fileDescriptor, stdio.control.handle]] as const
+  const entries = [
+    [0, stdio.stdin],
+    [1, stdio.stdout],
+    [2, stdio.stderr],
+    [stdio.control.fileDescriptor, stdio.control.handle],
+  ] as const
   for (const [fd, handle] of entries) {
     const kind = api.getFileType(handle)
     if (fd === stdio.control.fileDescriptor && kind !== FILE_TYPE_PIPE) {

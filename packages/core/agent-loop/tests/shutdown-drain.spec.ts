@@ -1,6 +1,6 @@
 /** Root-fiber shutdown drains buffered session events durably (both mount orders). */
 
-import { describe, expect, it, afterEach } from 'vitest'
+import { describe, expect, it, afterEach } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -17,12 +17,17 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { MockAdapter, textResponse } from './mock-adapter.ts'
 
 const dirs: string[] = []
-afterEach(async () => { for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true }) })
+afterEach(async () => {
+  for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true })
+})
 
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
-      if (subject === agent && status === 'idle') { dispose(); resolve() }
+      if (subject === agent && status === 'idle') {
+        dispose()
+        resolve()
+      }
     })
   })
 }
@@ -48,7 +53,7 @@ async function mount(order: 'backend-first' | 'loop-first'): Promise<{ ctx: Cont
   return { ctx, root }
 }
 
-describe.each(['backend-first', 'loop-first'] as const)('root shutdown drain (%s)', (order) => {
+describe.each(['backend-first', 'loop-first'] as const)('root shutdown drain (%s)', order => {
   it('persists buffered turn events without an explicit flush before dispose', async () => {
     const { ctx, root } = await mount(order)
     const sessionId = SessionId('shutdown-drain')

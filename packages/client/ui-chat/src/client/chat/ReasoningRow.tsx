@@ -19,8 +19,7 @@ function latestCompletedParagraphFirstLine(text: string): string {
   const separator = /\r?\n(?:[\t ]*\r?\n)+/g
   while (true) {
     const nextParagraph = separator.exec(text)
-    const paragraphEnd = nextParagraph === null ? text.length
-      : nextParagraph.index + nextParagraph[0].indexOf('\n')
+    const paragraphEnd = nextParagraph === null ? text.length : nextParagraph.index + nextParagraph[0].indexOf('\n')
     const newline = text.indexOf('\n', paragraphStart)
     if (newline !== -1 && newline <= paragraphEnd) {
       const candidate = text.slice(paragraphStart, newline).trim()
@@ -45,7 +44,14 @@ function latestCompletedParagraphFirstLine(text: string): string {
  * @param props.t - conversation locale seat for the disclosure and running status.
  * @returns the reasoning disclosure.
  */
-export const ReasoningRow = memo(function ReasoningRow({ text, running, usePresentation, useDisclosure, renderSlot, t }: {
+export const ReasoningRow = memo(function ReasoningRow({
+  text,
+  running,
+  usePresentation,
+  useDisclosure,
+  renderSlot,
+  t,
+}: {
   text: string
   running: boolean
   useDisclosure: UseDisclosure
@@ -55,23 +61,24 @@ export const ReasoningRow = memo(function ReasoningRow({ text, running, usePrese
   const { expanded, toggle } = useDisclosure()
   const summaryText = running ? latestCompletedParagraphFirstLine(text) : firstLine(text)
   const summary = useMemo(() => summaryText.replaceAll('**', ''), [summaryText])
-  const preview = usePresentation(policy => !expanded && summary !== ''
-    && (running || policy.settledReasoningPreview))
-  const collapsedContent = useMemo(() => (
-    <>
-      <span className={css.separator} data-shimmer-decoration aria-hidden />
-      <span className={css.summary} data-streaming={running || undefined}>
-        <span className={css.summaryText}>
-          <TextShimmer>{summary}</TextShimmer>
+  const preview = usePresentation(policy => !expanded && summary !== '' && (running || policy.settledReasoningPreview))
+  const collapsedContent = useMemo(
+    () => (
+      <>
+        <span className={css.separator} data-shimmer-decoration aria-hidden />
+        <span className={css.summary} data-streaming={running || undefined}>
+          <span className={css.summaryText}>
+            <TextShimmer>{summary}</TextShimmer>
+          </span>
         </span>
-      </span>
-    </>
-  ), [running, summary])
-  const content = useMemo(() => expanded ? (
-    <div className={css.thinkBody}>
-      {renderSlot('conversation.chat.reasoning.body', { text, running })}
-    </div>
-  ) : undefined, [expanded, renderSlot, running, text])
+      </>
+    ),
+    [running, summary],
+  )
+  const content = useMemo(
+    () => (expanded ? <div className={css.thinkBody}>{renderSlot('conversation.chat.reasoning.body', { text, running })}</div> : undefined),
+    [expanded, renderSlot, running, text],
+  )
 
   return (
     <div

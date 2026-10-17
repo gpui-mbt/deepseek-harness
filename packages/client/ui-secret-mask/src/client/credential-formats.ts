@@ -60,8 +60,14 @@ export interface CredentialFormat {
   readonly max: number
 }
 
-const prefixed = (literal: string, shape: number, run: number, min: number, max = 0): CredentialFormat =>
-  ({ literal, kind: PREFIXED, shape, run, min, max })
+const prefixed = (literal: string, shape: number, run: number, min: number, max = 0): CredentialFormat => ({
+  literal,
+  kind: PREFIXED,
+  shape,
+  run,
+  min,
+  max,
+})
 
 /** Every prefixed format matches more than the 8 characters a mask leaves readable. */
 export const CREDENTIAL_FORMATS: readonly CredentialFormat[] = [

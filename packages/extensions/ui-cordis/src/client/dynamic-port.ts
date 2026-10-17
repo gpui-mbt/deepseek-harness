@@ -1,14 +1,10 @@
 /** Host operations used directly by the frame-wide Cordis panel. */
 
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
-import type {
-  CordisDynamicPluginId, DynamicCordisInventoryRow,
-} from './events.ts'
+import type { CordisDynamicPluginId, DynamicCordisInventoryRow } from './events.ts'
 
 /** Result of a panel lifecycle gesture. */
-export type CordisActionResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly message: string }
+export type CordisActionResult = { readonly ok: true } | { readonly ok: false; readonly message: string }
 
 /** RPC seam kept outside the React surface. */
 export interface CordisDynamicPort {

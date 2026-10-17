@@ -71,22 +71,32 @@ export class RemoteStreamMuxServer {
    * @param peer - Peer the upgrade was admitted as.
    */
   handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer, peer: PeerScope): void {
-    this.server.handleUpgrade(req, socket, head, (websocket) => {
+    this.server.handleUpgrade(req, socket, head, websocket => {
       const release = bindPeer(websocket, peer)
       if (release === undefined) return
-      const alive = (): void => { this.missedHeartbeats.set(websocket, 0) }
+      const alive = (): void => {
+        this.missedHeartbeats.set(websocket, 0)
+      }
       alive()
       this.startHeartbeat()
       const bound: BoundStreamOpener = (endpoint, payload, uplink, control, window) =>
         this.open(endpoint, payload, uplink, peer, control, window)
       const connection = new RemoteStreamMuxConnection(websocket, bound, this.failure, this.streamInboxBytes, alive)
-      const done = connection.run().catch((error: unknown) => {
-        console.error('[api-gateway] Remote stream connection failed:', error)
-      }).then(async () => { await release() }).catch((error: unknown) => {
-        console.error('[api-gateway] Remote stream scope cleanup failed:', error)
-      })
+      const done = connection
+        .run()
+        .catch((error: unknown) => {
+          console.error('[api-gateway] Remote stream connection failed:', error)
+        })
+        .then(async () => {
+          await release()
+        })
+        .catch((error: unknown) => {
+          console.error('[api-gateway] Remote stream scope cleanup failed:', error)
+        })
       this.connections.add(done)
-      void done.then(() => { this.connections.delete(done) })
+      void done.then(() => {
+        this.connections.delete(done)
+      })
     })
   }
 
@@ -96,7 +106,7 @@ export class RemoteStreamMuxServer {
     this.heartbeatTimer = undefined
     for (const socket of this.server.clients) socket.terminate()
     const closed = Promise.withResolvers<void>()
-    this.server.close((error) => {
+    this.server.close(error => {
       if (error === undefined) closed.resolve()
       else closed.reject(error)
     })
@@ -155,9 +165,11 @@ class RemoteStreamMuxConnection {
    * about the peer and does not count.
    */
   async run(): Promise<void> {
-    const closed = new Promise<void>((resolve) => {
+    const closed = new Promise<void>(resolve => {
       this.socket.once('close', resolve)
-      this.socket.once('error', () => { this.socket.terminate() })
+      this.socket.once('error', () => {
+        this.socket.terminate()
+      })
       this.socket.on('pong', this.alive)
       this.socket.on('message', (data, isBinary) => {
         this.alive()
@@ -218,11 +230,13 @@ class RemoteStreamMuxConnection {
     const abort = new AbortController()
     // Created before the opener resolves so items the Client sends right
     // after `open` wait in the inbox instead of being lost.
-    const inbox = new UplinkInbox(this.streamInboxBytes, message.endpoint, (error) => { abort.abort(error) })
+    const inbox = new UplinkInbox(this.streamInboxBytes, message.endpoint, error => {
+      abort.abort(error)
+    })
     const active: ActiveStream = {
       abort,
       inbox,
-      stop: (reason) => {
+      stop: reason => {
         abort.abort(reason)
         inbox.fail(reason)
       },
@@ -231,16 +245,13 @@ class RemoteStreamMuxConnection {
     this.streams.set(message.streamId, active)
     const done = this.pump(message.streamId, message.endpoint, message.payload, active)
     active.done = done
-    const remove = (): void => { this.streams.delete(message.streamId) }
+    const remove = (): void => {
+      this.streams.delete(message.streamId)
+    }
     void done.then(remove, remove)
   }
 
-  private async pump(
-    streamId: string,
-    endpoint: string,
-    payload: unknown,
-    active: ActiveStream,
-  ): Promise<void> {
+  private async pump(streamId: string, endpoint: string, payload: unknown, active: ActiveStream): Promise<void> {
     let outcome: { readonly failed: false } | { readonly failed: true; readonly error: unknown }
     try {
       const source = await this.open(endpoint, payload, active.inbox, active.abort, {
@@ -294,24 +305,27 @@ class RemoteStreamMuxConnection {
     } catch (cause) {
       return Promise.reject(new Error('api gateway: Remote stream item is not JSON serializable', { cause }))
     }
-    const delivery = this.writes.then(() => new Promise<void>((resolve, reject) => {
-      if (this.socket.readyState !== WebSocket.OPEN) {
-        reject(new Error('api gateway: Remote stream socket is closed'))
-        return
-      }
-      let queued = false
-      this.socket.send(text, (error) => {
-        if (error) {
-          reject(error)
-          return
-        }
-        if (queued) this.alive()
-        resolve()
-      })
-      // Read after send(): bytes still buffered mean the local send buffer was
-      // full, so their completion requires the peer to acknowledge data.
-      queued = this.socket.bufferedAmount > 0
-    }))
+    const delivery = this.writes.then(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          if (this.socket.readyState !== WebSocket.OPEN) {
+            reject(new Error('api gateway: Remote stream socket is closed'))
+            return
+          }
+          let queued = false
+          this.socket.send(text, error => {
+            if (error) {
+              reject(error)
+              return
+            }
+            if (queued) this.alive()
+            resolve()
+          })
+          // Read after send(): bytes still buffered mean the local send buffer was
+          // full, so their completion requires the peer to acknowledge data.
+          queued = this.socket.bufferedAmount > 0
+        }),
+    )
     this.writes = delivery.catch(() => undefined)
     return delivery
   }
@@ -348,19 +362,15 @@ class UplinkInbox implements AsyncIterable<unknown>, AsyncIterator<unknown> {
   push(value: unknown, frameBytes: number): void {
     if (this.failure !== undefined || this.closed) return
     if (this.ended) {
-      this.violate(new RemoteError(
-        'gateway/protocol',
-        'api gateway: Remote stream uplink item after end',
-        { endpoint: this.endpoint },
-      ))
+      this.violate(new RemoteError('gateway/protocol', 'api gateway: Remote stream uplink item after end', { endpoint: this.endpoint }))
       return
     }
     if (this.bytes + frameBytes > this.maxBytes) {
-      this.violate(new RemoteError(
-        'gateway/uplink-overflow',
-        `api gateway: Remote stream uplink exceeded ${String(this.maxBytes)} buffered bytes`,
-        { endpoint: this.endpoint },
-      ))
+      this.violate(
+        new RemoteError('gateway/uplink-overflow', `api gateway: Remote stream uplink exceeded ${String(this.maxBytes)} buffered bytes`, {
+          endpoint: this.endpoint,
+        }),
+      )
       return
     }
     this.queue.pushBack({ value, bytes: frameBytes })
@@ -401,7 +411,9 @@ class UplinkInbox implements AsyncIterable<unknown>, AsyncIterator<unknown> {
       if (this.failure !== undefined) throw this.failure
       if (this.ended) return UPLINK_DONE
       if (this.wake !== undefined) throw new Error('api gateway: Remote stream uplink inbox has one pending read')
-      await new Promise<void>((resolve) => { this.wake = resolve })
+      await new Promise<void>(resolve => {
+        this.wake = resolve
+      })
     }
   }
 
@@ -434,7 +446,9 @@ class UplinkInbox implements AsyncIterable<unknown>, AsyncIterator<unknown> {
 function bindPeer(websocket: WebSocket, peer: PeerScope): (() => unknown) | undefined {
   try {
     return peer.ctx.effect(
-      () => () => { websocket.close(1001, 'peer left') },
+      () => () => {
+        websocket.close(1001, 'peer left')
+      },
       'api-gateway: Remote stream socket bound to its Peer',
     )
   } catch {
@@ -457,12 +471,14 @@ function rawText(data: RawData): string {
 export function rejectRemoteStreamUpgrade(socket: Duplex, status: 401 | 403 | 409): void {
   const reason = status === 401 ? 'Unauthorized' : status === 403 ? 'Forbidden' : 'Conflict'
   const body = reason.toLowerCase()
-  socket.end([
-    `HTTP/1.1 ${String(status)} ${reason}`,
-    'Connection: close',
-    'Content-Type: text/plain; charset=utf-8',
-    `Content-Length: ${String(Buffer.byteLength(body))}`,
-    '',
-    body,
-  ].join('\r\n'))
+  socket.end(
+    [
+      `HTTP/1.1 ${String(status)} ${reason}`,
+      'Connection: close',
+      'Content-Type: text/plain; charset=utf-8',
+      `Content-Length: ${String(Buffer.byteLength(body))}`,
+      '',
+      body,
+    ].join('\r\n'),
+  )
 }

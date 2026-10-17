@@ -11,9 +11,7 @@ import {
   type SessionLogOffset as SessionLogOffsetType,
   type SessionSeq as SessionSeqType,
 } from '@deepseek-ai/dsh-session'
-import {
-  eventLines, generationLogFilename, projectKey, toHeaderLine,
-} from '@deepseek-ai/dsh-session-persistence-jsonl/src/format.ts'
+import { eventLines, generationLogFilename, projectKey, toHeaderLine } from '@deepseek-ai/dsh-session-persistence-jsonl/src/format.ts'
 import { projectionCacheDomainSpec } from '@deepseek-ai/dsh-session-projection-cache'
 import { scheduleDomain } from '@deepseek-ai/dsh-schedule'
 import { snapshotSubagentDescriptor, SUBAGENT_DESCRIPTOR_VERSION } from '@deepseek-ai/dsh-subagent'
@@ -68,21 +66,25 @@ This deterministic workspace is bundled with the browser-only preview.
 Refresh the preview to restore these image bytes.
 `
 
-const PREVIEW_SOURCE_BEFORE = 'export const previewStatus = \'draft\'\n'
+const PREVIEW_SOURCE_BEFORE = "export const previewStatus = 'draft'\n"
 
 const PREVIEW_SOURCE = `export const previewStatus = 'ready'
 
 export const previewFeatures = ['tools', 'subagents', 'pagination'] as const
 `
 
-const TASKS = `${JSON.stringify({
-  title: 'Preview verification',
-  tasks: [
-    { name: 'Inspect tool cards', status: 'completed' },
-    { name: 'Open both subagents', status: 'completed' },
-    { name: 'Load earlier history', status: 'completed' },
-  ],
-}, null, 2)}\n`
+const TASKS = `${JSON.stringify(
+  {
+    title: 'Preview verification',
+    tasks: [
+      { name: 'Inspect tool cards', status: 'completed' },
+      { name: 'Open both subagents', status: 'completed' },
+      { name: 'Load earlier history', status: 'completed' },
+    ],
+  },
+  null,
+  2,
+)}\n`
 
 const SKILL = `---
 name: preview-tour
@@ -191,7 +193,9 @@ interface GalleryCall {
 }
 
 function readResult(): { text: string; meta: unknown } {
-  const lines = PREVIEW_GUIDE.trimEnd().split('\n').map((text, index) => ({ number: index + 1, text }))
+  const lines = PREVIEW_GUIDE.trimEnd()
+    .split('\n')
+    .map((text, index) => ({ number: index + 1, text }))
   return {
     text: `<path>PREVIEW.md</path>\n<type>file</type>\n<content>\n${lines.map(line => `${String(line.number)}: ${line.text}`).join('\n')}\n\n(End of file - total ${String(lines.length)} lines)\n</content>`,
     meta: { path: 'PREVIEW.md', offset: 1, lines, totalLines: lines.length, lang: 'md' },
@@ -243,11 +247,15 @@ function galleryCalls(): GalleryCall[] {
       id: 'preview-grep',
       name: 'grep',
       args: { pattern: 'preview', path: '.', include: '*.{md,ts,json}' },
-      result: 'PREVIEW.md:3:This deterministic workspace is bundled with the browser-only preview.\nsrc/preview.ts:1:export const previewStatus = \'ready\'',
+      result:
+        "PREVIEW.md:3:This deterministic workspace is bundled with the browser-only preview.\nsrc/preview.ts:1:export const previewStatus = 'ready'",
       meta: {
         shape: 'matches',
         files: [
-          { path: 'PREVIEW.md', matches: [{ lineNumber: 3, line: 'This deterministic workspace is bundled with the browser-only preview.' }] },
+          {
+            path: 'PREVIEW.md',
+            matches: [{ lineNumber: 3, line: 'This deterministic workspace is bundled with the browser-only preview.' }],
+          },
           { path: 'src/preview.ts', matches: [{ lineNumber: 1, line: "export const previewStatus = 'ready'" }] },
         ],
         truncated: false,
@@ -258,13 +266,16 @@ function galleryCalls(): GalleryCall[] {
       id: 'preview-web-search',
       name: 'web_search',
       args: { queries: ['Web Worker filesystem compatibility'] },
-      result: 'Browser workers can host deterministic in-memory filesystems.\n\nSources:\n1. MDN Web Workers API — https://developer.mozilla.org/docs/Web/API/Web_Workers_API',
+      result:
+        'Browser workers can host deterministic in-memory filesystems.\n\nSources:\n1. MDN Web Workers API — https://developer.mozilla.org/docs/Web/API/Web_Workers_API',
       meta: {
-        sources: [{
-          url: 'https://developer.mozilla.org/docs/Web/API/Web_Workers_API',
-          title: 'Web Workers API',
-          snippet: 'Web Workers run scripts in background threads.',
-        }],
+        sources: [
+          {
+            url: 'https://developer.mozilla.org/docs/Web/API/Web_Workers_API',
+            title: 'Web Workers API',
+            snippet: 'Web Workers run scripts in background threads.',
+          },
+        ],
         truncated: false,
         answer: 'Browser workers can host deterministic in-memory filesystems.',
       },
@@ -319,12 +330,7 @@ function addClosedTextTurn(log: EventLog, turn: number): void {
     })
   }
   log.add({ type: 'step/start', data: { turn, step: 1 } })
-  log.add(assistantMessage(
-    `preview-assistant-${checkpoint}`,
-    turn,
-    1,
-    [{ type: 'text', text: `Checkpoint ${checkpoint} is recorded.` }],
-  ))
+  log.add(assistantMessage(`preview-assistant-${checkpoint}`, turn, 1, [{ type: 'text', text: `Checkpoint ${checkpoint} is recorded.` }]))
   log.add({ type: 'step/end', data: { turn, step: 1 } })
   log.add({ type: 'turn/end', data: { turn, reason: { kind: 'completed' } } })
 }
@@ -342,11 +348,12 @@ function mainLog(): {
   log.add({ type: 'turn/start', data: { turn } })
   log.add(userMessage('preview-gallery-user', 'Show the seeded workspace, tool cards, subagents, and pagination in one tour.'))
   log.add({ type: 'step/start', data: { turn, step: 1 } })
-  log.add(assistantMessage('preview-gallery-tools', turn, 1, [
-    ...['', ' \t\n', VFS_EXAMPLE_REASONING[0], '', VFS_EXAMPLE_REASONING[1], '\n  ']
-      .map(text => ({ type: 'reasoning', text })),
-    ...calls.map(call => ({ type: 'tool-call', id: call.id, name: call.name, arguments: JSON.stringify(call.args) })),
-  ]))
+  log.add(
+    assistantMessage('preview-gallery-tools', turn, 1, [
+      ...['', ' \t\n', VFS_EXAMPLE_REASONING[0], '', VFS_EXAMPLE_REASONING[1], '\n  '].map(text => ({ type: 'reasoning', text })),
+      ...calls.map(call => ({ type: 'tool-call', id: call.id, name: call.name, arguments: JSON.stringify(call.args) })),
+    ]),
+  )
   for (const call of calls) {
     log.add({
       type: 'tool/call',
@@ -366,24 +373,38 @@ function mainLog(): {
           content: [{ type: 'text', text: call.result }],
           isError: call.error !== undefined,
         },
-        ...call.meta === undefined ? {} : { meta: call.meta },
-        ...call.error === undefined ? {} : { error: call.error },
+        ...(call.meta === undefined ? {} : { meta: call.meta }),
+        ...(call.error === undefined ? {} : { error: call.error }),
       },
       surfaceOp: 'append',
     })
   }
   for (const child of [
-    { childId: VFS_EXAMPLE_SESSION_IDS.oneShot, childCreatedAt: CREATED_AT + 100_000, mode: 'one-shot', label: 'Review preview architecture' },
-    { childId: VFS_EXAMPLE_SESSION_IDS.continuable, childCreatedAt: CREATED_AT + 200_000, mode: 'continuable', label: 'Continue preview verification' },
+    {
+      childId: VFS_EXAMPLE_SESSION_IDS.oneShot,
+      childCreatedAt: CREATED_AT + 100_000,
+      mode: 'one-shot',
+      label: 'Review preview architecture',
+    },
+    {
+      childId: VFS_EXAMPLE_SESSION_IDS.continuable,
+      childCreatedAt: CREATED_AT + 200_000,
+      mode: 'continuable',
+      label: 'Continue preview verification',
+    },
   ] as const) {
     log.add({ type: 'subagent/catalog', data: { version: SUBAGENT_CATALOG_VERSION, ...child } })
   }
   log.add({ type: 'step/end', data: { turn, step: 1 } })
   log.add({ type: 'step/start', data: { turn, step: 2 } })
-  log.add(assistantMessage('preview-gallery-final', turn, 2, [{
-    type: 'text',
-    text: `## ${VFS_EXAMPLE_TAIL_MESSAGE}\n\nThe workspace, specialized tool cards, two subagent histories, and an earlier history page are ready to inspect.\n\nThis is fixture-authored demonstration data, not a live model run. Open [Parent workspace guide:1–8](<../workspace/PREVIEW.md#L1-L8>) to inspect the same workspace file through a parent path.`,
-  }]))
+  log.add(
+    assistantMessage('preview-gallery-final', turn, 2, [
+      {
+        type: 'text',
+        text: `## ${VFS_EXAMPLE_TAIL_MESSAGE}\n\nThe workspace, specialized tool cards, two subagent histories, and an earlier history page are ready to inspect.\n\nThis is fixture-authored demonstration data, not a live model run. Open [Parent workspace guide:1–8](<../workspace/PREVIEW.md#L1-L8>) to inspect the same workspace file through a parent path.`,
+      },
+    ]),
+  )
   log.add({ type: 'step/end', data: { turn, step: 2 } })
   log.add({ type: 'turn/end', data: { turn, reason: { kind: 'completed' } } })
   return { events: log.events, forkSeedLength }
@@ -399,14 +420,20 @@ function oneShotLog(seed: readonly SessionEvent[]): SessionEvent[] {
     type: 'subagent/descriptor',
     data: {
       version: SUBAGENT_DESCRIPTOR_VERSION,
-      mode: 'one-shot', provider: 'fork', label: 'Review preview architecture',
+      mode: 'one-shot',
+      provider: 'fork',
+      label: 'Review preview architecture',
     },
   })
   log.add({ type: 'step/start', data: { turn, step: 1 } })
-  log.add(assistantMessage('preview-review-assistant', turn, 1, [{
-    type: 'text',
-    text: 'The bundled fixture is static image content; future WebFS state remains user-owned.',
-  }]))
+  log.add(
+    assistantMessage('preview-review-assistant', turn, 1, [
+      {
+        type: 'text',
+        text: 'The bundled fixture is static image content; future WebFS state remains user-owned.',
+      },
+    ]),
+  )
   log.add({ type: 'step/end', data: { turn, step: 1 } })
   log.add({ type: 'turn/end', data: { turn, reason: { kind: 'completed' } } })
   return log.events
@@ -419,14 +446,20 @@ function continuableLog(): SessionEvent[] {
   log.add({
     type: 'subagent/descriptor',
     data: snapshotSubagentDescriptor({
-      mode: 'continuable', provider: 'spawn', label: 'Continue preview verification',
+      mode: 'continuable',
+      provider: 'spawn',
+      label: 'Continue preview verification',
     }),
   })
   log.add({ type: 'step/start', data: { turn: 1, step: 1 } })
-  log.add(assistantMessage('preview-builder-assistant', 1, 1, [{
-    type: 'text',
-    text: 'This child is continuable and ready for another verification turn.',
-  }]))
+  log.add(
+    assistantMessage('preview-builder-assistant', 1, 1, [
+      {
+        type: 'text',
+        text: 'This child is continuable and ready for another verification turn.',
+      },
+    ]),
+  )
   log.add({ type: 'step/end', data: { turn: 1, step: 1 } })
   log.add({ type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
   return log.events
@@ -451,10 +484,12 @@ function header(
       isSeeded: child?.seedLength !== undefined,
       delegationDepth: child === undefined ? 0 : 1,
       agentPreset: 'standard',
-      ...child === undefined ? {} : {
-        parentSession: child.parentSession,
-        origin: 'subagent' as const,
-      },
+      ...(child === undefined
+        ? {}
+        : {
+            parentSession: child.parentSession,
+            origin: 'subagent' as const,
+          }),
     },
     inheritedEventCount,
   }
@@ -525,57 +560,70 @@ function scheduleTasks(): Readonly<Record<string, unknown>> {
 export function buildVfsExampleFiles(): ReadonlyMap<string, string> {
   const main = mainLog()
   const project = projectKey(WORKSPACE)
-  const sessionPath = (id: string): string =>
-    `home/sessions/${project}/${id}/${generationLogFilename(SESSION_FORMAT_VERSION, 'none')}`
-  const projectionCache = `${JSON.stringify({
-    unit: { name: 'session_projcache', version: projectionCacheDomainSpec.version },
-    global: null,
-    tables: {
-      sessions: {
-        [VFS_EXAMPLE_SESSION_IDS.main]: {
-          identity: {
-            formatVersion: SESSION_FORMAT_VERSION,
-            createdAt: CREATED_AT,
-            cwd: WORKSPACE,
-            isSeeded: false,
-            inheritedEventCount: 0,
-          },
-          rows: {
-            title: { ver: 1, seq: main.events.at(-1)?.seq ?? -1, val: VFS_EXAMPLE_TITLE },
+  const sessionPath = (id: string): string => `home/sessions/${project}/${id}/${generationLogFilename(SESSION_FORMAT_VERSION, 'none')}`
+  const projectionCache = `${JSON.stringify(
+    {
+      unit: { name: 'session_projcache', version: projectionCacheDomainSpec.version },
+      global: null,
+      tables: {
+        sessions: {
+          [VFS_EXAMPLE_SESSION_IDS.main]: {
+            identity: {
+              formatVersion: SESSION_FORMAT_VERSION,
+              createdAt: CREATED_AT,
+              cwd: WORKSPACE,
+              isSeeded: false,
+              inheritedEventCount: 0,
+            },
+            rows: {
+              title: { ver: 1, seq: main.events.at(-1)?.seq ?? -1, val: VFS_EXAMPLE_TITLE },
+            },
           },
         },
       },
     },
-  }, null, 2)}\n`
+    null,
+    2,
+  )}\n`
   return new Map([
     ['workspace/PREVIEW.md', PREVIEW_GUIDE],
     ['workspace/src/preview.ts', PREVIEW_SOURCE],
     ['workspace/data/tasks.json', TASKS],
     ['workspace/.agents/skills/preview-tour/SKILL.md', SKILL],
     ['home/storages/session_projcache.json', projectionCache],
-    [sessionPath(VFS_EXAMPLE_SESSION_IDS.main), renderLog(
-      header(VFS_EXAMPLE_SESSION_IDS.main, CREATED_AT),
-      main.events,
-    )],
-    [sessionPath(VFS_EXAMPLE_SESSION_IDS.oneShot), renderLog(
-      header(VFS_EXAMPLE_SESSION_IDS.oneShot, CREATED_AT + 100_000, {
-        parentSession: VFS_EXAMPLE_SESSION_IDS.main,
-        mode: 'one-shot',
-        seedLength: main.forkSeedLength,
-      }),
-      oneShotLog(main.events.slice(0, main.forkSeedLength)),
-    )],
-    [sessionPath(VFS_EXAMPLE_SESSION_IDS.continuable), renderLog(
-      header(VFS_EXAMPLE_SESSION_IDS.continuable, CREATED_AT + 200_000, {
-        parentSession: VFS_EXAMPLE_SESSION_IDS.main,
-        mode: 'continuable',
-      }),
-      continuableLog(),
-    )],
-    ['home/storages/schedule.json', `${JSON.stringify({
-      unit: { name: scheduleDomain.name, version: scheduleDomain.version },
-      global: null,
-      tables: { tasks: scheduleTasks() },
-    }, null, 2)}\n`],
+    [sessionPath(VFS_EXAMPLE_SESSION_IDS.main), renderLog(header(VFS_EXAMPLE_SESSION_IDS.main, CREATED_AT), main.events)],
+    [
+      sessionPath(VFS_EXAMPLE_SESSION_IDS.oneShot),
+      renderLog(
+        header(VFS_EXAMPLE_SESSION_IDS.oneShot, CREATED_AT + 100_000, {
+          parentSession: VFS_EXAMPLE_SESSION_IDS.main,
+          mode: 'one-shot',
+          seedLength: main.forkSeedLength,
+        }),
+        oneShotLog(main.events.slice(0, main.forkSeedLength)),
+      ),
+    ],
+    [
+      sessionPath(VFS_EXAMPLE_SESSION_IDS.continuable),
+      renderLog(
+        header(VFS_EXAMPLE_SESSION_IDS.continuable, CREATED_AT + 200_000, {
+          parentSession: VFS_EXAMPLE_SESSION_IDS.main,
+          mode: 'continuable',
+        }),
+        continuableLog(),
+      ),
+    ],
+    [
+      'home/storages/schedule.json',
+      `${JSON.stringify(
+        {
+          unit: { name: scheduleDomain.name, version: scheduleDomain.version },
+          global: null,
+          tables: { tasks: scheduleTasks() },
+        },
+        null,
+        2,
+      )}\n`,
+    ],
   ])
 }

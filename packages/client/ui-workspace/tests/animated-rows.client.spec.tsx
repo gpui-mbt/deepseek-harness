@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi, type Mock, type MockInstance } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock, type MockInstance } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { AnimatedRows } from '../src/client/rows/AnimatedRows.tsx'
 
@@ -46,19 +46,18 @@ afterEach(() => {
 })
 
 function rows(keys: readonly string[], options: { ready?: boolean; resetKey?: string; suffix?: string } = {}) {
-  return <div style={{ position: 'relative' }}>
-    <AnimatedRows
-      className="rows"
-      label="Sessions"
-      rowKeys={keys}
-      ready={options.ready ?? true}
-      resetKey={options.resetKey ?? 'manual'}
-    >
-      {keys.map(key => <div key={key} data-row-key={key} role="treeitem" style={{ opacity: 1 }}>
-        {key}{options.suffix}
-      </div>)}
-    </AnimatedRows>
-  </div>
+  return (
+    <div style={{ position: 'relative' }}>
+      <AnimatedRows className="rows" label="Sessions" rowKeys={keys} ready={options.ready ?? true} resetKey={options.resetKey ?? 'manual'}>
+        {keys.map(key => (
+          <div key={key} data-row-key={key} role="treeitem" style={{ opacity: 1 }}>
+            {key}
+            {options.suffix}
+          </div>
+        ))}
+      </AnimatedRows>
+    </div>
+  )
 }
 
 function arm(): HTMLElement {
@@ -80,7 +79,10 @@ describe('AnimatedRows', () => {
 
     arm()
     view.rerender(rows(['b', 'a']))
-    expect(animations.map(call => [call.element.textContent, call.options.duration])).toEqual([['b', 200], ['a', 200]])
+    expect(animations.map(call => [call.element.textContent, call.options.duration])).toEqual([
+      ['b', 200],
+      ['a', 200],
+    ])
     expect(animations[0]?.keyframes).toEqual([
       { transform: 'translate(0px, 34px)', opacity: 1 },
       { transform: 'translate(0, 0)', opacity: 1 },
@@ -93,8 +95,12 @@ describe('AnimatedRows', () => {
     const tree = arm()
     view.rerender(rows(['b', 'c', 'd']))
     expect(within(tree).queryByText('a')).toBeNull()
-    expect(animations.map(call => [call.element.textContent, call.options.duration]))
-      .toEqual([['b', 200], ['c', 200], ['d', 100], ['a', 100]])
+    expect(animations.map(call => [call.element.textContent, call.options.duration])).toEqual([
+      ['b', 200],
+      ['c', 200],
+      ['d', 100],
+      ['a', 100],
+    ])
     const leaving = animations[3] as RecordedAnimation
     expect(leaving.element.inert).toBe(true)
     expect(leaving.element.closest('[aria-hidden="true"]')).not.toBeNull()
@@ -117,14 +123,17 @@ describe('AnimatedRows', () => {
     for (const call of animations) expect(call.cancel).not.toHaveBeenCalled()
   })
 
-  it.each(['loading', 'view change', 'reduced motion', 'unsupported browser'])('settles %s without measuring', (mode) => {
+  it.each(['loading', 'view change', 'reduced motion', 'unsupported browser'])('settles %s without measuring', mode => {
     const view = render(rows(['a', 'b']))
     fireEvent.keyDown(screen.getByRole('tree'), { key: 'Enter' })
     if (mode === 'reduced motion') reducedMotion = true
     if (mode === 'unsupported browser') Object.defineProperty(HTMLElement.prototype, 'animate', { value: undefined })
-    view.rerender(rows(['b', 'a'], {
-      ready: mode !== 'loading', resetKey: mode === 'view change' ? 'updated' : 'manual',
-    }))
+    view.rerender(
+      rows(['b', 'a'], {
+        ready: mode !== 'loading',
+        resetKey: mode === 'view change' ? 'updated' : 'manual',
+      }),
+    )
     expect(measure).not.toHaveBeenCalled()
     expect(animations).toEqual([])
   })
@@ -134,9 +143,9 @@ describe('AnimatedRows', () => {
     arm()
     view.rerender(rows(['b', 'a']))
     const moving = animations[1] as RecordedAnimation
-    vi.spyOn(moving.element, 'getBoundingClientRect').mockImplementation(() => new DOMRect(
-      0, moving.cancel.mock.calls.length === 0 ? 12 : 0, 200, 32,
-    ))
+    vi.spyOn(moving.element, 'getBoundingClientRect').mockImplementation(
+      () => new DOMRect(0, moving.cancel.mock.calls.length === 0 ? 12 : 0, 200, 32),
+    )
     view.rerender(rows(['a', 'b']))
     expect(moving.cancel).toHaveBeenCalledOnce()
     expect(animations[2]?.keyframes[0]).toEqual({ transform: 'translate(0px, 12px)', opacity: 1 })

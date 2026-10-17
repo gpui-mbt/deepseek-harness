@@ -41,7 +41,7 @@ export const MOCK_LLM_BEHAVIORS = [
 ] as const
 
 /** One scripted mock behavior name; `random` selects a concrete behavior per request. */
-export type MockLlmBehavior = typeof MOCK_LLM_BEHAVIORS[number]
+export type MockLlmBehavior = (typeof MOCK_LLM_BEHAVIORS)[number]
 
 /** One concrete request behavior after resolving a `random` script entry. */
 export type ConcreteMockLlmBehavior = Exclude<MockLlmBehavior, 'random'>
@@ -78,20 +78,20 @@ export type MockLlmRequestOutcome = 'completed' | 'reset' | 'stalled' | 'client_
 /** Immutable telemetry emitted when a request starts or reaches an outcome. */
 export type MockLlmServerEvent =
   | {
-    readonly type: 'request'
-    readonly attempt: number
-    readonly scriptBehavior: MockLlmBehavior | 'script_exhausted'
-    readonly behavior: ConcreteMockLlmBehavior | 'script_exhausted'
-    readonly path: string
-  }
+      readonly type: 'request'
+      readonly attempt: number
+      readonly scriptBehavior: MockLlmBehavior | 'script_exhausted'
+      readonly behavior: ConcreteMockLlmBehavior | 'script_exhausted'
+      readonly path: string
+    }
   | {
-    readonly type: 'result'
-    readonly attempt: number
-    readonly scriptBehavior: MockLlmBehavior | 'script_exhausted'
-    readonly behavior: ConcreteMockLlmBehavior | 'script_exhausted'
-    readonly outcome: MockLlmRequestOutcome
-    readonly chunksSent: number
-  }
+      readonly type: 'result'
+      readonly attempt: number
+      readonly scriptBehavior: MockLlmBehavior | 'script_exhausted'
+      readonly behavior: ConcreteMockLlmBehavior | 'script_exhausted'
+      readonly outcome: MockLlmRequestOutcome
+      readonly chunksSent: number
+    }
 
 /** Captured wire request and its final server-side outcome. */
 export interface MockLlmRequestRecord {
@@ -205,30 +205,10 @@ function resolveOptions(options: MockLlmServerOptions): ResolvedOptions {
   const host = options.host ?? '127.0.0.1'
   const port = boundedInteger('port', options.port ?? 0, 0, 65_535)
   const chunkSize = boundedInteger('chunkSize', options.chunkSize ?? 8, 1, Number.MAX_SAFE_INTEGER)
-  const chunkDelayMs = boundedInteger(
-    'chunkDelayMs',
-    options.chunkDelayMs ?? 25,
-    0,
-    MAX_MOCK_LLM_TIMER_DELAY_MS,
-  )
-  const disconnectDelayMs = boundedInteger(
-    'disconnectDelayMs',
-    options.disconnectDelayMs ?? 10,
-    0,
-    MAX_MOCK_LLM_TIMER_DELAY_MS,
-  )
-  const retryAfterMs = boundedInteger(
-    'retryAfterMs',
-    options.retryAfterMs ?? 1_000,
-    1,
-    MAX_MOCK_LLM_TIMER_DELAY_MS,
-  )
-  const randomSeed = boundedInteger(
-    'randomSeed',
-    options.randomSeed ?? randomBytes(4).readUInt32LE(0),
-    0,
-    0xffff_ffff,
-  )
+  const chunkDelayMs = boundedInteger('chunkDelayMs', options.chunkDelayMs ?? 25, 0, MAX_MOCK_LLM_TIMER_DELAY_MS)
+  const disconnectDelayMs = boundedInteger('disconnectDelayMs', options.disconnectDelayMs ?? 10, 0, MAX_MOCK_LLM_TIMER_DELAY_MS)
+  const retryAfterMs = boundedInteger('retryAfterMs', options.retryAfterMs ?? 1_000, 1, MAX_MOCK_LLM_TIMER_DELAY_MS)
+  const randomSeed = boundedInteger('randomSeed', options.randomSeed ?? randomBytes(4).readUInt32LE(0), 0, 0xffff_ffff)
   const successText = options.successText ?? DEFAULT_SUCCESS_TEXT
   const partialText = options.partialText ?? DEFAULT_PARTIAL_TEXT
   const reasoningText = options.reasoningText ?? DEFAULT_REASONING_TEXT
@@ -268,7 +248,7 @@ function resolveOptions(options: MockLlmServerOptions): ResolvedOptions {
   return {
     host,
     port,
-    ...options.apiKey === undefined ? {} : { apiKey: options.apiKey },
+    ...(options.apiKey === undefined ? {} : { apiKey: options.apiKey }),
     sequence: [...options.sequence],
     lastBehavior,
     repeatLast: options.repeatLast ?? false,
@@ -281,10 +261,10 @@ function resolveOptions(options: MockLlmServerOptions): ResolvedOptions {
     chunkDelayMs,
     disconnectDelayMs,
     retryAfterMs,
-    ...options.requestId === undefined ? {} : { requestId: options.requestId },
+    ...(options.requestId === undefined ? {} : { requestId: options.requestId }),
     toolName,
     toolArguments,
-    ...options.onEvent === undefined ? {} : { onEvent: options.onEvent },
+    ...(options.onEvent === undefined ? {} : { onEvent: options.onEvent }),
   }
 }
 
@@ -314,7 +294,7 @@ function openSse(response: ServerResponse, contentType = 'text/event-stream; cha
   response.writeHead(200, {
     'content-type': contentType,
     'cache-control': 'no-cache',
-    'connection': 'keep-alive',
+    connection: 'keep-alive',
   })
   response.flushHeaders()
 }
@@ -334,11 +314,7 @@ function writeDone(record: MockLlmRequestRecord, response: ServerResponse): void
   writeSse(record, response, { type: 'message_stop' })
 }
 
-function finishRecord(
-  options: ResolvedOptions,
-  record: MockLlmRequestRecord,
-  outcome: MockLlmRequestOutcome,
-): void {
+function finishRecord(options: ResolvedOptions, record: MockLlmRequestRecord, outcome: MockLlmRequestOutcome): void {
   if (record.outcome !== undefined) return
   record.outcome = outcome
   emit(options, {
@@ -373,7 +349,14 @@ function httpError(
 function startMessage(record: MockLlmRequestRecord, response: ServerResponse): void {
   writeSse(record, response, {
     type: 'message_start',
-    message: { id: 'mock-message', type: 'message', role: 'assistant', model: 'mock-model', content: [], usage: { input_tokens: 3, output_tokens: 0 } },
+    message: {
+      id: 'mock-message',
+      type: 'message',
+      role: 'assistant',
+      model: 'mock-model',
+      content: [],
+      usage: { input_tokens: 3, output_tokens: 0 },
+    },
   })
 }
 
@@ -392,7 +375,9 @@ function terminalChunk(reason: string, outputTokens: number): MessageSseEvent {
 async function pause(milliseconds: number, response: ServerResponse): Promise<boolean> {
   if (milliseconds === 0) return !response.destroyed
   const controller = new AbortController()
-  const stop = (): void => { controller.abort() }
+  const stop = (): void => {
+    controller.abort()
+  }
   response.once('close', stop)
   try {
     await delay(milliseconds, undefined, { signal: controller.signal })
@@ -415,7 +400,7 @@ async function streamText(
 ): Promise<boolean> {
   for (const chunk of splitText(text, options.chunkSize)) {
     writeSse(record, response, { type: 'content_block_delta', index, delta: { type: 'text_delta', text: chunk } })
-    if (!await pause(delayMs, response)) return false
+    if (!(await pause(delayMs, response))) return false
   }
   return true
 }
@@ -429,7 +414,7 @@ async function completeText(
   index = 0,
 ): Promise<void> {
   startText(record, response, index)
-  if (!await streamText(options, record, response, options.successText, delayMs, index)) {
+  if (!(await streamText(options, record, response, options.successText, delayMs, index))) {
     finishRecord(options, record, 'client_closed')
     return
   }
@@ -440,12 +425,8 @@ async function completeText(
   finishRecord(options, record, 'completed')
 }
 
-async function disconnect(
-  options: ResolvedOptions,
-  record: MockLlmRequestRecord,
-  response: ServerResponse,
-): Promise<void> {
-  if (!await pause(options.disconnectDelayMs, response)) {
+async function disconnect(options: ResolvedOptions, record: MockLlmRequestRecord, response: ServerResponse): Promise<void> {
+  if (!(await pause(options.disconnectDelayMs, response))) {
     finishRecord(options, record, 'client_closed')
     return
   }
@@ -458,7 +439,9 @@ function toolCallChunks(options: ResolvedOptions): readonly MessageSseEvent[] {
   return [
     { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'mock-call-1', name: options.toolName, input: {} } },
     ...[options.toolArguments.slice(0, midpoint), options.toolArguments.slice(midpoint)].map(partial => ({
-      type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: partial },
+      type: 'content_block_delta',
+      index: 0,
+      delta: { type: 'input_json_delta', partial_json: partial },
     })),
     { type: 'content_block_stop', index: 0 },
   ]
@@ -513,7 +496,7 @@ async function runBehavior(
       openSse(response)
       startMessage(record, response)
       startText(record, response, 0)
-      if (!await streamText(options, record, response, options.partialText, options.chunkDelayMs)) return
+      if (!(await streamText(options, record, response, options.partialText, options.chunkDelayMs))) return
       await disconnect(options, record, response)
       return
     case 'stall':
@@ -610,9 +593,9 @@ function seededRandom(seed: number): () => number {
   return () => {
     state = (state + 0x6d2b_79f5) >>> 0
     let mixed = state
-    mixed = Math.imul(mixed ^ mixed >>> 15, mixed | 1)
-    mixed ^= mixed + Math.imul(mixed ^ mixed >>> 7, mixed | 61)
-    return ((mixed ^ mixed >>> 14) >>> 0) / 0x1_0000_0000
+    mixed = Math.imul(mixed ^ (mixed >>> 15), mixed | 1)
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61)
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 0x1_0000_0000
   }
 }
 
@@ -652,13 +635,10 @@ export async function startMockLlmServer(options: MockLlmServerOptions): Promise
   } => {
     const selected = resolved.sequence[cursor]
     cursor += 1
-    const scriptBehavior = selected
-      ?? (resolved.repeatLast ? resolved.lastBehavior : 'script_exhausted')
+    const scriptBehavior = selected ?? (resolved.repeatLast ? resolved.lastBehavior : 'script_exhausted')
     return {
       scriptBehavior,
-      behavior: scriptBehavior === 'random'
-        ? chooseRandomBehavior(resolved.randomWeights, random)
-        : scriptBehavior,
+      behavior: scriptBehavior === 'random' ? chooseRandomBehavior(resolved.randomWeights, random) : scriptBehavior,
     }
   }
 
@@ -730,10 +710,13 @@ export async function startMockLlmServer(options: MockLlmServerOptions): Promise
   })
 
   let closing: Promise<void> | undefined
-  const close = (): Promise<void> => (closing ??= new Promise((resolveClose) => {
-    server.close(() => { resolveClose() })
-    server.closeAllConnections()
-  }))
+  const close = (): Promise<void> =>
+    (closing ??= new Promise(resolveClose => {
+      server.close(() => {
+        resolveClose()
+      })
+      server.closeAllConnections()
+    }))
 
   await new Promise<void>((resolveListen, rejectListen) => {
     server.once('error', rejectListen)

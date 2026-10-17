@@ -207,11 +207,7 @@ function shellScriptOf(argv: readonly string[]): string | undefined {
  * @param options - working directory, environment, and stdio dispositions.
  * @returns the running command's handle.
  */
-export function spawn(
-  program: string,
-  args: readonly string[] = [],
-  options: WorkerSpawnOptions = {},
-): WorkerChildProcess {
+export function spawn(program: string, args: readonly string[] = [], options: WorkerSpawnOptions = {}): WorkerChildProcess {
   if (typeof program !== 'string' || program === '') {
     // Node refuses a non-string command with this error rather than starting
     // anything; a caller whose own lookup produced nothing reads why.
@@ -234,7 +230,7 @@ export function spawn(
     // An inherited stream belongs to the host: the worker's console is the
     // only place it can go, and an ignored one goes nowhere.
     if (stdio[stream === 'stdout' ? 1 : 2] === 'inherit') {
-      (stream === 'stdout' ? console.log : console.error)(text.replace(/\n$/, ''))
+      ;(stream === 'stdout' ? console.log : console.error)(text.replace(/\n$/, ''))
     }
   }
 
@@ -304,7 +300,7 @@ export function spawn(
         stdin: child.stdin?.contents() ?? '',
         onOutput: emit,
         onExit: settle,
-        ...filesystem === undefined ? {} : { fs: filesystem },
+        ...(filesystem === undefined ? {} : { fs: filesystem }),
       })
       // A signal that arrived while the process was still starting has to reach
       // it now; the table recorded it but had nothing to deliver it to.
@@ -381,11 +377,7 @@ function execArguments(
  * @param callback - receives the failure (nonzero status included), stdout, and stderr.
  * @returns the running command's handle.
  */
-export function exec(
-  command: string,
-  options?: WorkerSpawnOptions | ExecCallback,
-  callback?: ExecCallback,
-): WorkerChildProcess {
+export function exec(command: string, options?: WorkerSpawnOptions | ExecCallback, callback?: ExecCallback): WorkerChildProcess {
   const settled = execArguments(options, callback)
   return execute(['bash', '-c', command], settled.options, settled.callback)
 }
@@ -404,8 +396,8 @@ export function execFile(
   options?: WorkerSpawnOptions | ExecCallback,
   callback?: ExecCallback,
 ): WorkerChildProcess {
-  const argv = Array.isArray(args) ? [program, ...args as string[]] : [program]
-  const shifted = Array.isArray(args) ? options : args as WorkerSpawnOptions | ExecCallback | undefined
+  const argv = Array.isArray(args) ? [program, ...(args as string[])] : [program]
+  const shifted = Array.isArray(args) ? options : (args as WorkerSpawnOptions | ExecCallback | undefined)
   const settled = execArguments(shifted, typeof options === 'function' ? options : callback)
   return execute(argv, settled.options, settled.callback)
 }
@@ -415,9 +407,15 @@ function execute(argv: readonly string[], options: WorkerSpawnOptions, callback:
   const child = spawn(argv[0] as string, argv.slice(1), { ...options, stdio: 'pipe' })
   let stdout = ''
   let stderr = ''
-  child.stdout?.on('data', (chunk: unknown) => { stdout += String(chunk) })
-  child.stderr?.on('data', (chunk: unknown) => { stderr += String(chunk) })
-  child.on('error', (error: unknown) => { callback?.(error instanceof Error ? error : new Error(String(error)), stdout, stderr) })
+  child.stdout?.on('data', (chunk: unknown) => {
+    stdout += String(chunk)
+  })
+  child.stderr?.on('data', (chunk: unknown) => {
+    stderr += String(chunk)
+  })
+  child.on('error', (error: unknown) => {
+    callback?.(error instanceof Error ? error : new Error(String(error)), stdout, stderr)
+  })
   child.on('close', (code: unknown) => {
     const status = typeof code === 'number' ? code : 1
     callback?.(status === 0 ? null : new Error(`Command failed: ${argv.join(' ')}`), stdout, stderr)
@@ -445,8 +443,8 @@ export const __esModule = true
  * stream objects and, for `exec`/`execFile`, an overload ladder over encodings
  * this shell reports as UTF-8 text.
  */
-type NodeFace = Partial<Omit<typeof import('node:child_process'), 'spawn' | 'spawnSync' | 'exec' | 'execFile'>>
-  & Record<'spawn' | 'spawnSync' | 'exec' | 'execFile', unknown>
+type NodeFace = Partial<Omit<typeof import('node:child_process'), 'spawn' | 'spawnSync' | 'exec' | 'execFile'>> &
+  Record<'spawn' | 'spawnSync' | 'exec' | 'execFile', unknown>
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default { spawn, spawnSync, exec, execFile, execFileSync, execSync, fork } satisfies NodeFace

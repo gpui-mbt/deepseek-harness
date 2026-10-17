@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import * as vm from 'node:vm'
 import { materializeFromRealm, MaterializeError, renderThrown } from '../src/realm.ts'
 
@@ -80,8 +80,7 @@ describe('materializeFromRealm', () => {
   it('rejects exotic prototypes (Date, Map, class instances) but accepts null-prototype data', () => {
     expect(rejection(inRealm('{ d: new Date(0) }'))).toContain('exotic prototype')
     expect(rejection(inRealm('new Map()'))).toContain('exotic prototype')
-    expect(rejection(inRealm('(() => { class C { constructor() { this.x = 1 } } return new C() })()')))
-      .toContain('exotic prototype')
+    expect(rejection(inRealm('(() => { class C { constructor() { this.x = 1 } } return new C() })()'))).toContain('exotic prototype')
     expect(materializeFromRealm(inRealm('Object.assign(Object.create(null), { a: 1 })'))).toEqual({ a: 1 })
   })
 
@@ -93,10 +92,12 @@ describe('materializeFromRealm', () => {
 
   it('rejects sparse arrays and non-index array properties; an array getter element materializes its value', () => {
     expect(rejection(inRealm('[1, , 3]'))).toContain('sparse')
-    expect(rejection(inRealm('(() => { const a = [1]; a.total = 3; return a })()')))
-      .toContain('non-index')
-    expect(materializeFromRealm(inRealm('(() => { const a = [1]; Object.defineProperty(a, 0, { get: () => 7, enumerable: true }); return a })()')))
-      .toEqual([7])
+    expect(rejection(inRealm('(() => { const a = [1]; a.total = 3; return a })()'))).toContain('non-index')
+    expect(
+      materializeFromRealm(
+        inRealm('(() => { const a = [1]; Object.defineProperty(a, 0, { get: () => 7, enumerable: true }); return a })()'),
+      ),
+    ).toEqual([7])
   })
 
   it('skips non-enumerable own properties (matching JSON.stringify exactly)', () => {
@@ -139,7 +140,19 @@ describe('renderThrown', () => {
   })
 
   it('is total: a value whose accessors/toString throw renders as a fixed label', () => {
-    expect(renderThrown({ get stack() { throw new Error('nope') } })).toBe('[unrenderable thrown value]')
-    expect(renderThrown({ [Symbol.toPrimitive]() { throw new Error('nope') } })).toBe('[unrenderable thrown value]')
+    expect(
+      renderThrown({
+        get stack() {
+          throw new Error('nope')
+        },
+      }),
+    ).toBe('[unrenderable thrown value]')
+    expect(
+      renderThrown({
+        [Symbol.toPrimitive]() {
+          throw new Error('nope')
+        },
+      }),
+    ).toBe('[unrenderable thrown value]')
   })
 })

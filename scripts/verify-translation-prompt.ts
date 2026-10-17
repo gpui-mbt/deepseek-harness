@@ -30,10 +30,7 @@ try {
   const examplePaths = [
     ['scripts/fixtures/translation-prompt/examples/product.md', 'scripts/fixtures/translation-prompt/examples/product.zh.md'],
     ['scripts/fixtures/translation-prompt/examples/rules.md', 'scripts/fixtures/translation-prompt/examples/rules.zh.md'],
-    [
-      'scripts/fixtures/translation-prompt/examples/agent-note.md',
-      'scripts/fixtures/translation-prompt/examples/agent-note.zh.md',
-    ],
+    ['scripts/fixtures/translation-prompt/examples/agent-note.md', 'scripts/fixtures/translation-prompt/examples/agent-note.zh.md'],
   ] as const
   const examples: TranslationExample[] = examplePaths.map(([english, chinese]) => ({
     english: read(english),
@@ -72,16 +69,7 @@ try {
     throw new Error('reviewed examples are not assembled as system, example pairs, then source')
   }
   const consumed = consumeTranslationResponse(recordedResponse, englishInput)
-  const expectedFinalPrefix = [
-    '---',
-    'layout: doc',
-    '---',
-    '',
-    '# 快照说明',
-    '',
-    '[English](snapshot-note.md) | 中文',
-    '',
-  ].join('\n')
+  const expectedFinalPrefix = ['---', 'layout: doc', '---', '', '# 快照说明', '', '[English](snapshot-note.md) | 中文', ''].join('\n')
   if (!consumed.final.startsWith(expectedFinalPrefix)) {
     throw new Error('recorded frontmatter response does not preserve metadata and receive the canonical target switcher')
   }
@@ -89,7 +77,9 @@ try {
   if (mode === '--snapshot') {
     process.stdout.write(`${JSON.stringify({ request, response: consumed }, null, 2)}\n`)
   } else {
-    console.log('verify-translation-prompt: both directions render, reviewed examples assemble, and the consumed response is target-path correct.')
+    console.log(
+      'verify-translation-prompt: both directions render, reviewed examples assemble, and the consumed response is target-path correct.',
+    )
   }
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error)

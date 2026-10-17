@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
@@ -15,12 +15,17 @@ import ApprovalService, { ApprovalOutcome, ApprovalRequest, setApprovalPolicy } 
  * turn-enclosure precondition); pass `seed` to stage idle/closed logs.
  * Returns the recorded audit appends alongside the fake.
  */
-function fakeAgent(seed: Array<{ type: string }> = [{ type: 'turn/start' }, { type: 'user/message' }]): { agent: Agent; appended: Array<{ type: string; data: Record<string, unknown> }> } {
+function fakeAgent(seed: Array<{ type: string }> = [{ type: 'turn/start' }, { type: 'user/message' }]): {
+  agent: Agent
+  appended: Array<{ type: string; data: Record<string, unknown> }>
+} {
   const appended: Array<{ type: string; data: Record<string, unknown> }> = []
   const events: Array<{ type: string; data?: Record<string, unknown> }> = [...seed]
   const agent = {
     session: {
-      get seq() { return events.length },
+      get seq() {
+        return events.length
+      },
       eventAt: (seq: number) => events[seq],
       append: (type: string, data: Record<string, unknown>) => {
         const event = { type, data }
@@ -87,9 +92,14 @@ describe('ApprovalService.request', () => {
     const ctx = await mounted()
     const { agent, appended } = fakeAgent()
     let scope!: Scope
-    const scopeFiber = await ctx.plugin(Object.assign((inner: Context) => {
-      scope = createScope(inner, agent)
-    }, { inject: ['approval'] }))
+    const scopeFiber = await ctx.plugin(
+      Object.assign(
+        (inner: Context) => {
+          scope = createScope(inner, agent)
+        },
+        { inject: ['approval'] },
+      ),
+    )
     let received: ApprovalRequest | undefined
     let carrier: unknown
     scope.ctx.on('approval/request', function (req) {
@@ -170,7 +180,9 @@ describe('ApprovalService.request', () => {
       session: {
         seq: 1,
         eventAt: () => ({ type: 'turn/start' }),
-        append: () => { throw failure },
+        append: () => {
+          throw failure
+        },
       },
     } as unknown as Agent
 
@@ -205,10 +217,15 @@ describe('ApprovalService.request', () => {
     const { agent: agentB } = fakeAgent()
     let scopeA!: Scope
     let scopeB!: Scope
-    const scopesFiber = await ctx.plugin(Object.assign((inner: Context) => {
-      scopeA = createScope(inner, agentA)
-      scopeB = createScope(inner, agentB)
-    }, { inject: ['approval'] }))
+    const scopesFiber = await ctx.plugin(
+      Object.assign(
+        (inner: Context) => {
+          scopeA = createScope(inner, agentA)
+          scopeB = createScope(inner, agentB)
+        },
+        { inject: ['approval'] },
+      ),
+    )
     const heard: string[] = []
     ctx.on('approval/request', (req, next) => {
       heard.push(req.agent === agentA ? 'global:A' : 'global:B')
@@ -234,9 +251,14 @@ describe('ApprovalService.request', () => {
     const ctx = await mounted()
     const { agent } = fakeAgent()
     let scope!: Scope
-    const scopeFiber = await ctx.plugin(Object.assign((inner: Context) => {
-      scope = createScope(inner, agent)
-    }, { inject: ['approval'] }))
+    const scopeFiber = await ctx.plugin(
+      Object.assign(
+        (inner: Context) => {
+          scope = createScope(inner, agent)
+        },
+        { inject: ['approval'] },
+      ),
+    )
     let seenKey: object | undefined
     scope.ctx.on('approval/request', function (req, next) {
       seenKey = carrierKeyOf(this)
@@ -290,7 +312,13 @@ describe('ApprovalService.request', () => {
     const ctx = await mounted()
     const { agent, appended } = fakeAgent()
     let settleLate: ((outcome: ApprovalOutcome) => void) | undefined
-    ctx.on('approval/request', () => new Promise<ApprovalOutcome>((resolve) => { settleLate = resolve }))
+    ctx.on(
+      'approval/request',
+      () =>
+        new Promise<ApprovalOutcome>(resolve => {
+          settleLate = resolve
+        }),
+    )
     const controller = new AbortController()
 
     const pending = ctx.approval.request(requestOf(agent, { signal: controller.signal }))
@@ -308,7 +336,13 @@ describe('ApprovalService.request', () => {
     const ctx = await mounted()
     const { agent } = fakeAgent()
     let rejectLate: ((error: Error) => void) | undefined
-    ctx.on('approval/request', () => new Promise<ApprovalOutcome>((_resolve, reject) => { rejectLate = reject }))
+    ctx.on(
+      'approval/request',
+      () =>
+        new Promise<ApprovalOutcome>((_resolve, reject) => {
+          rejectLate = reject
+        }),
+    )
     const controller = new AbortController()
 
     const pending = ctx.approval.request(requestOf(agent, { signal: controller.signal }))
@@ -317,7 +351,9 @@ describe('ApprovalService.request', () => {
 
     rejectLate?.(new Error('answered too late'))
     // Drain microtasks: the contained rejection must not escape the seam.
-    await new Promise((resolve) => { setTimeout(resolve, 0) })
+    await new Promise(resolve => {
+      setTimeout(resolve, 0)
+    })
   })
 
   it('resolves the answer when the signal never aborts', async () => {
@@ -355,8 +391,10 @@ describe('ApprovalService.request', () => {
 })
 
 describe('approval policy (the approval/policy fold)', () => {
-  const NEVER_SENTENCE = 'Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).'
-  const ASK_SENTENCE = 'Approval policy: ask. Operations that require approval may ask through the configured answerers; without an available answerer, the request fails closed.'
+  const NEVER_SENTENCE =
+    'Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).'
+  const ASK_SENTENCE =
+    'Approval policy: ask. Operations that require approval may ask through the configured answerers; without an available answerer, the request fails closed.'
 
   /**
    * An agent stand-in over a REAL Session — gate and context fold real events;
@@ -383,8 +421,9 @@ describe('approval policy (the approval/policy fold)', () => {
     const append = vi.fn()
     const session = { append } as unknown as Session
 
-    expect(() => { setApprovalPolicy(session, 'sometimes' as Parameters<typeof setApprovalPolicy>[1]) })
-      .toThrow('approval policy must be one of "ask" or "never"')
+    expect(() => {
+      setApprovalPolicy(session, 'sometimes' as Parameters<typeof setApprovalPolicy>[1])
+    }).toThrow('approval policy must be one of "ask" or "never"')
     expect(append).not.toHaveBeenCalled()
   })
 
@@ -402,7 +441,9 @@ describe('approval policy (the approval/policy fold)', () => {
     const ctx = new Context()
     await ctx.plugin(ApprovalService)
     const { agent } = sessionAgent('sess-syncthrow')
-    ctx.on('approval/request', () => { throw new Error('sync bug') })
+    ctx.on('approval/request', () => {
+      throw new Error('sync bug')
+    })
     await expect(ctx.approval.request({ agent, toolName: 'echo' })).resolves.toBe('unavailable')
   })
 
@@ -410,7 +451,10 @@ describe('approval policy (the approval/policy fold)', () => {
     const ctx = new Context()
     await ctx.plugin(ApprovalService, { policy: 'never' })
     const consulted = vi.fn()
-    ctx.on('approval/request', (_req, next) => { consulted(); return next() })
+    ctx.on('approval/request', (_req, next) => {
+      consulted()
+      return next()
+    })
     const { agent, session } = sessionAgent('sess-gate-1')
     await expect(ctx.approval.request({ agent, toolName: 'bash' })).resolves.toBe('rejected')
     expect(consulted).not.toHaveBeenCalled()
@@ -434,7 +478,14 @@ describe('approval policy (the approval/policy fold)', () => {
     const ctx = new Context()
     await ctx.plugin(ApprovalService, { policy: 'never' })
     const consulted = vi.fn()
-    ctx.on('approval/request', () => { consulted(); return Promise.resolve<ApprovalOutcome>('allowed-once') }, { prepend: true })
+    ctx.on(
+      'approval/request',
+      () => {
+        consulted()
+        return Promise.resolve<ApprovalOutcome>('allowed-once')
+      },
+      { prepend: true },
+    )
     const { agent, appended } = fakeAgent()
     await expect(ctx.approval.request(requestOf(agent))).resolves.toBe('rejected')
     expect(consulted).not.toHaveBeenCalled()
@@ -467,10 +518,12 @@ describe('approval policy (the approval/policy fold)', () => {
     expect(ctx.approval.overrideOf(session)).toBe('never')
     expect(inject).toHaveBeenCalledOnce()
     expect(inject.mock.calls[0]?.[0]).toMatchObject({
-      content: [{
-        type: 'text',
-        text: 'The approval policy changed from "ask" to "never" (changed by the user).',
-      }],
+      content: [
+        {
+          type: 'text',
+          text: 'The approval policy changed from "ask" to "never" (changed by the user).',
+        },
+      ],
       source: { kind: 'user-approval' },
     })
   })
@@ -511,8 +564,7 @@ describe('approval policy (the approval/policy fold)', () => {
     await ctx.plugin(SystemPrompt)
     const fiber = await ctx.plugin(ApprovalService)
     const { agent } = sessionAgent('sess-hmr-service-live')
-    const contextFor = async () =>
-      (await ctx.systemPrompt.assemble({ agent })).contexts.find(context => context.name === 'approval:policy')
+    const contextFor = async () => (await ctx.systemPrompt.assemble({ agent })).contexts.find(context => context.name === 'approval:policy')
     expect(await contextFor()).toBeDefined()
     await fiber.dispose()
     expect(await contextFor()).toBeUndefined()

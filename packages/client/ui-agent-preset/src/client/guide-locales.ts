@@ -7,7 +7,8 @@ export const guideEn = {
   guideCopy: 'Copy',
   guideCopied: 'Copied',
   guideFootnotes: 'Footnotes',
-  guideStandardIntro: 'Choose Standard mode when starting a new task. Describe what you want to accomplish, point to the relevant files, and explain how to check the result.',
+  guideStandardIntro:
+    'Choose Standard mode when starting a new task. Describe what you want to accomplish, point to the relevant files, and explain how to check the result.',
   guideStandardExplanation: [
     '### How it works',
     'The agent calls tools directly to read and edit files, search, and run terminal commands. It includes Skills, planning, goals, subagents, workflows, and context compaction.',
@@ -22,7 +23,8 @@ export const guideEn = {
     '> Read the Markdown notes in this project. Summarize the agreed decisions and open questions, with links to the source files.',
     'Expected output: a summary with references that you can check against the original notes.',
   ].join('\n\n'),
-  guidePtcIntro: 'Choose PTC mode when starting a new task. Specify the input files, processing rules, and output format. The agent writes the code.',
+  guidePtcIntro:
+    'Choose PTC mode when starting a new task. Specify the input files, processing rules, and output format. The agent writes the code.',
   guidePtcExplanation: [
     '### How tools are called',
     'PTC means Programmatic Tool Calling. In this built-in preset, the agent uses run_code to write a TypeScript program that calls tools through a generated SDK. The program can use loops, conditions, error handling, and concurrent calls where appropriate.',
@@ -39,7 +41,8 @@ export const guideEn = {
     '> Analyze the log files in logs/. Group errors by service and error type. Show the ten most frequent groups and one example from each. Save the full counts to a CSV.',
     'Expected output: the top error groups and a complete count table. Intermediate data can be aggregated in the program before the summary reaches the model.',
   ].join('\n\n'),
-  guideMinimalIntro: 'Choose Minimal mode for a new task. For a comparison, hold the model, permissions, input, and starting workspace state constant across runs.',
+  guideMinimalIntro:
+    'Choose Minimal mode for a new task. For a comparison, hold the model, permissions, input, and starting workspace state constant across runs.',
   guideMinimalExplanation: [
     '### What is included',
     'One persistent shell tool, read_image, and a fixed system prompt. Image reading requires an image-capable model. Older history is compacted automatically under context pressure; use /compact while the agent is idle to compact it manually. The built-in preset does not load Skills, planning, or the standard runtime context.',
@@ -51,7 +54,8 @@ export const guideEn = {
     '> Run the tests for this project, find the cause of the failure, and make the smallest fix. Run the relevant tests again and report the result.',
     'Run the same task separately in Standard and Minimal modes from the same starting state. Compare task completion, tool calls, and the resulting changes. Minimal mode performs the work through terminal commands.',
   ].join('\n\n'),
-  guideCordisIntro: 'Choose Creator mode for a new task. Describe the capability you want, where it should appear, and how you will verify it.',
+  guideCordisIntro:
+    'Choose Creator mode for a new task. Describe the capability you want, where it should appear, and how you will verify it.',
   guideCordisExplanation: [
     '### What you can create',
     'Creator mode includes the standard task tools plus runtime inspection, persistent plugin management, and guidance for authoring Cordis plugins and agent presets. It can create a plugin that adds a capability or UI, or a preset that combines tools and prompts for a particular job.',

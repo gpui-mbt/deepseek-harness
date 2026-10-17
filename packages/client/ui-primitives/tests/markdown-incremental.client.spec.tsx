@@ -4,7 +4,7 @@
 // mount of the same prefix shows, while reusing the frozen blocks' DOM nodes
 // instead of remounting them.
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { Root, RootContent } from 'mdast'
 import { MarkdownText } from './markdown-test-components.tsx'
 import { IncrementalMarkdownParser } from '../src/markdown/incremental.ts'
@@ -95,13 +95,9 @@ describe('incremental streaming rendering', () => {
 
   it('drops the streaming cache when the copy labels change identity', () => {
     const doc = ['```ts', 'const a = 1', '```', '', 'p1', '', 'p2', '', 'p3'].join('\n')
-    const live = render(
-      <MarkdownText text={doc} streaming codeLabels={{ copyLabel: 'Copy', copiedLabel: 'Copied' }} />,
-    )
+    const live = render(<MarkdownText text={doc} streaming codeLabels={{ copyLabel: 'Copy', copiedLabel: 'Copied' }} />)
     expect([...live.container.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Copy'])
-    live.rerender(
-      <MarkdownText text={doc} streaming codeLabels={{ copyLabel: 'Kopieren', copiedLabel: 'Kopiert' }} />,
-    )
+    live.rerender(<MarkdownText text={doc} streaming codeLabels={{ copyLabel: 'Kopieren', copiedLabel: 'Kopiert' }} />)
     expect([...live.container.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Kopieren'])
     live.unmount()
   })
@@ -239,8 +235,11 @@ describe('freeze dynamics around frontier-sensitive constructs', () => {
       expect(actual?.key).toBe(expected?.position?.start.offset)
       expect(actual?.node.type).toBe(expected?.type)
       if (actual?.node.type === 'code' && expected?.type === 'code') {
-        expect({ lang: actual.node.lang, meta: actual.node.meta, value: actual.node.value })
-          .toEqual({ lang: expected.lang, meta: expected.meta, value: expected.value })
+        expect({ lang: actual.node.lang, meta: actual.node.meta, value: actual.node.value }).toEqual({
+          lang: expected.lang,
+          meta: expected.meta,
+          value: expected.value,
+        })
       }
     }
   })
@@ -260,15 +259,17 @@ describe('freeze dynamics around frontier-sensitive constructs', () => {
 
   it('falls back to the full grammar tail when a custom grammar rejects fence slices', () => {
     type Corruption = 'many' | 'paragraph' | 'mismatch'
-    const custom = (corruption: Corruption): ((text: string) => Root) => (text) => {
-      if (!text.startsWith('```\n')) return parseGfm(text)
-      if (corruption === 'many') return parseGfm('one\n\ntwo')
-      if (corruption === 'paragraph') return parseGfm('one')
-      const root = parseGfm(text)
-      const node = root.children[0]
-      if (node?.type === 'code') node.value += 'mismatch'
-      return root
-    }
+    const custom =
+      (corruption: Corruption): ((text: string) => Root) =>
+      text => {
+        if (!text.startsWith('```\n')) return parseGfm(text)
+        if (corruption === 'many') return parseGfm('one\n\ntwo')
+        if (corruption === 'paragraph') return parseGfm('one')
+        const root = parseGfm(text)
+        const node = root.children[0]
+        if (node?.type === 'code') node.value += 'mismatch'
+        return root
+      }
     const cases = [
       { corruption: 'many' as const, text: '```ts\nfirst' },
       { corruption: 'paragraph' as const, text: '```ts\nfirst' },
@@ -280,7 +281,7 @@ describe('freeze dynamics around frontier-sensitive constructs', () => {
       expect(result.tail.at(-1)?.node).toEqual(parseGfm(text).children.at(-1))
     }
 
-    const positionless = new IncrementalMarkdownParser((text) => {
+    const positionless = new IncrementalMarkdownParser(text => {
       const root = parseGfm(text)
       for (const node of root.children) delete node.position
       return root
@@ -414,8 +415,10 @@ describe('streaming composition across freezes', () => {
     const live = render(<MarkdownText text={head} streaming />)
     live.rerender(<MarkdownText text={doc} streaming />)
     expect([...live.container.querySelectorAll('p sup')].map(sup => sup.textContent)).toEqual(['1', '2'])
-    expect([...live.container.querySelectorAll('section.footnotes li')].map(li => li.id))
-      .toEqual(['user-content-fn-a', 'user-content-fn-b'])
+    expect([...live.container.querySelectorAll('section.footnotes li')].map(li => li.id)).toEqual([
+      'user-content-fn-a',
+      'user-content-fn-b',
+    ])
     expect(live.container.querySelector('section.footnotes')?.textContent).toContain('First note body. ↩')
     const fresh = render(<MarkdownText text={doc} streaming />)
     expect(live.container.innerHTML).toBe(fresh.container.innerHTML)

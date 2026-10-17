@@ -8,7 +8,11 @@ export class OfficeToPdfError extends Error {
    * @param message - diagnostic explaining the failed conversion.
    * @param options - underlying engine or filesystem failure.
    */
-  constructor(readonly code: OfficeToPdfErrorCode, message: string, options?: ErrorOptions) {
+  constructor(
+    readonly code: OfficeToPdfErrorCode,
+    message: string,
+    options?: ErrorOptions,
+  ) {
     super(message, options)
     this.name = 'OfficeToPdfError'
   }

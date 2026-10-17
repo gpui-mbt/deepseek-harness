@@ -51,22 +51,26 @@ export function createDeleteToastSource(): DeleteToastSource {
         getSnapshot: () => state,
         subscribe(listener) {
           listeners.add(listener)
-          return () => { listeners.delete(listener) }
+          return () => {
+            listeners.delete(listener)
+          }
         },
       },
     },
-    report: (outcome) => {
+    report: outcome => {
       if (outcome === 'pending') return
       publish({ kind: outcome === 'deleted' ? 'deleted' : 'deleteFailed', seq: ++seq })
     },
-    dismiss: () => { publish(null) },
+    dismiss: () => {
+      publish(null)
+    },
   }
 }
 
 /** Props of the `shell.overlay` entry: the notice store and localized copy. */
-export type ScheduleDeleteToastProps = PropsRuntime<'shell.overlay'>
-  & PropsLocale<'schedule.manager'>
-  & InjectFace<Omit<DeleteToastSource, 'report'>>
+export type ScheduleDeleteToastProps = PropsRuntime<'shell.overlay'> &
+  PropsLocale<'schedule.manager'> &
+  InjectFace<Omit<DeleteToastSource, 'report'>>
 
 /**
  * Render the current deletion notice: a success banner for a confirmed
@@ -77,12 +81,14 @@ export type ScheduleDeleteToastProps = PropsRuntime<'shell.overlay'>
 export function ScheduleDeleteToast({ useToast, dismiss, t }: ScheduleDeleteToastProps): ReactNode {
   const toast = useToast(current => current)
   if (toast === null) return null
-  return toast.kind === 'deleted'
-    ? <Toast key={`schedule-delete-${String(toast.seq)}`} text={t('toast.deleted')} tone="success" onDone={dismiss} />
-    : <Toast
+  return toast.kind === 'deleted' ? (
+    <Toast key={`schedule-delete-${String(toast.seq)}`} text={t('toast.deleted')} tone="success" onDone={dismiss} />
+  ) : (
+    <Toast
       key={`schedule-delete-${String(toast.seq)}`}
       text={t('toast.deleteFailed')}
       icon={<IconWarningOutlineRegular />}
       onDone={dismiss}
     />
+  )
 }

@@ -92,8 +92,14 @@ export function collectSessionFormatMigrations(
       throw new Error(`gen-session-format-catalog: ${rel} lacks dsh.sessionFormatMigration`)
     }
     const allowed: ReadonlySet<string> = new Set<keyof SessionFormatMigrationDeclaration>([
-      'from', 'to', 'export', 'migration', 'sourceCodec', 'targetCodec',
-      'targetHeaderValidator', 'targetRestorer',
+      'from',
+      'to',
+      'export',
+      'migration',
+      'sourceCodec',
+      'targetCodec',
+      'targetHeaderValidator',
+      'targetRestorer',
     ])
     const extra = Object.keys(metadata).find(key => !allowed.has(key))
     if (extra !== undefined) throw new Error(`gen-session-format-catalog: ${rel} has unknown metadata member ${extra}`)
@@ -134,12 +140,12 @@ export function collectSessionFormatMigrations(
     throw new Error(`gen-session-format-catalog: migration inventory does not end exactly at current v${currentVersion}`)
   }
   const catalog = readJson(resolve(scanRoot, 'packages/session/session-format-catalog/package.json'))
-  if (catalog.dependencies?.['@deepseek-ai/dsh-session'] !== undefined
-    || catalog.peerDependencies?.['@deepseek-ai/dsh-session'] === undefined
-    || catalog.devDependencies?.['@deepseek-ai/dsh-session'] === undefined) {
-    throw new Error(
-      'gen-session-format-catalog: catalog must share @deepseek-ai/dsh-session through peer + dev dependencies',
-    )
+  if (
+    catalog.dependencies?.['@deepseek-ai/dsh-session'] !== undefined ||
+    catalog.peerDependencies?.['@deepseek-ai/dsh-session'] === undefined ||
+    catalog.devDependencies?.['@deepseek-ai/dsh-session'] === undefined
+  ) {
+    throw new Error('gen-session-format-catalog: catalog must share @deepseek-ai/dsh-session through peer + dev dependencies')
   }
   for (const [index, declaration] of declarations.entries()) {
     if (catalog.dependencies?.[declaration.packageName] === undefined) {
@@ -149,18 +155,15 @@ export function collectSessionFormatMigrations(
     if (previous === undefined) continue
     if (declaration.sourceCodec !== previous.targetCodec) {
       throw new Error(
-        `gen-session-format-catalog: v${declaration.from} source codec ${declaration.sourceCodec} `
-        + `does not continue ${previous.targetCodec}`,
+        `gen-session-format-catalog: v${declaration.from} source codec ${declaration.sourceCodec} ` +
+          `does not continue ${previous.targetCodec}`,
       )
     }
-    const manifest = readJson(resolve(
-      scanRoot,
-      `packages/session/session-format-v${declaration.from}-to-v${declaration.to}/package.json`,
-    ))
+    const manifest = readJson(resolve(scanRoot, `packages/session/session-format-v${declaration.from}-to-v${declaration.to}/package.json`))
     if (manifest.dependencies?.[previous.packageName] === undefined) {
       throw new Error(
-        `gen-session-format-catalog: ${declaration.packageName} must depend on ${previous.packageName} `
-        + 'to share the adjacent source codec',
+        `gen-session-format-catalog: ${declaration.packageName} must depend on ${previous.packageName} ` +
+          'to share the adjacent source codec',
       )
     }
   }
@@ -173,20 +176,15 @@ export function collectSessionFormatMigrations(
  * @param currentVersion - writer version reached by the final declaration.
  * @returns complete generated TypeScript source.
  */
-export function renderSessionFormatCatalog(
-  declarations: readonly SessionFormatMigrationManifest[],
-  currentVersion: number,
-): string {
-  const imports = declarations.map((item) => {
+export function renderSessionFormatCatalog(declarations: readonly SessionFormatMigrationManifest[], currentVersion: number): string {
+  const imports = declarations.map(item => {
     const names = [item.targetCodec, item.migration]
     if (item.from === 0) names.push(item.sourceCodec)
     if (item.to === currentVersion) names.push(item.targetRestorer, item.targetHeaderValidator)
     return `import { ${[...new Set(names)].sort().join(', ')} } from '${item.importPath}'`
   })
   const first = declarations[0]
-  const codecs = first === undefined
-    ? []
-    : [first.sourceCodec, ...declarations.map(item => item.targetCodec)]
+  const codecs = first === undefined ? [] : [first.sourceCodec, ...declarations.map(item => item.targetCodec)]
   const restorer = declarations.at(-1)?.targetRestorer
   const headerValidator = declarations.at(-1)?.targetHeaderValidator
   const currentCodec = declarations.at(-1)?.targetCodec
@@ -245,7 +243,11 @@ function main(): void {
   const target = resolve(root, OUT)
   if (process.argv.includes('--check')) {
     let current = ''
-    try { current = readFileSync(target, 'utf8') } catch { /* missing is stale */ }
+    try {
+      current = readFileSync(target, 'utf8')
+    } catch {
+      /* missing is stale */
+    }
     if (current !== output) {
       console.error(`gen-session-format-catalog: ${OUT} is stale; run pnpm run gen-session-format-catalog`)
       process.exitCode = 1

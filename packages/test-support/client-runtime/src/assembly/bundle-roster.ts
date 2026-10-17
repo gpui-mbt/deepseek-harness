@@ -52,17 +52,21 @@ export function bundleRoster(
   disabledContext?: object,
 ): ClientRoster {
   const layers = bundles.map(name => readLayer(name, anchor))
-  const entries = applyEntryPatches([], layers.flatMap(layer => layer.patches), (message: string, ...args: unknown[]) => {
-    throw new Error(`client-test-runtime: bundle patch ${describe(message, args)}`)
-  })
+  const entries = applyEntryPatches(
+    [],
+    layers.flatMap(layer => layer.patches),
+    (message: string, ...args: unknown[]) => {
+      throw new Error(`client-test-runtime: bundle patch ${describe(message, args)}`)
+    },
+  )
   const anchors = layers.map(layer => layer.manifestPath)
   const rows: ClientRosterRow[] = []
   const seen = new Set<string>()
   for (const { entry, disabled } of flattenGroups(entries)) {
     const name = exactPackageSpecifier(entry.name)
     if (name === undefined || disabled.includes(true) || seen.has(name)) continue
-    if (disabledContext !== undefined
-      && disabled.some(value => isJsExpr(value) && Boolean(evaluate(disabledContext, value.__jsExpr)))) continue
+    if (disabledContext !== undefined && disabled.some(value => isJsExpr(value) && Boolean(evaluate(disabledContext, value.__jsExpr))))
+      continue
     seen.add(name)
     const manifestPath = locateManifest(anchors, name)
     if (manifestPath === undefined) {
@@ -74,8 +78,11 @@ export function bundleRoster(
     }
     const declaration = parseDshClient(name, manifest.dsh?.client)
     if (declaration === undefined || declaration.platform !== 'web') continue
-    if (disabled.some(value => value !== undefined && value !== null && typeof value !== 'boolean'
-      && !(disabledContext !== undefined && isJsExpr(value)))) {
+    if (
+      disabled.some(
+        value => value !== undefined && value !== null && typeof value !== 'boolean' && !(disabledContext !== undefined && isJsExpr(value)),
+      )
+    ) {
       throw new Error(`client-test-runtime: browser row ${name} has a \`disabled\` value this reader cannot evaluate (a !!js expression)`)
     }
     rows.push({ name, inject: declaration.inject ?? [], immediately: declaration.immediately === true })
@@ -91,7 +98,7 @@ function readLayer(bundle: string, anchor: string): BundleLayer {
   if (!Array.isArray(files) || !files.every(file => typeof file === 'string')) {
     throw new Error(`client-test-runtime: bundle ${bundle} declares no dsh.bundle.patch file list in ${manifestPath}`)
   }
-  const patches = files.flatMap((patch) => {
+  const patches = files.flatMap(patch => {
     const file = join(dirname(manifestPath), patch)
     const parsed: unknown = yaml.load(readFileSync(file, 'utf8'), { schema: entryListSchema })
     if (!Array.isArray(parsed)) throw new Error(`client-test-runtime: ${file} must be a top-level list of patches`)

@@ -1,8 +1,6 @@
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import { flattenDiagnosticMessageText, parseConfigFileTextToJson } from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
+import lintConfig from './lint-config.ts'
 
 type Rules = Record<string, unknown>
 
@@ -18,19 +16,19 @@ interface Profile {
 // snapshot; they do not re-evaluate that deleted baseline or track its preset.
 const profiles = {
   source: {
-    count: 89,
-    indexes: [0, 1, 4, 5],
-    sha256: '3e8b8455827254d6da59afb803d30f062b9fe1264b4df75ce4c8cd6e742b93dd',
+    count: 79,
+    indexes: [0, 1, 4],
+    sha256: '10a14cafcdf3b85b9cf62e47ca43f8cf4b2dac6aee571f5b1bf3c23657dfe8f0',
   },
   example: {
-    count: 88,
-    indexes: [0, 1, 2, 4, 5],
-    sha256: 'e2b944c028ef1971302d47b2eb0e95c05e740623c7cbaebb4b1312dbf73bf156',
+    count: 78,
+    indexes: [0, 1, 2, 4],
+    sha256: 'a6858a322f65a42dd1349ca5bee394f502d662a74ac7a7079ea52354fbbeb286',
   },
   test: {
-    count: 84,
-    indexes: [0, 3, 4, 5],
-    sha256: '7e4e1ed0cfca06ac94eeb26081195b5f753e7527775d5f5b95ccfefac9d2b137',
+    count: 74,
+    indexes: [0, 3, 4],
+    sha256: '4bf8bd6d99166723a6350124cc64994079ef0713943c59346350e04489072ba4',
   },
 } as const satisfies Record<string, Profile>
 
@@ -51,13 +49,15 @@ function severity(value: unknown): 0 | 1 | 2 {
 }
 
 function normalizedRules(rules: Rules): Rules {
-  return Object.fromEntries(Object.entries(rules)
-    .filter(([, value]) => severity(value) > 0)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([name, value]) => {
-      const options = isUnknownArray(value) ? value.slice(1) : []
-      return [name, [severity(value), ...options]]
-    }))
+  return Object.fromEntries(
+    Object.entries(rules)
+      .filter(([, value]) => severity(value) > 0)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([name, value]) => {
+        const options = isUnknownArray(value) ? value.slice(1) : []
+        return [name, [severity(value), ...options]]
+      }),
+  )
 }
 
 function mergedRules(overrides: readonly unknown[], indexes: readonly number[]): Rules {
@@ -65,7 +65,7 @@ function mergedRules(overrides: readonly unknown[], indexes: readonly number[]):
   for (const index of indexes) {
     const override = overrides[index]
     if (!isRecord(override) || !isRecord(override.rules)) {
-      throw new Error(`.oxlintrc.json override ${index} must contain a rules object`)
+      throw new Error(`oxlint.config.ts override ${index} must contain a rules object`)
     }
     Object.assign(merged, override.rules)
   }
@@ -73,19 +73,10 @@ function mergedRules(overrides: readonly unknown[], indexes: readonly number[]):
 }
 
 describe('Oxlint repository rule fingerprint', () => {
-  const path = fileURLToPath(new URL('../.oxlintrc.json', import.meta.url))
-  const result = parseConfigFileTextToJson(path, readFileSync(path, 'utf8'))
-  if (result.error !== undefined) {
-    throw new Error(flattenDiagnosticMessageText(result.error.messageText, '\n'))
-  }
-  const parsed: unknown = result.config
-  if (!isRecord(parsed) || !Array.isArray(parsed.overrides)) {
-    throw new Error('.oxlintrc.json must contain an overrides array')
-  }
-  const overrides: readonly unknown[] = parsed.overrides
+  const overrides: readonly unknown[] = lintConfig.overrides
 
   it('pins every override field', () => {
-    expect(overrides).toHaveLength(9)
+    expect(overrides).toHaveLength(8)
   })
 
   it.each(Object.entries(profiles))('pins the %s rule profile', (_name, profile) => {

@@ -77,93 +77,102 @@ export function applyEditTool(ctx: Context, sandbox: FsSandboxController): void 
   ctx.systemPrompt.section({
     name: 'tool:edit',
     order: ctx.systemPrompt.getSectionOrder('TOOL_EDIT'),
-    text: ({ scope }) => ctx.tools.get('edit', scope) === undefined
-      ? ''
-      : 'Read a file before editing it (the default fs-observation-policy requires it), unless you just created or edited it in this session.',
+    text: ({ scope }) =>
+      ctx.tools.get('edit', scope) === undefined
+        ? ''
+        : 'Read a file before editing it (the default fs-observation-policy requires it), unless you just created or edited it in this session.',
   })
 
-  ctx.tools.register(defineTool({
-    name: 'edit',
-    description: 'Edit an existing UTF-8 text file by replacing literal text.',
-    parameters: {
-      file_path: {
-        type: 'string', required: true,
-        description: 'Path to edit, resolved by the filesystem backend. '
-          + 'Provide `file_path` before `old_string` and `new_string` in the arguments.',
-      },
-      old_string: { type: 'string', required: true, description: 'Literal text to replace.' },
-      new_string: { type: 'string', required: true, description: 'Literal replacement text. Use an empty string to delete the match.' },
-      replace_all: { type: 'boolean', description: 'Replace all matches. Defaults to false; when false, old_string must appear exactly once.' },
-      ...sandbox.escalationModes.length > 0 ? sandbox.schemaFields() : {},
-    },
-    output: {
-      schema: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          path: { type: 'string', required: true, description: 'Canonical absolute path in the filesystem execution world.' },
-          before: { type: 'string', required: true },
-          after: { type: 'string', required: true },
+  ctx.tools.register(
+    defineTool({
+      name: 'edit',
+      description: 'Edit an existing UTF-8 text file by replacing literal text.',
+      parameters: {
+        file_path: {
+          type: 'string',
+          required: true,
+          description:
+            'Path to edit, resolved by the filesystem backend. ' +
+            'Provide `file_path` before `old_string` and `new_string` in the arguments.',
         },
+        old_string: { type: 'string', required: true, description: 'Literal text to replace.' },
+        new_string: { type: 'string', required: true, description: 'Literal replacement text. Use an empty string to delete the match.' },
+        replace_all: {
+          type: 'boolean',
+          description: 'Replace all matches. Defaults to false; when false, old_string must appear exactly once.',
+        },
+        ...(sandbox.escalationModes.length > 0 ? sandbox.schemaFields() : {}),
       },
-      render: (args, value) => [{
-        type: 'text',
-        text: formatEditOutput(value.path, args.replace_all ?? false),
-      }],
-      presentationMeta: (_args, value) => ({
-        path: value.path,
-        diffs: computeHunkDiffs(value.path, value.before, value.after)
-          .map(({ path, oldText, newText }) => ({ path, oldText, newText })),
-      }),
-    },
-    async execute(args: EditToolArgs, exec) {
-      const input = parseEditArgs(args)
-      // Resolve the per-call sandbox policy (approved mode > session override
-      // > backend default, plus the session cwd root) BEFORE anything executes.
-      const sandboxPolicy = await sandbox.resolvePolicy('edit', args, exec)
-      const target = await ctx.fs.resolve(input.filePath, await sessionResolveOptions(ctx, exec))
-      // Single-slot decision: the policy plugin returns { version: vObserved } or
-      // throws FS_NOT_OBSERVED; the bare default is undefined (unconditional edit).
-      // No stat — the bare default never manufactures a version basis. The intent
-      // slot itself can throw FS_NOT_OBSERVED for an unread target, so it sits
-      // inside the try: both that refusal and the provider's guarded-mutation
-      // failure get the model-facing remedy below.
-      let outcome
-      try {
-        const intent = await ctx.waterfall('fs/edit-intent', target, exec, () => undefined)
-        outcome = await ctx.fs.editText(
-          target,
-          { oldString: input.oldString, newString: input.newString, replaceAll: input.replaceAll },
-          intent,
-          exec.signal,
-          sandboxPolicy,
-        )
-      } catch (error: unknown) {
-        // A sandbox denial becomes the shared [sandbox: …] marker (the model
-        // recognizes it from bash); guarded mutation failures receive their
-        // stable model-facing diagnostic; anything else passes through.
-        throw remediateFsError(sandbox.mapError(error, sandboxPolicy), target.displayPath)
-      }
-      return mutationResult(ctx, target, outcome, exec)
-    },
-    // Pure display: a diff card of the literal replacement (old_string → new_string), derived
-    // from the call args. `oldText: old_string || null` matches claude-agent-acp's Edit arm;
-    // new_string is a required arg here, so it maps straight to newText.
-    presentCall(args): DiffCallView {
-      return {
-        card: 'diff',
-        title: `Edit ${args.file_path}`,
-        diffs: [{ path: args.file_path, oldText: args.old_string || null, newText: args.new_string }],
-        locations: [{ path: args.file_path }],
-      }
-    },
-    // Applied metadata replaces the call-time snippet; errors or malformed replay metadata use
-    // the generic result rendering.
-    presentResult(args, result: ToolResult): DiffResultView | undefined {
-      if (result.isError) return undefined
-      const diffs = diffsFromMeta(result.meta)
-      if (diffs === undefined) return undefined
-      return { card: 'diff', title: `Edit ${args.file_path}`, diffs }
-    },
-  }))
+      output: {
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            path: { type: 'string', required: true, description: 'Canonical absolute path in the filesystem execution world.' },
+            before: { type: 'string', required: true },
+            after: { type: 'string', required: true },
+          },
+        },
+        render: (args, value) => [
+          {
+            type: 'text',
+            text: formatEditOutput(value.path, args.replace_all ?? false),
+          },
+        ],
+        presentationMeta: (_args, value) => ({
+          path: value.path,
+          diffs: computeHunkDiffs(value.path, value.before, value.after).map(({ path, oldText, newText }) => ({ path, oldText, newText })),
+        }),
+      },
+      async execute(args: EditToolArgs, exec) {
+        const input = parseEditArgs(args)
+        // Resolve the per-call sandbox policy (approved mode > session override
+        // > backend default, plus the session cwd root) BEFORE anything executes.
+        const sandboxPolicy = await sandbox.resolvePolicy('edit', args, exec)
+        const target = await ctx.fs.resolve(input.filePath, await sessionResolveOptions(ctx, exec))
+        // Single-slot decision: the policy plugin returns { version: vObserved } or
+        // throws FS_NOT_OBSERVED; the bare default is undefined (unconditional edit).
+        // No stat — the bare default never manufactures a version basis. The intent
+        // slot itself can throw FS_NOT_OBSERVED for an unread target, so it sits
+        // inside the try: both that refusal and the provider's guarded-mutation
+        // failure get the model-facing remedy below.
+        let outcome
+        try {
+          const intent = await ctx.waterfall('fs/edit-intent', target, exec, () => undefined)
+          outcome = await ctx.fs.editText(
+            target,
+            { oldString: input.oldString, newString: input.newString, replaceAll: input.replaceAll },
+            intent,
+            exec.signal,
+            sandboxPolicy,
+          )
+        } catch (error: unknown) {
+          // A sandbox denial becomes the shared [sandbox: …] marker (the model
+          // recognizes it from bash); guarded mutation failures receive their
+          // stable model-facing diagnostic; anything else passes through.
+          throw remediateFsError(sandbox.mapError(error, sandboxPolicy), target.displayPath)
+        }
+        return mutationResult(ctx, target, outcome, exec)
+      },
+      // Pure display: a diff card of the literal replacement (old_string → new_string), derived
+      // from the call args. `oldText: old_string || null` matches claude-agent-acp's Edit arm;
+      // new_string is a required arg here, so it maps straight to newText.
+      presentCall(args): DiffCallView {
+        return {
+          card: 'diff',
+          title: `Edit ${args.file_path}`,
+          diffs: [{ path: args.file_path, oldText: args.old_string || null, newText: args.new_string }],
+          locations: [{ path: args.file_path }],
+        }
+      },
+      // Applied metadata replaces the call-time snippet; errors or malformed replay metadata use
+      // the generic result rendering.
+      presentResult(args, result: ToolResult): DiffResultView | undefined {
+        if (result.isError) return undefined
+        const diffs = diffsFromMeta(result.meta)
+        if (diffs === undefined) return undefined
+        return { card: 'diff', title: `Edit ${args.file_path}`, diffs }
+      },
+    }),
+  )
 }

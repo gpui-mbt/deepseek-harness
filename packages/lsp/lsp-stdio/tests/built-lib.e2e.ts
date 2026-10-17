@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execa } from 'execa'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 
 /**
  * Keyless built-artifact smoke: plain Node imports `@deepseek-ai/dsh-lsp` and
@@ -38,7 +38,10 @@ afterAll(async () => {
 
 describe.skipIf(!built)('built lib real load path (plain node)', () => {
   it('runs a query through lib/index.js and disposes cleanly, framing over the base protocol', async () => {
-    const location = JSON.stringify({ uri: pathToFileURL(join(ws, 'a.ts')).href, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } } })
+    const location = JSON.stringify({
+      uri: pathToFileURL(join(ws, 'a.ts')).href,
+      range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+    })
     const script = `
       const { Context } = await import('@deepseek-ai/cordis')
       const { default: Lsp } = await import('@deepseek-ai/dsh-lsp')

@@ -92,13 +92,20 @@ export class LocalSpillStore extends SpillStore {
     // async disposer that awaits the SAME promise, so service availability is
     // never delayed yet a fiber unload reaches quiescence (no sweep I/O outlives
     // the fiber). Disabled (`cleanupPeriodDays === 0`) yields a no-op disposer.
-    ctx.effect(function* (this: LocalSpillStore) {
-      if (this.config.cleanupPeriodDays > 0) {
-        const warn: WarnFn = (message) => { this.ctx.logger.warn(message) }
-        this.cleanup = this.runCleanup(warn)
-      }
-      yield async () => { await this.cleanup }
-    }.bind(this), 'spill-local cleanup sweep')
+    ctx.effect(
+      function* (this: LocalSpillStore) {
+        if (this.config.cleanupPeriodDays > 0) {
+          const warn: WarnFn = message => {
+            this.ctx.logger.warn(message)
+          }
+          this.cleanup = this.runCleanup(warn)
+        }
+        yield async () => {
+          await this.cleanup
+        }
+      }.bind(this),
+      'spill-local cleanup sweep',
+    )
   }
 
   /**

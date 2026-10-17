@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type { StartedToolCall, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
@@ -52,46 +52,80 @@ interface PathsMeta {
 const matchesMeta = (over?: Partial<MatchesMeta>): MatchesMeta => ({
   shape: 'matches',
   files: [
-    { path: 'a.ts', matches: [{ lineNumber: 12, line: 'const foo = 1' }, { lineNumber: 40, line: 'return foo' }] },
+    {
+      path: 'a.ts',
+      matches: [
+        { lineNumber: 12, line: 'const foo = 1' },
+        { lineNumber: 40, line: 'return foo' },
+      ],
+    },
     { path: 'b.ts', matches: [{ lineNumber: 7, line: 'foo()' }] },
   ],
-  truncated: false, total: 3, ...over,
+  truncated: false,
+  total: 3,
+  ...over,
 })
 
 /** Persisted glob metadata: a flat path list. */
 const pathsMeta = (over?: Partial<PathsMeta>): PathsMeta => ({
-  shape: 'paths', paths: ['src/a.ts', 'src/b.ts'], truncated: false, total: 2, ...over,
+  shape: 'paths',
+  paths: ['src/a.ts', 'src/b.ts'],
+  truncated: false,
+  total: 2,
+  ...over,
 })
 
 const runningGrep = (over?: Partial<StartedToolCall>): StartedToolCall => {
   const argsRaw = over?.argsRaw ?? GREP_ARGS
   return {
-    phase: 'start' as const, args: PartialArguments.fromText(argsRaw), callId: 'c1', name: 'grep', argsRaw,
-    turn: 1, step: 1, time: 1_000, subCalls: [], ...over,
+    phase: 'start' as const,
+    args: PartialArguments.fromText(argsRaw),
+    callId: 'c1',
+    name: 'grep',
+    argsRaw,
+    turn: 1,
+    step: 1,
+    time: 1_000,
+    subCalls: [],
+    ...over,
   }
 }
 
 const settledGrep = (over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'grep', argsRaw: GREP_ARGS } : over.call
   return {
-    kind: 'tool-result', seq: 10, time: 2_000, callId: 'c1',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq: 10,
+    time: 2_000,
+    callId: 'c1',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: 1_000,
-    content: [{ type: 'text', text: 'a.ts\n  Line 12: const foo = 1' }], isError: false,
-    meta: matchesMeta(), subCalls: [], ...over,
+    content: [{ type: 'text', text: 'a.ts\n  Line 12: const foo = 1' }],
+    isError: false,
+    meta: matchesMeta(),
+    subCalls: [],
+    ...over,
   }
 }
 
 const settledGlob = (over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'glob', argsRaw: GLOB_ARGS } : over.call
   return {
-    kind: 'tool-result', seq: 11, time: 2_000, callId: 'c2',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq: 11,
+    time: 2_000,
+    callId: 'c2',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: 1_000,
-    content: [{ type: 'text', text: 'src/a.ts\nsrc/b.ts' }], isError: false,
-    meta: pathsMeta(), subCalls: [], ...over,
+    content: [{ type: 'text', text: 'src/a.ts\nsrc/b.ts' }],
+    isError: false,
+    meta: pathsMeta(),
+    subCalls: [],
+    ...over,
   }
 }
 
@@ -102,10 +136,17 @@ describe('searchCardModel', () => {
       card: {
         kind: 'matches',
         files: [
-          { path: 'a.ts', matches: [{ lineNumber: 12, line: 'const foo = 1' }, { lineNumber: 40, line: 'return foo' }] },
+          {
+            path: 'a.ts',
+            matches: [
+              { lineNumber: 12, line: 'const foo = 1' },
+              { lineNumber: 40, line: 'return foo' },
+            ],
+          },
           { path: 'b.ts', matches: [{ lineNumber: 7, line: 'foo()' }] },
         ],
-        truncated: false, total: 3,
+        truncated: false,
+        total: 3,
       },
     })
   })
@@ -134,32 +175,53 @@ describe('searchCardModel', () => {
   })
 
   it('validates declared search argument fields and accepts open-root extensions', () => {
-    expect(searchCardModel(settledGrep({
-      call: { name: 'grep', argsRaw: '{"pattern":"foo","include":7}' },
-    }))).toBeNull()
-    expect(searchCardModel(settledGrep({
-      call: { name: 'grep', argsRaw: '{"pattern":"foo","include":"!*.ts"}' },
-    }))).toBeNull()
-    expect(searchCardModel(settledGlob({
-      call: { name: 'glob', argsRaw: '{"pattern":"**/*.ts","path":7}' },
-    }))).toBeNull()
-    expect(searchCardModel(settledGrep({
-      call: { name: 'grep', argsRaw: '{"pattern":"foo","extension":1}' },
-    }))).not.toBeNull()
+    expect(
+      searchCardModel(
+        settledGrep({
+          call: { name: 'grep', argsRaw: '{"pattern":"foo","include":7}' },
+        }),
+      ),
+    ).toBeNull()
+    expect(
+      searchCardModel(
+        settledGrep({
+          call: { name: 'grep', argsRaw: '{"pattern":"foo","include":"!*.ts"}' },
+        }),
+      ),
+    ).toBeNull()
+    expect(
+      searchCardModel(
+        settledGlob({
+          call: { name: 'glob', argsRaw: '{"pattern":"**/*.ts","path":7}' },
+        }),
+      ),
+    ).toBeNull()
+    expect(
+      searchCardModel(
+        settledGrep({
+          call: { name: 'grep', argsRaw: '{"pattern":"foo","extension":1}' },
+        }),
+      ),
+    ).not.toBeNull()
   })
 
   it('returns null for a known shape whose structured shape is missing or malformed', () => {
     const noFiles = { shape: 'matches', truncated: false, total: 0 }
     expect(searchCardModel(settledGrep({ meta: noFiles }))).toBeNull()
     const badFile = {
-      shape: 'matches', truncated: false, total: 1,
+      shape: 'matches',
+      truncated: false,
+      total: 1,
       files: [{ path: 'a.ts', matches: [{ lineNumber: 'x', line: 1 }] }],
     }
     expect(searchCardModel(settledGrep({ meta: badFile }))).toBeNull()
     const noPaths = { shape: 'paths', truncated: false, total: 0 }
     expect(searchCardModel(settledGlob({ meta: noPaths }))).toBeNull()
     const badPaths = {
-      shape: 'paths', truncated: false, total: 1, paths: [42],
+      shape: 'paths',
+      truncated: false,
+      total: 1,
+      paths: [42],
     }
     expect(searchCardModel(settledGlob({ meta: badPaths }))).toBeNull()
   })
@@ -168,17 +230,21 @@ describe('searchCardModel', () => {
     const recovery = 'a.ts\n  12: const foo = 1\n\n(Full grep result stored at: spill://grep-1. Read it to see every match.)'
     // The recovery locator lives in raw tool/result content and is surfaced only
     // when metadata says the card was capped.
-    const capped = searchCardModel(settledGrep({
-      content: [{ type: 'text', text: recovery }],
-      meta: matchesMeta({ truncated: true, total: 42 }),
-    }))
+    const capped = searchCardModel(
+      settledGrep({
+        content: [{ type: 'text', text: recovery }],
+        meta: matchesMeta({ truncated: true, total: 42 }),
+      }),
+    )
     expect(capped?.recovery).toBe(recovery)
     // Not capped: the card holds every match, so the raw content adds nothing and
     // is dropped.
-    const whole = searchCardModel(settledGrep({
-      content: [{ type: 'text', text: recovery }],
-      meta: matchesMeta({ truncated: false }),
-    }))
+    const whole = searchCardModel(
+      settledGrep({
+        content: [{ type: 'text', text: recovery }],
+        meta: matchesMeta({ truncated: false }),
+      }),
+    )
     expect(whole?.recovery).toBeUndefined()
     // Capped but the block carries no text: nothing to surface.
     const noText = searchCardModel(settledGrep({ content: [], meta: matchesMeta({ truncated: true, total: 42 }) }))
@@ -189,7 +255,12 @@ describe('searchCardModel', () => {
 describe('chat row search body (GenericToolCard fallback)', () => {
   const ownerProps = (block: StartedToolCall | ToolResultNode, toolName: string): GenericToolCardProps => ({
     loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
-    useDisclosure, callId: 'c1', toolName, ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(), t,
+    useDisclosure,
+    callId: 'c1',
+    toolName,
+    ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+    openFile: vi.fn(),
+    t,
   })
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
   const toggleRow = (view: { container: HTMLElement }) => {
@@ -217,9 +288,16 @@ describe('chat row search body (GenericToolCard fallback)', () => {
   })
 
   it('a non-search result keeps the args-JSON text body', () => {
-    const view = render(<GenericToolCard {...ownerProps(settledGrep({
-      meta: undefined,
-    }), 'grep')} />)
+    const view = render(
+      <GenericToolCard
+        {...ownerProps(
+          settledGrep({
+            meta: undefined,
+          }),
+          'grep',
+        )}
+      />,
+    )
     toggleRow(view)
     expect(view.getByText(/"pattern"/)).toBeTruthy()
     expect(searchKindOf(view.container)).toBeNull()
@@ -227,10 +305,17 @@ describe('chat row search body (GenericToolCard fallback)', () => {
 
   it('the expanded body shows the recovery footer below a capped card', () => {
     const recovery = 'a.ts\n  12: const foo = 1\n\n(Full grep result stored at: spill://grep-1. Read it to see every match.)'
-    const view = render(<GenericToolCard {...ownerProps(settledGrep({
-      content: [{ type: 'text', text: recovery }],
-      meta: matchesMeta({ truncated: true, total: 42 }),
-    }), 'grep')} />)
+    const view = render(
+      <GenericToolCard
+        {...ownerProps(
+          settledGrep({
+            content: [{ type: 'text', text: recovery }],
+            meta: matchesMeta({ truncated: true, total: 42 }),
+          }),
+          'grep',
+        )}
+      />,
+    )
     toggleRow(view)
     expect(searchKindOf(view.container)).toBe('matches')
     expect(view.getByText(/Full grep result stored at: spill:\/\/grep-1/)).toBeTruthy()
@@ -238,9 +323,16 @@ describe('chat row search body (GenericToolCard fallback)', () => {
 })
 
 describe('SearchRow keyed card', () => {
-  const rowProps = (block: StartedToolCall | ToolResultNode, toolName: string): SearchRowProps => ({
-    useDisclosure, callId: 'c1', toolName, ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(), sessionId: SID, t,
-  } as SearchRowProps)
+  const rowProps = (block: StartedToolCall | ToolResultNode, toolName: string): SearchRowProps =>
+    ({
+      useDisclosure,
+      callId: 'c1',
+      toolName,
+      ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+      openFile: vi.fn(),
+      sessionId: SID,
+      t,
+    }) as SearchRowProps
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
   const toggleRow = (view: { container: HTMLElement }) => {
@@ -277,9 +369,16 @@ describe('SearchRow keyed card', () => {
     // No result metadata yet, so no card even once material could expand.
     expect(searchKindOf(runningView.container)).toBeNull()
     cleanup()
-    const errorView = render(<SearchRow {...rowProps(settledGrep({
-      isError: true,
-    }), 'grep')} />)
+    const errorView = render(
+      <SearchRow
+        {...rowProps(
+          settledGrep({
+            isError: true,
+          }),
+          'grep',
+        )}
+      />,
+    )
     expect(errorView.container.querySelector('[data-variant="search"]')?.getAttribute('data-state')).toBe('error')
     expect(errorView.container.querySelector('[data-variant="search"] svg')).not.toBeNull()
   })
@@ -287,10 +386,17 @@ describe('SearchRow keyed card', () => {
   it('surfaces the result text through the Output section when an errored search has no card', () => {
     // Failed search metadata cannot select a success card; the row keeps the
     // first error line collapsed and the full text once expanded.
-    const view = render(<SearchRow {...rowProps(settledGrep({
-      isError: true,
-      content: [{ type: 'text', text: 'grep: invalid regular expression' }],
-    }), 'grep')} />)
+    const view = render(
+      <SearchRow
+        {...rowProps(
+          settledGrep({
+            isError: true,
+            content: [{ type: 'text', text: 'grep: invalid regular expression' }],
+          }),
+          'grep',
+        )}
+      />,
+    )
     expect(searchKindOf(view.container)).toBeNull()
     // Error state: the first line is the collapsed summary.
     expect(view.getByText('grep: invalid regular expression')).toBeTruthy()
@@ -301,10 +407,18 @@ describe('SearchRow keyed card', () => {
 
   it('surfaces the result text for a settled non-error call with no card once expanded', () => {
     // Missing metadata keeps a successful result on ToolRow's raw Output path.
-    const view = render(<SearchRow {...rowProps(settledGrep({
-      isError: false, meta: undefined,
-      content: [{ type: 'text', text: 'nested run_code output line' }],
-    }), 'grep')} />)
+    const view = render(
+      <SearchRow
+        {...rowProps(
+          settledGrep({
+            isError: false,
+            meta: undefined,
+            content: [{ type: 'text', text: 'nested run_code output line' }],
+          }),
+          'grep',
+        )}
+      />,
+    )
     expect(view.container.querySelector('[data-variant="search"]')?.getAttribute('data-state')).toBe('ok')
     expect(searchKindOf(view.container)).toBeNull()
     // Collapsed: the ok row shows its args summary, not the output text.
@@ -315,10 +429,17 @@ describe('SearchRow keyed card', () => {
 
   it('renders the recovery footer below the card when the search was capped', () => {
     const recovery = 'a.ts\n  12: const foo = 1\n\n(Full grep result stored at: spill://grep-1. Read it to see every match.)'
-    const view = render(<SearchRow {...rowProps(settledGrep({
-      content: [{ type: 'text', text: recovery }],
-      meta: matchesMeta({ truncated: true, total: 42 }),
-    }), 'grep')} />)
+    const view = render(
+      <SearchRow
+        {...rowProps(
+          settledGrep({
+            content: [{ type: 'text', text: recovery }],
+            meta: matchesMeta({ truncated: true, total: 42 }),
+          }),
+          'grep',
+        )}
+      />,
+    )
     toggleRow(view)
     expect(searchKindOf(view.container)).toBe('matches')
     expect(view.getByText(/Full grep result stored at: spill:\/\/grep-1/)).toBeTruthy()
@@ -332,10 +453,18 @@ describe('SearchRow keyed card', () => {
   })
 
   it('falls back to the error name/code when an errored result has no text block', () => {
-    const view = render(<SearchRow {...rowProps(settledGrep({
-      isError: true, content: [],
-      error: { name: 'ToolError', code: 'timeout' },
-    }), 'grep')} />)
+    const view = render(
+      <SearchRow
+        {...rowProps(
+          settledGrep({
+            isError: true,
+            content: [],
+            error: { name: 'ToolError', code: 'timeout' },
+          }),
+          'grep',
+        )}
+      />,
+    )
     // Error state: the derived name/code line is the collapsed summary.
     expect(view.getByText('ToolError: timeout')).toBeTruthy()
   })
@@ -350,7 +479,9 @@ describe('SearchRow keyed card', () => {
     const ctx = {
       slots: {
         inject: (_name: string, callback: () => Iterable<() => void>) => {
-          for (const _dispose of callback()) { /* exhaust transactional setup */ }
+          for (const _dispose of callback()) {
+            /* exhaust transactional setup */
+          }
           return () => undefined
         },
         register: (options: { name: string; key: string; locale?: string }, component: unknown) => {

@@ -1,9 +1,7 @@
 /** Plugins settings section: localized tabs around feature-owned pages. */
 
 import { useEffect, useId, useRef, useState } from 'react'
-import type {
-  HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime,
-} from '@deepseek-ai/dsh-client-ui-slots'
+import type { HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { PluginsSettingsLocaleKey } from './locales.ts'
 import css from './PluginsSettingsSection.module.css'
 
@@ -23,11 +21,10 @@ export interface PluginsSettingsSectionInjected {
 }
 
 /** Props the renderer binds for the section. */
-export type PluginsSettingsSectionProps =
-  PropsRuntime<'settings.section'>
-  & PropsLocale<'settings.plugins'>
-  & PropsRenderSlots<'settings.plugins.tab'>
-  & InjectFace<PluginsSettingsSectionInjected>
+export type PluginsSettingsSectionProps = PropsRuntime<'settings.section'> &
+  PropsLocale<'settings.plugins'> &
+  PropsRenderSlots<'settings.plugins.tab'> &
+  InjectFace<PluginsSettingsSectionInjected>
 
 /** Render one Plugins page whose contents arrive from feature-owned tabs; one contribution shows as the page itself. */
 export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettingsSectionProps) {
@@ -44,7 +41,7 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
   // switching between the two views.
   useEffect(() => {
     if (active === undefined) return
-    setVisitedIds((previous) => {
+    setVisitedIds(previous => {
       if (previous.has(active)) return previous
       return new Set([...previous, active])
     })
@@ -54,7 +51,9 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
     <div className={css.section}>
       <h2 className={css.heading}>{t('title')}</h2>
       <p className={css.intro}>{t('intro')}</p>
-      {rows.length === 0 ? <p className={css.empty}>{t('empty')}</p> : single !== undefined ? (
+      {rows.length === 0 ? (
+        <p className={css.empty}>{t('empty')}</p>
+      ) : single !== undefined ? (
         <div className={css.panel}>{renderSlot('settings.plugins.tab', {}, { only: single.id })}</div>
       ) : (
         <>
@@ -64,7 +63,9 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
               return (
                 <button
                   key={row.id}
-                  ref={(element) => { tabRefs.current[index] = element }}
+                  ref={element => {
+                    tabRefs.current[index] = element
+                  }}
                   id={`${tabsId}-tab-${row.id}`}
                   type="button"
                   role="tab"
@@ -73,15 +74,26 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
                   aria-controls={`${tabsId}-panel-${row.id}`}
                   data-active={selected ? 'true' : undefined}
                   tabIndex={selected ? 0 : -1}
-                  onClick={() => { setActiveId(row.id) }}
-                  onKeyDown={(event) => {
+                  onClick={() => {
+                    setActiveId(row.id)
+                  }}
+                  onKeyDown={event => {
                     let nextIndex: number
                     switch (event.key) {
-                      case 'ArrowRight': nextIndex = (index + 1) % rows.length; break
-                      case 'ArrowLeft': nextIndex = (index - 1 + rows.length) % rows.length; break
-                      case 'Home': nextIndex = 0; break
-                      case 'End': nextIndex = rows.length - 1; break
-                      default: return
+                      case 'ArrowRight':
+                        nextIndex = (index + 1) % rows.length
+                        break
+                      case 'ArrowLeft':
+                        nextIndex = (index - 1 + rows.length) % rows.length
+                        break
+                      case 'Home':
+                        nextIndex = 0
+                        break
+                      case 'End':
+                        nextIndex = rows.length - 1
+                        break
+                      default:
+                        return
                     }
                     event.preventDefault()
                     const nextRow = rows[nextIndex] as PluginsSettingsTabEntry
@@ -97,7 +109,7 @@ export function PluginsSettingsSection({ t, renderSlot, useTabs }: PluginsSettin
           </div>
           {rows
             .filter(row => row.id === active || visitedIds.has(row.id))
-            .map((row) => {
+            .map(row => {
               const selected = row.id === active
               return (
                 <div

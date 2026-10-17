@@ -7,7 +7,7 @@ import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
  * renderer (not a direct `entry.inject()` call, which bypasses that memo) and
  * pins that a home learned after first render reaches the rendered rows.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, screen } from '@testing-library/react'
 import type { WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
@@ -18,7 +18,9 @@ import { apply, inject } from '@deepseek-ai/dsh-client-ui-workspace/client'
 usePinnedBrowserLanguages('zh-CN')
 
 afterEach(cleanup)
-beforeEach(() => { localStorage.clear() })
+beforeEach(() => {
+  localStorage.clear()
+})
 
 /** Test-owned sidebar shell role: declares and renders the browsing region. */
 type FrameProps = PropsRenderSlots<'sidebar.workspaces'>
@@ -39,16 +41,19 @@ async function bench() {
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)
   runtime.slots.installLocale(locale)
-  await runtime.workspaces.update((draft) => {
-    draft.items = [{
-      workspaceId: 'w1' as WorkspaceId, title: 'Project', path: '/home/u/Documents/project',
-      sessionIds: [], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
-    }] as never
+  await runtime.workspaces.update(draft => {
+    draft.items = [
+      {
+        workspaceId: 'w1' as WorkspaceId,
+        title: 'Project',
+        path: '/home/u/Documents/project',
+        sessionIds: [],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ] as never
   })
-  await runtime.root.declare(
-    { 'sidebar.workspaces': { kind: 'single', scope: 'root' } } as never,
-    SidebarFrame as never,
-  )
+  await runtime.root.declare({ 'sidebar.workspaces': { kind: 'single', scope: 'root' } } as never, SidebarFrame as never)
   await runtime.mount({ inject: [...inject], apply })
   return { runtime, remote }
 }
@@ -57,14 +62,18 @@ async function bench() {
 function openHoverCard(): void {
   const row = screen.getByRole('treeitem').parentElement as HTMLElement
   fireEvent.pointerEnter(row)
-  act(() => { vi.advanceTimersByTime(800) })
+  act(() => {
+    vi.advanceTimersByTime(800)
+  })
 }
 
 /** Close it again, so the next hover rebuilds the card from current props. */
 function closeHoverCard(): void {
   const row = screen.getByRole('treeitem').parentElement as HTMLElement
   fireEvent.pointerLeave(row)
-  act(() => { vi.advanceTimersByTime(800) })
+  act(() => {
+    vi.advanceTimersByTime(800)
+  })
 }
 
 describe('Host home in the assembled browsing region', () => {
@@ -83,7 +92,9 @@ describe('Host home in the assembled browsing region', () => {
       // The ready frame lands: `$host.home` now answers, and the generation is
       // announced through the reset every consumer already listens to.
       remote.$host = { home: '/home/u', isLoopback: true }
-      act(() => { runtime.ctx.emit('connection/reset') })
+      act(() => {
+        runtime.ctx.emit('connection/reset')
+      })
       openHoverCard()
 
       expect(screen.getByText('~/Documents/project')).toBeTruthy()

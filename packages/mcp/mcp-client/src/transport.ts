@@ -38,9 +38,6 @@ export function createTransport(config: Config): Transport {
         cwd: config.cwd,
       })
     case 'streamable-http':
-      return new StreamableHTTPClientTransport(
-        new URL(config.url),
-        { requestInit: { headers: config.headers } },
-      )
+      return new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers: config.headers } })
   }
 }

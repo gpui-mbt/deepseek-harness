@@ -5,7 +5,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { clientBundle } from '../packages/client/tsdown.client.ts'
 
 interface BundlePlugin {
@@ -15,10 +15,9 @@ interface BundlePlugin {
 }
 
 function bundlePlugin(name: 'dsh-css-modules-inline' | 'dsh-css-global-inline' | 'dsh-css-text-inline' | 'dsh-image-inline'): BundlePlugin {
-  const configs = clientBundle(
-    join(import.meta.dirname, '../packages/client/ui-sidebar'),
-    ['lib/types/index.js'],
-  )({ env: { DSH_BUILD_FACE: 'client' } })
+  const configs = clientBundle(join(import.meta.dirname, '../packages/client/ui-sidebar'), ['lib/types/index.js'])({
+    env: { DSH_BUILD_FACE: 'client' },
+  })
   const client = configs.find(config => config.platform === 'browser')
   if (client === undefined) throw new Error('client config missing')
   const plugins = (client as { plugins: BundlePlugin[] }).plugins

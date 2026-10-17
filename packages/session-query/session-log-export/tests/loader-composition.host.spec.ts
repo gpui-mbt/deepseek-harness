@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -25,12 +25,15 @@ describe('session-log-download real Loader composition', () => {
   it('discovers and executes /export through the assembled command plane', async () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-session-export-loader-'))
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, [
-      "- name: '@deepseek-ai/dsh-session'",
-      "- name: '@deepseek-ai/dsh-commands'",
-      "- name: '@deepseek-ai/dsh-session-log-export'",
-      '',
-    ].join('\n'))
+    await writeFile(
+      configPath,
+      [
+        "- name: '@deepseek-ai/dsh-session'",
+        "- name: '@deepseek-ai/dsh-commands'",
+        "- name: '@deepseek-ai/dsh-session-log-export'",
+        '',
+      ].join('\n'),
+    )
 
     context = new Context()
     context.baseUrl = pathToFileURL(root).href + '/'
@@ -57,12 +60,12 @@ describe('session-log-download real Loader composition', () => {
     })
     await context.loader.await()
 
-    const session = (context.get('sessions') as SessionStore)
-      .create(SessionId('loader-session-export'), { meta: { createdAt: 1 } })
+    const session = (context.get('sessions') as SessionStore).create(SessionId('loader-session-export'), { meta: { createdAt: 1 } })
     const agent = { session, status: 'idle', options: {} } as unknown as Agent
     expect(context.commands.list(agent)).toContainEqual({
       definitionId: '@deepseek-ai/dsh-session-log-export',
-      name: 'export', description: 'Download this Session log as a ZIP archive',
+      name: 'export',
+      description: 'Download this Session log as a ZIP archive',
     })
     const execution = await context.commands.execute(agent, '/export', [], new AbortController().signal)
     expect(execution?.result).toEqual({ kind: 'success', text: 'Session log download requested.' })

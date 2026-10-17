@@ -1,12 +1,8 @@
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
-import {
-  captureExpectedWorkspaceSnapshot,
-  captureWorkspaceSnapshot,
-  EMPTY_WORKSPACE_MARKER,
-} from '../src/workspace.ts'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { captureExpectedWorkspaceSnapshot, captureWorkspaceSnapshot, EMPTY_WORKSPACE_MARKER } from '../src/workspace.ts'
 
 describe('workspace snapshots', () => {
   const roots: string[] = []
@@ -56,8 +52,6 @@ describe('workspace snapshots', () => {
   it('treats NUL-bearing UTF-8 as binary workspace state', async () => {
     const directory = await root()
     await writeFile(join(directory, 'nul.bin'), Buffer.from([0x61, 0x00, 0x62]))
-    expect(await captureWorkspaceSnapshot(directory)).toEqual([
-      { path: 'nul.bin', kind: 'binary', base64: 'YQBi' },
-    ])
+    expect(await captureWorkspaceSnapshot(directory)).toEqual([{ path: 'nul.bin', kind: 'binary', base64: 'YQBi' }])
   })
 })

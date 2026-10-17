@@ -80,11 +80,13 @@ function mutationPath(name: string, argsRaw: string): string | null {
 
 /** Validate the fields that an `edit` execution requires. */
 function validEditArgs(args: Readonly<Record<string, unknown>>): boolean {
-  return typeof args.old_string === 'string'
-    && args.old_string.length > 0
-    && typeof args.new_string === 'string'
-    && args.old_string !== args.new_string
-    && (args.replace_all === undefined || typeof args.replace_all === 'boolean')
+  return (
+    typeof args.old_string === 'string' &&
+    args.old_string.length > 0 &&
+    typeof args.new_string === 'string' &&
+    args.old_string !== args.new_string &&
+    (args.replace_all === undefined || typeof args.replace_all === 'boolean')
+  )
 }
 
 /** Extract a path only from a complete mutating editor command. */
@@ -95,16 +97,14 @@ function editorMutationPath(args: Readonly<Record<string, unknown>>): string | n
     case 'create':
       return typeof args.file_text === 'string' ? path : null
     case 'str_replace':
-      return typeof args.old_str === 'string'
-        && args.old_str.length > 0
-        && (args.new_str === undefined || typeof args.new_str === 'string')
+      return typeof args.old_str === 'string' && args.old_str.length > 0 && (args.new_str === undefined || typeof args.new_str === 'string')
         ? path
         : null
     case 'insert':
-      return typeof args.insert_line === 'number'
-        && Number.isInteger(args.insert_line)
-        && args.insert_line >= 0
-        && typeof args.new_str === 'string'
+      return typeof args.insert_line === 'number' &&
+        Number.isInteger(args.insert_line) &&
+        args.insert_line >= 0 &&
+        typeof args.new_str === 'string'
         ? path
         : null
     default:
@@ -146,10 +146,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * @param seq - closing Assistant seq; later Tool settlements are excluded.
  * @returns Produced paths in first-seen order; empty when the turn wrote nothing.
  */
-export function producedForClosing(
-  data: Readonly<DeliverablesTurnData> | undefined,
-  seq = Number.POSITIVE_INFINITY,
-): readonly string[] {
+export function producedForClosing(data: Readonly<DeliverablesTurnData> | undefined, seq = Number.POSITIVE_INFINITY): readonly string[] {
   if (data === undefined) return []
   const paths: string[] = []
   const seen = new Set<string>()
@@ -174,7 +171,7 @@ export function selectProducedFiles(owner: TurnTailOwnerProps): readonly string[
 /** Turn-local successful mutation accumulator; it publishes no view Node. */
 export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesState> = {
   kind: 'deliverables',
-  match: (event) => {
+  match: event => {
     if (event.type === 'turn/start') return { id: String(event.data.turn), role: 'start' }
     if (event.type === 'tool/call') return { id: String(event.data.turn), role: 'update' }
     if (event.type === 'deliverables/presented') return isPresentedData(event.data) ? { id: String(event.data.turn), role: 'update' } : null
@@ -199,14 +196,11 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
         if (isPresentedFile(file)) presented.push({ ...file, seq, index })
       }
       if (presented.length === 0) return context.state
-      return { ...context.state, presented: [...context.state.presented ?? [], ...presented] }
+      return { ...context.state, presented: [...(context.state.presented ?? []), ...presented] }
     }
     if (match.event.type === 'tool/call') {
       const calls = new Map(context.state.calls)
-      calls.set(
-        String(match.event.data.callId),
-        mutationPath(match.event.data.name, match.event.data.arguments),
-      )
+      calls.set(String(match.event.data.callId), mutationPath(match.event.data.name, match.event.data.arguments))
       return { ...context.state, calls }
     }
     if (match.event.type !== 'tool/result') return context.state
@@ -218,28 +212,36 @@ export const deliverablesDefinition: ConversationNodeDefinition<DeliverablesStat
     return path === null
       ? context.state
       : {
-        ...context.state,
-        produced: [...context.state.produced, {
-          seq: match.event.seq, path, ...path === argumentPath ? {} : { argumentPath },
-        }],
-      }
+          ...context.state,
+          produced: [
+            ...context.state.produced,
+            {
+              seq: match.event.seq,
+              path,
+              ...(path === argumentPath ? {} : { argumentPath }),
+            },
+          ],
+        }
   },
   buildLocationData: (context, scope, previous) => {
     if (scope !== 'turn' || context.state === undefined) return null
-    if (previous?.kind === 'turn'
-      && previous.turn === context.state.turn
-      && previous.key === 'deliverables'
-      && previous.value.produced === context.state.produced
-      && previous.value.presented === context.state.presented
-      && previous.value.changes === context.state.changes) return previous
+    if (
+      previous?.kind === 'turn' &&
+      previous.turn === context.state.turn &&
+      previous.key === 'deliverables' &&
+      previous.value.produced === context.state.produced &&
+      previous.value.presented === context.state.presented &&
+      previous.value.changes === context.state.changes
+    )
+      return previous
     return {
       kind: 'turn',
       turn: context.state.turn,
       key: 'deliverables',
       value: {
         produced: context.state.produced,
-        ...context.state.presented === undefined ? {} : { presented: context.state.presented },
-        ...context.state.changes === undefined ? {} : { changes: context.state.changes },
+        ...(context.state.presented === undefined ? {} : { presented: context.state.presented }),
+        ...(context.state.changes === undefined ? {} : { changes: context.state.changes }),
       },
     }
   },
@@ -294,7 +296,13 @@ export function producedFileMentions(
       }
       const path = matches.size === 1 ? matches.values().next().value : undefined
       if (path === undefined) return undefined
-      return { open: () => { openFile(path) }, label: label(path), title: path }
+      return {
+        open: () => {
+          openFile(path)
+        },
+        label: label(path),
+        title: path,
+      }
     },
   }
 }

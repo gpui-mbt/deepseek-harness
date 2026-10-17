@@ -3,7 +3,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const sourceRoot = fileURLToPath(new URL('../src/', import.meta.url))
 const packageRoot = fileURLToPath(new URL('../', import.meta.url))
@@ -39,10 +39,14 @@ describe('Inspector execution layout', () => {
     const testFiles = (await walk(testsRoot)).filter(file => file.endsWith('.ts'))
     const specs = testFiles.filter(file => file.endsWith('.spec.ts'))
     expect(specs.every(file => file.endsWith('.host.spec.ts') || file.endsWith('.client.spec.ts'))).toBe(true)
-    await expectTestImports(testFiles.filter(file =>
-      file.endsWith('.host.ts') || file.endsWith('.host.spec.ts')), ['client'])
-    await expectTestImports(testFiles.filter(file =>
-      file.endsWith('.client.ts') || file.endsWith('.client.spec.ts')), ['host', 'worker'])
+    await expectTestImports(
+      testFiles.filter(file => file.endsWith('.host.ts') || file.endsWith('.host.spec.ts')),
+      ['client'],
+    )
+    await expectTestImports(
+      testFiles.filter(file => file.endsWith('.client.ts') || file.endsWith('.client.spec.ts')),
+      ['host', 'worker'],
+    )
   })
 
   it('keeps Worker repositories and realm backends independent of the Chrome adapter', async () => {
@@ -103,10 +107,12 @@ async function expectNoImports(owner: string, forbidden: readonly string[]): Pro
 
 async function walk(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true })
-  const files = await Promise.all(entries.map(async (entry) => {
-    const value = resolve(directory, entry.name)
-    return entry.isDirectory() ? await walk(value) : [value]
-  }))
+  const files = await Promise.all(
+    entries.map(async entry => {
+      const value = resolve(directory, entry.name)
+      return entry.isDirectory() ? await walk(value) : [value]
+    }),
+  )
   return files.flat()
 }
 

@@ -111,17 +111,16 @@ export abstract class AttachmentStore extends Service {
    * @returns admitted prompt parts in the same order as `content`.
    * @throws AttachmentError when the image batch is refused.
    */
-  async admitPromptContent(
-    content: readonly AttachmentAdmissionPart[],
-  ): Promise<AdmittedPromptContentPart[]> {
+  async admitPromptContent(content: readonly AttachmentAdmissionPart[]): Promise<AdmittedPromptContentPart[]> {
     if (content.every(part => part.type !== 'image')) {
-      return content.map(part => part.type === 'text'
-        ? { type: 'text', text: part.text }
-        : { type: 'file', attachment: part.attachment })
+      return content.map(part => (part.type === 'text' ? { type: 'text', text: part.text } : { type: 'file', attachment: part.attachment }))
     }
-    const refs = await admitEncodedImages(this, content.filter(part => part.type === 'image'))
+    const refs = await admitEncodedImages(
+      this,
+      content.filter(part => part.type === 'image'),
+    )
     let next = 0
-    return content.map((part) => {
+    return content.map(part => {
       if (part.type === 'text') return { type: 'text', text: part.text }
       if (part.type === 'file') return { type: 'file', attachment: part.attachment }
       return { type: 'image', attachment: refs[next++] as ImageAttachmentRef }
@@ -187,10 +186,9 @@ export abstract class AttachmentStore extends Service {
    */
   saveFile(input: SaveFileAttachment): Promise<FileAttachmentRef> {
     void input
-    return Promise.reject(new AttachmentError(
-      'The mounted attachment provider cannot store verbatim files.',
-      'ATTACHMENT_FILES_UNSUPPORTED',
-    ))
+    return Promise.reject(
+      new AttachmentError('The mounted attachment provider cannot store verbatim files.', 'ATTACHMENT_FILES_UNSUPPORTED'),
+    )
   }
 
   /**
@@ -202,10 +200,9 @@ export abstract class AttachmentStore extends Service {
    */
   saveFileStream(input: SaveFileStreamAttachment): Promise<FileAttachmentRef> {
     void input
-    return Promise.reject(new AttachmentError(
-      'The mounted attachment provider cannot stream verbatim files.',
-      'ATTACHMENT_FILES_UNSUPPORTED',
-    ))
+    return Promise.reject(
+      new AttachmentError('The mounted attachment provider cannot stream verbatim files.', 'ATTACHMENT_FILES_UNSUPPORTED'),
+    )
   }
 
   /**
@@ -216,16 +213,10 @@ export abstract class AttachmentStore extends Service {
    * @param signal - optional cancellation for backend reads and verification work.
    * @returns exact file bytes in order; integrity failures reject the iteration.
    */
-  async *readFileStream(
-    ref: FileAttachmentRef,
-    signal?: AbortSignal,
-  ): AsyncIterable<Uint8Array> {
+  async *readFileStream(ref: FileAttachmentRef, signal?: AbortSignal): AsyncIterable<Uint8Array> {
     signal?.throwIfAborted()
     void ref
-    await Promise.reject(new AttachmentError(
-      'The mounted attachment provider cannot read verbatim files.',
-      'ATTACHMENT_FILES_UNSUPPORTED',
-    ))
+    await Promise.reject(new AttachmentError('The mounted attachment provider cannot read verbatim files.', 'ATTACHMENT_FILES_UNSUPPORTED'))
   }
 
   /**
@@ -246,20 +237,14 @@ export abstract class AttachmentStore extends Service {
    * @param signal - optional cancellation.
    * @returns request bytes and the cache/upload identity covering every transform input.
    */
-  readImageRequest(
-    ref: ImageAttachmentRef,
-    target: ImageRequestTarget,
-    signal?: AbortSignal,
-  ): Promise<RequestImageAttachment> {
+  readImageRequest(ref: ImageAttachmentRef, target: ImageRequestTarget, signal?: AbortSignal): Promise<RequestImageAttachment> {
     signal?.throwIfAborted()
     void ref
     void target
-    return Promise.reject(new AttachmentError(
-      'The mounted attachment provider cannot derive model-request images.',
-      'ATTACHMENT_PROJECTION_UNSUPPORTED',
-    ))
+    return Promise.reject(
+      new AttachmentError('The mounted attachment provider cannot derive model-request images.', 'ATTACHMENT_PROJECTION_UNSUPPORTED'),
+    )
   }
-
 }
 
 export default AttachmentStore

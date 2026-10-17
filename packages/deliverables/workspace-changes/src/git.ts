@@ -125,11 +125,16 @@ function isMissing(error: unknown): boolean {
  * @returns the repository, or null when the directory is not inside one.
  */
 export async function locateGitWorkspace(
-  git: GitRunner, cwd: string, scratch: () => Promise<string>, signal: AbortSignal,
+  git: GitRunner,
+  cwd: string,
+  scratch: () => Promise<string>,
+  signal: AbortSignal,
 ): Promise<GitWorkspace | null> {
   const found = await git.run(['rev-parse', '--show-toplevel', '--absolute-git-dir', '--git-path', 'objects'], { cwd, signal })
   if (found.exitCode === 128 && /not a git repository/i.test(found.stderr)) return null
-  const lines = ok(found, 'git rev-parse').stdout.split('\n').map(line => resolve(cwd, line))
+  const lines = ok(found, 'git rev-parse')
+    .stdout.split('\n')
+    .map(line => resolve(cwd, line))
   const [root, gitDir, repositoryObjects] = lines as [string, string, string]
   // git reports the canonical root; compare the private directory in the same spelling.
   const directory = await canonicalPath(await scratch())
@@ -188,12 +193,21 @@ export interface TreeBlob {
  * @returns the blob, or null when the tree holds nothing at the path or holds a gitlink or tree there.
  */
 export async function treeBlob(
-  git: GitRunner, workspace: GitWorkspace, tree: string, path: string, signal: AbortSignal,
+  git: GitRunner,
+  workspace: GitWorkspace,
+  tree: string,
+  path: string,
+  signal: AbortSignal,
 ): Promise<TreeBlob | null> {
   // The path is a pathspec; literal matching keeps `*`, `?`, and `[` in a file name from selecting another entry.
-  const result = ok(await git.run(['ls-tree', '-z', '-l', tree, '--', path], {
-    cwd: workspace.root, env: { ...workspace.env, GIT_LITERAL_PATHSPECS: '1' }, signal,
-  }), 'git ls-tree')
+  const result = ok(
+    await git.run(['ls-tree', '-z', '-l', tree, '--', path], {
+      cwd: workspace.root,
+      env: { ...workspace.env, GIT_LITERAL_PATHSPECS: '1' },
+      signal,
+    }),
+    'git ls-tree',
+  )
   const entry = result.stdout.split('\0')[0] as string
   const match = /^\d+ (\S+) ([0-9a-f]+) +(\d+)\t/.exec(entry)
   if (match === null || match[1] !== 'blob') return null
@@ -210,7 +224,11 @@ export async function treeBlob(
  * @returns the blob decoded as UTF-8.
  */
 export async function blobText(
-  git: GitRunner, workspace: GitWorkspace, oid: string, maxBytes: number, signal: AbortSignal,
+  git: GitRunner,
+  workspace: GitWorkspace,
+  oid: string,
+  maxBytes: number,
+  signal: AbortSignal,
 ): Promise<string> {
   const result = ok(await git.run(['cat-file', 'blob', oid], { cwd: workspace.root, env: workspace.env, maxBytes, signal }), 'git cat-file')
   /* v8 ignore next -- callers size the blob with treeBlob first; a blob is immutable, so the cap cannot be exceeded here. */
@@ -229,12 +247,21 @@ export async function blobText(
  * @throws when git fails or the output exceeded the cap.
  */
 export async function diffTrees(
-  git: GitRunner, workspace: GitWorkspace, before: string, after: string, signal: AbortSignal,
+  git: GitRunner,
+  workspace: GitWorkspace,
+  before: string,
+  after: string,
+  signal: AbortSignal,
 ): Promise<NumstatEntry[]> {
   if (before === after) return []
-  const result = ok(await git.run(['diff-tree', '-r', '-M', '-z', '--numstat', before, after], {
-    cwd: workspace.root, env: workspace.env, signal,
-  }), 'git diff-tree')
+  const result = ok(
+    await git.run(['diff-tree', '-r', '-M', '-z', '--numstat', before, after], {
+      cwd: workspace.root,
+      env: workspace.env,
+      signal,
+    }),
+    'git diff-tree',
+  )
   if (result.truncated) throw new Error('git diff-tree output exceeded the configured cap')
   return parseNumstat(result.stdout)
 }
@@ -268,12 +295,22 @@ export async function gitlinkPaths(git: GitRunner, workspace: GitWorkspace, sign
  * @returns the ignored members of `paths`.
  */
 export async function ignoredPaths(
-  git: GitRunner, workspace: GitWorkspace, paths: readonly string[], signal: AbortSignal,
+  git: GitRunner,
+  workspace: GitWorkspace,
+  paths: readonly string[],
+  signal: AbortSignal,
 ): Promise<Set<string>> {
   if (paths.length === 0) return new Set()
   const result = await git.run(['check-ignore', '-z', '--stdin'], {
-    cwd: workspace.root, env: workspace.env, stdin: `${paths.join('\0')}\0`, signal,
+    cwd: workspace.root,
+    env: workspace.env,
+    stdin: `${paths.join('\0')}\0`,
+    signal,
   })
   if (result.exitCode === 1) return new Set()
-  return new Set(ok(result, 'git check-ignore').stdout.split('\0').filter(path => path !== ''))
+  return new Set(
+    ok(result, 'git check-ignore')
+      .stdout.split('\0')
+      .filter(path => path !== ''),
+  )
 }

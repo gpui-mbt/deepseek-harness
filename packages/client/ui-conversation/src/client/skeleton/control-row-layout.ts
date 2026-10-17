@@ -12,12 +12,9 @@ export function observeControlRow(row: HTMLElement): () => void {
     // Always measure expanded demand, including text changed while collapsed.
     row.removeAttribute('data-model-compact')
     const style = getComputedStyle(row)
-    const available = row.getBoundingClientRect().width
-      - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
-    const widths = Array.from(row.children, child => child.getBoundingClientRect().width)
-      .filter(width => width > 0)
-    const needed = widths.reduce((sum, width) => sum + width, 0)
-      + Math.max(0, widths.length - 1) * parseFloat(style.columnGap)
+    const available = row.getBoundingClientRect().width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+    const widths = Array.from(row.children, child => child.getBoundingClientRect().width).filter(width => width > 0)
+    const needed = widths.reduce((sum, width) => sum + width, 0) + Math.max(0, widths.length - 1) * parseFloat(style.columnGap)
     row.toggleAttribute('data-model-compact', needed > available)
   }
   const resize = new ResizeObserver(measure)
@@ -25,8 +22,11 @@ export function observeControlRow(row: HTMLElement): () => void {
   for (const child of row.children) resize.observe(child)
   const mutation = new MutationObserver(measure)
   mutation.observe(row, {
-    subtree: true, childList: true, characterData: true,
-    attributes: true, attributeFilter: ['hidden'],
+    subtree: true,
+    childList: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['hidden'],
   })
   const fonts = document.fonts
   fonts.addEventListener('loadingdone', measure)

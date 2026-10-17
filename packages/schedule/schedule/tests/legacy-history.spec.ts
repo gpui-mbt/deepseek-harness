@@ -2,13 +2,16 @@
  * The Schedule `session/created` listener must not veto Session creation when a historical
  * `schedule/change` stream is unreadable.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { harness } from './harness.ts'
 
 const tests: Awaited<ReturnType<typeof harness>>[] = []
-beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-16T00:00:00Z')) })
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-09-16T00:00:00Z'))
+})
 afterEach(async () => {
   await Promise.all(tests.splice(0).map(test => test.ctx.fiber.dispose()))
   vi.useRealTimers()

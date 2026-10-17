@@ -72,10 +72,10 @@ function discover(): string[] {
     const groupDirectory = join(repositoryRoot, group)
     for (const entry of subdirectories(groupDirectory)) {
       // `packages/<group>/<package>/lib/index.js`, `vendor/<package>/lib/index.js`.
-      const candidates = group === 'vendor'
-        ? [join(groupDirectory, entry, 'lib', 'index.js')]
-        : subdirectories(join(groupDirectory, entry))
-          .map(child => join(groupDirectory, entry, child, 'lib', 'index.js'))
+      const candidates =
+        group === 'vendor'
+          ? [join(groupDirectory, entry, 'lib', 'index.js')]
+          : subdirectories(join(groupDirectory, entry)).map(child => join(groupDirectory, entry, child, 'lib', 'index.js'))
       for (const candidate of candidates) {
         try {
           if (statSync(candidate).isFile()) found.push(candidate)
@@ -101,13 +101,15 @@ const relative = (path: string): string => path.slice(repositoryRoot.length).rep
  * exemption admits.
  */
 const isUnknownCssExtension = (reason: unknown): boolean =>
-  reason instanceof Error
-  && 'code' in reason && reason.code === 'ERR_UNKNOWN_FILE_EXTENSION'
-  && reason.message.startsWith('Unknown file extension ".css" for ')
+  reason instanceof Error &&
+  'code' in reason &&
+  reason.code === 'ERR_UNKNOWN_FILE_EXTENSION' &&
+  reason.message.startsWith('Unknown file extension ".css" for ')
 
-const files = process.argv.slice(2).length > 0
-  ? process.argv.slice(2).map(path => (path.startsWith('/') ? path : join(process.cwd(), path)))
-  : discover()
+const files =
+  process.argv.slice(2).length > 0
+    ? process.argv.slice(2).map(path => (path.startsWith('/') ? path : join(process.cwd(), path)))
+    : discover()
 
 if (files.length === 0) {
   process.stdout.write('transform-corpus-check: no built bundles found; run `pnpm run build:lib:host` first\n')
@@ -141,12 +143,15 @@ if (files.length === 0) {
   }
 
   log('')
-  log(`files=${String(files.length)} ok=${String(verdicts.ok)} baselineExempt=${String(verdicts.exempt)} `
-    + `unexpectedBaselineFailure=${String(verdicts.unexpectedBaseline)}`)
+  log(
+    `files=${String(files.length)} ok=${String(verdicts.ok)} baselineExempt=${String(verdicts.exempt)} ` +
+      `unexpectedBaselineFailure=${String(verdicts.unexpectedBaseline)}`,
+  )
 
-  process.stdout.write(failures === 0
-    ? `\ntransform-corpus-check: ${String(verdicts.ok)} bundles import under Node, `
-      + `${String(verdicts.exempt)} exempt\n`
-    : `\ntransform-corpus-check: ${String(failures)} finding(s)\n`)
+  process.stdout.write(
+    failures === 0
+      ? `\ntransform-corpus-check: ${String(verdicts.ok)} bundles import under Node, ` + `${String(verdicts.exempt)} exempt\n`
+      : `\ntransform-corpus-check: ${String(failures)} finding(s)\n`,
+  )
   process.exitCode = failures === 0 ? 0 : 1
 }

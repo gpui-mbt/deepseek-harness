@@ -3,18 +3,10 @@ import type { Buffer } from 'node:buffer'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import {
-  cleanupLinuxLaunchFiles,
-  createLinuxLaunchFiles,
-} from '../src/runner-protocol.ts'
-import {
-  runnerEnvironment,
-  runnerInvocationAvailable,
-  SUBPROCESS_RUNNER_ENV,
-  targetEnvironment,
-} from '../src/runner-launch.ts'
+import { cleanupLinuxLaunchFiles, createLinuxLaunchFiles } from '../src/runner-protocol.ts'
+import { runnerEnvironment, runnerInvocationAvailable, SUBPROCESS_RUNNER_ENV, targetEnvironment } from '../src/runner-launch.ts'
 import type { RunnerInvocation } from '../src/runner-launch.ts'
 import { bindManagedProcess } from '../src/spawn.ts'
 import { launchWindowsJob } from '../src/windows-job.ts'
@@ -33,21 +25,29 @@ function targetEnv(): Record<string, string> {
 async function executePosix(invocation: RunnerInvocation): Promise<{ status: number | null; stdout: string; stderr: string }> {
   const files = createLinuxLaunchFiles({ cwd: repoRoot, env: targetEnv() })
   try {
-    const child = spawn(invocation[0], [
-      ...invocation.slice(1),
-      '--',
-      process.execPath,
-      '--input-type=module',
-      '--eval',
-      `process.stdout.write(process.argv[0]+'|'+process.cwd()+'|'+process.env.${SUBPROCESS_RUNNER_ENV})`,
-    ], {
-      env: runnerEnvironment(files.requestPath, invocation),
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const child = spawn(
+      invocation[0],
+      [
+        ...invocation.slice(1),
+        '--',
+        process.execPath,
+        '--input-type=module',
+        '--eval',
+        `process.stdout.write(process.argv[0]+'|'+process.cwd()+'|'+process.env.${SUBPROCESS_RUNNER_ENV})`,
+      ],
+      {
+        env: runnerEnvironment(files.requestPath, invocation),
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
     let stdout = ''
     let stderr = ''
-    child.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString() })
-    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString()
+    })
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString()
+    })
     const status = await new Promise<number | null>((resolveExit, rejectExit) => {
       child.once('error', rejectExit)
       child.once('exit', resolveExit)
@@ -75,11 +75,7 @@ async function executeWindows(invocation: RunnerInvocation): Promise<{ status: n
     },
     graceMs: 3_000,
   }
-  const handle = bindManagedProcess(request, launchWindowsJob(
-    request,
-    targetEnvironment(request),
-    { runnerInvocation: invocation },
-  ))
+  const handle = bindManagedProcess(request, launchWindowsJob(request, targetEnvironment(request), { runnerInvocation: invocation }))
   const outcome = await handle.done
   await handle.waitForExit()
   const stdout = handle.collected.stdout?.readFrom(0).text ?? ''
@@ -88,9 +84,7 @@ async function executeWindows(invocation: RunnerInvocation): Promise<{ status: n
 }
 
 async function execute(invocation: RunnerInvocation): Promise<{ status: number | null; stdout: string; stderr: string }> {
-  return process.platform === 'win32'
-    ? executeWindows(invocation)
-    : executePosix(invocation)
+  return process.platform === 'win32' ? executeWindows(invocation) : executePosix(invocation)
 }
 
 describe('subprocess-local runner artifacts', () => {
@@ -103,14 +97,18 @@ describe('subprocess-local runner artifacts', () => {
     })
   }, 30_000)
 
-  it.skipIf(!existsSync(builtRunner))('executes the built ./runner subpath through the same core', async () => {
-    const invocation: RunnerInvocation = [process.execPath, builtRunner]
-    expect(runnerInvocationAvailable(invocation)).toBe(true)
-    const result = await execute(invocation)
-    expect(result).toEqual({
-      status: 0,
-      stdout: `${process.execPath}|${repoRoot}|target-collision-restored`,
-      stderr: '',
-    })
-  }, 30_000)
+  it.skipIf(!existsSync(builtRunner))(
+    'executes the built ./runner subpath through the same core',
+    async () => {
+      const invocation: RunnerInvocation = [process.execPath, builtRunner]
+      expect(runnerInvocationAvailable(invocation)).toBe(true)
+      const result = await execute(invocation)
+      expect(result).toEqual({
+        status: 0,
+        stdout: `${process.execPath}|${repoRoot}|target-collision-restored`,
+        stderr: '',
+      })
+    },
+    30_000,
+  )
 })

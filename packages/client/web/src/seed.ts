@@ -28,12 +28,12 @@ export function getStaticModules(): Record<string, unknown> {
   // PLATFORM_MODULES without a static import here (or vice versa) fails to
   // compile instead of drifting into a runtime require miss.
   return {
-    'react': React,
+    react: React,
     'react/jsx-runtime': ReactJsxRuntime,
     'react-dom': ReactDom,
     'react-dom/client': ReactDomClient,
     '@deepseek-ai/cordis': Cordis,
-    'zod': Zod,
+    zod: Zod,
     '@tanstack/react-virtual': ReactVirtual,
     '@deepseek-ai/dsh-client-store': ClientStore,
     '@deepseek-ai/dsh-client-ui-slots': UiSlots,

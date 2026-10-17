@@ -1,9 +1,14 @@
 /** Optional input contributions mount through the real Loader and preserve editor ownership. */
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import {
-  captureStableAria, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage } from './support.ts'
 
@@ -13,13 +18,18 @@ const expected = fileURLToPath(new URL('./expected/input-plugin-extensions.expec
 async function fixture(enabled: boolean) {
   const resources: { scaffold?: WebScaffold; browser?: Browser } = {}
   onTestFinished(async () => {
-    try { await resources.browser?.close() } finally { await resources.scaffold?.close() }
+    try {
+      await resources.browser?.close()
+    } finally {
+      await resources.scaffold?.close()
+    }
   })
   const scaffold = await launchWebScaffold({ profile: { packages: [{ dir: bundle, enabled }] } })
   resources.scaffold = scaffold
   const browser = await chromium.launch()
   resources.browser = browser
-  const page = await newEnglishPage(browser), tripwire = watchConsole(page)
+  const page = await newEnglishPage(browser),
+    tripwire = watchConsole(page)
   await page.goto(scaffold.authenticatedUrl)
   return { scaffold, page, tripwire }
 }
@@ -35,17 +45,25 @@ it('expands an input activity and inserts one undoable result without overwritin
   await input.press('End')
   for (const width of [1280, 420]) {
     await page.setViewportSize({ width, height: 900 })
-    await expect.poll(async () => {
-      const activityBox = await start.boundingBox(), modelBox = await model.boundingBox(), sendBox = await send.boundingBox()
-      return activityBox !== null && modelBox !== null && sendBox !== null
-        && activityBox.x >= modelBox.x + modelBox.width && activityBox.x + activityBox.width <= sendBox.x
-    }).toBe(true)
+    await expect
+      .poll(async () => {
+        const activityBox = await start.boundingBox(),
+          modelBox = await model.boundingBox(),
+          sendBox = await send.boundingBox()
+        return (
+          activityBox !== null &&
+          modelBox !== null &&
+          sendBox !== null &&
+          activityBox.x >= modelBox.x + modelBox.width &&
+          activityBox.x + activityBox.width <= sendBox.x
+        )
+      })
+      .toBe(true)
   }
   await start.click()
   expect(await model.isVisible()).toBe(false)
   expect(await send.isVisible()).toBe(true)
-  await compareOrRefreshGolden(expected,
-    await captureStableAria(page, '[data-composer-card]', scaffold.workspaceCwd), webSnapshotMode())
+  await compareOrRefreshGolden(expected, await captureStableAria(page, '[data-composer-card]', scaffold.workspaceCwd), webSnapshotMode())
   await page.getByRole('button', { name: 'Insert result', exact: true }).click()
   await expect.poll(() => input.innerText()).toBe('Draft from plugin')
   await input.press('ControlOrMeta+z')

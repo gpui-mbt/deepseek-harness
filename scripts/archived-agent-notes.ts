@@ -47,10 +47,14 @@ export function parseArchiveManifest(content: string): ArchiveManifest {
 
 /** Render the archive manifest with deterministic path ordering. */
 export function renderArchiveManifest(files: Readonly<Record<string, string>>): string {
-  return `${JSON.stringify({
-    version: 1,
-    files: Object.fromEntries(Object.entries(files).sort(([left], [right]) => left.localeCompare(right))),
-  }, null, 2)}\n`
+  return `${JSON.stringify(
+    {
+      version: 1,
+      files: Object.fromEntries(Object.entries(files).sort(([left], [right]) => left.localeCompare(right))),
+    },
+    null,
+    2,
+  )}\n`
 }
 
 // Exact seals for the authorized Figma-link removal and its bilingual sidecar.
@@ -73,17 +77,16 @@ const figmaLinkRemovals = [
 ]
 
 /** Reject sealed changes except the exact authorized Figma-link removal hashes. */
-export function validateArchiveManifestExtension(
-  baseline: ArchiveManifest,
-  current: ArchiveManifest,
-): string[] {
+export function validateArchiveManifestExtension(baseline: ArchiveManifest, current: ArchiveManifest): string[] {
   const errors: string[] = []
   for (const [path, expected] of Object.entries(baseline.files)) {
     const actual = current.files[path]
     if (actual === undefined) errors.push(`${path}: sealed manifest entry is missing`)
-    else if (actual !== expected && !figmaLinkRemovals.some(change =>
-      change.path === path && change.before === expected && change.after === actual,
-    )) errors.push(`${path}: sealed manifest hash changed`)
+    else if (
+      actual !== expected &&
+      !figmaLinkRemovals.some(change => change.path === path && change.before === expected && change.after === actual)
+    )
+      errors.push(`${path}: sealed manifest hash changed`)
   }
   return errors
 }
@@ -173,9 +176,12 @@ export function validateArchiveArtifacts(artifacts: ReadonlyMap<string, Buffer>)
       errors.push(`${key}: English and Chinese archive dates differ (${sourceDate} vs ${zhDate})`)
     }
     const pair = pairMeta(meta.toString('utf8'))
-    if (pair === undefined || pair.size !== 2
-      || pair.get(`${sourceBase}.md`) !== gitBlobHash(source)
-      || pair.get(`${sourceBase}.zh.md`) !== gitBlobHash(zh)) {
+    if (
+      pair === undefined ||
+      pair.size !== 2 ||
+      pair.get(`${sourceBase}.md`) !== gitBlobHash(source) ||
+      pair.get(`${sourceBase}.zh.md`) !== gitBlobHash(zh)
+    ) {
       errors.push(`${metaPath}: consistency record must contain the current Git blob hashes of both archived sides`)
     }
   }

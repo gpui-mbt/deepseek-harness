@@ -11,7 +11,7 @@ import type { ShortcutCommand } from '@deepseek-ai/dsh-client-shortcuts/client'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { LayoutController, type MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -42,17 +42,20 @@ const remote = {
 async function bench() {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
-  ctx.slots.register({
-    name: 'root',
-    children: {
-      'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
-      'sidebar.right.tab.files.actions': { kind: 'list', scope: 'session' },
-      'sidebar.right.tab.document.actions': { kind: 'list', scope: 'session' },
-      'sidebar.right.tab.document.unpreviewable': { kind: 'list', scope: 'session' },
-      'deliverables.file.actions': { kind: 'list', scope: 'session' },
-      'deliverables.review.file.actions': { kind: 'list', scope: 'session' },
-    },
-  } as never, () => null)
+  ctx.slots.register(
+    {
+      name: 'root',
+      children: {
+        'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+        'sidebar.right.tab.files.actions': { kind: 'list', scope: 'session' },
+        'sidebar.right.tab.document.actions': { kind: 'list', scope: 'session' },
+        'sidebar.right.tab.document.unpreviewable': { kind: 'list', scope: 'session' },
+        'deliverables.file.actions': { kind: 'list', scope: 'session' },
+        'deliverables.review.file.actions': { kind: 'list', scope: 'session' },
+      },
+    } as never,
+    () => null,
+  )
   const list = createSnapshotStore<SessionListState>({ ids: [], byId: {}, phase: 'ready', projectionsBySession: {} })
   const commands = new Map<string, ShortcutCommand>()
   const layoutStore = createLayoutStore().create()
@@ -62,7 +65,15 @@ async function bench() {
   })
   ctx.provide('layout', layout)
   ctx.provide('sessions', { list })
-  ctx.provide('shortcuts', { register: (command: ShortcutCommand) => { commands.set(command.id, command); return () => { commands.delete(command.id) } }, catalog: createSnapshotStore([]) })
+  ctx.provide('shortcuts', {
+    register: (command: ShortcutCommand) => {
+      commands.set(command.id, command)
+      return () => {
+        commands.delete(command.id)
+      }
+    },
+    catalog: createSnapshotStore([]),
+  })
   ctx.provide('locale', new LocaleRuntime(ctx))
   ctx.provide('remote', remote as never)
   ctx.provide('remote.session', remote.session as never)
@@ -77,8 +88,12 @@ function headerEntryIds(ctx: Context): (string | undefined)[] {
 
 describe('open-in-app browser half', () => {
   it('refuses absent workspaces and reports failed keyboard launches', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (input: string | URL) => String(input) === 'open-in-app/apps'
-      ? new Response(JSON.stringify({ apps: ['finder'] })) : new Response('failed', { status: 500 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL) =>
+        String(input) === 'open-in-app/apps' ? new Response(JSON.stringify({ apps: ['finder'] })) : new Response('failed', { status: 500 }),
+      ),
+    )
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { fiber, list, commands } = await bench()
     try {
@@ -90,27 +105,46 @@ describe('open-in-app browser half', () => {
       list.set({ ...list.getSnapshot(), ids: [id], byId: { [id]: row } })
       expect(command.resolve(context).status).toBe('blocked')
       list.set({ ...list.getSnapshot(), byId: { [id]: { ...row, retainedBy: { mainView: 1 } } } })
-      await vi.waitFor(() => { expect(command.resolve(context).status).toBe('handled') })
+      await vi.waitFor(() => {
+        expect(command.resolve(context).status).toBe('handled')
+      })
       const result = command.resolve(context)
       if (result.status !== 'handled') throw new Error('Expected an available workspace')
       result.run()
-      await vi.waitFor(() => { expect(warn).toHaveBeenCalledWith('workspace open rejected:', expect.any(Error)) })
-    } finally { await fiber.dispose(); warn.mockRestore() }
+      await vi.waitFor(() => {
+        expect(warn).toHaveBeenCalledWith('workspace open rejected:', expect.any(Error))
+      })
+    } finally {
+      await fiber.dispose()
+      warn.mockRestore()
+    }
   })
   it('captures the main directory and remembered app before dispatch and shares pointer launch occupancy', async () => {
     let finish!: (response: Response) => void
-    const fetcher = vi.fn((input: string | URL, _init?: RequestInit) => String(input) === 'open-in-app/apps'
-      ? Promise.resolve(new Response(JSON.stringify({ apps: ['finder', 'cursor'] })))
-      : new Promise<Response>((resolve) => { finish = resolve }))
+    const fetcher = vi.fn((input: string | URL, _init?: RequestInit) =>
+      String(input) === 'open-in-app/apps'
+        ? Promise.resolve(new Response(JSON.stringify({ apps: ['finder', 'cursor'] })))
+        : new Promise<Response>(resolve => {
+            finish = resolve
+          }),
+    )
     vi.stubGlobal('fetch', fetcher)
     const { ctx, fiber, list, commands } = await bench()
     const id = 'main' as SessionId
-    const select = (cwd: string) => { list.set({ ...list.getSnapshot(), ids: [id], byId: {
-      [id]: { id, displayTitle: 'Main', cwd, running: false, blank: false, updatedAt: 0, retainedBy: { mainView: 1 } },
-    } }) }
+    const select = (cwd: string) => {
+      list.set({
+        ...list.getSnapshot(),
+        ids: [id],
+        byId: {
+          [id]: { id, displayTitle: 'Main', cwd, running: false, blank: false, updatedAt: 0, retainedBy: { mainView: 1 } },
+        },
+      })
+    }
     const entry = ctx.slots.entries('conversation.session.header.utilities')[0]
     const face = (entry?.inject as unknown as () => OpenInAppActionInjected)()
-    await vi.waitFor(() => { expect(face.hooks.openInAppApps.getSnapshot()).toEqual(['finder', 'cursor']) })
+    await vi.waitFor(() => {
+      expect(face.hooks.openInAppApps.getSnapshot()).toEqual(['finder', 'cursor'])
+    })
     select('/first')
     face.choose('cursor')
     const command = commands.get('workspace.openLocal')!
@@ -126,7 +160,9 @@ describe('open-in-app browser half', () => {
     expect(calls).toHaveLength(1)
     expect(calls[0]?.[1]?.body).toBe(JSON.stringify({ app: 'cursor', path: '/first' }))
     finish(new Response('{}'))
-    await vi.waitFor(() => { expect(face.hooks.openInAppLaunch.getSnapshot().phase).toBe('idle') })
+    await vi.waitFor(() => {
+      expect(face.hooks.openInAppLaunch.getSnapshot().phase).toBe('idle')
+    })
     await fiber.dispose()
     expect(commands.size).toBe(0)
   })
@@ -136,19 +172,25 @@ describe('open-in-app browser half', () => {
   })
 
   it('does not open a retained workspace while a global panel hides the Session header', async () => {
-    const fetcher = vi.fn(async (input: string | URL) => new Response(
-      String(input) === 'open-in-app/apps' ? JSON.stringify({ apps: ['finder'] }) : '{}',
-    ))
+    const fetcher = vi.fn(
+      async (input: string | URL) => new Response(String(input) === 'open-in-app/apps' ? JSON.stringify({ apps: ['finder'] }) : '{}'),
+    )
     vi.stubGlobal('fetch', fetcher)
     const { ctx, fiber, list, commands, layout } = await bench()
     try {
       const id = 'main' as SessionId
-      list.set({ ...list.getSnapshot(), ids: [id], byId: {
-        [id]: { id, displayTitle: 'Main', cwd: '/workspace', running: false, blank: false, updatedAt: 0, retainedBy: { mainView: 1 } },
-      } })
+      list.set({
+        ...list.getSnapshot(),
+        ids: [id],
+        byId: {
+          [id]: { id, displayTitle: 'Main', cwd: '/workspace', running: false, blank: false, updatedAt: 0, retainedBy: { mainView: 1 } },
+        },
+      })
       const entry = ctx.slots.entries('conversation.session.header.utilities')[0]
       const face = (entry?.inject as unknown as () => OpenInAppActionInjected)()
-      await vi.waitFor(() => { expect(face.hooks.openInAppApps.getSnapshot()).toEqual(['finder']) })
+      await vi.waitFor(() => {
+        expect(face.hooks.openInAppApps.getSnapshot()).toEqual(['finder'])
+      })
       const command = commands.get('workspace.openLocal')!
       const context = { region: 'page', modal: null, target: null } as const
       expect(command.resolve(context).status).toBe('handled')
@@ -162,13 +204,20 @@ describe('open-in-app browser half', () => {
       const resolution = command.resolve(context)
       if (resolution.status !== 'handled') throw new Error('visible Session header was blocked')
       resolution.run()
-      await vi.waitFor(() => { expect(face.hooks.openInAppLaunch.getSnapshot().phase).toBe('idle') })
+      await vi.waitFor(() => {
+        expect(face.hooks.openInAppLaunch.getSnapshot().phase).toBe('idle')
+      })
       expect(fetcher.mock.calls.filter(([input]) => input === 'open-in-app/open')).toHaveLength(1)
-    } finally { await fiber.dispose() }
+    } finally {
+      await fiber.dispose()
+    }
   })
 
   it('registers both document-preview path controls behind one desktop answer, and fiber teardown removes them', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ apps: [] }), { status: 200 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ apps: [] }), { status: 200 })),
+    )
     const { ctx, fiber } = await bench()
     const header = ctx.slots.entries('sidebar.right.tab.document.actions')[0]
     const empty = ctx.slots.entries('sidebar.right.tab.document.unpreviewable')[0]
@@ -196,7 +245,10 @@ describe('open-in-app browser half', () => {
   })
 
   it('adapts the Session directory, shares the controller with the file tree, and removes both on teardown', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ apps: [] }), { status: 200 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ apps: [] }), { status: 200 })),
+    )
     const { ctx, fiber, list } = await bench()
     try {
       const entry = ctx.slots.entries('conversation.session.header.utilities')[0]
@@ -204,20 +256,26 @@ describe('open-in-app browser half', () => {
       expect(files?.component).toBe(OpenInAppAction)
       expect(files?.inject).toBe(entry?.inject)
       expect(entry?.options).toMatchObject({ id: 'open-in-app' })
-      const header = entry?.component as SlotComponent<Pick<
-        PropsRuntime<'conversation.session.header.utilities'>, 'sessionId' | 'useSessions'
-      >>
+      const header = entry?.component as SlotComponent<
+        Pick<PropsRuntime<'conversation.session.header.utilities'>, 'sessionId' | 'useSessions'>
+      >
       const id = 'main' as SessionId
       const props = { sessionId: id, useSessions: <T>(select: (state: SessionListState) => T) => select(list.getSnapshot()) }
       expect(header(props)).toBeNull()
       for (const cwd of ['', '/first', '/second']) {
-        list.set({ ...list.getSnapshot(), ids: [id], byId: {
-          [id]: { id, displayTitle: 'Main', cwd, running: false, blank: false, updatedAt: 0, retainedBy: {} },
-        } })
+        list.set({
+          ...list.getSnapshot(),
+          ids: [id],
+          byId: {
+            [id]: { id, displayTitle: 'Main', cwd, running: false, blank: false, updatedAt: 0, retainedBy: {} },
+          },
+        })
         if (cwd === '') expect(header(props)).toBeNull()
         else expect(header(props)).toMatchObject({ type: OpenInAppAction, props: { absolutePath: cwd } })
       }
-    } finally { await fiber.dispose() }
+    } finally {
+      await fiber.dispose()
+    }
     expect(headerEntryIds(ctx)).not.toContain('open-in-app')
     expect(ctx.slots.entries('sidebar.right.tab.files.actions')).toHaveLength(0)
   })
@@ -235,8 +293,7 @@ describe('open-in-app browser half', () => {
     const { ctx, fiber } = await bench()
     const entry = ctx.slots.entries('conversation.session.header.utilities')[0]
     const injected: Partial<OpenInAppActionInjected> | undefined = entry?.inject?.()
-    if (injected?.hooks === undefined || injected.iconUrl === undefined
-      || injected.choose === undefined || injected.launch === undefined) {
+    if (injected?.hooks === undefined || injected.iconUrl === undefined || injected.choose === undefined || injected.launch === undefined) {
       throw new Error('expected the injected open-in-app actions')
     }
     const { hooks } = injected
@@ -260,10 +317,13 @@ describe('open-in-app browser half', () => {
   })
 
   it('publishes an empty availability list when the host read fails, and launches reject on HTTP errors', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (input: string | URL) => {
-      if (String(input) === 'open-in-app/apps') throw new Error('down')
-      return new Response('', { status: 502 })
-    }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL) => {
+        if (String(input) === 'open-in-app/apps') throw new Error('down')
+        return new Response('', { status: 502 })
+      }),
+    )
     const { ctx, fiber } = await bench()
     const entry = ctx.slots.entries('conversation.session.header.utilities')[0]
     const injected: Partial<OpenInAppActionInjected> | undefined = entry?.inject?.()
@@ -277,7 +337,10 @@ describe('open-in-app browser half', () => {
   })
 
   it('registers both dictionaries under its own namespace and releases them with the fiber', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ apps: [] }), { status: 200 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ apps: [] }), { status: 200 })),
+    )
     const { ctx, fiber } = await bench()
     ctx.locale.setLocale('zh')
     const translate = ctx.locale.bind(NS)
@@ -295,6 +358,8 @@ describe('open-in-app browser half', () => {
 
 describe('ui-open-in-app node half', () => {
   it('the node apply is an inert loader seat', () => {
-    expect(() => { nodeApply() }).not.toThrow()
+    expect(() => {
+      nodeApply()
+    }).not.toThrow()
   })
 })

@@ -7,21 +7,10 @@
  */
 
 import { WebError } from '@deepseek-ai/dsh-web'
-import type {
-  WebSearchProvider,
-  WebSearchRequest,
-  WebSearchResult,
-  WebSearchSource,
-} from '@deepseek-ai/dsh-web'
+import type { WebSearchProvider, WebSearchRequest, WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
 import type { CredentialRef } from '@deepseek-ai/dsh-credentials'
 import type {} from '@deepseek-ai/dsh-session'
-import type {
-  AnthropicError,
-  AnthropicResponse,
-  ContentBlock,
-  TextBlock,
-  WebSearchToolResultBlock,
-} from './types.ts'
+import type { AnthropicError, AnthropicResponse, ContentBlock, TextBlock, WebSearchToolResultBlock } from './types.ts'
 
 /** Stable id this provider registers under. */
 export const DEEPSEEK_PROVIDER_ID = 'deepseek-official'
@@ -61,18 +50,24 @@ export interface DeepSeekSearchLlmRequest {
   readonly body: {
     readonly model: string
     readonly max_tokens: number
-    readonly messages: readonly [{
-      readonly role: 'user'
-      readonly content: readonly [{
-        readonly type: 'text'
-        readonly text: string
-      }]
-    }]
-    readonly tools: readonly [{
-      readonly type: 'web_search_20250305'
-      readonly name: 'web_search'
-      readonly max_uses: number
-    }]
+    readonly messages: readonly [
+      {
+        readonly role: 'user'
+        readonly content: readonly [
+          {
+            readonly type: 'text'
+            readonly text: string
+          },
+        ]
+      },
+    ]
+    readonly tools: readonly [
+      {
+        readonly type: 'web_search_20250305'
+        readonly name: 'web_search'
+        readonly max_uses: number
+      },
+    ]
     /**
      * Thinking mode for the auxiliary turn. The provider always sends
      * `disabled`: it discards the generated text, so reasoning tokens have no
@@ -156,9 +151,7 @@ export function citationSnippets(blocks: readonly ContentBlock[]): Map<string, s
  */
 export function mapAnthropicResponse(response: AnthropicResponse): WebSearchResult {
   const blocks = response.content ?? []
-  const resultBlocks = blocks.filter(
-    (block): block is WebSearchToolResultBlock => block.type === 'web_search_tool_result',
-  )
+  const resultBlocks = blocks.filter((block): block is WebSearchToolResultBlock => block.type === 'web_search_tool_result')
   if (resultBlocks.length === 0) {
     throw new WebError(
       'DeepSeek returned no web_search_tool_result blocks; the request may not have triggered native web search',
@@ -176,9 +169,9 @@ export function mapAnthropicResponse(response: AnthropicResponse): WebSearchResu
       const snippet = snippets.get(item.url)
       sources.push({
         url: item.url,
-        ...item.title != null && item.title.length > 0 ? { title: item.title } : {},
-        ...snippet != null && snippet.length > 0 ? { snippet } : {},
-        ...item.page_age != null && item.page_age.length > 0 ? { publishedAt: item.page_age } : {},
+        ...(item.title != null && item.title.length > 0 ? { title: item.title } : {}),
+        ...(snippet != null && snippet.length > 0 ? { snippet } : {}),
+        ...(item.page_age != null && item.page_age.length > 0 ? { publishedAt: item.page_age } : {}),
       })
     }
   }
@@ -211,10 +204,12 @@ export class DeepSeekSearchProvider implements WebSearchProvider {
 
   available(): boolean {
     const options = this.resolveOptions()
-    return ((options.apiKey?.length ?? 0) > 0 || options.resolveApiKey !== undefined || options.resolveAccountToken !== undefined)
-      && URL.canParse(options.baseURL)
-      && isPositiveInteger(options.maxTokens)
-      && isPositiveInteger(options.maxUses)
+    return (
+      ((options.apiKey?.length ?? 0) > 0 || options.resolveApiKey !== undefined || options.resolveAccountToken !== undefined) &&
+      URL.canParse(options.baseURL) &&
+      isPositiveInteger(options.maxTokens) &&
+      isPositiveInteger(options.maxUses)
+    )
   }
 
   async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
@@ -228,10 +223,12 @@ export class DeepSeekSearchProvider implements WebSearchProvider {
     const body: DeepSeekSearchLlmRequest['body'] = {
       model: options.model,
       max_tokens: options.maxTokens,
-      messages: [{
-        role: 'user',
-        content: [{ type: 'text', text: `Perform a web search for the query: ${request.query}` }],
-      }],
+      messages: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: `Perform a web search for the query: ${request.query}` }],
+        },
+      ],
       tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: options.maxUses }],
       thinking: { type: 'disabled' },
     }
@@ -250,27 +247,23 @@ export class DeepSeekSearchProvider implements WebSearchProvider {
           ...auth.headers,
           'anthropic-version': options.apiVersion,
           'content-type': 'application/json',
-          'accept': 'application/json',
+          accept: 'application/json',
           'user-agent': USER_AGENT,
         },
         body: JSON.stringify(body),
-        ...signal !== undefined ? { signal } : {},
+        ...(signal !== undefined ? { signal } : {}),
       })
     } catch (error: unknown) {
       if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
-      throw searchEndpointError(
-        endpoint,
-        `DeepSeek search request failed: ${String(error)}`,
-        error,
-      )
+      throw searchEndpointError(endpoint, `DeepSeek search request failed: ${String(error)}`, error)
     }
 
     if (!response.ok) {
       const status = response.status
       let message = `DeepSeek API error (HTTP ${status})`
       try {
-        const parsed = await response.json() as AnthropicError
-        const detail = typeof parsed.error === 'string' ? parsed.error : parsed.error?.message ?? parsed.message
+        const parsed = (await response.json()) as AnthropicError
+        const detail = typeof parsed.error === 'string' ? parsed.error : (parsed.error?.message ?? parsed.message)
         if (detail !== undefined && detail.length > 0) message += `: ${detail}`
       } catch (error: unknown) {
         // An abort fired mid-body must surface as WEB_ABORTED, not be swallowed
@@ -288,13 +281,11 @@ export class DeepSeekSearchProvider implements WebSearchProvider {
     }
 
     try {
-      const payload = await response.json() as AnthropicResponse
+      const payload = (await response.json()) as AnthropicResponse
       return mapAnthropicResponse(payload)
     } catch (error: unknown) {
       if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
-      const message = error instanceof WebError
-        ? error.message
-        : `DeepSeek returned an unprocessable response body: ${String(error)}`
+      const message = error instanceof WebError ? error.message : `DeepSeek returned an unprocessable response body: ${String(error)}`
       throw searchEndpointError(endpoint, message, error)
     }
   }
@@ -306,18 +297,14 @@ export class DeepSeekSearchProvider implements WebSearchProvider {
    * @param signal - abort signal for the surrounding search.
    * @returns the account-token header when one resolves, otherwise the API-key headers, tagged by credential kind.
    */
-  private async authHeaders(
-    options: DeepSeekSearchProviderOptions, endpoint: string, signal?: AbortSignal,
-  ): Promise<SearchAuth> {
+  private async authHeaders(options: DeepSeekSearchProviderOptions, endpoint: string, signal?: AbortSignal): Promise<SearchAuth> {
     const { resolveAccountToken } = options
-    const token = resolveAccountToken === undefined
-      ? undefined
-      : await resolveCredential(() => resolveAccountToken(endpoint), signal)
+    const token = resolveAccountToken === undefined ? undefined : await resolveCredential(() => resolveAccountToken(endpoint), signal)
     if (token !== undefined && token.length > 0) return { kind: 'account', headers: { 'x-dsh-auth-token': token } }
     const apiKey = await this.apiKey(options, signal)
     // Official DeepSeek expects `x-api-key`; an Anthropic-compatible proxy
     // may expect `Authorization: Bearer` — send both so either resolves.
-    return { kind: 'api-key', headers: { 'x-api-key': apiKey, 'authorization': `Bearer ${apiKey}` } }
+    return { kind: 'api-key', headers: { 'x-api-key': apiKey, authorization: `Bearer ${apiKey}` } }
   }
 
   /**
@@ -334,10 +321,10 @@ export class DeepSeekSearchProvider implements WebSearchProvider {
     if (resolved !== undefined && resolved.length > 0) return resolved
     const ref = options.apiKeyEnv ?? 'DEEPSEEK_API_KEY'
     throw new WebError(
-      `DeepSeek search has no API key for "${ref}"; store it through the credentials service`
-      + ' (the web Models page writes it), export it in the launching environment, or set a literal'
-      + ' "apiKey" in the web-search-deepseek config; a conversation using a DeepSeek Account model'
-      + ' searches with the account sign-in instead',
+      `DeepSeek search has no API key for "${ref}"; store it through the credentials service` +
+        ' (the web Models page writes it), export it in the launching environment, or set a literal' +
+        ' "apiKey" in the web-search-deepseek config; a conversation using a DeepSeek Account model' +
+        ' searches with the account sign-in instead',
       'WEB_PROVIDER_CREDENTIAL_MISSING',
     )
   }
@@ -351,27 +338,21 @@ export class DeepSeekSearchProvider implements WebSearchProvider {
  * @returns the resolved credential, or undefined when the resolver supplied none.
  * @throws {@link WebError} `WEB_ABORTED` on cancellation, `WEB_PROVIDER_ERROR` when the resolver fails.
  */
-async function resolveCredential(
-  resolve: () => Promise<string | undefined>, signal?: AbortSignal,
-): Promise<string | undefined> {
+async function resolveCredential(resolve: () => Promise<string | undefined>, signal?: AbortSignal): Promise<string | undefined> {
   throwIfSearchAborted(signal)
   try {
     return await abortable(resolve(), signal)
   } catch (error: unknown) {
     if (signal?.aborted === true || isAbortError(error)) throw searchAborted(signal, error)
-    throw new WebError(
-      `DeepSeek search credential resolution failed: ${String(error)}`,
-      'WEB_PROVIDER_ERROR',
-      { cause: error },
-    )
+    throw new WebError(`DeepSeek search credential resolution failed: ${String(error)}`, 'WEB_PROVIDER_ERROR', { cause: error })
   }
 }
 
 /** Replace endpoint guidance with sign-in guidance when DeepSeek rejects the account token. */
 function accountRejectedError(message: string): WebError {
   return new WebError(
-    `${message}\n\nDeepSeek rejected the account sign-in used for this web search. `
-    + 'Guide the user to sign in to DeepSeek again; the search endpoint does not need changing.',
+    `${message}\n\nDeepSeek rejected the account sign-in used for this web search. ` +
+      'Guide the user to sign in to DeepSeek again; the search endpoint does not need changing.',
     'WEB_PROVIDER_ERROR',
   )
 }
@@ -379,11 +360,11 @@ function accountRejectedError(message: string): WebError {
 /** Add endpoint recovery instructions to failures that occur after request dispatch begins. */
 function searchEndpointError(endpoint: string, message: string, cause?: unknown): WebError {
   return new WebError(
-    `${message}\n\nThe web request used endpoint ${JSON.stringify(endpoint)}. `
-    + 'Search endpoint configuration is separate from chat. If that endpoint is not intended, '
-    + 'guide the user to Plugins > Built-in plugin settings > Web search, where they can '
-    + 'change and save Messages API base URL. If that settings page is unavailable, the user can set '
-    + 'web-search-deepseek.baseURL to a trusted DeepSeek endpoint. Only the user should choose or change the endpoint.',
+    `${message}\n\nThe web request used endpoint ${JSON.stringify(endpoint)}. ` +
+      'Search endpoint configuration is separate from chat. If that endpoint is not intended, ' +
+      'guide the user to Plugins > Built-in plugin settings > Web search, where they can ' +
+      'change and save Messages API base URL. If that settings page is unavailable, the user can set ' +
+      'web-search-deepseek.baseURL to a trusted DeepSeek endpoint. Only the user should choose or change the endpoint.',
     'WEB_PROVIDER_ERROR',
     cause === undefined ? undefined : { cause },
   )
@@ -398,10 +379,12 @@ function abortable<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (signal === undefined) return operation
   if (signal.aborted) return Promise.reject(searchAborted(signal))
   return new Promise<T>((resolve, reject) => {
-    const onAbort = (): void => { reject(searchAborted(signal)) }
+    const onAbort = (): void => {
+      reject(searchAborted(signal))
+    }
     signal.addEventListener('abort', onAbort, { once: true })
     void operation.then(
-      (value) => {
+      value => {
         signal.removeEventListener('abort', onAbort)
         resolve(value)
       },

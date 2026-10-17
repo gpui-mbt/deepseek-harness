@@ -24,9 +24,14 @@ type RequestClass = 'ordinary' | keyof typeof managementLimits
 
 function requestClass(method: string): RequestClass {
   switch (method) {
-    case 'heartbeat': case 'close': case 'process.terminate': case 'fs.streamClose': return method
+    case 'heartbeat':
+    case 'close':
+    case 'process.terminate':
+    case 'fs.streamClose':
+      return method
     // All other private operations share the configured request budget.
-    default: return 'ordinary'
+    default:
+      return 'ordinary'
   }
 }
 
@@ -48,7 +53,10 @@ function operationError(error: unknown): Error {
 
 /** A remote error retains its typed filesystem or sandbox code. */
 export class RemoteOperationError extends Error {
-  constructor(message: string, readonly code?: string) {
+  constructor(
+    message: string,
+    readonly code?: string,
+  ) {
     super(message)
     this.name = 'RemoteOperationError'
   }
@@ -56,11 +64,14 @@ export class RemoteOperationError extends Error {
 
 /** The peer owns pending calls and rejects ambiguous operations on connection loss; it never replays requests. */
 export class SshRpcPeer extends EventEmitter {
-  private readonly pending = new Map<SshRpcRequestId, {
-    resolve(value: unknown): void
-    reject(error: Error): void
-    requestClass: RequestClass
-  }>()
+  private readonly pending = new Map<
+    SshRpcRequestId,
+    {
+      resolve(value: unknown): void
+      reject(error: Error): void
+      requestClass: RequestClass
+    }
+  >()
   private readonly active = new Map<SshRpcRequestId, { controller: AbortController; requestClass: RequestClass }>()
   private writeTail = Promise.resolve()
   private queuedBytes = 0
@@ -74,10 +85,18 @@ export class SshRpcPeer extends EventEmitter {
     private readonly handler?: RequestHandler,
   ) {
     super()
-    input.on('error', (error) => { this.close(error) })
-    output.on('error', (error) => { this.close(error) })
-    output.on('close', () => { this.close() })
-    void this.readFrames().catch((error: unknown) => { this.close(operationError(error)) })
+    input.on('error', error => {
+      this.close(error)
+    })
+    output.on('error', error => {
+      this.close(error)
+    })
+    output.on('close', () => {
+      this.close()
+    })
+    void this.readFrames().catch((error: unknown) => {
+      this.close(operationError(error))
+    })
   }
 
   /**
@@ -143,20 +162,31 @@ export class SshRpcPeer extends EventEmitter {
     this.queuedBytes += bytes.length
     const write = this.writeTail.then(async () => {
       if (this.failure !== undefined) throw this.failure
-      if (!this.output.write(bytes)) await new Promise<void>((resolve, reject) => {
-        const cleanup = (): void => {
-          this.output.off('drain', drained)
-          this.off('closed', closed)
-        }
-        const drained = (): void => { cleanup(); resolve() }
-        const closed = (error: Error): void => { cleanup(); reject(error) }
-        this.output.once('drain', drained)
-        this.once('closed', closed)
-        if (this.failure !== undefined) closed(this.failure)
-      })
+      if (!this.output.write(bytes))
+        await new Promise<void>((resolve, reject) => {
+          const cleanup = (): void => {
+            this.output.off('drain', drained)
+            this.off('closed', closed)
+          }
+          const drained = (): void => {
+            cleanup()
+            resolve()
+          }
+          const closed = (error: Error): void => {
+            cleanup()
+            reject(error)
+          }
+          this.output.once('drain', drained)
+          this.once('closed', closed)
+          if (this.failure !== undefined) closed(this.failure)
+        })
     })
-    this.writeTail = write.catch((error: unknown) => { this.close(operationError(error)) })
-    return write.finally(() => { this.queuedBytes -= bytes.length })
+    this.writeTail = write.catch((error: unknown) => {
+      this.close(operationError(error))
+    })
+    return write.finally(() => {
+      this.queuedBytes -= bytes.length
+    })
   }
 
   private async readFrames(): Promise<void> {
@@ -191,7 +221,11 @@ export class SshRpcPeer extends EventEmitter {
         }
       }
     }
-    throw new Error(headerBytes > 0 || payload !== undefined ? 'SSH helper disconnected during a frame; outcome is unknown' : 'SSH helper disconnected; outcome is unknown')
+    throw new Error(
+      headerBytes > 0 || payload !== undefined
+        ? 'SSH helper disconnected during a frame; outcome is unknown'
+        : 'SSH helper disconnected; outcome is unknown',
+    )
   }
 
   private receive(frame: Frame): void {
@@ -213,17 +247,29 @@ export class SshRpcPeer extends EventEmitter {
     }
     const controller = new AbortController()
     this.active.set(frame.id, { controller, requestClass: kind })
-    void this.handler(frame.method, frame.params, controller.signal).then(
-      value => this.send({ type: 'result', id: frame.id, value: value ?? null }),
-      (error: unknown) => {
-        const detail = operationError(error)
-        const code = 'code' in detail && typeof detail.code === 'string' ? detail.code : undefined
-        return this.send({ type: 'error', id: frame.id, error: {
-          name: detail.name, message: detail.message, ...(code === undefined ? {} : { code }),
-        } })
-      },
-    ).catch((error: unknown) => { this.close(operationError(error)) })
-      .finally(() => { this.active.delete(frame.id) })
+    void this.handler(frame.method, frame.params, controller.signal)
+      .then(
+        value => this.send({ type: 'result', id: frame.id, value: value ?? null }),
+        (error: unknown) => {
+          const detail = operationError(error)
+          const code = 'code' in detail && typeof detail.code === 'string' ? detail.code : undefined
+          return this.send({
+            type: 'error',
+            id: frame.id,
+            error: {
+              name: detail.name,
+              message: detail.message,
+              ...(code === undefined ? {} : { code }),
+            },
+          })
+        },
+      )
+      .catch((error: unknown) => {
+        this.close(operationError(error))
+      })
+      .finally(() => {
+        this.active.delete(frame.id)
+      })
   }
 
   private atCapacity(kind: RequestClass, requests: Iterable<{ requestClass: RequestClass }>): boolean {

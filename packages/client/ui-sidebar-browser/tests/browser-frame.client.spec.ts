@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { IframeImpl } from '../src/client/browser/IframeImpl.ts'
 import { IframePresentation } from '../src/client/view/IframePresentation.ts'
 

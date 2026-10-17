@@ -1,7 +1,7 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 /** Sidebar shell slot registration and its Session/layout callbacks. */
 import { Context, type Fiber } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -27,7 +27,9 @@ function SidebarFrame({ renderSlot }: PropsRenderSlots<'sidebar'>) {
 async function bench(declare = true) {
   const root = new Context()
   let ctx: Context | undefined
-  const owner = root.plugin((owned: Context) => { ctx = owned })
+  const owner = root.plugin((owned: Context) => {
+    ctx = owned
+  })
   owners.add(owner)
   await owner.await()
   if (ctx === undefined) throw new Error('the sidebar fixture owner did not activate')
@@ -41,11 +43,14 @@ async function bench(declare = true) {
   const slots = ctx.get('slots') as SlotRegistry
   if (declare) {
     slots.register(
-      { name: 'root', children: {
-        'sidebar': { kind: 'single', scope: 'root' },
-        'main': { kind: 'keyed', scope: 'root' },
-        'shell.leading': { kind: 'single', scope: 'root' },
-      } },
+      {
+        name: 'root',
+        children: {
+          sidebar: { kind: 'single', scope: 'root' },
+          main: { kind: 'keyed', scope: 'root' },
+          'shell.leading': { kind: 'single', scope: 'root' },
+        },
+      },
       SidebarFrame,
     )
   }
@@ -101,10 +106,13 @@ describe('ui-sidebar apply', () => {
     const fiber = b.ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     expect(b.slots.entries('sidebar')).toHaveLength(0)
-    const disposeRoot = b.slots.register({
-      name: 'root',
-      children: { sidebar: { kind: 'single', scope: 'root' } },
-    }, SidebarFrame)
+    const disposeRoot = b.slots.register(
+      {
+        name: 'root',
+        children: { sidebar: { kind: 'single', scope: 'root' } },
+      },
+      SidebarFrame,
+    )
     expect(b.slots.entries('sidebar')).toHaveLength(1)
     disposeRoot()
     await fiber.dispose()
@@ -119,21 +127,27 @@ describe('ui-sidebar apply', () => {
       inject: ['slots'],
       apply(ctx: Context) {
         ctx.slots.register({ name: 'main', key: 'custom-panel' }, () => 'Custom panel')
-        ctx.slots.register({
-          name: 'sidebar.panellist', id: 'custom-panel', order: 20, label: 'Custom panel',
-        }, () => null)
+        ctx.slots.register(
+          {
+            name: 'sidebar.panellist',
+            id: 'custom-panel',
+            order: 20,
+            label: 'Custom panel',
+          },
+          () => null,
+        )
       },
     })
     try {
       await panel.await()
       await vi.waitFor(() => {
-        expect(injected.hooks.panels.getSnapshot()).toEqual([
-          { id: 'custom-panel', order: 20, label: 'Custom panel' },
-        ])
+        expect(injected.hooks.panels.getSnapshot()).toEqual([{ id: 'custom-panel', order: 20, label: 'Custom panel' }])
       })
       expect(b.slots.entries('main').map(entry => entry.options.key)).toEqual(['custom-panel'])
       await panel.dispose()
-      await vi.waitFor(() => { expect(injected.hooks.panels.getSnapshot()).toEqual([]) })
+      await vi.waitFor(() => {
+        expect(injected.hooks.panels.getSnapshot()).toEqual([])
+      })
       expect(b.slots.entries('main')).toEqual([])
     } finally {
       await panel.dispose()

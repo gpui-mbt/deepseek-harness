@@ -4,7 +4,11 @@ import type { ContentBlock, ImageBlock, LlmImageRequestBudget, ToolSchema, ToolU
 import type { RequestMessage } from './types.ts'
 import type { Message } from './message.ts'
 import type {
-  AttachmentStore, FileAttachmentRef, ImageAttachmentRef, ImageMediaType, RequestImageAttachment,
+  AttachmentStore,
+  FileAttachmentRef,
+  ImageAttachmentRef,
+  ImageMediaType,
+  RequestImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 
@@ -47,25 +51,30 @@ function quoted(value: string): string {
 }
 
 function imageIdentity(ref: ImageAttachmentRef): string {
-  return ref.name === undefined
-    ? String(ref.attachmentId)
-    : `${quoted(ref.name)} (${ref.attachmentId})`
+  return ref.name === undefined ? String(ref.attachmentId) : `${quoted(ref.name)} (${ref.attachmentId})`
 }
 
 function extension(mediaType: ImageMediaType): string {
   switch (mediaType) {
-    case 'image/png': return '.png'
-    case 'image/jpeg': return '.jpg'
-    case 'image/webp': return '.webp'
-    case 'image/gif': return '.gif'
-    default: return assertNever(mediaType, 'image extension')
+    case 'image/png':
+      return '.png'
+    case 'image/jpeg':
+      return '.jpg'
+    case 'image/webp':
+      return '.webp'
+    case 'image/gif':
+      return '.gif'
+    default:
+      return assertNever(mediaType, 'image extension')
   }
 }
 
 function normalizedAccessText(ref: ImageAttachmentRef, access: ImageAttachmentAccess): string {
-  return ` Normalized copy (read-only; may be resized or re-encoded): ${quoted(access.readonlyPath)} (${ref.width}x${ref.height}px, ${ref.mediaType}).`
-    + ' Source dimensions, format, and byte size may differ.'
-    + ` Copy to a writable path ending in ${extension(ref.mediaType)} before editing.`
+  return (
+    ` Normalized copy (read-only; may be resized or re-encoded): ${quoted(access.readonlyPath)} (${ref.width}x${ref.height}px, ${ref.mediaType}).` +
+    ' Source dimensions, format, and byte size may differ.' +
+    ` Copy to a writable path ending in ${extension(ref.mediaType)} before editing.`
+  )
 }
 
 /**
@@ -105,10 +114,7 @@ export function requestImageHandleText(
  * @param access - optional provider-resolved path for model tools.
  * @returns identity, normalized metadata, and the available recovery path.
  */
-export function offloadedImageText(
-  ref: ImageAttachmentRef,
-  access?: ImageAttachmentAccess,
-): string {
+export function offloadedImageText(ref: ImageAttachmentRef, access?: ImageAttachmentAccess): string {
   const identity = `image omitted to fit request image limits; ${imageIdentity(ref)}.`
   if (access === undefined) {
     return `[${identity} No local normalized image path is available; ask the user to attach it again if needed.]`
@@ -171,7 +177,7 @@ function replaceFilesWithHandles(
     }
     next?.push(block)
   }
-  return next ?? blocks as ContentBlock[]
+  return next ?? (blocks as ContentBlock[])
 }
 
 /**
@@ -201,7 +207,7 @@ export function projectFilesToText(
   resolvePath: (ref: FileAttachmentRef) => string | undefined,
 ): readonly RequestMessage[] {
   if (!messages.some(message => contentHasFile(message.content))) return messages
-  return messages.map((message) => {
+  return messages.map(message => {
     const content = replaceFilesWithHandles(message.content, resolvePath)
     return content === message.content ? message : { ...message, content }
   })
@@ -224,10 +230,7 @@ function visitImageBlocks(content: readonly ContentBlock[], visit: (block: Image
 }
 
 /** Replace every offloaded occurrence with its placeholder. */
-function replaceOffloadedImages(
-  blocks: readonly ContentBlock[],
-  placeholder: (ref: ImageAttachmentRef) => string,
-): ContentBlock[] {
+function replaceOffloadedImages(blocks: readonly ContentBlock[], placeholder: (ref: ImageAttachmentRef) => string): ContentBlock[] {
   let next: ContentBlock[] | undefined
   for (const [index, block] of blocks.entries()) {
     if (block.type === 'image' && block.offloaded === true) {
@@ -237,7 +240,7 @@ function replaceOffloadedImages(
     }
     next?.push(block)
   }
-  return next ?? blocks as ContentBlock[]
+  return next ?? (blocks as ContentBlock[])
 }
 
 /**
@@ -248,10 +251,7 @@ function replaceOffloadedImages(
  * @param placeholder - build the model-visible replacement for one offloaded attachment.
  * @returns the original list when nothing is offloaded, otherwise shallow message copies with placeholders.
  */
-export function projectOffloadedImages(
-  messages: readonly Message[],
-  placeholder: (ref: ImageAttachmentRef) => string,
-): readonly Message[]
+export function projectOffloadedImages(messages: readonly Message[], placeholder: (ref: ImageAttachmentRef) => string): readonly Message[]
 /**
  * Project offloaded images in mixed durable and request-only inputs.
  * @param messages - complete request inputs.
@@ -266,7 +266,7 @@ export function projectOffloadedImages(
   messages: readonly RequestMessage[],
   placeholder: (ref: ImageAttachmentRef) => string,
 ): readonly RequestMessage[] {
-  return messages.map((message) => {
+  return messages.map(message => {
     const content = replaceOffloadedImages(message.content, placeholder)
     return content === message.content ? message : { ...message, content }
   })
@@ -296,8 +296,7 @@ function offloadedImagePrefixCount(
   let count = 0
   let removedBytes = 0
   for (const imageBytes of lengths) {
-    const byteTargetMet = removeBytes === 0
-      || (byteQuantum === 1 ? removedBytes >= removeBytes : removedBytes > removeBytes)
+    const byteTargetMet = removeBytes === 0 || (byteQuantum === 1 ? removedBytes >= removeBytes : removedBytes > removeBytes)
     if (count >= removeCount && byteTargetMet) break
     removedBytes += imageBytes
     count += 1
@@ -322,7 +321,7 @@ export function requiredImageOffload(
 ): number {
   const lengths: number[] = []
   for (const message of messages) {
-    visitImageBlocks(message.content, (block) => {
+    visitImageBlocks(message.content, block => {
       if (block.offloaded === true) return
       const bytes = versionBytes(block)
       lengths.push(budget.representation === 'base64' ? base64Length(bytes) : bytes)
@@ -342,7 +341,7 @@ function replaceImagesForTextModel(blocks: readonly ContentBlock[]): ContentBloc
     }
     next?.push(block)
   }
-  return next ?? blocks as ContentBlock[]
+  return next ?? (blocks as ContentBlock[])
 }
 
 /**
@@ -359,7 +358,7 @@ export function projectImagesForTextModel(messages: readonly Message[]): readonl
 export function projectImagesForTextModel(messages: readonly RequestMessage[]): readonly RequestMessage[]
 export function projectImagesForTextModel(messages: readonly RequestMessage[]): readonly RequestMessage[] {
   if (!messages.some(message => contentHasImage(message.content))) return messages
-  return messages.map((message) => {
+  return messages.map(message => {
     const content = replaceImagesForTextModel(message.content)
     return content === message.content ? message : { ...message, content }
   })
@@ -378,11 +377,7 @@ function withoutDeveloperMessages(messages: readonly RequestMessage[]): readonly
   return retained.length === messages.length ? messages : retained
 }
 
-function toolDeclarations(
-  tools: readonly ToolSchema[] | undefined,
-  mode: ToolUpdate,
-  history: ToolHistory,
-): Map<string, ToolSchema> {
+function toolDeclarations(tools: readonly ToolSchema[] | undefined, mode: ToolUpdate, history: ToolHistory): Map<string, ToolSchema> {
   const declarations = new Map(history.tools.map(tool => [tool.name, tool]))
   for (const update of history.updates) {
     for (const tool of update.additions) {
@@ -440,7 +435,7 @@ export function projectToolUpdates(
     // Current schemas alone cannot resolve definitions referenced by past updates.
     return { messages: withoutDeveloperMessages(messages), tools }
   }
-  const messageIds = new Set(messages.flatMap(message => message.role === 'developer' ? [message.id] : []))
+  const messageIds = new Set(messages.flatMap(message => (message.role === 'developer' ? [message.id] : [])))
   if (history.updates.some(update => !messageIds.has(update.messageId))) {
     // An auxiliary prefix may omit updates needed to activate historical declarations.
     return { messages: withoutDeveloperMessages(messages), tools }
@@ -459,7 +454,7 @@ export function projectToolUpdates(
     // Earlier declaration series do not govern the current tool set.
     if (!updateIds.has(message.id)) continue
 
-    const content = message.content.filter((block) => {
+    const content = message.content.filter(block => {
       switch (block.type) {
         case 'tool-addition':
           // Only declared tools that are not already available need activation.
@@ -483,8 +478,7 @@ export function projectToolUpdates(
     }
   }
 
-  const unchanged = projectedMessages.length === messages.length
-    && projectedMessages.every((message, index) => message === messages[index])
+  const unchanged = projectedMessages.length === messages.length && projectedMessages.every((message, index) => message === messages[index])
   return {
     messages: unchanged ? messages : projectedMessages,
     tools: [...declarations.values()],

@@ -42,11 +42,28 @@ export interface ParsedCallFunction extends CdpExecutionContextSelector {
  * @returns A context selector and normalized Runtime request.
  */
 export function parseEvaluate(params: Readonly<Record<string, unknown>>): ParsedEvaluate {
-  exactKeys(params, [
-    'expression', 'objectGroup', 'includeCommandLineAPI', 'silent', 'contextId', 'returnByValue',
-    'generatePreview', 'userGesture', 'awaitPromise', 'throwOnSideEffect', 'timeout', 'disableBreaks',
-    'replMode', 'allowUnsafeEvalBlockedByCSP', 'uniqueContextId', 'serializationOptions',
-  ], 'Runtime.evaluate params')
+  exactKeys(
+    params,
+    [
+      'expression',
+      'objectGroup',
+      'includeCommandLineAPI',
+      'silent',
+      'contextId',
+      'returnByValue',
+      'generatePreview',
+      'userGesture',
+      'awaitPromise',
+      'throwOnSideEffect',
+      'timeout',
+      'disableBreaks',
+      'replMode',
+      'allowUnsafeEvalBlockedByCSP',
+      'uniqueContextId',
+      'serializationOptions',
+    ],
+    'Runtime.evaluate params',
+  )
   if (typeof params.expression !== 'string') throw new Error('Runtime.evaluate expression must be a string')
   const selector = parseContextSelector(params, 'contextId')
   const timeout = params.timeout
@@ -79,15 +96,15 @@ export function parseEvaluate(params: Readonly<Record<string, unknown>>): Parsed
  * @param params - Untrusted CDP parameters.
  * @returns The external object id and handle-free Runtime request.
  */
-export function parseGetProperties(
-  params: Readonly<Record<string, unknown>>,
-): {
+export function parseGetProperties(params: Readonly<Record<string, unknown>>): {
   readonly objectId: string
   readonly request: Omit<RuntimeGetPropertiesRequest<RuntimeBackendObjectHandle>, 'handle'>
 } {
-  exactKeys(params, [
-    'objectId', 'ownProperties', 'accessorPropertiesOnly', 'generatePreview', 'nonIndexedPropertiesOnly',
-  ], 'Runtime.getProperties params')
+  exactKeys(
+    params,
+    ['objectId', 'ownProperties', 'accessorPropertiesOnly', 'generatePreview', 'nonIndexedPropertiesOnly'],
+    'Runtime.getProperties params',
+  )
   if (typeof params.objectId !== 'string') throw new Error('Runtime.getProperties objectId must be a string')
   return {
     objectId: params.objectId,
@@ -106,18 +123,31 @@ export function parseGetProperties(
  * @returns Routing fields, arguments, and a handle-free Runtime request.
  */
 export function parseCallFunction(params: Readonly<Record<string, unknown>>): ParsedCallFunction {
-  exactKeys(params, [
-    'functionDeclaration', 'objectId', 'arguments', 'silent', 'returnByValue', 'generatePreview', 'userGesture',
-    'awaitPromise', 'executionContextId', 'objectGroup', 'throwOnSideEffect', 'uniqueContextId', 'serializationOptions',
-  ], 'Runtime.callFunctionOn params')
+  exactKeys(
+    params,
+    [
+      'functionDeclaration',
+      'objectId',
+      'arguments',
+      'silent',
+      'returnByValue',
+      'generatePreview',
+      'userGesture',
+      'awaitPromise',
+      'executionContextId',
+      'objectGroup',
+      'throwOnSideEffect',
+      'uniqueContextId',
+      'serializationOptions',
+    ],
+    'Runtime.callFunctionOn params',
+  )
   if (typeof params.functionDeclaration !== 'string') {
     throw new Error('Runtime.callFunctionOn functionDeclaration must be a string')
   }
   const selector = parseContextSelector(params, 'executionContextId')
   const objectId = optionalObjectId(params.objectId, 'Runtime.callFunctionOn objectId')
-  if (objectId === undefined
-    && selector.executionContextId === undefined
-    && selector.uniqueContextId === undefined) {
+  if (objectId === undefined && selector.executionContextId === undefined && selector.uniqueContextId === undefined) {
     throw new Error('Runtime.callFunctionOn requires objectId or an execution context')
   }
   if (objectId !== undefined && (selector.executionContextId !== undefined || selector.uniqueContextId !== undefined)) {
@@ -224,7 +254,7 @@ function parseContextSelector(
 ): CdpExecutionContextSelector {
   const numeric = params[numericKey]
   const unique = params.uniqueContextId
-  if (numeric !== undefined && (!Number.isSafeInteger(numeric))) {
+  if (numeric !== undefined && !Number.isSafeInteger(numeric)) {
     throw new Error(`Runtime ${numericKey} must be an integer`)
   }
   if (unique !== undefined && typeof unique !== 'string') throw new Error('Runtime uniqueContextId must be a string')

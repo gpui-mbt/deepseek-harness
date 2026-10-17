@@ -43,8 +43,8 @@ export const releasedV3SessionFormatCodec = Object.freeze({
               if (event.type === 'turn/end') throw issue
               return
             }
-            if (event.type === 'session/end-seed' && isSessionFormatJsonObject(event.data)
-              && event.data['inherited'] === true) acceptedInheritedCut = event.seq
+            if (event.type === 'session/end-seed' && isSessionFormatJsonObject(event.data) && event.data['inherited'] === true)
+              acceptedInheritedCut = event.seq
             context.emitEvent(event)
           },
         })

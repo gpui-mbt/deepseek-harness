@@ -5,14 +5,20 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { JobId } from '@deepseek-ai/dsh-jobs'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -94,7 +100,7 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
       arguments: { command: COMMAND, description: 'Hold a background slot open', run_in_background: true },
       agent,
     })
-    const reported = started.content.map(block => block.type === 'text' ? block.text : '').join('')
+    const reported = started.content.map(block => (block.type === 'text' ? block.text : '')).join('')
     const matched = /\bbash-[0-9a-f]{16}\b/.exec(reported)
     if (matched === null) throw new Error(`background bash reported no job id: ${reported}`)
     const jobId = JobId(matched[0])
@@ -123,10 +129,9 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
     const idle = page.getByRole('button', { name: '1 background job', exact: true })
     await idle.waitFor({ timeout: 20_000 })
     // The unclaimed report's reason lands in the settled row's detail.
-    await expect.poll(
-      () => page.getByRole('list', { name: 'Background jobs' }).textContent(),
-      { timeout: 15_000 },
-    ).toContain('cancelled by the user')
+    await expect
+      .poll(() => page.getByRole('list', { name: 'Background jobs' }).textContent(), { timeout: 15_000 })
+      .toContain('cancelled by the user')
     expect(scaffold.ctx.jobs.get(jobId, agent.id).status).toBe('killed')
 
     const settled = await captureStableAria(page, '[class*="menu"]', scaffold.workspaceCwd)
@@ -138,7 +143,7 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
   it('keeps the open list above the expanded right sidebar and in the header Tab order', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-background-job-right-sidebar'))
     const trigger = page.getByRole('button', { name: '1 background job', exact: true })
-    if (await trigger.getAttribute('aria-expanded') === 'true') await trigger.click()
+    if ((await trigger.getAttribute('aria-expanded')) === 'true') await trigger.click()
     await page.getByRole('button', { name: 'Open right sidebar' }).click()
     const sidebar = page.locator('[data-rightbar-col]')
     // A toggle holds data-animating on the frame until its tracks settle.
@@ -151,12 +156,14 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
     if (menuBox === null || sidebarBox === null) throw new Error('job list geometry is unavailable')
     expect(menuBox.x + menuBox.width).toBeGreaterThan(sidebarBox.x)
     // Every corner of the list hit-tests to the list itself; the inset clears its rounded corners.
-    const covered = await list.evaluate((menu) => {
+    const covered = await list.evaluate(menu => {
       const rect = menu.getBoundingClientRect()
       const inset = 20
       const points: Array<[number, number]> = [
-        [rect.left + inset, rect.top + inset], [rect.right - inset, rect.top + inset],
-        [rect.left + inset, rect.bottom - inset], [rect.right - inset, rect.bottom - inset],
+        [rect.left + inset, rect.top + inset],
+        [rect.right - inset, rect.top + inset],
+        [rect.left + inset, rect.bottom - inset],
+        [rect.right - inset, rect.bottom - inset],
       ]
       return points.filter(([x, y]) => !menu.contains(document.elementFromPoint(x, y)))
     })
@@ -164,7 +171,7 @@ describe.skipIf(MODE === 'record')('web e2e: background job list', () => {
 
     // Keyboard order matches the in-place list: the trigger leads into the
     // list, and Tab off its last control reaches the control after the trigger.
-    const after = await trigger.evaluate((node) => {
+    const after = await trigger.evaluate(node => {
       const all = [...document.querySelectorAll<HTMLElement>('button, a[href], [tabindex]:not([tabindex="-1"])')]
       const outside = all.filter(el => el.closest('[aria-label="Background jobs"]') === null && el.tabIndex >= 0)
       return outside[outside.indexOf(node as HTMLElement) + 1]?.outerHTML.slice(0, 120)

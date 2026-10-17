@@ -107,7 +107,9 @@ class InspectorClientSession {
       this.lifetime.signal.throwIfAborted()
       return task()
     })
-    this.pending = pending.catch((error: unknown) => { void error /* The caller owns failure reporting. */ })
+    this.pending = pending.catch((error: unknown) => {
+      void error /* The caller owns failure reporting. */
+    })
     return pending
   }
 
@@ -125,15 +127,24 @@ class InspectorClientSession {
       return
     }
     const disposers: Array<() => unknown> = []
-    const dispose = () => disposeInspectorResources(disposers, () => { source.close() }, 'experimental-inspector: Client disposal failed')
+    const dispose = () =>
+      disposeInspectorResources(
+        disposers,
+        () => {
+          source.close()
+        },
+        'experimental-inspector: Client disposal failed',
+      )
     try {
       this.lifetime.signal.throwIfAborted()
-      disposers.push(publishCordisTree(this.ctx, source, {
-        maxNodes: bootstrap.maxCordisNodes,
-        maxBytes: bootstrap.maxFrameBytes - 4_096,
-      }))
+      disposers.push(
+        publishCordisTree(this.ctx, source, {
+          maxNodes: bootstrap.maxCordisNodes,
+          maxBytes: bootstrap.maxFrameBytes - 4_096,
+        }),
+      )
       disposers.push(this.ctx.provide('inspector', createInspectorService(source)))
-      const panel = this.ctx.inject(['slots', 'shortcuts', 'locale'], async (ctx) => {
+      const panel = this.ctx.inject(['slots', 'shortcuts', 'locale'], async ctx => {
         const { registerInspectorPage } = await import('./bottom/page.tsx')
         registerInspectorPage(ctx, source.sourceId)
       })

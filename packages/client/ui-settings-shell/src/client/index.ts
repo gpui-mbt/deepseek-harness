@@ -46,8 +46,30 @@ export function apply(ctx: ClientContext): void {
   // The base bundle composes exactly one shell executor per platform; the page binds the served one.
   const bash = new ShellCardController(ctx.configForms.get(BASH_NS))
   const pwsh = new ShellCardController(ctx.configForms.get(PWSH_NS))
-  ctx.effect(() => () => { bash.dispose(); pwsh.dispose() }, 'ui-settings-shell: form subscriptions')
-  ctx.effect(() => ctx.configForms.whileServed([BASH_NS, PWSH_NS], served => ctx.slots.inject('plugins.item', () => ctx.slots.register({
-    name: 'plugins.item', id: 'shell', order: 40, label: () => t('title'), locale: NS, inject: () => (served.has(PWSH_NS) ? pwsh : bash).inject(),
-  }, ShellCard))), 'ui-settings-shell: page')
+  ctx.effect(
+    () => () => {
+      bash.dispose()
+      pwsh.dispose()
+    },
+    'ui-settings-shell: form subscriptions',
+  )
+  ctx.effect(
+    () =>
+      ctx.configForms.whileServed([BASH_NS, PWSH_NS], served =>
+        ctx.slots.inject('plugins.item', () =>
+          ctx.slots.register(
+            {
+              name: 'plugins.item',
+              id: 'shell',
+              order: 40,
+              label: () => t('title'),
+              locale: NS,
+              inject: () => (served.has(PWSH_NS) ? pwsh : bash).inject(),
+            },
+            ShellCard,
+          ),
+        ),
+      ),
+    'ui-settings-shell: page',
+  )
 }

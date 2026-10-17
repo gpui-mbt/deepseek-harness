@@ -97,9 +97,7 @@ export class SqliteStorageBackend implements StorageBackend {
 
   private async materializeUnit(descriptor: KvUnitDescriptor): Promise<SqliteKvUnit> {
     const db = await this.ready
-    const row = db.prepare('SELECT version FROM units WHERE name = ?').get(descriptor.name) as
-      | { version: number }
-      | undefined
+    const row = db.prepare('SELECT version FROM units WHERE name = ?').get(descriptor.name) as { version: number } | undefined
     if (row === undefined) {
       db.prepare('INSERT INTO units (name, version) VALUES (?, ?)').run(descriptor.name, descriptor.version)
     } else if (row.version !== descriptor.version) {

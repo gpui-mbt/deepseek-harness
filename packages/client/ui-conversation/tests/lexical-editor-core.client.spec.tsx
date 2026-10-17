@@ -5,29 +5,23 @@
  * case — no React tree, no contenteditable; the chip's visual face has its
  * own component spec.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createHeadlessEditor } from '@lexical/headless'
 import type { LexicalEditor, NodeKey, ParagraphNode } from 'lexical'
-import {
-  $createLineBreakNode, $createParagraphNode, $createTextNode, $getRoot, $getSelection,
-  $isTextNode, $setSelection,
-} from 'lexical'
+import { $createLineBreakNode, $createParagraphNode, $createTextNode, $getRoot, $getSelection, $isTextNode, $setSelection } from 'lexical'
 import type { ReferenceInsert } from '../src/client/contract/draft-editor.ts'
 import type { CommandClaim } from '../src/client/contract/input.ts'
+import { $createReferenceChipNode, $isReferenceChipNode, ReferenceChipNode } from '../src/client/input/editor/chip-node.tsx'
 import {
-  $createReferenceChipNode, $isReferenceChipNode, ReferenceChipNode,
-} from '../src/client/input/editor/chip-node.tsx'
-import {
-  $createCommandChipNode, $isCommandChipNode, CommandChipNode, registerCommandChipSeat,
+  $createCommandChipNode,
+  $isCommandChipNode,
+  CommandChipNode,
+  registerCommandChipSeat,
 } from '../src/client/input/editor/command-chip-node.tsx'
 import { TextRefNode } from '../src/client/input/editor/text-ref.ts'
 import type { SerializedReferenceChipNode } from '../src/client/input/editor/chip-node.tsx'
-import {
-  $composerLayout, $detectOffsetOfPoint, $projectComposer, ATOMIC_CHAR,
-} from '../src/client/input/editor/projection.ts'
-import {
-  $replaceDetectSpanWithNodes, $replaceDetectSpanWithText,
-} from '../src/client/input/editor/span-map.ts'
+import { $composerLayout, $detectOffsetOfPoint, $projectComposer, ATOMIC_CHAR } from '../src/client/input/editor/projection.ts'
+import { $replaceDetectSpanWithNodes, $replaceDetectSpanWithText } from '../src/client/input/editor/span-map.ts'
 
 const SESSION_REF: ReferenceInsert = {
   source: 'session-reference',
@@ -48,7 +42,9 @@ function makeEditor(): LexicalEditor {
   return createHeadlessEditor({
     namespace: 'core-spec',
     nodes: [ReferenceChipNode, CommandChipNode, TextRefNode],
-    onError: (error) => { throw error },
+    onError: error => {
+      throw error
+    },
   })
 }
 
@@ -56,7 +52,7 @@ function makeEditor(): LexicalEditor {
 function idAssigner(): (key: NodeKey) => number {
   const ids = new Map<NodeKey, number>()
   let seq = 0
-  return (key) => {
+  return key => {
     const existing = ids.get(key)
     if (existing !== undefined) return existing
     seq += 1
@@ -68,74 +64,91 @@ function idAssigner(): (key: NodeKey) => number {
 /** Seed one paragraph of mixed content and return the chip key. */
 function seedMixed(editor: LexicalEditor): NodeKey {
   let chipKey = '' as NodeKey
-  editor.update(() => {
-    const p = $createParagraphNode()
-    const chip = $createReferenceChipNode(SESSION_REF)
-    chipKey = chip.getKey()
-    p.append($createTextNode('ask '), chip, $createTextNode(' now'))
-    $getRoot().append(p)
-  }, { discrete: true })
+  editor.update(
+    () => {
+      const p = $createParagraphNode()
+      const chip = $createReferenceChipNode(SESSION_REF)
+      chipKey = chip.getKey()
+      p.append($createTextNode('ask '), chip, $createTextNode(' now'))
+      $getRoot().append(p)
+    },
+    { discrete: true },
+  )
   return chipKey
 }
 
 describe('ReferenceChipNode', () => {
   it('carries the owner projections and answers the clipboard text', () => {
     const editor = makeEditor()
-    editor.update(() => {
-      const chip = $createReferenceChipNode(SESSION_REF)
-      expect(chip.getSource()).toBe('session-reference')
-      expect(chip.getReference()).toBe('session-a')
-      expect(chip.getLabel()).toBe('随意回复不调用工具')
-      expect(chip.getAppearance()).toBe('session')
-      expect(chip.getTextContent()).toBe('@session:随意回复不调用工具')
-      expect(chip.isInvalid()).toBe(false)
-      expect(chip.isInline()).toBe(true)
-      expect(chip.isKeyboardSelectable()).toBe(false)
-      expect($isReferenceChipNode(chip)).toBe(true)
-      expect($isReferenceChipNode($createTextNode('x'))).toBe(false)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const chip = $createReferenceChipNode(SESSION_REF)
+        expect(chip.getSource()).toBe('session-reference')
+        expect(chip.getReference()).toBe('session-a')
+        expect(chip.getLabel()).toBe('随意回复不调用工具')
+        expect(chip.getAppearance()).toBe('session')
+        expect(chip.getTextContent()).toBe('@session:随意回复不调用工具')
+        expect(chip.isInvalid()).toBe(false)
+        expect(chip.isInline()).toBe(true)
+        expect(chip.isKeyboardSelectable()).toBe(false)
+        expect($isReferenceChipNode(chip)).toBe(true)
+        expect($isReferenceChipNode($createTextNode('x'))).toBe(false)
+      },
+      { discrete: true },
+    )
   })
 
   it('round-trips JSON with and without an appearance', () => {
     const editor = makeEditor()
-    editor.update(() => {
-      const withIcon = $createReferenceChipNode(SESSION_REF).exportJSON()
-      expect(withIcon.appearance).toBe('session')
-      const backWithIcon = ReferenceChipNode.importJSON(withIcon)
-      expect(backWithIcon.getAppearance()).toBe('session')
-      expect(backWithIcon.getTextContent()).toBe(SESSION_REF.clipboardText)
+    editor.update(
+      () => {
+        const withIcon = $createReferenceChipNode(SESSION_REF).exportJSON()
+        expect(withIcon.appearance).toBe('session')
+        const backWithIcon = ReferenceChipNode.importJSON(withIcon)
+        expect(backWithIcon.getAppearance()).toBe('session')
+        expect(backWithIcon.getTextContent()).toBe(SESSION_REF.clipboardText)
 
-      const bare = $createReferenceChipNode(SKILL_REF).exportJSON()
-      expect('appearance' in bare).toBe(false)
-      const backBare = ReferenceChipNode.importJSON(bare)
-      expect(backBare.getAppearance()).toBeUndefined()
-      expect(backBare.getLabel()).toBe('commit-helper')
-    }, { discrete: true })
+        const bare = $createReferenceChipNode(SKILL_REF).exportJSON()
+        expect('appearance' in bare).toBe(false)
+        const backBare = ReferenceChipNode.importJSON(bare)
+        expect(backBare.getAppearance()).toBeUndefined()
+        expect(backBare.getLabel()).toBe('commit-helper')
+      },
+      { discrete: true },
+    )
   })
 
   it('imports the invalid bit from JSON', () => {
     const editor = makeEditor()
-    editor.update(() => {
-      const json: SerializedReferenceChipNode = {
-        ...$createReferenceChipNode(SKILL_REF).exportJSON(),
-        invalid: true,
-      }
-      expect(ReferenceChipNode.importJSON(json).isInvalid()).toBe(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const json: SerializedReferenceChipNode = {
+          ...$createReferenceChipNode(SKILL_REF).exportJSON(),
+          invalid: true,
+        }
+        expect(ReferenceChipNode.importJSON(json).isInvalid()).toBe(true)
+      },
+      { discrete: true },
+    )
   })
 
   it('flips the invalid bit through the writable transaction', () => {
     const editor = makeEditor()
     const chipKey = seedMixed(editor)
-    editor.update(() => {
-      const chip = [...$getRoot().getChildren()].flatMap(block =>
-        'getChildren' in block ? (block as ParagraphNode).getChildren() : []).find($isReferenceChipNode)
-      expect(chip?.getKey()).toBe(chipKey)
-      chip?.setInvalid(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const chip = [...$getRoot().getChildren()]
+          .flatMap(block => ('getChildren' in block ? (block as ParagraphNode).getChildren() : []))
+          .find($isReferenceChipNode)
+        expect(chip?.getKey()).toBe(chipKey)
+        chip?.setInvalid(true)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
-      const chip = [...$getRoot().getChildren()].flatMap(block =>
-        'getChildren' in block ? (block as ParagraphNode).getChildren() : []).find($isReferenceChipNode)
+      const chip = [...$getRoot().getChildren()]
+        .flatMap(block => ('getChildren' in block ? (block as ParagraphNode).getChildren() : []))
+        .find($isReferenceChipNode)
       expect(chip?.isInvalid()).toBe(true)
     })
   })
@@ -145,8 +158,9 @@ describe('ReferenceChipNode', () => {
     seedMixed(editor)
     // Headless editors never call createDOM; exercise it directly.
     editor.read(() => {
-      const chip = [...$getRoot().getChildren()].flatMap(block =>
-        'getChildren' in block ? (block as ParagraphNode).getChildren() : []).find($isReferenceChipNode)
+      const chip = [...$getRoot().getChildren()]
+        .flatMap(block => ('getChildren' in block ? (block as ParagraphNode).getChildren() : []))
+        .find($isReferenceChipNode)
       expect(chip).toBeDefined()
       if (chip === undefined) return
       const el = chip.createDOM({ namespace: 'core-spec', theme: {} })
@@ -199,11 +213,14 @@ describe('$projectComposer', () => {
     editor.read(() => {
       expect($projectComposer(idOf).occurrences[0]?.occurrenceId).toBe(1)
     })
-    editor.update(() => {
-      const layout = $composerLayout()
-      const chip = layout.segments.find(segment => segment.kind === 'chip')?.node
-      if ($isReferenceChipNode(chip)) chip.setInvalid(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const layout = $composerLayout()
+        const chip = layout.segments.find(segment => segment.kind === 'chip')?.node
+        if ($isReferenceChipNode(chip)) chip.setInvalid(true)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       const projection = $projectComposer(idOf)
       expect(projection.occurrences[0]?.occurrenceId).toBe(1)
@@ -214,13 +231,16 @@ describe('$projectComposer', () => {
 
   it('projects paragraph gaps and line breaks as newlines in both views', () => {
     const editor = makeEditor()
-    editor.update(() => {
-      const first = $createParagraphNode()
-      first.append($createTextNode('a'), $createLineBreakNode(), $createTextNode('b'))
-      const second = $createParagraphNode()
-      second.append($createTextNode('c'))
-      $getRoot().append(first, second)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const first = $createParagraphNode()
+        first.append($createTextNode('a'), $createLineBreakNode(), $createTextNode('b'))
+        const second = $createParagraphNode()
+        second.append($createTextNode('c'))
+        $getRoot().append(first, second)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       const projection = $projectComposer(idAssigner())
       expect(projection.detectText).toBe('a\nb\nc')
@@ -231,10 +251,13 @@ describe('$projectComposer', () => {
   it('folds a collapsed text-point selection to a detect caret', () => {
     const editor = makeEditor()
     seedMixed(editor)
-    editor.update(() => {
-      const text = $getRoot().getAllTextNodes()[0]
-      if ($isTextNode(text)) text.select(2, 2)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const text = $getRoot().getAllTextNodes()[0]
+        if ($isTextNode(text)) text.select(2, 2)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       expect($projectComposer(idAssigner()).caret).toBe(2)
     })
@@ -243,14 +266,22 @@ describe('$projectComposer', () => {
   it('reports null caret for ranged and absent selections', () => {
     const editor = makeEditor()
     seedMixed(editor)
-    editor.update(() => {
-      const text = $getRoot().getAllTextNodes()[0]
-      if ($isTextNode(text)) text.select(0, 2)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const text = $getRoot().getAllTextNodes()[0]
+        if ($isTextNode(text)) text.select(0, 2)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       expect($projectComposer(idAssigner()).caret).toBeNull()
     })
-    editor.update(() => { $setSelection(null) }, { discrete: true })
+    editor.update(
+      () => {
+        $setSelection(null)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       expect($projectComposer(idAssigner()).caret).toBeNull()
     })
@@ -259,22 +290,28 @@ describe('$projectComposer', () => {
   it('folds element points: chip-adjacent and paragraph-end positions', () => {
     const editor = makeEditor()
     seedMixed(editor)
-    editor.update(() => {
-      // Element point at child index 1 = right before the chip (detect 4).
-      const p = $getRoot().getFirstChild()
-      if (p === null) throw new Error('paragraph missing')
-      const selection = $getSelection()
-      void selection
-      const paragraph = p as ParagraphNode
-      paragraph.select(1, 1)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        // Element point at child index 1 = right before the chip (detect 4).
+        const p = $getRoot().getFirstChild()
+        if (p === null) throw new Error('paragraph missing')
+        const selection = $getSelection()
+        void selection
+        const paragraph = p as ParagraphNode
+        paragraph.select(1, 1)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       expect($projectComposer(idAssigner()).caret).toBe(4)
     })
-    editor.update(() => {
-      const p = $getRoot().getFirstChild() as ParagraphNode
-      p.select(3, 3) // after the trailing text child = paragraph end (detect 9)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const p = $getRoot().getFirstChild() as ParagraphNode
+        p.select(3, 3) // after the trailing text child = paragraph end (detect 9)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       expect($projectComposer(idAssigner()).caret).toBe(`ask ${ATOMIC_CHAR} now`.length)
     })
@@ -294,14 +331,20 @@ describe('$projectComposer', () => {
 describe('detect-span application', () => {
   it('replaces a mid-text span with text and lands the caret after it', () => {
     const editor = makeEditor()
-    editor.update(() => {
-      const p = $createParagraphNode()
-      p.append($createTextNode('hello world'))
-      $getRoot().append(p)
-    }, { discrete: true })
-    editor.update(() => {
-      expect($replaceDetectSpanWithText({ start: 6, end: 11 }, 'there')).toBe(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const p = $createParagraphNode()
+        p.append($createTextNode('hello world'))
+        $getRoot().append(p)
+      },
+      { discrete: true },
+    )
+    editor.update(
+      () => {
+        expect($replaceDetectSpanWithText({ start: 6, end: 11 }, 'there')).toBe(true)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       const projection = $projectComposer(idAssigner())
       expect(projection.clipboardText).toBe('hello there')
@@ -311,14 +354,20 @@ describe('detect-span application', () => {
 
   it('replaces a trigger token span with a chip node', () => {
     const editor = makeEditor()
-    editor.update(() => {
-      const p = $createParagraphNode()
-      p.append($createTextNode('see @ses please'))
-      $getRoot().append(p)
-    }, { discrete: true })
-    editor.update(() => {
-      expect($replaceDetectSpanWithNodes({ start: 4, end: 8 }, [$createReferenceChipNode(SESSION_REF)])).toBe(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const p = $createParagraphNode()
+        p.append($createTextNode('see @ses please'))
+        $getRoot().append(p)
+      },
+      { discrete: true },
+    )
+    editor.update(
+      () => {
+        expect($replaceDetectSpanWithNodes({ start: 4, end: 8 }, [$createReferenceChipNode(SESSION_REF)])).toBe(true)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       const projection = $projectComposer(idAssigner())
       expect(projection.detectText).toBe(`see ${ATOMIC_CHAR} please`)
@@ -329,14 +378,20 @@ describe('detect-span application', () => {
 
   it('deletes a span with empty replacement text (consume-token shape)', () => {
     const editor = makeEditor()
-    editor.update(() => {
-      const p = $createParagraphNode()
-      p.append($createTextNode('/goal keep'))
-      $getRoot().append(p)
-    }, { discrete: true })
-    editor.update(() => {
-      expect($replaceDetectSpanWithText({ start: 0, end: 6 }, '')).toBe(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const p = $createParagraphNode()
+        p.append($createTextNode('/goal keep'))
+        $getRoot().append(p)
+      },
+      { discrete: true },
+    )
+    editor.update(
+      () => {
+        expect($replaceDetectSpanWithText({ start: 0, end: 6 }, '')).toBe(true)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       expect($projectComposer(idAssigner()).clipboardText).toBe('keep')
     })
@@ -345,10 +400,13 @@ describe('detect-span application', () => {
   it('removes a chip whose range the span covers (claim over a chip)', () => {
     const editor = makeEditor()
     seedMixed(editor)
-    editor.update(() => {
-      // [0, 5) covers 'ask ' plus the chip.
-      expect($replaceDetectSpanWithText({ start: 0, end: 5 }, '/goal ')).toBe(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        // [0, 5) covers 'ask ' plus the chip.
+        expect($replaceDetectSpanWithText({ start: 0, end: 5 }, '/goal ')).toBe(true)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       const projection = $projectComposer(idAssigner())
       expect(projection.detectText).toBe('/goal  now')
@@ -358,16 +416,22 @@ describe('detect-span application', () => {
 
   it('merges paragraphs when the span crosses a gap', () => {
     const editor = makeEditor()
-    editor.update(() => {
-      const first = $createParagraphNode()
-      first.append($createTextNode('one'))
-      const second = $createParagraphNode()
-      second.append($createTextNode('two'))
-      $getRoot().append(first, second)
-    }, { discrete: true })
-    editor.update(() => {
-      expect($replaceDetectSpanWithText({ start: 2, end: 5 }, '-')).toBe(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const first = $createParagraphNode()
+        first.append($createTextNode('one'))
+        const second = $createParagraphNode()
+        second.append($createTextNode('two'))
+        $getRoot().append(first, second)
+      },
+      { discrete: true },
+    )
+    editor.update(
+      () => {
+        expect($replaceDetectSpanWithText({ start: 2, end: 5 }, '-')).toBe(true)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       expect($projectComposer(idAssigner()).clipboardText).toBe('on-wo')
     })
@@ -375,9 +439,12 @@ describe('detect-span application', () => {
 
   it('inserts into the empty document and grows a paragraph', () => {
     const editor = makeEditor()
-    editor.update(() => {
-      expect($replaceDetectSpanWithText({ start: 0, end: 0 }, 'seed')).toBe(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        expect($replaceDetectSpanWithText({ start: 0, end: 0 }, 'seed')).toBe(true)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       expect($projectComposer(idAssigner()).clipboardText).toBe('seed')
     })
@@ -386,9 +453,12 @@ describe('detect-span application', () => {
   it('inserts at a chip boundary without touching the chip', () => {
     const editor = makeEditor()
     seedMixed(editor)
-    editor.update(() => {
-      expect($replaceDetectSpanWithText({ start: 4, end: 4 }, '@')).toBe(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        expect($replaceDetectSpanWithText({ start: 4, end: 4 }, '@')).toBe(true)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       const projection = $projectComposer(idAssigner())
       expect(projection.detectText).toBe(`ask @${ATOMIC_CHAR} now`)
@@ -399,27 +469,36 @@ describe('detect-span application', () => {
   it('rejects out-of-bounds and inverted spans', () => {
     const editor = makeEditor()
     seedMixed(editor)
-    editor.update(() => {
-      expect($replaceDetectSpanWithText({ start: 0, end: 99 }, 'x')).toBe(false)
-      expect($replaceDetectSpanWithText({ start: 5, end: 4 }, 'x')).toBe(false)
-      expect($replaceDetectSpanWithText({ start: -1, end: 2 }, 'x')).toBe(false)
-      expect($replaceDetectSpanWithNodes({ start: 0, end: 99 }, [])).toBe(false)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        expect($replaceDetectSpanWithText({ start: 0, end: 99 }, 'x')).toBe(false)
+        expect($replaceDetectSpanWithText({ start: 5, end: 4 }, 'x')).toBe(false)
+        expect($replaceDetectSpanWithText({ start: -1, end: 2 }, 'x')).toBe(false)
+        expect($replaceDetectSpanWithNodes({ start: 0, end: 99 }, [])).toBe(false)
+      },
+      { discrete: true },
+    )
   })
 
   it('selects the whole document across blocks (submit-clear shape)', () => {
     const editor = makeEditor()
-    editor.update(() => {
-      const first = $createParagraphNode()
-      first.append($createTextNode('a'), $createReferenceChipNode(SKILL_REF))
-      const second = $createParagraphNode()
-      second.append($createTextNode('b'))
-      $getRoot().append(first, second)
-    }, { discrete: true })
-    editor.update(() => {
-      const layout = $composerLayout()
-      expect($replaceDetectSpanWithText({ start: 0, end: layout.detectLength }, '')).toBe(true)
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const first = $createParagraphNode()
+        first.append($createTextNode('a'), $createReferenceChipNode(SKILL_REF))
+        const second = $createParagraphNode()
+        second.append($createTextNode('b'))
+        $getRoot().append(first, second)
+      },
+      { discrete: true },
+    )
+    editor.update(
+      () => {
+        const layout = $composerLayout()
+        expect($replaceDetectSpanWithText({ start: 0, end: layout.detectLength }, '')).toBe(true)
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       const projection = $projectComposer(idAssigner())
       expect(projection.clipboardText).toBe('')
@@ -436,12 +515,15 @@ const GOAL_CLAIM: CommandClaim = {
 
 /** Seed one paragraph opening with the command chip, followed by `rest`. */
 function seedCommand(editor: LexicalEditor, rest = ' ship'): void {
-  editor.update(() => {
-    const paragraph = $createParagraphNode()
-    paragraph.append($createCommandChipNode(GOAL_CLAIM))
-    if (rest !== '') paragraph.append($createTextNode(rest))
-    $getRoot().clear().append(paragraph)
-  }, { discrete: true })
+  editor.update(
+    () => {
+      const paragraph = $createParagraphNode()
+      paragraph.append($createCommandChipNode(GOAL_CLAIM))
+      if (rest !== '') paragraph.append($createTextNode(rest))
+      $getRoot().clear().append(paragraph)
+    },
+    { discrete: true },
+  )
 }
 
 /** The first paragraph of the document. */
@@ -465,11 +547,14 @@ describe('CommandChipNode', () => {
   it('keeps its claim across writable clones', () => {
     const editor = makeEditor()
     seedCommand(editor)
-    editor.update(() => {
-      const chip = $firstParagraph().getFirstChild()
-      if (!$isCommandChipNode(chip)) throw new Error('missing chip')
-      chip.markDirty()
-    }, { discrete: true })
+    editor.update(
+      () => {
+        const chip = $firstParagraph().getFirstChild()
+        if (!$isCommandChipNode(chip)) throw new Error('missing chip')
+        chip.markDirty()
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       const chip = $firstParagraph().getFirstChild()
       expect($isCommandChipNode(chip) && chip.getClaim()).toBe(GOAL_CLAIM)
@@ -491,9 +576,12 @@ describe('CommandChipNode', () => {
     const editor = makeEditor()
     registerCommandChipSeat(editor)
     seedCommand(editor)
-    editor.update(() => {
-      $firstParagraph().getFirstChild()?.insertBefore($createTextNode('x'))
-    }, { discrete: true })
+    editor.update(
+      () => {
+        $firstParagraph().getFirstChild()?.insertBefore($createTextNode('x'))
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       const projection = $projectComposer(idAssigner())
       expect(projection.detectText).toBe('x/goal ship')
@@ -505,16 +593,22 @@ describe('CommandChipNode', () => {
     const editor = makeEditor()
     registerCommandChipSeat(editor)
     seedCommand(editor)
-    editor.update(() => {
-      $firstParagraph().getFirstChild()?.insertBefore($createLineBreakNode())
-    }, { discrete: true })
+    editor.update(
+      () => {
+        $firstParagraph().getFirstChild()?.insertBefore($createLineBreakNode())
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       expect($projectComposer(idAssigner()).detectText).toBe('\n/goal ship')
     })
     seedCommand(editor)
-    editor.update(() => {
-      $firstParagraph().insertBefore($createParagraphNode())
-    }, { discrete: true })
+    editor.update(
+      () => {
+        $firstParagraph().insertBefore($createParagraphNode())
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       const projection = $projectComposer(idAssigner())
       expect(projection.detectText).toBe('\n/goal ship')
@@ -526,9 +620,12 @@ describe('CommandChipNode', () => {
     const editor = makeEditor()
     registerCommandChipSeat(editor)
     seedCommand(editor)
-    editor.update(() => {
-      $firstParagraph().getLastChild()?.remove()
-    }, { discrete: true })
+    editor.update(
+      () => {
+        $firstParagraph().getLastChild()?.remove()
+      },
+      { discrete: true },
+    )
     editor.read(() => {
       expect($projectComposer(idAssigner()).command).toBe(GOAL_CLAIM)
     })

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { DeepSeekFetchApiProvider, DeepSeekSearchApiProvider } from '@deepseek-ai/dsh-web-deepseek-api'
 
 /** Real Search and Fetch API probes; the base names the deployment the key authenticates. */

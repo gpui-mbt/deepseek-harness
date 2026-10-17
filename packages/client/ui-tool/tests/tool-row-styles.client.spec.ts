@@ -1,7 +1,7 @@
 /** Consumer-local command wrapping and collapsed summary declarations; jsdom has no layout. */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const css = readFileSync(fileURLToPath(new URL('../src/client/tool/components/ToolRow.module.css', import.meta.url)), 'utf8')
 /** Declarations only: the sheet's prose names the properties it explains. */
@@ -13,7 +13,10 @@ function declarations(selector: string, sheet = declarationText): string[] {
   // if one ever lands above the base rule.
   const rule = new RegExp(`(?:^|\\})\\s*\\${selector}\\s*\\{([^{}]*)\\}`).exec(sheet)
   if (rule === null) throw new Error(`Stylesheet has no \`${selector}\` rule`)
-  return (rule[1] ?? '').split(';').map(part => part.trim()).filter(Boolean)
+  return (rule[1] ?? '')
+    .split(';')
+    .map(part => part.trim())
+    .filter(Boolean)
 }
 
 describe('expanded command wrapping', () => {
@@ -22,13 +25,12 @@ describe('expanded command wrapping', () => {
     ['../src/client/tool/toolviews/bash-sample.module.css', '.commandInput', '--dsl-command-whitespace'],
     ['../src/client/tool/components/ToolRow.module.css', '.terminalBody', '--dsl-terminal-command-whitespace'],
   ] as const)('%s opts %s into command wrapping only', (path, selector, property) => {
-    const sheet = readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    const sheet = readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ')
     expect(declarations(selector, sheet)).toContain(`${property}: pre-wrap`)
     expect(sheet).not.toContain('--dsl-terminal-line-whitespace')
-    expect(declarations('.summary', sheet)).toEqual(expect.arrayContaining([
-      'white-space: nowrap', 'overflow: hidden', 'text-overflow: ellipsis',
-    ]))
+    expect(declarations('.summary', sheet)).toEqual(
+      expect.arrayContaining(['white-space: nowrap', 'overflow: hidden', 'text-overflow: ellipsis']),
+    )
   })
 })
 
@@ -41,8 +43,7 @@ describe('ToolRow.module.css summary line', () => {
     // that restates a row text color, or brightens the row text on hover, would
     // pin one state against the shared process-row colors. The Inspect button
     // keeps its own solid hover fill and is not row text.
-    const sheet = readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    const sheet = readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ')
     expect(sheet).not.toMatch(/\.(title|summary|summarySuffix)\s*\{[^{}]*\bcolor:/)
     expect(sheet).not.toMatch(/:hover\s+\.(title|summary|summarySuffix)\b/)
   })
@@ -51,20 +52,13 @@ describe('ToolRow.module.css summary line', () => {
     // `flex: none` stops the box shrinking, not the text wrapping: without
     // `nowrap`, a row too narrow for title + separator + suffix wraps the `+n`
     // onto a second line — the exact case the slot exists to survive.
-    expect(declarations('.summarySuffix')).toEqual(expect.arrayContaining([
-      'flex: none',
-      'white-space: nowrap',
-    ]))
+    expect(declarations('.summarySuffix')).toEqual(expect.arrayContaining(['flex: none', 'white-space: nowrap']))
   })
 
   it('leaves the truncation to the summary text alone', () => {
     // The suffix must never ellipsize: a clipped count reads as a smaller
     // number rather than as missing information.
-    expect(declarations('.summary')).toEqual(expect.arrayContaining([
-      'overflow: hidden',
-      'text-overflow: ellipsis',
-      'white-space: nowrap',
-    ]))
+    expect(declarations('.summary')).toEqual(expect.arrayContaining(['overflow: hidden', 'text-overflow: ellipsis', 'white-space: nowrap']))
     expect(declarations('.summarySuffix')).not.toEqual(expect.arrayContaining(['text-overflow: ellipsis']))
   })
 
@@ -73,10 +67,12 @@ describe('ToolRow.module.css summary line', () => {
     // the narration body: summary, suffix, and file link read the secondary
     // tier (one step under the body), matching think text.
     for (const selector of ['.summary', '.summarySuffix', '.fileLink']) {
-      expect(declarations(selector)).toEqual(expect.arrayContaining([
-        'font-size: var(--dsh-content-font-size-secondary, 13px)',
-        'line-height: calc(24px + var(--dsh-content-font-delta, 0px))',
-      ]))
+      expect(declarations(selector)).toEqual(
+        expect.arrayContaining([
+          'font-size: var(--dsh-content-font-size-secondary, 13px)',
+          'line-height: calc(24px + var(--dsh-content-font-delta, 0px))',
+        ]),
+      )
     }
   })
 })

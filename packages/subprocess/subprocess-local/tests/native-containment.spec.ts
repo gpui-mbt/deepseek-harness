@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { SubprocessSpawnSpec, SubprocessTerminalHandle } from '@deepseek-ai/dsh-subprocess'
 import LocalSubprocessRuntime from '../src/index.ts'
@@ -11,7 +11,9 @@ import { targetEnvironment } from '../src/runner-launch.ts'
 import { bindManagedProcess } from '../src/spawn.ts'
 
 const scratch = mkdtempSync(join(tmpdir(), 'dsh-native-containment-'))
-afterAll(() => { rmSync(scratch, { recursive: true, force: true }) })
+afterAll(() => {
+  rmSync(scratch, { recursive: true, force: true })
+})
 
 function spec(argv: string[], graceMs = 100): SubprocessSpawnSpec {
   return {
@@ -32,7 +34,9 @@ function directSpawnFailure(argv: readonly string[]): Promise<SpawnFailure> {
   return new Promise((resolve, reject) => {
     const child = spawn(argv[0] as string, argv.slice(1), { cwd: scratch, stdio: 'ignore' })
     child.once('error', resolve)
-    child.once('spawn', () => { reject(new Error(`expected ${argv[0]} to fail before spawn`)) })
+    child.once('spawn', () => {
+      reject(new Error(`expected ${argv[0]} to fail before spawn`))
+    })
   })
 }
 
@@ -80,12 +84,12 @@ interface LinuxProcessState {
 
 function readLinuxProcessState(pid: number): LinuxProcessState {
   const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
-  const fields = stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/)
-  const [parentPid, processGroupId, sessionId, ttyNumber, foregroundProcessGroupId] = fields
-    .slice(1, 6)
-    .map(Number)
-  if ([parentPid, processGroupId, sessionId, ttyNumber, foregroundProcessGroupId]
-    .some(value => !Number.isSafeInteger(value))) {
+  const fields = stat
+    .slice(stat.lastIndexOf(')') + 2)
+    .trim()
+    .split(/\s+/)
+  const [parentPid, processGroupId, sessionId, ttyNumber, foregroundProcessGroupId] = fields.slice(1, 6).map(Number)
+  if ([parentPid, processGroupId, sessionId, ttyNumber, foregroundProcessGroupId].some(value => !Number.isSafeInteger(value))) {
     throw new Error(`invalid /proc state for pid ${String(pid)}`)
   }
   return {
@@ -112,10 +116,12 @@ function captureTerminalOutput(handle: SubprocessTerminalHandle): {
   waitFor(marker: string): Promise<string>
 } {
   let output = ''
-  handle.output.on('data', (chunk: Buffer) => { output += chunk.toString() })
+  handle.output.on('data', (chunk: Buffer) => {
+    output += chunk.toString()
+  })
   return {
     text: () => output,
-    waitFor: async (marker) => {
+    waitFor: async marker => {
       const deadline = Date.now() + 5_000
       while (!output.includes(marker) && Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 20))
@@ -153,9 +159,12 @@ describe.skipIf(literalArgv === undefined)('Linux user-systemd native containmen
       signal: controller.signal,
       stdio: { stdin: 'pipe', stdout: { maxBytes: 1_024 }, stderr: { maxBytes: 1_024 } },
     }
-    const handle = bindManagedProcess(request, launchLinuxScope(request, targetEnvironment(request), scopeOptions, {
-      runnerInvocation: [process.execPath, join(import.meta.dirname, 'fixtures/hold-linux-bootstrap.ts')],
-    }))
+    const handle = bindManagedProcess(
+      request,
+      launchLinuxScope(request, targetEnvironment(request), scopeOptions, {
+        runnerInvocation: [process.execPath, join(import.meta.dirname, 'fixtures/hold-linux-bootstrap.ts')],
+      }),
+    )
     try {
       const deadline = Date.now() + 5_000
       while (!handle.collected.stdout?.readFrom(0).text.includes('BOOTSTRAP_WAITING')) {
@@ -187,7 +196,11 @@ describe.skipIf(literalArgv === undefined)('Linux user-systemd native containmen
       handle.terminate()
       await Promise.allSettled([handle.done, handle.waitForExit()])
       if (descendant !== undefined) {
-        try { process.kill(descendant, 'SIGKILL') } catch { /* already contained */ }
+        try {
+          process.kill(descendant, 'SIGKILL')
+        } catch {
+          /* already contained */
+        }
       }
     }
   })
@@ -226,12 +239,18 @@ describe.skipIf(literalArgv === undefined)('Linux user-systemd native containmen
     const terminalPath = join(scratch, `terminal-${Date.now()}.sh`)
     const launcherPidFile = join(scratch, `terminal-launcher-${Date.now()}.pid`)
     const descendantPidFile = join(scratch, `terminal-descendant-${Date.now()}.pid`)
-    writeFileSync(escapedPath, `#!/bin/sh
+    writeFileSync(
+      escapedPath,
+      `#!/bin/sh
 printf '%s\\n' "$$" > "$1"
 trap '' TERM
 while :; do sleep 60; done
-`, { mode: 0o700 })
-    writeFileSync(terminalPath, `#!/bin/bash
+`,
+      { mode: 0o700 },
+    )
+    writeFileSync(
+      terminalPath,
+      `#!/bin/bash
 set -eu
 launcher_pid_file=$1
 descendant_pid_file=$2
@@ -243,7 +262,9 @@ printf 'PTY_READY pid=%s tty=%s\\n' "$$" "$tty_ready" > /dev/tty
 IFS= read -r value < /dev/tty
 printf 'PTY_INPUT=%s\\n' "$value" > /dev/tty
 while :; do sleep 60; done
-`, { mode: 0o700 })
+`,
+      { mode: 0o700 },
+    )
 
     const ctx = new Context()
     const fiber = await ctx.plugin(LocalSubprocessRuntime)
@@ -290,7 +311,11 @@ while :; do sleep 60; done
     } finally {
       if (handle !== undefined) await handle.terminate().catch(() => {})
       if (descendant !== undefined) {
-        try { process.kill(descendant, 'SIGKILL') } catch { /* already contained */ }
+        try {
+          process.kill(descendant, 'SIGKILL')
+        } catch {
+          /* already contained */
+        }
       }
       await fiber.dispose()
     }

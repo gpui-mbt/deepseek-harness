@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { runInNewContext } from 'node:vm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const packageRoot = resolve(import.meta.dirname, '..')
 const bundlePath = join(packageRoot, 'lib/client.js')
@@ -38,9 +38,7 @@ function runPnpm(args: string[], cwd: string, timeout: number): string {
     if (process.platform === 'win32') throw new Error('npm_execpath is required to run pnpm on Windows')
     return run('pnpm', args, cwd, timeout)
   }
-  return /\.[cm]?js$/iu.test(entrypoint)
-    ? run(process.execPath, [entrypoint, ...args], cwd, timeout)
-    : run(entrypoint, args, cwd, timeout)
+  return /\.[cm]?js$/iu.test(entrypoint) ? run(process.execPath, [entrypoint, ...args], cwd, timeout) : run(entrypoint, args, cwd, timeout)
 }
 
 describe('published document preview licenses', () => {
@@ -48,9 +46,10 @@ describe('published document preview licenses', () => {
     expect(existsSync(pdfChunkPath)).toBe(true)
     const output = mkdtempSync(join(tmpdir(), 'dsh-document-preview-pack-'))
     try {
-      const packed = JSON.parse(runPnpm([
-        'pack', '--json', '--pack-destination', output,
-      ], packageRoot, task.timeout)) as { filename: string; files: { path: string }[] }
+      const packed = JSON.parse(runPnpm(['pack', '--json', '--pack-destination', output], packageRoot, task.timeout)) as {
+        filename: string
+        files: { path: string }[]
+      }
       expect(packed.files.map(file => file.path)).toContain('lib/client.js')
       expect(packed.files.map(file => file.path)).toContain('lib/client.pdf.js')
       expect(packed.files.map(file => file.path)).toContain('lib/client.frontmatter-fields.js')
@@ -58,11 +57,13 @@ describe('published document preview licenses', () => {
 
       const client = run('tar', ['-xOf', resolve(packageRoot, packed.filename), 'package/lib/client.js'], packageRoot, task.timeout)
       const pdf = run('tar', ['-xOf', resolve(packageRoot, packed.filename), 'package/lib/client.pdf.js'], packageRoot, task.timeout)
-      expect([...client.matchAll(/require\.async\("(\.\/client[^"/]*\.js)"\)/gu)].map(match => match[1]))
-        .toEqual(['./client.frontmatter-fields.js', './client.pdf.js', './client.excel.js'])
+      expect([...client.matchAll(/require\.async\("(\.\/client[^"/]*\.js)"\)/gu)].map(match => match[1])).toEqual([
+        './client.frontmatter-fields.js',
+        './client.pdf.js',
+        './client.excel.js',
+      ])
       expect(client).not.toMatch(/\brequire\("\.\/client[^"/]*\.js"\)/u)
-      expect([...pdf.matchAll(/require\("(\.\/client[^"/]*\.js)"\)/gu)].map(match => match[1]))
-        .toEqual([])
+      expect([...pdf.matchAll(/require\("(\.\/client[^"/]*\.js)"\)/gu)].map(match => match[1])).toEqual([])
       expect(client).not.toContain('//! Bundled PDF.js license notices')
       expect(client).not.toContain('/pdfjs-dist/')
       expect(pdf).toContain('//! Bundled PDF.js license notices')
@@ -75,34 +76,52 @@ describe('published document preview licenses', () => {
       for (const dependency of ['xlsx', 'papaparse']) {
         const root = dirname(require.resolve(dependency === 'xlsx' ? dependency : `${dependency}/package.json`))
         const license = readFileSync(join(root, 'LICENSE'), 'utf8').trimEnd()
-        expect(excel).toContain(license.split('\n').map(line => `// ${line}`).join('\n'))
+        expect(excel).toContain(
+          license
+            .split('\n')
+            .map(line => `// ${line}`)
+            .join('\n'),
+        )
       }
-      const frontmatter = run('tar', ['-xOf', resolve(packageRoot, packed.filename), 'package/lib/client.frontmatter-fields.js'], packageRoot, task.timeout)
+      const frontmatter = run(
+        'tar',
+        ['-xOf', resolve(packageRoot, packed.filename), 'package/lib/client.frontmatter-fields.js'],
+        packageRoot,
+        task.timeout,
+      )
       expect(frontmatter).not.toMatch(/\brequire\("\.\/client[^"/]*\.js"\)/u)
       let frontmatterInitialized = false
-      runInNewContext(frontmatter, { window: { __ModuleLoader__: { load: (registration: {
-        factory: (resolve: (specifier: string) => unknown) => { FrontmatterFields: unknown }
-      }) => {
-        const loaded = registration.factory((specifier) => {
-          if (specifier === 'react' || specifier === 'react/jsx-runtime') return require(specifier)
-          throw new Error(`Unexpected browser dependency: ${specifier}`)
-        })
-        expect(typeof loaded.FrontmatterFields).toBe('function')
-        frontmatterInitialized = true
-      } } } })
+      runInNewContext(frontmatter, {
+        window: {
+          __ModuleLoader__: {
+            load: (registration: { factory: (resolve: (specifier: string) => unknown) => { FrontmatterFields: unknown } }) => {
+              const loaded = registration.factory(specifier => {
+                if (specifier === 'react' || specifier === 'react/jsx-runtime') return require(specifier)
+                throw new Error(`Unexpected browser dependency: ${specifier}`)
+              })
+              expect(typeof loaded.FrontmatterFields).toBe('function')
+              frontmatterInitialized = true
+            },
+          },
+        },
+      })
       expect(frontmatterInitialized).toBe(true)
       let initialized = false
-      runInNewContext(excel, { window: { __ModuleLoader__: { load: (registration: {
-        factory: (resolve: (specifier: string) => unknown) => { ExcelBody: unknown }
-      }) => {
-        const loaded = registration.factory((specifier) => {
-          if (specifier === '@deepseek-ai/dsh-client-ui-primitives') return {}
-          if (specifier === 'react' || specifier === 'react/jsx-runtime' || specifier === 'react-dom') return require(specifier)
-          throw new Error(`Unexpected browser dependency: ${specifier}`)
-        })
-        expect(typeof loaded.ExcelBody).toBe('function')
-        initialized = true
-      } } } })
+      runInNewContext(excel, {
+        window: {
+          __ModuleLoader__: {
+            load: (registration: { factory: (resolve: (specifier: string) => unknown) => { ExcelBody: unknown } }) => {
+              const loaded = registration.factory(specifier => {
+                if (specifier === '@deepseek-ai/dsh-client-ui-primitives') return {}
+                if (specifier === 'react' || specifier === 'react/jsx-runtime' || specifier === 'react-dom') return require(specifier)
+                throw new Error(`Unexpected browser dependency: ${specifier}`)
+              })
+              expect(typeof loaded.ExcelBody).toBe('function')
+              initialized = true
+            },
+          },
+        },
+      })
       expect(initialized).toBe(true)
       const pdfRoot = dirname(require.resolve('pdfjs-dist/package.json'))
       for (const name of licenseNames) {

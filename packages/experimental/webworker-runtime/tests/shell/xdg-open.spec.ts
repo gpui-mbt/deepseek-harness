@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vite-plus/test'
 import { MemoryVfs } from '../../src/storage/memory.ts'
 import { setActiveVfs } from '../../src/storage/active.ts'
 import { hostFileSystem } from '../../src/shell/fs-access.ts'
@@ -17,8 +17,14 @@ beforeEach(() => {
 async function run(args: readonly string[]): Promise<{ code: number | null; stderr: string }> {
   const child = spawn('xdg-open', args, { cwd: PROFILE })
   let stderr = ''
-  child.stderr?.on('data', (chunk: unknown) => { stderr += String(chunk) })
-  const code = await new Promise<number | null>((settle) => { child.on('close', (value: unknown) => { settle(value as number | null) }) })
+  child.stderr?.on('data', (chunk: unknown) => {
+    stderr += String(chunk)
+  })
+  const code = await new Promise<number | null>(settle => {
+    child.on('close', (value: unknown) => {
+      settle(value as number | null)
+    })
+  })
   return { code, stderr }
 }
 
@@ -37,7 +43,9 @@ it('hands a spawned relative path to the page viewer', async () => {
 })
 
 it('reports usage, missing files, directories, and viewer failures with xdg-open statuses', async () => {
-  setTextViewer(() => { throw new Error('page closed') })
+  setTextViewer(() => {
+    throw new Error('page closed')
+  })
   expect(await run([])).toEqual({ code: 1, stderr: 'xdg-open: usage: xdg-open { file | URL }\n' })
   expect(await run(['missing.yml'])).toEqual({ code: 2, stderr: `xdg-open: file '${PROFILE}/missing.yml' does not exist\n` })
   expect(await run(['.'])).toEqual({ code: 3, stderr: `xdg-open: no viewer for directory '${PROFILE}'\n` })

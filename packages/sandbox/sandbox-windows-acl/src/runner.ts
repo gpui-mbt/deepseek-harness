@@ -90,12 +90,23 @@ function parseArgs(raw: string[]): ParsedArgs {
     const value = raw[index]
     if (value === undefined) fail(`missing value after ${token}`)
     switch (token) {
-      case '--workspace': workspace = value; break
-      case '--temp': temp = value; break
-      case '--mode': mode = value; break
-      case '--write-sid': writeSid = value; break
-      case '--temp-write-sid': parsedTempWriteSid = value; break
-      default: fail(`unknown argument: ${token}`)
+      case '--workspace':
+        workspace = value
+        break
+      case '--temp':
+        temp = value
+        break
+      case '--mode':
+        mode = value
+        break
+      case '--write-sid':
+        writeSid = value
+        break
+      case '--temp-write-sid':
+        parsedTempWriteSid = value
+        break
+      default:
+        fail(`unknown argument: ${token}`)
     }
   }
   if (workspace === undefined) fail('missing --workspace')
@@ -163,8 +174,8 @@ async function main(): Promise<number> {
       writableDirs: parsed.mode === 'workspace-write' ? [parsed.workspace] : [],
       tempDir: privateTempDir,
       mode: parsed.mode,
-      ...writeSid === undefined ? {} : { writeSid },
-      ...privateTempSid === undefined ? {} : { tempWriteSid: privateTempSid },
+      ...(writeSid === undefined ? {} : { writeSid }),
+      ...(privateTempSid === undefined ? {} : { tempWriteSid: privateTempSid }),
       manageDacls: !seamManaged,
     })
     await sandbox.init()
@@ -183,7 +194,7 @@ async function main(): Promise<number> {
       command: parsed.command,
       args: parsed.args,
       stdio: 'inherit',
-      ...process.env[SUBPROCESS_CONTROL_ENV] === 'pipe' ? { controlFileDescriptor: SUBPROCESS_CONTROL_FD } : {},
+      ...(process.env[SUBPROCESS_CONTROL_ENV] === 'pipe' ? { controlFileDescriptor: SUBPROCESS_CONTROL_FD } : {}),
     })
     if (process.env[SUBPROCESS_CONTROL_ENV] === 'pipe') closeSync(SUBPROCESS_CONTROL_FD)
     const result = await child.wait()
@@ -208,7 +219,7 @@ async function main(): Promise<number> {
 }
 
 main().then(
-  (exitCode) => {
+  exitCode => {
     // Exit-code mirroring is full-width on Windows, verified empirically on
     // this machine (Windows 11 build 26200, Node 24): a child that exits
     // with the NTSTATUS 0xC0000005 (STATUS_ACCESS_VIOLATION) is read back

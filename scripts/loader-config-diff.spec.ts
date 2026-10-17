@@ -1,5 +1,5 @@
 /** Raw config comparison reads schema metadata without resolving config or committing references. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import z from '@deepseek-ai/schemastery'
 import { equalExceptVolatile as equal } from '../vendor/loader/src/config/diff.ts'
 
@@ -104,6 +104,8 @@ it('compares unknown fields whose names match Object prototype properties', () =
 })
 
 it('compares metadata-free serialized schema nodes', () => {
-  const schema = new z<unknown>(JSON.parse('{"type":"object","dict":{"nested":{"type":"object","dict":{"enabled":{"type":"boolean"}}}}}') as z<unknown>)
+  const schema = new z<unknown>(
+    JSON.parse('{"type":"object","dict":{"nested":{"type":"object","dict":{"enabled":{"type":"boolean"}}}}}') as z<unknown>,
+  )
   expect(equal({ nested: { enabled: true } }, { nested: { enabled: false } }, schema)).toBe(false)
 })

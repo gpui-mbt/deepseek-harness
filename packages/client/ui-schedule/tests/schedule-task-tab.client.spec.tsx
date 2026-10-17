@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** The task tab renders the one task its navigation parameters name. */
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -19,17 +19,30 @@ const SESSION = 'session-alpha' as SessionId
 /** The persisted layout record of the tab under test: its id, kind, and content identity. */
 const TAB: TaskTabPage = { id: 'tab1', kind: 'scheduleTask', contentId: 'sidebar://scheduleTask' }
 const at: ScheduleCatalogEntry = {
-  id: 'task-detail' as ScheduleId, sessionId: SESSION, kind: 'every', status: 'active',
-  title: 'Check metrics', prompt: 'Check metrics\nSecond line of the instruction', everySeconds: 301,
+  id: 'task-detail' as ScheduleId,
+  sessionId: SESSION,
+  kind: 'every',
+  status: 'active',
+  title: 'Check metrics',
+  prompt: 'Check metrics\nSecond line of the instruction',
+  everySeconds: 301,
   scheduledAt: '2026-10-01T09:30:00.000Z',
 }
 const other: ScheduleCatalogEntry = { ...at, id: 'task-other' as ScheduleId, title: 'Other metrics' }
 const sessions: SessionListState = {
   ids: [SESSION],
   byId: { [SESSION]: { id: SESSION, displayTitle: SESSION, running: false, blank: false, updatedAt: 0, retainedBy: {} } },
-  phase: 'ready', projectionsBySession: {},
+  phase: 'ready',
+  projectionsBySession: {},
 }
-const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null }
+const workspaces: WorkspaceSnapshot = {
+  items: [],
+  archivedSessionIds: [],
+  pinnedSessionIds: [],
+  state: 'idle',
+  phase: 'ready',
+  error: null,
+}
 
 /**
  * Session list whose catalog row for this tab's Session carries a title.
@@ -39,13 +52,16 @@ const workspaces: WorkspaceSnapshot = { items: [], archivedSessionIds: [], pinne
 function sessionsWithTitle(title: string): SessionListState {
   return {
     ...sessions,
-    byId: Object.fromEntries(Object.entries(sessions.byId).map(([id, summary]) => [
-      id, id === SESSION ? { ...summary, title } : summary,
-    ] as const)),
+    byId: Object.fromEntries(
+      Object.entries(sessions.byId).map(([id, summary]) => [id, id === SESSION ? { ...summary, title } : summary] as const),
+    ),
   }
 }
 
-afterEach(() => { cleanup(); localStorage.clear() })
+afterEach(() => {
+  cleanup()
+  localStorage.clear()
+})
 
 /** Whether `later` follows `earlier` in document order. */
 function follows(earlier: Element, later: Element): boolean {
@@ -61,7 +77,10 @@ const RESTORED = Symbol('restored record without navigation parameters')
 
 function tabInfo(params: unknown, revision = 1): SidebarRightTabInfo {
   const actions: SidebarRightTabActions = {
-    bindCommands: vi.fn(() => vi.fn()), openResource: vi.fn(), openTab: vi.fn(), close: vi.fn(),
+    bindCommands: vi.fn(() => vi.fn()),
+    openResource: vi.fn(),
+    openTab: vi.fn(),
+    close: vi.fn(),
   }
   return {
     sidebar: { expanded: true, fullscreen: false },
@@ -87,14 +106,18 @@ function mount(
   // both, which is what separates "no answer yet" from "the last answer stands".
   const initialStatus = initial.status ?? 'ready'
   let snapshot: CatalogSnapshot<ScheduleCatalogEntry> = {
-    records: [at], status: initialStatus, deleting: [],
+    records: [at],
+    status: initialStatus,
+    deleting: [],
     settled: initialStatus === 'ready',
-    readRequest: initialStatus === 'ready' ? 1 : 0, readSettled: initialStatus === 'ready' ? 1 : 0,
+    readRequest: initialStatus === 'ready' ? 1 : 0,
+    readSettled: initialStatus === 'ready' ? 1 : 0,
     ...initial,
   }
-  const updateTiming = vi.fn<NonNullable<ScheduleTaskTabProps['onUpdateTiming']>>(
-    async ({ expected }) => ({ ok: true, value: { id: expected.id, updated: false, record: expected } }),
-  )
+  const updateTiming = vi.fn<NonNullable<ScheduleTaskTabProps['onUpdateTiming']>>(async ({ expected }) => ({
+    ok: true,
+    value: { id: expected.id, updated: false, record: expected },
+  }))
   const info = params === RESTORED ? tabInfo(undefined, 0) : tabInfo(params)
   const props = {
     sessionId: SESSION,
@@ -105,9 +128,13 @@ function mount(
     onRetry: vi.fn(async () => {}),
     onUpdateTiming: updateTiming,
     loadHistory: vi.fn(async ({ id }: { id: ScheduleId }) => ({
-      ok: true, value: {
-        id, records: [], earlierRecordsUnavailable: false,
-        earlierRecordsPruned: false, retention: { days: 30, records: 200 },
+      ok: true,
+      value: {
+        id,
+        records: [],
+        earlierRecordsUnavailable: false,
+        earlierRecordsPruned: false,
+        retention: { days: 30, records: 200 },
       },
     })),
     onOpenSession: vi.fn(),
@@ -120,9 +147,9 @@ function mount(
     ...props,
     useCatalog: <T,>(select: (current: CatalogSnapshot<ScheduleCatalogEntry>) => T): T => select(value),
   })
-  const view = render(<ScheduleTaskTab {...withSnapshot(initialStatus === 'ready'
-    ? { ...snapshot, readRequest: 0, readSettled: 0 }
-    : snapshot)} />)
+  const view = render(
+    <ScheduleTaskTab {...withSnapshot(initialStatus === 'ready' ? { ...snapshot, readRequest: 0, readSettled: 0 } : snapshot)} />,
+  )
   // The tab asks for a read when it appears and answers for the task only once a
   // read sent after that has succeeded. A case staging a settled snapshot therefore
   // shows that read landing; one staging a first read keeps it unanswered.
@@ -131,7 +158,10 @@ function mount(
   const mountRetries = vi.mocked(props.onRetry).mock.calls.map(call => call[0])
   vi.mocked(props.onRetry).mockClear()
   return {
-    props, view, updateTiming, mountRetries,
+    props,
+    view,
+    updateTiming,
+    mountRetries,
     bindings: props.taskBindings,
     /** Render one catalog snapshot over the mounted tab. */
     show(next: CatalogSnapshot<ScheduleCatalogEntry>) {
@@ -141,9 +171,8 @@ function mount(
     update(next: Partial<CatalogSnapshot<ScheduleCatalogEntry>>) {
       // A successful read settles the snapshot and advances its revision; a
       // refresh and a failure publish only the status they were given.
-      const settled = next.status === 'ready'
-        ? { settled: true, readRequest: snapshot.readRequest + 1, readSettled: snapshot.readRequest + 1 }
-        : {}
+      const settled =
+        next.status === 'ready' ? { settled: true, readRequest: snapshot.readRequest + 1, readSettled: snapshot.readRequest + 1 } : {}
       snapshot = { ...snapshot, ...next, ...settled }
       view.rerender(<ScheduleTaskTab {...withSnapshot(snapshot)} />)
     },
@@ -161,7 +190,10 @@ function boundTo(id: ScheduleId): TaskTabBindings {
   return bindings
 }
 
-describe.each([['English', en], ['Chinese', zh]] as const)('task tab body in %s', (_name, dictionary) => {
+describe.each([
+  ['English', en],
+  ['Chinese', zh],
+] as const)('task tab body in %s', (_name, dictionary) => {
   it('renders the named task rule and its actions without a close control or the hosting Session link', () => {
     const h = mount({}, { sessionId: SESSION, id: at.id }, dictionary)
     const detail = screen.getByRole('complementary', { name: dictionary['detail.label'] })
@@ -173,8 +205,7 @@ describe.each([['English', en], ['Chinese', zh]] as const)('task tab body in %s'
     expect(follows(tabs, nameControl)).toBe(true)
     expect(follows(nameControl, nextRun)).toBe(true)
     expect(nextRun.querySelector('time')?.dateTime).toBe(at.scheduledAt)
-    expect((within(detail).getByRole<HTMLTextAreaElement>('textbox', { name: dictionary['detail.instruction'] })).value)
-      .toContain(at.prompt)
+    expect(within(detail).getByRole<HTMLTextAreaElement>('textbox', { name: dictionary['detail.instruction'] }).value).toContain(at.prompt)
     const rule = within(detail).getByRole('region', { name: dictionary['rule.title'] })
     expect(rule).toBeDefined()
     expect(rule.textContent).toContain(dictionary['rule.everySeconds'])
@@ -195,12 +226,11 @@ describe.each([['English', en], ['Chinese', zh]] as const)('task tab body in %s'
     const named = { ...at, title: 'Metrics review' }
     mount({ records: [named] })
     const detail = screen.getByRole('complementary', { name: en['detail.label'] })
-    expect((within(detail).getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] })).value).toBe('Metrics review')
-    expect((within(detail).getByRole<HTMLTextAreaElement>('textbox', { name: en['detail.instruction'] })).value)
-      .toContain(named.prompt)
+    expect(within(detail).getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] }).value).toBe('Metrics review')
+    expect(within(detail).getByRole<HTMLTextAreaElement>('textbox', { name: en['detail.instruction'] }).value).toContain(named.prompt)
   })
 
-  it('labels another Session\'s task with that Session\'s catalog title instead of its id', () => {
+  it("labels another Session's task with that Session's catalog title instead of its id", () => {
     const title = 'Release review'
     const h = mount({}, { sessionId: SESSION, id: at.id }, dictionary, sessionsWithTitle(title), {
       // A tab hosted in a different Session keeps the linked-Session entry.
@@ -293,7 +323,7 @@ describe('task tab states', () => {
     expect(screen.getByRole('status', { name: en['list.loading'] })).toBeDefined()
     h.update({ records: [at], status: 'ready' })
     const detail = screen.getByRole('complementary', { name: en['detail.label'] })
-    expect((within(detail).getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] })).value).toBe(at.title)
+    expect(within(detail).getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] }).value).toBe(at.title)
     expect(screen.queryByText(en['detail.missing'])).toBeNull()
   })
 
@@ -307,7 +337,7 @@ describe('task tab states', () => {
       taskBindings: boundTo(at.id),
     })
     const detail = screen.getByRole('complementary', { name: en['detail.label'] })
-    expect((within(detail).getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] })).value).toBe(other.title)
+    expect(within(detail).getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] }).value).toBe(other.title)
     // The navigation rebinds the page to the task it named.
     expect(h.bindings.read(SESSION, TAB)).toEqual({ sessionId: SESSION, id: other.id })
   })
@@ -335,10 +365,9 @@ describe('task tab states', () => {
     // The retained records leave this restored tab without a task, so it asks for a
     // read once, naming the ordinal it observed at mount, and answers for the task
     // only once a read sent after that succeeded.
-    const h = mount(
-      { records: [], status: 'loading', settled: true, readRequest: 6, readSettled: 5 },
-      RESTORED, en, sessions, { taskBindings: boundTo(at.id) },
-    )
+    const h = mount({ records: [], status: 'loading', settled: true, readRequest: 6, readSettled: 5 }, RESTORED, en, sessions, {
+      taskBindings: boundTo(at.id),
+    })
     expect(h.mountRetries).toEqual([6])
   })
 
@@ -360,7 +389,12 @@ describe('task tab states', () => {
     // was requested after the tab appeared, so it states that the task is gone and
     // the tab asks for nothing further.
     h.show({
-      records: [], status: 'loading', deleting: [], settled: true, readRequest: 7, readSettled: 7,
+      records: [],
+      status: 'loading',
+      deleting: [],
+      settled: true,
+      readRequest: 7,
+      readSettled: 7,
     })
     expect(vi.mocked(h.props.onRetry)).not.toHaveBeenCalled()
   })
@@ -370,15 +404,17 @@ describe('task tab states', () => {
     // already in flight when the tab appeared decides this frame. That read settles
     // without the task, and it was sent before the tab appeared, so it cannot state
     // that the task is gone and the tab asks for one that can.
-    const h = mount(
-      { records: [at], status: 'loading', settled: true, readRequest: 6, readSettled: 5 },
-      { sessionId: SESSION, id: at.id },
-    )
+    const h = mount({ records: [at], status: 'loading', settled: true, readRequest: 6, readSettled: 5 }, { sessionId: SESSION, id: at.id })
     expect(h.mountRetries).toEqual([])
     expect(screen.getByRole('complementary', { name: en['detail.label'] })).toBeDefined()
 
     h.show({
-      records: [], status: 'ready', deleting: [], settled: true, readRequest: 6, readSettled: 6,
+      records: [],
+      status: 'ready',
+      deleting: [],
+      settled: true,
+      readRequest: 6,
+      readSettled: 6,
     })
     expect(vi.mocked(h.props.onRetry)).toHaveBeenCalledExactlyOnceWith(6)
     // The tab reports the load its own read is producing rather than an empty body,
@@ -387,7 +423,12 @@ describe('task tab states', () => {
     expect(screen.queryByText(en['detail.missing'])).toBeNull()
 
     h.show({
-      records: [], status: 'ready', deleting: [], settled: true, readRequest: 7, readSettled: 7,
+      records: [],
+      status: 'ready',
+      deleting: [],
+      settled: true,
+      readRequest: 7,
+      readSettled: 7,
     })
     expect(vi.mocked(h.props.onRetry)).toHaveBeenCalledOnce()
     expect(screen.getByRole('status').textContent).toBe(en['detail.missing'])
@@ -398,36 +439,47 @@ describe('task tab states', () => {
     // tab measures its answer from moves with the new navigation: the answer that
     // resolved the previous task cannot state that the next one is gone.
     let info = tabInfo({ sessionId: SESSION, id: at.id })
-    const h = mount(
-      { records: [at], status: 'ready', readRequest: 5, readSettled: 5 },
-      { sessionId: SESSION, id: at.id }, en, sessions, { useTabInfo: () => info },
-    )
+    const h = mount({ records: [at], status: 'ready', readRequest: 5, readSettled: 5 }, { sessionId: SESSION, id: at.id }, en, sessions, {
+      useTabInfo: () => info,
+    })
     expect(h.mountRetries).toEqual([])
 
     info = tabInfo({ sessionId: SESSION, id: other.id }, 2)
     h.show({
-      records: [at], status: 'ready', deleting: [], settled: true, readRequest: 5, readSettled: 5,
+      records: [at],
+      status: 'ready',
+      deleting: [],
+      settled: true,
+      readRequest: 5,
+      readSettled: 5,
     })
     expect(vi.mocked(h.props.onRetry)).toHaveBeenCalledExactlyOnceWith(5)
     expect(screen.queryByText(en['detail.missing'])).toBeNull()
     expect(screen.getByRole('status', { name: en['list.loading'] })).toBeDefined()
 
     h.show({
-      records: [at, other], status: 'ready', deleting: [], settled: true, readRequest: 6, readSettled: 6,
+      records: [at, other],
+      status: 'ready',
+      deleting: [],
+      settled: true,
+      readRequest: 6,
+      readSettled: 6,
     })
     expect(vi.mocked(h.props.onRetry)).toHaveBeenCalledOnce()
-    expect(within(screen.getByRole('complementary', { name: en['detail.label'] }))
-      .getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] })).toHaveProperty('value', other.title)
+    expect(
+      within(screen.getByRole('complementary', { name: en['detail.label'] })).getByRole<HTMLInputElement>('textbox', {
+        name: en['detail.name'],
+      }),
+    ).toHaveProperty('value', other.title)
   })
 
   it('keeps a restored binding until a read after the tab confirms the task is gone', () => {
     // The catalog holds a settled answer, but the read it settled from was sent
     // before this tab appeared (ordinal 5 against the read in flight under 6), so it
     // cannot state that the bound task is gone: the tab waits for its own read.
-    const h = mount(
-      { records: [], status: 'loading', settled: true, readRequest: 6, readSettled: 5 },
-      RESTORED, en, sessions, { taskBindings: boundTo(at.id) },
-    )
+    const h = mount({ records: [], status: 'loading', settled: true, readRequest: 6, readSettled: 5 }, RESTORED, en, sessions, {
+      taskBindings: boundTo(at.id),
+    })
     expect(h.bindings.read(SESSION, TAB)).toEqual({ sessionId: SESSION, id: at.id })
     expect(screen.getByRole('status', { name: en['list.loading'] })).toBeDefined()
     expect(screen.queryByText(en['detail.missing'])).toBeNull()
@@ -435,14 +487,24 @@ describe('task tab states', () => {
     // The read that was already in flight when the tab appeared settles here. It,
     // too, was sent before the tab, so it cannot state that the task is gone.
     h.show({
-      records: [], status: 'ready', deleting: [], settled: true, readRequest: 6, readSettled: 6,
+      records: [],
+      status: 'ready',
+      deleting: [],
+      settled: true,
+      readRequest: 6,
+      readSettled: 6,
     })
     expect(h.bindings.read(SESSION, TAB)).toEqual({ sessionId: SESSION, id: at.id })
     expect(screen.queryByText(en['detail.missing'])).toBeNull()
 
     // A read sent after the tab settles without the record: the task is gone.
     h.show({
-      records: [], status: 'ready', deleting: [], settled: true, readRequest: 7, readSettled: 7,
+      records: [],
+      status: 'ready',
+      deleting: [],
+      settled: true,
+      readRequest: 7,
+      readSettled: 7,
     })
     expect(screen.getByRole('status').textContent).toBe(en['detail.missing'])
     expect(screen.queryByRole('status', { name: en['list.loading'] })).toBeNull()
@@ -461,8 +523,7 @@ describe('task tab states', () => {
     // over the settled missing-task answer.
     for (const status of ['loading', 'error'] as const) {
       h.update({ status })
-      expect([status, screen.getByRole('status').textContent])
-        .toEqual([status, en['detail.missing']])
+      expect([status, screen.getByRole('status').textContent]).toEqual([status, en['detail.missing']])
       expect([status, screen.queryByRole('status', { name: en['list.loading'] })]).toEqual([status, null])
       expect([status, h.bindings.read(SESSION, TAB)]).toEqual([status, undefined])
     }
@@ -472,21 +533,33 @@ describe('task tab states', () => {
     const h = mount()
     const pending = Promise.withResolvers<Awaited<ReturnType<typeof h.updateTiming>>>()
     h.updateTiming.mockReturnValue(pending.promise)
-    fireEvent.click(within(screen.getByRole('region', { name: en['rule.title'] }))
-      .getByRole('button', { name: new RegExp(`^${en['rule.repeat']}`) }))
+    fireEvent.click(
+      within(screen.getByRole('region', { name: en['rule.title'] })).getByRole('button', { name: new RegExp(`^${en['rule.repeat']}`) }),
+    )
     fireEvent.click(screen.getByRole('menuitem', { name: en['rule.daily'] }))
-    fireEvent.click(within(document.querySelector<HTMLElement>(`.${css.saveFooter}`)!)
-      .getByRole('button', { name: en['rule.save'] }))
+    fireEvent.click(within(document.querySelector<HTMLElement>(`.${css.saveFooter}`)!).getByRole('button', { name: en['rule.save'] }))
     h.update({ records: [] })
     const detail = screen.getByRole('complementary', { name: en['detail.label'] })
-    expect((within(detail).getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] })).value).toBe('Check metrics')
+    expect(within(detail).getByRole<HTMLInputElement>('textbox', { name: en['detail.name'] }).value).toBe('Check metrics')
     fireEvent.click(within(detail).getByRole('button', { name: en['detail.more'] }))
     expect(screen.getByRole('menuitem', { name: en['delete.action'] }).hasAttribute('disabled')).toBe(true)
     await act(async () => {
-      pending.resolve({ ok: true, value: { id: at.id, updated: true, record: {
-        id: at.id, title: at.title, prompt: at.prompt, kind: 'daily', time: '09:30:00.000', timeZone: 'UTC',
-        scheduledAt: at.scheduledAt,
-      } } })
+      pending.resolve({
+        ok: true,
+        value: {
+          id: at.id,
+          updated: true,
+          record: {
+            id: at.id,
+            title: at.title,
+            prompt: at.prompt,
+            kind: 'daily',
+            time: '09:30:00.000',
+            timeZone: 'UTC',
+            scheduledAt: at.scheduledAt,
+          },
+        },
+      })
       await pending.promise
     })
     expect(screen.queryByRole('complementary')).toBeNull()
@@ -525,8 +598,11 @@ describe('task tab chip', () => {
     } as ScheduleTaskTabTitleProps
     const view = render(<ScheduleTaskTabTitle {...props} />)
     expect(view.container.textContent).toBe('Metrics review')
-    const missing = { ...props, useCatalog: <T,>(select: (value: CatalogSnapshot<ScheduleCatalogEntry>) => T): T =>
-      select({ records: [], status: 'ready', deleting: [], settled: true, readRequest: 0, readSettled: 0 }) }
+    const missing = {
+      ...props,
+      useCatalog: <T,>(select: (value: CatalogSnapshot<ScheduleCatalogEntry>) => T): T =>
+        select({ records: [], status: 'ready', deleting: [], settled: true, readRequest: 0, readSettled: 0 }),
+    }
     view.rerender(<ScheduleTaskTabTitle {...missing} />)
     expect(view.container.textContent).toBe(en['detail.label'])
   })

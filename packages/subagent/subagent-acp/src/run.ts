@@ -86,14 +86,7 @@ export const DEFAULT_DISPOSE_GRACE_MS = 3_000
 
 type AcpFailureStage = 'initialize' | 'new-session' | 'prompt' | 'process' | 'teardown'
 
-type AcpFailureCategory =
-  | 'protocol'
-  | 'configuration'
-  | 'transport'
-  | 'process-start'
-  | 'process-exit'
-  | 'remote-limit'
-  | 'unknown'
+type AcpFailureCategory = 'protocol' | 'configuration' | 'transport' | 'process-start' | 'process-exit' | 'remote-limit' | 'unknown'
 
 interface AcpFailureFacts {
   readonly stage: AcpFailureStage
@@ -109,17 +102,21 @@ interface AcpPermissionDecision {
 }
 
 const ACP_TOOL_KINDS: ReadonlySet<string> = new Set([
-  'read', 'edit', 'delete', 'move', 'search',
-  'execute', 'think', 'fetch', 'switch_mode', 'other',
+  'read',
+  'edit',
+  'delete',
+  'move',
+  'search',
+  'execute',
+  'think',
+  'fetch',
+  'switch_mode',
+  'other',
 ])
 
 /** Fixed safe failure text derived only from provider-owned structured facts. */
 function failureDiagnostic(facts: AcpFailureFacts): string {
-  const fields = [
-    'provider: ACP',
-    `stage: ${facts.stage}`,
-    `category: ${facts.category}`,
-  ]
+  const fields = ['provider: ACP', `stage: ${facts.stage}`, `category: ${facts.category}`]
   if (facts.stopReason !== undefined) fields.push(`stop reason: ${facts.stopReason}`)
   if (facts.outcome?.exitCode !== null && facts.outcome?.exitCode !== undefined) {
     fields.push(`exit code: ${facts.outcome.exitCode}`)
@@ -144,10 +141,7 @@ function diagnosticText(facts: AcpFailureFacts, permission?: AcpPermissionDecisi
 
 class AcpRunFailure extends Error {
   constructor(facts: AcpFailureFacts, cause: unknown) {
-    super(
-      `subagent-acp: ${failureDiagnostic(facts)}`,
-      { cause },
-    )
+    super(`subagent-acp: ${failureDiagnostic(facts)}`, { cause })
     this.name = 'AcpRunFailure'
   }
 }
@@ -164,15 +158,15 @@ export function acpConfigurationFailure(cause: unknown): Error {
 /** Keep only the closed ACP tool-kind vocabulary; future values use a fixed fallback. */
 function permissionRequestKind(kind: ToolKind | null | undefined): ToolKind | 'unknown' {
   const candidate = kind ?? 'unknown'
-  return ACP_TOOL_KINDS.has(candidate)
-    ? candidate
-    : 'unknown'
+  return ACP_TOOL_KINDS.has(candidate) ? candidate : 'unknown'
 }
 
 /** Bounded managed-range exit wait: observes the handle's range until it is empty or `ms` elapses. */
 async function rangeExitsWithin(child: SubprocessHandle, ms: number): Promise<boolean> {
   const controller = new AbortController()
-  const timer = setTimeout(() => { controller.abort() }, ms)
+  const timer = setTimeout(() => {
+    controller.abort()
+  }, ms)
   try {
     return await child.waitForExit(controller.signal)
   } finally {
@@ -289,33 +283,29 @@ function startupFailure(
 ): AcpRunFailure {
   return new AcpRunFailure(
     /* v8 ignore next -- Windows anonymous pipes cannot expose a live-child protocol close during startup. */
-    outcome === undefined
-      ? { stage, category: 'transport' }
-      : { stage, category: 'process-exit', outcome },
+    outcome === undefined ? { stage, category: 'transport' } : { stage, category: 'process-exit', outcome },
     error,
   )
 }
 
 /** Map one remote terminal reason to the optional safe failure line it needs. */
-function terminalFailure(
-  reason: StopReason,
-  permission: AcpPermissionDecision | undefined,
-): string | undefined {
+function terminalFailure(reason: StopReason, permission: AcpPermissionDecision | undefined): string | undefined {
   switch (reason) {
     case 'end_turn':
       return undefined
     case 'max_turn_requests':
-      return diagnosticText({
-        stage: 'prompt',
-        category: 'remote-limit',
-        stopReason: 'max_turn_requests',
-      }, permission)
+      return diagnosticText(
+        {
+          stage: 'prompt',
+          category: 'remote-limit',
+          stopReason: 'max_turn_requests',
+        },
+        permission,
+      )
     case 'max_tokens':
     case 'refusal':
     case 'cancelled':
-      return permission === undefined
-        ? undefined
-        : permissionDiagnostic(permission)
+      return permission === undefined ? undefined : permissionDiagnostic(permission)
     default:
       return diagnosticText({ stage: 'prompt', category: 'unknown', stopReason: 'unknown' }, permission)
   }
@@ -364,7 +354,7 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
   let processOutcome: SubprocessOutcome | undefined
   let processFailure: Error | undefined
   const processDone = child.done.then(
-    (outcome) => {
+    outcome => {
       processOutcome = outcome
       return outcome
     },
@@ -383,7 +373,9 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
     () => new Promise<never>(() => {}),
     (err: unknown) => Promise.reject(toError(err)),
   )
-  processRejected.catch(() => { /* observed by the startup race; never unhandled */ })
+  processRejected.catch(() => {
+    /* observed by the startup race; never unhandled */
+  })
 
   const observeProcessOutcome = async (signal?: AbortSignal): Promise<SubprocessOutcome | undefined> => {
     if (processOutcome !== undefined) return processOutcome
@@ -391,7 +383,9 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
     const bound = signal === undefined ? timeout : AbortSignal.any([signal, timeout])
     const aborted = Promise.withResolvers<undefined>()
     /* v8 ignore next -- Windows cannot expose the live-child protocol close needed to await this abort. */
-    const onObservationAbort = (): void => { aborted.resolve(undefined) }
+    const onObservationAbort = (): void => {
+      aborted.resolve(undefined)
+    }
     bound.addEventListener('abort', onObservationAbort, { once: true })
     /* v8 ignore next -- closes the event-loop race between listener registration and the preceding derived-signal check. */
     if (bound.aborted) onObservationAbort()
@@ -450,17 +444,21 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
       return Promise.resolve({ outcome: { outcome: 'cancelled' } })
     })
 
-  const connection = clientApp.connect(ndJsonStream(
-    NodeWritable.toWeb(child.stdin) as WritableStream<Uint8Array>,
-    NodeReadable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
-  ))
+  const connection = clientApp.connect(
+    ndJsonStream(
+      NodeWritable.toWeb(child.stdin) as WritableStream<Uint8Array>,
+      NodeReadable.toWeb(child.stdout) as ReadableStream<Uint8Array>,
+    ),
+  )
   const agent = connection.agent
 
   let sessionId: string | undefined
   let startupStage: Extract<AcpFailureStage, 'initialize' | 'new-session'> = 'initialize'
   // Cancellation settles the result without waiting for a cooperative child.
   let signalCancelSettled!: () => void
-  const cancelSettled = new Promise<void>((resolve) => { signalCancelSettled = resolve })
+  const cancelSettled = new Promise<void>(resolve => {
+    signalCancelSettled = resolve
+  })
   const requestCancel = (): void => {
     if (flags.cancelled) return
     flags.cancelled = true
@@ -468,10 +466,14 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
     // Best-effort ACP cancel; process teardown remains authoritative.
     /* v8 ignore next */
     if (sessionId !== undefined) {
-      void agent.notify(methods.agent.session.cancel, { sessionId }).catch(() => { /* child gone / no session */ })
+      void agent.notify(methods.agent.session.cancel, { sessionId }).catch(() => {
+        /* child gone / no session */
+      })
     }
   }
-  const onAbort = (): void => { requestCancel() }
+  const onAbort = (): void => {
+    requestCancel()
+  }
   request.signal.addEventListener('abort', onAbort, { once: true })
 
   // Read at every return so a partial answer survives a later cancel/error.
@@ -492,17 +494,16 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
         const session = await agent.request(methods.agent.session.new, { cwd: spec.cwd, mcpServers: [] })
         const returnedSessionId: unknown = Reflect.get(session, 'sessionId')
         if (typeof returnedSessionId !== 'string') {
-          throw new AcpRunFailure(
-            { stage: 'new-session', category: 'protocol' },
-            new Error('ACP child published without a session id'),
-          )
+          throw new AcpRunFailure({ stage: 'new-session', category: 'protocol' }, new Error('ACP child published without a session id'))
         }
         sessionId = returnedSessionId
         /* v8 ignore next -- cancelSettled wins the startup race before this post-response guard can settle it. */
         if (flags.cancelled) throw new Error('subagent cancelled before the ACP session started')
       })(),
       processRejected,
-      cancelSettled.then((): never => { throw new Error('subagent cancelled before the ACP session started') }),
+      cancelSettled.then((): never => {
+        throw new Error('subagent cancelled before the ACP session started')
+      }),
     ])
   } catch (error: unknown) {
     request.signal.removeEventListener('abort', onAbort)
@@ -510,41 +511,35 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
     // A child closing its protocol stream can precede whole-range exit
     // observation. Local cancellation does not need the discarded startup
     // classification; other failures use the configured process grace.
-    const observedOutcome = !cancelledBeforeCleanup && !(error instanceof AcpRunFailure)
-      ? await observeProcessOutcome()
-      : undefined
+    const observedOutcome = !cancelledBeforeCleanup && !(error instanceof AcpRunFailure) ? await observeProcessOutcome() : undefined
     const startup = cancelledBeforeCleanup
-      ? { kind: 'cancelled' } as const
-      : {
-        kind: 'failed',
-        failure: error instanceof AcpRunFailure
-          ? error
-          : startupFailure(error, startupStage, observedOutcome),
-      } as const
+      ? ({ kind: 'cancelled' } as const)
+      : ({
+          kind: 'failed',
+          failure: error instanceof AcpRunFailure ? error : startupFailure(error, startupStage, observedOutcome),
+        } as const)
     if (startup.kind === 'cancelled') {
       // Local cancellation owns the startup outcome; only cleanup failure is
       // reported below when teardown itself rejects.
     } else {
-      reportFailure(spec, error instanceof AcpRunFailure
-        ? error.cause
-        : processFailure ?? error)
+      reportFailure(spec, error instanceof AcpRunFailure ? error.cause : (processFailure ?? error))
     }
     try {
       await disposeProcess()
     } catch (cleanupError: unknown) {
       reportFailure(spec, cleanupError)
-      const cleanupFailure = new AcpRunFailure({
-        stage: 'teardown',
-        category: processOutcome === undefined ? 'unknown' : 'process-exit',
-        ...(processOutcome === undefined ? {} : { outcome: processOutcome }),
-      }, cleanupError)
+      const cleanupFailure = new AcpRunFailure(
+        {
+          stage: 'teardown',
+          category: processOutcome === undefined ? 'unknown' : 'process-exit',
+          ...(processOutcome === undefined ? {} : { outcome: processOutcome }),
+        },
+        cleanupError,
+      )
       if (startup.kind === 'cancelled') {
         throw new AggregateError([cleanupFailure], cleanupFailure.message)
       }
-      throw new AggregateError(
-        [startup.failure, cleanupFailure],
-        `${startup.failure.message}; ${cleanupFailure.message}`,
-      )
+      throw new AggregateError([startup.failure, cleanupFailure], `${startup.failure.message}; ${cleanupFailure.message}`)
     }
     if (startup.kind === 'cancelled') {
       throw new Error('subagent request was aborted before the ACP child started')
@@ -566,7 +561,9 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
             sessionId: remoteSessionId,
             prompt: toAcpPrompt(request.prompt),
           }),
-          cancelSettled.then((): never => { throw new Error('subagent cancelled while the ACP prompt was running') }),
+          cancelSettled.then((): never => {
+            throw new Error('subagent cancelled while the ACP prompt was running')
+          }),
         ])
         const stopReason = acpStopReason(promptResult.stopReason)
         diagnostic = terminalFailure(promptResult.stopReason, latestPermission)
@@ -578,9 +575,10 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
       } catch (error: unknown) {
         if (!flags.cancelled) {
           const outcome = await observeProcessOutcome(request.signal)
-          const facts = outcome === undefined
-            ? { stage: 'prompt', category: 'transport' } as const
-            : { stage: 'process', category: 'process-exit', outcome } as const
+          const facts =
+            outcome === undefined
+              ? ({ stage: 'prompt', category: 'transport' } as const)
+              : ({ stage: 'process', category: 'process-exit', outcome } as const)
           diagnostic = diagnosticText(facts, latestPermission)
         }
         throw processFailure ?? error
@@ -607,11 +605,14 @@ export async function startAcpRun(request: SubagentStartRequest, spec: AcpRunSpe
         await disposeProcess()
       } catch (error: unknown) {
         reportFailure(spec, error)
-        throw new AcpRunFailure({
-          stage: 'teardown',
-          category: processOutcome === undefined ? 'unknown' : 'process-exit',
-          ...(processOutcome === undefined ? {} : { outcome: processOutcome }),
-        }, error)
+        throw new AcpRunFailure(
+          {
+            stage: 'teardown',
+            category: processOutcome === undefined ? 'unknown' : 'process-exit',
+            ...(processOutcome === undefined ? {} : { outcome: processOutcome }),
+          },
+          error,
+        )
       }
     },
   })

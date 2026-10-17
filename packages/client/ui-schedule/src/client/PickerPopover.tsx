@@ -50,7 +50,9 @@ export function PickerPopover({ open, anchorRef, label, className, onClose, chil
       aria-label={label}
       // A click inside the panel belongs to the picker, not to the row that
       // opened it: React bubbles portal events through the React tree.
-      onClick={(event) => { event.stopPropagation() }}
+      onClick={event => {
+        event.stopPropagation()
+      }}
     >
       {children}
     </div>,

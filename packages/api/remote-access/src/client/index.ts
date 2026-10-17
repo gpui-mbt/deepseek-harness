@@ -16,7 +16,12 @@ import { mountAccess } from './mount.ts'
 import { parseInjectedBaseline } from './state.ts'
 
 export type {
-  RemoteAccessAction, RemoteAccessEndpoint, RemoteAccessFrame, RemoteAccessGrant, RemoteAccessResource, TypertResourceKind,
+  RemoteAccessAction,
+  RemoteAccessEndpoint,
+  RemoteAccessFrame,
+  RemoteAccessGrant,
+  RemoteAccessResource,
+  TypertResourceKind,
 } from '../types.ts'
 export type { ClientRemoteAccess, RemoteEndpoint } from './mount.ts'
 

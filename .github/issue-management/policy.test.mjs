@@ -7,12 +7,7 @@ import test from 'node:test'
 
 import { api, graphql, initializeIssueStartDate, issueSnapshot } from './github.mjs'
 import { auditIssue, initializePullRequestStartDates, repairIssueLabels, runLifecycle } from './lifecycle.mjs'
-import {
-  lifecyclePullRequestSnapshot,
-  pullRequestSnapshot,
-  runPullRequestCheck,
-  runPullRequestPreflight,
-} from './pull-request.mjs'
+import { lifecyclePullRequestSnapshot, pullRequestSnapshot, runPullRequestCheck, runPullRequestPreflight } from './pull-request.mjs'
 import {
   nextResolvingIssueStatus,
   parseReferences,
@@ -83,8 +78,7 @@ const projectGraphqlData = ({
                 id: 'item-id',
                 project: { id: 'project-id' },
                 fieldValueByName: { name: 'Inbox', optionId: 'inbox-option-id' },
-                priorityValue:
-                  priority === null ? null : { name: priority, optionId: `${priority}-option-id` },
+                priorityValue: priority === null ? null : { name: priority, optionId: `${priority}-option-id` },
                 startDateValue: startDate === null ? null : { date: startDate },
               },
             ]
@@ -121,14 +115,7 @@ const legalIssue = {
   stateReason: null,
 }
 
-const canonicalKinds = [
-  'kind/feature',
-  'kind/bug-fix',
-  'kind/doc',
-  'kind/testing',
-  'kind/cleanup',
-  'kind/dependency',
-]
+const canonicalKinds = ['kind/feature', 'kind/bug-fix', 'kind/doc', 'kind/testing', 'kind/cleanup', 'kind/dependency']
 
 // Keep an independent oracle rather than importing the implementation's reserved set.
 const legacyLabels = [
@@ -146,7 +133,7 @@ const legacyLabels = [
   'web-search',
 ]
 
-const reviewedPull = (labels) => ({
+const reviewedPull = labels => ({
   isDraft: false,
   authorType: 'User',
   reviewRequestCount: 1,
@@ -166,24 +153,18 @@ test('keeps only Bug, Feature, and Task Issue templates with used frontmatter', 
     const keys = frontmatter
       .split('\n')
       .filter(Boolean)
-      .map((line) => line.slice(0, line.indexOf(':')))
+      .map(line => line.slice(0, line.indexOf(':')))
       .sort()
     assert.deepEqual(keys, ['about', 'name', 'type'], file)
     assert.match(source, /^## /m, file)
     assert.match(source, /<!-- [^\n]+ -->/, file)
     assert.doesNotMatch(source, /<details\b/i, file)
   }
-  assert.equal(
-    readFileSync(new URL('config.yml', directory), 'utf8'),
-    'blank_issues_enabled: false\n',
-  )
+  assert.equal(readFileSync(new URL('config.yml', directory), 'utf8'), 'blank_issues_enabled: false\n')
 })
 
 test('keeps Feature Issues limited to motivation and behavior', () => {
-  const source = readFileSync(
-    new URL('../ISSUE_TEMPLATE/feature.md', import.meta.url),
-    'utf8',
-  )
+  const source = readFileSync(new URL('../ISSUE_TEMPLATE/feature.md', import.meta.url), 'utf8')
   assert.deepEqual(
     [...source.matchAll(/^## .+$/gm)].map(([heading]) => heading),
     ['## Motivation', '## Behavior'],
@@ -212,10 +193,7 @@ test('structures the pull request template around motivation, changes, and testi
     assert.match(source, new RegExp(`^${heading.replaceAll('#', '\\#')}$`, 'm'))
   }
   assert.doesNotMatch(source, /^### /m)
-  assert.match(
-    source,
-    /<!-- 高层次说明命令[^\n]+ -->\n<!-- 高层次说明用户[^\n]+ -->/,
-  )
+  assert.match(source, /<!-- 高层次说明命令[^\n]+ -->\n<!-- 高层次说明用户[^\n]+ -->/)
   assert.match(source, /- <!-- [^\n]+ -->\n\n  <details>\n  <summary>Proof<\/summary>/)
   assert.equal(source.match(/<details>/g)?.length, 1)
   assert.equal(source.match(/<\/details>/g)?.length, 1)
@@ -241,22 +219,16 @@ test('allows optional metadata in every open Status', () => {
 })
 
 test('reserves PR kind and legacy labels for pull requests', () => {
-  for (const label of [
-    ...canonicalKinds,
-    'kind/experimental',
-    ...legacyLabels,
-  ]) {
+  for (const label of [...canonicalKinds, 'kind/experimental', ...legacyLabels]) {
     assert.ok(
-      validateIssue({ ...legalIssue, labels: [label] }).some((error) =>
-        error.startsWith('Issue 不得使用 PR kind 或旧版标签：'),
-      ),
+      validateIssue({ ...legalIssue, labels: [label] }).some(error => error.startsWith('Issue 不得使用 PR kind 或旧版标签：')),
       label,
     )
   }
   assert.deepEqual(validateIssue({ ...legalIssue, labels: ['area/web', 'source/member'] }), [])
 })
 
-test('removes reserved labels from Issues before validation', async (t) => {
+test('removes reserved labels from Issues before validation', async t => {
   const previousToken = process.env.GH_TOKEN
   process.env.GH_TOKEN = 'test-token'
   t.after(() => {
@@ -295,7 +267,7 @@ test('removes reserved labels from Issues before validation', async (t) => {
   ])
 })
 
-test('deletes a stale audit comment after repairing its only violation', async (t) => {
+test('deletes a stale audit comment after repairing its only violation', async t => {
   const previousToken = process.env.GH_TOKEN
   process.env.GH_TOKEN = 'test-token'
   t.after(() => {
@@ -352,10 +324,7 @@ test('deletes a stale audit comment after repairing its only violation', async (
 })
 
 test('keeps terminal Status aligned with the native close reason', () => {
-  assert.deepEqual(
-    validateIssue({ ...legalIssue, status: 'Done', state: 'closed', stateReason: 'completed' }),
-    [],
-  )
+  assert.deepEqual(validateIssue({ ...legalIssue, status: 'Done', state: 'closed', stateReason: 'completed' }), [])
   assert.deepEqual(
     validateIssue({
       ...legalIssue,
@@ -405,7 +374,7 @@ test('initializes every referenced Issue only for a PR opened event', async () =
   assert.equal(writes.length, 3)
 })
 
-test('reads Priority and Status from Project custom fields', async (t) => {
+test('reads Priority and Status from Project custom fields', async t => {
   const previousGhToken = process.env.GH_TOKEN
   const previousGithubToken = process.env.GITHUB_TOKEN
   const previousProjectToken = process.env.PROJECT_TOKEN
@@ -445,14 +414,11 @@ test('reads Priority and Status from Project custom fields', async (t) => {
 
   assert.equal(issue.priority, 'P1')
   assert.equal(issue.status, 'Inbox')
-  assert.deepEqual(urls, [
-    'https://api.github.com/repos/deepseek-harness/deepseek-harness/issues/42',
-    'https://api.github.com/graphql',
-  ])
+  assert.deepEqual(urls, ['https://api.github.com/repos/deepseek-harness/deepseek-harness/issues/42', 'https://api.github.com/graphql'])
 })
 
-test('writes an empty Project Start Date with the configured field', async (t) => {
-  const requests = mockGraphql(t, (request) => {
+test('writes an empty Project Start Date with the configured field', async t => {
+  const requests = mockGraphql(t, request => {
     if (request.query.includes('query(')) return projectGraphqlData()
     return { updateProjectV2ItemFieldValue: { projectV2Item: { id: 'item-id' } } }
   })
@@ -475,7 +441,7 @@ test('writes an empty Project Start Date with the configured field', async (t) =
   })
 })
 
-test('preserves an existing Project Start Date', async (t) => {
+test('preserves an existing Project Start Date', async t => {
   const requests = mockGraphql(t, () => projectGraphqlData({ startDate: '2026-08-01' }))
 
   await initializeIssueStartDate(42, '2026-08-28')
@@ -483,8 +449,8 @@ test('preserves an existing Project Start Date', async (t) => {
   assert.equal(requests.length, 1)
 })
 
-test('adds a referenced Issue to the Project before setting Start Date', async (t) => {
-  const requests = mockGraphql(t, (request) => {
+test('adds a referenced Issue to the Project before setting Start Date', async t => {
+  const requests = mockGraphql(t, request => {
     if (request.query.includes('query(')) return projectGraphqlData({ projectItem: false })
     if (request.query.includes('addProjectV2ItemById')) {
       return { addProjectV2ItemById: { item: { id: 'new-item-id' } } }
@@ -504,7 +470,7 @@ test('adds a referenced Issue to the Project before setting Start Date', async (
   })
 })
 
-test('rejects a missing, non-Date, or Issue-level Start Date field', async (t) => {
+test('rejects a missing, non-Date, or Issue-level Start Date field', async t => {
   let response = projectGraphqlData({ startDateField: false })
   const requests = mockGraphql(t, () => response)
 
@@ -512,28 +478,19 @@ test('rejects a missing, non-Date, or Issue-level Start Date field', async (t) =
   response = projectGraphqlData({ startDateType: 'TEXT' })
   await assert.rejects(initializeIssueStartDate(42, '2026-08-28'), /Start Date 字段必须为 Date/)
   response = projectGraphqlData({ startDateIsIssueField: true })
-  await assert.rejects(
-    initializeIssueStartDate(42, '2026-08-28'),
-    /Start Date 字段必须为 Project Date 字段/,
-  )
+  await assert.rejects(initializeIssueStartDate(42, '2026-08-28'), /Start Date 字段必须为 Project Date 字段/)
   assert.equal(requests.length, 3)
 })
 
-test('rejects a missing, non-select, or Issue-level Priority field', async (t) => {
+test('rejects a missing, non-select, or Issue-level Priority field', async t => {
   let response = projectGraphqlData({ priorityField: false })
   const requests = mockGraphql(t, () => response)
 
   await assert.rejects(initializeIssueStartDate(42, '2026-08-28'), /Project 缺少 Priority 字段/)
   response = projectGraphqlData({ priorityType: 'TEXT' })
-  await assert.rejects(
-    initializeIssueStartDate(42, '2026-08-28'),
-    /Priority 字段必须为 Single Select/,
-  )
+  await assert.rejects(initializeIssueStartDate(42, '2026-08-28'), /Priority 字段必须为 Single Select/)
   response = projectGraphqlData({ priorityIsIssueField: true })
-  await assert.rejects(
-    initializeIssueStartDate(42, '2026-08-28'),
-    /Priority 字段必须为 Project custom field/,
-  )
+  await assert.rejects(initializeIssueStartDate(42, '2026-08-28'), /Priority 字段必须为 Project custom field/)
   assert.equal(requests.length, 3)
 })
 
@@ -582,11 +539,7 @@ test('enforces highest resolving Priority without Type or area synchronization',
     ]),
   }
   assert.deepEqual(validatePullRequest(pull), [])
-  assert.ok(
-    validatePullRequest({ ...pull, labels: ['kind/cleanup', 'p2', 'area/web'] }).includes(
-      'PR Priority 应为 p0',
-    ),
-  )
+  assert.ok(validatePullRequest({ ...pull, labels: ['kind/cleanup', 'p2', 'area/web'] }).includes('PR Priority 应为 p0'))
 })
 
 test('requires policy only after a human PR enters review', () => {
@@ -646,21 +599,12 @@ test('keeps PR opening, reopening, and body edits as implementation signals', ()
   for (const action of ['opened', 'reopened']) {
     assert.equal(resolvingIssueStatusCommand('pull_request', { action }), 'implementation')
   }
-  assert.equal(
-    resolvingIssueStatusCommand('pull_request', { action: 'edited', changes: { body: { from: '' } } }),
-    'implementation',
-  )
+  assert.equal(resolvingIssueStatusCommand('pull_request', { action: 'edited', changes: { body: { from: '' } } }), 'implementation')
   for (const action of ['synchronize', 'labeled', 'unlabeled', 'edited']) {
     assert.equal(resolvingIssueStatusCommand('pull_request', { action }), null)
   }
-  assert.equal(
-    resolvingIssueStatusCommand('pull_request', { action: 'edited', changes: { title: { from: '' } } }),
-    null,
-  )
-  assert.equal(
-    resolvingIssueStatusCommand('pull_request', { action: 'review_request_removed' }),
-    null,
-  )
+  assert.equal(resolvingIssueStatusCommand('pull_request', { action: 'edited', changes: { title: { from: '' } } }), null)
+  assert.equal(resolvingIssueStatusCommand('pull_request', { action: 'review_request_removed' }), null)
 })
 
 test('toggles automation-owned work on request changes and repeated review request', () => {
@@ -669,11 +613,7 @@ test('toggles automation-owned work on request changes and repeated review reque
     assert.equal(nextResolvingIssueStatus(status, 'review-requested'), 'In review')
     assert.equal(nextResolvingIssueStatus(status, 'changes-requested'), 'In progress')
   }
-  let status = nextResolvingIssueStatus(
-    'In review',
-    'changes-requested',
-    'dsh-issue-management',
-  )
+  let status = nextResolvingIssueStatus('In review', 'changes-requested', 'dsh-issue-management')
   assert.equal(status, 'In progress')
   status = nextResolvingIssueStatus(status, 'review-requested')
   assert.equal(status, 'In review')
@@ -742,33 +682,25 @@ test('accepts exactly the canonical kinds with extensible areas', () => {
 
 test('rejects multiple, unknown, legacy, and Issue-source PR labels', () => {
   assert.ok(
-    validatePullRequest(
-      reviewedPull(['kind/feature', 'kind/doc', 'area/web']),
-    ).includes('PR 必须恰好有一个允许的 kind/*，当前为 2'),
+    validatePullRequest(reviewedPull(['kind/feature', 'kind/doc', 'area/web'])).includes('PR 必须恰好有一个允许的 kind/*，当前为 2'),
   )
-  assert.ok(
-    validatePullRequest(reviewedPull(['kind/experimental', 'area/web'])).includes(
-      'PR 含不支持的 kind/*：kind/experimental',
-    ),
-  )
+  assert.ok(validatePullRequest(reviewedPull(['kind/experimental', 'area/web'])).includes('PR 含不支持的 kind/*：kind/experimental'))
   for (const label of legacyLabels) {
     assert.ok(
-      validatePullRequest(reviewedPull(['kind/feature', 'area/web', label])).some((error) =>
-        error.startsWith('PR 含旧版标签：'),
-      ),
+      validatePullRequest(reviewedPull(['kind/feature', 'area/web', label])).some(error => error.startsWith('PR 含旧版标签：')),
       label,
     )
   }
   assert.ok(
-    validatePullRequest(
-      reviewedPull(['kind/feature', 'area/web', 'source/internal-pr']),
-    ).includes('source/* 仅用于 Issue：source/internal-pr'),
+    validatePullRequest(reviewedPull(['kind/feature', 'area/web', 'source/internal-pr'])).includes(
+      'source/* 仅用于 Issue：source/internal-pr',
+    ),
   )
 })
 
 const mockPolicyApi = (t, { pull = {}, requested = true, reviews = [], issues = {}, priority = 'P1', projectError = false } = {}) => {
   const environment = ['GH_TOKEN', 'GITHUB_TOKEN', 'PROJECT_TOKEN', 'GITHUB_API_URL', 'GITHUB_OUTPUT']
-  const previous = new Map(environment.map((key) => [key, process.env[key]]))
+  const previous = new Map(environment.map(key => [key, process.env[key]]))
   const directory = mkdtempSync(join(tmpdir(), 'dsh-policy-'))
   t.after(() => {
     for (const [key, value] of previous) {
@@ -782,14 +714,21 @@ const mockPolicyApi = (t, { pull = {}, requested = true, reviews = [], issues = 
   process.env.GITHUB_OUTPUT = join(directory, 'output')
   const requests = []
   const output = []
-  t.mock.method(process.stdout, 'write', (text) => { output.push(text); return true })
+  t.mock.method(process.stdout, 'write', text => {
+    output.push(text)
+    return true
+  })
   t.mock.method(globalThis, 'fetch', async (url, options) => {
     const path = new URL(url).pathname + new URL(url).search
     requests.push(path)
-    if (path.endsWith('/pulls/10')) return Response.json({
-      draft: false, user: { type: 'User' }, body: 'Refs #2',
-      labels: [{ name: 'kind/cleanup' }, { name: 'area/infra' }], ...pull,
-    })
+    if (path.endsWith('/pulls/10'))
+      return Response.json({
+        draft: false,
+        user: { type: 'User' },
+        body: 'Refs #2',
+        labels: [{ name: 'kind/cleanup' }, { name: 'area/infra' }],
+        ...pull,
+      })
     if (path.endsWith('/requested_reviewers')) {
       return Response.json({ users: requested ? [{}] : [], teams: [] })
     }
@@ -813,7 +752,7 @@ for (const [name, pull, requested, count] of [
   ['App', { user: { type: 'App' } }, true, 1],
   ['not reviewed', {}, false, 3],
 ]) {
-  test('reads no Issue or Project for a currently exempt ' + name + ' PR', async (t) => {
+  test('reads no Issue or Project for a currently exempt ' + name + ' PR', async t => {
     const fixture = mockPolicyApi(t, { pull: { body: 'Fixes #999', ...pull }, requested })
     const event = { pull_request: { number: 10, draft: false, user: { type: 'User' } } }
     assert.deepEqual(await runPullRequestPreflight(event), { eligible: false, needsProject: false })
@@ -821,11 +760,11 @@ for (const [name, pull, requested, count] of [
     assert.equal(fixture.workflowOutput(), 'eligible=false\nexempt=true\nneeds-project=false\n')
     await runPullRequestCheck(event)
     assert.equal(fixture.requests.length, count * 2)
-    assert.ok(fixture.output.every((text) => text.includes('Issue policy exempt')))
+    assert.ok(fixture.output.every(text => text.includes('Issue policy exempt')))
   })
 }
 
-test('validates informational Issues and ignores PR numbers without Project reads', async (t) => {
+test('validates informational Issues and ignores PR numbers without Project reads', async t => {
   const fixture = mockPolicyApi(t, { pull: { body: 'Refs #2; Fixes #3' }, issues: { 2: {}, 3: { pull_request: {} } } })
   const event = { pull_request: { number: 10, draft: true, body: 'Fixes #999' } }
   assert.deepEqual(await runPullRequestPreflight(event), { eligible: true, needsProject: false })
@@ -836,14 +775,14 @@ test('validates informational Issues and ignores PR numbers without Project read
   assert.ok(!fixture.requests.includes('/graphql'))
 })
 
-test('requires a real Issue and explains why stacked PR references do not qualify', async (t) => {
+test('requires a real Issue and explains why stacked PR references do not qualify', async t => {
   const fixture = mockPolicyApi(t, { pull: { body: 'Fixes #3' }, issues: { 3: { pull_request: {} } } })
   await assert.rejects(runPullRequestCheck({ pull_request: { number: 10 } }), /Issue policy 未通过/)
   assert.equal(fixture.requests.length, 4)
   assert.match(fixture.output.join(''), /PR 编号（包括堆叠依赖 PR）不算 Issue 引用/)
 })
 
-test('fetches Project Priority only for resolving Issues and enforces mismatch', async (t) => {
+test('fetches Project Priority only for resolving Issues and enforces mismatch', async t => {
   const fixture = mockPolicyApi(t, { pull: { body: 'Fixes #2; Refs #4; Fixes #3' }, issues: { 2: {}, 4: {}, 3: { pull_request: {} } } })
   const event = { pull_request: { number: 10 } }
   assert.deepEqual(await runPullRequestPreflight(event), { eligible: true, needsProject: true })
@@ -852,24 +791,27 @@ test('fetches Project Priority only for resolving Issues and enforces mismatch',
   assert.ok(!fixture.requests.includes('/graphql'))
   await assert.rejects(runPullRequestCheck(event), /Issue policy 未通过/)
   assert.equal(fixture.requests.length, 13)
-  assert.equal(fixture.requests.filter((path) => path === '/graphql').length, 1)
+  assert.equal(fixture.requests.filter(path => path === '/graphql').length, 1)
   assert.match(fixture.output.join(''), /PR Priority 应为 p1/)
 })
 
-test('enforces current metadata on title edits and prior reviews without requested reviewers', async (t) => {
+test('enforces current metadata on title edits and prior reviews without requested reviewers', async t => {
   const fixture = mockPolicyApi(t, { requested: false, reviews: [{}], pull: { labels: [] }, issues: { 2: {} } })
-  await assert.rejects(runPullRequestCheck({ action: 'edited', changes: { title: { from: 'old' } }, pull_request: { number: 10 } }), /Issue policy 未通过/)
+  await assert.rejects(
+    runPullRequestCheck({ action: 'edited', changes: { title: { from: 'old' } }, pull_request: { number: 10 } }),
+    /Issue policy 未通过/,
+  )
   assert.equal(fixture.requests.length, 4)
   assert.match(fixture.output.join(''), /PR 必须至少有一个 area/)
 })
 
-test('fails closed on missing referenced numbers and unavailable Project access', async (t) => {
+test('fails closed on missing referenced numbers and unavailable Project access', async t => {
   const fixture = mockPolicyApi(t, { pull: { body: 'Fixes #2' }, issues: { 2: null } })
   await assert.rejects(runPullRequestPreflight({ pull_request: { number: 10 } }), /404/)
   assert.equal(fixture.requests.length, 4)
 })
 
-test('fails closed when current resolving Issues need a Project token preflight did not mint', async (t) => {
+test('fails closed when current resolving Issues need a Project token preflight did not mint', async t => {
   const pull = { draft: true, body: 'Fixes #2' }
   const fixture = mockPolicyApi(t, { pull, issues: { 2: {} }, projectError: true })
   const event = { pull_request: { number: 10 } }
@@ -879,7 +821,7 @@ test('fails closed when current resolving Issues need a Project token preflight 
   assert.equal(fixture.requests.length, 6)
 })
 
-test('performs no lifecycle requests for removed signals or title-only edits', async (t) => {
+test('performs no lifecycle requests for removed signals or title-only edits', async t => {
   const fixture = mockPolicyApi(t)
   for (const action of ['synchronize', 'labeled', 'unlabeled']) {
     await runLifecycle('pull_request', { action, pull_request: { number: 10 } })
@@ -914,65 +856,89 @@ test('keeps trusted preflight before token minting and required policy unconditi
   assert.ok(steps[3].includes("if: ${{ steps.preflight.outputs.legacy-automated != 'true' }}"))
 })
 
-test('runs trusted rollout selection with absent and present capability markers', { skip: process.platform === 'win32' ? 'The policy workflow executes under hosted Ubuntu bash' : false }, (t) => {
-  const directory = mkdtempSync(join(tmpdir(), 'dsh-policy-rollout-'))
-  t.after(() => rmSync(directory, { recursive: true, force: true }))
-  const source = readFileSync(new URL('../workflows/issue-policy.yml', import.meta.url), 'utf8')
-  const script = source.split('        run: |\n')[1].split('      - name: Create Project read token')[0]
-    .split('\n').map((line) => line.slice(10)).join('\n')
-  assert.deepEqual(JSON.parse(readFileSync(new URL('./selective-preflight.json', import.meta.url), 'utf8')), { version: 1 })
-  const cases = [
-    { name: 'legacy human draft', type: 'User', draft: true, marker: false, expected: 'legacy-automated=false\nneeds-project=true\n' },
-    { name: 'legacy human ready', type: 'User', draft: false, marker: false, expected: 'legacy-automated=false\nneeds-project=true\n' },
-    { name: 'legacy bot', type: 'Bot', marker: false, expected: 'legacy-automated=true\nneeds-project=false\n' },
-    { name: 'legacy app', type: 'App', marker: false, expected: 'legacy-automated=true\nneeds-project=false\n' },
-    { name: 'modern exempt', type: 'Bot', marker: true, expected: 'exempt=true\nneeds-project=false\n' },
-    { name: 'modern failure', type: 'User', marker: true, failure: true, expected: '' },
-  ]
-  for (const [index, fixture] of cases.entries()) {
-    const cwd = join(directory, String(index))
-    const policyDirectory = join(cwd, '.github', 'issue-management')
-    mkdirSync(policyDirectory, { recursive: true })
-    const eventPath = join(cwd, 'event.json')
-    const outputPath = join(cwd, 'output')
-    writeFileSync(eventPath, JSON.stringify({ pull_request: { user: { type: fixture.type }, draft: fixture.draft } }))
-    writeFileSync(outputPath, '')
-    if (fixture.marker) writeFileSync(join(policyDirectory, 'selective-preflight.json'), '{"version":1}\n')
-    writeFileSync(join(policyDirectory, 'policy.mjs'), fixture.marker && !fixture.failure
-      ? "import fs from 'node:fs'; if (process.argv[2] !== 'pr-preflight') throw Error('wrong command'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'exempt=true\\nneeds-project=false\\n')\n"
-      : "throw new Error('preflight unavailable or failed')\n")
-    const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', script], {
-      cwd,
-      env: { PATH: process.env.PATH, GITHUB_EVENT_PATH: eventPath, GITHUB_OUTPUT: outputPath },
-      encoding: 'utf8',
-      timeout: 30_000,
-    })
-    assert.equal(result.error, undefined, fixture.name)
-    assert.equal(result.signal, null, fixture.name)
-    assert.equal(result.status, fixture.failure ? 1 : 0, fixture.name + ': ' + result.stderr)
-    assert.equal(readFileSync(outputPath, 'utf8'), fixture.expected, fixture.name)
-    if (fixture.marker) assert.doesNotMatch(result.stdout, /preserving legacy/)
-    else assert.match(result.stdout, /preserving legacy policy enforcement/)
-  }
-})
+test(
+  'runs trusted rollout selection with absent and present capability markers',
+  { skip: process.platform === 'win32' ? 'The policy workflow executes under hosted Ubuntu bash' : false },
+  t => {
+    const directory = mkdtempSync(join(tmpdir(), 'dsh-policy-rollout-'))
+    t.after(() => rmSync(directory, { recursive: true, force: true }))
+    const source = readFileSync(new URL('../workflows/issue-policy.yml', import.meta.url), 'utf8')
+    const script = source
+      .split('        run: |\n')[1]
+      .split('      - name: Create Project read token')[0]
+      .split('\n')
+      .map(line => line.slice(10))
+      .join('\n')
+    assert.deepEqual(JSON.parse(readFileSync(new URL('./selective-preflight.json', import.meta.url), 'utf8')), { version: 1 })
+    const cases = [
+      { name: 'legacy human draft', type: 'User', draft: true, marker: false, expected: 'legacy-automated=false\nneeds-project=true\n' },
+      { name: 'legacy human ready', type: 'User', draft: false, marker: false, expected: 'legacy-automated=false\nneeds-project=true\n' },
+      { name: 'legacy bot', type: 'Bot', marker: false, expected: 'legacy-automated=true\nneeds-project=false\n' },
+      { name: 'legacy app', type: 'App', marker: false, expected: 'legacy-automated=true\nneeds-project=false\n' },
+      { name: 'modern exempt', type: 'Bot', marker: true, expected: 'exempt=true\nneeds-project=false\n' },
+      { name: 'modern failure', type: 'User', marker: true, failure: true, expected: '' },
+    ]
+    for (const [index, fixture] of cases.entries()) {
+      const cwd = join(directory, String(index))
+      const policyDirectory = join(cwd, '.github', 'issue-management')
+      mkdirSync(policyDirectory, { recursive: true })
+      const eventPath = join(cwd, 'event.json')
+      const outputPath = join(cwd, 'output')
+      writeFileSync(eventPath, JSON.stringify({ pull_request: { user: { type: fixture.type }, draft: fixture.draft } }))
+      writeFileSync(outputPath, '')
+      if (fixture.marker) writeFileSync(join(policyDirectory, 'selective-preflight.json'), '{"version":1}\n')
+      writeFileSync(
+        join(policyDirectory, 'policy.mjs'),
+        fixture.marker && !fixture.failure
+          ? "import fs from 'node:fs'; if (process.argv[2] !== 'pr-preflight') throw Error('wrong command'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'exempt=true\\nneeds-project=false\\n')\n"
+          : "throw new Error('preflight unavailable or failed')\n",
+      )
+      const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', script], {
+        cwd,
+        env: { PATH: process.env.PATH, GITHUB_EVENT_PATH: eventPath, GITHUB_OUTPUT: outputPath },
+        encoding: 'utf8',
+        timeout: 30_000,
+      })
+      assert.equal(result.error, undefined, fixture.name)
+      assert.equal(result.signal, null, fixture.name)
+      assert.equal(result.status, fixture.failure ? 1 : 0, fixture.name + ': ' + result.stderr)
+      assert.equal(readFileSync(outputPath, 'utf8'), fixture.expected, fixture.name)
+      if (fixture.marker) assert.doesNotMatch(result.stdout, /preserving legacy/)
+      else assert.match(result.stdout, /preserving legacy policy enforcement/)
+    }
+  },
+)
 
 test('allocates lifecycle runners only for relevant reviews and PR body edits', () => {
   const source = readFileSync(new URL('../workflows/issue-lifecycle.yml', import.meta.url), 'utf8')
   const issues = source.split('  issues:')[1].split('  pull_request:')[0]
   const pulls = source.split('  pull_request:')[1].split('  pull_request_review:')[0]
-  const actions = (block) => [...block.matchAll(/^      - (\w+)$/gm)].map((match) => match[1])
-  assert.deepEqual(actions(issues), ['opened', 'edited', 'labeled', 'unlabeled', 'closed', 'reopened', 'typed', 'untyped', 'field_added', 'field_removed'])
+  const actions = block => [...block.matchAll(/^      - (\w+)$/gm)].map(match => match[1])
+  assert.deepEqual(actions(issues), [
+    'opened',
+    'edited',
+    'labeled',
+    'unlabeled',
+    'closed',
+    'reopened',
+    'typed',
+    'untyped',
+    'field_added',
+    'field_removed',
+  ])
   assert.deepEqual(actions(pulls), ['opened', 'edited', 'reopened', 'review_requested'])
   const job = source.slice(source.indexOf('  lifecycle:'))
   const beforeSteps = job.slice(0, job.indexOf('    steps:'))
   assert.ok(beforeSteps.includes('    if: >-'))
   assert.ok(beforeSteps.includes("(github.event_name != 'pull_request_review' || github.event.review.state == 'changes_requested') &&"))
-  assert.ok(beforeSteps.includes("(github.event_name != 'pull_request' || github.event.action != 'edited' || github.event.changes.body != null)"))
+  assert.ok(
+    beforeSteps.includes("(github.event_name != 'pull_request' || github.event.action != 'edited' || github.event.changes.body != null)"),
+  )
   assert.ok(source.includes('ref: ${{ github.event.repository.default_branch }}'))
   assert.ok(source.includes('persist-credentials: false'))
 })
 
-test('keeps REST headers, null responses, and transport errors unchanged', async (t) => {
+test('keeps REST headers, null responses, and transport errors unchanged', async t => {
   mockPolicyApi(t)
   process.env.GH_TOKEN = 'preferred-token'
   process.env.PROJECT_TOKEN = 'project-token'
@@ -992,12 +958,14 @@ test('keeps REST headers, null responses, and transport errors unchanged', async
   assert.deepEqual(await api('/example'), { ok: true })
   assert.deepEqual(requests[0], {
     url: 'https://github.example/api/v3/example',
-    options: { headers: {
-      Accept: 'application/vnd.github+json',
-      Authorization: 'Bearer preferred-token',
-      'X-GitHub-Api-Version': '2026-03-10',
-      'User-Agent': 'dsh-issue-policy',
-    } },
+    options: {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: 'Bearer preferred-token',
+        'X-GitHub-Api-Version': '2026-03-10',
+        'User-Agent': 'dsh-issue-policy',
+      },
+    },
   })
   assert.equal(await api('/empty'), null)
   assert.equal(await api('/missing', { allow404: true }), null)
@@ -1009,7 +977,7 @@ test('keeps REST headers, null responses, and transport errors unchanged', async
   assert.equal(requests.length, 5)
 })
 
-test('reads policy snapshots in reference order and only resolving Project priorities', async (t) => {
+test('reads policy snapshots in reference order and only resolving Project priorities', async t => {
   const fixture = mockPolicyApi(t, {
     pull: { body: 'Refs #4; Fixes #3; Fixes #2' },
     issues: { 2: {}, 3: { pull_request: {} }, 4: {} },
@@ -1022,7 +990,10 @@ test('reads policy snapshots in reference order and only resolving Project prior
     reviewCount: 0,
     labels: ['kind/cleanup', 'area/infra'],
     references: { all: [2, 4], resolving: [2], related: [4] },
-    issues: new Map([[2, { priority: 'P1' }], [4, { priority: null }]]),
+    issues: new Map([
+      [2, { priority: 'P1' }],
+      [4, { priority: null }],
+    ]),
   })
   const repo = '/repos/deepseek-harness/deepseek-harness'
   assert.deepEqual(fixture.requests, [
@@ -1037,7 +1008,7 @@ test('reads policy snapshots in reference order and only resolving Project prior
   assert.deepEqual(fixture.output, [])
 })
 
-test('reads lifecycle references for draft Bot PRs without review or Project requests', async (t) => {
+test('reads lifecycle references for draft Bot PRs without review or Project requests', async t => {
   const fixture = mockPolicyApi(t, {
     pull: { draft: true, user: { type: 'Bot' }, body: 'Fixes #2; Refs #4', created_at: '2026-08-27T16:00:00Z' },
     issues: { 2: {}, 4: {} },
@@ -1045,7 +1016,10 @@ test('reads lifecycle references for draft Bot PRs without review or Project req
   assert.deepEqual(await lifecyclePullRequestSnapshot(10), {
     number: 10,
     references: { all: [2, 4], resolving: [2], related: [4] },
-    issues: new Map([[2, { priority: null }], [4, { priority: null }]]),
+    issues: new Map([
+      [2, { priority: null }],
+      [4, { priority: null }],
+    ]),
     createdAt: '2026-08-27T16:00:00Z',
   })
   const repo = '/repos/deepseek-harness/deepseek-harness'
@@ -1064,11 +1038,7 @@ test('allows missing Priority only when resolving Issues are also unprioritized'
     issues: new Map([[2, { priority: null }]]),
   }
   assert.deepEqual(validatePullRequest(pull), [])
-  assert.ok(
-    validatePullRequest({ ...pull, issues: new Map([[2, { priority: 'P2' }]]) }).includes(
-      'PR Priority 应为 p2',
-    ),
-  )
+  assert.ok(validatePullRequest({ ...pull, issues: new Map([[2, { priority: 'P2' }]]) }).includes('PR Priority 应为 p2'))
   assert.ok(
     validatePullRequest({ ...pull, labels: [...pull.labels, 'p2'] }).includes(
       '有 Priority 的解决型 PR 要求每个被解决 Issue 都设置 Priority',

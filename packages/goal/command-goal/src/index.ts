@@ -47,12 +47,17 @@ function parseGoalCommand(rawInput: string): GoalCommand {
 /** Human label for one durable goal phase. */
 function phaseLabel(phase: GoalPhase): string {
   switch (phase) {
-    case 'active': return 'active'
-    case 'paused': return 'paused'
-    case 'blocked': return 'blocked'
-    case 'complete': return 'complete'
+    case 'active':
+      return 'active'
+    case 'paused':
+      return 'paused'
+    case 'blocked':
+      return 'blocked'
+    case 'complete':
+      return 'complete'
     /* v8 ignore next 2 -- GoalPhase is closed and every member is handled above */
-    default: return assertNever(phase, 'goal phase')
+    default:
+      return assertNever(phase, 'goal phase')
   }
 }
 
@@ -70,7 +75,8 @@ function commandHint(goal: GoalView): string {
     case 'complete':
       return '/goal <objective>, /goal clear'
     /* v8 ignore next 2 -- the active branch and every non-active phase are handled above */
-    default: return assertNever(goal.phase, 'goal phase')
+    default:
+      return assertNever(goal.phase, 'goal phase')
   }
 }
 
@@ -116,10 +122,12 @@ function missingGoal(action: string): CommandResult {
  */
 function submitObjectiveAttachments(invocation: CommandInvocation): void {
   if (invocation.attachments.length === 0) return
-  invocation.agent.followup(createUserMessage({
-    content: [...invocation.attachments, { type: 'text', text: 'Reference attachments for the goal objective.' }],
-    source: { kind: 'user' },
-  }))
+  invocation.agent.followup(
+    createUserMessage({
+      content: [...invocation.attachments, { type: 'text', text: 'Reference attachments for the goal objective.' }],
+      source: { kind: 'user' },
+    }),
+  )
 }
 
 /** Execute one parsed human command through the domain that owns persistence. */
@@ -135,9 +143,7 @@ function executeGoalCommand(ctx: Context, invocation: CommandInvocation): Comman
     const current = ctx.goals.get(invocation.agent)
     switch (command.kind) {
       case 'show':
-        return current === undefined
-          ? { kind: 'success', text: `No goal is currently set.\n${USAGE}` }
-          : renderGoal('Goal', current)
+        return current === undefined ? { kind: 'success', text: `No goal is currently set.\n${USAGE}` } : renderGoal('Goal', current)
       case 'invalid-edit':
         return { kind: 'error', text: `Goal editing requires a replacement objective.\n${USAGE}` }
       case 'create': {
@@ -173,7 +179,8 @@ function executeGoalCommand(ctx: Context, invocation: CommandInvocation): Comman
         ctx.goals.clear(invocation.agent, goalRef(current))
         return { kind: 'success', text: 'Goal cleared.' }
       /* v8 ignore next 2 -- GoalCommand is closed and every member is handled above */
-      default: return assertNever(command, 'goal command')
+      default:
+        return assertNever(command, 'goal command')
     }
   } catch (error: unknown) {
     if (error instanceof GoalError) {

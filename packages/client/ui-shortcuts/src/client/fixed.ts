@@ -9,7 +9,15 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
  */
 export function fixedCommands(t: PropsLocale<'shortcuts'>['t']): readonly ShortcutFixedCommand[] {
   const rows = [
-    { id: 'move', keys: ['↑', '↓'], bindings: [{ code: 'ArrowUp', modifiers: [] }, { code: 'ArrowDown', modifiers: [] }], group: 'menus' },
+    {
+      id: 'move',
+      keys: ['↑', '↓'],
+      bindings: [
+        { code: 'ArrowUp', modifiers: [] },
+        { code: 'ArrowDown', modifiers: [] },
+      ],
+      group: 'menus',
+    },
     { id: 'select', keys: ['Enter'], bindings: [{ code: 'Enter', modifiers: [] }], group: 'menus' },
     { id: 'dismiss', keys: ['Esc'], bindings: [{ code: 'Escape', modifiers: [] }], group: 'menus' },
   ] as const

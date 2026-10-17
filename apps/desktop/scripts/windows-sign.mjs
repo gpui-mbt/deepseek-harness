@@ -18,8 +18,8 @@ const NSIS_BOOTSTRAP_PATCH = Symbol.for('@deepseek-ai/dsh-desktop/nsis-bootstrap
 const WINDOWS_SIGN_SCRIPT = 'windows-sign.cmd'
 const WINDOWS_SIGN_SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url))
 const PE_HEADER_READ_SIZE = 4096
-const PE32_MAGIC = 0x10B
-const PE32_PLUS_MAGIC = 0x20B
+const PE32_MAGIC = 0x10b
+const PE32_PLUS_MAGIC = 0x20b
 const SENSITIVE_ENVIRONMENT_NAME = /(?:KEY|SECRET|TOKEN|PASSWORD)/iu
 const WINDOWS_SIGNING_ENVIRONMENT_PREFIX = 'DSH_DESKTOP_WINDOWS_'
 
@@ -30,9 +30,11 @@ const WINDOWS_SIGNING_ENVIRONMENT_PREFIX = 'DSH_DESKTOP_WINDOWS_'
  * @returns {NodeJS.ProcessEnv} Environment without credential-shaped names.
  */
 export function scrubWindowsSigningEnvironment(environment) {
-  return Object.fromEntries(Object.entries(environment)
-    .filter(([name]) => !SENSITIVE_ENVIRONMENT_NAME.test(name)
-      && !name.startsWith(WINDOWS_SIGNING_ENVIRONMENT_PREFIX)))
+  return Object.fromEntries(
+    Object.entries(environment).filter(
+      ([name]) => !SENSITIVE_ENVIRONMENT_NAME.test(name) && !name.startsWith(WINDOWS_SIGNING_ENVIRONMENT_PREFIX),
+    ),
+  )
 }
 
 function resolveTokenIdentity(input) {
@@ -48,7 +50,9 @@ function resolveTokenIdentity(input) {
     throw new Error('DSH_DESKTOP_WINDOWS_TOKEN_PIN must contain the SafeNet Token Password')
   }
   if (/[\]"\r\n]/u.test(tokenPin)) {
-    throw new Error('DSH_DESKTOP_WINDOWS_TOKEN_PIN cannot contain "]", quotes, or line breaks because the SafeNet key-container syntax uses them as delimiters')
+    throw new Error(
+      'DSH_DESKTOP_WINDOWS_TOKEN_PIN cannot contain "]", quotes, or line breaks because the SafeNet key-container syntax uses them as delimiters',
+    )
   }
   return { keyContainer, tokenPin }
 }
@@ -63,8 +67,7 @@ function resolveCertificateFile(value) {
   try {
     path = realpathSync(candidate)
     certificate = new X509Certificate(readFileSync(path))
-  }
-  catch {
+  } catch {
     throw new Error(`Windows code-signing certificate file is missing or invalid: ${candidate}`)
   }
   if (certificate.ca || !certificate.keyUsage?.includes(CODE_SIGNING_EKU)) {
@@ -83,15 +86,16 @@ export function resolveWindowsUpdatePublisher(certificateFile) {
   const { certificate } = resolveCertificateFile(certificateFile)
   const subject = certificate.toLegacyObject().subject
   // These attributes have identical names in OpenSSL and Windows certificate subjects.
-  return ['CN', 'O', 'C'].map((key) => {
-    const value = subject[key]
-    if (typeof value !== 'string' || value.trim() === '') {
-      throw new Error(`Windows update publisher requires one nonempty ${key} certificate attribute`)
-    }
-    const escaped = value.replace(/[\\",;+\x00-\x20]/gu,
-      character => `\\${character.charCodeAt(0).toString(16).padStart(2, '0')}`)
-    return `${key}=${escaped}`
-  }).join(',')
+  return ['CN', 'O', 'C']
+    .map(key => {
+      const value = subject[key]
+      if (typeof value !== 'string' || value.trim() === '') {
+        throw new Error(`Windows update publisher requires one nonempty ${key} certificate attribute`)
+      }
+      const escaped = value.replace(/[\\",;+\x00-\x20]/gu, character => `\\${character.charCodeAt(0).toString(16).padStart(2, '0')}`)
+      return `${key}=${escaped}`
+    })
+    .join(',')
 }
 
 function resolveSignTool(value) {
@@ -103,8 +107,7 @@ function resolveSignTool(value) {
   try {
     path = realpathSync(candidate)
     if (!statSync(path).isFile() || !path.toLowerCase().endsWith('.exe')) throw new Error('not an executable file')
-  }
-  catch {
+  } catch {
     throw new Error(`DSH_DESKTOP_WINDOWS_SIGNTOOL is missing or is not an executable file: ${candidate}`)
   }
   return path
@@ -128,13 +131,11 @@ function redactedSigningOutput(value, secrets) {
  */
 export function createRedactedWindowsSigningError(error, path, secrets) {
   const record = error !== null && typeof error === 'object' ? error : undefined
-  const code = record !== undefined && 'code' in record
-    && (typeof record.code === 'number' || typeof record.code === 'string')
-    ? ` (exit ${String(record.code)})`
-    : ''
-  const stderr = record !== undefined && 'stderr' in record
-    ? redactedSigningOutput(record.stderr, secrets).trim()
-    : ''
+  const code =
+    record !== undefined && 'code' in record && (typeof record.code === 'number' || typeof record.code === 'string')
+      ? ` (exit ${String(record.code)})`
+      : ''
+  const stderr = record !== undefined && 'stderr' in record ? redactedSigningOutput(record.stderr, secrets).trim() : ''
   return new Error(`Windows release signing failed for ${path}${code}${stderr === '' ? '' : `: ${stderr}`}`)
 }
 
@@ -167,11 +168,10 @@ export function createWindowsTokenSigner(options) {
   const { path: certificateFile, certificate } = resolveCertificateFile(options.certificateFile)
   const signTool = resolveSignTool(options.signTool)
   const { keyContainer, tokenPin } = resolveTokenIdentity(options)
-  const commandInterpreter = options.commandInterpreter
-    ?? process.env.ComSpec
-    ?? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'cmd.exe')
+  const commandInterpreter =
+    options.commandInterpreter ?? process.env.ComSpec ?? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'cmd.exe')
   let pending = Promise.resolve()
-  return (configuration) => {
+  return configuration => {
     pending = pending.then(async () => {
       if (configuration.hash !== 'sha256') {
         throw new Error(`Windows release signing requires SHA-256, received ${configuration.hash}`)
@@ -185,24 +185,24 @@ export function createWindowsTokenSigner(options) {
       const thumbprint = certificate.fingerprint.replaceAll(':', '')
       try {
         await completeWindowsSignature(configuration.path, {
-          thumbprint, inspect, evidenceDirectory: runDirectory,
+          thumbprint,
+          inspect,
+          evidenceDirectory: runDirectory,
           record: event => recordPackagingEvent(runDirectory, event),
           normalize: path => normalizeWindowsSignature(path, signTool, scrubWindowsSigningEnvironment(process.env)),
-          timestamp: async path => { await execFileAsync(signTool, ['timestamp', '/v', '/tr', 'http://timestamp.digicert.com', '/td', 'sha256', path], {
-            env: scrubWindowsSigningEnvironment(process.env), windowsHide: true, timeout: 60_000,
-          }) },
-          sign: async (path) => {
+          timestamp: async path => {
+            await execFileAsync(signTool, ['timestamp', '/v', '/tr', 'http://timestamp.digicert.com', '/td', 'sha256', path], {
+              env: scrubWindowsSigningEnvironment(process.env),
+              windowsHide: true,
+              timeout: 60_000,
+            })
+          },
+          sign: async path => {
             await repairDanglingAuthenticodeDirectory(path)
-            const attempt = beginWindowsSigningAttempt({ runDirectory,
-              stateDirectory: options.stateDirectory, target: path })
+            const attempt = beginWindowsSigningAttempt({ runDirectory, stateDirectory: options.stateDirectory, target: path })
             let result
             try {
-              const operation = execFileAsync(commandInterpreter, [
-                '/d',
-                '/v:off',
-                '/c',
-                WINDOWS_SIGN_SCRIPT,
-              ], {
+              const operation = execFileAsync(commandInterpreter, ['/d', '/v:off', '/c', WINDOWS_SIGN_SCRIPT], {
                 cwd: WINDOWS_SIGN_SCRIPT_DIRECTORY,
                 env: buildWindowsSigningEnvironment(process.env, {
                   certificateFile,
@@ -217,11 +217,14 @@ export function createWindowsTokenSigner(options) {
               attempt.started(operation.child?.pid ?? null)
               result = await operation
               const signature = await inspect(path)
-              if (signature.status !== 'Valid' || signature.timestamped || signature.thumbprint?.toUpperCase() !== thumbprint.toUpperCase()) {
+              if (
+                signature.status !== 'Valid' ||
+                signature.timestamped ||
+                signature.thumbprint?.toUpperCase() !== thumbprint.toUpperCase()
+              ) {
                 throw new Error('Windows hardware signing: primary signature verification failed')
               }
-            }
-            catch (error) {
+            } catch (error) {
               const failure = createRedactedWindowsSigningError(error, path, secrets)
               attempt.failure(typeof error.code === 'number' || typeof error.code === 'string' ? error.code : null, failure.message)
               throw failure
@@ -258,8 +261,7 @@ export async function repairDanglingAuthenticodeDirectory(path) {
     if (directoryOffset === undefined) return false
     await file.write(Buffer.alloc(8), 0, 8, directoryOffset)
     return true
-  }
-  finally {
+  } finally {
     await file.close()
   }
 }
@@ -275,23 +277,17 @@ function findDanglingAuthenticodeDirectory(header, fileSize) {
   if (header.length < 64 || header.toString('ascii', 0, 2) !== 'MZ') return undefined
   const peOffset = header.readUInt32LE(60)
   const optionalHeaderOffset = peOffset + 24
-  if (optionalHeaderOffset + 2 > header.length
-    || header.toString('ascii', peOffset, peOffset + 4) !== 'PE\0\0') return undefined
+  if (optionalHeaderOffset + 2 > header.length || header.toString('ascii', peOffset, peOffset + 4) !== 'PE\0\0') return undefined
   const magic = header.readUInt16LE(optionalHeaderOffset)
-  const dataDirectoryOffset = magic === PE32_MAGIC
-    ? optionalHeaderOffset + 96
-    : magic === PE32_PLUS_MAGIC
-      ? optionalHeaderOffset + 112
-      : undefined
+  const dataDirectoryOffset =
+    magic === PE32_MAGIC ? optionalHeaderOffset + 96 : magic === PE32_PLUS_MAGIC ? optionalHeaderOffset + 112 : undefined
   if (dataDirectoryOffset === undefined) return undefined
-  const certificateDirectoryOffset = dataDirectoryOffset + (4 * 8)
+  const certificateDirectoryOffset = dataDirectoryOffset + 4 * 8
   if (certificateDirectoryOffset + 8 > header.length) return undefined
   const certificateOffset = header.readUInt32LE(certificateDirectoryOffset)
   const certificateSize = header.readUInt32LE(certificateDirectoryOffset + 4)
   if (certificateOffset === 0 && certificateSize === 0) return undefined
-  return certificateOffset > 0
-    && certificateSize > 0
-    && certificateOffset + certificateSize <= fileSize
+  return certificateOffset > 0 && certificateSize > 0 && certificateOffset + certificateSize <= fileSize
     ? undefined
     : certificateDirectoryOffset
 }
@@ -308,19 +304,24 @@ export function installWindowsNsisBootstrapSigner(options) {
   if (prototype[NSIS_BOOTSTRAP_PATCH] === true) return
   const originalExec = prototype.exec
   prototype.exec = async function (file, args, execOptions, isLogOutIfDebug) {
-    const isNsisBootstrap = file.toLowerCase().endsWith('.exe')
-      && execOptions?.env?.__COMPAT_LAYER === NSIS_RUN_AS_INVOKER
+    const isNsisBootstrap = file.toLowerCase().endsWith('.exe') && execOptions?.env?.__COMPAT_LAYER === NSIS_RUN_AS_INVOKER
     if (!isNsisBootstrap) {
       return originalExec.call(this, file, args, execOptions, isLogOutIfDebug)
     }
     await options.sign({ path: file, hash: 'sha256', isNest: false })
-    return originalExec.call(this, file, args, {
-      ...execOptions,
-      env: scrubWindowsSigningEnvironment({
-        ...(options.environment ?? process.env),
-        ...execOptions.env,
-      }),
-    }, isLogOutIfDebug)
+    return originalExec.call(
+      this,
+      file,
+      args,
+      {
+        ...execOptions,
+        env: scrubWindowsSigningEnvironment({
+          ...(options.environment ?? process.env),
+          ...execOptions.env,
+        }),
+      },
+      isLogOutIfDebug,
+    )
   }
   Object.defineProperty(prototype, NSIS_BOOTSTRAP_PATCH, { value: true })
 }

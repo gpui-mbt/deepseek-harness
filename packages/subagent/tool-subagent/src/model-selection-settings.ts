@@ -3,11 +3,7 @@ import type { Volatile } from '@deepseek-ai/cordis'
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import {
-  AllowedModelRouteSchema,
-  assertAllowedModelRoutes,
-  type AllowedModelRoute,
-} from './model-selection.ts'
+import { AllowedModelRouteSchema, assertAllowedModelRoutes, type AllowedModelRoute } from './model-selection.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -39,7 +35,10 @@ export class SubagentModelSelectionConfig extends Service {
     allowedModels: z.array(AllowedModelRouteSchema).default([]).volatile(),
   })
 
-  constructor(ctx: Context, private config: Config) {
+  constructor(
+    ctx: Context,
+    private config: Config,
+  ) {
     super(ctx, 'subagentModelSelection')
   }
 
@@ -56,7 +55,6 @@ export class SubagentModelSelectionConfig extends Service {
     }
     return { enabled, allowedModels: allowedModels.map(route => ({ ...route })) }
   }
-
 }
 
 export const name = 'subagent-model-selection-settings'

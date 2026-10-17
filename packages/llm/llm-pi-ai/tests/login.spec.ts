@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AuthorizationService from '@deepseek-ai/dsh-authorization'
 import type { AuthorizationInteraction, AuthorizationNotice, AuthorizationPrompt } from '@deepseek-ai/dsh-authorization'
@@ -15,7 +15,7 @@ const login = vi.hoisted(() => vi.fn())
 // against a collection built with the harness store, so the collection is the
 // boundary worth observing; a real login would open a browser.
 vi.mock('../src/models.ts', async importOriginal => ({
-  ...await importOriginal<typeof import('../src/models.ts')>(),
+  ...(await importOriginal<typeof import('../src/models.ts')>()),
   createModels: () => ({ setProvider: () => {}, login }),
 }))
 
@@ -47,8 +47,10 @@ function surface(answer = 'typed'): AuthorizationInteraction & {
   return {
     notices,
     prompts,
-    notify: (notice) => { notices.push(notice) },
-    prompt: (prompt) => {
+    notify: notice => {
+      notices.push(notice)
+    },
+    prompt: prompt => {
       prompts.push(prompt)
       return Promise.resolve(answer)
     },
@@ -68,11 +70,13 @@ async function attempt(
     await credentialStoreFrom(ctx).modify(providerId, () => Promise.resolve(granted))
     return granted
   })
-  await expect(ctx.authorization.begin({
-    key: request.key ?? CODEX,
-    interaction: ui,
-    ...request.method === undefined ? {} : { method: request.method },
-  })).resolves.toEqual({ status: 'authorized' })
+  await expect(
+    ctx.authorization.begin({
+      key: request.key ?? CODEX,
+      interaction: ui,
+      ...(request.method === undefined ? {} : { method: request.method }),
+    }),
+  ).resolves.toEqual({ status: 'authorized' })
   return ui
 }
 
@@ -88,20 +92,18 @@ describe('pi-ai login flows', () => {
 
     // The OAuth-only provider is exactly the case this exists for: nothing
     // else could ever configure it.
-    expect(offered.find(entry => entry.key === CODEX)?.methods)
-      .toEqual([{ id: 'oauth', label: expect.stringContaining('ChatGPT') as string }])
+    expect(offered.find(entry => entry.key === CODEX)?.methods).toEqual([
+      { id: 'oauth', label: expect.stringContaining('ChatGPT') as string },
+    ])
     // A provider offering both keeps both, the subscription login first.
-    expect(offered.find(entry => entry.key === recordKeyFor('anthropic'))?.methods.map(one => one.id))
-      .toEqual(['oauth', 'api-key'])
+    expect(offered.find(entry => entry.key === recordKeyFor('anthropic'))?.methods.map(one => one.id)).toEqual(['oauth', 'api-key'])
     // A key-only provider still gets a flow, because pi-ai collects the key
     // through its own prompt rather than leaving it to the settings form.
-    expect(offered.find(entry => entry.key === recordKeyFor('deepseek'))?.methods.map(one => one.id))
-      .toEqual(['api-key'])
+    expect(offered.find(entry => entry.key === recordKeyFor('deepseek'))?.methods.map(one => one.id)).toEqual(['api-key'])
     // pi-ai ships Sign in with ChatGPT for `openai`, which needs an
     // installation ID the harness does not supply; only the key login is offered.
     expect(catalogProvider('openai')?.auth.oauth?.loginLabel).toBe('Sign in with ChatGPT')
-    expect(offered.find(entry => entry.key === recordKeyFor('openai'))?.methods.map(one => one.id))
-      .toEqual(['api-key'])
+    expect(offered.find(entry => entry.key === recordKeyFor('openai'))?.methods.map(one => one.id)).toEqual(['api-key'])
   })
 
   it('runs the pi-ai auth type the chosen method names', async () => {
@@ -139,7 +141,7 @@ describe('pi-ai login flows', () => {
       { type: 'quantum-handshake' } as unknown as AuthEvent,
     ]
 
-    const ui = await attempt(ctx, (interaction) => {
+    const ui = await attempt(ctx, interaction => {
       for (const event of events) interaction.notify(event)
       return Promise.resolve()
     })
@@ -171,7 +173,7 @@ describe('pi-ai login flows', () => {
       { type: 'manual_code', message: 'Paste the code', signal: withdraw.signal },
     ]
 
-    const ui = await attempt(ctx, async (interaction) => {
+    const ui = await attempt(ctx, async interaction => {
       for (const prompt of prompts) await interaction.prompt(prompt)
     })
 
@@ -194,11 +196,13 @@ describe('pi-ai login flows', () => {
       return new Promise(() => {})
     })
 
-    await expect(ctx.authorization.begin({
-      key: CODEX,
-      interaction: surface(),
-      signal: controller.signal,
-    })).resolves.toEqual({ status: 'cancelled' })
+    await expect(
+      ctx.authorization.begin({
+        key: CODEX,
+        interaction: surface(),
+        signal: controller.signal,
+      }),
+    ).resolves.toEqual({ status: 'cancelled' })
     expect(seen?.aborted).toBe(true)
   })
 })

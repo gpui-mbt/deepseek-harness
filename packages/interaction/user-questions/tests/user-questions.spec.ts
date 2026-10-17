@@ -1,4 +1,4 @@
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
 import UserQuestionService, {
@@ -58,8 +58,10 @@ describe('UserQuestionService', () => {
     const ctx = new Context()
     await ctx.plugin(UserQuestionService)
 
-    await expect(ctx.userQuestions.ask({ questions: [{ id: 'confirm', question: 'Proceed?' }] }))
-      .rejects.toMatchObject({ name: 'UserQuestionError', code: 'NO_PROVIDER' })
+    await expect(ctx.userQuestions.ask({ questions: [{ id: 'confirm', question: 'Proceed?' }] })).rejects.toMatchObject({
+      name: 'UserQuestionError',
+      code: 'NO_PROVIDER',
+    })
   })
 
   it('registers providers with HMR-safe disposal', async () => {
@@ -71,8 +73,9 @@ describe('UserQuestionService', () => {
     dispose()
     dispose()
 
-    await expect(ctx.userQuestions.ask({ questions: [{ id: 'confirm', question: 'Proceed?' }] }))
-      .rejects.toMatchObject({ code: 'NO_PROVIDER' })
+    await expect(ctx.userQuestions.ask({ questions: [{ id: 'confirm', question: 'Proceed?' }] })).rejects.toMatchObject({
+      code: 'NO_PROVIDER',
+    })
   })
 
   it('delegates through composed answerers', async () => {
@@ -86,9 +89,11 @@ describe('UserQuestionService', () => {
     const p = provider('second')
     registerAnswerer(ctx, p)
 
-    await expect(ctx.userQuestions.ask({
-      questions: [{ id: 'confirm', question: 'Proceed?', options: [{ label: 'second' }] }],
-    })).resolves.toEqual({ answers: [{ id: 'confirm', selected: ['second'] }] })
+    await expect(
+      ctx.userQuestions.ask({
+        questions: [{ id: 'confirm', question: 'Proceed?', options: [{ label: 'second' }] }],
+      }),
+    ).resolves.toEqual({ answers: [{ id: 'confirm', selected: ['second'] }] })
     expect(delegated).toHaveBeenCalledOnce()
   })
 
@@ -100,8 +105,9 @@ describe('UserQuestionService', () => {
     const controller = new AbortController()
     controller.abort()
 
-    await expect(ctx.userQuestions.ask({ questions: [{ id: 'confirm', question: 'Proceed?' }], signal: controller.signal }))
-      .rejects.toMatchObject({ code: 'ASK_ABORTED' })
+    await expect(
+      ctx.userQuestions.ask({ questions: [{ id: 'confirm', question: 'Proceed?' }], signal: controller.signal }),
+    ).rejects.toMatchObject({ code: 'ASK_ABORTED' })
     expect(p.ask).not.toHaveBeenCalled()
   })
 
@@ -139,10 +145,12 @@ describe('UserQuestionService', () => {
       },
     })
 
-    await expect(ctx.userQuestions.ask({
-      questions: [{ id: 'confirm', question: 'Proceed?' }],
-      signal: controller.signal,
-    })).rejects.toBe(cancelled)
+    await expect(
+      ctx.userQuestions.ask({
+        questions: [{ id: 'confirm', question: 'Proceed?' }],
+        signal: controller.signal,
+      }),
+    ).rejects.toBe(cancelled)
   })
 
   it('restores a transported provider rejection to UserQuestionError', async () => {
@@ -154,12 +162,14 @@ describe('UserQuestionService', () => {
     })
     registerAnswerer(ctx, { ask: () => Promise.reject(transported) })
 
-    const rejection = await ctx.userQuestions.ask({
-      questions: [{ id: 'confirm', question: 'Proceed?' }],
-    }).then(
-      () => undefined,
-      (error: unknown) => error,
-    )
+    const rejection = await ctx.userQuestions
+      .ask({
+        questions: [{ id: 'confirm', question: 'Proceed?' }],
+      })
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      )
 
     expect(rejection).toBeInstanceOf(UserQuestionError)
     expect(rejection).toMatchObject({
@@ -171,18 +181,23 @@ describe('UserQuestionService', () => {
 
   it.each([
     ['an ordinary Error', new Error('provider failed')],
-    ['a namesake Error without a string code', Object.assign(new Error('provider failed'), {
-      name: 'UserQuestionError',
-    })],
+    [
+      'a namesake Error without a string code',
+      Object.assign(new Error('provider failed'), {
+        name: 'UserQuestionError',
+      }),
+    ],
     ['a non-Error rejection', { name: 'UserQuestionError', code: 'ASK_CANCELLED' }],
   ])('preserves %s from the provider', async (_label, rejection) => {
     const ctx = new Context()
     await ctx.plugin(UserQuestionService)
     registerAnswerer(ctx, { ask: vi.fn().mockRejectedValue(rejection) })
 
-    await expect(ctx.userQuestions.ask({
-      questions: [{ id: 'confirm', question: 'Proceed?' }],
-    })).rejects.toBe(rejection)
+    await expect(
+      ctx.userQuestions.ask({
+        questions: [{ id: 'confirm', question: 'Proceed?' }],
+      }),
+    ).rejects.toBe(rejection)
   })
 
   it('rejects empty question batches before reaching the provider', async () => {
@@ -191,8 +206,7 @@ describe('UserQuestionService', () => {
     const p = { ask: vi.fn(async () => ({ answers: [] })) }
     registerAnswerer(ctx, p)
 
-    await expect(ctx.userQuestions.ask({ questions: [] }))
-      .rejects.toMatchObject({ name: 'UserQuestionError', code: 'EMPTY_QUESTIONS' })
+    await expect(ctx.userQuestions.ask({ questions: [] })).rejects.toMatchObject({ name: 'UserQuestionError', code: 'EMPTY_QUESTIONS' })
     expect(p.ask).not.toHaveBeenCalled()
   })
 
@@ -207,13 +221,16 @@ describe('UserQuestionService', () => {
     ctx.agents.enter(root, undefined)
     ctx.agents.enter(child, root)
 
-    await expect(ctx.userQuestions.ask({
-      questions: [{ id: 'confirm', question: 'Proceed?' }],
-      agent: child,
-    })).rejects.toMatchObject({
+    await expect(
+      ctx.userQuestions.ask({
+        questions: [{ id: 'confirm', question: 'Proceed?' }],
+        agent: child,
+      }),
+    ).rejects.toMatchObject({
       name: 'UserQuestionError',
       code: 'DELEGATED_CALLER',
-      message: "human interaction is unavailable while the calling agent is owned by another live agent; include the unresolved question or decision in the child agent's final result",
+      message:
+        "human interaction is unavailable while the calling agent is owned by another live agent; include the unresolved question or decision in the child agent's final result",
     })
     expect(p.ask).not.toHaveBeenCalled()
   })
@@ -241,10 +258,12 @@ describe('UserQuestionService', () => {
     const p = { ask: vi.fn(async () => ({ answers: [] })) }
     registerAnswerer(ctx, p)
 
-    await expect(ctx.userQuestions.ask({
-      questions: [{ id: 'confirm', question: 'Proceed?' }],
-      agent: stubAgent('unattested'),
-    })).rejects.toMatchObject({ name: 'UserQuestionError', code: 'CALLER_NOT_LIVE' })
+    await expect(
+      ctx.userQuestions.ask({
+        questions: [{ id: 'confirm', question: 'Proceed?' }],
+        agent: stubAgent('unattested'),
+      }),
+    ).rejects.toMatchObject({ name: 'UserQuestionError', code: 'CALLER_NOT_LIVE' })
     expect(p.ask).not.toHaveBeenCalled()
   })
 
@@ -257,10 +276,12 @@ describe('UserQuestionService', () => {
     const live = stubAgent('same-id')
     ctx.agents.enter(live, undefined)
 
-    await expect(ctx.userQuestions.ask({
-      questions: [{ id: 'confirm', question: 'Proceed?' }],
-      agent: stubAgent('same-id'),
-    })).rejects.toMatchObject({ name: 'UserQuestionError', code: 'CALLER_NOT_LIVE' })
+    await expect(
+      ctx.userQuestions.ask({
+        questions: [{ id: 'confirm', question: 'Proceed?' }],
+        agent: stubAgent('same-id'),
+      }),
+    ).rejects.toMatchObject({ name: 'UserQuestionError', code: 'CALLER_NOT_LIVE' })
     expect(p.ask).not.toHaveBeenCalled()
   })
 
@@ -273,13 +294,20 @@ describe('UserQuestionService', () => {
     })
     registerAnswerer(ctx, { ask: () => Promise.reject(transported) })
 
-    const failure = await ctx.userQuestions.ask({
-      questions: [{ id: 'confirm', question: 'Proceed?' }],
-    }).then(() => undefined, (error: unknown) => error)
+    const failure = await ctx.userQuestions
+      .ask({
+        questions: [{ id: 'confirm', question: 'Proceed?' }],
+      })
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      )
 
     expect(failure).toBeInstanceOf(UserQuestionError)
     expect(failure).toMatchObject({
-      name: 'UserQuestionError', code: 'ASK_CANCELLED', cause: transported,
+      name: 'UserQuestionError',
+      code: 'ASK_CANCELLED',
+      cause: transported,
     })
   })
 
@@ -289,9 +317,11 @@ describe('UserQuestionService', () => {
     const failure = new Error('provider failed')
     registerAnswerer(ctx, { ask: () => Promise.reject(failure) })
 
-    await expect(ctx.userQuestions.ask({
-      questions: [{ id: 'confirm', question: 'Proceed?' }],
-    })).rejects.toBe(failure)
+    await expect(
+      ctx.userQuestions.ask({
+        questions: [{ id: 'confirm', question: 'Proceed?' }],
+      }),
+    ).rejects.toBe(failure)
   })
 
   it('rejects an intent whose approve label names none of its own options', async () => {
@@ -303,13 +333,17 @@ describe('UserQuestionService', () => {
 
     // A wrong label among offered options, and no options offered at all.
     for (const options of [[{ label: 'Approve' }], undefined]) {
-      await expect(ctx.userQuestions.ask({
-        questions: [{
-          ...question,
-          ...(options === undefined ? {} : { options }),
-          intent: { kind: 'plan-review', approve: 'Ship it' },
-        }],
-      })).rejects.toMatchObject({ name: 'UserQuestionError', code: 'BAD_INTENT' })
+      await expect(
+        ctx.userQuestions.ask({
+          questions: [
+            {
+              ...question,
+              ...(options === undefined ? {} : { options }),
+              intent: { kind: 'plan-review', approve: 'Ship it' },
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({ name: 'UserQuestionError', code: 'BAD_INTENT' })
     }
     expect(p.ask).not.toHaveBeenCalled()
   })
@@ -322,13 +356,18 @@ describe('UserQuestionService', () => {
 
     // Detail IS the plan for this intent, so a UI honouring it would ask the
     // user to approve something they cannot see.
-    await expect(ctx.userQuestions.ask({
-      questions: [{
-        id: 'plan-review', question: 'Approve?',
-        options: [{ label: 'Approve' }, { label: 'Keep planning' }],
-        intent: { kind: 'plan-review', approve: 'Approve' },
-      }],
-    })).rejects.toMatchObject({ name: 'UserQuestionError', code: 'BAD_INTENT' })
+    await expect(
+      ctx.userQuestions.ask({
+        questions: [
+          {
+            id: 'plan-review',
+            question: 'Approve?',
+            options: [{ label: 'Approve' }, { label: 'Keep planning' }],
+            intent: { kind: 'plan-review', approve: 'Approve' },
+          },
+        ],
+      }),
+    ).rejects.toMatchObject({ name: 'UserQuestionError', code: 'BAD_INTENT' })
     expect(p.ask).not.toHaveBeenCalled()
   })
 
@@ -343,8 +382,11 @@ describe('UserQuestionService', () => {
       questions: [
         { id: 'plain', question: 'Proceed?', options: [{ label: 'Approve' }] },
         {
-          id: 'plan-review', question: 'Approve?', detail: '# Plan',
-          options: [{ label: 'Approve' }, { label: 'Keep planning' }], intent,
+          id: 'plan-review',
+          question: 'Approve?',
+          detail: '# Plan',
+          options: [{ label: 'Approve' }, { label: 'Keep planning' }],
+          intent,
         },
       ],
     })
@@ -375,7 +417,9 @@ interface LiveAgent extends Agent {
 function liveAgent(id: string): LiveAgent {
   const queuedTurns: UserMessage[] = []
   const queuedMessages: UserMessage[] = []
-  const steer = vi.fn<(message: UserMessage) => void>((message) => { queuedMessages.push(message) })
+  const steer = vi.fn<(message: UserMessage) => void>(message => {
+    queuedMessages.push(message)
+  })
   const inject = vi.fn<(message: UserMessage) => void>()
   return Object.assign(stubAgent(id), {
     session: Session.create(SessionId(id)),
@@ -407,9 +451,13 @@ function replyText(message: UserMessage): unknown {
 describe('askTimed', () => {
   it('keeps sibling waits independent and cancels the remaining wait when the service unloads', async () => {
     vi.useFakeTimers()
-    onTestFinished(() => { vi.useRealTimers() })
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const ctx = await timedContext()
-    onTestFinished(async () => { await ctx.fiber.dispose() })
+    onTestFinished(async () => {
+      await ctx.fiber.dispose()
+    })
     const agent = liveAgent('timed-sibling-waits')
     ctx.agents.enter(agent, undefined)
     const service = ctx.userQuestions
@@ -433,24 +481,31 @@ describe('askTimed', () => {
 
   it('expires a forwarded request even when no Client ever responds or delegates', async () => {
     vi.useFakeTimers()
-    onTestFinished(() => { vi.useRealTimers() })
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const ctx = await timedContext()
-    onTestFinished(async () => { await ctx.fiber.dispose() })
+    onTestFinished(async () => {
+      await ctx.fiber.dispose()
+    })
     const agent = liveAgent('timed-no-client')
     ctx.agents.enter(agent, undefined)
     const turn = new AbortController()
     let forwardedSignal: AbortSignal | undefined
     registerAnswerer(ctx, {
-      ask: request => new Promise((_resolve, reject) => {
-        forwardedSignal = request.signal
-        request.signal?.addEventListener('abort', () => {
-          reject(new Error('forwarded request aborted', { cause: request.signal?.reason }))
-        }, { once: true })
-      }),
+      ask: request =>
+        new Promise((_resolve, reject) => {
+          forwardedSignal = request.signal
+          request.signal?.addEventListener(
+            'abort',
+            () => {
+              reject(new Error('forwarded request aborted', { cause: request.signal?.reason }))
+            },
+            { once: true },
+          )
+        }),
     })
-    const result = ctx.userQuestions.askTimed(
-      { agent, questions: timedQuestions, signal: turn.signal }, timedCallId, 5_000,
-    )
+    const result = ctx.userQuestions.askTimed({ agent, questions: timedQuestions, signal: turn.signal }, timedCallId, 5_000)
     expect(forwardedSignal).not.toBe(turn.signal)
     await vi.advanceTimersByTimeAsync(5_000)
     await expect(result).resolves.toEqual({ pending: true, callId: timedCallId })
@@ -461,29 +516,36 @@ describe('askTimed', () => {
 
   it('keeps a Client-claimed wait open and closes its stream when the answer settles', async () => {
     vi.useFakeTimers()
-    onTestFinished(() => { vi.useRealTimers() })
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
     const ctx = await timedContext()
-    onTestFinished(async () => { await ctx.fiber.dispose() })
+    onTestFinished(async () => {
+      await ctx.fiber.dispose()
+    })
     const agent = liveAgent('timed-claimed')
     ctx.agents.enter(agent, undefined)
     const answer = Promise.withResolvers<AskUserQuestionAnswer>()
     registerAnswerer(ctx, { ask: () => answer.promise })
     let settled = false
-    const result = ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 5_000)
-      .finally(() => { settled = true })
+    const result = ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 5_000).finally(() => {
+      settled = true
+    })
     const stream = ctx.userQuestions.attachWait(agent, timedCallId, new AbortController().signal)[Symbol.asyncIterator]()
     expect(await stream.next()).toEqual({ done: false, value: { remainingMs: 5_000 } })
     const end = stream.next()
     await vi.advanceTimersByTimeAsync(10_000)
     expect(settled).toBe(false)
-    await expect(ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 5_000))
-      .rejects.toMatchObject({ code: 'DUPLICATE_WAIT' })
+    await expect(ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 5_000)).rejects.toMatchObject({
+      code: 'DUPLICATE_WAIT',
+    })
     const batch = { answers: [{ id: 'scope', selected: ['Tool only'] }] }
     answer.resolve(batch)
     await expect(result).resolves.toEqual(batch)
     expect(await end).toEqual({ done: true, value: undefined })
-    expect(await ctx.userQuestions.attachWait(agent, timedCallId, new AbortController().signal)
-      [Symbol.asyncIterator]().next()).toMatchObject({ done: true })
+    expect(
+      await ctx.userQuestions.attachWait(agent, timedCallId, new AbortController().signal)[Symbol.asyncIterator]().next(),
+    ).toMatchObject({ done: true })
     expect(vi.getTimerCount()).toBe(0)
   })
 
@@ -493,7 +555,10 @@ describe('askTimed', () => {
     ctx.agents.enter(agent, undefined)
     const seen: AskUserQuestionRequest[] = []
     registerAnswerer(ctx, {
-      ask: async (request) => { seen.push(request); return { answers: [{ id: 'scope', selected: ['Tool only'] }] } },
+      ask: async request => {
+        seen.push(request)
+        return { answers: [{ id: 'scope', selected: ['Tool only'] }] }
+      },
     })
     const result = await ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 120_000)
 
@@ -510,11 +575,15 @@ describe('askTimed', () => {
     let code = 'ASK_TIMED_OUT'
     registerAnswerer(ctx, { ask: () => Promise.reject(wireRejection(code)) })
 
-    await expect(ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 120_000))
-      .resolves.toEqual({ pending: true, callId: timedCallId })
+    await expect(ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 120_000)).resolves.toEqual({
+      pending: true,
+      callId: timedCallId,
+    })
     code = 'ASK_CANCELLED'
-    await expect(ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 120_000))
-      .rejects.toMatchObject({ name: 'UserQuestionError', code: 'ASK_CANCELLED' })
+    await expect(ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 120_000)).rejects.toMatchObject({
+      name: 'UserQuestionError',
+      code: 'ASK_CANCELLED',
+    })
     await ctx.fiber.dispose()
   })
 
@@ -525,8 +594,9 @@ describe('askTimed', () => {
       const agent = liveAgent('timed-unclaimed')
       ctx.agents.enter(agent, undefined)
       let settled = false
-      const result = ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 5_000)
-        .finally(() => { settled = true })
+      const result = ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 5_000).finally(() => {
+        settled = true
+      })
 
       await vi.advanceTimersByTimeAsync(4_999)
       expect(settled).toBe(false)
@@ -545,9 +615,7 @@ describe('askTimed', () => {
       const agent = liveAgent('timed-aborted-hold')
       ctx.agents.enter(agent, undefined)
       const controller = new AbortController()
-      const result = ctx.userQuestions.askTimed(
-        { agent, questions: timedQuestions, signal: controller.signal }, timedCallId, 5_000,
-      )
+      const result = ctx.userQuestions.askTimed({ agent, questions: timedQuestions, signal: controller.signal }, timedCallId, 5_000)
       const rejection = expect(result).rejects.toMatchObject({ code: 'ASK_ABORTED' })
 
       await vi.advanceTimersByTimeAsync(1_000)
@@ -566,8 +634,7 @@ describe('askTimed', () => {
     ctx.agents.enter(agent, undefined)
     registerAnswerer(ctx, { ask: () => Promise.reject(new TypeError('provider crashed')) })
 
-    await expect(ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 120_000))
-      .rejects.toThrow(TypeError)
+    await expect(ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 120_000)).rejects.toThrow(TypeError)
     await ctx.fiber.dispose()
   })
 
@@ -583,9 +650,9 @@ describe('askTimed', () => {
       },
     })
 
-    await expect(ctx.userQuestions.askTimed(
-      { agent, questions: timedQuestions, signal: controller.signal }, timedCallId, 5_000,
-    )).rejects.toMatchObject({ name: 'UserQuestionError', code: 'ASK_ABORTED' })
+    await expect(
+      ctx.userQuestions.askTimed({ agent, questions: timedQuestions, signal: controller.signal }, timedCallId, 5_000),
+    ).rejects.toMatchObject({ name: 'UserQuestionError', code: 'ASK_ABORTED' })
     await ctx.fiber.dispose()
   })
 
@@ -596,8 +663,9 @@ describe('askTimed', () => {
     const ask = vi.fn(async () => ({ answers: [] }))
     registerAnswerer(ctx, { ask })
 
-    await expect(ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 0))
-      .rejects.toMatchObject({ code: 'BAD_TIMEOUT' })
+    await expect(ctx.userQuestions.askTimed({ agent, questions: timedQuestions }, timedCallId, 0)).rejects.toMatchObject({
+      code: 'BAD_TIMEOUT',
+    })
     expect(ask).not.toHaveBeenCalled()
     await ctx.fiber.dispose()
   })
@@ -619,18 +687,28 @@ describe('late replies', () => {
       reason: 'initial',
     })
     agent.session.append('tool/call', {
-      turn: 1, step: 1, callId, name: 'ask_user_question',
+      turn: 1,
+      step: 1,
+      callId,
+      name: 'ask_user_question',
       arguments: JSON.stringify({ questions: timedQuestions }),
     })
   }
 
   function continueInLog(agent: Agent, callId: ToolCallId): void {
-    agent.session.append('tool/result', {
-      turn: 1, step: 1,
-      message: createToolResultMessage({
-        callId, content: [{ type: 'text', text: JSON.stringify({ pending: true, callId }) }], isError: false,
-      }),
-    }, { surfaceOp: 'append' })
+    agent.session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({
+          callId,
+          content: [{ type: 'text', text: JSON.stringify({ pending: true, callId }) }],
+          isError: false,
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
   }
 
   it('steers an answer into a continued question and closes it once the reply is admitted', async () => {
@@ -647,8 +725,11 @@ describe('late replies', () => {
     const steered = agent.steer.mock.calls[0]![0]
     expect(steered.source).toEqual({ kind: 'user-question-reply', callId: timedCallId, outcome: 'answered' })
     expect(replyText(steered)).toEqual({
-      kind: 'answer_to_pending_question', tool: 'ask_user_question', callId: timedCallId,
-      questions: timedQuestions, answers: batch.answers,
+      kind: 'answer_to_pending_question',
+      tool: 'ask_user_question',
+      callId: timedCallId,
+      questions: timedQuestions,
+      answers: batch.answers,
     })
     agent.session.append('agent/inbox/spliced', { target: 'next-step', start: 0, inserted: [steered] })
     agent.session.append('user/message', steered, { surfaceOp: 'append' })
@@ -664,7 +745,10 @@ describe('late replies', () => {
     askInLog(agent, timedCallId)
     continueInLog(agent, timedCallId)
     agent.session.append('tool/call', {
-      turn: 1, step: 1, callId: secondCallId, name: 'ask_user_question',
+      turn: 1,
+      step: 1,
+      callId: secondCallId,
+      name: 'ask_user_question',
       arguments: JSON.stringify({ questions: timedQuestions }),
     })
     continueInLog(agent, secondCallId)
@@ -689,8 +773,7 @@ describe('late replies', () => {
     const batch = { answers: [{ id: 'scope', selected: ['Tool only'] }] }
 
     expect(ctx.userQuestions.answer(agent, timedCallId, batch)).toBe(true)
-    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch))
-      .toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
+    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch)).toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
     expect(agent.steer).toHaveBeenCalledTimes(1)
 
     const first = agent.steer.mock.calls[0]![0]
@@ -714,12 +797,10 @@ describe('late replies', () => {
     })
     agent.queuedMessages.push(reply)
 
-    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch))
-      .toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
+    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch)).toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
     agent.queuedMessages.shift()
     agent.queuedTurns.push(reply)
-    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch))
-      .toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
+    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch)).toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
     expect(agent.steer).not.toHaveBeenCalled()
     await ctx.fiber.dispose()
   })
@@ -736,13 +817,11 @@ describe('late replies', () => {
       content: [{ type: 'text', text: 'restored reply' }],
     })
     agent.queuedMessages.push(reply)
-    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch))
-      .toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
+    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch)).toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
 
     agent.queuedMessages.shift()
     agentEvents(ctx, agent).emit('agent/inbox/claimed', { message: reply, turn: 1 })
-    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch))
-      .toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
+    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch)).toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
 
     // An unexpected second claim for the same call must not replace the first reservation.
     const otherReply = createUserMessage({
@@ -789,8 +868,7 @@ describe('late replies', () => {
     const turnEnd = agent.session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     ctx.emit('session/event', agent.session, turnEnd)
 
-    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch))
-      .toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
+    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch)).toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
     expect(agent.steer).toHaveBeenCalledOnce()
     await ctx.fiber.dispose()
   })
@@ -807,8 +885,7 @@ describe('late replies', () => {
     const first = agent.steer.mock.calls[0]![0]
     agent.queuedMessages.shift()
     agentEvents(ctx, agent).emit('agent/inbox/claimed', { message: first, turn: 1 })
-    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch))
-      .toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
+    expect(() => ctx.userQuestions.answer(agent, timedCallId, batch)).toThrow(expect.objectContaining({ code: 'REPLY_QUEUED' }))
 
     const ended = agent.session.append('turn/end', { turn: 1, reason: { kind: 'aborted', reason: { kind: 'user' } } })
     ctx.emit('session/event', agent.session, ended)
@@ -824,7 +901,9 @@ describe('late replies', () => {
     askInLog(agent, timedCallId)
     continueInLog(agent, timedCallId)
     const batch = { answers: [{ id: 'scope', selected: ['Tool only'] }] }
-    agent.steer.mockImplementationOnce(() => { throw new Error('steer failed') })
+    agent.steer.mockImplementationOnce(() => {
+      throw new Error('steer failed')
+    })
 
     expect(() => ctx.userQuestions.answer(agent, timedCallId, batch)).toThrow('steer failed')
     expect(ctx.userQuestions.answer(agent, timedCallId, batch)).toBe(true)
@@ -869,11 +948,18 @@ describe('late replies', () => {
     for (const answers of [
       [],
       [{ id: 'other', selected: ['Tool only'] }],
-      [{ id: 'scope', selected: ['Tool only'] }, { id: 'scope', selected: [] }],
-      [{ id: 'scope', selected: ['Tool only'] }, { id: 'other', selected: [] }],
+      [
+        { id: 'scope', selected: ['Tool only'] },
+        { id: 'scope', selected: [] },
+      ],
+      [
+        { id: 'scope', selected: ['Tool only'] },
+        { id: 'other', selected: [] },
+      ],
     ]) {
-      expect(() => ctx.userQuestions.answer(agent, timedCallId, { answers }))
-        .toThrow(expect.objectContaining({ name: 'UserQuestionError', code: 'BAD_ANSWER' }))
+      expect(() => ctx.userQuestions.answer(agent, timedCallId, { answers })).toThrow(
+        expect.objectContaining({ name: 'UserQuestionError', code: 'BAD_ANSWER' }),
+      )
     }
     expect(agent.steer).not.toHaveBeenCalled()
     // The question stays continued and takes a well-formed batch afterwards.
@@ -887,13 +973,20 @@ describe('late replies', () => {
     ctx.agents.enter(agent, undefined)
     const legacySchema: ToolSchema = { ...timedToolSchema, parameters: { type: 'object', properties: { questions: { type: 'array' } } } }
     askInLog(agent, timedCallId, [legacySchema])
-    agent.session.append('tool/result', {
-      turn: 1, step: 1,
-      message: createToolResultMessage({
-        callId: timedCallId, content: [{ type: 'text', text: 'The tool call was interrupted after it was recorded.' }], isError: true,
-      }),
-      error: { name: 'SessionFormatError', code: TOOL_OUTCOME_UNKNOWN },
-    }, { surfaceOp: 'append' })
+    agent.session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({
+          callId: timedCallId,
+          content: [{ type: 'text', text: 'The tool call was interrupted after it was recorded.' }],
+          isError: true,
+        }),
+        error: { name: 'SessionFormatError', code: TOOL_OUTCOME_UNKNOWN },
+      },
+      { surfaceOp: 'append' },
+    )
 
     expect(ctx.sessionProjections.stateOf(agent.session, 'userQuestions')?.questions).toEqual({ active: [], settled: [] })
     expect(ctx.userQuestions.answer(agent, timedCallId, { answers: [{ id: 'scope', selected: [] }] })).toBe(false)

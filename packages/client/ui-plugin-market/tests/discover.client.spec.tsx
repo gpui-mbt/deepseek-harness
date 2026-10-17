@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { MarketListingEntry, MarketListingVersion, MarketSearchResult } from '@deepseek-ai/dsh-api-remotes/client'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -14,7 +14,10 @@ afterEach(cleanup)
 
 function translator(dictionary: Record<PluginMarketLocaleKey, string>): DiscoverSectionProps['t'] {
   return ((key: PluginMarketLocaleKey, params?: Record<string, string>): string =>
-    Object.entries(params ?? {}).reduce<string>((text, [name, value]) => text.replaceAll(`{${name}}`, value), dictionary[key])) as DiscoverSectionProps['t']
+    Object.entries(params ?? {}).reduce<string>(
+      (text, [name, value]) => text.replaceAll(`{${name}}`, value),
+      dictionary[key],
+    )) as DiscoverSectionProps['t']
 }
 
 const A = 'https://a.example/index.json'
@@ -23,21 +26,32 @@ const COMMIT = '0123456789abcdef0123456789abcdef01234567'
 
 function release(name: string, version: string, fields: Partial<MarketListingVersion> = {}): MarketListingVersion {
   return {
-    version, publishTimestamp: 1790476800, source: { type: 'npm' }, engines: {},
-    install: { spec: `${name}@${version}` }, compatibility: { compatible: true }, ...fields,
+    version,
+    publishTimestamp: 1790476800,
+    source: { type: 'npm' },
+    engines: {},
+    install: { spec: `${name}@${version}` },
+    compatibility: { compatible: true },
+    ...fields,
   }
 }
 
 const INCOMPATIBLE = { compatible: false, runtimeVersion: '0.2.0', requirements: { 'engines.dsh': '0.1.0' } } as const
 
 function entry(
-  name: string, fields: Partial<MarketListingEntry> = {}, metadata: Partial<MarketListingEntry['metadata']> = {},
+  name: string,
+  fields: Partial<MarketListingEntry> = {},
+  metadata: Partial<MarketListingEntry['metadata']> = {},
   version: Partial<MarketListingVersion> = {},
 ): MarketListingEntry {
   const only = release(name, '1.0.0', version)
   return {
-    name, versions: [only], ...installableDefault(only), installation: { status: 'not-installed' },
-    ...fields, metadata: { keywords: [], labels: [], sortKeys: {}, ...metadata },
+    name,
+    versions: [only],
+    ...installableDefault(only),
+    installation: { status: 'not-installed' },
+    ...fields,
+    metadata: { keywords: [], labels: [], sortKeys: {}, ...metadata },
   }
 }
 
@@ -57,25 +71,55 @@ const LISTING: MarketSearchResult = {
     sortKeys: { downloads: { title: 'Downloads', order: 'desc' } },
   },
   entries: [
-    entry('dsh-a', {
-      title: { en: 'Alpha', zh: '甲' }, description: 'Does A', author: 'Jane', icon: 'https://cdn.example/a.png',
-      homepage: 'https://example.com/alpha#readme', repository: { url: 'https://github.com/o/plugins', directory: 'packages/a' },
-    }, { category: 'tools', labels: ['official', 'beta'], sortKeys: { downloads: 1 } }, {
-      source: { type: 'npm', registry: 'https://r.example/' }, install: { spec: 'dsh-a@1.0.0', registry: 'https://r.example/' },
+    entry(
+      'dsh-a',
+      {
+        title: { en: 'Alpha', zh: '甲' },
+        description: 'Does A',
+        author: 'Jane',
+        icon: 'https://cdn.example/a.png',
+        homepage: 'https://example.com/alpha#readme',
+        repository: { url: 'https://github.com/o/plugins', directory: 'packages/a' },
+      },
+      { category: 'tools', labels: ['official', 'beta'], sortKeys: { downloads: 1 } },
+      {
+        source: { type: 'npm', registry: 'https://r.example/' },
+        install: { spec: 'dsh-a@1.0.0', registry: 'https://r.example/' },
+      },
+    ),
+    entry(
+      'dsh-b',
+      { installation: { status: 'installed', installedVersion: '1.0.0' } },
+      { category: 'themes', labels: ['official'], sortKeys: { downloads: 9 } },
+      {
+        publishTimestamp: 1790000000,
+        source: { type: 'git', url: 'https://github.com/o/r', commit: COMMIT, path: 'packages/b' },
+      },
+    ),
+    entry('dsh-c', {
+      installation: { status: 'update-available', installedVersion: '0.9.0' },
+      repository: { url: 'https://git.example/o/c' },
     }),
-    entry('dsh-b', { installation: { status: 'installed', installedVersion: '1.0.0' } }, { category: 'themes', labels: ['official'], sortKeys: { downloads: 9 } }, {
-      publishTimestamp: 1790000000, source: { type: 'git', url: 'https://github.com/o/r', commit: COMMIT, path: 'packages/b' },
-    }),
-    entry('dsh-c', { installation: { status: 'update-available', installedVersion: '0.9.0' }, repository: { url: 'https://git.example/o/c' } }),
-    entry('dsh-f', { installation: { status: 'provided' } }, {}, { source: { type: 'git', url: 'https://github.com/o/f', commit: COMMIT } }),
+    entry(
+      'dsh-f',
+      { installation: { status: 'provided' } },
+      {},
+      { source: { type: 'git', url: 'https://github.com/o/f', commit: COMMIT } },
+    ),
     entry('dsh-g', {}, {}, { compatibility: { ...INCOMPATIBLE, exempted: false } }),
     entry('dsh-h', {}, {}, { compatibility: { ...INCOMPATIBLE, exempted: true } }),
   ],
 }
 
 const READY: DiscoverState = {
-  status: 'ready', indexes: [{ url: A, title: LISTING.title }, { url: B }], selected: A,
-  listing: { url: A, query: INITIAL_QUERY, status: 'ready', value: LISTING, answered: INITIAL_QUERY, failure: null }, editing: false, draft: '', saving: false, sourceFailure: null,
+  status: 'ready',
+  indexes: [{ url: A, title: LISTING.title }, { url: B }],
+  selected: A,
+  listing: { url: A, query: INITIAL_QUERY, status: 'ready', value: LISTING, answered: INITIAL_QUERY, failure: null },
+  editing: false,
+  draft: '',
+  saving: false,
+  sourceFailure: null,
 }
 
 function renderTab(state: Partial<DiscoverState> = {}, dictionary: Record<PluginMarketLocaleKey, string> = en) {
@@ -83,31 +127,51 @@ function renderTab(state: Partial<DiscoverState> = {}, dictionary: Record<Plugin
   const language = dictionary === en ? 'en' : 'zh'
   const locale = createSnapshotStore<LocaleSnapshot>({ active: language, locales: [], revision: 0 })
   const actions = {
-    ensure: vi.fn(), reload: vi.fn(), select: vi.fn(), search: vi.fn(), more: vi.fn(), refresh: vi.fn(), retry: vi.fn(),
+    ensure: vi.fn(),
+    reload: vi.fn(),
+    select: vi.fn(),
+    search: vi.fn(),
+    more: vi.fn(),
+    refresh: vi.fn(),
+    retry: vi.fn(),
     toggleSources: vi.fn(),
-    editDraft: vi.fn(), addSource: vi.fn(), removeSource: vi.fn(),
+    editDraft: vi.fn(),
+    addSource: vi.fn(),
+    removeSource: vi.fn(),
   }
   const install = vi.fn()
   const openPackage = vi.fn()
   const props = {
-    t: translator(dictionary), install, openPackage, ...actions,
-    resolveText: (text: string | Record<string, string>) => typeof text === 'string' ? text : text[language] ?? text.en,
+    t: translator(dictionary),
+    install,
+    openPackage,
+    ...actions,
+    resolveText: (text: string | Record<string, string>) => (typeof text === 'string' ? text : (text[language] ?? text.en)),
     useDiscover: bindSnapshotSelector(store),
     useLocale: bindSnapshotSelector(locale),
   } as DiscoverSectionProps
   render(<DiscoverSection {...props} />)
-  const set = (next: Partial<DiscoverState>): void => { act(() => { store.set({ ...store.getSnapshot(), ...next }) }) }
+  const set = (next: Partial<DiscoverState>): void => {
+    act(() => {
+      store.set({ ...store.getSnapshot(), ...next })
+    })
+  }
   /** Show the selected listing answering `query`, as the Controller publishes it. */
   const answer = (query: DiscoverQuery, value: Partial<MarketSearchResult> = {}): void => {
-    set({ listing: { ...store.getSnapshot().listing as ListingState, query, value: { ...LISTING, ...value }, answered: query } })
+    set({ listing: { ...(store.getSnapshot().listing as ListingState), query, value: { ...LISTING, ...value }, answered: query } })
   }
   return { actions, install, openPackage, set, answer }
 }
 
-const names = (): string[] => Array.from(document.querySelectorAll('[data-market-entry]')).map(node => node.getAttribute('data-market-entry') ?? '')
+const names = (): string[] =>
+  Array.from(document.querySelectorAll('[data-market-entry]')).map(node => node.getAttribute('data-market-entry') ?? '')
 const card = (name: string) => within(document.querySelector(`[data-market-entry="${name}"]`) as HTMLElement)
-const openMenu = (name: RegExp | string): void => { fireEvent.click(screen.getByRole('button', { name })) }
-const pick = (name: string): void => { fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(name) })) }
+const openMenu = (name: RegExp | string): void => {
+  fireEvent.click(screen.getByRole('button', { name }))
+}
+const pick = (name: string): void => {
+  fireEvent.click(screen.getByRole('menuitem', { name: new RegExp(name) }))
+}
 
 describe('DiscoverSection', () => {
   it('shows the list skeleton until the sources are read, and a retry when they cannot be', () => {
@@ -147,7 +211,11 @@ describe('DiscoverSection', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: en.install }))
     expect(install).toHaveBeenCalledWith({ spec: 'dsh-a@1.0.0', registry: 'https://r.example/', title: 'Alpha', version: '1.0.0' })
     expect(screen.queryByRole('dialog')).toBeNull()
-    for (const [name, label] of [['dsh-b', en.statusInstalled], ['dsh-c', en.statusUpdate], ['dsh-f', en.statusProvided]] as const) {
+    for (const [name, label] of [
+      ['dsh-b', en.statusInstalled],
+      ['dsh-c', en.statusUpdate],
+      ['dsh-f', en.statusProvided],
+    ] as const) {
       fireEvent.click(card(name).getByRole('button', { name: `View ${name} in Installed` }))
       expect(card(name).getByText(label)).toBeTruthy()
       expect(openPackage).toHaveBeenLastCalledWith(name)
@@ -177,9 +245,13 @@ describe('DiscoverSection', () => {
       const box = screen.getByRole('searchbox', { name: en.search })
       fireEvent.change(box, { target: { value: 'do' } })
       fireEvent.change(box, { target: { value: 'does a' } })
-      act(() => { vi.advanceTimersByTime(249) })
+      act(() => {
+        vi.advanceTimersByTime(249)
+      })
       expect(actions.search).not.toHaveBeenCalled()
-      act(() => { vi.advanceTimersByTime(1) })
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
       const typed = { ...INITIAL_QUERY, text: 'does a', sort: { kind: 'relevance' } } as const
       expect(actions.search).toHaveBeenCalledExactlyOnceWith(typed)
       answer(typed, { entries: LISTING.entries.slice(0, 1), total: 1 })
@@ -192,7 +264,9 @@ describe('DiscoverSection', () => {
       pick(en.sortRelevance)
       expect(actions.search).toHaveBeenLastCalledWith(typed)
       fireEvent.change(box, { target: { value: '' } })
-      act(() => { vi.advanceTimersByTime(250) })
+      act(() => {
+        vi.advanceTimersByTime(250)
+      })
       expect(actions.search).toHaveBeenLastCalledWith({ ...INITIAL_QUERY, sort: { kind: 'index' } })
       answer(INITIAL_QUERY)
       openMenu(/^Sort: Default order/)
@@ -223,7 +297,14 @@ describe('DiscoverSection', () => {
     answer({ ...INITIAL_QUERY, labels: ['beta'] }, { entries: [], total: 0 })
     expect(screen.getByText(en.noMatches)).toBeTruthy()
     // Clearing the filters keeps the filtered results' wording until the unfiltered answer arrives.
-    set({ listing: { ...READY.listing as ListingState, status: 'loading', value: { ...LISTING, entries: [], total: 0 }, answered: { ...INITIAL_QUERY, labels: ['beta'] } } })
+    set({
+      listing: {
+        ...(READY.listing as ListingState),
+        status: 'loading',
+        value: { ...LISTING, entries: [], total: 0 },
+        answered: { ...INITIAL_QUERY, labels: ['beta'] },
+      },
+    })
     expect(screen.getByText(en.noMatches)).toBeTruthy()
     answer(INITIAL_QUERY, { entries: [], total: 0 })
     expect(screen.getByText(en.emptyIndex)).toBeTruthy()
@@ -283,10 +364,14 @@ describe('DiscoverSection', () => {
     const detail = within(document.querySelector('[data-market-detail="dsh-a"]') as HTMLElement)
     expect(detail.getByRole('heading', { name: 'Alpha' })).toBeTruthy()
     expect(detail.getByText('dsh-a')).toBeTruthy()
-    for (const value of ['Jane', 'dsh-a@1.0.0', 'https://r.example/', 'Tools', 'Official', 'Beta', 'Alpha market']) expect(detail.getByText(value)).toBeTruthy()
+    for (const value of ['Jane', 'dsh-a@1.0.0', 'https://r.example/', 'Tools', 'Official', 'Beta', 'Alpha market'])
+      expect(detail.getByText(value)).toBeTruthy()
     const homepage = detail.getByRole('link', { name: 'https://example.com/alpha#readme' })
-    expect([homepage.getAttribute('href'), homepage.getAttribute('target'), homepage.getAttribute('rel')])
-      .toEqual(['https://example.com/alpha#readme', '_blank', 'noopener noreferrer'])
+    expect([homepage.getAttribute('href'), homepage.getAttribute('target'), homepage.getAttribute('rel')]).toEqual([
+      'https://example.com/alpha#readme',
+      '_blank',
+      'noopener noreferrer',
+    ])
     const repository = detail.getByRole('link', { name: 'https://github.com/o/plugins' })
     expect([repository.getAttribute('href'), repository.getAttribute('target')]).toEqual(['https://github.com/o/plugins', '_blank'])
     expect(detail.getByText(en.factSourceCode)).toBeTruthy()
@@ -325,16 +410,32 @@ describe('DiscoverSection', () => {
       release(name, '1.0.0+build.1', { publishTimestamp: 1780000000 }),
     ]
     const multi: MarketListingEntry = {
-      name, versions, defaultVersion: '1.1.0', installation: { status: 'different-version', installedVersion: '1.0.0+build.1' },
+      name,
+      versions,
+      defaultVersion: '1.1.0',
+      installation: { status: 'different-version', installedVersion: '1.0.0+build.1' },
       metadata: { keywords: [], labels: [], sortKeys: {} },
     }
-    const { install } = renderTab({ listing: { url: A, query: INITIAL_QUERY, status: 'ready', value: { ...LISTING, entries: [multi] }, answered: INITIAL_QUERY, failure: null } })
+    const { install } = renderTab({
+      listing: {
+        url: A,
+        query: INITIAL_QUERY,
+        status: 'ready',
+        value: { ...LISTING, entries: [multi] },
+        answered: INITIAL_QUERY,
+        failure: null,
+      },
+    })
     expect(card(name).getByText(/^1\.1\.0 · /)).toBeTruthy()
     fireEvent.click(card(name).getByRole('button', { name: `View ${name}` }))
     const list = within(screen.getByRole('list', { name: `Versions of ${name}` }))
     const row = (version: string) => within(document.querySelector(`[data-market-version="${version}"]`) as HTMLElement)
-    expect(Array.from(document.querySelectorAll('[data-market-version]')).map(node => node.getAttribute('data-market-version')))
-      .toEqual(['3.0.0-rc.1', '2.0.0', '1.1.0', '1.0.0+build.1'])
+    expect(Array.from(document.querySelectorAll('[data-market-version]')).map(node => node.getAttribute('data-market-version'))).toEqual([
+      '3.0.0-rc.1',
+      '2.0.0',
+      '1.1.0',
+      '1.0.0+build.1',
+    ])
     expect(row('3.0.0-rc.1').getByText(en.versionPrerelease)).toBeTruthy()
     expect(row('2.0.0').getByText(en.versionIncompatible)).toBeTruthy()
     expect(row('2.0.0').queryByRole('button')).toBeNull()
@@ -356,7 +457,9 @@ describe('DiscoverSection', () => {
       { name, versions: [exempted], installation: { status: 'not-installed' }, metadata: { keywords: [], labels: [], sortKeys: {} } },
       entry('dsh-p', { installation: { status: 'provided', installedVersion: '0.9.0' } }),
     ]
-    renderTab({ listing: { url: A, query: INITIAL_QUERY, status: 'ready', value: { ...LISTING, entries }, answered: INITIAL_QUERY, failure: null } })
+    renderTab({
+      listing: { url: A, query: INITIAL_QUERY, status: 'ready', value: { ...LISTING, entries }, answered: INITIAL_QUERY, failure: null },
+    })
     fireEvent.click(card(name).getByRole('button', { name: `View ${name}` }))
     const row = within(document.querySelector('[data-market-version="2.0.0"]') as HTMLElement)
     expect(row.getByText(en.versionExempted)).toBeTruthy()
@@ -370,7 +473,14 @@ describe('DiscoverSection', () => {
   it('asks for the next page while the Host has more', () => {
     const many = Array.from({ length: 50 }, (_, index) => entry(`dsh-${String(index).padStart(3, '0')}`))
     const { actions, set } = renderTab({
-      listing: { url: A, query: INITIAL_QUERY, status: 'ready', value: { ...LISTING, metadata: { categories: {}, labels: {}, sortKeys: {} }, entries: many, total: 120, nextOffset: 50 }, answered: INITIAL_QUERY, failure: null },
+      listing: {
+        url: A,
+        query: INITIAL_QUERY,
+        status: 'ready',
+        value: { ...LISTING, metadata: { categories: {}, labels: {}, sortKeys: {} }, entries: many, total: 120, nextOffset: 50 },
+        answered: INITIAL_QUERY,
+        failure: null,
+      },
     })
     expect(names()).toHaveLength(50)
     expect(screen.queryByRole('group', { name: en.categoriesLabel })).toBeNull()
@@ -390,7 +500,10 @@ describe('DiscoverSection', () => {
     fireEvent.click(card('dsh-a').getByRole('button', { name: 'View Alpha' }))
     answer(INITIAL_QUERY, { entries: LISTING.entries.slice(1) })
     expect(document.querySelector('[data-market-detail="dsh-a"]')).toBeTruthy()
-    const installed = { ...LISTING.entries[0] as MarketListingEntry, installation: { status: 'installed', installedVersion: '1.0.0' } } as const
+    const installed = {
+      ...(LISTING.entries[0] as MarketListingEntry),
+      installation: { status: 'installed', installedVersion: '1.0.0' },
+    } as const
     answer(INITIAL_QUERY, { entries: [installed] })
     expect(screen.getByRole('button', { name: 'View Alpha in Installed' })).toBeTruthy()
   })
@@ -414,12 +527,28 @@ describe('DiscoverSection', () => {
     set({ listing: { url: A, query: INITIAL_QUERY, status: 'loading', value: null, answered: null, failure: null } })
     expect(screen.getByRole('status', { name: en.loading })).toBeTruthy()
     expect(screen.getByRole('button', { name: en.refresh }).hasAttribute('disabled')).toBe(true)
-    set({ listing: { url: B, query: INITIAL_QUERY, status: 'ready', value: { ...LISTING, url: B, entries: [], total: 0 }, answered: INITIAL_QUERY, failure: null } })
+    set({
+      listing: {
+        url: B,
+        query: INITIAL_QUERY,
+        status: 'ready',
+        value: { ...LISTING, url: B, entries: [], total: 0 },
+        answered: INITIAL_QUERY,
+        failure: null,
+      },
+    })
     expect(screen.getByRole('button', { name: 'Switch plugin market, currently b.example' })).toBeTruthy()
   })
 
   it('manages sources in a dialog with the trust notice and each refusal', () => {
-    const { actions, set } = renderTab({ editing: true, draft: 'https://c.example/index.json', indexes: [{ url: A, title: LISTING.title }, { url: B, error: 'HTTP 404' }] })
+    const { actions, set } = renderTab({
+      editing: true,
+      draft: 'https://c.example/index.json',
+      indexes: [
+        { url: A, title: LISTING.title },
+        { url: B, error: 'HTTP 404' },
+      ],
+    })
     const dialog = within(screen.getByRole('dialog', { name: en.sourcesTitle }))
     expect(dialog.getByText(en.sourcesTrust)).toBeTruthy()
     expect(dialog.getByText('Alpha market')).toBeTruthy()
@@ -432,8 +561,10 @@ describe('DiscoverSection', () => {
     fireEvent.click(dialog.getByRole('button', { name: en.addSource }))
     expect(actions.addSource).toHaveBeenCalledOnce()
     for (const [failure, text] of [
-      [{ kind: 'invalid' }, en.sourceInvalid], [{ kind: 'duplicate' }, en.sourceDuplicate],
-      [{ kind: 'unavailable' }, en.sourceUnavailable], [{ kind: 'other', reason: 'boom' }, en.sourceFailed],
+      [{ kind: 'invalid' }, en.sourceInvalid],
+      [{ kind: 'duplicate' }, en.sourceDuplicate],
+      [{ kind: 'unavailable' }, en.sourceUnavailable],
+      [{ kind: 'other', reason: 'boom' }, en.sourceFailed],
     ] as const) {
       set({ sourceFailure: failure })
       expect(screen.getByRole('alert').textContent).toBe(text)

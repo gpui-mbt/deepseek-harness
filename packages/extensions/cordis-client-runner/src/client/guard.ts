@@ -19,9 +19,7 @@ import type { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 
 /** Facade verbs beyond declared services (host CTX_VERBS twin). */
-const CTX_VERBS = new Set([
-  'effect', 'on', 'once', 'provide', 'timeout', 'interval', 'setTimeout', 'setInterval', 'throttle', 'debounce',
-])
+const CTX_VERBS = new Set(['effect', 'on', 'once', 'provide', 'timeout', 'interval', 'setTimeout', 'setInterval', 'throttle', 'debounce'])
 const TIMER_VERBS = new Set(['timeout', 'interval', 'setTimeout', 'setInterval', 'throttle', 'debounce'])
 
 /** One package's Slot or Factory registration ledger row (contribution projection source). */
@@ -55,9 +53,10 @@ export interface DynamicCordisGuardEnv {
 /** Reject any service return that is a cordis Context (host guard twin). */
 function denyContext(value: unknown, service: string, env: DynamicCordisGuardEnv): unknown {
   if (value instanceof Context) {
-    return rejectGuard(env,
-      `service "${service}" returned a cordis Context, which the dynamic facade does not expose. `
-      + 'Operate through your own plugin ctx and the services you declared — never another context.',
+    return rejectGuard(
+      env,
+      `service "${service}" returned a cordis Context, which the dynamic facade does not expose. ` +
+        'Operate through your own plugin ctx and the services you declared — never another context.',
     )
   }
   return value
@@ -105,7 +104,7 @@ function guardedSlots(slots: SlotRegistry, env: DynamicCordisGuardEnv): unknown 
         if (typeof rawOptions !== 'object' || rawOptions === null) {
           return rejectGuard(env, 'slots.register(options, component) needs an options object with a `name`')
         }
-        const options = { ...rawOptions as ErasedSlotOptions }
+        const options = { ...(rawOptions as ErasedSlotOptions) }
         const slot = options.name
         if (typeof slot !== 'string' || slot.length === 0) {
           return rejectGuard(env, `slots.${prop} options need a string \`name\``)
@@ -167,9 +166,10 @@ function guardedTheme(theme: ThemeRuntime, env: DynamicCordisGuardEnv, ctx: Cont
         // Two-argument shape preserved so the facade matches the documented
         // service signature; the source VALUE is replaced, never trusted.
         if (tokens === undefined && typeof source === 'object' && source !== null) {
-          return rejectGuard(env,
-            'theme.overrideTokens(source, tokens) takes two arguments; source is replaced with your package id, '
-            + 'so pass any string first and the token map second: overrideTokens(\'mine\', { \'--dsw-alias-…\': { light: \'…\', dark: \'…\' } })',
+          return rejectGuard(
+            env,
+            'theme.overrideTokens(source, tokens) takes two arguments; source is replaced with your package id, ' +
+              "so pass any string first and the token map second: overrideTokens('mine', { '--dsw-alias-…': { light: '…', dark: '…' } })",
           )
         }
         const method = Reflect.get(target, 'overrideTokens', target)
@@ -195,16 +195,18 @@ export function dynamicCordisContext(ctx: Context, env: DynamicCordisGuardEnv): 
   const declared = new Set(Object.keys(ctx.fiber.inject))
   const denyRead = (prop: string): never => {
     if (ctx.get(prop) !== undefined) {
-      return rejectGuard(env,
-        `service "${prop}" is not declared by your plugin. Declare it on the plugin you return: `
-        + `{ inject: ['${prop}', …], apply(ctx) { … } } — a plain \`function\` has no declaration site, `
-        + 'so use the object form. The runtime then parks the package if the provider unloads.',
+      return rejectGuard(
+        env,
+        `service "${prop}" is not declared by your plugin. Declare it on the plugin you return: ` +
+          `{ inject: ['${prop}', …], apply(ctx) { … } } — a plain \`function\` has no declaration site, ` +
+          'so use the object form. The runtime then parks the package if the provider unloads.',
       )
     }
-    return rejectGuard(env,
-      `dynamic ctx does not expose "${prop}". Available: ctx.on / ctx.provide / timer helpers after injecting timer, and any service your `
-      + 'returned plugin declared in inject (slots and theme are the usual UI seats). Framework internals are withheld '
-      + 'by design.',
+    return rejectGuard(
+      env,
+      `dynamic ctx does not expose "${prop}". Available: ctx.on / ctx.provide / timer helpers after injecting timer, and any service your ` +
+        'returned plugin declared in inject (slots and theme are the usual UI seats). Framework internals are withheld ' +
+        'by design.',
     )
   }
   const readService = (name: string, requireDeclaration: boolean): unknown => {
@@ -215,27 +217,30 @@ export function dynamicCordisContext(ctx: Context, env: DynamicCordisGuardEnv): 
     if (name === 'theme') return guardedTheme(service as ThemeRuntime, env, ctx)
     return guardedService(service, name, env)
   }
-  return new Proxy({}, {
-    get(_target, prop) {
-      if (prop === 'get') return (name: string): unknown => readService(name, false)
-      if (typeof prop !== 'string') return undefined
-      // Lazy verb forwarder (host twin): resolve ctx[verb] only when called.
-      if (CTX_VERBS.has(prop)) {
-        return (...args: unknown[]): unknown => {
-          if (TIMER_VERBS.has(prop) && !declared.has('timer')) return denyRead('timer')
-          const method = ctx[prop as keyof Context]
-          return Reflect.apply(method as (...a: unknown[]) => unknown, ctx, args)
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === 'get') return (name: string): unknown => readService(name, false)
+        if (typeof prop !== 'string') return undefined
+        // Lazy verb forwarder (host twin): resolve ctx[verb] only when called.
+        if (CTX_VERBS.has(prop)) {
+          return (...args: unknown[]): unknown => {
+            if (TIMER_VERBS.has(prop) && !declared.has('timer')) return denyRead('timer')
+            const method = ctx[prop as keyof Context]
+            return Reflect.apply(method as (...a: unknown[]) => unknown, ctx, args)
+          }
         }
-      }
-      return readService(prop, true)
+        return readService(prop, true)
+      },
+      set(_target, prop) {
+        return rejectGuard(env, `dynamic ctx is read-only; cannot assign "${String(prop)}"`)
+      },
+      has: (_target, prop) =>
+        prop === 'get' ||
+        (typeof prop === 'string' && ((CTX_VERBS.has(prop) && (!TIMER_VERBS.has(prop) || declared.has('timer'))) || declared.has(prop))),
     },
-    set(_target, prop) {
-      return rejectGuard(env, `dynamic ctx is read-only; cannot assign "${String(prop)}"`)
-    },
-    has: (_target, prop) => prop === 'get'
-      || (typeof prop === 'string'
-        && ((CTX_VERBS.has(prop) && (!TIMER_VERBS.has(prop) || declared.has('timer'))) || declared.has(prop))),
-  }) as Context
+  ) as Context
 }
 
 function rejectGuard(env: DynamicCordisGuardEnv, message: string): never {

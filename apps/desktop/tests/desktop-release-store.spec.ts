@@ -1,11 +1,18 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it } from 'vitest'
-import { retainDesktopRelease, retainedDesktopPath, verifyRetainedDesktopRelease, type DesktopRetainedSource } from '../scripts/desktop-release-store.ts'
+import { afterEach, expect, it } from 'vite-plus/test'
+import {
+  retainDesktopRelease,
+  retainedDesktopPath,
+  verifyRetainedDesktopRelease,
+  type DesktopRetainedSource,
+} from '../scripts/desktop-release-store.ts'
 
 const roots: string[] = []
-afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))) })
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })))
+})
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'desktop-release-store-'))
@@ -13,10 +20,21 @@ async function fixture() {
   const file = join(root, 'installer.exe')
   await writeFile(file, 'signed installer fixture')
   const source: DesktopRetainedSource = {
-    repository: 'owner/repository', runId: '100', attempt: '1', commit: 'a'.repeat(40), runnerName: 'windows-runner',
-    target: 'win-x64', preset: 'test', productVersion: '1.0.0', version: '1.0.0', testReleaseId: 'b'.repeat(32),
-    workflowCommit: 'a'.repeat(40), sourceRef: 'master', channel: 'nightly',
-    publishRequested: true, qualification: 'signed',
+    repository: 'owner/repository',
+    runId: '100',
+    attempt: '1',
+    commit: 'a'.repeat(40),
+    runnerName: 'windows-runner',
+    target: 'win-x64',
+    preset: 'test',
+    productVersion: '1.0.0',
+    version: '1.0.0',
+    testReleaseId: 'b'.repeat(32),
+    workflowCommit: 'a'.repeat(40),
+    sourceRef: 'master',
+    channel: 'nightly',
+    publishRequested: true,
+    qualification: 'signed',
   }
   return { root: join(root, 'releases'), file, source }
 }
@@ -51,9 +69,7 @@ it('does not expose an incomplete copy and releases its claim after failure', as
 
 it('permits only one writer for a concurrently retained attempt', async () => {
   const { root, file, source } = await fixture()
-  const results = await Promise.allSettled([
-    retainDesktopRelease(root, source, [file]), retainDesktopRelease(root, source, [file]),
-  ])
+  const results = await Promise.allSettled([retainDesktopRelease(root, source, [file]), retainDesktopRelease(root, source, [file])])
   expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1)
   await expect(verifyRetainedDesktopRelease(root, '100', '1')).resolves.toMatchObject({ source })
 })

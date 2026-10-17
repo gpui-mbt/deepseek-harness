@@ -42,23 +42,27 @@ export function officeFace(
     load: (tabId, revision, file, signal, loaded, failed) => {
       if (signal.aborted) return
       actions.loading(tabId, revision)
-      void read(file, signal).then((result) => {
-        if (signal.aborted) return
-        if (result.ok) {
-          actions.complete(tabId, revision, result.value)
-          loaded(result.value.version)
-        } else {
-          actions.failed(tabId, revision, { code: result.error.code, message: describeFailure(result.error) })
-          failed()
-        }
-      }, (error: unknown) => {
-        if (!signal.aborted) {
-          actions.failed(tabId, revision, {
-            code: 'gateway/internal', message: describeFailure({ message: error instanceof Error ? error.message : String(error) }),
-          })
-          failed()
-        }
-      })
+      void read(file, signal).then(
+        result => {
+          if (signal.aborted) return
+          if (result.ok) {
+            actions.complete(tabId, revision, result.value)
+            loaded(result.value.version)
+          } else {
+            actions.failed(tabId, revision, { code: result.error.code, message: describeFailure(result.error) })
+            failed()
+          }
+        },
+        (error: unknown) => {
+          if (!signal.aborted) {
+            actions.failed(tabId, revision, {
+              code: 'gateway/internal',
+              message: describeFailure({ message: error instanceof Error ? error.message : String(error) }),
+            })
+            failed()
+          }
+        },
+      )
     },
   })
 }

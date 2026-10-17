@@ -5,7 +5,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/src/clie
 
 /** `sidebarCodePreview` copy in Japanese, complete against the owner's key union. */
 export const ja: LocaleDictOf<'sidebarCodePreview'> = {
-  'title': 'コード',
-  'copy': 'コピー',
-  'copied': 'コピーしました',
+  title: 'コード',
+  copy: 'コピー',
+  copied: 'コピーしました',
 }

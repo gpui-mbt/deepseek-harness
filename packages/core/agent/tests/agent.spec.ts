@@ -1,17 +1,10 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test'
 import { Context, Service, symbols } from '@deepseek-ai/cordis'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { agentEvents } from '@deepseek-ai/dsh-agent'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 
-import type {
-  Agent,
-  AgentCancelCause,
-  AgentFactory,
-  AgentStatus,
-  CreateAgentOptions,
-  ResumeAgentOptions,
-} from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentCancelCause, AgentFactory, AgentStatus, CreateAgentOptions, ResumeAgentOptions } from '@deepseek-ai/dsh-agent'
 
 function stubAgent(rawId: string, overrides: Partial<Agent> = {}): Agent {
   const id = SessionId(rawId)
@@ -22,7 +15,8 @@ function stubAgent(rawId: string, overrides: Partial<Agent> = {}): Agent {
     options: {},
     session,
     inbox: {
-      nextTurn: [], nextStep: [],
+      nextTurn: [],
+      nextStep: [],
     } as never,
     status: 'idle',
     ctx,
@@ -91,8 +85,7 @@ describe('AgentRegistry', () => {
     await ctx.plugin(AgentRegistry)
     const agent = stubAgent('agent-id', { session: Session.create(SessionId('session-id')) })
 
-    expect(() => ctx.agents.enter(agent, undefined))
-      .toThrow('agent id "agent-id" does not match session id "session-id"')
+    expect(() => ctx.agents.enter(agent, undefined)).toThrow('agent id "agent-id" does not match session id "session-id"')
     expect(ctx.agents.list()).toEqual([])
   })
 
@@ -122,7 +115,9 @@ describe('AgentRegistry', () => {
     await ctx.plugin(AgentRegistry)
     const lifecycle: string[] = []
     ctx.on('agent/created', ({ agent }) => void lifecycle.push(`created:${agent.id}`))
-    ctx.on('agent/created', () => { throw new Error('creation veto') })
+    ctx.on('agent/created', () => {
+      throw new Error('creation veto')
+    })
     ctx.on('agent/disposed', ({ agent }) => void lifecycle.push(`disposed:${agent.id}`))
 
     await expect(Promise.resolve(ctx.agents.register(stubAgent('vetoed')))).rejects.toThrow('creation veto')
@@ -135,10 +130,16 @@ describe('AgentRegistry', () => {
     await ctx.plugin(AgentRegistry)
     const warnings: string[] = []
     const heard: string[] = []
-    ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
+    ctx.logger.warn = ((message: unknown) => {
+      warnings.push(String(message))
+    }) as typeof ctx.logger.warn
     ctx.on('agent/created', () => Promise.reject(new Error('created async')))
-    ctx.on('agent/created', () => { heard.push('unreachable') })
-    ctx.on('agent/disposed', () => { throw new Error('disposed sync') })
+    ctx.on('agent/created', () => {
+      heard.push('unreachable')
+    })
+    ctx.on('agent/disposed', () => {
+      throw new Error('disposed sync')
+    })
     ctx.on('agent/disposed', () => Promise.reject(new Error('disposed async')) as never)
     ctx.on('agent/disposed', ({ agent }) => void heard.push(agent.id))
 
@@ -165,10 +166,14 @@ describe('AgentRegistry', () => {
       await release.promise
       order.push('first:end')
     })
-    ctx.on('agent/created', () => { order.push('second') })
+    ctx.on('agent/created', () => {
+      order.push('second')
+    })
     const agent = stubAgent('serial')
     const registration = ctx.agents.register(agent)
-    const ready = Promise.resolve(registration).then(() => { order.push('ready') })
+    const ready = Promise.resolve(registration).then(() => {
+      order.push('ready')
+    })
     try {
       await entered.promise
       expect(order).toEqual(['first:start'])
@@ -231,9 +236,13 @@ describe('agentEvents()', () => {
     const ctx = new Context()
     const warnings: string[] = []
     const heard: string[] = []
-    ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
+    ctx.logger.warn = ((message: unknown) => {
+      warnings.push(String(message))
+    }) as typeof ctx.logger.warn
     const agent = stubAgent('event')
-    ctx.on('agent/status', () => { throw new Error('sync listener') })
+    ctx.on('agent/status', () => {
+      throw new Error('sync listener')
+    })
     ctx.on('agent/status', () => Promise.reject(new Error('async listener')) as never)
     ctx.on('agent/status', ({ status }) => void heard.push(status))
 
@@ -310,11 +319,16 @@ describe('AgentRegistry factory seam', () => {
     ctx.agents.setFactory(factory)
 
     let callerFiber: Context['fiber'] | undefined
-    await ctx.plugin(Object.assign(async (inner: Context) => {
-      callerFiber = inner.fiber
-      await inner.agents.create({ sessionId: SessionId('create-s') })
-      await inner.agents.resume({ resumeSessionId: SessionId('resume-s') })
-    }, { inject: ['agents'] }))
+    await ctx.plugin(
+      Object.assign(
+        async (inner: Context) => {
+          callerFiber = inner.fiber
+          await inner.agents.create({ sessionId: SessionId('create-s') })
+          await inner.agents.resume({ resumeSessionId: SessionId('resume-s') })
+        },
+        { inject: ['agents'] },
+      ),
+    )
     expect(calls.create[0]?.ownerCtx.fiber).toBe(callerFiber)
     expect(calls.resume[0]?.ownerCtx.fiber).toBe(callerFiber)
     expect(calls.create[0]?.options.parentAgent).toBeUndefined()
@@ -338,10 +352,15 @@ describe('AgentRegistry factory seam', () => {
   it('rejects a second factory and clears the slot with its owner (HMR)', async () => {
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
-    const owner = await ctx.plugin(Object.assign((inner: Context) => {
-      inner.agents.setFactory(stubFactory().factory)
-      expect(() => inner.agents.setFactory(stubFactory().factory)).toThrow(/already registered/)
-    }, { inject: ['agents'] }))
+    const owner = await ctx.plugin(
+      Object.assign(
+        (inner: Context) => {
+          inner.agents.setFactory(stubFactory().factory)
+          expect(() => inner.agents.setFactory(stubFactory().factory)).toThrow(/already registered/)
+        },
+        { inject: ['agents'] },
+      ),
+    )
     await expect(ctx.agents.create({ sessionId: SessionId('before-s') })).resolves.toBeDefined()
     await owner.dispose()
     await expect(ctx.agents.create({ sessionId: SessionId('after-s') })).rejects.toThrow(/no agent factory/)

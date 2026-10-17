@@ -13,7 +13,7 @@
 // path end to end.
 import { resolve } from 'node:path'
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 
 installAssembledBootEnv()
@@ -29,10 +29,7 @@ if (!isBuildRecordReader(readClientBuildRecord)) {
 }
 const record: unknown = readClientBuildRecord(resolve(import.meta.dirname, '../../..'))
 if (typeof record !== 'object' || record === null) throw new TypeError('client build record must be an object')
-const clientBuildEnvironment = requireObject(
-  Reflect.get(record, 'environment'),
-  'client build record environment must be an object',
-)
+const clientBuildEnvironment = requireObject(Reflect.get(record, 'environment'), 'client build record environment must be an object')
 
 function isBuildRecordReader(value: unknown): value is (root: string) => unknown {
   return typeof value === 'function'
@@ -69,9 +66,8 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
     const version = clientBuildValue('DSH_CLIENT_VERSION')
     if (version === undefined) throw new Error('default client build record must carry DSH_CLIENT_VERSION')
     const commit = clientBuildValue('DSH_CLIENT_COMMIT_HASH')
-    const buildVersion = version
-      + (commit === undefined ? '' : `-${commit}`)
-      + (clientBuildValue('DSH_CLIENT_GIT_DIRTY') === 'true' ? '-dirty' : '')
+    const buildVersion =
+      version + (commit === undefined ? '' : `-${commit}`) + (clientBuildValue('DSH_CLIENT_GIT_DIRTY') === 'true' ? '-dirty' : '')
     screen.getByText('DSH Local Build')
     screen.getByText(buildVersion)
   }
@@ -95,11 +91,13 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
 
   // Opening a session reaches chat content through the RemoteMock transport.
   fireEvent.click(waitingTitle)
-  await waitFor(() => {
-    expect(document.querySelector('[data-sample="bash"]')).not.toBeNull()
-    expect(document.querySelector('[data-chat-running]')?.parentElement?.getAttribute('data-slot'))
-      .toBe('conversation.chat.flow')
-  }, { timeout: 10_000 })
+  await waitFor(
+    () => {
+      expect(document.querySelector('[data-sample="bash"]')).not.toBeNull()
+      expect(document.querySelector('[data-chat-running]')?.parentElement?.getAttribute('data-slot')).toBe('conversation.chat.flow')
+    },
+    { timeout: 10_000 },
+  )
   // The generated bundle roster mounts the question UI before the approval UI.
   // Skip the resident fixture's three questions, then resolve its approval so
   // the ordinary composer bar (which owns ContextMeter) resumes.
@@ -128,15 +126,17 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   // tool row; the diff's line markers are CSS pseudo-elements, absent from textContent.
   const mutationRows = [...document.querySelectorAll<HTMLElement>('[data-variant="write"],[data-variant="edit"]')]
   expect(mutationRows.length).toBeGreaterThan(0)
-  const writeRow = mutationRows.find(row => row.getAttribute('data-variant') === 'write'
-    && row.textContent?.includes('new-demo.txt'))
+  const writeRow = mutationRows.find(row => row.getAttribute('data-variant') === 'write' && row.textContent?.includes('new-demo.txt'))
   if (writeRow === undefined) throw new Error('fixture write row missing')
   expect(within(writeRow).getAllByText('+1', { exact: true })).toHaveLength(1)
   expect(within(writeRow).getAllByText('-0', { exact: true })).toHaveLength(1)
   expect(writeRow.querySelector('[data-diff]')).toBeNull()
   for (const row of mutationRows) {
     const toggle = row.querySelector('[data-expandable]')
-    if (toggle !== null) act(() => { fireEvent.click(toggle) })
+    if (toggle !== null)
+      act(() => {
+        fireEvent.click(toggle)
+      })
   }
   const diffCards = [...document.querySelectorAll('[data-diff]')]
   expect(diffCards.length).toBeGreaterThan(0)
@@ -153,23 +153,36 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   // path (not just the per-package src benches). WebRow composes ToolRow, so the
   // card is collapsed behind the row; the keyed row is pinned by its `data-tool`
   // (ToolRow sets it from the wire tool name).
-  const webSearchRow = await waitFor(() => {
-    const row = document.querySelector('[data-tool="web_search"]')
-    expect(row).not.toBeNull()
-    expect(document.querySelector('[data-tool="web_fetch"]')).not.toBeNull()
-    return row!
-  }, { timeout: 10_000 })
+  const webSearchRow = await waitFor(
+    () => {
+      const row = document.querySelector('[data-tool="web_search"]')
+      expect(row).not.toBeNull()
+      expect(document.querySelector('[data-tool="web_fetch"]')).not.toBeNull()
+      return row!
+    },
+    { timeout: 10_000 },
+  )
   // Expand the web_search row to prove its WebBlock card renders end to end.
   const webToggle = webSearchRow.querySelector('[data-expandable]')
-  if (webToggle !== null) act(() => { fireEvent.click(webToggle) })
-  await waitFor(() => {
-    expect(webSearchRow.querySelector('[data-web]')).not.toBeNull()
-  }, { timeout: 10_000 })
+  if (webToggle !== null)
+    act(() => {
+      fireEvent.click(webToggle)
+    })
+  await waitFor(
+    () => {
+      expect(webSearchRow.querySelector('[data-web]')).not.toBeNull()
+    },
+    { timeout: 10_000 },
+  )
 
   // Every bundle injected its plugin-owned style tag (the loader's CSS path).
-  const styleOwners = [...document.head.querySelectorAll('style[data-plugin]')]
-    .map(style => style.getAttribute('data-plugin'))
-  for (const plugin of ['@deepseek-ai/dsh-client-ui-layout', '@deepseek-ai/dsh-client-ui-sidebar', '@deepseek-ai/dsh-client-ui-conversation', '@deepseek-ai/dsh-client-ui-tool']) {
+  const styleOwners = [...document.head.querySelectorAll('style[data-plugin]')].map(style => style.getAttribute('data-plugin'))
+  for (const plugin of [
+    '@deepseek-ai/dsh-client-ui-layout',
+    '@deepseek-ai/dsh-client-ui-sidebar',
+    '@deepseek-ai/dsh-client-ui-conversation',
+    '@deepseek-ai/dsh-client-ui-tool',
+  ]) {
     expect(styleOwners).toContain(plugin)
   }
 })
@@ -182,8 +195,11 @@ it('boots without ui-chat and does not select another conversation view implicit
   expect(boot?.entries.some(entry => entry.id === '@deepseek-ai/dsh-client-ui-chat')).toBe(false)
   const sessionTitle = await within(tree).findByText('Fixture 历史会话')
   fireEvent.click(sessionTitle)
-  await waitFor(() => {
-    expect(document.querySelector('[data-slot="conversation.session"]')).not.toBeNull()
-  }, { timeout: 10_000 })
+  await waitFor(
+    () => {
+      expect(document.querySelector('[data-slot="conversation.session"]')).not.toBeNull()
+    },
+    { timeout: 10_000 },
+  )
   expect(document.querySelector('[data-slot="conversation.view"]')).toBeNull()
 })

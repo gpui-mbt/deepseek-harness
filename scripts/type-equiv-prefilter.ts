@@ -14,6 +14,5 @@
  */
 export function mayContainEquivFence(source: string): boolean {
   if (source.includes('type-equiv') || source.includes('public-api')) return true
-  return source.split('\n').some(line =>
-    (line.includes('```') || line.includes('~~~')) && (line.includes('&') || line.includes('\\')))
+  return source.split('\n').some(line => (line.includes('```') || line.includes('~~~')) && (line.includes('&') || line.includes('\\')))
 }

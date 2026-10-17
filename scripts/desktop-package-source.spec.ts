@@ -3,9 +3,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import yaml from 'js-yaml'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
-it.each(['macos', 'windows'])('%s packaging accepts test branches but preserves production and tag restrictions', (platform) => {
+it.each(['macos', 'windows'])('%s packaging accepts test branches but preserves production and tag restrictions', platform => {
   const workflow = yaml.load(readFileSync(resolve(import.meta.dirname, `../.github/workflows/${platform}-package.yml`), 'utf8')) as {
     jobs: { package: { steps: Array<{ name?: string; run?: string }> } }
   }
@@ -15,10 +15,23 @@ it.each(['macos', 'windows'])('%s packaging accepts test branches but preserves 
   const script = command.slice('node -e "'.length, -1)
   const root = mkdtempSync(join(tmpdir(), 'desktop-source-'))
   try {
-    const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '', GIT_CONFIG_PARAMETERS: '',
-      GIT_CONFIG_COUNT: '0', GIT_DIR: undefined, GIT_WORK_TREE: undefined, GIT_INDEX_FILE: undefined }
-    const git = (...args: string[]) => execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'tag.gpgSign=false', ...args],
-      { cwd: root, env, encoding: 'utf8', stdio: 'pipe' }).trim()
+    const env = {
+      ...process.env,
+      GIT_CONFIG_NOSYSTEM: '1',
+      GIT_CONFIG_GLOBAL: '',
+      GIT_CONFIG_PARAMETERS: '',
+      GIT_CONFIG_COUNT: '0',
+      GIT_DIR: undefined,
+      GIT_WORK_TREE: undefined,
+      GIT_INDEX_FILE: undefined,
+    }
+    const git = (...args: string[]) =>
+      execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'tag.gpgSign=false', ...args], {
+        cwd: root,
+        env,
+        encoding: 'utf8',
+        stdio: 'pipe',
+      }).trim()
     git('init', '--initial-branch=master')
     mkdirSync(join(root, 'apps/desktop/scripts'), { recursive: true })
     writeFileSync(join(root, 'package.json'), '{"version":"1.0.0"}')
@@ -30,7 +43,9 @@ it.each(['macos', 'windows'])('%s packaging accepts test branches but preserves 
     git('tag', 'dsh-v2.0.0')
     const run = (preset: string, ref: string) => {
       const result = spawnSync(process.execPath, ['-e', script], {
-        cwd: root, encoding: 'utf8', env: { ...env, DSH_PACKAGING_PRESET: preset, PACKAGE_SOURCE_REF: ref },
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...env, DSH_PACKAGING_PRESET: preset, PACKAGE_SOURCE_REF: ref },
       })
       expect(result.error).toBeUndefined()
       expect(result.signal).toBeNull()
@@ -53,5 +68,7 @@ it.each(['macos', 'windows'])('%s packaging accepts test branches but preserves 
     expect(run('test', 'dsh-v2.0.0').status).not.toBe(0)
     writeFileSync(join(root, 'apps/desktop/scripts/desktop-ci-version.mjs'), 'old adapter')
     expect(run('test', 'dsh-v1.0.0').status).not.toBe(0)
-  } finally { rmSync(root, { recursive: true, force: true, maxRetries: 3 }) }
+  } finally {
+    rmSync(root, { recursive: true, force: true, maxRetries: 3 })
+  }
 })

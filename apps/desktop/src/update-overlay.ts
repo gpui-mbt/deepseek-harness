@@ -24,18 +24,42 @@ export class DesktopUpdateOverlays {
    */
   create(parent: BrowserWindow, preload: string, title: string, nativeModal = true): BrowserWindow {
     const window = new BrowserWindow({
-      parent, modal: nativeModal || process.platform !== 'darwin', show: false, frame: false, transparent: true,
-      ...parent.getContentBounds(), resizable: false, minimizable: false, maximizable: false,
-      skipTaskbar: true, hasShadow: false, title,
+      parent,
+      modal: nativeModal || process.platform !== 'darwin',
+      show: false,
+      frame: false,
+      transparent: true,
+      ...parent.getContentBounds(),
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      skipTaskbar: true,
+      hasShadow: false,
+      title,
       webPreferences: { preload, contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true },
     })
-    const inputState = this.inputStates.get(parent) ?? { revision: 0, active: 0, get blocked() { return this.active > 0 } }
+    const inputState = this.inputStates.get(parent) ?? {
+      revision: 0,
+      active: 0,
+      get blocked() {
+        return this.active > 0
+      },
+    }
     this.inputStates.set(parent, inputState)
-    inputState.active++; inputState.revision++
-    window.once('closed', () => { inputState.active--; inputState.revision++ })
+    inputState.active++
+    inputState.revision++
+    window.once('closed', () => {
+      inputState.active--
+      inputState.revision++
+    })
     // macOS native modals animate the entire viewport as a sheet.
-    const focus = (): void => { if (!window.isDestroyed()) window.focus() }
-    const blockInput = (event: Electron.Event): void => { event.preventDefault(); focus() }
+    const focus = (): void => {
+      if (!window.isDestroyed()) window.focus()
+    }
+    const blockInput = (event: Electron.Event): void => {
+      event.preventDefault()
+      focus()
+    }
     if (!nativeModal && process.platform === 'darwin') {
       parent.on('focus', focus)
       // Shell dialogs block input before product shortcut listeners can dispatch it.
@@ -45,17 +69,27 @@ export class DesktopUpdateOverlays {
         if (!parent.isDestroyed()) parent.webContents.off('before-input-event', blockInput)
       })
     }
-    const follow = (): void => { if (!window.isDestroyed()) window.setBounds(parent.getContentBounds()) }
+    const follow = (): void => {
+      if (!window.isDestroyed()) window.setBounds(parent.getContentBounds())
+    }
     parent.on('move', follow)
     parent.on('resize', follow)
-    window.once('closed', () => { parent.off('move', follow); parent.off('resize', follow) })
+    window.once('closed', () => {
+      parent.off('move', follow)
+      parent.off('resize', follow)
+    })
     let ready = false
     const show = (): void => {
       if (ready && !window.isDestroyed() && !parent.isDestroyed() && parent.isVisible()) window.show()
     }
     parent.on('show', show)
-    window.once('closed', () => { parent.off('show', show) })
-    window.once('ready-to-show', () => { ready = true; show() })
+    window.once('closed', () => {
+      parent.off('show', show)
+    })
+    window.once('ready-to-show', () => {
+      ready = true
+      show()
+    })
     window.setMenu(null)
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     return window

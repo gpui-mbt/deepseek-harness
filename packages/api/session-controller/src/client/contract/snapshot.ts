@@ -30,9 +30,7 @@ export interface PendingSubmissionFileAttachment {
 }
 
 /** One attachment displayed by a local submission echo, in prompt order. */
-export type PendingSubmissionAttachment =
-  | PendingSubmissionImageAttachment
-  | PendingSubmissionFileAttachment
+export type PendingSubmissionAttachment = PendingSubmissionImageAttachment | PendingSubmissionFileAttachment
 
 /** Client surface selected when a local submission begins. */
 export type PendingSubmissionPlacement = 'transcript' | 'queued' | 'steering'

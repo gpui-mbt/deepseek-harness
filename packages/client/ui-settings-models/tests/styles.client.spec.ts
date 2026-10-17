@@ -8,7 +8,7 @@
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const css = readFileSync(fileURLToPath(new URL('../src/client/ModelsSection.module.css', import.meta.url)), 'utf8')
 // The theme package maps `./styles/*` to `./src/styles/*`, so the declarations
@@ -70,14 +70,16 @@ describe('ModelsSection theme styles', () => {
         name,
         text: readFileSync(fileURLToPath(new URL(`../src/client/${name}`, import.meta.url)), 'utf8'),
       }))
-    const bare = sources.flatMap(({ name, text }) => text
-      .split('<select')
-      .slice(1)
-      // The element's own attributes end at the first `>`; a child `<option>`
-      // carries no className of its own and must not answer for the select.
-      .map(rest => rest.slice(0, rest.indexOf('>')))
-      .filter(attributes => !attributes.includes('selectInput'))
-      .map(() => name))
+    const bare = sources.flatMap(({ name, text }) =>
+      text
+        .split('<select')
+        .slice(1)
+        // The element's own attributes end at the first `>`; a child `<option>`
+        // carries no className of its own and must not answer for the select.
+        .map(rest => rest.slice(0, rest.indexOf('>')))
+        .filter(attributes => !attributes.includes('selectInput'))
+        .map(() => name),
+    )
     expect(bare).toEqual([])
   })
 

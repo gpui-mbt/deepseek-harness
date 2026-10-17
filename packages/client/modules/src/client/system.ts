@@ -8,25 +8,39 @@ import { stripClientSuffix } from './manifest.ts'
 import { ClientEntries } from './entries.ts'
 import { removeOwnedStyles } from './entry-lifecycle.ts'
 import type {
-  BootManifest, BootModuleRow, ClientBundleRegistration, ClientBundleRequire, ClientModuleLoader, ClientModuleRecord,
+  BootManifest,
+  BootModuleRow,
+  ClientBundleRegistration,
+  ClientBundleRequire,
+  ClientModuleLoader,
+  ClientModuleRecord,
   ClientModuleSystemOptions,
 } from './manifest.ts'
 
 /** Default bundle-load hook: same-origin external classic script. */
-const defaultLoadBundle = (url: string): Promise<void> => new Promise((resolve, reject) => {
-  const el = document.createElement('script')
-  el.async = true
-  el.src = url
-  el.addEventListener('load', () => {
-    el.remove()
-    resolve()
-  }, { once: true })
-  el.addEventListener('error', () => {
-    el.remove()
-    reject(new Error(`client-modules: bundle script ${url} failed to load`))
-  }, { once: true })
-  document.head.append(el)
-})
+const defaultLoadBundle = (url: string): Promise<void> =>
+  new Promise((resolve, reject) => {
+    const el = document.createElement('script')
+    el.async = true
+    el.src = url
+    el.addEventListener(
+      'load',
+      () => {
+        el.remove()
+        resolve()
+      },
+      { once: true },
+    )
+    el.addEventListener(
+      'error',
+      () => {
+        el.remove()
+        reject(new Error(`client-modules: bundle script ${url} failed to load`))
+      },
+      { once: true },
+    )
+    document.head.append(el)
+  })
 
 /** Replace the rev query while preserving absolute, protocol-relative, or path-relative form. */
 function atRevision(url: string, rev: string): string {
@@ -54,9 +68,7 @@ function chunkUrl(row: BootModuleRow, fileName: string, rev: string): string {
   const marker = '/??'
   const resourceStart = url.indexOf(marker)
   const revisionStart = url.indexOf('&rev=', resourceStart + marker.length)
-  const resource = resourceStart < 0 || revisionStart < 0
-    ? undefined
-    : url.slice(resourceStart + marker.length, revisionStart)
+  const resource = resourceStart < 0 || revisionStart < 0 ? undefined : url.slice(resourceStart + marker.length, revisionStart)
   if (resource !== `${row.id}/client.js`) {
     throw new Error(`client-modules: cannot resolve chunk ${JSON.stringify(fileName)} from bundle URL ${url}`)
   }
@@ -125,12 +137,16 @@ export class ClientModuleSystem implements ClientModuleLoader {
   constructor(options: ClientModuleSystemOptions) {
     this.manifest = options.manifest
     this.entries = new ClientEntries(this, {
-      update: (manifest, managed) => { this.updateManifest(manifest, managed) },
+      update: (manifest, managed) => {
+        this.updateManifest(manifest, managed)
+      },
       invalidateForReplacement: (id, rev) => {
         if (this.bootstrapIds.has(id)) throw new Error(`client-modules: replacing bootstrap module ${id} requires a page reload`)
         this.invalidate(id, rev)
       },
-      prune: (roots) => { this.prune(roots) },
+      prune: roots => {
+        this.prune(roots)
+      },
     })
     this.seed = new Map(Object.entries(options.staticModules))
     this.loadBundle = options.loadBundle ?? defaultLoadBundle
@@ -156,7 +172,9 @@ export class ClientModuleSystem implements ClientModuleLoader {
     // Switch first: a bundle that executes while pending registrations drain
     // must register live rather than append behind the drain.
     target.mode = 'live'
-    target.load = (registration) => { this.register(registration) }
+    target.load = registration => {
+      this.register(registration)
+    }
     for (const registration of pending) target.load(registration)
   }
 
@@ -169,7 +187,9 @@ export class ClientModuleSystem implements ClientModuleLoader {
     const id = registration.chunk === undefined ? ownerId : chunkId(ownerId, registration.chunk)
     if (this.bootstrapIds.has(id) || this.factories.has(id)) {
       const registrationName = registration.chunk === undefined ? registration.id : id
-      throw new Error(`client-modules: duplicate factory registration for "${registrationName}" (bundle executed twice without invalidate?)`)
+      throw new Error(
+        `client-modules: duplicate factory registration for "${registrationName}" (bundle executed twice without invalidate?)`,
+      )
     }
     this.factories.set(id, {
       factory: registration.factory,
@@ -182,8 +202,12 @@ export class ClientModuleSystem implements ClientModuleLoader {
     let transport = this.pendingArrival.get(url)
     if (transport === undefined) {
       transport = this.loadBundle(url)
-        .then(() => { this.executedBundleUrls.add(url) })
-        .finally(() => { this.pendingArrival.delete(url) })
+        .then(() => {
+          this.executedBundleUrls.add(url)
+        })
+        .finally(() => {
+          this.pendingArrival.delete(url)
+        })
       this.pendingArrival.set(url, transport)
     }
     return transport
@@ -249,16 +273,12 @@ export class ClientModuleSystem implements ClientModuleLoader {
   }
 
   /** Register each injected package and unresolved dynamic request before its consumer. */
-  private async arriveGraphRow(
-    row: BootModuleRow,
-    open: readonly string[] = [],
-    visited = new Set<string>(),
-  ): Promise<void> {
+  private async arriveGraphRow(row: BootModuleRow, open: readonly string[] = [], visited = new Set<string>()): Promise<void> {
     const cycleStart = open.indexOf(row.id)
     if (cycleStart !== -1) {
       throw new Error(
-        `client-modules: module arrival cycle ${[...open.slice(cycleStart), row.id].join(' -> ')} `
-        + '(the host must reject this graph before serving it)',
+        `client-modules: module arrival cycle ${[...open.slice(cycleStart), row.id].join(' -> ')} ` +
+          '(the host must reject this graph before serving it)',
       )
     }
     if (visited.has(row.id)) return
@@ -287,10 +307,9 @@ export class ClientModuleSystem implements ClientModuleLoader {
     try {
       await this.arriveGraphRow(dependency, open, visited)
     } catch (error) {
-      throw new Error(
-        `client-modules: "${consumerId}" not loaded because dependency "${dependency.id}" failed: ${describeError(error)}`,
-        { cause: error },
-      )
+      throw new Error(`client-modules: "${consumerId}" not loaded because dependency "${dependency.id}" failed: ${describeError(error)}`, {
+        cause: error,
+      })
     }
   }
 
@@ -331,8 +350,8 @@ export class ClientModuleSystem implements ClientModuleLoader {
       if (record !== undefined) return record.exports
       if (this.factories.has(id)) return this.materialize(id).exports
       throw new Error(
-        `client-modules: require("${spec}") missed the module table — not a platform seed word, not a materialized module, `
-        + 'and no registered package factory (a build-time externals drift, or a dynamic dependency that did not arrive)',
+        `client-modules: require("${spec}") missed the module table — not a platform seed word, not a materialized module, ` +
+          'and no registered package factory (a build-time externals drift, or a dynamic dependency that did not arrive)',
       )
     }
     require.async = async (spec: string): Promise<unknown> => {
@@ -361,7 +380,9 @@ export class ClientModuleSystem implements ClientModuleLoader {
       const url = chunkUrl(row, fileName, revision)
       let transport = this.pendingArrival.get(url)
       if (transport === undefined) {
-        transport = this.loadBundle(url).finally(() => { this.pendingArrival.delete(url) })
+        transport = this.loadBundle(url).finally(() => {
+          this.pendingArrival.delete(url)
+        })
         this.pendingArrival.set(url, transport)
       }
       await transport
@@ -386,8 +407,8 @@ export class ClientModuleSystem implements ClientModuleLoader {
     if (row === undefined) {
       if (this.factories.has(id)) return this.materialize(id).exports
       throw new Error(
-        `client-modules: cannot resolve "${specifier}" — not a seed word, not a materialized module, `
-        + 'and not a row in the boot graph (the runtime mirror of the bundle purity gate)',
+        `client-modules: cannot resolve "${specifier}" — not a seed word, not a materialized module, ` +
+          'and not a row in the boot graph (the runtime mirror of the bundle purity gate)',
       )
     }
     return this.recordingImportError(id, async () => {
@@ -452,7 +473,7 @@ export class ClientModuleSystem implements ClientModuleLoader {
       if (retained.has(id)) return
       retained.add(id)
       const row = this.graphRows.get(id)
-      for (const request of [...row?.external ?? [], ...row?.inject ?? [], ...this.loadCache.get(id)?.edges ?? []]) {
+      for (const request of [...(row?.external ?? []), ...(row?.inject ?? []), ...(this.loadCache.get(id)?.edges ?? [])]) {
         visit(request)
       }
     }

@@ -17,10 +17,20 @@ export function createSettingsShellStore(): EngineStoreHandle<State, Actions> {
   return defineStore({
     init: (): State => ({ open: false, activeId: undefined as string | undefined }),
     actions: {
-      open: (d) => { d.open = true },
-      close: (d) => { d.open = false; d.activeId = undefined },
-      select: (d, id: string) => { d.activeId = id },
-      openSection: (d, id: string) => { d.activeId = id; d.open = true },
+      open: d => {
+        d.open = true
+      },
+      close: d => {
+        d.open = false
+        d.activeId = undefined
+      },
+      select: (d, id: string) => {
+        d.activeId = id
+      },
+      openSection: (d, id: string) => {
+        d.activeId = id
+        d.open = true
+      },
     },
   })
 }

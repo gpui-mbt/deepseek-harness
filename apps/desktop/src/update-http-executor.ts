@@ -8,7 +8,10 @@ export class DesktopUpdateHttpExecutor extends ElectronHttpExecutor {
    * @param idleTimeoutMs - Maximum silence before headers or between response chunks, not a total download deadline.
    * @param proxyLogin - Existing updater login event forwarding.
    */
-  constructor(private readonly idleTimeoutMs: number, proxyLogin?: ConstructorParameters<typeof ElectronHttpExecutor>[0]) {
+  constructor(
+    private readonly idleTimeoutMs: number,
+    proxyLogin?: ConstructorParameters<typeof ElectronHttpExecutor>[0],
+  ) {
     super(proxyLogin)
     if (!Number.isSafeInteger(idleTimeoutMs) || idleTimeoutMs < 1000 || idleTimeoutMs > 2_147_483_647) {
       throw new Error('desktop update: HTTP idle timeout must be an integer from 1000 through 2147483647')

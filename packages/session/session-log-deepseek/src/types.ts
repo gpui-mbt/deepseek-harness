@@ -18,42 +18,46 @@ export interface DeepSeekSessionLogWireHeader {
 }
 
 /** Raw-number surface mutation serialized on the external request wire. */
-export type DeepSeekSessionLogWireSurfaceOp =
-  | 'append'
-  | { readonly op: 'replace'; readonly startSeq: number; readonly endSeq: number }
+export type DeepSeekSessionLogWireSurfaceOp = 'append' | { readonly op: 'replace'; readonly startSeq: number; readonly endSeq: number }
 
 /**
  * One canonical event translated to raw JSON primitives for upload. Surface
  * events require an operation; system, user, and tool events may cite sources.
  * Assistant provider metadata is embedded in its data; log-only events carry neither field.
  */
-export type DeepSeekSessionLogWireEvent = {
-  [K in SessionEvent['type']]: {
-    readonly type: K
-    readonly seq: number
-    readonly time: number
-    readonly data: JsonValue
-    readonly ignorable?: true
-  } & (K extends SurfaceEventType ? {
-    readonly surfaceOp: DeepSeekSessionLogWireSurfaceOp
-  } & (K extends 'assistant/message' ? {
-    readonly sourceEventSeqs?: never
-  } : {
-    readonly sourceEventSeqs?: readonly number[]
-  }) : {
-    readonly surfaceOp?: never
-    readonly sourceEventSeqs?: never
-  })
-}[SessionEvent['type']] | {
-  /** Unrecognized ignorable records retain opaque metadata without surface semantics. */
-  readonly type: string
-  readonly seq: number
-  readonly time: number
-  readonly data: JsonValue
-  readonly ignorable: true
-  readonly surfaceOp?: JsonValue
-  readonly sourceEventSeqs?: JsonValue
-}
+export type DeepSeekSessionLogWireEvent =
+  | {
+      [K in SessionEvent['type']]: {
+        readonly type: K
+        readonly seq: number
+        readonly time: number
+        readonly data: JsonValue
+        readonly ignorable?: true
+      } & (K extends SurfaceEventType
+        ? {
+            readonly surfaceOp: DeepSeekSessionLogWireSurfaceOp
+          } & (K extends 'assistant/message'
+            ? {
+                readonly sourceEventSeqs?: never
+              }
+            : {
+                readonly sourceEventSeqs?: readonly number[]
+              })
+        : {
+            readonly surfaceOp?: never
+            readonly sourceEventSeqs?: never
+          })
+    }[SessionEvent['type']]
+  | {
+      /** Unrecognized ignorable records retain opaque metadata without surface semantics. */
+      readonly type: string
+      readonly seq: number
+      readonly time: number
+      readonly data: JsonValue
+      readonly ignorable: true
+      readonly surfaceOp?: JsonValue
+      readonly sourceEventSeqs?: JsonValue
+    }
 
 /** Versioned incremental session-log field carried by an official DeepSeek request. */
 export interface DeepSeekSessionLogExtension {

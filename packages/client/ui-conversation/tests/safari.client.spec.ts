@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { isSafariBrowser, repairSafariTextareaLayout } from '../src/client/skeleton/safari.ts'
 
 describe('Safari browser detection', () => {
@@ -77,10 +77,10 @@ describe('Safari textarea layout recovery', () => {
     const inputLayouts: string[] = []
     const scrollportLayouts: string[] = []
     Object.defineProperty(input, 'clientHeight', {
-      get: () => input.style.height === '29px' ? 29 : 28,
+      get: () => (input.style.height === '29px' ? 29 : 28),
     })
     Object.defineProperty(input, 'scrollHeight', {
-      get: () => inputRepaired ? 28 : 52,
+      get: () => (inputRepaired ? 28 : 52),
     })
     Object.defineProperty(input, 'offsetHeight', {
       get: () => {
@@ -126,6 +126,8 @@ describe('Safari textarea layout recovery', () => {
   })
 
   it('accepts an absent textarea during teardown', () => {
-    expect(() => { repairSafariTextareaLayout(null) }).not.toThrow()
+    expect(() => {
+      repairSafariTextareaLayout(null)
+    }).not.toThrow()
   })
 })

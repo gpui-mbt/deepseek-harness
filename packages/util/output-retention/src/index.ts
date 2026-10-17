@@ -37,10 +37,7 @@
  * omitted count is precise. `unknown` is reserved for a caller that omits
  * without a count; the retainers themselves never return it.
  */
-export type Omitted =
-  | { kind: 'none' }
-  | { kind: 'exact'; count: number }
-  | { kind: 'unknown' }
+export type Omitted = { kind: 'none' } | { kind: 'exact'; count: number } | { kind: 'unknown' }
 
 /**
  * The caller receives this after each `push()`.
@@ -93,21 +90,21 @@ export type ItemRetentionStrategy = {
 /** Text retention strategy: keep a prefix, a suffix, or both, counted in bytes. */
 export type TextRetentionStrategy =
   | {
-    /** Keep the first `maxBytes` bytes. */
-    kind: 'head'
-    maxBytes: number
-  }
+      /** Keep the first `maxBytes` bytes. */
+      kind: 'head'
+      maxBytes: number
+    }
   | {
-    /** Keep the final `maxBytes` bytes. Requires reading to the end. */
-    kind: 'tail'
-    maxBytes: number
-  }
+      /** Keep the final `maxBytes` bytes. Requires reading to the end. */
+      kind: 'tail'
+      maxBytes: number
+    }
   | {
-    /** Keep a stable prefix and suffix, omitting the middle. Requires reading to the end. */
-    kind: 'headTail'
-    headBytes: number
-    tailBytes: number
-  }
+      /** Keep a stable prefix and suffix, omitting the middle. Requires reading to the end. */
+      kind: 'headTail'
+      headBytes: number
+      tailBytes: number
+    }
 
 /**
  * A neutral, tool-agnostic description of one retention outcome — the input to
@@ -190,9 +187,7 @@ export class ItemRetainer<T> {
       truncated,
       seen: this.seen,
       kept: this.items.length,
-      omitted: truncated
-        ? { kind: 'exact', count: this.omittedCount }
-        : { kind: 'none' },
+      omitted: truncated ? { kind: 'exact', count: this.omittedCount } : { kind: 'none' },
     }
   }
 }
@@ -362,12 +357,9 @@ export class TextRetainer {
     // omitted gap makes each side a true cut: trim each to a UTF-8 boundary and
     // decode separately so a codepoint is never reconstructed across the gap.
     const budgetOmitted = this.omittedAt(this.total)
-    const [keptPrefix, keptSuffix] = budgetOmitted > 0
-      ? [trimTrailingPartialUtf8(prefix), trimLeadingContinuationUtf8(suffix)]
-      : [prefix, suffix]
-    const text = budgetOmitted > 0
-      ? decoder.decode(keptPrefix) + decoder.decode(keptSuffix)
-      : decoder.decode(concat([prefix, suffix]))
+    const [keptPrefix, keptSuffix] =
+      budgetOmitted > 0 ? [trimTrailingPartialUtf8(prefix), trimLeadingContinuationUtf8(suffix)] : [prefix, suffix]
+    const text = budgetOmitted > 0 ? decoder.decode(keptPrefix) + decoder.decode(keptSuffix) : decoder.decode(concat([prefix, suffix]))
 
     // Report omission against the bytes ACTUALLY returned, not the pre-trim
     // budget: a boundary trim drops partial-codepoint bytes too, so an exact
@@ -379,9 +371,7 @@ export class TextRetainer {
     return {
       text,
       truncated,
-      omittedBytes: truncated
-        ? { kind: 'exact', count: omitted }
-        : { kind: 'none' },
+      omittedBytes: truncated ? { kind: 'exact', count: omitted } : { kind: 'none' },
     }
   }
 }
@@ -433,13 +423,8 @@ export function describeOmitted(omitted: Omitted, unit: RetentionNotice['unit'])
  * @param recovery Tool-supplied guidance builder; receives the notice, returns a sentence (or `''`).
  * @returns The combined footer line.
  */
-export function formatRetentionNotice(
-  notice: RetentionNotice,
-  recovery: (notice: RetentionNotice) => string,
-): string {
-  return [describeOmitted(notice.omitted, notice.unit), recovery(notice)]
-    .filter(part => part.length > 0)
-    .join(' ')
+export function formatRetentionNotice(notice: RetentionNotice, recovery: (notice: RetentionNotice) => string): string {
+  return [describeOmitted(notice.omitted, notice.unit), recovery(notice)].filter(part => part.length > 0).join(' ')
 }
 
 /**

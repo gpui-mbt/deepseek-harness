@@ -19,7 +19,10 @@ export interface DesktopRollbackResult {
  * @returns Before/after YAML and whether it was written. Partial writes remain recorded for reconciliation.
  */
 export async function rollbackDesktopChannel(
-  plan: DesktopUploadPlan, expectedVersion: string, execute: boolean, operations: DesktopPublishOperations,
+  plan: DesktopUploadPlan,
+  expectedVersion: string,
+  execute: boolean,
+  operations: DesktopPublishOperations,
 ): Promise<DesktopRollbackResult> {
   const files = plan.artifacts.filter(file => !file.channelMetadata)
   const feeds = plan.artifacts.filter(file => file.channelMetadata)
@@ -34,7 +37,8 @@ export async function rollbackDesktopChannel(
   const changes = []
   for (const feed of feeds) {
     const before = await operations.transport.read(feed.key, true)
-    if (!before || before.contents === undefined || feed.contents === undefined) throw new Error('desktop rollback: channel YAML is unavailable')
+    if (!before || before.contents === undefined || feed.contents === undefined)
+      throw new Error('desktop rollback: channel YAML is unavailable')
     if (equal(before, await desktopArtifactDigest(feed))) {
       await operations.record({ type: 'object-present', key: feed.key })
       continue
@@ -45,11 +49,13 @@ export async function rollbackDesktopChannel(
   }
   if (execute) {
     for (const change of changes) {
-      if (!equal(await operations.transport.read(change.key, true), change.observed)) throw new Error('desktop rollback: channel changed after preview')
+      if (!equal(await operations.transport.read(change.key, true), change.observed))
+        throw new Error('desktop rollback: channel changed after preview')
       await operations.record({ type: 'put-intent', key: change.key, before: change.before, after: change.after })
       const digest = await desktopArtifactDigest(change.artifact)
       await operations.transport.put(change.artifact, digest, false)
-      if (!equal(await operations.transport.read(change.key, true), digest)) throw new Error('desktop rollback: restored channel could not be verified')
+      if (!equal(await operations.transport.read(change.key, true), digest))
+        throw new Error('desktop rollback: restored channel could not be verified')
       await operations.record({ type: 'put-verified', key: change.key })
     }
     await operations.record({ type: 'complete' })

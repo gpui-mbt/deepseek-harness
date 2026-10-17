@@ -13,9 +13,12 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import type { Loader } from '@deepseek-ai/cordis-plugin-loader'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type {
-  CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId, SessionId,
+  CordisDynamicPackageId,
+  CordisDynamicPluginId,
+  CordisDynamicPluginRunId,
+  SessionId,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ClientModuleSystem } from '@deepseek-ai/dsh-client-modules/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -91,7 +94,9 @@ async function boot(): Promise<Bench> {
   let next = 0
 
   ;(globalThis as { __ModuleLoader__?: unknown }).__ModuleLoader__ = {
-    load: (handoff: { id: string; factory: () => unknown }) => { factories.set(handoff.id, handoff.factory) },
+    load: (handoff: { id: string; factory: () => unknown }) => {
+      factories.set(handoff.id, handoff.factory)
+    },
   }
   const loader = {
     create: (options: { name: string }) => {
@@ -121,11 +126,17 @@ async function boot(): Promise<Bench> {
   const runner = new DynamicCordisPackageRunner({
     ctx,
     loader,
-    modules: { invalidate: (id: string) => { invalidated.push(id) } } as unknown as ClientModuleSystem,
+    modules: {
+      invalidate: (id: string) => {
+        invalidated.push(id)
+      },
+    } as unknown as ClientModuleSystem,
     slots: {
       onEntryError: (fn: EntryErrorListener) => {
         listener = fn
-        return () => { listener = undefined }
+        return () => {
+          listener = undefined
+        }
       },
     } as unknown as SlotRegistry,
     invoke,
@@ -148,7 +159,11 @@ async function boot(): Promise<Bench> {
       listener(slot, entry, error, { abdicated })
     },
     watching: () => listener !== undefined,
-    settle: async () => { await new Promise((resolve) => { setTimeout(resolve, 0) }) },
+    settle: async () => {
+      await new Promise(resolve => {
+        setTimeout(resolve, 0)
+      })
+    },
   }
 }
 
@@ -166,15 +181,17 @@ describe('load', () => {
 
   it('projects the contributions the package made', async () => {
     const bench = await boot()
-    await bench.runner.load(half({
-      code: `return {
+    await bench.runner.load(
+      half({
+        code: `return {
         inject: ['slots'],
         apply(ctx) {
           styles.insert('.x {}')
           ctx.slots.register({ name: 'root' }, () => null)
         },
       }`,
-    }))
+      }),
+    )
     expect(bench.runner.getSnapshot()).toEqual([
       { pluginId: PLUGIN, packageId: PACKAGE, pluginRunId: RUN, name: 'demo', slots: ['root'], styleCount: 1 },
     ])
@@ -209,8 +226,10 @@ describe('load', () => {
 
   it('loads the function form, which declares no services', async () => {
     const bench = await boot()
-    await expect(bench.runner.load(half({ code: 'return (ctx) => { globalThis.__dynFnForm = true }' })))
-      .resolves.toEqual({ ok: true, pluginRunId: RUN })
+    await expect(bench.runner.load(half({ code: 'return (ctx) => { globalThis.__dynFnForm = true }' }))).resolves.toEqual({
+      ok: true,
+      pluginRunId: RUN,
+    })
     expect((globalThis as { __dynFnForm?: boolean }).__dynFnForm).toBe(true)
     delete (globalThis as { __dynFnForm?: boolean }).__dynFnForm
   })
@@ -244,30 +263,32 @@ describe('failure stages', () => {
       stack: expect.any(String),
       error: expect.any(Error),
     })
-    const leaked = [...document.querySelectorAll('style[data-dyn="dyn-1"]')]
-      .filter(tag => tag.textContent === '.leak {}')
+    const leaked = [...document.querySelectorAll('style[data-dyn="dyn-1"]')].filter(tag => tag.textContent === '.leak {}')
     expect(leaked).toHaveLength(0)
     expect(bench.created).toEqual([])
   })
 
   it('classifies an apply that throws, and tears the entry down', async () => {
     const bench = await boot()
-    await expect(bench.runner.load(half({ code: 'return { apply() { throw new Error("apply exploded") } }' })))
-      .resolves.toEqual({
-        ok: false,
-        cause: 'activate',
-        message: 'apply exploded',
-        stack: expect.any(String),
-        error: expect.any(Error),
-      })
+    await expect(bench.runner.load(half({ code: 'return { apply() { throw new Error("apply exploded") } }' }))).resolves.toEqual({
+      ok: false,
+      cause: 'activate',
+      message: 'apply exploded',
+      stack: expect.any(String),
+      error: expect.any(Error),
+    })
     expect(bench.removed).toEqual(['entry-1'])
     expect(bench.runner.isLoaded(PLUGIN)).toBe(false)
   })
 
   it('stringifies a closure that rejects with a non-Error value', async () => {
     const bench = await boot()
-    await expect(bench.runner.load(half({ code: 'throw "raw rejection"' })))
-      .resolves.toEqual({ ok: false, cause: 'evaluate', message: 'raw rejection', error: 'raw rejection' })
+    await expect(bench.runner.load(half({ code: 'throw "raw rejection"' }))).resolves.toEqual({
+      ok: false,
+      cause: 'evaluate',
+      message: 'raw rejection',
+      error: 'raw rejection',
+    })
   })
 
   it('classifies a loader entry that produced no fiber', async () => {
@@ -286,9 +307,11 @@ describe('failure stages', () => {
   it('mirrors a loaded package runtime error to the console without unloading it', async () => {
     const bench = await boot()
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    await bench.runner.load(half({
-      code: 'return { apply: (ctx) => { ctx.on("t/ping", () => console.error("after load")) } }',
-    }))
+    await bench.runner.load(
+      half({
+        code: 'return { apply: (ctx) => { ctx.on("t/ping", () => console.error("after load")) } }',
+      }),
+    )
     Reflect.apply(bench.ctx.emit.bind(bench.ctx), undefined, ['t/ping'])
     const mirrored = logged.mock.calls.filter(call => String(call[0]).includes('logged an error'))
     logged.mockRestore()
@@ -302,7 +325,9 @@ describe('retract', () => {
     const bench = await boot()
     const started = Promise.withResolvers<undefined>()
     const release = Promise.withResolvers<undefined>()
-    onTestFinished(() => { release.resolve(undefined) })
+    onTestFinished(() => {
+      release.resolve(undefined)
+    })
     bench.invoke.mockImplementation(() => {
       started.resolve(undefined)
       return release.promise
@@ -348,7 +373,9 @@ describe('observation and disposal', () => {
   it('notifies subscribers and re-derives the snapshot after each convergence', async () => {
     const bench = await boot()
     let notified = 0
-    const unsubscribe = bench.runner.subscribe(() => { notified++ })
+    const unsubscribe = bench.runner.subscribe(() => {
+      notified++
+    })
     const empty = bench.runner.getSnapshot()
     expect(bench.runner.getSnapshot()).toBe(empty) // stable between mutations
     await bench.runner.load(half())
@@ -392,17 +419,19 @@ describe('render failures', () => {
     await bench.runner.load(half({ code: CONTRIBUTOR }))
     const [entry] = bench.slots.entries('root')
     bench.crash('root', entry, new Error('Cannot read properties of undefined'))
-    expect(bench.reported).toEqual([{
-      agentId: AGENT,
-      pluginId: PLUGIN,
-      pluginRunId: RUN,
-      failure: {
-        slot: 'root',
-        message: 'your entry in slot "root" crashed while React rendered it: Cannot read properties of undefined',
-        stack: expect.any(String),
-        abdicated: true,
+    expect(bench.reported).toEqual([
+      {
+        agentId: AGENT,
+        pluginId: PLUGIN,
+        pluginRunId: RUN,
+        failure: {
+          slot: 'root',
+          message: 'your entry in slot "root" crashed while React rendered it: Cannot read properties of undefined',
+          stack: expect.any(String),
+          abdicated: true,
+        },
       },
-    }])
+    ])
   })
 
   it('carries the retirement bit as the seam reported it', async () => {
@@ -418,9 +447,11 @@ describe('render failures', () => {
   it('reports a crash of a Factory definition it seated without retiring it', async () => {
     const bench = await boot()
     await bench.runner.load(half({ code: FACTORY_CONTRIBUTOR }))
-    const core = (bench.slots as unknown as {
-      _core: { factory(name: string): unknown }
-    })._core
+    const core = (
+      bench.slots as unknown as {
+        _core: { factory(name: string): unknown }
+      }
+    )._core
     const definition = core.factory('dynamic.factory')
     bench.crash('factory:dynamic.factory', definition, new Error('factory boom'), false)
 
@@ -447,15 +478,19 @@ describe('render failures', () => {
     const bench = await boot()
     // A component that is not an object has no identity to key ownership on; the
     // registration remains valid, while a crash on it has no attributable package.
-    await expect(bench.runner.load(half({
-      code: `return {
+    await expect(
+      bench.runner.load(
+        half({
+          code: `return {
         inject: ['slots'],
         apply(ctx) {
           ctx.slots.register({ name: 'root' }, 'not-a-component')
           ctx.slots.register({ name: 'root' }, null)
         },
       }`,
-    }))).resolves.toEqual({ ok: true, pluginRunId: RUN })
+        }),
+      ),
+    ).resolves.toEqual({ ok: true, pluginRunId: RUN })
     for (const entry of bench.slots.entries('root')) bench.crash('root', entry, new Error('boom'))
     expect(bench.reported).toEqual([])
   })
@@ -474,9 +509,7 @@ describe('render failures', () => {
     expect(bare).toContain(timerRedirect)
     // The trap's own error already carries that sentence: appending it again
     // would make the model read the same paragraph twice.
-    bench.crash('root', entry, new Error(
-      `setInterval is not available in a dynamic client half — ${timerRedirect}`,
-    ))
+    bench.crash('root', entry, new Error(`setInterval is not available in a dynamic client half — ${timerRedirect}`))
     const trapped = bench.reported[1]?.failure.message ?? ''
     expect(trapped.indexOf(timerRedirect)).toBe(trapped.lastIndexOf(timerRedirect))
   })
@@ -489,13 +522,17 @@ describe('render failures', () => {
     expect(bench.watching()).toBe(false)
   })
 
-  it('publishes the crash on the live set\'s own notification channel', async () => {
+  it("publishes the crash on the live set's own notification channel", async () => {
     const bench = await boot()
     await bench.runner.load(half({ code: CONTRIBUTOR }))
     let notified = 0
     let alsoNotified = 0
-    const unsubscribe = bench.runner.subscribe(() => { notified++ })
-    const unobserve = bench.runner.renderFailures.subscribe(() => { alsoNotified++ })
+    const unsubscribe = bench.runner.subscribe(() => {
+      notified++
+    })
+    const unobserve = bench.runner.renderFailures.subscribe(() => {
+      alsoNotified++
+    })
     const empty = bench.runner.renderFailures.getSnapshot()
     expect(bench.runner.renderFailures.getSnapshot()).toBe(empty) // stable between mutations
     const [entry] = bench.slots.entries('root')

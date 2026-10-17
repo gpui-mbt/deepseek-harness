@@ -15,9 +15,7 @@ export type CordisRuntimeSourceId = InspectorId<'CordisRuntimeSourceId'>
 export type CordisRuntimeSourceKind = 'host' | 'client'
 
 /** Availability of the realm represented by a retained tree. */
-export type CordisRuntimeConnection =
-  | { readonly state: 'connected' }
-  | { readonly state: 'disconnected'; readonly reason: string }
+export type CordisRuntimeConnection = { readonly state: 'connected' } | { readonly state: 'disconnected'; readonly reason: string }
 
 /** Consumer-visible identity of one Cordis realm. */
 export interface CordisRuntimeSource {
@@ -139,16 +137,12 @@ function parseNode(value: unknown, state: ParseState, depth: number): CordisRunt
   if (!isPlainObject(value) || (value.kind !== 'context' && value.kind !== 'fiber')) {
     throw new Error('inspector protocol: Cordis runtime node must have a known kind')
   }
-  const record = exactObject(value, value.kind === 'fiber'
-    ? ['kind', 'uid', 'children']
-    : ['kind', 'children'], 'Cordis runtime node')
+  const record = exactObject(value, value.kind === 'fiber' ? ['kind', 'uid', 'children'] : ['kind', 'children'], 'Cordis runtime node')
   if (!Array.isArray(record.children)) throw new Error('inspector protocol: Cordis runtime node children must be an array')
   if (record.kind === 'context') {
     return { kind: 'context', children: record.children.map(child => parseNode(child, state, depth + 1)) }
   }
-  if (!Number.isSafeInteger(record.uid)
-    || (record.uid as number) < 1
-    || record.children.length !== 1) {
+  if (!Number.isSafeInteger(record.uid) || (record.uid as number) < 1 || record.children.length !== 1) {
     throw new Error('inspector protocol: invalid Cordis runtime Fiber')
   }
   const uid = record.uid as number

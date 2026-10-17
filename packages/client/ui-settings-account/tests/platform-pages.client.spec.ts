@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** The shared Platform page request channel: ownership, identity-safe release, and teardown. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { createPlatformPages } from '../src/client/platform-pages.ts'
 
 it('ignores a close with no live request', () => {
@@ -77,7 +77,9 @@ it('keeps publishing when one subscriber throws', () => {
   const pages = createPlatformPages()
   const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
   const healthy = vi.fn()
-  pages.subscribe(() => { throw new Error('bad subscriber') })
+  pages.subscribe(() => {
+    throw new Error('bad subscriber')
+  })
   pages.subscribe(healthy)
   pages.open('usage', vi.fn())
   expect(healthy).toHaveBeenCalledOnce()

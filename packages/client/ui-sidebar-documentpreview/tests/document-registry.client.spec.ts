@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { binaryDocumentPath, DocumentPreviewRegistry } from '../src/client/document/registry.ts'
 import type { DocumentPreviewDefinition } from '../src/client/document/registry.ts'
 
@@ -43,7 +43,9 @@ describe('document preview implementations', () => {
     const empty = registry.getSnapshot()
     expect(registry.getSnapshot()).toBe(empty)
     const seen: Array<readonly DocumentPreviewDefinition[]> = []
-    const listener = vi.fn(() => { seen.push(registry.getSnapshot()) })
+    const listener = vi.fn(() => {
+      seen.push(registry.getSnapshot())
+    })
     const unsubscribe = registry.subscribe(listener)
     const entry = definition('markdown')
     const dispose = registry.register(entry)
@@ -70,8 +72,9 @@ describe('document preview implementations', () => {
 
   it('rejects a binary suffix outside the declared extensions without registering', () => {
     const registry = new DocumentPreviewRegistry()
-    expect(() => registry.register(definition('image', { extensions: ['png', 'svg'], binaryExtensions: ['pdf'] })))
-      .toThrow(/binary suffix "pdf" outside its extensions/u)
+    expect(() => registry.register(definition('image', { extensions: ['png', 'svg'], binaryExtensions: ['pdf'] }))).toThrow(
+      /binary suffix "pdf" outside its extensions/u,
+    )
     expect(registry.getSnapshot()).toEqual([])
     registry.register(definition('image', { extensions: ['PNG', 'svg'], binaryExtensions: ['.png'] }))
     expect(registry.getSnapshot()).toHaveLength(1)

@@ -33,20 +33,22 @@ const HARNESS_SOURCE = 'harness:source'
 /** Prompt-section and runtime-context name for the Web GUI orientation and its URL. */
 const WEB_SURFACE = 'app:web-surface'
 
-const HARNESS_SOURCE_GUIDANCE = 'The checkout location and current working directory are separate values and may differ; '
-  + 'never infer the working directory from the checkout path. Use pwd to determine the current working directory. '
-  + 'Use this checkout only to inspect or extend DSH itself.'
+const HARNESS_SOURCE_GUIDANCE =
+  'The checkout location and current working directory are separate values and may differ; ' +
+  'never infer the working directory from the checkout path. Use pwd to determine the current working directory. ' +
+  'Use this checkout only to inspect or extend DSH itself.'
 
 const HARNESS_SOURCE_PROMPT = `The runtime context names the DeepSeek Harness implementation checkout. ${HARNESS_SOURCE_GUIDANCE}`
 
-const WEB_SURFACE_GUIDANCE = 'When the user refers to "this page", "this GUI", or "this app" without naming another target, they mean this GUI. '
-  + 'The browser provides no implicit DOM, route, or screenshot context. '
-  + 'The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while '
-  + '`pnpm run dev:web` is also running from this same checkout to rebuild their bundles; verify that watcher before promising automatic updates. '
-  + 'Every other change — the apps/web shell and plain packages — requires rebuilding the affected Web artifacts and verifying this existing URL after a page refresh. '
-  + 'Starting another server does not update this GUI. '
-  + 'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. '
-  + 'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.'
+const WEB_SURFACE_GUIDANCE =
+  'When the user refers to "this page", "this GUI", or "this app" without naming another target, they mean this GUI. ' +
+  'The browser provides no implicit DOM, route, or screenshot context. ' +
+  'The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while ' +
+  '`pnpm run dev:web` is also running from this same checkout to rebuild their bundles; verify that watcher before promising automatic updates. ' +
+  'Every other change — the apps/web shell and plain packages — requires rebuilding the affected Web artifacts and verifying this existing URL after a page refresh. ' +
+  'Starting another server does not update this GUI. ' +
+  'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. ' +
+  'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.'
 
 const WEB_SURFACE_PROMPT = `You are interacting with the user through the DeepSeek Harness Web GUI whose URL the runtime context names. ${WEB_SURFACE_GUIDANCE}`
 
@@ -58,22 +60,24 @@ const WEB_SURFACE_PROMPT = `You are interacting with the user through the DeepSe
  */
 const LEGACY_SOURCE = {
   prefix: 'The DeepSeek Harness implementation checkout is at ',
-  suffix: '. The checkout location and current working directory are separate values and may differ; '
-    + 'never infer the working directory from this path. Use pwd to determine the current working directory. '
-    + 'Use this checkout only to inspect or extend DSH itself.',
+  suffix:
+    '. The checkout location and current working directory are separate values and may differ; ' +
+    'never infer the working directory from this path. Use pwd to determine the current working directory. ' +
+    'Use this checkout only to inspect or extend DSH itself.',
 }
 // The frozen copy repeats today's guidance on purpose; the two may diverge.
 /* jscpd:ignore-start */
 const LEGACY_WEB_SURFACE = {
   prefix: 'You are interacting with the user through the DeepSeek Harness Web GUI at ',
-  suffix: '. When the user refers to "this page", "this GUI", or "this app" without naming another target, they mean this GUI. '
-    + 'The browser provides no implicit DOM, route, or screenshot context. '
-    + 'The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while '
-    + '`pnpm run dev:web` is also running from this same checkout to rebuild their bundles; verify that watcher before promising automatic updates. '
-    + 'Every other change — the apps/web shell and plain packages — requires rebuilding the affected Web artifacts and verifying this existing URL after a page refresh. '
-    + 'Starting another server does not update this GUI. '
-    + 'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. '
-    + 'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.',
+  suffix:
+    '. When the user refers to "this page", "this GUI", or "this app" without naming another target, they mean this GUI. ' +
+    'The browser provides no implicit DOM, route, or screenshot context. ' +
+    'The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while ' +
+    '`pnpm run dev:web` is also running from this same checkout to rebuild their bundles; verify that watcher before promising automatic updates. ' +
+    'Every other change — the apps/web shell and plain packages — requires rebuilding the affected Web artifacts and verifying this existing URL after a page refresh. ' +
+    'Starting another server does not update this GUI. ' +
+    'The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. ' +
+    'Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.',
 }
 /* jscpd:ignore-end */
 
@@ -136,7 +140,7 @@ export function apply(ctx: Context): void {
   const admitted = (context: AssembleContext): LegacyPrompt => {
     const session = context.agent?.session
     // This plugin registers the unit above, so its state exists for every Session.
-    return session === undefined ? ADMITS_NOTHING : ctx.sessionProjections.stateOf(session, LEGACY_PROMPT) as LegacyPrompt
+    return session === undefined ? ADMITS_NOTHING : (ctx.sessionProjections.stateOf(session, LEGACY_PROMPT) as LegacyPrompt)
   }
   ctx.systemPrompt.section({
     name: HARNESS_SOURCE,

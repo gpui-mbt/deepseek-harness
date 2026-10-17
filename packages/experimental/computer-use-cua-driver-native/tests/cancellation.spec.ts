@@ -3,7 +3,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LocalAttachmentStore from '@deepseek-ai/dsh-attachment-local'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -42,10 +42,14 @@ it('aborts model admission on unload, restores caller cancellation, and closes t
     override resolveModel(_provider: string, _model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo> {
       if (signal === undefined) throw new Error('Image admission must provide cancellation')
       signal.throwIfAborted()
-      const abort = () => { resolved.reject(new Error('Model admission canceled')) }
+      const abort = () => {
+        resolved.reject(new Error('Model admission canceled'))
+      }
       signal.addEventListener('abort', abort, { once: true })
       resolving.resolve(signal)
-      return resolved.promise.finally(() => { signal.removeEventListener('abort', abort) })
+      return resolved.promise.finally(() => {
+        signal.removeEventListener('abort', abort)
+      })
     }
 
     stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
@@ -64,13 +68,18 @@ it('aborts model admission on unload, restores caller cancellation, and closes t
   })
   const controller = new AbortController()
   const result = ctx.tools.execute({
-    agent, signal: controller.signal, callId: ToolCallId('native-admission'),
-    name: 'cua_driver_native__get_window_state', arguments: { pid: 9, window_id: 7 },
+    agent,
+    signal: controller.signal,
+    callId: ToolCallId('native-admission'),
+    name: 'cua_driver_native__get_window_state',
+    arguments: { pid: 9, window_id: 7 },
   })
   const admissionSignal = await resolving.promise
   const disposal = fiber.dispose()
   try {
-    await vi.waitFor(() => { expect(admissionSignal.aborted).toBe(true) })
+    await vi.waitFor(() => {
+      expect(admissionSignal.aborted).toBe(true)
+    })
     await disposal
     expect((await result).isError).toBe(true)
     expect(controller.signal.aborted).toBe(false)

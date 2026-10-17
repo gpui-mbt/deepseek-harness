@@ -18,9 +18,7 @@ const LEGAL_API_KEY = /^[\x21-\x7E]+$/
 export type ApiKeyRejection = 'empty' | 'illegalCharacters'
 
 /** The verdict on one supplied API key. */
-export type ApiKeyCheck =
-  | { readonly ok: true; readonly value: string }
-  | { readonly ok: false; readonly reason: ApiKeyRejection }
+export type ApiKeyCheck = { readonly ok: true; readonly value: string } | { readonly ok: false; readonly reason: ApiKeyRejection }
 
 /**
  * Judge one *supplied* API key, trimming surrounding whitespace first.

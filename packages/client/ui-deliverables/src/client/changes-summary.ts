@@ -13,7 +13,7 @@ export class ChangesSummaryStore extends HostReadStore<ChangesSummaryState> {
       loading: 'loading',
       failed: 'missing',
       retryable: () => false,
-      decode: async (response) => {
+      decode: async response => {
         if (!response.ok) return 'missing'
         const value: unknown = await response.json()
         return isChangesSummary(value) ? value : 'missing'

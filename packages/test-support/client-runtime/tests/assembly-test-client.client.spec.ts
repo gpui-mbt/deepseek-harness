@@ -7,7 +7,7 @@
  */
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { RemoteMock, ok, openStream } from '@deepseek-ai/dsh-remote-mock'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { AssemblyPlan, ClientPluginModule, TestClientOptions } from '../src/assembly/index.ts'
 import { ClientRoster, TestClient, remoteDefaultResponses, webApp } from '../src/assembly/index.ts'
 
@@ -31,29 +31,35 @@ async function started(plan: AssemblyPlan, options?: TestClientOptions): Promise
 }
 
 describe('TestClient (jsdom)', () => {
-  it('boots the whole web-app roster, connects, mounts, and disposes with nothing unmatched', async () => {
-    // Exercise missing-API cleanup independently of the suite's browser defaults.
-    vi.stubGlobal('ResizeObserver', undefined)
-    onTestFinished(() => { vi.unstubAllGlobals() })
-    const mock = RemoteMock.create().load(remoteDefaultResponses)
-    const client = await TestClient.start({ roster: webApp }, mock, { mount: true })
-    expect(client.connection.state.getSnapshot()).toBe('connected')
-    expect(mock.log.streams('$events')).toHaveLength(1)
-    const container = client.container!
-    expect(document.body.contains(container)).toBe(true)
-    expect(container.childElementCount).toBeGreaterThan(0)
-    expect('__DSH_TRANSPORT__' in globalThis).toBe(false)
-    expect(globals.EventSource).toBeDefined()
-    expect(globals.ResizeObserver).toBeDefined()
-    expect(document.fonts).toBeInstanceOf(EventTarget)
-    await client.dispose()
-    expect(document.body.contains(container)).toBe(false)
-    expect('__DSH_TRANSPORT__' in globalThis).toBe(false)
-    expect(globals.EventSource).toBeUndefined()
-    expect(globals.ResizeObserver).toBeUndefined()
-    expect(document.fonts).toBeUndefined()
-    await client.dispose()
-  }, COLD_BOOT_TIMEOUT_MS)
+  it(
+    'boots the whole web-app roster, connects, mounts, and disposes with nothing unmatched',
+    async () => {
+      // Exercise missing-API cleanup independently of the suite's browser defaults.
+      vi.stubGlobal('ResizeObserver', undefined)
+      onTestFinished(() => {
+        vi.unstubAllGlobals()
+      })
+      const mock = RemoteMock.create().load(remoteDefaultResponses)
+      const client = await TestClient.start({ roster: webApp }, mock, { mount: true })
+      expect(client.connection.state.getSnapshot()).toBe('connected')
+      expect(mock.log.streams('$events')).toHaveLength(1)
+      const container = client.container!
+      expect(document.body.contains(container)).toBe(true)
+      expect(container.childElementCount).toBeGreaterThan(0)
+      expect('__DSH_TRANSPORT__' in globalThis).toBe(false)
+      expect(globals.EventSource).toBeDefined()
+      expect(globals.ResizeObserver).toBeDefined()
+      expect(document.fonts).toBeInstanceOf(EventTarget)
+      await client.dispose()
+      expect(document.body.contains(container)).toBe(false)
+      expect('__DSH_TRANSPORT__' in globalThis).toBe(false)
+      expect(globals.EventSource).toBeUndefined()
+      expect(globals.ResizeObserver).toBeUndefined()
+      expect(document.fonts).toBeUndefined()
+      await client.dispose()
+    },
+    COLD_BOOT_TIMEOUT_MS,
+  )
 
   it('leaves a pre-existing global alone and removes only the shims it installed', async () => {
     const existing = { existing: true }
@@ -88,22 +94,28 @@ describe('TestClient (jsdom)', () => {
   })
 
   it('boots separate client instances against their own mocks and keeps shared shims until the last dispose', async () => {
-    const mockA = RemoteMock.create().load(remoteDefaultResponses).unary('session/rename', ok({ title: 'a', seq: 1 }))
-    const mockB = RemoteMock.create().load(remoteDefaultResponses).unary('session/rename', ok({ title: 'b', seq: 1 }))
-    const [a, b] = await Promise.all([
-      TestClient.start({ roster: API_ROSTER }, mockA),
-      TestClient.start({ roster: API_ROSTER }, mockB),
-    ])
+    const mockA = RemoteMock.create()
+      .load(remoteDefaultResponses)
+      .unary('session/rename', ok({ title: 'a', seq: 1 }))
+    const mockB = RemoteMock.create()
+      .load(remoteDefaultResponses)
+      .unary('session/rename', ok({ title: 'b', seq: 1 }))
+    const [a, b] = await Promise.all([TestClient.start({ roster: API_ROSTER }, mockA), TestClient.start({ roster: API_ROSTER }, mockB)])
     onTestFinished(() => a.dispose())
     onTestFinished(() => b.dispose())
     const rename = async (client: TestClient): Promise<unknown> =>
-      (client.ctx as { remote: { session: { rename(request: unknown): Promise<unknown> } } }).remote.session.rename({ sessionId: 's', title: 't' })
+      (client.ctx as { remote: { session: { rename(request: unknown): Promise<unknown> } } }).remote.session.rename({
+        sessionId: 's',
+        title: 't',
+      })
     await expect(rename(a)).resolves.toEqual({ ok: true, value: { title: 'a', seq: 1 } })
     await expect(rename(b)).resolves.toEqual({ ok: true, value: { title: 'b', seq: 1 } })
     expect(mockA.log.calls('session/rename')).toHaveLength(1)
     expect(mockB.log.calls('session/rename')).toHaveLength(1)
     await a.reload('@deepseek-ai/dsh-client-connection')
-    await vi.waitFor(() => { expect(a.connection.state.getSnapshot()).toBe('connected') })
+    await vi.waitFor(() => {
+      expect(a.connection.state.getSnapshot()).toBe('connected')
+    })
     await expect(rename(a)).resolves.toEqual({ ok: true, value: { title: 'a', seq: 1 } })
     expect(mockA.log.calls('session/rename')).toHaveLength(2)
     expect(mockB.log.calls('session/rename')).toHaveLength(1)
@@ -117,41 +129,50 @@ describe('TestClient (jsdom)', () => {
     expect(document.fonts).toBeUndefined()
   })
 
-  it('boots two plugin trees concurrently instead of serializing the worker', async () => {
-    let arrivals = 0
-    const gate = Promise.withResolvers<undefined>()
-    const probe: ClientPluginModule = {
-      async apply() {
-        arrivals += 1
-        await gate.promise
-      },
-    }
-    const roster = ClientRoster.of([
-      { name: MODULES, inject: [], immediately: true },
-      { name: PARALLEL_PROBE, inject: [], immediately: false },
-    ])
-    const first = TestClient.start({ roster, provide: { [PARALLEL_PROBE]: probe } }, RemoteMock.create(), { awaitConnected: false })
-    const second = TestClient.start({ roster, provide: { [PARALLEL_PROBE]: probe } }, RemoteMock.create(), { awaitConnected: false })
-    const starts = Promise.allSettled([first, second])
-    let overlapFailure: unknown
-    try {
-      await vi.waitFor(() => { expect(arrivals).toBe(2) }, { timeout: 5_000 })
-    } catch (error) {
-      overlapFailure = error
-    } finally {
-      gate.resolve(undefined)
-    }
-    const results = await starts
-    for (const result of results) {
-      if (result.status === 'fulfilled') onTestFinished(() => result.value.dispose())
-    }
-    const rejected = results.find(result => result.status === 'rejected')
-    if (rejected?.status === 'rejected') {
-      const reason: unknown = rejected.reason
-      throw reason
-    }
-    if (overlapFailure !== undefined) throw overlapFailure
-  }, COLD_BOOT_TIMEOUT_MS)
+  it(
+    'boots two plugin trees concurrently instead of serializing the worker',
+    async () => {
+      let arrivals = 0
+      const gate = Promise.withResolvers<undefined>()
+      const probe: ClientPluginModule = {
+        async apply() {
+          arrivals += 1
+          await gate.promise
+        },
+      }
+      const roster = ClientRoster.of([
+        { name: MODULES, inject: [], immediately: true },
+        { name: PARALLEL_PROBE, inject: [], immediately: false },
+      ])
+      const first = TestClient.start({ roster, provide: { [PARALLEL_PROBE]: probe } }, RemoteMock.create(), { awaitConnected: false })
+      const second = TestClient.start({ roster, provide: { [PARALLEL_PROBE]: probe } }, RemoteMock.create(), { awaitConnected: false })
+      const starts = Promise.allSettled([first, second])
+      let overlapFailure: unknown
+      try {
+        await vi.waitFor(
+          () => {
+            expect(arrivals).toBe(2)
+          },
+          { timeout: 5_000 },
+        )
+      } catch (error) {
+        overlapFailure = error
+      } finally {
+        gate.resolve(undefined)
+      }
+      const results = await starts
+      for (const result of results) {
+        if (result.status === 'fulfilled') onTestFinished(() => result.value.dispose())
+      }
+      const rejected = results.find(result => result.status === 'rejected')
+      if (rejected?.status === 'rejected') {
+        const reason: unknown = rejected.reason
+        throw reason
+      }
+      if (overlapFailure !== undefined) throw overlapFailure
+    },
+    COLD_BOOT_TIMEOUT_MS,
+  )
 
   it('reloads the bootstrap modules row against its own Loader internal', async () => {
     const roster = ClientRoster.of([{ name: MODULES, inject: [], immediately: true }])
@@ -178,8 +199,9 @@ describe('TestClient (jsdom)', () => {
 
   it('refuses to mount a roster that provides no uiRenderer instead of returning an empty container', async () => {
     const before = document.body.childElementCount
-    await expect(TestClient.start({ roster: API_ROSTER }, RemoteMock.create().load(remoteDefaultResponses), { mount: true }))
-      .rejects.toThrow('mount requested, but the roster provides no `uiRenderer`')
+    await expect(
+      TestClient.start({ roster: API_ROSTER }, RemoteMock.create().load(remoteDefaultResponses), { mount: true }),
+    ).rejects.toThrow('mount requested, but the roster provides no `uiRenderer`')
     expect(document.body.childElementCount).toBe(before)
   })
 
@@ -223,7 +245,9 @@ describe('TestClient (jsdom)', () => {
       await releaseCleanup.promise
     })
     let unloaded = false
-    const unloading = client.unload(SIDEBAR).then(() => { unloaded = true })
+    const unloading = client.unload(SIDEBAR).then(() => {
+      unloaded = true
+    })
     try {
       await cleanupStarted.promise
       await client.flush()
@@ -246,15 +270,17 @@ describe('TestClient (jsdom)', () => {
 
   it('waits through a carrier flap for the connection to become ready', async () => {
     let opens = 0
-    const mock = RemoteMock.create().load(remoteDefaultResponses).stream('$events', (_args, stream) => {
-      opens += 1
-      const first = opens === 1
-      setTimeout(() => {
-        if (first) stream.fail(new Error('flap'))
-        // Branded on the Gateway side; the test mints a plain string.
-        else stream.push({ type: 'ready', clientId: 'reconnected' as never, host: { home: '/home/mock' } })
-      }, 20)
-    })
+    const mock = RemoteMock.create()
+      .load(remoteDefaultResponses)
+      .stream('$events', (_args, stream) => {
+        opens += 1
+        const first = opens === 1
+        setTimeout(() => {
+          if (first) stream.fail(new Error('flap'))
+          // Branded on the Gateway side; the test mints a plain string.
+          else stream.push({ type: 'ready', clientId: 'reconnected' as never, host: { home: '/home/mock' } })
+        }, 20)
+      })
     const client = await TestClient.start({ roster: API_ROSTER }, mock)
     onTestFinished(() => client.dispose())
     expect(client.connection.state.getSnapshot()).toBe('connected')
@@ -266,8 +292,9 @@ describe('TestClient (jsdom)', () => {
     // logs as unmatched, while $events never sends ready.
     const roster = webApp.closure(['@deepseek-ai/dsh-api-workspace-controller'])
     const mock = RemoteMock.create().stream('$events', openStream([]))
-    await expect(TestClient.start({ roster }, mock, { connectTimeoutMs: 300 }))
-      .rejects.toThrow(/connection state is \S+ after 300ms; unmatched: \[unary workspace\/follow\]; streams: \[.*\$events \(open\).*\]/)
+    await expect(TestClient.start({ roster }, mock, { connectTimeoutMs: 300 })).rejects.toThrow(
+      /connection state is \S+ after 300ms; unmatched: \[unary workspace\/follow\]; streams: \[.*\$events \(open\).*\]/,
+    )
     expect(globals.EventSource).toBeUndefined()
   })
 })

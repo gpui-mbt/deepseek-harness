@@ -3,12 +3,10 @@ import { chmod, mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:f
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { mkdtemp, rm } from 'node:fs/promises'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import type { FileAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import {
-  fileLeafName, readFileStreamVerbatim, saveFileStreamVerbatim, saveFileVerbatim, storedFilePath,
-} from '../src/file-store.ts'
+import { fileLeafName, readFileStreamVerbatim, saveFileStreamVerbatim, saveFileVerbatim, storedFilePath } from '../src/file-store.ts'
 import { publishImmutableAlias } from '../src/store.ts'
 
 const roots: string[] = []
@@ -112,8 +110,7 @@ describe('saveFileVerbatim', () => {
     expect(again).toEqual(first)
     const renamed = await saveFileVerbatim(root, { data, name: 'b.txt' })
     expect(renamed.attachmentId).toBe(first.attachmentId)
-    expect((await stat(storedFilePath(root, first))).ino)
-      .toBe((await stat(storedFilePath(root, renamed))).ino)
+    expect((await stat(storedFilePath(root, first))).ino).toBe((await stat(storedFilePath(root, renamed))).ino)
     const digestDir = join(root, 'files', sha256(data).slice(0, 2), sha256(data))
     expect((await readdir(digestDir)).sort()).toEqual(['a.txt', 'b.txt'])
   })
@@ -125,8 +122,7 @@ describe('saveFileVerbatim', () => {
     const path = storedFilePath(root, ref)
     await chmod(path, 0o600)
     await writeFile(path, Uint8Array.from([9, 9, 9]))
-    await expect(saveFileVerbatim(root, { data, name: 'c.txt' }))
-      .rejects.toMatchObject({ code: 'ATTACHMENT_CORRUPT' })
+    await expect(saveFileVerbatim(root, { data, name: 'c.txt' })).rejects.toMatchObject({ code: 'ATTACHMENT_CORRUPT' })
   })
 
   it('rejects a conflicting display-name alias and wraps alias publication failures', async () => {
@@ -136,15 +132,11 @@ describe('saveFileVerbatim', () => {
     const alias = storedFilePath(root, ref)
     await unlink(alias)
     await writeFile(alias, Uint8Array.of(9, 9, 9))
-    await expect(saveFileVerbatim(root, { data, name: 'alias.bin' }))
-      .rejects.toMatchObject({ code: 'ATTACHMENT_CORRUPT' })
+    await expect(saveFileVerbatim(root, { data, name: 'alias.bin' })).rejects.toMatchObject({ code: 'ATTACHMENT_CORRUPT' })
 
-    await expect(publishImmutableAlias(
-      root,
-      join(root, 'missing-object'),
-      join(root, 'files', 'ff', 'missing', 'alias.bin'),
-      'f'.repeat(64),
-    )).rejects.toMatchObject({ code: 'ATTACHMENT_WRITE_FAILED' })
+    await expect(
+      publishImmutableAlias(root, join(root, 'missing-object'), join(root, 'files', 'ff', 'missing', 'alias.bin'), 'f'.repeat(64)),
+    ).rejects.toMatchObject({ code: 'ATTACHMENT_WRITE_FAILED' })
   })
 })
 
@@ -172,27 +164,31 @@ describe('saveFileStreamVerbatim', () => {
     const root = await makeRoot()
     const abort = new AbortController()
     const reason = new Error('upload cancelled')
-    await expect(saveFileStreamVerbatim(root, {
-      data: (async function* (): AsyncIterable<Uint8Array> {
-        yield Uint8Array.of(1, 2)
-        abort.abort(reason)
-        yield Uint8Array.of(3, 4)
-      })(),
-      signal: abort.signal,
-      name: 'cancelled.bin',
-    })).rejects.toBe(reason)
+    await expect(
+      saveFileStreamVerbatim(root, {
+        data: (async function* (): AsyncIterable<Uint8Array> {
+          yield Uint8Array.of(1, 2)
+          abort.abort(reason)
+          yield Uint8Array.of(3, 4)
+        })(),
+        signal: abort.signal,
+        name: 'cancelled.bin',
+      }),
+    ).rejects.toBe(reason)
     expect(await readdir(join(root, 'tmp'))).toEqual([])
   })
 
   it('wraps source failures and removes the staging file', async () => {
     const root = await makeRoot()
-    await expect(saveFileStreamVerbatim(root, {
-      data: (async function* (): AsyncIterable<Uint8Array> {
-        yield Uint8Array.of(1, 2)
-        throw new Error('source failed')
-      })(),
-      name: 'failed.bin',
-    })).rejects.toMatchObject({ code: 'ATTACHMENT_WRITE_FAILED' })
+    await expect(
+      saveFileStreamVerbatim(root, {
+        data: (async function* (): AsyncIterable<Uint8Array> {
+          yield Uint8Array.of(1, 2)
+          throw new Error('source failed')
+        })(),
+        name: 'failed.bin',
+      }),
+    ).rejects.toMatchObject({ code: 'ATTACHMENT_WRITE_FAILED' })
     expect(await readdir(join(root, 'tmp'))).toEqual([])
   })
 })
@@ -214,17 +210,16 @@ describe('readFileStreamVerbatim', () => {
       name: 'missing.bin',
       bytes: 1,
     }
-    await expect(readStream(readFileStreamVerbatim(root, { ...ref, name: '../escape' })))
-      .rejects.toMatchObject({ code: 'INVALID_ATTACHMENT_REF' })
-    await expect(readStream(readFileStreamVerbatim(root, ref)))
-      .rejects.toMatchObject({ code: 'ATTACHMENT_NOT_FOUND' })
+    await expect(readStream(readFileStreamVerbatim(root, { ...ref, name: '../escape' }))).rejects.toMatchObject({
+      code: 'INVALID_ATTACHMENT_REF',
+    })
+    await expect(readStream(readFileStreamVerbatim(root, ref))).rejects.toMatchObject({ code: 'ATTACHMENT_NOT_FOUND' })
 
     const saved = await saveFileVerbatim(root, { data: Uint8Array.of(1), name: 'unreadable.bin' })
     const path = storedFilePath(root, saved)
     await unlink(path)
     await mkdir(path)
-    await expect(readStream(readFileStreamVerbatim(root, saved)))
-      .rejects.toMatchObject({ code: 'ATTACHMENT_READ_FAILED' })
+    await expect(readStream(readFileStreamVerbatim(root, saved))).rejects.toMatchObject({ code: 'ATTACHMENT_READ_FAILED' })
   })
 
   it('detects changed bytes and recorded lengths', async () => {
@@ -233,11 +228,9 @@ describe('readFileStreamVerbatim', () => {
     const path = storedFilePath(root, ref)
     await chmod(path, 0o600)
     await writeFile(path, Uint8Array.of(3, 2, 1))
-    await expect(readStream(readFileStreamVerbatim(root, ref)))
-      .rejects.toMatchObject({ code: 'ATTACHMENT_CORRUPT' })
+    await expect(readStream(readFileStreamVerbatim(root, ref))).rejects.toMatchObject({ code: 'ATTACHMENT_CORRUPT' })
     await writeFile(path, Uint8Array.of(1, 2, 3))
-    await expect(readStream(readFileStreamVerbatim(root, { ...ref, bytes: 4 })))
-      .rejects.toMatchObject({ code: 'ATTACHMENT_CORRUPT' })
+    await expect(readStream(readFileStreamVerbatim(root, { ...ref, bytes: 4 }))).rejects.toMatchObject({ code: 'ATTACHMENT_CORRUPT' })
   })
 
   it('preserves caller cancellation before and during a read', async () => {
@@ -267,12 +260,15 @@ describe('storedFilePath', () => {
       name: 'ok.txt',
       bytes: 1,
     }
-    expect(() => storedFilePath('/root', { ...good, attachmentId: AttachmentId('sha256:short') }))
-      .toThrow(expect.objectContaining({ code: 'INVALID_ATTACHMENT_REF' }) as Error)
-    expect(() => storedFilePath('/root', { ...good, name: '../escape.txt' }))
-      .toThrow(expect.objectContaining({ code: 'INVALID_ATTACHMENT_REF' }) as Error)
-    expect(() => storedFilePath('/root', { ...good, name: 'nested/name.txt' }))
-      .toThrow(expect.objectContaining({ code: 'INVALID_ATTACHMENT_REF' }) as Error)
+    expect(() => storedFilePath('/root', { ...good, attachmentId: AttachmentId('sha256:short') })).toThrow(
+      expect.objectContaining({ code: 'INVALID_ATTACHMENT_REF' }) as Error,
+    )
+    expect(() => storedFilePath('/root', { ...good, name: '../escape.txt' })).toThrow(
+      expect.objectContaining({ code: 'INVALID_ATTACHMENT_REF' }) as Error,
+    )
+    expect(() => storedFilePath('/root', { ...good, name: 'nested/name.txt' })).toThrow(
+      expect.objectContaining({ code: 'INVALID_ATTACHMENT_REF' }) as Error,
+    )
     expect(storedFilePath('/root', good).endsWith(join('a'.repeat(64), 'ok.txt'))).toBe(true)
   })
 })

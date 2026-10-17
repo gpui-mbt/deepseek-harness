@@ -1,6 +1,6 @@
 /** Public questionnaire options are emitted in the page bootstrap. */
 import { Context } from '@deepseek-ai/cordis'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 import { apply, Config } from '../src/index.ts'
 import { CONTACT_CONFIG_GLOBAL } from '../src/contact-config.ts'
@@ -12,10 +12,18 @@ it('injects configured contact options and removes the listener on disposal', as
   await ctx.plugin({ Config, apply }, { contactSource: 'harness', bonusAckRetryDelayMs: 25, bonusAckRetryMaxDelayMs: 100 })
   const table: IndexInjection[] = []
   ctx.emit('webserver/index-inject', table)
-  expect(table).toEqual([{ kind: 'global', name: CONTACT_CONFIG_GLOBAL, value: {
-    contactFormUrl: config.contactFormUrl, contactSource: config.contactSource,
-    bonusAckRetryDelayMs: 25, bonusAckRetryMaxDelayMs: 100,
-  } }])
+  expect(table).toEqual([
+    {
+      kind: 'global',
+      name: CONTACT_CONFIG_GLOBAL,
+      value: {
+        contactFormUrl: config.contactFormUrl,
+        contactSource: config.contactSource,
+        bonusAckRetryDelayMs: 25,
+        bonusAckRetryMaxDelayMs: 100,
+      },
+    },
+  ])
   await ctx.fiber.dispose()
   table.length = 0
   ctx.emit('webserver/index-inject', table)

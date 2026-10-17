@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { COVERAGE_TEST_TIMEOUT_ENV } from './coverage-partitions.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -34,20 +34,24 @@ beforeAll(() => {
   temporaryRoot = mkdtempSync(join(tmpdir(), 'dsh-lane-test-budget-'))
   configPath = join(temporaryRoot, 'vitest.config.ts')
   writeFileSync(join(temporaryRoot, 'package.json'), '{ "type": "module" }\n', 'utf8')
-  writeFileSync(configPath, [
-    `import base from ${JSON.stringify(resolve(root, 'vitest.config.ts').split('\\').join('/'))}`,
-    'export default {',
-    '  ...base,',
-    '  test: {',
-    '    ...base.test,',
-    '    projects: (base.test.projects ?? []).map(project => ({',
-    '      ...project,',
-    `      test: { ...project.test, include: [${JSON.stringify(fixture)}] },`,
-    '    })),',
-    '  },',
-    '}',
-    '',
-  ].join('\n'), 'utf8')
+  writeFileSync(
+    configPath,
+    [
+      `import base from ${JSON.stringify(resolve(root, 'vitest.config.ts').split('\\').join('/'))}`,
+      'export default {',
+      '  ...base,',
+      '  test: {',
+      '    ...base.test,',
+      '    projects: (base.test.projects ?? []).map(project => ({',
+      '      ...project,',
+      `      test: { ...project.test, include: [${JSON.stringify(fixture)}] },`,
+      '    })),',
+      '  },',
+      '}',
+      '',
+    ].join('\n'),
+    'utf8',
+  )
 })
 afterAll(() => {
   if (temporaryRoot !== undefined) rmSync(temporaryRoot, { recursive: true, force: true })
@@ -86,7 +90,10 @@ describe('lane test budget', () => {
 
     expect(output).toMatch(/\|thread-safe\| scripts\/fixtures\/lane-test-budget\.fixture\.ts/)
     expect(output).toMatch(/\|process-bound\| scripts\/fixtures\/lane-test-budget\.fixture\.ts/)
-    expect(fixtureSummaries(output)).toEqual([[3, 3], [3, 3]])
+    expect(fixtureSummaries(output)).toEqual([
+      [3, 3],
+      [3, 3],
+    ])
     expect(output.match(/Test timed out in 200ms\./g)).toHaveLength(2)
     expect(output.match(/Hook timed out in 200ms\./g)).toHaveLength(2)
     expect(output.match(/Matcher did not succeed in time\./g)).toHaveLength(2)
@@ -103,7 +110,10 @@ describe('lane test budget', () => {
     // 600 ms waits pass under the 5000 ms per-test and 10 000 ms hook defaults;
     // the poll case ends at the 1000 ms default and can only take longer
     // under load, never less.
-    expect(fixtureSummaries(output)).toEqual([[3, 1], [3, 1]])
+    expect(fixtureSummaries(output)).toEqual([
+      [3, 1],
+      [3, 1],
+    ])
     expect(output.match(/Matcher did not succeed in time\./g)).toHaveLength(2)
     expect(output).not.toMatch(/Test timed out in|Hook timed out in/)
     const pollDurations = [...output.matchAll(/× expect\.poll budget (\d+)ms/g)].map(([, ms]) => Number(ms))

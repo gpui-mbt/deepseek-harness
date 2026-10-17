@@ -4,12 +4,8 @@ import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/pr
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { describe, expect, it, vi } from 'vitest'
-import {
-  packageMacOSArtifacts,
-  type DesktopPrepackagedArtifact,
-  type MacOSArtifactOperations,
-} from '../scripts/package-macos.ts'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import { packageMacOSArtifacts, type DesktopPrepackagedArtifact, type MacOSArtifactOperations } from '../scripts/package-macos.ts'
 import { desktopElectronBuilderArguments, resolveDesktopPackageTarget } from '../scripts/package-target.ts'
 import { writeMacOSAppUpdateConfig } from '../scripts/macos-app-update-config.mjs'
 
@@ -17,12 +13,15 @@ const environment = {
   DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
   DSH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
   APPLE_KEYCHAIN_PROFILE: 'fixture-profile',
-  DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com', DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
+  DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com',
+  DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
 }
 
 function barrier() {
   let release!: () => void
-  const promise = new Promise<void>((resolve) => { release = resolve })
+  const promise = new Promise<void>(resolve => {
+    release = resolve
+  })
   return { promise, release }
 }
 
@@ -32,9 +31,13 @@ async function fixture(arch: 'arm64' | 'x64' = 'arm64') {
   const appPath = join(artifactsRoot, arch === 'arm64' ? 'mac-arm64' : 'mac', 'DeepSeek Harness.app')
   await mkdir(join(appPath, 'Contents', 'Resources'), { recursive: true })
   await writeFile(join(appPath, 'payload'), 'signed content')
-  await writeMacOSAppUpdateConfig(join(appPath, 'Contents', 'Resources'), {
-    publicUrl: `https://desktop-updates.example.com/dsh-desk/0123456789abcdef0123456789abcdef/feeds/mac-${arch}/`,
-  }, 'deepseek-harness-updater')
+  await writeMacOSAppUpdateConfig(
+    join(appPath, 'Contents', 'Resources'),
+    {
+      publicUrl: `https://desktop-updates.example.com/dsh-desk/0123456789abcdef0123456789abcdef/feeds/mac-${arch}/`,
+    },
+    'deepseek-harness-updater',
+  )
   const version = '1.2.3-alpha.1'
   const base = `deepseek-harness-${version}-mac-${arch}`
   const request = { arch, artifactsRoot, version, environment }
@@ -42,7 +45,9 @@ async function fixture(arch: 'arm64' | 'x64' = 'arm64') {
     copyApp: async (source, destination) => {
       await cp(source, destination, { recursive: true, verbatimSymlinks: true })
     },
-    notarize: async ({ appPath: path }) => { await writeFile(join(path, 'ticket'), 'accepted') },
+    notarize: async ({ appPath: path }) => {
+      await writeFile(join(path, 'ticket'), 'accepted')
+    },
     verifySignature: vi.fn(),
     verifyNotarization: vi.fn((path: string) => {
       if (!existsSync(join(path, 'ticket'))) throw new Error('missing App ticket')
@@ -64,7 +69,7 @@ async function fixture(arch: 'arm64' | 'x64' = 'arm64') {
 }
 
 describe('parallel macOS artifacts', () => {
-  it.each(['arm64', 'x64'] as const)('overlaps notarization on isolated %s copies and promotes only completed payloads', async (arch) => {
+  it.each(['arm64', 'x64'] as const)('overlaps notarization on isolated %s copies and promotes only completed payloads', async arch => {
     const f = await fixture(arch)
     const appStarted = barrier()
     const appAccepted = barrier()
@@ -72,27 +77,33 @@ describe('parallel macOS artifacts', () => {
     const zipCompleted = barrier()
     const starts: string[] = []
     const copies: string[] = []
-    const operation = packageMacOSArtifacts(f.request, async (artifact) => {
-      starts.push(artifact.format)
-      if (artifact.format === 'dmg') await dmgCompleted.promise
-      await f.build(artifact)
-      if (artifact.format === 'zip') zipCompleted.release()
-    }, {
-      ...f.apple,
-      copyApp: async (source, destination) => {
-        copies.push(destination)
-        await f.apple.copyApp(source, destination)
+    const operation = packageMacOSArtifacts(
+      f.request,
+      async artifact => {
+        starts.push(artifact.format)
+        if (artifact.format === 'dmg') await dmgCompleted.promise
+        await f.build(artifact)
+        if (artifact.format === 'zip') zipCompleted.release()
       },
-      notarize: async (options) => {
-        starts.push('app')
-        appStarted.release()
-        await appAccepted.promise
-        await f.apple.notarize(options)
+      {
+        ...f.apple,
+        copyApp: async (source, destination) => {
+          copies.push(destination)
+          await f.apple.copyApp(source, destination)
+        },
+        notarize: async options => {
+          starts.push('app')
+          appStarted.release()
+          await appAccepted.promise
+          await f.apple.notarize(options)
+        },
       },
-    })
+    )
     try {
       await appStarted.promise
-      await vi.waitFor(() => { expect([...starts]).toEqual(expect.arrayContaining(['app', 'dmg'])) })
+      await vi.waitFor(() => {
+        expect([...starts]).toEqual(expect.arrayContaining(['app', 'dmg']))
+      })
       expect(new Set(copies).size).toBe(2)
       expect(copies.every(path => path !== f.appPath)).toBe(true)
       appAccepted.release()
@@ -101,13 +112,18 @@ describe('parallel macOS artifacts', () => {
       expect(existsSync(join(f.request.artifactsRoot, `${f.base}.zip`))).toBe(false)
       dmgCompleted.release()
       await operation
-      expect(JSON.parse(await readFile(join(f.request.artifactsRoot, `${f.base}.zip`), 'utf8')))
-        .toEqual({ payload: 'signed content', appTicket: true })
-      expect(JSON.parse(await readFile(join(f.request.artifactsRoot, `${f.base}.dmg`), 'utf8')))
-        .toEqual({ payload: 'signed content', appTicket: false })
+      expect(JSON.parse(await readFile(join(f.request.artifactsRoot, `${f.base}.zip`), 'utf8'))).toEqual({
+        payload: 'signed content',
+        appTicket: true,
+      })
+      expect(JSON.parse(await readFile(join(f.request.artifactsRoot, `${f.base}.dmg`), 'utf8'))).toEqual({
+        payload: 'signed content',
+        appTicket: false,
+      })
       expect(await readFile(join(f.appPath, 'ticket'), 'utf8')).toBe('accepted')
-      expect(await readFile(join(f.appPath, 'Contents', 'Resources', 'app-update.yml'), 'utf8'))
-        .toContain(`/dsh-desk/0123456789abcdef0123456789abcdef/feeds/mac-${arch}/`)
+      expect(await readFile(join(f.appPath, 'Contents', 'Resources', 'app-update.yml'), 'utf8')).toContain(
+        `/dsh-desk/0123456789abcdef0123456789abcdef/feeds/mac-${arch}/`,
+      )
       expect((await readdir(f.root)).sort()).toEqual(['artifacts'])
       expect(f.apple.verifySignature).toHaveBeenCalledTimes(4)
       expect(f.apple.verifyNotarization).toHaveBeenCalledTimes(1)
@@ -127,21 +143,25 @@ describe('parallel macOS artifacts', () => {
     const appError = new Error('App rejected')
     const dmgError = new Error('DMG rejected')
     const released: string[] = []
-    const outcome = packageMacOSArtifacts(f.request, async (artifact) => {
-      expect(artifact.format).toBe('dmg')
-      await failDmg.promise
-      expect(await readFile(join(artifact.appPath, 'payload'), 'utf8')).toBe('signed content')
-      released.push('dmg')
-      throw dmgError
-    }, {
-      ...f.apple,
-      notarize: async () => {
-        appStarted.release()
-        await failApp.promise
-        released.push('app')
-        throw appError
+    const outcome = packageMacOSArtifacts(
+      f.request,
+      async artifact => {
+        expect(artifact.format).toBe('dmg')
+        await failDmg.promise
+        expect(await readFile(join(artifact.appPath, 'payload'), 'utf8')).toBe('signed content')
+        released.push('dmg')
+        throw dmgError
       },
-    }).catch((error: unknown) => error)
+      {
+        ...f.apple,
+        notarize: async () => {
+          appStarted.release()
+          await failApp.promise
+          released.push('app')
+          throw appError
+        },
+      },
+    ).catch((error: unknown) => error)
     try {
       await appStarted.promise
       failApp.release()
@@ -161,37 +181,65 @@ describe('parallel macOS artifacts', () => {
     }
   })
 
-  it.each(['copy', 'signature', 'post-signature', 'ticket', 'metadata', 'update-config', 'post-update-config'] as const)('rejects incomplete %s qualification without promoting artifacts', async (failure) => {
-    const f = await fixture()
-    try {
-      if (failure === 'update-config') {
-        await writeFile(join(f.appPath, 'Contents', 'Resources', 'app-update.yml'), 'provider: generic\nurl: https://wrong.example.com/\nchannel: nightly\nupdaterCacheDirName: fixture\n')
-      }
-      let signatureChecks = 0
-      const apple: MacOSArtifactOperations = {
-        ...f.apple,
-        ...(failure === 'copy' ? { copyApp: async () => { throw new Error('copy failed') } } : {}),
-        ...(failure === 'signature' || failure === 'post-signature' ? {
-          verifySignature: () => {
-            signatureChecks += 1
-            if (failure === 'signature' || signatureChecks > 2) throw new Error('signature failed')
-          },
-        } : {}),
-        ...(failure === 'ticket' ? { verifyNotarization: () => { throw new Error('ticket failed') } } : {}),
-      }
-      await expect(packageMacOSArtifacts(f.request, async (artifact) => {
-        await f.build(artifact)
-        if (failure === 'metadata' && artifact.format === 'zip') {
-          await writeFile(join(artifact.output, 'nightly-mac.yml'), '')
+  it.each(['copy', 'signature', 'post-signature', 'ticket', 'metadata', 'update-config', 'post-update-config'] as const)(
+    'rejects incomplete %s qualification without promoting artifacts',
+    async failure => {
+      const f = await fixture()
+      try {
+        if (failure === 'update-config') {
+          await writeFile(
+            join(f.appPath, 'Contents', 'Resources', 'app-update.yml'),
+            'provider: generic\nurl: https://wrong.example.com/\nchannel: nightly\nupdaterCacheDirName: fixture\n',
+          )
         }
-        if (failure === 'post-update-config' && artifact.format === 'zip') {
-          await writeFile(join(artifact.appPath, 'Contents', 'Resources', 'app-update.yml'), '{}')
+        let signatureChecks = 0
+        const apple: MacOSArtifactOperations = {
+          ...f.apple,
+          ...(failure === 'copy'
+            ? {
+                copyApp: async () => {
+                  throw new Error('copy failed')
+                },
+              }
+            : {}),
+          ...(failure === 'signature' || failure === 'post-signature'
+            ? {
+                verifySignature: () => {
+                  signatureChecks += 1
+                  if (failure === 'signature' || signatureChecks > 2) throw new Error('signature failed')
+                },
+              }
+            : {}),
+          ...(failure === 'ticket'
+            ? {
+                verifyNotarization: () => {
+                  throw new Error('ticket failed')
+                },
+              }
+            : {}),
         }
-      }, apple)).rejects.toThrow()
-      expect(await readdir(f.root)).toEqual(['artifacts'])
-      expect(await readdir(f.request.artifactsRoot)).toEqual(['mac-arm64'])
-    } finally { await rm(f.root, { recursive: true, force: true }) }
-  })
+        await expect(
+          packageMacOSArtifacts(
+            f.request,
+            async artifact => {
+              await f.build(artifact)
+              if (failure === 'metadata' && artifact.format === 'zip') {
+                await writeFile(join(artifact.output, 'nightly-mac.yml'), '')
+              }
+              if (failure === 'post-update-config' && artifact.format === 'zip') {
+                await writeFile(join(artifact.appPath, 'Contents', 'Resources', 'app-update.yml'), '{}')
+              }
+            },
+            apple,
+          ),
+        ).rejects.toThrow()
+        expect(await readdir(f.root)).toEqual(['artifacts'])
+        expect(await readdir(f.request.artifactsRoot)).toEqual(['mac-arm64'])
+      } finally {
+        await rm(f.root, { recursive: true, force: true })
+      }
+    },
+  )
 
   it('passes the actual App and isolated output directory to each single-target builder', () => {
     const target = resolveDesktopPackageTarget('mac-arm64', 'darwin', 'arm64')
@@ -199,10 +247,20 @@ describe('parallel macOS artifacts', () => {
       const appPath = join('private build', format, 'DeepSeek Harness.app')
       const output = join(dirname(appPath), 'artifacts')
       expect(desktopElectronBuilderArguments(target, false, { format, appPath, output })).toEqual([
-        'exec', 'electron-builder', '--config', 'electron-builder.config.mjs',
-        '--mac', format, '--arm64', '--publish', 'never',
+        'exec',
+        'electron-builder',
+        '--config',
+        'electron-builder.config.mjs',
+        '--mac',
+        format,
+        '--arm64',
+        '--publish',
+        'never',
         '--config.mac.notarize=false',
-        '--prepackaged', appPath, '--config.directories.output', output,
+        '--prepackaged',
+        appPath,
+        '--config.directories.output',
+        output,
       ])
     }
   })

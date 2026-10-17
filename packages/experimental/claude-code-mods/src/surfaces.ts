@@ -85,8 +85,12 @@ export class SurfaceTable {
       wake?.()
     }
     band.watchers.add(watcher)
-    const onAbort = (): void => { wake?.() }
-    const waker = (): void => { wake?.() }
+    const onAbort = (): void => {
+      wake?.()
+    }
+    const waker = (): void => {
+      wake?.()
+    }
     band.wakers.add(waker)
     signal.addEventListener('abort', onAbort, { once: true })
     try {
@@ -102,7 +106,9 @@ export class SurfaceTable {
           yield next
           continue
         }
-        await new Promise<void>((resolve) => { wake = resolve })
+        await new Promise<void>(resolve => {
+          wake = resolve
+        })
         wake = undefined
       }
     } finally {
@@ -120,7 +126,9 @@ export class SurfaceTable {
   refresh(sessionId: string): Promise<void> {
     const band = this.bandOf(sessionId)
     if (band.rendering === undefined) {
-      band.rendering = this.renderOnce(sessionId, band).finally(() => { band.rendering = undefined })
+      band.rendering = this.renderOnce(sessionId, band).finally(() => {
+        band.rendering = undefined
+      })
       return band.rendering
     }
     // One more pass after the one in flight serves every refresh asked for meanwhile.
@@ -225,7 +233,7 @@ export class SurfaceTable {
     }
     // Action ids count up per drawing, so an unchanged tree serializes identically and keeps its generation.
     const actions = new Map<string, () => unknown>()
-    const serialized = serializeTree(tree, (callback) => {
+    const serialized = serializeTree(tree, callback => {
       const id = `a${actions.size}`
       actions.set(id, callback)
       return id

@@ -64,7 +64,10 @@ export type TerminalErrorCode =
 
 /** Error carrying a stable {@link TerminalErrorCode}. */
 export class TerminalError extends Error {
-  constructor(message: string, readonly code: TerminalErrorCode) {
+  constructor(
+    message: string,
+    readonly code: TerminalErrorCode,
+  ) {
     super(message)
     this.name = 'TerminalError'
   }
@@ -160,9 +163,7 @@ export class TerminalSessionService extends Service {
     if (request.name !== undefined && request.name.length === 0) throw new Error('PTY session name must be non-empty')
     const releaseName = this.reserveName(owner, request.name)
     const spawnReservation = this.reserveSpawn(owner)
-    const backendSignal = signal === undefined
-      ? spawnReservation.signal
-      : AbortSignal.any([signal, spawnReservation.signal])
+    const backendSignal = signal === undefined ? spawnReservation.signal : AbortSignal.any([signal, spawnReservation.signal])
     const sessionId = TerminalSessionId(`pty-${++this.nextId}`)
     let session: TerminalBackendSession | undefined
     let cleanupFailure: { error: unknown } | undefined
@@ -171,8 +172,8 @@ export class TerminalSessionService extends Service {
         sessionId,
         owner,
         type: request.type,
-        ...request.name !== undefined ? { name: request.name } : {},
-        ...request.cwd !== undefined ? { cwd: request.cwd } : {},
+        ...(request.name !== undefined ? { name: request.name } : {}),
+        ...(request.cwd !== undefined ? { cwd: request.cwd } : {}),
         signal: backendSignal,
       })
       signal?.throwIfAborted()
@@ -229,8 +230,7 @@ export class TerminalSessionService extends Service {
    * @returns true across the entire spawn-to-close interval, with no publication gap.
    */
   hasOwnerActivity(owner: Agent): boolean {
-    return (this.pendingSpawns.get(owner)?.size ?? 0) > 0
-      || [...this.sessions.values()].some(record => record.owner === owner)
+    return (this.pendingSpawns.get(owner)?.size ?? 0) > 0 || [...this.sessions.values()].some(record => record.owner === owner)
   }
 
   /**
@@ -247,8 +247,12 @@ export class TerminalSessionService extends Service {
     const operation = record.session.startSend(request)
     record.active = operation
     void operation.done.then(
-      () => { record.active = undefined },
-      () => { record.active = undefined },
+      () => {
+        record.active = undefined
+      },
+      () => {
+        record.active = undefined
+      },
     )
     return operation
   }
@@ -306,9 +310,7 @@ export class TerminalSessionService extends Service {
    * @returns owner-visible snapshots in publication order.
    */
   list(owner: Agent): TerminalSessionSnapshot[] {
-    return [...this.sessions.values()]
-      .filter(record => record.owner === owner)
-      .map(record => this.snapshot(record))
+    return [...this.sessions.values()].filter(record => record.owner === owner).map(record => this.snapshot(record))
   }
 
   private assertActive(): void {
@@ -324,11 +326,14 @@ export class TerminalSessionService extends Service {
       throw new TerminalError(`agent "${owner.id}" is not the registered PTY owner`, 'OWNER_NOT_LIVE')
     }
     if (this.ownerCleanups.has(owner)) return
-    const detach = owner.ctx.effect(() => async () => {
-      this.disposedOwners.add(owner)
-      this.ownerCleanups.delete(owner)
-      await this.disposeOwned(owner)
-    }, 'pty.ownerCleanup()')
+    const detach = owner.ctx.effect(
+      () => async () => {
+        this.disposedOwners.add(owner)
+        this.ownerCleanups.delete(owner)
+        await this.disposeOwned(owner)
+      },
+      'pty.ownerCleanup()',
+    )
     this.ownerCleanups.set(owner, detach)
   }
 
@@ -356,7 +361,7 @@ export class TerminalSessionService extends Service {
     this.pendingSpawns.set(owner, owned)
     return {
       signal: controller.signal,
-      release: (cleanupFailure) => {
+      release: cleanupFailure => {
         pending.cleanupFailure = cleanupFailure
         if (cleanupFailure === undefined) this.removePendingSpawn(pending)
         settlement.resolve()
@@ -372,12 +377,11 @@ export class TerminalSessionService extends Service {
   }
 
   private async abortPendingSpawns(owner: Agent | undefined, reason: TerminalError): Promise<void> {
-    const pending = owner === undefined
-      ? [...this.pendingSpawns.values()].flatMap(owned => [...owned])
-      : [...(this.pendingSpawns.get(owner) ?? [])]
+    const pending =
+      owner === undefined ? [...this.pendingSpawns.values()].flatMap(owned => [...owned]) : [...(this.pendingSpawns.get(owner) ?? [])]
     for (const spawn of pending) spawn.controller.abort(reason)
     await Promise.all(pending.map(spawn => spawn.settled))
-    const failures = pending.flatMap(spawn => spawn.cleanupFailure === undefined ? [] : [spawn.cleanupFailure.error])
+    const failures = pending.flatMap(spawn => (spawn.cleanupFailure === undefined ? [] : [spawn.cleanupFailure.error]))
     for (const spawn of pending) this.removePendingSpawn(spawn)
     if (failures.length > 0) {
       throw new AggregateError(failures, 'failed to roll back unpublished PTY setup')
@@ -396,11 +400,11 @@ export class TerminalSessionService extends Service {
   private snapshot(record: SessionRecord, motd?: string): TerminalSpawnResult | TerminalSessionSnapshot {
     return {
       sessionId: record.id,
-      ...record.name !== undefined ? { name: record.name } : {},
+      ...(record.name !== undefined ? { name: record.name } : {}),
       type: record.type,
-      ...record.session.pid !== undefined ? { pid: record.session.pid } : {},
+      ...(record.session.pid !== undefined ? { pid: record.session.pid } : {}),
       status: record.session.status(),
-      ...motd !== undefined ? { motd } : {},
+      ...(motd !== undefined ? { motd } : {}),
     }
   }
 
@@ -422,11 +426,7 @@ export class TerminalSessionService extends Service {
 
   private async disposeOwned(owner: Agent): Promise<void> {
     try {
-      await this.abortAndClose(
-        owner,
-        new TerminalError('PTY owner is no longer live', 'OWNER_NOT_LIVE'),
-        'PTY owner disposed',
-      )
+      await this.abortAndClose(owner, new TerminalError('PTY owner is no longer live', 'OWNER_NOT_LIVE'), 'PTY owner disposed')
     } finally {
       this.reservedNames.delete(owner)
     }
@@ -438,11 +438,7 @@ export class TerminalSessionService extends Service {
     // owner cleanups before the aggregated error propagates, so one stuck
     // session cannot orphan backends, reservations, or owner detachers.
     try {
-      await this.abortAndClose(
-        undefined,
-        new TerminalError('PTY service is disposing', 'SERVICE_DISPOSING'),
-        'PTY service disposed',
-      )
+      await this.abortAndClose(undefined, new TerminalError('PTY service is disposing', 'SERVICE_DISPOSING'), 'PTY service disposed')
     } finally {
       this.backends.clear()
       this.reservedNames.clear()
@@ -454,18 +450,20 @@ export class TerminalSessionService extends Service {
   }
 
   private async closeRecords(records: SessionRecord[], reason: string): Promise<void> {
-    const results = await Promise.allSettled(records.map(async (record) => {
-      const closing = record.closing ?? record.session.close(reason)
-      record.closing = closing
-      try {
-        await closing
-        this.sessions.delete(record.id)
-      } catch (error: unknown) {
-        // A concurrent retry may already own a newer fence; never clear it.
-        if (record.closing === closing) record.closing = undefined
-        throw error
-      }
-    }))
+    const results = await Promise.allSettled(
+      records.map(async record => {
+        const closing = record.closing ?? record.session.close(reason)
+        record.closing = closing
+        try {
+          await closing
+          this.sessions.delete(record.id)
+        } catch (error: unknown) {
+          // A concurrent retry may already own a newer fence; never clear it.
+          if (record.closing === closing) record.closing = undefined
+          throw error
+        }
+      }),
+    )
     const failures = results
       .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
       .map<unknown>(result => result.reason as unknown)

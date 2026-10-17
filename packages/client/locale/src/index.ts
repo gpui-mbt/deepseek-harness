@@ -9,8 +9,12 @@ import { LOCALE_PREFERENCE_FIELD } from './locale-settings.ts'
 import { LocaleSettingsFields } from './locale-settings.ts'
 
 export {
-  LOCALE_IDS, LOCALE_PREFERENCE_FIELD, LOCALE_SETTINGS_NAMESPACE,
-  type BuiltInLocaleId, type LocaleId, type LocaleSettings,
+  LOCALE_IDS,
+  LOCALE_PREFERENCE_FIELD,
+  LOCALE_SETTINGS_NAMESPACE,
+  type BuiltInLocaleId,
+  type LocaleId,
+  type LocaleSettings,
 } from './locale-settings.ts'
 
 /** Runtime preferences projected to the browser. */
@@ -28,5 +32,7 @@ export const Config = z.object({
  * @param ctx Plugin context used for optional settings presentation.
  */
 export function apply(ctx: Context): void {
-  ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
+  ctx.inject(['settings'], child => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
 }

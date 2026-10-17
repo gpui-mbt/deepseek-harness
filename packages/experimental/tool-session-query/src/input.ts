@@ -4,10 +4,7 @@
  * @module @deepseek-ai/dsh-tool-session-query/input
  */
 
-import {
-  type SessionEventType,
-  type SessionId as SessionIdValue,
-} from '@deepseek-ai/dsh-session'
+import { type SessionEventType, type SessionId as SessionIdValue } from '@deepseek-ai/dsh-session'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import {
   SessionQueryError,
@@ -126,58 +123,40 @@ function buildEventFilters(input: EventFilterInput): SessionEventMetadataFilter[
 function normalizeQuery(value: string): string {
   const query = value.trim().replace(/\s+/gu, ' ')
   if (query.length === 0) {
-    throw new SessionQueryError(
-      'session-search query must contain non-whitespace text',
-      'SESSION_QUERY_INVALID_QUERY',
-    )
+    throw new SessionQueryError('session-search query must contain non-whitespace text', 'SESSION_QUERY_INVALID_QUERY')
   }
   if (query.includes('\0')) {
-    throw new SessionQueryError(
-      'session-search query must not contain NUL',
-      'SESSION_QUERY_INVALID_QUERY',
-    )
+    throw new SessionQueryError('session-search query must not contain NUL', 'SESSION_QUERY_INVALID_QUERY')
   }
   return query
 }
 
-function sequenceRange(
-  from: number | undefined,
-  to: number | undefined,
-): { from?: number; to?: number } {
+function sequenceRange(from: number | undefined, to: number | undefined): { from?: number; to?: number } {
   if (from !== undefined) assertNonNegativeSafeInteger('sequence lower bound', from)
   if (to !== undefined) assertNonNegativeSafeInteger('sequence upper bound', to)
   if (from !== undefined && to !== undefined && from > to) {
     throw invalidRange('sequence', 'from must be less than or equal to to')
   }
   return {
-    ...from === undefined ? {} : { from },
-    ...to === undefined ? {} : { to },
+    ...(from === undefined ? {} : { from }),
+    ...(to === undefined ? {} : { to }),
   }
 }
 
-function timestampRange(
-  name: string,
-  from: string | undefined,
-  to: string | undefined,
-): { from?: number; to?: number } | undefined {
+function timestampRange(name: string, from: string | undefined, to: string | undefined): { from?: number; to?: number } | undefined {
   if (from === undefined && to === undefined) return undefined
   const fromTimestamp = from === undefined ? undefined : parseIsoTimestamp(`${name}_from`, from)
   const toTimestamp = to === undefined ? undefined : parseIsoTimestamp(`${name}_to`, to)
-  if (
-    fromTimestamp !== undefined
-    && toTimestamp !== undefined
-    && compareTimestamps(fromTimestamp, toTimestamp) > 0
-  ) {
+  if (fromTimestamp !== undefined && toTimestamp !== undefined && compareTimestamps(fromTimestamp, toTimestamp) > 0) {
     throw invalidRange(name, 'from must be less than or equal to to')
   }
   return {
-    ...fromTimestamp === undefined ? {} : { from: timestampLowerBound(fromTimestamp) },
-    ...toTimestamp === undefined ? {} : { to: timestampUpperBound(toTimestamp) },
+    ...(fromTimestamp === undefined ? {} : { from: timestampLowerBound(fromTimestamp) }),
+    ...(toTimestamp === undefined ? {} : { to: timestampUpperBound(toTimestamp) }),
   }
 }
 
-const ISO_TIMESTAMP =
-  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?(Z|([+-])(\d{2}):(\d{2}))$/
+const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?(Z|([+-])(\d{2}):(\d{2}))$/
 
 interface ExactTimestamp {
   readonly millisecond: number
@@ -199,17 +178,21 @@ function parseIsoTimestamp(name: string, value: string): ExactTimestamp {
   const offsetHour = Number(match[10] ?? 0)
   const offsetMinute = Number(match[11] ?? 0)
   if (
-    month < 1 || month > 12
-    || day < 1 || day > daysInMonth(year, month)
-    || hour > 23 || minute > 59 || second > 59
-    || offsetHour > 23 || offsetMinute > 59
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth(year, month) ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    offsetHour > 23 ||
+    offsetMinute > 59
   ) {
     throw invalidRange(name, 'must be a valid ISO 8601 timestamp')
   }
   const fraction = match[7] ?? ''
   const millisecondDigits = fraction.slice(0, 3).padEnd(3, '0')
-  const normalized = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}`
-    + `:${match[6] ?? '00'}.${millisecondDigits}${match[8]}`
+  const normalized = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}` + `:${match[6] ?? '00'}.${millisecondDigits}${match[8]}`
   const timestamp = Date.parse(normalized)
   if (!Number.isSafeInteger(timestamp)) {
     throw invalidRange(name, 'must be a valid ISO 8601 timestamp')
@@ -234,15 +217,11 @@ function compareTimestamps(left: ExactTimestamp, right: ExactTimestamp): number 
 }
 
 function timestampLowerBound(timestamp: ExactTimestamp): number {
-  return timestamp.remainder.length === 0
-    ? timestamp.millisecond
-    : nextUpFinite(timestamp.millisecond)
+  return timestamp.remainder.length === 0 ? timestamp.millisecond : nextUpFinite(timestamp.millisecond)
 }
 
 function timestampUpperBound(timestamp: ExactTimestamp): number {
-  return timestamp.remainder.length === 0
-    ? timestamp.millisecond
-    : nextDownFinite(timestamp.millisecond + 1)
+  return timestamp.remainder.length === 0 ? timestamp.millisecond : nextDownFinite(timestamp.millisecond + 1)
 }
 
 function nextUpFinite(value: number): number {
@@ -269,27 +248,18 @@ function daysInMonth(year: number, month: number): number {
 }
 
 function invalidRange(name: string, detail: string): SessionQueryError {
-  return new SessionQueryError(
-    `session ${name} range ${detail}`,
-    'SESSION_QUERY_INVALID_FILTER',
-  )
+  return new SessionQueryError(`session ${name} range ${detail}`, 'SESSION_QUERY_INVALID_FILTER')
 }
 
 function assertNonNegativeSafeInteger(name: string, value: number): void {
   if (!Number.isSafeInteger(value) || value < 0) {
-    throw new SessionQueryError(
-      `${name} must be a non-negative safe integer`,
-      'SESSION_QUERY_INVALID_FILTER',
-    )
+    throw new SessionQueryError(`${name} must be a non-negative safe integer`, 'SESSION_QUERY_INVALID_FILTER')
   }
 }
 
 function assertNonEmptyArray(name: string, values: readonly unknown[]): void {
   if (values.length === 0) {
-    throw new SessionQueryError(
-      `${name} must contain at least one value when supplied`,
-      'SESSION_QUERY_INVALID_FILTER',
-    )
+    throw new SessionQueryError(`${name} must contain at least one value when supplied`, 'SESSION_QUERY_INVALID_FILTER')
   }
 }
 

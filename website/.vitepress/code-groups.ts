@@ -8,10 +8,18 @@ import type { HeadConfig, MarkdownRenderer } from 'vitepress'
  * @returns MPA-only styles that expose every block and hide inactive controls.
  */
 export function codeGroupFallbackHead(mpa: boolean | undefined): HeadConfig[] {
-  return mpa ? [['style', {}, `
+  return mpa
+    ? [
+        [
+          'style',
+          {},
+          `
 .vp-code-group .tabs, .vp-code-group button.copy { display: none; }
 .vp-code-group .blocks > div { display: block; }
-`]] : []
+`,
+        ],
+      ]
+    : []
 }
 
 /**

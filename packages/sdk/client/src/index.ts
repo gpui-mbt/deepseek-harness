@@ -11,12 +11,7 @@
 
 export { DeepSeekHarness, HarnessSession, validatedSessionEvent } from './api.ts'
 export type { RunOptions } from './api.ts'
-export {
-  HarnessClient,
-  RequestTimeoutError,
-  SdkProtocolError,
-  TransportClosedError,
-} from './client.ts'
+export { HarnessClient, RequestTimeoutError, SdkProtocolError, TransportClosedError } from './client.ts'
 export type { NotificationSubscription } from './client.ts'
 export { JsonRpcResponseError } from '@deepseek-ai/dsh-sdk-protocol'
 export type {

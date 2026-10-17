@@ -1,22 +1,12 @@
 /** RuntimeBackend over the typed Worker-to-Client transport. */
 
-import type {
-  ClientCallArgument,
-  ClientRuntimeCommand,
-  ClientRuntimeResult,
-} from '../../../shared/bridge/messages/runtime/index.ts'
+import type { ClientCallArgument, ClientRuntimeCommand, ClientRuntimeResult } from '../../../shared/bridge/messages/runtime/index.ts'
 import type { ClientRuntimeSessionId } from '../../../shared/bridge/ids.ts'
 import type { RuntimeBackendObjectHandle } from '../../../shared/cdp/ids.ts'
 import type { RuntimeCallArgument } from '../../../shared/cdp/index.ts'
 import type { ClientRuntimeRouter, ClientRuntimeTarget } from '../../bridge/runtime-rpc.ts'
 import type { RuntimeBackend } from '../../../shared/cdp/realm.ts'
-import {
-  clientCompletion,
-  clientException,
-  clientHandle,
-  clientInternalProperty,
-  clientProperty,
-} from './values.ts'
+import { clientCompletion, clientException, clientHandle, clientInternalProperty, clientProperty } from './values.ts'
 import type { ClientScriptIdentity } from './scripts.ts'
 
 /** Adapts one connection-local Client Runtime session to the common backend API. */
@@ -41,37 +31,29 @@ export class ClientRuntimeBackend implements RuntimeBackend {
 
   async evaluate(request: Parameters<RuntimeBackend['evaluate']>[0]): ReturnType<RuntimeBackend['evaluate']> {
     assertClientEvaluationOptions(request)
-    const {
-      context: _context,
-      throwOnSideEffect: _throwOnSideEffect,
-      serializationOptions: _serializationOptions,
-      ...supported
-    } = request
-    return clientCompletion(
-      expectResult(await this.request({ op: 'evaluate', ...supported }), 'evaluate'),
-      scriptKey => this.scriptIds.toRuntime(scriptKey),
+    const { context: _context, throwOnSideEffect: _throwOnSideEffect, serializationOptions: _serializationOptions, ...supported } = request
+    return clientCompletion(expectResult(await this.request({ op: 'evaluate', ...supported }), 'evaluate'), scriptKey =>
+      this.scriptIds.toRuntime(scriptKey),
     )
   }
 
   async getProperties(request: Parameters<RuntimeBackend['getProperties']>[0]): ReturnType<RuntimeBackend['getProperties']> {
-    const result = expectResult(await this.request({
-      op: 'get-properties',
-      ...request,
-      handle: clientHandle(request.handle),
-    }), 'get-properties')
+    const result = expectResult(
+      await this.request({
+        op: 'get-properties',
+        ...request,
+        handle: clientHandle(request.handle),
+      }),
+      'get-properties',
+    )
     return {
       properties: result.properties.map(clientProperty),
-      ...(result.internalProperties === undefined
-        ? {}
-        : { internalProperties: result.internalProperties.map(clientInternalProperty) }),
+      ...(result.internalProperties === undefined ? {} : { internalProperties: result.internalProperties.map(clientInternalProperty) }),
       ...(result.exceptionDetails === undefined
         ? {}
         : {
-          exceptionDetails: clientException(
-            result.exceptionDetails,
-            scriptKey => this.scriptIds.toRuntime(scriptKey),
-          ),
-        }),
+            exceptionDetails: clientException(result.exceptionDetails, scriptKey => this.scriptIds.toRuntime(scriptKey)),
+          }),
     }
   }
 
@@ -91,19 +73,19 @@ export class ClientRuntimeBackend implements RuntimeBackend {
       ...(receiver === undefined ? {} : { receiver: clientHandle(receiver) }),
       ...(args === undefined ? {} : { arguments: args.map(argumentToClient) }),
     }
-    return clientCompletion(
-      expectResult(await this.request(command), 'call-function'),
-      scriptKey => this.scriptIds.toRuntime(scriptKey),
-    )
+    return clientCompletion(expectResult(await this.request(command), 'call-function'), scriptKey => this.scriptIds.toRuntime(scriptKey))
   }
 
   async awaitPromise(request: Parameters<RuntimeBackend['awaitPromise']>[0]): ReturnType<RuntimeBackend['awaitPromise']> {
     return clientCompletion(
-      expectResult(await this.request({
-        op: 'await-promise',
-        ...request,
-        promise: clientHandle(request.promise),
-      }), 'await-promise'),
+      expectResult(
+        await this.request({
+          op: 'await-promise',
+          ...request,
+          promise: clientHandle(request.promise),
+        }),
+        'await-promise',
+      ),
       scriptKey => this.scriptIds.toRuntime(scriptKey),
     )
   }

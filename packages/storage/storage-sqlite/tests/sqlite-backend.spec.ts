@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -16,7 +16,9 @@ function backendAt(path: string): SqliteStorageBackend {
 }
 
 const dirs: string[] = []
-afterEach(async () => { for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true }) })
+afterEach(async () => {
+  for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true })
+})
 
 async function freshDbPath(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'dsh-storage-sqlite-'))
@@ -61,9 +63,9 @@ describe('sqlite backend specifics', () => {
     try {
       const { user_version: version } = db.prepare('PRAGMA user_version').get() as { user_version: number }
       expect(version).toBe(STORAGE_SQLITE_SCHEMA_VERSION)
-      const table = db.prepare(
-        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'u_specimen_records'",
-      ).get() as { sql: string } | undefined
+      const table = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'u_specimen_records'").get() as
+        | { sql: string }
+        | undefined
       expect(table?.sql).toContain('STRICT')
       const unitRow = db.prepare('SELECT version FROM units WHERE name = ?').get('specimen') as { version: number }
       expect(unitRow.version).toBe(DESCRIPTOR.version)
@@ -149,11 +151,9 @@ describe('sqlite backend specifics', () => {
     const repair = new DatabaseSync(path)
     try {
       expect((repair.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(0)
-      expect(repair.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'units'").get())
-        .toEqual({ name: 'units' })
+      expect(repair.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'units'").get()).toEqual({ name: 'units' })
       repair.exec('DROP INDEX unit_globals')
-      expect(repair.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'unit_globals'").get())
-        .toBeUndefined()
+      expect(repair.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'unit_globals'").get()).toBeUndefined()
     } finally {
       repair.close()
     }
@@ -194,7 +194,11 @@ describe('sqlite backend specifics', () => {
     const unit = await backend.kv.open(DESCRIPTOR)
     // JSON.stringify propagates a value's own toJSON throw verbatim; the unit
     // must still reject with an Error instance.
-    const hostile = { toJSON: () => { throw 'not an error' } }
+    const hostile = {
+      toJSON: () => {
+        throw 'not an error'
+      },
+    }
     await expect(unit.putRecord('records', 'k', hostile)).rejects.toThrow('not an error')
     await expect(unit.putRecord('records', 'k', hostile)).rejects.toBeInstanceOf(Error)
     await backend.close()

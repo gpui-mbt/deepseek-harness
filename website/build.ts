@@ -62,7 +62,7 @@ export function cleanDocSiteOutput(siteRoot: string, outDir: string): void {
 export function docSiteBuildOptions(siteRoot: string, mpa: boolean): DocSiteBuildOptions {
   const root = resolve(siteRoot)
   return {
-    ...mpa ? { mpa: 'true' } : {},
+    ...(mpa ? { mpa: 'true' } : {}),
     onAfterConfigResolve(siteConfig) {
       cleanDocSiteOutput(root, siteConfig.outDir)
     },

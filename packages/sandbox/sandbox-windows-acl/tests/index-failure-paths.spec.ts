@@ -14,7 +14,7 @@ import { join, resolve } from 'node:path'
 import { Win32Error } from '@deepseek-ai/dsh-win32-process'
 import { ERROR_BROKEN_PIPE } from '@deepseek-ai/dsh-win32-process/src/abi.ts'
 import { processInformationType } from '@deepseek-ai/dsh-win32-process/src/ffi.ts'
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import koffi from 'koffi'
 
 import type { NativePtr, Win32Bindings } from '../src/ffi.ts'
@@ -41,7 +41,7 @@ interface HappyStubs {
 
 const state = vi.hoisted(() => ({ stubs: undefined as HappyStubs | undefined }))
 
-vi.mock('../src/ffi.ts', async (importOriginal) => {
+vi.mock('../src/ffi.ts', async importOriginal => {
   const actual = await importOriginal<typeof import('../src/ffi.ts')>()
   return {
     ...actual,
@@ -91,15 +91,23 @@ function happyStubs(): HappyStubs {
     return temp.length
   })
   const createFileW = vi.fn(() => fresh())
-  const getNamedSecurityInfoW = vi.fn((
-    _path: unknown, _type: unknown, _info: unknown, _owner: unknown, _group: unknown,
-    dacl: NativePtr, sacl: NativePtr, descriptor: NativePtr,
-  ) => {
-    koffi.encode(dacl, PVOID, 0n)
-    koffi.encode(sacl, PVOID, 0n)
-    koffi.encode(descriptor, PVOID, 0n)
-    return 0
-  })
+  const getNamedSecurityInfoW = vi.fn(
+    (
+      _path: unknown,
+      _type: unknown,
+      _info: unknown,
+      _owner: unknown,
+      _group: unknown,
+      dacl: NativePtr,
+      sacl: NativePtr,
+      descriptor: NativePtr,
+    ) => {
+      koffi.encode(dacl, PVOID, 0n)
+      koffi.encode(sacl, PVOID, 0n)
+      koffi.encode(descriptor, PVOID, 0n)
+      return 0
+    },
+  )
   const setEntriesInAclW = vi.fn((_count: unknown, _entries: unknown, _old: unknown, newAcl: NativePtr) => {
     koffi.encode(newAcl, PVOID, fresh())
     return 0
@@ -126,13 +134,22 @@ function happyStubs(): HappyStubs {
   const copySid = vi.fn(() => 1)
   const createWellKnownSid = vi.fn(() => 1)
   const isValidSid = vi.fn(() => 1)
-  const createRestrictedToken = vi.fn((
-    _existing: unknown, _flags: unknown, _dc: unknown, _ds: unknown, _pc: unknown, _pd: unknown,
-    _rc: unknown, _rs: unknown, slot: NativePtr,
-  ) => {
-    koffi.encode(slot, PVOID, fresh())
-    return 1
-  })
+  const createRestrictedToken = vi.fn(
+    (
+      _existing: unknown,
+      _flags: unknown,
+      _dc: unknown,
+      _ds: unknown,
+      _pc: unknown,
+      _pd: unknown,
+      _rc: unknown,
+      _rs: unknown,
+      slot: NativePtr,
+    ) => {
+      koffi.encode(slot, PVOID, fresh())
+      return 1
+    },
+  )
   const setTokenInformation = vi.fn(() => 1)
   const createPipe = vi.fn((readSlot: NativePtr, writeSlot: NativePtr) => {
     koffi.encode(readSlot, PVOID, fresh())
@@ -140,13 +157,24 @@ function happyStubs(): HappyStubs {
     return 1
   })
   const setHandleInformation = vi.fn(() => 1)
-  const createProcessAsUserW = vi.fn((
-    _token: unknown, _app: unknown, _cmd: unknown, _pa: unknown, _ta: unknown,
-    _inherit: unknown, _flags: unknown, _env: unknown, _cwd: unknown, _si: unknown, processInfo: NativePtr,
-  ) => {
-    koffi.encode(processInfo, processInformationType(), { hProcess: fresh(), hThread: fresh(), dwProcessId: 1234, dwThreadId: 5678 })
-    return 1
-  })
+  const createProcessAsUserW = vi.fn(
+    (
+      _token: unknown,
+      _app: unknown,
+      _cmd: unknown,
+      _pa: unknown,
+      _ta: unknown,
+      _inherit: unknown,
+      _flags: unknown,
+      _env: unknown,
+      _cwd: unknown,
+      _si: unknown,
+      processInfo: NativePtr,
+    ) => {
+      koffi.encode(processInfo, processInformationType(), { hProcess: fresh(), hThread: fresh(), dwProcessId: 1234, dwThreadId: 5678 })
+      return 1
+    },
+  )
   const peekNamedPipe = vi.fn(() => 0)
   const readFile = vi.fn(() => 1)
   const waitForSingleObject = vi.fn(() => 0)
@@ -166,20 +194,55 @@ function happyStubs(): HappyStubs {
   const formatMessageW = vi.fn(() => 0)
 
   const api = stubBindings({
-    openProcess, openProcessToken, convertStringSidToSidW, getTempPathW, createFileW,
-    lockFileEx: vi.fn(() => 1), unlockFileEx: vi.fn(() => 1),
-    getNamedSecurityInfoW, setEntriesInAclW, setNamedSecurityInfoW, getTokenInformation,
-    localAlloc, initializeAcl, addMandatoryAce,
-    getLengthSid, copySid, createWellKnownSid, isValidSid, createRestrictedToken,
-    setTokenInformation, createPipe, setHandleInformation, createProcessAsUserW,
-    peekNamedPipe, readFile, waitForSingleObject, getExitCodeProcess, createJobObjectW,
-    setInformationJobObject, assignProcessToJobObject, resumeThread, terminateProcess,
+    openProcess,
+    openProcessToken,
+    convertStringSidToSidW,
+    getTempPathW,
+    createFileW,
+    lockFileEx: vi.fn(() => 1),
+    unlockFileEx: vi.fn(() => 1),
+    getNamedSecurityInfoW,
+    setEntriesInAclW,
+    setNamedSecurityInfoW,
+    getTokenInformation,
+    localAlloc,
+    initializeAcl,
+    addMandatoryAce,
+    getLengthSid,
+    copySid,
+    createWellKnownSid,
+    isValidSid,
+    createRestrictedToken,
+    setTokenInformation,
+    createPipe,
+    setHandleInformation,
+    createProcessAsUserW,
+    peekNamedPipe,
+    readFile,
+    waitForSingleObject,
+    getExitCodeProcess,
+    createJobObjectW,
+    setInformationJobObject,
+    assignProcessToJobObject,
+    resumeThread,
+    terminateProcess,
     getStdHandle,
-    localFree, closeHandle, getLastError, formatMessageW,
+    localFree,
+    closeHandle,
+    getLastError,
+    formatMessageW,
   })
   return {
-    api, setNamedSecurityInfoW, convertStringSidToSidW, closeHandle, localFree,
-    createRestrictedToken, createJobObjectW, getNamedSecurityInfoW, setTokenInformation, addMandatoryAce,
+    api,
+    setNamedSecurityInfoW,
+    convertStringSidToSidW,
+    closeHandle,
+    localFree,
+    createRestrictedToken,
+    createJobObjectW,
+    getNamedSecurityInfoW,
+    setTokenInformation,
+    addMandatoryAce,
   }
 }
 
@@ -190,8 +253,7 @@ beforeEach(() => {
 describe('AclSandbox constructor validation', () => {
   it('rejects a writable directory that does not exist', () => {
     const missing = join(scratch(), 'missing')
-    expect(() => new AclSandbox({ writableDirs: [missing], tempDir: null, mode: 'read-only' }))
-      .toThrow(/writable dir does not exist/u)
+    expect(() => new AclSandbox({ writableDirs: [missing], tempDir: null, mode: 'read-only' })).toThrow(/writable dir does not exist/u)
   })
 
   it('resolves relative writable directories to absolute paths', () => {
@@ -205,23 +267,29 @@ describe('AclSandbox constructor validation', () => {
   it('rejects temp authority under read-only', () => {
     const workspace = scratch()
     const temp = scratch()
-    expect(() => new AclSandbox({ writableDirs: [workspace], tempDir: temp, mode: 'read-only' }))
-      .toThrow(/read-only does not accept a temp directory/u)
-    expect(() => new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-1', mode: 'read-only' }))
-      .toThrow(/read-only does not accept write SIDs/u)
-    expect(() => new AclSandbox({ writableDirs: [workspace], tempDir: null, tempWriteSid: 'S-1-4-9000-1-1', mode: 'read-only' }))
-      .toThrow(/read-only does not accept write SIDs/u)
+    expect(() => new AclSandbox({ writableDirs: [workspace], tempDir: temp, mode: 'read-only' })).toThrow(
+      /read-only does not accept a temp directory/u,
+    )
+    expect(() => new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-1', mode: 'read-only' })).toThrow(
+      /read-only does not accept write SIDs/u,
+    )
+    expect(() => new AclSandbox({ writableDirs: [workspace], tempDir: null, tempWriteSid: 'S-1-4-9000-1-1', mode: 'read-only' })).toThrow(
+      /read-only does not accept write SIDs/u,
+    )
   })
 
   it('rejects a temp SID when temp writes are disabled', () => {
     const workspace = scratch()
-    expect(() => new AclSandbox({
-      writableDirs: [workspace],
-      tempDir: null,
-      writeSid: 'S-1-4-9000-2',
-      tempWriteSid: 'S-1-4-9000-2-1',
-      mode: 'workspace-write',
-    })).toThrow(/temp write SID requires a temp directory/u)
+    expect(
+      () =>
+        new AclSandbox({
+          writableDirs: [workspace],
+          tempDir: null,
+          writeSid: 'S-1-4-9000-2',
+          tempWriteSid: 'S-1-4-9000-2-1',
+          mode: 'workspace-write',
+        }),
+    ).toThrow(/temp write SID requires a temp directory/u)
   })
 })
 
@@ -244,8 +312,9 @@ describe('AclSandbox init', () => {
 
   it('requires an explicit private temp directory or null under workspace-write', () => {
     const workspace = scratch()
-    expect(() => new AclSandbox({ writableDirs: [workspace], writeSid: 'S-1-4-9000-2', mode: 'workspace-write' }))
-      .toThrow(/requires an explicit private temp directory or null/u)
+    expect(() => new AclSandbox({ writableDirs: [workspace], writeSid: 'S-1-4-9000-2', mode: 'workspace-write' })).toThrow(
+      /requires an explicit private temp directory or null/u,
+    )
   })
 
   it('applies no grants when the temp dir option is null', async () => {
@@ -275,16 +344,26 @@ describe('AclSandbox init', () => {
     await sandbox.init()
     expect(convertStringSidToSidW).not.toHaveBeenCalled()
     expect(setNamedSecurityInfoW).not.toHaveBeenCalled()
-    expect(() => { sandbox.dispose() }).not.toThrow() // no write SID: nothing to revoke or free
+    expect(() => {
+      sandbox.dispose()
+    }).not.toThrow() // no write SID: nothing to revoke or free
   })
 
   it('applies no grants when the caller owns the DACLs (manageDacls: false)', async () => {
     const { setNamedSecurityInfoW } = state.stubs as HappyStubs
     const workspace = scratch()
-    const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-5', mode: 'workspace-write', manageDacls: false })
+    const sandbox = new AclSandbox({
+      writableDirs: [workspace],
+      tempDir: null,
+      writeSid: 'S-1-4-9000-5',
+      mode: 'workspace-write',
+      manageDacls: false,
+    })
     await sandbox.init()
     expect(setNamedSecurityInfoW).not.toHaveBeenCalled()
-    expect(() => { sandbox.dispose() }).not.toThrow() // caller-owned DACLs: nothing to revoke
+    expect(() => {
+      sandbox.dispose()
+    }).not.toThrow() // caller-owned DACLs: nothing to revoke
   })
 
   it('refuses a second init on the same instance', async () => {
@@ -316,13 +395,22 @@ describe('AclSandbox init', () => {
     const workspace = scratch()
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-9', mode: 'workspace-write' })
     const restrictedToken = 99n
-    createRestrictedToken.mockImplementation((
-      _existing: unknown, _flags: unknown, _dc: unknown, _ds: unknown, _pc: unknown, _pd: unknown,
-      _rc: unknown, _rs: unknown, slot: NativePtr,
-    ) => {
-      koffi.encode(slot, PVOID, restrictedToken)
-      return 1
-    })
+    createRestrictedToken.mockImplementation(
+      (
+        _existing: unknown,
+        _flags: unknown,
+        _dc: unknown,
+        _ds: unknown,
+        _pc: unknown,
+        _pd: unknown,
+        _rc: unknown,
+        _rs: unknown,
+        slot: NativePtr,
+      ) => {
+        koffi.encode(slot, PVOID, restrictedToken)
+        return 1
+      },
+    )
     // fresh() hands out 1n to OpenProcess and 2n to OpenProcessToken; the
     // token-layer close of 1n succeeds and init's close of 2n fails.
     closeHandle.mockImplementation((handle: NativePtr) => (handle === 2n || handle === restrictedToken ? 0 : 1))
@@ -330,11 +418,7 @@ describe('AclSandbox init', () => {
     // assigned. Cleanup retries the still-open handle and reports both close
     // failures plus the restricted-token close after releasing parsed SIDs.
     await expect(sandbox.init()).rejects.toMatchObject({
-      errors: [
-        { api: 'CloseHandle' },
-        { api: 'CloseHandle' },
-        { api: 'CloseHandle' },
-      ],
+      errors: [{ api: 'CloseHandle' }, { api: 'CloseHandle' }, { api: 'CloseHandle' }],
     })
   })
 
@@ -348,16 +432,24 @@ describe('AclSandbox init', () => {
       return 0
     })
     localFree.mockImplementation(() => (inCleanup ? 1n : 0n))
-    getNamedSecurityInfoW.mockImplementation((
-      _path: unknown, _type: unknown, _info: unknown, _owner: unknown, _group: unknown,
-      dacl: NativePtr, sacl: NativePtr, descriptor: NativePtr,
-    ) => {
-      if (inCleanup) return 2 // the cleanup's revocation read fails too
-      koffi.encode(dacl, PVOID, 0n)
-      koffi.encode(sacl, PVOID, 0n)
-      koffi.encode(descriptor, PVOID, 0n)
-      return 0
-    })
+    getNamedSecurityInfoW.mockImplementation(
+      (
+        _path: unknown,
+        _type: unknown,
+        _info: unknown,
+        _owner: unknown,
+        _group: unknown,
+        dacl: NativePtr,
+        sacl: NativePtr,
+        descriptor: NativePtr,
+      ) => {
+        if (inCleanup) return 2 // the cleanup's revocation read fails too
+        koffi.encode(dacl, PVOID, 0n)
+        koffi.encode(sacl, PVOID, 0n)
+        koffi.encode(descriptor, PVOID, 0n)
+        return 0
+      },
+    )
     const sandbox = new AclSandbox({
       writableDirs: [workspace],
       tempDir: temp,
@@ -434,7 +526,9 @@ describe('AclSandbox dispose', () => {
   it('is a no-op before init', () => {
     const workspace = scratch()
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-15', mode: 'workspace-write' })
-    expect(() => { sandbox.dispose() }).not.toThrow()
+    expect(() => {
+      sandbox.dispose()
+    }).not.toThrow()
   })
 
   it('aggregates a failing temp revocation into an AggregateError', async () => {
@@ -450,7 +544,9 @@ describe('AclSandbox dispose', () => {
     })
     await sandbox.init()
     getNamedSecurityInfoW.mockReturnValue(2)
-    expect(() => { sandbox.dispose() }).toThrow(/1 cleanup failure/u)
+    expect(() => {
+      sandbox.dispose()
+    }).toThrow(/1 cleanup failure/u)
   })
 
   it('aggregates SID and token cleanup failures into an AggregateError', async () => {
@@ -459,7 +555,9 @@ describe('AclSandbox dispose', () => {
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-17', mode: 'workspace-write' })
     await sandbox.init()
     localFree.mockReturnValue(1n)
-    expect(() => { sandbox.dispose() }).toThrow(AggregateError)
+    expect(() => {
+      sandbox.dispose()
+    }).toThrow(AggregateError)
   })
 
   it('reports a failed close of the restricted token', async () => {
@@ -467,16 +565,27 @@ describe('AclSandbox dispose', () => {
     const workspace = scratch()
     const sandbox = new AclSandbox({ writableDirs: [workspace], tempDir: null, writeSid: 'S-1-4-9000-18', mode: 'workspace-write' })
     let restrictedToken = 0n
-    createRestrictedToken.mockImplementation((
-      _existing: unknown, _flags: unknown, _dc: unknown, _ds: unknown, _pc: unknown, _pd: unknown,
-      _rc: unknown, _rs: unknown, slot: NativePtr,
-    ) => {
-      restrictedToken = 99n
-      koffi.encode(slot, PVOID, restrictedToken)
-      return 1
-    })
+    createRestrictedToken.mockImplementation(
+      (
+        _existing: unknown,
+        _flags: unknown,
+        _dc: unknown,
+        _ds: unknown,
+        _pc: unknown,
+        _pd: unknown,
+        _rc: unknown,
+        _rs: unknown,
+        slot: NativePtr,
+      ) => {
+        restrictedToken = 99n
+        koffi.encode(slot, PVOID, restrictedToken)
+        return 1
+      },
+    )
     closeHandle.mockImplementation((handle: NativePtr) => (handle === restrictedToken ? 0 : 1))
     await sandbox.init()
-    expect(() => { sandbox.dispose() }).toThrow(AggregateError)
+    expect(() => {
+      sandbox.dispose()
+    }).toThrow(AggregateError)
   })
 })

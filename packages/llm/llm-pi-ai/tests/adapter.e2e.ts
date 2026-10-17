@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { createToolResultMessage, createUserMessage, ToolCallId, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { Message, ToolSchema } from '@deepseek-ai/dsh-llm'
@@ -23,7 +23,7 @@ async function harness(_model: string, config: Partial<PiAiProviderProfile> = {}
   await ctx.plugin(LlmPiAi, {
     providers: {
       deepseek: {
-        ...process.env.DEEPSEEK_API_KEY === undefined ? {} : { apiKey: process.env.DEEPSEEK_API_KEY },
+        ...(process.env.DEEPSEEK_API_KEY === undefined ? {} : { apiKey: process.env.DEEPSEEK_API_KEY }),
         ...config,
       },
     },
@@ -36,10 +36,12 @@ afterEach(async () => {
 })
 
 function ask(text: string): Message[] {
-  return [createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-  })]
+  return [
+    createUserMessage({
+      content: [{ type: 'text', text }],
+      source: { kind: 'model', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+    }),
+  ]
 }
 
 function textOf(result: AssembledResult): string {
@@ -66,7 +68,7 @@ const weatherTool: ToolSchema = {
 describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-pi-ai e2e (real API)', () => {
   it(`${FLASH} + provider-default reasoning: plain text generation`, async () => {
     const ctx = await harness(FLASH)
-    const result = await assemble(ctx,{
+    const result = await assemble(ctx, {
       model: FLASH,
       messages: ask('Reply with exactly the word: pong'),
       maxTokens: 50,
@@ -77,7 +79,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-pi-ai e2e (real API)', () =>
 
   it('flash + reasoning off: plain text without reasoning blocks', async () => {
     const ctx = await harness(FLASH)
-    const result = await assemble(ctx,{
+    const result = await assemble(ctx, {
       model: FLASH,
       reasoningEffort: ReasoningEffortId('off'),
       messages: ask('Reply with exactly the word: pong'),
@@ -90,7 +92,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-pi-ai e2e (real API)', () =>
 
   it(`${FLASH} + reasoning high: reasoning blocks present`, async () => {
     const ctx = await harness(FLASH)
-    const result = await assemble(ctx,{
+    const result = await assemble(ctx, {
       model: FLASH,
       reasoningEffort: ReasoningEffortId('high'),
       messages: ask('Which is larger, 9.11 or 9.8? Answer with just the number.'),
@@ -104,23 +106,20 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-pi-ai e2e (real API)', () =>
   it('flash + reasoning max: tool-call round trip', async () => {
     const ctx = await harness(FLASH)
 
-    const first = await assemble(ctx,{
+    const first = await assemble(ctx, {
       model: FLASH,
       reasoningEffort: ReasoningEffortId('max'),
       messages: ask('What is the weather in Paris right now? Use the get_weather tool.'),
       tools: [weatherTool],
       maxTokens: 2000,
     })
-    expect(
-      first.finish.kind,
-      `pi-ai Flash tool-call turn finished as ${JSON.stringify(first.finish)}`,
-    ).toBe('tool-calls')
+    expect(first.finish.kind, `pi-ai Flash tool-call turn finished as ${JSON.stringify(first.finish)}`).toBe('tool-calls')
     const call = first.message.content.find(block => block.type === 'tool-call')
     expect(call).toBeDefined()
     expect(call!.name).toBe('get_weather')
     expect(JSON.parse(call!.arguments)).toMatchObject({ city: expect.stringMatching(/paris/i) as string })
 
-    const second = await assemble(ctx,{
+    const second = await assemble(ctx, {
       model: FLASH,
       reasoningEffort: ReasoningEffortId('max'),
       messages: [
@@ -135,10 +134,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('llm-pi-ai e2e (real API)', () =>
       tools: [weatherTool],
       maxTokens: 2000,
     })
-    expect(
-      second.finish.kind,
-      `pi-ai Flash tool-result turn finished as ${JSON.stringify(second.finish)}`,
-    ).toBe('stop')
+    expect(second.finish.kind, `pi-ai Flash tool-result turn finished as ${JSON.stringify(second.finish)}`).toBe('stop')
     expect(textOf(second).toLowerCase()).toMatch(/sunny|22/)
   })
 

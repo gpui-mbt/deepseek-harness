@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const builtBin = join(repoRoot, 'apps/cli/lib/bin.js')
@@ -32,21 +32,14 @@ interface BrowserOpenRecord {
 }
 
 function normalizeLocalUrl(url: string): string {
-  return url
-    .replace(/:\d+/u, ':{{port}}')
-    .replace(/token=[^&]+/u, 'token={{token}}')
+  return url.replace(/:\d+/u, ':{{port}}').replace(/token=[^&]+/u, 'token={{token}}')
 }
 
 describe.skipIf(!builtArtifactsExist)('dsh web browser-open assembled snapshot', () => {
   it('hands the reachable page to the default browser after the shipped tree settles', async () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-web-browser-open-snapshot-'))
     tempRoots.push(root)
-    const result = await execa(process.execPath, [
-      '--import', openerHook,
-      builtBin,
-      'web',
-      '--port', '0',
-    ], {
+    const result = await execa(process.execPath, ['--import', openerHook, builtBin, 'web', '--port', '0'], {
       cwd: root,
       env: {
         ...process.env,
@@ -99,12 +92,7 @@ describe.skipIf(!builtArtifactsExist)('dsh web browser-open assembled snapshot',
   it('prints the launcher reason and manual URL after the Web app is ready', async () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-web-browser-open-failure-snapshot-'))
     tempRoots.push(root)
-    const result = await execa(process.execPath, [
-      '--import', openerHook,
-      builtBin,
-      'web',
-      '--port', '0',
-    ], {
+    const result = await execa(process.execPath, ['--import', openerHook, builtBin, 'web', '--port', '0'], {
       cwd: root,
       env: {
         ...process.env,
@@ -124,8 +112,7 @@ describe.skipIf(!builtArtifactsExist)('dsh web browser-open assembled snapshot',
       reject: false,
     })
     const readyUrl = /dsh web: (http:\/\/[^\s]+)/u.exec(result.stdout)?.[1]
-    const diagnostic = result.stderr.split(/\r?\n/u)
-      .find(line => line.startsWith('web-app: could not open the default browser because '))
+    const diagnostic = result.stderr.split(/\r?\n/u).find(line => line.startsWith('web-app: could not open the default browser because '))
 
     expect({
       diagnostic,
@@ -147,12 +134,7 @@ describe.skipIf(!builtArtifactsExist)('dsh web browser-open assembled snapshot',
   it('prints the host URL without launching a browser in a VS Code Remote SSH session', async () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-web-browser-open-ssh-snapshot-'))
     tempRoots.push(root)
-    const result = await execa(process.execPath, [
-      '--import', openerHook,
-      builtBin,
-      'web',
-      '--port', '0',
-    ], {
+    const result = await execa(process.execPath, ['--import', openerHook, builtBin, 'web', '--port', '0'], {
       cwd: root,
       env: {
         ...process.env,
@@ -194,12 +176,7 @@ describe.skipIf(!builtArtifactsExist)('dsh web browser-open assembled snapshot',
     const root = mkdtempSync(join(tmpdir(), 'dsh-web-browser-open-env-snapshot-'))
     tempRoots.push(root)
     writeFileSync(join(root, '.env'), 'BROWSER=./project-browser\n')
-    const result = await execa(process.execPath, [
-      '--import', openerHook,
-      builtBin,
-      'web',
-      '--port', '0',
-    ], {
+    const result = await execa(process.execPath, ['--import', openerHook, builtBin, 'web', '--port', '0'], {
       cwd: root,
       env: {
         ...process.env,
@@ -217,7 +194,8 @@ describe.skipIf(!builtArtifactsExist)('dsh web browser-open assembled snapshot',
       reject: false,
     })
 
-    const diagnostic = result.stderr.split(/\r?\n/u)
+    const diagnostic = result.stderr
+      .split(/\r?\n/u)
       .find(line => line.startsWith('Error: dsh: '))
       ?.replace(/^Error: dsh: .*[/\\]\.env/u, 'dsh: {{root}}/.env')
 

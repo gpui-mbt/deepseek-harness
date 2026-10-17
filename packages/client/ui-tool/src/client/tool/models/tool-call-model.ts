@@ -28,8 +28,12 @@ type ToolTitleKey = Extract<LocaleKeysOf<'conversation'>, `tool.title.${string}`
 
 /** Locale key per generic row variant. */
 export const VARIANT_TITLE_KEYS = {
-  search: 'tool.title.search', read: 'tool.title.read', bash: 'tool.title.bash',
-  write: 'tool.title.write', edit: 'tool.title.edit', code: 'tool.title.code',
+  search: 'tool.title.search',
+  read: 'tool.title.read',
+  bash: 'tool.title.bash',
+  write: 'tool.title.write',
+  edit: 'tool.title.edit',
+  code: 'tool.title.code',
   others: 'tool.title.generic',
 } as const satisfies Record<ToolRowVariant, ToolTitleKey>
 
@@ -223,7 +227,6 @@ const SUMMARY_KEYS: Record<ToolRowVariant, readonly string[]> = {
   others: [],
 }
 
-
 function deriveSummary(variant: ToolRowVariant, argsRaw: string): string {
   const parsed = parseArgs(argsRaw)
   if (typeof parsed !== 'object' || parsed === null) return firstLine(argsRaw)
@@ -252,7 +255,10 @@ const FILE_PATH_VARIANTS: ReadonlySet<ToolRowVariant> = new Set(['read', 'write'
  * Empty when the view carries neither, so the caller falls back to the raw text.
  */
 function argumentSummary(
-  variant: ToolRowVariant, args: ToolArgs, cwd?: string, home?: string,
+  variant: ToolRowVariant,
+  args: ToolArgs,
+  cwd?: string,
+  home?: string,
 ): { summary: string; filePath: string | undefined } {
   if (FILE_PATH_VARIANTS.has(variant)) {
     const path = args.complete('file_path') ? args.text('file_path') : undefined
@@ -303,26 +309,34 @@ export function toolRowModel(toolName: string, block: ToolCallBlock, cwd?: strin
   const variant = classifyTool(toolName)
   const titleKey = toolTitleKey(toolName)
   const done = 'kind' in block
-  const argsRaw = done ? block.call?.argsRaw ?? '' : block.phase === 'start' ? block.argsRaw : null
+  const argsRaw = done ? (block.call?.argsRaw ?? '') : block.phase === 'start' ? block.argsRaw : null
   const primary = argumentSummary(variant, block.args, cwd, home)
   const argumentPath = primary.filePath ?? (argsRaw === null ? undefined : deriveFilePath(variant, argsRaw))
   const recordedPath = done ? recordedAbsolutePath(block.meta, 'path') : undefined
-  const canUseArgumentPath = argumentPath !== undefined
-    && (isAbsoluteWorkspacePath(argumentPath) || done && !block.isError && block.parentCallId === undefined)
-  const filePath = argumentPath === undefined ? undefined
-    : recordedPath ?? (canUseArgumentPath ? argumentPath : undefined)
-  const state: ToolRowState = !done ? block.phase === 'preparing' ? 'preparing' : 'running'
-    : block.error?.code === 'interrupted' ? 'stopped'
-      : block.isError ? 'error' : 'ok'
+  const canUseArgumentPath =
+    argumentPath !== undefined && (isAbsoluteWorkspacePath(argumentPath) || (done && !block.isError && block.parentCallId === undefined))
+  const filePath = argumentPath === undefined ? undefined : (recordedPath ?? (canUseArgumentPath ? argumentPath : undefined))
+  const state: ToolRowState = !done
+    ? block.phase === 'preparing'
+      ? 'preparing'
+      : 'running'
+    : block.error?.code === 'interrupted'
+      ? 'stopped'
+      : block.isError
+        ? 'error'
+        : 'ok'
   // The argument view serves every stage; the raw text is the fallback when it carries nothing useful.
-  const base = primary.summary !== '' || argsRaw === null ? primary.summary
-    : argsRaw === '' ? block.callId
-      : abbreviateHomePath(relativizeToCwd(deriveSummary(variant, argsRaw), cwd), home)
+  const base =
+    primary.summary !== '' || argsRaw === null
+      ? primary.summary
+      : argsRaw === ''
+        ? block.callId
+        : abbreviateHomePath(relativizeToCwd(deriveSummary(variant, argsRaw), cwd), home)
   const summary = [titleKey === 'tool.title.generic' ? toolName : '', base].filter(Boolean).join(' · ')
   // The empty string is "no text" for both derived result fields: a settled
   // call with blank content has nothing to expand, and a blank first line
   // would erase the collapsed error row's summary slot.
-  const output = done ? (resultText(block) || null) : null
+  const output = done ? resultText(block) || null : null
   const errorSummary = state === 'error' && output !== null ? firstLine(output) : null
   const bodyRaw = argsRaw === '' ? null : argsRaw
   return {

@@ -23,9 +23,7 @@
 
 import { Zip, ZipDeflate } from 'fflate'
 import type { Context } from '@deepseek-ai/cordis'
-import type {
-  AttachmentStore, FileAttachmentRef, ImageAttachmentRef,
-} from '@deepseek-ai/dsh-attachment'
+import type { AttachmentStore, FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { SessionLineageNode, SessionQueryEngine } from '@deepseek-ai/dsh-session-query'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { sessionFormatLogFilename } from '@deepseek-ai/dsh-session-format'
@@ -107,10 +105,7 @@ export const SESSION_LOG_FILENAME = sessionFormatLogFilename(SESSION_FORMAT_VERS
  * @param events - the validated committed events in seq order.
  * @returns the JSONL text.
  */
-export function serializeSessionLog(
-  header: SessionHeader,
-  events: readonly SessionEvent[],
-): string {
+export function serializeSessionLog(header: SessionHeader, events: readonly SessionEvent[]): string {
   // Match the current v2 physical header. The inherited cut is already
   // represented by the tagged session/end-seed event in `events`;
   // `delegationDepth` is required on disk, so an omitted top-level depth is 0.
@@ -118,18 +113,20 @@ export function serializeSessionLog(
      `toHeaderLine`: the exported text is the canonical v2 physical header
      line, and this backend-agnostic package must not depend on one backend
      implementation. */
-  const lines = [JSON.stringify({
-    type: 'session',
-    version: header.version,
-    id: header.id,
-    createdAt: header.createdAt,
-    ...header.cwd !== undefined ? { cwd: header.cwd } : {},
-    ...header.parentSession !== undefined ? { parentSession: header.parentSession } : {},
-    isSeeded: header.isSeeded,
-    ...header.origin !== undefined ? { origin: header.origin } : {},
-    delegationDepth: header.delegationDepth ?? 0,
-    ...header.agentPreset !== undefined ? { agentPreset: header.agentPreset } : {},
-  })]
+  const lines = [
+    JSON.stringify({
+      type: 'session',
+      version: header.version,
+      id: header.id,
+      createdAt: header.createdAt,
+      ...(header.cwd !== undefined ? { cwd: header.cwd } : {}),
+      ...(header.parentSession !== undefined ? { parentSession: header.parentSession } : {}),
+      isSeeded: header.isSeeded,
+      ...(header.origin !== undefined ? { origin: header.origin } : {}),
+      delegationDepth: header.delegationDepth ?? 0,
+      ...(header.agentPreset !== undefined ? { agentPreset: header.agentPreset } : {}),
+    }),
+  ]
   /* jscpd:ignore-end */
   for (const event of events) lines.push(JSON.stringify(event))
   return `${lines.join('\n')}\n`
@@ -201,11 +198,7 @@ function fileEntryPath(ref: FileAttachmentRef): string {
  * @param images - image dedupe map keyed by attachment id.
  * @param files - file dedupe map keyed by attachment id and stored name.
  */
-function collectAttachmentRefs(
-  content: unknown,
-  images: Map<string, ImageAttachmentRef>,
-  files: Map<string, FileAttachmentRef>,
-): void {
+function collectAttachmentRefs(content: unknown, images: Map<string, ImageAttachmentRef>, files: Map<string, FileAttachmentRef>): void {
   if (!Array.isArray(content)) return
   for (const value of content) {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) continue
@@ -228,11 +221,7 @@ function collectAttachmentRefs(
  * @param images - image dedupe map keyed by attachment id.
  * @param files - file dedupe map keyed by attachment id and stored name.
  */
-function collectEventAttachmentRefs(
-  event: unknown,
-  images: Map<string, ImageAttachmentRef>,
-  files: Map<string, FileAttachmentRef>,
-): void {
+function collectEventAttachmentRefs(event: unknown, images: Map<string, ImageAttachmentRef>, files: Map<string, FileAttachmentRef>): void {
   if (typeof event !== 'object' || event === null || Array.isArray(event)) return
   const row = event as { type?: unknown; data?: unknown }
   const data = row.data
@@ -246,10 +235,14 @@ function collectEventAttachmentRefs(
     stream?: Array<{ type?: unknown; chunk?: { type?: unknown; block?: unknown } }>
   }
   switch (row.type) {
-    case 'user/message': case 'tool/ptc-dispatch':
+    case 'user/message':
+    case 'tool/ptc-dispatch':
       collectAttachmentRefs(carrier.content, images, files)
       return
-    case 'system/message': case 'developer/message': case 'tool/result': case 'team/message/queued':
+    case 'system/message':
+    case 'developer/message':
+    case 'tool/result':
+    case 'team/message/queued':
       collectAttachmentRefs(carrier.message?.content, images, files)
       return
     case 'agent/inbox/spliced': {
@@ -268,8 +261,10 @@ function collectEventAttachmentRefs(
     case 'assistant/message':
       collectAttachmentRefs(carrier.message?.content, images, files)
       break
-    case 'assistant/attempt': break
-    default: return
+    case 'assistant/attempt':
+      break
+    default:
+      return
   }
   if (carrier.stream !== undefined) {
     for (const record of carrier.stream) {
@@ -362,9 +357,7 @@ export async function* sessionLogZipEntries(
   yield { path: SESSION_LOG_FILENAME, content: rootContent }
   if (includeDescendants) {
     const seen = new Set<SessionId>([sessionId])
-    const collect = async function* (
-      nodes: readonly SessionLineageNode[],
-    ): AsyncGenerator<SessionLogZipEntry> {
+    const collect = async function* (nodes: readonly SessionLineageNode[]): AsyncGenerator<SessionLogZipEntry> {
       for (const node of nodes) {
         signal?.throwIfAborted()
         const id = node.session.header.id
@@ -421,13 +414,10 @@ class ResponseCapacityGate {
    * @param controller - response controller whose desired size owns capacity.
    * @param signal - combined request/consumer cancellation.
    */
-  async wait(
-    controller: ReadableStreamDefaultController<Uint8Array>,
-    signal: AbortSignal,
-  ): Promise<void> {
+  async wait(controller: ReadableStreamDefaultController<Uint8Array>, signal: AbortSignal): Promise<void> {
     signal.throwIfAborted()
     if (controller.desiredSize === null || controller.desiredSize > 0) return
-    await new Promise<void>((resolve) => {
+    await new Promise<void>(resolve => {
       const release = (): void => {
         this.releasePending = undefined
         signal.removeEventListener('abort', release)
@@ -560,57 +550,58 @@ export function streamSessionLogZip(
     zipTerminated = true
     zip.terminate()
   }
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      // fflate invokes the callback synchronously per compressed chunk, so a
-      // single push can enqueue ahead of a slow consumer; the capacity gate
-      // waits for pull between pushes once the byte queue is full, bounding
-      // accumulation to the queue high-water mark plus one synchronous push.
-      const archive = new Zip((error, data, final) => {
-        /* v8 ignore next 3 -- fflate reports only internal zip failures, unreachable for valid inputs */
-        if (error) {
-          controller.error(error)
-          return
-        }
-        /* v8 ignore next -- fflate may emit empty chunks; not controllable from tests */
-        if (data.byteLength > 0) controller.enqueue(data)
-        if (final) controller.close()
-      })
-      zip = archive
-      void (async () => {
-        try {
-          for await (const entry of sessionLogZipEntries(deps, rootContent, sessionId, includeDescendants, producerSignal)) {
-            const deflate = new ZipDeflate(entry.path, { level: compressionLevel })
-            archive.add(deflate)
-            if ('content' in entry) {
-              await pushArtifactChunks(deflate, entry.content, controller, capacity, producerSignal)
-            } else if ('data' in entry) {
-              await pushBinaryChunks(deflate, entry.data, controller, capacity, producerSignal)
-            } else {
-              await pushStreamChunks(deflate, entry.chunks, controller, capacity, producerSignal)
-            }
+  return new ReadableStream<Uint8Array>(
+    {
+      start(controller) {
+        // fflate invokes the callback synchronously per compressed chunk, so a
+        // single push can enqueue ahead of a slow consumer; the capacity gate
+        // waits for pull between pushes once the byte queue is full, bounding
+        // accumulation to the queue high-water mark plus one synchronous push.
+        const archive = new Zip((error, data, final) => {
+          /* v8 ignore next 3 -- fflate reports only internal zip failures, unreachable for valid inputs */
+          if (error) {
+            controller.error(error)
+            return
           }
-          archive.end()
-        } catch (error) {
-          // A mid-stream failure (missing descendant, cancellation, read
-          // error) must fail the download rather than ship a truncated archive.
-          /* v8 ignore next -- typed backends reject with Error, and DOMException is one in Node */
-          terminateZip()
-          controller.error(error instanceof Error ? error : new Error(String(error)))
-        }
-      })()
+          /* v8 ignore next -- fflate may emit empty chunks; not controllable from tests */
+          if (data.byteLength > 0) controller.enqueue(data)
+          if (final) controller.close()
+        })
+        zip = archive
+        void (async () => {
+          try {
+            for await (const entry of sessionLogZipEntries(deps, rootContent, sessionId, includeDescendants, producerSignal)) {
+              const deflate = new ZipDeflate(entry.path, { level: compressionLevel })
+              archive.add(deflate)
+              if ('content' in entry) {
+                await pushArtifactChunks(deflate, entry.content, controller, capacity, producerSignal)
+              } else if ('data' in entry) {
+                await pushBinaryChunks(deflate, entry.data, controller, capacity, producerSignal)
+              } else {
+                await pushStreamChunks(deflate, entry.chunks, controller, capacity, producerSignal)
+              }
+            }
+            archive.end()
+          } catch (error) {
+            // A mid-stream failure (missing descendant, cancellation, read
+            // error) must fail the download rather than ship a truncated archive.
+            /* v8 ignore next -- typed backends reject with Error, and DOMException is one in Node */
+            terminateZip()
+            controller.error(error instanceof Error ? error : new Error(String(error)))
+          }
+        })()
+      },
+      pull() {
+        capacity.pulled()
+      },
+      cancel(reason) {
+        consumerAbort.abort(reason instanceof Error ? reason : new Error('session log export stream cancelled'))
+        terminateZip()
+      },
     },
-    pull() {
-      capacity.pulled()
+    {
+      highWaterMark: RESPONSE_HIGH_WATER_MARK_BYTES,
+      size: chunk => chunk.byteLength,
     },
-    cancel(reason) {
-      consumerAbort.abort(
-        reason instanceof Error ? reason : new Error('session log export stream cancelled'),
-      )
-      terminateZip()
-    },
-  }, {
-    highWaterMark: RESPONSE_HIGH_WATER_MARK_BYTES,
-    size: chunk => chunk.byteLength,
-  })
+  )
 }

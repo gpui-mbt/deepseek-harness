@@ -1,16 +1,25 @@
 /** Download diagnostics distinguish actionable causes without publishing raw network errors. */
 import { TimeoutReason } from '@deepseek-ai/dsh-timeout'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { classifyDownloadFailure } from '../src/download-error.ts'
 
 it.each([
-  ['ENOTFOUND', 'dns'], ['EAI_AGAIN', 'dns'], ['ETIMEDOUT', 'timeout'], ['UND_ERR_CONNECT_TIMEOUT', 'timeout'],
-  ['CERT_HAS_EXPIRED', 'certificate'], ['SELF_SIGNED_CERT_IN_CHAIN', 'certificate'],
-  ['ENOSPC', 'storage'], ['EACCES', 'storage'], ['ECONNREFUSED', 'network'], ['UND_ERR_SOCKET', 'network'],
+  ['ENOTFOUND', 'dns'],
+  ['EAI_AGAIN', 'dns'],
+  ['ETIMEDOUT', 'timeout'],
+  ['UND_ERR_CONNECT_TIMEOUT', 'timeout'],
+  ['CERT_HAS_EXPIRED', 'certificate'],
+  ['SELF_SIGNED_CERT_IN_CHAIN', 'certificate'],
+  ['ENOSPC', 'storage'],
+  ['EACCES', 'storage'],
+  ['ECONNREFUSED', 'network'],
+  ['UND_ERR_SOCKET', 'network'],
 ])('classifies nested %s as %s', (code, reason) => {
   const cause = Object.assign(new Error('private details'), { code })
-  expect(classifyDownloadFailure(new TypeError('fetch failed', { cause: new AggregateError([new Error('unknown'), cause]) })))
-    .toEqual({ reason, code })
+  expect(classifyDownloadFailure(new TypeError('fetch failed', { cause: new AggregateError([new Error('unknown'), cause]) }))).toEqual({
+    reason,
+    code,
+  })
 })
 
 it('recognizes deadlines and preserves generic classifications when a cause is unavailable', () => {

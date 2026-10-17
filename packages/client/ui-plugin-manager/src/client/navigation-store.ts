@@ -24,8 +24,12 @@ export function createNavigationStore(): EngineStoreHandle<NavigationState, Navi
   return defineStore({
     init: (): NavigationState => ({ view: { kind: 'list' }, tab: 'installed' }),
     actions: {
-      setView: (draft, view: View) => { draft.view = view },
-      setTab: (draft, tab: string) => { draft.tab = tab },
+      setView: (draft, view: View) => {
+        draft.view = view
+      },
+      setTab: (draft, tab: string) => {
+        draft.tab = tab
+      },
     },
   })
 }

@@ -26,7 +26,7 @@ export class OutputWaiter {
       this.dirty = false
       return Promise.resolve()
     }
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const finish = (): void => {
         signal.removeEventListener('abort', finish)
         /* v8 ignore next -- one wait owns the sole installed resolver. */
@@ -48,7 +48,7 @@ export class OutputWaiter {
  */
 export function sleep(ms: number, signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.resolve()
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const timer = setTimeout(done, ms)
     function done(): void {
       clearTimeout(timer)

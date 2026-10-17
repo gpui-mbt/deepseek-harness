@@ -29,9 +29,17 @@ export function TabTitle({ children }: { readonly children: ReactNode }): ReactN
     const element = span.current
     /* v8 ignore next -- the span is rendered unconditionally. */
     if (element === null || typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(() => { markClipped(element) })
+    const observer = new ResizeObserver(() => {
+      markClipped(element)
+    })
     observer.observe(element)
-    return () => { observer.disconnect() }
+    return () => {
+      observer.disconnect()
+    }
   }, [])
-  return <span ref={span} className={css.tabTitle} data-dockkit-tab-title>{children}</span>
+  return (
+    <span ref={span} className={css.tabTitle} data-dockkit-tab-title>
+      {children}
+    </span>
+  )
 }

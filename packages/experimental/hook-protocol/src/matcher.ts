@@ -38,9 +38,7 @@ export function matcherDiagnostic(matcher: string | undefined, mode: MatcherMode
   if (isMatchAll(matcher)) return undefined
   const pattern = matcher as string
   if (mode === 'claude-code' && CLAUDE_LITERAL.test(pattern)) return undefined
-  return compileRegex(pattern) === undefined
-    ? `invalid ${mode} regex matcher ${JSON.stringify(pattern)}`
-    : undefined
+  return compileRegex(pattern) === undefined ? `invalid ${mode} regex matcher ${JSON.stringify(pattern)}` : undefined
 }
 
 /**
@@ -71,10 +69,6 @@ export function matchesMatcher(matcher: string | undefined, query: string, mode:
  * @param mode - dialect controlling literal or regex matching.
  * @returns Selected groups in config order, retaining their original references.
  */
-export function selectHookGroups(
-  groups: readonly MatcherGroup[] | undefined,
-  query: string,
-  mode: MatcherMode,
-): MatcherGroup[] {
+export function selectHookGroups(groups: readonly MatcherGroup[] | undefined, query: string, mode: MatcherMode): MatcherGroup[] {
   return (groups ?? []).filter(group => group.hooks.length > 0 && matchesMatcher(group.matcher, query, mode))
 }

@@ -2,7 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { KvTable } from '@deepseek-ai/dsh-storage-domain'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { createAfterScheduleRecord, ScheduleId } from '../src/domain.ts'
 import { scheduleDomain, type ScheduleTask } from '../src/storage.ts'
 import type { ScheduleRecord } from '../src/types.ts'
@@ -12,7 +12,10 @@ const contexts: Context[] = []
 const childId = SessionId('subagent-child')
 const parentId = SessionId('top-level-parent')
 
-beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-16T00:00:00.000Z')) })
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-09-16T00:00:00.000Z'))
+})
 afterEach(async () => {
   await Promise.all(contexts.splice(0).map(ctx => ctx.fiber.dispose()))
   vi.restoreAllMocks()
@@ -21,11 +24,15 @@ afterEach(async () => {
 
 async function setup(task?: ScheduleTask) {
   return harness({
-    ...task === undefined ? {} : { beforeService: async (_ctx, facility) => {
-      const domain = await facility.open(scheduleDomain)
-      await domain.table('tasks').put(task.record.id, task)
-      await domain.close()
-    } },
+    ...(task === undefined
+      ? {}
+      : {
+          beforeService: async (_ctx, facility) => {
+            const domain = await facility.open(scheduleDomain)
+            await domain.table('tasks').put(task.record.id, task)
+            await domain.close()
+          },
+        }),
     onContext: ctx => contexts.push(ctx),
   })
 }
@@ -47,8 +54,9 @@ it('refuses to create a reminder for a live subagent Session and stores nothing'
   const changed = vi.fn()
   test.ctx.on('schedule/changed', changed)
 
-  await expect(test.service.create(child.session.id, { prompt: 'Check', title: 'Check', after_seconds: 60 }))
-    .rejects.toMatchObject({ code: 'subagent_session' })
+  await expect(test.service.create(child.session.id, { prompt: 'Check', title: 'Check', after_seconds: 60 })).rejects.toMatchObject({
+    code: 'subagent_session',
+  })
 
   expect([...table(test).entries()]).toEqual([])
   expect(changed).not.toHaveBeenCalled()
@@ -62,8 +70,9 @@ it('refuses to create for a Session whose live Agent a delegating parent owns', 
   const child = agentFor(test.ctx, childId, { parentSession: parentId, delegationDepth: 1 })
   test.ctx.agents.enter(child, parent)
 
-  await expect(test.service.create(childId, { prompt: 'Check', title: 'Check', after_seconds: 60 }))
-    .rejects.toMatchObject({ code: 'subagent_session' })
+  await expect(test.service.create(childId, { prompt: 'Check', title: 'Check', after_seconds: 60 })).rejects.toMatchObject({
+    code: 'subagent_session',
+  })
 
   expect([...table(test).entries()]).toEqual([])
 })
@@ -80,9 +89,14 @@ it('refuses to update a stored reminder bound to a delegated child Session', asy
 
   // The refusal travels the ordinary non-mutating result so the Web editor renders
   // `timing.subagentSession` instead of a generic Remote failure.
-  await expect(test.service.update({
-    sessionId: childId, id: record.id, expected: record, change: { kind: 'every', every_seconds: 600 },
-  })).resolves.toEqual({
+  await expect(
+    test.service.update({
+      sessionId: childId,
+      id: record.id,
+      expected: record,
+      change: { kind: 'every', every_seconds: 600 },
+    }),
+  ).resolves.toEqual({
     code: 'subagent_session',
     message: 'This Session belongs to subagent routing, which never receives reminder delivery.',
   })
@@ -100,8 +114,9 @@ it('refuses a delegated child recorded only by its delegation depth', async () =
   const child = agentFor(test.ctx, childId, { delegationDepth: 1 })
   await test.ctx.agents.register(child)
 
-  await expect(test.service.create(child.session.id, { prompt: 'Check', title: 'Check', after_seconds: 60 }))
-    .rejects.toMatchObject({ code: 'subagent_session' })
+  await expect(test.service.create(child.session.id, { prompt: 'Check', title: 'Check', after_seconds: 60 })).rejects.toMatchObject({
+    code: 'subagent_session',
+  })
 
   expect([...table(test).entries()]).toEqual([])
 })

@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { apply } from '../src/client/index.ts'
 import { fileUploadWorker, FileUploadRuntime } from '../src/client/runtime.ts'
 import type { FileUploadBody } from '../src/client/contract.ts'
@@ -20,13 +20,22 @@ describe('file upload worker body', () => {
   it('sends a Blob with credentials and reports progress, completion, and failure', () => {
     const posted: unknown[] = []
     const scope: {
-      onmessage: ((event: MessageEvent<{
-        url: string
-        body: FileUploadBody
-        headers: Readonly<Record<string, string>>
-      }>) => void) | null
+      onmessage:
+        | ((
+            event: MessageEvent<{
+              url: string
+              body: FileUploadBody
+              headers: Readonly<Record<string, string>>
+            }>,
+          ) => void)
+        | null
       postMessage(message: unknown): void
-    } = { onmessage: null, postMessage: (message: unknown) => { posted.push(message) } }
+    } = {
+      onmessage: null,
+      postMessage: (message: unknown) => {
+        posted.push(message)
+      },
+    }
     const xhr = {
       upload: { onprogress: null as ((event: ProgressEvent) => void) | null },
       status: 201,
@@ -64,7 +73,9 @@ describe('file upload worker body', () => {
     const posted: unknown[] = []
     const scope = {
       onmessage: null as ((event: MessageEvent) => void) | null,
-      postMessage: (message: unknown) => { posted.push(message) },
+      postMessage: (message: unknown) => {
+        posted.push(message)
+      },
     }
     const fetch = vi.fn(async (_url: string, init: RequestInit & { readonly duplex: 'half' }) => {
       const chunks: number[][] = []
@@ -85,7 +96,13 @@ describe('file upload worker body', () => {
         controller.close()
       },
     })
-    fileUploadWorker(scope, () => { throw new Error('XHR must not handle streams') }, fetch)
+    fileUploadWorker(
+      scope,
+      () => {
+        throw new Error('XHR must not handle streams')
+      },
+      fetch,
+    )
     scope.onmessage?.({ data: { url: 'https://harness.test/upload', body, headers: { 'x-test': 'yes' } } } as never)
     await vi.waitFor(() => {
       expect(posted).toEqual([
@@ -100,13 +117,17 @@ describe('file upload worker body', () => {
     const posted: unknown[] = []
     const scope = {
       onmessage: null as ((event: MessageEvent) => void) | null,
-      postMessage: (message: unknown) => { posted.push(message) },
+      postMessage: (message: unknown) => {
+        posted.push(message)
+      },
     }
     const cancel = vi.fn()
     const source = new ReadableStream<Uint8Array>({ cancel })
     fileUploadWorker(
       scope,
-      () => { throw new Error('unused') },
+      () => {
+        throw new Error('unused')
+      },
       async (_url, init) => {
         await (init.body as ReadableStream<Uint8Array>).cancel('fetch stopped')
         return new Response('cancelled')
@@ -123,16 +144,27 @@ describe('file upload worker body', () => {
     const posted: unknown[] = []
     const scope = {
       onmessage: null as ((event: MessageEvent) => void) | null,
-      postMessage: (message: unknown) => { posted.push(message) },
+      postMessage: (message: unknown) => {
+        posted.push(message)
+      },
     }
-    fileUploadWorker(scope, () => { throw new Error('unused') })
+    fileUploadWorker(scope, () => {
+      throw new Error('unused')
+    })
     scope.onmessage?.({ data: { url: '/upload', body: 'bad', headers: {} } } as never)
     expect(posted).toEqual([{ kind: 'error', message: 'background upload worker received an invalid body' }])
 
-    const badChunk = new ReadableStream({ start(controller) { controller.enqueue('bad'); controller.close() } })
+    const badChunk = new ReadableStream({
+      start(controller) {
+        controller.enqueue('bad')
+        controller.close()
+      },
+    })
     fileUploadWorker(
       scope,
-      () => { throw new Error('unused') },
+      () => {
+        throw new Error('unused')
+      },
       async (_url, init) => {
         await new Response(init.body).arrayBuffer()
         return new Response()
@@ -141,14 +173,21 @@ describe('file upload worker body', () => {
     scope.onmessage?.({ data: { url: '/upload', body: badChunk, headers: {} } } as never)
     await vi.waitFor(() => {
       expect(posted.at(-1)).toEqual({
-        kind: 'error', message: 'background upload stream produced a non-Uint8Array chunk',
+        kind: 'error',
+        message: 'background upload stream produced a non-Uint8Array chunk',
       })
     })
 
-    const body = new ReadableStream<Uint8Array>({ start(controller) { controller.close() } })
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close()
+      },
+    })
     fileUploadWorker(
       scope,
-      () => { throw new Error('unused') },
+      () => {
+        throw new Error('unused')
+      },
       () => Promise.reject(new Error('offline')),
     )
     scope.onmessage?.({ data: { url: '/upload', body, headers: {} } } as never)
@@ -157,11 +196,15 @@ describe('file upload worker body', () => {
     })
 
     const failedSource = new ReadableStream<Uint8Array>({
-      start(controller) { controller.error('source failed') },
+      start(controller) {
+        controller.error('source failed')
+      },
     })
     fileUploadWorker(
       scope,
-      () => { throw new Error('unused') },
+      () => {
+        throw new Error('unused')
+      },
       async (_url, init) => {
         await (init.body as ReadableStream<Uint8Array>).getReader().read()
         return new Response()
@@ -177,7 +220,9 @@ describe('file upload worker body', () => {
     const posted: unknown[] = []
     const scope = {
       onmessage: null as ((event: MessageEvent) => void) | null,
-      postMessage: (message: unknown) => { posted.push(message) },
+      postMessage: (message: unknown) => {
+        posted.push(message)
+      },
     }
     const xhr = {
       upload: { onprogress: null },
@@ -191,7 +236,12 @@ describe('file upload worker body', () => {
       send: vi.fn(),
     }
     vi.stubGlobal('self', scope)
-    vi.stubGlobal('XMLHttpRequest', vi.fn(function () { return xhr }))
+    vi.stubGlobal(
+      'XMLHttpRequest',
+      vi.fn(function () {
+        return xhr
+      }),
+    )
     fileUploadWorker()
     scope.onmessage?.({ data: { url: '/upload', body: new Blob(), headers: {} } } as MessageEvent)
     expect(xhr.send).toHaveBeenCalledOnce()
@@ -202,7 +252,11 @@ describe('file upload worker body', () => {
     })
     vi.stubGlobal('fetch', fetch)
     fileUploadWorker()
-    const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.close() } })
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close()
+      },
+    })
     scope.onmessage?.({ data: { url: '/stream', body: stream, headers: {} } } as MessageEvent)
     await vi.waitFor(() => {
       expect(fetch).toHaveBeenCalledOnce()
@@ -213,25 +267,38 @@ describe('file upload worker body', () => {
 
 describe('file upload service', () => {
   it('uses a page-owned Host fetch for Blob and ReadableStream bodies', async () => {
-    const fetch = vi.fn((_url: string | URL, _init?: RequestInit) =>
-      Promise.resolve(new Response('accepted', { status: 202 })))
+    const fetch = vi.fn((_url: string | URL, _init?: RequestInit) => Promise.resolve(new Response('accepted', { status: 202 })))
     ;(globalThis as UploadGlobal).__DSH_FILE_UPLOAD__ = { fetch }
     const ctx = new Context()
     const fiber = ctx.plugin(FileUploadRuntime)
     await fiber
     const blob = new Blob(['opaque'])
     const signal = new AbortController().signal
-    await expect((ctx.fileUpload as FileUploadRuntime).post({
-      path: 'api/upload', body: blob, headers: { 'x-test': 'yes' }, signal,
-    })).resolves.toEqual({ status: 202, body: 'accepted' })
+    await expect(
+      (ctx.fileUpload as FileUploadRuntime).post({
+        path: 'api/upload',
+        body: blob,
+        headers: { 'x-test': 'yes' },
+        signal,
+      }),
+    ).resolves.toEqual({ status: 202, body: 'accepted' })
     expect(fetch).toHaveBeenLastCalledWith('api/upload', {
-      method: 'POST', headers: { 'x-test': 'yes' }, body: blob, signal,
+      method: 'POST',
+      headers: { 'x-test': 'yes' },
+      body: blob,
+      signal,
     })
 
-    const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.close() } })
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close()
+      },
+    })
     await (ctx.fileUpload as FileUploadRuntime).post({ path: 'stream', body: stream })
     expect(fetch).toHaveBeenLastCalledWith('stream', {
-      method: 'POST', body: stream, duplex: 'half',
+      method: 'POST',
+      body: stream,
+      duplex: 'half',
     })
     await fiber.dispose()
   })
@@ -245,7 +312,8 @@ describe('file upload service', () => {
     const body = new Blob()
     await (ctx.fileUpload as FileUploadRuntime).post({ path: 'api/session/uploadFileBinary', body })
     expect(fetch).toHaveBeenCalledWith('api/session/uploadFileBinary', {
-      method: 'POST', body,
+      method: 'POST',
+      body,
     })
     await fiber.dispose()
   })
@@ -255,8 +323,9 @@ describe('file upload service', () => {
     const ctx = new Context()
     const fiber = ctx.plugin(FileUploadRuntime)
     await fiber
-    await expect((ctx.fileUpload as FileUploadRuntime).post({ path: 'upload', body: new Blob() }))
-      .rejects.toThrow('background upload requires Web Worker support')
+    await expect((ctx.fileUpload as FileUploadRuntime).post({ path: 'upload', body: new Blob() })).rejects.toThrow(
+      'background upload requires Web Worker support',
+    )
     await fiber.dispose()
   })
 
@@ -269,7 +338,12 @@ describe('file upload service', () => {
       onerror: ((event: ErrorEvent) => void) | null = null
       readonly postMessage = vi.fn()
       readonly terminate = vi.fn()
-      constructor(readonly url: string, readonly options: WorkerOptions) { FakeWorker.last = this }
+      constructor(
+        readonly url: string,
+        readonly options: WorkerOptions,
+      ) {
+        FakeWorker.last = this
+      }
     }
     vi.stubGlobal('Worker', FakeWorker)
     vi.stubGlobal('document', { baseURI: 'https://harness.test/mount/' })
@@ -284,17 +358,16 @@ describe('file upload service', () => {
     expect(created).toHaveBeenCalledOnce()
     expect(revoked).toHaveBeenCalledWith('blob:worker')
     expect(worker.postMessage).toHaveBeenCalledWith({
-      url: 'https://harness.test/mount/api/upload', body: blob, headers: {},
+      url: 'https://harness.test/mount/api/upload',
+      body: blob,
+      headers: {},
     })
     worker.onmessage?.({ data: { kind: 'progress', loaded: 4, total: 5 } } as MessageEvent)
     worker.onmessage?.({ data: { kind: 'progress', loaded: 6 } } as MessageEvent)
     worker.onmessage?.({ data: { kind: 'complete', status: 200, body: 'done' } } as MessageEvent)
     worker.onmessage?.({ data: { kind: 'complete', status: 500, body: 'late' } } as MessageEvent)
     await expect(pending).resolves.toEqual({ status: 200, body: 'done' })
-    expect(progress.mock.calls).toEqual([
-      [{ loaded: 4, total: 5 }],
-      [{ loaded: 6 }],
-    ])
+    expect(progress.mock.calls).toEqual([[{ loaded: 4, total: 5 }], [{ loaded: 6 }]])
     expect(worker.terminate).toHaveBeenCalledOnce()
     await fiber.dispose()
   })
@@ -308,14 +381,20 @@ describe('file upload service', () => {
       onerror: ((event: ErrorEvent) => void) | null = null
       readonly postMessage = vi.fn()
       readonly terminate = vi.fn()
-      constructor() { FakeWorker.last = this }
+      constructor() {
+        FakeWorker.last = this
+      }
     }
     vi.stubGlobal('Worker', FakeWorker)
     vi.stubGlobal('document', { baseURI: 'https://harness.test/mount/' })
     const ctx = new Context()
     const fiber = ctx.plugin(FileUploadRuntime)
     await fiber
-    const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.close() } })
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close()
+      },
+    })
     const pending = (ctx.fileUpload as FileUploadRuntime).post({ path: 'stream', body: stream })
     const worker = FakeWorker.last
     if (worker === undefined) throw new Error('worker missing')
@@ -334,7 +413,9 @@ describe('file upload service', () => {
       onerror: ((event: ErrorEvent) => void) | null = null
       readonly postMessage = vi.fn()
       readonly terminate = vi.fn()
-      constructor() { FakeWorker.all.push(this) }
+      constructor() {
+        FakeWorker.all.push(this)
+      }
     }
     vi.stubGlobal('Worker', FakeWorker)
     vi.stubGlobal('document', { baseURI: 'https://harness.test/mount/' })
@@ -362,8 +443,9 @@ describe('file upload service', () => {
 
     const already = new AbortController()
     already.abort()
-    await expect((ctx.fileUpload as FileUploadRuntime).post({ path: 'upload', body: new Blob(), signal: already.signal }))
-      .rejects.toMatchObject({ name: 'AbortError' })
+    await expect(
+      (ctx.fileUpload as FileUploadRuntime).post({ path: 'upload', body: new Blob(), signal: already.signal }),
+    ).rejects.toMatchObject({ name: 'AbortError' })
     expect(FakeWorker.all[4]?.postMessage).not.toHaveBeenCalled()
     await fiber.dispose()
   })
@@ -372,17 +454,23 @@ describe('file upload service', () => {
 describe('Session-addressed file upload', () => {
   const SESSION_ID = 's1' as SessionId
 
-  async function scopedService(options: {
-    readonly remote?: ReturnType<typeof vi.fn>
-  } = {}) {
+  async function scopedService(
+    options: {
+      readonly remote?: ReturnType<typeof vi.fn>
+    } = {},
+  ) {
     const ctx = new Context()
-    const remote = options.remote ?? vi.fn(() => Promise.resolve({
-      ok: true,
-      value: {
-        receiptId: 'remote-receipt',
-        file: { attachmentId: 'remote-file', name: 'file', bytes: 3 },
-      },
-    }))
+    const remote =
+      options.remote ??
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          value: {
+            receiptId: 'remote-receipt',
+            file: { attachmentId: 'remote-file', name: 'file', bytes: 3 },
+          },
+        }),
+      )
     ctx.provide('remote', { fileUploads: { upload: remote } } as never)
     const fiber = ctx.plugin(FileUploadRuntime)
     await fiber
@@ -394,13 +482,18 @@ describe('Session-addressed file upload', () => {
     const fetch = vi.fn((_url: string | URL, init: RequestInit) => {
       expect(init.body).toBeInstanceOf(Blob)
       progress({ loaded: 2, total: 4 })
-      return Promise.resolve(new Response(JSON.stringify({
-        ok: true,
-        value: {
-          receiptId: 'receipt-1',
-          file: { attachmentId: 'file-1', name: 'notes & refs.pdf', bytes: 4 },
-        },
-      }), { status: 200 }))
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            value: {
+              receiptId: 'receipt-1',
+              file: { attachmentId: 'file-1', name: 'notes & refs.pdf', bytes: 4 },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
     })
     ;(globalThis as UploadGlobal).__DSH_FILE_UPLOAD__ = { fetch }
     const { fiber, service } = await scopedService()
@@ -427,18 +520,18 @@ describe('Session-addressed file upload', () => {
   })
 
   it('uses the direct Remote fallback for exact bytes', async () => {
-    const remote = vi.fn(() => Promise.resolve({
-      ok: true,
-      value: {
-        receiptId: 'remote-receipt',
-        file: { attachmentId: 'remote-file', name: 'bytes.bin', bytes: 3 },
-      },
-    }))
+    const remote = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        value: {
+          receiptId: 'remote-receipt',
+          file: { attachmentId: 'remote-file', name: 'bytes.bin', bytes: 3 },
+        },
+      }),
+    )
     const { fiber, service } = await scopedService({ remote })
-    await expect(service.upload(SESSION_ID, Uint8Array.of(0, 0, 0), 'bytes.bin'))
-      .resolves.toMatchObject({ ok: true })
-    await expect(service.upload(SESSION_ID, Uint8Array.of(1)))
-      .resolves.toMatchObject({ ok: true })
+    await expect(service.upload(SESSION_ID, Uint8Array.of(0, 0, 0), 'bytes.bin')).resolves.toMatchObject({ ok: true })
+    await expect(service.upload(SESSION_ID, Uint8Array.of(1))).resolves.toMatchObject({ ok: true })
     expect(remote.mock.calls).toEqual([
       [SESSION_ID, { data: 'AAAA', name: 'bytes.bin' }, undefined],
       [SESSION_ID, { data: 'AQ==' }, undefined],
@@ -451,8 +544,7 @@ describe('Session-addressed file upload', () => {
       fetch: () => Promise.resolve(new Response(null, { status: 413 })),
     }
     const rejected = await scopedService()
-    await expect(rejected.service.upload(SESSION_ID, new Blob()))
-      .rejects.toThrow('file upload transport failed with HTTP 413')
+    await expect(rejected.service.upload(SESSION_ID, new Blob())).rejects.toThrow('file upload transport failed with HTTP 413')
     await rejected.fiber.dispose()
 
     const bodies: unknown[] = [
@@ -470,16 +562,21 @@ describe('Session-addressed file upload', () => {
         fetch: () => Promise.resolve(new Response(JSON.stringify(body), { status: 200 })),
       }
       const malformed = await scopedService()
-      await expect(malformed.service.upload(SESSION_ID, new Blob()))
-        .rejects.toThrow(/file upload transport returned an invalid/)
+      await expect(malformed.service.upload(SESSION_ID, new Blob())).rejects.toThrow(/file upload transport returned an invalid/)
       await malformed.fiber.dispose()
     }
 
     ;(globalThis as UploadGlobal).__DSH_FILE_UPLOAD__ = {
-      fetch: () => Promise.resolve(new Response(JSON.stringify({
-        ok: false,
-        error: { code: 'session/attachment-invalid', message: 'denied', details: { reason: 'NOPE' } },
-      }), { status: 200 })),
+      fetch: () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              ok: false,
+              error: { code: 'session/attachment-invalid', message: 'denied', details: { reason: 'NOPE' } },
+            }),
+            { status: 200 },
+          ),
+        ),
     }
     const failed = await scopedService()
     await expect(failed.service.upload(SESSION_ID, new Blob())).resolves.toMatchObject({

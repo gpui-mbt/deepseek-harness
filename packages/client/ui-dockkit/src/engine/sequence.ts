@@ -105,9 +105,7 @@ export function record(history: History, state: LayoutState, ops: readonly Layou
     // Undo runs the inverses in reverse operation order.
     inverse.unshift(...result.inverse)
   }
-  const kept = history.cursor === history.entries.length
-    ? history.entries
-    : history.entries.slice(0, history.cursor)
+  const kept = history.cursor === history.entries.length ? history.entries : history.entries.slice(0, history.cursor)
   return {
     history: { entries: [...kept, { ops, inverse }], cursor: history.cursor + 1 },
     state: next,

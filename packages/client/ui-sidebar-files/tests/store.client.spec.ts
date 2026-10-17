@@ -1,5 +1,5 @@
 /** Tab-local directory caches, expansion preferences, and refresh settings. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { createFilesStore } from '../src/client/store.ts'
 import type { DirLevel } from '../src/client/store.ts'
@@ -9,7 +9,10 @@ const ROOT = '/work/app'
 const TAB = 'tab-1' as TabId
 
 const LEVEL: DirLevel = {
-  entries: [{ name: 'src', type: 'directory' }, { name: 'README.md', type: 'file', size: 12 }],
+  entries: [
+    { name: 'src', type: 'directory' },
+    { name: 'README.md', type: 'file', size: 12 },
+  ],
   truncated: false,
 }
 
@@ -101,23 +104,34 @@ describe('createFilesStore', () => {
     expect(store.getSnapshot().byTab[TAB]!.autoRefresh).toBe(true)
   })
 
-  it.each(['removed', 'file'] as const)('drops cached descendants and expansion when a directory is %s', (replacement) => {
+  it.each(['removed', 'file'] as const)('drops cached descendants and expansion when a directory is %s', replacement => {
     const store = createFilesStore().create()
     const { actions } = store
     const child = `${ROOT}/src`
     const grandchild = `${child}/nested`
     const sibling = `${ROOT}/src-other`
     actions.start(TAB, ROOT)
-    actions.loaded(TAB, ROOT, { entries: [
-      { name: 'src', type: 'directory' }, { name: 'src-other', type: 'directory' },
-    ], truncated: false })
+    actions.loaded(TAB, ROOT, {
+      entries: [
+        { name: 'src', type: 'directory' },
+        { name: 'src-other', type: 'directory' },
+      ],
+      truncated: false,
+    })
     for (const path of [child, grandchild, sibling]) {
       actions.toggled(TAB, path)
       actions.loaded(TAB, path, LEVEL)
     }
-    actions.loaded(TAB, ROOT, { entries: replacement === 'file'
-      ? [{ name: 'src', type: 'file' }, { name: 'src-other', type: 'directory' }]
-      : [{ name: 'src-other', type: 'directory' }], truncated: false })
+    actions.loaded(TAB, ROOT, {
+      entries:
+        replacement === 'file'
+          ? [
+              { name: 'src', type: 'file' },
+              { name: 'src-other', type: 'directory' },
+            ]
+          : [{ name: 'src-other', type: 'directory' }],
+      truncated: false,
+    })
     const state = store.getSnapshot().byTab[TAB]!
     expect(state.expanded).toEqual([ROOT, sibling])
     expect(Object.keys(state.levels)).toEqual([ROOT, sibling])
@@ -134,7 +148,9 @@ describe('createFilesStore', () => {
 
   it('refuses to write a level for a tab that was never started', () => {
     const { actions } = createFilesStore().create()
-    expect(() => { actions.loading('tab-nowhere' as TabId, ROOT) }).toThrow('no tree for tab "tab-nowhere"')
+    expect(() => {
+      actions.loading('tab-nowhere' as TabId, ROOT)
+    }).toThrow('no tree for tab "tab-nowhere"')
   })
 
   it('forget removes exactly the tab that went away', () => {

@@ -72,9 +72,7 @@ const desktopApplicationDirectory = 'apps/desktop'
 const localArtifactDirs = new Set(['node_modules'])
 const appPackageFiles: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh': ['lib/*.js', 'lib/types/*.d.ts'],
-  '@deepseek-ai/dsh-desktop-host': [
-    'lib/index.js', 'lib/cli.js',
-  ],
+  '@deepseek-ai/dsh-desktop-host': ['lib/index.js', 'lib/cli.js'],
   // Sourcemaps stay out by payload policy; the worker-preview surface
   // (dist/preview.html and dist/preview/) backs opt-in experimental
   // packages and is not published.
@@ -138,9 +136,7 @@ function packageDirs(base: string, depth: number): string[] {
 }
 
 function workspaceManifests(): WorkspaceManifest[] {
-  const manifests: WorkspaceManifest[] = [
-    { dir: '.', manifest: rootManifest },
-  ]
+  const manifests: WorkspaceManifest[] = [{ dir: '.', manifest: rootManifest }]
 
   for (const { dir: base, depth } of workspaceGlobs) {
     for (const dir of packageDirs(base, depth)) {
@@ -159,9 +155,14 @@ function workspaceManifests(): WorkspaceManifest[] {
  */
 export function readWorkspaceManifests(repositoryRoot: string): WorkspaceManifest[] {
   const config = loadYaml(readFileSync(join(repositoryRoot, 'pnpm-workspace.yaml'), 'utf8'))
-  if (typeof config !== 'object' || config === null || !('packages' in config)
-    || !Array.isArray(config.packages) || config.packages.length === 0
-    || !config.packages.every((member: unknown): member is string => typeof member === 'string' && member.length > 0)) {
+  if (
+    typeof config !== 'object' ||
+    config === null ||
+    !('packages' in config) ||
+    !Array.isArray(config.packages) ||
+    config.packages.length === 0 ||
+    !config.packages.every((member: unknown): member is string => typeof member === 'string' && member.length > 0)
+  ) {
     throw new Error('pnpm-workspace.yaml: packages must be a non-empty list of workspace patterns')
   }
   const patterns = config.packages.filter(member => !member.startsWith('!')).map(member => `${member}/package.json`)
@@ -180,7 +181,18 @@ export function readWorkspaceManifests(repositoryRoot: string): WorkspaceManifes
 const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   // CUA publishes its client API and attributed native source for local macOS builds.
   '@deepseek-ai/dsh-cua': ['lib/api.js', 'lib/bridge.js', 'lib/native-client.js', 'lib/protocol.js'],
-  '@deepseek-ai/dsh-experimental-cua-macos': ['native/bin', 'native/Package.swift', 'native/Sources', 'native/tests/swift', 'native/tests/test_swift.py', 'native/LICENSE.cua-driver', 'native/upstream.json', 'native/README.md', 'native/README.zh.md', 'native/protocol.schema.json'],
+  '@deepseek-ai/dsh-experimental-cua-macos': [
+    'native/bin',
+    'native/Package.swift',
+    'native/Sources',
+    'native/tests/swift',
+    'native/tests/test_swift.py',
+    'native/LICENSE.cua-driver',
+    'native/upstream.json',
+    'native/README.md',
+    'native/README.zh.md',
+    'native/protocol.schema.json',
+  ],
   '@deepseek-ai/dsh-webhook-github': ['examples/github-review/cordis.yml', 'examples/github-review/github-ready-review-rule.mjs'],
   // Owned Worker bundles import this public bootstrap before their business entry.
   '@deepseek-ai/dsh-app-boot': ['lib/worker/profile-resolution-bootstrap.js'],
@@ -225,17 +237,16 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   // SSH launches a private helper and shares wire definitions and TLS setup
   // between that helper and the connection owner.
   '@deepseek-ai/dsh-ssh': [
-    'lib/helper.js', 'lib/protocol.js', 'lib/schemas.js',
-    'lib/protocol-*.js', 'lib/schemas-*.js', 'lib/stream-security-*.js',
+    'lib/helper.js',
+    'lib/protocol.js',
+    'lib/schemas.js',
+    'lib/protocol-*.js',
+    'lib/schemas-*.js',
+    'lib/stream-security-*.js',
   ],
   // Ordinary native containment ships a path-loaded runner and its shared
   // runner chunk beside the existing node-pty permission repair.
-  '@deepseek-ai/dsh-subprocess-local': [
-    'lib/runner.js',
-    'lib/runner-*.js',
-    'lib/output.js',
-    'scripts/ensure-spawn-helper.mjs',
-  ],
+  '@deepseek-ai/dsh-subprocess-local': ['lib/runner.js', 'lib/runner-*.js', 'lib/output.js', 'scripts/ensure-spawn-helper.mjs'],
   // tsdown shares the repository/pack code between the lib entry and the bin
   // through a hashed chunk. The committed bin.js is the link target pnpm can
   // resolve at install time, before the build produces lib/bin.js.
@@ -266,55 +277,53 @@ export function expectedDshPackageFiles(manifest: PackageManifest): readonly str
   const browserClient = exportDefault(manifest, './client')
   const bundle = manifest.dsh?.bundle
   const bundleFiles = bundle === undefined ? [] : bundlePatchFiles(bundle).map(file => file.replace(/^\.\//, ''))
-  const extras = [
-    ...bundleFiles,
-    ...(manifest.name ? packageFileExtras[manifest.name] ?? [] : []),
-  ]
-  const targets = (value: ExportTarget | undefined): string[] => typeof value === 'string' ? [value]
-    : typeof value === 'object' && value !== null ? Object.values(value).flatMap(targets) : []
+  const extras = [...bundleFiles, ...(manifest.name ? (packageFileExtras[manifest.name] ?? []) : [])]
+  const targets = (value: ExportTarget | undefined): string[] =>
+    typeof value === 'string' ? [value] : typeof value === 'object' && value !== null ? Object.values(value).flatMap(targets) : []
   const icons = [
-    ...typeof manifest.icon === 'string' ? [manifest.icon.replace(/^\.\//u, '')] : [],
-    ...Object.entries(manifest.exports ?? {}).filter(([key]) => /^\.\/(?:.+\/)?icon$/u.test(key))
-      .flatMap(([, target]) => targets(target)).filter(icon => icon.startsWith('./')).map(icon => icon.slice(2)),
+    ...(typeof manifest.icon === 'string' ? [manifest.icon.replace(/^\.\//u, '')] : []),
+    ...Object.entries(manifest.exports ?? {})
+      .filter(([key]) => /^\.\/(?:.+\/)?icon$/u.test(key))
+      .flatMap(([, target]) => targets(target))
+      .filter(icon => icon.startsWith('./'))
+      .map(icon => icon.slice(2)),
   ]
   return [
     ...new Set(icons),
     ...[...localeFiles].sort(),
     'lib/index.js',
-    ...manifest.bin ? ['lib/bin.js'] : [],
+    ...(manifest.bin ? ['lib/bin.js'] : []),
     // Worker-thread packages ship a CJS worker entry; the browser worker
     // bundle is an ES module a page loads with `new Worker(type: 'module')`.
     // Keyed on the artifact path, like ./client below.
-    ...exportDefault(manifest, './worker') === './lib/worker.cjs' ? ['lib/worker.cjs'] : [],
-    ...exportDefault(manifest, './worker') === './lib/worker.js' ? ['lib/worker.js'] : [],
+    ...(exportDefault(manifest, './worker') === './lib/worker.cjs' ? ['lib/worker.cjs'] : []),
+    ...(exportDefault(manifest, './worker') === './lib/worker.js' ? ['lib/worker.js'] : []),
     // Only physical browser bundles need a publication entry; a ./client
     // subpath may instead expose a browser-safe emitted source tree.
-    ...browserClient === './lib/client.js' ? ['lib/client.js'] : [],
-    ...browserClient === './lib/client.browser.js' ? ['lib/client.browser.js'] : [],
-    ...exportCondition(manifest, './client', 'node') === './lib/client.node.js' ? ['lib/client.node.js'] : [],
+    ...(browserClient === './lib/client.js' ? ['lib/client.js'] : []),
+    ...(browserClient === './lib/client.browser.js' ? ['lib/client.browser.js'] : []),
+    ...(exportCondition(manifest, './client', 'node') === './lib/client.node.js' ? ['lib/client.node.js'] : []),
     // runtime's shell-held loader subpath ships as its own bundle beside the client half.
-    ...exportDefault(manifest, './loader') === './lib/loader.js' ? ['lib/loader.js'] : [],
+    ...(exportDefault(manifest, './loader') === './lib/loader.js' ? ['lib/loader.js'] : []),
     // A store subpath ships its own bundle (single-entry builds; no shared chunk).
-    ...exportDefault(manifest, './store') === './lib/store/index.js' ? ['lib/store/index.js'] : [],
+    ...(exportDefault(manifest, './store') === './lib/store/index.js' ? ['lib/store/index.js'] : []),
     // A surface bundle's startup row is its own bundle: the Loader imports it
     // as a row module, so it cannot ride inside the package entry.
-    ...exportDefault(manifest, './startup') === './lib/startup.js' ? ['lib/startup.js'] : [],
+    ...(exportDefault(manifest, './startup') === './lib/startup.js' ? ['lib/startup.js'] : []),
     ...extras,
     // Subpaths whose runtime default is the tsc-emitted tree (lib/types/*.js —
     // browser-safe source channels rehomed off src so plain Node can import
     // them without type stripping) publish the emitted JS alongside the
     // declarations.
-    ...usesEmittedTreeDefaults(manifest) ? ['lib/types/**/*.js'] : [],
+    ...(usesEmittedTreeDefaults(manifest) ? ['lib/types/**/*.js'] : []),
     'lib/types/**/*.d.ts',
-    ...hasExportPair(manifest, './typert', './lib/typert.host.d.ts', './lib/typert.host.js')
+    ...(hasExportPair(manifest, './typert', './lib/typert.host.d.ts', './lib/typert.host.js')
       ? ['lib/typert.host.js', 'lib/typert.host.d.ts']
-      : [],
-    ...hasExportPair(manifest, './client/typert', './lib/typert.client.d.ts', './lib/typert.client.js')
+      : []),
+    ...(hasExportPair(manifest, './client/typert', './lib/typert.client.d.ts', './lib/typert.client.js')
       ? ['lib/typert.client.js', 'lib/typert.client.d.ts']
-      : [],
-    ...hasTypertRemoteNavigation(manifest)
-      ? ['lib/typert.remote-client.js', 'lib/typert.remote-client.d.ts']
-      : [],
+      : []),
+    ...(hasTypertRemoteNavigation(manifest) ? ['lib/typert.remote-client.js', 'lib/typert.remote-client.d.ts'] : []),
   ]
 }
 
@@ -328,12 +337,7 @@ function isExportList(value: ExportTarget): value is readonly ExportTarget[] {
 }
 
 /** Whether one conditional export exactly names the generated runtime and declaration pair. */
-function hasExportPair(
-  manifest: PackageManifest,
-  subpath: string,
-  types: string,
-  runtime: string,
-): boolean {
+function hasExportPair(manifest: PackageManifest, subpath: string, types: string, runtime: string): boolean {
   const entry = exportFields(manifest.exports?.[subpath])
   return entry?.types === types && entry.default === runtime
 }
@@ -354,8 +358,7 @@ function exportCondition(manifest: PackageManifest, subpath: string, condition: 
 
 /** Whether any export's runtime default points into the tsc-emitted lib/types tree. */
 function usesEmittedTreeDefaults(manifest: PackageManifest): boolean {
-  return Object.keys(manifest.exports ?? {}).some(subpath =>
-    exportDefault(manifest, subpath)?.startsWith('./lib/types/') === true)
+  return Object.keys(manifest.exports ?? {}).some(subpath => exportDefault(manifest, subpath)?.startsWith('./lib/types/') === true)
 }
 
 /** Experimental manifest requirements, including explicit private exceptions. */
@@ -366,9 +369,13 @@ export function checkExperimentalManifest(
   if (!experimentalPackageDirectory.test(dir)) return []
   const label = manifest.name ?? dir
   const errors: string[] = []
-  if (manifest.name === undefined || !manifest.name.startsWith(EXPERIMENTAL_PACKAGE_NAME_PREFIX)
-    && manifest.name !== EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS[dir]) {
-    errors.push(`${label}: experimental package name must start with ${JSON.stringify(EXPERIMENTAL_PACKAGE_NAME_PREFIX)} or match its declared directory exception`)
+  if (
+    manifest.name === undefined ||
+    (!manifest.name.startsWith(EXPERIMENTAL_PACKAGE_NAME_PREFIX) && manifest.name !== EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS[dir])
+  ) {
+    errors.push(
+      `${label}: experimental package name must start with ${JSON.stringify(EXPERIMENTAL_PACKAGE_NAME_PREFIX)} or match its declared directory exception`,
+    )
   }
   if (isPublicExperimentalPackageDirectory(dir, privateDirectories)) {
     if (manifest.private === true) errors.push(`${label}: public experimental package must not set "private": true`)
@@ -437,9 +444,7 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
   const familyVersionError = checkDshFamilyVersion(manifest, repositoryVersion)
   if (familyVersionError !== undefined) errors.push(familyVersionError)
   const isNativePackageDir = dir.startsWith('native/system/packages/')
-  const isPublicNativePackage = isNativePackageDir
-    && manifest.name !== undefined
-    && publicNativePackages.has(manifest.name)
+  const isPublicNativePackage = isNativePackageDir && manifest.name !== undefined && publicNativePackages.has(manifest.name)
 
   if (isPublicNativePackage) {
     if (manifest.private === true) {
@@ -449,9 +454,11 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
       errors.push(`${label}: published Landlock package must set publishConfig.access to "public"`)
     }
     const expectedDirectory = dir
-    if (manifest.repository?.type !== 'git'
-      || manifest.repository.url !== publishedRepositoryUrl
-      || manifest.repository.directory !== expectedDirectory) {
+    if (
+      manifest.repository?.type !== 'git' ||
+      manifest.repository.url !== publishedRepositoryUrl ||
+      manifest.repository.directory !== expectedDirectory
+    ) {
       errors.push(`${label}: published Landlock package repository must use ${publishedRepositoryUrl} with directory ${expectedDirectory}`)
     }
   } else if (isReleaseMemberDirectory(dir)) {
@@ -470,9 +477,11 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
     if (manifest.publishConfig?.access !== 'public') {
       errors.push(`${label}: release member must set publishConfig.access to "public"`)
     }
-    if (manifest.repository?.type !== 'git'
-      || manifest.repository.url !== publishedRepositoryUrl
-      || manifest.repository.directory !== dir) {
+    if (
+      manifest.repository?.type !== 'git' ||
+      manifest.repository.url !== publishedRepositoryUrl ||
+      manifest.repository.directory !== dir
+    ) {
       errors.push(`${label}: release member repository must use ${publishedRepositoryUrl} with directory ${dir}`)
     }
   } else if (!experimentalPackageDirectory.test(dir) && manifest.private !== true) {
@@ -492,7 +501,12 @@ export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): st
     }
   }
 
-  if (dir.startsWith('apps/') && dir !== desktopApplicationDirectory && dir !== pluginMarketGeneratorDirectory && manifest.name?.startsWith('@deepseek-ai/')) {
+  if (
+    dir.startsWith('apps/') &&
+    dir !== desktopApplicationDirectory &&
+    dir !== pluginMarketGeneratorDirectory &&
+    manifest.name?.startsWith('@deepseek-ai/')
+  ) {
     const expectedFiles = appPackageFiles[manifest.name]
     if (expectedFiles === undefined) {
       errors.push(`${label}: app package has no publication files policy`)
@@ -555,7 +569,9 @@ function checkHierarchyShape(): string[] {
     if (!group.isDirectory()) continue
     const groupRel = join('packages', group.name)
     if (existsSync(join(packagesRoot, group.name, 'package.json'))) {
-      errors.push(`${groupRel}: a group dir must not contain a package.json — packages live at packages/<group>/<pkg>, not directly under packages/`)
+      errors.push(
+        `${groupRel}: a group dir must not contain a package.json — packages live at packages/<group>/<pkg>, not directly under packages/`,
+      )
       continue
     }
     for (const pkg of readdirSync(join(packagesRoot, group.name), { withFileTypes: true })) {
@@ -563,7 +579,9 @@ function checkHierarchyShape(): string[] {
       if (localArtifactDirs.has(pkg.name)) continue
       const pkgRel = join(groupRel, pkg.name)
       if (!existsSync(join(packagesRoot, group.name, pkg.name, 'package.json'))) {
-        errors.push(`${pkgRel}: expected a package here (no package.json found) — the hierarchy is exactly packages/<group>/<pkg>, no deeper nesting`)
+        errors.push(
+          `${pkgRel}: expected a package here (no package.json found) — the hierarchy is exactly packages/<group>/<pkg>, no deeper nesting`,
+        )
       }
     }
   }
@@ -591,20 +609,25 @@ const runtimeDependencySections = ['dependencies', 'optionalDependencies', 'peer
  * @returns One error for each forbidden runtime dependency.
  */
 export function checkExperimentalDependencyIsolation(
-  manifests: readonly WorkspaceManifest[], optionalBundles: readonly string[] = OPTIONAL_BUNDLES,
+  manifests: readonly WorkspaceManifest[],
+  optionalBundles: readonly string[] = OPTIONAL_BUNDLES,
 ): string[] {
-  const experimentalNames = new Set(manifests
-    .filter(entry => experimentalPackageDirectory.test(entry.dir))
-    .map(entry => entry.manifest.name)
-    .filter(name => name !== undefined))
+  const experimentalNames = new Set(
+    manifests
+      .filter(entry => experimentalPackageDirectory.test(entry.dir))
+      .map(entry => entry.manifest.name)
+      .filter(name => name !== undefined),
+  )
   const errors: string[] = []
   for (const { dir, manifest } of manifests) {
     if (!standardReleaseMemberDirectory.test(dir) && dir !== 'python/sdk-runtime') continue
     const offered = manifest.name === '@deepseek-ai/dsh' ? new Set(optionalBundles) : new Set<string>()
     for (const section of runtimeDependencySections) {
       for (const [name, range] of Object.entries(manifest[section] ?? {})) {
-        const experimental = experimentalNames.has(name) || isExperimentalPackageName(name)
-          || /^(?:npm:|workspace:)/.test(range) && hasExperimentalPackageReference(range)
+        const experimental =
+          experimentalNames.has(name) ||
+          isExperimentalPackageName(name) ||
+          (/^(?:npm:|workspace:)/.test(range) && hasExperimentalPackageReference(range))
         if (!experimental) continue
         if (section === 'dependencies' && offered.has(name)) continue
         errors.push(`${manifest.name ?? dir}: ${section}.${name} must not reference an experimental package`)
@@ -627,16 +650,22 @@ export function checkExperimentalDependencyIsolation(
  */
 export function checkWorkspaceProtocol(manifests: readonly WorkspaceManifest[]): string[] {
   const members = new Set(manifests.map(entry => entry.manifest.name).filter(name => name !== undefined))
-  const vendors = new Set(manifests.filter(entry => entry.dir.startsWith('vendor/')
-    || entry.dir === 'native/system' || entry.dir.startsWith('native/system/packages/')).map(entry => entry.manifest.name))
+  const vendors = new Set(
+    manifests
+      .filter(entry => entry.dir.startsWith('vendor/') || entry.dir === 'native/system' || entry.dir.startsWith('native/system/packages/'))
+      .map(entry => entry.manifest.name),
+  )
   const errors: string[] = []
   for (const { dir, manifest } of manifests) {
     for (const section of dependencySections) {
       for (const [name, range] of Object.entries(manifest[section] ?? {})) {
         if (!members.has(name)) continue
-        const expected = name === '@deepseek-ai/dsh' || name.startsWith('@deepseek-ai/dsh-')
-          ? 'workspace:*'
-          : vendors.has(name) ? 'workspace:~' : undefined
+        const expected =
+          name === '@deepseek-ai/dsh' || name.startsWith('@deepseek-ai/dsh-')
+            ? 'workspace:*'
+            : vendors.has(name)
+              ? 'workspace:~'
+              : undefined
         if (expected !== undefined ? range === expected : range.startsWith('workspace:')) continue
         errors.push(`${manifest.name ?? dir}: ${section}.${name} must use ${expected ?? 'the workspace: protocol'}, got ${range}`)
       }

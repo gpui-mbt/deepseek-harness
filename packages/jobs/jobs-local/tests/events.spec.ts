@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -40,7 +40,7 @@ function view(owner: Agent | undefined): JobView {
     id: JobId('bash-1'),
     kind: 'bash',
     label: 'x',
-    ...owner !== undefined ? { owner: owner.id } : {},
+    ...(owner !== undefined ? { owner: owner.id } : {}),
     status: 'running',
     startedAt: 0,
     output: { total: 0, earliest: 0 },
@@ -50,7 +50,10 @@ function view(owner: Agent | undefined): JobView {
 function bench() {
   const ctx = new Context()
   const warnings: string[] = []
-  const layers = new ScopedLayers<JobLayer>(() => new JobLayer(), () => {})
+  const layers = new ScopedLayers<JobLayer>(
+    () => new JobLayer(),
+    () => {},
+  )
   const hub = new JobEventHub(layers, message => warnings.push(message))
   return { ctx, hub, warnings }
 }
@@ -61,7 +64,9 @@ describe('JobEventHub', () => {
     const alice = agentIn(ctx, 'alice')
     const bob = agentIn(ctx, 'bob')
     const seen: (string | undefined)[] = []
-    hub.subscribe(ctx, { owner: alice.id }, (event) => { seen.push(event.type === 'output' ? event.owner : event.job.owner) })
+    hub.subscribe(ctx, { owner: alice.id }, event => {
+      seen.push(event.type === 'output' ? event.owner : event.job.owner)
+    })
 
     hub.emit({ type: 'registered', job: view(alice) }, alice)
     hub.emit({ type: 'registered', job: view(bob) }, bob)
@@ -79,13 +84,19 @@ describe('JobEventHub', () => {
     const bob = agentIn(ctx, 'bob', scopeOf(otherMount.ctx))
 
     const all: string[] = []
-    hub.subscribe(ctx, { owners: 'all' }, (event) => { all.push(event.type === 'output' ? String(event.owner) : String(event.job.owner)) })
+    hub.subscribe(ctx, { owners: 'all' }, event => {
+      all.push(event.type === 'output' ? String(event.owner) : String(event.job.owner))
+    })
     const scoped: string[] = []
     await mount.ctx.plugin((pluginCtx: Context) => {
-      hub.subscribe(pluginCtx, { owners: 'scope' }, (event) => { scoped.push(event.type === 'output' ? String(event.owner) : String(event.job.owner)) })
+      hub.subscribe(pluginCtx, { owners: 'scope' }, event => {
+        scoped.push(event.type === 'output' ? String(event.owner) : String(event.job.owner))
+      })
     })
     const unscoped: string[] = []
-    hub.subscribe(ctx, { owners: 'scope' }, (event) => { unscoped.push(event.type === 'output' ? String(event.owner) : String(event.job.owner)) })
+    hub.subscribe(ctx, { owners: 'scope' }, event => {
+      unscoped.push(event.type === 'output' ? String(event.owner) : String(event.job.owner))
+    })
 
     hub.emit({ type: 'registered', job: view(alice) }, alice)
     hub.emit({ type: 'registered', job: view(bob) }, bob)
@@ -100,8 +111,12 @@ describe('JobEventHub', () => {
   it('contains a throwing listener and keeps delivering to later ones', () => {
     const { ctx, hub, warnings } = bench()
     const seen: JobEvent[] = []
-    hub.subscribe(ctx, { owners: 'all' }, () => { throw new Error('listener boom') })
-    hub.subscribe(ctx, { owners: 'all' }, (event) => { seen.push(event) })
+    hub.subscribe(ctx, { owners: 'all' }, () => {
+      throw new Error('listener boom')
+    })
+    hub.subscribe(ctx, { owners: 'all' }, event => {
+      seen.push(event)
+    })
     hub.emit({ type: 'registered', job: view(undefined) }, undefined)
     expect(seen).toHaveLength(1)
     expect(warnings).toEqual([expect.stringContaining('event listener threw on registered: Error: listener boom')])
@@ -110,10 +125,16 @@ describe('JobEventHub', () => {
   it('unregisters through the disposer and with the subscribing fiber', async () => {
     const { ctx, hub } = bench()
     const seen: number[] = []
-    const detach = hub.subscribe(ctx, { owners: 'all' }, () => { seen.push(1) })
+    const detach = hub.subscribe(ctx, { owners: 'all' }, () => {
+      seen.push(1)
+    })
     const fiber = await ctx.plugin((pluginCtx: Context) => {
-      hub.subscribe(pluginCtx, { owners: 'scope' }, () => { seen.push(2) })
-      hub.subscribe(pluginCtx, { owner: SessionId('nobody') }, () => { seen.push(3) })
+      hub.subscribe(pluginCtx, { owners: 'scope' }, () => {
+        seen.push(2)
+      })
+      hub.subscribe(pluginCtx, { owner: SessionId('nobody') }, () => {
+        seen.push(3)
+      })
     })
 
     // Filter-kind order is not a contract; the assertion only fixes it for determinism.

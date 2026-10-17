@@ -2,9 +2,21 @@
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { LexicalEditor, NodeKey } from 'lexical'
 import {
-  $addUpdateTag, $createParagraphNode, $createTextNode, $getRoot, $getSelection, $isRangeSelection,
-  BLUR_COMMAND, CLEAR_HISTORY_COMMAND, COMMAND_PRIORITY_CRITICAL, createEditor, HISTORY_MERGE_TAG, PASTE_TAG,
-  RootNode, SELECTION_CHANGE_COMMAND, SKIP_DOM_SELECTION_TAG,
+  $addUpdateTag,
+  $createParagraphNode,
+  $createTextNode,
+  $getRoot,
+  $getSelection,
+  $isRangeSelection,
+  BLUR_COMMAND,
+  CLEAR_HISTORY_COMMAND,
+  COMMAND_PRIORITY_CRITICAL,
+  createEditor,
+  HISTORY_MERGE_TAG,
+  PASTE_TAG,
+  RootNode,
+  SELECTION_CHANGE_COMMAND,
+  SKIP_DOM_SELECTION_TAG,
 } from 'lexical'
 import { registerPlainText } from '@lexical/plain-text'
 import { createEmptyHistoryState, registerHistory } from '@lexical/history'
@@ -47,7 +59,12 @@ export class DraftEditorRuntime {
   /** The editor bound by the Composer's contenteditable host. */
   readonly editor: LexicalEditor
   private projected: EditorProjection = {
-    detectText: '', clipboardText: '', occurrences: [], selection: null, caret: null, command: undefined,
+    detectText: '',
+    clipboardText: '',
+    occurrences: [],
+    selection: null,
+    caret: null,
+    command: undefined,
   }
   /** Stable occurrence ids per chip NodeKey (undo restores keys, so ids survive it too). */
   private readonly occurrenceIds = new Map<NodeKey, number>()
@@ -61,7 +78,9 @@ export class DraftEditorRuntime {
     this.editor = createEditor({
       namespace: 'dsh-composer',
       nodes: [ReferenceChipNode, CommandChipNode, TextRefNode],
-      onError: (error) => { throw error },
+      onError: error => {
+        throw error
+      },
     })
   }
 
@@ -80,17 +99,22 @@ export class DraftEditorRuntime {
     }
     const unregister = mergeRegister(
       registerPlainText(this.editor),
-      this.editor.registerCommand(BLUR_COMMAND, () => {
-        // Finish this batch before an explicit focus can restore its updated selection.
-        this.editor.update(preserveExternalSelection, { discrete: true })
-        return false
-      }, COMMAND_PRIORITY_CRITICAL),
+      this.editor.registerCommand(
+        BLUR_COMMAND,
+        () => {
+          // Finish this batch before an explicit focus can restore its updated selection.
+          this.editor.update(preserveExternalSelection, { discrete: true })
+          return false
+        },
+        COMMAND_PRIORITY_CRITICAL,
+      ),
       this.editor.registerCommand(SELECTION_CHANGE_COMMAND, preserveExternalSelection, COMMAND_PRIORITY_CRITICAL),
       this.editor.registerNodeTransform(RootNode, preserveExternalSelection),
-      registerReferenceActivation(this.editor, (source, reference) =>
-        this.deps.openReference(source, reference)),
+      registerReferenceActivation(this.editor, (source, reference) => this.deps.openReference(source, reference)),
       registerHistory(this.editor, createEmptyHistoryState(), HISTORY_MERGE_DELAY_MS),
-      this.editor.registerUpdateListener(() => { this.deps.onUpdate() }),
+      this.editor.registerUpdateListener(() => {
+        this.deps.onUpdate()
+      }),
       registerCommandChipSeat(this.editor),
       registerCommandChipSelection(this.editor),
       registerTextRefDecoration(this.editor, () => this.deps.lexicon()),
@@ -140,7 +164,9 @@ export class DraftEditorRuntime {
     if (lexicon === this.lexiconSource) return
     this.lexiconOff?.()
     this.lexiconSource = lexicon
-    this.lexiconOff = lexicon?.subscribe(() => { rescanTextRefs(this.editor) })
+    this.lexiconOff = lexicon?.subscribe(() => {
+      rescanTextRefs(this.editor)
+    })
     rescanTextRefs(this.editor)
   }
 
@@ -150,8 +176,7 @@ export class DraftEditorRuntime {
    */
   refreshProjection(): EditorProjection {
     const prev = this.projected
-    this.projected = this.editor.getEditorState().read(() =>
-      $projectComposer(key => this.occurrenceIdOf(key)))
+    this.projected = this.editor.getEditorState().read(() => $projectComposer(key => this.occurrenceIdOf(key)))
     return prev
   }
 
@@ -172,16 +197,19 @@ export class DraftEditorRuntime {
   setDraft(text: string): void {
     const clean = text.replace(REFERENCE_PLACEHOLDER_RE, '')
     if (clean === this.projection.clipboardText && this.projection.occurrences.length === 0) return
-    this.editor.update(() => {
-      const root = $getRoot()
-      root.clear()
-      for (const line of clean.split('\n')) {
-        const paragraph = $createParagraphNode()
-        if (line !== '') paragraph.append($createTextNode(line))
-        root.append(paragraph)
-      }
-      root.selectEnd()
-    }, { discrete: true, tag: HISTORY_MERGE_TAG })
+    this.editor.update(
+      () => {
+        const root = $getRoot()
+        root.clear()
+        for (const line of clean.split('\n')) {
+          const paragraph = $createParagraphNode()
+          if (line !== '') paragraph.append($createTextNode(line))
+          root.append(paragraph)
+        }
+        root.selectEnd()
+      },
+      { discrete: true, tag: HISTORY_MERGE_TAG },
+    )
   }
 
   /**
@@ -243,7 +271,9 @@ export class DraftEditorRuntime {
   insertAsyncText(span: DetectSpan, text: string): boolean {
     let applied = false
     const clean = text.replace(REFERENCE_PLACEHOLDER_RE, '')
-    this.applyEdit(() => { applied = $replaceDetectSpanWithText(span, clean) }, PASTE_TAG)
+    this.applyEdit(() => {
+      applied = $replaceDetectSpanWithText(span, clean)
+    }, PASTE_TAG)
     return applied
   }
 
@@ -257,9 +287,7 @@ export class DraftEditorRuntime {
   insertReference(span: DetectSpan, ref: ReferenceInsert, tail: string): boolean {
     let applied = false
     this.applyEdit(() => {
-      const nodes = tail === ' '
-        ? [$createReferenceChipNode(ref)]
-        : [$createReferenceChipNode(ref), $createTextNode(' ')]
+      const nodes = tail === ' ' ? [$createReferenceChipNode(ref)] : [$createReferenceChipNode(ref), $createTextNode(' ')]
       applied = $replaceDetectSpanWithNodes(span, nodes)
     })
     return applied
@@ -278,12 +306,16 @@ export class DraftEditorRuntime {
   insertCommand(span: DetectSpan, claim: CommandClaim, tail: string, mergeHistory = false): boolean {
     const separator = claim.token.slice(claim.token.trimEnd().length)
     let applied = false
-    this.applyEdit(() => {
-      const nodes = separator === '' || tail === separator.charAt(0)
-        ? [$createCommandChipNode(claim)]
-        : [$createCommandChipNode(claim), $createTextNode(separator)]
-      applied = $replaceDetectSpanWithNodes(span, nodes)
-    }, mergeHistory ? HISTORY_MERGE_TAG : undefined)
+    this.applyEdit(
+      () => {
+        const nodes =
+          separator === '' || tail === separator.charAt(0)
+            ? [$createCommandChipNode(claim)]
+            : [$createCommandChipNode(claim), $createTextNode(separator)]
+        applied = $replaceDetectSpanWithNodes(span, nodes)
+      },
+      mergeHistory ? HISTORY_MERGE_TAG : undefined,
+    )
     return applied
   }
 
@@ -311,19 +343,20 @@ export class DraftEditorRuntime {
    * @param prefixLength - returns the clipboard-prefix length to remove, or null to clear the root.
    */
   clearCommittedDraft(prefixLength: (clipboardText: string) => number | null): void {
-    this.editor.update(() => {
-      const layout = $composerLayout()
-      const length = prefixLength(layout.clipboardText)
-      if (length !== null) {
-        $replaceDetectSpanWithText(
-          { start: 0, end: detectOffsetOfClipboardOffset(layout, length) }, '',
-        )
-        return
-      }
-      const root = $getRoot()
-      root.clear()
-      root.selectEnd()
-    }, { discrete: true, tag: HISTORY_MERGE_TAG })
+    this.editor.update(
+      () => {
+        const layout = $composerLayout()
+        const length = prefixLength(layout.clipboardText)
+        if (length !== null) {
+          $replaceDetectSpanWithText({ start: 0, end: detectOffsetOfClipboardOffset(layout, length) }, '')
+          return
+        }
+        const root = $getRoot()
+        root.clear()
+        root.selectEnd()
+      },
+      { discrete: true, tag: HISTORY_MERGE_TAG },
+    )
   }
 
   /**
@@ -332,37 +365,45 @@ export class DraftEditorRuntime {
    * @param occurrences - reference occurrences in clipboard order.
    */
   restoreDraft(draft: string, occurrences: readonly DraftReference[]): void {
-    this.editor.update(() => {
-      const root = $getRoot()
-      root.clear()
-      let paragraph = $createParagraphNode()
-      root.append(paragraph)
-      const appendText = (text: string): void => {
-        const lines = text.replace(REFERENCE_PLACEHOLDER_RE, '').split('\n')
-        for (let i = 0; i < lines.length; i += 1) {
-          const line = lines[i]
-          if (line !== '') paragraph.append($createTextNode(line))
-          if (i < lines.length - 1) {
-            paragraph = $createParagraphNode()
-            root.append(paragraph)
+    this.editor.update(
+      () => {
+        const root = $getRoot()
+        root.clear()
+        let paragraph = $createParagraphNode()
+        root.append(paragraph)
+        const appendText = (text: string): void => {
+          const lines = text.replace(REFERENCE_PLACEHOLDER_RE, '').split('\n')
+          for (let i = 0; i < lines.length; i += 1) {
+            const line = lines[i]
+            if (line !== '') paragraph.append($createTextNode(line))
+            if (i < lines.length - 1) {
+              paragraph = $createParagraphNode()
+              root.append(paragraph)
+            }
           }
         }
-      }
-      let cursor = 0
-      for (const occurrence of occurrences) {
-        appendText(draft.slice(cursor, occurrence.offset))
-        paragraph.append(new ReferenceChipNode({
-          source: occurrence.source,
-          ref: occurrence.ref,
-          label: occurrence.label,
-          ...(occurrence.appearance === undefined ? {} : { appearance: occurrence.appearance }),
-          clipboardText: occurrence.clipboardText,
-        }, occurrence.invalid === true))
-        cursor = occurrence.offset + occurrence.length
-      }
-      appendText(draft.slice(cursor))
-      root.selectEnd()
-    }, { discrete: true, tag: HISTORY_MERGE_TAG })
+        let cursor = 0
+        for (const occurrence of occurrences) {
+          appendText(draft.slice(cursor, occurrence.offset))
+          paragraph.append(
+            new ReferenceChipNode(
+              {
+                source: occurrence.source,
+                ref: occurrence.ref,
+                label: occurrence.label,
+                ...(occurrence.appearance === undefined ? {} : { appearance: occurrence.appearance }),
+                clipboardText: occurrence.clipboardText,
+              },
+              occurrence.invalid === true,
+            ),
+          )
+          cursor = occurrence.offset + occurrence.length
+        }
+        appendText(draft.slice(cursor))
+        root.selectEnd()
+      },
+      { discrete: true, tag: HISTORY_MERGE_TAG },
+    )
   }
 
   /** Cut the editor's undo history after a committed clear or restoration. */

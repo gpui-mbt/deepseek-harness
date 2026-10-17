@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const builtBin = join(repoRoot, 'apps/cli/lib/bin.js')
@@ -44,24 +44,30 @@ async function createFixture(modules: Record<string, string>, patches: string): 
   const profile = join(home, 'profiles', profileName)
   const moduleDir = join(profile, 'node_modules', packageName)
   await mkdir(moduleDir, { recursive: true })
-  await writeFile(join(moduleDir, 'package.json'), JSON.stringify({
-    name: packageName,
-    version: '1.0.0',
-    type: 'module',
-    exports: Object.fromEntries(Object.keys(modules).map(name => [`./${name}`, `./${name}.mjs`])),
-    peerDependencies: { '@deepseek-ai/schemastery': '*' },
-    dsh: { bundle: { patch: './cordis.patch.yml' } },
-  }))
+  await writeFile(
+    join(moduleDir, 'package.json'),
+    JSON.stringify({
+      name: packageName,
+      version: '1.0.0',
+      type: 'module',
+      exports: Object.fromEntries(Object.keys(modules).map(name => [`./${name}`, `./${name}.mjs`])),
+      peerDependencies: { '@deepseek-ai/schemastery': '*' },
+      dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }),
+  )
   for (const [name, source] of Object.entries(modules)) {
     await writeFile(join(moduleDir, `${name}.mjs`), `${source}\n`)
   }
   await writeFile(join(moduleDir, 'cordis.patch.yml'), patches)
-  await writeFile(join(profile, 'package.json'), JSON.stringify({
-    name: 'dsh-profile-schema-acceptance',
-    private: true,
-    dependencies: { [packageName]: '1.0.0' },
-    dsh: { profile: { bundles: [packageName] } },
-  }))
+  await writeFile(
+    join(profile, 'package.json'),
+    JSON.stringify({
+      name: 'dsh-profile-schema-acceptance',
+      private: true,
+      dependencies: { [packageName]: '1.0.0' },
+      dsh: { profile: { bundles: [packageName] } },
+    }),
+  )
   await writeFile(join(profile, 'cordis.patch.yml'), '[]\n')
   return { root, home, profile }
 }
@@ -71,11 +77,17 @@ async function installNativeInclude(fixture: Fixture): Promise<void> {
   const directory = join(fixture.profile, 'node_modules', name)
   await mkdir(directory, { recursive: true })
   await copyFile(join(repoRoot, 'vendor/include/lib/index.js'), join(directory, 'index.js'))
-  await writeFile(join(directory, 'package.json'), JSON.stringify({
-    name, version: '1.0.3', type: 'module', exports: './index.js',
-    peerDependencies: { '@deepseek-ai/cordis': '*', '@deepseek-ai/cordis-plugin-loader': '*' },
-    dependencies: { 'js-yaml': '*' },
-  }))
+  await writeFile(
+    join(directory, 'package.json'),
+    JSON.stringify({
+      name,
+      version: '1.0.3',
+      type: 'module',
+      exports: './index.js',
+      peerDependencies: { '@deepseek-ai/cordis': '*', '@deepseek-ai/cordis-plugin-loader': '*' },
+      dependencies: { 'js-yaml': '*' },
+    }),
+  )
   const path = join(fixture.profile, 'package.json')
   const manifest = JSON.parse(await readFile(path, 'utf8')) as { dependencies: Record<string, string> }
   manifest.dependencies[name] = '1.0.3'
@@ -87,14 +99,13 @@ async function dump(
   args: readonly string[] = [],
   format: '--dump-config-schema' | '--dump-config' = '--dump-config-schema',
 ) {
-  const env = Object.fromEntries(Object.entries(process.env).filter(
-    (entry): entry is [string, string] => entry[1] !== undefined
-      && !/KEY|SECRET|TOKEN|PASSWORD/i.test(entry[0])
-      && !/^(DSH_|NODE_OPTIONS$|NODE_PATH$)/i.test(entry[0]),
-  ))
-  const result = await execa(process.execPath, [
-    builtBin, '--profile', profileName, format, ...args,
-  ], {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] =>
+        entry[1] !== undefined && !/KEY|SECRET|TOKEN|PASSWORD/i.test(entry[0]) && !/^(DSH_|NODE_OPTIONS$|NODE_PATH$)/i.test(entry[0]),
+    ),
+  )
+  const result = await execa(process.execPath, [builtBin, '--profile', profileName, format, ...args], {
     cwd: fixture.root,
     env: { ...env, DSH_HOME: fixture.home, DSH_TELEMETRY_DISABLED: '1' },
     extendEnv: false,
@@ -135,11 +146,13 @@ export default class ClassPlugin {
 
 describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output', () => {
   it('prints native namespace and class schemas without applying plugins or evaluating !!js', async () => {
-    const fixture = await createFixture({
-      namespace: namespaceModule,
-      class: classModule,
-      absent: forbiddenApply,
-    }, `- insert:
+    const fixture = await createFixture(
+      {
+        namespace: namespaceModule,
+        class: classModule,
+        absent: forbiddenApply,
+      },
+      `- insert:
     - id: schema-namespace
       name: ${packageName}/namespace
       config:
@@ -151,7 +164,8 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
       disabled: !!js (() => { throw new Error('DISABLED_EXPRESSION_EXECUTED') })()
     - id: schema-absent
       name: ${packageName}/absent
-`)
+`,
+    )
     const result = await dump(fixture)
     expect(result.exitCode, result.stderr).toBe(0)
     expect(result.stderr).toBe('schema fixture imported')
@@ -170,10 +184,12 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
     expect(result.stdout).not.toContain('"uid"')
   })
 
-  it.each([false, true])('expands canonical Include and re-export aliases with profile-local copy: %s', async (localCopy) => {
-    const fixture = await createFixture({
-      alias: "export { default } from '@deepseek-ai/cordis-plugin-include'",
-    }, `- insert:
+  it.each([false, true])('expands canonical Include and re-export aliases with profile-local copy: %s', async localCopy => {
+    const fixture = await createFixture(
+      {
+        alias: "export { default } from '@deepseek-ai/cordis-plugin-include'",
+      },
+      `- insert:
     - id: canonical
       name: '@deepseek-ai/cordis-plugin-include'
       config:
@@ -191,11 +207,15 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
             name: ${packageName}/alias
             config:
               path: ./nested/plugins.yml
-`)
+`,
+    )
     if (localCopy) await installNativeInclude(fixture)
     const directory = join(fixture.profile, 'nested')
     await mkdir(directory)
-    await writeFile(join(directory, 'child.mjs'), `${schemaImport}\nexport const Config = Schema.object({ enabled: Schema.boolean() })\n${forbiddenApply}`)
+    await writeFile(
+      join(directory, 'child.mjs'),
+      `${schemaImport}\nexport const Config = Schema.object({ enabled: Schema.boolean() })\n${forbiddenApply}`,
+    )
     await writeFile(join(directory, 'plugins.yml'), '- id: child\n  name: ./child.mjs\n')
     const result = await dump(fixture)
     expect(result.exitCode, result.stderr).toBe(0)
@@ -203,25 +223,31 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
     const document = parseSchema(result.stdout)
     expect(document['x-cordis'].complete).toBe(true)
     expect(document['x-cordis'].entries.filter(entry => entry.tree === 'include')).toHaveLength(3)
-    expect(document['x-cordis'].entries.filter(entry => entry.status === 'schema').map(entry => entry.path))
-      .toEqual(['/0/include/0', '/0/include/1', '/1/include/0/include/0'])
+    expect(document['x-cordis'].entries.filter(entry => entry.status === 'schema').map(entry => entry.path)).toEqual([
+      '/0/include/0',
+      '/0/include/1',
+      '/1/include/0/include/0',
+    ])
     expect(existsSync(join(fixture.profile, 'never-created.yml'))).toBe(false)
   })
 
   it('does not treat a custom marker with Include-like config as a native carrier', async () => {
-    const fixture = await createFixture({
-      carrier: `export default class CustomCarrier {
+    const fixture = await createFixture(
+      {
+        carrier: `export default class CustomCarrier {
         static [Symbol.for('cordis.group')] = true
         constructor() { throw new Error('CUSTOM_CARRIER_EXECUTED') }
       }`,
-    }, `- insert:
+      },
+      `- insert:
     - id: custom
       name: ${packageName}/carrier
       config:
         path: ./not-an-include.yml
         initial:
           - name: missing-child
-`)
+`,
+    )
     const result = await dump(fixture)
     expect(result.exitCode).toBe(1)
     expect(result.stderr).toContain('unrecognized Loader tree carrier')
@@ -232,31 +258,41 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
   })
 
   it('returns positioned malformed-row diagnostics without losing healthy schema entries', async () => {
-    const fixture = await createFixture({ class: classModule }, `- insert:
+    const fixture = await createFixture(
+      { class: classModule },
+      `- insert:
     - id: before
       name: ${packageName}/class
     - {}
     - name: 17
     - id: after
       name: ${packageName}/class
-`)
+`,
+    )
     const result = await dump(fixture)
     expect(result.exitCode).toBe(1)
     const document = parseSchema(result.stdout)
-    expect(document['x-cordis'].entries.map(entry => [entry.path, entry.status]))
-      .toEqual([['/0', 'schema'], ['/1', 'error'], ['/2', 'error'], ['/3', 'schema']])
+    expect(document['x-cordis'].entries.map(entry => [entry.path, entry.status])).toEqual([
+      ['/0', 'schema'],
+      ['/1', 'error'],
+      ['/2', 'error'],
+      ['/3', 'schema'],
+    ])
     expect(document['x-cordis'].entries[1]).not.toHaveProperty('name')
     expect(document['x-cordis'].entries[2]).not.toHaveProperty('name')
     expect(document['x-cordis'].entries[0]!.configRef).toBe(document['x-cordis'].entries[3]!.configRef)
   })
 
   it('emits partial structural schemas when native annotations are not JSON-compatible', async () => {
-    const fixture = await createFixture({
-      partial: `${schemaImport}\nexport const Config = Schema.object({ label: Schema.string().extra('default', () => 'dynamic') })\n${forbiddenApply}`,
-    }, `- insert:
+    const fixture = await createFixture(
+      {
+        partial: `${schemaImport}\nexport const Config = Schema.object({ label: Schema.string().extra('default', () => 'dynamic') })\n${forbiddenApply}`,
+      },
+      `- insert:
     - id: partial
       name: ${packageName}/partial
-`)
+`,
+    )
     const result = await dump(fixture)
     expect(result.exitCode).toBe(1)
     const document = parseSchema(result.stdout)
@@ -269,12 +305,14 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
   })
 
   it('returns partial schemas and exit 1 for unsupported Config and throwing schema builders or imports', async () => {
-    const fixture = await createFixture({
-      unsupported: `export const Config = { type: 'object' }\n${forbiddenApply}`,
-      lazy: `${schemaImport}\nexport const Config = Schema.lazy(() => { throw new Error('fixture lazy schema failed') })\n${forbiddenApply}`,
-      broken: "throw new Error('fixture module import failed')",
-      recovered: classModule,
-    }, `- insert:
+    const fixture = await createFixture(
+      {
+        unsupported: `export const Config = { type: 'object' }\n${forbiddenApply}`,
+        lazy: `${schemaImport}\nexport const Config = Schema.lazy(() => { throw new Error('fixture lazy schema failed') })\n${forbiddenApply}`,
+        broken: "throw new Error('fixture module import failed')",
+        recovered: classModule,
+      },
+      `- insert:
     - id: schema-unsupported
       name: ${packageName}/unsupported
     - id: schema-lazy-error
@@ -283,7 +321,8 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
       name: ${packageName}/broken
     - id: schema-recovered
       name: ${packageName}/recovered
-`)
+`,
+    )
     const result = await dump(fixture)
     expect(result.exitCode, result.stderr).toBe(1)
     const document = parseSchema(result.stdout)
@@ -313,16 +352,22 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
   })
 
   it('marks a skipped selected bundle incomplete and exits 1', async () => {
-    const fixture = await createFixture({ absent: forbiddenApply }, `- insert:
+    const fixture = await createFixture(
+      { absent: forbiddenApply },
+      `- insert:
     - id: schema-retained
       name: ${packageName}/absent
-`)
+`,
+    )
     const missingBundle = 'dsh-schema-acceptance-missing-bundle'
-    await writeFile(join(fixture.profile, 'package.json'), JSON.stringify({
-      private: true,
-      dependencies: { [packageName]: '1.0.0' },
-      dsh: { profile: { bundles: [packageName, missingBundle] } },
-    }))
+    await writeFile(
+      join(fixture.profile, 'package.json'),
+      JSON.stringify({
+        private: true,
+        dependencies: { [packageName]: '1.0.0' },
+        dsh: { profile: { bundles: [packageName, missingBundle] } },
+      }),
+    )
     const result = await dump(fixture)
     expect(result.exitCode, result.stderr).toBe(1)
     const catalog = parseSchema(result.stdout)['x-cordis']
@@ -330,10 +375,12 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
     expect(catalog.entries).toEqual([
       { path: '/0', id: 'schema-retained', name: `${packageName}/absent`, status: 'absent', configRef: '#/$defs/unknownConfig' },
     ])
-    expect(catalog.diagnostics).toEqual([{
-      level: 'error',
-      message: `Selected profile bundle "${missingBundle}" could not be loaded; repair or remove its bundle selection.`,
-    }])
+    expect(catalog.diagnostics).toEqual([
+      {
+        level: 'error',
+        message: `Selected profile bundle "${missingBundle}" could not be loaded; repair or remove its bundle selection.`,
+      },
+    ])
     expect(result.stderr).toContain(missingBundle)
     for (const diagnostic of catalog.diagnostics) expect(result.stderr).toContain(diagnostic.message)
   })
@@ -353,13 +400,16 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
   })
 
   it('keeps --dump-config as boot-free YAML containing literal configured values', async () => {
-    const fixture = await createFixture({ absent: forbiddenApply }, `- insert:
+    const fixture = await createFixture(
+      { absent: forbiddenApply },
+      `- insert:
     - id: yaml-entry
       name: ${packageName}/absent
       config:
         value: ACTUAL_YAML_VALUE
         expression: !!js (() => { throw new Error('YAML_EXPRESSION_EXECUTED') })()
-`)
+`,
+    )
     const result = await dump(fixture, [], '--dump-config')
     expect(result.exitCode, result.stderr).toBe(0)
     expect(result.stderr).toBe('')
@@ -371,29 +421,41 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
   })
 
   it('composes --patch layers in order and resolves modules beside their profile or overlay', async () => {
-    const fixture = await createFixture({ absent: forbiddenApply }, `- insert:
+    const fixture = await createFixture(
+      { absent: forbiddenApply },
+      `- insert:
     - id: schema-bundle
       name: ${packageName}/absent
-`)
+`,
+    )
     await writeFile(join(fixture.profile, 'local-schema.mjs'), classModule)
     await writeFile(join(fixture.root, 'local-schema.mjs'), "throw new Error('WRONG_MODULE_ROOT')\n")
-    await writeFile(join(fixture.profile, 'cordis.patch.yml'), `- insert:
+    await writeFile(
+      join(fixture.profile, 'cordis.patch.yml'),
+      `- insert:
     - id: schema-profile
       name: ./local-schema.mjs
-`)
+`,
+    )
     await mkdir(join(fixture.root, 'overlays'))
     await writeFile(join(fixture.root, 'overlays', 'local-schema.mjs'), forbiddenApply)
-    await writeFile(join(fixture.root, 'overlays', 'first.yml'), `- insert:
+    await writeFile(
+      join(fixture.root, 'overlays', 'first.yml'),
+      `- insert:
     - id: schema-overlay
       name: ./local-schema.mjs
-`)
-    await writeFile(join(fixture.root, 'overlays', 'second.yml'), `- id: schema-overlay
+`,
+    )
+    await writeFile(
+      join(fixture.root, 'overlays', 'second.yml'),
+      `- id: schema-overlay
   config:
     enabled: PRIVATE_OVERLAY_VALUE
 - insert:
     - id: schema-second-overlay
       name: ./local-schema.mjs
-`)
+`,
+    )
     const result = await dump(fixture, ['--patch', 'overlays/first.yml', '--patch', 'overlays/second.yml'])
     expect(result.exitCode, result.stderr).toBe(0)
     expect(result.stderr).toBe('')
@@ -404,16 +466,22 @@ describe.skipIf(!builtArtifactsExist)('dsh --dump-config-schema assembled output
     expect(catalog.entries.map(({ path, id, name, status }) => ({ path, id, name, status }))).toEqual([
       { path: '/0', id: 'schema-bundle', name: `${packageName}/absent`, status: 'absent' },
       {
-        path: '/1', id: 'schema-profile',
-        name: pathToFileURL(join(fixture.profile, 'local-schema.mjs')).href, status: 'schema',
+        path: '/1',
+        id: 'schema-profile',
+        name: pathToFileURL(join(fixture.profile, 'local-schema.mjs')).href,
+        status: 'schema',
       },
       {
-        path: '/2', id: 'schema-overlay',
-        name: pathToFileURL(join(fixture.root, 'overlays', 'local-schema.mjs')).href, status: 'absent',
+        path: '/2',
+        id: 'schema-overlay',
+        name: pathToFileURL(join(fixture.root, 'overlays', 'local-schema.mjs')).href,
+        status: 'absent',
       },
       {
-        path: '/3', id: 'schema-second-overlay',
-        name: pathToFileURL(join(fixture.root, 'overlays', 'local-schema.mjs')).href, status: 'absent',
+        path: '/3',
+        id: 'schema-second-overlay',
+        name: pathToFileURL(join(fixture.root, 'overlays', 'local-schema.mjs')).href,
+        status: 'absent',
       },
     ])
   })

@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { composeEntries, loadProfileDirectory } from '@deepseek-ai/dsh-app-boot'
 import { createPluginProfile } from '../src/project-manager.ts'
 
@@ -16,10 +16,7 @@ it('retains one shared resource consumer in the Desktop Web profile', () => {
     const installAnchor = fileURLToPath(new URL('../../cli/package.json', import.meta.url))
     const profile = loadProfileDirectory('dsh desktop', profileDir, installAnchor)
     const warnings: string[] = []
-    const rows = composeEntries([
-      ...profile.layers.map(layer => layer.patches),
-      profile.patches,
-    ], message => warnings.push(message))
+    const rows = composeEntries([...profile.layers.map(layer => layer.patches), profile.patches], message => warnings.push(message))
 
     expect(rows.filter(row => row.name === '@deepseek-ai/dsh-mcp-resources')).toEqual([
       { id: 'mcp-resources', name: '@deepseek-ai/dsh-mcp-resources' },

@@ -82,7 +82,10 @@ class FakeServer {
    */
   listen(...args: unknown[]): this {
     const callback = args.at(-1)
-    if (typeof callback === 'function') queueMicrotask(() => { (callback as Listener)() })
+    if (typeof callback === 'function')
+      queueMicrotask(() => {
+        ;(callback as Listener)()
+      })
     return this
   }
 
@@ -100,7 +103,10 @@ class FakeServer {
    * @returns this server.
    */
   close(callback?: Listener): this {
-    if (callback !== undefined) queueMicrotask(() => { callback() })
+    if (callback !== undefined)
+      queueMicrotask(() => {
+        callback()
+      })
     return this
   }
 
@@ -178,8 +184,8 @@ export const __esModule = true
  * `net.Server` carrying sockets and a Node `RequestListener`, while this one binds
  * nothing and captures the synthesized-request listener the tunnel feeds.
  */
-type NodeFace = Partial<Omit<typeof import('node:http'), 'Server' | 'ServerResponse' | 'createServer'>>
-  & Record<'Server' | 'ServerResponse' | 'createServer', unknown>
+type NodeFace = Partial<Omit<typeof import('node:http'), 'Server' | 'ServerResponse' | 'createServer'>> &
+  Record<'Server' | 'ServerResponse' | 'createServer', unknown>
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default { createServer, request, get, STATUS_CODES, Server: FakeServer, ServerResponse } satisfies NodeFace

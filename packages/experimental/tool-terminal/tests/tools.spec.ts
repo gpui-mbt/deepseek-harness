@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { provideWorkingDirectoryFixture, unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
@@ -9,7 +9,15 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { renderToolsSdk } from '@deepseek-ai/dsh-tools'
 import type { ToolSdkSchema } from '@deepseek-ai/dsh-tools/src/ts-types.ts'
 import TerminalSessionService, { TerminalSessionId } from '@deepseek-ai/dsh-terminal'
-import type { TerminalBackend, TerminalBackendSession, TerminalSendOperation, TerminalSendRead, TerminalSendRequest, TerminalSessionStatus, TerminalSignal } from '@deepseek-ai/dsh-terminal'
+import type {
+  TerminalBackend,
+  TerminalBackendSession,
+  TerminalSendOperation,
+  TerminalSendRead,
+  TerminalSendRequest,
+  TerminalSessionStatus,
+  TerminalSignal,
+} from '@deepseek-ai/dsh-terminal'
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
 import * as ToolJobs from '@deepseek-ai/dsh-tool-jobs'
 import * as ToolPty from '@deepseek-ai/dsh-tool-terminal'
@@ -20,11 +28,17 @@ async function fakeAgent(ctx: Context, rawId: string): Promise<Agent> {
   const id = SessionId(rawId)
   const session = Session.create(id)
   const agent: Agent = {
-    id, options: {}, session, inbox: unsupportedInbox(),
+    id,
+    options: {},
+    session,
+    inbox: unsupportedInbox(),
     status: 'idle',
     ctx: scope.ctx,
     send: () => {},
-    followup: () => {}, steer: () => {}, inject: () => {}, cancel() {},
+    followup: () => {},
+    steer: () => {},
+    inject: () => {},
+    cancel() {},
     runMaintenance: job => job(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
@@ -48,7 +62,10 @@ class StubSession implements TerminalBackendSession {
     let settle!: () => void
     let reject!: (error: unknown) => void
     let cancelled = false
-    const done = new Promise<void>((resolve, rejectPromise) => { settle = resolve; reject = rejectPromise }).then(() => ({
+    const done = new Promise<void>((resolve, rejectPromise) => {
+      settle = resolve
+      reject = rejectPromise
+    }).then(() => ({
       viewport: cancelled ? '^C' : this.viewport,
       waitReason: 'stdin_read' as const,
       sessionStatus: this.statusValue,
@@ -69,7 +86,10 @@ class StubSession implements TerminalBackendSession {
       },
     }
     this.operation = operation
-    if (this.rejectOperation) queueMicrotask(() => { reject(new Error('operation failed')) })
+    if (this.rejectOperation)
+      queueMicrotask(() => {
+        reject(new Error('operation failed'))
+      })
     else if (this.autoSettle) queueMicrotask(settle)
     return operation
   }
@@ -82,7 +102,9 @@ class StubSession implements TerminalBackendSession {
     return { delivered: true as const, targetPgid: signal === 'SIGINT' ? 10 : 11 }
   }
 
-  status() { return this.statusValue }
+  status() {
+    return this.statusValue
+  }
 
   async close() {
     if (this.closeGate !== undefined) await this.closeGate.promise
@@ -129,7 +151,13 @@ let callNumber = 0
 const TOOL_NAMES = ['terminal_open', 'terminal_send', 'terminal_read', 'terminal_signal', 'terminal_close', 'terminal_list'] as const
 const testToolSignal = new AbortController().signal
 function call(ctx: Context, name: string, args: unknown, agent?: Agent) {
-  return ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId(`pty-call-${++callNumber}`), name, arguments: args, ...agent ? { agent } : {} })
+  return ctx.tools.execute({
+    signal: testToolSignal,
+    callId: ToolCallId(`pty-call-${++callNumber}`),
+    name,
+    arguments: args,
+    ...(agent ? { agent } : {}),
+  })
 }
 
 function callWithSignal(ctx: Context, name: string, args: unknown, agent: Agent, signal: AbortSignal) {
@@ -137,7 +165,10 @@ function callWithSignal(ctx: Context, name: string, args: unknown, agent: Agent,
 }
 
 function text(result: { content: { type: string; text?: string }[] }): string {
-  return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return result.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 function backgroundJobId(result: Awaited<ReturnType<typeof call>>): string {
@@ -170,7 +201,10 @@ describe('tool-terminal foreground API', () => {
     })
     const listed = await call(ctx, 'terminal_list', {}, agent)
     expect(text(listed)).toContain('pty-1 (main) [stub] running pid=42')
-    expect(listed).toMatchObject({ isError: false, value: [{ sessionId: 'pty-1', name: 'main', type: 'stub', pid: 42, status: { kind: 'running' } }] })
+    expect(listed).toMatchObject({
+      isError: false,
+      value: [{ sessionId: 'pty-1', name: 'main', type: 'stub', pid: 42, status: { kind: 'running' } }],
+    })
     const read = await call(ctx, 'terminal_read', { sessionId: 'pty-1' }, agent)
     expect(text(read)).toContain('history\n[lines: 0-1 of 1]')
     expect(read).toMatchObject({ isError: false, value: { text: 'history', totalLines: 1, lineBegin: 0, lineEnd: 1, truncated: false } })
@@ -308,18 +342,47 @@ describe('tool-terminal foreground API', () => {
     expect(definition?.presentCall?.({ sessionId: 'pty-1', text: 'python3' })).toMatchObject({ card: 'terminal', title: 'python3' })
     expect(definition?.presentCall?.({ sessionId: 'pty-1', text: 'make', run_in_background: true })).toMatchObject({ card: 'generic' })
     expect(definition?.presentCall?.({ sessionId: 'pty-1', text: '' })).toMatchObject({ card: 'terminal', title: '(send input)' })
-    expect(definition?.presentResult?.({ sessionId: 'pty-1', text: 'x', run_in_background: true }, { content: [], isError: false })).toBeUndefined()
+    expect(
+      definition?.presentResult?.({ sessionId: 'pty-1', text: 'x', run_in_background: true }, { content: [], isError: false }),
+    ).toBeUndefined()
     expect(definition?.presentResult?.({ sessionId: 'pty-1', text: 'x' }, { content: [], isError: true })).toBeUndefined()
     expect(definition?.presentResult?.({ sessionId: 'pty-1', text: 'x' }, { content: [], isError: false })).toBeUndefined()
-    expect(definition?.presentResult?.({ sessionId: 'pty-1', text: 'x' }, { content: [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }], isError: false })).toBeUndefined()
-    expect(definition?.presentResult?.({ sessionId: 'pty-1', text: 'x' }, { content: [undefined as never], isError: false })).toBeUndefined()
-    expect(definition?.presentResult?.({ sessionId: 'pty-1', text: 'x' }, { content: [{ type: 'text', text: 'ok' }], isError: false })).toEqual({ card: 'terminal', output: 'ok' })
+    expect(
+      definition?.presentResult?.(
+        { sessionId: 'pty-1', text: 'x' },
+        {
+          content: [
+            { type: 'text', text: 'a' },
+            { type: 'text', text: 'b' },
+          ],
+          isError: false,
+        },
+      ),
+    ).toBeUndefined()
+    expect(
+      definition?.presentResult?.({ sessionId: 'pty-1', text: 'x' }, { content: [undefined as never], isError: false }),
+    ).toBeUndefined()
+    expect(
+      definition?.presentResult?.({ sessionId: 'pty-1', text: 'x' }, { content: [{ type: 'text', text: 'ok' }], isError: false }),
+    ).toEqual({ card: 'terminal', output: 'ok' })
 
     expect(ctx.tools.get('terminal_open')?.presentCall?.({ type: 'stub' })).toMatchObject({ card: 'generic', title: 'Open terminal stub' })
-    expect(ctx.tools.get('terminal_open')?.presentCall?.({ type: 'stub', name: 'main' })).toMatchObject({ card: 'generic', title: 'Open terminal main' })
-    expect(ctx.tools.get('terminal_read')?.presentCall?.({ sessionId: 'pty-1' })).toMatchObject({ card: 'generic', title: 'Read terminal pty-1' })
-    expect(ctx.tools.get('terminal_signal')?.presentCall?.({ sessionId: 'pty-1', signal: 'SIGINT' })).toMatchObject({ card: 'generic', title: 'Signal terminal pty-1' })
-    expect(ctx.tools.get('terminal_close')?.presentCall?.({ sessionId: 'pty-1' })).toMatchObject({ card: 'generic', title: 'Close terminal pty-1' })
+    expect(ctx.tools.get('terminal_open')?.presentCall?.({ type: 'stub', name: 'main' })).toMatchObject({
+      card: 'generic',
+      title: 'Open terminal main',
+    })
+    expect(ctx.tools.get('terminal_read')?.presentCall?.({ sessionId: 'pty-1' })).toMatchObject({
+      card: 'generic',
+      title: 'Read terminal pty-1',
+    })
+    expect(ctx.tools.get('terminal_signal')?.presentCall?.({ sessionId: 'pty-1', signal: 'SIGINT' })).toMatchObject({
+      card: 'generic',
+      title: 'Signal terminal pty-1',
+    })
+    expect(ctx.tools.get('terminal_close')?.presentCall?.({ sessionId: 'pty-1' })).toMatchObject({
+      card: 'generic',
+      title: 'Close terminal pty-1',
+    })
     expect(ctx.tools.get('terminal_list')?.presentCall?.({})).toMatchObject({ card: 'generic', title: 'List terminal sessions' })
   })
 
@@ -329,17 +392,32 @@ describe('tool-terminal foreground API', () => {
     expect(definition?.parameters).not.toHaveProperty('properties.run_in_background')
     expect(definition?.description).not.toContain('Background mode')
     await call(disabled.ctx, 'terminal_open', { type: 'stub' }, disabled.agent)
-    expect((await call(disabled.ctx, 'terminal_send', {
-      sessionId: 'pty-1', text: 'work', run_in_background: true,
-    }, disabled.agent)).isError).toBe(true)
+    expect(
+      (
+        await call(
+          disabled.ctx,
+          'terminal_send',
+          {
+            sessionId: 'pty-1',
+            text: 'work',
+            run_in_background: true,
+          },
+          disabled.agent,
+        )
+      ).isError,
+    ).toBe(true)
 
     const defaults = await setupBase(false)
     ToolPty.apply(defaults.ctx)
     expect(defaults.ctx.tools.get('terminal_send')?.parameters).toHaveProperty('properties.run_in_background')
 
     const invalid = await setupBase(false)
-    expect(() => { ToolPty.apply(invalid.ctx, { maxResultBytes: 0 }) }).toThrow('maxResultBytes')
-    expect(() => { ToolPty.apply(invalid.ctx, { maxResultBytes: 63 }) }).toThrow('at least 64')
+    expect(() => {
+      ToolPty.apply(invalid.ctx, { maxResultBytes: 0 })
+    }).toThrow('maxResultBytes')
+    expect(() => {
+      ToolPty.apply(invalid.ctx, { maxResultBytes: 63 })
+    }).toThrow('at least 64')
   })
 
   it('bounds normalized errors and preserves allocated ids at the minimum result cap', async () => {
@@ -352,9 +430,16 @@ describe('tool-terminal foreground API', () => {
     const opened = await call(ctx, 'terminal_open', { type: 'stub', name: 'n'.repeat(1_000) }, agent)
     expect(text(opened)).toContain('pty-1')
     expect(Buffer.byteLength(text(opened))).toBeLessThanOrEqual(64)
-    const background = await call(ctx, 'terminal_send', {
-      sessionId: 'pty-1', text: 'work', run_in_background: true,
-    }, agent)
+    const background = await call(
+      ctx,
+      'terminal_send',
+      {
+        sessionId: 'pty-1',
+        text: 'work',
+        run_in_background: true,
+      },
+      agent,
+    )
     expect(text(background)).toBe(`started background job ${backgroundJobId(background)}`)
     expect(Buffer.byteLength(text(background))).toBeLessThanOrEqual(64)
   })
@@ -410,9 +495,9 @@ describe('tool-terminal foreground API', () => {
 
   it('leaves a structured around-dispatch failure unchanged', async () => {
     const { ctx, agent } = await setup(false, { maxResultBytes: 64 })
-    ctx.on('tools/execute', async (exec, next) => exec.name === 'terminal_list'
-      ? { content: [], isError: true, error: { message: 'structured failure' } }
-      : next())
+    ctx.on('tools/execute', async (exec, next) =>
+      exec.name === 'terminal_list' ? { content: [], isError: true, error: { message: 'structured failure' } } : next(),
+    )
     const result = await call(ctx, 'terminal_list', {}, agent)
     expect(result.isError).toBe(true)
     expect(result.content).toEqual([])
@@ -421,7 +506,10 @@ describe('tool-terminal foreground API', () => {
 
 describe('sendSource', () => {
   it('reads nothing before the send starts and counts delivered bytes afterwards', () => {
-    const reads: TerminalSendRead[] = [{ delta: '界', truncated: false }, { delta: '', truncated: true }]
+    const reads: TerminalSendRead[] = [
+      { delta: '界', truncated: false },
+      { delta: '', truncated: true },
+    ]
     const send: { operation?: TerminalSendOperation } = {}
     const source = sendSource(() => send.operation)
     expect(source.read(0)).toEqual({ text: '', nextOffset: 0, lossy: false })
@@ -467,7 +555,10 @@ describe('tool-terminal task integration', () => {
     await call(ctx, 'terminal_open', { type: 'stub' }, agent)
     const controller = new AbortController()
     controller.abort()
-    expect((await callWithSignal(ctx, 'terminal_send', { sessionId: 'pty-1', text: 'x', run_in_background: true }, agent, controller.signal)).isError).toBe(true)
+    expect(
+      (await callWithSignal(ctx, 'terminal_send', { sessionId: 'pty-1', text: 'x', run_in_background: true }, agent, controller.signal))
+        .isError,
+    ).toBe(true)
 
     stub.sessions[0]!.autoSettle = false
     const started = await call(ctx, 'terminal_send', { sessionId: 'pty-1', text: '', run_in_background: true }, agent)

@@ -1,6 +1,6 @@
 /** The Session projection that records which preset a Session runs. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SESSION_FORMAT_VERSION, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import { agentPresetProjectionDefinition } from '../src/session.ts'
@@ -13,7 +13,7 @@ function header(agentPreset?: string): SessionHeader {
     createdAt: 1,
     isSeeded: false,
     delegationDepth: 0,
-    ...agentPreset === undefined ? {} : { agentPreset },
+    ...(agentPreset === undefined ? {} : { agentPreset }),
   }
 }
 
@@ -35,7 +35,10 @@ describe('agent preset selection projection', () => {
 
     state = definition.apply(state, selected('minimal', SessionSeq(0)))
     state = definition.apply(state, {
-      type: 'turn/end', seq: SessionSeq(1), time: 1, data: { turn: 1, reason: { kind: 'completed' } },
+      type: 'turn/end',
+      seq: SessionSeq(1),
+      time: 1,
+      data: { turn: 1, reason: { kind: 'completed' } },
     })
     state = definition.apply(state, selected('cordis', SessionSeq(2)))
 

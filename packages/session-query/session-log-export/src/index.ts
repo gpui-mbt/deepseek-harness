@@ -30,12 +30,7 @@ export {
   sessionLogZipFilename,
   streamSessionLogZip,
 } from './archive.ts'
-export type {
-  SessionLogCompressionLevel,
-  SessionLogExportDeps,
-  SessionLogExportReady,
-  SessionLogZipEntry,
-} from './archive.ts'
+export type { SessionLogCompressionLevel, SessionLogExportDeps, SessionLogExportReady, SessionLogZipEntry } from './archive.ts'
 
 export const name = 'session-log-download'
 export const inject = ['commands', 'connection']
@@ -50,7 +45,10 @@ export interface Config {
 
 /** Validate Session-log archive configuration. */
 export const Config: Schema<Config> = Schema.object({
-  compressionLevel: Schema.number().step(1).min(0).max(9)
+  compressionLevel: Schema.number()
+    .step(1)
+    .min(0)
+    .max(9)
     .default(DEFAULT_SESSION_LOG_COMPRESSION_LEVEL) as Schema<SessionLogCompressionLevel>,
 })
 
@@ -76,24 +74,25 @@ const REQUESTED: CommandResult = {
  * @param config - resolved compression policy.
  */
 export function apply(ctx: Context, config: Config = {}): void {
-  ctx.effect(() => ctx.commands.register({
-    definitionId: brandString<CommandDefinitionId>('@deepseek-ai/dsh-session-log-export'),
-    name: 'export',
-    description: 'Download this Session log as a ZIP archive',
-    handler: invocation => Promise.resolve(invocation.rawInput.trim() === ''
-      ? REQUESTED
-      : { kind: 'error', text: 'The Web /export command does not accept a path.' }),
-  }), 'session-log-download: command')
+  ctx.effect(
+    () =>
+      ctx.commands.register({
+        definitionId: brandString<CommandDefinitionId>('@deepseek-ai/dsh-session-log-export'),
+        name: 'export',
+        description: 'Download this Session log as a ZIP archive',
+        handler: invocation =>
+          Promise.resolve(
+            invocation.rawInput.trim() === '' ? REQUESTED : { kind: 'error', text: 'The Web /export command does not accept a path.' },
+          ),
+      }),
+    'session-log-download: command',
+  )
   connectionOf(ctx).fetch.register({
     path: SESSION_LOG_EXPORT_PATH,
     methods: ['GET', 'HEAD'],
     requestBody: 'buffered',
-    fetch: async (request) => {
-      const response = await sessionLogExportResponse(
-        ctx,
-        request,
-        config.compressionLevel ?? DEFAULT_SESSION_LOG_COMPRESSION_LEVEL,
-      )
+    fetch: async request => {
+      const response = await sessionLogExportResponse(ctx, request, config.compressionLevel ?? DEFAULT_SESSION_LOG_COMPRESSION_LEVEL)
       if (request.method === 'GET') return response
       await response.body?.cancel()
       return new Response(null, { status: response.status, headers: response.headers })
@@ -105,28 +104,24 @@ function connectionOf(ctx: Context): SessionLogConnection {
   return Reflect.get(ctx, 'connection') as SessionLogConnection
 }
 
-async function sessionLogExportResponse(
-  ctx: Context,
-  request: Request,
-  compressionLevel: SessionLogCompressionLevel,
-): Promise<Response> {
+async function sessionLogExportResponse(ctx: Context, request: Request, compressionLevel: SessionLogCompressionLevel): Promise<Response> {
   const url = new URL(request.url)
   const query = Object.fromEntries(url.searchParams)
   const sessionIdValue = query['sessionId']
   const descendantsValue = query['includeDescendants']
-  if (sessionIdValue === undefined || sessionIdValue.length === 0
-    || (descendantsValue !== undefined && descendantsValue !== 'true' && descendantsValue !== 'false')) {
+  if (
+    sessionIdValue === undefined ||
+    sessionIdValue.length === 0 ||
+    (descendantsValue !== undefined && descendantsValue !== 'true' && descendantsValue !== 'false')
+  ) {
     return new Response('missing or invalid sessionId query parameter', { status: 400 })
   }
   const sessionId = brandString<SessionId>(sessionIdValue)
   const deps = sessionLogExportDeps(ctx)
-  if (deps.sessionQuery === undefined
-    || deps.sessionPersistence === undefined
-    || deps.attachments === undefined) {
-    return new Response(
-      'session log export is unavailable: missing session-query, session-persistence, or attachments service',
-      { status: 500 },
-    )
+  if (deps.sessionQuery === undefined || deps.sessionPersistence === undefined || deps.attachments === undefined) {
+    return new Response('session log export is unavailable: missing session-query, session-persistence, or attachments service', {
+      status: 500,
+    })
   }
   const ready: SessionLogExportReady = {
     sessionQuery: deps.sessionQuery,
@@ -150,14 +145,7 @@ async function sessionLogExportResponse(
     return new Response('session not found', { status: 404 })
   }
   const response = new Response(
-    streamSessionLogZip(
-      ready,
-      rootContent,
-      sessionId,
-      descendantsValue === 'true',
-      compressionLevel,
-      request.signal,
-    ),
+    streamSessionLogZip(ready, rootContent, sessionId, descendantsValue === 'true', compressionLevel, request.signal),
     {
       headers: {
         'content-type': 'application/zip',

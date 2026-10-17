@@ -3,7 +3,7 @@
 
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { InspectorDetails } from '../src/client/views/InspectorDetails.tsx'
 import { en } from '../src/client/locales.ts'
 
@@ -19,9 +19,13 @@ it('drags the upper edge, retains height across record changes, and stops on can
   vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 300, 500, 200))
   const captures = new Set<number>()
   Object.assign(handle, {
-    setPointerCapture: (id: number) => { captures.add(id) },
+    setPointerCapture: (id: number) => {
+      captures.add(id)
+    },
     hasPointerCapture: (id: number) => captures.has(id),
-    releasePointerCapture: (id: number) => { captures.delete(id) },
+    releasePointerCapture: (id: number) => {
+      captures.delete(id)
+    },
   })
   const pointer = (type: string, y: number) => {
     const event = new Event(type, { bubbles: true, cancelable: true })
@@ -54,9 +58,13 @@ it('ignores competing pointers and missing geometry and releases capture on comp
   const panel = handle.parentElement!
   const captured = new Set<number>()
   Object.assign(handle, {
-    setPointerCapture: (id: number) => { captured.add(id) },
+    setPointerCapture: (id: number) => {
+      captured.add(id)
+    },
     hasPointerCapture: (id: number) => captured.has(id),
-    releasePointerCapture: (id: number) => { captured.delete(id) },
+    releasePointerCapture: (id: number) => {
+      captured.delete(id)
+    },
   })
   const pointer = (type: string, pointerId = 1, button = 0, y = 300): void => {
     const event = new Event(type, { bubbles: true, cancelable: true })
@@ -87,7 +95,13 @@ it('ignores competing pointers and missing geometry and releases capture on comp
   const ignored = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
   fireEvent(handle, ignored)
   expect(ignored.defaultPrevented).toBe(false)
-  handle.addEventListener('pointerdown', () => { panel.remove() }, { once: true })
+  handle.addEventListener(
+    'pointerdown',
+    () => {
+      panel.remove()
+    },
+    { once: true },
+  )
   captured.clear()
   pointer('pointerdown')
   expect(captured.size).toBe(0)

@@ -48,9 +48,7 @@ export async function restoreLegacyHoists(staging: string, sourceNodeModules: st
     if (existsSync(destination)) continue
     const source = join(sourceNodeModules, dependency)
     if (!existsSync(source)) {
-      throw new Error(
-        `executable-packaging: deployed dependency ${dependency} is absent from both ${destination} and ${source}.`,
-      )
+      throw new Error(`executable-packaging: deployed dependency ${dependency} is absent from both ${destination} and ${source}.`)
     }
     await mkdir(dirname(destination), { recursive: true })
     const nestedNodeModules = join(source, 'node_modules')
@@ -61,8 +59,7 @@ export async function restoreLegacyHoists(staging: string, sourceNodeModules: st
     })
     restored.push(dependency)
   }
-  const stillMissing = Object.keys(manifest.dependencies ?? {})
-    .filter(dependency => !existsSync(join(staging, 'node_modules', dependency)))
+  const stillMissing = Object.keys(manifest.dependencies ?? {}).filter(dependency => !existsSync(join(staging, 'node_modules', dependency)))
   if (stillMissing.length > 0) {
     throw new Error(`executable-packaging: staged dependencies remain missing: ${stillMissing.join(', ')}.`)
   }

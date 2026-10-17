@@ -2,8 +2,13 @@
 
 import { createConfigProjector, LOADER_EXPRESSION_SCHEMA } from './projector.ts'
 import type {
-  CollectedConfigEntry, ConfigJsonSchema, ConfigJsonSchemaObject, ConfigSchemaDiagnostic,
-  ConfigSchemaDump, ConfigSchemaEntry, NativeConfigSchema,
+  CollectedConfigEntry,
+  ConfigJsonSchema,
+  ConfigJsonSchemaObject,
+  ConfigSchemaDiagnostic,
+  ConfigSchemaDump,
+  ConfigSchemaEntry,
+  NativeConfigSchema,
 } from './types.ts'
 
 const ref = (name: string): ConfigJsonSchemaObject => ({ $ref: `#/$defs/${name}` })
@@ -13,8 +18,14 @@ function metadata(): Record<string, ConfigJsonSchema> {
     id: { type: 'string', description: 'Entry id. Loader generates an id when an entry omits it; patches use the configured id.' },
     name: { type: 'string', description: 'Plugin module specifier. Inserted relative plugin paths are anchored beside their patch file.' },
     config: {},
-    group: { type: ['boolean', 'null'], description: 'Allows patch indexing and insertion into an entry-list config; does not select the plugin implementation.' },
-    disabled: { anyOf: [{ type: ['boolean', 'null'] }, ref('loaderExpression')], description: 'Boolean or !!js expression. The Loader coerces other truthy values as disabled; this schema rejects them.' },
+    group: {
+      type: ['boolean', 'null'],
+      description: 'Allows patch indexing and insertion into an entry-list config; does not select the plugin implementation.',
+    },
+    disabled: {
+      anyOf: [{ type: ['boolean', 'null'] }, ref('loaderExpression')],
+      description: 'Boolean or !!js expression. The Loader coerces other truthy values as disabled; this schema rejects them.',
+    },
     inject: { anyOf: [{ type: 'array', items: { type: 'string' } }, { type: 'object' }, { type: 'null' }] },
     intercept: { type: ['object', 'null'] },
     isolate: { type: ['object', 'null'], additionalProperties: { anyOf: [{ const: true }, { type: 'string' }] } },
@@ -26,7 +37,8 @@ function patchStructure(): ConfigJsonSchemaObject {
     type: 'object',
     allOf: [ref('entryMetadata')],
     properties: { insert: ref('entryList') },
-    description: 'An insert appends entries, optionally inside the group identified by id. Other patches replace supplied fields; config is replaced wholesale, not deep-merged. A truthy name asserts the existing plugin name rather than renaming it. Unknown targets and non-insert patches without a nonempty id are warned and skipped.',
+    description:
+      'An insert appends entries, optionally inside the group identified by id. Other patches replace supplied fields; config is replaced wholesale, not deep-merged. A truthy name asserts the existing plugin name rather than renaming it. Unknown targets and non-insert patches without a nonempty id are warned and skipped.',
   }
 }
 
@@ -54,14 +66,19 @@ export async function buildConfigSchemaDocument(
     patchList: { type: 'array', items: ref('patch') },
     unknownConfig: { $comment: 'No projected Config schema is available; this is unknown configuration, not a prohibition on fields.' },
     includeConfig: {
-      type: 'object', required: ['path'],
+      type: 'object',
+      required: ['path'],
       properties: {
-        path: { type: 'string', description: 'YAML/JSON filename resolved relative to the owning Loader tree. This field is literal, not a !!js expression.' },
+        path: {
+          type: 'string',
+          description: 'YAML/JSON filename resolved relative to the owning Loader tree. This field is literal, not a !!js expression.',
+        },
         initial: ref('entryList'),
         patches: { type: 'array', items: ref('includePatch') },
         enableLogs: { type: 'boolean' },
       },
-      description: 'Native Include configuration stays literal. initial is used only when the file is absent. Included files have their own module-resolution base and patch target index.',
+      description:
+        'Native Include configuration stays literal. initial is used only when the file is absent. Included files have their own module-resolution base and patch target index.',
     },
     includePatch: patchStructure(),
   }
@@ -126,12 +143,18 @@ export async function buildConfigSchemaDocument(
     }
     entryRules.push({ if: { properties: { name: { const: name } }, required: ['name'] }, then })
     if (choices.size > 1) {
-      diagnostics.push({ level: 'warning', message: `Plugin ${JSON.stringify(name)} has multiple collected schemas; entry validation accepts their union because module resolution depends on the owning tree.` })
+      diagnostics.push({
+        level: 'warning',
+        message: `Plugin ${JSON.stringify(name)} has multiple collected schemas; entry validation accepts their union because module resolution depends on the owning tree.`,
+      })
     }
   }
   definitions.entry = {
-    type: 'object', required: ['name'], allOf: [ref('entryMetadata'), ...entryRules],
-    description: 'Loader entry. Unknown metadata and plugin names are accepted; plugin-specific validation is available only for the names collected in this profile. Distinct resolutions of one name use a union of their schemas.',
+    type: 'object',
+    required: ['name'],
+    allOf: [ref('entryMetadata'), ...entryRules],
+    description:
+      'Loader entry. Unknown metadata and plugin names are accepted; plugin-specific validation is available only for the names collected in this profile. Distinct resolutions of one name use a union of their schemas.',
   }
 
   const patchRules: ConfigJsonSchema[] = []
@@ -140,7 +163,8 @@ export async function buildConfigSchemaDocument(
     const configRef = outputByEntry.get(target)?.configRef ?? '#/$defs/unknownConfig'
     patchRules.push({
       if: {
-        required: ['id'], properties: { id: { const: id } },
+        required: ['id'],
+        properties: { id: { const: id } },
         allOf: [
           { not: { required: ['insert'] } },
           { anyOf: [{ not: { required: ['name'] } }, { properties: { name: { enum: ['', target.name] } } }] },
@@ -155,15 +179,22 @@ export async function buildConfigSchemaDocument(
   return {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     title: `Cordis configuration for profile ${profile}`,
-    description: 'Describes the parsed entry-list YAML printed by --dump-config. Use $defs.patchList for a profile/home/CLI overlay. Parse !!js with the Cordis entry-list YAML dialect. Expression results, service dependencies, plugin startup checks, and sequence-dependent patch targets still require runtime validation.',
-    $comment: 'Bundle, profile, home, and CLI layers apply in that order. A patch config replaces the whole config. JSON Schema defaults are annotations; Schemastery validates a fallback on null/omission unless required rejects it first. Schemastery unions select the first successful branch. Root patch id constraints describe the current index, not ids introduced or changed by earlier patches. Include-local patches have a separate index. Relative plugin insertions require their source patch directory; this document does not infer future overlay locations.',
-    type: 'array', items: ref('entry'), $defs: definitions,
+    description:
+      'Describes the parsed entry-list YAML printed by --dump-config. Use $defs.patchList for a profile/home/CLI overlay. Parse !!js with the Cordis entry-list YAML dialect. Expression results, service dependencies, plugin startup checks, and sequence-dependent patch targets still require runtime validation.',
+    $comment:
+      'Bundle, profile, home, and CLI layers apply in that order. A patch config replaces the whole config. JSON Schema defaults are annotations; Schemastery validates a fallback on null/omission unless required rejects it first. Schemastery unions select the first successful branch. Root patch id constraints describe the current index, not ids introduced or changed by earlier patches. Include-local patches have a separate index. Relative plugin insertions require their source patch directory; this document does not infer future overlay locations.',
+    type: 'array',
+    items: ref('entry'),
+    $defs: definitions,
     'x-cordis': {
       profile,
-      complete: !diagnostics.some(item => item.level === 'error')
-        && !entries.some(entry => ['partial', 'unsupported', 'error'].includes(entry.status))
-        && ![...names.values()].some(choices => choices.size > 1),
-      entries, diagnostics, patchSchema: '#/$defs/patchList',
+      complete:
+        !diagnostics.some(item => item.level === 'error') &&
+        !entries.some(entry => ['partial', 'unsupported', 'error'].includes(entry.status)) &&
+        ![...names.values()].some(choices => choices.size > 1),
+      entries,
+      diagnostics,
+      patchSchema: '#/$defs/patchList',
     },
   }
 }

@@ -8,7 +8,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { atRuleBlock, packageStylesheets, parseRules } from './stylesheet-scan.ts'
 
 /** The support guard prelude, spelled exactly as the sheet must spell it. */
@@ -28,8 +28,7 @@ const sheetCss = readFileSync(sheetPath, 'utf8')
  * @returns true when some component is full-round.
  */
 function isFullRound(value: string): boolean {
-  return value.split(/\s+/).some(part =>
-    part === '50%' || part === '100%' || (part.endsWith('px') && Number.parseFloat(part) >= 99))
+  return value.split(/\s+/).some(part => part === '50%' || part === '100%' || (part.endsWith('px') && Number.parseFloat(part) >= 99))
 }
 
 describe('corner-shape.css smoothing', () => {
@@ -66,10 +65,8 @@ describe('corner-shape.css smoothing', () => {
  */
 function unpairedFullRound(css: string): string[] {
   return parseRules(css)
-    .filter(rule => rule.declarations
-      .some(([property, value]) => property === 'border-radius' && isFullRound(value)))
-    .filter(rule => !rule.declarations
-      .some(([property, value]) => property === 'corner-shape' && value === 'round'))
+    .filter(rule => rule.declarations.some(([property, value]) => property === 'border-radius' && isFullRound(value)))
+    .filter(rule => !rule.declarations.some(([property, value]) => property === 'corner-shape' && value === 'round'))
     .map(rule => rule.selectors.join(', '))
 }
 
@@ -85,7 +82,8 @@ describe('full-round radii keep circular corners', () => {
     // pill states its own arc back; a new one without the pairing regresses
     // silently on supporting engines only, which no jsdom test renders.
     const unpaired = packageStylesheets().flatMap(file =>
-      unpairedFullRound(readFileSync(file, 'utf8')).map(selectors => `${file} ${selectors}`))
+      unpairedFullRound(readFileSync(file, 'utf8')).map(selectors => `${file} ${selectors}`),
+    )
     expect(unpaired).toEqual([])
   })
 })

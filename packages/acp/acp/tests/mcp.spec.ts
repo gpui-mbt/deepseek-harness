@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import type { McpServer } from '@agentclientprotocol/sdk'
 import type { Config as McpClientConfig } from '@deepseek-ai/dsh-mcp-client'
@@ -18,20 +18,24 @@ describe('ACP MCP declaration mapping', () => {
   it('normalizes human server names and preserves standard stdio/HTTP fields', async () => {
     const { ctx, configs } = captureContext()
 
-    await mountAcpMcpServers(ctx, [
-      {
-        name: 'Fancy server!',
-        command: process.execPath,
-        args: ['server.js'],
-        env: [{ name: 'TOKEN', value: 'secret' }],
-      },
-      {
-        type: 'http',
-        name: '!!!',
-        url: 'https://example.test/mcp',
-        headers: [{ name: 'Authorization', value: 'Bearer token' }],
-      },
-    ], process.cwd())
+    await mountAcpMcpServers(
+      ctx,
+      [
+        {
+          name: 'Fancy server!',
+          command: process.execPath,
+          args: ['server.js'],
+          env: [{ name: 'TOKEN', value: 'secret' }],
+        },
+        {
+          type: 'http',
+          name: '!!!',
+          url: 'https://example.test/mcp',
+          headers: [{ name: 'Authorization', value: 'Bearer token' }],
+        },
+      ],
+      process.cwd(),
+    )
 
     expect(configs).toHaveLength(2)
     expect(configs[0]).toMatchObject({
@@ -53,47 +57,90 @@ describe('ACP MCP declaration mapping', () => {
   })
 
   it.each([
-    [[{ name: 'A', value: '1' }, { name: 'A', value: '2' }], /duplicate name/],
+    [
+      [
+        { name: 'A', value: '1' },
+        { name: 'A', value: '2' },
+      ],
+      /duplicate name/,
+    ],
     [[{ name: '', value: '1' }], /invalid environment entry/],
     [[{ name: 'A\0', value: '1' }], /invalid environment entry/],
     [[{ name: 'A', value: '1\0' }], /invalid environment entry/],
   ] as const)('rejects invalid environment entries %#', async (env, message) => {
     const { ctx } = captureContext()
-    await expect(mountAcpMcpServers(ctx, [{
-      name: 'fixture', command: process.execPath, args: [], env: [...env],
-    }], process.cwd())).rejects.toThrow(message)
+    await expect(
+      mountAcpMcpServers(
+        ctx,
+        [
+          {
+            name: 'fixture',
+            command: process.execPath,
+            args: [],
+            env: [...env],
+          },
+        ],
+        process.cwd(),
+      ),
+    ).rejects.toThrow(message)
   })
 
   it('rejects case-insensitive duplicate headers and malformed URLs', async () => {
     const { ctx } = captureContext()
-    await expect(mountAcpMcpServers(ctx, [{
-      type: 'http',
-      name: 'web',
-      url: 'https://example.test/mcp',
-      headers: [{ name: 'X-Key', value: 'one' }, { name: 'x-key', value: 'two' }],
-    }], process.cwd())).rejects.toThrow(/duplicate name/)
-    await expect(mountAcpMcpServers(ctx, [{
-      type: 'http', name: 'web', url: 'not a URL', headers: [],
-    }], process.cwd())).rejects.toThrow(/absolute HTTP/)
+    await expect(
+      mountAcpMcpServers(
+        ctx,
+        [
+          {
+            type: 'http',
+            name: 'web',
+            url: 'https://example.test/mcp',
+            headers: [
+              { name: 'X-Key', value: 'one' },
+              { name: 'x-key', value: 'two' },
+            ],
+          },
+        ],
+        process.cwd(),
+      ),
+    ).rejects.toThrow(/duplicate name/)
+    await expect(
+      mountAcpMcpServers(
+        ctx,
+        [
+          {
+            type: 'http',
+            name: 'web',
+            url: 'not a URL',
+            headers: [],
+          },
+        ],
+        process.cwd(),
+      ),
+    ).rejects.toThrow(/absolute HTTP/)
   })
 
   it('preserves legal names that collide with Object prototype setters', async () => {
     const { ctx, configs } = captureContext()
 
-    await mountAcpMcpServers(ctx, [
-      {
-        name: 'stdio',
-        command: process.execPath,
-        args: [],
-        env: [{ name: '__proto__', value: 'environment-value' }],
-      },
-      {
-        type: 'http',
-        name: 'http',
-        url: 'https://example.test/mcp',
-        headers: [{ name: '__proto__', value: 'header-value' }],
-      },
-    ], process.cwd())
+    await mountAcpMcpServers(
+      ctx,
+      [
+        {
+          name: 'stdio',
+          command: process.execPath,
+          args: [],
+          env: [{ name: '__proto__', value: 'environment-value' }],
+        },
+        {
+          type: 'http',
+          name: 'http',
+          url: 'https://example.test/mcp',
+          headers: [{ name: '__proto__', value: 'header-value' }],
+        },
+      ],
+      process.cwd(),
+    )
 
     expect(configs[0]?.transport === 'stdio' && Object.hasOwn(configs[0].env, '__proto__')).toBe(true)
     expect(configs[0]?.transport === 'stdio' && configs[0].env['__proto__']).toBe('environment-value')
@@ -110,7 +157,6 @@ describe('ACP MCP declaration mapping', () => {
       env: [],
     } as unknown as McpServer
 
-    await expect(mountAcpMcpServers(ctx, [malformed], process.cwd()))
-      .rejects.toThrow(/mcpServers\[0\] is invalid/)
+    await expect(mountAcpMcpServers(ctx, [malformed], process.cwd())).rejects.toThrow(/mcpServers\[0\] is invalid/)
   })
 })

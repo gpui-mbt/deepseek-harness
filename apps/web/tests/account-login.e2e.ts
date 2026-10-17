@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed, onTestFinished } from 'vite-plus/test'
 import { compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
 import { saveFailureShot } from './support.ts'
 
@@ -48,7 +48,9 @@ async function mockPlatform() {
     if (req.method === 'POST' && url.pathname.startsWith('/auth-api/v0/dsh/')) {
       let body = ''
       req.setEncoding('utf8')
-      req.on('data', (chunk: string) => { body += chunk })
+      req.on('data', (chunk: string) => {
+        body += chunk
+      })
       req.on('end', () => {
         const payload = JSON.parse(body) as Record<string, unknown>
         if (url.pathname === '/auth-api/v0/dsh/auth_init') {
@@ -68,12 +70,19 @@ async function mockPlatform() {
     }
     if (url.pathname === '/avatar.svg') {
       avatarRequests++
-      if (avatarRequests < 3) { res.writeHead(503, { 'cache-control': 'no-store' }).end(); return }
-      res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'max-age=3600' })
+      if (avatarRequests < 3) {
+        res.writeHead(503, { 'cache-control': 'no-store' }).end()
+        return
+      }
+      res
+        .writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'max-age=3600' })
         .end('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="16" fill="blue"/></svg>')
       return
     }
-    if (req.headers['x-dsh-auth-token'] !== TOKEN) { res.writeHead(401).end(); return }
+    if (req.headers['x-dsh-auth-token'] !== TOKEN) {
+      res.writeHead(401).end()
+      return
+    }
     if (url.pathname === '/auth-api/v0/users/current') {
       // `email` is required by the provider's profile schema even when the account has none.
       reply({ id: 'web-user', email: '', id_profile: { name: 'Web User', picture: `${origin}/avatar.svg` } })
@@ -83,16 +92,30 @@ async function mockPlatform() {
       reply({ normal_wallets: [{ currency: 'CNY', balance: '1.00' }], bonus_wallets: [] })
       return
     }
-    if (url.pathname === '/api/v0/users/get_unnotified_bonuses') { reply([]); return }
+    if (url.pathname === '/api/v0/users/get_unnotified_bonuses') {
+      reply([])
+      return
+    }
     res.writeHead(404).end()
   })
-  await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', resolve) })
+  await new Promise<void>(resolve => {
+    server.listen(0, '127.0.0.1', resolve)
+  })
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('account login: missing mock listener')
   const origin = `http://127.0.0.1:${String(address.port)}`
   return {
-    origin, inits, pages, avatarRequests: () => avatarRequests,
-    close: () => new Promise<void>((resolve) => { server.close(() => { resolve() }); server.closeAllConnections() }),
+    origin,
+    inits,
+    pages,
+    avatarRequests: () => avatarRequests,
+    close: () =>
+      new Promise<void>(resolve => {
+        server.close(() => {
+          resolve()
+        })
+        server.closeAllConnections()
+      }),
   }
 }
 
@@ -147,12 +170,13 @@ describe.skipIf(MODE === 'record')('web e2e: DeepSeek account sign-in in a plain
     const capture = async (stage: string): Promise<void> => {
       const sidebar = menu.locator('[data-avatar-status]')
       const account = page.getByRole('region', { name: 'Account', exact: true })
-      const mounted = await account.count() > 0
-      const settingsStatus = mounted
-        ? await account.locator('[data-avatar-status]').getAttribute('data-avatar-status') : 'unmounted'
-      states.push(`${stage}: sidebar=${await sidebar.getAttribute('data-avatar-status')}, settings=${settingsStatus}, `
-        + `sidebarImages=${await menu.locator('img').count()}, settingsImages=${mounted ? await account.locator('img').count() : 0}, `
-        + `requests=${platform.avatarRequests()}`)
+      const mounted = (await account.count()) > 0
+      const settingsStatus = mounted ? await account.locator('[data-avatar-status]').getAttribute('data-avatar-status') : 'unmounted'
+      states.push(
+        `${stage}: sidebar=${await sidebar.getAttribute('data-avatar-status')}, settings=${settingsStatus}, ` +
+          `sidebarImages=${await menu.locator('img').count()}, settingsImages=${mounted ? await account.locator('img').count() : 0}, ` +
+          `requests=${platform.avatarRequests()}`,
+      )
     }
     await capture('Initial load')
     await menu.click()
@@ -171,8 +195,9 @@ describe.skipIf(MODE === 'record')('web e2e: DeepSeek account sign-in in a plain
     await expect.poll(() => menu.locator('img').count()).toBe(1)
     await expect.poll(() => account.locator('img').count()).toBe(1)
     for (const image of [menu.locator('img'), account.locator('img')]) {
-      await expect.poll(() => image.evaluate(element =>
-        element instanceof HTMLImageElement && element.complete && element.naturalWidth > 0)).toBe(true)
+      await expect
+        .poll(() => image.evaluate(element => element instanceof HTMLImageElement && element.complete && element.naturalWidth > 0))
+        .toBe(true)
       expect(await image.getAttribute('src')).toBe(`${platform.origin}/avatar.svg`)
     }
     await capture('Second Settings entry')

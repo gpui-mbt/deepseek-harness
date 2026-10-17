@@ -1,7 +1,7 @@
 /** Independent spawn presets and compatibility of persisted child compositions. */
 import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -51,11 +51,17 @@ async function setup() {
   await ctx.plugin(TestSessionQuery)
   const presets = await ctx.plugin(AgentPresets, { default: 'coding' })
   const unregister = new Map<string, () => Promise<void>>()
-  for (const [id, tool] of [['coding', 'preset_only'], ['reviewing', 'reviewing_only']] as const) {
-    unregister.set(id, await ctx.agentPresets.register({
+  for (const [id, tool] of [
+    ['coding', 'preset_only'],
+    ['reviewing', 'reviewing_only'],
+  ] as const) {
+    unregister.set(
       id,
-      plugins: [{ name: pathToFileURL(join(fixtures, 'plugins/preset-tool.js')).href, config: { tool } }],
-    }))
+      await ctx.agentPresets.register({
+        id,
+        plugins: [{ name: pathToFileURL(join(fixtures, 'plugins/preset-tool.js')).href, config: { tool } }],
+      }),
+    )
   }
   await mountWorkingDirectoryFixture(ctx)
   await ctx.plugin(SubagentRuntime)
@@ -67,14 +73,16 @@ async function setup() {
     sessionId: SessionId('parent'),
     meta: { agentPreset: 'coding' },
     agentOptions: { provider: 'mock', model: 'mock' },
-    setup: async (agentCtx) => { await ctx.agentPresets.mount(agentCtx, 'coding') },
+    setup: async agentCtx => {
+      await ctx.agentPresets.mount(agentCtx, 'coding')
+    },
   })
   return { ctx, parent: handle.agent, adapter, spawn, presets, unregister }
 }
 
 /** Settlement messages must not consume responses scripted for the child. */
 function parkParent(ctx: Context, parent: Agent): void {
-  ctx.on('agent/pre-step', async ({ agent }, next) => agent === parent ? { kind: 'reject' } : next())
+  ctx.on('agent/pre-step', async ({ agent }, next) => (agent === parent ? { kind: 'reject' } : next()))
 }
 
 function startSpec(parent: Agent, agentPreset?: string, provider = 'separate') {
@@ -92,14 +100,20 @@ function startSpec(parent: Agent, agentPreset?: string, provider = 'separate') {
 }
 
 async function settled(ctx: Context, childId: SessionId) {
-  await vi.waitFor(() => { expect(ctx.agents.get(childId)).toBeUndefined() })
+  await vi.waitFor(() => {
+    expect(ctx.agents.get(childId)).toBeUndefined()
+  })
   return loadStoredSession(ctx.sessionPersistence, childId)
 }
 
 function continueChild(ctx: Context, parent: Agent, childId: SessionId) {
   return queueHostSubagentPrompt(
-    ctx.subagents, parent, childId,
-    [{ type: 'text', text: 'continue' }], { kind: 'user' }, new AbortController().signal,
+    ctx.subagents,
+    parent,
+    childId,
+    [{ type: 'text', text: 'continue' }],
+    { kind: 'user' },
+    new AbortController().signal,
   )
 }
 
@@ -188,8 +202,7 @@ describe('continuable child presets', () => {
 
     await continueChild(ctx, parent, started.childId)
     const stored = await settled(ctx, started.childId)
-    expect(adapter.requests.map(request => request.tools?.map(tool => tool.name)))
-      .toEqual([['preset_only'], ['preset_only']])
+    expect(adapter.requests.map(request => request.tools?.map(tool => tool.name))).toEqual([['preset_only'], ['preset_only']])
     expect(stored.events.filter(event => event.type === 'agent-preset/selected')).toHaveLength(1)
     expect(stored.events.filter(event => event.type === 'subagent/descriptor')).toHaveLength(1)
     expect(ctx.tools.schemas(parent).map(tool => tool.name)).toEqual(['reviewing_only'])
@@ -207,16 +220,17 @@ describe('continuable child presets', () => {
     const created = await settled(ctx, started.childId)
     stopSelecting()
     expect(created.meta.agentPreset).toBe('coding')
-    expect(created.events.flatMap(event => event.type === 'agent-preset/selected' ? [event.data.agentPreset] : []))
-      .toEqual(['coding', 'reviewing'])
+    expect(created.events.flatMap(event => (event.type === 'agent-preset/selected' ? [event.data.agentPreset] : []))).toEqual([
+      'coding',
+      'reviewing',
+    ])
 
     await continueChild(ctx, parent, started.childId)
     await settled(ctx, started.childId)
-    expect(adapter.requests.map(request => request.tools?.map(tool => tool.name)))
-      .toEqual([['reviewing_only'], ['reviewing_only']])
+    expect(adapter.requests.map(request => request.tools?.map(tool => tool.name))).toEqual([['reviewing_only'], ['reviewing_only']])
   })
 
-  it.each([undefined, 'coding'])('restores historical children with header preset %s through the current parent', async (agentPreset) => {
+  it.each([undefined, 'coding'])('restores historical children with header preset %s through the current parent', async agentPreset => {
     const { ctx, parent, adapter } = await setup()
     parkParent(ctx, parent)
     const childId = SessionId('historical-child')
@@ -230,11 +244,18 @@ describe('continuable child presets', () => {
         ...(agentPreset === undefined ? {} : { agentPreset }),
       },
       setup: (childCtx, child) => {
-        child.session.append('subagent/descriptor', snapshotSubagentDescriptor({
-          mode: 'continuable', provider: 'separate', label: 'historical',
-          agentProvider: 'mock', agentModel: 'mock', persona: 'Historical child persona.',
-          toolFilter: { deny: ['reviewing_only'] },
-        }))
+        child.session.append(
+          'subagent/descriptor',
+          snapshotSubagentDescriptor({
+            mode: 'continuable',
+            provider: 'separate',
+            label: 'historical',
+            agentProvider: 'mock',
+            agentModel: 'mock',
+            persona: 'Historical child persona.',
+            toolFilter: { deny: ['reviewing_only'] },
+          }),
+        )
         ctx.agentPresets.composeFrom(childCtx, parent.ctx)
       },
     })
@@ -246,8 +267,9 @@ describe('continuable child presets', () => {
     expect(stored.meta.agentPreset).toBe(agentPreset)
     expect(stored.events.some(event => event.type === 'agent-preset/selected')).toBe(false)
     expect((adapter.requests[0]?.tools ?? []).map(tool => tool.name)).toEqual([])
-    expect(JSON.stringify(adapter.requests[0]?.messages.filter(message => message.role === 'system')))
-      .toContain('Historical child persona.')
+    expect(JSON.stringify(adapter.requests[0]?.messages.filter(message => message.role === 'system'))).toContain(
+      'Historical child persona.',
+    )
   })
 
   it('keeps an empty-history fork on the parent composition when its own selection follows the descriptor', async () => {
@@ -263,13 +285,13 @@ describe('continuable child presets', () => {
     stopSelecting()
     expect(created.meta.isSeeded).toBe(false)
     expect(created.inheritedEventCount).toBe(0)
-    expect(created.events.findIndex(event => event.type === 'agent-preset/selected'))
-      .toBeGreaterThan(created.events.findIndex(event => event.type === 'subagent/descriptor'))
+    expect(created.events.findIndex(event => event.type === 'agent-preset/selected')).toBeGreaterThan(
+      created.events.findIndex(event => event.type === 'subagent/descriptor'),
+    )
 
     await continueChild(ctx, parent, started.childId)
     await settled(ctx, started.childId)
-    expect(adapter.requests.map(request => request.tools?.map(tool => tool.name)))
-      .toEqual([['reviewing_only'], ['preset_only']])
+    expect(adapter.requests.map(request => request.tools?.map(tool => tool.name))).toEqual([['reviewing_only'], ['preset_only']])
   })
 
   it('ignores inherited selections when resuming a fork whose parent still owns a retired preset generation', async () => {
@@ -286,11 +308,14 @@ describe('continuable child presets', () => {
 
     await continueChild(ctx, parent, started.childId)
     await settled(ctx, started.childId)
-    expect(adapter.requests.map(request => request.tools?.map(tool => tool.name)))
-      .toEqual([['reviewing_only'], ['reviewing_only'], ['reviewing_only']])
+    expect(adapter.requests.map(request => request.tools?.map(tool => tool.name))).toEqual([
+      ['reviewing_only'],
+      ['reviewing_only'],
+      ['reviewing_only'],
+    ])
   })
 
-  it.each(['missing', 'broken'] as const)('refuses an independent cold resume when its preset is %s', async (failure) => {
+  it.each(['missing', 'broken'] as const)('refuses an independent cold resume when its preset is %s', async failure => {
     const { ctx, parent, adapter, unregister } = await setup()
     parkParent(ctx, parent)
     const started = await ctx.subagents.startActivation(startSpec(parent, 'reviewing'))

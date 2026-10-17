@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, realpathSync, rmSync, statSync, writeFileSync 
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative, resolve } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createRuntimeContext } from './setup.ts'
 import { PythonPtcRuntime, hostFrameParseCeiling, readProcessStart, resolvePythonBin } from '../src/index.ts'
 import { logTruncationMarker } from '../src/protocol.ts'
@@ -20,7 +20,7 @@ const { failNextReadOf, tempDirs, tempFiles } = vi.hoisted(() => ({
   tempDirs: [] as string[],
   tempFiles: [] as string[],
 }))
-vi.mock('node:fs', async (importOriginal) => {
+vi.mock('node:fs', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs')>()
   return {
     ...actual,
@@ -73,7 +73,9 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     const { runtime } = await setup()
     expect(runtime.language).toBe('python')
     expect(runtime.isolation).toBe('process')
-    expect(runtime.executionInstructions).toBe('The program is the body of an async Python function. Top-level await and return are supported. Emit output with print(...) or return a lossless JSON value. Only printed values and the returned value become program output. Each call runs in a fresh Python process; variables and imported modules do not persist across calls. Relative paths use the supplied working directory; only TMPDIR is set in the environment. Direct filesystem access follows this execution\'s sandbox policy.')
+    expect(runtime.executionInstructions).toBe(
+      "The program is the body of an async Python function. Top-level await and return are supported. Emit output with print(...) or return a lossless JSON value. Only printed values and the returned value become program output. Each call runs in a fresh Python process; variables and imported modules do not persist across calls. Relative paths use the supplied working directory; only TMPDIR is set in the environment. Direct filesystem access follows this execution's sandbox policy.",
+    )
   })
 
   it('resolves its configured deadline and cwd while refusing unsupported execution choices', async () => {
@@ -81,7 +83,12 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     try {
       const request = { program: 'return 1', bindings: [] }
       expect(runtime.sandboxMode).toBe('danger-full-access')
-      expect(runtime.resolve(request)).toEqual({ ...request, cwd: process.cwd(), timeoutMs: 30_000, sandboxPolicy: { mode: 'danger-full-access', workspaceRoot: process.cwd() } })
+      expect(runtime.resolve(request)).toEqual({
+        ...request,
+        cwd: process.cwd(),
+        timeoutMs: 30_000,
+        sandboxPolicy: { mode: 'danger-full-access', workspaceRoot: process.cwd() },
+      })
       const cwd = await makeTempDir('dsh-py-resolved-cwd-')
       const spec = runtime.resolve({ ...request, cwd })
       expect(spec.cwd).toBe(cwd)
@@ -97,21 +104,20 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
       const result = await runtime.run(runtime.resolve({ ...request, cwd, program: 'import os\nreturn os.getcwd()' }))
       expect(result.error).toBeUndefined()
       expect(result.value).toBe(realpathSync(cwd))
-    } finally { await fiber.dispose() }
+    } finally {
+      await fiber.dispose()
+    }
   })
 
   it('rejects non-positive config as seam misuse', async () => {
     const ctx = await createRuntimeContext()
-    await expect(ctx.plugin(PythonPtcRuntime, { cpuSeconds: 0 }))
-      .rejects.toThrow(/cpuSeconds must be a positive number/)
-    await expect(ctx.plugin(PythonPtcRuntime, { maxWallMs: -1 }))
-      .rejects.toThrow(/maxWallMs must be a positive number/)
+    await expect(ctx.plugin(PythonPtcRuntime, { cpuSeconds: 0 })).rejects.toThrow(/cpuSeconds must be a positive number/)
+    await expect(ctx.plugin(PythonPtcRuntime, { maxWallMs: -1 })).rejects.toThrow(/maxWallMs must be a positive number/)
   })
 
   it('rejects a non-integer cpuSeconds at load (setrlimit needs an int)', async () => {
     const ctx = await createRuntimeContext()
-    await expect(ctx.plugin(PythonPtcRuntime, { cpuSeconds: 1.5 }))
-      .rejects.toThrow(/cpuSeconds must be a positive integer, got 1.5/)
+    await expect(ctx.plugin(PythonPtcRuntime, { cpuSeconds: 1.5 })).rejects.toThrow(/cpuSeconds must be a positive integer, got 1.5/)
   })
 
   it('rejects a non-integer byte budget at load (the child int()-truncates it)', async () => {
@@ -119,11 +125,9 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     // int(...): a float would floor there while the host meters the fraction, so
     // the two sides would enforce different public config. Reject at load.
     const ctxLog = await createRuntimeContext()
-    await expect(ctxLog.plugin(PythonPtcRuntime, { maxLogBytes: 3.5 }))
-      .rejects.toThrow(/maxLogBytes must be a positive integer/)
+    await expect(ctxLog.plugin(PythonPtcRuntime, { maxLogBytes: 3.5 })).rejects.toThrow(/maxLogBytes must be a positive integer/)
     const ctxValue = await createRuntimeContext()
-    await expect(ctxValue.plugin(PythonPtcRuntime, { maxValueBytes: 1024.5 }))
-      .rejects.toThrow(/maxValueBytes must be a positive integer/)
+    await expect(ctxValue.plugin(PythonPtcRuntime, { maxValueBytes: 1024.5 })).rejects.toThrow(/maxValueBytes must be a positive integer/)
   })
 
   it('rejects finite numeric config that cannot cross as an exact rlimit integer', async () => {
@@ -135,10 +139,10 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     // configured. Both used to end every run in a bootstrap exception instead of
     // failing at load, where a self-contained configuration error belongs.
     const ctx = await createRuntimeContext()
-    await expect(ctx.plugin(PythonPtcRuntime, { addressSpaceMb: 1e308 }))
-      .rejects.toThrow(/addressSpaceMb must be at most \d+ .*exact integer/)
-    await expect(ctx.plugin(PythonPtcRuntime, { cpuSeconds: 1e100 }))
-      .rejects.toThrow(/cpuSeconds must be at most \d+ .*exact integers/)
+    await expect(ctx.plugin(PythonPtcRuntime, { addressSpaceMb: 1e308 })).rejects.toThrow(
+      /addressSpaceMb must be at most \d+ .*exact integer/,
+    )
+    await expect(ctx.plugin(PythonPtcRuntime, { cpuSeconds: 1e100 })).rejects.toThrow(/cpuSeconds must be at most \d+ .*exact integers/)
     // The boundary values still load: the bound rejects what cannot be encoded,
     // not everything large.
     const okMb = await ctx.plugin(PythonPtcRuntime, { addressSpaceMb: Math.floor(Number.MAX_SAFE_INTEGER / (1024 * 1024)) })
@@ -161,10 +165,8 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     // child frames the host then rejects.
     const admissible = 64 * 1024 * 1024 - 64
     const ctx = await createRuntimeContext()
-    await expect(ctx.plugin(PythonPtcRuntime, { maxLogBytes: admissible + 1 }))
-      .rejects.toThrow(/maxLogBytes must not exceed 67108800/)
-    await expect(ctx.plugin(PythonPtcRuntime, { maxValueBytes: admissible + 1 }))
-      .rejects.toThrow(/maxValueBytes must not exceed 67108800/)
+    await expect(ctx.plugin(PythonPtcRuntime, { maxLogBytes: admissible + 1 })).rejects.toThrow(/maxLogBytes must not exceed 67108800/)
+    await expect(ctx.plugin(PythonPtcRuntime, { maxValueBytes: admissible + 1 })).rejects.toThrow(/maxValueBytes must not exceed 67108800/)
     // The boundary value itself loads: the bound is the largest cap a frame can
     // still carry, not one below it. It needs an address space large enough to
     // clear the separate maxValueBytes/addressSpaceMb worst-case gate (the cap
@@ -244,10 +246,10 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     // resolving the worker-exit the seam promises for a child that cannot
     // start. Both are self-contained configuration errors, so they fail here.
     const ctx = await createRuntimeContext()
-    await expect(ctx.plugin(PythonPtcRuntime, { pythonBin: '' }))
-      .rejects.toThrow(/pythonBin must be a non-empty path without NUL bytes/)
-    await expect(ctx.plugin(PythonPtcRuntime, { pythonBin: 'py\u0000thon3' }))
-      .rejects.toThrow(/pythonBin must be a non-empty path without NUL bytes/)
+    await expect(ctx.plugin(PythonPtcRuntime, { pythonBin: '' })).rejects.toThrow(/pythonBin must be a non-empty path without NUL bytes/)
+    await expect(ctx.plugin(PythonPtcRuntime, { pythonBin: 'py\u0000thon3' })).rejects.toThrow(
+      /pythonBin must be a non-empty path without NUL bytes/,
+    )
   })
 
   it('rejects an explicit pythonBin that is not an executable regular file, at load', async () => {
@@ -266,20 +268,20 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     mkdirSync(directory)
     try {
       const missing = await createRuntimeContext()
-      await expect(missing.plugin(PythonPtcRuntime, { pythonBin: nodePath.join(dir, 'missing') }))
-        .rejects.toThrow(/is not an executable regular file/)
+      await expect(missing.plugin(PythonPtcRuntime, { pythonBin: nodePath.join(dir, 'missing') })).rejects.toThrow(
+        /is not an executable regular file/,
+      )
       const noX = await createRuntimeContext()
-      await expect(noX.plugin(PythonPtcRuntime, { pythonBin: notExecutable }))
-        .rejects.toThrow(/is not an executable regular file/)
+      await expect(noX.plugin(PythonPtcRuntime, { pythonBin: notExecutable })).rejects.toThrow(/is not an executable regular file/)
       const isDir = await createRuntimeContext()
-      await expect(isDir.plugin(PythonPtcRuntime, { pythonBin: directory }))
-        .rejects.toThrow(/is not an executable regular file/)
+      await expect(isDir.plugin(PythonPtcRuntime, { pythonBin: directory })).rejects.toThrow(/is not an executable regular file/)
       // A relative explicit path fails the same way, resolved against the host
       // CWD: `dir` is absolute, so a slash-containing relative form of it is
       // the dirname prefix plus the file, which does not exist as such.
       const rel = await createRuntimeContext()
-      await expect(rel.plugin(PythonPtcRuntime, { pythonBin: './definitely-not-there-python' }))
-        .rejects.toThrow(/is not an executable regular file/)
+      await expect(rel.plugin(PythonPtcRuntime, { pythonBin: './definitely-not-there-python' })).rejects.toThrow(
+        /is not an executable regular file/,
+      )
     } finally {
       const { rmSync } = await import('node:fs')
       rmSync(dir, { recursive: true, force: true })
@@ -288,8 +290,7 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
 
   it('rejects a non-CPython, outdated, or probe-failing interpreter at load', async () => {
     const nonPython = await createRuntimeContext()
-    await expect(nonPython.plugin(PythonPtcRuntime, { pythonBin: '/bin/echo' }))
-      .rejects.toThrow(/did not report a CPython version/)
+    await expect(nonPython.plugin(PythonPtcRuntime, { pythonBin: '/bin/echo' })).rejects.toThrow(/did not report a CPython version/)
 
     const dir = await mkdtemp(join(tmpdir(), 'dsh-python-probe-'))
     const oldMajor = join(dir, 'python-old-major')
@@ -297,28 +298,28 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     const future = join(dir, 'python-future')
     const pypy = join(dir, 'pypy')
     const failed = join(dir, 'python-failed')
-    await writeFile(oldMajor, '#!/bin/sh\nprintf \'cpython 2 99 0\\n\'\n', { mode: 0o755 })
-    await writeFile(old, '#!/bin/sh\nprintf \'cpython 3 9 6\\n\'\n', { mode: 0o755 })
-    await writeFile(future, '#!/bin/sh\nprintf \'cpython 4 0 0\\n\'\n', { mode: 0o755 })
-    await writeFile(pypy, '#!/bin/sh\nprintf \'pypy 3 10 0\\n\'\n', { mode: 0o755 })
+    await writeFile(oldMajor, "#!/bin/sh\nprintf 'cpython 2 99 0\\n'\n", { mode: 0o755 })
+    await writeFile(old, "#!/bin/sh\nprintf 'cpython 3 9 6\\n'\n", { mode: 0o755 })
+    await writeFile(future, "#!/bin/sh\nprintf 'cpython 4 0 0\\n'\n", { mode: 0o755 })
+    await writeFile(pypy, "#!/bin/sh\nprintf 'pypy 3 10 0\\n'\n", { mode: 0o755 })
     await writeFile(failed, '#!/bin/sh\nexit 7\n', { mode: 0o755 })
     try {
       expect(resolvePythonBin(relative(process.cwd(), old))).toBe(old)
       const obsolete = await createRuntimeContext()
-      await expect(obsolete.plugin(PythonPtcRuntime, { pythonBin: oldMajor }))
-        .rejects.toThrow(/must be CPython 3\.10 or newer, got cpython 2\.99\.0/)
+      await expect(obsolete.plugin(PythonPtcRuntime, { pythonBin: oldMajor })).rejects.toThrow(
+        /must be CPython 3\.10 or newer, got cpython 2\.99\.0/,
+      )
       const outdated = await createRuntimeContext()
-      await expect(outdated.plugin(PythonPtcRuntime, { pythonBin: old }))
-        .rejects.toThrow(/must be CPython 3\.10 or newer, got cpython 3\.9\.6/)
+      await expect(outdated.plugin(PythonPtcRuntime, { pythonBin: old })).rejects.toThrow(
+        /must be CPython 3\.10 or newer, got cpython 3\.9\.6/,
+      )
       const forwardCompatible = await createRuntimeContext()
       const fiber = await forwardCompatible.plugin(PythonPtcRuntime, { pythonBin: future })
       await fiber.dispose()
       const alternative = await createRuntimeContext()
-      await expect(alternative.plugin(PythonPtcRuntime, { pythonBin: pypy }))
-        .rejects.toThrow(/must be CPython, got pypy/)
+      await expect(alternative.plugin(PythonPtcRuntime, { pythonBin: pypy })).rejects.toThrow(/must be CPython, got pypy/)
       const probeFailure = await createRuntimeContext()
-      await expect(probeFailure.plugin(PythonPtcRuntime, { pythonBin: failed }))
-        .rejects.toThrow(/failed the CPython version probe/)
+      await expect(probeFailure.plugin(PythonPtcRuntime, { pythonBin: failed })).rejects.toThrow(/failed the CPython version probe/)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -349,10 +350,14 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
         throw new Error('getter blew up')
       },
     }
-    await expect(runtime.run(runtime.resolve({
-      program: 'return 1',
-      bindings: [{ global: 'tools', functions: exploding }],
-    }))).rejects.toThrow(/getter blew up/)
+    await expect(
+      runtime.run(
+        runtime.resolve({
+          program: 'return 1',
+          bindings: [{ global: 'tools', functions: exploding }],
+        }),
+      ),
+    ).rejects.toThrow(/getter blew up/)
   })
 
   it('snapshots binding callables once, so a getter is read exactly once', async () => {
@@ -367,10 +372,12 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
       },
     }
     const { runtime, fiber } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'return 1',
-      bindings: [{ global: 'tools', functions: countReads }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return 1',
+        bindings: [{ global: 'tools', functions: countReads }],
+      }),
+    )
     expect(result.error).toBeUndefined()
     // One read for the validation snapshot; the boot frame and every dispatch
     // read the snapshot, not the getter.
@@ -385,13 +392,17 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     // setter on assignment and drop the member, so the child would never learn
     // the name and a call to it would fail with KeyError.
     const { runtime, fiber } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'return await tools["__proto__"]({})',
-      bindings: [{
-        global: 'tools',
-        functions: { ['__proto__']: async () => 'proto-callable' },
-      }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return await tools["__proto__"]({})',
+        bindings: [
+          {
+            global: 'tools',
+            functions: { ['__proto__']: async () => 'proto-callable' },
+          },
+        ],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('proto-callable')
     await fiber.dispose()
@@ -409,10 +420,12 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
       const mounted = await setup({ pythonBin: 'python3' })
       fiber = mounted.fiber
       vi.stubEnv('PATH', secondDir)
-      const result = await mounted.runtime.run(mounted.runtime.resolve({
-        program: 'import os\nreturn os.environ.get("DSH_TEST_PYTHON")',
-        bindings: [],
-      }))
+      const result = await mounted.runtime.run(
+        mounted.runtime.resolve({
+          program: 'import os\nreturn os.environ.get("DSH_TEST_PYTHON")',
+          bindings: [],
+        }),
+      )
       expect(result.error).toBeUndefined()
       expect(result.value).toBe('first')
     } finally {
@@ -453,16 +466,18 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     // child sends exactly one ack; the forged one exercises the re-entry
     // guard.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        // One forged boot-ack after the program starts; the run already went
-        // out on the real ack.
-        "os.write(3, b'{\"type\":\"boot-ack\"}\\n')",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          // One forged boot-ack after the program starts; the run already went
+          // out on the real ack.
+          'os.write(3, b\'{"type":"boot-ack"}\\n\')',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
   }, 15_000)
@@ -496,15 +511,12 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     // would time every run out at once, and a huge graceMs would SIGKILL one
     // millisecond after SIGTERM. Both must fail at load instead.
     const ctx = await createRuntimeContext()
-    await expect(ctx.plugin(PythonPtcRuntime, { maxWallMs: 2_147_483_648 }))
-      .rejects.toThrow(/maxWallMs must not exceed 2147483647/)
+    await expect(ctx.plugin(PythonPtcRuntime, { maxWallMs: 2_147_483_648 })).rejects.toThrow(/maxWallMs must not exceed 2147483647/)
     // graceMs is bounded by the close deadline's added margin, not by the raw
     // timer maximum, because that sum is what gets armed.
-    await expect(ctx.plugin(PythonPtcRuntime, { graceMs: 2_147_481_648 }))
-      .rejects.toThrow(/graceMs must not exceed 2147481647/)
+    await expect(ctx.plugin(PythonPtcRuntime, { graceMs: 2_147_481_648 })).rejects.toThrow(/graceMs must not exceed 2147481647/)
     // The exact maxima still load.
-    await expect(ctx.plugin(PythonPtcRuntime, { maxWallMs: 2_147_483_647, graceMs: 2_147_481_647 }))
-      .resolves.toBeDefined()
+    await expect(ctx.plugin(PythonPtcRuntime, { maxWallMs: 2_147_483_647, graceMs: 2_147_481_647 })).resolves.toBeDefined()
   })
 
   it('rejects loading this Unix-only backend on Windows', async () => {
@@ -524,25 +536,37 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
 
   it('rejects a binding global that is not a Python identifier or is reserved', async () => {
     const { runtime } = await setup()
-    await expect(runtime.run(runtime.resolve({
-      program: 'return 1',
-      bindings: [{ global: '1bad', functions: {} }],
-    }))).rejects.toThrow(/is not a usable Python identifier/)
-    await expect(runtime.run(runtime.resolve({
-      program: 'return 1',
-      bindings: [{ global: 'class', functions: {} }],
-    }))).rejects.toThrow(/is not a usable Python identifier/)
+    await expect(
+      runtime.run(
+        runtime.resolve({
+          program: 'return 1',
+          bindings: [{ global: '1bad', functions: {} }],
+        }),
+      ),
+    ).rejects.toThrow(/is not a usable Python identifier/)
+    await expect(
+      runtime.run(
+        runtime.resolve({
+          program: 'return 1',
+          bindings: [{ global: 'class', functions: {} }],
+        }),
+      ),
+    ).rejects.toThrow(/is not a usable Python identifier/)
   })
 
   it('rejects duplicate binding namespaces', async () => {
     const { runtime } = await setup()
-    await expect(runtime.run(runtime.resolve({
-      program: 'return 1',
-      bindings: [
-        { global: 'tools', functions: {} },
-        { global: 'tools', functions: {} },
-      ],
-    }))).rejects.toThrow(/duplicate binding global/)
+    await expect(
+      runtime.run(
+        runtime.resolve({
+          program: 'return 1',
+          bindings: [
+            { global: 'tools', functions: {} },
+            { global: 'tools', functions: {} },
+          ],
+        }),
+      ),
+    ).rejects.toThrow(/duplicate binding global/)
   })
 
   it('rejects run() after disposal, and unregisters ctx.ptcRuntime', async () => {
@@ -569,7 +593,9 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     // misuse, and a caller's cancellation token is not misuse.
     const { runtime } = await setup()
     const signal = AbortSignal.abort({
-      [Symbol.toPrimitive]() { throw new Error('reason blew up') },
+      [Symbol.toPrimitive]() {
+        throw new Error('reason blew up')
+      },
     })
     const result = await runtime.run(runtime.resolve({ program: 'return 1', bindings: [], signal }))
     expect(result.error?.kind).toBe('abort')
@@ -579,25 +605,29 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
 
   it('delivers packaged Python modules without exposing a writable bootstrap file', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'import sys, protocol\nreturn [hasattr(sys.modules["__main__"], "__file__"), protocol.__file__, sys.stdin.read()]',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'import sys, protocol\nreturn [hasattr(sys.modules["__main__"], "__file__"), protocol.__file__, sys.stdin.read()]',
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual([false, '<dsh-ptc-protocol>', ''])
   })
 
   it('starts a spawn-context ProcessPoolExecutor with an importable function', async () => {
     const { runtime } = await setup({ maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'from concurrent.futures import ProcessPoolExecutor',
-        'from multiprocessing import get_context',
-        'with ProcessPoolExecutor(max_workers=1, mp_context=get_context("spawn")) as pool:',
-        '    return pool.submit(abs, -42).result()',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'from concurrent.futures import ProcessPoolExecutor',
+          'from multiprocessing import get_context',
+          'with ProcessPoolExecutor(max_workers=1, mp_context=get_context("spawn")) as pool:',
+          '    return pool.submit(abs, -42).result()',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(42)
   })
@@ -613,10 +643,12 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
 
   it('preserves the kernel CPU soft limit while Python is executing native C code', async () => {
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'import hashlib\nhashlib.pbkdf2_hmac("sha256", b"password", b"salt", 2147483647)\nreturn "escaped"',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'import hashlib\nhashlib.pbkdf2_hmac("sha256", b"password", b"salt", 2147483647)\nreturn "escaped"',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('timeout')
     expect(result.error?.message).toContain('CPU time exhausted')
     expect(result.value).toBeUndefined()
@@ -635,11 +667,13 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
   it('settles as abort when the signal fires in the same turn as the first run', async () => {
     const { runtime } = await setup({ maxWallMs: 4_000, graceMs: 200 })
     const controller = new AbortController()
-    const pending = runtime.run(runtime.resolve({
-      program: 'import time\nwhile True: time.sleep(0.1)',
-      bindings: [],
-      signal: controller.signal,
-    }))
+    const pending = runtime.run(
+      runtime.resolve({
+        program: 'import time\nwhile True: time.sleep(0.1)',
+        bindings: [],
+        signal: controller.signal,
+      }),
+    )
     controller.abort('same-turn-abort')
     const result = await pending
     expect(result.error?.kind).toBe('abort')
@@ -662,7 +696,7 @@ describe('PythonPtcRuntime — seam descriptors and misuse', () => {
     }
   })
 
-  it.each(['protocol.py', 'bootstrap.py'])('reports missing packaged %s without launching a program', async (script) => {
+  it.each(['protocol.py', 'bootstrap.py'])('reports missing packaged %s without launching a program', async script => {
     failNextReadOf.value = script
     try {
       const { runtime } = await setup()
@@ -712,31 +746,37 @@ describe('PythonPtcRuntime — process identity', () => {
 
 describe('PythonPtcRuntime — inherited resource limits', () => {
   // Darwin deliberately does not apply RLIMIT_AS, and its shell rejects `ulimit -v`.
-  it.skipIf(process.platform === 'darwin')('runs under an inherited hard limit tighter than addressSpaceMb', async () => {
-    // An unprivileged process may lower a hard rlimit but never raise it. Under
-    // a harness started with `ulimit -v` below `addressSpaceBytes`, requesting
-    // the configured cap made `setrlimit` raise `ValueError` and every run
-    // returned a bootstrap exception — even though the inherited limit is
-    // STRONGER than the one asked for. The bootstrap clamps to the inherited
-    // hard limit instead, so the run proceeds under the stricter bound.
-    //
-    // `pythonBin` is the honest lever: a wrapper that lowers RLIMIT_AS and then
-    // execs the real interpreter reproduces the inherited-limit condition
-    // without touching this test process's own limits.
-    const dir = await makeTempDir('dsh-rlimit-')
-    const wrapper = join(dir, 'python3-capped')
-    // 256 MiB, half the 512 MiB addressSpaceMb default, so the requested cap is
-    // unambiguously above the inherited ceiling.
-    await writeFile(wrapper, `#!/bin/sh\nulimit -v 262144\nexec "${PYABS}" "$@"\n`, { mode: 0o755 })
-    const { runtime } = await setup({ pythonBin: wrapper })
-    const result = await runtime.run(runtime.resolve({
-      program: 'import resource\nreturn resource.getrlimit(resource.RLIMIT_AS)[1]',
-      bindings: [],
-    }))
-    expect(result.error).toBeUndefined()
-    // The applied hard limit is the inherited one, not the configured 512 MiB.
-    expect(result.value).toBe(256 * 1024 * 1024)
-  }, 15_000)
+  it.skipIf(process.platform === 'darwin')(
+    'runs under an inherited hard limit tighter than addressSpaceMb',
+    async () => {
+      // An unprivileged process may lower a hard rlimit but never raise it. Under
+      // a harness started with `ulimit -v` below `addressSpaceBytes`, requesting
+      // the configured cap made `setrlimit` raise `ValueError` and every run
+      // returned a bootstrap exception — even though the inherited limit is
+      // STRONGER than the one asked for. The bootstrap clamps to the inherited
+      // hard limit instead, so the run proceeds under the stricter bound.
+      //
+      // `pythonBin` is the honest lever: a wrapper that lowers RLIMIT_AS and then
+      // execs the real interpreter reproduces the inherited-limit condition
+      // without touching this test process's own limits.
+      const dir = await makeTempDir('dsh-rlimit-')
+      const wrapper = join(dir, 'python3-capped')
+      // 256 MiB, half the 512 MiB addressSpaceMb default, so the requested cap is
+      // unambiguously above the inherited ceiling.
+      await writeFile(wrapper, `#!/bin/sh\nulimit -v 262144\nexec "${PYABS}" "$@"\n`, { mode: 0o755 })
+      const { runtime } = await setup({ pythonBin: wrapper })
+      const result = await runtime.run(
+        runtime.resolve({
+          program: 'import resource\nreturn resource.getrlimit(resource.RLIMIT_AS)[1]',
+          bindings: [],
+        }),
+      )
+      expect(result.error).toBeUndefined()
+      // The applied hard limit is the inherited one, not the configured 512 MiB.
+      expect(result.value).toBe(256 * 1024 * 1024)
+    },
+    15_000,
+  )
 
   it('rejects at boot when an inherited RLIMIT_AS is too tight for the output budgets', async () => {
     // The host gate validates the output budgets against the CONFIGURED
@@ -768,30 +808,36 @@ describe('PythonPtcRuntime — inherited resource limits', () => {
   }, 15_000)
 
   // The expected tuple includes RLIMIT_AS, which the backend deliberately skips on Darwin.
-  it.skipIf(process.platform === 'darwin')('applies the configured limits when nothing tighter is inherited', async () => {
-    // The clamp must not weaken the normal path: with an infinite inherited hard
-    // limit there is nothing to clamp against, and RLIM_INFINITY compares as -1,
-    // so treating it as a numeric bound would collapse every limit to -1.
-    const { runtime } = await setup({ cpuSeconds: 42, addressSpaceMb: 400 })
-    const result = await runtime.run(runtime.resolve({
-      // `getrlimit` returns a tuple, which the lossless-JSON completion check
-      // rejects; the pair is listed explicitly rather than converted.
-      program: [
-        'import resource, sys',
-        'cpu = resource.getrlimit(resource.RLIMIT_CPU)',
-        'address_space = None if sys.platform == "darwin" else resource.getrlimit(resource.RLIMIT_AS)[1]',
-        'return {"cpu": [cpu[0], cpu[1]], "addressSpace": address_space}',
-      ].join('\n'),
-      bindings: [],
-    }))
-    expect(result.error).toBeUndefined()
-    // Darwin deliberately skips RLIMIT_AS; every other Unix host applies the
-    // configured bytes alongside the CPU soft/hard pair.
-    expect(result.value).toEqual({
-      cpu: [42, 43],
-      addressSpace: process.platform === 'darwin' ? null : 400 * 1024 * 1024,
-    })
-  }, 15_000)
+  it.skipIf(process.platform === 'darwin')(
+    'applies the configured limits when nothing tighter is inherited',
+    async () => {
+      // The clamp must not weaken the normal path: with an infinite inherited hard
+      // limit there is nothing to clamp against, and RLIM_INFINITY compares as -1,
+      // so treating it as a numeric bound would collapse every limit to -1.
+      const { runtime } = await setup({ cpuSeconds: 42, addressSpaceMb: 400 })
+      const result = await runtime.run(
+        runtime.resolve({
+          // `getrlimit` returns a tuple, which the lossless-JSON completion check
+          // rejects; the pair is listed explicitly rather than converted.
+          program: [
+            'import resource, sys',
+            'cpu = resource.getrlimit(resource.RLIMIT_CPU)',
+            'address_space = None if sys.platform == "darwin" else resource.getrlimit(resource.RLIMIT_AS)[1]',
+            'return {"cpu": [cpu[0], cpu[1]], "addressSpace": address_space}',
+          ].join('\n'),
+          bindings: [],
+        }),
+      )
+      expect(result.error).toBeUndefined()
+      // Darwin deliberately skips RLIMIT_AS; every other Unix host applies the
+      // configured bytes alongside the CPU soft/hard pair.
+      expect(result.value).toEqual({
+        cpu: [42, 43],
+        addressSpace: process.platform === 'darwin' ? null : 400 * 1024 * 1024,
+      })
+    },
+    15_000,
+  )
 
   it('preserves an inherited soft limit stricter than the configured cap', async () => {
     // Clamping reads BOTH inherited bounds, not just the hard one. A deployment
@@ -807,10 +853,12 @@ describe('PythonPtcRuntime — inherited resource limits', () => {
     // Soft CPU 5 s, well below the configured 30 s, hard left unlimited.
     await writeFile(wrapper, `#!/bin/sh\nulimit -S -t 5\nexec "${PYABS}" "$@"\n`, { mode: 0o755 })
     const { runtime } = await setup({ pythonBin: wrapper, cpuSeconds: 30 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'import resource\nreturn resource.getrlimit(resource.RLIMIT_CPU)[0]',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'import resource\nreturn resource.getrlimit(resource.RLIMIT_CPU)[0]',
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     // The applied SOFT limit is the inherited 5 s, not the configured 30 s.
     expect(result.value).toBe(5)
@@ -832,14 +880,12 @@ describe('PythonPtcRuntime — inherited resource limits', () => {
     // Both soft and hard CPU 2 s; configured cpuSeconds 30 s.
     await writeFile(wrapper, `#!/bin/sh\nulimit -t 2\nexec "${PYABS}" "$@"\n`, { mode: 0o755 })
     const { runtime } = await setup({ pythonBin: wrapper, cpuSeconds: 30, maxWallMs: 12_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'while True:',
-        '    pass',
-        'return "unreachable"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['while True:', '    pass', 'return "unreachable"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('timeout')
     expect(result.error?.message).toContain('CPU time exhausted')
   }, 15_000)
@@ -855,18 +901,20 @@ describe('PythonPtcRuntime — inherited resource limits', () => {
     // run reports `value: "escaped"` and no error. The masking is guarded by
     // hasattr so the case is a no-op on platforms without pthread_sigmask.
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 12_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import signal, time',
-        'if hasattr(signal, "pthread_sigmask"):',
-        '    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGXCPU})',
-        'end = time.process_time() + 1.05',
-        'while time.process_time() < end:',
-        '    pass',
-        'return "escaped"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import signal, time',
+          'if hasattr(signal, "pthread_sigmask"):',
+          '    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGXCPU})',
+          'end = time.process_time() + 1.05',
+          'while time.process_time() < end:',
+          '    pass',
+          'return "escaped"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('timeout')
     expect(result.value).toBeUndefined()
   }, 20_000)
@@ -882,10 +930,12 @@ describe('PythonPtcRuntime — inherited resource limits', () => {
     writeFileSync(wrapper, `#!/bin/sh\ntrap "" XCPU\nexec "${PYABS}" "$@"\n`, { mode: 0o755 })
     try {
       const { runtime } = await setup({ maxWallMs: 30_000, cpuSeconds: 1, pythonBin: wrapper })
-      const result = await runtime.run(runtime.resolve({
-        program: ['while True: pass'].join('\n'),
-        bindings: [],
-      }))
+      const result = await runtime.run(
+        runtime.resolve({
+          program: ['while True: pass'].join('\n'),
+          bindings: [],
+        }),
+      )
       expect(result.error?.kind).toBe('timeout')
     } finally {
       rmSync(wrapper, { force: true })
@@ -903,21 +953,23 @@ describe('PythonPtcRuntime — inherited resource limits', () => {
     // window; without it, the handler re-blocks and the child exits normally
     // with a success value. Fail-before: the run reports `value: "escaped"`.
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 12_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import signal, time',
-        'if hasattr(signal, "pthread_sigmask"):',
-        '    def h(signum, frame):',
-        '        signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGXCPU})',
-        '    signal.signal(signal.SIGXCPU, h)',
-        '    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGXCPU})',
-        '    end = time.process_time() + 1.05',
-        '    while time.process_time() < end:',
-        '        pass',
-        'return "escaped"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import signal, time',
+          'if hasattr(signal, "pthread_sigmask"):',
+          '    def h(signum, frame):',
+          '        signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGXCPU})',
+          '    signal.signal(signal.SIGXCPU, h)',
+          '    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGXCPU})',
+          '    end = time.process_time() + 1.05',
+          '    while time.process_time() < end:',
+          '        pass',
+          'return "escaped"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('timeout')
     expect(result.value).toBeUndefined()
   }, 20_000)
@@ -935,19 +987,21 @@ describe('PythonPtcRuntime — inherited resource limits', () => {
     const wrapper = join(dir, 'python3-cpu-capped')
     await writeFile(wrapper, `#!/bin/sh\nulimit -S -t 1\nexec "${PYABS}" "$@"\n`, { mode: 0o755 })
     const { runtime } = await setup({ pythonBin: wrapper, cpuSeconds: 30, maxWallMs: 12_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import signal, time',
-        // Trap SIGXCPU so the soft limit does not terminate the program; burn
-        // CPU well past the inherited 1 s soft, then return normally.
-        'signal.signal(signal.SIGXCPU, lambda *a: None)',
-        'end = time.process_time() + 2.5',
-        'while time.process_time() < end:',
-        '    pass',
-        'return "returned"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import signal, time',
+          // Trap SIGXCPU so the soft limit does not terminate the program; burn
+          // CPU well past the inherited 1 s soft, then return normally.
+          'signal.signal(signal.SIGXCPU, lambda *a: None)',
+          'end = time.process_time() + 2.5',
+          'while time.process_time() < end:',
+          '    pass',
+          'return "returned"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     // The recheck compares spent CPU against the effective 1 s soft, not 30 s, so
     // the run is a timeout rather than a false success.
     expect(result.error?.kind).toBe('timeout')
@@ -957,15 +1011,12 @@ describe('PythonPtcRuntime — inherited resource limits', () => {
 describe('PythonPtcRuntime — programs and bindings', () => {
   it('runs a top-level script, captures print output, and returns `result`', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'x = 40',
-        'y = 2',
-        'print("hello", x + y)',
-        'return {"answer": x + y}',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['x = 40', 'y = 2', 'print("hello", x + y)', 'return {"answer": x + y}'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ answer: 42 })
     // `print` in Python emits: text, ' ', text, '\n'. Concat the captured
@@ -978,18 +1029,20 @@ describe('PythonPtcRuntime — programs and bindings', () => {
 
   it('exposes only the platform temp directory from the host environment', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'return {',
-        '    "tmpdir": os.environ.get("TMPDIR"),',
-        '    "path": os.environ.get("PATH"),',
-        '    "home": os.environ.get("HOME"),',
-        '    "token": os.environ.get("DEEPSEEK_API_KEY"),',
-        '}',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'return {',
+          '    "tmpdir": os.environ.get("TMPDIR"),',
+          '    "path": os.environ.get("PATH"),',
+          '    "home": os.environ.get("HOME"),',
+          '    "token": os.environ.get("DEEPSEEK_API_KEY"),',
+          '}',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ tmpdir: tmpdir(), path: null, home: null, token: null })
     expect(result.logs).toEqual([])
@@ -998,21 +1051,28 @@ describe('PythonPtcRuntime — programs and bindings', () => {
   it('bridges binding calls both ways and rejects the program-side call on a host rejection', async () => {
     const { runtime } = await setup()
     const calls: unknown[] = []
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'first = await tools.echo({"n": 1})',
-        'caught = ""',
-        'try:',
-        '    await tools.fail({})',
-        'except RuntimeError as e:',
-        '    caught = str(e)',
-        'return {"first": first, "caught": caught}',
-      ].join('\n'),
-      bindings: tools({
-        echo: async (args) => { calls.push(args); return { echoed: args as PtcJsonValue } },
-        fail: async () => { throw new Error('nope') },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'first = await tools.echo({"n": 1})',
+          'caught = ""',
+          'try:',
+          '    await tools.fail({})',
+          'except RuntimeError as e:',
+          '    caught = str(e)',
+          'return {"first": first, "caught": caught}',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => {
+            calls.push(args)
+            return { echoed: args as PtcJsonValue }
+          },
+          fail: async () => {
+            throw new Error('nope')
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ first: { echoed: { n: 1 } }, caught: 'nope' })
     expect(calls).toEqual([{ n: 1 }])
@@ -1025,17 +1085,14 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // decode primitives are def-time captures on the channel methods, so a
     // rebind cannot break reply delivery.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        '__main__._decode_json_plain = None',
-        'first = await tools.echo({"n": 1})',
-        'return first',
-      ].join('\n'),
-      bindings: tools({
-        echo: async args => ({ echoed: args as PtcJsonValue }),
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import __main__', '__main__._decode_json_plain = None', 'first = await tools.echo({"n": 1})', 'return first'].join('\n'),
+        bindings: tools({
+          echo: async args => ({ echoed: args as PtcJsonValue }),
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ echoed: { n: 1 } })
   }, 15_000)
@@ -1047,23 +1104,25 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // __main__.ProtocolChannel.send_sync cannot turn a legitimate binding call
     // into an exception or a wall-clock timeout.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        'def boom(*a, **k):',
-        '    raise RuntimeError("hijacked")',
-        '__main__._lossless_json_violation = boom',
-        '__main__.asyncio = boom',
-        '__main__.ProtocolChannel.send_sync = boom',
-        '__main__._encode_json_plain = boom',
-        '__main__.ProtocolChannel.write_encoded = boom',
-        'first = await tools.echo({"n": 1})',
-        'return first',
-      ].join('\n'),
-      bindings: tools({
-        echo: async args => ({ echoed: args as PtcJsonValue }),
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import __main__',
+          'def boom(*a, **k):',
+          '    raise RuntimeError("hijacked")',
+          '__main__._lossless_json_violation = boom',
+          '__main__.asyncio = boom',
+          '__main__.ProtocolChannel.send_sync = boom',
+          '__main__._encode_json_plain = boom',
+          '__main__.ProtocolChannel.write_encoded = boom',
+          'first = await tools.echo({"n": 1})',
+          'return first',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => ({ echoed: args as PtcJsonValue }),
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ echoed: { n: 1 } })
   }, 15_000)
@@ -1076,19 +1135,21 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // class attribute, since the pump starts after the program's top-level
     // statements).
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        'async def boom(*a, **k):',
-        '    raise RuntimeError("hijacked reader")',
-        '__main__.ProtocolChannel.read_frame_async = boom',
-        'first = await tools.echo({"n": 1})',
-        'return first',
-      ].join('\n'),
-      bindings: tools({
-        echo: async args => ({ echoed: args as PtcJsonValue }),
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import __main__',
+          'async def boom(*a, **k):',
+          '    raise RuntimeError("hijacked reader")',
+          '__main__.ProtocolChannel.read_frame_async = boom',
+          'first = await tools.echo({"n": 1})',
+          'return first',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => ({ echoed: args as PtcJsonValue }),
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ echoed: { n: 1 } })
   }, 15_000)
@@ -1101,23 +1162,27 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // into `_run` locals before the program runs, so a host rejection still
     // surfaces as the declared `RuntimeError`.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        '__main__._BindingRejection = ValueError',
-        'caught = ""',
-        'try:',
-        '    await tools.fail({})',
-        'except RuntimeError as e:',
-        '    caught = e.args[0] if e.args else ""',
-        'except Exception as e:',
-        '    caught = "WRONG TYPE: " + type(e).__name__',
-        'return caught',
-      ].join('\n'),
-      bindings: tools({
-        fail: async () => { throw new Error('nope') },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import __main__',
+          '__main__._BindingRejection = ValueError',
+          'caught = ""',
+          'try:',
+          '    await tools.fail({})',
+          'except RuntimeError as e:',
+          '    caught = e.args[0] if e.args else ""',
+          'except Exception as e:',
+          '    caught = "WRONG TYPE: " + type(e).__name__',
+          'return caught',
+        ].join('\n'),
+        bindings: tools({
+          fail: async () => {
+            throw new Error('nope')
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('nope')
   }, 15_000)
@@ -1131,20 +1196,26 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // `unhandledRejection` listener would exit instead. The rejection must reach
     // the program as an ordinary error carrying a fixed placeholder.
     const { runtime } = await setup({ maxWallMs: 8_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'try:',
-        '    await tools.hostile({})',
-        'except RuntimeError as e:',
-        '    return "rejected: " + str(e)',
-        'return "no rejection"',
-      ].join('\n'),
-      bindings: tools({
-        hostile: async () => {
-          throw { [Symbol.toPrimitive]() { throw new Error('toPrimitive blew up') } }
-        },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'try:',
+          '    await tools.hostile({})',
+          'except RuntimeError as e:',
+          '    return "rejected: " + str(e)',
+          'return "no rejection"',
+        ].join('\n'),
+        bindings: tools({
+          hostile: async () => {
+            throw {
+              [Symbol.toPrimitive]() {
+                throw new Error('toPrimitive blew up')
+              },
+            }
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('rejected: <unrenderable rejection value>')
   }, 15_000)
@@ -1159,29 +1230,33 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // must contain it — `String()` on a cycle throws inside the guard and lands
     // on the placeholder, so the program sees an ordinary error.
     const { runtime } = await setup({ maxWallMs: 8_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'try:',
-        '    await tools.hostile({})',
-        'except RuntimeError as e:',
-        '    return "rejected: " + str(e)',
-        'return "no rejection"',
-      ].join('\n'),
-      bindings: tools({
-        hostile: async () => {
-          const cyclic: { self?: unknown; [Symbol.toPrimitive]: () => string } = {
-            // A cycle alone is inert for `String()`; the throwing conversion is
-            // what proves the guard runs rather than the encoder.
-            [Symbol.toPrimitive]: () => { throw new Error('cyclic message') },
-          }
-          cyclic.self = cyclic
-          const error = new Error('placeholder')
-          // Writable per spec, so no cast is needed to install a non-string.
-          ;(error as { message: unknown }).message = cyclic
-          throw error
-        },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'try:',
+          '    await tools.hostile({})',
+          'except RuntimeError as e:',
+          '    return "rejected: " + str(e)',
+          'return "no rejection"',
+        ].join('\n'),
+        bindings: tools({
+          hostile: async () => {
+            const cyclic: { self?: unknown; [Symbol.toPrimitive]: () => string } = {
+              // A cycle alone is inert for `String()`; the throwing conversion is
+              // what proves the guard runs rather than the encoder.
+              [Symbol.toPrimitive]: () => {
+                throw new Error('cyclic message')
+              },
+            }
+            cyclic.self = cyclic
+            const error = new Error('placeholder')
+            // Writable per spec, so no cast is needed to install a non-string.
+            ;(error as { message: unknown }).message = cyclic
+            throw error
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('rejected: <unrenderable rejection value>')
   }, 15_000)
@@ -1195,32 +1270,36 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // on `await` until the wall ceiling (observed). Converting first sends the
     // string "undefined", which the program receives as an ordinary rejection.
     const { runtime } = await setup({ maxWallMs: 8_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'try:',
-        '    await tools.absent({})',
-        'except RuntimeError as e:',
-        '    return "rejected: " + str(e)',
-        'return "no rejection"',
-      ].join('\n'),
-      bindings: tools({
-        absent: async () => {
-          const error = new Error('placeholder')
-          ;(error as { message: unknown }).message = undefined
-          throw error
-        },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'try:',
+          '    await tools.absent({})',
+          'except RuntimeError as e:',
+          '    return "rejected: " + str(e)',
+          'return "no rejection"',
+        ].join('\n'),
+        bindings: tools({
+          absent: async () => {
+            const error = new Error('placeholder')
+            ;(error as { message: unknown }).message = undefined
+            throw error
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('rejected: undefined')
   }, 15_000)
 
   it('runs a program with no await', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'return 2 + 2',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return 2 + 2',
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(4)
   })
@@ -1244,15 +1323,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // frame with no value key can only be forged; the host settles it as a
     // value-less completion rather than crashing on the absent field.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'os.write(3, b\'{"type":"done"}\\n\')',
-        'import time',
-        'time.sleep(5)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', 'os.write(3, b\'{"type":"done"}\\n\')', 'import time', 'time.sleep(5)'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBeUndefined()
   })
@@ -1262,20 +1338,24 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // one logical line "a b" so PTC mode's join(newline) does not insert
     // spurious blank lines. Two prints → exactly two entries, no empties.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: ['print("a", "b")', 'print("c")', 'return None'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['print("a", "b")', 'print("c")', 'return None'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['a b', 'c'])
   })
 
   it('flushes a print with no trailing newline', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: ['print("partial", end="")', 'return None'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['print("partial", end="")', 'return None'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['partial'])
   })
@@ -1289,10 +1369,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // with no newline reads back as exactly one entry with no interior breaks.
     const { runtime } = await setup({ maxLogBytes: 300_000 })
     const size = 200_000
-    const result = await runtime.run(runtime.resolve({
-      program: ['import os', `os.write(1, b"A" * ${size})`, 'return None'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', `os.write(1, b"A" * ${size})`, 'return None'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['A'.repeat(size)])
   })
@@ -1301,27 +1383,31 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // The complement of the aggregation case: real newlines in a native write
     // still delimit entries, matching the child's line-granular `log` frames.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: ['import os', 'os.write(1, b"one\\ntwo\\nthree")', 'return None'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', 'os.write(1, b"one\\ntwo\\nthree")', 'return None'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['one', 'two', 'three'])
   })
 
   it('preserves each native stream order while allowing backend-dependent interleaving', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'os.write(1, b"stdout-one\\n")',
-        'os.write(2, b"stderr-one\\n")',
-        'os.write(1, b"stdout-two\\n")',
-        'os.write(2, b"stderr-two\\n")',
-        'return None',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'os.write(1, b"stdout-one\\n")',
+          'os.write(2, b"stderr-one\\n")',
+          'os.write(1, b"stdout-two\\n")',
+          'os.write(2, b"stderr-two\\n")',
+          'return None',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.indexOf('stdout-one')).toBeLessThan(result.logs.indexOf('stdout-two'))
     expect(result.logs.indexOf('stderr-one')).toBeLessThan(result.logs.indexOf('stderr-two'))
@@ -1335,10 +1421,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // and the captured output ends at the truncation marker rather than
     // retaining the whole flood.
     const { runtime } = await setup({ maxLogBytes: 4096 })
-    const result = await runtime.run(runtime.resolve({
-      program: ['import os', 'os.write(1, b"A" * 2_000_000)', 'return None'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', 'os.write(1, b"A" * 2_000_000)', 'return None'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.at(-1)).toBe(logTruncationMarker(4096))
     // The retained output is bounded by the budget, not the 2 MB flood.
@@ -1357,15 +1445,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // seal does. This drives well past the cap and asserts the run still
     // completes with a truncation marker rather than a MemoryError.
     const { runtime } = await setup({ maxLogBytes: 4096 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        'for _ in range(200_000):',
-        '    sys.stdout.write("x")',
-        'return None',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import sys', 'for _ in range(200_000):', '    sys.stdout.write("x")', 'return None'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.at(-1)).toBe(logTruncationMarker(4096))
   })
@@ -1380,10 +1465,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // result. Under a small budget the residual is truncated once the serialized
     // cost crosses it.
     const { runtime } = await setup({ maxLogBytes: 4096 })
-    const result = await runtime.run(runtime.resolve({
-      program: ['import os', 'os.write(1, b"\\x00" * 4000)', 'return None'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', 'os.write(1, b"\\x00" * 4000)', 'return None'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.at(-1)).toBe(logTruncationMarker(4096))
   })
@@ -1403,11 +1490,13 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // 512 MiB are not. Both budgets are gated symmetrically — the value case sets
     // a default-fitting maxLogBytes so the maxValueBytes check is what fires.
     const ctxLog = await createRuntimeContext()
-    await expect(ctxLog.plugin(PythonPtcRuntime, { maxLogBytes: 50_000_000, addressSpaceMb: 256 }))
-      .rejects.toThrow(/maxLogBytes times the 12x worst-case Unicode expansion must fit/)
+    await expect(ctxLog.plugin(PythonPtcRuntime, { maxLogBytes: 50_000_000, addressSpaceMb: 256 })).rejects.toThrow(
+      /maxLogBytes times the 12x worst-case Unicode expansion must fit/,
+    )
     const ctxValue = await createRuntimeContext()
-    await expect(ctxValue.plugin(PythonPtcRuntime, { maxValueBytes: 50_000_000, addressSpaceMb: 256 }))
-      .rejects.toThrow(/maxValueBytes times the 12x worst-case Unicode expansion must fit/)
+    await expect(ctxValue.plugin(PythonPtcRuntime, { maxValueBytes: 50_000_000, addressSpaceMb: 256 })).rejects.toThrow(
+      /maxValueBytes times the 12x worst-case Unicode expansion must fit/,
+    )
     // Discriminates 12 from 8: a 48 MiB maxLogBytes against a 512 MiB address
     // space leaves 448 MiB budgetable. 48*8 = 384 MiB fits (the old 8x multiple
     // wrongly ADMITTED this), but 48*12 = 576 MiB does not. The ~12x peak this
@@ -1416,18 +1505,21 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // flush is no longer the binding case: `flush_line` drops the pending chunks
     // before its push, so it holds two copies, not three.
     const ctxTwelve = await createRuntimeContext()
-    await expect(ctxTwelve.plugin(PythonPtcRuntime, { maxLogBytes: 48 * 1024 * 1024, addressSpaceMb: 512 }))
-      .rejects.toThrow(/maxLogBytes times the 12x worst-case Unicode expansion must fit/)
+    await expect(ctxTwelve.plugin(PythonPtcRuntime, { maxLogBytes: 48 * 1024 * 1024, addressSpaceMb: 512 })).rejects.toThrow(
+      /maxLogBytes times the 12x worst-case Unicode expansion must fit/,
+    )
     // An addressSpaceMb at or below the interpreter baseline leaves nothing
     // budgetable, so no budget value can pass. It is rejected on its own terms:
     // the budget loop would otherwise report "a limit of -1" (or -2796203 at
     // 32 MiB) while naming maxLogBytes, sending the operator to the wrong knob.
     const ctxBaseline = await createRuntimeContext()
-    await expect(ctxBaseline.plugin(PythonPtcRuntime, { addressSpaceMb: 64 }))
-      .rejects.toThrow(/addressSpaceMb must exceed the 67108864-byte interpreter baseline/)
+    await expect(ctxBaseline.plugin(PythonPtcRuntime, { addressSpaceMb: 64 })).rejects.toThrow(
+      /addressSpaceMb must exceed the 67108864-byte interpreter baseline/,
+    )
     const ctxBelow = await createRuntimeContext()
-    await expect(ctxBelow.plugin(PythonPtcRuntime, { addressSpaceMb: 32 }))
-      .rejects.toThrow(/addressSpaceMb must exceed the 67108864-byte interpreter baseline/)
+    await expect(ctxBelow.plugin(PythonPtcRuntime, { addressSpaceMb: 32 })).rejects.toThrow(
+      /addressSpaceMb must exceed the 67108864-byte interpreter baseline/,
+    )
     // The default caps against the default 512 MiB address space load.
     const ok = await createRuntimeContext()
     const fiber = await ok.plugin(PythonPtcRuntime, { maxLogBytes: 65536, maxValueBytes: 32768, addressSpaceMb: 512 })
@@ -1443,20 +1535,22 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // cost walker charges surrogates the full 6, so a flood truncates at budget.
     // Forged on fd 3 because Python stdout will not emit lone surrogates.
     const { runtime } = await setup({ maxLogBytes: 4096 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        // 1000 \ud800 escapes: charged at the buggy raw width 1000 * 3 = 3000
-        // bytes fits under 4096 (wrongly admitted), but the correct serialized
-        // width 1000 * 6 = 6000 bytes is over budget — so the ledger must
-        // truncate. The count sits in the 683..1365 window where the two
-        // chargings disagree, making the test discriminate.
-        String.raw`frame = b'{"type":"log","text":"' + b'\\ud800' * 1000 + b'"}\n'`,
-        'os.write(3, frame)',
-        'return None',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          // 1000 \ud800 escapes: charged at the buggy raw width 1000 * 3 = 3000
+          // bytes fits under 4096 (wrongly admitted), but the correct serialized
+          // width 1000 * 6 = 6000 bytes is over budget — so the ledger must
+          // truncate. The count sits in the 683..1365 window where the two
+          // chargings disagree, making the test discriminate.
+          String.raw`frame = b'{"type":"log","text":"' + b'\\ud800' * 1000 + b'"}\n'`,
+          'os.write(3, frame)',
+          'return None',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.at(-1)).toBe(logTruncationMarker(4096))
   })
@@ -1472,10 +1566,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // branch un-exercised, which would be a hard-to-attribute per-file coverage
     // flake. The first line's 100 bytes already exceed the 64-byte budget, so it truncates.
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: ['import os', 'os.write(1, b"A" * 100 + b"\\nSECOND\\n")', 'return None'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', 'os.write(1, b"A" * 100 + b"\\nSECOND\\n")', 'return None'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.at(-1)).toBe(logTruncationMarker(64))
     expect(result.logs.join('\n')).not.toContain('SECOND')
@@ -1489,16 +1585,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // cross-chunk broken-sequence branch. The run completes and the bytes are
     // captured (rendered U+FFFD by toString), proving the walk resynchronizes.
     const { runtime } = await setup({ maxLogBytes: 1024 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'os.write(1, b"\\xe4")',
-        'os.sched_yield()',
-        'os.write(1, b"A\\n")',
-        'return None',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', 'os.write(1, b"\\xe4")', 'os.sched_yield()', 'os.write(1, b"A\\n")', 'return None'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.join('')).toContain('A')
     expect(result.logs.join('')).toContain('�')
@@ -1512,10 +1604,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // enough to admit it, the line survives verbatim — proving the cost walker
     // does not over- or under-charge and the string round-trips unescaped.
     const { runtime } = await setup({ maxLogBytes: 4096 })
-    const result = await runtime.run(runtime.resolve({
-      program: ['import os', String.raw`os.write(1, "\ta\"b\\c\x01é\n".encode("utf-8"))`, 'return None'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', String.raw`os.write(1, "\ta\"b\\c\x01é\n".encode("utf-8"))`, 'return None'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['\ta"b\\c\x01é'])
   })
@@ -1524,10 +1618,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // json.dumps would coerce {1: "a", "1": "b"} to a single "1" key, silently
     // dropping data. The shape validator rejects it before encoding.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'return {1: "first", "1": "second"}',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return {1: "first", "1": "second"}',
+        bindings: [],
+      }),
+    )
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('invalid-output')
     expect(result.error?.message).toContain('non-string dict key')
@@ -1536,17 +1632,24 @@ describe('PythonPtcRuntime — programs and bindings', () => {
   it('rejects a binding argument with a non-string dict key before dispatch', async () => {
     const { runtime } = await setup()
     let called = false
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'caught = ""',
-        'try:',
-        '    await tools.sink({1: "x"})',
-        'except RuntimeError as e:',
-        '    caught = str(e)',
-        'return caught',
-      ].join('\n'),
-      bindings: tools({ sink: async () => { called = true; return null } }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'caught = ""',
+          'try:',
+          '    await tools.sink({1: "x"})',
+          'except RuntimeError as e:',
+          '    caught = str(e)',
+          'return caught',
+        ].join('\n'),
+        bindings: tools({
+          sink: async () => {
+            called = true
+            return null
+          },
+        }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toContain('lossless JSON')
     expect(called).toBe(false)
@@ -1556,10 +1659,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // A set is not lossless JSON. The old draft substituted repr(); the seam
     // now requires refusing the run instead.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'return {1, 2, 3}',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return {1, 2, 3}',
+        bindings: [],
+      }),
+    )
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('invalid-output')
     expect(result.error?.message).toContain('lossless JSON')
@@ -1571,22 +1676,22 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // sign bit; the canonical lossless-JSON boundary rejects it, so the
     // Python side must too — as a completion and as a binding argument.
     const { runtime } = await setup()
-    const completion = await runtime.run(runtime.resolve({
-      program: 'return -0.0',
-      bindings: [],
-    }))
+    const completion = await runtime.run(
+      runtime.resolve({
+        program: 'return -0.0',
+        bindings: [],
+      }),
+    )
     expect(completion.error?.kind).toBe('invalid-output')
     expect(completion.error?.message).toContain('negative zero')
-    const argument = await runtime.run(runtime.resolve({
-      program: [
-        'try:',
-        '    await tools.echo(-0.0)',
-        '    return "accepted"',
-        'except RuntimeError as e:',
-        '    return str(e)',
-      ].join('\n'),
-      bindings: tools({ echo: async args => args as never }),
-    }))
+    const argument = await runtime.run(
+      runtime.resolve({
+        program: ['try:', '    await tools.echo(-0.0)', '    return "accepted"', 'except RuntimeError as e:', '    return str(e)'].join(
+          '\n',
+        ),
+        bindings: tools({ echo: async args => args as never }),
+      }),
+    )
     expect(argument.error).toBeUndefined()
     expect(argument.value).toContain('negative zero')
   })
@@ -1595,19 +1700,23 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // json.dumps would happily emit NaN by default, but NaN is not JSON; the
     // bootstrap passes allow_nan=False so it fails as invalid-output.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'return float("nan")',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return float("nan")',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('invalid-output')
   })
 
   it('fails an over-budget completion value as output-limit (child-side check)', async () => {
     const { runtime } = await setup({ maxValueBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'return "V" * 5000',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return "V" * 5000',
+        bindings: [],
+      }),
+    )
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('output-limit')
     expect(result.error?.message).toContain('exceeded 64 bytes')
@@ -1627,10 +1736,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // only when charged the escaped cost, so this also pins that the cheap
     // character bound alone does not decide the verdict.
     const { runtime } = await setup({ maxValueBytes: 16 * 1024 * 1024, maxWallMs: 60_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'return "\\x00" * 8_000_000',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return "\\x00" * 8_000_000',
+        bindings: [],
+      }),
+    )
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('output-limit')
   }, 90_000)
@@ -1641,10 +1752,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // BEFORE pushing two million elements onto the walk — so a small
     // addressSpaceMb does not turn the check itself into an RLIMIT_AS death.
     const { runtime } = await setup({ maxValueBytes: 64, addressSpaceMb: 256, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'return [0] * 2000000',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return [0] * 2000000',
+        bindings: [],
+      }),
+    )
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('output-limit')
     expect(result.error?.message).toContain('exceeded 64 bytes')
@@ -1657,16 +1770,18 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // fits the 256 MiB address space as a dict but not as a dict PLUS a
     // two-million-tuple list.
     const { runtime } = await setup({ maxValueBytes: 64, addressSpaceMb: 256, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'return {str(i): 0 for i in range(2000000)}',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return {str(i): 0 for i in range(2000000)}',
+        bindings: [],
+      }),
+    )
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('output-limit')
     expect(result.error?.message).toContain('exceeded 64 bytes')
   }, 20_000)
 
-  it('meters a float completion in the host\'s number spelling', async () => {
+  it("meters a float completion in the host's number spelling", async () => {
     // CPython's repr disagrees with the host's String(number): `1.0` is three
     // bytes here and one there, `1e-07` pads the exponent the host writes as
     // `1e-7`. Both sides meter the SAME budget, so the child must count the
@@ -1689,17 +1804,19 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     expect(over.error?.kind).toBe('output-limit')
   })
 
-  it('carries floats across the wire in the host\'s number spelling', async () => {
+  it("carries floats across the wire in the host's number spelling", async () => {
     // The child ENCODES with the same speller it meters with, so the frame the
     // host parses must reproduce every double exactly — including the branches
     // where CPython and ECMAScript disagree (integral floats, sub-1e-6
     // exponents, >= 1e21, and beyond-safe-range integral doubles whose exact
     // digits differ from the shortest round-trip form).
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'return [1.0, 100.0, 1.5, 0.1, 1e-7, 1e-6, 1e-5, 123.456, -2.5e-8, 1e21, float(2**60), 5e-324, 1.7976931348623157e308]',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return [1.0, 100.0, 1.5, 0.1, 1e-7, 1e-6, 1e-5, 123.456, -2.5e-8, 1e21, float(2**60), 5e-324, 1.7976931348623157e308]',
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual([1, 100, 1.5, 0.1, 1e-7, 1e-6, 1e-5, 123.456, -2.5e-8, 1e21, 2 ** 60, 5e-324, 1.7976931348623157e308])
   })
@@ -1709,15 +1826,14 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // turns 1e400 into Infinity; validateChildFrame no longer scans done.value,
     // so the host's own checkDoneValue must catch the non-lossless number.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        String.raw`os.write(3, b'{"type":"done","value":1e400}' + b'\n')`,
-        'import time',
-        'time.sleep(5)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', String.raw`os.write(3, b'{"type":"done","value":1e400}' + b'\n')`, 'import time', 'time.sleep(5)'].join(
+          '\n',
+        ),
+        bindings: [],
+      }),
+    )
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('invalid-output')
     expect(result.error?.message).toContain('non-lossless number')
@@ -1725,10 +1841,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
 
   it('reports a syntax error as an exception without settling with a value', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: '$$invalid python$$',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: '$$invalid python$$',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('SyntaxError')
     // The parse-time diagnostic must carry the same source label as compile and
@@ -1740,10 +1858,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
 
   it('reports a runtime raise as an exception with the traceback', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'raise ValueError("intentional")',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'raise ValueError("intentional")',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('ValueError')
     expect(result.error?.message).toContain('intentional')
@@ -1756,18 +1876,20 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // budget rather than timing out.
     const { runtime } = await setup({ maxValueBytes: 1024 * 1024, maxWallMs: 20_000 })
     const start = Date.now()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'err = None',
-        'for i in range(3000):',
-        '    try:',
-        '        raise ValueError(i) from err',
-        '    except ValueError as e:',
-        '        err = e',
-        'raise err',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'err = None',
+          'for i in range(3000):',
+          '    try:',
+          '        raise ValueError(i) from err',
+          '    except ValueError as e:',
+          '        err = e',
+          'raise err',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('exception chain truncated at 100 links')
     expect(Date.now() - start).toBeLessThan(15_000)
@@ -1784,21 +1906,23 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // reports `exception`.
     const { runtime } = await setup({ maxValueBytes: 1024 * 1024, maxWallMs: 15_000 })
     const start = Date.now()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'class Sealed(Exception):',
-        '    def __setattr__(self, name, value):',
-        '        raise RuntimeError("live mutation refused")',
-        'err = None',
-        'for i in range(150):',
-        '    try:',
-        '        raise Sealed(i) from err',
-        '    except Sealed as e:',
-        '        err = e',
-        'raise err',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'class Sealed(Exception):',
+          '    def __setattr__(self, name, value):',
+          '        raise RuntimeError("live mutation refused")',
+          'err = None',
+          'for i in range(150):',
+          '    try:',
+          '        raise Sealed(i) from err',
+          '    except Sealed as e:',
+          '        err = e',
+          'raise err',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('Sealed')
     expect(result.error?.message).toContain('exception chain truncated at 100 links')
@@ -1817,17 +1941,19 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // invariant that matters: a `done` frame carrying `exception`, never a
     // timeout, and never the failing renderer's own message.
     const { runtime } = await setup({ maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'class Unprintable(Exception):',
-        '    def __str__(self):',
-        '        raise RuntimeError("str refused")',
-        '    def __repr__(self):',
-        '        raise RuntimeError("repr refused")',
-        'raise Unprintable()',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'class Unprintable(Exception):',
+          '    def __str__(self):',
+          '        raise RuntimeError("str refused")',
+          '    def __repr__(self):',
+          '        raise RuntimeError("repr refused")',
+          'raise Unprintable()',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('Unprintable')
     expect(result.error?.message).not.toContain('str refused')
@@ -1842,18 +1968,20 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // wrapper it escapes the handler, the `done` send never runs, and the host
     // times out at maxWallMs.
     const { runtime } = await setup({ maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'class Meta(type):',
-        '    @property',
-        '    def __module__(cls):',
-        '        raise RuntimeError("renderer refused")',
-        'class Hostile(ValueError, metaclass=Meta):',
-        '    pass',
-        'raise Hostile("original failure")',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'class Meta(type):',
+          '    @property',
+          '    def __module__(cls):',
+          '        raise RuntimeError("renderer refused")',
+          'class Hostile(ValueError, metaclass=Meta):',
+          '    pass',
+          'raise Hostile("original failure")',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     // The inert fallback names the class and a fixed literal; it must not carry
     // the renderer's message, and must not have become a timeout. `__name__` is
@@ -1867,21 +1995,23 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // format a non-str __name__ into the message. The hostile `__module__` is
     // what drives execution into the fallback in the first place.
     const { runtime } = await setup({ maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'class Meta(type):',
-        '    @property',
-        '    def __module__(cls):',
-        '        raise RuntimeError("renderer refused")',
-        '    @property',
-        '    def __name__(cls):',
-        '        raise RuntimeError("name refused")',
-        'class Nameless(Exception, metaclass=Meta):',
-        '    pass',
-        'raise Nameless()',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'class Meta(type):',
+          '    @property',
+          '    def __module__(cls):',
+          '        raise RuntimeError("renderer refused")',
+          '    @property',
+          '    def __name__(cls):',
+          '        raise RuntimeError("name refused")',
+          'class Nameless(Exception, metaclass=Meta):',
+          '    pass',
+          'raise Nameless()',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toBe('<unknown>: <diagnostic rendering failed>')
   }, 15_000)
@@ -1896,26 +2026,28 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // exception. Rebind all of them at once; the run must still carry the real
     // ValueError.
     const { runtime } = await setup({ maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        'def boom(*a, **k):',
-        '    raise RuntimeError("hijacked")',
-        '__main__._SAFE_MODEL_TRACEBACK = boom',
-        '__main__._cap_message = boom',
-        '__main__._model_traceback = boom',
-        '__main__._UNRENDERABLE_DIAGNOSTIC = boom',
-        '__main__._LogStream.flush_line = boom',
-        // `send_done` writes via LOCALLY-BOUND `_encode_json_plain` +
-        // `ProtocolChannel.write_encoded`; rebinding these at call time must not
-        // redirect the done frame (a late lookup would be `boom` -> worker-exit).
-        '__main__.ProtocolChannel.send_sync = boom',
-        '__main__.ProtocolChannel.write_encoded = boom',
-        '__main__._encode_json_plain = boom',
-        'raise ValueError("real failure")',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import __main__',
+          'def boom(*a, **k):',
+          '    raise RuntimeError("hijacked")',
+          '__main__._SAFE_MODEL_TRACEBACK = boom',
+          '__main__._cap_message = boom',
+          '__main__._model_traceback = boom',
+          '__main__._UNRENDERABLE_DIAGNOSTIC = boom',
+          '__main__._LogStream.flush_line = boom',
+          // `send_done` writes via LOCALLY-BOUND `_encode_json_plain` +
+          // `ProtocolChannel.write_encoded`; rebinding these at call time must not
+          // redirect the done frame (a late lookup would be `boom` -> worker-exit).
+          '__main__.ProtocolChannel.send_sync = boom',
+          '__main__.ProtocolChannel.write_encoded = boom',
+          '__main__._encode_json_plain = boom',
+          'raise ValueError("real failure")',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('ValueError: real failure')
     expect(result.error?.message).not.toContain('hijacked')
@@ -1935,21 +2067,23 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // carries a fixed `<unrenderable>` text), which is acceptable: the verdict
     // outranks the diagnostic detail.
     const { runtime } = await setup({ maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        'def boom(*a, **k):',
-        '    raise RuntimeError("hijacked")',
-        '__main__._dump_scalar = boom',
-        '__main__.os = boom',
-        // The fallback must also survive a rebind of its own primitives.
-        '__main__._os_write = boom',
-        '__main__._memoryview = boom',
-        '__main__._FALLBACK_DONE_FRAME = boom',
-        'raise ValueError("real failure")',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import __main__',
+          'def boom(*a, **k):',
+          '    raise RuntimeError("hijacked")',
+          '__main__._dump_scalar = boom',
+          '__main__.os = boom',
+          // The fallback must also survive a rebind of its own primitives.
+          '__main__._os_write = boom',
+          '__main__._memoryview = boom',
+          '__main__._FALLBACK_DONE_FRAME = boom',
+          'raise ValueError("real failure")',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.kind).not.toBe('worker-exit')
   }, 15_000)
@@ -1965,14 +2099,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // cannot change which class the clause catches; the run must still report an
     // `exception`, not a `worker-exit`.
     const { runtime } = await setup({ maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        '__main__.BaseException = RuntimeError',
-        'raise ValueError("real failure")',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import __main__', '__main__.BaseException = RuntimeError', 'raise ValueError("real failure")'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.kind).not.toBe('worker-exit')
   }, 15_000)
@@ -1988,20 +2120,22 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // misreport as `worker-exit`; with it, the run reports the exception and the
     // fallback reporter still produces the fixed literal.
     const { runtime } = await setup({ maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        'def boom(*a, **k):',
-        '    raise RuntimeError("hijacked")',
-        '__main__.BaseException = ValueError',
-        '__main__._SAFE_MODEL_TRACEBACK = boom',
-        '__main__._cap_message = boom',
-        '__main__._model_traceback = boom',
-        '__main__._UNRENDERABLE_DIAGNOSTIC = boom',
-        'raise KeyError("real failure")',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import __main__',
+          'def boom(*a, **k):',
+          '    raise RuntimeError("hijacked")',
+          '__main__.BaseException = ValueError',
+          '__main__._SAFE_MODEL_TRACEBACK = boom',
+          '__main__._cap_message = boom',
+          '__main__._model_traceback = boom',
+          '__main__._UNRENDERABLE_DIAGNOSTIC = boom',
+          'raise KeyError("real failure")',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.kind).not.toBe('worker-exit')
   }, 15_000)
@@ -2017,15 +2151,17 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // without the check the frame is joined whole and parsed (its log text
     // admitted, truncating the ledger), and the run completes normally.
     const { runtime } = await setup({ maxWallMs: 60_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        // One frame just past the 64 MiB parse cap.
-        'os.write(3, b"{\\"type\\":\\"log\\",\\"text\\":\\"" + b"a" * (65 * 1024 * 1024) + b"\\"}\\n")',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          // One frame just past the 64 MiB parse cap.
+          'os.write(3, b"{\\"type\\":\\"log\\",\\"text\\":\\"" + b"a" * (65 * 1024 * 1024) + b"\\"}\\n")',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain('protocol frame exceeded')
   }, 90_000)
@@ -2037,12 +2173,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // invalid-output run as a worker-exit. The diagnostic is capped to the
     // value budget, so the frame always crosses the parser.
     const { runtime } = await setup({ maxWallMs: 60_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'return type("N" * (70 * 1024 * 1024), (), {})()',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['return type("N" * (70 * 1024 * 1024), (), {})()'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('invalid-output')
     expect(result.error?.kind).not.toBe('worker-exit')
   }, 90_000)
@@ -2054,14 +2190,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // printed as one line. The flush frame now carries `open: true` and the
     // host appends the next frame to the same entry.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        "print('a', end='', flush=True)",
-        "print('b')",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ["print('a', end='', flush=True)", "print('b')", 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['ab'])
   }, 15_000)
@@ -2071,16 +2205,18 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // lands in openSealed, and the run ends without a closing frame — finish()
     // must commit the SEALED prefix, not only the current fragments.
     const { runtime } = await setup({ maxLogBytes: 65536 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        "os.write(3, b'{\"type\":\"log\",\"text\":\"x\",\"open\":true}\\n')",
-        'for _ in range(3000):',
-        "    os.write(3, b'{\"type\":\"log\",\"text\":\"a\",\"open\":true}\\n')",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'os.write(3, b\'{"type":"log","text":"x","open":true}\\n\')',
+          'for _ in range(3000):',
+          '    os.write(3, b\'{"type":"log","text":"a","open":true}\\n\')',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['x' + 'a'.repeat(3000)])
   }, 15_000)
@@ -2090,13 +2226,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // admits it so a program that commits a partial line and returns does not
     // lose it from logs.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        "print('committed', end='', flush=True)",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ["print('committed', end='', flush=True)", 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['committed'])
   }, 15_000)
@@ -2107,16 +2242,18 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // entry, and holding it would let a forged empty-open flood grow host
     // memory without touching the ledger).
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        "os.write(3, b'{\"type\":\"log\",\"text\":\"x\",\"open\":true}\\n')",
-        "os.write(3, b'{\"type\":\"log\",\"text\":\"\",\"open\":true}\\n')",
-        "os.write(3, b'{\"type\":\"log\",\"text\":\"y\"}\\n')",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'os.write(3, b\'{"type":"log","text":"x","open":true}\\n\')',
+          'os.write(3, b\'{"type":"log","text":"","open":true}\\n\')',
+          'os.write(3, b\'{"type":"log","text":"y"}\\n\')',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['xy'])
   }, 15_000)
@@ -2127,18 +2264,20 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // overhead the byte cap cannot see). The hold seals into one block past
     // MAX_PENDING_CHUNKS; the merged entry is byte-identical.
     const { runtime } = await setup({ maxLogBytes: 65536 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        "os.write(3, b'{\"type\":\"log\",\"text\":\"x\",\"open\":true}\\n')",
-        // 3000 single-character open continuations (over MAX_PENDING_CHUNKS).
-        'for _ in range(3000):',
-        "    os.write(3, b'{\"type\":\"log\",\"text\":\"a\",\"open\":true}\\n')",
-        "os.write(3, b'{\"type\":\"log\",\"text\":\"y\"}\\n')",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'os.write(3, b\'{"type":"log","text":"x","open":true}\\n\')',
+          // 3000 single-character open continuations (over MAX_PENDING_CHUNKS).
+          'for _ in range(3000):',
+          '    os.write(3, b\'{"type":"log","text":"a","open":true}\\n\')',
+          'os.write(3, b\'{"type":"log","text":"y"}\\n\')',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['x' + 'a'.repeat(3000) + 'y'])
   }, 15_000)
@@ -2149,16 +2288,18 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // logBudget — unbounded host retention under a small budget. The flood now
     // truncates to the marker like any over-budget log traffic.
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        // 2000 forged open frames, each under the frame parse cap.
-        'for _ in range(2000):',
-        "    os.write(3, b'{\"type\":\"log\",\"text\":\"a\",\"open\":true}\\n')",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          // 2000 forged open frames, each under the frame parse cap.
+          'for _ in range(2000):',
+          '    os.write(3, b\'{"type":"log","text":"a","open":true}\\n\')',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['a'.repeat(60), logTruncationMarker(64)])
   }, 15_000)
@@ -2169,20 +2310,22 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // truncates — truncateLogs must commit the SEALED prefix (not only the
     // current fragments) before the marker.
     const { runtime } = await setup({ maxLogBytes: 65536 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        "os.write(3, b'{\"type\":\"log\",\"text\":\"x\",\"open\":true}\\n')",
-        // 3000 single-character open continuations seal the hold, then a
-        // forged over-budget open frame trips the ledger: truncateLogs must
-        // commit the SEALED prefix before the marker.
-        'for _ in range(3000):',
-        "    os.write(3, b'{\"type\":\"log\",\"text\":\"a\",\"open\":true}\\n')",
-        "os.write(3, ('{\"type\":\"log\",\"text\":\"' + 'z' * 70000 + '\",\"open\":true}\\n').encode())",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'os.write(3, b\'{"type":"log","text":"x","open":true}\\n\')',
+          // 3000 single-character open continuations seal the hold, then a
+          // forged over-budget open frame trips the ledger: truncateLogs must
+          // commit the SEALED prefix before the marker.
+          'for _ in range(3000):',
+          '    os.write(3, b\'{"type":"log","text":"a","open":true}\\n\')',
+          'os.write(3, (\'{"type":"log","text":"\' + \'z\' * 70000 + \'","open":true}\\n\').encode())',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs[0]).toBe('x' + 'a'.repeat(3000))
     expect(result.logs[result.logs.length - 1]).toBe(logTruncationMarker(65536))
@@ -2193,14 +2336,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // over-budget write truncates, the committed prefix must appear BEFORE the
     // marker — the ledger charged for it, so it cannot vanish.
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        "print('committed', end='', flush=True)",
-        "print('x' * 100)",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ["print('committed', end='', flush=True)", "print('x' * 100)", 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['committed', logTruncationMarker(64)])
   }, 15_000)
@@ -2211,14 +2352,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // throws and the frame is dropped. The program's real return still settles
     // the run with the honest value.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        "os.write(3, b'{\"type\":\"done\",\"value\":\"bad' + bytes([0xFF]) + b'\"}\\n')",
-        'return "ok"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', 'os.write(3, b\'{"type":"done","value":"bad\' + bytes([0xFF]) + b\'"}\\n\')', 'return "ok"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('ok')
   }, 15_000)
@@ -2228,16 +2367,18 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // the ledger (logsTruncated set, marker pushed), then a closing frame
     // arrives — it must be a no-op, not append content past the marker.
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'for _ in range(2000):',
-        "    os.write(3, b'{\"type\":\"log\",\"text\":\"a\",\"open\":true}\\n')",
-        "os.write(3, b'{\"type\":\"log\",\"text\":\"b\"}\\n')",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'for _ in range(2000):',
+          '    os.write(3, b\'{"type":"log","text":"a","open":true}\\n\')',
+          'os.write(3, b\'{"type":"log","text":"b"}\\n\')',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['a'.repeat(60), logTruncationMarker(64)])
   }, 15_000)
@@ -2250,15 +2391,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // fragment billing (each charged quotes+separator, ~4 bytes) would truncate
     // at 16 x 4 = 64.
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'for _ in range(16):',
-        "    print('x', end='', flush=True)",
-        "print('')",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['for _ in range(16):', "    print('x', end='', flush=True)", "print('')", 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['x'.repeat(16)])
   }, 15_000)
@@ -2270,14 +2408,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // cap math (logBudget - openCost) made the closing frame's walk see a
     // negative cap and truncate a compliant entry.
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        "print('a' * 30, end='', flush=True)",
-        "print('b' * 25)",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ["print('a' * 30, end='', flush=True)", "print('b' * 25)", 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['a'.repeat(30) + 'b'.repeat(25)])
   }, 15_000)
@@ -2290,14 +2426,16 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // truncate first: a reverted cap of logBudget (63) would admit the frame,
     // hold it, and flush it at settlement, so the marker assertion fails.
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        "os.write(3, ('{\"type\":\"log\",\"text\":\"' + 'x' * 61 + '\",\"open\":true}\\n').encode())",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'os.write(3, (\'{"type":"log","text":"\' + \'x\' * 61 + \'","open":true}\\n\').encode())',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual([logTruncationMarker(64)])
   }, 15_000)
@@ -2308,14 +2446,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // the merged tail (content only), not as a fresh entry (which would
     // double-charge the quotes+separator and truncate an exact-fit entry).
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        "print('a' * 30, end='', flush=True)",
-        "print('b' * 30)",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ["print('a' * 30, end='', flush=True)", "print('b' * 30)", 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['a'.repeat(30) + 'b'.repeat(30)])
   }, 15_000)
@@ -2331,36 +2467,39 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // a budget prefix, and pushed past the ledger, emitting the marker for a
     // line that fits (merged cost 2 + 59 + 1 = 62 <= 63).
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        "sys.stdout.write('a' * 29)",
-        'sys.stdout.flush()',
-        "sys.stdout.write('b' * 30 + chr(10))",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import sys',
+          "sys.stdout.write('a' * 29)",
+          'sys.stdout.flush()',
+          "sys.stdout.write('b' * 30 + chr(10))",
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['a'.repeat(29) + 'b'.repeat(30)])
   }, 15_000)
-
 
   it('rejects a new open entry once the ledger has only two bytes left', async () => {
     // The jsonStringCostUpTo sub-2-byte guard: forged open frames drive the
     // host ledger down to 1 byte, then a new open entry's first-fragment cap
     // (logBudget - 1 = 0) trips the guard and truncates.
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        "os.write(3, ('{\"type\":\"log\",\"text\":\"' + 'a' * 28 + '\",\"open\":true}\\n').encode())",
-        "os.write(3, ('{\"type\":\"log\",\"text\":\"' + 'a' * 31 + '\"}\\n').encode())",
-        "os.write(3, b'{\"type\":\"log\",\"text\":\"x\",\"open\":true}\\n')",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'os.write(3, (\'{"type":"log","text":"\' + \'a\' * 28 + \'","open":true}\\n\').encode())',
+          'os.write(3, (\'{"type":"log","text":"\' + \'a\' * 31 + \'"}\\n\').encode())',
+          'os.write(3, b\'{"type":"log","text":"x","open":true}\\n\')',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['a'.repeat(59), logTruncationMarker(64)])
   }, 15_000)
@@ -2371,14 +2510,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // the closing frame's exact-cost walk trips and the marker replaces the
     // entry, exactly like any other over-budget log traffic.
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        "print('x' * 40, end='', flush=True)",
-        "print('y' * 40)",
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ["print('x' * 40, end='', flush=True)", "print('y' * 40)", 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs).toEqual(['x'.repeat(40), logTruncationMarker(64)])
   }, 15_000)
@@ -2391,15 +2528,17 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // successful run as an exception. A fixed module-level Context(prec=28)
     // makes the spelling decision context-independent.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'from decimal import getcontext',
-        'getcontext().prec = 2',
-        'getcontext().traps[__import__("decimal").Inexact] = True',
-        'return 1.2345678901234567',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'from decimal import getcontext',
+          'getcontext().prec = 2',
+          'getcontext().traps[__import__("decimal").Inexact] = True',
+          'return 1.2345678901234567',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(1.2345678901234567)
   }, 15_000)
@@ -2409,20 +2548,22 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // dunders, so the cap has to count that edge too — otherwise a deeply
     // nested group walks past the bound the marker claims to enforce.
     const { runtime } = await setup({ maxValueBytes: 1024 * 1024, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        // ExceptionGroup is a 3.11+ builtin; on 3.10 the NameError is the
-        // failure mode being probed, so skip to keep the assertion meaningful.
-        'if sys.version_info < (3, 11):',
-        '    raise ValueError("skip-old <model>")',
-        'group = ValueError("leaf")',
-        'for i in range(150):',
-        '    group = ExceptionGroup(f"g{i}", [group])',
-        'raise group',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import sys',
+          // ExceptionGroup is a 3.11+ builtin; on 3.10 the NameError is the
+          // failure mode being probed, so skip to keep the assertion meaningful.
+          'if sys.version_info < (3, 11):',
+          '    raise ValueError("skip-old <model>")',
+          'group = ValueError("leaf")',
+          'for i in range(150):',
+          '    group = ExceptionGroup(f"g{i}", [group])',
+          'raise group',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     // The version guard skips on Python < 3.11 (ExceptionGroup is a 3.11+
     // builtin) with a distinct message; the truncation assertion applies on
@@ -2436,10 +2577,16 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // durable output — a bootstrap.py path would leak host absolutes and make
     // transcripts machine-dependent.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'await tools.boom({})',
-      bindings: tools({ boom: async () => { throw new Error('exploded') } }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'await tools.boom({})',
+        bindings: tools({
+          boom: async () => {
+            throw new Error('exploded')
+          },
+        }),
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('exploded')
     expect(result.error?.message).toContain('<model>')
@@ -2448,19 +2595,23 @@ describe('PythonPtcRuntime — programs and bindings', () => {
 
   it('renders a non-Error thrown value from a host binding as its String form', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'caught = ""',
-        'try:',
-        '    await tools.failRaw({})',
-        'except RuntimeError as e:',
-        '    caught = str(e)',
-        'return caught',
-      ].join('\n'),
-      bindings: tools({
-        failRaw: async () => { throw 'raw-nope' },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'caught = ""',
+          'try:',
+          '    await tools.failRaw({})',
+          'except RuntimeError as e:',
+          '    caught = str(e)',
+          'return caught',
+        ].join('\n'),
+        bindings: tools({
+          failRaw: async () => {
+            throw 'raw-nope'
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toContain('raw-nope')
   })
@@ -2470,19 +2621,21 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // residual after the newline loop; the tail must survive until its own
     // newline arrives and then parse as a normal frame.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'head = json.dumps({"type":"log","text":"first"}).encode()',
-        'tail = json.dumps({"type":"log","text":"second"}).encode()',
-        'import time',
-        'os.write(3, head + b"\\n" + tail[:5])',
-        'time.sleep(0.2)',
-        'os.write(3, tail[5:] + b"\\n")',
-        'return "ok"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'head = json.dumps({"type":"log","text":"first"}).encode()',
+          'tail = json.dumps({"type":"log","text":"second"}).encode()',
+          'import time',
+          'os.write(3, head + b"\\n" + tail[:5])',
+          'time.sleep(0.2)',
+          'os.write(3, tail[5:] + b"\\n")',
+          'return "ok"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('ok')
     expect(result.logs).toContain('first')
@@ -2493,21 +2646,29 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // PTC mode declares { name: ToolCallError, memberNameProperty: toolName };
     // a host rejection must surface as that class, carrying the failed tool.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'caught = ""',
-        'try:',
-        '    await tools.fail({})',
-        'except ToolCallError as e:',
-        '    caught = f"{type(e).__name__}:{e.toolName}:{e}"',
-        'return caught',
-      ].join('\n'),
-      bindings: [{
-        global: 'tools',
-        functions: { fail: async () => { throw new Error('typed-nope') } },
-        errorClass: { name: 'ToolCallError', memberNameProperty: 'toolName' },
-      }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'caught = ""',
+          'try:',
+          '    await tools.fail({})',
+          'except ToolCallError as e:',
+          '    caught = f"{type(e).__name__}:{e.toolName}:{e}"',
+          'return caught',
+        ].join('\n'),
+        bindings: [
+          {
+            global: 'tools',
+            functions: {
+              fail: async () => {
+                throw new Error('typed-nope')
+              },
+            },
+            errorClass: { name: 'ToolCallError', memberNameProperty: 'toolName' },
+          },
+        ],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('ToolCallError:fail:typed-nope')
   })
@@ -2518,26 +2679,34 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // cannot break the rejection constructor: `except ToolCallError` must still
     // catch and read the member property.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        'def boom(*a, **k):',
-        '    raise RuntimeError("hijacked")',
-        '__main__.Exception = boom',
-        '__main__.setattr = boom',
-        'caught = ""',
-        'try:',
-        '    await tools.fail({})',
-        'except ToolCallError as e:',
-        '    caught = f"{type(e).__name__}:{e.toolName}"',
-        'return caught',
-      ].join('\n'),
-      bindings: [{
-        global: 'tools',
-        functions: { fail: async () => { throw new Error('typed-nope') } },
-        errorClass: { name: 'ToolCallError', memberNameProperty: 'toolName' },
-      }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import __main__',
+          'def boom(*a, **k):',
+          '    raise RuntimeError("hijacked")',
+          '__main__.Exception = boom',
+          '__main__.setattr = boom',
+          'caught = ""',
+          'try:',
+          '    await tools.fail({})',
+          'except ToolCallError as e:',
+          '    caught = f"{type(e).__name__}:{e.toolName}"',
+          'return caught',
+        ].join('\n'),
+        bindings: [
+          {
+            global: 'tools',
+            functions: {
+              fail: async () => {
+                throw new Error('typed-nope')
+              },
+            },
+            errorClass: { name: 'ToolCallError', memberNameProperty: 'toolName' },
+          },
+        ],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('ToolCallError:fail')
   }, 15_000)
@@ -2565,10 +2734,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
       },
     }
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'return "ok"',
-      bindings: [{ global: 'tools', functions: {}, errorClass }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return "ok"',
+        bindings: [{ global: 'tools', functions: {}, errorClass }],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('ok')
     expect(nameReads).toBe(1)
@@ -2591,10 +2762,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
       functions: { echo: async (args: unknown) => args as PtcJsonValue },
     }
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'return await tools.echo(41)',
-      bindings: [namespace],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return await tools.echo(41)',
+        bindings: [namespace],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(41)
     expect(globalReads).toBe(1)
@@ -2602,10 +2775,14 @@ describe('PythonPtcRuntime — programs and bindings', () => {
 
   it('rejects an errorClass name colliding with its namespace global at the seam', async () => {
     const { runtime } = await setup()
-    await expect(runtime.run(runtime.resolve({
-      program: 'return 1',
-      bindings: [{ global: 'tools', functions: {}, errorClass: { name: 'tools', memberNameProperty: 'toolName' } }],
-    }))).rejects.toThrow(/collides with another injected global/)
+    await expect(
+      runtime.run(
+        runtime.resolve({
+          program: 'return 1',
+          bindings: [{ global: 'tools', functions: {}, errorClass: { name: 'tools', memberNameProperty: 'toolName' } }],
+        }),
+      ),
+    ).rejects.toThrow(/collides with another injected global/)
   })
 
   it('rejects a namespace global colliding with a runtime-owned name at the seam', async () => {
@@ -2619,10 +2796,14 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // assign the name at compile time, so an injected global under it is
     // unreachable from the program — accepted by the seam, unusable here.
     for (const global of ['__dsh_main__', 'console', '__debug__']) {
-      await expect(runtime.run(runtime.resolve({
-        program: 'x = 1',
-        bindings: [{ global, functions: {} }],
-      }))).rejects.toThrow(/collides with a runtime-owned global/)
+      await expect(
+        runtime.run(
+          runtime.resolve({
+            program: 'x = 1',
+            bindings: [{ global, functions: {} }],
+          }),
+        ),
+      ).rejects.toThrow(/collides with a runtime-owned global/)
     }
   })
 
@@ -2631,25 +2812,32 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // members; Python setattr/getattr carry exotic names like `tool-name`,
     // and the worker backend accepts them, so this backend must too.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'try:',
-        '    await tools.boom({})',
-        'except ToolCallError as e:',
-        '    return getattr(e, "tool-name")',
-      ].join('\n'),
-      bindings: [{
-        global: 'tools',
-        functions: { boom: async () => { throw new Error('nope') } },
-        errorClass: { name: 'ToolCallError', memberNameProperty: 'tool-name' },
-      }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['try:', '    await tools.boom({})', 'except ToolCallError as e:', '    return getattr(e, "tool-name")'].join('\n'),
+        bindings: [
+          {
+            global: 'tools',
+            functions: {
+              boom: async () => {
+                throw new Error('nope')
+              },
+            },
+            errorClass: { name: 'ToolCallError', memberNameProperty: 'tool-name' },
+          },
+        ],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('boom')
-    await expect(runtime.run(runtime.resolve({
-      program: 'return 1',
-      bindings: [{ global: 'tools', functions: {}, errorClass: { name: 'ToolCallError', memberNameProperty: '' } }],
-    }))).rejects.toThrow(/memberNameProperty must be a non-empty attribute name/)
+    await expect(
+      runtime.run(
+        runtime.resolve({
+          program: 'return 1',
+          bindings: [{ global: 'tools', functions: {}, errorClass: { name: 'ToolCallError', memberNameProperty: '' } }],
+        }),
+      ),
+    ).rejects.toThrow(/memberNameProperty must be a non-empty attribute name/)
   })
 
   it('resolves a basename pythonBin to an absolute path (runs a real program)', async () => {
@@ -2668,8 +2856,7 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // platform default PATH and starting a system interpreter the caller never
     // asked for.
     const ctx = await createRuntimeContext()
-    await expect(ctx.plugin(PythonPtcRuntime, { pythonBin: 'definitely-no-such-python-xyz' }))
-      .rejects.toThrow(/does not resolve on PATH/)
+    await expect(ctx.plugin(PythonPtcRuntime, { pythonBin: 'definitely-no-such-python-xyz' })).rejects.toThrow(/does not resolve on PATH/)
   })
 
   it('rejects a memberNameProperty naming a constrained BaseException attribute', async () => {
@@ -2680,10 +2867,14 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // name/message/stack are the seam's own exclusions (PtcBindingErrorClass
     // forbids replacing them; the worker backend rejects them identically).
     for (const member of ['__traceback__', '__dict__', '__class__', 'args', 'name', 'message', 'stack']) {
-      await expect(runtime.run(runtime.resolve({
-        program: 'return 1',
-        bindings: [{ global: 'tools', functions: {}, errorClass: { name: 'ToolCallError', memberNameProperty: member } }],
-      }))).rejects.toThrow(/reserved error member/)
+      await expect(
+        runtime.run(
+          runtime.resolve({
+            program: 'return 1',
+            bindings: [{ global: 'tools', functions: {}, errorClass: { name: 'ToolCallError', memberNameProperty: member } }],
+          }),
+        ),
+      ).rejects.toThrow(/reserved error member/)
     }
   })
 
@@ -2691,17 +2882,19 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // JSON.stringify would turn NaN into null and drop undefined fields; the
     // seam requires a descriptive rejection so data cannot silently corrupt.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'caught = ""',
-        'try:',
-        '    await tools.bad({})',
-        'except RuntimeError as e:',
-        '    caught = str(e)',
-        'return caught',
-      ].join('\n'),
-      bindings: tools({ bad: async () => Number.NaN }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'caught = ""',
+          'try:',
+          '    await tools.bad({})',
+          'except RuntimeError as e:',
+          '    caught = str(e)',
+          'return caught',
+        ].join('\n'),
+        bindings: tools({ bad: async () => Number.NaN }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toContain('lossless JSON')
   })
@@ -2711,17 +2904,19 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // JSON.stringify; the host's iterative encoder measures it stack-safely
     // and fails it deterministically on the byte budget (40 kB > 32 KiB).
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'depth = 20000',
-        'payload = "[" * depth + "]" * depth',
-        'os.write(3, b\'{"type":"done","value":\' + payload.encode() + b\'}\\n\')',
-        'import time',
-        'time.sleep(5)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'depth = 20000',
+          'payload = "[" * depth + "]" * depth',
+          'os.write(3, b\'{"type":"done","value":\' + payload.encode() + b\'}\\n\')',
+          'import time',
+          'time.sleep(5)',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('output-limit')
   })
@@ -2735,15 +2930,12 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // encodeJsonPlain together. The host JSON.parse of the frame is iterative
     // in V8 for arrays, so only the two encoders were at risk.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'v = None',
-        'for _ in range(10000):',
-        '    v = [v]',
-        'return v',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['v = None', 'for _ in range(10000):', '    v = [v]', 'return v'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     // Walk down iteratively (a recursive toEqual would itself overflow).
     let depth = 0
@@ -2769,31 +2961,39 @@ describe('PythonPtcRuntime — programs and bindings', () => {
       for (let i = 0; i < 12000; i++) v = [v]
       return v
     })()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'v = await tools.deep({})',
-        'depth = 0',
-        'while isinstance(v, list):',
-        '    v = v[0]',
-        '    depth += 1',
-        'return depth',
-      ].join('\n'),
-      bindings: tools({ deep: async () => deep as never }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'v = await tools.deep({})',
+          'depth = 0',
+          'while isinstance(v, list):',
+          '    v = v[0]',
+          '    depth += 1',
+          'return depth',
+        ].join('\n'),
+        bindings: tools({ deep: async () => deep as never }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(12000)
   })
 
   it('rejects a reserved errorClass name at the seam', async () => {
     const { runtime } = await setup()
-    await expect(runtime.run(runtime.resolve({
-      program: 'return 1',
-      bindings: [{
-        global: 'tools',
-        functions: {},
-        errorClass: { name: 'class', memberNameProperty: 'toolName' },
-      }],
-    }))).rejects.toThrow(/errorClass.name "class" is not a usable Python identifier/)
+    await expect(
+      runtime.run(
+        runtime.resolve({
+          program: 'return 1',
+          bindings: [
+            {
+              global: 'tools',
+              functions: {},
+              errorClass: { name: 'class', memberNameProperty: 'toolName' },
+            },
+          ],
+        }),
+      ),
+    ).rejects.toThrow(/errorClass.name "class" is not a usable Python identifier/)
   })
 
   it('routes a declared inherited-attribute name through the bridge via subscript', async () => {
@@ -2802,16 +3002,19 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // is the SDK-advertised route for underscore names.
     const { runtime } = await setup()
     const seen: string[] = []
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'a = await tools["__class__"]({"via": "subscript"})',
-        'b = await tools.__class__({"via": "dot"})',
-        'return [a, b]',
-      ].join('\n'),
-      bindings: tools({
-        '__class__': async () => { seen.push('called'); return 'bridged' },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['a = await tools["__class__"]({"via": "subscript"})', 'b = await tools.__class__({"via": "dot"})', 'return [a, b]'].join(
+          '\n',
+        ),
+        bindings: tools({
+          __class__: async () => {
+            seen.push('called')
+            return 'bridged'
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual(['bridged', 'bridged'])
     expect(seen).toEqual(['called', 'called'])
@@ -2823,17 +3026,19 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // allow_nan=False raises in-program right away.
     const { runtime } = await setup({ maxWallMs: 8000 })
     const start = Date.now()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'caught = ""',
-        'try:',
-        '    await tools.echo({"x": float("nan")})',
-        'except RuntimeError as e:',
-        '    caught = str(e)',
-        'return caught',
-      ].join('\n'),
-      bindings: tools({ echo: async args => args as PtcJsonValue }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'caught = ""',
+          'try:',
+          '    await tools.echo({"x": float("nan")})',
+          'except RuntimeError as e:',
+          '    caught = str(e)',
+          'return caught',
+        ].join('\n'),
+        bindings: tools({ echo: async args => args as PtcJsonValue }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toContain('lossless JSON')
     expect(Date.now() - start).toBeLessThan(5000)
@@ -2846,19 +3051,17 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     const maxValueBytes = 4096
     const { runtime } = await setup({ maxValueBytes })
     let receivedLength = 0
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        `big = "B" * ${maxValueBytes * 50}`,
-        'r = await tools.measure({"payload": big})',
-        'return r',
-      ].join('\n'),
-      bindings: tools({
-        measure: async (args) => {
-          receivedLength = ((args as { payload: string }).payload).length
-          return receivedLength
-        },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [`big = "B" * ${maxValueBytes * 50}`, 'r = await tools.measure({"payload": big})', 'return r'].join('\n'),
+        bindings: tools({
+          measure: async args => {
+            receivedLength = (args as { payload: string }).payload.length
+            return receivedLength
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(receivedLength).toBe(maxValueBytes * 50)
     expect(result.value).toBe(maxValueBytes * 50)
@@ -2866,17 +3069,19 @@ describe('PythonPtcRuntime — programs and bindings', () => {
 
   it('rejects an unknown binding name inside the program with a matching error', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'caught = ""',
-        'try:',
-        '    await tools.nope({})',
-        'except (AttributeError, RuntimeError) as e:',
-        '    caught = str(e)',
-        'return caught',
-      ].join('\n'),
-      bindings: tools({ known: async () => 'ok' }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'caught = ""',
+          'try:',
+          '    await tools.nope({})',
+          'except (AttributeError, RuntimeError) as e:',
+          '    caught = str(e)',
+          'return caught',
+        ].join('\n'),
+        bindings: tools({ known: async () => 'ok' }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toContain('nope')
   })
@@ -2895,23 +3100,25 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // slices in place. The child's address space stays generous enough to BUILD
     // the forgery, which is not what is under test.
     const { runtime } = await setup({ maxValueBytes: 128, addressSpaceMb: 1024, maxWallMs: 20_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'frame = b\'{"type":"call","id":9001,"global":"tools","name":"\' + b"n" * (8 * 1024 * 1024) + b\'","args":{}}\\n\'',
-        // One os.write returns short past the pipe buffer, and a partial frame
-        // would glue itself to the next one and be dropped as malformed, so the
-        // forgery goes out through a drain loop.
-        'view = memoryview(frame)',
-        'while view:',
-        '    view = view[os.write(3, view):]',
-        // A legitimate call after the forgery: its reply can only arrive once
-        // the child has read past whatever the forged frame was answered with.
-        'await tools.known({})',
-        'return "settled"',
-      ].join('\n'),
-      bindings: tools({ known: async () => 'ok' }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'frame = b\'{"type":"call","id":9001,"global":"tools","name":"\' + b"n" * (8 * 1024 * 1024) + b\'","args":{}}\\n\'',
+          // One os.write returns short past the pipe buffer, and a partial frame
+          // would glue itself to the next one and be dropped as malformed, so the
+          // forgery goes out through a drain loop.
+          'view = memoryview(frame)',
+          'while view:',
+          '    view = view[os.write(3, view):]',
+          // A legitimate call after the forgery: its reply can only arrive once
+          // the child has read past whatever the forged frame was answered with.
+          'await tools.known({})',
+          'return "settled"',
+        ].join('\n'),
+        bindings: tools({ known: async () => 'ok' }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('settled')
   }, 40_000)
@@ -2920,30 +3127,31 @@ describe('PythonPtcRuntime — programs and bindings', () => {
     // The SDK tells the model `await tools["my-tool"](args)` works for exotic
     // names; the proxy's __getitem__ must route it through the bridge.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'r = await tools["my-tool"]({"n": 7})',
-        'return r',
-      ].join('\n'),
-      bindings: tools({ 'my-tool': async args => ({ got: args as PtcJsonValue }) }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['r = await tools["my-tool"]({"n": 7})', 'return r'].join('\n'),
+        bindings: tools({ 'my-tool': async args => ({ got: args as PtcJsonValue }) }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ got: { n: 7 } })
   })
 
   it('raises KeyError for an undeclared subscript name', async () => {
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'caught = ""',
-        'try:',
-        '    await tools["absent"]({})',
-        'except KeyError as e:',
-        '    caught = str(e)',
-        'return caught',
-      ].join('\n'),
-      bindings: tools({ known: async () => 'ok' }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'caught = ""',
+          'try:',
+          '    await tools["absent"]({})',
+          'except KeyError as e:',
+          '    caught = str(e)',
+          'return caught',
+        ].join('\n'),
+        bindings: tools({ known: async () => 'ok' }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toContain('absent')
   })
@@ -2953,10 +3161,12 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
   it('kills a wall-clock runaway program via SIGTERM/SIGKILL and reports timeout', async () => {
     const { runtime } = await setup({ maxWallMs: 500, graceMs: 200 })
     const start = Date.now()
-    const result = await runtime.run(runtime.resolve({
-      program: 'import time\nwhile True: time.sleep(1)',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'import time\nwhile True: time.sleep(1)',
+        bindings: [],
+      }),
+    )
     const elapsed = Date.now() - start
     // The wall timer may fire first or the exit-after-signal may resolve; both are ok.
     expect(['timeout', 'worker-exit']).toContain(result.error?.kind)
@@ -2967,12 +3177,16 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
   it('aborts a run when the outer signal fires mid-flight', async () => {
     const { runtime } = await setup({ maxWallMs: 10_000 })
     const controller = new AbortController()
-    const settled: Promise<PtcRunResult> = runtime.run(runtime.resolve({
-      program: 'import time\nwhile True: time.sleep(0.1)',
-      bindings: [],
-      signal: controller.signal,
-    }))
-    setTimeout(() => { controller.abort('outer-abort') }, 200)
+    const settled: Promise<PtcRunResult> = runtime.run(
+      runtime.resolve({
+        program: 'import time\nwhile True: time.sleep(0.1)',
+        bindings: [],
+        signal: controller.signal,
+      }),
+    )
+    setTimeout(() => {
+      controller.abort('outer-abort')
+    }, 200)
     const result = await settled
     expect(['abort', 'worker-exit']).toContain(result.error?.kind)
   }, 5000)
@@ -2985,18 +3199,26 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // (observed) instead of the caller's cancellation. `maxWallMs` is short so
     // that misreport is a fast assertion failure rather than a suite timeout.
     const uncaught: unknown[] = []
-    const record = (error: unknown): void => { uncaught.push(error) }
+    const record = (error: unknown): void => {
+      uncaught.push(error)
+    }
     process.on('uncaughtException', record)
     try {
       const { runtime } = await setup({ maxWallMs: 4_000, graceMs: 200 })
       const controller = new AbortController()
-      const settled: Promise<PtcRunResult> = runtime.run(runtime.resolve({
-        program: 'import time\nwhile True: time.sleep(0.1)',
-        bindings: [],
-        signal: controller.signal,
-      }))
+      const settled: Promise<PtcRunResult> = runtime.run(
+        runtime.resolve({
+          program: 'import time\nwhile True: time.sleep(0.1)',
+          bindings: [],
+          signal: controller.signal,
+        }),
+      )
       setTimeout(() => {
-        controller.abort({ [Symbol.toPrimitive]() { throw new Error('reason blew up') } })
+        controller.abort({
+          [Symbol.toPrimitive]() {
+            throw new Error('reason blew up')
+          },
+        })
       }, 200)
       const result = await settled
       expect(result.error?.kind).toBe('abort')
@@ -3009,10 +3231,12 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
 
   it('disposes to quiescence: an in-flight run resolves as abort and the child exits', async () => {
     const { fiber, runtime } = await setup({ maxWallMs: 10_000 })
-    const pending = runtime.run(runtime.resolve({
-      program: 'import time\nwhile True: time.sleep(0.1)',
-      bindings: [],
-    }))
+    const pending = runtime.run(
+      runtime.resolve({
+        program: 'import time\nwhile True: time.sleep(0.1)',
+        bindings: [],
+      }),
+    )
     // Give the process time to spawn and start running.
     await new Promise(resolve => setTimeout(resolve, 200))
     await fiber.dispose()
@@ -3067,10 +3291,12 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // listener that never fired — run() hung forever whenever the exit event
     // beat the final fd-3 data (deterministic on macOS, a lost race elsewhere).
     const { runtime } = await setup({ maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'import os\nos._exit(7)',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'import os\nos._exit(7)',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain('code=7')
   }, 5000)
@@ -3081,10 +3307,12 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // differently, so we assert only kind/message here — CI's darwin leg
     // validates real delivery. cpuSeconds must be an integer for setrlimit.
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 20_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'while True: pass',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'while True: pass',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('timeout')
     expect(result.error?.message).toContain('CPU time exhausted')
   }, 8000)
@@ -3095,13 +3323,12 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // seconds before that (cgroup OOM, an operator, os.kill) is substrate
     // death and stays worker-exit per the orthogonal taxonomy.
     const { runtime } = await setup({ cpuSeconds: 60, maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, signal',
-        'os.kill(os.getpid(), signal.SIGKILL)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os, signal', 'os.kill(os.getpid(), signal.SIGKILL)'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain('SIGKILL')
   })
@@ -3115,15 +3342,17 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // settle-time check meters RUSAGE_SELF + RUSAGE_CHILDREN and converts the
     // overrun into the same SIGXCPU the untrapped soft limit sends.
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import subprocess, sys',
-        'for _ in range(2):',
-        '    subprocess.run([sys.executable, "-c", "import time\\nt=time.time()\\nwhile time.time()-t<1.2: pass"])',
-        'return "escaped the cpu budget"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import subprocess, sys',
+          'for _ in range(2):',
+          '    subprocess.run([sys.executable, "-c", "import time\\nt=time.time()\\nwhile time.time()-t<1.2: pass"])',
+          'return "escaped the cpu budget"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     // Darwin's SIGXCPU re-delivery differs, so accept either terminal
     // classification; what must NOT happen is the completion crossing.
     expect(['timeout', 'worker-exit']).toContain(result.error?.kind)
@@ -3136,20 +3365,20 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // have to complete normally, or the check would reject every program that
     // shells out.
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 30_000 })
-    const slept = await runtime.run(runtime.resolve({
-      program: 'import time\ntime.sleep(1.5)\nreturn "slept"',
-      bindings: [],
-    }))
+    const slept = await runtime.run(
+      runtime.resolve({
+        program: 'import time\ntime.sleep(1.5)\nreturn "slept"',
+        bindings: [],
+      }),
+    )
     expect(slept.error).toBeUndefined()
     expect(slept.value).toBe('slept')
-    const cheap = await runtime.run(runtime.resolve({
-      program: [
-        'import subprocess, sys',
-        'subprocess.run([sys.executable, "-c", "pass"])',
-        'return "cheap child"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const cheap = await runtime.run(
+      runtime.resolve({
+        program: ['import subprocess, sys', 'subprocess.run([sys.executable, "-c", "pass"])', 'return "cheap child"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(cheap.error).toBeUndefined()
     expect(cheap.value).toBe('cheap child')
   }, 40_000)
@@ -3169,20 +3398,22 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // unsettable) and /proc/self/maps does not exist there, so the mapping
     // assertion is Linux-only; the completion path is checked everywhere.
     const { runtime } = await setup({ maxValueBytes: 4096, addressSpaceMb: 256 })
-    const mapped = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        'if sys.platform != "linux":',
-        '    return 0',
-        'total = 0',
-        'with open("/proc/self/maps") as handle:',
-        '    for line in handle:',
-        '        low, high = (int(part, 16) for part in line.split(" ", 1)[0].split("-"))',
-        '        total += high - low',
-        'return total // (1024 * 1024)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const mapped = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import sys',
+          'if sys.platform != "linux":',
+          '    return 0',
+          'total = 0',
+          'with open("/proc/self/maps") as handle:',
+          '    for line in handle:',
+          '        low, high = (int(part, 16) for part in line.split(" ", 1)[0].split("-"))',
+          '        total += high - low',
+          'return total // (1024 * 1024)',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(mapped.error).toBeUndefined()
     expect(mapped.value).toBeLessThan(48)
   }, 20_000)
@@ -3202,24 +3433,26 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // after-the-fact number cannot separate the pump's cost from the
     // interpreter's own footprint. Linux-only for the same reason as above.
     const { runtime } = await setup({ addressSpaceMb: 256, maxWallMs: 20_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        'def mapped():',
-        '    if sys.platform != "linux":',
-        '        return 0',
-        '    total = 0',
-        '    with open("/proc/self/maps") as handle:',
-        '        for line in handle:',
-        '            low, high = (int(part, 16) for part in line.split(" ", 1)[0].split("-"))',
-        '            total += high - low',
-        '    return total // (1024 * 1024)',
-        'before = mapped()',
-        'echoed = await tools.echo({"ping": True})',
-        'return {"before": before, "after": mapped(), "echoed": echoed}',
-      ].join('\n'),
-      bindings: tools({ echo: async args => args as PtcJsonValue }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import sys',
+          'def mapped():',
+          '    if sys.platform != "linux":',
+          '        return 0',
+          '    total = 0',
+          '    with open("/proc/self/maps") as handle:',
+          '        for line in handle:',
+          '            low, high = (int(part, 16) for part in line.split(" ", 1)[0].split("-"))',
+          '            total += high - low',
+          '    return total // (1024 * 1024)',
+          'before = mapped()',
+          'echoed = await tools.echo({"ping": True})',
+          'return {"before": before, "after": mapped(), "echoed": echoed}',
+        ].join('\n'),
+        bindings: tools({ echo: async args => args as PtcJsonValue }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     const value = result.value as { before: number; after: number; echoed: unknown }
     // The binding call really happened, so the pump really ran.
@@ -3238,14 +3471,12 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // as timeout). Either way the run TERMINATES within the budget — the
     // backstop holds even when the classification is the opaque one.
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 6_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import signal',
-        'signal.signal(signal.SIGXCPU, signal.SIG_IGN)',
-        'while True: pass',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import signal', 'signal.signal(signal.SIGXCPU, signal.SIG_IGN)', 'while True: pass'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(['timeout', 'worker-exit']).toContain(result.error?.kind)
   }, 12_000)
 
@@ -3255,19 +3486,21 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // defang it: a trapping program that also swaps the callables and burns
     // past the budget still dies by the authoritative SIGXCPU.
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import signal, os, resource, time',
-        'signal.signal(signal.SIGXCPU, lambda *a: None)',
-        'resource.getrusage = lambda *a: (_ for _ in ()).throw(RuntimeError("nope"))',
-        'os.kill = lambda *a: None',
-        'signal.signal = lambda *a: None',
-        'deadline = time.process_time() + 1.05',
-        'while time.process_time() < deadline: pass',
-        'return "escaped"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import signal, os, resource, time',
+          'signal.signal(signal.SIGXCPU, lambda *a: None)',
+          'resource.getrusage = lambda *a: (_ for _ in ()).throw(RuntimeError("nope"))',
+          'os.kill = lambda *a: None',
+          'signal.signal = lambda *a: None',
+          'deadline = time.process_time() + 1.05',
+          'while time.process_time() < deadline: pass',
+          'return "escaped"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('timeout')
     expect(result.value).toBeUndefined()
   }, 15_000)
@@ -3278,17 +3511,19 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // and dies by SIGXCPU with the default disposition restored, so the host
     // still classifies the exhausted budget as a timeout instead of success.
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import signal, time',
-        'fired = []',
-        'signal.signal(signal.SIGXCPU, lambda *a: fired.append(1))',
-        'deadline = time.process_time() + 1.05',
-        'while time.process_time() < deadline: pass',
-        'return "escaped"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import signal, time',
+          'fired = []',
+          'signal.signal(signal.SIGXCPU, lambda *a: fired.append(1))',
+          'deadline = time.process_time() + 1.05',
+          'while time.process_time() < deadline: pass',
+          'return "escaped"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('timeout')
     expect(result.error?.message).toContain('CPU time exhausted')
     expect(result.value).toBeUndefined()
@@ -3301,17 +3536,19 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // before the program starts, so neither replacing the global nor swapping
     // the module's captured names changes what runs after settlement.
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import signal, time, __main__',
-        'signal.signal(signal.SIGXCPU, lambda *a: None)',
-        '__main__._DIE_IF_CPU_EXHAUSTED = lambda *_: None',
-        'deadline = time.process_time() + 1.05',
-        'while time.process_time() < deadline: pass',
-        'return "escaped"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import signal, time, __main__',
+          'signal.signal(signal.SIGXCPU, lambda *a: None)',
+          '__main__._DIE_IF_CPU_EXHAUSTED = lambda *_: None',
+          'deadline = time.process_time() + 1.05',
+          'while time.process_time() < deadline: pass',
+          'return "escaped"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('timeout')
     expect(result.value).toBeUndefined()
   }, 15_000)
@@ -3329,30 +3566,32 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // reportable either way.
     const { runtime } = await setup({ cpuSeconds: 1, maxWallMs: 20_000 })
     const start = Date.now()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import signal, sys, time',
-        'signal.signal(signal.SIGXCPU, lambda *a: None)',
-        // Walk out of __dsh_main__ to _run's frame and take its local.
-        'die = None',
-        'depth = 1',
-        'while depth < 12:',
-        '    frame = sys._getframe(depth)',
-        '    if "die_if_cpu_exhausted" in frame.f_locals:',
-        '        die = frame.f_locals["die_if_cpu_exhausted"]',
-        '        break',
-        '    depth += 1',
-        'assert die is not None, "enforcer not reachable from the frame chain"',
-        'class Zero:',
-        '    ru_utime = 0.0',
-        '    ru_stime = 0.0',
-        'names = die.__code__.co_freevars',
-        'die.__closure__[names.index("getrusage")].cell_contents = lambda *a: Zero()',
-        // Burn well past the soft limit into the hard limit's SIGKILL.
-        'while True: pass',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import signal, sys, time',
+          'signal.signal(signal.SIGXCPU, lambda *a: None)',
+          // Walk out of __dsh_main__ to _run's frame and take its local.
+          'die = None',
+          'depth = 1',
+          'while depth < 12:',
+          '    frame = sys._getframe(depth)',
+          '    if "die_if_cpu_exhausted" in frame.f_locals:',
+          '        die = frame.f_locals["die_if_cpu_exhausted"]',
+          '        break',
+          '    depth += 1',
+          'assert die is not None, "enforcer not reachable from the frame chain"',
+          'class Zero:',
+          '    ru_utime = 0.0',
+          '    ru_stime = 0.0',
+          'names = die.__code__.co_freevars',
+          'die.__closure__[names.index("getrusage")].cell_contents = lambda *a: Zero()',
+          // Burn well past the soft limit into the hard limit's SIGKILL.
+          'while True: pass',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     // What holds on EVERY platform: the tampering bought no success. The run
     // failed, carried no value, and the reported kind is one of the two
     // kernel-level outcomes — never a completion.
@@ -3375,7 +3614,7 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     }
   }, 30_000)
 
-  it('keeps a finished-but-not-closed run live so dispose awaits the child\'s death', async () => {
+  it("keeps a finished-but-not-closed run live so dispose awaits the child's death", async () => {
     // finish() no longer drops the run from `live`; settle() (at close) does.
     // A SIGTERM-trapping program with a small graceMs sits in the grace window
     // after finish() fires — dispose() must not resolve until the SIGKILL
@@ -3387,21 +3626,25 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // AFTER installing the trap, so dispose cannot race the spawn (a fixed
     // sleep lost that race on slow CI runners — SIGTERM landed pre-trap).
     let reportedPid!: (pid: number) => void
-    const trapReady = new Promise<number>((resolve) => { reportedPid = resolve })
-    const pending = runtime.run(runtime.resolve({
-      program: [
-        'import signal, time, os',
-        'signal.signal(signal.SIGTERM, lambda *a: None)',
-        'await tools.ready({"pid": os.getpid()})',
-        'while True: time.sleep(0.05)',
-      ].join('\n'),
-      bindings: tools({
-        ready: async (args) => {
-          reportedPid((args as { pid: number }).pid)
-          return 'ok'
-        },
+    const trapReady = new Promise<number>(resolve => {
+      reportedPid = resolve
+    })
+    const pending = runtime.run(
+      runtime.resolve({
+        program: [
+          'import signal, time, os',
+          'signal.signal(signal.SIGTERM, lambda *a: None)',
+          'await tools.ready({"pid": os.getpid()})',
+          'while True: time.sleep(0.05)',
+        ].join('\n'),
+        bindings: tools({
+          ready: async args => {
+            reportedPid((args as { pid: number }).pid)
+            return 'ok'
+          },
+        }),
       }),
-    }))
+    )
     const pid = await trapReady
     const start = Date.now()
     await fiber.dispose()
@@ -3425,22 +3668,24 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // must force settlement on the value the `done` frame already decided.
     const { runtime } = await setup({ graceMs: 100 })
     const start = Date.now()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import subprocess, sys',
-        // Orphan in a fresh session, inheriting our stdout/stderr/fd 3, alive
-        // past the close-deadline so `close` cannot fire on its own. Its own
-        // 5 s self-exit is the leak ceiling AND the discriminator: it must stay
-        // ABOVE the < 4000 ms upper-bound assertion below, so if the deadline
-        // backstop failed to settle, settlement could only come from this
-        // self-exit at ~5 s and blow the bound — a sharper signal than the wall
-        // ceiling would give.
-        'subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"],',
-        '                 start_new_session=True)',
-        'return "escaped"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import subprocess, sys',
+          // Orphan in a fresh session, inheriting our stdout/stderr/fd 3, alive
+          // past the close-deadline so `close` cannot fire on its own. Its own
+          // 5 s self-exit is the leak ceiling AND the discriminator: it must stay
+          // ABOVE the < 4000 ms upper-bound assertion below, so if the deadline
+          // backstop failed to settle, settlement could only come from this
+          // self-exit at ~5 s and blow the bound — a sharper signal than the wall
+          // ceiling would give.
+          'subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"],',
+          '                 start_new_session=True)',
+          'return "escaped"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     const elapsed = Date.now() - start
     // The done frame decided the value; the deadline settled it despite the
     // orphan pinning the pipes open.
@@ -3459,16 +3704,18 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // be flushed before destroy() drops it, or the diagnostic is lost from
     // `logs`. The value is decided by the done frame; the diagnostic must survive.
     const { runtime } = await setup({ graceMs: 100 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, subprocess, sys',
-        'os.write(1, b"leader-diagnostic-no-newline")',
-        'subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"],',
-        '                 start_new_session=True)',
-        'return "escaped"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, subprocess, sys',
+          'os.write(1, b"leader-diagnostic-no-newline")',
+          'subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"],',
+          '                 start_new_session=True)',
+          'return "escaped"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('escaped')
     expect(result.logs).toContain('leader-diagnostic-no-newline')
@@ -3482,14 +3729,12 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // open and no data written, `sys.stdin.read()` blocks and the run would
     // hang to maxWallMs as a timeout.
     const { runtime } = await setup({ maxWallMs: 8_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        'data = sys.stdin.read()',
-        'return "read: " + repr(data)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import sys', 'data = sys.stdin.read()', 'return "read: " + repr(data)'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe("read: ''")
   }, 15_000)
@@ -3500,14 +3745,12 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // compiled code and stringifies its type annotations, changing the semantics
     // of a legal program that reads `f.__annotations__` at runtime.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'def f(x: int) -> int:',
-        '    return x',
-        'return f.__annotations__["x"].__name__',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['def f(x: int) -> int:', '    return x', 'return f.__annotations__["x"].__name__'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('int')
   }, 15_000)
@@ -3535,34 +3778,36 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     const readyMarker = join(handoff, 'ready')
     const heartbeat = join(handoff, 'heartbeat')
     const { runtime } = await setup({ maxWallMs: 10_000, graceMs: 300 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import subprocess, sys, os, time',
-        `marker = ${JSON.stringify(readyMarker)}`,
-        `heartbeat = ${JSON.stringify(heartbeat)}`,
-        // Same group (no start_new_session); ignores SIGTERM; holds none of the
-        // leader's pipes (DEVNULL std streams, close_fds drops fd 3). It writes
-        // the marker (argv[1]) only AFTER the trap is installed — so the leader
-        // cannot return, and the host cannot send SIGTERM, before it is ignored —
-        // then rewrites the heartbeat (argv[2]) every 50 ms for up to 30 s.
-        'code = ("import signal, sys, time\\n"',
-        '        "signal.signal(signal.SIGTERM, signal.SIG_IGN)\\n"',
-        '        "open(sys.argv[1], \'w\').close()\\n"',
-        '        "end = time.time() + 30\\n"',
-        '        "while time.time() < end:\\n"',
-        '        "    open(sys.argv[2], \'w\').close()\\n"',
-        '        "    time.sleep(0.05)\\n")',
-        'child = subprocess.Popen([sys.executable, "-c", code, marker, heartbeat],',
-        '                         stdin=subprocess.DEVNULL,',
-        '                         stdout=subprocess.DEVNULL,',
-        '                         stderr=subprocess.DEVNULL)',
-        'deadline = time.time() + 5',
-        'while not os.path.exists(marker) and time.time() < deadline:',
-        '    time.sleep(0.02)',
-        'return "spawned"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import subprocess, sys, os, time',
+          `marker = ${JSON.stringify(readyMarker)}`,
+          `heartbeat = ${JSON.stringify(heartbeat)}`,
+          // Same group (no start_new_session); ignores SIGTERM; holds none of the
+          // leader's pipes (DEVNULL std streams, close_fds drops fd 3). It writes
+          // the marker (argv[1]) only AFTER the trap is installed — so the leader
+          // cannot return, and the host cannot send SIGTERM, before it is ignored —
+          // then rewrites the heartbeat (argv[2]) every 50 ms for up to 30 s.
+          'code = ("import signal, sys, time\\n"',
+          '        "signal.signal(signal.SIGTERM, signal.SIG_IGN)\\n"',
+          '        "open(sys.argv[1], \'w\').close()\\n"',
+          '        "end = time.time() + 30\\n"',
+          '        "while time.time() < end:\\n"',
+          '        "    open(sys.argv[2], \'w\').close()\\n"',
+          '        "    time.sleep(0.05)\\n")',
+          'child = subprocess.Popen([sys.executable, "-c", code, marker, heartbeat],',
+          '                         stdin=subprocess.DEVNULL,',
+          '                         stdout=subprocess.DEVNULL,',
+          '                         stderr=subprocess.DEVNULL)',
+          'deadline = time.time() + 5',
+          'while not os.path.exists(marker) and time.time() < deadline:',
+          '    time.sleep(0.02)',
+          'return "spawned"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('spawned')
     // The trap really installed before the leader returned, so this is the
@@ -3574,14 +3819,23 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // longer executing — true whether it was reaped or lingers as a zombie, so
     // the assertion holds in a container whose init does not wait() orphans. The
     // window (well under the 30 s self-timeout) proves the SIGKILL did the work.
-    const mtime = (): number => { try { return statSync(heartbeat).mtimeMs } catch { return 0 } }
+    const mtime = (): number => {
+      try {
+        return statSync(heartbeat).mtimeMs
+      } catch {
+        return 0
+      }
+    }
     const stopDeadline = Date.now() + 8_000
     let last = mtime()
     let still = false
     while (Date.now() < stopDeadline) {
       await new Promise(resolve => setTimeout(resolve, 400))
       const now = mtime()
-      if (now === last && now !== 0) { still = true; break }
+      if (now === last && now !== 0) {
+        still = true
+        break
+      }
       last = now
     }
     expect(still).toBe(true)
@@ -3600,29 +3854,31 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     const readyMarker = join(handoff, 'ready')
     const heartbeat = join(handoff, 'heartbeat')
     const { runtime, fiber } = await setup({ maxWallMs: 10_000, graceMs: 300 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import subprocess, sys, os, time',
-        `marker = ${JSON.stringify(readyMarker)}`,
-        `heartbeat = ${JSON.stringify(heartbeat)}`,
-        'code = ("import signal, sys, time\\n"',
-        '        "signal.signal(signal.SIGTERM, signal.SIG_IGN)\\n"',
-        '        "open(sys.argv[1], \'w\').close()\\n"',
-        '        "end = time.time() + 30\\n"',
-        '        "while time.time() < end:\\n"',
-        '        "    open(sys.argv[2], \'w\').close()\\n"',
-        '        "    time.sleep(0.05)\\n")',
-        'child = subprocess.Popen([sys.executable, "-c", code, marker, heartbeat],',
-        '                         stdin=subprocess.DEVNULL,',
-        '                         stdout=subprocess.DEVNULL,',
-        '                         stderr=subprocess.DEVNULL)',
-        'deadline = time.time() + 5',
-        'while not os.path.exists(marker) and time.time() < deadline:',
-        '    time.sleep(0.02)',
-        'return "spawned"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import subprocess, sys, os, time',
+          `marker = ${JSON.stringify(readyMarker)}`,
+          `heartbeat = ${JSON.stringify(heartbeat)}`,
+          'code = ("import signal, sys, time\\n"',
+          '        "signal.signal(signal.SIGTERM, signal.SIG_IGN)\\n"',
+          '        "open(sys.argv[1], \'w\').close()\\n"',
+          '        "end = time.time() + 30\\n"',
+          '        "while time.time() < end:\\n"',
+          '        "    open(sys.argv[2], \'w\').close()\\n"',
+          '        "    time.sleep(0.05)\\n")',
+          'child = subprocess.Popen([sys.executable, "-c", code, marker, heartbeat],',
+          '                         stdin=subprocess.DEVNULL,',
+          '                         stdout=subprocess.DEVNULL,',
+          '                         stderr=subprocess.DEVNULL)',
+          'deadline = time.time() + 5',
+          'while not os.path.exists(marker) and time.time() < deadline:',
+          '    time.sleep(0.02)',
+          'return "spawned"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(existsSync(readyMarker)).toBe(true)
     // dispose() must not return until the group is reaped. After it resolves, the
@@ -3630,7 +3886,13 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     // interval, and confirm it did not advance — the descendant is no longer
     // executing (reaped or zombie), so teardown was genuinely quiescent.
     await fiber.dispose()
-    const mtime = (): number => { try { return statSync(heartbeat).mtimeMs } catch { return 0 } }
+    const mtime = (): number => {
+      try {
+        return statSync(heartbeat).mtimeMs
+      } catch {
+        return 0
+      }
+    }
     const afterDispose = mtime()
     // Pin the assertion to a heartbeat that actually ran: mtime() returns 0 when
     // the file never existed, so without this the `toBe` below would pass
@@ -3654,45 +3916,58 @@ describe('PythonPtcRuntime — budgets, termination, disposal', () => {
     const heartbeat = join(handoff, 'heartbeat')
     const graceMs = 300
     const { runtime } = await setup({ maxWallMs: 10_000, graceMs })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import subprocess, sys, os, time',
-        `marker = ${JSON.stringify(readyMarker)}`,
-        `heartbeat = ${JSON.stringify(heartbeat)}`,
-        'code = ("import signal, sys, time\\n"',
-        '        "signal.signal(signal.SIGTERM, signal.SIG_IGN)\\n"',
-        '        "open(sys.argv[1], \'w\').close()\\n"',
-        '        "end = time.time() + 30\\n"',
-        '        "while time.time() < end:\\n"',
-        '        "    open(sys.argv[2], \'w\').close()\\n"',
-        '        "    time.sleep(0.05)\\n")',
-        'child = subprocess.Popen([sys.executable, "-c", code, marker, heartbeat],',
-        '                         stdin=subprocess.DEVNULL,',
-        '                         stdout=subprocess.DEVNULL,',
-        '                         stderr=subprocess.DEVNULL)',
-        'deadline = time.time() + 5',
-        'while not os.path.exists(marker) and time.time() < deadline:',
-        '    time.sleep(0.02)',
-        'return "spawned"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import subprocess, sys, os, time',
+          `marker = ${JSON.stringify(readyMarker)}`,
+          `heartbeat = ${JSON.stringify(heartbeat)}`,
+          'code = ("import signal, sys, time\\n"',
+          '        "signal.signal(signal.SIGTERM, signal.SIG_IGN)\\n"',
+          '        "open(sys.argv[1], \'w\').close()\\n"',
+          '        "end = time.time() + 30\\n"',
+          '        "while time.time() < end:\\n"',
+          '        "    open(sys.argv[2], \'w\').close()\\n"',
+          '        "    time.sleep(0.05)\\n")',
+          'child = subprocess.Popen([sys.executable, "-c", code, marker, heartbeat],',
+          '                         stdin=subprocess.DEVNULL,',
+          '                         stdout=subprocess.DEVNULL,',
+          '                         stderr=subprocess.DEVNULL)',
+          'deadline = time.time() + 5',
+          'while not os.path.exists(marker) and time.time() < deadline:',
+          '    time.sleep(0.02)',
+          'return "spawned"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(existsSync(readyMarker)).toBe(true)
     // Block the event loop synchronously past graceMs + CLOSE_REAP_MARGIN_MS
     // (2000) with margin, so both timers are overdue when the loop resumes.
     const blockUntil = Date.now() + graceMs + 2_000 + 800
-    while (Date.now() < blockUntil) { /* busy-wait, no yield */ }
+    while (Date.now() < blockUntil) {
+      /* busy-wait, no yield */
+    }
     // Yield: the overdue poll runs (group still non-empty, deadline passed) and
     // must send SIGKILL itself. The survivor then stops bumping the heartbeat.
-    const mtime = (): number => { try { return statSync(heartbeat).mtimeMs } catch { return 0 } }
+    const mtime = (): number => {
+      try {
+        return statSync(heartbeat).mtimeMs
+      } catch {
+        return 0
+      }
+    }
     const stopDeadline = Date.now() + 5_000
     let last = mtime()
     let stopped = false
     while (Date.now() < stopDeadline) {
       await new Promise(resolve => setTimeout(resolve, 400))
       const now = mtime()
-      if (now === last && now !== 0) { stopped = true; break }
+      if (now === last && now !== 0) {
+        stopped = true
+        break
+      }
       last = now
     }
     expect(stopped).toBe(true)
@@ -3705,16 +3980,18 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // non-JSON line, a valid JSON but unknown-shape frame, and a broken done
     // frame; the host must not crash, and the real `done` still settles the run.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'os.write(3, b"not-json\\n")',
-        'os.write(3, b\'{"type":"unknown"}\\n\')',
-        'os.write(3, b\'{"type":"done","error":{"message":42}}\\n\')',
-        'return "survived"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'os.write(3, b"not-json\\n")',
+          'os.write(3, b\'{"type":"unknown"}\\n\')',
+          'os.write(3, b\'{"type":"done","error":{"message":42}}\\n\')',
+          'return "survived"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('survived')
   })
@@ -3727,19 +4004,24 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the id-bound test below, not this one.
     const { runtime } = await setup({ maxWallMs: 8_000 })
     let seenLegitCall = false
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'x = await tools.echo({"ping": True})',
-        'os.write(3, json.dumps({"type":"call","id":1,"global":"tools","name":"forged","args":{}}).encode() + b"\\n")',
-        // The forged frame is answered, but nothing in the child awaits id 1, so
-        // the reply is ignored and the run completes on its own value.
-        'return x',
-      ].join('\n'),
-      bindings: tools({
-        echo: async (args) => { seenLegitCall = true; return args as PtcJsonValue },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'x = await tools.echo({"ping": True})',
+          'os.write(3, json.dumps({"type":"call","id":1,"global":"tools","name":"forged","args":{}}).encode() + b"\\n")',
+          // The forged frame is answered, but nothing in the child awaits id 1, so
+          // the reply is ignored and the run completes on its own value.
+          'return x',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => {
+            seenLegitCall = true
+            return args as PtcJsonValue
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ ping: true })
     expect(seenLegitCall).toBe(true)
@@ -3752,18 +4034,20 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // with a huge global/name cannot spike host memory near the value ceiling;
     // the reply still identifies the binding.
     const { runtime } = await setup({ maxWallMs: 8_000, maxValueBytes: 1024 * 1024 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'x = await tools.echo({"ping": True})',
-        'name = "n" * 100000',
-        'os.write(3, json.dumps({"type":"call","id":1,"global":"tools","name":name,"args":{}}).encode() + b"\\n")',
-        'return x',
-      ].join('\n'),
-      bindings: tools({
-        echo: async args => args as PtcJsonValue,
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'x = await tools.echo({"ping": True})',
+          'name = "n" * 100000',
+          'os.write(3, json.dumps({"type":"call","id":1,"global":"tools","name":name,"args":{}}).encode() + b"\\n")',
+          'return x',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => args as PtcJsonValue,
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ ping: true })
   }, 15_000)
@@ -3781,18 +4065,23 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // call that follows rather than the forgeries.
     const { runtime } = await setup()
     let echoCalls = 0
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'for i in range(2000, 0, -1):',
-        '    os.write(3, json.dumps({"type":"call","id":i,"global":"tools","name":"echo","args":{"forged":i}}).encode() + b"\\n")',
-        'x = await tools.echo({"ping": True})',
-        'return x',
-      ].join('\n'),
-      bindings: tools({
-        echo: async (args) => { echoCalls += 1; return args as PtcJsonValue },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'for i in range(2000, 0, -1):',
+          '    os.write(3, json.dumps({"type":"call","id":i,"global":"tools","name":"echo","args":{"forged":i}}).encode() + b"\\n")',
+          'x = await tools.echo({"ping": True})',
+          'return x',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => {
+            echoCalls += 1
+            return args as PtcJsonValue
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ ping: true })
     expect(echoCalls).toBe(1)
@@ -3805,20 +4094,25 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // would hang to the wall ceiling instead of completing.
     const { runtime } = await setup({ maxWallMs: 8_000 })
     const seen: unknown[] = []
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'caught = ""',
-        'try:',
-        '    await tools.echo({"bad": float("inf")})',
-        'except RuntimeError as e:',
-        '    caught = str(e)',
-        'after = await tools.echo({"ok": True})',
-        'return {"caught": caught, "after": after}',
-      ].join('\n'),
-      bindings: tools({
-        echo: async (args) => { seen.push(args); return args as PtcJsonValue },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'caught = ""',
+          'try:',
+          '    await tools.echo({"bad": float("inf")})',
+          'except RuntimeError as e:',
+          '    caught = str(e)',
+          'after = await tools.echo({"ok": True})',
+          'return {"caught": caught, "after": after}',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => {
+            seen.push(args)
+            return args as PtcJsonValue
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     const value = result.value as { caught: string; after: unknown }
     expect(value.caught).toContain('lossless JSON')
@@ -3834,20 +4128,25 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // child cannot produce one (its validator rejects unsafe ints).
     const { runtime } = await setup()
     let dispatched: unknown
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        // Forged call frame with an unsafe int argument, then a forged done
-        // frame with an unsafe int value — both must be dropped whole.
-        'os.write(3, b\'{"type":"call","id":7,"global":"tools","name":"echo","args":9007199254740993}\\n\')',
-        'os.write(3, b\'{"type":"done","value":9007199254740993}\\n\')',
-        'x = await tools.echo({"ok": True})',
-        'return x',
-      ].join('\n'),
-      bindings: tools({
-        echo: async (args) => { dispatched = args; return args as PtcJsonValue },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          // Forged call frame with an unsafe int argument, then a forged done
+          // frame with an unsafe int value — both must be dropped whole.
+          'os.write(3, b\'{"type":"call","id":7,"global":"tools","name":"echo","args":9007199254740993}\\n\')',
+          'os.write(3, b\'{"type":"done","value":9007199254740993}\\n\')',
+          'x = await tools.echo({"ok": True})',
+          'return x',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => {
+            dispatched = args
+            return args as PtcJsonValue
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     // The forged done did not settle the run; the legit call and completion did.
     expect(result.value).toEqual({ ok: true })
@@ -3858,14 +4157,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // Set a tiny host-side budget; the Python side has a much larger one, so
     // its LogBuffer will not truncate — the host ledger fires first.
     const { runtime } = await setup({ maxLogBytes: 128 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'for _ in range(50):',
-        '    print("aaaaaaaaaa")',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['for _ in range(50):', '    print("aaaaaaaaaa")', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     const markers = result.logs.filter(line => line.includes('log capture truncated at 128 bytes'))
     expect(markers.length).toBeGreaterThanOrEqual(1)
@@ -3875,10 +4172,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // A strict UTF-8 encode of "\ud800" throws while BUILDING the failure
     // frame; the run would then hang to maxWallMs and misreport as timeout.
     const { runtime } = await setup({ maxWallMs: 8_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: String.raw`raise Exception("bad \ud800 surrogate")`,
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: String.raw`raise Exception("bad \ud800 surrogate")`,
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('bad')
     expect(result.error?.message).toContain('surrogate')
@@ -3890,10 +4189,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // unit. `PtcJsonValue`, `snapshotJsonValue`, and the worker backend all
     // accept such a string, so this backend must not narrow the shared seam.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: String.raw`return {"lone": "a\ud800b", "spelled": "😀"}`,
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: String.raw`return {"lone": "a\ud800b", "spelled": "😀"}`,
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     // The lone half survives as the code unit itself; a spelled-out high-low
     // PAIR folds into the astral character the host would hold for it.
@@ -3938,10 +4239,17 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // binding must receive the code unit the program passed.
     const seen: unknown[] = []
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: String.raw`return await tools.echo({"text": "x\udfff"})`,
-      bindings: tools({ echo: async (args: unknown) => { seen.push(args); return args as PtcJsonValue } }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: String.raw`return await tools.echo({"text": "x\udfff"})`,
+        bindings: tools({
+          echo: async (args: unknown) => {
+            seen.push(args)
+            return args as PtcJsonValue
+          },
+        }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(seen).toEqual([{ text: 'x\udfff' }])
     expect(result.value).toEqual({ text: 'x\udfff' })
@@ -3963,18 +4271,20 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // Python 3.11+ stores member stacks under TracebackException.exceptions;
     // the <model>-frame filter must recurse into them too.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import asyncio, sys',
-        'if sys.version_info < (3, 11):',
-        '    raise ValueError("skip-old <model>")',
-        'async def boom():',
-        '    raise ValueError("group-member")',
-        'async with asyncio.TaskGroup() as tg:',
-        '    tg.create_task(boom())',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import asyncio, sys',
+          'if sys.version_info < (3, 11):',
+          '    raise ValueError("skip-old <model>")',
+          'async def boom():',
+          '    raise ValueError("group-member")',
+          'async with asyncio.TaskGroup() as tg:',
+          '    tg.create_task(boom())',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('<model>')
     expect(result.error?.message).not.toContain('bootstrap.py')
@@ -3986,23 +4296,25 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // interleave bytes mid-frame and the host would drop the malformed JSON,
     // hanging the run to the wall clock (or losing the completion).
     const { runtime } = await setup({ maxValueBytes: 1024 * 1024, maxLogBytes: 4 * 1024 * 1024, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import threading',
-        'stop = False',
-        'def spam():',
-        '    while not stop:',
-        '        print("spam-line-" + "y" * 100)',
-        't = threading.Thread(target=spam)',
-        't.start()',
-        // A ~300 KiB completion — several PIPE_BUF units — while spam runs.
-        'big = "x" * (300 * 1024)',
-        'stop = True',
-        't.join()',
-        'return big',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import threading',
+          'stop = False',
+          'def spam():',
+          '    while not stop:',
+          '        print("spam-line-" + "y" * 100)',
+          't = threading.Thread(target=spam)',
+          't.start()',
+          // A ~300 KiB completion — several PIPE_BUF units — while spam runs.
+          'big = "x" * (300 * 1024)',
+          'stop = True',
+          't.join()',
+          'return big',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('x'.repeat(300 * 1024))
   }, 20_000)
@@ -4024,24 +4336,26 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the body returns and settlement flushes. Repeated so the interleave lands.
     for (let attempt = 0; attempt < 5; attempt++) {
       const { runtime, fiber } = await setup({ maxLogBytes: 4 * 1024 * 1024, maxWallMs: 15_000 })
-      const result = await runtime.run(runtime.resolve({
-        program: [
-          'import sys, threading',
-          'stop = False',
-          'def spam():',
-          '    while not stop:',
-          // No newline: the text accumulates in the stream's `_pending`, which is
-          // exactly the state the settlement flush also touches.
-          '        sys.stdout.write("tail-fragment-" + "z" * 64)',
-          'workers = [threading.Thread(target=spam, daemon=True) for _ in range(4)]',
-          'for t in workers: t.start()',
-          // Let the daemons build up pending writes, then return so settlement
-          // flushes while they are still mid-write.
-          'import time; time.sleep(0.05)',
-          'return "settled"',
-        ].join('\n'),
-        bindings: [],
-      }))
+      const result = await runtime.run(
+        runtime.resolve({
+          program: [
+            'import sys, threading',
+            'stop = False',
+            'def spam():',
+            '    while not stop:',
+            // No newline: the text accumulates in the stream's `_pending`, which is
+            // exactly the state the settlement flush also touches.
+            '        sys.stdout.write("tail-fragment-" + "z" * 64)',
+            'workers = [threading.Thread(target=spam, daemon=True) for _ in range(4)]',
+            'for t in workers: t.start()',
+            // Let the daemons build up pending writes, then return so settlement
+            // flushes while they are still mid-write.
+            'import time; time.sleep(0.05)',
+            'return "settled"',
+          ].join('\n'),
+          bindings: [],
+        }),
+      )
       expect(result.error).toBeUndefined()
       expect(result.value).toBe('settled')
       await fiber.dispose()
@@ -4066,23 +4380,28 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // this test pins.
     const { runtime } = await setup({ maxWallMs: 8_000 })
     const seen: unknown[] = []
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import asyncio, threading',
-        'result = {}',
-        'def worker():',
-        // A fresh loop in this thread; the binding Future is created here.
-        '    result["value"] = asyncio.run(tools.echo({"from": "thread"}))',
-        't = threading.Thread(target=worker)',
-        't.start()',
-        'while t.is_alive():',
-        '    await asyncio.sleep(0.02)',
-        'return result["value"]',
-      ].join('\n'),
-      bindings: tools({
-        echo: async (args) => { seen.push(args); return args as PtcJsonValue },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import asyncio, threading',
+          'result = {}',
+          'def worker():',
+          // A fresh loop in this thread; the binding Future is created here.
+          '    result["value"] = asyncio.run(tools.echo({"from": "thread"}))',
+          't = threading.Thread(target=worker)',
+          't.start()',
+          'while t.is_alive():',
+          '    await asyncio.sleep(0.02)',
+          'return result["value"]',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => {
+            seen.push(args)
+            return args as PtcJsonValue
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toEqual({ from: 'thread' })
     // The host binding actually ran (the reply round-tripped), not a timeout.
@@ -4107,48 +4426,52 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // dies on `slow`, `release`'s reply is never read, and `await tools.release`
     // hangs to the (small) maxWallMs as a timeout.
     let releaseSlow!: () => void
-    const slowGate = new Promise<void>((resolve) => { releaseSlow = resolve })
+    const slowGate = new Promise<void>(resolve => {
+      releaseSlow = resolve
+    })
     const { runtime } = await setup({ maxWallMs: 6_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import asyncio, threading',
-        'closed = threading.Event()',
-        'def worker():',
-        '    async def body():',
-        // Abandon the call: wait_for cancels it, but the pending host-side entry
-        // survives (dispatch does not pop on cancellation), holding this loop.
-        '        try:',
-        '            await asyncio.wait_for(tools.slow({}), timeout=0.1)',
-        '        except asyncio.TimeoutError:',
-        '            pass',
-        '    asyncio.run(body())',  // closes the thread's loop on return
-        '    closed.set()',
-        't = threading.Thread(target=worker)',
-        't.start()',
-        'while not closed.is_set():',
-        '    await asyncio.sleep(0.02)',
-        // The loop is closed. Now the host answers slow (dead-loop reply) then
-        // release; the pump must survive the first to deliver the second.
-        'after = await tools.release({})',
-        'return after',
-      ].join('\n'),
-      bindings: tools({
-        slow: async () => {
-          // Answer only once the worker has closed its loop AND the main
-          // coroutine is awaiting release, so this reply reaches the pump against
-          // the closed loop.
-          await slowGate
-          return 'late'
-        },
-        release: async () => {
-          // Let slow's reply be written first, then yield a microtask so the
-          // pump processes the dead-loop reply before release's own reply lands.
-          releaseSlow()
-          await new Promise(resolve => setImmediate(resolve))
-          return 'released'
-        },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import asyncio, threading',
+          'closed = threading.Event()',
+          'def worker():',
+          '    async def body():',
+          // Abandon the call: wait_for cancels it, but the pending host-side entry
+          // survives (dispatch does not pop on cancellation), holding this loop.
+          '        try:',
+          '            await asyncio.wait_for(tools.slow({}), timeout=0.1)',
+          '        except asyncio.TimeoutError:',
+          '            pass',
+          '    asyncio.run(body())', // closes the thread's loop on return
+          '    closed.set()',
+          't = threading.Thread(target=worker)',
+          't.start()',
+          'while not closed.is_set():',
+          '    await asyncio.sleep(0.02)',
+          // The loop is closed. Now the host answers slow (dead-loop reply) then
+          // release; the pump must survive the first to deliver the second.
+          'after = await tools.release({})',
+          'return after',
+        ].join('\n'),
+        bindings: tools({
+          slow: async () => {
+            // Answer only once the worker has closed its loop AND the main
+            // coroutine is awaiting release, so this reply reaches the pump against
+            // the closed loop.
+            await slowGate
+            return 'late'
+          },
+          release: async () => {
+            // Let slow's reply be written first, then yield a microtask so the
+            // pump processes the dead-loop reply before release's own reply lands.
+            releaseSlow()
+            await new Promise(resolve => setImmediate(resolve))
+            return 'released'
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     // The pump survived the closed-loop reply and delivered the later binding.
     expect(result.value).toBe('released')
@@ -4167,34 +4490,45 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // statement and drives the closed-loop worker pattern: the pump must survive
     // the dead-loop reply and deliver the later binding.
     let releaseSlow!: () => void
-    const slowGate = new Promise<void>((resolve) => { releaseSlow = resolve })
+    const slowGate = new Promise<void>(resolve => {
+      releaseSlow = resolve
+    })
     const { runtime } = await setup({ maxWallMs: 6_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        '__main__.RuntimeError = ValueError',
-        'import asyncio, threading',
-        'closed = threading.Event()',
-        'def worker():',
-        '    async def body():',
-        '        try:',
-        '            await asyncio.wait_for(tools.slow({}), timeout=0.1)',
-        '        except asyncio.TimeoutError:',
-        '            pass',
-        '    asyncio.run(body())',
-        '    closed.set()',
-        't = threading.Thread(target=worker)',
-        't.start()',
-        'while not closed.is_set():',
-        '    await asyncio.sleep(0.02)',
-        'after = await tools.release({})',
-        'return after',
-      ].join('\n'),
-      bindings: tools({
-        slow: async () => { await slowGate; return 'late' },
-        release: async () => { releaseSlow(); await new Promise(resolve => setImmediate(resolve)); return 'released' },
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import __main__',
+          '__main__.RuntimeError = ValueError',
+          'import asyncio, threading',
+          'closed = threading.Event()',
+          'def worker():',
+          '    async def body():',
+          '        try:',
+          '            await asyncio.wait_for(tools.slow({}), timeout=0.1)',
+          '        except asyncio.TimeoutError:',
+          '            pass',
+          '    asyncio.run(body())',
+          '    closed.set()',
+          't = threading.Thread(target=worker)',
+          't.start()',
+          'while not closed.is_set():',
+          '    await asyncio.sleep(0.02)',
+          'after = await tools.release({})',
+          'return after',
+        ].join('\n'),
+        bindings: tools({
+          slow: async () => {
+            await slowGate
+            return 'late'
+          },
+          release: async () => {
+            releaseSlow()
+            await new Promise(resolve => setImmediate(resolve))
+            return 'released'
+          },
+        }),
       }),
-    }))
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('released')
   }, 15_000)
@@ -4208,16 +4542,18 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // before the program runs, so the entry name is immune; the run must still
     // report the success value.
     const { runtime } = await setup({ maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import __main__',
-        'def boom(*a, **k):',
-        '    raise RuntimeError("hijacked")',
-        '__main__._done_with_value = boom',
-        'return 1',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import __main__',
+          'def boom(*a, **k):',
+          '    raise RuntimeError("hijacked")',
+          '__main__._done_with_value = boom',
+          'return 1',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(1)
   }, 15_000)
@@ -4227,13 +4563,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // integral double: String(2**60) emits a rounded form, and the child
     // would receive a DIFFERENT integer than the binding resolved.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'v = await tools.echo(2**60)',
-        'return v == 2**60',
-      ].join('\n'),
-      bindings: tools({ echo: async args => args as never }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['v = await tools.echo(2**60)', 'return v == 2**60'].join('\n'),
+        bindings: tools({ echo: async args => args as never }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(true)
   })
@@ -4257,24 +4592,28 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // compute. Exact-type matching fails it as invalid-output instead. The
     // worker backend rejects the prototype-equivalent shapes the same way.
     const { runtime } = await setup()
-    const hidden = await runtime.run(runtime.resolve({
-      program: [
-        'class Sneaky(dict):',
-        '    def items(self): return []',
-        '    def keys(self): return []',
-        '    def __iter__(self): return iter([])',
-        '    def __len__(self): return 0',
-        'return Sneaky(secret="kept")',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const hidden = await runtime.run(
+      runtime.resolve({
+        program: [
+          'class Sneaky(dict):',
+          '    def items(self): return []',
+          '    def keys(self): return []',
+          '    def __iter__(self): return iter([])',
+          '    def __len__(self): return 0',
+          'return Sneaky(secret="kept")',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(hidden.error?.kind).toBe('invalid-output')
     expect(hidden.error?.message).toContain('unsupported type (Sneaky)')
     // A list subclass is refused on the same rule.
-    const listish = await runtime.run(runtime.resolve({
-      program: ['class L(list):', '    def __iter__(self): return iter([])', 'return L([1, 2, 3])'].join('\n'),
-      bindings: [],
-    }))
+    const listish = await runtime.run(
+      runtime.resolve({
+        program: ['class L(list):', '    def __iter__(self): return iter([])', 'return L([1, 2, 3])'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(listish.error?.kind).toBe('invalid-output')
     expect(listish.error?.message).toContain('unsupported type (L)')
     // The exact built-in containers still cross unchanged.
@@ -4291,59 +4630,57 @@ describe('PythonPtcRuntime — hostile peer', () => {
     const { runtime } = await setup()
     // _dump_float spells a float from repr(value), so an overridden __repr__
     // decides the digits: F(2.5) serialized as 1.
-    const floated = await runtime.run(runtime.resolve({
-      program: [
-        'class F(float):',
-        '    def __repr__(self): return "1.0"',
-        'return F(2.5)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const floated = await runtime.run(
+      runtime.resolve({
+        program: ['class F(float):', '    def __repr__(self): return "1.0"', 'return F(2.5)'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(floated.error?.kind).toBe('invalid-output')
     expect(floated.error?.message).toContain('unsupported type (F)')
     // The JS-safe-range bound is two comparisons, so overriding them admits an
     // int whose true digits (json.dumps reads the C-level value) the host's
     // JSON.parse rounds: 9007199254740993 arrives as ...992.
-    const inted = await runtime.run(runtime.resolve({
-      program: [
-        'class I(int):',
-        '    def __gt__(self, other): return False',
-        '    def __lt__(self, other): return False',
-        'return I(2 ** 53 + 1)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const inted = await runtime.run(
+      runtime.resolve({
+        program: [
+          'class I(int):',
+          '    def __gt__(self, other): return False',
+          '    def __lt__(self, other): return False',
+          'return I(2 ** 53 + 1)',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(inted.error?.kind).toBe('invalid-output')
     expect(inted.error?.message).toContain('unsupported type (I)')
     // The pre-encode size bound reads len(), so overriding it to 0 admits a
     // string of any length past maxValueBytes.
-    const stringed = await runtime.run(runtime.resolve({
-      program: [
-        'class S(str):',
-        '    def __len__(self): return 0',
-        'return S("Q" * 100000)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const stringed = await runtime.run(
+      runtime.resolve({
+        program: ['class S(str):', '    def __len__(self): return 0', 'return S("Q" * 100000)'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(stringed.error?.kind).toBe('invalid-output')
     expect(stringed.error?.message).toContain('unsupported type (S)')
     // A str-subclass dict KEY reaches the same len() bound.
-    const keyed = await runtime.run(runtime.resolve({
-      program: [
-        'class S(str):',
-        '    def __len__(self): return 0',
-        'return {S("Q" * 100000): 1}',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const keyed = await runtime.run(
+      runtime.resolve({
+        program: ['class S(str):', '    def __len__(self): return 0', 'return {S("Q" * 100000): 1}'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(keyed.error?.kind).toBe('invalid-output')
     expect(keyed.error?.message).toContain('non-string dict key (S)')
     // bool is an int subclass that IS lossless JSON, and the exact scalars all
     // still cross unchanged.
-    const plain = await runtime.run(runtime.resolve({
-      program: 'return {"t": True, "f": False, "n": None, "i": 7, "d": 2.5, "s": "ok"}',
-      bindings: [],
-    }))
+    const plain = await runtime.run(
+      runtime.resolve({
+        program: 'return {"t": True, "f": False, "n": None, "i": 7, "d": 2.5, "s": "ok"}',
+        bindings: [],
+      }),
+    )
     expect(plain.error).toBeUndefined()
     expect(plain.value).toEqual({ t: true, f: false, n: null, i: 7, d: 2.5, s: 'ok' })
   })
@@ -4354,20 +4691,24 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // float whose digits come from an override.
     const { runtime } = await setup()
     const seen: PtcJsonValue[] = []
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'class F(float):',
-        '    def __repr__(self): return "1.0"',
-        'try:',
-        '    await tools.echo({"v": F(2.5)})',
-        'except Exception as exc:',
-        '    return str(exc)',
-      ].join('\n'),
-      bindings: tools({ echo: async (args) => {
-        seen.push(args as PtcJsonValue)
-        return null
-      } }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'class F(float):',
+          '    def __repr__(self): return "1.0"',
+          'try:',
+          '    await tools.echo({"v": F(2.5)})',
+          'except Exception as exc:',
+          '    return str(exc)',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => {
+            seen.push(args as PtcJsonValue)
+            return null
+          },
+        }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toContain('unsupported type (F)')
     expect(seen).toEqual([])
@@ -4379,20 +4720,24 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // value whose serialization disagrees with what was validated.
     const { runtime } = await setup()
     const seen: PtcJsonValue[] = []
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'class Sneaky(dict):',
-        '    def items(self): return []',
-        'try:',
-        '    await tools.echo(Sneaky(secret="kept"))',
-        'except Exception as exc:',
-        '    return str(exc)',
-      ].join('\n'),
-      bindings: tools({ echo: async (args) => {
-        seen.push(args as PtcJsonValue)
-        return null
-      } }),
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'class Sneaky(dict):',
+          '    def items(self): return []',
+          'try:',
+          '    await tools.echo(Sneaky(secret="kept"))',
+          'except Exception as exc:',
+          '    return str(exc)',
+        ].join('\n'),
+        bindings: tools({
+          echo: async args => {
+            seen.push(args as PtcJsonValue)
+            return null
+          },
+        }),
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toContain('unsupported type (Sneaky)')
     expect(seen).toEqual([])
@@ -4405,10 +4750,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // which materialized chunk fragments plus the joined copy (~2 more
     // copies) and died on RLIMIT_AS as MemoryError/worker-exit.
     const { runtime } = await setup({ maxValueBytes: 1024, addressSpaceMb: 384, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'return "x" * (100 * 1024 * 1024)',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return "x" * (100 * 1024 * 1024)',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('output-limit')
     expect(result.error?.message).toContain('exceeded 1024 bytes')
   }, 20_000)
@@ -4420,10 +4767,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // string but not its escaped expansion, so a pre-escape check dies on
     // RLIMIT_AS instead of returning output-limit.
     const { runtime } = await setup({ maxValueBytes: 1024, addressSpaceMb: 384, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'return "\\x00" * (40 * 1024 * 1024)',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return "\\x00" * (40 * 1024 * 1024)',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('output-limit')
     expect(result.error?.message).toContain('exceeded 1024 bytes')
   }, 20_000)
@@ -4435,13 +4784,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // address space comfortably holds one copy of the 100 MB string but
     // not the pre-fix double allocation plus interpreter overhead spikes.
     const { runtime } = await setup({ maxLogBytes: 1024, addressSpaceMb: 256, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'print("x" * (100 * 1024 * 1024))',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['print("x" * (100 * 1024 * 1024))', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs.some(line => line.includes('log capture truncated'))).toBe(true)
@@ -4460,15 +4808,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the host as stray stdout and take the host ledger path rather than the
     // child's — which is exactly the route that leaked past the marker.
     const { runtime } = await setup({ maxLogBytes: 64, maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'print("y" * 70000)',
-        'os.write(1, b"AFTER")',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', 'print("y" * 70000)', 'os.write(1, b"AFTER")', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     const markers = result.logs.filter(line => line.includes('log capture truncated'))
@@ -4485,16 +4830,18 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the literal `true` counts — a forged `"yes"` is rebuilt away by
     // validateChildFrame, so that frame stays ordinary text.
     const { runtime } = await setup({ maxLogBytes: 4096, maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'os.write(3, json.dumps({"type":"log","text":"first","truncated":"yes"}).encode() + b"\\n")',
-        'os.write(3, json.dumps({"type":"log","text":"MARK-A","truncated":True}).encode() + b"\\n")',
-        'os.write(3, json.dumps({"type":"log","text":"MARK-B","truncated":True}).encode() + b"\\n")',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'os.write(3, json.dumps({"type":"log","text":"first","truncated":"yes"}).encode() + b"\\n")',
+          'os.write(3, json.dumps({"type":"log","text":"MARK-A","truncated":True}).encode() + b"\\n")',
+          'os.write(3, json.dumps({"type":"log","text":"MARK-B","truncated":True}).encode() + b"\\n")',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     // The non-boolean flag did not truncate, so its text was captured normally.
@@ -4515,15 +4862,17 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // so the retained size is fixed regardless of what the program sent.
     const forgedBytes = 1024 * 1024
     const { runtime } = await setup({ maxLogBytes: 64, maxWallMs: 20_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        `big = "A" * ${forgedBytes}`,
-        'os.write(3, json.dumps({"type":"log","truncated":True,"text":big}).encode() + b"\\n")',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          `big = "A" * ${forgedBytes}`,
+          'os.write(3, json.dumps({"type":"log","truncated":True,"text":big}).encode() + b"\\n")',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     // Only the host marker is kept, so the total stays orders of magnitude below
@@ -4604,10 +4953,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // it at maxValueBytes before formatting/sending, not ship the whole
     // payload for the host to truncate after parsing.
     const { runtime } = await setup({ maxValueBytes: 1024 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'raise ValueError("boom-" + "x" * (8 * 1024 * 1024))',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'raise ValueError("boom-" + "x" * (8 * 1024 * 1024))',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toContain('boom-')
     expect(result.error?.message.endsWith('… [truncated]')).toBe(true)
@@ -4623,11 +4974,13 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // by its serialized cost, so a NUL flood is truncated to fit the frame and
     // the run still reports the exception rather than a worker-exit.
     const { runtime } = await setup({ maxValueBytes: 4096 })
-    const result = await runtime.run(runtime.resolve({
-      // 512 KiB of NUL: ~3 MiB once escaped, far past the 4 KiB cap.
-      program: 'raise ValueError("\\x00" * (512 * 1024))',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        // 512 KiB of NUL: ~3 MiB once escaped, far past the 4 KiB cap.
+        program: 'raise ValueError("\\x00" * (512 * 1024))',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message.endsWith('… [truncated]')).toBe(true)
     // The SERIALIZED form (what the frame carried) fits the budget, so its raw
@@ -4642,14 +4995,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // Python LogBuffer until settlement — the buffered tail must still hit
     // the budget mid-run instead of growing without bound to RLIMIT/timeout.
     const { runtime } = await setup({ maxLogBytes: 1024, maxWallMs: 15_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'for _ in range(100000):',
-        '    print("xxxxxxxxxx", end="")',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['for _ in range(100000):', '    print("xxxxxxxxxx", end="")', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs.some(line => line.includes('log capture truncated'))).toBe(true)
@@ -4666,15 +5017,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // empty writes must instead settle normally and contribute NO log entry,
     // proving the chunk was dropped rather than joined at flush_line.
     const { runtime } = await setup({ maxLogBytes: 256, addressSpaceMb: 256, maxWallMs: 20_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        'for _ in range(2000000):',
-        '    sys.stdout.write("")',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import sys', 'for _ in range(2000000):', '    sys.stdout.write("")', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs).toEqual([])
@@ -4687,10 +5035,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the run instead settles quickly with exactly one truncation marker.
     const { runtime } = await setup({ maxLogBytes: 256, maxWallMs: 10_000 })
     const start = Date.now()
-    const result = await runtime.run(runtime.resolve({
-      program: ['print("x\\n" * 500000, end="")', 'return "done"'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['print("x\\n" * 500000, end="")', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs.filter(line => line.includes('log capture truncated'))).toHaveLength(1)
@@ -4709,15 +5059,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // payload itself fits and the only remaining allocation is the stream's own
     // slice; 340 MiB of a 400 MiB cap cannot survive one more copy of it.
     const { runtime } = await setup({ maxLogBytes: 256, addressSpaceMb: 400, maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        'payload = "\\n".rjust(340 * 1024 * 1024, "A")',
-        'sys.stdout.write(payload)',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import sys', 'payload = "\\n".rjust(340 * 1024 * 1024, "A")', 'sys.stdout.write(payload)', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs).toEqual([logTruncationMarker(256)])
@@ -4737,18 +5084,20 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // bound must be applied BEFORE the join and the chunks dropped on that path,
     // so the run settles with the truncation marker it promises.
     const { runtime } = await setup({ maxLogBytes: 256, addressSpaceMb: 400, maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        // One unterminated character first, so `_pending` is non-empty and the
-        // large write cannot take the "buffered text IS the write" shortcut.
-        'sys.stdout.write("x")',
-        'payload = "A" * (340 * 1024 * 1024)',
-        'sys.stdout.write(payload)',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import sys',
+          // One unterminated character first, so `_pending` is non-empty and the
+          // large write cannot take the "buffered text IS the write" shortcut.
+          'sys.stdout.write("x")',
+          'payload = "A" * (340 * 1024 * 1024)',
+          'sys.stdout.write(payload)',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs).toEqual([logTruncationMarker(256)])
@@ -4766,16 +5115,18 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // and only a budget-sized prefix of it is copied; the rest of the write is
     // scanned in place.
     const { runtime } = await setup({ maxLogBytes: 256, addressSpaceMb: 400, maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        'sys.stdout.write("x")',
-        'payload = "\\n".rjust(340 * 1024 * 1024, "A")',
-        'sys.stdout.write(payload)',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import sys',
+          'sys.stdout.write("x")',
+          'payload = "\\n".rjust(340 * 1024 * 1024, "A")',
+          'sys.stdout.write(payload)',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs).toEqual([logTruncationMarker(256)])
@@ -4789,14 +5140,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // "before hang" with flush=True ahead of an infinite loop returned
     // `logs: []`, losing the one diagnostic the program deliberately committed.
     const { runtime } = await setup({ maxWallMs: 4_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        'print("before hang", end="", flush=True)',
-        'while True: pass',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import sys', 'print("before hang", end="", flush=True)', 'while True: pass'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('timeout')
     expect(result.logs).toContain('before hang')
   }, 15_000)
@@ -4817,10 +5166,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // exactly 104 bytes (103 payload + 1 envelope), so 104 is the smallest
     // budget that admits the entry.
     const { runtime } = await setup({ maxLogBytes: 104, maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: ['print("y" * 100 + "\\n" + "z" * 10, end="")', 'return "done"'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['print("y" * 100 + "\\n" + "z" * 10, end="")', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs).toContain('y'.repeat(100))
@@ -4840,10 +5191,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // = 64 = the cap; a 61-character line costs 64 > 63 and truncates. The
     // marker rides envelope, so the serialized logs run to cap + marker.
     const { runtime } = await setup({ maxLogBytes: 64, maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: ['print("a" * 60 + "\\n" + "b" * 61, end="")', 'return "done"'].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['print("a" * 60 + "\\n" + "b" * 61, end="")', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     // The 60-character line was admitted; the 61-character line was not (a
@@ -4866,14 +5219,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // ledger must charge that expansion, or a control-character flood admits
     // 6x the configured cap.
     const { runtime } = await setup({ maxLogBytes: 256 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'for _ in range(500):',
-        '    print("\\x00" * 10)',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['for _ in range(500):', '    print("\\x00" * 10)', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.some(line => line.includes('log capture truncated'))).toBe(true)
     // Serialized (escaped) size of retained entries stays in the budget's
@@ -4892,13 +5243,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // clearing the 12x load gate for a 32 MiB budget) is sized so the run loads;
     // the gate separately guarantees a correctly-charged near-budget entry fits.
     const { runtime } = await setup({ maxLogBytes: 32 * 1024 * 1024, addressSpaceMb: 512, maxWallMs: 20_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'print("\\x00" * (24 * 1024 * 1024))',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['print("\\x00" * (24 * 1024 * 1024))', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs.filter(line => line.includes('log capture truncated'))).toHaveLength(1)
@@ -4920,15 +5270,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // space at N = 150 MiB (~300 MiB). The pre-fix code then buffered the whole
     // ~150 MiB tail again, pushing past 384 MiB; the sliced prefix does not.
     const { runtime } = await setup({ maxLogBytes: 256, addressSpaceMb: 384, maxWallMs: 20_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        'tail = "A" * (150 * 1024 * 1024)',
-        'sys.stdout.write("\\n" + tail)',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import sys', 'tail = "A" * (150 * 1024 * 1024)', 'sys.stdout.write("\\n" + tail)', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs.some(line => line.includes('log capture truncated'))).toBe(true)
@@ -4959,14 +5306,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
       addressSpaceMb: 512,
       maxWallMs: 20_000,
     })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        'sys.stdout.write("\\U0001F600" * 33_000_000)',
-        'return "\\U0001F600" * 33_000_000',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import sys', 'sys.stdout.write("\\U0001F600" * 33_000_000)', 'return "\\U0001F600" * 33_000_000'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('output-limit')
   }, 30_000)
 
@@ -5015,13 +5360,17 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // The binding echoes its argument's length back, so the assertion proves the
     // call actually round-tripped rather than merely avoiding a crash.
     const { runtime } = await setup({ addressSpaceMb: 384, maxWallMs: 60_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'return await tools.width([0] * 6_000_000)',
-      bindings: [{
-        global: 'tools',
-        functions: { width: async (items: unknown) => (items as number[]).length },
-      }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return await tools.width([0] * 6_000_000)',
+        bindings: [
+          {
+            global: 'tools',
+            functions: { width: async (items: unknown) => (items as number[]).length },
+          },
+        ],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(6_000_000)
   }, 90_000)
@@ -5043,10 +5392,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // Darwin does not apply the limit, so the spike is merely allocated there.
     const reply = 'A'.repeat(4 * 1024 * 1024)
     const { runtime } = await setup({ maxWallMs: 60_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'value = await tools.big({})\nreturn len(value)',
-      bindings: [{ global: 'tools', functions: { big: async () => reply } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'value = await tools.big({})\nreturn len(value)',
+        bindings: [{ global: 'tools', functions: { big: async () => reply } }],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(reply.length)
   }, 90_000)
@@ -5062,19 +5413,23 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the run must still report `timeout`, and the late value must not appear.
     let resolvedLate = false
     const { runtime } = await setup({ maxWallMs: 1_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: 'return await tools.slow({})',
-      bindings: [{
-        global: 'tools',
-        functions: {
-          slow: async () => {
-            await new Promise(resolve => setTimeout(resolve, 2_500))
-            resolvedLate = true
-            return Array.from({ length: 2_000_000 }, () => 0)
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return await tools.slow({})',
+        bindings: [
+          {
+            global: 'tools',
+            functions: {
+              slow: async () => {
+                await new Promise(resolve => setTimeout(resolve, 2_500))
+                resolvedLate = true
+                return Array.from({ length: 2_000_000 }, () => 0)
+              },
+            },
           },
-        },
-      }],
-    }))
+        ],
+      }),
+    )
     expect(result.error?.kind).toBe('timeout')
     expect(result.value).toBeUndefined()
     // Pin that the late path actually ran, so the assertion above is not vacuous.
@@ -5099,14 +5454,16 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // peaked at 0.0 MiB.
     const chunk = 'A'.repeat(4 * 1024 * 1024)
     const { runtime } = await setup({ maxWallMs: 60_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import asyncio',
-        'parts = await asyncio.gather(*[tools.chunk({}) for _ in range(8)])',
-        'return sum(len(p) for p in parts)',
-      ].join('\n'),
-      bindings: [{ global: 'tools', functions: { chunk: async () => chunk } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import asyncio',
+          'parts = await asyncio.gather(*[tools.chunk({}) for _ in range(8)])',
+          'return sum(len(p) for p in parts)',
+        ].join('\n'),
+        bindings: [{ global: 'tools', functions: { chunk: async () => chunk } }],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(8 * chunk.length)
   }, 90_000)
@@ -5122,18 +5479,20 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // drain wait.
     const chunk = 'A'.repeat(4 * 1024 * 1024)
     const { runtime } = await setup({ maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import asyncio',
-        // Resolve a reply big enough to backpressure fd 3, then exit without
-        // reading it: the child's `close` lands while the host still waits for
-        // `drain`, exercising the destroyed-pipe branch of the reply drain.
-        'pending = asyncio.create_task(tools.chunk({}))',
-        'await asyncio.sleep(0.05)',
-        'return "done"',
-      ].join('\n'),
-      bindings: [{ global: 'tools', functions: { chunk: async () => chunk } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import asyncio',
+          // Resolve a reply big enough to backpressure fd 3, then exit without
+          // reading it: the child's `close` lands while the host still waits for
+          // `drain`, exercising the destroyed-pipe branch of the reply drain.
+          'pending = asyncio.create_task(tools.chunk({}))',
+          'await asyncio.sleep(0.05)',
+          'return "done"',
+        ].join('\n'),
+        bindings: [{ global: 'tools', functions: { chunk: async () => chunk } }],
+      }),
+    )
     // The program returned, so the completion wins over the mid-flight reply;
     // whatever the result, the run must settle (no hang on the drain wait).
     expect(result.error).toBeUndefined()
@@ -5155,21 +5514,23 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the run must settle worker-exit with the reply-queue message, not a
     // wall-clock timeout.
     const { runtime } = await setup({ maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, time',
-        'frame = b\'{"type":"call","id":%d,"global":"tools","name":"echo","args":{}}\\n\'',
-        'for i in range(5000):',
-        '    view = memoryview(frame % i)',
-        '    while view:',
-        '        view = view[os.write(3, view):]',
-        // Keep the child alive without reading fd 3: the run must settle via
-        // the reply-backlog cap, not by the child finishing or exiting.
-        'time.sleep(30)',
-        'return "unreachable"',
-      ].join('\n'),
-      bindings: [{ global: 'tools', functions: { echo: async (args: unknown) => args as PtcJsonValue } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, time',
+          'frame = b\'{"type":"call","id":%d,"global":"tools","name":"echo","args":{}}\\n\'',
+          'for i in range(5000):',
+          '    view = memoryview(frame % i)',
+          '    while view:',
+          '        view = view[os.write(3, view):]',
+          // Keep the child alive without reading fd 3: the run must settle via
+          // the reply-backlog cap, not by the child finishing or exiting.
+          'time.sleep(30)',
+          'return "unreachable"',
+        ].join('\n'),
+        bindings: [{ global: 'tools', functions: { echo: async (args: unknown) => args as PtcJsonValue } }],
+      }),
+    )
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain('reply queue exceeded')
   }, 30_000)
@@ -5184,19 +5545,21 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // so no reply is ever produced; the flood of 5000 sequential calls must
     // cross the in-flight bound long before maxWallMs.
     const { runtime } = await setup({ maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, time',
-        'frame = b\'{"type":"call","id":%d,"global":"tools","name":"hang","args":{}}\\n\'',
-        'for i in range(5000):',
-        '    view = memoryview(frame % i)',
-        '    while view:',
-        '        view = view[os.write(3, view):]',
-        'time.sleep(30)',
-        'return "unreachable"',
-      ].join('\n'),
-      bindings: [{ global: 'tools', functions: { hang: async () => await new Promise<never>(() => {}) } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, time',
+          'frame = b\'{"type":"call","id":%d,"global":"tools","name":"hang","args":{}}\\n\'',
+          'for i in range(5000):',
+          '    view = memoryview(frame % i)',
+          '    while view:',
+          '        view = view[os.write(3, view):]',
+          'time.sleep(30)',
+          'return "unreachable"',
+        ].join('\n'),
+        bindings: [{ global: 'tools', functions: { hang: async () => await new Promise<never>(() => {}) } }],
+      }),
+    )
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain('call backlog exceeded')
   }, 30_000)
@@ -5210,13 +5573,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // The cap is checked at event boundaries (after the microtask queue
     // drained), so this gather of 1025 instant calls completes.
     const { runtime } = await setup({ maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import asyncio',
-        'return len(await asyncio.gather(*[tools.echo(i) for i in range(1025)]))',
-      ].join('\n'),
-      bindings: [{ global: 'tools', functions: { echo: async (args: unknown) => args as PtcJsonValue } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import asyncio', 'return len(await asyncio.gather(*[tools.echo(i) for i in range(1025)]))'].join('\n'),
+        bindings: [{ global: 'tools', functions: { echo: async (args: unknown) => args as PtcJsonValue } }],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(1025)
   }, 30_000)
@@ -5229,19 +5591,30 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the done frame arrives with the outstanding count AT the cap — the event
     // must complete with its value, not settle as `call backlog exceeded`.
     const { runtime } = await setup({ maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import asyncio',
-        'for i in range(1024):',
-        '    asyncio.create_task(tools.slow(i))',
-        'await asyncio.sleep(0.2)',
-        'return "done"',
-      ].join('\n'),
-      bindings: [{
-        global: 'tools',
-        functions: { slow: async () => { await new Promise((resolve) => { setTimeout(resolve, 5_000) }); return 1 } },
-      }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import asyncio',
+          'for i in range(1024):',
+          '    asyncio.create_task(tools.slow(i))',
+          'await asyncio.sleep(0.2)',
+          'return "done"',
+        ].join('\n'),
+        bindings: [
+          {
+            global: 'tools',
+            functions: {
+              slow: async () => {
+                await new Promise(resolve => {
+                  setTimeout(resolve, 5_000)
+                })
+                return 1
+              },
+            },
+          },
+        ],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
   }, 30_000)
@@ -5255,19 +5628,21 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the batch's finallys (which never run for this binding) and settles the
     // run as worker-exit long before maxWallMs.
     const { runtime } = await setup({ maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, time',
-        'frame = b\'{"type":"call","id":%d,"global":"tools","name":"hang","args":{}}\\n\'',
-        'payload = b"".join(frame % i for i in range(1025))',
-        'view = memoryview(payload)',
-        'while view:',
-        '    view = view[os.write(3, view):]',
-        'time.sleep(30)',
-        'return "unreachable"',
-      ].join('\n'),
-      bindings: [{ global: 'tools', functions: { hang: async () => await new Promise<never>(() => {}) } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, time',
+          'frame = b\'{"type":"call","id":%d,"global":"tools","name":"hang","args":{}}\\n\'',
+          'payload = b"".join(frame % i for i in range(1025))',
+          'view = memoryview(payload)',
+          'while view:',
+          '    view = view[os.write(3, view):]',
+          'time.sleep(30)',
+          'return "unreachable"',
+        ].join('\n'),
+        bindings: [{ global: 'tools', functions: { hang: async () => await new Promise<never>(() => {}) } }],
+      }),
+    )
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain('call backlog exceeded')
   }, 30_000)
@@ -5280,13 +5655,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // sees the true count (all finallys have run), so this burst of compact
     // frames — sized so the pipe read splits it — completes with all results.
     const { runtime } = await setup({ maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import asyncio',
-        'return len(await asyncio.gather(*[t.e(i) for i in range(1300)]))',
-      ].join('\n'),
-      bindings: [{ global: 't', functions: { e: async (args: unknown) => args as PtcJsonValue } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import asyncio', 'return len(await asyncio.gather(*[t.e(i) for i in range(1300)]))'].join('\n'),
+        bindings: [{ global: 't', functions: { e: async (args: unknown) => args as PtcJsonValue } }],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe(1300)
   }, 30_000)
@@ -5300,19 +5674,21 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the frame, so the run settles as worker-exit with the call-backlog
     // message instead.
     const { runtime } = await setup({ maxWallMs: 30_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, time',
-        'frame = b\'{"type":"call","id":%d,"global":"tools","name":"hang","args":{}}\\n\'',
-        'payload = b"".join(frame % i for i in range(1025)) + b\'{"type":"done","value":1}\\n\'',
-        'view = memoryview(payload)',
-        'while view:',
-        '    view = view[os.write(3, view):]',
-        'time.sleep(30)',
-        'return "unreachable"',
-      ].join('\n'),
-      bindings: [{ global: 'tools', functions: { hang: async () => await new Promise<never>(() => {}) } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, time',
+          'frame = b\'{"type":"call","id":%d,"global":"tools","name":"hang","args":{}}\\n\'',
+          'payload = b"".join(frame % i for i in range(1025)) + b\'{"type":"done","value":1}\\n\'',
+          'view = memoryview(payload)',
+          'while view:',
+          '    view = view[os.write(3, view):]',
+          'time.sleep(30)',
+          'return "unreachable"',
+        ].join('\n'),
+        bindings: [{ global: 'tools', functions: { hang: async () => await new Promise<never>(() => {}) } }],
+      }),
+    )
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain('call backlog exceeded')
   }, 30_000)
@@ -5324,10 +5700,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // silently drop one of them, violating the lossless-JSON completion
     // contract. The child's meter rejects the collision before encoding.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: 'return {"\\ud83d\\ude00": 1, "\\U0001f600": 2}',
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: 'return {"\\ud83d\\ude00": 1, "\\U0001f600": 2}',
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('invalid-output')
     expect(result.error?.message).toContain('duplicate dict key')
   }, 30_000)
@@ -5337,16 +5715,18 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // not lossless JSON, so the program's `await` raises and the program
     // surfaces the rejection message.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'try:',
-        '    await tools.echo({"\\ud83d\\ude00": 1, "\\U0001f600": 2})',
-        '    return "no-error"',
-        'except Exception as e:',
-        '    return str(e)',
-      ].join('\n'),
-      bindings: [{ global: 'tools', functions: { echo: async (args: unknown) => args as PtcJsonValue } }],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'try:',
+          '    await tools.echo({"\\ud83d\\ude00": 1, "\\U0001f600": 2})',
+          '    return "no-error"',
+          'except Exception as e:',
+          '    return str(e)',
+        ].join('\n'),
+        bindings: [{ global: 'tools', functions: { echo: async (args: unknown) => args as PtcJsonValue } }],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toContain('duplicate dict key')
   }, 30_000)
@@ -5357,14 +5737,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // array without bound. Each empty entry costs one byte, so a 64-byte
     // budget retains at most 64 entries before the marker.
     const { runtime } = await setup({ maxLogBytes: 64, maxWallMs: 10_000 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'for _ in range(10000):',
-        '    print()',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['for _ in range(10000):', '    print()', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.length).toBeLessThanOrEqual(65)
     expect(result.logs.some(line => line.includes('log capture truncated'))).toBe(true)
@@ -5382,20 +5760,22 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // 3-byte), U+1F600 (F0, the range-restricted F0 lead), and U+10FFFF (F4 8F
     // BF BF, the range-restricted F4 lead).
     const { runtime } = await setup({ maxLogBytes: 1024 * 1024 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        // os.write is one syscall and returns a partial count on a full
-        // pipe, so loop until the whole payload (odd prefix -> a chunk
-        // boundary lands inside a multibyte sequence) is out.
-        String.raw`payload = b"a" * 65535 + "\u0900\u4f60\u597d\U0001f600\U0010ffff".encode("utf-8")`,
-        'view = memoryview(payload)',
-        'while view:',
-        '    view = view[os.write(1, view):]',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          // os.write is one syscall and returns a partial count on a full
+          // pipe, so loop until the whole payload (odd prefix -> a chunk
+          // boundary lands inside a multibyte sequence) is out.
+          String.raw`payload = b"a" * 65535 + "\u0900\u4f60\u597d\U0001f600\U0010ffff".encode("utf-8")`,
+          'view = memoryview(payload)',
+          'while view:',
+          '    view = view[os.write(1, view):]',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     const text = result.logs.join('')
     expect(text).toContain('\u0900\u4f60\u597d\u{1f600}\u{10ffff}')
@@ -5408,16 +5788,18 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // residual. The 'end' flush decodes the residual with `toString('utf8')`,
     // which renders the stranded bytes as U+FFFD instead of dropping them.
     const { runtime } = await setup({ maxLogBytes: 1024 * 1024 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        // b"\xe4\xbd" is the leading two bytes of U+4F60; no continuation byte
-        // follows before exit.
-        String.raw`os.write(1, b"\xe4\xbd")`,
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          // b"\xe4\xbd" is the leading two bytes of U+4F60; no continuation byte
+          // follows before exit.
+          String.raw`os.write(1, b"\xe4\xbd")`,
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.join('')).toContain('�')
   })
@@ -5428,10 +5810,14 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // namespace list valid on one backend is valid on every backend.
     const { runtime } = await setup()
     for (const global of ['lambda', 'typeof']) {
-      await expect(runtime.run(runtime.resolve({
-        program: 'return 1',
-        bindings: [{ global, functions: {} }],
-      }))).rejects.toThrow(/is not a usable Python identifier/)
+      await expect(
+        runtime.run(
+          runtime.resolve({
+            program: 'return 1',
+            bindings: [{ global, functions: {} }],
+          }),
+        ),
+      ).rejects.toThrow(/is not a usable Python identifier/)
     }
   })
 
@@ -5440,15 +5826,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // LogBuffer, so the host's stray-byte capture on child.stdout is what
     // records it.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'os.write(1, b"stray stdout\\n")',
-        'os.write(2, b"stray stderr\\n")',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', 'os.write(1, b"stray stdout\\n")', 'os.write(2, b"stray stderr\\n")', 'return "done"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.logs.join('')).toContain('stray stdout')
     expect(result.logs.join('')).toContain('stray stderr')
@@ -5464,21 +5847,23 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // std streams before sending the done frame, so the bytes land in the
     // kernel pipe buffer and the host's stray capture records them.
     const { runtime } = await setup()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import sys',
-        // `-u` makes the streams write-through; re-enable block buffering so
-        // the bytes sit in the wrapper until the SETTLEMENT drain flushes them
-        // — the drain path, not the -u immediate write, is what this case pins.
-        'if hasattr(sys.__stdout__, "reconfigure"):',
-        '    sys.__stdout__.reconfigure(write_through=False)',
-        '    sys.__stderr__.reconfigure(write_through=False)',
-        'sys.__stdout__.write("orig stdout\\n")',
-        'sys.__stderr__.write("orig stderr\\n")',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import sys',
+          // `-u` makes the streams write-through; re-enable block buffering so
+          // the bytes sit in the wrapper until the SETTLEMENT drain flushes them
+          // — the drain path, not the -u immediate write, is what this case pins.
+          'if hasattr(sys.__stdout__, "reconfigure"):',
+          '    sys.__stdout__.reconfigure(write_through=False)',
+          '    sys.__stderr__.reconfigure(write_through=False)',
+          'sys.__stdout__.write("orig stdout\\n")',
+          'sys.__stderr__.write("orig stderr\\n")',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs.join('')).toContain('orig stdout')
@@ -5490,14 +5875,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // fires SIGKILL after graceMs. The full run reports either timeout (wall)
     // or worker-exit depending on which finish reason wins the race.
     const { runtime } = await setup({ maxWallMs: 400, graceMs: 200 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import signal, time',
-        'signal.signal(signal.SIGTERM, lambda *a: None)',
-        'while True: time.sleep(1)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import signal, time', 'signal.signal(signal.SIGTERM, lambda *a: None)', 'while True: time.sleep(1)'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(['timeout', 'worker-exit']).toContain(result.error?.kind)
   }, 6000)
 
@@ -5511,15 +5894,17 @@ describe('PythonPtcRuntime — hostile peer', () => {
     const ceiling = 64 * 1024 * 1024
     const { runtime } = await setup({ maxWallMs: 60_000, addressSpaceMb: 2048 })
     const start = Date.now()
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        `for _ in range(${Math.ceil((ceiling * 1.1) / (8 * 1024 * 1024))}):`,
-        '    os.write(3, b"A" * (8 * 1024 * 1024))',
-        'return "never"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          `for _ in range(${Math.ceil((ceiling * 1.1) / (8 * 1024 * 1024))}):`,
+          '    os.write(3, b"A" * (8 * 1024 * 1024))',
+          'return "never"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     const elapsed = Date.now() - start
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain(`protocol frame exceeded ${ceiling} bytes`)
@@ -5536,17 +5921,19 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // instead of returning a lie.
     const maxValueBytes = 64
     const { runtime } = await setup({ maxValueBytes })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'big = "B" * 5000',
-        'os.write(3, json.dumps({"type":"done","value":big}).encode() + b"\\n")',
-        // The real done never sends; the forged one settles the run.
-        'import time',
-        'time.sleep(5)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'big = "B" * 5000',
+          'os.write(3, json.dumps({"type":"done","value":big}).encode() + b"\\n")',
+          // The real done never sends; the forged one settles the run.
+          'import time',
+          'time.sleep(5)',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('output-limit')
     expect(result.error?.message).toContain('exceeded 64 bytes')
@@ -5563,15 +5950,17 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // space generous enough to BUILD the frame.
     const { runtime } = await setup({ maxLogBytes: 128, addressSpaceMb: 1024, maxWallMs: 60_000 })
     const before = process.memoryUsage().heapUsed
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        // Written as a raw frame so the child's own ledger never sees it.
-        'os.write(3, b\'{"type":"log","text":"\' + b"\\\\u0000" * (4 * 1024 * 1024) + b\'"}\\n\')',
-        'return "settled"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          // Written as a raw frame so the child's own ledger never sees it.
+          'os.write(3, b\'{"type":"log","text":"\' + b"\\\\u0000" * (4 * 1024 * 1024) + b\'"}\\n\')',
+          'return "settled"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('settled')
     // The frame was dropped as one truncation marker, not retained.
@@ -5586,14 +5975,12 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the wire. Eleven NULs are 14 against the 64-byte ledger's cheap bound
     // (six bytes each, two quotes, one separator), so the full charge truncates.
     const { runtime } = await setup({ maxLogBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'os.write(3, b\'{"type":"log","text":"\' + b"\\\\u0000" * 11 + b\'"}\\n\')',
-        'return "settled"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: ['import os', 'os.write(3, b\'{"type":"log","text":"\' + b"\\\\u0000" * 11 + b\'"}\\n\')', 'return "settled"'].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('settled')
     expect(result.logs).toEqual([logTruncationMarker(64)])
@@ -5608,15 +5995,17 @@ describe('PythonPtcRuntime — hostile peer', () => {
     const maxValueBytes = 64
     const { runtime } = await setup({ maxValueBytes, addressSpaceMb: 1024, maxWallMs: 60_000 })
     const before = process.memoryUsage().heapUsed
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'os.write(3, b\'{"type":"done","error":{"kind":"exception","message":"\' + b"E" * (48 * 1024 * 1024) + b\'"}}\\n\')',
-        'import time',
-        'time.sleep(30)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'os.write(3, b\'{"type":"done","error":{"kind":"exception","message":"\' + b"E" * (48 * 1024 * 1024) + b\'"}}\\n\')',
+          'import time',
+          'time.sleep(30)',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     const message = result.error?.message ?? ''
     // The marker's 15 bytes come OUT of the 64-byte cap, so 49 E's precede it
@@ -5635,24 +6024,28 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // (a raised exception) and the host's capMessage (a forged done frame).
     const maxValueBytes = 40
     const { runtime } = await setup({ maxValueBytes })
-    const raised = await runtime.run(runtime.resolve({
-      program: 'raise ValueError("R" * 100000)',
-      bindings: [],
-    }))
+    const raised = await runtime.run(
+      runtime.resolve({
+        program: 'raise ValueError("R" * 100000)',
+        bindings: [],
+      }),
+    )
     expect(raised.error?.kind).toBe('exception')
     const raisedMessage = raised.error?.message ?? ''
     expect(raisedMessage.endsWith('… [truncated]')).toBe(true)
     expect(Buffer.byteLength(raisedMessage, 'utf8')).toBeLessThanOrEqual(maxValueBytes)
-    const forged = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'msg = "F" * 100000',
-        'os.write(3, json.dumps({"type":"done","error":{"kind":"exception","message":msg}}).encode() + b"\\n")',
-        'import time',
-        'time.sleep(5)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const forged = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'msg = "F" * 100000',
+          'os.write(3, json.dumps({"type":"done","error":{"kind":"exception","message":msg}}).encode() + b"\\n")',
+          'import time',
+          'time.sleep(5)',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(forged.error?.kind).toBe('exception')
     const forgedMessage = forged.error?.message ?? ''
     expect(forgedMessage.endsWith('… [truncated]')).toBe(true)
@@ -5667,15 +6060,17 @@ describe('PythonPtcRuntime — hostile peer', () => {
     const raised = await runtime.run(runtime.resolve({ program: 'raise ValueError("R" * 500)', bindings: [] }))
     expect(raised.error?.kind).toBe('exception')
     expect(raised.error?.message).toBe('… [truncated]')
-    const forged = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'os.write(3, json.dumps({"type":"done","error":{"kind":"exception","message":"F" * 500}}).encode() + b"\\n")',
-        'import time',
-        'time.sleep(5)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const forged = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'os.write(3, json.dumps({"type":"done","error":{"kind":"exception","message":"F" * 500}}).encode() + b"\\n")',
+          'import time',
+          'time.sleep(5)',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(forged.error?.kind).toBe('exception')
     expect(forged.error?.message).toBe('… [truncated]')
   }, 15_000)
@@ -5688,19 +6083,21 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the byte trim-back drops them.
     const maxValueBytes = 32
     const { runtime } = await setup({ maxValueBytes })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        // 32 ASCII chars then astral characters: code unit 32 is the first
-        // character's high surrogate (Python spells it as one code point, so
-        // json.dumps emits the raw 4 bytes the host reads back as a pair).
-        'msg = "A" * 32 + "\\U0001f600" * 4',
-        'os.write(3, json.dumps({"type":"done","error":{"kind":"exception","message":msg}}).encode() + b"\\n")',
-        'import time',
-        'time.sleep(5)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          // 32 ASCII chars then astral characters: code unit 32 is the first
+          // character's high surrogate (Python spells it as one code point, so
+          // json.dumps emits the raw 4 bytes the host reads back as a pair).
+          'msg = "A" * 32 + "\\U0001f600" * 4',
+          'os.write(3, json.dumps({"type":"done","error":{"kind":"exception","message":msg}}).encode() + b"\\n")',
+          'import time',
+          'time.sleep(5)',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     // 17 A's fill the marker-reserved budget; no orphaned half, no U+FFFD.
     expect(result.error?.message).toBe(`${'A'.repeat(17)}… [truncated]`)
@@ -5714,15 +6111,17 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // the code-unit count, not a byte assumption: 6 characters at 3 bytes each
     // is 18 bytes, inside the 64-byte cap.
     const { runtime } = await setup({ maxValueBytes: 64 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'os.write(3, json.dumps({"type":"done","error":{"kind":"exception","message":"中文中文中文"}}).encode() + b"\\n")',
-        'import time',
-        'time.sleep(5)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'os.write(3, json.dumps({"type":"done","error":{"kind":"exception","message":"中文中文中文"}}).encode() + b"\\n")',
+          'import time',
+          'time.sleep(5)',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     expect(result.error?.message).toBe('中文中文中文')
   }, 8000)
@@ -5737,16 +6136,18 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // would also exceed the cap.
     const maxValueBytes = 66
     const { runtime } = await setup({ maxValueBytes })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os, json',
-        'msg = "E" + "\\U0001f600" * 2000',
-        'os.write(3, json.dumps({"type":"done","error":{"kind":"exception","message":msg}}).encode() + b"\\n")',
-        'import time',
-        'time.sleep(5)',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os, json',
+          'msg = "E" + "\\U0001f600" * 2000',
+          'os.write(3, json.dumps({"type":"done","error":{"kind":"exception","message":msg}}).encode() + b"\\n")',
+          'import time',
+          'time.sleep(5)',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('exception')
     const message = result.error?.message ?? ''
     expect(message.endsWith('… [truncated]')).toBe(true)
@@ -5767,17 +6168,19 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // then a small newline tail, which is the chunk that crosses.
     const ceiling = 64 * 1024 * 1024
     const { runtime } = await setup({ maxWallMs: 60_000, addressSpaceMb: 2048 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'chunk = b"A" * (8 * 1024 * 1024)',
-        `for _ in range(${ceiling / (8 * 1024 * 1024)}):`,
-        '    os.write(3, chunk)',
-        'os.write(3, b"AAAA\\n")',
-        'return "never"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'chunk = b"A" * (8 * 1024 * 1024)',
+          `for _ in range(${ceiling / (8 * 1024 * 1024)}):`,
+          '    os.write(3, chunk)',
+          'os.write(3, b"AAAA\\n")',
+          'return "never"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain(`protocol frame exceeded ${ceiling} bytes`)
   }, 90_000)
@@ -5795,16 +6198,18 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // that the per-line bound then dropped only after the doubling had happened.
     const ceiling = 64 * 1024 * 1024
     const { runtime } = await setup({ maxWallMs: 60_000, addressSpaceMb: 2048 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'chunk = b"A" * (8 * 1024 * 1024)',
-        `for _ in range(${ceiling / (8 * 1024 * 1024) + 1}):`,
-        '    os.write(3, chunk)',
-        'return "never"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'chunk = b"A" * (8 * 1024 * 1024)',
+          `for _ in range(${ceiling / (8 * 1024 * 1024) + 1}):`,
+          '    os.write(3, chunk)',
+          'return "never"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.value).toBeUndefined()
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain(`protocol frame exceeded ${ceiling} bytes`)
@@ -5818,19 +6223,21 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // must let them through, or a legitimate near-cap frame plus a trailing
     // frame would be misreported as a worker-exit.
     const { runtime } = await setup({ maxWallMs: 60_000, addressSpaceMb: 2048 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        'chunk = b"A" * (8 * 1024 * 1024)',
-        // Exactly the cap, no newline — at the limit, so nothing trips.
-        'for _ in range(8):',
-        '    os.write(3, chunk)',
-        // A newline, then a small legitimate log frame.
-        'os.write(3, b"\\n{\\"type\\":\\"log\\",\\"text\\":\\"after-cap-frames\\"}\\n")',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          'chunk = b"A" * (8 * 1024 * 1024)',
+          // Exactly the cap, no newline — at the limit, so nothing trips.
+          'for _ in range(8):',
+          '    os.write(3, chunk)',
+          // A newline, then a small legitimate log frame.
+          'os.write(3, b"\\n{\\"type\\":\\"log\\",\\"text\\":\\"after-cap-frames\\"}\\n")',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error).toBeUndefined()
     expect(result.value).toBe('done')
     expect(result.logs).toContain('after-cap-frames')
@@ -5847,27 +6254,28 @@ describe('PythonPtcRuntime — hostile peer', () => {
     // case pins the worker-exit settlement, not a pre/post copy-count
     // distinction (both orders reject an over-cap frame).
     const { runtime } = await setup({ maxWallMs: 60_000, addressSpaceMb: 2048 })
-    const result = await runtime.run(runtime.resolve({
-      program: [
-        'import os',
-        // 4 KiB writes are <= PIPE_BUF, so each os.write is atomic and the
-        // host sees one chunk per write; 16384 of them accumulate 64 MiB of
-        // newline-free bytes (16 fragment-count seals of 1024 chunks).
-        'chunk = b"A" * 4096',
-        'for _ in range(16384):',
-        '    os.write(3, chunk)',
-        // 12289 more A's push the first frame past 64 MiB; drain-loop so the
-        // write cannot truncate, then a newline and a small legitimate frame.
-        "data = b'A' * 12289 + b'\\n' + b'{\"type\":\"log\",\"text\":\"after-seal\"}\\n'",
-        'view = memoryview(data)',
-        'while view:',
-        '    view = view[os.write(3, view):]',
-        'return "done"',
-      ].join('\n'),
-      bindings: [],
-    }))
+    const result = await runtime.run(
+      runtime.resolve({
+        program: [
+          'import os',
+          // 4 KiB writes are <= PIPE_BUF, so each os.write is atomic and the
+          // host sees one chunk per write; 16384 of them accumulate 64 MiB of
+          // newline-free bytes (16 fragment-count seals of 1024 chunks).
+          'chunk = b"A" * 4096',
+          'for _ in range(16384):',
+          '    os.write(3, chunk)',
+          // 12289 more A's push the first frame past 64 MiB; drain-loop so the
+          // write cannot truncate, then a newline and a small legitimate frame.
+          'data = b\'A\' * 12289 + b\'\\n\' + b\'{"type":"log","text":"after-seal"}\\n\'',
+          'view = memoryview(data)',
+          'while view:',
+          '    view = view[os.write(3, view):]',
+          'return "done"',
+        ].join('\n'),
+        bindings: [],
+      }),
+    )
     expect(result.error?.kind).toBe('worker-exit')
     expect(result.error?.message).toContain('protocol frame exceeded')
   }, 120_000)
-
 })

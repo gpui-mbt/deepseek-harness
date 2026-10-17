@@ -4,18 +4,40 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { zipSync } from 'fflate'
-import { expect, it } from 'vitest'
-import { downloadPrimaryRuntimeAsset, prepareOfficeSkillAssets, primaryRuntimePayloadDigest, smokePrimaryRuntime, unpackPrimaryRuntimeWheel } from './prepare.ts'
+import { expect, it } from 'vite-plus/test'
+import {
+  downloadPrimaryRuntimeAsset,
+  prepareOfficeSkillAssets,
+  primaryRuntimePayloadDigest,
+  smokePrimaryRuntime,
+  unpackPrimaryRuntimeWheel,
+} from './prepare.ts'
 import lock from './lock.json' with { type: 'json' }
 
 it('covers every SDK wheel target with the shared interpreter lock', () => {
-  const platforms = JSON.parse(readFileSync(new URL('../../python/sdk-runtime/platforms.json', import.meta.url), 'utf8')) as Record<string, unknown>
-  expect(Object.keys(lock.targets).sort()).toEqual(Object.keys(platforms).map(target => target.replace('macos-', 'mac-')).sort())
+  const platforms = JSON.parse(readFileSync(new URL('../../python/sdk-runtime/platforms.json', import.meta.url), 'utf8')) as Record<
+    string,
+    unknown
+  >
+  expect(Object.keys(lock.targets).sort()).toEqual(
+    Object.keys(platforms)
+      .map(target => target.replace('macos-', 'mac-'))
+      .sort(),
+  )
 })
 
-const libraryWheel = Buffer.from('UEsDBAoAAAAAAASeLl0sYMPjDAAAAAwAAAAJAAAAc2FtcGxlLnB5c2FtcGxlID0gNDIKUEsBAh4DCgAAAAAABJ4uXSxgw+MMAAAADAAAAAkAAAAAAAAAAQAAAKSBAAAAAHNhbXBsZS5weVBLBQYAAAAAAQABADcAAAAzAAAAAAA=', 'base64')
-const relocatedWheel = Buffer.from('UEsDBAoAAAAAAASeLl3x0Nj9FAAAABQAAAAeAAAAc2FtcGxlLTEuMC5kYXRhL3NjcmlwdHMvc2FtcGxlcmVxdWlyZXMgcmVsb2NhdGlvbgpQSwECHgMKAAAAAAAEni5d8dDY/RQAAAAUAAAAHgAAAAAAAAABAAAApIEAAAAAc2FtcGxlLTEuMC5kYXRhL3NjcmlwdHMvc2FtcGxlUEsFBgAAAAABAAEATAAAAFAAAAAAAA==', 'base64')
-const externalLibraryWheel = Buffer.from('UEsDBBQAAAAAAAAAIVyBOE8OHAAAABwAAAAhAAAAc2FtcGxlLTEuMC5kYXRhL3B1cmVsaWIvc2FtcGxlLnB5cmVxdWlyZXMgbGlicmFyeSByZWxvY2F0aW9uClBLAQIUAxQAAAAAAAAAIVyBOE8OHAAAABwAAAAhAAAAAAAAAAAAAACAAQAAAABzYW1wbGUtMS4wLmRhdGEvcHVyZWxpYi9zYW1wbGUucHlQSwUGAAAAAAEAAQBPAAAAWwAAAAAA', 'base64')
+const libraryWheel = Buffer.from(
+  'UEsDBAoAAAAAAASeLl0sYMPjDAAAAAwAAAAJAAAAc2FtcGxlLnB5c2FtcGxlID0gNDIKUEsBAh4DCgAAAAAABJ4uXSxgw+MMAAAADAAAAAkAAAAAAAAAAQAAAKSBAAAAAHNhbXBsZS5weVBLBQYAAAAAAQABADcAAAAzAAAAAAA=',
+  'base64',
+)
+const relocatedWheel = Buffer.from(
+  'UEsDBAoAAAAAAASeLl3x0Nj9FAAAABQAAAAeAAAAc2FtcGxlLTEuMC5kYXRhL3NjcmlwdHMvc2FtcGxlcmVxdWlyZXMgcmVsb2NhdGlvbgpQSwECHgMKAAAAAAAEni5d8dDY/RQAAAAUAAAAHgAAAAAAAAABAAAApIEAAAAAc2FtcGxlLTEuMC5kYXRhL3NjcmlwdHMvc2FtcGxlUEsFBgAAAAABAAEATAAAAFAAAAAAAA==',
+  'base64',
+)
+const externalLibraryWheel = Buffer.from(
+  'UEsDBBQAAAAAAAAAIVyBOE8OHAAAABwAAAAhAAAAc2FtcGxlLTEuMC5kYXRhL3B1cmVsaWIvc2FtcGxlLnB5cmVxdWlyZXMgbGlicmFyeSByZWxvY2F0aW9uClBLAQIUAxQAAAAAAAAAIVyBOE8OHAAAABwAAAAhAAAAAAAAAAAAAACAAQAAAABzYW1wbGUtMS4wLmRhdGEvcHVyZWxpYi9zYW1wbGUucHlQSwUGAAAAAAEAAQBPAAAAWwAAAAAA',
+  'base64',
+)
 
 it.each(Object.entries(lock.targets))('records every locked wheel distribution and version for %s', (_target, artifact) => {
   const normalize = (name: string): string => name.toLowerCase().replace(/[-_.]+/gu, '-')
@@ -37,7 +59,8 @@ it('keeps a target payload identity independent of other target archives', () =>
 })
 
 it('invalidates payload identity for shared wheels, package versions and package-manager changes', () => {
-  const wheel = structuredClone(lock), distribution = structuredClone(lock)
+  const wheel = structuredClone(lock),
+    distribution = structuredClone(lock)
   wheel.wheels[0]!.sha256 = 'a'.repeat(64)
   distribution.pythonPackages['python-docx'] = '1.2.1'
   const original = primaryRuntimePayloadDigest('mac-arm64', lock, '11.7.0')
@@ -49,22 +72,45 @@ it('invalidates payload identity for shared wheels, package versions and package
 it('reports missing distribution metadata before trying to execute a stale native payload', async () => {
   const root = await mkdtemp(join(tmpdir(), 'desktop-stale-runtime-'))
   try {
-    await writeFile(join(root, 'runtime.json'), JSON.stringify({ desktopVersion: '1.0.0', platform: process.platform, arch: process.arch,
-      components: { python: '3.12.14', numpy: '2.3.5', pandas: '3.0.1' } }))
-    expect(() => { smokePrimaryRuntime(root) }).toThrow('missing Python distribution versions; prepare the payload')
-  } finally { await rm(root, { recursive: true, force: true }) }
+    await writeFile(
+      join(root, 'runtime.json'),
+      JSON.stringify({
+        desktopVersion: '1.0.0',
+        platform: process.platform,
+        arch: process.arch,
+        components: { python: '3.12.14', numpy: '2.3.5', pandas: '3.0.1' },
+      }),
+    )
+    expect(() => {
+      smokePrimaryRuntime(root)
+    }).toThrow('missing Python distribution versions; prepare the payload')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 // Native Windows payloads require python.exe rather than POSIX interpreter aliases.
 it.skipIf(process.platform === 'win32')('rejects expanded interpreter aliases in the native payload smoke', async () => {
   const root = await mkdtemp(join(tmpdir(), 'primary-expanded-aliases-'))
   try {
-    await writeFile(join(root, 'runtime.json'), JSON.stringify({ desktopVersion: '1', platform: process.platform, arch: process.arch,
-      python: '3.12.14', pythonPackages: { numpy: '2.3.5' } }))
+    await writeFile(
+      join(root, 'runtime.json'),
+      JSON.stringify({
+        desktopVersion: '1',
+        platform: process.platform,
+        arch: process.arch,
+        python: '3.12.14',
+        pythonPackages: { numpy: '2.3.5' },
+      }),
+    )
     await mkdir(join(root, 'dependencies/python/bin'), { recursive: true })
     for (const name of ['python', 'python3', 'python3.12']) await writeFile(join(root, 'dependencies/python/bin', name), 'interpreter')
-    expect(() => { smokePrimaryRuntime(root) }).toThrow('Python commands must be relative aliases')
-  } finally { await rm(root, { recursive: true, force: true }) }
+    expect(() => {
+      smokePrimaryRuntime(root)
+    }).toThrow('Python commands must be relative aliases')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 it('extracts a hash-verified cached library without a Python installer or network request', async () => {
@@ -149,7 +195,9 @@ it('copies complete Office resources outside the application archive and removes
       expect(await readFile(join(destination, name, 'SKILL.md'), 'utf8')).toBe(`# ${name}\n`)
     }
     await expect(readFile(join(destination, 'obsolete.py'))).rejects.toMatchObject({ code: 'ENOENT' })
-  } finally { await rm(root, { recursive: true, force: true }) }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })
 
 it('gives Python-only payloads a distinct identity', () => {

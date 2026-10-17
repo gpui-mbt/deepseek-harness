@@ -15,9 +15,7 @@ import type { LayoutState, PaneId, SplitId, TabId } from '../contract/types.ts'
 import { clampSizes, FLOAT_DEFAULT_SIZE, MIN_PANE_FRACTION } from '../engine/constraints.ts'
 import { getSplit, topRightPaneId } from '../engine/tree.ts'
 import type { DropTarget, HalvesFit } from '../engine/geometry.ts'
-import {
-  containsPoint, dividerSizes, floatRectAt, insertionIndex, passedThreshold, zoneInRect,
-} from '../engine/geometry.ts'
+import { containsPoint, dividerSizes, floatRectAt, insertionIndex, passedThreshold, zoneInRect } from '../engine/geometry.ts'
 import { fitOf, measurePaneFits, paneElements, sameFits } from './measure.ts'
 import { useGesture } from './pointer.ts'
 import { PaneTree, type SizePreview } from './PaneTree.tsx'
@@ -126,13 +124,23 @@ function hitTest(
     const strip = pane.querySelector<HTMLElement>('[data-dockkit-strip]')
     if (strip !== null && containsPoint(strip.getBoundingClientRect(), x, y)) {
       const tabs = [...strip.querySelectorAll<HTMLElement>('[data-dockkit-tab]')]
-      return { kind: 'strip', paneId, index: insertionIndex(tabs.map(tab => tab.getBoundingClientRect()), x) }
+      return {
+        kind: 'strip',
+        paneId,
+        index: insertionIndex(
+          tabs.map(tab => tab.getBoundingClientRect()),
+          x,
+        ),
+      }
     }
-    const zone = dropZones === 'horizontal'
-      ? canSplit && fitOf(fits, paneId).row
-        ? x < rect.x + rect.width / 2 ? 'left' : 'right'
-        : 'center'
-      : zoneInRect(rect, x, y)
+    const zone =
+      dropZones === 'horizontal'
+        ? canSplit && fitOf(fits, paneId).row
+          ? x < rect.x + rect.width / 2
+            ? 'left'
+            : 'right'
+          : 'center'
+        : zoneInRect(rect, x, y)
     if (zone !== 'center') {
       const fit = fitOf(fits, paneId)
       const room = zone === 'left' || zone === 'right' ? fit.row : fit.column
@@ -155,22 +163,39 @@ const SIZE_TOLERANCE = 1e-9
 
 /** Whether two fraction lists describe the same split. */
 function sameSizes(a: readonly number[], b: readonly number[]): boolean {
-  return a.length === b.length && a.every((size, index) => {
-    const other = b[index]
-    return other !== undefined && Math.abs(size - other) < SIZE_TOLERANCE
-  })
+  return (
+    a.length === b.length &&
+    a.every((size, index) => {
+      const other = b[index]
+      return other !== undefined && Math.abs(size - other) < SIZE_TOLERANCE
+    })
+  )
 }
 
 /** The split tree and the gestures over it. */
 function Surface({
-  state, canSplit, canAddTab, canCloseTab, intents, labels, renderTab, renderTabTitle, renderTabMenuItems, chrome, onRoom,
+  state,
+  canSplit,
+  canAddTab,
+  canCloseTab,
+  intents,
+  labels,
+  renderTab,
+  renderTabTitle,
+  renderTabMenuItems,
+  chrome,
+  onRoom,
   draw,
-  dropZones = 'edges', minPaneFraction = MIN_PANE_FRACTION, hideSplitWhenBlocked = false,
+  dropZones = 'edges',
+  minPaneFraction = MIN_PANE_FRACTION,
+  hideSplitWhenBlocked = false,
 }: DockSurfaceProps & { readonly draw: (callbacks: PaneCallbacks, preview: SizePreview | undefined) => ReactNode }): ReactNode {
   const surface = useRef<HTMLDivElement | null>(null)
   const [preview, setPreview] = useState<Preview>(NO_PREVIEW)
   const [fits, setFits] = useState(NO_FITS)
-  const begin = useGesture(() => { setPreview(NO_PREVIEW) })
+  const begin = useGesture(() => {
+    setPreview(NO_PREVIEW)
+  })
 
   /** Run `use` on the surface element, which every commit and every press inside it has mounted. */
   const withSurface = useCallback((use: (root: HTMLElement) => void): void => {
@@ -185,19 +210,27 @@ function Surface({
   // and whenever the surface itself is resized (the embedder's column dragged
   // wider or narrower). A reading that changed nothing renders nothing.
   const remeasure = useCallback((): void => {
-    withSurface((root) => {
+    withSurface(root => {
       const next = measurePaneFits(root, hideSplitWhenBlocked)
-      setFits(current => sameFits(current, next) ? current : next)
+      setFits(current => (sameFits(current, next) ? current : next))
     })
   }, [withSurface, hideSplitWhenBlocked])
-  useLayoutEffect(() => { remeasure() })
-  useEffect(() => { onRoom?.(fits) }, [fits, onRoom])
+  useLayoutEffect(() => {
+    remeasure()
+  })
+  useEffect(() => {
+    onRoom?.(fits)
+  }, [fits, onRoom])
   useEffect(() => {
     const root = surface.current
     if (root === null || typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(() => { remeasure() })
+    const observer = new ResizeObserver(() => {
+      remeasure()
+    })
     observer.observe(root)
-    return () => { observer.disconnect() }
+    return () => {
+      observer.disconnect()
+    }
   }, [remeasure])
 
   /** Why a pane cannot split right now: the budget first, then its own width. */
@@ -216,12 +249,12 @@ function Surface({
     // once the pointer has travelled the threshold. A release before that is a
     // click and reports nothing here.
     onTabPressed: (tabId, event) => {
-      withSurface((root) => {
+      withSurface(root => {
         const startX = event.clientX
         const startY = event.clientY
         let dragging = false
         begin(event.currentTarget, event.pointerId, {
-          move: (moved) => {
+          move: moved => {
             if (!dragging) {
               if (!passedThreshold(startX, startY, moved.clientX, moved.clientY)) return
               dragging = true
@@ -232,7 +265,7 @@ function Surface({
               dropTarget: hitTest(root, moved.clientX, moved.clientY, canSplit, fits, dropZones),
             })
           },
-          up: (released) => {
+          up: released => {
             if (!dragging) return
             const target = hitTest(root, released.clientX, released.clientY, canSplit, fits, dropZones)
             if (target === undefined) {
@@ -264,10 +297,10 @@ function Surface({
       // divider, a drag returned to its start, or one pushed further into the
       // clamp — is not a resize and reports nothing.
       begin(event.currentTarget, event.pointerId, {
-        move: (moved) => {
+        move: moved => {
           setPreview({ ...NO_PREVIEW, sizes: { splitId, sizes: draggedSizes(drag, moved.clientX, moved.clientY, minPaneFraction) } })
         },
-        up: (released) => {
+        up: released => {
           const sizes = draggedSizes(drag, released.clientX, released.clientY, minPaneFraction)
           if (sameSizes(sizes, drag.sizes)) return
           intents.resizeSplit(splitId, sizes)
@@ -298,8 +331,12 @@ function Surface({
 
 /** Recursive docked layout; floating content is rendered separately by FloatLayer. */
 export function DockSurface(props: DockSurfaceProps): ReactNode {
-  return <Surface {...props} draw={(callbacks, preview) =>
-    <PaneTree state={props.state} nodeId={props.state.rootId} callbacks={callbacks} preview={preview} />} />
+  return (
+    <Surface
+      {...props}
+      draw={(callbacks, preview) => <PaneTree state={props.state} nodeId={props.state.rootId} callbacks={callbacks} preview={preview} />}
+    />
+  )
 }
 
 /** Horizontal Sidebar layout with stable tab containers across docking and floating. */
@@ -312,6 +349,5 @@ export type DockLayoutProps = DockSurfaceProps & TabRetention
  *   They may clip `overflow`, which does not reach the fixed-position floats.
  */
 export function DockLayout(props: DockLayoutProps): ReactNode {
-  return <Surface {...props} draw={(callbacks, preview) =>
-    <TabLayout {...props} callbacks={callbacks} preview={preview} />} />
+  return <Surface {...props} draw={(callbacks, preview) => <TabLayout {...props} callbacks={callbacks} preview={preview} />} />
 }

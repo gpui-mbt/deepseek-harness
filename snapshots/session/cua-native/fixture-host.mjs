@@ -17,7 +17,9 @@ export async function startFixtureHost(helperPath) {
   const source = await readFile(helperPath, 'utf8')
   const marker = `\n// Fixture host: ${JSON.stringify(helperPath)}\n`
   if (!source.includes(marker)) await appendFile(helperPath, marker)
-  const runtimeKey = createHash('sha256').update(await readFile(helperPath)).digest('hex')
+  const runtimeKey = createHash('sha256')
+    .update(await readFile(helperPath))
+    .digest('hex')
   const directory = `/tmp/dsh-cua-${userInfo().uid}`
   await mkdir(directory, { recursive: true, mode: 0o700 })
   const children = new Set()
@@ -27,36 +29,58 @@ export async function startFixtureHost(helperPath) {
 
   function ensureService(timeoutMs) {
     if (current && current.child.exitCode === null && current.child.signalCode === null) return current.ready
-    const child = spawn(process.execPath, [helperPath, '--serve', '--runtime-key', runtimeKey,
-      '--runtime-directory', directory, '--startup-timeout-ms', String(timeoutMs)], {
-      stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
+    const child = spawn(
+      process.execPath,
+      [helperPath, '--serve', '--runtime-key', runtimeKey, '--runtime-directory', directory, '--startup-timeout-ms', String(timeoutMs)],
+      {
+        stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
+      },
+    )
+    const done = new Promise(resolve => {
+      child.once('close', resolve)
     })
-    const done = new Promise(resolve => { child.once('close', resolve) })
     const ready = new Promise((resolve, reject) => {
-      child.once('message', () => { resolve() })
+      child.once('message', () => {
+        resolve()
+      })
       child.once('error', reject)
       child.once('exit', (code, signal) => reject(new Error(`Fixture service exited before readiness: ${code}, ${signal}`)))
     })
-    const timer = setTimeout(() => { child.kill('SIGKILL') }, timeoutMs)
-    const service = { child, done, ready: ready.finally(() => { clearTimeout(timer) }) }
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL')
+    }, timeoutMs)
+    const service = {
+      child,
+      done,
+      ready: ready.finally(() => {
+        clearTimeout(timer)
+      }),
+    }
     current = service
     children.add(service)
-    void done.then(() => { children.delete(service); if (current === service) current = undefined })
+    void done.then(() => {
+      children.delete(service)
+      if (current === service) current = undefined
+    })
     return service.ready
   }
 
-  const server = createServer((socket) => {
+  const server = createServer(socket => {
     sockets.add(socket)
     socket.on('error', () => {})
-    socket.once('close', () => { sockets.delete(socket) })
+    socket.once('close', () => {
+      sockets.delete(socket)
+    })
     const input = createInterface({ input: socket })
-    input.once('line', (line) => {
+    input.once('line', line => {
       const reply = async () => {
         try {
           if (closing) throw new Error('Fixture host is closing')
           await ensureService(Number(line))
           socket.end('ready\n')
-        } catch (error) { socket.end(`error: ${error.message}\n`) }
+        } catch (error) {
+          socket.end(`error: ${error.message}\n`)
+        }
       }
       void reply()
     })
@@ -71,11 +95,17 @@ export async function startFixtureHost(helperPath) {
   return async () => {
     closing = true
     for (const socket of sockets) socket.destroy()
-    await new Promise((resolve) => { server.close(resolve) })
+    await new Promise(resolve => {
+      server.close(resolve)
+    })
     const timer = setTimeout(() => {
       for (const { child } of children) child.kill('SIGKILL')
     }, 5000)
-    try { await Promise.all([...children].map(service => service.done)) }
-    finally { clearTimeout(timer); await writeFile(helperPath, source) }
+    try {
+      await Promise.all([...children].map(service => service.done))
+    } finally {
+      clearTimeout(timer)
+      await writeFile(helperPath, source)
+    }
   }
 }

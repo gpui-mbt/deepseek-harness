@@ -48,9 +48,7 @@ export function estimateContent(blocks: readonly ContentBlock[]): number {
         tokens += Math.ceil(block.text.length / CHARS_PER_TOKEN) + BLOCK_OVERHEAD
         break
       case 'tool-call':
-        tokens += Math.ceil(block.name.length / CHARS_PER_TOKEN)
-          + Math.ceil(block.arguments.length / CHARS_PER_TOKEN)
-          + BLOCK_OVERHEAD
+        tokens += Math.ceil(block.name.length / CHARS_PER_TOKEN) + Math.ceil(block.arguments.length / CHARS_PER_TOKEN) + BLOCK_OVERHEAD
         break
       default:
         // ContentBlockMap is merge-extensible; unknown blocks (and image

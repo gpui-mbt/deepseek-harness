@@ -21,8 +21,7 @@ export type BuiltinCommandName = keyof typeof BUILTINS
  * @returns its first-party name, or undefined for another definition.
  */
 export function builtinCommandName(descriptor: CommandDescriptor): BuiltinCommandName | undefined {
-  return (Object.keys(BUILTINS) as BuiltinCommandName[])
-    .find(name => descriptor.definitionId === BUILTINS[name])
+  return (Object.keys(BUILTINS) as BuiltinCommandName[]).find(name => descriptor.definitionId === BUILTINS[name])
 }
 
 /**
@@ -38,7 +37,8 @@ export function claimToken(descriptor: CommandDescriptor, t: TranslateNS<'comman
 
 const TOKEN_ALIASES = new Map(
   (Object.keys(BUILTINS) as BuiltinCommandName[]).flatMap(name =>
-    [zh[`token.${name}`], en[`token.${name}`]].map(token => [token, name] as const)),
+    [zh[`token.${name}`], en[`token.${name}`]].map(token => [token, name] as const),
+  ),
 )
 
 /**
@@ -47,10 +47,7 @@ const TOKEN_ALIASES = new Map(
  * @param descriptors - effective descriptors in the Session's ready catalog.
  * @returns the matching descriptor; aliases never select an unrelated scoped override.
  */
-export function resolveCommand(
-  token: string,
-  descriptors: readonly CommandDescriptor[],
-): CommandDescriptor | undefined {
+export function resolveCommand(token: string, descriptors: readonly CommandDescriptor[]): CommandDescriptor | undefined {
   const exact = descriptors.find(descriptor => descriptor.name === token)
   if (exact !== undefined) return exact
   const name = TOKEN_ALIASES.get(token)

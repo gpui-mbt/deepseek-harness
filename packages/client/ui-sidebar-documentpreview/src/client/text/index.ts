@@ -20,7 +20,9 @@ export function textBodyDefinition(title: () => string): DocumentPreviewDefiniti
 export function apply(ctx: Context): void {
   const t = ctx.locale.bind('sidebarDocumentPreview')
   ctx.effect(() => ctx.documentPreviews.register(textBodyDefinition(() => t('viewer.text'))))
-  ctx.effect(() => ctx.slots.inject('sidebar.right.tab.document', () => ctx.slots.register(
-    { name: 'sidebar.right.tab.document', key: PLAIN_BODY_ID }, TextBody,
-  )))
+  ctx.effect(() =>
+    ctx.slots.inject('sidebar.right.tab.document', () =>
+      ctx.slots.register({ name: 'sidebar.right.tab.document', key: PLAIN_BODY_ID }, TextBody),
+    ),
+  )
 }

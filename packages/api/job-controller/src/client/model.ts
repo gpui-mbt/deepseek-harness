@@ -81,7 +81,9 @@ export class ClientJobsModel implements JobsSource {
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /**
@@ -150,13 +152,12 @@ export class ClientJobsModel implements JobsSource {
     /* v8 ignore next -- frames arrive only between opened and stop for a tracked id. */
     if (state === undefined) return
     let text = state.view.text + frame.chunks.map(chunk => chunk.text).join('')
-    let gapBefore = state.view.gapBefore || frame.lossy === true
-      || frame.chunks.some(chunk => chunk.gapBefore === true)
+    let gapBefore = state.view.gapBefore || frame.lossy === true || frame.chunks.some(chunk => chunk.gapBefore === true)
     if (text.length > RENDER_TAIL_LIMIT) {
       let cut = text.length - RENDER_TAIL_LIMIT
       // Never split a surrogate pair at the render bound.
       const unit = text.charCodeAt(cut)
-      if (unit >= 0xDC00 && unit <= 0xDFFF) cut += 1
+      if (unit >= 0xdc00 && unit <= 0xdfff) cut += 1
       text = text.slice(cut)
       gapBefore = true
     }

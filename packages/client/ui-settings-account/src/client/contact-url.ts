@@ -8,14 +8,17 @@ import type { ContactConfig } from '../contact-config.ts'
  * @param context - account, build and environment facts sampled by the caller.
  * @returns questionnaire URL with hidden, optionally prefilled context fields.
  */
-export function contactUrl(config: ContactConfig, context: {
-  uid: AccountUserId | null | undefined
-  version: string | undefined
-  deviceInfo: string
-  width: number
-  height: number
-  pixelRatio: number
-}): string {
+export function contactUrl(
+  config: ContactConfig,
+  context: {
+    uid: AccountUserId | null | undefined
+    version: string | undefined
+    deviceInfo: string
+    width: number
+    height: number
+    pixelRatio: number
+  },
+): string {
   const url = new URL(config.contactFormUrl)
   const ratio = Number.isFinite(context.pixelRatio) ? context.pixelRatio : 1
   const width = Math.round(context.width * ratio)
@@ -23,7 +26,9 @@ export function contactUrl(config: ContactConfig, context: {
   const deviceInfo = [context.deviceInfo]
   if (width > 0 && height > 0) deviceInfo.push(`screen_resolution=${width}x${height}`)
   const fields = {
-    uid: context.uid, source: config.contactSource, harness_version: context.version,
+    uid: context.uid,
+    source: config.contactSource,
+    harness_version: context.version,
     device_info: deviceInfo.filter(Boolean).join('; '),
   }
   for (const [name, value] of Object.entries(fields)) {

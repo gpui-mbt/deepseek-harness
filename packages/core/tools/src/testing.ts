@@ -24,9 +24,7 @@ export type ContentToolFixtureOptions<S extends ParameterSchemaSpec> = Omit<
  * @returns a registry-ready tool with an explicit JSON-array output contract.
  * @internal
  */
-export function defineContentToolFixture<const S extends ParameterSchemaSpec>(
-  options: ContentToolFixtureOptions<S>,
-): ToolDefinition {
+export function defineContentToolFixture<const S extends ParameterSchemaSpec>(options: ContentToolFixtureOptions<S>): ToolDefinition {
   // oxlint-disable-next-line typescript/unbound-method
   const execute = options.execute
   return defineTool({
@@ -36,7 +34,7 @@ export function defineContentToolFixture<const S extends ParameterSchemaSpec>(
       render: (_args, value) => value as unknown as ContentBlock[],
     },
     async execute(args, exec) {
-      return await execute(args, exec) as unknown as JsonValue[]
+      return (await execute(args, exec)) as unknown as JsonValue[]
     },
   })
 }

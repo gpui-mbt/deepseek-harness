@@ -7,9 +7,7 @@
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
-import {
-  createSnapshotStore, type SnapshotStore,
-} from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SettingsDescribeFace } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { PermissionCatalog } from '@deepseek-ai/dsh-permission-presets/client'
 import type { PermissionCatalogDirectory } from './catalog.ts'
@@ -41,13 +39,17 @@ export interface PermissionSettingsState {
  * @param catalog Configured permission options and effective default.
  * @returns Current choice and labels for its allowed options.
  */
-export function permissionDefaultOf(view: SettingsNamespaceView, catalog: PermissionCatalog): {
+export function permissionDefaultOf(
+  view: SettingsNamespaceView,
+  catalog: PermissionCatalog,
+): {
   currentValue: string
   options: PermissionDefaultOption[]
 } {
   const currentValue = (view.value as { defaultPreset?: string }).defaultPreset ?? catalog.defaultPreset
   const options = catalog.defaultOptions.map(option => ({
-    id: option.value, label: displayPermissionPreset(option.value, option.name),
+    id: option.value,
+    label: displayPermissionPreset(option.value, option.name),
   }))
   if (!options.some(option => option.id === currentValue)) throw new Error('permission catalog does not advertise its current default')
   return { currentValue, options }
@@ -88,14 +90,23 @@ export class PermissionPresetSettingsController {
    */
   async load(): Promise<void> {
     if (this.disposed) return
-    this.following ??= this.describeFace.subscribe(() => { this.derive() })
-    this.followingCatalog ??= this.catalog.store.subscribe(() => { this.derive() })
-    this.store.update((state) => {
+    this.following ??= this.describeFace.subscribe(() => {
+      this.derive()
+    })
+    this.followingCatalog ??= this.catalog.store.subscribe(() => {
+      this.derive()
+    })
+    this.store.update(state => {
       state.status = 'loading'
       state.error = null
     })
     await this.describeFace.ensure()
-    try { await this.catalog.load() } catch (error) { this.fail(error); return }
+    try {
+      await this.catalog.load()
+    } catch (error) {
+      this.fail(error)
+      return
+    }
     this.derive()
   }
 
@@ -109,11 +120,10 @@ export class PermissionPresetSettingsController {
    */
   async select(preset: string): Promise<void> {
     const state = this.store.getSnapshot()
-    const view = this.describeFace.getSnapshot().view?.namespaces
-      .find(entry => entry.ns === PERMISSION_SETTINGS_NS)
+    const view = this.describeFace.getSnapshot().view?.namespaces.find(entry => entry.ns === PERMISSION_SETTINGS_NS)
     if (view === undefined || !state.writable || this.saving) return
     this.saving = true
-    this.store.update((draft) => {
+    this.store.update(draft => {
       draft.status = 'saving'
       draft.error = null
     })
@@ -159,7 +169,7 @@ export class PermissionPresetSettingsController {
     }
     const view = mirrored.view.namespaces.find(entry => entry.ns === PERMISSION_SETTINGS_NS)
     if (view === undefined) {
-      this.store.update((state) => {
+      this.store.update(state => {
         state.status = 'unavailable'
         state.writable = false
         state.currentValue = ''
@@ -172,7 +182,7 @@ export class PermissionPresetSettingsController {
       if (catalog === null) return
       const resolved = permissionDefaultOf(view, catalog)
       const { writable } = mirrored.view
-      this.store.update((state) => {
+      this.store.update(state => {
         state.status = 'ready'
         state.error = null
         state.writable = writable
@@ -186,7 +196,7 @@ export class PermissionPresetSettingsController {
   }
 
   private fail(error: unknown): void {
-    this.store.update((state) => {
+    this.store.update(state => {
       state.status = 'error'
       state.error = error instanceof Error ? error.message : String(error)
     })

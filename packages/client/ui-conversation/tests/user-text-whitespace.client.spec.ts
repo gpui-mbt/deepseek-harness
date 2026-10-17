@@ -1,6 +1,6 @@
 /** Whitespace is ordinary Text-producing matching, including scheduling and Facts invalidation. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vite-plus/test'
 import type { UserTextFacts, UserTextNode, UserTextRule } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UserTextRegistry } from '../src/client/conversation/user-text-registry.ts'
 import { collapseWhitespaceRule, trimWhitespaceRule } from '../src/client/user-text/whitespace-rules.ts'
@@ -19,7 +19,7 @@ function setup(extra: readonly UserTextRule[] = []) {
 }
 
 function visible(nodes: readonly UserTextNode[]): string {
-  return nodes.map(node => node.id === 'text' ? node.data.display ?? node.data.text : `[${node.id}]`).join('')
+  return nodes.map(node => (node.id === 'text' ? (node.data.display ?? node.data.text) : `[${node.id}]`)).join('')
 }
 
 function assertSource(text: string, nodes: readonly UserTextNode[]): void {
@@ -46,7 +46,7 @@ describe('ordinary whitespace matchers', () => {
     expect(trimWhitespaceRule.order).toBeLessThan(collapseWhitespaceRule.order)
   })
 
-  it.each(['', '  原文\r\n\t🙂e\u0301  '])('keeps missing switches as a cached no-match result for %j', (text) => {
+  it.each(['', '  原文\r\n\t🙂e\u0301  '])('keeps missing switches as a cached no-match result for %j', text => {
     const k = setup()
     const original = k.evaluate({ text, facts: {} })
     expect(visible(original)).toBe(text)
@@ -80,7 +80,8 @@ describe('ordinary whitespace matchers', () => {
     const text = ' \tA\n  B \r'
     const collapseOnly = k.evaluate({ text, facts: { collapseWhitespace: true } })
     expect(visible(collapseOnly)).toBe(' A B ')
-    k.trim.mockClear(); k.collapse.mockClear()
+    k.trim.mockClear()
+    k.collapse.mockClear()
     const both = k.evaluate({ text, facts: { collapseWhitespace: true, trimWhitespace: true } })
     expect(visible(both)).toBe('A B')
     expect(k.trim.mock.calls.map(([, from]) => from)).toEqual([0, 2, 9])
@@ -98,7 +99,8 @@ describe('ordinary whitespace matchers', () => {
     expect(visible(original)).toBe('')
     expect(k.trim.mock.calls.map(([, from]) => from)).toEqual([0, text.length])
     expect(k.collapse.mock.calls.map(([, from]) => from)).toEqual([0, text.length])
-    k.trim.mockClear(); k.collapse.mockClear()
+    k.trim.mockClear()
+    k.collapse.mockClear()
     expect(visible(k.evaluate({ text, facts: { collapseWhitespace: true } }))).toBe(' ')
     expect(k.trim.mock.calls.map(([, from]) => from)).toEqual([0])
     expect(k.collapse).not.toHaveBeenCalled()
@@ -140,7 +142,8 @@ describe('ordinary whitespace matchers', () => {
     const text = `  ${'原文🙂\n'.repeat(100)}  `
     const facts = { collapseWhitespace: true, trimWhitespace: true }
     const nodes = k.evaluate({ text, facts })
-    k.trim.mockClear(); k.collapse.mockClear()
+    k.trim.mockClear()
+    k.collapse.mockClear()
     expect(k.evaluate({ text, facts: { ...facts, sessionLabels: ['changed'] } })).toBe(nodes)
     expect(k.trim).not.toHaveBeenCalled()
     expect(k.collapse).not.toHaveBeenCalled()
@@ -175,8 +178,7 @@ describe('ordinary whitespace matchers', () => {
     const trailing = `a${' \t\u00a0'.repeat(20_000)}`
     const nodes = k.evaluate({ text: trailing, facts: { trimWhitespace: true } })
     expect(visible(nodes)).toBe('a')
-    expect(nodes.at(-1)).toEqual({ id: 'text', start: 1, end: trailing.length,
-      data: { text: trailing.slice(1), display: '' } })
+    expect(nodes.at(-1)).toEqual({ id: 'text', start: 1, end: trailing.length, data: { text: trailing.slice(1), display: '' } })
     expect(k.trim.mock.calls.map(([, from]) => from)).toEqual([0, trailing.length])
     assertSource(trailing, nodes)
   })

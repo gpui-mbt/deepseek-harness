@@ -43,7 +43,15 @@ const FADE_MS = 1000
  * @param props.onDone - called once the fade completes; unmount the toast here.
  * @returns the floating banner.
  */
-export function Toast({ text, icon, tone, anchor, holdMs = HOLD_MS, actions, onDone }: {
+export function Toast({
+  text,
+  icon,
+  tone,
+  anchor,
+  holdMs = HOLD_MS,
+  actions,
+  onDone,
+}: {
   text: string
   icon?: ReactNode
   tone?: 'success'
@@ -53,10 +61,16 @@ export function Toast({ text, icon, tone, anchor, holdMs = HOLD_MS, actions, onD
   onDone: () => void
 }) {
   const latestOnDone = useRef(onDone)
-  useLayoutEffect(() => { latestOnDone.current = onDone }, [onDone])
+  useLayoutEffect(() => {
+    latestOnDone.current = onDone
+  }, [onDone])
   useEffect(() => {
-    const timer = setTimeout(() => { latestOnDone.current() }, holdMs + FADE_MS)
-    return () => { clearTimeout(timer) }
+    const timer = setTimeout(() => {
+      latestOnDone.current()
+    }, holdMs + FADE_MS)
+    return () => {
+      clearTimeout(timer)
+    }
   }, [holdMs])
   // Anchor-centered placement re-measures on window resizes; the banner lives
   // four seconds, so sub-window layout drift within that span stays out of
@@ -70,20 +84,32 @@ export function Toast({ text, icon, tone, anchor, holdMs = HOLD_MS, actions, onD
     }
     measure()
     window.addEventListener('resize', measure)
-    return () => { window.removeEventListener('resize', measure) }
+    return () => {
+      window.removeEventListener('resize', measure)
+    }
   }, [anchor])
   return createPortal(
     <div
       className={css.toast}
       role="alert"
-      style={{
-        ...left === null ? {} : { left },
-        '--dsh-toast-hold': `${String(holdMs)}ms`,
-      } as CSSProperties}
+      style={
+        {
+          ...(left === null ? {} : { left }),
+          '--dsh-toast-hold': `${String(holdMs)}ms`,
+        } as CSSProperties
+      }
     >
-      {tone === 'success'
-        ? <span className={`${css.icon} ${css.success}`} aria-hidden><IconCheckCircleOutlineRegular /></span>
-        : icon !== undefined && <span className={css.icon} aria-hidden>{icon}</span>}
+      {tone === 'success' ? (
+        <span className={`${css.icon} ${css.success}`} aria-hidden>
+          <IconCheckCircleOutlineRegular />
+        </span>
+      ) : (
+        icon !== undefined && (
+          <span className={css.icon} aria-hidden>
+            {icon}
+          </span>
+        )
+      )}
       <span className={css.text}>
         {text}
         {actions?.map(action => (

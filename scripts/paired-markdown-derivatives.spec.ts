@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { partitionPairedMarkdownDerivatives } from './paired-markdown-derivatives.ts'
 
 interface Block {
@@ -7,11 +7,12 @@ interface Block {
   code: string
 }
 
-const partition = (blocks: Block[]) => partitionPairedMarkdownDerivatives(
-  blocks,
-  block => block.doc,
-  block => `${block.kind}\0${block.code}`,
-)
+const partition = (blocks: Block[]) =>
+  partitionPairedMarkdownDerivatives(
+    blocks,
+    block => block.doc,
+    block => `${block.kind}\0${block.code}`,
+  )
 
 describe('partitionPairedMarkdownDerivatives', () => {
   it('treats a complete byte-identical Chinese sequence as derivative', () => {
@@ -44,15 +45,7 @@ describe('partitionPairedMarkdownDerivatives', () => {
     const partialEnglish = sequence('docs/partial.md')
     const partial = [{ ...partialEnglish[0]!, doc: 'docs/partial.zh.md' }]
     const orphan = [{ doc: 'docs/orphan.zh.md', kind: 'ts', code: 'const orphan = true' }]
-    const blocks = [
-      ...english,
-      ...changed,
-      ...reorderedEnglish,
-      ...reordered,
-      ...partialEnglish,
-      ...partial,
-      ...orphan,
-    ]
+    const blocks = [...english, ...changed, ...reorderedEnglish, ...reordered, ...partialEnglish, ...partial, ...orphan]
 
     expect(partition(blocks)).toEqual({ primary: blocks, derivatives: [] })
   })

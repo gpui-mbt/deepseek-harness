@@ -2,7 +2,7 @@
 /** Document extension registration and dispatch through the production Sidebar and Slot renderer. */
 import { byteResult } from './fixtures.client.ts'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -41,7 +41,10 @@ async function boot() {
   runtime = rt
   rt.ctx.provide('configForms', { developerTools: { enabled: createSnapshotStore(true) } } as never)
   rt.ctx.provide('layout', { openRightbar: vi.fn(), closeRightbar: vi.fn(), panelInfo: rt.panelInfo } as never)
-  rt.ctx.provide('shortcuts', { register: () => () => {}, catalog: { getSnapshot: () => SHORTCUT_CATALOG, subscribe: () => () => {} } } as never)
+  rt.ctx.provide('shortcuts', {
+    register: () => () => {},
+    catalog: { getSnapshot: () => SHORTCUT_CATALOG, subscribe: () => () => {} },
+  } as never)
   const locale = new LocaleRuntime(rt.ctx)
   rt.ctx.provide('locale', locale)
   rt.slots.installLocale(locale)
@@ -54,57 +57,87 @@ async function boot() {
   await rt.mount({ inject: [...resourcesInject], apply: resourcesApply })
   const read = vi.fn<WorkspaceFilesReadRemote['workspaceFiles']['read']>().mockImplementation(async (_sessionId, _path, range) => ({
     ok: true,
-    value: { absolutePath: '/host/notes', version: 'v1', bytes: 18, offset: range.offset ?? 1, text: range.offset === 3 ? 'third' : 'first\nsecond', lines: range.offset === 3 ? 1 : 2, eof: range.offset === 3 },
+    value: {
+      absolutePath: '/host/notes',
+      version: 'v1',
+      bytes: 18,
+      offset: range.offset ?? 1,
+      text: range.offset === 3 ? 'third' : 'first\nsecond',
+      lines: range.offset === 3 ? 1 : 2,
+      eof: range.offset === 3,
+    },
   }))
   const bytes = vi.fn(async () => byteResult(new TextEncoder().encode('all')))
   rt.remote.provideNamespaces({ workspaceFiles: { read, readBytes: bytes } })
-  rt.ctx.effect(() => rt.ctx.resources.register({
-    protocol: 'file',
-    open: async function* (_address, { signal }) {
-      if (!signal.aborted) yield { ok: true as const, value: { absolutePath: '/host/notes', version: 'v1', bytes: 18 } }
-    },
-  }))
+  rt.ctx.effect(() =>
+    rt.ctx.resources.register({
+      protocol: 'file',
+      open: async function* (_address, { signal }) {
+        if (!signal.aborted) yield { ok: true as const, value: { absolutePath: '/host/notes', version: 'v1', bytes: 18 } }
+      },
+    }),
+  )
   await rt.mount({ inject: [...sidebarInject], apply: sidebarApply })
   await rt.mount({ inject: [...inject], apply })
   const view = rt.renderSlot('rightbar', { width: 600, viewportWidth: 1440, canShow: true })
   const open = (name: string): void => {
-    act(() => { rt.ctx.sidebarRight.openResource('dsh-resource://file/session/documents/' + name) })
+    act(() => {
+      rt.ctx.sidebarRight.openResource('dsh-resource://file/session/documents/' + name)
+    })
   }
-  const register = (id: string, loading: DocumentLoadMode, priority: 'builtin' | 'extension') => rt.ctx.effect(() => {
-    const removeDefinition = rt.ctx.documentPreviews.register({ id, extensions: ['md'], priority, title: () => id, loading, wrap: loading === 'text-pages' })
-    const removeBody = rt.slots.inject('sidebar.right.tab.document', () => rt.slots.register(
-      { name: 'sidebar.right.tab.document', key: id },
-      (props: DocumentPreviewProps) => {
-        const { tab } = props.useTabInfo()
-        const resource = props.useResource<'file'>(props.resourceAddress)
-        expect(resource).not.toHaveProperty('operations')
-        expect('ctx' in props).toBe(false)
-        expect('useDocumentPreview' in props).toBe(false)
-        return (
-          <div
-            data-renderer={id} data-renderer-tab={tab.id}
-            data-renderer-path={resource.value?.absolutePath} data-renderer-version={resource.value?.version}
-          >
-            {props.content.kind === 'text' ? props.content.text : props.content.kind === 'bytes' ? new TextDecoder().decode(props.content.data) : 'renderer'}
-          </div>
-        )
-      },
-    ))
-    return () => { removeBody(); removeDefinition() }
-  })
+  const register = (id: string, loading: DocumentLoadMode, priority: 'builtin' | 'extension') =>
+    rt.ctx.effect(() => {
+      const removeDefinition = rt.ctx.documentPreviews.register({
+        id,
+        extensions: ['md'],
+        priority,
+        title: () => id,
+        loading,
+        wrap: loading === 'text-pages',
+      })
+      const removeBody = rt.slots.inject('sidebar.right.tab.document', () =>
+        rt.slots.register({ name: 'sidebar.right.tab.document', key: id }, (props: DocumentPreviewProps) => {
+          const { tab } = props.useTabInfo()
+          const resource = props.useResource<'file'>(props.resourceAddress)
+          expect(resource).not.toHaveProperty('operations')
+          expect('ctx' in props).toBe(false)
+          expect('useDocumentPreview' in props).toBe(false)
+          return (
+            <div
+              data-renderer={id}
+              data-renderer-tab={tab.id}
+              data-renderer-path={resource.value?.absolutePath}
+              data-renderer-version={resource.value?.version}
+            >
+              {props.content.kind === 'text'
+                ? props.content.text
+                : props.content.kind === 'bytes'
+                  ? new TextDecoder().decode(props.content.data)
+                  : 'renderer'}
+            </div>
+          )
+        }),
+      )
+      return () => {
+        removeBody()
+        removeDefinition()
+      }
+    })
   return { rt, view, open, register, read, bytes }
 }
 
 describe('document extension seat', () => {
   it.each(['notes.unknown', '/other/notes.unknown', 'C:/other/notes.unknown', '//host/share/notes.unknown'])(
     'reads %s through its addressed Session rather than the mounted Tab Session',
-    async (path) => {
+    async path => {
       const h = await boot()
-      act(() => { h.rt.ctx.sidebarRight.openResource(sessionFileAddress('address-session', path)) })
-      await waitFor(() => { expect(h.view.container.querySelectorAll('[data-textpreview-line]')).toHaveLength(2) })
-      expect(h.read.mock.calls).toEqual([
-        ['address-session', path, { offset: 1 }, expect.any(AbortSignal)],
-      ])
+      act(() => {
+        h.rt.ctx.sidebarRight.openResource(sessionFileAddress('address-session', path))
+      })
+      await waitFor(() => {
+        expect(h.view.container.querySelectorAll('[data-textpreview-line]')).toHaveLength(2)
+      })
+      expect(h.read.mock.calls).toEqual([['address-session', path, { offset: 1 }, expect.any(AbortSignal)]])
       expect(h.bytes).not.toHaveBeenCalled()
     },
   )
@@ -114,10 +147,14 @@ describe('document extension seat', () => {
     const address = absoluteFileAddress('/other/notes.unknown')
     expect(h.rt.ctx.sidebarRightTabs.candidates(address)).toEqual([])
     expect(() => {
-      act(() => { h.rt.ctx.sidebarRight.openResource(address) })
+      act(() => {
+        h.rt.ctx.sidebarRight.openResource(address)
+      })
     }).toThrow('no registered tab type claims')
     expect(() => {
-      act(() => { h.rt.ctx.sidebarRight.openResource(address, { kind: 'text' }) })
+      act(() => {
+        h.rt.ctx.sidebarRight.openResource(address, { kind: 'text' })
+      })
     }).toThrow('tab type "text" refuses')
     expect(h.read).not.toHaveBeenCalled()
     expect(h.bytes).not.toHaveBeenCalled()
@@ -127,12 +164,16 @@ describe('document extension seat', () => {
   it('uses the plain-text body for an unknown extension and loads another page at the scroll edge', async () => {
     const h = await boot()
     h.open('notes.unknown')
-    await waitFor(() => { expect(h.view.container.querySelectorAll('[data-textpreview-line]')).toHaveLength(2) })
+    await waitFor(() => {
+      expect(h.view.container.querySelectorAll('[data-textpreview-line]')).toHaveLength(2)
+    })
     expect(h.view.container.querySelector('[data-document-preview]')?.getAttribute('data-document-preview')).toBe(PLAIN_BODY_ID)
     const body = h.view.container.querySelector<HTMLElement>('[data-textpreview-body]')!
     Object.defineProperties(body, { clientHeight: { configurable: true, value: 100 }, scrollHeight: { configurable: true, value: 200 } })
     fireEvent.scroll(body, { target: { scrollTop: 100 } })
-    await waitFor(() => { expect(h.view.container.querySelectorAll('[data-textpreview-line]')).toHaveLength(3) })
+    await waitFor(() => {
+      expect(h.view.container.querySelectorAll('[data-textpreview-line]')).toHaveLength(3)
+    })
     expect(h.read.mock.calls.map(([_sessionId, _path, range]) => range.offset)).toEqual([1, 3])
   })
 
@@ -154,9 +195,13 @@ describe('document extension seat', () => {
     expect(h.bytes).toHaveBeenCalledOnce()
     fireEvent.click(h.view.container.querySelector('[data-document-viewer-menu]')!)
     fireEvent.click(screen.getByRole('menuitem', { name: 'builtin-reader' }))
-    await waitFor(() => { expect(h.view.container.querySelector('[data-renderer="builtin-reader"]')?.textContent).toBe('first\nsecond') })
+    await waitFor(() => {
+      expect(h.view.container.querySelector('[data-renderer="builtin-reader"]')?.textContent).toBe('first\nsecond')
+    })
     expect(h.view.container.querySelector('[data-renderer-tab]')?.getAttribute('data-renderer-tab')).toBe(tab)
-    await act(async () => { h.register('later-reader', 'text-pages', 'extension') })
+    await act(async () => {
+      h.register('later-reader', 'text-pages', 'extension')
+    })
     expect(h.view.container.querySelector('[data-renderer="builtin-reader"]')).not.toBeNull()
   })
 
@@ -171,8 +216,12 @@ describe('document extension seat', () => {
     await waitFor(() => {
       expect(h.view.container.querySelector('[data-renderer="extension-reader"]')?.getAttribute('data-renderer-version')).toBe('v1')
     })
-    await act(async () => { await remove!() })
-    await waitFor(() => { expect(h.view.container.querySelector('[data-document-markdown]')).not.toBeNull() })
+    await act(async () => {
+      await remove!()
+    })
+    await waitFor(() => {
+      expect(h.view.container.querySelector('[data-document-markdown]')).not.toBeNull()
+    })
     expect(h.read).toHaveBeenCalledOnce()
   })
 })

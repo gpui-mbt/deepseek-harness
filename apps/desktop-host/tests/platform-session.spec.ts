@@ -1,10 +1,11 @@
 import { Context } from '@deepseek-ai/cordis'
 import { DeepSeekAccount, type AccountView, type PlatformSession } from '@deepseek-ai/dsh-deepseek-account'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { installPlatformSessionPublisher } from '../src/platform-session.ts'
 
 const state: AccountView = {
-  status: 'credential-stored', attempt: null,
+  status: 'credential-stored',
+  attempt: null,
   links: { usageUrl: 'https://platform.example/usage', topUpUrl: 'https://platform.example/top_up' },
 }
 
@@ -16,20 +17,43 @@ class Account extends DeepSeekAccount {
   reading = Promise.withResolvers<undefined>()
   finished = Promise.withResolvers<undefined>()
   read: () => Promise<PlatformSession | null> = async () => ({ origin: 'https://platform.example', userId: null, token: 'test' })
-  override async getState() { return state }
-  override async getProfile() { return null }
-  override async getBalance() { return null }
-  override async getUnnotifiedBonuses() { return null }
-  override async ackBonusNotified() { return false }
-  override async startSignIn() { return state }
-  override async cancelSignIn() { return state }
-  override async signOut() { return state }
+  override async getState() {
+    return state
+  }
+  override async getProfile() {
+    return null
+  }
+  override async getBalance() {
+    return null
+  }
+  override async getUnnotifiedBonuses() {
+    return null
+  }
+  override async ackBonusNotified() {
+    return false
+  }
+  override async startSignIn() {
+    return state
+  }
+  override async cancelSignIn() {
+    return state
+  }
+  override async signOut() {
+    return state
+  }
   override async rejectToken() {}
-  override async resolveToken() { return undefined }
-  override async getPlatformSession() { this.reading.resolve(undefined); return this.read() }
+  override async resolveToken() {
+    return undefined
+  }
+  override async getPlatformSession() {
+    this.reading.resolve(undefined)
+    return this.read()
+  }
   override async *watch(signal: AbortSignal, includeIdentityChanges = false) {
     this.identityChangesRequested = includeIdentityChanges
-    const abort = () => { this.ended.resolve(undefined) }
+    const abort = () => {
+      this.ended.resolve(undefined)
+    }
     signal.addEventListener('abort', abort, { once: true })
     try {
       yield state
@@ -46,7 +70,10 @@ it('clears removed credentials and publishes the replacement provider session', 
   const ctx = new Context()
   const sessions: (PlatformSession | null)[] = []
   let delivered = Promise.withResolvers<undefined>()
-  installPlatformSessionPublisher(ctx, (session) => { sessions.push(session); delivered.resolve(undefined) })
+  installPlatformSessionPublisher(ctx, session => {
+    sessions.push(session)
+    delivered.resolve(undefined)
+  })
   try {
     const first = await ctx.plugin(Account)
     await delivered.promise
@@ -57,7 +84,7 @@ it('clears removed credentials and publishes the replacement provider session', 
     await first.dispose()
     expect(sessions.at(-1)).toBeNull()
     delivered = Promise.withResolvers<undefined>()
-    await ctx.plugin((scope) => {
+    await ctx.plugin(scope => {
       const replacement = new Account(scope)
       replacement.read = async () => ({ origin: 'https://platform.example', userId: null, token: 'replacement' })
     })
@@ -68,10 +95,12 @@ it('clears removed credentials and publishes the replacement provider session', 
   }
 })
 
-it.each([false, true])('clears credentials when the account stream ends (failure: %s)', async (fail) => {
+it.each([false, true])('clears credentials when the account stream ends (failure: %s)', async fail => {
   const ctx = new Context()
   const cleared = Promise.withResolvers<undefined>()
-  installPlatformSessionPublisher(ctx, (session) => { if (session === null) cleared.resolve(undefined) })
+  installPlatformSessionPublisher(ctx, session => {
+    if (session === null) cleared.resolve(undefined)
+  })
   try {
     await ctx.plugin(Account)
     const account = ctx.get('deepseekAccount')
@@ -92,9 +121,12 @@ it('suppresses a credential read that completes during provider disposal', async
   const pending = Promise.withResolvers<PlatformSession | null>()
   const cleared = Promise.withResolvers<undefined>()
   const sessions: (PlatformSession | null)[] = []
-  installPlatformSessionPublisher(ctx, (session) => { sessions.push(session); if (session === null) cleared.resolve(undefined) })
+  installPlatformSessionPublisher(ctx, session => {
+    sessions.push(session)
+    if (session === null) cleared.resolve(undefined)
+  })
   try {
-    const provider = await ctx.plugin((scope) => {
+    const provider = await ctx.plugin(scope => {
       const account = new Account(scope)
       account.read = () => pending.promise
     })

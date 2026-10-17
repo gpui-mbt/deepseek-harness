@@ -5,20 +5,26 @@
  * @param element - Existing Chat Node, call, or Group box.
  * @returns The visible rectangle, or undefined when the target is outside the conversation viewport.
  */
-export function visibleChatRect(element: HTMLElement): {
-  readonly left: number
-  readonly top: number
-  readonly width: number
-  readonly height: number
-} | undefined {
+export function visibleChatRect(element: HTMLElement):
+  | {
+      readonly left: number
+      readonly top: number
+      readonly width: number
+      readonly height: number
+    }
+  | undefined {
   const rect = element.getBoundingClientRect()
-  let left = Math.max(0, rect.left), right = Math.min(window.innerWidth, rect.right)
-  let top = Math.max(0, rect.top), bottom = Math.min(window.innerHeight, rect.bottom)
+  let left = Math.max(0, rect.left),
+    right = Math.min(window.innerWidth, rect.right)
+  let top = Math.max(0, rect.top),
+    bottom = Math.min(window.innerHeight, rect.bottom)
   for (let parent = element.parentElement; parent !== null; parent = parent.parentElement) {
     if (!parent.matches('[data-conversation-scroll], [data-step-process-body]')) continue
     const bounds = parent.getBoundingClientRect()
-    left = Math.max(left, bounds.left); right = Math.min(right, bounds.right)
-    top = Math.max(top, bounds.top); bottom = Math.min(bottom, bounds.bottom)
+    left = Math.max(left, bounds.left)
+    right = Math.min(right, bounds.right)
+    top = Math.max(top, bounds.top)
+    bottom = Math.min(bottom, bounds.bottom)
     if (parent.hasAttribute('data-conversation-scroll')) {
       const composer = parent.querySelector<HTMLElement>(':scope > [data-composer-seat]')?.getBoundingClientRect()
       if (composer !== undefined && composer.height > 0) bottom = Math.min(bottom, composer.top)

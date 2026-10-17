@@ -80,20 +80,25 @@ export function extractPersistenceSchema(root: string): PersistenceSchemaInvento
     resolve(path) === filename
       ? ts.createSourceFile(filename, source, languageVersion, true)
       : originalGetSourceFile(path, languageVersion, onError, shouldCreateNewSourceFile)
-  const files = [...new Set([
-    ...hostSourceFiles(root, configPath),
-    ...events.map(event => resolve(root, event.source.slice(0, event.source.lastIndexOf(':')))),
-  ])]
+  const files = [
+    ...new Set([
+      ...hostSourceFiles(root, configPath),
+      ...events.map(event => resolve(root, event.source.slice(0, event.source.lastIndexOf(':')))),
+    ]),
+  ]
   const program = ts.createProgram({ rootNames: [filename, ...files], options, host })
   const rootSource = program.getSourceFile(filename)
   if (rootSource === undefined) throw new PersistenceSchemaError('persistence schema: compiler omitted the requested roots')
   const diagnostics = [
-    ...program.getOptionsDiagnostics(), ...program.getSyntacticDiagnostics(), ...program.getSemanticDiagnostics(rootSource),
+    ...program.getOptionsDiagnostics(),
+    ...program.getSyntacticDiagnostics(),
+    ...program.getSemanticDiagnostics(rootSource),
   ]
   if (diagnostics.length > 0) throw new PersistenceSchemaError(diagnostics.map(diagnosticText).join('\n'))
   const checker = program.getTypeChecker()
-  const declarations = new Map(rootSource.statements.filter(ts.isTypeAliasDeclaration)
-    .map(declaration => [declaration.name.text, declaration]))
+  const declarations = new Map(
+    rootSource.statements.filter(ts.isTypeAliasDeclaration).map(declaration => [declaration.name.text, declaration]),
+  )
   const declaration = (name: string): ts.TypeAliasDeclaration => {
     const found = declarations.get(name)
     if (found === undefined) throw new PersistenceSchemaError(`persistence schema: missing compiler root ${name}`)
@@ -105,29 +110,41 @@ export function extractPersistenceSchema(root: string): PersistenceSchemaInvento
   const omitted = [...compiledEvents].filter(name => !discoveredEvents.has(name))
   const uncompiled = [...discoveredEvents].filter(name => !compiledEvents.has(name))
   if (omitted.length > 0 || uncompiled.length > 0) {
-    throw new PersistenceSchemaError(`persistence schema: compiler and source event discovery disagree; omitted: ${omitted.join(', ')}; uncompiled: ${uncompiled.join(', ')}`)
+    throw new PersistenceSchemaError(
+      `persistence schema: compiler and source event discovery disagree; omitted: ${omitted.join(', ')}; uncompiled: ${uncompiled.join(', ')}`,
+    )
   }
   const surfaceDeclaration = declaration('SurfaceRoot')
   const surface = stringLiterals(checker.getTypeFromTypeNode(surfaceDeclaration.type), 'SurfaceEventType')
   for (const name of surface) {
-    if (!events.some(event => event.name === name)) throw new PersistenceSchemaError(`persistence schema: surface event ${name} has no declaration`)
+    if (!events.some(event => event.name === name))
+      throw new PersistenceSchemaError(`persistence schema: surface event ${name} has no declaration`)
   }
   const header = declaration('HeaderRoot')
   const physicalFile = resolve(root, 'packages/session/session-persistence-jsonl/src/format.ts')
-  const physical = program.getSourceFile(physicalFile)?.statements
-    .filter((node): node is ts.InterfaceDeclaration | ts.TypeAliasDeclaration =>
-      ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node))
+  const physical = program
+    .getSourceFile(physicalFile)
+    ?.statements.filter(
+      (node): node is ts.InterfaceDeclaration | ts.TypeAliasDeclaration =>
+        ts.isInterfaceDeclaration(node) || ts.isTypeAliasDeclaration(node),
+    )
     .filter(declaration => declaration.name.text === 'HeaderLine')
   if (physical?.length !== 1) throw new PersistenceSchemaError('persistence schema: expected one current JSONL HeaderLine declaration')
   const physicalHeader = physical[0] as ts.InterfaceDeclaration | ts.TypeAliasDeclaration
   const declarationSources = validateReachableDeclarations(program, root, [...declarations.values(), physicalHeader])
   const extraction = new SchemaExtractor(root, program, declarationSources)
-  const roots: RootInput[] = [{
-    key: 'SessionHeader',
+  const roots: RootInput[] = [
+    {
+      key: 'SessionHeader',
+      kind: 'header',
+      node: extraction.convert(checker.getTypeFromTypeNode(header.type), header),
+    },
+  ]
+  roots.push({
+    key: 'JsonlHeaderLine',
     kind: 'header',
-    node: extraction.convert(checker.getTypeFromTypeNode(header.type), header),
-  }]
-  roots.push({ key: 'JsonlHeaderLine', kind: 'header', node: extraction.convert(checker.getTypeAtLocation(physicalHeader), physicalHeader) })
+    node: extraction.convert(checker.getTypeAtLocation(physicalHeader), physicalHeader),
+  })
   const envelopes: number[] = []
   for (const [index, event] of events.entries()) {
     const item = declaration(`EventRoot${String(index)}`)
@@ -151,7 +168,8 @@ function hostSourceFiles(root: string, configPath: string, seen = new Set<string
   return [
     ...parsed.fileNames.filter(file => /^packages\/[^/]+\/[^/]+\/src\//.test(slash(relative(root, file)))),
     ...(parsed.projectReferences ?? []).flatMap(reference =>
-      hostSourceFiles(root, extname(reference.path) === '.json' ? reference.path : resolve(reference.path, 'tsconfig.json'), seen)),
+      hostSourceFiles(root, extname(reference.path) === '.json' ? reference.path : resolve(reference.path, 'tsconfig.json'), seen),
+    ),
   ]
 }
 
@@ -180,14 +198,18 @@ function validateReachableDeclarations(
         definitions.set(type, entries)
       }
     }
-    const target = ts.isTypeReferenceNode(node) ? node.typeName
-      : ts.isExpressionWithTypeArguments(node) ? node.expression
-        : ts.isTypeQueryNode(node) ? node.exprName
-          : ts.isImportTypeNode(node) ? node.qualifier
+    const target = ts.isTypeReferenceNode(node)
+      ? node.typeName
+      : ts.isExpressionWithTypeArguments(node)
+        ? node.expression
+        : ts.isTypeQueryNode(node)
+          ? node.exprName
+          : ts.isImportTypeNode(node)
+            ? node.qualifier
             : undefined
     if (target !== undefined) {
       let symbol = checker.getSymbolAtLocation(target)
-      if (symbol !== undefined && (symbol.flags & ts.SymbolFlags.Alias)) symbol = checker.getAliasedSymbol(symbol)
+      if (symbol !== undefined && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol)
       for (const declaration of symbol?.declarations ?? []) {
         if (trackedSource(slash(relative(root, declaration.getSourceFile().fileName)))) visit(declaration)
       }
@@ -196,18 +218,18 @@ function validateReachableDeclarations(
     ts.forEachChild(node, visit)
   }
   for (const root of roots) visit(root)
-  const errors = [...declarations].flatMap(([file, scopes]) => program.getSemanticDiagnostics(file)
-    .filter((error) => {
+  const errors = [...declarations].flatMap(([file, scopes]) =>
+    program.getSemanticDiagnostics(file).filter(error => {
       const start = error.start
       return start !== undefined && scopes.some(scope => start >= scope.getStart() && start < scope.end)
-    }))
+    }),
+  )
   if (errors.length > 0) throw new PersistenceSchemaError(errors.map(diagnosticText).join('\n'))
   return definitions
 }
 
 function isNeverOrUndefined(type: ts.Type): boolean {
-  return (type.isUnion() ? type.types : [type])
-    .every(member => (member.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Never)) !== 0)
+  return (type.isUnion() ? type.types : [type]).every(member => (member.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Never)) !== 0)
 }
 
 function reservedPropertyAnnotations(root: string, program: ts.Program): ReadonlySet<ts.Declaration> {
@@ -219,9 +241,16 @@ function reservedPropertyAnnotations(root: string, program: ts.Program): Readonl
     const visit = (node: ts.Node): void => {
       const tags = ts.getJSDocTags(node).filter(tag => tag.tagName.text === 'persistenceReserved')
       if (tags.length > 0) {
-        if (tags.length !== 1 || tags[0]?.comment !== undefined || !ts.isPropertySignature(node)
-          || node.questionToken === undefined || !isNeverOrUndefined(checker.getTypeAtLocation(node))) {
-          throw new PersistenceSchemaError(`persistence schema: ${path}: @persistenceReserved requires one argument-free marker on an optional never or undefined property`)
+        if (
+          tags.length !== 1 ||
+          tags[0]?.comment !== undefined ||
+          !ts.isPropertySignature(node) ||
+          node.questionToken === undefined ||
+          !isNeverOrUndefined(checker.getTypeAtLocation(node))
+        ) {
+          throw new PersistenceSchemaError(
+            `persistence schema: ${path}: @persistenceReserved requires one argument-free marker on an optional never or undefined property`,
+          )
         }
         reserved.add(node)
       }
@@ -261,7 +290,10 @@ class SchemaExtractor {
     this.nodes.push({ kind: 'primitive', type: 'never' })
     this.cache.set(type, id)
     this.record(id, type)
-    const add = (node: SchemaNode): number => { this.nodes[id] = node; return id }
+    const add = (node: SchemaNode): number => {
+      this.nodes[id] = node
+      return id
+    }
     const flags = type.flags
     if (flags & ts.TypeFlags.Any) {
       if ((type as ts.Type & { intrinsicName?: string }).intrinsicName === 'error') this.fail(type, site, 'unresolved compiler type')
@@ -334,7 +366,10 @@ class SchemaExtractor {
       const child = this.valueType(propertyType, declaration, optional)
       const policies = this.propertyPolicies(type, property, declaration)
       if (policies.length > 1) this.fail(type, declaration, 'ambiguous source compatibility binding')
-      properties.push({ name: property.getName(), type: child, optional,
+      properties.push({
+        name: property.getName(),
+        type: child,
+        optional,
         ...(policies[0] === undefined ? {} : { compatibility: policies[0] }),
       })
     }
@@ -342,7 +377,8 @@ class SchemaExtractor {
       key: this.convert(info.keyType, site),
       value: this.convert(info.type, site),
     }))
-    if (properties.length === 0 && indices.length === 0) this.fail(type, site, 'unconstrained empty object type is not an explicit JSON record')
+    if (properties.length === 0 && indices.length === 0)
+      this.fail(type, site, 'unconstrained empty object type is not an explicit JSON record')
     return { kind: 'object', properties, indices }
   }
 
@@ -353,9 +389,12 @@ class SchemaExtractor {
     if (roleProperty === undefined || (roleProperty.flags & ts.SymbolFlags.Optional) !== 0) return []
     const role = this.checker.getTypeOfSymbolAtLocation(roleProperty, site)
     if (!(role.flags & ts.TypeFlags.StringLiteral)) return []
-    const binding = (role as ts.StringLiteralType).value === 'user' ? 'session.user-message.source'
-      : (role as ts.StringLiteralType).value === 'developer' ? 'session.developer-message.source'
-        : undefined
+    const binding =
+      (role as ts.StringLiteralType).value === 'user'
+        ? 'session.user-message.source'
+        : (role as ts.StringLiteralType).value === 'developer'
+          ? 'session.developer-message.source'
+          : undefined
     return declared.filter(policy => policy.binding === binding)
   }
 
@@ -369,9 +408,13 @@ class SchemaExtractor {
   private phantom(type: ts.Type): boolean {
     if (!(type.flags & ts.TypeFlags.Object)) return false
     const properties = this.checker.getPropertiesOfType(type)
-    return properties.length > 0 && properties.every(property => property.getName().startsWith('__@'))
-      && type.getCallSignatures().length === 0 && type.getConstructSignatures().length === 0
-      && this.checker.getIndexInfosOfType(type).length === 0
+    return (
+      properties.length > 0 &&
+      properties.every(property => property.getName().startsWith('__@')) &&
+      type.getCallSignatures().length === 0 &&
+      type.getConstructSignatures().length === 0 &&
+      this.checker.getIndexInfosOfType(type).length === 0
+    )
   }
 
   union(types: readonly number[]): number {
@@ -394,14 +437,17 @@ class SchemaExtractor {
     const data = node.properties.find(property => property.name === 'data')
     const literal = tag === undefined ? undefined : canonicalizeSchema(this.nodes, tag.type).nodes[0]
     if (tag?.optional !== false || data?.optional !== false || literal?.kind !== 'literal' || literal.value !== event) {
-      throw new PersistenceSchemaError(`persistence schema: SessionEvent<${JSON.stringify(event)}> must retain its required type and data fields`)
+      throw new PersistenceSchemaError(
+        `persistence schema: SessionEvent<${JSON.stringify(event)}> must retain its required type and data fields`,
+      )
     }
     const string = this.nodes.length
     this.nodes.push({ kind: 'primitive', type: 'string' })
     const envelope: SchemaNode = {
       kind: 'object',
-      properties: node.properties.filter(property => property.name !== 'data')
-        .map(property => property.name === 'type' ? { ...property, type: string } : property),
+      properties: node.properties
+        .filter(property => property.name !== 'data')
+        .map(property => (property.name === 'type' ? { ...property, type: string } : property)),
       indices: node.indices,
     }
     this.nodes.push(envelope)
@@ -417,7 +463,7 @@ class SchemaExtractor {
         }
       }
     }
-    const roots = inputs.map((input) => {
+    const roots = inputs.map(input => {
       const schema = canonicalizeSchema(this.nodes, input.node)
       return {
         key: input.key,
@@ -449,21 +495,23 @@ class SchemaExtractor {
     return {
       formatVersion: roots.some(root => schemaHasCompatibility(root.schema)) ? 2 : 1,
       roots,
-      types: [...types].sort(([left], [right]) => compare(left, right)).map(([digest, item]) => ({
-        digest,
-        schema: item.schema,
-        names: [...item.names].sort(compare),
-        sources: [...item.sources].sort(compare),
-      })),
+      types: [...types]
+        .sort(([left], [right]) => compare(left, right))
+        .map(([digest, item]) => ({
+          digest,
+          schema: item.schema,
+          names: [...item.names].sort(compare),
+          sources: [...item.sources].sort(compare),
+        })),
     }
   }
 
   private record(id: number, type: ts.Type): void {
     const item = this.declarationMetadata.get(id) ?? { names: new Set<string>(), sources: new Set<string>() }
     const declarations = new Set([
-      ...this.declarationSources.get(type) ?? [],
-      ...type.aliasSymbol?.declarations ?? [],
-      ...type.getSymbol()?.declarations ?? [],
+      ...(this.declarationSources.get(type) ?? []),
+      ...(type.aliasSymbol?.declarations ?? []),
+      ...(type.getSymbol()?.declarations ?? []),
     ])
     for (const declaration of declarations) {
       if (!isNamedTypeDeclaration(declaration) && !ts.isTypeLiteralNode(declaration) && !ts.isEnumMember(declaration)) continue
@@ -480,7 +528,9 @@ class SchemaExtractor {
   private fail(type: ts.Type, site: ts.Node, reason: string): never {
     const source = slash(relative(this.root, site.getSourceFile().fileName))
     const position = site.getSourceFile().getLineAndCharacterOfPosition(site.getStart())
-    throw new PersistenceSchemaError(`persistence schema: ${source}:${String(position.line + 1)}: ${reason}: ${this.checker.typeToString(type)}`)
+    throw new PersistenceSchemaError(
+      `persistence schema: ${source}:${String(position.line + 1)}: ${reason}: ${this.checker.typeToString(type)}`,
+    )
   }
 }
 
@@ -491,7 +541,8 @@ function isNamedTypeDeclaration(node: ts.Node): node is ts.TypeAliasDeclaration 
 function stringLiterals(type: ts.Type, name: string): Set<string> {
   if (type.flags & ts.TypeFlags.Never) return new Set()
   const members = type.isUnion() ? type.types : [type]
-  if (members.some(member => !(member.flags & ts.TypeFlags.StringLiteral))) throw new PersistenceSchemaError(`persistence schema: ${name} is not a closed string-literal union`)
+  if (members.some(member => !(member.flags & ts.TypeFlags.StringLiteral)))
+    throw new PersistenceSchemaError(`persistence schema: ${name} is not a closed string-literal union`)
   return new Set(members.map(member => (member as ts.StringLiteralType).value))
 }
 

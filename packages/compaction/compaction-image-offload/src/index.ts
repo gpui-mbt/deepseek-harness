@@ -31,9 +31,8 @@ export function apply(ctx: Context): void {
     return Promise.resolve<RequestErrorAction>({ kind: 'retry' })
   })
   ctx.on('compaction/summary-error', ({ session, sourceEventSeqs, error, signal }, next) => {
-    if (!(error instanceof LlmError)
-      || error.code !== IMAGE_OFFLOAD_REQUIRED_CODE
-      || error.failure.offloadImages === undefined) return next()
+    if (!(error instanceof LlmError) || error.code !== IMAGE_OFFLOAD_REQUIRED_CODE || error.failure.offloadImages === undefined)
+      return next()
     signal?.throwIfAborted()
     if (!offloadOldestImages(session, sourceEventSeqs, error.failure.offloadImages)) return next()
     return true

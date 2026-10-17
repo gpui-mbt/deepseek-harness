@@ -1,10 +1,13 @@
 /** Chat-owned event-to-view projection. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import type { ContentBlock } from '@deepseek-ai/dsh-api-remotes/client'
 import {
-  displayFailure, emptyAssistantBlock, toAssistantBlock, toAssistantBlocks,
+  displayFailure,
+  emptyAssistantBlock,
+  toAssistantBlock,
+  toAssistantBlocks,
   isTokenDelta,
 } from '../src/client/conversation-nodes/event-projection.ts'
 
@@ -30,8 +33,7 @@ describe('toAssistantBlock', () => {
       { kind: 'image', attachment },
     ])
     expect(toAssistantBlock(blocks[0] as ContentBlock)).toEqual({ kind: 'text', text: '正文' })
-    expect(toAssistantBlock({ type: 'future' } as unknown as ContentBlock))
-      .toEqual({ kind: 'other', block: { type: 'future' } })
+    expect(toAssistantBlock({ type: 'future' } as unknown as ContentBlock)).toEqual({ kind: 'other', block: { type: 'future' } })
   })
 
   it('creates empty streamed block projections', () => {
@@ -43,8 +45,7 @@ describe('toAssistantBlock', () => {
 
   it('redacts auth failures and presents the remaining durable values', () => {
     expect(displayFailure({ code: 'AUTH', message: 'secret' })).toEqual({ code: 'AUTH', message: '' })
-    expect(displayFailure({ code: 'TRANSPORT', message: 'offline' }))
-      .toEqual({ code: 'TRANSPORT', message: 'offline' })
+    expect(displayFailure({ code: 'TRANSPORT', message: 'offline' })).toEqual({ code: 'TRANSPORT', message: 'offline' })
     expect(displayFailure({ code: 'UNKNOWN' })).toEqual({ code: 'UNKNOWN', message: '{"code":"UNKNOWN"}' })
     expect(displayFailure(null)).toEqual({ message: 'null' })
   })

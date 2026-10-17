@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createSnapshotStore, defineStore, shallowEqual } from '../src/index.ts'
 
 interface State {
@@ -18,7 +18,9 @@ describe('createSnapshotStore', () => {
   it('applies update through a draft and preserves untouched branch references', () => {
     const store = createSnapshotStore(init())
     const before = store.getSnapshot()
-    store.update((d) => { d.a.n = 2 })
+    store.update(d => {
+      d.a.n = 2
+    })
     const after = store.getSnapshot()
     expect(after).not.toBe(before)
     expect(after.a.n).toBe(2)
@@ -28,9 +30,15 @@ describe('createSnapshotStore', () => {
   it('notifies synchronously per update by default', () => {
     const store = createSnapshotStore(init())
     const seen: number[] = []
-    store.subscribe(() => { seen.push(store.getSnapshot().a.n) })
-    store.update((d) => { d.a.n = 2 })
-    store.update((d) => { d.a.n = 3 })
+    store.subscribe(() => {
+      seen.push(store.getSnapshot().a.n)
+    })
+    store.update(d => {
+      d.a.n = 2
+    })
+    store.update(d => {
+      d.a.n = 3
+    })
     expect(seen).toEqual([2, 3])
   })
 
@@ -43,16 +51,24 @@ describe('createSnapshotStore', () => {
     const store = createSnapshotStore(init(), { flush: 'raf' })
     const spy = vi.fn()
     store.subscribe(spy)
-    store.update((d) => { d.a.n = 2 })
-    store.update((d) => { d.a.n = 3 })
-    store.update((d) => { d.b.list.push('y') })
+    store.update(d => {
+      d.a.n = 2
+    })
+    store.update(d => {
+      d.a.n = 3
+    })
+    store.update(d => {
+      d.b.list.push('y')
+    })
     expect(spy).not.toHaveBeenCalled()
     expect(frame).toHaveLength(1)
     frame.shift()!(0)
     expect(spy).toHaveBeenCalledTimes(1)
     expect(store.getSnapshot().a.n).toBe(3)
     // Next frame batches independently.
-    store.update((d) => { d.a.n = 4 })
+    store.update(d => {
+      d.a.n = 4
+    })
     expect(frame).toHaveLength(1)
     frame.shift()!(0)
     expect(spy).toHaveBeenCalledTimes(2)
@@ -62,8 +78,12 @@ describe('createSnapshotStore', () => {
     const store = createSnapshotStore(init(), { flush: 'raf' })
     const spy = vi.fn()
     store.subscribe(spy)
-    store.update((d) => { d.a.n = 2 })
-    store.update((d) => { d.a.n = 3 })
+    store.update(d => {
+      d.a.n = 2
+    })
+    store.update(d => {
+      d.a.n = 3
+    })
     expect(spy).not.toHaveBeenCalled()
     await Promise.resolve()
     expect(spy).toHaveBeenCalledTimes(1)
@@ -78,7 +98,9 @@ describe('createSnapshotStore', () => {
     const store = createSnapshotStore(init(), { flush: 'raf' })
     const spy = vi.fn()
     const off = store.subscribe(spy)
-    store.update((d) => { d.a.n = 2 })
+    store.update(d => {
+      d.a.n = 2
+    })
     off()
     frame.shift()!(0)
     expect(spy).not.toHaveBeenCalled()
@@ -89,7 +111,9 @@ describe('createSnapshotStore', () => {
     const next = init()
     store.set(next)
     expect(store.getSnapshot()).toBe(next)
-    expect(() => { (store.getSnapshot().a).n = 9 }).toThrow()
+    expect(() => {
+      store.getSnapshot().a.n = 9
+    }).toThrow()
   })
 
   it('freezes the owned envelope without traversing opaque object handles', () => {
@@ -104,13 +128,19 @@ describe('createSnapshotStore', () => {
     const snapshot = store.getSnapshot()
     expect(Object.isFrozen(snapshot)).toBe(true)
     expect(Object.isFrozen(snapshot.handle)).toBe(false)
-    expect(() => { snapshot.values.add('z') }).toThrow()
+    expect(() => {
+      snapshot.values.add('z')
+    }).toThrow()
   })
 
   it('freezes update produce output outside production (immer dev freeze)', () => {
     const store = createSnapshotStore(init())
-    store.update((d) => { d.a.n = 2 })
-    expect(() => { (store.getSnapshot().a).n = 9 }).toThrow()
+    store.update(d => {
+      d.a.n = 2
+    })
+    expect(() => {
+      store.getSnapshot().a.n = 9
+    }).toThrow()
   })
 
   it('does not deep-freeze wholesale state in production', () => {
@@ -127,8 +157,12 @@ describe('createSnapshotStore', () => {
     const backing = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (k: string) => backing.get(k) ?? null,
-      setItem: (k: string, v: string) => { backing.set(k, v) },
-      removeItem: (k: string) => { backing.delete(k) },
+      setItem: (k: string, v: string) => {
+        backing.set(k, v)
+      },
+      removeItem: (k: string) => {
+        backing.delete(k)
+      },
     })
     const store = createSnapshotStore<string>('', { persist: { name: 'spec-draft' } })
     store.set('hello')
@@ -140,11 +174,17 @@ describe('createSnapshotStore', () => {
     const backing = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (k: string) => backing.get(k) ?? null,
-      setItem: (k: string, v: string) => { backing.set(k, v) },
-      removeItem: (k: string) => { backing.delete(k) },
+      setItem: (k: string, v: string) => {
+        backing.set(k, v)
+      },
+      removeItem: (k: string) => {
+        backing.delete(k)
+      },
     })
     const store = createSnapshotStore(init(), { persist: { name: 'spec-store' } })
-    store.update((d) => { d.a.n = 42 })
+    store.update(d => {
+      d.a.n = 42
+    })
     expect(backing.has('spec-store')).toBe(true)
     const revived = createSnapshotStore(init(), { persist: { name: 'spec-store' } })
     expect(revived.getSnapshot().a.n).toBe(42)
@@ -153,7 +193,9 @@ describe('createSnapshotStore', () => {
   it('reports rehydration failures without preventing store creation', () => {
     const failure = new Error('storage read failed')
     vi.stubGlobal('localStorage', {
-      getItem: () => { throw failure },
+      getItem: () => {
+        throw failure
+      },
       setItem: () => {},
       removeItem: () => {},
     })
@@ -162,40 +204,47 @@ describe('createSnapshotStore', () => {
     const store = createSnapshotStore(init(), { persist: { name: 'spec-broken-read' } })
 
     expect(store.getSnapshot()).toEqual(init())
-    expect(report).toHaveBeenCalledWith(
-      "snapshot store 'spec-broken-read' rehydration failed:",
-      failure,
-    )
+    expect(report).toHaveBeenCalledWith("snapshot store 'spec-broken-read' rehydration failed:", failure)
   })
 
   it('reports persistence failures without rejecting the write', () => {
     const failure = new Error('storage write failed')
     vi.stubGlobal('localStorage', {
       getItem: () => null,
-      setItem: () => { throw failure },
+      setItem: () => {
+        throw failure
+      },
       removeItem: () => {},
     })
     const report = vi.spyOn(console, 'error').mockImplementation(() => {})
     const store = createSnapshotStore(init(), { persist: { name: 'spec-broken-write' } })
 
-    expect(() => { store.update((draft) => { draft.a.n = 7 }) }).not.toThrow()
+    expect(() => {
+      store.update(draft => {
+        draft.a.n = 7
+      })
+    }).not.toThrow()
     expect(store.getSnapshot().a.n).toBe(7)
-    expect(report).toHaveBeenCalledWith(
-      "snapshot store 'spec-broken-write' persistence failed:",
-      failure,
-    )
+    expect(report).toHaveBeenCalledWith("snapshot store 'spec-broken-write' persistence failed:", failure)
   })
 })
 
 describe('defineStore', () => {
-  const declare = () => defineStore({
-    init: () => ({ selection: null as string | null, draft: '' }),
-    actions: {
-      select: (d, target: string) => { d.selection = target },
-      setDraft: (d, text: string) => { d.draft = text },
-      clearDraft: (d) => { d.draft = '' },
-    },
-  })
+  const declare = () =>
+    defineStore({
+      init: () => ({ selection: null as string | null, draft: '' }),
+      actions: {
+        select: (d, target: string) => {
+          d.selection = target
+        },
+        setDraft: (d, text: string) => {
+          d.draft = text
+        },
+        clearDraft: d => {
+          d.draft = ''
+        },
+      },
+    })
 
   it('create() yields a live instance: fresh init state, selector-visible action writes', () => {
     const inst = declare().create()
@@ -218,7 +267,7 @@ describe('defineStore', () => {
     inst.actions.setDraft('x')
     const after = inst.store.getSnapshot()
     expect(after).not.toBe(before)
-    expect(after.selection).toBe(before.selection)   // untouched branch preserved (immer path)
+    expect(after.selection).toBe(before.selection) // untouched branch preserved (immer path)
   })
 
   it('creates independent instances per create() call (the handle is a spec, not a singleton)', () => {
@@ -233,13 +282,21 @@ describe('defineStore', () => {
     const backing = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (k: string) => backing.get(k) ?? null,
-      setItem: (k: string, v: string) => { backing.set(k, v) },
-      removeItem: (k: string) => { backing.delete(k) },
+      setItem: (k: string, v: string) => {
+        backing.set(k, v)
+      },
+      removeItem: (k: string) => {
+        backing.delete(k)
+      },
     })
     const handle = defineStore({
       init: () => ({ draft: '' }),
       persist: 'spec.chat',
-      actions: { setDraft: (d, text: string) => { d.draft = text } },
+      actions: {
+        setDraft: (d, text: string) => {
+          d.draft = text
+        },
+      },
     })
     handle.create('s1').actions.setDraft('one')
     handle.create('s2').actions.setDraft('two')
@@ -257,30 +314,46 @@ describe('defineStore', () => {
   })
 
   it('clearPersisted is a no-op without a persist declaration or without storage', () => {
-    const inst = declare().create('s1')   // no persist key declared
-    expect(() => { inst.clearPersisted() }).not.toThrow()
+    const inst = declare().create('s1') // no persist key declared
+    expect(() => {
+      inst.clearPersisted()
+    }).not.toThrow()
     const persisting = defineStore({
       init: () => ({ n: 0 }),
       persist: 'spec.nostorage',
-      actions: { inc: (d) => { d.n += 1 } },
+      actions: {
+        inc: d => {
+          d.n += 1
+        },
+      },
     }).create()
     // jsdom-less lane: localStorage may exist here, so simulate its absence.
     vi.stubGlobal('localStorage', undefined)
-    expect(() => { persisting.clearPersisted() }).not.toThrow()
+    expect(() => {
+      persisting.clearPersisted()
+    }).not.toThrow()
   })
 
   it('swallows storage failures in clearPersisted (same non-fatal contract as persistence)', () => {
     vi.stubGlobal('localStorage', {
       getItem: () => null,
       setItem: () => {},
-      removeItem: () => { throw new Error('quota / private mode') },
+      removeItem: () => {
+        throw new Error('quota / private mode')
+      },
     })
     const inst = defineStore({
       init: () => ({ n: 0 }),
       persist: 'spec.throwing',
-      actions: { inc: (d) => { d.n += 1 } },
+      actions: {
+        inc: d => {
+          d.n += 1
+        },
+      },
     }).create()
-    expect(() => { inst.clearPersisted() }).not.toThrow()
+    expect(() => {
+      inst.clearPersisted()
+    }).not.toThrow()
   })
 })
 

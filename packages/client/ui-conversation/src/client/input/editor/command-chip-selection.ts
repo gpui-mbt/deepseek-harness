@@ -12,8 +12,16 @@
  */
 import type { LexicalEditor, NodeKey } from 'lexical'
 import {
-  $getAdjacentNode, $getSelection, $isRangeSelection, BEFORE_INPUT_COMMAND, BLUR_COMMAND, CLICK_COMMAND,
-  COMMAND_PRIORITY_CRITICAL, COMMAND_PRIORITY_HIGH, DELETE_CHARACTER_COMMAND, KEY_DOWN_COMMAND,
+  $getAdjacentNode,
+  $getSelection,
+  $isRangeSelection,
+  BEFORE_INPUT_COMMAND,
+  BLUR_COMMAND,
+  CLICK_COMMAND,
+  COMMAND_PRIORITY_CRITICAL,
+  COMMAND_PRIORITY_HIGH,
+  DELETE_CHARACTER_COMMAND,
+  KEY_DOWN_COMMAND,
 } from 'lexical'
 import { mergeRegister } from '@lexical/utils'
 import { $isCommandChipNode } from './command-chip-node.tsx'
@@ -77,25 +85,33 @@ export function registerCommandChipSelection(editor: LexicalEditor): () => void 
     return true
   }
   return mergeRegister(
-    editor.registerCommand(BEFORE_INPUT_COMMAND, (event) => {
-      const isBackward = deletionDirection(event.inputType)
-      if (isBackward === null || !$decide(isBackward, false)) return false
-      event.preventDefault()
-      return true
-    }, COMMAND_PRIORITY_HIGH),
+    editor.registerCommand(
+      BEFORE_INPUT_COMMAND,
+      event => {
+        const isBackward = deletionDirection(event.inputType)
+        if (isBackward === null || !$decide(isBackward, false)) return false
+        event.preventDefault()
+        return true
+      },
+      COMMAND_PRIORITY_HIGH,
+    ),
     editor.registerCommand(DELETE_CHARACTER_COMMAND, isBackward => $decide(isBackward, true), COMMAND_PRIORITY_HIGH),
-    editor.registerCommand(KEY_DOWN_COMMAND, (event) => {
-      if (selected === null || PASSIVE_KEYS.has(event.key)) return false
-      // Key bindings dispatch their deletion synchronously inside this
-      // keydown, so the microtask sees whether the key deleted anything.
-      keyWithoutDeletion = true
-      queueMicrotask(() => {
-        if (!keyWithoutDeletion) return
-        keyWithoutDeletion = false
-        clear()
-      })
-      return false
-    }, COMMAND_PRIORITY_CRITICAL),
+    editor.registerCommand(
+      KEY_DOWN_COMMAND,
+      event => {
+        if (selected === null || PASSIVE_KEYS.has(event.key)) return false
+        // Key bindings dispatch their deletion synchronously inside this
+        // keydown, so the microtask sees whether the key deleted anything.
+        keyWithoutDeletion = true
+        queueMicrotask(() => {
+          if (!keyWithoutDeletion) return
+          keyWithoutDeletion = false
+          clear()
+        })
+        return false
+      },
+      COMMAND_PRIORITY_CRITICAL,
+    ),
     editor.registerCommand(CLICK_COMMAND, clear, COMMAND_PRIORITY_CRITICAL),
     editor.registerCommand(BLUR_COMMAND, clear, COMMAND_PRIORITY_CRITICAL),
     editor.registerUpdateListener(({ editorState }) => {
@@ -105,6 +121,8 @@ export function registerCommandChipSelection(editor: LexicalEditor): () => void 
       // A restore can remount the chip's host element; repaint keeps the mark on it.
       paint(touching ? current : null)
     }),
-    () => { paint(null) },
+    () => {
+      paint(null)
+    },
   )
 }

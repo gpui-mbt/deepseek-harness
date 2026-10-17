@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { dump } from 'js-yaml'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { parsePersistenceSnapshot } from './persistence-changes.ts'
 import { canonicalizeSchema, schemaDigest } from './persistence-schema-model.ts'
 import type { PersistenceRoot, PersistenceSchemaInventory, PersistenceType, SchemaNode } from './persistence-schema-model.ts'
@@ -13,27 +13,40 @@ import type { PersistenceReleaseManifest, PersistenceReleaseRecord } from './per
 
 const TAGS = ['dsh-v0.1.0-alpha.1', 'dsh-v0.1.0-rc.1', 'dsh-v0.1.0-rc.2'] as const
 const temporary: string[] = []
-afterEach(() => { for (const root of temporary.splice(0)) rmSync(root, { recursive: true, force: true }) })
+afterEach(() => {
+  for (const root of temporary.splice(0)) rmSync(root, { recursive: true, force: true })
+})
 
 function rootSchema(key: string, nodes: readonly SchemaNode[], surface = false): PersistenceRoot {
   const schema = canonicalizeSchema(nodes, 0)
   return {
-    key, kind: key.startsWith('event:') ? 'event' : key === 'SessionEventEnvelope' ? 'envelope' : 'header',
-    ...(key.startsWith('event:') ? { event: key.slice(6), surface } : {}), schema, digest: schemaDigest(schema),
+    key,
+    kind: key.startsWith('event:') ? 'event' : key === 'SessionEventEnvelope' ? 'envelope' : 'header',
+    ...(key.startsWith('event:') ? { event: key.slice(6), surface } : {}),
+    schema,
+    digest: schemaDigest(schema),
   }
 }
 
 function event(value: 'number' | 'string'): PersistenceRoot {
-  return rootSchema('event:example/value', [
-    { kind: 'object', indices: [], properties: [
-      { name: 'type', type: 1, optional: false },
-      { name: 'data', type: 2, optional: false },
-      { name: 'surfaceOp', type: 3, optional: true },
-    ] },
-    { kind: 'literal', value: 'example/value' },
-    { kind: 'primitive', type: value },
-    { kind: 'primitive', type: 'string' },
-  ], true)
+  return rootSchema(
+    'event:example/value',
+    [
+      {
+        kind: 'object',
+        indices: [],
+        properties: [
+          { name: 'type', type: 1, optional: false },
+          { name: 'data', type: 2, optional: false },
+          { name: 'surfaceOp', type: 3, optional: true },
+        ],
+      },
+      { kind: 'literal', value: 'example/value' },
+      { kind: 'primitive', type: value },
+      { kind: 'primitive', type: 'string' },
+    ],
+    true,
+  )
 }
 
 function inventory(roots: readonly PersistenceRoot[]): PersistenceSchemaInventory {
@@ -60,14 +73,37 @@ function saveRecord(directory: string, record: PersistenceReleaseRecord): void {
   const block = dump(record, { lineWidth: -1, noRefs: true })
   for (const suffix of ['.md', '.zh.md']) {
     const switcher = suffix === '.md' ? `English | [中文](${record.tag}.zh.md)` : `[English](${record.tag}.md) | 中文`
-    writeFileSync(join(directory, record.tag + suffix), [
-      '---', 'kind: persistence-release', '---', '', '# Archived release', '', switcher, '',
-      '## Summary', '', 'Authored summary and evidence.', '',
-      '| Inventory | Count |', '|---|---|',
-      '| Reconstructed inventory | <!-- persistence-release-inventory:start -->pending<!-- persistence-release-inventory:end --> |', '',
-      '```yaml persistence-release', block.trimEnd(), '```', '',
-      '<!-- persistence-release-changes:start -->', '', 'Pending facts.', '', '<!-- persistence-release-changes:end -->', '',
-    ].join('\n'))
+    writeFileSync(
+      join(directory, record.tag + suffix),
+      [
+        '---',
+        'kind: persistence-release',
+        '---',
+        '',
+        '# Archived release',
+        '',
+        switcher,
+        '',
+        '## Summary',
+        '',
+        'Authored summary and evidence.',
+        '',
+        '| Inventory | Count |',
+        '|---|---|',
+        '| Reconstructed inventory | <!-- persistence-release-inventory:start -->pending<!-- persistence-release-inventory:end --> |',
+        '',
+        '```yaml persistence-release',
+        block.trimEnd(),
+        '```',
+        '',
+        '<!-- persistence-release-changes:start -->',
+        '',
+        'Pending facts.',
+        '',
+        '<!-- persistence-release-changes:end -->',
+        '',
+      ].join('\n'),
+    )
   }
 }
 
@@ -78,30 +114,55 @@ function fixture(): Fixture {
   mkdirSync(directory, { recursive: true })
   for (const suffix of ['.md', '.zh.md']) {
     const switcher = suffix === '.md' ? 'English | [中文](README.zh.md)' : '[English](README.md) | 中文'
-    writeFileSync(join(directory, 'README' + suffix), [
-      '# Releases', '', switcher, '', 'Authored introduction.', '',
-      '<!-- persistence-release-index:start -->', '', 'Pending index.', '', '<!-- persistence-release-index:end -->', '',
-    ].join('\n'))
+    writeFileSync(
+      join(directory, 'README' + suffix),
+      [
+        '# Releases',
+        '',
+        switcher,
+        '',
+        'Authored introduction.',
+        '',
+        '<!-- persistence-release-index:start -->',
+        '',
+        'Pending index.',
+        '',
+        '<!-- persistence-release-index:end -->',
+        '',
+      ].join('\n'),
+    )
   }
   writeFileSync(join(directory, 'README.i18n.yaml'), 'schemaVersion: 1\n')
   const manifest: PersistenceReleaseManifest = {
-    schemaVersion: 1, capturedAt: '2026-09-12',
+    schemaVersion: 1,
+    capturedAt: '2026-09-12',
     releases: TAGS.map((tag, index) => ({
-      tag, sourceDate: '2026-09-01T10:00:00+08:00', publishedAt: index === 0 ? null : '2026-09-01T03:00:00Z',
+      tag,
+      sourceDate: '2026-09-01T10:00:00+08:00',
+      publishedAt: index === 0 ? null : '2026-09-01T03:00:00Z',
       sessionFormatVersion: 0,
     })),
   }
   const before = event('string')
   const after = event('number')
   const header = rootSchema('SessionHeader', [
-    { kind: 'object', indices: [], properties: [{ name: 'version', type: 1, optional: false }] }, { kind: 'primitive', type: 'number' },
+    { kind: 'object', indices: [], properties: [{ name: 'version', type: 1, optional: false }] },
+    { kind: 'primitive', type: 'number' },
   ])
-  const snapshots = [inventory([
-    header, rootSchema('JsonlHeaderLine', [{ kind: 'opaque', reason: 'unknown' }]),
-    rootSchema('SessionEventEnvelope', [{ kind: 'object', indices: [], properties: [] }]), before,
-  ]), inventory([after]), inventory([])]
+  const snapshots = [
+    inventory([
+      header,
+      rootSchema('JsonlHeaderLine', [{ kind: 'opaque', reason: 'unknown' }]),
+      rootSchema('SessionEventEnvelope', [{ kind: 'object', indices: [], properties: [] }]),
+      before,
+    ]),
+    inventory([after]),
+    inventory([]),
+  ]
   const records = manifest.releases.map((release, index): PersistenceReleaseRecord => ({
-    schemaVersion: 1, tag: release.tag, previous: TAGS[index - 1] ?? null,
+    schemaVersion: 1,
+    tag: release.tag,
+    previous: TAGS[index - 1] ?? null,
     sessionFormatVersion: release.sessionFormatVersion,
     changes: snapshots[index]!.roots.map(root => ({ root: root.key, before: index === 0 ? null : before.digest, after: root.digest })),
   }))
@@ -119,7 +180,7 @@ function replaceSnapshot(fixture: Fixture, index: number, snapshot: PersistenceS
 }
 
 describe('pinned persistence releases', () => {
-  it.each(['.md', '.zh.md'])('rejects historical source coordinates in %s records', (suffix) => {
+  it.each(['.md', '.zh.md'])('rejects historical source coordinates in %s records', suffix => {
     const data = fixture()
     const path = join(data.directory, TAGS[0] + suffix)
     const original = readFileSync(path, 'utf8')
@@ -134,8 +195,10 @@ describe('pinned persistence releases', () => {
   it('rejects historical source coordinates in release schema metadata', () => {
     const data = fixture()
     const snapshot = data.snapshots[0]!
-    replaceSnapshot(data, 0, { ...snapshot, types: snapshot.types.map((type, index) => index === 0
-      ? { ...type, sources: ['packages/core/session/src/types.ts:36'] } : type) })
+    replaceSnapshot(data, 0, {
+      ...snapshot,
+      types: snapshot.types.map((type, index) => (index === 0 ? { ...type, sources: ['packages/core/session/src/types.ts:36'] } : type)),
+    })
     expect(() => loadPersistenceReleases(data.root)).toThrow('historical schema sources must omit line numbers')
   })
 
@@ -145,25 +208,27 @@ describe('pinned persistence releases', () => {
     expect(archive.entries).toHaveLength(3)
     expect(archive.entries[0]!.roots.get('event:example/value')!.digest).toBe(event('string').digest)
     expect(archive.entries[1]!.roots.get('event:example/value')!.digest).toBe(event('number').digest)
-    expect(archive.entries[1]!.differences).toEqual([expect.objectContaining({ root: 'event:example/value', kind: 'type-changed', requiresCompatibilityReview: true })])
+    expect(archive.entries[1]!.differences).toEqual([
+      expect.objectContaining({ root: 'event:example/value', kind: 'type-changed', requiresCompatibilityReview: true }),
+    ])
     expect(archive.entries[2]!.roots).toEqual(archive.entries[1]!.roots)
     expect(archive.entries[2]!.differences).toEqual([])
     expect(() => parsePersistenceSnapshot(data.snapshots[1])).toThrow('surface metadata')
   })
 
-  it.each(['.md', '.zh.md', '.i18n.yaml', '.schema.json'])('rejects a missing manifest release companion %s', (suffix) => {
+  it.each(['.md', '.zh.md', '.i18n.yaml', '.schema.json'])('rejects a missing manifest release companion %s', suffix => {
     const data = fixture()
     rmSync(join(data.directory, TAGS[1] + suffix))
     expect(() => loadPersistenceReleases(data.root)).toThrow('missing release artifact')
   })
 
-  it.each(['README.md', 'README.zh.md', 'README.i18n.yaml'])('requires the fixed archive companion %s', (name) => {
+  it.each(['README.md', 'README.zh.md', 'README.i18n.yaml'])('requires the fixed archive companion %s', name => {
     const data = fixture()
     rmSync(join(data.directory, name))
     expect(() => loadPersistenceReleases(data.root)).toThrow(`missing release artifact ${name}`)
   })
 
-  it.each(['orphan.md', 'orphan.schema.json', 'orphan.zh.md', 'orphan.i18n.yaml'])('rejects an unreferenced archive file %s', (filename) => {
+  it.each(['orphan.md', 'orphan.schema.json', 'orphan.zh.md', 'orphan.i18n.yaml'])('rejects an unreferenced archive file %s', filename => {
     const data = fixture()
     writeFileSync(join(data.directory, filename), '{}')
     expect(() => loadPersistenceReleases(data.root)).toThrow('unreferenced persistence release artifact')
@@ -172,7 +237,9 @@ describe('pinned persistence releases', () => {
   it('rejects missing, duplicated, and misordered manifest entries', () => {
     const data = fixture()
     for (const releases of [
-      data.manifest.releases.slice(1), [data.manifest.releases[0], ...data.manifest.releases], [...data.manifest.releases].reverse(),
+      data.manifest.releases.slice(1),
+      [data.manifest.releases[0], ...data.manifest.releases],
+      [...data.manifest.releases].reverse(),
     ]) {
       writeFileSync(join(data.directory, 'manifest.json'), JSON.stringify({ ...data.manifest, releases }))
       expect(() => loadPersistenceReleases(data.root)).toThrow(/unreferenced|semantic-version order/u)
@@ -182,12 +249,19 @@ describe('pinned persistence releases', () => {
   it('rejects malformed manifest identities and version metadata', () => {
     const data = fixture()
     for (const changes of [
-      { tag: 'dsh-v0.1.0-beta.1' }, { sourceDate: '2026-09-01' },
-      { publishedAt: 'yesterday' }, { sessionFormatVersion: -1 }, { sessionFormatVersion: 1.5 },
+      { tag: 'dsh-v0.1.0-beta.1' },
+      { sourceDate: '2026-09-01' },
+      { publishedAt: 'yesterday' },
+      { sessionFormatVersion: -1 },
+      { sessionFormatVersion: 1.5 },
     ]) {
-      writeFileSync(join(data.directory, 'manifest.json'), JSON.stringify({ ...data.manifest,
-        releases: data.manifest.releases.map((release, index) => index === 0 ? { ...release, ...changes } : release),
-      }))
+      writeFileSync(
+        join(data.directory, 'manifest.json'),
+        JSON.stringify({
+          ...data.manifest,
+          releases: data.manifest.releases.map((release, index) => (index === 0 ? { ...release, ...changes } : release)),
+        }),
+      )
       expect(() => loadPersistenceReleases(data.root)).toThrow(/invalid value|nonnegative integer/u)
     }
     for (const changes of [{ schemaVersion: 2 }, { capturedAt: '2026-02-30' }, { releases: [] }]) {
@@ -201,9 +275,13 @@ describe('pinned persistence releases', () => {
     writeFileSync(join(data.directory, 'manifest.json'), JSON.stringify({ ...data.manifest, repository: 'example' }))
     expect(() => loadPersistenceReleases(data.root)).toThrow('unknown field repository')
     for (const field of ['commit', 'committedAt', 'sqliteSchemaVersion']) {
-      writeFileSync(join(data.directory, 'manifest.json'), JSON.stringify({ ...data.manifest,
-        releases: data.manifest.releases.map((release, index) => index === 0 ? { ...release, [field]: null } : release),
-      }))
+      writeFileSync(
+        join(data.directory, 'manifest.json'),
+        JSON.stringify({
+          ...data.manifest,
+          releases: data.manifest.releases.map((release, index) => (index === 0 ? { ...release, [field]: null } : release)),
+        }),
+      )
       expect(() => loadPersistenceReleases(data.root)).toThrow(`unknown field ${field}`)
     }
     writeFileSync(join(data.directory, 'manifest.json'), JSON.stringify(data.manifest))
@@ -218,7 +296,8 @@ describe('pinned persistence releases', () => {
     const original = data.records[1]!
     for (const changed of [
       { ...original, previous: null },
-      { ...original, sessionFormatVersion: 2 }, { ...original, schemaVersion: 2 },
+      { ...original, sessionFormatVersion: 2 },
+      { ...original, schemaVersion: 2 },
       { ...original, changes: [...original.changes, ...original.changes] },
     ]) {
       saveRecord(data.directory, changed as PersistenceReleaseRecord)
@@ -237,7 +316,10 @@ describe('pinned persistence releases', () => {
 
   it('rejects an unchanged transition and an unacknowledged after root', () => {
     const data = fixture()
-    saveRecord(data.directory, { ...data.records[2]!, changes: [{ root: 'event:example/value', before: event('number').digest, after: event('number').digest }] })
+    saveRecord(data.directory, {
+      ...data.records[2]!,
+      changes: [{ root: 'event:example/value', before: event('number').digest, after: event('number').digest }],
+    })
     replaceSnapshot(data, 2, data.snapshots[1]!)
     expect(() => loadPersistenceReleases(data.root)).toThrow('unchanged transition')
     saveRecord(data.directory, data.records[2]!)
@@ -246,7 +328,10 @@ describe('pinned persistence releases', () => {
 
   it('reconstructs deletions without requiring an after schema or a historical version increase', () => {
     const data = fixture()
-    saveRecord(data.directory, { ...data.records[2]!, changes: [{ root: 'event:example/value', before: event('number').digest, after: null }] })
+    saveRecord(data.directory, {
+      ...data.records[2]!,
+      changes: [{ root: 'event:example/value', before: event('number').digest, after: null }],
+    })
     const result = loadPersistenceReleases(data.root)
     expect(result.entries[2]!.roots.has('event:example/value')).toBe(false)
     expect(result.entries[2]!.differences).toEqual([expect.objectContaining({ kind: 'root-removed', requiresCompatibilityReview: true })])
@@ -267,7 +352,8 @@ describe('pinned persistence releases', () => {
     const path = join(data.directory, TAGS[1] + '.zh.md')
     const source = readFileSync(path, 'utf8')
     for (const changed of [
-      source.replace('schemaVersion: 1', 'schemaVersion: 2'), source + source,
+      source.replace('schemaVersion: 1', 'schemaVersion: 2'),
+      source + source,
       source.replace('kind: persistence-release', 'kind: persistence-change'),
     ]) {
       writeFileSync(path, changed)
@@ -278,11 +364,13 @@ describe('pinned persistence releases', () => {
   it('matches literal header versions when a historical declaration pins one', () => {
     const data = fixture()
     const header = rootSchema('SessionHeader', [
-      { kind: 'object', indices: [], properties: [{ name: 'version', type: 1, optional: false }] }, { kind: 'literal', value: 9 },
+      { kind: 'object', indices: [], properties: [{ name: 'version', type: 1, optional: false }] },
+      { kind: 'literal', value: 9 },
     ])
-    const snapshot = inventory(data.snapshots[0]!.roots.map(root => root.key === header.key ? header : root))
+    const snapshot = inventory(data.snapshots[0]!.roots.map(root => (root.key === header.key ? header : root)))
     replaceSnapshot(data, 0, snapshot)
-    saveRecord(data.directory, { ...data.records[0]!,
+    saveRecord(data.directory, {
+      ...data.records[0]!,
       changes: snapshot.roots.map(root => ({ root: root.key, before: null, after: root.digest })),
     })
     expect(() => loadPersistenceReleases(data.root)).toThrow('SessionHeader.version')
@@ -312,8 +400,10 @@ describe('release facts', () => {
       if (name.endsWith('.json')) expect(after[name]).toBe(source)
       if (name.endsWith('.md')) {
         expect(after[name]).toContain(name.startsWith('README') ? 'Authored introduction.' : 'Authored summary and evidence.')
-        if (!name.startsWith('README')) expect(after[name]?.match(/```yaml persistence-release\n[\s\S]*?```/u)?.[0])
-          .toBe(source.match(/```yaml persistence-release\n[\s\S]*?```/u)?.[0])
+        if (!name.startsWith('README'))
+          expect(after[name]?.match(/```yaml persistence-release\n[\s\S]*?```/u)?.[0]).toBe(
+            source.match(/```yaml persistence-release\n[\s\S]*?```/u)?.[0],
+          )
       }
     }
     expect(after[TAGS[1] + '.i18n.yaml']).not.toBe(before[TAGS[1] + '.i18n.yaml'])
@@ -384,13 +474,17 @@ describe('release facts', () => {
   it('accepts matching literal writer versions and rejects a missing reconstructed header', () => {
     const data = fixture()
     const header = rootSchema('SessionHeader', [
-      { kind: 'object', indices: [], properties: [{ name: 'version', type: 1, optional: false }] }, { kind: 'literal', value: 0 },
+      { kind: 'object', indices: [], properties: [{ name: 'version', type: 1, optional: false }] },
+      { kind: 'literal', value: 0 },
     ])
-    for (const roots of [data.snapshots[0]!.roots.map(root => root.key === header.key ? header : root),
-      data.snapshots[0]!.roots.filter(root => root.key !== header.key)]) {
+    for (const roots of [
+      data.snapshots[0]!.roots.map(root => (root.key === header.key ? header : root)),
+      data.snapshots[0]!.roots.filter(root => root.key !== header.key),
+    ]) {
       const snapshot = inventory(roots)
       replaceSnapshot(data, 0, snapshot)
-      saveRecord(data.directory, { ...data.records[0]!,
+      saveRecord(data.directory, {
+        ...data.records[0]!,
         changes: roots.map(root => ({ root: root.key, before: null, after: root.digest })),
       })
       if (roots.some(root => root.key === header.key)) expect(() => loadPersistenceReleases(data.root)).not.toThrow()

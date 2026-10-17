@@ -27,9 +27,7 @@ export interface BuiltBenchmarkWorkerOptions {
  * @param options - worker path, arguments, deadline, and optional V8 limits.
  * @returns child exit details and its final JSON-line report when successful.
  */
-export function runBuiltBenchmarkWorker<Report>(
-  options: BuiltBenchmarkWorkerOptions,
-): Promise<BuiltBenchmarkWorkerRun<Report>> {
+export function runBuiltBenchmarkWorker<Report>(options: BuiltBenchmarkWorkerOptions): Promise<BuiltBenchmarkWorkerRun<Report>> {
   if (!options.worker.endsWith('.js') && !options.worker.endsWith('.cjs')) {
     throw new Error(`benchmark worker must be compiled JavaScript: ${options.worker}`)
   }
@@ -37,21 +35,23 @@ export function runBuiltBenchmarkWorker<Report>(
   delete env['NODE_OPTIONS']
   delete env['TSX_TSCONFIG_PATH']
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [
-      ...options.exposeGc === true ? ['--expose-gc'] : [],
-      ...options.heapLimitMb === undefined
-        ? []
-        : [`--max-old-space-size=${String(options.heapLimitMb)}`],
-      ...options.semiSpaceMb === undefined
-        ? []
-        : [`--min-semi-space-size=${String(options.semiSpaceMb)}`, `--max-semi-space-size=${String(options.semiSpaceMb)}`],
-      options.worker,
-      ...options.args ?? [],
-    ], {
-      cwd: process.cwd(),
-      env,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const child = spawn(
+      process.execPath,
+      [
+        ...(options.exposeGc === true ? ['--expose-gc'] : []),
+        ...(options.heapLimitMb === undefined ? [] : [`--max-old-space-size=${String(options.heapLimitMb)}`]),
+        ...(options.semiSpaceMb === undefined
+          ? []
+          : [`--min-semi-space-size=${String(options.semiSpaceMb)}`, `--max-semi-space-size=${String(options.semiSpaceMb)}`]),
+        options.worker,
+        ...(options.args ?? []),
+      ],
+      {
+        cwd: process.cwd(),
+        env,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
     let stdout = ''
     let stderr = ''
     let timedOut = false
@@ -59,19 +59,24 @@ export function runBuiltBenchmarkWorker<Report>(
       timedOut = true
       child.kill('SIGKILL')
     }, options.timeoutMs)
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk })
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk })
-    child.once('error', (error) => {
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      stdout += chunk
+    })
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      stderr += chunk
+    })
+    child.once('error', error => {
       clearTimeout(timeout)
       reject(error)
     })
     child.once('close', (exitCode, signal) => {
       clearTimeout(timeout)
-      const line = stdout.trim().split('\n').findLast(candidate => candidate.startsWith('{'))
+      const line = stdout
+        .trim()
+        .split('\n')
+        .findLast(candidate => candidate.startsWith('{'))
       try {
-        const report = exitCode === 0 && line !== undefined
-          ? JSON.parse(line) as Report
-          : undefined
+        const report = exitCode === 0 && line !== undefined ? (JSON.parse(line) as Report) : undefined
         resolve({ report, exitCode, signal, timedOut, stderr })
       } catch (error: unknown) {
         reject(error)
@@ -85,10 +90,7 @@ export function runBuiltBenchmarkWorker<Report>(
  * @param moduleUrl - `import.meta.url` from the worker entry.
  * @param packageEntries - resolved production package entries used by the measured path.
  */
-export function assertBuiltBenchmarkRuntime(
-  moduleUrl: string,
-  packageEntries: Readonly<Record<string, string>>,
-): void {
+export function assertBuiltBenchmarkRuntime(moduleUrl: string, packageEntries: Readonly<Record<string, string>>): void {
   if (!moduleUrl.endsWith('.js') || !moduleUrl.includes('/benchmarks/.dsh-build/')) {
     throw new Error(`benchmark worker is not running from benchmarks/.dsh-build: ${moduleUrl}`)
   }

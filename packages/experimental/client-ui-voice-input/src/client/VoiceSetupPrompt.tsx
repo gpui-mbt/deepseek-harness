@@ -7,8 +7,9 @@ import type { VoiceInputInjected } from './VoiceInput.tsx'
 import type { NS } from './locales.ts'
 
 /** Registration shares for the bundle's activation guidance. */
-export type VoiceSetupPromptProps = PropsRuntime<'plugins.bundle.activation'> & PropsLocale<typeof NS>
-  & Pick<InjectFace<VoiceInputInjected>, 'useSpeechReadiness'>
+export type VoiceSetupPromptProps = PropsRuntime<'plugins.bundle.activation'> &
+  PropsLocale<typeof NS> &
+  Pick<InjectFace<VoiceInputInjected>, 'useSpeechReadiness'>
 
 /**
  * Offer navigation to installation without starting a download.

@@ -32,7 +32,10 @@ export class HostInspectorSource extends InspectorSourceConnection {
   private closed = false
   protected readonly queries: HostBridgeRpc
 
-  constructor(private readonly port: MessagePort, options: HostSourceOptions) {
+  constructor(
+    private readonly port: MessagePort,
+    options: HostSourceOptions,
+  ) {
     super()
     this.source = createHostRealmSource(options.label)
     this.publisher = new HostBridgePublisher(port, this.source, options)
@@ -48,7 +51,9 @@ export class HostInspectorSource extends InspectorSourceConnection {
         this.close()
       }
     })
-    port.on('close', () => { this.queries.disconnect('Inspector Host source disconnected') })
+    port.on('close', () => {
+      this.queries.disconnect('Inspector Host source disconnected')
+    })
     port.start()
     const open: SourceOpenFrame = {
       v: INSPECTOR_PROTOCOL_VERSION,
@@ -77,13 +82,20 @@ export class HostInspectorSource extends InspectorSourceConnection {
   }
 
   private receive(frame: WorkerToSourceFrame): void {
-    if (frame.t !== 'source/rejected'
-      && (frame.sourceId !== this.source.sourceId || frame.generation !== this.source.generation)) return
+    if (frame.t !== 'source/rejected' && (frame.sourceId !== this.source.sourceId || frame.generation !== this.source.generation)) return
     dispatchBridgeFrame(frame, {
-      accepted: () => { this.queries.connectPort(this.source) },
-      acknowledged: (acknowledged) => { this.publisher.acknowledge(acknowledged.nextSequence) },
-      resnapshot: () => { this.publisher.replace() },
-      rejected: (rejected) => { this.queries.disconnect(`Inspector Host source rejected: ${rejected.message}`) },
+      accepted: () => {
+        this.queries.connectPort(this.source)
+      },
+      acknowledged: acknowledged => {
+        this.publisher.acknowledge(acknowledged.nextSequence)
+      },
+      resnapshot: () => {
+        this.publisher.replace()
+      },
+      rejected: rejected => {
+        this.queries.disconnect(`Inspector Host source rejected: ${rejected.message}`)
+      },
     })
   }
 }

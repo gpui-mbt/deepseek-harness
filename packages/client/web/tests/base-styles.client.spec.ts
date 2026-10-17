@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { INTERACTIVE_SELECTOR } from '../src/window-drag/regions.ts'
 
 const THEME_PACKAGE = '@deepseek-ai/dsh-client-ui-theme'
@@ -21,17 +21,8 @@ function importOrder(css: string): string[] {
 }
 
 const imports = importOrder(baseCss)
-const normalizedCss = baseCss
-  .replaceAll(/\/\*[\s\S]*?\*\//g, '')
-  .replaceAll(/\s+/g, ' ')
-const literalContentSelectors = [
-  'code',
-  'pre',
-  '[data-diff]',
-  '[data-read]',
-  '[data-search]',
-  '[data-terminal]',
-]
+const normalizedCss = baseCss.replaceAll(/\/\*[\s\S]*?\*\//g, '').replaceAll(/\s+/g, ' ')
+const literalContentSelectors = ['code', 'pre', '[data-diff]', '[data-read]', '[data-search]', '[data-terminal]']
 
 describe('web shell base.css', () => {
   it('leaves theme styles to the dynamic ui-theme client entry', () => {
@@ -45,7 +36,10 @@ describe('web shell base.css', () => {
     // and a drift between the sheet and the composition model fails here.
     const rule = /html\[data-platform='darwin'\] :is\(([^)]*)\)\s*\{[^}]*app-region:\s*no-drag/.exec(normalizedCss)
     expect(rule, 'base.css declares no darwin interactive no-drag rule').not.toBeNull()
-    const declared = rule![1]!.split(',').map(part => part.trim()).join(', ')
+    const declared = rule![1]!
+      .split(',')
+      .map(part => part.trim())
+      .join(', ')
     expect(declared).toBe(INTERACTIVE_SELECTOR)
   })
 
@@ -54,9 +48,7 @@ describe('web shell base.css', () => {
     // `data-window-drag`, so its own box is the draggable geometry and no sheet
     // has to declare drag per row. The ui-theme app-region gate holds the other
     // half — that this is the only darwin drag rule in the package tree.
-    expect(normalizedCss).toContain(
-      "html[data-platform='darwin'] [data-window-drag] { -webkit-app-region: drag; }",
-    )
+    expect(normalizedCss).toContain("html[data-platform='darwin'] [data-window-drag] { -webkit-app-region: drag; }")
   })
 
   it('keeps the one-frame recall mark out of the drag surface while it is set', () => {
@@ -65,15 +57,11 @@ describe('web shell base.css', () => {
     // computed-value change). The box it subtracts is the body's own, and the row
     // marks inside it still win in document order, so the pulse changes what
     // Electron collects without changing the composed surface.
-    expect(normalizedCss).toContain(
-      "html[data-platform='darwin'] [data-window-drag-recall] { -webkit-app-region: no-drag; }",
-    )
+    expect(normalizedCss).toContain("html[data-platform='darwin'] [data-window-drag-recall] { -webkit-app-region: no-drag; }")
   })
 
   it('auto-spaces prose while preserving literal content', () => {
     expect(baseCss).toMatch(/body\s*\{[^}]*text-autospace:\s*normal;/)
-    expect(normalizedCss).toContain(
-      `${literalContentSelectors.join(', ')} { text-autospace: no-autospace; }`,
-    )
+    expect(normalizedCss).toContain(`${literalContentSelectors.join(', ')} { text-autospace: no-autospace; }`)
   })
 })

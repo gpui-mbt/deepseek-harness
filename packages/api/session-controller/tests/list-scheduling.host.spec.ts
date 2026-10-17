@@ -10,7 +10,7 @@ import { performance } from 'node:perf_hooks'
 import { scheduler } from 'node:timers/promises'
 import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
 import SessionController from '../src/index.ts'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ApiSessionList } from '../src/list.ts'
 
 type Phase = 'live' | 'cold'
@@ -71,9 +71,12 @@ async function harness(rows: readonly Row[], summaryMs = 8, workSliceMs = 8) {
     const detachAgent = ctx.agents.enter(agent as Agent, undefined)
     ctx.effect(() => detachAgent, 'list-scheduling.agent')
     agents.set(id, agent)
-    detach.set(id, () => { detachAgent(); detachSession() })
+    detach.set(id, () => {
+      detachAgent()
+      detachSession()
+    })
   }
-  const records: SessionRecord[] = rows.map((row) => {
+  const records: SessionRecord[] = rows.map(row => {
     const session = ctx.sessions.prepare(SessionId(row.id), {
       meta: { createdAt: 100, ...(row.cwd === false ? {} : { cwd: resolve('list-scheduling-fixture') }) },
     })
@@ -91,7 +94,7 @@ async function harness(rows: readonly Row[], summaryMs = 8, workSliceMs = 8) {
     cachedPredecessorTitle: () => undefined,
   } as never)
   const summaryFor = list.summaryFor.bind(list)
-  vi.spyOn(list, 'summaryFor').mockImplementation((session) => {
+  vi.spyOn(list, 'summaryFor').mockImplementation(session => {
     const summary = summaryFor(session)
     recordSummary('live', session.id)
     return summary
@@ -101,24 +104,44 @@ async function harness(rows: readonly Row[], summaryMs = 8, workSliceMs = 8) {
 }
 
 describe('Session-list work slices', () => {
-  it.each<Phase>(['live', 'cold'])('keeps cheap %s summaries in one synchronous slice', async (phase) => {
-    const h = await harness([{ id: 'first', phase }, { id: 'middle', phase }, { id: 'last', phase }], 2)
+  it.each<Phase>(['live', 'cold'])('keeps cheap %s summaries in one synchronous slice', async phase => {
+    const h = await harness(
+      [
+        { id: 'first', phase },
+        { id: 'middle', phase },
+        { id: 'last', phase },
+      ],
+      2,
+    )
     const yieldWork = vi.spyOn(scheduler, 'yield')
     h.observer.summary = (_phase, id) => {
       if (id !== 'first') return
-      queueMicrotask(() => { h.trace.push('microtask') })
-      betweenRows(() => { h.trace.push('immediate') })
+      queueMicrotask(() => {
+        h.trace.push('microtask')
+      })
+      betweenRows(() => {
+        h.trace.push('immediate')
+      })
     }
 
     await h.list.list()
     expect(yieldWork).not.toHaveBeenCalled()
     expect(h.trace).toEqual([`${phase}:first`, `${phase}:middle`, `${phase}:last`, 'microtask'])
-    await new Promise<void>((resolve) => { betweenRows(resolve) })
+    await new Promise<void>(resolve => {
+      betweenRows(resolve)
+    })
     expect(h.trace.at(-1)).toBe('immediate')
   })
 
   it('accumulates work across both phases and resets the deadline after waiting', async () => {
-    const h = await harness([{ id: 'first', phase: 'live' }, { id: 'second', phase: 'cold' }, { id: 'last', phase: 'cold' }], 4)
+    const h = await harness(
+      [
+        { id: 'first', phase: 'live' },
+        { id: 'second', phase: 'cold' },
+        { id: 'last', phase: 'cold' },
+      ],
+      4,
+    )
     const yieldWork = vi.spyOn(scheduler, 'yield')
     h.observer.summary = (_phase, id) => {
       if (id !== 'first') return
@@ -134,10 +157,20 @@ describe('Session-list work slices', () => {
   })
 
   it('honors an overridden budget without yielding early', async () => {
-    const h = await harness([{ id: 'first', phase: 'cold' }, { id: 'last', phase: 'cold' }], 10, 16)
+    const h = await harness(
+      [
+        { id: 'first', phase: 'cold' },
+        { id: 'last', phase: 'cold' },
+      ],
+      10,
+      16,
+    )
     const yieldWork = vi.spyOn(scheduler, 'yield')
     h.observer.summary = (_phase, id) => {
-      if (id === 'first') betweenRows(() => { h.trace.push('other-work') })
+      if (id === 'first')
+        betweenRows(() => {
+          h.trace.push('other-work')
+        })
     }
     await h.list.list()
     expect(h.trace).toEqual(['cold:first', 'cold:last', 'other-work'])
@@ -145,17 +178,23 @@ describe('Session-list work slices', () => {
   })
 
   it('includes skipped-record classification in the work budget', async () => {
-    const h = await harness([
-      { id: 'first', phase: 'cold', cwd: false },
-      { id: 'second', phase: 'cold', cwd: false },
-      { id: 'last', phase: 'cold', cwd: false },
-    ], 0)
+    const h = await harness(
+      [
+        { id: 'first', phase: 'cold', cwd: false },
+        { id: 'second', phase: 'cold', cwd: false },
+        { id: 'last', phase: 'cold', cwd: false },
+      ],
+      0,
+    )
     const controller = new AbortController()
     const reason = new Error('stop classification')
     const get = h.ctx.sessions.get.bind(h.ctx.sessions)
-    const lookup = vi.spyOn(h.ctx.sessions, 'get').mockImplementation((id) => {
+    const lookup = vi.spyOn(h.ctx.sessions, 'get').mockImplementation(id => {
       h.clock.now += 4
-      if (id === SessionId('first')) betweenRows(() => { controller.abort(reason) })
+      if (id === SessionId('first'))
+        betweenRows(() => {
+          controller.abort(reason)
+        })
       return get(id)
     })
     await expect(h.list.list(controller.signal)).rejects.toBe(reason)
@@ -163,12 +202,20 @@ describe('Session-list work slices', () => {
     expect(h.trace).toEqual([])
   })
 
-  it.each(['first', 'last'])('honors synchronous cancellation in the %s cheap row without yielding', async (abortAt) => {
-    const h = await harness([{ id: 'first', phase: 'cold' }, { id: 'last', phase: 'cold' }], 0)
+  it.each(['first', 'last'])('honors synchronous cancellation in the %s cheap row without yielding', async abortAt => {
+    const h = await harness(
+      [
+        { id: 'first', phase: 'cold' },
+        { id: 'last', phase: 'cold' },
+      ],
+      0,
+    )
     const yieldWork = vi.spyOn(scheduler, 'yield')
     const controller = new AbortController()
     const reason = new Error('stop without waiting')
-    h.observer.summary = (_phase, id) => { if (id === abortAt) controller.abort(reason) }
+    h.observer.summary = (_phase, id) => {
+      if (id === abortAt) controller.abort(reason)
+    }
     await expect(h.list.list(controller.signal)).rejects.toBe(reason)
     expect(yieldWork).not.toHaveBeenCalled()
     expect(h.trace).toEqual(abortAt === 'first' ? ['cold:first'] : ['cold:first', 'cold:last'])
@@ -180,7 +227,14 @@ describe('Session-list work slices', () => {
   })
 
   it('routes an overridden budget through the public Session Controller', async () => {
-    const h = await harness([{ id: 'first', phase: 'cold' }, { id: 'middle', phase: 'cold' }, { id: 'last', phase: 'cold' }], 4)
+    const h = await harness(
+      [
+        { id: 'first', phase: 'cold' },
+        { id: 'middle', phase: 'cold' },
+        { id: 'last', phase: 'cold' },
+      ],
+      4,
+    )
     const dispose = (): void => {}
     h.ctx.provide('typert', {
       lookups: { configure: () => dispose },
@@ -198,20 +252,33 @@ describe('Session-list work slices', () => {
     expect(yieldWork).toHaveBeenCalledTimes(3)
   })
 
-  it.each([0, -1, 0.5, Number.NaN, Number.POSITIVE_INFINITY])('rejects invalid work-slice budget %s', (listWorkSliceMs) => {
+  it.each([0, -1, 0.5, Number.NaN, Number.POSITIVE_INFINITY])('rejects invalid work-slice budget %s', listWorkSliceMs => {
     expect(() => SessionController.Config({ listWorkSliceMs })).toThrow()
   })
 
-  it.each<Phase>(['live', 'cold'])('yields between %s summaries that each exhaust the work slice', async (phase) => {
-    const h = await harness([{ id: 'first', phase }, { id: 'middle', phase }, { id: 'last', phase }])
-    h.observer.summary = (_phase, id) => { betweenRows(() => { h.trace.push(`immediate:${id}`) }) }
+  it.each<Phase>(['live', 'cold'])('yields between %s summaries that each exhaust the work slice', async phase => {
+    const h = await harness([
+      { id: 'first', phase },
+      { id: 'middle', phase },
+      { id: 'last', phase },
+    ])
+    h.observer.summary = (_phase, id) => {
+      betweenRows(() => {
+        h.trace.push(`immediate:${id}`)
+      })
+    }
 
     const items = await h.list.list()
     h.trace.push('resolved')
 
     expect(h.trace).toEqual([
-      `${phase}:first`, 'immediate:first', `${phase}:middle`, 'immediate:middle',
-      `${phase}:last`, 'immediate:last', 'resolved',
+      `${phase}:first`,
+      'immediate:first',
+      `${phase}:middle`,
+      'immediate:middle',
+      `${phase}:last`,
+      'immediate:last',
+      'resolved',
     ])
     expect(items.map(item => item.sessionId)).toEqual(['first', 'middle', 'last'])
   })
@@ -222,18 +289,23 @@ describe('Session-list work slices', () => {
     { phase: 'cold', abortAt: 'first' },
     { phase: 'cold', abortAt: 'last' },
   ] as const)('preserves cancellation after the $abortAt $phase row', async ({ phase, abortAt }) => {
-    const h = await harness([{ id: 'first', phase }, { id: 'middle', phase }, { id: 'last', phase }])
+    const h = await harness([
+      { id: 'first', phase },
+      { id: 'middle', phase },
+      { id: 'last', phase },
+    ])
     const lookup = vi.spyOn(h.ctx.sessions, 'get')
     const controller = new AbortController()
     const reason = { cancellation: `${phase}-${abortAt}` }
     h.observer.summary = (_phase, id) => {
-      if (id === abortAt) betweenRows(() => { controller.abort(reason) })
+      if (id === abortAt)
+        betweenRows(() => {
+          controller.abort(reason)
+        })
     }
 
     await expect(h.list.list(controller.signal)).rejects.toBe(reason)
-    expect(h.trace).toEqual(abortAt === 'first'
-      ? [`${phase}:first`]
-      : [`${phase}:first`, `${phase}:middle`, `${phase}:last`])
+    expect(h.trace).toEqual(abortAt === 'first' ? [`${phase}:first`] : [`${phase}:first`, `${phase}:middle`, `${phase}:last`])
     expect(h.listSessions).toHaveBeenCalledExactlyOnceWith(controller.signal)
     if (phase === 'live' && abortAt === 'first') {
       expect(lookup).toHaveBeenCalledExactlyOnceWith(SessionId('first'))
@@ -241,11 +313,17 @@ describe('Session-list work slices', () => {
   })
 
   it('does not start cold summaries after cancellation during the last live row', async () => {
-    const h = await harness([{ id: 'cold', phase: 'cold' }, { id: 'live', phase: 'live' }])
+    const h = await harness([
+      { id: 'cold', phase: 'cold' },
+      { id: 'live', phase: 'live' },
+    ])
     const controller = new AbortController()
     const reason = new Error('cancel before cold phase')
-    h.observer.summary = (phase) => {
-      if (phase === 'live') betweenRows(() => { controller.abort(reason) })
+    h.observer.summary = phase => {
+      if (phase === 'live')
+        betweenRows(() => {
+          controller.abort(reason)
+        })
     }
 
     await expect(h.list.list(controller.signal)).rejects.toBe(reason)
@@ -299,8 +377,10 @@ describe('Session-list work slices', () => {
 
   it('keeps live-before-cold stable ties despite interleaved query order', async () => {
     const h = await harness([
-      { id: 'cold-a', phase: 'cold' }, { id: 'live-a', phase: 'live' },
-      { id: 'cold-b', phase: 'cold' }, { id: 'live-b', phase: 'live' },
+      { id: 'cold-a', phase: 'cold' },
+      { id: 'live-a', phase: 'live' },
+      { id: 'cold-b', phase: 'cold' },
+      { id: 'live-b', phase: 'live' },
     ])
 
     const items = await h.list.list()
@@ -312,8 +392,10 @@ describe('Session-list work slices', () => {
 
   it('observes later attachment and status changes without reclassifying queued cold rows', async () => {
     const h = await harness([
-      { id: 'queued', phase: 'cold' }, { id: 'first', phase: 'live' },
-      { id: 'removed', phase: 'live' }, { id: 'promoted', phase: 'cold' },
+      { id: 'queued', phase: 'cold' },
+      { id: 'first', phase: 'live' },
+      { id: 'removed', phase: 'live' },
+      { id: 'promoted', phase: 'cold' },
       { id: 'status', phase: 'live' },
     ])
     h.observer.summary = (_phase, id) => {

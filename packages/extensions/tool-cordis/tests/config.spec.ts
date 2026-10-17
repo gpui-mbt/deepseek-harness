@@ -7,7 +7,7 @@ import Group from '@deepseek-ai/cordis-plugin-group'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { PluginPackages } from '@deepseek-ai/dsh-app-boot'
 import z from '@deepseek-ai/schemastery'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { queryLiveConfig } from '../src/config.ts'
 
 /** The Config provider reads the running Loader tree: only live fibers expose a Config, carriers never do. */
@@ -30,7 +30,9 @@ interface Ids {
 /** A Loader tree whose base directory holds `node_modules/with-schema/package.json`, so the package lookup resolves that plugin. */
 async function loaded(): Promise<{ ctx: Context; ids: Ids; packageDir: string }> {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-tool-cordis-config-'))
-  onTestFinished(() => { rmSync(dir, { recursive: true, force: true }) })
+  onTestFinished(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
   const packageDir = join(dir, 'node_modules', 'with-schema')
   mkdirSync(packageDir, { recursive: true })
   writeFileSync(join(packageDir, 'package.json'), '{"name":"with-schema","version":"1.0.0"}\n')
@@ -50,7 +52,11 @@ async function loaded(): Promise<{ ctx: Context; ids: Ids; packageDir: string }>
   return { ctx, ids, packageDir }
 }
 
-interface Page { entries: Array<{ id: string; name: string }>; total: number; nextOffset: number | null }
+interface Page {
+  entries: Array<{ id: string; name: string }>
+  total: number
+  nextOffset: number | null
+}
 
 /** Directory pages are plain JSON; a round trip gives the test its typed view. */
 function asPage(value: unknown): Page {
@@ -105,7 +111,11 @@ describe('the Config inspect provider', () => {
     const { ctx, ids, packageDir } = await loaded()
     const projected = await queryLiveConfig(ctx, { entry: ids.withSchema })
     expect(projected).toMatchObject({
-      id: ids.withSchema, status: 'schema', packageDir, acceptsMissing: true, limitations: [],
+      id: ids.withSchema,
+      status: 'schema',
+      packageDir,
+      acceptsMissing: true,
+      limitations: [],
       schema: {
         $schema: 'https://json-schema.org/draft/2020-12/schema',
         $defs: { loaderExpression: { type: 'object', required: ['__jsExpr'] } },
@@ -115,9 +125,20 @@ describe('the Config inspect provider', () => {
         ],
       },
     })
-    expect(await queryLiveConfig(ctx, { entry: ids.off })).toEqual({ id: ids.off, patchId: ids.off, name: 'with-schema', status: 'inactive', packageDir })
+    expect(await queryLiveConfig(ctx, { entry: ids.off })).toEqual({
+      id: ids.off,
+      patchId: ids.off,
+      name: 'with-schema',
+      status: 'inactive',
+      packageDir,
+    })
     expect(await queryLiveConfig(ctx, { entry: ids.noConfig })).not.toHaveProperty('packageDir')
-    expect(await queryLiveConfig(ctx, { entry: ids.group })).toEqual({ id: ids.group, patchId: ids.group, name: 'cordis:group', status: 'tree' })
+    expect(await queryLiveConfig(ctx, { entry: ids.group })).toEqual({
+      id: ids.group,
+      patchId: ids.group,
+      name: 'cordis:group',
+      status: 'tree',
+    })
     await expect(queryLiveConfig(ctx, { entry: 'missing' })).rejects.toThrow('unknown entry id "missing"')
     await ctx.fiber.dispose()
   })

@@ -9,7 +9,7 @@
  * registry, and removes the projection key on unload (HMR safety).
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import type { Session } from '@deepseek-ai/dsh-session'
@@ -22,20 +22,28 @@ import { AUTO_PRESET } from '@deepseek-ai/dsh-permission-presets'
 import ApprovalService from '@deepseek-ai/dsh-user-approval'
 import { omitsGeneratedPage } from '../../../settings/settings/tests/live-config.ts'
 
-async function harness(options: {
-  withPermission?: boolean
-  config?: NonNullable<Parameters<typeof PermissionPresetService.Config>[0]>
-  ctx?: Context
-} = {}): Promise<{ ctx: Context; session: Session }> {
+async function harness(
+  options: {
+    withPermission?: boolean
+    config?: NonNullable<Parameters<typeof PermissionPresetService.Config>[0]>
+    ctx?: Context
+  } = {},
+): Promise<{ ctx: Context; session: Session }> {
   const ctx = options.ctx ?? new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(CommandRuntime)
   ctx.provide('shell', {
     sandboxMode: 'workspace-write',
-    resolve() { throw new Error('permission tests do not execute bash') },
-    run() { throw new Error('permission tests do not execute bash') },
-    start() { throw new Error('permission tests do not execute bash') },
+    resolve() {
+      throw new Error('permission tests do not execute bash')
+    },
+    run() {
+      throw new Error('permission tests do not execute bash')
+    },
+    start() {
+      throw new Error('permission tests do not execute bash')
+    },
   })
   await ctx.plugin(ApprovalService)
   if (options.withPermission !== false) await ctx.plugin(PermissionPresetService, options.config ?? {})
@@ -46,14 +54,26 @@ async function harness(options: {
 async function agentFor(ctx: Context, session: Session) {
   const inject = vi.fn<Agent['inject']>()
   const agent = { id: session.id, session, inject } as unknown as Agent
-  await ctx.plugin(Object.assign((inner: Context) => { createScope(inner, agent) }, { inject: ['commands'] }))
+  await ctx.plugin(
+    Object.assign(
+      (inner: Context) => {
+        createScope(inner, agent)
+      },
+      { inject: ['commands'] },
+    ),
+  )
   return { agent, inject }
 }
 
 async function mountAuto(ctx: Context) {
-  return ctx.plugin(Object.assign((pluginCtx: Context) => {
-    pluginCtx.permissionPresets.registerAuto(() => {})
-  }, { inject: ['permissionPresets'] }))
+  return ctx.plugin(
+    Object.assign(
+      (pluginCtx: Context) => {
+        pluginCtx.permissionPresets.registerAuto(() => {})
+      },
+      { inject: ['permissionPresets'] },
+    ),
+  )
 }
 
 describe('permissions projection unit', () => {
@@ -90,25 +110,31 @@ describe('permissions projection unit', () => {
     const beforeSeq = session.seq
     const beforeProjection = ctx.sessionProjections.snapshot(session)
     const notifications: number[] = []
-    ctx.on('permission-presets/catalog-changed', () => { notifications.push(notifications.length + 1) })
+    ctx.on('permission-presets/catalog-changed', () => {
+      notifications.push(notifications.length + 1)
+    })
 
-    expect(ctx.permissionPresets.catalog().options.map(option => option.value))
-      .toEqual(['workspace-write', 'danger-full-access'])
+    expect(ctx.permissionPresets.catalog().options.map(option => option.value)).toEqual(['workspace-write', 'danger-full-access'])
     const fiber = await mountAuto(ctx)
-    expect(ctx.permissionPresets.catalog().options.map(option => option.value))
-      .toEqual(['workspace-write', 'danger-full-access', AUTO_PRESET])
+    expect(ctx.permissionPresets.catalog().options.map(option => option.value)).toEqual([
+      'workspace-write',
+      'danger-full-access',
+      AUTO_PRESET,
+    ])
     expect(session.seq).toBe(beforeSeq)
     expect(ctx.sessionProjections.snapshot(session)).toEqual(beforeProjection)
 
     await fiber.dispose()
-    expect(ctx.permissionPresets.catalog().options.map(option => option.value))
-      .toEqual(['workspace-write', 'danger-full-access'])
+    expect(ctx.permissionPresets.catalog().options.map(option => option.value)).toEqual(['workspace-write', 'danger-full-access'])
     expect(session.seq).toBe(beforeSeq)
     expect(ctx.sessionProjections.snapshot(session)).toEqual(beforeProjection)
 
     const reinstalled = await mountAuto(ctx)
-    expect(ctx.permissionPresets.catalog().options.map(option => option.value))
-      .toEqual(['workspace-write', 'danger-full-access', AUTO_PRESET])
+    expect(ctx.permissionPresets.catalog().options.map(option => option.value)).toEqual([
+      'workspace-write',
+      'danger-full-access',
+      AUTO_PRESET,
+    ])
     expect(notifications).toEqual([1, 2, 3])
     await reinstalled.dispose()
     expect(notifications).toEqual([1, 2, 3, 4])
@@ -117,15 +143,23 @@ describe('permissions projection unit', () => {
   it('contains synchronous and asynchronous catalog notification failures', async () => {
     const { ctx } = await harness()
     const warned = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => undefined)
-    ctx.on('permission-presets/catalog-changed', () => { throw new Error('sync observer failed') })
-    ctx.on('permission-presets/catalog-changed', () => { throw 'sync non-error failed' })
+    ctx.on('permission-presets/catalog-changed', () => {
+      throw new Error('sync observer failed')
+    })
+    ctx.on('permission-presets/catalog-changed', () => {
+      throw 'sync non-error failed'
+    })
     // oxlint-disable-next-line typescript/no-misused-promises -- the runtime intentionally contains thenable listeners.
     ctx.on('permission-presets/catalog-changed', () => Promise.reject(new Error('async observer failed')))
     // oxlint-disable-next-line typescript/no-misused-promises -- the runtime intentionally contains thenable listeners.
-    ctx.on('permission-presets/catalog-changed', async () => { throw 'async non-error failed' })
+    ctx.on('permission-presets/catalog-changed', async () => {
+      throw 'async non-error failed'
+    })
 
     const fiber = await mountAuto(ctx)
-    await vi.waitFor(() => { expect(warned).toHaveBeenCalledTimes(4) })
+    await vi.waitFor(() => {
+      expect(warned).toHaveBeenCalledTimes(4)
+    })
     expect(warned).toHaveBeenCalledWith('permission: catalog-changed listener failed: sync non-error failed')
     expect(warned).toHaveBeenCalledWith('permission: catalog-changed listener failed: async non-error failed')
     expect(ctx.permissionPresets.names).toContain(AUTO_PRESET)
@@ -136,8 +170,7 @@ describe('permissions projection unit', () => {
     const { ctx, session } = await harness({ withPermission: false })
     expect('permissions' in ctx.sessionProjections.snapshot(session).values).toBe(false)
     const fiber = await ctx.plugin(PermissionPresetService, {})
-    expect(ctx.sessionProjections.snapshot(session).values.permissions)
-      .toMatchObject({ currentValue: 'workspace-write' })
+    expect(ctx.sessionProjections.snapshot(session).values.permissions).toMatchObject({ currentValue: 'workspace-write' })
     await fiber.dispose()
     expect('permissions' in ctx.sessionProjections.snapshot(session).values).toBe(false)
   })
@@ -165,10 +198,12 @@ describe('/permission command', () => {
     expect(execution?.result).toEqual({ kind: 'success', text: 'preset danger-full-access' })
     expect(ctx.permissionPresets.current(session)).toBe('danger-full-access')
     expect(inject.mock.calls[0]?.[0]).toMatchObject({
-      content: [{
-        type: 'text',
-        text: 'The approval policy changed from "ask" to "never" (changed by the user).',
-      }],
+      content: [
+        {
+          type: 'text',
+          text: 'The approval policy changed from "ask" to "never" (changed by the user).',
+        },
+      ],
     })
     const run = session.snapshotEvents().find(event => event.type === 'command/run')
     expect(run?.data).toMatchObject({ name: 'permission', args: ' danger-full-access' })
@@ -188,8 +223,7 @@ describe('/permission command', () => {
   it('rejects an unknown preset without touching the log', async () => {
     const { ctx, session } = await harness()
     const { agent } = await agentFor(ctx, session)
-    const before = session.snapshotEvents().filter(event =>
-      event.type !== 'command/run' && event.type !== 'command/done')
+    const before = session.snapshotEvents().filter(event => event.type !== 'command/run' && event.type !== 'command/done')
     const execution = await ctx.commands.execute(agent, '/permission yolo', [], new AbortController().signal)
     // The error text carries the same no-self-labelling rule as the success
     // texts: `permission · unknown preset "yolo" (…)`, not `unknown permission
@@ -198,12 +232,12 @@ describe('/permission command', () => {
       kind: 'error',
       text: 'unknown preset "yolo" (available: workspace-write, danger-full-access)',
     })
-    expect(session.snapshotEvents().filter(event =>
-      event.type !== 'command/run' && event.type !== 'command/done')).toEqual(before)
+    expect(session.snapshotEvents().filter(event => event.type !== 'command/run' && event.type !== 'command/done')).toEqual(before)
   })
 })
 
-it('keeps its own instance off the generated Settings pages', () => omitsGeneratedPage(async (ctx) => {
-  await harness({ ctx, withPermission: false })
-  return ctx.plugin(PermissionPresetService, {})
-}))
+it('keeps its own instance off the generated Settings pages', () =>
+  omitsGeneratedPage(async ctx => {
+    await harness({ ctx, withPermission: false })
+    return ctx.plugin(PermissionPresetService, {})
+  }))

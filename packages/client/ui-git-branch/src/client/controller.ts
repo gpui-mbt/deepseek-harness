@@ -53,11 +53,13 @@ function sameStatus(left: WorkspaceGitStatus | undefined, right: WorkspaceGitSta
   const previous = displayFields(left)
   const next = displayFields(right)
   if (previous === null || next === null) return previous === next
-  return previous.kind === next.kind
-    && previous.ref === next.ref
-    && previous.worktree === next.worktree
-    && previous.slug === next.slug
-    && previous.url === next.url
+  return (
+    previous.kind === next.kind &&
+    previous.ref === next.ref &&
+    previous.worktree === next.worktree &&
+    previous.slug === next.slug &&
+    previous.url === next.url
+  )
 }
 
 /**
@@ -125,7 +127,9 @@ export class GitBranchController {
     watched.count -= 1
     if (watched.count > 0) return
     this.watched.delete(sessionId)
-    this.branches.update((draft) => { draft[sessionId] = undefined })
+    this.branches.update(draft => {
+      draft[sessionId] = undefined
+    })
     if (this.watched.size === 0) this.stop()
   }
 
@@ -137,7 +141,9 @@ export class GitBranchController {
   }
 
   private start(): void {
-    this.timer = setInterval(() => { this.tick() }, GIT_BRANCH_POLL_MS)
+    this.timer = setInterval(() => {
+      this.tick()
+    }, GIT_BRANCH_POLL_MS)
     document.addEventListener('visibilitychange', this.onVisible)
   }
 
@@ -165,8 +171,12 @@ export class GitBranchController {
     watched.inFlight = true
     const generation = watched.generation
     void this.remote.workspaceGit.status(sessionId, this.abort.signal).then(
-      (result) => { this.settle(sessionId, generation, result.ok ? result.value : undefined) },
-      () => { this.settle(sessionId, generation, undefined) },
+      result => {
+        this.settle(sessionId, generation, result.ok ? result.value : undefined)
+      },
+      () => {
+        this.settle(sessionId, generation, undefined)
+      },
     )
   }
 
@@ -180,6 +190,8 @@ export class GitBranchController {
     watched.inFlight = false
     if (value === undefined) return
     if (sameStatus(this.branches.getSnapshot()[sessionId], value)) return
-    this.branches.update((draft) => { draft[sessionId] = value })
+    this.branches.update(draft => {
+      draft[sessionId] = value
+    })
   }
 }

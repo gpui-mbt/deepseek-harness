@@ -112,13 +112,7 @@ function integerAtLeast(value: number, min: number, name: string): number {
  * moment its bytes exceed `maxBytes`, so one giant line cannot grow memory past
  * the cap either.
  */
-async function cutPage(
-  chunks: AsyncIterable<string>,
-  offset: number,
-  limit: number,
-  maxBytes: number,
-  path: string,
-): Promise<Page> {
+async function cutPage(chunks: AsyncIterable<string>, offset: number, limit: number, maxBytes: number, path: string): Promise<Page> {
   const last = offset + limit - 1
   const lines: string[] = []
   let current = ''
@@ -127,11 +121,10 @@ async function cutPage(
   const admit = (size: number): void => {
     bytes += size
     if (bytes > maxBytes) {
-      throw new RemoteError(
-        'workspace-file/too-large',
-        `lines ${offset}-${last} of "${path}" exceed the ${maxBytes} byte cap`,
-        { path, limit: maxBytes },
-      )
+      throw new RemoteError('workspace-file/too-large', `lines ${offset}-${last} of "${path}" exceed the ${maxBytes} byte cap`, {
+        path,
+        limit: maxBytes,
+      })
     }
   }
   const complete = (): void => {
@@ -169,7 +162,11 @@ function workspacePathOf(rootUrl: string, targetUrl: string): string {
   const root = new URL(rootUrl).pathname.replace(/\/+$/, '')
   const target = new URL(targetUrl).pathname
   if (target === root) return ''
-  return target.slice(root.length + 1).split('/').map(decodeURIComponent).join('/')
+  return target
+    .slice(root.length + 1)
+    .split('/')
+    .map(decodeURIComponent)
+    .join('/')
 }
 
 /** Strip the resolved child target: the wire carries names and metadata only. */
@@ -177,7 +174,7 @@ function directoryEntry(child: FsDirEntry): WorkspaceDirectoryEntry {
   return {
     name: child.name,
     type: child.type,
-    ...child.size === undefined ? {} : { size: child.size },
+    ...(child.size === undefined ? {} : { size: child.size }),
   }
 }
 
@@ -186,8 +183,17 @@ export class WorkspaceFiles extends TypertRemoteService {
   static inject = ['fs', 'sandboxPolicy', 'sessions', 'typert']
 
   static Config: z<Config> = z.object({
-    maxBytes: z.number().step(1).min(1).default(2 * 1024 * 1024),
-    maxFileBytes: z.number().step(1).min(1).max(Number.MAX_SAFE_INTEGER - 1).default(32 * 1024 * 1024),
+    maxBytes: z
+      .number()
+      .step(1)
+      .min(1)
+      .default(2 * 1024 * 1024),
+    maxFileBytes: z
+      .number()
+      .step(1)
+      .min(1)
+      .max(Number.MAX_SAFE_INTEGER - 1)
+      .default(32 * 1024 * 1024),
     maxLines: z.number().step(1).min(1).default(5000),
     maxEntries: z.number().step(1).min(1).default(2000),
   })
@@ -198,29 +204,28 @@ export class WorkspaceFiles extends TypertRemoteService {
    * @param ctx - Host context carrying the filesystem and the sandbox policy.
    * @param config - deployment caps on one page or one listing.
    */
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx, 'workspaceFiles')
     this.feed = new WorkspaceChangeFeed(ctx)
-    ctx.inject(['sessions', 'typert'], (scope) => {
+    ctx.inject(['sessions', 'typert'], scope => {
       scope.typert.lookups.register('workspaceFileScope', {
         parameter: 'workspaceFileScope',
         wire: 'workspaceFileScopeId',
         resource: 'session',
         hostTypeSymbol: '@deepseek-ai/dsh-api-workspace-files#WorkspaceFileScope',
         wireTypeSymbol: '@deepseek-ai/dsh-session/types#SessionId',
-        resolve: async (sessionId) => {
+        resolve: async sessionId => {
           const live = scope.sessions.get(sessionId)
-          const stored = live === undefined
-            ? await scope.get('sessionPersistence')?.stat(sessionId)
-            : undefined
+          const stored = live === undefined ? await scope.get('sessionPersistence')?.stat(sessionId) : undefined
           const header = live?.header ?? stored?.header
           if (header === undefined) return undefined
           // The Session may have moved since its header was written; the
           // projected working directory wins over the header, and only a cold
           // Session, whose events are not loaded, falls back to the header.
-          const current = live === undefined
-            ? undefined
-            : scope.get('sessionProjections')?.stateOf(live, 'workingDirectory')
+          const current = live === undefined ? undefined : scope.get('sessionProjections')?.stateOf(live, 'workingDirectory')
           return {
             sessionId,
             workspaceRoot: current ?? header.cwd ?? scope.sandboxPolicy.workspaceRoot,
@@ -315,11 +320,7 @@ export class WorkspaceFiles extends TypertRemoteService {
     // directory it resolves to, matching the child type `listDir` reports for
     // that entry; `read` keeps its own no-follow gate on the final component.
     if (entry.type !== 'directory' && entry.type !== 'symlink') {
-      throw new RemoteError(
-        'workspace-file/not-directory',
-        `"${path}" is a ${entry.type}`,
-        { path, kind: entry.type },
-      )
+      throw new RemoteError('workspace-file/not-directory', `"${path}" is a ${entry.type}`, { path, kind: entry.type })
     }
     const target = await this.confine(root, workspaceRoot, path, signal)
     if (entry.type === 'symlink') {
@@ -379,11 +380,10 @@ export class WorkspaceFiles extends TypertRemoteService {
       throw new RemoteError('gateway/bad-request', 'offset plus length must stay a safe integer', {})
     }
     if (length > this.config.maxBytes) {
-      throw new RemoteError(
-        'workspace-file/too-large',
-        `${length} bytes of "${path}" exceed the ${this.config.maxBytes} byte cap`,
-        { path, limit: this.config.maxBytes },
-      )
+      throw new RemoteError('workspace-file/too-large', `${length} bytes of "${path}" exceed the ${this.config.maxBytes} byte cap`, {
+        path,
+        limit: this.config.maxBytes,
+      })
     }
     return { offset, length }
   }
@@ -445,7 +445,7 @@ export class WorkspaceFiles extends TypertRemoteService {
     return {
       absolutePath: this.ctx.fs.processPath(target),
       version: info.version,
-      ...info.size === undefined ? {} : { bytes: info.size },
+      ...(info.size === undefined ? {} : { bytes: info.size }),
     }
   }
 

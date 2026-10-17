@@ -45,9 +45,7 @@ function placeMenu(anchor: HTMLElement, menu: HTMLElement): CSSProperties {
   // Below the control, aligned to its left edge; flipped to its right edge when
   // that would run off the viewport, as it does for the last tab in a column
   // against the window's right side.
-  const left = rect.left + width + MENU_GAP > window.innerWidth
-    ? Math.max(MENU_GAP, rect.right - width)
-    : rect.left
+  const left = rect.left + width + MENU_GAP > window.innerWidth ? Math.max(MENU_GAP, rect.right - width) : rect.left
   return { top: rect.bottom + MENU_GAP, left }
 }
 
@@ -69,8 +67,16 @@ export function TabMenu({ labels, anchor, onClose, onDismiss, extras }: TabMenuP
     const document = menu.ownerDocument
     const composition = observeComposition(document)
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (composition.guards(event) || event.defaultPrevented || event.key !== 'Escape'
-        || event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return
+      if (
+        composition.guards(event) ||
+        event.defaultPrevented ||
+        event.key !== 'Escape' ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey ||
+        event.shiftKey
+      )
+        return
       const top = [...document.querySelectorAll(modalSelector)].at(-1)
       if (top !== menu) return
       event.preventDefault()
@@ -110,8 +116,12 @@ export function TabMenu({ labels, anchor, onClose, onDismiss, extras }: TabMenuP
       // capture the pointer, which retargets the release and swallows this
       // item's click; the click would otherwise also focus a tab the item may
       // have removed.
-      onPointerDown={(event) => { event.stopPropagation() }}
-      onClick={(event) => { event.stopPropagation() }}
+      onPointerDown={event => {
+        event.stopPropagation()
+      }}
+      onClick={event => {
+        event.stopPropagation()
+      }}
     >
       {onClose !== undefined && (
         <button type="button" role="menuitem" className={css.menuItem} data-dockkit-menu-close onClick={onClose}>

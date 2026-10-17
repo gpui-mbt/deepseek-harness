@@ -5,8 +5,14 @@
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 import type { MainPanelId } from './service.ts'
 import {
-  clampWidth, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN,
-  SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN,
+  clampWidth,
+  RIGHTBAR_DEFAULT_RATIO,
+  RIGHTBAR_MAX_RATIO,
+  RIGHTBAR_MIN,
+  SIDEBAR_AUTO_COLLAPSE,
+  SIDEBAR_DEFAULT,
+  SIDEBAR_MAX,
+  SIDEBAR_MIN,
 } from './columns.ts'
 
 /**
@@ -75,7 +81,7 @@ type LayoutActions = {
  * override; opening the right panel clears that override.
  * @returns the store handle (spec + type + identity + factory in one).
  */
-export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutActions>  {
+export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutActions> {
   const handle = defineStore({
     init: (): LayoutState => ({
       panelInfo: { activePanelId: null },
@@ -105,7 +111,7 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
       },
       // Narrow toggles flip only the override: the width preference survives
       // untouched, so re-widening restores the pre-squeeze layout.
-      toggleSidebar: (d) => {
+      toggleSidebar: d => {
         d.layoutInfo.rightbarInstant = false
         if (d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) d.layoutInfo.narrowExpanded = !d.layoutInfo.narrowExpanded
         else d.layoutInfo.sidebar = d.layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : 0
@@ -115,7 +121,7 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
       setViewportWidth: (d, width: number) => {
         if (d.layoutInfo.viewportWidth === width) return
         d.layoutInfo.rightbarInstant = false
-        if ((d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) !== (width < SIDEBAR_AUTO_COLLAPSE)) {
+        if (d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE !== width < SIDEBAR_AUTO_COLLAPSE) {
           d.layoutInfo.narrowExpanded = false
         }
         d.layoutInfo.viewportWidth = width
@@ -134,7 +140,7 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
         d.layoutInfo.rightbarTrack = track
         d.layoutInfo.rightbarFullscreen = fullscreen
       },
-      closeRightbar: (d) => {
+      closeRightbar: d => {
         if (d.layoutInfo.rightbarShown) d.layoutInfo.rightbarInstant = d.layoutInfo.rightbarFullscreen
         d.layoutInfo.rightbarShown = false
         d.layoutInfo.rightbarTrack = false

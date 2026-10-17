@@ -69,20 +69,18 @@ export interface ParsedSessionReferenceText {
 export function parseSessionReferenceText(text: string): ParsedSessionReferenceText {
   const references: SessionReferenceInput[] = []
   const pattern = /@\[((?:\\.|[^\\\]])*)\]\((dsh-session:[^\s)]*)\)|(dsh-session:[A-Za-z0-9_-]+)/gu
-  const rendered = text.replace(pattern, (
-    _match,
-    rawLabel: string | undefined,
-    markdownUri: string | undefined,
-    bareUri: string | undefined,
-  ) => {
-    const uri = markdownUri ?? bareUri
-    /* v8 ignore next -- the two-alternative regex always captures exactly one URI group. */
-    if (uri === undefined) throw new SessionReferenceError('session reference URI is missing', 'SESSION_REFERENCE_INVALID_REFERENCE')
-    const sessionId = decodeSessionReferenceUri(uri)
-    const label = rawLabel === undefined ? sessionId : unescapeLabel(rawLabel)
-    references.push({ sessionId, label })
-    return `@${label}`
-  })
+  const rendered = text.replace(
+    pattern,
+    (_match, rawLabel: string | undefined, markdownUri: string | undefined, bareUri: string | undefined) => {
+      const uri = markdownUri ?? bareUri
+      /* v8 ignore next -- the two-alternative regex always captures exactly one URI group. */
+      if (uri === undefined) throw new SessionReferenceError('session reference URI is missing', 'SESSION_REFERENCE_INVALID_REFERENCE')
+      const sessionId = decodeSessionReferenceUri(uri)
+      const label = rawLabel === undefined ? sessionId : unescapeLabel(rawLabel)
+      references.push({ sessionId, label })
+      return `@${label}`
+    },
+  )
   return { text: rendered, references }
 }
 

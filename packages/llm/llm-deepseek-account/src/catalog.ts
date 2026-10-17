@@ -33,7 +33,9 @@ export interface CatalogView {
 async function abandonable(task: Promise<void>, signal: AbortSignal | undefined): Promise<void> {
   if (signal === undefined) return task
   const abandoned = Promise.withResolvers<never>()
-  const abandon = (): void => { abandoned.reject(signal.reason) }
+  const abandon = (): void => {
+    abandoned.reject(signal.reason)
+  }
   signal.addEventListener('abort', abandon, { once: true })
   try {
     await Promise.race([task, abandoned.promise])
@@ -110,22 +112,28 @@ export class AccountModelCatalog {
     const request = new AbortController()
     this.request = request
     const limit = deadline(request.signal, settings.timeoutMs, LISTING_TIMEOUT)
-    const run = this.dependencies.load(settings.url, token, limit.signal)
-      .then((listing) => {
-        if (generation !== this.generation) return
-        this.listing = listing
-        this.settledAt = this.dependencies.now()
-        this.failing = false
-        this.dependencies.info(`model listing from ${settings.url} loaded ${listing.entries.length} model(s), skipped ${listing.skipped} row(s)`)
-      }, (error: unknown) => {
-        if (generation !== this.generation) return
-        if (!this.failing) {
-          const fallback = this.listing === undefined ? 'using the bundled catalog' : 'keeping the previous catalog'
-          this.dependencies.warn(`model listing from ${settings.url} failed (${String(error)}); ${fallback}`)
-        }
-        this.settledAt = this.dependencies.now()
-        this.failing = true
-      })
+    const run = this.dependencies
+      .load(settings.url, token, limit.signal)
+      .then(
+        listing => {
+          if (generation !== this.generation) return
+          this.listing = listing
+          this.settledAt = this.dependencies.now()
+          this.failing = false
+          this.dependencies.info(
+            `model listing from ${settings.url} loaded ${listing.entries.length} model(s), skipped ${listing.skipped} row(s)`,
+          )
+        },
+        (error: unknown) => {
+          if (generation !== this.generation) return
+          if (!this.failing) {
+            const fallback = this.listing === undefined ? 'using the bundled catalog' : 'keeping the previous catalog'
+            this.dependencies.warn(`model listing from ${settings.url} failed (${String(error)}); ${fallback}`)
+          }
+          this.settledAt = this.dependencies.now()
+          this.failing = true
+        },
+      )
       .finally(() => {
         limit[Symbol.dispose]()
         if (this.inflight === run) this.inflight = undefined

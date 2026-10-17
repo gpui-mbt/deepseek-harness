@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { once } from 'node:events'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { SubprocessHandle, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { SUBPROCESS_CONTROL_ENV } from '@deepseek-ai/dsh-subprocess/control'
@@ -32,8 +32,12 @@ describe('managed subprocess control pipe', () => {
     ctx = new Context()
     await ctx.plugin(LocalSubprocessRuntime)
     handle = ctx.subprocess.spawn({
-      argv: [process.execPath, '--input-type=module', '-e',
-        'import { Socket } from "node:net"; const c = new Socket({fd:7,readable:true,writable:true}); c.write(Buffer.alloc(4096),()=>c.destroy())'],
+      argv: [
+        process.execPath,
+        '--input-type=module',
+        '-e',
+        'import { Socket } from "node:net"; const c = new Socket({fd:7,readable:true,writable:true}); c.write(Buffer.alloc(4096),()=>c.destroy())',
+      ],
       cwd: process.cwd(),
       stdio: { stdin: 'ignore', stdout: { maxBytes: 32 }, stderr: { maxBytes: 32 }, control: 'pipe' },
       graceMs: 1000,
@@ -53,8 +57,12 @@ describe('managed subprocess control pipe', () => {
     ctx = new Context()
     await ctx.plugin(LocalSubprocessRuntime)
     handle = ctx.subprocess.spawn({
-      argv: [process.execPath, '--input-type=module', '-e',
-        'import { Socket } from "node:net"; const c = new Socket({fd:7,readable:true,writable:true}); c.write("ready"); setInterval(()=>{},60000)'],
+      argv: [
+        process.execPath,
+        '--input-type=module',
+        '-e',
+        'import { Socket } from "node:net"; const c = new Socket({fd:7,readable:true,writable:true}); c.write("ready"); setInterval(()=>{},60000)',
+      ],
       cwd: process.cwd(),
       stdio: { stdin: 'ignore', stdout: { maxBytes: 32 }, stderr: { maxBytes: 32 }, control: 'pipe' },
       graceMs: 1000,
@@ -82,7 +90,7 @@ describe('managed subprocess control pipe', () => {
     expect(await handle.waitForExit()).toBe(true)
   })
 
-  it.each(['managed', 'fallback'] as const)('returns exact binary control bytes through %s independently of stdio', async (backend) => {
+  it.each(['managed', 'fallback'] as const)('returns exact binary control bytes through %s independently of stdio', async backend => {
     root = await mkdtemp(join(tmpdir(), 'dsh-control-'))
     ctx = new Context()
     await ctx.plugin(LocalSubprocessRuntime)
@@ -113,12 +121,14 @@ describe('managed subprocess control pipe', () => {
   it('rejects a caller-authored control marker before starting a child', async () => {
     ctx = new Context()
     await ctx.plugin(LocalSubprocessRuntime)
-    expect(() => ctx?.subprocess.spawn({
-      argv: [process.execPath, '-e', 'throw new Error("must not execute")'],
-      cwd: process.cwd(),
-      env: { [SUBPROCESS_CONTROL_ENV]: 'pipe' },
-      stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
-      graceMs: 1000,
-    })).toThrow('reserved')
+    expect(() =>
+      ctx?.subprocess.spawn({
+        argv: [process.execPath, '-e', 'throw new Error("must not execute")'],
+        cwd: process.cwd(),
+        env: { [SUBPROCESS_CONTROL_ENV]: 'pipe' },
+        stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
+        graceMs: 1000,
+      }),
+    ).toThrow('reserved')
   })
 })

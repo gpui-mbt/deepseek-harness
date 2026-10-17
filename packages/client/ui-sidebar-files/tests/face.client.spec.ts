@@ -1,5 +1,5 @@
 /** Directory subscriptions and read settlements through the face's real store actions. */
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceDirectoryListing } from '@deepseek-ai/dsh-api-workspace-files/types'
@@ -30,7 +30,7 @@ function mount() {
 }
 
 describe('filesFace', () => {
-  it.each(['/', 'C:/', 'C:\\', '/work/app/'])('expands a child of the exact root key %s', async (root) => {
+  it.each(['/', 'C:/', 'C:\\', '/work/app/'])('expands a child of the exact root key %s', async root => {
     const h = mount()
     const child = childPath(root, 'src')
     h.face.start(TAB, root, h.controller.signal)
@@ -98,10 +98,12 @@ describe('filesFace', () => {
     expect(snapshot()!.levels[child]).toEqual({ kind: 'ready', level: current })
   })
 
-  it.each([false, true])('keeps deep expansion intent while restoring an ancestor (reopen: %s)', async (reopen) => {
+  it.each([false, true])('keeps deep expansion intent while restoring an ancestor (reopen: %s)', async reopen => {
     const h = mount()
     const refresh = vi.spyOn(DirectoryNode.prototype, 'refresh')
-    onTestFinished(() => { refresh.mockRestore() })
+    onTestFinished(() => {
+      refresh.mockRestore()
+    })
     const src = `${ROOT}/src`
     const components = `${src}/components`
     const nested = `${components}/nested`
@@ -114,7 +116,11 @@ describe('filesFace', () => {
     h.face.start(TAB, ROOT, h.controller.signal)
     await h.watches.ready(ROOT)
     await h.settle({ ok: true, value: LEVEL })
-    for (const [parent, path, level] of [[ROOT, src, srcLevel], [src, components, componentsLevel], [components, nested, empty]] as const) {
+    for (const [parent, path, level] of [
+      [ROOT, src, srcLevel],
+      [src, components, componentsLevel],
+      [components, nested, empty],
+    ] as const) {
       toggle(parent, path)
       await h.watches.ready(path)
       await h.settle({ ok: true, value: level })
@@ -194,7 +200,7 @@ describe('filesFace', () => {
     expect(h.watches.opened).toHaveLength(1)
   })
 
-  it.each([new Error('watch disconnected'), 'watch disconnected'])('records a watch failure without an Error prefix: %s', async (failure) => {
+  it.each([new Error('watch disconnected'), 'watch disconnected'])('records a watch failure without an Error prefix: %s', async failure => {
     const h = mount()
     const reported = Promise.withResolvers<undefined>()
     const unsubscribe = h.instance.subscribe(() => {
@@ -209,7 +215,8 @@ describe('filesFace', () => {
     await h.settle({ ok: true, value: LEVEL })
     await reported.promise
     expect(h.snapshot()!.levels[ROOT]).toMatchObject({
-      kind: 'ready', level: LEVEL,
+      kind: 'ready',
+      level: LEVEL,
       failure: { code: 'gateway/internal', message: 'watch disconnected' },
     })
     await stream.released.promise
@@ -217,7 +224,9 @@ describe('filesFace', () => {
 
   it('does not publish a watch failure when the tab closes during its fallback list', async () => {
     const close = vi.spyOn(DirectoryNode.prototype, 'close')
-    onTestFinished(() => { close.mockRestore() })
+    onTestFinished(() => {
+      close.mockRestore()
+    })
     const h = mount()
     h.face.start(TAB, ROOT, h.controller.signal)
     const stream = await h.watches.forPath(ROOT)
@@ -288,8 +297,7 @@ describe('createList', () => {
       entries: [{ name: 'a.ts', type: 'file', size: 3 }],
       truncated: true,
     }
-    const list = vi.fn<WorkspaceFilesListRemote['workspaceFiles']['list']>()
-      .mockResolvedValue({ ok: true, value: listing })
+    const list = vi.fn<WorkspaceFilesListRemote['workspaceFiles']['list']>().mockResolvedValue({ ok: true, value: listing })
     const signal = new AbortController().signal
     const result = await createList({ workspaceFiles: { list } })(SESSION, `${ROOT}/src`, signal)
     expect(list).toHaveBeenCalledWith(SESSION, `${ROOT}/src`, signal)
@@ -298,8 +306,7 @@ describe('createList', () => {
 
   it('returns a failure as the endpoint reported it', async () => {
     const error = new RemoteError('workspace-file/not-directory', 'file', { path: 'x', kind: 'file' })
-    const list = vi.fn<WorkspaceFilesListRemote['workspaceFiles']['list']>()
-      .mockResolvedValue({ ok: false, error })
+    const list = vi.fn<WorkspaceFilesListRemote['workspaceFiles']['list']>().mockResolvedValue({ ok: false, error })
     const result = await createList({ workspaceFiles: { list } })(SESSION, `${ROOT}/x`, new AbortController().signal)
     expect(result).toEqual({ ok: false, error })
   })

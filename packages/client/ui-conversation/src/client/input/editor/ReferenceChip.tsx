@@ -26,10 +26,17 @@ export interface ReferenceChipProps {
  */
 export function ReferenceChip({ label, appearance, invalid }: ReferenceChipProps): ReactNode {
   return (
-    <span className={clsx(referenceCss.reference, css.chip, appearance === 'file' && !invalid && referenceCss.openable, invalid && css.invalid)} title={label}>
-      {appearance === undefined
-        ? <span className={css.marker} aria-hidden>@</span>
-        : <ReferenceIconRegular kind={appearance} size={14} className={css.icon} />}
+    <span
+      className={clsx(referenceCss.reference, css.chip, appearance === 'file' && !invalid && referenceCss.openable, invalid && css.invalid)}
+      title={label}
+    >
+      {appearance === undefined ? (
+        <span className={css.marker} aria-hidden>
+          @
+        </span>
+      ) : (
+        <ReferenceIconRegular kind={appearance} size={14} className={css.icon} />
+      )}
       <span className={css.label}>{label}</span>
     </span>
   )

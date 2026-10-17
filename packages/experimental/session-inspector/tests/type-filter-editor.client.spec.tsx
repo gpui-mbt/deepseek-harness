@@ -3,7 +3,7 @@
 
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { TypeFilter } from '../src/client/views/TypeFilter.tsx'
 import { en } from '../src/client/locales.ts'
 
@@ -14,19 +14,30 @@ it('discards out-of-order responses and confirms the typed fragment with Enter',
   const empty = Promise.withResolvers<readonly string[]>()
   const earlier = Promise.withResolvers<readonly string[]>()
   const later = Promise.withResolvers<readonly string[]>()
-  const suggest = vi.fn((query: string) => query === '' ? empty.promise : query === 'd' ? earlier.promise : later.promise)
+  const suggest = vi.fn((query: string) => (query === '' ? empty.promise : query === 'd' ? earlier.promise : later.promise))
   const apply = vi.fn()
   const ui = render(<TypeFilter value="" suggest={suggest} apply={apply} t={t} />)
-  await act(async () => { fireEvent.click(ui.getByRole('button', { name: 'Filter types' })) })
+  await act(async () => {
+    fireEvent.click(ui.getByRole('button', { name: 'Filter types' }))
+  })
   const input = ui.getByRole('combobox', { name: 'Type keyword' })
   expect(ui.getByRole('dialog').parentElement).toBe(document.body)
-  await act(async () => { fireEvent.change(input, { target: { value: 'd' } }) })
-  await act(async () => { fireEvent.change(input, { target: { value: 'delta' } }) })
+  await act(async () => {
+    fireEvent.change(input, { target: { value: 'd' } })
+  })
+  await act(async () => {
+    fireEvent.change(input, { target: { value: 'delta' } })
+  })
   expect(suggest.mock.calls.map(([query]) => query)).toEqual(['', 'd', 'delta'])
   expect(apply).not.toHaveBeenCalled()
-  await act(async () => { later.resolve(['reasoning-delta', 'tool-call-delta']) })
+  await act(async () => {
+    later.resolve(['reasoning-delta', 'tool-call-delta'])
+  })
   expect(ui.getAllByRole('option').map(option => option.textContent)).toEqual(['reasoning-delta', 'tool-call-delta'])
-  await act(async () => { earlier.resolve(['block-end']); empty.resolve(['assistant/message']) })
+  await act(async () => {
+    earlier.resolve(['block-end'])
+    empty.resolve(['assistant/message'])
+  })
   expect(ui.getAllByRole('option').map(option => option.textContent)).toEqual(['reasoning-delta', 'tool-call-delta'])
   fireEvent.keyDown(input, { key: 'Enter', isComposing: true })
   fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 })
@@ -40,10 +51,16 @@ it('confirms candidates by keyboard or click and scrolls the active option into 
   const suggest = async () => ['reasoning-delta', 'tool-call-delta']
   const apply = vi.fn()
   const ui = render(<TypeFilter value="delta" suggest={suggest} apply={apply} t={t} />)
-  await act(async () => { fireEvent.click(ui.getByRole('button', { name: 'Filter types' })) })
+  await act(async () => {
+    fireEvent.click(ui.getByRole('button', { name: 'Filter types' }))
+  })
   const input = ui.getByRole('combobox', { name: 'Type keyword' })
   const options = ui.getAllByRole('option')
-  const scroll = options.map((option) => { const callback = vi.fn(); option.scrollIntoView = callback; return callback })
+  const scroll = options.map(option => {
+    const callback = vi.fn()
+    option.scrollIntoView = callback
+    return callback
+  })
   fireEvent.keyDown(input, { key: 'ArrowUp' })
   expect(options[1]!.getAttribute('aria-selected')).toBe('true')
   expect(scroll[1]).toHaveBeenCalledWith({ block: 'nearest' })
@@ -51,7 +68,9 @@ it('confirms candidates by keyboard or click and scrolls the active option into 
   expect(options[0]!.getAttribute('aria-selected')).toBe('true')
   fireEvent.keyDown(input, { key: 'Enter' })
   expect(apply).toHaveBeenLastCalledWith('reasoning-delta')
-  await act(async () => { fireEvent.click(ui.getByRole('button', { name: 'Filter types' })) })
+  await act(async () => {
+    fireEvent.click(ui.getByRole('button', { name: 'Filter types' }))
+  })
   fireEvent.click(ui.getByRole('option', { name: 'tool-call-delta' }))
   expect(apply).toHaveBeenLastCalledWith('tool-call-delta')
   expect(ui.queryByRole('dialog')).toBeNull()
@@ -62,24 +81,38 @@ it('discards drafts on dismissal and requires confirmation after clearing', asyn
   const ui = render(<TypeFilter value="tool" suggest={async () => []} apply={apply} t={t} />)
   const trigger = ui.getByRole('button', { name: 'Filter types' })
   expect(trigger.getAttribute('aria-pressed')).toBe('true')
-  await act(async () => { fireEvent.click(trigger) })
-  await act(async () => { fireEvent.change(ui.getByRole('combobox'), { target: { value: 'delta' } }) })
+  await act(async () => {
+    fireEvent.click(trigger)
+  })
+  await act(async () => {
+    fireEvent.change(ui.getByRole('combobox'), { target: { value: 'delta' } })
+  })
   fireEvent.keyDown(ui.getByRole('combobox'), { key: 'Escape' })
   expect(ui.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(trigger)
-  await act(async () => { fireEvent.click(trigger) })
+  await act(async () => {
+    fireEvent.click(trigger)
+  })
   expect((ui.getByRole('combobox') as HTMLInputElement).value).toBe('tool')
   fireEvent.pointerDown(document.body)
   expect(ui.queryByRole('dialog')).toBeNull()
-  await act(async () => { fireEvent.click(trigger) })
+  await act(async () => {
+    fireEvent.click(trigger)
+  })
   fireEvent.click(ui.getByRole('button', { name: 'Cancel' }))
   expect(ui.queryByRole('dialog')).toBeNull()
-  await act(async () => { fireEvent.click(trigger) })
+  await act(async () => {
+    fireEvent.click(trigger)
+  })
   fireEvent.blur(window)
   expect(ui.queryByRole('dialog')).toBeNull()
   expect(apply).not.toHaveBeenCalled()
-  await act(async () => { fireEvent.click(trigger) })
-  await act(async () => { fireEvent.click(ui.getByRole('button', { name: 'Clear' })) })
+  await act(async () => {
+    fireEvent.click(trigger)
+  })
+  await act(async () => {
+    fireEvent.click(ui.getByRole('button', { name: 'Clear' }))
+  })
   expect((ui.getByRole('combobox') as HTMLInputElement).value).toBe('')
   expect(apply).not.toHaveBeenCalled()
   fireEvent.click(ui.getByRole('button', { name: 'Apply filter' }))
@@ -93,17 +126,29 @@ it('contains candidate failures and ignores results after closing or unmounting'
   const suggest = vi.fn().mockReturnValueOnce(failed.promise).mockReturnValueOnce(closed.promise).mockReturnValueOnce(unmounted.promise)
   const apply = vi.fn()
   const ui = render(<TypeFilter value="" suggest={suggest} apply={apply} t={t} />)
-  await act(async () => { fireEvent.click(ui.getByRole('button', { name: 'Filter types' })) })
-  await act(async () => { failed.reject(new Error('candidate source failed')) })
+  await act(async () => {
+    fireEvent.click(ui.getByRole('button', { name: 'Filter types' }))
+  })
+  await act(async () => {
+    failed.reject(new Error('candidate source failed'))
+  })
   expect(ui.getByRole('alert').textContent).toContain('candidate source failed')
   fireEvent.keyDown(ui.getByRole('combobox'), { key: 'Escape' })
-  await act(async () => { fireEvent.click(ui.getByRole('button', { name: 'Filter types' })) })
+  await act(async () => {
+    fireEvent.click(ui.getByRole('button', { name: 'Filter types' }))
+  })
   fireEvent.pointerDown(document.body)
-  await act(async () => { closed.resolve(['reasoning-delta']) })
+  await act(async () => {
+    closed.resolve(['reasoning-delta'])
+  })
   expect(ui.queryByRole('dialog')).toBeNull()
-  await act(async () => { fireEvent.click(ui.getByRole('button', { name: 'Filter types' })) })
+  await act(async () => {
+    fireEvent.click(ui.getByRole('button', { name: 'Filter types' }))
+  })
   ui.unmount()
-  await act(async () => { unmounted.resolve(['tool-call-delta']) })
+  await act(async () => {
+    unmounted.resolve(['tool-call-delta'])
+  })
   expect(ui.queryByRole('option')).toBeNull()
   expect(apply).not.toHaveBeenCalled()
 })
@@ -111,7 +156,9 @@ it('contains candidate failures and ignores results after closing or unmounting'
 it('keeps focus inside the panel until blur leaves it and lets the trigger close an open editor', async () => {
   const ui = render(<TypeFilter value="" suggest={async () => ['first', 'second']} apply={vi.fn()} t={t} />)
   const trigger = ui.getByRole('button', { name: 'Filter types' })
-  await act(async () => { fireEvent.click(trigger) })
+  await act(async () => {
+    fireEvent.click(trigger)
+  })
   const input = ui.getByRole('combobox')
   for (const option of ui.getAllByRole('option')) option.scrollIntoView = vi.fn()
   fireEvent.pointerDown(input)
@@ -129,7 +176,9 @@ it('keeps focus inside the panel until blur leaves it and lets the trigger close
   expect(ui.getByRole('dialog')).toBeTruthy()
   fireEvent.blur(input, { relatedTarget: document.body })
   expect(ui.queryByRole('dialog')).toBeNull()
-  await act(async () => { fireEvent.click(trigger) })
+  await act(async () => {
+    fireEvent.click(trigger)
+  })
   fireEvent.pointerDown(trigger)
   expect(ui.getByRole('dialog')).toBeTruthy()
   fireEvent.click(trigger)
@@ -142,22 +191,39 @@ it('keeps an empty candidate list unselected and ignores a rejection after dismi
   const suggest = vi.fn<() => Promise<readonly string[]>>().mockResolvedValueOnce([]).mockReturnValueOnce(delayed.promise)
   const ui = render(<TypeFilter value="fragment" suggest={suggest} apply={apply} t={t} />)
   const trigger = ui.getByRole('button', { name: 'Filter types' })
-  await act(async () => { fireEvent.click(trigger) })
+  await act(async () => {
+    fireEvent.click(trigger)
+  })
   const input = ui.getByRole('combobox')
   fireEvent.keyDown(input, { key: 'ArrowDown' })
   fireEvent.keyDown(input, { key: 'ArrowUp' })
   expect(input.getAttribute('aria-activedescendant')).toBeNull()
   fireEvent.keyDown(input, { key: 'Enter' })
   expect(apply).toHaveBeenCalledWith('fragment')
-  await act(async () => { fireEvent.click(trigger) })
+  await act(async () => {
+    fireEvent.click(trigger)
+  })
   fireEvent.click(trigger)
-  await act(async () => { delayed.reject('late failure') })
+  await act(async () => {
+    delayed.reject('late failure')
+  })
   expect(ui.queryByRole('alert')).toBeNull()
 })
 
 it('renders a non-Error candidate failure without losing the editable draft', async () => {
-  const ui = render(<TypeFilter value="kept" suggest={async () => { throw 'candidate failure' }} apply={vi.fn()} t={t} />)
-  await act(async () => { fireEvent.click(ui.getByRole('button', { name: 'Filter types' })) })
+  const ui = render(
+    <TypeFilter
+      value="kept"
+      suggest={async () => {
+        throw 'candidate failure'
+      }}
+      apply={vi.fn()}
+      t={t}
+    />,
+  )
+  await act(async () => {
+    fireEvent.click(ui.getByRole('button', { name: 'Filter types' }))
+  })
   expect(ui.getByRole('alert').textContent).toContain('candidate failure')
   expect((ui.getByRole('combobox') as HTMLInputElement).value).toBe('kept')
 })

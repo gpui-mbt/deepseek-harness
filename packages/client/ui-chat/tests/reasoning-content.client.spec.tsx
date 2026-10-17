@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, fireEvent, within } from '@testing-library/react'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsRenderFactories, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
@@ -9,7 +9,8 @@ import { createReasoningRenderFixture } from './reasoning-render-fixture.tsx'
 const CODE = '```text\nfirst line\nsecond line\n```'
 const labels: MarkdownLabels = {
   code: {
-    copyLabel: 'Copy snippet', copiedLabel: 'Snippet copied',
+    copyLabel: 'Copy snippet',
+    copiedLabel: 'Snippet copied',
     toolbarLabels: { codeLabel: 'Snippet', wrapLabel: 'Wrap snippet', unwrapLabel: 'Unwrap snippet' },
   },
   footnotes: 'References',
@@ -19,10 +20,18 @@ type WrappedBodyProps = PropsRuntime<'conversation.chat.reasoning.body'> & Props
 
 function WrappedBody({ text, running, renderFactorySlot }: WrappedBodyProps) {
   const [original, setOriginal] = useState(false)
-  return <section data-testid="wrapper">
-    <button onClick={() => { setOriginal(value => !value) }}>Switch body</button>
-    {renderFactorySlot('conversation.chat.reasoning.content', { text: original ? text : `Wrapped ${text}`, running })}
-  </section>
+  return (
+    <section data-testid="wrapper">
+      <button
+        onClick={() => {
+          setOriginal(value => !value)
+        }}
+      >
+        Switch body
+      </button>
+      {renderFactorySlot('conversation.chat.reasoning.content', { text: original ? text : `Wrapped ${text}`, running })}
+    </section>
+  )
 }
 
 afterEach(cleanup)
@@ -52,10 +61,12 @@ describe('reasoning Content Factory', () => {
 
   it('keeps code wrapping state independent between two Factory occurrences', async () => {
     const b = await createReasoningRenderFixture('en')
-    const view = b.render(<>
-      <section data-testid="first">{b.renderFactorySlot('conversation.chat.reasoning.content', { text: CODE, running: false })}</section>
-      <section data-testid="second">{b.renderFactorySlot('conversation.chat.reasoning.content', { text: CODE, running: false })}</section>
-    </>)
+    const view = b.render(
+      <>
+        <section data-testid="first">{b.renderFactorySlot('conversation.chat.reasoning.content', { text: CODE, running: false })}</section>
+        <section data-testid="second">{b.renderFactorySlot('conversation.chat.reasoning.content', { text: CODE, running: false })}</section>
+      </>,
+    )
     const first = within(view.getByTestId('first')).getByRole('button', { name: 'Wrap lines' })
     const second = within(view.getByTestId('second')).getByRole('button', { name: 'Wrap lines' })
     expect(first.getAttribute('aria-pressed')).toBe('true')
@@ -70,11 +81,19 @@ describe('reasoning Content Factory', () => {
     const view = b.render(b.renderSlot('conversation.chat.reasoning.body', { text: 'Original thought', running: false }))
     expect(view.getByText('Original thought')).toBeTruthy()
     expect(b.runtime.slots.entries('conversation.chat.reasoning.body')[0]?.options.priority).toBe(100)
-    const plugin = await b.runtime.mount({ inject: ['slots'], apply: (ctx) => {
-      ctx.slots.inject('conversation.chat.reasoning.body', () => ctx.slots.register({
-        name: 'conversation.chat.reasoning.body',
-      }, WrappedBody))
-    } })
+    const plugin = await b.runtime.mount({
+      inject: ['slots'],
+      apply: ctx => {
+        ctx.slots.inject('conversation.chat.reasoning.body', () =>
+          ctx.slots.register(
+            {
+              name: 'conversation.chat.reasoning.body',
+            },
+            WrappedBody,
+          ),
+        )
+      },
+    })
     expect(view.getByText('Wrapped Original thought')).toBeTruthy()
     expect(view.queryByText('Original thought', { exact: true })).toBeNull()
     fireEvent.click(view.getByRole('button', { name: 'Switch body' }))

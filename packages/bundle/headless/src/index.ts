@@ -106,11 +106,7 @@ function summarize(session: Session, firstSeq: SessionLogOffset): RunOutcome {
  * @param stderr - progress output sink.
  * @returns a disposer that also terminates an unterminated reasoning line.
  */
-function streamReasoning(
-  ctx: Context,
-  agent: Agent,
-  stderr: HeadlessIo['stderr'],
-): () => void {
+function streamReasoning(ctx: Context, agent: Agent, stderr: HeadlessIo['stderr']): () => void {
   let open = false
   let endsWithNewline = true
   const close = (): void => {
@@ -215,9 +211,7 @@ function assertAdoptable(header: AdoptableHeader, events: Iterable<SessionEvent>
     // This bundle composes no preset roster, so resuming the session here would
     // silently run it under the headless tools and prompts instead of the
     // composition its log records.
-    throw new Error(
-      `session "${sessionId}" runs under agent preset "${preset}", which the one-shot runner does not compose`,
-    )
+    throw new Error(`session "${sessionId}" runs under agent preset "${preset}", which the one-shot runner does not compose`)
   }
   if (header.origin === 'subagent' || header.parentSession !== undefined) {
     throw new Error(`session "${sessionId}" is a subagent or forked session and cannot be driven directly`)
@@ -324,9 +318,7 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
     throw new Error('headless-runner: sessionId must not be blank')
   }
 
-  const task = config.task === undefined || config.task === '-'
-    ? await internals.readStdin()
-    : config.task
+  const task = config.task === undefined || config.task === '-' ? await internals.readStdin() : config.task
   if (task.trim() === '') {
     throw new Error('a task is required, for example: dsh --profile headless "run the tests"')
   }
@@ -344,14 +336,17 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
   const sessionId = brandString<SessionId>(config.sessionId ?? `session-${randomUUID()}`)
   const fs = ctx.get('fs')
   const cwd = fs === undefined ? process.cwd() : fs.processPath(await fs.resolve('.'))
-  const agent = config.sessionId === undefined
-    ? (await agents.create({
-      sessionId,
-      meta: { cwd },
-      agentOptions,
-      setup,
-    })).agent
-    : await resolveAgent(ctx, agents, sessionId, agentOptions, setup, cwd)
+  const agent =
+    config.sessionId === undefined
+      ? (
+          await agents.create({
+            sessionId,
+            meta: { cwd },
+            agentOptions,
+            setup,
+          })
+        ).agent
+      : await resolveAgent(ctx, agents, sessionId, agentOptions, setup, cwd)
   await agent.whenIdle()
   if (config.sessionId !== undefined) {
     // The resume-time check read a snapshot; an overlay can still append a
@@ -367,22 +362,23 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
     if (subject === agent) failure = { error, atOffset: agent.session.seq }
   })
   const stopTerminals = ctx.on('session/event', (session, event) => {
-    if (session === agent.session && event.type === 'turn/end'
-      && failure !== undefined && event.seq >= failure.atOffset) failure = undefined
+    if (session === agent.session && event.type === 'turn/end' && failure !== undefined && event.seq >= failure.atOffset)
+      failure = undefined
   })
   try {
     try {
-      agent.followup(createUserMessage({
-        content: [{ type: 'text', text: task }],
-        source: { kind: 'user' },
-      }))
+      agent.followup(
+        createUserMessage({
+          content: [{ type: 'text', text: task }],
+          source: { kind: 'user' },
+        }),
+      )
       const subagents = ctx.get('subagents')
       while (true) {
         await agent.whenIdle()
         const idleSeq = agent.session.seq
         // Child settlement can wake the parent before the child wait observes it.
-        if (!await subagents?.waitForChildren(agent)
-          && agent.status === 'idle' && agent.session.seq === idleSeq) break
+        if (!(await subagents?.waitForChildren(agent)) && agent.status === 'idle' && agent.session.seq === idleSeq) break
       }
     } finally {
       stopReasoning?.()
@@ -416,5 +412,7 @@ export function apply(ctx: Context, config: Config): void {
     throw new Error('headless-runner: the launcher must provide ctx.appExit before the tree mounts')
   }
   const io: HeadlessIo = { stdout: internals.stdout, stderr: internals.stderr, exit }
-  void run(ctx, config, io).catch((error: unknown) => { fail(io, error, config.json === true) })
+  void run(ctx, config, io).catch((error: unknown) => {
+    fail(io, error, config.json === true)
+  })
 }

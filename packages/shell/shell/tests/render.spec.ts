@@ -6,7 +6,7 @@
  * slicing) once, at the seam that owns it.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseExitStatus } from '../src/render.ts'
 
 describe('parseExitStatus', () => {
@@ -30,7 +30,9 @@ describe('parseExitStatus', () => {
   })
 
   it('keeps markers no pill shows (timeout) in the body', () => {
-    expect(parseExitStatus('slow\n[timed out after 100ms]\n[exit code: 143]'))
-      .toEqual({ body: 'slow\n[timed out after 100ms]', exitCode: 143 })
+    expect(parseExitStatus('slow\n[timed out after 100ms]\n[exit code: 143]')).toEqual({
+      body: 'slow\n[timed out after 100ms]',
+      exitCode: 143,
+    })
   })
 })

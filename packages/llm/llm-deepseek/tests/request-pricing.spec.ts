@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { offloadedImageText, requestImageHandleText, textOnlyImageText } from '@deepseek-ai/dsh-llm'
 import type { ImageBlock } from '@deepseek-ai/dsh-llm'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
@@ -25,7 +25,7 @@ function ref(name: string, width: number, height: number, bytes = 1024): ImageAt
 }
 
 function block(attachment: ImageAttachmentRef, offloaded?: true): ImageBlock {
-  return { type: 'image', attachment, ...offloaded === undefined ? {} : { offloaded } }
+  return { type: 'image', attachment, ...(offloaded === undefined ? {} : { offloaded }) }
 }
 
 function connection(config: Omit<Config, 'models'> = {}): ReturnType<typeof resolveAdapterOptions> {
@@ -49,10 +49,12 @@ describe('DeepSeek request-image pricing', () => {
   it('prices a retained image by its projected request dimensions plus its handle text', () => {
     const image = ref('photo', 1920, 1080)
     const prices = deepSeekImageRequestPricing(connection(), 'vision').priceImages([block(image)])
-    expect(prices).toEqual([{
-      visualTokens: 968,
-      text: requestImageHandleText(image, { width: 1708, height: 961 }),
-    }])
+    expect(prices).toEqual([
+      {
+        visualTokens: 968,
+        text: requestImageHandleText(image, { width: 1708, height: 961 }),
+      },
+    ])
   })
 
   it.each([
@@ -61,19 +63,23 @@ describe('DeepSeek request-image pricing', () => {
   ])('prices a %sx%s image at its per-side-capped %sx%s request dimensions', (width, height, cappedWidth, cappedHeight, tokens) => {
     const image = ref('thin', width, height)
     const prices = deepSeekImageRequestPricing(connection(), 'vision').priceImages([block(image)])
-    expect(prices).toEqual([{
-      visualTokens: tokens,
-      text: requestImageHandleText(image, { width: cappedWidth, height: cappedHeight }),
-    }])
+    expect(prices).toEqual([
+      {
+        visualTokens: tokens,
+        text: requestImageHandleText(image, { width: cappedWidth, height: cappedHeight }),
+      },
+    ])
   })
 
   it('prices the sent dimensions when aspect-preserving projection changes the token grid', () => {
     const image = ref('portrait', 1224, 1429)
     const prices = deepSeekImageRequestPricing(connection(), 'vision').priceImages([block(image)])
-    expect(prices).toEqual([{
-      visualTokens: 992,
-      text: requestImageHandleText(image, { width: 1187, height: 1386 }),
-    }])
+    expect(prices).toEqual([
+      {
+        visualTokens: 992,
+        text: requestImageHandleText(image, { width: 1187, height: 1386 }),
+      },
+    ])
   })
 
   it('honors a numeric pixel budget override', () => {
@@ -82,10 +88,12 @@ describe('DeepSeek request-image pricing', () => {
       models: [{ ...VISION_MODEL, imagePixelBudget: 640_000 }],
     })
     const prices = deepSeekImageRequestPricing(options, 'vision').priceImages([block(image)])
-    expect(prices).toEqual([{
-      visualTokens: 422,
-      text: requestImageHandleText(image, { width: 800, height: 800 }),
-    }])
+    expect(prices).toEqual([
+      {
+        visualTokens: 422,
+        text: requestImageHandleText(image, { width: 800, height: 800 }),
+      },
+    ])
   })
 
   it('honors the low-detail pixel budget preset', () => {
@@ -100,11 +108,10 @@ describe('DeepSeek request-image pricing', () => {
   it('builds handle and placeholder text through the supplied access resolution', () => {
     const access = { readonlyPath: '/world/attachments/photo.png' }
     const images = [ref('first', 800, 800), ref('second', 800, 800)]
-    const prices = deepSeekImageRequestPricing(
-      connection(),
-      'vision',
-      () => access,
-    ).priceImages([block(images[0]!, true), block(images[1]!)])
+    const prices = deepSeekImageRequestPricing(connection(), 'vision', () => access).priceImages([
+      block(images[0]!, true),
+      block(images[1]!),
+    ])
     expect(prices[0]).toEqual({ visualTokens: 0, text: offloadedImageText(images[0]!, access) })
     expect(prices[1]).toEqual({
       visualTokens: 422,
@@ -115,10 +122,11 @@ describe('DeepSeek request-image pricing', () => {
 
   it('prices surface-offloaded occurrences as placeholder text and every retained one at its visual price', () => {
     const images = [ref('first', 800, 800), ref('second', 800, 800), ref('third', 800, 800)]
-    const prices = deepSeekImageRequestPricing(
-      connection({ maxImagesPerRequest: 1, imageOffloadCountQuantum: 1 }),
-      'vision',
-    ).priceImages([block(images[0]!, true), block(images[1]!), block(images[2]!)])
+    const prices = deepSeekImageRequestPricing(connection({ maxImagesPerRequest: 1, imageOffloadCountQuantum: 1 }), 'vision').priceImages([
+      block(images[0]!, true),
+      block(images[1]!),
+      block(images[2]!),
+    ])
     expect(prices).toEqual([
       { visualTokens: 0, text: offloadedImageText(images[0]!) },
       { visualTokens: 422, text: requestImageHandleText(images[1]!, { width: 800, height: 800 }) },

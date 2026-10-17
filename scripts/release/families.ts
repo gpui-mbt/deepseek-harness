@@ -11,10 +11,7 @@
 
 import { globSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import {
-  officialClientBuildEnvironment,
-  readClientBuildRecord,
-} from '../client-build-environment.ts'
+import { officialClientBuildEnvironment, readClientBuildRecord } from '../client-build-environment.ts'
 import { validateTarballPayload } from '../publication-payload.ts'
 import { ON_DEMAND_BUNDLES } from '../../packages/boot/app-boot/src/official-bundle-packages.ts'
 
@@ -165,8 +162,7 @@ export abstract class ReleaseFamily {
   publishOrder(members: readonly ReleaseMember[]): PublishPlan {
     const byName = new Map(members.map(member => [member.name, member]))
     const byNameSorted = [...members].sort((left, right) => left.name.localeCompare(right.name))
-    const edges = (member: ReleaseMember, sections: readonly string[]): ReleaseMember[] =>
-      this.orderEdges(member, byName, sections)
+    const edges = (member: ReleaseMember, sections: readonly string[]): ReleaseMember[] => this.orderEdges(member, byName, sections)
 
     // Install edges alone must be acyclic, and that is checked on its own graph:
     // a peer edge leading into an install edge would otherwise read as a cycle
@@ -241,8 +237,8 @@ export abstract class ReleaseFamily {
         const dependencyIndex = position.get(dependency.name)
         if (dependencyIndex !== undefined && dependencyIndex < index) continue
         throw new Error(
-          `release family ${this.id}: no publish order honours ${member.name} -> ${dependency.name};`
-          + ' a cycle mixing peer and dependency declarations reaches this dependency through a peer edge',
+          `release family ${this.id}: no publish order honours ${member.name} -> ${dependency.name};` +
+            ' a cycle mixing peer and dependency declarations reaches this dependency through a peer edge',
         )
       }
     }
@@ -254,7 +250,9 @@ export abstract class ReleaseFamily {
    * @param _member - Member being published.
    * @returns Release prerequisites that do not become installed dependencies.
    */
-  protected publicationPrerequisites(_member: ReleaseMember): readonly string[] { return [] }
+  protected publicationPrerequisites(_member: ReleaseMember): readonly string[] {
+    return []
+  }
 
   /**
    * The family members one member declares in the given sections.
@@ -263,11 +261,7 @@ export abstract class ReleaseFamily {
    * @param sections - manifest sections to read.
    * @returns Members of this family named there, sorted by name.
    */
-  private orderEdges(
-    member: ReleaseMember,
-    byName: ReadonlyMap<string, ReleaseMember>,
-    sections: readonly string[],
-  ): ReleaseMember[] {
+  private orderEdges(member: ReleaseMember, byName: ReadonlyMap<string, ReleaseMember>, sections: readonly string[]): ReleaseMember[] {
     const edges: ReleaseMember[] = []
     for (const section of sections) {
       const dependencies = member.manifest[section]
@@ -280,7 +274,8 @@ export abstract class ReleaseFamily {
     if (sections.includes('dependencies')) {
       for (const name of this.publicationPrerequisites(member)) {
         const prerequisite = byName.get(name)
-        if (prerequisite === undefined) throw new Error(`${member.name}: Official catalog prerequisite ${name} is missing from the public release family`)
+        if (prerequisite === undefined)
+          throw new Error(`${member.name}: Official catalog prerequisite ${name} is missing from the public release family`)
         if (!edges.some(edge => edge.name === name)) edges.push(prerequisite)
       }
     }
@@ -347,10 +342,7 @@ export abstract class ReleaseFamily {
 /** Release packages and apps: one shared version across the whole family. */
 class DshFamily extends ReleaseFamily {
   readonly id = 'dsh'
-  readonly patterns = [
-    'packages/*/*/package.json',
-    'apps/*/package.json',
-  ] as const
+  readonly patterns = ['packages/*/*/package.json', 'apps/*/package.json'] as const
   readonly tagPrefix = 'dsh-v'
 
   /** Require current artifacts from a complete official client build. */
@@ -478,7 +470,9 @@ function releaseFamilies(): readonly ReleaseFamily[] {
 export function releaseFamily(id: string): ReleaseFamily {
   const family = releaseFamilies().find(candidate => candidate.id === id)
   if (family === undefined) {
-    const known = releaseFamilies().map(candidate => candidate.id).join(', ')
+    const known = releaseFamilies()
+      .map(candidate => candidate.id)
+      .join(', ')
     throw new Error(`unknown release family ${id}; expected one of ${known}`)
   }
   return family

@@ -1,4 +1,4 @@
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { Resources, ResourceSnapshot } from '@deepseek-ai/dsh-client-resources/client'
@@ -12,13 +12,18 @@ function harness() {
     getSnapshot: () => state.getSnapshot(),
     subscribe: (listener: () => void) => {
       const off = state.subscribe(listener)
-      return () => { off(); release() }
+      return () => {
+        off()
+        release()
+      }
     },
   }
   const resources: Resources = { source: () => source, register: () => () => {}, pin: () => {} }
   const changed = vi.fn()
   const group = new ResourceGroup(resources, changed)
-  onTestFinished(() => { group.close() })
+  onTestFinished(() => {
+    group.close()
+  })
   const version = (version: string): void => {
     state.set({ status: 'live', value: { absolutePath: '/style.css', version }, failure: undefined })
   }
@@ -77,7 +82,8 @@ describe('ResourceGroup', () => {
     h.group.add('style.css')
     h.version('v1')
     const failed = {
-      ...h.state.getSnapshot(), status: 'failed' as const,
+      ...h.state.getSnapshot(),
+      status: 'failed' as const,
       failure: new RemoteError('workspace-file/not-found', 'File missing', { path: 'style.css' }),
     }
     h.state.set(failed)

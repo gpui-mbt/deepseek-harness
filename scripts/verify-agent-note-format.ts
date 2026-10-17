@@ -44,7 +44,7 @@ for (const note of notes) {
   const lines = readFileSync(resolve(agentNoteRoot, note.rel), 'utf8').split('\n')
   // Format tokens inside fenced examples are not document structure.
   let inFence = false
-  const prose = lines.filter((l) => {
+  const prose = lines.filter(l => {
     if (l.startsWith('```')) {
       inFence = !inFence
       return false
@@ -78,8 +78,12 @@ for (const note of notes) {
   const hasSection = h2s.includes('## Alternatives considered')
   const hasGrandfather = prose.includes(GRANDFATHER)
   if (hasSection && hasGrandfather) fail('carries both `## Alternatives considered` and the grandfather comment — drop the comment')
-  if (!hasSection && !hasGrandfather) fail('missing `## Alternatives considered` (a pre-format Agent Note whose alternatives are not reconstructible carries the grandfather comment instead — see .agents/notes/README.md § The file format)')
-  if (hasGrandfather && note.date >= FORMAT_ADOPTED) fail(`the grandfather comment is only valid for Agent Notes dated before ${FORMAT_ADOPTED}`)
+  if (!hasSection && !hasGrandfather)
+    fail(
+      'missing `## Alternatives considered` (a pre-format Agent Note whose alternatives are not reconstructible carries the grandfather comment instead — see .agents/notes/README.md § The file format)',
+    )
+  if (hasGrandfather && note.date >= FORMAT_ADOPTED)
+    fail(`the grandfather comment is only valid for Agent Notes dated before ${FORMAT_ADOPTED}`)
 
   if (prose.some(line => LEGACY_MARKERS.some(marker => line.includes(marker)))) fail('carries the retired legacy-format debt marker')
 }

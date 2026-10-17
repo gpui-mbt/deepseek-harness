@@ -3,13 +3,15 @@ import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError, stubConfigForm, type StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import {
   WebSearchCardController,
-  type WebApiSettings, type WebProviderSelection, type WebSearchSettings,
+  type WebApiSettings,
+  type WebProviderSelection,
+  type WebSearchSettings,
 } from '../src/client/web-search-card-controller.ts'
 
 /** Make the stub behave like a Host that accepts every write. */
 function acceptWrites<T>(host: StubConfigForm<T>): void {
-  const section = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().value as object })
-  const layer = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().user as object })
+  const section = (): Record<string, unknown> => ({ ...(host.scope.getSnapshot().value as object) })
+  const layer = (): Record<string, unknown> => ({ ...(host.scope.getSnapshot().user as object) })
   host.mutate.mockImplementation((ops: readonly SettingsPathOpView[]) => {
     const value = { ...section() }
     const user = { ...layer() }
@@ -34,10 +36,12 @@ function ctxWith(namespaces: object) {
 }
 
 function credentialsApi(configured: boolean) {
-  const describe = vi.fn((refs: readonly string[]) => Promise.resolve({
-    ok: true as const,
-    value: Object.fromEntries(refs.map(ref => [ref, { configured, writable: true }])),
-  }))
+  const describe = vi.fn((refs: readonly string[]) =>
+    Promise.resolve({
+      ok: true as const,
+      value: Object.fromEntries(refs.map(ref => [ref, { configured, writable: true }])),
+    }),
+  )
   const set = vi.fn(() => Promise.resolve({ ok: true as const, value: undefined }))
   return { ctx: ctxWith({ credentials: { describe, set } }), describe, set }
 }
@@ -61,7 +65,8 @@ function bench(options: { accept?: boolean; configured?: boolean; ctx?: never } 
   }
   const credentials = credentialsApi(options.configured ?? true)
   const controller = new WebSearchCardController(
-    { web: web.scope, messages: messages.scope, api: api.scope }, options.ctx ?? credentials.ctx,
+    { web: web.scope, messages: messages.scope, api: api.scope },
+    options.ctx ?? credentials.ctx,
   )
   const face = controller.inject()
   return { web, messages, api, credentials, controller, face, state: () => face.hooks.webSearchCard.getSnapshot() }
@@ -80,9 +85,13 @@ function serve(b: ReturnType<typeof bench>, selection: SelectionLayers = {}): vo
 describe('WebSearchCardController credential', () => {
   it('reads the credential state for the reference the selected section names', async () => {
     const b = bench()
-    await vi.waitFor(() => { expect(b.credentials.describe).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(b.credentials.describe).toHaveBeenCalled()
+    })
     serve(b)
-    await vi.waitFor(() => { expect(b.state().apiKeyConfigured).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.state().apiKeyConfigured).toBe(true)
+    })
     expect(b.state()).toMatchObject({ baseURL: { text: '', overridden: false }, apiKey: { text: '', overridden: false } })
     b.controller.dispose()
   })
@@ -93,13 +102,20 @@ describe('WebSearchCardController credential', () => {
     b.face.edit('apiKey', ' ds-secret ')
     expect(b.state().dirty).toBe(true)
     expect(b.credentials.set).not.toHaveBeenCalled()
-    b.credentials.describe.mockImplementation((refs: readonly string[]) => Promise.resolve({
-      ok: true as const, value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
-    }))
+    b.credentials.describe.mockImplementation((refs: readonly string[]) =>
+      Promise.resolve({
+        ok: true as const,
+        value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
+      }),
+    )
     b.face.save()
-    await vi.waitFor(() => { expect(b.credentials.set).toHaveBeenCalledWith('DEEPSEEK_API_KEY', 'ds-secret') })
+    await vi.waitFor(() => {
+      expect(b.credentials.set).toHaveBeenCalledWith('DEEPSEEK_API_KEY', 'ds-secret')
+    })
     for (const host of [b.web, b.messages, b.api]) expect(host.mutate).not.toHaveBeenCalled()
-    await vi.waitFor(() => { expect(b.state()).toMatchObject({ dirty: false, apiKeyConfigured: true }) })
+    await vi.waitFor(() => {
+      expect(b.state()).toMatchObject({ dirty: false, apiKeyConfigured: true })
+    })
     b.controller.dispose()
   })
 
@@ -116,15 +132,22 @@ describe('WebSearchCardController credential', () => {
   it('re-reads only when the Host reports the watched reference changed', async () => {
     const b = bench({ configured: false })
     serve(b)
-    await vi.waitFor(() => { expect(b.credentials.describe).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(b.credentials.describe).toHaveBeenCalled()
+    })
     b.credentials.describe.mockClear()
     b.controller.refreshCredential('OTHER_KEY')
     expect(b.credentials.describe).not.toHaveBeenCalled()
-    b.credentials.describe.mockImplementation((refs: readonly string[]) => Promise.resolve({
-      ok: true as const, value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
-    }))
+    b.credentials.describe.mockImplementation((refs: readonly string[]) =>
+      Promise.resolve({
+        ok: true as const,
+        value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
+      }),
+    )
     b.controller.refreshCredential('DEEPSEEK_API_KEY')
-    await vi.waitFor(() => { expect(b.state().apiKeyConfigured).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.state().apiKeyConfigured).toBe(true)
+    })
     b.controller.dispose()
   })
 
@@ -133,12 +156,18 @@ describe('WebSearchCardController credential', () => {
     serve(b)
     b.messages.publish({ value: { apiKeyEnv: 'MESSAGES_KEY' } })
     b.api.publish({ value: { apiKeyEnv: 'API_KEY', count: 10 } })
-    await vi.waitFor(() => { expect(b.credentials.describe).toHaveBeenLastCalledWith(['MESSAGES_KEY']) })
+    await vi.waitFor(() => {
+      expect(b.credentials.describe).toHaveBeenLastCalledWith(['MESSAGES_KEY'])
+    })
     b.face.setSearchApi(true)
-    await vi.waitFor(() => { expect(b.credentials.describe).toHaveBeenLastCalledWith(['API_KEY']) })
+    await vi.waitFor(() => {
+      expect(b.credentials.describe).toHaveBeenLastCalledWith(['API_KEY'])
+    })
     b.face.edit('apiKey', 'ds-secret')
     b.face.save()
-    await vi.waitFor(() => { expect(b.credentials.set).toHaveBeenCalledWith('API_KEY', 'ds-secret') })
+    await vi.waitFor(() => {
+      expect(b.credentials.set).toHaveBeenCalledWith('API_KEY', 'ds-secret')
+    })
     b.controller.dispose()
   })
 
@@ -147,23 +176,30 @@ describe('WebSearchCardController credential', () => {
     serve(b)
     b.face.edit('apiKey', 'ds-secret')
     b.face.save()
-    await vi.waitFor(() => { expect(b.state()).toMatchObject({ failed: true, dirty: true, apiSwitchBlocked: true }) })
+    await vi.waitFor(() => {
+      expect(b.state()).toMatchObject({ failed: true, dirty: true, apiSwitchBlocked: true })
+    })
     b.controller.dispose()
   })
 
   it('keeps the card usable when the credential read and write are refused', async () => {
-    const refusal = () => Promise.resolve({
-      ok: false as const,
-      error: new RemoteError('credential/rejected', 'offline', { ref: 'DEEPSEEK_API_KEY' }),
-    })
+    const refusal = () =>
+      Promise.resolve({
+        ok: false as const,
+        error: new RemoteError('credential/rejected', 'offline', { ref: 'DEEPSEEK_API_KEY' }),
+      })
     const describe = vi.fn(refusal)
     const set = vi.fn(refusal)
     const b = bench({ ctx: ctxWith({ credentials: { describe, set } }) })
-    await vi.waitFor(() => { expect(describe).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(describe).toHaveBeenCalled()
+    })
     serve(b)
     b.face.edit('apiKey', 'ds-secret')
     b.face.save()
-    await vi.waitFor(() => { expect(set).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(set).toHaveBeenCalled()
+    })
     expect(b.state()).toMatchObject({ available: true, apiKeyConfigured: false, baseURL: { text: '' } })
     b.controller.dispose()
   })
@@ -171,7 +207,12 @@ describe('WebSearchCardController credential', () => {
   it('drops a credential answer for a reference that changed while it was pending', async () => {
     type Answer = { ok: true; value: Record<string, { configured: boolean; writable: boolean }> }
     let answer: (value: Answer) => void = () => {}
-    const describe = vi.fn(() => new Promise<Answer>((resolve) => { answer = resolve }))
+    const describe = vi.fn(
+      () =>
+        new Promise<Answer>(resolve => {
+          answer = resolve
+        }),
+    )
     const b = bench({ ctx: ctxWith({ credentials: { describe, set: vi.fn() } }) })
     serve(b)
     b.messages.publish({ value: { apiKeyEnv: 'RENAMED_KEY' } })
@@ -189,11 +230,16 @@ describe('WebSearchCardController sections', () => {
     b.face.edit('baseURL', 'https://other.test')
     b.face.edit('maxUses', '3')
     b.face.save()
-    await vi.waitFor(() => { expect(b.messages.mutate).toHaveBeenCalledTimes(1) })
-    expect(b.messages.mutate).toHaveBeenCalledWith([
-      { op: 'set', path: ['baseURL'], value: 'https://other.test' },
-      { op: 'set', path: ['maxUses'], value: 3 },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(b.messages.mutate).toHaveBeenCalledTimes(1)
+    })
+    expect(b.messages.mutate).toHaveBeenCalledWith(
+      [
+        { op: 'set', path: ['baseURL'], value: 'https://other.test' },
+        { op: 'set', path: ['maxUses'], value: 3 },
+      ],
+      undefined,
+    )
     expect(b.web.mutate).not.toHaveBeenCalled()
     expect(b.api.mutate).not.toHaveBeenCalled()
     b.controller.dispose()
@@ -206,18 +252,24 @@ describe('WebSearchCardController sections', () => {
    * @param composed - the composed endpoint the field shows without an override.
    */
   async function endpointRoundTrip<T extends { baseURL?: string }>(
-    b: ReturnType<typeof bench>, host: StubConfigForm<T>, composed: string,
+    b: ReturnType<typeof bench>,
+    host: StubConfigForm<T>,
+    composed: string,
   ): Promise<void> {
     expect(b.state().baseURL).toEqual({ text: composed, overridden: false, invalid: false })
     b.face.edit('baseURL', 'https://custom.test/tools')
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
     expect(host.mutate).toHaveBeenLastCalledWith([{ op: 'set', path: ['baseURL'], value: 'https://custom.test/tools' }], undefined)
     expect(b.state().baseURL).toMatchObject({ text: 'https://custom.test/tools', overridden: true })
     b.face.resetField('baseURL')
     expect(b.state().baseURL).toMatchObject({ text: composed, overridden: false })
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
     expect(host.mutate).toHaveBeenLastCalledWith([{ op: 'unset', path: ['baseURL'] }], undefined)
     expect(b.state().baseURL).toMatchObject({ text: composed, overridden: false })
   }
@@ -225,7 +277,11 @@ describe('WebSearchCardController sections', () => {
   it('edits the Messages endpoint while the switch is off', async () => {
     const b = bench({ accept: true })
     serve(b)
-    try { await endpointRoundTrip(b, b.messages, '') } finally { b.controller.dispose() }
+    try {
+      await endpointRoundTrip(b, b.messages, '')
+    } finally {
+      b.controller.dispose()
+    }
     expect(b.api.mutate).not.toHaveBeenCalled()
   })
 
@@ -234,11 +290,15 @@ describe('WebSearchCardController sections', () => {
     serve(b, { value: { searchProvider: 'deepseek-search-api' } })
     const composed = { count: 10, baseURL: 'https://api.deepseek.com/v1/tools' }
     b.api.publish({ value: composed, base: composed })
-    try { await endpointRoundTrip(b, b.api, composed.baseURL) } finally { b.controller.dispose() }
+    try {
+      await endpointRoundTrip(b, b.api, composed.baseURL)
+    } finally {
+      b.controller.dispose()
+    }
     expect(b.messages.mutate).not.toHaveBeenCalled()
   })
 
-  it.each(['0', '51', '1.5', 'many', 'Infinity'])('rejects an unsupported Search API result count: %s', (text) => {
+  it.each(['0', '51', '1.5', 'many', 'Infinity'])('rejects an unsupported Search API result count: %s', text => {
     const b = bench()
     serve(b, { value: { searchProvider: 'deepseek-search-api' } })
     b.face.edit('count', text)
@@ -248,17 +308,20 @@ describe('WebSearchCardController sections', () => {
     b.controller.dispose()
   })
 
-  it.each(['1', '50', '   '])('saves a supported Search API result count or restores its default: %j', async (text) => {
+  it.each(['1', '50', '   '])('saves a supported Search API result count or restores its default: %j', async text => {
     const b = bench({ accept: true })
     serve(b, { value: { searchProvider: 'deepseek-search-api' } })
     b.api.publish({ value: { count: 20 }, base: { count: 10 }, user: { count: 20 } })
     b.face.edit('count', text)
     expect(b.state().invalid).toBe(false)
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
-    expect(b.api.mutate).toHaveBeenCalledWith([
-      text.trim() === '' ? { op: 'unset', path: ['count'] } : { op: 'set', path: ['count'], value: Number(text) },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
+    expect(b.api.mutate).toHaveBeenCalledWith(
+      [text.trim() === '' ? { op: 'unset', path: ['count'] } : { op: 'set', path: ['count'], value: Number(text) }],
+      undefined,
+    )
     expect(b.state().count.text).toBe(text.trim() === '' ? '10' : text)
     b.controller.dispose()
   })
@@ -278,19 +341,29 @@ describe('WebSearchCardController API switch', () => {
     expect(state().useSearchApi).toBe(false)
     b.face.setSearchApi(true)
     b.face.save()
-    await vi.waitFor(() => { expect(state().dirty).toBe(false) })
-    expect(b.web.mutate).toHaveBeenLastCalledWith([
-      { op: 'set', path: ['searchProvider'], value: 'deepseek-search-api' },
-      { op: 'set', path: ['fetchProvider'], value: 'deepseek-fetch-api' },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(state().dirty).toBe(false)
+    })
+    expect(b.web.mutate).toHaveBeenLastCalledWith(
+      [
+        { op: 'set', path: ['searchProvider'], value: 'deepseek-search-api' },
+        { op: 'set', path: ['fetchProvider'], value: 'deepseek-fetch-api' },
+      ],
+      undefined,
+    )
     expect(state().useSearchApi).toBe(true)
     b.face.setSearchApi(false)
     b.face.save()
-    await vi.waitFor(() => { expect(state().dirty).toBe(false) })
-    expect(b.web.mutate).toHaveBeenLastCalledWith([
-      { op: 'unset', path: ['searchProvider'] },
-      { op: 'unset', path: ['fetchProvider'] },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(state().dirty).toBe(false)
+    })
+    expect(b.web.mutate).toHaveBeenLastCalledWith(
+      [
+        { op: 'unset', path: ['searchProvider'] },
+        { op: 'unset', path: ['fetchProvider'] },
+      ],
+      undefined,
+    )
     expect(state()).toMatchObject({ useSearchApi: false, baseURL: { text: 'https://messages.test/v1' } })
     expect(b.messages.mutate).not.toHaveBeenCalled()
     b.controller.dispose()
@@ -303,18 +376,28 @@ describe('WebSearchCardController API switch', () => {
     expect(b.state().useSearchApi).toBe(true)
     b.face.setSearchApi(false)
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
-    expect(b.web.mutate).toHaveBeenLastCalledWith([
-      { op: 'set', path: ['searchProvider'], value: 'deepseek-official' },
-      { op: 'set', path: ['fetchProvider'], value: 'http' },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
+    expect(b.web.mutate).toHaveBeenLastCalledWith(
+      [
+        { op: 'set', path: ['searchProvider'], value: 'deepseek-official' },
+        { op: 'set', path: ['fetchProvider'], value: 'http' },
+      ],
+      undefined,
+    )
     b.face.setSearchApi(true)
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
-    expect(b.web.mutate).toHaveBeenLastCalledWith([
-      { op: 'unset', path: ['searchProvider'] },
-      { op: 'unset', path: ['fetchProvider'] },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
+    expect(b.web.mutate).toHaveBeenLastCalledWith(
+      [
+        { op: 'unset', path: ['searchProvider'] },
+        { op: 'unset', path: ['fetchProvider'] },
+      ],
+      undefined,
+    )
     b.controller.dispose()
   })
 
@@ -322,14 +405,22 @@ describe('WebSearchCardController API switch', () => {
     const b = bench({ accept: true })
     serve(b)
     const order: string[] = []
-    for (const [name, host] of [['web', b.web], ['api', b.api]] as const) {
+    for (const [name, host] of [
+      ['web', b.web],
+      ['api', b.api],
+    ] as const) {
       const accept = host.mutate.getMockImplementation()!
-      host.mutate.mockImplementation((ops, revision) => { order.push(name); return accept(ops, revision) })
+      host.mutate.mockImplementation((ops, revision) => {
+        order.push(name)
+        return accept(ops, revision)
+      })
     }
     b.face.setSearchApi(true)
     b.face.edit('baseURL', 'https://search-api.test/v1/tools')
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
     expect(order).toEqual(['api', 'web'])
     b.controller.dispose()
   })
@@ -341,7 +432,9 @@ describe('WebSearchCardController API switch', () => {
     b.face.setSearchApi(true)
     b.face.edit('count', '20')
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().failed).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.state().failed).toBe(true)
+    })
     expect(b.web.mutate).not.toHaveBeenCalled()
     expect(b.state()).toMatchObject({ useSearchApi: true, dirty: true, apiSwitchBlocked: true })
     b.controller.dispose()
@@ -360,7 +453,7 @@ describe('WebSearchCardController API switch', () => {
     b.controller.dispose()
   })
 
-  it.each(['web', 'api'] as const)('hides the switch and shows Messages settings while %s is not served', (missing) => {
+  it.each(['web', 'api'] as const)('hides the switch and shows Messages settings while %s is not served', missing => {
     const b = bench()
     serve(b, { value: { searchProvider: 'deepseek-search-api' } })
     b[missing].publish({ status: 'unavailable' })
@@ -374,13 +467,22 @@ describe('WebSearchCardController API switch', () => {
     expect(b.state().available).toBe(false)
     serve(b)
     let release: (accepted: boolean) => void = () => {}
-    b.messages.mutate.mockImplementation(() => new Promise<boolean>((resolve) => { release = resolve }))
+    b.messages.mutate.mockImplementation(
+      () =>
+        new Promise<boolean>(resolve => {
+          release = resolve
+        }),
+    )
     b.face.edit('maxUses', '3')
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().saving).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.state().saving).toBe(true)
+    })
     b.face.save()
     release(true)
-    await vi.waitFor(() => { expect(b.state().saving).toBe(false) })
+    await vi.waitFor(() => {
+      expect(b.state().saving).toBe(false)
+    })
     expect(b.messages.mutate).toHaveBeenCalledTimes(1)
     b.controller.dispose()
   })

@@ -3,7 +3,7 @@
  * user-authored metadata is never translated.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { presetDisplayText, type BuiltInPresetCopyKey } from '../src/display.ts'
 
 const t = (key: BuiltInPresetCopyKey): string => `t:${key}`
@@ -17,8 +17,7 @@ describe('presetDisplayText', () => {
   })
 
   it('keeps user-authored metadata untranslated', () => {
-    expect(presetDisplayText({ id: 'mine', name: '我的模式', description: '自述' }, t))
-      .toEqual({ name: '我的模式', description: '自述' })
+    expect(presetDisplayText({ id: 'mine', name: '我的模式', description: '自述' }, t)).toEqual({ name: '我的模式', description: '自述' })
   })
 
   it('falls back to the id for a preset publishing no metadata', () => {

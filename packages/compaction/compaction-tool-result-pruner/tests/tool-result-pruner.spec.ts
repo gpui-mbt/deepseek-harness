@@ -1,22 +1,13 @@
 import { imageOffloadProjection } from '@deepseek-ai/dsh-compaction-image-offload/projection'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
-import { ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
-import {
-  Session,
-  SessionId,
-  SessionSeq,
-} from '@deepseek-ai/dsh-session'
+import { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SurfaceEvent } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
-import ToolResultPruner, {
-  codePointLength,
-  DEFAULTS,
-  PRUNE_MARKER,
-  resolveConfig,
-} from '@deepseek-ai/dsh-compaction-tool-result-pruner'
+import ToolResultPruner, { codePointLength, DEFAULTS, PRUNE_MARKER, resolveConfig } from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 import type { ToolResultPruneConfig } from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 
 const MODEL = 'test-model'
@@ -52,26 +43,34 @@ function appendToolStep(
     turn,
   })
   session.append('step/start', { turn, step: 1 })
-  session.append('assistant/message', {
-    stream: [],
-    turn,
-    step: 1,
-    message: createMessage({
-      role: 'assistant',
-      content: [{ type: 'tool-call', id: callId, name: 'bash', arguments: '{}' }],
-      source: {
-        kind: 'model',
-        ...{ provider: MODEL, model: MODEL },
-      },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn,
+      step: 1,
+      message: createMessage({
+        role: 'assistant',
+        content: [{ type: 'tool-call', id: callId, name: 'bash', arguments: '{}' }],
+        source: {
+          kind: 'model',
+          ...{ provider: MODEL, model: MODEL },
+        },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('tool/call', { turn, step: 1, callId, name: 'bash', arguments: '{}' })
-  const result = session.append('tool/result', {
-    turn,
-    step: 1,
-    message: createToolResultMessage({ callId, content, isError: extra['error'] !== undefined }),
-    ...extra,
-  }, { surfaceOp: 'append' })
+  const result = session.append(
+    'tool/result',
+    {
+      turn,
+      step: 1,
+      message: createToolResultMessage({ callId, content, isError: extra['error'] !== undefined }),
+      ...extra,
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('step/end', { turn, step: 1 })
   session.append('turn/end', { turn, reason: { kind: 'completed' } })
   return result.seq
@@ -82,9 +81,16 @@ describe('tool-result pruning configuration', () => {
     const session = Session.create(SessionId('prune-offloaded'), undefined, undefined, undefined, [imageOffloadProjection])
     const seq = appendToolStep(session, 1, 'shot', [
       { type: 'text', text: 'x'.repeat(200) },
-      { type: 'image', attachment: {
-        attachmentId: `sha256:${'a'.repeat(64)}` as never, mediaType: 'image/png', bytes: 1, width: 1, height: 1,
-      } },
+      {
+        type: 'image',
+        attachment: {
+          attachmentId: `sha256:${'a'.repeat(64)}` as never,
+          mediaType: 'image/png',
+          bytes: 1,
+          width: 1,
+          height: 1,
+        },
+      },
     ])
     session.append('image/offload', { targets: [{ seq: SessionSeq(seq), imageIndexes: [0] }] })
     const pruned = service().pruneSession(session)
@@ -92,7 +98,13 @@ describe('tool-result pruning configuration', () => {
     const replacement = session.snapshotEvents().at(-1)!
     expect(replacement.type).toBe('tool/result')
     expect(JSON.stringify(session.deriveEventMessage(replacement))).toContain('"offloaded":true')
-    expect(JSON.stringify(Session.create(SessionId('restored-offloaded'), session.snapshotEvents(), undefined, undefined, [imageOffloadProjection]).deriveMessages())).toContain('"offloaded":true')
+    expect(
+      JSON.stringify(
+        Session.create(SessionId('restored-offloaded'), session.snapshotEvents(), undefined, undefined, [
+          imageOffloadProjection,
+        ]).deriveMessages(),
+      ),
+    ).toContain('"offloaded":true')
     expect(JSON.stringify(session.eventAt(SessionSeq(seq)))).not.toContain('offloaded')
   })
 
@@ -135,10 +147,12 @@ describe('ToolResultPruner content transform', () => {
   it('keeps configured head and tail without splitting surrogate pairs', () => {
     const prune = service()
     const result = prune.pruneContent([{ type: 'text', text: '😀'.repeat(60) }])
-    expect(result).toEqual([{
-      type: 'text',
-      text: `${'😀'.repeat(4)}${PRUNE_MARKER}${'😀'.repeat(3)}`,
-    }])
+    expect(result).toEqual([
+      {
+        type: 'text',
+        text: `${'😀'.repeat(4)}${PRUNE_MARKER}${'😀'.repeat(3)}`,
+      },
+    ])
     expect(prune.measureContent(result!)).toBeLessThanOrEqual(50)
     expect(result![0]).toMatchObject({ type: 'text' })
     expect((result![0] as { text: string }).text).not.toContain('\uFFFD')
@@ -160,12 +174,7 @@ describe('ToolResultPruner content transform', () => {
       call,
       { type: 'text', text: 'C'.repeat(30) },
     ])
-    expect(result).toEqual([
-      { type: 'text', text: `AAAA${PRUNE_MARKER}` },
-      reasoning,
-      call,
-      { type: 'text', text: 'CCC' },
-    ])
+    expect(result).toEqual([{ type: 'text', text: `AAAA${PRUNE_MARKER}` }, reasoning, call, { type: 'text', text: 'CCC' }])
     expect(prune.measureContent(result!)).toBeLessThanOrEqual(50)
   })
 
@@ -184,15 +193,23 @@ describe('ToolResultPruner content transform', () => {
 describe('ToolResultPruner session transaction', () => {
   it('prunes a stable snapshot, preserves all data, and cites the replaced result', () => {
     const session = Session.create(SessionId('preserve'))
-    const originalSeq = appendToolStep(session, 1, 'one', [{
-      type: 'text',
-      text: 'x'.repeat(100),
-    }], {
-      isError: true,
-      error: { name: 'ExitError', code: 'EXIT_1' },
-      meta: { diff: ['a', 'b'] },
-      futureField: { nested: true },
-    })
+    const originalSeq = appendToolStep(
+      session,
+      1,
+      'one',
+      [
+        {
+          type: 'text',
+          text: 'x'.repeat(100),
+        },
+      ],
+      {
+        isError: true,
+        error: { name: 'ExitError', code: 'EXIT_1' },
+        meta: { diff: ['a', 'b'] },
+        futureField: { nested: true },
+      },
+    )
     session.append('turn/start', {
       turn: 2,
     })
@@ -260,9 +277,7 @@ describe('ToolResultPruner session transaction', () => {
     const first = prune.pruneSession(session)
     const second = prune.pruneSession(session)
     expect(first.pruned.map(entry => entry.callId)).toEqual([ToolCallId('a'), ToolCallId('c')])
-    expect(first.charsRemoved).toBe(
-      first.pruned.reduce((sum, entry) => sum + entry.charsBefore - entry.charsAfter, 0),
-    )
+    expect(first.charsRemoved).toBe(first.pruned.reduce((sum, entry) => sum + entry.charsBefore - entry.charsAfter, 0))
     expect(second).toEqual({ pruned: [], charsRemoved: 0 })
   })
 

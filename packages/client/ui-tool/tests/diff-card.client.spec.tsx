@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
@@ -31,28 +31,47 @@ const DIFFS = [{ path: 'notes/demo.txt', oldText: 'hello', newText: 'hello fixtu
 const running = (over?: Partial<StartedToolCall>): StartedToolCall => {
   const argsRaw = over?.argsRaw ?? ARGS
   return {
-    phase: 'start' as const, args: PartialArguments.fromText(argsRaw), callId: 'c1', name: 'edit', argsRaw,
-    turn: 1, step: 1, time: 1_000, subCalls: [], ...over,
+    phase: 'start' as const,
+    args: PartialArguments.fromText(argsRaw),
+    callId: 'c1',
+    name: 'edit',
+    argsRaw,
+    turn: 1,
+    step: 1,
+    time: 1_000,
+    subCalls: [],
+    ...over,
   }
 }
 
 const settled = (over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'edit', argsRaw: ARGS } : over.call
   return {
-    kind: 'tool-result', seq: 10, time: 2_000, callId: 'c1',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq: 10,
+    time: 2_000,
+    callId: 'c1',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: 1_000,
-    content: [{ type: 'text', text: 'The file notes/demo.txt has been updated successfully.' }], isError: false,
-    meta: { diffs: DIFFS }, subCalls: [], ...over,
+    content: [{ type: 'text', text: 'The file notes/demo.txt has been updated successfully.' }],
+    isError: false,
+    meta: { diffs: DIFFS },
+    subCalls: [],
+    ...over,
   }
 }
 
 describe('diffCardModel', () => {
   it('retains the authored file label when navigation metadata identifies an absolute target', () => {
-    expect(diffCardModel(settled({
-      meta: { path: '/b/notes/demo.txt', diffs: [{ ...DIFFS[0]!, path: '/b/notes/demo.txt' }] },
-    }))).toEqual({ card: { diffs: DIFFS } })
+    expect(
+      diffCardModel(
+        settled({
+          meta: { path: '/b/notes/demo.txt', diffs: [{ ...DIFFS[0]!, path: '/b/notes/demo.txt' }] },
+        }),
+      ),
+    ).toEqual({ card: { diffs: DIFFS } })
   })
   it('derives a running card from raw edit arguments', () => {
     expect(diffCardModel(running())).toEqual({
@@ -60,10 +79,14 @@ describe('diffCardModel', () => {
     })
   })
 
-  it('preserves the Host presenter\'s whole-file diff for an empty old_string', () => {
-    expect(diffCardModel(running({
-      argsRaw: '{"file_path":"notes/demo.txt","old_string":"","new_string":"replacement"}',
-    }))).toEqual({
+  it("preserves the Host presenter's whole-file diff for an empty old_string", () => {
+    expect(
+      diffCardModel(
+        running({
+          argsRaw: '{"file_path":"notes/demo.txt","old_string":"","new_string":"replacement"}',
+        }),
+      ),
+    ).toEqual({
       card: { diffs: [{ path: 'notes/demo.txt', oldText: null, newText: 'replacement' }] },
     })
   })
@@ -80,10 +103,14 @@ describe('diffCardModel', () => {
       diff: { path: 'notes/demo.txt', oldText: 'old', newText: 'new' },
     },
   ])('preserves the running str_replace_editor $command diff', ({ args, diff }) => {
-    expect(diffCardModel(running({
-      name: 'str_replace_editor',
-      argsRaw: JSON.stringify(args),
-    }))).toEqual({ card: { diffs: [diff] } })
+    expect(
+      diffCardModel(
+        running({
+          name: 'str_replace_editor',
+          argsRaw: JSON.stringify(args),
+        }),
+      ),
+    ).toEqual({ card: { diffs: [diff] } })
   })
 
   it('preserves str_replace_editor defaults and its settled Generic result', () => {
@@ -91,16 +118,22 @@ describe('diffCardModel', () => {
     expect(diffCardModel(running({ name: 'str_replace_editor', argsRaw }))).toEqual({
       card: { diffs: [{ path: 'notes/demo.txt', oldText: null, newText: '' }] },
     })
-    expect(diffCardModel(settled({
-      call: { name: 'str_replace_editor', argsRaw },
-      meta: { diffs: [{ path: 'notes/demo.txt', oldText: 'old', newText: 'new' }] },
-    }))).toBeNull()
+    expect(
+      diffCardModel(
+        settled({
+          call: { name: 'str_replace_editor', argsRaw },
+          meta: { diffs: [{ path: 'notes/demo.txt', oldText: 'old', newText: 'new' }] },
+        }),
+      ),
+    ).toBeNull()
   })
 
   it('keeps unsupported or malformed str_replace_editor calls generic', () => {
-    const editor = (args: Record<string, unknown>) => running({
-      name: 'str_replace_editor', argsRaw: JSON.stringify(args),
-    })
+    const editor = (args: Record<string, unknown>) =>
+      running({
+        name: 'str_replace_editor',
+        argsRaw: JSON.stringify(args),
+      })
     expect(diffCardModel(editor({ command: 'view', path: 'notes/demo.txt' }))).toBeNull()
     expect(diffCardModel(editor({ command: 'insert', path: 'notes/demo.txt', new_str: 'x' }))).toBeNull()
     expect(diffCardModel(editor({ command: 'create', path: '', file_text: 'x' }))).toBeNull()
@@ -110,19 +143,27 @@ describe('diffCardModel', () => {
   })
 
   it('derives a settled card from result metadata, which replaces the intended diff', () => {
-    expect(diffCardModel(settled({
-      meta: { diffs: [{ path: 'notes/demo.txt', oldText: 'a', newText: 'b' }] },
-    }))).toEqual({
+    expect(
+      diffCardModel(
+        settled({
+          meta: { diffs: [{ path: 'notes/demo.txt', oldText: 'a', newText: 'b' }] },
+        }),
+      ),
+    ).toEqual({
       card: { diffs: [{ path: 'notes/demo.txt', oldText: 'a', newText: 'b' }] },
     })
   })
 
   it('uses the intended write diff when successful metadata reports no applied hunk', () => {
     const writeArgs = JSON.stringify({ file_path: 'notes/new.txt', content: 'hello fixture\n' })
-    expect(diffCardModel(settled({
-      call: { name: 'write', argsRaw: writeArgs },
-      meta: { diffs: [] },
-    }))).toEqual({
+    expect(
+      diffCardModel(
+        settled({
+          call: { name: 'write', argsRaw: writeArgs },
+          meta: { diffs: [] },
+        }),
+      ),
+    ).toEqual({
       card: { diffs: [{ path: 'notes/new.txt', oldText: null, newText: 'hello fixture\n' }] },
     })
   })
@@ -146,25 +187,31 @@ describe('diffCardModel', () => {
     expect(diffCardModel(settled({ meta: { diffs: [{ path: 'a', oldText: null, newText: 9 }] } }))).toBeNull()
   })
 
-  it.each([
-    undefined,
-    null,
-    { diffs: 'nope' },
-    { diffs: [null] },
-  ])('uses the intended write diff when applied metadata is absent or malformed: %j', (meta) => {
-    const writeArgs = JSON.stringify({ file_path: 'notes/new.txt', content: 'hello fixture\n' })
-    expect(diffCardModel(settled({
-      call: { name: 'write', argsRaw: writeArgs },
-      meta,
-    }))).toEqual({
-      card: { diffs: [{ path: 'notes/new.txt', oldText: null, newText: 'hello fixture\n' }] },
-    })
-  })
+  it.each([undefined, null, { diffs: 'nope' }, { diffs: [null] }])(
+    'uses the intended write diff when applied metadata is absent or malformed: %j',
+    meta => {
+      const writeArgs = JSON.stringify({ file_path: 'notes/new.txt', content: 'hello fixture\n' })
+      expect(
+        diffCardModel(
+          settled({
+            call: { name: 'write', argsRaw: writeArgs },
+            meta,
+          }),
+        ),
+      ).toEqual({
+        card: { diffs: [{ path: 'notes/new.txt', oldText: null, newText: 'hello fixture\n' }] },
+      })
+    },
+  )
 
   it('leaves escalation fields to the Host and accepts unrelated open-root fields', () => {
-    const args = (fields: Record<string, unknown>) => JSON.stringify({
-      file_path: 'notes/demo.txt', old_string: 'hello', new_string: 'hello fixture', ...fields,
-    })
+    const args = (fields: Record<string, unknown>) =>
+      JSON.stringify({
+        file_path: 'notes/demo.txt',
+        old_string: 'hello',
+        new_string: 'hello fixture',
+        ...fields,
+      })
     expect(diffCardModel(running({ argsRaw: args({ sandbox_permissions: 'workspace-write', justification: '' }) }))).not.toBeNull()
     expect(diffCardModel(running({ argsRaw: args({ extension: { version: 1 } }) }))).not.toBeNull()
   })
@@ -173,7 +220,12 @@ describe('diffCardModel', () => {
 describe('chat row diff body', () => {
   const ownerProps = (block: StartedToolCall | ToolResultNode): GenericToolCardProps => ({
     loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
-    useDisclosure, callId: 'c1', toolName: 'edit', ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(), t,
+    useDisclosure,
+    callId: 'c1',
+    toolName: 'edit',
+    ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+    openFile: vi.fn(),
+    t,
   })
 
   it('the expanded body is the applied diff, capped tighter than the panel', () => {
@@ -196,14 +248,23 @@ describe('chat row diff body', () => {
   it('a non-diff call keeps the args-JSON text body', () => {
     // A non-file tool name so the row is not single-file (no path link), and its
     // args body is the fallback the diff card must not have replaced.
-    const view = render(<GenericToolCard {...{
-      useDisclosure, callId: 'c1', toolName: 'some_tool', openFile: vi.fn(),
-      loadImage: vi.fn(() => Promise.reject(new Error('not used'))), t,
-      phase: 'result' as const, block: settled({
-        call: { name: 'some_tool', argsRaw: '{"foo":"bar"}' },
-        meta: undefined,
-      }),
-    }} />)
+    const view = render(
+      <GenericToolCard
+        {...{
+          useDisclosure,
+          callId: 'c1',
+          toolName: 'some_tool',
+          openFile: vi.fn(),
+          loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
+          t,
+          phase: 'result' as const,
+          block: settled({
+            call: { name: 'some_tool', argsRaw: '{"foo":"bar"}' },
+            meta: undefined,
+          }),
+        }}
+      />,
+    )
     fireEvent.click(view.container.querySelector('[data-expandable]')!)
     expect(view.container.querySelector('[data-diff]')).toBeNull()
     expect(view.getByText(/"foo"/)).toBeTruthy()
@@ -211,18 +272,26 @@ describe('chat row diff body', () => {
 })
 
 describe('FileMutationRow diff card', () => {
-  const list = () => createSnapshotStore<SessionListState>({
-    ids: [SID],
-    byId: { [SID]: { id: SID, displayTitle: 'r', running: false, retainedBy: {}, blank: false, updatedAt: 0, cwd: '/w/app' } },
-    phase: 'ready',
-    projectionsBySession: {},
-  })
+  const list = () =>
+    createSnapshotStore<SessionListState>({
+      ids: [SID],
+      byId: { [SID]: { id: SID, displayTitle: 'r', running: false, retainedBy: {}, blank: false, updatedAt: 0, cwd: '/w/app' } },
+      phase: 'ready',
+      projectionsBySession: {},
+    })
 
-  const rowProps = (block: StartedToolCall | ToolResultNode, toolName = 'edit'): FileMutationRowProps => ({
-    useDisclosure, callId: 'c1', toolName, ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(), cwd: '/w/app',
-    sessionId: SID, useSessions: bindSnapshotSelector(list()),
-    t,
-  } as FileMutationRowProps)
+  const rowProps = (block: StartedToolCall | ToolResultNode, toolName = 'edit'): FileMutationRowProps =>
+    ({
+      useDisclosure,
+      callId: 'c1',
+      toolName,
+      ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+      openFile: vi.fn(),
+      cwd: '/w/app',
+      sessionId: SID,
+      useSessions: bindSnapshotSelector(list()),
+      t,
+    }) as FileMutationRowProps
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
   const toggleRow = (view: { container: HTMLElement }) => {
@@ -252,10 +321,17 @@ describe('FileMutationRow diff card', () => {
 
   it('registers under write too, rendering a create as an added-only diff', () => {
     const writeArgs = '{"file_path":"notes/new.txt","content":"hello fixture\\n"}'
-    const view = render(<FileMutationRow {...rowProps(settled({
-      call: { name: 'write', argsRaw: writeArgs },
-      meta: { diffs: [] },
-    }), 'write')} />)
+    const view = render(
+      <FileMutationRow
+        {...rowProps(
+          settled({
+            call: { name: 'write', argsRaw: writeArgs },
+            meta: { diffs: [] },
+          }),
+          'write',
+        )}
+      />,
+    )
     // The collapsed row already carries the card's +/- totals beside the path.
     expect(view.container.querySelector('[data-disclosure-row]')?.textContent).toContain('+1 -0')
     toggleRow(view)
@@ -283,19 +359,32 @@ describe('FileMutationRow diff card', () => {
 
   it('surfaces the result text when an errored mutation has no diff card', () => {
     // Failed mutations have no diff; ToolRow keeps the model-facing error text.
-    const view = render(<FileMutationRow {...rowProps(settled({
-      isError: true,
-      content: [{ type: 'text', text: 'old_string not found in notes/demo.txt' }],
-    }))} />)
+    const view = render(
+      <FileMutationRow
+        {...rowProps(
+          settled({
+            isError: true,
+            content: [{ type: 'text', text: 'old_string not found in notes/demo.txt' }],
+          }),
+        )}
+      />,
+    )
     expect(view.container.querySelector('[data-diff]')).toBeNull()
     expect(view.getByText('old_string not found in notes/demo.txt')).toBeTruthy()
   })
 
   it('falls back to the error name/code when an errored result has no text block', () => {
-    const view = render(<FileMutationRow {...rowProps(settled({
-      isError: true, content: [],
-      error: { name: 'ToolError', code: 'sandbox_denied' },
-    }))} />)
+    const view = render(
+      <FileMutationRow
+        {...rowProps(
+          settled({
+            isError: true,
+            content: [],
+            error: { name: 'ToolError', code: 'sandbox_denied' },
+          }),
+        )}
+      />,
+    )
     expect(view.getByText('ToolError: sandbox_denied')).toBeTruthy()
   })
 
@@ -309,10 +398,16 @@ describe('FileMutationRow diff card', () => {
   })
 
   it('shows the stopped state when the call was interrupted', () => {
-    const view = render(<FileMutationRow {...rowProps(settled({
-      isError: true,
-      error: { name: 'ToolError', code: 'interrupted' },
-    }))} />)
+    const view = render(
+      <FileMutationRow
+        {...rowProps(
+          settled({
+            isError: true,
+            error: { name: 'ToolError', code: 'interrupted' },
+          }),
+        )}
+      />,
+    )
     expect(view.container.querySelector('[data-state="stopped"]')).not.toBeNull()
     expect(view.container.querySelector('[data-state="stopped"] svg')).not.toBeNull()
     expect(view.getByText('已停止').className).toContain('visuallyHidden')
@@ -321,9 +416,15 @@ describe('FileMutationRow diff card', () => {
 
   it('renders a plain summary span when the call carries no file path', () => {
     // Empty args leave deriveFilePath undefined, so the summary is not a link.
-    const view = render(<FileMutationRow {...rowProps(settled({
-      call: { name: 'edit', argsRaw: '' },
-    }))} />)
+    const view = render(
+      <FileMutationRow
+        {...rowProps(
+          settled({
+            call: { name: 'edit', argsRaw: '' },
+          }),
+        )}
+      />,
+    )
     expect(view.container.querySelector('[class*="_fileLink_"]')).toBeNull()
     expect(view.container.querySelector('[class*="_summary_"]')).not.toBeNull()
   })
@@ -338,13 +439,17 @@ describe('fileMutationToolview registration', () => {
       slots: {
         inject: (_name: string, callback: () => Iterable<() => void>) => {
           const active = [...callback()]
-          disposeInjection = () => { for (const dispose of active.reverse()) dispose() }
+          disposeInjection = () => {
+            for (const dispose of active.reverse()) dispose()
+          }
           return disposeInjection
         },
         register: ({ key, locale }: { name: string; key: string; locale?: string }) => {
           const entry = { key, locale, disposed: false }
           registered.push(entry)
-          const dispose = () => { entry.disposed = true }
+          const dispose = () => {
+            entry.disposed = true
+          }
           disposers.push(dispose)
           return dispose
         },

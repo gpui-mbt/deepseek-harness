@@ -23,7 +23,7 @@ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 
 const DYNAMIC_TOOL = Symbol('cordis-host-runner.dynamic-tool')
 const SCHEMA_TYPES = new Set<unknown>(['string', 'number', 'integer', 'boolean', 'null', 'object', 'array', 'json'])
-const VALID_TYPES = '\'string\' | \'number\' | \'integer\' | \'boolean\' | \'null\' | \'object\' | \'array\' | \'json\''
+const VALID_TYPES = "'string' | 'number' | 'integer' | 'boolean' | 'null' | 'object' | 'array' | 'json'"
 const ANNOTATION_KEYS = ['description', 'title', 'default', 'examples'] as const
 
 type DynamicToolDefinition = ToolDefinition & { [DYNAMIC_TOOL]: true }
@@ -32,10 +32,10 @@ type DynamicToolMarker = { [DYNAMIC_TOOL]?: unknown }
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const prototype: unknown = Object.getPrototypeOf(value)
-  return prototype === null
-    || typeof prototype === 'object'
-      && Object.getPrototypeOf(prototype) === null
-      && hasIntrinsicConstructor(prototype, 'Object')
+  return (
+    prototype === null ||
+    (typeof prototype === 'object' && Object.getPrototypeOf(prototype) === null && hasIntrinsicConstructor(prototype, 'Object'))
+  )
 }
 
 /* jscpd:ignore-start -- this VM boundary mirrors the session-owned realm-safe intrinsic test */
@@ -45,9 +45,11 @@ function hasIntrinsicConstructor(prototype: object, name: 'Array' | 'Object'): b
   const constructor: unknown = descriptor?.value
   if (typeof constructor !== 'function') return false
   try {
-    return constructor.name === name
-      && constructor.prototype === prototype
-      && Function.prototype.toString.call(constructor) === `function ${name}() { [native code] }`
+    return (
+      constructor.name === name &&
+      constructor.prototype === prototype &&
+      Function.prototype.toString.call(constructor) === `function ${name}() { [native code] }`
+    )
   } catch {
     return false
   }
@@ -58,10 +60,12 @@ function hasPlainArrayPrototype(value: unknown[]): boolean {
   const prototype: unknown = Object.getPrototypeOf(value)
   if (!Array.isArray(prototype) || !hasIntrinsicConstructor(prototype, 'Array')) return false
   const objectPrototype: unknown = Object.getPrototypeOf(prototype)
-  return typeof objectPrototype === 'object'
-    && objectPrototype !== null
-    && Object.getPrototypeOf(objectPrototype) === null
-    && hasIntrinsicConstructor(objectPrototype, 'Object')
+  return (
+    typeof objectPrototype === 'object' &&
+    objectPrototype !== null &&
+    Object.getPrototypeOf(objectPrototype) === null &&
+    hasIntrinsicConstructor(objectPrototype, 'Object')
+  )
 }
 /* jscpd:ignore-end */
 
@@ -119,9 +123,11 @@ function cloneJson(value: unknown, path: string): unknown {
     // Naming the executable next step matters more than naming the rule: the
     // usual cause is a handler that returns whatever its last call produced,
     // and the fix is one keyword.
-    throw new Error(`${at} must be lossless JSON data (objects, arrays, strings, numbers, booleans, null) — `
-      + 'not a class instance, function, Map/Set, Date, or undefined. Return a plain object built from the '
-      + 'values you need, or `return null` when the caller needs no value back.')
+    throw new Error(
+      `${at} must be lossless JSON data (objects, arrays, strings, numbers, booleans, null) — ` +
+        'not a class instance, function, Map/Set, Date, or undefined. Return a plain object built from the ' +
+        'values you need, or `return null` when the caller needs no value back.',
+    )
   }
 
   const tasks: CloneTask[] = [{ kind: 'visit', value, path, destination: { kind: 'root' } }]
@@ -210,7 +216,10 @@ function assertSchemaKeys(value: Record<string, unknown>, path: string, allowed:
  * ParameterSchemaSpec. A raw JSON-Schema object wrapper retains its open root
  * default, while the direct DSL is already an implicit open property map.
  */
-function normalizeParameterSchemaSpec(value: unknown, path = 'parameters'): {
+function normalizeParameterSchemaSpec(
+  value: unknown,
+  path = 'parameters',
+): {
   spec: Record<string, unknown>
   rootAnnotations?: Record<string, unknown>
 } {
@@ -269,29 +278,27 @@ type NormalizeValueDestination =
   | { kind: 'one-of'; target: Record<string, unknown>[]; index: number }
 
 /** Where a normalized property map is installed. */
-type NormalizeMapDestination =
-  | { kind: 'root'; holder: NormalizeRoot }
-  | { kind: 'properties'; target: Record<string, unknown> }
+type NormalizeMapDestination = { kind: 'root'; holder: NormalizeRoot } | { kind: 'properties'; target: Record<string, unknown> }
 
 /** Deferred work for stack-safe sandbox schema normalization. */
 type NormalizeTask =
   | {
-    kind: 'map'
-    entries: Record<string, unknown>
-    path: string
-    requiredNames: ReadonlySet<string>
-    raw: boolean
-    destination: NormalizeMapDestination
-  }
+      kind: 'map'
+      entries: Record<string, unknown>
+      path: string
+      requiredNames: ReadonlySet<string>
+      raw: boolean
+      destination: NormalizeMapDestination
+    }
   | {
-    kind: 'value'
-    value: unknown
-    path: string
-    forceRequired: boolean
-    raw: boolean
-    parameterProperty: boolean
-    destination: NormalizeValueDestination
-  }
+      kind: 'value'
+      value: unknown
+      path: string
+      forceRequired: boolean
+      raw: boolean
+      parameterProperty: boolean
+      destination: NormalizeValueDestination
+    }
   | { kind: 'leave'; value: object }
 
 /** Install one normalized node without `__proto__` assignment semantics. */
@@ -325,14 +332,16 @@ function normalizePropertyMap(
 ): Record<string, unknown> {
   const holder: NormalizeRoot = {}
   const ancestors = new Set<object>()
-  const tasks: NormalizeTask[] = [{
-    kind: 'map',
-    entries,
-    path,
-    requiredNames,
-    raw,
-    destination: { kind: 'root', holder },
-  }]
+  const tasks: NormalizeTask[] = [
+    {
+      kind: 'map',
+      entries,
+      path,
+      requiredNames,
+      raw,
+      destination: { kind: 'root', holder },
+    },
+  ]
   for (let task = tasks.pop(); task !== undefined; task = tasks.pop()) {
     if (task.kind === 'leave') {
       ancestors.delete(task.value)
@@ -409,7 +418,7 @@ function normalizePropertyMap(
       prop.type = 'json'
       continue
     }
-    if (!SCHEMA_TYPES.has(value.type) || task.raw && value.type === 'json') {
+    if (!SCHEMA_TYPES.has(value.type) || (task.raw && value.type === 'json')) {
       throw new Error(`harness.defineTool ${path} must declare a valid type: ${VALID_TYPES} (got ${JSON.stringify(value.type)})`)
     }
     const type = value.type
@@ -417,7 +426,14 @@ function normalizePropertyMap(
 
     switch (type) {
       case 'object': {
-        assertSchemaKeys(value, path, ['type', 'properties', 'additionalProperties', ...requiredKey, ...(task.raw ? ['required'] : []), ...ANNOTATION_KEYS])
+        assertSchemaKeys(value, path, [
+          'type',
+          'properties',
+          'additionalProperties',
+          ...requiredKey,
+          ...(task.raw ? ['required'] : []),
+          ...ANNOTATION_KEYS,
+        ])
         if (!task.raw && (!Object.hasOwn(value, 'additionalProperties') || typeof value.additionalProperties !== 'boolean')) {
           throw new Error(`harness.defineTool ${path}.additionalProperties must be explicitly true or false`)
         }
@@ -427,13 +443,11 @@ function normalizePropertyMap(
         if (task.raw && Object.hasOwn(value, 'required') && value.required === undefined) {
           throw new Error(`harness.defineTool ${path}.required must be an array of declared property names`)
         }
-        prop.additionalProperties = task.raw ? value.additionalProperties ?? true : value.additionalProperties
+        prop.additionalProperties = task.raw ? (value.additionalProperties ?? true) : value.additionalProperties
         if (Object.hasOwn(value, 'properties')) {
           const properties = value.properties
           if (!isPlainRecord(properties)) throw new Error(`harness.defineTool ${path}.properties must be an object of schemas`)
-          const nestedRequired = task.raw
-            ? normalizeRequiredNames(value.required, properties, `${path}.required`)
-            : new Set<string>()
+          const nestedRequired = task.raw ? normalizeRequiredNames(value.required, properties, `${path}.required`) : new Set<string>()
           tasks.push({
             kind: 'map',
             entries: properties,
@@ -534,8 +548,8 @@ function assertRenderedContent(value: JsonValue): ContentBlock[] {
     return value as unknown as ContentBlock[]
   }
   throw new Error(
-    `output.render returned ${describeReturn(value)} — it must return an ARRAY of content blocks:\n`
-    + '  ✓ return [{ type: \'text\', text: String(value) }]',
+    `output.render returned ${describeReturn(value)} — it must return an ARRAY of content blocks:\n` +
+      "  ✓ return [{ type: 'text', text: String(value) }]",
   )
 }
 
@@ -573,11 +587,13 @@ export function sandboxDefineTool(options: unknown): ToolDefinition {
       render(args: unknown, value: unknown): ContentBlock[] {
         return assertRenderedContent(cloneJson(rawRender(args, value), 'harness.defineTool output.render result') as JsonValue)
       },
-      ...rawPresentationMeta !== undefined ? {
-        presentationMeta(args: unknown, value: unknown): JsonValue {
-          return cloneJson(rawPresentationMeta(args, value), 'harness.defineTool output.presentationMeta result') as JsonValue
-        },
-      } : {},
+      ...(rawPresentationMeta !== undefined
+        ? {
+            presentationMeta(args: unknown, value: unknown): JsonValue {
+              return cloneJson(rawPresentationMeta(args, value), 'harness.defineTool output.presentationMeta result') as JsonValue
+            },
+          }
+        : {}),
     },
     async execute(args: unknown, exec: unknown): Promise<JsonValue> {
       return cloneJson(await rawExecute(args, exec), 'harness.defineTool execute result') as JsonValue
@@ -611,8 +627,7 @@ export function normalizeHandler(method: unknown, fn: unknown): { method: string
   const rawHandler = fn as (args: unknown) => unknown
   return {
     method,
-    handler: async (args: unknown): Promise<unknown> =>
-      cloneJson(await rawHandler(args), `harness.handle("${method}") result`),
+    handler: async (args: unknown): Promise<unknown> => cloneJson(await rawHandler(args), `harness.handle("${method}") result`),
   }
 }
 
@@ -668,10 +683,11 @@ function sandboxTools(ctx: Context): Record<string, unknown> {
 /* jscpd:ignore-start */
 function denyContext(value: unknown, service: string, reportFailure: (error: Error) => void): unknown {
   if (value instanceof Context) {
-    return rejectGuard(reportFailure,
-      `service "${service}" returned a cordis Context, which the sandbox does not expose. `
-      + 'Operate through your own plugin ctx (ctx.on / ctx.provide / ctx.tools.register) '
-      + 'and the services you inject — never another context.',
+    return rejectGuard(
+      reportFailure,
+      `service "${service}" returned a cordis Context, which the sandbox does not expose. ` +
+        'Operate through your own plugin ctx (ctx.on / ctx.provide / ctx.tools.register) ' +
+        'and the services you inject — never another context.',
     )
   }
   return value
@@ -722,15 +738,17 @@ function sandboxContext(ctx: Context, reportFailure: (error: Error) => void): Co
   // error teaches the right fix (declare it in inject vs it is withheld).
   const denyRead = (prop: string): never => {
     if (ctx.get(prop) !== undefined) {
-      return rejectGuard(reportFailure,
-        `service "${prop}" is not injected. Declare it: inject: ['${prop}', …] on your plugin, `
-        + 'so cordis parks this dynamic package if the provider later goes away.',
+      return rejectGuard(
+        reportFailure,
+        `service "${prop}" is not injected. Declare it: inject: ['${prop}', …] on your plugin, ` +
+          'so cordis parks this dynamic package if the provider later goes away.',
       )
     }
-    return rejectGuard(reportFailure,
-      `sandbox ctx does not expose "${prop}". Available: ctx.tools.register / ctx.on / ctx.provide / `
-      + 'the timer helpers after injecting timer, and any service you declared in inject. '
-      + 'Framework internals (root, fiber, registry, extend, plugin, …) are withheld by design.',
+    return rejectGuard(
+      reportFailure,
+      `sandbox ctx does not expose "${prop}". Available: ctx.tools.register / ctx.on / ctx.provide / ` +
+        'the timer helpers after injecting timer, and any service you declared in inject. ' +
+        'Framework internals (root, fiber, registry, extend, plugin, …) are withheld by design.',
     )
   }
   // `get` is optional lookup; property access requires a declaration. `tools`
@@ -750,33 +768,37 @@ function sandboxContext(ctx: Context, reportFailure: (error: Error) => void): Co
   // in separate programs where `Context` merges different service keys — so the
   // duplication is declared here instead of hidden behind a config exception.
   /* jscpd:ignore-start */
-  return new Proxy({}, {
-    get(_target, prop) {
-      if (prop === 'tools') return tools
-      if (prop === 'get') return get
-      if (typeof prop !== 'string') return undefined
-      // Lazy verb forwarder — reads `ctx[verb]` only when called. Timer mixins
-      // additionally require the Service declaration before Cordis resolves them.
-      if (CTX_VERBS.has(prop)) {
-        return (...args: unknown[]): unknown => {
-          if (TIMER_VERBS.has(prop) && !declared.has('timer')) return denyRead('timer')
-          const method = ctx[prop as keyof Context]
-          return Reflect.apply(method as (...a: unknown[]) => unknown, ctx, args)
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === 'tools') return tools
+        if (prop === 'get') return get
+        if (typeof prop !== 'string') return undefined
+        // Lazy verb forwarder — reads `ctx[verb]` only when called. Timer mixins
+        // additionally require the Service declaration before Cordis resolves them.
+        if (CTX_VERBS.has(prop)) {
+          return (...args: unknown[]): unknown => {
+            if (TIMER_VERBS.has(prop) && !declared.has('timer')) return denyRead('timer')
+            const method = ctx[prop as keyof Context]
+            return Reflect.apply(method as (...a: unknown[]) => unknown, ctx, args)
+          }
         }
-      }
-      return readService(prop, true)
+        return readService(prop, true)
+      },
+      // A façade is not the real ctx; block writes rather than let package code
+      // stash state on a throwaway object and think it persisted.
+      set(_target, prop) {
+        return rejectGuard(reportFailure, `sandbox ctx is read-only; cannot assign "${String(prop)}"`)
+      },
+      // `in` reflects reachability: the façade API plus DECLARED services
+      // (whether or not currently live). Does not resolve/wrap — no throw.
+      has: (_target, prop) =>
+        prop === 'tools' ||
+        prop === 'get' ||
+        (typeof prop === 'string' && ((CTX_VERBS.has(prop) && (!TIMER_VERBS.has(prop) || declared.has('timer'))) || declared.has(prop))),
     },
-    // A façade is not the real ctx; block writes rather than let package code
-    // stash state on a throwaway object and think it persisted.
-    set(_target, prop) {
-      return rejectGuard(reportFailure, `sandbox ctx is read-only; cannot assign "${String(prop)}"`)
-    },
-    // `in` reflects reachability: the façade API plus DECLARED services
-    // (whether or not currently live). Does not resolve/wrap — no throw.
-    has: (_target, prop) => prop === 'tools' || prop === 'get'
-      || (typeof prop === 'string'
-        && ((CTX_VERBS.has(prop) && (!TIMER_VERBS.has(prop) || declared.has('timer'))) || declared.has(prop))),
-  }) as Context
+  ) as Context
   /* jscpd:ignore-end */
 }
 
@@ -789,8 +811,7 @@ function sandboxContext(ctx: Context, reportFailure: (error: Error) => void): Co
  */
 export function isPlugin(value: unknown): value is Plugin {
   if (typeof value === 'function') return true
-  return typeof value === 'object' && value !== null
-    && typeof (value as { apply?: unknown }).apply === 'function'
+  return typeof value === 'object' && value !== null && typeof (value as { apply?: unknown }).apply === 'function'
 }
 
 /**

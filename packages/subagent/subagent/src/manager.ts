@@ -20,8 +20,12 @@ import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
 import type { SessionObservation, SessionQueryEngine } from '@deepseek-ai/dsh-session-query'
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import {
-  appendDelegatedPolicyOverrides, applyChildComposition, captureDelegatedPolicyOverrides,
-  childSessionMeta, resolveChildAgentOptions, resolveChildDepth,
+  appendDelegatedPolicyOverrides,
+  applyChildComposition,
+  captureDelegatedPolicyOverrides,
+  childSessionMeta,
+  resolveChildAgentOptions,
+  resolveChildDepth,
 } from './child-agent.ts'
 import type { ChildComposition, DelegatedPolicyOverrides } from './child-agent.ts'
 import { createAgentMessage, withContinuableReturnGuidance, createSettlementMessage } from './continuation-messages.ts'
@@ -33,27 +37,41 @@ import { SubagentError } from './error.ts'
 import { isAdjacentAgentSendMessageTool } from './internal.ts'
 import type { ActivationObserver } from './lifecycle.ts'
 import type {
-  ContinuableCreateRequest, ContinuableCreateSpec, SubagentInterruptAuthority,
-  SubagentActivationSpec, SubagentActivation, SubagentStartRequest, SubagentRun,
-  SubagentSendMessageOptions, SubagentResult, ResolvedSubagentStartRequest,
+  ContinuableCreateRequest,
+  ContinuableCreateSpec,
+  SubagentInterruptAuthority,
+  SubagentActivationSpec,
+  SubagentActivation,
+  SubagentStartRequest,
+  SubagentRun,
+  SubagentSendMessageOptions,
+  SubagentResult,
+  ResolvedSubagentStartRequest,
 } from './types.ts'
 import { attachStructuredRuntime } from './structured.ts'
 import type { StructuredAttachment } from './structured.ts'
 import type { SubagentDelivery } from './control-types.ts'
-import { ActivationPool, ChildLock, activationAgent, captureLocalResult, observeLocalFailure, requireLocalActivation } from './activation.ts'
+import {
+  ActivationPool,
+  ChildLock,
+  activationAgent,
+  captureLocalResult,
+  observeLocalFailure,
+  requireLocalActivation,
+} from './activation.ts'
 import type { Activation, ActivationResource, LocalActivation } from './activation.ts'
 
 /** Inputs shared by model steering and human prompt delivery. */
 type ChildDeliveryOptions =
   | {
-    readonly delivery: 'steer'
-    /**
-     * A provided host source is preserved on the user message; omission attributes
-     * an adjacent-Agent message to the parent.
-     */
-    readonly source?: MessageSource
-    readonly signal: AbortSignal
-  }
+      readonly delivery: 'steer'
+      /**
+       * A provided host source is preserved on the user message; omission attributes
+       * an adjacent-Agent message to the parent.
+       */
+      readonly source?: MessageSource
+      readonly signal: AbortSignal
+    }
   | { readonly delivery: 'queue'; readonly source: MessageSource; readonly signal: AbortSignal }
 
 /** Package-private hooks supplied by the owning service. */
@@ -75,32 +93,33 @@ interface MaterializeBase {
 }
 
 /** Creation inputs for a local residency or one external backend execution. */
-type MaterializeInputs = MaterializeBase & (
-  | {
-    kind: 'local'
-    /**
-     * Creation inputs; absent for a cold resume, which loads the persisted
-     * session — including the delegation policy events a fresh creation seeded,
-     * so a resume never re-captures the parent's policy.
-     */
-    create?: {
-      /** Absolute initial directory captured before provider preparation. */
-      cwd: string
-      seed: readonly SessionEvent[] | undefined
-      meta: NonNullable<CreateAgentOptions['meta']>
-      /** Exact parent-log prefix length inside {@link seed}. */
-      inheritedEventCount: SessionLogOffset
-      /** Policy captured at delegation: the parent's sandbox override plus the approval pin. */
-      delegatedPolicies: DelegatedPolicyOverrides
-      /** Child-owned composition record appended after the inherited marker. */
-      descriptor: SubagentDescriptorData
-    }
-    agentOptions: AgentOptions
-    composition: ChildComposition
-    outputSchema?: ObjectJsonSchema | undefined
-  }
-  | { kind: 'external'; start: (signal: AbortSignal) => Promise<SubagentRun> }
-)
+type MaterializeInputs = MaterializeBase &
+  (
+    | {
+        kind: 'local'
+        /**
+         * Creation inputs; absent for a cold resume, which loads the persisted
+         * session — including the delegation policy events a fresh creation seeded,
+         * so a resume never re-captures the parent's policy.
+         */
+        create?: {
+          /** Absolute initial directory captured before provider preparation. */
+          cwd: string
+          seed: readonly SessionEvent[] | undefined
+          meta: NonNullable<CreateAgentOptions['meta']>
+          /** Exact parent-log prefix length inside {@link seed}. */
+          inheritedEventCount: SessionLogOffset
+          /** Policy captured at delegation: the parent's sandbox override plus the approval pin. */
+          delegatedPolicies: DelegatedPolicyOverrides
+          /** Child-owned composition record appended after the inherited marker. */
+          descriptor: SubagentDescriptorData
+        }
+        agentOptions: AgentOptions
+        composition: ChildComposition
+        outputSchema?: ObjectJsonSchema | undefined
+      }
+    | { kind: 'external'; start: (signal: AbortSignal) => Promise<SubagentRun> }
+  )
 
 /**
  * One admitted materialization and the exact live ancestry observed at its
@@ -117,9 +136,7 @@ interface Materialization {
 type SettlementState = 'closed' | 'retry' | 'wait' | 'ready'
 
 /** Result of the final child-lock settlement decision. */
-type SettlementAttempt =
-  | Exclude<SettlementState, 'ready'>
-  | { readonly done: Promise<void> }
+type SettlementAttempt = Exclude<SettlementState, 'ready'> | { readonly done: Promise<void> }
 
 /** Render only the safe outer message from execution or teardown failures. */
 function failureMessage(error: unknown): string {
@@ -169,10 +186,13 @@ export class SubagentManager {
     ctx.on('agent/disposed', ({ agent }) => {
       this.closingScopes.delete(agent)
     })
-    ctx.effect(function* (this: SubagentManager) {
-      yield scope.dispose
-      yield () => this.drain()
-    }.bind(this), 'subagents.manager()')
+    ctx.effect(
+      function* (this: SubagentManager) {
+        yield scope.dispose
+        yield () => this.drain()
+      }.bind(this),
+      'subagents.manager()',
+    )
   }
 
   /**
@@ -180,39 +200,24 @@ export class SubagentManager {
    * @param targetSessionId - the durable child session id to interrupt.
    * @param authority - the human parent address or exact live ancestor Agent.
    */
-  interrupt(
-    targetSessionId: SessionId,
-    authority: SubagentInterruptAuthority,
-  ): void {
+  interrupt(targetSessionId: SessionId, authority: SubagentInterruptAuthority): void {
     if (authority.kind === 'ancestor') {
       const caller = authority.agent
       if (this.ctx.agents.get(caller.id) !== caller) {
-        throw new SubagentError(
-          `interrupting "${targetSessionId}" requires the exact live ancestor agent`,
-          'UNAUTHORIZED',
-        )
+        throw new SubagentError(`interrupting "${targetSessionId}" requires the exact live ancestor agent`, 'UNAUTHORIZED')
       }
       if (caller.id === targetSessionId) {
-        throw new SubagentError(
-          `agent "${caller.id}" cannot interrupt itself`,
-          'UNAUTHORIZED',
-        )
+        throw new SubagentError(`agent "${caller.id}" cannot interrupt itself`, 'UNAUTHORIZED')
       }
     }
     const activation = this.resident.get(targetSessionId)
     if (activation === undefined) return
     if (authority.kind === 'user') {
       if (activation.parent.id !== authority.parentSessionId) {
-        throw new SubagentError(
-          `subagent "${targetSessionId}" belongs to another parent session`,
-          'UNAUTHORIZED',
-        )
+        throw new SubagentError(`subagent "${targetSessionId}" belongs to another parent session`, 'UNAUTHORIZED')
       }
     } else if (!activation.ancestry.has(authority.agent)) {
-      throw new SubagentError(
-        `subagent "${targetSessionId}" is not a live descendant of agent "${authority.agent.id}"`,
-        'UNAUTHORIZED',
-      )
+      throw new SubagentError(`subagent "${targetSessionId}" is not a live descendant of agent "${authority.agent.id}"`, 'UNAUTHORIZED')
     }
     // Disposal already stopped the target with a whole-Activation teardown;
     // a second cancel would be a redundant signal on a closing handle.
@@ -255,7 +260,7 @@ export class SubagentManager {
       const pending = [...this.materializations].filter(item => item.lineage.includes(parent))
       const children = [...this.resident.values()].filter(item => activationAgent(item) !== parent && item.ancestry.has(parent))
       observed ||= children.some(item => item.kind === 'local' && item.handle.agent.status !== 'idle')
-      await Promise.all(children.flatMap(item => item.kind === 'local' ? [item.handle.agent.whenIdle()] : []))
+      await Promise.all(children.flatMap(item => (item.kind === 'local' ? [item.handle.agent.whenIdle()] : [])))
       const waits: Promise<unknown>[] = pending.map(item => item.settled)
       for (const item of children) {
         if (item.kind === 'external' || item.closing !== undefined) {
@@ -282,9 +287,11 @@ export class SubagentManager {
         continue
       }
       // A descendant can be published while whenIdle follows another child.
-      if ([...this.materializations].some(item => item.lineage.includes(parent) && !pending.includes(item))
-        || [...this.resident.values()].some(item => activationAgent(item) !== parent
-          && item.ancestry.has(parent) && !children.includes(item))) continue
+      if (
+        [...this.materializations].some(item => item.lineage.includes(parent) && !pending.includes(item)) ||
+        [...this.resident.values()].some(item => activationAgent(item) !== parent && item.ancestry.has(parent) && !children.includes(item))
+      )
+        continue
       return observed
     }
   }
@@ -305,8 +312,7 @@ export class SubagentManager {
     for (const activation of this.resident.values()) {
       const child = activationAgent(activation)
       const lineage = this.liveLineage(child ?? activation.parent)
-      const owners = [...roots].filter(root => child !== root
-        && activation.ancestry.has(root))
+      const owners = [...roots].filter(root => child !== root && activation.ancestry.has(root))
       if (owners.length === 0) continue
       targets.push(activation)
       for (const owner of owners) {
@@ -315,7 +321,7 @@ export class SubagentManager {
         for (const agent of lineage) members.add(agent)
       }
     }
-    const materializations = [...this.materializations].filter((materialization) => {
+    const materializations = [...this.materializations].filter(materialization => {
       const owners = [...roots].filter(root => materialization.lineage.includes(root))
       for (const owner of owners) {
         const members = this.closingMembers(owner)
@@ -354,10 +360,7 @@ export class SubagentManager {
       const activation = this.resident.get(childId)
       if (activation === undefined) continue
       if (activation.parent.id !== parent.id || !activation.ancestry.has(parent)) {
-        throw new SubagentError(
-          `subagent "${childId}" is not a direct child of agent "${parent.id}"`,
-          'UNAUTHORIZED',
-        )
+        throw new SubagentError(`subagent "${childId}" is not a direct child of agent "${parent.id}"`, 'UNAUTHORIZED')
       }
       targets.push(activation)
     }
@@ -395,9 +398,9 @@ export class SubagentManager {
       mode: 'continuable',
       provider: spec.provider,
       label: spec.label,
-      ...agentProvider !== undefined ? { agentProvider } : {},
-      ...agentModel !== undefined ? { agentModel } : {},
-      ...agentReasoningEffort !== undefined ? { agentReasoningEffort } : {},
+      ...(agentProvider !== undefined ? { agentProvider } : {}),
+      ...(agentModel !== undefined ? { agentModel } : {}),
+      ...(agentReasoningEffort !== undefined ? { agentReasoningEffort } : {}),
     })
     // Capture before the first await: a later parent switch belongs to the
     // parent's future, not to this child.
@@ -495,9 +498,13 @@ export class SubagentManager {
         parent,
         signal: spec.signal,
         delivery: spec.delivery,
-        start: signal => this.host.startExternal(spec.provider, {
-          ...spec.request, cwd, label: spec.label, signal,
-        }),
+        start: signal =>
+          this.host.startExternal(spec.provider, {
+            ...spec.request,
+            cwd,
+            label: spec.label,
+            signal,
+          }),
       })
       this.assertAdmitting(parent)
       this.assertLiveParent(parent, activation.childId)
@@ -523,9 +530,10 @@ export class SubagentManager {
 
   /** Capture the explicit or inherited directory while the parent still owns startup. */
   private async resolveDirectory(request: Pick<SubagentStartRequest, 'parent' | 'cwd'>, signal: AbortSignal): Promise<string> {
-    const cwd = request.cwd !== undefined && isAbsolute(request.cwd)
-      ? request.cwd
-      : resolve(await this.ctx.workingDirectory.ensure(request.parent, signal), request.cwd ?? '.')
+    const cwd =
+      request.cwd !== undefined && isAbsolute(request.cwd)
+        ? request.cwd
+        : resolve(await this.ctx.workingDirectory.ensure(request.parent, signal), request.cwd ?? '.')
     signal.throwIfAborted()
     return cwd
   }
@@ -540,24 +548,18 @@ export class SubagentManager {
    * @param options - caller cancellation before acceptance.
    * @returns the accepted message's inbox id.
    */
-  async sendMessage(
-    sender: Agent,
-    targetId: SessionId,
-    content: ContentBlock[],
-    options: SubagentSendMessageOptions,
-  ): Promise<MessageId> {
+  async sendMessage(sender: Agent, targetId: SessionId, content: ContentBlock[], options: SubagentSendMessageOptions): Promise<MessageId> {
     if (this.ctx.agents.get(sender.id) !== sender) {
-      throw new SubagentError(
-        'message delivery requires the exact live sender agent',
-        'UNAUTHORIZED',
-      )
+      throw new SubagentError('message delivery requires the exact live sender agent', 'UNAUTHORIZED')
     }
     this.assertAdmitting(sender)
     const senderActivation = this.resident.get(sender.id)
-    if (senderActivation !== undefined
-      && senderActivation.kind === 'local'
-      && senderActivation.handle.agent === sender
-      && senderActivation.parent.id === targetId) {
+    if (
+      senderActivation !== undefined &&
+      senderActivation.kind === 'local' &&
+      senderActivation.handle.agent === sender &&
+      senderActivation.parent.id === targetId
+    ) {
       options.signal.throwIfAborted()
       return this.sendToParent(senderActivation, sender, content)
     }
@@ -614,10 +616,7 @@ export class SubagentManager {
   /** Admit local input synchronously before any teardown can begin. */
   private deliver(activation: Activation, message: UserMessage, delivery: SubagentDelivery): void {
     if (activation.closing !== undefined) {
-      throw new SubagentError(
-        'subagent activation is being disposed; the message was not accepted',
-        'ACTIVATION_CLOSING',
-      )
+      throw new SubagentError('subagent activation is being disposed; the message was not accepted', 'ACTIVATION_CLOSING')
     }
     const local = requireLocalActivation(activation)
     if (local.structured?.acceptsInput() === false) {
@@ -651,10 +650,7 @@ export class SubagentManager {
     const parentActivation = this.resident.get(parent.id)
     if (parentActivation === undefined || activationAgent(parentActivation) !== parent) return () => {}
     if (parentActivation.closing !== undefined) {
-      throw new SubagentError(
-        `subagent parent "${parent.id}" is being disposed; the child was not established`,
-        'ACTIVATION_CLOSING',
-      )
+      throw new SubagentError(`subagent parent "${parent.id}" is being disposed; the child was not established`, 'ACTIVATION_CLOSING')
     }
     if (parentActivation.ownedChildren.has(childId)) return () => {}
     parentActivation.ownedChildren.add(childId)
@@ -710,11 +706,7 @@ export class SubagentManager {
    * @param childId - durable child session id addressed by the operation.
    * @param parentSession - durable direct-parent id recorded by the child.
    */
-  private authorizeLineage(
-    parent: Agent,
-    childId: SessionId,
-    parentSession: SessionId | undefined,
-  ): void {
+  private authorizeLineage(parent: Agent, childId: SessionId, parentSession: SessionId | undefined): void {
     this.assertLiveParent(parent, childId)
     if (parentSession !== parent.id) {
       throw new SubagentError(`subagent "${childId}" belongs to another parent session`, 'UNAUTHORIZED')
@@ -724,10 +716,7 @@ export class SubagentManager {
   /** Reject parent authority after the live registry entry changes. */
   private assertLiveParent(parent: Agent, childId: SessionId): void {
     if (this.ctx.agents.get(parent.id) !== parent) {
-      throw new SubagentError(
-        `subagent "${childId}" delivery requires the exact live parent agent`,
-        'UNAUTHORIZED',
-      )
+      throw new SubagentError(`subagent "${childId}" delivery requires the exact live parent agent`, 'UNAUTHORIZED')
     }
   }
 
@@ -750,16 +739,16 @@ export class SubagentManager {
       controller,
     }
     this.materializations.add(materialization)
-    return this.materializeTracked(
-      { ...inputs, signal: AbortSignal.any([inputs.signal, controller.signal]) }, lineage, pool, releaseSlot,
-    ).catch((error: unknown) => {
-      releaseSlot()
-      if (error instanceof Error && error.name === 'AbortError') this.assertAdmitting(inputs.parent)
-      throw error
-    }).finally(() => {
-      this.materializations.delete(materialization)
-      settled.resolve()
-    })
+    return this.materializeTracked({ ...inputs, signal: AbortSignal.any([inputs.signal, controller.signal]) }, lineage, pool, releaseSlot)
+      .catch((error: unknown) => {
+        releaseSlot()
+        if (error instanceof Error && error.name === 'AbortError') this.assertAdmitting(inputs.parent)
+        throw error
+      })
+      .finally(() => {
+        this.materializations.delete(materialization)
+        settled.resolve()
+      })
   }
 
   /**
@@ -785,19 +774,20 @@ export class SubagentManager {
     roots: readonly Activation[],
     failureSubject: 'activation(s)' | 'scoped activation(s)' | 'selected activation(s)',
   ): Promise<void> {
-    const failures = await Promise.all(roots.map(async (activation) => {
-      try {
-        await this.dispose(activation)
-        return undefined
-      } catch (error: unknown) {
-        return error
-      }
-    }))
+    const failures = await Promise.all(
+      roots.map(async activation => {
+        try {
+          await this.dispose(activation)
+          return undefined
+        } catch (error: unknown) {
+          return error
+        }
+      }),
+    )
     const reasons = failures.filter(failure => failure !== undefined)
     if (reasons.length > 0) {
       throw new SubagentError(
-        `subagent teardown failed for ${reasons.length} ${failureSubject}: `
-        + reasons.map(reason => failureMessage(reason)).join('; '),
+        `subagent teardown failed for ${reasons.length} ${failureSubject}: ` + reasons.map(reason => failureMessage(reason)).join('; '),
         'ACTIVATION_TEARDOWN_FAILED',
       )
     }
@@ -860,14 +850,18 @@ export class SubagentManager {
     let resource: ActivationResource
     if (inputs.kind === 'external') {
       const controller = new AbortController()
-      const cancelStartup = (): void => { controller.abort(inputs.signal.reason) }
+      const cancelStartup = (): void => {
+        controller.abort(inputs.signal.reason)
+      }
       inputs.signal.addEventListener('abort', cancelStartup, { once: true })
       try {
         const run = await inputs.start(controller.signal)
         resource = { kind: 'external', run, controller }
         void run.result.catch(() => undefined)
         childId = run.id
-        try { this.assertChildIdAvailable(childId) } catch (error: unknown) {
+        try {
+          this.assertChildIdAvailable(childId)
+        } catch (error: unknown) {
           await run.dispose()
           throw error
         }
@@ -895,33 +889,44 @@ export class SubagentManager {
         }
         if (inputs.composition.agentPreset === undefined) await applyChildComposition(childCtx, parent, inputs.composition)
         if (inputs.outputSchema !== undefined) {
-          structured = attachStructuredRuntime(childCtx, inputs.outputSchema, () =>
-            this.resident.get(childId)?.ownedChildren.size === 0
-            && child.inbox.nextStep.length === 0
-            && child.inbox.nextTurn.length === 0,
+          structured = attachStructuredRuntime(
+            childCtx,
+            inputs.outputSchema,
+            () =>
+              this.resident.get(childId)?.ownedChildren.size === 0 &&
+              child.inbox.nextStep.length === 0 &&
+              child.inbox.nextTurn.length === 0,
           )
         }
       }
-      const handle = create === undefined
-        ? await this.ownerCtx.agents.resume({
-          resumeSessionId: childId,
-          parentAgent: parent,
-          agentOptions: inputs.agentOptions,
-          signal: inputs.signal,
-          setup,
-        })
-        : await this.ownerCtx.agents.create({
-          sessionId: childId,
-          parentAgent: parent,
-          meta: create.meta,
-          ...(create.seed === undefined ? {} : { seed: create.seed }),
-          inheritedEventCount: create.inheritedEventCount,
-          agentOptions: inputs.agentOptions,
-          signal: inputs.signal,
-          setup,
-        })
+      const handle =
+        create === undefined
+          ? await this.ownerCtx.agents.resume({
+              resumeSessionId: childId,
+              parentAgent: parent,
+              agentOptions: inputs.agentOptions,
+              signal: inputs.signal,
+              setup,
+            })
+          : await this.ownerCtx.agents.create({
+              sessionId: childId,
+              parentAgent: parent,
+              meta: create.meta,
+              ...(create.seed === undefined ? {} : { seed: create.seed }),
+              inheritedEventCount: create.inheritedEventCount,
+              agentOptions: inputs.agentOptions,
+              signal: inputs.signal,
+              setup,
+            })
 
-      resource = { kind: 'local', handle, outputStart: handle.agent.session.seq, structured, failureAt: undefined, poke: Promise.withResolvers<void>() }
+      resource = {
+        kind: 'local',
+        handle,
+        outputStart: handle.agent.session.seq,
+        structured,
+        failureAt: undefined,
+        poke: Promise.withResolvers<void>(),
+      }
     }
     const observer = this.host.observeActivation(provider, childId, parent)
 
@@ -946,7 +951,9 @@ export class SubagentManager {
       inputs.signal.throwIfAborted()
       if (this.ctx.agents.get(parent.id) !== parent) throw new SubagentError('subagent parent is no longer live', 'UNAUTHORIZED')
       this.acquireOwnership(parent, childId)
-      const wakeSettlement = (): void => { this.wake(activation) }
+      const wakeSettlement = (): void => {
+        this.wake(activation)
+      }
       if (activation.kind === 'local') {
         observeLocalFailure(activation, wakeSettlement)
         activation.handle.agent.ctx.on('agent/inbox/inserted', wakeSettlement)
@@ -974,7 +981,9 @@ export class SubagentManager {
       this.watchLocalSettlement(activation)
     } else {
       const finish = (): Promise<void> => this.close(activation, () => this.finishDisposal(activation, false))
-      void activation.run.result.then(finish, finish).catch((error: unknown) => { this.reportTeardownFailure(activation, error) })
+      void activation.run.result.then(finish, finish).catch((error: unknown) => {
+        this.reportTeardownFailure(activation, error)
+      })
     }
   }
 
@@ -997,10 +1006,7 @@ export class SubagentManager {
     const parentActivation = this.resident.get(parent.id)
     if (parentActivation === undefined) return
     if (parentActivation.closing !== undefined) {
-      throw new SubagentError(
-        `subagent parent "${parent.id}" is being disposed; the child was not established`,
-        'ACTIVATION_CLOSING',
-      )
+      throw new SubagentError(`subagent parent "${parent.id}" is being disposed; the child was not established`, 'ACTIVATION_CLOSING')
     }
     parentActivation.ownedChildren.add(childId)
     this.wake(parentActivation)
@@ -1027,9 +1033,7 @@ export class SubagentManager {
         const idleObservation = activation.poke
         await activation.handle.agent.whenIdle()
         if (activation.closing !== undefined) return
-        const readiness = await this.locks.run(activation.childId, () => Promise.resolve(
-          this.settlementState(activation, idleObservation),
-        ))
+        const readiness = await this.locks.run(activation.childId, () => Promise.resolve(this.settlementState(activation, idleObservation)))
         if (readiness === 'closed') return
         if (readiness === 'retry') continue
         if (readiness === 'wait') {
@@ -1078,10 +1082,7 @@ export class SubagentManager {
   }
 
   /** Check pending input and owned children before closing admission. */
-  private settlementState(
-    activation: LocalActivation,
-    observation: PromiseWithResolvers<void>,
-  ): SettlementState {
+  private settlementState(activation: LocalActivation, observation: PromiseWithResolvers<void>): SettlementState {
     if (activation.closing !== undefined) return 'closed'
     if (activation.poke !== observation) return 'retry'
     const inbox = activation.handle.agent.inbox
@@ -1099,9 +1100,7 @@ export class SubagentManager {
     let resultFailure: { error: unknown } | undefined
     let externalDisposal: Promise<void> | undefined
     const child = activationAgent(activation)
-    const detail = (error: unknown): string => child === undefined
-      ? failureMessage(error)
-      : errorChain(error)
+    const detail = (error: unknown): string => (child === undefined ? failureMessage(error) : errorChain(error))
     try {
       if (activation.kind === 'external') {
         if (stop) {
@@ -1122,20 +1121,24 @@ export class SubagentManager {
           const childDisposals = children.map(child => this.dispose(child))
           for (const item of pending) item.controller.abort()
           childDisposals.push(...pending.map(item => item.settled))
-          const childFailures = await Promise.all(childDisposals.map(async (disposal) => {
-            try {
-              await disposal
-              return undefined
-            } catch (error: unknown) {
-              return error
-            }
-          }))
+          const childFailures = await Promise.all(
+            childDisposals.map(async disposal => {
+              try {
+                await disposal
+                return undefined
+              } catch (error: unknown) {
+                return error
+              }
+            }),
+          )
           const reasons = childFailures.filter(reason => reason !== undefined)
           if (reasons.length > 0) {
-            failures.push(new SubagentError(
-              `subagent "${childId}" child teardown failed: ${reasons.map(reason => failureMessage(reason)).join('; ')}`,
-              'ACTIVATION_TEARDOWN_FAILED',
-            ))
+            failures.push(
+              new SubagentError(
+                `subagent "${childId}" child teardown failed: ${reasons.map(reason => failureMessage(reason)).join('; ')}`,
+                'ACTIVATION_TEARDOWN_FAILED',
+              ),
+            )
           }
           await idle
           await this.flushFinalState(activation)
@@ -1144,21 +1147,21 @@ export class SubagentManager {
       }
     } catch (error: unknown) {
       resultFailure = { error }
-      failures.push(new SubagentError(
-        `subagent "${childId}" activation teardown failed: ${detail(error)}`,
-        'ACTIVATION_TEARDOWN_FAILED',
-        { cause: error },
-      ))
+      failures.push(
+        new SubagentError(`subagent "${childId}" activation teardown failed: ${detail(error)}`, 'ACTIVATION_TEARDOWN_FAILED', {
+          cause: error,
+        }),
+      )
     }
     try {
       if (activation.kind === 'local') await activation.handle.dispose()
       else await (externalDisposal ?? activation.run.dispose())
     } catch (error: unknown) {
-      failures.push(new SubagentError(
-        `subagent "${childId}" activation handle disposal failed: ${detail(error)}`,
-        'ACTIVATION_TEARDOWN_FAILED',
-        { cause: error },
-      ))
+      failures.push(
+        new SubagentError(`subagent "${childId}" activation handle disposal failed: ${detail(error)}`, 'ACTIVATION_TEARDOWN_FAILED', {
+          cause: error,
+        }),
+      )
     }
 
     let failure: SubagentError | undefined
@@ -1166,8 +1169,8 @@ export class SubagentManager {
       failure = failures[0]
     } else if (failures.length > 1) {
       failure = new SubagentError(
-        `subagent "${childId}" activation teardown failed at ${failures.length} boundaries: `
-        + failures.map(item => detail(item)).join('; '),
+        `subagent "${childId}" activation teardown failed at ${failures.length} boundaries: ` +
+          failures.map(item => detail(item)).join('; '),
         'ACTIVATION_TEARDOWN_FAILED',
         { cause: new AggregateError(failures) },
       )
@@ -1189,19 +1192,14 @@ export class SubagentManager {
     try {
       const parent = this.ctx.agents.get(activation.parent.id)
       if (parent !== activation.parent) return
-      const message = createSettlementMessage(
-        activation.childId, terminal, activationAgent(activation) !== undefined,
-      )
+      const message = createSettlementMessage(activation.childId, terminal, activationAgent(activation) !== undefined)
       if (this.closingTeardownFor(parent) !== undefined) {
         parent.inject(message)
         return
       }
       this.sendWaking(parent, message, parent.status === 'idle' ? 'queue' : 'steer')
     } catch (error: unknown) {
-      this.ctx.logger.warn(
-        `subagent "${activation.childId}" settlement notice was not delivered to its parent: `
-        + errorChain(error),
-      )
+      this.ctx.logger.warn(`subagent "${activation.childId}" settlement notice was not delivered to its parent: ` + errorChain(error))
     }
   }
 
@@ -1211,8 +1209,8 @@ export class SubagentManager {
       await activation.handle.agent.ctx.sessions.flush(activation.handle.agent.session)
     } catch (error: unknown) {
       this.ctx.logger.warn(
-        `subagent "${activation.childId}" best-effort final session flush failed; `
-        + `the persisted state may be unavailable or stale on resume: ${errorChain(error)}`,
+        `subagent "${activation.childId}" best-effort final session flush failed; ` +
+          `the persisted state may be unavailable or stale on resume: ${errorChain(error)}`,
       )
     }
   }
@@ -1259,7 +1257,10 @@ export class SubagentManager {
         /* v8 ignore next 3 -- the send-versus-dispose cutoff needs a delivery to
          * observe the transaction inside the same critical section that opened it. */
         if (disposal !== undefined) {
-          return disposal.then(() => undefined, () => undefined)
+          return disposal.then(
+            () => undefined,
+            () => undefined,
+          )
         }
         if (contentHasImage(content)) {
           await this.assertImageCapable(requireLocalActivation(activation).handle.agent, options.signal)
@@ -1281,25 +1282,15 @@ export class SubagentManager {
   }
 
   /** Deliver one resident continuable child's message to its live direct parent. */
-  private sendToParent(
-    activation: Activation,
-    sender: Agent,
-    content: ContentBlock[],
-  ): MessageId {
+  private sendToParent(activation: Activation, sender: Agent, content: ContentBlock[]): MessageId {
     /* v8 ignore next 6 -- only synchronous re-entrant teardown can open this
      * transaction between exact-agent authorization and this no-await span. */
     if (activation.closing !== undefined) {
-      throw new SubagentError(
-        `subagent "${sender.id}" activation is being disposed; the message was not delivered`,
-        'ACTIVATION_CLOSING',
-      )
+      throw new SubagentError(`subagent "${sender.id}" activation is being disposed; the message was not delivered`, 'ACTIVATION_CLOSING')
     }
     const parent = this.ctx.agents.get(activation.parent.id)
     if (parent !== activation.parent) {
-      throw new SubagentError(
-        'direct parent is not live; the message was not delivered',
-        'PARENT_UNAVAILABLE',
-      )
+      throw new SubagentError('direct parent is not live; the message was not delivered', 'PARENT_UNAVAILABLE')
     }
     const message = createAgentMessage(sender, content)
     this.sendAgentMessage(parent, message)
@@ -1307,18 +1298,11 @@ export class SubagentManager {
   }
 
   /** Send one Agent message while translating only the target's own rejection. */
-  private sendAgentMessage(
-    parent: Agent,
-    message: ReturnType<typeof createUserMessage>,
-  ): void {
+  private sendAgentMessage(parent: Agent, message: ReturnType<typeof createUserMessage>): void {
     try {
       this.sendWaking(parent, message, 'steer')
     } catch (error: unknown) {
-      throw new SubagentError(
-        'direct parent is not live; the message was not delivered',
-        'PARENT_UNAVAILABLE',
-        { cause: error },
-      )
+      throw new SubagentError('direct parent is not live; the message was not delivered', 'PARENT_UNAVAILABLE', { cause: error })
     }
   }
 
@@ -1326,12 +1310,7 @@ export class SubagentManager {
    * Cold-resume a persisted child and submit the waiting turn. The descriptor
    * supplies every reconstruction input; no subagent provider is dispatched.
    */
-  private async coldResume(
-    parent: Agent,
-    childId: SessionId,
-    content: ContentBlock[],
-    options: ChildDeliveryOptions,
-  ): Promise<MessageId> {
+  private async coldResume(parent: Agent, childId: SessionId, content: ContentBlock[], options: ChildDeliveryOptions): Promise<MessageId> {
     const query = this.requireSessionQuery()
     let observation: SessionObservation
     try {
@@ -1366,11 +1345,9 @@ export class SubagentManager {
         provider: descriptor.provider,
         parent,
         agentOptions: {
-          ...descriptor.agentProvider !== undefined ? { provider: descriptor.agentProvider } : {},
-          ...descriptor.agentModel !== undefined ? { model: descriptor.agentModel } : {},
-          ...descriptor.agentReasoningEffort !== undefined
-            ? { reasoningEffort: ReasoningEffortId(descriptor.agentReasoningEffort) }
-            : {},
+          ...(descriptor.agentProvider !== undefined ? { provider: descriptor.agentProvider } : {}),
+          ...(descriptor.agentModel !== undefined ? { model: descriptor.agentModel } : {}),
+          ...(descriptor.agentReasoningEffort !== undefined ? { reasoningEffort: ReasoningEffortId(descriptor.agentReasoningEffort) } : {}),
         },
         composition: { agentPreset: agentPreset ?? undefined, persona: descriptor.persona, toolFilter: descriptor.toolFilter },
         signal: options.signal,
@@ -1415,15 +1392,9 @@ export class SubagentManager {
   }
 
   /** Build and submit one message across the final synchronous admission cutoff. */
-  private submitAdmitted(
-    activation: Activation,
-    content: ContentBlock[],
-    options: ChildDeliveryOptions,
-    parent: Agent,
-  ): MessageId {
-    const message = options.source === undefined
-      ? createAgentMessage(parent, content)
-      : createUserMessage({ content, source: options.source })
+  private submitAdmitted(activation: Activation, content: ContentBlock[], options: ChildDeliveryOptions, parent: Agent): MessageId {
+    const message =
+      options.source === undefined ? createAgentMessage(parent, content) : createUserMessage({ content, source: options.source })
     options.signal.throwIfAborted()
     this.assertAdmitting(parent)
     this.authorizeLineage(parent, activation.childId, activation.parent.id)
@@ -1437,10 +1408,7 @@ export class SubagentManager {
   }
 
   /** Refuse image content for a child whose fixed model accepts text only. */
-  private async assertImageCapable(
-    agent: Agent,
-    signal: AbortSignal,
-  ): Promise<void> {
+  private async assertImageCapable(agent: Agent, signal: AbortSignal): Promise<void> {
     const { provider, model } = agent.options
     if (provider === undefined || model === undefined) return
     const llm = this.ctx.get('llm')
@@ -1448,10 +1416,7 @@ export class SubagentManager {
     if (llm === undefined) return
     const info = await llm.resolveModelInfo(provider, model, signal)
     if (info.inputModalities !== undefined && !info.inputModalities.includes('image')) {
-      throw new SubagentError(
-        `Model "${model}" does not support image input.`,
-        'MODEL_DOES_NOT_SUPPORT_IMAGES',
-      )
+      throw new SubagentError(`Model "${model}" does not support image input.`, 'MODEL_DOES_NOT_SUPPORT_IMAGES')
     }
   }
 

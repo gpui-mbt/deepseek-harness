@@ -80,16 +80,36 @@ export const Config: z<Partial<Config>, Config> = z.object({
   maxCachedBytes: z.natural().min(1).max(Number.MAX_SAFE_INTEGER).default(134217728),
   maxSourceEntries: z.natural().min(1).max(Number.MAX_SAFE_INTEGER).default(64),
   timeoutMs: z.natural().min(1).max(2_147_483_647).default(60_000),
-  maxInputBytes: z.natural().min(1).max(Number.MAX_SAFE_INTEGER - 1).default(50 * 1024 * 1024),
-  maxOutputBytes: z.natural().min(1).max(Number.MAX_SAFE_INTEGER - 1).default(100 * 1024 * 1024),
+  maxInputBytes: z
+    .natural()
+    .min(1)
+    .max(Number.MAX_SAFE_INTEGER - 1)
+    .default(50 * 1024 * 1024),
+  maxOutputBytes: z
+    .natural()
+    .min(1)
+    .max(Number.MAX_SAFE_INTEGER - 1)
+    .default(100 * 1024 * 1024),
   maxImageResolution: z.natural().min(1).max(2_147_483_647).default(192),
   maxArchiveEntries: z.natural().min(1).max(Number.MAX_SAFE_INTEGER).default(10_000),
-  maxUncompressedBytes: z.natural().min(1).max(Number.MAX_SAFE_INTEGER).default(250 * 1024 * 1024),
+  maxUncompressedBytes: z
+    .natural()
+    .min(1)
+    .max(Number.MAX_SAFE_INTEGER)
+    .default(250 * 1024 * 1024),
   fontDirectories: z.array(z.string().min(1)).extra('default', undefined),
   fontFallbacks: z.array(z.array(z.string().pattern(/\S/)).min(2)).extra('default', undefined),
   maxFontFiles: z.natural().min(1).max(Number.MAX_SAFE_INTEGER).default(20_000),
-  maxFontFileBytes: z.natural().min(1).max(Number.MAX_SAFE_INTEGER).default(256 * 1024 * 1024),
-  maxLoadedFontBytes: z.natural().min(1).max(Number.MAX_SAFE_INTEGER).default(512 * 1024 * 1024),
+  maxFontFileBytes: z
+    .natural()
+    .min(1)
+    .max(Number.MAX_SAFE_INTEGER)
+    .default(256 * 1024 * 1024),
+  maxLoadedFontBytes: z
+    .natural()
+    .min(1)
+    .max(Number.MAX_SAFE_INTEGER)
+    .default(512 * 1024 * 1024),
 })
 
 interface Slot {
@@ -112,14 +132,36 @@ export class OfficeToPdf extends TypertRemoteService {
    * @param ctx - owning Host context.
    * @param config - resolved rendering, font, and concurrency limits.
    */
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx, 'officeToPdf')
     if (config.fontDirectories?.some(path => !isAbsolute(path))) throw new Error('fontDirectories must contain absolute paths.')
     if (config.maxSourceBytes < config.maxInputBytes) throw new Error('maxSourceBytes must be at least maxInputBytes.')
-    const { fontDirectories, fontFallbacks, timeoutMs, maxInputBytes, maxOutputBytes, maxImageResolution,
-      maxArchiveEntries, maxUncompressedBytes, maxFontFiles, maxFontFileBytes, maxLoadedFontBytes } = config
-    this.options = { timeoutMs, maxInputBytes, maxOutputBytes, maxImageResolution, maxArchiveEntries, maxUncompressedBytes,
-      maxFontFiles, maxFontFileBytes, maxLoadedFontBytes,
+    const {
+      fontDirectories,
+      fontFallbacks,
+      timeoutMs,
+      maxInputBytes,
+      maxOutputBytes,
+      maxImageResolution,
+      maxArchiveEntries,
+      maxUncompressedBytes,
+      maxFontFiles,
+      maxFontFileBytes,
+      maxLoadedFontBytes,
+    } = config
+    this.options = {
+      timeoutMs,
+      maxInputBytes,
+      maxOutputBytes,
+      maxImageResolution,
+      maxArchiveEntries,
+      maxUncompressedBytes,
+      maxFontFiles,
+      maxFontFileBytes,
+      maxLoadedFontBytes,
       ...(fontDirectories === undefined ? {} : { fontDirectories }),
       ...(fontFallbacks === undefined ? {} : { fontFallbacks }),
     }
@@ -128,12 +170,18 @@ export class OfficeToPdf extends TypertRemoteService {
       this.remoteLifetime.abort()
       await this.queue.dispose()
       await Promise.allSettled(this.remoteRequests)
-      const results = await Promise.allSettled(this.slots.map(async (slot) => {
-        const converter = await slot.converter
-        await converter?.dispose()
-      }))
+      const results = await Promise.allSettled(
+        this.slots.map(async slot => {
+          const converter = await slot.converter
+          await converter?.dispose()
+        }),
+      )
       const failures = results.filter(result => result.status === 'rejected')
-      if (failures.length > 0) throw new AggregateError(failures.map((result): unknown => result.reason), 'LibreOffice converter disposal failed.')
+      if (failures.length > 0)
+        throw new AggregateError(
+          failures.map((result): unknown => result.reason),
+          'LibreOffice converter disposal failed.',
+        )
     })
   }
 
@@ -158,12 +206,19 @@ export class OfficeToPdf extends TypertRemoteService {
    */
   @Remote
   async render(
-    workspaceFileScope: WorkspaceFileScope, path: string, priority: OfficeToPdfPriority, signal: AbortSignal,
+    workspaceFileScope: WorkspaceFileScope,
+    path: string,
+    priority: OfficeToPdfPriority,
+    signal: AbortSignal,
   ): Promise<RenderedDocumentBytes> {
     const upstream = AbortSignal.any([signal, this.remoteLifetime.signal])
     const operation = this.renderFile(workspaceFileScope, path, priority, upstream)
     this.remoteRequests.add(operation)
-    try { return await operation } finally { this.remoteRequests.delete(operation) }
+    try {
+      return await operation
+    } finally {
+      this.remoteRequests.delete(operation)
+    }
   }
 
   /**
@@ -172,21 +227,34 @@ export class OfficeToPdf extends TypertRemoteService {
    * @returns provider lifetime, replaced with rendering, font, or engine configuration.
    */
   @Remote('generation')
-  getGeneration(signal: AbortSignal): OfficeToPdfGeneration { signal.throwIfAborted(); return this.generation }
+  getGeneration(signal: AbortSignal): OfficeToPdfGeneration {
+    signal.throwIfAborted()
+    return this.generation
+  }
 
   private async renderFile(
-    scope: WorkspaceFileScope, path: string, priority: OfficeToPdfPriority, signal: AbortSignal,
+    scope: WorkspaceFileScope,
+    path: string,
+    priority: OfficeToPdfPriority,
+    signal: AbortSignal,
   ): Promise<RenderedDocumentBytes> {
     try {
       signal.throwIfAborted()
       const extension = extname(path).slice(1).toLowerCase()
-      if (extension !== 'doc' && extension !== 'docx' && extension !== 'xls'
-        && extension !== 'xlsx' && extension !== 'ppt' && extension !== 'pptx') {
+      if (
+        extension !== 'doc' &&
+        extension !== 'docx' &&
+        extension !== 'xls' &&
+        extension !== 'xlsx' &&
+        extension !== 'ppt' &&
+        extension !== 'pptx'
+      ) {
         throw new OfficeToPdfError('unsupported-format', 'The path must end in doc, docx, xls, xlsx, ppt, or pptx.')
       }
       const files = this.ctx.get('workspaceFiles')
       const fs = this.ctx.get('fs')
-      if (files === undefined || fs === undefined) throw new OfficeToPdfError('unavailable', 'Office file rendering requires workspaceFiles and fs.')
+      if (files === undefined || fs === undefined)
+        throw new OfficeToPdfError('unavailable', 'Office file rendering requires workspaceFiles and fs.')
       const authorized = await files.readBytes(scope, path, { range: { offset: 0, length: 1 } }, signal)
       const source = await files.stat(scope, path, signal)
       const assertUnchanged = (current: WorkspaceFileStat): void => {
@@ -196,31 +264,46 @@ export class OfficeToPdf extends TypertRemoteService {
       }
       assertUnchanged(authorized)
       signal.throwIfAborted()
-      const result = await this.convert({ extension, priority, source: {
-        key: brandString<OfficeSourceKey>(JSON.stringify([scope.sessionId, scope.workspaceRoot, source.absolutePath])),
-        version: source.version, ...(source.bytes === undefined ? {} : { bytes: source.bytes }),
-        read: async (upstream, maxBytes) => {
-          const target = await fs.resolve(source.absolutePath, { signal: upstream })
-          const info = await fs.stat(target, upstream)
-          if (info === undefined || info.type !== 'file') throw new OfficeToPdfError('source-changed', 'The source changed.')
-          assertUnchanged({ absolutePath: fs.processPath(target), version: info.version })
-          const bytes = await fs.readBytes(target, upstream, maxBytes).catch(async (cause: unknown) => {
-            if (typeof cause === 'object' && cause !== null && 'code' in cause && cause.code === 'FS_TOO_LARGE') {
-              assertUnchanged(await files.stat(scope, path, upstream))
-              throw new OfficeToPdfError('input-too-large', 'The source exceeds the reserved byte capacity.', { cause })
-            }
-            throw cause
-          })
-          upstream.throwIfAborted()
-          const after = await files.stat(scope, path, upstream)
-          assertUnchanged(after)
-          return { bytes, version: source.version }
+      const result = await this.convert(
+        {
+          extension,
+          priority,
+          source: {
+            key: brandString<OfficeSourceKey>(JSON.stringify([scope.sessionId, scope.workspaceRoot, source.absolutePath])),
+            version: source.version,
+            ...(source.bytes === undefined ? {} : { bytes: source.bytes }),
+            read: async (upstream, maxBytes) => {
+              const target = await fs.resolve(source.absolutePath, { signal: upstream })
+              const info = await fs.stat(target, upstream)
+              if (info === undefined || info.type !== 'file') throw new OfficeToPdfError('source-changed', 'The source changed.')
+              assertUnchanged({ absolutePath: fs.processPath(target), version: info.version })
+              const bytes = await fs.readBytes(target, upstream, maxBytes).catch(async (cause: unknown) => {
+                if (typeof cause === 'object' && cause !== null && 'code' in cause && cause.code === 'FS_TOO_LARGE') {
+                  assertUnchanged(await files.stat(scope, path, upstream))
+                  throw new OfficeToPdfError('input-too-large', 'The source exceeds the reserved byte capacity.', { cause })
+                }
+                throw cause
+              })
+              upstream.throwIfAborted()
+              const after = await files.stat(scope, path, upstream)
+              assertUnchanged(after)
+              return { bytes, version: source.version }
+            },
+          },
         },
-      } }, signal)
+        signal,
+      )
       signal.throwIfAborted()
-      return { absolutePath: source.absolutePath, version: source.version,
-        offset: 0, eof: true, bytes: result.pdf.byteLength, data: result.pdf,
-        missingFonts: result.missingFonts, generation: result.generation }
+      return {
+        absolutePath: source.absolutePath,
+        version: source.version,
+        offset: 0,
+        eof: true,
+        bytes: result.pdf.byteLength,
+        data: result.pdf,
+        missingFonts: result.missingFonts,
+        generation: result.generation,
+      }
     } catch (cause) {
       if (signal.aborted) throw new RemoteError('gateway/cancelled', 'The document preview was cancelled.', {}, { cause })
       if (cause instanceof OfficeToPdfError) {
@@ -230,10 +313,17 @@ export class OfficeToPdf extends TypertRemoteService {
     }
   }
 
-  private async convertBytes(bytes: Uint8Array, extension: OfficeExtension, signal: AbortSignal): Promise<Pick<OfficeToPdfResult, 'pdf' | 'missingFonts'>> {
+  private async convertBytes(
+    bytes: Uint8Array,
+    extension: OfficeExtension,
+    signal: AbortSignal,
+  ): Promise<Pick<OfficeToPdfResult, 'pdf' | 'missingFonts'>> {
     signal.throwIfAborted()
     let slot = this.slots.find(candidate => !candidate.busy)
-    if (slot === undefined) { slot = { busy: false }; this.slots.push(slot) }
+    if (slot === undefined) {
+      slot = { busy: false }
+      this.slots.push(slot)
+    }
     slot.busy = true
     let directory: string | undefined
     try {
@@ -253,8 +343,9 @@ export class OfficeToPdf extends TypertRemoteService {
       const result = await converter.render({ inputPath, outputPath }, signal)
       signal.throwIfAborted()
       let pdf: Uint8Array
-      try { pdf = await readPdf(outputPath, this.config.maxOutputBytes, signal) }
-      catch (cause) {
+      try {
+        pdf = await readPdf(outputPath, this.config.maxOutputBytes, signal)
+      } catch (cause) {
         if (cause instanceof OfficeToPdfError) throw cause
         throw new OfficeToPdfError('invalid-output', 'The converter PDF could not be read.', { cause })
       }
@@ -265,14 +356,23 @@ export class OfficeToPdf extends TypertRemoteService {
       if (cause instanceof OfficeToPdfError) throw cause
       const code = typeof cause === 'object' && cause !== null && 'code' in cause ? cause.code : undefined
       switch (code) {
-        case 'input-too-large': case 'output-too-large': case 'invalid-document': case 'unsupported-format':
-        case 'invalid-output': case 'timeout': case 'unavailable':
+        case 'input-too-large':
+        case 'output-too-large':
+        case 'invalid-document':
+        case 'unsupported-format':
+        case 'invalid-output':
+        case 'timeout':
+        case 'unavailable':
           throw new OfficeToPdfError(code, 'LibreOffice conversion failed.', { cause })
-        default: throw new OfficeToPdfError('failed', 'LibreOffice conversion failed.', { cause })
+        default:
+          throw new OfficeToPdfError('failed', 'LibreOffice conversion failed.', { cause })
       }
     } finally {
-      try { if (directory !== undefined) await rm(directory, { recursive: true, force: true }) }
-      finally { slot.busy = false }
+      try {
+        if (directory !== undefined) await rm(directory, { recursive: true, force: true })
+      } finally {
+        slot.busy = false
+      }
     }
   }
 }

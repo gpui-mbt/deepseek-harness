@@ -63,14 +63,17 @@ export class SandboxPwshExecutor extends PwshLocalExecutor {
    * shared latest-wrap value would classify a process against the wrong facts.
    * Unconfined processes have no entry.
    */
-  private readonly processFacts = new Map<ShellProcess, {
-    mode: ConfinedSandboxMode
-    enforcement: SandboxEnforcement
-    denialSignatures: readonly string[]
-    runnerFailureRules: readonly RunnerFailureRule[]
-    runnerProgram: string | undefined
-    workdir: string
-  }>()
+  private readonly processFacts = new Map<
+    ShellProcess,
+    {
+      mode: ConfinedSandboxMode
+      enforcement: SandboxEnforcement
+      denialSignatures: readonly string[]
+      runnerFailureRules: readonly RunnerFailureRule[]
+      runnerProgram: string | undefined
+      workdir: string
+    }
+  >()
 
   constructor(ctx: Context, config: Config) {
     super(ctx, config)
@@ -97,46 +100,51 @@ export class SandboxPwshExecutor extends PwshLocalExecutor {
     const policy = spec.sandboxPolicy as SandboxExecutionPolicy
     const { mode } = policy
     if (mode === 'danger-full-access') {
-      return SandboxPwshExecutor.decorateResult(
-        await super.execute(spec),
-        result => ({ ...result, sandbox: { mode, denied: false } }),
-      )
+      return SandboxPwshExecutor.decorateResult(await super.execute(spec), result => ({ ...result, sandbox: { mode, denied: false } }))
     }
     let confined: ConfinedArgv | undefined
-    const ex = await this.executeArgv(spec, async (signal) => {
-      const prepared = await this.confine(spec, { ...policy, mode }, signal)
-      signal.throwIfAborted()
-      confined = prepared
-      return prepared.argv
-    }, (process) => {
-      const facts = confined as ConfinedArgv
-      this.processFacts.set(process, {
-        mode,
-        enforcement: facts.enforcement,
-        denialSignatures: facts.denialSignatures,
-        runnerFailureRules: facts.runnerFailureRules,
-        runnerProgram: facts.argv[0],
-        workdir: spec.workdir,
-      })
-    })
-    return SandboxPwshExecutor.decorateResult(ex, (result) => {
-      if (confined === undefined) return { ...result, sandbox: { mode, denied: false } }
-      const { enforcement, denialSignatures, runnerFailureRules } = confined
-      // Runner failure outranks denial because the command did not run. Carry
-      // the matched fatal line, not an informational line that preceded it.
-      const runnerFailure = classifyRunnerFailure(result.exitCode, result.stderr.text, runnerFailureRules)
-      if (runnerFailure !== undefined) {
-        throw new SandboxUnavailableError(mode, runnerFailure.detail)
-      }
-      return { ...result, sandbox: { mode, denied: classifyDenial(result, denialSignatures), enforcement } }
-    }, (error) => {
-      // An upstream abort remains cancellation even when it prevents spawn.
-      if (spec.signal?.aborted === true) spec.signal.throwIfAborted()
-      if (confined !== undefined && isRunnerSpawnFailure(error, confined.argv[0], spec.workdir)) {
-        throw new SandboxUnavailableError(mode, String(error))
-      }
-      throw error
-    })
+    const ex = await this.executeArgv(
+      spec,
+      async signal => {
+        const prepared = await this.confine(spec, { ...policy, mode }, signal)
+        signal.throwIfAborted()
+        confined = prepared
+        return prepared.argv
+      },
+      process => {
+        const facts = confined as ConfinedArgv
+        this.processFacts.set(process, {
+          mode,
+          enforcement: facts.enforcement,
+          denialSignatures: facts.denialSignatures,
+          runnerFailureRules: facts.runnerFailureRules,
+          runnerProgram: facts.argv[0],
+          workdir: spec.workdir,
+        })
+      },
+    )
+    return SandboxPwshExecutor.decorateResult(
+      ex,
+      result => {
+        if (confined === undefined) return { ...result, sandbox: { mode, denied: false } }
+        const { enforcement, denialSignatures, runnerFailureRules } = confined
+        // Runner failure outranks denial because the command did not run. Carry
+        // the matched fatal line, not an informational line that preceded it.
+        const runnerFailure = classifyRunnerFailure(result.exitCode, result.stderr.text, runnerFailureRules)
+        if (runnerFailure !== undefined) {
+          throw new SandboxUnavailableError(mode, runnerFailure.detail)
+        }
+        return { ...result, sandbox: { mode, denied: classifyDenial(result, denialSignatures), enforcement } }
+      },
+      error => {
+        // An upstream abort remains cancellation even when it prevents spawn.
+        if (spec.signal?.aborted === true) spec.signal.throwIfAborted()
+        if (confined !== undefined && isRunnerSpawnFailure(error, confined.argv[0], spec.workdir)) {
+          throw new SandboxUnavailableError(mode, String(error))
+        }
+        throw error
+      },
+    )
   }
 
   /**

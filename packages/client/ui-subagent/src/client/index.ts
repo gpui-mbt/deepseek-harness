@@ -4,9 +4,7 @@ import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ComposerChainProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { SubagentCatalogAction, SubagentHeaderLineage, type SubagentCatalogInjected } from './SubagentHeaderLineage.tsx'
-import {
-  SubagentReadOnlyComposer, type SubagentReadOnlyMatch,
-} from './SubagentReadOnlyComposer.tsx'
+import { SubagentReadOnlyComposer, type SubagentReadOnlyMatch } from './SubagentReadOnlyComposer.tsx'
 import { registerSidebarChat, subagentChatAddress } from './sidebar-chat/index.tsx'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
@@ -19,16 +17,12 @@ import { en, NS, zh, type SubagentKey } from './locales.ts'
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Subagent catalog and read-only composer copy. */
-    'subagent': SubagentKey
+    subagent: SubagentKey
   }
 }
 
-export type {
-  SubagentCatalogActionProps, SubagentCatalogInjected, SubagentHeaderLineageProps,
-} from './SubagentHeaderLineage.tsx'
-export type {
-  SubagentReadOnlyComposerProps, SubagentReadOnlyMatch,
-} from './SubagentReadOnlyComposer.tsx'
+export type { SubagentCatalogActionProps, SubagentCatalogInjected, SubagentHeaderLineageProps } from './SubagentHeaderLineage.tsx'
+export type { SubagentReadOnlyComposerProps, SubagentReadOnlyMatch } from './SubagentReadOnlyComposer.tsx'
 
 /** Required services for subagent presentation and navigation. */
 export const inject = ['sessions', 'uiWorkspace', 'slots', 'locale', 'sidebarRight']
@@ -54,7 +48,7 @@ function selectReadOnlySubagent(owner: ComposerChainProps): SubagentReadOnlyMatc
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-subagent: dictionaries')
-  ctx.inject(['resources', 'sidebarRightTabs'], (scope) => {
+  ctx.inject(['resources', 'sidebarRightTabs'], scope => {
     registerSidebarChat(scope, ctx.locale.bind(NS))
   })
   const catalogActions = (_parentSessionId: SessionId): SubagentCatalogInjected => ({
@@ -71,33 +65,39 @@ export function apply(ctx: ClientContext): void {
       void ctx.sessions.refreshProjections(parentSessionId)
     },
   })
-  ctx.slots.inject(
-    'conversation.session.header.lineage',
-    () => ctx.slots.register({
-      name: 'conversation.session.header.lineage',
-      locale: NS,
-      inject: catalogActions,
-    }, SubagentHeaderLineage),
+  ctx.slots.inject('conversation.session.header.lineage', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.session.header.lineage',
+        locale: NS,
+        inject: catalogActions,
+      },
+      SubagentHeaderLineage,
+    ),
   )
-  ctx.slots.inject(
-    'conversation.session.header.actions',
-    () => ctx.slots.register({
-      name: 'conversation.session.header.actions',
-      id: 'subagent-catalog',
-      // Between the preset label (-10) and background tasks (20), after Team
-      // navigation (-20).
-      order: 10,
-      locale: NS,
-      inject: catalogActions,
-    }, SubagentCatalogAction),
+  ctx.slots.inject('conversation.session.header.actions', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.session.header.actions',
+        id: 'subagent-catalog',
+        // Between the preset label (-10) and background tasks (20), after Team
+        // navigation (-20).
+        order: 10,
+        locale: NS,
+        inject: catalogActions,
+      },
+      SubagentCatalogAction,
+    ),
   )
-  ctx.slots.inject(
-    'conversation.composer',
-    () => ctx.slots.register({
-      name: 'conversation.composer',
-      priority: -10,
-      locale: NS,
-      select: selectReadOnlySubagent,
-    }, SubagentReadOnlyComposer),
+  ctx.slots.inject('conversation.composer', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.composer',
+        priority: -10,
+        locale: NS,
+        select: selectReadOnlySubagent,
+      },
+      SubagentReadOnlyComposer,
+    ),
   )
 }

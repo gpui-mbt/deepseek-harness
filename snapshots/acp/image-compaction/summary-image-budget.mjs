@@ -15,9 +15,14 @@ export function apply(ctx) {
     failed = true
     yield {
       type: 'finish',
-      reason: { kind: 'error', failure: {
-        code: 'IMAGE_OFFLOAD_REQUIRED', message: 'authored summary image budget failure', offloadImages: 1,
-      } },
+      reason: {
+        kind: 'error',
+        failure: {
+          code: 'IMAGE_OFFLOAD_REQUIRED',
+          message: 'authored summary image budget failure',
+          offloadImages: 1,
+        },
+      },
     }
   })
 }

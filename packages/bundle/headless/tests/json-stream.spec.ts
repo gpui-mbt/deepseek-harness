@@ -1,6 +1,6 @@
 /** The `--json` run projection: commit-point emission, ordering, bounding, and disposal. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
@@ -24,7 +24,7 @@ function assistantMessage(content: unknown[], usage?: unknown): SessionEvent {
       stream: [],
       turn: 1,
       step: 1,
-      ...usage === undefined ? {} : { usage },
+      ...(usage === undefined ? {} : { usage }),
       message: {
         role: 'assistant',
         content,
@@ -65,32 +65,42 @@ function toolResult(
 }
 
 /** Drive the projector through a minimal Context and Agent double. */
-function harness(
-  options: JsonProjectionOptions = {},
-  agentId = 'session-1',
-  cwd: string | null = '/',
-): ProjectionHarness {
+function harness(options: JsonProjectionOptions = {}, agentId = 'session-1', cwd: string | null = '/'): ProjectionHarness {
   const lines: string[] = []
   const sessionListeners = new Set<(session: unknown, event: SessionEvent) => void>()
   const ctx = {
     on(name: string, handler: unknown) {
       if (name === 'session/event') sessionListeners.add(handler as never)
-      return () => { sessionListeners.delete(handler as never) }
+      return () => {
+        sessionListeners.delete(handler as never)
+      }
     },
   } as unknown as Context
   const session = {} as Session
   const agent = { id: agentId, session } as unknown as Agent
-  const projection = projectJsonRun(ctx, agent, {
-    write: (chunk: string) => { lines.push(chunk); return true },
-  }, { ...options, ...cwd === null ? {} : { cwd } })
+  const projection = projectJsonRun(
+    ctx,
+    agent,
+    {
+      write: (chunk: string) => {
+        lines.push(chunk)
+        return true
+      },
+    },
+    { ...options, ...(cwd === null ? {} : { cwd }) },
+  )
   return {
     lines,
     projection,
     agent,
     session,
     parsed: () => lines.map(line => JSON.parse(line) as Record<string, unknown>),
-    emitSession: (event) => { for (const listener of sessionListeners) listener(session, event) },
-    emitRawSession: (rawSession, event) => { for (const listener of sessionListeners) listener(rawSession, event) },
+    emitSession: event => {
+      for (const listener of sessionListeners) listener(session, event)
+    },
+    emitRawSession: (rawSession, event) => {
+      for (const listener of sessionListeners) listener(rawSession, event)
+    },
   }
 }
 
@@ -125,11 +135,13 @@ describe('--json projection', () => {
 
   it('projects committed reasoning and text in content order', () => {
     const test = harness()
-    test.emitSession(assistantMessage([
-      { type: 'reasoning', text: 'think' },
-      { type: 'tool-call', id: 'c1', name: 'bash', arguments: '{}' },
-      { type: 'text', text: 'answer' },
-    ]))
+    test.emitSession(
+      assistantMessage([
+        { type: 'reasoning', text: 'think' },
+        { type: 'tool-call', id: 'c1', name: 'bash', arguments: '{}' },
+        { type: 'text', text: 'answer' },
+      ]),
+    )
     expect(test.parsed().slice(1)).toEqual([
       { type: 'thinking', text: 'think' },
       { type: 'text', text: 'answer' },
@@ -154,7 +166,10 @@ describe('--json projection', () => {
     const events = test.parsed()
     expect(events[1]).toEqual({ type: 'status', phase: 'step_end', turn: 1, step: 1 })
     expect(events[3]).toEqual({
-      type: 'status', phase: 'step_end', turn: 1, step: 2,
+      type: 'status',
+      phase: 'step_end',
+      turn: 1,
+      step: 2,
       usage: { inputTokens: 3, outputTokens: 4 },
     })
   })
@@ -302,25 +317,23 @@ describe('--json projection', () => {
   it('cuts a payload that nests past the depth budget instead of overflowing the stack', () => {
     let deepArray: unknown = 'leaf'
     for (let level = 0; level < 200; level += 1) deepArray = [deepArray]
-    expect(JSON.parse(boundJsonLine({ type: 'tool_call', input: deepArray })))
-      .toMatchObject({ type: 'tool_call', truncated: true })
+    expect(JSON.parse(boundJsonLine({ type: 'tool_call', input: deepArray }))).toMatchObject({ type: 'tool_call', truncated: true })
 
     let deepObject: unknown = 'leaf'
     for (let level = 0; level < 200; level += 1) deepObject = { next: deepObject }
-    expect(JSON.parse(boundJsonLine({ type: 'tool_call', input: deepObject })))
-      .toMatchObject({ type: 'tool_call', truncated: true })
+    expect(JSON.parse(boundJsonLine({ type: 'tool_call', input: deepObject }))).toMatchObject({ type: 'tool_call', truncated: true })
   })
 
   it('sums retried attempt usage into the step total and drops an unshared bucket', () => {
     const test = harness()
     test.emitSession(attemptWithUsage({ inputTokens: 10, outputTokens: 2, totalTokens: 12, cacheReadTokens: 4 }))
-    test.emitSession(assistantMessage(
-      [{ type: 'text', text: 'ok' }],
-      { inputTokens: 3, outputTokens: 1, totalTokens: 4 },
-    ))
+    test.emitSession(assistantMessage([{ type: 'text', text: 'ok' }], { inputTokens: 3, outputTokens: 1, totalTokens: 4 }))
     test.emitSession(stepEnd())
     expect(test.parsed().at(-1)).toEqual({
-      type: 'status', phase: 'step_end', turn: 1, step: 1,
+      type: 'status',
+      phase: 'step_end',
+      turn: 1,
+      step: 1,
       usage: { inputTokens: 13, outputTokens: 3, totalTokens: 16 },
     })
   })
@@ -328,16 +341,24 @@ describe('--json projection', () => {
   it('sums every optional bucket both attempts report', () => {
     const test = harness()
     const sample = {
-      inputTokens: 2, outputTokens: 1, totalTokens: 3,
-      cacheReadTokens: 1, cacheWriteTokens: 1, reasoningTokens: 1,
+      inputTokens: 2,
+      outputTokens: 1,
+      totalTokens: 3,
+      cacheReadTokens: 1,
+      cacheWriteTokens: 1,
+      reasoningTokens: 1,
     }
     test.emitSession(attemptWithUsage(sample))
     test.emitSession(attemptWithUsage(sample))
     test.emitSession(stepEnd())
     expect(test.parsed().at(-1)).toMatchObject({
       usage: {
-        inputTokens: 4, outputTokens: 2, totalTokens: 6,
-        cacheReadTokens: 2, cacheWriteTokens: 2, reasoningTokens: 2,
+        inputTokens: 4,
+        outputTokens: 2,
+        totalTokens: 6,
+        cacheReadTokens: 2,
+        cacheWriteTokens: 2,
+        reasoningTokens: 2,
       },
     })
   })
@@ -412,8 +433,11 @@ describe('--json projection', () => {
   })
 
   it('bounds one projected payload through the line writer', () => {
-    expect(JSON.parse(boundJsonLine({ type: 'error', message: 'x'.repeat(20) }, 8, 4096)))
-      .toEqual({ type: 'error', message: 'xxxxxxxx', truncated: true })
+    expect(JSON.parse(boundJsonLine({ type: 'error', message: 'x'.repeat(20) }, 8, 4096))).toEqual({
+      type: 'error',
+      message: 'xxxxxxxx',
+      truncated: true,
+    })
     expect(JSON.parse(boundJsonLine({ type: 'error', message: 'ok' }))).toEqual({ type: 'error', message: 'ok' })
   })
 })

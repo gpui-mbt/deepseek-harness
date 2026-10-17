@@ -1,11 +1,9 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
-import {
-  PermissionPresetSettingsController, permissionDefaultOf,
-} from '../src/client/settings-store.ts'
+import { PermissionPresetSettingsController, permissionDefaultOf } from '../src/client/settings-store.ts'
 
 const SCHEMA = {
   uid: 6,
@@ -17,7 +15,14 @@ const SCHEMA = {
   },
 }
 
-const catalog = { options: [], defaultPreset: 'read-only', defaultOptions: [{ value: 'read-only', name: 'read-only' }, { value: 'workspace-write', name: 'Workspace' }] }
+const catalog = {
+  options: [],
+  defaultPreset: 'read-only',
+  defaultOptions: [
+    { value: 'read-only', name: 'read-only' },
+    { value: 'workspace-write', name: 'Workspace' },
+  ],
+}
 const directory = { store: createSnapshotStore({ value: catalog }), load: () => Promise.resolve(catalog) }
 
 function resolveDefault(view: SettingsNamespaceView) {
@@ -30,7 +35,8 @@ function view(defaultPreset: string, revision = 0, schema: SettingsNamespaceView
     schema,
     value: { defaultPreset },
     base: { defaultPreset: 'read-only' },
-    autoGenerate: true, applies: 'live',
+    autoGenerate: true,
+    applies: 'live',
     secrets: [],
     revision,
   }
@@ -50,19 +56,27 @@ function permissionController(api: object) {
 
 describe('permission settings store', () => {
   it('derives configured options from the permission catalog and preserves the inferred default', () => {
-    expect(resolveDefault(view('read-only'))).toEqual({ currentValue: 'read-only', options: [
-      { id: 'read-only', label: 'Read Only' }, { id: 'workspace-write', label: 'Workspace' },
-    ] })
+    expect(resolveDefault(view('read-only'))).toEqual({
+      currentValue: 'read-only',
+      options: [
+        { id: 'read-only', label: 'Read Only' },
+        { id: 'workspace-write', label: 'Workspace' },
+      ],
+    })
     expect(resolveDefault({ ...view('read-only'), value: {} }).currentValue).toBe('read-only')
     expect(() => resolveDefault(view('missing'))).toThrow('does not advertise')
   })
 
   it('loads and writes defaultPreset with optimistic concurrency', async () => {
-    const describe = vi.fn(() => Promise.resolve(ok({
-      writable: true,
-      hasDocument: false,
-      namespaces: [view('read-only', 4)],
-    })))
+    const describe = vi.fn(() =>
+      Promise.resolve(
+        ok({
+          writable: true,
+          hasDocument: false,
+          namespaces: [view('read-only', 4)],
+        }),
+      ),
+    )
     const mutate = vi.fn(() => Promise.resolve(ok(view('workspace-write', 5))))
     const { controller } = permissionController({ describe, mutate })
     await controller.load()
@@ -73,11 +87,7 @@ describe('permission settings store', () => {
       revision: 4,
     })
     await controller.select('workspace-write')
-    expect(mutate).toHaveBeenCalledWith(
-      'permission',
-      [{ op: 'set', path: ['defaultPreset'], value: 'workspace-write' }],
-      4,
-    )
+    expect(mutate).toHaveBeenCalledWith('permission', [{ op: 'set', path: ['defaultPreset'], value: 'workspace-write' }], 4)
     expect(controller.store.getSnapshot()).toMatchObject({
       status: 'ready',
       currentValue: 'workspace-write',
@@ -95,10 +105,11 @@ describe('permission settings store', () => {
 
     const failing = permissionController({
       describe: () => Promise.resolve(ok({ writable: true, hasDocument: false, namespaces: [view('read-only')] })),
-      mutate: () => Promise.resolve({
-        ok: false as const,
-        error: new RemoteError('settings/conflict', 'stale', { ns: 'permission', expected: 1, actual: 2 }),
-      }),
+      mutate: () =>
+        Promise.resolve({
+          ok: false as const,
+          error: new RemoteError('settings/conflict', 'stale', { ns: 'permission', expected: 1, actual: 2 }),
+        }),
     }).controller
     await failing.load()
     await failing.select('workspace-write')
@@ -108,9 +119,14 @@ describe('permission settings store', () => {
   it('contains read failures and no-ops without a writable view', async () => {
     const mutate = vi.fn()
     const readOnly = permissionController({
-      describe: () => Promise.resolve(ok({
-        writable: false, hasDocument: false, namespaces: [view('read-only', 2)],
-      })),
+      describe: () =>
+        Promise.resolve(
+          ok({
+            writable: false,
+            hasDocument: false,
+            namespaces: [view('read-only', 2)],
+          }),
+        ),
       mutate,
     }).controller
     await readOnly.load()
@@ -123,10 +139,11 @@ describe('permission settings store', () => {
     expect(mutate).not.toHaveBeenCalled()
 
     const rejected = permissionController({
-      describe: () => Promise.resolve({
-        ok: false as const,
-        error: new RemoteError('gateway/internal', 'offline', {}),
-      }),
+      describe: () =>
+        Promise.resolve({
+          ok: false as const,
+          error: new RemoteError('gateway/internal', 'offline', {}),
+        }),
       mutate,
     }).controller
     await rejected.select('workspace-write')
@@ -135,7 +152,9 @@ describe('permission settings store', () => {
     expect(mutate).not.toHaveBeenCalled()
 
     const thrown = permissionController({
-      describe: async () => { throw 'disconnected' },
+      describe: async () => {
+        throw 'disconnected'
+      },
       mutate,
     }).controller
     await thrown.load()
@@ -144,25 +163,33 @@ describe('permission settings store', () => {
     const ctx = {
       remote: {
         settings: {
-          describe: () => Promise.resolve(ok({
-            writable: true, hasDocument: false, namespaces: [view('read-only')],
-          })),
+          describe: () =>
+            Promise.resolve(
+              ok({
+                writable: true,
+                hasDocument: false,
+                namespaces: [view('read-only')],
+              }),
+            ),
           mutate,
         },
       },
     } as never
     const mirror = new SettingsDescribeMirror(ctx)
     const malformed = new PermissionPresetSettingsController(mirror, ctx, {
-      store: directory.store, load: () => Promise.reject(new Error('catalog disconnected')),
+      store: directory.store,
+      load: () => Promise.reject(new Error('catalog disconnected')),
     })
     await malformed.load()
     expect(malformed.store.getSnapshot()).toMatchObject({
-      status: 'error', error: 'catalog disconnected',
+      status: 'error',
+      error: 'catalog disconnected',
     })
   })
 
   it('follows a mirror refresh without an own read once loaded', async () => {
-    const describe = vi.fn()
+    const describe = vi
+      .fn()
       .mockResolvedValueOnce(ok({ writable: true, hasDocument: false, namespaces: [view('read-only', 1)] }))
       .mockResolvedValueOnce(ok({ writable: true, hasDocument: false, namespaces: [view('workspace-write', 2)] }))
     const { mirror, controller } = permissionController({ describe, mutate: vi.fn() })
@@ -182,10 +209,14 @@ describe('permission settings store', () => {
     expect(neverLoaded.store.getSnapshot().status).toBe('idle')
     expect(neverRead).not.toHaveBeenCalled()
 
-    const read = Promise.withResolvers<ReturnType<typeof ok<{
-      writable: boolean
-      namespaces: SettingsNamespaceView[]
-    }>>>()
+    const read = Promise.withResolvers<
+      ReturnType<
+        typeof ok<{
+          writable: boolean
+          namespaces: SettingsNamespaceView[]
+        }>
+      >
+    >()
     const { mirror, controller: idle } = permissionController({ describe: () => read.promise, mutate: vi.fn() })
     const loading = idle.load()
     idle.dispose()
@@ -195,11 +226,14 @@ describe('permission settings store', () => {
 
     const mutation = Promise.withResolvers<ReturnType<typeof ok<SettingsNamespaceView>>>()
     const { controller: active } = permissionController({
-      describe: () => Promise.resolve(ok({
-        writable: true,
-        hasDocument: false,
-        namespaces: [view('read-only')],
-      })),
+      describe: () =>
+        Promise.resolve(
+          ok({
+            writable: true,
+            hasDocument: false,
+            namespaces: [view('read-only')],
+          }),
+        ),
       mutate: () => mutation.promise,
     })
     await active.load()
@@ -209,9 +243,7 @@ describe('permission settings store', () => {
     await saving
     expect(active.store.getSnapshot().status).toBe('saving')
 
-    const refusedMutation = Promise.withResolvers<
-      ReturnType<typeof ok<SettingsNamespaceView>> | { ok: false; error: RemoteError }
-    >()
+    const refusedMutation = Promise.withResolvers<ReturnType<typeof ok<SettingsNamespaceView>> | { ok: false; error: RemoteError }>()
     const { controller: disposedWrite } = permissionController({
       describe: () => Promise.resolve(ok({ writable: true, hasDocument: false, namespaces: [view('read-only')] })),
       mutate: () => refusedMutation.promise,
@@ -229,7 +261,9 @@ describe('permission settings store', () => {
 })
 
 it('waits for the catalog, follows catalog changes, and contains invalid defaults', async () => {
-  const ctx = { remote: { settings: { describe: async () => ok({ writable: true, hasDocument: true, namespaces: [view('read-only')] }) } } } as never
+  const ctx = {
+    remote: { settings: { describe: async () => ok({ writable: true, hasDocument: true, namespaces: [view('read-only')] }) } },
+  } as never
   const mirror = new SettingsDescribeMirror(ctx)
   const store = createSnapshotStore<{ value: typeof catalog | null }>({ value: null })
   const controller = new PermissionPresetSettingsController(mirror, ctx, { store, load: async () => catalog })
@@ -240,7 +274,12 @@ it('waits for the catalog, follows catalog changes, and contains invalid default
   store.set({ value: { ...catalog, defaultOptions: [] } })
   expect(controller.store.getSnapshot().status).toBe('error')
   controller.dispose()
-  const failed = new PermissionPresetSettingsController(mirror, ctx, { store, load: async () => { throw 'catalog unavailable' } })
+  const failed = new PermissionPresetSettingsController(mirror, ctx, {
+    store,
+    load: async () => {
+      throw 'catalog unavailable'
+    },
+  })
   await failed.load()
   expect(failed.store.getSnapshot()).toMatchObject({ status: 'error', error: 'catalog unavailable' })
   failed.dispose()

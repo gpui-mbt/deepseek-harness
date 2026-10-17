@@ -17,10 +17,7 @@ export const inject = ['locale']
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.effect(
-    () => ctx.locale.addLanguage({ id: 'ja', label: '日本語', fallback: 'en' }),
-    'locale-ja: language definition',
-  )
+  ctx.effect(() => ctx.locale.addLanguage({ id: 'ja', label: '日本語', fallback: 'en' }), 'locale-ja: language definition')
   ctx.effect(() => {
     const disposers = DICTIONARIES.map(({ ns, dict }) => ctx.locale.register(ns, 'ja', dict))
     return () => {

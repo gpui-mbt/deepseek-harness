@@ -1,5 +1,5 @@
 /** Recovery timing validation before a loop or Host bootstrap is published. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { resolveConnectionConfig } from '../src/recovery-config.ts'
 
 describe('connection recovery configuration', () => {
@@ -22,7 +22,7 @@ describe('connection recovery configuration', () => {
     { generationReadyWarnMs: NaN },
     { generationReadyTimeoutMs: 2_147_483_648 },
     { generationReadyTimeoutMs: '15000' },
-  ])('rejects timing that could disable recovery or overflow a timer: %j', (config) => {
+  ])('rejects timing that could disable recovery or overflow a timer: %j', config => {
     expect(() => resolveConnectionConfig(config)).toThrow()
   })
 

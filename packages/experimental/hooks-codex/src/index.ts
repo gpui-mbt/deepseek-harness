@@ -137,24 +137,36 @@ export function apply(ctx: Context, config: Config): void {
         const session = opts.agent?.session
         if (session && opts.turn !== undefined) {
           appendHookInvoked(session, {
-            turn: opts.turn, point, dialect: 'codex', handlerId,
+            turn: opts.turn,
+            point,
+            dialect: 'codex',
+            handlerId,
             matcher: group.matcher,
           })
         }
-        const { output, durationMs } = await runHook(ctx.shell, hook, {
-          payload: { ...payload, cwd: workdir ?? process.cwd() },
-          defaultTimeoutMs,
-          ...workdir !== undefined ? { cwd: workdir } : {},
-          signal: opts.signal,
-          trailingNewline: false, // Codex writes stdin without a trailing newline.
-          // Discard a `hookSpecificOutput` block naming a different event.
-          expectedEventName: point,
-        }, () => performance.now())
+        const { output, durationMs } = await runHook(
+          ctx.shell,
+          hook,
+          {
+            payload: { ...payload, cwd: workdir ?? process.cwd() },
+            defaultTimeoutMs,
+            ...(workdir !== undefined ? { cwd: workdir } : {}),
+            signal: opts.signal,
+            trailingNewline: false, // Codex writes stdin without a trailing newline.
+            // Discard a `hookSpecificOutput` block naming a different event.
+            expectedEventName: point,
+          },
+          () => performance.now(),
+        )
         // Clean plain stdout becomes context only when no structured context
         // exists; nonzero output and raw JSON never leak as prose.
-        if (opts.plainStdoutAsContext === true && output.exitCode === 0
-          && output.additionalContext === undefined
-          && output.stdout.length > 0 && !output.stdout.startsWith('{')) {
+        if (
+          opts.plainStdoutAsContext === true &&
+          output.exitCode === 0 &&
+          output.additionalContext === undefined &&
+          output.stdout.length > 0 &&
+          !output.stdout.startsWith('{')
+        ) {
           output.additionalContext = output.stdout
         }
         outputs.push(output)
@@ -182,17 +194,24 @@ export function apply(ctx: Context, config: Config): void {
 
   /** Prepend one context without flattening source fields or other downstream metadata. */
   function prependContext(ours: UserMessage, theirs: UserMessage[] | undefined): UserMessage[] {
-    return [ours, ...theirs ?? []]
+    return [ours, ...(theirs ?? [])]
   }
 
   ctx.on('agent/created', async ({ agent, source, signal }) => {
     const ownerSignal = signal === undefined ? detached.signal : AbortSignal.any([signal, detached.signal])
-    const run = runPoint('SessionStart', source, { ...base(agent, 'SessionStart', model), source }, { agent, plainStdoutAsContext: true, signal: ownerSignal })
-      .then((merged) => {
+    const run = runPoint(
+      'SessionStart',
+      source,
+      { ...base(agent, 'SessionStart', model), source },
+      { agent, plainStdoutAsContext: true, signal: ownerSignal },
+    )
+      .then(merged => {
         const context = contextFrom(merged)
         if (context) agent.inject(context)
       })
-      .catch((error: unknown) => { ctx.logger.warn(`hooks-codex: SessionStart hook failed: ${String(error)}`) })
+      .catch((error: unknown) => {
+        ctx.logger.warn(`hooks-codex: SessionStart hook failed: ${String(error)}`)
+      })
     detached.track(run)
     await run
     /* jscpd:ignore-end */
@@ -207,7 +226,10 @@ export function apply(ctx: Context, config: Config): void {
       prompt: blocksToText(messages.flatMap(message => message.content)),
     }
     const merged = await runPoint('UserPromptSubmit', '', payload, {
-      agent, turn, plainStdoutAsContext: true, signal,
+      agent,
+      turn,
+      plainStdoutAsContext: true,
+      signal,
     })
     /* jscpd:ignore-start */
     if (merged.decision === 'deny') {
@@ -227,7 +249,11 @@ export function apply(ctx: Context, config: Config): void {
   // PreToolUse → PreToolDecision. Codex blocks only (no allow/ask honored).
   ctx.on('tools/pre-execute', async (exec, next): Promise<PreToolDecision> => {
     const turn = lastTurn(ctx, exec.agent)
-    const merged = await runPoint('PreToolUse', exec.name, preToolPayload(ctx, exec, model), { ...exec.agent ? { agent: exec.agent } : {}, turn, signal: exec.signal })
+    const merged = await runPoint('PreToolUse', exec.name, preToolPayload(ctx, exec, model), {
+      ...(exec.agent ? { agent: exec.agent } : {}),
+      turn,
+      signal: exec.signal,
+    })
     /* jscpd:ignore-end */
     if (merged.decision === 'deny') return { kind: 'deny', reason: merged.reason ?? 'blocked by PreToolUse hook' }
     return next()
@@ -237,10 +263,18 @@ export function apply(ctx: Context, config: Config): void {
   ctx.on('tools/post-execute', async (exec, result, next): Promise<PostToolDecision> => {
     const turn = lastTurn(ctx, exec.agent)
     /* jscpd:ignore-start */
-    const merged = await runPoint('PostToolUse', exec.name, postToolPayload(ctx, exec, result, model), { ...exec.agent ? { agent: exec.agent } : {}, turn, signal: exec.signal })
+    const merged = await runPoint('PostToolUse', exec.name, postToolPayload(ctx, exec, result, model), {
+      ...(exec.agent ? { agent: exec.agent } : {}),
+      turn,
+      signal: exec.signal,
+    })
     const context = contextFrom(merged)
     if (merged.decision === 'deny') {
-      return { kind: 'block', feedback: [{ type: 'text', text: merged.reason ?? 'blocked by PostToolUse hook' }], ...context ? { additionalContexts: [context] } : {} }
+      return {
+        kind: 'block',
+        feedback: [{ type: 'text', text: merged.reason ?? 'blocked by PostToolUse hook' }],
+        ...(context ? { additionalContexts: [context] } : {}),
+      }
     }
     // Context alone is not a veto: DELEGATE, then fold our context onto the
     // downstream decision (a downstream block carries it too).
@@ -261,7 +295,12 @@ export function apply(ctx: Context, config: Config): void {
   // avoid continuing the same turn indefinitely. It is always false here, so an
   // unconditionally blocking hook force-continues every step until it self-limits.
   ctx.on('agent/turn-stopping', async ({ agent, turn, signal }): Promise<void> => {
-    const merged = await runPoint('Stop', '', { ...turnBase(ctx, agent, 'Stop', model), stop_hook_active: false, last_assistant_message: null }, { agent, turn, signal })
+    const merged = await runPoint(
+      'Stop',
+      '',
+      { ...turnBase(ctx, agent, 'Stop', model), stop_hook_active: false, last_assistant_message: null },
+      { agent, turn, signal },
+    )
     /* jscpd:ignore-end */
     if (merged.decision === 'deny') {
       // A blocking Stop hook forces continuation; a block with no reason (exit 2,
@@ -286,7 +325,10 @@ function lastTurn(ctx: Context, agent: Agent | undefined): number {
 }
 
 function blocksToText(content: ContentBlock[]): string {
-  return content.filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text').map(b => b.text).join('')
+  return content
+    .filter((b): b is Extract<ContentBlock, { type: 'text' }> => b.type === 'text')
+    .map(b => b.text)
+    .join('')
 }
 /* jscpd:ignore-end */
 
@@ -322,9 +364,20 @@ function preToolPayload(ctx: Context, exec: ToolExecution, model: string): Recor
   // a hardcoded constant would disagree with what the matcher tests and make a
   // config's tool matcher never fire. `tool_input` keeps Codex's `{ command }`
   // shape (its shell payload), derived from the call's `command` arg when present.
-  return { ...turnBase(ctx, exec.agent, 'PreToolUse', model), tool_name: exec.name, tool_input: { command: commandOf(exec.arguments) }, tool_use_id: exec.callId }
+  return {
+    ...turnBase(ctx, exec.agent, 'PreToolUse', model),
+    tool_name: exec.name,
+    tool_input: { command: commandOf(exec.arguments) },
+    tool_use_id: exec.callId,
+  }
 }
 
 function postToolPayload(ctx: Context, exec: ToolExecution, result: ToolExecutionResult, model: string): Record<string, unknown> {
-  return { ...turnBase(ctx, exec.agent, 'PostToolUse', model), tool_name: exec.name, tool_input: { command: commandOf(exec.arguments) }, tool_use_id: exec.callId, tool_response: blocksToText(result.content) }
+  return {
+    ...turnBase(ctx, exec.agent, 'PostToolUse', model),
+    tool_name: exec.name,
+    tool_input: { command: commandOf(exec.arguments) },
+    tool_use_id: exec.callId,
+    tool_response: blocksToText(result.content),
+  }
 }

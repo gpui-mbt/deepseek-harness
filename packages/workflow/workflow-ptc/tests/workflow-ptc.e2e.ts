@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session'
 
@@ -55,7 +55,14 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('PTC workflow engine with-key e2e
 
     const events: string[] = []
     const childIds: string[] = []
-    for (const name of ['workflow/start', 'workflow/phase', 'workflow/log', 'workflow/agent-start', 'workflow/agent-end', 'workflow/end'] as const) {
+    for (const name of [
+      'workflow/start',
+      'workflow/phase',
+      'workflow/log',
+      'workflow/agent-start',
+      'workflow/agent-end',
+      'workflow/end',
+    ] as const) {
       ctx.on(name, (...payload: unknown[]) => {
         events.push(name)
         if (name === 'workflow/agent-start') childIds.push((payload[1] as { childId: string }).childId)

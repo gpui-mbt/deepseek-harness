@@ -1,7 +1,7 @@
 // UI-only geometry for the Automation tasks page; no model calls or task mutations.
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode } from './scaffold.ts'
 
 it('keeps the automation title intact before moving New to another line', async () => {
@@ -33,28 +33,42 @@ it('keeps the automation title intact before moving New to another line', async 
             await page.setViewportSize({ width, height: 1000 })
             // The title keeps its natural width at every viewport width, so New
             // stays beside it here; the squeeze case below is what moves it down.
-            await expect.poll(() => header.evaluate((element) => {
-              const title = element.querySelector('h1')!
-              const button = element.querySelector('button')!
-              const titleRect = title.getBoundingClientRect()
-              const buttonRect = button.getBoundingClientRect()
-              const headerRect = element.getBoundingClientRect()
-              const range = document.createRange()
-              range.selectNodeContents(title)
-              const titleLines = Array.from(range.getClientRects())
-              return {
-                titleSingleLine: titleLines.length === 1,
-                buttonSingleLine: button.scrollHeight <= button.clientHeight,
-                placement: buttonRect.left >= titleRect.right - 1
-                  ? 'beside' as const
-                  : buttonRect.top >= titleRect.bottom - 1 ? 'below' as const : 'overlapping' as const,
-                contained: titleRect.left >= headerRect.left - 1 && titleRect.right <= headerRect.right + 1
-                  && buttonRect.left >= headerRect.left - 1 && buttonRect.right <= headerRect.right + 1,
-                focused: document.activeElement === button,
-              }
-            })).toEqual({
-              titleSingleLine: true, buttonSingleLine: true, placement: 'beside', contained: true, focused: true,
-            })
+            await expect
+              .poll(() =>
+                header.evaluate(element => {
+                  const title = element.querySelector('h1')!
+                  const button = element.querySelector('button')!
+                  const titleRect = title.getBoundingClientRect()
+                  const buttonRect = button.getBoundingClientRect()
+                  const headerRect = element.getBoundingClientRect()
+                  const range = document.createRange()
+                  range.selectNodeContents(title)
+                  const titleLines = Array.from(range.getClientRects())
+                  return {
+                    titleSingleLine: titleLines.length === 1,
+                    buttonSingleLine: button.scrollHeight <= button.clientHeight,
+                    placement:
+                      buttonRect.left >= titleRect.right - 1
+                        ? ('beside' as const)
+                        : buttonRect.top >= titleRect.bottom - 1
+                          ? ('below' as const)
+                          : ('overlapping' as const),
+                    contained:
+                      titleRect.left >= headerRect.left - 1 &&
+                      titleRect.right <= headerRect.right + 1 &&
+                      buttonRect.left >= headerRect.left - 1 &&
+                      buttonRect.right <= headerRect.right + 1,
+                    focused: document.activeElement === button,
+                  }
+                }),
+              )
+              .toEqual({
+                titleSingleLine: true,
+                buttonSingleLine: true,
+                placement: 'beside',
+                contained: true,
+                focused: true,
+              })
             facts.push(`${language} ${width}px: title and New single-line, New beside the title; contained; New retains focus`)
           }
           if (language === 'en') {
@@ -62,20 +76,27 @@ it('keeps the automation title intact before moving New to another line', async 
             // page column narrow enough (measured 172px) to force the wrap.
             await page.setViewportSize({ width: 509, height: 1000 })
             await page.getByRole('button', { name: 'Open sidebar', exact: true }).first().click()
-            await expect.poll(() => header.evaluate((element) => {
-              const title = element.querySelector('h1')!
-              const button = element.querySelector('button')!
-              const titleRect = title.getBoundingClientRect()
-              const buttonRect = button.getBoundingClientRect()
-              const range = document.createRange()
-              range.selectNodeContents(title)
-              return {
-                titleSingleLine: range.getClientRects().length === 1,
-                placement: buttonRect.left >= titleRect.right - 1
-                  ? 'beside' as const
-                  : buttonRect.top >= titleRect.bottom - 1 ? 'below' as const : 'overlapping' as const,
-              }
-            })).toEqual({ titleSingleLine: true, placement: 'below' })
+            await expect
+              .poll(() =>
+                header.evaluate(element => {
+                  const title = element.querySelector('h1')!
+                  const button = element.querySelector('button')!
+                  const titleRect = title.getBoundingClientRect()
+                  const buttonRect = button.getBoundingClientRect()
+                  const range = document.createRange()
+                  range.selectNodeContents(title)
+                  return {
+                    titleSingleLine: range.getClientRects().length === 1,
+                    placement:
+                      buttonRect.left >= titleRect.right - 1
+                        ? ('beside' as const)
+                        : buttonRect.top >= titleRect.bottom - 1
+                          ? ('below' as const)
+                          : ('overlapping' as const),
+                  }
+                }),
+              )
+              .toEqual({ titleSingleLine: true, placement: 'below' })
             facts.push('en 509px with sidebar expanded: title single-line; New moves below the title')
           }
           expect(consoleWatch.pageErrors).toEqual([])

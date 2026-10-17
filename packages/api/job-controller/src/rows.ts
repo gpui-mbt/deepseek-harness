@@ -33,7 +33,7 @@ export async function* streamJobRows(
   const waiter = new OutputWaiter()
   // Subscribe before the first read so a commit between the read and the
   // wait cannot be missed.
-  const unsubscribe = registry.events.subscribe({ owners: 'all' }, (event) => {
+  const unsubscribe = registry.events.subscribe({ owners: 'all' }, event => {
     if (event.type === 'output') return
     const owner = event.job.owner
     if (owner === undefined || owner === request.sessionId) waiter.wake()

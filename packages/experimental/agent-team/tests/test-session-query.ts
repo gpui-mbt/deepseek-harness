@@ -6,11 +6,7 @@ import SessionQueryEngine from '@deepseek-ai/dsh-session-query'
 import type { SessionObservation, SessionObservationOptions } from '@deepseek-ai/dsh-session-query'
 
 /** Undisposable immutable cut over one session's header and events. */
-function cut(
-  source: 'live' | 'prepared',
-  header: SessionHeader,
-  events: readonly SessionEvent[],
-): SessionObservation {
+function cut(source: 'live' | 'prepared', header: SessionHeader, events: readonly SessionEvent[]): SessionObservation {
   const lease = (): SessionObservation => ({
     source,
     header,
@@ -28,24 +24,15 @@ export class TestSessionQuery extends SessionQueryEngine {
   static override inject = ['sessions', 'sessionPersistence']
 
   /** Live-preferred observation backed directly by a short-lived persistence read handle. */
-  override async observeSession(
-    sessionId: SessionId,
-    options: SessionObservationOptions = {},
-  ): Promise<SessionObservation> {
+  override async observeSession(sessionId: SessionId, options: SessionObservationOptions = {}): Promise<SessionObservation> {
     const live = this.ctx.sessions.get(sessionId)
     if (live !== undefined) return cut('live', live.header, live.snapshotEvents())
-    const handle = await this.ctx.sessionPersistence.open(
-      sessionId,
-      'read',
-      options.signal === undefined ? {} : { signal: options.signal },
-    )
+    const handle = await this.ctx.sessionPersistence.open(sessionId, 'read', options.signal === undefined ? {} : { signal: options.signal })
     try {
       return cut(
         'prepared',
         handle.header,
-        (await handle.read(
-          0, undefined, options.signal === undefined ? {} : { signal: options.signal },
-        )).events,
+        (await handle.read(0, undefined, options.signal === undefined ? {} : { signal: options.signal })).events,
       )
     } finally {
       await handle.close()

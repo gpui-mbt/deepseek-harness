@@ -6,7 +6,7 @@
  * behavior is each consumer's (`dsh-bash-sandbox`).
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SANDBOX_UNAVAILABLE, SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox'
 
 describe('SandboxUnavailableError', () => {

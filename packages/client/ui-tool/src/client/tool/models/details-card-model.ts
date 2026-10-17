@@ -17,7 +17,13 @@ function count(value: unknown): value is number {
 function formatDate(date: Date, locale: string, fallback: string): string {
   try {
     return new Intl.DateTimeFormat(locale, {
-      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short',
     }).format(date)
   } catch {
     return fallback
@@ -50,13 +56,23 @@ function goalDetail(value: unknown, t: Translate): ToolDetailsModel | null {
   if (!detailRecord(value)) return null
   if (value.goal === null) return { items: [], empty: t('detail.goal.empty') }
   const goal = value.goal
-  if (!detailRecord(goal) || !nonempty(goal.id) || !nonempty(goal.objective)
-    || !count(goal.revision) || !count(goal.roundsStarted) || !count(goal.maxGoalRounds)) return null
+  if (
+    !detailRecord(goal) ||
+    !nonempty(goal.id) ||
+    !nonempty(goal.objective) ||
+    !count(goal.revision) ||
+    !count(goal.roundsStarted) ||
+    !count(goal.maxGoalRounds)
+  )
+    return null
   const phase = goal.phase
   if (phase !== 'active' && phase !== 'paused' && phase !== 'blocked' && phase !== 'complete') return null
   if (value.activation !== 'armed' && value.activation !== 'disarmed') return null
   const fields = [
-    { label: t('detail.state'), value: t(phase === 'active' && value.activation === 'disarmed' ? 'detail.goal.disarmed' : `detail.goal.${phase}`) },
+    {
+      label: t('detail.state'),
+      value: t(phase === 'active' && value.activation === 'disarmed' ? 'detail.goal.disarmed' : `detail.goal.${phase}`),
+    },
     { label: t('detail.goal.rounds'), value: `${goal.roundsStarted} / ${goal.maxGoalRounds}` },
   ]
   if (goal.blockedReason !== undefined) {
@@ -68,8 +84,13 @@ function goalDetail(value: unknown, t: Translate): ToolDetailsModel | null {
 
 /** ISO-weekday keys, Monday first: a stored weekly rule names days 1 through 7. */
 const WEEKDAY_KEYS = [
-  'detail.weekday.1', 'detail.weekday.2', 'detail.weekday.3', 'detail.weekday.4',
-  'detail.weekday.5', 'detail.weekday.6', 'detail.weekday.7',
+  'detail.weekday.1',
+  'detail.weekday.2',
+  'detail.weekday.3',
+  'detail.weekday.4',
+  'detail.weekday.5',
+  'detail.weekday.6',
+  'detail.weekday.7',
 ] as const
 
 function interval(seconds: number, t: Translate): string {
@@ -99,17 +120,24 @@ function weekdayText(days: unknown, t: Translate): string | undefined {
 }
 
 function scheduleItem(value: unknown, t: Translate, locale: string): DetailItem | null {
-  if (!detailRecord(value) || !nonempty(value.id) || !nonempty(value.prompt)
-    || typeof value.scheduledAt !== 'string'
+  if (
+    !detailRecord(value) ||
+    !nonempty(value.id) ||
+    !nonempty(value.prompt) ||
+    typeof value.scheduledAt !== 'string' ||
     // `host` is the current Host-delivered view; `session-local` stays readable
     // for results recorded before the Host storage domain owned delivery.
-    || (value.deliveryMode !== 'host' && value.deliveryMode !== 'session-local')
-    || (value.state !== 'scheduled' && value.state !== 'overdue')) return null
+    (value.deliveryMode !== 'host' && value.deliveryMode !== 'session-local') ||
+    (value.state !== 'scheduled' && value.state !== 'overdue')
+  )
+    return null
   const date = new Date(value.scheduledAt)
   if (!Number.isFinite(date.getTime()) || date.toISOString() !== value.scheduledAt) return null
   let frequency: string
   switch (value.kind) {
-    case 'at': frequency = t('detail.schedule.once'); break
+    case 'at':
+      frequency = t('detail.schedule.once')
+      break
     case 'after':
       if (!count(value.afterSeconds) || value.afterSeconds === 0) return null
       frequency = t('detail.schedule.once')
@@ -132,7 +160,8 @@ function scheduleItem(value: unknown, t: Translate, locale: string): DetailItem 
       if (!nonempty(value.expression) || !nonempty(value.timeZone)) return null
       frequency = t('detail.schedule.cron', { expression: value.expression, zone: value.timeZone })
       break
-    default: return null
+    default:
+      return null
   }
   const dateText = formatDate(date, locale, value.scheduledAt)
   return {
@@ -166,7 +195,8 @@ export function detailsCardModel(block: ToolCallBlock, t: Translate, locale: str
   switch (call.name) {
     case 'create_goal':
     case 'get_goal':
-    case 'update_goal': return goalDetail(value, t)
+    case 'update_goal':
+      return goalDetail(value, t)
     case 'schedule_create':
     case 'schedule_update': {
       const item = scheduleItem(value, t, locale)
@@ -185,6 +215,7 @@ export function detailsCardModel(block: ToolCallBlock, t: Translate, locale: str
     case 'schedule_delete':
       if (!detailRecord(value) || !nonempty(value.id) || value.deleted !== true) return null
       return { items: [{ title: value.id, fields: [{ label: t('detail.state'), value: t('detail.schedule.deleted') }] }] }
-    default: return null
+    default:
+      return null
   }
 }

@@ -3,13 +3,30 @@ import ExcelJS, { type Cell as ExcelCell, type Color, type Font, type BorderStyl
 import { type Cell, type CellStyle, type Sheet, type SheetConfig } from '@fortune-sheet/core'
 import { XMLParser } from 'fast-xml-parser'
 import { ExcelPreviewError } from './error.ts'
-import { EXCEL_UNSUPPORTED_FEATURES, formatCell, initialSelection, type ExcelLimits, type ExcelPreview, type ExcelUnsupportedFeature } from './model.ts'
+import {
+  EXCEL_UNSUPPORTED_FEATURES,
+  formatCell,
+  initialSelection,
+  type ExcelLimits,
+  type ExcelPreview,
+  type ExcelUnsupportedFeature,
+} from './model.ts'
 import { XlsxPreviewArchive } from './xlsx-archive.ts'
 
 const BORDER_STYLES: Record<BorderStyle, number> = {
-  thin: 1, hair: 2, dotted: 3, dashed: 4, dashDot: 5, dashDotDot: 6,
-  double: 7, medium: 8, mediumDashed: 9, mediumDashDot: 10,
-  mediumDashDotDot: 11, slantDashDot: 12, thick: 13,
+  thin: 1,
+  hair: 2,
+  dotted: 3,
+  dashed: 4,
+  dashDot: 5,
+  dashDotDot: 6,
+  double: 7,
+  medium: 8,
+  mediumDashed: 9,
+  mediumDashDot: 10,
+  mediumDashDotDot: 11,
+  slantDashDot: 12,
+  thick: 13,
 }
 const THEME_ORDER = ['lt1', 'dk1', 'lt2', 'dk2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6', 'hlink', 'folHlink']
 
@@ -25,8 +42,10 @@ export async function convertXlsx(bytes: Uint8Array<ArrayBuffer>, limits: ExcelL
   try {
     const archive = new XlsxPreviewArchive(bytes)
     const preview = archive.withoutDrawings()
-    const input = preview.byteOffset === 0 && preview.byteLength === preview.buffer.byteLength
-      ? preview.buffer : preview.buffer.slice(preview.byteOffset, preview.byteOffset + preview.byteLength)
+    const input =
+      preview.byteOffset === 0 && preview.byteLength === preview.buffer.byteLength
+        ? preview.buffer
+        : preview.buffer.slice(preview.byteOffset, preview.byteOffset + preview.byteLength)
     await workbook.xlsx.load(input, { ignoreNodes: ['drawing'] })
     unsupportedFeatures = archive.unsupportedFeatures
   } catch (error) {
@@ -49,7 +68,12 @@ export async function convertXlsx(bytes: Uint8Array<ArrayBuffer>, limits: ExcelL
       }
     }
     const config: Required<Pick<SheetConfig, 'merge' | 'rowlen' | 'columnlen' | 'rowhidden' | 'colhidden' | 'borderInfo'>> = {
-      merge: {}, rowlen: {}, columnlen: {}, rowhidden: {}, colhidden: {}, borderInfo: [],
+      merge: {},
+      rowlen: {},
+      columnlen: {},
+      rowhidden: {},
+      colhidden: {},
+      borderInfo: [],
     }
     const celldata: NonNullable<Sheet['celldata']> = []
     for (const range of worksheet.model.merges) {
@@ -58,8 +82,10 @@ export async function convertXlsx(bytes: Uint8Array<ArrayBuffer>, limits: ExcelL
       const first = worksheet.getCell(start)
       const last = worksheet.getCell(end)
       const merge = {
-        r: Number(first.row) - 1, c: Number(first.col) - 1,
-        rs: Number(last.row) - Number(first.row) + 1, cs: Number(last.col) - Number(first.col) + 1,
+        r: Number(first.row) - 1,
+        c: Number(first.col) - 1,
+        rs: Number(last.row) - Number(first.row) + 1,
+        cs: Number(last.col) - Number(first.col) + 1,
       }
       include(merge.r + merge.rs - 1, merge.c + merge.cs - 1)
       config.merge[`${merge.r}_${merge.c}`] = merge
@@ -70,27 +96,37 @@ export async function convertXlsx(bytes: Uint8Array<ArrayBuffer>, limits: ExcelL
       if (column.width !== undefined) config.columnlen[index] = columnPixels(column.width)
       if (column.hidden) config.colhidden[index] = 0
     })
-    worksheet.eachRow({ includeEmpty: true }, (row) => {
+    worksheet.eachRow({ includeEmpty: true }, row => {
       const r = row.number - 1
       const height = row.height as number | undefined
-      if (height !== undefined) config.rowlen[r] = height * 96 / 72
+      if (height !== undefined) config.rowlen[r] = (height * 96) / 72
       if (row.hidden) config.rowhidden[r] = 0
-      row.eachCell({ includeEmpty: true }, (cell) => {
+      row.eachCell({ includeEmpty: true }, cell => {
         const c = Number(cell.col) - 1
         include(r, c)
         const v = convertCell(cell, colors)
         if (v.f !== undefined && v.v === undefined) missingResults += 1
         if (cell.isMerged) {
           v.mc = config.merge[`${r}_${c}`] ?? { r: Number(cell.master.row) - 1, c: Number(cell.master.col) - 1 }
-          if (cell.address !== cell.master.address) { delete v.v; delete v.m; delete v.f }
+          if (cell.address !== cell.master.address) {
+            delete v.v
+            delete v.m
+            delete v.f
+          }
         }
         celldata.push({ r, c, v })
         const border = cell.border as Partial<ExcelJS.Borders> | undefined
         if (border !== undefined) {
           const value: Record<string, unknown> = { row_index: r, col_index: c }
-          for (const [side, key] of [['top', 't'], ['bottom', 'b'], ['left', 'l'], ['right', 'r']] as const) {
+          for (const [side, key] of [
+            ['top', 't'],
+            ['bottom', 'b'],
+            ['left', 'l'],
+            ['right', 'r'],
+          ] as const) {
             const edge = border[side]
-            if (edge?.style !== undefined) value[key] = { style: BORDER_STYLES[edge.style], color: colorOf(edge.color, colors) ?? '#000000' }
+            if (edge?.style !== undefined)
+              value[key] = { style: BORDER_STYLES[edge.style], color: colorOf(edge.color, colors) ?? '#000000' }
           }
           config.borderInfo.push({ rangeType: 'cell', value })
         }
@@ -106,10 +142,17 @@ export async function convertXlsx(bytes: Uint8Array<ArrayBuffer>, limits: ExcelL
     const status = visible && !active ? 1 : 0
     active ||= visible
     const sheet: Sheet = {
-      id: String(worksheet.id), name: worksheet.name, order, status, hide: visible ? 0 : 1,
-      row, column,
-      config, celldata, showGridLines: view?.showGridLines !== false,
-      defaultRowHeight: worksheet.properties.defaultRowHeight * 96 / 72,
+      id: String(worksheet.id),
+      name: worksheet.name,
+      order,
+      status,
+      hide: visible ? 0 : 1,
+      row,
+      column,
+      config,
+      celldata,
+      showGridLines: view?.showGridLines !== false,
+      defaultRowHeight: (worksheet.properties.defaultRowHeight * 96) / 72,
       luckysheet_select_save: initialSelection(config),
     }
     if (worksheet.properties.defaultColWidth !== undefined) sheet.defaultColWidth = columnPixels(worksheet.properties.defaultColWidth)
@@ -194,7 +237,9 @@ function withinBounds(values: Record<number, number>, length: number): Record<nu
 function fontStyle(font: Partial<Font> | undefined, colors: readonly (string | undefined)[]): CellStyle {
   if (font === undefined) return {}
   const result: CellStyle = {
-    bl: font.bold ? 1 : 0, it: font.italic ? 1 : 0, cl: font.strike ? 1 : 0,
+    bl: font.bold ? 1 : 0,
+    it: font.italic ? 1 : 0,
+    cl: font.strike ? 1 : 0,
     un: font.underline !== undefined && font.underline !== false && font.underline !== 'none' ? 1 : 0,
   }
   if (font.name !== undefined) result.ff = font.name
@@ -204,7 +249,9 @@ function fontStyle(font: Partial<Font> | undefined, colors: readonly (string | u
   return result
 }
 
-function columnPixels(width: number): number { return Math.floor(width < 1 ? width * 12 : width * 7 + 5) }
+function columnPixels(width: number): number {
+  return Math.floor(width < 1 ? width * 12 : width * 7 + 5)
+}
 
 function colorOf(color: Partial<Color> | undefined, themes: readonly (string | undefined)[]): string | undefined {
   if (color === undefined) return undefined
@@ -213,10 +260,14 @@ function colorOf(color: Partial<Color> | undefined, themes: readonly (string | u
   // ExcelJS retains OOXML tint even though its Color declaration omits it.
   const tint: unknown = Reflect.get(color, 'tint')
   if (typeof tint !== 'number' || tint === 0) return `#${rgb}`
-  return `#${[0, 2, 4].map((offset) => {
-    const channel = Number.parseInt(rgb.slice(offset, offset + 2), 16)
-    return Math.round(Math.max(0, Math.min(255, tint < 0 ? channel * (1 + tint) : channel * (1 - tint) + 255 * tint))).toString(16).padStart(2, '0')
-  }).join('')}`
+  return `#${[0, 2, 4]
+    .map(offset => {
+      const channel = Number.parseInt(rgb.slice(offset, offset + 2), 16)
+      return Math.round(Math.max(0, Math.min(255, tint < 0 ? channel * (1 + tint) : channel * (1 - tint) + 255 * tint)))
+        .toString(16)
+        .padStart(2, '0')
+    })
+    .join('')}`
 }
 
 function themeColors(workbook: ExcelJS.Workbook): (string | undefined)[] {
@@ -225,7 +276,7 @@ function themeColors(workbook: ExcelJS.Workbook): (string | undefined)[] {
   if (typeof xml !== 'string') return []
   const parsed: unknown = new XMLParser({ ignoreAttributes: false, removeNSPrefix: true, processEntities: false }).parse(xml)
   const scheme = record(record(record(parsed).theme).themeElements).clrScheme
-  return THEME_ORDER.map((name) => {
+  return THEME_ORDER.map(name => {
     const color = record(record(scheme)[name])
     const value = record(color.srgbClr)['@_val'] ?? record(color.sysClr)['@_lastClr']
     return typeof value === 'string' ? value : undefined
@@ -233,5 +284,5 @@ function themeColors(workbook: ExcelJS.Workbook): (string | undefined)[] {
 }
 
 function record(value: unknown): Record<string, unknown> {
-  return typeof value === 'object' && value !== null ? value as Record<string, unknown> : {}
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {}
 }

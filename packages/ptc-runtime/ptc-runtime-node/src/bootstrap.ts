@@ -108,11 +108,12 @@ const CONSOLE_LEVELS = ['log', 'info', 'warn', 'error', 'debug'] as const
  * @returns the five-method console object handed to the program.
  */
 export function makeConsoleShim(logs: Pick<LogBuffer, 'push'>): Record<(typeof CONSOLE_LEVELS)[number], (...args: unknown[]) => void> {
-  const render = (args: unknown[]): string =>
-    args.map(arg => typeof arg === 'string' ? arg : inspect(arg, INSPECT_OPTIONS)).join(' ')
+  const render = (args: unknown[]): string => args.map(arg => (typeof arg === 'string' ? arg : inspect(arg, INSPECT_OPTIONS))).join(' ')
   const shim = Object.create(null) as Record<(typeof CONSOLE_LEVELS)[number], (...args: unknown[]) => void>
   for (const level of CONSOLE_LEVELS) {
-    shim[level] = (...args: unknown[]) => { logs.push(render(args)) }
+    shim[level] = (...args: unknown[]) => {
+      logs.push(render(args))
+    }
   }
   return shim
 }
@@ -138,13 +139,16 @@ export function captureStreamWrites(logs: Pick<LogBuffer, 'push'>, stream: Patch
     logs.push(typeof chunk === 'string' ? chunk : String(chunk))
     // Node's optional-encoding shape: the callback is whichever of the next
     // two positions holds a function (a non-function there is the encoding).
-    const callback = [rest[0], rest[1]].find(
-      (arg): arg is (error?: Error | null) => void => typeof arg === 'function',
-    )
-    if (callback) queueMicrotask(() => { callback(null) })
+    const callback = [rest[0], rest[1]].find((arg): arg is (error?: Error | null) => void => typeof arg === 'function')
+    if (callback)
+      queueMicrotask(() => {
+        callback(null)
+      })
     return true
   }
-  return () => { stream.write = original }
+  return () => {
+    stream.write = original
+  }
 }
 
 /** Bounded inspect options: deep enough to be useful, bounded so a pathological value cannot explode the rendering. */
@@ -174,12 +178,7 @@ export function prepareCompletion(
     snapshot = undefined
   }
   if (snapshot === undefined) {
-    return prepareFailure(
-      'invalid-output',
-      'program completion must be lossless JSON',
-      remainingOutputBytes,
-      maxOutputBytes,
-    )
+    return prepareFailure('invalid-output', 'program completion must be lossless JSON', remainingOutputBytes, maxOutputBytes)
   }
   if (jsonValueBytesUpTo(snapshot, remainingOutputBytes) === undefined) {
     return outputLimit(maxOutputBytes)
@@ -218,7 +217,7 @@ export function prepareException(
 ): Omit<DoneMessage, 'type'> {
   let message: string
   try {
-    const detail: unknown = error instanceof CapturedError ? error.stack ?? error.message : error
+    const detail: unknown = error instanceof CapturedError ? (error.stack ?? error.message) : error
     message = typeof detail === 'string' ? detail : String(detail)
   } catch {
     message = 'program threw an unrenderable value'
@@ -240,9 +239,7 @@ export type BindingErrorConstructor = new (memberName: string, message: string) 
  * @param descriptor - program-global class name and member-name property.
  * @returns the constructor injected into the program and used for rejections.
  */
-export function makeBindingErrorClass(
-  descriptor: { name: string; memberNameProperty: string },
-): BindingErrorConstructor {
+export function makeBindingErrorClass(descriptor: { name: string; memberNameProperty: string }): BindingErrorConstructor {
   return class BindingCallError extends CapturedError {
     constructor(memberName: string, message: string) {
       super(message)
@@ -262,9 +259,7 @@ function bindingFailure(errorClass: BindingErrorConstructor | undefined, memberN
  * @param data - binding namespace declarations from the boot payload.
  * @returns constructors keyed by their owning namespace global.
  */
-export function makeBindingErrorClasses(
-  data: Pick<ProgramBootData, 'namespaces'>,
-): Map<string, BindingErrorConstructor> {
+export function makeBindingErrorClasses(data: Pick<ProgramBootData, 'namespaces'>): Map<string, BindingErrorConstructor> {
   const classes = new Map<string, BindingErrorConstructor>()
   for (const namespace of data.namespaces) {
     if (namespace.errorClass) classes.set(namespace.global, makeBindingErrorClass(namespace.errorClass))
@@ -337,7 +332,7 @@ export function makeNamespaces(
             const id = nextId.value
             pending.set(id, {
               resolve,
-              reject: (error) => {
+              reject: error => {
                 reject(bindingFailure(errorClass, name, error.message))
               },
             })
@@ -372,8 +367,12 @@ export async function runProgram(
 ): Promise<void> {
   const logs = new LogBuffer(
     data.maxOutputBytes,
-    (text) => { port.postMessage({ type: 'log', text }) },
-    () => { port.postMessage({ type: 'output-limit' }) },
+    text => {
+      port.postMessage({ type: 'log', text })
+    },
+    () => {
+      port.postMessage({ type: 'output-limit' })
+    },
   )
   captureStreamWrites(logs, streams.stdout)
   captureStreamWrites(logs, streams.stderr)

@@ -5,14 +5,8 @@ import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import type { SessionHeader, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionHandle } from '@deepseek-ai/dsh-session-persistence'
 import { strFromU8, unzipSync } from 'fflate'
-import { describe, expect, it } from 'vitest'
-import {
-  Config,
-  SESSION_LOG_FILENAME,
-  SESSION_LOG_EXPORT_PATH,
-  apply,
-  inject,
-} from '../src/index.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import { Config, SESSION_LOG_FILENAME, SESSION_LOG_EXPORT_PATH, apply, inject } from '../src/index.ts'
 
 const sid = (value: string): SessionId => value as SessionId
 
@@ -49,7 +43,9 @@ async function mounted(withServices: boolean): Promise<{
       open: async (id: SessionId) => readHandle(String(id)),
     } as never)
     ctx.provide('attachments', {
-      readImage: async () => { throw new Error('fixture has no images') },
+      readImage: async () => {
+        throw new Error('fixture has no images')
+      },
     } as never)
   }
   const connection = new HostConnectionService(ctx, [], {} as BrowserAuth)
@@ -63,36 +59,40 @@ describe('Session log export Fetch route', () => {
     const { connection, dispose } = await mounted(true)
     const shared = connection.createSharedFetchHandler('/api')
 
-    const response = await shared.fetch(new Request(
-      `http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1`,
-    ), connection.browserPeer)
+    const response = await shared.fetch(new Request(`http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1`), connection.browserPeer)
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe('application/zip')
     const files = unzipSync(new Uint8Array(await response.arrayBuffer()))
     expect(strFromU8(files[SESSION_LOG_FILENAME] as Uint8Array)).toContain('"id":"session-1"')
 
-    const head = await shared.fetch(new Request(
-      `http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1`, { method: 'HEAD' },
-    ), connection.browserPeer)
+    const head = await shared.fetch(
+      new Request(`http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1`, { method: 'HEAD' }),
+      connection.browserPeer,
+    )
     expect(head.status).toBe(200)
     expect(head.body).toBeNull()
 
     await dispose()
-    expect((await shared.fetch(new Request(
-      `http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1`,
-    ), connection.browserPeer)).status).toBe(404)
+    expect(
+      (await shared.fetch(new Request(`http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1`), connection.browserPeer)).status,
+    ).toBe(404)
   })
 
   it('validates the query before reporting missing export services', async () => {
     const { connection, dispose } = await mounted(false)
     const shared = connection.createSharedFetchHandler('/api')
     expect((await shared.fetch(new Request(`http://host${SESSION_LOG_EXPORT_PATH}`), connection.browserPeer)).status).toBe(400)
-    expect((await shared.fetch(new Request(
-      `http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1&includeDescendants=1`,
-    ), connection.browserPeer)).status).toBe(400)
-    expect((await shared.fetch(new Request(
-      `http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1`,
-    ), connection.browserPeer)).status).toBe(500)
+    expect(
+      (
+        await shared.fetch(
+          new Request(`http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1&includeDescendants=1`),
+          connection.browserPeer,
+        )
+      ).status,
+    ).toBe(400)
+    expect(
+      (await shared.fetch(new Request(`http://host${SESSION_LOG_EXPORT_PATH}?sessionId=session-1`), connection.browserPeer)).status,
+    ).toBe(500)
     await dispose()
   })
 

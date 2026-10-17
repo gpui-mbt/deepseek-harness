@@ -58,8 +58,8 @@ export function installDocumentDropEvents(
     if (fileTransfer(event) === null) return
     dragDepth.current = Math.max(0, dragDepth.current - 1)
     if (dragDepth.current === 0) setDragActive(false)
-    const leftViewport = event.clientX <= 0 || event.clientY <= 0
-      || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight
+    const leftViewport =
+      event.clientX <= 0 || event.clientY <= 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight
     if ((event.target === document.documentElement || event.target === document.body) && leftViewport) reset()
   }
   const onDrop = (event: globalThis.DragEvent): void => {

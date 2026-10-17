@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
 import { SandboxPolicyService } from '@deepseek-ai/dsh-sandbox-policy'
@@ -23,7 +23,6 @@ function start(x: { execute(spec: ShellExecSpec): Promise<ShellExecution> }, spe
   return x.execute({ ...spec, onExpiry: 'none' })
 }
 
-
 /**
  * Keyless integration of the real provider and executor through public run/start paths. With
  * no rung forced, a passing bwrap probe selects the ladder's first rung. The tests check world
@@ -34,7 +33,10 @@ function start(x: { execute(spec: ShellExecSpec): Promise<ShellExecution> }, spe
  * intentional because bwrap replaces `/tmp`, which cannot prove the workspace-root boundary.
  */
 
-const probe = spawnSync('bwrap', [...bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], { timeout: 5_000, stdio: 'ignore' })
+const probe = spawnSync('bwrap', [...bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], {
+  timeout: 5_000,
+  stdio: 'ignore',
+})
 const bwrapUsable = probe.status === 0
 
 let ctx: Context | undefined
@@ -91,7 +93,7 @@ describe.skipIf(!bwrapUsable)('bash-sandbox: real bwrap confinement through ctx.
   it('classifies a background denial once the task settles', async () => {
     const workdir = await tempDir(homedir())
     const bash = await sandboxedBash(workdir, 'read-only')
-    const task = (await start(bash, bash.resolve({ command: `echo hi > ${workdir}/bg-denied.txt` })))
+    const task = await start(bash, bash.resolve({ command: `echo hi > ${workdir}/bg-denied.txt` }))
     await task.done
     expect(task.sandbox).toEqual({ mode: 'read-only', denied: true, enforcement: 'full' })
     expect(existsSync(join(workdir, 'bg-denied.txt'))).toBe(false)

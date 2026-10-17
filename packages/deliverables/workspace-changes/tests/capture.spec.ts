@@ -1,7 +1,7 @@
 /** Whole-file capture storage and content comparison. */
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { captureFile, sameCapture } from '../src/capture.ts'
 import { scratchDir } from './support.ts'
 

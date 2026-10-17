@@ -49,34 +49,38 @@ export class ModelCatalogDirectory {
     if (state.status === 'ready' && state.value !== null) return Promise.resolve(state.value)
     if (this.inflight !== undefined) return this.inflight
     const generation = this.generation
-    this.store.update((draft) => {
+    this.store.update(draft => {
       draft.status = 'loading'
       draft.error = null
     })
-    const operation = this.ctx.remote.session.modelCatalog().then((response) => {
-      if (!response.ok) {
-        throw new Error(`${response.error.code}: ${response.error.message}`)
-      }
-      if (generation === this.generation) {
-        for (const group of response.value.groups) {
-          for (const model of group.models) {
-            this.reasoning.set(JSON.stringify([group.id, model.id]), model.reasoning)
-          }
+    const operation = this.ctx.remote.session
+      .modelCatalog()
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`${response.error.code}: ${response.error.message}`)
         }
-        this.store.set({ value: response.value, status: 'ready', error: null })
-      }
-      return response.value
-    }).catch((error: unknown) => {
-      if (generation === this.generation) {
-        this.store.update((draft) => {
-          draft.status = 'error'
-          draft.error = error instanceof Error ? error.message : String(error)
-        })
-      }
-      throw error
-    }).finally(() => {
-      if (generation === this.generation && this.inflight === operation) this.inflight = undefined
-    })
+        if (generation === this.generation) {
+          for (const group of response.value.groups) {
+            for (const model of group.models) {
+              this.reasoning.set(JSON.stringify([group.id, model.id]), model.reasoning)
+            }
+          }
+          this.store.set({ value: response.value, status: 'ready', error: null })
+        }
+        return response.value
+      })
+      .catch((error: unknown) => {
+        if (generation === this.generation) {
+          this.store.update(draft => {
+            draft.status = 'error'
+            draft.error = error instanceof Error ? error.message : String(error)
+          })
+        }
+        throw error
+      })
+      .finally(() => {
+        if (generation === this.generation && this.inflight === operation) this.inflight = undefined
+      })
     this.inflight = operation
     return operation
   }
@@ -95,13 +99,17 @@ export class ModelCatalogDirectory {
   /** Invalidate and reload the catalog after a Host-side model input changes. */
   refresh(): void {
     this.invalidate()
-    void this.load().catch(() => { /* the selector exposes the shared error */ })
+    void this.load().catch(() => {
+      /* the selector exposes the shared error */
+    })
   }
 
   /** Clear Host-specific values and load the replacement Host generation. */
   resetGeneration(): void {
     this.reasoning.clear()
     this.invalidate(true)
-    void this.load().catch(() => { /* the selector exposes the shared error */ })
+    void this.load().catch(() => {
+      /* the selector exposes the shared error */
+    })
   }
 }

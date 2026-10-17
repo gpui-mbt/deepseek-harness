@@ -23,9 +23,7 @@ export interface PreviewFixtureManifest {
 }
 
 function recordOf(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
 }
 
 /**
@@ -49,11 +47,19 @@ export function parsePreviewFixtureManifest(value: unknown): PreviewFixtureManif
     const overlayUrls = Array.isArray(overlays)
       ? overlays.filter((overlay): overlay is string => typeof overlay === 'string' && overlay.length > 0)
       : []
-    if (typeof id !== 'string' || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(id)
-      || id === 'none' || id === 'webfs'
-      || typeof label !== 'string' || label.length === 0
-      || typeof description !== 'string' || description.length === 0
-      || !Array.isArray(overlays) || overlays.length === 0 || overlayUrls.length !== overlays.length) {
+    if (
+      typeof id !== 'string' ||
+      !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(id) ||
+      id === 'none' ||
+      id === 'webfs' ||
+      typeof label !== 'string' ||
+      label.length === 0 ||
+      typeof description !== 'string' ||
+      description.length === 0 ||
+      !Array.isArray(overlays) ||
+      overlays.length === 0 ||
+      overlayUrls.length !== overlays.length
+    ) {
       throw new Error('preview fixture manifest contains an invalid fixture entry')
     }
     if (ids.has(id)) throw new Error(`preview fixture manifest repeats id "${id}"`)

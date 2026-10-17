@@ -6,14 +6,10 @@ import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { Agent, ModelSelection as AgentModelSelection } from '@deepseek-ai/dsh-agent'
 import { AttachmentError } from '@deepseek-ai/dsh-attachment'
-import type {
-  AttachmentAdmissionPart, FileAttachmentRef, ImageAttachmentRef,
-} from '@deepseek-ai/dsh-attachment'
+import type { AttachmentAdmissionPart, FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { FileUploadReceiptId } from '@deepseek-ai/dsh-client-file-upload/types'
 import type {} from '@deepseek-ai/dsh-client-file-upload'
-import {
-  ReasoningEffortId, assistantStreamChunks, createUserMessage, freezeMessage,
-} from '@deepseek-ai/dsh-llm'
+import { ReasoningEffortId, assistantStreamChunks, createUserMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import { buildForkSeed } from '@deepseek-ai/dsh-session/fork'
 import { SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
@@ -82,8 +78,8 @@ function latestCompletedPrefixBoundary(events: readonly SessionEvent[]): Session
   if (lastTurnEnd === undefined) return undefined
   let boundary = lastTurnEnd.seq
   for (const next of events.slice(boundary + 1)) {
-    if (next.type === 'turn/start' || (next.type === 'user/message' && next.surfaceOp === 'append')
-      || next.type === 'agent/inbox/spliced') break
+    if (next.type === 'turn/start' || (next.type === 'user/message' && next.surfaceOp === 'append') || next.type === 'agent/inbox/spliced')
+      break
     boundary = next.seq
   }
   return boundary
@@ -128,8 +124,9 @@ export class SessionCommandController {
         ...(request.sessionId === undefined ? {} : { sessionId: request.sessionId }),
         cwd,
         ...(request.agentPreset === undefined ? {} : { agentPreset: request.agentPreset }),
-        reusable: sessionId => !this.ctx.workspaceRegistry.archivedSessionIds.includes(sessionId)
-          && (workspace === undefined || workspace.sessionIds.includes(sessionId)),
+        reusable: sessionId =>
+          !this.ctx.workspaceRegistry.archivedSessionIds.includes(sessionId) &&
+          (workspace === undefined || workspace.sessionIds.includes(sessionId)),
       })
     } catch (error) {
       this.rejectCreation(error)
@@ -162,16 +159,12 @@ export class SessionCommandController {
         const resolved = await this.ctx.llm.resolveCallConfig({
           provider: request.provider,
           model: request.model,
-          ...(request.reasoningEffort === undefined
-            ? {}
-            : { reasoningEffort: ReasoningEffortId(request.reasoningEffort) }),
+          ...(request.reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(request.reasoningEffort) }),
         })
         const selected: AgentModelSelection = {
           provider: resolved.provider,
           model: resolved.model,
-          ...(resolved.reasoningEffort === undefined
-            ? {}
-            : { reasoningEffort: resolved.reasoningEffort }),
+          ...(resolved.reasoningEffort === undefined ? {} : { reasoningEffort: resolved.reasoningEffort }),
         }
         this.agents.selectForNextRequest(agent, selected)
         void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {
@@ -182,11 +175,10 @@ export class SessionCommandController {
         return { selected: { ...selected } }
       } catch (error) {
         if (remoteErrorOf(error) !== undefined) throw error
-        throw new RemoteError(
-          'session/model-unavailable',
-          error instanceof Error ? error.message : String(error),
-          { provider: request.provider, model: request.model },
-        )
+        throw new RemoteError('session/model-unavailable', error instanceof Error ? error.message : String(error), {
+          provider: request.provider,
+          model: request.model,
+        })
       }
     })
   }
@@ -209,11 +201,7 @@ export class SessionCommandController {
       if (error instanceof SessionTitleInvalidError) {
         throw new RemoteError('session/title-invalid', error.message, { sessionId: request.sessionId })
       }
-      throw new RemoteError(
-        'gateway/internal',
-        `failed to rename session "${request.sessionId}": ${String(error)}`,
-        {},
-      )
+      throw new RemoteError('gateway/internal', `failed to rename session "${request.sessionId}": ${String(error)}`, {})
     }
   }
 
@@ -235,17 +223,12 @@ export class SessionCommandController {
     try {
       observed = await this.ctx.sessionQuery.observeSession(request.sessionId)
     } catch (error) {
-      if (error instanceof SessionQueryError
-        && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
+      if (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
         throw new RemoteError('session/not-found', `session "${request.sessionId}" not found`, {
           sessionId: request.sessionId,
         })
       }
-      throw new RemoteError(
-        'gateway/internal',
-        `fork source unavailable for session "${request.sessionId}": ${String(error)}`,
-        {},
-      )
+      throw new RemoteError('gateway/internal', `fork source unavailable for session "${request.sessionId}": ${String(error)}`, {})
     }
     using source = observed
     const boundary = atSeq ?? latestCompletedPrefixBoundary(source.events)
@@ -263,11 +246,7 @@ export class SessionCommandController {
     try {
       workspace = await this.forkWorkspace(source.header)
     } catch (error) {
-      throw new RemoteError(
-        'gateway/internal',
-        `failed to resolve fork workspace for session "${request.sessionId}": ${String(error)}`,
-        {},
-      )
+      throw new RemoteError('gateway/internal', `failed to resolve fork workspace for session "${request.sessionId}": ${String(error)}`, {})
     }
     const childId = brandString<SessionId>(`session-${randomUUID()}`)
     const composition = await this.agents.composeAgent(this.agents.presetForObservation(source))
@@ -281,19 +260,13 @@ export class SessionCommandController {
           ...(source.header.cwd === undefined ? {} : { cwd: source.header.cwd }),
           parentSession: source.header.id,
           isSeeded: true,
-          ...(composition.agentPreset === undefined
-            ? {}
-            : { agentPreset: composition.agentPreset }),
+          ...(composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset }),
         },
         agentOptions: { provider, model },
         setup: composition.setup,
       })
     } catch (error) {
-      throw new RemoteError(
-        'gateway/internal',
-        `failed to fork session "${request.sessionId}": ${String(error)}`,
-        {},
-      )
+      throw new RemoteError('gateway/internal', `failed to fork session "${request.sessionId}": ${String(error)}`, {})
     }
     if (workspace !== undefined) {
       try {
@@ -326,25 +299,16 @@ export class SessionCommandController {
           const current = this.agents.selectionFor(agent).current
           const model = await this.ctx.llm.resolveModelInfo(current.provider, current.model)
           if (model.inputModalities !== undefined && !model.inputModalities.includes('image')) {
-            throw new RemoteError(
-              'session/attachment-invalid',
-              `Model "${current.model}" does not support image input.`,
-              { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' },
-            )
+            throw new RemoteError('session/attachment-invalid', `Model "${current.model}" does not support image input.`, {
+              reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES',
+            })
           }
         }
-        const admission = resolvePromptFileReceipts(
-          request.content,
-          receiptId => this.ctx.fileUploads.resolve(agent, receiptId),
-        )
+        const admission = resolvePromptFileReceipts(request.content, receiptId => this.ctx.fileUploads.resolve(agent, receiptId))
         const content = await this.ctx.attachments.admitPromptContent(admission.content)
         const message: UserMessage = createUserMessage({ content, source })
         if (this.ctx.agents.get(agent.id) !== agent) {
-          throw new RemoteError(
-            'session/not-found',
-            `session "${agent.id}" was disposed during prompt admission`,
-            { sessionId: agent.id },
-          )
+          throw new RemoteError('session/not-found', `session "${agent.id}" was disposed during prompt admission`, { sessionId: agent.id })
         }
         using binding = this.ctx.fileUploads.bindPrompt(agent, admission.receiptIds, request.requestId)
         if (request.mode === 'steer') agent.steer(message)
@@ -363,9 +327,11 @@ export class SessionCommandController {
   }
 
   private async requireModel(selection: Pick<AgentModelSelection, 'provider' | 'model'>): Promise<void> {
-    if (!await modelAvailable(this.ctx, selection)) {
-      throw new RemoteError('session/model-unavailable', 'Select an available model before sending a message.',
-        { provider: selection.provider, model: selection.model })
+    if (!(await modelAvailable(this.ctx, selection))) {
+      throw new RemoteError('session/model-unavailable', 'Select an available model before sending a message.', {
+        provider: selection.provider,
+        model: selection.model,
+      })
     }
   }
 
@@ -390,11 +356,9 @@ export class SessionCommandController {
     }
     const ref = referencedImage(source.events, String(request.attachmentId))
     if (ref === undefined) {
-      throw new RemoteError(
-        'session/attachment-invalid',
-        'Image is not referenced by this session.',
-        { reason: 'ATTACHMENT_NOT_REFERENCED' },
-      )
+      throw new RemoteError('session/attachment-invalid', 'Image is not referenced by this session.', {
+        reason: 'ATTACHMENT_NOT_REFERENCED',
+      })
     }
     try {
       const stored = await this.ctx.attachments.readImage(ref)
@@ -419,18 +383,10 @@ export class SessionCommandController {
     if (request.action.kind === 'edit') {
       // oxlint-disable-next-line typescript/no-unnecessary-condition -- Remote callers can submit untyped JSON.
       if (request.action.content.some(block => block.type !== 'text')) {
-        throw new RemoteError(
-          'session/attachment-invalid',
-          'queue edits accept text content only',
-          { reason: 'QUEUE_EDIT_NON_TEXT' },
-        )
+        throw new RemoteError('session/attachment-invalid', 'queue edits accept text content only', { reason: 'QUEUE_EDIT_NON_TEXT' })
       }
       if (!hasPromptContent(request.action.content)) {
-        throw new RemoteError(
-          'gateway/bad-request',
-          'queue edit content must include non-whitespace text',
-          {},
-        )
+        throw new RemoteError('gateway/bad-request', 'queue edit content must include non-whitespace text', {})
       }
     }
     let agent = this.ctx.agents.get(request.sessionId)
@@ -443,19 +399,19 @@ export class SessionCommandController {
       agent = found.agent
     }
     if (hasApiSessionSubagentOwner(this.ctx, agent.session, agent)) {
-      const identity = this.ctx.sessionProjections
-        .snapshot(agent.session, ['subagent'])
-        .values.subagent
-      if (identity?.mode !== 'continuable'
-        || !agent.session.isOwnSeq(identity.seq)) {
+      const identity = this.ctx.sessionProjections.snapshot(agent.session, ['subagent']).values.subagent
+      if (identity?.mode !== 'continuable' || !agent.session.isOwnSeq(identity.seq)) {
         throw apiSessionSubagentOwnershipError(request.sessionId)
       }
     }
     const nextTurn = agent.inbox.nextTurn.find(message => message.id === request.itemId)
     const nextStep = agent.inbox.nextStep.find(message => message.id === request.itemId)
-    const located = nextTurn === undefined
-      ? nextStep === undefined ? undefined : { target: 'next-step' as const, message: nextStep }
-      : { target: 'next-turn' as const, message: nextTurn }
+    const located =
+      nextTurn === undefined
+        ? nextStep === undefined
+          ? undefined
+          : { target: 'next-step' as const, message: nextStep }
+        : { target: 'next-turn' as const, message: nextTurn }
     if (located === undefined) {
       throw new RemoteError('session/queue-item-not-found', 'queued item is no longer pending', { itemId: request.itemId })
     }
@@ -465,10 +421,13 @@ export class SessionCommandController {
     }
     switch (request.action.kind) {
       case 'edit':
-        agent.inbox.replace(request.itemId, freezeMessage<UserMessage>({
-          ...message,
-          content: [...request.action.content],
-        }))
+        agent.inbox.replace(
+          request.itemId,
+          freezeMessage<UserMessage>({
+            ...message,
+            content: [...request.action.content],
+          }),
+        )
         break
       case 'remove': {
         agent.inbox.remove(request.itemId)
@@ -497,11 +456,9 @@ export class SessionCommandController {
   cancel(request: SessionCancelRequest): SessionCancelValue {
     const agent = this.ctx.agents.get(request.sessionId)
     if (agent === undefined) {
-      throw new RemoteError(
-        'session/not-found',
-        `session "${request.sessionId}" not found (not attached)`,
-        { sessionId: request.sessionId },
-      )
+      throw new RemoteError('session/not-found', `session "${request.sessionId}" not found (not attached)`, {
+        sessionId: request.sessionId,
+      })
     }
     if (hasApiSessionSubagentOwner(this.ctx, agent.session, agent)) {
       throw apiSessionSubagentOwnershipError(request.sessionId)
@@ -569,11 +526,7 @@ function resolvePromptFileReceipts(
     if (part.type !== 'file') return part
     const attachment = stagedFile(part.receiptId)
     if (attachment === undefined) {
-      throw new RemoteError(
-        'session/attachment-invalid',
-        'File was not uploaded for this session.',
-        { reason: 'FILE_NOT_STAGED' },
-      )
+      throw new RemoteError('session/attachment-invalid', 'File was not uploaded for this session.', { reason: 'FILE_NOT_STAGED' })
     }
     receiptIds.add(part.receiptId)
     return { type: 'file', attachment }
@@ -588,16 +541,13 @@ function hasPromptRequest(agent: Agent, requestId: SessionRequestId): boolean {
   }
   if (agent.inbox.nextTurn.some(matches) || agent.inbox.nextStep.some(matches)) return true
   // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
-  return agent.session.snapshotEvents().some((event) => {
+  return agent.session.snapshotEvents().some(event => {
     if (event.type !== 'user/message') return false
     const source = event.data.source
     return source.kind === 'user' && 'rpcId' in source && source.rpcId === requestId
   })
 }
-function imageBlockIn(
-  content: unknown,
-  match: (ref: ImageAttachmentRef) => boolean,
-): ImageAttachmentRef | undefined {
+function imageBlockIn(content: unknown, match: (ref: ImageAttachmentRef) => boolean): ImageAttachmentRef | undefined {
   if (!Array.isArray(content)) return undefined
   for (const value of content) {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) continue
@@ -611,10 +561,7 @@ function imageBlockIn(
 }
 
 /** Read only first-party declared content fields; unknown event payloads stay opaque. */
-function imageInEvent(
-  event: SessionEvent,
-  match: (ref: ImageAttachmentRef) => boolean,
-): ImageAttachmentRef | undefined {
+function imageInEvent(event: SessionEvent, match: (ref: ImageAttachmentRef) => boolean): ImageAttachmentRef | undefined {
   const data = event.data as {
     readonly content?: unknown
     readonly message?: { readonly content?: unknown }
@@ -650,8 +597,10 @@ function imageInEvent(
       if (found !== undefined) return found
       break
     }
-    case 'assistant/attempt': break
-    default: return undefined
+    case 'assistant/attempt':
+      break
+    default:
+      return undefined
   }
   const assistant = event as SessionEvent<'assistant/message' | 'assistant/attempt'>
   for (const chunk of assistantStreamChunks(assistant.data.stream, 'block-end')) {
@@ -661,10 +610,7 @@ function imageInEvent(
   return undefined
 }
 
-function referencedImage(
-  events: readonly SessionEvent[],
-  attachmentId: string,
-): ImageAttachmentRef | undefined {
+function referencedImage(events: readonly SessionEvent[], attachmentId: string): ImageAttachmentRef | undefined {
   for (const event of events) {
     const found = imageInEvent(event, ref => String(ref.attachmentId) === attachmentId)
     if (found !== undefined) return found

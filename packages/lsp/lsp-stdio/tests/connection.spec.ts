@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { fileURLToPath } from 'node:url'
 import { LspConnection } from '@deepseek-ai/dsh-lsp-stdio'
 import type { ConnectionWriter } from '@deepseek-ai/dsh-lsp-stdio/src/connection.ts'
@@ -8,7 +8,10 @@ import { spawnSubprocess } from '@deepseek-ai/dsh-subprocess-local/src/spawn.ts'
 const fixtureServer = fileURLToPath(new URL('./fixture-server.ts', import.meta.url))
 
 /** A recorded server→client request the test's handler saw. */
-interface SeenRequest { method: string; params: unknown }
+interface SeenRequest {
+  method: string
+  params: unknown
+}
 
 let open: LspConnection[] = []
 
@@ -26,19 +29,23 @@ function connect(
   onServerRequest: (method: string, params: unknown) => Promise<unknown> = () => Promise.resolve(null),
   seen?: SeenRequest[],
 ): LspConnection {
-  const conn = new LspConnection({
-    command: process.execPath,
-    args: [fixtureServer],
-    cwd: process.cwd(),
-    env: { ...scrubbedParentEnv(), ...env },
-    maxMessageBytes: 16_000_000,
-    maxStderrBytes: 100_000,
-    killGraceMs: 3_000,
-    configuration: { setting: 42 },
-  }, spawnSubprocess, (method, params) => {
-    seen?.push({ method, params })
-    return onServerRequest(method, params)
-  })
+  const conn = new LspConnection(
+    {
+      command: process.execPath,
+      args: [fixtureServer],
+      cwd: process.cwd(),
+      env: { ...scrubbedParentEnv(), ...env },
+      maxMessageBytes: 16_000_000,
+      maxStderrBytes: 100_000,
+      killGraceMs: 3_000,
+      configuration: { setting: 42 },
+    },
+    spawnSubprocess,
+    (method, params) => {
+      seen?.push({ method, params })
+      return onServerRequest(method, params)
+    },
+  )
   open.push(conn)
   return conn
 }
@@ -68,7 +75,9 @@ describe('LspConnection', () => {
   it('treats terminating an already-closed child as a teardown race', async () => {
     const conn = connectScript('')
     await conn.closed
-    expect(() => { conn.terminate() }).not.toThrow()
+    expect(() => {
+      conn.terminate()
+    }).not.toThrow()
   })
 
   it('answers a server workspace/configuration request from static config', async () => {
@@ -102,7 +111,7 @@ describe('LspConnection', () => {
     const seen: SeenRequest[] = []
     const conn = connect(
       { LSP_FAKE_ON_OPEN: 'applyEdit' },
-      method => method === 'workspace/applyEdit' ? Promise.reject(new Error('not permitted')) : Promise.resolve(null),
+      method => (method === 'workspace/applyEdit' ? Promise.reject(new Error('not permitted')) : Promise.resolve(null)),
       seen,
     )
     await conn.request('initialize', { capabilities: {} })
@@ -132,7 +141,9 @@ describe('LspConnection', () => {
     await conn.request('initialize', { capabilities: {} })
     conn.terminate()
     await conn.closed
-    expect(() => { conn.cancel(1) }).not.toThrow()
+    expect(() => {
+      conn.cancel(1)
+    }).not.toThrow()
   })
 
   it('caps the retained stderr tail', async () => {
@@ -144,32 +155,41 @@ describe('LspConnection', () => {
 
 /** Spawn a raw connection running an inline node script as the "server". */
 function connectScript(script: string, maxStderrBytes = 100_000, writer?: ConnectionWriter): LspConnection {
-  const conn = new LspConnection({
-    command: process.execPath,
-    args: ['-e', script],
-    cwd: process.cwd(),
-    env: scrubbedParentEnv(),
-    maxMessageBytes: 16_000_000,
-    maxStderrBytes,
-    killGraceMs: 3_000,
-    configuration: null,
-  }, spawnSubprocess, () => Promise.resolve(null), writer)
+  const conn = new LspConnection(
+    {
+      command: process.execPath,
+      args: ['-e', script],
+      cwd: process.cwd(),
+      env: scrubbedParentEnv(),
+      maxMessageBytes: 16_000_000,
+      maxStderrBytes,
+      killGraceMs: 3_000,
+      configuration: null,
+    },
+    spawnSubprocess,
+    () => Promise.resolve(null),
+    writer,
+  )
   open.push(conn)
   return conn
 }
 
 describe('LspConnection edge behavior', () => {
   it('fails a request when the command cannot be spawned', async () => {
-    const conn = new LspConnection({
-      command: '/definitely/not/a/real/binary/xyz',
-      args: [],
-      cwd: process.cwd(),
-      env: {},
-      maxMessageBytes: 1000,
-      maxStderrBytes: 1000,
-      killGraceMs: 3_000,
-      configuration: null,
-    }, spawnSubprocess, () => Promise.resolve(null))
+    const conn = new LspConnection(
+      {
+        command: '/definitely/not/a/real/binary/xyz',
+        args: [],
+        cwd: process.cwd(),
+        env: {},
+        maxMessageBytes: 1000,
+        maxStderrBytes: 1000,
+        killGraceMs: 3_000,
+        configuration: null,
+      },
+      spawnSubprocess,
+      () => Promise.resolve(null),
+    )
     open.push(conn)
     await expect(conn.request('initialize', {})).rejects.toThrow()
   })
@@ -182,20 +202,22 @@ describe('LspConnection edge behavior', () => {
 
   it('ignores a framed non-object message', async () => {
     // Send a framed JSON number and a framed null (both non-objects) then a proper response to id 1.
-    const script = 'let b=Buffer.alloc(0);'
-      + 'const fr=(s)=>{const x=Buffer.from(s);return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};'
-      + 'process.stdout.write(fr("42"));process.stdout.write(fr("null"));'
-      + 'process.stdin.on("data",c=>{b=Buffer.concat([b,c]);const s=b.indexOf("\\r\\n\\r\\n");if(s<0)return;const len=Number(/(\\d+)/.exec(b.toString("ascii",0,s))[1]);const body=JSON.parse(b.toString("utf8",s+4,s+4+len));process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:body.id,result:{ok:true}})));});'
+    const script =
+      'let b=Buffer.alloc(0);' +
+      'const fr=(s)=>{const x=Buffer.from(s);return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};' +
+      'process.stdout.write(fr("42"));process.stdout.write(fr("null"));' +
+      'process.stdin.on("data",c=>{b=Buffer.concat([b,c]);const s=b.indexOf("\\r\\n\\r\\n");if(s<0)return;const len=Number(/(\\d+)/.exec(b.toString("ascii",0,s))[1]);const body=JSON.parse(b.toString("utf8",s+4,s+4+len));process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:body.id,result:{ok:true}})));});'
     const conn = connectScript(script)
     await expect(conn.request('initialize', {})).resolves.toEqual({ ok: true })
   })
 
   it('drops a response for an unknown id', async () => {
     // Emit a response for id 999 (never sent), then answer our real request.
-    const script = 'let b=Buffer.alloc(0);'
-      + 'const fr=(s)=>{const x=Buffer.from(s);return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};'
-      + 'process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:999,result:{stray:true}})));'
-      + 'process.stdin.on("data",c=>{b=Buffer.concat([b,c]);const s=b.indexOf("\\r\\n\\r\\n");if(s<0)return;const len=Number(/(\\d+)/.exec(b.toString("ascii",0,s))[1]);const body=JSON.parse(b.toString("utf8",s+4,s+4+len));process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:body.id,result:{ok:true}})));});'
+    const script =
+      'let b=Buffer.alloc(0);' +
+      'const fr=(s)=>{const x=Buffer.from(s);return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};' +
+      'process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:999,result:{stray:true}})));' +
+      'process.stdin.on("data",c=>{b=Buffer.concat([b,c]);const s=b.indexOf("\\r\\n\\r\\n");if(s<0)return;const len=Number(/(\\d+)/.exec(b.toString("ascii",0,s))[1]);const body=JSON.parse(b.toString("utf8",s+4,s+4+len));process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:body.id,result:{ok:true}})));});'
     const conn = connectScript(script)
     await expect(conn.request('initialize', {})).resolves.toEqual({ ok: true })
   })
@@ -216,9 +238,10 @@ describe('LspConnection edge behavior', () => {
   })
 
   it('rejects with a fallback message when the error response has no message string', async () => {
-    const script = 'let b=Buffer.alloc(0);'
-      + 'const fr=(s)=>{const x=Buffer.from(s);return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};'
-      + 'process.stdin.on("data",c=>{b=Buffer.concat([b,c]);const s=b.indexOf("\\r\\n\\r\\n");if(s<0)return;const len=Number(/(\\d+)/.exec(b.toString("ascii",0,s))[1]);const body=JSON.parse(b.toString("utf8",s+4,s+4+len));process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:body.id,error:{code:-1}})));});'
+    const script =
+      'let b=Buffer.alloc(0);' +
+      'const fr=(s)=>{const x=Buffer.from(s);return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};' +
+      'process.stdin.on("data",c=>{b=Buffer.concat([b,c]);const s=b.indexOf("\\r\\n\\r\\n");if(s<0)return;const len=Number(/(\\d+)/.exec(b.toString("ascii",0,s))[1]);const body=JSON.parse(b.toString("utf8",s+4,s+4+len));process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:body.id,error:{code:-1}})));});'
     const conn = connectScript(script)
     await expect(conn.request('initialize', {})).rejects.toThrow(/LSP error response/)
   })
@@ -232,7 +255,9 @@ describe('LspConnection edge behavior', () => {
   it('rejects a pending request when child stdin fails but the process stays alive', async () => {
     const failure = new Error('fixture stdin failure')
     const writer: ConnectionWriter = (_stdin, _message, done) => {
-      queueMicrotask(() => { done(failure) })
+      queueMicrotask(() => {
+        done(failure)
+      })
     }
     const conn = connectScript('setInterval(()=>{}, 1000)', 100_000, writer)
     await expect(conn.request('initialize', {})).rejects.toThrow(/fixture stdin failure/)
@@ -241,10 +266,11 @@ describe('LspConnection edge behavior', () => {
   it('ignores a frame that is neither a valid request nor a numeric-id response', async () => {
     // A frame with a string id and no method: not dispatchable; the client must ignore it and still
     // answer our real request.
-    const script = 'let b=Buffer.alloc(0);'
-      + 'const fr=(s)=>{const x=Buffer.from(s);return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};'
-      + 'process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:"str-id"})));'
-      + 'process.stdin.on("data",c=>{b=Buffer.concat([b,c]);const s=b.indexOf("\\r\\n\\r\\n");if(s<0)return;const len=Number(/(\\d+)/.exec(b.toString("ascii",0,s))[1]);const body=JSON.parse(b.toString("utf8",s+4,s+4+len));process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:body.id,result:{ok:true}})));});'
+    const script =
+      'let b=Buffer.alloc(0);' +
+      'const fr=(s)=>{const x=Buffer.from(s);return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};' +
+      'process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:"str-id"})));' +
+      'process.stdin.on("data",c=>{b=Buffer.concat([b,c]);const s=b.indexOf("\\r\\n\\r\\n");if(s<0)return;const len=Number(/(\\d+)/.exec(b.toString("ascii",0,s))[1]);const body=JSON.parse(b.toString("utf8",s+4,s+4+len));process.stdout.write(fr(JSON.stringify({jsonrpc:"2.0",id:body.id,result:{ok:true}})));});'
     const conn = connectScript(script)
     await expect(conn.request('initialize', {})).resolves.toEqual({ ok: true })
   })

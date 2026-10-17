@@ -101,12 +101,15 @@ export function agentInstructionsMessage(text: string): Message {
   })
 }
 
-function isAgentInstructionsSource(
-  source: unknown,
-): source is { kind: 'agent-instructions'; changes: unknown[] } {
-  return typeof source === 'object' && source !== null
-    && 'kind' in source && source.kind === 'agent-instructions'
-    && 'changes' in source && Array.isArray(source.changes)
+function isAgentInstructionsSource(source: unknown): source is { kind: 'agent-instructions'; changes: unknown[] } {
+  return (
+    typeof source === 'object' &&
+    source !== null &&
+    'kind' in source &&
+    source.kind === 'agent-instructions' &&
+    'changes' in source &&
+    Array.isArray(source.changes)
+  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -124,23 +127,17 @@ function workspaceInstructionChanges(source: { changes: unknown[] }): AgentInstr
       action: value.action,
       scope: value.scope,
       path: value.path,
-      ...value.digest !== undefined ? { digest: value.digest } : {},
+      ...(value.digest !== undefined ? { digest: value.digest } : {}),
     })
   }
   return changes
 }
 
 function sameInstructionChange(a: AgentInstructionChange, b: AgentInstructionChange): boolean {
-  return a.action === b.action
-    && a.scope === b.scope
-    && a.path === b.path
-    && a.digest === b.digest
+  return a.action === b.action && a.scope === b.scope && a.path === b.path && a.digest === b.digest
 }
 
-function visibleInstructionChanges(
-  agent: Agent,
-  authorityMessages: readonly UserMessage[],
-): Map<string, AgentInstructionChange> {
+function visibleInstructionChanges(agent: Agent, authorityMessages: readonly UserMessage[]): Map<string, AgentInstructionChange> {
   const visible = new Map<string, AgentInstructionChange>()
   for (const seq of agent.session.surface.nodes) {
     // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
@@ -269,8 +266,7 @@ export async function reconcileInstructionContext(
   const cwd = options.cwd
   // TODO(frozen-project-root): retain the baseline root for the loop instance;
   // recomputing it after marker edits reinterprets the existing relative scope keys.
-  const projectRoot = options.projectRoot
-    ?? await findProjectRoot(cwd, resolved.projectRootMarkers, fileSystem, options.signal)
+  const projectRoot = options.projectRoot ?? (await findProjectRoot(cwd, resolved.projectRootMarkers, fileSystem, options.signal))
   const scopes = new Set<string>()
   const baselineScopes = new Set<string>()
   const addDirScopes = (target: Set<string>, directory: string): void => {
@@ -326,7 +322,7 @@ export async function reconcileInstructionContext(
   const pushRemoval = (scope: string, path: string, state?: InstructionVersionState): void => {
     const change: AgentInstructionChange = { action: 'remove', scope, path }
     items.push({ change, file: { absolutePath: `removed:${scope}`, displayPath: path, content: '' } })
-    versionUpdates.push({ change, ...state === undefined ? {} : { state } })
+    versionUpdates.push({ change, ...(state === undefined ? {} : { state }) })
   }
   const scopesByGroup = new Map<string, string[]>()
   for (const scope of scopes) {
@@ -339,9 +335,7 @@ export async function reconcileInstructionContext(
   for (const [group, groupScopes] of scopesByGroup) {
     const probedScopes: string[] = []
     for (const scope of groupScopes) {
-      if (options.excludedBaselineScopes !== undefined
-        && baselineScopes.has(scope)
-        && options.excludedBaselineScopes.has(scope)) {
+      if (options.excludedBaselineScopes !== undefined && baselineScopes.has(scope) && options.excludedBaselineScopes.has(scope)) {
         const previous = effective.get(scope)
         if (previous === undefined || previous.action === 'remove') versions.delete(scope)
         else pushRemoval(scope, previous.path)
@@ -384,14 +378,10 @@ export async function reconcileInstructionContext(
       if (seenAbsolutePaths.has(probedFile.absolutePath)) continue
       seenAbsolutePaths.add(probedFile.absolutePath)
       const cached = versions.get(scope)
-      const metadataUnchanged = cached !== undefined
-        && cached.path === probedFile.displayPath
-        && cached.version === probedFile.version
+      const metadataUnchanged = cached !== undefined && cached.path === probedFile.displayPath && cached.version === probedFile.version
       if (metadataUnchanged) {
-        const rendered = previous !== undefined
-          && previous.action !== 'remove'
-          && previous.path === cached.path
-          && previous.digest === cached.digest
+        const rendered =
+          previous !== undefined && previous.action !== 'remove' && previous.path === cached.path && previous.digest === cached.digest
         if (rendered) {
           // Unchanged and previously rendered: keep it, but an earlier group member
           // that now matches its trimmed content makes this the duplicate to remove.
@@ -400,8 +390,7 @@ export async function reconcileInstructionContext(
         }
         // Hidden duplicates include files removed from visible state after
         // becoming duplicates. Only promotion requires another content read.
-        if ((previous === undefined || previous.action === 'remove')
-          && hasKeptTrimmed(group, cached.trimmedDigest)) continue
+        if ((previous === undefined || previous.action === 'remove') && hasKeptTrimmed(group, cached.trimmedDigest)) continue
       }
 
       const file = await readScopeInstruction(probedFile, resolved.maxSourceBytes, fileSystem, options.signal)
@@ -428,7 +417,12 @@ export async function reconcileInstructionContext(
         }
         continue
       }
-      if (previous !== undefined && previous.action !== 'remove' && previous.path === file.displayPath && previous.digest === currentDigest) {
+      if (
+        previous !== undefined &&
+        previous.action !== 'remove' &&
+        previous.path === file.displayPath &&
+        previous.digest === currentDigest
+      ) {
         versions.set(scope, nextVersion)
         continue
       }

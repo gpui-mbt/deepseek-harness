@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { TimedQuestionWait } from '../src/timed-wait.ts'
 
 const waits: TimedQuestionWait[] = []

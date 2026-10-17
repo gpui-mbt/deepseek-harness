@@ -131,12 +131,8 @@ function SourceItem({ source, ordinal }: { source: WebSourceView; ordinal: numbe
   return (
     <li className={css.source} value={ordinal}>
       <SafeLink url={source.url} label={linkLabel(source.url, source.title)} className={css.sourceLink} />
-      {source.snippet !== undefined && source.snippet !== '' && (
-        <div className={css.snippet}>{source.snippet}</div>
-      )}
-      {source.publishedAt !== undefined && source.publishedAt !== '' && (
-        <div className={css.published}>{source.publishedAt}</div>
-      )}
+      {source.snippet !== undefined && source.snippet !== '' && <div className={css.snippet}>{source.snippet}</div>}
+      {source.publishedAt !== undefined && source.publishedAt !== '' && <div className={css.published}>{source.publishedAt}</div>}
     </li>
   )
 }
@@ -155,13 +151,17 @@ function WebSearchBlock({ answer, sources, truncated, labels, className }: WebSe
   return (
     <div className={clsx(css.block, className)} data-web="search">
       {answer !== undefined && answer !== '' && (
-        <div className={css.answer}><MarkdownText text={answer} labels={labels.markdown} /></div>
+        <div className={css.answer}>
+          <MarkdownText text={answer} labels={labels.markdown} />
+        </div>
       )}
       {empty ? (
         <div className={css.empty}>{labels.noResults}</div>
       ) : (
         <ol className={css.sources}>
-          {sources.map((source, index) => <SourceItem key={index} source={source} ordinal={index + 1} />)}
+          {sources.map((source, index) => (
+            <SourceItem key={index} source={source} ordinal={index + 1} />
+          ))}
         </ol>
       )}
       {truncated && <div className={css.truncated}>{labels.sourcesTruncated}</div>}
@@ -179,7 +179,9 @@ function WebFetchBlock({ url, statusCode, truncated, labels, className }: WebFet
     <div className={clsx(css.block, css.fetch, className)} data-web="fetch">
       <SafeLink url={url} label={url} className={css.fetchUrl} />
       <div className={css.fetchMeta}>
-        <span className={css.status}>{labels.http} {statusCode}</span>
+        <span className={css.status}>
+          {labels.http} {statusCode}
+        </span>
         {truncated && <span className={css.truncated}>{labels.contentTruncated}</span>}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { PtcJsonValue } from '@deepseek-ai/dsh-ptc-runtime'
 import { jsonStringBytesUpTo, jsonValueBytesUpTo, truncateJsonStringBytes } from '../src/output-json.ts'
 
@@ -20,7 +20,9 @@ describe('truncateJsonStringBytes', () => {
   })
 
   it('bounds hostile strings without materializing their complete escaped form', () => {
-    const stringify = vi.spyOn(JSON, 'stringify').mockImplementation(() => { throw new Error('must not stringify') })
+    const stringify = vi.spyOn(JSON, 'stringify').mockImplementation(() => {
+      throw new Error('must not stringify')
+    })
     try {
       expect(jsonStringBytesUpTo('"'.repeat(10_000), 32)).toBeUndefined()
       expect(truncateJsonStringBytes('"'.repeat(10_000), 32)).toBe('"'.repeat(15))
@@ -84,13 +86,23 @@ describe('jsonValueBytesUpTo', () => {
     let prefix = ''
     try {
       Array.isArray = (_value: unknown): _value is never[] => false
-      Array.prototype.pop = () => { throw new Error('mutated pop') }
-      Array.prototype.push = () => { throw new Error('mutated push') }
+      Array.prototype.pop = () => {
+        throw new Error('mutated pop')
+      }
+      Array.prototype.push = () => {
+        throw new Error('mutated push')
+      }
       Buffer.byteLength = () => 0
       Object.keys = () => []
-      String.prototype.charCodeAt = () => { throw new Error('mutated charCodeAt') }
-      String.prototype.codePointAt = () => { throw new Error('mutated codePointAt') }
-      String.prototype.slice = () => { throw new Error('mutated slice') }
+      String.prototype.charCodeAt = () => {
+        throw new Error('mutated charCodeAt')
+      }
+      String.prototype.codePointAt = () => {
+        throw new Error('mutated codePointAt')
+      }
+      String.prototype.slice = () => {
+        throw new Error('mutated slice')
+      }
       measured = jsonValueBytesUpTo(value, bytes)
       prefix = truncateJsonStringBytes('€x', 5)
     } finally {

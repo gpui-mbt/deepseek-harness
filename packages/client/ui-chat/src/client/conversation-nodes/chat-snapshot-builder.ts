@@ -1,15 +1,31 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { notifySubscribers, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type {
-  ConversationLocation, ConversationNode, ConversationTimelineSnapshot, ConversationViewBuilder,
-  ConversationViewDefinition, ConversationGroupInput, GroupNodePosition, NodeChange, NodeKey, PartialAssistant, RunningToolCall,
+  ConversationLocation,
+  ConversationNode,
+  ConversationTimelineSnapshot,
+  ConversationViewBuilder,
+  ConversationViewDefinition,
+  ConversationGroupInput,
+  GroupNodePosition,
+  NodeChange,
+  NodeKey,
+  PartialAssistant,
+  RunningToolCall,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatConversationViewNode, ChatNode, ChatNodeDataMap, ChatNodeKind } from '../contract/chat-nodes.ts'
 import { isRunningTool } from '../contract/chat-nodes.ts'
 import { isVisibleChatNode } from '../contract/chat-visibility.ts'
 import type {
-  ChatLocationNodeIndex, ChatNodeProcessSource, ChatNodeSource, ChatNodeStore, ChatSnapshot,
-  ChatTurnNavigationIndex, ChatTurnProcessPresentation, LegacyConversationSlice, TurnNavigationItem,
+  ChatLocationNodeIndex,
+  ChatNodeProcessSource,
+  ChatNodeSource,
+  ChatNodeStore,
+  ChatSnapshot,
+  ChatTurnNavigationIndex,
+  ChatTurnProcessPresentation,
+  LegacyConversationSlice,
+  TurnNavigationItem,
 } from '../contract/snapshot.ts'
 import { isAtOrOutside } from '../contract/group-tree.ts'
 import { locationCoordinates } from './common.ts'
@@ -27,11 +43,7 @@ function sameReferences<T>(left: readonly T[], right: readonly T[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index])
 }
 
-function cachedSource<Key, Source>(
-  sources: Map<Key, Source>,
-  key: Key,
-  create: () => Source,
-): Source {
+function cachedSource<Key, Source>(sources: Map<Key, Source>, key: Key, create: () => Source): Source {
   let source = sources.get(key)
   if (source === undefined) {
     source = create()
@@ -56,7 +68,9 @@ class MutableChatSource<Value> {
 
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   publish(): void {
@@ -76,7 +90,7 @@ class TurnKindNodes {
   private observable: MutableChatSource<readonly unknown[]> | undefined
 
   source(): ObservableSnapshot<readonly unknown[]> {
-    return this.observable ??= new MutableChatSource(() => this.read(), '[ui-chat] turn kind nodes')
+    return (this.observable ??= new MutableChatSource(() => this.read(), '[ui-chat] turn kind nodes'))
   }
 
   set(node: ChatConversationViewNode): void {
@@ -125,18 +139,19 @@ class MutableChatNodeStore implements ChatNodeStore {
   }
 
   source(key: string): ChatNodeSource {
-    return cachedSource(this.sources, key, () => new MutableChatSource(
-      () => this.get(key),
-      `[ui-chat] node source ${key}`,
-    ))
+    return cachedSource(this.sources, key, () => new MutableChatSource(() => this.get(key), `[ui-chat] node source ${key}`))
   }
 
   bottomSource(key: string): ObservableSnapshot<boolean> {
-    return cachedSource(this.bottomSources, key, () => new MutableChatSource(() => {
-      const node = this.get(key) as ChatNode | undefined
-      return node !== undefined && isVisibleChatNode(node)
-        && this.exchanges.inLatest(locationCoordinates(node.location).turn)
-    }, `[ui-chat] node bottom source ${key}`))
+    return cachedSource(
+      this.bottomSources,
+      key,
+      () =>
+        new MutableChatSource(() => {
+          const node = this.get(key) as ChatNode | undefined
+          return node !== undefined && isVisibleChatNode(node) && this.exchanges.inLatest(locationCoordinates(node.location).turn)
+        }, `[ui-chat] node bottom source ${key}`),
+    )
   }
 
   /**
@@ -176,10 +191,11 @@ class MutableChatNodeStore implements ChatNodeStore {
   }
 
   processSource(key: string): ChatNodeProcessSource {
-    return cachedSource(this.processSources, key, () => new MutableChatSource(
-      () => this.process(key),
-      `[ui-chat] node process source ${key}`,
-    ))
+    return cachedSource(
+      this.processSources,
+      key,
+      () => new MutableChatSource(() => this.process(key), `[ui-chat] node process source ${key}`),
+    )
   }
 
   process(key: string): ChatTurnProcessPresentation | undefined {
@@ -293,8 +309,11 @@ class MutableChatLocationIndex implements ChatLocationNodeIndex {
         previous: order[index - 1] as NodeKey | undefined,
         next: order[index + 1] as NodeKey | undefined,
       }
-      const unchanged = previous !== undefined && previous.turn === position.turn
-        && previous.previous === position.previous && previous.next === position.next
+      const unchanged =
+        previous !== undefined &&
+        previous.turn === position.turn &&
+        previous.previous === position.previous &&
+        previous.next === position.next
       positions.set(key, unchanged ? previous : position)
       if (!unchanged) {
         if (previous?.turn !== undefined) changedTurns.add(previous.turn)
@@ -373,11 +392,7 @@ class MutableTurnNavigationIndex implements ChatTurnNavigationIndex {
   }
 
   /** Re-derive the whole Turn set; runs only when the loaded structure moves. */
-  rebuild(
-    timeline: ConversationTimelineSnapshot,
-    locations: ChatLocationNodeIndex,
-    nodes: ChatNodeStore,
-  ): void {
+  rebuild(timeline: ConversationTimelineSnapshot, locations: ChatLocationNodeIndex, nodes: ChatNodeStore): void {
     const next: TurnNavigationItem[] = []
     const byTurn = new Map<number, TurnNavigationItem>()
     for (const turn of timeline.turnOrder) {
@@ -389,19 +404,14 @@ class MutableTurnNavigationIndex implements ChatTurnNavigationIndex {
       byTurn.set(turn, item)
     }
     this.byTurn = byTurn
-    const unchanged = next.length === this.current.length
-      && next.every((item, index) => item === this.current[index])
+    const unchanged = next.length === this.current.length && next.every((item, index) => item === this.current[index])
     if (!unchanged) this.current = next
   }
 
   /** Re-derive only the Turns a content-only upsert touched. */
-  touch(
-    turns: ReadonlySet<number>,
-    locations: ChatLocationNodeIndex,
-    nodes: ChatNodeStore,
-  ): void {
+  touch(turns: ReadonlySet<number>, locations: ChatLocationNodeIndex, nodes: ChatNodeStore): void {
     if (turns.size === 0) return
-    const next = this.current.map((item) => {
+    const next = this.current.map(item => {
       if (!turns.has(item.turn)) return item
       const derived = turnNavigationItem(item.turn, locations, nodes)
       if (derived === undefined || sameTurnNavigationItem(item, derived)) return item
@@ -420,19 +430,13 @@ function locationTurnStatus(location: ConversationLocation): string | undefined 
   return location.kind === 'turn' || location.kind === 'step' ? location.turn.status : undefined
 }
 
-function processPresentationInputChanged(
-  previous: ChatNode | undefined,
-  next: ChatNode,
-  structural: boolean,
-): boolean {
+function processPresentationInputChanged(previous: ChatNode | undefined, next: ChatNode, structural: boolean): boolean {
   if (structural || previous === undefined) return true
   if (locationTurnStatus(previous.location) !== locationTurnStatus(next.location)) return true
   if (previous.kind === 'turn-process' && next.kind === 'turn-process') {
     return previous.data !== next.data
   }
-  return previous.kind === 'assistant-step'
-    && next.kind === 'assistant-step'
-    && previous.data.step !== next.data.step
+  return previous.kind === 'assistant-step' && next.kind === 'assistant-step' && previous.data.step !== next.data.step
 }
 
 interface TurnProcessPresentation {
@@ -441,9 +445,7 @@ interface TurnProcessPresentation {
   readonly earliestProcessAnchor?: number
 }
 
-function turnProcessPresentations(
-  nodes: readonly ChatConversationViewNode[],
-): ReadonlyMap<number, TurnProcessPresentation> {
+function turnProcessPresentations(nodes: readonly ChatConversationViewNode[]): ReadonlyMap<number, TurnProcessPresentation> {
   const presentations = new Map<number, TurnProcessPresentation>()
   for (const raw of nodes) {
     const node = raw as ChatNode
@@ -457,9 +459,11 @@ function turnProcessPresentations(
     if (location.kind !== 'turn' && location.kind !== 'step') continue
     const current: TurnProcessPresentation = presentations.get(location.turn.turn) ?? {}
     const controlAnchor = current.control?.data.controlAnchorSeq
-    if (isAtOrOutside(node, 'input')
-      && controlAnchor !== undefined
-      && (controlAnchor === location.turn.start?.seq || node.anchorSeq < controlAnchor)) {
+    if (
+      isAtOrOutside(node, 'input') &&
+      controlAnchor !== undefined &&
+      (controlAnchor === location.turn.start?.seq || node.anchorSeq < controlAnchor)
+    ) {
       presentations.set(location.turn.turn, {
         ...current,
         openingInputAnchor: Math.max(current.openingInputAnchor ?? node.anchorSeq, node.anchorSeq),
@@ -495,18 +499,16 @@ function presentationPosition(
     return { anchor: node.anchorSeq, rank: 0, originalAnchor: node.anchorSeq }
   }
   const openingInputAnchor = presentation.openingInputAnchor
-  if (openingInputAnchor !== undefined
-    && node.anchorSeq < openingInputAnchor
-    && !isAtOrOutside(node, 'turn')) {
+  if (openingInputAnchor !== undefined && node.anchorSeq < openingInputAnchor && !isAtOrOutside(node, 'turn')) {
     return { anchor: openingInputAnchor, rank: 2, originalAnchor: node.anchorSeq }
   }
   if (presentation.control !== undefined && node.key === presentation.control.key) {
     return openingInputAnchor === undefined
       ? {
-        anchor: presentation.earliestProcessAnchor ?? node.anchorSeq,
-        rank: -1,
-        originalAnchor: node.anchorSeq,
-      }
+          anchor: presentation.earliestProcessAnchor ?? node.anchorSeq,
+          rank: -1,
+          originalAnchor: node.anchorSeq,
+        }
       : { anchor: openingInputAnchor, rank: 1, originalAnchor: node.anchorSeq }
   }
   return { anchor: node.anchorSeq, rank: 0, originalAnchor: node.anchorSeq }
@@ -519,32 +521,32 @@ function presentationPosition(
  * @param nodes - currently materialized Chat Nodes.
  * @returns visible Nodes in presentation order.
  */
-export function orderedVisibleChatNodes(
-  nodes: readonly ChatConversationViewNode[],
-): ChatConversationViewNode[] {
+export function orderedVisibleChatNodes(nodes: readonly ChatConversationViewNode[]): ChatConversationViewNode[] {
   const visible = nodes.filter(node => isVisibleChatNode(node as ChatNode))
   const presentations = turnProcessPresentations(visible)
   return visible.sort((left, right) => {
     const leftPosition = presentationPosition(left, presentations)
     const rightPosition = presentationPosition(right, presentations)
-    return leftPosition.anchor - rightPosition.anchor
-      || leftPosition.rank - rightPosition.rank
-      || leftPosition.originalAnchor - rightPosition.originalAnchor
-      || left.key.localeCompare(right.key)
+    return (
+      leftPosition.anchor - rightPosition.anchor ||
+      leftPosition.rank - rightPosition.rank ||
+      leftPosition.originalAnchor - rightPosition.originalAnchor ||
+      left.key.localeCompare(right.key)
+    )
   })
 }
 
 function referenceMessageSeq(node: ChatConversationViewNode): number | undefined {
   const candidate = node as ChatNode
-  return candidate.kind === 'user' || candidate.kind === 'steering'
-    ? candidate.data.seq
-    : undefined
+  return candidate.kind === 'user' || candidate.kind === 'steering' ? candidate.data.seq : undefined
 }
 
-function followingRecall(node: ChatConversationViewNode): {
-  readonly messageSeq: number
-  readonly labels: readonly string[]
-} | undefined {
+function followingRecall(node: ChatConversationViewNode):
+  | {
+      readonly messageSeq: number
+      readonly labels: readonly string[]
+    }
+  | undefined {
   const candidate = node as ChatNode
   if (candidate.kind !== 'context') return undefined
   return {
@@ -553,15 +555,12 @@ function followingRecall(node: ChatConversationViewNode): {
   }
 }
 
-function withReferenceLabels(
-  node: ChatConversationViewNode,
-  labels: readonly string[],
-): ChatConversationViewNode {
+function withReferenceLabels(node: ChatConversationViewNode, labels: readonly string[]): ChatConversationViewNode {
   const candidate = node as ChatNode
   if (candidate.kind !== 'user' && candidate.kind !== 'steering') return node
   const current = candidate.data.referenceLabels ?? EMPTY_KEYS
   const hasLabels = Object.hasOwn(candidate.data, 'referenceLabels')
-  if (sameReferences(current, labels) && hasLabels === (labels.length > 0)) return node
+  if (sameReferences(current, labels) && hasLabels === labels.length > 0) return node
   const data: Record<string, unknown> = { ...candidate.data }
   if (labels.length === 0) delete data.referenceLabels
   else data.referenceLabels = labels
@@ -584,18 +583,13 @@ class ReferenceLabelProjector {
         this.labelsByMessageSeq.set(recall.messageSeq, recall.labels)
       }
     }
-    return nodes.map((node) => {
+    return nodes.map(node => {
       const messageSeq = referenceMessageSeq(node)
-      return messageSeq === undefined
-        ? node
-        : withReferenceLabels(node, this.labelsByMessageSeq.get(messageSeq) ?? EMPTY_KEYS)
+      return messageSeq === undefined ? node : withReferenceLabels(node, this.labelsByMessageSeq.get(messageSeq) ?? EMPTY_KEYS)
     })
   }
 
-  apply(
-    upserts: readonly ChatConversationViewNode[],
-    store: ChatNodeStore,
-  ): readonly ChatConversationViewNode[] {
+  apply(upserts: readonly ChatConversationViewNode[], store: ChatNodeStore): readonly ChatConversationViewNode[] {
     const byKey = new Map(upserts.map(node => [node.key, node]))
     const affected = new Set<number>()
     for (const node of upserts) {
@@ -627,15 +621,12 @@ class ReferenceLabelProjector {
   }
 }
 
-function withSkillNames(
-  node: ChatConversationViewNode,
-  names: readonly string[],
-): ChatConversationViewNode {
+function withSkillNames(node: ChatConversationViewNode, names: readonly string[]): ChatConversationViewNode {
   const candidate = node as ChatNode
   if (candidate.kind !== 'user' && candidate.kind !== 'steering') return node
   const current = candidate.data.skillNames ?? EMPTY_KEYS
   const hasNames = Object.hasOwn(candidate.data, 'skillNames')
-  if (sameReferences(current, names) && hasNames === (names.length > 0)) return node
+  if (sameReferences(current, names) && hasNames === names.length > 0) return node
   const data: Record<string, unknown> = { ...candidate.data }
   if (names.length === 0) delete data.skillNames
   else data.skillNames = names
@@ -729,10 +720,7 @@ export class SkillNameProjector {
    * @param store - the resident Nodes, read by key for the messages of an affected batch.
    * @returns the upserts plus any resident message whose names changed.
    */
-  apply(
-    upserts: readonly ChatConversationViewNode[],
-    store: ChatNodeStore,
-  ): readonly ChatConversationViewNode[] {
+  apply(upserts: readonly ChatConversationViewNode[], store: ChatNodeStore): readonly ChatConversationViewNode[] {
     const dirty: number[] = []
     for (const node of upserts) {
       const next = slashEntryOf(node)
@@ -915,13 +903,15 @@ function legacyContribution(raw: ChatConversationViewNode): LegacyContribution {
 }
 
 function sameContribution(left: LegacyContribution | undefined, right: LegacyContribution): boolean {
-  return left !== undefined
-    && left.anchorSeq === right.anchorSeq
-    && left.partial?.blocks === right.partial?.blocks
-    && left.partial?.turn === right.partial?.turn
-    && left.partial?.step === right.partial?.step
-    && left.running === right.running
-    && sameReferences(left.nodes, right.nodes)
+  return (
+    left !== undefined &&
+    left.anchorSeq === right.anchorSeq &&
+    left.partial?.blocks === right.partial?.blocks &&
+    left.partial?.turn === right.partial?.turn &&
+    left.partial?.step === right.partial?.step &&
+    left.running === right.running &&
+    sameReferences(left.nodes, right.nodes)
+  )
 }
 
 /** Incremental compatibility projection for the composer stats pills and legacy top-level snapshot fields. */
@@ -937,10 +927,7 @@ class LegacySliceBuilder {
   private turnTimings: LegacyConversationSlice['turnTimings'] = new Map()
   private turnEnds: LegacyConversationSlice['turnEnds'] = new Map()
 
-  replace(
-    nodes: readonly ChatConversationViewNode[],
-    timeline: ConversationTimelineSnapshot,
-  ): LegacyConversationSlice {
+  replace(nodes: readonly ChatConversationViewNode[], timeline: ConversationTimelineSnapshot): LegacyConversationSlice {
     this.contributions.clear()
     this.finalizedContributions.clear()
     this.runningContributions.clear()
@@ -957,10 +944,7 @@ class LegacySliceBuilder {
     return this.snapshot()
   }
 
-  apply(
-    upserts: readonly ChatConversationViewNode[],
-    timeline: ConversationTimelineSnapshot,
-  ): LegacyConversationSlice {
+  apply(upserts: readonly ChatConversationViewNode[], timeline: ConversationTimelineSnapshot): LegacyConversationSlice {
     let finalizedChanged = false
     let runningChanged = false
     let partialChanged = false
@@ -988,26 +972,24 @@ class LegacySliceBuilder {
   }
 
   private rebuildFinalized(): void {
-    const finalized = [...this.finalizedContributions.values()]
-      .flatMap(value => value.nodes)
-      .sort((left, right) => left.seq - right.seq)
+    const finalized = [...this.finalizedContributions.values()].flatMap(value => value.nodes).sort((left, right) => left.seq - right.seq)
     if (!sameReferences(this.finalized, finalized)) this.finalized = finalized
   }
 
   private rebuildRunning(): void {
     const runningCalls = [...this.runningContributions.values()]
       .sort((left, right) => left.anchorSeq - right.anchorSeq)
-      .flatMap(value => value.running === null ? [] : [value.running])
+      .flatMap(value => (value.running === null ? [] : [value.running]))
     if (!sameReferences(this.runningCalls, runningCalls)) this.runningCalls = runningCalls
   }
 
   private rebuildPartial(): void {
-    const partial = [...this.partialContributions.values()]
-      .sort((left, right) => left.anchorSeq - right.anchorSeq)
-      .findLast(value => value.partial !== null)?.partial ?? null
-    if (this.partial?.blocks !== partial?.blocks
-      || this.partial?.turn !== partial?.turn
-      || this.partial?.step !== partial?.step) this.partial = partial
+    const partial =
+      [...this.partialContributions.values()]
+        .sort((left, right) => left.anchorSeq - right.anchorSeq)
+        .findLast(value => value.partial !== null)?.partial ?? null
+    if (this.partial?.blocks !== partial?.blocks || this.partial?.turn !== partial?.turn || this.partial?.step !== partial?.step)
+      this.partial = partial
   }
 
   private updateTimeline(timeline: ConversationTimelineSnapshot): void {
@@ -1019,7 +1001,7 @@ class LegacySliceBuilder {
       if (turn.start !== undefined) {
         turnTimings.set(turn.turn, {
           startTime: turn.start.time,
-          ...turn.end === undefined ? {} : { endTime: turn.end.time },
+          ...(turn.end === undefined ? {} : { endTime: turn.end.time }),
         })
       }
       if (turn.end !== undefined) turnEnds.set(turn.turn, turn.end.seq)
@@ -1049,33 +1031,27 @@ function updateContributionIndex(
   else index.delete(key)
 }
 
-function finalizedContributionChanged(
-  previous: LegacyContribution | undefined,
-  next: LegacyContribution,
-): boolean {
+function finalizedContributionChanged(previous: LegacyContribution | undefined, next: LegacyContribution): boolean {
   const previousNodes = previous?.nodes ?? EMPTY_LIST
-  return !sameReferences(previousNodes, next.nodes)
-    || ((previousNodes.length > 0 || next.nodes.length > 0) && previous?.anchorSeq !== next.anchorSeq)
+  return (
+    !sameReferences(previousNodes, next.nodes) ||
+    ((previousNodes.length > 0 || next.nodes.length > 0) && previous?.anchorSeq !== next.anchorSeq)
+  )
 }
 
-function runningContributionChanged(
-  previous: LegacyContribution | undefined,
-  next: LegacyContribution,
-): boolean {
-  return previous?.running !== next.running
-    || ((previous.running !== null || next.running !== null)
-      && previous.anchorSeq !== next.anchorSeq)
+function runningContributionChanged(previous: LegacyContribution | undefined, next: LegacyContribution): boolean {
+  return (
+    previous?.running !== next.running || ((previous.running !== null || next.running !== null) && previous.anchorSeq !== next.anchorSeq)
+  )
 }
 
-function partialContributionChanged(
-  previous: LegacyContribution | undefined,
-  next: LegacyContribution,
-): boolean {
-  return previous?.partial?.blocks !== next.partial?.blocks
-    || previous?.partial?.turn !== next.partial?.turn
-    || previous?.partial?.step !== next.partial?.step
-    || (((previous?.partial ?? null) !== null || next.partial !== null)
-      && previous?.anchorSeq !== next.anchorSeq)
+function partialContributionChanged(previous: LegacyContribution | undefined, next: LegacyContribution): boolean {
+  return (
+    previous?.partial?.blocks !== next.partial?.blocks ||
+    previous?.partial?.turn !== next.partial?.turn ||
+    previous?.partial?.step !== next.partial?.step ||
+    (((previous?.partial ?? null) !== null || next.partial !== null) && previous?.anchorSeq !== next.anchorSeq)
+  )
 }
 
 /** Incremental keyed Chat builder registered under the `chat` target. */
@@ -1107,10 +1083,7 @@ export class ChatSnapshotBuilder implements ConversationViewBuilder<ChatConversa
     }
   }
 
-  replace(input: {
-    readonly nodes: readonly ChatConversationViewNode[]
-    readonly timeline: ConversationTimelineSnapshot
-  }): ChatSnapshot {
+  replace(input: { readonly nodes: readonly ChatConversationViewNode[]; readonly timeline: ConversationTimelineSnapshot }): ChatSnapshot {
     const nodes = this.skillNames.replace(this.referenceLabels.replace(input.nodes))
     this.store.replace(nodes)
     this.order = orderedVisibleChatNodes(nodes).map(node => node.key)
@@ -1144,12 +1117,13 @@ export class ChatSnapshotBuilder implements ConversationViewBuilder<ChatConversa
     for (const node of upserts) {
       const previous = this.store.get(node.key)
       if (previous !== node) changes.push({ previous, current: node })
-      const nodeStructural = previous === undefined
-        || previous.kind !== node.kind
-        || previous.anchorSeq !== node.anchorSeq
-        || previous.visibility !== node.visibility
-        || previous.groupTree !== node.groupTree
-        || locationIdentity(previous.location) !== locationIdentity(node.location)
+      const nodeStructural =
+        previous === undefined ||
+        previous.kind !== node.kind ||
+        previous.anchorSeq !== node.anchorSeq ||
+        previous.visibility !== node.visibility ||
+        previous.groupTree !== node.groupTree ||
+        locationIdentity(previous.location) !== locationIdentity(node.location)
       structural ||= nodeStructural
       if (!nodeStructural) contentOnly.push(node)
       if (processPresentationInputChanged(previous as ChatNode | undefined, node as ChatNode, nodeStructural)) {
@@ -1198,10 +1172,7 @@ export class ChatSnapshotBuilder implements ConversationViewBuilder<ChatConversa
     this.store.publish()
   }
 
-  private snapshot(
-    timeline: ConversationTimelineSnapshot,
-    legacy = this.legacy.replace(EMPTY_LIST, timeline),
-  ): ChatSnapshot {
+  private snapshot(timeline: ConversationTimelineSnapshot, legacy = this.legacy.replace(EMPTY_LIST, timeline)): ChatSnapshot {
     return {
       order: this.order,
       nodes: this.store,

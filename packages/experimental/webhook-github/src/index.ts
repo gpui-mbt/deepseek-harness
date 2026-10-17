@@ -37,8 +37,13 @@ function assertConfig(config: Config): void {
   if (config.source.trim() !== config.source || config.source === '') {
     throw new Error('webhook-github source must be a non-empty trimmed string')
   }
-  if (!config.path.startsWith('/') || config.path === '/' || config.path.endsWith('/')
-    || config.path.includes('?') || config.path.includes('#')) {
+  if (
+    !config.path.startsWith('/') ||
+    config.path === '/' ||
+    config.path.endsWith('/') ||
+    config.path.includes('?') ||
+    config.path.includes('#')
+  ) {
     throw new Error('webhook-github path must be an absolute non-root pathname without a trailing slash, query, or fragment')
   }
 }
@@ -55,8 +60,5 @@ export function apply(ctx: Context, config: Config): void {
       maxBodyBytes: config.maxBodyBytes,
     }),
   }
-  ctx.effect(
-    () => ctx.webServer.register(route),
-    `webhook-github: ${config.path}`,
-  )
+  ctx.effect(() => ctx.webServer.register(route), `webhook-github: ${config.path}`)
 }

@@ -25,7 +25,7 @@ import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import WebSocket from 'ws'
 import { REPO_ROOT, connectFreshWorkspace, newEnglishPage, probeFreePort, requireDist, saveFailureShot } from './support.ts'
 
@@ -40,11 +40,12 @@ function messagesResponse(text: string, complete = true): string {
     { type: 'message_start', message: { id: 'web-smoke-response', model: 'mock-model', usage: { input_tokens: 3, output_tokens: 0 } } },
     { type: 'content_block_start', index: 0, content_block: { type: 'text', text } },
   ]
-  if (complete) events.push(
-    { type: 'content_block_stop', index: 0 },
-    { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 1 } },
-    { type: 'message_stop' },
-  )
+  if (complete)
+    events.push(
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 1 } },
+      { type: 'message_stop' },
+    )
   return events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('')
 }
 
@@ -72,7 +73,9 @@ const comboMapUrl = (url: string): string => url.replace(/\/client\.js(?=,|&rev=
 function waitForReadyLine(child: ChildProcess): Promise<string> {
   return new Promise((resolveReady, reject) => {
     let out = ''
-    const timer = setTimeout(() => { reject(new Error(`dsh web not ready in 90s; output:\n${out}`)) }, 90_000)
+    const timer = setTimeout(() => {
+      reject(new Error(`dsh web not ready in 90s; output:\n${out}`))
+    }, 90_000)
     const onData = (chunk: Buffer): void => {
       out += chunk.toString()
       const match = /dsh web: (http:\/\/[^\s]+)/.exec(out)
@@ -83,7 +86,7 @@ function waitForReadyLine(child: ChildProcess): Promise<string> {
     }
     child.stdout?.on('data', onData)
     child.stderr?.on('data', onData)
-    child.once('exit', (code) => {
+    child.once('exit', code => {
       clearTimeout(timer)
       reject(new Error(`dsh web exited early (code ${code}); output:\n${out}`))
     })
@@ -103,7 +106,7 @@ async function remoteRpc<T>(baseUrl: string, endpoint: string, args: object): Pr
     }),
   })
   if (!response.ok) throw new Error(`${endpoint} failed over HTTP ${response.status}: ${await response.text()}`)
-  const body = await response.json() as {
+  const body = (await response.json()) as {
     result: { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
   }
   if (!body.result.ok) throw new Error(`${endpoint} failed: ${body.result.error.code}: ${body.result.error.message}`)
@@ -141,7 +144,9 @@ async function sessionCursor(baseUrl: string, sessionId: string): Promise<number
       socket.addEventListener('close', closed)
     })
     return await new Promise<number>((resolve, reject) => {
-      const timer = setTimeout(() => { finish(new Error('session/follow did not publish an opening cursor')) }, 10_000)
+      const timer = setTimeout(() => {
+        finish(new Error('session/follow did not publish an opening cursor'))
+      }, 10_000)
       const cleanup = (): void => {
         clearTimeout(timer)
         socket.removeEventListener('message', message)
@@ -155,9 +160,7 @@ async function sessionCursor(baseUrl: string, sessionId: string): Promise<number
       }
       const message = (event: WebSocket.MessageEvent): void => {
         try {
-          const text = typeof event.data === 'string'
-            ? event.data
-            : Buffer.isBuffer(event.data) ? event.data.toString('utf8') : undefined
+          const text = typeof event.data === 'string' ? event.data : Buffer.isBuffer(event.data) ? event.data.toString('utf8') : undefined
           if (text === undefined) throw new Error('session/follow published a non-text frame')
           const frame: unknown = JSON.parse(text)
           if (!isRecord(frame) || frame.streamId !== streamId) return
@@ -170,25 +173,30 @@ async function sessionCursor(baseUrl: string, sessionId: string): Promise<number
             return
           }
           const value = frame.value
-          if (frame.type === 'item' && isRecord(value)
-            && value.type === 'snapshot' && Number.isSafeInteger(value.cursor)) {
+          if (frame.type === 'item' && isRecord(value) && value.type === 'snapshot' && Number.isSafeInteger(value.cursor)) {
             finish(undefined, value.cursor as number)
           }
         } catch (error) {
           finish(error instanceof Error ? error : new Error(String(error)))
         }
       }
-      const failed = (): void => { finish(new Error('session/follow carrier failed before its opening cursor')) }
-      const closed = (): void => { finish(new Error('session/follow carrier closed before its opening cursor')) }
+      const failed = (): void => {
+        finish(new Error('session/follow carrier failed before its opening cursor'))
+      }
+      const closed = (): void => {
+        finish(new Error('session/follow carrier closed before its opening cursor'))
+      }
       socket.addEventListener('message', message)
       socket.addEventListener('error', failed)
       socket.addEventListener('close', closed)
-      socket.send(JSON.stringify({
-        type: 'open',
-        streamId,
-        endpoint: 'session/follow',
-        payload: { args: { request: { address: { kind: 'session', sessionId } } } },
-      }))
+      socket.send(
+        JSON.stringify({
+          type: 'open',
+          streamId,
+          endpoint: 'session/follow',
+          payload: { args: { request: { address: { kind: 'session', sessionId } } } },
+        }),
+      )
     })
   } finally {
     socket.close()
@@ -196,10 +204,7 @@ async function sessionCursor(baseUrl: string, sessionId: string): Promise<number
 }
 
 interface HistoryPage {
-  records: (
-    | { type: 'event'; event: HistoryEvent }
-    | { type: 'chunks'; event: HistoryEvent }
-  )[]
+  records: ({ type: 'event'; event: HistoryEvent } | { type: 'chunks'; event: HistoryEvent })[]
   hasMore: boolean
 }
 
@@ -213,7 +218,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function providerTitle(page: HistoryPage): string | undefined {
-  const events = page.records.flatMap(record => record.type === 'event' ? [record.event] : [])
+  const events = page.records.flatMap(record => (record.type === 'event' ? [record.event] : []))
   for (let index = events.length - 1; index >= 0; index--) {
     const event = events[index] as HistoryEvent
     if (event.type !== 'session/title' || !isRecord(event.data)) continue
@@ -226,14 +231,13 @@ function providerTitle(page: HistoryPage): string | undefined {
 }
 
 function hasAssistantMarker(page: HistoryPage, marker: string): boolean {
-  return page.records.some((record) => {
+  return page.records.some(record => {
     if (record.type !== 'event') return false
     const { event } = record
     if (event.type !== 'assistant/message' || !isRecord(event.data) || !isRecord(event.data.message)) return false
     const content = event.data.message.content
     if (!Array.isArray(content)) return false
-    return content.some(block =>
-      isRecord(block) && block.type === 'text' && typeof block.text === 'string' && block.text.includes(marker))
+    return content.some(block => isRecord(block) && block.type === 'text' && typeof block.text === 'string' && block.text.includes(marker))
   })
 }
 
@@ -246,18 +250,25 @@ async function history(baseUrl: string, sessionId: string): Promise<HistoryPage>
 
 async function waitForProviderTitle(baseUrl: string, sessionId: string): Promise<string> {
   let observed: string | undefined
-  await expect.poll(async () => {
-    observed = providerTitle(await history(baseUrl, sessionId))
-    return observed
-  }, { timeout: 90_000 }).toEqual(expect.any(String))
+  await expect
+    .poll(
+      async () => {
+        observed = providerTitle(await history(baseUrl, sessionId))
+        return observed
+      },
+      { timeout: 90_000 },
+    )
+    .toEqual(expect.any(String))
   if (observed === undefined) throw new Error('provider-backed session title was not observed')
   return observed
 }
 
 async function waitForAssistantMarker(baseUrl: string, sessionId: string, marker: string): Promise<void> {
-  await expect.poll(async () => hasAssistantMarker(await history(baseUrl, sessionId), marker), {
-    timeout: 120_000,
-  }).toBe(true)
+  await expect
+    .poll(async () => hasAssistantMarker(await history(baseUrl, sessionId), marker), {
+      timeout: 120_000,
+    })
+    .toBe(true)
 }
 
 /** Find one real source location through a served indexed map. */
@@ -284,14 +295,12 @@ async function screen(page: Page, name: string): Promise<void> {
 
 /** First column track (px string) of the frame grid. */
 async function firstTrack(page: Page): Promise<string> {
-  return (await page.locator('[class*="frame"]').evaluate(
-    el => getComputedStyle(el).gridTemplateColumns)).split(' ')[0]!
+  return (await page.locator('[class*="frame"]').evaluate(el => getComputedStyle(el).gridTemplateColumns)).split(' ')[0]!
 }
 
 /** Last column track (details) as a number of pixels. */
 async function detailsTrack(page: Page): Promise<number> {
-  const cols = await page.locator('[class*="frame"]').evaluate(
-    el => getComputedStyle(el).gridTemplateColumns)
+  const cols = await page.locator('[class*="frame"]').evaluate(el => getComputedStyle(el).gridTemplateColumns)
   return Number(cols.split(' ').pop()!.replace('px', ''))
 }
 
@@ -299,12 +308,26 @@ async function detailsTrack(page: Page): Promise<number> {
 // plugin's client bundle exists and exports apply, the loader fail-louds and
 // the frame never appears.
 const UI_PLUGIN_DIRS = [
-  'connection', 'ui-theme', 'locale', 'ui-layout', 'ui-renderer', 'ui-session', 'ui-sidebar',
-  'ui-settings', 'ui-settings-general', 'ui-settings-models', 'ui-conversation', 'ui-approval', 'ui-chat',
-  'ui-model-selection', 'ui-user-questions', 'ui-trajectory', '../session-query/session-log-export',
+  'connection',
+  'ui-theme',
+  'locale',
+  'ui-layout',
+  'ui-renderer',
+  'ui-session',
+  'ui-sidebar',
+  'ui-settings',
+  'ui-settings-general',
+  'ui-settings-models',
+  'ui-conversation',
+  'ui-approval',
+  'ui-chat',
+  'ui-model-selection',
+  'ui-user-questions',
+  'ui-trajectory',
+  '../session-query/session-log-export',
 ]
 const ROUND_DONE_MARKER = 'WEB_ROUND_DONE'
-const notReady = UI_PLUGIN_DIRS.filter((dir) => {
+const notReady = UI_PLUGIN_DIRS.filter(dir => {
   const bundle = join(REPO_ROOT, 'packages/client', dir, 'lib/client.js')
   return !existsSync(bundle) || !readFileSync(bundle, 'utf8').includes('exports.apply')
 })
@@ -341,14 +364,14 @@ describe('dsh web keyless CLI smoke', () => {
       const cacheHeaders = new Map<string, string | undefined>()
       // Chromium reports `preload as=script` as Script and reuses that same
       // request when the matching script node executes; this count pins both.
-      page.on('request', (request) => {
+      page.on('request', request => {
         const url = new URL(request.url())
         const resource = `${url.pathname}${url.search}`
         if (request.resourceType() === 'script' && resource.startsWith('/plugins/??')) {
           pluginScripts.push(resource)
         }
       })
-      page.on('response', (response) => {
+      page.on('response', response => {
         const url = new URL(response.url())
         const resource = `${url.pathname}${url.search}`
         if (resource.startsWith('/plugins/??')) {
@@ -362,12 +385,10 @@ describe('dsh web keyless CLI smoke', () => {
       // spans two combos because its map-form URL is over the 3 KiB combo limit
       // since the four settings companions joined the composition.
       expect(batchPaths).toHaveLength(3)
-      expect(batchPaths.filter(path => (
-        /^\/plugins\/\?\?.+\/client\.js,.+\/client\.js&rev=[a-f\d]{12}$/.test(path)
-      ))).toHaveLength(2)
-      expect(batchPaths).toContainEqual(expect.stringMatching(
-        /^\/plugins\/\?\?@deepseek-ai\/dsh-client-modules\/client\.js&rev=[a-f\d]{12}$/,
-      ))
+      expect(batchPaths.filter(path => /^\/plugins\/\?\?.+\/client\.js,.+\/client\.js&rev=[a-f\d]{12}$/.test(path))).toHaveLength(2)
+      expect(batchPaths).toContainEqual(
+        expect.stringMatching(/^\/plugins\/\?\?@deepseek-ai\/dsh-client-modules\/client\.js&rev=[a-f\d]{12}$/),
+      )
       const readyOrigin = new URL(readyUrl).origin
       expect([...cacheHeaders.values()]).toEqual([
         'public, max-age=31536000, immutable',
@@ -382,23 +403,33 @@ describe('dsh web keyless CLI smoke', () => {
         expect(scriptResponse.status).toBe(200)
         expect(mapResponse.status).toBe(200)
         const script = await scriptResponse.text()
-        const payload = await mapResponse.json() as ConstructorParameters<typeof SourceMap>[0]
-        const sections = (payload as unknown as {
-          sections: { map: { sources?: unknown[]; sourcesContent?: unknown[] } }[]
-        }).sections
-        expect(sections.every(section => (
-          Array.isArray(section.map.sources)
-          && Array.isArray(section.map.sourcesContent)
-          && section.map.sourcesContent.length === section.map.sources.length
-          && section.map.sourcesContent.every(source => typeof source === 'string')
-        ))).toBe(true)
+        const payload = (await mapResponse.json()) as ConstructorParameters<typeof SourceMap>[0]
+        const sections = (
+          payload as unknown as {
+            sections: { map: { sources?: unknown[]; sourcesContent?: unknown[] } }[]
+          }
+        ).sections
+        expect(
+          sections.every(
+            section =>
+              Array.isArray(section.map.sources) &&
+              Array.isArray(section.map.sourcesContent) &&
+              section.map.sourcesContent.length === section.map.sources.length &&
+              section.map.sourcesContent.every(source => typeof source === 'string'),
+          ),
+        ).toBe(true)
         expect(firstMappedSource(script, payload)).toMatch(/^\/packages\/.+\/src\//)
       }
     } finally {
       await browser?.close()
-      const closed = child.exitCode === null
-        ? new Promise<void>((resolveClose) => { child.once('close', () => { resolveClose() }) })
-        : Promise.resolve()
+      const closed =
+        child.exitCode === null
+          ? new Promise<void>(resolveClose => {
+              child.once('close', () => {
+                resolveClose()
+              })
+            })
+          : Promise.resolve()
       if (child.exitCode === null) child.kill('SIGTERM')
       await closed
       rmSync(sessionsDir, { recursive: true, force: true })
@@ -418,13 +449,15 @@ describe('dsh web keyless CLI smoke', () => {
     }
     let resolveProviderRequests!: (requests: NativeProviderRequest[]) => void
     const requests: NativeProviderRequest[] = []
-    const providerRequests = new Promise<NativeProviderRequest[]>((resolve) => {
+    const providerRequests = new Promise<NativeProviderRequest[]>(resolve => {
       resolveProviderRequests = resolve
     })
     const provider = createServer((request, response) => {
       let body = ''
       request.setEncoding('utf8')
-      request.on('data', (chunk: string) => { body += chunk })
+      request.on('data', (chunk: string) => {
+        body += chunk
+      })
       request.on('end', () => {
         const parsed = JSON.parse(body) as NativeProviderRequest
         if ((parsed.tools?.length ?? 0) > 0) requests.push(parsed)
@@ -456,33 +489,43 @@ describe('dsh web keyless CLI smoke', () => {
     try {
       const baseUrl = await waitForReadyLine(child)
       const created = await remoteRpc<{ sessionId: string }>(baseUrl, 'session/create', { request: {} })
-      await remoteRpc<{ accepted: true }>(baseUrl, 'session/prompt', { request: {
-        requestId: randomUUID(),
-        sessionId: created.sessionId,
-        mode: 'queue',
-        content: [{ type: 'text', text: 'go' }],
-      } })
+      await remoteRpc<{ accepted: true }>(baseUrl, 'session/prompt', {
+        request: {
+          requestId: randomUUID(),
+          sessionId: created.sessionId,
+          mode: 'queue',
+          content: [{ type: 'text', text: 'go' }],
+        },
+      })
       const capturedRequests = await Promise.race([
         providerRequests,
         new Promise<never>((_resolve, reject) => {
-          setTimeout(() => { reject(new Error('provider request not received in 10s')) }, 10_000).unref()
+          setTimeout(() => {
+            reject(new Error('provider request not received in 10s'))
+          }, 10_000).unref()
         }),
       ])
       const captured = capturedRequests[0]
       if (captured === undefined) {
         throw new Error('provider did not receive the workspace projection request')
       }
-      const workspaceMessage = captured.messages?.filter(message => message.role === 'user')
+      const workspaceMessage = captured.messages
+        ?.filter(message => message.role === 'user')
         .flatMap(message => message.content ?? [])
         .find(block => block.type === 'text' && block.text?.includes('web-workspace-context-probe'))
       const expectedWebSection = readFileSync(WEB_SURFACE_PROMPT, 'utf8').trimEnd()
       expect(captured.system).toContain(expectedWebSection)
       expect(captured.system).not.toContain(new URL(baseUrl).origin)
-      expect(captured.messages?.filter(message => message.role === 'user')
-        .flatMap(message => message.content ?? [])
-        .some(block => block.type === 'text'
-          && block.text?.includes(`Current DeepSeek Harness Web GUI URL: ${JSON.stringify(new URL(baseUrl).origin)}.`)))
-        .toBe(true)
+      expect(
+        captured.messages
+          ?.filter(message => message.role === 'user')
+          .flatMap(message => message.content ?? [])
+          .some(
+            block =>
+              block.type === 'text' &&
+              block.text?.includes(`Current DeepSeek Harness Web GUI URL: ${JSON.stringify(new URL(baseUrl).origin)}.`),
+          ),
+      ).toBe(true)
       expect(workspaceMessage).toMatchInlineSnapshot(`
         {
           "text": "<system-reminder>
@@ -496,21 +539,28 @@ describe('dsh web keyless CLI smoke', () => {
           "type": "text",
         }
       `)
-      expect(captured.tools?.map(tool => tool.name)
-        .filter(name => name === 'web_search' || name === 'web_fetch'))
-        .toMatchInlineSnapshot(`
+      expect(captured.tools?.map(tool => tool.name).filter(name => name === 'web_search' || name === 'web_fetch')).toMatchInlineSnapshot(`
           [
             "web_fetch",
             "web_search",
           ]
         `)
     } finally {
-      const closed = child.exitCode === null
-        ? new Promise<void>((resolveClose) => { child.once('close', () => { resolveClose() }) })
-        : Promise.resolve()
+      const closed =
+        child.exitCode === null
+          ? new Promise<void>(resolveClose => {
+              child.once('close', () => {
+                resolveClose()
+              })
+            })
+          : Promise.resolve()
       if (child.exitCode === null) child.kill('SIGTERM')
       await closed
-      await new Promise<void>(resolveClose => provider.close(() => { resolveClose() }))
+      await new Promise<void>(resolveClose =>
+        provider.close(() => {
+          resolveClose()
+        }),
+      )
       rmSync(workspace, { recursive: true, force: true })
     }
   })
@@ -524,7 +574,9 @@ describe('dsh web keyless CLI smoke', () => {
     const provider = createServer((request, response) => {
       let body = ''
       request.setEncoding('utf8')
-      request.on('data', (chunk: string) => { body += chunk })
+      request.on('data', (chunk: string) => {
+        body += chunk
+      })
       request.on('end', () => {
         // The request body also carries the session log, whose recorded title
         // request contains the marker, so only this request's own messages
@@ -540,7 +592,9 @@ describe('dsh web keyless CLI smoke', () => {
         mainAttempts++
         if (mainAttempts === 1) {
           response.write(messagesResponse('WEB_RETRY_DISCARDED', false))
-          setTimeout(() => { response.destroy() }, 20)
+          setTimeout(() => {
+            response.destroy()
+          }, 20)
           return
         }
         response.end(messagesResponse(recoveredMarker))
@@ -568,21 +622,26 @@ describe('dsh web keyless CLI smoke', () => {
     try {
       const baseUrl = await waitForReadyLine(child)
       const created = await remoteRpc<{ sessionId: string }>(baseUrl, 'session/create', { request: {} })
-      await remoteRpc<{ accepted: true }>(baseUrl, 'session/prompt', { request: {
-        requestId: randomUUID(),
-        sessionId: created.sessionId,
-        mode: 'queue',
-        content: [{ type: 'text', text: promptMarker }],
-      } })
+      await remoteRpc<{ accepted: true }>(baseUrl, 'session/prompt', {
+        request: {
+          requestId: randomUUID(),
+          sessionId: created.sessionId,
+          mode: 'queue',
+          content: [{ type: 'text', text: promptMarker }],
+        },
+      })
       let page: HistoryPage | undefined
-      await expect.poll(async () => {
-        page = await history(baseUrl, created.sessionId)
-        return hasAssistantMarker(page, recoveredMarker)
-      }, { timeout: 20_000 }).toBe(true)
+      await expect
+        .poll(
+          async () => {
+            page = await history(baseUrl, created.sessionId)
+            return hasAssistantMarker(page, recoveredMarker)
+          },
+          { timeout: 20_000 },
+        )
+        .toBe(true)
       if (page === undefined) throw new Error('retry history was not observed')
-      const retry = page.records.find(record => (
-        record.type === 'event' && record.event.type === 'llm/retry'
-      ))
+      const retry = page.records.find(record => record.type === 'event' && record.event.type === 'llm/retry')
       expect(mainAttempts).toBe(2)
       expect(retry?.type === 'event' ? retry.event.data : undefined).toMatchObject({
         turn: 1,
@@ -593,12 +652,21 @@ describe('dsh web keyless CLI smoke', () => {
       })
       expect(JSON.stringify(page.records)).toContain('WEB_RETRY_DISCARDED')
     } finally {
-      const closed = child.exitCode === null
-        ? new Promise<void>((resolveClose) => { child.once('close', () => { resolveClose() }) })
-        : Promise.resolve()
+      const closed =
+        child.exitCode === null
+          ? new Promise<void>(resolveClose => {
+              child.once('close', () => {
+                resolveClose()
+              })
+            })
+          : Promise.resolve()
       if (child.exitCode === null) child.kill('SIGTERM')
       await closed
-      await new Promise<void>(resolveClose => provider.close(() => { resolveClose() }))
+      await new Promise<void>(resolveClose =>
+        provider.close(() => {
+          resolveClose()
+        }),
+      )
       rmSync(workspace, { recursive: true, force: true })
     }
   }, 120_000)
@@ -613,13 +681,15 @@ describe('dsh web keyless CLI smoke', () => {
       tools?: { name?: string }[]
     }
     let resolveProviderRequest!: (request: PtcModeProviderRequest) => void
-    const providerRequest = new Promise<PtcModeProviderRequest>((resolve) => {
+    const providerRequest = new Promise<PtcModeProviderRequest>(resolve => {
       resolveProviderRequest = resolve
     })
     const provider = createServer((request, response) => {
       let body = ''
       request.setEncoding('utf8')
-      request.on('data', (chunk: string) => { body += chunk })
+      request.on('data', (chunk: string) => {
+        body += chunk
+      })
       request.on('end', () => {
         resolveProviderRequest(JSON.parse(body) as PtcModeProviderRequest)
         response.writeHead(200, { 'content-type': 'text/event-stream' })
@@ -650,28 +720,41 @@ describe('dsh web keyless CLI smoke', () => {
     try {
       const baseUrl = await waitForReadyLine(child)
       const created = await remoteRpc<{ sessionId: string }>(baseUrl, 'session/create', { request: {} })
-      await remoteRpc<{ accepted: true }>(baseUrl, 'session/prompt', { request: {
-        requestId: randomUUID(),
-        sessionId: created.sessionId,
-        mode: 'queue',
-        content: [{ type: 'text', text: 'go' }],
-      } })
+      await remoteRpc<{ accepted: true }>(baseUrl, 'session/prompt', {
+        request: {
+          requestId: randomUUID(),
+          sessionId: created.sessionId,
+          mode: 'queue',
+          content: [{ type: 'text', text: 'go' }],
+        },
+      })
       const captured = await Promise.race([
         providerRequest,
         new Promise<never>((_resolve, reject) => {
-          setTimeout(() => { reject(new Error('provider request not received in 10s')) }, 10_000).unref()
+          setTimeout(() => {
+            reject(new Error('provider request not received in 10s'))
+          }, 10_000).unref()
         }),
       ])
       expect(captured.tools?.map(tool => tool.name)).toEqual(['run_code'])
       expect(captured.system).toContain('## Writing code for run_code')
       expect(captured.system).toContain('declare const tools')
     } finally {
-      const closed = child.exitCode === null
-        ? new Promise<void>((resolveClose) => { child.once('close', () => { resolveClose() }) })
-        : Promise.resolve()
+      const closed =
+        child.exitCode === null
+          ? new Promise<void>(resolveClose => {
+              child.once('close', () => {
+                resolveClose()
+              })
+            })
+          : Promise.resolve()
       if (child.exitCode === null) child.kill('SIGTERM')
       await closed
-      await new Promise<void>(resolveClose => provider.close(() => { resolveClose() }))
+      await new Promise<void>(resolveClose =>
+        provider.close(() => {
+          resolveClose()
+        }),
+      )
       rmSync(workspace, { recursive: true, force: true })
     }
   })
@@ -696,14 +779,19 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
     child = spawn(
       process.execPath,
       [
-        '--import', tsxLoader, join(REPO_ROOT, 'apps/cli/src/bin.ts'), 'web',
+        '--import',
+        tsxLoader,
+        join(REPO_ROOT, 'apps/cli/src/bin.ts'),
+        'web',
         // Launcher flags come first: the first token the launcher does not own
         // starts the web app's own arguments.
         // Pin the in-browser picker: the shipped `-auto` row would resolve to
         // the native OS chooser on this bind, and no page can drive that.
-        '--patch', fileURLToPath(new URL('./pin-browse-picker.overlay.yml', import.meta.url)),
+        '--patch',
+        fileURLToPath(new URL('./pin-browse-picker.overlay.yml', import.meta.url)),
         '--no-open',
-        '--port', String(port),
+        '--port',
+        String(port),
       ],
       {
         cwd: sessionsDir,
@@ -726,7 +814,11 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
   afterAll(async () => {
     await browser?.close()
     if (child !== undefined && child.exitCode === null) {
-      const gone = new Promise<void>(resolveExit => child.once('exit', () => { resolveExit() }))
+      const gone = new Promise<void>(resolveExit =>
+        child.once('exit', () => {
+          resolveExit()
+        }),
+      )
       child.kill('SIGTERM')
       await Promise.race([gone, new Promise(r => setTimeout(r, 10_000).unref())])
       if (child.exitCode === null) child.kill('SIGKILL')
@@ -761,23 +853,15 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
     // reveals a duplicate runtime bundle with incompatible scope tags.
     await page.waitForFunction(() => document.body.innerText.length > 50, undefined, { timeout: 15_000 })
     expect(pageErrors).toEqual([])
-    await page.waitForFunction(
-      expected => document.title !== expected && document.title.endsWith(` — ${expected}`),
-      productTitle,
-      { timeout: 15_000 },
-    )
-    await expect.poll(async () => (await remoteRpc<{ items: { sessionId: string }[] }>(
-      baseUrl,
-      'session/list',
-      { _request: {} },
-    )).items.length, {
+    await page.waitForFunction(expected => document.title !== expected && document.title.endsWith(` — ${expected}`), productTitle, {
       timeout: 15_000,
-    }).toBe(1)
-    const sessions = await remoteRpc<{ items: { sessionId: string }[] }>(
-      baseUrl,
-      'session/list',
-      { _request: {} },
-    )
+    })
+    await expect
+      .poll(async () => (await remoteRpc<{ items: { sessionId: string }[] }>(baseUrl, 'session/list', { _request: {} })).items.length, {
+        timeout: 15_000,
+      })
+      .toBe(1)
+    const sessions = await remoteRpc<{ items: { sessionId: string }[] }>(baseUrl, 'session/list', { _request: {} })
     const sessionId = sessions.items[0]?.sessionId
     if (sessionId === undefined) throw new Error('created Web session was not listed')
     const durableTitle = await waitForProviderTitle(baseUrl, sessionId)
@@ -788,7 +872,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
     )
     const sessionTree = page.getByRole('tree', { name: 'Sessions' })
     const projectRow = sessionTree.getByRole('treeitem').first()
-    if (await projectRow.getAttribute('aria-expanded') === 'false') await projectRow.click()
+    if ((await projectRow.getAttribute('aria-expanded')) === 'false') await projectRow.click()
     await Promise.all([
       sessionTree.getByText(durableTitle, { exact: true }).waitFor({ timeout: 10_000 }),
       page.getByRole('navigation').getByText(durableTitle, { exact: true }).waitFor({ timeout: 10_000 }),
@@ -800,11 +884,17 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY || notReady.length > 0)('web smoke
 
   it('view tabs: Chat and Trajectory switch', async () => {
     onTestFailed(() => saveFailureShot(page, 'w5-tabs'))
-    await page.locator('button', { hasText: /Trajectory/i }).first().click()
+    await page
+      .locator('button', { hasText: /Trajectory/i })
+      .first()
+      .click()
     await screen(page, '05-trajectory-tab')
     await page.getByLabel('Trajectory timeline').waitFor()
     await expect.poll(() => page.getByRole('tab', { name: 'Waterfall' }).count()).toBe(0)
-    await page.locator('button', { hasText: /^Chat$/i }).first().click()
+    await page
+      .locator('button', { hasText: /^Chat$/i })
+      .first()
+      .click()
     await screen(page, '07-back-to-chat')
   })
 

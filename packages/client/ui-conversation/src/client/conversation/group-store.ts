@@ -3,7 +3,13 @@ import { createSnapshotStore, type ObservableSnapshot, type SnapshotStore } from
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import type { ConversationViewNode } from '../contract/conversation.ts'
 import type {
-  ConversationGroupedView, GroupKey, GroupSnapshot, GroupUpdate, NodeKey, NodeReference, RenderEntry,
+  ConversationGroupedView,
+  GroupKey,
+  GroupSnapshot,
+  GroupUpdate,
+  NodeKey,
+  NodeReference,
+  RenderEntry,
 } from '../contract/groups.ts'
 
 type Parts = Set<string | undefined>
@@ -23,8 +29,11 @@ function sameNodeReference(left: NodeReference, right: NodeReference): boolean {
 }
 
 function sameEntry(left: RenderEntry, right: RenderEntry): boolean {
-  return left.kind === right.kind && left.key === right.key
-    && (left.kind === 'group' || (right.kind === 'node' && left.groupPart === right.groupPart))
+  return (
+    left.kind === right.kind &&
+    left.key === right.key &&
+    (left.kind === 'group' || (right.kind === 'node' && left.groupPart === right.groupPart))
+  )
 }
 
 function reuseReferences<Value>(
@@ -32,8 +41,7 @@ function reuseReferences<Value>(
   next: readonly Value[],
   equal: (left: Value, right: Value) => boolean,
 ): readonly Value[] {
-  return previous === next || (previous.length === next.length
-    && previous.every((value, index) => equal(value, next[index] as Value)))
+  return previous === next || (previous.length === next.length && previous.every((value, index) => equal(value, next[index] as Value)))
     ? previous
     : next
 }
@@ -73,18 +81,12 @@ export class ConversationGroupStore<Data> implements ConversationGroupedView<Dat
    * @param update - root replacement and complete or incremental group records.
    * @param readNode - synchronous reader of the current target Nodes.
    */
-  prepareAndInstall(
-    update: GroupUpdate<Data>,
-    readNode: (key: NodeKey) => ConversationViewNode | undefined,
-  ): void {
-    const nextRoot = update.entries === undefined
-      ? this.root
-      : reuseReferences(this.root, update.entries, sameEntry)
+  prepareAndInstall(update: GroupUpdate<Data>, readNode: (key: NodeKey) => ConversationViewNode | undefined): void {
+    const nextRoot = update.entries === undefined ? this.root : reuseReferences(this.root, update.entries, sameEntry)
     const nextRootGroups = nextRoot === this.root ? this.rootGroups : this.collectRootGroups(nextRoot)
     const { upserts, removes } = this.collectChanges(update)
     const replaceReferences = update.groups.kind === 'replace'
-    const size = this.groups.size - removes.size
-      + [...upserts.keys()].filter(key => !this.groups.has(key)).length
+    const size = this.groups.size - removes.size + [...upserts.keys()].filter(key => !this.groups.has(key)).length
     if (size !== nextRootGroups.size) {
       throw new Error('conversation group records and root references must correspond one-to-one')
     }
@@ -119,9 +121,7 @@ export class ConversationGroupStore<Data> implements ConversationGroupedView<Dat
         throw new Error(`conversation group references missing Node "${reference.key}"`)
       }
       const parts = partsOf(reference.key)
-      if (parts.has(reference.groupPart)
-        || (reference.groupPart === undefined && parts.size > 0)
-        || parts.has(undefined)) {
+      if (parts.has(reference.groupPart) || (reference.groupPart === undefined && parts.size > 0) || parts.has(undefined)) {
         throw new Error(`conversation Node "${reference.key}" has overlapping rendering positions`)
       }
       parts.add(reference.groupPart)
@@ -202,9 +202,7 @@ export class ConversationGroupStore<Data> implements ConversationGroupedView<Dat
         return
       }
       const members = reuseReferences(previous.members, snapshot.members, sameNodeReference)
-      upserts.set(snapshot.key, previous.data === snapshot.data && previous.members === members
-        ? previous
-        : { ...snapshot, members })
+      upserts.set(snapshot.key, previous.data === snapshot.data && previous.members === members ? previous : { ...snapshot, members })
     }
     switch (update.groups.kind) {
       case 'replace':

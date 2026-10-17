@@ -15,7 +15,9 @@ export async function* parseSse(body: ReadableStream<BufferSource>, activity: ()
   for await (const frame of events) {
     activity()
     let raw: unknown
-    try { raw = JSON.parse(frame.data) } catch (_invalidSseJson) {
+    try {
+      raw = JSON.parse(frame.data)
+    } catch (_invalidSseJson) {
       throw new LlmError('DeepSeek Messages SSE contains invalid JSON', 'MALFORMED_RESPONSE')
     }
     const event = object(raw)

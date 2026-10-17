@@ -133,12 +133,13 @@ export function typertPlugin(pluginOptions: TypertPluginOptions = {}): TypertPlu
       let artifacts = artifactsByRoot.get(root)
       if (artifacts === undefined) {
         const generator = new WorkspaceTypertGenerator(root, TSC_OWNED_DIAGNOSTICS)
-        artifacts = pluginOptions.faces === undefined
-          ? generator.generate()
-          : generator.generate(undefined, pluginOptions.faces)
+        artifacts = pluginOptions.faces === undefined ? generator.generate() : generator.generate(undefined, pluginOptions.faces)
         artifactsByRoot.set(root, artifacts)
       }
-      writePackageArtifacts(packageDir, artifacts.filter(candidate => candidate.package === manifest.name))
+      writePackageArtifacts(
+        packageDir,
+        artifacts.filter(candidate => candidate.package === manifest.name),
+      )
     },
   }
 }
@@ -149,14 +150,18 @@ export function typertPlugin(pluginOptions: TypertPluginOptions = {}): TypertPlu
  */
 function generateInWorker(request: WorkspaceWorkerRequest): Promise<GenerationOutcome> {
   const worker = spawnWorker(request)
-  return new Promise((settle) => {
+  return new Promise(settle => {
     let settled = false
     const finish = (outcome: GenerationOutcome): void => {
       if (settled) return
       settled = true
       worker.terminate().then(
-        () => { settle(outcome) },
-        (error: unknown) => { settle({ ok: false, error: workerError(request, 'could not terminate its worker', error) }) },
+        () => {
+          settle(outcome)
+        },
+        (error: unknown) => {
+          settle({ ok: false, error: workerError(request, 'could not terminate its worker', error) })
+        },
       )
     }
     const fail = (problem: string, cause?: unknown): void => {
@@ -175,9 +180,15 @@ function generateInWorker(request: WorkspaceWorkerRequest): Promise<GenerationOu
         finish({ ok: true, artifacts: response.artifacts })
       }
     })
-    worker.once('messageerror', (error) => { fail('received a worker response that could not be deserialized', error) })
-    worker.once('error', (error) => { fail(`crashed: ${error.message}`, error) })
-    worker.once('exit', (code) => { fail(`stopped: its worker exited with code ${String(code)} before reporting artifacts`) })
+    worker.once('messageerror', error => {
+      fail('received a worker response that could not be deserialized', error)
+    })
+    worker.once('error', error => {
+      fail(`crashed: ${error.message}`, error)
+    })
+    worker.once('exit', code => {
+      fail(`stopped: its worker exited with code ${String(code)} before reporting artifacts`)
+    })
   })
 }
 
@@ -205,8 +216,12 @@ function spawnWorker(request: WorkspaceWorkerRequest): Worker {
 function parseWorkerResponse(value: unknown): WorkspaceWorkerResponse | undefined {
   if (!isRecord(value)) return undefined
   if (value.kind === 'failure') {
-    if (typeof value.name !== 'string' || typeof value.message !== 'string'
-      || (value.stack !== undefined && typeof value.stack !== 'string')) return undefined
+    if (
+      typeof value.name !== 'string' ||
+      typeof value.message !== 'string' ||
+      (value.stack !== undefined && typeof value.stack !== 'string')
+    )
+      return undefined
     return {
       kind: 'failure',
       name: value.name,
@@ -225,14 +240,17 @@ function parseWorkerResponse(value: unknown): WorkspaceWorkerResponse | undefine
 }
 
 function parseArtifact(value: unknown): WorkspaceEmitResult | undefined {
-  if (!isRecord(value)
-    || typeof value.package !== 'string'
-    || typeof value.packageRoot !== 'string'
-    || (value.face !== 'host' && value.face !== 'client')
-    || !Array.isArray(value.exports)
-    || !value.exports.every((entry): entry is string => typeof entry === 'string')
-    || typeof value.js !== 'string'
-    || typeof value.dts !== 'string') return undefined
+  if (
+    !isRecord(value) ||
+    typeof value.package !== 'string' ||
+    typeof value.packageRoot !== 'string' ||
+    (value.face !== 'host' && value.face !== 'client') ||
+    !Array.isArray(value.exports) ||
+    !value.exports.every((entry): entry is string => typeof entry === 'string') ||
+    typeof value.js !== 'string' ||
+    typeof value.dts !== 'string'
+  )
+    return undefined
   const remote = parseRemoteArtifact(value.remote)
   if (value.remote !== undefined && remote === undefined) return undefined
   return {
@@ -247,10 +265,8 @@ function parseArtifact(value: unknown): WorkspaceEmitResult | undefined {
 }
 
 function parseRemoteArtifact(value: unknown): WorkspaceEmitResult['remote'] {
-  if (!isRecord(value)
-    || typeof value.js !== 'string'
-    || typeof value.dts !== 'string'
-    || typeof value.dtsMap !== 'string') return undefined
+  if (!isRecord(value) || typeof value.js !== 'string' || typeof value.dts !== 'string' || typeof value.dtsMap !== 'string')
+    return undefined
   return { js: value.js, dts: value.dts, dtsMap: value.dtsMap }
 }
 

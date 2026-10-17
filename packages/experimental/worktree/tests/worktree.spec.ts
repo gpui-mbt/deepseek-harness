@@ -1,7 +1,7 @@
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { join, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import WorktreeService from '../src/index.ts'
 import { contents, git, harness, repository, testAgent } from './harness.ts'
@@ -93,7 +93,9 @@ describe('creating and entering retained worktrees', () => {
 
     expect(result).toEqual({
       path: join(linked, '.agents/worktrees/from-linked'),
-      branch: 'from-linked', baseCommit, repositoryRoot: linked,
+      branch: 'from-linked',
+      baseCommit,
+      repositoryRoot: linked,
     })
     expect(await contents(join(result.path, 'tracked.txt'))).toBe('linked revision\n')
     expect(await contents(join(root, 'tracked.txt'))).toBe('initial\n')
@@ -103,31 +105,36 @@ describe('creating and entering retained worktrees', () => {
     expect(ctx.workingDirectory.get(agent.session)).toBe(result.path)
   })
 
-  it.each(['preflight', 'allocation'] as const)('refuses a regular file at the pool path during %s without replacing it or creating a branch', async (stage) => {
-    const root = await repo()
-    const pool = join(root, 'checkouts')
-    ctx = await harness(root, { directory: 'checkouts' })
-    const agent = testAgent(ctx, root)
-    if (stage === 'preflight') {
-      await writeFile(pool, 'retain this file\n')
-    } else {
-      const inspect = ctx.fs.lstat.bind(ctx.fs)
-      vi.spyOn(ctx.fs, 'lstat').mockImplementationOnce(async (...args) => {
-        const found = await inspect(...args)
+  it.each(['preflight', 'allocation'] as const)(
+    'refuses a regular file at the pool path during %s without replacing it or creating a branch',
+    async stage => {
+      const root = await repo()
+      const pool = join(root, 'checkouts')
+      ctx = await harness(root, { directory: 'checkouts' })
+      const agent = testAgent(ctx, root)
+      if (stage === 'preflight') {
         await writeFile(pool, 'retain this file\n')
-        return found
-      })
-    }
+      } else {
+        const inspect = ctx.fs.lstat.bind(ctx.fs)
+        vi.spyOn(ctx.fs, 'lstat').mockImplementationOnce(async (...args) => {
+          const found = await inspect(...args)
+          await writeFile(pool, 'retain this file\n')
+          return found
+        })
+      }
 
-    await expect(ctx.worktrees.create(agent, { name: 'blocked' })).rejects.toThrow(stage === 'preflight'
-      ? 'a parent path segment is not a directory' : 'EEXIST')
+      await expect(ctx.worktrees.create(agent, { name: 'blocked' })).rejects.toThrow(
+        stage === 'preflight' ? 'a parent path segment is not a directory' : 'EEXIST',
+      )
 
-    expect(await contents(pool)).toBe('retain this file\n')
-    expect(await git(root, 'branch', '--list', 'blocked')).toBe('')
-    expect((await git(root, 'worktree', 'list', '--porcelain')).split('\n').filter(line => line.startsWith('worktree ')))
-      .toEqual([`worktree ${root.split(sep).join('/')}`])
-    expect(ctx.workingDirectory.get(agent.session)).toBe(root)
-  })
+      expect(await contents(pool)).toBe('retain this file\n')
+      expect(await git(root, 'branch', '--list', 'blocked')).toBe('')
+      expect((await git(root, 'worktree', 'list', '--porcelain')).split('\n').filter(line => line.startsWith('worktree '))).toEqual([
+        `worktree ${root.split(sep).join('/')}`,
+      ])
+      expect(ctx.workingDirectory.get(agent.session)).toBe(root)
+    },
+  )
 
   it('keeps the resolved commit when HEAD advances before checkout allocation', async () => {
     const root = await repo()
@@ -173,7 +180,13 @@ describe('creating and entering retained worktrees', () => {
     const resolveExecutable = ctx.subprocess.resolveExecutable.bind(ctx.subprocess)
     const probe = vi.spyOn(ctx.subprocess, 'resolveExecutable').mockImplementationOnce(async (command, env, signal) => {
       if (signal === undefined) throw new Error('worktree commands require cancellation')
-      signal.addEventListener('abort', () => { aborted.resolve(undefined) }, { once: true })
+      signal.addEventListener(
+        'abort',
+        () => {
+          aborted.resolve(undefined)
+        },
+        { once: true },
+      )
       entered.resolve(signal)
       await release.promise
       signal.throwIfAborted()
@@ -185,11 +198,10 @@ describe('creating and entering retained worktrees', () => {
     try {
       const signal = await entered.promise
       let disposed = false
-      disposal = fiber!.dispose().then(() => { disposed = true })
-      expect(await Promise.race([
-        aborted.promise.then(() => 'aborted'),
-        disposal.then(() => 'disposed'),
-      ])).toBe('aborted')
+      disposal = fiber!.dispose().then(() => {
+        disposed = true
+      })
+      expect(await Promise.race([aborted.promise.then(() => 'aborted'), disposal.then(() => 'disposed')])).toBe('aborted')
       expect(signal.aborted).toBe(true)
       expect(disposed).toBe(false)
       release.resolve(undefined)
@@ -213,7 +225,9 @@ describe('creating and entering retained worktrees', () => {
     const original = ctx.fs.lstat.bind(ctx.fs)
     let observed = 0
     let release!: () => void
-    const bothAbsent = new Promise<void>((resolve) => { release = resolve })
+    const bothAbsent = new Promise<void>(resolve => {
+      release = resolve
+    })
     vi.spyOn(ctx.fs, 'lstat').mockImplementation(async (...args) => {
       const value = await original(...args)
       observed++
@@ -226,8 +240,9 @@ describe('creating and entering retained worktrees', () => {
       ctx.worktrees.create(second, { name: 'shared' }),
     ])
     expect(results.map(result => result.status).sort()).toEqual(['fulfilled', 'rejected'])
-    expect([ctx.workingDirectory.get(first.session), ctx.workingDirectory.get(second.session)].sort())
-      .toEqual([root, join(root, '.agents/worktrees/shared')].sort())
+    expect([ctx.workingDirectory.get(first.session), ctx.workingDirectory.get(second.session)].sort()).toEqual(
+      [root, join(root, '.agents/worktrees/shared')].sort(),
+    )
     expect(await contents(join(root, '.agents/worktrees/shared/tracked.txt'))).toBe('initial\n')
   })
 

@@ -1,6 +1,6 @@
 /** Event-level policy tests; no filesystem provider is needed because the plugin performs no I/O. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import type { FsObservation, FsTarget, FsWriteIntent } from '@deepseek-ai/dsh-fs'

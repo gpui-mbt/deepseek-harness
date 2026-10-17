@@ -25,20 +25,20 @@ import type { CordisErrorDetails, CordisObservable, DynamicCordisPackageRunner }
 /** One Plugin's in-flight approval or activation. */
 export type CordisRunActivity =
   | {
-    phase: 'awaiting-approval'
-    requestId: ApprovalRequestId
-    agentId: SessionId
-    packageId: CordisDynamicPackageId
-    mode: CordisDynamicRunMode
-    name: string
-    purpose: string
-  }
+      phase: 'awaiting-approval'
+      requestId: ApprovalRequestId
+      agentId: SessionId
+      packageId: CordisDynamicPackageId
+      mode: CordisDynamicRunMode
+      name: string
+      purpose: string
+    }
   | {
-    phase: 'orchestrating'
-    agentId: SessionId
-    packageId: CordisDynamicPackageId
-    mode: CordisDynamicRunMode
-  }
+      phase: 'orchestrating'
+      agentId: SessionId
+      packageId: CordisDynamicPackageId
+      mode: CordisDynamicRunMode
+    }
 
 /** Why this page's latest activation attempt failed. */
 export interface CordisRunFailure {
@@ -70,10 +70,7 @@ export interface CordisRunHostSeam {
     pluginRunId: CordisDynamicPluginRunId,
   ): Promise<DynamicCordisClientSource>
   /** Settle a model-driven approval. */
-  resolveRequestRun(
-    requestId: ApprovalRequestId,
-    resolution: DynamicCordisRunResolution,
-  ): Promise<DynamicCordisResolveAck>
+  resolveRequestRun(requestId: ApprovalRequestId, resolution: DynamicCordisRunResolution): Promise<DynamicCordisResolveAck>
   /** Settle a direct panel activation after this page handles its Client half. */
   settleUserRun(
     agentId: SessionId,
@@ -132,13 +129,13 @@ export class CordisRunOrchestrator {
 
   /** Open approvals and current activation attempts, keyed by stable Plugin ID. */
   readonly activeRuns: CordisObservable<ReadonlyMap<CordisDynamicPluginId, CordisRunActivity>> = {
-    getSnapshot: () => this.activityCache ??= new Map(this.activity),
+    getSnapshot: () => (this.activityCache ??= new Map(this.activity)),
     subscribe: fn => this.observe(fn),
   }
 
   /** Latest page-side activation failure for each Plugin. */
   readonly lastRunError: CordisObservable<ReadonlyMap<CordisDynamicPluginId, CordisRunFailure>> = {
-    getSnapshot: () => this.failureCache ??= new Map(this.failures),
+    getSnapshot: () => (this.failureCache ??= new Map(this.failures)),
     subscribe: fn => this.observe(fn),
   }
 
@@ -183,10 +180,11 @@ export class CordisRunOrchestrator {
     const expected = new Map<ApprovalRequestId, CordisRunRequest>()
     for (const row of rows) {
       const attempt = row.latestRun
-      if (attempt?.approvalRequestId === undefined
-        || (attempt.status !== 'awaiting-approval'
-          && attempt.status !== 'starting-host'
-          && attempt.status !== 'client-pending')) continue
+      if (
+        attempt?.approvalRequestId === undefined ||
+        (attempt.status !== 'awaiting-approval' && attempt.status !== 'starting-host' && attempt.status !== 'client-pending')
+      )
+        continue
       const pkg = row.packages.find(candidate => candidate.packageId === attempt.packageId)
       if (pkg === undefined) continue
       expected.set(attempt.approvalRequestId, {
@@ -215,10 +213,13 @@ export class CordisRunOrchestrator {
       const previous = this.requests.get(requestId)
       const current = this.activity.get(request.pluginId)
       if (!request.requiresApproval && current?.phase === 'orchestrating') continue
-      if (request.requiresApproval
-        && sameRequest(previous, request)
-        && current?.phase === 'awaiting-approval'
-        && current.requestId === requestId) continue
+      if (
+        request.requiresApproval &&
+        sameRequest(previous, request) &&
+        current?.phase === 'awaiting-approval' &&
+        current.requestId === requestId
+      )
+        continue
       if (!request.requiresApproval) {
         this.open(request)
         changed = true
@@ -300,7 +301,9 @@ export class CordisRunOrchestrator {
 
   private observe(fn: () => void): () => void {
     this.listeners.add(fn)
-    return () => { this.listeners.delete(fn) }
+    return () => {
+      this.listeners.delete(fn)
+    }
   }
 
   private commit(): void {
@@ -348,14 +351,16 @@ export class CordisRunOrchestrator {
       await this.finishClientFailure(plan, started.pluginRunId, started.startedHere, errorDetails(error), error)
       return
     }
-    const loaded = await this.env.runner.load({
-      pluginId: source.pluginId,
-      packageId: source.packageId,
-      pluginRunId: source.pluginRunId,
-      agentId: plan.agentId,
-      name: source.name,
-      code: source.code,
-    }).catch((error: unknown) => ({ ok: false, cause: 'evaluate', ...errorDetails(error), error }) as const)
+    const loaded = await this.env.runner
+      .load({
+        pluginId: source.pluginId,
+        packageId: source.packageId,
+        pluginRunId: source.pluginRunId,
+        agentId: plan.agentId,
+        name: source.name,
+        code: source.code,
+      })
+      .catch((error: unknown) => ({ ok: false, cause: 'evaluate', ...errorDetails(error), error }) as const)
     if (!loaded.ok) {
       await this.finishClientFailure(
         plan,
@@ -363,7 +368,7 @@ export class CordisRunOrchestrator {
         started.startedHere,
         {
           message: `${loaded.cause}: ${loaded.message}`,
-          ...loaded.stack === undefined ? {} : { stack: loaded.stack },
+          ...(loaded.stack === undefined ? {} : { stack: loaded.stack }),
         },
         loaded.error,
       )
@@ -372,7 +377,7 @@ export class CordisRunOrchestrator {
     const resolution: DynamicCordisRunResolution = {
       ok: true,
       pluginRunId: loaded.pluginRunId,
-      ...loaded.waitingFor === undefined ? {} : { waitingFor: loaded.waitingFor },
+      ...(loaded.waitingFor === undefined ? {} : { waitingFor: loaded.waitingFor }),
     }
     if (plan.requestId !== undefined) {
       await this.answer(plan.requestId, resolution)
@@ -436,23 +441,21 @@ export class CordisRunOrchestrator {
     }
   }
 
-  private fail(
-    plan: Pick<RunPlan, 'pluginId' | 'packageId'>,
-    reason: CordisRunFailure['reason'],
-    failure: CordisErrorDetails,
-  ): void {
+  private fail(plan: Pick<RunPlan, 'pluginId' | 'packageId'>, reason: CordisRunFailure['reason'], failure: CordisErrorDetails): void {
     this.failures.set(plan.pluginId, { packageId: plan.packageId, reason, ...failure })
     this.commit()
   }
 }
 
 function sameRequest(left: CordisRunRequest | undefined, right: CordisRunRequest): boolean {
-  return left?.requestId === right.requestId
-    && left.agentId === right.agentId
-    && left.pluginId === right.pluginId
-    && left.packageId === right.packageId
-    && left.mode === right.mode
-    && left.name === right.name
-    && left.purpose === right.purpose
-    && left.requiresApproval === right.requiresApproval
+  return (
+    left?.requestId === right.requestId &&
+    left.agentId === right.agentId &&
+    left.pluginId === right.pluginId &&
+    left.packageId === right.packageId &&
+    left.mode === right.mode &&
+    left.name === right.name &&
+    left.purpose === right.purpose &&
+    left.requiresApproval === right.requiresApproval
+  )
 }

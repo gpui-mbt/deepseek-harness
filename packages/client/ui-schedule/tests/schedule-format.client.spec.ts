@@ -1,9 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ScheduleId, ScheduleRecord } from '@deepseek-ai/dsh-schedule/client'
 import {
-  FALLBACK_ZONES, formatScheduleAbsolute, formatScheduleNextRun, formatWeekdays, recordTimeZone,
-  zoneChoices, zoneLabel, zoneName,
+  FALLBACK_ZONES,
+  formatScheduleAbsolute,
+  formatScheduleNextRun,
+  formatWeekdays,
+  recordTimeZone,
+  zoneChoices,
+  zoneLabel,
+  zoneName,
 } from '../src/client/schedule-format.ts'
 import { en, zh } from '../src/client/task-manager-locales.ts'
 
@@ -23,8 +29,11 @@ const OFFSET_DATE = Date.parse('2026-01-15T00:00:00.000Z')
  * @returns the ICU name, or an empty string when ICU states none.
  */
 function icuZoneName(zone: string, locale: string, at: number = OFFSET_DATE): string {
-  return new Intl.DateTimeFormat(locale, { timeZone: zone, timeZoneName: 'longGeneric' })
-    .formatToParts(at).find(part => part.type === 'timeZoneName')?.value ?? ''
+  return (
+    new Intl.DateTimeFormat(locale, { timeZone: zone, timeZoneName: 'longGeneric' })
+      .formatToParts(at)
+      .find(part => part.type === 'timeZoneName')?.value ?? ''
+  )
 }
 
 /**
@@ -34,8 +43,10 @@ function icuZoneName(zone: string, locale: string, at: number = OFFSET_DATE): st
  * @returns `UTC±HH:MM`.
  */
 function utcOffset(zone: string, at: number = OFFSET_DATE): string {
-  const raw = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'longOffset' })
-    .formatToParts(at).find(part => part.type === 'timeZoneName')?.value ?? ''
+  const raw =
+    new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'longOffset' })
+      .formatToParts(at)
+      .find(part => part.type === 'timeZoneName')?.value ?? ''
   // ICU answers `GMT+01:00` (and bare `GMT` for UTC); the row states `UTC…`.
   return raw === 'GMT' ? 'UTC+00:00' : raw.replace(/^GMT/, 'UTC')
 }
@@ -52,15 +63,56 @@ function statedZoneLabel(zone: string, locale: string): string {
 
 /** One record per rule kind, so the zone lookup is read for every discriminator. */
 const ZONE_RECORDS = [
-  { id: 'task-after' as ScheduleId, kind: 'after', title: 'After', prompt: 'After', afterSeconds: 90, scheduledAt: '2026-10-01T15:00:00.000Z' },
+  {
+    id: 'task-after' as ScheduleId,
+    kind: 'after',
+    title: 'After',
+    prompt: 'After',
+    afterSeconds: 90,
+    scheduledAt: '2026-10-01T15:00:00.000Z',
+  },
   { id: 'task-at' as ScheduleId, kind: 'at', title: 'At', prompt: 'At', scheduledAt: '2026-10-01T15:00:00.000Z' },
-  { id: 'task-every' as ScheduleId, kind: 'every', title: 'Every', prompt: 'Every', everySeconds: 301, scheduledAt: '2026-10-01T15:00:00.000Z' },
-  { id: 'task-daily' as ScheduleId, kind: 'daily', title: 'Daily', prompt: 'Daily', time: '23:00:00.000', timeZone: SYSTEM, scheduledAt: '2026-10-01T15:00:00.000Z' },
-  { id: 'task-weekly' as ScheduleId, kind: 'weekly', title: 'Weekly', prompt: 'Weekly', time: '09:30:00.000', timeZone: SYSTEM, weekdays: [1], scheduledAt: '2026-10-01T15:00:00.000Z' },
-  { id: 'task-cron' as ScheduleId, kind: 'cron', title: 'Cron', prompt: 'Cron', expression: '0 9 * * 1', timeZone: SYSTEM, scheduledAt: '2026-10-01T15:00:00.000Z' },
+  {
+    id: 'task-every' as ScheduleId,
+    kind: 'every',
+    title: 'Every',
+    prompt: 'Every',
+    everySeconds: 301,
+    scheduledAt: '2026-10-01T15:00:00.000Z',
+  },
+  {
+    id: 'task-daily' as ScheduleId,
+    kind: 'daily',
+    title: 'Daily',
+    prompt: 'Daily',
+    time: '23:00:00.000',
+    timeZone: SYSTEM,
+    scheduledAt: '2026-10-01T15:00:00.000Z',
+  },
+  {
+    id: 'task-weekly' as ScheduleId,
+    kind: 'weekly',
+    title: 'Weekly',
+    prompt: 'Weekly',
+    time: '09:30:00.000',
+    timeZone: SYSTEM,
+    weekdays: [1],
+    scheduledAt: '2026-10-01T15:00:00.000Z',
+  },
+  {
+    id: 'task-cron' as ScheduleId,
+    kind: 'cron',
+    title: 'Cron',
+    prompt: 'Cron',
+    expression: '0 9 * * 1',
+    timeZone: SYSTEM,
+    scheduledAt: '2026-10-01T15:00:00.000Z',
+  },
 ] as const satisfies readonly ScheduleRecord[]
 
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('zoneChoices', () => {
   it('offers every zone the runtime enumerates, far past the fallback', () => {
@@ -103,7 +155,9 @@ describe('zoneChoices', () => {
   })
 
   it('falls back to system, UTC, and the stored zone when enumeration throws', () => {
-    vi.spyOn(Intl, 'supportedValuesOf').mockImplementation(() => { throw new TypeError('no time zones') })
+    vi.spyOn(Intl, 'supportedValuesOf').mockImplementation(() => {
+      throw new TypeError('no time zones')
+    })
     const choices = zoneChoices('Europe/Paris', SYSTEM, OFFSET_DATE)
     expect(choices[0]).toBe(SYSTEM)
     expect(choices).toEqual(expect.arrayContaining([...FALLBACK_ZONES, 'Europe/Paris']))
@@ -128,10 +182,12 @@ describe('recordTimeZone', () => {
   it('reads a stored rule zone from the wall-clock kinds and none from the instant kinds', () => {
     // The card asks each record for its own rule zone; the instant-only kinds
     // store no zone and are displayed in the browser zone.
-    expect(ZONE_RECORDS.filter(record => record.kind === 'daily' || record.kind === 'weekly' || record.kind === 'cron')
-      .map(recordTimeZone)).toEqual([SYSTEM, SYSTEM, SYSTEM])
-    expect(ZONE_RECORDS.filter(record => record.kind === 'after' || record.kind === 'at' || record.kind === 'every')
-      .map(recordTimeZone)).toEqual([undefined, undefined, undefined])
+    expect(
+      ZONE_RECORDS.filter(record => record.kind === 'daily' || record.kind === 'weekly' || record.kind === 'cron').map(recordTimeZone),
+    ).toEqual([SYSTEM, SYSTEM, SYSTEM])
+    expect(
+      ZONE_RECORDS.filter(record => record.kind === 'after' || record.kind === 'at' || record.kind === 'every').map(recordTimeZone),
+    ).toEqual([undefined, undefined, undefined])
   })
 })
 
@@ -205,8 +261,7 @@ describe('zone names', () => {
     expect(icuZoneName('Africa/Lagos', 'en')).not.toBe('')
     expect(zoneLabel('Africa/Lagos', t, OFFSET_DATE)).not.toBe('Africa/Lagos')
     expect(zoneLabel('Africa/Lagos', t, OFFSET_DATE)).not.toBe(utcOffset('Africa/Lagos'))
-    expect(zoneName('Asia/Shanghai', SYSTEM, t, OFFSET_DATE))
-      .toBe(`${statedZoneLabel('Asia/Shanghai', 'en')}${en['rule.zone.system']}`)
+    expect(zoneName('Asia/Shanghai', SYSTEM, t, OFFSET_DATE)).toBe(`${statedZoneLabel('Asia/Shanghai', 'en')}${en['rule.zone.system']}`)
     expect(zoneName('UTC', SYSTEM, t, OFFSET_DATE)).toBe(utcOffset('UTC'))
   })
 
@@ -222,9 +277,9 @@ describe('zone names', () => {
 describe('formatWeekdays', () => {
   it('names every stored ISO weekday and joins them with the locale separator', () => {
     const t = makeTranslate(en)
-    expect(formatWeekdays([1, 3, 7], t)).toBe([
-      en['frequency.weekday.1'], en['frequency.weekday.3'], en['frequency.weekday.7'],
-    ].join(en['frequency.weekday.join']))
+    expect(formatWeekdays([1, 3, 7], t)).toBe(
+      [en['frequency.weekday.1'], en['frequency.weekday.3'], en['frequency.weekday.7']].join(en['frequency.weekday.join']),
+    )
   })
 
   it('names an index outside the ISO weekday range as Monday rather than an undefined word', () => {
@@ -236,11 +291,16 @@ describe('formatWeekdays', () => {
 
 describe('formatScheduleAbsolute', () => {
   /** Independent absolute rendering of one instant in the device zone. */
-  const expected = (locale: string, namesYear: boolean): string => new Intl.DateTimeFormat(locale, {
-    month: 'short', day: 'numeric', ...(namesYear ? { year: 'numeric' as const } : {}),
-    hour: '2-digit', minute: '2-digit', hour12: false,
-    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-  }).format(Date.parse(INSTANT))
+  const expected = (locale: string, namesYear: boolean): string =>
+    new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      day: 'numeric',
+      ...(namesYear ? { year: 'numeric' as const } : {}),
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    }).format(Date.parse(INSTANT))
 
   const INSTANT = '2026-10-01T15:00:00.000Z'
 
@@ -268,8 +328,7 @@ describe('formatScheduleAbsolute', () => {
 
 describe('formatScheduleNextRun', () => {
   /** The display zone's current calendar year; an instant inside it stays year-less. */
-  const yearIn = (timeZone: string): string =>
-    new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone }).format(Date.now())
+  const yearIn = (timeZone: string): string => new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone }).format(Date.now())
 
   // The month is a locale-owned name plus the locale's own clock: en writes
   // `Oct 1, 3:00 PM` and zh-CN writes `10月1日 23:00`. Neither locale can emit
@@ -281,17 +340,25 @@ describe('formatScheduleNextRun', () => {
     expect(formatScheduleNextRun(`${yearIn('Asia/Shanghai')}-12-31T15:00:00.000Z`, 'zh-CN', 'Asia/Shanghai')).toBe('12月31日 23:00')
   })
 
-  it('adds the year when the instant falls outside the display zone\'s current year', () => {
+  it("adds the year when the instant falls outside the display zone's current year", () => {
     expect(formatScheduleNextRun('2001-10-01T15:00:00.000Z', 'en', 'UTC')).toBe('Oct 1, 2001, 3:00 PM')
     expect(formatScheduleNextRun('2001-10-01T15:00:00.000Z', 'zh-CN', 'Asia/Shanghai')).toBe('2001年10月1日 23:00')
   })
 
   it('matches the universal card field pair and never emits a padded month-day pair', () => {
     const at = `${yearIn('UTC')}-10-01T15:00:00.000Z`
-    const expected = (locale: string, timeZone: string): string => new Intl.DateTimeFormat(locale, {
-      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone,
-    }).format(Date.parse(at))
-    for (const [locale, timeZone] of [['en', 'UTC'], ['zh-CN', 'UTC']] as const) {
+    const expected = (locale: string, timeZone: string): string =>
+      new Intl.DateTimeFormat(locale, {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone,
+      }).format(Date.parse(at))
+    for (const [locale, timeZone] of [
+      ['en', 'UTC'],
+      ['zh-CN', 'UTC'],
+    ] as const) {
       const shown = formatScheduleNextRun(at, locale, timeZone)
       expect(shown).toBe(expected(locale, timeZone))
       // No two-digit month-day pair, whatever separators the locale uses.

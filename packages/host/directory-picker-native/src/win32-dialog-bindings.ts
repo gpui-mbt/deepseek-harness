@@ -14,8 +14,12 @@
 
 import type { Win32DialogBindings, Win32FolderDialog } from './win32-dialog-logic.ts'
 
-interface KoffiFunction { (...args: unknown[]): unknown }
-interface KoffiLibrary { func(convention: string, name: string, result: string, args: string[]): KoffiFunction }
+interface KoffiFunction {
+  (...args: unknown[]): unknown
+}
+interface KoffiLibrary {
+  func(convention: string, name: string, result: string, args: string[]): KoffiFunction
+}
 interface Koffi {
   load(path: string): KoffiLibrary
   proto(declaration: string): unknown
@@ -115,7 +119,7 @@ export async function loadWin32DialogBindings(): Promise<Win32DialogBindings> {
   const protoRelease = koffi.proto('uint32 __stdcall DshComRelease(void *self)')
 
   /** Bind vtable slot `slot` of COM object `self` to a caller through `proto`. */
-  const method = (self: unknown, slot: number, proto: unknown): (...args: unknown[]) => number => {
+  const method = (self: unknown, slot: number, proto: unknown): ((...args: unknown[]) => number) => {
     const vtable = koffi.decode(self, 'void *')
     const fn = koffi.decode(vtable, slot * pointerSize, 'void *')
     return (...args: unknown[]) => koffi.call(fn, proto, self, ...args) as number

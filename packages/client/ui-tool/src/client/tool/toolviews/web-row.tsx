@@ -26,9 +26,9 @@ export function WebRow({ toolName, block, inspect, useDisclosure, t }: WebRowPro
       variant={model.variant}
       toolName={toolName}
       icon={icon}
-      title={t(toolName === 'web_search'
-        ? WEB_TITLE_KEYS.web_search
-        : toolName === 'web_fetch' ? WEB_TITLE_KEYS.web_fetch : model.titleKey)}
+      title={t(
+        toolName === 'web_search' ? WEB_TITLE_KEYS.web_search : toolName === 'web_fetch' ? WEB_TITLE_KEYS.web_fetch : model.titleKey,
+      )}
       summary={model.summary}
       output={model.output}
       errorSummary={model.errorSummary}

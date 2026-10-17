@@ -51,19 +51,27 @@ export function startJob(ctx: Context, options: { label?: string; owner?: Sessio
   const id = ctx.jobs.start({
     kind: 'bash',
     label: options.label ?? 'echo',
-    ...options.owner !== undefined ? { owner: options.owner } : {},
-    run: (job) => {
+    ...(options.owner !== undefined ? { owner: options.owner } : {}),
+    run: job => {
       handle = job
       return {
-        cancel() { if (options.slowStop !== true) settle({ status: 'killed' }) },
-        done: new Promise<JobOutcome>((resolve) => { settle = resolve }),
+        cancel() {
+          if (options.slowStop !== true) settle({ status: 'killed' })
+        },
+        done: new Promise<JobOutcome>(resolve => {
+          settle = resolve
+        }),
       }
     },
   })
   return {
     id,
-    append: (text: string, opts?: JobAppendOptions) => { handle.append(text, opts) },
-    progress: (line: string) => { handle.updateProgress(line) },
+    append: (text: string, opts?: JobAppendOptions) => {
+      handle.append(text, opts)
+    },
+    progress: (line: string) => {
+      handle.updateProgress(line)
+    },
     settle: async (outcome: JobOutcome) => {
       settle(outcome)
       await new Promise(resolve => setTimeout(resolve, 0))
@@ -72,11 +80,7 @@ export function startJob(ctx: Context, options: { label?: string; owner?: Sessio
 }
 
 /** Read frames until `count` arrive or the generator finishes, then abort. */
-export async function collect<Frame>(
-  iterable: AsyncIterable<Frame>,
-  count: number,
-  abort: AbortController,
-): Promise<Frame[]> {
+export async function collect<Frame>(iterable: AsyncIterable<Frame>, count: number, abort: AbortController): Promise<Frame[]> {
   const frames: Frame[] = []
   const iterator = iterable[Symbol.asyncIterator]()
   try {

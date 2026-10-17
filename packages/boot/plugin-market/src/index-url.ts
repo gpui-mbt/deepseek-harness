@@ -20,7 +20,10 @@ export function normalizeIndexUrl(text: string): string {
     throw new RemoteError('plugin-market/invalid-index-url', `Index URLs use http or https: ${text}`, { url: text, reason: 'scheme' })
   }
   if (url.username !== '' || url.password !== '' || url.href.includes('#')) {
-    throw new RemoteError('plugin-market/invalid-index-url', `Index URLs carry no credentials or fragment: ${text}`, { url: text, reason: 'credentials-or-fragment' })
+    throw new RemoteError('plugin-market/invalid-index-url', `Index URLs carry no credentials or fragment: ${text}`, {
+      url: text,
+      reason: 'credentials-or-fragment',
+    })
   }
   return url.href
 }

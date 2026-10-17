@@ -26,7 +26,12 @@ import { en, zh, type WebSearchSettingsLocaleKey } from './locales.ts'
 
 export type { WebSearchCardProps } from './WebSearchCard.tsx'
 export type {
-  WebApiSettings, WebProviderSelection, WebSearchCardFace, WebSearchCardScopes, WebSearchCardState, WebSearchSettings,
+  WebApiSettings,
+  WebProviderSelection,
+  WebSearchCardFace,
+  WebSearchCardScopes,
+  WebSearchCardState,
+  WebSearchSettings,
 } from './web-search-card-controller.ts'
 export type { WebSearchSettingsLocaleKey } from './locales.ts'
 
@@ -50,18 +55,47 @@ export const inject = ['slots', 'locale', 'remote', 'remote.credentials', 'confi
 export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-web-search: dictionaries')
-  const card = new WebSearchCardController({
-    web: ctx.configForms.get(WEB_NS), messages: ctx.configForms.get(WEB_SEARCH_NS), api: ctx.configForms.get(WEB_API_NS),
-  }, ctx)
-  ctx.effect(() => () => { card.dispose() }, 'ui-settings-web-search: form subscription')
+  const card = new WebSearchCardController(
+    {
+      web: ctx.configForms.get(WEB_NS),
+      messages: ctx.configForms.get(WEB_SEARCH_NS),
+      api: ctx.configForms.get(WEB_API_NS),
+    },
+    ctx,
+  )
+  ctx.effect(
+    () => () => {
+      card.dispose()
+    },
+    'ui-settings-web-search: form subscription',
+  )
   // The credential the page reports is not part of any settings section, so
   // no scope publishes when one is written. This is the only signal
   // that a key written on another surface reached the Host.
   ctx.effect(
-    () => ctx.remote.$on('credentials/reference-updated', (ref) => { card.refreshCredential(ref) }),
+    () =>
+      ctx.remote.$on('credentials/reference-updated', ref => {
+        card.refreshCredential(ref)
+      }),
     'ui-settings-web-search: credential invalidations',
   )
-  ctx.effect(() => ctx.configForms.whileServed([WEB_SEARCH_NS], () => ctx.slots.inject('plugins.item', () => ctx.slots.register({
-    name: 'plugins.item', id: 'web-search', order: 20, label: () => t('title'), locale: NS, inject: () => card.inject(),
-  }, WebSearchCard))), 'ui-settings-web-search: page')
+  ctx.effect(
+    () =>
+      ctx.configForms.whileServed([WEB_SEARCH_NS], () =>
+        ctx.slots.inject('plugins.item', () =>
+          ctx.slots.register(
+            {
+              name: 'plugins.item',
+              id: 'web-search',
+              order: 20,
+              label: () => t('title'),
+              locale: NS,
+              inject: () => card.inject(),
+            },
+            WebSearchCard,
+          ),
+        ),
+      ),
+    'ui-settings-web-search: page',
+  )
 }

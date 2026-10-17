@@ -52,9 +52,18 @@ export const DOCK_ZONES: readonly DockZone[] = ['center', 'top', 'right', 'botto
 export function zoneAt(x: number, y: number, edge: number = DOCK_EDGE_FRACTION): DockZone {
   let zone: DockZone = 'left'
   let distance = x
-  if (1 - x < distance) { zone = 'right'; distance = 1 - x }
-  if (y < distance) { zone = 'top'; distance = y }
-  if (1 - y < distance) { zone = 'bottom'; distance = 1 - y }
+  if (1 - x < distance) {
+    zone = 'right'
+    distance = 1 - x
+  }
+  if (y < distance) {
+    zone = 'top'
+    distance = y
+  }
+  if (1 - y < distance) {
+    zone = 'bottom'
+    distance = 1 - y
+  }
   return distance < edge ? zone : 'center'
 }
 
@@ -65,13 +74,19 @@ export function zoneAt(x: number, y: number, edge: number = DOCK_EDGE_FRACTION):
  */
 export function zoneSplit(zone: DockZone): { axis: SplitAxis; direction: SplitDirection } | undefined {
   switch (zone) {
-    case 'center': return undefined
-    case 'left': return { axis: 'row', direction: 'before' }
-    case 'right': return { axis: 'row', direction: 'after' }
-    case 'top': return { axis: 'column', direction: 'before' }
-    case 'bottom': return { axis: 'column', direction: 'after' }
+    case 'center':
+      return undefined
+    case 'left':
+      return { axis: 'row', direction: 'before' }
+    case 'right':
+      return { axis: 'row', direction: 'after' }
+    case 'top':
+      return { axis: 'column', direction: 'before' }
+    case 'bottom':
+      return { axis: 'column', direction: 'after' }
     /* v8 ignore next -- closed-union backstop; the compiler rejects a new zone here. */
-    default: return assertNever(zone, 'layout: dock zone')
+    default:
+      return assertNever(zone, 'layout: dock zone')
   }
 }
 

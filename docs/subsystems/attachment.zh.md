@@ -72,18 +72,16 @@ interface ImageAttachmentLimits {
 type PromptContentPart =
   | { readonly type: 'text'; readonly text: string }
   | {
-    readonly type: 'image'
-    readonly mediaType: ImageMediaType
-    readonly data: string
-    readonly name?: string
-  }
+      readonly type: 'image'
+      readonly mediaType: ImageMediaType
+      readonly data: string
+      readonly name?: string
+    }
 ```
 
 ```ts type-equiv
 /** Host prompt content whose file receipts are resolved and whose image bytes await admission. */
-type AttachmentAdmissionPart =
-  | PromptContentPart
-  | { readonly type: 'file'; readonly attachment: FileAttachmentRef }
+type AttachmentAdmissionPart = PromptContentPart | { readonly type: 'file'; readonly attachment: FileAttachmentRef }
 ```
 
 ```ts type-equiv
@@ -206,7 +204,7 @@ async saveImages(inputs: readonly SaveImageAttachment[]): Promise<readonly Image
  * @returns admitted prompt parts in the same order as `content`.
  * @throws AttachmentError when the image batch is refused.
  */
-async admitPromptContent( content: readonly AttachmentAdmissionPart[], ): Promise<AdmittedPromptContentPart[]>
+async admitPromptContent(content: readonly AttachmentAdmissionPart[]): Promise<AdmittedPromptContentPart[]>
 
 /**
  * Decode and durably commit one canonical base64 file upload.
@@ -277,7 +275,7 @@ saveFileStream(input: SaveFileStreamAttachment): Promise<FileAttachmentRef>
  * @param signal - optional cancellation for backend reads and verification work.
  * @returns exact file bytes in order; integrity failures reject the iteration.
  */
-async *readFileStream( ref: FileAttachmentRef, signal?: AbortSignal, ): AsyncIterable<Uint8Array>
+async *readFileStream(ref: FileAttachmentRef, signal?: AbortSignal): AsyncIterable<Uint8Array>
 
 /**
  * Locate the verbatim stored file object in the harness host filesystem.
@@ -294,7 +292,7 @@ fileHostPath(ref: FileAttachmentRef): string | undefined
  * @param signal - optional cancellation.
  * @returns request bytes and the cache/upload identity covering every transform input.
  */
-readImageRequest( ref: ImageAttachmentRef, target: ImageRequestTarget, signal?: AbortSignal, ): Promise<RequestImageAttachment>
+readImageRequest(ref: ImageAttachmentRef, target: ImageRequestTarget, signal?: AbortSignal): Promise<RequestImageAttachment>
 ```
 
 Source: [`packages/attachment/attachment/src/index.ts`](../../packages/attachment/attachment/src/index.ts)
@@ -345,7 +343,7 @@ resolve(agent: Agent, receiptId: FileUploadReceiptId): FileAttachmentRef | undef
  * @param requestId - prompt identity later observed in queue or history.
  * @returns binding kept after commit until queue or history observation retires its receipts.
  */
-bindPrompt( agent: Agent, receiptIds: readonly FileUploadReceiptId[], requestId: string, ): PromptFileBinding
+bindPrompt(agent: Agent, receiptIds: readonly FileUploadReceiptId[], requestId: string): PromptFileBinding
 
 /**
  * Retire every receipt accepted by one removed queue occurrence.

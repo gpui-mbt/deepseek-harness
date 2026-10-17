@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Visible highlight geometry excludes clipped group content and the composer. */
 
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { visibleChatRect } from '../src/client/views/chat-node/highlight.ts'
 
 it('keeps partially visible targets in place but excludes content behind the composer or outside a group', () => {
@@ -12,8 +12,12 @@ it('keeps partially visible targets in place but excludes content behind the com
   const row = document.createElement('div')
   const composer = document.createElement('div')
   composer.dataset.composerSeat = ''
-  group.append(row); scroller.append(group, composer); document.body.append(scroller)
-  onTestFinished(() => { scroller.remove() })
+  group.append(row)
+  scroller.append(group, composer)
+  document.body.append(scroller)
+  onTestFinished(() => {
+    scroller.remove()
+  })
   scroller.getBoundingClientRect = () => new DOMRect(10, 10, 300, 300)
   group.getBoundingClientRect = () => new DOMRect(20, 30, 200, 220)
   composer.getBoundingClientRect = () => new DOMRect(10, 150, 300, 160)

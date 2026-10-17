@@ -1,6 +1,6 @@
 /** GitHub remote parsing over the spellings git stores. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { githubRepository } from '../src/github.ts'
 
 describe('githubRepository', () => {
@@ -32,7 +32,7 @@ describe('githubRepository', () => {
     ':shiguredo/moqt-js.git',
     'git@github.com:',
     'https://github.com:99999999/shiguredo/moqt-js.git',
-  ])('names no repository behind %s', (remoteUrl) => {
+  ])('names no repository behind %s', remoteUrl => {
     expect(githubRepository(remoteUrl)).toBeNull()
   })
 })

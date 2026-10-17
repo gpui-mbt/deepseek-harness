@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createSystemMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
@@ -23,10 +23,14 @@ async function sessionStore(): Promise<Context> {
 }
 
 function appendUser(session: Session, text: string) {
-  return session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  return session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
 }
 
 function commit(session: Session, turn: number, decision: SystemPromptCommit | undefined) {
@@ -45,13 +49,34 @@ describe('SystemPromptProjection', () => {
     try {
       const session = ctx.sessions.create(SessionId('system-prompt-multiblock'))
       const base = createSystemMessage('old')
-      session.append('system/message', { turn: 1, step: 1, message: {
-        ...base, content: [{ type: 'text', text: 'old ' }, { type: 'text', text: 'instructions' }],
-      } }, { surfaceOp: 'append' })
+      session.append(
+        'system/message',
+        {
+          turn: 1,
+          step: 1,
+          message: {
+            ...base,
+            content: [
+              { type: 'text', text: 'old ' },
+              { type: 'text', text: 'instructions' },
+            ],
+          },
+        },
+        { surfaceOp: 'append' },
+      )
       appendUser(session, 'hello')
-      session.append('system/message', { turn: 1, step: 1, message: {
-        ...createSystemMessage('tail'), content: [{ type: 'reasoning', text: 'retained content' }],
-      } }, { surfaceOp: 'append' })
+      session.append(
+        'system/message',
+        {
+          turn: 1,
+          step: 1,
+          message: {
+            ...createSystemMessage('tail'),
+            content: [{ type: 'reasoning', text: 'retained content' }],
+          },
+        },
+        { surfaceOp: 'append' },
+      )
       const projection = new SystemPromptProjection(session)
       for (const update of projection.project('', CONTINUING)) commit(session, 2, update)
       expect(session.deriveMessages().map(message => message.role)).toEqual(['user'])
@@ -146,10 +171,14 @@ describe('SystemPromptProjection', () => {
     expect(session.surface.nodes.indexOf(node.seq)).toBe(1)
     expect(projection.project('late prompt', REPLACING)[0]).toBeUndefined()
 
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'summary' }],
-      source: { kind: 'test-compaction' },
-    }), replaceOf(node.seq))
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'summary' }],
+        source: { kind: 'test-compaction' },
+      }),
+      replaceOf(node.seq),
+    )
     expect(projection.project('late prompt', REPLACING)[0]?.intent).toEqual({ surfaceOp: 'append' })
   })
 
@@ -173,8 +202,11 @@ describe('SystemPromptProjection', () => {
     const third = projection.project('v3', CONTINUING)[0]
     expect(third?.intent).toEqual({ surfaceOp: 'append' })
     commit(session, 3, third)
-    expect(session.deriveMessages().flatMap(message => message.role === 'system' ? [message.content[0]] : []))
-      .toEqual([{ type: 'text', text: 'v1' }, { type: 'text', text: 'v2' }, { type: 'text', text: 'v3' }])
+    expect(session.deriveMessages().flatMap(message => (message.role === 'system' ? [message.content[0]] : []))).toEqual([
+      { type: 'text', text: 'v1' },
+      { type: 'text', text: 'v2' },
+      { type: 'text', text: 'v3' },
+    ])
   })
 
   it('re-baselines node 0 and empties later active nodes at a series start', async () => {
@@ -195,8 +227,12 @@ describe('SystemPromptProjection', () => {
     const updates = projection.project('v4', NEW_SERIES)
     expect(updates.map(update => update.intent)).toEqual([replaceOf(later.seq), replaceOf(newHead.seq)])
     for (const update of updates) commit(session, 4, update)
-    expect(session.deriveMessages().filter(message => message.role === 'system').map(message => message.content))
-      .toEqual([[{ type: 'text', text: 'v4' }]])
+    expect(
+      session
+        .deriveMessages()
+        .filter(message => message.role === 'system')
+        .map(message => message.content),
+    ).toEqual([[{ type: 'text', text: 'v4' }]])
     expect(projection.project('v4', CONTINUING)).toEqual([])
   })
 

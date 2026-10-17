@@ -18,16 +18,10 @@ import type {
   SessionProjectionBaseline,
   SessionRequestId,
 } from '../../types.ts'
-import type {
-  BeginSubmissionInput, PendingSubmissionRetirement, SessionFace, SubmissionHandle,
-} from '../contract/session.ts'
-import type {
-  OpenState, PendingSubmission, PromptError, SessionSnapshot,
-} from '../contract/snapshot.ts'
+import type { BeginSubmissionInput, PendingSubmissionRetirement, SessionFace, SubmissionHandle } from '../contract/session.ts'
+import type { OpenState, PendingSubmission, PromptError, SessionSnapshot } from '../contract/snapshot.ts'
 import { MutableSessionEventSource } from '../contract/events.ts'
-import type {
-  SessionEventLike, SessionEventLikeEntry, SessionLiveEventEntry,
-} from '../contract/events.ts'
+import type { SessionEventLike, SessionEventLikeEntry, SessionLiveEventEntry } from '../contract/events.ts'
 import { Notifier } from './notifier.ts'
 import { isRemoteFailure } from '@deepseek-ai/dsh-api-gateway/client'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
@@ -36,10 +30,7 @@ import type { SessionRemotes } from './remotes.ts'
 import { ProjectionValueStore } from './projection-store.ts'
 import type { ProjectionsBaseline } from './projection-store.ts'
 import { resolvedClientTimeZone } from '../time-zone.ts'
-import {
-  ClientAssistantStream,
-  type ClientAssistantStreamResult,
-} from './assistant-stream.ts'
+import { ClientAssistantStream, type ClientAssistantStreamResult } from './assistant-stream.ts'
 
 function projectionsBaseline(value: SessionProjectionBaseline): ProjectionsBaseline {
   return {
@@ -131,20 +122,23 @@ export class Session implements SessionFace {
   private pendingSubmissions: readonly PendingSubmission[] = []
   /** Per-echo settlement state; `retiring` latches the first observation so a
    *  Inbox projection and its durable event cannot both retire one echo. */
-  private readonly submissionSettlements = new Map<SessionRequestId, {
-    readonly placement: PendingSubmission['placement']
-    /** Latest received Inbox position; null means removed from that queue. */
-    receipt?: {
-      readonly target: InboxTarget
-      readonly seq: number
-      readonly index: number | null
-      readonly attachments: readonly (ImageAttachmentRef | FileAttachmentRef)[]
+  private readonly submissionSettlements = new Map<
+    SessionRequestId,
+    {
+      readonly placement: PendingSubmission['placement']
+      /** Latest received Inbox position; null means removed from that queue. */
+      receipt?: {
+        readonly target: InboxTarget
+        readonly seq: number
+        readonly index: number | null
+        readonly attachments: readonly (ImageAttachmentRef | FileAttachmentRef)[]
+      }
+      /** Durable admission may precede the Inbox projection acknowledging its claim. */
+      admitted?: readonly (ImageAttachmentRef | FileAttachmentRef)[]
+      readonly onRetire?: ((retirement: PendingSubmissionRetirement) => void) | undefined
+      retiring: boolean
     }
-    /** Durable admission may precede the Inbox projection acknowledging its claim. */
-    admitted?: readonly (ImageAttachmentRef | FileAttachmentRef)[]
-    readonly onRetire?: ((retirement: PendingSubmissionRetirement) => void) | undefined
-    retiring: boolean
-  }>()
+  >()
   /** Owns the addressed page/follow lifecycle while this Session is open. */
   private events: SessionEventStream | undefined
 
@@ -227,20 +221,28 @@ export class Session implements SessionFace {
    */
   beginSubmission(input: BeginSubmissionInput): SubmissionHandle {
     const requestId = randomUUID() as SessionRequestId
-    const placement = this.running ? input.mode === 'steer' ? 'steering' : 'queued' : 'transcript'
-    this.pendingSubmissions = [...this.pendingSubmissions, {
-      requestId,
-      placement,
-      time: Date.now(),
-      text: input.text,
-      attachments: input.attachments,
-    }]
+    const placement = this.running ? (input.mode === 'steer' ? 'steering' : 'queued') : 'transcript'
+    this.pendingSubmissions = [
+      ...this.pendingSubmissions,
+      {
+        requestId,
+        placement,
+        time: Date.now(),
+        text: input.text,
+        attachments: input.attachments,
+      },
+    ]
     this.submissionSettlements.set(requestId, { placement, onRetire: input.onRetire, retiring: false })
     // The blank → engaging edge flips here, ahead of prompt(): the composer
     // docks and the echo renders on the click's own frame.
     this.promptAttempted = true
     this.notifier.markDirty()
-    return { requestId, abandon: () => { this.retireFailedSubmission(requestId) } }
+    return {
+      requestId,
+      abandon: () => {
+        this.retireFailedSubmission(requestId)
+      },
+    }
   }
 
   /**
@@ -268,35 +270,39 @@ export class Session implements SessionFace {
     let result: RemoteResult<{ accepted: true }>
     if (this.address === undefined) {
       const clientTimeZone = resolvedClientTimeZone()
-      result = await this.remote.session.prompt({
-        requestId: requestId ?? randomUUID() as SessionRequestId,
-        sessionId: this.sessionId,
-        mode,
-        content,
-        clientTimeZone,
-      }, signal)
+      result = await this.remote.session.prompt(
+        {
+          requestId: requestId ?? (randomUUID() as SessionRequestId),
+          sessionId: this.sessionId,
+          mode,
+          content,
+          clientTimeZone,
+        },
+        signal,
+      )
     } else if (content.some(part => part.type === 'file')) {
       result = {
         ok: false,
-        error: new RemoteError(
-          'subagent/attachment-invalid',
-          'subagent continuation does not accept files',
-          { reason: 'SUBAGENT_FILE_UNSUPPORTED' },
-        ),
+        error: new RemoteError('subagent/attachment-invalid', 'subagent continuation does not accept files', {
+          reason: 'SUBAGENT_FILE_UNSUPPORTED',
+        }),
       }
     } else {
       // The preceding branch rejects file parts before the narrower subagent
       // wire type is used; this array is not filtered or reordered.
       const routedContent = content as Exclude<PromptContentPart, { readonly type: 'file' }>[]
-      const routed = await this.remote.subagents.prompt({
-        requestId: requestId ?? randomUUID() as SessionRequestId,
-        parentSessionId: this.address.parentSessionId,
-        childSessionId: this.address.childSessionId,
-        mode: 'continuable',
-        delivery: mode,
-        content: routedContent,
-        clientTimeZone: resolvedClientTimeZone(),
-      }, signal)
+      const routed = await this.remote.subagents.prompt(
+        {
+          requestId: requestId ?? (randomUUID() as SessionRequestId),
+          parentSessionId: this.address.parentSessionId,
+          childSessionId: this.address.childSessionId,
+          mode: 'continuable',
+          delivery: mode,
+          content: routedContent,
+          clientTimeZone: resolvedClientTimeZone(),
+        },
+        signal,
+      )
       result = routed.ok ? { ok: true, value: { accepted: true } } : routed
     }
     if (!result.ok) {
@@ -319,9 +325,7 @@ export class Session implements SessionFace {
    * @param attachmentId - opaque id found in the folded session log.
    * @returns the authenticated reference and decoded bytes.
    */
-  async readAttachment(
-    attachmentId: AttachmentIdType,
-  ): Promise<RemoteResult<{ attachment: ImageAttachmentRef; data: Uint8Array }>> {
+  async readAttachment(attachmentId: AttachmentIdType): Promise<RemoteResult<{ attachment: ImageAttachmentRef; data: Uint8Array }>> {
     const result = await this.remote.session.attachment({
       sessionId: this.sessionId,
       attachmentId,
@@ -346,13 +350,10 @@ export class Session implements SessionFace {
    */
   async cancel(): Promise<RemoteResult<{ accepted: true }>> {
     const address = this.address
-    const result = address !== undefined
-      ? await this.remote.subagents.interruptByParent(
-        address.childSessionId,
-        address.parentSessionId,
-        'continuable',
-      )
-      : await this.remote.session.cancel({ sessionId: this.sessionId })
+    const result =
+      address !== undefined
+        ? await this.remote.subagents.interruptByParent(address.childSessionId, address.parentSessionId, 'continuable')
+        : await this.remote.session.cancel({ sessionId: this.sessionId })
     if (!result.ok) {
       this.promptError = { op: 'stop', error: result.error }
       this.notifier.markDirty()
@@ -542,9 +543,10 @@ export class Session implements SessionFace {
    * @param parentAvailable - latest exact-parent availability hint, or undefined before a catalog read.
    */
   configureSubagent(address: SubagentAddress | undefined, parentAvailable?: boolean): void {
-    const same = this.address?.parentSessionId === address?.parentSessionId
-      && this.address?.childSessionId === address?.childSessionId
-      && this.address?.mode === address?.mode
+    const same =
+      this.address?.parentSessionId === address?.parentSessionId &&
+      this.address?.childSessionId === address?.childSessionId &&
+      this.address?.mode === address?.mode
     this.address = address
     this.parentAvailable = parentAvailable
     if (!same && this.openState !== 'cold') void this.resync()
@@ -618,11 +620,11 @@ export class Session implements SessionFace {
     this.openError = null
     this.notifier.markDirty()
     const events = new SessionEventStream(this.remote, this.sessionAddress(), {
-      publish: (change) => {
+      publish: change => {
         if (generation !== this.openGeneration || this.events !== events) return
         this.acceptEventChange(change)
       },
-      failed: (error) => {
+      failed: error => {
         this.failEventStream(events, generation, error)
       },
     })
@@ -770,11 +772,12 @@ export class Session implements SessionFace {
         if (receipt?.target !== target || receipt.index === null || receipt.seq >= event.seq) continue
         const removed = receipt.index >= start && receipt.index < start + removedCount
         if (removed && outcome === 'canceled') this.retireFailedSubmission(requestId)
-        else settlement.receipt = {
-          ...receipt,
-          seq: event.seq,
-          index: removed ? null : receipt.index < start ? receipt.index : receipt.index + inserted.length - removedCount,
-        }
+        else
+          settlement.receipt = {
+            ...receipt,
+            seq: event.seq,
+            index: removed ? null : receipt.index < start ? receipt.index : receipt.index + inserted.length - removedCount,
+          }
       }
       this.observeSubmissionInsertions(target, inserted, start, event.seq)
       for (const message of inserted) this.observeSubmissionMessage(message, false)
@@ -782,8 +785,8 @@ export class Session implements SessionFace {
     }
     if (event.type === 'request/context' || event.type === 'turn/end') {
       for (const [requestId, settlement] of this.submissionSettlements) {
-        if (settlement.admitted === undefined && settlement.receipt?.index === null
-          && settlement.receipt.seq < event.seq) this.retireFailedSubmission(requestId)
+        if (settlement.admitted === undefined && settlement.receipt?.index === null && settlement.receipt.seq < event.seq)
+          this.retireFailedSubmission(requestId)
       }
       return
     }
@@ -795,8 +798,8 @@ export class Session implements SessionFace {
       const source = message.source
       if (source.kind !== 'user' || !('rpcId' in source)) continue
       const settlement = this.submissionSettlements.get(source.rpcId)
-      if (settlement === undefined || settlement.placement === 'queued'
-        || settlement.retiring || (settlement.receipt?.seq ?? -1) > seq) continue
+      if (settlement === undefined || settlement.placement === 'queued' || settlement.retiring || (settlement.receipt?.seq ?? -1) > seq)
+        continue
       settlement.receipt = { target, seq, index: start + index, attachments: attachmentRefsIn(message.content) }
     }
   }
@@ -819,8 +822,7 @@ export class Session implements SessionFace {
     const settlement = this.submissionSettlements.get(requestId)
     if (settlement?.admitted === undefined) return
     const receipt = settlement.receipt
-    if (receipt?.index === null
-      && (this.projections.seqOf('inbox') ?? -1) < receipt.seq) return
+    if (receipt?.index === null && (this.projections.seqOf('inbox') ?? -1) < receipt.seq) return
     this.scheduleObservedRetirement(requestId, settlement.admitted)
   }
 
@@ -843,14 +845,13 @@ export class Session implements SessionFace {
    * the durable node (whose assembly frame was registered first) is
    * renderable; the render-time rpcId dedupe hides the one-frame overlap.
    */
-  private scheduleObservedRetirement(
-    requestId: SessionRequestId,
-    attachments: readonly (ImageAttachmentRef | FileAttachmentRef)[],
-  ): void {
+  private scheduleObservedRetirement(requestId: SessionRequestId, attachments: readonly (ImageAttachmentRef | FileAttachmentRef)[]): void {
     const settlement = this.submissionSettlements.get(requestId)
     if (settlement === undefined || settlement.retiring) return
     settlement.retiring = true
-    scheduleFrame(() => { this.finishSubmission(requestId, { reason: 'observed', attachments }) })
+    scheduleFrame(() => {
+      this.finishSubmission(requestId, { reason: 'observed', attachments })
+    })
   }
 
   /** Remove one unsettled echo immediately (prompt rejection, abort, or disposal). */
@@ -891,14 +892,13 @@ export class Session implements SessionFace {
       sessionId: this.sessionId,
       pendingSubmissions: this.pendingSubmissions,
       running: this.running,
-      subagent: this.address === undefined
-        ? null
-        : {
-          address: this.address.mode === 'unknown' && identity != null
-            ? { ...this.address, mode: identity.mode }
-            : this.address,
-          ...(this.parentAvailable === undefined ? {} : { parentAvailable: this.parentAvailable }),
-        },
+      subagent:
+        this.address === undefined
+          ? null
+          : {
+              address: this.address.mode === 'unknown' && identity != null ? { ...this.address, mode: identity.mode } : this.address,
+              ...(this.parentAvailable === undefined ? {} : { parentAvailable: this.parentAvailable }),
+            },
       removed: this.removed,
       openState: this.openState,
       openError: this.openError,
@@ -913,15 +913,16 @@ export class Session implements SessionFace {
   }
 
   private sessionAddress(): SessionAddress {
-    return this.address === undefined
-      ? { kind: 'session', sessionId: this.sessionId }
-      : { kind: 'subagent', ...this.address }
+    return this.address === undefined ? { kind: 'session', sessionId: this.sessionId } : { kind: 'subagent', ...this.address }
   }
 }
 
 /** Run one callback on the next animation frame, or a macrotask where no frame clock exists. */
 function scheduleFrame(fn: () => void): void {
-  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => { fn() })
+  if (typeof requestAnimationFrame === 'function')
+    requestAnimationFrame(() => {
+      fn()
+    })
   else setTimeout(fn, 0)
 }
 
@@ -932,8 +933,11 @@ function attachmentRefsIn(content: unknown): readonly (ImageAttachmentRef | File
   for (const block of content) {
     if (typeof block !== 'object' || block === null) continue
     const candidate = block as { readonly type?: unknown; readonly attachment?: unknown }
-    if ((candidate.type === 'image' || candidate.type === 'file')
-      && typeof candidate.attachment === 'object' && candidate.attachment !== null) {
+    if (
+      (candidate.type === 'image' || candidate.type === 'file') &&
+      typeof candidate.attachment === 'object' &&
+      candidate.attachment !== null
+    ) {
       refs.push(candidate.attachment as ImageAttachmentRef | FileAttachmentRef)
     }
   }

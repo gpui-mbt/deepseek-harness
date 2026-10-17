@@ -38,34 +38,59 @@ async function seed(ctx: Context): Promise<void> {
   for (let child = 0; child < WORKLOAD.children; child++) {
     const id = SessionId('bench-child-' + String(child))
     catalog.push({
-      type: 'subagent/catalog', seq: SessionSeq(child), time: TIME_ZERO + child,
-      data: { version: 0, childId: id, childCreatedAt: TIME_ZERO + child,
-        mode: 'continuable', label: 'Synthetic child ' + String(child) },
+      type: 'subagent/catalog',
+      seq: SessionSeq(child),
+      time: TIME_ZERO + child,
+      data: { version: 0, childId: id, childCreatedAt: TIME_ZERO + child, mode: 'continuable', label: 'Synthetic child ' + String(child) },
     })
     const events: SessionEvent[] = [
       ...inherited,
       { type: 'session/end-seed', seq: SessionSeq(inherited.length), time: TIME_ZERO + inherited.length, data: { inherited: true } },
-      { type: 'subagent/descriptor', seq: SessionSeq(inherited.length + 1), time: TIME_ZERO + inherited.length + 1, data: {
-        version: SUBAGENT_DESCRIPTOR_VERSION, mode: 'continuable', provider: 'fork', label: 'Synthetic child ' + String(child),
-      } },
+      {
+        type: 'subagent/descriptor',
+        seq: SessionSeq(inherited.length + 1),
+        time: TIME_ZERO + inherited.length + 1,
+        data: {
+          version: SUBAGENT_DESCRIPTOR_VERSION,
+          mode: 'continuable',
+          provider: 'fork',
+          label: 'Synthetic child ' + String(child),
+        },
+      },
     ]
-    const handle = await ctx.sessionPersistence.create({
-      version: SESSION_FORMAT_VERSION, id, createdAt: TIME_ZERO + child, cwd: '/bench',
-      parentSession: PARENT_ID, isSeeded: true, origin: 'subagent', delegationDepth: 1,
-    }, { inheritedEventCount: SessionLogOffset(inherited.length) })
+    const handle = await ctx.sessionPersistence.create(
+      {
+        version: SESSION_FORMAT_VERSION,
+        id,
+        createdAt: TIME_ZERO + child,
+        cwd: '/bench',
+        parentSession: PARENT_ID,
+        isSeeded: true,
+        origin: 'subagent',
+        delegationDepth: 1,
+      },
+      { inheritedEventCount: SessionLogOffset(inherited.length) },
+    )
     try {
       await handle.append(events)
       await handle.flush()
-    } finally { await handle.close() }
+    } finally {
+      await handle.close()
+    }
   }
   const parent = await ctx.sessionPersistence.create({
-    version: SESSION_FORMAT_VERSION, id: PARENT_ID, createdAt: TIME_ZERO, cwd: '/bench',
+    version: SESSION_FORMAT_VERSION,
+    id: PARENT_ID,
+    createdAt: TIME_ZERO,
+    cwd: '/bench',
     isSeeded: false,
   })
   try {
     await parent.append(catalog)
     await parent.flush()
-  } finally { await parent.close() }
+  } finally {
+    await parent.close()
+  }
 }
 
 async function run(root: string, mode: string): Promise<CatalogReport | { seeded: true }> {
@@ -93,17 +118,28 @@ async function run(root: string, mode: string): Promise<CatalogReport | { seeded
       throw new Error('child-catalog benchmark did not reach the complete healthy catalog')
     }
     return {
-      totalMs: end - start, firstMs: firstDone - start, repeatMs: end - firstDone,
-      cpuUserMs: cpu.user / 1_000, cpuSystemMs: cpu.system / 1_000,
-      children: first.length, peakRssMb: process.resourceUsage().maxRSS / 1_024,
+      totalMs: end - start,
+      firstMs: firstDone - start,
+      repeatMs: end - firstDone,
+      cpuUserMs: cpu.user / 1_000,
+      cpuSystemMs: cpu.system / 1_000,
+      children: first.length,
+      peakRssMb: process.resourceUsage().maxRSS / 1_024,
     }
-  } finally { await ctx.fiber.dispose() }
+  } finally {
+    await ctx.fiber.dispose()
+  }
 }
 
-assertBuiltBenchmarkRuntime(import.meta.url, Object.fromEntries([
-  '@deepseek-ai/dsh-subagent', '@deepseek-ai/dsh-session-query',
-  '@deepseek-ai/dsh-session-persistence-jsonl',
-].map(name => [name, import.meta.resolve(name)])))
+assertBuiltBenchmarkRuntime(
+  import.meta.url,
+  Object.fromEntries(
+    ['@deepseek-ai/dsh-subagent', '@deepseek-ai/dsh-session-query', '@deepseek-ai/dsh-session-persistence-jsonl'].map(name => [
+      name,
+      import.meta.resolve(name),
+    ]),
+  ),
+)
 const [root, mode] = process.argv.slice(2)
 if (root === undefined || (mode !== 'seed' && mode !== 'catalog')) {
   throw new Error('usage: child-catalog.worker.js <root> <seed|catalog>')

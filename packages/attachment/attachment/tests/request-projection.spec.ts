@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { longEdgeDimensions, requestImageDimensions } from '../src/index.ts'
 
 describe('request image dimensions', () => {

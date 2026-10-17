@@ -17,8 +17,9 @@ export interface AccountPlatformHostInjected {
 }
 
 /** Composed props of the shared Platform host. */
-export type AccountPlatformHostProps =
-  PropsRuntime<'shell.overlay'> & PropsLocale<'settings.account'> & InjectFace<AccountPlatformHostInjected>
+export type AccountPlatformHostProps = PropsRuntime<'shell.overlay'> &
+  PropsLocale<'settings.account'> &
+  InjectFace<AccountPlatformHostInjected>
 
 /**
  * @param props - the native commands, the live page request, and its dismissal.
@@ -27,7 +28,15 @@ export type AccountPlatformHostProps =
 export function AccountPlatformHost({ platform, usePage, closePage, t }: AccountPlatformHostProps) {
   const claim = usePage(current => current)
   if (claim === null) return null
-  return <PlatformOverlay bridge={platform} page={claim.page} backLabel={t('backToHarness')}
-    loadingLabel={t('loading')} failureLabel={t('platformFailed')} retryLabel={t('platformRetry')}
-    onClose={closePage} />
+  return (
+    <PlatformOverlay
+      bridge={platform}
+      page={claim.page}
+      backLabel={t('backToHarness')}
+      loadingLabel={t('loading')}
+      failureLabel={t('platformFailed')}
+      retryLabel={t('platformRetry')}
+      onClose={closePage}
+    />
+  )
 }

@@ -39,7 +39,10 @@ function refuse(model: string, refusal: CatalogRefusal | undefined): void {
         'CLIENT_UPGRADE_REQUIRED',
       )
     case 'unsupported':
-      throw new LlmError(`DeepSeek model "${model}" is not supported by DeepSeek Harness; current version is ${APP_IDENTITY.version}`, 'MODEL_UNSUPPORTED')
+      throw new LlmError(
+        `DeepSeek model "${model}" is not supported by DeepSeek Harness; current version is ${APP_IDENTITY.version}`,
+        'MODEL_UNSUPPORTED',
+      )
     /* v8 ignore next 2 -- catalog resolution produces only the closed refusal union */
     default:
       assertNever(refusal, 'account catalog refusal')
@@ -54,18 +57,25 @@ export function apply(ctx: Context, config: Config): void {
   const account = () => ctx.get('deepseekAccount')
   const resolveAuth = async (connection: ResolvedDeepSeekOptions): Promise<DeepSeekRequestAuth> => {
     const token = await account()?.resolveToken(connection.baseURL)
-    if (token === undefined) throw new LlmError('Sign in to DeepSeek to use the account provider. The request destination must allow account authentication.', 'ACCOUNT_SIGN_IN_REQUIRED')
+    if (token === undefined)
+      throw new LlmError(
+        'Sign in to DeepSeek to use the account provider. The request destination must allow account authentication.',
+        'ACCOUNT_SIGN_IN_REQUIRED',
+      )
     return {
       headers: { [TOKEN_HEADER]: token },
-      onRequestError: async (error) => {
+      onRequestError: async error => {
         if (!(error instanceof LlmError)) return error
         if (error.code === QUOTA_EXCEEDED_CODE) {
           return new LlmError(error.message, ACCOUNT_QUOTA_EXCEEDED_CODE, { ...error.failure, cause: error })
         }
         if (error.failure.status !== 401) return error
         const rejected = new LlmError(error.message, 'ACCOUNT_TOKEN_INVALID', { ...error.failure, cause: error })
-        try { await account()?.rejectToken(token) }
-        catch (_credentialRemovalFailed) { /* Storage failure cannot replace the inference failure. */ }
+        try {
+          await account()?.rejectToken(token)
+        } catch (_credentialRemovalFailed) {
+          /* Storage failure cannot replace the inference failure. */
+        }
         return rejected
       },
     }
@@ -75,8 +85,12 @@ export function apply(ctx: Context, config: Config): void {
     token: async url => account()?.resolveToken(url),
     load: (url, token, signal) => requestModelListing(url, { [TOKEN_HEADER]: token }, signal),
     now: () => Date.now(),
-    info: (message) => { console.info(LOG_TAG, message) },
-    warn: (message) => { console.warn(LOG_TAG, message) },
+    info: message => {
+      console.info(LOG_TAG, message)
+    },
+    warn: message => {
+      console.warn(LOG_TAG, message)
+    },
   })
   let loggedListing: ModelListing | undefined
   /** Resolve the catalog for one view, logging the listing's hidden entries once per listing. */
@@ -113,11 +127,18 @@ export function apply(ctx: Context, config: Config): void {
     options: () => connectionOf(catalog.current()),
     connect: async signal => connectionOf(await catalog.view(signal)),
     resolveAuth,
-    admit: (connection, model) => { refuse(model, connection.catalog.refusals.get(model)) },
-    discoverModels: async (provider) => {
+    admit: (connection, model) => {
+      refuse(model, connection.catalog.refusals.get(model))
+    },
+    discoverModels: async provider => {
       const view = await catalog.view()
       return view.signedIn ? discovered(view).catalog.offered.map(model => catalogModelInfo(provider, model)) : []
     },
   })
-  ctx.effect(() => () => { catalog.dispose() }, 'llm-deepseek-account: model catalog')
+  ctx.effect(
+    () => () => {
+      catalog.dispose()
+    },
+    'llm-deepseek-account: model catalog',
+  )
 }

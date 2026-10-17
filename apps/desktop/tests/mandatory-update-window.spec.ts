@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { BrowserWindow, WebContents, WebFrameMain } from 'electron'
 import { DesktopMandatoryUpdateWindow, type MandatoryUpdateView } from '../src/mandatory-update-window.ts'
 import { MANDATORY_IPC } from '../src/mandatory-update-ipc.ts'
@@ -7,28 +7,60 @@ import { resolveDesktopLocale } from '../src/locale.ts'
 import type { DesktopPolicyState } from '../src/mandatory-update-policy.ts'
 import type { DesktopUpdateState } from '../src/ipc.ts'
 
-const native = vi.hoisted(() => ({ handlers: new Map<string, (...args: unknown[]) => unknown>(),
-  open: vi.fn<(...args: unknown[]) => Promise<void>>(), write: vi.fn(), read: vi.fn(), quit: vi.fn() }))
-vi.mock('electron', () => ({ ipcMain: {
-  handle: (channel: string, handler: (...args: unknown[]) => unknown) => native.handlers.set(channel, handler),
-  removeHandler: (channel: string) => native.handlers.delete(channel),
-}, app: { quit: native.quit }, shell: { openExternal: native.open }, clipboard: { writeText: native.write, readText: native.read } }))
+const native = vi.hoisted(() => ({
+  handlers: new Map<string, (...args: unknown[]) => unknown>(),
+  open: vi.fn<(...args: unknown[]) => Promise<void>>(),
+  write: vi.fn(),
+  read: vi.fn(),
+  quit: vi.fn(),
+}))
+vi.mock('electron', () => ({
+  ipcMain: {
+    handle: (channel: string, handler: (...args: unknown[]) => unknown) => native.handlers.set(channel, handler),
+    removeHandler: (channel: string) => native.handlers.delete(channel),
+  },
+  app: { quit: native.quit },
+  shell: { openExternal: native.open },
+  clipboard: { writeText: native.write, readText: native.read },
+}))
 
-type WindowFixture = EventEmitter & Pick<BrowserWindow, 'setMenu' | 'setTitle' | 'loadURL' | 'destroy' | 'isDestroyed'
-  | 'isFocused' | 'isMinimized' | 'focus' | 'show' | 'restore'> & {
+type WindowFixture = EventEmitter &
+  Pick<
+    BrowserWindow,
+    'setMenu' | 'setTitle' | 'loadURL' | 'destroy' | 'isDestroyed' | 'isFocused' | 'isMinimized' | 'focus' | 'show' | 'restore'
+  > & {
     webContents: EventEmitter & Pick<WebContents, 'send' | 'setWindowOpenHandler'> & { mainFrame: Pick<WebFrameMain, 'url'> }
   }
 
 let window: ReturnType<typeof fakeWindow>
 let ui: DesktopMandatoryUpdateWindow | undefined
 function fakeWindow() {
-  const contents = Object.assign(new EventEmitter(), { mainFrame: { url: 'dsh-app://shell/mandatory-update.html' },
-    send: vi.fn(), setWindowOpenHandler: vi.fn() })
-  return Object.assign(new EventEmitter(), { webContents: contents, setMenu: vi.fn(), setTitle: vi.fn(),
-    loadURL: vi.fn(async () => {}), destroy: vi.fn(), isDestroyed: (): boolean => false,
-    isFocused: () => true, isMinimized: () => false, focus: vi.fn(), show: vi.fn(), restore: vi.fn() })
+  const contents = Object.assign(new EventEmitter(), {
+    mainFrame: { url: 'dsh-app://shell/mandatory-update.html' },
+    send: vi.fn(),
+    setWindowOpenHandler: vi.fn(),
+  })
+  return Object.assign(new EventEmitter(), {
+    webContents: contents,
+    setMenu: vi.fn(),
+    setTitle: vi.fn(),
+    loadURL: vi.fn(async () => {}),
+    destroy: vi.fn(),
+    isDestroyed: (): boolean => false,
+    isFocused: () => true,
+    isMinimized: () => false,
+    focus: vi.fn(),
+    show: vi.fn(),
+    restore: vi.fn(),
+  })
 }
-afterEach(() => { ui?.dispose(); vi.restoreAllMocks(); vi.clearAllMocks(); native.handlers.clear(); vi.useRealTimers() })
+afterEach(() => {
+  ui?.dispose()
+  vi.restoreAllMocks()
+  vi.clearAllMocks()
+  native.handlers.clear()
+  vi.useRealTimers()
+})
 function setup(platform: NodeJS.Platform = 'darwin') {
   vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
   window = fakeWindow()
@@ -38,26 +70,57 @@ function setup(platform: NodeJS.Platform = 'darwin') {
   const install = vi.fn(async () => update)
   const createOverlay = (): WindowFixture => window
   const parent = createOverlay as () => BrowserWindow
-  ui = new DesktopMandatoryUpdateWindow({ overlays: { create: parent }, preload: 'owned', locale: resolveDesktopLocale('zh'),
-    allowedPageOrigins: ['https://downloads.example.com'], parent,
-    policy: () => policy, update: () => update, refresh: async () => {}, download: async () => update, install })
+  ui = new DesktopMandatoryUpdateWindow({
+    overlays: { create: parent },
+    preload: 'owned',
+    locale: resolveDesktopLocale('zh'),
+    allowedPageOrigins: ['https://downloads.example.com'],
+    parent,
+    policy: () => policy,
+    update: () => update,
+    refresh: async () => {},
+    download: async () => update,
+    install,
+  })
   ui.sync()
   const event = { sender: window.webContents, senderFrame: window.webContents.mainFrame }
   const view = () => native.handlers.get(MANDATORY_IPC.status)!(event) as MandatoryUpdateView
   const action = (name: string, version: string = '1.0.1-nightly.1', revision = view().confirmation?.revision) =>
     native.handlers.get(MANDATORY_IPC.action)!(event, name, version, revision)
-  return { view, action, install, policy(next: DesktopPolicyState) { policy = next; ui!.sync() },
-    update(next: DesktopUpdateState) { update = next; ui!.sync() } }
+  return {
+    view,
+    action,
+    install,
+    policy(next: DesktopPolicyState) {
+      policy = next
+      ui!.sync()
+    },
+    update(next: DesktopUpdateState) {
+      update = next
+      ui!.sync()
+    },
+  }
 }
 
 it('releases IPC after the Windows main window has already been destroyed', () => {
   setup('win32')
   vi.spyOn(window, 'isDestroyed').mockReturnValue(true)
-  Object.defineProperty(window, 'webContents', { get() { throw new Error('Object has been destroyed') } })
-  expect(() => { ui!.sync(); ui!.focus() }).not.toThrow()
-  expect(() => { ui!.dispose() }).not.toThrow()
+  Object.defineProperty(window, 'webContents', {
+    get() {
+      throw new Error('Object has been destroyed')
+    },
+  })
+  expect(() => {
+    ui!.sync()
+    ui!.focus()
+  }).not.toThrow()
+  expect(() => {
+    ui!.dispose()
+  }).not.toThrow()
   expect(native.handlers.size).toBe(0)
-  expect(() => { ui!.dispose() }).not.toThrow()
+  expect(() => {
+    ui!.dispose()
+  }).not.toThrow()
 })
 
 it('waits for a version-bound second click in the same modal and rejects obsolete or hidden responses', async () => {
@@ -153,8 +216,7 @@ it('fades on clearance, reuses a reblocked window, and cancels teardown on dispo
   vi.useFakeTimers()
   const f = setup()
   f.policy({ blocking: false, checking: false })
-  expect(window.webContents.send).toHaveBeenLastCalledWith(MANDATORY_IPC.state,
-    f.view())
+  expect(window.webContents.send).toHaveBeenLastCalledWith(MANDATORY_IPC.state, f.view())
   vi.advanceTimersByTime(100)
   expect(window.destroy).not.toHaveBeenCalled()
   f.policy({ blocking: true, checking: false })
@@ -198,17 +260,25 @@ it('rebinds policy updates and reloads to a replacement Windows main window', ()
   window.webContents.send.mockClear()
   window.webContents.emit('did-finish-load')
   expect(window.webContents.send).toHaveBeenCalledOnce()
-  expect(() => native.handlers.get(MANDATORY_IPC.status)!({
-    sender: previous.webContents, senderFrame: previous.webContents.mainFrame,
-  })).toThrow(/unowned/)
-  expect(() => native.handlers.get(MANDATORY_IPC.status)!({
-    sender: window.webContents, senderFrame: window.webContents.mainFrame,
-  })).not.toThrow()
+  expect(() =>
+    native.handlers.get(MANDATORY_IPC.status)!({
+      sender: previous.webContents,
+      senderFrame: previous.webContents.mainFrame,
+    }),
+  ).toThrow(/unowned/)
+  expect(() =>
+    native.handlers.get(MANDATORY_IPC.status)!({
+      sender: window.webContents,
+      senderFrame: window.webContents.mainFrame,
+    }),
+  ).not.toThrow()
 })
 
-it.each(['darwin', 'win32'] as const)('includes the installation wait notice only on Windows: %s', (platform) => {
+it.each(['darwin', 'win32'] as const)('includes the installation wait notice only on Windows: %s', platform => {
   const f = setup(platform)
-  expect(f.view().locale.messages.mandatoryReadyDetail).toBe(platform === 'win32'
-    ? '更新期间应用将暂时关闭，完成后会自动打开。\n\n更新可能需要一些时间，请耐心等待，期间请勿重复启动应用。'
-    : '更新期间应用将暂时关闭，完成后会自动打开。')
+  expect(f.view().locale.messages.mandatoryReadyDetail).toBe(
+    platform === 'win32'
+      ? '更新期间应用将暂时关闭，完成后会自动打开。\n\n更新可能需要一些时间，请耐心等待，期间请勿重复启动应用。'
+      : '更新期间应用将暂时关闭，完成后会自动打开。',
+  )
 })

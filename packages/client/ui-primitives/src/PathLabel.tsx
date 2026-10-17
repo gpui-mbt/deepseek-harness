@@ -11,7 +11,11 @@ import css from './PathLabel.module.css'
  * @param props - File path and attributes for its outer span; callers own toolbar spacing.
  * @returns the path label.
  */
-export function PathLabel({ path, className, ...attributes }: {
+export function PathLabel({
+  path,
+  className,
+  ...attributes
+}: {
   path: string
 } & Omit<HTMLAttributes<HTMLSpanElement>, 'children' | 'title'>) {
   const boxRef = useRef<HTMLSpanElement>(null)
@@ -28,7 +32,9 @@ export function PathLabel({ path, className, ...attributes }: {
     const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(apply)
     observer?.observe(outer)
     observer?.observe(inner)
-    return () => { observer?.disconnect() }
+    return () => {
+      observer?.disconnect()
+    }
   }, [path])
   return (
     <span {...attributes} ref={boxRef} className={clsx(css.path, className)} title={path} data-path-label>

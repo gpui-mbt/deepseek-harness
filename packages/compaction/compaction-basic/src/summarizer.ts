@@ -7,9 +7,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { contentHasImage, BlockAssembler, LlmError } from '@deepseek-ai/dsh-llm'
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'
-import type {
-  ContentBlock, FinishReason, GenerateOptions, Message, RequestMessage, TokenUsage, ToolSchema,
-} from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, FinishReason, GenerateOptions, Message, RequestMessage, TokenUsage, ToolSchema } from '@deepseek-ai/dsh-llm'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 
 interface SummaryConfig {
@@ -93,17 +91,17 @@ export type SummaryResult = {
   usage?: TokenUsage
 } & (
   | {
-    /** Complete provider output before the text-only summary projection. */
-    rawOutput: ContentBlock[]
-    /** Identifies exactly one call through this context's `ctx.llm.stream()`. */
-    llmStreamCall: true
-  }
+      /** Complete provider output before the text-only summary projection. */
+      rawOutput: ContentBlock[]
+      /** Identifies exactly one call through this context's `ctx.llm.stream()`. */
+      llmStreamCall: true
+    }
   | {
-    /** Optional complete output from an unmarked template, remote, or other summarizer. */
-    rawOutput?: ContentBlock[]
-    /** An unmarked result does not identify a call through this context's LLM seam. */
-    llmStreamCall?: never
-  }
+      /** Optional complete output from an unmarked template, remote, or other summarizer. */
+      rawOutput?: ContentBlock[]
+      /** An unmarked result does not identify a call through this context's LLM seam. */
+      llmStreamCall?: never
+    }
 )
 
 /**
@@ -125,15 +123,15 @@ export async function summarizeWithLlm(
   signal?: AbortSignal,
 ): Promise<SummaryResult> {
   const latest = agent.session.requestHeader()?.config
-  const configured = config.summarizationProvider.length === 0
-    ? undefined
-    : { provider: config.summarizationProvider, model: config.summarizationModel }
-  const agentTarget = agent.options.provider !== undefined
-    && agent.options.provider.length > 0
-    && agent.options.model !== undefined
-    && agent.options.model.length > 0
-    ? { provider: agent.options.provider, model: agent.options.model }
-    : undefined
+  const configured =
+    config.summarizationProvider.length === 0 ? undefined : { provider: config.summarizationProvider, model: config.summarizationModel }
+  const agentTarget =
+    agent.options.provider !== undefined &&
+    agent.options.provider.length > 0 &&
+    agent.options.model !== undefined &&
+    agent.options.model.length > 0
+      ? { provider: agent.options.provider, model: agent.options.model }
+      : undefined
   const target = configured ?? latest ?? agentTarget
   if (target === undefined) {
     throw new Error(
@@ -154,11 +152,11 @@ export async function summarizeWithLlm(
     model: target.model,
     messages,
     toolHistory: agent.session.toolHistory(),
-    ...input.tools === undefined ? {} : { tools: [...input.tools] },
+    ...(input.tools === undefined ? {} : { tools: [...input.tools] }),
     maxTokens: config.maxTokens,
     sessionId: agent.session.id,
     purpose: 'compaction',
-    ...signal === undefined ? {} : { signal },
+    ...(signal === undefined ? {} : { signal }),
   }
   for await (const chunk of ctx.llm.stream(options)) assembler.push(chunk)
   const error = finishError(assembler.finish)
@@ -186,11 +184,7 @@ export async function summarizeWithLlm(
  * @returns content for the synthesized replacement user message.
  */
 export function frameSummary(summary: readonly ContentBlock[]): ContentBlock[] {
-  return [
-    { type: 'text', text: `${CHECKPOINT_PREAMBLE}\n\n${SUMMARY_OPEN_TAG}` },
-    ...summary,
-    { type: 'text', text: SUMMARY_CLOSE_TAG },
-  ]
+  return [{ type: 'text', text: `${CHECKPOINT_PREAMBLE}\n\n${SUMMARY_OPEN_TAG}` }, ...summary, { type: 'text', text: SUMMARY_CLOSE_TAG }]
 }
 
 /** Map a terminal summarization finish to its fail-closed error. */
@@ -211,9 +205,7 @@ function finishError(finish: FinishReason): Error | undefined {
 }
 
 /** Reject visual output and keep only text before synthesizing a user message. */
-function summaryText(
-  blocks: readonly ContentBlock[],
-): Array<Extract<ContentBlock, { type: 'text' }>> {
+function summaryText(blocks: readonly ContentBlock[]): Array<Extract<ContentBlock, { type: 'text' }>> {
   if (contentHasImage(blocks)) {
     throw new LlmError('compaction summary cannot contain image output', 'UNSUPPORTED_CONTENT')
   }

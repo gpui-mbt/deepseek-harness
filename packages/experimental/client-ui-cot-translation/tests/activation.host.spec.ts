@@ -14,13 +14,17 @@ import * as JsonlPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionQuery from '@deepseek-ai/dsh-session-query'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import CotTranslationController from '../src/index.ts'
 
 /** Real stored-session reads; this fixture does not provide full-text search. */
 class ReadOnlySessionQuery extends SessionQuery {
-  searchSessions(): never { throw new Error('Unexpected full-text Session search') }
-  searchEvents(): never { throw new Error('Unexpected full-text event search') }
+  searchSessions(): never {
+    throw new Error('Unexpected full-text Session search')
+  }
+  searchEvents(): never {
+    throw new Error('Unexpected full-text event search')
+  }
 }
 
 const cleanups: Array<() => Promise<void>> = []
@@ -31,11 +35,15 @@ afterEach(async () => {
 
 async function fixture(origin?: 'subagent') {
   const root = await mkdtemp(join(tmpdir(), 'dsh-cot-activation-'))
-  cleanups.push(async () => { await rm(root, { recursive: true, force: true }) })
+  cleanups.push(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
   const requests: string[] = []
   const server = createServer((request, response) => {
     const chunks: Buffer[] = []
-    request.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+    request.on('data', (chunk: Buffer) => {
+      chunks.push(chunk)
+    })
     request.on('end', () => {
       requests.push(Buffer.concat(chunks).toString('utf8'))
       response.writeHead(200, { 'content-type': 'application/json' })
@@ -43,10 +51,12 @@ async function fixture(origin?: 'subagent') {
     })
   })
   cleanups.push(async () => {
-    const closed = new Promise<void>((resolve, reject) => server.close((error) => {
-      if (error === undefined) resolve()
-      else reject(error)
-    }))
+    const closed = new Promise<void>((resolve, reject) =>
+      server.close(error => {
+        if (error === undefined) resolve()
+        else reject(error)
+      }),
+    )
     server.closeAllConnections()
     await closed
   })
@@ -56,7 +66,9 @@ async function fixture(origin?: 'subagent') {
   if (address === null || typeof address === 'string') throw new Error('Expected allocated loopback listener')
 
   const ctx = new Context()
-  cleanups.push(async () => { await ctx.fiber.dispose() })
+  cleanups.push(async () => {
+    await ctx.fiber.dispose()
+  })
   await mountAgentLoopTestDependencies(ctx, { workingDirectory: true })
   await ctx.plugin(JsonlPersistence, { root: join(root, 'sessions'), compression: 'none' })
   await ctx.plugin(TypertRegistry)
@@ -79,9 +91,13 @@ async function fixture(origin?: 'subagent') {
     { type: 'turn/end' as const, seq: SessionSeq(1), time: 2, data: { turn: 1, reason: { kind: 'completed' as const } } },
   ]
   await using writer = await ctx.sessionPersistence.create({
-    version: SESSION_FORMAT_VERSION, id, createdAt: 1, cwd: root, isSeeded: false,
+    version: SESSION_FORMAT_VERSION,
+    id,
+    createdAt: 1,
+    cwd: root,
+    isSeeded: false,
     delegationDepth: origin === undefined ? 0 : 1,
-    ...origin === undefined ? {} : { origin, parentSession: SessionId('parent-conversation') },
+    ...(origin === undefined ? {} : { origin, parentSession: SessionId('parent-conversation') }),
   })
   await writer.append(original)
   await writer.flush()
@@ -90,15 +106,23 @@ async function fixture(origin?: 'subagent') {
 
 it('shares normal GUI activation and leaves the resumed Agent owned by the GUI after translation is disabled', async () => {
   const b = await fixture()
-  const entered = Promise.withResolvers<undefined>(), release = Promise.withResolvers<undefined>()
-  cleanups.push(async () => { release.resolve(undefined) })
+  const entered = Promise.withResolvers<undefined>(),
+    release = Promise.withResolvers<undefined>()
+  cleanups.push(async () => {
+    release.resolve(undefined)
+  })
   const open = b.ctx.sessionPersistence.open.bind(b.ctx.sessionPersistence)
   const writerOpen = vi.spyOn(b.ctx.sessionPersistence, 'open').mockImplementation(async (id, access, options) => {
-    if (access === 'write') { entered.resolve(undefined); await release.promise }
+    if (access === 'write') {
+      entered.resolve(undefined)
+      await release.promise
+    }
     return open(id, access, options)
   })
   const startups: Array<{ id: SessionId; source: string }> = []
-  b.ctx.on('agent/created', ({ agent, source }) => { startups.push({ id: agent.id, source }) })
+  b.ctx.on('agent/created', ({ agent, source }) => {
+    startups.push({ id: agent.id, source })
+  })
   const stream = vi.spyOn(b.ctx.llm, 'stream')
   const request = { text: 'Original reasoning', targetLanguage: 'zh', sessionId: b.id }
   const translation = b.ctx.cotTranslation.translate(request, new AbortController().signal)
@@ -108,7 +132,10 @@ it('shares normal GUI activation and leaves the resumed Agent owned by the GUI a
 
   const followAbort = new AbortController()
   const follow = b.sessions.follow({ address: { kind: 'session', sessionId: b.id } }, followAbort.signal)[Symbol.asyncIterator]()
-  cleanups.push(async () => { followAbort.abort(); await follow.return?.() })
+  cleanups.push(async () => {
+    followAbort.abort()
+    await follow.return?.()
+  })
   await expect(follow.next()).resolves.toMatchObject({ value: { type: 'snapshot' } })
   const following = follow.next()
   const resumed = b.sessions.resolveAgent(b.id)
@@ -133,8 +160,10 @@ it('shares normal GUI activation and leaves the resumed Agent owned by the GUI a
   const events = (await saved.read()).events
   expect(events.slice(0, b.original.length)).toEqual(b.original)
   expect(events.filter(event => event.type === 'turn/start')).toHaveLength(1)
-  expect(events.filter(event => event.type.startsWith('plugin:translator/')).map(event => event.type))
-    .toEqual(['plugin:translator/request', 'plugin:translator/result'])
+  expect(events.filter(event => event.type.startsWith('plugin:translator/')).map(event => event.type)).toEqual([
+    'plugin:translator/request',
+    'plugin:translator/result',
+  ])
 })
 
 it('keeps an uncached inactive subagent unchanged when ordinary Session activation refuses ownership', async () => {
@@ -142,9 +171,16 @@ it('keeps an uncached inactive subagent unchanged when ordinary Session activati
   const open = vi.spyOn(b.ctx.sessionPersistence, 'open')
   const resume = vi.spyOn(b.ctx.agents, 'resume')
   const stream = vi.spyOn(b.ctx.llm, 'stream')
-  const failure = await b.ctx.cotTranslation.translate({
-    text: 'Original child reasoning', targetLanguage: 'zh', sessionId: b.id,
-  }, new AbortController().signal).catch((error: unknown) => error)
+  const failure = await b.ctx.cotTranslation
+    .translate(
+      {
+        text: 'Original child reasoning',
+        targetLanguage: 'zh',
+        sessionId: b.id,
+      },
+      new AbortController().signal,
+    )
+    .catch((error: unknown) => error)
 
   expect(failure).toBeInstanceOf(RemoteError)
   expect(failure).toMatchObject({ code: 'cotTranslation/failed', message: 'Translation failed', details: {} })

@@ -1,6 +1,6 @@
 /** Inspector ranks precise and nearby reveal candidates from the loaded Chat model. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { ConversationLocationIndex } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { ChatConversationViewNode } from '@deepseek-ai/dsh-client-ui-chat/client'
@@ -16,18 +16,29 @@ function node(key: string, anchorSeq: number, kind = 'user', turnNumber = 1, ste
 }
 
 it('finds an earlier user message by sequence independently of node order', () => {
-  expect(resolveChatRevealTargets({ anchorSeq: 10 }, [node('later', 30), node('earlier', 10)])[0])
-    .toEqual({ anchorSeq: 10, nodeKey: 'earlier', turn: 1 })
+  expect(resolveChatRevealTargets({ anchorSeq: 10 }, [node('later', 30), node('earlier', 10)])[0]).toEqual({
+    anchorSeq: 10,
+    nodeKey: 'earlier',
+    turn: 1,
+  })
 })
 
 it('prefers tool identity and the owning Assistant over unrelated nearby nodes', () => {
   const tool = { ...node('tool', 3, 'tool-call'), data: { root: { callId: 'root-call' } } }
-  expect(resolveChatRevealTargets({ anchorSeq: 10, callId: 'child-call', rootCallId: 'root-call', turn: 1, step: 1 }, [tool, node('later', 10)])[0])
-    .toMatchObject({ nodeKey: 'tool', callId: 'child-call' })
+  expect(
+    resolveChatRevealTargets({ anchorSeq: 10, callId: 'child-call', rootCallId: 'root-call', turn: 1, step: 1 }, [
+      tool,
+      node('later', 10),
+    ])[0],
+  ).toMatchObject({ nodeKey: 'tool', callId: 'child-call' })
   const assistant = node('assistant', 20, 'assistant-step')
-  expect(resolveChatRevealTargets({ anchorSeq: 15, nodeKind: 'assistant-step', turn: 1, step: 1, groupPart: 'reasoning' },
-    [{ ...assistant, key: 'hidden', visibility: 'hidden' }, node('nearby', 16), assistant])[0])
-    .toMatchObject({ nodeKey: 'assistant', groupPart: 'reasoning' })
+  expect(
+    resolveChatRevealTargets({ anchorSeq: 15, nodeKind: 'assistant-step', turn: 1, step: 1, groupPart: 'reasoning' }, [
+      { ...assistant, key: 'hidden', visibility: 'hidden' },
+      node('nearby', 16),
+      assistant,
+    ])[0],
+  ).toMatchObject({ nodeKey: 'assistant', groupPart: 'reasoning' })
 })
 
 it('approximates within the requested Turn and preserves explicit object identities', () => {
@@ -41,16 +52,16 @@ it('approximates within the requested Turn and preserves explicit object identit
 })
 
 it('selects the nearest session-level node while retaining the first of equal-distance candidates', () => {
-  const nodes = [node('farther', 1), node('nearest', 8), node('tied', 12)]
-    .map(value => ({ ...value, location: { kind: 'session' as const } }))
+  const nodes = [node('farther', 1), node('nearest', 8), node('tied', 12)].map(value => ({
+    ...value,
+    location: { kind: 'session' as const },
+  }))
   expect(resolveChatRevealTargets({ anchorSeq: 10 }, nodes)[0]).toEqual({ anchorSeq: 10, nodeKey: 'nearest' })
 })
 
 it('fills an explicit session-level node anchor without adding Turn or Step coordinates', () => {
   const explicit = { ...node('session', 12), location: { kind: 'session' as const } }
-  expect(resolveChatRevealTargets({ nodeKey: 'session' }, [explicit])).toStrictEqual([
-    { nodeKey: 'session', anchorSeq: 12 },
-  ])
+  expect(resolveChatRevealTargets({ nodeKey: 'session' }, [explicit])).toStrictEqual([{ nodeKey: 'session', anchorSeq: 12 }])
 })
 
 it('ranks visible neighbors of a hidden explicit node by Step, Turn, then Session with stable distance ties', () => {
@@ -92,17 +103,23 @@ it('uses requested coordinates before the explicit node coordinates without reor
   ])
   const candidates = resolveChatRevealTargets(target, nodes)
   expect(candidates[0]).toEqual(target)
-  expect(candidates.map(candidate => candidate.nodeKey))
-    .toEqual(['hidden', 'requested-near', 'requested-far', 'requested-turn', 'inferred-step'])
-  expect(nodes.map(value => value.key))
-    .toEqual(['inferred-step', 'requested-far', 'requested-turn', 'requested-near', 'hidden'])
+  expect(candidates.map(candidate => candidate.nodeKey)).toEqual([
+    'hidden',
+    'requested-near',
+    'requested-far',
+    'requested-turn',
+    'inferred-step',
+  ])
+  expect(nodes.map(value => value.key)).toEqual(['inferred-step', 'requested-far', 'requested-turn', 'requested-near', 'hidden'])
 })
 
 it('keeps a root tool primary ahead of exact, kind, and nearer fallback nodes', () => {
   const target = { anchorSeq: 100, turn: 2, step: 3, callId: 'child', rootCallId: 'root', nodeKind: 'assistant-step' }
   const tool = { ...node('tool', 300, 'tool-call', 9, 1), data: { root: { callId: 'root' } } }
   const candidates = resolveChatRevealTargets(target, [
-    tool, node('assistant', 120, 'assistant-step', 2, 3), node('exact', 100, 'user', 2, 3),
+    tool,
+    node('assistant', 120, 'assistant-step', 2, 3),
+    node('exact', 100, 'user', 2, 3),
   ])
   expect(candidates).toEqual([
     { ...target, nodeKey: 'tool' },
@@ -114,14 +131,23 @@ it('keeps a root tool primary ahead of exact, kind, and nearer fallback nodes', 
 
 it('keeps an exact primary ahead of an Assistant kind match', () => {
   const target = { anchorSeq: 10, turn: 1, step: 1, nodeKind: 'assistant-step' }
-  expect(resolveChatRevealTargets(target, [node('assistant', 9, 'assistant-step'), node('exact', 10)])[0])
-    .toEqual({ ...target, nodeKey: 'exact' })
+  expect(resolveChatRevealTargets(target, [node('assistant', 9, 'assistant-step'), node('exact', 10)])[0]).toEqual({
+    ...target,
+    nodeKey: 'exact',
+  })
 })
 
 it('retries an explicit node without its tool, group, or part selectors', () => {
   const target = {
-    nodeKey: 'explicit', anchorSeq: 10, turn: 1, step: 1, nodeKind: 'assistant-step',
-    callId: 'child', rootCallId: 'root', groupPart: 'reasoning', groupKey: 'process',
+    nodeKey: 'explicit',
+    anchorSeq: 10,
+    turn: 1,
+    step: 1,
+    nodeKind: 'assistant-step',
+    callId: 'child',
+    rootCallId: 'root',
+    groupPart: 'reasoning',
+    groupKey: 'process',
   }
   const candidates = resolveChatRevealTargets(target, [node('explicit', 10, 'assistant-step')])
   expect(candidates[0]).toEqual(target)
@@ -132,8 +158,10 @@ it('removes identical candidates without depending on property insertion order',
   const target = { step: 1, turn: 1, anchorSeq: 10, nodeKey: 'explicit' }
   const explicit = node('explicit', 10)
   const neighbor = node('neighbor', 11)
-  expect(resolveChatRevealTargets(target, [explicit, neighbor, { ...neighbor }]))
-    .toEqual([target, { nodeKey: 'neighbor', anchorSeq: 11, turn: 1, step: 1 }])
+  expect(resolveChatRevealTargets(target, [explicit, neighbor, { ...neighbor }])).toEqual([
+    target,
+    { nodeKey: 'neighbor', anchorSeq: 11, turn: 1, step: 1 },
+  ])
 })
 
 it('offers other loaded Turns after an unresolved primary', () => {
@@ -147,20 +175,23 @@ it('offers other loaded Turns after an unresolved primary', () => {
   ])
 })
 
-it.each([
-  { groupKey: 'process' },
-  { nodeKey: 'unloaded', callId: 'child' },
-  { turn: 1, step: 1 },
-])('preserves a single target when its event position is unknown: %j', (target) => {
-  const candidates = resolveChatRevealTargets(target, [node('first', 10)])
-  expect(candidates).toEqual([target])
-  expect(candidates[0]).toEqual(target)
-})
+it.each([{ groupKey: 'process' }, { nodeKey: 'unloaded', callId: 'child' }, { turn: 1, step: 1 }])(
+  'preserves a single target when its event position is unknown: %j',
+  target => {
+    const candidates = resolveChatRevealTargets(target, [node('first', 10)])
+    expect(candidates).toEqual([target])
+    expect(candidates[0]).toEqual(target)
+  },
+)
 
 it('retains the hidden explicit node Turn in the primary when only other Turns have visible candidates', () => {
   const target = Object.freeze({
-    nodeKey: 'hidden', nodeKind: 'assistant-step', callId: 'child', rootCallId: 'root',
-    groupKey: 'process', groupPart: 'reasoning',
+    nodeKey: 'hidden',
+    nodeKind: 'assistant-step',
+    callId: 'child',
+    rootCallId: 'root',
+    groupKey: 'process',
+    groupPart: 'reasoning',
   })
   const hidden = { ...node('hidden', 100, 'assistant-step', 2, 3), visibility: 'hidden' as const }
   expect(resolveChatRevealTargets(target, [node('other-turn', 101, 'user', 3, 1), hidden])).toEqual([
@@ -169,16 +200,10 @@ it('retains the hidden explicit node Turn in the primary when only other Turns h
   ])
 })
 
-it.each([
-  { anchorSeq: 200 },
-  { turn: 4 },
-  { step: 5 },
-])('fills only missing primary coordinates from an explicit node: %j', (requested) => {
+it.each([{ anchorSeq: 200 }, { turn: 4 }, { step: 5 }])('fills only missing primary coordinates from an explicit node: %j', requested => {
   const target = { nodeKey: 'hidden', ...requested }
   const hidden = { ...node('hidden', 100, 'assistant-step', 2, 3), visibility: 'hidden' as const }
-  expect(resolveChatRevealTargets(target, [hidden])).toEqual([
-    { nodeKey: 'hidden', anchorSeq: 100, turn: 2, step: 3, ...requested },
-  ])
+  expect(resolveChatRevealTargets(target, [hidden])).toEqual([{ nodeKey: 'hidden', anchorSeq: 100, turn: 2, step: 3, ...requested }])
 })
 
 it('deduplicates an enriched primary against the identical bare-node fallback', () => {

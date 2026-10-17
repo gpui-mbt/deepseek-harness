@@ -1,18 +1,23 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import type {
-  ComposerAttachment, ComposerAttachmentsOwnerProps, ComposerAttachmentsProps,
+  ComposerAttachment,
+  ComposerAttachmentsOwnerProps,
+  ComposerAttachmentsProps,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { ComposerAttachments } from '../src/client/ComposerAttachments.tsx'
 
 beforeEach(() => {
-  vi.stubGlobal('ResizeObserver', class {
-    observe(): void {}
-    unobserve(): void {}
-    disconnect(): void {}
-  })
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  )
 })
 
 afterEach(() => {
@@ -90,10 +95,14 @@ function props(overrides: Partial<ComposerAttachmentsOwnerProps> = {}): Composer
 describe('ComposerAttachments', () => {
   it('accepts file drops anywhere on the document and keeps non-file drags native', () => {
     const onAddFiles = vi.fn()
-    const view = render(<ComposerAttachments {...props({
-      onAddFiles,
-      dropLimits: { count: 20, size: '5MB' },
-    })} />)
+    const view = render(
+      <ComposerAttachments
+        {...props({
+          onAddFiles,
+          dropLimits: { count: 20, size: '5MB' },
+        })}
+      />,
+    )
 
     expect(fireEvent.dragEnter(document.body, { dataTransfer: null })).toBe(true)
     const textTransfer = { types: ['text/plain'], files: [], dropEffect: 'none' }
@@ -120,7 +129,9 @@ describe('ComposerAttachments', () => {
     const folder = new File([], 'project')
     const note = new File([Uint8Array.of(1)], 'notes.md', { type: 'text/markdown' })
     const entry = (isDirectory: boolean | null, file: File) => ({
-      kind: 'file', getAsFile: () => new File([], file.name), webkitGetAsEntry: () => (isDirectory === null ? null : { isDirectory }),
+      kind: 'file',
+      getAsFile: () => new File([], file.name),
+      webkitGetAsEntry: () => (isDirectory === null ? null : { isDirectory }),
     })
     fireEvent.drop(document.body, {
       dataTransfer: {
@@ -203,20 +214,27 @@ describe('ComposerAttachments', () => {
   })
 
   it('keeps images and files in pick order inside one attachment rail', () => {
-    const view = render(<ComposerAttachments {...props({
-      attachments: [attachment('first'), fileDraft('middle'), attachment('last')],
-      uploads: {
-        middle: {
-          status: 'ready', receiptId: 'receipt-middle' as never,
-          file: { attachmentId: 'file-middle' as never, name: 'middle.pdf', bytes: 3 },
-        },
-      },
-    })} />)
+    const view = render(
+      <ComposerAttachments
+        {...props({
+          attachments: [attachment('first'), fileDraft('middle'), attachment('last')],
+          uploads: {
+            middle: {
+              status: 'ready',
+              receiptId: 'receipt-middle' as never,
+              file: { attachmentId: 'file-middle' as never, name: 'middle.pdf', bytes: 3 },
+            },
+          },
+        })}
+      />,
+    )
     const rail = view.getByRole('group', { name: '待发送附件' })
-    expect([...rail.children].map((child) => {
-      const image = child.querySelector('img')
-      return image?.getAttribute('alt') ?? child.querySelector('[title]')?.getAttribute('title')
-    })).toEqual(['first.png', 'middle.pdf', 'last.png'])
+    expect(
+      [...rail.children].map(child => {
+        const image = child.querySelector('img')
+        return image?.getAttribute('alt') ?? child.querySelector('[title]')?.getAttribute('title')
+      }),
+    ).toEqual(['first.png', 'middle.pdf', 'last.png'])
     expect(view.queryByRole('group', { name: '待发送文件' })).toBeNull()
   })
 
@@ -233,19 +251,24 @@ describe('ComposerAttachments file drafts', () => {
   it('renders uploading, ready, and failed cards with remove and retry affordances', () => {
     const onRemoveAttachment = vi.fn()
     const onRetryFile = vi.fn()
-    const view = render(<ComposerAttachments {...props({
-      attachments: [fileDraft('up'), fileDraft('ok'), fileDraft('bad')],
-      uploads: {
-        up: { status: 'uploading', loaded: 1, total: 4 },
-        ok: {
-          status: 'ready', receiptId: 'receipt-ok' as never,
-          file: { attachmentId: 'file-ok' as never, name: 'ok.pdf', bytes: 3 },
-        },
-        bad: { status: 'error', message: 'boom' },
-      },
-      onRemoveAttachment,
-      onRetryFile,
-    })} />)
+    const view = render(
+      <ComposerAttachments
+        {...props({
+          attachments: [fileDraft('up'), fileDraft('ok'), fileDraft('bad')],
+          uploads: {
+            up: { status: 'uploading', loaded: 1, total: 4 },
+            ok: {
+              status: 'ready',
+              receiptId: 'receipt-ok' as never,
+              file: { attachmentId: 'file-ok' as never, name: 'ok.pdf', bytes: 3 },
+            },
+            bad: { status: 'error', message: 'boom' },
+          },
+          onRemoveAttachment,
+          onRetryFile,
+        })}
+      />,
+    )
     const group = view.getByRole('group', { name: '待发送附件' })
     expect(group.textContent).toContain('上传中…')
     expect(view.container.querySelector('[style="width: 25%;"]')).toBeTruthy()
@@ -261,12 +284,16 @@ describe('ComposerAttachments file drafts', () => {
   it('treats a draft without upload state as uploading and keeps retry separate from remove', () => {
     const onRetryFile = vi.fn()
     const onRemoveAttachment = vi.fn()
-    const view = render(<ComposerAttachments {...props({
-      attachments: [fileDraft('pending'), fileDraft('bad')],
-      uploads: { bad: { status: 'error', message: 'boom' } },
-      onRetryFile,
-      onRemoveAttachment,
-    })} />)
+    const view = render(
+      <ComposerAttachments
+        {...props({
+          attachments: [fileDraft('pending'), fileDraft('bad')],
+          uploads: { bad: { status: 'error', message: 'boom' } },
+          onRetryFile,
+          onRemoveAttachment,
+        })}
+      />,
+    )
     expect(view.getByRole('group', { name: '待发送附件' }).textContent).toContain('上传中…')
     const retry = view.getByRole('button', { name: '重试上传 bad.pdf' })
     const remove = view.getByRole('button', { name: '移除文件 bad.pdf' })
@@ -279,30 +306,40 @@ describe('ComposerAttachments file drafts', () => {
   })
 
   it('uses the localized file label when the browser supplies no name', () => {
-    const view = render(<ComposerAttachments {...props({
-      attachments: [fileDraft('unnamed', '')],
-      uploads: {
-        unnamed: {
-          status: 'ready', receiptId: 'receipt-unnamed' as never,
-          file: { attachmentId: 'file-unnamed' as never, name: 'file', bytes: 3 },
-        },
-      },
-    })} />)
+    const view = render(
+      <ComposerAttachments
+        {...props({
+          attachments: [fileDraft('unnamed', '')],
+          uploads: {
+            unnamed: {
+              status: 'ready',
+              receiptId: 'receipt-unnamed' as never,
+              file: { attachmentId: 'file-unnamed' as never, name: 'file', bytes: 3 },
+            },
+          },
+        })}
+      />,
+    )
     const group = view.getByRole('group', { name: '待发送附件' })
     expect(group.textContent).toContain('文件')
     expect(group.textContent).toContain('3B')
   })
 
   it('uses the shared leading-dot suffix in ready-file metadata', () => {
-    const view = render(<ComposerAttachments {...props({
-      attachments: [fileDraft('env', '.env')],
-      uploads: {
-        env: {
-          status: 'ready', receiptId: 'receipt-env' as never,
-          file: { attachmentId: 'file-env' as never, name: '.env', bytes: 3 },
-        },
-      },
-    })} />)
+    const view = render(
+      <ComposerAttachments
+        {...props({
+          attachments: [fileDraft('env', '.env')],
+          uploads: {
+            env: {
+              status: 'ready',
+              receiptId: 'receipt-env' as never,
+              file: { attachmentId: 'file-env' as never, name: '.env', bytes: 3 },
+            },
+          },
+        })}
+      />,
+    )
     expect(view.getByTitle('.env').textContent).toContain('ENV 3B')
   })
 })

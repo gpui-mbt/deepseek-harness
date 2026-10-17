@@ -66,9 +66,10 @@ export class JsonStorageBackend implements StorageBackend {
     // The two layouts differ in medium shape only; each opener owns its own
     // path convention under the shared root.
     const onClose = () => this.open.delete(descriptor.name)
-    const unit = descriptor.layout === 'per-record'
-      ? await openPerRecordUnit(descriptor, this.root, onClose)
-      : await openSingleUnit(descriptor, this.root, onClose)
+    const unit =
+      descriptor.layout === 'per-record'
+        ? await openPerRecordUnit(descriptor, this.root, onClose)
+        : await openSingleUnit(descriptor, this.root, onClose)
     if (this.closed) {
       // The backend closed while this open was in flight: do not hand out a
       // live unit past close().

@@ -2,31 +2,31 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { classifyRunnerFailure, isRunnerSpawnFailure, matchesSignature } from '../src/diagnostics.ts'
 
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-sandbox-diagnostics-'))
-afterAll(() => { rmSync(spillDir, { recursive: true, force: true }) })
-const RUNNER_FORMS = [['absolute', process.execPath], ['bare', 'node'], ['relative', './runner']] as const
+afterAll(() => {
+  rmSync(spillDir, { recursive: true, force: true })
+})
+const RUNNER_FORMS = [
+  ['absolute', process.execPath],
+  ['bare', 'node'],
+  ['relative', './runner'],
+] as const
 
 describe('isRunnerSpawnFailure', () => {
-  it.each(['EACCES', 'ENOENT'])(
-    'attributes executable-class spawn code %s to argv[0] once cwd ambiguity is eliminated',
-    (code) => {
-      const runner = join(spillDir, 'runner')
-      const error = Object.assign(new Error('spawn failed'), { code, syscall: `spawn ${runner}`, path: runner })
-      expect(isRunnerSpawnFailure(error, runner, process.cwd())).toBe(true)
-    },
-  )
+  it.each(['EACCES', 'ENOENT'])('attributes executable-class spawn code %s to argv[0] once cwd ambiguity is eliminated', code => {
+    const runner = join(spillDir, 'runner')
+    const error = Object.assign(new Error('spawn failed'), { code, syscall: `spawn ${runner}`, path: runner })
+    expect(isRunnerSpawnFailure(error, runner, process.cwd())).toBe(true)
+  })
 
-  it.each(['ENOEXEC', 'ENOTDIR', 'EPERM'])(
-    'keeps unproven executable code %s ordinary despite synthetic argv[0] fields',
-    (code) => {
-      const runner = join(spillDir, 'runner')
-      const error = Object.assign(new Error('spawn failed'), { code, syscall: `spawn ${runner}`, path: runner })
-      expect(isRunnerSpawnFailure(error, runner, process.cwd())).toBe(false)
-    },
-  )
+  it.each(['ENOEXEC', 'ENOTDIR', 'EPERM'])('keeps unproven executable code %s ordinary despite synthetic argv[0] fields', code => {
+    const runner = join(spillDir, 'runner')
+    const error = Object.assign(new Error('spawn failed'), { code, syscall: `spawn ${runner}`, path: runner })
+    expect(isRunnerSpawnFailure(error, runner, process.cwd())).toBe(false)
+  })
 
   it('requires a usable caller cwd before classifying absolute, bare, or relative runners', () => {
     const missingWorkdir = join(spillDir, 'missing-workdir')
@@ -44,8 +44,7 @@ describe('isRunnerSpawnFailure', () => {
     const missingRunner = join(spillDir, 'definitely-missing-runner')
     const spawnError = (code: unknown, syscall: unknown = `spawn ${missingRunner}`, path: unknown = missingRunner) =>
       Object.assign(new Error('spawn failed'), { code, syscall, path })
-    const spawnErrorWithoutPath = (syscall: string) =>
-      Object.assign(new Error('spawn failed'), { code: 'ENOENT', syscall })
+    const spawnErrorWithoutPath = (syscall: string) => Object.assign(new Error('spawn failed'), { code: 'ENOENT', syscall })
 
     expect(isRunnerSpawnFailure(spawnError('EMFILE'), missingRunner, process.cwd())).toBe(false)
     expect(isRunnerSpawnFailure(spawnError('ENOMEM'), missingRunner, process.cwd())).toBe(false)
@@ -64,8 +63,7 @@ describe('isRunnerSpawnFailure', () => {
 
   it('accepts only syscall and error-path facts that identify the exact runner program', () => {
     const runner = join(spillDir, 'runner with spaces')
-    const spawnError = (syscall: string, path?: string) =>
-      Object.assign(new Error('spawn failed'), { code: 'ENOENT', syscall, path })
+    const spawnError = (syscall: string, path?: string) => Object.assign(new Error('spawn failed'), { code: 'ENOENT', syscall, path })
 
     expect(isRunnerSpawnFailure(spawnError('spawn', runner), runner, process.cwd())).toBe(true)
     expect(isRunnerSpawnFailure(spawnError(`spawn ${runner}`, runner), runner, process.cwd())).toBe(true)
@@ -85,11 +83,13 @@ describe('classifyRunnerFailure', () => {
   it('keeps valid fatal signatures active beside an ignored empty entry', () => {
     const notice = 'landlock-run: partial enforcement (older Landlock ABI)'
     const fatal = 'landlock-run: ruleset creation failed'
-    const rules = [{
-      allowedExitCodes: [125],
-      fatalSignatures: ['', ' ', 'landlock-run: '],
-      informationalLines: [notice],
-    }]
+    const rules = [
+      {
+        allowedExitCodes: [125],
+        fatalSignatures: ['', ' ', 'landlock-run: '],
+        informationalLines: [notice],
+      },
+    ]
     expect(classifyRunnerFailure(125, `${notice}\nchild diagnostic\n${fatal}`, rules)).toEqual({ detail: fatal })
   })
 
@@ -100,10 +100,10 @@ describe('classifyRunnerFailure', () => {
     expect(classifyRunnerFailure(2, notice, rules)).toBeUndefined()
     expect(classifyRunnerFailure(125, notice, rules)).toBeUndefined()
     expect(classifyRunnerFailure(125, notice.toUpperCase(), rules)).toBeUndefined()
-    expect(classifyRunnerFailure(125, `${notice}: extra detail`, rules))
-      .toEqual({ detail: `${notice}: extra detail` })
-    expect(classifyRunnerFailure(125, `${notice}\nlandlock-run: exec failed: No such file or directory`, rules))
-      .toEqual({ detail: 'landlock-run: exec failed: No such file or directory' })
+    expect(classifyRunnerFailure(125, `${notice}: extra detail`, rules)).toEqual({ detail: `${notice}: extra detail` })
+    expect(classifyRunnerFailure(125, `${notice}\nlandlock-run: exec failed: No such file or directory`, rules)).toEqual({
+      detail: 'landlock-run: exec failed: No such file or directory',
+    })
   })
 
   it.each([
@@ -114,12 +114,14 @@ describe('classifyRunnerFailure', () => {
     'landlock-run: exec failed: Permission denied',
     'landlock-run: out of memory',
     'landlock-run: future fatal diagnostic',
-  ])('keeps known and future Landlock fatal diagnostics fail-closed: %s', (fatal) => {
-    const rules = [{
-      allowedExitCodes: [125],
-      fatalSignatures: ['landlock-run: '],
-      informationalLines: ['landlock-run: partial enforcement (older Landlock ABI)'],
-    }]
+  ])('keeps known and future Landlock fatal diagnostics fail-closed: %s', fatal => {
+    const rules = [
+      {
+        allowedExitCodes: [125],
+        fatalSignatures: ['landlock-run: '],
+        informationalLines: ['landlock-run: partial enforcement (older Landlock ABI)'],
+      },
+    ]
     expect(classifyRunnerFailure(125, fatal, rules)).toEqual({ detail: fatal })
   })
 })

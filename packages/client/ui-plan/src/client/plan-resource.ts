@@ -50,7 +50,10 @@ export function planResourceProvider(remote: Pick<Context['remote']['session'], 
         // The snapshot supplies the page API's fixed log cut. Breaking closes the follow stream.
         let snapshot: Extract<SessionFollowFrame, { type: 'snapshot' }> | undefined
         for await (const frame of remote.follow({ address: sessionAddress }, signal)) {
-          if (frame.type === 'snapshot') { snapshot = frame; break }
+          if (frame.type === 'snapshot') {
+            snapshot = frame
+            break
+          }
         }
         if (aborted()) return
         if (snapshot === undefined) throw new RemoteError('plan/unavailable', 'Session history ended before the plan could be read.', {})
@@ -67,15 +70,19 @@ export function planResourceProvider(remote: Pick<Context['remote']['session'], 
           if (!page.hasMore || beforeSeq === undefined) break
           const next = await remote.page({ address: sessionAddress, throughSeq: snapshot.cursor, beforeSeq }, signal)
           if (aborted()) return
-          if (!next.ok) { yield next; return }
+          if (!next.ok) {
+            yield next
+            return
+          }
           page = next.value
         }
         yield { ok: false, error: new RemoteError('plan/not-found', 'The submitted plan was not found in this Session.', {}) }
       } catch (error) {
-        if (!aborted()) yield {
-          ok: false,
-          error: remoteErrorOf(error) ?? new RemoteError('plan/read-failed', error instanceof Error ? error.message : String(error), {}),
-        }
+        if (!aborted())
+          yield {
+            ok: false,
+            error: remoteErrorOf(error) ?? new RemoteError('plan/read-failed', error instanceof Error ? error.message : String(error), {}),
+          }
       }
     },
   }

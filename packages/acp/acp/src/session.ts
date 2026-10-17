@@ -76,21 +76,23 @@ function internalError(detail: string): RequestError {
 
 /** Restore the latest logged route before falling back to deployment config. */
 function selectionFor(
-  logged: {
-    config: { provider: string; model: string; reasoningEffort?: ModelSelection['reasoningEffort'] }
-    adapterDefaults?: { reasoningEffort?: boolean }
-  } | undefined,
+  logged:
+    | {
+        config: { provider: string; model: string; reasoningEffort?: ModelSelection['reasoningEffort'] }
+        adapterDefaults?: { reasoningEffort?: boolean }
+      }
+    | undefined,
   fallback: ModelSelection | undefined,
 ): ModelSelection | undefined {
   return logged === undefined
     ? fallback
     : {
-      provider: logged.config.provider,
-      model: logged.config.model,
-      ...logged.config.reasoningEffort === undefined || logged.adapterDefaults?.reasoningEffort === true
-        ? {}
-        : { reasoningEffort: logged.config.reasoningEffort },
-    }
+        provider: logged.config.provider,
+        model: logged.config.model,
+        ...(logged.config.reasoningEffort === undefined || logged.adapterDefaults?.reasoningEffort === true
+          ? {}
+          : { reasoningEffort: logged.config.reasoningEffort }),
+      }
 }
 
 /**
@@ -133,7 +135,7 @@ export class AcpSession {
       meta: { cwd: options.cwd },
       agentOptions: options.agentOptions,
       signal: options.signal,
-      setup: async (agentCtx) => {
+      setup: async agentCtx => {
         modelControl.install(agentCtx)
         await mountAcpMcpServers(agentCtx, options.mcpServers, options.cwd)
       },
@@ -154,10 +156,7 @@ export class AcpSession {
       agentOptions: options.agentOptions,
       signal: options.signal,
       setup: async (agentCtx, agent) => {
-        modelControl = new AcpModelControl(
-          ctx.llm,
-          selectionFor(agent.session.requestHeader(), options.fallbackSelection),
-        )
+        modelControl = new AcpModelControl(ctx.llm, selectionFor(agent.session.requestHeader(), options.fallbackSelection))
         modelControl.install(agentCtx)
         await mountAcpMcpServers(agentCtx, options.mcpServers, options.cwd)
       },
@@ -214,15 +213,18 @@ export class AcpSession {
   /** Resolve topology state off-chain, then serialize its notification without blocking execution updates. */
   topologyChanged(): void {
     if (this.closing !== undefined) return
-    void this.modelControl.options()
-      .then((configOptions) => {
+    void this.modelControl
+      .options()
+      .then(configOptions => {
         if (this.closing !== undefined) return
         const previous = this.outputTail
         this.outputTail = previous
-          .then(() => this.notify({
-            sessionId: this.agent.session.id,
-            update: { sessionUpdate: 'config_option_update', configOptions },
-          }))
+          .then(() =>
+            this.notify({
+              sessionId: this.agent.session.id,
+              update: { sessionUpdate: 'config_option_update', configOptions },
+            }),
+          )
           /* v8 ignore start -- the bridge notifier contains transport failure. */
           .catch((error: unknown) => {
             this.ctx.logger.warn(`acp: config-option update failed: ${errorChain(error)}`)
@@ -243,11 +245,7 @@ export class AcpSession {
    * @param requestSignal - JSON-RPC request cancellation signal.
    * @returns the correlated standard stop reason after ordered updates drain.
    */
-  async prompt(
-    params: PromptRequest,
-    imageEnabled: boolean,
-    requestSignal?: AbortSignal,
-  ): Promise<PromptResponse> {
+  async prompt(params: PromptRequest, imageEnabled: boolean, requestSignal?: AbortSignal): Promise<PromptResponse> {
     this.assertActive()
     if (this.inflight !== undefined) throw invalidParams('a prompt is already in flight for this session')
     const completion = Promise.withResolvers<StopReason>()
@@ -270,7 +268,9 @@ export class AcpSession {
       agentError: undefined,
     }
     this.inflight = inflight
-    const onRequestAbort = (): void => { this.cancelPrompt('ACP prompt request cancelled') }
+    const onRequestAbort = (): void => {
+      this.cancelPrompt('ACP prompt request cancelled')
+    }
     requestSignal?.addEventListener('abort', onRequestAbort, { once: true })
     /* v8 ignore next -- the SDK dispatches a live signal, then notifies abort through its listener. */
     if (requestSignal?.aborted === true) onRequestAbort()
@@ -281,13 +281,7 @@ export class AcpSession {
         if (this.ctx.agents.get(this.agent.id) !== this.agent) {
           throw internalError('prompt was not queued: the agent was disposed outside the bridge')
         }
-        const content = await admitAcpPrompt(
-          this.ctx,
-          promptSelection,
-          params.prompt,
-          imageEnabled,
-          admissionController.signal,
-        )
+        const content = await admitAcpPrompt(this.ctx, promptSelection, params.prompt, imageEnabled, admissionController.signal)
         admissionController.signal.throwIfAborted()
         if (this.ctx.agents.get(this.agent.id) !== this.agent) {
           throw internalError('prompt was not queued: the agent was disposed outside the bridge')
@@ -319,9 +313,7 @@ export class AcpSession {
       if (admissionFailure !== undefined) {
         this.inflight = undefined
         if (admissionFailure instanceof AcpContentError) {
-          throw admissionFailure.kind === 'invalid'
-            ? invalidParams(admissionFailure.message)
-            : internalError(admissionFailure.message)
+          throw admissionFailure.kind === 'invalid' ? invalidParams(admissionFailure.message) : internalError(admissionFailure.message)
         }
         if (admissionFailure instanceof RequestError) throw admissionFailure
         throw internalError(`prompt was not queued: ${(admissionFailure as Error).message}`)
@@ -377,10 +369,12 @@ export class AcpSession {
       } else if (event.type === 'tool/result') {
         const previous = this.outputTail
         this.outputTail = previous
-          .then(async () => this.notify({
-            sessionId: this.agent.session.id,
-            update: await toolResultUpdate(this.ctx, event),
-          }))
+          .then(async () =>
+            this.notify({
+              sessionId: this.agent.session.id,
+              update: await toolResultUpdate(this.ctx, event),
+            }),
+          )
           /* v8 ignore start -- supplemental-content conversion failure is contained and cannot fail Agent work. */
           .catch((error: unknown) => {
             this.ctx.logger.warn(`acp: tool-result update delivery failed: ${errorChain(error)}`)
@@ -505,7 +499,9 @@ export class AcpSession {
     if (firstCancellation) {
       const done = inflight.cancellationDone
       // Plugin disposal can detach status observers before this activity retires.
-      void this.agent.whenIdle().then(() => { done.resolve(this.outputTail) }, done.reject)
+      void this.agent.whenIdle().then(() => {
+        done.resolve(this.outputTail)
+      }, done.reject)
     }
   }
 

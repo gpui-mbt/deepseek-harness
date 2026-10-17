@@ -30,9 +30,7 @@ export interface DesktopUploadConfig extends DesktopAutoUpdateConfig {
  * @param env - Packaging or upload environment.
  * @returns Validated deployment name.
  */
-export function resolveDesktopAutoUpdateEnvironment(
-  env: NodeJS.ProcessEnv,
-): DesktopAutoUpdateEnvironment
+export function resolveDesktopAutoUpdateEnvironment(env: NodeJS.ProcessEnv): DesktopAutoUpdateEnvironment
 
 /**
  * Resolve one supported platform and architecture to its update directory.
@@ -40,10 +38,7 @@ export function resolveDesktopAutoUpdateEnvironment(
  * @param arch - Target Node.js architecture.
  * @returns Update target directory.
  */
-export function resolveDesktopAutoUpdateTarget(
-  platform: NodeJS.Platform,
-  arch: string,
-): DesktopAutoUpdateTarget
+export function resolveDesktopAutoUpdateTarget(platform: NodeJS.Platform, arch: string): DesktopAutoUpdateTarget
 
 /**
  * Return the local completion record filename for one packaged target.
@@ -58,11 +53,7 @@ export function desktopBuildRecordFilename(target: DesktopAutoUpdateTarget): str
  * @param platform - Target platform.
  * @returns Channel metadata filename emitted for the target.
  */
-export function desktopUpdateMetadataFilename(
-  version: string,
-  platform: NodeJS.Platform,
-  channel?: 'nightly' | 'latest',
-): string
+export function desktopUpdateMetadataFilename(version: string, platform: NodeJS.Platform, channel?: 'nightly' | 'latest'): string
 
 /**
  * Resolve the public updater URL and object prefixes for one release target.
@@ -72,11 +63,7 @@ export function desktopUpdateMetadataFilename(
  * @returns Resolved updater configuration.
  * @throws When the test deployment lacks a valid HTTPS origin or a 32-character lowercase hexadecimal release ID.
  */
-export function resolveDesktopAutoUpdateConfig(
-  env: NodeJS.ProcessEnv,
-  platform: NodeJS.Platform,
-  arch: string,
-): DesktopAutoUpdateConfig
+export function resolveDesktopAutoUpdateConfig(env: NodeJS.ProcessEnv, platform: NodeJS.Platform, arch: string): DesktopAutoUpdateConfig
 
 /**
  * Resolve the public updater URL and private COS destination for one upload target.
@@ -86,11 +73,7 @@ export function resolveDesktopAutoUpdateConfig(
  * @returns Resolved upload configuration.
  * @throws When the selected deployment lacks a bucket or valid updater configuration.
  */
-export function resolveDesktopUploadConfig(
-  env: NodeJS.ProcessEnv,
-  platform: NodeJS.Platform,
-  arch: string,
-): DesktopUploadConfig
+export function resolveDesktopUploadConfig(env: NodeJS.ProcessEnv, platform: NodeJS.Platform, arch: string): DesktopUploadConfig
 
 /**
  * Resolve the packaged update channel, defaulting omitted local settings to nightly.

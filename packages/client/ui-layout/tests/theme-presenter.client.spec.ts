@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import type { FontFamilies, ThemePreference, ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { fontFamilyVariable } from '@deepseek-ai/dsh-client-ui-theme/src/theme-settings.ts'
 import { DARK_ATTRIBUTE, THEME_SOURCE_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
@@ -21,7 +21,9 @@ function snapshot(
 }
 
 function clearThemePresentation(): void {
-  document.head.querySelectorAll('meta[name="theme-color"], style[data-theme-presenter-test]').forEach((node) => { node.remove() })
+  document.head.querySelectorAll('meta[name="theme-color"], style[data-theme-presenter-test]').forEach(node => {
+    node.remove()
+  })
 }
 
 function themeColorMeta(): HTMLMetaElement | null {
@@ -94,7 +96,11 @@ describe('ThemePresenter', () => {
     const presenter = new ThemePresenter()
     presenter.apply(snapshot('light', {}, 14, 'light', { text: '"Inter"', code: '"Iosevka"', terminal: '"Hack"' }))
     // The presenter writes the same variables the ui-theme boot script and token sheet use.
-    for (const [kind, list] of [['text', '"Inter"'], ['code', '"Iosevka"'], ['terminal', '"Hack"']] as const) {
+    for (const [kind, list] of [
+      ['text', '"Inter"'],
+      ['code', '"Iosevka"'],
+      ['terminal', '"Hack"'],
+    ] as const) {
       expect(document.body.style.getPropertyValue(fontFamilyVariable(kind))).toBe(list)
     }
     presenter.apply(snapshot('light', {}, 14, 'light', { text: '"Inter"', code: '"Iosevka"', terminal: '' }))

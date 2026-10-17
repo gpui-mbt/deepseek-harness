@@ -1,15 +1,13 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { stubConfigForm, type StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
-import type {
-  ThemeSettings,
-  ThemeSnapshot,
-  ThemeTokenOverrides,
-} from '@deepseek-ai/dsh-client-ui-theme/client'
+import type { ThemeSettings, ThemeSnapshot, ThemeTokenOverrides } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 
-const make = (host = stubConfigForm<ThemeSettings>()): {
+const make = (
+  host = stubConfigForm<ThemeSettings>(),
+): {
   ctx: Context
   theme: ThemeRuntime
   events: ThemeSnapshot[]
@@ -17,7 +15,9 @@ const make = (host = stubConfigForm<ThemeSettings>()): {
 } => {
   const ctx = new Context()
   const events: ThemeSnapshot[] = []
-  ctx.on('theme/change', (snapshot) => { events.push(snapshot) })
+  ctx.on('theme/change', snapshot => {
+    events.push(snapshot)
+  })
   return { ctx, theme: new ThemeRuntime(ctx, host.scope), events, host }
 }
 
@@ -46,7 +46,7 @@ describe('ThemeRuntime', () => {
     }
   })
 
-  it.each([10, 22])('setFontSize(%i) switches, writes through the scope, and republishes; same value is a no-op', (fontSize) => {
+  it.each([10, 22])('setFontSize(%i) switches, writes through the scope, and republishes; same value is a no-op', fontSize => {
     const { theme, events, host } = make()
     theme.setFontSize('text', fontSize)
     expect(theme.getTheme().fontSizes.text).toBe(fontSize)
@@ -60,7 +60,9 @@ describe('ThemeRuntime', () => {
   it('rejects out-of-range and fractional font sizes', () => {
     const { theme, events, host } = make()
     for (const px of [9, 23, 14.5, Number.NaN]) {
-      expect(() => { theme.setFontSize('text', px) }).toThrow('outside 10..22')
+      expect(() => {
+        theme.setFontSize('text', px)
+      }).toThrow('outside 10..22')
     }
     expect(events).toHaveLength(0)
     expect(host.set).not.toHaveBeenCalled()
@@ -73,8 +75,12 @@ describe('ThemeRuntime', () => {
     expect(theme.getTheme().fontSizes).toEqual({ text: 14, code: 16, terminal: 20 })
     expect(host.set).toHaveBeenCalledWith('codeFontSize', 16)
     expect(host.set).toHaveBeenCalledWith('terminalFontSize', 20)
-    expect(() => { theme.setFontSize('code', 17) }).toThrow('code font size 17 is outside 10..16')
-    expect(() => { theme.setFontSize('terminal', 9) }).toThrow('outside 10..20')
+    expect(() => {
+      theme.setFontSize('code', 17)
+    }).toThrow('code font size 17 is outside 10..16')
+    expect(() => {
+      theme.setFontSize('terminal', 9)
+    }).toThrow('outside 10..20')
   })
 
   it('seeds code and terminal sizes from the boot-script body variables, ignoring junk', () => {
@@ -90,7 +96,20 @@ describe('ThemeRuntime', () => {
 
   it('adopts a published Host font size without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', fontSize: 12, codeFontSize: 15, terminalFontSize: 18, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({
+      status: 'ready',
+      value: {
+        preference: 'system',
+        fontSize: 12,
+        codeFontSize: 15,
+        terminalFontSize: 18,
+        textFontFamily: '',
+        codeFontFamily: '',
+        terminalFontFamily: '',
+      },
+      revision: 1,
+      writable: true,
+    })
     expect(theme.getTheme().fontSizes).toEqual({ text: 12, code: 15, terminal: 18 })
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
@@ -120,10 +139,34 @@ describe('ThemeRuntime', () => {
 
   it('adopts published Host font lists, normalizing hand-edited values, without writing them back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: 'Inter', codeFontFamily: '"Fira Code"', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({
+      status: 'ready',
+      value: {
+        preference: 'system',
+        fontSize: 14,
+        codeFontSize: 11,
+        terminalFontSize: 13,
+        textFontFamily: 'Inter',
+        codeFontFamily: '"Fira Code"',
+        terminalFontFamily: '',
+      },
+      revision: 1,
+      writable: true,
+    })
     expect(theme.getTheme().fontFamilies).toEqual({ text: '"Inter"', code: '"Fira Code"', terminal: '' })
     expect(events).toHaveLength(1)
-    host.publish({ value: { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '"Inter"', codeFontFamily: 'Fira Code', terminalFontFamily: '' }, revision: 2 })
+    host.publish({
+      value: {
+        preference: 'system',
+        fontSize: 14,
+        codeFontSize: 11,
+        terminalFontSize: 13,
+        textFontFamily: '"Inter"',
+        codeFontFamily: 'Fira Code',
+        terminalFontFamily: '',
+      },
+      revision: 2,
+    })
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
   })
@@ -146,17 +189,49 @@ describe('ThemeRuntime', () => {
 
   it('adopts a published Host section without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'dark', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({
+      status: 'ready',
+      value: {
+        preference: 'dark',
+        fontSize: 14,
+        codeFontSize: 11,
+        terminalFontSize: 13,
+        textFontFamily: '',
+        codeFontFamily: '',
+        terminalFontFamily: '',
+      },
+      revision: 1,
+      writable: true,
+    })
     expect(theme.getTheme().preference).toBe('dark')
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
-    host.publish({ value: { preference: 'dark', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 2 })
+    host.publish({
+      value: {
+        preference: 'dark',
+        fontSize: 14,
+        codeFontSize: 11,
+        terminalFontSize: 13,
+        textFontFamily: '',
+        codeFontFamily: '',
+        terminalFontFamily: '',
+      },
+      revision: 2,
+    })
     expect(events).toHaveLength(1)
   })
 
   it('holds its own changes while writes are pending, then converges on the durable section', async () => {
     const { theme, host } = make()
-    const section = { preference: 'system' as const, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
+    const section = {
+      preference: 'system' as const,
+      fontSize: 14,
+      codeFontSize: 11,
+      terminalFontSize: 13,
+      textFontFamily: '',
+      codeFontFamily: '',
+      terminalFontFamily: '',
+    }
     host.publish({ status: 'ready', value: section, revision: 1, writable: true })
     const write = Promise.withResolvers<boolean>()
     host.set.mockReturnValue(write.promise)
@@ -166,19 +241,36 @@ describe('ThemeRuntime', () => {
     expect(theme.getTheme().fontSizes).toEqual({ text: 14, code: 13, terminal: 13 })
     host.publish({ value: { ...section, codeFontSize: 13, terminalFontSize: 15 }, revision: 3 })
     write.resolve(true)
-    await vi.waitFor(() => { expect(theme.getTheme().fontSizes).toEqual({ text: 14, code: 13, terminal: 15 }) })
+    await vi.waitFor(() => {
+      expect(theme.getTheme().fontSizes).toEqual({ text: 14, code: 13, terminal: 15 })
+    })
   })
 
   it('adopts a section already standing at construction', () => {
     const host = stubConfigForm<ThemeSettings>()
-    host.publish({ status: 'ready', value: { preference: 'dark', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({
+      status: 'ready',
+      value: {
+        preference: 'dark',
+        fontSize: 14,
+        codeFontSize: 11,
+        terminalFontSize: 13,
+        textFontFamily: '',
+        codeFontFamily: '',
+        terminalFontFamily: '',
+      },
+      revision: 1,
+      writable: true,
+    })
     const { theme } = make(host)
     expect(theme.getTheme().preference).toBe('dark')
   })
 
   it('throws on unknown setTheme ids, duplicate registration, and the system id', () => {
     const { theme } = make()
-    expect(() => { theme.setTheme('sepia') }).toThrow('not registered')
+    expect(() => {
+      theme.setTheme('sepia')
+    }).toThrow('not registered')
     expect(() => theme.register({ id: 'light', colorScheme: 'light', tokens: {} })).toThrow('already registered')
     expect(() => theme.register({ id: 'system', colorScheme: 'light', tokens: {} })).toThrow('preference')
   })
@@ -297,9 +389,13 @@ describe('ThemeRuntime', () => {
     const override = (value: unknown): void => {
       theme.overrideTokens('package', { '--bad': value } as unknown as ThemeTokenOverrides)
     }
-    expect(() => { override('red') }).toThrow(/bare string.*light.*dark/)
+    expect(() => {
+      override('red')
+    }).toThrow(/bare string.*light.*dark/)
     for (const value of [1, null, {}, { light: 1, dark: 'dark' }, { light: 'light' }]) {
-      expect(() => { override(value) }).toThrow(/must map to a \{ light, dark \} pair/)
+      expect(() => {
+        override(value)
+      }).toThrow(/must map to a \{ light, dark \} pair/)
     }
   })
 
@@ -316,8 +412,12 @@ describe('ThemeRuntime', () => {
       const listeners = new Set<Listener>()
       const media = {
         matches: initialMatches,
-        addEventListener: (_: 'change', fn: Listener) => { listeners.add(fn) },
-        removeEventListener: (_: 'change', fn: Listener) => { listeners.delete(fn) },
+        addEventListener: (_: 'change', fn: Listener) => {
+          listeners.add(fn)
+        },
+        removeEventListener: (_: 'change', fn: Listener) => {
+          listeners.delete(fn)
+        },
         flip() {
           this.matches = !this.matches
           for (const fn of listeners) fn()
@@ -328,7 +428,9 @@ describe('ThemeRuntime', () => {
       return media
     }
 
-    afterEach(() => { vi.unstubAllGlobals() })
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
 
     it('system resolves against the media query and follows OS flips', () => {
       const media = stubMedia(true)

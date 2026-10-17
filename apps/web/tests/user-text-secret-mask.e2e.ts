@@ -3,10 +3,16 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -14,7 +20,8 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/user-text-sec
 // Borrowed read-only: this scenario needs any settled user message, not a new recording.
 const SEED = fileURLToPath(new URL('../../../snapshots/web/seeded-history/session.v3.jsonl', import.meta.url))
 const MODE = webSnapshotMode()
-const RECORDED_PROMPT = 'Use the read tool twice in one assistant message: read a.txt and b.txt. Then reply with the single word DONE and stop.'
+const RECORDED_PROMPT =
+  'Use the read tool twice in one assistant message: read a.txt and b.txt. Then reply with the single word DONE and stop.'
 // Assembled at run time so the repository holds no literal in a credential format.
 const KEY = ['sk', '-', '0123456789abcdef0123456789abcdef'].join('')
 const PROMPT = `${KEY} is the key for this task.`
@@ -51,7 +58,7 @@ describe('web e2e: credential mask in user text', () => {
     expect(await text.textContent()).not.toContain(KEY)
     const run = page.locator('[data-secret]')
     // The mask marks and the control share one vertical center.
-    const centers = await run.evaluate((box) => {
+    const centers = await run.evaluate(box => {
       const middle = (element: Element): number => {
         const rect = element.getBoundingClientRect()
         return rect.top + rect.height / 2

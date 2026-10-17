@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { RELEASED_V3_EVENT_TYPES } from '@deepseek-ai/dsh-session-format-v3-to-v4'
 import { verifyV3EventVocabulary } from './verify-v3-event-vocabulary.ts'
 
@@ -18,19 +18,35 @@ function write(root: string, path: string, content: string): void {
 }
 
 function git(root: string, args: readonly string[], environment: NodeJS.ProcessEnv = process.env): string {
-  const env = Object.fromEntries(Object.entries(environment).filter(([key]) =>
-    !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'].includes(key.toUpperCase())))
-  return execFileSync('git', [
-    '-c', 'user.name=V3 vocabulary fixture', '-c', 'user.email=v3-fixture@example.invalid',
-    '-c', 'commit.gpgsign=false', '-c', `core.hooksPath=${join(root, 'empty-hooks')}`, ...args,
-  ], { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  const env = Object.fromEntries(
+    Object.entries(environment).filter(([key]) => !['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'].includes(key.toUpperCase())),
+  )
+  return execFileSync(
+    'git',
+    [
+      '-c',
+      'user.name=V3 vocabulary fixture',
+      '-c',
+      'user.email=v3-fixture@example.invalid',
+      '-c',
+      'commit.gpgsign=false',
+      '-c',
+      `core.hooksPath=${join(root, 'empty-hooks')}`,
+      ...args,
+    ],
+    { cwd: root, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+  ).trim()
 }
 
 function fixture(options: { writer?: string; events?: string } = {}): { root: string; sourceRef: string } {
   const root = mkdtempSync(join(tmpdir(), 'dsh-v3-vocabulary-'))
   roots.push(root)
   write(root, writerPath, options.writer ?? 'export const SESSION_FORMAT_VERSION = 3 as const\n')
-  write(root, eventsPath, options.events ?? `export const KNOWN_SESSION_EVENT_TYPES: ReadonlySet<string> = new Set(${JSON.stringify(names)})\n`)
+  write(
+    root,
+    eventsPath,
+    options.events ?? `export const KNOWN_SESSION_EVENT_TYPES: ReadonlySet<string> = new Set(${JSON.stringify(names)})\n`,
+  )
   git(root, ['init', '--quiet'])
   git(root, ['add', '.'])
   git(root, ['commit', '--quiet', '-m', 'V3 source fixture'])
@@ -76,8 +92,9 @@ describe('explicit V3 source vocabulary verification', () => {
       events: `export const KNOWN_SESSION_EVENT_TYPES = new Set(${JSON.stringify([...names, 'new-v3/required', 'new-v3/ignorable'])})\n`,
     })
     expect(() => verifyV3EventVocabulary(root, sourceRef)).toThrow('Missing V3 names: new-v3/ignorable, new-v3/required')
-    expect(verifyV3EventVocabulary(root, sourceRef, new Set([...names, 'new-v3/required', 'new-v3/ignorable'])).eventCount)
-      .toBe(names.length + 2)
+    expect(verifyV3EventVocabulary(root, sourceRef, new Set([...names, 'new-v3/required', 'new-v3/ignorable'])).eventCount).toBe(
+      names.length + 2,
+    )
   })
 
   it('rejects a V4 source instead of treating developer/message as a V3 event', () => {
@@ -90,13 +107,17 @@ describe('explicit V3 source vocabulary verification', () => {
 
   it('rejects a V4-only name accidentally copied into the migration-owned V3 set', () => {
     const { root, sourceRef } = fixture()
-    expect(() => verifyV3EventVocabulary(root, sourceRef, new Set([...names, 'developer/message'])))
-      .toThrow('Extra migration names: developer/message')
+    expect(() => verifyV3EventVocabulary(root, sourceRef, new Set([...names, 'developer/message']))).toThrow(
+      'Extra migration names: developer/message',
+    )
   })
 
-  it.each(['HEAD', 'origin/master', 'dsh-v0.1.5-alpha.1', 'a'.repeat(10), '', '--help'])('rejects a mutable or incomplete source pin %j', (ref) => {
-    expect(() => verifyV3EventVocabulary(tmpdir(), ref)).toThrow('full immutable commit id')
-  })
+  it.each(['HEAD', 'origin/master', 'dsh-v0.1.5-alpha.1', 'a'.repeat(10), '', '--help'])(
+    'rejects a mutable or incomplete source pin %j',
+    ref => {
+      expect(() => verifyV3EventVocabulary(tmpdir(), ref)).toThrow('full immutable commit id')
+    },
+  )
 
   it('reports a source object missing from the local repository without fetching', () => {
     const { root } = fixture()
@@ -105,8 +126,7 @@ describe('explicit V3 source vocabulary verification', () => {
 
   it('rejects tree objects and reports missing generated files at the source pin', () => {
     const { root, sourceRef } = fixture()
-    expect(() => verifyV3EventVocabulary(root, git(root, ['rev-parse', `${sourceRef}^{tree}`])))
-      .toThrow('must name a commit object')
+    expect(() => verifyV3EventVocabulary(root, git(root, ['rev-parse', `${sourceRef}^{tree}`]))).toThrow('must name a commit object')
     git(root, ['rm', eventsPath])
     git(root, ['commit', '--quiet', '-m', 'Source without generated event inventory'])
     expect(() => verifyV3EventVocabulary(root, git(root, ['rev-parse', 'HEAD']))).toThrow('not available locally')
@@ -125,7 +145,7 @@ describe('explicit V3 source vocabulary verification', () => {
     'export const SESSION_FORMAT_VERSION: number\n',
     'export const SESSION_FORMAT_VERSION = 3, SESSION_FORMAT_VERSION = 3\n',
     'export const SESSION_FORMAT_VERSION = "3"\n',
-  ])('rejects an ambiguous or nonliteral writer declaration %j', (writer) => {
+  ])('rejects an ambiguous or nonliteral writer declaration %j', writer => {
     const { root, sourceRef } = fixture({ writer })
     expect(() => verifyV3EventVocabulary(root, sourceRef)).toThrow()
   })
@@ -139,7 +159,7 @@ describe('explicit V3 source vocabulary verification', () => {
     'export const KNOWN_SESSION_EVENT_TYPES = new Set([...otherNames])\n',
     'export const KNOWN_SESSION_EVENT_TYPES = new Set([computeName()])\n',
     'export const KNOWN_SESSION_EVENT_TYPES = new Set(["duplicate", "duplicate"])\n',
-  ])('rejects unsupported generated declarations without evaluating them: %j', (events) => {
+  ])('rejects unsupported generated declarations without evaluating them: %j', events => {
     const { root, sourceRef } = fixture({ events })
     expect(() => verifyV3EventVocabulary(root, sourceRef)).toThrow()
   })

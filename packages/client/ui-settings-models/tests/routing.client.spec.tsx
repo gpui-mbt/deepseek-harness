@@ -2,7 +2,7 @@
 /** The model row's peak-routing control: destination, window, and clearing. */
 import { useState } from 'react'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { ModelListEditor } from '../src/client/ModelListEditor.tsx'
 import { routingDraftOf } from '../src/client/ModelRow.tsx'
 import type { ModelsOperations } from '../src/client/operations.ts'
@@ -46,19 +46,21 @@ function editor(
   function Harness(): React.JSX.Element {
     const [models, setModels] = useState(initial)
     current = models
-    return <ModelListEditor
-      models={models}
-      onChange={(next) => {
-        setModels(next)
-        onChange(next)
-      }}
-      routingProviders={providers}
-      probe={{ settingsNs: 'llm-pi-ai', provider }}
-      disabled={false}
-      t={key => en[key]}
-      onBusyChange={() => {}}
-      operations={operations}
-    />
+    return (
+      <ModelListEditor
+        models={models}
+        onChange={next => {
+          setModels(next)
+          onChange(next)
+        }}
+        routingProviders={providers}
+        probe={{ settingsNs: 'llm-pi-ai', provider }}
+        disabled={false}
+        t={key => en[key]}
+        onBusyChange={() => {}}
+        operations={operations}
+      />
+    )
   }
   render(<Harness />)
   fireEvent.click(screen.getByRole('button', { name: `${en.modelAdvanced} ${String(row)}` }))
@@ -73,15 +75,19 @@ function chooseDestination(provider: string, model: string): void {
 
 describe('routingDraftOf', () => {
   it('reads a declared destination', () => {
-    expect(routingDraftOf({
-      peak: [{ provider: 'opencode-go', model: 'kimi-k3' }],
-    })).toEqual({ provider: 'opencode-go', model: 'kimi-k3' })
+    expect(
+      routingDraftOf({
+        peak: [{ provider: 'opencode-go', model: 'kimi-k3' }],
+      }),
+    ).toEqual({ provider: 'opencode-go', model: 'kimi-k3' })
   })
 
   it('carries the destination credential reference', () => {
-    expect(routingDraftOf({
-      peak: [{ provider: 'opencode-go', model: 'kimi-k3', apiKeyEnv: 'OPENCODE_GO_API_KEY' }],
-    })).toEqual({
+    expect(
+      routingDraftOf({
+        peak: [{ provider: 'opencode-go', model: 'kimi-k3', apiKeyEnv: 'OPENCODE_GO_API_KEY' }],
+      }),
+    ).toEqual({
       provider: 'opencode-go',
       model: 'kimi-k3',
       apiKeyEnv: 'OPENCODE_GO_API_KEY',
@@ -91,16 +97,20 @@ describe('routingDraftOf', () => {
   it('reads a legacy entry that still stores a period', () => {
     // The schema passes unknown keys through, so an entry written before the
     // period moved into the catalog data still reads as its destination.
-    expect(routingDraftOf({
-      peak: [{
-        from: '22:00',
-        to: '05:00',
-        timeZone: 'UTC',
-        days: ['sat', 'sun'],
-        provider: 'opencode-go',
-        model: 'kimi-k3',
-      }],
-    })).toEqual({ provider: 'opencode-go', model: 'kimi-k3' })
+    expect(
+      routingDraftOf({
+        peak: [
+          {
+            from: '22:00',
+            to: '05:00',
+            timeZone: 'UTC',
+            days: ['sat', 'sun'],
+            provider: 'opencode-go',
+            model: 'kimi-k3',
+          },
+        ],
+      }),
+    ).toEqual({ provider: 'opencode-go', model: 'kimi-k3' })
   })
 
   it('reads an absent or malformed declaration as none', () => {
@@ -113,8 +123,7 @@ describe('routingDraftOf', () => {
   it('reads a stored destination that names no model as an incomplete one', () => {
     // Hand-written configuration may move only the endpoint. The editor cannot
     // express that, so the row shows a destination that still needs a model.
-    expect(routingDraftOf({ peak: [{ provider: 'opencode-go' }] }))
-      .toMatchObject({ provider: 'opencode-go', model: '' })
+    expect(routingDraftOf({ peak: [{ provider: 'opencode-go' }] })).toMatchObject({ provider: 'opencode-go', model: '' })
   })
 })
 
@@ -189,33 +198,47 @@ describe('peak routing destination', () => {
     chooseDestination('opencode-go', 'deepseek-v4.1-flash')
     // The period is the model's published price policy and lives with the
     // catalog data, so no hours reach the settings document.
-    expect(onChange).toHaveBeenLastCalledWith([{
-      id: 'deepseek-v4.1-flash:1017',
-      peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
-    }])
+    expect(onChange).toHaveBeenLastCalledWith([
+      {
+        id: 'deepseek-v4.1-flash:1017',
+        peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
+      },
+    ])
   })
 
   it('keeps the model while the destination changes to a provider serving it', () => {
     const onChange = vi.fn()
-    editor([{
-      id: 'deepseek-v4.1-flash:1017',
-      peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
-    }], onChange)
+    editor(
+      [
+        {
+          id: 'deepseek-v4.1-flash:1017',
+          peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
+        },
+      ],
+      onChange,
+    )
     fireEvent.change(screen.getByLabelText(`${en.routingProvider} 1`), { target: { value: 'opencode' } })
     // The day/night pair this control exists for usually shares one id, so the
     // chosen model survives the switch.
-    expect(onChange).toHaveBeenLastCalledWith([{
-      id: 'deepseek-v4.1-flash:1017',
-      peak: [{ provider: 'opencode', model: 'deepseek-v4.1-flash' }],
-    }])
+    expect(onChange).toHaveBeenLastCalledWith([
+      {
+        id: 'deepseek-v4.1-flash:1017',
+        peak: [{ provider: 'opencode', model: 'deepseek-v4.1-flash' }],
+      },
+    ])
   })
 
   it('drops a model the new destination does not serve, and the destination with it', () => {
     const onChange = vi.fn()
-    editor([{
-      id: 'deepseek-v4.1-flash:1017',
-      peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
-    }], onChange)
+    editor(
+      [
+        {
+          id: 'deepseek-v4.1-flash:1017',
+          peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
+        },
+      ],
+      onChange,
+    )
     fireEvent.change(screen.getByLabelText(`${en.routingProvider} 1`), { target: { value: 'kimi' } })
     expect(onChange).toHaveBeenLastCalledWith([{ id: 'deepseek-v4.1-flash:1017' }])
     expect(screen.queryByText(en.routingWindow)).toBeNull()
@@ -223,34 +246,43 @@ describe('peak routing destination', () => {
 
   it('clears the destination when it is removed', () => {
     const onChange = vi.fn()
-    editor([{
-      id: 'deepseek-v4.1-flash:1017',
-      peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
-    }], onChange)
+    editor(
+      [
+        {
+          id: 'deepseek-v4.1-flash:1017',
+          peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
+        },
+      ],
+      onChange,
+    )
     fireEvent.change(screen.getByLabelText(`${en.routingProvider} 1`), { target: { value: '' } })
     expect(onChange).toHaveBeenLastCalledWith([{ id: 'deepseek-v4.1-flash:1017' }])
     expect(screen.getByText(en.routingHint)).toBeTruthy()
   })
 
   it('keeps a stored destination the catalog no longer lists', () => {
-    editor([{
-      id: 'deepseek-v4.1-flash:1017',
-      peak: [{ provider: 'retired', model: 'some-model' }],
-    }])
+    editor([
+      {
+        id: 'deepseek-v4.1-flash:1017',
+        peak: [{ provider: 'retired', model: 'some-model' }],
+      },
+    ])
     expect(screen.getByLabelText<HTMLSelectElement>(`${en.routingProvider} 1`).value).toBe('retired')
     expect(screen.getByRole('option', { name: 'retired', hidden: true })).toBeTruthy()
   })
 
   it('offers no control when the deployment configures no destination', () => {
-    render(<ModelListEditor
-      models={[{ id: 'deepseek-v4.1-flash:1017' }]}
-      onChange={vi.fn()}
-      probe={{ settingsNs: 'llm-pi-ai', provider: 'ollama-cloud' }}
-      disabled={false}
-      t={key => en[key]}
-      onBusyChange={() => {}}
-      operations={operations}
-    />)
+    render(
+      <ModelListEditor
+        models={[{ id: 'deepseek-v4.1-flash:1017' }]}
+        onChange={vi.fn()}
+        probe={{ settingsNs: 'llm-pi-ai', provider: 'ollama-cloud' }}
+        disabled={false}
+        t={key => en[key]}
+        onBusyChange={() => {}}
+        operations={operations}
+      />,
+    )
     fireEvent.click(screen.getByRole('button', { name: `${en.modelAdvanced} 1` }))
     expect(screen.queryByText(en.peakRouting)).toBeNull()
   })
@@ -258,10 +290,12 @@ describe('peak routing destination', () => {
 
 describe('peak routing period statement', () => {
   it('states the window in UTC and JST instead of offering time inputs', () => {
-    editor([{
-      id: 'deepseek-v4.1-flash:1017',
-      peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
-    }])
+    editor([
+      {
+        id: 'deepseek-v4.1-flash:1017',
+        peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
+      },
+    ])
     // The period is policy the catalog data carries, so it is read, not edited.
     const stated = screen.getByText(en.routingWindow).closest('div')!
     expect(within(stated).queryAllByRole('textbox')).toHaveLength(0)
@@ -269,10 +303,12 @@ describe('peak routing period statement', () => {
   })
 
   it('states the published peak definition, weekends included', () => {
-    editor([{
-      id: 'deepseek-v4.1-flash:1017',
-      peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
-    }])
+    editor([
+      {
+        id: 'deepseek-v4.1-flash:1017',
+        peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash' }],
+      },
+    ])
     // Ollama Cloud prices weekends off-peak all day, so no window covers one.
     expect(screen.getByText(en.routingPeakNote)).toBeTruthy()
     expect(en.routingPeakNote).toContain('Weekends are off-peak all day')
@@ -280,14 +316,21 @@ describe('peak routing period statement', () => {
 
   it('keeps the destination credential while the same destination is kept', () => {
     const onChange = vi.fn()
-    editor([{
-      id: 'deepseek-v4.1-flash:1017',
-      peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash', apiKeyEnv: 'OPENCODE_GO_API_KEY' }],
-    }], onChange)
+    editor(
+      [
+        {
+          id: 'deepseek-v4.1-flash:1017',
+          peak: [{ provider: 'opencode-go', model: 'deepseek-v4.1-flash', apiKeyEnv: 'OPENCODE_GO_API_KEY' }],
+        },
+      ],
+      onChange,
+    )
     fireEvent.change(screen.getByLabelText(`${en.routingProvider} 1`), { target: { value: 'opencode' } })
-    expect(onChange).toHaveBeenLastCalledWith([{
-      id: 'deepseek-v4.1-flash:1017',
-      peak: [{ provider: 'opencode', model: 'deepseek-v4.1-flash' }],
-    }])
+    expect(onChange).toHaveBeenLastCalledWith([
+      {
+        id: 'deepseek-v4.1-flash:1017',
+        peak: [{ provider: 'opencode', model: 'deepseek-v4.1-flash' }],
+      },
+    ])
   })
 })

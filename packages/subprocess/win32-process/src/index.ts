@@ -13,11 +13,7 @@ export {
   throwLastError,
   throwWin32,
 } from './ffi.ts'
-export type {
-  CurrentTokenProcessBindings,
-  NativePtr,
-  Win32ProcessBindings,
-} from './ffi.ts'
+export type { CurrentTokenProcessBindings, NativePtr, Win32ProcessBindings } from './ffi.ts'
 export {
   closeHandleChecked,
   drainPipe,

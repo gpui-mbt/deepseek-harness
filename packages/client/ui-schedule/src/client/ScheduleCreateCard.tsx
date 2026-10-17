@@ -16,10 +16,9 @@ export interface ScheduleCreateCardInjected {
 }
 
 /** Props of the `schedule_create` transcript card. */
-export type ScheduleCreateCardProps = ToolCallViewProps
-  & PropsLocale<'schedule.manager'>
-  & InjectFace<ScheduleCreateCardInjected>
-  & { readonly currentTask?: ScheduleRecord | null }
+export type ScheduleCreateCardProps = ToolCallViewProps &
+  PropsLocale<'schedule.manager'> &
+  InjectFace<ScheduleCreateCardInjected> & { readonly currentTask?: ScheduleRecord | null }
 
 /**
  * Fields one card reads.
@@ -29,8 +28,10 @@ export type ScheduleCreateCardProps = ToolCallViewProps
  * it supplies these fields alone and a template that starts reading another
  * owner field fails to compile here.
  */
-export type ScheduleCreateCardInput = Pick<ScheduleCreateCardProps,
-  'callId' | 'toolName' | 'block' | 'openTaskDetail' | 't' | 'currentTask'>
+export type ScheduleCreateCardInput = Pick<
+  ScheduleCreateCardProps,
+  'callId' | 'toolName' | 'block' | 'openTaskDetail' | 't' | 'currentTask'
+>
 
 /**
  * Render one `schedule_create` call as the created task's card.
@@ -51,34 +52,38 @@ export function ScheduleCreateCard({ block, toolName, openTaskDetail, t, current
   const openable = task !== undefined && !deleted
   return (
     <div className={css.card} data-tool="schedule_create">
-      {openable
-        ? (
-          <button
-            type="button"
-            className={css.cardOpen}
-            aria-label={t('card.openLabel', { title })}
-            onClick={() => { openTaskDetail(task.id) }}
-          />
-        )
-        : null}
+      {openable ? (
+        <button
+          type="button"
+          className={css.cardOpen}
+          aria-label={t('card.openLabel', { title })}
+          onClick={() => {
+            openTaskDetail(task.id)
+          }}
+        />
+      ) : null}
       <div className={css.row}>
-        <span className={css.leading}><IconClockOutlineRegular size={18} /></span>
+        <span className={css.leading}>
+          <IconClockOutlineRegular size={18} />
+        </span>
         <span className={css.body}>
           <span className={css.title}>{title}</span>
-          {task !== undefined
-            ? <span className={css.frequency}>{deleted ? t('card.deleted') : formatScheduleFrequency(task, t)}</span>
-            : null}
+          {task !== undefined ? (
+            <span className={css.frequency}>{deleted ? t('card.deleted') : formatScheduleFrequency(task, t)}</span>
+          ) : null}
         </span>
-        {openable
-          ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className={css.openButton}
-              onClick={() => { openTaskDetail(task.id) }}
-            >{t('card.open')}</Button>
-          )
-          : null}
+        {openable ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className={css.openButton}
+            onClick={() => {
+              openTaskDetail(task.id)
+            }}
+          >
+            {t('card.open')}
+          </Button>
+        ) : null}
       </div>
       {task === undefined && model.output !== null ? <pre className={css.fallback}>{model.output}</pre> : null}
     </div>

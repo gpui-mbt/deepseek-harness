@@ -8,8 +8,22 @@ import { dirname, join, normalize, resolve, SEP } from '../module-system/posix-p
 import { IMAGE_OVERLAY_DIRECTORIES } from '../image-layout.ts'
 import { parseTar } from './tar.ts'
 import type {
-  Vfs, VfsBigIntStats, VfsDeferredArchive, VfsDir, VfsDirent, VfsEncoding, VfsError, VfsFileHandle, VfsMutation,
-  VfsOpenFile, VfsMutationListener, VfsMutationSink, VfsReadOptions, VfsSeedOptions, VfsStatOptions, VfsStats,
+  Vfs,
+  VfsBigIntStats,
+  VfsDeferredArchive,
+  VfsDir,
+  VfsDirent,
+  VfsEncoding,
+  VfsError,
+  VfsFileHandle,
+  VfsMutation,
+  VfsOpenFile,
+  VfsMutationListener,
+  VfsMutationSink,
+  VfsReadOptions,
+  VfsSeedOptions,
+  VfsStatOptions,
+  VfsStats,
   VfsWriteOptions,
 } from './types.ts'
 
@@ -104,14 +118,7 @@ function statsOf(size: number, mtimeMs: number, directory: boolean, ino: bigint,
  * @param mode - Stored permission bits of the entry.
  * @returns Stats in the shape Node returns under `{ bigint: true }`.
  */
-function bigIntStatsOf(
-  size: number,
-  mtimeMs: number,
-  directory: boolean,
-  ino: bigint,
-  mode: number,
-  nlink = 1,
-): VfsBigIntStats {
+function bigIntStatsOf(size: number, mtimeMs: number, directory: boolean, ino: bigint, mode: number, nlink = 1): VfsBigIntStats {
   const milliseconds = BigInt(Math.trunc(mtimeMs))
   const nanoseconds = milliseconds * 1_000_000n
   const time = new Date(mtimeMs)
@@ -158,8 +165,7 @@ function openMode(flags: string): OpenMode {
   const suffix = flags.slice(1).split('')
   const validSuffix = suffix.every(flag => flag === '+' || flag === 'x' || flag === 's')
   const uniqueSuffix = new Set(suffix).size === suffix.length
-  if ((base !== 'r' && base !== 'w' && base !== 'a') || !validSuffix || !uniqueSuffix
-    || base === 'r' && flags.includes('x')) {
+  if ((base !== 'r' && base !== 'w' && base !== 'a') || !validSuffix || !uniqueSuffix || (base === 'r' && flags.includes('x'))) {
     const error = new TypeError(`The argument 'flags' is invalid. Received '${flags}'`) as TypeError & { code: string }
     error.code = 'ERR_INVALID_ARG_VALUE'
     throw error
@@ -177,7 +183,9 @@ function openMode(flags: string): OpenMode {
 /** Resize bytes exactly, preserving the prefix and zero-filling growth. */
 function resize(bytes: Uint8Array, length: number): Uint8Array {
   if (!Number.isSafeInteger(length) || length < 0) {
-    const error = new RangeError(`The value of "len" is out of range. It must be >= 0. Received ${String(length)}`) as RangeError & { code: string }
+    const error = new RangeError(`The value of "len" is out of range. It must be >= 0. Received ${String(length)}`) as RangeError & {
+      code: string
+    }
     error.code = 'ERR_OUT_OF_RANGE'
     throw error
   }
@@ -237,13 +245,21 @@ export class MemoryVfs implements Vfs {
    */
   subscribe(listener: VfsMutationListener): () => void {
     this.mutationListeners.add(listener)
-    return () => { this.mutationListeners.delete(listener) }
+    return () => {
+      this.mutationListeners.delete(listener)
+    }
   }
 
   /** Publish after state changes; one faulty observer cannot roll back a write. */
   private publish(mutation: VfsMutation): void {
     const observers: VfsMutationListener[] = [
-      ...(this.sink === undefined ? [] : [(change: VfsMutation): void => { this.sink?.record(change) }]),
+      ...(this.sink === undefined
+        ? []
+        : [
+            (change: VfsMutation): void => {
+              this.sink?.record(change)
+            },
+          ]),
       ...this.mutationListeners,
     ]
     for (const listener of observers) {
@@ -264,7 +280,9 @@ export class MemoryVfs implements Vfs {
     writeFile: async (path: string, data: string | Uint8Array, options?: VfsWriteOptions): Promise<void> => {
       this.writeFileSync(path, data, options)
     },
-    appendFile: async (path: string, data: string | Uint8Array): Promise<void> => { this.appendFileSync(path, data) },
+    appendFile: async (path: string, data: string | Uint8Array): Promise<void> => {
+      this.appendFileSync(path, data)
+    },
     mkdir: async (path: string, options?: { recursive?: boolean; mode?: number }): Promise<string | undefined> =>
       this.mkdirSync(path, options),
     readdir: async (path: string, options?: { withFileTypes?: boolean }): Promise<string[] & VfsDirent[]> =>
@@ -272,13 +290,25 @@ export class MemoryVfs implements Vfs {
     stat: async (path: string, options?: VfsStatOptions): Promise<VfsStats | VfsBigIntStats> => this.statSync(path, options),
     lstat: async (path: string, options?: VfsStatOptions): Promise<VfsStats | VfsBigIntStats> => this.statSync(path, options),
     realpath: async (path: string): Promise<string> => this.realpathSync(path),
-    rename: async (from: string, to: string): Promise<void> => { this.renameSync(from, to) },
-    unlink: async (path: string): Promise<void> => { this.unlinkSync(path) },
-    rm: async (path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void> => { this.rmSync(path, options) },
+    rename: async (from: string, to: string): Promise<void> => {
+      this.renameSync(from, to)
+    },
+    unlink: async (path: string): Promise<void> => {
+      this.unlinkSync(path)
+    },
+    rm: async (path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void> => {
+      this.rmSync(path, options)
+    },
     mkdtemp: async (prefix: string): Promise<string> => this.mkdtempSync(prefix),
-    link: async (existing: string, next: string): Promise<void> => { this.linkSync(existing, next) },
-    truncate: async (path: string, length?: number): Promise<void> => { this.truncateSync(path, length) },
-    chmod: async (path: string, mode: number): Promise<void> => { this.chmodSync(path, mode) },
+    link: async (existing: string, next: string): Promise<void> => {
+      this.linkSync(existing, next)
+    },
+    truncate: async (path: string, length?: number): Promise<void> => {
+      this.truncateSync(path, length)
+    },
+    chmod: async (path: string, mode: number): Promise<void> => {
+      this.chmodSync(path, mode)
+    },
     opendir: async (path: string): Promise<VfsDir> => this.opendir(path),
     open: async (path: string, flags?: string, mode?: number): Promise<VfsFileHandle> => {
       await this.whenReadable(path)
@@ -354,7 +384,9 @@ export class MemoryVfs implements Vfs {
           throw new Error(`webworker vfs: lazy archive ${state.name} carries unregistered entry "${relativeName}"`)
         }
         if (entry.bytes.length !== size) {
-          throw new Error(`webworker vfs: lazy archive ${state.name} holds ${String(entry.bytes.length)} bytes for ${target}, registered as ${String(size)}`)
+          throw new Error(
+            `webworker vfs: lazy archive ${state.name} holds ${String(entry.bytes.length)} bytes for ${target}, registered as ${String(size)}`,
+          )
         }
         entries.set(target, entry.bytes)
       }
@@ -370,7 +402,11 @@ export class MemoryVfs implements Vfs {
         const identity = this.identities.get(target)
         this.identities.delete(target)
         this.setFile(target, {
-          bytes, mtimeMs: file.mtimeMs, mode: file.mode, paths: undefined, ...identity === undefined ? {} : { identity },
+          bytes,
+          mtimeMs: file.mtimeMs,
+          mode: file.mode,
+          paths: undefined,
+          ...(identity === undefined ? {} : { identity }),
         })
       }
     } catch (error) {
@@ -384,8 +420,8 @@ export class MemoryVfs implements Vfs {
     const file = this.deferred.get(target)
     if (file === undefined) return
     const error = new Error(
-      `ERR_DSH_VFS_DEFERRED: ${syscall} cannot wait for '${target}', which lazy archive ${file.archive.name} `
-      + 'supplies on its first asynchronous read',
+      `ERR_DSH_VFS_DEFERRED: ${syscall} cannot wait for '${target}', which lazy archive ${file.archive.name} ` +
+        'supplies on its first asynchronous read',
     ) as VfsError
     error.code = 'ERR_DSH_VFS_DEFERRED'
     error.path = target
@@ -430,13 +466,14 @@ export class MemoryVfs implements Vfs {
     const target = this.key(path)
     const node = this.files.get(target)
     const deferred = this.deferred.get(target)
-    const [size, mtimeMs, directory, mode] = node !== undefined
-      ? [node.bytes.length, node.mtimeMs, false, node.mode] as const
-      : deferred !== undefined
-        ? [deferred.size, deferred.mtimeMs, false, deferred.mode] as const
-        : this.directories.has(target)
-          ? [0, this.directoryMtimes.get(target) ?? 0, true, this.directoryModes.get(target) ?? DEFAULT_DIRECTORY_MODE] as const
-          : fail('ENOENT', 'stat', target)
+    const [size, mtimeMs, directory, mode] =
+      node !== undefined
+        ? ([node.bytes.length, node.mtimeMs, false, node.mode] as const)
+        : deferred !== undefined
+          ? ([deferred.size, deferred.mtimeMs, false, deferred.mode] as const)
+          : this.directories.has(target)
+            ? ([0, this.directoryMtimes.get(target) ?? 0, true, this.directoryModes.get(target) ?? DEFAULT_DIRECTORY_MODE] as const)
+            : fail('ENOENT', 'stat', target)
     const identity = node === undefined ? this.identityOf(target) : this.identityOfFile(node)
     return options?.bigint === true
       ? bigIntStatsOf(size, mtimeMs, directory, identity, mode, node === undefined ? 1 : this.fileLinkCount(node))
@@ -467,7 +504,7 @@ export class MemoryVfs implements Vfs {
 
   /** @returns The number of names currently linked to one file node. */
   private fileLinkCount(node: FileNode): number {
-    return typeof node.paths === 'string' ? 1 : node.paths?.size ?? 0
+    return typeof node.paths === 'string' ? 1 : (node.paths?.size ?? 0)
   }
 
   /** Add one map name, promoting the rare hard-link case to a Set. */
@@ -516,8 +553,12 @@ export class MemoryVfs implements Vfs {
   /** Publish one linked name after a content or metadata write. */
   private publishFilePath(node: FileNode, path: string, appendedFrom?: number): void {
     this.publish({
-      kind: 'write', path, bytes: node.bytes, mode: node.mode, entryChanged: false,
-      ...appendedFrom === undefined ? {} : { appendedFrom },
+      kind: 'write',
+      path,
+      bytes: node.bytes,
+      mode: node.mode,
+      entryChanged: false,
+      ...(appendedFrom === undefined ? {} : { appendedFrom }),
     })
   }
 
@@ -571,14 +612,7 @@ export class MemoryVfs implements Vfs {
 
   /** @returns BigInt stats for an open file, including its device and inode identity. */
   private fileBigIntStats(node: FileNode): VfsBigIntStats {
-    return bigIntStatsOf(
-      node.bytes.length,
-      node.mtimeMs,
-      false,
-      this.identityOfFile(node),
-      node.mode,
-      this.fileLinkCount(node),
-    )
+    return bigIntStatsOf(node.bytes.length, node.mtimeMs, false, this.identityOfFile(node), node.mode, this.fileLinkCount(node))
   }
 
   /** Forget removed directory identities, so recreated paths report new ones. */
@@ -707,7 +741,10 @@ export class MemoryVfs implements Vfs {
     if (!this.directories.has(dirname(target))) fail('ENOENT', 'open', target)
     const flag = options?.flag ?? 'w'
     if (flag.startsWith('wx') && this.files.has(target)) fail('EEXIST', 'open', target)
-    if (flag.startsWith('a')) {  this.appendFileSync(target, data); return }
+    if (flag.startsWith('a')) {
+      this.appendFileSync(target, data)
+      return
+    }
     // POSIX open(O_CREAT): the mode applies at creation only; a rewrite keeps
     // the entry's bits.
     const previous = this.files.get(target)
@@ -798,13 +835,22 @@ export class MemoryVfs implements Vfs {
       truncate: async (length = 0): Promise<void> => {
         current('ftruncate').truncate(length)
       },
-      chmod: async (mode: number): Promise<void> => { current('fchmod').chmod(mode) },
-      stat: async (options?: VfsStatOptions): Promise<VfsStats | VfsBigIntStats> => options?.bigint === true
-        ? current('fstat').statBigInt()
-        : current('fstat').stat(),
-      sync: async (): Promise<void> => { current('fsync'); await this.flush() },
-      datasync: async (): Promise<void> => { current('fdatasync'); await this.flush() },
-      close: async (): Promise<void> => { closed = true },
+      chmod: async (mode: number): Promise<void> => {
+        current('fchmod').chmod(mode)
+      },
+      stat: async (options?: VfsStatOptions): Promise<VfsStats | VfsBigIntStats> =>
+        options?.bigint === true ? current('fstat').statBigInt() : current('fstat').stat(),
+      sync: async (): Promise<void> => {
+        current('fsync')
+        await this.flush()
+      },
+      datasync: async (): Promise<void> => {
+        current('fdatasync')
+        await this.flush()
+      },
+      close: async (): Promise<void> => {
+        closed = true
+      },
     }
   }
 
@@ -842,11 +888,13 @@ export class MemoryVfs implements Vfs {
         if (!access.writable) fail('EBADF', 'write', target)
         return this.writeFileNode(node, access.append ? node.bytes.length : position, data)
       },
-      truncate: (length) => {
+      truncate: length => {
         if (!access.writable) fail('EINVAL', 'ftruncate', target)
         this.truncateFile(node, length)
       },
-      chmod: (mode) => { this.chmodFile(node, mode) },
+      chmod: mode => {
+        this.chmodFile(node, mode)
+      },
       stat: () => this.fileStats(node),
       statBigInt: () => this.fileBigIntStats(node),
     }
@@ -861,10 +909,16 @@ export class MemoryVfs implements Vfs {
    */
   private handleTail(target: string): Pick<VfsFileHandle, 'chmod' | 'stat' | 'sync' | 'datasync' | 'close'> {
     return {
-      chmod: async (mode: number): Promise<void> => { this.chmodSync(target, mode) },
+      chmod: async (mode: number): Promise<void> => {
+        this.chmodSync(target, mode)
+      },
       stat: async (options?: VfsStatOptions): Promise<VfsStats | VfsBigIntStats> => this.statSync(target, options),
-      sync: async (): Promise<void> => { await this.flush() },
-      datasync: async (): Promise<void> => { await this.flush() },
+      sync: async (): Promise<void> => {
+        await this.flush()
+      },
+      datasync: async (): Promise<void> => {
+        await this.flush()
+      },
       close: async (): Promise<void> => {},
     }
   }
@@ -879,7 +933,10 @@ export class MemoryVfs implements Vfs {
     this.requireArrived('open', target)
     const existing = this.files.get(target)
     const addition = typeof data === 'string' ? encoder.encode(data) : data
-    if (existing === undefined) {  this.writeFileSync(target, addition); return }
+    if (existing === undefined) {
+      this.writeFileSync(target, addition)
+      return
+    }
     this.writeFileNode(existing, existing.bytes.length, addition)
   }
 
@@ -955,7 +1012,11 @@ export class MemoryVfs implements Vfs {
     }
     for (const entry of movedFiles) {
       this.publish({
-        kind: 'write', path: entry.path, bytes: entry.bytes, mode: entry.mode, entryChanged: true,
+        kind: 'write',
+        path: entry.path,
+        bytes: entry.bytes,
+        mode: entry.mode,
+        entryChanged: true,
       })
     }
   }
@@ -1170,9 +1231,12 @@ export function loadVfsOverlay(image: Uint8Array, root: string, vfs: MemoryVfs):
     const relativeName = entry.name.startsWith('./') ? entry.name.slice(2) : entry.name
     const path = relativeName.endsWith('/') ? relativeName.slice(0, -1) : relativeName
     const segments = path.split('/')
-    if (path === '' || relativeName.startsWith(SEP)
-      || segments.some(segment => segment === '' || segment === '.' || segment === '..')
-      || !IMAGE_OVERLAY_DIRECTORIES.includes(segments[0] ?? '')) {
+    if (
+      path === '' ||
+      relativeName.startsWith(SEP) ||
+      segments.some(segment => segment === '' || segment === '.' || segment === '..') ||
+      !IMAGE_OVERLAY_DIRECTORIES.includes(segments[0] ?? '')
+    ) {
       throw new Error(`webworker vfs: overlay entry must stay under ${IMAGE_OVERLAY_DIRECTORIES.join('/ or ')}, received "${entry.name}"`)
     }
     const target = join(root, path)

@@ -42,7 +42,10 @@ export class TeamJournal {
   async transact<T>(rootId: SessionId, operation: () => Promise<T>): Promise<T> {
     const prior = this.tails.get(rootId) ?? Promise.resolve()
     const run = prior.then(operation, operation)
-    const tail = run.then(() => undefined, () => undefined)
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    )
     this.tails.set(rootId, tail)
     try {
       return await run
@@ -57,11 +60,7 @@ export class TeamJournal {
    * @param type - Team event discriminant.
    * @param data - payload correlated with the event type.
    */
-  async appendAndFlush<T extends MutableTeamEventType>(
-    root: Agent,
-    type: T,
-    data: SessionEventMap[T],
-  ): Promise<void> {
+  async appendAndFlush<T extends MutableTeamEventType>(root: Agent, type: T, data: SessionEventMap[T]): Promise<void> {
     // Team events never enter the conversation surface. This narrower local
     // capability removes Session.append's conditional surface argument while
     // preserving the event-key/payload correlation.

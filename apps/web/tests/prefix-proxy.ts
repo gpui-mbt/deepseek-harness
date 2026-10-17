@@ -6,8 +6,11 @@
  * deployment's proxy; this fixture stays plain HTTP.
  */
 import {
-  createServer as createHttpServer, request as httpRequest,
-  type IncomingMessage, type OutgoingHttpHeaders, type ServerResponse,
+  createServer as createHttpServer,
+  request as httpRequest,
+  type IncomingMessage,
+  type OutgoingHttpHeaders,
+  type ServerResponse,
 } from 'node:http'
 import { connect as netConnect, type AddressInfo, type Socket } from 'node:net'
 
@@ -43,7 +46,9 @@ export async function startPrefixProxy(options: PrefixProxyOptions): Promise<Pre
   const sockets = new Set<Socket>()
   const track = (socket: Socket): void => {
     sockets.add(socket)
-    socket.once('close', () => { sockets.delete(socket) })
+    socket.once('close', () => {
+      sockets.delete(socket)
+    })
     if (closing !== undefined) socket.destroy()
   }
   const mountPath = (raw: string): string | undefined => {
@@ -65,7 +70,10 @@ export async function startPrefixProxy(options: PrefixProxyOptions): Promise<Pre
     return copy
   }
   server.on('request', (requestMessage: IncomingMessage, response: ServerResponse) => {
-    if (closing !== undefined) { response.destroy(); return }
+    if (closing !== undefined) {
+      response.destroy()
+      return
+    }
     const routed = mountPath(requestMessage.url ?? '/')
     if (routed === undefined) {
       response.writeHead(404)
@@ -77,16 +85,27 @@ export async function startPrefixProxy(options: PrefixProxyOptions): Promise<Pre
       response.end()
       return
     }
-    const upstream = httpRequest({
-      host: '127.0.0.1', port: targetPort, method: requestMessage.method, path: routed,
-      headers: forward(requestMessage.headers), agent: false,
-    }, (result) => {
-      response.writeHead(result.statusCode as number, rewriteCookies(result.headers))
-      result.pipe(response)
-    })
+    const upstream = httpRequest(
+      {
+        host: '127.0.0.1',
+        port: targetPort,
+        method: requestMessage.method,
+        path: routed,
+        headers: forward(requestMessage.headers),
+        agent: false,
+      },
+      result => {
+        response.writeHead(result.statusCode as number, rewriteCookies(result.headers))
+        result.pipe(response)
+      },
+    )
     upstream.on('socket', track)
-    upstream.once('error', (error) => { response.destroy(error) })
-    response.once('close', () => { upstream.destroy() })
+    upstream.once('error', error => {
+      response.destroy(error)
+    })
+    response.once('close', () => {
+      upstream.destroy()
+    })
     requestMessage.pipe(upstream)
   })
   // An upgrade speaks its own hop-by-hop framing, so it cannot ride the
@@ -109,10 +128,18 @@ export async function startPrefixProxy(options: PrefixProxyOptions): Promise<Pre
       if (head.length > 0) upstream.write(head)
       socket.pipe(upstream).pipe(socket)
     })
-    upstream.once('error', () => { socket.destroy() })
-    socket.once('error', () => { upstream.destroy() })
-    upstream.once('close', () => { socket.destroy() })
-    socket.once('close', () => { upstream.destroy() })
+    upstream.once('error', () => {
+      socket.destroy()
+    })
+    socket.once('error', () => {
+      upstream.destroy()
+    })
+    upstream.once('close', () => {
+      socket.destroy()
+    })
+    socket.once('close', () => {
+      upstream.destroy()
+    })
   })
   server.on('connection', track)
   await new Promise<void>((resolve, reject) => {
@@ -122,14 +149,25 @@ export async function startPrefixProxy(options: PrefixProxyOptions): Promise<Pre
   const { port } = server.address() as AddressInfo
   return {
     port,
-    setTarget(port: number) { targetPort = port },
+    setTarget(port: number) {
+      targetPort = port
+    },
     close() {
       closing ??= (async () => {
-        const stopped = new Promise<void>((resolve) => { server.close(() => { resolve() }) })
-        const drained = [...sockets].map(socket => new Promise<void>((resolve) => {
-          socket.once('close', () => { resolve() })
-          socket.destroy()
-        }))
+        const stopped = new Promise<void>(resolve => {
+          server.close(() => {
+            resolve()
+          })
+        })
+        const drained = [...sockets].map(
+          socket =>
+            new Promise<void>(resolve => {
+              socket.once('close', () => {
+                resolve()
+              })
+              socket.destroy()
+            }),
+        )
         await Promise.all([stopped, ...drained])
       })()
       return closing

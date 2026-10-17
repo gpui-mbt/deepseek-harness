@@ -3,12 +3,7 @@
 import { isPlainObject } from '../../../json.ts'
 import type { RuntimeScript } from '../../../cdp/index.ts'
 import { exactKeys, exactObject, optionalBoolean, optionalString, wireId } from '../../../validation.ts'
-import type {
-  ClientScriptDescriptor,
-  ClientSourceCommand,
-  ClientSourceContentKind,
-  ClientSourceResult,
-} from './commands.ts'
+import type { ClientScriptDescriptor, ClientSourceCommand, ClientSourceContentKind, ClientSourceResult } from './commands.ts'
 
 /**
  * Parse one Worker-to-Client source command.
@@ -62,11 +57,7 @@ export function parseClientSourceResult(value: unknown): ClientSourceResult {
       available: false,
     }
   }
-  exactKeys(
-    value,
-    ['op', 'scriptKey', 'content', 'available', 'offset', 'nextOffset', 'data', 'eof'],
-    'Client source chunk result',
-  )
+  exactKeys(value, ['op', 'scriptKey', 'content', 'available', 'offset', 'nextOffset', 'data', 'eof'], 'Client source chunk result')
   if (value.available !== true || typeof value.data !== 'string' || typeof value.eof !== 'boolean') {
     throw new Error('inspector protocol: invalid Client source chunk result')
   }
@@ -88,10 +79,11 @@ export function parseClientSourceResult(value: unknown): ClientSourceResult {
 }
 
 function parseScript(value: unknown): ClientScriptDescriptor {
-  const record = exactObject(value, [
-    'scriptKey', 'url', 'hash', 'buildId', 'sourceMapUrl', 'startLine', 'startColumn', 'endLine', 'endColumn',
-    'isModule', 'length',
-  ], 'Client script descriptor')
+  const record = exactObject(
+    value,
+    ['scriptKey', 'url', 'hash', 'buildId', 'sourceMapUrl', 'startLine', 'startColumn', 'endLine', 'endColumn', 'isModule', 'length'],
+    'Client script descriptor',
+  )
   if (typeof record.url !== 'string' || record.url.length > 8_192 || typeof record.hash !== 'string') {
     throw new Error('inspector protocol: invalid Client script identity')
   }

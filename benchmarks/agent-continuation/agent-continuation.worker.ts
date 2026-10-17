@@ -31,13 +31,15 @@ export interface ContinuationReport {
 
 class SyntheticAdapter extends LlmAdapter {
   requests = 0
-  constructor(private readonly toolsPerTurn: number) { super() }
+  constructor(private readonly toolsPerTurn: number) {
+    super()
+  }
 
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     return Promise.resolve({ provider, id: model, name: model })
   }
 
-  async * stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
     const tools = this.toolsPerTurn > 0 && this.requests % 2 === 0 ? this.toolsPerTurn : 0
     const reply = response(100_000 + this.requests++, tools)
     yield* reply.chunks
@@ -57,19 +59,32 @@ async function seed(root: string): Promise<void> {
   try {
     await mountAgentLoopTestDependencies(ctx)
     await ctx.plugin(JsonlSessionPersistence, { root, compression: 'zstd' })
-    const handle = await ctx.sessionPersistence.create({
-      version: SESSION_FORMAT_VERSION, id: PARENT_ID, createdAt: TIME_ZERO, cwd: '/bench', isSeeded: false,
-    }, {})
+    const handle = await ctx.sessionPersistence.create(
+      {
+        version: SESSION_FORMAT_VERSION,
+        id: PARENT_ID,
+        createdAt: TIME_ZERO,
+        cwd: '/bench',
+        isSeeded: false,
+      },
+      {},
+    )
     try {
       await handle.append(syntheticHistory(WORKLOAD.historyTurns))
       await handle.flush()
-    } finally { await handle.close() }
-  } finally { await ctx.fiber.dispose() }
+    } finally {
+      await handle.close()
+    }
+  } finally {
+    await ctx.fiber.dispose()
+  }
 }
 
 async function runTurns(agent: Agent, turns: number): Promise<void> {
   for (let turn = 0; turn < turns; turn++) {
-    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Continue synthetic task ' + String(turn) }], source: { kind: 'user' } }))
+    agent.followup(
+      createUserMessage({ content: [{ type: 'text', text: 'Continue synthetic task ' + String(turn) }], source: { kind: 'user' } }),
+    )
     await agent.whenIdle()
   }
 }
@@ -85,15 +100,20 @@ async function measure(root: string, scenario: string): Promise<ContinuationRepo
     await ctx.plugin(JsonlSessionPersistence, { root, compression: 'zstd' })
     await ctx.plugin(AgentLoop, { agents: [] })
     ctx.effect(() => ctx.llm.registerAdapter(['bench'], adapter))
-    ctx.effect(() => ctx.tools.register(defineContentToolFixture({
-      name: 'bench_tool', description: 'Read a bounded synthetic module.',
-      parameters: { ordinal: { type: 'number', required: true } },
-      isConcurrencySafe: () => true,
-      execute(args) {
-        toolCalls++
-        return Promise.resolve([{ type: 'text', text: resultText(args.ordinal) }])
-      },
-    })))
+    ctx.effect(() =>
+      ctx.tools.register(
+        defineContentToolFixture({
+          name: 'bench_tool',
+          description: 'Read a bounded synthetic module.',
+          parameters: { ordinal: { type: 'number', required: true } },
+          isConcurrencySafe: () => true,
+          execute(args) {
+            toolCalls++
+            return Promise.resolve([{ type: 'text', text: resultText(args.ordinal) }])
+          },
+        }),
+      ),
+    )
     if (!toolHeavy) {
       handle = await ctx.agents.resume({ resumeSessionId: PARENT_ID, agentOptions: { provider: 'bench', model: 'bench' } })
     }
@@ -110,15 +130,24 @@ async function measure(root: string, scenario: string): Promise<ContinuationRepo
     const end = performance.now()
     const cpu = process.cpuUsage(cpuStart)
     const retainedHeapMb = (await collectHeap()) - beforeHeap
-    if (adapter.requests !== (toolHeavy ? WORKLOAD.continuationTurns * 2 : WORKLOAD.requestTurns)
-      || toolCalls !== (toolHeavy ? WORKLOAD.continuationTurns * WORKLOAD.toolsPerLiveTurn : 0)) {
+    if (
+      adapter.requests !== (toolHeavy ? WORKLOAD.continuationTurns * 2 : WORKLOAD.requestTurns) ||
+      toolCalls !== (toolHeavy ? WORKLOAD.continuationTurns * WORKLOAD.toolsPerLiveTurn : 0)
+    ) {
       throw new Error('backend benchmark did not complete every requested model/tool step')
     }
     return {
-      totalMs: end - start, resumeMs: resumed - start, turnsMs: turnsDone - resumed, flushMs: end - turnsDone,
-      cpuUserMs: cpu.user / 1_000, cpuSystemMs: cpu.system / 1_000,
-      retainedHeapMb, peakRssMb: process.resourceUsage().maxRSS / 1_024,
-      requests: adapter.requests, toolCalls, events: handle.agent.session.seq,
+      totalMs: end - start,
+      resumeMs: resumed - start,
+      turnsMs: turnsDone - resumed,
+      flushMs: end - turnsDone,
+      cpuUserMs: cpu.user / 1_000,
+      cpuSystemMs: cpu.system / 1_000,
+      retainedHeapMb,
+      peakRssMb: process.resourceUsage().maxRSS / 1_024,
+      requests: adapter.requests,
+      toolCalls,
+      events: handle.agent.session.seq,
     }
   } finally {
     await handle?.dispose()
@@ -126,10 +155,18 @@ async function measure(root: string, scenario: string): Promise<ContinuationRepo
   }
 }
 
-assertBuiltBenchmarkRuntime(import.meta.url, Object.fromEntries([
-  '@deepseek-ai/dsh-agent-loop', '@deepseek-ai/dsh-session', '@deepseek-ai/dsh-llm',
-  '@deepseek-ai/dsh-tools', '@deepseek-ai/dsh-session-persistence-jsonl',
-].map(name => [name, import.meta.resolve(name)])))
+assertBuiltBenchmarkRuntime(
+  import.meta.url,
+  Object.fromEntries(
+    [
+      '@deepseek-ai/dsh-agent-loop',
+      '@deepseek-ai/dsh-session',
+      '@deepseek-ai/dsh-llm',
+      '@deepseek-ai/dsh-tools',
+      '@deepseek-ai/dsh-session-persistence-jsonl',
+    ].map(name => [name, import.meta.resolve(name)]),
+  ),
+)
 const [root, scenario] = process.argv.slice(2)
 if (root === undefined || scenario === undefined || !['seed', 'request-history', 'tool-continuation'].includes(scenario)) {
   throw new Error('usage: agent-continuation.worker.js <root> <seed|request-history|tool-continuation>')

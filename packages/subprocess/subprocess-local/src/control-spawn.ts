@@ -15,7 +15,7 @@ export function controlPipe(
 ): Duplex | undefined {
   // Node's type declaration names only the first five descriptor slots.
   const streams: ReadonlyArray<Readable | Writable | null | undefined> = child.stdio
-  return control === 'pipe' ? streams[SUBPROCESS_CONTROL_FD] as Duplex | undefined : undefined
+  return control === 'pipe' ? (streams[SUBPROCESS_CONTROL_FD] as Duplex | undefined) : undefined
 }
 
 /**

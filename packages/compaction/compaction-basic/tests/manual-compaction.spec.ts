@@ -1,5 +1,5 @@
 import { imageOffloadProjection } from '@deepseek-ai/dsh-compaction-image-offload/projection'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -7,35 +7,21 @@ import { CommandId } from '@deepseek-ai/dsh-commands/brand'
 import { BasicCompactionEngine } from '@deepseek-ai/dsh-compaction-basic'
 import { CompactionId, isCompactCheckpointSource, ManualCompactionError } from '@deepseek-ai/dsh-compaction'
 import type { CompactionResult } from '@deepseek-ai/dsh-compaction'
-import {
-  createAssistantMessage,
-  createUserMessage,
-  LlmAdapter,
-} from '@deepseek-ai/dsh-llm'
-import type {
-  ContentBlock,
-  LlmResolvedModelInfo,
-  Message,
-  RequestMessage,
-  StreamChunk,
-  TokenUsage,
-} from '@deepseek-ai/dsh-llm'
+import { createAssistantMessage, createUserMessage, LlmAdapter } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, LlmResolvedModelInfo, Message, RequestMessage, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import SessionStore, { buildForkSeed, Session, SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type {
-  SummarizationInput,
-  SummaryResult,
-} from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
+import type { SummarizationInput, SummaryResult } from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'listener': { kind: 'listener' } & ContextFormed
-    'rival': { kind: 'rival' } & ContextFormed
-    'test': { kind: 'test' } & ContextFormed
+    listener: { kind: 'listener' } & ContextFormed
+    rival: { kind: 'rival' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -53,21 +39,17 @@ class GatedCompactionEngine extends BasicCompactionEngine {
   duringSummary: (() => void) | undefined
   calls: SummarizationInput[] = []
 
-  override async summarize(
-    input: SummarizationInput,
-    _agent: Agent,
-    _signal?: AbortSignal,
-  ): Promise<SummaryResult> {
+  override async summarize(input: SummarizationInput, _agent: Agent, _signal?: AbortSignal): Promise<SummaryResult> {
     this.calls.push(input)
     this.duringSummary?.()
     if (this.gate !== undefined) await this.gate
     if (this.error !== undefined) throw this.error
     return {
       summary: this.summary,
-      ...this.rawOutput === undefined ? {} : { rawOutput: this.rawOutput },
+      ...(this.rawOutput === undefined ? {} : { rawOutput: this.rawOutput }),
       provider: 'summary-provider',
       model: 'summary-model',
-      ...this.usage === undefined ? {} : { usage: this.usage },
+      ...(this.usage === undefined ? {} : { usage: this.usage }),
     }
   }
 }
@@ -85,7 +67,7 @@ class TextAdapter extends LlmAdapter {
     })
   }
 
-  override async * stream(options: { messages: readonly RequestMessage[] }): AsyncIterable<StreamChunk> {
+  override async *stream(options: { messages: readonly RequestMessage[] }): AsyncIterable<StreamChunk> {
     this.requests.push([...options.messages])
     yield { type: 'block-start', index: 0, blockType: 'text' }
     yield { type: 'block-end', index: 0, block: { type: 'text', text: 'answer' } }
@@ -121,25 +103,29 @@ async function loopHarness(): Promise<LoopHarness> {
     if (event.type === 'compaction/end') log.push(`compaction/end:${String(event.data.turn)}`)
     if (event.type === 'user/message') log.push('user/message')
   })
-  ctx.on('session/flush', () => { log.push('flush') })
+  ctx.on('session/flush', () => {
+    log.push('flush')
+  })
   return { ctx, agent, compact, adapter, log }
 }
 
 /** Drive one real turn so the closed history holds a compactable older span. */
 async function seedHistory(harness: LoopHarness): Promise<void> {
-  harness.agent.followup(createUserMessage({
-    content: [{ type: 'text', text: PROMPT }],
-    source: { kind: 'user' },
-  }))
+  harness.agent.followup(
+    createUserMessage({
+      content: [{ type: 'text', text: PROMPT }],
+      source: { kind: 'user' },
+    }),
+  )
   await harness.agent.whenIdle()
   harness.log.length = 0
 }
 
 /** Text of every derived model-visible message, in request order. */
 function derivedText(session: Session): string[] {
-  return session.deriveMessages().map((message: Message) => message.content
-    .map(block => block.type === 'text' ? block.text : '')
-    .join(''))
+  return session
+    .deriveMessages()
+    .map((message: Message) => message.content.map(block => (block.type === 'text' ? block.text : '')).join(''))
 }
 
 /** Await one classified manual-compaction rejection. */
@@ -166,7 +152,12 @@ function causeOf(error: ManualCompactionError): Error {
 
 function deferred(): { promise: Promise<undefined>; resolve: () => void } {
   const { promise, resolve } = Promise.withResolvers<undefined>()
-  return { promise, resolve: () => { resolve(undefined) } }
+  return {
+    promise,
+    resolve: () => {
+      resolve(undefined)
+    },
+  }
 }
 
 /** A closed-tail session with compactable exchanges and no live agent. */
@@ -175,10 +166,14 @@ function closedConversation(turns = 2, lastTurnNumber = turns): Session {
   for (let index = 1; index <= turns; index += 1) {
     const turn = index === turns ? lastTurnNumber : index
     session.append('turn/start', { turn })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: `${PROMPT} ${turn}` }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: `${PROMPT} ${turn}` }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     session.append('step/start', { turn, step: 1 })
     if (index === 1) {
       session.append('request/header', {
@@ -186,15 +181,19 @@ function closedConversation(turns = 2, lastTurnNumber = turns): Session {
         reason: 'initial',
       })
     }
-    session.append('assistant/message', {
-      stream: [],
-      turn,
-      step: 1,
-      message: createAssistantMessage({
-        content: [{ type: 'text', text: `answer ${turn}` }],
-        source: { provider: MODEL, model: MODEL },
-      }),
-    }, { surfaceOp: 'append' })
+    session.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn,
+        step: 1,
+        message: createAssistantMessage({
+          content: [{ type: 'text', text: `answer ${turn}` }],
+          source: { provider: MODEL, model: MODEL },
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('step/end', { turn, step: 1 })
     session.append('turn/end', { turn, reason: { kind: 'completed' } })
   }
@@ -202,11 +201,7 @@ function closedConversation(turns = 2, lastTurnNumber = turns): Session {
 }
 
 /** A fake idle agent whose maintenance claim is scripted per test. */
-function fakeAgent(
-  session: Session,
-  reserve: () => (() => void) | undefined,
-  maintenanceSignal = new AbortController().signal,
-): Agent {
+function fakeAgent(session: Session, reserve: () => (() => void) | undefined, maintenanceSignal = new AbortController().signal): Agent {
   return {
     session,
     options: { provider: MODEL, model: MODEL },
@@ -242,13 +237,18 @@ describe('compactNow through the real loop', () => {
   it('passes logged image omissions to the summarizer without changing the original message', async () => {
     const { ctx, agent, compact } = await loopHarness()
     try {
-      agent.followup(createUserMessage({
-        content: [{ type: 'text', text: PROMPT }, {
-          type: 'image',
-          attachment: { attachmentId: `sha256:${'a'.repeat(64)}` as never, mediaType: 'image/png', bytes: 1, width: 1, height: 1 },
-        }],
-        source: { kind: 'user' },
-      }))
+      agent.followup(
+        createUserMessage({
+          content: [
+            { type: 'text', text: PROMPT },
+            {
+              type: 'image',
+              attachment: { attachmentId: `sha256:${'a'.repeat(64)}` as never, mediaType: 'image/png', bytes: 1, width: 1, height: 1 },
+            },
+          ],
+          source: { kind: 'user' },
+        }),
+      )
       await agent.whenIdle()
       const source = agent.session.snapshotEvents().find(event => event.type === 'user/message')!
       agent.session.append('image/offload', { targets: [{ seq: source.seq, imageIndexes: [0] }] })
@@ -271,11 +271,15 @@ describe('compactNow through the real loop', () => {
     const running = compact.compactNow(agent, SIGNAL)
     await Promise.resolve()
     expect(log).toEqual(['compaction/start:null'])
-    agent.followup(createUserMessage({
-      content: [{ type: 'text', text: 'after compaction' }],
-      source: { kind: 'user' },
-    }))
-    await new Promise<void>((resolve) => { setTimeout(resolve, 5) })
+    agent.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: 'after compaction' }],
+        source: { kind: 'user' },
+      }),
+    )
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 5)
+    })
 
     expect(agent.status).toBe('idle')
     expect(adapter.requests).toHaveLength(1)
@@ -296,9 +300,9 @@ describe('compactNow through the real loop', () => {
     expect(end).toBeLessThan(flush)
     expect(flush).toBeLessThan(nextTurn)
     expect(adapter.requests).toHaveLength(2)
-    const second = (adapter.requests[1] ?? []).map(message => message.content
-      .map(block => block.type === 'text' ? block.text : '')
-      .join(''))
+    const second = (adapter.requests[1] ?? []).map(message =>
+      message.content.map(block => (block.type === 'text' ? block.text : '')).join(''),
+    )
     expect(adapter.requests[1]?.[0]?.role).toBe('system')
     expect(second[1]).toContain('checkpoint')
     expect(second.at(-1)).toBe('after compaction')
@@ -310,29 +314,31 @@ describe('compactNow through the real loop', () => {
     const { agent, compact } = harness
     await seedHistory(harness)
     compact.duringSummary = () => {
-      agent.inject(createUserMessage({
-        content: [{ type: 'text', text: 'INJECTED CONTEXT' }],
-        source: { kind: 'test' },
-      }))
+      agent.inject(
+        createUserMessage({
+          content: [{ type: 'text', text: 'INJECTED CONTEXT' }],
+          source: { kind: 'test' },
+        }),
+      )
     }
 
     const result = await compact.compactNow(agent, SIGNAL)
 
     expect(result).not.toBeNull()
     const start = agent.session.snapshotEvents().findLast(event => event.type === 'compaction/start')
-    const injected = agent.inbox.nextStep.find(message =>
-      message.source.kind === 'test')
+    const injected = agent.inbox.nextStep.find(message => message.source.kind === 'test')
     const end = agent.session.snapshotEvents().findLast(event => event.type === 'compaction/end')
     expect(start).toBeDefined()
     expect(injected).toBeDefined()
     expect(end).toBeDefined()
-    expect(agent.session.snapshotEvents().some(event => event.type === 'user/message'
-      && event.data.id === injected?.id)).toBe(false)
+    expect(agent.session.snapshotEvents().some(event => event.type === 'user/message' && event.data.id === injected?.id)).toBe(false)
 
-    agent.followup(createUserMessage({
-      content: [{ type: 'text', text: 'after compaction' }],
-      source: { kind: 'user' },
-    }))
+    agent.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: 'after compaction' }],
+        source: { kind: 'user' },
+      }),
+    )
     await agent.whenIdle()
     const messages = derivedText(agent.session)
     expect(agent.session.deriveMessages()[0]?.role).toBe('system')
@@ -348,10 +354,12 @@ describe('compactNow through the real loop', () => {
     ctx.on('session/event', (_session, event) => {
       if (event.type !== 'compaction/start' && event.type !== 'compaction/summary') return
       attempts.push(event.type)
-      agent.inject(createUserMessage({
-        content: [{ type: 'text', text: `from ${event.type}` }],
-        source: { kind: 'listener' },
-      }))
+      agent.inject(
+        createUserMessage({
+          content: [{ type: 'text', text: `from ${event.type}` }],
+          source: { kind: 'listener' },
+        }),
+      )
     })
 
     const result = await compact.compactNow(agent, SIGNAL)
@@ -360,8 +368,9 @@ describe('compactNow through the real loop', () => {
     expect(result).not.toBeNull()
     expect(agent.session.deriveMessages()[0]?.role).toBe('system')
     expect(derivedText(agent.session)[1]).toContain('checkpoint')
-    expect(agent.session.snapshotEvents().filter(event => event.type === 'user/message'
-      && event.data.source.kind === 'listener')).toHaveLength(0)
+    expect(
+      agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.source.kind === 'listener'),
+    ).toHaveLength(0)
     const types = compactEvents(agent.session).map(event => event.type)
     expect(types).toEqual(['compaction/start', 'compaction/summary', 'compaction/end'])
   })
@@ -371,10 +380,12 @@ describe('compactNow through the real loop', () => {
     const { agent, compact, adapter } = harness
     await seedHistory(harness)
 
-    agent.followup(createUserMessage({
-      content: [{ type: 'text', text: 'first in line' }],
-      source: { kind: 'user' },
-    }))
+    agent.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: 'first in line' }],
+        source: { kind: 'user' },
+      }),
+    )
     expect((await rejection(() => compact.compactNow(agent, SIGNAL))).code).toBe('busy')
     expect(compact.calls).toHaveLength(0)
 
@@ -394,13 +405,14 @@ describe('compactNow through the real loop', () => {
     expect(agent.session.surface.nodes).toEqual(before)
     const markers = compactEvents(agent.session)
     expect(markers.map(event => event.type)).toEqual(['compaction/start', 'compaction/end'])
-    expect(markers[1]?.type === 'compaction/end' && markers[1].data.error)
-      .toContain('summarizer unavailable')
+    expect(markers[1]?.type === 'compaction/end' && markers[1].data.error).toContain('summarizer unavailable')
 
-    agent.followup(createUserMessage({
-      content: [{ type: 'text', text: 'runs after the failure' }],
-      source: { kind: 'user' },
-    }))
+    agent.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: 'runs after the failure' }],
+        source: { kind: 'user' },
+      }),
+    )
     await agent.whenIdle()
     expect(adapter.requests).toHaveLength(2)
   })
@@ -411,7 +423,9 @@ describe('compactNow transaction and failure classification', () => {
     const { compact } = detachedService()
     const session = Session.create(SessionId('empty'))
     let released = 0
-    const agent = fakeAgent(session, () => () => { released += 1 })
+    const agent = fakeAgent(session, () => () => {
+      released += 1
+    })
 
     expect(await compact.compactNow(agent, SIGNAL)).toBeNull()
     expect(released).toBe(1)
@@ -430,13 +444,19 @@ describe('compactNow transaction and failure classification', () => {
     expect(result).not.toBeNull()
     expect(result?.sourceCommandId).toBe(commandId)
     expect(flushes()).toBe(1)
-    expect(session.snapshotEvents().filter(event => event.type === 'turn/start').at(-1)?.data.turn).toBe(7)
+    expect(
+      session
+        .snapshotEvents()
+        .filter(event => event.type === 'turn/start')
+        .at(-1)?.data.turn,
+    ).toBe(7)
     const start = session.snapshotEvents().findLast(event => event.type === 'compaction/start')
     const summaryEvent = session.snapshotEvents().findLast(event => event.type === 'compaction/summary')
-    const checkpoint = session.snapshotEvents().findLast(
-      (event): event is SessionEvent<'user/message'> => event.type === 'user/message'
-        && isCompactCheckpointSource(event.data.source),
-    )
+    const checkpoint = session
+      .snapshotEvents()
+      .findLast(
+        (event): event is SessionEvent<'user/message'> => event.type === 'user/message' && isCompactCheckpointSource(event.data.source),
+      )
     const end = session.snapshotEvents().findLast(event => event.type === 'compaction/end')
     const correlated = { compactionId: result?.compactionId, sourceCommandId: commandId }
     expect(start?.data).toEqual({ ...correlated, turn: null })
@@ -538,16 +558,22 @@ describe('compactNow transaction and failure classification', () => {
     const { compact, flushes } = detachedService()
     const session = closedConversation(2)
     let released = 0
-    const agent = fakeAgent(session, () => () => { released += 1 })
+    const agent = fakeAgent(session, () => () => {
+      released += 1
+    })
     compact.duringSummary = () => {
       const [head] = session.surface.nodes
-      session.append('user/message', createUserMessage({
-        content: [{ type: 'text', text: 'competing replacement' }],
-        source: { kind: 'rival' },
-      }), {
-        surfaceOp: { op: 'replace', startSeq: head!, endSeq: head! },
-        sourceEventSeqs: [head!],
-      })
+      session.append(
+        'user/message',
+        createUserMessage({
+          content: [{ type: 'text', text: 'competing replacement' }],
+          source: { kind: 'rival' },
+        }),
+        {
+          surfaceOp: { op: 'replace', startSeq: head!, endSeq: head! },
+          sourceEventSeqs: [head!],
+        },
+      )
     }
 
     expect((await rejection(compact.compactNow(agent, SIGNAL))).code).toBe('changed')
@@ -562,13 +588,17 @@ describe('compactNow transaction and failure classification', () => {
     const agent = fakeAgent(session, () => () => undefined)
     compact.duringSummary = () => {
       const middle = session.surface.nodes[1]
-      session.append('user/message', createUserMessage({
-        content: [{ type: 'text', text: 'rewritten middle node' }],
-        source: { kind: 'rival' },
-      }), {
-        surfaceOp: { op: 'replace', startSeq: middle!, endSeq: middle! },
-        sourceEventSeqs: [middle!],
-      })
+      session.append(
+        'user/message',
+        createUserMessage({
+          content: [{ type: 'text', text: 'rewritten middle node' }],
+          source: { kind: 'rival' },
+        }),
+        {
+          surfaceOp: { op: 'replace', startSeq: middle!, endSeq: middle! },
+          sourceEventSeqs: [middle!],
+        },
+      )
     }
 
     const error = await rejection(compact.compactNow(agent, SIGNAL))
@@ -582,7 +612,9 @@ describe('compactNow transaction and failure classification', () => {
     const gate = deferred()
     compact.gate = gate.promise
     let released = 0
-    const agent = fakeAgent(session, () => () => { released += 1 })
+    const agent = fakeAgent(session, () => () => {
+      released += 1
+    })
     const head = session.surface.nodes[0]!
     const generation = session.surface.replaceGeneration
 
@@ -593,13 +625,17 @@ describe('compactNow transaction and failure classification', () => {
     gate.resolve()
     queueMicrotask(() => {
       queueMicrotask(() => {
-        session.append('user/message', createUserMessage({
-          content: [{ type: 'text', text: 'late competing replacement' }],
-          source: { kind: 'rival' },
-        }), {
-          surfaceOp: { op: 'replace', startSeq: head, endSeq: head },
-          sourceEventSeqs: [head],
-        })
+        session.append(
+          'user/message',
+          createUserMessage({
+            content: [{ type: 'text', text: 'late competing replacement' }],
+            source: { kind: 'rival' },
+          }),
+          {
+            surfaceOp: { op: 'replace', startSeq: head, endSeq: head },
+            sourceEventSeqs: [head],
+          },
+        )
       })
     })
 
@@ -611,8 +647,9 @@ describe('compactNow transaction and failure classification', () => {
     expect(session.surface.replaceGeneration).toBe(generation + 1)
     expect(session.surface.nodes).not.toContain(head)
     expect(compactEvents(session).map(event => event.type)).toEqual(['compaction/start', 'compaction/end'])
-    expect(session.snapshotEvents().some(event => event.type === 'user/message'
-      && isCompactCheckpointSource(event.data.source))).toBe(false)
+    expect(session.snapshotEvents().some(event => event.type === 'user/message' && isCompactCheckpointSource(event.data.source))).toBe(
+      false,
+    )
   })
 
   it('classifies a failing compaction/end as commit failure and leaves one orphan', async () => {
@@ -630,8 +667,7 @@ describe('compactNow transaction and failure classification', () => {
     expect(causeOf(error).message).toBe('boundary rejected')
     vi.restoreAllMocks()
     expect(flushes()).toBe(0)
-    expect(session.snapshotEvents().findLast(event => event.type.startsWith('compaction/'))?.type)
-      .toBe('compaction/summary')
+    expect(session.snapshotEvents().findLast(event => event.type.startsWith('compaction/'))?.type).toBe('compaction/summary')
     expect(compactEvents(session).filter(event => event.type === 'compaction/start')).toHaveLength(1)
 
     const calls = compact.calls.length
@@ -643,7 +679,9 @@ describe('compactNow transaction and failure classification', () => {
     const { compact, flushes } = detachedService()
     const session = closedConversation(2)
     let released = 0
-    const agent = fakeAgent(session, () => () => { released += 1 })
+    const agent = fakeAgent(session, () => () => {
+      released += 1
+    })
     compact.error = new Error('summary rejected')
     const append = session.append.bind(session)
     vi.spyOn(session, 'append').mockImplementation(((type: string, ...rest: never[]) => {
@@ -667,12 +705,11 @@ describe('compactNow transaction and failure classification', () => {
     const meter = ctx.tokenMeter
     const original = meter.measure.bind(meter)
     compact.duringSummary = () => {
-      vi.spyOn(meter, 'measure').mockImplementationOnce((target) => {
+      vi.spyOn(meter, 'measure').mockImplementationOnce(target => {
         const measurement = original(target)
         return {
           ...measurement,
-          nodes: measurement.nodes.map((node, index) =>
-            index === 0 ? { ...node, tokens: node.tokens + 1 } : node),
+          nodes: measurement.nodes.map((node, index) => (index === 0 ? { ...node, tokens: node.tokens + 1 } : node)),
         }
       })
     }
@@ -685,7 +722,9 @@ describe('compactNow transaction and failure classification', () => {
     const { compact } = detachedService()
     const session = closedConversation(2)
     let released = 0
-    const agent = fakeAgent(session, () => () => { released += 1 })
+    const agent = fakeAgent(session, () => () => {
+      released += 1
+    })
     const append = session.append.bind(session)
     vi.spyOn(session, 'append').mockImplementation(((type: string, ...rest: never[]) => {
       if (type === 'compaction/summary') throw new Error('summary record rejected')
@@ -722,10 +761,14 @@ describe('compactNow transaction and failure classification', () => {
     const { compact } = detachedService()
     const session = Session.create(SessionId('turnless'))
     for (const text of [PROMPT, 'recent tail']) {
-      session.append('user/message', createUserMessage({
-        content: [{ type: 'text', text }],
-        source: { kind: 'user' },
-      }), { surfaceOp: 'append' })
+      session.append(
+        'user/message',
+        createUserMessage({
+          content: [{ type: 'text', text }],
+          source: { kind: 'user' },
+        }),
+        { surfaceOp: 'append' },
+      )
     }
     const agent = fakeAgent(session, () => () => undefined)
 
@@ -733,8 +776,10 @@ describe('compactNow transaction and failure classification', () => {
 
     expect(result).not.toBeNull()
     expect(session.snapshotEvents().some(event => event.type === 'turn/start')).toBe(false)
-    expect(session.snapshotEvents().find(event => event.type === 'compaction/start')?.data)
-      .toEqual({ compactionId: result?.compactionId, turn: null })
+    expect(session.snapshotEvents().find(event => event.type === 'compaction/start')?.data).toEqual({
+      compactionId: result?.compactionId,
+      turn: null,
+    })
   })
 
   it('classifies a durability failure after the standalone bracket committed', async () => {
@@ -789,8 +834,12 @@ describe('compactNow transaction and failure classification', () => {
     const reason = new Error('cancelled by the caller')
     let released = 0
     const session = closedConversation(2)
-    const agent = fakeAgent(session, () => () => { released += 1 })
-    compact.duringSummary = () => { controller.abort(reason) }
+    const agent = fakeAgent(session, () => () => {
+      released += 1
+    })
+    compact.duringSummary = () => {
+      controller.abort(reason)
+    }
     compact.error = new Error('summarizer aborted')
 
     await expect(compact.compactNow(agent, controller.signal)).rejects.toBe(reason)
@@ -798,8 +847,7 @@ describe('compactNow transaction and failure classification', () => {
     expect(flushes()).toBe(1)
     const events = compactEvents(session)
     expect(events.map(event => event.type)).toEqual(['compaction/start', 'compaction/end'])
-    expect(events[1]?.type === 'compaction/end' && events[1].data.error)
-      .toContain('summarizer aborted')
+    expect(events[1]?.type === 'compaction/end' && events[1].data.error).toContain('summarizer aborted')
   })
 
   it('classifies agent cancellation during maintenance as an expected cancellation', async () => {
@@ -808,7 +856,9 @@ describe('compactNow transaction and failure classification', () => {
     const reason = new Error('agent cancelled maintenance')
     const session = closedConversation(2)
     const agent = fakeAgent(session, () => () => undefined, controller.signal)
-    compact.duringSummary = () => { controller.abort(reason) }
+    compact.duringSummary = () => {
+      controller.abort(reason)
+    }
     compact.error = new Error('summarizer observed cancellation')
 
     const error = await rejection(compact.compactNow(agent, SIGNAL))
@@ -823,7 +873,9 @@ describe('compactNow transaction and failure classification', () => {
     const reason = new Error('cancelled by the caller')
     const session = closedConversation(2)
     const agent = fakeAgent(session, () => () => undefined)
-    compact.duringSummary = () => { controller.abort(reason) }
+    compact.duringSummary = () => {
+      controller.abort(reason)
+    }
 
     await expect(compact.compactNow(agent, controller.signal)).rejects.toBe(reason)
     expect(compactEvents(session).map(event => event.type)).toEqual(['compaction/start', 'compaction/end'])
@@ -838,13 +890,19 @@ describe('compactNow transaction and failure classification', () => {
     const flush = vi.spyOn(ctx.sessions, 'flush').mockReturnValueOnce(flushGate.promise)
     const session = closedConversation(2)
     let released = 0
-    const agent = fakeAgent(session, () => () => { released += 1 })
+    const agent = fakeAgent(session, () => () => {
+      released += 1
+    })
 
     const running = compact.compactNow(agent, controller.signal)
     let settled = false
     void running.then(
-      () => { settled = true },
-      () => { settled = true },
+      () => {
+        settled = true
+      },
+      () => {
+        settled = true
+      },
     )
     await vi.waitFor(() => {
       expect(flush).toHaveBeenCalledWith(session)
@@ -880,8 +938,10 @@ describe('compactNow transaction and failure classification', () => {
     const { compact } = detachedService()
     const session = closedConversation(2)
     const agent = fakeAgent(session, () => () => undefined)
-    compact.gate = new Promise<undefined>((resolve) => {
-      setTimeout(() => { resolve(undefined) }, 5)
+    compact.gate = new Promise<undefined>(resolve => {
+      setTimeout(() => {
+        resolve(undefined)
+      }, 5)
     })
 
     await compact.compactNow(agent, SIGNAL)
@@ -903,11 +963,7 @@ describe('compactNow transaction and failure classification', () => {
     const manual = compact.compactNow(agent, SIGNAL)
     await Promise.resolve()
     const nodes = session.surface.nodes
-    await expect(compact.compactRegion(
-      nodes[0]!,
-      nodes[1]!,
-      agent,
-    )).rejects.toThrow('compaction lock is already active')
+    await expect(compact.compactRegion(nodes[0]!, nodes[1]!, agent)).rejects.toThrow('compaction lock is already active')
 
     gate.resolve()
     compact.gate = undefined

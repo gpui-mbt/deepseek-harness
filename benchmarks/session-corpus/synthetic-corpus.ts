@@ -7,11 +7,7 @@ import { MessageId, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionEventMap, SessionEventType, SessionHeader } from '@deepseek-ai/dsh-session'
-import {
-  eventLines,
-  generationLogPath,
-  toHeaderLine,
-} from '../../packages/session/session-persistence-jsonl/src/format.ts'
+import { eventLines, generationLogPath, toHeaderLine } from '../../packages/session/session-persistence-jsonl/src/format.ts'
 import { compressZstdFrame } from '../../packages/session/session-persistence-jsonl/src/zstd.ts'
 import { anchorShape, sessionShape, type SessionShape } from './corpus-shape.ts'
 
@@ -86,7 +82,7 @@ function vocabularyWord(rank: number): string {
 function random(seed: number): () => number {
   let state = seed >>> 0
   return () => {
-    state = (state + 0x6D2B79F5) >>> 0
+    state = (state + 0x6d2b79f5) >>> 0
     let value = state
     value = Math.imul(value ^ (value >>> 15), value | 1)
     value ^= value + Math.imul(value ^ (value >>> 7), value | 61)
@@ -210,28 +206,47 @@ function authorEvents(
     log.flush()
     log.append('turn/start', { turn })
     log.append('step/start', { turn, step: 1 })
-    if (turn === 1) log.append('system/message', {
-      turn, step: 1,
-      message: {
-        id: MessageId('system-head'), role: 'system',
-        content: [{ type: 'text', text: pool.slice(next, SYSTEM_PROMPT_CHARS) }],
-        source: { kind: 'system-prompt' },
+    if (turn === 1)
+      log.append(
+        'system/message',
+        {
+          turn,
+          step: 1,
+          message: {
+            id: MessageId('system-head'),
+            role: 'system',
+            content: [{ type: 'text', text: pool.slice(next, SYSTEM_PROMPT_CHARS) }],
+            source: { kind: 'system-prompt' },
+          },
+        },
+        { surfaceOp: 'append' },
+      )
+    log.append(
+      'user/message',
+      {
+        id: MessageId('prompt-' + String(turn)),
+        role: 'user',
+        content: [{ type: 'text', text: pool.slice(next, plan.userChars) }],
+        source: { kind: 'user' },
       },
-    }, { surfaceOp: 'append' })
-    log.append('user/message', {
-      id: MessageId('prompt-' + String(turn)), role: 'user',
-      content: [{ type: 'text', text: pool.slice(next, plan.userChars) }], source: { kind: 'user' },
-    }, { surfaceOp: 'append' })
+      { surfaceOp: 'append' },
+    )
     for (let step = 1; step <= turnSteps + 1; step++) {
       if (step > 1) log.append('step/start', { turn, step })
       const callId = step <= turnSteps ? ToolCallId(`call-${String(turn)}-${String(step)}`) : undefined
       const content: ContentBlock[] = [
         { type: 'reasoning', text: pool.slice(next, plan.reasoningChars) },
         { type: 'text', text: pool.slice(next, plan.textChars) },
-        ...callId === undefined ? [] : [{
-          type: 'tool-call' as const, id: callId, name: 'read_file',
-          arguments: JSON.stringify({ path: `src/module-${String(turn)}-${String(step)}.ts` }),
-        }],
+        ...(callId === undefined
+          ? []
+          : [
+              {
+                type: 'tool-call' as const,
+                id: callId,
+                name: 'read_file',
+                arguments: JSON.stringify({ path: `src/module-${String(turn)}-${String(step)}.ts` }),
+              },
+            ]),
       ]
       const stream = new AssistantStreamAccumulator()
       const time = TIME_ZERO + log.seq * 1_000
@@ -239,28 +254,47 @@ function authorEvents(
         stream.push({ time: time + index, chunk })
       }
       log.flush()
-      log.append('assistant/message', {
-        turn, step,
-        message: {
-          id: MessageId(`reply-${String(turn)}-${String(step)}`), role: 'assistant', content,
-          source: { kind: 'model', provider: 'bench', model: 'bench' },
+      log.append(
+        'assistant/message',
+        {
+          turn,
+          step,
+          message: {
+            id: MessageId(`reply-${String(turn)}-${String(step)}`),
+            role: 'assistant',
+            content,
+            source: { kind: 'model', provider: 'bench', model: 'bench' },
+          },
+          stream: [...stream.snapshot()],
         },
-        stream: [...stream.snapshot()],
-      }, { surfaceOp: 'append' })
+        { surfaceOp: 'append' },
+      )
       if (callId !== undefined) {
         log.flush()
         const callSeq = log.append('tool/call', {
-          turn, step, callId, name: 'read_file', arguments: JSON.stringify({ path: `src/module-${String(turn)}-${String(step)}.ts` }),
+          turn,
+          step,
+          callId,
+          name: 'read_file',
+          arguments: JSON.stringify({ path: `src/module-${String(turn)}-${String(step)}.ts` }),
         })
         log.flush()
-        log.append('tool/result', {
-          turn, step,
-          message: {
-            id: MessageId('result-' + callId), role: 'tool', toolCallId: callId, isError: false,
-            source: { kind: 'tool', callId },
-            content: [{ type: 'text', text: pool.slice(next, plan.resultChars) }],
+        log.append(
+          'tool/result',
+          {
+            turn,
+            step,
+            message: {
+              id: MessageId('result-' + callId),
+              role: 'tool',
+              toolCallId: callId,
+              isError: false,
+              source: { kind: 'tool', callId },
+              content: [{ type: 'text', text: pool.slice(next, plan.resultChars) }],
+            },
           },
-        }, { surfaceOp: 'append', sourceEventSeqs: [callSeq] })
+          { surfaceOp: 'append', sourceEventSeqs: [callSeq] },
+        )
       }
       log.append('step/end', { turn, step })
     }
@@ -332,9 +366,7 @@ export function corpusHeader(rank: number, count: number): SessionHeader {
     createdAt,
     cwd: `/bench/project-${String(rank % Math.ceil(count / SESSIONS_PER_PROJECT))}`,
     isSeeded: false,
-    ...child
-      ? { origin: 'subagent' as const, parentSession: corpusSessionId(rank - 1), delegationDepth: 1 }
-      : { delegationDepth: 0 },
+    ...(child ? { origin: 'subagent' as const, parentSession: corpusSessionId(rank - 1), delegationDepth: 1 } : { delegationDepth: 0 }),
   }
 }
 
@@ -387,9 +419,10 @@ export class SyntheticCorpusWriter {
     const shape = anchorShape(anchor)
     // Start from the previous anchor's model, then take secant steps from below.
     const { bytesPerEvent, bytesPerChar } = this.model
-    let payloadChars = Math.max(0, Math.ceil(
-      (1.01 * (shape.logicalBytes - SYSTEM_PROMPT_CHARS - bytesPerEvent * shape.events)) / bytesPerChar,
-    ))
+    let payloadChars = Math.max(
+      0,
+      Math.ceil((1.01 * (shape.logicalBytes - SYSTEM_PROMPT_CHARS - bytesPerEvent * shape.events)) / bytesPerChar),
+    )
     let previous: { readonly payloadChars: number; readonly bytes: number } | undefined
     for (let attempt = 0; attempt < 8; attempt++) {
       this.pool ??= new TextPool()
@@ -411,11 +444,14 @@ export class SyntheticCorpusWriter {
       }
       // Each pending compression owns a native Zstandard context, so compression is bounded like writes.
       const compressed: Buffer[] = []
-      await forEachConcurrently(frames.length, async (index) => {
+      await forEachConcurrently(frames.length, async index => {
         compressed[index] = await compressZstdFrame(frames[index] as string)
       })
       this.bodies.set(anchor, {
-        frames: Buffer.concat(compressed), frameCount: frames.length, events: authored.events.length, logicalBytes: bytes,
+        frames: Buffer.concat(compressed),
+        frameCount: frames.length,
+        events: authored.events.length,
+        logicalBytes: bytes,
       })
       return authored.events
     }
@@ -455,7 +491,7 @@ export class SyntheticCorpusWriter {
   async writeCorpus(root: string, count: number): Promise<WrittenCorpus> {
     const totals = { events: 0, logicalBytes: 0, compressedBytes: 0, frames: 0 }
     const sessions: WrittenSession[] = []
-    await forEachConcurrently(count, async (rank) => {
+    await forEachConcurrently(count, async rank => {
       const { anchor } = sessionShape(rank, count)
       const body = this.bodies.get(anchor)
       if (body === undefined) throw new Error(`corpus anchor ${String(anchor)} was not authored`)

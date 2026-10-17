@@ -23,11 +23,14 @@ export const ja: LocaleDictOf<'settings.theme'> = {
   'fontSize.terminal.decrease': 'ターミナルのフォントサイズを小さくする',
   'fontSize.unit': 'px',
   'fontFamily.text.title': '本文フォント',
-  'fontFamily.text.description': 'インターフェイスと会話本文に使用します。複数のフォントはコンマで区切り、空欄の場合は既定のフォントを使用します',
+  'fontFamily.text.description':
+    'インターフェイスと会話本文に使用します。複数のフォントはコンマで区切り、空欄の場合は既定のフォントを使用します',
   'fontFamily.code.title': 'コードフォント',
-  'fontFamily.code.description': 'コードブロック、インラインコード、ツール出力に使用します。複数のフォントはコンマで区切り、空欄の場合は既定のフォントを使用します',
+  'fontFamily.code.description':
+    'コードブロック、インラインコード、ツール出力に使用します。複数のフォントはコンマで区切り、空欄の場合は既定のフォントを使用します',
   'fontFamily.terminal.title': 'ターミナルフォント',
-  'fontFamily.terminal.description': 'サイドバーのターミナルに使用します。複数のフォントはコンマで区切り、空欄の場合は既定のフォントを使用します',
+  'fontFamily.terminal.description':
+    'サイドバーのターミナルに使用します。複数のフォントはコンマで区切り、空欄の場合は既定のフォントを使用します',
   'fontFamily.placeholder': '既定',
   'fontSize.more': 'フォント設定をさらに表示',
 }

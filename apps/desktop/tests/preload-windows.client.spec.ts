@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { DESKTOP_IPC } from '../src/ipc.ts'
 import { syncWindowsAppearance } from '../src/preload-windows.ts'
 
@@ -17,7 +17,7 @@ afterEach(() => {
   send.mockClear()
 })
 
-it.each(['darwin', 'linux'] as const)('does not install Windows controls on %s', (platform) => {
+it.each(['darwin', 'linux'] as const)('does not install Windows controls on %s', platform => {
   vi.spyOn(process, 'platform', 'get').mockReturnValue(platform)
   syncWindowsAppearance()
   expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(false)
@@ -27,14 +27,22 @@ it.each(['darwin', 'linux'] as const)('does not install Windows controls on %s',
 it('synchronizes live language and palette changes and stops observing a closed document', async () => {
   vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
   vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading')
-  vi.spyOn(globalThis, 'getComputedStyle').mockImplementation(() => ({
-    backgroundColor: document.body.hasAttribute('data-ds-dark-theme') ? 'oklch(0.2 0 0)' : 'hsl(0 0% 100%)',
-    color: 'black',
-  }) as CSSStyleDeclaration)
+  vi.spyOn(globalThis, 'getComputedStyle').mockImplementation(
+    () =>
+      ({
+        backgroundColor: document.body.hasAttribute('data-ds-dark-theme') ? 'oklch(0.2 0 0)' : 'hsl(0 0% 100%)',
+        color: 'black',
+      }) as CSSStyleDeclaration,
+  )
   const context = {
-    fillStyle: '', clearRect: vi.fn(), fillRect: vi.fn(),
-    getImageData: () => ({ data: new Uint8ClampedArray(context.fillStyle === 'black'
-      ? [0, 0, 0, 255] : context.fillStyle.startsWith('oklch') ? [27, 27, 28, 255] : [255, 255, 255, 255]) }),
+    fillStyle: '',
+    clearRect: vi.fn(),
+    fillRect: vi.fn(),
+    getImageData: () => ({
+      data: new Uint8ClampedArray(
+        context.fillStyle === 'black' ? [0, 0, 0, 255] : context.fillStyle.startsWith('oklch') ? [27, 27, 28, 255] : [255, 255, 255, 255],
+      ),
+    }),
   }
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
   document.documentElement.lang = 'en'
@@ -46,10 +54,14 @@ it('synchronizes live language and palette changes and stops observing a closed 
   expect(send).toHaveBeenLastCalledWith(DESKTOP_IPC.windowsAppearance, 'en', 'rgba(255, 255, 255, 1)', 'rgba(0, 0, 0, 1)')
   document.documentElement.lang = 'zh-CN'
   document.body.setAttribute('data-ds-dark-theme', '')
-  await vi.waitFor(() => { expect(send).toHaveBeenLastCalledWith(DESKTOP_IPC.windowsAppearance, 'zh-CN', 'rgba(27, 27, 28, 1)', 'rgba(0, 0, 0, 1)') })
+  await vi.waitFor(() => {
+    expect(send).toHaveBeenLastCalledWith(DESKTOP_IPC.windowsAppearance, 'zh-CN', 'rgba(27, 27, 28, 1)', 'rgba(0, 0, 0, 1)')
+  })
   window.dispatchEvent(new Event('pagehide'))
   send.mockClear()
   document.documentElement.lang = 'en'
-  await new Promise<void>((resolve) => { queueMicrotask(resolve) })
+  await new Promise<void>(resolve => {
+    queueMicrotask(resolve)
+  })
   expect(send).not.toHaveBeenCalled()
 })

@@ -3,7 +3,7 @@
 import { existsSync } from 'node:fs'
 import { lstat, readFile, readdir, realpath } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import {
   assertSessionFixtureVersion,
   captureExpectedWorkspaceSnapshot,
@@ -137,22 +137,17 @@ it('keeps every recorded session owned, pinned, redacted, and header-scrubbed', 
       expect(byKey.has(sourceKey), `${key}: session source must name a corpus owner`).toBe(true)
       expect(byKey.get(sourceKey)?.manifest.session, `${key}: session source cannot chain through a borrower`).toBeUndefined()
       const [selectedParent] = sessionFixtureFiles(await readdir(targetDir))
-      expect(basename(target), `${key}: session source must name the owner's selected parent generation`)
-        .toBe(selectedParent?.name)
+      expect(basename(target), `${key}: session source must name the owner's selected parent generation`).toBe(selectedParent?.name)
     }
 
-    expect(existsSync(join(dir, 'replay.override.json')), `${key}: replay override presence`)
-      .toBe(manifest.replay?.override === true)
-    expect(existsSync(join(dir, 'workspace.expected')), `${key}: final workspace presence`)
-      .toBe(manifest.workspace?.final === true)
+    expect(existsSync(join(dir, 'replay.override.json')), `${key}: replay override presence`).toBe(manifest.replay?.override === true)
+    expect(existsSync(join(dir, 'workspace.expected')), `${key}: final workspace presence`).toBe(manifest.workspace?.final === true)
     if (manifest.workspace?.final === true) {
       const expectedRoot = join(dir, 'workspace.expected')
       const expectedWorkspace = await captureExpectedWorkspaceSnapshot(expectedRoot)
-      expect(existsSync(join(expectedRoot, EMPTY_WORKSPACE_MARKER)), `${key}: empty workspace marker`)
-        .toBe(expectedWorkspace.length === 0)
+      expect(existsSync(join(expectedRoot, EMPTY_WORKSPACE_MARKER)), `${key}: empty workspace marker`).toBe(expectedWorkspace.length === 0)
     }
-    expect(existsSync(join(dir, 'input.json')), `${key}: executable input metadata is ACP-only`)
-      .toBe(scenario.profile === 'acp')
+    expect(existsSync(join(dir, 'input.json')), `${key}: executable input metadata is ACP-only`).toBe(scenario.profile === 'acp')
     if (scenario.profile !== 'acp') {
       expect(existsSync(join(dir, 'stdout.expected.jsonl')), `${key}: ACP transcript outside ACP`).toBe(false)
     }
@@ -170,8 +165,9 @@ it('keeps every recorded session owned, pinned, redacted, and header-scrubbed', 
       ] as const) {
         const local = join(dir, field)
         if (!existsSync(local) || !(await lstat(local)).isSymbolicLink()) continue
-        expect(await realpath(local), `${key}: ${field} symlink follows its manifest source`)
-          .toBe(await realpath(join((source as Scenario).dir, field)))
+        expect(await realpath(local), `${key}: ${field} symlink follows its manifest source`).toBe(
+          await realpath(join((source as Scenario).dir, field)),
+        )
       }
     }
 
@@ -199,13 +195,13 @@ it('keeps every recorded session owned, pinned, redacted, and header-scrubbed', 
 
 it('keeps V3 replay input plus bounded declared historical migration coverage', async () => {
   const owners = (await scenarios()).filter(scenario => scenario.manifest.session === undefined)
-  const inventory = await Promise.all(owners.map(async scenario => ({
-    key: scenario.key,
-    selectedVersions: sessionFixtureFiles(await readdir(scenario.dir)).map(file => file.version),
-    ...(scenario.manifest.sessionFormat === undefined
-      ? {}
-      : { retained: scenario.manifest.sessionFormat }),
-  })))
+  const inventory = await Promise.all(
+    owners.map(async scenario => ({
+      key: scenario.key,
+      selectedVersions: sessionFixtureFiles(await readdir(scenario.dir)).map(file => file.version),
+      ...(scenario.manifest.sessionFormat === undefined ? {} : { retained: scenario.manifest.sessionFormat }),
+    })),
+  )
 
   const summary = assertSnapshotCorpusPolicy(inventory)
   expect(summary.baselineRoles).toBeGreaterThan(0)

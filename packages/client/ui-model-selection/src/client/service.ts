@@ -46,15 +46,25 @@ export class ModelDirectoryResolver extends Service {
   constructor(ctx: Context) {
     super(ctx, 'modelDirectories')
     this.catalog = new ModelCatalogDirectory(ctx)
-    void this.catalog.load().catch(() => { /* selectors expose the shared error */ })
+    void this.catalog.load().catch(() => {
+      /* selectors expose the shared error */
+    })
     ctx.on('connection/reset', () => {
       this.catalog.resetGeneration()
       for (const directory of this.live.directories.values) directory.resetConnected()
     })
-    ctx.remote.$on('llm/adapters-updated', () => { this.catalog.refresh() })
-    ctx.remote.$on('settings/document-updated', () => { this.catalog.refresh() })
-    ctx.remote.$on('credentials/record-updated', () => { this.catalog.refresh() })
-    ctx.remote.$on('credentials/reference-updated', () => { this.catalog.refresh() })
+    ctx.remote.$on('llm/adapters-updated', () => {
+      this.catalog.refresh()
+    })
+    ctx.remote.$on('settings/document-updated', () => {
+      this.catalog.refresh()
+    })
+    ctx.remote.$on('credentials/record-updated', () => {
+      this.catalog.refresh()
+    })
+    ctx.remote.$on('credentials/reference-updated', () => {
+      this.catalog.refresh()
+    })
   }
 
   /**
@@ -82,10 +92,13 @@ export class ModelDirectoryResolver extends Service {
       (name, attributes) => this.ctx.get('productAnalytics')?.track(name, attributes),
     )
     live.directories.set(binding, directory)
-    actx.effect(() => () => {
-      directory.dispose()
-      live.directories.delete(binding)
-    }, 'ui-model-selection: session directory')
+    actx.effect(
+      () => () => {
+        directory.dispose()
+        live.directories.delete(binding)
+      },
+      'ui-model-selection: session directory',
+    )
     return directory
   }
 }

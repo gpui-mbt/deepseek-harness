@@ -87,28 +87,34 @@ export class TypeGraphRenderer {
   renderType(id: TypeNodeId, references?: ReadonlyMap<SymbolId, string>): string {
     const node = this.node(id)
     switch (node.kind) {
-      case 'keyword': return node.name
-      case 'literal': return node.text
-      case 'parenthesized': return `(${this.renderType(node.type, references)})`
+      case 'keyword':
+        return node.name
+      case 'literal':
+        return node.text
+      case 'parenthesized':
+        return `(${this.renderType(node.type, references)})`
       case 'reference': {
-        const name = node.target.kind === 'type-parameter'
-          ? this.parameterNames.get(node.target.parameter) ?? node.name
-          : node.target.kind === 'declaration'
-            ? references?.get(node.target.symbol) ?? node.name
-            : node.name
+        const name =
+          node.target.kind === 'type-parameter'
+            ? (this.parameterNames.get(node.target.parameter) ?? node.name)
+            : node.target.kind === 'declaration'
+              ? (references?.get(node.target.symbol) ?? node.name)
+              : node.name
         return node.arguments.length === 0
           ? name
           : `${name}<${node.arguments.map(argument => this.renderType(argument, references)).join(', ')}>`
       }
-      case 'union': return node.types.map(type => this.renderType(type, references)).join(' | ')
-      case 'intersection': return node.types.map(type => this.renderType(type, references)).join(' & ')
+      case 'union':
+        return node.types.map(type => this.renderType(type, references)).join(' | ')
+      case 'intersection':
+        return node.types.map(type => this.renderType(type, references)).join(' & ')
       case 'array': {
         const element = this.renderType(node.element, references)
         const wrapped = needsArrayParentheses(this.node(node.element)) ? `(${element})` : element
         return `${wrapped}[]`
       }
       case 'tuple': {
-        const elements = node.elements.map((element) => {
+        const elements = node.elements.map(element => {
           const type = this.renderType(element.type, references)
           if (element.name !== undefined) {
             return `${element.rest ? '...' : ''}${element.name}${element.optional ? '?' : ''}: ${type}`
@@ -117,15 +123,21 @@ export class TypeGraphRenderer {
         })
         return `[${elements.join(', ')}]`
       }
-      case 'object': return this.renderObject(node.members, references)
-      case 'function': return `${this.renderSignatureHead(node.signature, references)} => ${this.renderType(node.signature.returns, references)}`
-      case 'constructor': return `${node.abstract ? 'abstract ' : ''}new ${this.renderSignatureHead(node.signature, references)} => ${this.renderType(node.signature.returns, references)}`
-      case 'indexed-access': return `${this.renderType(node.object, references)}[${this.renderType(node.index, references)}]`
-      case 'operator': return `${node.operator} ${this.renderType(node.type, references)}`
+      case 'object':
+        return this.renderObject(node.members, references)
+      case 'function':
+        return `${this.renderSignatureHead(node.signature, references)} => ${this.renderType(node.signature.returns, references)}`
+      case 'constructor':
+        return `${node.abstract ? 'abstract ' : ''}new ${this.renderSignatureHead(node.signature, references)} => ${this.renderType(node.signature.returns, references)}`
+      case 'indexed-access':
+        return `${this.renderType(node.object, references)}[${this.renderType(node.index, references)}]`
+      case 'operator':
+        return `${node.operator} ${this.renderType(node.type, references)}`
       case 'conditional': {
         return `${this.renderType(node.check, references)} extends ${this.renderType(node.extends, references)} ? ${this.renderType(node.whenTrue, references)} : ${this.renderType(node.whenFalse, references)}`
       }
-      case 'infer': return `infer ${this.renderTypeParameter(node.parameter, false, references)}`
+      case 'infer':
+        return `infer ${this.renderTypeParameter(node.parameter, false, references)}`
       case 'mapped': {
         const readonly = node.readonly === 'preserve' ? '' : node.readonly === 'remove' ? '-readonly ' : 'readonly '
         const optional = node.optional === 'preserve' ? '' : node.optional === 'remove' ? '-?' : '?'
@@ -142,17 +154,15 @@ export class TypeGraphRenderer {
         return `\`${escapeTemplate(node.head)}${spans}\``
       }
       case 'type-query': {
-        const argumentsText = node.arguments.length === 0
-          ? ''
-          : `<${node.arguments.map(argument => this.renderType(argument, references)).join(', ')}>`
+        const argumentsText =
+          node.arguments.length === 0 ? '' : `<${node.arguments.map(argument => this.renderType(argument, references)).join(', ')}>`
         return `typeof ${node.expression}${argumentsText}`
       }
       case 'import-type': {
         const attributes = node.attributes === undefined ? '' : `, ${node.attributes}`
         const imported = `import(${quote(node.module)}${attributes})${node.qualifier === undefined ? '' : `.${node.qualifier}`}`
-        const argumentsText = node.arguments.length === 0
-          ? ''
-          : `<${node.arguments.map(argument => this.renderType(argument, references)).join(', ')}>`
+        const argumentsText =
+          node.arguments.length === 0 ? '' : `<${node.arguments.map(argument => this.renderType(argument, references)).join(', ')}>`
         return `${node.typeof ? 'typeof ' : ''}${imported}${argumentsText}`
       }
       case 'predicate': {
@@ -161,8 +171,10 @@ export class TypeGraphRenderer {
           ? `${assertion}${node.parameter}`
           : `${assertion}${node.parameter} is ${this.renderType(node.type, references)}`
       }
-      case 'this': return 'this'
-      default: return assertNever(node)
+      case 'this':
+        return 'this'
+      default:
+        return assertNever(node)
     }
   }
 
@@ -190,17 +202,24 @@ export class TypeGraphRenderer {
     const readonly = member.readonly ? 'readonly ' : ''
     const abstract = member.abstract ? 'abstract ' : ''
     switch (member.kind) {
-      case 'property': return `${abstract}${readonly}${name}${optional}: ${this.renderType(member.type, references)}`
-      case 'method': return `${abstract}${name}${optional}${this.renderSignature(member.signature, references)}`
-      case 'getter': return `${abstract}get ${name}()${this.renderReturn(member.signature, references)}`
-      case 'setter': return `${abstract}set ${name}${this.renderSignatureHead(member.signature, references)}`
-      case 'call': return this.renderSignature(member.signature, references)
-      case 'construct': return `new ${this.renderSignature(member.signature, references)}`
+      case 'property':
+        return `${abstract}${readonly}${name}${optional}: ${this.renderType(member.type, references)}`
+      case 'method':
+        return `${abstract}${name}${optional}${this.renderSignature(member.signature, references)}`
+      case 'getter':
+        return `${abstract}get ${name}()${this.renderReturn(member.signature, references)}`
+      case 'setter':
+        return `${abstract}set ${name}${this.renderSignatureHead(member.signature, references)}`
+      case 'call':
+        return this.renderSignature(member.signature, references)
+      case 'construct':
+        return `new ${this.renderSignature(member.signature, references)}`
       case 'index': {
         const parameters = member.signature.parameters.map(parameter => this.renderParameter(parameter, references)).join(', ')
         return `${readonly}[${parameters}]: ${this.renderType(member.signature.returns, references)}`
       }
-      default: return assertNever(member)
+      default:
+        return assertNever(member)
     }
   }
 
@@ -213,8 +232,10 @@ export class TypeGraphRenderer {
     const declaration = this.declaration(id)
     const parameters = this.renderTypeParameters(declaration.typeParameters)
     if (declaration.kind === 'enum') {
-      const members = declaration.enumMembers?.map(member =>
-        `    ${renderPropertyName(member.name)}${member.initializer === undefined ? '' : ` = ${member.initializer}`},`) ?? []
+      const members =
+        declaration.enumMembers?.map(
+          member => `    ${renderPropertyName(member.name)}${member.initializer === undefined ? '' : ` = ${member.initializer}`},`,
+        ) ?? []
       return [`export enum ${declaration.name} {`, ...members, '}'].join('\n')
     }
     if (declaration.kind === 'alias') {
@@ -250,10 +271,7 @@ export class TypeGraphRenderer {
     return this.declarationClosure([], typeIds)
   }
 
-  private declarationClosure(
-    memberIds: readonly string[],
-    typeIds: readonly TypeNodeId[],
-  ): TypeDeclarationModel[] {
+  private declarationClosure(memberIds: readonly string[], typeIds: readonly TypeNodeId[]): TypeDeclarationModel[] {
     const found = new Set<SymbolId>()
     const visiting = new Set<SymbolId>()
     const visitNode = (id: TypeNodeId): void => {
@@ -316,11 +334,7 @@ export class TypeGraphRenderer {
       : `<${parameters.map(parameter => this.renderTypeParameter(parameter, true, references)).join(', ')}>`
   }
 
-  private renderTypeParameter(
-    parameter: TypeParameterModel,
-    includeDefault: boolean,
-    references?: ReadonlyMap<SymbolId, string>,
-  ): string {
+  private renderTypeParameter(parameter: TypeParameterModel, includeDefault: boolean, references?: ReadonlyMap<SymbolId, string>): string {
     const variance = parameter.variance === undefined ? '' : `${parameter.variance === 'in-out' ? 'in out' : parameter.variance} `
     const constModifier = parameter.const ? 'const ' : ''
     const constraint = parameter.constraint === undefined ? '' : ` extends ${this.renderType(parameter.constraint, references)}`
@@ -343,7 +357,13 @@ function nodeSignatures(node: TypeNodeModel): SignatureModel[] {
 }
 
 function needsArrayParentheses(node: TypeNodeModel): boolean {
-  return node.kind === 'union' || node.kind === 'intersection' || node.kind === 'function' || node.kind === 'constructor' || node.kind === 'conditional'
+  return (
+    node.kind === 'union' ||
+    node.kind === 'intersection' ||
+    node.kind === 'function' ||
+    node.kind === 'constructor' ||
+    node.kind === 'conditional'
+  )
 }
 
 function renderPropertyName(name: string): string {

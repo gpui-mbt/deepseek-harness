@@ -22,7 +22,7 @@ export const ja: LocaleDictOf<'subagent'> = {
   'loading.label': 'サブエージェントを読み込んでいます…',
   'load.error': 'サブエージェントを読み込めませんでした',
   'catalog.migrationRequired': 'マイグレーションが必要',
-  'retry': '再試行',
+  retry: '再試行',
   'mode.external': '外部タスク',
   'mode.oneShot': '単発',
   'mode.continuable': '継続可能',

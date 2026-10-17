@@ -3,10 +3,17 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, selectedSessionFixture, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  selectedSessionFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspaceZh, saveFailureShot, ZH_BROWSER_LOCALE } from './support.ts'
 
@@ -26,14 +33,22 @@ describe.skipIf(MODE === 'record')('web e2e: DeepSeek Messages conversation', ()
     scaffold = await launchWebScaffold({
       replayFixture,
       paceMs: 5,
-      replayProviders: [{
-        id: 'deepseek-messages', name: 'DeepSeek',
-        models: [{
-          id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash',
-          contextWindow: 1_000_000, defaultMaxTokens: 256_000,
-          reasoningEfforts: ['off', 'low', 'high', 'max'], defaultReasoningEffort: 'high',
-        }],
-      }],
+      replayProviders: [
+        {
+          id: 'deepseek-messages',
+          name: 'DeepSeek',
+          models: [
+            {
+              id: 'deepseek-v4-flash',
+              name: 'DeepSeek-V4-Flash',
+              contextWindow: 1_000_000,
+              defaultMaxTokens: 256_000,
+              reasoningEfforts: ['off', 'low', 'high', 'max'],
+              defaultReasoningEffort: 'high',
+            },
+          ],
+        },
+      ],
     })
     await scaffold.ctx.agentDefaultModel.saveSelection({ provider: 'deepseek-messages', model: 'deepseek-v4-flash' })
     browser = await chromium.launch()
@@ -44,7 +59,11 @@ describe.skipIf(MODE === 'record')('web e2e: DeepSeek Messages conversation', ()
   }, 120_000)
 
   afterAll(async () => {
-    try { await browser?.close() } finally { await scaffold?.close() }
+    try {
+      await browser?.close()
+    } finally {
+      await scaffold?.close()
+    }
   })
 
   it('replays the historical Messages provider while displaying DeepSeek in the model selector', async () => {
@@ -64,8 +83,11 @@ describe.skipIf(MODE === 'record')('web e2e: DeepSeek Messages conversation', ()
     const session = scaffold.ctx.sessions.get(sessionId)!
     expect(session.requestHeader()?.config.provider).toBe('deepseek-messages')
     await page.getByText('MESSAGES_WEB_READY', { exact: true }).waitFor()
-    await compareOrRefreshGolden(join(SNAPSHOT_DIR, 'ui.expected.md'),
-      await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd), MODE)
+    await compareOrRefreshGolden(
+      join(SNAPSHOT_DIR, 'ui.expected.md'),
+      await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd),
+      MODE,
+    )
     expect(tripwire.pageErrors).toEqual([])
   })
 

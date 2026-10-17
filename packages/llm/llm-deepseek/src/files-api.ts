@@ -46,13 +46,9 @@ export class DeepSeekFilesError extends LlmError {
    * @param detail - provider error fields joined for classification.
    */
   constructor(message: string, status: number, detail: string) {
-    super(message, status === 401 || status === 403
-      ? 'AUTH'
-      : status === 429
-        ? 'RATE_LIMIT'
-        : status >= 500
-          ? 'SERVER'
-          : 'FILES_API', { status })
+    super(message, status === 401 || status === 403 ? 'AUTH' : status === 429 ? 'RATE_LIMIT' : status >= 500 ? 'SERVER' : 'FILES_API', {
+      status,
+    })
     this.name = 'DeepSeekFilesError'
     this.detail = detail
   }
@@ -64,8 +60,7 @@ export class DeepSeekFilesError extends LlmError {
  * @returns whether one bounded remote cleanup and upload retry may recover.
  */
 export function isFilesQuotaError(error: unknown): error is DeepSeekFilesError {
-  return error instanceof DeepSeekFilesError
-    && /(?:quota|storage|stored files|file count|too many files)/iu.test(error.detail)
+  return error instanceof DeepSeekFilesError && /(?:quota|storage|stored files|file count|too many files)/iu.test(error.detail)
 }
 
 interface FilesApiOptions {
@@ -96,12 +91,18 @@ function parseFileObject(value: unknown, operation: string): DeepSeekFileObject 
   if (value === null || typeof value !== 'object' || Array.isArray(value)) throw invalidResponse(operation)
   const wire = value as Record<string, unknown>
   const createdAt = typeof wire.created_at === 'string' ? Math.floor(Date.parse(wire.created_at) / 1_000) : NaN
-  if (typeof wire.id !== 'string' || wire.id.length === 0
-    || wire.type !== 'file'
-    || typeof wire.mime_type !== 'string'
-    || typeof wire.size_bytes !== 'number' || !Number.isSafeInteger(wire.size_bytes) || wire.size_bytes < 0
-    || !Number.isSafeInteger(createdAt) || createdAt < 0
-    || typeof wire.filename !== 'string' || wire.filename.length === 0
+  if (
+    typeof wire.id !== 'string' ||
+    wire.id.length === 0 ||
+    wire.type !== 'file' ||
+    typeof wire.mime_type !== 'string' ||
+    typeof wire.size_bytes !== 'number' ||
+    !Number.isSafeInteger(wire.size_bytes) ||
+    wire.size_bytes < 0 ||
+    !Number.isSafeInteger(createdAt) ||
+    createdAt < 0 ||
+    typeof wire.filename !== 'string' ||
+    wire.filename.length === 0
   ) {
     throw invalidResponse(operation)
   }
@@ -120,10 +121,8 @@ function providerErrorDetail(value: unknown): { message?: string; detail: string
   const fields = error as { message?: unknown; type?: unknown; code?: unknown }
   const message = typeof fields.message === 'string' ? fields.message : undefined
   return {
-    ...message === undefined ? {} : { message },
-    detail: [fields.code, fields.type, fields.message]
-      .filter((field): field is string => typeof field === 'string')
-      .join(' '),
+    ...(message === undefined ? {} : { message }),
+    detail: [fields.code, fields.type, fields.message].filter((field): field is string => typeof field === 'string').join(' '),
   }
 }
 
@@ -153,7 +152,7 @@ export class DeepSeekFilesClient {
         ...init,
         redirect: 'error',
         headers,
-        ...signal === undefined ? {} : { signal },
+        ...(signal === undefined ? {} : { signal }),
       })
     } catch (error: unknown) {
       if (signal?.aborted) throw error
@@ -167,11 +166,7 @@ export class DeepSeekFilesClient {
       // A status remains sufficient to report the provider failure.
     }
     const { message, detail } = providerErrorDetail(parsed)
-    throw new DeepSeekFilesError(
-      message ?? `DeepSeek Files API error (HTTP ${response.status})`,
-      response.status,
-      detail,
-    )
+    throw new DeepSeekFilesError(message ?? `DeepSeek Files API error (HTTP ${response.status})`, response.status, detail)
   }
 
   /**
@@ -190,9 +185,11 @@ export class DeepSeekFilesClient {
     if (input.data.byteLength > MAX_FILE_UPLOAD_BYTES) {
       throw new LlmError('DeepSeek Files API upload exceeds 128 MiB.', 'INVALID_REQUEST')
     }
-    if (!Number.isSafeInteger(input.expiresAfterSeconds)
-      || input.expiresAfterSeconds < MIN_FILE_EXPIRY_SECONDS
-      || input.expiresAfterSeconds > MAX_FILE_EXPIRY_SECONDS) {
+    if (
+      !Number.isSafeInteger(input.expiresAfterSeconds) ||
+      input.expiresAfterSeconds < MIN_FILE_EXPIRY_SECONDS ||
+      input.expiresAfterSeconds > MAX_FILE_EXPIRY_SECONDS
+    ) {
       throw new LlmError('DeepSeek file expiry must be between 3600 and 2592000 seconds.', 'INVALID_REQUEST')
     }
     const form = new FormData()
@@ -209,11 +206,13 @@ export class DeepSeekFilesClient {
    * @param options - pagination and cancellation.
    * @returns the validated page with null cursors omitted.
    */
-  async list(options: {
-    after?: DeepSeekFileIdType
-    limit?: number
-    signal?: AbortSignal
-  } = {}): Promise<DeepSeekFilePage> {
+  async list(
+    options: {
+      after?: DeepSeekFileIdType
+      limit?: number
+      signal?: AbortSignal
+    } = {},
+  ): Promise<DeepSeekFilePage> {
     const query = new URLSearchParams()
     if (options.after !== undefined) query.set('after_id', options.after)
     if (options.limit !== undefined) query.set('limit', String(options.limit))
@@ -223,15 +222,18 @@ export class DeepSeekFilesClient {
     const wire = value as { data?: unknown; first_id?: unknown; last_id?: unknown; has_more?: unknown }
     const firstId = wire.first_id ?? undefined
     const lastId = wire.last_id ?? undefined
-    if (!Array.isArray(wire.data) || typeof wire.has_more !== 'boolean'
-      || (firstId !== undefined && typeof firstId !== 'string')
-      || (lastId !== undefined && typeof lastId !== 'string')) {
+    if (
+      !Array.isArray(wire.data) ||
+      typeof wire.has_more !== 'boolean' ||
+      (firstId !== undefined && typeof firstId !== 'string') ||
+      (lastId !== undefined && typeof lastId !== 'string')
+    ) {
       throw invalidResponse('list')
     }
     return {
       data: wire.data.map(item => parseFileObject(item, 'list')),
-      ...typeof firstId === 'string' ? { firstId: DeepSeekFileId(firstId) } : {},
-      ...typeof lastId === 'string' ? { lastId: DeepSeekFileId(lastId) } : {},
+      ...(typeof firstId === 'string' ? { firstId: DeepSeekFileId(firstId) } : {}),
+      ...(typeof lastId === 'string' ? { lastId: DeepSeekFileId(lastId) } : {}),
       hasMore: wire.has_more,
     }
   }

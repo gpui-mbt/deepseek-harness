@@ -20,14 +20,7 @@ import type { WorkerInit, WorkerLimits } from './types.ts'
 
 export { validateMeta } from './meta.ts'
 export { materializeFromRealm, MaterializeError } from './realm.ts'
-export type {
-  ChildHandle,
-  ChildPort,
-  ChildResult,
-  ChildStartRequest,
-  WorkerInit,
-  WorkerLimits,
-} from './types.ts'
+export type { ChildHandle, ChildPort, ChildResult, ChildStartRequest, WorkerInit, WorkerLimits } from './types.ts'
 
 /** Plugin config (all optional — `static Config` supplies the defaults). */
 export interface Config {
@@ -54,7 +47,10 @@ const META_STATEMENT = /^\s*export\s+const\s+meta\b/
  */
 function assertBodyParses(body: string, name: string): void {
   if (META_STATEMENT.test(body)) {
-    throw new WorkflowError('workflow meta rides the `meta` request field, not the script: remove the `export const meta = {...}` statement from the body', 'SCRIPT_PARSE')
+    throw new WorkflowError(
+      'workflow meta rides the `meta` request field, not the script: remove the `export const meta = {...}` statement from the body',
+      'SCRIPT_PARSE',
+    )
   }
   try {
     // Parse only — the script object is discarded, nothing executes.
@@ -68,10 +64,7 @@ function assertBodyParses(body: string, name: string): void {
 function resolveSubagentProvider(ctx: Context, configured: string, override: string | undefined): string {
   const provider = override ?? configured
   if (provider.length === 0 || provider !== provider.trim()) {
-    throw new WorkflowError(
-      'workflow subagentProvider must be a non-empty normalized string',
-      'INVALID_ARGUMENT',
-    )
+    throw new WorkflowError('workflow subagentProvider must be a non-empty normalized string', 'INVALID_ARGUMENT')
   }
   if (ctx.subagents.getProvider(provider) === undefined) {
     throw new WorkflowError(`no subagent provider registered for "${provider}"`, 'AGENT_START')
@@ -86,10 +79,7 @@ function resolveMaxTotalAgents(requested: number | undefined, ceiling: number): 
     throw new WorkflowError('workflow maxTotalAgents must be a positive safe integer', 'INVALID_ARGUMENT')
   }
   if (requested > ceiling) {
-    throw new WorkflowError(
-      `workflow maxTotalAgents ${requested} exceeds the engine ceiling ${ceiling}`,
-      'INVALID_ARGUMENT',
-    )
+    throw new WorkflowError(`workflow maxTotalAgents ${requested} exceeds the engine ceiling ${ceiling}`, 'INVALID_ARGUMENT')
   }
   return requested
 }
@@ -139,9 +129,8 @@ class PtcWorkflowEngine extends WorkflowEngine {
     const id = WorkflowRunId(randomUUID())
     const info: WorkflowRunInfo = { id, meta }
     const limits: WorkerLimits = {
-      maxConcurrentAgents: this.config.maxConcurrentAgents === 0
-        ? Math.min(16, Math.max(1, availableParallelism() - 2))
-        : this.config.maxConcurrentAgents,
+      maxConcurrentAgents:
+        this.config.maxConcurrentAgents === 0 ? Math.min(16, Math.max(1, availableParallelism() - 2)) : this.config.maxConcurrentAgents,
       maxTotalAgents,
       maxItemsPerCall: this.config.maxItemsPerCall,
       syncTimeoutMs: this.config.syncTimeoutMs,
@@ -149,7 +138,7 @@ class PtcWorkflowEngine extends WorkflowEngine {
     const init: WorkerInit = {
       meta,
       body: request.script,
-      ...request.args !== undefined ? { args: structuredClone(request.args) } : {},
+      ...(request.args !== undefined ? { args: structuredClone(request.args) } : {}),
       limits,
     }
     // Captured service handles keep a holder-owned run usable after engine unload.
@@ -166,10 +155,18 @@ class PtcWorkflowEngine extends WorkflowEngine {
       subagentProvider,
       runCtx.sandboxPolicy.resolve({ session: request.parent.session }),
       {
-        phase: (title) => { this.emitWorkflowEvent('workflow/phase', info, title) },
-        log: (message) => { this.emitWorkflowEvent('workflow/log', info, message) },
-        agentStart: (agent) => { this.emitWorkflowEvent('workflow/agent-start', info, agent) },
-        agentEnd: (agent) => { this.emitWorkflowEvent('workflow/agent-end', info, agent) },
+        phase: title => {
+          this.emitWorkflowEvent('workflow/phase', info, title)
+        },
+        log: message => {
+          this.emitWorkflowEvent('workflow/log', info, message)
+        },
+        agentStart: agent => {
+          this.emitWorkflowEvent('workflow/agent-start', info, agent)
+        },
+        agentEnd: agent => {
+          this.emitWorkflowEvent('workflow/agent-end', info, agent)
+        },
       },
       request.signal,
     )
@@ -177,10 +174,10 @@ class PtcWorkflowEngine extends WorkflowEngine {
     this.emitWorkflowEvent('workflow/start', info)
     // `workflow/end` fires as the (never-rejecting) result settles, with the
     // outcome DATA only — the value stays with the run's holder.
-    void run.result.then((settled) => {
+    void run.result.then(settled => {
       this.emitWorkflowEvent('workflow/end', info, {
         stopReason: settled.stopReason,
-        ...settled.error !== undefined ? { error: settled.error } : {},
+        ...(settled.error !== undefined ? { error: settled.error } : {}),
         agentsStarted: settled.agentsStarted,
       })
     })

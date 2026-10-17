@@ -10,7 +10,7 @@ export default defineMod({
   register(on) {
     on('prompt.submit', async (_$, e, next) => {
       const r = await next(e)
-      return { ...r, context: [...r.context ?? [], 'Context from the snapshot-guard mod: this workspace is a demo checkout.'] }
+      return { ...r, context: [...(r.context ?? []), 'Context from the snapshot-guard mod: this workspace is a demo checkout.'] }
     })
     on('tool.call', { tool: 'working_directory' }, async ($, e, next) => {
       const result = await next(e)
@@ -23,7 +23,12 @@ export default defineMod({
       const listed = (await $.fs.list('.')).some(entry => entry.name === 'witness.txt')
       const process = await $.process.run(['node', '-e', 'process.stdout.write(String(process.cwd() === process.argv[1]))', cwd])
       const facts = JSON.stringify({
-        directory: cwd.split('/').pop(), rootIsCurrent: cwd === root, read, exists, stat: stat.kind, listed,
+        directory: cwd.split('/').pop(),
+        rootIsCurrent: cwd === root,
+        read,
+        exists,
+        stat: stat.kind,
+        listed,
         processCwdMatches: process.stdout === 'true',
       })
       await $.fs.write('mods-directory.json', facts + '\n')

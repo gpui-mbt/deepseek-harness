@@ -48,10 +48,7 @@ export interface AgentSetupCommit {
  * @param agent - unpublished Agent being composed.
  * @returns an optional synchronous commit invoked after setup awaits settle and immediately before publication.
  */
-export type AgentSetup = (
-  agentCtx: Context,
-  agent: Agent,
-) => AgentSetupCommit | Promise<AgentSetupCommit | void> | void
+export type AgentSetup = (agentCtx: Context, agent: Agent) => AgentSetupCommit | Promise<AgentSetupCommit | void> | void
 
 /**
  * Options for programmatically creating an agent through the registry factory
@@ -254,7 +251,7 @@ export class AgentRegistry extends Service {
 
   constructor(ctx: Context) {
     super(ctx, 'agents')
-    ctx.inject(['typert'], (typeCtx) => {
+    ctx.inject(['typert'], typeCtx => {
       typeCtx.typert.lookups.register('agent', {
         parameter: 'agent',
         wire: 'agentId',
@@ -270,15 +267,20 @@ export class AgentRegistry extends Service {
         resolve: sessionId => this.get(sessionId)?.ctx,
       })
     })
-    ctx.on('internal/status', (fiber) => {
+    ctx.on('internal/status', fiber => {
       if (fiber.state === FiberState.UNLOADING && this.hasLifecycleAncestor(fiber)) {
         this.closeInitiators()
       }
     })
-    ctx.effect(function* (this: AgentRegistry) {
-      yield () => this.disposeInitiators()
-      yield () => { this.closeInitiators() }
-    }.bind(this), 'agents.initiatorLifecycle()')
+    ctx.effect(
+      function* (this: AgentRegistry) {
+        yield () => this.disposeInitiators()
+        yield () => {
+          this.closeInitiators()
+        }
+      }.bind(this),
+      'agents.initiatorLifecycle()',
+    )
     // Archive admission: the Workspace registry asks what still runs for a
     // Session before hiding it; a running turn answers here, for every Agent.
     installTurnArchiveAdmission(ctx, sessionId => this.get(sessionId))
@@ -365,7 +367,9 @@ export class AgentRegistry extends Service {
       // actual owner context below.
       const target = (factory as AgentFactory & { [symbols.original]?: AgentFactory })[symbols.original] ?? factory
       this.factory = { target }
-      return () => { this.factory = undefined }
+      return () => {
+        this.factory = undefined
+      }
     }, 'agents.setFactory()')
     // The exact cordis effect disposer (the agents.register() convention): a
     // caller's composite effect can yield it for in-order teardown; the
@@ -437,10 +441,13 @@ export class AgentRegistry extends Service {
    *   while its final turn is still draining.
    */
   register(agent: Agent): ReturnType<Context['effect']> {
-    return this.ctx.effect(async function* (this: AgentRegistry) {
-      yield this.enter(agent, undefined)
-      await this.announce(agent, 'startup')
-    }.bind(this), 'agents.register()')
+    return this.ctx.effect(
+      async function* (this: AgentRegistry) {
+        yield this.enter(agent, undefined)
+        await this.announce(agent, 'startup')
+      }.bind(this),
+      'agents.register()',
+    )
   }
 
   /**
@@ -552,7 +559,7 @@ export class AgentRegistry extends Service {
       await this.ctx.serial(entry.carrier, 'agent/created', {
         agent: entry.agent,
         source,
-        ...signal === undefined ? {} : { signal },
+        ...(signal === undefined ? {} : { signal }),
       })
     } finally {
       entry.announcing = false
@@ -596,9 +603,7 @@ export class AgentRegistry extends Service {
    * @returns a fresh array; mutating it does not affect the registry.
    */
   roots(): Agent[] {
-    return [...this.store.values()]
-      .filter(entry => entry.owner === undefined)
-      .map(entry => entry.agent)
+    return [...this.store.values()].filter(entry => entry.owner === undefined).map(entry => entry.agent)
   }
 
   /** Reject new initiator boundaries while inherited continuations drain. */
@@ -640,8 +645,12 @@ export class AgentRegistry extends Service {
       try {
         void Promise.prototype.then.call(
           result,
-          () => { this.releaseInitiatorRun(run) },
-          () => { this.releaseInitiatorRun(run) },
+          () => {
+            this.releaseInitiatorRun(run)
+          },
+          () => {
+            this.releaseInitiatorRun(run)
+          },
         )
       } catch {
         // A branded Promise may expose a failing @@species. Observer setup did

@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -30,10 +30,15 @@ class VisualModel extends LlmAdapter {
     return Promise.resolve({ provider, id: model, name: model, inputModalities: ['text', 'image'] })
   }
 
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
     if (this.requests.length === 1) {
-      const call = { type: 'tool-call' as const, id: ToolCallId('native-window'), name: 'cua_driver_native__get_window_state', arguments: '{"pid":9,"window_id":7}' }
+      const call = {
+        type: 'tool-call' as const,
+        id: ToolCallId('native-window'),
+        name: 'cua_driver_native__get_window_state',
+        arguments: '{"pid":9,"window_id":7}',
+      }
       yield { type: 'block-start', index: 0, blockType: 'tool-call' }
       yield { type: 'block-end', index: 0, block: call }
       yield { type: 'finish', reason: { kind: 'tool-calls' } }
@@ -71,12 +76,17 @@ it('loads from cordis.yml and logs the native screenshot before the next model r
     ['@deepseek-ai/dsh-computer-use', ComputerUseRegistry],
     ['@deepseek-ai/dsh-experimental-computer-use-cua-driver-native', NativeProvider],
   ])
-  await writeFile(configPath, [...modules.keys()].flatMap(name => [
-    `- name: '${name}'`,
-    ...name === '@deepseek-ai/dsh-attachment-local' ? ['  config:', `    dshHome: ${JSON.stringify(root)}`] : [],
-  ]).join('\n') + '\n')
+  await writeFile(
+    configPath,
+    [...modules.keys()]
+      .flatMap(name => [
+        `- name: '${name}'`,
+        ...(name === '@deepseek-ai/dsh-attachment-local' ? ['  config:', `    dshHome: ${JSON.stringify(root)}`] : []),
+      ])
+      .join('\n') + '\n',
+  )
 
-  const context = ctx = new Context()
+  const context = (ctx = new Context())
   context.baseUrl = pathToFileURL(root).href + '/'
   await context.plugin(Loader)
   context.loader.builtins.include = Include
@@ -117,8 +127,11 @@ it('loads from cordis.yml and logs the native screenshot before the next model r
   expect(JSON.stringify(model.requests[1]?.messages)).toContain(JSON.stringify(image.attachment))
   expect(JSON.stringify(toolResult.content)).not.toContain(screenshotBase64)
   const direct = await context.tools.execute({
-    agent, signal: new AbortController().signal, callId: ToolCallId('programmatic-window'),
-    name: 'cua_driver_native__get_window_state', arguments: { pid: 9, window_id: 7 },
+    agent,
+    signal: new AbortController().signal,
+    callId: ToolCallId('programmatic-window'),
+    name: 'cua_driver_native__get_window_state',
+    arguments: { pid: 9, window_id: 7 },
   })
   if (direct.isError) throw new Error('Programmatic native screenshot failed')
   expect(direct.value).toMatchObject({ structuredContent: { window_id: 7, clicked: false } })

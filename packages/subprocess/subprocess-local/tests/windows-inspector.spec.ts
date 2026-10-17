@@ -1,5 +1,5 @@
 import { spawnSync as nodeSpawnSync } from 'node:child_process'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   createWindowsProcessInspector,
   isInvalidHandle,
@@ -13,7 +13,7 @@ import type {
   WindowsProcessState,
 } from '@deepseek-ai/dsh-subprocess-local/src/windows-inspector.ts'
 
-vi.mock('node:child_process', async (importOriginal) => {
+vi.mock('node:child_process', async importOriginal => {
   const actual = await importOriginal<typeof import('node:child_process')>()
   return { ...actual, spawnSync: vi.fn(actual.spawnSync) }
 })
@@ -26,9 +26,17 @@ function fakeInternals() {
   return {
     counts,
     internals: {
-      snapshot: () => { counts.enumerations += 1; return [...entries] },
-      processState: (pid) => { counts.stateReads += 1; return states.get(pid) },
-      taskkill: (pid: number, force: boolean) => { kills.push([pid, force]) },
+      snapshot: () => {
+        counts.enumerations += 1
+        return [...entries]
+      },
+      processState: pid => {
+        counts.stateReads += 1
+        return states.get(pid)
+      },
+      taskkill: (pid: number, force: boolean) => {
+        kills.push([pid, force])
+      },
     } satisfies WindowsProcessInspectorInternals,
     add(entry: ProcessEntry, started?: string, active = true): void {
       entries.push(entry)
@@ -63,14 +71,20 @@ describe('WindowsProcessInspector table enumeration', () => {
 
 describe('windowsProcessTree', () => {
   it('walks a table children-first with readable identities only', () => {
-    const started = (pid: number): string | undefined => pid === 12 ? undefined : `t${pid}`
-    expect(windowsProcessTree([
-      { pid: 10, parentPid: 0 },
-      { pid: 11, parentPid: 10 },
-      { pid: 12, parentPid: 11 },
-      { pid: 13, parentPid: 11 },
-      { pid: 14, parentPid: 10 },
-    ], 10, started)).toEqual([
+    const started = (pid: number): string | undefined => (pid === 12 ? undefined : `t${pid}`)
+    expect(
+      windowsProcessTree(
+        [
+          { pid: 10, parentPid: 0 },
+          { pid: 11, parentPid: 10 },
+          { pid: 12, parentPid: 11 },
+          { pid: 13, parentPid: 11 },
+          { pid: 14, parentPid: 10 },
+        ],
+        10,
+        started,
+      ),
+    ).toEqual([
       { pid: 13, started: 't13' },
       { pid: 11, started: 't11' },
       { pid: 14, started: 't14' },
@@ -98,18 +112,8 @@ describe('WindowsProcessInspector (injected internals)', () => {
     const inspector = createWindowsProcessInspector()
     inspector.signalGroup(77, 'SIGKILL')
     inspector.signalGroup(78, 'SIGTERM')
-    expect(taskkill).toHaveBeenNthCalledWith(
-      1,
-      'taskkill',
-      ['/PID', '77', '/T', '/F'],
-      { stdio: 'ignore', windowsHide: true },
-    )
-    expect(taskkill).toHaveBeenNthCalledWith(
-      2,
-      'taskkill',
-      ['/PID', '78', '/T'],
-      { stdio: 'ignore', windowsHide: true },
-    )
+    expect(taskkill).toHaveBeenNthCalledWith(1, 'taskkill', ['/PID', '77', '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+    expect(taskkill).toHaveBeenNthCalledWith(2, 'taskkill', ['/PID', '78', '/T'], { stdio: 'ignore', windowsHide: true })
   })
 
   it('exposes the shell pid as the pseudo foreground group and never proves stdin waits', () => {
@@ -143,7 +147,11 @@ describe('WindowsProcessInspector (injected internals)', () => {
     inspector.signalGroup(77, 'SIGKILL')
     inspector.signalGroup(77, 'SIGTERM')
     inspector.signalGroup(0, 'SIGKILL')
-    expect(fake.kills).toEqual([[77, true], [77, false], [0, true]])
+    expect(fake.kills).toEqual([
+      [77, true],
+      [77, false],
+      [0, true],
+    ])
   })
 
   it('signals a process only while its start identity matches', () => {
@@ -170,7 +178,7 @@ describe('isInvalidHandle', () => {
     expect(isInvalidHandle(null)).toBe(true)
     expect(isInvalidHandle(undefined)).toBe(true)
     expect(isInvalidHandle(ptr(0n))).toBe(true)
-    expect(isInvalidHandle(ptr(0xFFFFFFFFFFFFFFFFn))).toBe(true)
+    expect(isInvalidHandle(ptr(0xffffffffffffffffn))).toBe(true)
     expect(isInvalidHandle(ptr(-1n))).toBe(true)
     expect(isInvalidHandle(ptr(1234n))).toBe(false)
   })
@@ -190,10 +198,18 @@ win32('WindowsProcessInspector over the real koffi bindings', () => {
 
   it('reports unreadable identities for absent processes and no-ops tree signalling', () => {
     const inspector = createWindowsProcessInspector()
-    expect(inspector.isAlive({ pid: 0x7FFFFFFF, started: 'absent' })).toBe(false)
-    expect(() => { inspector.signalGroup(0x7FFFFFFF, 'SIGKILL') }).not.toThrow()
-    expect(() => { inspector.signalGroup(0x7FFFFFFF, 'SIGTERM') }).not.toThrow()
-    expect(() => { inspector.signalGroup(0, 'SIGKILL') }).not.toThrow()
-    expect(() => { inspector.signalProcess({ pid: 0x7FFFFFFF, started: 'absent' }, 'SIGKILL') }).not.toThrow()
+    expect(inspector.isAlive({ pid: 0x7fffffff, started: 'absent' })).toBe(false)
+    expect(() => {
+      inspector.signalGroup(0x7fffffff, 'SIGKILL')
+    }).not.toThrow()
+    expect(() => {
+      inspector.signalGroup(0x7fffffff, 'SIGTERM')
+    }).not.toThrow()
+    expect(() => {
+      inspector.signalGroup(0, 'SIGKILL')
+    }).not.toThrow()
+    expect(() => {
+      inspector.signalProcess({ pid: 0x7fffffff, started: 'absent' }, 'SIGKILL')
+    }).not.toThrow()
   })
 })

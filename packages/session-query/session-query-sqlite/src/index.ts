@@ -11,10 +11,7 @@ import { Context, Service, type Fiber } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Session, SessionEvent, SessionHeader, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import type SessionPersistence from '@deepseek-ai/dsh-session-persistence'
-import type {
-  SessionPersistenceRevision,
-  SessionPersistenceSnapshot,
-} from '@deepseek-ai/dsh-session-persistence'
+import type { SessionPersistenceRevision, SessionPersistenceSnapshot } from '@deepseek-ai/dsh-session-persistence'
 import SessionQueryEngine, {
   SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY,
   SESSION_QUERY_DEFAULT_PREPARED_SESSION_CACHE_SIZE,
@@ -37,10 +34,7 @@ import type {
   SessionSearchPage,
   SessionSearchRequest,
 } from '@deepseek-ai/dsh-session-query'
-import {
-  type JournalMode,
-  openSearchDatabase,
-} from './schema.ts'
+import { type JournalMode, openSearchDatabase } from './schema.ts'
 import {
   type NormalizedEventRequest,
   type NormalizedSessionRequest,
@@ -59,11 +53,7 @@ import {
   SQLITE_MAX_PAGE_LIMIT,
 } from './query.ts'
 
-export {
-  SESSION_QUERY_SQLITE_APPLICATION_ID,
-  SESSION_QUERY_SQLITE_SCHEMA_VERSION,
-  type JournalMode,
-} from './schema.ts'
+export { SESSION_QUERY_SQLITE_APPLICATION_ID, SESSION_QUERY_SQLITE_SCHEMA_VERSION, type JournalMode } from './schema.ts'
 
 /** Boot-context slot for a launcher-owned absolute path to this process's derived query index. */
 export const SESSION_QUERY_SQLITE_PATH_KEY = 'launcherSessionQueryPath'
@@ -211,12 +201,14 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
     maxLimit: z.number().step(1).min(1).max(SQLITE_MAX_PAGE_LIMIT).default(SESSION_QUERY_SQLITE_MAX_LIMIT),
     snippetChars: z.number().step(1).min(1).default(SESSION_QUERY_SQLITE_SNIPPET_CHARS),
     readWindowMax: z.number().step(1).min(0).default(SESSION_QUERY_READ_WINDOW_MAX),
-    persistedReadConcurrency: z.number()
+    persistedReadConcurrency: z
+      .number()
       .step(1)
       .min(1)
       .max(Number.MAX_SAFE_INTEGER)
       .default(SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY),
-    preparedSessionCacheSize: z.number()
+    preparedSessionCacheSize: z
+      .number()
       .step(1)
       .min(1)
       .max(Number.MAX_SAFE_INTEGER)
@@ -242,17 +234,20 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
   constructor(ctx: Context, config: Config) {
     // The assignment expression resolves before the base constructor can
     // register `ctx.sessionQuery`; keep that same validated value afterward.
-    super(ctx, config = resolveConfig(config))
+    super(ctx, (config = resolveConfig(config)))
     this.config = config as ResolvedConfig
     this._optionalPersistenceFiber = ctx.inject(['sessionPersistence'], (childCtx: Context) => {
       const service = childCtx.sessionPersistence
       const binding = { identity: Symbol(), service }
       this._persistenceBinding = binding
-      childCtx.effect(() => () => {
-        /* v8 ignore next -- a stale optional-service disposer cannot clear a replacement */
-        if (this._persistenceBinding !== binding) return
-        this._persistenceBinding = { identity: Symbol() }
-      }, 'sessionQuerySqlite.persistenceBinding')
+      childCtx.effect(
+        () => () => {
+          /* v8 ignore next -- a stale optional-service disposer cannot clear a replacement */
+          if (this._persistenceBinding !== binding) return
+          this._persistenceBinding = { identity: Symbol() }
+        },
+        'sessionQuerySqlite.persistenceBinding',
+      )
     })
     ctx.effect(() => {
       return () => this._optionalPersistenceFiber.dispose()
@@ -278,25 +273,28 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       assertNotAborted(signal)
       const generation = String(this._globalGeneration)
       const fingerprint = requestFingerprint(normalized)
-      const offset = normalized.cursor === undefined
-        ? 0
-        : decodeCursor(normalized.cursor, this._instance, 'sessions', fingerprint, generation)
+      const offset =
+        normalized.cursor === undefined ? 0 : decodeCursor(normalized.cursor, this._instance, 'sessions', fingerprint, generation)
       const rows = this._querySessions(normalized, offset, persistenceBinding)
-      return page(rows, normalized.limit, row => this._sessionHit(row), cursorOffset => encodeCursor({
-        version: 1,
-        instance: this._instance,
-        scope: 'sessions',
-        fingerprint,
-        generation,
-        offset: cursorOffset,
-      }), offset)
+      return page(
+        rows,
+        normalized.limit,
+        row => this._sessionHit(row),
+        cursorOffset =>
+          encodeCursor({
+            version: 1,
+            instance: this._instance,
+            scope: 'sessions',
+            fingerprint,
+            generation,
+            offset: cursorOffset,
+          }),
+        offset,
+      )
     })
   }
 
-  override async searchEvents(
-    request: SessionEventSearchRequest,
-    exec?: SessionSearchExecContext,
-  ): Promise<SessionEventSearchPage> {
+  override async searchEvents(request: SessionEventSearchRequest, exec?: SessionSearchExecContext): Promise<SessionEventSearchPage> {
     this._assertSearchEnabled()
     const normalized = normalizeEventRequest(request, this.config)
     const signal = exec?.signal
@@ -306,20 +304,26 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       assertNotAborted(signal)
       const target = this._targetObservation(normalized.sessionId, persistenceBinding)
       const fingerprint = requestFingerprint(normalized)
-      const offset = normalized.cursor === undefined
-        ? 0
-        : decodeCursor(normalized.cursor, this._instance, 'events', fingerprint, target.generation)
+      const offset =
+        normalized.cursor === undefined ? 0 : decodeCursor(normalized.cursor, this._instance, 'events', fingerprint, target.generation)
       const rows = this._queryEvents(normalized, offset, persistenceBinding)
       return {
         session: target.header,
-        ...page(rows, normalized.limit, row => this._eventHit(row), cursorOffset => encodeCursor({
-          version: 1,
-          instance: this._instance,
-          scope: 'events',
-          fingerprint,
-          generation: target.generation,
-          offset: cursorOffset,
-        }), offset),
+        ...page(
+          rows,
+          normalized.limit,
+          row => this._eventHit(row),
+          cursorOffset =>
+            encodeCursor({
+              version: 1,
+              instance: this._instance,
+              scope: 'events',
+              fingerprint,
+              generation: target.generation,
+              offset: cursorOffset,
+            }),
+          offset,
+        ),
       }
     })
   }
@@ -359,9 +363,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
 
   private async _open(): Promise<void> {
     this._db = await openSearchDatabase(this.config.path, this.config.journalMode)
-    const state = this._db.prepare(
-      'SELECT global_generation FROM search_state WHERE singleton = 1',
-    ).get() as { global_generation: number }
+    const state = this._db.prepare('SELECT global_generation FROM search_state WHERE singleton = 1').get() as { global_generation: number }
     this._globalGeneration = state.global_generation
     this._localGeneration = state.global_generation
   }
@@ -372,18 +374,18 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       await waitWithAbort(this._ready, signal)
     } catch (error: unknown) {
       if (isAbort(error)) throw error
-      throw new SessionQueryError(
-        `session-search SQLite index failed to open: ${errorMessage(error)}`,
-        'SESSION_QUERY_INDEX_FAILED',
-        { cause: error },
-      )
+      throw new SessionQueryError(`session-search SQLite index failed to open: ${errorMessage(error)}`, 'SESSION_QUERY_INDEX_FAILED', {
+        cause: error,
+      })
     }
   }
 
   private async _serialized<T>(signal: AbortSignal | undefined, operation: () => Promise<T>): Promise<T> {
     if (this._isClosed()) throw indexClosed()
     let release!: () => void
-    const gate = new Promise<void>((resolve) => { release = resolve })
+    const gate = new Promise<void>(resolve => {
+      release = resolve
+    })
     const prior = this._tail
     this._tail = prior.then(() => gate)
     try {
@@ -407,39 +409,36 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
   private async _reconcile(signal: AbortSignal | undefined): Promise<PersistenceBinding> {
     assertNotAborted(signal)
     const db = this._requireDb()
-    const persistedRows = db.prepare(
-      'SELECT id, revision, generation FROM persisted_sessions',
-    ).all() as unknown as IndexedPersistedRow[]
-    const liveRows = db.prepare(
-      'SELECT id, fingerprint, persisted, generation FROM temp.live_sessions',
-    ).all() as unknown as IndexedLiveRow[]
+    const persistedRows = db.prepare('SELECT id, revision, generation FROM persisted_sessions').all() as unknown as IndexedPersistedRow[]
+    const liveRows = db
+      .prepare('SELECT id, fingerprint, persisted, generation FROM temp.live_sessions')
+      .all() as unknown as IndexedLiveRow[]
     const persistedById = new Map(persistedRows.map(row => [row.id as SessionId, row]))
     const liveById = new Map(liveRows.map(row => [row.id as SessionId, row]))
     const observation = await this._observeStable(persistedById, signal)
     assertNotAborted(signal)
-    const persistentChanges = observation.persistenceBinding.service === undefined
-      ? []
-      : [...observation.persisted.values()].filter(entry => entry.loaded !== undefined)
-    const persistentDeletes = observation.persistenceBinding.service === undefined
-      ? []
-      : persistedRows.filter(row => !observation.persisted.has(row.id as SessionId))
-    const liveChanges = [...observation.live.values()].filter((entry) => {
+    const persistentChanges =
+      observation.persistenceBinding.service === undefined
+        ? []
+        : [...observation.persisted.values()].filter(entry => entry.loaded !== undefined)
+    const persistentDeletes =
+      observation.persistenceBinding.service === undefined
+        ? []
+        : persistedRows.filter(row => !observation.persisted.has(row.id as SessionId))
+    const liveChanges = [...observation.live.values()].filter(entry => {
       const indexed = liveById.get(entry.header.id)
       const persisted = observation.persisted.has(entry.header.id) ? 1 : 0
       return indexed?.fingerprint !== entry.fingerprint || indexed.persisted !== persisted
     })
     const liveDeletes = liveRows.filter(row => !observation.live.has(row.id as SessionId))
-    const pointerChanged = this._lastPersistenceIdentity !== undefined
-      && this._lastPersistenceIdentity !== observation.persistenceBinding.identity
-    const hasWrites = persistentChanges.length > 0
-      || persistentDeletes.length > 0
-      || liveChanges.length > 0
-      || liveDeletes.length > 0
+    const pointerChanged =
+      this._lastPersistenceIdentity !== undefined && this._lastPersistenceIdentity !== observation.persistenceBinding.identity
+    const hasWrites = persistentChanges.length > 0 || persistentDeletes.length > 0 || liveChanges.length > 0 || liveDeletes.length > 0
 
     let nextMainGeneration = this._mainGeneration()
     let nextLocalGeneration = this._localGeneration
     if (persistentChanges.length > 0 || persistentDeletes.length > 0) nextMainGeneration += 1
-    const liveReplacements = liveChanges.map((entry) => {
+    const liveReplacements = liveChanges.map(entry => {
       nextLocalGeneration = Math.max(nextLocalGeneration, nextMainGeneration) + 1
       return {
         entry,
@@ -477,11 +476,9 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
             // The original SQLite failure remains the actionable cause.
           }
         }
-        throw new SessionQueryError(
-          `session-search reconciliation failed: ${errorMessage(error)}`,
-          'SESSION_QUERY_INDEX_FAILED',
-          { cause: error },
-        )
+        throw new SessionQueryError(`session-search reconciliation failed: ${errorMessage(error)}`, 'SESSION_QUERY_INDEX_FAILED', {
+          cause: error,
+        })
       }
     }
 
@@ -504,8 +501,8 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       let persisted = new Map<SessionId, ObservedPersistedSession>()
       if (persistence !== undefined) {
         try {
-          const canReuseIndexed = this._lastPersistenceIdentity === undefined
-            || this._lastPersistenceIdentity === persistenceBinding.identity
+          const canReuseIndexed =
+            this._lastPersistenceIdentity === undefined || this._lastPersistenceIdentity === persistenceBinding.identity
           const listOptions = signal === undefined ? undefined : { signal }
           const before = await persistence.list(listOptions)
           assertNotAborted(signal)
@@ -562,9 +559,9 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
   }
 
   private _mainGeneration(): number {
-    const row = this._requireDb().prepare(
-      'SELECT global_generation FROM search_state WHERE singleton = 1',
-    ).get() as { global_generation: number }
+    const row = this._requireDb().prepare('SELECT global_generation FROM search_state WHERE singleton = 1').get() as {
+      global_generation: number
+    }
     return row.global_generation
   }
 
@@ -579,37 +576,21 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
     }
   }
 
-  private _replacePersistedSession(
-    entry: ObservedSession,
-    revision: SessionPersistenceRevision,
-    generation: number,
-  ): void {
+  private _replacePersistedSession(entry: ObservedSession, revision: SessionPersistenceRevision, generation: number): void {
     this._deleteSession('persisted', entry.header.id)
     const db = this._requireDb()
     db.prepare(`
       INSERT INTO persisted_sessions
         (id, version, created_at, cwd, parent_session, seed_length, delegation_depth, agent_preset, revision, generation)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      ...headerBindings(entry.header, entry.inheritedEventCount),
-      revision,
-      generation,
-    )
+    `).run(...headerBindings(entry.header, entry.inheritedEventCount), revision, generation)
     const insert = db.prepare(`
       INSERT INTO persisted_docs (text, session_id, seq, type, time, surface, codepoint_length)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
     for (const document of entry.documents) {
       const text = sanitizeFtsText(document.text)
-      insert.run(
-        text,
-        document.sessionId,
-        document.seq,
-        document.type,
-        document.time,
-        document.surface,
-        Array.from(text).length,
-      )
+      insert.run(text, document.sessionId, document.seq, document.type, document.time, document.surface, Array.from(text).length)
     }
   }
 
@@ -620,35 +601,18 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       INSERT INTO temp.live_sessions
         (id, version, created_at, cwd, parent_session, seed_length, delegation_depth, agent_preset, fingerprint, persisted, generation)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      ...headerBindings(entry.header, entry.inheritedEventCount),
-      entry.fingerprint,
-      persisted ? 1 : 0,
-      generation,
-    )
+    `).run(...headerBindings(entry.header, entry.inheritedEventCount), entry.fingerprint, persisted ? 1 : 0, generation)
     const insert = db.prepare(`
       INSERT INTO temp.live_docs (text, session_id, seq, type, time, surface, codepoint_length)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
     for (const document of entry.documents) {
       const text = sanitizeFtsText(document.text)
-      insert.run(
-        text,
-        document.sessionId,
-        document.seq,
-        document.type,
-        document.time,
-        document.surface,
-        Array.from(text).length,
-      )
+      insert.run(text, document.sessionId, document.seq, document.type, document.time, document.surface, Array.from(text).length)
     }
   }
 
-  private _querySessions(
-    request: NormalizedSessionRequest,
-    offset: number,
-    persistenceBinding: PersistenceBinding,
-  ): SearchRow[] {
+  private _querySessions(request: NormalizedSessionRequest, offset: number, persistenceBinding: PersistenceBinding): SearchRow[] {
     const selected = selectedDocumentsSql()
     const sessionWhere = buildSessionWhere(request.sessionFilters)
     const eventWhere = buildEventWhere(request.eventFilters)
@@ -662,7 +626,8 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       offset,
     ]
     assertPortableBindingCount(bindings.length)
-    return this._requireDb().prepare(`
+    return this._requireDb()
+      .prepare(`
       ${selected.sql},
       filtered AS (
         SELECT * FROM matched ${where.length === 0 ? '' : `WHERE ${where}`}
@@ -678,14 +643,11 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       WHERE event_rank = 1
       ORDER BY match_count DESC, document_length ASC, time DESC, session_id ASC, seq DESC
       LIMIT ? OFFSET ?
-    `).all(...bindings) as unknown as SearchRow[]
+    `)
+      .all(...bindings) as unknown as SearchRow[]
   }
 
-  private _queryEvents(
-    request: NormalizedEventRequest,
-    offset: number,
-    persistenceBinding: PersistenceBinding,
-  ): SearchRow[] {
+  private _queryEvents(request: NormalizedEventRequest, offset: number, persistenceBinding: PersistenceBinding): SearchRow[] {
     const selected = selectedDocumentsSql()
     const eventWhere = buildEventWhere(request.filters)
     assertFts5OuterPredicateCount(1 + eventWhere.predicateCount)
@@ -698,36 +660,39 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
       offset,
     ]
     assertPortableBindingCount(bindings.length)
-    return this._requireDb().prepare(`
+    return this._requireDb()
+      .prepare(`
       ${selected.sql}
       SELECT * FROM matched
       WHERE ${where}
       ORDER BY match_count DESC, document_length ASC, time DESC, seq DESC
       LIMIT ? OFFSET ?
-    `).all(...bindings) as unknown as SearchRow[]
+    `)
+      .all(...bindings) as unknown as SearchRow[]
   }
 
-  private _targetObservation(
-    sessionId: SessionId,
-    persistenceBinding: PersistenceBinding,
-  ): { header: SessionHeader; generation: string } {
+  private _targetObservation(sessionId: SessionId, persistenceBinding: PersistenceBinding): { header: SessionHeader; generation: string } {
     const db = this._requireDb()
-    const live = db.prepare(
-      `SELECT
+    const live = db
+      .prepare(
+        `SELECT
         id AS session_id, version, created_at, cwd, parent_session, seed_length, delegation_depth, agent_preset, generation
       FROM temp.live_sessions
       WHERE id = ?`,
-    ).get(sessionId) as (SessionHeaderRow & { generation: number }) | undefined
+      )
+      .get(sessionId) as (SessionHeaderRow & { generation: number }) | undefined
     if (live !== undefined) {
       return { header: rowHeader(live), generation: `live:${live.generation}` }
     }
     if (persistenceBinding.service !== undefined) {
-      const persisted = db.prepare(
-        `SELECT
+      const persisted = db
+        .prepare(
+          `SELECT
           id AS session_id, version, created_at, cwd, parent_session, seed_length, delegation_depth, agent_preset, generation
         FROM persisted_sessions
         WHERE id = ?`,
-      ).get(sessionId) as (SessionHeaderRow & { generation: number }) | undefined
+        )
+        .get(sessionId) as (SessionHeaderRow & { generation: number }) | undefined
       if (persisted !== undefined) {
         return {
           header: rowHeader(persisted),
@@ -735,10 +700,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
         }
       }
     }
-    throw new SessionQueryError(
-      `session "${sessionId}" not found`,
-      'SESSION_QUERY_SESSION_NOT_FOUND',
-    )
+    throw new SessionQueryError(`session "${sessionId}" not found`, 'SESSION_QUERY_SESSION_NOT_FOUND')
   }
 
   private _sessionHit(row: SearchRow): SessionSearchHit {
@@ -778,10 +740,7 @@ export class SqliteSessionQueryEngine extends SessionQueryEngine {
  * @param header - the session header being written.
  * @returns one bound value per header column.
  */
-function headerBindings(
-  header: SessionHeader,
-  inheritedEventCount: SessionLogOffset,
-): (string | number | null)[] {
+function headerBindings(header: SessionHeader, inheritedEventCount: SessionLogOffset): (string | number | null)[] {
   return [
     header.id,
     header.version,
@@ -873,11 +832,7 @@ function observeLive(session: Session): ObservedSession {
   return observeSession(session.header, session.inheritedEventCount, session.snapshotEvents())
 }
 
-function observeSession(
-  header: SessionHeader,
-  inheritedEventCount: SessionLogOffset,
-  events: readonly SessionEvent[],
-): ObservedSession {
+function observeSession(header: SessionHeader, inheritedEventCount: SessionLogOffset, events: readonly SessionEvent[]): ObservedSession {
   const detachedHeader = structuredClone(header)
   const detachedEvents = events.map(event => structuredClone(event))
   return {
@@ -890,9 +845,7 @@ function observeSession(
   }
 }
 
-function materializePersistenceSnapshots(
-  snapshots: readonly SessionPersistenceSnapshot[],
-): Map<SessionId, ObservedPersistedSession> {
+function materializePersistenceSnapshots(snapshots: readonly SessionPersistenceSnapshot[]): Map<SessionId, ObservedPersistedSession> {
   if (!isRuntimeArray(snapshots)) throw new Error('persistence snapshots must be an array')
   const result = new Map<SessionId, ObservedPersistedSession>()
   for (const snapshot of snapshots) {
@@ -915,19 +868,12 @@ function samePersistenceSnapshots(
   if (before.size !== after.size) return false
   for (const [id, first] of before) {
     const second = after.get(id)
-    if (
-      second === undefined
-      || first.revision !== second.revision
-      || !sameHeader(first.header, second.header)
-    ) return false
+    if (second === undefined || first.revision !== second.revision || !sameHeader(first.header, second.header)) return false
   }
   return true
 }
 
-function sameSessionIds(
-  before: ReadonlySet<SessionId>,
-  after: ReadonlyMap<SessionId, ObservedSession>,
-): boolean {
+function sameSessionIds(before: ReadonlySet<SessionId>, after: ReadonlyMap<SessionId, ObservedSession>): boolean {
   if (before.size !== after.size) return false
   for (const id of before) {
     if (!after.has(id)) return false
@@ -936,13 +882,15 @@ function sameSessionIds(
 }
 
 function sameHeader(a: SessionHeader, b: SessionHeader): boolean {
-  return a.id === b.id
-    && a.createdAt === b.createdAt
-    && a.cwd === b.cwd
-    && a.parentSession === b.parentSession
-    && a.isSeeded === b.isSeeded
-    && (a.delegationDepth ?? 0) === (b.delegationDepth ?? 0)
-    && a.agentPreset === b.agentPreset
+  return (
+    a.id === b.id &&
+    a.createdAt === b.createdAt &&
+    a.cwd === b.cwd &&
+    a.parentSession === b.parentSession &&
+    a.isSeeded === b.isSeeded &&
+    (a.delegationDepth ?? 0) === (b.delegationDepth ?? 0) &&
+    a.agentPreset === b.agentPreset
+  )
 }
 
 function rowHeader(row: SessionHeaderRow): SessionHeader {
@@ -950,11 +898,11 @@ function rowHeader(row: SessionHeaderRow): SessionHeader {
     version: SESSION_FORMAT_VERSION,
     id: row.session_id as SessionId,
     createdAt: row.created_at,
-    ...row.cwd === null ? {} : { cwd: row.cwd },
-    ...row.parent_session === null ? {} : { parentSession: row.parent_session as SessionId },
+    ...(row.cwd === null ? {} : { cwd: row.cwd }),
+    ...(row.parent_session === null ? {} : { parentSession: row.parent_session as SessionId }),
     isSeeded: row.seed_length !== null,
-    ...row.delegation_depth === null ? {} : { delegationDepth: row.delegation_depth },
-    ...row.agent_preset === null ? {} : { agentPreset: row.agent_preset },
+    ...(row.delegation_depth === null ? {} : { delegationDepth: row.delegation_depth }),
+    ...(row.agent_preset === null ? {} : { agentPreset: row.agent_preset }),
   }
 }
 
@@ -968,7 +916,7 @@ function page<Row, Item>(
   const hasMore = rows.length > limit
   return {
     items: rows.slice(0, limit).map(convert),
-    ...hasMore ? { nextCursor: nextCursor(offset + limit) } : {},
+    ...(hasMore ? { nextCursor: nextCursor(offset + limit) } : {}),
   }
 }
 
@@ -990,31 +938,24 @@ function decodeCursor(
     throw invalidCursor(error)
   }
   if (
-    decoded.version !== 1
-    || decoded.instance !== instance
-    || decoded.scope !== scope
-    || decoded.fingerprint !== fingerprint
-    || !Number.isSafeInteger(decoded.offset)
-    || decoded.offset === undefined
-    || decoded.offset < 0
+    decoded.version !== 1 ||
+    decoded.instance !== instance ||
+    decoded.scope !== scope ||
+    decoded.fingerprint !== fingerprint ||
+    !Number.isSafeInteger(decoded.offset) ||
+    decoded.offset === undefined ||
+    decoded.offset < 0
   ) {
     throw invalidCursor(new Error('cursor does not belong to this normalized request'))
   }
   if (decoded.generation !== generation) {
-    throw new SessionQueryError(
-      'session-search cursor is stale because its relevant corpus changed',
-      'SESSION_QUERY_STALE_CURSOR',
-    )
+    throw new SessionQueryError('session-search cursor is stale because its relevant corpus changed', 'SESSION_QUERY_STALE_CURSOR')
   }
   return decoded.offset
 }
 
 function invalidCursor(cause: unknown): SessionQueryError {
-  return new SessionQueryError(
-    'session-search cursor is invalid',
-    'SESSION_QUERY_INVALID_CURSOR',
-    { cause },
-  )
+  return new SessionQueryError('session-search cursor is invalid', 'SESSION_QUERY_INVALID_CURSOR', { cause })
 }
 
 function resolveConfig(config: Config): ResolvedConfig {
@@ -1026,10 +967,8 @@ function resolveConfig(config: Config): ResolvedConfig {
     maxLimit: config.maxLimit ?? SESSION_QUERY_SQLITE_MAX_LIMIT,
     snippetChars: config.snippetChars ?? SESSION_QUERY_SQLITE_SNIPPET_CHARS,
     readWindowMax: config.readWindowMax ?? SESSION_QUERY_READ_WINDOW_MAX,
-    persistedReadConcurrency: config.persistedReadConcurrency
-      ?? SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY,
-    preparedSessionCacheSize: config.preparedSessionCacheSize
-      ?? SESSION_QUERY_DEFAULT_PREPARED_SESSION_CACHE_SIZE,
+    persistedReadConcurrency: config.persistedReadConcurrency ?? SESSION_QUERY_DEFAULT_PERSISTED_INSPECT_CONCURRENCY,
+    preparedSessionCacheSize: config.preparedSessionCacheSize ?? SESSION_QUERY_DEFAULT_PREPARED_SESSION_CACHE_SIZE,
   }
   if (typeof resolved.path !== 'string' || resolved.path.trim().length === 0) {
     throw invalidConfig('path must not be blank')
@@ -1042,16 +981,10 @@ function resolveConfig(config: Config): ResolvedConfig {
   if (!Number.isInteger(resolved.readWindowMax) || resolved.readWindowMax < 0) {
     throw invalidConfig('readWindowMax must be a non-negative integer')
   }
-  if (
-    !Number.isSafeInteger(resolved.persistedReadConcurrency)
-    || resolved.persistedReadConcurrency < 1
-  ) {
+  if (!Number.isSafeInteger(resolved.persistedReadConcurrency) || resolved.persistedReadConcurrency < 1) {
     throw invalidConfig('persistedReadConcurrency must be a positive safe integer')
   }
-  if (
-    !Number.isSafeInteger(resolved.preparedSessionCacheSize)
-    || resolved.preparedSessionCacheSize < 1
-  ) {
+  if (!Number.isSafeInteger(resolved.preparedSessionCacheSize) || resolved.preparedSessionCacheSize < 1) {
     throw invalidConfig('preparedSessionCacheSize must be a positive safe integer')
   }
   if (resolved.defaultLimit > resolved.maxLimit) {
@@ -1073,10 +1006,7 @@ function assertPageLimit(name: string, value: number): void {
 }
 
 function invalidConfig(detail: string): SessionQueryError {
-  return new SessionQueryError(
-    `session-search SQLite config: ${detail}`,
-    'SESSION_QUERY_INVALID_CONFIG',
-  )
+  return new SessionQueryError(`session-search SQLite config: ${detail}`, 'SESSION_QUERY_INVALID_CONFIG')
 }
 
 function indexClosed(): SessionQueryError {
@@ -1098,7 +1028,7 @@ function waitWithAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined):
     }
     signal.addEventListener('abort', onAbort, { once: true })
     promise.then(
-      (value) => {
+      value => {
         signal.removeEventListener('abort', onAbort)
         resolve(value)
       },
@@ -1115,9 +1045,7 @@ function isAbort(error: unknown): boolean {
 }
 
 function asError(error: unknown): Error {
-  return error instanceof Error
-    ? error
-    : new Error('session-search dependency rejected with a non-Error value', { cause: error })
+  return error instanceof Error ? error : new Error('session-search dependency rejected with a non-Error value', { cause: error })
 }
 
 function errorMessage(error: unknown): string {

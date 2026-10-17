@@ -6,10 +6,16 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { expandOwningTurnProcess, newEnglishPage, saveFailureShot, WEB_FIXTURE_TIME } from './support.ts'
 
@@ -20,7 +26,8 @@ const FIXTURE = fileURLToPath(new URL('../../../snapshots/web/auto-review-approv
 const UI_EXPECTED = fileURLToPath(new URL('../../../snapshots/web/auto-review-approval/ui.expected.md', import.meta.url))
 const MODE = webSnapshotMode()
 const SEED_ID = 'auto-review-approval-web-e2e'
-const FAILURE = 'Auto review of tool "mystery" failed; its body was not executed: auto-review: reviewer ended with error UNKNOWN: provider unavailable'
+const FAILURE =
+  'Auto review of tool "mystery" failed; its body was not executed: auto-review: reviewer ended with error UNKNOWN: provider unavailable'
 
 describe.skipIf(MODE === 'record')('web e2e: cold Auto-review user rejection and reviewer failure', () => {
   let scaffold: WebScaffold
@@ -62,10 +69,8 @@ describe.skipIf(MODE === 'record')('web e2e: cold Auto-review user rejection and
     expect(await page.getByText('Rejected by Auto review', { exact: true }).count()).toBe(0)
 
     const access = page.locator('button[aria-label^="Access mode"]').first()
-    await expect.poll(() => access.getAttribute('aria-label'), { timeout: 10_000 })
-      .toBe('Access mode, current: Auto review')
-    const collapsed = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(SEED_ID).join('{{seededId}}')
+    await expect.poll(() => access.getAttribute('aria-label'), { timeout: 10_000 }).toBe('Access mode, current: Auto review')
+    const collapsed = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)).split(SEED_ID).join('{{seededId}}')
 
     for (const index of [0, 1]) {
       const row = calls.nth(index).locator('[data-expandable]')
@@ -73,8 +78,7 @@ describe.skipIf(MODE === 'record')('web e2e: cold Auto-review user rejection and
       await expect.poll(() => row.getAttribute('aria-expanded')).toBe('true')
     }
     await calls.nth(1).getByText(FAILURE, { exact: false }).first().waitFor({ state: 'visible' })
-    const expanded = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(SEED_ID).join('{{seededId}}')
+    const expanded = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)).split(SEED_ID).join('{{seededId}}')
 
     await compareOrRefreshGolden(UI_EXPECTED, `## Collapsed\n\n${collapsed.trim()}\n\n## Expanded\n\n${expanded.trim()}`, MODE)
     expect(tripwire.pageErrors).toEqual([])
@@ -82,8 +86,6 @@ describe.skipIf(MODE === 'record')('web e2e: cold Auto-review user rejection and
   }, 60_000)
 
   it('keeps its snapshot inventory closed', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, [
-      'ui.expected.md', 'session.v3.jsonl',
-    ])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['ui.expected.md', 'session.v3.jsonl'])
   })
 })

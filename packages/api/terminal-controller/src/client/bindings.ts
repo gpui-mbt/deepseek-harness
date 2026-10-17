@@ -26,7 +26,9 @@ export class TerminalBindings {
       if (typeof value !== 'string' || !/^[\w-]{1,128}$/u.test(value)) return undefined
       this.memory.set(key, value as WebTerminalId)
       return value as WebTerminalId
-    } catch (_storageUnavailable) { return undefined }
+    } catch (_storageUnavailable) {
+      return undefined
+    }
   }
 
   /**
@@ -39,8 +41,11 @@ export class TerminalBindings {
     const key = this.key(sessionId, contentId)
     this.memory.set(key, id)
     if (typeof localStorage === 'undefined') return
-    try { localStorage.setItem(key, JSON.stringify(id)) }
-    catch (error) { console.error('Terminal binding persistence failed:', error) }
+    try {
+      localStorage.setItem(key, JSON.stringify(id))
+    } catch (error) {
+      console.error('Terminal binding persistence failed:', error)
+    }
   }
 
   /**
@@ -52,12 +57,19 @@ export class TerminalBindings {
     const key = this.key(sessionId, contentId)
     this.memory.delete(key)
     if (typeof localStorage === 'undefined') return
-    try { localStorage.removeItem(key) }
-    catch (error) { console.error('Terminal binding cleanup failed:', error) }
+    try {
+      localStorage.removeItem(key)
+    } catch (error) {
+      console.error('Terminal binding cleanup failed:', error)
+    }
   }
 
   /** Release cached values when the Client service is disposed. */
-  clear(): void { this.memory.clear() }
+  clear(): void {
+    this.memory.clear()
+  }
 
-  private key(sessionId: SessionId, contentId: string): string { return PREFIX + JSON.stringify([sessionId, contentId]) }
+  private key(sessionId: SessionId, contentId: string): string {
+    return PREFIX + JSON.stringify([sessionId, contentId])
+  }
 }

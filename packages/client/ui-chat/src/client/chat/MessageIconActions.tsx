@@ -4,7 +4,11 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import {
-  IconBranchOutlineRegular, IconCheckOutlineRegular, IconCopyOutlineRegular, Tooltip, writeClipboard,
+  IconBranchOutlineRegular,
+  IconCheckOutlineRegular,
+  IconCopyOutlineRegular,
+  Tooltip,
+  writeClipboard,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import css from './MessageIconActions.module.css'
@@ -42,8 +46,14 @@ export interface MessageIconActionsProps {
  * @returns The actions row element.
  */
 export function MessageIconActions({
-  text, variant, onBranch, branchUnavailable = false, className,
-  extraActions, usageAction, t,
+  text,
+  variant,
+  onBranch,
+  branchUnavailable = false,
+  className,
+  extraActions,
+  usageAction,
+  t,
 }: MessageIconActionsProps) {
   const reasonId = useId()
   // Same success chrome as CodeBlock: a short check swap after the write,
@@ -52,16 +62,19 @@ export function MessageIconActions({
   const copyPending = useRef(false)
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const copyEpoch = useRef(0)
-  useEffect(() => () => {
-    copyEpoch.current += 1
-    copyPending.current = false
-    if (copyTimer.current !== null) clearTimeout(copyTimer.current)
-  }, [])
+  useEffect(
+    () => () => {
+      copyEpoch.current += 1
+      copyPending.current = false
+      if (copyTimer.current !== null) clearTimeout(copyTimer.current)
+    },
+    [],
+  )
   const onCopy = useCallback(() => {
     if (copied || copyPending.current) return
     const epoch = copyEpoch.current
     copyPending.current = true
-    void writeClipboard(text).then((ok) => {
+    void writeClipboard(text).then(ok => {
       if (epoch !== copyEpoch.current) return
       copyPending.current = false
       if (!ok) return
@@ -97,7 +110,9 @@ export function MessageIconActions({
         </Tooltip>
       )}
       {onBranch !== undefined && branchUnavailable && (
-        <span id={reasonId} className={css.visuallyHidden}>{t('message.branchUnavailable')}</span>
+        <span id={reasonId} className={css.visuallyHidden}>
+          {t('message.branchUnavailable')}
+        </span>
       )}
       {usageAction}
     </div>

@@ -1,14 +1,24 @@
 /** Iframe navigation provider with bounded application-known history. */
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { IframePresentation } from '../view/IframePresentation.ts'
-import { emptyBrowserFrame, type BrowserFrame, type BrowserFrameState, type BrowserLoadError, type BrowserSandboxControl } from './BrowserFrame.ts'
+import {
+  emptyBrowserFrame,
+  type BrowserFrame,
+  type BrowserFrameState,
+  type BrowserLoadError,
+  type BrowserSandboxControl,
+} from './BrowserFrame.ts'
 import type { BrowserPageOptions } from './BrowserPage.ts'
 import { BrowserNavigation } from './BrowserNavigation.ts'
 import type { BrowserTarget } from './url.ts'
 
 /** Owns iframe navigation; the view reports loads without reading cross-origin content. */
 export class IframeImpl implements BrowserFrame {
-  readonly sandbox: BrowserSandboxControl = { setEnabled: (enabled) => { this.setSandbox(enabled) } }
+  readonly sandbox: BrowserSandboxControl = {
+    setEnabled: enabled => {
+      this.setSandbox(enabled)
+    },
+  }
   private readonly navigation: BrowserNavigation
   private readonly store: SnapshotStore<BrowserFrameState>
   private sandboxed = true
@@ -17,7 +27,10 @@ export class IframeImpl implements BrowserFrame {
   private disposal: Promise<void> | undefined
 
   /** @param options - initial checkpoint and persistence writer. @param presentation - iframe DOM adapter. */
-  constructor(private readonly options: BrowserPageOptions, private readonly presentation: IframePresentation) {
+  constructor(
+    private readonly options: BrowserPageOptions,
+    private readonly presentation: IframePresentation,
+  ) {
     this.navigation = new BrowserNavigation(options.initial)
     this.store = createSnapshotStore({ ...emptyBrowserFrame(), sandboxEnabled: this.sandboxed })
   }
@@ -50,17 +63,23 @@ export class IframeImpl implements BrowserFrame {
   /** @param target - validated address; submitting the current address reloads it. */
   loadUrl(target: BrowserTarget): void {
     if (this.disposed) return
-    const request = BrowserNavigation.current(this.navigation.snapshot)?.url === target.url
-      ? this.navigation.reload() : this.navigation.navigate(target)
+    const request =
+      BrowserNavigation.current(this.navigation.snapshot)?.url === target.url ? this.navigation.reload() : this.navigation.navigate(target)
     this.load(request)
   }
 
   /** Move through application-known history while the iframe address remains known. */
-  goBack(): void { if (!this.disposed) this.load(this.navigation.back()) }
+  goBack(): void {
+    if (!this.disposed) this.load(this.navigation.back())
+  }
   /** Move through application-known history while the iframe address remains known. */
-  goForward(): void { if (!this.disposed) this.load(this.navigation.forward()) }
+  goForward(): void {
+    if (!this.disposed) this.load(this.navigation.forward())
+  }
   /** Reload the last application-known address. */
-  reload(): void { if (!this.disposed) this.load(this.navigation.reload()) }
+  reload(): void {
+    if (!this.disposed) this.load(this.navigation.reload())
+  }
 
   /** @returns after the presentation has been removed; repeated calls join disposal. */
   dispose(): Promise<void> {
@@ -91,10 +110,15 @@ export class IframeImpl implements BrowserFrame {
   private snapshot(): BrowserFrameState {
     const state = this.navigation.snapshot
     const target = BrowserNavigation.current(state)
-    return { target, address: target === undefined ? 'empty' : state.navigation.status === 'unknown' ? 'unknown' : 'requested',
+    return {
+      target,
+      address: target === undefined ? 'empty' : state.navigation.status === 'unknown' ? 'unknown' : 'requested',
       loading: state.navigation.status === 'loading' && this.error === undefined,
-      canGoBack: this.navigation.canGoBack, canGoForward: this.navigation.canGoForward,
-      error: this.error, sandboxEnabled: this.sandboxed }
+      canGoBack: this.navigation.canGoBack,
+      canGoForward: this.navigation.canGoForward,
+      error: this.error,
+      sandboxEnabled: this.sandboxed,
+    }
   }
 
   private publish(): void {

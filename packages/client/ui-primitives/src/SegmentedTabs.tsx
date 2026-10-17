@@ -21,7 +21,13 @@ export interface SegmentedTab<Value extends string = string> {
  * @param props.className - layout placement; panels remain caller-owned.
  * @returns the tab list, without its panels.
  */
-export function SegmentedTabs<Value extends string>({ items, value, onChange, label, className }: {
+export function SegmentedTabs<Value extends string>({
+  items,
+  value,
+  onChange,
+  label,
+  className,
+}: {
   items: readonly [SegmentedTab<Value>, ...SegmentedTab<Value>[]]
   value: Value
   onChange: (value: Value) => void
@@ -33,11 +39,20 @@ export function SegmentedTabs<Value extends string>({ items, value, onChange, la
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let next: number
     switch (event.key) {
-      case 'ArrowLeft': next = (index + items.length - 1) % items.length; break
-      case 'ArrowRight': next = (index + 1) % items.length; break
-      case 'Home': next = 0; break
-      case 'End': next = items.length - 1; break
-      default: return
+      case 'ArrowLeft':
+        next = (index + items.length - 1) % items.length
+        break
+      case 'ArrowRight':
+        next = (index + 1) % items.length
+        break
+      case 'Home':
+        next = 0
+        break
+      case 'End':
+        next = items.length - 1
+        break
+      default:
+        return
     }
     event.preventDefault()
     event.stopPropagation()
@@ -70,8 +85,12 @@ export function SegmentedTabs<Value extends string>({ items, value, onChange, la
           aria-selected={value === item.value}
           aria-controls={item.panelId}
           tabIndex={value === item.value ? 0 : -1}
-          onClick={() => { onChange(item.value) }}
-          onKeyDown={(event) => { onKeyDown(event, index) }}
+          onClick={() => {
+            onChange(item.value)
+          }}
+          onKeyDown={event => {
+            onKeyDown(event, index)
+          }}
         >
           {item.label}
         </Pill>

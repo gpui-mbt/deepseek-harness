@@ -1,9 +1,16 @@
 /** An independent, expandable notice explaining a non-human Turn trigger. */
 import { useId, useState, type ComponentType } from 'react'
 import {
-  IconAgentPresetOutlineRegular, IconClockOutlineRegular, IconBranchOutlineRegular,
-  IconChevronDownOutlineRegular, IconContextInjectionOutlineRegular, IconCordisPluginOutlineRegular,
-  IconGoalOutlineRegular, IconGlobeOutlineRegular, IconPaperPlaneOutlineRegular, IconQueueOutlineRegular,
+  IconAgentPresetOutlineRegular,
+  IconClockOutlineRegular,
+  IconBranchOutlineRegular,
+  IconChevronDownOutlineRegular,
+  IconContextInjectionOutlineRegular,
+  IconCordisPluginOutlineRegular,
+  IconGoalOutlineRegular,
+  IconGlobeOutlineRegular,
+  IconPaperPlaneOutlineRegular,
+  IconQueueOutlineRegular,
   type IconProps,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatNodeViewProps } from '../contract/slots.ts'
@@ -35,16 +42,32 @@ export function TurnTriggerNodeView({ node, clockTimeZone, t }: Pick<ChatNodeVie
   const time = formatMessageClock(node.data.time, t, clockTimeZone)
   return (
     <section className={css.root} data-turn-trigger>
-      <button className={css.header} type="button" aria-expanded={open} aria-controls={bodyId} onClick={() => { setOpen(!open) }}>
-        <span className={css.icon} aria-hidden><TriggerIcon size={14} /></span>
+      <button
+        className={css.header}
+        type="button"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => {
+          setOpen(!open)
+        }}
+      >
+        <span className={css.icon} aria-hidden>
+          <TriggerIcon size={14} />
+        </span>
         <span className={css.title}>{t(details.title)}</span>
-        <time className={css.time} dateTime={date.toISOString()}>{time}</time>
+        <time className={css.time} dateTime={date.toISOString()}>
+          {time}
+        </time>
         <IconChevronDownOutlineRegular size={12} className={open ? css.openChevron : css.chevron} />
       </button>
-      {open && <div id={bodyId} className={css.body}>
-        <p className={css.explanation}>{t('message.trigger.explanation')}</p>
-        <div className={css.content}><NoticeBody content={node.data.content} source={node.data.source} t={t} /></div>
-      </div>}
+      {open && (
+        <div id={bodyId} className={css.body}>
+          <p className={css.explanation}>{t('message.trigger.explanation')}</p>
+          <div className={css.content}>
+            <NoticeBody content={node.data.content} source={node.data.source} t={t} />
+          </div>
+        </div>
+      )}
     </section>
   )
 }

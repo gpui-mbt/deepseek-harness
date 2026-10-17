@@ -39,7 +39,10 @@ export interface BrowserMcpAttachConfig {
 export type BrowserMcpConfig = BrowserMcpLaunchConfig | BrowserMcpAttachConfig
 
 /** Validate the browser mode before the provider reserves browser use. */
-export const BrowserMcpConfig: Schema<BrowserMcpAttachConfig | (Omit<BrowserMcpLaunchConfig, 'headless'> & { headless?: boolean }), BrowserMcpConfig> = Schema.union([
+export const BrowserMcpConfig: Schema<
+  BrowserMcpAttachConfig | (Omit<BrowserMcpLaunchConfig, 'headless'> & { headless?: boolean }),
+  BrowserMcpConfig
+> = Schema.union([
   Schema.object({
     mode: Schema.const('launch').required(),
     headless: Schema.boolean().default(true),
@@ -48,7 +51,9 @@ export const BrowserMcpConfig: Schema<BrowserMcpAttachConfig | (Omit<BrowserMcpL
   }),
   Schema.object({
     mode: Schema.const('attach').required(),
-    endpoint: Schema.string().pattern(/^https?:\/\/[^\s/]+|^wss?:\/\/[^\s/]+/u).required(),
+    endpoint: Schema.string()
+      .pattern(/^https?:\/\/[^\s/]+|^wss?:\/\/[^\s/]+/u)
+      .required(),
     toolCallTimeoutMs: Schema.number().min(1),
   }),
 ])
@@ -133,7 +138,9 @@ export function mountSessionMcp(ctx: Context, options: SessionMcpOptions): void 
       async open(agent, signal) {
         const scope = createScope(ctx, agent)
         let cancellation: Promise<void> | undefined
-        const cancel = (): void => { cancellation = scope.dispose() }
+        const cancel = (): void => {
+          cancellation = scope.dispose()
+        }
         signal.addEventListener('abort', cancel, { once: true })
         try {
           signal.throwIfAborted()
@@ -145,17 +152,20 @@ export function mountSessionMcp(ctx: Context, options: SessionMcpOptions): void 
             }
             return next()
           })
-          await scope.ctx.plugin(McpClient, McpClient.Config({
-            transport: 'stdio',
-            serverName: options.name,
-            command: options.command,
-            args: options.args,
-            ...options.env === undefined ? {} : { env: options.env },
-            cwd: await workingDirectory.ensure(agent, signal),
-            ...options.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: options.toolCallTimeoutMs },
-            failOnStartupError: true,
-            reconnect: { enabled: false },
-          }))
+          await scope.ctx.plugin(
+            McpClient,
+            McpClient.Config({
+              transport: 'stdio',
+              serverName: options.name,
+              command: options.command,
+              args: options.args,
+              ...(options.env === undefined ? {} : { env: options.env }),
+              cwd: await workingDirectory.ensure(agent, signal),
+              ...(options.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: options.toolCallTimeoutMs }),
+              failOnStartupError: true,
+              reconnect: { enabled: false },
+            }),
+          )
           signal.throwIfAborted()
           return {
             value: scope,
@@ -178,25 +188,34 @@ export function mountSessionMcp(ctx: Context, options: SessionMcpOptions): void 
       clients.clear()
     }
   }, `${options.name}.sessions`)
-  ctx.on('agent/created', async ({ agent, signal }) => {
-    const state: ClientState = { status: resources.available(agent) ? 'ready' : 'blocked' }
-    agent.ctx.effect(() => async () => {
-      clients.delete(agent)
-      await state.mask?.dispose()
-    }, `${options.name}.activation`)
-    if (state.status === 'blocked') {
+  ctx.on(
+    'agent/created',
+    async ({ agent, signal }) => {
+      const state: ClientState = { status: resources.available(agent) ? 'ready' : 'blocked' }
+      agent.ctx.effect(
+        () => async () => {
+          clients.delete(agent)
+          await state.mask?.dispose()
+        },
+        `${options.name}.activation`,
+      )
+      if (state.status === 'blocked') {
+        clients.set(agent, state)
+        refreshBlockedMasks()
+        return
+      }
+      await resources.get(agent, signal)
       clients.set(agent, state)
-      refreshBlockedMasks()
-      return
-    }
-    await resources.get(agent, signal)
-    clients.set(agent, state)
-  }, { prepend: true })
+    },
+    { prepend: true },
+  )
   ctx.on('tools/change', refreshBlockedMasks)
   ctx.on('tools/execute', async (exec, next) => {
-    const ownResource = resourceTools.has(exec.name)
-      && typeof exec.arguments === 'object' && exec.arguments !== null
-      && (exec.arguments as { server?: unknown }).server === options.name
+    const ownResource =
+      resourceTools.has(exec.name) &&
+      typeof exec.arguments === 'object' &&
+      exec.arguments !== null &&
+      (exec.arguments as { server?: unknown }).server === options.name
     if (!exec.name.startsWith(toolPrefix) && !ownResource) return next()
     const agent = exec.agent
     if (agent === undefined || clients.get(agent)?.status !== 'ready') {

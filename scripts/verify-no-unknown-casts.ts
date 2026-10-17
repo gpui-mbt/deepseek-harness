@@ -35,8 +35,7 @@ function syntaxFingerprint(node: ts.Node, source: ts.SourceFile): string {
 
 function assertsUnknown(type: ts.TypeNode): boolean {
   if (ts.isParenthesizedTypeNode(type)) return assertsUnknown(type.type)
-  return type.kind === ts.SyntaxKind.UnknownKeyword
-    || (ts.isUnionTypeNode(type) && type.types.some(assertsUnknown))
+  return type.kind === ts.SyntaxKind.UnknownKeyword || (ts.isUnionTypeNode(type) && type.types.some(assertsUnknown))
 }
 
 /**
@@ -66,9 +65,7 @@ export function findUnknownCasts(file: string, text: string): UnknownCast[] {
 }
 
 function isSource(file: string): boolean {
-  return /\.(?:[cm]?[jt]s|[jt]sx)$/u.test(file)
-    && !file.startsWith('vendor/')
-    && !file.startsWith('.agents/notes/archived/')
+  return /\.(?:[cm]?[jt]s|[jt]sx)$/u.test(file) && !file.startsWith('vendor/') && !file.startsWith('.agents/notes/archived/')
 }
 
 /**
@@ -78,12 +75,19 @@ function isSource(file: string): boolean {
  * @throws if discovery omits a required source area or an eligible path is a symlink.
  */
 export function scanUnknownCasts(repoRoot: string): UnknownCast[] {
-  const files = [...new Set(execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    maxBuffer: 16 * 1024 * 1024,
-  }).split('\0').map(file => file.replaceAll('\\', '/')).filter(isSource))].sort()
-  const present = files.filter((file) => {
+  const files = [
+    ...new Set(
+      execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+      })
+        .split('\0')
+        .map(file => file.replaceAll('\\', '/'))
+        .filter(isSource),
+    ),
+  ].sort()
+  const present = files.filter(file => {
     const stat = lstatSync(resolve(repoRoot, file), { throwIfNoEntry: false })
     if (stat?.isSymbolicLink()) throw new Error(`verify-no-unknown-casts: source symlink is unsupported: ${file}`)
     return stat?.isFile() === true
@@ -105,8 +109,14 @@ function readBaseline(repoRoot: string): UnknownCastBaseline {
   if (!isRecord(value)) throw new Error('verify-no-unknown-casts: baseline must be a file-to-counts object')
   const baseline: UnknownCastBaseline = {}
   for (const [file, counts] of Object.entries(value)) {
-    if (!isSource(file) || file.startsWith('/') || file.includes('\\') || file.split('/').includes('..')
-      || !isRecord(counts) || Object.keys(counts).length === 0) {
+    if (
+      !isSource(file) ||
+      file.startsWith('/') ||
+      file.includes('\\') ||
+      file.split('/').includes('..') ||
+      !isRecord(counts) ||
+      Object.keys(counts).length === 0
+    ) {
       throw new Error(`verify-no-unknown-casts: invalid baseline file: ${file}`)
     }
     const parsed: Record<string, number> = {}
@@ -129,11 +139,14 @@ function readBaseline(repoRoot: string): UnknownCastBaseline {
 export function countUnknownCasts(casts: readonly UnknownCast[]): UnknownCastBaseline {
   const baseline: UnknownCastBaseline = {}
   for (const { file, fingerprint } of casts) {
-    const counts = baseline[file] ??= {}
+    const counts = (baseline[file] ??= {})
     counts[fingerprint] = (counts[fingerprint] ?? 0) + 1
   }
-  return Object.fromEntries(Object.entries(baseline).sort(([a], [b]) => a.localeCompare(b))
-    .map(([file, counts]) => [file, Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)))]))
+  return Object.fromEntries(
+    Object.entries(baseline)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([file, counts]) => [file, Object.fromEntries(Object.entries(counts).sort(([a], [b]) => a.localeCompare(b)))]),
+  )
 }
 
 /**
@@ -156,15 +169,21 @@ export function verifyNoUnknownCasts(repoRoot: string, prune = false): number {
     else added.push(cast)
   }
   if (added.length > 0) {
-    throw new Error('verify-no-unknown-casts: new assertions to unknown are forbidden. Use a typed value or narrow the input.\n'
-      + added.map(cast => `  ${cast.file}:${String(cast.line)} (${cast.fingerprint})`).join('\n'))
+    throw new Error(
+      'verify-no-unknown-casts: new assertions to unknown are forbidden. Use a typed value or narrow the input.\n' +
+        added.map(cast => `  ${cast.file}:${String(cast.line)} (${cast.fingerprint})`).join('\n'),
+    )
   }
-  const stale = Object.entries(remaining).flatMap(([file, counts]) => Object.entries(counts)
-    .filter(([, count]) => count > 0).map(([fingerprint]) => `  ${file} (${fingerprint})`))
+  const stale = Object.entries(remaining).flatMap(([file, counts]) =>
+    Object.entries(counts)
+      .filter(([, count]) => count > 0)
+      .map(([fingerprint]) => `  ${file} (${fingerprint})`),
+  )
   if (stale.length > 0) {
     if (!prune) {
-      throw new Error('verify-no-unknown-casts: remove retired baseline entries with pnpm run verify-no-unknown-casts --prune.\n'
-        + stale.join('\n'))
+      throw new Error(
+        'verify-no-unknown-casts: remove retired baseline entries with pnpm run verify-no-unknown-casts --prune.\n' + stale.join('\n'),
+      )
     }
     writeFileSync(resolve(repoRoot, baselinePath), `${JSON.stringify(current, null, 2)}\n`)
   }

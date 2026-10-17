@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   AssistantStreamAccumulator,
   BlockAssembler,
@@ -87,16 +87,22 @@ describe('AssistantStreamAccumulator', () => {
 
   it('detaches raw records while expanding durable input', () => {
     const chunk = { type: 'usage', usage: { inputTokens: 3, outputTokens: 2 } }
-    const expanded = expandAssistantStream([{
-      type: 'chunk', time: 10, chunk,
-    }] as never)
+    const expanded = expandAssistantStream([
+      {
+        type: 'chunk',
+        time: 10,
+        chunk,
+      },
+    ] as never)
 
     chunk.usage.inputTokens = 99
 
-    expect(expanded).toStrictEqual([{
-      time: 10,
-      chunk: { type: 'usage', usage: { inputTokens: 3, outputTokens: 2 } },
-    }])
+    expect(expanded).toStrictEqual([
+      {
+        time: 10,
+        chunk: { type: 'usage', usage: { inputTokens: 3, outputTokens: 2 } },
+      },
+    ])
   })
 
   it('keeps incompatible delta runs separate and expands reasoning and nameless tool calls', () => {
@@ -117,13 +123,21 @@ describe('AssistantStreamAccumulator', () => {
       {
         time: 7,
         chunk: {
-          type: 'tool-call-delta', index: 0, id: ToolCallId('one'), name: 'read', argumentsDelta: '',
+          type: 'tool-call-delta',
+          index: 0,
+          id: ToolCallId('one'),
+          name: 'read',
+          argumentsDelta: '',
         },
       },
       {
         time: 8,
         chunk: {
-          type: 'tool-call-delta', index: 1, id: ToolCallId('two'), name: 'read', argumentsDelta: 'x',
+          type: 'tool-call-delta',
+          index: 1,
+          id: ToolCallId('two'),
+          name: 'read',
+          argumentsDelta: 'x',
         },
       },
       { time: Number.MAX_SAFE_INTEGER, chunk: { type: 'text-delta', index: 1, text: 'far' } },
@@ -146,59 +160,92 @@ describe('AssistantStreamAccumulator', () => {
 
   it('rejects unsafe values while preserving JSON-safe empty adapter identities', () => {
     const accumulator = new AssistantStreamAccumulator()
-    expect(() => accumulator.push({
-      time: 0.5,
-      chunk: { type: 'finish', reason: { kind: 'stop' } },
-    })).toThrow(/safe integer/)
-    expect(() => accumulator.push({
-      time: 1,
-      chunk: { type: 'future', callback: () => undefined } as never,
-    })).toThrow(/JSON-serializable/)
-    expect(() => accumulator.push({
-      time: 1,
-      chunk: { type: 'text-delta', index: -1, text: 'bad' },
-    })).toThrow(/index/)
-    expect(() => accumulator.push({
-      time: 1,
-      chunk: { type: 'text-delta', index: 0, text: 1 } as never,
-    })).toThrow(/text must be a string/)
-    expect(accumulator.push({
-      time: 1,
-      chunk: { type: 'tool-call-delta', index: 0, id: ToolCallId(''), argumentsDelta: '{}' },
-    }).chunk).toMatchObject({ id: '' })
-    expect(accumulator.push({
-      time: 1,
-      chunk: {
-        type: 'tool-call-delta', index: 0, id: ToolCallId('call'), name: '', argumentsDelta: '{}',
-      },
-    }).chunk).toMatchObject({ name: '' })
-    expect(() => accumulator.push({
-      time: 1,
-      chunk: { type: 'tool-call-delta', index: 0, id: 1, argumentsDelta: '{}' } as never,
-    })).toThrow(/id must be a string/)
-    expect(() => accumulator.push({
-      time: 1,
-      chunk: {
-        type: 'tool-call-delta', index: 0, id: ToolCallId('call'), name: 1, argumentsDelta: '{}',
-      } as never,
-    })).toThrow(/name must be a string/)
-    expect(() => accumulator.push({
-      time: 1,
-      chunk: {
-        type: 'tool-call-delta', index: 0, id: ToolCallId('call'), argumentsDelta: 1,
-      } as never,
-    })).toThrow(/argumentsDelta must be a string/)
-    expect(() => accumulator.push({
-      time: 1,
-      chunk: { type: 'future' } as never,
-    })).toThrow(/unreachable variant in AssistantStreamAccumulator\.push/)
+    expect(() =>
+      accumulator.push({
+        time: 0.5,
+        chunk: { type: 'finish', reason: { kind: 'stop' } },
+      }),
+    ).toThrow(/safe integer/)
+    expect(() =>
+      accumulator.push({
+        time: 1,
+        chunk: { type: 'future', callback: () => undefined } as never,
+      }),
+    ).toThrow(/JSON-serializable/)
+    expect(() =>
+      accumulator.push({
+        time: 1,
+        chunk: { type: 'text-delta', index: -1, text: 'bad' },
+      }),
+    ).toThrow(/index/)
+    expect(() =>
+      accumulator.push({
+        time: 1,
+        chunk: { type: 'text-delta', index: 0, text: 1 } as never,
+      }),
+    ).toThrow(/text must be a string/)
+    expect(
+      accumulator.push({
+        time: 1,
+        chunk: { type: 'tool-call-delta', index: 0, id: ToolCallId(''), argumentsDelta: '{}' },
+      }).chunk,
+    ).toMatchObject({ id: '' })
+    expect(
+      accumulator.push({
+        time: 1,
+        chunk: {
+          type: 'tool-call-delta',
+          index: 0,
+          id: ToolCallId('call'),
+          name: '',
+          argumentsDelta: '{}',
+        },
+      }).chunk,
+    ).toMatchObject({ name: '' })
+    expect(() =>
+      accumulator.push({
+        time: 1,
+        chunk: { type: 'tool-call-delta', index: 0, id: 1, argumentsDelta: '{}' } as never,
+      }),
+    ).toThrow(/id must be a string/)
+    expect(() =>
+      accumulator.push({
+        time: 1,
+        chunk: {
+          type: 'tool-call-delta',
+          index: 0,
+          id: ToolCallId('call'),
+          name: 1,
+          argumentsDelta: '{}',
+        } as never,
+      }),
+    ).toThrow(/name must be a string/)
+    expect(() =>
+      accumulator.push({
+        time: 1,
+        chunk: {
+          type: 'tool-call-delta',
+          index: 0,
+          id: ToolCallId('call'),
+          argumentsDelta: 1,
+        } as never,
+      }),
+    ).toThrow(/argumentsDelta must be a string/)
+    expect(() =>
+      accumulator.push({
+        time: 1,
+        chunk: { type: 'future' } as never,
+      }),
+    ).toThrow(/unreachable variant in AssistantStreamAccumulator\.push/)
     expect(accumulator.snapshot()).toStrictEqual([
       {
-        type: 'chunk', time: 1,
+        type: 'chunk',
+        time: 1,
         chunk: { type: 'tool-call-delta', index: 0, id: '', argumentsDelta: '{}' },
       },
       {
-        type: 'chunk', time: 1,
+        type: 'chunk',
+        time: 1,
         chunk: { type: 'tool-call-delta', index: 0, id: 'call', name: '', argumentsDelta: '{}' },
       },
     ])
@@ -219,9 +266,16 @@ describe('AssistantStreamAccumulator', () => {
     [{ type: 'text-chunks', time0: 1, index: -1, dt: [], texts: ['a'] }, /index/],
     [{ type: 'text-chunks', time0: 1, index: 0, dt: [0.5], texts: ['a', 'b'] }, /dt/],
     [{ type: 'text-chunks', time0: 1, index: 0, dt: [1], texts: ['a'] }, /dt length/],
-    [{
-      type: 'text-chunks', time0: Number.MAX_SAFE_INTEGER, index: 0, dt: [1], texts: ['a', 'b'],
-    }, /member times/],
+    [
+      {
+        type: 'text-chunks',
+        time0: Number.MAX_SAFE_INTEGER,
+        index: 0,
+        dt: [1],
+        texts: ['a', 'b'],
+      },
+      /member times/,
+    ],
     [{ type: 'tool-call-chunks', time0: 1, index: 0, id: '', dt: [], args: ['a'] }, /id/],
     [{ type: 'tool-call-chunks', time0: 1, index: 0, id: 'id', name: '', dt: [], args: ['a'] }, /name/],
     [{ type: 'tool-call-chunks', time0: 1, index: 0, id: 'id', dt: [], args: [] }, /non-empty/],
@@ -250,11 +304,14 @@ function countedFragments(values: readonly string[]): { readonly fragments: read
 }
 
 /** Record whose every property read throws, proving a stream scan never reached it. */
-const unreachableRecord = new Proxy({}, {
-  get() {
-    throw new Error('scan continued past the first qualifying record')
+const unreachableRecord = new Proxy(
+  {},
+  {
+    get() {
+      throw new Error('scan continued past the first qualifying record')
+    },
   },
-}) as AssistantStreamRecord
+) as AssistantStreamRecord
 
 type RunOf<Type extends AssistantStreamRun['type']> = Extract<AssistantStreamRun, { type: Type }>
 
@@ -262,24 +319,18 @@ function textRun(time0: number, dt: readonly number[], texts: readonly string[],
   return { type: 'text-chunks', time0, index, dt, texts }
 }
 
-function reasoningRun(
-  time0: number,
-  dt: readonly number[],
-  texts: readonly string[],
-  index = 0,
-): RunOf<'reasoning-chunks'> {
+function reasoningRun(time0: number, dt: readonly number[], texts: readonly string[], index = 0): RunOf<'reasoning-chunks'> {
   return { type: 'reasoning-chunks', time0, index, dt, texts }
 }
 
-function toolRun(
-  time0: number,
-  dt: readonly number[],
-  args: readonly string[],
-  name?: string,
-): RunOf<'tool-call-chunks'> {
+function toolRun(time0: number, dt: readonly number[], args: readonly string[], name?: string): RunOf<'tool-call-chunks'> {
   return {
-    type: 'tool-call-chunks', time0, index: 0, dt, id: ToolCallId('call'),
-    ...name === undefined ? {} : { name },
+    type: 'tool-call-chunks',
+    time0,
+    index: 0,
+    dt,
+    id: ToolCallId('call'),
+    ...(name === undefined ? {} : { name }),
     args,
   }
 }
@@ -315,9 +366,13 @@ describe('stream chunk classification', () => {
     expect(isVisibleChunk({ type: 'block-start', index: 0, blockType: 'image' })).toBe(true)
     expect(isVisibleChunk({ type: 'block-end', index: 0, block: { type: 'text', text: '  ' } })).toBe(false)
     expect(isVisibleChunk({ type: 'block-end', index: 0, block: { type: 'reasoning', text: 'why' } })).toBe(true)
-    expect(isVisibleChunk({
-      type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('c'), name: 'read', arguments: '{}' },
-    })).toBe(false)
+    expect(
+      isVisibleChunk({
+        type: 'block-end',
+        index: 0,
+        block: { type: 'tool-call', id: ToolCallId('c'), name: 'read', arguments: '{}' },
+      }),
+    ).toBe(false)
     expect(isVisibleChunk({ type: 'block-end', index: 0, block: { type: 'image', attachment: {} as never } })).toBe(true)
     expect(isVisibleChunk({ type: 'tool-call-delta', index: 0, id: ToolCallId('c'), name: 'read', argumentsDelta: '{}' })).toBe(false)
     expect(isVisibleChunk({ type: 'usage', usage: { inputTokens: 1, outputTokens: 1 } })).toBe(false)
@@ -434,19 +489,21 @@ describe('compact stream readers', () => {
 
   it('stops at the first qualifying record', () => {
     expect(assistantStreamFirstTokenTime([textRun(5, [], ['x']), unreachableRecord])).toBe(5)
-    expect(assistantStreamFirstTokenTime([
-      raw(6, { type: 'tool-call-delta', index: 0, id: ToolCallId('call'), name: '', argumentsDelta: '' }),
-      unreachableRecord,
-    ])).toBe(6)
+    expect(
+      assistantStreamFirstTokenTime([
+        raw(6, { type: 'tool-call-delta', index: 0, id: ToolCallId('call'), name: '', argumentsDelta: '' }),
+        unreachableRecord,
+      ]),
+    ).toBe(6)
     expect(assistantStreamHasVisibleContent([raw(1, { type: 'block-start', index: 0, blockType: 'image' }), unreachableRecord])).toBe(true)
     expect(assistantStreamHasVisibleContent([reasoningRun(1, [], ['r']), unreachableRecord])).toBe(true)
     expect(assistantStreamHasVisibleText([textRun(1, [], ['t']), unreachableRecord])).toBe(true)
-    expect(assistantStreamHasVisibleText([
-      raw(1, { type: 'block-end', index: 0, block: { type: 'text', text: 't' } }),
-      unreachableRecord,
-    ])).toBe(true)
-    expect(lastAssistantStreamChunk([unreachableRecord, raw(9, { type: 'finish', reason: { kind: 'stop' } })], 'finish')?.type)
-      .toBe('finish')
+    expect(
+      assistantStreamHasVisibleText([raw(1, { type: 'block-end', index: 0, block: { type: 'text', text: 't' } }), unreachableRecord]),
+    ).toBe(true)
+    expect(lastAssistantStreamChunk([unreachableRecord, raw(9, { type: 'finish', reason: { kind: 'stop' } })], 'finish')?.type).toBe(
+      'finish',
+    )
   })
 
   it('assembles the same blocks, usage, finish, and replay state as the expanded members', () => {

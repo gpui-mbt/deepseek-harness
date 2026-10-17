@@ -7,7 +7,7 @@ import { SandboxedFileSystem } from '@deepseek-ai/dsh-fs-sandbox'
 import { canonicalPath } from '@deepseek-ai/dsh-sandbox'
 import SandboxPolicyService from '@deepseek-ai/dsh-sandbox-policy'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { assertWorkspaceOutsideTemp, outsideTempWorkspaceParent } from './snapshot-workspace-parent.ts'
 
 // Host disk exhaustion is not simulated: placement and the real write fence are the regression oracles.
@@ -35,10 +35,14 @@ describe('snapshot workspace parent', () => {
   it('rejects automatically writable temporary workspaces, including symlink aliases', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-snapshot-parent-'))
     try {
-      expect(() => { assertWorkspaceOutsideTemp(root) }).toThrow('must be outside temporary writable root')
+      expect(() => {
+        assertWorkspaceOutsideTemp(root)
+      }).toThrow('must be outside temporary writable root')
       const alias = join(root, 'alias')
       await symlink(tmpdir(), alias, process.platform === 'win32' ? 'junction' : 'dir')
-      expect(() => { assertWorkspaceOutsideTemp(alias) }).toThrow('must be outside temporary writable root')
+      expect(() => {
+        assertWorkspaceOutsideTemp(alias)
+      }).toThrow('must be outside temporary writable root')
     } finally {
       await rm(root, { recursive: true, force: true })
     }
@@ -63,8 +67,7 @@ describe('snapshot workspace parent', () => {
       const inside = join(workspace, 'inside.txt')
       await ctx.fs.writeText(await ctx.fs.resolve(inside), 'inside')
       expect(await readFile(inside, 'utf8')).toBe('inside')
-      await expect(ctx.fs.writeText(await ctx.fs.resolve(outside), 'outside'))
-        .rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
+      await expect(ctx.fs.writeText(await ctx.fs.resolve(outside), 'outside')).rejects.toMatchObject({ code: 'FS_SANDBOX_DENIED' })
       expect(existsSync(outside)).toBe(false)
     } finally {
       try {

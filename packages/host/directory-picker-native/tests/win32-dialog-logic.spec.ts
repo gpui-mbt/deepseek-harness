@@ -4,10 +4,15 @@
  * release-on-every-path guarantee, all platform-independent.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
-  FOS_FORCEFILESYSTEM, FOS_NOCHANGEDIR, FOS_PICKFOLDERS, HRESULT_CANCELLED,
-  runFolderDialog, type Win32DialogBindings, type Win32FolderDialog,
+  FOS_FORCEFILESYSTEM,
+  FOS_NOCHANGEDIR,
+  FOS_PICKFOLDERS,
+  HRESULT_CANCELLED,
+  runFolderDialog,
+  type Win32DialogBindings,
+  type Win32FolderDialog,
 } from '../src/win32-dialog-logic.ts'
 
 const E_FAIL = 0x80004005 | 0

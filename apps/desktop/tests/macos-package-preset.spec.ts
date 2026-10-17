@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, realpath, readFile, rm, writeFile } from 'node:fs/promi
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseEnv } from 'node:util'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { loadDesktopPackageEnvironment } from '../scripts/desktop-package-environment.mjs'
 
 it('loads machine signing credentials independently of the checkout and rejects misplaced settings', async () => {
@@ -13,7 +13,10 @@ it('loads machine signing credentials independently of the checkout and rejects 
     await mkdir(join(root, 'secrets'))
     const preset = join(root, 'presets/test.env')
     const secrets = join(root, 'secrets/macos-signing.env')
-    await writeFile(preset, 'DSH_DESKTOP_AUTO_UPDATE_ENV=test\nDSH_DESKTOP_MACOS_PACK_CONCURRENCY=2\nDSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR=/machine/cache\n')
+    await writeFile(
+      preset,
+      'DSH_DESKTOP_AUTO_UPDATE_ENV=test\nDSH_DESKTOP_MACOS_PACK_CONCURRENCY=2\nDSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR=/machine/cache\n',
+    )
     await writeFile(secrets, 'CSC_LINK=../certificates/app.p12\nCSC_KEY_PASSWORD=machine-secret\nAPPLE_API_KEY=../certificates/key.p8\n')
     const env = { DSH_PACKAGING_PRESET: 'test', DSH_PACKAGING_CONFIG_DIR: root, CSC_KEY_PASSWORD: 'ambient-secret' }
     for (const options of [{}, { prepareOnly: true }]) {
@@ -41,8 +44,10 @@ it.skipIf(process.platform !== 'darwin')('prepares private machine directories w
   const root = await mkdtemp(join(tmpdir(), 'macos-setup-'))
   try {
     const machine = join(await realpath(root), 'machine')
-    const run = (...args: string[]) => spawnSync(process.execPath,
-      [join(import.meta.dirname, '../scripts/setup-macos-packaging.mjs'), machine, ...args], { encoding: 'utf8' })
+    const run = (...args: string[]) =>
+      spawnSync(process.execPath, [join(import.meta.dirname, '../scripts/setup-macos-packaging.mjs'), machine, ...args], {
+        encoding: 'utf8',
+      })
     expect(run().status).toBe(0)
     const config = join(machine, 'packaging/presets/test.env.example')
     expect(parseEnv(await readFile(config, 'utf8')).DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR).toBe(join(machine, 'cache/macos-signatures'))
@@ -66,24 +71,43 @@ it('records debugging artifact paths only for an explicit CI selection without n
     await mkdir(join(root, 'presets'))
     await mkdir(join(root, 'secrets'))
     await writeFile(join(root, 'certificate.p12'), 'fixture')
-    await writeFile(join(root, 'presets/test.env'), [
-      'DSH_DESKTOP_APP_ID=com.example.fixture', 'DSH_DESKTOP_AUTO_UPDATE_ENV=test',
-      'DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN=https://policy.example.com',
-      'DSH_DESKTOP_MANDATORY_UPDATE_CONFIG={"allowedAuthOrigins":["https://login.example.com"]}',
-      'DOWNLOAD_TEST_ORIGIN=https://updates.example.com', 'DOWNLOAD_TEST_RELEASE_ID=0123456789abcdef0123456789abcdef',
-    ].join('\n'))
-    await writeFile(join(root, 'secrets/macos-signing.env'), [
-      'CSC_LINK=../certificate.p12', 'CSC_KEY_PASSWORD=fixture-password',
-      'DSH_DESKTOP_MACOS_SIGNING_IDENTITY=Example Company (TEAMID1234)', 'DSH_DESKTOP_MACOS_TEAM_ID=TEAMID1234',
-    ].join('\n'))
+    await writeFile(
+      join(root, 'presets/test.env'),
+      [
+        'DSH_DESKTOP_APP_ID=com.example.fixture',
+        'DSH_DESKTOP_AUTO_UPDATE_ENV=test',
+        'DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN=https://policy.example.com',
+        'DSH_DESKTOP_MANDATORY_UPDATE_CONFIG={"allowedAuthOrigins":["https://login.example.com"]}',
+        'DOWNLOAD_TEST_ORIGIN=https://updates.example.com',
+        'DOWNLOAD_TEST_RELEASE_ID=0123456789abcdef0123456789abcdef',
+      ].join('\n'),
+    )
+    await writeFile(
+      join(root, 'secrets/macos-signing.env'),
+      [
+        'CSC_LINK=../certificate.p12',
+        'CSC_KEY_PASSWORD=fixture-password',
+        'DSH_DESKTOP_MACOS_SIGNING_IDENTITY=Example Company (TEAMID1234)',
+        'DSH_DESKTOP_MACOS_TEAM_ID=TEAMID1234',
+      ].join('\n'),
+    )
     const output = join(root, 'output')
     const summary = join(root, 'summary')
-    const run = (skip: string) => spawnSync(process.execPath,
-      [join(import.meta.dirname, '../scripts/prepare-macos-ci.mjs')], { encoding: 'utf8', env: {
-        ...process.env, DSH_PACKAGING_CONFIG_DIR: root, DSH_PACKAGING_PRESET: 'test',
-        PACKAGE_SKIP_NOTARIZATION: skip, PACKAGE_BUILD_VERSION: 'auto',
-        GITHUB_RUN_NUMBER: '1', GITHUB_RUN_ATTEMPT: '1', GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: summary,
-      } })
+    const run = (skip: string) =>
+      spawnSync(process.execPath, [join(import.meta.dirname, '../scripts/prepare-macos-ci.mjs')], {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          DSH_PACKAGING_CONFIG_DIR: root,
+          DSH_PACKAGING_PRESET: 'test',
+          PACKAGE_SKIP_NOTARIZATION: skip,
+          PACKAGE_BUILD_VERSION: 'auto',
+          GITHUB_RUN_NUMBER: '1',
+          GITHUB_RUN_ATTEMPT: '1',
+          GITHUB_OUTPUT: output,
+          GITHUB_STEP_SUMMARY: summary,
+        },
+      })
     const missingCredentials = run('false')
     expect(missingCredentials.status).toBe(1)
     expect(missingCredentials.stderr).toContain('macOS packaging requires APPLE_API_KEY')

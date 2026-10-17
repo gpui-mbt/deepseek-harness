@@ -14,7 +14,7 @@ Object.defineProperty(globalThis, '__inspectorBreakpointProbe', { value: breakpo
 process.stdout.write(`${JSON.stringify(inspector.endpoint)}\n`)
 
 const input = createInterface({ input: process.stdin, terminal: false })
-input.on('line', (line) => {
+input.on('line', line => {
   if (line === 'run') {
     Object.defineProperty(globalThis, '__inspectorBreakpointResult', {
       value: breakpointProbe(41),
@@ -23,6 +23,8 @@ input.on('line', (line) => {
   }
   if (line === 'stop') {
     input.close()
-    void inspector.close().then(() => { process.exit(0) })
+    void inspector.close().then(() => {
+      process.exit(0)
+    })
   }
 })

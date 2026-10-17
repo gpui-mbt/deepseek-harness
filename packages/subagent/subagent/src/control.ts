@@ -33,10 +33,7 @@ const CONTROL_ID_SCHEMAS = {
  * @param payload - decoded control fields to validate.
  * @throws {RemoteError} `gateway/bad-request` with the original Zod issues.
  */
-export function validateControlRequest(
-  method: keyof typeof CONTROL_ID_SCHEMAS,
-  payload: unknown,
-): void {
+export function validateControlRequest(method: keyof typeof CONTROL_ID_SCHEMAS, payload: unknown): void {
   const parsed = CONTROL_ID_SCHEMAS[method].safeParse(payload)
   if (!parsed.success) {
     throw new RemoteError('gateway/bad-request', `invalid payload for ${method}`, { issues: parsed.error.issues })
@@ -63,26 +60,11 @@ export function rejectPrompt(error: unknown, childSessionId: SessionId, signal: 
   if (error instanceof SubagentError) {
     switch (error.code) {
       case 'MODEL_DOES_NOT_SUPPORT_IMAGES':
-        throw new RemoteError(
-          'subagent/attachment-invalid',
-          error.message,
-          { reason: error.code },
-          { cause: error },
-        )
+        throw new RemoteError('subagent/attachment-invalid', error.message, { reason: error.code }, { cause: error })
       case 'NOT_RESUMABLE':
-        throw new RemoteError(
-          'subagent/not-resumable',
-          'subagent cannot be resumed',
-          { childSessionId },
-          { cause: error },
-        )
+        throw new RemoteError('subagent/not-resumable', 'subagent cannot be resumed', { childSessionId }, { cause: error })
       case 'UNAUTHORIZED':
-        throw new RemoteError(
-          'subagent/unauthorized',
-          'subagent does not belong to this parent',
-          { childSessionId },
-          { cause: error },
-        )
+        throw new RemoteError('subagent/unauthorized', 'subagent does not belong to this parent', { childSessionId }, { cause: error })
       case 'DRAINING':
       case 'ACTIVATION_CLOSING':
       case 'ACTIVATION_LIMIT_REACHED':

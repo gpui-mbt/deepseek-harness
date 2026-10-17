@@ -28,23 +28,18 @@ interface CompactionItemProps {
  * @param props - the marker node off the snapshot cache.
  * @returns the marker row, with the summary disclosure when one is available.
  */
-export const CompactionItem = memo(function CompactionItem({
-  node,
-  title,
-  fallbackSummary,
-  t,
-}: CompactionItemProps) {
+export const CompactionItem = memo(function CompactionItem({ node, title, fallbackSummary, t }: CompactionItemProps) {
   const [expanded, setExpanded] = useState(false)
   const labels = useMemo(() => markdownLabels(t), [t])
   const expandable = node.summary !== null
   const open = expandable && expanded
-  const summary = node.shadowedItemCount !== null && node.shadowedTokenCount !== null
-    ? t('message.compaction.completed', {
-      items: node.shadowedItemCount,
-      tokens: node.shadowedTokenCount,
-    })
-    : fallbackSummary
-      ?? (expandable ? t('message.compaction.expand') : t('message.compaction.unavailable'))
+  const summary =
+    node.shadowedItemCount !== null && node.shadowedTokenCount !== null
+      ? t('message.compaction.completed', {
+          items: node.shadowedItemCount,
+          tokens: node.shadowedTokenCount,
+        })
+      : (fallbackSummary ?? (expandable ? t('message.compaction.expand') : t('message.compaction.unavailable')))
   return (
     <div className={css.compactionRow}>
       <button
@@ -52,16 +47,15 @@ export const CompactionItem = memo(function CompactionItem({
         className={css.compactionButton}
         disabled={!expandable}
         aria-expanded={expandable ? open : undefined}
-        onClick={() => { setExpanded(value => !value) }}
+        onClick={() => {
+          setExpanded(value => !value)
+        }}
       >
         <span className={css.compactionLeading} aria-hidden>
           <span className={css.compactionContextIcon} data-compaction-icon="context">
             <IconApiOutlineRegular />
           </span>
-          <span
-            className={css.compactionDisclosureIcon}
-            data-compaction-disclosure={open ? 'expanded' : 'collapsed'}
-          >
+          <span className={css.compactionDisclosureIcon} data-compaction-disclosure={open ? 'expanded' : 'collapsed'}>
             {open ? <IconChevronDownOutlineRegular /> : <IconChevronRightOutlineRegular />}
           </span>
         </span>
@@ -69,8 +63,11 @@ export const CompactionItem = memo(function CompactionItem({
         <span className={css.compactionSep} aria-hidden />
         <span className={css.compactionSummary}>{summary}</span>
       </button>
-      {open && node.summary !== null
-        && <div className={css.compactionBody}><MarkdownText text={node.summary} labels={labels} /></div>}
+      {open && node.summary !== null && (
+        <div className={css.compactionBody}>
+          <MarkdownText text={node.summary} labels={labels} />
+        </div>
+      )}
     </div>
   )
 })

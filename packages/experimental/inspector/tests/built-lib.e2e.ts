@@ -4,17 +4,16 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { pnpmInvocation } from '../../../../scripts/pnpm-invocation.ts'
 
 const packageDirectory = fileURLToPath(new URL('..', import.meta.url))
-const built = [
-  'lib/index.js',
-  'node_modules/@deepseek-ai/schemastery/lib/index.mjs',
-].every(file => existsSync(join(packageDirectory, file)))
+const built = ['lib/index.js', 'node_modules/@deepseek-ai/schemastery/lib/index.mjs'].every(file =>
+  existsSync(join(packageDirectory, file)),
+)
 
 describe.skipIf(!built)('experimental Inspector built artifact', () => {
-  it('packs its sibling Worker and evaluates the Host from the tarball through plain Node', { retry: 0 }, async (test) => {
+  it('packs its sibling Worker and evaluates the Host from the tarball through plain Node', { retry: 0 }, async test => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-inspector-packed-'))
     const consumer = join(root, 'package')
     const dependencies = join(consumer, 'node_modules')
@@ -36,7 +35,7 @@ describe.skipIf(!built)('experimental Inspector built artifact', () => {
         cancelSignal: test.signal,
         killSignal: 'SIGKILL',
         reject: false,
-      }).then((result) => {
+      }).then(result => {
         expect(result.timedOut, `stderr:\n${result.stderr}`).toBe(false)
         expect(result.isCanceled, `stderr:\n${result.stderr}`).toBe(false)
         expect(result.signal, `stderr:\n${result.stderr}`).toBeUndefined()

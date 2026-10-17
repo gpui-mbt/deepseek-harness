@@ -35,13 +35,17 @@ export async function harness(options: { live?: boolean } = {}): Promise<Context
 export async function declare(ctx: Context, config: PresetDefinition) {
   return await ctx.plugin({
     inject: ['agentPresets'],
-    async* apply(child: Context) { yield await child.agentPresets.register(config) },
+    async *apply(child: Context) {
+      yield await child.agentPresets.register(config)
+    },
   })
 }
 export async function agentOn(ctx: Context, id: string, presetId?: string) {
   const handle = await ctx.agents.create({
     sessionId: SessionId(id),
-    setup: async (agentCtx: Context) => { await ctx.agentPresets.mount(agentCtx, presetId) },
+    setup: async (agentCtx: Context) => {
+      await ctx.agentPresets.mount(agentCtx, presetId)
+    },
   })
   return handle.agent
 }

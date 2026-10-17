@@ -14,9 +14,7 @@
  * consumer merges keys in and the intersection is what keeps them string-typed.
  * The rule fires on the empty-map view, not on real redundancy. */
 import type { ReactNode } from 'react'
-import type {
-  BoundActions, HandleOf, PropsStore, SnapshotSelectorHook, StoreDecl,
-} from '@deepseek-ai/dsh-client-store'
+import type { BoundActions, HandleOf, PropsStore, SnapshotSelectorHook, StoreDecl } from '@deepseek-ai/dsh-client-store'
 import type { HostObservable, KeyedStandardSource } from './renderer.ts'
 
 export * from './store.ts'
@@ -51,8 +49,7 @@ export interface ResourceProtocolMap {}
  * `K` narrows the accepted keys to the owning namespace's dictionary union
  * (plus the shared common vocabulary where composed).
  */
-export type Translate<K extends string = string> =
-  (key: K, params?: Record<string, unknown>) => string
+export type Translate<K extends string = string> = (key: K, params?: Record<string, unknown>) => string
 
 /**
  * The shared `common` vocabulary keys as merged by the locale plugin;
@@ -66,8 +63,7 @@ export type CommonKeyOf = LocaleNamespaceMap extends { common: infer C } ? C & s
  * union plus the shared common vocabulary (the lookup chain consults common
  * after the namespace misses).
  */
-export type LocaleKeysOf<N extends keyof LocaleNamespaceMap & string> =
-  (LocaleNamespaceMap[N] & string) | CommonKeyOf
+export type LocaleKeysOf<N extends keyof LocaleNamespaceMap & string> = (LocaleNamespaceMap[N] & string) | CommonKeyOf
 
 /**
  * Namespace-addressed translate — the developer-facing alias over
@@ -83,8 +79,7 @@ export type TranslateNS<N extends keyof LocaleNamespaceMap & string> = Translate
  * merged into {@link LocaleNamespaceMap} — a missing or extra key at a typed
  * registration site is a compile error.
  */
-export type LocaleDictOf<N extends keyof LocaleNamespaceMap & string> =
-  Record<LocaleNamespaceMap[N] & string, string>
+export type LocaleDictOf<N extends keyof LocaleNamespaceMap & string> = Record<LocaleNamespaceMap[N] & string, string>
 
 /**
  * Locale share of the composed component props: the framework-injected `t`
@@ -92,9 +87,9 @@ export type LocaleDictOf<N extends keyof LocaleNamespaceMap & string> =
  */
 export type PropsLocale<N> = N extends keyof LocaleNamespaceMap & string
   ? {
-    /** Translate a dictionary key of the declared namespace (or the shared common vocabulary). */
-    t: TranslateNS<N>
-  }
+      /** Translate a dictionary key of the declared namespace (or the shared common vocabulary). */
+      t: TranslateNS<N>
+    }
   : object
 
 /** Slot cardinality: single occupant, ordered list, key-dispatched, or selector-routed chain. */
@@ -182,32 +177,32 @@ export type SlotSpec<E extends SlotEntryDef> = {
 export type ChildrenDecl = { [P in keyof SlotMap & string]?: SlotSpec<SlotMap[P]> }
 
 /** Owner-supplied props share for a slot key ({} for entries declaring no `owner`). */
-export type OwnerOf<K extends keyof SlotMap & string> =
-  SlotMap[K] extends { owner: infer O extends object } ? O : object
+export type OwnerOf<K extends keyof SlotMap & string> = SlotMap[K] extends { owner: infer O extends object } ? O : object
 
 /** Registration/dispatch key domain of one keyed slot. */
-export type EntryKeyOf<K extends keyof SlotMap & string> =
-  SlotMap[K] extends { kind: 'keyed'; keyProps: infer P extends object }
-    ? keyof P & string
-    : string
+export type EntryKeyOf<K extends keyof SlotMap & string> = SlotMap[K] extends { kind: 'keyed'; keyProps: infer P extends object }
+  ? keyof P & string
+  : string
 
 /** Key-dependent props supplied by the owner at one keyed dispatch site. */
-export type KeyPropsOf<
-  K extends keyof SlotMap & string,
-  EntryKey extends EntryKeyOf<K>,
-> = SlotMap[K] extends { kind: 'keyed'; keyProps: infer P extends object }
+export type KeyPropsOf<K extends keyof SlotMap & string, EntryKey extends EntryKeyOf<K>> = SlotMap[K] extends {
+  kind: 'keyed'
+  keyProps: infer P extends object
+}
   ? EntryKey extends keyof P
-    ? P[EntryKey] extends object ? P[EntryKey] : never
+    ? P[EntryKey] extends object
+      ? P[EntryKey]
+      : never
     : never
   : object
 
 /** Opaque per-render occurrence context declared by one slot. */
-export type HookContextOf<K extends keyof SlotMap & string> =
-  SlotMap[K] extends { hookContext: infer Context } ? Context : never
+export type HookContextOf<K extends keyof SlotMap & string> = SlotMap[K] extends { hookContext: infer Context } ? Context : never
 
 /** Common render-occurrence inject face declared by one slot. */
-export type SlotInjectOf<K extends keyof SlotMap & string> =
-  SlotMap[K] extends { inject: infer Injected extends object } ? Injected : object
+export type SlotInjectOf<K extends keyof SlotMap & string> = SlotMap[K] extends { inject: infer Injected extends object }
+  ? Injected
+  : object
 
 /** Scope axis of a slot key's SlotMap entry. */
 export type ScopeOf<K extends keyof SlotMap & string> = SlotMap[K]['scope']
@@ -243,20 +238,18 @@ export interface GlobalStandardProps {}
 export type SessionIdOf = SessionStandardProps extends { sessionId: infer S } ? S : string
 
 /** Standard props selected by one declared scope. */
-export type ScopeStandardProps<S extends SlotScope> =
-  (S extends 'session' ? SessionStandardProps
-    : S extends 'session-maybe' ? SessionMaybeStandardProps
-      : object) & GlobalStandardProps
+export type ScopeStandardProps<S extends SlotScope> = (S extends 'session'
+  ? SessionStandardProps
+  : S extends 'session-maybe'
+    ? SessionMaybeStandardProps
+    : object) &
+  GlobalStandardProps
 
 /**
  * Runtime props share for a slot key: owner share (parent's renderSlot call
  * site) + session standard kit (session scope only) + the global seat.
  */
-export type PropsRuntime<
-  K extends keyof SlotMap & string,
-  EntryKey extends EntryKeyOf<K> = EntryKeyOf<K>,
-> =
-  OwnerOf<K> &
+export type PropsRuntime<K extends keyof SlotMap & string, EntryKey extends EntryKeyOf<K> = EntryKeyOf<K>> = OwnerOf<K> &
   KeyPropsOf<K, EntryKey> &
   SlotInjectFace<SlotInjectOf<K>> &
   ScopeStandardProps<ScopeOf<K>>
@@ -300,12 +293,14 @@ export interface ChainRenderOpts {
 export type ChainSelect<O extends object, M> = (owner: O) => M | null
 
 /** Keys of a slot-key union whose SlotMap entry is chain-kind (renderSlotChain's dispatch domain). */
-export type ChainKeysOf<S extends keyof SlotMap & string> =
-  S extends unknown ? (SlotMap[S]['kind'] extends 'chain' ? S : never) : never
+export type ChainKeysOf<S extends keyof SlotMap & string> = S extends unknown ? (SlotMap[S]['kind'] extends 'chain' ? S : never) : never
 
 /** Keys in a render share whose dispatch occurrence requires hookContext. */
-type ContextualKeysOf<S extends keyof SlotMap & string> =
-  S extends unknown ? (SlotMap[S] extends { hookContext: unknown } ? S : never) : never
+type ContextualKeysOf<S extends keyof SlotMap & string> = S extends unknown
+  ? SlotMap[S] extends { hookContext: unknown }
+    ? S
+    : never
+  : never
 
 /** Keys in a render share with the ordinary optional options bag. */
 type OrdinaryKeysOf<S extends keyof SlotMap & string> = Exclude<S, ContextualKeysOf<S>>
@@ -315,35 +310,31 @@ type OrdinaryKeysOf<S extends keyof SlotMap & string> = Exclude<S, ContextualKey
  * call signatures preserves ordinary renderSlot assignability while making a
  * declared hookContext mandatory only for the Slot keys that need it.
  */
-type RenderSlotFn<S extends keyof SlotMap & string> =
-  ([ContextualKeysOf<S>] extends [never] ? object : {
-    <
-      K extends ContextualKeysOf<S>,
-      EntryKey extends EntryKeyOf<K> = EntryKeyOf<K>,
-    >(
-      key: K,
-      owner: OwnerOf<K> & KeyPropsOf<K, NoInfer<EntryKey>>,
-      opts: RenderOpts<EntryKey> & { hookContext: HookContextOf<K> },
-    ): ReactNode
-  }) &
-  ([OrdinaryKeysOf<S>] extends [never] ? object : {
-    <
-      K extends OrdinaryKeysOf<S>,
-      EntryKey extends EntryKeyOf<K> = EntryKeyOf<K>,
-    >(
-      key: K,
-      owner: OwnerOf<K> & KeyPropsOf<K, NoInfer<EntryKey>>,
-      opts?: Omit<RenderOpts<EntryKey>, 'hookContext'>,
-    ): ReactNode
-  })
+type RenderSlotFn<S extends keyof SlotMap & string> = ([ContextualKeysOf<S>] extends [never]
+  ? object
+  : {
+      <K extends ContextualKeysOf<S>, EntryKey extends EntryKeyOf<K> = EntryKeyOf<K>>(
+        key: K,
+        owner: OwnerOf<K> & KeyPropsOf<K, NoInfer<EntryKey>>,
+        opts: RenderOpts<EntryKey> & { hookContext: HookContextOf<K> },
+      ): ReactNode
+    }) &
+  ([OrdinaryKeysOf<S>] extends [never]
+    ? object
+    : {
+        <K extends OrdinaryKeysOf<S>, EntryKey extends EntryKeyOf<K> = EntryKeyOf<K>>(
+          key: K,
+          owner: OwnerOf<K> & KeyPropsOf<K, NoInfer<EntryKey>>,
+          opts?: Omit<RenderOpts<EntryKey>, 'hookContext'>,
+        ): ReactNode
+      })
 
 /**
  * Chain matched share: a chain-slot component receives its selector's
  * non-null result as the framework-injected `matched` prop; other kinds add
  * nothing to the composed constraint.
  */
-export type MatchedShare<E extends SlotEntryDef, M> =
-  E['kind'] extends 'chain' ? { matched: M } : object
+export type MatchedShare<E extends SlotEntryDef, M> = E['kind'] extends 'chain' ? { matched: M } : object
 
 /** Props of the standard-kit SessionProvider seat. */
 export interface SessionAreaProps {
@@ -385,20 +376,21 @@ export type PropsRenderSlots<S extends keyof SlotMap & string> = {
    */
   renderSlot: RenderSlotFn<Exclude<S, ChainKeysOf<S>>>
   readonly __renders?: ((key: S) => void) | undefined
-} & ([ChainKeysOf<S>] extends [never] ? object : {
-  /**
-   * Render a declared chain child slot: entry selectors run in chain order
-   * over `owner`; the first non-null match renders its component with the
-   * selector result injected as `matched`; all-null renders `opts.fallback`.
-   * @param key - declared chain child key.
-   * @param owner - owner props share (the selectors' routing input).
-   * @param opts - fallback body for the all-null case.
-   * @returns rendered node(s).
-   */
-  renderSlotChain: <K extends ChainKeysOf<S>>(key: K, owner: OwnerOf<K>, opts?: ChainRenderOpts) => ReactNode
-}) & ([Extract<ScopeOf<S>, 'session' | 'session-maybe'>] extends [never]
+} & ([ChainKeysOf<S>] extends [never]
   ? object
-  : { SessionProvider: SessionProviderComponent })
+  : {
+      /**
+       * Render a declared chain child slot: entry selectors run in chain order
+       * over `owner`; the first non-null match renders its component with the
+       * selector result injected as `matched`; all-null renders `opts.fallback`.
+       * @param key - declared chain child key.
+       * @param owner - owner props share (the selectors' routing input).
+       * @param opts - fallback body for the all-null case.
+       * @returns rendered node(s).
+       */
+      renderSlotChain: <K extends ChainKeysOf<S>>(key: K, owner: OwnerOf<K>, opts?: ChainRenderOpts) => ReactNode
+    }) &
+  ([Extract<ScopeOf<S>, 'session' | 'session-maybe'>] extends [never] ? object : { SessionProvider: SessionProviderComponent })
 
 /**
  * Registration-position component shape: the bare call signature, so composed
@@ -408,63 +400,58 @@ export type PropsRenderSlots<S extends keyof SlotMap & string> = {
 export type SlotComponent<P> = (props: P) => ReactNode
 
 type FactoryDefOf<F extends keyof SlotFactoryMap & string> = SlotFactoryMap[F] & SlotFactoryDef
-type FactoryInputPropsOf<F extends keyof SlotFactoryMap & string> =
-  SlotFactoryMap[F] extends { props: infer P extends object } ? P : object
-type FactoryChildrenOf<F extends keyof SlotFactoryMap & string> =
-  SlotFactoryMap[F] extends { children: infer D extends Record<string, unknown> } ? D : Record<never, never>
-type FactoryStoreOf<F extends keyof SlotFactoryMap & string> =
-  SlotFactoryMap[F] extends { store: infer H extends StoreDecl } ? HandleOf<H> : undefined
-type FactoryInjectOf<F extends keyof SlotFactoryMap & string> =
-  SlotFactoryMap[F] extends { inject: infer I extends object } ? I : object
-type FactoryLocaleOf<F extends keyof SlotFactoryMap & string> =
-  SlotFactoryMap[F] extends { locale: infer N extends keyof LocaleNamespaceMap & string } ? N : undefined
-type FactoryLocalSlotsOf<F extends keyof SlotFactoryMap & string> =
-  SlotFactoryMap[F] extends { slots: infer S extends Record<string, FactoryLocalSlotDef> }
-    ? S
-    : Record<never, never>
+type FactoryInputPropsOf<F extends keyof SlotFactoryMap & string> = SlotFactoryMap[F] extends { props: infer P extends object } ? P : object
+type FactoryChildrenOf<F extends keyof SlotFactoryMap & string> = SlotFactoryMap[F] extends {
+  children: infer D extends Record<string, unknown>
+}
+  ? D
+  : Record<never, never>
+type FactoryStoreOf<F extends keyof SlotFactoryMap & string> = SlotFactoryMap[F] extends { store: infer H extends StoreDecl }
+  ? HandleOf<H>
+  : undefined
+type FactoryInjectOf<F extends keyof SlotFactoryMap & string> = SlotFactoryMap[F] extends { inject: infer I extends object } ? I : object
+type FactoryLocaleOf<F extends keyof SlotFactoryMap & string> = SlotFactoryMap[F] extends {
+  locale: infer N extends keyof LocaleNamespaceMap & string
+}
+  ? N
+  : undefined
+type FactoryLocalSlotsOf<F extends keyof SlotFactoryMap & string> = SlotFactoryMap[F] extends {
+  slots: infer S extends Record<string, FactoryLocalSlotDef>
+}
+  ? S
+  : Record<never, never>
 type FactoryLocalNameOf<F extends keyof SlotFactoryMap & string> = keyof FactoryLocalSlotsOf<F> & string
-type FactoryLocalDefOf<
-  F extends keyof SlotFactoryMap & string,
-  N extends FactoryLocalNameOf<F>,
-> = FactoryLocalSlotsOf<F>[N] & FactoryLocalSlotDef
-type FactoryLocalInputPropsOf<
-  F extends keyof SlotFactoryMap & string,
-  N extends FactoryLocalNameOf<F>,
-> = FactoryLocalDefOf<F, N> extends { props: infer P extends object } ? P : object
+type FactoryLocalDefOf<F extends keyof SlotFactoryMap & string, N extends FactoryLocalNameOf<F>> = FactoryLocalSlotsOf<F>[N] &
+  FactoryLocalSlotDef
+type FactoryLocalInputPropsOf<F extends keyof SlotFactoryMap & string, N extends FactoryLocalNameOf<F>> =
+  FactoryLocalDefOf<F, N> extends { props: infer P extends object } ? P : object
 
-type FactoryRenderPropsOf<F extends keyof SlotFactoryMap & string> =
-  [keyof FactoryChildrenOf<F> & keyof SlotMap & string] extends [never]
-    ? object
-    : PropsRenderSlots<keyof FactoryChildrenOf<F> & keyof SlotMap & string>
+type FactoryRenderPropsOf<F extends keyof SlotFactoryMap & string> = [keyof FactoryChildrenOf<F> & keyof SlotMap & string] extends [never]
+  ? object
+  : PropsRenderSlots<keyof FactoryChildrenOf<F> & keyof SlotMap & string>
 
 /** Framework-derived props shared by a Factory definition and its local Components. */
-export type FactoryRegistrationPropsOf<F extends keyof SlotFactoryMap & string> =
-  FactoryRenderPropsOf<F>
-  & PropsStore<FactoryStoreOf<F>>
-  & InjectFace<FactoryInjectOf<F>>
-  & PropsLocale<FactoryLocaleOf<F>>
-  & PropsRenderFactories
+export type FactoryRegistrationPropsOf<F extends keyof SlotFactoryMap & string> = FactoryRenderPropsOf<F> &
+  PropsStore<FactoryStoreOf<F>> &
+  InjectFace<FactoryInjectOf<F>> &
+  PropsLocale<FactoryLocaleOf<F>> &
+  PropsRenderFactories
 
 /** Complete props received by a registered Factory Component. */
-export type FactoryComponentPropsOf<F extends keyof SlotFactoryMap & string> =
-  FactoryInputPropsOf<F>
-  & FactoryRegistrationPropsOf<F>
-  & ScopeStandardProps<FactoryDefOf<F>['scope']>
-  & { useFactorySlot: UseFactorySlot<F> }
+export type FactoryComponentPropsOf<F extends keyof SlotFactoryMap & string> = FactoryInputPropsOf<F> &
+  FactoryRegistrationPropsOf<F> &
+  ScopeStandardProps<FactoryDefOf<F>['scope']> & { useFactorySlot: UseFactorySlot<F> }
 
 /** Complete props received by one caller-selected or fallback local Component. */
 export type FactoryLocalComponentPropsOf<
   F extends keyof SlotFactoryMap & string,
   N extends FactoryLocalNameOf<F>,
-> = FactoryLocalInputPropsOf<F, N>
-  & FactoryRegistrationPropsOf<F>
-  & ScopeStandardProps<FactoryLocalDefOf<F, N>['scope']>
+> = FactoryLocalInputPropsOf<F, N> & FactoryRegistrationPropsOf<F> & ScopeStandardProps<FactoryLocalDefOf<F, N>['scope']>
 
 /** Component accepted for one declared local Factory position. */
-export type FactoryLocalComponent<
-  F extends keyof SlotFactoryMap & string,
-  N extends FactoryLocalNameOf<F>,
-> = SlotComponent<FactoryLocalComponentPropsOf<F, N>>
+export type FactoryLocalComponent<F extends keyof SlotFactoryMap & string, N extends FactoryLocalNameOf<F>> = SlotComponent<
+  FactoryLocalComponentPropsOf<F, N>
+>
 
 /**
  * Hook exposed only to a Factory definition for selecting a local Component.
@@ -472,11 +459,10 @@ export type FactoryLocalComponent<
  * @param fallback - Component used when the occurrence caller makes no selection.
  * @returns a stable Component accepting only the local occurrence props.
  */
-export type UseFactorySlot<F extends keyof SlotFactoryMap & string> =
-  <N extends FactoryLocalNameOf<F>>(
-    name: N,
-    fallback: FactoryLocalComponent<F, N>,
-  ) => SlotComponent<FactoryLocalInputPropsOf<F, N>>
+export type UseFactorySlot<F extends keyof SlotFactoryMap & string> = <N extends FactoryLocalNameOf<F>>(
+  name: N,
+  fallback: FactoryLocalComponent<F, N>,
+) => SlotComponent<FactoryLocalInputPropsOf<F, N>>
 
 /**
  * Render one independently keyed occurrence of a registered Factory.
@@ -528,20 +514,18 @@ export type KeyedSnapshotSelectorHook<Snapshot> = {
 }
 
 /** Framework-owned props visible while a slot-level contextual Hook is bound. */
-export type StandardPropsOf<K extends keyof SlotMap & string> =
-  (ScopeOf<K> extends 'session' ? SessionStandardProps
-    : ScopeOf<K> extends 'session-maybe' ? SessionMaybeStandardProps
-      : object) &
+export type StandardPropsOf<K extends keyof SlotMap & string> = (ScopeOf<K> extends 'session'
+  ? SessionStandardProps
+  : ScopeOf<K> extends 'session-maybe'
+    ? SessionMaybeStandardProps
+    : object) &
   GlobalStandardProps
 
 /**
  * One function-valued slot-level inject.hooks member. The factory is pure and
  * returns the actual custom Hook; it must not invoke a Hook while being bound.
  */
-export type SlotHookFactory<
-  K extends keyof SlotMap & string,
-  Hook extends (...args: never[]) => unknown,
-> = (
+export type SlotHookFactory<K extends keyof SlotMap & string, Hook extends (...args: never[]) => unknown> = (
   standard: StandardPropsOf<K>,
   hookContext: HookContextOf<K>,
 ) => Hook
@@ -551,7 +535,9 @@ type BoundHookOf<Definition> =
   Definition extends HostObservable<infer Snapshot>
     ? SnapshotSelectorHook<Snapshot>
     : Definition extends (...args: never[]) => infer Hook
-      ? Hook extends (...args: never[]) => unknown ? Hook : never
+      ? Hook extends (...args: never[]) => unknown
+        ? Hook
+        : never
       : never
 
 /**
@@ -559,18 +545,15 @@ type BoundHookOf<Definition> =
  * `name` becomes a `use<Name>` selector hook over its snapshot type.
  */
 export type PropsSlotHooks<HS extends object> = {
-  [N in keyof HS & string as `use${Capitalize<N>}`]:
-  BoundHookOf<HS[N]>
+  [N in keyof HS & string as `use${Capitalize<N>}`]: BoundHookOf<HS[N]>
 }
 
 /** Component-side view of a slot dispatcher's common inject face. */
-export type SlotInjectFace<I extends object> =
-  I extends { hooks: infer HS extends object } ? Omit<I, 'hooks'> & PropsSlotHooks<HS> : I
+export type SlotInjectFace<I extends object> = I extends { hooks: infer HS extends object } ? Omit<I, 'hooks'> & PropsSlotHooks<HS> : I
 
 /** Selector-hook share synthesized from an entry inject hooks compartment. */
 export type PropsHooks<HS extends HooksSources> = {
-  [N in keyof HS & string as `use${Capitalize<N>}`]:
-  SnapshotSelectorHook<HS[N] extends HostObservable<infer T> ? T : never>
+  [N in keyof HS & string as `use${Capitalize<N>}`]: SnapshotSelectorHook<HS[N] extends HostObservable<infer T> ? T : never>
 }
 
 /** Selector-hook share synthesized from an entry inject keyed-hooks compartment. */
@@ -585,14 +568,13 @@ export type PropsKeyedHooks<HS extends KeyedHooksSources> = {
  * compartment (when declared) arrives as bound `use<Name>` selector hooks;
  * every other member passes through verbatim.
  */
-export type InjectFace<I extends object> =
-  I extends { hooks: infer HS extends HooksSources }
-    ? I extends { keyedHooks: infer KS extends KeyedHooksSources }
-      ? Omit<I, 'hooks' | 'keyedHooks'> & PropsHooks<HS> & PropsKeyedHooks<KS>
-      : Omit<I, 'hooks'> & PropsHooks<HS>
-    : I extends { keyedHooks: infer KS extends KeyedHooksSources }
-      ? Omit<I, 'keyedHooks'> & PropsKeyedHooks<KS>
-      : I
+export type InjectFace<I extends object> = I extends { hooks: infer HS extends HooksSources }
+  ? I extends { keyedHooks: infer KS extends KeyedHooksSources }
+    ? Omit<I, 'hooks' | 'keyedHooks'> & PropsHooks<HS> & PropsKeyedHooks<KS>
+    : Omit<I, 'hooks'> & PropsHooks<HS>
+  : I extends { keyedHooks: infer KS extends KeyedHooksSources }
+    ? Omit<I, 'keyedHooks'> & PropsKeyedHooks<KS>
+    : I
 
 /**
  * The composed component props intersection: runtime share (SlotMap) +
@@ -610,8 +592,13 @@ export type ComposedProps<
   I extends object,
   M = never,
   N = undefined,
-> = PropsRuntime<K, EntryKey> & PropsRenderSlots<S> & PropsRenderFactories
-  & PropsStore<H> & InjectFace<I> & MatchedShare<SlotMap[K], M> & PropsLocale<N>
+> = PropsRuntime<K, EntryKey> &
+  PropsRenderSlots<S> &
+  PropsRenderFactories &
+  PropsStore<H> &
+  InjectFace<I> &
+  MatchedShare<SlotMap[K], M> &
+  PropsLocale<N>
 
 /**
  * Inject factory parameter list, derived from the registration's declaration:
@@ -623,32 +610,33 @@ export type ComposedProps<
  */
 export type InjectParams<K extends keyof SlotMap & string, H> =
   ScopeOf<K> extends 'session'
-    ? ([H] extends [StoreDecl] ? [sessionId: SessionIdOf, actions: BoundActions<HandleOf<H>>] : [sessionId: SessionIdOf])
+    ? [H] extends [StoreDecl]
+      ? [sessionId: SessionIdOf, actions: BoundActions<HandleOf<H>>]
+      : [sessionId: SessionIdOf]
     : ScopeOf<K> extends 'session-maybe'
-      ? ([H] extends [StoreDecl]
+      ? [H] extends [StoreDecl]
         ? [sessionId: SessionIdOf | undefined, actions: BoundActions<HandleOf<H>> | undefined]
-        : [sessionId: SessionIdOf | undefined])
-      : ([H] extends [StoreDecl] ? [actions: BoundActions<HandleOf<H>>] : [])
+        : [sessionId: SessionIdOf | undefined]
+      : [H] extends [StoreDecl]
+        ? [actions: BoundActions<HandleOf<H>>]
+        : []
 
 /** Factory inject parameters use the same scope/store matrix as ordinary registrations. */
-export type FactoryInjectParams<F extends keyof SlotFactoryMap & string> =
-  FactoryDefOf<F>['scope'] extends 'session'
-    ? ([FactoryStoreOf<F>] extends [StoreDecl]
-      ? [sessionId: SessionIdOf, actions: BoundActions<FactoryStoreOf<F>>]
-      : [sessionId: SessionIdOf])
-    : FactoryDefOf<F>['scope'] extends 'session-maybe'
-      ? ([FactoryStoreOf<F>] extends [StoreDecl]
-        ? [sessionId: SessionIdOf | undefined, actions: BoundActions<FactoryStoreOf<F>> | undefined]
-        : [sessionId: SessionIdOf | undefined])
-      : ([FactoryStoreOf<F>] extends [StoreDecl]
-        ? [actions: BoundActions<FactoryStoreOf<F>>]
-        : [])
+export type FactoryInjectParams<F extends keyof SlotFactoryMap & string> = FactoryDefOf<F>['scope'] extends 'session'
+  ? [FactoryStoreOf<F>] extends [StoreDecl]
+    ? [sessionId: SessionIdOf, actions: BoundActions<FactoryStoreOf<F>>]
+    : [sessionId: SessionIdOf]
+  : FactoryDefOf<F>['scope'] extends 'session-maybe'
+    ? [FactoryStoreOf<F>] extends [StoreDecl]
+      ? [sessionId: SessionIdOf | undefined, actions: BoundActions<FactoryStoreOf<F>> | undefined]
+      : [sessionId: SessionIdOf | undefined]
+    : [FactoryStoreOf<F>] extends [StoreDecl]
+      ? [actions: BoundActions<FactoryStoreOf<F>>]
+      : []
 
-type FactoryField<
-  F extends keyof SlotFactoryMap & string,
-  K extends keyof SlotFactoryDef,
-  Value,
-> = K extends keyof SlotFactoryMap[F] ? { [P in K]-?: Value } : { [P in K]?: never }
+type FactoryField<F extends keyof SlotFactoryMap & string, K extends keyof SlotFactoryDef, Value> = K extends keyof SlotFactoryMap[F]
+  ? { [P in K]-?: Value }
+  : { [P in K]?: never }
 
 type RuntimeFactorySlots<F extends keyof SlotFactoryMap & string> = {
   [N in FactoryLocalNameOf<F>]: { scope: FactoryLocalDefOf<F, N>['scope'] }
@@ -656,23 +644,16 @@ type RuntimeFactorySlots<F extends keyof SlotFactoryMap & string> = {
 
 type FactoryInjectCollisionKeys<F extends keyof SlotFactoryMap & string> = Extract<
   keyof InjectFace<FactoryInjectOf<F>>,
-  keyof (
-    FactoryRenderPropsOf<F>
-    & PropsStore<FactoryStoreOf<F>>
-    & PropsLocale<FactoryLocaleOf<F>>
-    & PropsRenderFactories
-    & ScopeStandardProps<FactoryDefOf<F>['scope']>
-    & { useFactorySlot: UseFactorySlot<F> }
-  )
+  keyof (FactoryRenderPropsOf<F> &
+    PropsStore<FactoryStoreOf<F>> &
+    PropsLocale<FactoryLocaleOf<F>> &
+    PropsRenderFactories &
+    ScopeStandardProps<FactoryDefOf<F>['scope']> & { useFactorySlot: UseFactorySlot<F> })
 >
 
 type FactoryInputCollisionKeys<F extends keyof SlotFactoryMap & string> = Extract<
   keyof FactoryInputPropsOf<F>,
-  keyof (
-    FactoryRegistrationPropsOf<F>
-    & ScopeStandardProps<FactoryDefOf<F>['scope']>
-    & { useFactorySlot: UseFactorySlot<F> }
-  )
+  keyof (FactoryRegistrationPropsOf<F> & ScopeStandardProps<FactoryDefOf<F>['scope']> & { useFactorySlot: UseFactorySlot<F> })
 >
 
 type FactoryLocalCollisionKeys<F extends keyof SlotFactoryMap & string> = {
@@ -683,49 +664,43 @@ type FactoryLocalCollisionKeys<F extends keyof SlotFactoryMap & string> = {
 }[FactoryLocalNameOf<F>]
 
 type FactoryRegistrationLocalScopeCollisionKeys<F extends keyof SlotFactoryMap & string> = {
-  [N in FactoryLocalNameOf<F>]: Extract<
-    keyof FactoryRegistrationPropsOf<F>,
-    keyof ScopeStandardProps<FactoryLocalDefOf<F, N>['scope']>
-  >
+  [N in FactoryLocalNameOf<F>]: Extract<keyof FactoryRegistrationPropsOf<F>, keyof ScopeStandardProps<FactoryLocalDefOf<F, N>['scope']>>
 }[FactoryLocalNameOf<F>]
 
 type FactoryCollisionCheck<F extends keyof SlotFactoryMap & string> = [
-  FactoryInjectCollisionKeys<F>
+  | FactoryInjectCollisionKeys<F>
   | FactoryInputCollisionKeys<F>
   | FactoryLocalCollisionKeys<F>
   | FactoryRegistrationLocalScopeCollisionKeys<F>,
 ] extends [never]
   ? unknown
   : {
-    'Factory declaration has overlapping prop ownership':
-      FactoryInjectCollisionKeys<F>
-      | FactoryInputCollisionKeys<F>
-      | FactoryLocalCollisionKeys<F>
-      | FactoryRegistrationLocalScopeCollisionKeys<F>
-  }
+      'Factory declaration has overlapping prop ownership':
+        | FactoryInjectCollisionKeys<F>
+        | FactoryInputCollisionKeys<F>
+        | FactoryLocalCollisionKeys<F>
+        | FactoryRegistrationLocalScopeCollisionKeys<F>
+    }
 
 type FactoryChildMismatchKeys<F extends keyof SlotFactoryMap & string> = {
-  [K in keyof FactoryChildrenOf<F>]: K extends keyof SlotMap
-    ? FactoryChildrenOf<F>[K] extends SlotSpec<SlotMap[K]> ? never : K
-    : K
+  [K in keyof FactoryChildrenOf<F>]: K extends keyof SlotMap ? (FactoryChildrenOf<F>[K] extends SlotSpec<SlotMap[K]> ? never : K) : K
 }[keyof FactoryChildrenOf<F>]
 
-type FactoryChildrenCheck<F extends keyof SlotFactoryMap & string> =
-  [FactoryChildMismatchKeys<F>] extends [never]
-    ? unknown
-    : { 'Factory children must match SlotMap': FactoryChildMismatchKeys<F> }
+type FactoryChildrenCheck<F extends keyof SlotFactoryMap & string> = [FactoryChildMismatchKeys<F>] extends [never]
+  ? unknown
+  : { 'Factory children must match SlotMap': FactoryChildMismatchKeys<F> }
 
 /** Registration options checked against the complete declaration-merged Factory definition. */
 export type RegisterFactoryOptions<F extends keyof SlotFactoryMap & string> = {
   name: F
   scope: FactoryDefOf<F>['scope']
-} & FactoryField<F, 'children', FactoryChildrenOf<F>>
-  & FactoryField<F, 'store', FactoryStoreOf<F> | (() => FactoryStoreOf<F>)>
-  & FactoryField<F, 'inject', (...args: FactoryInjectParams<F>) => FactoryInjectOf<F>>
-  & FactoryField<F, 'locale', FactoryLocaleOf<F>>
-  & FactoryField<F, 'slots', RuntimeFactorySlots<F>>
-  & FactoryCollisionCheck<F>
-  & FactoryChildrenCheck<F>
+} & FactoryField<F, 'children', FactoryChildrenOf<F>> &
+  FactoryField<F, 'store', FactoryStoreOf<F> | (() => FactoryStoreOf<F>)> &
+  FactoryField<F, 'inject', (...args: FactoryInjectParams<F>) => FactoryInjectOf<F>> &
+  FactoryField<F, 'locale', FactoryLocaleOf<F>> &
+  FactoryField<F, 'slots', RuntimeFactorySlots<F>> &
+  FactoryCollisionCheck<F> &
+  FactoryChildrenCheck<F>
 
 /**
  * Typed registration method implemented by the renderer-owned SlotRegistry service.
@@ -765,30 +740,28 @@ export type SlotLabel = string | (() => string)
  * Kind shape fields carried in register options (keyed dispatch key; list
  * id/order/label; chain select/priority; non-chain priority = cell shadowing rank).
  */
-export type KindOptions<
-  K extends keyof SlotMap & string,
-  EntryKey extends EntryKeyOf<K>,
-  M = never,
-> =
-  SlotMap[K]['kind'] extends 'keyed' ? {
-    key: EntryKey
-    /** Cell shadowing rank (ascending, default 0, lowest renders; same key + same priority throws — see {@link SlotCore.register}). */
-    priority?: number
-  }
-    : SlotMap[K]['kind'] extends 'list' ? {
-      id: string
-      order?: number
-      label?: SlotLabel
-      /** Cell shadowing rank (ascending, default 0, lowest renders; same id + same priority throws — see {@link SlotCore.register}). */
+export type KindOptions<K extends keyof SlotMap & string, EntryKey extends EntryKeyOf<K>, M = never> = SlotMap[K]['kind'] extends 'keyed'
+  ? {
+      key: EntryKey
+      /** Cell shadowing rank (ascending, default 0, lowest renders; same key + same priority throws — see {@link SlotCore.register}). */
       priority?: number
     }
-      : SlotMap[K]['kind'] extends 'chain' ? {
-        /** Routing selector, mandatory on chain entries; `M` (the component's `matched` prop) infers from its return. */
-        select: ChainSelect<SlotMap[K] extends { owner: infer O extends object } ? O : object, M>
-        /** Explicit chain position (ascending, default 0, lower tries first); ties keep registration = assembly order. */
+  : SlotMap[K]['kind'] extends 'list'
+    ? {
+        id: string
+        order?: number
+        label?: SlotLabel
+        /** Cell shadowing rank (ascending, default 0, lowest renders; same id + same priority throws — see {@link SlotCore.register}). */
         priority?: number
       }
-        : {
+    : SlotMap[K]['kind'] extends 'chain'
+      ? {
+          /** Routing selector, mandatory on chain entries; `M` (the component's `matched` prop) infers from its return. */
+          select: ChainSelect<SlotMap[K] extends { owner: infer O extends object } ? O : object, M>
+          /** Explicit chain position (ascending, default 0, lower tries first); ties keep registration = assembly order. */
+          priority?: number
+        }
+      : {
           /**
            * Cell shadowing rank (ascending, default 0, lowest renders; a
            * same-priority second registration throws — see {@link SlotCore.register}).
@@ -803,23 +776,18 @@ export type KindOptions<
  * not declare them. Evaluates to an unsatisfiable intersection member naming
  * the declared keys when violated.
  */
-type RendersCheck<C, D> =
-  [keyof D & keyof SlotMap & string] extends [never] ? unknown
-    : C extends (props: infer P) => ReactNode
-      ? ('renderSlot' extends keyof P ? unknown
-        : 'renderSlotChain' extends keyof P ? unknown
-          : { 'children declared but the component consumes no renderSlot': keyof D & keyof SlotMap & string })
-      : unknown
+type RendersCheck<C, D> = [keyof D & keyof SlotMap & string] extends [never]
+  ? unknown
+  : C extends (props: infer P) => ReactNode
+    ? 'renderSlot' extends keyof P
+      ? unknown
+      : 'renderSlotChain' extends keyof P
+        ? unknown
+        : { 'children declared but the component consumes no renderSlot': keyof D & keyof SlotMap & string }
+    : unknown
 
 /** Common register options share (see {@link SlotCore.register} for semantics). */
-type BaseOptions<
-  K extends keyof SlotMap & string,
-  EntryKey extends EntryKeyOf<K>,
-  D extends ChildrenDecl,
-  H,
-  M = never,
-  N = undefined,
-> = {
+type BaseOptions<K extends keyof SlotMap & string, EntryKey extends EntryKeyOf<K>, D extends ChildrenDecl, H, M = never, N = undefined> = {
   /** Target slot key (the entry contributes INTO this slot). */
   name: K
   /** Child-slot declaration + render authorization + runtime spec, in one table. */
@@ -1006,8 +974,9 @@ export class SlotCore {
    * (disposal authority remains with the registrant).
    */
   private abdicated = new WeakSet<StoredEntry>()
-  private entryErrorListeners
-    = new Set<(key: string, registration: StoredEntry | StoredFactory, error: unknown, info: { abdicated: boolean }) => void>()
+  private entryErrorListeners = new Set<
+    (key: string, registration: StoredEntry | StoredFactory, error: unknown, info: { abdicated: boolean }) => void
+  >()
 
   constructor() {
     // The a-priori root hole. No markDirty: nothing can observe construction.
@@ -1043,7 +1012,8 @@ export class SlotCore {
       const pinned = this.handleScopes.get(options.store)
       if (pinned !== undefined && pinned.scope !== options.scope) {
         throw new Error(
-          `store handle mounted under factory "${options.name}" (scope "${options.scope}") is already mounted under scope "${pinned.scope}" — one handle, one scope`)
+          `store handle mounted under factory "${options.name}" (scope "${options.scope}") is already mounted under scope "${pinned.scope}" — one handle, one scope`,
+        )
       }
       if (pinned !== undefined) pinned.count += 1
       else this.handleScopes.set(options.store, { scope: options.scope, count: 1 })
@@ -1111,7 +1081,9 @@ export class SlotCore {
   subscribeFactory(name: string, listener: () => void): () => void {
     const record = this.factoryRecord(name)
     record.listeners.add(listener)
-    return () => { record.listeners.delete(listener) }
+    return () => {
+      record.listeners.delete(listener)
+    }
   }
 
   /**
@@ -1168,12 +1140,11 @@ export class SlotCore {
     C extends SlotComponent<never> = SlotComponent<never>,
   >(
     options: BaseOptions<K, EntryKey, D, H, M, N> & { inject?: undefined },
-    component: C
-      & SlotComponent<ComposedProps<
-        K, NoInfer<EntryKey>, keyof NoInfer<D> & keyof SlotMap & string,
-        HandleOf<NoInfer<H>>, object, NoInfer<M>, NoInfer<N>
-      >>
-      & RendersCheck<C, D>,
+    component: C &
+      SlotComponent<
+        ComposedProps<K, NoInfer<EntryKey>, keyof NoInfer<D> & keyof SlotMap & string, HandleOf<NoInfer<H>>, object, NoInfer<M>, NoInfer<N>>
+      > &
+      RendersCheck<C, D>,
   ): () => void
   /**
    * Inject-bearing overload: identical semantics to the overload above, plus
@@ -1196,12 +1167,11 @@ export class SlotCore {
     C extends SlotComponent<never> = SlotComponent<never>,
   >(
     options: BaseOptions<K, EntryKey, D, H, M, N> & { inject: (...args: InjectParams<K, H>) => I },
-    component: C
-      & SlotComponent<ComposedProps<
-        K, NoInfer<EntryKey>, keyof NoInfer<D> & keyof SlotMap & string,
-        HandleOf<NoInfer<H>>, I, NoInfer<M>, NoInfer<N>
-      >>
-      & RendersCheck<C, D>,
+    component: C &
+      SlotComponent<
+        ComposedProps<K, NoInfer<EntryKey>, keyof NoInfer<D> & keyof SlotMap & string, HandleOf<NoInfer<H>>, I, NoInfer<M>, NoInfer<N>>
+      > &
+      RendersCheck<C, D>,
   ): () => void
   /* jscpd:ignore-end */
   register(options: ErasedOptions, component: unknown): () => void {
@@ -1256,7 +1226,8 @@ export class SlotCore {
       const pinned = this.handleScopes.get(options.store)
       if (pinned && pinned.scope !== spec.scope) {
         throw new Error(
-          `store handle mounted under "${options.name}" (scope "${spec.scope}") is already mounted under scope "${pinned.scope}" — one handle, one scope`)
+          `store handle mounted under "${options.name}" (scope "${spec.scope}") is already mounted under scope "${pinned.scope}" — one handle, one scope`,
+        )
       }
       if (pinned) pinned.count += 1
       else this.handleScopes.set(options.store, { scope: spec.scope, count: 1 })
@@ -1283,9 +1254,11 @@ export class SlotCore {
     // sequence — a cell's winner is its first occurrence, chain tries lower
     // priority first. List refines equal priorities by explicit `order` so the
     // raw ledger keeps its display sequence for priority-less compositions.
-    next.sort(spec.kind === 'list'
-      ? (a, b) => ((a.options.priority ?? 0) - (b.options.priority ?? 0)) || ((a.options.order ?? 0) - (b.options.order ?? 0))
-      : (a, b) => (a.options.priority ?? 0) - (b.options.priority ?? 0))
+    next.sort(
+      spec.kind === 'list'
+        ? (a, b) => (a.options.priority ?? 0) - (b.options.priority ?? 0) || (a.options.order ?? 0) - (b.options.order ?? 0)
+        : (a, b) => (a.options.priority ?? 0) - (b.options.priority ?? 0),
+    )
     rec.entries = next
     this.markDirty(options.name, rec)
     if (options.children) {
@@ -1416,12 +1389,12 @@ export class SlotCore {
         name,
         kind: record.spec.kind,
         scope: record.spec.scope,
-        ...record.declaredBy === undefined ? {} : { declaredBy: record.declaredBy },
+        ...(record.declaredBy === undefined ? {} : { declaredBy: record.declaredBy }),
         occupants: record.entries.map(entry => ({
-          ...entry.registrant === undefined ? {} : { registrant: entry.registrant },
-          ...entry.options.key === undefined ? {} : { key: entry.options.key },
-          ...entry.options.id === undefined ? {} : { id: entry.options.id },
-          ...entry.options.order === undefined ? {} : { order: entry.options.order },
+          ...(entry.registrant === undefined ? {} : { registrant: entry.registrant }),
+          ...(entry.options.key === undefined ? {} : { key: entry.options.key }),
+          ...(entry.options.id === undefined ? {} : { id: entry.options.id }),
+          ...(entry.options.order === undefined ? {} : { order: entry.options.order }),
           priority: entry.options.priority ?? 0,
           active: active.has(entry),
         })),
@@ -1447,9 +1420,7 @@ export class SlotCore {
       }
     }
     if (root !== undefined) {
-      const node = root.startsWith('factory:')
-        ? buildFactory(root.slice('factory:'.length))
-        : buildSlot(root, new Set())
+      const node = root.startsWith('factory:') ? buildFactory(root.slice('factory:'.length)) : buildSlot(root, new Set())
       return node === undefined ? [] : [node]
     }
     const slots = [...this.records.entries()]
@@ -1458,7 +1429,7 @@ export class SlotCore {
         const node = buildSlot(name, new Set())
         return node === undefined ? [] : [node]
       })
-    const factories = [...this.factories.keys()].flatMap((name) => {
+    const factories = [...this.factories.keys()].flatMap(name => {
       const node = buildFactory(name)
       return node === undefined ? [] : [node]
     })
@@ -1485,7 +1456,9 @@ export class SlotCore {
   subscribe(key: string, fn: () => void): () => void {
     const rec = this.record(key)
     rec.listeners.add(fn)
-    return () => { rec.listeners.delete(fn) }
+    return () => {
+      rec.listeners.delete(fn)
+    }
   }
 
   /**
@@ -1501,7 +1474,9 @@ export class SlotCore {
   subscribeDeclaration(key: string, fn: () => void): () => void {
     const rec = this.record(key)
     rec.declarationListeners.add(fn)
-    return () => { rec.declarationListeners.delete(fn) }
+    return () => {
+      rec.declarationListeners.delete(fn)
+    }
   }
 
   /**
@@ -1523,7 +1498,9 @@ export class SlotCore {
    */
   onMutate(fn: (key: string) => void): () => void {
     this.mutateListeners.add(fn)
-    return () => { this.mutateListeners.delete(fn) }
+    return () => {
+      this.mutateListeners.delete(fn)
+    }
   }
 
   /**
@@ -1571,14 +1548,13 @@ export class SlotCore {
    * registration, the cause, and whether an ordinary entry was retired.
    * @returns unsubscribe.
    */
-  onEntryError(fn: (
-    key: string,
-    registration: StoredEntry | StoredFactory,
-    error: unknown,
-    info: { abdicated: boolean },
-  ) => void): () => void {
+  onEntryError(
+    fn: (key: string, registration: StoredEntry | StoredFactory, error: unknown, info: { abdicated: boolean }) => void,
+  ): () => void {
     this.entryErrorListeners.add(fn)
-    return () => { this.entryErrorListeners.delete(fn) }
+    return () => {
+      this.entryErrorListeners.delete(fn)
+    }
   }
 
   /**
@@ -1653,7 +1629,9 @@ export class SlotCore {
     this.dirty.add(rec)
     if (!this.flushScheduled) {
       this.flushScheduled = true
-      queueMicrotask(() => { this.flush() })
+      queueMicrotask(() => {
+        this.flush()
+      })
     }
   }
 

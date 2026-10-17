@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { bundleWorkflowGuest, generateWorkflowGuest } from './gen-workflow-guest.ts'
 
 async function fixture(source: string): Promise<{ root: string; entry: string; output: string }> {
@@ -16,11 +16,13 @@ async function fixture(source: string): Promise<{ root: string; entry: string; o
 }
 
 it('bundles source imports into a module that loads without their files', async () => {
-  const { root, entry } = await fixture('import { answer } from "./answer.ts"; import { isBuiltin } from "node:module"; export const result = [answer, isBuiltin("node:vm")];')
+  const { root, entry } = await fixture(
+    'import { answer } from "./answer.ts"; import { isBuiltin } from "node:module"; export const result = [answer, isBuiltin("node:vm")];',
+  )
   await writeFile(join(entry, '..', 'answer.ts'), 'export const answer: number = 42;')
   const source = await bundleWorkflowGuest(root)
   await rm(join(root, 'packages'), { recursive: true })
-  const module = await import(`data:text/javascript,${encodeURIComponent(source)}`) as { result: unknown }
+  const module = (await import(`data:text/javascript,${encodeURIComponent(source)}`)) as { result: unknown }
   expect(module.result).toEqual([42, true])
   expect(source).not.toContain(root)
 })

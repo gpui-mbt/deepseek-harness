@@ -64,11 +64,7 @@ export interface ResolvedConfig extends ResolvedDiscoveryConfig {
  * @param projectRoot - project root selected for the current baseline.
  * @returns stable serialized identity for compatibility checks on resume.
  */
-export function workspaceBaselineIdentity(
-  config: ResolvedConfig,
-  cwd: string,
-  projectRoot: string,
-): string {
+export function workspaceBaselineIdentity(config: ResolvedConfig, cwd: string, projectRoot: string): string {
   return JSON.stringify({
     projectRoot: relative(cwd, projectRoot),
     projectRootMarkers: config.projectRootMarkers,
@@ -88,11 +84,11 @@ export function workspaceBaselineIdentity(
 export function resolveConfig(config: Config): ResolvedConfig {
   return {
     ...resolveDiscoveryConfig({
-      ...config.projectRootMarkers === undefined ? {} : { projectRootMarkers: config.projectRootMarkers },
-      ...config.instructionFileCandidates === undefined ? {} : { instructionFileCandidates: config.instructionFileCandidates },
-      ...config.localInstructionFileCandidates === undefined
+      ...(config.projectRootMarkers === undefined ? {} : { projectRootMarkers: config.projectRootMarkers }),
+      ...(config.instructionFileCandidates === undefined ? {} : { instructionFileCandidates: config.instructionFileCandidates }),
+      ...(config.localInstructionFileCandidates === undefined
         ? {}
-        : { localInstructionFileCandidates: config.localInstructionFileCandidates },
+        : { localInstructionFileCandidates: config.localInstructionFileCandidates }),
     }),
     maxBytes: config.maxBytes,
     maxSourceBytes: config.maxSourceBytes ?? DEFAULT_MAX_SOURCE_BYTES,
@@ -111,17 +107,16 @@ export function resolveConfig(config: Config): ResolvedConfig {
  * @returns normalized home, root markers, and instruction candidates.
  */
 export function resolveDiscoveryConfig(
-  config: Pick<Config, 'projectRootMarkers' | 'instructionFileCandidates' | 'localInstructionFileCandidates'>
-    & { dshHome?: string; agentsHome?: string },
+  config: Pick<Config, 'projectRootMarkers' | 'instructionFileCandidates' | 'localInstructionFileCandidates'> & {
+    dshHome?: string
+    agentsHome?: string
+  },
 ): ResolvedDiscoveryConfig {
   return {
     dshHome: resolveDshHome(config.dshHome),
     agentsHome: resolveAgentsHome(config.agentsHome),
     projectRootMarkers: config.projectRootMarkers ?? [...DEFAULT_PROJECT_ROOT_MARKERS],
-    instructionFileCandidates: resolveInstructionFileCandidates(
-      config.instructionFileCandidates,
-      DEFAULT_INSTRUCTION_FILE_CANDIDATES,
-    ),
+    instructionFileCandidates: resolveInstructionFileCandidates(config.instructionFileCandidates, DEFAULT_INSTRUCTION_FILE_CANDIDATES),
     localInstructionFileCandidates: resolveInstructionFileCandidates(
       config.localInstructionFileCandidates,
       DEFAULT_LOCAL_INSTRUCTION_FILE_CANDIDATES,
@@ -130,7 +125,5 @@ export function resolveDiscoveryConfig(
 }
 
 function resolveInstructionFileCandidates(candidates: string[] | undefined, fallback: readonly string[]): string[] {
-  return (candidates ?? [...fallback]).filter(candidate => (
-    !RESERVED_PATH_SEGMENTS.has(candidate) && !/[\\/]/.test(candidate)
-  ))
+  return (candidates ?? [...fallback]).filter(candidate => !RESERVED_PATH_SEGMENTS.has(candidate) && !/[\\/]/.test(candidate))
 }

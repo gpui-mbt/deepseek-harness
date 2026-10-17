@@ -41,8 +41,16 @@ export interface OfficeToPdfResult {
 
 /** Failures a conversion consumer can present without exposing engine diagnostics. */
 export type OfficeToPdfErrorCode =
-  | 'input-too-large' | 'output-too-large' | 'invalid-document' | 'unsupported-format'
-  | 'invalid-output' | 'timeout' | 'unavailable' | 'failed' | 'busy' | 'source-changed'
+  | 'input-too-large'
+  | 'output-too-large'
+  | 'invalid-document'
+  | 'unsupported-format'
+  | 'invalid-output'
+  | 'timeout'
+  | 'unavailable'
+  | 'failed'
+  | 'busy'
+  | 'source-changed'
 
 /** PDF content carries the original Office file's identity and multipart-transferred bytes. */
 export interface RenderedDocumentBytes extends WorkspaceFileBytes {

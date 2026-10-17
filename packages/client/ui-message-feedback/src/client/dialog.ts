@@ -39,7 +39,11 @@ export interface FeedbackDialogState {
 export type FeedbackSubmit = (target: FeedbackDialogTarget, entry: FeedbackRecord) => Promise<MessageFeedbackActionResult>
 
 const CLOSED: Omit<FeedbackDialogState, 'toast'> = {
-  target: null, category: null, text: '', submitting: false, failure: null,
+  target: null,
+  category: null,
+  text: '',
+  submitting: false,
+  failure: null,
 }
 
 /** Per-session dialog controller; one instance backs the overlay entry and every message control. */

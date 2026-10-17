@@ -50,7 +50,9 @@ export function createWatch(remote: ClientRemote): WatchWorkspaceDirectory {
       open: lifetime => remote.workspaceFiles.changes(sessionId, path, lifetime),
       ended: () => new Error(`Directory watch ended: ${path}`),
     })
-    const abort = (): void => { void stream.dispose() }
+    const abort = (): void => {
+      void stream.dispose()
+    }
     signal.addEventListener('abort', abort, { once: true })
     try {
       for await (const item of stream) {
@@ -72,11 +74,7 @@ export function createWatch(remote: ClientRemote): WatchWorkspaceDirectory {
  * root from it: the same path means different directories in different sessions.
  * A Remote call does not reject — the result carries the failure.
  */
-export type ListWorkspaceDirectory = (
-  sessionId: SessionId,
-  path: string,
-  signal: AbortSignal,
-) => Promise<RemoteResult<DirLevel>>
+export type ListWorkspaceDirectory = (sessionId: SessionId, path: string, signal: AbortSignal) => Promise<RemoteResult<DirLevel>>
 
 /**
  * The slice of the Client Remote face this package calls: the `workspaceFiles`
@@ -153,10 +151,7 @@ export function filesFace(
   list: ListWorkspaceDirectory,
   watch: WatchWorkspaceDirectory,
 ): (sessionId: SessionId, actions: BoundActions<ReturnType<typeof createFilesStore>>) => FilesInjected {
-  return (
-    sessionId: SessionId,
-    actions: BoundActions<ReturnType<typeof createFilesStore>>,
-  ): FilesInjected => {
+  return (sessionId: SessionId, actions: BoundActions<ReturnType<typeof createFilesStore>>): FilesInjected => {
     /** Per tab, per absolute path: the listing generation a settlement must match; the latest request wins. */
     const generations = new Map<TabId, Map<string, number>>()
     const roots = new Map<TabId, DirectoryNode>()
@@ -171,7 +166,7 @@ export function filesFace(
       if (signal.aborted) return
       const generation = nextGeneration(tabId, path)
       actions.loading(tabId, path)
-      return list(sessionId, path, signal).then((result) => {
+      return list(sessionId, path, signal).then(result => {
         // A newer listing of this level was asked for since, or the record is
         // gone and its bookkeeping with it: nothing left for this one to write.
         if (signal.aborted || generations.get(tabId)?.get(path) !== generation) return
@@ -181,28 +176,42 @@ export function filesFace(
       })
     }
     return {
-      refresh: (tabId) => { void roots.get(tabId)?.refreshTree() },
+      refresh: tabId => {
+        void roots.get(tabId)?.refreshTree()
+      },
       setAutoRefresh: (tabId, enabled) => {
         actions.autoRefresh(tabId, enabled)
         roots.get(tabId)?.setAutomatic(enabled)
       },
       start(tabId, root, signal) {
         actions.start(tabId, root)
-        signal.addEventListener('abort', () => {
-          void roots.get(tabId)?.close()
-          roots.delete(tabId)
-          generations.delete(tabId)
-          actions.forget(tabId)
-        }, { once: true })
-        roots.set(tabId, new DirectoryNode(root,
-          (path, lifetime) => load(tabId, path, lifetime),
-          (path, lifetime) => watch(sessionId, path, lifetime),
-          (path, error) => {
-            if (!signal.aborted) actions.failed(tabId, path, new RemoteError('gateway/internal', error instanceof Error ? error.message : String(error), {}))
-          }, signal,
-        ).open())
+        signal.addEventListener(
+          'abort',
+          () => {
+            void roots.get(tabId)?.close()
+            roots.delete(tabId)
+            generations.delete(tabId)
+            actions.forget(tabId)
+          },
+          { once: true },
+        )
+        roots.set(
+          tabId,
+          new DirectoryNode(
+            root,
+            (path, lifetime) => load(tabId, path, lifetime),
+            (path, lifetime) => watch(sessionId, path, lifetime),
+            (path, error) => {
+              if (!signal.aborted)
+                actions.failed(tabId, path, new RemoteError('gateway/internal', error instanceof Error ? error.message : String(error), {}))
+            },
+            signal,
+          ).open(),
+        )
       },
-      load: (tabId, path, signal) => { void load(tabId, path, signal) },
+      load: (tabId, path, signal) => {
+        void load(tabId, path, signal)
+      },
       toggle(tabId, parentPath, path, expanded, signal) {
         if (signal.aborted) return
         const root = roots.get(tabId)

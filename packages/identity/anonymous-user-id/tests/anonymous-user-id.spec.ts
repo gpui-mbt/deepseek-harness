@@ -1,11 +1,8 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
-import {
-  ANONYMOUS_USER_ID_FILE_NAME,
-  getOrCreateAnonymousUserId,
-} from '../src/index.ts'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { ANONYMOUS_USER_ID_FILE_NAME, getOrCreateAnonymousUserId } from '../src/index.ts'
 
 const dirs: string[] = []
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { createUserMessage, type GenerateOptions, type Message, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
@@ -33,18 +33,20 @@ async function harness(adapter: MockAdapter): Promise<Context> {
   await ctx.plugin(PlanModeController, PLAN_CONFIG)
   ctx.llm.registerAdapter(['mock'], adapter)
   for (const name of ['read', 'write']) {
-    ctx.tools.register(defineContentToolFixture({
-      name,
-      description: `test tool ${name}`,
-      parameters: {},
-      execute: () => Promise.resolve([{ type: 'text', text: `ran ${name}` }]),
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name,
+        description: `test tool ${name}`,
+        parameters: {},
+        execute: () => Promise.resolve([{ type: 'text', text: `ran ${name}` }]),
+      }),
+    )
   }
   return ctx
 }
 
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()
@@ -63,7 +65,10 @@ function planActive(ctx: Context, agent: Agent): boolean {
 
 /** Join the text blocks of one message. */
 function textOf(message: Message): string {
-  return message.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return message.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 /** Text of the session's current system node: the `system/message` at surface node 0. */
@@ -85,19 +90,14 @@ function findEvent<T extends SessionEvent['type']>(
   type: T,
   position: 'first' | 'last' = 'first',
 ): Extract<SessionEvent, { type: T }> {
-  const found = position === 'first'
-    ? log.find(event => event.type === type)
-    : log.findLast(event => event.type === type)
+  const found = position === 'first' ? log.find(event => event.type === type) : log.findLast(event => event.type === type)
   if (!found) throw new Error(`no ${type} event in the session log`)
   return found as Extract<SessionEvent, { type: T }>
 }
 
 describe('plan mode through the agent loop', () => {
   it('a pre-turn set() makes the FIRST header plan-shaped, and a non-shell call is guidance-constrained only', async () => {
-    const adapter = new MockAdapter([
-      toolCallResponse('call-1', 'write', {}, 'Writing during plan.'),
-      textResponse('Noted in the plan.'),
-    ])
+    const adapter = new MockAdapter([toolCallResponse('call-1', 'write', {}, 'Writing during plan.'), textResponse('Noted in the plan.')])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('it-plan-seed'), { provider: 'mock', model: 'mock' })
     // Selected while idle: the mode commits immediately, before the first assembly.
@@ -129,10 +129,7 @@ describe('plan mode through the agent loop', () => {
   })
 
   it('a user flip between turns lands at the boundary: one notice and a replaced system node with stable tool schemas', async () => {
-    const adapter = new MockAdapter([
-      textResponse('First turn, default mode.'),
-      textResponse('Second turn, plan mode.'),
-    ])
+    const adapter = new MockAdapter([textResponse('First turn, default mode.'), textResponse('Second turn, plan mode.')])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('it-plan-flip'), { provider: 'mock', model: 'mock' })
 
@@ -171,10 +168,12 @@ describe('plan mode through the agent loop', () => {
   })
 
   it('a mode flip at error settlement waits until the step after a same-step retry', async () => {
-    const failedRequest = [{
-      type: 'finish',
-      reason: { kind: 'error', failure: { message: 'temporarily unavailable', code: 'SERVER', status: 503 } },
-    }] satisfies StreamChunk[]
+    const failedRequest = [
+      {
+        type: 'finish',
+        reason: { kind: 'error', failure: { message: 'temporarily unavailable', code: 'SERVER', status: 503 } },
+      },
+    ] satisfies StreamChunk[]
     const adapter = new MockAdapter([
       failedRequest,
       textResponse('Recovered with the original step assembly.'),
@@ -208,10 +207,8 @@ describe('plan mode through the agent loop', () => {
     expect(adapter.requests[2]?.tools).toEqual(adapter.requests[0]?.tools)
     const log = agent.session.snapshotEvents()
     const planMode = findEvent(log, 'plan/mode')
-    const firstEnd = log.find(event => event.type === 'step/end'
-      && event.data.turn === 1 && event.data.step === 1)
-    const nextStart = log.find(event => event.type === 'step/start'
-      && event.data.turn === 2 && event.data.step === 1)
+    const firstEnd = log.find(event => event.type === 'step/end' && event.data.turn === 1 && event.data.step === 1)
+    const nextStart = log.find(event => event.type === 'step/start' && event.data.turn === 2 && event.data.step === 1)
     expect(firstEnd?.seq).toBeLessThan(planMode.seq)
     expect(planMode.seq).toBeLessThan(nextStart?.seq ?? 0)
     const systemNodes = log.filter(event => event.type === 'system/message')
@@ -245,7 +242,9 @@ describe('plan mode through the agent loop', () => {
     const log = agent.session.snapshotEvents()
     const result = findEvent(log, 'tool/result')
     expect(result.data.message.isError).toBe(false)
-    expect(result.data.message.content).toEqual([{ type: 'text', text: 'The user dismissed the plan review to reply in their own words; plan mode remains active.' }])
+    expect(result.data.message.content).toEqual([
+      { type: 'text', text: 'The user dismissed the plan review to reply in their own words; plan mode remains active.' },
+    ])
     expect(findEvent(log, 'turn/end').data.reason).toEqual({ kind: 'completed' })
     expect(planActive(ctx, agent)).toBe(true)
   })

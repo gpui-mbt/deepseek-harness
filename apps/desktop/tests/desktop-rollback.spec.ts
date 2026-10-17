@@ -1,24 +1,49 @@
 import { createHash } from 'node:crypto'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { rollbackDesktopChannel } from '../scripts/desktop-rollback.ts'
 import type { DesktopPublishOperations } from '../scripts/desktop-publish.ts'
 import type { DesktopUploadPlan } from '../scripts/desktop-upload-plan.ts'
 
 function fixture() {
-  const objects = new Map([['bin/old.exe', 'old installer'], ['feed/nightly.yml', 'version: 2.0.0\n']])
+  const objects = new Map([
+    ['bin/old.exe', 'old installer'],
+    ['feed/nightly.yml', 'version: 2.0.0\n'],
+  ])
   const writes: string[] = []
   const plan: DesktopUploadPlan = {
-    environment: 'test', target: 'win-x64', version: '1.0.0', bucket: 'fixture', publicUrl: 'https://example.com', secretIdEnvName: 'ID', secretKeyEnvName: 'KEY',
+    environment: 'test',
+    target: 'win-x64',
+    version: '1.0.0',
+    bucket: 'fixture',
+    publicUrl: 'https://example.com',
+    secretIdEnvName: 'ID',
+    secretKeyEnvName: 'KEY',
     artifacts: [
-      { key: 'bin/old.exe', path: '', filename: 'old.exe', contentType: 'application/octet-stream', channelMetadata: false, contents: 'old installer' },
-      { key: 'feed/nightly.yml', path: '', filename: 'nightly.yml', contentType: 'application/yaml', channelMetadata: true, contents: 'version: 1.0.0\n' },
+      {
+        key: 'bin/old.exe',
+        path: '',
+        filename: 'old.exe',
+        contentType: 'application/octet-stream',
+        channelMetadata: false,
+        contents: 'old installer',
+      },
+      {
+        key: 'feed/nightly.yml',
+        path: '',
+        filename: 'nightly.yml',
+        contentType: 'application/yaml',
+        channelMetadata: true,
+        contents: 'version: 1.0.0\n',
+      },
     ],
   }
   const operations: DesktopPublishOperations = {
     transport: {
       async read(key) {
         const contents = objects.get(key)
-        return contents === undefined ? null : { contents, size: Buffer.byteLength(contents), sha512: createHash('sha512').update(contents).digest('base64') }
+        return contents === undefined
+          ? null
+          : { contents, size: Buffer.byteLength(contents), sha512: createHash('sha512').update(contents).digest('base64') }
       },
       async put(artifact, _digest, forbidOverwrite) {
         expect(forbidOverwrite).toBe(false)
@@ -27,7 +52,9 @@ function fixture() {
       },
     },
     async record() {},
-    async tag() { throw new Error('must not create a tag') },
+    async tag() {
+      throw new Error('must not create a tag')
+    },
   }
   return { plan, operations, writes, objects }
 }
@@ -46,7 +73,7 @@ it('only restores the YAML after checking the historical binary', async () => {
   expect(f.objects.get('bin/old.exe')).toBe('old installer')
 })
 
-it.each(['missing-file', 'changed-file', 'changed-channel'] as const)('rejects %s without writes', async (problem) => {
+it.each(['missing-file', 'changed-file', 'changed-channel'] as const)('rejects %s without writes', async problem => {
   const f = fixture()
   if (problem === 'missing-file') f.objects.delete('bin/old.exe')
   if (problem === 'changed-file') f.objects.set('bin/old.exe', 'changed')
@@ -63,12 +90,16 @@ it('restores nightly when latest already matches and resumes a partially restore
     f.objects.set('feed/latest.yml', latestAlreadyMatches ? nightly.contents! : 'version: 2.0.0\n')
     if (!latestAlreadyMatches) {
       const put = f.operations.transport.put.bind(f.operations.transport)
-      const interrupted = { ...f.operations, transport: { ...f.operations.transport,
-        async put(...args: Parameters<typeof put>) {
-          if (args[0].key === 'feed/latest.yml') throw new Error('fixture interruption')
-          return put(...args)
+      const interrupted = {
+        ...f.operations,
+        transport: {
+          ...f.operations.transport,
+          async put(...args: Parameters<typeof put>) {
+            if (args[0].key === 'feed/latest.yml') throw new Error('fixture interruption')
+            return put(...args)
+          },
         },
-      } }
+      }
       await expect(rollbackDesktopChannel(plan, '2.0.0', true, interrupted)).rejects.toThrow('fixture interruption')
     }
     await expect(rollbackDesktopChannel(plan, '2.0.0', true, f.operations)).resolves.toMatchObject({ status: 'complete' })

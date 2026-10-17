@@ -47,7 +47,7 @@ export const en = {
   'shortcut.noSession': 'Select a session first',
   'type.label': 'Files',
   'guide.title': 'Workspace files',
-  'guide.description': 'Browse files in this session\'s workspace',
+  'guide.description': "Browse files in this session's workspace",
   loading: 'Reading…',
   empty: 'Empty directory',
   truncated: 'Too many entries, showing only some of them.',

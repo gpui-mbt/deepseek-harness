@@ -12,21 +12,39 @@ export const SHORTCUT_STORAGE_KEY = 'dsh.keybindings.v1'
  * @param publish - accepts complete configuration snapshots.
  * @returns adapter and lifecycle disposal.
  */
-export function webShortcutStorage(window: Window, platform: ShortcutPlatform,
-  publish: (snapshot: ShortcutConfigSnapshot) => void): DesktopShortcutsApi & { dispose(): void } {
-  const persistence = new ShortcutPersistence({
-    read: () => window.localStorage.getItem(SHORTCUT_STORAGE_KEY),
-    write: (raw) => { window.localStorage.setItem(SHORTCUT_STORAGE_KEY, raw) },
-  }, 'web', platform, true, publish)
+export function webShortcutStorage(
+  window: Window,
+  platform: ShortcutPlatform,
+  publish: (snapshot: ShortcutConfigSnapshot) => void,
+): DesktopShortcutsApi & { dispose(): void } {
+  const persistence = new ShortcutPersistence(
+    {
+      read: () => window.localStorage.getItem(SHORTCUT_STORAGE_KEY),
+      write: raw => {
+        window.localStorage.setItem(SHORTCUT_STORAGE_KEY, raw)
+      },
+    },
+    'web',
+    platform,
+    true,
+    publish,
+  )
   const changed = (event: StorageEvent): void => {
     if (event.key === null || event.key === SHORTCUT_STORAGE_KEY) void persistence.readCurrent()
   }
   window.addEventListener('storage', changed)
   return {
-    get: (definitions: readonly ShortcutDefinition[]) => { persistence.setDefinitions(definitions); return persistence.readCurrent() },
+    get: (definitions: readonly ShortcutDefinition[]) => {
+      persistence.setDefinitions(definitions)
+      return persistence.readCurrent()
+    },
     edit: (edit, revision) => persistence.edit(edit, revision),
-    subscribe: () => () => {}, recording: async () => {},
-    dispose: () => { window.removeEventListener('storage', changed); persistence.dispose() },
+    subscribe: () => () => {},
+    recording: async () => {},
+    dispose: () => {
+      window.removeEventListener('storage', changed)
+      persistence.dispose()
+    },
   }
 }
 

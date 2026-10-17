@@ -19,36 +19,86 @@
 
 // Model and operations.
 export type {
-  ApplyResult, DockMode, DockZone, FloatRect, LayoutNode, LayoutOp, LayoutState, NodeId,
-  PaneAttachment, PaneHost, PaneId, PaneNode, SplitAxis, SplitDirection, SplitId,
-  SplitNode, TabId, TabRecord,
+  ApplyResult,
+  DockMode,
+  DockZone,
+  FloatRect,
+  LayoutNode,
+  LayoutOp,
+  LayoutState,
+  NodeId,
+  PaneAttachment,
+  PaneHost,
+  PaneId,
+  PaneNode,
+  SplitAxis,
+  SplitDirection,
+  SplitId,
+  SplitNode,
+  TabId,
+  TabRecord,
 } from './contract/types.ts'
 export { applyOp, replay } from './engine/operations.ts'
 export {
-  canStepBack, canStepForward, EMPTY_HISTORY, isFocusOp, record, recordedOps,
-  Sequencer, stepBack, stepForward,
+  canStepBack,
+  canStepForward,
+  EMPTY_HISTORY,
+  isFocusOp,
+  record,
+  recordedOps,
+  Sequencer,
+  stepBack,
+  stepForward,
 } from './engine/sequence.ts'
 export type { History, HistoryEntry, HistoryStep } from './engine/sequence.ts'
-export {
-  dockPaneIds, findParent, findTabPane, getNode, getPane, getSplit, getTab, topRightPaneId,
-} from './engine/tree.ts'
+export { dockPaneIds, findParent, findTabPane, getNode, getPane, getSplit, getTab, topRightPaneId } from './engine/tree.ts'
 
 // Interaction limits and geometry.
 export {
-  canSplit, clampSizes, DOCK_EDGE_FRACTION, DOCK_ZONES, dockPaneCount,
-  FLOAT_DEFAULT_SIZE, FLOAT_MIN_SIZE, MAX_DOCK_PANES, MIN_PANE_FRACTION, zoneAt, zoneSplit,
+  canSplit,
+  clampSizes,
+  DOCK_EDGE_FRACTION,
+  DOCK_ZONES,
+  dockPaneCount,
+  FLOAT_DEFAULT_SIZE,
+  FLOAT_MIN_SIZE,
+  MAX_DOCK_PANES,
+  MIN_PANE_FRACTION,
+  zoneAt,
+  zoneSplit,
 } from './engine/constraints.ts'
 export {
-  containsPoint, dividerSizes, DRAG_THRESHOLD, floatRectAt, halvesFit, insertionIndex,
-  movedRect, passedThreshold, resizedRect, SPLIT_MINIMUMS, zoneInRect,
+  containsPoint,
+  dividerSizes,
+  DRAG_THRESHOLD,
+  floatRectAt,
+  halvesFit,
+  insertionIndex,
+  movedRect,
+  passedThreshold,
+  resizedRect,
+  SPLIT_MINIMUMS,
+  zoneInRect,
 } from './engine/geometry.ts'
 export type { DropTarget, HalvesFit, PaneMeasure, Rect, Size, SplitMinimums } from './engine/geometry.ts'
 
 // Intent planning: the shared decisions, as pure functions.
 export {
-  activeDockPaneId, findContentTab, findPaneContentTab, planAddTab, planDropTab, planDuplicateTab, planFloatTab,
-  planOpenContent, planPlaceTab, planResizeSplit, planSetExpanded, planSetMode,
-  planSettle, planSplitPane, planUnfloatPane,
+  activeDockPaneId,
+  findContentTab,
+  findPaneContentTab,
+  planAddTab,
+  planDropTab,
+  planDuplicateTab,
+  planFloatTab,
+  planOpenContent,
+  planPlaceTab,
+  planResizeSplit,
+  planSetExpanded,
+  planSetMode,
+  planSettle,
+  planSplitPane,
+  planUnfloatPane,
 } from './engine/planner.ts'
 export type { Mint, OpenContentInput, PlannedTab } from './engine/planner.ts'
 

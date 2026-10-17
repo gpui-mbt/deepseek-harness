@@ -15,8 +15,16 @@ import clsx from 'clsx'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  FileTypeIcon, IconNowrapFillRegular, IconPauseOutlineRegular, IconPlayOutlineRegular,
-  IconRefreshOutlineRegular, IconWrapFillRegular, Menu, PathLabel, Tooltip, classifyFileType,
+  FileTypeIcon,
+  IconNowrapFillRegular,
+  IconPauseOutlineRegular,
+  IconPlayOutlineRegular,
+  IconRefreshOutlineRegular,
+  IconWrapFillRegular,
+  Menu,
+  PathLabel,
+  Tooltip,
+  classifyFileType,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { pathPartsOf } from '@deepseek-ai/dsh-util-workspace-path'
 import type { TextInjected } from './face.ts'
@@ -41,12 +49,16 @@ export interface TextPreviewInjected extends TextInjected {
 }
 
 /** The body's composed props: the tab, its navigation, the shared store and face, and copy. */
-export type TextPreviewProps =
-  & PropsRuntime<'sidebar.right.pane.tab'>
-  & PropsRenderSlots<'sidebar.right.tab.document' | 'sidebar.right.tab.document.action' | 'sidebar.right.tab.document.actions' | 'sidebar.right.tab.document.unpreviewable'>
-  & PropsStore<TextStore>
-  & InjectFace<TextPreviewInjected>
-  & PropsLocale<'sidebarDocumentPreview'>
+export type TextPreviewProps = PropsRuntime<'sidebar.right.pane.tab'> &
+  PropsRenderSlots<
+    | 'sidebar.right.tab.document'
+    | 'sidebar.right.tab.document.action'
+    | 'sidebar.right.tab.document.actions'
+    | 'sidebar.right.tab.document.unpreviewable'
+  > &
+  PropsStore<TextStore> &
+  InjectFace<TextPreviewInjected> &
+  PropsLocale<'sidebarDocumentPreview'>
 
 /**
  * The text type's body, registered under `sidebar.right.pane.tab` as `text`.
@@ -54,9 +66,20 @@ export type TextPreviewProps =
  * @returns the content read so far with its controls, or a progress line.
  */
 export function TextPreview({
-  useTabInfo, useResource, useStore, actions, loadPage, reloadPages,
-  loadAll, reloadAll, prepareRenderer, useDocumentPreviews, renderSlot, t,
-  addResource, setResources,
+  useTabInfo,
+  useResource,
+  useStore,
+  actions,
+  loadPage,
+  reloadPages,
+  loadAll,
+  reloadAll,
+  prepareRenderer,
+  useDocumentPreviews,
+  renderSlot,
+  t,
+  addResource,
+  setResources,
 }: TextPreviewProps): ReactNode {
   const { tab } = useTabInfo()
   const { navigation, signal } = tab
@@ -77,12 +100,18 @@ export function TextPreview({
   const mode = selected?.loading
   const contentRendererId = mode === 'renderer' ? selected?.id : undefined
   const current = (state?.mode ?? 'text-pages') === mode && state?.contentRendererId === contentRendererId ? state : undefined
-  const add = useCallback((address: string) => {
-    addResource(tab.id, address, signal)
-  }, [addResource, tab.id, signal])
-  const set = useCallback((addresses: readonly string[]) => {
-    setResources(tab.id, [tab.contentId, ...addresses], signal)
-  }, [setResources, tab.id, tab.contentId, signal])
+  const add = useCallback(
+    (address: string) => {
+      addResource(tab.id, address, signal)
+    },
+    [addResource, tab.id, signal],
+  )
+  const set = useCallback(
+    (addresses: readonly string[]) => {
+      setResources(tab.id, [tab.contentId, ...addresses], signal)
+    },
+    [setResources, tab.id, tab.contentId, signal],
+  )
   useEffect(() => {
     set([])
   }, [set, selected?.id])
@@ -155,17 +184,30 @@ export function TextPreview({
     // landing before any later navigation reads it.
     actions.scrolled(tab.id, body.scrollTop)
   }, [
-    navigation.revision, line, loadedThrough, current?.eof, current?.loading, current?.failure, started,
-    selected?.id, mode, file, canRead, meta.value?.version,
+    navigation.revision,
+    line,
+    loadedThrough,
+    current?.eof,
+    current?.loading,
+    current?.failure,
+    started,
+    selected?.id,
+    mode,
+    file,
+    canRead,
+    meta.value?.version,
   ])
 
   const rendererReload = useCallback((): void => {
     if (canRead && selected !== undefined) prepareRenderer(tab.id, signal, selected.id, meta.value?.version, true)
   }, [canRead, prepareRenderer, tab.id, signal, selected?.id, meta.value?.version])
   const observedVersion = meta.value?.version
-  const changed = (current?.version !== undefined && observedVersion !== undefined
-    && observedVersion !== current.version && observedVersion !== current.observedVersion)
-    || state?.resourcesDirty === true
+  const changed =
+    (current?.version !== undefined &&
+      observedVersion !== undefined &&
+      observedVersion !== current.version &&
+      observedVersion !== current.observedVersion) ||
+    state?.resourcesDirty === true
   const reload = useCallback((): void => {
     if (!canRead) return
     if (mode === 'text-pages') reloadPages(tab.id, file, signal, observedVersion)
@@ -180,17 +222,36 @@ export function TextPreview({
     if (mode === 'renderer') {
       if (current === undefined) return undefined
       const revision = current.loadRevision
-      return { kind: 'renderer', revision, reload: rendererReload,
-        failed: () => { actions.rendererFailed(tab.id, revision) },
-        loaded: (version) => { actions.rendered(tab.id, revision, version) } }
-    }
-    if (mode === 'bytes-complete') {
-      return current?.complete === undefined ? undefined : {
-        kind: 'bytes', data: current.complete.data,
+      return {
+        kind: 'renderer',
+        revision,
+        reload: rendererReload,
+        failed: () => {
+          actions.rendererFailed(tab.id, revision)
+        },
+        loaded: version => {
+          actions.rendered(tab.id, revision, version)
+        },
       }
     }
+    if (mode === 'bytes-complete') {
+      return current?.complete === undefined
+        ? undefined
+        : {
+            kind: 'bytes',
+            data: current.complete.data,
+          }
+    }
     if (current === undefined || loaded.length === 0) return undefined
-    return { kind: 'text', pages: loaded, text: loaded.filter(page => page.lines > 0).map(page => page.text).join('\n'), eof: current.eof }
+    return {
+      kind: 'text',
+      pages: loaded,
+      text: loaded
+        .filter(page => page.lines > 0)
+        .map(page => page.text)
+        .join('\n'),
+      eof: current.eof,
+    }
   }, [mode, loaded, current?.complete, current?.eof, current?.loadRevision, rendererReload, actions, tab.id])
 
   // A known binary suffix with no matching renderer never reads: no plain-text
@@ -217,9 +278,7 @@ export function TextPreview({
   if (state === undefined || selected === undefined) {
     return (
       <div className={css.status} data-textpreview-state="loading">
-        {meta.status === 'none'
-          ? <p className={css.statusLine}>{t('resourceUnavailable')}</p>
-          : <LoadingIndicator label={t('loading')} />}
+        {meta.status === 'none' ? <p className={css.statusLine}>{t('resourceUnavailable')}</p> : <LoadingIndicator label={t('loading')} />}
       </div>
     )
   }
@@ -231,57 +290,60 @@ export function TextPreview({
   }
   return (
     <div className={css.preview} data-textpreview-state="text" data-textpreview-url={tab.contentId} data-document-preview={selected.id}>
-      {meta.failure !== undefined && hasContent
-        ? (
-          // The file's metadata failed — gone, or its workspace unknown — which
-          // outranks a pending change; the pages already read stay under it.
-          // With nothing read the body's own failure already says it, so the
-          // bar would only repeat the same line.
-          <p className={css.changed} data-textpreview-meta-failed={meta.failure.code}>
-            <span>{failureLine(t, meta.failure)}</span>
-            <button
-              type="button"
-              className={css.action}
-              data-textpreview-reload-now
-              onClick={reload}
-            >
+      {meta.failure !== undefined && hasContent ? (
+        // The file's metadata failed — gone, or its workspace unknown — which
+        // outranks a pending change; the pages already read stay under it.
+        // With nothing read the body's own failure already says it, so the
+        // bar would only repeat the same line.
+        <p className={css.changed} data-textpreview-meta-failed={meta.failure.code}>
+          <span>{failureLine(t, meta.failure)}</span>
+          <button type="button" className={css.action} data-textpreview-reload-now onClick={reload}>
+            {t('reloadNow')}
+          </button>
+        </p>
+      ) : (
+        changed && (
+          <p className={css.changed} data-textpreview-changed>
+            <span>{t('changed')}</span>
+            <button type="button" className={css.action} data-textpreview-reload-now onClick={reload}>
               {t('reloadNow')}
             </button>
           </p>
         )
-        : changed && (
-          <p className={css.changed} data-textpreview-changed>
-            <span>{t('changed')}</span>
-            <button
-              type="button"
-              className={css.action}
-              data-textpreview-reload-now
-              onClick={reload}
-            >
-              {t('reloadNow')}
-            </button>
-          </p>
-        )}
+      )}
       <div className={css.header}>
         <PathLabel path={displayPath} className={css.path} data-textpreview-path />
-        {candidates.length > 1
-          && (
-            <Menu
-              open={menuOpen}
-              anchor={(
-                <button type="button" className={clsx(css.tool, css.viewerTool)} aria-label={t('openWith')} title={selected.title()} data-document-viewer-menu onClick={() => { setMenuOpen(value => !value) }}>
-                  {selected.title()}
-                </button>
-              )}
-              items={candidates.map(candidate => ({ id: candidate.id, label: candidate.title() }))}
-              selectedId={selected.id}
-              onSelect={(id) => { actions.selected(tab.id, id); setMenuOpen(false) }}
-              onClose={() => { setMenuOpen(false) }}
-              align="end"
-              portal
-              dense
-            />
-          )}
+        {candidates.length > 1 && (
+          <Menu
+            open={menuOpen}
+            anchor={
+              <button
+                type="button"
+                className={clsx(css.tool, css.viewerTool)}
+                aria-label={t('openWith')}
+                title={selected.title()}
+                data-document-viewer-menu
+                onClick={() => {
+                  setMenuOpen(value => !value)
+                }}
+              >
+                {selected.title()}
+              </button>
+            }
+            items={candidates.map(candidate => ({ id: candidate.id, label: candidate.title() }))}
+            selectedId={selected.id}
+            onSelect={id => {
+              actions.selected(tab.id, id)
+              setMenuOpen(false)
+            }}
+            onClose={() => {
+              setMenuOpen(false)
+            }}
+            align="end"
+            portal
+            dense
+          />
+        )}
         {selected.wrap === true && (
           // The tooltip names the action while the stable aria name and
           // `aria-pressed` expose the control and its current state.
@@ -292,18 +354,28 @@ export function TextPreview({
               aria-pressed={state.wrap}
               aria-label={t('wrap.aria')}
               data-textpreview-tool="wrap"
-              onClick={() => { actions.toggledWrap(tab.id) }}
+              onClick={() => {
+                actions.toggledWrap(tab.id)
+              }}
             >
               {state.wrap ? <IconNowrapFillRegular /> : <IconWrapFillRegular />}
             </button>
           </Tooltip>
         )}
-        {content !== undefined && renderSlot('sidebar.right.tab.document.action', { content }, { entryKey: selected.id, hookContext: useTabInfo })}
+        {content !== undefined &&
+          renderSlot('sidebar.right.tab.document.action', { content }, { entryKey: selected.id, hookContext: useTabInfo })}
         <span hidden>
           <Tooltip label={t(state.autoRefresh ? 'autoRefresh.disable' : 'autoRefresh.enable')} side="bottom" delayMs={500}>
-            <button type="button" className={css.tool} aria-label={t('autoRefresh')}
-              aria-pressed={state.autoRefresh} data-textpreview-tool="auto-refresh"
-              onClick={() => { actions.toggledAutoRefresh(tab.id) }}>
+            <button
+              type="button"
+              className={css.tool}
+              aria-label={t('autoRefresh')}
+              aria-pressed={state.autoRefresh}
+              data-textpreview-tool="auto-refresh"
+              onClick={() => {
+                actions.toggledAutoRefresh(tab.id)
+              }}
+            >
               {state.autoRefresh ? <IconPauseOutlineRegular /> : <IconPlayOutlineRegular />}
             </button>
           </Tooltip>
@@ -330,41 +402,48 @@ export function TextPreview({
         className={clsx(css.body, state.wrap && css.wrap)}
         data-textpreview-body
         data-textpreview-wrap={state.wrap ? '' : undefined}
-        onScrollCapture={(event) => {
+        onScrollCapture={event => {
           const body = scrollportRef.current
           /* v8 ignore next -- callback refs bind the scrollport during commit, before user input. */
           if (body === null) return
           if (event.target !== body) return
           actions.scrolled(tab.id, body.scrollTop)
-          if (mode === 'text-pages' && current?.failure === undefined && body.clientHeight > 0
-            && body.scrollTop + body.clientHeight >= body.scrollHeight - 1) loadNext()
+          if (
+            mode === 'text-pages' &&
+            current?.failure === undefined &&
+            body.clientHeight > 0 &&
+            body.scrollTop + body.clientHeight >= body.scrollHeight - 1
+          )
+            loadNext()
         }}
       >
-        {mode !== 'renderer' && !hasContent && current?.failure === undefined && (
-          <LoadingIndicator label={t('loading')} />
-        )}
-        {content !== undefined && renderSlot('sidebar.right.tab.document', {
-          resourceAddress: tab.contentId, content, wrap: state.wrap, scrollportRef: bindScrollport,
-          addResource: add, setResources: set,
-        }, {
-          entryKey: selected.id, hookContext: useTabInfo,
-          fallback: <p className={css.statusLine}>{t('rendererUnavailable', { name: selected.title() })}</p>,
-        })}
-        {current?.failure !== undefined && (hasContent
-          ? (
+        {mode !== 'renderer' && !hasContent && current?.failure === undefined && <LoadingIndicator label={t('loading')} />}
+        {content !== undefined &&
+          renderSlot(
+            'sidebar.right.tab.document',
+            {
+              resourceAddress: tab.contentId,
+              content,
+              wrap: state.wrap,
+              scrollportRef: bindScrollport,
+              addResource: add,
+              setResources: set,
+            },
+            {
+              entryKey: selected.id,
+              hookContext: useTabInfo,
+              fallback: <p className={css.statusLine}>{t('rendererUnavailable', { name: selected.title() })}</p>,
+            },
+          )}
+        {current?.failure !== undefined &&
+          (hasContent ? (
             <p className={css.statusLine} data-textpreview-failed={current.failure.code}>
               <span>{failureLine(t, current.failure)}</span>
-              <button
-                type="button"
-                className={css.action}
-                data-textpreview-retry
-                onClick={loadNext}
-              >
+              <button type="button" className={css.action} data-textpreview-retry onClick={loadNext}>
                 {t('retry')}
               </button>
             </p>
-          )
-          : (
+          ) : (
             // With no content, the failure names its recourse: retry the
             // selected renderer's read when a second read may resolve it, hand
             // a file this preview cannot render to the unpreviewable
@@ -373,15 +452,11 @@ export function TextPreview({
             <div className={css.empty} data-textpreview-failed={current.failure.code}>
               <FileTypeIcon kind={classifyFileType(name)} size={36} className={css.emptyIcon} />
               <p className={css.emptyLine}>{failureLine(t, current.failure)}</p>
-              {emptyFailureRecourse(current.failure) === 'open' && fileOwner !== undefined
-                && renderSlot('sidebar.right.tab.document.unpreviewable', fileOwner)}
+              {emptyFailureRecourse(current.failure) === 'open' &&
+                fileOwner !== undefined &&
+                renderSlot('sidebar.right.tab.document.unpreviewable', fileOwner)}
               {emptyFailureRecourse(current.failure) === 'retry' && (
-                <button
-                  type="button"
-                  className={css.retry}
-                  data-textpreview-retry
-                  onClick={reload}
-                >
+                <button type="button" className={css.retry} data-textpreview-retry onClick={reload}>
                   <IconRefreshOutlineRegular size={14} />
                   {t('retry')}
                 </button>
@@ -389,13 +464,7 @@ export function TextPreview({
             </div>
           ))}
         {mode === 'text-pages' && current !== undefined && loaded.length > 0 && !current.eof && current.failure === undefined && (
-          <button
-            type="button"
-            className={css.more}
-            disabled={current.loading}
-            data-textpreview-more
-            onClick={loadNext}
-          >
+          <button type="button" className={css.more} disabled={current.loading} data-textpreview-more onClick={loadNext}>
             {current.loading ? <LoadingIndicator inline label={t('loading')} /> : t('loadMore')}
           </button>
         )}

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Markdown metadata, deferred slot registration, localization, and unload through the real renderer. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, waitFor } from '@testing-library/react'
 import { apply as resourcesApply, inject as resourcesInject } from '@deepseek-ai/dsh-client-resources/src/client/index.ts'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
@@ -22,7 +22,11 @@ describe('Markdown implementation registration', () => {
     let title = 'Markdown'
     const definition = markdownDefinition(() => title)
     expect(definition).toMatchObject({
-      id: MARKDOWN_BODY_ID, extensions: ['md', 'markdown'], priority: 'builtin', loading: 'text-pages', wrap: false,
+      id: MARKDOWN_BODY_ID,
+      extensions: ['md', 'markdown'],
+      priority: 'builtin',
+      loading: 'text-pages',
+      wrap: false,
     })
     expect(definition.title()).toBe('Markdown')
     title = 'Localized Markdown'
@@ -49,44 +53,59 @@ describe('Markdown implementation registration', () => {
     const reference = runtime.sessions.retainFor(runtime.ctx, sessionId)
     await reference.ready
     await runtime.mount({ inject: [...resourcesInject], apply: resourcesApply })
-    runtime.ctx.effect(() => runtime.ctx.resources.register({
-      protocol: 'file',
-      open: async function* () {
-        yield { ok: true as const, value: { absolutePath: '/work/guide/notes.md', version: 'v1' } }
-      },
-    }))
+    runtime.ctx.effect(() =>
+      runtime.ctx.resources.register({
+        protocol: 'file',
+        open: async function* () {
+          yield { ok: true as const, value: { absolutePath: '/work/guide/notes.md', version: 'v1' } }
+        },
+      }),
+    )
     const feature = await runtime.mount({ inject: ['slots', 'locale', 'documentPreviews'], apply })
     expect(previews.getSnapshot().map(definition => definition.id)).toEqual([MARKDOWN_BODY_ID])
-    const useTabInfo = vi.fn<UseSidebarRightTabInfo>(() => { throw new Error('Markdown rendering does not need tab actions') })
-    await runtime.root.declare({
-      'sidebar.right.tab.document': {
-        kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } },
+    const useTabInfo = vi.fn<UseSidebarRightTabInfo>(() => {
+      throw new Error('Markdown rendering does not need tab actions')
+    })
+    await runtime.root.declare(
+      {
+        'sidebar.right.tab.document': {
+          kind: 'keyed',
+          scope: 'session',
+          inject: { hooks: { tabInfo: documentTabInfoFactory } },
+        },
       },
-    }, ({ renderSlot, SessionProvider }) => (
-      <SessionProvider session={reference}>
-        {renderSlot('sidebar.right.tab.document', {
-          resourceAddress: 'dsh-resource://file/session/markdown-registration/notes.md',
-          content: { kind: 'text', text: '# Notes\n\n```ts\nconst value = 1\n```\n\n![diagram](images/a.png)', pages: [], eof: true },
-          wrap: false,
-          scrollportRef: vi.fn(),
-          addResource: vi.fn(), setResources: vi.fn(),
-        }, {
-          entryKey: MARKDOWN_BODY_ID,
-          hookContext: useTabInfo,
-          fallback: <span data-missing-markdown />,
-        })}
-      </SessionProvider>
-    ))
+      ({ renderSlot, SessionProvider }) => (
+        <SessionProvider session={reference}>
+          {renderSlot(
+            'sidebar.right.tab.document',
+            {
+              resourceAddress: 'dsh-resource://file/session/markdown-registration/notes.md',
+              content: { kind: 'text', text: '# Notes\n\n```ts\nconst value = 1\n```\n\n![diagram](images/a.png)', pages: [], eof: true },
+              wrap: false,
+              scrollportRef: vi.fn(),
+              addResource: vi.fn(),
+              setResources: vi.fn(),
+            },
+            {
+              entryKey: MARKDOWN_BODY_ID,
+              hookContext: useTabInfo,
+              fallback: <span data-missing-markdown />,
+            },
+          )}
+        </SessionProvider>
+      ),
+    )
     const view = runtime.renderRoot()
     expect(view.getByRole('heading', { name: 'Notes' })).toBeDefined()
     expect(view.getByRole('button', { name: 'Copy' })).toBeDefined()
     await waitFor(() => {
-      expect(new URL(view.getByAltText('diagram').getAttribute('src')!).searchParams.get('path'))
-        .toBe('/work/guide/images/a.png')
+      expect(new URL(view.getByAltText('diagram').getAttribute('src')!).searchParams.get('path')).toBe('/work/guide/images/a.png')
     })
     expect(runtime.slots.entries('sidebar.right.tab.document')).toHaveLength(1)
     const t = locale.bind('documentMarkdown')
-    await act(async () => { locale.setLocale('zh') })
+    await act(async () => {
+      locale.setLocale('zh')
+    })
     expect(locale.bind('documentMarkdown')).toBe(t)
     expect(view.getByRole('button', { name: '复制' })).toBeDefined()
     expect(useTabInfo).not.toHaveBeenCalled()

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ChatNode } from '../src/client/contract/chat-nodes.ts'
@@ -21,10 +21,7 @@ describe('SystemPromptNodeView', () => {
       visibility: 'visible',
       data: { text },
     }
-    const { container } = render(<SystemPromptNodeView
-      node={node}
-      t={makeTranslate(en)}
-    />)
+    const { container } = render(<SystemPromptNodeView node={node} t={makeTranslate(en)} />)
 
     const disclosure = screen.getByRole('button', { name: 'System prompt' })
     expect(disclosure.getAttribute('aria-expanded')).toBe('false')

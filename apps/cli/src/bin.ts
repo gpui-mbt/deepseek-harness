@@ -54,12 +54,7 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
     }
     case 'dump-config': {
       const { runDumpConfig } = await import('./dump-config.ts')
-      runDumpConfig(
-        invocation.profile,
-        invocation.defaultOnly,
-        invocation.patches,
-        invocation.fromDefaultProfile,
-      )
+      runDumpConfig(invocation.profile, invocation.defaultOnly, invocation.patches, invocation.fromDefaultProfile)
       break
     }
     case 'dump-config-schema': {

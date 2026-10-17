@@ -9,10 +9,18 @@ import { CLOCK_TIME_ZONE_FIELD, TRANSCRIPT_VIEW_FIELD } from './chat-settings.ts
 import { ChatSettingsFields } from './chat-settings.ts'
 
 export {
-  CHAT_SETTINGS_NAMESPACE, CLOCK_TIME_ZONE_FIELD, CLOCK_TIME_ZONES, DEFAULT_CLOCK_TIME_ZONE,
-  DEFAULT_TRANSCRIPT_VIEW_MODE, LEGACY_TRANSCRIPT_VIEW_MODE, LEGACY_EXPANDED_TRANSCRIPT_VIEW_MODE,
-  TRANSCRIPT_VIEW_FIELD, TRANSCRIPT_VIEW_MODES,
-  type ChatSettings, type ClockTimeZone, type TranscriptViewMode,
+  CHAT_SETTINGS_NAMESPACE,
+  CLOCK_TIME_ZONE_FIELD,
+  CLOCK_TIME_ZONES,
+  DEFAULT_CLOCK_TIME_ZONE,
+  DEFAULT_TRANSCRIPT_VIEW_MODE,
+  LEGACY_TRANSCRIPT_VIEW_MODE,
+  LEGACY_EXPANDED_TRANSCRIPT_VIEW_MODE,
+  TRANSCRIPT_VIEW_FIELD,
+  TRANSCRIPT_VIEW_MODES,
+  type ChatSettings,
+  type ClockTimeZone,
+  type TranscriptViewMode,
 } from './chat-settings.ts'
 
 /** Runtime preferences projected to the browser. */
@@ -42,5 +50,7 @@ export const Config = z.object({
  * @param ctx Plugin context used for optional settings presentation.
  */
 export function apply(ctx: Context): void {
-  ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
+  ctx.inject(['settings'], child => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
 }

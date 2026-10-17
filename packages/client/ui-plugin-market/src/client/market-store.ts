@@ -11,9 +11,7 @@ import { declaredQuery, INITIAL_QUERY, type DiscoverQuery } from './presentation
 export type ListingFailure = 'fetch' | 'invalid' | 'changed'
 
 /** Why the last source change was refused. */
-export type SourceFailure =
-  | { readonly kind: 'invalid' | 'duplicate' | 'unavailable' }
-  | { readonly kind: 'other'; readonly reason: string }
+export type SourceFailure = { readonly kind: 'invalid' | 'duplicate' | 'unavailable' } | { readonly kind: 'other'; readonly reason: string }
 
 /** Plugins loaded before "Show more", and loaded again by each press. */
 export const PAGE_SIZE = 50
@@ -81,7 +79,14 @@ export interface DiscoverFace {
 const MAX_PAGE = 100
 
 const INITIAL: DiscoverState = {
-  status: 'idle', indexes: [], selected: null, listing: null, editing: false, draft: '', saving: false, sourceFailure: null,
+  status: 'idle',
+  indexes: [],
+  selected: null,
+  listing: null,
+  editing: false,
+  draft: '',
+  saving: false,
+  sourceFailure: null,
 }
 
 function sourceFailure(failure: RemoteFailure): SourceFailure {
@@ -123,32 +128,51 @@ export class DiscoverController {
     return {
       hooks: { discover: this.store, locale: this.ctx.locale },
       resolveText,
-      ensure: () => { if (this.state().status === 'idle') void this.loadIndexes() },
-      reload: () => { void this.loadIndexes() },
-      select: (url) => {
+      ensure: () => {
+        if (this.state().status === 'idle') void this.loadIndexes()
+      },
+      reload: () => {
+        void this.loadIndexes()
+      },
+      select: url => {
         if (this.state().selected === url) return
         this.patch({ selected: url })
         void this.load(url, INITIAL_QUERY, PAGE_SIZE, false)
       },
-      search: (query) => {
+      search: query => {
         const listing = this.state().listing
         if (listing !== null) void this.load(listing.url, query, PAGE_SIZE, false)
       },
-      more: () => { void this.loadMore() },
-      retry: () => { this.failed() },
+      more: () => {
+        void this.loadMore()
+      },
+      retry: () => {
+        this.failed()
+      },
       refresh: () => {
         const listing = this.state().listing
         if (listing !== null) void this.load(listing.url, listing.query, PAGE_SIZE, true)
       },
-      toggleSources: () => { this.patch({ editing: !this.state().editing, sourceFailure: null }) },
-      editDraft: (text) => { this.patch({ draft: text, sourceFailure: null }) },
+      toggleSources: () => {
+        this.patch({ editing: !this.state().editing, sourceFailure: null })
+      },
+      editDraft: text => {
+        this.patch({ draft: text, sourceFailure: null })
+      },
       addSource: () => {
         const draft = this.state().draft.trim()
         if (draft === '') return
         this.selectAdded = true
         void this.saveSources([...this.state().indexes.map(index => index.url), draft], true)
       },
-      removeSource: (url) => { void this.saveSources(this.state().indexes.map(index => index.url).filter(item => item !== url), false) },
+      removeSource: url => {
+        void this.saveSources(
+          this.state()
+            .indexes.map(index => index.url)
+            .filter(item => item !== url),
+          false,
+        )
+      },
     }
   }
 
@@ -161,7 +185,8 @@ export class DiscoverController {
   bundlesChanged(): void {
     const { listing } = this.state()
     // A ready listing holds the results it settled with.
-    if (listing?.status === 'ready') void this.load(listing.url, listing.query, Math.max((listing.value as MarketSearchResult).entries.length, PAGE_SIZE), false)
+    if (listing?.status === 'ready')
+      void this.load(listing.url, listing.query, Math.max((listing.value as MarketSearchResult).entries.length, PAGE_SIZE), false)
   }
 
   private state(): DiscoverState {
@@ -184,11 +209,14 @@ export class DiscoverController {
     const indexes = answer.value
     const previous = this.state().selected
     const last = indexes.at(-1)
-    const selected = this.selectAdded && last !== undefined
-      ? last.url
-      : indexes.some(index => index.url === previous) ? previous : indexes[0]?.url ?? null
+    const selected =
+      this.selectAdded && last !== undefined
+        ? last.url
+        : indexes.some(index => index.url === previous)
+          ? previous
+          : (indexes[0]?.url ?? null)
     this.selectAdded = false
-    this.patch({ status: 'ready', indexes, selected, ...indexes.length === 0 ? { editing: false } : {} })
+    this.patch({ status: 'ready', indexes, selected, ...(indexes.length === 0 ? { editing: false } : {}) })
     if (selected === null) this.patch({ listing: null })
     else if (selected !== this.state().listing?.url) void this.load(selected, INITIAL_QUERY, PAGE_SIZE, false)
   }
@@ -204,7 +232,9 @@ export class DiscoverController {
     const [kept, answered] = current?.url === url ? [current.value, current.answered] : [null, null]
     this.patch({ listing: { url, query, status: 'loading', value: kept, answered, failure: null } })
     const fail = (failure: ListingFailure): ListingState => {
-      this.failed = () => { void this.load(url, query, count, refresh) }
+      this.failed = () => {
+        void this.load(url, query, count, refresh)
+      }
       return { url, query, status: 'error', value: kept, answered, failure }
     }
     let value: MarketSearchResult | null = null
@@ -248,7 +278,9 @@ export class DiscoverController {
     const answer = await this.page(url, query, value.entries.length, PAGE_SIZE, value.fetchedAt, false)
     if (this.disposed || read !== this.listingRead) return
     if (!answer.ok) {
-      this.failed = () => { void this.loadMore() }
+      this.failed = () => {
+        void this.loadMore()
+      }
       this.settle(url, { ...listing, status: 'error', failure: listingFailure(answer.error) }, answer)
       return
     }
@@ -262,23 +294,28 @@ export class DiscoverController {
 
   private page(url: string, query: DiscoverQuery, offset: number, limit: number, fetchedAt: number | undefined, refresh: boolean) {
     return this.ctx.remote.pluginMarket.search(url, {
-      ...query.text.trim() === '' ? {} : { text: query.text },
-      ...query.category === null ? {} : { category: query.category },
-      ...query.labels.length === 0 ? {} : { labels: query.labels },
-      sort: query.sort, offset, limit, ...fetchedAt === undefined ? {} : { fetchedAt }, ...refresh ? { refresh: true } : {},
+      ...(query.text.trim() === '' ? {} : { text: query.text }),
+      ...(query.category === null ? {} : { category: query.category }),
+      ...(query.labels.length === 0 ? {} : { labels: query.labels }),
+      sort: query.sort,
+      offset,
+      limit,
+      ...(fetchedAt === undefined ? {} : { fetchedAt }),
+      ...(refresh ? { refresh: true } : {}),
     })
   }
 
   /** Publish a settled read and the index title or error it taught about its source. */
   private settle(
-    url: string, listing: ListingState,
+    url: string,
+    listing: ListingState,
     answer: { readonly ok: true; readonly value: MarketSearchResult } | { readonly ok: false; readonly error: RemoteFailure },
   ): void {
     const indexes = this.state().indexes.map((index): MarketIndexSummary => {
       if (index.url !== url) return index
       if (!answer.ok) return { ...index, error: answer.error.message }
       const { title, description } = answer.value
-      return { url, title, ...description === undefined ? {} : { description } }
+      return { url, title, ...(description === undefined ? {} : { description }) }
     })
     this.patch({ listing, indexes })
   }
@@ -292,7 +329,7 @@ export class DiscoverController {
       this.patch({ saving: false, sourceFailure: sourceFailure(answer.error) })
       return
     }
-    this.patch({ saving: false, ...adding ? { draft: '' } : {} })
+    this.patch({ saving: false, ...(adding ? { draft: '' } : {}) })
     await this.loadIndexes()
   }
 }

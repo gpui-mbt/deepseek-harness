@@ -72,12 +72,7 @@ function fitWithPrefix(prefix: string, content: string, maxBytes: number): strin
   return `${prefix}${retain(content, maxBytes - fixedBytes, 'tail')}${TRUNCATED}`
 }
 
-function boundBodyWithSuffix(
-  content: string,
-  metadata: string,
-  upstreamTruncated: boolean,
-  maxBytes: number,
-): string {
+function boundBodyWithSuffix(content: string, metadata: string, upstreamTruncated: boolean, maxBytes: number): string {
   const suffix = `${metadata}${upstreamTruncated ? TRUNCATED : ''}`
   const complete = `${content}${suffix}`
   if (byteLength(complete) <= maxBytes) return complete
@@ -119,15 +114,11 @@ export function renderSpawn(result: RenderedSpawnResult, maxBytes: number): stri
  */
 export function renderSend(result: RenderedSendResult, maxBytes: number): string {
   const output = result.viewport || '(no new output)'
-  const status = result.sessionStatus.kind === 'running'
-    ? 'running'
-    : `exited code=${result.sessionStatus.exitCode ?? 'null'} signal=${result.sessionStatus.signal ?? 'null'}`
-  return boundBodyWithSuffix(
-    output,
-    `\n[wait: ${result.waitReason}]\n[session: ${status}]`,
-    result.truncated,
-    maxBytes,
-  )
+  const status =
+    result.sessionStatus.kind === 'running'
+      ? 'running'
+      : `exited code=${result.sessionStatus.exitCode ?? 'null'} signal=${result.sessionStatus.signal ?? 'null'}`
+  return boundBodyWithSuffix(output, `\n[wait: ${result.waitReason}]\n[session: ${status}]`, result.truncated, maxBytes)
 }
 
 /**
@@ -149,12 +140,7 @@ export function renderSendRead(read: RenderedSendRead): string {
  */
 export function renderRead(result: RenderedReadResult, maxBytes: number): string {
   const output = result.text || '(no retained output)'
-  return boundBodyWithSuffix(
-    output,
-    `\n[lines: ${result.lineBegin}-${result.lineEnd} of ${result.totalLines}]`,
-    result.truncated,
-    maxBytes,
-  )
+  return boundBodyWithSuffix(output, `\n[lines: ${result.lineBegin}-${result.lineEnd} of ${result.totalLines}]`, result.truncated, maxBytes)
 }
 
 /**
@@ -165,13 +151,16 @@ export function renderRead(result: RenderedReadResult, maxBytes: number): string
  */
 export function renderList(sessions: readonly RenderedSessionSnapshot[], maxBytes: number): string {
   if (sessions.length === 0) return '(no terminal sessions)'
-  const text = sessions.map((session) => {
-    const name = session.name === undefined ? '' : ` (${session.name})`
-    const pid = session.pid === undefined ? '' : ` pid=${session.pid}`
-    const status = session.status.kind === 'running'
-      ? 'running'
-      : `exited code=${session.status.exitCode ?? 'null'} signal=${session.status.signal ?? 'null'}`
-    return `${session.sessionId}${name} [${session.type}] ${status}${pid}`
-  }).join('\n')
+  const text = sessions
+    .map(session => {
+      const name = session.name === undefined ? '' : ` (${session.name})`
+      const pid = session.pid === undefined ? '' : ` pid=${session.pid}`
+      const status =
+        session.status.kind === 'running'
+          ? 'running'
+          : `exited code=${session.status.exitCode ?? 'null'} signal=${session.status.signal ?? 'null'}`
+      return `${session.sessionId}${name} [${session.type}] ${status}${pid}`
+    })
+    .join('\n')
   return boundBodyWithSuffix(text, '', false, maxBytes)
 }

@@ -6,10 +6,9 @@ import type { NS } from './locales.ts'
 import { FileOpenTarget, type OpenPathInjected } from './OpenPathAction.tsx'
 
 /** Full props of the unpreviewable empty-state contribution. */
-export type OpenPathEmptyActionProps =
-  PropsRuntime<'sidebar.right.tab.document.unpreviewable'>
-  & PropsLocale<typeof NS>
-  & InjectFace<OpenPathInjected>
+export type OpenPathEmptyActionProps = PropsRuntime<'sidebar.right.tab.document.unpreviewable'> &
+  PropsLocale<typeof NS> &
+  InjectFace<OpenPathInjected>
 
 /**
  * Render the shared file opening menu with a larger labeled main button.

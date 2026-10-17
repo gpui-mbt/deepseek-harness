@@ -14,8 +14,7 @@ import { join } from 'node:path'
 function execute(command, args) {
   try {
     return execFileSync(command, args, { stdio: 'pipe', timeout: 120_000, encoding: 'utf8' })
-  }
-  catch (error) {
+  } catch (error) {
     // execFile errors contain the command line, including private-key passwords.
     throw new Error(`desktop macOS signing: ${command} ${args[0]} failed; check certificate, password, and signing access`)
   }
@@ -31,7 +30,10 @@ function readUserKeychains(run) {
   if (typeof output !== 'string') {
     throw new Error('desktop macOS signing: the user keychain search list could not be read')
   }
-  return output.split('\n').map(line => line.trim().replace(/^"|"$/gu, '')).filter(path => path !== '')
+  return output
+    .split('\n')
+    .map(line => line.trim().replace(/^"|"$/gu, ''))
+    .filter(path => path !== '')
 }
 
 /**
@@ -69,7 +71,17 @@ export async function withMacOSSigningKeychain(environment, action, run = execut
     security(['list-keychains', '-d', 'user', '-s', keychain, ...previousKeychains])
     const probe = join(directory, 'probe')
     run('/bin/cp', ['/usr/bin/true', probe])
-    run('/usr/bin/codesign', ['--force', '--sign', `Developer ID Application: ${environment.DSH_DESKTOP_MACOS_SIGNING_IDENTITY}`, '--keychain', keychain, '--timestamp', '--options', 'runtime', probe])
+    run('/usr/bin/codesign', [
+      '--force',
+      '--sign',
+      `Developer ID Application: ${environment.DSH_DESKTOP_MACOS_SIGNING_IDENTITY}`,
+      '--keychain',
+      keychain,
+      '--timestamp',
+      '--options',
+      'runtime',
+      probe,
+    ])
     run('/usr/bin/codesign', ['--verify', '--strict', probe])
     const childEnvironment = { ...environment, CSC_KEYCHAIN: keychain, DSH_DESKTOP_MACOS_SIGNING_PROBE: probe }
     delete childEnvironment.CSC_LINK
@@ -79,7 +91,8 @@ export async function withMacOSSigningKeychain(environment, action, run = execut
     try {
       if (previousKeychains !== undefined) security(['list-keychains', '-d', 'user', '-s', ...previousKeychains])
       if (created) security(['delete-keychain', keychain])
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
     }
-    finally { rmSync(directory, { recursive: true, force: true }) }
   }
 }

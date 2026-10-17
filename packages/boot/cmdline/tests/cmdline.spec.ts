@@ -15,7 +15,7 @@ import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import type { PatchOptions } from '@deepseek-ai/cordis-plugin-include'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { exitOnStdinEnd, internals, parseCmdline, provideCmdline, type AppReady } from '../src/index.ts'
 
 /** Every value one boot of the fixture tree observed. */
@@ -50,7 +50,9 @@ function controlledAppReady(): { service: AppReady; commit(): void } {
     service: {
       onReady(listener) {
         listeners.add(listener)
-        return () => { listeners.delete(listener) }
+        return () => {
+          listeners.delete(listener)
+        }
       },
     },
     commit() {
@@ -109,46 +111,59 @@ async function bootFixture(
   const dir = mkdtempSync(join(tmpdir(), 'dsh-cmdline-'))
   tempDirs.push(dir)
   const observed: Observed = { exits: [], out: '' }
-  writeFileSync(join(dir, 'reader.mjs'), `
+  writeFileSync(
+    join(dir, 'reader.mjs'),
+    `
 export const name = 'reader'
 export const inject = ['demoStartup']
 export function apply(ctx, config) { globalThis.__observed.started = config }
-`)
+`,
+  )
   // The Loader imports a row through Node's own resolver, which cannot resolve
   // this workspace's sources; the row delegates to the real function the test
   // imported through the source-plane path mapping.
-  writeFileSync(join(dir, 'startup.mjs'), `
+  writeFileSync(
+    join(dir, 'startup.mjs'),
+    `
 export const name = 'demo-startup'
 export const inject = ['cmdlineArgs']
 export function apply(ctx) { return globalThis.__provideDemoArgs(ctx) }
-`)
+`,
+  )
   writeFileSync(join(dir, 'cordis.yml'), '[]\n')
-  const observing = { write: (chunk: string) => { observed.out += chunk; return true } }
+  const observing = {
+    write: (chunk: string) => {
+      observed.out += chunk
+      return true
+    },
+  }
   internals.stdout = observing
   internals.stderr = observing
   const globals = globalThis as unknown as { __observed: Observed; __provideDemoArgs: (ctx: Context) => void }
   globals.__observed = observed
   globals.__provideDemoArgs = (ctx: Context) => {
     const program = demoCommand()
-    program.action(() => { ctx.provide('demoStartup', resolve(program)) })
+    program.action(() => {
+      ctx.provide('demoStartup', resolve(program))
+    })
     parseCmdline(ctx, program)
   }
 
   // The composition, exactly as a profile delivers one: include patches whose
   // config carries `!!js` expressions.
-  const composition: PatchOptions[] = [{
-    insert: [
-      ...options.withoutProvider === true
-        ? []
-        : [{ id: 'demo-startup', name: pathToFileURL(join(dir, 'startup.mjs')).href }],
-      {
-        id: 'reader',
-        name: pathToFileURL(join(dir, 'reader.mjs')).href,
-        inject: options.objectInject === true ? { demoStartup: { required: true } } : ['demoStartup'],
-        config: { port: expression('ctx.demoStartup.port ?? 3080') },
-      },
-    ],
-  }]
+  const composition: PatchOptions[] = [
+    {
+      insert: [
+        ...(options.withoutProvider === true ? [] : [{ id: 'demo-startup', name: pathToFileURL(join(dir, 'startup.mjs')).href }]),
+        {
+          id: 'reader',
+          name: pathToFileURL(join(dir, 'reader.mjs')).href,
+          inject: options.objectInject === true ? { demoStartup: { required: true } } : ['demoStartup'],
+          config: { port: expression('ctx.demoStartup.port ?? 3080') },
+        },
+      ],
+    },
+  ]
   const ctx = new Context()
   await ctx.plugin(Loader)
   ctx.loader.builtins.include = Include
@@ -158,7 +173,9 @@ export function apply(ctx) { return globalThis.__provideDemoArgs(ctx) }
     config: { path: pathToFileURL(join(dir, 'cordis.yml')).href, patches: structuredClone(composition) },
   })
   await ctx.loader.await()
-  disposers.push(async () => { await ctx.fiber.dispose() })
+  disposers.push(async () => {
+    await ctx.fiber.dispose()
+  })
   return { observed, ctx }
 }
 
@@ -195,8 +212,12 @@ describe('parseCmdline', () => {
 
   it('rethrows an action failure that is not commander asking to exit', async () => {
     const { ctx } = await bootFixture([], resolveDemo, { withoutProvider: true })
-    const program = demoCommand().action(() => { throw new Error('action exploded') })
-    expect(() => { parseCmdline(ctx, program) }).toThrow('action exploded')
+    const program = demoCommand().action(() => {
+      throw new Error('action exploded')
+    })
+    expect(() => {
+      parseCmdline(ctx, program)
+    }).toThrow('action exploded')
   })
 
   it('rethrows a thrown value that is not an object at all', async () => {
@@ -205,14 +226,18 @@ describe('parseCmdline', () => {
       const thrown: unknown = 'action threw a string'
       throw thrown
     })
-    expect(() => { parseCmdline(ctx, program) }).toThrow('action threw a string')
+    expect(() => {
+      parseCmdline(ctx, program)
+    }).toThrow('action threw a string')
   })
 
   it('runs the action without inspecting Loader rows or owning a service', async () => {
     const { ctx } = await bootFixture([], resolveDemo, { withoutProvider: true })
     let values: unknown
     const program = demoCommand()
-    program.action(() => { values = resolveDemo(program) })
+    program.action(() => {
+      values = resolveDemo(program)
+    })
     parseCmdline(ctx, program)
     expect(values).toEqual({})
     expect(ctx.get('demoStartup')).toBeUndefined()
@@ -230,21 +255,29 @@ describe('provideCmdline', () => {
 
   it('refuses at load a program in which no command declares an action', async () => {
     const { ctx } = await bootFixture([], resolveDemo, { withoutProvider: true })
-    expect(() => { parseCmdline(ctx, demoCommand()) })
-      .toThrow('no command in the program declares an action')
+    expect(() => {
+      parseCmdline(ctx, demoCommand())
+    }).toThrow('no command in the program declares an action')
   })
 
   it('routes a pre-registered subcommand rejection through the launcher exit request', () => {
     const ctx = new Context()
     const exits: number[] = []
     let err = ''
-    internals.stderr = { write: (chunk: string) => { err += chunk; return true } }
+    internals.stderr = {
+      write: (chunk: string) => {
+        err += chunk
+        return true
+      },
+    }
     provideCmdline(ctx, { args: ['serve'], exit: code => void exits.push(code) })
     // The root declares no action of its own: the tree-wide guard accepts the
     // subcommand's, and the subcommand inherits the exit and output routing.
     const program = new Command().name('demo')
     const child = program.command('serve')
-    child.action(() => { child.error('error: serve rejected') })
+    child.action(() => {
+      child.error('error: serve rejected')
+    })
     parseCmdline(ctx, program)
     expect(err).toContain('serve rejected')
     expect(exits).toEqual([1])
@@ -252,8 +285,9 @@ describe('provideCmdline', () => {
 
   it('fails loud when a parser runs without the launcher values', () => {
     const ctx = new Context()
-    expect(() => { parseCmdline(ctx, demoCommand()) })
-      .toThrow('the launcher must provide ctx.cmdlineArgs and ctx.appExit')
+    expect(() => {
+      parseCmdline(ctx, demoCommand())
+    }).toThrow('the launcher must provide ctx.cmdlineArgs and ctx.appExit')
   })
 
   it('lets multiple parsers read the same immutable snapshot', () => {
@@ -262,7 +296,9 @@ describe('provideCmdline', () => {
     const parseOnce = (): unknown => {
       let values: unknown
       const program = demoCommand()
-      program.action(() => { values = resolveDemo(program) })
+      program.action(() => {
+        values = resolveDemo(program)
+      })
       parseCmdline(ctx, program)
       return values
     }
@@ -305,7 +341,9 @@ describe('exitOnStdinEnd', () => {
     const stdin = new TestStdin()
     const exits: number[] = []
     let queued: (() => void) | undefined
-    const queue = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation((listener) => { queued = listener })
+    const queue = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation(listener => {
+      queued = listener
+    })
     stdin.readableEnded = true
     internals.stdin = stdin
     try {
@@ -331,8 +369,12 @@ describe('exitOnStdinEnd', () => {
     stdin.write(frame)
     expect(stdin.readableFlowing).not.toBe(true)
     let received = ''
-    stdin.on('data', (chunk: Buffer) => { received += chunk.toString('utf8') })
-    const ended = new Promise<void>((resolve) => { stdin.once('end', resolve) })
+    stdin.on('data', (chunk: Buffer) => {
+      received += chunk.toString('utf8')
+    })
+    const ended = new Promise<void>(resolve => {
+      stdin.once('end', resolve)
+    })
     stdin.end()
     await ended
 
@@ -359,13 +401,17 @@ describe('exitOnStdinEnd', () => {
 
   it('fails loud without a launcher exit request', () => {
     internals.stdin = new TestStdin()
-    expect(() => { exitOnStdinEnd(new Context(), 'test.stdin') }).toThrow('launcher must provide ctx.appExit and ctx.appReady')
+    expect(() => {
+      exitOnStdinEnd(new Context(), 'test.stdin')
+    }).toThrow('launcher must provide ctx.appExit and ctx.appReady')
   })
 
   it('fails loud without launcher startup readiness', () => {
     const ctx = new Context()
     internals.stdin = new TestStdin()
     provideCmdline(ctx, { args: [], exit: () => {} })
-    expect(() => { exitOnStdinEnd(ctx, 'test.stdin') }).toThrow('launcher must provide ctx.appExit and ctx.appReady')
+    expect(() => {
+      exitOnStdinEnd(ctx, 'test.stdin')
+    }).toThrow('launcher must provide ctx.appExit and ctx.appReady')
   })
 })

@@ -3,7 +3,7 @@
 import { getEventListeners, once } from 'node:events'
 import { MessageChannel } from 'node:worker_threads'
 import type { MessagePort } from 'node:worker_threads'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { answer, request, requestSchema } from '../src/worker-rpc.ts'
 
 const cleanups: Array<() => Promise<void>> = []
@@ -20,7 +20,7 @@ function channel() {
 }
 
 async function receive(port: MessagePort): Promise<unknown> {
-  const [raw] = await once(port, 'message') as [unknown]
+  const [raw] = (await once(port, 'message')) as [unknown]
   const { reply } = requestSchema.parse(raw)
   const closed = once(reply, 'close')
   cleanups.push(async () => {
@@ -47,33 +47,34 @@ it('round-trips the operation and structured data through a dedicated reply chan
 
 it.each([new Error('Browser operation failed'), 'Browser operation refused'])(
   'reports an operation rejection to the requesting peer: %s',
-  async (failure) => {
+  async failure => {
     const { port1, port2 } = channel()
     const incoming = receive(port2)
     const result = request(port1, 'navigate', { url: 'https://example.com' })
     const rejected = expect(result).rejects.toThrow(failure instanceof Error ? failure.message : failure)
     const raw = await incoming
-    await answer(raw, async () => { throw failure })
+    await answer(raw, async () => {
+      throw failure
+    })
     await rejected
   },
 )
 
-it.each([
-  { ok: true, value: 'unexpected', extra: true },
-  { ok: false, error: 42 },
-  { value: 'missing status' },
-])('rejects a malformed peer response and closes its reply port: %j', async (response) => {
-  const { port1, port2 } = channel()
-  const incoming = receive(port2)
-  const result = request(port1, 'tabs', { action: 'list' })
-  const rejected = expect(result).rejects.toThrow()
-  const raw = await incoming
-  const { reply } = requestSchema.parse(raw)
-  const closed = once(reply, 'close')
-  reply.postMessage(response)
-  await rejected
-  await closed
-})
+it.each([{ ok: true, value: 'unexpected', extra: true }, { ok: false, error: 42 }, { value: 'missing status' }])(
+  'rejects a malformed peer response and closes its reply port: %j',
+  async response => {
+    const { port1, port2 } = channel()
+    const incoming = receive(port2)
+    const result = request(port1, 'tabs', { action: 'list' })
+    const rejected = expect(result).rejects.toThrow()
+    const raw = await incoming
+    const { reply } = requestSchema.parse(raw)
+    const closed = once(reply, 'close')
+    reply.postMessage(response)
+    await rejected
+    await closed
+  },
+)
 
 it('rejects peer shutdown before a response instead of leaving the request pending', async () => {
   const { port1, port2 } = channel()
@@ -89,7 +90,7 @@ it('rejects peer shutdown before a response instead of leaving the request pendi
 
 it.each([new Error('Session disposed'), 'canceled'])(
   'closes an unanswered reply channel and removes its cancellation listener: %s',
-  async (reason) => {
+  async reason => {
     const { port1, port2 } = channel()
     const incoming = receive(port2)
     const controller = new AbortController()

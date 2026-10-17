@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SpillLocator } from '@deepseek-ai/dsh-spill'
 import { formatSpillNotice, hasSpillNotice } from '../src/notice.ts'
 
@@ -29,9 +29,13 @@ describe('persisted spill notice', () => {
   })
 
   it('keeps locator and retrieval text opaque, including parentheses and newlines', () => {
-    const notice = formatSpillNotice({ kind: 'exact', count: 42 }, {
-      locator: SpillLocator('/spill/报告 (1).txt'), retrievalHint: 'Read it.\n\n(additional guidance)',
-    })
+    const notice = formatSpillNotice(
+      { kind: 'exact', count: 42 },
+      {
+        locator: SpillLocator('/spill/报告 (1).txt'),
+        retrievalHint: 'Read it.\n\n(additional guidance)',
+      },
+    )
     expect(hasSpillNotice(notice)).toBe(true)
     expect(hasSpillNotice(`preview\n\n${notice}`)).toBe(true)
   })
@@ -46,10 +50,19 @@ describe('persisted spill notice', () => {
   it('rejects ordinary, partial, non-final, and malformed notice text', () => {
     const notice = formatSpillNotice({ kind: 'exact', count: 42 }, ref)
     for (const text of [
-      '', 'ordinary output)', '(ordinary output)', '\n\n(ordinary output)', 'prefix' + notice,
-      notice.slice(0, -1), notice + '\nother output',
-      notice.replace('42', '-1'), notice.replace('42', '1.5'), notice.replace('42', '0042'),
-      notice.replace('Omitted', 'Ignored'), notice.replace('. Read the file.', ''),
-    ]) expect(hasSpillNotice(text)).toBe(false)
+      '',
+      'ordinary output)',
+      '(ordinary output)',
+      '\n\n(ordinary output)',
+      'prefix' + notice,
+      notice.slice(0, -1),
+      notice + '\nother output',
+      notice.replace('42', '-1'),
+      notice.replace('42', '1.5'),
+      notice.replace('42', '0042'),
+      notice.replace('Omitted', 'Ignored'),
+      notice.replace('. Read the file.', ''),
+    ])
+      expect(hasSpillNotice(text)).toBe(false)
   })
 })

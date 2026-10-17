@@ -1,26 +1,19 @@
 import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage, ToolCallId, type ContentBlock, type GenerateOptions } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import type {} from '@deepseek-ai/dsh-system-prompt'
-import SubagentRuntime, {
-  type SubagentStartRequest,
-  type SubagentActivation,
-  type SubagentResult,
-} from '@deepseek-ai/dsh-subagent'
+import SubagentRuntime, { type SubagentStartRequest, type SubagentActivation, type SubagentResult } from '@deepseek-ai/dsh-subagent'
 import type { Config as ToolConfig, ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import { defineContentToolFixture, RUN_CODE_NAME } from '@deepseek-ai/dsh-tools'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import { TestSessionQuery } from './test-session-query.ts'
 import { mountLocalActivations, startTestActivation } from './local-activation.ts'
 import { queueHostSubagentPrompt } from '../src/internal.ts'
-import {
-  STRUCTURED_OUTPUT_INSTRUCTION,
-  STRUCTURED_OUTPUT_TOOL,
-} from '../src/structured.ts'
+import { STRUCTURED_OUTPUT_INSTRUCTION, STRUCTURED_OUTPUT_TOOL } from '../src/structured.ts'
 
 const testToolSignal = new AbortController().signal
 
@@ -54,7 +47,11 @@ async function setup(script: Script, options: SetupOptions = {}) {
     ctx.provide('ptcRuntime', {
       language: 'typescript',
       isolation: 'test',
-      resolve: (request: import('@deepseek-ai/dsh-ptc-runtime').PtcRunRequest) => ({ ...request, cwd: request.cwd ?? process.cwd(), timeoutMs: 120_000 }),
+      resolve: (request: import('@deepseek-ai/dsh-ptc-runtime').PtcRunRequest) => ({
+        ...request,
+        cwd: request.cwd ?? process.cwd(),
+        timeoutMs: 120_000,
+      }),
       run: options.codeRun ?? (() => Promise.resolve({ logs: [] })),
     } as never)
   }
@@ -93,15 +90,13 @@ function toolNames(request: GenerateOptions): string[] {
 function requestSystem(request: GenerateOptions): string {
   const head = request.messages[0]
   if (head?.role !== 'system') return ''
-  return head.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return head.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
-function deliverInput(
-  ctx: Context,
-  parent: SubagentStartRequest['parent'],
-  childId: SessionId,
-  delivery: 'steer' | 'queue',
-) {
+function deliverInput(ctx: Context, parent: SubagentStartRequest['parent'], childId: SessionId, delivery: 'steer' | 'queue') {
   const content: ContentBlock[] = [{ type: 'text', text: 'Correction: submit answer 42 instead.' }]
   return delivery === 'steer'
     ? ctx.subagents.sendMessage(parent, childId, content, { signal: testToolSignal })
@@ -109,10 +104,10 @@ function deliverInput(
 }
 
 describe('in-process structured output', () => {
-  it.each(['steer', 'queue'] as const)('consumes accepted %s input before committing a structured result', async (delivery) => {
+  it.each(['steer', 'queue'] as const)('consumes accepted %s input before committing a structured result', async delivery => {
     const { ctx, parent, adapter } = await setup([
       toolCallResponse('before-input', STRUCTURED_OUTPUT_TOOL, { answer: 1 }),
-      ...delivery === 'queue' ? [textResponse('Ready for the queued correction.')] : [],
+      ...(delivery === 'queue' ? [textResponse('Ready for the queued correction.')] : []),
       toolCallResponse('after-input', STRUCTURED_OUTPUT_TOOL, { answer: 42 }),
     ])
     const entered = Promise.withResolvers<undefined>()
@@ -152,7 +147,7 @@ describe('in-process structured output', () => {
   ] as const)('closes input through $toolMode result policy and reopens only after rejection ($blocked)', async ({ toolMode, blocked }) => {
     const { ctx, parent } = await setup(['hang'], {
       toolMode,
-      codeRun: async (request) => {
+      codeRun: async request => {
         const capture = request.bindings.at(0)?.functions[STRUCTURED_OUTPUT_TOOL]
         if (capture === undefined) throw new Error('structured_output binding missing')
         await capture({ answer: 42 })
@@ -173,9 +168,10 @@ describe('in-process structured output', () => {
       signal: testToolSignal,
       callId: ToolCallId('capture'),
       name: toolName,
-      arguments: toolMode === 'native'
-        ? { answer: 42 }
-        : { code: 'return await tools.structured_output({ answer: 42 })', description: 'Capture answer' },
+      arguments:
+        toolMode === 'native'
+          ? { answer: 42 }
+          : { code: 'return await tools.structured_output({ answer: 42 })', description: 'Capture answer' },
       agent: run.localAgent,
     })
     try {
@@ -199,9 +195,7 @@ describe('in-process structured output', () => {
   })
 
   it('captures a valid structured_output call and surfaces result.structured', async () => {
-    const { ctx, parent } = await setup([
-      toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 42, note: 'done' }),
-    ])
+    const { ctx, parent } = await setup([toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 42, note: 'done' })])
     let acknowledgement: unknown
     ctx.on('tools/result', (exec, toolResult) => {
       if (exec.name === STRUCTURED_OUTPUT_TOOL && !toolResult.isError) acknowledgement = toolResult.value
@@ -240,15 +234,17 @@ describe('in-process structured output', () => {
     ] as Script[number]
     const { ctx, parent } = await setup([response])
     let sideEffectRan = false
-    ctx.tools.register(defineContentToolFixture({
-      name: 'side_effect',
-      description: 'probe',
-      parameters: {},
-      execute(): Promise<ContentBlock[]> {
-        sideEffectRan = true
-        return Promise.resolve([{ type: 'text', text: 'ran' }])
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'side_effect',
+        description: 'probe',
+        parameters: {},
+        execute(): Promise<ContentBlock[]> {
+          sideEffectRan = true
+          return Promise.resolve([{ type: 'text', text: 'ran' }])
+        },
+      }),
+    )
     const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
     const result = await run.result
     expect(result.stopReason).toBe('completed')
@@ -268,30 +264,37 @@ describe('in-process structured output', () => {
     ] as Script[number]
     const { ctx, parent } = await setup([response])
     let sideEffectRan = false
-    ctx.tools.register(defineContentToolFixture({
-      name: 'side_effect',
-      description: 'probe',
-      parameters: {},
-      execute(): Promise<ContentBlock[]> {
-        sideEffectRan = true
-        return Promise.resolve([{ type: 'text', text: 'ran' }])
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'side_effect',
+        description: 'probe',
+        parameters: {},
+        execute(): Promise<ContentBlock[]> {
+          sideEffectRan = true
+          return Promise.resolve([{ type: 'text', text: 'ran' }])
+        },
+      }),
+    )
     const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
     // Registered after the child and prepended: this listener returns allow
     // after every downstream pre-execute decision. The service-owned guard
     // runs after the waterfall and can only deny, so the body still cannot run.
-    ctx.on('tools/pre-execute', async (_exec, next) => {
-      await next()
-      return { kind: 'allow' as const }
-    }, { prepend: true })
+    ctx.on(
+      'tools/pre-execute',
+      async (_exec, next) => {
+        await next()
+        return { kind: 'allow' as const }
+      },
+      { prepend: true },
+    )
 
     const result = await run.result
     expect(result.structured).toEqual({ answer: 5 })
     expect(sideEffectRan).toBe(false)
     const child = run.localAgent
-    const sideEffectResult = child?.session.snapshotEvents().find(event =>
-      event.type === 'tool/result' && event.data.message.source.callId === 'c2')
+    const sideEffectResult = child?.session
+      .snapshotEvents()
+      .find(event => event.type === 'tool/result' && event.data.message.source.callId === 'c2')
     expect(sideEffectResult?.type === 'tool/result' && sideEffectResult.data.message.isError).toBe(true)
     await run.dispose()
   })
@@ -300,20 +303,21 @@ describe('in-process structured output', () => {
     const response = [
       { type: 'block-start', index: 0, blockType: 'tool-call' },
       { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('c1'), name: 'side_effect', arguments: '{}' } },
-      ...toolCallResponse('c2', STRUCTURED_OUTPUT_TOOL, { answer: 6 }).map(chunk =>
-        'index' in chunk ? { ...chunk, index: 1 } : chunk),
+      ...toolCallResponse('c2', STRUCTURED_OUTPUT_TOOL, { answer: 6 }).map(chunk => ('index' in chunk ? { ...chunk, index: 1 } : chunk)),
     ] as Script[number]
     const { ctx, parent } = await setup([response])
     let sideEffectRan = false
-    ctx.tools.register(defineContentToolFixture({
-      name: 'side_effect',
-      description: 'probe',
-      parameters: {},
-      execute(): Promise<ContentBlock[]> {
-        sideEffectRan = true
-        return Promise.resolve([{ type: 'text', text: 'ran' }])
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'side_effect',
+        description: 'probe',
+        parameters: {},
+        execute(): Promise<ContentBlock[]> {
+          sideEffectRan = true
+          return Promise.resolve([{ type: 'text', text: 'ran' }])
+        },
+      }),
+    )
     const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
     const result = await run.result
     // The call ran BEFORE captured was set: the deny gate only guards the
@@ -341,10 +345,7 @@ describe('in-process structured output', () => {
   })
 
   it('a clean finish without a capture is an immediate error to the parent — deliberately NO re-prompt', async () => {
-    const { ctx, parent, adapter } = await setup([
-      textResponse('here is my answer in prose'),
-      textResponse('MUST NOT BE CONSUMED'),
-    ])
+    const { ctx, parent, adapter } = await setup([textResponse('here is my answer in prose'), textResponse('MUST NOT BE CONSUMED')])
     const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
     const result = await run.result
     expect(result.stopReason).toBe('error')
@@ -382,38 +383,51 @@ describe('in-process structured output', () => {
     ])
     ctx.llm.registerAdapter(['descendant'], new MockAdapter(['hang']))
     let descendant: SubagentActivation | undefined
-    ctx.tools.register(defineContentToolFixture({
-      name: 'start_descendant', description: 'Start delegated work', parameters: {},
-      async execute(_args, exec): Promise<ContentBlock[]> {
-        if (exec.agent === undefined) throw new Error('expected the structured parent')
-        descendant = await ctx.subagents.startActivation({
-          provider: 'spawn', label: 'Nested work', signal: testToolSignal, delivery: 'parent',
-          request: {
-            parent: exec.agent, prompt: [{ type: 'text', text: 'Work until released' }],
-            agentOptions: { provider: 'descendant', model: 'mock' },
-          },
-        })
-        return [{ type: 'text', text: 'Child accepted' }]
-      },
-    }))
-    ctx.tools.register(defineContentToolFixture({
-      name: 'finish_descendant', description: 'Return delegated work', parameters: {},
-      async execute(_args, exec): Promise<ContentBlock[]> {
-        if (descendant === undefined || exec.agent === undefined) throw new Error('expected resident child and parent')
-        const sender = ctx.agents.get(descendant.childId)
-        if (sender === undefined) throw new Error('expected a resident descendant')
-        await ctx.subagents.sendMessage(sender, exec.agent.id, [{ type: 'text', text: 'Descendant result reached parent' }], {
-          signal: testToolSignal,
-        })
-        await descendant.dispose()
-        return [{ type: 'text', text: 'Child released' }]
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'start_descendant',
+        description: 'Start delegated work',
+        parameters: {},
+        async execute(_args, exec): Promise<ContentBlock[]> {
+          if (exec.agent === undefined) throw new Error('expected the structured parent')
+          descendant = await ctx.subagents.startActivation({
+            provider: 'spawn',
+            label: 'Nested work',
+            signal: testToolSignal,
+            delivery: 'parent',
+            request: {
+              parent: exec.agent,
+              prompt: [{ type: 'text', text: 'Work until released' }],
+              agentOptions: { provider: 'descendant', model: 'mock' },
+            },
+          })
+          return [{ type: 'text', text: 'Child accepted' }]
+        },
+      }),
+    )
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'finish_descendant',
+        description: 'Return delegated work',
+        parameters: {},
+        async execute(_args, exec): Promise<ContentBlock[]> {
+          if (descendant === undefined || exec.agent === undefined) throw new Error('expected resident child and parent')
+          const sender = ctx.agents.get(descendant.childId)
+          if (sender === undefined) throw new Error('expected a resident descendant')
+          await ctx.subagents.sendMessage(sender, exec.agent.id, [{ type: 'text', text: 'Descendant result reached parent' }], {
+            signal: testToolSignal,
+          })
+          await descendant.dispose()
+          return [{ type: 'text', text: 'Child released' }]
+        },
+      }),
+    )
     const activation = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
     try {
       await expect(activation.result).resolves.toMatchObject({ stopReason: 'completed', structured: { answer: 42 } })
       const events = activation.localAgent.session.snapshotEvents()
-      const captures = events.filter(event => event.type === 'tool/result')
+      const captures = events
+        .filter(event => event.type === 'tool/result')
         .map(event => event.data.message)
         .filter(block => block.toolCallId === 'too-early' || block.toolCallId === 'final-capture')
       expect(captures).toHaveLength(2)
@@ -440,26 +454,39 @@ describe('in-process structured output', () => {
       name: 'delayed-answer',
       capabilities: { agentOptions: false, agentPreset: false, outputSchema: false, depthLimit: false },
       inheritsParentContext: false,
-      start: () => Promise.resolve({
-        id: SessionId('delegated-answer'),
-        result: delegated.promise,
-        dispose: () => { delegated.resolve({ output: [], stopReason: 'aborted' }); return Promise.resolve() },
-      }),
+      start: () =>
+        Promise.resolve({
+          id: SessionId('delegated-answer'),
+          result: delegated.promise,
+          dispose: () => {
+            delegated.resolve({ output: [], stopReason: 'aborted' })
+            return Promise.resolve()
+          },
+        }),
     })
-    ctx.tools.register(defineContentToolFixture({
-      name: 'delegate_answer', description: 'Delegate answer computation', parameters: {},
-      async execute(_args, exec): Promise<ContentBlock[]> {
-        if (exec.agent === undefined) throw new Error('expected the structured parent')
-        await ctx.subagents.startActivation({
-          provider: 'delayed-answer', label: 'Compute answer', signal: testToolSignal, delivery: 'parent',
-          request: { parent: exec.agent, prompt: [{ type: 'text', text: 'Compute the answer' }] },
-        })
-        return [{ type: 'text', text: 'Answer computation accepted' }]
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'delegate_answer',
+        description: 'Delegate answer computation',
+        parameters: {},
+        async execute(_args, exec): Promise<ContentBlock[]> {
+          if (exec.agent === undefined) throw new Error('expected the structured parent')
+          await ctx.subagents.startActivation({
+            provider: 'delayed-answer',
+            label: 'Compute answer',
+            signal: testToolSignal,
+            delivery: 'parent',
+            request: { parent: exec.agent, prompt: [{ type: 'text', text: 'Compute the answer' }] },
+          })
+          return [{ type: 'text', text: 'Answer computation accepted' }]
+        },
+      }),
+    )
     const activation = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
     let resultReady = false
-    void activation.result.then(() => { resultReady = true })
+    void activation.result.then(() => {
+      resultReady = true
+    })
     try {
       await activation.localAgent.whenIdle()
       await Promise.resolve()
@@ -480,7 +507,7 @@ describe('in-process structured output', () => {
     const flushing = Promise.withResolvers<undefined>()
     const releaseFlush = Promise.withResolvers<undefined>()
     let held = false
-    ctx.on('session/flush', async (session) => {
+    ctx.on('session/flush', async session => {
       if (session.header.parentSession === undefined || held) return
       held = true
       flushing.resolve(undefined)
@@ -489,9 +516,11 @@ describe('in-process structured output', () => {
     const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
     try {
       await flushing.promise
-      await expect(ctx.subagents.sendMessage(parent, run.childId, [{ type: 'text', text: 'too early' }], {
-        signal: testToolSignal,
-      })).rejects.toMatchObject({ code: 'INPUT_CLOSED' })
+      await expect(
+        ctx.subagents.sendMessage(parent, run.childId, [{ type: 'text', text: 'too early' }], {
+          signal: testToolSignal,
+        }),
+      ).rejects.toMatchObject({ code: 'INPUT_CLOSED' })
     } finally {
       releaseFlush.resolve(undefined)
       await run.dispose()
@@ -507,9 +536,15 @@ describe('in-process structured output', () => {
 
   it('rejects a schema outside the subset loud, before any child exists', async () => {
     const { ctx, parent } = await setup([])
-    await expect(startTestActivation(ctx, 'spawn', structuredRequest(parent, {
-      outputSchema: { type: 'object', oneOf: [] },
-    }))).rejects.toThrow(/unsupported JSON schema/)
+    await expect(
+      startTestActivation(
+        ctx,
+        'spawn',
+        structuredRequest(parent, {
+          outputSchema: { type: 'object', oneOf: [] },
+        }),
+      ),
+    ).rejects.toThrow(/unsupported JSON schema/)
     expect(ctx.agents.get(SessionId('parent'))).toBeDefined()
   })
 
@@ -517,9 +552,15 @@ describe('in-process structured output', () => {
     const { ctx, parent } = await setup([])
     const schema: ObjectJsonSchema = { type: 'object' }
     Object.defineProperty(schema, 'default', { value: () => {}, enumerable: true })
-    await expect(startTestActivation(ctx, 'spawn', structuredRequest(parent, {
-      outputSchema: schema,
-    }))).rejects.toThrow(/unsupported JSON schema.*annotation must be lossless JSON data/)
+    await expect(
+      startTestActivation(
+        ctx,
+        'spawn',
+        structuredRequest(parent, {
+          outputSchema: schema,
+        }),
+      ),
+    ).rejects.toThrow(/unsupported JSON schema.*annotation must be lossless JSON data/)
   })
 
   it('a post-execute BLOCK on the capture call denies the capture: log and result agree on failure', async () => {
@@ -552,9 +593,7 @@ describe('in-process structured output', () => {
   })
 
   it('a post-execute accept-with-replacement still commits the capture', async () => {
-    const { ctx, parent } = await setup([
-      toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 8 }),
-    ])
+    const { ctx, parent } = await setup([toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 8 })])
     ctx.on('tools/post-execute', (exec, _result, next) => {
       if (exec.name === STRUCTURED_OUTPUT_TOOL) {
         return Promise.resolve({ kind: 'accept' as const, content: [{ type: 'text' as const, text: 'recorded (rewritten)' }] })
@@ -577,23 +616,28 @@ describe('in-process structured output', () => {
     // Registered after attachment and prepended, so it wraps every listener
     // the child installed. It delegates first, then converts the apparent
     // capture success into the pipeline's authoritative failure.
-    ctx.on('tools/post-execute', async (exec, _result, next) => {
-      const downstream = await next()
-      if (exec.name !== STRUCTURED_OUTPUT_TOOL) return downstream
-      return { kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'rejected after downstream' }] }
-    }, { prepend: true })
+    ctx.on(
+      'tools/post-execute',
+      async (exec, _result, next) => {
+        const downstream = await next()
+        if (exec.name !== STRUCTURED_OUTPUT_TOOL) return downstream
+        return { kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'rejected after downstream' }] }
+      },
+      { prepend: true },
+    )
 
     const result = await run.result
     expect(result.structured).toBeUndefined()
     expect(result.stopReason).toBe('error')
     const child = run.localAgent
-    const captureResult = child?.session.snapshotEvents().find(event =>
-      event.type === 'tool/result' && event.data.message.source.callId === 'c1')
+    const captureResult = child?.session
+      .snapshotEvents()
+      .find(event => event.type === 'tool/result' && event.data.message.source.callId === 'c1')
     expect(captureResult?.type === 'tool/result' && captureResult.data.message.isError).toBe(true)
     await run.dispose()
   })
 
-  it('appends the structured instruction to the child REQUEST\'s system text (base prompt preserved)', async () => {
+  it("appends the structured instruction to the child REQUEST's system text (base prompt preserved)", async () => {
     const { ctx, parent, adapter } = await setup([toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 1 })])
     // A context-wide section stands in for the deployment persona: the
     // instruction must APPEND to the other scoped and global sections, not
@@ -610,17 +654,23 @@ describe('in-process structured output', () => {
   })
 
   it('keeps pure PTC mode at one wire tool and exposes structured capture through the SDK only', async () => {
-    const { ctx, parent, adapter } = await setup([
-      toolCallResponse('c1', RUN_CODE_NAME, { code: 'return await tools.structured_output({ answer: 12 })', description: 'Capture the structured answer' }),
-    ], {
-      toolMode: 'ptc',
-      codeRun: async (request) => {
-        const capture = request.bindings.at(0)?.functions[STRUCTURED_OUTPUT_TOOL]
-        if (!capture) throw new Error('structured_output binding missing')
-        await capture({ answer: 12 })
-        return { logs: [], value: 'captured' }
+    const { ctx, parent, adapter } = await setup(
+      [
+        toolCallResponse('c1', RUN_CODE_NAME, {
+          code: 'return await tools.structured_output({ answer: 12 })',
+          description: 'Capture the structured answer',
+        }),
+      ],
+      {
+        toolMode: 'ptc',
+        codeRun: async request => {
+          const capture = request.bindings.at(0)?.functions[STRUCTURED_OUTPUT_TOOL]
+          if (!capture) throw new Error('structured_output binding missing')
+          await capture({ answer: 12 })
+          return { logs: [], value: 'captured' }
+        },
       },
-    })
+    )
     const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
 
     const result = await run.result
@@ -637,21 +687,27 @@ describe('in-process structured output', () => {
   })
 
   it('discards a nested capture when the enclosing run_code execution fails', async () => {
-    const { ctx, parent, adapter } = await setup([
-      toolCallResponse('c1', RUN_CODE_NAME, { code: 'await tools.structured_output({ answer: 12 }); throw new Error("boom")', description: 'Capture then fail the program' }),
-      textResponse('outer code failed'),
-    ], {
-      toolMode: 'ptc',
-      codeRun: async (request) => {
-        const capture = request.bindings.at(0)?.functions[STRUCTURED_OUTPUT_TOOL]
-        if (!capture) throw new Error('structured_output binding missing')
-        await capture({ answer: 12 })
-        return {
-          logs: [],
-          error: { kind: 'runtime', message: 'boom after capture' },
-        } as never
+    const { ctx, parent, adapter } = await setup(
+      [
+        toolCallResponse('c1', RUN_CODE_NAME, {
+          code: 'await tools.structured_output({ answer: 12 }); throw new Error("boom")',
+          description: 'Capture then fail the program',
+        }),
+        textResponse('outer code failed'),
+      ],
+      {
+        toolMode: 'ptc',
+        codeRun: async request => {
+          const capture = request.bindings.at(0)?.functions[STRUCTURED_OUTPUT_TOOL]
+          if (!capture) throw new Error('structured_output binding missing')
+          await capture({ answer: 12 })
+          return {
+            logs: [],
+            error: { kind: 'runtime', message: 'boom after capture' },
+          } as never
+        },
       },
-    })
+    )
     const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
 
     const result = await run.result
@@ -659,28 +715,37 @@ describe('in-process structured output', () => {
     expect(result.stopReason).toBe('error')
     expect(adapter.requests).toHaveLength(2)
     const child = run.localAgent
-    const outer = child.session.snapshotEvents().find(event =>
-      event.type === 'tool/result' && event.data.message.source.callId === ToolCallId('c1'))
+    const outer = child.session
+      .snapshotEvents()
+      .find(event => event.type === 'tool/result' && event.data.message.source.callId === ToolCallId('c1'))
     expect(outer?.type === 'tool/result' && outer.data.message.isError).toBe(true)
     await run.dispose()
   })
 
   it('discards a nested capture when post-policy blocks the enclosing run_code result', async () => {
-    const { ctx, parent, adapter } = await setup([
-      toolCallResponse('c1', RUN_CODE_NAME, { code: 'return await tools.structured_output({ answer: 12 })', description: 'Capture the structured answer' }),
-      textResponse('outer code was blocked'),
-    ], {
-      toolMode: 'ptc',
-      codeRun: async (request) => {
-        const capture = request.bindings.at(0)?.functions[STRUCTURED_OUTPUT_TOOL]
-        if (!capture) throw new Error('structured_output binding missing')
-        await capture({ answer: 12 })
-        return { logs: [], value: 'captured' }
+    const { ctx, parent, adapter } = await setup(
+      [
+        toolCallResponse('c1', RUN_CODE_NAME, {
+          code: 'return await tools.structured_output({ answer: 12 })',
+          description: 'Capture the structured answer',
+        }),
+        textResponse('outer code was blocked'),
+      ],
+      {
+        toolMode: 'ptc',
+        codeRun: async request => {
+          const capture = request.bindings.at(0)?.functions[STRUCTURED_OUTPUT_TOOL]
+          if (!capture) throw new Error('structured_output binding missing')
+          await capture({ answer: 12 })
+          return { logs: [], value: 'captured' }
+        },
       },
-    })
-    ctx.on('tools/post-execute', (exec, _result, next) => exec.name === RUN_CODE_NAME
-      ? Promise.resolve({ kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'outer blocked' }] })
-      : next())
+    )
+    ctx.on('tools/post-execute', (exec, _result, next) =>
+      exec.name === RUN_CODE_NAME
+        ? Promise.resolve({ kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'outer blocked' }] })
+        : next(),
+    )
     const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
 
     const result = await run.result
@@ -749,16 +814,12 @@ describe('in-process structured output', () => {
           // Answer with whatever schema this child was given — proves each
           // request carried the right one regardless of scheduling order.
           const entry = options.tools!.find(tool => tool.name === STRUCTURED_OUTPUT_TOOL)!
-          const args = 'verdict' in (entry.parameters.properties as Record<string, unknown>)
-            ? { verdict: 'real' }
-            : { answer: 1 }
+          const args = 'verdict' in (entry.parameters.properties as Record<string, unknown>) ? { verdict: 'real' } : { answer: 1 }
           return toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, args)
         },
         (options: GenerateOptions) => {
           const entry = options.tools!.find(tool => tool.name === STRUCTURED_OUTPUT_TOOL)!
-          const args = 'verdict' in (entry.parameters.properties as Record<string, unknown>)
-            ? { verdict: 'real' }
-            : { answer: 1 }
+          const args = 'verdict' in (entry.parameters.properties as Record<string, unknown>) ? { verdict: 'real' } : { answer: 1 }
           return toolCallResponse('c2', STRUCTURED_OUTPUT_TOOL, args)
         },
       ])
@@ -767,8 +828,7 @@ describe('in-process structured output', () => {
       const [a, b] = await Promise.all([runA.result, runB.result])
       expect(a.structured).toEqual({ answer: 1 })
       expect(b.structured).toEqual({ verdict: 'real' })
-      const schemas = adapter.requests.map(request =>
-        request.tools!.find(tool => tool.name === STRUCTURED_OUTPUT_TOOL)!.parameters)
+      const schemas = adapter.requests.map(request => request.tools!.find(tool => tool.name === STRUCTURED_OUTPUT_TOOL)!.parameters)
       expect(schemas).toContainEqual(SCHEMA)
       expect(schemas).toContainEqual(otherSchema)
       await runA.dispose()
@@ -776,17 +836,17 @@ describe('in-process structured output', () => {
     })
 
     it('places the capture tool and instruction in their canonical orders', async () => {
-      const { ctx, parent, adapter } = await setup([
-        toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 7 }),
-      ])
+      const { ctx, parent, adapter } = await setup([toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 7 })])
       // A global tool sorts lexicographically after structured_output, while a
       // global section after the final-output slot follows the capture instruction.
-      ctx.tools.register(defineContentToolFixture({
-        name: 'zz_probe',
-        description: 'probe',
-        parameters: {},
-        execute: () => Promise.resolve([{ type: 'text', text: 'x' }]),
-      }))
+      ctx.tools.register(
+        defineContentToolFixture({
+          name: 'zz_probe',
+          description: 'probe',
+          parameters: {},
+          execute: () => Promise.resolve([{ type: 'text', text: 'x' }]),
+        }),
+      )
       ctx.systemPrompt.section({
         name: 'after-band',
         order: ctx.systemPrompt.getSectionOrder('STRUCTURED_OUTPUT') + 10,
@@ -815,9 +875,7 @@ describe('in-process structured output', () => {
     })
 
     it('registrations survive provider reload and are removed before result delivery', async () => {
-      const { ctx, parent, disposeProvider } = await setup([
-        toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 4 }),
-      ])
+      const { ctx, parent, disposeProvider } = await setup([toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 4 })])
       expect(ctx.tools.get(STRUCTURED_OUTPUT_TOOL)).toBeUndefined()
       const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
       // A backend hot-reload mid-run must not unregister the capture tool out
@@ -865,13 +923,17 @@ describe('in-process structured output', () => {
     // delegating. The final-result notification discards that execution's
     // stage when it observes the error.
     let blocks = 1
-    ctx.on('tools/post-execute', (exec, _result, next) => {
-      if (exec.name === STRUCTURED_OUTPUT_TOOL && blocks > 0) {
-        blocks -= 1
-        return Promise.resolve({ kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'rejected' }] })
-      }
-      return next()
-    }, { prepend: true })
+    ctx.on(
+      'tools/post-execute',
+      (exec, _result, next) => {
+        if (exec.name === STRUCTURED_OUTPUT_TOOL && blocks > 0) {
+          blocks -= 1
+          return Promise.resolve({ kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'rejected' }] })
+        }
+        return next()
+      },
+      { prepend: true },
+    )
     const failed = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('c1'),
@@ -903,19 +965,23 @@ describe('in-process structured output', () => {
     expect((await run.result).structured).toEqual({ answer: 9 })
   })
 
-  it('reusing a failed execution\'s call id never promotes its discarded stage', async () => {
+  it("reusing a failed execution's call id never promotes its discarded stage", async () => {
     const { ctx, parent } = await setup(['hang'])
     const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
     // Block the first capture after its body stages a value. Its final error
     // discards that execution's stage.
     let blocks = 1
-    ctx.on('tools/post-execute', (exec, _result, next) => {
-      if (exec.name === STRUCTURED_OUTPUT_TOOL && blocks > 0) {
-        blocks -= 1
-        return Promise.resolve({ kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'rejected' }] })
-      }
-      return next()
-    }, { prepend: true })
+    ctx.on(
+      'tools/post-execute',
+      (exec, _result, next) => {
+        if (exec.name === STRUCTURED_OUTPUT_TOOL && blocks > 0) {
+          blocks -= 1
+          return Promise.resolve({ kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'rejected' }] })
+        }
+        return next()
+      },
+      { prepend: true },
+    )
     const failed = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('c1'),
@@ -949,18 +1015,22 @@ describe('in-process structured output', () => {
     expect((await run.result).structured).toEqual({ answer: 5 })
   })
 
-  it('a pre-execute deny with call-id reuse cannot promote another execution\'s stage', async () => {
+  it("a pre-execute deny with call-id reuse cannot promote another execution's stage", async () => {
     const { ctx, parent } = await setup(['hang'])
     const run = await startTestActivation(ctx, 'spawn', structuredRequest(parent))
     // Discard the first capture's stage via a final post-execute block.
     let blocks = 1
-    ctx.on('tools/post-execute', (exec, _result, next) => {
-      if (exec.name === STRUCTURED_OUTPUT_TOOL && blocks > 0) {
-        blocks -= 1
-        return Promise.resolve({ kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'rejected' }] })
-      }
-      return next()
-    }, { prepend: true })
+    ctx.on(
+      'tools/post-execute',
+      (exec, _result, next) => {
+        if (exec.name === STRUCTURED_OUTPUT_TOOL && blocks > 0) {
+          blocks -= 1
+          return Promise.resolve({ kind: 'block' as const, feedback: [{ type: 'text' as const, text: 'rejected' }] })
+        }
+        return next()
+      },
+      { prepend: true },
+    )
     const failed = await ctx.tools.execute({
       signal: testToolSignal,
       callId: ToolCallId('c1'),
@@ -972,12 +1042,16 @@ describe('in-process structured output', () => {
     const child = run.localAgent
     // A prepended pre-execute deny skips the body, while the denied call still
     // reaches the final notification with the same adapter-minted call id.
-    const offDeny = ctx.on('tools/pre-execute', (exec) => {
-      if (exec.name === STRUCTURED_OUTPUT_TOOL) {
-        return Promise.resolve({ kind: 'deny' as const, reason: 'outer veto' })
-      }
-      return undefined as never
-    }, { prepend: true })
+    const offDeny = ctx.on(
+      'tools/pre-execute',
+      exec => {
+        if (exec.name === STRUCTURED_OUTPUT_TOOL) {
+          return Promise.resolve({ kind: 'deny' as const, reason: 'outer veto' })
+        }
+        return undefined as never
+      },
+      { prepend: true },
+    )
     const denied = await ctx.tools.execute({
       signal: testToolSignal,
       callId: 'c1' as never,

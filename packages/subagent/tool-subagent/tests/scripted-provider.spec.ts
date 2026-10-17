@@ -1,5 +1,5 @@
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { type Agent } from '@deepseek-ai/dsh-agent'
 import SubagentRuntime, { type ResolvedSubagentStartRequest } from '@deepseek-ai/dsh-subagent'
@@ -83,8 +83,9 @@ describe('scripted subagent provider fixture', () => {
     const ctx = await mount()
     const alreadyAborted = new AbortController()
     alreadyAborted.abort()
-    await expect(ctx.subagents.getProvider('mock')!.start!(baseRequest({ signal: alreadyAborted.signal })))
-      .rejects.toThrow('scripted subagent start aborted before publication')
+    await expect(ctx.subagents.getProvider('mock')!.start!(baseRequest({ signal: alreadyAborted.signal }))).rejects.toThrow(
+      'scripted subagent start aborted before publication',
+    )
 
     const handoff = new AbortController()
     const pending = ctx.subagents.getProvider('mock')!.start!(baseRequest({ signal: handoff.signal }))

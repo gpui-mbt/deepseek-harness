@@ -46,8 +46,8 @@ export function defineMod(spec: ModSpec): ModPlugin {
   const userConfig: PluginOptions = Object.freeze({ ...spec.userConfig })
   const definition: ModDefinition = Object.freeze({
     name: spec.name,
-    ...spec.version === undefined ? {} : { version: spec.version },
-    ...spec.root === undefined ? {} : { root: spec.root },
+    ...(spec.version === undefined ? {} : { version: spec.version }),
+    ...(spec.root === undefined ? {} : { root: spec.root }),
     options: userConfig,
     register: spec.register,
   })

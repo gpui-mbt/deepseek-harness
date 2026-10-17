@@ -105,5 +105,5 @@ export function foldConsumedWork(events: readonly SessionEvent[]): ConsumedWork 
         break
     }
   }
-  return { ...end === undefined ? {} : { end }, droppedUnrun }
+  return { ...(end === undefined ? {} : { end }), droppedUnrun }
 }

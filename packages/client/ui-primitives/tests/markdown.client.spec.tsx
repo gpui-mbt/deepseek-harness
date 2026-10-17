@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { JsonBlock, MarkdownText } from './markdown-test-components.tsx'
 import { LinkIconMedium, MarkdownDelegateProvider } from '../src/index.ts'
 import { cjkFriendlyStrong } from '../src/markdown/cjkFriendlyStrong.ts'
@@ -76,8 +76,7 @@ describe('MarkdownText', () => {
 
     for (const streaming of [false, true]) {
       const rendered = render(<MarkdownText text={source} streaming={streaming} />)
-      expect([...rendered.container.querySelectorAll('strong')].map(node => node.textContent))
-        .toEqual(cases.map(([, strong]) => strong))
+      expect([...rendered.container.querySelectorAll('strong')].map(node => node.textContent)).toEqual(cases.map(([, strong]) => strong))
       rendered.unmount()
     }
   })
@@ -135,8 +134,7 @@ describe('MarkdownText', () => {
     expect(screen.getByText('curl http://127.0.0.1:3199/?demo=1').closest('a')).toBeNull()
     expect(screen.getByText('javascript:alert(1)').closest('a')).toBeNull()
     expect(screen.getByText('mailto:dev@example.com').closest('a')).toBeNull()
-    const paddedCode = [...container.querySelectorAll('code')]
-      .find(code => code.textContent === ` ${localUrl} `)
+    const paddedCode = [...container.querySelectorAll('code')].find(code => code.textContent === ` ${localUrl} `)
     expect(paddedCode?.querySelector('a')).toBeNull()
     expect(container.querySelector('pre code a')).toBeNull()
   })
@@ -145,7 +143,9 @@ describe('MarkdownText', () => {
     const openExternalLink = vi.fn<(href: string) => void>()
     render(
       <MarkdownDelegateProvider openExternalLink={openExternalLink}>
-        <MarkdownText text={'[secure](https://example.com/a) [plain](http://example.com/b) `https://example.com/code` [mail](mailto:dev@example.com)'} />
+        <MarkdownText
+          text={'[secure](https://example.com/a) [plain](http://example.com/b) `https://example.com/code` [mail](mailto:dev@example.com)'}
+        />
       </MarkdownDelegateProvider>,
     )
 
@@ -155,19 +155,10 @@ describe('MarkdownText', () => {
     expect(fireEvent.click(secure)).toBe(false)
     expect(fireEvent.click(plain)).toBe(false)
     expect(fireEvent.click(code)).toBe(false)
-    expect(openExternalLink.mock.calls).toEqual([
-      ['https://example.com/a'],
-      ['http://example.com/b'],
-      ['https://example.com/code'],
-    ])
+    expect(openExternalLink.mock.calls).toEqual([['https://example.com/a'], ['http://example.com/b'], ['https://example.com/code']])
 
-    for (const modified of [
-      { button: 1 },
-      { metaKey: true },
-      { ctrlKey: true },
-      { shiftKey: true },
-      { altKey: true },
-    ]) expect(fireEvent.click(secure, modified)).toBe(true)
+    for (const modified of [{ button: 1 }, { metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }])
+      expect(fireEvent.click(secure, modified)).toBe(true)
     expect(openExternalLink).toHaveBeenCalledTimes(3)
     expect(screen.getByRole('link', { name: 'mail' }).getAttribute('target')).toBeNull()
   })
@@ -195,9 +186,16 @@ describe('MarkdownText', () => {
   it('links inline code through the file-mention resolver: URL first, settled only, never inside links', () => {
     const opened: string[] = []
     const fileMentions = {
-      resolve: (value: string) => value === 'index.html' || value === 'out/index.html'
-        ? { open: () => { opened.push(value) }, label: 'Open out/index.html', title: 'out/index.html' }
-        : undefined,
+      resolve: (value: string) =>
+        value === 'index.html' || value === 'out/index.html'
+          ? {
+              open: () => {
+                opened.push(value)
+              },
+              label: 'Open out/index.html',
+              title: 'out/index.html',
+            }
+          : undefined,
     }
     const source = [
       '`index.html`',
@@ -229,9 +227,7 @@ describe('MarkdownText', () => {
 
     // Streaming renders keep mentions off — the one gate lives here: cached
     // frozen elements must not bake in handlers that could go stale.
-    const streamed = render(
-      <MarkdownText text={'`index.html`\n\nmore\n\n'} streaming fileMentions={fileMentions} />,
-    )
+    const streamed = render(<MarkdownText text={'`index.html`\n\nmore\n\n'} streaming fileMentions={fileMentions} />)
     expect(streamed.container.querySelector('button')).toBeNull()
   })
 
@@ -241,12 +237,17 @@ describe('MarkdownText', () => {
     const construct = extension.text?.[42]
     const tokenizer = Array.isArray(construct) ? construct[0]?.tokenize : construct?.tokenize
     expect(tokenizer).toBeTypeOf('function')
-    expect(() => tokenizer?.call({
-      parser: { constructs: { attentionMarkers: {} } },
-      previous: null,
-    } as never, {} as never, () => undefined, () => undefined)).toThrow(
-      'micromark CommonMark attention markers are unavailable',
-    )
+    expect(() =>
+      tokenizer?.call(
+        {
+          parser: { constructs: { attentionMarkers: {} } },
+          previous: null,
+        } as never,
+        {} as never,
+        () => undefined,
+        () => undefined,
+      ),
+    ).toThrow('micromark CommonMark attention markers are unavailable')
   })
 
   it('a fence labeled with an inherited object key renders plain, never crashing shiki', () => {
@@ -301,9 +302,7 @@ describe('MarkdownText', () => {
   })
 
   it('streaming keeps unknown and language-less fences on the plain arm, and ```math literal until settle', () => {
-    const live = render(
-      <MarkdownText text={'```cobol\nDISPLAY "X".\n```\n\n```\nno language\n```\n\n```math\n\\sqrt{2}\n```'} streaming />,
-    )
+    const live = render(<MarkdownText text={'```cobol\nDISPLAY "X".\n```\n\n```\nno language\n```\n\n```math\n\\sqrt{2}\n```'} streaming />)
     expect(live.container.querySelector('pre.shiki')).toBeNull()
     expect(live.container.querySelector('.katex')).toBeNull()
     expect(live.container.textContent).toContain('\\sqrt{2}')
@@ -315,16 +314,10 @@ describe('MarkdownText', () => {
   })
 
   it('renders absolute HTTP(S) images with bounded presentation', () => {
-    const markdown = [
-      '![secure diagram](https://example.com/secure.png)',
-      '![plain diagram](http://example.com/plain.png)',
-    ].join('\n\n')
+    const markdown = ['![secure diagram](https://example.com/secure.png)', '![plain diagram](http://example.com/plain.png)'].join('\n\n')
     const { container } = render(<MarkdownText text={markdown} />)
     const images = [...container.querySelectorAll('img')]
-    expect(images.map(image => image.getAttribute('src'))).toEqual([
-      'https://example.com/secure.png',
-      'http://example.com/plain.png',
-    ])
+    expect(images.map(image => image.getAttribute('src'))).toEqual(['https://example.com/secure.png', 'http://example.com/plain.png'])
     for (const image of images) {
       expect(image.getAttribute('loading')).toBe('lazy')
       expect(image.getAttribute('decoding')).toBe('async')
@@ -348,8 +341,7 @@ describe('MarkdownText', () => {
 
     expect(container.querySelector('script')).toBeNull()
     expect(container.querySelector('img')).toBeNull()
-    const neutralized = [...container.querySelectorAll('p')]
-      .find(paragraph => paragraph.textContent === 'script relative')
+    const neutralized = [...container.querySelectorAll('p')].find(paragraph => paragraph.textContent === 'script relative')
     expect(neutralized?.querySelector('a')).toBeNull()
     expect(screen.getByRole('link', { name: 'mail' }).getAttribute('target')).toBeNull()
     expect(screen.getByRole('link', { name: 'web' }).getAttribute('rel')).toBe('noopener noreferrer')
@@ -412,8 +404,7 @@ describe('MarkdownText', () => {
     expect(container.querySelectorAll('.katex')).toHaveLength(6)
     expect(container.querySelectorAll('.katex-display')).toHaveLength(2)
     expect(container.querySelector('.katex-display annotation')?.textContent).toContain('\\frac{\\pi}{4}')
-    expect([...container.querySelectorAll('.katex-display')].at(-1)?.querySelector('annotation')?.textContent)
-      .toContain('\\tag{1}')
+    expect([...container.querySelectorAll('.katex-display')].at(-1)?.querySelector('annotation')?.textContent).toContain('\\tag{1}')
     expect(container.querySelector('.katex-error')).toBeNull()
     expect(container.querySelector('table .katex')).not.toBeNull()
   })
@@ -512,13 +503,7 @@ describe('MarkdownText', () => {
   })
 
   it('renders escaped dollars and even backslash pairs before closing fences', () => {
-    const source = [
-      String.raw`$$100\$$$`,
-      '',
-      String.raw`\(a\\\)`,
-      '',
-      String.raw`\[b\\\]`,
-    ].join('\n')
+    const source = [String.raw`$$100\$$$`, '', String.raw`\(a\\\)`, '', String.raw`\[b\\\]`].join('\n')
     const { container } = render(<MarkdownText text={source} />)
     const values = [...container.querySelectorAll('annotation')].map(node => node.textContent)
 

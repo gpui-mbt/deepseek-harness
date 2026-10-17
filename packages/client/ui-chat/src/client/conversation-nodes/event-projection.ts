@@ -1,16 +1,12 @@
 /** Chat-owned conversion from durable Session events to Chat view data. */
 
 import type { ContentBlock, StreamChunk } from '@deepseek-ai/dsh-llm/types'
-import type {
-  AssistantBlock, ContextProducerView, KnownContextForm,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { AssistantBlock, ContextProducerView, KnownContextForm } from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 /* jscpd:ignore-start -- Chat and Trajectory own independent event-to-view projections. */
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null
 }
 
 function readString(record: Record<string, unknown>, key: string): string | null {
@@ -35,9 +31,7 @@ function joined(names: string[]): string | null {
 }
 
 /** Forms Chat presents structurally; unknown merge-extensible values remain opaque. */
-const KNOWN_FORMS: readonly KnownContextForm[] = [
-  'instructions', 'catalog', 'snapshot', 'notice', 'relay', 'recall',
-]
+const KNOWN_FORMS: readonly KnownContextForm[] = ['instructions', 'catalog', 'snapshot', 'notice', 'relay', 'recall']
 
 /**
  * Read the target-supported presentation form from a durable message source.
@@ -47,9 +41,7 @@ const KNOWN_FORMS: readonly KnownContextForm[] = [
 export function contextForm(source: unknown): KnownContextForm | null {
   const record = asRecord(source)
   const form = record === null ? null : readString(record, 'form')
-  return form !== null && (KNOWN_FORMS as readonly string[]).includes(form)
-    ? form as KnownContextForm
-    : null
+  return form !== null && (KNOWN_FORMS as readonly string[]).includes(form) ? (form as KnownContextForm) : null
 }
 
 /**
@@ -113,11 +105,16 @@ export function toAssistantBlocks(content: readonly ContentBlock[]): AssistantBl
  */
 export function toAssistantBlock(block: ContentBlock): AssistantBlock {
   switch (block.type) {
-    case 'text': return { kind: 'text', text: block.text }
-    case 'reasoning': return { kind: 'reasoning', text: block.text }
-    case 'image': return { kind: 'image', attachment: block.attachment }
-    case 'tool-call': return { kind: 'tool-call', callId: String(block.id), name: block.name, argsRaw: block.arguments }
-    default: return { kind: 'other', block }
+    case 'text':
+      return { kind: 'text', text: block.text }
+    case 'reasoning':
+      return { kind: 'reasoning', text: block.text }
+    case 'image':
+      return { kind: 'image', attachment: block.attachment }
+    case 'tool-call':
+      return { kind: 'tool-call', callId: String(block.id), name: block.name, argsRaw: block.arguments }
+    default:
+      return { kind: 'other', block }
   }
 }
 
@@ -128,10 +125,14 @@ export function toAssistantBlock(block: ContentBlock): AssistantBlock {
  */
 export function emptyAssistantBlock(blockType: string): AssistantBlock {
   switch (blockType) {
-    case 'text': return { kind: 'text', text: '' }
-    case 'reasoning': return { kind: 'reasoning', text: '' }
-    case 'tool-call': return { kind: 'tool-call', callId: '', name: '', argsRaw: '' }
-    default: return { kind: 'other', block: null }
+    case 'text':
+      return { kind: 'text', text: '' }
+    case 'reasoning':
+      return { kind: 'reasoning', text: '' }
+    case 'tool-call':
+      return { kind: 'tool-call', callId: '', name: '', argsRaw: '' }
+    default:
+      return { kind: 'other', block: null }
   }
 }
 

@@ -24,9 +24,7 @@ function bool(obj: Record<string, unknown>, key: string): boolean | undefined {
 
 /** A plain (non-null, non-array) object, or `undefined`. */
 function obj(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
 }
 
 /**

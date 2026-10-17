@@ -17,7 +17,8 @@ export type Config = CuaConfig
 /** Validate the shared configuration before preparing the macOS helper. */
 export const Config: typeof CuaConfig = CuaConfig
 
-const description = 'Inspect macOS permissions, select an application and window, read AX state, capture screenshots or dispatch input. Use appHandle from getApp; verify actions by reading fresh state.'
+const description =
+  'Inspect macOS permissions, select an application and window, read AX state, capture screenshots or dispatch input. Use appHandle from getApp; verify actions by reading fresh state.'
 
 /**
  * Mount logged native operations with separate Agent connections to the shared helper.
@@ -35,14 +36,20 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   const controller = new AbortController()
   const prepared = prepareNativeExecutable({
     packageRoot: resolve(fileURLToPath(new URL('..', import.meta.url))),
-    architecture, subprocess: ctx.subprocess,
-    timeoutMs: config.buildTimeoutMs, graceMs: config.graceMs, signal: controller.signal,
+    architecture,
+    subprocess: ctx.subprocess,
+    timeoutMs: config.buildTimeoutMs,
+    graceMs: config.graceMs,
+    signal: controller.signal,
   })
-  ctx.effect(() => async () => {
-    controller.abort()
-    // The Loader receives preparation failures through apply; disposal only awaits quiescence.
-    await prepared.catch(() => {})
-  }, 'dsh-cua.native-preparation')
+  ctx.effect(
+    () => async () => {
+      controller.abort()
+      // The Loader receives preparation failures through apply; disposal only awaits quiescence.
+      await prepared.catch(() => {})
+    },
+    'dsh-cua.native-preparation',
+  )
   const helperPath = await prepared
   controller.signal.throwIfAborted()
   installCua(ctx, config, { helperPath, createChannel: createSharedNativeChannel, guidance: GUIDANCE, description })

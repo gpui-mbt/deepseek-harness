@@ -24,21 +24,16 @@ export type NativeCommandRunner = (
  */
 export const runNativeCommand: NativeCommandRunner = (command, args, signal, window) =>
   new Promise((resolve, reject) => {
-    execFile(
-      command,
-      [...args],
-      { encoding: 'utf8', signal, windowsHide: window === 'hidden' },
-      (error, stdout, stderr) => {
-        if (error !== null) {
-          const failure = Object.assign(new Error(error.message, { cause: error }), {
-            code: error.code,
-            stdout,
-            stderr,
-          })
-          reject(failure)
-          return
-        }
-        resolve({ stdout, stderr })
-      },
-    )
+    execFile(command, [...args], { encoding: 'utf8', signal, windowsHide: window === 'hidden' }, (error, stdout, stderr) => {
+      if (error !== null) {
+        const failure = Object.assign(new Error(error.message, { cause: error }), {
+          code: error.code,
+          stdout,
+          stderr,
+        })
+        reject(failure)
+        return
+      }
+      resolve({ stdout, stderr })
+    })
   })

@@ -34,20 +34,30 @@ export interface MergedHookOutcome {
 /** Rank a single hook's decision for the deny>ask>allow precedence (higher = stricter). */
 function rank(decision: HookOutput['decision']): number {
   switch (decision) {
-    case 'deny': case 'block': return 3
-    case 'ask': return 2
-    case 'approve': case 'allow': return 1
-    default: return 0 // no decision
+    case 'deny':
+    case 'block':
+      return 3
+    case 'ask':
+      return 2
+    case 'approve':
+    case 'allow':
+      return 1
+    default:
+      return 0 // no decision
   }
 }
 
 /** Collapse a ranked decision back to the merged enum. */
 function decisionForRank(maxRank: number): MergedDecision {
   switch (maxRank) {
-    case 3: return 'deny'
-    case 2: return 'ask'
-    case 1: return 'allow'
-    default: return 'none'
+    case 3:
+      return 'deny'
+    case 2:
+      return 'ask'
+    case 1:
+      return 'allow'
+    default:
+      return 'none'
   }
 }
 
@@ -91,9 +101,9 @@ export function mergeHookOutputs(outputs: HookOutput[]): MergedHookOutcome {
   const reasons = reasonsByRank.get(maxRank) ?? []
   return {
     decision: decisionForRank(maxRank),
-    ...reasons.length > 0 ? { reason: reasons.join('\n\n') } : {},
+    ...(reasons.length > 0 ? { reason: reasons.join('\n\n') } : {}),
     stop,
-    ...stopReason !== undefined ? { stopReason } : {},
+    ...(stopReason !== undefined ? { stopReason } : {}),
     additionalContext,
     systemMessages,
   }

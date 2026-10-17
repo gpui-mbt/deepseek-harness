@@ -27,10 +27,14 @@ export function readDesktopSettings(userData: string): DesktopSettings {
   const defaults: DesktopSettings = { updates: { allowTestAuthPopupWindow: false } }
   try {
     let raw: string
-    try { raw = readFileSync(path, 'utf8') } catch (error) {
+    try {
+      raw = readFileSync(path, 'utf8')
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       mkdirSync(directory, { recursive: true, mode: 0o700 })
-      try { writeFileSync(path, `${JSON.stringify(defaults, null, 2)}\n`, { flag: 'wx', mode: 0o600 }) } catch (error) {
+      try {
+        writeFileSync(path, `${JSON.stringify(defaults, null, 2)}\n`, { flag: 'wx', mode: 0o600 })
+      } catch (error) {
         // An existing document belongs to the user, including one created during initialization.
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
       }

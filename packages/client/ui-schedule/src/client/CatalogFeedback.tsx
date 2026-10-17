@@ -29,19 +29,44 @@ export type CatalogFeedbackProps = PropsLocale<'schedule.manager'> & {
  * @returns the applicable states, or nothing while the catalog is ready.
  */
 export function CatalogFeedback({ status, populated, onRetry, t }: CatalogFeedbackProps): ReactNode {
-  return <>
-    {status === 'loading' && !populated && <div className={css.empty} role="status" aria-label={t('list.loading')}>
-      <StateDot state="ongoing" />
-    </div>}
-    {status === 'error' && (populated
-      ? <div className={css.notice}>
-        <p role="alert">{t('list.error')}</p>
-        <Button variant="outline" size="sm" onClick={() => { void onRetry() }}>{t('list.retry')}</Button>
-      </div>
-      : <div className={css.empty}>
-        <IconWarningOutlineRegular size={24} className={css.emptyGlyph} />
-        <p role="alert" className={css.emptyTitle}>{t('list.error')}</p>
-        <Button variant="outline" className={css.emptyAction} onClick={() => { void onRetry() }}>{t('list.retry')}</Button>
-      </div>)}
-  </>
+  return (
+    <>
+      {status === 'loading' && !populated && (
+        <div className={css.empty} role="status" aria-label={t('list.loading')}>
+          <StateDot state="ongoing" />
+        </div>
+      )}
+      {status === 'error' &&
+        (populated ? (
+          <div className={css.notice}>
+            <p role="alert">{t('list.error')}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void onRetry()
+              }}
+            >
+              {t('list.retry')}
+            </Button>
+          </div>
+        ) : (
+          <div className={css.empty}>
+            <IconWarningOutlineRegular size={24} className={css.emptyGlyph} />
+            <p role="alert" className={css.emptyTitle}>
+              {t('list.error')}
+            </p>
+            <Button
+              variant="outline"
+              className={css.emptyAction}
+              onClick={() => {
+                void onRetry()
+              }}
+            >
+              {t('list.retry')}
+            </Button>
+          </div>
+        ))}
+    </>
+  )
 }

@@ -17,12 +17,7 @@ export interface Win32BindingContext {
   /** Token and security APIs. */
   readonly advapi32: ReturnType<Koffi['load']>
   /** Bind one stdcall function from a loaded Win32 library. */
-  readonly bind: (
-    library: ReturnType<Koffi['load']>,
-    name: string,
-    result: Ptr | string,
-    args: Array<Ptr | string>,
-  ) => unknown
+  readonly bind: (library: ReturnType<Koffi['load']>, name: string, result: Ptr | string, args: Array<Ptr | string>) => unknown
 }
 
 /**
@@ -60,15 +55,7 @@ export interface Win32ProcessBindings {
   getLastError(): number
   getFileType(handle: NativePtr): number
   uvGetOsfhandle(fileDescriptor: number): NativePtr | null
-  formatMessageW(
-    flags: number,
-    source: null,
-    messageId: number,
-    languageId: number,
-    buffer: Buffer,
-    size: number,
-    args: null,
-  ): number
+  formatMessageW(flags: number, source: null, messageId: number, languageId: number, buffer: Buffer, size: number, args: null): number
   createPipe(readHandle: NativePtr, writeHandle: NativePtr, attributes: null, size: number): number
   setHandleInformation(handle: NativePtr, mask: number, flags: number): number
   createProcessAsUserW(
@@ -109,13 +96,7 @@ export interface Win32ProcessBindings {
   getExitCodeProcess(process: NativePtr, exitCode: NativePtr): number
   createJobObjectW(attributes: null, name: null): NativePtr
   setInformationJobObject(job: NativePtr, cls: number, information: Buffer, length: number): number
-  queryInformationJobObject(
-    job: NativePtr,
-    cls: number,
-    information: Buffer,
-    length: number,
-    returnLength: null,
-  ): number
+  queryInformationJobObject(job: NativePtr, cls: number, information: Buffer, length: number, returnLength: null): number
   assignProcessToJobObject(job: NativePtr, process: NativePtr): number
   resumeThread(thread: NativePtr): number
   terminateProcess(process: NativePtr, exitCode: number): number
@@ -144,24 +125,42 @@ function win32Types(): Win32Types {
   const PVOID = koffi.pointer('void')
   const PPVOID = koffi.pointer(PVOID)
   const STARTUPINFOW = koffi.struct('DSH_STARTUPINFOW', {
-    cb: 'uint32', lpReserved: 'str16', lpDesktop: 'str16', lpTitle: 'str16',
-    dwX: 'uint32', dwY: 'uint32', dwXSize: 'uint32', dwYSize: 'uint32',
-    dwXCountChars: 'uint32', dwYCountChars: 'uint32', dwFillAttribute: 'uint32',
-    dwFlags: 'uint32', wShowWindow: 'uint16', cbReserved2: 'uint16',
-    lpReserved2: koffi.pointer('uint8'), hStdInput: PVOID, hStdOutput: PVOID, hStdError: PVOID,
+    cb: 'uint32',
+    lpReserved: 'str16',
+    lpDesktop: 'str16',
+    lpTitle: 'str16',
+    dwX: 'uint32',
+    dwY: 'uint32',
+    dwXSize: 'uint32',
+    dwYSize: 'uint32',
+    dwXCountChars: 'uint32',
+    dwYCountChars: 'uint32',
+    dwFillAttribute: 'uint32',
+    dwFlags: 'uint32',
+    wShowWindow: 'uint16',
+    cbReserved2: 'uint16',
+    lpReserved2: koffi.pointer('uint8'),
+    hStdInput: PVOID,
+    hStdOutput: PVOID,
+    hStdError: PVOID,
   })
   const PROCESS_INFORMATION = koffi.struct('DSH_PROCESS_INFORMATION', {
-    hProcess: PVOID, hThread: PVOID, dwProcessId: 'uint32', dwThreadId: 'uint32',
+    hProcess: PVOID,
+    hThread: PVOID,
+    dwProcessId: 'uint32',
+    dwThreadId: 'uint32',
   })
   /* v8 ignore start -- ABI guards are pinned by native header probes. */
   if (STARTUPINFOW.size !== abi.STARTUPINFOW_SIZE) {
     throw new Error(`STARTUPINFOW layout mismatch: koffi computed ${STARTUPINFOW.size}, expected ${abi.STARTUPINFOW_SIZE}`)
   }
   if (PROCESS_INFORMATION.size !== abi.PROCESS_INFORMATION_SIZE) {
-    throw new Error(`PROCESS_INFORMATION layout mismatch: koffi computed ${PROCESS_INFORMATION.size}, expected ${abi.PROCESS_INFORMATION_SIZE}`)
+    throw new Error(
+      `PROCESS_INFORMATION layout mismatch: koffi computed ${PROCESS_INFORMATION.size}, expected ${abi.PROCESS_INFORMATION_SIZE}`,
+    )
   }
   /* v8 ignore stop */
-  return cachedTypes = { PVOID, PPVOID, STARTUPINFOW, PROCESS_INFORMATION }
+  return (cachedTypes = { PVOID, PPVOID, STARTUPINFOW, PROCESS_INFORMATION })
 }
 
 /**
@@ -259,12 +258,8 @@ function bindingContext(): Win32BindingContext {
   const koffi = requireKoffi()
   const kernel32 = koffi.load('kernel32.dll')
   const advapi32 = koffi.load('advapi32.dll')
-  const bind = (
-    lib: ReturnType<typeof koffi.load>,
-    name: string,
-    result: Ptr | string,
-    args: Array<Ptr | string>,
-  ): unknown => lib.func('__stdcall', name, result, args)
+  const bind = (lib: ReturnType<typeof koffi.load>, name: string, result: Ptr | string, args: Array<Ptr | string>): unknown =>
+    lib.func('__stdcall', name, result, args)
   cachedContext = { kernel32, advapi32, bind }
   return cachedContext
 }
@@ -279,30 +274,48 @@ function bindings(): CurrentTokenProcessBindings {
     closeHandle: bind(kernel32, 'CloseHandle', 'int', [PVOID]),
     getLastError: bind(kernel32, 'GetLastError', 'uint32', []),
     getFileType: bind(kernel32, 'GetFileType', 'uint32', [PVOID]),
-    formatMessageW: bind(kernel32, 'FormatMessageW', 'uint32', [
-      'uint32', PVOID, 'uint32', 'uint32', PVOID, 'uint32', PVOID,
-    ]),
+    formatMessageW: bind(kernel32, 'FormatMessageW', 'uint32', ['uint32', PVOID, 'uint32', 'uint32', PVOID, 'uint32', PVOID]),
     createPipe: bind(kernel32, 'CreatePipe', 'int', [PPVOID, PPVOID, PVOID, 'uint32']),
     setHandleInformation: bind(kernel32, 'SetHandleInformation', 'int', [PVOID, 'uint32', 'uint32']),
     createProcessAsUserW: bind(advapi32, 'CreateProcessAsUserW', 'int', [
-      PVOID, 'str16', 'str16', PVOID, PVOID, 'int', 'uint32', PVOID, 'str16',
-      koffi.pointer(STARTUPINFOW), koffi.pointer(PROCESS_INFORMATION),
+      PVOID,
+      'str16',
+      'str16',
+      PVOID,
+      PVOID,
+      'int',
+      'uint32',
+      PVOID,
+      'str16',
+      koffi.pointer(STARTUPINFOW),
+      koffi.pointer(PROCESS_INFORMATION),
     ]),
     createProcessW: bind(kernel32, 'CreateProcessW', 'int', [
-      'str16', 'str16', PVOID, PVOID, 'int', 'uint32', PVOID, 'str16',
-      koffi.pointer(STARTUPINFOW), koffi.pointer(PROCESS_INFORMATION),
+      'str16',
+      'str16',
+      PVOID,
+      PVOID,
+      'int',
+      'uint32',
+      PVOID,
+      'str16',
+      koffi.pointer(STARTUPINFOW),
+      koffi.pointer(PROCESS_INFORMATION),
     ]),
     readFile: bind(kernel32, 'ReadFile', 'int', [PVOID, PVOID, 'uint32', koffi.pointer('uint32'), PVOID]),
     peekNamedPipe: bind(kernel32, 'PeekNamedPipe', 'int', [
-      PVOID, PVOID, 'uint32', koffi.pointer('uint32'), koffi.pointer('uint32'), koffi.pointer('uint32'),
+      PVOID,
+      PVOID,
+      'uint32',
+      koffi.pointer('uint32'),
+      koffi.pointer('uint32'),
+      koffi.pointer('uint32'),
     ]),
     waitForSingleObject: bind(kernel32, 'WaitForSingleObject', 'uint32', [PVOID, 'uint32']),
     getExitCodeProcess: bind(kernel32, 'GetExitCodeProcess', 'int', [PVOID, koffi.pointer('uint32')]),
     createJobObjectW: bind(kernel32, 'CreateJobObjectW', PVOID, [PVOID, 'str16']),
     setInformationJobObject: bind(kernel32, 'SetInformationJobObject', 'int', [PVOID, 'int', PVOID, 'uint32']),
-    queryInformationJobObject: bind(kernel32, 'QueryInformationJobObject', 'int', [
-      PVOID, 'int', PVOID, 'uint32', PVOID,
-    ]),
+    queryInformationJobObject: bind(kernel32, 'QueryInformationJobObject', 'int', [PVOID, 'int', PVOID, 'uint32', PVOID]),
     assignProcessToJobObject: bind(kernel32, 'AssignProcessToJobObject', 'int', [PVOID, PVOID]),
     resumeThread: bind(kernel32, 'ResumeThread', 'uint32', [PVOID]),
     terminateProcess: bind(kernel32, 'TerminateProcess', 'int', [PVOID, 'uint32']),
@@ -350,7 +363,12 @@ export function errorText(api: Win32ProcessBindings, win32Code: number): string 
     buffer.length / 2,
     null,
   )
-  return length === 0 ? '' : buffer.subarray(0, length * 2).toString('utf16le').trim()
+  return length === 0
+    ? ''
+    : buffer
+        .subarray(0, length * 2)
+        .toString('utf16le')
+        .trim()
 }
 
 /**
@@ -373,11 +391,6 @@ export function throwLastError(api: Win32ProcessBindings, name: string, detail?:
  * @param detail - optional operation context.
  * @returns never; always throws Win32Error.
  */
-export function throwWin32(
-  api: Win32ProcessBindings,
-  name: string,
-  win32Code: number,
-  detail?: string,
-): never {
+export function throwWin32(api: Win32ProcessBindings, name: string, win32Code: number, detail?: string): never {
   throw new Win32Error(name, win32Code, detail ?? errorText(api, win32Code))
 }

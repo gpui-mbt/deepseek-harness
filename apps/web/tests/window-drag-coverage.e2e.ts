@@ -18,11 +18,9 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { initialShortcutConfig } from '@deepseek-ai/dsh-client-shortcuts/protocol'
-import {
-  INTERACTIVE_SELECTOR, RECALL_MARK, isDraggableAt, type RegionRect,
-} from '@deepseek-ai/dsh-client-web/src/window-drag/regions.ts'
+import { INTERACTIVE_SELECTOR, RECALL_MARK, isDraggableAt, type RegionRect } from '@deepseek-ai/dsh-client-web/src/window-drag/regions.ts'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -64,8 +62,8 @@ const FIXTURE_PLUGINS = fileURLToPath(new URL('./fixtures/plugins', import.meta.
 /** Read one hook's viewport rect, or a zero rect while it is not rendered. */
 async function rectOf(page: Page, selector: string): Promise<Rect> {
   const locator = page.locator(selector).first()
-  if (await locator.count() === 0) return EMPTY
-  return locator.evaluate((element) => {
+  if ((await locator.count()) === 0) return EMPTY
+  return locator.evaluate(element => {
     const rect = element.getBoundingClientRect()
     return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
   })
@@ -77,7 +75,7 @@ async function rectOf(page: Page, selector: string): Promise<Rect> {
  * @returns the boxes, in document order, with the interactive flag of each element.
  */
 async function collectedRegions(page: Page, selector: string): Promise<CollectedRegion[]> {
-  return page.evaluate((interactiveSelector) => {
+  return page.evaluate(interactiveSelector => {
     const collected: {
       x: number
       y: number
@@ -106,14 +104,13 @@ async function collectedRegions(page: Page, selector: string): Promise<Collected
       ]
       const hits = interactive
         ? samples.filter(([x, y]) => {
-          const top = document.elementFromPoint(x, y)
-          // A pane's programmatic focus target also contains its window-drag strip.
-          // The strip owns those pixels; controls inside it still need their own subtraction.
-          const strip = top?.closest('[data-dockkit-strip][data-window-drag]')
-          if (element.matches('[data-dockkit-pane][tabindex="-1"]')
-            && strip != null && element.contains(strip)) return false
-          return top !== null && (top === element || element.contains(top))
-        })
+            const top = document.elementFromPoint(x, y)
+            // A pane's programmatic focus target also contains its window-drag strip.
+            // The strip owns those pixels; controls inside it still need their own subtraction.
+            const strip = top?.closest('[data-dockkit-strip][data-window-drag]')
+            if (element.matches('[data-dockkit-pane][tabindex="-1"]') && strip != null && element.contains(strip)) return false
+            return top !== null && (top === element || element.contains(top))
+          })
         : []
       collected.push({
         x: rect.x,
@@ -152,20 +149,23 @@ function swallowedBoxes(regions: readonly CollectedRegion[]): string[] {
  * @returns the pending observation of the first pulse.
  */
 function firstRecallPulse(page: Page): Promise<boolean> {
-  return page.evaluate((mark: string) => new Promise<boolean>((resolve) => {
-    const observer = new MutationObserver((records) => {
-      const pulsed = records.some(record => record.attributeName === mark
-        && (record.target as Element).hasAttribute(mark))
-      if (!pulsed) return
-      observer.disconnect()
-      resolve(true)
-    })
-    observer.observe(document.body, { attributes: true, attributeFilter: [mark] })
-    setTimeout(() => {
-      observer.disconnect()
-      resolve(false)
-    }, 15_000)
-  }), RECALL_MARK)
+  return page.evaluate(
+    (mark: string) =>
+      new Promise<boolean>(resolve => {
+        const observer = new MutationObserver(records => {
+          const pulsed = records.some(record => record.attributeName === mark && (record.target as Element).hasAttribute(mark))
+          if (!pulsed) return
+          observer.disconnect()
+          resolve(true)
+        })
+        observer.observe(document.body, { attributes: true, attributeFilter: [mark] })
+        setTimeout(() => {
+          observer.disconnect()
+          resolve(false)
+        }, 15_000)
+      }),
+    RECALL_MARK,
+  )
 }
 
 /**
@@ -174,9 +174,15 @@ function firstRecallPulse(page: Page): Promise<boolean> {
  * @param page - the page under test.
  */
 async function settled(page: Page): Promise<void> {
-  await expect.poll(() => page.evaluate(() => document.getAnimations()
-    .every(animation => animation.playState === 'finished' || animation.playState === 'idle')),
-  { timeout: 20_000 }).toBe(true)
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() =>
+          document.getAnimations().every(animation => animation.playState === 'finished' || animation.playState === 'idle'),
+        ),
+      { timeout: 20_000 },
+    )
+    .toBe(true)
 }
 
 describe('web e2e: macOS window drag coverage', () => {
@@ -193,8 +199,11 @@ describe('web e2e: macOS window drag coverage', () => {
   }, 180_000)
 
   afterAll(async () => {
-    try { await browser?.close() }
-    finally { await scaffold?.close() }
+    try {
+      await browser?.close()
+    } finally {
+      await scaffold?.close()
+    }
   })
 
   /**
@@ -203,18 +212,29 @@ describe('web e2e: macOS window drag coverage', () => {
    */
   async function darwinPage(): Promise<{ page: Page; tripwire: ReturnType<typeof watchConsole> }> {
     const page = await newEnglishPage(browser)
-    await page.addInitScript(({ value, snapshot }) => {
-      // The Desktop platform marker requires the preload's keyboard and preference capabilities.
-      Object.assign(window, { dshDesktop: { protocolVersion: 1,
-        keyboard: { subscribe: () => () => {}, closeWindow: async () => {} },
-        shortcuts: { get: async () => ({ ...snapshot, status: 'ready' }),
-          subscribe: () => () => {}, recording: async () => {},
-          edit: async () => ({ status: 'not-ready', snapshot }) },
-      } })
-      const mark = (): void => { document.documentElement.setAttribute('data-platform', value) }
-      if (document.documentElement === null) document.addEventListener('DOMContentLoaded', mark, { once: true })
-      else mark()
-    }, { value: 'darwin', snapshot: initialShortcutConfig() })
+    await page.addInitScript(
+      ({ value, snapshot }) => {
+        // The Desktop platform marker requires the preload's keyboard and preference capabilities.
+        Object.assign(window, {
+          dshDesktop: {
+            protocolVersion: 1,
+            keyboard: { subscribe: () => () => {}, closeWindow: async () => {} },
+            shortcuts: {
+              get: async () => ({ ...snapshot, status: 'ready' }),
+              subscribe: () => () => {},
+              recording: async () => {},
+              edit: async () => ({ status: 'not-ready', snapshot }),
+            },
+          },
+        })
+        const mark = (): void => {
+          document.documentElement.setAttribute('data-platform', value)
+        }
+        if (document.documentElement === null) document.addEventListener('DOMContentLoaded', mark, { once: true })
+        else mark()
+      },
+      { value: 'darwin', snapshot: initialShortcutConfig() },
+    )
     const tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
@@ -233,22 +253,30 @@ describe('web e2e: macOS window drag coverage', () => {
       await page.locator('[data-sidebar-right-panel][data-sidebar-right-open]').waitFor({ timeout: 15_000 })
       // The panel slides in from the frame's right edge; probing before the slide
       // settles measures the hidden position, where the band does not reach.
-      await expect.poll(async () => page.locator('[data-sidebar-right-panel]').evaluate((element) => {
-        const rect = element.getBoundingClientRect()
-        return Math.round(innerWidth - rect.right) === 0
-          && element.getAnimations({ subtree: true })
-            .every(animation => animation.playState === 'finished' || animation.playState === 'idle')
-      }), { timeout: 15_000 }).toBe(true)
+      await expect
+        .poll(
+          async () =>
+            page.locator('[data-sidebar-right-panel]').evaluate(element => {
+              const rect = element.getBoundingClientRect()
+              return (
+                Math.round(innerWidth - rect.right) === 0 &&
+                element
+                  .getAnimations({ subtree: true })
+                  .every(animation => animation.playState === 'finished' || animation.playState === 'idle')
+              )
+            }),
+          { timeout: 15_000 },
+        )
+        .toBe(true)
 
       // The shell's watcher, not the panel, is what keeps the native drag rects in
       // step with the slide: it must have pulsed while the panel moved and must be
       // settled now — a mark left set would subtract the whole surface.
       expect(await pulsing, 'the shell pulses the drag recall mark while the panel slides').toBe(true)
       // The watcher clears the mark on the frame after the geometry settles.
-      await expect.poll(
-        () => page.evaluate((mark: string) => document.body.hasAttribute(mark), RECALL_MARK),
-        { timeout: 5_000 },
-      ).toBe(false)
+      await expect
+        .poll(() => page.evaluate((mark: string) => document.body.hasAttribute(mark), RECALL_MARK), { timeout: 5_000 })
+        .toBe(false)
 
       const regions = await collectedRegions(page, INTERACTIVE_SELECTOR)
       const strip = await rectOf(page, '[data-dockkit-strip]')
@@ -319,8 +347,9 @@ describe('web e2e: macOS window drag coverage', () => {
 
       for (const probe of probes) {
         const [x, y] = probe.at()
-        const expected = `${probe.row}: ${probe.what} at ${Math.round(x)},${Math.round(y)}`
-          + (probe.gap === undefined ? '' : ` (recorded gap — ${probe.gap})`)
+        const expected =
+          `${probe.row}: ${probe.what} at ${Math.round(x)},${Math.round(y)}` +
+          (probe.gap === undefined ? '' : ` (recorded gap — ${probe.gap})`)
         expect(isDraggableAt(regions, x, y), expected).toBe(probe.drag)
       }
 
@@ -349,14 +378,8 @@ describe('web e2e: macOS window drag coverage', () => {
 
       // With the column hidden the centre starts at the frame's left edge, where
       // the Conversation header owns the run.
-      expect(
-        isDraggableAt(regions, header.x + 40, header.y + 4),
-        'the Conversation header over the frame’s left edge',
-      ).toBe(true)
-      expect(
-        isDraggableAt(regions, seat.x + seat.width / 2, seat.y + seat.height / 2),
-        'the seat holding the reopen controls',
-      ).toBe(false)
+      expect(isDraggableAt(regions, header.x + 40, header.y + 4), 'the Conversation header over the frame’s left edge').toBe(true)
+      expect(isDraggableAt(regions, seat.x + seat.width / 2, seat.y + seat.height / 2), 'the seat holding the reopen controls').toBe(false)
 
       expect(swallowedBoxes(regions), 'interactive boxes inside the drag surface').toEqual([])
       expect(tripwire.pageErrors).toEqual([])
@@ -375,7 +398,7 @@ describe('web e2e: macOS window drag coverage', () => {
       const head = page.locator('[class*="pageHead"]').first()
       await head.waitFor({ timeout: 15_000 })
       await settled(page)
-      const rect = await head.evaluate((element) => {
+      const rect = await head.evaluate(element => {
         const box = element.getBoundingClientRect()
         return { x: box.x, y: box.y, width: box.width, height: box.height }
       })
@@ -386,14 +409,8 @@ describe('web e2e: macOS window drag coverage', () => {
       expect(rect.y, 'the page head starts at the window’s top edge').toBeLessThanOrEqual(0.5)
       // The page head owns its run, clearance included: that is the entry page's
       // window strip, with no frame band behind it.
-      expect(
-        isDraggableAt(regions, rect.x + 40, rect.y + 8),
-        'the plugin manager page head',
-      ).toBe(true)
-      expect(
-        isDraggableAt(regions, rect.x + 40, rect.y + rect.height + 40),
-        'the page body below the head',
-      ).toBe(false)
+      expect(isDraggableAt(regions, rect.x + 40, rect.y + 8), 'the plugin manager page head').toBe(true)
+      expect(isDraggableAt(regions, rect.x + 40, rect.y + rect.height + 40), 'the page body below the head').toBe(false)
 
       expect(swallowedBoxes(regions), 'interactive boxes inside the drag surface').toEqual([])
       expect(tripwire.pageErrors).toEqual([])
@@ -419,14 +436,12 @@ describe('web e2e: macOS window drag coverage', () => {
       // form labels wherever no control covers them.
       const detail = page.locator('[data-plugin-item-detail], [data-plugin-detail], [data-plugin-row-detail]').first()
       await detail.waitFor({ timeout: 15_000 })
-      const geometry = await detail.evaluate((element) => {
+      const geometry = await detail.evaluate(element => {
         const detailBox = element.getBoundingClientRect()
         const headBox = element.firstElementChild?.getBoundingClientRect()
         return {
           detail: { x: detailBox.x, y: detailBox.y, width: detailBox.width, height: detailBox.height },
-          head: headBox === undefined
-            ? null
-            : { x: headBox.x, y: headBox.y, width: headBox.width, height: headBox.height },
+          head: headBox === undefined ? null : { x: headBox.x, y: headBox.y, width: headBox.width, height: headBox.height },
           viewport: { width: innerWidth, height: innerHeight },
         }
       })
@@ -438,10 +453,7 @@ describe('web e2e: macOS window drag coverage', () => {
       // it drags like the entry page's head. The row also starts at the window's top
       // edge, or the strip above it belongs to no drag region.
       expect(headRect.y, 'the detail head row starts at the window’s top edge').toBeLessThanOrEqual(0.5)
-      expect(
-        isDraggableAt(regions, headRect.x + headRect.width / 2, headRect.y + 4),
-        'the detail head row’s top inset',
-      ).toBe(true)
+      expect(isDraggableAt(regions, headRect.x + headRect.width / 2, headRect.y + 4), 'the detail head row’s top inset').toBe(true)
 
       // Below the head, a point that no control covers is content: pressing the
       // description, a label, or a gap in the form must reach the page.
@@ -454,8 +466,8 @@ describe('web e2e: macOS window drag coverage', () => {
           const x = detailRect.x + (detailRect.width * (column + 0.5)) / 5
           const y = bodyTop + ((bodyBottom - bodyTop) * (row + 0.5)) / 8
           if (y <= bodyTop || y > viewport.height - 4 || x > viewport.width - 4) continue
-          if (interactive.some(region => x >= region.x && x < region.x + region.width
-            && y >= region.y && y < region.y + region.height)) continue
+          if (interactive.some(region => x >= region.x && x < region.x + region.width && y >= region.y && y < region.y + region.height))
+            continue
           if (isDraggableAt(regions, x, y)) dragging.push(`${Math.round(x)},${Math.round(y)}`)
         }
       }
@@ -479,7 +491,7 @@ describe('web e2e: macOS window drag coverage', () => {
       const dialog = page.locator('[role="dialog"]').first()
       await dialog.waitFor({ timeout: 15_000 })
       await settled(page)
-      const layer = await dialog.evaluate((element) => {
+      const layer = await dialog.evaluate(element => {
         const overlay = element.parentElement
         const rect = overlay?.getBoundingClientRect()
         return {
@@ -495,10 +507,7 @@ describe('web e2e: macOS window drag coverage', () => {
 
       const regions = await collectedRegions(page, INTERACTIVE_SELECTOR)
       const header = await rectOf(page, '[data-slot="conversation.header"] > header')
-      expect(
-        isDraggableAt(regions, header.x + header.width / 2, 8),
-        'the window top behind an open covering overlay',
-      ).toBe(false)
+      expect(isDraggableAt(regions, header.x + header.width / 2, 8), 'the window top behind an open covering overlay').toBe(false)
       expect(swallowedBoxes(regions), 'interactive boxes inside the drag surface').toEqual([])
       expect(tripwire.pageErrors).toEqual([])
     } catch (error) {

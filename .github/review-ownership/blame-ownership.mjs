@@ -17,9 +17,12 @@ const SHA = /^[0-9a-f]{40}$/u
  */
 export async function resolveBlameAuthors(measurement, repository, api) {
   const entries = Object.entries(measurement.commitLines)
-  if (!Number.isSafeInteger(measurement.totalLines) || measurement.totalLines < 0
-    || entries.some(([sha, count]) => !SHA.test(sha) || !Number.isSafeInteger(count) || count <= 0)
-    || entries.reduce((sum, [, count]) => sum + count, 0) !== measurement.totalLines) {
+  if (
+    !Number.isSafeInteger(measurement.totalLines) ||
+    measurement.totalLines < 0 ||
+    entries.some(([sha, count]) => !SHA.test(sha) || !Number.isSafeInteger(count) || count <= 0) ||
+    entries.reduce((sum, [, count]) => sum + count, 0) !== measurement.totalLines
+  ) {
     throw new Error('invalid production blame counts')
   }
   const [owner, name] = repository.split('/')
@@ -74,13 +77,21 @@ export async function productionOwnership(pull, api) {
     GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`,
   }
   const { stdout: shallow } = await exec('git', ['rev-parse', '--is-shallow-repository'])
-  await exec('git', [
-    'fetch', '--no-tags', ...(shallow.trim() === 'true' ? ['--unshallow'] : []),
-    `${server}/${pull.repository}.git`, baseRef, pull.headSha,
-  ], { env: environment, maxBuffer: 16 * 1024 * 1024 })
+  await exec(
+    'git',
+    [
+      'fetch',
+      '--no-tags',
+      ...(shallow.trim() === 'true' ? ['--unshallow'] : []),
+      `${server}/${pull.repository}.git`,
+      baseRef,
+      pull.headSha,
+    ],
+    { env: environment, maxBuffer: 16 * 1024 * 1024 },
+  )
   const { stdout: baseSha } = await exec('git', ['rev-parse', 'FETCH_HEAD'])
-  const { stdout } = await exec('python3', [
-    fileURLToPath(new URL('blame-production.py', import.meta.url)), baseSha.trim(), pull.headSha,
-  ], { maxBuffer: 16 * 1024 * 1024 })
+  const { stdout } = await exec('python3', [fileURLToPath(new URL('blame-production.py', import.meta.url)), baseSha.trim(), pull.headSha], {
+    maxBuffer: 16 * 1024 * 1024,
+  })
   return resolveBlameAuthors(JSON.parse(stdout), pull.repository, api)
 }

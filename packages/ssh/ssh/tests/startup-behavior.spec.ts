@@ -2,23 +2,29 @@
 import { EventEmitter } from 'node:events'
 import { Duplex, PassThrough } from 'node:stream'
 import { Context, Service } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { z } from 'zod'
 import { SshRpcPeer } from '../src/protocol.ts'
 import { SshConnection } from '../src/index.ts'
 import type { Config } from '../src/index.ts'
 
 const transport = vi.hoisted(() => ({ spawn: vi.fn(), exec: vi.fn(), connect: vi.fn(), tls: vi.fn(), directory: vi.fn(), remove: vi.fn() }))
-vi.mock('node:child_process', async original => ({ ...await original<typeof import('node:child_process')>(), spawn: transport.spawn, execFile: transport.exec }))
-vi.mock('node:net', async original => ({ ...await original<typeof import('node:net')>(), createConnection: transport.connect }))
-vi.mock('node:tls', async original => ({ ...await original<typeof import('node:tls')>(), connect: transport.tls }))
+vi.mock('node:child_process', async original => ({
+  ...(await original<typeof import('node:child_process')>()),
+  spawn: transport.spawn,
+  execFile: transport.exec,
+}))
+vi.mock('node:net', async original => ({ ...(await original<typeof import('node:net')>()), createConnection: transport.connect }))
+vi.mock('node:tls', async original => ({ ...(await original<typeof import('node:tls')>()), connect: transport.tls }))
 vi.mock('node:fs/promises', () => ({ mkdtemp: transport.directory, rm: transport.remove }))
 
 class Stream extends Duplex {
   finishDestroy: ((error: Error | null) => void) | undefined
   holdDestroy = false
   override _read(): void {}
-  override _write(_bytes: Buffer, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void { callback() }
+  override _write(_bytes: Buffer, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+    callback()
+  }
   override _destroy(error: Error | null, callback: (error: Error | null) => void): void {
     if (this.holdDestroy) this.finishDestroy = callback
     else callback(error)
@@ -45,30 +51,47 @@ class Child extends EventEmitter {
     if (this.ignoreTerm && signal !== 'SIGKILL') return true
     if (!this.closed) {
       this.closed = true
-      queueMicrotask(() => { this.emit('close', 0, null) })
+      queueMicrotask(() => {
+        this.emit('close', 0, null)
+      })
     }
     return true
   }
 }
 
 const config: Config = {
-  host: 'test-alias', launch: { kind: 'node-script', node: '/remote/node' }, helper: '/remote/helper.js', helperHash: 'a'.repeat(64), workspace: '/remote/workspace',
-  requestTimeoutMs: 1000, maxFrameBytes: 4096, maxPending: 8, leaseMs: 30_000,
+  host: 'test-alias',
+  launch: { kind: 'node-script', node: '/remote/node' },
+  helper: '/remote/helper.js',
+  helperHash: 'a'.repeat(64),
+  workspace: '/remote/workspace',
+  requestTimeoutMs: 1000,
+  maxFrameBytes: 4096,
+  maxPending: 8,
+  leaseMs: 30_000,
 }
 const hello = {
-  protocol: 2, hash: 'a'.repeat(64), platform: 'linux', nodeVersion: 'v24.19.0',
-  kind: 'node-script', executable: '/canonical/node', root: '/tmp/remote-helper', workspace: '/canonical/workspace',
+  protocol: 2,
+  hash: 'a'.repeat(64),
+  platform: 'linux',
+  nodeVersion: 'v24.19.0',
+  kind: 'node-script',
+  executable: '/canonical/node',
+  root: '/tmp/remote-helper',
+  workspace: '/canonical/workspace',
 }
 
-function setup(options: {
-  config?: Partial<Config>
-  hello?: Record<string, unknown>
-  holdHello?: boolean
-  holdConnect?: boolean
-  forwardFailure?: Error
-  heartbeatFailure?: Error
-  directoryFailure?: Error
-} = {}) {
+function setup(
+  options: {
+    config?: Partial<Config>
+    hello?: Record<string, unknown>
+    holdHello?: boolean
+    holdConnect?: boolean
+    forwardFailure?: Error
+    heartbeatFailure?: Error
+    directoryFailure?: Error
+  } = {},
+) {
   const ctx = new Context()
   const child = new Child()
   const raw = new Stream()
@@ -85,7 +108,10 @@ function setup(options: {
       if (options.holdHello) await releaseHello.promise
       return { ...hello, ...options.hello }
     }
-    if (method === 'held') { requestEntered.resolve(signal); return released.promise }
+    if (method === 'held') {
+      requestEntered.resolve(signal)
+      return released.promise
+    }
     if (method === 'echo') return params
     if (method === 'heartbeat' && options.heartbeatFailure !== undefined) throw options.heartbeatFailure
     if (method === 'heartbeat' || method === 'close') return null
@@ -97,18 +123,32 @@ function setup(options: {
   transport.spawn.mockReturnValue(child)
   transport.exec.mockImplementation((_file: string, args: string[], _options: unknown, callback: (error: Error | null) => void) => {
     const command = new Child()
-    queueMicrotask(() => { callback(args.includes('forward') ? options.forwardFailure ?? null : null); command.kill() })
+    queueMicrotask(() => {
+      callback(args.includes('forward') ? (options.forwardFailure ?? null) : null)
+      command.kill()
+    })
     return command
   })
   transport.connect.mockImplementation(() => {
-    if (!options.holdConnect) queueMicrotask(() => { raw.emit('connect') })
+    if (!options.holdConnect)
+      queueMicrotask(() => {
+        raw.emit('connect')
+      })
     return raw
   })
   transport.tls.mockImplementation(() => {
-    raw.on('error', (error) => { secure.destroy(error) })
-    raw.once('close', () => { secure.destroy() })
-    secure.once('close', () => { raw.destroy() })
-    queueMicrotask(() => { secure.emit('secureConnect') })
+    raw.on('error', error => {
+      secure.destroy(error)
+    })
+    raw.once('close', () => {
+      secure.destroy()
+    })
+    secure.once('close', () => {
+      raw.destroy()
+    })
+    queueMicrotask(() => {
+      secure.emit('secureConnect')
+    })
     return secure
   })
   // oxlint-disable-next-line eslint/prefer-const -- Failed construction still runs the pre-registered fixture cleanup.
@@ -118,39 +158,75 @@ function setup(options: {
     released.resolve(null)
     raw.releaseDestroy()
     secure.releaseDestroy()
-    try { await service?.dispose() }
-    finally {
-      raw.destroy(); secure.destroy(); helper.close(); child.stderr.destroy(); child.kill()
+    try {
+      await service?.dispose()
+    } finally {
+      raw.destroy()
+      secure.destroy()
+      helper.close()
+      child.stderr.destroy()
+      child.kill()
       await ctx.fiber.dispose()
       vi.restoreAllMocks()
       for (const mock of Object.values(transport)) mock.mockReset()
     }
   })
   service = new SshConnection(ctx, { ...config, ...options.config })
-  return { service, child, helper, raw, secure, calls, requestEntered: requestEntered.promise,
-    helloEntered: helloEntered.promise, releaseHello: () => { releaseHello.resolve(undefined) }, release: () => { released.resolve(null) } }
+  return {
+    service,
+    child,
+    helper,
+    raw,
+    secure,
+    calls,
+    requestEntered: requestEntered.promise,
+    helloEntered: helloEntered.promise,
+    releaseHello: () => {
+      releaseHello.resolve(undefined)
+    },
+    release: () => {
+      released.resolve(null)
+    },
+  }
 }
 
 describe.skipIf(process.platform === 'win32')('SSH connection startup', () => {
   it.each([
-    { host: '-option' }, { host: 'alias; command' }, { launch: { kind: 'node-script', node: 'relative' } }, { helperHash: 'bad' },
-    { launch: { kind: 'node-script', node: '/remote/node', bootstrapPath: '/remote/bootstrap.js' } }, { launch: { kind: 'node-script', node: '/remote/node', bootstrapHash: 'b'.repeat(64) } },
-    { requestTimeoutMs: 0 }, { requestTimeoutMs: 2_147_483_648 },
-    { maxFrameBytes: 64 * 1024 * 1024 + 1 }, { maxPending: 129 }, { leaseMs: 2999 },
-  ] satisfies Partial<Config>[])('rejects invalid deployment configuration before SSH starts: %j', (invalid) => {
+    { host: '-option' },
+    { host: 'alias; command' },
+    { launch: { kind: 'node-script', node: 'relative' } },
+    { helperHash: 'bad' },
+    { launch: { kind: 'node-script', node: '/remote/node', bootstrapPath: '/remote/bootstrap.js' } },
+    { launch: { kind: 'node-script', node: '/remote/node', bootstrapHash: 'b'.repeat(64) } },
+    { requestTimeoutMs: 0 },
+    { requestTimeoutMs: 2_147_483_648 },
+    { maxFrameBytes: 64 * 1024 * 1024 + 1 },
+    { maxPending: 129 },
+    { leaseMs: 2999 },
+  ] satisfies Partial<Config>[])('rejects invalid deployment configuration before SSH starts: %j', invalid => {
     expect(() => setup({ config: invalid })).toThrow()
     expect(transport.spawn).not.toHaveBeenCalled()
   })
 
   it('rejects a non-POSIX client before starting SSH', () => {
     const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('win32')
-    try { expect(() => setup()).toThrow('POSIX client') }
-    finally { platform.mockRestore() }
+    try {
+      expect(() => setup()).toThrow('POSIX client')
+    } finally {
+      platform.mockRestore()
+    }
     expect(transport.spawn).not.toHaveBeenCalled()
   })
 
   it('publishes only verified remote coordinates and quotes the configured executable paths', async () => {
-    const test = setup({ holdHello: true, config: { helper: "/remote/helper's file.js", launch: { kind: 'node-script', node: '/remote/node', bootstrapPath: '/remote/process.js', bootstrapHash: 'b'.repeat(64) } }, hello: { bootstrapHash: 'b'.repeat(64) } })
+    const test = setup({
+      holdHello: true,
+      config: {
+        helper: "/remote/helper's file.js",
+        launch: { kind: 'node-script', node: '/remote/node', bootstrapPath: '/remote/process.js', bootstrapHash: 'b'.repeat(64) },
+      },
+      hello: { bootstrapHash: 'b'.repeat(64) },
+    })
     expect(() => test.service.ptcLaunch).toThrow('not ready')
     await test.helloEntered
     test.releaseHello()
@@ -160,7 +236,12 @@ describe.skipIf(process.platform === 'win32')('SSH connection startup', () => {
     expect(argv).toContain('StrictHostKeyChecking=yes')
     expect(argv).toContain('ForwardAgent=no')
     expect(argv.at(-1)).toBe("'/remote/node' '--disable-sigusr1' '/remote/helper'\\''s file.js'")
-    expect(test.calls[0]?.params).toEqual({ protocol: 2, workspace: '/remote/workspace', leaseMs: 30_000, bootstrapPath: '/remote/process.js' })
+    expect(test.calls[0]?.params).toEqual({
+      protocol: 2,
+      workspace: '/remote/workspace',
+      leaseMs: 30_000,
+      bootstrapPath: '/remote/process.js',
+    })
   })
 
   it('permits filesystem-only deployments and refuses an unconfigured PTC bootstrap getter', async () => {
@@ -230,7 +311,9 @@ describe.skipIf(process.platform === 'win32')('SSH connection startup', () => {
       expect(await test.service.request('echo', 42, z.number(), undefined, true)).toBe(42)
       const caller = AbortSignal.abort(new Error('caller cancelled'))
       await expect(test.service.request('echo', {}, z.unknown(), caller)).rejects.toThrow('caller cancelled')
-    } finally { timeout.mockRestore() }
+    } finally {
+      timeout.mockRestore()
+    }
   })
 
   it('returns authenticated paused streams and rejects paths outside the helper root', async () => {
@@ -286,7 +369,10 @@ describe.skipIf(process.platform === 'win32')('SSH connection startup', () => {
       await vi.advanceTimersByTimeAsync(10_000)
       await expect(test.service.request('echo', {}, z.unknown())).rejects.toThrow('helper unhealthy')
       expect(test.child.signals).toContain('SIGTERM')
-    } finally { await test.service.dispose(); vi.useRealTimers() }
+    } finally {
+      await test.service.dispose()
+      vi.useRealTimers()
+    }
   })
 
   it('force-kills a helper process that does not exit after termination', async () => {
@@ -315,7 +401,9 @@ describe.skipIf(process.platform === 'win32')('SSH connection startup', () => {
     test.raw.holdDestroy = true
     test.secure.holdDestroy = true
     let disposed = false
-    const disposal = test.service.dispose().then(() => { disposed = true })
+    const disposal = test.service.dispose().then(() => {
+      disposed = true
+    })
     await test.child.terminating.promise
     expect(disposed).toBe(false)
     expect(test.raw.finishDestroy).toBeTypeOf('function')

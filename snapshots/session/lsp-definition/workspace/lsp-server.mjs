@@ -18,16 +18,18 @@ function location(line) {
 function handle(message) {
   switch (message.method) {
     case 'initialize':
-      process.stdout.write(frame({
-        id: message.id,
-        result: {
-          capabilities: {
-            positionEncoding: 'utf-16',
-            textDocumentSync: 1,
-            definitionProvider: true,
+      process.stdout.write(
+        frame({
+          id: message.id,
+          result: {
+            capabilities: {
+              positionEncoding: 'utf-16',
+              textDocumentSync: 1,
+              definitionProvider: true,
+            },
           },
-        },
-      }))
+        }),
+      )
       break
     case 'textDocument/definition':
       process.stdout.write(frame({ id: message.id, result: [location(0), location(1)] }))
@@ -40,7 +42,7 @@ function handle(message) {
   }
 }
 
-process.stdin.on('data', (chunk) => {
+process.stdin.on('data', chunk => {
   buffered = Buffer.concat([buffered, chunk])
   for (;;) {
     const headerEnd = buffered.indexOf('\r\n\r\n')

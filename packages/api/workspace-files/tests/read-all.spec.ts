@@ -1,5 +1,5 @@
 /** Full-file reads retain the ordinary file gates and never return a silently truncated result. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdir, realpath, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { FsVersion } from '@deepseek-ai/dsh-fs'
@@ -7,8 +7,12 @@ import { failureOf, openWorkspace, signal, type Harness } from './harness.ts'
 
 let harness: Harness
 
-beforeEach(async () => { harness = await openWorkspace('dsh-workspace-files-read-all-') })
-afterEach(async () => { await harness.dispose() })
+beforeEach(async () => {
+  harness = await openWorkspace('dsh-workspace-files-read-all-')
+})
+afterEach(async () => {
+  await harness.dispose()
+})
 
 describe('workspaceFiles.readBytes — complete files', () => {
   it('reads the complete bytes independently of the window cap', async () => {
@@ -26,18 +30,21 @@ describe('workspaceFiles.readBytes — complete files', () => {
     expect(result).toMatchObject({ offset: 0, eof: true, bytes: 0 })
   })
 
-  it.each(['workspace', 'outside'] as const)('maps the filesystem size refusal for a %s file', async (location) => {
+  it.each(['workspace', 'outside'] as const)('maps the filesystem size refusal for a %s file', async location => {
     const path = join(harness[location], 'large')
     await writeFile(path, 'abcde')
-    expect(await failureOf(harness.endpoint({ maxFileBytes: 4 }).readBytes(harness.scope, path, {}, signal())))
-      .toEqual({ code: 'workspace-file/too-large', details: { path, limit: 4 } })
+    expect(await failureOf(harness.endpoint({ maxFileBytes: 4 }).readBytes(harness.scope, path, {}, signal()))).toEqual({
+      code: 'workspace-file/too-large',
+      details: { path, limit: 4 },
+    })
   })
 
-  it.each([undefined, 1])('checks the actual bytes when stat reports %s', async (size) => {
+  it.each([undefined, 1])('checks the actual bytes when stat reports %s', async size => {
     await writeFile(join(harness.workspace, 'growing'), 'abcde')
-    vi.spyOn(harness.ctx.fs, 'stat').mockResolvedValue({ type: 'file', version: FsVersion('v'), ...size === undefined ? {} : { size } })
-    expect((await failureOf(harness.endpoint({ maxFileBytes: 4 }).readBytes(harness.scope, 'growing', {}, signal()))).code)
-      .toBe('workspace-file/too-large')
+    vi.spyOn(harness.ctx.fs, 'stat').mockResolvedValue({ type: 'file', version: FsVersion('v'), ...(size === undefined ? {} : { size }) })
+    expect((await failureOf(harness.endpoint({ maxFileBytes: 4 }).readBytes(harness.scope, 'growing', {}, signal()))).code).toBe(
+      'workspace-file/too-large',
+    )
   })
 
   it('reads outside files while retaining missing-file and kind failures', async () => {
@@ -51,7 +58,8 @@ describe('workspaceFiles.readBytes — complete files', () => {
   })
 
   it.each([new Error('Read denied'), new DOMException('Cancelled', 'AbortError'), null, 'backend failure', { code: 'FS_NOT_FOUND' }])(
-    'preserves non-size filesystem failures: %s', async (failure) => {
+    'preserves non-size filesystem failures: %s',
+    async failure => {
       await writeFile(join(harness.workspace, 'file'), '1234')
       vi.spyOn(harness.ctx.fs, 'readBytes').mockRejectedValueOnce(failure)
       await expect(harness.endpoint().readBytes(harness.scope, 'file', {}, signal())).rejects.toBe(failure)
@@ -62,8 +70,11 @@ describe('workspaceFiles.readBytes — complete files', () => {
     await writeFile(join(harness.workspace, 'file'), '1234')
     const failure = { code: 'FS_TOO_LARGE' }
     vi.spyOn(harness.ctx.fs, 'readBytes').mockRejectedValueOnce(failure)
-    await expect(harness.endpoint({ maxFileBytes: 4 }).readBytes(harness.scope, 'file', {}, signal()))
-      .rejects.toMatchObject({ code: 'workspace-file/too-large', details: { path: 'file', limit: 4 }, cause: failure })
+    await expect(harness.endpoint({ maxFileBytes: 4 }).readBytes(harness.scope, 'file', {}, signal())).rejects.toMatchObject({
+      code: 'workspace-file/too-large',
+      details: { path: 'file', limit: 4 },
+      cause: failure,
+    })
   })
 })
 
@@ -82,15 +93,22 @@ describe('workspaceFiles.readBytes — base file', () => {
     expect(Buffer.from(fromRoot.data).toString()).toBe('near')
   })
 
-  it.each(['', '/outside', 'C:\\outside', '\\\\host\\share', 'https://example.test/a.js', 'bad\0path'])('rejects non-relative path %j', async (path) => {
-    expect((await failureOf(harness.endpoint().readBytes(harness.scope, path, { baseFile: 'base' }, signal()))).code).toBe('gateway/bad-request')
-  })
+  it.each(['', '/outside', 'C:\\outside', '\\\\host\\share', 'https://example.test/a.js', 'bad\0path'])(
+    'rejects non-relative path %j',
+    async path => {
+      expect((await failureOf(harness.endpoint().readBytes(harness.scope, path, { baseFile: 'base' }, signal()))).code).toBe(
+        'gateway/bad-request',
+      )
+    },
+  )
 
   it('resolves related files on either side of the workspace root', async () => {
     await writeFile(join(harness.workspace, 'base'), 'base')
     await writeFile(join(harness.outside, 'outside'), 'outside')
     const files = harness.endpoint()
-    expect((await failureOf(files.readBytes(harness.scope, 'file', { baseFile: 'missing' }, signal()))).code).toBe('workspace-file/not-found')
+    expect((await failureOf(files.readBytes(harness.scope, 'file', { baseFile: 'missing' }, signal()))).code).toBe(
+      'workspace-file/not-found',
+    )
     const fromOutside = await files.readBytes(harness.scope, '../workspace/base', { baseFile: join(harness.outside, 'outside') }, signal())
     const toOutside = await files.readBytes(harness.scope, '../outside/outside', { baseFile: 'base' }, signal())
     expect(Buffer.from(fromOutside.data).toString()).toBe('base')
@@ -115,10 +133,13 @@ describe('workspaceFiles.readBytes — base file', () => {
     const files = harness.endpoint()
     vi.spyOn(harness.ctx.fs, 'processPath').mockReturnValue(base)
     const lstat = harness.ctx.fs.lstat.bind(harness.ctx.fs)
-    const inspect = vi.spyOn(harness.ctx.fs, 'lstat').mockImplementation((path, options, abort) =>
-      path === 'base' ? lstat(path, options, abort) : Promise.resolve(undefined))
+    const inspect = vi
+      .spyOn(harness.ctx.fs, 'lstat')
+      .mockImplementation((path, options, abort) => (path === 'base' ? lstat(path, options, abort) : Promise.resolve(undefined)))
     const caller = signal()
-    await expect(files.readBytes(harness.scope, './app.js', { baseFile: 'base' }, caller)).rejects.toMatchObject({ code: 'workspace-file/not-found' })
+    await expect(files.readBytes(harness.scope, './app.js', { baseFile: 'base' }, caller)).rejects.toMatchObject({
+      code: 'workspace-file/not-found',
+    })
     expect(inspect).toHaveBeenLastCalledWith(expected, { cwd: harness.workspace }, caller)
   })
 
@@ -129,11 +150,16 @@ describe('workspaceFiles.readBytes — base file', () => {
     const completeRead = vi.spyOn(harness.ctx.fs, 'readBytes')
     const rangeRead = vi.spyOn(harness.ctx.fs, 'readByteRange')
     const caller = signal()
-    const result = await harness.endpoint({ maxBytes: 2, maxFileBytes: 1 }).readBytes(
-      harness.scope, './asset.bin', { baseFile: 'nested/base.html', range: { offset: 1, length: 2 } }, caller,
-    )
+    const result = await harness
+      .endpoint({ maxBytes: 2, maxFileBytes: 1 })
+      .readBytes(harness.scope, './asset.bin', { baseFile: 'nested/base.html', range: { offset: 1, length: 2 } }, caller)
     expect([...result.data]).toEqual([255, 128])
-    expect(result).toMatchObject({ absolutePath: await realpath(join(harness.workspace, 'nested/asset.bin')), offset: 1, eof: false, bytes: 6 })
+    expect(result).toMatchObject({
+      absolutePath: await realpath(join(harness.workspace, 'nested/asset.bin')),
+      offset: 1,
+      eof: false,
+      bytes: 6,
+    })
     expect(rangeRead).toHaveBeenCalledExactlyOnceWith(expect.anything(), { offset: 1, length: 2 }, caller)
     expect(completeRead).not.toHaveBeenCalled()
   })
@@ -141,14 +167,17 @@ describe('workspaceFiles.readBytes — base file', () => {
   it('checks the base file kind before reading the target', async () => {
     await mkdir(join(harness.workspace, 'directory'))
     await writeFile(join(harness.workspace, 'target'), 'target')
-    expect((await failureOf(harness.endpoint().readBytes(harness.scope, 'target', { baseFile: 'directory' }, signal()))).code)
-      .toBe('workspace-file/not-regular-file')
+    expect((await failureOf(harness.endpoint().readBytes(harness.scope, 'target', { baseFile: 'directory' }, signal()))).code).toBe(
+      'workspace-file/not-regular-file',
+    )
   })
 
   it('rejects a related symlink rather than following it', async () => {
     await writeFile(join(harness.workspace, 'base'), 'base')
     await writeFile(join(harness.workspace, 'target'), 'target')
     await symlink('target', join(harness.workspace, 'link'))
-    expect((await failureOf(harness.endpoint().readBytes(harness.scope, 'link', { baseFile: 'base' }, signal()))).code).toBe('workspace-file/not-regular-file')
+    expect((await failureOf(harness.endpoint().readBytes(harness.scope, 'link', { baseFile: 'base' }, signal()))).code).toBe(
+      'workspace-file/not-regular-file',
+    )
   })
 })

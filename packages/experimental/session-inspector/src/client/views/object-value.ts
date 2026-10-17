@@ -13,7 +13,10 @@ export interface InspectorObjectEntry {
 }
 
 class CollectionProperties {
-  constructor(readonly value: object, readonly length: number) {}
+  constructor(
+    readonly value: object,
+    readonly length: number,
+  ) {}
 }
 
 const typedArrayLength: (this: object) => number =
@@ -28,8 +31,12 @@ function indexedLength(value: object): number | undefined {
 
 function field(value: object, key: string | symbol, index: number): InspectorObjectEntry {
   const descriptor = Object.getOwnPropertyDescriptor(value, key)
-  return { key: typeof key === 'symbol' ? `symbol:${index}` : key, name: String(key), value: descriptor?.value,
-    ...descriptor === undefined ? { absent: true } : 'value' in descriptor ? {} : { accessor: true } }
+  return {
+    key: typeof key === 'symbol' ? `symbol:${index}` : key,
+    name: String(key),
+    value: descriptor?.value,
+    ...(descriptor === undefined ? { absent: true } : 'value' in descriptor ? {} : { accessor: true }),
+  }
 }
 
 /** Display of one value; child enumeration never recursively visits child values. */
@@ -41,8 +48,10 @@ export class InspectorObjectValue {
 
   /** @param value - Original runtime value, including Maps, Sets, and class instances. */
   constructor(private readonly value: unknown) {
-    this.expandable = value !== null && typeof value === 'object'
-      && !(value instanceof Date || value instanceof RegExp || value instanceof WeakMap || value instanceof WeakSet)
+    this.expandable =
+      value !== null &&
+      typeof value === 'object' &&
+      !(value instanceof Date || value instanceof RegExp || value instanceof WeakMap || value instanceof WeakSet)
     if (value instanceof Map) this.label = `Map(${value.size})`
     else if (value instanceof Set) this.label = `Set(${value.size})`
     else if (Array.isArray(value)) this.label = `Array(${value.length})`
@@ -88,9 +97,13 @@ export class InspectorObjectValue {
       } else {
         const target = value instanceof CollectionProperties ? value.value : value
         for (const [index, key] of Reflect.ownKeys(target).entries()) {
-          if (value instanceof CollectionProperties && typeof key === 'string'
-            && (key === 'length' && Array.isArray(target)
-              || String(Number(key)) === key && Number.isInteger(Number(key)) && Number(key) >= 0 && Number(key) < value.length)) continue
+          if (
+            value instanceof CollectionProperties &&
+            typeof key === 'string' &&
+            ((key === 'length' && Array.isArray(target)) ||
+              (String(Number(key)) === key && Number.isInteger(Number(key)) && Number(key) >= 0 && Number(key) < value.length))
+          )
+            continue
           const entry = field(target, key, index)
           if (!entry.absent) yield entry
         }

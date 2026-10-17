@@ -21,9 +21,7 @@ import { join } from 'node:path'
 export function candidatePwshPaths(env: NodeJS.ProcessEnv = process.env): string[] {
   const programFiles = env.ProgramFiles ?? 'C:\\Program Files'
   const systemRoot = env.SystemRoot ?? 'C:\\Windows'
-  const candidates = [
-    join(programFiles, 'PowerShell', '7', 'pwsh.exe'),
-  ]
+  const candidates = [join(programFiles, 'PowerShell', '7', 'pwsh.exe')]
   // Microsoft Store installs (and any user-added location) live on PATH;
   // entries may carry surrounding quotes from `setx`-style definitions.
   for (const entry of (env.PATH ?? '').split(';')) {

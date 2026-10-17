@@ -8,16 +8,23 @@
  * through the provider plugin's own root context captured at registration.
  */
 import type { ComponentType } from 'react'
-import type {
-  CommandClaim, PickOutcome, ReferenceInsert, TokenSpan,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { CommandClaim, PickOutcome, ReferenceInsert, TokenSpan } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { IconProps } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
 export type {
-  ArbitrateKey, ArbitrateOutcome, BeginCommandRequest, CommandClaim, ConsumeTokenRequest,
-  InsertReferenceRequest, InsertTextRequest, PickOutcome, ReferenceInsert, SubmitAttachment,
-  SubmitOutcome, TokenSpan,
+  ArbitrateKey,
+  ArbitrateOutcome,
+  BeginCommandRequest,
+  CommandClaim,
+  ConsumeTokenRequest,
+  InsertReferenceRequest,
+  InsertTextRequest,
+  PickOutcome,
+  ReferenceInsert,
+  SubmitAttachment,
+  SubmitOutcome,
+  TokenSpan,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 /**
@@ -192,12 +199,7 @@ export interface InputTriggerSource {
    * consume the whole envelope throws to surface the refusal and leave the
    * submission intact.
    */
-  matchEnter?(
-    session: ClientSessionContext,
-    line: string,
-    signal: AbortSignal,
-    envelope: SubmitEnvelope,
-  ): Promise<PickOutcome>
+  matchEnter?(session: ClientSessionContext, line: string, signal: AbortSignal, envelope: SubmitEnvelope): Promise<PickOutcome>
   /**
    * Restore-time claim resolution for a persisted command chip. Answers the
    * claim `matchSpace` would make for `token` (e.g. '/goal') after awaiting

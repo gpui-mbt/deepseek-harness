@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { execa } from 'execa'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const require = createRequire(import.meta.url)
 const repository = fileURLToPath(new URL('../../../', import.meta.url))
@@ -38,7 +38,10 @@ it.skipIf(!hasDisplay)('retains dismissed notices across view and process restar
   try {
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject)
-      server.listen(0, '127.0.0.1', () => { server.removeListener('error', reject); resolve() })
+      server.listen(0, '127.0.0.1', () => {
+        server.removeListener('error', reject)
+        resolve()
+      })
     })
     const address = server.address()
     if (address === null || typeof address === 'string') throw new Error('missing Platform fixture listener')
@@ -55,7 +58,9 @@ it.skipIf(!hasDisplay)('retains dismissed notices across view and process restar
         // The unbundled tsc artifact reads the client version from the environment; the packaged
         // build inlines the same value at bundle time.
         env: { ELECTRON_RUN_AS_NODE: undefined, DSH_CLIENT_VERSION: '1.2.3' },
-        timeout: 45_000, forceKillAfterDelay: 5_000, reject: false,
+        timeout: 45_000,
+        forceKillAfterDelay: 5_000,
+        reject: false,
       })
       expect(result.timedOut, result.stderr).toBe(false)
       expect(result.signal, result.stderr).toBeUndefined()
@@ -71,7 +76,10 @@ it.skipIf(!hasDisplay)('retains dismissed notices across view and process restar
     expect(observed.join('\n') + '\n').toBe(await readFile(new URL('./expected/platform-storage.txt', import.meta.url), 'utf8'))
   } finally {
     await new Promise<void>((resolve, reject) => {
-      server.close((error) => { if (error) reject(error); else resolve() })
+      server.close(error => {
+        if (error) reject(error)
+        else resolve()
+      })
       server.closeAllConnections()
     })
     await rm(root, { recursive: true, force: true })

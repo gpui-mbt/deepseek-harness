@@ -9,7 +9,7 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import * as SkillRegistry from '@deepseek-ai/dsh-skill'
 import * as SandboxLocal from '@deepseek-ai/dsh-sandbox-local'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { ACL_DIAGNOSIS_SKILL } from '../src/acl-skill.ts'
 
 // sandbox-local's POSIX suites are excluded on Windows; this owner runs in Windows coverage.
@@ -22,7 +22,9 @@ it.skipIf(process.platform !== 'win32')('loads and unloads the ACL skill through
     await copyFile(new URL('./fixtures/skill-composition/cordis.yml', import.meta.url), configPath)
     await ctx.plugin(Loader)
     ctx.loader.builtins.include = Include
-    const unexpectedLoaderOperation = (): never => { throw new Error('This composition does not use Node HMR operations') }
+    const unexpectedLoaderOperation = (): never => {
+      throw new Error('This composition does not use Node HMR operations')
+    }
     ctx.loader.internal = {
       version: 'v2',
       loadCache: new Map(),
@@ -44,8 +46,12 @@ it.skipIf(process.platform !== 'win32')('loads and unloads the ACL skill through
     expect(loaded?.content).toContain('Stop after any failed or refused repair')
     if (loaded?.resourceBase?.kind !== 'directory') throw new Error('Missing extracted skill resources')
     const resources = loaded.resourceBase.path
-    expect(readFileSync(join(resources, 'scripts/diagnose-windows-sandbox-acl.ps1'), 'utf8'))
-      .toBe(readFileSync(fileURLToPath(new URL('../assets/diagnose-windows-sandbox-acl/scripts/diagnose-windows-sandbox-acl.ps1', import.meta.url)), 'utf8'))
+    expect(readFileSync(join(resources, 'scripts/diagnose-windows-sandbox-acl.ps1'), 'utf8')).toBe(
+      readFileSync(
+        fileURLToPath(new URL('../assets/diagnose-windows-sandbox-acl/scripts/diagnose-windows-sandbox-acl.ps1', import.meta.url)),
+        'utf8',
+      ),
+    )
     const sandbox = [...ctx.loader.entries()].find(entry => entry.options.id === 'sandbox')
     if (!sandbox?.fiber) throw new Error('Sandbox provider did not mount')
     await sandbox.fiber.dispose()
@@ -58,6 +64,10 @@ it.skipIf(process.platform !== 'win32')('loads and unloads the ACL skill through
     await ctx.loader.await()
     expect(await ctx.skills.list()).toEqual([])
   } finally {
-    try { await ctx.fiber.dispose() } finally { await rm(root, { recursive: true, force: true }) }
+    try {
+      await ctx.fiber.dispose()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   }
 })

@@ -1,8 +1,6 @@
 // Assistant timing readings used by session statistics.
 
-import type {
-  AssistantMessageNode,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { AssistantMessageNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 /** One assistant step's derivable latency facts; null marks an unrecorded part. */
 export interface StepReading {
@@ -33,11 +31,10 @@ function usageOutputTokens(usage: unknown): number | null {
  */
 export function assistantStepReading(node: AssistantNode): StepReading {
   const timing = node.timing
-  const ttftMs = timing !== undefined && timing.stepStartTime !== null && timing.firstTokenTime !== null
-    ? Math.max(0, timing.firstTokenTime - timing.stepStartTime)
-    : null
-  const decodeMs = timing !== undefined && timing.firstTokenTime !== null
-    ? Math.max(0, timing.completedTime - timing.firstTokenTime)
-    : null
+  const ttftMs =
+    timing !== undefined && timing.stepStartTime !== null && timing.firstTokenTime !== null
+      ? Math.max(0, timing.firstTokenTime - timing.stepStartTime)
+      : null
+  const decodeMs = timing !== undefined && timing.firstTokenTime !== null ? Math.max(0, timing.completedTime - timing.firstTokenTime) : null
   return { ttftMs, decodeMs, outputTokens: usageOutputTokens(node.usage) }
 }

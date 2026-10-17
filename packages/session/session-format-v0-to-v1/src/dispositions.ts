@@ -36,18 +36,12 @@ const disposition = defineReleasedPayloadDisposition
  */
 export const RELEASED_V0_EVENT_DISPOSITIONS: Readonly<Record<string, ReleasedV0PayloadDisposition>> = Object.freeze({
   'agent-preset/selected': disposition(['agentPreset']),
-  'agent/inbox/spliced': disposition(
-    ['target', 'start', 'inserted'],
-    ['removedCount', 'outcome'],
-  ),
+  'agent/inbox/spliced': disposition(['target', 'start', 'inserted'], ['removedCount', 'outcome']),
   'approval/asked': disposition(['id', 'toolName'], ['callId', 'reason']),
   'approval/decided': disposition(['id', 'outcome']),
   'approval/policy': disposition(['policy'], ['source']),
   'assistant/chunk': disposition(['turn', 'step', 'chunk']),
-  'assistant/message': disposition(
-    ['turn', 'step', 'message'],
-    ['usage', 'interrupted'],
-  ),
+  'assistant/message': disposition(['turn', 'step', 'message'], ['usage', 'interrupted']),
   'command/done': disposition(['commandId', 'kind'], ['text', 'sourceEventSeq']),
   'command/run': disposition(['commandId', 'name', 'source'], ['args']),
   'compaction/end': disposition(['compactionId', 'turn'], ['sourceCommandId', 'error']),
@@ -58,19 +52,10 @@ export const RELEASED_V0_EVENT_DISPOSITIONS: Readonly<Record<string, ReleasedV0P
     ['sourceCommandId', 'maxTokens', 'usage', 'rawOutput', 'llmStreamCall'],
   ),
   'feedback/record': disposition(['text']),
-  'goal/change': disposition(
-    ['kind', 'version', 'operation'],
-    ['goal', 'roundsStarted', 'createdAt', 'updatedAt', 'cleared', 'clearedAt'],
-  ),
+  'goal/change': disposition(['kind', 'version', 'operation'], ['goal', 'roundsStarted', 'createdAt', 'updatedAt', 'cleared', 'clearedAt']),
   'hook/invoked': disposition(['turn', 'point', 'dialect', 'handlerId'], ['matcher']),
-  'hook/result': disposition(
-    ['turn', 'point', 'handlerId', 'decision', 'durationMs'],
-    ['exitCode', 'stderrSummary'],
-  ),
-  'llm/retry': disposition(
-    ['retryId', 'turn', 'step', 'provider', 'mode', 'policyKey', 'retry', 'delayMs', 'failure'],
-    ['maxRetries'],
-  ),
+  'hook/result': disposition(['turn', 'point', 'handlerId', 'decision', 'durationMs'], ['exitCode', 'stderrSummary']),
+  'llm/retry': disposition(['retryId', 'turn', 'step', 'provider', 'mode', 'policyKey', 'retry', 'delayMs', 'failure'], ['maxRetries']),
   'llm/retry-started': disposition(['retryId', 'turn', 'step', 'retry']),
   'model/selection': disposition(['provider', 'model'], ['reasoningEffort']),
   'permission/preset': disposition(['preset']),
@@ -79,14 +64,10 @@ export const RELEASED_V0_EVENT_DISPOSITIONS: Readonly<Record<string, ReleasedV0P
   'request/header': disposition(['header', 'reason'], ['startsSeries']),
   'sandbox/mode': disposition(['mode'], ['source']),
   'schedule/change': disposition(['version', 'operation'], ['schedule', 'id', 'acceptedAt']),
-  'session-log-deepseek/delivery-accepted': disposition(
-    ['sessionId', 'throughSeq'],
-  ),
+  'session-log-deepseek/delivery-accepted': disposition(['sessionId', 'throughSeq']),
   'session/end-seed': disposition([]),
   'session/title': disposition(['title', 'messageSeqs', 'source']),
-  'session/title-llm-request': disposition(
-    ['titleProvider', 'messageSeqs', 'route', 'system', 'messages', 'maxTokens'],
-  ),
+  'session/title-llm-request': disposition(['titleProvider', 'messageSeqs', 'route', 'system', 'messages', 'maxTokens']),
   'step/end': disposition(['turn', 'step']),
   'step/start': disposition(['turn', 'step']),
   'subagent/descriptor': disposition(
@@ -109,16 +90,8 @@ export const RELEASED_V0_EVENT_DISPOSITIONS: Readonly<Record<string, ReleasedV0P
     [],
     ['arguments'],
   ),
-  'tool/code-dispatch-start': disposition(
-    ['rootCallId', 'parentCallId', 'subCallId', 'name', 'arguments'],
-    [],
-    ['arguments'],
-  ),
-  'tool/result': disposition(
-    ['turn', 'step', 'message'],
-    ['error', 'meta'],
-    ['meta'],
-  ),
+  'tool/code-dispatch-start': disposition(['rootCallId', 'parentCallId', 'subCallId', 'name', 'arguments'], [], ['arguments']),
+  'tool/result': disposition(['turn', 'step', 'message'], ['error', 'meta'], ['meta']),
   'turn/end': disposition(['turn', 'reason']),
   'turn/start': disposition(['turn']),
   'user/message': disposition(['role', 'id', 'content', 'source']),

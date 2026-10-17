@@ -12,14 +12,21 @@ try {
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(BrowserUseRegistry)
   const provider = ctx.plugin(Provider, {
-    mode: 'attach', cdpEndpoint: endpoint,
+    mode: 'attach',
+    cdpEndpoint: endpoint,
     model: { modelName: 'openai/gpt-5.4-mini', apiKey: 'offline-browser-smoke' },
   })
   await provider
   const harness = await mountAgentLoopTestHarness(ctx)
   const agent = await harness.create(SessionId('built-stagehand'))
   const call = async (method, args) => {
-    const result = await ctx.tools.execute({ agent, name: `stagehand_${method}`, arguments: args, callId: ToolCallId(`built-${method}`), signal: new AbortController().signal })
+    const result = await ctx.tools.execute({
+      agent,
+      name: `stagehand_${method}`,
+      arguments: args,
+      callId: ToolCallId(`built-${method}`),
+      signal: new AbortController().signal,
+    })
     if (result.isError) throw new Error(JSON.stringify(result.content))
     return result
   }

@@ -21,7 +21,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 import BrowserUse from '@deepseek-ai/dsh-browser-use'
@@ -51,15 +51,19 @@ async function load(): Promise<{ ctx: Context; root: string }> {
   return { ctx, root }
 }
 
-const toolNames = (ctx: Context, agent?: Agent): string[] =>
-  ctx.tools.schemas(agent).map(schema => schema.name)
+const toolNames = (ctx: Context, agent?: Agent): string[] => ctx.tools.schemas(agent).map(schema => schema.name)
 
 it('rejects a missing working-directory provider before mounting browser resources', () => {
   const ctx = new Context()
   contexts.push(ctx)
-  expect(() => { mountSessionMcp(ctx, {
-    name: 'browser-fixture', exclusive: false, command: process.execPath, args: [FIXTURE],
-  }) }).toThrow('browser-fixture: browser MCP requires a working-directory provider')
+  expect(() => {
+    mountSessionMcp(ctx, {
+      name: 'browser-fixture',
+      exclusive: false,
+      command: process.execPath,
+      args: [FIXTURE],
+    })
+  }).toThrow('browser-fixture: browser MCP requires a working-directory provider')
   expect(ctx.get('browserUse')).toBeUndefined()
 })
 
@@ -70,17 +74,29 @@ it('reproduces the second-Agent failure a profile install causes', async () => {
   vi.resetModules()
   const profileScope = await import('@deepseek-ai/dsh-scope')
   const profileMcpClient = await import('@deepseek-ai/dsh-mcp-client')
-  ctx.on('agent/created', async ({ agent }) => {
-    await profileScope.createScope(ctx, agent).ctx.plugin(profileMcpClient, profileMcpClient.Config({
-      transport: 'stdio', serverName: 'browser-fixture', command: process.execPath, args: [FIXTURE, root],
-      failOnStartupError: true, reconnect: { enabled: false },
-    }))
-  }, { prepend: true })
+  ctx.on(
+    'agent/created',
+    async ({ agent }) => {
+      await profileScope.createScope(ctx, agent).ctx.plugin(
+        profileMcpClient,
+        profileMcpClient.Config({
+          transport: 'stdio',
+          serverName: 'browser-fixture',
+          command: process.execPath,
+          args: [FIXTURE, root],
+          failOnStartupError: true,
+          reconnect: { enabled: false },
+        }),
+      )
+    },
+    { prepend: true },
+  )
 
   await ctx.agents.create({ sessionId: SessionId('first'), meta: { cwd: root } })
   expect(toolNames(ctx)).toContain(TOOL)
-  await expect(ctx.agents.create({ sessionId: SessionId('second'), meta: { cwd: root } }))
-    .rejects.toThrow('mcp-client(browser-fixture): initial connection or tool synchronization failed')
+  await expect(ctx.agents.create({ sessionId: SessionId('second'), meta: { cwd: root } })).rejects.toThrow(
+    'mcp-client(browser-fixture): initial connection or tool synchronization failed',
+  )
 })
 
 it('keeps every Agent browser tool in that Agent scope under the shipped layout', async () => {
@@ -89,7 +105,10 @@ it('keeps every Agent browser tool in that Agent scope under the shipped layout'
     inject: ['browserUse', 'agents', 'tools', 'systemPrompt'],
     apply(provider: Context) {
       mountSessionMcp(provider, {
-        name: 'browser-fixture', exclusive: false, command: process.execPath, args: [FIXTURE, root],
+        name: 'browser-fixture',
+        exclusive: false,
+        command: process.execPath,
+        args: [FIXTURE, root],
       })
     },
   })

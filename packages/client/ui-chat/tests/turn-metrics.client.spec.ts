@@ -1,9 +1,7 @@
 // Assistant timing readings and statistics formatting.
 
-import { describe, expect, it } from 'vitest'
-import type {
-  AssistantMessageNode,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+import { describe, expect, it } from 'vite-plus/test'
+import type { AssistantMessageNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { assistantStepReading } from '../src/client/contract/turn-metrics.ts'
 import { formatTokensPerSecond } from '../src/client/chat/message-chrome.ts'
 import { formatCacheHitPercent } from '../src/client/chat/token-format.ts'
@@ -17,18 +15,27 @@ interface StepSpec {
 }
 
 const assistant = ({ seq, turn, step, timing, usage }: StepSpec): AssistantMessageNode => ({
-  kind: 'assistant', seq, time: seq * 1_000, turn, step, blocks: [{ kind: 'text', text: `t${seq}` }],
+  kind: 'assistant',
+  seq,
+  time: seq * 1_000,
+  turn,
+  step,
+  blocks: [{ kind: 'text', text: `t${seq}` }],
   ...(timing === undefined ? {} : { timing }),
   ...(usage === undefined ? {} : { usage }),
 })
 
 describe('assistantStepReading', () => {
   it('derives ttft, decode time, and output tokens from a fully recorded step', () => {
-    const reading = assistantStepReading(assistant({
-      seq: 2, turn: 1, step: 1,
-      timing: { stepStartTime: 1_000, firstTokenTime: 1_800, completedTime: 6_800 },
-      usage: { outputTokens: 200 },
-    }))
+    const reading = assistantStepReading(
+      assistant({
+        seq: 2,
+        turn: 1,
+        step: 1,
+        timing: { stepStartTime: 1_000, firstTokenTime: 1_800, completedTime: 6_800 },
+        usage: { outputTokens: 200 },
+      }),
+    )
     expect(reading).toEqual({ ttftMs: 800, decodeMs: 5_000, outputTokens: 200 })
   })
 
@@ -38,18 +45,36 @@ describe('assistantStepReading', () => {
   })
 
   it('needs both boundaries for ttft and clamps negative spans to zero', () => {
-    expect(assistantStepReading(assistant({
-      seq: 2, turn: 1, step: 1,
-      timing: { stepStartTime: null, firstTokenTime: 1_800, completedTime: 6_800 },
-    }))).toEqual({ ttftMs: null, decodeMs: 5_000, outputTokens: null })
-    expect(assistantStepReading(assistant({
-      seq: 2, turn: 1, step: 1,
-      timing: { stepStartTime: 1_000, firstTokenTime: null, completedTime: 6_800 },
-    }))).toEqual({ ttftMs: null, decodeMs: null, outputTokens: null })
-    expect(assistantStepReading(assistant({
-      seq: 2, turn: 1, step: 1,
-      timing: { stepStartTime: 2_000, firstTokenTime: 1_500, completedTime: 1_200 },
-    }))).toEqual({ ttftMs: 0, decodeMs: 0, outputTokens: null })
+    expect(
+      assistantStepReading(
+        assistant({
+          seq: 2,
+          turn: 1,
+          step: 1,
+          timing: { stepStartTime: null, firstTokenTime: 1_800, completedTime: 6_800 },
+        }),
+      ),
+    ).toEqual({ ttftMs: null, decodeMs: 5_000, outputTokens: null })
+    expect(
+      assistantStepReading(
+        assistant({
+          seq: 2,
+          turn: 1,
+          step: 1,
+          timing: { stepStartTime: 1_000, firstTokenTime: null, completedTime: 6_800 },
+        }),
+      ),
+    ).toEqual({ ttftMs: null, decodeMs: null, outputTokens: null })
+    expect(
+      assistantStepReading(
+        assistant({
+          seq: 2,
+          turn: 1,
+          step: 1,
+          timing: { stepStartTime: 2_000, firstTokenTime: 1_500, completedTime: 1_200 },
+        }),
+      ),
+    ).toEqual({ ttftMs: 0, decodeMs: 0, outputTokens: null })
   })
 
   it('rejects non-object, missing, and non-finite usage token counts', () => {

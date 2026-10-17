@@ -11,7 +11,7 @@
  */
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 interface Manifest {
   dependencies?: Record<string, string>

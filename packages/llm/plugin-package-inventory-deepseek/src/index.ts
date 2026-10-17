@@ -70,7 +70,9 @@ function identityFromManifest(path: string): DeepSeekPluginPackageIdentity | und
 
 /** Resolve a bare package without requiring it to export `./package.json`. */
 function barePackageManifest(
-  packageName: string, anchors: readonly string[], packages: Context['pluginPackages'] | undefined,
+  packageName: string,
+  anchors: readonly string[],
+  packages: Context['pluginPackages'] | undefined,
 ): string | undefined {
   for (const anchor of anchors) {
     const pkg = packages?.packageOf(packageName, anchor)
@@ -122,9 +124,7 @@ class PackageIdentityResolver {
         throw new Error(`plugin-package-inventory-deepseek: cannot resolve active package ${JSON.stringify(packageName)}`)
       }
     } else if (!moduleName.startsWith('cordis:')) {
-      const moduleUrl = isAbsolute(moduleName)
-        ? pathToFileURL(moduleName)
-        : new URL(moduleName, treeBase)
+      const moduleUrl = isAbsolute(moduleName) ? pathToFileURL(moduleName) : new URL(moduleName, treeBase)
       if (moduleUrl.protocol === 'file:') manifest = nearestManifest(fileURLToPath(moduleUrl))
     }
     const identity = manifest === undefined ? undefined : identityFromManifest(manifest)
@@ -136,12 +136,10 @@ class PackageIdentityResolver {
 /** Yield active, non-structural entries from one Loader tree. */
 function activeEntries(tree: EntryTree): ActiveEntry[] {
   return [...tree.entries()]
-    .filter(entry => !entry.options.group
-      && !entry.disabled
-      && entry.fiber?.state === FiberState.ACTIVE)
+    .filter(entry => !entry.options.group && !entry.disabled && entry.fiber?.state === FiberState.ACTIVE)
     .map(entry => ({
       moduleName: entry.options.name,
-      ...entry.parent.tree.ctx.baseUrl === undefined ? {} : { baseUrl: entry.parent.tree.ctx.baseUrl },
+      ...(entry.parent.tree.ctx.baseUrl === undefined ? {} : { baseUrl: entry.parent.tree.ctx.baseUrl }),
     }))
 }
 
@@ -164,10 +162,12 @@ function collectActivePluginPackages(
     const agent = ctx.agents.get(brandString<SessionId>(sessionId))
     if (agent !== undefined) {
       for (const composition of presets.inspectCompositions(agent.ctx)) {
-        entries.push(...composition.modules.map(({ useHostBase, ...entry }) => ({
-          ...entry,
-          ...useHostBase ? { bareBaseUrl: hostBaseUrl } : {},
-        })))
+        entries.push(
+          ...composition.modules.map(({ useHostBase, ...entry }) => ({
+            ...entry,
+            ...(useHostBase ? { bareBaseUrl: hostBaseUrl } : {}),
+          })),
+        )
       }
     }
   }
@@ -186,9 +186,9 @@ function collectActivePluginPackages(
     if (identity === undefined) continue
     unique.set(`${identity.name}\u0000${identity.version ?? ''}`, identity)
   }
-  return [...unique.values()].sort((left, right) => (
-    compareWireText(left.name, right.name) || compareWireText(left.version ?? '', right.version ?? '')
-  ))
+  return [...unique.values()].sort(
+    (left, right) => compareWireText(left.name, right.name) || compareWireText(left.version ?? '', right.version ?? ''),
+  )
 }
 
 /**
@@ -203,7 +203,7 @@ export function apply(ctx: Context, config: Config): void {
   // Unreadable identities are re-resolved on every request; log each module once.
   const unreadable = new Set<string>()
   ctx.deepseekLlmApiExtensions.register('dsh_plugin_packages', {
-    prepare: (request) => {
+    prepare: request => {
       const value: DeepSeekPluginPackageInventoryExtension = {
         version: 1,
         packages: collectActivePluginPackages(ctx, resolver, hostBaseUrl, unreadable, request.sessionId),

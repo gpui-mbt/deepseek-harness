@@ -1,6 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 
-const socket = vi.hoisted(() => vi.fn(function () { return {} }))
+const socket = vi.hoisted(() =>
+  vi.fn(function () {
+    return {}
+  }),
+)
 vi.mock('node:net', () => ({ Socket: socket }))
 
 import { openInheritedControlChannel, SUBPROCESS_CONTROL_ENV } from '../src/control.ts'
@@ -20,7 +24,7 @@ describe('inherited control channel', () => {
     expect(socket).toHaveBeenCalledOnce()
   })
 
-  it.each([undefined, 'invalid'])('rejects an absent or invalid launch marker: %s', (marker) => {
+  it.each([undefined, 'invalid'])('rejects an absent or invalid launch marker: %s', marker => {
     vi.stubEnv(SUBPROCESS_CONTROL_ENV, marker)
     expect(() => openInheritedControlChannel()).toThrow('not inherited')
     expect(process.env[SUBPROCESS_CONTROL_ENV]).toBeUndefined()

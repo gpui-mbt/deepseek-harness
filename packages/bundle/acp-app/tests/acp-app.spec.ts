@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as yaml from 'js-yaml'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 
 describe('dsh-acp-app bundle', () => {
@@ -16,10 +16,7 @@ describe('dsh-acp-app bundle', () => {
     }
     expect(manifest.dsh?.bundle?.patch).toBe('./cordis.patch.yml')
     expect(manifest.dependencies).toHaveProperty('@deepseek-ai/dsh-acp')
-    const patches = yaml.load(
-      readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'),
-      { schema: entryListSchema },
-    ) as Array<{
+    const patches = yaml.load(readFileSync(resolve(root, manifest.dsh!.bundle!.patch!), 'utf8'), { schema: entryListSchema }) as Array<{
       id?: string
       disabled?: boolean
       insert?: Array<{ config?: { model?: string; provider?: string }; id?: string; inject?: string[]; name?: string }>

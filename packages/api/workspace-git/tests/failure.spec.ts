@@ -3,7 +3,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SubprocessHandle, SubprocessOutcome, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { WorkspaceGit, type WorkspaceGitScope } from '../src/index.ts'
 
 const signal = (): AbortSignal => new AbortController().signal
@@ -41,7 +41,7 @@ type ScriptedAnswer = SubprocessHandle | (() => SubprocessHandle)
 
 /** Answer git invocations by their arguments; an unscripted invocation fails the test. */
 function scripted(answers: Record<string, ScriptedAnswer>): (spec: SubprocessSpawnSpec) => SubprocessHandle {
-  return (spec) => {
+  return spec => {
     const key = spec.argv.slice(3).join(' ')
     const answer = answers[key]
     if (answer === undefined) throw new Error(`unscripted git invocation "${key}"`)
@@ -63,11 +63,16 @@ function serviceWith(
 
 describe('WorkspaceGit.status over a scripted subprocess', () => {
   it('runs git against the workspace directory and folds its three answers', async () => {
-    const spawn = vi.fn(scripted({
-      [REF]: handleOf(Promise.resolve(OK), 'feature/x\n'),
-      [TOPLEVEL]: handleOf(Promise.resolve(OK), '/srv/git/moqt-js-feature\n/srv/git/moqt-js/.git/worktrees/moqt-js-feature\n/srv/git/moqt-js/.git\n'),
-      [ORIGIN]: handleOf(Promise.resolve(OK), 'git@github.com:shiguredo/moqt-js.git\n'),
-    }))
+    const spawn = vi.fn(
+      scripted({
+        [REF]: handleOf(Promise.resolve(OK), 'feature/x\n'),
+        [TOPLEVEL]: handleOf(
+          Promise.resolve(OK),
+          '/srv/git/moqt-js-feature\n/srv/git/moqt-js/.git/worktrees/moqt-js-feature\n/srv/git/moqt-js/.git\n',
+        ),
+        [ORIGIN]: handleOf(Promise.resolve(OK), 'git@github.com:shiguredo/moqt-js.git\n'),
+      }),
+    )
     await expect(serviceWith(spawn).status(SCOPE, signal())).resolves.toEqual({
       kind: 'branch',
       name: 'feature/x',
@@ -81,16 +86,17 @@ describe('WorkspaceGit.status over a scripted subprocess', () => {
       stdio: { stdin: 'ignore', stdout: { maxBytes: 64 * 1024 }, stderr: { maxBytes: 64 * 1024 } },
       graceMs: 5_000,
     })
-    expect(spawn.mock.calls.map(([spec]) => spec.argv.slice(3).join(' ')))
-      .toEqual([REF, TOPLEVEL, ORIGIN])
+    expect(spawn.mock.calls.map(([spec]) => spec.argv.slice(3).join(' '))).toEqual([REF, TOPLEVEL, ORIGIN])
   })
 
   it('keeps the ref when the worktree and remote reads fail', async () => {
-    const spawn = vi.fn(scripted({
-      [REF]: handleOf(Promise.resolve(OK), 'topic\n'),
-      [TOPLEVEL]: handleOf(Promise.resolve({ exitCode: 128, signal: null }), ''),
-      [ORIGIN]: handleOf(Promise.resolve({ exitCode: 1, signal: null }), ''),
-    }))
+    const spawn = vi.fn(
+      scripted({
+        [REF]: handleOf(Promise.resolve(OK), 'topic\n'),
+        [TOPLEVEL]: handleOf(Promise.resolve({ exitCode: 128, signal: null }), ''),
+        [ORIGIN]: handleOf(Promise.resolve({ exitCode: 1, signal: null }), ''),
+      }),
+    )
     await expect(serviceWith(spawn).status(SCOPE, signal())).resolves.toEqual({
       kind: 'branch',
       name: 'topic',
@@ -103,7 +109,9 @@ describe('WorkspaceGit.status over a scripted subprocess', () => {
 
   it('answers none when the host has no git and never spawns', async () => {
     const spawn = vi.fn(scripted({ [REF]: handleOf(Promise.resolve(OK), 'topic\n') }))
-    const service = serviceWith(spawn, 5_000, async () => { throw new Error('not found') })
+    const service = serviceWith(spawn, 5_000, async () => {
+      throw new Error('not found')
+    })
     await expect(service.status(SCOPE, signal())).resolves.toEqual({ kind: 'none' })
     expect(spawn).not.toHaveBeenCalled()
   })
@@ -120,12 +128,14 @@ describe('WorkspaceGit.status over a scripted subprocess', () => {
   })
 
   it('maps a detached HEAD to the short commit id and gives up without one', async () => {
-    const spawn = vi.fn(scripted({
-      [REF]: handleOf(Promise.resolve(OK), ''),
-      [TOPLEVEL]: handleOf(Promise.resolve(OK), '/srv/git/moqt-js\n/srv/git/moqt-js/.git\n/srv/git/moqt-js/.git\n'),
-      [ORIGIN]: handleOf(Promise.resolve(OK), ''),
-      [HEAD]: handleOf(Promise.resolve(OK), 'abc1234\n'),
-    }))
+    const spawn = vi.fn(
+      scripted({
+        [REF]: handleOf(Promise.resolve(OK), ''),
+        [TOPLEVEL]: handleOf(Promise.resolve(OK), '/srv/git/moqt-js\n/srv/git/moqt-js/.git\n/srv/git/moqt-js/.git\n'),
+        [ORIGIN]: handleOf(Promise.resolve(OK), ''),
+        [HEAD]: handleOf(Promise.resolve(OK), 'abc1234\n'),
+      }),
+    )
     await expect(serviceWith(spawn).status(SCOPE, signal())).resolves.toEqual({
       kind: 'detached',
       head: 'abc1234',
@@ -135,22 +145,28 @@ describe('WorkspaceGit.status over a scripted subprocess', () => {
     })
     expect(spawn.mock.calls.map(([spec]) => spec.argv.slice(3).join(' '))).toEqual([REF, TOPLEVEL, ORIGIN, HEAD])
 
-    const headless = serviceWith(scripted({
-      [REF]: handleOf(Promise.resolve(OK), ''),
-      [TOPLEVEL]: handleOf(Promise.resolve(OK), ''),
-      [ORIGIN]: handleOf(Promise.resolve(OK), ''),
-      [HEAD]: handleOf(Promise.resolve(OK), ''),
-    }))
+    const headless = serviceWith(
+      scripted({
+        [REF]: handleOf(Promise.resolve(OK), ''),
+        [TOPLEVEL]: handleOf(Promise.resolve(OK), ''),
+        [ORIGIN]: handleOf(Promise.resolve(OK), ''),
+        [HEAD]: handleOf(Promise.resolve(OK), ''),
+      }),
+    )
     await expect(headless.status(SCOPE, signal())).resolves.toEqual({ kind: 'none' })
   })
 
   it('answers none when the deadline aborts the git process', async () => {
-    const spawn = vi.fn((spec: SubprocessSpawnSpec) => handleOf(
-      new Promise<SubprocessOutcome>((_resolve, reject) => {
-        spec.signal?.addEventListener('abort', () => { reject(new Error('aborted')) })
-      }),
-      '',
-    ))
+    const spawn = vi.fn((spec: SubprocessSpawnSpec) =>
+      handleOf(
+        new Promise<SubprocessOutcome>((_resolve, reject) => {
+          spec.signal?.addEventListener('abort', () => {
+            reject(new Error('aborted'))
+          })
+        }),
+        '',
+      ),
+    )
     const service = serviceWith(spawn, 20)
     await expect(service.status(SCOPE, signal())).resolves.toEqual({ kind: 'none' })
     expect(spawn.mock.calls[0]?.[0].signal?.aborted).toBe(true)

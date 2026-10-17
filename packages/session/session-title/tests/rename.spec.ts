@@ -2,7 +2,7 @@
 // boundaries, and the pin (a user-sourced latest title schedules no automatic
 // revision; explicit refresh stays the unpin).
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
@@ -23,10 +23,14 @@ async function settle(): Promise<void> {
 }
 
 function appendHumanPrompt(session: ReturnType<Context['sessions']['create']>, text: string) {
-  return session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  return session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
 }
 
 describe('SessionTitleService.rename', () => {
@@ -64,8 +68,7 @@ describe('SessionTitleService.rename', () => {
     const session = ctx.sessions.create(SessionId('rename-reject'))
     expect(() => ctx.sessionTitle.rename(session, '  [31m  ')).toThrow(/visible characters/)
 
-    expect(() => ctx.sessionTitle.rename(Session.create(SessionId('detached')), 'name'))
-      .toThrow(/not live in this store/)
+    expect(() => ctx.sessionTitle.rename(Session.create(SessionId('detached')), 'name')).toThrow(/not live in this store/)
   })
 
   it('pins the title: later user messages schedule no automatic revision; refresh unpins', async () => {
@@ -136,10 +139,14 @@ describe('SessionTitleService.rename', () => {
     // The provider parks on a test-held deferred so rename lands while its
     // generation is ACTIVE (not merely scheduled).
     let releaseProvider: (() => void) | undefined
-    const gate = new Promise<void>((resolve) => { releaseProvider = resolve })
+    const gate = new Promise<void>(resolve => {
+      releaseProvider = resolve
+    })
     let aborted = false
     const generate = vi.fn(async (request: SessionTitleProviderRequest) => {
-      request.signal.addEventListener('abort', () => { aborted = true })
+      request.signal.addEventListener('abort', () => {
+        aborted = true
+      })
       await gate
       return { title: 'Late provider title', messageSeqs: request.messages.map(message => message.seq) }
     })

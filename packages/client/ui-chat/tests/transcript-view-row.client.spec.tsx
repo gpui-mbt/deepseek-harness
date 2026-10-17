@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -17,15 +17,27 @@ import type { CollapseTiming } from '../src/client/presentation-policy.ts'
 afterEach(cleanup)
 
 function emptySessions() {
-  return bindSnapshotSelector(createSnapshotStore<SessionListState>({
-    ids: [], byId: {}, phase: 'ready', projectionsBySession: {},
-  }))
+  return bindSnapshotSelector(
+    createSnapshotStore<SessionListState>({
+      ids: [],
+      byId: {},
+      phase: 'ready',
+      projectionsBySession: {},
+    }),
+  )
 }
 
 function emptyWorkspaces() {
-  return bindSnapshotSelector(createSnapshotStore<WorkspaceSnapshot>({
-    items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
-  }))
+  return bindSnapshotSelector(
+    createSnapshotStore<WorkspaceSnapshot>({
+      items: [],
+      archivedSessionIds: [],
+      pinnedSessionIds: [],
+      state: 'idle',
+      phase: 'ready',
+      error: null,
+    }),
+  )
 }
 
 function noPendingInteraction() {
@@ -38,8 +50,12 @@ const useResource = (() => ({ status: 'none' as const, value: undefined, failure
 function mount(mode: TranscriptViewMode = 'standard', dictionary: typeof en | typeof zh = en) {
   const source = createSnapshotStore<TranscriptViewMode>(mode)
   const collapseTiming = createSnapshotStore<CollapseTiming>('completion')
-  const setTranscriptView = vi.fn((next: TranscriptViewMode) => { source.set(next) })
-  const setCollapseTiming = vi.fn((next: CollapseTiming) => { collapseTiming.set(next) })
+  const setTranscriptView = vi.fn((next: TranscriptViewMode) => {
+    source.set(next)
+  })
+  const setCollapseTiming = vi.fn((next: CollapseTiming) => {
+    collapseTiming.set(next)
+  })
   const props: TranscriptViewRowProps = {
     usePanelInfo: selector => selector({ activePanelId: null }),
     useSessions: emptySessions(),
@@ -67,33 +83,44 @@ describe('TranscriptViewRow', () => {
   })
 
   it.each([
-    [en, 'Work details', 'When to Collapse Work Details',
-      'Choose when to automatically collapse work details', 'On completion', 'On next message'],
+    [
+      en,
+      'Work details',
+      'When to Collapse Work Details',
+      'Choose when to automatically collapse work details',
+      'On completion',
+      'On next message',
+    ],
     [zh, '工作步骤展示', '工作步骤收起时机', '选择何时自动收起工作步骤', '回答结束后', '下次有新消息时'],
-  ] as const)('selects either collapse timing independently with localized labels (%s)', (dictionary, detailTitle, title, description, completion, nextInput) => {
-    const b = mount('standard', dictionary)
-    const titleElement = screen.getByText(title)
-    expect(screen.getByText(detailTitle).compareDocumentPosition(titleElement) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
-    expect(screen.getByText(description)).toBeDefined()
-    expect(screen.getAllByRole('button')).toHaveLength(2)
-    const trigger = screen.getByRole('button', { name: completion })
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(trigger)
-    expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([completion, nextInput])
-    fireEvent.click(screen.getByRole('menuitem', { name: nextInput }))
-    expect(b.setCollapseTiming).toHaveBeenLastCalledWith('next-input')
-    expect(b.collapseTiming.getSnapshot()).toBe('next-input')
-    expect(screen.queryByRole('menu')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: nextInput }))
-    fireEvent.click(screen.getByRole('menuitem', { name: completion }))
-    expect(b.setCollapseTiming).toHaveBeenLastCalledWith('completion')
-    expect(screen.getByRole('button', { name: completion }).getAttribute('aria-expanded')).toBe('false')
-    expect(b.setTranscriptView).not.toHaveBeenCalled()
-  })
+  ] as const)(
+    'selects either collapse timing independently with localized labels (%s)',
+    (dictionary, detailTitle, title, description, completion, nextInput) => {
+      const b = mount('standard', dictionary)
+      const titleElement = screen.getByText(title)
+      expect(screen.getByText(detailTitle).compareDocumentPosition(titleElement) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+      expect(screen.getByText(description)).toBeDefined()
+      expect(screen.getAllByRole('button')).toHaveLength(2)
+      const trigger = screen.getByRole('button', { name: completion })
+      expect(trigger.getAttribute('aria-expanded')).toBe('false')
+      fireEvent.click(trigger)
+      expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([completion, nextInput])
+      fireEvent.click(screen.getByRole('menuitem', { name: nextInput }))
+      expect(b.setCollapseTiming).toHaveBeenLastCalledWith('next-input')
+      expect(b.collapseTiming.getSnapshot()).toBe('next-input')
+      expect(screen.queryByRole('menu')).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: nextInput }))
+      fireEvent.click(screen.getByRole('menuitem', { name: completion }))
+      expect(b.setCollapseTiming).toHaveBeenLastCalledWith('completion')
+      expect(screen.getByRole('button', { name: completion }).getAttribute('aria-expanded')).toBe('false')
+      expect(b.setTranscriptView).not.toHaveBeenCalled()
+    },
+  )
 
   it('follows timing changes and closes its menu without changing either preference', () => {
     const b = mount()
-    act(() => { b.collapseTiming.set('next-input') })
+    act(() => {
+      b.collapseTiming.set('next-input')
+    })
     const trigger = screen.getByRole('button', { name: 'On next message' })
     fireEvent.click(trigger)
     fireEvent.pointerDown(document.body)
@@ -111,12 +138,14 @@ describe('TranscriptViewRow', () => {
     const focus = vi.spyOn(trigger, 'focus')
     const publish = b.setCollapseTiming.getMockImplementation()!
     let focusedAtPublication = false
-    b.setCollapseTiming.mockImplementation((timing) => {
+    b.setCollapseTiming.mockImplementation(timing => {
       focusedAtPublication = document.activeElement === trigger
       publish(timing)
     })
     try {
-      await act(async () => { fireEvent.click(item) })
+      await act(async () => {
+        fireEvent.click(item)
+      })
       expect(focusedAtPublication).toBe(true)
       expect(document.activeElement).toBe(trigger)
       expect(focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true })
@@ -169,12 +198,14 @@ describe('TranscriptViewRow', () => {
     const focus = vi.spyOn(trigger, 'focus')
     const publish = b.setTranscriptView.getMockImplementation()!
     let focusedAtPublication = false
-    b.setTranscriptView.mockImplementation((mode) => {
+    b.setTranscriptView.mockImplementation(mode => {
       focusedAtPublication = document.activeElement === trigger
       publish(mode)
     })
     try {
-      await act(async () => { fireEvent.click(item) })
+      await act(async () => {
+        fireEvent.click(item)
+      })
       expect(focusedAtPublication).toBe(true)
       expect(document.activeElement).toBe(trigger)
       expect(focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true })
@@ -185,22 +216,27 @@ describe('TranscriptViewRow', () => {
   })
 })
 
-
 describe('LinkOpeningRow', () => {
   it('follows browser availability without clearing the saved destination', () => {
     const b = mount()
     const browserAvailable = createSnapshotStore(false)
     const source = createSnapshotStore<LinkOpening>('new-tab')
-    render(<LinkOpeningRow
-      {...b.props}
-      useLinkOpening={bindSnapshotSelector(source)}
-      useBrowserAvailable={bindSnapshotSelector(browserAvailable)}
-      setLinkOpening={vi.fn()}
-    />)
+    render(
+      <LinkOpeningRow
+        {...b.props}
+        useLinkOpening={bindSnapshotSelector(source)}
+        useBrowserAvailable={bindSnapshotSelector(browserAvailable)}
+        setLinkOpening={vi.fn()}
+      />,
+    )
     expect(screen.queryByText('Open chat links in')).toBeNull()
-    act(() => { browserAvailable.set(true) })
+    act(() => {
+      browserAvailable.set(true)
+    })
     expect(screen.getByRole('button', { name: 'Default Browser' })).toBeDefined()
-    act(() => { browserAvailable.set(false) })
+    act(() => {
+      browserAvailable.set(false)
+    })
     expect(screen.queryByText('Open chat links in')).toBeNull()
     expect(source.getSnapshot()).toBe('new-tab')
   })
@@ -211,13 +247,17 @@ describe('LinkOpeningRow', () => {
   ] as const)('selects either destination using localized labels (%s)', (dictionary, title, description, sidebar, newTab) => {
     const b = mount('compact', dictionary)
     const source = createSnapshotStore<LinkOpening>('sidebar')
-    const setLinkOpening = vi.fn((destination: LinkOpening) => { source.set(destination) })
-    render(<LinkOpeningRow
-      {...b.props}
-      useLinkOpening={bindSnapshotSelector(source)}
-      useBrowserAvailable={bindSnapshotSelector(createSnapshotStore(true))}
-      setLinkOpening={setLinkOpening}
-    />)
+    const setLinkOpening = vi.fn((destination: LinkOpening) => {
+      source.set(destination)
+    })
+    render(
+      <LinkOpeningRow
+        {...b.props}
+        useLinkOpening={bindSnapshotSelector(source)}
+        useBrowserAvailable={bindSnapshotSelector(createSnapshotStore(true))}
+        setLinkOpening={setLinkOpening}
+      />,
+    )
     expect(screen.getByText(title)).toBeDefined()
     expect(screen.getByText(description)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: sidebar }))
@@ -235,12 +275,12 @@ describe('PerformanceUsageRow', () => {
   it('selects compact statistics independently of conversation display', () => {
     const b = mount()
     const source = createSnapshotStore<PerformanceUsageMode>('detailed')
-    const setPerformanceUsage = vi.fn((mode: PerformanceUsageMode) => { source.set(mode) })
-    render(<PerformanceUsageRow
-      {...b.props}
-      usePerformanceUsage={bindSnapshotSelector(source)}
-      setPerformanceUsage={setPerformanceUsage}
-    />)
+    const setPerformanceUsage = vi.fn((mode: PerformanceUsageMode) => {
+      source.set(mode)
+    })
+    render(
+      <PerformanceUsageRow {...b.props} usePerformanceUsage={bindSnapshotSelector(source)} setPerformanceUsage={setPerformanceUsage} />,
+    )
     expect(screen.getByText('Performance & usage')).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: 'Detailed' }))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Compact' }))

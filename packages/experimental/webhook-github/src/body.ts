@@ -33,10 +33,7 @@ function contentLength(request: IncomingMessage): number | undefined {
  * @returns the decoded body after EOF.
  * @throws {WebhookHttpError} for invalid length, excessive bytes, invalid UTF-8, or an aborted stream.
  */
-export async function readBoundedUtf8Body(
-  request: IncomingMessage,
-  maxBodyBytes: number,
-): Promise<string> {
+export async function readBoundedUtf8Body(request: IncomingMessage, maxBodyBytes: number): Promise<string> {
   const declared = contentLength(request)
   if (declared !== undefined && declared > maxBodyBytes) {
     request.resume()

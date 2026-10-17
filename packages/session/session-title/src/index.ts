@@ -11,10 +11,7 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
 import { isAgentLoopRequest } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 import { assertNever, deepFreeze } from '@deepseek-ai/dsh-util-values'
-import type {
-  Session,
-  SessionEvent,
-} from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import { SessionSeq } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
@@ -147,15 +144,19 @@ function sessionTitleUserMessageOf(event: SessionEvent): SessionTitleUserMessage
 /** Defensive copy of a logged title source (the snapshot must not alias log-owned objects). */
 function copySessionTitleSource(source: SessionTitleSource): SessionTitleSource {
   switch (source.kind) {
-    case 'fallback': return { kind: 'fallback' }
-    case 'provider': return {
-      kind: 'provider',
-      provider: source.provider,
-      ...(source.model === undefined ? {} : { model: { ...source.model } }),
-    }
-    case 'user': return { kind: 'user' }
+    case 'fallback':
+      return { kind: 'fallback' }
+    case 'provider':
+      return {
+        kind: 'provider',
+        provider: source.provider,
+        ...(source.model === undefined ? {} : { model: { ...source.model } }),
+      }
+    case 'user':
+      return { kind: 'user' }
     /* v8 ignore next -- closed-union exhaustiveness guard */
-    default: return assertNever(source, 'SessionTitleSource')
+    default:
+      return assertNever(source, 'SessionTitleSource')
   }
 }
 
@@ -218,28 +219,30 @@ function titleSnapshotFromState(state: TitleProjection): SessionTitleSnapshot {
 
 const EMPTY_TITLE_INPUT: TitleInputState = { first: null, count: 0, lastSeq: null }
 
-const sessionTitleUserMessageSchema: ZodType<SessionTitleUserMessage> = zod.object({
-  seq: zod.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
-  text: zod.string(),
-}).strict()
+const sessionTitleUserMessageSchema: ZodType<SessionTitleUserMessage> = zod
+  .object({
+    seq: zod.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
+    text: zod.string(),
+  })
+  .strict()
 
-const titleInputStateSchema: ZodType<TitleInputState> = zod.object({
-  first: sessionTitleUserMessageSchema.nullable(),
-  count: zod.number().int().nonnegative(),
-  lastSeq: zod.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq).nullable(),
-}).strict().superRefine((state, context) => {
-  const empty = state.first === null && state.lastSeq === null && state.count === 0
-  const populated = state.first !== null
-    && state.lastSeq !== null
-    && state.count > 0
-    && state.first.seq <= state.lastSeq
-  if (!empty && !populated) {
-    context.addIssue({
-      code: 'custom',
-      message: 'title input state must pair its count with first and last message seqs',
-    })
-  }
-})
+const titleInputStateSchema: ZodType<TitleInputState> = zod
+  .object({
+    first: sessionTitleUserMessageSchema.nullable(),
+    count: zod.number().int().nonnegative(),
+    lastSeq: zod.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq).nullable(),
+  })
+  .strict()
+  .superRefine((state, context) => {
+    const empty = state.first === null && state.lastSeq === null && state.count === 0
+    const populated = state.first !== null && state.lastSeq !== null && state.count > 0 && state.first.seq <= state.lastSeq
+    if (!empty && !populated) {
+      context.addIssue({
+        code: 'custom',
+        message: 'title input state must pair its count with first and last message seqs',
+      })
+    }
+  })
 
 /**
  * Collect eligible human text messages from a session log, in seq order.
@@ -250,10 +253,7 @@ const titleInputStateSchema: ZodType<TitleInputState> = zod.object({
  * @param throughSeq - optional inclusive upper seq bound.
  * @returns eligible messages with exact source seqs.
  */
-function collectSessionTitleMessages(
-  events: readonly SessionEvent[],
-  throughSeq?: SessionSeq,
-): SessionTitleUserMessage[] {
+function collectSessionTitleMessages(events: readonly SessionEvent[], throughSeq?: SessionSeq): SessionTitleUserMessage[] {
   const messages: SessionTitleUserMessage[] = []
   for (const event of events) {
     if (throughSeq !== undefined && event.seq > throughSeq) break
@@ -271,9 +271,7 @@ export const titleProjectionDefinition = {
   stateVersion: 1,
   stateSchema: titleViewSchema,
   init: () => null,
-  apply: (state, event) => (event.type === 'session/title'
-    ? event.data.title
-    : state),
+  apply: (state, event) => (event.type === 'session/title' ? event.data.title : state),
   wire: {
     viewSchema: titleViewSchema,
     view: state => state,
@@ -329,17 +327,20 @@ export class SessionTitleService extends Service {
     }
     this.config = deepFreeze({ ...value })
 
-    ctx.effect(() => async () => {
-      this.lifetime.abort(new Error('session-title service disposed'))
-      if (this.registration !== undefined) this.registration.closing = true
-      this.registration = undefined
-      for (const state of this.work.values()) {
-        delete state.pending
-        state.active?.controller.abort(new Error('session-title service disposed'))
-      }
-      await this.drain(this.inFlight)
-      this.work.clear()
-    }, 'sessionTitle lifecycle')
+    ctx.effect(
+      () => async () => {
+        this.lifetime.abort(new Error('session-title service disposed'))
+        if (this.registration !== undefined) this.registration.closing = true
+        this.registration = undefined
+        for (const state of this.work.values()) {
+          delete state.pending
+          state.active?.controller.abort(new Error('session-title service disposed'))
+        }
+        await this.drain(this.inFlight)
+        this.work.clear()
+      },
+      'sessionTitle lifecycle',
+    )
 
     ctx.sessionProjections.register(titleProjectionDefinition)
 
@@ -371,11 +372,15 @@ export class SessionTitleService extends Service {
           break
       }
     })
-    ctx.on('llm/stream', (options, next) => {
-      this.onMainRequest(options)
-      return next()
-    }, { global: true, prepend: true })
-    ctx.on('session/disposed', (session) => {
+    ctx.on(
+      'llm/stream',
+      (options, next) => {
+        this.onMainRequest(options)
+        return next()
+      },
+      { global: true, prepend: true },
+    )
+    ctx.on('session/disposed', session => {
       const state = this.work.get(session)
       if (state === undefined) return
       state.active?.controller.abort(new Error('session disposed during title generation'))
@@ -458,11 +463,15 @@ export class SessionTitleService extends Service {
     }
     const state = this.stateFor(session)
     const revision = this.supersede(state, 'explicit title refresh superseded older generation')
-    const work = this.activate({
-      registration,
-      revision,
-      throughSeq: input.lastSeq,
-    }, state, signal)
+    const work = this.activate(
+      {
+        registration,
+        revision,
+        throughSeq: input.lastSeq,
+      },
+      state,
+      signal,
+    )
     const config = session.requestHeader()?.config
     const route = config === undefined ? undefined : { provider: config.provider, model: config.model }
     return this.startProvider(session, work, route)
@@ -485,20 +494,23 @@ export class SessionTitleService extends Service {
       active: new Set(),
       closing: false,
     }
-    const dispose = this.ctx.effect(function* (this: SessionTitleService) {
-      this.registration = registration
-      yield async () => {
-        registration.closing = true
-        for (const state of this.work.values()) {
-          if (state.pending?.registration === registration) delete state.pending
-          if (state.active?.registration === registration) {
-            state.active.controller.abort(new Error(`session-title provider "${provider.id}" was disposed`))
+    const dispose = this.ctx.effect(
+      function* (this: SessionTitleService) {
+        this.registration = registration
+        yield async () => {
+          registration.closing = true
+          for (const state of this.work.values()) {
+            if (state.pending?.registration === registration) delete state.pending
+            if (state.active?.registration === registration) {
+              state.active.controller.abort(new Error(`session-title provider "${provider.id}" was disposed`))
+            }
           }
+          await this.drain(registration.active)
+          if (this.registration === registration) this.registration = undefined
         }
-        await this.drain(registration.active)
-        if (this.registration === registration) this.registration = undefined
-      }
-    }.bind(this), 'sessionTitle.register()')
+      }.bind(this),
+      'sessionTitle.register()',
+    )
     return dispose
   }
 
@@ -511,8 +523,9 @@ export class SessionTitleService extends Service {
     const registration = this.registration
     if (registration !== undefined && !registration.closing) {
       const count = this.titleInputOf(session).count
-      const shouldSchedule = registration.provider.automatic === 'all-prompts'
-        || (session.header.parentSession === undefined && count === 1 && this.get(session) === undefined)
+      const shouldSchedule =
+        registration.provider.automatic === 'all-prompts' ||
+        (session.header.parentSession === undefined && count === 1 && this.get(session) === undefined)
       if (shouldSchedule) {
         const state = this.stateFor(session)
         const revision = this.supersede(state, 'newer user message superseded title generation')
@@ -551,9 +564,7 @@ export class SessionTitleService extends Service {
     if (session === undefined || state === undefined || pending === undefined) return
     const boundary = this.ctx.sessionProjections.stateOf(session, 'turnBoundary')?.lastStepBoundary
     const route = session.requestHeader()?.config
-    if (boundary?.kind !== 'start'
-      || route?.provider !== options.provider
-      || route.model !== options.model) return
+    if (boundary?.kind !== 'start' || route?.provider !== options.provider || route.model !== options.model) return
     this.startPending(session, state, pending, { provider: options.provider, model: options.model })
   }
 
@@ -566,10 +577,13 @@ export class SessionTitleService extends Service {
   ): void {
     delete state.pending
     this.defer(async () => {
-      if (this.registration !== pending.registration
-        || pending.registration.closing
-        || this.work.get(session) !== state
-        || state.revision !== pending.revision) return
+      if (
+        this.registration !== pending.registration ||
+        pending.registration.closing ||
+        this.work.get(session) !== state ||
+        state.revision !== pending.revision
+      )
+        return
       const work = this.activate(pending, state)
       try {
         await this.startProvider(session, work, route)
@@ -609,8 +623,8 @@ export class SessionTitleService extends Service {
       const result = await work.registration.provider.generate({
         session,
         messages,
-        ...route === undefined ? {} : { route },
-        ...currentTitle === undefined ? {} : { currentTitle },
+        ...(route === undefined ? {} : { route }),
+        ...(currentTitle === undefined ? {} : { currentTitle }),
         signal: work.signal,
       })
       this.assertCurrent(session, work)
@@ -621,7 +635,7 @@ export class SessionTitleService extends Service {
         source: {
           kind: 'provider',
           provider: work.registration.provider.id,
-          ...accepted.model === undefined ? {} : { model: accepted.model },
+          ...(accepted.model === undefined ? {} : { model: accepted.model }),
         },
       })
       return this.get(session)
@@ -632,10 +646,7 @@ export class SessionTitleService extends Service {
   }
 
   /** Validate and normalize provider output against the supplied message snapshot. */
-  private validateResult(
-    result: unknown,
-    messages: readonly SessionTitleUserMessage[],
-  ): SessionTitleProviderResult {
+  private validateResult(result: unknown, messages: readonly SessionTitleUserMessage[]): SessionTitleProviderResult {
     if (result === null || typeof result !== 'object') {
       throw new Error('session-title provider returned an invalid result')
     }
@@ -668,8 +679,12 @@ export class SessionTitleService extends Service {
         throw new Error('session-title provider result model must contain non-empty provider and model strings')
       }
       const record = modelCandidate as Record<string, unknown>
-      if (typeof record.provider !== 'string' || record.provider.length === 0
-        || typeof record.model !== 'string' || record.model.length === 0) {
+      if (
+        typeof record.provider !== 'string' ||
+        record.provider.length === 0 ||
+        typeof record.model !== 'string' ||
+        record.model.length === 0
+      ) {
         throw new Error('session-title provider result model must contain non-empty provider and model strings')
       }
       model = { provider: record.provider, model: record.model }
@@ -688,24 +703,23 @@ export class SessionTitleService extends Service {
     const state = this.work.get(session)
     /* v8 ignore next -- every supported supersession, provider disposal, and session disposal aborts
      * the work signal before changing this state. */
-    if (this.registration !== work.registration
-      || state?.active !== work
-      || state.revision !== work.revision
-      || this.ctx.sessions.get(session.id) !== session) {
+    if (
+      this.registration !== work.registration ||
+      state?.active !== work ||
+      state.revision !== work.revision ||
+      this.ctx.sessions.get(session.id) !== session
+    ) {
       throw new Error('session title generation state changed without cancellation')
     }
   }
 
   /** Create and publish an active provider call from one fixed revision. */
-  private activate(
-    pending: PendingAutomaticWork,
-    state: SessionTitleWorkState,
-    upstream?: AbortSignal,
-  ): ActiveProviderWork {
+  private activate(pending: PendingAutomaticWork, state: SessionTitleWorkState, upstream?: AbortSignal): ActiveProviderWork {
     const controller = new AbortController()
-    const signal = upstream === undefined
-      ? AbortSignal.any([controller.signal, this.lifetime.signal])
-      : AbortSignal.any([controller.signal, this.lifetime.signal, upstream])
+    const signal =
+      upstream === undefined
+        ? AbortSignal.any([controller.signal, this.lifetime.signal])
+        : AbortSignal.any([controller.signal, this.lifetime.signal, upstream])
     const work: ActiveProviderWork = { ...pending, controller, signal }
     state.active = work
     return work
@@ -761,9 +775,7 @@ export class SessionTitleService extends Service {
 
   /** Whether the owning plugin fiber can still start or commit title work. */
   private serviceActive(): boolean {
-    return !this.lifetime.signal.aborted
-      && this.ownerFiber.uid !== null
-      && this.ownerFiber.state === FiberState.ACTIVE
+    return !this.lifetime.signal.aborted && this.ownerFiber.uid !== null && this.ownerFiber.state === FiberState.ACTIVE
   }
 
   /** Reject work once the owning plugin fiber has begun unloading. */
@@ -812,11 +824,7 @@ export class SessionTitleService extends Service {
     if (current !== undefined) return current
     const first = this.titleInputOf(session).first
     if (first === null) return undefined
-    const title = fallbackSessionTitle(
-      first.text,
-      this.config.fallbackMaxWords,
-      this.config.fallbackMaxBytes,
-    )
+    const title = fallbackSessionTitle(first.text, this.config.fallbackMaxWords, this.config.fallbackMaxBytes)
     if (title.length === 0) return undefined
     const state = this.stateFor(session)
     if (state.fallback !== undefined) return state.fallback

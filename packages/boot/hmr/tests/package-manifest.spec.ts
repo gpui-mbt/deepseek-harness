@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, toNamespacedPath } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { ModuleLoader } from '@deepseek-ai/cordis-plugin-loader'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { PackageManifests } from '../src/package-manifest.ts'
 
 const require = createRequire(import.meta.url)
@@ -19,12 +19,16 @@ const reader = addon.requireBuiltin('internal/modules/package_json_reader') as {
 const formats = addon.requireBuiltin('internal/modules/esm/get_format') as {
   defaultGetFormatWithoutErrors(url: URL, context?: object): string | null
 }
-const binding = (addon.requireBuiltin('internal/bootstrap/realm') as {
-  internalBinding(id: 'modules'): Record<string, unknown>
-}).internalBinding('modules')
+const binding = (
+  addon.requireBuiltin('internal/bootstrap/realm') as {
+    internalBinding(id: 'modules'): Record<string, unknown>
+  }
+).internalBinding('modules')
 
 const cleanup: Array<() => void | Promise<void>> = []
-afterEach(async () => { for (const dispose of cleanup.splice(0).reverse()) await dispose() })
+afterEach(async () => {
+  for (const dispose of cleanup.splice(0).reverse()) await dispose()
+})
 
 function file(path: string, source: string): void {
   mkdirSync(dirname(path), { recursive: true })
@@ -33,7 +37,9 @@ function file(path: string, source: string): void {
 
 function fixture() {
   const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-hmr-manifest-')))
-  cleanup.push(() => { rmSync(root, { recursive: true, force: true }) })
+  cleanup.push(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
   const dir = join(root, 'packages', 'pkg')
   const manifest = join(dir, 'package.json')
   const importer = join(root, 'importer', 'entry.mjs')
@@ -48,16 +54,18 @@ function fixture() {
     file(join(dir, `${name}.cjs`), `module.exports = { marker: '${name}' }`)
   }
   const manifests = new PackageManifests()
-  cleanup.push(() => { manifests.dispose() })
+  cleanup.push(() => {
+    manifests.dispose()
+  })
   const invalidate = (path: string) => Promise.resolve().then(manifests.invalidate.bind(manifests, path))
   return { root, dir, manifest, importer, importerURL: pathToFileURL(importer).href, manifests, invalidate }
 }
 
 function resolveEsm(specifier: string, parentURL: string): string {
   const loader = ModuleLoader.fromInternal()!
-  return (loader.version === 'v2'
-    ? loader.resolveSync(parentURL, { specifier, attributes: {} })
-    : loader.resolveSync(specifier, parentURL, {})).url
+  return (
+    loader.version === 'v2' ? loader.resolveSync(parentURL, { specifier, attributes: {} }) : loader.resolveSync(specifier, parentURL, {})
+  ).url
 }
 
 describe('package manifest invalidation', { concurrent: false }, () => {
@@ -72,14 +80,18 @@ describe('package manifest invalidation', { concurrent: false }, () => {
     const target = join(f.dir, 'a.cjs')
     const specifier = join(f.dir, 'alias.cjs')
     file(specifier, 'module.exports = { marker: "alias" }')
-    cleanup.push(() => { Reflect.deleteProperty(importerRequire.cache, target) })
+    cleanup.push(() => {
+      Reflect.deleteProperty(importerRequire.cache, target)
+    })
     let hooks: ReturnType<typeof registerHooks> | undefined = registerHooks({
       resolve(request, context, nextResolve) {
         const resolved = nextResolve(request, context)
         return resolved.url === pathToFileURL(specifier).href ? { ...resolved, url: pathToFileURL(target).href } : resolved
       },
     })
-    cleanup.push(() => { hooks?.deregister() })
+    cleanup.push(() => {
+      hooks?.deregister()
+    })
     try {
       const original = importerRequire(specifier) as { marker: string }
       expect(original).toEqual({ marker: 'a' })
@@ -140,7 +152,7 @@ describe('package manifest invalidation', { concurrent: false }, () => {
     expect(current).toEqual({ marker: 'b' })
   })
 
-  it.each(['symlink', 'main'] as const)('refreshes a cached external %s entry after its manifest changes', async (entry) => {
+  it.each(['symlink', 'main'] as const)('refreshes a cached external %s entry after its manifest changes', async entry => {
     const f = fixture()
     const external = join(f.root, 'packages', 'outside', 'entry.mjs')
     file(external, 'export {}')
@@ -191,7 +203,9 @@ describe('package manifest invalidation', { concurrent: false }, () => {
     expect(formats.defaultGetFormatWithoutErrors(pathToFileURL(source))).toBe('module')
     expect(reader.getNearestParentPackageJSON(source)?.data.type).toBe('module')
     expect(reader.getPackageScopeConfig(pathToFileURL(source).href)).toMatchObject({
-      exists: true, type: 'module', pjsonPath: toNamespacedPath(f.manifest),
+      exists: true,
+      type: 'module',
+      pjsonPath: toNamespacedPath(f.manifest),
     })
   })
 
@@ -245,7 +259,9 @@ describe('package manifest invalidation', { concurrent: false }, () => {
 })
 
 function outcome(run: () => unknown): unknown {
-  try { return run() } catch (error) {
+  try {
+    return run()
+  } catch (error) {
     const failure = error as Error & { code?: string }
     return { code: failure.code, message: failure.message }
   }
@@ -254,22 +270,29 @@ function outcome(run: () => unknown): unknown {
 describe('package manifest reader parity', { concurrent: false }, () => {
   it('terminates scope lookup after invalidating the filesystem root without modifying it', async () => {
     const f = fixture()
-    const child = spawn(process.execPath, [
-      '--expose-internals',
-      fileURLToPath(new URL('./fixtures/package-root-scope.mjs', import.meta.url)),
-      f.root,
-    ], { stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(
+      process.execPath,
+      ['--expose-internals', fileURLToPath(new URL('./fixtures/package-root-scope.mjs', import.meta.url)), f.root],
+      { stdio: ['ignore', 'pipe', 'pipe'] },
+    )
     const completed = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve, reject) => {
       child.once('error', reject)
-      child.once('close', (code, signal) => { resolve({ code, signal }) })
+      child.once('close', (code, signal) => {
+        resolve({ code, signal })
+      })
     })
     cleanup.push(async () => {
       if (child.exitCode === null && child.signalCode === null) child.kill()
       await completed
     })
-    let stdout = '', stderr = ''
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk })
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk })
+    let stdout = '',
+      stderr = ''
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      stdout += chunk
+    })
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      stderr += chunk
+    })
     const result = await completed
     expect(result.signal, stderr).toBeNull()
     expect(result.code, stderr).toBe(0)
@@ -311,9 +334,18 @@ describe('package manifest reader parity', { concurrent: false }, () => {
     '{"name":"pkg","exports":false,"main":"./a.cjs"}',
     '{"name":"pkg","imports":{"#item":"./a.mjs"},"type":"module"}',
     '﻿{"name":"pkg","exports":"./a.mjs"}',
-    '{', 'null', '[]', '1', '{"name":1}', '{"type":1}', '{"type":"other"}',
-    '{"name":"\\ud800"}', '{"main":"\\ud800"}', '{"type":"\\ud800"}', '{"exports":"\\ud800"}',
-  ])('reads %s like the native reader', (source) => {
+    '{',
+    'null',
+    '[]',
+    '1',
+    '{"name":1}',
+    '{"type":1}',
+    '{"type":"other"}',
+    '{"name":"\\ud800"}',
+    '{"main":"\\ud800"}',
+    '{"type":"\\ud800"}',
+    '{"exports":"\\ud800"}',
+  ])('reads %s like the native reader', source => {
     const f = fixture()
     file(f.manifest, source)
     const expected = outcome(() => reader.read(f.manifest))
@@ -324,7 +356,11 @@ describe('package manifest reader parity', { concurrent: false }, () => {
   it('reports an invalid manifest found while importing like the native resolver', () => {
     const f = fixture()
     const errorOf = (run: () => unknown): Error => {
-      try { run() } catch (error) { return error as Error }
+      try {
+        run()
+      } catch (error) {
+        return error as Error
+      }
       throw new Error('expected the lookup to fail')
     }
     file(f.manifest, '{')
@@ -332,7 +368,11 @@ describe('package manifest reader parity', { concurrent: false }, () => {
     f.manifests.invalidate(f.manifest)
     const actual = errorOf(() => resolveEsm('pkg', f.importerURL))
     expect([String(actual), Object.keys(actual)]).toEqual([String(expected), Object.keys(expected)])
-    expect(String(errorOf(() => reader.read(f.manifest)))).toBe(String(expected).replace(/ while importing .*(?=\.$)/u, '').replace(join(f.root, 'importer', 'node_modules', 'pkg'), f.dir))
+    expect(String(errorOf(() => reader.read(f.manifest)))).toBe(
+      String(expected)
+        .replace(/ while importing .*(?=\.$)/u, '')
+        .replace(join(f.root, 'importer', 'node_modules', 'pkg'), f.dir),
+    )
   })
 
   it('reads invalid UTF-8 like the native reader', () => {
@@ -378,7 +418,9 @@ describe('package manifest reader parity', { concurrent: false }, () => {
     rmSync(f.manifest)
     f.manifests.invalidate(f.manifest)
     expect(reader.getPackageScopeConfig(pathToFileURL(source).href)).toMatchObject({
-      exists: true, type: 'commonjs', pjsonPath: toNamespacedPath(enclosing),
+      exists: true,
+      type: 'commonjs',
+      pjsonPath: toNamespacedPath(enclosing),
     })
     expect(formats.defaultGetFormatWithoutErrors(pathToFileURL(join(f.dir, 'bin', 'tool')))).toBe(
       formats.defaultGetFormatWithoutErrors(pathToFileURL(join(f.root, 'packages', 'tool'))),
@@ -409,8 +451,10 @@ describe('package manifest reader parity', { concurrent: false }, () => {
     const nativeScope = binding.getPackageScopeConfig as (url: string) => unknown
     const expected = [outcome(() => reader.read(missing)), outcome(() => nativeScope('node:fs'))]
     f.manifests.invalidate(f.manifest)
-    expect([outcome(() => reader.read(missing)), outcome(() => (binding.getPackageScopeConfig as (url: string) => unknown)('node:fs'))])
-      .toEqual(expected)
+    expect([
+      outcome(() => reader.read(missing)),
+      outcome(() => (binding.getPackageScopeConfig as (url: string) => unknown)('node:fs')),
+    ]).toEqual(expected)
   })
 
   it('falls back to the builtin addon for internals that --expose-internals does not expose', () => {

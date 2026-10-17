@@ -55,7 +55,11 @@ async function runStep(root: string, args: readonly string[], signal: AbortSigna
   let result
   try {
     result = await execa(invocation.command, invocation.args, {
-      cwd: root, stdio: 'inherit', reject: false, killDescendants: true, cancelSignal: signal,
+      cwd: root,
+      stdio: 'inherit',
+      reject: false,
+      killDescendants: true,
+      cancelSignal: signal,
     })
   } catch (error) {
     if (signal.aborted) throw new Interrupted(label)
@@ -79,7 +83,9 @@ function printSummary(options: {
   readonly source: ReturnType<typeof sourceEvidence>
 }): void {
   const roots = options.entries.flatMap(name => options.artifacts.filter(artifact => artifact.name === name))
-  process.stdout.write(`Source: ${options.source.commit}${options.source.dirty ? ' (dirty worktree)' : ''}, DSH ${options.source.dshVersion}\n`)
+  process.stdout.write(
+    `Source: ${options.source.commit}${options.source.dirty ? ' (dirty worktree)' : ''}, DSH ${options.source.dshVersion}\n`,
+  )
   process.stdout.write(`Artifacts: ${options.directory}\n`)
   process.stdout.write(`Registry: ${options.url}\n`)
   process.stdout.write(`Packages (${String(options.artifacts.length)} archives served):\n`)
@@ -129,24 +135,41 @@ async function main(): Promise<void> {
     const directory = join(root, REGISTRY_OUTPUT_ROOT, buildId)
     mkdirSync(directory, { recursive: true })
     const artifacts = await packBundleArtifacts({
-      root, destination: directory, members: selection.members, release, signal: abort.signal,
+      root,
+      destination: directory,
+      members: selection.members,
+      release,
+      signal: abort.signal,
     })
 
     // 4. The manifest is the completion marker: only a fully packed run has one.
     const source = sourceEvidence(root, getDshRuntimeVersion())
     const manifest = createRegistryManifest({
-      buildId, source, entries, workspaceNames: selection.workspaceNames, artifacts,
+      buildId,
+      source,
+      entries,
+      workspaceNames: selection.workspaceNames,
+      artifacts,
     })
     await writeRegistryManifest(join(directory, REGISTRY_MANIFEST_FILE), manifest)
 
     // 5. Serve, then announce: the summary is never printed for a registry that did not listen.
     registry = await startBundleRegistry({
-      directory, artifacts, workspaceNames: selection.workspaceNames,
+      directory,
+      artifacts,
+      workspaceNames: selection.workspaceNames,
     })
     printSummary({ directory, url: registry.url, entries, artifacts, source })
-    await new Promise<void>((resolveStop) => {
+    await new Promise<void>(resolveStop => {
       if (abort.signal.aborted) resolveStop()
-      else abort.signal.addEventListener('abort', () => { resolveStop() }, { once: true })
+      else
+        abort.signal.addEventListener(
+          'abort',
+          () => {
+            resolveStop()
+          },
+          { once: true },
+        )
     })
     await registry.close()
     registry = undefined

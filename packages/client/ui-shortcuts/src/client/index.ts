@@ -37,15 +37,32 @@ export function apply(ctx: Context): void {
   for (const command of fixedCommands(t)) {
     ctx.effect(() => ctx.shortcuts.registerFixed(command), `shortcuts: ${command.id}`)
   }
-  const injected = () => ({ platform: ctx.shortcuts.platform, runtime: ctx.shortcuts.runtime, edit, recording, describeBinding,
-    hooks: { catalog: ctx.shortcuts.catalog, config: ctx.shortcuts.config, fixedCatalog: ctx.shortcuts.fixedCatalog } })
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item', id: 'shortcuts', order: 16, locale: 'shortcuts', store,
-    inject: injected,
-  }, ShortcutsRow))
+  const injected = () => ({
+    platform: ctx.shortcuts.platform,
+    runtime: ctx.shortcuts.runtime,
+    edit,
+    recording,
+    describeBinding,
+    hooks: { catalog: ctx.shortcuts.catalog, config: ctx.shortcuts.config, fixedCatalog: ctx.shortcuts.fixedCatalog },
+  })
+  ctx.slots.inject('settings.general.item', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.general.item',
+        id: 'shortcuts',
+        order: 16,
+        locale: 'shortcuts',
+        store,
+        inject: injected,
+      },
+      ShortcutsRow,
+    ),
+  )
   ctx.slots.inject('shell.overlay', () => {
     const disposeCommand = ctx.shortcuts.register({
-      id: 'shortcuts.open' as ShortcutCommandId, label: () => t('open'), aliases: ['shortcuts', 'keyboard shortcuts'],
+      id: 'shortcuts.open' as ShortcutCommandId,
+      label: () => t('open'),
+      aliases: ['shortcuts', 'keyboard shortcuts'],
       defaults: {
         'desktop:macos': { code: 'Slash', modifiers: ['primary'] },
         'desktop:windows': { code: 'Slash', modifiers: ['primary'] },
@@ -54,19 +71,32 @@ export function apply(ctx: Context): void {
         'web:windows': { code: 'Slash', modifiers: ['primary'] },
         'web:linux': { code: 'Slash', modifiers: ['primary'] },
       },
-      regions: ['page', 'editable', 'terminal'], modals: ['settings', 'shortcuts'],
+      regions: ['page', 'editable', 'terminal'],
+      modals: ['settings', 'shortcuts'],
       resolve: ({ modal }) => {
         if (modal !== null && modal !== 'settings' && modal !== 'shortcuts') return { status: 'blocked', reason: 'modal' }
-        return { status: 'handled', run: () => {
-          if (modal === 'shortcuts') closeTopModal(document)
-          else instance.actions.open()
-        } }
+        return {
+          status: 'handled',
+          run: () => {
+            if (modal === 'shortcuts') closeTopModal(document)
+            else instance.actions.open()
+          },
+        }
       },
     })
-    const disposeSlot = ctx.slots.register({
-      name: 'shell.overlay', id: 'shortcuts', locale: 'shortcuts', store,
-      inject: injected,
-    }, ShortcutReference)
-    return () => { disposeCommand(); disposeSlot() }
+    const disposeSlot = ctx.slots.register(
+      {
+        name: 'shell.overlay',
+        id: 'shortcuts',
+        locale: 'shortcuts',
+        store,
+        inject: injected,
+      },
+      ShortcutReference,
+    )
+    return () => {
+      disposeCommand()
+      disposeSlot()
+    }
   })
 }

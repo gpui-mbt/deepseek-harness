@@ -19,10 +19,7 @@ const WORKSPACE_MANIFEST_GLOBS = [
   'native/system/package.json',
   'native/system/packages/*/package.json',
 ]
-const INSTALLED_MANIFEST_GLOBS = [
-  'node_modules/.pnpm/*/node_modules/*/package.json',
-  'node_modules/.pnpm/*/node_modules/@*/*/package.json',
-]
+const INSTALLED_MANIFEST_GLOBS = ['node_modules/.pnpm/*/node_modules/*/package.json', 'node_modules/.pnpm/*/node_modules/@*/*/package.json']
 const PUBLISHED_FIELDS = [
   'dependencies',
   'optionalDependencies',
@@ -119,9 +116,7 @@ export function parseBenchmarkOptions(args: readonly string[]): BenchmarkOptions
     },
     allowPositionals: false,
   })
-  const maxMs = values['max-ms'] === undefined
-    ? undefined
-    : parsePositiveIntegerOption(values['max-ms'], 0, '--max-ms')
+  const maxMs = values['max-ms'] === undefined ? undefined : parsePositiveIntegerOption(values['max-ms'], 0, '--max-ms')
   return {
     runs: parsePositiveIntegerOption(values.runs, 1, '--runs'),
     timeoutMs: parsePositiveIntegerOption(values['timeout-ms'], DEFAULT_TIMEOUT_MS, '--timeout-ms'),
@@ -139,7 +134,10 @@ function workspaceManifestPaths(root: string, ref: string | undefined): string[]
   return execFileSync('git', ['ls-tree', '-r', '--name-only', ref, '--', 'apps', 'packages', 'vendor', 'native'], {
     cwd: root,
     encoding: 'utf8',
-  }).split('\n').filter(workspaceManifestPath).sort()
+  })
+    .split('\n')
+    .filter(workspaceManifestPath)
+    .sort()
 }
 
 function readGitFiles(root: string, ref: string, paths: readonly string[]): ReadonlyMap<string, string> {
@@ -182,20 +180,19 @@ export function publishWorkspaceRange(range: string, targetVersion: string): str
   return range
 }
 
-function copyPublishedManifest(
-  source: PackageManifest,
-  workspaceVersions: ReadonlyMap<string, string>,
-): RegistryVersion | undefined {
+function copyPublishedManifest(source: PackageManifest, workspaceVersions: ReadonlyMap<string, string>): RegistryVersion | undefined {
   if (typeof source.name !== 'string' || typeof source.version !== 'string') return undefined
   const output: Record<string, unknown> = { name: source.name, version: source.version }
   for (const field of PUBLISHED_FIELDS) {
     const value = source[field]
     if (value === undefined) continue
     if (field === 'dependencies' || field === 'optionalDependencies' || field === 'peerDependencies') {
-      output[field] = Object.fromEntries(Object.entries(value as Record<string, string>).map(([name, range]) => {
-        const targetVersion = workspaceVersions.get(name)
-        return [name, targetVersion === undefined ? range : publishWorkspaceRange(range, targetVersion)]
-      }))
+      output[field] = Object.fromEntries(
+        Object.entries(value as Record<string, string>).map(([name, range]) => {
+          const targetVersion = workspaceVersions.get(name)
+          return [name, targetVersion === undefined ? range : publishWorkspaceRange(range, targetVersion)]
+        }),
+      )
     } else {
       output[field] = structuredClone(value)
     }
@@ -225,12 +222,12 @@ export function buildRegistryIndex(root: string, ref?: string): RegistryIndex {
 
   const paths = workspaceManifestPaths(root, ref)
   const refContents = ref === undefined ? undefined : readGitFiles(root, ref, paths)
-  const workspace = paths.map(path =>
-    JSON.parse(refContents?.get(path) ?? readFileSync(resolve(root, path), 'utf8')) as PackageManifest)
-  const workspaceVersions = new Map(workspace.flatMap(manifest =>
-    typeof manifest.name === 'string' && typeof manifest.version === 'string'
-      ? [[manifest.name, manifest.version] as const]
-      : []))
+  const workspace = paths.map(path => JSON.parse(refContents?.get(path) ?? readFileSync(resolve(root, path), 'utf8')) as PackageManifest)
+  const workspaceVersions = new Map(
+    workspace.flatMap(manifest =>
+      typeof manifest.name === 'string' && typeof manifest.version === 'string' ? [[manifest.name, manifest.version] as const] : [],
+    ),
+  )
   for (const manifest of workspace) {
     const copied = copyPublishedManifest(manifest, workspaceVersions)
     if (copied !== undefined) addManifest(index, copied)
@@ -262,7 +259,7 @@ function listen(server: Server): Promise<number> {
 
 function close(server: Server): Promise<void> {
   return new Promise((resolveClose, reject) => {
-    server.close((error) => {
+    server.close(error => {
       if (error === undefined) resolveClose()
       else reject(error)
     })
@@ -327,18 +324,26 @@ export async function runCommandWithTimeout(
   let output = ''
   child.stdout.setEncoding('utf8')
   child.stderr.setEncoding('utf8')
-  child.stdout.on('data', (chunk) => { output += String(chunk) })
-  child.stderr.on('data', (chunk) => { output += String(chunk) })
+  child.stdout.on('data', chunk => {
+    output += String(chunk)
+  })
+  child.stderr.on('data', chunk => {
+    output += String(chunk)
+  })
   const exited = new Promise<{ status: number | null; signal: NodeJS.Signals | null }>((resolveExit, reject) => {
     child.once('error', reject)
-    child.once('close', (status, signal) => { resolveExit({ status, signal }) })
+    child.once('close', (status, signal) => {
+      resolveExit({ status, signal })
+    })
   })
   let timeout: NodeJS.Timeout | undefined
   try {
     const first = await Promise.race([
       exited.then(outcome => ({ type: 'exit' as const, outcome })),
-      new Promise<{ type: 'timeout' }>((resolveTimeout) => {
-        timeout = setTimeout(() => { resolveTimeout({ type: 'timeout' }) }, options.timeoutMs)
+      new Promise<{ type: 'timeout' }>(resolveTimeout => {
+        timeout = setTimeout(() => {
+          resolveTimeout({ type: 'timeout' })
+        }, options.timeoutMs)
       }),
     ])
     if (first.type === 'exit') {
@@ -348,10 +353,7 @@ export async function runCommandWithTimeout(
     signalProcessTree(child, 'SIGTERM')
     await delay(options.terminationGraceMs ?? TERMINATION_GRACE_MS)
     signalProcessTree(child, 'SIGKILL')
-    const forced = await Promise.race([
-      exited,
-      delay(FORCED_EXIT_TIMEOUT_MS).then(() => undefined),
-    ])
+    const forced = await Promise.race([exited, delay(FORCED_EXIT_TIMEOUT_MS).then(() => undefined)])
     if (forced === undefined) throw new Error('timed-out process tree did not exit after SIGKILL')
     return { ...forced, durationMs: performance.now() - started, output, timedOut: true }
   } finally {
@@ -365,8 +367,7 @@ function readNpmPackageLock(path: string): NpmPackageLock {
     throw new Error('npm produced an invalid package-lock.json')
   }
   const { lockfileVersion, packages } = parsed as Record<string, unknown>
-  if (!Number.isSafeInteger(lockfileVersion) || packages === null
-    || typeof packages !== 'object' || Array.isArray(packages)) {
+  if (!Number.isSafeInteger(lockfileVersion) || packages === null || typeof packages !== 'object' || Array.isArray(packages)) {
     throw new Error('npm produced an invalid package-lock.json')
   }
   return parsed as NpmPackageLock
@@ -381,30 +382,35 @@ async function runNpm(
   const globalNpmrc = join(cwd, '.npmrc-global')
   writeFileSync(npmrc, `registry=${registry}\n@deepseek-ai:registry=${registry}\n`)
   writeFileSync(globalNpmrc, '')
-  const inheritedEnvironment = Object.fromEntries(Object.entries(process.env)
-    .filter(([name]) => !name.toLowerCase().startsWith('npm_config_')))
-  const result = await runCommandWithTimeout(npmExecutable(), [
-    'install',
-    '--package-lock-only',
-    '--ignore-scripts',
-    '--no-audit',
-    '--no-fund',
-    '--loglevel=error',
-    '--include=peer',
-    '--install-strategy=hoisted',
-    '--legacy-peer-deps=false',
-    `--registry=${registry}`,
-  ], {
-    cwd,
-    env: {
-      ...inheritedEnvironment,
-      npm_config_cache: join(cwd, '.npm-cache'),
-      npm_config_globalconfig: globalNpmrc,
-      npm_config_userconfig: npmrc,
-      npm_config_update_notifier: 'false',
+  const inheritedEnvironment = Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.toLowerCase().startsWith('npm_config_')),
+  )
+  const result = await runCommandWithTimeout(
+    npmExecutable(),
+    [
+      'install',
+      '--package-lock-only',
+      '--ignore-scripts',
+      '--no-audit',
+      '--no-fund',
+      '--loglevel=error',
+      '--include=peer',
+      '--install-strategy=hoisted',
+      '--legacy-peer-deps=false',
+      `--registry=${registry}`,
+    ],
+    {
+      cwd,
+      env: {
+        ...inheritedEnvironment,
+        npm_config_cache: join(cwd, '.npm-cache'),
+        npm_config_globalconfig: globalNpmrc,
+        npm_config_userconfig: npmrc,
+        npm_config_update_notifier: 'false',
+      },
+      timeoutMs,
     },
-    timeoutMs,
-  })
+  )
   if (result.timedOut) return result
   if (result.status !== 0) {
     throw new Error(`npm install exited ${String(result.status)} after ${result.durationMs.toFixed(0)} ms\n${result.output.trim()}`)
@@ -447,10 +453,15 @@ export async function resolveNpmPackageLock(
       response.end(JSON.stringify({ error: 'not_found' }))
       return
     }
-    const materialized = Object.fromEntries([...versions].map(([version, manifest]) => [version, {
-      ...manifest,
-      dist: { tarball: `${registry}tarballs/${encodeURIComponent(name)}-${version}.tgz` },
-    }]))
+    const materialized = Object.fromEntries(
+      [...versions].map(([version, manifest]) => [
+        version,
+        {
+          ...manifest,
+          dist: { tarball: `${registry}tarballs/${encodeURIComponent(name)}-${version}.tgz` },
+        },
+      ]),
+    )
     const body = JSON.stringify({
       name,
       'dist-tags': { latest: latestVersion(versions) },
@@ -466,12 +477,19 @@ export async function resolveNpmPackageLock(
   registry = `http://127.0.0.1:${String(port)}/`
   const consumer = mkdtempSync(join(tmpdir(), 'dsh-npm-resolution-'))
   try {
-    writeFileSync(join(consumer, 'package.json'), `${JSON.stringify({
-      name: 'dsh-npm-resolution-benchmark',
-      version: '0.0.0',
-      private: true,
-      dependencies,
-    }, null, 2)}\n`)
+    writeFileSync(
+      join(consumer, 'package.json'),
+      `${JSON.stringify(
+        {
+          name: 'dsh-npm-resolution-benchmark',
+          version: '0.0.0',
+          private: true,
+          dependencies,
+        },
+        null,
+        2,
+      )}\n`,
+    )
     const result = await runNpm(consumer, registry, timeoutMs)
     if (result.timedOut) throw new Error(`${timeoutSubject} exceeded ${String(timeoutMs)} ms`)
     return {
@@ -495,11 +513,7 @@ export async function resolveNpmPackageLock(
  * @param timeoutMs - Hard wall-clock limit for the npm child process.
  * @returns Timing and registry-request observations.
  */
-export async function benchmarkNpmResolution(
-  index: RegistryIndex,
-  targetVersion: string,
-  timeoutMs: number,
-): Promise<BenchmarkRun> {
+export async function benchmarkNpmResolution(index: RegistryIndex, targetVersion: string, timeoutMs: number): Promise<BenchmarkRun> {
   const result = await resolveNpmPackageLock(index, { [TARGET_PACKAGE]: targetVersion }, timeoutMs)
   return {
     durationMs: result.durationMs,
@@ -519,17 +533,17 @@ async function main(): Promise<void> {
   const targetVersion = latestVersion(targetVersions)
   const npmVersion = execFileSync(npmExecutable(), ['--version'], { encoding: 'utf8' }).trim()
   console.log(
-    `benchmark-npm-resolution: npm ${npmVersion}, ${options.ref === undefined ? 'working tree' : options.ref}, `
-    + `${String(index.size)} package name(s), setup ${(performance.now() - started).toFixed(0)} ms.`,
+    `benchmark-npm-resolution: npm ${npmVersion}, ${options.ref === undefined ? 'working tree' : options.ref}, ` +
+      `${String(index.size)} package name(s), setup ${(performance.now() - started).toFixed(0)} ms.`,
   )
   const durations: number[] = []
   for (let run = 1; run <= options.runs; run++) {
     const result = await benchmarkNpmResolution(index, targetVersion, options.timeoutMs)
     durations.push(result.durationMs)
     console.log(
-      `benchmark-npm-resolution: run ${String(run)}/${String(options.runs)} resolved ${TARGET_PACKAGE}@${targetVersion}`
-      + ` in ${(result.durationMs / 1000).toFixed(2)} s with ${String(result.registryRequests)} metadata request(s)`
-      + ` and ${String(result.unknownPackages.length)} local 404 package name(s).`,
+      `benchmark-npm-resolution: run ${String(run)}/${String(options.runs)} resolved ${TARGET_PACKAGE}@${targetVersion}` +
+        ` in ${(result.durationMs / 1000).toFixed(2)} s with ${String(result.registryRequests)} metadata request(s)` +
+        ` and ${String(result.unknownPackages.length)} local 404 package name(s).`,
     )
     if (result.archiveRequests > 0) throw new Error('npm requested package archives during the metadata-only benchmark')
   }

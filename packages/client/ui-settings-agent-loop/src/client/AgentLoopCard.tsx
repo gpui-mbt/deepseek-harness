@@ -7,10 +7,7 @@ import { formLabels } from './locales.ts'
 import type { AgentLoopCardFace } from './agent-loop-card-controller.ts'
 
 /** Props the renderer binds for the agent-loop page. */
-export type AgentLoopCardProps =
-  PropsRuntime<'plugins.item'>
-  & PropsLocale<'settings.agentLoop'>
-  & InjectFace<AgentLoopCardFace>
+export type AgentLoopCardProps = PropsRuntime<'plugins.item'> & PropsLocale<'settings.agentLoop'> & InjectFace<AgentLoopCardFace>
 
 /**
  * Render the agent loop's one-liner or its settings form, as the Plugins page asks.
@@ -33,8 +30,12 @@ export function AgentLoopCard(props: AgentLoopCardProps) {
         numeric
         disabled={!state.writable}
         {...state.maxParallelToolCalls}
-        onEdit={(text) => { props.edit('maxParallelToolCalls', text) }}
-        onReset={() => { props.resetField('maxParallelToolCalls') }}
+        onEdit={text => {
+          props.edit('maxParallelToolCalls', text)
+        }}
+        onReset={() => {
+          props.resetField('maxParallelToolCalls')
+        }}
       />
     </SettingsForm>
   )

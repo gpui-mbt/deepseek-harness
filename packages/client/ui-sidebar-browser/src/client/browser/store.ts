@@ -22,7 +22,9 @@ export function createBrowserStore(): EngineStoreHandle<BrowserState, BrowserAct
     init: (): BrowserState => ({ byTab: {} }),
     persist: 'dsh.sidebar-browser.v1',
     actions: {
-      replace: (draft, tabId: TabId, state: BrowserTabState) => { draft.byTab[tabId] = state },
+      replace: (draft, tabId: TabId, state: BrowserTabState) => {
+        draft.byTab[tabId] = state
+      },
       forget: (draft, tabId: TabId) => {
         const byTab: BrowserState['byTab'] = {}
         for (const [id, state] of Object.entries(draft.byTab) as [TabId, BrowserTabState][]) {

@@ -23,8 +23,7 @@ export interface WelcomeNoticeInjected {
 }
 
 /** Coordinator owner props plus this step's injected face. */
-export type WelcomeNoticeProps =
-  PropsRuntime<'settings.onboarding'> & InjectFace<WelcomeNoticeInjected>
+export type WelcomeNoticeProps = PropsRuntime<'settings.onboarding'> & InjectFace<WelcomeNoticeInjected>
 
 /**
  * Render the current notice until its exact copy version is acknowledged.
@@ -59,15 +58,23 @@ export function WelcomeNotice(props: WelcomeNoticeProps): ReactNode {
   return (
     <OnboardingModal title={t('welcomeTitle')} focusTitle>
       <div className={css.copy}>
-        {paragraphs.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
+        {paragraphs.map(paragraph => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
       </div>
-      {state.error === null ? null : <p className={css.error} role="alert">{t('welcomeError')}</p>}
+      {state.error === null ? null : (
+        <p className={css.error} role="alert">
+          {t('welcomeError')}
+        </p>
+      )}
       <div className={css.actions}>
         <Button
           variant="primary"
           className={css.primary}
           disabled={state.status === 'saving'}
-          onClick={() => { void acknowledge() }}
+          onClick={() => {
+            void acknowledge()
+          }}
         >
           {t('welcomeContinue')}
         </Button>

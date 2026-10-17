@@ -2,14 +2,14 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { getDshRuntimeVersion, initProfile, PROFILE_TEMPLATES, readProfileVersionExemptions } from '@deepseek-ai/dsh-app-boot'
 import { runPluginCommand, runProfilePnpm } from '@deepseek-ai/dsh-plugin-manager/operations'
 import { runPlugin } from '../src/plugin.ts'
 
 vi.mock('../src/profile-boot.ts', () => ({ INSTALL_ANCHOR: '/installation/package.json' }))
 vi.mock('@deepseek-ai/dsh-plugin-manager/operations', async importOriginal => ({
-  ...await importOriginal<typeof import('@deepseek-ai/dsh-plugin-manager/operations')>(),
+  ...(await importOriginal<typeof import('@deepseek-ai/dsh-plugin-manager/operations')>()),
   runPluginCommand: vi.fn(),
   runProfilePnpm: vi.fn(),
 }))
@@ -58,7 +58,7 @@ it.each([
   ['version-exemptions', 'extra'],
 ])('rejects malformed or unacknowledged exemption command %j', async (...arguments_) => {
   const { dir, stderr } = fixture()
-  const args = arguments_.map(value => value === 'CURRENT' ? getDshRuntimeVersion() : value)
+  const args = arguments_.map(value => (value === 'CURRENT' ? getDshRuntimeVersion() : value))
   expect(await runPlugin('test', args)).toBe(1)
   expect(stderr).toHaveBeenCalled()
   expect(existsSync(join(dir, 'compatibility.json'))).toBe(false)
@@ -71,7 +71,7 @@ it('uses shipped profile defaults when listing a missing profile', async () => {
   expect(runPluginCommand).not.toHaveBeenCalled()
 })
 
-it.each([0, 1])('forwards ordinary pnpm output and exit status %s', async (exitCode) => {
+it.each([0, 1])('forwards ordinary pnpm output and exit status %s', async exitCode => {
   const { stdout, stderr } = fixture()
   vi.mocked(runPluginCommand).mockImplementation(async (_context, _args, options) => {
     options.onOutput?.('pnpm output', 'stdout')
@@ -86,7 +86,10 @@ it.each([0, 1])('forwards ordinary pnpm output and exit status %s', async (exitC
 it('names the exact grant command for each package a compatibility check refused', async () => {
   const { stderr } = fixture()
   vi.mocked(runPluginCommand).mockResolvedValue({
-    exitCode: 1, output: '', truncated: false, logPath: '/profile/log',
+    exitCode: 1,
+    output: '',
+    truncated: false,
+    logPath: '/profile/log',
     incompatible: [{ name: '@example/plugin', version: '1.2.3', runtimeVersion: '0.1.0', requirements: { '@deepseek-ai/dsh': '^9.0.0' } }],
   })
   expect(await runPlugin('test', ['add', '@example/plugin'])).toBe(1)
@@ -101,7 +104,11 @@ it('forwards all other commands unchanged and retains package diagnostics', asyn
   vi.mocked(runPluginCommand).mockResolvedValue({ exitCode: 127, output: '', truncated: false, logPath: '/profile/log' })
   const args = ['add', 'github:example/plugin']
   expect(await runPlugin('test', args)).toBe(127)
-  expect(runPluginCommand).toHaveBeenCalledWith(expect.objectContaining({ profile: 'test' }), args, expect.objectContaining({ execution: 'cli' }))
+  expect(runPluginCommand).toHaveBeenCalledWith(
+    expect.objectContaining({ profile: 'test' }),
+    args,
+    expect.objectContaining({ execution: 'cli' }),
+  )
   expect(stderr.mock.calls.map(call => call[0]).join('')).toContain('pnpm was not found')
 })
 
@@ -115,19 +122,21 @@ it('uses the installation package runtime without changing CLI authentication or
   }
   expect(await runPlugin('test', ['list'], packageManager)).toBe(0)
   expect(runPluginCommand).toHaveBeenCalledWith(
-    expect.objectContaining({ profile: 'test' }), ['list'],
+    expect.objectContaining({ profile: 'test' }),
+    ['list'],
     expect.objectContaining({ ...packageManager, execution: 'cli' }),
   )
 })
 
 it.each([
-  ['list'], ['add', 'example-plugin'],
+  ['list'],
+  ['add', 'example-plugin'],
   ['version-exemptions'],
   ['allow-version', 'example-plugin@1.2.3', '--dsh-version', 'CURRENT', '--accept-risk'],
   ['revoke-version', 'example-plugin@1.2.3', '--dsh-version', 'CURRENT'],
 ])('requires Desktop initialization before %j without creating a profile', async (...arguments_) => {
   const { home, stderr } = fixture()
-  const args = arguments_.map(value => value === 'CURRENT' ? getDshRuntimeVersion() : value)
+  const args = arguments_.map(value => (value === 'CURRENT' ? getDshRuntimeVersion() : value))
   expect(await runPlugin('desktop', args)).toBe(1)
   expect(stderr.mock.calls.map(call => call[0]).join('')).toMatchInlineSnapshot(`
     "dsh: Error: Open DeepSeek Harness Desktop once to initialize its profile, then fully quit it before running dsh plugin --profile desktop.

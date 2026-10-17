@@ -39,7 +39,14 @@ import type { WebBootBatch, WebBootBatchPhase, WebBootEntry, WebBootGraph, WebBo
 
 export { stripClientSuffix } from './client/manifest.ts'
 export type {
-  BootManifest, BootModuleRow, BootPluginRow, WebBootBatch, WebBootBatchPhase, WebBootEntry, WebBootGraph, WebBootRelease,
+  BootManifest,
+  BootModuleRow,
+  BootPluginRow,
+  WebBootBatch,
+  WebBootBatchPhase,
+  WebBootEntry,
+  WebBootGraph,
+  WebBootRelease,
 } from './client/manifest.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -262,11 +269,13 @@ function chunkMapReference(fileName: string, rev: string): string {
 
 /** Measure the longest browser-facing combo URL used to partition a startup resource list. */
 function projectedComboUrlBytes(records: readonly WebPluginRecord[]): number {
-  return Buffer.byteLength(comboReference(
-    records.map(record => record.entry.id),
-    COMBO_REVISION_PLACEHOLDER,
-    true,
-  ))
+  return Buffer.byteLength(
+    comboReference(
+      records.map(record => record.entry.id),
+      COMBO_REVISION_PLACEHOLDER,
+      true,
+    ),
+  )
 }
 
 /** Partition one phase in graph order without allowing a generated URL above the protocol limit. */
@@ -280,16 +289,12 @@ function partitionComboRecords(records: readonly WebPluginRecord[]): WebPluginRe
       continue
     }
     if (current.length === 0) {
-      throw new Error(
-        `client-modules: ${record.entry.id} exceeds the ${String(MAX_COMBO_URL_BYTES)}-byte combo URL limit`,
-      )
+      throw new Error(`client-modules: ${record.entry.id} exceeds the ${String(MAX_COMBO_URL_BYTES)}-byte combo URL limit`)
     }
     chunks.push(current)
     current = [record]
     if (projectedComboUrlBytes(current) > MAX_COMBO_URL_BYTES) {
-      throw new Error(
-        `client-modules: ${record.entry.id} exceeds the ${String(MAX_COMBO_URL_BYTES)}-byte combo URL limit`,
-      )
+      throw new Error(`client-modules: ${record.entry.id} exceeds the ${String(MAX_COMBO_URL_BYTES)}-byte combo URL limit`)
     }
   }
   if (current.length > 0) chunks.push(current)
@@ -308,9 +313,12 @@ function prepareSource(resource: ComboResource): PreparedSource {
   const sourceUrl = SOURCE_URL_TRAILER.exec(source)?.[1]
   source = source.replace(SOURCE_URL_TRAILER, '').replace(SOURCE_MAP_TRAILER, '')
   if (!source.endsWith('\n')) source += '\n'
-  const fallbackSource = sourceUrl === undefined
-    ? `/plugins/${resource.id}/${resource.fileName}`
-    : /^(?:[A-Za-z][A-Za-z\d+.-]*:|\/)/.test(sourceUrl) ? sourceUrl : `/${sourceUrl}`
+  const fallbackSource =
+    sourceUrl === undefined
+      ? `/plugins/${resource.id}/${resource.fileName}`
+      : /^(?:[A-Za-z][A-Za-z\d+.-]*:|\/)/.test(sourceUrl)
+        ? sourceUrl
+        : `/${sourceUrl}`
   return { source, fallbackSource }
 }
 
@@ -329,15 +337,15 @@ function readSourceMap(clientPath: string): Record<string, unknown> | undefined 
     throw error
   }
   const value: unknown = JSON.parse(body.toString('utf8'))
-  const parsed = typeof value === 'object' && value !== null ? value as Record<string, unknown> : undefined
+  const parsed = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined
   if (
-    parsed === undefined
-    || parsed.version !== 3
-    || !Array.isArray(parsed.sources)
-    || parsed.sources.some(source => typeof source !== 'string')
-    || !Array.isArray(parsed.names)
-    || parsed.names.some(name => typeof name !== 'string')
-    || typeof parsed.mappings !== 'string'
+    parsed === undefined ||
+    parsed.version !== 3 ||
+    !Array.isArray(parsed.sources) ||
+    parsed.sources.some(source => typeof source !== 'string') ||
+    !Array.isArray(parsed.names) ||
+    parsed.names.some(name => typeof name !== 'string') ||
+    typeof parsed.mappings !== 'string'
   ) {
     throw new Error(`client-modules: ${clientPath}.map is not a regular Source Map v3 object`)
   }
@@ -356,12 +364,10 @@ function comboSectionMap(resource: ComboResource, original: Record<string, unkno
   const sourcePaths = original.sources as string[]
   const sourceRoot = typeof original.sourceRoot === 'string' ? original.sourceRoot : ''
   const base = new URL(`/plugins/${resource.id}/client.js.map`, 'http://dsh.invalid')
-  const relocated = sourcePaths.map((source) => {
+  const relocated = sourcePaths.map(source => {
     const separator = sourceRoot !== '' && !sourceRoot.endsWith('/') && !source.startsWith('/') ? '/' : ''
     const resolved = new URL(`${sourceRoot}${separator}${source}`, base)
-    return resolved.origin === base.origin
-      ? `${resolved.pathname}${resolved.search}${resolved.hash}`
-      : resolved.href
+    return resolved.origin === base.origin ? `${resolved.pathname}${resolved.search}${resolved.hash}` : resolved.href
   })
   const section: Record<string, unknown> = { ...original, sources: relocated }
   delete section.sourceRoot
@@ -370,8 +376,7 @@ function comboSectionMap(resource: ComboResource, original: Record<string, unkno
 
 /** Map each generated line to the same line in a bundled JavaScript source. */
 function identitySectionMap(source: string, sourceUrl: string): Record<string, unknown> {
-  const mappings = Array.from({ length: newlineCount(source) }, (_, index) => index === 0 ? 'AAAA' : 'AACA')
-    .join(';')
+  const mappings = Array.from({ length: newlineCount(source) }, (_, index) => (index === 0 ? 'AAAA' : 'AACA')).join(';')
   return {
     version: 3,
     names: [],
@@ -388,20 +393,22 @@ function identitySectionMap(source: string, sourceUrl: string): Record<string, u
 function lazyBody(produce: () => Buffer | Promise<Buffer>): () => Promise<Buffer> {
   let result: Promise<Buffer> | undefined
   return () => {
-    result ??= Promise.resolve().then(produce).catch((error: unknown) => {
-      result = undefined
-      throw error
-    })
+    result ??= Promise.resolve()
+      .then(produce)
+      .catch((error: unknown) => {
+        result = undefined
+        throw error
+      })
     return result
   }
 }
 
 /** Derive one combo revision from the ordered immutable row revisions. */
 function comboRevision(resources: readonly ComboResource[]): string {
-  return framedHash('combo', resources.flatMap(resource => [
-    resource.id,
-    resource.rev,
-  ]))
+  return framedHash(
+    'combo',
+    resources.flatMap(resource => [resource.id, resource.rev]),
+  )
 }
 
 /** Concatenate one or more factory registrations without reading or composing source maps. */
@@ -516,8 +523,8 @@ export function orderByModuleGraph(entries: readonly WebBootEntry[]): WebBootEnt
     const cycleStart = open.indexOf(entry.id)
     if (cycleStart !== -1) {
       throw new Error(
-        `client-modules: module graph cycle ${[...open.slice(cycleStart), entry.id].join(' -> ')} `
-        + '— a requested package row must precede its consumers, and factory-form CJS cannot deliver partial exports',
+        `client-modules: module graph cycle ${[...open.slice(cycleStart), entry.id].join(' -> ')} ` +
+          '— a requested package row must precede its consumers, and factory-form CJS cannot deliver partial exports',
       )
     }
     open.push(entry.id)
@@ -525,8 +532,8 @@ export function orderByModuleGraph(entries: readonly WebBootEntry[]): WebBootEnt
       const dependency = rowsById.get(name) ?? rowsById.get(stripClientSuffix(name))
       if (dependency === entry) {
         throw new Error(
-          `client-modules: "${entry.id}" requests module "${name}" that it answers itself `
-          + '— a row must not declare its own package in dsh.client.external',
+          `client-modules: "${entry.id}" requests module "${name}" that it answers itself ` +
+            '— a row must not declare its own package in dsh.client.external',
         )
       }
       if (dependency !== undefined) visit(dependency)
@@ -637,7 +644,7 @@ export class ClientModuleRegistry extends Service {
     // Subscribe before seeding so a fiber arriving mid-activation lands in the
     // same dirty set (Set idempotence makes the overlap harmless). An entry-less
     // fiber is a child plugin or a manual mount — never a loader row; O(1) drop.
-    ctx.on('internal/plugin', (fiber) => {
+    ctx.on('internal/plugin', fiber => {
       const entryName = fiber.entry?.options.name
       if (entryName === undefined) return
       this.dirty.add(entryName)
@@ -645,7 +652,9 @@ export class ClientModuleRegistry extends Service {
       this.flushQueued = true
       queueMicrotask(() => {
         this.flushQueued = false
-        this.flush((err) => { ctx.logger.warn(err) })
+        this.flush(err => {
+          ctx.logger.warn(err)
+        })
       })
     })
 
@@ -667,7 +676,7 @@ export class ClientModuleRegistry extends Service {
       )
     }
     ctx.inject(['webServer'], registerWebCarrier)
-    ctx.on('webserver/index-inject', (table) => {
+    ctx.on('webserver/index-inject', table => {
       table.push(...bootInjections(this.composed))
     })
   }
@@ -757,7 +766,9 @@ export class ClientModuleRegistry extends Service {
    */
   onRebuilt(listener: (id: string, rev: string) => void): () => void {
     this.rebuildListeners.add(listener)
-    return () => { this.rebuildListeners.delete(listener) }
+    return () => {
+      this.rebuildListeners.delete(listener)
+    }
   }
 
   /**
@@ -768,14 +779,14 @@ export class ClientModuleRegistry extends Service {
    */
   onGraphChanged(listener: () => void): () => void {
     this.graphListeners.add(listener)
-    return () => { this.graphListeners.delete(listener) }
+    return () => {
+      this.graphListeners.delete(listener)
+    }
   }
 
   private compose(): WebBootGraph {
     const entries = orderByModuleGraph([...this.table.values()].map(record => record.entry))
-    const bootstrap = PARSER_PRELOAD_IDS
-      .map(id => this.table.get(id))
-      .filter((record): record is WebPluginRecord => record !== undefined)
+    const bootstrap = PARSER_PRELOAD_IDS.map(id => this.table.get(id)).filter((record): record is WebPluginRecord => record !== undefined)
     const bootstrapIds = new Set(bootstrap.map(record => record.entry.id))
     const application = entries
       .filter(entry => !bootstrapIds.has(entry.id))
@@ -793,26 +804,40 @@ export class ClientModuleRegistry extends Service {
     for (const artifact of artifacts) {
       // The table is keyed by the absolute route the request arrives on, not by
       // the document-relative reference the graph and descriptors carry.
-      batchResponses.set(artifact.url, this.responses.get(artifact.url) ?? {
-        body: artifact.scriptBody,
-        contentType: 'text/javascript; charset=utf-8',
-      })
-      batchResponses.set(artifact.sourceMapUrl, this.responses.get(artifact.sourceMapUrl) ?? {
-        body: artifact.sourceMapBody,
-        contentType: 'application/json; charset=utf-8',
-      })
+      batchResponses.set(
+        artifact.url,
+        this.responses.get(artifact.url) ?? {
+          body: artifact.scriptBody,
+          contentType: 'text/javascript; charset=utf-8',
+        },
+      )
+      batchResponses.set(
+        artifact.sourceMapUrl,
+        this.responses.get(artifact.sourceMapUrl) ?? {
+          body: artifact.sourceMapBody,
+          contentType: 'application/json; charset=utf-8',
+        },
+      )
     }
     const responses = new Map(batchResponses)
     for (const record of this.table.values()) {
       const artifact = buildCombo([record], this.readSourceMap, record.entry.rev)
-      responses.set(artifact.url, responses.get(artifact.url) ?? this.responses.get(artifact.url) ?? {
-        body: artifact.scriptBody,
-        contentType: 'text/javascript; charset=utf-8',
-      })
-      responses.set(artifact.sourceMapUrl, responses.get(artifact.sourceMapUrl) ?? this.responses.get(artifact.sourceMapUrl) ?? {
-        body: artifact.sourceMapBody,
-        contentType: 'application/json; charset=utf-8',
-      })
+      responses.set(
+        artifact.url,
+        responses.get(artifact.url) ??
+          this.responses.get(artifact.url) ?? {
+            body: artifact.scriptBody,
+            contentType: 'text/javascript; charset=utf-8',
+          },
+      )
+      responses.set(
+        artifact.sourceMapUrl,
+        responses.get(artifact.sourceMapUrl) ??
+          this.responses.get(artifact.sourceMapUrl) ?? {
+            body: artifact.sourceMapBody,
+            contentType: 'application/json; charset=utf-8',
+          },
+      )
     }
     for (const [resourceUrl, response] of this.responses) {
       if (this.chunkRequest(new URL(resourceUrl, 'http://x')) !== undefined) responses.set(resourceUrl, response)
@@ -855,10 +880,7 @@ export class ClientModuleRegistry extends Service {
     const { packageName, path: pkgPath } = located
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as Record<string, unknown>
     const dsh = pkg.dsh
-    const decl = parseDshClient(
-      packageName,
-      dsh !== null && typeof dsh === 'object' ? (dsh as Record<string, unknown>).client : undefined,
-    )
+    const decl = parseDshClient(packageName, dsh !== null && typeof dsh === 'object' ? (dsh as Record<string, unknown>).client : undefined)
     if (decl === undefined || decl.platform !== 'web') {
       this.pkgMeta.set(sourceKey, null)
       return null
@@ -899,7 +921,9 @@ export class ClientModuleRegistry extends Service {
       if (expectedPackageName === undefined) {
         const moduleUrl = loaderName.startsWith('file:')
           ? loaderName
-          : isAbsolute(loaderName) ? pathToFileURL(loaderName).href : new URL(loaderName, baseUrl).href
+          : isAbsolute(loaderName)
+            ? pathToFileURL(loaderName).href
+            : new URL(loaderName, baseUrl).href
         return this.nearestPackage(moduleUrl)
       }
       try {
@@ -915,9 +939,10 @@ export class ClientModuleRegistry extends Service {
     }
     let moduleUrl: string
     try {
-      moduleUrl = internal.version === 'v2'
-        ? internal.resolveSync(baseUrl, { specifier: loaderName, attributes: {} }).url
-        : internal.resolveSync(loaderName, baseUrl, {}).url
+      moduleUrl =
+        internal.version === 'v2'
+          ? internal.resolveSync(baseUrl, { specifier: loaderName, attributes: {} }).url
+          : internal.resolveSync(loaderName, baseUrl, {}).url
     } catch {
       // The Loader cannot resolve the name: its row cannot have imported, so
       // the name is permanently not a client row.
@@ -926,10 +951,7 @@ export class ClientModuleRegistry extends Service {
     return this.nearestPackage(moduleUrl, expectedPackageName)
   }
 
-  private nearestPackage(
-    moduleUrl: string,
-    expectedPackageName?: string,
-  ): { path: string; packageName: string } | undefined {
+  private nearestPackage(moduleUrl: string, expectedPackageName?: string): { path: string; packageName: string } | undefined {
     if (!moduleUrl.startsWith('file:')) return undefined
     let dir = dirname(fileURLToPath(moduleUrl))
     while (true) {
@@ -974,7 +996,10 @@ export class ClientModuleRegistry extends Service {
    * @returns the immutable bytes plus the pre-read filesystem baseline.
    * @throws {MissingClientBundleError} when the read fails with `ENOENT`; other filesystem errors are rethrown unchanged.
    */
-  private initialBundleSnapshot(pkgName: string, clientPath: string): {
+  private initialBundleSnapshot(
+    pkgName: string,
+    clientPath: string,
+  ): {
     bundle: Buffer
     baseline: ClientArtifactBaseline
   } {
@@ -1045,12 +1070,8 @@ export class ClientModuleRegistry extends Service {
       if (source.packageName === packageName) sources.push(source)
     }
     if (sources.length > 1) {
-      const locations = sources
-        .map(source => `${JSON.stringify(source.loaderName)} from ${source.baseUrl}`)
-        .join(', ')
-      throw new Error(
-        `client-modules: package ${packageName} resolves from multiple active Loader sources: ${locations}; remove one entry`,
-      )
+      const locations = sources.map(source => `${JSON.stringify(source.loaderName)} from ${source.baseUrl}`).join(', ')
+      throw new Error(`client-modules: package ${packageName} resolves from multiple active Loader sources: ${locations}; remove one entry`)
     }
     const source = sources[0]
     if (source === undefined) return this.table.delete(packageName)
@@ -1098,12 +1119,14 @@ export class ClientModuleRegistry extends Service {
   }
 
   /** Match an exact current-revision package-local chunk URL without reading its file. */
-  private chunkRequest(requestUrl: URL): {
-    record: WebPluginRecord
-    fileName: string
-    sourceMap: boolean
-    resourceUrl: string
-  } | undefined {
+  private chunkRequest(requestUrl: URL):
+    | {
+        record: WebPluginRecord
+        fileName: string
+        sourceMap: boolean
+        resourceUrl: string
+      }
+    | undefined {
     const resourceUrl = `${requestUrl.pathname}${requestUrl.search}`
     for (const record of this.table.values()) {
       const prefix = `/plugins/${record.entry.id}/`
@@ -1139,18 +1162,21 @@ export class ClientModuleRegistry extends Service {
     })
     const response: LazyResponse = sourceMap
       ? {
-        body: lazyBody(async () => buildComboSourceMap([await resource()], this.readSourceMap, fileName)),
-        contentType: 'application/json; charset=utf-8',
-      }
+          body: lazyBody(async () => buildComboSourceMap([await resource()], this.readSourceMap, fileName)),
+          contentType: 'application/json; charset=utf-8',
+        }
       : {
-        body: lazyBody(async () => buildComboScript([await resource()], sourceMapUrl)),
-        contentType: 'text/javascript; charset=utf-8',
-      }
+          body: lazyBody(async () => buildComboScript([await resource()], sourceMapUrl)),
+          contentType: 'text/javascript; charset=utf-8',
+        }
     this.responses.set(resourceUrl, response)
     return response
   }
 
-  private async bundleResource(method: string | undefined, url: string): Promise<{
+  private async bundleResource(
+    method: string | undefined,
+    url: string,
+  ): Promise<{
     status: number
     headers?: Record<string, string>
     body?: Buffer
@@ -1158,9 +1184,7 @@ export class ClientModuleRegistry extends Service {
     if (method !== 'GET' && method !== 'HEAD') return { status: 405 }
     const requestUrl = new URL(url, 'http://x')
     const resourceUrl = `${requestUrl.pathname}${requestUrl.search}`
-    const response = this.responses.get(resourceUrl)
-      ?? this.previousBatchResponses.get(resourceUrl)
-      ?? this.chunkResponse(requestUrl)
+    const response = this.responses.get(resourceUrl) ?? this.previousBatchResponses.get(resourceUrl) ?? this.chunkResponse(requestUrl)
     if (response !== undefined) {
       return {
         status: 200,

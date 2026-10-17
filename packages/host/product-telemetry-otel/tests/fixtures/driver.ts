@@ -30,7 +30,12 @@ try {
   try {
     const telemetry = ctx.get('productTelemetry')
     if (telemetry === undefined) throw new Error('product telemetry did not activate')
-    telemetry.emit({ eventName: 'telemetry.synthetic', timestamp: 1_800_000_000_000, body: 'Synthetic test', attributes: { synthetic: true } })
+    telemetry.emit({
+      eventName: 'telemetry.synthetic',
+      timestamp: 1_800_000_000_000,
+      body: 'Synthetic test',
+      attributes: { synthetic: true },
+    })
   } finally {
     await ctx.fiber.dispose()
   }

@@ -1,17 +1,24 @@
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { bootstrapArgs, resolveLaunch } from '../src/launch.ts'
 
 const unmapped = { processPathFromHostPath: () => undefined }
-const noMapping = { processPathFromHostPath: () => { throw new Error('must not map a remote worker') } }
+const noMapping = {
+  processPathFromHostPath: () => {
+    throw new Error('must not map a remote worker')
+  },
+}
 
 it('uses an explicit installed bootstrap without pretending it maps the host file', () => {
-  expect(bootstrapArgs(noMapping, { kind: 'node-script', executable: '/remote/node', bootstrapPath: '/remote/process.js' }, 2048))
-    .toEqual(['/remote/process.js', '2048'])
+  expect(bootstrapArgs(noMapping, { kind: 'node-script', executable: '/remote/node', bootstrapPath: '/remote/process.js' }, 2048)).toEqual([
+    '/remote/process.js',
+    '2048',
+  ])
 })
 
 it('fails when the execution world cannot read the source bootstrap', () => {
-  expect(() => bootstrapArgs(unmapped, { kind: 'node-script', executable: process.execPath }, 2048))
-    .toThrow('unavailable in the subprocess execution world')
+  expect(() => bootstrapArgs(unmapped, { kind: 'node-script', executable: process.execPath }, 2048)).toThrow(
+    'unavailable in the subprocess execution world',
+  )
 })
 
 it('uses a remote embedded worker when the client runs ordinary Node', () => {
@@ -35,8 +42,15 @@ it('resolves the local carrier once while preserving an explicit remote script c
 })
 
 it('requires a script launch for persistent processes and selects their bootstrap', () => {
-  expect(() => bootstrapArgs(noMapping, { kind: 'embedded', executable: '/remote/helper' }, 2048, true))
-    .toThrow('requires a node-script launch')
-  expect(bootstrapArgs(noMapping, { kind: 'node-script', executable: '/remote/node', bootstrapPath: '/remote/persistent-process.js' }, 2048, true))
-    .toEqual(['/remote/persistent-process.js', '2048'])
+  expect(() => bootstrapArgs(noMapping, { kind: 'embedded', executable: '/remote/helper' }, 2048, true)).toThrow(
+    'requires a node-script launch',
+  )
+  expect(
+    bootstrapArgs(
+      noMapping,
+      { kind: 'node-script', executable: '/remote/node', bootstrapPath: '/remote/persistent-process.js' },
+      2048,
+      true,
+    ),
+  ).toEqual(['/remote/persistent-process.js', '2048'])
 })

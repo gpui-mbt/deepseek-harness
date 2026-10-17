@@ -1,16 +1,18 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  AssistantBlock, AssistantMessageNode, ConversationLocation, ConversationMatch,
-  ConversationNodeContext, ConversationNodeDefinition,
+  AssistantBlock,
+  AssistantMessageNode,
+  ConversationLocation,
+  ConversationMatch,
+  ConversationNodeContext,
+  ConversationNodeDefinition,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-llm-retry/types'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { AssistantChatData } from '../contract/chat-nodes.ts'
 import { CHAT_SYNTHETIC_SEQ_OFFSETS, chatNode } from './common.ts'
-import {
-  emptyAssistantBlock, isTokenDelta, toAssistantBlock, toAssistantBlocks,
-} from './event-projection.ts'
+import { emptyAssistantBlock, isTokenDelta, toAssistantBlock, toAssistantBlocks } from './event-projection.ts'
 
 declare module '../contract/chat-nodes.ts' {
   interface ChatNodeDataMap {
@@ -73,7 +75,7 @@ function hasVisibleContent(blocks: readonly AssistantBlock[]): boolean {
 }
 
 function hasInterruptionEvidence(blocks: readonly AssistantBlock[]): boolean {
-  return blocks.some((block) => {
+  return blocks.some(block => {
     if (block.kind === 'text' || block.kind === 'reasoning') return block.text.trim() !== ''
     return true
   })
@@ -86,17 +88,16 @@ function resetForRetry(state: AssistantState): AssistantState {
   }
 }
 
-function updateChunk(
-  state: AssistantState,
-  chunk: StreamChunk,
-  seq: number,
-  time: number,
-): AssistantState {
+function updateChunk(state: AssistantState, chunk: StreamChunk, seq: number, time: number): AssistantState {
   if (chunk.type === 'tool-call-delta') {
     const previous = state.blocks[chunk.index]
-    if (previous?.kind === 'tool-call' && previous.callId !== ''
-      && (chunk.name === undefined || chunk.name === previous.name)
-      && (state.firstTokenTime !== undefined || !isTokenDelta(chunk))) return state
+    if (
+      previous?.kind === 'tool-call' &&
+      previous.callId !== '' &&
+      (chunk.name === undefined || chunk.name === previous.name) &&
+      (state.firstTokenTime !== undefined || !isTokenDelta(chunk))
+    )
+      return state
   }
   const blocks = [...state.blocks]
   let changedIndex = -1
@@ -144,28 +145,18 @@ function updateChunk(
     default:
       return state
   }
-  const visibleBlocks = state.visibleBlocks
-    - Number(previousVisible)
-    + Number(blockIsVisible(blocks[changedIndex]))
+  const visibleBlocks = state.visibleBlocks - Number(previousVisible) + Number(blockIsVisible(blocks[changedIndex]))
   const firstToken = isTokenDelta(chunk)
   return {
     ...state,
     blocks,
     visibleBlocks,
-    ...visibleBlocks > 0 && state.firstVisibleSeq === undefined
-      ? { firstVisibleSeq: seq, firstVisibleTime: time }
-      : {},
-    ...firstToken && state.firstTokenTime === undefined
-      ? { firstTokenTime: time }
-      : {},
+    ...(visibleBlocks > 0 && state.firstVisibleSeq === undefined ? { firstVisibleSeq: seq, firstVisibleTime: time } : {}),
+    ...(firstToken && state.firstTokenTime === undefined ? { firstTokenTime: time } : {}),
   }
 }
 
-function settleMessage(
-  state: AssistantState,
-  match: ConversationMatch,
-  event: SessionEvent<'assistant/message'>,
-): AssistantState {
+function settleMessage(state: AssistantState, match: ConversationMatch, event: SessionEvent<'assistant/message'>): AssistantState {
   const blocks = toAssistantBlocks(event.data.message.content)
   return {
     ...state,
@@ -180,17 +171,13 @@ function closedBoundary(location: ConversationLocation): { seq: number; time: nu
   if (location.kind === 'step' && location.step.status === 'closed' && location.step.end !== undefined) {
     return location.step.end
   }
-  if ((location.kind === 'step' || location.kind === 'turn')
-    && location.turn.status === 'closed' && location.turn.end !== undefined) {
+  if ((location.kind === 'step' || location.kind === 'turn') && location.turn.status === 'closed' && location.turn.end !== undefined) {
     return location.turn.end
   }
   return undefined
 }
 
-function finalNode(
-  state: AssistantState,
-  context: ConversationNodeContext<AssistantState>,
-): AssistantMessageNode | undefined {
+function finalNode(state: AssistantState, context: ConversationNodeContext<AssistantState>): AssistantMessageNode | undefined {
   const final = state.final
   if (final?.event.type === 'assistant/message') {
     const event = final.event
@@ -208,7 +195,7 @@ function finalNode(
         firstTokenTime: state.firstTokenTime ?? null,
         completedTime: event.time,
       },
-      ...event.data.interrupted === true ? { interrupted: true } : {},
+      ...(event.data.interrupted === true ? { interrupted: true } : {}),
     }
   }
   const location = context.start?.location ?? context.matches.at(-1)?.location
@@ -260,11 +247,9 @@ function projectAssistant(context: ConversationNodeContext<AssistantState>): Ass
   const settled = finalNode(state, context)
   const blocks = settled?.blocks ?? compactBlocks(state.blocks)
   const visible = settled === undefined ? state.visibleBlocks > 0 : hasVisibleContent(blocks)
-  const status = settled?.interrupted === true
-    ? 'interrupted'
-    : settled === undefined ? 'running' : 'settled'
-  const anchorSeq = (settled?.interrupted === true ? settled.seq : state.firstVisibleSeq ?? settled?.seq)
-    ?? context.matches[0]?.event.seq ?? 0
+  const status = settled?.interrupted === true ? 'interrupted' : settled === undefined ? 'running' : 'settled'
+  const anchorSeq =
+    (settled?.interrupted === true ? settled.seq : (state.firstVisibleSeq ?? settled?.seq)) ?? context.matches[0]?.event.seq ?? 0
   const time = settled?.time ?? state.firstVisibleTime ?? context.matches[0]?.event.time ?? 0
   return {
     anchorSeq,
@@ -276,15 +261,13 @@ function projectAssistant(context: ConversationNodeContext<AssistantState>): Ass
       step: state.step,
       blocks,
       time,
-      ...state.usage === undefined ? {} : { usage: state.usage },
-      ...settled === undefined ? {} : { finalNode: settled },
+      ...(state.usage === undefined ? {} : { usage: state.usage }),
+      ...(settled === undefined ? {} : { finalNode: settled }),
     },
   }
 }
 
-function publishedAssistantData(
-  context: ConversationNodeContext<AssistantState>,
-): Readonly<AssistantChatData> | undefined {
+function publishedAssistantData(context: ConversationNodeContext<AssistantState>): Readonly<AssistantChatData> | undefined {
   const location = context.start?.location ?? context.matches.at(-1)?.location
   return location?.kind === 'step' ? location.step.data.get('assistant-step') : undefined
 }
@@ -293,10 +276,9 @@ function publishedAssistantData(
 export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
   kind: 'assistant-step',
   target: 'chat',
-  match: (event) => {
+  match: event => {
     if (event.type === 'step/start') return { id: `${event.data.turn}:${event.data.step}`, role: 'start' }
-    if (event.type === 'assistant/live-chunk'
-      || (event.type === 'assistant/message' && event.surfaceOp === 'append')) {
+    if (event.type === 'assistant/live-chunk' || (event.type === 'assistant/message' && event.surfaceOp === 'append')) {
       return { id: `${event.data.turn}:${event.data.step}`, role: 'update' }
     }
     if (event.type === 'llm/retry') {
@@ -318,7 +300,7 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
     }
     return context.state
   },
-  publication: (match) => {
+  publication: match => {
     if (match.event.type === 'step/start') return 'none'
     if (match.event.type !== 'assistant/live-chunk') return 'immediate'
     const type = match.event.data.chunk.type
@@ -336,7 +318,7 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
       value: projected.data,
     }
   },
-  buildViewNode: (context) => {
+  buildViewNode: context => {
     const current = context.current.get('chat')
     const state = context.state ?? fallbackState(context)
     const data = publishedAssistantData(context)
@@ -347,8 +329,8 @@ export const assistantDefinition: ConversationNodeDefinition<AssistantState> = {
     const visible = settled === undefined ? state.visibleBlocks > 0 : hasVisibleContent(data.blocks)
     if (settled === undefined && !visible && current == null) return null
     // A successful message retains its live anchor alongside pending Tool calls.
-    const anchorSeq = (settled?.interrupted === true ? settled.seq : state.firstVisibleSeq ?? settled?.seq)
-      ?? context.matches[0]?.event.seq ?? 0
+    const anchorSeq =
+      (settled?.interrupted === true ? settled.seq : (state.firstVisibleSeq ?? settled?.seq)) ?? context.matches[0]?.event.seq ?? 0
     return chatNode(context, 'assistant-step', anchorSeq, data, {
       visibility: settled?.interrupted === true || visible ? 'visible' : 'hidden',
     })

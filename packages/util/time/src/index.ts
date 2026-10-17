@@ -18,11 +18,9 @@ const IANA_TIME_ZONE = /^[A-Za-z][A-Za-z0-9_+.-]*(?:\/[A-Za-z0-9_+.-]+)+$/
  * @returns the canonical zone, or `undefined` when the name is unusable.
  */
 export function canonicalClientTimeZone(value: string): string | undefined {
-  if (value.length === 0 || value.trim() !== value
-    || (value !== 'UTC' && !IANA_TIME_ZONE.test(value))) return undefined
+  if (value.length === 0 || value.trim() !== value || (value !== 'UTC' && !IANA_TIME_ZONE.test(value))) return undefined
   try {
-    const canonical = new Intl.DateTimeFormat('en-US', { timeZone: value })
-      .resolvedOptions().timeZone
+    const canonical = new Intl.DateTimeFormat('en-US', { timeZone: value }).resolvedOptions().timeZone
     /* v8 ignore next -- Intl returns UTC or a canonical IANA Area/Location for accepted input. */
     if (canonical !== 'UTC' && !IANA_TIME_ZONE.test(canonical)) return undefined
     return canonical

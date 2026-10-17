@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 /** Promotion preserves the displayed rectangle while the next card changes content height. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { dismissNotice } from '../src/client/notice-transition.ts'
 
-afterEach(() => { document.body.replaceChildren(); vi.restoreAllMocks() })
+afterEach(() => {
+  document.body.replaceChildren()
+  vi.restoreAllMocks()
+})
 
-it.each(['unavailable', 'reduced motion'])('closes without animation when animation is %s', (mode) => {
+it.each(['unavailable', 'reduced motion'])('closes without animation when animation is %s', mode => {
   const card = document.createElement('aside')
   document.body.append(card)
   const animate = vi.fn<HTMLElement['animate']>()
@@ -13,7 +16,9 @@ it.each(['unavailable', 'reduced motion'])('closes without animation when animat
     card.animate = animate
     card.style.transitionDuration = '0s'
   }
-  const dismiss = vi.fn(() => { card.remove() })
+  const dismiss = vi.fn(() => {
+    card.remove()
+  })
   dismissNotice(card, dismiss)
   expect(dismiss).toHaveBeenCalledOnce()
   expect(animate).not.toHaveBeenCalled()
@@ -38,12 +43,14 @@ it('animates a surviving card from its old position and height and cancels an in
     .mockReturnValueOnce(new DOMRect(14, 196, 272, 100))
     .mockReturnValueOnce(new DOMRect(10, 100, 280, 200))
   next.style.transform = 'translateY(0px) scaleX(1)'
-  dismissNotice(first, () => { first.remove() })
+  dismissNotice(first, () => {
+    first.remove()
+  })
   expect(cancel).toHaveBeenCalledOnce()
   expect(animateFirst).not.toHaveBeenCalled()
-  expect(animateNext).toHaveBeenCalledWith([
-    { transform: 'translate(0px, 96px) scale(0.9714285714285714, 0.5)' },
-    { transform: 'translateY(0px) scaleX(1)' },
-  ], { duration: 250, easing: 'ease-out' })
+  expect(animateNext).toHaveBeenCalledWith(
+    [{ transform: 'translate(0px, 96px) scale(0.9714285714285714, 0.5)' }, { transform: 'translateY(0px) scaleX(1)' }],
+    { duration: 250, easing: 'ease-out' },
+  )
   expect(next.style.transition).toBe('')
 })

@@ -126,44 +126,46 @@ type InferProperty<P, Depth extends unknown[]> = InferValueAt<P, Depth>
 
 /** Infer an implicit property map into required and optional object keys. */
 type InferProperties<S, Depth extends unknown[]> = Simplify<
-  & { [K in RequiredKeys<S>]: InferProperty<S[K], Depth> }
-  & { [K in Exclude<StringKeyOf<S>, RequiredKeys<S>>]?: InferProperty<S[K], Depth> }
+  { [K in RequiredKeys<S>]: InferProperty<S[K], Depth> } & { [K in Exclude<StringKeyOf<S>, RequiredKeys<S>>]?: InferProperty<S[K], Depth> }
 >
 
 /** Infer an explicit object node, including its declared openness. */
-type InferObject<S extends { additionalProperties: boolean }, Depth extends unknown[]> =
-  S extends { properties: infer P }
-    ? S['additionalProperties'] extends true
-      ? InferProperties<P, Depth> & Record<string, JsonValue>
-      : InferProperties<P, Depth>
-    : S['additionalProperties'] extends true
-      ? Record<string, JsonValue>
-      : Record<string, never>
+type InferObject<S extends { additionalProperties: boolean }, Depth extends unknown[]> = S extends { properties: infer P }
+  ? S['additionalProperties'] extends true
+    ? InferProperties<P, Depth> & Record<string, JsonValue>
+    : InferProperties<P, Depth>
+  : S['additionalProperties'] extends true
+    ? Record<string, JsonValue>
+    : Record<string, never>
 
 /** Infer a scalar node's literal constraint before its broad primitive type. */
-type InferScalar<S, Fallback> =
-  S extends { const: infer C } ? C :
-    S extends { enum: readonly (infer E)[] } ? E :
-      Fallback
+type InferScalar<S, Fallback> = S extends { const: infer C } ? C : S extends { enum: readonly (infer E)[] } ? E : Fallback
 
 /** Add one schema-container level to bounded compile-time inference. */
 type NextInferenceDepth<Depth extends unknown[]> = [unknown, ...Depth]
 
 /** Infer one node without recursively checking it against the full author union. */
-type InferValueAt<S, Depth extends unknown[]> =
-  Depth['length'] extends 16 ? JsonValue :
-    S extends { type: 'string' } ? InferScalar<S, string> :
-      S extends { type: 'number' | 'integer' } ? InferScalar<S, number> :
-        S extends { type: 'boolean' } ? InferScalar<S, boolean> :
-          S extends { type: 'null' } ? null :
-            S extends { type: 'array' }
-              ? S extends { items: infer I } ? InferValueAt<I, NextInferenceDepth<Depth>>[] : JsonValue[]
-              : S extends { type: 'object'; additionalProperties: boolean }
-                ? InferObject<S, NextInferenceDepth<Depth>>
-                : S extends { type: 'json' } ? JsonValue :
-                  S extends { oneOf: readonly unknown[] }
-                    ? InferValueAt<S['oneOf'][number], NextInferenceDepth<Depth>>
-                    : never
+type InferValueAt<S, Depth extends unknown[]> = Depth['length'] extends 16
+  ? JsonValue
+  : S extends { type: 'string' }
+    ? InferScalar<S, string>
+    : S extends { type: 'number' | 'integer' }
+      ? InferScalar<S, number>
+      : S extends { type: 'boolean' }
+        ? InferScalar<S, boolean>
+        : S extends { type: 'null' }
+          ? null
+          : S extends { type: 'array' }
+            ? S extends { items: infer I }
+              ? InferValueAt<I, NextInferenceDepth<Depth>>[]
+              : JsonValue[]
+            : S extends { type: 'object'; additionalProperties: boolean }
+              ? InferObject<S, NextInferenceDepth<Depth>>
+              : S extends { type: 'json' }
+                ? JsonValue
+                : S extends { oneOf: readonly unknown[] }
+                  ? InferValueAt<S['oneOf'][number], NextInferenceDepth<Depth>>
+                  : never
 
 /**
  * Infer the TypeScript value accepted by an author-facing value schema. Exact
@@ -215,28 +217,26 @@ type NodeDestination =
   | { kind: 'one-of'; target: JsonSchemaNode[]; index: number }
 
 /** Where one compiled property map is installed. */
-type PropertyMapDestination =
-  | { kind: 'root'; holder: CompileRoot<CompiledPropertyMap> }
-  | { kind: 'object'; target: JsonSchemaNode }
+type PropertyMapDestination = { kind: 'root'; holder: CompileRoot<CompiledPropertyMap> } | { kind: 'object'; target: JsonSchemaNode }
 
 /** Deferred work for stack-safe author-schema compilation. */
 type CompileTask =
   | { kind: 'value'; input: unknown; path: string; allowRequired: boolean; destination: NodeDestination }
   | { kind: 'property-map'; input: unknown; path: string; destination: PropertyMapDestination }
   | {
-    kind: 'property'
-    property: unknown
-    path: string
-    key: string
-    properties: Record<string, JsonSchemaNode>
-    required: string[]
-  }
+      kind: 'property'
+      property: unknown
+      path: string
+      key: string
+      properties: Record<string, JsonSchemaNode>
+      required: string[]
+    }
   | {
-    kind: 'property-map-tail'
-    compiled: CompiledPropertyMap
-    required: string[]
-    destination: PropertyMapDestination
-  }
+      kind: 'property-map-tail'
+      compiled: CompiledPropertyMap
+      required: string[]
+      destination: PropertyMapDestination
+    }
   | { kind: 'leave'; input: object }
 
 /** Install a compiled node without giving `__proto__` assignment semantics. */
@@ -586,11 +586,13 @@ export function defineTool<const S extends ParameterSchemaSpec, const O extends 
       render(args: unknown, value: JsonValue): ContentBlock[] {
         return userRender(args as InferArgs<S>, value as InferValue<NoInfer<O>>)
       },
-      ...userPresentationMeta !== undefined ? {
-        presentationMeta(args: unknown, value: JsonValue): JsonValue {
-          return userPresentationMeta(args as InferArgs<S>, value as InferValue<NoInfer<O>>)
-        },
-      } : {},
+      ...(userPresentationMeta !== undefined
+        ? {
+            presentationMeta(args: unknown, value: JsonValue): JsonValue {
+              return userPresentationMeta(args as InferArgs<S>, value as InferValue<NoInfer<O>>)
+            },
+          }
+        : {}),
     },
     ...(options.deferLoading === true ? { deferLoading: options.deferLoading } : {}),
     ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}),

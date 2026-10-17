@@ -30,12 +30,16 @@ export const MessageChannel: typeof import('node:worker_threads').MessageChannel
 export const MessagePort: typeof import('node:worker_threads').MessagePort = notImplementedFail(MODULE, 'MessagePort')
 
 /** Object transfer marking (unavailable). */
-export const markAsUntransferable: typeof import('node:worker_threads').markAsUntransferable
-  = notImplementedFail(MODULE, 'markAsUntransferable')
+export const markAsUntransferable: typeof import('node:worker_threads').markAsUntransferable = notImplementedFail(
+  MODULE,
+  'markAsUntransferable',
+)
 
 /** Port receiving on a message channel (unavailable). */
-export const receiveMessageOnPort: typeof import('node:worker_threads').receiveMessageOnPort
-  = notImplementedFail(MODULE, 'receiveMessageOnPort')
+export const receiveMessageOnPort: typeof import('node:worker_threads').receiveMessageOnPort = notImplementedFail(
+  MODULE,
+  'receiveMessageOnPort',
+)
 
 /** CommonJS interop marker: the worker loader hands `default` to default imports (see ./builtins.ts). */
 export const __esModule = true
@@ -45,6 +49,13 @@ type NodeFace = Partial<typeof import('node:worker_threads')>
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
-  Worker, isMainThread, threadId, parentPort, workerData, MessageChannel, MessagePort,
-  markAsUntransferable, receiveMessageOnPort,
+  Worker,
+  isMainThread,
+  threadId,
+  parentPort,
+  workerData,
+  MessageChannel,
+  MessagePort,
+  markAsUntransferable,
+  receiveMessageOnPort,
 } satisfies NodeFace

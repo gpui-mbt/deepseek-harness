@@ -4,13 +4,16 @@ import type { TerminalInventory } from './inventory.ts'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { Deque } from '@deepseek-ai/dsh-deque'
 import { RemoteStreamCarrierError, type ClientRemote, type RemoteStream } from '@deepseek-ai/dsh-api-gateway/client'
-import { RemoteError, remoteErrorOf, type RemoteResult, type RemoteStreamHandle, type RemoteUplinkWindow } from '@deepseek-ai/dsh-typert-protocol'
+import {
+  RemoteError,
+  remoteErrorOf,
+  type RemoteResult,
+  type RemoteStreamHandle,
+  type RemoteUplinkWindow,
+} from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-api-terminal-controller/remote'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type {
-  TerminalInput, TerminalEnvironment, TerminalFrame,
-  WebTerminalId, WebTerminalInfo,
-} from '../types.ts'
+import type { TerminalInput, TerminalEnvironment, TerminalFrame, WebTerminalId, WebTerminalInfo } from '../types.ts'
 
 /** The generated terminal namespace's browser-facing operations. */
 export type TerminalRemote = ClientRemote['terminal']
@@ -26,7 +29,9 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 }
 
 class TerminalViewError extends RemoteError<'terminal/view'> {
-  constructor(issue: TerminalViewIssue, message: string = issue) { super('terminal/view', message, { issue }) }
+  constructor(issue: TerminalViewIssue, message: string = issue) {
+    super('terminal/view', message, { issue })
+  }
 }
 
 /** One screen write awaiting the DOM emulator's callback. */
@@ -146,36 +151,64 @@ export class TerminalView {
         if (this.stopped()) return
         if (path !== undefined) rememberShell(path)
         await this.create(valueOf(environment), path)
-      }
-      else throw new TerminalViewError('missingTerminal')
-    })().catch((error: unknown) => { this.fail(error) }).finally(() => { this.loading = undefined })
+      } else throw new TerminalViewError('missingTerminal')
+    })()
+      .catch((error: unknown) => {
+        this.fail(error)
+      })
+      .finally(() => {
+        this.loading = undefined
+      })
     return this.loading
   }
 
-  private stopped(): boolean { return this.lifetime.signal.aborted || this.closing !== undefined }
+  private stopped(): boolean {
+    return this.lifetime.signal.aborted || this.closing !== undefined
+  }
 
   private async create(environment: TerminalEnvironment, shellPath?: string): Promise<void> {
     this.patch({ phase: 'creating', error: undefined, issue: undefined })
     this.creation = (async () => {
-      const info = valueOf(await this.remote.create(this.sessionId, {
-        id: this.id, ...shellPath === undefined ? {} : { shellPath },
-        cols: Math.min(80, environment.maxCols), rows: Math.min(24, environment.maxRows),
-      }, this.lifetime.signal))
+      const info = valueOf(
+        await this.remote.create(
+          this.sessionId,
+          {
+            id: this.id,
+            ...(shellPath === undefined ? {} : { shellPath }),
+            cols: Math.min(80, environment.maxCols),
+            rows: Math.min(24, environment.maxRows),
+          },
+          this.lifetime.signal,
+        ),
+      )
       if (!this.lifetime.signal.aborted) {
         this.inventory.update(info)
         this.adopt(info)
       }
-    })().catch((error: unknown) => { this.fail(error) }).finally(() => { this.creation = undefined })
+    })()
+      .catch((error: unknown) => {
+        this.fail(error)
+      })
+      .finally(() => {
+        this.creation = undefined
+      })
     await this.creation
   }
 
   private adopt(info: WebTerminalInfo): void {
     this.createWhenMissing = false
     this.patch({ info, title: info.title })
-    if (this.retain === undefined) { if (this.mounted && this.closing === undefined) this.connect(); return }
-    void this.retain(this.lifetime.signal).then(() => {
+    if (this.retain === undefined) {
       if (this.mounted && this.closing === undefined) this.connect()
-    }).catch((error: unknown) => { if (!this.stopped()) this.fail(error) })
+      return
+    }
+    void this.retain(this.lifetime.signal)
+      .then(() => {
+        if (this.mounted && this.closing === undefined) this.connect()
+      })
+      .catch((error: unknown) => {
+        if (!this.stopped()) this.fail(error)
+      })
   }
 
   /** Reattach with a fresh screen and regain input control. */
@@ -190,9 +223,16 @@ export class TerminalView {
         signal.throwIfAborted()
         const handle = this.remote.attach(this.sessionId, info.id, signal)
         const attachment: TerminalInputAttachment = {
-          handle, signal, sequence: 0, acknowledged: 0,
-          pending: new Map(), queued: new Deque(), window: undefined,
-          bytes: 0, bufferedBytes: 0, inFlightBytes: 0,
+          handle,
+          signal,
+          sequence: 0,
+          acknowledged: 0,
+          pending: new Map(),
+          queued: new Deque(),
+          window: undefined,
+          bytes: 0,
+          bufferedBytes: 0,
+          inFlightBytes: 0,
         }
         this.attachment = attachment
         try {
@@ -200,11 +240,14 @@ export class TerminalView {
             if (frame.type === 'snapshot') attachment.window = frame.inputWindow
             yield frame
           }
+        } finally {
+          if (this.attachment === attachment) this.attachment = undefined
         }
-        finally { if (this.attachment === attachment) this.attachment = undefined }
       }.bind(this),
       ended: () => new TerminalViewError('attachmentEnded'),
-      carrierFailed: () => { if (this.stream === stream) this.patch({ phase: 'disconnected', writable: false }) },
+      carrierFailed: () => {
+        if (this.stream === stream) this.patch({ phase: 'disconnected', writable: false })
+      },
     })
     this.stream = stream
     this.patch({ phase: 'connecting', writable: false, error: undefined, issue: undefined, render: undefined })
@@ -231,7 +274,10 @@ export class TerminalView {
     if (!state.writable || state.info === undefined || attachment === undefined || attachment.signal.aborted) return
     if (data.length === 0) return
     const bytes = new TextEncoder().encode(data).byteLength
-    if (attachment.bytes + bytes > (state.environment?.maxInputBytes ?? 0)) { this.failInput(new TerminalViewError('inputFull')); return }
+    if (attachment.bytes + bytes > (state.environment?.maxInputBytes ?? 0)) {
+      this.failInput(new TerminalViewError('inputFull'))
+      return
+    }
     this.send(attachment, { type: 'write', sequence: attachment.sequence + 1, data }, bytes)
   }
 
@@ -252,8 +298,10 @@ export class TerminalView {
 
   private send(attachment: TerminalInputAttachment, command: TerminalInput, bytes: number): void {
     const frameBytes = new TextEncoder().encode(JSON.stringify(command)).byteLength + (attachment.window?.frameOverheadBytes ?? 0)
-    if (attachment.bufferedBytes + frameBytes > (this.state.getSnapshot().environment?.maxBufferedBytes ?? 0)
-      || (attachment.window !== undefined && frameBytes > attachment.window.maxBytes)) {
+    if (
+      attachment.bufferedBytes + frameBytes > (this.state.getSnapshot().environment?.maxBufferedBytes ?? 0) ||
+      (attachment.window !== undefined && frameBytes > attachment.window.maxBytes)
+    ) {
       this.failInput(new TerminalViewError('inputFull'))
       return
     }
@@ -272,8 +320,12 @@ export class TerminalView {
         attachment.queued.pushFront(next)
         return
       }
-      try { attachment.handle.send(next.command) }
-      catch (error) { this.failInput(error); return }
+      try {
+        attachment.handle.send(next.command)
+      } catch (error) {
+        this.failInput(error)
+        return
+      }
       attachment.pending.set(next.command.sequence, { inputBytes: next.inputBytes, frameBytes: next.frameBytes })
       attachment.inFlightBytes += next.frameBytes
     }
@@ -297,7 +349,9 @@ export class TerminalView {
       const current = this.state.getSnapshot().info
       if (current !== undefined) this.inventory.update({ ...current, title: title.trim() })
       this.patch({ ...(current === undefined ? {} : { info: { ...current, title: title.trim() } }), title: title.trim() })
-    } catch (error) { this.fail(error) }
+    } catch (error) {
+      this.fail(error)
+    }
   }
 
   /**
@@ -315,7 +369,11 @@ export class TerminalView {
       this.inventory.remove(this.id)
       this.detach()
       this.patch({ phase: 'closed', writable: false })
-    })().catch((error: unknown) => { this.closing = undefined; this.fail(error); throw error })
+    })().catch((error: unknown) => {
+      this.closing = undefined
+      this.fail(error)
+      throw error
+    })
     return this.closing
   }
 
@@ -337,7 +395,9 @@ export class TerminalView {
     this.pendingRender?.resolve()
     this.pendingRender = undefined
     if (previous !== undefined) {
-      const cleanup = previous.dispose().finally(() => { this.detaching.delete(cleanup) })
+      const cleanup = previous.dispose().finally(() => {
+        this.detaching.delete(cleanup)
+      })
       this.detaching.add(cleanup)
     }
   }
@@ -350,7 +410,8 @@ export class TerminalView {
         if (this.stream !== stream) return
         const frame = item.value
         if (generation !== item.generation) {
-          if (frame.type !== 'snapshot') throw new TerminalViewError('invalidOutput', 'Terminal output generation is missing its screen snapshot')
+          if (frame.type !== 'snapshot')
+            throw new TerminalViewError('invalidOutput', 'Terminal output generation is missing its screen snapshot')
           generation = item.generation
           sequence = frame.sequence
           item.accept()
@@ -363,7 +424,8 @@ export class TerminalView {
           /* v8 ignore next -- the physical opener retains its handle until this consumer advances. */
           if (attachment === undefined) throw new TerminalViewError('invalidOutput', 'Terminal acknowledgement has no attachment')
           const pending = attachment.pending.get(frame.sequence)
-          if (frame.sequence !== attachment.acknowledged + 1 || pending === undefined) throw new TerminalViewError('invalidOutput', 'Terminal input acknowledgement is out of order')
+          if (frame.sequence !== attachment.acknowledged + 1 || pending === undefined)
+            throw new TerminalViewError('invalidOutput', 'Terminal input acknowledgement is out of order')
           attachment.acknowledged = frame.sequence
           attachment.bytes -= pending.inputBytes
           attachment.bufferedBytes -= pending.frameBytes
@@ -375,15 +437,25 @@ export class TerminalView {
         }
         if (frame.type !== 'output') {
           this.inventory.update(frame.info)
-          this.patch({ info: frame.info, title: frame.info.title, phase: 'connected', writable: frame.info.state === 'running' && frame.writable })
+          this.patch({
+            info: frame.info,
+            title: frame.info.title,
+            phase: 'connected',
+            writable: frame.info.state === 'running' && frame.writable,
+          })
         }
         if (frame.type !== 'state') {
           const revision = ++this.revision
-          await new Promise<void>((resolve) => {
+          await new Promise<void>(resolve => {
             this.pendingRender = { revision, resolve }
-            const aborted = (): void => { this.acknowledge(revision) }
+            const aborted = (): void => {
+              this.acknowledge(revision)
+            }
             item.signal.addEventListener('abort', aborted, { once: true })
-            this.pendingRender.resolve = () => { item.signal.removeEventListener('abort', aborted); resolve() }
+            this.pendingRender.resolve = () => {
+              item.signal.removeEventListener('abort', aborted)
+              resolve()
+            }
             this.patch({ render: { revision, frame } })
             if (item.signal.aborted) aborted()
           })
@@ -404,9 +476,21 @@ export class TerminalView {
 
   private fail(error: unknown): void {
     const failure = remoteErrorOf(error)
-    const issue = failure?.code === 'terminal/view' ? failure.details.issue : failure?.code === 'terminal/limit-reached' ? 'terminalLimit' : failure?.code === 'terminal/unavailable' ? 'missingTerminal' : undefined
+    const issue =
+      failure?.code === 'terminal/view'
+        ? failure.details.issue
+        : failure?.code === 'terminal/limit-reached'
+          ? 'terminalLimit'
+          : failure?.code === 'terminal/unavailable'
+            ? 'missingTerminal'
+            : undefined
     if (!this.stopped() && issue === 'missingTerminal') this.inventory.remove(this.id)
-    this.patch({ phase: error instanceof RemoteStreamCarrierError ? 'disconnected' : 'failed', writable: false, issue, error: error instanceof Error ? error.message : String(error) })
+    this.patch({
+      phase: error instanceof RemoteStreamCarrierError ? 'disconnected' : 'failed',
+      writable: false,
+      issue,
+      error: error instanceof Error ? error.message : String(error),
+    })
   }
 }
 

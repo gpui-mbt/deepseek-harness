@@ -11,7 +11,9 @@ export interface InferenceConfig extends Config {
   readonly vad: string
 }
 
-interface Stream { acceptWaveform(audio: { samples: Float32Array; sampleRate: number }): void }
+interface Stream {
+  acceptWaveform(audio: { samples: Float32Array; sampleRate: number }): void
+}
 interface Recognizer {
   createStream(): Stream
   setConfig(config: object): void
@@ -41,15 +43,32 @@ export function createTranscriber(config: InferenceConfig): (audio: Uint8Array, 
   const sherpa = createRequire(import.meta.url)('sherpa-onnx-node') as Sherpa
   const nativeConfig = {
     featConfig: { sampleRate: 16000, featureDim: 80 },
-    modelConfig: { senseVoice: { model: config.model, language: 'auto', useInverseTextNormalization: 1 },
-      tokens: config.tokens, numThreads: config.threads, provider: 'cpu', debug: 0 },
+    modelConfig: {
+      senseVoice: { model: config.model, language: 'auto', useInverseTextNormalization: 1 },
+      tokens: config.tokens,
+      numThreads: config.threads,
+      provider: 'cpu',
+      debug: 0,
+    },
   }
   const recognizer = new sherpa.OfflineRecognizer(nativeConfig)
-  const detector = new sherpa.Vad({
-    sileroVad: { model: config.vad, threshold: config.vadThreshold, minSilenceDuration: config.minSilenceSeconds,
-      minSpeechDuration: config.minSpeechSeconds, maxSpeechDuration: config.segmentSeconds, windowSize: 512 },
-    sampleRate: 16000, numThreads: config.threads, provider: 'cpu', debug: 0,
-  }, config.segmentSeconds + config.minSilenceSeconds + 1)
+  const detector = new sherpa.Vad(
+    {
+      sileroVad: {
+        model: config.vad,
+        threshold: config.vadThreshold,
+        minSilenceDuration: config.minSilenceSeconds,
+        minSpeechDuration: config.minSpeechSeconds,
+        maxSpeechDuration: config.segmentSeconds,
+        windowSize: 512,
+      },
+      sampleRate: 16000,
+      numThreads: config.threads,
+      provider: 'cpu',
+      debug: 0,
+    },
+    config.segmentSeconds + config.minSilenceSeconds + 1,
+  )
   return (audio, language) => {
     const audioSeconds = validateInput(audio, language, config.maxAudioBytes)
     const pcm = new DataView(audio.buffer, audio.byteOffset + 44, audio.byteLength - 44)
@@ -57,7 +76,8 @@ export function createTranscriber(config: InferenceConfig): (audio: Uint8Array, 
     nativeConfig.modelConfig.senseVoice.language = language
     recognizer.setConfig(nativeConfig)
     detector.reset()
-    const started = performance.now(), texts: string[] = []
+    const started = performance.now(),
+      texts: string[] = []
     // Silero cannot back-date the first segment of a cold detector, so it reports a start index
     // several frames after speech actually began; restore that dropped onset from the recording.
     const onsetPadding = Math.round(config.vadOnsetPaddingSeconds * 16000)
@@ -88,7 +108,8 @@ export function createTranscriber(config: InferenceConfig): (audio: Uint8Array, 
       detector.acceptWaveform(samples.subarray(offset, offset + 512))
       drain()
     }
-    detector.flush(); drain()
+    detector.flush()
+    drain()
     return { text: texts.filter(Boolean).join(' ').trim(), audioSeconds, inferenceSeconds: (performance.now() - started) / 1000 }
   }
 }

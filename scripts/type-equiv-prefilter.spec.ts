@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { markdownFences } from './markdown.ts'
 import { mayContainEquivFence } from './type-equiv-prefilter.ts'
 
@@ -17,17 +17,16 @@ describe('type-equivalence prefilter', () => {
     '```ts type\\-equiv\ninterface A {}\n```\n',
     '```&#116;s type-equiv\ninterface A {}\n```\n',
     '~~~ts public&#x2D;api\nclass A {}\n~~~\n',
-  ])('keeps a document whose fence parses as a source-equivalence form: %j', (source) => {
+  ])('keeps a document whose fence parses as a source-equivalence form: %j', source => {
     expect(parsesEquivFence(source)).toBe(true)
     expect(mayContainEquivFence(source)).toBe(true)
   })
 
-  it.each([
-    '# Title\n\nPlain prose with a `type` word and an & sign.\n',
-    '```ts\ninterface A {}\n```\n',
-    '```sh\npnpm run build\n```\n',
-  ])('skips a document without such a fence: %j', (source) => {
-    expect(parsesEquivFence(source)).toBe(false)
-    expect(mayContainEquivFence(source)).toBe(false)
-  })
+  it.each(['# Title\n\nPlain prose with a `type` word and an & sign.\n', '```ts\ninterface A {}\n```\n', '```sh\npnpm run build\n```\n'])(
+    'skips a document without such a fence: %j',
+    source => {
+      expect(parsesEquivFence(source)).toBe(false)
+      expect(mayContainEquivFence(source)).toBe(false)
+    },
+  )
 })

@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { WorkspaceId, WorkspaceSnapshot, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -6,18 +6,30 @@ import { browserWorkspace } from '../src/client/electron/workspace.ts'
 
 const SESSION = 'session' as SessionId
 const workspace = (id: string, path: string, sessionIds: readonly SessionId[]): WorkspaceView => ({
-  workspaceId: id as WorkspaceId, path, title: path, sessionIds, createdAt: '', updatedAt: '',
+  workspaceId: id as WorkspaceId,
+  path,
+  title: path,
+  sessionIds,
+  createdAt: '',
+  updatedAt: '',
 })
 const snapshot = (phase: WorkspaceSnapshot['phase'], items: readonly WorkspaceView[] = []): WorkspaceSnapshot => ({
-  phase, items, state: 'idle', error: null, archivedSessionIds: [], pinnedSessionIds: [],
+  phase,
+  items,
+  state: 'idle',
+  error: null,
+  archivedSessionIds: [],
+  pinnedSessionIds: [],
 })
 
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 it('groups resolved Sessions by canonical CWD rather than Workspace identity', async () => {
-  const source = createSnapshotStore(snapshot('ready', [
-    workspace('other', '/other', ['other' as SessionId]), workspace('first', '/canonical', [SESSION]),
-  ]))
+  const source = createSnapshotStore(
+    snapshot('ready', [workspace('other', '/other', ['other' as SessionId]), workspace('first', '/canonical', [SESSION])]),
+  )
   const signal = new AbortController().signal
   await expect(browserWorkspace(source, SESSION, signal)).resolves.toBe('cwd:/canonical')
   source.set(snapshot('ready', [workspace('renamed', '/canonical', [SESSION])]))
@@ -29,9 +41,12 @@ it('waits for an authoritative baseline and removes the readiness subscription',
   const source = createSnapshotStore(snapshot('pending'))
   const subscribe = source.subscribe.bind(source)
   const stopped = vi.fn()
-  vi.spyOn(source, 'subscribe').mockImplementation((listener) => {
+  vi.spyOn(source, 'subscribe').mockImplementation(listener => {
     const stop = subscribe(listener)
-    return () => { stop(); stopped() }
+    return () => {
+      stop()
+      stopped()
+    }
   })
   const lifetime = new AbortController()
   const result = browserWorkspace(source, SESSION, lifetime.signal)

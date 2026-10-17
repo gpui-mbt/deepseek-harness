@@ -116,8 +116,8 @@ export class WorkspaceEntity implements Workspace {
       const header = await this.host.readSessionHeader(sessionId)
       if (header.cwd === undefined) {
         throw new Error(
-          `cannot attach session '${sessionId}' to workspace '${this.record.path}': `
-          + 'its stored header carries no cwd to validate against',
+          `cannot attach session '${sessionId}' to workspace '${this.record.path}': ` +
+            'its stored header carries no cwd to validate against',
         )
       }
       let cwd: string
@@ -125,32 +125,28 @@ export class WorkspaceEntity implements Workspace {
         cwd = await realpathNormalize(header.cwd)
       } catch (error) {
         throw new Error(
-          `cannot attach session '${sessionId}' to workspace '${this.record.path}': `
-          + `its cwd '${header.cwd}' does not resolve, so it cannot be validated`,
+          `cannot attach session '${sessionId}' to workspace '${this.record.path}': ` +
+            `its cwd '${header.cwd}' does not resolve, so it cannot be validated`,
           { cause: error },
         )
       }
       if (!(await stat(cwd)).isDirectory()) {
         throw new Error(
-          `cannot attach session '${sessionId}' to workspace '${this.record.path}': `
-          + `its cwd '${header.cwd}' is not a directory`,
+          `cannot attach session '${sessionId}' to workspace '${this.record.path}': ` + `its cwd '${header.cwd}' is not a directory`,
         )
       }
       if (cwd !== this.record.path) {
-        throw new Error(
-          `cannot attach session '${sessionId}' to workspace '${this.record.path}': `
-          + `its cwd resolves to '${cwd}'`,
-        )
+        throw new Error(`cannot attach session '${sessionId}' to workspace '${this.record.path}': ` + `its cwd resolves to '${cwd}'`)
       }
       this.host.rememberSessionPath(sessionId, cwd)
     }
-    await this.mutate(record => record.sessionIds.includes(sessionId)
-      ? record
-      : { ...record, sessionIds: [sessionId, ...record.sessionIds] })
+    await this.mutate(record =>
+      record.sessionIds.includes(sessionId) ? record : { ...record, sessionIds: [sessionId, ...record.sessionIds] },
+    )
   }
 
   async insertSessionBefore(sessionId: SessionId, beforeSessionId?: SessionId): Promise<void> {
-    await this.mutate((record) => {
+    await this.mutate(record => {
       if (!record.sessionIds.includes(sessionId)) {
         throw new WorkspaceMoveInvalidError(
           `cannot move session '${sessionId}' in workspace '${record.path}': the session is not accounted`,
@@ -158,24 +154,22 @@ export class WorkspaceEntity implements Workspace {
       }
       if (beforeSessionId !== undefined && !record.sessionIds.includes(beforeSessionId)) {
         throw new WorkspaceMoveInvalidError(
-          `cannot move session '${sessionId}' before '${beforeSessionId}' in workspace '${record.path}': `
-          + 'the anchor session is not accounted',
+          `cannot move session '${sessionId}' before '${beforeSessionId}' in workspace '${record.path}': ` +
+            'the anchor session is not accounted',
         )
       }
       if (beforeSessionId === sessionId) return record
       const without = record.sessionIds.filter(id => id !== sessionId)
       const at = beforeSessionId === undefined ? without.length : without.indexOf(beforeSessionId)
       const sessionIds = [...without.slice(0, at), sessionId, ...without.slice(at)]
-      return sessionIds.every((id, index) => id === record.sessionIds[index])
-        ? record
-        : { ...record, sessionIds }
+      return sessionIds.every((id, index) => id === record.sessionIds[index]) ? record : { ...record, sessionIds }
     })
   }
 
   async detachSession(sessionId: SessionId): Promise<void> {
-    await this.mutate(record => record.sessionIds.includes(sessionId)
-      ? { ...record, sessionIds: record.sessionIds.filter(id => id !== sessionId) }
-      : record)
+    await this.mutate(record =>
+      record.sessionIds.includes(sessionId) ? { ...record, sessionIds: record.sessionIds.filter(id => id !== sessionId) } : record,
+    )
   }
 
   async status(): Promise<'ok' | 'missing-dir'> {
@@ -203,11 +197,9 @@ export class WorkspaceEntity implements Workspace {
   private async mutate(fn: (record: WorkspaceRecord) => WorkspaceRecord): Promise<void> {
     let next: WorkspaceRecord
     try {
-      next = await this.host.table().update(this.id, (current) => {
+      next = await this.host.table().update(this.id, current => {
         const changed = fn(current)
-        const sessionIds = changed.sessionIds.filter(
-          id => this.host.candidateMatches(id, changed.path),
-        )
+        const sessionIds = changed.sessionIds.filter(id => this.host.candidateMatches(id, changed.path))
         if (changed === current && sessionIds.length === current.sessionIds.length) {
           throw unchangedSentinel
         }

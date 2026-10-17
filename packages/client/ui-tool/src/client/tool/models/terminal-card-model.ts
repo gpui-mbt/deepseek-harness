@@ -66,10 +66,7 @@ interface LocalizedTerminalCardModel {
  * @param t - the render site's conversation locale seat.
  * @returns terminal props and description ready for rendering.
  */
-export function localizeTerminalCardModel(
-  model: TerminalCardModel,
-  t: TranslateNS<'conversation'>,
-): LocalizedTerminalCardModel {
+export function localizeTerminalCardModel(model: TerminalCardModel, t: TranslateNS<'conversation'>): LocalizedTerminalCardModel {
   if (model.copy.kind === 'shell') {
     return {
       card: { command: model.copy.command, ...model.card },
@@ -309,24 +306,23 @@ function parseExitStatus(text: string): { output: string; exitCode?: number | nu
  * @param sessionCwd - original workspace root used only for old results without recorded cwd.
  * @returns locale-neutral terminal-card data, or null for the generic path.
  */
-export function terminalCardModel(
-  block: ToolCallBlock,
-  sessionCwd?: string,
-): TerminalCardModel | null {
+export function terminalCardModel(block: ToolCallBlock, sessionCwd?: string): TerminalCardModel | null {
   const parsed = parsedToolCall(block)
   if (parsed === null) return null
   const call = shellCall(parsed.name, parsed.args) ?? terminalSendCall(parsed.name, parsed.args)
   if (call === null || (call.kind === 'terminal-send' && call.background)) return null
 
-  const copy: TerminalCardModel['copy'] = call.kind === 'shell'
-    ? { kind: 'shell', command: call.command, description: call.description }
-    : { kind: 'terminal-send', text: call.text, sessionId: call.sessionId }
+  const copy: TerminalCardModel['copy'] =
+    call.kind === 'shell'
+      ? { kind: 'shell', command: call.command, description: call.description }
+      : { kind: 'terminal-send', text: call.text, sessionId: call.sessionId }
   const workdir = call.kind === 'shell' ? call.workdir : undefined
   const absoluteRequestCwd = workdir !== undefined && isAbsoluteWorkspacePath(workdir) ? normalizeSegments(workdir) : undefined
-  const cwd = 'kind' in block
-    ? recordedAbsolutePath(block.meta, 'cwd') ?? (call.kind === 'shell' && block.parentCallId === undefined
-      ? resolveTerminalCwd(workdir, sessionCwd) : absoluteRequestCwd)
-    : absoluteRequestCwd
+  const cwd =
+    'kind' in block
+      ? (recordedAbsolutePath(block.meta, 'cwd') ??
+        (call.kind === 'shell' && block.parentCallId === undefined ? resolveTerminalCwd(workdir, sessionCwd) : absoluteRequestCwd))
+      : absoluteRequestCwd
   if (!('kind' in block)) {
     return {
       copy,

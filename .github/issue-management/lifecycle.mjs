@@ -1,23 +1,9 @@
 /** Repository event orchestration and Issue audit comments. */
 
 import config from './config.json' with { type: 'json' }
-import {
-  api,
-  ensureProjectItem,
-  initializeIssueStartDate,
-  issueSnapshot,
-  projectContext,
-  setStatus,
-  updateStatus,
-} from './github.mjs'
+import { api, ensureProjectItem, initializeIssueStartDate, issueSnapshot, projectContext, setStatus, updateStatus } from './github.mjs'
 import { lifecyclePullRequestSnapshot } from './pull-request.mjs'
-import {
-  isInvalidIssueLabel,
-  nextResolvingIssueStatus,
-  projectDate,
-  resolvingIssueStatusCommand,
-  validateIssue,
-} from './rules.mjs'
+import { isInvalidIssueLabel, nextResolvingIssueStatus, projectDate, resolvingIssueStatusCommand, validateIssue } from './rules.mjs'
 
 const AUDIT_MARKER = '<!-- dsh-issue-policy -->'
 
@@ -28,23 +14,15 @@ const AUDIT_MARKER = '<!-- dsh-issue-policy -->'
  * @param {(number: number, date: string) => Promise<void>} initialize Date writer.
  * @returns {Promise<void>} Resolves after all eligible Issues are processed.
  */
-export async function initializePullRequestStartDates(
-  pull,
-  action,
-  initialize = initializeIssueStartDate,
-) {
+export async function initializePullRequestStartDates(pull, action, initialize = initializeIssueStartDate) {
   if (action !== 'opened') return
   const date = projectDate(pull.createdAt)
   for (const number of pull.references.all) await initialize(number, date)
 }
 
 async function upsertAudit(number, errors) {
-  const comments = await api(
-    `/repos/${config.organization}/${config.repository}/issues/${number}/comments?per_page=100`,
-  )
-  const existing = comments.find(
-    (comment) => comment.user?.type === 'Bot' && comment.body?.includes(AUDIT_MARKER),
-  )
+  const comments = await api(`/repos/${config.organization}/${config.repository}/issues/${number}/comments?per_page=100`)
+  const existing = comments.find(comment => comment.user?.type === 'Bot' && comment.body?.includes(AUDIT_MARKER))
   if (errors.length === 0) {
     if (existing) {
       await api(`/repos/${config.organization}/${config.repository}/issues/comments/${existing.id}`, {
@@ -53,7 +31,7 @@ async function upsertAudit(number, errors) {
     }
     return
   }
-  const body = `${AUDIT_MARKER}\n⚠️ Issue policy 未通过：\n\n${errors.map((error) => `- ${error}`).join('\n')}`
+  const body = `${AUDIT_MARKER}\n⚠️ Issue policy 未通过：\n\n${errors.map(error => `- ${error}`).join('\n')}`
   if (existing) {
     if (existing.body === body) return
     await api(`/repos/${config.organization}/${config.repository}/issues/comments/${existing.id}`, {
@@ -78,14 +56,14 @@ async function upsertAudit(number, errors) {
 export async function repairIssueLabels(issue) {
   const invalidLabels = issue.labels.filter(isInvalidIssueLabel)
   for (const label of invalidLabels) {
-    await api(
-      `/repos/${config.organization}/${config.repository}/issues/${issue.number}/labels/${encodeURIComponent(label)}`,
-      { method: 'DELETE', allow404: true },
-    )
+    await api(`/repos/${config.organization}/${config.repository}/issues/${issue.number}/labels/${encodeURIComponent(label)}`, {
+      method: 'DELETE',
+      allow404: true,
+    })
   }
   return {
     ...issue,
-    labels: issue.labels.filter((label) => !isInvalidIssueLabel(label)),
+    labels: issue.labels.filter(label => !isInvalidIssueLabel(label)),
   }
 }
 
@@ -108,11 +86,7 @@ export async function auditIssue(number, extraErrors = [], status = undefined) {
 async function transitionResolvingIssues(pull, command) {
   for (const number of pull.references.resolving) {
     const context = await projectContext(number, command === 'changes-requested')
-    const target = nextResolvingIssueStatus(
-      context.item?.fieldValueByName?.name ?? null,
-      command,
-      context.statusActor,
-    )
+    const target = nextResolvingIssueStatus(context.item?.fieldValueByName?.name ?? null, command, context.statusActor)
     if (!target) continue
     // TODO: Replace this latest-state guard with per-Issue serialization or a
     // conditional ProjectV2 update; GraphQL currently has no compare-and-swap.

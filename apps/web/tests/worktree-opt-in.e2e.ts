@@ -8,7 +8,7 @@ import { promisify } from 'node:util'
 import { FiberState } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-experimental-worktree'
 import { chromium } from 'playwright'
-import { expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { expect, it, onTestFailed, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, PLUGIN_TOGGLE_SETTLE_MS, saveFailureShot } from './support.ts'
 
@@ -38,23 +38,41 @@ it('persists the Git Worktrees switch and removes its capability while retaining
   if (agent === undefined) throw new Error('connected workspace did not create an Agent')
   const repository = agent.session.header.cwd
   if (repository === undefined) throw new Error('connected workspace has no directory')
-  const git = (...args: string[]) => exec('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
-    cwd: repository,
-    env: {
-      ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '', GIT_CONFIG_PARAMETERS: '', GIT_CONFIG_COUNT: '0',
-      GIT_DIR: undefined, GIT_WORK_TREE: undefined, GIT_INDEX_FILE: undefined,
-    },
-  })
+  const git = (...args: string[]) =>
+    exec('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
+      cwd: repository,
+      env: {
+        ...process.env,
+        GIT_CONFIG_NOSYSTEM: '1',
+        GIT_CONFIG_GLOBAL: '',
+        GIT_CONFIG_PARAMETERS: '',
+        GIT_CONFIG_COUNT: '0',
+        GIT_DIR: undefined,
+        GIT_WORK_TREE: undefined,
+        GIT_INDEX_FILE: undefined,
+      },
+    })
   await git('init', '-b', 'main')
   await git('config', 'core.autocrlf', 'false')
   await writeFile(join(repository, 'retained.txt'), 'retained checkout\n')
   await git('add', 'retained.txt')
-  await git('-c', 'user.name=Worktree fixture', '-c', 'user.email=worktree@example.invalid', '-c', 'commit.gpgSign=false',
-    'commit', '-m', 'initial')
+  await git(
+    '-c',
+    'user.name=Worktree fixture',
+    '-c',
+    'user.email=worktree@example.invalid',
+    '-c',
+    'commit.gpgSign=false',
+    'commit',
+    '-m',
+    'initial',
+  )
 
   const tools = () => scaffold.ctx.tools.schemas(agent).map(schema => schema.name)
-  const rows = () => [...scaffold.ctx.loader.entries()]
-    .filter(entry => ['worktree', 'tool-worktree'].includes(entry.options.id) && entry.fiber?.state === FiberState.ACTIVE)
+  const rows = () =>
+    [...scaffold.ctx.loader.entries()].filter(
+      entry => ['worktree', 'tool-worktree'].includes(entry.options.id) && entry.fiber?.state === FiberState.ACTIVE,
+    )
   const selectedBundles = async (): Promise<string[]> => {
     const manifest = JSON.parse(await readFile(join(scaffold.harnessHome, 'profiles/scaffold/package.json'), 'utf8')) as {
       dsh: { profile: { bundles: string[] } }
@@ -108,8 +126,9 @@ it('persists the Git Worktrees switch and removes its capability while retaining
 
   await page.reload({ waitUntil: 'load' })
   panel = await openPlugins()
-  await expect.poll(() => panel.getByRole('switch', { name: 'Enable Git Worktrees', exact: true })
-    .getAttribute('aria-checked')).toBe('false')
+  await expect
+    .poll(() => panel.getByRole('switch', { name: 'Enable Git Worktrees', exact: true }).getAttribute('aria-checked'))
+    .toBe('false')
   expect(tools()).not.toContain('create_worktree')
   expect(await selectedBundles()).not.toContain(BUNDLE)
   expect(tripwire.pageErrors).toEqual([])

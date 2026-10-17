@@ -26,11 +26,7 @@ export const inject = ['llm', 'sessionPersistence', 'sessions', 'tools']
  * @param next - downstream `llm/stream` chain.
  * @returns a stream that checkpoints before requesting its first chunk.
  */
-function afterCheckpoint(
-  ctx: Context,
-  session: Session,
-  next: () => AsyncIterable<StreamChunk>,
-): AsyncIterable<StreamChunk> {
+function afterCheckpoint(ctx: Context, session: Session, next: () => AsyncIterable<StreamChunk>): AsyncIterable<StreamChunk> {
   return (async function* (): AsyncIterable<StreamChunk> {
     await ctx.sessions.flush(session)
     yield* next()

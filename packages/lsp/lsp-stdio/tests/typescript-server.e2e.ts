@@ -5,7 +5,7 @@
  * (TypeScript), not a cross-language claim.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { mkdtemp, mkdir, rm, writeFile, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -16,12 +16,7 @@ import Lsp, { type LspQueryRequest, type LspQueryResult } from '@deepseek-ai/dsh
 import * as LspLocal from '@deepseek-ai/dsh-lsp-stdio'
 
 // The server binary is a dev dependency of this package; resolve its pnpm-hoisted .bin path.
-const serverBin = join(
-  new URL('..', import.meta.url).pathname,
-  'node_modules',
-  '.bin',
-  'typescript-language-server',
-)
+const serverBin = join(new URL('..', import.meta.url).pathname, 'node_modules', '.bin', 'typescript-language-server')
 
 let root: string
 let ws: string
@@ -33,24 +28,27 @@ beforeAll(async () => {
   await mkdir(ws)
   await writeFile(join(ws, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, module: 'nodenext' } }))
   // A small program with a definition, a reference, an interface + implementation, and a typed value.
-  await writeFile(join(ws, 'shapes.ts'), [
-    'export interface Shape {',
-    '  area(): number',
-    '}',
-    '',
-    'export class Circle implements Shape {',
-    '  constructor(private r: number) {}',
-    '  area(): number { return Math.PI * this.r * this.r }',
-    '}',
-    '',
-    'export function describe(s: Shape): string {',
-    '  return `area=${s.area()}`',
-    '}',
-    '',
-    'const c = new Circle(2)',
-    'export const text = describe(c)',
-    '',
-  ].join('\n'))
+  await writeFile(
+    join(ws, 'shapes.ts'),
+    [
+      'export interface Shape {',
+      '  area(): number',
+      '}',
+      '',
+      'export class Circle implements Shape {',
+      '  constructor(private r: number) {}',
+      '  area(): number { return Math.PI * this.r * this.r }',
+      '}',
+      '',
+      'export function describe(s: Shape): string {',
+      '  return `area=${s.area()}`',
+      '}',
+      '',
+      'const c = new Circle(2)',
+      'export const text = describe(c)',
+      '',
+    ].join('\n'),
+  )
 
   ctx = new Context()
   await ctx.plugin(Lsp)

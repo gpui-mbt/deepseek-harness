@@ -1,5 +1,5 @@
 /** The external MCP process is replaced by barriers to pin disposal ordering. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import ComputerUse from '@deepseek-ai/dsh-computer-use'
 import { ComputerUseProviderName } from '@deepseek-ai/dsh-computer-use/brand'
@@ -12,7 +12,7 @@ const fake = vi.hoisted(() => ({
   configurations: [] as unknown[],
 }))
 
-vi.mock('@deepseek-ai/dsh-mcp-client', async (importOriginal) => {
+vi.mock('@deepseek-ai/dsh-mcp-client', async importOriginal => {
   const original = await importOriginal<typeof import('@deepseek-ai/dsh-mcp-client')>()
   return {
     ...original,
@@ -52,7 +52,9 @@ describe('installed Cua Driver ownership', () => {
     fake.start.mockReturnValueOnce(ready.promise)
     const first = ctx.plugin(Provider, {})
     try {
-      await vi.waitFor(() => { expect(fake.start).toHaveBeenCalledTimes(1) })
+      await vi.waitFor(() => {
+        expect(fake.start).toHaveBeenCalledTimes(1)
+      })
       expect(ctx.computerUse.providerName).toBe('cua-driver-mcp')
       await expect(ctx.plugin(Provider, {})).rejects.toThrow('already registered')
       expect(fake.start).toHaveBeenCalledTimes(1)
@@ -62,8 +64,12 @@ describe('installed Cua Driver ownership', () => {
       await first
     }
     expect(fake.configurations[0]).toMatchObject({
-      transport: 'stdio', serverName: 'cua-driver-mcp', command: 'cua-driver', args: ['mcp'],
-      failOnStartupError: true, toolCallTimeoutMs: 60_000,
+      transport: 'stdio',
+      serverName: 'cua-driver-mcp',
+      command: 'cua-driver',
+      args: ['mcp'],
+      failOnStartupError: true,
+      toolCallTimeoutMs: 60_000,
       reconnect: { enabled: true, initialDelayMs: 500, maxDelayMs: 30_000, maxAttempts: 10 },
     })
   })
@@ -75,7 +81,9 @@ describe('installed Cua Driver ownership', () => {
     fake.close.mockReturnValueOnce(childClosed.promise)
     const closing = first.dispose()
     try {
-      await vi.waitFor(() => { expect(fake.close).toHaveBeenCalledTimes(1) })
+      await vi.waitFor(() => {
+        expect(fake.close).toHaveBeenCalledTimes(1)
+      })
       expect(ctx.computerUse.providerName).toBe('cua-driver-mcp')
       await expect(ctx.plugin(Provider, {})).rejects.toThrow('already registered')
     } finally {
@@ -83,9 +91,16 @@ describe('installed Cua Driver ownership', () => {
       await closing
     }
     expect(ctx.computerUse.providerName).toBeUndefined()
-    const replacement = await ctx.plugin(Provider, { command: '/configured/driver', args: ['mcp', '--verbose'], toolCallTimeoutMs: 1234, reconnect: { enabled: false } })
+    const replacement = await ctx.plugin(Provider, {
+      command: '/configured/driver',
+      args: ['mcp', '--verbose'],
+      toolCallTimeoutMs: 1234,
+      reconnect: { enabled: false },
+    })
     expect(fake.configurations[1]).toMatchObject({
-      command: '/configured/driver', args: ['mcp', '--verbose'], toolCallTimeoutMs: 1234,
+      command: '/configured/driver',
+      args: ['mcp', '--verbose'],
+      toolCallTimeoutMs: 1234,
       reconnect: { enabled: false },
     })
     await replacement.dispose()
@@ -98,11 +113,15 @@ describe('installed Cua Driver ownership', () => {
     fake.start.mockRejectedValueOnce(new Error('driver unavailable'))
     fake.close.mockReturnValueOnce(childClosed.promise)
     const failure = Promise.resolve(ctx.plugin(Provider, {})).then(
-      () => { throw new Error('activation unexpectedly succeeded') },
+      () => {
+        throw new Error('activation unexpectedly succeeded')
+      },
       (error: unknown) => error,
     )
     try {
-      await vi.waitFor(() => { expect(fake.close).toHaveBeenCalledTimes(1) })
+      await vi.waitFor(() => {
+        expect(fake.close).toHaveBeenCalledTimes(1)
+      })
       expect(ctx.computerUse.providerName).toBe('cua-driver-mcp')
     } finally {
       childClosed.resolve()

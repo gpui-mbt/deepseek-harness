@@ -1,5 +1,5 @@
 /** Capability-independent tool history folded from committed headers and developer messages. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createDeveloperMessage, projectToolUpdates } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, ToolSchema } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId, SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
@@ -21,16 +21,23 @@ function opened(tools: ToolSchema[]) {
 function header(session: Session, tools: ToolSchema[], extra: { reason?: 'change' | 'series'; startsSeries?: true } = {}) {
   return session.append('request/header', {
     reason: extra.reason ?? 'change',
-    header: { config, ...tools.length === 0 ? {} : { tools } },
-    ...extra.startsSeries === undefined ? {} : { startsSeries: true },
+    header: { config, ...(tools.length === 0 ? {} : { tools }) },
+    ...(extra.startsSeries === undefined ? {} : { startsSeries: true }),
   }).seq
 }
 
 function update(session: Session, content: ContentBlock[], headerSeq?: SessionSeq) {
   const message = createDeveloperMessage({ source: { kind: 'test' }, content })
-  session.append('developer/message', {
-    turn: 1, step: 1, message, ...headerSeq === undefined ? {} : { headerSeq },
-  }, { surfaceOp: 'append' })
+  session.append(
+    'developer/message',
+    {
+      turn: 1,
+      step: 1,
+      message,
+      ...(headerSeq === undefined ? {} : { headerSeq }),
+    },
+    { surfaceOp: 'append' },
+  )
   return message
 }
 
@@ -56,29 +63,30 @@ describe('Session.toolHistory', () => {
     expect(afterAddition).toEqual({ tools: [search], updates: [{ messageId: added.id, additions: [fetch] }] })
     header(session, [search])
     const removed = update(session, [remove('fetch'), { type: 'text', text: 'fetch is disabled' }])
-    expect(session.toolHistory()).toEqual({ tools: [search], updates: [
-      { messageId: added.id, additions: [fetch] },
-      { messageId: removed.id, additions: [] },
-    ] })
+    expect(session.toolHistory()).toEqual({
+      tools: [search],
+      updates: [
+        { messageId: added.id, additions: [fetch] },
+        { messageId: removed.id, additions: [] },
+      ],
+    })
     expect(initial).toEqual({ tools: [search], updates: [] })
     expect(afterAddition.updates).toHaveLength(1)
   })
 
-  it.each([
-    { reason: 'series' as const },
-    { startsSeries: true as const },
-  ])('restarts declarations at an explicit series start %#', (extra) => {
-    const session = opened([search])
-    const headerSeq = header(session, [search, fetch])
-    update(session, [add('fetch')], headerSeq)
-    const restart = header(session, [search, fetch], extra)
-    expect(session.toolHistory()).toEqual({ tools: [search, fetch], updates: [] })
-    const added = update(session, [add('fetch')], restart)
-    expect(session.toolHistory()).toEqual({ tools: [search, fetch], updates: [
-      { messageId: added.id, additions: [fetch] },
-    ] })
-    expect(projectToolUpdates([added], [search, fetch], 'in-history', session.toolHistory()).messages).toEqual([])
-  })
+  it.each([{ reason: 'series' as const }, { startsSeries: true as const }])(
+    'restarts declarations at an explicit series start %#',
+    extra => {
+      const session = opened([search])
+      const headerSeq = header(session, [search, fetch])
+      update(session, [add('fetch')], headerSeq)
+      const restart = header(session, [search, fetch], extra)
+      expect(session.toolHistory()).toEqual({ tools: [search, fetch], updates: [] })
+      const added = update(session, [add('fetch')], restart)
+      expect(session.toolHistory()).toEqual({ tools: [search, fetch], updates: [{ messageId: added.id, additions: [fetch] }] })
+      expect(projectToolUpdates([added], [search, fetch], 'in-history', session.toolHistory()).messages).toEqual([])
+    },
+  )
 
   it('restarts declarations when a retained name returns with a changed definition', () => {
     const session = opened([search, fetch])
@@ -87,12 +95,10 @@ describe('Session.toolHistory', () => {
     const changed = { ...fetch, description: 'Fetch v2' }
     const headerSeq = header(session, [search, changed])
     const added = update(session, [add('fetch')], headerSeq)
-    expect(session.toolHistory()).toEqual({ tools: [search, changed], updates: [
-      { messageId: added.id, additions: [changed] },
-    ] })
+    expect(session.toolHistory()).toEqual({ tools: [search, changed], updates: [{ messageId: added.id, additions: [changed] }] })
   })
 
-  it.each(['addition-only', 'in-history'] as const)('activates deferred baseline tools through folded history on %s routes', (mode) => {
+  it.each(['addition-only', 'in-history'] as const)('activates deferred baseline tools through folded history on %s routes', mode => {
     const deferred: ToolSchema = { ...fetch, deferLoading: true }
     const tools = [search, deferred]
     const session = opened(tools)
@@ -116,10 +122,13 @@ describe('Session.toolHistory', () => {
     const removed = update(session, [remove('fetch')])
     const headerSeq = header(session, [search, fetch])
     const restored = update(session, [add('fetch')], headerSeq)
-    expect(session.toolHistory()).toEqual({ tools: [search, fetch], updates: [
-      { messageId: removed.id, additions: [] },
-      { messageId: restored.id, additions: [fetch] },
-    ] })
+    expect(session.toolHistory()).toEqual({
+      tools: [search, fetch],
+      updates: [
+        { messageId: removed.id, additions: [] },
+        { messageId: restored.id, additions: [fetch] },
+      ],
+    })
   })
 
   it('falls back to complete active declarations while a header lacks its update record', () => {
@@ -148,15 +157,23 @@ describe('Session.toolHistory', () => {
   it('refuses an addition whose referenced header lacks the definition', () => {
     const projection = new ToolHistoryProjection()
     const headerEvent = (seq: number, reason: 'initial' | 'change'): SessionEvent<'request/header'> => ({
-      seq: SessionSeq(seq), time: 0, type: 'request/header', data: { reason, header: { config, tools: [search] } },
+      seq: SessionSeq(seq),
+      time: 0,
+      type: 'request/header',
+      data: { reason, header: { config, tools: [search] } },
     })
     const message = createDeveloperMessage({ source: { kind: 'test' }, content: [add('fetch')] })
     const developerEvent: SessionEvent<'developer/message'> = {
-      seq: SessionSeq(2), time: 0, type: 'developer/message', surfaceOp: 'append',
+      seq: SessionSeq(2),
+      time: 0,
+      type: 'developer/message',
+      surfaceOp: 'append',
       data: { turn: 1, step: 1, message, headerSeq: SessionSeq(1) },
     }
     projection.apply(headerEvent(0, 'initial'))
     projection.apply(headerEvent(1, 'change'))
-    expect(() => { projection.apply(developerEvent) }).toThrow('tool history: missing definition for fetch')
+    expect(() => {
+      projection.apply(developerEvent)
+    }).toThrow('tool history: missing definition for fetch')
   })
 })

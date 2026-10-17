@@ -1,14 +1,16 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ComponentProps } from 'react'
 import { JsonTree as LocalizedJsonTree } from '@deepseek-ai/dsh-client-ui-primitives'
 import { jsonTreeLabels } from './labels.client.ts'
 
-function JsonTree(props: Omit<ComponentProps<typeof LocalizedJsonTree>, 'label' | 'labels'> & {
-  label?: string
-}) {
+function JsonTree(
+  props: Omit<ComponentProps<typeof LocalizedJsonTree>, 'label' | 'labels'> & {
+    label?: string
+  },
+) {
   return <LocalizedJsonTree label="JSON" {...props} labels={jsonTreeLabels} />
 }
 
@@ -36,7 +38,7 @@ afterEach(() => {
 function stubStringLayout(scrollHeight = 200): void {
   vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight)
   const computedStyle = window.getComputedStyle.bind(window)
-  vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => {
+  vi.spyOn(window, 'getComputedStyle').mockImplementation(element => {
     const style = computedStyle(element)
     style.lineHeight = '16px'
     if (style.paddingBottom === '') style.paddingBottom = '0px'
@@ -48,27 +50,42 @@ describe('JsonTree', () => {
   it('ignores clipboard settlement after the row changes or the tree unmounts', async () => {
     vi.useFakeTimers()
     const pending: (() => void)[] = []
-    writeText.mockImplementation(() => new Promise<void>((resolve) => { pending.push(resolve) }))
+    writeText.mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          pending.push(resolve)
+        }),
+    )
     const view = render(<JsonTree data={{ first: 1, second: 2 }} />)
     const rows = screen.getAllByRole('treeitem')
     fireEvent.mouseOver(rows[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: 'Copy value' }))
     fireEvent.mouseOver(rows[1] as HTMLElement)
-    await act(async () => { pending[0]!() })
+    await act(async () => {
+      pending[0]!()
+    })
     expect(screen.queryByRole('button', { name: 'Copied' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Copy value' }))
     view.unmount()
     const timerCount = vi.getTimerCount()
-    await act(async () => { pending[1]!() })
+    await act(async () => {
+      pending[1]!()
+    })
     expect(vi.getTimerCount()).toBe(timerCount)
   })
 
   it('updates copy actions without rereading JSON properties on hover', () => {
     const readValue = vi.fn(() => 'payload '.repeat(100))
-    const data = Object.fromEntries(Array.from({ length: 500 }, (_, index) => [
-      `field${index}`,
-      { get value() { return readValue() } },
-    ]))
+    const data = Object.fromEntries(
+      Array.from({ length: 500 }, (_, index) => [
+        `field${index}`,
+        {
+          get value() {
+            return readValue()
+          },
+        },
+      ]),
+    )
     render(<JsonTree data={data} />)
     const rows = within(screen.getByRole('tree')).getAllByRole('treeitem')
     readValue.mockClear()
@@ -123,18 +140,25 @@ describe('JsonTree', () => {
     stubStringLayout(48)
     let resize: (() => void) | undefined
     const disconnect = vi.fn()
-    vi.stubGlobal('ResizeObserver', class {
-      constructor(callback: () => void) { resize = callback }
-      observe() {}
-      disconnect = disconnect
-    })
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        constructor(callback: () => void) {
+          resize = callback
+        }
+        observe() {}
+        disconnect = disconnect
+      },
+    )
     const data = { text: 'three lines of text' }
     const view = render(<JsonTree data={data} />)
     expect(screen.queryByRole('button', { name: 'Expand JSON node' })).toBeNull()
     view.rerender(<JsonTree data={data} collapsedStringLines={2} />)
     expect(screen.getByRole('button', { name: 'Expand JSON node' })).toBeTruthy()
     vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(16)
-    act(() => { resize?.() })
+    act(() => {
+      resize?.()
+    })
     expect(screen.queryByRole('button', { name: 'Expand JSON node' })).toBeNull()
     view.unmount()
     expect(disconnect).toHaveBeenCalledTimes(2)
@@ -142,15 +166,20 @@ describe('JsonTree', () => {
 
   it('keeps raw strings intact and samples the wrapping preference on every expansion', async () => {
     stubStringLayout()
-    vi.stubGlobal('ResizeObserver', class {
-      observe() {}
-      disconnect() {}
-    })
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    )
     let wrapped = false
     const stringWrapping = {
       label: 'Wrap lines',
       getDefault: () => wrapped,
-      setDefault: (value: boolean) => { wrapped = value },
+      setDefault: (value: boolean) => {
+        wrapped = value
+      },
     }
     const original = `  leading spaces\n\t"quoted" \\${'long'.repeat(100)}\nlast line\n`
     render(<JsonTree data={{ first: original, second: original }} stringWrapping={stringWrapping} />)
@@ -180,7 +209,9 @@ describe('JsonTree', () => {
     const contents = document.getElementById(toggle.getAttribute('aria-controls') as string)
     expect(contents?.textContent).toBe(original)
     fireEvent.click(a.getByRole('button', { name: 'Copy value' }))
-    await waitFor(() => { expect(writeText).toHaveBeenCalledWith(original) })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(original)
+    })
   })
 
   it('keeps the top level open and renders expandable value previews', () => {
@@ -248,7 +279,8 @@ describe('JsonTree', () => {
 
     const tree = screen.getByRole('tree')
     fireEvent.click(within(tree).getByRole('button', { name: 'Expand JSON node' }))
-    const arrayRow = within(tree).getAllByRole('treeitem')
+    const arrayRow = within(tree)
+      .getAllByRole('treeitem')
       .find(row => row.textContent?.startsWith('0:'))
     expect(arrayRow).toBeDefined()
 
@@ -364,7 +396,8 @@ describe('JsonTree', () => {
 
     const tree = screen.getByRole('tree')
     const row = (prefix: string) => {
-      const match = within(tree).getAllByRole('treeitem')
+      const match = within(tree)
+        .getAllByRole('treeitem')
         .find(item => item.textContent?.startsWith(prefix))
       expect(match).toBeDefined()
       return match as HTMLElement
@@ -380,20 +413,32 @@ describe('JsonTree', () => {
     }
 
     fireEvent.click(hover('plain:'))
-    await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith('hello') })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith('hello')
+    })
 
     hover('odd-key:')
     select('Copy property path')
-    await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith('$["odd-key"]') })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith('$["odd-key"]')
+    })
     select('Copy JSON')
-    await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith('3') })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith('3')
+    })
     fireEvent.click(hover('odd-key:'))
-    await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith('3') })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith('3')
+    })
 
     fireEvent.click(hover('object:'))
-    await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith('{\n  "a": 1\n}') })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith('{\n  "a": 1\n}')
+    })
     select('Copy compact JSON')
-    await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith('{"a":1}') })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenLastCalledWith('{"a":1}')
+    })
 
     for (const [prefix, expected] of [
       ['missing:', 'undefined'],
@@ -404,7 +449,9 @@ describe('JsonTree', () => {
       ['anonymous:', 'Function'],
     ] as const) {
       fireEvent.click(hover(prefix))
-      await waitFor(() => { expect(writeText).toHaveBeenLastCalledWith(expected) })
+      await waitFor(() => {
+        expect(writeText).toHaveBeenLastCalledWith(expected)
+      })
     }
   })
 
@@ -415,12 +462,18 @@ describe('JsonTree', () => {
     const row = screen.getByRole('treeitem')
     fireEvent.mouseOver(row)
     fireEvent.click(screen.getByRole('button', { name: 'Copy value' }))
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
     expect(screen.getByRole('button', { name: 'Copy failed' })).toBeDefined()
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy failed' }))
-    await act(async () => { await Promise.resolve() })
-    act(() => { vi.advanceTimersByTime(1_500) })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    act(() => {
+      vi.advanceTimersByTime(1_500)
+    })
     expect(screen.getByRole('button', { name: 'Copy value' })).toBeDefined()
     view.unmount()
   })
@@ -467,7 +520,9 @@ describe('JsonTree', () => {
 
     fireEvent.mouseOver(openingBracket as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: 'Copy pretty JSON' }))
-    await waitFor(() => { expect(writeText).toHaveBeenCalledWith('{\n  "value": 1\n}') })
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('{\n  "value": 1\n}')
+    })
 
     fireEvent.mouseLeave(root)
     expect(screen.queryByRole('button', { name: /Copy/ })).toBeNull()

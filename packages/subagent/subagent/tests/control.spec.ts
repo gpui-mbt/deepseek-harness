@@ -2,15 +2,12 @@ import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
 // The browser-facing prompt and interrupt controls and their stable failure
 // codes. Session Controller owns catalog observation and transport.
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AttachmentStore, { AttachmentError } from '@deepseek-ai/dsh-attachment'
 import type { MessageId } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import SubagentRuntime, {
-  SubagentError,
-  type SubagentPromptRequestId,
-} from '@deepseek-ai/dsh-subagent'
+import SubagentRuntime, { SubagentError, type SubagentPromptRequestId } from '@deepseek-ai/dsh-subagent'
 import { deliverSubagentPrompt, type HostPromptDeliverer } from '@deepseek-ai/dsh-subagent/internal'
 import type { PeerId, Principal, RemoteInvocation } from '@deepseek-ai/dsh-typert-protocol'
 
@@ -39,9 +36,7 @@ async function bench(live?: Record<string, { status: 'running' | 'idle' }>) {
     ctx.provide('agents', {
       get: (id: SessionId) => {
         const agent = live[id]
-        return agent === undefined
-          ? undefined
-          : { ...agent, session: { header: { createdAt: PARENT_CREATED_AT } } }
+        return agent === undefined ? undefined : { ...agent, session: { header: { createdAt: PARENT_CREATED_AT } } }
       },
     } as never)
   }
@@ -61,7 +56,7 @@ function promptRequest(clientTimeZone?: string, delivery: 'queue' | 'steer' = 'q
     mode: 'continuable' as const,
     delivery,
     content: [{ type: 'text' as const, text: 'continue' }],
-    ...clientTimeZone === undefined ? {} : { clientTimeZone },
+    ...(clientTimeZone === undefined ? {} : { clientTimeZone }),
   }
 }
 
@@ -70,14 +65,16 @@ function emptyIdFailure(method: string, field: string) {
     code: 'gateway/bad-request',
     message: `invalid payload for ${method}`,
     details: {
-      issues: [{
-        origin: 'string',
-        code: 'too_small',
-        minimum: 1,
-        inclusive: true,
-        path: [field],
-        message: 'Too small: expected string to have >=1 characters',
-      }],
+      issues: [
+        {
+          origin: 'string',
+          code: 'too_small',
+          minimum: 1,
+          inclusive: true,
+          path: [field],
+          message: 'Too small: expected string to have >=1 characters',
+        },
+      ],
     },
   }
 }
@@ -95,8 +92,7 @@ describe('subagent prompt Remote', () => {
       { field: 'childSessionId', request: { ...promptRequest(), childSessionId: SessionId('') } },
     ]
     for (const { field, request } of cases) {
-      await expect(subagents.prompt(request, signal))
-        .rejects.toMatchObject(emptyIdFailure('subagent.prompt', field))
+      await expect(subagents.prompt(request, signal)).rejects.toMatchObject(emptyIdFailure('subagent.prompt', field))
     }
     expect(delivery).not.toHaveBeenCalled()
   })
@@ -105,15 +101,17 @@ describe('subagent prompt Remote', () => {
     const { subagents } = await bench({ [PARENT]: { status: 'idle' } })
     const delivery = promptDelivery(subagents)
 
-    await expect(subagents.prompt({ ...promptRequest(), delivery: 'later' as 'queue' }, signal))
-      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+    await expect(subagents.prompt({ ...promptRequest(), delivery: 'later' as 'queue' }, signal)).rejects.toMatchObject({
+      code: 'gateway/bad-request',
+    })
     expect(delivery).not.toHaveBeenCalled()
   })
 
   it('admits ordered image parts into durable references before delivery', async () => {
     const { ctx, subagents } = await bench({ [PARENT]: { status: 'idle' } })
     const saveImages = vi.fn(async (inputs: readonly { mediaType: string }[]) =>
-      inputs.map((input, index) => ({ ...IMAGE_REF, attachmentId: `att-${index}`, mediaType: input.mediaType })))
+      inputs.map((input, index) => ({ ...IMAGE_REF, attachmentId: `att-${index}`, mediaType: input.mediaType })),
+    )
     ctx.provide('attachments', Object.setPrototypeOf({ saveImages }, AttachmentStore.prototype) as never)
     const delivery = promptDelivery(subagents).mockResolvedValue('m-content' as MessageId)
     const content = [
@@ -122,8 +120,7 @@ describe('subagent prompt Remote', () => {
       { type: 'text' as const, text: 'after' },
     ]
 
-    await expect(subagents.prompt({ ...promptRequest(), content }, signal))
-      .resolves.toEqual({ messageId: 'm-content' })
+    await expect(subagents.prompt({ ...promptRequest(), content }, signal)).resolves.toEqual({ messageId: 'm-content' })
     expect(delivery.mock.calls[0]?.[2]).toEqual([
       { type: 'text', text: 'before' },
       { type: 'image', attachment: { ...IMAGE_REF, attachmentId: 'att-0', mediaType: 'image/png' } },
@@ -133,18 +130,30 @@ describe('subagent prompt Remote', () => {
 
   it('maps a refused image batch to subagent/attachment-invalid and delivers nothing', async () => {
     const { ctx, subagents } = await bench({ [PARENT]: { status: 'idle' } })
-    ctx.provide('attachments', Object.setPrototypeOf({
-      saveImages: async () => {
-        throw new AttachmentError('Image batch exceeds the configured image-count limit.', 'TOO_MANY_IMAGES')
-      },
-    }, AttachmentStore.prototype) as never)
+    ctx.provide(
+      'attachments',
+      Object.setPrototypeOf(
+        {
+          saveImages: async () => {
+            throw new AttachmentError('Image batch exceeds the configured image-count limit.', 'TOO_MANY_IMAGES')
+          },
+        },
+        AttachmentStore.prototype,
+      ) as never,
+    )
     const delivery = promptDelivery(subagents)
 
-    await expect(subagents.prompt({
-      ...promptRequest(),
-      content: [{ type: 'image' as const, mediaType: 'image/png' as const, data: 'aGk=' }],
-    }, signal)).rejects.toMatchObject({
-      code: 'subagent/attachment-invalid', details: { reason: 'TOO_MANY_IMAGES' },
+    await expect(
+      subagents.prompt(
+        {
+          ...promptRequest(),
+          content: [{ type: 'image' as const, mediaType: 'image/png' as const, data: 'aGk=' }],
+        },
+        signal,
+      ),
+    ).rejects.toMatchObject({
+      code: 'subagent/attachment-invalid',
+      details: { reason: 'TOO_MANY_IMAGES' },
     })
     expect(delivery).not.toHaveBeenCalled()
   })
@@ -155,11 +164,17 @@ describe('subagent prompt Remote', () => {
     ctx.provide('attachments', Object.setPrototypeOf({ saveImages }, AttachmentStore.prototype) as never)
     const delivery = promptDelivery(subagents)
 
-    await expect(subagents.prompt({
-      ...promptRequest(),
-      content: [{ type: 'image' as const, mediaType: 'image/png' as const, data: 'not base64!' }],
-    }, signal)).rejects.toMatchObject({
-      code: 'subagent/attachment-invalid', details: { reason: 'INVALID_IMAGE_BASE64' },
+    await expect(
+      subagents.prompt(
+        {
+          ...promptRequest(),
+          content: [{ type: 'image' as const, mediaType: 'image/png' as const, data: 'not base64!' }],
+        },
+        signal,
+      ),
+    ).rejects.toMatchObject({
+      code: 'subagent/attachment-invalid',
+      details: { reason: 'INVALID_IMAGE_BASE64' },
     })
     expect(saveImages).not.toHaveBeenCalled()
     expect(delivery).not.toHaveBeenCalled()
@@ -169,10 +184,15 @@ describe('subagent prompt Remote', () => {
     const { subagents } = await bench({ [PARENT]: { status: 'idle' } })
     const delivery = promptDelivery(subagents)
 
-    await expect(subagents.prompt({
-      ...promptRequest(),
-      content: [{ type: 'image' as const, mediaType: 'image/png' as const, data: 'aGk=' }],
-    }, signal)).rejects.toMatchObject({ code: 'gateway/internal', message: 'subagent prompt failed' })
+    await expect(
+      subagents.prompt(
+        {
+          ...promptRequest(),
+          content: [{ type: 'image' as const, mediaType: 'image/png' as const, data: 'aGk=' }],
+        },
+        signal,
+      ),
+    ).rejects.toMatchObject({ code: 'gateway/internal', message: 'subagent prompt failed' })
     expect(delivery).not.toHaveBeenCalled()
   })
 
@@ -183,7 +203,8 @@ describe('subagent prompt Remote', () => {
     )
 
     await expect(subagents.prompt(promptRequest(), signal)).rejects.toMatchObject({
-      code: 'subagent/attachment-invalid', details: { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' },
+      code: 'subagent/attachment-invalid',
+      details: { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' },
     })
   })
 
@@ -191,8 +212,7 @@ describe('subagent prompt Remote', () => {
     const { subagents } = await bench({ [PARENT]: { status: 'idle' } })
     const delivery = promptDelivery(subagents).mockResolvedValue('m-1' as MessageId)
 
-    await expect(subagents.prompt(promptRequest('Asia/Shanghai'), signal))
-      .resolves.toEqual({ messageId: 'm-1' })
+    await expect(subagents.prompt(promptRequest('Asia/Shanghai'), signal)).resolves.toEqual({ messageId: 'm-1' })
     expect(delivery).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'idle' }),
       CHILD,
@@ -206,15 +226,18 @@ describe('subagent prompt Remote', () => {
   it('records a non-owner caller on the follow-up source and nothing for the owner', async () => {
     const { ctx, subagents } = await bench({ [PARENT]: { status: 'idle' } })
     const delivery = promptDelivery(subagents).mockResolvedValue('m-guest' as MessageId)
-    const as = (principal: Principal) => ctx.extend({
-      invocation: {
-        request: { namespace: 'subagents', method: 'prompt', args: {} },
-        service: 'subagents',
-        peer: { id: 'subagent-peer' as PeerId, ctx, principal, interactions: 'answer', signal, dispose: async () => {} },
-        signal,
-        uplink: <In>(): AsyncIterable<In> => ({ [Symbol.asyncIterator]: () => ({ next: async () => ({ done: true, value: undefined }) }) }),
-      } satisfies RemoteInvocation,
-    }).subagents
+    const as = (principal: Principal) =>
+      ctx.extend({
+        invocation: {
+          request: { namespace: 'subagents', method: 'prompt', args: {} },
+          service: 'subagents',
+          peer: { id: 'subagent-peer' as PeerId, ctx, principal, interactions: 'answer', signal, dispose: async () => {} },
+          signal,
+          uplink: <In>(): AsyncIterable<In> => ({
+            [Symbol.asyncIterator]: () => ({ next: async () => ({ done: true, value: undefined }) }),
+          }),
+        } satisfies RemoteInvocation,
+      }).subagents
 
     await expect(as(GUEST).prompt(promptRequest(), signal)).resolves.toEqual({ messageId: 'm-guest' })
     await expect(as({ kind: 'owner' }).prompt(promptRequest(), signal)).resolves.toEqual({ messageId: 'm-guest' })
@@ -228,8 +251,7 @@ describe('subagent prompt Remote', () => {
     const { subagents } = await bench({ [PARENT]: { status: 'running' } })
     const delivery = promptDelivery(subagents).mockResolvedValue('m-steer' as MessageId)
 
-    await expect(subagents.prompt(promptRequest(undefined, 'steer'), signal))
-      .resolves.toEqual({ messageId: 'm-steer' })
+    await expect(subagents.prompt(promptRequest(undefined, 'steer'), signal)).resolves.toEqual({ messageId: 'm-steer' })
     expect(delivery.mock.calls[0]?.[5]).toBe('steer')
   })
 
@@ -248,7 +270,8 @@ describe('subagent prompt Remote', () => {
     await expect(subagents.prompt(promptRequest('UTC'), signal)).resolves.toEqual({ messageId: 'm-3' })
     for (const zone of ['', ' UTC', 'Shanghai', 'Nowhere/Nowhere']) {
       await expect(subagents.prompt(promptRequest(zone), signal)).rejects.toMatchObject({
-        code: 'subagent/invalid-time-zone', details: { value: zone },
+        code: 'subagent/invalid-time-zone',
+        details: { value: zone },
       })
     }
   })
@@ -258,7 +281,8 @@ describe('subagent prompt Remote', () => {
     const delivery = promptDelivery(subagents)
 
     await expect(subagents.prompt(promptRequest(), signal)).rejects.toMatchObject({
-      code: 'subagent/parent-unavailable', details: { parentSessionId: PARENT },
+      code: 'subagent/parent-unavailable',
+      details: { parentSessionId: PARENT },
     })
     expect(delivery).not.toHaveBeenCalled()
   })
@@ -276,13 +300,14 @@ describe('subagent prompt Remote', () => {
     ]
     for (const [thrown, code] of cases) {
       delivery.mockRejectedValue(new SubagentError('refused', thrown))
-      await expect(subagents.prompt(promptRequest(), signal))
-        .rejects.toMatchObject({ code })
+      await expect(subagents.prompt(promptRequest(), signal)).rejects.toMatchObject({ code })
     }
 
     delivery.mockRejectedValue(new Error('inbox exploded'))
-    await expect(subagents.prompt(promptRequest(), signal))
-      .rejects.toMatchObject({ code: 'gateway/internal', message: 'subagent prompt failed' })
+    await expect(subagents.prompt(promptRequest(), signal)).rejects.toMatchObject({
+      code: 'gateway/internal',
+      message: 'subagent prompt failed',
+    })
   })
 
   it('answers a caller-cancelled delivery as cancelled rather than a failure', async () => {
@@ -293,17 +318,14 @@ describe('subagent prompt Remote', () => {
       return Promise.reject(new SubagentError('gone', 'NOT_RESUMABLE'))
     })
 
-    await expect(subagents.prompt(promptRequest(), aborted.signal))
-      .rejects.toMatchObject({ code: 'gateway/cancelled' })
+    await expect(subagents.prompt(promptRequest(), aborted.signal)).rejects.toMatchObject({ code: 'gateway/cancelled' })
   })
 
   it('preserves a cancellation reported by the continuation operation', async () => {
     const { subagents } = await bench({ [PARENT]: { status: 'idle' } })
-    promptDelivery(subagents)
-      .mockRejectedValue(new SubagentError('stopped', 'CANCELLED'))
+    promptDelivery(subagents).mockRejectedValue(new SubagentError('stopped', 'CANCELLED'))
 
-    await expect(subagents.prompt(promptRequest(), signal))
-      .rejects.toMatchObject({ code: 'gateway/cancelled' })
+    await expect(subagents.prompt(promptRequest(), signal)).rejects.toMatchObject({ code: 'gateway/cancelled' })
   })
 })
 
@@ -317,12 +339,9 @@ describe('subagent interrupt Remote', () => {
       [CHILD, SessionId('')],
     ] as const) {
       const field = childSessionId.length === 0 ? 'childSessionId' : 'parentSessionId'
-      expect(() => subagents.interruptByParent(
-        childSessionId,
-        parentSessionId,
-        'continuable',
-      ))
-        .toThrow(expect.objectContaining(emptyIdFailure('subagent.interrupt', field)))
+      expect(() => subagents.interruptByParent(childSessionId, parentSessionId, 'continuable')).toThrow(
+        expect.objectContaining(emptyIdFailure('subagent.interrupt', field)),
+      )
     }
     expect(interrupt).not.toHaveBeenCalled()
   })
@@ -331,11 +350,7 @@ describe('subagent interrupt Remote', () => {
     const { subagents } = await bench()
     const interrupt = vi.spyOn(subagents, 'interrupt').mockReturnValue()
 
-    expect(subagents.interruptByParent(
-      CHILD,
-      PARENT,
-      'continuable',
-    )).toEqual({ accepted: true })
+    expect(subagents.interruptByParent(CHILD, PARENT, 'continuable')).toEqual({ accepted: true })
     expect(interrupt).toHaveBeenCalledWith(CHILD, {
       kind: 'user',
       parentSessionId: PARENT,
@@ -346,12 +361,10 @@ describe('subagent interrupt Remote', () => {
     const { subagents } = await bench()
     const interrupt = vi.spyOn(subagents, 'interrupt')
 
-    interrupt.mockImplementation(() => { throw new SubagentError('not yours', 'UNAUTHORIZED') })
-    expect(() => subagents.interruptByParent(
-      CHILD,
-      PARENT,
-      'continuable',
-    )).toThrow(
+    interrupt.mockImplementation(() => {
+      throw new SubagentError('not yours', 'UNAUTHORIZED')
+    })
+    expect(() => subagents.interruptByParent(CHILD, PARENT, 'continuable')).toThrow(
       expect.objectContaining({
         code: 'subagent/unauthorized',
         message: expect.any(String) as unknown as string,
@@ -359,12 +372,10 @@ describe('subagent interrupt Remote', () => {
       }),
     )
 
-    interrupt.mockImplementation(() => { throw new Error('boom') })
-    expect(() => subagents.interruptByParent(
-      CHILD,
-      PARENT,
-      'continuable',
-    )).toThrow(
+    interrupt.mockImplementation(() => {
+      throw new Error('boom')
+    })
+    expect(() => subagents.interruptByParent(CHILD, PARENT, 'continuable')).toThrow(
       expect.objectContaining({ code: 'gateway/internal', message: 'subagent interrupt failed', details: {} }),
     )
   })

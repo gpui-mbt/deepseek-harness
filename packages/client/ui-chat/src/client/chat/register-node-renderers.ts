@@ -6,8 +6,13 @@ import { NS } from '../locale.ts'
 import { AssistantNodeView } from './AssistantNodeView.tsx'
 import { CommandNodeView, ManualCompactionNodeView } from './CommandNodeView.tsx'
 import {
-  CompactionNodeView, ContextMessageNodeView, RetryNodeView, TurnErrorNodeView,
-  TurnMaxTokensNodeView, UnknownNodeView, UserMessageNodeView,
+  CompactionNodeView,
+  ContextMessageNodeView,
+  RetryNodeView,
+  TurnErrorNodeView,
+  TurnMaxTokensNodeView,
+  UnknownNodeView,
+  UserMessageNodeView,
 } from './MessageItem.tsx'
 import { DefaultReasoningBody, ReasoningContent } from './ReasoningContent.tsx'
 import { SystemPromptNodeView } from './SystemPromptRow.tsx'
@@ -28,63 +33,100 @@ export function registerChatNodeRenderers(
   performanceUsage: ObservableSnapshot<PerformanceUsageMode>,
   presentation: ObservableSnapshot<ChatPresentationPolicy>,
 ): void {
-  ctx.effect(() => ctx.slots.registerFactory({
-    name: 'conversation.chat.reasoning.content',
-    scope: 'root',
-    locale: NS,
-  }, ReasoningContent))
-  ctx.slots.inject('conversation.chat.reasoning.body', () => ctx.slots.register({
-    name: 'conversation.chat.reasoning.body',
-    priority: 100,
-  }, DefaultReasoningBody))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'user', locale: NS }, UserMessageNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'steering', locale: NS }, UserMessageNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'context', locale: NS }, ContextMessageNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'turn-trigger', locale: NS }, TurnTriggerNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'system-prompt', locale: NS }, SystemPromptNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
-    name: 'conversation.chat.node',
-    key: 'assistant-step',
-    locale: NS,
-    children: {
-      'conversation.chat.reasoning.body': { kind: 'single', scope: 'session' },
-      'conversation.chat.message.images': { kind: 'single', scope: 'session' },
-    },
-    inject: () => ({ hooks: { presentation } }),
-  }, AssistantNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
-    name: 'conversation.chat.node',
-    key: 'command',
-    locale: NS,
-    children: { 'conversation.chat.commandview': { kind: 'keyed', scope: 'session' } },
-  }, CommandNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'manual-compaction', locale: NS }, ManualCompactionNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'compaction', locale: NS }, CompactionNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'model-retry', locale: NS }, RetryNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'turn-error', locale: NS }, TurnErrorNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'turn-max-tokens', locale: NS }, TurnMaxTokensNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'turn-process', locale: NS }, TurnProcessNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
-    name: 'conversation.chat.node',
-    key: 'turn-tail',
-    locale: NS,
-    inject: () => ({ hooks: { performanceUsage } }),
-    children: {
-      'conversation.chat.turnTail': { kind: 'list', scope: 'session' },
-      'conversation.chat.assistant-actions': { kind: 'list', scope: 'session' },
-    },
-  }, TurnTailNodeView))
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register(
-    { name: 'conversation.chat.node', key: 'unknown', locale: NS }, UnknownNodeView))
+  ctx.effect(() =>
+    ctx.slots.registerFactory(
+      {
+        name: 'conversation.chat.reasoning.content',
+        scope: 'root',
+        locale: NS,
+      },
+      ReasoningContent,
+    ),
+  )
+  ctx.slots.inject('conversation.chat.reasoning.body', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.reasoning.body',
+        priority: 100,
+      },
+      DefaultReasoningBody,
+    ),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'user', locale: NS }, UserMessageNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'steering', locale: NS }, UserMessageNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'context', locale: NS }, ContextMessageNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'turn-trigger', locale: NS }, TurnTriggerNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'system-prompt', locale: NS }, SystemPromptNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.node',
+        key: 'assistant-step',
+        locale: NS,
+        children: {
+          'conversation.chat.reasoning.body': { kind: 'single', scope: 'session' },
+          'conversation.chat.message.images': { kind: 'single', scope: 'session' },
+        },
+        inject: () => ({ hooks: { presentation } }),
+      },
+      AssistantNodeView,
+    ),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.node',
+        key: 'command',
+        locale: NS,
+        children: { 'conversation.chat.commandview': { kind: 'keyed', scope: 'session' } },
+      },
+      CommandNodeView,
+    ),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'manual-compaction', locale: NS }, ManualCompactionNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'compaction', locale: NS }, CompactionNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'model-retry', locale: NS }, RetryNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'turn-error', locale: NS }, TurnErrorNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'turn-max-tokens', locale: NS }, TurnMaxTokensNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'turn-process', locale: NS }, TurnProcessNodeView),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.node',
+        key: 'turn-tail',
+        locale: NS,
+        inject: () => ({ hooks: { performanceUsage } }),
+        children: {
+          'conversation.chat.turnTail': { kind: 'list', scope: 'session' },
+          'conversation.chat.assistant-actions': { kind: 'list', scope: 'session' },
+        },
+      },
+      TurnTailNodeView,
+    ),
+  )
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register({ name: 'conversation.chat.node', key: 'unknown', locale: NS }, UnknownNodeView),
+  )
 }

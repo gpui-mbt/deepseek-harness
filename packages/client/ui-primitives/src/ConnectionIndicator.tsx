@@ -4,10 +4,7 @@ import { StateDot } from './StateDot.tsx'
 import css from './ConnectionIndicator.module.css'
 
 /** Visual state rendered by {@link ConnectionIndicator}. */
-export type ConnectionIndicatorState =
-  | 'disconnected'
-  | 'connecting'
-  | 'recovered'
+export type ConnectionIndicatorState = 'disconnected' | 'connecting' | 'recovered'
 
 /** Exit-transition length; keep equal to the `.leaving` transition duration in the stylesheet. */
 const EXIT_MS = 150
@@ -51,20 +48,22 @@ export function ConnectionIndicator({
       return
     }
     if (rendered === undefined) return
-    const timeout = window.setTimeout(() => { setRendered(undefined) }, EXIT_MS)
-    return () => { window.clearTimeout(timeout) }
+    const timeout = window.setTimeout(() => {
+      setRendered(undefined)
+    }, EXIT_MS)
+    return () => {
+      window.clearTimeout(timeout)
+    }
   }, [state, rendered])
 
   if (rendered === undefined) return null
   const leavingClass = leaving ? ` ${css.leaving}` : ''
   if (rendered === 'recovered') {
     return (
-      <div
-        className={`${css.indicator} ${css.success}${leavingClass}`}
-        role="status"
-        aria-label={recoveredLabel}
-      >
-        <span className={css.icon} aria-hidden="true"><IconCheckOutlineRegular size={14} /></span>
+      <div className={`${css.indicator} ${css.success}${leavingClass}`} role="status" aria-label={recoveredLabel}>
+        <span className={css.icon} aria-hidden="true">
+          <IconCheckOutlineRegular size={14} />
+        </span>
         <span className={css.label}>{recoveredLabel}</span>
       </div>
     )
@@ -80,23 +79,21 @@ export function ConnectionIndicator({
       onClick={onReconnect}
     >
       <span className={css.icon} aria-hidden="true">
-        {connecting
-          ? <StateDot state="ongoing" />
-          : <IconRefreshOutlineRegular size={14} />}
+        {connecting ? <StateDot state="ongoing" /> : <IconRefreshOutlineRegular size={14} />}
       </span>
       <span className={css.label}>
-        {connecting
-          ? (
-            <>
-              {connectingLabel}
-              <span className={css.dots} aria-hidden="true">
-                <span>.</span>
-                <span className={css.secondDot}>.</span>
-                <span className={css.thirdDot}>.</span>
-              </span>
-            </>
-          )
-          : disconnectedLabel}
+        {connecting ? (
+          <>
+            {connectingLabel}
+            <span className={css.dots} aria-hidden="true">
+              <span>.</span>
+              <span className={css.secondDot}>.</span>
+              <span className={css.thirdDot}>.</span>
+            </span>
+          </>
+        ) : (
+          disconnectedLabel
+        )}
       </span>
     </button>
   )

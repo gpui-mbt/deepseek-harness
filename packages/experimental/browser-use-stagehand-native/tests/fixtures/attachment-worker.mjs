@@ -10,18 +10,26 @@ const scenario = new URL(workerData.cdpEndpoint).hostname
 let release
 let active
 parentPort.on('message', async ({ method, reply }) => {
-  if (method === 'fixture-release') { release?.(); return }
+  if (method === 'fixture-release') {
+    release?.()
+    return
+  }
   if (method === 'ready' && scenario === 'opening') return
   if (method === 'close' && scenario === 'closing') return
   if (method === 'tabs' && scenario === 'error') throw new Error('Fixture worker crashed')
-  if (method === 'tabs' && scenario === 'crash') { process.exit(23); return }
+  if (method === 'tabs' && scenario === 'crash') {
+    process.exit(23)
+    return
+  }
   if (method === 'ready' && scenario === 'failure') {
     reply.postMessage({ ok: false, error: 'Extension initialization failed' })
   } else if (method === 'close' && scenario === 'close-failure') {
     reply.postMessage({ ok: false, error: 'Extension request did not drain' })
   } else {
     if (method === 'act') {
-      active = new Promise(resolve => { release = resolve })
+      active = new Promise(resolve => {
+        release = resolve
+      })
       parentPort.postMessage({ event: 'operation-started' })
       await active
     }

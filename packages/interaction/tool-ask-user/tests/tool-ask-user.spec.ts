@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createToolResultMessage, ToolCallId, type ToolSchema } from '@deepseek-ai/dsh-llm'
 import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
@@ -19,7 +19,9 @@ const testToolSignal = new AbortController().signal
 /** The `request/header` event that records the exact tool schemas the model saw. */
 function headerEvent(seq: number, tools: ToolSchema[]): SessionEvent {
   return {
-    type: 'request/header', seq: SessionSeq(seq), time: seq,
+    type: 'request/header',
+    seq: SessionSeq(seq),
+    time: seq,
     data: { header: { config: { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, tools }, reason: 'initial' },
   }
 }
@@ -27,7 +29,9 @@ function headerEvent(seq: number, tools: ToolSchema[]): SessionEvent {
 /** The `tool/call` event a recorded `ask_user_question` call appends. */
 function askedEvent(seq: number, callId: string, argumentsText: string): SessionEvent {
   return {
-    type: 'tool/call', seq: SessionSeq(seq), time: seq,
+    type: 'tool/call',
+    seq: SessionSeq(seq),
+    time: seq,
     data: { turn: 1, step: 1, callId: ToolCallId(callId), name: 'ask_user_question', arguments: argumentsText },
   }
 }
@@ -35,9 +39,12 @@ function askedEvent(seq: number, callId: string, argumentsText: string): Session
 /** The `tool/result` event that records one rendered result text. */
 function resultedEvent(seq: number, callId: string, text: string): SessionEvent {
   return {
-    type: 'tool/result', seq: SessionSeq(seq), time: seq,
+    type: 'tool/result',
+    seq: SessionSeq(seq),
+    time: seq,
     data: {
-      turn: 1, step: 1,
+      turn: 1,
+      step: 1,
       message: createToolResultMessage({ callId: ToolCallId(callId), content: [{ type: 'text', text }], isError: false }),
     },
   } as SessionEvent
@@ -83,15 +90,29 @@ function stubAgent(id: string, delegationDepth = 0): Agent {
     id: agentId,
     options: {},
     session: Session.create(agentId, [], {
-      version: SESSION_FORMAT_VERSION, id: agentId, createdAt: 0, isSeeded: false, delegationDepth,
+      version: SESSION_FORMAT_VERSION,
+      id: agentId,
+      createdAt: 0,
+      isSeeded: false,
+      delegationDepth,
     }),
     inbox: {
-      nextTurn: [], nextStep: [], clear() {}, append() {}, prepend() {},
-      replace: () => false, remove: () => false, splice: () => [],
+      nextTurn: [],
+      nextStep: [],
+      clear() {},
+      append() {},
+      prepend() {},
+      replace: () => false,
+      remove: () => false,
+      splice: () => [],
     },
     status: 'idle',
     ctx: new Context(),
-    send() {}, followup() {}, steer() {}, inject() {}, cancel() {},
+    send() {},
+    followup() {},
+    steer() {},
+    inject() {},
+    cancel() {},
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
@@ -130,7 +151,9 @@ describe('ask_user_question tool', () => {
 
     toolAskUser.apply(ctx, { mode: 'timed' })
 
-    expect(JSON.stringify(ctx.tools.schemas().find(tool => tool.name === 'ask_user_question'))).toContain('Wait seconds for the entire batch (default 120)')
+    expect(JSON.stringify(ctx.tools.schemas().find(tool => tool.name === 'ask_user_question'))).toContain(
+      'Wait seconds for the entire batch (default 120)',
+    )
   })
 
   it('returns the answer batch when the Client answers inside the configured wait', async () => {
@@ -163,7 +186,9 @@ describe('ask_user_question tool', () => {
 
     const schema = ctx.tools.schemas().find(tool => tool.name === 'ask_user_question')
 
-    expect(JSON.stringify(schema)).toContain('Wait seconds for the entire batch (default 45); omit unless the user specifies a duration. Use -1 only when an answer is required before proceeding.')
+    expect(JSON.stringify(schema)).toContain(
+      'Wait seconds for the entire batch (default 45); omit unless the user specifies a duration. Use -1 only when an answer is required before proceeding.',
+    )
     expect(JSON.stringify(schema)).not.toContain('Wait seconds for the entire batch (default 120)')
   })
 
@@ -220,10 +245,12 @@ describe('ask_user_question tool', () => {
     // The projection tells the two tools apart by this schema alone, so a
     // legacy Session never folds into a question card or a transcript pill.
     expect(isTimedAskUserQuestionSchema(schemas[0]!)).toBe(false)
-    expect(foldUserQuestions([
-      headerEvent(0, ctx.tools.schemas()),
-      askedEvent(1, 'ask-legacy', '{"questions":[{"id":"continue","question":"Continue?"}]}'),
-    ])).toEqual({ active: [], settled: [] })
+    expect(
+      foldUserQuestions([
+        headerEvent(0, ctx.tools.schemas()),
+        askedEvent(1, 'ask-legacy', '{"questions":[{"id":"continue","question":"Continue?"}]}'),
+      ]),
+    ).toEqual({ active: [], settled: [] })
 
     const result = await ctx.tools.execute({
       signal: testToolSignal,
@@ -257,17 +284,29 @@ describe('ask_user_question tool', () => {
       signal: testToolSignal,
       callId: ToolCallId('ask-legacy-detailed'),
       name: 'ask_user_question',
-      arguments: { questions: [{
-        id: 'pkg', question: 'Which package manager?', header: 'Setup', multi_select: false,
-        options: [{ label: 'pnpm (Recommended)', description: 'Workspace default.' }, { label: 'npm' }],
-      }] },
+      arguments: {
+        questions: [
+          {
+            id: 'pkg',
+            question: 'Which package manager?',
+            header: 'Setup',
+            multi_select: false,
+            options: [{ label: 'pnpm (Recommended)', description: 'Workspace default.' }, { label: 'npm' }],
+          },
+        ],
+      },
       agent,
     })
     expect(seen[1]?.agent).toBe(agent)
-    expect(seen[1]?.questions).toEqual([{
-      id: 'pkg', question: 'Which package manager?', header: 'Setup', multiSelect: false,
-      options: [{ label: 'pnpm (Recommended)', description: 'Workspace default.' }, { label: 'npm' }],
-    }])
+    expect(seen[1]?.questions).toEqual([
+      {
+        id: 'pkg',
+        question: 'Which package manager?',
+        header: 'Setup',
+        multiSelect: false,
+        options: [{ label: 'pnpm (Recommended)', description: 'Workspace default.' }, { label: 'npm' }],
+      },
+    ])
     expect(detailed).toMatchObject({
       isError: false,
       content: [{ type: 'text', text: '{"answers":[{"id":"pkg","selected":[],"custom":"bun"}]}' }],
@@ -289,11 +328,13 @@ describe('ask_user_question tool', () => {
       callId: ToolCallId('ask-1'),
       name: 'ask_user_question',
       arguments: {
-        questions: [{
-          id: 'pkg',
-          question: 'Which package manager should I use?',
-          options: [{ label: 'pnpm', description: 'Use pnpm workspaces.' }],
-        }],
+        questions: [
+          {
+            id: 'pkg',
+            question: 'Which package manager should I use?',
+            options: [{ label: 'pnpm', description: 'Use pnpm workspaces.' }],
+          },
+        ],
       },
     })
 
@@ -301,16 +342,20 @@ describe('ask_user_question tool', () => {
       isError: false,
       content: [{ type: 'text', text: '{"answers":[{"id":"pkg","selected":["pnpm"]}]}' }],
     })
-    expect(seen).toMatchObject([{
-      questions: [{
-        id: 'pkg',
-        question: 'Which package manager should I use?',
-        options: [{ label: 'pnpm', description: 'Use pnpm workspaces.' }],
-      }],
-      // Keyed by the call with no deadline: the Client card is reopenable from
-      // the tool call row, and the wait itself stays indefinite.
-      wait: { callId: 'ask-1' },
-    }])
+    expect(seen).toMatchObject([
+      {
+        questions: [
+          {
+            id: 'pkg',
+            question: 'Which package manager should I use?',
+            options: [{ label: 'pnpm', description: 'Use pnpm workspaces.' }],
+          },
+        ],
+        // Keyed by the call with no deadline: the Client card is reopenable from
+        // the tool call row, and the wait itself stays indefinite.
+        wait: { callId: 'ask-1' },
+      },
+    ])
     expect(seen[0]?.wait?.timed).toBeUndefined()
   })
 
@@ -329,21 +374,17 @@ describe('ask_user_question tool', () => {
       callId: ToolCallId('ask-recommended'),
       name: 'ask_user_question',
       arguments: {
-        questions: [{
-          id: 'pkg',
-          question: 'Which package manager should I use?',
-          options: [
-            { label: 'pnpm (Recommended)' },
-            { label: 'npm' },
-          ],
-        }],
+        questions: [
+          {
+            id: 'pkg',
+            question: 'Which package manager should I use?',
+            options: [{ label: 'pnpm (Recommended)' }, { label: 'npm' }],
+          },
+        ],
       },
     })
 
-    expect(seen[0]?.questions[0]?.options).toEqual([
-      { label: 'pnpm (Recommended)' },
-      { label: 'npm' },
-    ])
+    expect(seen[0]?.questions[0]?.options).toEqual([{ label: 'pnpm (Recommended)' }, { label: 'npm' }])
   })
 
   it('projects custom answers and multi-select choices', async () => {
@@ -395,10 +436,12 @@ describe('ask_user_question tool', () => {
         { id: 'optional', selected: [] },
       ],
     })
-    expect(result.content).toEqual([{
-      type: 'text',
-      text: '{"answers":[{"id":"targets","selected":["tests","docs"],"custom":"release notes"},{"id":"labels-only","selected":["tests"]},{"id":"notes","selected":[],"custom":"ship today"},{"id":"optional","selected":[]}]}',
-    }])
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: '{"answers":[{"id":"targets","selected":["tests","docs"],"custom":"release notes"},{"id":"labels-only","selected":["tests"]},{"id":"notes","selected":[],"custom":"ship today"},{"id":"optional","selected":[]}]}',
+      },
+    ])
   })
 
   it('passes the tool abort signal to the user-questions request', async () => {
@@ -453,7 +496,7 @@ describe('ask_user_question tool', () => {
     const ctx = await setup({ mode: 'timed', timeout: 1 })
     const seen: AskUserQuestionRequest[] = []
     registerQuestionAnswerer(ctx, {
-      ask: (request) => {
+      ask: request => {
         seen.push(request)
         const timedOut = new Error('client countdown ended') as Error & { code: string }
         timedOut.name = 'UserQuestionError'
@@ -494,15 +537,19 @@ describe('ask_user_question tool', () => {
     // The question the model timed out on stays answerable: the projection
     // reads the same recorded text, so this pins the two readings together.
     expect(isTimedAskUserQuestionSchema(ctx.tools.schemas().find(tool => tool.name === 'ask_user_question')!)).toBe(true)
-    expect(foldUserQuestions([
-      headerEvent(0, ctx.tools.schemas()),
-      askedEvent(1, 'ask-timeout', '{"questions":[{"id":"continue","question":"Continue?"}]}'),
-      resultedEvent(2, 'ask-timeout', content.text),
-    ]).active).toEqual([{
-      callId: 'ask-timeout',
-      questions: [{ id: 'continue', question: 'Continue?' }],
-      state: 'continued',
-    }])
+    expect(
+      foldUserQuestions([
+        headerEvent(0, ctx.tools.schemas()),
+        askedEvent(1, 'ask-timeout', '{"questions":[{"id":"continue","question":"Continue?"}]}'),
+        resultedEvent(2, 'ask-timeout', content.text),
+      ]).active,
+    ).toEqual([
+      {
+        callId: 'ask-timeout',
+        questions: [{ id: 'continue', question: 'Continue?' }],
+        state: 'continued',
+      },
+    ])
     await ctx.fiber.dispose()
   })
 
@@ -545,7 +592,7 @@ describe('ask_user_question tool', () => {
     })
   })
 
-  it.each([0, 1.5, 2_147_484])('rejects invalid timeout %s', async (timeout) => {
+  it.each([0, 1.5, 2_147_484])('rejects invalid timeout %s', async timeout => {
     const ctx = await setup({ mode: 'timed', timeout: -1 })
 
     const result = await ctx.tools.execute({
@@ -569,10 +616,13 @@ describe('ask_user_question tool', () => {
       signal: testToolSignal,
       callId: ToolCallId('ask-duplicate-ids'),
       name: 'ask_user_question',
-      arguments: { questions: [
-        { id: 'scope', question: 'Choose a scope.' },
-        { id: 'scope', question: 'Confirm the scope.' },
-      ], timeout: -1 },
+      arguments: {
+        questions: [
+          { id: 'scope', question: 'Choose a scope.' },
+          { id: 'scope', question: 'Confirm the scope.' },
+        ],
+        timeout: -1,
+      },
     })
 
     expect(result).toMatchObject({
@@ -642,10 +692,12 @@ describe('ask_user_question tool', () => {
     expect(result).toMatchObject({
       isError: true,
       error: { info: { name: 'UserQuestionError', code: 'DELEGATED_CALLER' } },
-      content: [{
-        type: 'text',
-        text: "Error: human interaction is unavailable while the calling agent is owned by another live agent; include the unresolved question or decision in the child agent's final result",
-      }],
+      content: [
+        {
+          type: 'text',
+          text: "Error: human interaction is unavailable while the calling agent is owned by another live agent; include the unresolved question or decision in the child agent's final result",
+        },
+      ],
     })
     expect(seen).toHaveLength(0)
   })

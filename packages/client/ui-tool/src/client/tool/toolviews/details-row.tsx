@@ -2,8 +2,14 @@
 import { useMemo } from 'react'
 import type { Context } from '@deepseek-ai/cordis'
 import {
-  IconAgentPresetOutlineRegular, IconBranchOutlineRegular, IconChecklistOutlineRegular, IconClockOutlineRegular,
-  IconCodeOutlineRegular, IconCordisPluginOutlineRegular, IconGoalOutlineRegular, IconSearchOutlineRegular,
+  IconAgentPresetOutlineRegular,
+  IconBranchOutlineRegular,
+  IconChecklistOutlineRegular,
+  IconClockOutlineRegular,
+  IconCodeOutlineRegular,
+  IconCordisPluginOutlineRegular,
+  IconGoalOutlineRegular,
+  IconSearchOutlineRegular,
   IconUsersOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
@@ -48,9 +54,10 @@ export function DetailsRow({ toolName, block, cwd, home, openFile, inspect, useD
   const locale = document.documentElement.lang
   const details = useMemo(() => detailsCardModel(block, t, locale), [block, t, locale])
   const operation = toolName === 'lsp' ? parsedToolCall(block)?.args.operation : undefined
-  const titleKey = typeof operation === 'string' && Object.hasOwn(LSP_TITLE_KEYS, operation)
-    ? LSP_TITLE_KEYS[operation as keyof typeof LSP_TITLE_KEYS]
-    : model.titleKey
+  const titleKey =
+    typeof operation === 'string' && Object.hasOwn(LSP_TITLE_KEYS, operation)
+      ? LSP_TITLE_KEYS[operation as keyof typeof LSP_TITLE_KEYS]
+      : model.titleKey
   return (
     <ToolRow
       useDisclosure={useDisclosure}

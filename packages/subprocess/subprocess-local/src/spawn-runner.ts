@@ -11,10 +11,7 @@ import {
   terminateJob,
   Win32Error,
 } from '@deepseek-ai/dsh-win32-process'
-import type {
-  CurrentTokenProcessBindings,
-  NativePtr,
-} from '@deepseek-ai/dsh-win32-process'
+import type { CurrentTokenProcessBindings, NativePtr } from '@deepseek-ai/dsh-win32-process'
 import { loadLinuxExecve } from './linux-execve.ts'
 import {
   consumeLinuxLaunchRequest,
@@ -24,18 +21,8 @@ import {
   serializeRunnerError,
   writeLinuxStartupError,
 } from './runner-protocol.ts'
-import type {
-  LinuxLaunchFiles,
-  SerializedRunnerError,
-  WindowsRunnerResult,
-  WindowsStartRequest,
-} from './runner-protocol.ts'
-import {
-  parseRunnerTargetArgv,
-  resolveWindowsExecutable,
-  SUBPROCESS_RUNNER_ENV,
-  WINDOWS_RUNNER_SELECTION,
-} from './runner-launch.ts'
+import type { LinuxLaunchFiles, SerializedRunnerError, WindowsRunnerResult, WindowsStartRequest } from './runner-protocol.ts'
+import { parseRunnerTargetArgv, resolveWindowsExecutable, SUBPROCESS_RUNNER_ENV, WINDOWS_RUNNER_SELECTION } from './runner-launch.ts'
 
 type RunnerHost = Pick<NodeJS.Process, 'env' | 'exitCode' | 'connected' | 'cwd' | 'chdir' | 'on' | 'off' | 'once' | 'disconnect'> & {
   send?: NodeJS.Process['send']
@@ -77,30 +64,21 @@ const WINDOWS_SPAWN_ERROR_CODES = new Map<number, string>([
   [740, 'EACCES'],
 ])
 
-function nodeSpawnError(
-  syscall: string,
-  code: string,
-  path?: string,
-): SerializedRunnerError {
+function nodeSpawnError(syscall: string, code: string, path?: string): SerializedRunnerError {
   const message = `${syscall} ${code}`
   return {
     name: 'Error',
     message,
     code,
     syscall,
-    ...path === undefined ? {} : { path },
+    ...(path === undefined ? {} : { path }),
   }
 }
 
-function asSpawnError(
-  error: unknown,
-  program: string,
-): SerializedRunnerError {
+function asSpawnError(error: unknown, program: string): SerializedRunnerError {
   const serialized = serializeRunnerError(error)
   if (!(error instanceof Win32Error)) {
-    return serialized.code === undefined
-      ? serialized
-      : nodeSpawnError(`spawn ${program}`, serialized.code, program)
+    return serialized.code === undefined ? serialized : nodeSpawnError(`spawn ${program}`, serialized.code, program)
   }
   const code = WINDOWS_SPAWN_ERROR_CODES.get(error.win32Code) ?? 'UNKNOWN'
   if (NODE_SPAWN_DETAIL_CODES.has(code)) {
@@ -157,9 +135,7 @@ function execLinuxTarget(
   const path = request.env.PATH ?? '/usr/bin:/bin'
   let permissionFailure: Error | undefined
   for (const directory of path.split(':')) {
-    const root = directory.startsWith('/')
-      ? directory
-      : `${request.cwd}${request.cwd.endsWith('/') ? '' : '/'}${directory}`
+    const root = directory.startsWith('/') ? directory : `${request.cwd}${request.cwd.endsWith('/') ? '' : '/'}${directory}`
     const candidate = `${root}${root.endsWith('/') ? '' : '/'}${program}`
     try {
       return execLinuxFile(candidate, argv, request.env, internals, request.control)
@@ -176,12 +152,7 @@ function execLinuxTarget(
   throw permissionFailure ?? linuxPathNotFoundError(program)
 }
 
-function runLinux(
-  locator: string,
-  argv: string[],
-  host: RunnerHost,
-  internals: SpawnRunnerInternals,
-): void {
+function runLinux(locator: string, argv: string[], host: RunnerHost, internals: SpawnRunnerInternals): void {
   const files = linuxLaunchFilesFromLocator(locator)
   let request: ReturnType<typeof consumeLinuxLaunchRequest>
   try {
@@ -210,7 +181,7 @@ function sendMessage(host: RunnerHost, result: WindowsRunnerResult): Promise<voi
       return
     }
     try {
-      host.send(result, (error) => {
+      host.send(result, error => {
         if (error === null) resolve()
         else reject(error)
       })
@@ -282,7 +253,9 @@ class WindowsJobRunner {
       await this.publishTerminalResult({ type: 'error', error: windowsStartCancelledError() }, 0)
       return
     }
-    await new Promise<void>((resolveImmediate) => { setImmediate(resolveImmediate) })
+    await new Promise<void>(resolveImmediate => {
+      setImmediate(resolveImmediate)
+    })
     if (this.finished) return
     // IPC may set this field while start() is suspended above.
     // oxlint-disable-next-line typescript/no-unnecessary-condition
@@ -292,18 +265,17 @@ class WindowsJobRunner {
     }
     try {
       const [command, ...args] = this.argv
-      const applicationName = this.internals.resolveWindowsExecutable(
-        command as string,
-        request.cwd,
-        request.env,
-        undefined,
-        { ...this.host.env },
-      )
+      const applicationName = this.internals.resolveWindowsExecutable(command as string, request.cwd, request.env, undefined, {
+        ...this.host.env,
+      })
       if (applicationName === undefined) {
-        await this.publishTerminalResult({
-          type: 'error',
-          error: windowsPathNotFoundError(command as string),
-        }, 0)
+        await this.publishTerminalResult(
+          {
+            type: 'error',
+            error: windowsPathNotFoundError(command as string),
+          },
+          0,
+        )
         return
       }
       this.api = this.internals.loadWin32ProcessBindings()
@@ -313,20 +285,25 @@ class WindowsJobRunner {
         args,
         cwd: request.cwd,
         env: request.env,
-        stdio: { stdin: 4, stdout: 5, stderr: 6, ...request.control === 'pipe' ? { control: SUBPROCESS_CONTROL_FD } : {} },
+        stdio: { stdin: 4, stdout: 5, stderr: 6, ...(request.control === 'pipe' ? { control: SUBPROCESS_CONTROL_FD } : {}) },
       })
       this.processHandle = spawned.process
       this.jobHandle = spawned.job
       for (const fileDescriptor of request.control === 'pipe' ? [4, 5, 6, SUBPROCESS_CONTROL_FD] : [4, 5, 6]) {
         this.internals.closeFileDescriptor(fileDescriptor)
       }
-      this.pollTimer = setInterval(() => { this.poll() }, 10)
+      this.pollTimer = setInterval(() => {
+        this.poll()
+      }, 10)
     } catch (error) {
       if (this.jobHandle === undefined && error instanceof Win32Error && error.api === 'CreateProcessW') {
-        await this.publishTerminalResult({
-          type: 'error',
-          error: asSpawnError(error, this.argv[0] as string),
-        }, 0)
+        await this.publishTerminalResult(
+          {
+            type: 'error',
+            error: asSpawnError(error, this.argv[0] as string),
+          },
+          0,
+        )
         return
       }
       await this.runnerFailure(error)
@@ -416,12 +393,24 @@ class WindowsJobRunner {
     const api = this.api
     if (api === undefined) return
     if (this.jobHandle !== undefined) {
-      try { this.internals.terminateJob(api, this.jobHandle, 1) } catch { /* Continue to kill-on-close. */ }
-      try { this.internals.closeHandleChecked(api, this.jobHandle, 'ordinary process Job cleanup') } catch { /* Best effort after failure. */ }
+      try {
+        this.internals.terminateJob(api, this.jobHandle, 1)
+      } catch {
+        /* Continue to kill-on-close. */
+      }
+      try {
+        this.internals.closeHandleChecked(api, this.jobHandle, 'ordinary process Job cleanup')
+      } catch {
+        /* Best effort after failure. */
+      }
       this.jobHandle = undefined
     }
     if (this.processHandle !== undefined) {
-      try { this.internals.closeHandleChecked(api, this.processHandle, 'ordinary direct process cleanup') } catch { /* Best effort after failure. */ }
+      try {
+        this.internals.closeHandleChecked(api, this.processHandle, 'ordinary direct process cleanup')
+      } catch {
+        /* Best effort after failure. */
+      }
       this.processHandle = undefined
     }
   }
@@ -467,13 +456,13 @@ export async function runSpawnRunner(
  * @param error - failure raised before normal runner settlement.
  * @param host - process transport and lifecycle host.
  */
-export async function reportSpawnRunnerFailure(
-  selection: string | undefined,
-  error: unknown,
-  host: RunnerHost = process,
-): Promise<void> {
+export async function reportSpawnRunnerFailure(selection: string | undefined, error: unknown, host: RunnerHost = process): Promise<void> {
   if (selection === WINDOWS_RUNNER_SELECTION) {
-    try { await sendMessage(host, { type: 'error', error: serializeRunnerError(error) }) } catch { /* No transport remains. */ }
+    try {
+      await sendMessage(host, { type: 'error', error: serializeRunnerError(error) })
+    } catch {
+      /* No transport remains. */
+    }
     host.exitCode = 127
     if (host.connected) host.disconnect()
     return

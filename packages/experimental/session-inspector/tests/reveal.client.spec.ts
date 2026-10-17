@@ -1,17 +1,28 @@
 // @vitest-environment jsdom
 /** Inspector opens existing searchable folds and draws only a body-level overlay. */
 
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { InspectorChatRevealer } from '../src/client/views/chat-node/reveal.ts'
 
 it('reveals nested folds in order, selects the exact group part, and cancels its overlay resources', () => {
   const frames = new Map<number, FrameRequestCallback>()
   let nextFrame = 0
-  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => { frames.set(++nextFrame, callback); return nextFrame })
-  vi.stubGlobal('cancelAnimationFrame', (id: number) => { frames.delete(id) })
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback)
+    return nextFrame
+  })
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+    frames.delete(id)
+  })
   vi.stubGlobal('matchMedia', () => ({ matches: false }))
-  onTestFinished(() => { vi.unstubAllGlobals() })
-  const tick = () => { const pending = [...frames]; frames.clear(); for (const [, callback] of pending) callback(0) }
+  onTestFinished(() => {
+    vi.unstubAllGlobals()
+  })
+  const tick = () => {
+    const pending = [...frames]
+    frames.clear()
+    for (const [, callback] of pending) callback(0)
+  }
   const scroller = document.createElement('div')
   scroller.dataset.conversationScroll = ''
   const root = document.createElement('div')
@@ -27,10 +38,22 @@ it('reveals nested folds in order, selects the exact group part, and cancels its
   outer.setAttribute('hidden', 'until-found')
   inner.setAttribute('hidden', 'until-found')
   const order: string[] = []
-  outer.addEventListener('beforematch', () => { order.push('turn'); outer.removeAttribute('hidden') })
-  inner.addEventListener('beforematch', () => { order.push('group'); inner.removeAttribute('hidden') })
-  inner.append(row); outer.append(inner); root.append(otherPart, outer); scroller.append(root); document.body.append(scroller)
-  onTestFinished(() => { scroller.remove() })
+  outer.addEventListener('beforematch', () => {
+    order.push('turn')
+    outer.removeAttribute('hidden')
+  })
+  inner.addEventListener('beforematch', () => {
+    order.push('group')
+    inner.removeAttribute('hidden')
+  })
+  inner.append(row)
+  outer.append(inner)
+  root.append(otherPart, outer)
+  scroller.append(root)
+  document.body.append(scroller)
+  onTestFinished(() => {
+    scroller.remove()
+  })
   const scroll = vi.fn()
   row.scrollIntoView = scroll
   let rowTop = 30
@@ -44,7 +67,9 @@ it('reveals nested folds in order, selects the exact group part, and cancels its
     else Object.defineProperty(Element.prototype, 'animate', descriptor)
   })
   const locator = new InspectorChatRevealer(() => root)
-  onTestFinished(() => { locator.dispose() })
+  onTestFinished(() => {
+    locator.dispose()
+  })
   const scrollEnd = vi.fn()
   scroller.addEventListener('scrollend', scrollEnd)
   locator.reveal([{ nodeKey: 'node', groupPart: 'reasoning' }])

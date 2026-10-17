@@ -6,7 +6,7 @@ import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { SidebarRightTabRegistry } from '@deepseek-ai/dsh-client-ui-sidebar-right/src/client/tab-registry.ts'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { MutableSessionEventSource } from '@deepseek-ai/dsh-api-session-controller/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { ChatSnapshotBuilder } from '@deepseek-ai/dsh-client-ui-chat/src/client/conversation-nodes/chat-snapshot-builder.ts'
@@ -22,7 +22,9 @@ import { en, zh } from '../src/client/locales.ts'
 
 async function fixture(services?: { sessions: object; uiConversation: object; uiSession: object }) {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   ctx.provide('locale', new LocaleRuntime(ctx))
   ctx.provide('sessions', services?.sessions ?? {})
   ctx.provide('uiConversation', services?.uiConversation ?? {})
@@ -31,16 +33,27 @@ async function fixture(services?: { sessions: object; uiConversation: object; ui
   ctx.provide('sidebarRightTabs', tabs)
   ctx.locale.setLocale('en')
   await ctx.plugin(SlotRegistry).await()
-  const declare = () => ctx.slots.register({
-    name: 'root',
-    children: {
-      'conversation.view': { kind: 'list', scope: 'session' },
-      'sidebar.right.pane.tab': {
-        kind: 'keyed', scope: 'session',
-        inject: { hooks: { tabInfo: () => { throw new Error('Tab body is not rendered in this registration test') } } },
+  const declare = () =>
+    ctx.slots.register(
+      {
+        name: 'root',
+        children: {
+          'conversation.view': { kind: 'list', scope: 'session' },
+          'sidebar.right.pane.tab': {
+            kind: 'keyed',
+            scope: 'session',
+            inject: {
+              hooks: {
+                tabInfo: () => {
+                  throw new Error('Tab body is not rendered in this registration test')
+                },
+              },
+            },
+          },
+        },
       },
-    },
-  }, (_props: PropsRenderSlots<'conversation.view' | 'sidebar.right.pane.tab'>) => null)
+      (_props: PropsRenderSlots<'conversation.view' | 'sidebar.right.pane.tab'>) => null,
+    )
   return { ctx, tabs, declare }
 }
 
@@ -56,7 +69,9 @@ function inspectorInjector(ctx: Context) {
 describe('Session Inspector Sidebar tab', () => {
   it('keeps Host discovery inert and exposes only the named plugin entry', () => {
     expect('default' in discovery).toBe(false)
-    expect(() => { discovery.apply() }).not.toThrow()
+    expect(() => {
+      discovery.apply()
+    }).not.toThrow()
   })
   it('registers a page in the Sidebar guide without adding a Conversation View', async () => {
     const { ctx, tabs, declare } = await fixture()
@@ -68,8 +83,7 @@ describe('Session Inspector Sidebar tab', () => {
     expect(ctx.slots.entries('conversation.view')).toEqual([])
     expect(tabs.get(KIND)?.patterns).toBeUndefined()
     expect(tabs.get(KIND)?.title('')).toBe(en['tab.title'])
-    expect(tabs.guide().map(entry => ({ kind: entry.kind, title: entry.title() })))
-      .toEqual([{ kind: KIND, title: en['tab.title'] }])
+    expect(tabs.guide().map(entry => ({ kind: entry.kind, title: entry.title() }))).toEqual([{ kind: KIND, title: en['tab.title'] }])
     expect(tabs.guide()[0]?.description?.()).toBe(en['tab.description'])
     expect(tabs.get('nodejs-inspector')).toBeUndefined()
     ctx.locale.setLocale('zh')
@@ -101,29 +115,55 @@ describe('Session Inspector Sidebar tab', () => {
   it('binds cached sources, pagination, and exact or approximate picking to the inspected Session', async () => {
     const id = 'inspected-session' as SessionId
     const eventSource = new MutableSessionEventSource()
-    eventSource.replace([
-      { type: 'event', event: { type: 'turn/start', seq: SessionSeq(1), time: 1, data: { turn: 1 } } },
-      { type: 'event', event: { type: 'step/start', seq: SessionSeq(2), time: 2, data: { turn: 1, step: 1 } } },
-    ], false)
+    eventSource.replace(
+      [
+        { type: 'event', event: { type: 'turn/start', seq: SessionSeq(1), time: 1, data: { turn: 1 } } },
+        { type: 'event', event: { type: 'step/start', seq: SessionSeq(2), time: 2, data: { turn: 1, step: 1 } } },
+      ],
+      false,
+    )
     const node = chatNodeWithLocation()
     if (node.location.kind !== 'step') throw new Error('Expected a Step Location')
     const builder = new ChatSnapshotBuilder()
-    let chat: ChatSnapshot | undefined = builder.replace({ nodes: [node],
-      timeline: { turnOrder: [1], turns: new Map([[1, node.location.turn]]) } })
+    let chat: ChatSnapshot | undefined = builder.replace({
+      nodes: [node],
+      timeline: { turnOrder: [1], turns: new Map([[1, node.location.turn]]) },
+    })
     const groups = new ConversationGroupStore()
     const groupKey = 'picked-group' as GroupKey
-    groups.prepareAndInstall({ entries: [{ kind: 'group', key: groupKey }], groups: { kind: 'replace', snapshots: [{
-      key: groupKey, members: [{ kind: 'node', key: node.key as NodeKey }], data: {},
-    }] } }, key => chat?.nodes.get(key))
+    groups.prepareAndInstall(
+      {
+        entries: [{ kind: 'group', key: groupKey }],
+        groups: {
+          kind: 'replace',
+          snapshots: [
+            {
+              key: groupKey,
+              members: [{ kind: 'node', key: node.key as NodeKey }],
+              data: {},
+            },
+          ],
+        },
+      },
+      key => chat?.nodes.get(key),
+    )
     const views = { get: () => chat, grouped: () => groups } as ConversationSnapshot['views']
     const snapshot = createSnapshotStore<ConversationSnapshot>({ views, activeTargets: new Set(['chat']) })
     const loadOlder = vi.fn(async () => {})
     let binding = { eventSource, session: { loadOlder } }
     const current = createSnapshotStore({ key: id })
     const services = {
-      sessions: { binding: (key: SessionId) => key === id ? binding : undefined },
-      uiConversation: { binding: () => ({ snapshot, openTurn: createSnapshotStore<number | undefined>(1),
-        activate: vi.fn(), target: () => { throw new Error('unused') } }) },
+      sessions: { binding: (key: SessionId) => (key === id ? binding : undefined) },
+      uiConversation: {
+        binding: () => ({
+          snapshot,
+          openTurn: createSnapshotStore<number | undefined>(1),
+          activate: vi.fn(),
+          target: () => {
+            throw new Error('unused')
+          },
+        }),
+      },
       uiSession: { adapter: { current } },
     }
     const { ctx, declare } = await fixture(services)
@@ -152,7 +192,9 @@ describe('Session Inspector Sidebar tab', () => {
     host.dataset.slot = 'main.conversation'
     host.innerHTML = '<div data-slot="conversation.view"><div data-chat-flow></div></div>'
     document.body.append(host)
-    onTestFinished(() => { host.remove() })
+    onTestFinished(() => {
+      host.remove()
+    })
     expect(sources.chatRoot()).toBe(host.querySelector('[data-chat-flow]'))
     current.set({ key: 'another-session' as SessionId })
     expect(sources.chatRoot()).toBeUndefined()

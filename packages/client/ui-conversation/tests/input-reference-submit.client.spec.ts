@@ -3,7 +3,7 @@
  * owner, stay resident through Host rejection, and clear only after an
  * accepted prompt.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import type { InputTriggerController, SubmitOutcome, PickOutcome } from '../src/client/contract/input.ts'
 import { SessionInputShell } from '../src/client/input/facade.ts'
@@ -19,16 +19,19 @@ const commandAttachments = {
 
 function chip(shell: SessionInputShell): void {
   shell.setDraft('@res')
-  const accepted = shell.insertReference({
-    source: 'reference',
-    ref: mention,
-    label: 'Research',
-    clipboardText: mention,
-  }, {
-    start: 0,
-    end: 4,
-    draftRev: shell.snapshot.draftRev,
-  })
+  const accepted = shell.insertReference(
+    {
+      source: 'reference',
+      ref: mention,
+      label: 'Research',
+      clipboardText: mention,
+    },
+    {
+      start: 0,
+      end: 4,
+      draftRev: shell.snapshot.draftRev,
+    },
+  )
   expect(accepted).toBe(true)
 }
 
@@ -40,19 +43,26 @@ describe('reference submission', () => {
       defaultSink: vi.fn(),
       commandAttachments,
     })
-    first.bindDraftPersistence((draft) => { mirror(draft.text) })
+    first.bindDraftPersistence(draft => {
+      mirror(draft.text)
+    })
     first.setDraft('@res')
-    expect(first.insertReference({
-      source: 'reference',
-      ref: spacedMention,
-      label: 'Research notes',
-      appearance: 'session',
-      clipboardText: spacedMention,
-    }, {
-      start: 0,
-      end: 4,
-      draftRev: first.snapshot.draftRev,
-    })).toBe(true)
+    expect(
+      first.insertReference(
+        {
+          source: 'reference',
+          ref: spacedMention,
+          label: 'Research notes',
+          appearance: 'session',
+          clipboardText: spacedMention,
+        },
+        {
+          start: 0,
+          end: 4,
+          draftRev: first.snapshot.draftRev,
+        },
+      ),
+    ).toBe(true)
     // InputState.draft IS the clipboard projection now (chips expand to their
     // canonical text); the display label lives in the chip's decorator DOM.
     expect(first.snapshot.draft).toBe(`${spacedMention} `)
@@ -73,12 +83,10 @@ describe('reference submission', () => {
 
   it('retains the chip on Host failure and clears it only after a later accepted retry', async () => {
     const serializeReference = vi.fn(() => Promise.resolve(mention))
-    const sink = vi.fn<(
-      _text: string,
-      _imageIds: readonly DraftAttachmentId[],
-      _mode: 'queue' | 'steer',
-      _signal: AbortSignal,
-    ) => Promise<SubmitOutcome>>()
+    const sink = vi
+      .fn<
+        (_text: string, _imageIds: readonly DraftAttachmentId[], _mode: 'queue' | 'steer', _signal: AbortSignal) => Promise<SubmitOutcome>
+      >()
       .mockResolvedValueOnce({ kind: 'error', text: 'snapshot unavailable' })
       .mockResolvedValueOnce({ kind: 'success' })
     const inputTriggers = {
@@ -192,7 +200,10 @@ describe('reference submission', () => {
     const settlements: Array<(outcome: SubmitOutcome) => void> = []
     const shell = new SessionInputShell({
       actx: {} as Context,
-      defaultSink: () => new Promise<SubmitOutcome>((resolve) => { settlements.push(resolve) }),
+      defaultSink: () =>
+        new Promise<SubmitOutcome>(resolve => {
+          settlements.push(resolve)
+        }),
       commandAttachments,
     })
     shell.setDraft('first')
@@ -202,9 +213,13 @@ describe('reference submission', () => {
     expect(shell.snapshot.draft).toBe('')
 
     settlements[0]?.({ kind: 'error' })
-    await vi.waitFor(() => { expect(shell.snapshot.draft).toBe('first') })
+    await vi.waitFor(() => {
+      expect(shell.snapshot.draft).toBe('first')
+    })
     settlements[1]?.({ kind: 'error' })
-    await vi.waitFor(() => { expect(shell.snapshot.draft).toBe('first\n\nsecond') })
+    await vi.waitFor(() => {
+      expect(shell.snapshot.draft).toBe('first\n\nsecond')
+    })
   })
 })
 
@@ -212,7 +227,12 @@ describe('submit transaction hardening', () => {
   it('sends one image-only prompt per settlement, ignoring Enter during the round-trip', async () => {
     const submitted = vi.fn()
     let settle!: (outcome: SubmitOutcome) => void
-    const sink = vi.fn(() => new Promise<SubmitOutcome>((resolve) => { settle = resolve }))
+    const sink = vi.fn(
+      () =>
+        new Promise<SubmitOutcome>(resolve => {
+          settle = resolve
+        }),
+    )
     const shell = new SessionInputShell({
       actx: {} as Context,
       defaultSink: sink,
@@ -276,7 +296,7 @@ describe('submit transaction hardening', () => {
     const lexicon = { getSnapshot: () => new Map(), subscribe: () => () => {} }
     const shell = new SessionInputShell({
       actx: {} as Context,
-      inputTriggers: () => ({ track, lexicon } as unknown as InputTriggerController),
+      inputTriggers: () => ({ track, lexicon }) as unknown as InputTriggerController,
       defaultSink: vi.fn(),
       commandAttachments,
     })
@@ -290,41 +310,60 @@ describe('submit transaction hardening', () => {
   })
 })
 
-
 it('captures click and Enter submission intent before async admission, excluding empty submits', async () => {
   const report = vi.fn()
   const submissionState = vi.fn(() => ({ runMode: 'default' as const, running: false }))
-  const shell = new SessionInputShell({ actx: {} as Context, defaultSink: async () => ({ kind: 'success' }), commandAttachments, submissionState, messageSubmitted: report })
+  const shell = new SessionInputShell({
+    actx: {} as Context,
+    defaultSink: async () => ({ kind: 'success' }),
+    commandAttachments,
+    submissionState,
+    messageSubmitted: report,
+  })
   try {
     shell.submit('queue', 'click')
     expect(submissionState).not.toHaveBeenCalled()
     shell.setDraft('first')
     shell.submit('steer', 'click')
     expect(report).toHaveBeenCalledWith(expect.objectContaining({ mode: 'steer', source: 'click' }))
-    await vi.waitFor(() => { expect(shell.snapshot.phase).toBe('plain') })
+    await vi.waitFor(() => {
+      expect(shell.snapshot.phase).toBe('plain')
+    })
     shell.setDraft('second')
     shell.submit('queue', 'enter')
     expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'queue', source: 'enter' }))
     expect(report).toHaveBeenCalledTimes(2)
-  } finally { shell.dispose() }
+  } finally {
+    shell.dispose()
+  }
 })
 
-
-it.each(['capture', 'report'])('analytics %s failure does not interrupt a message', async (stage) => {
+it.each(['capture', 'report'])('analytics %s failure does not interrupt a message', async stage => {
   const sink = vi.fn(async (): Promise<SubmitOutcome> => ({ kind: 'success' }))
-  const fail = () => { throw new Error('analytics unavailable') }
-  const shell = new SessionInputShell({ actx: {} as Context, defaultSink: sink, commandAttachments,
-    ...stage === 'capture' ? { submissionState: fail } : { messageSubmitted: fail } })
+  const fail = () => {
+    throw new Error('analytics unavailable')
+  }
+  const shell = new SessionInputShell({
+    actx: {} as Context,
+    defaultSink: sink,
+    commandAttachments,
+    ...(stage === 'capture' ? { submissionState: fail } : { messageSubmitted: fail }),
+  })
   try {
     shell.setDraft('message')
-    expect(() => { shell.submit('queue', 'click') }).not.toThrow()
+    expect(() => {
+      shell.submit('queue', 'click')
+    }).not.toThrow()
     expect(sink).toHaveBeenCalledTimes(1)
-    await vi.waitFor(() => { expect(shell.snapshot.phase).toBe('plain') })
-  } finally { shell.dispose() }
+    await vi.waitFor(() => {
+      expect(shell.snapshot.phase).toBe('plain')
+    })
+  } finally {
+    shell.dispose()
+  }
 })
 
-
-it.each(['handled', 'claim', 'message'] as const)('counts only a message after asynchronous slash adjudication: %s', async (kind) => {
+it.each(['handled', 'claim', 'message'] as const)('counts only a message after asynchronous slash adjudication: %s', async kind => {
   const pending = Promise.withResolvers<PickOutcome>()
   const report = vi.fn()
   const submissionState = vi.fn(() => ({ runMode: 'default' as const, running: false }))
@@ -333,19 +372,33 @@ it.each(['handled', 'claim', 'message'] as const)('counts only a message after a
   const inputTriggers: InputTriggerController = {
     launcher: { getSnapshot: () => null, subscribe: () => () => {} },
     lexicon: { getSnapshot: () => new Map(), subscribe: () => () => {} },
-    track: () => {}, arbitrate: () => 'pass', onSpace: () => false,
-    serializeReference: async () => '', openReference: () => false, toggleSource: () => {},
+    track: () => {},
+    arbitrate: () => 'pass',
+    onSpace: () => false,
+    serializeReference: async () => '',
+    openReference: () => false,
+    toggleSource: () => {},
     adjudicate: () => pending.promise,
     resolveClaim: () => Promise.resolve(undefined),
   }
-  const shell = new SessionInputShell({ actx: {} as Context, inputTriggers: () => inputTriggers,
-    submissionState, messageSubmitted: report, defaultSink: sink, commandAttachments })
+  const shell = new SessionInputShell({
+    actx: {} as Context,
+    inputTriggers: () => inputTriggers,
+    submissionState,
+    messageSubmitted: report,
+    defaultSink: sink,
+    commandAttachments,
+  })
   try {
     shell.setDraft('/compact')
     shell.submit('queue', 'enter')
     expect(report).not.toHaveBeenCalled()
-    pending.resolve(kind === 'handled' ? 'handled' : kind === 'claim' ? { claim: { name: 'compact', token: '/compact', submit: command } } : undefined)
-    await vi.waitFor(() => { expect(shell.snapshot.phase).toBe('plain') })
+    pending.resolve(
+      kind === 'handled' ? 'handled' : kind === 'claim' ? { claim: { name: 'compact', token: '/compact', submit: command } } : undefined,
+    )
+    await vi.waitFor(() => {
+      expect(shell.snapshot.phase).toBe('plain')
+    })
     expect(report).toHaveBeenCalledTimes(kind === 'message' ? 1 : 0)
     expect(sink).toHaveBeenCalledTimes(kind === 'message' ? 1 : 0)
     expect(submissionState).toHaveBeenCalledOnce()
@@ -353,7 +406,9 @@ it.each(['handled', 'claim', 'message'] as const)('counts only a message after a
     shell.actions.submit()
     expect(report).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'queue' }))
     expect(report.mock.calls.at(-1)?.[0]).not.toHaveProperty('source')
-  } finally { shell.dispose() }
+  } finally {
+    shell.dispose()
+  }
 })
 
 it('retains occurrence time and Session facts across arbitration and independent failed sends', async () => {
@@ -365,14 +420,20 @@ it('retains occurrence time and Session facts across arbitration and independent
   let running = true
   let now = 100
   const clock = vi.spyOn(Date, 'now').mockImplementation(() => now)
-  const shell = new SessionInputShell({ actx: {} as Context, commandAttachments,
+  const shell = new SessionInputShell({
+    actx: {} as Context,
+    commandAttachments,
     submissionState: () => Object.freeze({ runMode: running ? 'plan' : 'default', running }),
     messageSubmitted: submitted,
     inputTriggers: () => ({
       launcher: { getSnapshot: () => null, subscribe: () => () => {} },
       lexicon: { getSnapshot: () => new Map(), subscribe: () => () => {} },
-      track: () => {}, arbitrate: () => 'pass', onSpace: () => false,
-      serializeReference: async () => '', openReference: () => false, toggleSource: () => {},
+      track: () => {},
+      arbitrate: () => 'pass',
+      onSpace: () => false,
+      serializeReference: async () => '',
+      openReference: () => false,
+      toggleSource: () => {},
       adjudicate: () => pending.promise,
       resolveClaim: () => Promise.resolve(undefined),
     }),
@@ -385,12 +446,21 @@ it('retains occurrence time and Session facts across arbitration and independent
     now = 200
     expect(submitted).not.toHaveBeenCalled()
     pending.resolve(undefined)
-    await vi.waitFor(() => { expect(submitted).toHaveBeenCalledOnce() })
-    expect(submitted).toHaveBeenLastCalledWith({ timestamp: 100, source: 'click', mode: 'steer', state: { running: true, runMode: 'plan' } })
+    await vi.waitFor(() => {
+      expect(submitted).toHaveBeenCalledOnce()
+    })
+    expect(submitted).toHaveBeenLastCalledWith({
+      timestamp: 100,
+      source: 'click',
+      mode: 'steer',
+      state: { running: true, runMode: 'plan' },
+    })
     shell.setDraft('second')
     shell.actions.submit()
     expect(submitted).toHaveBeenLastCalledWith({ timestamp: 200, mode: 'queue', state: { running: false, runMode: 'default' } })
-    await vi.waitFor(() => { expect(sink).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(sink).toHaveBeenCalledTimes(2)
+    })
     secondSend.resolve({ kind: 'error', text: 'second rejected' })
     firstSend.resolve({ kind: 'error', text: 'first rejected' })
     await Promise.all([firstSend.promise, secondSend.promise])

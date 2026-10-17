@@ -29,22 +29,14 @@ export function apply(ctx: Context): void {
       parentStopped.resolve(undefined)
     })
     const disposeStatus = ctx.root.on('agent/status', ({ agent, status }) => {
-      if (
-        agent.session.header.parentSession === undefined &&
-        status === 'idle' &&
-        hasStopped &&
-        parentMaintenance === undefined
-      ) {
+      if (agent.session.header.parentSession === undefined && status === 'idle' && hasStopped && parentMaintenance === undefined) {
         parentMaintenance = agent.runMaintenance(async () => {
           await childSettled.promise
         })
       }
     })
     const disposeInbox = ctx.root.on('agent/inbox/inserted', ({ agent, message }) => {
-      if (
-        agent.session.header.parentSession === undefined &&
-        message.source.kind === 'subagent-settled'
-      ) {
+      if (agent.session.header.parentSession === undefined && message.source.kind === 'subagent-settled') {
         childSettled.resolve(undefined)
       }
     })

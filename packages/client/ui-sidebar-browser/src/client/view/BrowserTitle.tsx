@@ -13,5 +13,10 @@ export type BrowserTitleProps = PropsRuntime<'sidebar.right.pane.tab.title'> & P
 export function BrowserTitle({ useTabInfo, useStore }: BrowserTitleProps): ReactNode {
   const { tab } = useTabInfo()
   const entry = useStore(state => currentBrowserTarget(state.byTab[tab.id]))
-  return <><IconGlobeOutlineRegular className={css.titleIcon} />{entry?.title ?? tab.title}</>
+  return (
+    <>
+      <IconGlobeOutlineRegular className={css.titleIcon} />
+      {entry?.title ?? tab.title}
+    </>
+  )
 }

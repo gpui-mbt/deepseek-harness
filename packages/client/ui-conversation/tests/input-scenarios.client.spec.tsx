@@ -10,23 +10,29 @@
  */
 import './control-row-dom.ts'
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import {
-  $createTextNode, $getRoot, $isElementNode, BEFORE_INPUT_COMMAND, COMMAND_PRIORITY_LOW, DELETE_CHARACTER_COMMAND,
+  $createTextNode,
+  $getRoot,
+  $isElementNode,
+  BEFORE_INPUT_COMMAND,
+  COMMAND_PRIORITY_LOW,
+  DELETE_CHARACTER_COMMAND,
   UNDO_COMMAND,
 } from 'lexical'
 import type { SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { InputTriggerService } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
-import type {
-  ClientSessionContext, SubmitEnvelope,
-} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
-import type {
-  CommandClaim, PickOutcome, SubmitAttachment, SubmitOutcome,
-} from '../src/client/contract/input.ts'
+import type { ClientSessionContext, SubmitEnvelope } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import type { CommandClaim, PickOutcome, SubmitAttachment, SubmitOutcome } from '../src/client/contract/input.ts'
 import {
-  allowAllAccess, bindSnapshotSelector, conversationSnapshot, makeTranslate, sessionSnapshot, SlotTestRuntime,
+  allowAllAccess,
+  bindSnapshotSelector,
+  conversationSnapshot,
+  makeTranslate,
+  sessionSnapshot,
+  SlotTestRuntime,
 } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -44,9 +50,16 @@ const useResource = (() => ({ status: 'none' as const, value: undefined, failure
 // jsdom implements no Range geometry (Lexical's scroll-into-view measures the
 // caret with one once the surface is genuinely contenteditable).
 Range.prototype.getBoundingClientRect = () => ({
-  top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}),
+  top: 0,
+  bottom: 0,
+  left: 0,
+  right: 0,
+  width: 0,
+  height: 0,
+  x: 0,
+  y: 0,
+  toJSON: () => ({}),
 })
-
 
 afterEach(cleanup)
 
@@ -58,10 +71,7 @@ interface FakeCommand {
 }
 
 /** Decision-table source over an in-memory directory (menu/space/enter columns for leadingInput + execute). */
-function commandSource(
-  commands: FakeCommand[],
-  execute: (line: string, images?: readonly SubmitAttachment[]) => Promise<SubmitOutcome>,
-) {
+function commandSource(commands: FakeCommand[], execute: (line: string, images?: readonly SubmitAttachment[]) => Promise<SubmitOutcome>) {
   const resolve = (name: string): FakeCommand | undefined => commands.find(c => c.name === name)
   const leadingClaim = (desc: FakeCommand): CommandClaim => ({
     name: desc.name,
@@ -79,10 +89,12 @@ function commandSource(
       trigger: '/' as const,
       name: 'command',
       candidates: (_session: ClientSessionContext, req: { query: string; position: string }) =>
-        Promise.resolve(commands
-          .filter(c => c.name.startsWith(req.query))
-          .filter(c => req.position === 'leading' || c.input === undefined)
-          .map(c => ({ name: c.name, description: c.description, ...(c.input !== undefined ? { hint: c.input.hint } : {}) }))),
+        Promise.resolve(
+          commands
+            .filter(c => c.name.startsWith(req.query))
+            .filter(c => req.position === 'leading' || c.input === undefined)
+            .map(c => ({ name: c.name, description: c.description, ...(c.input !== undefined ? { hint: c.input.hint } : {}) })),
+        ),
       onPick: (pick: { candidate: { name: string } }): PickOutcome => {
         const desc = resolve(pick.candidate.name)
         if (desc === undefined) return undefined
@@ -130,7 +142,9 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
   await runtime.sessions.add({ id: sessionId, summary: { cwd: '/w/a' } })
   const reference = runtime.sessions.retain(sessionId)
   await reference.ready
-  onTestFinished(() => { reference.release() })
+  onTestFinished(() => {
+    reference.release()
+  })
   await ctx.plugin(InputTriggerService).await()
   const inputTriggers = ctx.get('inputTriggers') as InputTriggerService
   register?.(inputTriggers)
@@ -139,15 +153,22 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
   const sink = vi.fn(() => Promise.resolve<SubmitOutcome>({ kind: 'success' }))
   const serialize = vi.fn((ids: readonly DraftAttachmentId[]) => Promise.resolve(ids.map(() => PNG)))
   const release = vi.fn()
-  const shell = new SessionInputShell({ actx, inputTriggers: () => controller, defaultSink: sink, commandAttachments: { serialize, release, unsupportedNotice: (token: string) => `${token.trim()} attachments-unsupported` } })
+  const shell = new SessionInputShell({
+    actx,
+    inputTriggers: () => controller,
+    defaultSink: sink,
+    commandAttachments: { serialize, release, unsupportedNotice: (token: string) => `${token.trim()} attachments-unsupported` },
+  })
   actx.effect(() => {
     shell.refreshLexiconSubscription()
-    return () => { shell.dispose() }
+    return () => {
+      shell.dispose()
+    }
   }, 'test input shell')
   // The hub's listener wiring, verbatim.
-  actx.on('slash/input-begin-command', req => shell.beginCommand(req.claim, req.span) ? true : undefined)
-  actx.on('slash/input-insert-reference', req => shell.insertReference(req.reference, req.span) ? true : undefined)
-  actx.on('slash/input-consume-token', req => shell.consumeToken(req.guard) ? true : undefined)
+  actx.on('slash/input-begin-command', req => (shell.beginCommand(req.claim, req.span) ? true : undefined))
+  actx.on('slash/input-insert-reference', req => (shell.insertReference(req.reference, req.span) ? true : undefined))
+  actx.on('slash/input-consume-token', req => (shell.consumeToken(req.guard) ? true : undefined))
   const wiring = shell
   const sessionStore = createSnapshotStore<SessionSnapshot>(sessionSnapshot(sessionId))
   const barProps: InputBarProps = {
@@ -155,21 +176,33 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
     sessionId,
     SessionProvider: ({ children }) => children,
     useSession: bindSnapshotSelector(sessionStore),
-    useSessions: bindSnapshotSelector(createSnapshotStore({
-      ids: [], byId: {}, current: undefined, phase: 'ready',
-      projectionsBySession: {}, currentAddress: undefined,
-    })),
-    useSessionStatus: bindSnapshotSelector(
-      createSnapshotStore<SessionStatusSnapshot>(new Map()),
+    useSessions: bindSnapshotSelector(
+      createSnapshotStore({
+        ids: [],
+        byId: {},
+        current: undefined,
+        phase: 'ready',
+        projectionsBySession: {},
+        currentAddress: undefined,
+      }),
     ),
+    useSessionStatus: bindSnapshotSelector(createSnapshotStore<SessionStatusSnapshot>(new Map())),
     useSessionRetainInfo: () => undefined,
     useResource,
-    useWorkspaces: bindSnapshotSelector(createSnapshotStore({
-      items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
-      baselinesReady: true, recentWorkspaceId: undefined,
-    })),
+    useWorkspaces: bindSnapshotSelector(
+      createSnapshotStore({
+        items: [],
+        archivedSessionIds: [],
+        pinnedSessionIds: [],
+        state: 'idle',
+        phase: 'ready',
+        error: null,
+        baselinesReady: true,
+        recentWorkspaceId: undefined,
+      }),
+    ),
     ...allowAllAccess,
-    useProjection: (() => undefined),
+    useProjection: () => undefined,
     useConversation: bindSnapshotSelector(createSnapshotStore(conversationSnapshot())),
     useInput: bindSnapshotSelector(shell.state),
     inputActions: shell.actions,
@@ -179,13 +212,15 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
     retryFileUpload: undefined,
     removeAttachment: () => {},
     // Every id resolves so the bar's registry prune never drops a test image.
-    resolveDraftAttachments: ids => ids.map(id => ({
-      kind: 'image' as const, id,
-      file: new File([Uint8Array.of(1)], `${id}.png`, { type: 'image/png' }),
-      previewUrl: `blob:${id}`,
-    })),
+    resolveDraftAttachments: ids =>
+      ids.map(id => ({
+        kind: 'image' as const,
+        id,
+        file: new File([Uint8Array.of(1)], `${id}.png`, { type: 'image/png' }),
+        previewUrl: `blob:${id}`,
+      })),
     useBusyEnter: bindSnapshotSelector(createSnapshotStore<'queue' | 'steer'>('queue')),
-    toggleCommandMenu: (selection) => {
+    toggleCommandMenu: selection => {
       const snapshot = shell.snapshot
       controller.toggleSource('command', {
         trigger: '/',
@@ -207,7 +242,9 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
   const view = render(<InputBar {...barProps} />)
   const textarea = view.container.querySelector<HTMLDivElement>('[data-composer-input]')!
   const type = (text: string): void => {
-    act(() => { shell.setDraft(text) })
+    act(() => {
+      shell.setDraft(text)
+    })
   }
   /** Press Space and let the claim the key handler applied commit (Lexical commits it on the next microtask). */
   const space = async (): Promise<void> => {
@@ -216,7 +253,9 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
   }
   /** Type at the live caret, as keyboard input after the claimed chip does. */
   const append = (text: string): void => {
-    act(() => { shell.actions.insertText(text, shell.actions.captureInsertion()) })
+    act(() => {
+      shell.actions.insertText(text, shell.actions.captureInsertion())
+    })
   }
   /** Dispatch one character deletion and commit it (the command's update lands on the next flush). */
   const deleteCharacter = (isBackward: boolean): void => {
@@ -228,20 +267,39 @@ async function scopedBench(register?: (inputTriggers: InputTriggerService) => vo
   /** Delete one detect span through the editor, as a Backspace over it does. */
   const erase = (start: number, end: number): void => {
     act(() => {
-      shell.editor.update(() => { $replaceDetectSpanWithText({ start, end }, '') }, { discrete: true })
+      shell.editor.update(
+        () => {
+          $replaceDetectSpanWithText({ start, end }, '')
+        },
+        { discrete: true },
+      )
     })
   }
   return {
-    runtime, inputTriggers, controller, shell, wiring, view, textarea,
-    type, space, append, erase, deleteCharacter, sink, serialize, release,
+    runtime,
+    inputTriggers,
+    controller,
+    shell,
+    wiring,
+    view,
+    textarea,
+    type,
+    space,
+    append,
+    erase,
+    deleteCharacter,
+    sink,
+    serialize,
+    release,
   }
 }
 
 async function bench(executeImpl?: (line: string) => Promise<SubmitOutcome>) {
-  const execute = vi.fn(executeImpl ?? ((line: string) =>
-    Promise.resolve({ kind: 'success' as const, text: `已执行 ${line}` })))
+  const execute = vi.fn(executeImpl ?? ((line: string) => Promise.resolve({ kind: 'success' as const, text: `已执行 ${line}` })))
   const { source, executed, envelopes } = commandSource(COMMANDS, execute)
-  const base = await scopedBench((inputTriggers) => { inputTriggers.registerSource(source) })
+  const base = await scopedBench(inputTriggers => {
+    inputTriggers.registerSource(source)
+  })
   return { ...base, execute, executed, envelopes }
 }
 
@@ -256,7 +314,9 @@ describe('scenario A: menu-pick /goal, type args, enter submits', () => {
       expect(menu.groups[0]?.items.map((i: { name: string }) => i.name)).toContain('goal')
     })
     // Pointer pick (menu path executes through the bound target inside the pipeline).
-    act(() => { b.controller.pick('command', 0) })
+    act(() => {
+      b.controller.pick('command', 0)
+    })
     expect(b.shell.snapshot.phase).toBe('claimed')
     expect(b.shell.snapshot.draft).toBe('/goal ')
     expect(b.view.container.querySelector('[data-composer-command]')?.textContent).toBe('/goal')
@@ -267,8 +327,12 @@ describe('scenario A: menu-pick /goal, type args, enter submits', () => {
     expect(b.shell.snapshot.phase).toBe('claimed')
     // Enter: submitting → command execute → commit clears.
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
-    await vi.waitFor(() => { expect(b.execute).toHaveBeenCalledWith('/goal 发布 v1', []) })
-    await vi.waitFor(() => { expect(b.shell.snapshot.draft).toBe('') })
+    await vi.waitFor(() => {
+      expect(b.execute).toHaveBeenCalledWith('/goal 发布 v1', [])
+    })
+    await vi.waitFor(() => {
+      expect(b.shell.snapshot.draft).toBe('')
+    })
     expect(b.shell.snapshot.phase).toBe('plain')
     expect(b.view.getByText('已执行 /goal 发布 v1')).toBeTruthy()
     expect(b.sink).not.toHaveBeenCalled()
@@ -280,10 +344,16 @@ describe('scenario C: pasted /goal xxx + enter (menu never opened)', () => {
     const b = await bench()
     // Paste lands whole; caret at end means detectTrigger sees no token under
     // the caret mid-whitespace — menu stays closed; enter runs adjudication.
-    act(() => { b.shell.setDraft('/goal 尽快发布') })
+    act(() => {
+      b.shell.setDraft('/goal 尽快发布')
+    })
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
-    await vi.waitFor(() => { expect(b.execute).toHaveBeenCalledWith('/goal 尽快发布', []) })
-    await vi.waitFor(() => { expect(b.shell.snapshot.phase).toBe('plain') })
+    await vi.waitFor(() => {
+      expect(b.execute).toHaveBeenCalledWith('/goal 尽快发布', [])
+    })
+    await vi.waitFor(() => {
+      expect(b.shell.snapshot.phase).toBe('plain')
+    })
     expect(b.shell.snapshot.draft).toBe('')
     expect(b.sink).not.toHaveBeenCalled()
   })
@@ -293,8 +363,12 @@ describe('scenario D: execute-kind /compact', () => {
   it('menu pick executes immediately without touching the draft machine phase', async () => {
     const b = await bench()
     b.type('/comp')
-    await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
-    act(() => { b.controller.pick('command', 0) })
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().open).toBe(true)
+    })
+    act(() => {
+      b.controller.pick('command', 0)
+    })
     // 'handled': no claim, machine still plain; the source ran the detached execute.
     expect(b.shell.snapshot.phase).toBe('plain')
     expect(b.executed).toContain('/compact')
@@ -302,17 +376,27 @@ describe('scenario D: execute-kind /compact', () => {
 
   it('bare /compact + enter executes; trailing text falls to the default sink (scenario I twin)', async () => {
     const b = await bench()
-    act(() => { b.shell.setDraft('/compact') })
+    act(() => {
+      b.shell.setDraft('/compact')
+    })
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
-    await vi.waitFor(() => { expect(b.executed).toContain('/compact') })
+    await vi.waitFor(() => {
+      expect(b.executed).toContain('/compact')
+    })
     // 'handled' flows back as the adjudicated event one microtask later.
-    await vi.waitFor(() => { expect(b.shell.snapshot.phase).toBe('plain') })
+    await vi.waitFor(() => {
+      expect(b.shell.snapshot.phase).toBe('plain')
+    })
     cleanup()
     const b2 = await bench()
-    act(() => { b2.shell.setDraft('/compact 现在') })
+    act(() => {
+      b2.shell.setDraft('/compact 现在')
+    })
     fireEvent.keyDown(b2.textarea, { key: 'Enter' })
     // execute with trailing → matchEnter answers undefined → default sink.
-    await vi.waitFor(() => { expect(b2.sink).toHaveBeenCalledWith('/compact 现在', [], 'queue', expect.any(AbortSignal)) })
+    await vi.waitFor(() => {
+      expect(b2.sink).toHaveBeenCalledWith('/compact 现在', [], 'queue', expect.any(AbortSignal))
+    })
     expect(b2.executed).toHaveLength(0)
   })
 })
@@ -320,14 +404,22 @@ describe('scenario D: execute-kind /compact', () => {
 describe('scenario: images ride an accepting command through the real pipeline', () => {
   it('adjudication reports the image count; the claim chain serializes, submits, and consumes', async () => {
     const b = await bench()
-    act(() => { b.shell.addAttachments(['img-1' as DraftAttachmentId]) })
-    act(() => { b.shell.setDraft('/vision 这张图是什么') })
+    act(() => {
+      b.shell.addAttachments(['img-1' as DraftAttachmentId])
+    })
+    act(() => {
+      b.shell.setDraft('/vision 这张图是什么')
+    })
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
-    await vi.waitFor(() => { expect(b.execute).toHaveBeenCalledWith('/vision 这张图是什么', [PNG]) })
+    await vi.waitFor(() => {
+      expect(b.execute).toHaveBeenCalledWith('/vision 这张图是什么', [PNG])
+    })
     // The envelope the controller forwarded to matchEnter carried the count.
     expect(b.envelopes).toEqual([{ attachments: 1 }])
     expect(b.serialize).toHaveBeenCalledWith(['img-1'])
-    await vi.waitFor(() => { expect(b.shell.snapshot.draft).toBe('') })
+    await vi.waitFor(() => {
+      expect(b.shell.snapshot.draft).toBe('')
+    })
     expect(b.release).toHaveBeenCalledWith(['img-1'])
     expect(b.shell.snapshot.attachmentIds).toEqual([])
     expect(b.sink).not.toHaveBeenCalled()
@@ -335,9 +427,13 @@ describe('scenario: images ride an accepting command through the real pipeline',
 
   it('an imageless enter adjudicates with a zero-image envelope', async () => {
     const b = await bench()
-    act(() => { b.shell.setDraft('/goal 发布') })
+    act(() => {
+      b.shell.setDraft('/goal 发布')
+    })
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
-    await vi.waitFor(() => { expect(b.execute).toHaveBeenCalledWith('/goal 发布', []) })
+    await vi.waitFor(() => {
+      expect(b.execute).toHaveBeenCalledWith('/goal 发布', [])
+    })
     expect(b.envelopes).toEqual([{ attachments: 0 }])
     expect(b.serialize).not.toHaveBeenCalled()
     expect(b.release).not.toHaveBeenCalled()
@@ -345,10 +441,11 @@ describe('scenario: images ride an accepting command through the real pipeline',
 })
 
 describe('scenario H: the command chip deletes whole', () => {
-  it.each(['goal', '目标', 'plan', '计划', 'feedback', '反馈'])('keeps /%s claimed until the chip itself is deleted', async (name) => {
-    const { source } = commandSource([{ name, description: name, input: { hint: '目标内容' } }],
-      () => Promise.resolve({ kind: 'success' }))
-    const b = await scopedBench((triggers) => { triggers.registerSource(source) })
+  it.each(['goal', '目标', 'plan', '计划', 'feedback', '反馈'])('keeps /%s claimed until the chip itself is deleted', async name => {
+    const { source } = commandSource([{ name, description: name, input: { hint: '目标内容' } }], () => Promise.resolve({ kind: 'success' }))
+    const b = await scopedBench(triggers => {
+      triggers.registerSource(source)
+    })
     b.type(`/${name}`)
     await b.space()
     expect(b.shell.snapshot.phase).toBe('claimed')
@@ -373,7 +470,9 @@ describe('scenario H: the command chip deletes whole', () => {
   it('the first deletion at the chip edge selects the chip and the second removes it', async () => {
     const b = await bench()
     b.type('/goal')
-    await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().open).toBe(true)
+    })
     await b.space()
     b.append('发布')
     for (let i = 0; i < 3; i++) {
@@ -395,7 +494,9 @@ describe('scenario H: the command chip deletes whole', () => {
   it('a key that deletes nothing, or typing, clears a selected chip without deleting it', async () => {
     const b = await bench()
     b.type('/goal')
-    await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().open).toBe(true)
+    })
     await b.space()
     b.erase(1, 2)
     const chip = (): Element | null => b.view.container.querySelector('[data-composer-command]')
@@ -419,7 +520,9 @@ describe('scenario H: the command chip deletes whole', () => {
   it('a platform deletion shortcut keeps the selection its first press made and deletes on the second', async () => {
     const b = await bench()
     b.type('/goal')
-    await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().open).toBe(true)
+    })
     await b.space()
     b.erase(1, 2)
     const chip = (): Element | null => b.view.container.querySelector('[data-composer-command]')
@@ -442,7 +545,9 @@ describe('scenario H: the command chip deletes whole', () => {
   it('a deletion input event selects the chip first and lets the second one delete it', async () => {
     const b = await bench()
     b.type('/goal')
-    await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().open).toBe(true)
+    })
     await b.space()
     b.erase(1, 2)
     const chip = (): Element | null => b.view.container.querySelector('[data-composer-command]')
@@ -471,15 +576,20 @@ describe('scenario H: the command chip deletes whole', () => {
   it('Delete before the chip selects it first and removes it on the second press', async () => {
     const b = await bench()
     b.type('/goal')
-    await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().open).toBe(true)
+    })
     await b.space()
     b.append('发布')
     act(() => {
-      b.shell.editor.update(() => {
-        const paragraph = $getRoot().getFirstChild()
-        if (!$isElementNode(paragraph)) throw new Error('missing paragraph')
-        paragraph.select(0, 0)
-      }, { discrete: true })
+      b.shell.editor.update(
+        () => {
+          const paragraph = $getRoot().getFirstChild()
+          if (!$isElementNode(paragraph)) throw new Error('missing paragraph')
+          paragraph.select(0, 0)
+        },
+        { discrete: true },
+      )
     })
     const chip = (): Element | null => b.view.container.querySelector('[data-composer-command]')
     b.deleteCharacter(false)
@@ -493,16 +603,21 @@ describe('scenario H: the command chip deletes whole', () => {
   it('keeps text written at the chip boundary out of the chip', async () => {
     const b = await bench()
     b.type('/goal')
-    await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().open).toBe(true)
+    })
     await b.space()
     b.append('发布')
     // The caret right after the chip: Lexical writes into the argument text.
     act(() => {
-      b.shell.editor.update(() => {
-        const paragraph = $getRoot().getFirstChild()
-        if (!$isElementNode(paragraph)) throw new Error('missing paragraph')
-        paragraph.select(1, 1).insertText('立即')
-      }, { discrete: true })
+      b.shell.editor.update(
+        () => {
+          const paragraph = $getRoot().getFirstChild()
+          if (!$isElementNode(paragraph)) throw new Error('missing paragraph')
+          paragraph.select(1, 1).insertText('立即')
+        },
+        { discrete: true },
+      )
     })
     expect(b.shell.snapshot.draft).toBe('/goal立即 发布')
     expect(b.shell.snapshot.phase).toBe('claimed')
@@ -512,7 +627,9 @@ describe('scenario H: the command chip deletes whole', () => {
   it('deleting the chip releases the claim; the arguments left behind send as a plain message', async () => {
     const b = await bench()
     b.type('/goal')
-    await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().open).toBe(true)
+    })
     // Space adjudication claims (space column, leadingInput).
     await b.space()
     expect(b.shell.snapshot.phase).toBe('claimed')
@@ -529,15 +646,20 @@ describe('scenario H: the command chip deletes whole', () => {
   it('typing before the chip turns it into its literal token and releases the claim', async () => {
     const b = await bench()
     b.type('/goal')
-    await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().open).toBe(true)
+    })
     await b.space()
     b.append('发布')
     act(() => {
-      b.shell.editor.update(() => {
-        const paragraph = $getRoot().getFirstChild()
-        if (!$isElementNode(paragraph)) throw new Error('missing paragraph')
-        paragraph.getFirstChild()?.insertBefore($createTextNode('看看 '))
-      }, { discrete: true })
+      b.shell.editor.update(
+        () => {
+          const paragraph = $getRoot().getFirstChild()
+          if (!$isElementNode(paragraph)) throw new Error('missing paragraph')
+          paragraph.getFirstChild()?.insertBefore($createTextNode('看看 '))
+        },
+        { discrete: true },
+      )
     })
     expect(b.shell.snapshot.phase).toBe('plain')
     expect(b.shell.snapshot.draft).toBe('看看 /goal 发布')
@@ -547,7 +669,9 @@ describe('scenario H: the command chip deletes whole', () => {
   it('undoing the chip deletion restores the chip and its claim', async () => {
     const b = await bench()
     b.type('/goal')
-    await vi.waitFor(() => { expect(b.controller.menu.getSnapshot().open).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.controller.menu.getSnapshot().open).toBe(true)
+    })
     await b.space()
     b.append('发布')
     b.erase(0, 1)
@@ -561,7 +685,9 @@ describe('scenario H: the command chip deletes whole', () => {
     expect(b.shell.snapshot.draft).toBe('/goal 发布')
     expect(b.view.container.querySelector('[data-composer-command]')?.textContent).toBe('/goal')
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
-    await vi.waitFor(() => { expect(b.execute).toHaveBeenCalledWith('/goal 发布', []) })
+    await vi.waitFor(() => {
+      expect(b.execute).toHaveBeenCalledWith('/goal 发布', [])
+    })
   })
 })
 
@@ -569,15 +695,18 @@ describe('scenario: reference decoration follows the current lexicon', () => {
   it('decorates only the current text when its catalog arrives and clears decoration for an empty catalog', async () => {
     let roll: readonly string[] | undefined
     let notify: (() => void) | undefined
-    const b = await scopedBench((inputTriggers) => {
+    const b = await scopedBench(inputTriggers => {
       inputTriggers.registerSource({
-        trigger: '/', name: 'skill',
+        trigger: '/',
+        name: 'skill',
         candidates: () => Promise.resolve([]),
         onPick: () => undefined,
         lexicon: () => roll,
         subscribeLexicon: (_session: ClientSessionContext, listener: () => void) => {
           notify = listener
-          return () => { notify = undefined }
+          return () => {
+            notify = undefined
+          }
         },
       } as never)
     })
@@ -604,7 +733,9 @@ describe('scenario: reference decoration follows the current lexicon', () => {
       roll = []
       notify?.()
     })
-    await vi.waitFor(() => { expect(b.view.container.querySelector('[data-composer-text-ref]')).toBeNull() })
+    await vi.waitFor(() => {
+      expect(b.view.container.querySelector('[data-composer-text-ref]')).toBeNull()
+    })
     expect(b.shell.draftSnapshot).toBe(draft)
     expect(b.shell.snapshot.draft).toBe('/deploy now')
   })
@@ -613,25 +744,36 @@ describe('scenario: reference decoration follows the current lexicon', () => {
 describe('scenario I: unknown /xyz + enter', () => {
   it('adjudication misses in one hop and the whole line rides the default sink', async () => {
     const b = await bench()
-    act(() => { b.shell.setDraft('/xyz 干点啥') })
+    act(() => {
+      b.shell.setDraft('/xyz 干点啥')
+    })
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
-    await vi.waitFor(() => { expect(b.sink).toHaveBeenCalledWith('/xyz 干点啥', [], 'queue', expect.any(AbortSignal)) })
-    await vi.waitFor(() => { expect(b.shell.snapshot.phase).toBe('plain') })
+    await vi.waitFor(() => {
+      expect(b.sink).toHaveBeenCalledWith('/xyz 干点啥', [], 'queue', expect.any(AbortSignal))
+    })
+    await vi.waitFor(() => {
+      expect(b.shell.snapshot.phase).toBe('plain')
+    })
     expect(b.execute).not.toHaveBeenCalled()
   })
 
   it('adjudication failure (source warmup throw) notices and keeps the draft', async () => {
-    const b = await scopedBench((inputTriggers) => {
+    const b = await scopedBench(inputTriggers => {
       inputTriggers.registerSource({
-        trigger: '/', name: 'command',
+        trigger: '/',
+        name: 'command',
         candidates: () => Promise.resolve([]),
         onPick: () => undefined,
         matchEnter: () => Promise.reject(new Error('目录预热失败')),
       } as never)
     })
-    act(() => { b.shell.setDraft('/plan 上线') })
+    act(() => {
+      b.shell.setDraft('/plan 上线')
+    })
     fireEvent.keyDown(b.textarea, { key: 'Enter' })
-    await vi.waitFor(() => { expect(b.view.getByText('目录预热失败')).toBeTruthy() })
+    await vi.waitFor(() => {
+      expect(b.view.getByText('目录预热失败')).toBeTruthy()
+    })
     // Never a silent downgrade: draft retained, sink untouched.
     expect(b.shell.snapshot.draft).toBe('/plan 上线')
     expect(b.sink).not.toHaveBeenCalled()

@@ -8,34 +8,42 @@
  * Timeline projection and inclusive focus edge cases ride along.
  */
 import type { GlobalStandardProps, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createElement, type ComponentProps, type FC, type ReactNode } from 'react'
 import { allowAllAccess, bindSnapshotSelector, SlotTestRuntime, stubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import {
-  EMPTY_CONVERSATION_SNAPSHOT, UiConversation,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { EMPTY_CONVERSATION_SNAPSHOT, UiConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
-  ConversationBinding, ConversationSnapshot, ConversationViewSnapshotMap, ConvViewProps,
-  InputActions, InputState, RequestView, ViewTab,
+  ConversationBinding,
+  ConversationSnapshot,
+  ConversationViewSnapshotMap,
+  ConvViewProps,
+  InputActions,
+  InputState,
+  RequestView,
+  ViewTab,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { EMPTY_CHAT_SNAPSHOT } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type {
-  ChatSnapshot, LegacyConversationSlice,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { ChatSnapshot, LegacyConversationSlice } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type {
-  SessionBinding, SessionListState, SessionProjectionMap, SessionSnapshot, UseProjection,
+  SessionBinding,
+  SessionListState,
+  SessionProjectionMap,
+  SessionSnapshot,
+  UseProjection,
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import {
-  ConversationSession, ConversationSessionHeader,
-  type ConversationSessionHeaderProps, type ConversationSessionProps,
+  ConversationSession,
+  ConversationSessionHeader,
+  type ConversationSessionHeaderProps,
+  type ConversationSessionProps,
 } from '@deepseek-ai/dsh-client-ui-conversation/src/client/skeleton/ConversationSession.tsx'
 import { createConversationStore } from '@deepseek-ai/dsh-client-ui-conversation/src/client/stores.ts'
 import { zh as conversationZh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
@@ -45,9 +53,7 @@ import { apply as nodeApply } from '@deepseek-ai/dsh-client-ui-trajectory'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import type { TrajectoryTurnModel } from '../src/client/layout.ts'
 import { TrajectoryTimeline as LocalizedTrajectoryTimeline } from '../src/client/TrajectoryTimeline.tsx'
-import {
-  TrajectoryView, type TrajectoryViewInjected,
-} from '../src/client/TrajectoryView.tsx'
+import { TrajectoryView, type TrajectoryViewInjected } from '../src/client/TrajectoryView.tsx'
 import { createTrajectoryDurationStore } from '../src/client/duration-store.ts'
 import { EMPTY_TRAJECTORY_SNAPSHOT } from '../src/client/trajectory-snapshot-builder.ts'
 import type { TrajectorySnapshot } from '../src/client/trajectory-contract.ts'
@@ -55,19 +61,20 @@ import { deriveTrajectoryTimeline } from '../src/client/timeline.ts'
 import { t as tTrajectory, tZh } from './locale.client.ts'
 
 // Every session-scope fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
-const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined, reload: () => {} })) as GlobalStandardProps['useResource']
+const useResource = (() => ({
+  status: 'none' as const,
+  value: undefined,
+  failure: undefined,
+  reload: () => {},
+})) as GlobalStandardProps['useResource']
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
 
-function TrajectoryTimeline(
-  props: Omit<ComponentProps<typeof LocalizedTrajectoryTimeline>, 't'>,
-) {
+function TrajectoryTimeline(props: Omit<ComponentProps<typeof LocalizedTrajectoryTimeline>, 't'>) {
   return <LocalizedTrajectoryTimeline {...props} t={tTrajectory} />
 }
 
-
 const SID = 's1' as SessionId
-const tConversation: ConversationSessionHeaderProps['t'] =
-  key => (conversationZh as Record<string, string>)[key] ?? key
+const tConversation: ConversationSessionHeaderProps['t'] = key => (conversationZh as Record<string, string>)[key] ?? key
 
 const runtimes: SlotTestRuntime[] = []
 
@@ -87,24 +94,39 @@ beforeEach(() => {
 const NODES: LegacyConversationSlice['nodes'] = [
   { kind: 'user', seq: 1, time: 1_000, content: [], source: null },
   {
-    kind: 'assistant', seq: 2, time: 2_000, turn: 1, step: 1, blocks: [],
+    kind: 'assistant',
+    seq: 2,
+    time: 2_000,
+    turn: 1,
+    step: 1,
+    blocks: [],
     timing: { stepStartTime: 1_800, firstTokenTime: 1_900, completedTime: 2_000 },
   },
   {
-    kind: 'tool-result', seq: 3, time: 3_000, callId: 'c1', call: null, callTime: 2_200,
-    name: '', args: PartialArguments.EMPTY,
-    content: [], isError: false, subCalls: [],
+    kind: 'tool-result',
+    seq: 3,
+    time: 3_000,
+    callId: 'c1',
+    call: null,
+    callTime: 2_200,
+    name: '',
+    args: PartialArguments.EMPTY,
+    content: [],
+    isError: false,
+    subCalls: [],
   },
   {
-    kind: 'assistant', seq: 4, time: 4_000, turn: 2, step: 1, blocks: [],
+    kind: 'assistant',
+    seq: 4,
+    time: 4_000,
+    turn: 2,
+    step: 1,
+    blocks: [],
     timing: { stepStartTime: 3_500, firstTokenTime: 3_700, completedTime: 4_000 },
   },
 ]
 
-function historySnapshot(
-  nodes: LegacyConversationSlice['nodes'],
-  inspection: Partial<TrajectorySnapshot> = {},
-): TrajectorySnapshot {
+function historySnapshot(nodes: LegacyConversationSlice['nodes'], inspection: Partial<TrajectorySnapshot> = {}): TrajectorySnapshot {
   return {
     eventNodes: nodes,
     eventLocations: new Map(),
@@ -135,23 +157,16 @@ function sessionSnapshot(nodes: LegacyConversationSlice['nodes']): SessionSnapsh
   }
 }
 
-function conversationSnapshot(
-  trajectory: TrajectorySnapshot,
-): ConversationSnapshot {
+function conversationSnapshot(trajectory: TrajectorySnapshot): ConversationSnapshot {
   return {
     views: EMPTY_CONVERSATION_SNAPSHOT.views,
-    activeTargets: trajectory.eventNodes.length === 0
-      ? new Set()
-      : new Set(['trajectory']),
+    activeTargets: trajectory.eventNodes.length === 0 ? new Set() : new Set(['trajectory']),
   }
 }
 
 function standaloneHistory(
   snapshot: TrajectorySnapshot,
-): Pick<
-  ComponentProps<typeof TrajectoryView>,
-  'useSession' | 'useTrajectory' | 'loadOlder'
-> {
+): Pick<ComponentProps<typeof TrajectoryView>, 'useSession' | 'useTrajectory' | 'loadOlder'> {
   const session = createSnapshotStore(sessionSnapshot(snapshot.eventNodes))
   const trajectory = createSnapshotStore(snapshot)
   return {
@@ -161,33 +176,35 @@ function standaloneHistory(
   }
 }
 
-function standaloneDuration(): Pick<
-  ComponentProps<typeof TrajectoryView>, 'useDuration' | 'setActualDuration'
-> {
+function standaloneDuration(): Pick<ComponentProps<typeof TrajectoryView>, 'useDuration' | 'setActualDuration'> {
   const duration = createSnapshotStore(false)
   return {
     useDuration: bindSnapshotSelector(duration),
-    setActualDuration: (value) => { duration.set(value) },
+    setActualDuration: value => {
+      duration.set(value)
+    },
   }
 }
 
 /** Empty sessions-list hook; breadcrumbs therefore fall back to the raw id. */
 function emptySessions() {
-  const store = createSnapshotStore<SessionListState>(
-    { ids: [], byId: {}, phase: 'ready', projectionsBySession: {} })
+  const store = createSnapshotStore<SessionListState>({ ids: [], byId: {}, phase: 'ready', projectionsBySession: {} })
   return bindSnapshotSelector(store)
 }
 
 function emptyWorkspaces() {
   const store = createSnapshotStore<WorkspaceSnapshot>({
-    items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
+    items: [],
+    archivedSessionIds: [],
+    pinnedSessionIds: [],
+    state: 'idle',
+    phase: 'ready',
+    error: null,
   })
   return bindSnapshotSelector(store)
 }
 
-function emptyProjection<Key extends Extract<keyof SessionProjectionMap, string>>(
-  key: Key,
-): SessionProjectionMap[Key] | undefined
+function emptyProjection<Key extends Extract<keyof SessionProjectionMap, string>>(key: Key): SessionProjectionMap[Key] | undefined
 function emptyProjection<Key extends Extract<keyof SessionProjectionMap, string>, Selected>(
   key: Key,
   selector: (value: SessionProjectionMap[Key] | undefined) => Selected,
@@ -208,12 +225,15 @@ type StandaloneBaseProps = Omit<
 >
 
 /** Standalone view props: the session-scope standard kit the outlet would bake. */
-function standaloneProps(
-  nodes: LegacyConversationSlice['nodes'],
-): StandaloneBaseProps {
+function standaloneProps(nodes: LegacyConversationSlice['nodes']): StandaloneBaseProps {
   const trajectory = historySnapshot(nodes)
   const input = createSnapshotStore<InputState>({
-    draft: '', attachmentIds: [], draftRev: 0, phase: 'plain', occurrences: [], queue: [],
+    draft: '',
+    attachmentIds: [],
+    draftRev: 0,
+    phase: 'plain',
+    occurrences: [],
+    queue: [],
   })
   const inputActions: InputActions = {
     captureInsertion: () => ({ start: 0, end: 0, draftRev: 0 }),
@@ -229,10 +249,9 @@ function standaloneProps(
     sessionId: SID,
     useChat: bindSnapshotSelector(createSnapshotStore(EMPTY_CHAT_SNAPSHOT)),
     useSessions: emptySessions(),
-    usePanelInfo, useResource,
-    useSessionStatus: bindSnapshotSelector(
-      createSnapshotStore<SessionStatusSnapshot>(new Map()),
-    ),
+    usePanelInfo,
+    useResource,
+    useSessionStatus: bindSnapshotSelector(createSnapshotStore<SessionStatusSnapshot>(new Map())),
     useSessionRetainInfo: () => undefined,
     useWorkspaces: emptyWorkspaces(),
     ...allowAllAccess,
@@ -253,8 +272,7 @@ function standaloneProps(
 }
 
 type ConversationTargetSources = {
-  [Target in Extract<keyof ConversationViewSnapshotMap, string>]:
-  ObservableSnapshot<ConversationViewSnapshotMap[Target] | undefined>
+  [Target in Extract<keyof ConversationViewSnapshotMap, string>]: ObservableSnapshot<ConversationViewSnapshotMap[Target] | undefined>
 }
 
 /** Real-stack bench: root Context + real SlotRegistry ring + the plugin fiber. */
@@ -288,13 +306,9 @@ async function bench(snapshot = historySnapshot(NODES)) {
   }
   vi.spyOn(uiConversation, 'binding').mockReturnValue(binding)
   // The conversation entry's role: declare the ring, then seed the chat entry.
-  await runtime.root.declare(
-    { 'conversation.view': { kind: 'list', scope: 'session' } },
-    (_p: { renderSlot?: unknown }) => null,
-  )
+  await runtime.root.declare({ 'conversation.view': { kind: 'list', scope: 'session' } }, (_p: { renderSlot?: unknown }) => null)
   const chatBody = vi.fn(() => <div data-testid="chat-body" />)
-  slots.register(
-    { name: 'conversation.view', id: 'chat', order: 0, label: 'Chat' } as never, chatBody as never)
+  slots.register({ name: 'conversation.view', id: 'chat', order: 0, label: 'Chat' } as never, chatBody as never)
   // The locale plugin backs the locale-aware view tab label ('locale' in
   // inject); its settings scope needs a connection handle.
   ctx.provide('connection', { api: { settings: {} }, isLoopback: false } as never)
@@ -305,23 +319,36 @@ async function bench(snapshot = historySnapshot(NODES)) {
   const sourceDescriptor = provide.mock.calls[0]?.[0]
   if (sourceDescriptor === undefined) throw new Error('ui-trajectory did not provide its standard source')
   return {
-    runtime, ctx, slots, feature, loadOlder, trajectoryStore, conversationStore,
-    events, views, sourceDescriptor, reference,
+    runtime,
+    ctx,
+    slots,
+    feature,
+    loadOlder,
+    trajectoryStore,
+    conversationStore,
+    events,
+    views,
+    sourceDescriptor,
+    reference,
   }
 }
 
 /** Tab projection twin of apply's viewTabs (the render-side consumption path). */
 function tabsOf(slots: SlotRegistry): ViewTab[] {
-  return slots.entries('conversation.view')
-    .map(e => ({ id: e.options.id!, label: resolveSlotLabel(e.options.label) ?? e.options.id! }))
+  return slots.entries('conversation.view').map(e => ({ id: e.options.id!, label: resolveSlotLabel(e.options.label) ?? e.options.id! }))
 }
 
 type ConvViewOwner = Pick<ConvViewProps, 'inspectCall' | 'viewRequest' | 'openView' | 'completeViewRequest'>
 
 function isConvViewOwner(owner: object): owner is ConvViewOwner {
-  return 'inspectCall' in owner && 'viewRequest' in owner
-    && 'openView' in owner && typeof owner.openView === 'function'
-    && 'completeViewRequest' in owner && typeof owner.completeViewRequest === 'function'
+  return (
+    'inspectCall' in owner &&
+    'viewRequest' in owner &&
+    'openView' in owner &&
+    typeof owner.openView === 'function' &&
+    'completeViewRequest' in owner &&
+    typeof owner.completeViewRequest === 'function'
+  )
 }
 
 /** Mount the strict Session header/body over the ring ledger with outlet-faithful render shares. */
@@ -333,17 +360,20 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
   const useConversation = bindSnapshotSelector<ConversationSnapshot>(conversationStore)
   const useChat = bindSnapshotSelector(createSnapshotStore(EMPTY_CHAT_SNAPSHOT))
   const useSessions = emptySessions()
-  const useSessionStatus = bindSnapshotSelector(
-    createSnapshotStore<SessionStatusSnapshot>(new Map()),
-  )
+  const useSessionStatus = bindSnapshotSelector(createSnapshotStore<SessionStatusSnapshot>(new Map()))
   const useWorkspaces = emptyWorkspaces()
   const conversation = createConversationStore().create()
-  const useConversationViews = bindSnapshotSelector(
-    createSnapshotStore<readonly ViewTab[]>(tabsOf(slots)),
+  const useConversationViews = bindSnapshotSelector(createSnapshotStore<readonly ViewTab[]>(tabsOf(slots)))
+  const useInput = bindSnapshotSelector(
+    createSnapshotStore<InputState>({
+      draft: '',
+      attachmentIds: [],
+      draftRev: 0,
+      phase: 'plain',
+      occurrences: [],
+      queue: [],
+    }),
   )
-  const useInput = bindSnapshotSelector(createSnapshotStore<InputState>({
-    draft: '', attachmentIds: [], draftRev: 0, phase: 'plain', occurrences: [], queue: [],
-  }))
   const inputActions: InputActions = {
     captureInsertion: () => ({ start: 0, end: 0, draftRev: 0 }),
     insertText: () => false,
@@ -362,7 +392,8 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
     useConversation,
     useConversationViews,
     useSessions,
-    usePanelInfo, useResource,
+    usePanelInfo,
+    useResource,
     useSessionStatus,
     useSessionRetainInfo: () => undefined,
     useWorkspaces,
@@ -380,31 +411,26 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
     if (!isConvViewOwner(owner)) throw new Error('trajectory fixture expected Conversation view owner props')
     const View = entry.component as FC<ConvViewProps>
     const injectEntry = entry.inject as ((sessionId: SessionId) => object) | undefined
-    const injected = injectEntry === undefined
-      ? {}
-      : injectEntry(SID)
-    const injectedProps = 'hooks' in injected
-      ? (() => {
-        const trajectory = injected as TrajectoryViewInjected
-        return {
-          loadOlder: trajectory.loadOlder,
-          loadImage: trajectory.loadImage,
-          setActualDuration: trajectory.setActualDuration,
-          useDuration: bindSnapshotSelector(trajectory.hooks.duration),
-          t: tZh,
-        }
-      })()
-      : injected
+    const injected = injectEntry === undefined ? {} : injectEntry(SID)
+    const injectedProps =
+      'hooks' in injected
+        ? (() => {
+            const trajectory = injected as TrajectoryViewInjected
+            return {
+              loadOlder: trajectory.loadOlder,
+              loadImage: trajectory.loadImage,
+              setActualDuration: trajectory.setActualDuration,
+              useDuration: bindSnapshotSelector(trajectory.hooks.duration),
+              t: tZh,
+            }
+          })()
+        : injected
     const viewProps: ConvViewProps & Pick<PropsRenderSlots<'conversation.trajectory.images'>, 'renderSlot'> = {
-      ...owner, ...standardProps, renderSlot: () => null,
+      ...owner,
+      ...standardProps,
+      renderSlot: () => null,
     }
-    return (
-      <View
-        {...viewProps}
-        {...injectedProps}
-        key={key}
-      />
-    )
+    return <View {...viewProps} {...injectedProps} key={key} />
   }
   return render(
     <>
@@ -465,8 +491,8 @@ describe('plugin registration', () => {
       }
       return contribution.hooks.trajectory
     }
-    const source = b.runtime.ctx.uiSession.adapter.bindingSource(reference).getSnapshot().hooks.trajectory as
-      ObservableSnapshot<TrajectorySnapshot>
+    const source = b.runtime.ctx.uiSession.adapter.bindingSource(reference).getSnapshot().hooks
+      .trajectory as ObservableSnapshot<TrajectorySnapshot>
 
     expect(resolveSource(binding)).toBe(source)
     expect(resolveSource(binding)).toBe(source)
@@ -479,12 +505,9 @@ describe('plugin registration', () => {
 
   it('shares one browser-wide duration preference across session injections', async () => {
     const b = await bench()
-    const entry = b.slots.entries('conversation.view')
-      .find(candidate => candidate.options.id === 'trajectory')
+    const entry = b.slots.entries('conversation.view').find(candidate => candidate.options.id === 'trajectory')
     expect(entry).toBeDefined()
-    const injectEntry = entry!.inject as unknown as (
-      sessionId: SessionId,
-    ) => TrajectoryViewInjected
+    const injectEntry = entry!.inject as unknown as (sessionId: SessionId) => TrajectoryViewInjected
     const first = injectEntry(SID)
     await b.runtime.sessions.add({ id: 's2' })
     using reference = b.runtime.sessions.retain('s2' as SessionId)
@@ -500,11 +523,8 @@ describe('plugin registration', () => {
 
   it('reports whether loading older history changed the Trajectory snapshot', async () => {
     const b = await bench()
-    const entry = b.slots.entries('conversation.view')
-      .find(candidate => candidate.options.id === 'trajectory')
-    const injectEntry = entry!.inject as unknown as (
-      sessionId: SessionId,
-    ) => TrajectoryViewInjected
+    const entry = b.slots.entries('conversation.view').find(candidate => candidate.options.id === 'trajectory')
+    const injectEntry = entry!.inject as unknown as (sessionId: SessionId) => TrajectoryViewInjected
     const injected = injectEntry(SID)
 
     expect(await injected.loadOlder()).toBe(false)
@@ -570,12 +590,20 @@ describe('tab switching in ConversationRoot', () => {
     const nodes: LegacyConversationSlice['nodes'] = [
       { kind: 'user', seq: 1, time: 1_000, content: [], source: null },
       {
-        kind: 'assistant', seq: 2, time: 2_000, turn: 1, step: 1,
+        kind: 'assistant',
+        seq: 2,
+        time: 2_000,
+        turn: 1,
+        step: 1,
         blocks: [{ kind: 'text', text: 'before' }],
       },
       { kind: 'user', seq: 5, time: 5_000, content: [], source: null },
       {
-        kind: 'assistant', seq: 6, time: 6_000, turn: 2, step: 1,
+        kind: 'assistant',
+        seq: 6,
+        time: 6_000,
+        turn: 2,
+        step: 1,
         blocks: [{ kind: 'text', text: 'after' }],
       },
     ]
@@ -602,23 +630,33 @@ describe('tab switching in ConversationRoot', () => {
   })
 
   it('reports a streaming Assistant record and a running compaction as pending', async () => {
-    const nodes: LegacyConversationSlice['nodes'] = [
-      { kind: 'user', seq: 1, time: 1_000, content: [], source: null },
-    ]
+    const nodes: LegacyConversationSlice['nodes'] = [{ kind: 'user', seq: 1, time: 1_000, content: [], source: null }]
     const requests: RequestView[] = [
       {
-        purpose: 'assistant', startSeq: 2, turn: 1, step: 1,
-        startedAt: 2_000, completedAt: null, status: 'running',
+        purpose: 'assistant',
+        startSeq: 2,
+        turn: 1,
+        step: 1,
+        startedAt: 2_000,
+        completedAt: null,
+        status: 'running',
       },
       {
-        purpose: 'compaction', startSeq: 3, turn: 1, step: 0,
-        startedAt: 3_000, completedAt: null, status: 'running',
+        purpose: 'compaction',
+        startSeq: 3,
+        turn: 1,
+        step: 0,
+        startedAt: 3_000,
+        completedAt: null,
+        status: 'running',
       },
     ]
-    const b = await bench(historySnapshot(nodes, {
-      requests,
-      partial: { turn: 1, step: 1, blocks: [{ kind: 'text', text: 'still streaming' }] },
-    }))
+    const b = await bench(
+      historySnapshot(nodes, {
+        requests,
+        partial: { turn: 1, step: 1, blocks: [{ kind: 'text', text: 'still streaming' }] },
+      }),
+    )
     mount(b)
     fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
     const detail = () => screen.getByRole('complementary', { name: '事件详情' })
@@ -636,17 +674,29 @@ describe('tab switching in ConversationRoot', () => {
     const nodes: LegacyConversationSlice['nodes'] = [
       { kind: 'user', seq: 1, time: 1_000, content: [], source: null },
       {
-        kind: 'assistant', seq: 2, time: 2_000, turn: 1, step: 1,
+        kind: 'assistant',
+        seq: 2,
+        time: 2_000,
+        turn: 1,
+        step: 1,
         blocks: [{ kind: 'text', text: 'before first compaction' }],
       },
       { kind: 'user', seq: 5, time: 5_000, content: [], source: null },
       {
-        kind: 'assistant', seq: 6, time: 6_000, turn: 2, step: 1,
+        kind: 'assistant',
+        seq: 6,
+        time: 6_000,
+        turn: 2,
+        step: 1,
         blocks: [{ kind: 'text', text: 'between compactions' }],
       },
       { kind: 'user', seq: 9, time: 9_000, content: [], source: null },
       {
-        kind: 'assistant', seq: 10, time: 10_000, turn: 3, step: 1,
+        kind: 'assistant',
+        seq: 10,
+        time: 10_000,
+        turn: 3,
+        step: 1,
         blocks: [{ kind: 'text', text: 'after second compaction' }],
       },
     ]
@@ -702,30 +752,33 @@ describe('tab switching in ConversationRoot', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
     const plot = screen.getByLabelText('时间线概览；水平拖动可聚焦事件')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
-      x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 72,
+      width: 100,
+      height: 72,
       toJSON: () => ({}),
     })
     fireEvent.pointerDown(plot, { button: 0, clientX: 55, pointerId: 1 })
     fireEvent.pointerMove(plot, { clientX: 95, pointerId: 1 })
     fireEvent.pointerUp(plot, { clientX: 95, pointerId: 1 })
 
-    expect(screen.getByRole('row', { name: /用户/ }).getAttribute('data-timeline-focus'))
-      .toBe('outside')
+    expect(screen.getByRole('row', { name: /用户/ }).getAttribute('data-timeline-focus')).toBe('outside')
 
     const tablePane = screen.getByRole('table').parentElement
     expect(tablePane).not.toBeNull()
     fireEvent.click(tablePane as HTMLElement)
-    expect(screen.getByRole('row', { name: /用户/ }).getAttribute('data-timeline-focus'))
-      .toBeNull()
+    expect(screen.getByRole('row', { name: /用户/ }).getAttribute('data-timeline-focus')).toBeNull()
 
     fireEvent.pointerDown(plot, { button: 0, clientX: 55, pointerId: 2 })
     fireEvent.pointerMove(plot, { clientX: 95, pointerId: 2 })
     fireEvent.pointerUp(plot, { clientX: 95, pointerId: 2 })
-    expect(screen.getByRole('row', { name: /用户/ }).getAttribute('data-timeline-focus'))
-      .toBe('outside')
+    expect(screen.getByRole('row', { name: /用户/ }).getAttribute('data-timeline-focus')).toBe('outside')
     fireEvent.contextMenu(plot)
-    expect(screen.getByRole('row', { name: /用户/ }).getAttribute('data-timeline-focus'))
-      .toBe('outside')
+    expect(screen.getByRole('row', { name: /用户/ }).getAttribute('data-timeline-focus')).toBe('outside')
   })
 
   it('clicking a timeline block clears the range, selects the record, and opens its inspector', async () => {
@@ -734,12 +787,17 @@ describe('tab switching in ConversationRoot', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
     const plot = screen.getByLabelText('时间线概览；水平拖动可聚焦事件')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
-      x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 72,
+      width: 100,
+      height: 72,
       toJSON: () => ({}),
     })
-    const toolSpan = view.container.querySelector<HTMLElement>(
-      '[data-timeline-span="tool"]',
-    )
+    const toolSpan = view.container.querySelector<HTMLElement>('[data-timeline-span="tool"]')
     expect(toolSpan).not.toBeNull()
     const recordIndex = toolSpan?.dataset.timelineRecordIndex
     expect(recordIndex).toBeTruthy()
@@ -754,13 +812,13 @@ describe('tab switching in ConversationRoot', () => {
     expect(view.container.querySelector('tr[data-timeline-focus]')).toBeTruthy()
 
     fireEvent.pointerDown(toolSpan as HTMLElement, {
-      button: 0, clientX: 50, pointerId: 2,
+      button: 0,
+      clientX: 50,
+      pointerId: 2,
     })
     fireEvent.pointerUp(toolSpan as HTMLElement, { clientX: 50, pointerId: 2 })
 
-    const selectedRow = view.container.querySelector<HTMLElement>(
-      `tr[data-record-index="${recordIndex}"]`,
-    )
+    const selectedRow = view.container.querySelector<HTMLElement>(`tr[data-record-index="${recordIndex}"]`)
     expect(selectedRow?.getAttribute('aria-selected')).toBe('true')
     expect(view.container.querySelector('tr[data-timeline-focus]')).toBeNull()
     expect(screen.getByRole('complementary', { name: '事件详情' })).toBeTruthy()
@@ -772,84 +830,104 @@ describe('tab switching in ConversationRoot', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Trajectory' }))
     expect(screen.getByRole('toolbar', { name: '轨迹工具栏' })).toBeTruthy()
     expect(screen.getByText('无计时数据')).toBeTruthy()
-    expect(screen.getByRole<HTMLButtonElement>('button', {
-      name: '收起所有轮次',
-    }).disabled).toBe(false)
-    expect(screen.getByRole<HTMLButtonElement>('button', {
-      name: '收起所有调用',
-    }).disabled).toBe(false)
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', {
+        name: '收起所有轮次',
+      }).disabled,
+    ).toBe(false)
+    expect(
+      screen.getByRole<HTMLButtonElement>('button', {
+        name: '收起所有调用',
+      }).disabled,
+    ).toBe(false)
     expect(screen.queryByRole('row')).toBeNull()
     expect(screen.queryByText(/turns ·/)).toBeNull()
   })
 })
 
 describe('timeline projection', () => {
-  const turns = [{
-    turn: 1,
-    groups: [{
-      title: 'Step 1',
-      cells: [
-        { index: 1, kind: 'message', text: 'assistant', startedAt: 1_000, timeSeconds: 1 },
-        { index: 2, kind: 'tool', text: 'bash', startedAt: 2_000, timeSeconds: 1 },
-        { index: 3, kind: 'user', text: 'unknown', timeSeconds: 0 },
+  const turns = [
+    {
+      turn: 1,
+      groups: [
+        {
+          title: 'Step 1',
+          cells: [
+            { index: 1, kind: 'message', text: 'assistant', startedAt: 1_000, timeSeconds: 1 },
+            { index: 2, kind: 'tool', text: 'bash', startedAt: 2_000, timeSeconds: 1 },
+            { index: 3, kind: 'user', text: 'unknown', timeSeconds: 0 },
+          ],
+        },
       ],
-    }],
-  }] satisfies readonly TrajectoryTurnModel[]
-  const longTurns = [{
-    turn: 1,
-    groups: [{
-      title: 'Step 1',
-      cells: Array.from({ length: 10 }, (_, index) => ({
-        index,
-        kind: 'message' as const,
-        text: `record ${index}`,
-        timeSeconds: 1,
-      })),
-    }],
-  }] satisfies readonly TrajectoryTurnModel[]
+    },
+  ] satisfies readonly TrajectoryTurnModel[]
+  const longTurns = [
+    {
+      turn: 1,
+      groups: [
+        {
+          title: 'Step 1',
+          cells: Array.from({ length: 10 }, (_, index) => ({
+            index,
+            kind: 'message' as const,
+            text: `record ${index}`,
+            timeSeconds: 1,
+          })),
+        },
+      ],
+    },
+  ] satisfies readonly TrajectoryTurnModel[]
 
   it('splits assistant time into recorded TTFT and decoding proportions with a delayed tooltip', () => {
     vi.useFakeTimers()
     try {
       const view = render(
         <TrajectoryTimeline
-          turns={[{
-            turn: 1,
-            groups: [{
-              title: 'Step 1',
-              cells: [{
-                index: 1,
-                kind: 'message',
-                text: 'assistant',
-                startedAt: 1_000,
-                timeSeconds: 2,
-                assistantMetrics: {
-                  timingRecorded: true,
-                  stepStartTime: 1_000,
-                  firstTokenTime: 1_500,
-                  completedTime: 3_000,
-                  usageProvided: false,
-                  outputTokens: null,
+          turns={[
+            {
+              turn: 1,
+              groups: [
+                {
+                  title: 'Step 1',
+                  cells: [
+                    {
+                      index: 1,
+                      kind: 'message',
+                      text: 'assistant',
+                      startedAt: 1_000,
+                      timeSeconds: 2,
+                      assistantMetrics: {
+                        timingRecorded: true,
+                        stepStartTime: 1_000,
+                        firstTokenTime: 1_500,
+                        completedTime: 3_000,
+                        usageProvided: false,
+                        outputTokens: null,
+                      },
+                    },
+                  ],
                 },
-              }],
-            }],
-          }]}
+              ],
+            },
+          ]}
           mode="duration"
           range={null}
           onRangeChange={vi.fn()}
         />,
       )
-      const span = view.container.querySelector<HTMLElement>(
-        '[data-timeline-span="message"]',
-      )
+      const span = view.container.querySelector<HTMLElement>('[data-timeline-span="message"]')
       expect(span?.getAttribute('title')).toBeNull()
       expect(span?.getAttribute('data-assistant-timing')).toBe('true')
       expect(span?.style.getPropertyValue('--trajectory-assistant-ttft')).toBe('25%')
 
       fireEvent.mouseEnter(span as HTMLElement)
-      act(() => { vi.advanceTimersByTime(499) })
+      act(() => {
+        vi.advanceTimersByTime(499)
+      })
       expect(view.container.querySelector('[role="tooltip"]')).toBeNull()
-      act(() => { vi.advanceTimersByTime(1) })
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
       const tooltip = view.container.querySelector<HTMLElement>('[role="tooltip"]')
       expect(tooltip?.textContent).toContain('Total 2,000 ms')
       expect(tooltip?.textContent).toContain('TTFT 500 ms')
@@ -883,104 +961,87 @@ describe('timeline projection', () => {
     // pointer interaction, and earlier cases in this file press pointers.
     fireEvent.keyDown(boundary, { key: 'Tab' })
     fireEvent.focus(boundary)
-    expect(screen.getByRole('tooltip').textContent)
-      .toContain('Click to load earlier history')
+    expect(screen.getByRole('tooltip').textContent).toContain('Click to load earlier history')
     fireEvent.click(boundary)
     expect(onLoadEarlier).toHaveBeenCalledOnce()
     expect(screen.getByLabelText('Loading earlier history…')).toBeTruthy()
 
-    view.rerender(
-      <TrajectoryTimeline
-        turns={turns}
-        mode="sequence"
-        range={null}
-        onRangeChange={vi.fn()}
-      />,
-    )
+    view.rerender(<TrajectoryTimeline turns={turns} mode="sequence" range={null} onRangeChange={vi.fn()} />)
     expect(screen.queryByLabelText('Load earlier history')).toBeNull()
     expect(screen.queryByLabelText('Loading earlier history')).toBeNull()
   })
 
   it('cancels native scrolling across the timeline while zooming', () => {
-    render(
-      <TrajectoryTimeline
-        turns={longTurns}
-        mode="sequence"
-        range={null}
-        onRangeChange={vi.fn()}
-      />,
-    )
+    render(<TrajectoryTimeline turns={longTurns} mode="sequence" range={null} onRangeChange={vi.fn()} />)
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
-      x: 44, y: 0, left: 44, top: 0, right: 144, bottom: 50, width: 100, height: 50,
+      x: 44,
+      y: 0,
+      left: 44,
+      top: 0,
+      right: 144,
+      bottom: 50,
+      width: 100,
+      height: 50,
       toJSON: () => ({}),
     })
 
     expect(fireEvent.wheel(plot, { clientX: 94, deltaY: -100 })).toBe(false)
-    expect(fireEvent.wheel(screen.getByText('Input'), {
-      clientX: 20,
-      deltaY: -100,
-    })).toBe(false)
+    expect(
+      fireEvent.wheel(screen.getByText('Input'), {
+        clientX: 20,
+        deltaY: -100,
+      }),
+    ).toBe(false)
   })
 
   it('scales sequence gutters with narrow operation spans', () => {
-    const view = render(
-      <TrajectoryTimeline
-        turns={longTurns}
-        mode="sequence"
-        range={null}
-        onRangeChange={vi.fn()}
-      />,
-    )
+    const view = render(<TrajectoryTimeline turns={longTurns} mode="sequence" range={null} onRangeChange={vi.fn()} />)
     const span = view.container.querySelector<HTMLElement>('[data-timeline-span]')
     expect(span?.style.getPropertyValue('--trajectory-span-width')).toBe('10%')
-    expect(span?.style.getPropertyValue('--trajectory-span-gap'))
-      .toBe('min(0.8%, 1px)')
+    expect(span?.style.getPropertyValue('--trajectory-span-gap')).toBe('min(0.8%, 1px)')
   })
 
   it('keeps dense sequence spans proportional before applying the pixel floor', () => {
-    const denseTurns = [{
-      turn: 1,
-      groups: [{
-        title: 'Step 1',
-        cells: Array.from({ length: 400 }, (_, index) => ({
-          index,
-          kind: 'message' as const,
-          text: `message ${index}`,
-          timeSeconds: 1,
-        })),
-      }],
-    }]
-    const view = render(
-      <TrajectoryTimeline
-        turns={denseTurns}
-        mode="sequence"
-        range={null}
-        onRangeChange={vi.fn()}
-      />,
-    )
+    const denseTurns = [
+      {
+        turn: 1,
+        groups: [
+          {
+            title: 'Step 1',
+            cells: Array.from({ length: 400 }, (_, index) => ({
+              index,
+              kind: 'message' as const,
+              text: `message ${index}`,
+              timeSeconds: 1,
+            })),
+          },
+        ],
+      },
+    ]
+    const view = render(<TrajectoryTimeline turns={denseTurns} mode="sequence" range={null} onRangeChange={vi.fn()} />)
 
     const span = view.container.querySelector<HTMLElement>('[data-timeline-span]')
     expect(span?.style.getPropertyValue('--trajectory-span-width')).toBe('0.25%')
-    expect(span?.style.getPropertyValue('--trajectory-span-gap'))
-      .toBe('min(0.02%, 1px)')
+    expect(span?.style.getPropertyValue('--trajectory-span-gap')).toBe('min(0.02%, 1px)')
   })
 
   it('clears the selection without changing zoom on a zoomed right click', () => {
     const onRangeChange = vi.fn()
     const view = render(
-      <TrajectoryTimeline
-        turns={longTurns}
-        mode="sequence"
-        range={{ start: 2, end: 4 }}
-        hasEarlierRecords
-        onRangeChange={onRangeChange}
-      />,
+      <TrajectoryTimeline turns={longTurns} mode="sequence" range={{ start: 2, end: 4 }} hasEarlierRecords onRangeChange={onRangeChange} />,
     )
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     expect(screen.getByLabelText('Load earlier history')).toBeTruthy()
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
-      x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 72,
+      width: 100,
+      height: 72,
       toJSON: () => ({}),
     })
     fireEvent.wheel(plot, { clientX: 50, deltaY: -1_000 })
@@ -1000,14 +1061,7 @@ describe('timeline projection', () => {
 
   it('clears the selection and suppresses the context menu at full zoom', () => {
     const onRangeChange = vi.fn()
-    render(
-      <TrajectoryTimeline
-        turns={longTurns}
-        mode="sequence"
-        range={{ start: 2, end: 4 }}
-        onRangeChange={onRangeChange}
-      />,
-    )
+    render(<TrajectoryTimeline turns={longTurns} mode="sequence" range={{ start: 2, end: 4 }} onRangeChange={onRangeChange} />)
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
 
     fireEvent.pointerDown(plot, { button: 2, clientX: 50, pointerId: 1 })
@@ -1019,17 +1073,17 @@ describe('timeline projection', () => {
 
   it('pans the zoomed viewport with a right-button drag without changing the selection', () => {
     const onRangeChange = vi.fn()
-    const view = render(
-      <TrajectoryTimeline
-        turns={longTurns}
-        mode="sequence"
-        range={{ start: 2, end: 4 }}
-        onRangeChange={onRangeChange}
-      />,
-    )
+    const view = render(<TrajectoryTimeline turns={longTurns} mode="sequence" range={{ start: 2, end: 4 }} onRangeChange={onRangeChange} />)
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
-      x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 72,
+      width: 100,
+      height: 72,
       toJSON: () => ({}),
     })
     fireEvent.wheel(plot, { clientX: 50, deltaY: -1_000 })
@@ -1049,67 +1103,47 @@ describe('timeline projection', () => {
 
   it('pans the zoomed viewport only far enough to reveal a newly selected record', async () => {
     const onRangeChange = vi.fn()
-    const view = render(
-      <TrajectoryTimeline
-        turns={longTurns}
-        mode="sequence"
-        range={null}
-        onRangeChange={onRangeChange}
-      />,
-    )
+    const view = render(<TrajectoryTimeline turns={longTurns} mode="sequence" range={null} onRangeChange={onRangeChange} />)
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
-      x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 72,
+      width: 100,
+      height: 72,
       toJSON: () => ({}),
     })
     fireEvent.wheel(plot, { clientX: 50, deltaY: -1_000 })
 
-    view.rerender(
-      <TrajectoryTimeline
-        turns={longTurns}
-        mode="sequence"
-        range={null}
-        selectedIndex={1}
-        onRangeChange={onRangeChange}
-      />,
-    )
+    view.rerender(<TrajectoryTimeline turns={longTurns} mode="sequence" range={null} selectedIndex={1} onRangeChange={onRangeChange} />)
     await vi.waitFor(() => {
-      const domain = view.container.querySelector<HTMLElement>(
-        '[data-timeline-domain]',
-      )
+      const domain = view.container.querySelector<HTMLElement>('[data-timeline-domain]')
       expect(domain?.style.getPropertyValue('--trajectory-domain-left')).toBe('-25%')
     })
 
-    view.rerender(
-      <TrajectoryTimeline
-        turns={longTurns}
-        mode="sequence"
-        range={null}
-        selectedIndex={8}
-        onRangeChange={onRangeChange}
-      />,
-    )
+    view.rerender(<TrajectoryTimeline turns={longTurns} mode="sequence" range={null} selectedIndex={8} onRangeChange={onRangeChange} />)
     await vi.waitFor(() => {
-      const domain = view.container.querySelector<HTMLElement>(
-        '[data-timeline-domain]',
-      )
+      const domain = view.container.querySelector<HTMLElement>('[data-timeline-domain]')
       expect(domain?.style.getPropertyValue('--trajectory-domain-left')).toBe('-125%')
     })
   })
 
   it('auto-pans a zoomed viewport while a range drag pushes against an edge', () => {
     const onRangeChange = vi.fn()
-    const view = render(
-      <TrajectoryTimeline
-        turns={longTurns}
-        mode="sequence"
-        range={null}
-        onRangeChange={onRangeChange}
-      />,
-    )
+    const view = render(<TrajectoryTimeline turns={longTurns} mode="sequence" range={null} onRangeChange={onRangeChange} />)
     const plot = screen.getByLabelText('Timeline overview; drag horizontally to focus events')
     vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
-      x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 72, width: 100, height: 72,
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 72,
+      width: 100,
+      height: 72,
       toJSON: () => ({}),
     })
     fireEvent.wheel(plot, { clientX: 50, deltaY: -1_000 })
@@ -1117,20 +1151,14 @@ describe('timeline projection', () => {
     for (let index = 0; index < 24; index++) {
       fireEvent.pointerMove(plot, { clientX: 99, pointerId: 1 })
     }
-    const draftSelection = view.container.querySelectorAll<HTMLElement>(
-      '[data-dragging="true"]',
-    )
+    const draftSelection = view.container.querySelectorAll<HTMLElement>('[data-dragging="true"]')
     expect(draftSelection).toHaveLength(2)
     for (const overlay of draftSelection) {
-      expect(Number.parseFloat(
-        overlay.style.getPropertyValue('--trajectory-selection-left'),
-      )).toBeLessThan(0)
+      expect(Number.parseFloat(overlay.style.getPropertyValue('--trajectory-selection-left'))).toBeLessThan(0)
     }
     fireEvent.pointerUp(plot, { clientX: 99, pointerId: 1 })
 
-    const selectedRange = onRangeChange.mock.calls.at(-1)?.[0] as
-      | { start: number; end: number }
-      | undefined
+    const selectedRange = onRangeChange.mock.calls.at(-1)?.[0] as { start: number; end: number } | undefined
     const fullRange = deriveTrajectoryTimeline(longTurns)
     expect(selectedRange).toBeDefined()
     expect(fullRange).not.toBeNull()
@@ -1145,16 +1173,31 @@ describe('timeline projection', () => {
       end: 3,
       spans: [
         {
-          index: 1, isError: false, kind: 'message', label: 'assistant',
-          lane: 1, start: 0, end: 1,
+          index: 1,
+          isError: false,
+          kind: 'message',
+          label: 'assistant',
+          lane: 1,
+          start: 0,
+          end: 1,
         },
         {
-          index: 2, isError: false, kind: 'tool', label: 'bash',
-          lane: 2, start: 1, end: 2,
+          index: 2,
+          isError: false,
+          kind: 'tool',
+          label: 'bash',
+          lane: 2,
+          start: 1,
+          end: 2,
         },
         {
-          index: 3, isError: false, kind: 'user', label: 'unknown',
-          lane: 0, start: 2, end: 3,
+          index: 3,
+          isError: false,
+          kind: 'user',
+          label: 'unknown',
+          lane: 0,
+          start: 2,
+          end: 3,
         },
       ],
       turnBoundaries: [{ turn: 1, time: 0 }],
@@ -1162,53 +1205,52 @@ describe('timeline projection', () => {
   })
 
   it('marks error records directly on timeline spans', () => {
-    const errorTurns = [{
-      turn: 1,
-      groups: [{
-        title: 'Step 1',
-        cells: [{
-          index: 1,
-          kind: 'tool' as const,
-          text: 'failed tool',
-          timeSeconds: 0.1,
-          isError: true,
-        }],
-      }],
-    }] satisfies readonly TrajectoryTurnModel[]
-    const view = render(
-      <TrajectoryTimeline
-        turns={errorTurns}
-        mode="sequence"
-        range={null}
-        onRangeChange={() => {}}
-      />,
-    )
+    const errorTurns = [
+      {
+        turn: 1,
+        groups: [
+          {
+            title: 'Step 1',
+            cells: [
+              {
+                index: 1,
+                kind: 'tool' as const,
+                text: 'failed tool',
+                timeSeconds: 0.1,
+                isError: true,
+              },
+            ],
+          },
+        ],
+      },
+    ] satisfies readonly TrajectoryTurnModel[]
+    const view = render(<TrajectoryTimeline turns={errorTurns} mode="sequence" range={null} onRangeChange={() => {}} />)
 
-    expect(view.container.querySelector(
-      '[data-timeline-span="tool"][data-error="true"]',
-    )).toBeTruthy()
+    expect(view.container.querySelector('[data-timeline-span="tool"][data-error="true"]')).toBeTruthy()
   })
 
   it('ignores durations and idle gaps while retaining turn boundaries', () => {
     const separatedTurns = [
       {
         turn: 1,
-        groups: [{
-          title: 'Step 1',
-          cells: [
-            { index: 1, kind: 'message', text: 'first', startedAt: 1_000, timeSeconds: 1 },
-            { index: 2, kind: 'tool', text: 'within-turn gap', startedAt: 4_000, timeSeconds: 1 },
-          ],
-        }],
+        groups: [
+          {
+            title: 'Step 1',
+            cells: [
+              { index: 1, kind: 'message', text: 'first', startedAt: 1_000, timeSeconds: 1 },
+              { index: 2, kind: 'tool', text: 'within-turn gap', startedAt: 4_000, timeSeconds: 1 },
+            ],
+          },
+        ],
       },
       {
         turn: 2,
-        groups: [{
-          title: 'Step 1',
-          cells: [
-            { index: 3, kind: 'message', text: 'after user idle', startedAt: 40_000, timeSeconds: 1 },
-          ],
-        }],
+        groups: [
+          {
+            title: 'Step 1',
+            cells: [{ index: 3, kind: 'message', text: 'after user idle', startedAt: 40_000, timeSeconds: 1 }],
+          },
+        ],
       },
     ] satisfies readonly TrajectoryTurnModel[]
 
@@ -1231,22 +1273,24 @@ describe('timeline projection', () => {
     const separatedTurns = [
       {
         turn: 1,
-        groups: [{
-          title: 'Step 1',
-          cells: [
-            { index: 1, kind: 'message', text: 'first', startedAt: 1_000, timeSeconds: 1 },
-            { index: 2, kind: 'tool', text: 'within-turn gap', startedAt: 4_000, timeSeconds: 1 },
-          ],
-        }],
+        groups: [
+          {
+            title: 'Step 1',
+            cells: [
+              { index: 1, kind: 'message', text: 'first', startedAt: 1_000, timeSeconds: 1 },
+              { index: 2, kind: 'tool', text: 'within-turn gap', startedAt: 4_000, timeSeconds: 1 },
+            ],
+          },
+        ],
       },
       {
         turn: 2,
-        groups: [{
-          title: 'Step 1',
-          cells: [
-            { index: 3, kind: 'message', text: 'after user idle', startedAt: 40_000, timeSeconds: 1 },
-          ],
-        }],
+        groups: [
+          {
+            title: 'Step 1',
+            cells: [{ index: 3, kind: 'message', text: 'after user idle', startedAt: 40_000, timeSeconds: 1 }],
+          },
+        ],
       },
     ] satisfies readonly TrajectoryTurnModel[]
 
@@ -1278,24 +1322,30 @@ describe('timeline projection', () => {
     const withStandaloneCompaction = [
       {
         turn: 1,
-        groups: [{
-          title: 'Step 1',
-          cells: [{ index: 1, kind: 'message', text: 'before', timeSeconds: 0 }],
-        }],
+        groups: [
+          {
+            title: 'Step 1',
+            cells: [{ index: 1, kind: 'message', text: 'before', timeSeconds: 0 }],
+          },
+        ],
       },
       {
         turn: null,
-        groups: [{
-          title: 'Compaction 3',
-          cells: [{ index: 2, kind: 'compacted', text: 'summary', timeSeconds: 0 }],
-        }],
+        groups: [
+          {
+            title: 'Compaction 3',
+            cells: [{ index: 2, kind: 'compacted', text: 'summary', timeSeconds: 0 }],
+          },
+        ],
       },
       {
         turn: 2,
-        groups: [{
-          title: 'Step 1',
-          cells: [{ index: 3, kind: 'message', text: 'after', timeSeconds: 0 }],
-        }],
+        groups: [
+          {
+            title: 'Step 1',
+            cells: [{ index: 3, kind: 'message', text: 'after', timeSeconds: 0 }],
+          },
+        ],
       },
     ] satisfies readonly TrajectoryTurnModel[]
 
@@ -1314,14 +1364,13 @@ describe('timeline projection', () => {
 
   it('empty inputs produce no model and the standalone view reports its empty form', () => {
     expect(deriveTrajectoryTimeline([])).toBeNull()
-    render(createElement(
-      TrajectoryView,
-      {
+    render(
+      createElement(TrajectoryView, {
         ...standaloneProps([]),
         ...standaloneHistory(historySnapshot([])),
         ...standaloneDuration(),
-      },
-    ))
+      }),
+    )
     expect(screen.getByRole('toolbar', { name: '轨迹工具栏' })).toBeTruthy()
     expect(screen.queryByRole('row')).toBeNull()
   })
@@ -1332,16 +1381,18 @@ describe('TrajectoryView state', () => {
     { interrupted: true, status: '失败' },
     { interrupted: false, status: '已完成' },
   ])('uses the settled response status when the Step start is unloaded: $status', ({ interrupted, status }) => {
-    const nodes: LegacyConversationSlice['nodes'] = [{
-      kind: 'assistant', seq: 10, time: 10_000, turn: 2, step: 3,
-      blocks: [{ kind: 'text', text: 'loaded response' }],
-      ...(interrupted ? { interrupted: true } : {}),
-    }]
-    render(<TrajectoryView
-      {...standaloneProps(nodes)}
-      {...standaloneHistory(historySnapshot(nodes))}
-      {...standaloneDuration()}
-    />)
+    const nodes: LegacyConversationSlice['nodes'] = [
+      {
+        kind: 'assistant',
+        seq: 10,
+        time: 10_000,
+        turn: 2,
+        step: 3,
+        blocks: [{ kind: 'text', text: 'loaded response' }],
+        ...(interrupted ? { interrupted: true } : {}),
+      },
+    ]
+    render(<TrajectoryView {...standaloneProps(nodes)} {...standaloneHistory(historySnapshot(nodes))} {...standaloneDuration()} />)
     fireEvent.click(screen.getByRole('row', { name: /loaded response/ }))
     expect(within(screen.getByRole('tabpanel')).getByText(status)).toBeTruthy()
     fireEvent.click(within(screen.getByRole('table')).getByRole('button', { name: '请求 #1' }))
@@ -1370,30 +1421,40 @@ describe('TrajectoryView state', () => {
       />,
     )
 
-    act(() => { trajectory.set(historySnapshot(nodes)) })
+    act(() => {
+      trajectory.set(historySnapshot(nodes))
+    })
     expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('51')
     fireEvent.click(screen.getAllByRole('button', { name: '加载更早的历史' }).at(-1)!)
     expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('101')
     expect(loadOlder).not.toHaveBeenCalled()
 
-    act(() => { trajectory.set(historySnapshot([...nodes, {
-      kind: 'user', seq: 5_001, time: 5_001,
-      content: [{ type: 'text', text: 'appended prompt' }], source: null,
-    }])) })
+    act(() => {
+      trajectory.set(
+        historySnapshot([
+          ...nodes,
+          {
+            kind: 'user',
+            seq: 5_001,
+            time: 5_001,
+            content: [{ type: 'text', text: 'appended prompt' }],
+            source: null,
+          },
+        ]),
+      )
+    })
     expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('102')
   })
 
   it('keeps a replacement window bounded when its predecessor tail is absent', () => {
-    const nodes = (start: number): LegacyConversationSlice['nodes'] => Array.from(
-      { length: 100 },
-      (_, index) => ({
+    const nodes = (start: number): LegacyConversationSlice['nodes'] =>
+      Array.from({ length: 100 }, (_, index) => ({
         kind: 'user' as const,
         seq: start + index,
         time: start + index,
         content: [],
         source: null,
-      }),
-    )
+      }))
     const trajectory = createSnapshotStore(historySnapshot(nodes(1)))
     render(
       <TrajectoryView
@@ -1405,7 +1466,9 @@ describe('TrajectoryView state', () => {
     )
     expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('51')
 
-    act(() => { trajectory.set(historySnapshot(nodes(201))) })
+    act(() => {
+      trajectory.set(historySnapshot(nodes(201)))
+    })
     expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('51')
   })
 
@@ -1415,94 +1478,144 @@ describe('TrajectoryView state', () => {
       configurable: true,
       value: vi.fn(),
     })
-    const visibleNodes: LegacyConversationSlice['nodes'] = Array.from(
-      { length: 10 },
-      (_, index) => ({
-        kind: 'assistant' as const,
-        seq: index * 2 + 44,
-        time: index * 2 + 44,
-        turn: index + 2,
-        step: 1,
-        blocks: [{ kind: 'text' as const, text: `visible response ${String(index + 1)}` }],
-      }),
-    )
-    const nodes: LegacyConversationSlice['nodes'] = [{
-      kind: 'assistant', seq: 2, time: 2, turn: 1, step: 1,
-      blocks: [{ kind: 'tool-call', callId: 'boundary-call', name: 'bash', argsRaw: '{}' }],
-    }, {
-      kind: 'tool-result', seq: 3, time: 3, callId: 'boundary-call',
-      name: 'bash', args: PartialArguments.fromText('{}'),
-      call: { name: 'bash', argsRaw: '{}' }, callTime: 2,
-      content: [], isError: false, subCalls: [],
-    }, ...Array.from({ length: 39 }, (_, index) => ({
-      kind: 'compaction' as const,
-      seq: index + 4,
-      time: index + 4,
-      summary: null,
-      summaryEventSeq: null,
-      shadowedItemCount: null,
-      shadowedTokenCount: null,
-    })), ...visibleNodes]
-    const requests: readonly RequestView[] = [{
-      purpose: 'assistant', startSeq: 1, resultSeq: 2, startedAt: 1, completedAt: 2,
-      status: 'complete', turn: 1, step: 1, usage: { inputTokens: 1 },
-    }, ...visibleNodes.map((node, index) => ({
-      purpose: 'assistant' as const,
-      startSeq: node.seq - 1,
-      resultSeq: node.seq,
-      startedAt: node.seq - 1,
-      completedAt: node.seq,
-      status: 'complete' as const,
+    const visibleNodes: LegacyConversationSlice['nodes'] = Array.from({ length: 10 }, (_, index) => ({
+      kind: 'assistant' as const,
+      seq: index * 2 + 44,
+      time: index * 2 + 44,
       turn: index + 2,
       step: 1,
-      usage: { inputTokens: 1 },
-    }))]
+      blocks: [{ kind: 'text' as const, text: `visible response ${String(index + 1)}` }],
+    }))
+    const nodes: LegacyConversationSlice['nodes'] = [
+      {
+        kind: 'assistant',
+        seq: 2,
+        time: 2,
+        turn: 1,
+        step: 1,
+        blocks: [{ kind: 'tool-call', callId: 'boundary-call', name: 'bash', argsRaw: '{}' }],
+      },
+      {
+        kind: 'tool-result',
+        seq: 3,
+        time: 3,
+        callId: 'boundary-call',
+        name: 'bash',
+        args: PartialArguments.fromText('{}'),
+        call: { name: 'bash', argsRaw: '{}' },
+        callTime: 2,
+        content: [],
+        isError: false,
+        subCalls: [],
+      },
+      ...Array.from({ length: 39 }, (_, index) => ({
+        kind: 'compaction' as const,
+        seq: index + 4,
+        time: index + 4,
+        summary: null,
+        summaryEventSeq: null,
+        shadowedItemCount: null,
+        shadowedTokenCount: null,
+      })),
+      ...visibleNodes,
+    ]
+    const requests: readonly RequestView[] = [
+      {
+        purpose: 'assistant',
+        startSeq: 1,
+        resultSeq: 2,
+        startedAt: 1,
+        completedAt: 2,
+        status: 'complete',
+        turn: 1,
+        step: 1,
+        usage: { inputTokens: 1 },
+      },
+      ...visibleNodes.map((node, index) => ({
+        purpose: 'assistant' as const,
+        startSeq: node.seq - 1,
+        resultSeq: node.seq,
+        startedAt: node.seq - 1,
+        completedAt: node.seq,
+        status: 'complete' as const,
+        turn: index + 2,
+        step: 1,
+        usage: { inputTokens: 1 },
+      })),
+    ]
     render(
-      <TrajectoryView
-        {...standaloneProps([])}
-        {...standaloneHistory(historySnapshot(nodes, { requests }))}
-        {...standaloneDuration()}
-      />,
+      <TrajectoryView {...standaloneProps([])} {...standaloneHistory(historySnapshot(nodes, { requests }))} {...standaloneDuration()} />,
     )
 
-    await waitFor(() => { expect(screen.getByRole('button', { name: '请求 #1' })).toBeTruthy() })
-    await waitFor(() => { expect(screen.getByRole('button', { name: '请求 #11' })).toBeTruthy() })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '请求 #1' })).toBeTruthy()
+    })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '请求 #11' })).toBeTruthy()
+    })
     fireEvent.click(screen.getByRole('button', { name: '请求 #11' }))
     fireEvent.click(screen.getByRole('tab', { name: '用量' }))
     expect(screen.getByText('会话累计').closest('section')?.textContent).toContain('11 tok')
   })
 
   it.each([
-    ['root', {
-      kind: 'assistant' as const,
-      seq: 3,
-      time: 3,
-      turn: 1,
-      step: 1,
-      blocks: [{ kind: 'tool-call' as const, callId: 'hidden-root', name: 'bash', argsRaw: '{}' }],
-    }, 'hidden-root'],
-    ['nested', {
-      kind: 'tool-result' as const,
-      seq: 3,
-      time: 3,
-      callId: 'hidden-root',
-      name: 'run_code', args: PartialArguments.fromText('{}'),
-      call: { name: 'run_code', argsRaw: '{}' },
-      callTime: 2,
-      content: [],
-      isError: false,
-      subCalls: [{
-        phase: 'start' as const, args: PartialArguments.fromText('{}'), callId: 'hidden-child', parentCallId: 'hidden-root', name: 'bash', argsRaw: '{}',
-        turn: 1, step: 1, time: 3, subCalls: [],
-      }],
-    }, 'hidden-child'],
+    [
+      'root',
+      {
+        kind: 'assistant' as const,
+        seq: 3,
+        time: 3,
+        turn: 1,
+        step: 1,
+        blocks: [{ kind: 'tool-call' as const, callId: 'hidden-root', name: 'bash', argsRaw: '{}' }],
+      },
+      'hidden-root',
+    ],
+    [
+      'nested',
+      {
+        kind: 'tool-result' as const,
+        seq: 3,
+        time: 3,
+        callId: 'hidden-root',
+        name: 'run_code',
+        args: PartialArguments.fromText('{}'),
+        call: { name: 'run_code', argsRaw: '{}' },
+        callTime: 2,
+        content: [],
+        isError: false,
+        subCalls: [
+          {
+            phase: 'start' as const,
+            args: PartialArguments.fromText('{}'),
+            callId: 'hidden-child',
+            parentCallId: 'hidden-root',
+            name: 'bash',
+            argsRaw: '{}',
+            turn: 1,
+            step: 1,
+            time: 3,
+            subCalls: [],
+          },
+        ],
+      },
+      'hidden-child',
+    ],
   ])('reveals a hidden resident %s call for cross-view inspection', (_kind, target, focus) => {
     const nodes: LegacyConversationSlice['nodes'] = [
       { kind: 'user', seq: 1, time: 1, content: [], source: null },
       {
-        kind: 'tool-result', seq: 2, time: 2, callId: 'unrelated', call: null, callTime: null,
-        name: '', args: PartialArguments.EMPTY,
-        content: [], isError: false, subCalls: [],
+        kind: 'tool-result',
+        seq: 2,
+        time: 2,
+        callId: 'unrelated',
+        call: null,
+        callTime: null,
+        name: '',
+        args: PartialArguments.EMPTY,
+        content: [],
+        isError: false,
+        subCalls: [],
       },
       target,
       ...Array.from({ length: 50 }, (_, index) => ({
@@ -1537,7 +1650,9 @@ describe('TrajectoryView state', () => {
       <TrajectoryView
         {...commonProps}
         useDuration={bindSnapshotSelector(firstDuration)}
-        setActualDuration={(value) => { firstDuration.set(value) }}
+        setActualDuration={value => {
+          firstDuration.set(value)
+        }}
       />,
     )
     const duration = screen.getByRole('button', { name: '使用实际时长' })
@@ -1552,22 +1667,28 @@ describe('TrajectoryView state', () => {
       <TrajectoryView
         {...commonProps}
         useDuration={bindSnapshotSelector(restoredDuration)}
-        setActualDuration={(value) => { restoredDuration.set(value) }}
+        setActualDuration={value => {
+          restoredDuration.set(value)
+        }}
       />,
     )
-    expect(screen.getByRole('button', { name: '使用实际时长' }).getAttribute('aria-pressed'))
-      .toBe('true')
+    expect(screen.getByRole('button', { name: '使用实际时长' }).getAttribute('aria-pressed')).toBe('true')
   })
-
-
 
   it('keeps ledger and timeline selection on the same event after prepend', () => {
     const older: LegacyConversationSlice['nodes'][number] = {
-      kind: 'user', seq: 1, time: 1_000,
-      content: [{ type: 'text', text: 'older prompt' }], source: null,
+      kind: 'user',
+      seq: 1,
+      time: 1_000,
+      content: [{ type: 'text', text: 'older prompt' }],
+      source: null,
     }
     const current: LegacyConversationSlice['nodes'][number] = {
-      kind: 'assistant', seq: 100, time: 5_000, turn: 2, step: 1,
+      kind: 'assistant',
+      seq: 100,
+      time: 5_000,
+      turn: 2,
+      step: 1,
       blocks: [{ kind: 'text', text: 'selected current response' }],
     }
     const store = createSnapshotStore(historySnapshot([current]))
@@ -1582,20 +1703,21 @@ describe('TrajectoryView state', () => {
     )
     fireEvent.click(screen.getByRole('row', { name: /selected current response/ }))
 
-    act(() => { store.set(historySnapshot([older, current])) })
+    act(() => {
+      store.set(historySnapshot([older, current]))
+    })
 
     const row = screen.getByRole('row', { name: /selected current response/ })
     expect(row.getAttribute('aria-selected')).toBe('true')
     const currentIndex = row.getAttribute('data-record-index')
-    expect(view.container.querySelector(
-      `[data-timeline-record-index="${currentIndex}"][data-current="true"]`,
-    )).toBeTruthy()
+    expect(view.container.querySelector(`[data-timeline-record-index="${currentIndex}"][data-current="true"]`)).toBeTruthy()
   })
-
 })
 
 describe('node half', () => {
   it('node apply is an intentional no-op (loader-managed lifecycle only)', () => {
-    expect(() => { nodeApply() }).not.toThrow()
+    expect(() => {
+      nodeApply()
+    }).not.toThrow()
   })
 })

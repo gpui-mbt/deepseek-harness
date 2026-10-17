@@ -1,7 +1,7 @@
 /** Git command bounds, snapshot recovery, and diff failure reporting. */
 import { chmod, mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import { GitRunner, blobText, diffTrees, ignoredPaths, locateGitWorkspace, snapshotTree, treeBlob } from '../src/git.ts'
@@ -51,7 +51,9 @@ describe('GitRunner', () => {
     await expect(slow.run(['--version'], { cwd, signal })).rejects.toThrow('timed out after 1ms')
     const { git: quick } = await runner()
     const aborted = new AbortController()
-    setTimeout(() => { aborted.abort() }, 0)
+    setTimeout(() => {
+      aborted.abort()
+    }, 0)
     await expect(quick.run(['--version'], { cwd, signal: aborted.signal })).rejects.toThrow('git --version was aborted')
     const ok = await quick.run(['--version'], { cwd, signal })
     expect(ok.exitCode).toBe(0)
@@ -64,7 +66,8 @@ describe('snapshots and diffs', () => {
     const cwd = await scratchDir('dsh-git-conflict-', cleanups)
     git(cwd, 'init', '-q', '-b', 'main')
     await writeFile(join(cwd, 'f.txt'), 'base\n')
-    git(cwd, 'add', '-A'); git(cwd, 'commit', '-q', '-m', 'base')
+    git(cwd, 'add', '-A')
+    git(cwd, 'commit', '-q', '-m', 'base')
     git(cwd, 'checkout', '-q', '-b', 'side')
     await writeFile(join(cwd, 'f.txt'), 'side\n')
     git(cwd, 'commit', '-q', '-am', 'side')
@@ -102,7 +105,6 @@ describe('snapshots and diffs', () => {
     await expect(diffTrees(tiny, workspace, before, after, signal)).rejects.toThrow('exceeded')
     expect((await diffTrees(runnerGit, workspace, before, after, signal)).length).toBe(21)
   })
-
 })
 
 describe('repository edge cases', () => {
@@ -173,9 +175,20 @@ describe('TurnRecorder', () => {
     const session = ctx.sessions.create(SessionId('recorder'), { meta: { cwd } })
     const warnings: string[] = []
     let release!: (runner: GitRunner | null) => void
-    const gate = new Promise<GitRunner | null>((resolve) => { release = resolve })
+    const gate = new Promise<GitRunner | null>(resolve => {
+      release = resolve
+    })
     const tempRoot = await scratchDir('dsh-git-store-', cleanups)
-    const env = { git: gate, tempRoot, maxFiles: 10, maxFileBytes: 1024, diffTimeoutMs: 100, warn: (m: string) => { warnings.push(m) } }
+    const env = {
+      git: gate,
+      tempRoot,
+      maxFiles: 10,
+      maxFileBytes: 1024,
+      diffTimeoutMs: 100,
+      warn: (m: string) => {
+        warnings.push(m)
+      },
+    }
     const disposed = new TurnRecorder(session, cwd, env)
     disposed.start(1)
     await new Promise(resolve => setTimeout(resolve, 5))
@@ -199,8 +212,14 @@ describe('TurnRecorder', () => {
     const tempRoot = await scratchDir('dsh-git-store-', cleanups)
     const { ctx, git: runnerGit } = await runner()
     const env = {
-      git: Promise.resolve(runnerGit), tempRoot, maxFiles: 10, maxFileBytes: 1024, diffTimeoutMs: 100,
-      warn: (m: string) => { throw new Error(m) },
+      git: Promise.resolve(runnerGit),
+      tempRoot,
+      maxFiles: 10,
+      maxFileBytes: 1024,
+      diffTimeoutMs: 100,
+      warn: (m: string) => {
+        throw new Error(m)
+      },
     }
     const plain = new TurnRecorder(ctx.sessions.create(SessionId('plain'), { meta: { cwd: tempRoot } }), tempRoot, env)
     plain.start(1)
@@ -222,14 +241,21 @@ describe('TurnRecorder', () => {
     const cwd = await scratchDir('dsh-recorder-tmp-in-tree-', cleanups)
     git(cwd, 'init', '-q', '-b', 'main')
     await writeFile(join(cwd, 'tracked.txt'), 'one\n')
-    git(cwd, 'add', '-A'); git(cwd, 'commit', '-q', '-m', 'init')
+    git(cwd, 'add', '-A')
+    git(cwd, 'commit', '-q', '-m', 'init')
     const tempRoot = join(cwd, 'tmp')
     await mkdir(tempRoot)
     const { ctx, git: runnerGit } = await runner()
     const session = ctx.sessions.create(SessionId('tmp-in-tree'), { meta: { cwd } })
     const env = {
-      git: Promise.resolve(runnerGit), tempRoot, maxFiles: 10, maxFileBytes: 1024, diffTimeoutMs: 100,
-      warn: (m: string) => { throw new Error(m) },
+      git: Promise.resolve(runnerGit),
+      tempRoot,
+      maxFiles: 10,
+      maxFileBytes: 1024,
+      diffTimeoutMs: 100,
+      warn: (m: string) => {
+        throw new Error(m)
+      },
     }
     const recorder = new TurnRecorder(session, cwd, env)
     startTurn(session, 1)

@@ -16,7 +16,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { MemoryVfs } from '../../src/storage/memory.ts'
 import { setActiveVfs } from '../../src/storage/active.ts'
 import * as workerFs from '../../src/node/builtin_modules/implemented/fs.ts'
@@ -41,8 +41,10 @@ afterEach(() => {
 /** Await the next callback value with a bounded failure instead of an open watcher. */
 function nextValue<T>(install: (resolve: (value: T) => void) => void): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timeout = setTimeout(() => { reject(new Error('timed out waiting for filesystem event')) }, 2_000)
-    install((value) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('timed out waiting for filesystem event'))
+    }, 2_000)
+    install(value => {
       clearTimeout(timeout)
       resolve(value)
     })
@@ -63,13 +65,19 @@ async function readScenario(create: () => ReadableFileStream): Promise<{
   const stream = create()
   const chunks: string[] = []
   const events: string[] = []
-  stream.on('open', () => { events.push('open') })
-  stream.on('ready', () => { events.push('ready') })
+  stream.on('open', () => {
+    events.push('open')
+  })
+  stream.on('ready', () => {
+    events.push('ready')
+  })
   stream.on('data', (chunk: unknown) => {
     events.push('data')
     chunks.push(Buffer.from(chunk as Uint8Array).toString('utf8'))
   })
-  stream.on('end', () => { events.push('end') })
+  stream.on('end', () => {
+    events.push('end')
+  })
   await new Promise<void>((resolve, reject) => {
     stream.on('error', reject)
     stream.on('close', () => {
@@ -96,7 +104,9 @@ async function writeScenario(create: () => WritableFileStream): Promise<{
   const stream = create()
   const events: string[] = []
   for (const event of ['open', 'ready', 'drain', 'finish'] as const) {
-    stream.on(event, () => { events.push(event) })
+    stream.on(event, () => {
+      events.push(event)
+    })
   }
   const writes = [stream.write('ab'), stream.write('cd')]
   stream.end('ef')
@@ -193,15 +203,15 @@ describe('file streams', () => {
 
     const nativeReadOnly = openNodeSync(nativePath, 'r')
     const workerReadOnly = workerFs.openSync(workerPath, 'r')
-    expect(codeOf(() => workerFs.writeSync(workerReadOnly, 'x')))
-      .toBe(codeOf(() => writeNodeSync(nativeReadOnly, 'x')))
+    expect(codeOf(() => workerFs.writeSync(workerReadOnly, 'x'))).toBe(codeOf(() => writeNodeSync(nativeReadOnly, 'x')))
     closeNodeSync(nativeReadOnly)
     workerFs.closeSync(workerReadOnly)
 
     const nativeWriteOnly = openNodeSync(nativePath, 'w')
     const workerWriteOnly = workerFs.openSync(workerPath, 'w')
-    expect(codeOf(() => workerFs.readSync(workerWriteOnly, Buffer.alloc(1), 0, 1, 0)))
-      .toBe(codeOf(() => readNodeSync(nativeWriteOnly, Buffer.alloc(1), 0, 1, 0)))
+    expect(codeOf(() => workerFs.readSync(workerWriteOnly, Buffer.alloc(1), 0, 1, 0))).toBe(
+      codeOf(() => readNodeSync(nativeWriteOnly, Buffer.alloc(1), 0, 1, 0)),
+    )
     closeNodeSync(nativeWriteOnly)
     workerFs.closeSync(workerWriteOnly)
   })
@@ -211,8 +221,7 @@ describe('file streams', () => {
     const alias = `${VFS_ROOT}/linked-alias.txt`
     workerFs.writeFileSync(source, 'one')
     workerFs.linkSync(source, alias)
-    expect(workerFs.statSync(alias, { bigint: true }).ino)
-      .toBe(workerFs.statSync(source, { bigint: true }).ino)
+    expect(workerFs.statSync(alias, { bigint: true }).ino).toBe(workerFs.statSync(source, { bigint: true }).ino)
     workerFs.appendFileSync(alias, '-two')
     expect(workerFs.readFileSync(source, 'utf8')).toBe('one-two')
   })
@@ -220,7 +229,7 @@ describe('file streams', () => {
   it('reports incompatible read and write stream flags as EBADF', async () => {
     const path = `${VFS_ROOT}/stream-mode.txt`
     vfs.writeFileSync(path, 'content')
-    const writeError = nextValue<NodeJS.ErrnoException>((resolve) => {
+    const writeError = nextValue<NodeJS.ErrnoException>(resolve => {
       const stream = workerFs.createWriteStream(path, { flags: 'r' })
       stream.once('error', resolve)
       stream.end('x')
@@ -228,7 +237,9 @@ describe('file streams', () => {
     await expect(writeError).resolves.toMatchObject({ code: 'EBADF' })
 
     const read = workerFs.createReadStream(path, { flags: 'w' })
-    const readError = nextValue<NodeJS.ErrnoException>((resolve) => { read.once('error', resolve) })
+    const readError = nextValue<NodeJS.ErrnoException>(resolve => {
+      read.once('error', resolve)
+    })
     read.resume()
     await expect(readError).resolves.toMatchObject({ code: 'EBADF' })
   })
@@ -237,11 +248,11 @@ describe('file streams', () => {
     const path = `${VFS_ROOT}/truncate.txt`
     vfs.writeFileSync(path, new Uint8Array([1, 2]))
     await workerFsp.truncate(path, 4)
-    expect([...workerFs.readFileSync(path) as Uint8Array]).toEqual([1, 2, 0, 0])
+    expect([...(workerFs.readFileSync(path) as Uint8Array)]).toEqual([1, 2, 0, 0])
     const handle = await workerFsp.open(path, 'r+')
     await handle.truncate(6)
     await handle.close()
-    expect([...workerFs.readFileSync(path) as Uint8Array]).toEqual([1, 2, 0, 0, 0, 0])
+    expect([...(workerFs.readFileSync(path) as Uint8Array)]).toEqual([1, 2, 0, 0, 0, 0])
   })
 
   it('matches Node chunking, inclusive ranges, and read lifecycle ordering', async () => {
@@ -274,8 +285,13 @@ describe('file streams', () => {
     for await (const value of workerStream.Readable.from(['one', 'two'])) values.push(String(value))
     expect(values).toEqual(['one', 'two'])
     expect(workerStream.default).toBe(workerStream.Stream)
-    expect(new workerStream.Writable({ write: (_chunk, _encoding, callback) => { callback() } }))
-      .toBeInstanceOf(workerStream.default)
+    expect(
+      new workerStream.Writable({
+        write: (_chunk, _encoding, callback) => {
+          callback()
+        },
+      }),
+    ).toBeInstanceOf(workerStream.default)
     expect(typeof workerStream.pipeline).toBe('function')
     expect(typeof workerStream.finished).toBe('function')
     expect(workerStream.getDefaultHighWaterMark(false)).toBe(64 * 1024)
@@ -302,17 +318,24 @@ describe('file streams', () => {
       destroy(): unknown
     }
     const streams = [nativeRead, nativeWrite, workerRead, workerWrite] as CloseableStream[]
-    const closed = streams.map(stream => new Promise<void>((resolve) => {
-      stream.once('error', () => {})
-      stream.once('close', () => { resolve() })
-    }))
+    const closed = streams.map(
+      stream =>
+        new Promise<void>(resolve => {
+          stream.once('error', () => {})
+          stream.once('close', () => {
+            resolve()
+          })
+        }),
+    )
     for (const stream of streams) stream.destroy()
     await Promise.all(closed)
 
     const controller = new AbortController()
     controller.abort(new Error('stop'))
     const aborted = workerFs.createReadStream(workerPath, { signal: controller.signal })
-    const error = await nextValue<Error & { code?: string }>((resolve) => { aborted.once('error', resolve) })
+    const error = await nextValue<Error & { code?: string }>(resolve => {
+      aborted.once('error', resolve)
+    })
     expect(error).toMatchObject({ name: 'AbortError', code: 'ABORT_ERR' })
   })
 
@@ -321,24 +344,40 @@ describe('file streams', () => {
     vfs.writeFileSync(readPath, 'content')
     const read = workerFs.createReadStream(readPath, { autoClose: false })
     read.resume()
-    await nextValue<undefined>((resolve) => { read.once('end', () => { resolve(undefined) }) })
+    await nextValue<undefined>(resolve => {
+      read.once('end', () => {
+        resolve(undefined)
+      })
+    })
     const readFd = read.fd
     expect(readFd).not.toBeNull()
     expect(read.destroyed).toBe(false)
     expect(() => workerFs.readSync(readFd as number, Buffer.alloc(1), 0, 1, 0)).not.toThrow()
-    const readClosed = nextValue<undefined>((resolve) => { read.once('close', () => { resolve(undefined) }) })
+    const readClosed = nextValue<undefined>(resolve => {
+      read.once('close', () => {
+        resolve(undefined)
+      })
+    })
     read.close()
     await readClosed
     expect(() => workerFs.readSync(readFd as number, Buffer.alloc(1), 0, 1, 0)).toThrow(/EBADF/)
 
     const write = workerFs.createWriteStream(`${VFS_ROOT}/manual-write-close.txt`, { autoClose: false })
     write.end('a')
-    await nextValue<undefined>((resolve) => { write.once('finish', () => { resolve(undefined) }) })
+    await nextValue<undefined>(resolve => {
+      write.once('finish', () => {
+        resolve(undefined)
+      })
+    })
     const writeFd = write.fd
     expect(writeFd).not.toBeNull()
     expect(write.destroyed).toBe(false)
     expect(workerFs.writeSync(writeFd as number, 'b')).toBe(1)
-    const writeClosed = nextValue<undefined>((resolve) => { write.once('close', () => { resolve(undefined) }) })
+    const writeClosed = nextValue<undefined>(resolve => {
+      write.once('close', () => {
+        resolve(undefined)
+      })
+    })
     write.close()
     await writeClosed
     expect(workerFs.readFileSync(`${VFS_ROOT}/manual-write-close.txt`, 'utf8')).toBe('ab')
@@ -348,14 +387,20 @@ describe('file streams', () => {
       flags: 'r',
       autoClose: false,
     })
-    const error = nextValue<NodeJS.ErrnoException>((resolve) => { errored.once('error', resolve) })
+    const error = nextValue<NodeJS.ErrnoException>(resolve => {
+      errored.once('error', resolve)
+    })
     errored.end('rejected')
     await expect(error).resolves.toMatchObject({ code: 'EBADF' })
     const errorFd = errored.fd
     expect(errorFd).not.toBeNull()
     expect(errored.destroyed).toBe(false)
     expect(() => workerFs.readSync(errorFd as number, Buffer.alloc(1), 0, 1, 0)).not.toThrow()
-    const errorClosed = nextValue<undefined>((resolve) => { errored.once('close', () => { resolve(undefined) }) })
+    const errorClosed = nextValue<undefined>(resolve => {
+      errored.once('close', () => {
+        resolve(undefined)
+      })
+    })
     errored.destroy()
     await errorClosed
     expect(() => workerFs.readSync(errorFd as number, Buffer.alloc(1), 0, 1, 0)).toThrow(/EBADF/)
@@ -371,7 +416,11 @@ describe('file streams', () => {
 
     const writeAt = async (stream: WritableFileStream): Promise<void> => {
       stream.end('XY')
-      await new Promise<void>((resolve) => { stream.on('close', () => { resolve() }) })
+      await new Promise<void>(resolve => {
+        stream.on('close', () => {
+          resolve()
+        })
+      })
     }
     await writeAt(createNodeWriteStream(nativePath, { flags: 'r+', start: 2 }))
     await writeAt(workerFs.createWriteStream(workerPath, { flags: 'r+', start: 2 }))
@@ -379,8 +428,10 @@ describe('file streams', () => {
 
     const missing = workerFs.createReadStream(`${VFS_ROOT}/missing.txt`)
     const events: string[] = []
-    missing.on('error', () => { events.push('error') })
-    await new Promise<void>((resolve) => {
+    missing.on('error', () => {
+      events.push('error')
+    })
+    await new Promise<void>(resolve => {
       missing.on('close', () => {
         events.push('close')
         resolve()
@@ -418,10 +469,7 @@ describe('file streams', () => {
       },
     }
     expect(() => {
-      workerFs.ReadStream.prototype._construct.call(
-        readReceiver as unknown as workerFs.ReadStream,
-        readCallback,
-      )
+      workerFs.ReadStream.prototype._construct.call(readReceiver as unknown as workerFs.ReadStream, readCallback)
     }).toThrow(readFailure)
     expect(readReceiver.pending).toBe(false)
     expect(readReceiver.fd).not.toBeNull()
@@ -453,10 +501,7 @@ describe('file streams', () => {
       },
     }
     expect(() => {
-      workerFs.WriteStream.prototype._construct.call(
-        writeReceiver as unknown as workerFs.WriteStream,
-        writeCallback,
-      )
+      workerFs.WriteStream.prototype._construct.call(writeReceiver as unknown as workerFs.WriteStream, writeCallback)
     }).toThrow(writeFailure)
     expect(writeReceiver.pending).toBe(false)
     expect(writeReceiver.fd).not.toBeNull()
@@ -465,12 +510,9 @@ describe('file streams', () => {
 
   it('codes a write before descriptor publication as EBADF', () => {
     let failure: Error | null | undefined
-    workerFs.WriteStream.prototype._write.call(
-      { fd: null } as unknown as workerFs.WriteStream,
-      Buffer.from('x'),
-      'utf8',
-      (error) => { failure = error },
-    )
+    workerFs.WriteStream.prototype._write.call({ fd: null } as unknown as workerFs.WriteStream, Buffer.from('x'), 'utf8', error => {
+      failure = error
+    })
     expect(failure).toMatchObject({ code: 'EBADF', syscall: 'write' })
   })
 })
@@ -500,8 +542,12 @@ async function watchFileScenario(
       currentSize: current.size,
       previousSize: previous.size,
       currentOtherKinds: [
-        current.isDirectory(), current.isSymbolicLink(), current.isFIFO(),
-        current.isSocket(), current.isBlockDevice(), current.isCharacterDevice(),
+        current.isDirectory(),
+        current.isSymbolicLink(),
+        current.isFIFO(),
+        current.isSocket(),
+        current.isBlockDevice(),
+        current.isCharacterDevice(),
       ],
     }
     const resolve = waiting.shift()
@@ -511,7 +557,9 @@ async function watchFileScenario(
   const next = async (): Promise<StatTransition> => {
     const queuedValue = queued.shift()
     if (queuedValue !== undefined) return queuedValue
-    return await nextValue((resolve) => { waiting.push(resolve) })
+    return await nextValue(resolve => {
+      waiting.push(resolve)
+    })
   }
   watchFile(path, { interval: 10, persistent: false }, listener)
   try {
@@ -534,7 +582,9 @@ describe('watchers', () => {
     vfs.writeFileSync(path, 'value')
     const failure = new Error('callback failed')
     let calls = 0
-    const dispatch = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation((callback) => { callback() })
+    const dispatch = vi.spyOn(globalThis, 'queueMicrotask').mockImplementation(callback => {
+      callback()
+    })
     expect(() => {
       workerFs.stat(path, () => {
         calls += 1
@@ -554,15 +604,23 @@ describe('watchers', () => {
       nativePath,
       watchNodeFile,
       unwatchNodeFile,
-      (text) => { writeFileSync(nativePath, text) },
-      () => { rmSync(nativePath) },
+      text => {
+        writeFileSync(nativePath, text)
+      },
+      () => {
+        rmSync(nativePath)
+      },
     )
     const worker = await watchFileScenario(
       workerPath,
       workerFs.watchFile as unknown as typeof watchNodeFile,
       workerFs.unwatchFile as unknown as typeof unwatchNodeFile,
-      (text) => { vfs.writeFileSync(workerPath, text) },
-      () => { vfs.rmSync(workerPath) },
+      text => {
+        vfs.writeFileSync(workerPath, text)
+      },
+      () => {
+        vfs.rmSync(workerPath)
+      },
     )
     expect(worker).toEqual(native)
   })
@@ -572,14 +630,18 @@ describe('watchers', () => {
     vfs.writeFileSync(path, 'a')
     const firstEvents: number[] = []
     const secondEvents: number[] = []
-    const first = (): void => { firstEvents.push(1) }
-    const second = (): void => { secondEvents.push(1) }
+    const first = (): void => {
+      firstEvents.push(1)
+    }
+    const second = (): void => {
+      secondEvents.push(1)
+    }
     const firstWatcher = workerFs.watchFile(path, { interval: 1, persistent: false }, first)
     const secondWatcher = workerFs.watchFile(path, { interval: 1, persistent: false }, second)
     expect(secondWatcher).toBe(firstWatcher)
     workerFs.unwatchFile(path, first)
     vfs.writeFileSync(path, 'bb')
-    await nextValue<undefined>((resolve) => {
+    await nextValue<undefined>(resolve => {
       const poll = setInterval(() => {
         if (secondEvents.length === 0) return
         clearInterval(poll)
@@ -597,7 +659,9 @@ describe('watchers', () => {
     const directEvents: Array<[string, string]> = []
     const recursiveEvents: Array<[string, string]> = []
     const direct = workerFs.watch(root, (_event, _filename) => {})
-    direct.on('change', (event, filename) => { directEvents.push([String(event), String(filename)]) })
+    direct.on('change', (event, filename) => {
+      directEvents.push([String(event), String(filename)])
+    })
     const recursive = workerFs.watch(root, { recursive: true }, (event, filename) => {
       recursiveEvents.push([event, String(filename)])
     })
@@ -621,11 +685,13 @@ describe('watchers', () => {
     const path = `${VFS_ROOT}/encoded.txt`
     vfs.writeFileSync(path, 'before')
     const controller = new AbortController()
-    const event = nextValue<[string, Buffer]>((resolve) => {
+    const event = nextValue<[string, Buffer]>(resolve => {
       const watcher = workerFs.watch(
         new TextEncoder().encode(path),
         { encoding: 'buffer', persistent: false, signal: controller.signal },
-        (eventType, filename) => { resolve([eventType, filename as Buffer]) },
+        (eventType, filename) => {
+          resolve([eventType, filename as Buffer])
+        },
       )
       expect(watcher.hasRef()).toBe(false)
       expect(watcher.ref().hasRef()).toBe(true)
@@ -639,7 +705,7 @@ describe('watchers', () => {
 
     const watcher = workerFs.watch(path, { signal: controller.signal })
     let closes = 0
-    const closed = nextValue<undefined>((resolve) => {
+    const closed = nextValue<undefined>(resolve => {
       watcher.on('close', () => {
         closes += 1
         resolve(undefined)
@@ -653,7 +719,7 @@ describe('watchers', () => {
   })
 
   it('supports the string encoding overload and suppresses queued delivery after close', async () => {
-    const encoded = nextValue<Buffer>((resolve) => {
+    const encoded = nextValue<Buffer>(resolve => {
       const watcher = workerFs.watch(VFS_ROOT, 'buffer', (_eventType, filename) => {
         watcher.close()
         resolve(filename as Buffer)
@@ -663,7 +729,9 @@ describe('watchers', () => {
     await expect(encoded).resolves.toEqual(Buffer.from('buffer-name.txt'))
 
     let calls = 0
-    const closed = workerFs.watch(VFS_ROOT, () => { calls += 1 })
+    const closed = workerFs.watch(VFS_ROOT, () => {
+      calls += 1
+    })
     vfs.writeFileSync(`${VFS_ROOT}/queued.txt`, 'x')
     closed.close()
     await Promise.resolve()
@@ -675,7 +743,7 @@ describe('watchers', () => {
     const path = `${directory}/file.txt`
     vfs.mkdirSync(directory)
     vfs.writeFileSync(path, 'x')
-    const event = nextValue<[string, string]>((resolve) => {
+    const event = nextValue<[string, string]>(resolve => {
       const watcher = workerFs.watch(path, (eventType, filename) => {
         watcher.close()
         resolve([eventType, String(filename)])
@@ -690,7 +758,7 @@ describe('watchers', () => {
     controller.abort(new Error('already stopped'))
     const order: string[] = []
     const watcher = workerFs.watch(VFS_ROOT, { signal: controller.signal })
-    const closed = nextValue<undefined>((resolve) => {
+    const closed = nextValue<undefined>(resolve => {
       watcher.once('close', () => {
         order.push('close')
         resolve(undefined)
@@ -699,7 +767,9 @@ describe('watchers', () => {
     order.push('return')
     await closed
     expect(order).toEqual(['return', 'close'])
-    expect(() => { vfs.writeFileSync(`${VFS_ROOT}/after-abort.txt`, 'x') }).not.toThrow()
+    expect(() => {
+      vfs.writeFileSync(`${VFS_ROOT}/after-abort.txt`, 'x')
+    }).not.toThrow()
   })
 
   it('reports an atomic replacement destination as rename even when it existed', async () => {
@@ -707,7 +777,7 @@ describe('watchers', () => {
     const replacement = `${VFS_ROOT}/replacement.txt`
     vfs.writeFileSync(target, 'old')
     vfs.writeFileSync(replacement, 'new')
-    const event = nextValue<[string, string]>((resolve) => {
+    const event = nextValue<[string, string]>(resolve => {
       const watcher = workerFs.watch(VFS_ROOT, (eventType, filename) => {
         if (String(filename) !== 'target.txt') return
         watcher.close()
@@ -720,7 +790,7 @@ describe('watchers', () => {
 
   it('supports BigInt watchFile state, default options, and idempotent stop', async () => {
     const path = `${VFS_ROOT}/bigint.txt`
-    const states = nextValue<[bigint, bigint]>((resolve) => {
+    const states = nextValue<[bigint, bigint]>(resolve => {
       const watcher = workerFs.watchFile(new URL(`file://${path}`), { bigint: true, interval: 1 }, (current, previous) => {
         resolve([current.size as bigint, previous.size as bigint])
       })
@@ -742,16 +812,22 @@ describe('watchers', () => {
     expect(() => workerFs.watchFile(`${VFS_ROOT}/default.txt`, {})).toThrow(/listener/)
 
     let cancelledCalls = 0
-    const cancelled = workerFs.watchFile(`${VFS_ROOT}/never-created`, { interval: 1 }, () => { cancelledCalls += 1 })
+    const cancelled = workerFs.watchFile(`${VFS_ROOT}/never-created`, { interval: 1 }, () => {
+      cancelledCalls += 1
+    })
     cancelled.close()
     cancelled.close()
-    await new Promise<void>((resolve) => { setTimeout(resolve, 5) })
+    await new Promise<void>(resolve => {
+      setTimeout(resolve, 5)
+    })
     expect(cancelledCalls).toBe(0)
   })
 
   it('propagates non-absence stat failures from watchFile', () => {
     const failure = Object.assign(new Error('denied'), { code: 'EACCES' })
-    vi.spyOn(vfs, 'statSync').mockImplementationOnce(() => { throw failure })
+    vi.spyOn(vfs, 'statSync').mockImplementationOnce(() => {
+      throw failure
+    })
     expect(() => workerFs.watchFile(`${VFS_ROOT}/denied`, () => {})).toThrow(failure)
   })
 

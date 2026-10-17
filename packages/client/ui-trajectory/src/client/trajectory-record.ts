@@ -6,14 +6,7 @@ import type { ConversationPromptSnapshot } from '@deepseek-ai/dsh-client-ui-conv
 import type { TrajectoryTranslate } from './locales.ts'
 
 /** Closed set of trajectory record kinds. */
-export type TrajectoryCellKind =
-  | 'system'
-  | 'user'
-  | 'context'
-  | 'compacted'
-  | 'message'
-  | 'tool'
-  | 'subtool'
+export type TrajectoryCellKind = 'system' | 'user' | 'context' | 'compacted' | 'message' | 'tool' | 'subtool'
 
 /** Recorded inputs needed to derive assistant TTFT and decode throughput. */
 export interface AssistantMetricDetail {
@@ -122,10 +115,7 @@ export function trajectoryRecordId(cell: TrajectoryCellProps): string {
  * @param t - Trajectory locale translator.
  * @returns `—` when unknown, otherwise an integer-millisecond label.
  */
-export function formatDurationMillis(
-  milliseconds: number | null,
-  t: TrajectoryTranslate,
-): string {
+export function formatDurationMillis(milliseconds: number | null, t: TrajectoryTranslate): string {
   if (milliseconds === null || !Number.isFinite(milliseconds)) return '—'
   const integer = String(Math.round(milliseconds))
   return t('unit.milliseconds', {
@@ -139,9 +129,6 @@ export function formatDurationMillis(
  * @param t - Trajectory locale translator.
  * @returns `—` when unknown, otherwise an integer-millisecond label.
  */
-export function formatElapsedSeconds(
-  seconds: number | null,
-  t: TrajectoryTranslate,
-): string {
+export function formatElapsedSeconds(seconds: number | null, t: TrajectoryTranslate): string {
   return formatDurationMillis(seconds === null ? null : seconds * 1000, t)
 }

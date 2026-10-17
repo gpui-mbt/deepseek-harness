@@ -45,10 +45,16 @@ export function memoryPressureMachine(value: string | undefined): MemoryPressure
  */
 export function memoryScopeCommand(machine: MemoryPressureMachine, command: readonly string[]): string[] {
   return [
-    'systemd-run', '--user', '--scope', '--quiet',
-    '-p', `MemoryMax=${String(MEMORY_PRESSURE_MACHINES[machine])}G`,
-    '-p', 'MemorySwapMax=0',
-    '--', ...command,
+    'systemd-run',
+    '--user',
+    '--scope',
+    '--quiet',
+    '-p',
+    `MemoryMax=${String(MEMORY_PRESSURE_MACHINES[machine])}G`,
+    '-p',
+    'MemorySwapMax=0',
+    '--',
+    ...command,
   ]
 }
 
@@ -61,7 +67,9 @@ function run(root: string, command: readonly string[]): number {
 }
 
 function cgroupFile(name: string): string {
-  const line = readFileSync('/proc/self/cgroup', 'utf8').split('\n').find(entry => entry.startsWith('0::'))
+  const line = readFileSync('/proc/self/cgroup', 'utf8')
+    .split('\n')
+    .find(entry => entry.startsWith('0::'))
   if (line === undefined) throw new Error('run-memory-pressure-bench: the process is not in a cgroup v2 hierarchy')
   return readFileSync(join('/sys/fs/cgroup', line.slice(3), name), 'utf8').trim()
 }
@@ -85,8 +93,10 @@ export interface CgroupMemoryLimits {
 export function memoryLimitViolation(machine: MemoryPressureMachine, limits: CgroupMemoryLimits): string | undefined {
   const limitBytes = String(MEMORY_PRESSURE_MACHINES[machine] * 1024 ** 3)
   if (limits.max === limitBytes && limits.swapMax === '0' && String(limits.constrained) === limitBytes) return undefined
-  return `the cgroup does not cap ${machine} without swap: memory.max=${limits.max}, `
-    + `memory.swap.max=${limits.swapMax}, constrainedMemory=${String(limits.constrained)}`
+  return (
+    `the cgroup does not cap ${machine} without swap: memory.max=${limits.max}, ` +
+    `memory.swap.max=${limits.swapMax}, constrainedMemory=${String(limits.constrained)}`
+  )
 }
 
 /**
@@ -105,19 +115,30 @@ export function runScopedMemoryPressureBench(root: string, machine: MemoryPressu
     constrained: process.constrainedMemory(),
   })
   if (violation !== undefined) throw new Error(`run-memory-pressure-bench: ${violation}`)
-  const status = run(root, [...pnpmCommand(), 'exec', 'vitest', 'run', '--config', 'vitest.bench.config.ts', ...MEMORY_PRESSURE_FILES])
+  const status = run(root, [
+    ...pnpmCommand(),
+    'exec',
+    'vp',
+    'test',
+    'bench',
+    '--config',
+    'vitest.bench.config.ts',
+    ...MEMORY_PRESSURE_FILES,
+  ])
   const oomKills = /^oom_kill (\d+)$/m.exec(cgroupFile('memory.events'))?.[1]
   if (oomKills === undefined) throw new Error('run-memory-pressure-bench: memory.events has no oom_kill counter')
-  console.log(JSON.stringify({
-    benchmark: `memory-pressure/${machine}`,
-    limitMb: MEMORY_PRESSURE_MACHINES[machine] * 1024,
-    // Heap limit Node derives from the cgroup for a process without an explicit `--max-old-space-size`.
-    defaultNodeHeapLimitMb: Math.round(getHeapStatistics().heap_size_limit / 1024 ** 2),
-    cgroupPeakMb: Math.round(Number(cgroupFile('memory.peak')) / 1024 ** 2),
-    oomKills: Number(oomKills),
-    files: MEMORY_PRESSURE_FILES,
-    status,
-  }))
+  console.log(
+    JSON.stringify({
+      benchmark: `memory-pressure/${machine}`,
+      limitMb: MEMORY_PRESSURE_MACHINES[machine] * 1024,
+      // Heap limit Node derives from the cgroup for a process without an explicit `--max-old-space-size`.
+      defaultNodeHeapLimitMb: Math.round(getHeapStatistics().heap_size_limit / 1024 ** 2),
+      cgroupPeakMb: Math.round(Number(cgroupFile('memory.peak')) / 1024 ** 2),
+      oomKills: Number(oomKills),
+      files: MEMORY_PRESSURE_FILES,
+      status,
+    }),
+  )
   return status
 }
 
@@ -133,15 +154,17 @@ export function runMemoryPressureBench(root: string, machine: MemoryPressureMach
     throw new Error('run-memory-pressure-bench: memory limits need Linux cgroup v2 and a systemd user manager')
   }
   buildCiBenchArtifacts(root)
-  return run(root, memoryScopeCommand(machine, [
-    ...pnpmCommand(), 'exec', 'tsx', 'scripts/run-memory-pressure-bench.ts', '--scoped', machine,
-  ]))
+  return run(
+    root,
+    memoryScopeCommand(machine, [...pnpmCommand(), 'exec', 'tsx', 'scripts/run-memory-pressure-bench.ts', '--scoped', machine]),
+  )
 }
 
 if (import.meta.main) {
   const root = resolve(import.meta.dirname, '..')
   const args = process.argv.slice(2)
-  process.exitCode = args[0] === '--scoped'
-    ? runScopedMemoryPressureBench(root, memoryPressureMachine(args[1]))
-    : runMemoryPressureBench(root, memoryPressureMachine(args[0]))
+  process.exitCode =
+    args[0] === '--scoped'
+      ? runScopedMemoryPressureBench(root, memoryPressureMachine(args[1]))
+      : runMemoryPressureBench(root, memoryPressureMachine(args[0]))
 }

@@ -207,7 +207,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'completion of the current or newly started refresh.',
       },
       {
-        signature: 'search( query: string, signal: AbortSignal, ): Promise<RemoteResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>>',
+        signature: 'search(query: string, signal: AbortSignal): Promise<RemoteResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>>',
         description: 'Search the Host\'s visible message-content index. Results stay request-local; the list snapshot remains the metadata authority.',
         parameters: [{ name: 'query', description: 'non-blank literal phrase.' }, { name: 'signal', description: 'cancellation for a superseded search.' }],
         returns: 'bounded results, or a business/transport error.',
@@ -428,7 +428,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'sessionId', description: 'Session to unarchive.' }],
       },
       {
-        signature: 'insertSessionBefore( workspaceId: WorkspaceId, sessionId: SessionId, beforeSessionId?: SessionId, ): Promise<WorkspaceView>',
+        signature: 'insertSessionBefore(workspaceId: WorkspaceId, sessionId: SessionId, beforeSessionId?: SessionId): Promise<WorkspaceView>',
         description: 'Move a Session within one Workspace account.',
         parameters: [{ name: 'workspaceId', description: 'owning Workspace.' }, { name: 'sessionId', description: 'Session to move.' }, { name: 'beforeSessionId', description: 'anchor Session; omitted appends.' }],
         returns: 'the changed Workspace.',
@@ -501,7 +501,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'BuiltInLocaleId',
-    declaration: 'export type BuiltInLocaleId = typeof LOCALE_IDS[number];',
+    declaration: 'export type BuiltInLocaleId = (typeof LOCALE_IDS)[number];',
   },
   {
     name: 'ChainKeysOf',
@@ -605,7 +605,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'FactoryInjectParams',
-    declaration: 'export type FactoryInjectParams<F extends keyof SlotFactoryMap & string> = FactoryDefOf<F>[\'scope\'] extends \'session\' ? ([\n    FactoryStoreOf<F>\n] extends [\n    StoreDecl\n] ? [\n    sessionId: SessionIdOf,\n    actions: BoundActions<FactoryStoreOf<F>>\n] : [\n    sessionId: SessionIdOf\n]) : FactoryDefOf<F>[\'scope\'] extends \'session-maybe\' ? ([\n    FactoryStoreOf<F>\n] extends [\n    StoreDecl\n] ? [\n    sessionId: SessionIdOf | undefined,\n    actions: BoundActions<FactoryStoreOf<F>> | undefined\n] : [\n    sessionId: SessionIdOf | undefined\n]) : ([\n    FactoryStoreOf<F>\n] extends [\n    StoreDecl\n] ? [\n    actions: BoundActions<FactoryStoreOf<F>>\n] : [\n]);',
+    declaration: 'export type FactoryInjectParams<F extends keyof SlotFactoryMap & string> = FactoryDefOf<F>[\'scope\'] extends \'session\' ? [\n    FactoryStoreOf<F>\n] extends [\n    StoreDecl\n] ? [\n    sessionId: SessionIdOf,\n    actions: BoundActions<FactoryStoreOf<F>>\n] : [\n    sessionId: SessionIdOf\n] : FactoryDefOf<F>[\'scope\'] extends \'session-maybe\' ? [\n    FactoryStoreOf<F>\n] extends [\n    StoreDecl\n] ? [\n    sessionId: SessionIdOf | undefined,\n    actions: BoundActions<FactoryStoreOf<F>> | undefined\n] : [\n    sessionId: SessionIdOf | undefined\n] : [\n    FactoryStoreOf<F>\n] extends [\n    StoreDecl\n] ? [\n    actions: BoundActions<FactoryStoreOf<F>>\n] : [\n];',
   },
   {
     name: 'FactoryLocalComponent',
@@ -625,7 +625,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'FontRole',
-    declaration: 'export type FontRole = typeof FONT_ROLES[number];',
+    declaration: 'export type FontRole = (typeof FONT_ROLES)[number];',
   },
   {
     name: 'FontSizes',
@@ -653,7 +653,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'InjectParams',
-    declaration: 'export type InjectParams<K extends keyof SlotMap & string, H> = ScopeOf<K> extends \'session\' ? ([\n    H\n] extends [\n    StoreDecl\n] ? [\n    sessionId: SessionIdOf,\n    actions: BoundActions<HandleOf<H>>\n] : [\n    sessionId: SessionIdOf\n]) : ScopeOf<K> extends \'session-maybe\' ? ([\n    H\n] extends [\n    StoreDecl\n] ? [\n    sessionId: SessionIdOf | undefined,\n    actions: BoundActions<HandleOf<H>> | undefined\n] : [\n    sessionId: SessionIdOf | undefined\n]) : ([\n    H\n] extends [\n    StoreDecl\n] ? [\n    actions: BoundActions<HandleOf<H>>\n] : [\n]);',
+    declaration: 'export type InjectParams<K extends keyof SlotMap & string, H> = ScopeOf<K> extends \'session\' ? [\n    H\n] extends [\n    StoreDecl\n] ? [\n    sessionId: SessionIdOf,\n    actions: BoundActions<HandleOf<H>>\n] : [\n    sessionId: SessionIdOf\n] : ScopeOf<K> extends \'session-maybe\' ? [\n    H\n] extends [\n    StoreDecl\n] ? [\n    sessionId: SessionIdOf | undefined,\n    actions: BoundActions<HandleOf<H>> | undefined\n] : [\n    sessionId: SessionIdOf | undefined\n] : [\n    H\n] extends [\n    StoreDecl\n] ? [\n    actions: BoundActions<HandleOf<H>>\n] : [\n];',
   },
   {
     name: 'ISession',
@@ -1053,7 +1053,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ThemePreference',
-    declaration: 'export type ThemePreference = typeof THEME_PREFERENCES[number];',
+    declaration: 'export type ThemePreference = (typeof THEME_PREFERENCES)[number];',
   },
   {
     name: 'ThemeSnapshot',

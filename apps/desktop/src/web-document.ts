@@ -3,9 +3,14 @@ import { readFile } from 'node:fs/promises'
 import { extname, resolve, sep } from 'node:path'
 
 const MIME: Readonly<Record<string, string>> = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json',
-  '.woff2': 'font/woff2', '.png': 'image/png', '.ico': 'image/x-icon',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json',
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
 }
 const BOOT = '<script>globalThis.__DSH_BOOT_READY__ = Promise.withResolvers()</script>'
 
@@ -19,17 +24,22 @@ export async function serveWebDocument(request: Request, root: string): Promise<
   if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405 })
   const url = new URL(request.url)
   let pathname: string
-  try { pathname = decodeURIComponent(url.pathname) } catch { return new Response(null, { status: 400 }) }
+  try {
+    pathname = decodeURIComponent(url.pathname)
+  } catch {
+    return new Response(null, { status: 400 })
+  }
   const target = resolve(root, '.' + (pathname === '/' ? '/index.html' : pathname))
   const directory = resolve(root)
   if (!target.startsWith(directory + sep)) return new Response(null, { status: 403 })
   let body: Buffer
-  try { body = await readFile(target) } catch (error) {
+  try {
+    body = await readFile(target)
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return new Response(null, { status: 404 })
     throw error
   }
-  const content = pathname === '/' || pathname === '/index.html'
-    ? body.toString().replace('<head>', '<head>' + BOOT) : new Uint8Array(body)
+  const content = pathname === '/' || pathname === '/index.html' ? body.toString().replace('<head>', '<head>' + BOOT) : new Uint8Array(body)
   return new Response(request.method === 'HEAD' ? null : content, {
     headers: { 'content-type': MIME[extname(target)] ?? 'application/octet-stream' },
   })
@@ -57,8 +67,16 @@ export async function authenticateWebHost(url: string): Promise<string> {
  */
 const WITHHELD_RESPONSE_HEADERS = [
   'set-cookie',
-  'content-encoding', 'content-length',
-  'transfer-encoding', 'connection', 'keep-alive', 'te', 'trailer', 'upgrade', 'proxy-authenticate', 'proxy-authorization',
+  'content-encoding',
+  'content-length',
+  'transfer-encoding',
+  'connection',
+  'keep-alive',
+  'te',
+  'trailer',
+  'upgrade',
+  'proxy-authenticate',
+  'proxy-authorization',
 ]
 
 /** Host routes whose responses carry immutable cache headers keyed by a per-process revision. */

@@ -24,12 +24,7 @@ export interface SnapshotCorpusGenerationSummary {
 const RETAINED_BASELINE_VERSION = 3
 // Includes native and PTC Office recordings that retain removed tools.
 const MAX_RETAINED_ROLES = 13
-const REQUIRED_V0_COVERAGE = new Set([
-  'multi-hop',
-  'packed-row',
-  'retry-failure',
-  'shipped-profile',
-])
+const REQUIRED_V0_COVERAGE = new Set(['multi-hop', 'packed-row', 'retry-failure', 'shipped-profile'])
 const REQUIRED_ADJACENT_COVERAGE = new Set(['adjacent-migration'])
 
 /**
@@ -38,9 +33,7 @@ const REQUIRED_ADJACENT_COVERAGE = new Set(['adjacent-migration'])
  * @param scenarios - Every owning top-level recorded-session scenario.
  * @returns Accepted current, baseline, and explicitly retained role counts.
  */
-export function assertSnapshotCorpusPolicy(
-  scenarios: readonly SnapshotCorpusScenarioGenerations[],
-): SnapshotCorpusGenerationSummary {
+export function assertSnapshotCorpusPolicy(scenarios: readonly SnapshotCorpusScenarioGenerations[]): SnapshotCorpusGenerationSummary {
   let currentRoles = 0
   let baselineRoles = 0
   let retainedRoles = 0
@@ -68,23 +61,26 @@ export function assertSnapshotCorpusPolicy(
     const expectedVersion = scenario.retained.version
     const mismatched = scenario.selectedVersions.find(version => version !== expectedVersion)
     if (mismatched !== undefined) {
-      throw new Error(
-        `${scenario.key}: selected Session generation v${mismatched} does not match expected v${expectedVersion}`,
-      )
+      throw new Error(`${scenario.key}: selected Session generation v${mismatched} does not match expected v${expectedVersion}`)
     }
     const retiredTools = scenario.retained.coverage.length === 1 && scenario.retained.coverage[0] === 'retired-tools'
-    if (!Number.isSafeInteger(scenario.retained.version)
-      || scenario.retained.version < 0 || scenario.retained.version > SESSION_FORMAT_VERSION
-      || (scenario.retained.version === SESSION_FORMAT_VERSION && !retiredTools)) {
-      throw new Error(`${scenario.key}: retained Session format must precede current v${SESSION_FORMAT_VERSION} unless it pins retired tools at that version`)
-    }
-    const allowedCoverage = retiredTools ? new Set(['retired-tools']) : scenario.retained.version === 0
-      ? REQUIRED_V0_COVERAGE
-      : REQUIRED_ADJACENT_COVERAGE
-    if (scenario.retained.coverage.some(item => !allowedCoverage.has(item))) {
+    if (
+      !Number.isSafeInteger(scenario.retained.version) ||
+      scenario.retained.version < 0 ||
+      scenario.retained.version > SESSION_FORMAT_VERSION ||
+      (scenario.retained.version === SESSION_FORMAT_VERSION && !retiredTools)
+    ) {
       throw new Error(
-        `${scenario.key}: v${scenario.retained.version} retained coverage must be ${[...allowedCoverage].join(', ')}`,
+        `${scenario.key}: retained Session format must precede current v${SESSION_FORMAT_VERSION} unless it pins retired tools at that version`,
       )
+    }
+    const allowedCoverage = retiredTools
+      ? new Set(['retired-tools'])
+      : scenario.retained.version === 0
+        ? REQUIRED_V0_COVERAGE
+        : REQUIRED_ADJACENT_COVERAGE
+    if (scenario.retained.coverage.some(item => !allowedCoverage.has(item))) {
+      throw new Error(`${scenario.key}: v${scenario.retained.version} retained coverage must be ${[...allowedCoverage].join(', ')}`)
     }
     retainedRoles += scenario.selectedVersions.length
     retainedScenarios += 1

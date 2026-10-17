@@ -41,18 +41,24 @@ export class ChatReading {
    * Expose pending reader ownership to navigation and resize handlers.
    * @returns whether reader input still awaits interval or scrollend sampling.
    */
-  get pending(): boolean { return this.sampleTimer !== null }
+  get pending(): boolean {
+    return this.sampleTimer !== null
+  }
   /**
    * Expose the active follow policy.
    * @returns whether content growth retains bottom-follow ownership.
    */
-  get followingTail(): boolean { return this.state.followingTail }
+  get followingTail(): boolean {
+    return this.state.followingTail
+  }
 
   /**
    * Adopt the committed Session's scroll memory.
    * @param store - scroll memory for the current Session.
    */
-  setStore(store: PositionStore): void { this.store = store }
+  setStore(store: PositionStore): void {
+    this.store = store
+  }
 
   /**
    * Connect history policy to settled reading observations.
@@ -61,7 +67,9 @@ export class ChatReading {
    */
   connect(sampled: (sample: ReadingSample) => void): () => void {
     this.sampled = sampled
-    return () => { if (this.sampled === sampled) this.sampled = null }
+    return () => {
+      if (this.sampled === sampled) this.sampled = null
+    }
   }
 
   /** Cancel timers and animation frames and detach the sample listener. */
@@ -103,7 +111,7 @@ export class ChatReading {
   bindFolds(): () => void {
     return this.viewport.bindReader({
       follow: this.follow,
-      landedAtTail: (landing) => {
+      landedAtTail: landing => {
         this.cancelPending()
         this.commit(landing, true, this.viewport.latestTurn)
       },
@@ -119,7 +127,10 @@ export class ChatReading {
   /** Restore the Session's semantic position, or follow the tail when none is saved. */
   restore(): void {
     const saved = this.store.read()
-    if (saved === null) { this.followTail(); return }
+    if (saved === null) {
+      this.followTail()
+      return
+    }
     const landing = this.viewport.restore(saved)
     if (landing === null) return
     this.cancelPending()
@@ -158,8 +169,10 @@ export class ChatReading {
   readonly onScroll = (scroll: ViewportScroll): void => {
     // Native follow animation progress is not reader movement; scrollend settles it.
     if (this.follow.animating) return
-    if ((!scroll.movedByReader && this.state.followingTail)
-      || (scroll.movedByReader && Math.abs(scroll.metrics.top - scroll.metrics.floor) < 1)) {
+    if (
+      (!scroll.movedByReader && this.state.followingTail) ||
+      (scroll.movedByReader && Math.abs(scroll.metrics.top - scroll.metrics.floor) < 1)
+    ) {
       this.followTail()
       this.sampled?.({ position: null, movedByReader: scroll.movedByReader, followingTail: true })
       return
@@ -207,9 +220,7 @@ export class ChatReading {
     else this.probeFrame = requestAnimationFrame(this.probe)
   }
 
-  private commit(
-    landing: ViewportLanding, followingTail: boolean, activeTurn: number | null, initialized = true,
-  ): void {
+  private commit(landing: ViewportLanding, followingTail: boolean, activeTurn: number | null, initialized = true): void {
     if (followingTail) this.store.save(null)
     else if (landing.position !== null) this.store.save(landing.position)
     this.publish({ initialized, followingTail, activeTurn })
@@ -217,8 +228,12 @@ export class ChatReading {
 
   private publish(state: ChatReadingState): void {
     this.follow.setFollowing(state.followingTail)
-    if (state.initialized === this.state.initialized && state.followingTail === this.state.followingTail
-      && state.activeTurn === this.state.activeTurn) return
+    if (
+      state.initialized === this.state.initialized &&
+      state.followingTail === this.state.followingTail &&
+      state.activeTurn === this.state.activeTurn
+    )
+      return
     this.state = state
     this.onChange(state)
   }
@@ -266,7 +281,9 @@ export class ChatReading {
  * @returns the reading owner and its React-visible state.
  */
 export function useChatReading(
-  viewport: ChatViewport, store: PositionStore, initialTurn: number | null,
+  viewport: ChatViewport,
+  store: PositionStore,
+  initialTurn: number | null,
 ): { reading: ChatReading; state: ChatReadingState } {
   const [state, setState] = useState<ChatReadingState>(() => ({
     initialized: false,
@@ -275,8 +292,15 @@ export function useChatReading(
   }))
   const follow = useScrollFollow(state.followingTail, FOLLOW_THRESHOLD + 1)
   const [reading] = useState(() => new ChatReading(viewport, store, state, setState, follow))
-  useLayoutEffect(() => { reading.setStore(store) }, [reading, store])
+  useLayoutEffect(() => {
+    reading.setStore(store)
+  }, [reading, store])
   useLayoutEffect(() => reading.bindFolds(), [reading])
-  useLayoutEffect(() => () => { reading.dispose() }, [reading])
+  useLayoutEffect(
+    () => () => {
+      reading.dispose()
+    },
+    [reading],
+  )
   return { reading, state }
 }

@@ -7,7 +7,9 @@ import type { BrowserPageOptions } from '../browser/BrowserPage.ts'
 import { browserAddressCheckpoint, currentBrowserTarget } from '../browser/BrowserPersistence.ts'
 import { parseBrowserAddress, type BrowserTarget } from '../browser/url.ts'
 
-interface NavigationEvent extends Event { readonly isMainFrame: boolean }
+interface NavigationEvent extends Event {
+  readonly isMainFrame: boolean
+}
 interface LoadFailureEvent extends NavigationEvent {
   readonly errorCode: number
   readonly errorDescription: string
@@ -37,9 +39,12 @@ export class ElectronWebViewImpl implements BrowserFrame {
    * @param workspace - resolves the storage account once for this frame lifetime.
    * @param presentation - tag and Sidebar placement adapter.
    */
-  constructor(private readonly options: BrowserPageOptions, private readonly bridge: DesktopBrowserBridge,
+  constructor(
+    private readonly options: BrowserPageOptions,
+    private readonly bridge: DesktopBrowserBridge,
     private readonly workspace: (signal: AbortSignal) => Promise<string>,
-    private readonly presentation: ElectronWebviewPresentation) {
+    private readonly presentation: ElectronWebviewPresentation,
+  ) {
     this.checkpoint = currentBrowserTarget(options.initial)
     this.store = createSnapshotStore(emptyBrowserFrame())
   }
@@ -55,8 +60,14 @@ export class ElectronWebViewImpl implements BrowserFrame {
     this.attachment = new AbortController()
     this.pending ??= this.store.getSnapshot().target
     if (this.pending !== undefined) {
-      this.store.set({ ...this.store.getSnapshot(), address: 'requested', loading: true,
-        canGoBack: false, canGoForward: false, error: undefined })
+      this.store.set({
+        ...this.store.getSnapshot(),
+        address: 'requested',
+        loading: true,
+        canGoBack: false,
+        canGoForward: false,
+        error: undefined,
+      })
       this.initialize()
     }
   }
@@ -114,7 +125,8 @@ export class ElectronWebViewImpl implements BrowserFrame {
     this.lifetime.abort()
     this.pending = undefined
     this.disposal = Promise.all([this.dropGuest(), this.initializing])
-      .then(() => Promise.all(this.releases)).then(() => {})
+      .then(() => Promise.all(this.releases))
+      .then(() => {})
     this.presentation.dispose()
     return this.disposal
   }
@@ -124,21 +136,26 @@ export class ElectronWebViewImpl implements BrowserFrame {
     this.revision++
     this.pending = undefined
     this.store.set({ ...this.store.getSnapshot(), loading: true, error: undefined })
-    try { this.element[command]() }
-    catch (error) { this.commandFailed(error) }
+    try {
+      this.element[command]()
+    } catch (error) {
+      this.commandFailed(error)
+    }
   }
 
   private initialize(): void {
     const attachment = this.attachment
     if (attachment === undefined || this.initializing !== undefined || this.element !== undefined || this.lifetime.signal.aborted) return
     const signal = AbortSignal.any([this.lifetime.signal, attachment.signal])
-    this.initializing = this.createGuest(signal).catch(async (error: unknown) => {
-      await this.dropGuest()
-      if (!signal.aborted) this.commandFailed(error)
-    }).finally(() => {
-      this.initializing = undefined
-      if (this.attachment !== attachment && this.pending !== undefined) this.initialize()
-    })
+    this.initializing = this.createGuest(signal)
+      .catch(async (error: unknown) => {
+        await this.dropGuest()
+        if (!signal.aborted) this.commandFailed(error)
+      })
+      .finally(() => {
+        this.initializing = undefined
+        if (this.attachment !== attachment && this.pending !== undefined) this.initialize()
+      })
   }
 
   private async createGuest(attachmentSignal: AbortSignal): Promise<void> {
@@ -146,43 +163,79 @@ export class ElectronWebViewImpl implements BrowserFrame {
     if (attachmentSignal.aborted) return
     const reservation = await this.bridge.acquire(this.workspaceKey)
     // oxlint-disable-next-line typescript/no-unnecessary-condition -- The signal can abort while acquire is pending.
-    if (attachmentSignal.aborted) { await this.release(reservation.lease); return }
+    if (attachmentSignal.aborted) {
+      await this.release(reservation.lease)
+      return
+    }
     this.lease = reservation.lease
     this.guestLifetime = new AbortController()
     const signal = AbortSignal.any([attachmentSignal, this.guestLifetime.signal])
     const element = this.presentation.createElement(reservation)
     this.element = element
-    const unsubscribeOpen = this.bridge.onOpenRequested(reservation.lease, (url) => {
+    const unsubscribeOpen = this.bridge.onOpenRequested(reservation.lease, url => {
       if (this.element === element && !signal.aborted) this.options.openRequested(url)
     })
     signal.addEventListener('abort', unsubscribeOpen, { once: true })
-    element.addEventListener('dom-ready', () => {
-      this.ready = true
-      this.observe(this.store.getSnapshot().address !== 'requested')
-      this.loadPending()
-    }, { signal })
-    element.addEventListener('did-navigate', () => { this.observe(true) }, { signal })
-    element.addEventListener('did-navigate-in-page', (event) => {
-      if ((event as NavigationEvent).isMainFrame) this.observe(true)
-    }, { signal })
-    element.addEventListener('did-start-navigation', (event) => {
-      if ((event as NavigationEvent).isMainFrame) {
-        this.store.set({ ...this.store.getSnapshot(), loading: true, error: undefined })
-      }
-    }, { signal })
+    element.addEventListener(
+      'dom-ready',
+      () => {
+        this.ready = true
+        this.observe(this.store.getSnapshot().address !== 'requested')
+        this.loadPending()
+      },
+      { signal },
+    )
+    element.addEventListener(
+      'did-navigate',
+      () => {
+        this.observe(true)
+      },
+      { signal },
+    )
+    element.addEventListener(
+      'did-navigate-in-page',
+      event => {
+        if ((event as NavigationEvent).isMainFrame) this.observe(true)
+      },
+      { signal },
+    )
+    element.addEventListener(
+      'did-start-navigation',
+      event => {
+        if ((event as NavigationEvent).isMainFrame) {
+          this.store.set({ ...this.store.getSnapshot(), loading: true, error: undefined })
+        }
+      },
+      { signal },
+    )
     for (const name of ['did-start-loading', 'did-stop-loading', 'page-title-updated']) {
-      element.addEventListener(name, () => {
-        this.observe(name === 'page-title-updated' && this.store.getSnapshot().address === 'observed')
-      }, { signal })
+      element.addEventListener(
+        name,
+        () => {
+          this.observe(name === 'page-title-updated' && this.store.getSnapshot().address === 'observed')
+        },
+        { signal },
+      )
     }
-    element.addEventListener('did-fail-load', (event) => {
-      const failure = event as LoadFailureEvent
-      if (failure.isMainFrame && failure.errorCode !== -3) {
-        this.failed({ code: failure.errorCode, description: failure.errorDescription })
-      }
-    }, { signal })
+    element.addEventListener(
+      'did-fail-load',
+      event => {
+        const failure = event as LoadFailureEvent
+        if (failure.isMainFrame && failure.errorCode !== -3) {
+          this.failed({ code: failure.errorCode, description: failure.errorDescription })
+        }
+      },
+      { signal },
+    )
     for (const name of ['render-process-gone', 'destroyed']) {
-      element.addEventListener(name, () => { void this.dropGuest(); this.failed() }, { signal })
+      element.addEventListener(
+        name,
+        () => {
+          void this.dropGuest()
+          this.failed()
+        },
+        { signal },
+      )
     }
     this.presentation.present(element)
   }
@@ -202,8 +255,11 @@ export class ElectronWebViewImpl implements BrowserFrame {
 
   private observe(committed: boolean): void {
     if (!this.ready || this.element === undefined || this.lifetime.signal.aborted) return
-    try { this.observeReady(this.element, committed) }
-    catch (error) { this.commandFailed(error) }
+    try {
+      this.observeReady(this.element, committed)
+    } catch (error) {
+      this.commandFailed(error)
+    }
   }
 
   private observeReady(element: WebviewElement, committed: boolean): void {
@@ -224,8 +280,14 @@ export class ElectronWebViewImpl implements BrowserFrame {
     const loading = current.error === undefined && element.isLoading()
     const canGoBack = element.canGoBack()
     const canGoForward = element.canGoForward()
-    if (target?.url !== current.target?.url || target?.title !== current.target?.title || address !== current.address
-      || loading !== current.loading || canGoBack !== current.canGoBack || canGoForward !== current.canGoForward) {
+    if (
+      target?.url !== current.target?.url ||
+      target?.title !== current.target?.title ||
+      address !== current.address ||
+      loading !== current.loading ||
+      canGoBack !== current.canGoBack ||
+      canGoForward !== current.canGoForward
+    ) {
       this.store.set({ ...current, target, address, loading, canGoBack, canGoForward })
     }
     if (parsed?.ok && target !== undefined) this.persist(target)
@@ -240,8 +302,13 @@ export class ElectronWebViewImpl implements BrowserFrame {
   private failed(error: BrowserLoadError = { code: undefined, description: undefined }): void {
     if (this.lifetime.signal.aborted) return
     const current = this.store.getSnapshot()
-    this.store.set({ ...current, loading: false, error,
-      canGoBack: this.ready && current.canGoBack, canGoForward: this.ready && current.canGoForward })
+    this.store.set({
+      ...current,
+      loading: false,
+      error,
+      canGoBack: this.ready && current.canGoBack,
+      canGoForward: this.ready && current.canGoForward,
+    })
   }
 
   private commandFailed(error: unknown): void {
@@ -262,9 +329,14 @@ export class ElectronWebViewImpl implements BrowserFrame {
   }
 
   private release(lease: DesktopBrowserLeaseId): Promise<void> {
-    const released = this.bridge.release(lease)
-      .catch((error: unknown) => { console.error('Desktop browser guest release failed', error) })
-      .finally(() => { this.releases.delete(released) })
+    const released = this.bridge
+      .release(lease)
+      .catch((error: unknown) => {
+        console.error('Desktop browser guest release failed', error)
+      })
+      .finally(() => {
+        this.releases.delete(released)
+      })
     this.releases.add(released)
     return released
   }

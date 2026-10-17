@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { collectSkillInvocationMetadataViolations } from './verify-skill-invocation-metadata.ts'
 
 const roots: string[] = []
@@ -20,10 +20,7 @@ function writeSkill(root: string, name: string, frontmatter: string, policy = ''
   const directory = join(root, '.agents/skills', name)
   mkdirSync(join(directory, 'agents'), { recursive: true })
   writeFileSync(join(directory, 'SKILL.md'), `---\nname: ${name}\ndescription: Test skill\n${frontmatter}---\n\nTest.\n`)
-  writeFileSync(
-    join(directory, 'agents/openai.yaml'),
-    `interface:\n  display_name: "Test"\n${policy}`,
-  )
+  writeFileSync(join(directory, 'agents/openai.yaml'), `interface:\n  display_name: "Test"\n${policy}`)
 }
 
 describe('cross-product skill invocation metadata gate', () => {

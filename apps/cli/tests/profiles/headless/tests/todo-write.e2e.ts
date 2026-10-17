@@ -2,7 +2,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import { codingHarness, TODO_SYSTEM_PROMPT, waitForIdle } from './harness.ts'
 import { SessionId } from '@deepseek-ai/dsh-session'
@@ -27,14 +27,27 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('todo_write: real model records a
   it('appends a todo/write event with the model-produced task list', async () => {
     workdir = await mkdtemp(join(tmpdir(), 'dsh-todo-write-e2e-'))
     ctx = await codingHarness(workdir, { personaPrefix: TODO_SYSTEM_PROMPT })
-    const agent = await ctx.agentLoop.create(SessionId('e2e-todo'), { provider: 'deepseek-official', model: 'deepseek-v4-flash' }, { cwd: workdir })
+    const agent = await ctx.agentLoop.create(
+      SessionId('e2e-todo'),
+      { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      { cwd: workdir },
+    )
 
-    agent.followup(createUserMessage({
-      content: [{ type: 'text', text:
-      'Use the todo_write tool to record a plan of exactly three steps for work '
-      + 'running in parallel: "inspect the failing test" (in_progress), '
-      + '"watch the background build" (in_progress), then "apply the fix" (pending). '
-      + 'Send all three in one todo_write call, then reply with the single word DONE.' }], source: { kind: 'user' } }))
+    agent.followup(
+      createUserMessage({
+        content: [
+          {
+            type: 'text',
+            text:
+              'Use the todo_write tool to record a plan of exactly three steps for work ' +
+              'running in parallel: "inspect the failing test" (in_progress), ' +
+              '"watch the background build" (in_progress), then "apply the fix" (pending). ' +
+              'Send all three in one todo_write call, then reply with the single word DONE.',
+          },
+        ],
+        source: { kind: 'user' },
+      }),
+    )
     await waitForIdle(ctx, agent)
 
     const events = agent.session.snapshotEvents()
@@ -48,7 +61,7 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('todo_write: real model records a
     const todoEvents = events.filter(event => event.type === 'todo/write')
     expect(todoEvents.length).toBeGreaterThan(0)
 
-    const todos = (todoEvents.at(-1)!).data.todos
+    const todos = todoEvents.at(-1)!.data.todos
     expect(todos).toEqual([
       { content: 'inspect the failing test', status: 'in_progress' },
       { content: 'watch the background build', status: 'in_progress' },

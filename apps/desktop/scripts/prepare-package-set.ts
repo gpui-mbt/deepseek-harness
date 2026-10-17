@@ -1,17 +1,7 @@
 /** Select and copy the local npm tarball closures that supply Desktop dsh and its private Host. */
 
 import { createHash } from 'node:crypto'
-import {
-  constants,
-  copyFileSync,
-  globSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs'
+import { constants, copyFileSync, globSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import * as yaml from 'js-yaml'
@@ -56,12 +46,14 @@ function dependencyNames(manifest: Readonly<Record<string, unknown>>, section: s
  * @param available - Packed packages indexed by package name.
  * @returns Selected packages sorted by name.
  */
-export function selectDesktopPackageClosure(
-  available: ReadonlyMap<string, PackedDesktopPackage>,
-): PackedDesktopPackage[] {
+export function selectDesktopPackageClosure(available: ReadonlyMap<string, PackedDesktopPackage>): PackedDesktopPackage[] {
   const workspace = yaml.load(readFileSync(join(REPOSITORY_ROOT, 'pnpm-workspace.yaml'), 'utf8')) as { packages: string[] }
-  const workspaceNames = new Set(globSync(workspace.packages.map(pattern => `${pattern}/package.json`), { cwd: REPOSITORY_ROOT })
-    .map(path => (JSON.parse(readFileSync(join(REPOSITORY_ROOT, path), 'utf8')) as { name: string }).name))
+  const workspaceNames = new Set(
+    globSync(
+      workspace.packages.map(pattern => `${pattern}/package.json`),
+      { cwd: REPOSITORY_ROOT },
+    ).map(path => (JSON.parse(readFileSync(join(REPOSITORY_ROOT, path), 'utf8')) as { name: string }).name),
+  )
   const selected = new Map<string, PackedDesktopPackage>()
   const visit = (name: string): void => {
     if (selected.has(name)) return
@@ -98,7 +90,9 @@ function packedManifest(tarball: string): Record<string, unknown> {
 function packedPackages(inputs: readonly string[]): Map<string, PackedDesktopPackage> {
   const available = new Map<string, PackedDesktopPackage>()
   for (const input of inputs) {
-    const tarballs = readdirSync(input).filter(file => file.endsWith('.tgz')).sort()
+    const tarballs = readdirSync(input)
+      .filter(file => file.endsWith('.tgz'))
+      .sort()
     if (tarballs.length === 0) throw new Error(`desktop package set: ${input} contains no tarballs`)
     for (const file of tarballs) {
       const tarball = join(input, file)
@@ -119,9 +113,7 @@ function packedPackages(inputs: readonly string[]): Map<string, PackedDesktopPac
  */
 export function assertDesktopHostPackageFiles(files: readonly string[]): void {
   const available = new Set(files)
-  const missing = DESKTOP_HOST_RUNTIME_FILES
-    .map(file => `package/${file}`)
-    .filter(file => !available.has(file))
+  const missing = DESKTOP_HOST_RUNTIME_FILES.map(file => `package/${file}`).filter(file => !available.has(file))
   if (missing.length > 0) {
     throw new Error(`desktop package set: ${DESKTOP_HOST_PACKAGE} tarball omits required file(s): ${missing.join(', ')}`)
   }
@@ -136,7 +128,7 @@ export function prepareDesktopPackageSet(inputs: readonly string[], output: stri
   rmSync(output, { recursive: true, force: true })
   const packageDir = join(output, DESKTOP_PACKAGES_DIR)
   mkdirSync(packageDir, { recursive: true })
-  const records: DesktopCorePackageRecord[] = selected.map((packed) => {
+  const records: DesktopCorePackageRecord[] = selected.map(packed => {
     const name = packed.manifest.name
     const version = packed.manifest.version
     if (typeof name !== 'string' || typeof version !== 'string') {
@@ -160,11 +152,7 @@ export function prepareDesktopPackageSet(inputs: readonly string[], output: stri
 
 function main(): void {
   const buildPaths = resolveDesktopTargetBuildPaths()
-  const defaultInputs = [
-    buildPaths.packedDsh,
-    buildPaths.packedVendor,
-    buildPaths.packedLandlock,
-  ]
+  const defaultInputs = [buildPaths.packedDsh, buildPaths.packedVendor, buildPaths.packedLandlock]
   const { values } = parseArgs({
     options: { from: { type: 'string', multiple: true }, out: { type: 'string' } },
     allowPositionals: false,

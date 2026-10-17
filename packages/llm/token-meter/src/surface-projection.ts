@@ -61,10 +61,7 @@ export interface SurfaceTokensFold {
  *   shadow-price contract violation, not historical data, and must fail
  *   loud rather than let the total drift.
  */
-export function foldSurfaceProjection(
-  claim: ShadowPriceClaim | undefined,
-  event: SessionEvent,
-): SurfaceTokensFold {
+export function foldSurfaceProjection(claim: ShadowPriceClaim | undefined, event: SessionEvent): SurfaceTokensFold {
   if (event.type === 'compaction/summary' || event.type === 'compaction/prune') {
     const { shadowedRange, shadowedTokenCount } = event.data
     return {
@@ -88,8 +85,8 @@ export function foldSurfaceProjection(
   if (claim === undefined) return { deltaTokens: 0, claim: undefined }
   if (claim.start !== op.startSeq || claim.end !== op.endSeq) {
     throw new Error(
-      `token surface: replace at seq ${event.seq} over range ${op.startSeq}-${op.endSeq} has no adjacent shadow price`
-      + ` (armed claim covers ${claim.start}-${claim.end})`,
+      `token surface: replace at seq ${event.seq} over range ${op.startSeq}-${op.endSeq} has no adjacent shadow price` +
+        ` (armed claim covers ${claim.start}-${claim.end})`,
     )
   }
   return { deltaTokens: tokens - claim.tokens, claim: undefined }

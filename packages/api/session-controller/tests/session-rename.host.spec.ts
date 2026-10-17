@@ -7,7 +7,7 @@
  * it, rename included.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
@@ -38,8 +38,8 @@ async function composed(withTitles = true): Promise<Context> {
   ctx.agents.setFactory({
     createAgent: async (ownerCtx: Context, options: CreateAgentOptions): Promise<AgentHandle> => {
       const session = ctx.sessions.create(options.sessionId, {
-        ...options.seed === undefined ? {} : { seed: [...options.seed] },
-        ...options.meta === undefined ? {} : { meta: options.meta },
+        ...(options.seed === undefined ? {} : { seed: [...options.seed] }),
+        ...(options.meta === undefined ? {} : { meta: options.meta }),
       })
       const agent = { id: session.id, session, status: 'idle', ctx: ownerCtx } as Agent
       await ctx.agents.register(agent)
@@ -55,10 +55,14 @@ async function liveAgent(ctx: Context, id: string, turns: number): Promise<Sessi
   const session = ctx.sessions.create(sid(id), { meta: { cwd: '/proj' } })
   for (let turn = 1; turn <= turns; turn++) {
     session.append('turn/start', { turn })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: `prompt ${String(turn)}` }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: `prompt ${String(turn)}` }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     session.append('turn/end', { turn, reason: { kind: 'completed' } })
   }
   await ctx.agents.register({ id: session.id, session, status: 'idle', ctx } as Agent)

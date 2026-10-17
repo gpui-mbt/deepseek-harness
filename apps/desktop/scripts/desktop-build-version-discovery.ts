@@ -77,7 +77,8 @@ function sequenceNumbers(versions: Iterable<string>, prefix: string): number[] {
  */
 async function localVersions(artifactsRoot: string): Promise<string[]> {
   const entries = await readdir(artifactsRoot).catch(() => [])
-  return entries.map(entry => ARTIFACT.exec(entry)?.groups?.version)
+  return entries
+    .map(entry => ARTIFACT.exec(entry)?.groups?.version)
     .filter((version): version is string => version !== undefined && parse(version) !== null)
 }
 
@@ -87,11 +88,10 @@ async function localVersions(artifactsRoot: string): Promise<string[]> {
  * @returns Versions parsed from object names, or undefined when the bucket cannot be listed completely in time.
  */
 async function remoteVersions(options: DesktopBuildVersionSuggestionOptions): Promise<string[] | undefined> {
-  const platform = options.target === 'win-x64' ? 'win32' as const : 'darwin' as const
+  const platform = options.target === 'win-x64' ? ('win32' as const) : ('darwin' as const)
   const arch = options.target === 'mac-arm64' ? 'arm64' : 'x64'
   // An unconfigured destination has nothing to be unique against; an invalid one must not be mistaken for it.
-  if (options.environment[DESKTOP_AUTO_UPDATE_ENV] === undefined
-    && options.environment.DOWNLOAD_TEST_ORIGIN === undefined) return undefined
+  if (options.environment[DESKTOP_AUTO_UPDATE_ENV] === undefined && options.environment.DOWNLOAD_TEST_ORIGIN === undefined) return undefined
   const update = resolveDesktopUploadConfig(options.environment, platform, arch)
   const secretId = options.environment[update.secretIdEnvName]?.trim()
   const secretKey = options.environment[update.secretKeyEnvName]?.trim()
@@ -105,18 +105,24 @@ async function remoteVersions(options: DesktopBuildVersionSuggestionOptions): Pr
     do {
       const page = await Promise.race([
         new Promise<{ keys: string[]; next: string | undefined }>((resolveListing, rejectListing) => {
-          cos.getBucket({
-            Bucket: update.bucket, Region: DESKTOP_COS_REGION, MaxKeys: LISTING_PAGE_SIZE,
-            Prefix: `${update.binaryKeyPrefix}/deepseek-harness-`, ...marker === undefined ? {} : { Marker: marker },
-          }, (error, data) => {
-            if (error !== null && error !== undefined) rejectListing(error instanceof Error ? error : new Error(String(error)))
-            else {
-              resolveListing({
-                keys: (data?.Contents ?? []).map(object => object.Key),
-                next: data?.IsTruncated === 'true' ? data.NextMarker ?? data.Contents?.at(-1)?.Key : undefined,
-              })
-            }
-          })
+          cos.getBucket(
+            {
+              Bucket: update.bucket,
+              Region: DESKTOP_COS_REGION,
+              MaxKeys: LISTING_PAGE_SIZE,
+              Prefix: `${update.binaryKeyPrefix}/deepseek-harness-`,
+              ...(marker === undefined ? {} : { Marker: marker }),
+            },
+            (error, data) => {
+              if (error !== null && error !== undefined) rejectListing(error instanceof Error ? error : new Error(String(error)))
+              else {
+                resolveListing({
+                  keys: (data?.Contents ?? []).map(object => object.Key),
+                  next: data?.IsTruncated === 'true' ? (data.NextMarker ?? data.Contents?.at(-1)?.Key) : undefined,
+                })
+              }
+            },
+          )
         }),
         new Promise<never>((_resolveDeadline, rejectDeadline) => {
           setTimeout(() => rejectDeadline(new Error('listing deadline')), Math.max(0, deadline - Date.now())).unref()
@@ -128,11 +134,13 @@ async function remoteVersions(options: DesktopBuildVersionSuggestionOptions): Pr
       }
       marker = page.next
     } while (marker !== undefined)
-  }
-  catch (unfinished) {
+  } catch (unfinished) {
     // Numbering against a partial listing could reuse a published index, so an unfinished query yields nothing.
-    process.stdout.write(`desktop package: the update bucket did not answer completely (${
-      unfinished instanceof Error ? unfinished.message : String(unfinished)}); numbering from local artifacts\n`)
+    process.stdout.write(
+      `desktop package: the update bucket did not answer completely (${
+        unfinished instanceof Error ? unfinished.message : String(unfinished)
+      }); numbering from local artifacts\n`,
+    )
     return undefined
   }
   return versions
@@ -146,11 +154,14 @@ async function remoteVersions(options: DesktopBuildVersionSuggestionOptions): Pr
 export async function suggestDesktopBuildVersion(options: DesktopBuildVersionSuggestionOptions): Promise<string> {
   const prefix = `${desktopBuildVersionPrefix(options.productVersion)}${options.date ?? desktopBuildDateSegment()}.`
   const published = await remoteVersions(options)
-  const taken = published ?? await localVersions(options.artifactsRoot)
+  const taken = published ?? (await localVersions(options.artifactsRoot))
   const used = sequenceNumbers(taken, prefix)
   const next = used.length === 0 ? 1 : Math.max(...used) + 1
   const suggestion = validateDesktopBuildVersion(`${prefix}${String(next)}`, options.productVersion)
-  process.stdout.write(`desktop package: numbering ${suggestion} after ${String(used.length)} ${
-    published === undefined ? 'local artifact' : 'published build'}${used.length === 1 ? '' : 's'} for ${prefix}*\n`)
+  process.stdout.write(
+    `desktop package: numbering ${suggestion} after ${String(used.length)} ${
+      published === undefined ? 'local artifact' : 'published build'
+    }${used.length === 1 ? '' : 's'} for ${prefix}*\n`,
+  )
   return suggestion
 }

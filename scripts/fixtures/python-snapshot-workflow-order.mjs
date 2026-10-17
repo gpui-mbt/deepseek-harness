@@ -40,15 +40,21 @@ export function apply(ctx, config) {
   ctx.on('agent/pre-step', async ({ agent, messages, turn, step, signal }, next) => {
     const hasPrompt = prompt => messages.some(message => message.content.some(block => block.type === 'text' && block.text === prompt))
     const direct = config.direct !== undefined && hasPrompt(config.direct.prompt)
-    if (agent.session.header.parentSession !== config.parentSessionId || turn !== 1 || step !== 1
-      || !direct && !hasPrompt(config.prompt)) {
+    if (
+      agent.session.header.parentSession !== config.parentSessionId ||
+      turn !== 1 ||
+      step !== 1 ||
+      (!direct && !hasPrompt(config.prompt))
+    ) {
       return next()
     }
     signal.throwIfAborted()
     if (disposed) throw new Error('workflow snapshot barrier disposed')
     if (direct ? !directStep || !directDelivered : !started.has(agent.id)) {
       const wait = { ...Promise.withResolvers(), direct }
-      const abort = () => { wait.reject(signal.reason) }
+      const abort = () => {
+        wait.reject(signal.reason)
+      }
       signal.addEventListener('abort', abort, { once: true })
       wait.done = wait.promise.finally(() => {
         signal.removeEventListener('abort', abort)

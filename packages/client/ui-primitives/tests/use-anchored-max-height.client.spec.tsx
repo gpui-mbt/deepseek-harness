@@ -5,7 +5,7 @@
  * published `--dsh-frame-top-clearance` (the macOS window strip).
  */
 import { useRef } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { useAnchoredMaxHeight } from '../src/useAnchoredMaxHeight.ts'
 
@@ -24,9 +24,7 @@ function Probe({ cap, margin }: { cap: number; margin?: number }) {
 
 /** Pin jsdom's zero-size layout to a fixed bottom edge. */
 function stubBottom(bottom: number): void {
-  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(
-    new DOMRect(0, bottom - 100, 200, 100),
-  )
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, bottom - 100, 200, 100))
 }
 
 describe('useAnchoredMaxHeight', () => {

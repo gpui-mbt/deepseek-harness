@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { StartedToolCall, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ToolCallOwnerProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
@@ -23,7 +23,8 @@ function settled(over: Partial<ToolResultNode> = {}): ToolResultNode {
     seq: 3,
     time: 3_000,
     callId: 'call-skill',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: 2_000,
     content: [{ type: 'text', text: 'Follow the issue workflow.\nKeep project fields in sync.' }],
@@ -35,7 +36,15 @@ function settled(over: Partial<ToolResultNode> = {}): ToolResultNode {
 
 function running(argsRaw = '{"name":"dsh-manage-issues"}'): StartedToolCall {
   return {
-    phase: 'start' as const, args: PartialArguments.fromText(argsRaw), callId: 'call-skill', name: 'skill', argsRaw, turn: 1, step: 1, time: 2_000, subCalls: [],
+    phase: 'start' as const,
+    args: PartialArguments.fromText(argsRaw),
+    callId: 'call-skill',
+    name: 'skill',
+    argsRaw,
+    turn: 1,
+    step: 1,
+    time: 2_000,
+    subCalls: [],
   }
 }
 
@@ -43,8 +52,11 @@ function props(block: SkillRowProps['block'], inspect?: () => void): SkillRowPro
   const owner: ToolCallOwnerProps = {
     callId: block.callId,
     toolName: 'skill',
-    ...('kind' in block ? { phase: 'result' as const, block }
-      : block.phase === 'preparing' ? { phase: 'preparing' as const, block } : { phase: 'start' as const, block }),
+    ...('kind' in block
+      ? { phase: 'result' as const, block }
+      : block.phase === 'preparing'
+        ? { phase: 'preparing' as const, block }
+        : { phase: 'start' as const, block }),
     useDisclosure: () => ({ expanded: false, setExpanded: vi.fn(), toggle: vi.fn() }),
     loadImage: vi.fn<ToolCallOwnerProps['loadImage']>(),
     openFile: vi.fn(),
@@ -55,9 +67,20 @@ function props(block: SkillRowProps['block'], inspect?: () => void): SkillRowPro
 
 describe('SkillRow', () => {
   it('shows preparation without arguments, instructions, or disclosure', () => {
-    const view = render(<SkillRow {...props({
-      phase: 'preparing', args: PartialArguments.EMPTY, callId: 'call-skill', name: 'skill', turn: 1, step: 1, time: 1, subCalls: [],
-    })} />)
+    const view = render(
+      <SkillRow
+        {...props({
+          phase: 'preparing',
+          args: PartialArguments.EMPTY,
+          callId: 'call-skill',
+          name: 'skill',
+          turn: 1,
+          step: 1,
+          time: 1,
+          subCalls: [],
+        })}
+      />,
+    )
     expect(view.getByText('准备加载技能')).toBeTruthy()
     expect(view.container.querySelector('svg')).not.toBeNull()
     expect(view.queryByRole('button')).toBeNull()
@@ -106,11 +129,17 @@ describe('SkillRow', () => {
   })
 
   it('uses the first failure line in the summary and exposes the full error', () => {
-    const view = render(<SkillRow {...props(settled({
-      content: [{ type: 'text', text: 'SkillError: missing resource\nCheck SKILL.md.' }],
-      isError: true,
-      error: { name: 'SkillError', code: 'missing' },
-    }))} />)
+    const view = render(
+      <SkillRow
+        {...props(
+          settled({
+            content: [{ type: 'text', text: 'SkillError: missing resource\nCheck SKILL.md.' }],
+            isError: true,
+            error: { name: 'SkillError', code: 'missing' },
+          }),
+        )}
+      />,
+    )
     const row = screen.getByRole('button', { name: 'skill 加载失败加载技能SkillError: missing resource' })
     expect(view.container.querySelector('[data-tool="skill"]')?.getAttribute('data-state')).toBe('error')
     expect(view.container.querySelector('[data-tool="skill"] [role="button"] svg')).not.toBeNull()
@@ -123,27 +152,45 @@ describe('SkillRow', () => {
   })
 
   it('renders stopped, structured, and structured-error durable outcomes', () => {
-    const stoppedView = render(<SkillRow {...props(settled({
-      error: { name: 'InterruptedError', code: 'interrupted' },
-    }))} />)
+    const stoppedView = render(
+      <SkillRow
+        {...props(
+          settled({
+            error: { name: 'InterruptedError', code: 'interrupted' },
+          }),
+        )}
+      />,
+    )
     const stoppedSummary = stoppedView.getByText('skill 加载已中止')
     expect(stoppedSummary.parentElement?.className).toContain('stoppedSummary')
     expect(stoppedView.container.querySelector('[data-tool="skill"] [role="button"] svg')).not.toBeNull()
     expect(stoppedView.container.querySelector('[data-tool="skill"] [data-state]')).toBeNull()
     cleanup()
 
-    const structuredView = render(<SkillRow {...props(settled({
-      content: [{ type: 'reasoning', text: 'structured instruction note' }],
-    }))} />)
+    const structuredView = render(
+      <SkillRow
+        {...props(
+          settled({
+            content: [{ type: 'reasoning', text: 'structured instruction note' }],
+          }),
+        )}
+      />,
+    )
     fireEvent.click(screen.getByRole('button'))
     expect(structuredView.container.textContent).toContain('"type": "reasoning"')
     cleanup()
 
-    render(<SkillRow {...props(settled({
-      content: [],
-      isError: true,
-      error: { name: 'SkillError', code: 'missing' },
-    }))} />)
+    render(
+      <SkillRow
+        {...props(
+          settled({
+            content: [],
+            isError: true,
+            error: { name: 'SkillError', code: 'missing' },
+          }),
+        )}
+      />,
+    )
     const errorRow = screen.getByRole('button', { name: 'skill 加载失败加载技能SkillError: missing' })
     fireEvent.click(errorRow)
     expect(screen.getAllByText('SkillError: missing')).toHaveLength(2)

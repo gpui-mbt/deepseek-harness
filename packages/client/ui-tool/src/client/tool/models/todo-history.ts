@@ -2,7 +2,10 @@
 import type {} from '@deepseek-ai/dsh-tools/types'
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationNodeDefinition, ConversationViewDefinition, ConversationViewNode, TodoItem,
+  ConversationNodeDefinition,
+  ConversationViewDefinition,
+  ConversationViewNode,
+  TodoItem,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 /** The durable list preceding one Tool invocation; absent before the first loaded write. */
@@ -26,7 +29,7 @@ declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
 /** Durable writes are indexed independently of Tool success receipts. */
 export const todoWriteDefinition: ConversationNodeDefinition<readonly TodoItem[]> = {
   kind: 'tool-todo-write',
-  match: event => event.type === 'todo/write' ? { id: String(event.seq), role: 'start' } : null,
+  match: event => (event.type === 'todo/write' ? { id: String(event.seq), role: 'start' } : null),
   start: (_context, match) => {
     if (match.event.type !== 'todo/write') throw new Error('tool-todo-write requires todo/write')
     return match.event.data.todos
@@ -39,7 +42,7 @@ export const todoWriteDefinition: ConversationNodeDefinition<readonly TodoItem[]
 export const todoCallDefinition: ConversationNodeDefinition<TodoBaseline> = {
   kind: 'tool-todo-call',
   target: 'tool-todo-history',
-  match: (event) => {
+  match: event => {
     if (event.type === 'tool/call' && event.data.name === 'todo_write') {
       return { id: String(event.data.callId), role: 'start' }
     }
@@ -50,9 +53,16 @@ export const todoCallDefinition: ConversationNodeDefinition<TodoBaseline> = {
   },
   start: (_context, _match, reader) => ({ todos: reader.previous<readonly TodoItem[]>('tool-todo-write')?.state }),
   update: context => context.state,
-  buildViewNode: context => context.state === undefined ? null : {
-    key: context.key, kind: context.kind, id: context.id, target: 'tool-todo-history', data: context.state,
-  },
+  buildViewNode: context =>
+    context.state === undefined
+      ? null
+      : {
+          key: context.key,
+          kind: context.kind,
+          id: context.id,
+          target: 'tool-todo-history',
+          data: context.state,
+        },
 }
 
 interface TodoHistoryNode extends ConversationViewNode {
@@ -66,7 +76,7 @@ export const todoHistoryView: ConversationViewDefinition<TodoHistoryNode, TodoHi
     let calls = new Map<string, TodoBaseline>()
     return {
       empty: calls,
-      replace: ({ nodes }) => calls = new Map(nodes.map(node => [node.id, node.data])),
+      replace: ({ nodes }) => (calls = new Map(nodes.map(node => [node.id, node.data]))),
       apply: ({ upserts }) => {
         if (upserts.length > 0) {
           calls = new Map(calls)

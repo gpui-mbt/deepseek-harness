@@ -41,7 +41,7 @@ export interface PiAiPeakProvider {
 export const PEAK_DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
 /** One local weekday a {@link PiAiPeakWindow} may name. */
-export type PiAiPeakDay = typeof PEAK_DAYS[number]
+export type PiAiPeakDay = (typeof PEAK_DAYS)[number]
 
 /** One local wall-clock window served by an alternate provider. */
 export interface PiAiPeakWindow {
@@ -90,7 +90,7 @@ interface LocalReading {
  */
 function localReading(now: number, timeZone: string | undefined): LocalReading {
   const parts = new Intl.DateTimeFormat('en-GB', {
-    ...timeZone === undefined ? {} : { timeZone },
+    ...(timeZone === undefined ? {} : { timeZone }),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -98,8 +98,7 @@ function localReading(now: number, timeZone: string | undefined): LocalReading {
     minute: '2-digit',
     hourCycle: 'h23',
   }).formatToParts(new Date(now))
-  const read = (type: Intl.DateTimeFormatPartTypes): string =>
-    parts.find(part => part.type === type)?.value ?? ''
+  const read = (type: Intl.DateTimeFormatPartTypes): string => parts.find(part => part.type === type)?.value ?? ''
   // The date is rebuilt at midnight UTC so a weekday step stays exact across
   // daylight-saving transitions, where subtracting 24 hours would not.
   return {
@@ -116,9 +115,7 @@ function localReading(now: number, timeZone: string | undefined): LocalReading {
  * @returns whether the reading is inside the window.
  */
 function inWindow(clock: string, from: string, to: string): boolean {
-  return from <= to
-    ? clock >= from && clock < to
-    : clock >= from || clock < to
+  return from <= to ? clock >= from && clock < to : clock >= from || clock < to
 }
 
 /**
@@ -144,11 +141,8 @@ function onListedDay(window: PiAiPeakWindow, reading: LocalReading): boolean {
  * @param now - epoch milliseconds of the request.
  * @returns the matching window, or `undefined` when none matches.
  */
-export function selectPeakWindow(
-  windows: readonly PiAiPeakWindow[],
-  now: number,
-): PiAiPeakWindow | undefined {
-  return windows.find((window) => {
+export function selectPeakWindow(windows: readonly PiAiPeakWindow[], now: number): PiAiPeakWindow | undefined {
+  return windows.find(window => {
     const reading = localReading(now, window.timeZone)
     return inWindow(reading.clock, window.from, window.to) && onListedDay(window, reading)
   })

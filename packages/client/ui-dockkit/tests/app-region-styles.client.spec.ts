@@ -10,20 +10,16 @@
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 // Comments are stripped so a rule's captured selector is exactly its selector.
-const css = readFileSync(resolve(import.meta.dirname, '../src/components/dockkit.module.css'), 'utf8')
-  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+const css = readFileSync(resolve(import.meta.dirname, '../src/components/dockkit.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, ' ')
 
 /** The sheet's app-region rules, as `[selector, value]` in source order. */
 const regionRules = [...css.matchAll(/(?<sel>[^{}]+)\{(?<body>[^{}]*)\}/g)]
   .map(match => [match.groups!['sel']!.trim(), match.groups!['body']!] as const)
   .filter(([, body]) => body.includes('-webkit-app-region'))
-  .map(([selector, body]) => [
-    selector,
-    /-webkit-app-region:\s*([^;]+);/.exec(body)?.[1]?.trim(),
-  ] as const)
+  .map(([selector, body]) => [selector, /-webkit-app-region:\s*([^;]+);/.exec(body)?.[1]?.trim()] as const)
 
 it('keeps Windows floating headers 20px below the caption, including restored positions', () => {
   const captionRule = css.split(':global(html[data-windows-titlebar]) .float')[1]?.split('}')[0]

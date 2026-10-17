@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { WorkflowError } from '@deepseek-ai/dsh-workflow'
 import { validateMeta } from '../src/meta.ts'
 

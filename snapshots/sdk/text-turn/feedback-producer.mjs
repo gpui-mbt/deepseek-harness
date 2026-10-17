@@ -16,9 +16,20 @@ export function apply(ctx) {
     const recorded = await ctx.sessionFeedback.record({ sessionId: agent.id, category: 'other' })
     if (!recorded.ok) throw new Error(recorded.error.code)
     const target = { sessionId: agent.id, messageId: message.id }
-    const created = await ctx.messageFeedback.put({ ...target, rating: 'negative', note: 'Explain the result.', category: 'task-result', ifVersion: null })
+    const created = await ctx.messageFeedback.put({
+      ...target,
+      rating: 'negative',
+      note: 'Explain the result.',
+      category: 'task-result',
+      ifVersion: null,
+    })
     if (!created.ok) throw new Error(created.error.code)
-    const edited = await ctx.messageFeedback.put({ ...target, rating: 'positive', note: 'The explanation is clear now.', ifVersion: created.value.version })
+    const edited = await ctx.messageFeedback.put({
+      ...target,
+      rating: 'positive',
+      note: 'The explanation is clear now.',
+      ifVersion: created.value.version,
+    })
     if (!edited.ok) throw new Error(edited.error.code)
     const deleted = await ctx.messageFeedback.delete({ ...target, ifVersion: edited.value.version })
     if (!deleted.ok) throw new Error(deleted.error.code)

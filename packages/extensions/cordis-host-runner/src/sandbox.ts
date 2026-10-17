@@ -22,8 +22,12 @@ import { sandboxDefineTool, sandboxRegisterTool } from './guard.ts'
  */
 function taggedConsole(id: string): Record<'log' | 'info' | 'warn' | 'error' | 'debug', (...args: unknown[]) => void> {
   const tag = `[cordis:${id}]`
-  const log = (...args: unknown[]): void => { console.log(tag, ...args) }
-  const error = (...args: unknown[]): void => { console.error(tag, ...args) }
+  const log = (...args: unknown[]): void => {
+    console.log(tag, ...args)
+  }
+  const error = (...args: unknown[]): void => {
+    console.error(tag, ...args)
+  }
   return { log, info: log, warn: log, debug: log, error }
 }
 
@@ -53,10 +57,10 @@ function patchDualRealmInstanceof(sandbox: object): void {
   patch({ Object, Array, Function, Error, TypeError, RangeError, SyntaxError, Promise, RegExp, Date, Map, Set })
 }
 
-const TIMER_REDIRECT
-  = 'Node timers are unavailable. Use the cordis timer service instead: declare inject: [\'timer\'] on your plugin '
-    + 'and call ctx.timeout / ctx.interval after querying Host Service.listService for the exact overloads. '
-    + 'Those calls are fiber effects, cleaned up automatically when stopped.'
+const TIMER_REDIRECT =
+  "Node timers are unavailable. Use the cordis timer service instead: declare inject: ['timer'] on your plugin " +
+  'and call ctx.timeout / ctx.interval after querying Host Service.listService for the exact overloads. ' +
+  'Those calls are fiber effects, cleaned up automatically when stopped.'
 
 /**
  * The callable Node APIs the sandbox deliberately disables, each mapped to the
@@ -67,16 +71,16 @@ const TIMER_REDIRECT
  */
 const NODE_API_REDIRECTS: Record<string, string> = {
   require:
-    'Node modules are unavailable. Use the cordis services on ctx instead — e.g. inject: [\'fs\'] for files, '
-    + '[\'web\'] for HTTP, [\'bash\'] for processes; query Service.listService with cordis_inspect_query first.',
+    "Node modules are unavailable. Use the cordis services on ctx instead — e.g. inject: ['fs'] for files, " +
+    "['web'] for HTTP, ['bash'] for processes; query Service.listService with cordis_inspect_query first.",
   setTimeout: TIMER_REDIRECT,
   setInterval: TIMER_REDIRECT,
   setImmediate: TIMER_REDIRECT,
   clearTimeout: TIMER_REDIRECT,
   clearInterval: TIMER_REDIRECT,
   fetch:
-    'Network access goes through the cordis web service: declare inject: [\'web\'] and call ctx.web '
-    + '(query Host Service.listService with cordis_inspect_query for its methods).',
+    "Network access goes through the cordis web service: declare inject: ['web'] and call ctx.web " +
+    '(query Host Service.listService with cordis_inspect_query for its methods).',
 }
 
 /** Build the trap functions for {@link NODE_API_REDIRECTS}: calling one throws the redirect. */
@@ -154,15 +158,19 @@ export function parseErrorMessage(half: 'code.host' | 'code.client', context: st
   // syntax error into a misleading remove-annotations message.
   const offendingLine = context.split('\n')[1] ?? ''
   if (/\bas\b/.test(offendingLine)) {
-    return `dynamic package \`${half}\` failed to parse:\n${context}\n`
-      + 'The sandbox runs plain JavaScript, not TypeScript. Remove type annotations:\n'
-      + '  ✗ { type: \'text\' as const, text: x }\n'
-      + '  ✓ { type: \'text\', text: x }'
+    return (
+      `dynamic package \`${half}\` failed to parse:\n${context}\n` +
+      'The sandbox runs plain JavaScript, not TypeScript. Remove type annotations:\n' +
+      "  ✗ { type: 'text' as const, text: x }\n" +
+      "  ✓ { type: 'text', text: x }"
+    )
   }
-  return `dynamic package \`${half}\` failed to parse:\n${context}\n`
-    + 'Note: it runs as the BODY of an async function (line numbers are offset by the 1-line wrapper). '
-    + 'Check bracket balance — ending the returned plugin object with `});` closes a call that was never opened; '
-    + 'a plain `return { … }` ends with `}` (an optional `;`), never `)`.'
+  return (
+    `dynamic package \`${half}\` failed to parse:\n${context}\n` +
+    'Note: it runs as the BODY of an async function (line numbers are offset by the 1-line wrapper). ' +
+    'Check bracket balance — ending the returned plugin object with `});` closes a call that was never opened; ' +
+    'a plain `return { … }` ends with `}` (an optional `;`), never `)`.'
+  )
 }
 
 /**
@@ -225,11 +233,7 @@ function prettyParseContext(wrapped: string, half: 'code.host' | 'code.client', 
  */
 export async function evaluateHostCode(sandbox: object, code: string, id: string, vmTimeoutMs: number): Promise<unknown> {
   try {
-    return await runInContext(
-      `(async () => {\n${code}\n})()`,
-      sandbox,
-      { filename: `cordis-dyn-${id}.js`, timeout: vmTimeoutMs },
-    )
+    return await runInContext(`(async () => {\n${code}\n})()`, sandbox, { filename: `cordis-dyn-${id}.js`, timeout: vmTimeoutMs })
   } catch (error) {
     if (!isSyntaxError(error)) throw error
     throw new Error(parseErrorMessage('code.host', syntaxErrorContext(error)))

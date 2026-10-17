@@ -74,9 +74,12 @@ function localHunks(diff: DiffHunk) {
   const oldLines = contentLines(diff.oldText ?? '')
   const newLines = contentLines(diff.newText)
   const normalize = (lines: string[]): string => lines.map(line => `${line}\n`).join('')
-  return structuredPatch('', '', normalize(oldLines), normalize(newLines),
-    undefined, undefined, { context: 3, maxEditLength: MAX_DIFF_EDIT_LENGTH })?.hunks
-    ?? [{ lines: [...oldLines.map(line => `-${line}`), ...newLines.map(line => `+${line}`)] }]
+  return (
+    structuredPatch('', '', normalize(oldLines), normalize(newLines), undefined, undefined, {
+      context: 3,
+      maxEditLength: MAX_DIFF_EDIT_LENGTH,
+    })?.hunks ?? [{ lines: [...oldLines.map(line => `-${line}`), ...newLines.map(line => `+${line}`)] }]
+  )
 }
 
 /**
@@ -147,17 +150,25 @@ function contentLines(text: string): string[] {
  * @returns the diff as plain text.
  */
 function copyText(rows: DiffRow[]): string {
-  return rows.map((row) => {
-    switch (row.kind) {
-      case 'del': return `- ${row.text}`
-      case 'add': return `+ ${row.text}`
-      case 'context': return `  ${row.text}`
-      case 'path': return row.text
-      case 'gap': return row.text
-      /* v8 ignore next -- closed-union backstop; only reached if a row kind is forged */
-      default: return assertNever(row.kind)
-    }
-  }).join('\n')
+  return rows
+    .map(row => {
+      switch (row.kind) {
+        case 'del':
+          return `- ${row.text}`
+        case 'add':
+          return `+ ${row.text}`
+        case 'context':
+          return `  ${row.text}`
+        case 'path':
+          return row.text
+        case 'gap':
+          return row.text
+        /* v8 ignore next -- closed-union backstop; only reached if a row kind is forged */
+        default:
+          return assertNever(row.kind)
+      }
+    })
+    .join('\n')
 }
 
 /**
@@ -175,14 +186,18 @@ export function DiffBlock({ diffs, labels, maxLines = DEFAULT_DIFF_MAX_LINES, cl
 
   const onCopy = useCallback(() => {
     if (copied) return
-    void writeClipboard(copyText(rows)).then((ok) => {
+    void writeClipboard(copyText(rows)).then(ok => {
       if (!ok) return
       setCopied(true)
-      window.setTimeout(() => { setCopied(false) }, 1000)
+      window.setTimeout(() => {
+        setCopied(false)
+      }, 1000)
     })
   }, [copied, rows])
 
-  const onToggle = useCallback(() => { setExpanded(value => !value) }, [])
+  const onToggle = useCallback(() => {
+    setExpanded(value => !value)
+  }, [])
 
   if (rows.length === 0) return null
 
@@ -197,23 +212,29 @@ export function DiffBlock({ diffs, labels, maxLines = DEFAULT_DIFF_MAX_LINES, cl
 
   return (
     <div className={clsx(cardCss.card, css.block, className)} data-diff="" data-code-wrap={wrapped}>
-      <CodeToolbar lang={language} labels={labels} copyLabel={labels.copy} copiedLabel={labels.copied}
-        copied={copied} wrapped={wrapped} onCopy={onCopy} onWrap={() => { setWrapped(value => !value) }} />
+      <CodeToolbar
+        lang={language}
+        labels={labels}
+        copyLabel={labels.copy}
+        copiedLabel={labels.copied}
+        copied={copied}
+        wrapped={wrapped}
+        onCopy={onCopy}
+        onWrap={() => {
+          setWrapped(value => !value)
+        }}
+      />
       <div className={css.body}>
         {head.map((row, index) => (
-          <div key={index} className={clsx(css.line, ROW_CLASS[row.kind])}>{row.text}</div>
+          <div key={index} className={clsx(css.line, ROW_CLASS[row.kind])}>
+            {row.text}
+          </div>
         ))}
-        {hidden > 0 && (
-          <FoldToggle
-            className={css.expand}
-            expanded={expanded}
-            hidden={hidden}
-            labels={labels}
-            onToggle={onToggle}
-          />
-        )}
+        {hidden > 0 && <FoldToggle className={css.expand} expanded={expanded} hidden={hidden} labels={labels} onToggle={onToggle} />}
         {tail.map((row, index) => (
-          <div key={index} className={clsx(css.line, ROW_CLASS[row.kind])}>{row.text}</div>
+          <div key={index} className={clsx(css.line, ROW_CLASS[row.kind])}>
+            {row.text}
+          </div>
         ))}
       </div>
     </div>

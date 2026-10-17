@@ -1,5 +1,5 @@
 /** Late-reply conversation node: source matching and payload projection. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { SessionSeq } from '@deepseek-ai/dsh-session'
 import type { ConversationViewNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -13,11 +13,21 @@ const answered = JSON.stringify({
   kind: 'answer_to_pending_question',
   tool: 'ask_user_question',
   callId: 'call-1',
-  questions: [{
-    id: 'scope', question: 'Which scope?', header: 'Scope', detail: 'Choose the smallest useful surface.',
-    options: [{ label: 'Tool only', description: 'Keep the change narrow.' }], multiSelect: false,
-  }, { id: 'notes', question: 'Any notes?' }],
-  answers: [{ id: 'scope', selected: ['Tool only'], custom: 'note' }, { id: 'notes', selected: [] }],
+  questions: [
+    {
+      id: 'scope',
+      question: 'Which scope?',
+      header: 'Scope',
+      detail: 'Choose the smallest useful surface.',
+      options: [{ label: 'Tool only', description: 'Keep the change narrow.' }],
+      multiSelect: false,
+    },
+    { id: 'notes', question: 'Any notes?' },
+  ],
+  answers: [
+    { id: 'scope', selected: ['Tool only'], custom: 'note' },
+    { id: 'notes', selected: [] },
+  ],
 })
 const noAnswers = JSON.stringify({ questions: [{ id: 'scope', question: 'Which scope?' }] })
 
@@ -36,18 +46,30 @@ const replySource = (outcome: string) => ({ kind: 'user-question-reply', callId:
 describe('replyPairsOf', () => {
   it('reads question and answer pairs, tolerating a payload without answers', () => {
     expect(replyPairsOf(answered)).toEqual({
-      questions: [{
-        id: 'scope', question: 'Which scope?', header: 'Scope', detail: 'Choose the smallest useful surface.',
-        options: [{ label: 'Tool only', description: 'Keep the change narrow.' }], multiSelect: false,
-      }, { id: 'notes', question: 'Any notes?' }],
-      answers: [{ id: 'scope', selected: ['Tool only'], custom: 'note' }, { id: 'notes', selected: [] }],
+      questions: [
+        {
+          id: 'scope',
+          question: 'Which scope?',
+          header: 'Scope',
+          detail: 'Choose the smallest useful surface.',
+          options: [{ label: 'Tool only', description: 'Keep the change narrow.' }],
+          multiSelect: false,
+        },
+        { id: 'notes', question: 'Any notes?' },
+      ],
+      answers: [
+        { id: 'scope', selected: ['Tool only'], custom: 'note' },
+        { id: 'notes', selected: [] },
+      ],
     })
     expect(replyPairsOf(noAnswers)).toEqual({ questions: [{ id: 'scope', question: 'Which scope?' }], answers: [] })
   })
 
   it('keeps only the well-formed options of a question and drops the rest', () => {
     const text = JSON.stringify({
-      questions: [{ id: 'scope', question: 'Which scope?', options: [{ label: 'Tool only', description: 1 }, 'nope', { description: 'no label' }] }],
+      questions: [
+        { id: 'scope', question: 'Which scope?', options: [{ label: 'Tool only', description: 1 }, 'nope', { description: 'no label' }] },
+      ],
       answers: [],
     })
     expect(replyPairsOf(text).questions).toEqual([{ id: 'scope', question: 'Which scope?', options: [{ label: 'Tool only' }] }])
@@ -64,11 +86,19 @@ const t = makeTranslate(en)
 const replyData = (overrides: Partial<QuestionReplyData> = {}): QuestionReplyData => ({
   callId: 'call-1',
   outcome: 'answered',
-  questions: [{
-    id: 'scope', question: 'Which scope?', header: 'Scope',
-    options: [{ label: 'Tool only', description: 'Keep the change narrow.' }, { label: 'Whole package' }],
-  }, { id: 'notes', question: 'Any notes?' }],
-  answers: [{ id: 'scope', selected: ['Tool only'], custom: 'note' }, { id: 'notes', selected: [] }],
+  questions: [
+    {
+      id: 'scope',
+      question: 'Which scope?',
+      header: 'Scope',
+      options: [{ label: 'Tool only', description: 'Keep the change narrow.' }, { label: 'Whole package' }],
+    },
+    { id: 'notes', question: 'Any notes?' },
+  ],
+  answers: [
+    { id: 'scope', selected: ['Tool only'], custom: 'note' },
+    { id: 'notes', selected: [] },
+  ],
   text: answered,
   time: 7_000,
   ...overrides,
@@ -81,16 +111,13 @@ describe('replyAnswerValues', () => {
     expect(replyAnswerValues(data, 'notes')).toEqual([])
     expect(replyAnswerValues(data, 'absent')).toEqual([])
     expect(replyAnswerValues(replyData({ answers: [{ id: 'scope', selected: [], custom: '  ' }] }), 'scope')).toEqual([])
-    expect(replyAnswerValues(replyData({ answers: [{ id: 'scope', selected: [], custom: 'free text' }] }), 'scope'))
-      .toEqual(['free text'])
+    expect(replyAnswerValues(replyData({ answers: [{ id: 'scope', selected: [], custom: 'free text' }] }), 'scope')).toEqual(['free text'])
   })
 })
 
 describe('replyClipboardText', () => {
   it('pairs every question with its answer and names the questions the user skipped', () => {
-    expect(replyClipboardText(replyData(), t)).toBe(
-      'Scope — Which scope?\nAnswer: Tool only, note\n\nAny notes?\nSkipped',
-    )
+    expect(replyClipboardText(replyData(), t)).toBe('Scope — Which scope?\nAnswer: Tool only, note\n\nAny notes?\nSkipped')
   })
 
   it('drops a header that repeats its question', () => {
@@ -108,8 +135,11 @@ describe('replyClipboardText', () => {
 
 describe('questionReplyDefinition', () => {
   it('claims only appended user messages carrying the reply source', () => {
-    expect(questionReplyDefinition.match(message(replySource('answered'), answered)))
-      .toEqual({ id: 'msg-1', role: 'start', exclusive: true })
+    expect(questionReplyDefinition.match(message(replySource('answered'), answered))).toEqual({
+      id: 'msg-1',
+      role: 'start',
+      exclusive: true,
+    })
     expect(questionReplyDefinition.match(message({ kind: 'user' }, answered))).toBeNull()
     expect(questionReplyDefinition.match(message({ kind: 'plugin', plugin: 'user-questions' }, answered))).toBeNull()
     expect(questionReplyDefinition.match(message(replySource('answered'), answered, null))).toBeNull()
@@ -122,14 +152,18 @@ describe('questionReplyDefinition', () => {
     const definitions = [messageDefinition, questionReplyDefinition]
     const assembler = new ConversationNodeAssembler(
       { entries: () => definitions, fallbackEntry: () => undefined },
-      { entries: () => [{
-        target: 'chat',
-        create: () => ({
-          empty: chat,
-          replace: ({ nodes }) => (chat = nodes),
-          apply: ({ upserts }) => (chat = [...chat, ...upserts]),
-        }),
-      }] },
+      {
+        entries: () => [
+          {
+            target: 'chat',
+            create: () => ({
+              empty: chat,
+              replace: ({ nodes }) => (chat = nodes),
+              apply: ({ upserts }) => (chat = [...chat, ...upserts]),
+            }),
+          },
+        ],
+      },
     )
     assembler.activateTarget('chat')
     assembler.replaceWindow([{ type: 'event', event }], false)
@@ -141,13 +175,29 @@ describe('questionReplyDefinition', () => {
     const event = message(replySource('answered'), answered)
     const state = questionReplyDefinition.start({} as never, { event, id: 'msg-1', role: 'start' } as never, {} as never)
     expect(state).toMatchObject({
-      seq: 7, time: 7_000, callId: 'call-1', outcome: 'answered',
-      questions: [{ id: 'scope', question: 'Which scope?' }, { id: 'notes', question: 'Any notes?' }], answers: [{ id: 'scope', selected: ['Tool only'], custom: 'note' }, { id: 'notes', selected: [] }], text: answered,
+      seq: 7,
+      time: 7_000,
+      callId: 'call-1',
+      outcome: 'answered',
+      questions: [
+        { id: 'scope', question: 'Which scope?' },
+        { id: 'notes', question: 'Any notes?' },
+      ],
+      answers: [
+        { id: 'scope', selected: ['Tool only'], custom: 'note' },
+        { id: 'notes', selected: [] },
+      ],
+      text: answered,
     })
 
     const node = questionReplyDefinition.buildViewNode!({ state, key: 'reply:1', id: 'msg-1', start: undefined } as never)
     expect(node).toMatchObject({
-      key: 'reply:1', kind: 'question-reply', id: 'msg-1', target: 'chat', anchorSeq: 7, visibility: 'visible',
+      key: 'reply:1',
+      kind: 'question-reply',
+      id: 'msg-1',
+      target: 'chat',
+      anchorSeq: 7,
+      visibility: 'visible',
       location: { kind: 'unresolved' },
       data: { callId: 'call-1', outcome: 'answered', text: answered },
     })
@@ -158,8 +208,16 @@ describe('questionReplyDefinition', () => {
 
   it('starts an empty record for a reply without text', () => {
     const untyped = {
-      type: 'user/message', seq: SessionSeq(8), time: 8_000, surfaceOp: 'append',
-      data: { id: 'msg-2', role: 'user', source: replySource('answered'), content: [{ type: 'image', source: { kind: 'inline', data: '', mediaType: 'image/png' } }] },
+      type: 'user/message',
+      seq: SessionSeq(8),
+      time: 8_000,
+      surfaceOp: 'append',
+      data: {
+        id: 'msg-2',
+        role: 'user',
+        source: replySource('answered'),
+        content: [{ type: 'image', source: { kind: 'inline', data: '', mediaType: 'image/png' } }],
+      },
     } as never
     const state = questionReplyDefinition.start({} as never, { event: untyped, id: 'msg-2', role: 'start' } as never, {} as never)
     expect(state).toEqual({ seq: 8, time: 8_000, callId: 'call-1', outcome: 'answered', text: '', questions: [], answers: [] })
@@ -168,9 +226,19 @@ describe('questionReplyDefinition', () => {
   it('rejects a reply source without an answered outcome', () => {
     const event = message({ kind: 'user-question-reply', callId: 'call-1' }, answered)
     expect(questionReplyDefinition.match(event)).toBeNull()
-    expect(() => questionReplyDefinition.start({} as never, { event, id: 'msg-1', role: 'start' } as never, {} as never)).toThrow(/requires a reply source/)
-    expect(() => questionReplyDefinition.start({} as never, {
-      event: { ...(event as object), type: 'tool/call' }, id: 'x', role: 'start',
-    } as never, {} as never)).toThrow(/requires user\/message/)
+    expect(() => questionReplyDefinition.start({} as never, { event, id: 'msg-1', role: 'start' } as never, {} as never)).toThrow(
+      /requires a reply source/,
+    )
+    expect(() =>
+      questionReplyDefinition.start(
+        {} as never,
+        {
+          event: { ...(event as object), type: 'tool/call' },
+          id: 'x',
+          role: 'start',
+        } as never,
+        {} as never,
+      ),
+    ).toThrow(/requires user\/message/)
   })
 })

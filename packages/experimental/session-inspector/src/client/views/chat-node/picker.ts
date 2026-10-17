@@ -22,9 +22,13 @@ export class InspectorChatPicker {
    * @param cancelled - Clear the owning panel's picking state.
    * @param released - Forget this gesture after its DOM resources are released.
    */
-  constructor(private readonly getRoot: () => HTMLElement | undefined, private readonly owner: HTMLElement,
-    private readonly picked: (target: InspectorPickTarget) => boolean, private readonly cancelled: () => void,
-    private readonly released: () => void) {}
+  constructor(
+    private readonly getRoot: () => HTMLElement | undefined,
+    private readonly owner: HTMLElement,
+    private readonly picked: (target: InspectorPickTarget) => boolean,
+    private readonly cancelled: () => void,
+    private readonly released: () => void,
+  ) {}
 
   /**
    * Begin picking in the visible main Chat.
@@ -108,13 +112,20 @@ export class InspectorChatPicker {
   private hit(event: MouseEvent): { element: Element; root: HTMLElement } | undefined {
     if (this.mask === undefined) return undefined
     const root = this.currentRoot()
-    if (root === undefined) { this.cancel(); return undefined }
-    const element = document.elementsFromPoint(event.clientX, event.clientY)
+    if (root === undefined) {
+      this.cancel()
+      return undefined
+    }
+    const element = document
+      .elementsFromPoint(event.clientX, event.clientY)
       .find(element => element !== this.mask && element !== this.overlay)
     return element !== undefined && inChat(element, root) ? { element, root } : undefined
   }
 
-  private readonly hide = (): void => { this.overlay?.remove(); this.overlay = undefined }
+  private readonly hide = (): void => {
+    this.overlay?.remove()
+    this.overlay = undefined
+  }
   /** Stop the gesture and clear its owning panel's picking state. */
   readonly cancel = (): void => {
     if (this.mask === undefined) return
@@ -125,14 +136,23 @@ export class InspectorChatPicker {
   private readonly move = (event: PointerEvent): void => {
     const hit = this.hit(event)
     const match = hit === undefined ? undefined : matchChatElement(hit.element, hit.root)
-    if (match === undefined) { this.hide(); return }
+    if (match === undefined) {
+      this.hide()
+      return
+    }
     const overlay = this.overlay ?? document.createElement('div')
     // oxlint-disable-next-line typescript/no-non-null-assertion -- This class is declared in the imported CSS Module.
     overlay.className = css.chatPick!
     overlay.dataset.sessionInspectorHighlight = 'pick'
     overlay.setAttribute('aria-hidden', 'true')
-    if (!placeChatHighlight(overlay, match.element)) { this.hide(); return }
-    if (this.overlay === undefined) { document.body.append(overlay); this.overlay = overlay }
+    if (!placeChatHighlight(overlay, match.element)) {
+      this.hide()
+      return
+    }
+    if (this.overlay === undefined) {
+      document.body.append(overlay)
+      this.overlay = overlay
+    }
   }
 
   private readonly suppress = (event: Event): void => {
@@ -155,10 +175,14 @@ export class InspectorChatPicker {
       if (!(element instanceof HTMLElement) || !element.matches('[data-conversation-scroll], [data-step-process-body]')) continue
       const vertical = event.deltaY < 0 ? element.scrollTop > 0 : element.scrollTop + element.clientHeight < element.scrollHeight
       const horizontal = event.deltaX < 0 ? element.scrollLeft > 0 : element.scrollLeft + element.clientWidth < element.scrollWidth
-      if (!(event.deltaY !== 0 && vertical || event.deltaX !== 0 && horizontal)) continue
+      if (!((event.deltaY !== 0 && vertical) || (event.deltaX !== 0 && horizontal))) continue
       const style = getComputedStyle(element)
-      const scale = event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? element.clientHeight
-        : event.deltaMode === WheelEvent.DOM_DELTA_LINE ? Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) || 1 : 1
+      const scale =
+        event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? element.clientHeight
+          : event.deltaMode === WheelEvent.DOM_DELTA_LINE
+            ? Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize) || 1
+            : 1
       element.scrollBy({ top: event.deltaY * scale, left: event.deltaX * scale, behavior: 'instant' })
       break
     }

@@ -15,14 +15,21 @@ import type { DesktopPublishEvent } from './desktop-publish.ts'
 export async function withDesktopChannelLock<T>(root: string, destination: string, operation: () => Promise<T>): Promise<T> {
   await mkdir(root, { recursive: true, mode: 0o700 })
   const path = join(root, `${createHash('sha256').update(destination).digest('hex')}.lock`)
-  try { await mkdir(path, { mode: 0o700 }) } catch (cause) {
+  try {
+    await mkdir(path, { mode: 0o700 })
+  } catch (cause) {
     throw new Error(`desktop publish: channel is locked or inaccessible; inspect ${path}`, { cause })
   }
   try {
-    await writeFile(join(path, 'owner.json'), JSON.stringify({ pid: process.pid,
-      startedAt: new Date().toISOString(), destination }), { flag: 'wx', mode: 0o600, flush: true })
+    await writeFile(join(path, 'owner.json'), JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString(), destination }), {
+      flag: 'wx',
+      mode: 0o600,
+      flush: true,
+    })
     return await operation()
-  } finally { await rm(path, { recursive: true }) }
+  } finally {
+    await rm(path, { recursive: true })
+  }
 }
 
 /** An operation journal retained independently of disposable checkout and artifact files. */
@@ -40,15 +47,26 @@ export interface DesktopPublicationRecord {
  */
 export async function createDesktopPublicationRecord(
   root: string,
-  identity: { repository: string; runId: string; attempt: string; actor: string; destination: string; operation: 'publish' | 'rollback'; reason: string },
+  identity: {
+    repository: string
+    runId: string
+    attempt: string
+    actor: string
+    destination: string
+    operation: 'publish' | 'rollback'
+    reason: string
+  },
 ): Promise<DesktopPublicationRecord> {
   await mkdir(root, { recursive: true, mode: 0o700 })
   const staging = await mkdtemp(join(root, '.initializing-'))
   const directory = join(root, `${identity.operation}-${basename(staging).slice('.initializing-'.length)}`)
   const startedAt = new Date().toISOString()
   try {
-    await writeFile(join(staging, 'operation.json'), `${JSON.stringify({ ...identity,
-      startedAt }, null, 2)}\n`, { flag: 'wx', mode: 0o600, flush: true })
+    await writeFile(join(staging, 'operation.json'), `${JSON.stringify({ ...identity, startedAt }, null, 2)}\n`, {
+      flag: 'wx',
+      mode: 0o600,
+      flush: true,
+    })
     await writeFile(join(staging, 'events.jsonl'), '', { flag: 'wx', mode: 0o600, flush: true })
     await rename(staging, directory)
   } catch (error) {
@@ -61,8 +79,11 @@ export async function createDesktopPublicationRecord(
       await appendFile(join(directory, 'events.jsonl'), `${JSON.stringify({ ...event, at: new Date().toISOString() })}\n`, { flush: true })
     },
     async finish(status) {
-      await writeFile(join(directory, 'result.json'), `${JSON.stringify({ status,
-        startedAt, finishedAt: new Date().toISOString() })}\n`, { flag: 'wx', mode: 0o600, flush: true })
+      await writeFile(join(directory, 'result.json'), `${JSON.stringify({ status, startedAt, finishedAt: new Date().toISOString() })}\n`, {
+        flag: 'wx',
+        mode: 0o600,
+        flush: true,
+      })
     },
   }
 }
@@ -73,14 +94,19 @@ export async function createDesktopPublicationRecord(
  * @param expected Exact source and destination for the current retained package.
  * @returns True permits tag-only recovery; false requires normal remote reconciliation.
  */
-export async function wasDesktopAttemptPublished(root: string, expected: {
-  repository: string
-  runId: string
-  attempt: string
-  destination: string
-}): Promise<boolean> {
+export async function wasDesktopAttemptPublished(
+  root: string,
+  expected: {
+    repository: string
+    runId: string
+    attempt: string
+    destination: string
+  },
+): Promise<boolean> {
   let entries
-  try { entries = await readdir(root, { withFileTypes: true }) } catch (error) {
+  try {
+    entries = await readdir(root, { withFileTypes: true })
+  } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return false
     throw error
   }
@@ -88,16 +114,27 @@ export async function wasDesktopAttemptPublished(root: string, expected: {
     if (!entry.isDirectory() || !entry.name.startsWith('publish-')) continue
     const directory = join(root, entry.name)
     let operation
-    try { operation = JSON.parse(await readFile(join(directory, 'operation.json'), 'utf8')) } catch (error) {
+    try {
+      operation = JSON.parse(await readFile(join(directory, 'operation.json'), 'utf8'))
+    } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') continue
       throw error
     }
-    const parsed = z.object({ operation: z.string(), repository: z.string(),
-      runId: z.string(), attempt: z.string(), destination: z.string() }).parse(operation)
-    if (parsed.operation !== 'publish' || parsed.repository !== expected.repository || parsed.runId !== expected.runId
-      || parsed.attempt !== expected.attempt || parsed.destination !== expected.destination) continue
+    const parsed = z
+      .object({ operation: z.string(), repository: z.string(), runId: z.string(), attempt: z.string(), destination: z.string() })
+      .parse(operation)
+    if (
+      parsed.operation !== 'publish' ||
+      parsed.repository !== expected.repository ||
+      parsed.runId !== expected.runId ||
+      parsed.attempt !== expected.attempt ||
+      parsed.destination !== expected.destination
+    )
+      continue
     let events
-    try { events = await readFile(join(directory, 'events.jsonl'), 'utf8') } catch (error) {
+    try {
+      events = await readFile(join(directory, 'events.jsonl'), 'utf8')
+    } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') continue
       throw error
     }

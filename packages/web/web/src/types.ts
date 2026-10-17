@@ -91,9 +91,7 @@ export interface WebFetchResult {
  * stays its own object literal even where fields coincide, so an arm can gain
  * fields the others lack.
  */
-export type WebFetchBody =
-  | { readonly kind: 'html'; readonly content: string }
-  | { readonly kind: 'text'; readonly content: string }
+export type WebFetchBody = { readonly kind: 'html'; readonly content: string } | { readonly kind: 'text'; readonly content: string }
 
 /**
  * A search-capable backend. Registered with `ctx.web.registerSearchProvider`.

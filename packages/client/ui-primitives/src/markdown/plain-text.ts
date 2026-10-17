@@ -103,10 +103,7 @@ function fullText(root: MarkdownNode): string {
  * @param options - Optional extraction boundary.
  * @returns Plain text for the whole document, first visible line, or first semantic paragraph.
  */
-export function extractMarkdownPlainText(
-  markdown: string,
-  options: MarkdownPlainTextOptions = {},
-): string {
+export function extractMarkdownPlainText(markdown: string, options: MarkdownPlainTextOptions = {}): string {
   const { mode = 'all' } = options
   const root = parseGfm(markdown) as MarkdownNode
   const all = fullText(root)

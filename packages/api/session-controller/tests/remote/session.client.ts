@@ -11,8 +11,11 @@ import { ok, type RemoteMock, type RemoteTable, type StreamScript, type UnaryRul
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {
-  SessionAssistantStreamBaseline, SessionFollowFrame, SessionFollowRequest,
-  SessionPage, SessionPageRequest,
+  SessionAssistantStreamBaseline,
+  SessionFollowFrame,
+  SessionFollowRequest,
+  SessionPage,
+  SessionPageRequest,
 } from '../../src/types.ts'
 import { entries, historyValue } from '../event-script.client.ts'
 import { followSnapshot, pageThrough } from './history.client.ts'
@@ -88,9 +91,7 @@ export function followScript(
       stream.fail(result.error)
       return
     }
-    const assistantStream = typeof options.assistantStream === 'function'
-      ? options.assistantStream()
-      : options.assistantStream
+    const assistantStream = typeof options.assistantStream === 'function' ? options.assistantStream() : options.assistantStream
     stream.push(followSnapshot(result.value, follow, options.cursor, assistantStream))
   }
 }
@@ -103,7 +104,7 @@ export function followScript(
 export function pageRule(
   history: HistorySource<SessionPageRequest>,
 ): UnaryRuleFn<readonly [SessionPageRequest], Promise<RemoteResult<SessionPage>>> {
-  return async (page) => {
+  return async page => {
     const result = await answer(history, page)
     if (!result.ok) return result
     return ok(pageThrough(result.value, page.throughSeq))

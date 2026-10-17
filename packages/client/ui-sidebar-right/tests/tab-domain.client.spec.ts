@@ -6,7 +6,7 @@
  * exactly as long, an undone close is a new occurrence, another session's
  * records are left alone, and a tab's own actions name the tab's session and land where the tab is now.
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { LayoutState, TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { DockController, getPane } from '@deepseek-ai/dsh-client-ui-dockkit'
@@ -35,8 +35,8 @@ function layouts() {
 }
 
 function harness() {
-  const navigator = { openResourceIn: vi.fn(), openTabIn: vi.fn(), closeIn: vi.fn() } satisfies
-    SidebarRightNavigator & Record<string, ReturnType<typeof vi.fn>>
+  const navigator = { openResourceIn: vi.fn(), openTabIn: vi.fn(), closeIn: vi.fn() } satisfies SidebarRightNavigator &
+    Record<string, ReturnType<typeof vi.fn>>
   const pin = vi.fn<(address: string, signal: AbortSignal) => void>()
   const domain = new TabDomain(navigator, pin)
   return { domain, navigator, pin, ...layouts() }
@@ -50,7 +50,7 @@ function recordOf(state: LayoutState, tabId: TabId) {
 }
 
 describe('TabDomain — occurrences follow records', () => {
-  it('pins a record\'s address when it first appears, with the occurrence\'s signal', () => {
+  it("pins a record's address when it first appears, with the occurrence's signal", () => {
     const { domain, pin, controller, current } = harness()
     const tabId = controller.openContent({ kind: 'text', contentId: 'dsh-resource://file/session/s-one/a.txt', title: 'a' })
     domain.sync(SESSION, current())
@@ -88,7 +88,7 @@ describe('TabDomain — occurrences follow records', () => {
     expect(pin.mock.calls.filter(([address]) => address === 'dsh-resource://file/session/s-one/a.txt')).toHaveLength(2)
   })
 
-  it('leaves another session\'s occurrences alone when a session is synced', () => {
+  it("leaves another session's occurrences alone when a session is synced", () => {
     const { domain, controller, current } = harness()
     const tabId = controller.openContent({ kind: 'text', contentId: 'dsh-resource://file/session/s-one/a.txt', title: 'a' })
     domain.sync(SESSION, current())
@@ -116,7 +116,11 @@ describe('TabDomain — navigation', () => {
     domain.navigate(SESSION, tabId, { address: 'dsh-resource://file/session/s-one/a.txt', params: { line: 7 } })
     expect(pin).not.toHaveBeenCalled()
     const occurrence = domain.occurrence(SESSION, recordOf(current(), tabId))
-    expect(occurrence.navigation.getSnapshot()).toEqual({ address: 'dsh-resource://file/session/s-one/a.txt', params: { line: 7 }, revision: 1 })
+    expect(occurrence.navigation.getSnapshot()).toEqual({
+      address: 'dsh-resource://file/session/s-one/a.txt',
+      params: { line: 7 },
+      revision: 1,
+    })
     domain.sync(SESSION, current())
     expect(domain.occurrence(SESSION, recordOf(current(), tabId))).toBe(occurrence)
     expect(pin).toHaveBeenCalledWith('dsh-resource://file/session/s-one/a.txt', occurrence.signal)
@@ -131,7 +135,11 @@ describe('TabDomain — navigation', () => {
     occurrence.navigation.subscribe(seen)
     domain.navigate(SESSION, tabId, { address: 'dsh-resource://file/session/s-one/a.txt', params: { line: 3 } })
     domain.navigate(SESSION, tabId, { address: 'dsh-resource://file/session/s-one/a.txt', params: { line: 3 } })
-    expect(occurrence.navigation.getSnapshot()).toEqual({ address: 'dsh-resource://file/session/s-one/a.txt', params: { line: 3 }, revision: 2 })
+    expect(occurrence.navigation.getSnapshot()).toEqual({
+      address: 'dsh-resource://file/session/s-one/a.txt',
+      params: { line: 3 },
+      revision: 2,
+    })
     expect(seen).toHaveBeenCalledTimes(2)
   })
 
@@ -150,7 +158,7 @@ describe('TabDomain — navigation', () => {
   })
 })
 
-describe('TabDomain — a tab\'s own actions', () => {
+describe("TabDomain — a tab's own actions", () => {
   it('opens into the pane holding the tab at call time, including after it was moved', () => {
     const { domain, navigator, controller, current } = harness()
     controller.setExpanded(true)
@@ -169,7 +177,10 @@ describe('TabDomain — a tab\'s own actions', () => {
     controller.placeTab(tabId, rightPane, 0)
     domain.sync(SESSION, current())
     occurrence.tabActions.openResource('dsh-resource://file/session/s-one/b.txt', { params: { line: 1 } })
-    expect(navigator.openResourceIn).toHaveBeenLastCalledWith(SESSION, 'dsh-resource://file/session/s-one/b.txt', { paneId: rightPane, params: { line: 1 } })
+    expect(navigator.openResourceIn).toHaveBeenLastCalledWith(SESSION, 'dsh-resource://file/session/s-one/b.txt', {
+      paneId: rightPane,
+      params: { line: 1 },
+    })
     // The caller's pane wins over the default.
     occurrence.tabActions.openResource('dsh-resource://file/session/s-one/b.txt', { paneId: leftPane })
     expect(navigator.openResourceIn).toHaveBeenLastCalledWith(SESSION, 'dsh-resource://file/session/s-one/b.txt', { paneId: leftPane })
@@ -204,10 +215,10 @@ describe('TabDomain — a tab\'s own actions', () => {
       preferNewPane: true,
       revealIfOpened: false,
     })
-    expect(navigator.openResourceIn).toHaveBeenLastCalledWith(
-      SESSION,
-      'dsh-resource://file/session/s-one/a.txt',
-      { paneId: current().rootId, preferNewPane: true, revealIfOpened: false },
-    )
+    expect(navigator.openResourceIn).toHaveBeenLastCalledWith(SESSION, 'dsh-resource://file/session/s-one/a.txt', {
+      paneId: current().rootId,
+      preferNewPane: true,
+      revealIfOpened: false,
+    })
   })
 })

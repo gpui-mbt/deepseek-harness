@@ -34,7 +34,7 @@ interface Block {
 
 /** The info-string → kind table this gate tracks. */
 const KIND_BY_INFO: Record<string, BlockKind> = {
-  'ts': 'check',
+  ts: 'check',
   'ts ignore-check': 'ignore',
   'ts type-equiv': 'type-equiv',
   'ts public-api': 'type-equiv',
@@ -46,7 +46,7 @@ const KIND_BY_INFO: Record<string, BlockKind> = {
 /** Extract every recognized TypeScript fence from one Markdown file. */
 function extractBlocks(absPath: string): Block[] {
   const file = relative(root, absPath)
-  return markdownFences(readFileSync(absPath, 'utf8')).flatMap((fence) => {
+  return markdownFences(readFileSync(absPath, 'utf8')).flatMap(fence => {
     const kind = KIND_BY_INFO[fence.info]
     return kind === undefined ? [] : [{ file, line: fence.line, kind, code: fence.code }]
   })
@@ -74,10 +74,9 @@ function builtTypeCompilerOptions(): ts.CompilerOptions {
     throw new Error(parsed.errors.map(error => ts.flattenDiagnosticMessageText(error.messageText, '\n')).join('\n'))
   }
   if (parsed.options.paths === undefined) throw new Error('doc-typecheck: host tsconfig has no workspace paths')
-  const paths = Object.fromEntries(Object.entries(parsed.options.paths).map(([specifier, candidates]) => [
-    specifier,
-    candidates.map(builtDeclarationPath),
-  ]))
+  const paths = Object.fromEntries(
+    Object.entries(parsed.options.paths).map(([specifier, candidates]) => [specifier, candidates.map(builtDeclarationPath)]),
+  )
   const options: ts.CompilerOptions = {
     ...parsed.options,
     paths,
@@ -232,9 +231,9 @@ if (checked.length === 0) {
 const useBuiltTypes = process.env.DSH_DOC_TYPECHECK_USE_BUILD_OUTPUT === '1'
 const compilationError = useBuiltTypes
   ? (() => {
-    const diagnostics = compileBlocksAgainstBuiltTypes(checked)
-    return diagnostics.length === 0 ? undefined : formatDiagnostics(diagnostics, checked)
-  })()
+      const diagnostics = compileBlocksAgainstBuiltTypes(checked)
+      return diagnostics.length === 0 ? undefined : formatDiagnostics(diagnostics, checked)
+    })()
   : compileBlocksStandalone(checked)
 if (compilationError !== undefined) {
   console.error('doc-typecheck: documentation code blocks failed to compile.\n')
@@ -244,9 +243,13 @@ if (compilationError !== undefined) {
 
 const ratio = ignored.length / ratioDenominator
 const skipped = all.length - ratioDenominator
-console.log(`doc-typecheck: ${checked.length} block(s) compiled, ${ignored.length} ignored (${(ratio * 100).toFixed(0)}% opt-out), ${skipped} type-equiv/catalog (checked elsewhere), ${derivatives.length} paired derivative(s).`)
+console.log(
+  `doc-typecheck: ${checked.length} block(s) compiled, ${ignored.length} ignored (${(ratio * 100).toFixed(0)}% opt-out), ${skipped} type-equiv/catalog (checked elsewhere), ${derivatives.length} paired derivative(s).`,
+)
 // Guard against the escape hatch becoming the norm.
 if (ratioDenominator >= 4 && ratio > 0.5) {
-  console.error(`doc-typecheck: too many blocks opt out of checking (${ignored.length}/${ratioDenominator}). Make them compile or delete them.`)
+  console.error(
+    `doc-typecheck: too many blocks opt out of checking (${ignored.length}/${ratioDenominator}). Make them compile or delete them.`,
+  )
   process.exit(1)
 }

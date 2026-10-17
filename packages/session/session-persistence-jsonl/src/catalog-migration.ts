@@ -42,18 +42,32 @@ export async function prepareCatalogFacts(
     const version = parseGenerationLogFilename(basename(source.path), compression)
     if (version === undefined) throw new SessionFormatUnsupportedMigrationError(`unrecognized historical child generation ${source.path}`)
     const witness: { path: string; identity: JsonlPhysicalIdentity } = {
-      path: source.path, identity: await stat(source.path, { bigint: true }),
+      path: source.path,
+      identity: await stat(source.path, { bigint: true }),
     }
     witnesses.push(witness)
-    const unavailable = { childId: source.header.id, childCreatedAt: source.header.createdAt,
-      descriptorCount: 0, descriptor: null, sourcePath: source.path }
+    const unavailable = {
+      childId: source.header.id,
+      childCreatedAt: source.header.createdAt,
+      descriptorCount: 0,
+      descriptor: null,
+      sourcePath: source.path,
+    }
     let restored: Awaited<ReturnType<typeof readDecodedJsonlSource>>
     try {
-      restored = await readDecodedJsonlSource(source.path, version, compression, {
-        createRestore: header => (version <= 3 ? historicalSessionFormatCatalog : sessionFormatCatalog).createRestore(header, {
-          recovery: 'recoverable', validation: 'current',
-        }),
-      }, signal)
+      restored = await readDecodedJsonlSource(
+        source.path,
+        version,
+        compression,
+        {
+          createRestore: header =>
+            (version <= 3 ? historicalSessionFormatCatalog : sessionFormatCatalog).createRestore(header, {
+              recovery: 'recoverable',
+              validation: 'current',
+            }),
+        },
+        signal,
+      )
     } catch (error: unknown) {
       signal.throwIfAborted()
       failures.push({ path: source.path, error })
@@ -62,9 +76,13 @@ export async function prepareCatalogFacts(
     }
     witness.identity = restored.identity
     const header = restored.artifact.header
-    if (header.id !== source.header.id || header.createdAt !== source.header.createdAt
-      || header.parentSession !== parentId || header.origin !== 'subagent'
-      || ['cwd', 'isSeeded', 'delegationDepth', 'agentPreset'].some(key => header[key] !== source.header[key as keyof SessionHeader])) {
+    if (
+      header.id !== source.header.id ||
+      header.createdAt !== source.header.createdAt ||
+      header.parentSession !== parentId ||
+      header.origin !== 'subagent' ||
+      ['cwd', 'isSeeded', 'delegationDepth', 'agentPreset'].some(key => header[key] !== source.header[key as keyof SessionHeader])
+    ) {
       throw new JsonlGenerationSourceChangedError(source.path)
     }
     let fact: SessionFormatJsonObject
@@ -83,9 +101,14 @@ export async function prepareCatalogFacts(
     async validate() {
       for (const witness of witnesses) {
         const current = await stat(witness.path, { bigint: true })
-        if (current.dev !== witness.identity.dev || current.ino !== witness.identity.ino
-          || current.size !== witness.identity.size || current.mtimeNs !== witness.identity.mtimeNs
-          || current.ctimeNs !== witness.identity.ctimeNs) throw new JsonlGenerationSourceChangedError(witness.path)
+        if (
+          current.dev !== witness.identity.dev ||
+          current.ino !== witness.identity.ino ||
+          current.size !== witness.identity.size ||
+          current.mtimeNs !== witness.identity.mtimeNs ||
+          current.ctimeNs !== witness.identity.ctimeNs
+        )
+          throw new JsonlGenerationSourceChangedError(witness.path)
       }
     },
   }

@@ -13,7 +13,9 @@ let pending: Promise<{ files: number; bytes: number }> | undefined
  * @returns Published file count and bytes, excluding the distribution manifest.
  */
 export function buildDevtools(): Promise<{ files: number; bytes: number }> {
-  pending ??= compile().finally(() => { pending = undefined })
+  pending ??= compile().finally(() => {
+    pending = undefined
+  })
   return pending
 }
 
@@ -36,11 +38,20 @@ async function compile(): Promise<{ files: number; bytes: number }> {
     }
     await walk('')
     const bytes = files.reduce((total, file) => total + file.bytes, 0)
-    await writeFile(join(temporary, 'resource-manifest.json'), `${JSON.stringify({
-      source: 'chrome-devtools-frontend', version: DEVTOOLS_NPM_VERSION, revision: DEVTOOLS_SOURCE_REVISION,
-      builder: 'vite',
-      files: files.sort((left, right) => left.path.localeCompare(right.path)),
-    }, null, 2)}\n`)
+    await writeFile(
+      join(temporary, 'resource-manifest.json'),
+      `${JSON.stringify(
+        {
+          source: 'chrome-devtools-frontend',
+          version: DEVTOOLS_NPM_VERSION,
+          revision: DEVTOOLS_SOURCE_REVISION,
+          builder: 'vite',
+          files: files.sort((left, right) => left.path.localeCompare(right.path)),
+        },
+        null,
+        2,
+      )}\n`,
+    )
     const output = join(lib, 'devtools')
     await rm(output, { recursive: true, force: true })
     await rename(temporary, output)

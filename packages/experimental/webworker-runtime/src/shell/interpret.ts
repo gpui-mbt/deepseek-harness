@@ -60,7 +60,9 @@ interface Sink {
 function buffer(): Sink & { text(): string } {
   const chunks: string[] = []
   return {
-    write: (text: string) => { chunks.push(text) },
+    write: (text: string) => {
+      chunks.push(text)
+    },
     text: () => chunks.join(''),
   }
 }
@@ -248,7 +250,7 @@ class Interpreter {
         redirections.push(argument)
         continue
       }
-      argv.push(...await expandArgument(argument, this.context(state)))
+      argv.push(...(await expandArgument(argument, this.context(state))))
     }
     const prefix: Record<string, string> = {}
     for (const env of command.envs) prefix[env.name] = await this.assignedValue(env.args[0], state)
@@ -259,9 +261,7 @@ class Interpreter {
     }
     // A prefixed command sees the assignments as environment for its run only,
     // which also means it cannot change the caller's directory.
-    const scope = Object.keys(prefix).length === 0
-      ? state
-      : { ...state, environment: { ...state.environment, ...prefix } }
+    const scope = Object.keys(prefix).length === 0 ? state : { ...state, environment: { ...state.environment, ...prefix } }
 
     const name = argv[0] as string
     const program = this.programs.get(name)
@@ -269,7 +269,7 @@ class Interpreter {
       io.err(`bash: ${name}: command not found\n`)
       return NOT_FOUND_STATUS
     }
-    return await this.redirected(redirections, state, io, async (inner) => {
+    return await this.redirected(redirections, state, io, async inner => {
       try {
         return await program(argv, inner, scope, this.fs)
       } catch (error) {
@@ -298,7 +298,7 @@ class Interpreter {
     const writes: Promise<void>[] = []
     for (const redirection of redirections) {
       const targets: string[] = []
-      for (const argument of redirection.args) targets.push(...await expandArgument(argument, this.context(state)))
+      for (const argument of redirection.args) targets.push(...(await expandArgument(argument, this.context(state))))
       const target = targets[0]
       if (target === undefined || targets.length > 1) {
         io.err('bash: ambiguous redirect\n')
@@ -322,7 +322,9 @@ class Interpreter {
             // its caller, so writes are chained rather than raced.
             let pending: Promise<void> = Promise.resolve()
             const sink = (text: string): void => {
-              pending = pending.then(async () => { await this.fs.writeText(path, text, true) })
+              pending = pending.then(async () => {
+                await this.fs.writeText(path, text, true)
+              })
               writes.push(pending)
             }
             if (redirection.fd === 2) err = sink

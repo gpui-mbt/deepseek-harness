@@ -32,30 +32,47 @@ await mkdir(join(payload, 'resources'), { recursive: true })
 const previousEnvironment = { ...process.env }
 const signingEnvironment = process.argv.includes('--signed') ? loadDesktopPackageEnvironment('win32') : {}
 const signingRun = process.argv.includes('--signed')
-  ? createPackagingRun(join(output, 'packaging-runs'), { target: 'installer-test' }) : undefined
-const sign = process.argv.includes('--signed') ? createWindowsTokenSigner({
-  certificateFile: signingEnvironment.DSH_DESKTOP_WINDOWS_CER_FILE,
-  signTool: signingEnvironment.DSH_DESKTOP_WINDOWS_SIGNTOOL,
-  tokenPin: signingEnvironment.DSH_DESKTOP_WINDOWS_TOKEN_PIN,
-  keyContainer: signingEnvironment.DSH_DESKTOP_WINDOWS_KEY_CONTAINER,
-  runDirectory: signingRun.directory,
-}) : undefined
+  ? createPackagingRun(join(output, 'packaging-runs'), { target: 'installer-test' })
+  : undefined
+const sign = process.argv.includes('--signed')
+  ? createWindowsTokenSigner({
+      certificateFile: signingEnvironment.DSH_DESKTOP_WINDOWS_CER_FILE,
+      signTool: signingEnvironment.DSH_DESKTOP_WINDOWS_SIGNTOOL,
+      tokenPin: signingEnvironment.DSH_DESKTOP_WINDOWS_TOKEN_PIN,
+      keyContainer: signingEnvironment.DSH_DESKTOP_WINDOWS_KEY_CONTAINER,
+      runDirectory: signingRun.directory,
+    })
+  : undefined
 let succeeded = false
 try {
   Object.assign(process.env, {
     DSH_DESKTOP_APP_ID: `com.deepseek.harness.installertest.n${id}`,
-    DSH_DESKTOP_TARGET_PLATFORM: 'win32', DSH_DESKTOP_TARGET_ARCH: 'x64',
-    DSH_DESKTOP_UNSIGNED: '1', CSC_IDENTITY_AUTO_DISCOVERY: 'false', ELECTRON_BUILDER_7Z_FILTER: 'BCJ',
-    DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: signingEnvironment.DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN
-      ?? 'https://test.example.com',
-    DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: signingEnvironment.DSH_DESKTOP_MANDATORY_UPDATE_CONFIG
-      ?? JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
-    ...signingRun ? { DSH_DESKTOP_PACKAGING_RUN_DIR: signingRun.directory } : {},
+    DSH_DESKTOP_TARGET_PLATFORM: 'win32',
+    DSH_DESKTOP_TARGET_ARCH: 'x64',
+    DSH_DESKTOP_UNSIGNED: '1',
+    CSC_IDENTITY_AUTO_DISCOVERY: 'false',
+    ELECTRON_BUILDER_7Z_FILTER: 'BCJ',
+    DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: signingEnvironment.DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN ?? 'https://test.example.com',
+    DSH_DESKTOP_MANDATORY_UPDATE_CONFIG:
+      signingEnvironment.DSH_DESKTOP_MANDATORY_UPDATE_CONFIG ?? JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
+    ...(signingRun ? { DSH_DESKTOP_PACKAGING_RUN_DIR: signingRun.directory } : {}),
   })
   const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
   const childOptions = { env: scrubWindowsSigningEnvironment(process.env), windowsHide: true, maxBuffer: 8 * 1024 * 1024 }
-  await execute('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
-    join(appRoot, 'scripts', 'prepare-windows-installer.ps1'), '-OutputDirectory', join(output, 'ui'), '-CompileProgressOnly'], childOptions)
+  await execute(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      join(appRoot, 'scripts', 'prepare-windows-installer.ps1'),
+      '-OutputDirectory',
+      join(output, 'ui'),
+      '-CompileProgressOnly',
+    ],
+    childOptions,
+  )
   const progressTest = join(output, 'ui', 'progress-test.exe')
   const presentationTest = join(output, 'ui', 'presentation-test.exe')
   const cleanupTest = join(output, 'ui', 'data-cleanup-test.exe')
@@ -72,7 +89,9 @@ try {
   }
   await execute(cleanupTest, [join(output, 'ui', `cleanup-${id}`)], childOptions)
   const payloadSource = join(output, 'payload.nsi')
-  await writeFile(payloadSource, `Unicode true
+  await writeFile(
+    payloadSource,
+    `Unicode true
 RequestExecutionLevel user
 ManifestDPIAware true
 Name "${productName}"
@@ -84,7 +103,8 @@ Section
   FileClose $0
   MessageBox MB_OK "Installer test application is running."
 SectionEnd
-`)
+`,
+  )
   const compiler = await getMakeNsisPath()
   await execute(compiler.path, ['/V2', payloadSource], { ...childOptions, env: { ...childOptions.env, ...compiler.env } })
   if (sign) await sign({ path: join(payload, `${productName}.exe`), hash: 'sha256', isNest: false })
@@ -99,21 +119,57 @@ SectionEnd
     await mkdir(languageOutput)
     const strings = join(languageOutput, 'strings.nsh')
     const languageId = language === 'en_US' ? 'ENGLISH' : 'SIMPCHINESE'
-    await writeFile(strings, sourceStrings.split('\n').filter((line) =>
-      !line.startsWith('LangString ') || line.includes(`\${LANG_${languageId}}`)).join('\n'))
+    await writeFile(
+      strings,
+      sourceStrings
+        .split('\n')
+        .filter(line => !line.startsWith('LangString ') || line.includes(`\${LANG_${languageId}}`))
+        .join('\n'),
+    )
     const include = join(languageOutput, 'include.nsh')
-    await writeFile(include, `!define INSTALLER_BUILD_DIR "${join(output, 'ui')}"\n!define INSTALLER_STRINGS_FILE "${strings}"\n!include "${join(appRoot, 'scripts', 'installer.nsh')}"\n`)
-    await build({ projectDir: appRoot, prepackaged: payload, targets: Platform.WINDOWS.createTarget(['nsis'], Arch.x64), publish: 'never',
-      config: { ...config, productName, extraMetadata: { ...config.extraMetadata, name: packageName },
-        artifactName: 'installer-test.exe', directories: { output: languageOutput },
-        nsis: { ...config.nsis, guid, include, installerLanguages: [language] }, beforeBuild: undefined, afterPack: undefined, afterSign: undefined, artifactBuildCompleted: undefined },
+    await writeFile(
+      include,
+      `!define INSTALLER_BUILD_DIR "${join(output, 'ui')}"\n!define INSTALLER_STRINGS_FILE "${strings}"\n!include "${join(appRoot, 'scripts', 'installer.nsh')}"\n`,
+    )
+    await build({
+      projectDir: appRoot,
+      prepackaged: payload,
+      targets: Platform.WINDOWS.createTarget(['nsis'], Arch.x64),
+      publish: 'never',
+      config: {
+        ...config,
+        productName,
+        extraMetadata: { ...config.extraMetadata, name: packageName },
+        artifactName: 'installer-test.exe',
+        directories: { output: languageOutput },
+        nsis: { ...config.nsis, guid, include, installerLanguages: [language] },
+        beforeBuild: undefined,
+        afterPack: undefined,
+        afterSign: undefined,
+        artifactBuildCompleted: undefined,
+      },
     })
     if (process.argv.includes('--compile-only')) continue
-    const result = await execute('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
-      join(appRoot, 'tests', uninstallOnly ? 'windows-uninstall-smoke.ps1' : 'windows-installer-smoke.ps1'),
-      '-Installer', join(languageOutput, 'installer-test.exe'),
-      '-ProductName', productName, '-RegistryKey', guid, '-OutputDirectory', languageOutput,
-      ...uninstallOnly ? ['-Language', languageId, '-PackageName', packageName] : []], childOptions)
+    const result = await execute(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        join(appRoot, 'tests', uninstallOnly ? 'windows-uninstall-smoke.ps1' : 'windows-installer-smoke.ps1'),
+        '-Installer',
+        join(languageOutput, 'installer-test.exe'),
+        '-ProductName',
+        productName,
+        '-RegistryKey',
+        guid,
+        '-OutputDirectory',
+        languageOutput,
+        ...(uninstallOnly ? ['-Language', languageId, '-PackageName', packageName] : []),
+      ],
+      childOptions,
+    )
     process.stdout.write(`${language}\n${result.stdout}`)
   }
   succeeded = true

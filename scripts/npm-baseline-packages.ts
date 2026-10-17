@@ -3,11 +3,7 @@
 import { globSync } from 'node:fs'
 import { PRIVATE_EXPERIMENTAL_PACKAGE_DIRECTORIES } from './experimental-package-policy.ts'
 
-const PACKAGE_PATTERNS = [
-  'vendor/*/package.json',
-  'packages/*/*/package.json',
-  'apps/*/package.json',
-] as const
+const PACKAGE_PATTERNS = ['vendor/*/package.json', 'packages/*/*/package.json', 'apps/*/package.json'] as const
 
 /**
  * Discover baseline manifests while excluding the configured private experimental directories.
@@ -22,5 +18,7 @@ export function discoverNpmBaselineManifests(
   return globSync(PACKAGE_PATTERNS, {
     cwd: root,
     exclude: privateDirectories.map(directory => `${directory}/package.json`),
-  }).map(path => path.replaceAll('\\', '/')).sort()
+  })
+    .map(path => path.replaceAll('\\', '/'))
+    .sort()
 }

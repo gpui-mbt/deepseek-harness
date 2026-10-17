@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import * as jsonrpc from '../src/index.ts'
 

@@ -20,7 +20,9 @@ export interface SettingsDocumentState {
 export class SettingsDocumentStore {
   /** uSES-safe state source shared by the registered header action. */
   readonly store: SnapshotStore<SettingsDocumentState> = createSnapshotStore({
-    status: 'idle', opening: false, error: null,
+    status: 'idle',
+    opening: false,
+    error: null,
   })
 
   private following: (() => void) | undefined
@@ -41,8 +43,10 @@ export class SettingsDocumentStore {
    * @returns settlement once the snapshot reflects the mirror.
    */
   async load(): Promise<void> {
-    this.following ??= this.describeFace.subscribe(() => { this.derive() })
-    this.store.update((state) => {
+    this.following ??= this.describeFace.subscribe(() => {
+      this.derive()
+    })
+    this.store.update(state => {
       state.status = 'loading'
       state.error = null
     })
@@ -57,7 +61,7 @@ export class SettingsDocumentStore {
   async open(): Promise<void> {
     const current = this.store.getSnapshot()
     if (current.status !== 'ready' || current.opening) return
-    this.store.update((state) => {
+    this.store.update(state => {
       state.opening = true
       state.error = null
     })
@@ -65,10 +69,14 @@ export class SettingsDocumentStore {
       const result = await this.ctx.remote.settings.openSettingsDocument()
       if (!result.ok) {
         const { message } = result.error
-        this.store.update((state) => { state.error = message })
+        this.store.update(state => {
+          state.error = message
+        })
       }
     } finally {
-      this.store.update((state) => { state.opening = false })
+      this.store.update(state => {
+        state.opening = false
+      })
     }
   }
 
@@ -84,7 +92,7 @@ export class SettingsDocumentStore {
       // A held failure with no answer means the document cannot be located;
       // without one the read is still in flight and loading stands.
       if (mirrored.error !== null) {
-        this.store.update((state) => {
+        this.store.update(state => {
           state.status = 'unavailable'
           state.error = mirrored.error
         })
@@ -92,7 +100,7 @@ export class SettingsDocumentStore {
       return
     }
     const { hasDocument } = mirrored.view
-    this.store.update((state) => {
+    this.store.update(state => {
       state.status = hasDocument ? 'ready' : 'unavailable'
       state.error = null
     })

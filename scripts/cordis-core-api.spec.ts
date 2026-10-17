@@ -3,13 +3,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
-import {
-  CORDIS_CORE_API_PAGES,
-  renderCordisCoreApiPage,
-  renderCordisCoreApiPages,
-  type CordisCoreApiPage,
-} from './cordis-core-api.ts'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { CORDIS_CORE_API_PAGES, renderCordisCoreApiPage, renderCordisCoreApiPages, type CordisCoreApiPage } from './cordis-core-api.ts'
 
 const roots: string[] = []
 

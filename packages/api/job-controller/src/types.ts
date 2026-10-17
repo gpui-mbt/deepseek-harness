@@ -71,20 +71,20 @@ export interface JobFollowRequest {
  */
 export type JobFollowFrame =
   | {
-    readonly type: 'opened'
-    readonly job: JobView
-    /** Offset the first `output` frame continues from. */
-    readonly from: number
-  }
+      readonly type: 'opened'
+      readonly job: JobView
+      /** Offset the first `output` frame continues from. */
+      readonly from: number
+    }
   | {
-    readonly type: 'output'
-    readonly chunks: readonly JobChunk[]
-    /** Offset to resume from after this frame. */
-    readonly next: number
-    /** Bytes between the requested offset and `chunks` were already evicted. */
-    readonly lossy?: true
-  }
+      readonly type: 'output'
+      readonly chunks: readonly JobChunk[]
+      /** Offset to resume from after this frame. */
+      readonly next: number
+      /** Bytes between the requested offset and `chunks` were already evicted. */
+      readonly lossy?: true
+    }
   | {
-    readonly type: 'status'
-    readonly job: JobView
-  }
+      readonly type: 'status'
+      readonly job: JobView
+    }

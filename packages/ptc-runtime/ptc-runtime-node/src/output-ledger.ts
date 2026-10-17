@@ -7,7 +7,10 @@ export class OutputLedger {
   private bytes = 2 // JSON serialization of the empty logs array: []
   private entries = 0
 
-  constructor(private readonly maxBytes: number, private readonly overflowMessage?: string) {}
+  constructor(
+    private readonly maxBytes: number,
+    private readonly overflowMessage?: string,
+  ) {}
 
   /** Admit one exact log entry, or report that the hard cap was crossed. */
   admit(text: string, sink: string[]): boolean {
@@ -23,7 +26,7 @@ export class OutputLedger {
   /** Finalize a successful absent-or-JSON completion against the combined cap. */
   success(logs: string[], value?: PtcJsonValue): PtcRunResult {
     if (value !== undefined && jsonValueBytesUpTo(value, this.maxBytes - this.bytes) === undefined) return this.limit(logs)
-    return { logs, ...value !== undefined ? { value } : {} }
+    return { logs, ...(value !== undefined ? { value } : {}) }
   }
 
   /** Finalize a failure diagnostic, with output-limit taking precedence when combined bytes exceed the cap. */

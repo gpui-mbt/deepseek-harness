@@ -21,7 +21,11 @@ export class JsonRpcResponseError extends Error {
    * @param message - the wire error message.
    * @param data - the optional structured error payload, verbatim.
    */
-  constructor(readonly code: number | undefined, message: string, readonly data?: unknown) {
+  constructor(
+    readonly code: number | undefined,
+    message: string,
+    readonly data?: unknown,
+  ) {
     super(message)
     this.name = 'JsonRpcResponseError'
   }
@@ -133,14 +137,16 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
           reject(abortError(signal.reason))
         }
         signal.addEventListener('abort', onAbort, { once: true })
-        detach = () => { signal.removeEventListener('abort', onAbort) }
+        detach = () => {
+          signal.removeEventListener('abort', onAbort)
+        }
       }
       this.pending.set(id, {
-        resolve: (value) => {
+        resolve: value => {
           detach()
           resolve(value)
         },
-        reject: (error) => {
+        reject: error => {
           detach()
           reject(error)
         },
@@ -165,7 +171,7 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
    */
   flush(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.output.write('', (error) => {
+      this.output.write('', error => {
         if (error) reject(error)
         else resolve()
       })
@@ -243,11 +249,13 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
     this.pending.delete(id)
     if (frame.error && typeof frame.error === 'object') {
       const error = frame.error as Record<string, unknown>
-      pending.reject(new JsonRpcResponseError(
-        typeof error.code === 'number' ? error.code : undefined,
-        typeof error.message === 'string' ? error.message : 'JSON-RPC error',
-        error.data,
-      ))
+      pending.reject(
+        new JsonRpcResponseError(
+          typeof error.code === 'number' ? error.code : undefined,
+          typeof error.message === 'string' ? error.message : 'JSON-RPC error',
+          error.data,
+        ),
+      )
       return
     }
     pending.resolve(frame.result)
@@ -270,7 +278,7 @@ export class JsonRpcLineTransport implements JsonRpcTransportPeer {
 
 /** Normalize JSON-RPC `params` to a plain object (arrays and scalars collapse to `{}`). */
 function objectParams(params: unknown): Record<string, unknown> {
-  return params && typeof params === 'object' && !Array.isArray(params) ? params as Record<string, unknown> : {}
+  return params && typeof params === 'object' && !Array.isArray(params) ? (params as Record<string, unknown>) : {}
 }
 
 /** Normalize an abort reason into the rejection Error (a non-Error reason is stringified). */

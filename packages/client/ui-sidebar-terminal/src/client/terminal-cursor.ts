@@ -21,8 +21,13 @@ export function observeTerminalCursor(terminal: Terminal, node: HTMLElement, pre
     try {
       const style = getComputedStyle(cursor)
       foreground = style.color
-      background = opaqueColor(style.backgroundColor, () => getComputedStyle(node.querySelector('.xterm-scrollable-element')!).backgroundColor)
-    } finally { cursor.classList.add('xterm-cursor') }
+      background = opaqueColor(
+        style.backgroundColor,
+        () => getComputedStyle(node.querySelector('.xterm-scrollable-element')!).backgroundColor,
+      )
+    } finally {
+      cursor.classList.add('xterm-cursor')
+    }
     const preferred = opaqueColor(preferredCursor(), () => background)
     const backgroundLuminance = luminance(background)
     const preferredLuminance = luminance(preferred)
@@ -38,7 +43,7 @@ export function observeTerminalCursor(terminal: Terminal, node: HTMLElement, pre
 
 // xterm emits sRGB colors; OSC values are normalized to six-digit hex by TerminalTheme.
 function luminance(color: string): number {
-  const [r, g, b] = colorChannels(color).map((channel) => {
+  const [r, g, b] = colorChannels(color).map(channel => {
     const value = channel / 255
     return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
   })

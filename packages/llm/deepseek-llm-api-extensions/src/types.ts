@@ -1,13 +1,7 @@
 /** Provider-specific JSON and contribution types for DeepSeek request extensions. */
 
 /** Lossless JSON value accepted by the DeepSeek request body. */
-export type DeepSeekLlmApiJson =
-  | null
-  | boolean
-  | number
-  | string
-  | DeepSeekLlmApiJson[]
-  | { [key: string]: DeepSeekLlmApiJson }
+export type DeepSeekLlmApiJson = null | boolean | number | string | DeepSeekLlmApiJson[] | { [key: string]: DeepSeekLlmApiJson }
 
 /**
  * Merge-extensible table of top-level DeepSeek request extension fields.

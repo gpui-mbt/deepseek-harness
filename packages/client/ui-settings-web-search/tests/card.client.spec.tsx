@@ -2,7 +2,7 @@
 /** The web-search page as the Plugins page renders it: its API switch, key control, two fields, and their resets. */
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SettingsFieldState, SettingsFormShell } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -35,7 +35,9 @@ describe('WebSearchCard', () => {
       ...settled,
       apiSwitchAvailable: true,
       apiSwitchBlocked: state.invalid === true || state.failed === true,
-      baseURL: state.useSearchApi === true ? endpoints.api : endpoints.messages, useSearchApi: false, maxUses: field('5'),
+      baseURL: state.useSearchApi === true ? endpoints.api : endpoints.messages,
+      useSearchApi: false,
+      maxUses: field('5'),
       count: field('10'),
       apiKey: field(''),
       apiKeyConfigured: false,
@@ -50,8 +52,16 @@ describe('WebSearchCard', () => {
 
   it('renders its one-liner alone in the summary view', () => {
     const store = createSnapshotStore<WebSearchCardState>({
-      ...settled, baseURL: endpoints.messages, apiSwitchAvailable: true, apiSwitchBlocked: false, useSearchApi: false,
-      maxUses: field('5'), count: field('10'), apiKey: field(''), apiKeyConfigured: false, apiKeyWritable: true,
+      ...settled,
+      baseURL: endpoints.messages,
+      apiSwitchAvailable: true,
+      apiSwitchBlocked: false,
+      useSearchApi: false,
+      maxUses: field('5'),
+      count: field('10'),
+      apiKey: field(''),
+      apiKeyConfigured: false,
+      apiKeyWritable: true,
     })
     const props = { ...cardActions(), view: 'summary', t, useWebSearchCard: bindSnapshotSelector(store) } as WebSearchCardProps
     render(<WebSearchCard {...props} />)
@@ -140,7 +150,9 @@ describe('WebSearchCard', () => {
     expect(guide.getAttribute('target')).toBe('_blank')
     expect(guide.getAttribute('rel')).toBe('noopener noreferrer')
     expect(guide.parentElement?.textContent).toBe(`${en.useSearchApiHint}${en.searchGuide}`)
-    expect(`${zh.useSearchApiHint}${zh.searchGuide}`).toBe('默认关闭，搜索通过 DeepSeek Messages 完成。新版 Web 搜索 API 功能与计费详见网页搜索与抓取指南')
+    expect(`${zh.useSearchApiHint}${zh.searchGuide}`).toBe(
+      '默认关闭，搜索通过 DeepSeek Messages 完成。新版 Web 搜索 API 功能与计费详见网页搜索与抓取指南',
+    )
     expect(zh.searchGuideUrl).toBe('https://api-docs.deepseek.com/zh-cn/guides/search')
   })
 
@@ -151,11 +163,14 @@ describe('WebSearchCard', () => {
     expect(screen.getByLabelText(en.maxUses)).toBeTruthy()
   })
 
-  it.each([{ invalid: true }, { failed: true }, { saving: true }])('keeps invalid or unsaved failures visible while the switch is locked: %j', (state) => {
-    renderWebSearch(state)
-    expect(screen.getByRole('switch', { name: en.useSearchApi })).toHaveProperty('disabled', true)
-    expect(screen.getByLabelText(en.maxUses)).toBeTruthy()
-  })
+  it.each([{ invalid: true }, { failed: true }, { saving: true }])(
+    'keeps invalid or unsaved failures visible while the switch is locked: %j',
+    state => {
+      renderWebSearch(state)
+      expect(screen.getByRole('switch', { name: en.useSearchApi })).toHaveProperty('disabled', true)
+      expect(screen.getByLabelText(en.maxUses)).toBeTruthy()
+    },
+  )
 
   it('explains the supported result count and blocks saving an invalid draft', () => {
     renderWebSearch({ useSearchApi: true, count: field('51', { invalid: true }), invalid: true, dirty: true })
@@ -176,7 +191,10 @@ describe('WebSearchCard', () => {
     fireEvent.change(screen.getByLabelText(en.count), { target: { value: '30' } })
     fireEvent.click(screen.getByRole('button', { name: en.reset }))
     fireEvent.click(screen.getByRole('switch', { name: en.useSearchApi }))
-    expect(actions.edit.mock.calls).toEqual([['baseURL', 'https://other.test'], ['count', '30']])
+    expect(actions.edit.mock.calls).toEqual([
+      ['baseURL', 'https://other.test'],
+      ['count', '30'],
+    ])
     expect(actions.resetField.mock.calls).toEqual([['count']])
     expect(actions.setSearchApi).toHaveBeenCalledWith(false)
   })

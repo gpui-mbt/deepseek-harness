@@ -76,12 +76,7 @@ function materialize(node: EventWindowNode): readonly SessionEventLikeEntry[] {
   return entries
 }
 
-function windowSnapshot(
-  node: EventWindowNode,
-  hasMore: boolean,
-  revision: number,
-  change: SessionEventChange,
-): SessionEventWindow {
+function windowSnapshot(node: EventWindowNode, hasMore: boolean, revision: number, change: SessionEventChange): SessionEventWindow {
   let entries: readonly SessionEventLikeEntry[] | undefined
   return {
     get entries() {
@@ -100,10 +95,10 @@ export type SessionEventChange =
   | { readonly kind: 'prepend'; readonly entries: readonly SessionEventLikeEntry[] }
   | { readonly kind: 'append'; readonly entries: readonly SessionEventLikeEntry[] }
   | {
-    readonly kind: 'settle-assistant'
-    readonly attemptId: LlmAttemptId
-    readonly entry?: SessionAssistantSettlementEntry
-  }
+      readonly kind: 'settle-assistant'
+      readonly attemptId: LlmAttemptId
+      readonly entry?: SessionAssistantSettlementEntry
+    }
 
 /** Current contiguous event window and its latest synchronous delta. */
 export interface SessionEventWindow {
@@ -120,15 +115,12 @@ export type SessionEventSource = ObservableSnapshot<SessionEventWindow>
 export class MutableSessionEventSource implements SessionEventSource {
   private readonly listeners = new Set<() => void>()
   private window: EventWindowNode = leaf([])
-  private snapshot: SessionEventWindow = windowSnapshot(
-    this.window,
-    false,
-    0,
-    { kind: 'replace', entries: [] },
-  )
+  private snapshot: SessionEventWindow = windowSnapshot(this.window, false, 0, { kind: 'replace', entries: [] })
 
   /** @returns the cached event-window snapshot. */
-  getSnapshot(): SessionEventWindow { return this.snapshot }
+  getSnapshot(): SessionEventWindow {
+    return this.snapshot
+  }
 
   /**
    * Subscribe to synchronous window publication.
@@ -137,7 +129,9 @@ export class MutableSessionEventSource implements SessionEventSource {
    */
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /**
@@ -179,9 +173,9 @@ export class MutableSessionEventSource implements SessionEventSource {
    * @param entry - durable settlement committed for that attempt.
    */
   settleAssistant(attemptId: LlmAttemptId, entry?: SessionAssistantSettlementEntry): void {
-    const entries = materialize(this.window).filter(candidate => (
-      candidate.type !== 'transient' || candidate.event.data.attemptId !== attemptId
-    ))
+    const entries = materialize(this.window).filter(
+      candidate => candidate.type !== 'transient' || candidate.event.data.attemptId !== attemptId,
+    )
     if (entry !== undefined) {
       const index = entries.findIndex(candidate => candidate.event.seq > entry.event.seq)
       if (index < 0) entries.push(entry)
@@ -195,10 +189,7 @@ export class MutableSessionEventSource implements SessionEventSource {
     })
   }
 
-  private publish(
-    hasMore: boolean,
-    change: SessionEventChange,
-  ): void {
+  private publish(hasMore: boolean, change: SessionEventChange): void {
     this.snapshot = windowSnapshot(this.window, hasMore, this.snapshot.revision + 1, change)
     notifySubscribers(this.listeners, '[session-controller] event feed')
   }

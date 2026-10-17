@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const pkgDir = fileURLToPath(new URL('..', import.meta.url))
 const built = ['lib/index.js', 'lib/persistent-process.js'].every(file => existsSync(join(pkgDir, file)))
@@ -28,13 +28,19 @@ describe.skipIf(!built)('persistent PTC published exports', () => {
       } finally { await ctx.fiber.dispose() }
     `
     const result = await execa(process.execPath, ['--input-type=module', '-e', script], {
-      cwd: pkgDir, stdin: 'ignore', timeout: 55_000, killSignal: 'SIGKILL', reject: false,
+      cwd: pkgDir,
+      stdin: 'ignore',
+      timeout: 55_000,
+      killSignal: 'SIGKILL',
+      reject: false,
     })
     expect(result.timedOut).toBe(false)
     expect(result.signal).toBeUndefined()
     expect(result.exitCode, result.stderr).toBe(0)
     expect(JSON.parse(result.stdout.trim().split('\n').at(-1) ?? '')).toMatchObject({
-      first: { logs: [] }, second: { logs: ['b'], value: 42 }, fresh: { logs: [], value: 'undefined' },
+      first: { logs: [] },
+      second: { logs: ['b'], value: 42 },
+      fresh: { logs: [], value: 'undefined' },
     })
   })
 })

@@ -53,8 +53,16 @@ export async function writePluginEnabled(profile: ProfileContext, id: string, na
   if (isMap(target)) {
     const index = items.indexOf(target)
     // A removed anchor would leave later aliases unresolved.
-    const onlySwitch = target.anchor === undefined && target.items.every(pair => isScalar(pair.key) && isScalar(pair.value)
-      && pair.key.anchor === undefined && pair.value.anchor === undefined && (pair.key.value === 'id' || pair.key.value === 'disabled'))
+    const onlySwitch =
+      target.anchor === undefined &&
+      target.items.every(
+        pair =>
+          isScalar(pair.key) &&
+          isScalar(pair.value) &&
+          pair.key.anchor === undefined &&
+          pair.value.anchor === undefined &&
+          (pair.key.value === 'id' || pair.key.value === 'disabled'),
+      )
     if (onlySwitch && implied(index)) {
       document.deleteIn([index])
       // The comment above the removed override can be the file header, so it moves to the following item, above an

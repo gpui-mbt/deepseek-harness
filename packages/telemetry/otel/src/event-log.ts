@@ -49,19 +49,21 @@ export class EventLogReporter {
     this.exporter = exporter
     this.provider = new LoggerProvider({
       resource: resourceFromAttributes(options.resourceAttributes),
-      processors: [new BatchLogRecordProcessor({
-        ...options.processor,
-        exporter: {
-          export: (records, callback) => {
-            exporter.export(records, (result) => {
-              if (result.code !== ExportResultCode.SUCCESS) options.onFailure('Product telemetry export failed', result.error)
-              callback(result)
-            })
+      processors: [
+        new BatchLogRecordProcessor({
+          ...options.processor,
+          exporter: {
+            export: (records, callback) => {
+              exporter.export(records, result => {
+                if (result.code !== ExportResultCode.SUCCESS) options.onFailure('Product telemetry export failed', result.error)
+                callback(result)
+              })
+            },
+            forceFlush: () => exporter.forceFlush(),
+            shutdown: () => exporter.shutdown(),
           },
-          forceFlush: () => exporter.forceFlush(),
-          shutdown: () => exporter.shutdown(),
-        },
-      })],
+        }),
+      ],
     })
     this.logger = this.provider.getLogger(options.scope.name, options.scope.version)
   }
@@ -81,14 +83,20 @@ export class EventLogReporter {
    * @returns completion of SDK shutdown and transport cleanup.
    */
   async shutdown(signal?: AbortSignal): Promise<void> {
-    const abort = (): void => { this.cancellation.abort(signal?.reason) }
+    const abort = (): void => {
+      this.cancellation.abort(signal?.reason)
+    }
     const listener = signal === undefined ? undefined : addAbortListener(signal, abort)
     if (signal?.aborted) abort()
-    try { await this.provider.shutdown() }
-    finally {
+    try {
+      await this.provider.shutdown()
+    } finally {
       // SDK batch shutdown can reject before it releases the exporter.
-      try { await this.exporter.shutdown() }
-      finally { listener?.[Symbol.dispose]() }
+      try {
+        await this.exporter.shutdown()
+      } finally {
+        listener?.[Symbol.dispose]()
+      }
     }
   }
 }

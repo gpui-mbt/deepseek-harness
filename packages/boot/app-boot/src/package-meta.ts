@@ -15,12 +15,19 @@ type DisplayFields = Record<'title' | 'description', string | undefined>
 /** Maximum raw icon bytes admitted to plugin metadata. */
 const MAX_ICON_BYTES = 256 * 1024
 const ICON_MEDIA_TYPES = new Map([
-  ['.svg', 'image/svg+xml'], ['.png', 'image/png'], ['.jpg', 'image/jpeg'],
-  ['.jpeg', 'image/jpeg'], ['.webp', 'image/webp'],
+  ['.svg', 'image/svg+xml'],
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.webp', 'image/webp'],
 ])
 
 function iconOf(
-  specifier: string, packageName: string, parentURL: string, manifestPath: string | undefined, value: unknown,
+  specifier: string,
+  packageName: string,
+  parentURL: string,
+  manifestPath: string | undefined,
+  value: unknown,
 ): string | undefined {
   const icon = manifestPath === undefined ? undefined : textOf(value, `${manifestPath}: icon`)
   let target: string
@@ -73,16 +80,20 @@ function assertPackageOwned(file: string, name: string): void {
 export function resolvePluginResource(specifier: string, parentURL: string): string {
   const loader = ModuleLoader.fromInternal()
   if (loader === undefined) throw new Error('Plugin metadata requires the Node module resolver')
-  const result = loader.version === 'v2'
-    ? loader.resolveSync(parentURL, { specifier, attributes: {} })
-    : loader.resolveSync(specifier, parentURL, {})
+  const result =
+    loader.version === 'v2' ? loader.resolveSync(parentURL, { specifier, attributes: {} }) : loader.resolveSync(specifier, parentURL, {})
   return fileURLToPath(result.url)
 }
 
 function missingResource(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | null)?.code
-  return code === 'ERR_PACKAGE_PATH_NOT_EXPORTED' || code === 'ERR_MODULE_NOT_FOUND'
-    || code === 'MODULE_NOT_FOUND' || code === 'ENOENT' || code === 'ENOTDIR'
+  return (
+    code === 'ERR_PACKAGE_PATH_NOT_EXPORTED' ||
+    code === 'ERR_MODULE_NOT_FOUND' ||
+    code === 'MODULE_NOT_FOUND' ||
+    code === 'ENOENT' ||
+    code === 'ENOTDIR'
+  )
 }
 
 function optionalResourcePath(specifier: string, parentURL: string): string | undefined {
@@ -145,7 +156,10 @@ function dictionariesOf(englishPath: string, specifier: string, parentURL: strin
 }
 
 function localizedText(
-  field: keyof DisplayFields, dictionaries: Map<string, DisplayFields>, fallback: string | undefined, finalFallback: string,
+  field: keyof DisplayFields,
+  dictionaries: Map<string, DisplayFields>,
+  fallback: string | undefined,
+  finalFallback: string,
 ): LocalizedText | undefined {
   const entries = [...dictionaries].flatMap(([language, fields]): [string, string][] => {
     const value = fields[field]
@@ -183,8 +197,8 @@ export function readPluginMeta(specifier: string, parentURL: string): PluginLoca
     const title = localizedText('title', dictionaries, fallbackText(manifest?.name), specifier)
     const description = localizedText('description', dictionaries, fallbackText(manifest?.description), '')
     const text = {
-      ...title === undefined ? {} : { title },
-      ...description === undefined ? {} : { description },
+      ...(title === undefined ? {} : { title }),
+      ...(description === undefined ? {} : { description }),
     }
     let icon: string | undefined
     try {
@@ -193,7 +207,7 @@ export function readPluginMeta(specifier: string, parentURL: string): PluginLoca
       return { ...text, error: `Plugin metadata for ${specifier}: ${String(error)}` }
     }
     if (title === undefined && description === undefined && icon === undefined) return undefined
-    return { ...text, ...icon === undefined ? {} : { icon } }
+    return { ...text, ...(icon === undefined ? {} : { icon }) }
   } catch (error) {
     return { error: `Plugin metadata for ${specifier}: ${String(error)}` }
   }

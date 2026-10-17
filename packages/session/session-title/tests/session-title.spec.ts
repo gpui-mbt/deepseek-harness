@@ -1,7 +1,7 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import SessionStore, { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SessionTitleService, {
@@ -14,7 +14,7 @@ import SessionTitleService, {
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'seed': { kind: 'seed' } & ContextFormed
+    seed: { kind: 'seed' } & ContextFormed
   }
 }
 
@@ -30,8 +30,7 @@ async function settleTitles(): Promise<void> {
 
 describe('session title normalization', () => {
   it('removes terminal controls, collapses whitespace, and applies word and UTF-8 byte caps', () => {
-    expect(normalizeSessionTitle('\u001B]0;stolen\u0007  Hello\t brave\nnew world  ', 80))
-      .toBe('Hello brave new world')
+    expect(normalizeSessionTitle('\u001B]0;stolen\u0007  Hello\t brave\nnew world  ', 80)).toBe('Hello brave new world')
     expect(fallbackSessionTitle('one two three four', 3, 80)).toBe('one two three')
     expect(fallbackSessionTitle('你好世界', 5, 7)).toBe('你好')
     expect(Buffer.byteLength(fallbackSessionTitle('😀😀', 5, 5), 'utf8')).toBe(4)
@@ -53,10 +52,14 @@ describe('SessionTitleService', () => {
     session.append('turn/start', {
       turn: 1,
     })
-    const message = session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: '  Build\nlog-backed session titles please  ' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const message = session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: '  Build\nlog-backed session titles please  ' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
 
     await settleTitles()
 
@@ -87,22 +90,30 @@ describe('SessionTitleService', () => {
     await ctx.plugin(SessionProjectionRegistry)
     await ctx.plugin(SessionTitleService, CONFIG)
     const session = ctx.sessions.create(SessionId('prefixed-title'))
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'Referenced session snapshot' }],
-      source: {
-        kind: 'session-reference',
-        form: 'recall',
-        version: 1,
-        references: [],
-      },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'Referenced session snapshot' }],
+        source: {
+          kind: 'session-reference',
+          form: 'recall',
+          version: 1,
+          references: [],
+        },
+      }),
+      { surfaceOp: 'append' },
+    )
     session.append('turn/start', {
       turn: 1,
     })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'Explain this referenced session' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'Explain this referenced session' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
 
     await settleTitles()
 
@@ -118,31 +129,51 @@ describe('SessionTitleService', () => {
     session.append('turn/start', {
       turn: 1,
     })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'plugin text' }],
-      source: { kind: 'seed' },
-    }), { surfaceOp: 'append' })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'reasoning', text: 'not visible text' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: ' \n\t ' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'plugin text' }],
+        source: { kind: 'seed' },
+      }),
+      { surfaceOp: 'append' },
+    )
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'reasoning', text: 'not visible text' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: ' \n\t ' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     await settleTitles()
     expect(ctx.sessionTitle.get(session)).toBeUndefined()
 
-    const eligible = session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'first real prompt' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const eligible = session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'first real prompt' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     await settleTitles()
     const first = ctx.sessionTitle.get(session)
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'later prompt' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'later prompt' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     await settleTitles()
 
     expect(first?.messageSeqs).toEqual([eligible.seq])

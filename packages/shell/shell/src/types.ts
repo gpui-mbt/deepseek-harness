@@ -11,7 +11,13 @@ import type { SandboxEnforcement, SandboxExecutionPolicy, SandboxMode } from '@d
 import type { CollectedOutput, DshEnvironment, SubprocessOutputReader } from '@deepseek-ai/dsh-subprocess'
 
 export { DSH_ENV_PREFIX } from '@deepseek-ai/dsh-subprocess'
-export type { CollectedOutput, DshEnvironment, DshEnvironmentKey, SubprocessOutputRead, SubprocessOutputReader } from '@deepseek-ai/dsh-subprocess'
+export type {
+  CollectedOutput,
+  DshEnvironment,
+  DshEnvironmentKey,
+  SubprocessOutputRead,
+  SubprocessOutputReader,
+} from '@deepseek-ai/dsh-subprocess'
 
 /**
  * Non-consuming offset readers over a background process's captured streams,

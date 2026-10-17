@@ -7,7 +7,7 @@
 // the durable session-log reference, and the browser URL is the SAME object
 // URL Chat resolved — one sessions.attachment read per session attachment.
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 
 installAssembledBootEnv()
@@ -39,23 +39,28 @@ async function openFixtureSession(): Promise<void> {
   }
   const session = await within(tree).findByText('Fixture 历史会话')
   fireEvent.click(session)
-  await waitFor(() => {
-    expect(document.querySelectorAll('[data-align] img').length).toBeGreaterThan(0)
-  }, { timeout: 10_000 })
+  await waitFor(
+    () => {
+      expect(document.querySelectorAll('[data-align] img').length).toBeGreaterThan(0)
+    },
+    { timeout: 10_000 },
+  )
 }
 
 /** Scroll the virtual ledger until the row whose text contains `needle` mounts. */
 async function scrollRowIntoWindow(needle: string): Promise<HTMLElement> {
-  await waitFor(() => {
-    if (document.querySelectorAll('tr[data-trajectory-row-key]').length === 0) {
-      throw new Error('trajectory rows not mounted')
-    }
-  }, { timeout: 10_000 })
+  await waitFor(
+    () => {
+      if (document.querySelectorAll('tr[data-trajectory-row-key]').length === 0) {
+        throw new Error('trajectory rows not mounted')
+      }
+    },
+    { timeout: 10_000 },
+  )
   const pane = document.querySelector('[data-trajectory-scroll] table')?.parentElement
   if (!(pane instanceof HTMLElement)) throw new Error('trajectory scroll pane missing')
   const findRow = (): HTMLElement | undefined =>
-    [...document.querySelectorAll<HTMLElement>('tr[data-trajectory-row-key]')]
-      .find(row => row.textContent?.includes(needle))
+    [...document.querySelectorAll<HTMLElement>('tr[data-trajectory-row-key]')].find(row => row.textContent?.includes(needle))
   let mounted = false
   for (let top = 0; !mounted && top <= 40_000; top += 1_000) {
     pane.scrollTop = top
@@ -67,7 +72,9 @@ async function scrollRowIntoWindow(needle: string): Promise<HTMLElement> {
   // Nothing scrolls the ledger after this, so draining the scroll-idle
   // debounce here leaves no timer armed for the rest of the scenario. The
   // drained reset re-renders the window, so the row is read afterwards.
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, SCROLL_IDLE_DRAIN_MS)) })
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, SCROLL_IDLE_DRAIN_MS))
+  })
   const hit = findRow()
   if (hit === undefined) throw new Error(`trajectory row containing ${JSON.stringify(needle)} never mounted`)
   return hit
@@ -94,14 +101,21 @@ it('renders durable record images in the Trajectory details panel from the share
   // resolves the durable reference through the SAME per-session cache Chat
   // used, so the object URL is identical — no second attachment read.
   const panel = await screen.findByRole('tabpanel')
-  await waitFor(() => {
-    expect(within(panel).getAllByRole('img').length).toBeGreaterThan(0)
-  }, { timeout: 10_000 })
-  expect(within(panel).getAllByRole('img').map(img => ({
-    alt: img.getAttribute('alt'),
-    scheme: img.getAttribute('src')?.split(':')[0],
-    sharedWithChat: img.getAttribute('src') === chatSrc,
-  }))).toMatchInlineSnapshot(`
+  await waitFor(
+    () => {
+      expect(within(panel).getAllByRole('img').length).toBeGreaterThan(0)
+    },
+    { timeout: 10_000 },
+  )
+  expect(
+    within(panel)
+      .getAllByRole('img')
+      .map(img => ({
+        alt: img.getAttribute('alt'),
+        scheme: img.getAttribute('src')?.split(':')[0],
+        sharedWithChat: img.getAttribute('src') === chatSrc,
+      })),
+  ).toMatchInlineSnapshot(`
     [
       {
         "alt": "fixture-image.png",

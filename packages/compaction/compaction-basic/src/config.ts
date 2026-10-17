@@ -36,18 +36,10 @@ const POLICY_CONFIG_KEYS = [
 ] as const
 
 /** Complete public top-level configuration key set. */
-const BASIC_COMPACT_CONFIG_KEYS: ReadonlySet<string> = new Set([
-  ...POLICY_CONFIG_KEYS,
-  'modelPolicies',
-  'auto',
-])
+const BASIC_COMPACT_CONFIG_KEYS: ReadonlySet<string> = new Set([...POLICY_CONFIG_KEYS, 'modelPolicies', 'auto'])
 
 /** Complete exact-target override key set. */
-const MODEL_POLICY_KEYS: ReadonlySet<string> = new Set([
-  'provider',
-  'model',
-  ...POLICY_CONFIG_KEYS,
-])
+const MODEL_POLICY_KEYS: ReadonlySet<string> = new Set(['provider', 'model', ...POLICY_CONFIG_KEYS])
 
 /** Target-specific pressure configuration failure eligible for warning suppression. */
 export class TargetPressureConfigError extends Error {
@@ -55,7 +47,10 @@ export class TargetPressureConfigError extends Error {
    * @param targetKey - exact provider/model route used as the warning key.
    * @param message - actionable configuration failure detail.
    */
-  constructor(readonly targetKey: string, message: string) {
+  constructor(
+    readonly targetKey: string,
+    message: string,
+  ) {
     super(message)
   }
 }
@@ -80,8 +75,7 @@ export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfi
   validateRatioRetention(thresholdRatio, retention, 'BasicCompactionConfig')
   const modelPolicies = resolveModelPolicies(config.modelPolicies)
   for (const [index, policy] of modelPolicies.entries()) {
-    if (policy.maxTokens === undefined && config.maxTokens === undefined
-      && policy.headroomTokens !== undefined) {
+    if (policy.maxTokens === undefined && config.maxTokens === undefined && policy.headroomTokens !== undefined) {
       policy.maxTokens = policy.headroomTokens
     }
     assertPositiveInteger(
@@ -115,16 +109,10 @@ export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfi
  * @param target - exact durable provider/model route to match.
  * @returns detached immutable policy before model-capacity scaling.
  */
-export function resolveTargetPolicy(
-  config: ResolvedConfig,
-  target: Pick<LlmCallConfig, 'provider' | 'model'>,
-): ResolvedTargetPolicy {
-  const override = config.modelPolicies.find(policy => (
-    policy.provider === target.provider && policy.model === target.model
-  ))
-  const inheritedRetention: ResolvedRetention = config.retainTokens === undefined
-    ? { retainRatio: config.retainRatio }
-    : { retainTokens: config.retainTokens }
+export function resolveTargetPolicy(config: ResolvedConfig, target: Pick<LlmCallConfig, 'provider' | 'model'>): ResolvedTargetPolicy {
+  const override = config.modelPolicies.find(policy => policy.provider === target.provider && policy.model === target.model)
+  const inheritedRetention: ResolvedRetention =
+    config.retainTokens === undefined ? { retainRatio: config.retainRatio } : { retainTokens: config.retainTokens }
   return deepFreeze({
     target: { provider: target.provider, model: target.model },
     thresholdRatio: override?.thresholdRatio ?? config.thresholdRatio,
@@ -157,49 +145,40 @@ export function resolveCompactSpec(
 ): ResolvedCompactSpec {
   const targetKey = `${policy.target.provider}/${policy.target.model}`
   if (!Number.isInteger(contextWindow) || contextWindow <= 0) {
-    throw new TargetPressureConfigError(
-      targetKey,
-      `BasicCompactionConfig: contextWindow (${contextWindow}) must be a positive integer`,
-    )
+    throw new TargetPressureConfigError(targetKey, `BasicCompactionConfig: contextWindow (${contextWindow}) must be a positive integer`)
   }
   if (!Number.isInteger(reservedCompletionTokens) || reservedCompletionTokens < 0) {
     throw new TargetPressureConfigError(
       targetKey,
-      `BasicCompactionConfig: reservedCompletionTokens (${reservedCompletionTokens}) `
-      + 'must be a non-negative integer',
+      `BasicCompactionConfig: reservedCompletionTokens (${reservedCompletionTokens}) ` + 'must be a non-negative integer',
     )
   }
   const messageBudgetTokens = contextWindow - reservedCompletionTokens
   if (messageBudgetTokens <= 0) {
     throw new TargetPressureConfigError(
       targetKey,
-      `compaction-basic: ${targetKey} reserves ${reservedCompletionTokens} completion tokens `
-      + `of its ${contextWindow}-token context window, leaving no message budget; configure `
-      + "the adapter model's contextWindow above the effective request maxTokens",
+      `compaction-basic: ${targetKey} reserves ${reservedCompletionTokens} completion tokens ` +
+        `of its ${contextWindow}-token context window, leaving no message budget; configure ` +
+        "the adapter model's contextWindow above the effective request maxTokens",
     )
   }
   const pressureBudgetTokens = messageBudgetTokens - policy.headroomTokens
   if (pressureBudgetTokens <= 0) {
     throw new TargetPressureConfigError(
       targetKey,
-      `compaction-basic: ${targetKey} reserves ${reservedCompletionTokens} completion tokens `
-      + `and ${policy.headroomTokens} headroom tokens of its ${contextWindow}-token context `
-      + 'window, leaving no pressure budget; reduce the effective request maxTokens or '
-      + 'compaction headroomTokens, or configure a larger adapter model contextWindow',
+      `compaction-basic: ${targetKey} reserves ${reservedCompletionTokens} completion tokens ` +
+        `and ${policy.headroomTokens} headroom tokens of its ${contextWindow}-token context ` +
+        'window, leaving no pressure budget; reduce the effective request maxTokens or ' +
+        'compaction headroomTokens, or configure a larger adapter model contextWindow',
     )
   }
-  const thresholdTokens = Math.floor(Math.min(
-    contextWindow * policy.thresholdRatio,
-    pressureBudgetTokens,
-  ))
-  const retainTokens = policy.retainTokens === undefined
-    ? Math.floor(messageBudgetTokens * policy.retainRatio)
-    : policy.retainTokens
+  const thresholdTokens = Math.floor(Math.min(contextWindow * policy.thresholdRatio, pressureBudgetTokens))
+  const retainTokens = policy.retainTokens === undefined ? Math.floor(messageBudgetTokens * policy.retainRatio) : policy.retainTokens
   if (retainTokens >= thresholdTokens) {
     throw new TargetPressureConfigError(
       targetKey,
-      `BasicCompactionConfig: ${policy.target.provider}/${policy.target.model} retainTokens `
-      + `(${retainTokens}) must be less than threshold tokens ${thresholdTokens}`,
+      `BasicCompactionConfig: ${policy.target.provider}/${policy.target.model} retainTokens ` +
+        `(${retainTokens}) must be less than threshold tokens ${thresholdTokens}`,
     )
   }
   return deepFreeze({
@@ -217,25 +196,17 @@ export function resolveCompactSpec(
 }
 
 /** Choose an explicit retention form or inherit the already-resolved fallback. */
-function resolveRetention(
-  config: CompactionPolicyConfig,
-  fallback: ResolvedRetention,
-): ResolvedRetention {
+function resolveRetention(config: CompactionPolicyConfig, fallback: ResolvedRetention): ResolvedRetention {
   if (config.retainTokens !== undefined) return { retainTokens: config.retainTokens }
   if (config.retainRatio !== undefined) return { retainRatio: config.retainRatio }
   return fallback
 }
 
 /** Reject a capacity-independent retention conflict at plugin load. */
-function validateRatioRetention(
-  thresholdRatio: number,
-  retention: ResolvedRetention,
-  name: string,
-): void {
+function validateRatioRetention(thresholdRatio: number, retention: ResolvedRetention, name: string): void {
   if (retention.retainRatio !== undefined && retention.retainRatio >= thresholdRatio) {
     throw new Error(
-      `${name}: retainRatio (${retention.retainRatio}) must be less than `
-      + `the resolved thresholdRatio (${thresholdRatio})`,
+      `${name}: retainRatio (${retention.retainRatio}) must be less than ` + `the resolved thresholdRatio (${thresholdRatio})`,
     )
   }
 }
@@ -252,9 +223,7 @@ function resolveModelPolicies(configured: unknown): ModelCompactPolicyConfig[] {
     assertModelPolicy(source, name)
     const key = `${source.provider}\u0000${source.model}`
     if (seen.has(key)) {
-      throw new Error(
-        `BasicCompactionConfig: duplicate model policy for ${source.provider}/${source.model}`,
-      )
+      throw new Error(`BasicCompactionConfig: duplicate model policy for ${source.provider}/${source.model}`)
     }
     seen.add(key)
     return { ...source }
@@ -262,10 +231,7 @@ function resolveModelPolicies(configured: unknown): ModelCompactPolicyConfig[] {
 }
 
 /** Validate one untrusted exact-target override and narrow its public type. */
-function assertModelPolicy(
-  source: unknown,
-  name: string,
-): asserts source is ModelCompactPolicyConfig {
+function assertModelPolicy(source: unknown, name: string): asserts source is ModelCompactPolicyConfig {
   if (!isUnknownRecord(source)) throw new Error(`${name} must be an object`)
   validateKeys(source, MODEL_POLICY_KEYS, name)
   assertNonEmptyString(`${name}.provider`, source.provider)
@@ -274,10 +240,7 @@ function assertModelPolicy(
 }
 
 /** Validate the fields common to defaults and exact-target partial overrides. */
-function validatePolicy(
-  config: CompactionPolicyConfig | Record<string, unknown>,
-  name: string,
-): void {
+function validatePolicy(config: CompactionPolicyConfig | Record<string, unknown>, name: string): void {
   const thresholdRatio = config.thresholdRatio
   const headroomTokens = config.headroomTokens
   const retainRatio = config.retainRatio
@@ -304,10 +267,7 @@ function validatePolicy(
 }
 
 /** Require one scope to omit, clear, or replace the summarization target as a pair. */
-function validateSummarizationPair(
-  config: CompactionPolicyConfig | Record<string, unknown>,
-  name: string,
-): void {
+function validateSummarizationPair(config: CompactionPolicyConfig | Record<string, unknown>, name: string): void {
   const provider = config.summarizationProvider
   const model = config.summarizationModel
   if (provider !== undefined && typeof provider !== 'string') {
@@ -317,12 +277,8 @@ function validateSummarizationPair(
     throw new Error(`${name}.summarizationModel must be a string`)
   }
   if (provider === undefined && model === undefined) return
-  if (provider === undefined || model === undefined
-    || (provider.length === 0) !== (model.length === 0)) {
-    throw new Error(
-      `${name}: summarizationProvider and summarizationModel must be set together `
-      + 'as an empty or non-empty pair',
-    )
+  if (provider === undefined || model === undefined || (provider.length === 0) !== (model.length === 0)) {
+    throw new Error(`${name}: summarizationProvider and summarizationModel must be set together ` + 'as an empty or non-empty pair')
   }
 }
 

@@ -31,9 +31,23 @@ import { SurfaceTable } from './surfaces.ts'
 import { createToolNameAliases } from './tool-names.ts'
 import { messageOf, record, stringify } from './values.ts'
 import type {
-  ModDefinition, PromptSubmitInput, PromptSubmitResult, SessionEndInput, SessionEndResult, SessionStartInput,
-  SessionStartResult, ToolCallInput, ToolCallResult, TurnCompleteInput, TurnCompleteResult, TurnStartInput,
-  SurfaceSnapshot, TurnStartResult, TurnUsage, UiRenderInput, UiRenderResult,
+  ModDefinition,
+  PromptSubmitInput,
+  PromptSubmitResult,
+  SessionEndInput,
+  SessionEndResult,
+  SessionStartInput,
+  SessionStartResult,
+  ToolCallInput,
+  ToolCallResult,
+  TurnCompleteInput,
+  TurnCompleteResult,
+  TurnStartInput,
+  SurfaceSnapshot,
+  TurnStartResult,
+  TurnUsage,
+  UiRenderInput,
+  UiRenderResult,
 } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -67,7 +81,14 @@ export interface Config {
 
 /** Engine events this host raises; a hook on any other known event registers and is reported as unserved. */
 export const SERVED_EVENTS: ReadonlySet<string> = new Set([
-  'session.start', 'session.end', 'prompt.submit', 'turn.start', 'turn.complete', 'tool.call', 'command.run', 'ui.render',
+  'session.start',
+  'session.end',
+  'prompt.submit',
+  'turn.start',
+  'turn.complete',
+  'tool.call',
+  'command.run',
+  'ui.render',
 ])
 
 /** Where the deferred argument-rewrite mechanism is specified. */
@@ -78,7 +99,10 @@ function assertPositive(field: string, value: number): void {
 }
 
 function textOf(blocks: readonly ContentBlock[]): string {
-  return blocks.filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text').map(block => block.text).join('')
+  return blocks
+    .filter((block): block is Extract<ContentBlock, { type: 'text' }> => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 /** The human's own messages among a claim: the prompt a `prompt.submit` hook sees and may rewrite. */
@@ -95,7 +119,7 @@ function promptMessages(claimed: readonly UserMessage[]): UserMessage[] {
 function rewritePromptText(prompt: readonly UserMessage[], text: string): UserMessage[] {
   // Written inside the map callback, so the flag lives on an object the later read sees current.
   const placement = { placed: false }
-  const rewritten = prompt.map((message) => {
+  const rewritten = prompt.map(message => {
     if (!message.content.some(block => block.type === 'text')) return message
     const content: ContentBlock[] = []
     for (const block of message.content) {
@@ -126,7 +150,7 @@ function appendContext(prompt: readonly UserMessage[], context: readonly string[
 function acceptPromptSubmit(result: PromptSubmitResult, original: string): PromptSubmitResult {
   if (typeof result.drop === 'string') return { drop: result.drop }
   const context = Array.isArray(result.context) ? result.context.filter((line): line is string => typeof line === 'string') : []
-  return { text: typeof result.text === 'string' ? result.text : original, ...context.length === 0 ? {} : { context } }
+  return { text: typeof result.text === 'string' ? result.text : original, ...(context.length === 0 ? {} : { context }) }
 }
 
 /** What the bridge folds from one session's event stream about its open turn. */
@@ -161,9 +185,16 @@ class DetachedRuns {
 
   track(label: string, run: Promise<unknown>): void {
     /* v8 ignore next -- the engine behaviors beneath these runs are total; the report guards a future rejecting one */
-    const settled = run.then(() => undefined, (error: unknown) => { this.report(`${label} failed: ${messageOf(error)}`) })
+    const settled = run.then(
+      () => undefined,
+      (error: unknown) => {
+        this.report(`${label} failed: ${messageOf(error)}`)
+      },
+    )
     this.pending.add(settled)
-    void settled.finally(() => { this.pending.delete(settled) })
+    void settled.finally(() => {
+      this.pending.delete(settled)
+    })
   }
 
   /** Abort every run's signal; `drain` then waits for them to settle. */
@@ -180,7 +211,7 @@ class DetachedRuns {
 /** The lossless-JSON copy of a mod's answer, or undefined when it has none. */
 function jsonValueOf(value: unknown): JsonValue | undefined {
   const text = stringify(value)
-  return text === undefined ? undefined : JSON.parse(text) as JsonValue
+  return text === undefined ? undefined : (JSON.parse(text) as JsonValue)
 }
 
 /** An error-shaped tool result carrying a mod's text in place of the tool's own. */
@@ -228,7 +259,9 @@ export class ClaudeCodeMods extends TypertRemoteService {
     const callOrigins = new Map<string, LoadedMod>()
     const modCommands = new Set<string>()
     const modTools = new Set<string>()
-    const report = (line: string): void => { ctx.logger.warn(`claude-code-mods: ${line}`) }
+    const report = (line: string): void => {
+      ctx.logger.warn(`claude-code-mods: ${line}`)
+    }
     const agentOf = (sessionId: string): Agent | undefined => ctx.get('agents')?.get(SessionId(sessionId))
     const detached = new DetachedRuns(report)
     const surfaces = new SurfaceTable({
@@ -239,7 +272,8 @@ export class ClaudeCodeMods extends TypertRemoteService {
         /* v8 ignore next -- agent/disposed forgets the band before the registry drops the agent; a redraw racing it draws nothing */
         if (agent === undefined) return Promise.resolve(null)
         return engine.raise<UiRenderInput, UiRenderResult>('ui.render', input, () => null, {
-          binding: { agent }, signal: detached.controller.signal,
+          binding: { agent },
+          signal: detached.controller.signal,
         })
       },
       runAction: async (_sessionId, callback) => {
@@ -260,8 +294,17 @@ export class ClaudeCodeMods extends TypertRemoteService {
     }
     const modSubmissions = new Map<string, string>()
     const ops = createHostOps({
-      ctx, aliases, processTimeoutMs, registrations: this.registrations, callOrigins, modCommands, modTools, redraw,
-      submitted: (messageId, mod) => { modSubmissions.set(messageId, mod) },
+      ctx,
+      aliases,
+      processTimeoutMs,
+      registrations: this.registrations,
+      callOrigins,
+      modCommands,
+      modTools,
+      redraw,
+      submitted: (messageId, mod) => {
+        modSubmissions.set(messageId, mod)
+      },
     })
     const engine: ModsEngine<AgentBinding> = new ModsEngine<AgentBinding>({
       ops: op => ops[op],
@@ -269,20 +312,27 @@ export class ClaudeCodeMods extends TypertRemoteService {
       budgetMs: hookTimeoutMs,
       catchBudgetMs: catchTimeoutMs,
       report,
-      onStateRead: (key, slot) => { surfaces.stateRead(key, slot) },
-      onStateWritten: (key, slot) => { surfaces.stateWritten(key, slot) },
+      onStateRead: (key, slot) => {
+        surfaces.stateRead(key, slot)
+      },
+      onStateWritten: (key, slot) => {
+        surfaces.stateWritten(key, slot)
+      },
     })
     this.engine = engine
     const registrations = this.registrations
-    ctx.effect(() => async () => {
-      // Cancel first: a timer callback waiting inside a `$` call ends on this signal, and engine.dispose awaits it.
-      detached.cancel()
-      surfaces.dispose()
-      for (const owned of registrations.values()) for (const dispose of owned) dispose()
-      registrations.clear()
-      await engine.dispose()
-      await detached.drain()
-    }, 'claude-code-mods: unload mods')
+    ctx.effect(
+      () => async () => {
+        // Cancel first: a timer callback waiting inside a `$` call ends on this signal, and engine.dispose awaits it.
+        detached.cancel()
+        surfaces.dispose()
+        for (const owned of registrations.values()) for (const dispose of owned) dispose()
+        registrations.clear()
+        await engine.dispose()
+        await detached.drain()
+      },
+      'claude-code-mods: unload mods',
+    )
 
     // Read at each use: the registry may mount after this plugin in a composition.
     const isRoot = (agent: Agent): boolean => {
@@ -312,9 +362,10 @@ export class ClaudeCodeMods extends TypertRemoteService {
         surface: null,
         isInteractive: ctx.get('userQuestions') !== undefined,
       }
-      await engine.raise<SessionStartInput, SessionStartResult>(
-        'session.start', input, e => ({ cwd: e.cwd }), { binding: { agent }, signal: abandon },
-      )
+      await engine.raise<SessionStartInput, SessionStartResult>('session.start', input, e => ({ cwd: e.cwd }), {
+        binding: { agent },
+        signal: abandon,
+      })
       redraw(agent.session.id)
     })
 
@@ -332,9 +383,15 @@ export class ClaudeCodeMods extends TypertRemoteService {
       }
       const input: SessionEndInput = { reason: 'other', sessionId }
       // `$.state` stays readable and the session's timers keep running until the mods' `session.end` hooks have settled.
-      detached.track('session.end', engine.raise<SessionEndInput, SessionEndResult>(
-        'session.end', input, e => ({ sessionId: e.sessionId }), { binding: { agent }, signal: detached.controller.signal },
-      ).then(forget, forget))
+      detached.track(
+        'session.end',
+        engine
+          .raise<SessionEndInput, SessionEndResult>('session.end', input, e => ({ sessionId: e.sessionId }), {
+            binding: { agent },
+            signal: detached.controller.signal,
+          })
+          .then(forget, forget),
+      )
     })
 
     ctx.on('agent/pre-step', async ({ agent, messages, turn, signal }, next): Promise<PreStepDecision> => {
@@ -355,9 +412,15 @@ export class ClaudeCodeMods extends TypertRemoteService {
           wait: false,
           origin: submitter === undefined ? { kind: 'composer' } : { kind: 'plugin', name: submitter },
         }
-        submitted = acceptPromptSubmit(await engine.raise<PromptSubmitInput, PromptSubmitResult>(
-          'prompt.submit', input, e => ({ text: e.text, ...e.context === undefined ? {} : { context: e.context } }), { binding, signal },
-        ), text)
+        submitted = acceptPromptSubmit(
+          await engine.raise<PromptSubmitInput, PromptSubmitResult>(
+            'prompt.submit',
+            input,
+            e => ({ text: e.text, ...(e.context === undefined ? {} : { context: e.context }) }),
+            { binding, signal },
+          ),
+          text,
+        )
         if (submitted.drop !== undefined) {
           ctx.logger.info(`claude-code-mods: prompt dropped: ${submitted.drop}`)
           return { kind: 'reject' }
@@ -375,7 +438,9 @@ export class ClaudeCodeMods extends TypertRemoteService {
       let edited = submitted.text === text ? [...prompt] : rewritePromptText(prompt, submitted.text)
       if (context.length > 0) edited = appendContext(edited, context)
       const rewritten = new Map<UserMessage, UserMessage>()
-      edited.forEach((message, index) => { rewritten.set(prompt[index] as UserMessage, message) })
+      edited.forEach((message, index) => {
+        rewritten.set(prompt[index] as UserMessage, message)
+      })
       return { ...downstream, messages: downstream.messages.map(message => rewritten.get(message) ?? message) }
     })
 
@@ -390,26 +455,35 @@ export class ClaudeCodeMods extends TypertRemoteService {
       const input: ToolCallInput = { ...callArguments, tool: modName, tool_use_id: exec.callId, ...agentIdOf(agent) }
       const logged = JSON.stringify(callArguments)
       let beneath: ToolExecutionResult | undefined
-      const answer = await engine.raiseWith<ToolCallInput, ToolCallResult>('tool.call', hooks, raisedBy, input, async () => {
-        beneath = await next()
-        return toolCallResultOf(beneath)
-      }, {
-        binding: { agent },
-        signal: exec.signal,
-        // The call is logged before policy runs, so the arguments a hook passes down must be the logged ones.
-        validateNext: (e) => {
-          const { tool, tool_use_id: _id, agentId: _agentId, ...rest } = e
-          if (tool !== modName) {
-            throw new RewriteRefusedError(`rerouted the call from ${modName} to ${tool}; the logged call runs the tool it named`)
-          }
-          if (JSON.stringify(rest) !== logged) {
-            throw new RewriteRefusedError(`rewrote the arguments of ${modName}; argument rewrites need the pre-tool input rewrite mechanism (${REWRITE_NOTE})`)
-          }
+      const answer = await engine.raiseWith<ToolCallInput, ToolCallResult>(
+        'tool.call',
+        hooks,
+        raisedBy,
+        input,
+        async () => {
+          beneath = await next()
+          return toolCallResultOf(beneath)
         },
-      })
+        {
+          binding: { agent },
+          signal: exec.signal,
+          // The call is logged before policy runs, so the arguments a hook passes down must be the logged ones.
+          validateNext: e => {
+            const { tool, tool_use_id: _id, agentId: _agentId, ...rest } = e
+            if (tool !== modName) {
+              throw new RewriteRefusedError(`rerouted the call from ${modName} to ${tool}; the logged call runs the tool it named`)
+            }
+            if (JSON.stringify(rest) !== logged) {
+              throw new RewriteRefusedError(
+                `rewrote the arguments of ${modName}; argument rewrites need the pre-tool input rewrite mechanism (${REWRITE_NOTE})`,
+              )
+            }
+          },
+        },
+      )
       if (agent !== undefined) redraw(agent.session.id)
       if (answer.deny !== undefined) return modAnswered(answer.deny, 'MOD_DENIED', `Error: ${answer.deny}`)
-      const text = typeof answer.result === 'string' ? answer.result : stringify(answer.result) ?? ''
+      const text = typeof answer.result === 'string' ? answer.result : (stringify(answer.result) ?? '')
       if (beneath !== undefined) {
         const mapped = toolCallResultOf(beneath)
         if (mapped.result === answer.result && mapped.isError === answer.isError) return beneath
@@ -431,7 +505,9 @@ export class ClaudeCodeMods extends TypertRemoteService {
     })
 
     // A call that never reaches post-execute (an earlier listener answered, or a pipeline failure) still clears its entry.
-    ctx.on('tools/result', (exec) => { replacements.delete(exec.token) })
+    ctx.on('tools/result', exec => {
+      replacements.delete(exec.token)
+    })
 
     ctx.on('tools/post-execute', async (exec, _result, next): Promise<PostToolDecision> => {
       const replacement = replacements.get(exec.token)
@@ -442,7 +518,7 @@ export class ClaudeCodeMods extends TypertRemoteService {
       return {
         kind: 'accept',
         content: [{ type: 'text', text: replacement }],
-        ...downstream.additionalContexts === undefined ? {} : { additionalContexts: downstream.additionalContexts },
+        ...(downstream.additionalContexts === undefined ? {} : { additionalContexts: downstream.additionalContexts }),
       }
     })
 
@@ -470,15 +546,21 @@ export class ClaudeCodeMods extends TypertRemoteService {
         isAborted: reason.kind === 'aborted',
         reason: reason.kind === 'aborted' ? 'aborted' : reason.kind === 'error' ? 'error' : 'answer',
         ...agentIdOf(agent),
-        ...folded?.usage === undefined ? {} : { usage: { ...folded.usage } },
+        ...(folded?.usage === undefined ? {} : { usage: { ...folded.usage } }),
       }
       if (folded !== undefined) turns.delete(session.id)
-      detached.track('turn.complete', engine.raise<TurnCompleteInput, TurnCompleteResult>(
-        'turn.complete', input, () => ({ text: '' }), { binding: { agent }, signal: detached.controller.signal },
-      ).then((result) => {
-        if (typeof result.text === 'string' && result.text.length > 0) ctx.logger.info(`claude-code-mods: ${result.text}`)
-        redraw(session.id)
-      }))
+      detached.track(
+        'turn.complete',
+        engine
+          .raise<TurnCompleteInput, TurnCompleteResult>('turn.complete', input, () => ({ text: '' }), {
+            binding: { agent },
+            signal: detached.controller.signal,
+          })
+          .then(result => {
+            if (typeof result.text === 'string' && result.text.length > 0) ctx.logger.info(`claude-code-mods: ${result.text}`)
+            redraw(session.id)
+          }),
+      )
     })
   }
 
@@ -506,7 +588,6 @@ export class ClaudeCodeMods extends TypertRemoteService {
     return this.surfaces.press(agent.session.id, generation, actionId)
   }
 
-
   /**
    * Load one mod beneath every mod loaded before it: run its `register`,
    * keep its hooks, and report which of its events this host never raises.
@@ -517,9 +598,13 @@ export class ClaudeCodeMods extends TypertRemoteService {
   async add(definition: ModDefinition): Promise<() => Promise<void>> {
     const mod = await this.engine.add(definition)
     const unserved = this.engine.registry.unserved(mod, SERVED_EVENTS)
-    this.ctx.logger.info(`claude-code-mods: hooks module ${mod.name}@inline loaded (tier user); events: ${this.engine.describe(mod) || '(none)'}`)
+    this.ctx.logger.info(
+      `claude-code-mods: hooks module ${mod.name}@inline loaded (tier user); events: ${this.engine.describe(mod) || '(none)'}`,
+    )
     if (unserved.length > 0) {
-      this.ctx.logger.warn(`claude-code-mods: ${mod.name}: on(${unserved.map(event => JSON.stringify(event)).join(', ')}) registered, but this host never raises ${unserved.length === 1 ? 'that event' : 'those events'}`)
+      this.ctx.logger.warn(
+        `claude-code-mods: ${mod.name}: on(${unserved.map(event => JSON.stringify(event)).join(', ')}) registered, but this host never raises ${unserved.length === 1 ? 'that event' : 'those events'}`,
+      )
     }
     return async () => {
       await this.engine.unload(mod.name)

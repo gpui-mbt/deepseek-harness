@@ -16,9 +16,7 @@ interface FoldToggleProps {
  * @param props - Fold state, localized labels, and toggle callback.
  * @returns The accessible expand or collapse button.
  */
-export function FoldToggle({
-  className, expanded, hidden, labels, onToggle,
-}: FoldToggleProps) {
+export function FoldToggle({ className, expanded, hidden, labels, onToggle }: FoldToggleProps) {
   return (
     <button
       type="button"

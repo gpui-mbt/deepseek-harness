@@ -29,11 +29,7 @@ function relative(reference: string): boolean {
  * @param signal - stops reads and prevents publication after cancellation.
  * @returns complete HTML and its finite static asset set; decoding, limits and read failures reject.
  */
-export async function packHtml(
-  data: Uint8Array<ArrayBuffer>,
-  readRelative: ReadHtmlRelative,
-  signal: AbortSignal,
-): Promise<HtmlBundle> {
+export async function packHtml(data: Uint8Array<ArrayBuffer>, readRelative: ReadHtmlRelative, signal: AbortSignal): Promise<HtmlBundle> {
   signal.throwIfAborted()
   let total = data.byteLength
   if (total > MAX_TOTAL_BYTES) throw new Error('HTML package exceeds its total byte limit')

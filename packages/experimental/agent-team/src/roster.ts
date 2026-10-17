@@ -14,12 +14,7 @@ import { readPersistedSession } from './persisted.ts'
 import type { TeamState } from './projection.ts'
 import { messageAccepted } from './session-message.ts'
 import { TeamId } from './types.ts'
-import type {
-  SpawnTeammateRequest,
-  SpawnTeammateResult,
-  TeamMemberSnapshot,
-  TeamMemberView,
-} from './types.ts'
+import type { SpawnTeammateRequest, SpawnTeammateResult, TeamMemberSnapshot, TeamMemberView } from './types.ts'
 import { requiredText } from './validation.ts'
 
 const MEMBER_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u
@@ -39,11 +34,7 @@ export interface TeamMembership {
  * @param rawName - candidate member name.
  * @returns resolved durable id and normalized name.
  */
-export function resolveActiveMember(
-  root: Agent,
-  state: TeamState,
-  rawName: string,
-): { id: SessionId; name: string } {
+export function resolveActiveMember(root: Agent, state: TeamState, rawName: string): { id: SessionId; name: string } {
   const name = rawName.trim()
   if (name === 'lead') return { id: root.id, name }
   const member = state.members.find(candidate => candidate.name === name)
@@ -126,14 +117,16 @@ export class TeamRoster {
   list(membership: TeamMembership): TeamMemberView[] {
     const { root } = membership
     const state = this.journal.state(root)
-    const result: TeamMemberView[] = [{
-      id: root.id,
-      name: 'lead',
-      role: 'lead',
-      status: availability(root),
-      ...root.options.model === undefined ? {} : { model: root.options.model },
-      diagnostics: [],
-    }]
+    const result: TeamMemberView[] = [
+      {
+        id: root.id,
+        name: 'lead',
+        role: 'lead',
+        status: availability(root),
+        ...(root.options.model === undefined ? {} : { model: root.options.model }),
+        diagnostics: [],
+      },
+    ]
     for (const member of state.members) {
       const live = this.ctx.agents.get(member.id)
       const model = live?.options.model ?? root.options.model
@@ -141,15 +134,11 @@ export class TeamRoster {
         id: member.id,
         name: member.name,
         role: 'teammate',
-        status: member.phase === 'failed'
-          ? 'failed'
-          : member.phase === 'provisioning'
-            ? 'provisioning'
-            : availability(live),
+        status: member.phase === 'failed' ? 'failed' : member.phase === 'provisioning' ? 'provisioning' : availability(live),
         description: member.description,
         provider: member.provider,
         context: member.context,
-        ...model === undefined ? {} : { model },
+        ...(model === undefined ? {} : { model }),
         diagnostics: member.error === undefined ? [] : [member.error],
       })
     }
@@ -207,8 +196,7 @@ export class TeamRoster {
       const rootId = agent.session.header.parentSession
       if (rootId === undefined) continue
       const root = this.ctx.agents.get(rootId)
-      if (root === undefined
-        || !this.journal.state(root).members.some(member => member.id === agent.id)) continue
+      if (root === undefined || !this.journal.state(root).members.some(member => member.id === agent.id)) continue
       const children = teams.get(root) ?? []
       children.push(agent.id)
       teams.set(root, children)
@@ -226,10 +214,7 @@ export class TeamRoster {
   }
 
   /** Perform one creation admitted before the Team runtime disposal cutoff. */
-  private async spawnAdmitted(
-    caller: Agent,
-    request: SpawnTeammateRequest,
-  ): Promise<SpawnTeammateResult> {
+  private async spawnAdmitted(caller: Agent, request: SpawnTeammateRequest): Promise<SpawnTeammateResult> {
     const membership = this.membership(caller)
     if (membership.role !== 'lead') {
       throw new TeamError('only the Team Lead can create teammates', 'TEAM_LEAD_REQUIRED')
@@ -283,11 +268,9 @@ export class TeamRoster {
         const phase = await this.settleProvisioning(root, failed)
         await this.stopTeammates(root, [childId])
         if (phase === 'active') {
-          throw new TeamError(
-            `teammate "${name}" became active while its creator reported failure`,
-            'TEAM_PROVISIONING_CONFLICT',
-            { cause: error },
-          )
+          throw new TeamError(`teammate "${name}" became active while its creator reported failure`, 'TEAM_PROVISIONING_CONFLICT', {
+            cause: error,
+          })
         }
       } catch (recordError: unknown) {
         throw new AggregateError([error, recordError], 'teammate creation and durable failure recording both failed')
@@ -320,11 +303,7 @@ export class TeamRoster {
   }
 
   /** Flush the accepted initial inbox item before the Lead can commit `active`. */
-  private async checkpointInitialPrompt(
-    childId: SessionId,
-    messageId: MessageId,
-    signal: AbortSignal,
-  ): Promise<void> {
+  private async checkpointInitialPrompt(childId: SessionId, messageId: MessageId, signal: AbortSignal): Promise<void> {
     while (true) {
       signal.throwIfAborted()
       const session = this.ctx.sessions.get(childId)
@@ -332,27 +311,24 @@ export class TeamRoster {
         const stored = await readPersistedSession(this.ctx.sessionPersistence, childId, signal)
         const suffix = stored.events.slice(stored.inheritedEventCount)
         if (messageAccepted(suffix, message => message.id === messageId)) return
-        throw new TeamError(
-          `teammate "${childId}" initial prompt was not durably accepted`,
-          'TEAM_PROVISIONING_CONFLICT',
-        )
+        throw new TeamError(`teammate "${childId}" initial prompt was not durably accepted`, 'TEAM_PROVISIONING_CONFLICT')
       }
 
       const progress = Promise.withResolvers<void>()
       // Abort can win while the durability flush is still pending; mark the
       // later-awaited rejection handled without changing its eventual result.
       void progress.promise.catch(() => undefined)
-      const stopEvent = this.ctx.on('session/event', (candidate) => {
+      const stopEvent = this.ctx.on('session/event', candidate => {
         if (candidate === session) progress.resolve()
       })
-      const stopDisposed = this.ctx.on('session/disposed', (candidate) => {
+      const stopDisposed = this.ctx.on('session/disposed', candidate => {
         if (candidate === session) progress.resolve()
       })
       const onAbort = (): void => {
         const reason: unknown = signal.reason
-        progress.reject(reason instanceof Error
-          ? reason
-          : new TeamError(`teammate creation aborted: ${errorMessage(reason)}`, 'TEAM_DISPOSED'))
+        progress.reject(
+          reason instanceof Error ? reason : new TeamError(`teammate creation aborted: ${errorMessage(reason)}`, 'TEAM_DISPOSED'),
+        )
       }
       signal.addEventListener('abort', onAbort, { once: true })
       try {
@@ -386,10 +362,12 @@ export class TeamRoster {
         const suffix = loaded.events.slice(loaded.inheritedEventCount)
         const descriptor = foldSubagentDescriptor(suffix)
         const acceptedInitialPrompt = messageAccepted(suffix, message => message.source.kind === 'user')
-        if (loaded.header.parentSession === root.id
-          && descriptor?.mode === 'continuable'
-          && descriptor.provider === member.provider
-          && acceptedInitialPrompt) {
+        if (
+          loaded.header.parentSession === root.id &&
+          descriptor?.mode === 'continuable' &&
+          descriptor.provider === member.provider &&
+          acceptedInitialPrompt
+        ) {
           phase = 'active'
         } else {
           failure = 'persisted child Session does not match the provisioned continuation'
@@ -405,7 +383,7 @@ export class TeamRoster {
         const settled: TeamMemberSnapshot = {
           ...current,
           phase,
-          ...phase === 'failed' ? { error: failure } : {},
+          ...(phase === 'failed' ? { error: failure } : {}),
         }
         await this.journal.appendAndFlush(root, 'team/member', {
           version: 2,
@@ -427,7 +405,7 @@ export class TeamRoster {
       description: member.description,
       provider: member.provider,
       context: member.context,
-      ...live?.options.model === undefined ? {} : { model: live.options.model },
+      ...(live?.options.model === undefined ? {} : { model: live.options.model }),
       diagnostics: [],
     }
   }
@@ -435,19 +413,13 @@ export class TeamRoster {
   /** Validate a never-reused model-facing teammate name. */
   private memberName(value: string): string {
     if (!MEMBER_NAME.test(value) || value.length > 64 || value === 'lead') {
-      throw new TeamError(
-        'teammate name must be lower-kebab-case, at most 64 characters, and not "lead"',
-        'TEAM_INVALID_MEMBER_NAME',
-      )
+      throw new TeamError('teammate name must be lower-kebab-case, at most 64 characters, and not "lead"', 'TEAM_INVALID_MEMBER_NAME')
     }
     return value
   }
 
   /** Append one terminal provisioning edge unless recovery already settled it. */
-  private async settleProvisioning(
-    root: Agent,
-    terminal: TeamMemberSnapshot,
-  ): Promise<'active' | 'failed'> {
+  private async settleProvisioning(root: Agent, terminal: TeamMemberSnapshot): Promise<'active' | 'failed'> {
     return this.journal.transact(root.id, async () => {
       const current = this.journal.state(root).members.find(member => member.id === terminal.id)
       /* v8 ignore next 3 -- the append-only provisioning event is committed by this operation before settlement. */

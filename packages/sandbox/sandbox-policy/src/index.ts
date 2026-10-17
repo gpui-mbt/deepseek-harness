@@ -87,11 +87,9 @@ export interface SandboxPolicyRequest {
 }
 
 /** The sandbox-mode projection's state schema (state equals the public shape). */
-const sandboxModeStateSchema = zod.union([
-  zod.literal('read-only'),
-  zod.literal('workspace-write'),
-  zod.literal('danger-full-access'),
-]).nullable()
+const sandboxModeStateSchema = zod
+  .union([zod.literal('read-only'), zod.literal('workspace-write'), zod.literal('danger-full-access')])
+  .nullable()
 
 type SandboxModeState = zod.infer<typeof sandboxModeStateSchema>
 declare module '@deepseek-ai/dsh-session-projection/types' {
@@ -142,11 +140,9 @@ export class SandboxPolicyService extends Service {
       scope.systemPrompt.context({
         name: 'sandbox:policy',
         order: scope.systemPrompt.getContextOrder('SANDBOX_POLICY'),
-        text: (context) => {
+        text: context => {
           const session = context.agent?.session
-          return session === undefined
-            ? ''
-            : renderPolicyContext(this.resolve({ session }))
+          return session === undefined ? '' : renderPolicyContext(this.resolve({ session }))
         },
       })
     })
@@ -166,7 +162,7 @@ export class SandboxPolicyService extends Service {
     return {
       mode: request.mode ?? (session === undefined ? undefined : this.overrideOf(session)) ?? this.defaultMode,
       workspaceRoot: resolveWorkspaceRoot(session?.header.cwd ?? this.workspaceRoot),
-      ...session === undefined ? {} : { sessionId: session.id },
+      ...(session === undefined ? {} : { sessionId: session.id }),
     }
   }
 

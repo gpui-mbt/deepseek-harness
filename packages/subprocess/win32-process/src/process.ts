@@ -54,10 +54,7 @@ export function buildCommandLine(program: string, args: readonly string[]): stri
   return [program, ...args].map(quoteArg).join(' ')
 }
 
-function compareWindowsEnvironmentKeys(
-  [left]: readonly [string, string],
-  [right]: readonly [string, string],
-): number {
+function compareWindowsEnvironmentKeys([left]: readonly [string, string], [right]: readonly [string, string]): number {
   const foldedLeft = left.toUpperCase()
   const foldedRight = right.toUpperCase()
   return foldedLeft < foldedRight ? -1 : foldedLeft > foldedRight ? 1 : 0
@@ -206,10 +203,7 @@ function createRestrictedProcess(
  * @param options - command, cwd, args, and restricted primary token.
  * @returns caller-owned process and pipe read handles.
  */
-export function spawnPipedProcess(
-  api: Win32ProcessBindings,
-  options: RestrictedProcessSpawnOptions,
-): SpawnedPipedProcess {
+export function spawnPipedProcess(api: Win32ProcessBindings, options: RestrictedProcessSpawnOptions): SpawnedPipedProcess {
   const owned = new Set<NativePtr>()
   let startupInfo: NativePtr | undefined
   let processInfo: NativePtr | undefined
@@ -236,14 +230,7 @@ export function spawnPipedProcess(
       hStdError: stdErr.write,
     })
     processInfo = allocProcessInfo()
-    const created = createRestrictedProcess(
-      api,
-      options,
-      buildCommandLine(options.command, options.args),
-      0,
-      startupInfo,
-      processInfo,
-    )
+    const created = createRestrictedProcess(api, options, buildCommandLine(options.command, options.args), 0, startupInfo, processInfo)
     if (created === 0) {
       const win32Code = api.getLastError()
       throwWin32(api, 'CreateProcessAsUserW', win32Code, `command: ${options.command}, cwd: ${options.cwd}`)
@@ -284,10 +271,7 @@ export function spawnPipedProcess(
  * @returns complete bytes read before EOF; the handle is always closed.
  * @throws when a Win32 pipe operation fails.
  */
-export async function drainPipe(
-  api: Win32ProcessBindings,
-  handle: NativePtr,
-): Promise<Buffer> {
+export async function drainPipe(api: Win32ProcessBindings, handle: NativePtr): Promise<Buffer> {
   const chunks: Buffer[] = []
   let countSlot: NativePtr | undefined
   try {
@@ -325,7 +309,7 @@ export async function drainPipe(
 export function waitForProcessExit(api: Win32ProcessBindings, process: NativePtr): number {
   let exitCodeSlot: NativePtr | undefined
   try {
-    if (api.waitForSingleObject(process, abi.INFINITE) === 0xFFFFFFFF) {
+    if (api.waitForSingleObject(process, abi.INFINITE) === 0xffffffff) {
       throwLastError(api, 'WaitForSingleObject')
     }
     exitCodeSlot = allocUint32()
@@ -341,16 +325,8 @@ function createKillOnCloseJob(api: Win32ProcessBindings): NativePtr {
   const job = api.createJobObjectW(null, null)
   if (isNullPtr(job)) throwLastError(api, 'CreateJobObjectW')
   const information = Buffer.alloc(abi.JOBOBJECT_EXTENDED_LIMIT_SIZE)
-  information.writeUInt32LE(
-    abi.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-    abi.JOBOBJECT_EXTENDED_LIMIT_FLAGS_OFFSET,
-  )
-  if (api.setInformationJobObject(
-    job,
-    abi.JobObjectExtendedLimitInformation,
-    information,
-    information.length,
-  ) === 0) {
+  information.writeUInt32LE(abi.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, abi.JOBOBJECT_EXTENDED_LIMIT_FLAGS_OFFSET)
+  if (api.setInformationJobObject(job, abi.JobObjectExtendedLimitInformation, information, information.length) === 0) {
     const win32Code = api.getLastError()
     api.closeHandle(job)
     throwWin32(api, 'SetInformationJobObject', win32Code)
@@ -379,35 +355,32 @@ function inheritedStandardHandles(api: Win32ProcessBindings, controlFileDescript
     stdin: get(abi.STD_INPUT_HANDLE, 'stdin'),
     stdout: get(abi.STD_OUTPUT_HANDLE, 'stdout'),
     stderr: get(abi.STD_ERROR_HANDLE, 'stderr'),
-    ...controlFileDescriptor === undefined ? {} : {
-      control: { fileDescriptor: controlFileDescriptor, handle: descriptorHandle(api, controlFileDescriptor, 'control') },
-    },
+    ...(controlFileDescriptor === undefined
+      ? {}
+      : {
+          control: { fileDescriptor: controlFileDescriptor, handle: descriptorHandle(api, controlFileDescriptor, 'control') },
+        }),
   }
 }
 
 function descriptorHandle(api: Win32ProcessBindings, fileDescriptor: number, label: string): NativePtr {
   const handle = api.uvGetOsfhandle(fileDescriptor)
-  if (
-    isNullPtr(handle)
-      || handle === UV_INVALID_OS_FILE_HANDLE
-      || handle === UV_INVALID_FILE_DESCRIPTOR
-  ) {
+  if (isNullPtr(handle) || handle === UV_INVALID_OS_FILE_HANDLE || handle === UV_INVALID_FILE_DESCRIPTOR) {
     throw new Error(`uv_get_osfhandle returned an invalid handle for target ${label} fd ${String(fileDescriptor)}`)
   }
   return handle
 }
 
-function targetCarrierHandles(
-  api: CurrentTokenProcessBindings,
-  descriptors: CurrentTokenStdioFileDescriptors,
-): ProcessStandardHandles {
+function targetCarrierHandles(api: CurrentTokenProcessBindings, descriptors: CurrentTokenStdioFileDescriptors): ProcessStandardHandles {
   return {
     stdin: descriptorHandle(api, descriptors.stdin, 'stdin'),
     stdout: descriptorHandle(api, descriptors.stdout, 'stdout'),
     stderr: descriptorHandle(api, descriptors.stderr, 'stderr'),
-    ...descriptors.control === undefined ? {} : {
-      control: { fileDescriptor: descriptors.control, handle: descriptorHandle(api, descriptors.control, 'control') },
-    },
+    ...(descriptors.control === undefined
+      ? {}
+      : {
+          control: { fileDescriptor: descriptors.control, handle: descriptorHandle(api, descriptors.control, 'control') },
+        }),
   }
 }
 
@@ -440,9 +413,7 @@ function spawnJobProcess(
       }
       enabled.push(handle)
     }
-    const controlBytes = stdio.control === undefined
-      ? undefined
-      : inheritedControlStdio(api, { ...stdio, control: stdio.control })
+    const controlBytes = stdio.control === undefined ? undefined : inheritedControlStdio(api, { ...stdio, control: stdio.control })
     if (controlBytes !== undefined) {
       const koffi = requireKoffi()
       controlDescriptorBlock = { pointer: koffi.alloc('uint8', controlBytes.length) as NativePtr, length: controlBytes.length }
@@ -457,10 +428,12 @@ function spawnJobProcess(
       hStdInput: stdio.stdin,
       hStdOutput: stdio.stdout,
       hStdError: stdio.stderr,
-      ...controlDescriptorBlock === undefined ? {} : {
-        cbReserved2: controlDescriptorBlock.length,
-        lpReserved2: controlDescriptorBlock.pointer,
-      },
+      ...(controlDescriptorBlock === undefined
+        ? {}
+        : {
+            cbReserved2: controlDescriptorBlock.length,
+            lpReserved2: controlDescriptorBlock.pointer,
+          }),
     })
     processInfo = allocProcessInfo()
     created = create(startupInfo, processInfo)
@@ -480,12 +453,7 @@ function spawnJobProcess(
   if (created === 0) {
     freeNative(processInfo)
     api.closeHandle(job)
-    throwWin32(
-      api,
-      createName,
-      createFailureCode,
-      `command: ${options.command}, cwd: ${options.cwd}`,
-    )
+    throwWin32(api, createName, createFailureCode, `command: ${options.command}, cwd: ${options.cwd}`)
   }
   let info: ReturnType<typeof decodeProcessInfo>
   try {
@@ -508,7 +476,7 @@ function spawnJobProcess(
     api.closeHandle(job)
     throwWin32(api, 'AssignProcessToJobObject', win32Code, `pid ${info.dwProcessId}`)
   }
-  if (api.resumeThread(info.hThread) === 0xFFFFFFFF) {
+  if (api.resumeThread(info.hThread) === 0xffffffff) {
     const win32Code = api.getLastError()
     closeBestEffort(api, info.hThread)
     closeBestEffort(api, info.hProcess)
@@ -529,20 +497,15 @@ function spawnJobProcess(
  * required by STARTF_USESTDHANDLES. Restoring them afterward is best-effort:
  * failure must not replace the already-created child's outcome.
  */
-export function spawnInheritedJobProcess(
-  api: Win32ProcessBindings,
-  options: RestrictedProcessSpawnOptions,
-): SpawnedJobProcess {
+export function spawnInheritedJobProcess(api: Win32ProcessBindings, options: RestrictedProcessSpawnOptions): SpawnedJobProcess {
   const commandLine = buildCommandLine(options.command, options.args)
-  return spawnJobProcess(api, options, () => inheritedStandardHandles(api, options.controlFileDescriptor), 'CreateProcessAsUserW', (startupInfo, processInfo) =>
-    createRestrictedProcess(
-      api,
-      options,
-      commandLine,
-      abi.CREATE_SUSPENDED,
-      startupInfo,
-      processInfo,
-    ))
+  return spawnJobProcess(
+    api,
+    options,
+    () => inheritedStandardHandles(api, options.controlFileDescriptor),
+    'CreateProcessAsUserW',
+    (startupInfo, processInfo) => createRestrictedProcess(api, options, commandLine, abi.CREATE_SUSPENDED, startupInfo, processInfo),
+  )
 }
 
 /**
@@ -551,25 +514,28 @@ export function spawnInheritedJobProcess(
  * @param options - command, cwd, argv, and target carrier descriptors.
  * @returns caller-owned process and Job handles after successful resume.
  */
-export function spawnCurrentTokenJobProcess(
-  api: CurrentTokenProcessBindings,
-  options: CurrentTokenProcessSpawnOptions,
-): SpawnedJobProcess {
+export function spawnCurrentTokenJobProcess(api: CurrentTokenProcessBindings, options: CurrentTokenProcessSpawnOptions): SpawnedJobProcess {
   const commandLine = buildCommandLine(options.command, options.args)
   const environment = encodeWindowsEnvironment(options.env)
-  return spawnJobProcess(api, options, () => targetCarrierHandles(api, options.stdio), 'CreateProcessW', (startupInfo, processInfo) =>
-    api.createProcessW(
-      options.applicationName,
-      commandLine,
-      null,
-      null,
-      1,
-      abi.CREATE_SUSPENDED | abi.CREATE_UNICODE_ENVIRONMENT,
-      environment,
-      options.cwd,
-      startupInfo,
-      processInfo,
-    ))
+  return spawnJobProcess(
+    api,
+    options,
+    () => targetCarrierHandles(api, options.stdio),
+    'CreateProcessW',
+    (startupInfo, processInfo) =>
+      api.createProcessW(
+        options.applicationName,
+        commandLine,
+        null,
+        null,
+        1,
+        abi.CREATE_SUSPENDED | abi.CREATE_UNICODE_ENVIRONMENT,
+        environment,
+        options.cwd,
+        startupInfo,
+        processInfo,
+      ),
+  )
 }
 
 /**
@@ -590,7 +556,7 @@ export function probeCurrentTokenJobSupport(api: CurrentTokenProcessBindings): v
 export function pollProcessExit(api: Win32ProcessBindings, process: NativePtr): number | undefined {
   const waitResult = api.waitForSingleObject(process, 0)
   if (waitResult === abi.WAIT_TIMEOUT) return undefined
-  if (waitResult === 0xFFFFFFFF) throwLastError(api, 'WaitForSingleObject')
+  if (waitResult === 0xffffffff) throwLastError(api, 'WaitForSingleObject')
   const exitCodeSlot = allocUint32()
   try {
     if (api.getExitCodeProcess(process, exitCodeSlot) === 0) throwLastError(api, 'GetExitCodeProcess')
@@ -608,13 +574,7 @@ export function pollProcessExit(api: Win32ProcessBindings, process: NativePtr): 
  */
 export function isJobEmpty(api: Win32ProcessBindings, job: NativePtr): boolean {
   const information = Buffer.alloc(abi.JOBOBJECT_BASIC_ACCOUNTING_SIZE)
-  if (api.queryInformationJobObject(
-    job,
-    abi.JobObjectBasicAccountingInformation,
-    information,
-    information.length,
-    null,
-  ) === 0) {
+  if (api.queryInformationJobObject(job, abi.JobObjectBasicAccountingInformation, information, information.length, null) === 0) {
     throwLastError(api, 'QueryInformationJobObject', 'active process count')
   }
   return information.readUInt32LE(abi.JOBOBJECT_BASIC_ACCOUNTING_ACTIVE_PROCESSES_OFFSET) === 0

@@ -1,12 +1,15 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
-import type {
-  AttachmentStore,
-  ImageAttachmentRef,
-  ImageRequestTarget,
-  RequestImageAttachment,
-} from '@deepseek-ai/dsh-attachment'
-import { createDeveloperMessage, ToolCallId, createAssistantMessage, createMessage, createToolResultMessage, createUserMessage, offloadedImageText } from '@deepseek-ai/dsh-llm'
+import type { AttachmentStore, ImageAttachmentRef, ImageRequestTarget, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'
+import {
+  createDeveloperMessage,
+  ToolCallId,
+  createAssistantMessage,
+  createMessage,
+  createToolResultMessage,
+  createUserMessage,
+  offloadedImageText,
+} from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, Message, RequestUserInput } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { toPiContext } from '../src/context.ts'
@@ -15,7 +18,7 @@ import { toPiAssistant } from '../src/replay.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -47,19 +50,14 @@ function projectionStore(
     value: ImageAttachmentRef,
     target: ImageRequestTarget,
     signal?: AbortSignal,
-  ) => Promise<RequestImageAttachment> = vi.fn((value: ImageAttachmentRef) => (
-    Promise.resolve(requestImage(value, Uint8Array.of(1)))
-  )),
+  ) => Promise<RequestImageAttachment> = vi.fn((value: ImageAttachmentRef) => Promise.resolve(requestImage(value, Uint8Array.of(1)))),
 ): AttachmentStore {
   return { readImageRequest, imageHostPath: () => undefined } as unknown as AttachmentStore
 }
 
 const attachments = projectionStore()
 
-function imageContext(
-  store: AttachmentStore,
-  overrides: Partial<Omit<PiImageRequestContext, 'attachments'>> = {},
-): PiImageRequestContext {
+function imageContext(store: AttachmentStore, overrides: Partial<Omit<PiImageRequestContext, 'attachments'>> = {}): PiImageRequestContext {
   return { attachments: store, resolveImageAccess: () => undefined, ...overrides }
 }
 
@@ -82,7 +80,7 @@ function history(role: 'system' | 'assistant', content: ContentBlock[]): Message
 }
 
 describe('pi-ai request context conversion', () => {
-  it.each(['user', 'system', 'assistant', 'tool'] as const)('rejects tool-change blocks in %s history', (role) => {
+  it.each(['user', 'system', 'assistant', 'tool'] as const)('rejects tool-change blocks in %s history', role => {
     for (const type of ['tool-addition', 'tool-removal'] as const) {
       const message = { id: 'invalid', role, source: { kind: 'test' }, content: [{ type, toolName: 'search' }] } as unknown as Message
       expect(() => toPiContext(request([message]))).toThrow(expect.objectContaining({ code: 'UNSUPPORTED_CONTENT' }))
@@ -97,12 +95,18 @@ describe('pi-ai request context conversion', () => {
     const input: RequestUserInput = { role: 'user', content: [{ type: 'text', text: 'review or summarize this input' }] }
     const durable = createUserMessage({ content: input.content, source: { kind: 'test' } })
     expect(toPiContext(request([...prefix, input]))).toEqual(toPiContext(request([...prefix, durable])))
-    const withImage: RequestUserInput = { role: 'user', content: [
-      { type: 'text', text: 'before' }, { type: 'image', attachment: ref }, { type: 'text', text: 'after' },
-    ] }
+    const withImage: RequestUserInput = {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'before' },
+        { type: 'image', attachment: ref },
+        { type: 'text', text: 'after' },
+      ],
+    }
     const durableImage = createUserMessage({ content: withImage.content, source: { kind: 'test' } })
-    expect(await toPiContext(request([...prefix, withImage]), imageContext(attachments)))
-      .toEqual(await toPiContext(request([...prefix, durableImage]), imageContext(attachments)))
+    expect(await toPiContext(request([...prefix, withImage]), imageContext(attachments))).toEqual(
+      await toPiContext(request([...prefix, durableImage]), imageContext(attachments)),
+    )
     expect(withImage).not.toHaveProperty('id')
     expect(withImage).not.toHaveProperty('source')
   })
@@ -115,12 +119,16 @@ describe('pi-ai request context conversion', () => {
 
   it('converts complete text-only history and rejects tool images without storage', () => {
     const callId = ToolCallId('call-1')
-    expect(toPiContext(request([
-      history('system', [{ type: 'text', text: 'history system' }]),
-      history('assistant', [{ type: 'tool-call', id: callId, name: 'lookup', arguments: '{}' }]),
-      user([{ type: 'text', text: 'after tool' }]),
-      createToolResultMessage({ callId, content: [{ type: 'text', text: '' }], isError: false }),
-    ]))).toMatchObject({
+    expect(
+      toPiContext(
+        request([
+          history('system', [{ type: 'text', text: 'history system' }]),
+          history('assistant', [{ type: 'tool-call', id: callId, name: 'lookup', arguments: '{}' }]),
+          user([{ type: 'text', text: 'after tool' }]),
+          createToolResultMessage({ callId, content: [{ type: 'text', text: '' }], isError: false }),
+        ]),
+      ),
+    ).toMatchObject({
       systemPrompt: 'history system',
       messages: [
         { role: 'assistant' },
@@ -135,32 +143,35 @@ describe('pi-ai request context conversion', () => {
       ],
     })
 
-    expect(() => toPiContext(request([
-      createToolResultMessage({ callId, content: [{ type: 'image', attachment: ref }], isError: false }),
-    ]))).toThrow(/durable attachment service/)
+    expect(() =>
+      toPiContext(request([createToolResultMessage({ callId, content: [{ type: 'image', attachment: ref }], isError: false })])),
+    ).toThrow(/durable attachment service/)
   })
 
   it('resolves user and tool-result images while preserving explicit fallbacks', async () => {
     const callId = ToolCallId('missing-call')
     const knownCallId = ToolCallId('known-call')
-    const context = await toPiContext(request([
-      user([{ type: 'text', text: '' }]),
-      history('assistant', [
-        { type: 'text', text: 'calling' },
-        { type: 'tool-call', id: knownCallId, name: 'lookup', arguments: '{}' },
+    const context = await toPiContext(
+      request([
+        user([{ type: 'text', text: '' }]),
+        history('assistant', [
+          { type: 'text', text: 'calling' },
+          { type: 'tool-call', id: knownCallId, name: 'lookup', arguments: '{}' },
+        ]),
+        user([
+          { type: 'image', attachment: ref },
+          { type: 'text', text: 'caption' },
+          { type: 'reasoning', text: 'ignored' },
+        ]),
+        createToolResultMessage({ callId: knownCallId, content: [{ type: 'text', text: '' }], isError: false }),
+        createToolResultMessage({
+          callId,
+          content: [{ type: 'image', attachment: ref }],
+          isError: true,
+        }),
       ]),
-      user([
-        { type: 'image', attachment: ref },
-        { type: 'text', text: 'caption' },
-        { type: 'reasoning', text: 'ignored' },
-      ]),
-      createToolResultMessage({ callId: knownCallId, content: [{ type: 'text', text: '' }], isError: false }),
-      createToolResultMessage({
-        callId,
-        content: [{ type: 'image', attachment: ref }],
-        isError: true,
-      }),
-    ]), imageContext(attachments))
+      imageContext(attachments),
+    )
 
     expect(context.messages).toEqual([
       { role: 'user', content: '', timestamp: 0 },
@@ -198,20 +209,22 @@ describe('pi-ai request context conversion', () => {
 
   it('uses the shared normalized-path description for retained images', async () => {
     const named = { ...ref, name: 'chart.png', width: 2048, height: 1024 }
-    const store = projectionStore(value => Promise.resolve({
-      ...requestImage(value, Uint8Array.of(1)),
-      width: 1130,
-      height: 565,
-    }))
-    const context = await toPiContext(request([user([{ type: 'image', attachment: named }])]), imageContext(store, {
-      resolveImageAccess: () => ({ readonlyPath: '/tmp/dsh/objects/aa/object' }),
-    }))
+    const store = projectionStore(value =>
+      Promise.resolve({
+        ...requestImage(value, Uint8Array.of(1)),
+        width: 1130,
+        height: 565,
+      }),
+    )
+    const context = await toPiContext(
+      request([user([{ type: 'image', attachment: named }])]),
+      imageContext(store, {
+        resolveImageAccess: () => ({ readonlyPath: '/tmp/dsh/objects/aa/object' }),
+      }),
+    )
     expect(context.messages[0]).toMatchObject({
       role: 'user',
-      content: [
-        { type: 'text', text: expect.stringContaining('Image "chart.png"') as string },
-        { type: 'image' },
-      ],
+      content: [{ type: 'text', text: expect.stringContaining('Image "chart.png"') as string }, { type: 'image' }],
     })
     expect(JSON.stringify(context.messages[0])).toContain('/tmp/dsh/objects/aa/object')
     expect(JSON.stringify(context.messages[0])).toContain('request preview 1130x565px')
@@ -225,74 +238,94 @@ describe('pi-ai request context conversion', () => {
       toolCallId: callId,
       content: [{ type: 'text', text: 'result' }],
     })
-    expect(toPiContext(request([message])).messages).toEqual([{
-      role: 'toolResult', toolCallId: callId, toolName: 'unknown',
-      content: [{ type: 'text', text: 'result' }], isError: false, timestamp: 0,
-    }])
+    expect(toPiContext(request([message])).messages).toEqual([
+      {
+        role: 'toolResult',
+        toolCallId: callId,
+        toolName: 'unknown',
+        content: [{ type: 'text', text: 'result' }],
+        isError: false,
+        timestamp: 0,
+      },
+    ])
   })
 
   it('converts tool text and images on the image path', async () => {
     const callId = ToolCallId('nested-call')
-    const context = await toPiContext(request([createToolResultMessage({
-      callId,
-      content: [
-        { type: 'text', text: 'nested text' },
-        { type: 'image', attachment: ref },
-      ],
-      isError: false,
-    })]), imageContext(attachments))
+    const context = await toPiContext(
+      request([
+        createToolResultMessage({
+          callId,
+          content: [
+            { type: 'text', text: 'nested text' },
+            { type: 'image', attachment: ref },
+          ],
+          isError: false,
+        }),
+      ]),
+      imageContext(attachments),
+    )
 
-    expect(context.messages).toEqual([{
-      role: 'toolResult',
-      toolCallId: 'nested-call',
-      toolName: 'unknown',
-      content: [
-        { type: 'text', text: 'nested text' },
-        { type: 'text', text: expect.stringContaining(`Image ${ref.attachmentId}`) as string },
-        { type: 'image', data: 'AQ==', mimeType: 'image/png' },
-      ],
-      isError: false,
-      timestamp: 0,
-    }])
+    expect(context.messages).toEqual([
+      {
+        role: 'toolResult',
+        toolCallId: 'nested-call',
+        toolName: 'unknown',
+        content: [
+          { type: 'text', text: 'nested text' },
+          { type: 'text', text: expect.stringContaining(`Image ${ref.attachmentId}`) as string },
+          { type: 'image', data: 'AQ==', mimeType: 'image/png' },
+        ],
+        isError: false,
+        timestamp: 0,
+      },
+    ])
   })
 
   it('flattens tool text and ignores other block types without storage', () => {
     const callId = ToolCallId('nested-text')
-    expect(toPiContext(request([
-      createToolResultMessage({
-        callId,
-        content: [
-          { type: 'chart', data: 'ignored' } as unknown as ContentBlock,
-          { type: 'text', text: 'nested' },
-        ],
-        isError: false,
-      }),
-    ]))).toMatchObject({
-      messages: [{
-        role: 'toolResult',
-        content: [{ type: 'text', text: 'nested' }],
-      }],
+    expect(
+      toPiContext(
+        request([
+          createToolResultMessage({
+            callId,
+            content: [{ type: 'chart', data: 'ignored' } as unknown as ContentBlock, { type: 'text', text: 'nested' }],
+            isError: false,
+          }),
+        ]),
+      ),
+    ).toMatchObject({
+      messages: [
+        {
+          role: 'toolResult',
+          content: [{ type: 'text', text: 'nested' }],
+        },
+      ],
     })
   })
 
   it('projects surface-offloaded occurrences to placeholders and prepares only retained ones', async () => {
-    const readImageRequest = vi.fn((value: ImageAttachmentRef) => (
-      Promise.resolve(requestImage(value, Uint8Array.of(1, 2, 3)))
-    ))
+    const readImageRequest = vi.fn((value: ImageAttachmentRef) => Promise.resolve(requestImage(value, Uint8Array.of(1, 2, 3))))
     const store = projectionStore(readImageRequest)
     const sized: ImageAttachmentRef = { ...ref, bytes: 3 }
     const callId = ToolCallId('shot-call')
     // The tool-result occurrence is offloaded on the surface; the two retained 3-byte images cost
     // 4 base64 characters each and fit the 8-byte bound exactly.
-    const context = await toPiContext(request([
-      createToolResultMessage({
-        callId,
-        content: [{ type: 'image', attachment: sized, offloaded: true }],
-        isError: false,
-      }),
-      user([{ type: 'image', attachment: sized }, { type: 'text', text: 'newer' }]),
-      user([{ type: 'image', attachment: sized }]),
-    ]), imageContext(store, { maxRequestImageBytes: 8 }))
+    const context = await toPiContext(
+      request([
+        createToolResultMessage({
+          callId,
+          content: [{ type: 'image', attachment: sized, offloaded: true }],
+          isError: false,
+        }),
+        user([
+          { type: 'image', attachment: sized },
+          { type: 'text', text: 'newer' },
+        ]),
+        user([{ type: 'image', attachment: sized }]),
+      ]),
+      imageContext(store, { maxRequestImageBytes: 8 }),
+    )
 
     expect(context.messages).toEqual([
       {
@@ -331,10 +364,15 @@ describe('pi-ai request context conversion', () => {
       return Promise.resolve(requestImage(value, Uint8Array.of(1, 2, 3)))
     })
 
-    const context = await toPiContext(request([user([
-      { type: 'image', attachment: old, offloaded: true },
-      { type: 'image', attachment: recent },
-    ])]), imageContext(projectionStore(readImageRequest), { maxRequestImageBytes: 4 }))
+    const context = await toPiContext(
+      request([
+        user([
+          { type: 'image', attachment: old, offloaded: true },
+          { type: 'image', attachment: recent },
+        ]),
+      ]),
+      imageContext(projectionStore(readImageRequest), { maxRequestImageBytes: 4 }),
+    )
 
     expect(context.messages[0]).toMatchObject({
       role: 'user',
@@ -349,14 +387,18 @@ describe('pi-ai request context conversion', () => {
   })
   it('fails with the count to offload when exact encoded bytes exceed the bound', async () => {
     const sized: ImageAttachmentRef = { ...ref, bytes: 3 }
-    const readImageRequest = vi.fn((value: ImageAttachmentRef) => Promise.resolve({
-      ...requestImage(value, Uint8Array.of(1, 2, 3, 4)),
-    }))
+    const readImageRequest = vi.fn((value: ImageAttachmentRef) =>
+      Promise.resolve({
+        ...requestImage(value, Uint8Array.of(1, 2, 3, 4)),
+      }),
+    )
 
-    await expect(toPiContext(request([
-      user([{ type: 'image', attachment: sized }]),
-    ]), imageContext(projectionStore(readImageRequest), { maxRequestImageBytes: 4 })))
-      .rejects.toMatchObject({ code: 'IMAGE_OFFLOAD_REQUIRED', failure: { offloadImages: 1 } })
+    await expect(
+      toPiContext(
+        request([user([{ type: 'image', attachment: sized }])]),
+        imageContext(projectionStore(readImageRequest), { maxRequestImageBytes: 4 }),
+      ),
+    ).rejects.toMatchObject({ code: 'IMAGE_OFFLOAD_REQUIRED', failure: { offloadImages: 1 } })
     expect(readImageRequest).toHaveBeenCalledTimes(1)
   })
 
@@ -365,26 +407,29 @@ describe('pi-ai request context conversion', () => {
     const access = { readonlyPath: '/tmp/dsh-normalized-image' }
     const readImageRequest = vi.fn()
 
-    const context = await toPiContext(request([
-      user([{ type: 'image', attachment: sized, offloaded: true }]),
-    ]), imageContext(projectionStore(readImageRequest), {
-      maxRequestImageBytes: 4,
-      resolveImageAccess: () => access,
-    }))
+    const context = await toPiContext(
+      request([user([{ type: 'image', attachment: sized, offloaded: true }])]),
+      imageContext(projectionStore(readImageRequest), {
+        maxRequestImageBytes: 4,
+        resolveImageAccess: () => access,
+      }),
+    )
 
-    expect(context.messages).toEqual([{
-      role: 'user',
-      content: offloadedImageText(sized, access),
-      timestamp: 0,
-    }])
+    expect(context.messages).toEqual([
+      {
+        role: 'user',
+        content: offloadedImageText(sized, access),
+        timestamp: 0,
+      },
+    ])
     expect(readImageRequest).not.toHaveBeenCalled()
   })
   it('keeps every image at exactly the payload bound and rejects a single image that cannot fit', async () => {
     const sized: ImageAttachmentRef = { ...ref, bytes: 3 }
-    const exact = await toPiContext(request([
-      user([{ type: 'image', attachment: sized }]),
-      user([{ type: 'image', attachment: sized }]),
-    ]), imageContext(attachments, { maxRequestImageBytes: 8 }))
+    const exact = await toPiContext(
+      request([user([{ type: 'image', attachment: sized }]), user([{ type: 'image', attachment: sized }])]),
+      imageContext(attachments, { maxRequestImageBytes: 8 }),
+    )
     expect(exact.messages).toEqual([
       {
         role: 'user',
@@ -398,59 +443,64 @@ describe('pi-ai request context conversion', () => {
       },
     ])
 
-    const readImageRequest = vi.fn((value: ImageAttachmentRef) => (
-      Promise.resolve(requestImage(value, new Uint8Array(300)))
-    ))
+    const readImageRequest = vi.fn((value: ImageAttachmentRef) => Promise.resolve(requestImage(value, new Uint8Array(300))))
     const store = projectionStore(readImageRequest)
-    await expect(toPiContext(request([
-      user([{ type: 'image', attachment: { ...ref, bytes: 300 } }]),
-    ]), imageContext(store, { maxRequestImageBytes: 8 })))
-      .rejects.toMatchObject({ code: 'IMAGE_OFFLOAD_REQUIRED', failure: { offloadImages: 1 } })
+    await expect(
+      toPiContext(
+        request([user([{ type: 'image', attachment: { ...ref, bytes: 300 } }])]),
+        imageContext(store, { maxRequestImageBytes: 8 }),
+      ),
+    ).rejects.toMatchObject({ code: 'IMAGE_OFFLOAD_REQUIRED', failure: { offloadImages: 1 } })
   })
   it('projects repeated image-block occurrences by their own surface mark', async () => {
     const sized: ImageAttachmentRef = { ...ref, bytes: 3 }
     const shared: ContentBlock = { type: 'image', attachment: sized }
-    const readImageRequest = vi.fn((value: ImageAttachmentRef) => (
-      Promise.resolve(requestImage(value, Uint8Array.of(1, 2, 3)))
-    ))
+    const readImageRequest = vi.fn((value: ImageAttachmentRef) => Promise.resolve(requestImage(value, Uint8Array.of(1, 2, 3))))
     const store = projectionStore(readImageRequest)
     const aliased = await toPiContext(
       request([user([{ ...shared, offloaded: true }, shared])]),
       imageContext(store, { maxRequestImageBytes: 4 }),
     )
-    const replayed = await toPiContext(request([user([
-      { type: 'image', attachment: { ...sized }, offloaded: true },
-      { type: 'image', attachment: { ...sized } },
-    ])]), imageContext(store, { maxRequestImageBytes: 4 }))
+    const replayed = await toPiContext(
+      request([
+        user([
+          { type: 'image', attachment: { ...sized }, offloaded: true },
+          { type: 'image', attachment: { ...sized } },
+        ]),
+      ]),
+      imageContext(store, { maxRequestImageBytes: 4 }),
+    )
 
-    const expected = [{
-      role: 'user',
-      content: [
-        { type: 'text', text: offloadedImageText(sized) },
-        { type: 'text', text: expect.stringContaining(`Image ${sized.attachmentId}`) as string },
-        { type: 'image', data: 'AQID', mimeType: 'image/png' },
-      ],
-      timestamp: 0,
-    }]
+    const expected = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: offloadedImageText(sized) },
+          { type: 'text', text: expect.stringContaining(`Image ${sized.attachmentId}`) as string },
+          { type: 'image', data: 'AQID', mimeType: 'image/png' },
+        ],
+        timestamp: 0,
+      },
+    ]
     expect(aliased.messages).toEqual(expected)
     expect(replayed.messages).toEqual(expected)
     expect(readImageRequest).toHaveBeenCalledTimes(2)
   })
   it('keeps empty text-only users while separating result-only messages', () => {
     const callId = ToolCallId('unknown-call')
-    expect(toPiContext(request([
-      user([]),
-      history('assistant', [
-        { type: 'text', text: 'answer' },
-        { type: 'tool-call', id: ToolCallId('other-call'), name: 'lookup', arguments: '{}' },
-      ]),
-      createToolResultMessage({ callId, content: [{ type: 'text', text: 'result' }], isError: false }),
-    ]))).toMatchObject({
-      messages: [
-        { role: 'user', content: '' },
-        { role: 'assistant' },
-        { role: 'toolResult', toolName: 'unknown' },
-      ],
+    expect(
+      toPiContext(
+        request([
+          user([]),
+          history('assistant', [
+            { type: 'text', text: 'answer' },
+            { type: 'tool-call', id: ToolCallId('other-call'), name: 'lookup', arguments: '{}' },
+          ]),
+          createToolResultMessage({ callId, content: [{ type: 'text', text: 'result' }], isError: false }),
+        ]),
+      ),
+    ).toMatchObject({
+      messages: [{ role: 'user', content: '' }, { role: 'assistant' }, { role: 'toolResult', toolName: 'unknown' }],
     })
   })
 
@@ -458,42 +508,54 @@ describe('pi-ai request context conversion', () => {
     for (const role of ['system', 'assistant'] as const) {
       const readImageRequest = vi.fn()
       const store = projectionStore(readImageRequest)
-      await expect(toPiContext(request([
-        history(role, [{ type: 'image', attachment: ref }]),
-      ]), imageContext(store, { maxRequestImageBytes: 1 }))).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
+      await expect(
+        toPiContext(request([history(role, [{ type: 'image', attachment: ref }])]), imageContext(store, { maxRequestImageBytes: 1 })),
+      ).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
       expect(readImageRequest).not.toHaveBeenCalled()
     }
 
-    await expect(toPiContext(request([
-      history('system', [{ type: 'text', text: 'history system' }]),
-      history('assistant', [{ type: 'text', text: 'answer' }]),
-      user([{ type: 'text', text: 'plain' }]),
-    ]), imageContext(attachments))).resolves.toMatchObject({
+    await expect(
+      toPiContext(
+        request([
+          history('system', [{ type: 'text', text: 'history system' }]),
+          history('assistant', [{ type: 'text', text: 'answer' }]),
+          user([{ type: 'text', text: 'plain' }]),
+        ]),
+        imageContext(attachments),
+      ),
+    ).resolves.toMatchObject({
       systemPrompt: 'history system',
-      messages: [
-        { role: 'assistant' },
-        { role: 'user', content: 'plain' },
-      ],
+      messages: [{ role: 'assistant' }, { role: 'user', content: 'plain' }],
     })
 
-    expect(() => toPiAssistant(
-      createAssistantMessage({
-        content: [{ type: 'image', attachment: ref }],
-        source: { provider: 'openai', model: 'gpt-4.1' },
-      }),
-    )).toThrow(/assistant image output/)
+    expect(() =>
+      toPiAssistant(
+        createAssistantMessage({
+          content: [{ type: 'image', attachment: ref }],
+          source: { provider: 'openai', model: 'gpt-4.1' },
+        }),
+      ),
+    ).toThrow(/assistant image output/)
   })
-
 })
 
 describe('pi-ai system prompt source', () => {
   const base = { provider: 'openai', model: 'gpt-4.1' }
-  const leading = history('system', [{ type: 'text', text: 'lead ' }, { type: 'text', text: 'rule' }])
+  const leading = history('system', [
+    { type: 'text', text: 'lead ' },
+    { type: 'text', text: 'rule' },
+  ])
   const question = user([{ type: 'text', text: 'hi' }])
 
   it.each<{ label: string; content: ContentBlock[] }>([
     { label: 'image-only', content: [{ type: 'image', attachment: ref }] },
-    { label: 'text and image', content: [{ type: 'text', text: 'rule' }, { type: 'image', attachment: ref }] },
+    {
+      label: 'text and image',
+      content: [
+        { type: 'text', text: 'rule' },
+        { type: 'image', attachment: ref },
+      ],
+    },
   ])('rejects a leading system $label on both conversion paths', async ({ content }) => {
     const options: GenerateOptions = { ...base, messages: [history('system', content), question] }
     const error = {
@@ -508,9 +570,7 @@ describe('pi-ai system prompt source', () => {
 
   it('maps a leading system message to systemPrompt on both conversion paths', async () => {
     const options: GenerateOptions = { ...base, messages: [leading, question] }
-    const expected = { systemPrompt: 'lead rule', messages: [
-      { role: 'user', content: 'hi', timestamp: 0 },
-    ] }
+    const expected = { systemPrompt: 'lead rule', messages: [{ role: 'user', content: 'hi', timestamp: 0 }] }
     expect(toPiContext(options)).toEqual(expected)
     await expect(toPiContext(options, imageContext(attachments))).resolves.toEqual(expected)
     expect(toPiContext(options)).toEqual(toPiContext({ ...base, system: 'lead rule', messages: [question] }))
@@ -524,15 +584,19 @@ describe('pi-ai system prompt source', () => {
   })
 
   it('preserves later system messages for pi-ai to resolve model support', async () => {
-    const options: GenerateOptions = { ...base, system: 'direct', messages: [leading, question,
-      history('system', [{ type: 'text', text: 'additional rule' }]),
-      leading, history('system', []),
-    ] }
-    const expected = { systemPrompt: 'direct\n\nlead rule', messages: [
-      { role: 'user', content: 'hi', timestamp: 0 },
-      { role: 'system', content: 'additional rule', timestamp: 0 },
-      { role: 'system', content: 'lead rule', timestamp: 0 },
-    ] }
+    const options: GenerateOptions = {
+      ...base,
+      system: 'direct',
+      messages: [leading, question, history('system', [{ type: 'text', text: 'additional rule' }]), leading, history('system', [])],
+    }
+    const expected = {
+      systemPrompt: 'direct\n\nlead rule',
+      messages: [
+        { role: 'user', content: 'hi', timestamp: 0 },
+        { role: 'system', content: 'additional rule', timestamp: 0 },
+        { role: 'system', content: 'lead rule', timestamp: 0 },
+      ],
+    }
     expect(toPiContext(options)).toEqual(expected)
     await expect(toPiContext(options, imageContext(attachments))).resolves.toEqual(expected)
   })
@@ -540,63 +604,87 @@ describe('pi-ai system prompt source', () => {
   it('preserves repeated system updates in history order on both paths', async () => {
     const callId = ToolCallId('lookup')
     const snapshot = history('system', [{ type: 'text', text: 'lead rule\nnew rule' }])
-    const options: GenerateOptions = { ...base, system: 'direct', messages: [leading,
-      snapshot, question,
-      history('assistant', [{ type: 'tool-call', id: callId, name: 'lookup', arguments: '{}' }]),
-      snapshot,
-      createToolResultMessage({ callId, content: [{ type: 'text', text: 'found' }], isError: false }),
-      snapshot,
-    ] }
-    const expected = { systemPrompt: 'direct\n\nlead rule\n\nlead rule\nnew rule', messages: [
-      { role: 'user', content: 'hi', timestamp: 0 },
-      expect.objectContaining({ role: 'assistant' }),
-      { role: 'system', content: 'lead rule\nnew rule', timestamp: 0 },
-      expect.objectContaining({ role: 'toolResult', content: [{ type: 'text', text: 'found' }] }),
-      { role: 'system', content: 'lead rule\nnew rule', timestamp: 0 },
-    ] }
+    const options: GenerateOptions = {
+      ...base,
+      system: 'direct',
+      messages: [
+        leading,
+        snapshot,
+        question,
+        history('assistant', [{ type: 'tool-call', id: callId, name: 'lookup', arguments: '{}' }]),
+        snapshot,
+        createToolResultMessage({ callId, content: [{ type: 'text', text: 'found' }], isError: false }),
+        snapshot,
+      ],
+    }
+    const expected = {
+      systemPrompt: 'direct\n\nlead rule\n\nlead rule\nnew rule',
+      messages: [
+        { role: 'user', content: 'hi', timestamp: 0 },
+        expect.objectContaining({ role: 'assistant' }),
+        { role: 'system', content: 'lead rule\nnew rule', timestamp: 0 },
+        expect.objectContaining({ role: 'toolResult', content: [{ type: 'text', text: 'found' }] }),
+        { role: 'system', content: 'lead rule\nnew rule', timestamp: 0 },
+      ],
+    }
     expect(toPiContext(options)).toEqual(expected)
     await expect(toPiContext(options, imageContext(attachments))).resolves.toEqual(expected)
   })
 
   it('preserves prompt updates before the following user message', async () => {
-    const options: GenerateOptions = { ...base, messages: [leading, question,
-      history('assistant', [{ type: 'text', text: 'first answer' }]),
-      history('system', [{ type: 'text', text: 'replacement' }]),
-      user([{ type: 'text', text: 'next question' }]),
-      history('assistant', [{ type: 'text', text: 'second answer' }]),
-    ] }
-    const expected = { systemPrompt: 'lead rule', messages: [
-      { role: 'user', content: 'hi', timestamp: 0 },
-      expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: 'first answer' }] }),
-      { role: 'system', content: 'replacement', timestamp: 0 },
-      { role: 'user', content: 'next question', timestamp: 0 },
-      expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: 'second answer' }] }),
-    ] }
+    const options: GenerateOptions = {
+      ...base,
+      messages: [
+        leading,
+        question,
+        history('assistant', [{ type: 'text', text: 'first answer' }]),
+        history('system', [{ type: 'text', text: 'replacement' }]),
+        user([{ type: 'text', text: 'next question' }]),
+        history('assistant', [{ type: 'text', text: 'second answer' }]),
+      ],
+    }
+    const expected = {
+      systemPrompt: 'lead rule',
+      messages: [
+        { role: 'user', content: 'hi', timestamp: 0 },
+        expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: 'first answer' }] }),
+        { role: 'system', content: 'replacement', timestamp: 0 },
+        { role: 'user', content: 'next question', timestamp: 0 },
+        expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: 'second answer' }] }),
+      ],
+    }
     expect(toPiContext(options)).toEqual(expected)
     await expect(toPiContext(options, imageContext(attachments))).resolves.toEqual(expected)
   })
 
   it('skips empty system messages on both paths', async () => {
-    const options: GenerateOptions = { ...base, messages: [
-      history('system', []), leading, question,
-      history('system', [{ type: 'text', text: '' }]),
-      history('assistant', [{ type: 'text', text: 'answer' }]),
-      history('system', []),
-    ] }
-    const expected = { systemPrompt: 'lead rule', messages: [
-      { role: 'user', content: 'hi', timestamp: 0 },
-      expect.objectContaining({ role: 'assistant' }),
-    ] }
+    const options: GenerateOptions = {
+      ...base,
+      messages: [
+        history('system', []),
+        leading,
+        question,
+        history('system', [{ type: 'text', text: '' }]),
+        history('assistant', [{ type: 'text', text: 'answer' }]),
+        history('system', []),
+      ],
+    }
+    const expected = {
+      systemPrompt: 'lead rule',
+      messages: [{ role: 'user', content: 'hi', timestamp: 0 }, expect.objectContaining({ role: 'assistant' })],
+    }
     expect(toPiContext(options)).toEqual(expected)
     await expect(toPiContext(options, imageContext(attachments))).resolves.toEqual(expected)
   })
 
   it('keeps a later update distinct from an absent initial prompt', async () => {
     const options: GenerateOptions = { ...base, messages: [question, leading] }
-    const expected = { messages: [
-      { role: 'user', content: 'hi', timestamp: 0 },
-      { role: 'system', content: 'lead rule', timestamp: 0 },
-    ] }
+    const expected = {
+      messages: [
+        { role: 'user', content: 'hi', timestamp: 0 },
+        { role: 'system', content: 'lead rule', timestamp: 0 },
+      ],
+    }
     expect(toPiContext(options)).toEqual(expected)
     await expect(toPiContext(options, imageContext(attachments))).resolves.toEqual(expected)
   })
@@ -610,30 +698,66 @@ describe('pi-ai system prompt source', () => {
   it('keeps developer text and tool changes together at their recorded position', async () => {
     const lookup = { name: 'lookup', description: 'initial', parameters: { type: 'object' } }
     const search = { name: 'search', description: 'later', parameters: { type: 'object' }, deferLoading: true }
-    const update = createDeveloperMessage({ source: { kind: 'test' }, content: [
-      { type: 'text', text: 'first' }, { type: 'text', text: '' },
-      { type: 'tool-removal', toolName: 'lookup' },
-      { type: 'text', text: 'second' }, { type: 'tool-addition', toolName: 'search' },
-    ] })
+    const update = createDeveloperMessage({
+      source: { kind: 'test' },
+      content: [
+        { type: 'text', text: 'first' },
+        { type: 'text', text: '' },
+        { type: 'tool-removal', toolName: 'lookup' },
+        { type: 'text', text: 'second' },
+        { type: 'tool-addition', toolName: 'search' },
+      ],
+    })
     const options: GenerateOptions = { ...base, tools: [lookup, search], messages: [leading, update, question] }
-    const expected = { systemPrompt: 'lead rule', tools: [lookup], messages: [
-      { role: 'system', content: [{ type: 'text', text: 'first' }, { type: 'text', text: 'second' }], timestamp: 0,
-        toolsAdded: [{ name: 'search', description: 'later', parameters: { type: 'object' } }], toolsRemoved: [{ name: 'lookup' }] },
-      { role: 'user', content: 'hi', timestamp: 0 },
-    ] }
+    const expected = {
+      systemPrompt: 'lead rule',
+      tools: [lookup],
+      messages: [
+        {
+          role: 'system',
+          content: [
+            { type: 'text', text: 'first' },
+            { type: 'text', text: 'second' },
+          ],
+          timestamp: 0,
+          toolsAdded: [{ name: 'search', description: 'later', parameters: { type: 'object' } }],
+          toolsRemoved: [{ name: 'lookup' }],
+        },
+        { role: 'user', content: 'hi', timestamp: 0 },
+      ],
+    }
     expect(toPiContext(options)).toEqual(expected)
     await expect(toPiContext(options, imageContext(attachments))).resolves.toEqual(expected)
   })
 
   it('accepts text-only developer updates and ignores empty developer events', async () => {
-    const options: GenerateOptions = { ...base, messages: [question,
-      createDeveloperMessage({ source: { kind: 'test' }, content: [{ type: 'text', text: '' }] }),
-      createDeveloperMessage({ source: { kind: 'test' }, content: [{ type: 'text', text: 'one' }, { type: 'text', text: 'two' }] }),
-    ] }
-    const expected = { messages: [
-      { role: 'user', content: 'hi', timestamp: 0 },
-      { role: 'system', content: [{ type: 'text', text: 'one' }, { type: 'text', text: 'two' }], timestamp: 0 },
-    ] }
+    const options: GenerateOptions = {
+      ...base,
+      messages: [
+        question,
+        createDeveloperMessage({ source: { kind: 'test' }, content: [{ type: 'text', text: '' }] }),
+        createDeveloperMessage({
+          source: { kind: 'test' },
+          content: [
+            { type: 'text', text: 'one' },
+            { type: 'text', text: 'two' },
+          ],
+        }),
+      ],
+    }
+    const expected = {
+      messages: [
+        { role: 'user', content: 'hi', timestamp: 0 },
+        {
+          role: 'system',
+          content: [
+            { type: 'text', text: 'one' },
+            { type: 'text', text: 'two' },
+          ],
+          timestamp: 0,
+        },
+      ],
+    }
     expect(toPiContext(options)).toEqual(expected)
     await expect(toPiContext(options, imageContext(attachments))).resolves.toEqual(expected)
   })

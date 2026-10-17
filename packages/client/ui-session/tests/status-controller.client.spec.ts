@@ -1,5 +1,5 @@
 /** Running-state ownership across the real Controller catalog and UI status source. */
-import { expect, vi } from 'vitest'
+import { expect, vi } from 'vite-plus/test'
 import { ok } from '@deepseek-ai/dsh-remote-mock'
 import { createClientTest, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
 import { SESSION_FORMAT_VERSION, type SessionId } from '@deepseek-ai/dsh-session/types'
@@ -10,21 +10,35 @@ const parentId = 'status-parent' as SessionId
 const childId = 'status-child' as SessionId
 
 it('preserves unlisted child status through metadata updates and main view acknowledgement', async ({ mock, start }) => {
-  mock.remote.session.list.mockResolvedValue(ok({ items: [{
-    sessionId: parentId, updatedAt: 1, running: false, blank: false, agentAvailable: true,
-  }] }))
-  mock.remote.session.projections.mockResolvedValue(ok({
-    kind: 'sequenced',
-    asOfSeq: 0,
-    values: { subagentCatalog: [{ id: childId, createdAt: 1, mode: 'continuable', label: 'Child' }] },
-  }))
+  mock.remote.session.list.mockResolvedValue(
+    ok({
+      items: [
+        {
+          sessionId: parentId,
+          updatedAt: 1,
+          running: false,
+          blank: false,
+          agentAvailable: true,
+        },
+      ],
+    }),
+  )
+  mock.remote.session.projections.mockResolvedValue(
+    ok({
+      kind: 'sequenced',
+      asOfSeq: 0,
+      values: { subagentCatalog: [{ id: childId, createdAt: 1, mode: 'continuable', label: 'Child' }] },
+    }),
+  )
   mock.stream('session/follow', (_request, stream) => {
     stream.push({
       type: 'snapshot',
-      header: { version: SESSION_FORMAT_VERSION, id: childId, createdAt: 1, isSeeded: false,
-        parentSession: parentId, origin: 'subagent' },
-      cursor: -1, records: [], hasMore: false,
-      projections: { asOfSeq: -1, values: {} }, assistantStream: { revision: 0 },
+      header: { version: SESSION_FORMAT_VERSION, id: childId, createdAt: 1, isSeeded: false, parentSession: parentId, origin: 'subagent' },
+      cursor: -1,
+      records: [],
+      hasMore: false,
+      projections: { asOfSeq: -1, values: {} },
+      assistantStream: { revision: 0 },
     } satisfies SessionFollowFrame)
   })
   const client = await start()

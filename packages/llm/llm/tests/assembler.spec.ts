@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { BlockAssembler, ToolCallId, type StreamChunk } from '@deepseek-ai/dsh-llm'
 
 describe('BlockAssembler', () => {
@@ -105,9 +105,7 @@ describe('BlockAssembler', () => {
     assembler.push({ type: 'tool-call-delta', index: 0, argumentsDelta: '{}' } as StreamChunk)
     // No id and no name provided — uses fallback id `call-{index}` and empty name
     const blocks = assembler.blocks()
-    expect(blocks).toEqual([
-      { type: 'tool-call', id: ToolCallId('call-0'), name: '', arguments: '{}' },
-    ])
+    expect(blocks).toEqual([{ type: 'tool-call', id: ToolCallId('call-0'), name: '', arguments: '{}' }])
   })
 
   it('exposes usage via the getter when a usage chunk was received', () => {
@@ -200,15 +198,15 @@ describe('BlockAssembler replay metadata', () => {
 describe('assertNever', () => {
   it('throws with diagnostics when a value escapes a closed union at runtime', async () => {
     const { assertNever } = await import('@deepseek-ai/dsh-util-values')
-    expect(() => assertNever({ type: 'rogue' } as never, 'test-context'))
-      .toThrow('unreachable variant in test-context: {"type":"rogue"}')
+    expect(() => assertNever({ type: 'rogue' } as never, 'test-context')).toThrow('unreachable variant in test-context: {"type":"rogue"}')
     expect(() => assertNever(undefined as never)).toThrow('unreachable variant: undefined')
   })
 
   it('BlockAssembler.push rejects chunks outside the closed StreamChunk union', () => {
     const assembler = new BlockAssembler()
-    expect(() => { assembler.push({ type: 'rogue-chunk' } as unknown as StreamChunk) })
-      .toThrow('unreachable variant in BlockAssembler.push')
+    expect(() => {
+      assembler.push({ type: 'rogue-chunk' } as unknown as StreamChunk)
+    }).toThrow('unreachable variant in BlockAssembler.push')
   })
 })
 

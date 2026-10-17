@@ -31,15 +31,20 @@ export function apply(ctx: ClientContext): void {
     subscribe: listener => ctx.on('connection/reset', listener),
   }
   const toolInject = () => ({ hooks: { hostInfo } })
-  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
-    name: 'conversation.chat.node',
-    key: 'tool-call',
-    locale: NS,
-    children: {
-      'tool.call.toolview': { kind: 'keyed', scope: 'session' },
-    },
-    inject: toolInject,
-  }, ToolCallTree))
+  ctx.slots.inject('conversation.chat.node', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.node',
+        key: 'tool-call',
+        locale: NS,
+        children: {
+          'tool.call.toolview': { kind: 'keyed', scope: 'session' },
+        },
+        inject: toolInject,
+      },
+      ToolCallTree,
+    ),
+  )
 
   ctx.plugin(bashToolviewSample)
   ctx.plugin(readToolview)

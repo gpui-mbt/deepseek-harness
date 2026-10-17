@@ -23,7 +23,10 @@ export async function runWorkflowGuest(host: WorkflowGuestHost): Promise<Workflo
     const batch = queued
     queued = []
     inFlight = host.progress(batch).then(
-      () => { inFlight = undefined; flush() },
+      () => {
+        inFlight = undefined
+        flush()
+      },
       (error: unknown) => {
         progressError = renderThrown(error)
         queued = []
@@ -41,10 +44,18 @@ export async function runWorkflowGuest(host: WorkflowGuestHost): Promise<Workflo
     while (inFlight !== undefined) await inFlight
   }
   const observer: ExecutionObserver = {
-    phase: (title) => { send({ type: 'phase', title }) },
-    log: (message) => { send({ type: 'log', message }) },
-    agentStart: (info) => { send({ type: 'agent-start', info }) },
-    agentEnd: (info) => { send({ type: 'agent-end', info }) },
+    phase: title => {
+      send({ type: 'phase', title })
+    },
+    log: message => {
+      send({ type: 'log', message })
+    },
+    agentStart: info => {
+      send({ type: 'agent-start', info })
+    },
+    agentEnd: info => {
+      send({ type: 'agent-end', info })
+    },
   }
   const children: ChildPort = {
     async startAgent(request) {
@@ -66,10 +77,12 @@ export async function runWorkflowGuest(host: WorkflowGuestHost): Promise<Workflo
   const execution = new WorkflowExecution(init.meta, init.body, init.args, init.limits, observer, children)
   const result = await execution.drive()
   await drain()
-  return progressError === undefined ? result : {
-    value: null,
-    stopReason: 'error',
-    error: progressError,
-    agentsStarted: result.agentsStarted,
-  }
+  return progressError === undefined
+    ? result
+    : {
+        value: null,
+        stopReason: 'error',
+        error: progressError,
+        agentsStarted: result.agentsStarted,
+      }
 }

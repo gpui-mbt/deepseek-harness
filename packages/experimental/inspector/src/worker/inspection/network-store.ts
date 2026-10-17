@@ -30,43 +30,43 @@ interface NetworkEventBase {
 
 /** Transport-independent changes emitted by the network repository. */
 export type NetworkStoreEvent =
-  | NetworkEventBase & {
-    readonly type: 'request-started'
-    readonly wallTimeMs: number
-    readonly url: string
-    readonly method: string
-    readonly headers: readonly InspectorHeader[]
-    readonly hasBody: boolean
-  }
-  | NetworkEventBase & {
-    readonly type: 'response-received'
-    readonly url: string
-    readonly status: number
-    readonly statusText: string
-    readonly headers: readonly InspectorHeader[]
-    readonly mimeType: string
-  }
-  | NetworkEventBase & {
-    readonly type: 'response-data'
-    readonly data: string
-    readonly byteLength: number
-  }
-  | NetworkEventBase & {
-    readonly type: 'event-source-message'
-    readonly eventName: string
-    readonly eventId: string
-    readonly data: string
-  }
-  | NetworkEventBase & {
-    readonly type: 'request-finished'
-    readonly encodedDataLength: number
-    readonly truncated: boolean
-  }
-  | NetworkEventBase & {
-    readonly type: 'request-failed'
-    readonly errorText: string
-    readonly canceled: boolean
-  }
+  | (NetworkEventBase & {
+      readonly type: 'request-started'
+      readonly wallTimeMs: number
+      readonly url: string
+      readonly method: string
+      readonly headers: readonly InspectorHeader[]
+      readonly hasBody: boolean
+    })
+  | (NetworkEventBase & {
+      readonly type: 'response-received'
+      readonly url: string
+      readonly status: number
+      readonly statusText: string
+      readonly headers: readonly InspectorHeader[]
+      readonly mimeType: string
+    })
+  | (NetworkEventBase & {
+      readonly type: 'response-data'
+      readonly data: string
+      readonly byteLength: number
+    })
+  | (NetworkEventBase & {
+      readonly type: 'event-source-message'
+      readonly eventName: string
+      readonly eventId: string
+      readonly data: string
+    })
+  | (NetworkEventBase & {
+      readonly type: 'request-finished'
+      readonly encodedDataLength: number
+      readonly truncated: boolean
+    })
+  | (NetworkEventBase & {
+      readonly type: 'request-failed'
+      readonly errorText: string
+      readonly canceled: boolean
+    })
   | { readonly type: 'request-evicted'; readonly requestKey: string }
 
 type JournalNetworkEvent = Exclude<NetworkStoreEvent, { readonly type: 'response-data' | 'request-evicted' }>
@@ -148,7 +148,9 @@ export class NetworkStore implements InspectorRecordConsumer {
    */
   subscribe(listener: (event: NetworkStoreEvent) => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /**
@@ -233,9 +235,7 @@ export class NetworkStore implements InspectorRecordConsumer {
       case 'fetch/response':
         request.responseSeen = true
         const mimeType = stringField(payload, 'mimeType').toLowerCase()
-        request.eventSourceParser = mimeType === 'text/event-stream'
-          ? new InspectorEventSourceParser()
-          : undefined
+        request.eventSourceParser = mimeType === 'text/event-stream' ? new InspectorEventSourceParser() : undefined
         this.publish({
           type: 'response-received',
           requestKey: key,
@@ -385,12 +385,7 @@ export class NetworkStore implements InspectorRecordConsumer {
   }
 }
 
-function body(
-  chunks: readonly Buffer[],
-  truncated: boolean,
-  captureError: string | undefined,
-  complete: boolean,
-): CapturedNetworkBody {
+function body(chunks: readonly Buffer[], truncated: boolean, captureError: string | undefined, complete: boolean): CapturedNetworkBody {
   return {
     bytes: Buffer.concat(chunks),
     truncated,
@@ -440,7 +435,7 @@ function booleanField(value: Readonly<Record<string, unknown>>, name: string): b
 function headerField(value: Readonly<Record<string, unknown>>, name: string): InspectorHeader[] {
   const field = value[name]
   if (!Array.isArray(field)) throw new Error(`fetch payload ${name} must be a header list`)
-  return field.map((entry) => {
+  return field.map(entry => {
     if (!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string' || typeof entry[1] !== 'string') {
       throw new Error(`fetch payload ${name} contains an invalid header`)
     }

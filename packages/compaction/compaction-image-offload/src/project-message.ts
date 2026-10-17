@@ -28,7 +28,7 @@ export function offloadMessageImages(message: Message, indexes: readonly number[
       if (projected !== block) next ??= blocks.slice(0, index)
       next?.push(projected)
     }
-    return next ?? blocks as ContentBlock[]
+    return next ?? (blocks as ContentBlock[])
   }
   const content = visit(message.content)
   if (selected !== indexes.length) throw new Error(`image/offload: image index ${indexes[selected]} does not exist`)

@@ -47,9 +47,7 @@ export function parseClientRuntimeResult(value: unknown): ClientRuntimeResult {
         op: 'get-properties',
         properties: value.properties.map(parsePropertyDescriptor),
         ...(internal === undefined ? {} : { internalProperties: internal.map(parseInternalPropertyDescriptor) }),
-        ...(value.exceptionDetails === undefined
-          ? {}
-          : { exceptionDetails: parseClientRuntimeExceptionDetails(value.exceptionDetails) }),
+        ...(value.exceptionDetails === undefined ? {} : { exceptionDetails: parseClientRuntimeExceptionDetails(value.exceptionDetails) }),
       }
     }
     case 'release-object':
@@ -71,9 +69,7 @@ function parseCompletion(value: unknown): ClientRuntimeCompletion {
   const record = exactObject(value, ['result', 'exceptionDetails'], 'Client Runtime completion')
   return {
     result: parseClientRuntimeRemoteObject(record.result),
-    ...(record.exceptionDetails === undefined
-      ? {}
-      : { exceptionDetails: parseClientRuntimeExceptionDetails(record.exceptionDetails) }),
+    ...(record.exceptionDetails === undefined ? {} : { exceptionDetails: parseClientRuntimeExceptionDetails(record.exceptionDetails) }),
   }
 }
 
@@ -85,26 +81,22 @@ function parseCompletion(value: unknown): ClientRuntimeCompletion {
 export function parseClientRuntimeRemoteObject(value: unknown): ClientRuntimeRemoteObject {
   const record = exactObject(value, ['descriptor', 'object', 'semanticReference'], 'Client Runtime object')
   const descriptor = parseRemoteObjectDescriptor(record.descriptor)
-  const object = record.object === undefined
-    ? undefined
-    : exactObject(record.object, ['handle'], 'Client Runtime object reference')
+  const object = record.object === undefined ? undefined : exactObject(record.object, ['handle'], 'Client Runtime object reference')
   const remote: ClientRuntimeRemoteObject = {
     descriptor,
-    ...(object === undefined
-      ? {}
-      : { object: { handle: wireId<'ClientRemoteObjectHandle'>(object.handle, 'handle') } }),
-    ...(record.semanticReference === undefined
-      ? {}
-      : { semanticReference: parseInspectorObjectReference(record.semanticReference) }),
+    ...(object === undefined ? {} : { object: { handle: wireId<'ClientRemoteObjectHandle'>(object.handle, 'handle') } }),
+    ...(record.semanticReference === undefined ? {} : { semanticReference: parseInspectorObjectReference(record.semanticReference) }),
   }
   validateRemoteObject(remote)
   return remote
 }
 
 function parseRemoteObjectDescriptor(value: unknown): RuntimeRemoteObjectDescriptor {
-  const record = exactObject(value, [
-    'type', 'subtype', 'className', 'value', 'unserializableValue', 'description', 'preview',
-  ], 'Runtime object descriptor')
+  const record = exactObject(
+    value,
+    ['type', 'subtype', 'className', 'value', 'unserializableValue', 'description', 'preview'],
+    'Runtime object descriptor',
+  )
   if (!REMOTE_TYPES.has(record.type as RuntimeRemoteObjectType)) {
     throw new Error('inspector protocol: invalid Client RemoteObject type')
   }
@@ -127,10 +119,12 @@ function parseRemoteObjectDescriptor(value: unknown): RuntimeRemoteObjectDescrip
 
 function parseObjectPreview(value: unknown): RuntimeObjectPreview {
   const record = exactObject(value, ['type', 'subtype', 'description', 'overflow', 'properties'], 'object preview')
-  if (!REMOTE_TYPES.has(record.type as RuntimeRemoteObjectType)
-    || (record.subtype !== undefined && !REMOTE_SUBTYPES.has(record.subtype as RuntimeRemoteObjectSubtype))
-    || typeof record.overflow !== 'boolean'
-    || !Array.isArray(record.properties)) {
+  if (
+    !REMOTE_TYPES.has(record.type as RuntimeRemoteObjectType) ||
+    (record.subtype !== undefined && !REMOTE_SUBTYPES.has(record.subtype as RuntimeRemoteObjectSubtype)) ||
+    typeof record.overflow !== 'boolean' ||
+    !Array.isArray(record.properties)
+  ) {
     throw new Error('inspector protocol: invalid object preview')
   }
   return {
@@ -144,9 +138,11 @@ function parseObjectPreview(value: unknown): RuntimeObjectPreview {
 
 function parsePropertyPreview(value: unknown): RuntimePropertyPreview {
   const record = exactObject(value, ['name', 'type', 'value', 'valuePreview', 'subtype'], 'property preview')
-  if (typeof record.name !== 'string'
-    || (record.type !== 'accessor' && !REMOTE_TYPES.has(record.type as RuntimeRemoteObjectType))
-    || (record.subtype !== undefined && !REMOTE_SUBTYPES.has(record.subtype as RuntimeRemoteObjectSubtype))) {
+  if (
+    typeof record.name !== 'string' ||
+    (record.type !== 'accessor' && !REMOTE_TYPES.has(record.type as RuntimeRemoteObjectType)) ||
+    (record.subtype !== undefined && !REMOTE_SUBTYPES.has(record.subtype as RuntimeRemoteObjectSubtype))
+  ) {
     throw new Error('inspector protocol: invalid property preview')
   }
   return {
@@ -159,9 +155,11 @@ function parsePropertyPreview(value: unknown): RuntimePropertyPreview {
 }
 
 function parsePropertyDescriptor(value: unknown): ClientRuntimePropertyDescriptor {
-  const record = exactObject(value, [
-    'name', 'value', 'writable', 'get', 'set', 'configurable', 'enumerable', 'wasThrown', 'isOwn', 'symbol',
-  ], 'property descriptor')
+  const record = exactObject(
+    value,
+    ['name', 'value', 'writable', 'get', 'set', 'configurable', 'enumerable', 'wasThrown', 'isOwn', 'symbol'],
+    'property descriptor',
+  )
   if (typeof record.name !== 'string' || typeof record.configurable !== 'boolean' || typeof record.enumerable !== 'boolean') {
     throw new Error('inspector protocol: invalid property descriptor')
   }
@@ -199,14 +197,14 @@ function parseInternalPropertyDescriptor(value: unknown): ClientRuntimeInternalP
  * @returns Validated exception details.
  */
 export function parseClientRuntimeExceptionDetails(value: unknown): ClientRuntimeExceptionDetails {
-  const record = exactObject(value, [
-    'text', 'lineNumber', 'columnNumber', 'url', 'stackTrace', 'exception',
-  ], 'exception details')
-  if (typeof record.text !== 'string'
-    || !Number.isSafeInteger(record.lineNumber)
-    || (record.lineNumber as number) < 0
-    || !Number.isSafeInteger(record.columnNumber)
-    || (record.columnNumber as number) < 0) {
+  const record = exactObject(value, ['text', 'lineNumber', 'columnNumber', 'url', 'stackTrace', 'exception'], 'exception details')
+  if (
+    typeof record.text !== 'string' ||
+    !Number.isSafeInteger(record.lineNumber) ||
+    (record.lineNumber as number) < 0 ||
+    !Number.isSafeInteger(record.columnNumber) ||
+    (record.columnNumber as number) < 0
+  ) {
     throw new Error('inspector protocol: invalid exception details')
   }
   return {
@@ -236,10 +234,12 @@ export function parseClientRuntimeStackTrace(value: unknown): RuntimeStackTrace 
 
 function parseCallFrame(value: unknown): RuntimeCallFrame {
   const record = exactObject(value, ['functionName', 'scriptKey', 'url', 'lineNumber', 'columnNumber'], 'stack call frame')
-  if (typeof record.functionName !== 'string'
-    || typeof record.url !== 'string'
-    || !Number.isSafeInteger(record.lineNumber)
-    || !Number.isSafeInteger(record.columnNumber)) {
+  if (
+    typeof record.functionName !== 'string' ||
+    typeof record.url !== 'string' ||
+    !Number.isSafeInteger(record.lineNumber) ||
+    !Number.isSafeInteger(record.columnNumber)
+  ) {
     throw new Error('inspector protocol: invalid stack call frame')
   }
   return {
@@ -252,12 +252,36 @@ function parseCallFrame(value: unknown): RuntimeCallFrame {
 }
 
 const REMOTE_TYPES = new Set<RuntimeRemoteObjectType>([
-  'object', 'function', 'undefined', 'string', 'number', 'boolean', 'symbol', 'bigint',
+  'object',
+  'function',
+  'undefined',
+  'string',
+  'number',
+  'boolean',
+  'symbol',
+  'bigint',
 ])
 
 const REMOTE_SUBTYPES = new Set<RuntimeRemoteObjectSubtype>([
-  'array', 'null', 'node', 'regexp', 'date', 'map', 'set', 'weakmap', 'weakset', 'iterator', 'generator',
-  'error', 'proxy', 'promise', 'typedarray', 'arraybuffer', 'dataview', 'webassemblymemory', 'wasmvalue',
+  'array',
+  'null',
+  'node',
+  'regexp',
+  'date',
+  'map',
+  'set',
+  'weakmap',
+  'weakset',
+  'iterator',
+  'generator',
+  'error',
+  'proxy',
+  'promise',
+  'typedarray',
+  'arraybuffer',
+  'dataview',
+  'webassemblymemory',
+  'wasmvalue',
 ])
 
 function validateRemoteObject(value: ClientRuntimeRemoteObject): void {
@@ -285,13 +309,12 @@ function validateRemoteObject(value: ClientRuntimeRemoteObject): void {
       requireRepresentations(descriptor.type, typeof descriptor.value === 'boolean', hasUnserializableValue, hasObject, true, false, false)
       return
     case 'number': {
-      const finite = typeof descriptor.value === 'number'
-        && Number.isFinite(descriptor.value)
-        && !Object.is(descriptor.value, -0)
-      const special = descriptor.unserializableValue === 'NaN'
-        || descriptor.unserializableValue === 'Infinity'
-        || descriptor.unserializableValue === '-Infinity'
-        || descriptor.unserializableValue === '-0'
+      const finite = typeof descriptor.value === 'number' && Number.isFinite(descriptor.value) && !Object.is(descriptor.value, -0)
+      const special =
+        descriptor.unserializableValue === 'NaN' ||
+        descriptor.unserializableValue === 'Infinity' ||
+        descriptor.unserializableValue === '-Infinity' ||
+        descriptor.unserializableValue === '-0'
       if (hasObject || finite === special) throw new Error('inspector protocol: invalid number RemoteObject representation')
       return
     }
@@ -326,9 +349,7 @@ function requireRepresentations(
   expectedUnserializableValue: boolean,
   expectedObject: boolean,
 ): void {
-  if (hasValue !== expectedValue
-    || hasUnserializableValue !== expectedUnserializableValue
-    || hasObject !== expectedObject) {
+  if (hasValue !== expectedValue || hasUnserializableValue !== expectedUnserializableValue || hasObject !== expectedObject) {
     throw new Error(`inspector protocol: invalid ${type} RemoteObject representation`)
   }
 }

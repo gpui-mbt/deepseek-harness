@@ -1,6 +1,6 @@
 /** Type fragments retain matching rows with enough hierarchy to inspect their context. */
 
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { InspectorTableHierarchy, type InspectorRow } from '../src/client/views/table-model.ts'
 import { InspectorTypeFilter } from '../src/client/views/type-filter.ts'
 
@@ -13,9 +13,12 @@ const rows: readonly InspectorRow[] = [
   { key: 'tool', depth: 0 },
 ]
 const types = new Map([
-  ['assistant', 'assistant/message'], ['block', 'block-start'],
-  ['delta-1', 'reasoning-delta'], ['delta-2', 'reasoning-delta'],
-  ['end', 'block-end'], ['tool', 'tool/call'],
+  ['assistant', 'assistant/message'],
+  ['block', 'block-start'],
+  ['delta-1', 'reasoning-delta'],
+  ['delta-2', 'reasoning-delta'],
+  ['end', 'block-end'],
+  ['tool', 'tool/call'],
 ])
 const typeOf = (key: string): string | undefined => types.get(key)
 
@@ -30,7 +33,7 @@ it('matches case-insensitive fragments with optional surrounding stars', () => {
   expect(new InspectorTypeFilter('tool/').matches('tool/call')).toBe(true)
 })
 
-it.each(['', '   ', '***', ' * * '])('leaves the original hierarchy untouched for %j', (query) => {
+it.each(['', '   ', '***', ' * * '])('leaves the original hierarchy untouched for %j', query => {
   const filter = new InspectorTypeFilter(query)
   const reader = vi.fn(typeOf)
   const result = filter.apply(rows, reader)
@@ -46,15 +49,16 @@ it('reveals matching descendants of closed blocks without including unrelated ch
   expect(result.rows).toEqual([
     { key: 'assistant', depth: 0, disclosure: 'open' },
     { key: 'block', parent: 'assistant', depth: 1, disclosure: 'open' },
-    rows[2], rows[3],
+    rows[2],
+    rows[3],
   ])
   const hierarchy = new InspectorTableHierarchy(result.rows, new Map())
   expect(hierarchy.rows).toEqual(result.rows)
   expect(hierarchy.stickyIndexes(3)).toEqual([0, 1])
   expect(rows[1]?.disclosure).toBe('closed')
-  expect(new InspectorTableHierarchy(result.rows, new Map([
-    ['block', { state: 'open', collapsed: true }],
-  ])).rows.map(row => row.key)).toEqual(['assistant', 'block'])
+  expect(
+    new InspectorTableHierarchy(result.rows, new Map([['block', { state: 'open', collapsed: true }]])).rows.map(row => row.key),
+  ).toEqual(['assistant', 'block'])
 })
 
 it('removes empty disclosures and produces an empty result when no type matches', () => {
@@ -71,6 +75,11 @@ it('asynchronously suggests distinct loaded types independently of row disclosur
   const suggestions = new InspectorTypeFilter('*DELTA*').suggest(rows, reader)
   expect(reader).not.toHaveBeenCalled()
   expect(await suggestions).toEqual(['reasoning-delta'])
-  expect(await new InspectorTypeFilter('').suggest([...rows, { key: 'missing', depth: 0 }], reader))
-    .toEqual(['assistant/message', 'block-end', 'block-start', 'reasoning-delta', 'tool/call'])
+  expect(await new InspectorTypeFilter('').suggest([...rows, { key: 'missing', depth: 0 }], reader)).toEqual([
+    'assistant/message',
+    'block-end',
+    'block-start',
+    'reasoning-delta',
+    'tool/call',
+  ])
 })

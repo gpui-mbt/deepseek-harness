@@ -85,12 +85,7 @@ export interface ISessions {
    * @param opts - target workspace or directory, an optional blank Session to reuse, and an optional Agent preset.
    * @returns the catalogued identity the Host created or reused; retain it before borrowing its binding.
    */
-  create(opts?: {
-    workspaceId?: WorkspaceId
-    cwd?: string
-    sessionId?: SessionId
-    agentPreset?: string
-  }): Promise<SessionId>
+  create(opts?: { workspaceId?: WorkspaceId; cwd?: string; sessionId?: SessionId; agentPreset?: string }): Promise<SessionId>
   /**
    * Resolve an already discovered direct-parent address without opening it.
    * @param id - possible addressed child id.
@@ -117,10 +112,7 @@ export interface ISessions {
    * @param signal - cancellation for a superseded search.
    * @returns bounded results, or a business/transport error.
    */
-  search(
-    query: string,
-    signal: AbortSignal,
-  ): Promise<RemoteResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>>
+  search(query: string, signal: AbortSignal): Promise<RemoteResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>>
   /**
    * Fork a session from an exact inclusive prefix of the source; on
    * resolution the child is catalogued and can be explicitly retained.

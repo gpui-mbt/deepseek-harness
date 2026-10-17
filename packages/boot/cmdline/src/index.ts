@@ -133,13 +133,18 @@ export function exitOnStdinEnd(ctx: Context, label: string): void {
   const onEnd = (): void => {
     if (!active || ended) return
     ended = true
-    cancelReady = ready.onReady(() => { exit(0) })
+    cancelReady = ready.onReady(() => {
+      exit(0)
+    })
   }
-  ctx.effect(() => () => {
-    active = false
-    cancelReady()
-    stdin.off('end', onEnd)
-  }, label)
+  ctx.effect(
+    () => () => {
+      active = false
+      cancelReady()
+      stdin.off('end', onEnd)
+    },
+    label,
+  )
   stdin.once('end', onEnd)
   if (stdin.readableEnded) queueMicrotask(onEnd)
 }
@@ -171,7 +176,9 @@ export function parseCmdline(ctx: Context, program: Command): void {
     throw new Error(`${program.name()}: the launcher must provide ctx.cmdlineArgs and ctx.appExit before the tree mounts`)
   }
   if (!hasAction(program)) {
-    throw new Error(`${program.name()}: no command in the program declares an action; parseCmdline runs the invoked command's action on a successful parse, and app code there publishes its service`)
+    throw new Error(
+      `${program.name()}: no command in the program declares an action; parseCmdline runs the invoked command's action on a successful parse, and app code there publishes its service`,
+    )
   }
   configureExitAndOutput(program)
   try {
@@ -211,12 +218,10 @@ function hasAction(command: Command): boolean {
  * @param command - the root of the command tree to configure.
  */
 function configureExitAndOutput(command: Command): void {
-  command
-    .exitOverride()
-    .configureOutput({
-      writeOut: text => void internals.stdout.write(text),
-      writeErr: text => void internals.stderr.write(text),
-    })
+  command.exitOverride().configureOutput({
+    writeOut: text => void internals.stdout.write(text),
+    writeErr: text => void internals.stderr.write(text),
+  })
   for (const child of command.commands) configureExitAndOutput(child)
 }
 
@@ -234,6 +239,5 @@ function configureExitAndOutput(command: Command): void {
 function isCommanderError(error: unknown): error is { code: string; exitCode: number } {
   if (typeof error !== 'object' || error === null) return false
   const candidate = error as { code?: unknown; exitCode?: unknown }
-  return typeof candidate.code === 'string' && candidate.code.startsWith('commander.')
-    && typeof candidate.exitCode === 'number'
+  return typeof candidate.code === 'string' && candidate.code.startsWith('commander.') && typeof candidate.exitCode === 'number'
 }

@@ -45,7 +45,7 @@ function parseRequest<T>(method: string, schema: z.ZodType<T>, value: unknown): 
 function projectCredentialInfo(info: CredentialInfo): CredentialInfo {
   return {
     configured: info.configured,
-    ...info.source === undefined ? {} : { source: info.source },
+    ...(info.source === undefined ? {} : { source: info.source }),
     writable: info.writable,
   }
 }
@@ -84,8 +84,9 @@ export class CredentialsController extends TypertRemoteService {
     const request = parseRequest('credentials.describe', describeRequestSchema, { refs })
     const branded = request.refs.map(ref => [ref, credentialRef(ref)] as const)
     const credentials = this.provider()
-    const entries = await Promise.all(branded.map(async ([ref, key]) =>
-      [ref, projectCredentialInfo(await credentials.describe(key))] as const))
+    const entries = await Promise.all(
+      branded.map(async ([ref, key]) => [ref, projectCredentialInfo(await credentials.describe(key))] as const),
+    )
     return Object.fromEntries(entries)
   }
 
@@ -143,12 +144,7 @@ export class CredentialsController extends TypertRemoteService {
     try {
       await write()
     } catch (error: unknown) {
-      throw new RemoteError(
-        'credential/rejected',
-        error instanceof Error ? error.message : String(error),
-        { ref },
-        { cause: error },
-      )
+      throw new RemoteError('credential/rejected', error instanceof Error ? error.message : String(error), { ref }, { cause: error })
     }
   }
 }

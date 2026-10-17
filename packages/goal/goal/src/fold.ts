@@ -4,14 +4,7 @@ import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { GOAL_CHANGE_VERSION, GoalId } from './runtime.ts'
 import type { GoalBlockReason, GoalPhase, GoalRef, GoalSnapshot } from './types.ts'
-import type {
-  FoldedGoal,
-  GoalChangeMeta,
-  GoalClearChangeMeta,
-  GoalMessageSource,
-  GoalOperation,
-  GoalSnapshotChangeMeta,
-} from './domain.ts'
+import type { FoldedGoal, GoalChangeMeta, GoalClearChangeMeta, GoalMessageSource, GoalOperation, GoalSnapshotChangeMeta } from './domain.ts'
 
 const SNAPSHOT_OPERATIONS: ReadonlySet<Exclude<GoalOperation, 'clear'>> = new Set([
   'create',
@@ -77,8 +70,7 @@ function decodeBlockReason(value: unknown): GoalBlockReason {
   if (typeof value['code'] !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value['code'])) {
     throw new Error('goal change goal.blockedReason.code must be lower-kebab-case')
   }
-  if (typeof value['message'] !== 'string' || value['message'].trim().length === 0
-    || value['message'] !== value['message'].trim()) {
+  if (typeof value['message'] !== 'string' || value['message'].trim().length === 0 || value['message'] !== value['message'].trim()) {
     throw new Error('goal change goal.blockedReason.message must be non-empty and normalized')
   }
   return { code: value['code'], message: value['message'] }
@@ -90,17 +82,19 @@ function decodeSnapshot(value: unknown): GoalSnapshot {
   if (typeof value['id'] !== 'string' || value['id'].length === 0) {
     throw new Error('goal change goal.id must be a non-empty string')
   }
-  if (typeof value['objective'] !== 'string' || value['objective'].trim().length === 0
-    || value['objective'] !== value['objective'].trim()) {
+  if (
+    typeof value['objective'] !== 'string' ||
+    value['objective'].trim().length === 0 ||
+    value['objective'] !== value['objective'].trim()
+  ) {
     throw new Error('goal change goal.objective must be non-empty and normalized')
   }
   if (typeof value['phase'] !== 'string' || !PHASES.has(value['phase'] as GoalPhase)) {
     throw new Error('goal change goal.phase is invalid')
   }
   const phase = value['phase'] as GoalPhase
-  const expectedKeys = phase === 'blocked'
-    ? 'blockedReason,id,maxGoalRounds,objective,phase,revision'
-    : 'id,maxGoalRounds,objective,phase,revision'
+  const expectedKeys =
+    phase === 'blocked' ? 'blockedReason,id,maxGoalRounds,objective,phase,revision' : 'id,maxGoalRounds,objective,phase,revision'
   if (Object.keys(value).sort().join(',') !== expectedKeys) {
     throw new Error(`goal change goal for phase ${phase} must have exactly ${expectedKeys} fields`)
   }
@@ -110,7 +104,7 @@ function decodeSnapshot(value: unknown): GoalSnapshot {
     objective: value['objective'],
     phase,
     maxGoalRounds: positiveInteger(value['maxGoalRounds'], 'goal.maxGoalRounds'),
-    ...phase === 'blocked' ? { blockedReason: decodeBlockReason(value['blockedReason']) } : {},
+    ...(phase === 'blocked' ? { blockedReason: decodeBlockReason(value['blockedReason']) } : {}),
   }
 }
 
@@ -149,8 +143,7 @@ export function decodeGoalChange(value: unknown): GoalChangeMeta | undefined {
       clearedAt: nonNegativeInteger(value['clearedAt'], 'clearedAt'),
     } satisfies GoalClearChangeMeta
   }
-  if (typeof value['operation'] !== 'string'
-    || !SNAPSHOT_OPERATIONS.has(value['operation'] as Exclude<GoalOperation, 'clear'>)) {
+  if (typeof value['operation'] !== 'string' || !SNAPSHOT_OPERATIONS.has(value['operation'] as Exclude<GoalOperation, 'clear'>)) {
     throw new Error('goal change operation is invalid')
   }
   const allowed = ['createdAt', 'goal', 'kind', 'operation', 'roundsStarted', 'updatedAt', 'version']
@@ -174,9 +167,14 @@ export function decodeGoalChange(value: unknown): GoalChangeMeta | undefined {
 /** Narrow model attribution to a valid goal source. */
 function goalSource(source: MessageSource): GoalMessageSource | undefined {
   if (source.kind !== 'goal') return undefined
-  if (typeof source.goalId !== 'string' || source.goalId.length === 0
-    || !Number.isSafeInteger(source.revision) || source.revision < 1
-    || !Number.isSafeInteger(source.round) || source.round < 1) {
+  if (
+    typeof source.goalId !== 'string' ||
+    source.goalId.length === 0 ||
+    !Number.isSafeInteger(source.revision) ||
+    source.revision < 1 ||
+    !Number.isSafeInteger(source.round) ||
+    source.round < 1
+  ) {
     throw new Error('goal message source is invalid')
   }
   return source
@@ -197,24 +195,17 @@ function requireNextRevision(current: GoalSnapshot, next: GoalRef, operation: Go
 }
 
 /** Validate one non-create snapshot operation against the preceding projection. */
-function validateSnapshotTransition(
-  state: GoalFoldState,
-  change: GoalSnapshotChangeMeta,
-  current: GoalSnapshot,
-): void {
+function validateSnapshotTransition(state: GoalFoldState, change: GoalSnapshotChangeMeta, current: GoalSnapshot): void {
   const next = change.goal
   requireNextRevision(current, next, change.operation)
   /* v8 ignore next -- a current goal established by this fold always has an updatedAt */
   if (state.updatedAt === undefined) throw new Error('current goal fold lacks updatedAt')
-  if (change.createdAt !== state.createdAt
-    || change.updatedAt < state.updatedAt
-    || change.roundsStarted !== state.roundsStarted) {
+  if (change.createdAt !== state.createdAt || change.updatedAt < state.updatedAt || change.roundsStarted !== state.roundsStarted) {
     throw new Error(`goal ${change.operation} does not preserve the current counters and timestamps`)
   }
   switch (change.operation) {
     case 'edit':
-      if (next.phase !== current.phase
-        || JSON.stringify(next.blockedReason) !== JSON.stringify(current.blockedReason)) {
+      if (next.phase !== current.phase || JSON.stringify(next.blockedReason) !== JSON.stringify(current.blockedReason)) {
         throw new Error('goal edit cannot change phase or blocked reason')
       }
       break
@@ -224,11 +215,7 @@ function validateSnapshotTransition(
       break
     case 'resume': {
       requireSameDefinition(current, next, change.operation)
-      const resumable: ReadonlySet<GoalPhase> = new Set([
-        'active',
-        'paused',
-        'blocked',
-      ])
+      const resumable: ReadonlySet<GoalPhase> = new Set(['active', 'paused', 'blocked'])
       if (!resumable.has(current.phase) || next.phase !== 'active' || state.roundsStarted >= next.maxGoalRounds) {
         throw new Error('goal resume has an invalid phase transition or exhausted round budget')
       }
@@ -258,9 +245,7 @@ function validateSnapshotTransition(
  * @returns stable identity used to reconcile a deferred change with its log event.
  */
 export function goalChangeRef(change: GoalChangeMeta): GoalRef {
-  return change.operation === 'clear'
-    ? change.cleared
-    : { id: change.goal.id, revision: change.goal.revision }
+  return change.operation === 'clear' ? change.cleared : { id: change.goal.id, revision: change.goal.revision }
 }
 
 /**
@@ -287,9 +272,13 @@ export function applyGoalChange(state: GoalFoldState, change: GoalChangeMeta): v
     return
   }
   if (change.operation === 'create') {
-    if (change.goal.revision !== 1 || change.goal.phase !== 'active' || change.roundsStarted !== 0
-      || (state.goal !== undefined && state.goal.phase !== 'complete')
-      || state.seenGoalIds.has(change.goal.id)) {
+    if (
+      change.goal.revision !== 1 ||
+      change.goal.phase !== 'active' ||
+      change.roundsStarted !== 0 ||
+      (state.goal !== undefined && state.goal.phase !== 'complete') ||
+      state.seenGoalIds.has(change.goal.id)
+    ) {
       throw new Error('goal create requires a fresh active revision-one goal with zero rounds')
     }
     state.seenGoalIds.add(change.goal.id)
@@ -322,9 +311,14 @@ export function applyGoalEvent(state: GoalFoldState, event: SessionEvent): void 
     const source = goalSource(event.data.source)
     if (source === undefined) return
     const current = state.goal
-    if (current === undefined || current.phase !== 'active' || source.goalId !== current.id
-      || source.revision !== current.revision || source.round !== state.roundsStarted + 1
-      || source.round > current.maxGoalRounds) {
+    if (
+      current === undefined ||
+      current.phase !== 'active' ||
+      source.goalId !== current.id ||
+      source.revision !== current.revision ||
+      source.round !== state.roundsStarted + 1 ||
+      source.round > current.maxGoalRounds
+    ) {
       throw new Error(`goal round at session event ${event.seq} is not the next admitted round of the active goal`)
     }
     state.roundsStarted = source.round
@@ -340,10 +334,10 @@ export function foldGoal(events: readonly SessionEvent[]): FoldedGoal {
   const state = emptyGoalFoldState()
   for (const event of events) applyGoalEvent(state, event)
   return {
-    ...state.goal === undefined ? {} : { goal: { ...state.goal } },
+    ...(state.goal === undefined ? {} : { goal: { ...state.goal } }),
     roundsStarted: state.roundsStarted,
-    ...state.createdAt === undefined ? {} : { createdAt: state.createdAt },
-    ...state.updatedAt === undefined ? {} : { updatedAt: state.updatedAt },
-    ...state.lastRef === undefined ? {} : { lastRef: { ...state.lastRef } },
+    ...(state.createdAt === undefined ? {} : { createdAt: state.createdAt }),
+    ...(state.updatedAt === undefined ? {} : { updatedAt: state.updatedAt }),
+    ...(state.lastRef === undefined ? {} : { lastRef: { ...state.lastRef } }),
   }
 }

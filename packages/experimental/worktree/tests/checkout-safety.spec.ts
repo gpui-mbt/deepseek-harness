@@ -1,6 +1,6 @@
 import { access, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import { SubprocessExecutableNotFoundError } from '@deepseek-ai/dsh-subprocess'
 import { contents, filterCommand, git, harness, repository, testAgent } from './harness.ts'
@@ -22,35 +22,37 @@ async function repo(): Promise<string> {
 }
 
 describe('worktree checkout Git configuration', () => {
-  it.each(['some.nested.driver', 'x=y', 'lfs'])('disables required clean and smudge filters named %s without changing repository configuration', async (driver) => {
-    const root = await repo()
-    const committed = driver === 'lfs'
-      ? `version https://git-lfs.github.com/spec/v1\noid sha256:${'0'.repeat(64)}\nsize 8\n`
-      : 'initial\n'
-    await writeFile(join(root, 'tracked.txt'), committed)
-    await writeFile(join(root, '.gitattributes'), `*.txt filter=${driver} -text\n`)
-    await git(root, 'add', '.gitattributes', 'tracked.txt')
-    await git(root, 'commit', '-m', 'attributes')
-    const { command, marker } = await filterCommand(root)
-    await git(root, 'config', `filter.${driver}.clean`, command)
-    await git(root, 'config', `filter.${driver}.smudge`, command)
-    await git(root, 'config', `filter.${driver}.required`, 'true')
-    await git(root, 'config', `filter.${driver}.unused`, 'preserved')
-    const configuration = await readFile(join(root, '.git/config'))
+  it.each(['some.nested.driver', 'x=y', 'lfs'])(
+    'disables required clean and smudge filters named %s without changing repository configuration',
+    async driver => {
+      const root = await repo()
+      const committed =
+        driver === 'lfs' ? `version https://git-lfs.github.com/spec/v1\noid sha256:${'0'.repeat(64)}\nsize 8\n` : 'initial\n'
+      await writeFile(join(root, 'tracked.txt'), committed)
+      await writeFile(join(root, '.gitattributes'), `*.txt filter=${driver} -text\n`)
+      await git(root, 'add', '.gitattributes', 'tracked.txt')
+      await git(root, 'commit', '-m', 'attributes')
+      const { command, marker } = await filterCommand(root)
+      await git(root, 'config', `filter.${driver}.clean`, command)
+      await git(root, 'config', `filter.${driver}.smudge`, command)
+      await git(root, 'config', `filter.${driver}.required`, 'true')
+      await git(root, 'config', `filter.${driver}.unused`, 'preserved')
+      const configuration = await readFile(join(root, '.git/config'))
 
-    const control = join(root, 'ordinary-checkout')
-    await git(root, 'worktree', 'add', '-b', 'ordinary', control)
-    expect(await contents(marker)).toContain('executed')
-    expect(await contents(join(control, 'tracked.txt'))).toBe(`filtered\n${committed}`)
-    await rm(marker)
+      const control = join(root, 'ordinary-checkout')
+      await git(root, 'worktree', 'add', '-b', 'ordinary', control)
+      expect(await contents(marker)).toContain('executed')
+      expect(await contents(join(control, 'tracked.txt'))).toBe(`filtered\n${committed}`)
+      await rm(marker)
 
-    ctx = await harness(root)
-    const created = await ctx.worktrees.create(testAgent(ctx, root), { name: 'unfiltered' })
+      ctx = await harness(root)
+      const created = await ctx.worktrees.create(testAgent(ctx, root), { name: 'unfiltered' })
 
-    await expect(access(marker)).rejects.toMatchObject({ code: 'ENOENT' })
-    expect(await contents(join(created.path, 'tracked.txt'))).toBe(committed)
-    expect(await readFile(join(root, '.git/config'))).toEqual(configuration)
-  })
+      await expect(access(marker)).rejects.toMatchObject({ code: 'ENOENT' })
+      expect(await contents(join(created.path, 'tracked.txt'))).toBe(committed)
+      expect(await readFile(join(root, '.git/config'))).toEqual(configuration)
+    },
+  )
 
   it('disables a required process filter that makes ordinary checkout fail', async () => {
     const root = await repo()
@@ -98,7 +100,9 @@ describe('worktree checkout Git configuration', () => {
     ctx = await harness(root)
     const agent = testAgent(ctx, root)
 
-    await expect(ctx.worktrees.create(agent, { name: 'invalid' })).rejects.toThrow(/Any created checkout and branch are retained.*bad config line/s)
+    await expect(ctx.worktrees.create(agent, { name: 'invalid' })).rejects.toThrow(
+      /Any created checkout and branch are retained.*bad config line/s,
+    )
 
     expect(ctx.workingDirectory.get(agent.session)).toBe(root)
     await access(join(root, '.agents/worktrees/invalid/.git'))

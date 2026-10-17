@@ -20,10 +20,7 @@ declare module '@deepseek-ai/dsh-llm' {
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
 import { SessionSeq } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-projection'
-import {
-  deriveBrowserTimeZoneContext,
-  renderBrowserTimeZoneContext,
-} from './request-zone.ts'
+import { deriveBrowserTimeZoneContext, renderBrowserTimeZoneContext } from './request-zone.ts'
 import type { BrowserTimeZoneContext } from './request-zone.ts'
 import { createTimestampFormatter, formatTimestamp } from './timestamp.ts'
 
@@ -109,17 +106,17 @@ function renderText(
   const elapsed = previous === undefined ? 'unavailable' : formatDuration(now - previous)
   const baseline = step === 1 ? 'model-visible message' : 'step context'
   const browserText = renderBrowserTimeZoneContext(browserContext)
-  return `Time sampled while preparing turn ${turn}, step ${step}: ${formatTimestamp(now, formatter, timeZone)}\n`
-    + `${browserText}\n`
-    + `Elapsed since the preceding ${baseline}: ${elapsed}.`
+  return (
+    `Time sampled while preparing turn ${turn}, step ${step}: ${formatTimestamp(now, formatter, timeZone)}\n` +
+    `${browserText}\n` +
+    `Elapsed since the preceding ${baseline}: ${elapsed}.`
+  )
 }
 
 /** Reject refresh intervals that cannot represent an exact elapsed-millisecond threshold. */
 function validateRefreshInterval(refreshIntervalMs: number): void {
   if (!Number.isSafeInteger(refreshIntervalMs) || refreshIntervalMs < 0) {
-    throw new TypeError(
-      `time-context: refreshIntervalMs must be a non-negative safe integer, got ${String(refreshIntervalMs)}`,
-    )
+    throw new TypeError(`time-context: refreshIntervalMs must be a non-negative safe integer, got ${String(refreshIntervalMs)}`)
   }
 }
 
@@ -137,9 +134,10 @@ export function apply(ctx: Context, config: Config): void {
   try {
     fallbackFormatter = createTimestampFormatter(timeZone)
   } catch (error: unknown) {
-    const message = timeZone === undefined
-      ? 'time-context: failed to resolve the system time zone'
-      : `time-context: invalid IANA timeZone ${JSON.stringify(timeZone)}`
+    const message =
+      timeZone === undefined
+        ? 'time-context: failed to resolve the system time zone'
+        : `time-context: invalid IANA timeZone ${JSON.stringify(timeZone)}`
     throw new Error(message, { cause: error })
   }
   const fallbackTimeZone = fallbackFormatter.resolvedOptions().timeZone
@@ -165,9 +163,7 @@ export function apply(ctx: Context, config: Config): void {
       }
       if (event.type === 'user/message') {
         const injected = event.data.source.kind === name
-        const withMessage = state.lastMessageTime === event.time
-          ? state
-          : { ...state, lastMessageTime: event.time }
+        const withMessage = state.lastMessageTime === event.time ? state : { ...state, lastMessageTime: event.time }
         if (!injected) return withMessage
         return {
           ...withMessage,
@@ -182,45 +178,34 @@ export function apply(ctx: Context, config: Config): void {
     },
   })
 
-  ctx.on('agent/pre-step', async (
-    { agent, turn, step, signal },
-    next,
-  ): Promise<PreStepDecision> => {
-    const decision = await next()
-    if (decision.kind === 'reject' || signal.aborted) return decision
-    const now = Date.now()
-    const state = ctx.sessionProjections.stateOf(agent.session, 'timeContext') as TimeContextProjection
-    if (refreshIntervalMs > 0) {
-      const lastInjection = state.lastInjectionTime
-      if (lastInjection != null
-        && now >= lastInjection
-        && now - lastInjection < refreshIntervalMs) return decision
-    }
-    /* v8 ignore next 6 -- every later step follows a recorded injection in the same turn */
-    const previous = step === 1
-      ? state.lastMessageTime ?? undefined
-      : state.lastTurnInjectionTime ?? undefined
-    const messages = requestMessages(agent, turn, decision.messages)
-    const browser = deriveBrowserTimeZoneContext(messages)
-    const selectedTimeZone = browser.kind === 'resolved' ? browser.timeZone : fallbackTimeZone
-    const text = renderText(
-      now,
-      turn,
-      step,
-      previous,
-      formatterFor(selectedTimeZone),
-      selectedTimeZone,
-      browser,
-    )
-    return {
-      ...decision,
-      messages: [
-        ...decision.messages,
-        createUserMessage({
-          content: [{ type: 'text', text }],
-          source: { kind: name, form: 'snapshot', sections: [{ name, text }] },
-        }),
-      ],
-    }
-  }, { prepend: true })
+  ctx.on(
+    'agent/pre-step',
+    async ({ agent, turn, step, signal }, next): Promise<PreStepDecision> => {
+      const decision = await next()
+      if (decision.kind === 'reject' || signal.aborted) return decision
+      const now = Date.now()
+      const state = ctx.sessionProjections.stateOf(agent.session, 'timeContext') as TimeContextProjection
+      if (refreshIntervalMs > 0) {
+        const lastInjection = state.lastInjectionTime
+        if (lastInjection != null && now >= lastInjection && now - lastInjection < refreshIntervalMs) return decision
+      }
+      /* v8 ignore next 6 -- every later step follows a recorded injection in the same turn */
+      const previous = step === 1 ? (state.lastMessageTime ?? undefined) : (state.lastTurnInjectionTime ?? undefined)
+      const messages = requestMessages(agent, turn, decision.messages)
+      const browser = deriveBrowserTimeZoneContext(messages)
+      const selectedTimeZone = browser.kind === 'resolved' ? browser.timeZone : fallbackTimeZone
+      const text = renderText(now, turn, step, previous, formatterFor(selectedTimeZone), selectedTimeZone, browser)
+      return {
+        ...decision,
+        messages: [
+          ...decision.messages,
+          createUserMessage({
+            content: [{ type: 'text', text }],
+            source: { kind: name, form: 'snapshot', sections: [{ name, text }] },
+          }),
+        ],
+      }
+    },
+    { prepend: true },
+  )
 }

@@ -38,18 +38,19 @@ export class InspectorClientFixture {
   private constructor(worker: Worker, fiberUid: number) {
     this.worker = worker
     this.fiberUid = fiberUid
-    worker.on('message', (message: unknown) => { this.receive(message) })
-    worker.on('error', (error) => { this.fail(error) })
-    worker.on('exit', (code) => {
+    worker.on('message', (message: unknown) => {
+      this.receive(message)
+    })
+    worker.on('error', error => {
+      this.fail(error)
+    })
+    worker.on('exit', code => {
       if (!this.closed && code !== 0) this.fail(new Error(`Inspector Client fixture exited with code ${String(code)}`))
     })
   }
 
   /** Start one Client fixture and wait for its Cordis tree to be published. */
-  static async start(
-    bootstrap: InspectorClientBootstrap,
-    options: ClientFixtureOptions = {},
-  ): Promise<InspectorClientFixture> {
+  static async start(bootstrap: InspectorClientBootstrap, options: ClientFixtureOptions = {}): Promise<InspectorClientFixture> {
     const ready = Promise.withResolvers<number>()
     const entry = new URL('./client-source.client.ts', import.meta.url)
     const tsxApi = import.meta.resolve('tsx/esm/api')
@@ -95,7 +96,7 @@ export class InspectorClientFixture {
 
   /** Read the consumer-neutral Cordis tree through the Client service. */
   async getCordisTree(): Promise<CordisRuntimeTree> {
-    return await this.request({ op: 'get-tree' }) as CordisRuntimeTree
+    return (await this.request({ op: 'get-tree' })) as CordisRuntimeTree
   }
 
   /**
@@ -118,7 +119,7 @@ export class InspectorClientFixture {
 
   /** Add one Fiber to the inspected Client runtime. */
   async addFiber(): Promise<number> {
-    return await this.request({ op: 'add-fiber' }) as number
+    return (await this.request({ op: 'add-fiber' })) as number
   }
 
   /** Remove the Fiber most recently added by {@link addFiber}. */

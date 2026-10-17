@@ -4,7 +4,7 @@ import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { release, tmpdir, version } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it, onTestFailed, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFailed, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -27,32 +27,28 @@ import * as ToolPwshPersistent from '@deepseek-ai/dsh-tool-pwsh-persistent'
 import { ReadinessTimeline, TIMELINE_HEADER } from './readiness-timeline.ts'
 
 const pwshPath = resolvePwshPath()
-const hasPwsh = spawnSync(
-  pwshPath, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'],
-  { encoding: 'utf8' },
-).status === 0
+const hasPwsh = spawnSync(pwshPath, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
 
 // The system conhost version identifies the host OS; Windows PTYs use node-pty's bundled
 // OpenConsole, so that version does not identify the console rendering these sessions.
 const HOST_FACTS_COMMAND = [
   '"pwsh $($PSVersionTable.PSVersion) PSReadLine $((Get-Module PSReadLine -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1).Version)"',
-  'if ($env:OS -eq \'Windows_NT\') { "system conhost (unused) $((Get-Item (Join-Path $env:SystemRoot \'System32\\conhost.exe\')).VersionInfo.FileVersion)" }',
+  "if ($env:OS -eq 'Windows_NT') { \"system conhost (unused) $((Get-Item (Join-Path $env:SystemRoot 'System32\\conhost.exe')).VersionInfo.FileVersion)\" }",
 ].join('; ')
 
 function hostFacts(): string {
-  const probe = spawnSync(
-    pwshPath, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', HOST_FACTS_COMMAND],
-    { encoding: 'utf8', timeout: 30_000 },
-  )
-  const shell = probe.status === 0
-    ? probe.stdout.trim().split(/\r?\n/).join('; ')
-    : `version probe failed: ${probe.error?.message ?? probe.stderr.trim()}`
+  const probe = spawnSync(pwshPath, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', HOST_FACTS_COMMAND], {
+    encoding: 'utf8',
+    timeout: 30_000,
+  })
+  const shell =
+    probe.status === 0
+      ? probe.stdout.trim().split(/\r?\n/).join('; ')
+      : `version probe failed: ${probe.error?.message ?? probe.stderr.trim()}`
   return [
     `host: ${process.platform} ${process.arch} ${release()} (${version()}); node ${process.version}`,
     `shell: ${pwshPath}; ${shell}`,
-    process.platform === 'win32'
-      ? 'conpty: node-pty bundled OpenConsole (useConptyDll=true)'
-      : 'conpty: not applicable (POSIX PTY)',
+    process.platform === 'win32' ? 'conpty: node-pty bundled OpenConsole (useConptyDll=true)' : 'conpty: not applicable (POSIX PTY)',
   ].join('\n')
 }
 
@@ -77,7 +73,11 @@ async function agent(ctx: Context, cwd: string): Promise<Agent> {
   const id = SessionId('persistent-pwsh-loader-agent')
   const scope = ctx.plugin(() => {})
   const session = Session.create(id, [], {
-    version: SESSION_FORMAT_VERSION, id, createdAt: 0, cwd, isSeeded: false,
+    version: SESSION_FORMAT_VERSION,
+    id,
+    createdAt: 0,
+    cwd,
+    isSeeded: false,
   })
   const value: Agent = {
     id,
@@ -99,53 +99,59 @@ async function agent(ctx: Context, cwd: string): Promise<Agent> {
 }
 
 function text(result: { content: { type: string; text?: string }[] }): string {
-  return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return result.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }
 
 describe.skipIf(!hasPwsh)('persistent pwsh through a real cordis.yml Loader composition', () => {
   it('preserves cwd and environment across calls', async () => {
     root = await realpath(await mkdtemp(join(tmpdir(), 'dsh-persistent-pwsh-loader-')))
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, [
-      "- name: '@deepseek-ai/dsh-agent'",
-      "- name: '@deepseek-ai/dsh-system-prompt'",
-      "- name: '@deepseek-ai/dsh-tools'",
-      "- name: '@deepseek-ai/dsh-terminal'",
-      "- name: '@deepseek-ai/dsh-test-sandbox'",
-      "- name: '@deepseek-ai/dsh-session-projection'",
-      "- name: '@deepseek-ai/dsh-sandbox-policy'",
-      '  config:',
-      '    mode: danger-full-access',
-      `    workspaceRoot: ${JSON.stringify(root)}`,
-      "- name: '@deepseek-ai/dsh-subprocess-local'",
-      "- name: '@deepseek-ai/dsh-terminal-bash'",
-      '  config:',
-      '    shellDialect: pwsh',
-      '    pollIntervalMs: 10',
-      '    exactProbeAfterMs: 20',
-      // The silence tier keeps its product default; the case body records each
-      // send's wait reason, which pins the controlled-prompt fast path directly
-      // instead of relying on how long silence would take to settle.
-      '    handoffGraceMs: 300',
-      // promptTailGraceMs keeps its product default (0): the self-hosted Windows failures of
-      // 2026-09-25..27 settled at the plain silence bound with the tolerance present and absent
-      // alike, so it never applied there and would only lengthen a never-arriving-tail fallback.
-      '    scrollbackLines: 20000',
-      // The first call pays the full pwsh cold-start latency (spawn + .NET +
-      // PSReadLine + Defender) inside the tool deadline; a 60s bound on the
-      // fully loaded self-hosted Windows pool is exceeded often enough to
-      // reset the session mid-test (2026-09-01, two runs ~62s each). 300s
-      // matches the dsh-tool-pwsh-persistent product default; the
-      // dsh-terminal-bash value bounds one send plus the complete startup
-      // sequence, so it covers the same cold start (its 30s product default
-      // would not).
-      '    timeoutMs: 300000',
-      '    disposeGraceMs: 500',
-      "- name: '@deepseek-ai/dsh-tool-pwsh-persistent'",
-      '  config:',
-      '    timeoutMs: 300000',
-      '',
-    ].join('\n'))
+    await writeFile(
+      configPath,
+      [
+        "- name: '@deepseek-ai/dsh-agent'",
+        "- name: '@deepseek-ai/dsh-system-prompt'",
+        "- name: '@deepseek-ai/dsh-tools'",
+        "- name: '@deepseek-ai/dsh-terminal'",
+        "- name: '@deepseek-ai/dsh-test-sandbox'",
+        "- name: '@deepseek-ai/dsh-session-projection'",
+        "- name: '@deepseek-ai/dsh-sandbox-policy'",
+        '  config:',
+        '    mode: danger-full-access',
+        `    workspaceRoot: ${JSON.stringify(root)}`,
+        "- name: '@deepseek-ai/dsh-subprocess-local'",
+        "- name: '@deepseek-ai/dsh-terminal-bash'",
+        '  config:',
+        '    shellDialect: pwsh',
+        '    pollIntervalMs: 10',
+        '    exactProbeAfterMs: 20',
+        // The silence tier keeps its product default; the case body records each
+        // send's wait reason, which pins the controlled-prompt fast path directly
+        // instead of relying on how long silence would take to settle.
+        '    handoffGraceMs: 300',
+        // promptTailGraceMs keeps its product default (0): the self-hosted Windows failures of
+        // 2026-09-25..27 settled at the plain silence bound with the tolerance present and absent
+        // alike, so it never applied there and would only lengthen a never-arriving-tail fallback.
+        '    scrollbackLines: 20000',
+        // The first call pays the full pwsh cold-start latency (spawn + .NET +
+        // PSReadLine + Defender) inside the tool deadline; a 60s bound on the
+        // fully loaded self-hosted Windows pool is exceeded often enough to
+        // reset the session mid-test (2026-09-01, two runs ~62s each). 300s
+        // matches the dsh-tool-pwsh-persistent product default; the
+        // dsh-terminal-bash value bounds one send plus the complete startup
+        // sequence, so it covers the same cold start (its 30s product default
+        // would not).
+        '    timeoutMs: 300000',
+        '    disposeGraceMs: 500',
+        "- name: '@deepseek-ai/dsh-tool-pwsh-persistent'",
+        '  config:',
+        '    timeoutMs: 300000',
+        '',
+      ].join('\n'),
+    )
 
     context = new Context()
 
@@ -187,7 +193,7 @@ describe.skipIf(!hasPwsh)('persistent pwsh through a real cordis.yml Loader comp
     const timeline = new ReadinessTimeline(hostFacts)
     timeline.observeSanitizer()
     const spawnTerminal = context.subprocess.spawnTerminal.bind(context.subprocess)
-    vi.spyOn(context.subprocess, 'spawnTerminal').mockImplementation(async (spec) => {
+    vi.spyOn(context.subprocess, 'spawnTerminal').mockImplementation(async spec => {
       const handle = await spawnTerminal(spec)
       timeline.observeTerminal(handle)
       return handle
@@ -197,7 +203,9 @@ describe.skipIf(!hasPwsh)('persistent pwsh through a real cordis.yml Loader comp
       const operation = startSend(owner, id, request)
       timeline.track(operation, request)
       void operation.done.then(
-        (settled) => { settleReasons.push(settled.waitReason) },
+        settled => {
+          settleReasons.push(settled.waitReason)
+        },
         // A rejected send is the tool's error path, not a settle reason.
         () => {},
       )
@@ -229,17 +237,11 @@ describe.skipIf(!hasPwsh)('persistent pwsh through a real cordis.yml Loader comp
     expect(observed).toContain(`cwd=${join(root, 'nested')} keep=loader`)
     expect(observed).not.toContain('DSH_PERSISTENT_PWSH')
 
-    const multiline = text(await execute(
-      'multiline',
-      '$value = "line one"\nWrite-Output "${value}:it\'s fine"',
-    ))
+    const multiline = text(await execute('multiline', '$value = "line one"\nWrite-Output "${value}:it\'s fine"'))
     expect(multiline).toBe("line one:it's fine")
     expect(multiline).not.toContain('DSH_PERSISTENT_PWSH')
 
-    const hereString = text(await execute(
-      'here-string',
-      "$h = @'\nalpha\nbeta\n'@\nWrite-Output $h",
-    ))
+    const hereString = text(await execute('here-string', "$h = @'\nalpha\nbeta\n'@\nWrite-Output $h"))
     expect(hereString).toBe('alpha\nbeta')
 
     const large = text(await execute('large-output', '1..12050 | ForEach-Object { $_ }'))
@@ -258,11 +260,16 @@ describe.skipIf(!hasPwsh)('persistent pwsh through a real cordis.yml Loader comp
     // scrolled shell and the first command after restart. Extra sends can conceal a timeout.
     // Formatting probes host versions, so only a failed sequence pays that cost.
     const expected: TerminalWaitReason[] = [
-      'stdin_read', 'stdin_read', 'stdin_read', 'stdin_read',
-      'stdin_read', 'stdin_read', 'session_exit', 'stdin_read',
+      'stdin_read',
+      'stdin_read',
+      'stdin_read',
+      'stdin_read',
+      'stdin_read',
+      'stdin_read',
+      'session_exit',
+      'stdin_read',
     ]
-    const degraded = settleReasons.length !== expected.length
-      || settleReasons.some((reason, index) => reason !== expected[index])
+    const degraded = settleReasons.length !== expected.length || settleReasons.some((reason, index) => reason !== expected[index])
     const failure = degraded ? `${JSON.stringify(settleReasons)}\n${timeline.format()}` : ''
     expect(settleReasons, failure).toEqual(expected)
   }, 120_000)

@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { TaskMenu } from '../src/client/TaskMenu.tsx'
 import type { TaskMenuEntry } from '../src/client/TaskMenu.tsx'
 import taskMenuCss from '../src/client/TaskMenu.module.css'
@@ -33,29 +33,31 @@ const THREE_ROWS: readonly TaskMenuEntry[] = [
  * @param props.portal - whether the host opens the menu in portal mode.
  * @returns the anchored menu.
  */
-function OpenMenu({ onSelect, portal = false }: {
-  onSelect: (id: string) => void
-  portal?: boolean
-}) {
+function OpenMenu({ onSelect, portal = false }: { onSelect: (id: string) => void; portal?: boolean }) {
   const [open, setOpen] = useState(true)
-  return <TaskMenu
-    open={open}
-    portal={portal}
-    items={ITEMS}
-    onSelect={(id) => { onSelect(id); setOpen(false) }}
-    onClose={() => { setOpen(false) }}
-    anchor={<button type="button">trigger</button>}
-  />
+  return (
+    <TaskMenu
+      open={open}
+      portal={portal}
+      items={ITEMS}
+      onSelect={id => {
+        onSelect(id)
+        setOpen(false)
+      }}
+      onClose={() => {
+        setOpen(false)
+      }}
+      anchor={<button type="button">trigger</button>}
+    />
+  )
 }
 
 describe('TaskMenu', () => {
   it('shows items only while open, and reports the clicked row id', () => {
     const onSelect = vi.fn()
-    const { rerender } = render(
-      <TaskMenu open={false} portal anchor={<span>trigger</span>} onSelect={onSelect} onClose={() => {}} />)
+    const { rerender } = render(<TaskMenu open={false} portal anchor={<span>trigger</span>} onSelect={onSelect} onClose={() => {}} />)
     expect(screen.queryByRole('menu')).toBeNull()
-    rerender(
-      <TaskMenu open portal anchor={<span>trigger</span>} items={ITEMS} onSelect={onSelect} onClose={() => {}} />)
+    rerender(<TaskMenu open portal anchor={<span>trigger</span>} items={ITEMS} onSelect={onSelect} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Alpha' }))
     expect(onSelect).toHaveBeenCalledExactlyOnceWith('a')
   })
@@ -66,22 +68,24 @@ describe('TaskMenu', () => {
   })
 
   it('renders a heading, a separator, a selected check, a leading icon, and a danger row', () => {
-    render(<TaskMenu
-      open
-      selectedId="a"
-      listClassName="extra"
-      className="wrapper"
-      anchor={<span>trigger</span>}
-      items={[
-        { type: 'label', id: 'heading', text: 'Group by' },
-        { id: 'a', label: 'Alpha' },
-        { type: 'separator', id: 'gap' },
-        { id: 'c', label: 'Create', icon: <svg data-testid="icon" /> },
-        { id: 'd', label: 'Delete', danger: true },
-      ]}
-      onSelect={() => {}}
-      onClose={() => {}}
-    />)
+    render(
+      <TaskMenu
+        open
+        selectedId="a"
+        listClassName="extra"
+        className="wrapper"
+        anchor={<span>trigger</span>}
+        items={[
+          { type: 'label', id: 'heading', text: 'Group by' },
+          { id: 'a', label: 'Alpha' },
+          { type: 'separator', id: 'gap' },
+          { id: 'c', label: 'Create', icon: <svg data-testid="icon" /> },
+          { id: 'd', label: 'Delete', danger: true },
+        ]}
+        onSelect={() => {}}
+        onClose={() => {}}
+      />,
+    )
     expect(screen.getByText('Group by').getAttribute('role')).toBe('presentation')
     expect(screen.getByRole('separator')).toBeDefined()
     expect(screen.getByTestId('icon')).toBeDefined()
@@ -96,28 +100,25 @@ describe('TaskMenu', () => {
     expect(screen.getByRole('menuitem', { name: 'Delete' }).className).toMatch(/danger/)
   })
 
-  it('aligns an in-place list to the anchor\'s end edge', () => {
-    const { container } = render(<TaskMenu
-      open
-      align="end"
-      anchor={<span>trigger</span>}
-      items={ITEMS}
-      onSelect={() => {}}
-      onClose={() => {}}
-    />)
+  it("aligns an in-place list to the anchor's end edge", () => {
+    const { container } = render(
+      <TaskMenu open align="end" anchor={<span>trigger</span>} items={ITEMS} onSelect={() => {}} onClose={() => {}} />,
+    )
     expect(container.querySelector('[role="menu"]')?.classList.contains(taskMenuCss.alignEnd!)).toBe(true)
     expect(container.querySelector('[role="menu"]')?.classList.contains(taskMenuCss.portal!)).toBe(false)
   })
 
   it('keeps text Home and End navigation in a menu header input', () => {
-    render(<TaskMenu
-      open
-      anchor={<button type="button">trigger</button>}
-      header={<input aria-label="Filter" defaultValue="query" />}
-      items={ITEMS}
-      onSelect={() => {}}
-      onClose={() => {}}
-    />)
+    render(
+      <TaskMenu
+        open
+        anchor={<button type="button">trigger</button>}
+        header={<input aria-label="Filter" defaultValue="query" />}
+        items={ITEMS}
+        onSelect={() => {}}
+        onClose={() => {}}
+      />,
+    )
     const filter = screen.getByRole('textbox', { name: 'Filter' })
     filter.focus()
     expect(fireEvent.keyDown(filter, { key: 'Home' })).toBe(true)
@@ -129,29 +130,33 @@ describe('TaskMenu', () => {
   })
 
   it('hands a placed portal list to the field its header marks', () => {
-    render(<TaskMenu
-      open
-      portal
-      align="end"
-      anchor={<button type="button">trigger</button>}
-      header={<input aria-label="Filter" data-menu-field="" />}
-      items={ITEMS}
-      onSelect={() => {}}
-      onClose={() => {}}
-    />)
+    render(
+      <TaskMenu
+        open
+        portal
+        align="end"
+        anchor={<button type="button">trigger</button>}
+        header={<input aria-label="Filter" data-menu-field="" />}
+        items={ITEMS}
+        onSelect={() => {}}
+        onClose={() => {}}
+      />,
+    )
     expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Filter' }))
   })
 
   it('keeps the keyboard on the row when a placed portal list repositions', () => {
-    render(<TaskMenu
-      open
-      portal
-      anchor={<button type="button">trigger</button>}
-      header={<input aria-label="Filter" data-menu-field="" />}
-      items={ITEMS}
-      onSelect={() => {}}
-      onClose={() => {}}
-    />)
+    render(
+      <TaskMenu
+        open
+        portal
+        anchor={<button type="button">trigger</button>}
+        header={<input aria-label="Filter" data-menu-field="" />}
+        items={ITEMS}
+        onSelect={() => {}}
+        onClose={() => {}}
+      />,
+    )
     const field = screen.getByRole('textbox', { name: 'Filter' })
     expect(document.activeElement).toBe(field)
     fireEvent.keyDown(field, { key: 'ArrowDown' })
@@ -166,13 +171,7 @@ describe('TaskMenu', () => {
 
   it('walks the list with the arrows, wrapping at both ends, and Escape returns the keyboard', () => {
     const onClose = vi.fn()
-    render(<TaskMenu
-      open
-      anchor={<button type="button">trigger</button>}
-      items={THREE_ROWS}
-      onSelect={() => {}}
-      onClose={onClose}
-    />)
+    render(<TaskMenu open anchor={<button type="button">trigger</button>} items={THREE_ROWS} onSelect={() => {}} onClose={onClose} />)
     const trigger = screen.getByRole('button', { name: 'trigger' })
     const alpha = screen.getByRole('menuitem', { name: 'Alpha' })
     const beta = screen.getByRole('menuitem', { name: 'Beta' })
@@ -203,13 +202,7 @@ describe('TaskMenu', () => {
   })
 
   it('enters at the last enabled row on ArrowUp and steps over a disabled one', () => {
-    render(<TaskMenu
-      open
-      anchor={<button type="button">trigger</button>}
-      items={ITEMS}
-      onSelect={() => {}}
-      onClose={() => {}}
-    />)
+    render(<TaskMenu open anchor={<button type="button">trigger</button>} items={ITEMS} onSelect={() => {}} onClose={() => {}} />)
     const trigger = screen.getByRole('button', { name: 'trigger' })
     trigger.focus()
     expect(fireEvent.keyDown(trigger, { key: 'ArrowUp' })).toBe(false)
@@ -217,13 +210,15 @@ describe('TaskMenu', () => {
   })
 
   it('keeps the browser traversal on arrows and Tab when the list has no enabled row', () => {
-    render(<TaskMenu
-      open
-      anchor={<button type="button">trigger</button>}
-      items={[{ id: 'b', label: 'Beta', disabled: true }]}
-      onSelect={() => {}}
-      onClose={() => {}}
-    />)
+    render(
+      <TaskMenu
+        open
+        anchor={<button type="button">trigger</button>}
+        items={[{ id: 'b', label: 'Beta', disabled: true }]}
+        onSelect={() => {}}
+        onClose={() => {}}
+      />,
+    )
     const trigger = screen.getByRole('button', { name: 'trigger' })
     trigger.focus()
     expect(fireEvent.keyDown(trigger, { key: 'ArrowDown' })).toBe(true)
@@ -243,13 +238,7 @@ describe('TaskMenu', () => {
 
   it('Shift+Tab closes back to the anchor', () => {
     const onClose = vi.fn()
-    render(<TaskMenu
-      open
-      anchor={<button type="button">trigger</button>}
-      items={ITEMS}
-      onSelect={() => {}}
-      onClose={onClose}
-    />)
+    render(<TaskMenu open anchor={<button type="button">trigger</button>} items={ITEMS} onSelect={() => {}} onClose={onClose} />)
     const trigger = screen.getByRole('button', { name: 'trigger' })
     trigger.focus()
     fireEvent.keyDown(trigger, { key: 'Tab' })
@@ -261,14 +250,16 @@ describe('TaskMenu', () => {
   })
 
   it('keeps the browser traversal for Tab on a header control and outside the menu', () => {
-    render(<TaskMenu
-      open
-      anchor={<button type="button">trigger</button>}
-      header={<input aria-label="Filter" />}
-      items={ITEMS}
-      onSelect={() => {}}
-      onClose={() => {}}
-    />)
+    render(
+      <TaskMenu
+        open
+        anchor={<button type="button">trigger</button>}
+        header={<input aria-label="Filter" />}
+        items={ITEMS}
+        onSelect={() => {}}
+        onClose={() => {}}
+      />,
+    )
     // A focused control inside the list that is not a row keeps the traversal.
     const filter = screen.getByRole('textbox', { name: 'Filter' })
     filter.focus()
@@ -286,13 +277,7 @@ describe('TaskMenu', () => {
 
   it('leaves the keyboard and the selection alone for a click on the card that is not a row', () => {
     const onSelect = vi.fn()
-    render(<TaskMenu
-      open
-      anchor={<button type="button">trigger</button>}
-      items={ITEMS}
-      onSelect={onSelect}
-      onClose={() => {}}
-    />)
+    render(<TaskMenu open anchor={<button type="button">trigger</button>} items={ITEMS} onSelect={onSelect} onClose={() => {}} />)
     const trigger = screen.getByRole('button', { name: 'trigger' })
     trigger.focus()
     // The card's own padding is inside the list but outside every row, so the
@@ -304,13 +289,7 @@ describe('TaskMenu', () => {
 
   it('Escape closes without moving the keyboard when the menu did not hold it', () => {
     const onClose = vi.fn()
-    render(<TaskMenu
-      open
-      anchor={<button type="button">trigger</button>}
-      items={ITEMS}
-      onSelect={() => {}}
-      onClose={onClose}
-    />)
+    render(<TaskMenu open anchor={<button type="button">trigger</button>} items={ITEMS} onSelect={() => {}} onClose={onClose} />)
     const outside = document.createElement('button')
     document.body.append(outside)
     outside.focus()
@@ -322,14 +301,7 @@ describe('TaskMenu', () => {
 
   it('closes on an outside pointer press and stays open for one inside the card', () => {
     const onClose = vi.fn()
-    const { rerender } = render(<TaskMenu
-      open
-      portal
-      anchor={<span>trigger</span>}
-      items={ITEMS}
-      onSelect={() => {}}
-      onClose={onClose}
-    />)
+    const { rerender } = render(<TaskMenu open portal anchor={<span>trigger</span>} items={ITEMS} onSelect={() => {}} onClose={onClose} />)
     // The portaled card is outside the anchor wrapper, so its own press counts
     // as inside through the card ref.
     fireEvent.pointerDown(screen.getByRole('menuitem', { name: 'Alpha' }))
@@ -345,13 +317,7 @@ describe('TaskMenu', () => {
 
   it('closes on a window blur only when focus moved into an iframe', () => {
     const onClose = vi.fn()
-    render(<TaskMenu
-      open
-      anchor={<span>trigger</span>}
-      items={ITEMS}
-      onSelect={() => {}}
-      onClose={onClose}
-    />)
+    render(<TaskMenu open anchor={<span>trigger</span>} items={ITEMS} onSelect={() => {}} onClose={onClose} />)
     fireEvent.blur(window)
     expect(onClose).not.toHaveBeenCalled()
     const iframe = document.createElement('iframe')
@@ -370,7 +336,9 @@ describe('TaskMenu', () => {
     render(<OpenMenu onSelect={() => {}} />)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Alpha' }))
     expect(screen.queryByRole('menu')).toBeNull()
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'trigger' }))
   })
 
@@ -378,9 +346,17 @@ describe('TaskMenu', () => {
     const elsewhere = document.createElement('button')
     document.body.append(elsewhere)
     try {
-      render(<OpenMenu onSelect={() => { elsewhere.focus() }} />)
+      render(
+        <OpenMenu
+          onSelect={() => {
+            elsewhere.focus()
+          }}
+        />,
+      )
       fireEvent.click(screen.getByRole('menuitem', { name: 'Alpha' }))
-      await act(async () => { await Promise.resolve() })
+      await act(async () => {
+        await Promise.resolve()
+      })
       expect(document.activeElement).toBe(elsewhere)
     } finally {
       elsewhere.remove()
@@ -394,7 +370,9 @@ describe('TaskMenu', () => {
     try {
       render(<OpenMenu onSelect={() => {}} />)
       fireEvent.click(screen.getByRole('menuitem', { name: 'Alpha' }))
-      await act(async () => { await Promise.resolve() })
+      await act(async () => {
+        await Promise.resolve()
+      })
     } finally {
       activeElement.mockRestore()
     }

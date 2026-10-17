@@ -178,7 +178,7 @@ export class WorkspaceFileSearch {
       promise: Promise.resolve([] as IndexedPath[]),
     } satisfies IndexGeneration
     generation.promise = this.scanWorkspace(controller.signal).then(
-      (entries) => {
+      entries => {
         /* v8 ignore next -- disposal aborts this traversal, so it reaches the
          * rejection handler instead; the guard only covers a scan that finished
          * its last directory in the instant before the abort landed, and must
@@ -212,9 +212,7 @@ export class WorkspaceFileSearch {
       // candidates, but an unreadable root means the traversal learned
       // nothing. Letting that settle would publish an empty index over
       // entries that are still good and leave no invalidation to retry from.
-      const entries = cursor === 0
-        ? await readWorkspaceRoot(directory.absolute, signal)
-        : await readDirectory(directory.absolute, signal)
+      const entries = cursor === 0 ? await readWorkspaceRoot(directory.absolute, signal) : await readDirectory(directory.absolute, signal)
       for (const entry of entries) {
         signal.throwIfAborted()
         const path = directory.relative === '' ? entry.name : `${directory.relative}/${entry.name}`
@@ -231,11 +229,7 @@ export class WorkspaceFileSearch {
     return indexed
   }
 
-  private async listDirectory(
-    displayDirectory: string,
-    fragment: string,
-    signal: AbortSignal,
-  ): Promise<FileReferenceCandidate[]> {
+  private async listDirectory(displayDirectory: string, fragment: string, signal: AbortSignal): Promise<FileReferenceCandidate[]> {
     if (displayDirectory.split('/').some(segment => this.excludedDirectories.has(segment))) return []
     const absolute = await resolveDisplayDirectory(this.root, displayDirectory, signal)
     if (absolute === undefined) return []
@@ -254,11 +248,7 @@ export class WorkspaceFileSearch {
   }
 }
 
-async function resolveDisplayDirectory(
-  root: string,
-  displayDirectory: string,
-  signal: AbortSignal,
-): Promise<string | undefined> {
+async function resolveDisplayDirectory(root: string, displayDirectory: string, signal: AbortSignal): Promise<string | undefined> {
   const resolvedRoot = resolve(root)
   const absolute = resolve(resolvedRoot, displayDirectory === '' ? '.' : displayDirectory)
   const fromRoot = relative(resolvedRoot, absolute)
@@ -309,21 +299,19 @@ function visibleForGlobalQuery(path: string, query: string): boolean {
   return !path.split('/').some(segment => segment.startsWith('.'))
 }
 
-function rankCandidates(
-  candidates: readonly FileReferenceCandidate[],
-  query: string,
-  limit: number,
-): FileReferenceCandidate[] {
+function rankCandidates(candidates: readonly FileReferenceCandidate[], query: string, limit: number): FileReferenceCandidate[] {
   const ranked: RankedPath[] = []
   for (const candidate of candidates) {
     const score = scoreCandidate(candidate, query)
     if (score !== undefined) ranked.push({ candidate, score })
   }
-  ranked.sort((left, right) =>
-    right.score - left.score
-    || kindRank(left.candidate.kind) - kindRank(right.candidate.kind)
-    || (query === '' ? 0 : left.candidate.path.length - right.candidate.path.length)
-    || compareText(left.candidate.path, right.candidate.path))
+  ranked.sort(
+    (left, right) =>
+      right.score - left.score ||
+      kindRank(left.candidate.kind) - kindRank(right.candidate.kind) ||
+      (query === '' ? 0 : left.candidate.path.length - right.candidate.path.length) ||
+      compareText(left.candidate.path, right.candidate.path),
+  )
   return ranked.slice(0, limit).map(entry => entry.candidate)
 }
 
@@ -367,10 +355,12 @@ function waitForPromise<T>(promise: Promise<T>, signal: AbortSignal): Promise<T>
   /* v8 ignore next -- `list()` checks this signal immediately before its synchronous call into this helper */
   if (signal.aborted) return Promise.reject(errorReason(signal.reason, 'file search aborted'))
   return new Promise<T>((resolvePromise, rejectPromise) => {
-    const onAbort = (): void => { rejectPromise(errorReason(signal.reason, 'file search aborted')) }
+    const onAbort = (): void => {
+      rejectPromise(errorReason(signal.reason, 'file search aborted'))
+    }
     signal.addEventListener('abort', onAbort, { once: true })
     promise.then(
-      (value) => {
+      value => {
         signal.removeEventListener('abort', onAbort)
         resolvePromise(value)
       },

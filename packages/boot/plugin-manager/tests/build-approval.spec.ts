@@ -2,20 +2,24 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { parse } from 'yaml'
 import { approveBuilds, recordPendingBuilds } from '../src/build-approval.ts'
 
 function fixture(text?: string) {
   const dir = mkdtempSync(join(tmpdir(), 'build-approval-'))
-  onTestFinished(() => { rmSync(dir, { recursive: true, force: true }) })
+  onTestFinished(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
   const filename = join(dir, 'pnpm-workspace.yaml')
   if (text !== undefined) writeFileSync(filename, text)
   return { dir, filename }
 }
 
 it('approves only named pending packages and preserves comments, decisions and settings', async () => {
-  const { dir, filename } = fixture('# profile settings\nother: &unrelated value\ncopy: *unrelated\nnodeLinker: hoisted\nallowBuilds:\n  native: set this to true or false\n  "@scope/other": set this to true or false\n  trusted: true\n  denied: false\n  "@scope/*": set this to true or false\n')
+  const { dir, filename } = fixture(
+    '# profile settings\nother: &unrelated value\ncopy: *unrelated\nnodeLinker: hoisted\nallowBuilds:\n  native: set this to true or false\n  "@scope/other": set this to true or false\n  trusted: true\n  denied: false\n  "@scope/*": set this to true or false\n',
+  )
   expect(await recordPendingBuilds(dir, '')).toEqual(['native', '@scope/other'])
   await approveBuilds(dir, ['native'])
   const text = readFileSync(filename, 'utf8')
@@ -24,7 +28,7 @@ it('approves only named pending packages and preserves comments, decisions and s
   expect(await recordPendingBuilds(dir, '')).toEqual(['@scope/other'])
 })
 
-it.each(['missing', 'denied', '*', '--all'])('rejects an unlisted approval atomically: %s', async (name) => {
+it.each(['missing', 'denied', '*', '--all'])('rejects an unlisted approval atomically: %s', async name => {
   const original = 'allowBuilds:\n  native: set this to true or false\n  denied: false\n'
   const { dir, filename } = fixture(original)
   await expect(approveBuilds(dir, ['native', name])).rejects.toThrow('stale-approval')
@@ -39,13 +43,16 @@ it('preserves pnpm file dependency selectors verbatim', async () => {
   expect(parse(readFileSync(filename, 'utf8'))).toEqual({ allowBuilds: { [name]: true } })
 })
 
-it.each([undefined, '{}\n', 'nodeLinker: hoisted\n', 'allowBuilds: {}\n'])('has no pending approval without pnpm placeholders: %s', async (text) => {
-  const { dir } = fixture(text)
-  expect(await recordPendingBuilds(dir, '')).toEqual([])
-  await approveBuilds(dir, [])
-})
+it.each([undefined, '{}\n', 'nodeLinker: hoisted\n', 'allowBuilds: {}\n'])(
+  'has no pending approval without pnpm placeholders: %s',
+  async text => {
+    const { dir } = fixture(text)
+    expect(await recordPendingBuilds(dir, '')).toEqual([])
+    await approveBuilds(dir, [])
+  },
+)
 
-it.each(['[', '[]\n', 'allowBuilds: false\n'])('rejects malformed workspace settings without rewriting them: %s', async (text) => {
+it.each(['[', '[]\n', 'allowBuilds: false\n'])('rejects malformed workspace settings without rewriting them: %s', async text => {
   const { dir, filename } = fixture(text)
   await expect(recordPendingBuilds(dir, '')).rejects.toThrow()
   await expect(approveBuilds(dir, ['native'])).rejects.toThrow()
@@ -62,7 +69,7 @@ it.each([
   'allowBuilds:\n  native: &pending set this to true or false\n  other: *pending\n',
   'allowBuilds: &builds\n  native: set this to true or false\nshared: *builds\n',
   'shared: &pending set this to true or false\nallowBuilds:\n  native: *pending\n',
-])('rejects shared YAML approval nodes without changing permissions: %s', async (original) => {
+])('rejects shared YAML approval nodes without changing permissions: %s', async original => {
   const { dir, filename } = fixture(original)
   await expect(approveBuilds(dir, ['native'])).rejects.toThrow()
   expect(readFileSync(filename, 'utf8')).toBe(original)
@@ -102,8 +109,7 @@ it.each([
 
 it('preserves approval keys that are not package names', async () => {
   const { dir, filename } = fixture('allowBuilds:\n  1: true\n')
-  expect(await recordPendingBuilds(dir, '[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: native@1.0.0\n'))
-    .toEqual(['native@1.0.0'])
+  expect(await recordPendingBuilds(dir, '[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: native@1.0.0\n')).toEqual(['native@1.0.0'])
   expect(parse(readFileSync(filename, 'utf8'))).toMatchObject({
     allowBuilds: { 1: true, 'native@1.0.0': 'set this to true or false' },
   })

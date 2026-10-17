@@ -29,15 +29,10 @@ import type {} from '@deepseek-ai/dsh-subprocess'
 import { launchedThroughSsh, launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import z from '@deepseek-ai/schemastery'
 import { OPEN_IN_APP_CATALOG, type OpenInAppApp } from './catalog.ts'
-import {
-  launchResolved, resolveLaunch, resolveOpenInAppApps,
-  type OpenInAppInternals, type OpenInAppResolvedLaunch,
-} from './resolver.ts'
+import { launchResolved, resolveLaunch, resolveOpenInAppApps, type OpenInAppInternals, type OpenInAppResolvedLaunch } from './resolver.ts'
 import { extractAppIcon, type OpenInAppIcon } from './icons.ts'
 import { internals } from './internals.ts'
-import {
-  OPEN_IN_APP_APPS_PATH, OPEN_IN_APP_ICON_PREFIX_PATH, OPEN_IN_APP_OPEN_PATH,
-} from './shared.ts'
+import { OPEN_IN_APP_APPS_PATH, OPEN_IN_APP_ICON_PREFIX_PATH, OPEN_IN_APP_OPEN_PATH } from './shared.ts'
 
 export type * from './shared.ts'
 
@@ -140,7 +135,7 @@ export function apply(ctx: Context, config: Config): void {
   /** Test-seam facts completed with the composition's PATH resolver. */
   const catalogInternals = (): OpenInAppInternals => ({
     ssh,
-    resolveExecutable: async (name) => {
+    resolveExecutable: async name => {
       try {
         return await ctx.subprocess.resolveExecutable(name)
       } catch {
@@ -154,7 +149,7 @@ export function apply(ctx: Context, config: Config): void {
   /** Lazy once-per-plugin-life resolution; the map is the mutable authority. */
   let resolutions: Promise<Map<string, OpenInAppResolvedLaunch>> | undefined
   const availability = (): Promise<Map<string, OpenInAppResolvedLaunch>> =>
-    resolutions ??= resolveOpenInAppApps(config.probeTimeoutMs, catalogInternals())
+    (resolutions ??= resolveOpenInAppApps(config.probeTimeoutMs, catalogInternals()))
   /** Per-app icon promise cache (null = resolved as unavailable). */
   const icons = new Map<string, Promise<OpenInAppIcon | null>>()
   const iconOf = (app: OpenInAppApp, resolved: OpenInAppResolvedLaunch): Promise<OpenInAppIcon | null> => {
@@ -190,122 +185,134 @@ export function apply(ctx: Context, config: Config): void {
     return true
   }
 
-  ctx.effect(() => ctx.webServer.register({
-    kind: 'exact',
-    path: OPEN_IN_APP_APPS_PATH,
-    handler: async (req, res) => {
-      if (rejected(req, res)) return
-      if (req.method !== 'GET') {
-        sendMethodNotAllowed(res, 'GET')
-        return
-      }
-      sendJson(res, 200, { apps: [...(await availability()).keys()] })
-    },
-  }), `open-in-app: GET ${OPEN_IN_APP_APPS_PATH}`)
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: 'exact',
+        path: OPEN_IN_APP_APPS_PATH,
+        handler: async (req, res) => {
+          if (rejected(req, res)) return
+          if (req.method !== 'GET') {
+            sendMethodNotAllowed(res, 'GET')
+            return
+          }
+          sendJson(res, 200, { apps: [...(await availability()).keys()] })
+        },
+      }),
+    `open-in-app: GET ${OPEN_IN_APP_APPS_PATH}`,
+  )
 
-  ctx.effect(() => ctx.webServer.register({
-    kind: 'prefix',
-    path: OPEN_IN_APP_ICON_PREFIX_PATH,
-    handler: async (req, res) => {
-      if (rejected(req, res)) return
-      if (req.method !== 'GET') {
-        sendMethodNotAllowed(res, 'GET')
-        return
-      }
-      // Node always sets url on server requests; String keeps that fact local.
-      const pathname = new URL(String(req.url), 'http://localhost').pathname
-      const id = pathname.slice(OPEN_IN_APP_ICON_PREFIX_PATH.length).replace(/^\//, '')
-      const noIcon = (): void => { sendJson(res, 404, { code: 'not-found', message: `no icon for ${id}` }) }
-      const app = OPEN_IN_APP_CATALOG.find(entry => entry.id === id)
-      if (app === undefined) {
-        noIcon()
-        return
-      }
-      const resolved = (await availability()).get(app.id)
-      if (resolved === undefined) {
-        noIcon()
-        return
-      }
-      const icon = await iconOf(app, resolved)
-      if (icon === null) {
-        noIcon()
-        return
-      }
-      res.statusCode = 200
-      res.setHeader('content-type', icon.contentType)
-      res.setHeader('cache-control', 'public, max-age=3600')
-      res.end(icon.bytes)
-    },
-  }), `open-in-app: GET ${OPEN_IN_APP_ICON_PREFIX_PATH}/<id>`)
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: 'prefix',
+        path: OPEN_IN_APP_ICON_PREFIX_PATH,
+        handler: async (req, res) => {
+          if (rejected(req, res)) return
+          if (req.method !== 'GET') {
+            sendMethodNotAllowed(res, 'GET')
+            return
+          }
+          // Node always sets url on server requests; String keeps that fact local.
+          const pathname = new URL(String(req.url), 'http://localhost').pathname
+          const id = pathname.slice(OPEN_IN_APP_ICON_PREFIX_PATH.length).replace(/^\//, '')
+          const noIcon = (): void => {
+            sendJson(res, 404, { code: 'not-found', message: `no icon for ${id}` })
+          }
+          const app = OPEN_IN_APP_CATALOG.find(entry => entry.id === id)
+          if (app === undefined) {
+            noIcon()
+            return
+          }
+          const resolved = (await availability()).get(app.id)
+          if (resolved === undefined) {
+            noIcon()
+            return
+          }
+          const icon = await iconOf(app, resolved)
+          if (icon === null) {
+            noIcon()
+            return
+          }
+          res.statusCode = 200
+          res.setHeader('content-type', icon.contentType)
+          res.setHeader('cache-control', 'public, max-age=3600')
+          res.end(icon.bytes)
+        },
+      }),
+    `open-in-app: GET ${OPEN_IN_APP_ICON_PREFIX_PATH}/<id>`,
+  )
 
-  ctx.effect(() => ctx.webServer.register({
-    kind: 'exact',
-    path: OPEN_IN_APP_OPEN_PATH,
-    handler: async (req, res) => {
-      if (rejected(req, res)) return
-      if (req.method !== 'POST') {
-        sendMethodNotAllowed(res, 'POST')
-        return
-      }
-      // Body-format validation: the essence must be exactly application/json.
-      // String(undefined) is 'undefined', which never matches.
-      const essence = String(req.headers['content-type']).split(';', 1)[0]?.trim().toLowerCase()
-      if (essence !== 'application/json') {
-        sendJson(res, 415, { code: 'unsupported-media-type', message: 'content-type must be application/json' })
-        return
-      }
-      let text: string | null
-      try {
-        text = await readBoundedBody(req)
-      } catch {
-        // Swallows connection errors mid-body: there is nothing left to answer precisely.
-        sendJson(res, 400, { code: 'bad-request', message: 'request body unreadable' })
-        return
-      }
-      if (text === null) {
-        sendJson(res, 413, { code: 'payload-too-large', message: 'request body is too large' })
-        return
-      }
-      const parsed = parseOpenBody(text)
-      if (parsed === null) {
-        sendJson(res, 400, { code: 'bad-request', message: 'request body must be JSON with string "app" and "path"' })
-        return
-      }
-      const app = OPEN_IN_APP_CATALOG.find(entry => entry.id === parsed.app)
-      const resolved = app === undefined ? undefined : (await availability()).get(app.id)
-      if (app === undefined || resolved === undefined) {
-        sendJson(res, 400, { code: 'bad-request', message: `unknown or unavailable app: ${parsed.app}` })
-        return
-      }
-      if (parsed.path === '' || !isAbsolute(parsed.path)) {
-        sendJson(res, 400, { code: 'bad-request', message: 'path must be an absolute directory path' })
-        return
-      }
-      let directory: boolean
-      try {
-        directory = (await stat(parsed.path)).isDirectory()
-      } catch {
-        // Swallows ENOENT/EACCES: both mean there is no directory to open.
-        directory = false
-      }
-      if (!directory) {
-        sendJson(res, 404, { code: 'not-found', message: `directory does not exist: ${parsed.path}` })
-        return
-      }
-      let outcome = await launchResolved(resolved, parsed.path, config.launchWatchMs, catalogInternals())
-      if (outcome === 'missing') {
-        // The verified launcher is gone (uninstalled since resolution):
-        // refresh this one entry and retry once with the fresh launcher.
-        const fresh = await refreshResolution(app)
-        outcome = fresh === undefined
-          ? 'failed'
-          : await launchResolved(fresh, parsed.path, config.launchWatchMs, catalogInternals())
-      }
-      if (outcome === 'launched') {
-        sendJson(res, 200, { ok: true })
-      } else {
-        sendJson(res, 502, { code: 'launch-failed', message: `failed to launch ${app.id}` })
-      }
-    },
-  }), `open-in-app: POST ${OPEN_IN_APP_OPEN_PATH}`)
+  ctx.effect(
+    () =>
+      ctx.webServer.register({
+        kind: 'exact',
+        path: OPEN_IN_APP_OPEN_PATH,
+        handler: async (req, res) => {
+          if (rejected(req, res)) return
+          if (req.method !== 'POST') {
+            sendMethodNotAllowed(res, 'POST')
+            return
+          }
+          // Body-format validation: the essence must be exactly application/json.
+          // String(undefined) is 'undefined', which never matches.
+          const essence = String(req.headers['content-type']).split(';', 1)[0]?.trim().toLowerCase()
+          if (essence !== 'application/json') {
+            sendJson(res, 415, { code: 'unsupported-media-type', message: 'content-type must be application/json' })
+            return
+          }
+          let text: string | null
+          try {
+            text = await readBoundedBody(req)
+          } catch {
+            // Swallows connection errors mid-body: there is nothing left to answer precisely.
+            sendJson(res, 400, { code: 'bad-request', message: 'request body unreadable' })
+            return
+          }
+          if (text === null) {
+            sendJson(res, 413, { code: 'payload-too-large', message: 'request body is too large' })
+            return
+          }
+          const parsed = parseOpenBody(text)
+          if (parsed === null) {
+            sendJson(res, 400, { code: 'bad-request', message: 'request body must be JSON with string "app" and "path"' })
+            return
+          }
+          const app = OPEN_IN_APP_CATALOG.find(entry => entry.id === parsed.app)
+          const resolved = app === undefined ? undefined : (await availability()).get(app.id)
+          if (app === undefined || resolved === undefined) {
+            sendJson(res, 400, { code: 'bad-request', message: `unknown or unavailable app: ${parsed.app}` })
+            return
+          }
+          if (parsed.path === '' || !isAbsolute(parsed.path)) {
+            sendJson(res, 400, { code: 'bad-request', message: 'path must be an absolute directory path' })
+            return
+          }
+          let directory: boolean
+          try {
+            directory = (await stat(parsed.path)).isDirectory()
+          } catch {
+            // Swallows ENOENT/EACCES: both mean there is no directory to open.
+            directory = false
+          }
+          if (!directory) {
+            sendJson(res, 404, { code: 'not-found', message: `directory does not exist: ${parsed.path}` })
+            return
+          }
+          let outcome = await launchResolved(resolved, parsed.path, config.launchWatchMs, catalogInternals())
+          if (outcome === 'missing') {
+            // The verified launcher is gone (uninstalled since resolution):
+            // refresh this one entry and retry once with the fresh launcher.
+            const fresh = await refreshResolution(app)
+            outcome = fresh === undefined ? 'failed' : await launchResolved(fresh, parsed.path, config.launchWatchMs, catalogInternals())
+          }
+          if (outcome === 'launched') {
+            sendJson(res, 200, { ok: true })
+          } else {
+            sendJson(res, 502, { code: 'launch-failed', message: `failed to launch ${app.id}` })
+          }
+        },
+      }),
+    `open-in-app: POST ${OPEN_IN_APP_OPEN_PATH}`,
+  )
 }

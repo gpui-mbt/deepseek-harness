@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import type { AttachmentStore, ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import {
@@ -33,7 +33,7 @@ function image(bytes: number, offloaded?: true): Extract<ContentBlock, { type: '
       width: 1,
       height: 1,
     },
-    ...offloaded === undefined ? {} : { offloaded },
+    ...(offloaded === undefined ? {} : { offloaded }),
   }
 }
 
@@ -54,10 +54,12 @@ describe('requiredImageOffload traversal', () => {
       }),
       createUserMessage({ content: [image(3)], source }),
     ]
-    expect(requiredImageOffload(messages, { representation: 'raw', maxImages: 0 }, (block) => {
-      seen.push(block.attachment.bytes)
-      return block.attachment.bytes
-    })).toBe(4)
+    expect(
+      requiredImageOffload(messages, { representation: 'raw', maxImages: 0 }, block => {
+        seen.push(block.attachment.bytes)
+        return block.attachment.bytes
+      }),
+    ).toBe(4)
     expect(seen).toEqual([1, 2, 4, 3])
   })
 })
@@ -65,11 +67,12 @@ describe('requiredImageOffload traversal', () => {
 describe('projectOffloadedImages', () => {
   it('keeps request-only inputs identity-free when replacing image content', () => {
     const input: RequestUserInput = { role: 'user', content: [image(3, true)] }
-    expect(projectOffloadedImages([input], () => OMITTED)).toEqual([
-      { role: 'user', content: [{ type: 'text', text: OMITTED }] },
-    ])
+    expect(projectOffloadedImages([input], () => OMITTED)).toEqual([{ role: 'user', content: [{ type: 'text', text: OMITTED }] }])
     expect(projectImagesForTextModel([input])).toEqual([
-      { role: 'user', content: [{ type: 'text', text: '[image omitted because this model accepts text only; attachment sha256:aaaaaaaa]' }] },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: '[image omitted because this model accepts text only; attachment sha256:aaaaaaaa]' }],
+      },
     ])
     expect(input.content).toEqual([image(3, true)])
   })
@@ -109,10 +112,12 @@ describe('projectOffloadedImages', () => {
 })
 
 describe('requiredImageOffload', () => {
-  const request = (lengths: number[], offloaded: number[] = []) => [createUserMessage({
-    content: lengths.map((bytes, index) => image(bytes, offloaded.includes(index) ? true : undefined)),
-    source,
-  })]
+  const request = (lengths: number[], offloaded: number[] = []) => [
+    createUserMessage({
+      content: lengths.map((bytes, index) => image(bytes, offloaded.includes(index) ? true : undefined)),
+      source,
+    }),
+  ]
   const bytesOf = (block: Extract<ContentBlock, { type: 'image' }>): number => block.attachment.bytes
   const raw = { representation: 'raw' as const }
 
@@ -161,10 +166,10 @@ describe('model-facing image access', () => {
       hasAlpha: true,
     }
     expect(requestImageHandleText(attachment, version, access)).toBe(
-      `Image "source \\"map\\".png" (${attachment.attachmentId}); request preview 923x692px.`
-      + ' Normalized copy (read-only; may be resized or re-encoded): "/tmp/.dsh/attachments/v1/objects/bb/object" (2048x1536px, image/png).'
-      + ' Source dimensions, format, and byte size may differ.'
-      + ' Copy to a writable path ending in .png before editing.',
+      `Image "source \\"map\\".png" (${attachment.attachmentId}); request preview 923x692px.` +
+        ' Normalized copy (read-only; may be resized or re-encoded): "/tmp/.dsh/attachments/v1/objects/bb/object" (2048x1536px, image/png).' +
+        ' Source dimensions, format, and byte size may differ.' +
+        ' Copy to a writable path ending in .png before editing.',
     )
   })
 
@@ -173,24 +178,13 @@ describe('model-facing image access', () => {
     const attachments = {
       imageHostPath: () => '/host/.dsh/attachments/object',
     } as unknown as AttachmentStore
-    const mapped = (hostPath: string): string | undefined => hostPath === '/host/.dsh/attachments/object'
-      ? '/workspace/.attachments/object'
-      : undefined
-    expect(resolveImageAttachmentAccess(
-      attachments,
-      mapped,
-      attachment,
-    )).toEqual({ readonlyPath: '/workspace/.attachments/object' })
-    expect(resolveImageAttachmentAccess(
-      attachments,
-      () => undefined,
-      attachment,
-    )).toBeUndefined()
-    expect(resolveImageAttachmentAccess(
-      { imageHostPath: () => undefined } as unknown as AttachmentStore,
-      mapped,
-      attachment,
-    )).toBeUndefined()
+    const mapped = (hostPath: string): string | undefined =>
+      hostPath === '/host/.dsh/attachments/object' ? '/workspace/.attachments/object' : undefined
+    expect(resolveImageAttachmentAccess(attachments, mapped, attachment)).toEqual({ readonlyPath: '/workspace/.attachments/object' })
+    expect(resolveImageAttachmentAccess(attachments, () => undefined, attachment)).toBeUndefined()
+    expect(
+      resolveImageAttachmentAccess({ imageHostPath: () => undefined } as unknown as AttachmentStore, mapped, attachment),
+    ).toBeUndefined()
   })
 
   it('names each occurrence from its own reference when one prepared version is shared', () => {
@@ -214,8 +208,7 @@ describe('model-facing image access', () => {
       space: 'srgb' as const,
       hasAlpha: false,
     }
-    expect(requestImageHandleText({ ...attachment, name: 'first.png' }, version))
-      .toContain('"first.png"')
+    expect(requestImageHandleText({ ...attachment, name: 'first.png' }, version)).toContain('"first.png"')
   })
 
   it('keeps a useful omission identity with and without a local path', () => {
@@ -229,10 +222,10 @@ describe('model-facing image access', () => {
     }
     expect(offloadedImageText(ref)).toContain('No local normalized image path is available')
     expect(offloadedImageText(ref, { readonlyPath: '/tmp/object' })).toBe(
-      `[image omitted to fit request image limits; "photo.jpg" (${ref.attachmentId}).`
-      + ' Normalized copy (read-only; may be resized or re-encoded): "/tmp/object" (10x5px, image/jpeg).'
-      + ' Source dimensions, format, and byte size may differ.'
-      + ' Copy to a writable path ending in .jpg before editing.]',
+      `[image omitted to fit request image limits; "photo.jpg" (${ref.attachmentId}).` +
+        ' Normalized copy (read-only; may be resized or re-encoded): "/tmp/object" (10x5px, image/jpeg).' +
+        ' Source dimensions, format, and byte size may differ.' +
+        ' Copy to a writable path ending in .jpg before editing.]',
     )
   })
 
@@ -249,8 +242,7 @@ describe('model-facing image access', () => {
       width: 1,
       height: 1,
     }
-    expect(offloadedImageText(ref, { readonlyPath: '/tmp/object' }))
-      .toContain(`writable path ending in ${suffix}`)
+    expect(offloadedImageText(ref, { readonlyPath: '/tmp/object' })).toContain(`writable path ending in ${suffix}`)
   })
 
   it('rejects a media type that escaped the closed union at runtime', () => {
@@ -261,8 +253,7 @@ describe('model-facing image access', () => {
       width: 1,
       height: 1,
     }
-    expect(() => offloadedImageText(ref, { readonlyPath: '/tmp/object' }))
-      .toThrow('unreachable variant in image extension: "image/tiff"')
+    expect(() => offloadedImageText(ref, { readonlyPath: '/tmp/object' })).toThrow('unreachable variant in image extension: "image/tiff"')
   })
 })
 
@@ -270,11 +261,13 @@ describe('projectImagesForTextModel', () => {
   it('returns image-free history unchanged', () => {
     const messages = [createUserMessage({ content: [{ type: 'text', text: 'plain' }], source })]
     expect(projectImagesForTextModel(messages)).toBe(messages)
-    const results = [createToolResultMessage({
-      callId: ToolCallId('plain-result'),
-      content: messages[0]!.content,
-      isError: false,
-    })]
+    const results = [
+      createToolResultMessage({
+        callId: ToolCallId('plain-result'),
+        content: messages[0]!.content,
+        isError: false,
+      }),
+    ]
     expect(projectImagesForTextModel(results)).toBe(results)
   })
 
@@ -291,11 +284,7 @@ describe('projectImagesForTextModel', () => {
     })
     const visualTool = createToolResultMessage({
       callId: ToolCallId('nested-image'),
-      content: [
-        { type: 'text', text: 'before' },
-        image(3),
-        { type: 'text', text: 'after' },
-      ],
+      content: [{ type: 'text', text: 'before' }, image(3), { type: 'text', text: 'after' }],
       isError: false,
     })
 
@@ -374,10 +363,7 @@ describe('file projection', () => {
     const messages = [
       plain[0]!,
       createUserMessage({
-        content: [
-          fileBlock('top.csv'),
-          { type: 'text', text: 'keep' },
-        ],
+        content: [fileBlock('top.csv'), { type: 'text', text: 'keep' }],
         source,
       }),
       createToolResultMessage({
@@ -407,7 +393,8 @@ describe('projectToolUpdates', () => {
   const fetch: ToolSchema = { name: 'fetch', description: 'Fetch', parameters: {} }
   const developer = (content: ContentBlock[]) => createDeveloperMessage({ source, content })
   const prompt = createUserMessage({ source, content: [{ type: 'text', text: 'hi' }] })
-  const roles = (messages: readonly RequestMessage[]) => messages.filter(message => message.role === 'developer').map(message => message.content)
+  const roles = (messages: readonly RequestMessage[]) =>
+    messages.filter(message => message.role === 'developer').map(message => message.content)
 
   it('returns the input history and tools by identity when nothing is projected', () => {
     const messages = [prompt]
@@ -430,25 +417,26 @@ describe('projectToolUpdates', () => {
     expect(projectToolUpdates([prompt], undefined, undefined, history).tools).toBeUndefined()
   })
 
-  it.each(['addition-only', 'in-history'] as const)('activates explicitly deferred baseline tools on %s routes', (mode) => {
+  it.each(['addition-only', 'in-history'] as const)('activates explicitly deferred baseline tools on %s routes', mode => {
     const deferred = { ...search, deferLoading: true as const }
     const added = developer([{ type: 'tool-addition', toolName: 'search' }])
     const duplicate = developer([{ type: 'tool-addition', toolName: 'search' }])
     const removed = developer([{ type: 'tool-removal', toolName: 'search' }])
     const restored = developer([{ type: 'tool-addition', toolName: 'search' }])
-    const history: ToolHistory = { tools: [deferred], updates: [
-      { messageId: added.id, additions: [deferred] },
-      { messageId: duplicate.id, additions: [deferred] },
-      { messageId: removed.id, additions: [] },
-      { messageId: restored.id, additions: [deferred] },
-    ] }
+    const history: ToolHistory = {
+      tools: [deferred],
+      updates: [
+        { messageId: added.id, additions: [deferred] },
+        { messageId: duplicate.id, additions: [deferred] },
+        { messageId: removed.id, additions: [] },
+        { messageId: restored.id, additions: [deferred] },
+      ],
+    }
 
     const projected = projectToolUpdates([prompt, added, duplicate, removed, restored], [deferred], mode, history)
 
     expect(projected.tools).toEqual([deferred])
-    expect(projected.messages).toEqual(mode === 'in-history'
-      ? [prompt, added, removed, restored]
-      : [prompt, added])
+    expect(projected.messages).toEqual(mode === 'in-history' ? [prompt, added, removed, restored] : [prompt, added])
   })
 
   it('uses current declarations without updates when history is missing or the prefix omits an update', () => {
@@ -475,32 +463,50 @@ describe('projectToolUpdates', () => {
   })
 
   it('defers historical additions and retains removed definitions for in-history routes', () => {
-    const added = developer([{ type: 'tool-addition', toolName: 'fetch' }, { type: 'text', text: 'fetch is available' }])
+    const added = developer([
+      { type: 'tool-addition', toolName: 'fetch' },
+      { type: 'text', text: 'fetch is available' },
+    ])
     const removed = developer([{ type: 'tool-removal', toolName: 'search' }])
-    const history: ToolHistory = { tools: [search], updates: [
-      { messageId: added.id, additions: [fetch] },
-      { messageId: removed.id, additions: [] },
-    ] }
+    const history: ToolHistory = {
+      tools: [search],
+      updates: [
+        { messageId: added.id, additions: [fetch] },
+        { messageId: removed.id, additions: [] },
+      ],
+    }
     const projected = projectToolUpdates([prompt, added, prompt, removed, prompt], [fetch], 'in-history', history)
     expect(projected.tools).toEqual([search, { ...fetch, deferLoading: true }])
     expect(projected.messages[1]).toBe(added)
     expect(roles(projected.messages)).toEqual([
-      [{ type: 'tool-addition', toolName: 'fetch' }, { type: 'text', text: 'fetch is available' }],
+      [
+        { type: 'tool-addition', toolName: 'fetch' },
+        { type: 'text', text: 'fetch is available' },
+      ],
       [{ type: 'tool-removal', toolName: 'search' }],
     ])
   })
 
   it('omits removed definitions and removal blocks for addition-only routes', () => {
-    const swapped = developer([{ type: 'tool-addition', toolName: 'fetch' }, { type: 'tool-removal', toolName: 'search' }])
+    const swapped = developer([
+      { type: 'tool-addition', toolName: 'fetch' },
+      { type: 'tool-removal', toolName: 'search' },
+    ])
     const removed = developer([{ type: 'tool-removal', toolName: 'fetch' }])
-    const history: ToolHistory = { tools: [search], updates: [
-      { messageId: swapped.id, additions: [fetch] },
-      { messageId: removed.id, additions: [] },
-    ] }
+    const history: ToolHistory = {
+      tools: [search],
+      updates: [
+        { messageId: swapped.id, additions: [fetch] },
+        { messageId: removed.id, additions: [] },
+      ],
+    }
     const projected = projectToolUpdates([prompt, swapped, prompt, removed, prompt], [], 'addition-only', history)
     expect(projected.tools).toEqual([])
     expect(projected.messages).toEqual([prompt, prompt, prompt])
-    const partial = projectToolUpdates([prompt, swapped, prompt], [fetch], 'addition-only', { tools: [search], updates: [history.updates[0]!] })
+    const partial = projectToolUpdates([prompt, swapped, prompt], [fetch], 'addition-only', {
+      tools: [search],
+      updates: [history.updates[0]!],
+    })
     expect(partial.tools).toEqual([{ ...fetch, deferLoading: true }])
     expect(partial.messages[1]).not.toBe(swapped)
     expect(roles(partial.messages)).toEqual([[{ type: 'tool-addition', toolName: 'fetch' }]])
@@ -509,10 +515,13 @@ describe('projectToolUpdates', () => {
   it('re-offers an unchanged restored tool through its recorded blocks', () => {
     const removed = developer([{ type: 'tool-removal', toolName: 'search' }])
     const restored = developer([{ type: 'tool-addition', toolName: 'search' }])
-    const history: ToolHistory = { tools: [search, fetch], updates: [
-      { messageId: removed.id, additions: [] },
-      { messageId: restored.id, additions: [search] },
-    ] }
+    const history: ToolHistory = {
+      tools: [search, fetch],
+      updates: [
+        { messageId: removed.id, additions: [] },
+        { messageId: restored.id, additions: [search] },
+      ],
+    }
     const messages = [prompt, removed, prompt, restored, prompt]
     const inHistory = projectToolUpdates(messages, [search, fetch], 'in-history', history)
     expect(inHistory.tools).toEqual([search, fetch])
@@ -529,11 +538,14 @@ describe('projectToolUpdates', () => {
     const added = developer([{ type: 'tool-addition', toolName: 'fetch' }])
     const removed = developer([{ type: 'tool-removal', toolName: 'fetch' }])
     const restored = developer([{ type: 'tool-addition', toolName: 'fetch' }])
-    const history: ToolHistory = { tools: [search], updates: [
-      { messageId: added.id, additions: [fetch] },
-      { messageId: removed.id, additions: [] },
-      { messageId: restored.id, additions: [fetch] },
-    ] }
+    const history: ToolHistory = {
+      tools: [search],
+      updates: [
+        { messageId: added.id, additions: [fetch] },
+        { messageId: removed.id, additions: [] },
+        { messageId: restored.id, additions: [fetch] },
+      ],
+    }
     const messages = [prompt, added, prompt, removed, prompt, restored, prompt]
     const inHistory = projectToolUpdates(messages, [search, fetch], 'in-history', history)
     expect(inHistory.tools).toEqual([search, { ...fetch, deferLoading: true }])

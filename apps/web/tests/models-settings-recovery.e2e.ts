@@ -4,18 +4,24 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  captureStableAria, compareOrRefreshGolden, launchWebScaffold,
-  watchConsole, webSnapshotMode, type WebScaffold,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { openSettings, saveFailureShot, ZH_BROWSER_LOCALE } from './support.ts'
 
 const EXPECTED = fileURLToPath(new URL('./expected/models-settings-recovery/stored-error.expected.md', import.meta.url))
-const FAILURE = 'llm-pi-ai: provider "openrouter" model "111" needs an api; '
-  + 'the installed catalog does not describe it, so set the route\'s api to the wire protocol its endpoint speaks'
-const CUSTOM_FAILURE = 'llm-pi-ai: provider "acme-gateway" model "custom-model" needs an api; '
-  + 'the installed catalog does not describe it, so set the route\'s api to the wire protocol its endpoint speaks'
+const FAILURE =
+  'llm-pi-ai: provider "openrouter" model "111" needs an api; ' +
+  "the installed catalog does not describe it, so set the route's api to the wire protocol its endpoint speaks"
+const CUSTOM_FAILURE =
+  'llm-pi-ai: provider "acme-gateway" model "custom-model" needs an api; ' +
+  "the installed catalog does not describe it, so set the route's api to the wire protocol its endpoint speaks"
 
 describe('web e2e: repairs a stored provider after catalog drift', () => {
   let home: string
@@ -27,11 +33,23 @@ describe('web e2e: repairs a stored provider after catalog drift', () => {
   beforeAll(async () => {
     home = await mkdtemp(join(tmpdir(), 'dsh-models-recovery-'))
     await mkdir(join(home, 'profiles', 'scaffold'), { recursive: true })
-    await writeFile(join(home, 'profiles', 'scaffold', 'cordis.patch.yml'), [
-      '- id: llm-pi-ai', '  config:', '    providers:', '      openrouter:', '        models:',
-      '          - id: "111"', '      zai: {}', '      acme-gateway:',
-      '        baseURL: https://gateway.example/v1', '        models:', '          - id: "custom-model"', '',
-    ].join('\n'))
+    await writeFile(
+      join(home, 'profiles', 'scaffold', 'cordis.patch.yml'),
+      [
+        '- id: llm-pi-ai',
+        '  config:',
+        '    providers:',
+        '      openrouter:',
+        '        models:',
+        '          - id: "111"',
+        '      zai: {}',
+        '      acme-gateway:',
+        '        baseURL: https://gateway.example/v1',
+        '        models:',
+        '          - id: "custom-model"',
+        '',
+      ].join('\n'),
+    )
     scaffold = await launchWebScaffold({ harnessHome: home })
     browser = await chromium.launch()
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })

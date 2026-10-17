@@ -6,11 +6,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { PROFILE_TEMPLATES } from '@deepseek-ai/dsh-app-boot'
-import {
-  computeTranslationPairingRecord,
-  renderTranslationPairingRecord,
-  translationPairPaths,
-} from './translation-pairing-record.ts'
+import { computeTranslationPairingRecord, renderTranslationPairingRecord, translationPairPaths } from './translation-pairing-record.ts'
 import { parseTranslationPairingManifest, translationPairSourcePredicate } from './translation-pairing.ts'
 import { defaultParallelism } from './parallelism.ts'
 
@@ -110,7 +106,9 @@ export function prefetchHelp(
       return
     }
     // release() hands its slot to the oldest waiter without decrementing `active`.
-    await new Promise<void>((resolveSlot) => { waiting.push(resolveSlot) })
+    await new Promise<void>(resolveSlot => {
+      waiting.push(resolveSlot)
+    })
   }
   const release = (): void => {
     const next = waiting.shift()
@@ -128,12 +126,17 @@ export function prefetchHelp(
       }
     })()
     // Attaching this handler also keeps an unconsumed rejection from surfacing as unhandled.
-    settled.push(result.then(() => undefined, () => undefined))
+    settled.push(
+      result.then(
+        () => undefined,
+        () => undefined,
+      ),
+    )
     return result
   }
   const prefetched = new Map(prefetch.map(args => [JSON.stringify(args), start(args)]))
   return {
-    readHelp: (args) => {
+    readHelp: args => {
       const key = JSON.stringify(args)
       const result = prefetched.get(key)
       if (result === undefined) return start(args)
@@ -154,7 +157,8 @@ export function prefetchHelp(
  * @returns distinct help pages with every discovered invocation and nested command.
  */
 export async function collectCliHelp(
-  readHelp: (args: readonly string[]) => Promise<string>, profiles: readonly string[],
+  readHelp: (args: readonly string[]) => Promise<string>,
+  profiles: readonly string[],
 ): Promise<HelpPage[]> {
   const pages = new Map<string, HelpPage>()
   const visit = async (args: string[], path: ReadonlySet<HelpPage>): Promise<HelpPage> => {
@@ -180,34 +184,42 @@ async function collectHelp(): Promise<HelpPage[]> {
   const directory = mkdtempSync(join(tmpdir(), 'dsh-cli-help-'))
   const profiles = Object.keys(PROFILE_TEMPLATES)
   // Concurrent profile boots share the repository worker budget.
-  const reader = prefetchHelp(async (args, signal) => {
-    // Each invocation boots against its own empty Harness and agents homes.
-    const home = mkdtempSync(join(directory, 'invocation-'))
-    const environment = {
-      ...process.env,
-      DSH_HOME: join(home, 'harness'),
-      DSH_AGENTS_HOME: join(home, 'agents'),
-      DSH_TELEMETRY_DISABLED: '1',
-      NO_COLOR: '1',
-    }
-    for (const name of ['NODE_OPTIONS', 'FORCE_COLOR']) Reflect.deleteProperty(environment, name)
-    const help = execFileAsync(process.execPath, [
-      '--import', 'tsx/esm', 'apps/cli/src/bin.ts', ...args, '--help',
-    ], {
-      cwd: root, env: environment, encoding: 'utf8', timeout: 30_000,
-      killSignal: 'SIGKILL', maxBuffer: 2 * 1024 * 1024,
-    })
-    // Killing directly, not through execFile's signal option, settles the read only after the child closes.
-    const abort = (): void => { help.child.kill('SIGKILL') }
-    signal.addEventListener('abort', abort, { once: true })
-    try {
-      const { stdout, stderr } = await help
-      if (stderr !== '') throw new Error(`${['dsh', ...args].join(' ')} --help wrote diagnostics: ${stderr}`)
-      return stdout
-    } finally {
-      signal.removeEventListener('abort', abort)
-    }
-  }, topLevelHelpArgs(profiles), defaultParallelism())
+  const reader = prefetchHelp(
+    async (args, signal) => {
+      // Each invocation boots against its own empty Harness and agents homes.
+      const home = mkdtempSync(join(directory, 'invocation-'))
+      const environment = {
+        ...process.env,
+        DSH_HOME: join(home, 'harness'),
+        DSH_AGENTS_HOME: join(home, 'agents'),
+        DSH_TELEMETRY_DISABLED: '1',
+        NO_COLOR: '1',
+      }
+      for (const name of ['NODE_OPTIONS', 'FORCE_COLOR']) Reflect.deleteProperty(environment, name)
+      const help = execFileAsync(process.execPath, ['--import', 'tsx/esm', 'apps/cli/src/bin.ts', ...args, '--help'], {
+        cwd: root,
+        env: environment,
+        encoding: 'utf8',
+        timeout: 30_000,
+        killSignal: 'SIGKILL',
+        maxBuffer: 2 * 1024 * 1024,
+      })
+      // Killing directly, not through execFile's signal option, settles the read only after the child closes.
+      const abort = (): void => {
+        help.child.kill('SIGKILL')
+      }
+      signal.addEventListener('abort', abort, { once: true })
+      try {
+        const { stdout, stderr } = await help
+        if (stderr !== '') throw new Error(`${['dsh', ...args].join(' ')} --help wrote diagnostics: ${stderr}`)
+        return stdout
+      } finally {
+        signal.removeEventListener('abort', abort)
+      }
+    },
+    topLevelHelpArgs(profiles),
+    defaultParallelism(),
+  )
   try {
     return await collectCliHelp(reader.readHelp, profiles)
   } finally {
@@ -220,7 +232,10 @@ async function collectHelp(): Promise<HelpPage[]> {
 }
 
 function anchor(page: HelpPage): string {
-  return page.invocations[0].replaceAll(/[^a-zA-Z0-9]+/gu, '-').replace(/-$/u, '').toLowerCase()
+  return page.invocations[0]
+    .replaceAll(/[^a-zA-Z0-9]+/gu, '-')
+    .replace(/-$/u, '')
+    .toLowerCase()
 }
 
 function renderHelp(pages: readonly HelpPage[], chinese: boolean): string {
@@ -267,13 +282,13 @@ export async function main(): Promise<void> {
   const written = new Set([paths.source, paths.zh])
   const context = {
     repoRoot: root,
-    isTranslationPairSource: translationPairSourcePredicate(parseTranslationPairingManifest(
-      readFileSync(resolve(root, 'scripts/translation-pairing.manifest.json'), 'utf8'),
-    )),
+    isTranslationPairSource: translationPairSourcePredicate(
+      parseTranslationPairingManifest(readFileSync(resolve(root, 'scripts/translation-pairing.manifest.json'), 'utf8')),
+    ),
     // Resolve links between the two pages as this run writes them, so a first run
     // records the same hashes that verify-translation-pairing computes afterward.
-    repositoryFileExists: (path: string) => written.has(path)
-      || existsSync(resolve(root, path)) && statSync(resolve(root, path)).isFile(),
+    repositoryFileExists: (path: string) =>
+      written.has(path) || (existsSync(resolve(root, path)) && statSync(resolve(root, path)).isFile()),
   }
   const outputs = new Map([
     [paths.source, source],

@@ -7,15 +7,25 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed, onTestFinished } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed, onTestFinished } from 'vite-plus/test'
 import type { Session, SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  fixtureUserPrompts, launchWebScaffold, watchConsole, webSnapshotMode,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
   type WebScaffold,
 } from './scaffold.ts'
 import {
-  connectFreshWorkspace, expandOwningTurnProcess, expandTurnProcesses, newEnglishPage, REPO_ROOT, saveFailureShot,
+  connectFreshWorkspace,
+  expandOwningTurnProcess,
+  expandTurnProcesses,
+  newEnglishPage,
+  REPO_ROOT,
+  saveFailureShot,
 } from './support.ts'
 
 const MODE = webSnapshotMode()
@@ -34,18 +44,19 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
   let prompt: string
   const releaseChild = Promise.withResolvers<undefined>()
 
-  const waitForParentSettlement = (): Promise<SessionId> => new Promise((resolve, reject) => {
-    let dispose = (): void => {}
-    dispose = scaffold.ctx.on('session/event', (session: Session, event: SessionEvent) => {
-      if (event.type !== 'turn/end' || session.header.origin === 'subagent') return
-      dispose()
-      void (async () => {
-        await scaffold.ctx.agents.get(session.id)?.whenIdle()
-        await scaffold.ctx.sessions.flush(session)
-        resolve(session.id)
-      })().catch(reject)
+  const waitForParentSettlement = (): Promise<SessionId> =>
+    new Promise((resolve, reject) => {
+      let dispose = (): void => {}
+      dispose = scaffold.ctx.on('session/event', (session: Session, event: SessionEvent) => {
+        if (event.type !== 'turn/end' || session.header.origin === 'subagent') return
+        dispose()
+        void (async () => {
+          await scaffold.ctx.agents.get(session.id)?.whenIdle()
+          await scaffold.ctx.sessions.flush(session)
+          resolve(session.id)
+        })().catch(reject)
+      })
     })
-  })
 
   beforeAll(async () => {
     const prompts = fixtureUserPrompts(await readFile(PARENT_FIXTURE, 'utf8'))
@@ -57,11 +68,15 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
       compareReplaySession: false,
     })
     // Keep the live child available throughout disclosure, layout, and navigation checks.
-    scaffold.ctx.on('llm/stream', async function* (options, next) {
-      const session = options.sessionId === undefined ? undefined : scaffold.ctx.sessions.get(options.sessionId)
-      if (session?.header.origin === 'subagent') await releaseChild.promise
-      yield* next()
-    }, { prepend: true })
+    scaffold.ctx.on(
+      'llm/stream',
+      async function* (options, next) {
+        const session = options.sessionId === undefined ? undefined : scaffold.ctx.sessions.get(options.sessionId)
+        if (session?.header.origin === 'subagent') await releaseChild.promise
+        yield* next()
+      },
+      { prepend: true },
+    )
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
@@ -120,12 +135,14 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
     expect(await phaseDisclosure.getAttribute('aria-expanded')).toBe('true')
     const lightColor = await member.locator('[data-member-label]').evaluate(element => getComputedStyle(element).color)
     await page.setViewportSize({ width: 560, height: 800 })
-    await page.evaluate(() => { document.body.setAttribute('data-ds-dark-theme', '') })
+    await page.evaluate(() => {
+      document.body.setAttribute('data-ds-dark-theme', '')
+    })
     // Exercise keyboard focus after the responsive layout has changed.
     await phaseDisclosure.focus()
     await phaseDisclosure.press('Tab')
     await expect.poll(() => member.evaluate(element => element.matches(':focus-visible'))).toBe(true)
-    const darkNarrow = await page.locator('[data-workflow-run]').evaluate((element) => {
+    const darkNarrow = await page.locator('[data-workflow-run]').evaluate(element => {
       const panel = element as HTMLElement
       panel.style.width = '356px'
       const label = element.querySelector('[data-member-label]')
@@ -165,8 +182,8 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
     expect(darkNarrow.runHeight).toBe(32)
     expect(darkNarrow.phaseHeight).toBe(32)
     expect(darkNarrow.phaseTitleRight).toBeLessThanOrEqual(darkNarrow.phaseStatusLeft)
-    await page.locator('[data-workflow-run]').evaluate((element) => {
-      (element as HTMLElement).style.removeProperty('width')
+    await page.locator('[data-workflow-run]').evaluate(element => {
+      ;(element as HTMLElement).style.removeProperty('width')
       document.body.removeAttribute('data-ds-dark-theme')
     })
     await page.setViewportSize({ width: 1280, height: 800 })
@@ -194,10 +211,7 @@ describe.skipIf(MODE === 'record')('web e2e: durable workflow run in Chat', () =
     expect(await terminalPhase.evaluate(element => getComputedStyle(element).cursor)).toBe('pointer')
     await terminalPhase.click()
     await page.getByText(CHILD_PROMPT, { exact: false }).waitFor()
-    await expect.poll(
-      () => page.getByRole('button', { name: /^Open Reply with exactly the word/ }).count(),
-      { timeout: 10_000 },
-    ).toBe(0)
+    await expect.poll(() => page.getByRole('button', { name: /^Open Reply with exactly the word/ }).count(), { timeout: 10_000 }).toBe(0)
   }, 90_000)
 
   it('rebuilds the terminal record from history after reload', async () => {

@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 import { PassThrough } from 'node:stream'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { SubprocessOutcome, SubprocessTerminalHandle } from '@deepseek-ai/dsh-subprocess'
 import type { TerminalReadRequest } from '@deepseek-ai/dsh-terminal'
 import type { ResolvedConfig } from '../src/config.ts'
@@ -23,10 +23,16 @@ class OutputProducer implements SubprocessTerminalHandle {
 
   async write(): Promise<void> {}
   async resize(): Promise<void> {}
-  async inspectActivity() { return { state: 'unknown' as const, revision: 0 } }
+  async inspectActivity() {
+    return { state: 'unknown' as const, revision: 0 }
+  }
 
-  async inspectForeground() { return undefined }
-  async signalForeground(): Promise<number> { return this.pid }
+  async inspectForeground() {
+    return undefined
+  }
+  async signalForeground(): Promise<number> {
+    return this.pid
+  }
   async terminate(): Promise<void> {
     this.exit()
     await this.done
@@ -41,10 +47,22 @@ afterEach(async () => {
 
 function fixture(overrides: Partial<ResolvedConfig> = {}) {
   const config: ResolvedConfig = {
-    backendType: 'shell', shellDialect: 'bash', shellPath: '/bin/bash', shellArgs: [], rows: 24, cols: 80,
-    scrollbackLines: 10_000, scrollbackMaxBytes: 4 * 1024 * 1024, maxReadBytes: 256 * 1024,
-    pollIntervalMs: 60_000, exactProbeAfterMs: 60_000, idleSilenceMs: 60_000,
-    handoffGraceMs: 60_000, promptTailGraceMs: 0, timeoutMs: 60_000, disposeGraceMs: 60_000,
+    backendType: 'shell',
+    shellDialect: 'bash',
+    shellPath: '/bin/bash',
+    shellArgs: [],
+    rows: 24,
+    cols: 80,
+    scrollbackLines: 10_000,
+    scrollbackMaxBytes: 4 * 1024 * 1024,
+    maxReadBytes: 256 * 1024,
+    pollIntervalMs: 60_000,
+    exactProbeAfterMs: 60_000,
+    idleSilenceMs: 60_000,
+    handoffGraceMs: 60_000,
+    promptTailGraceMs: 0,
+    timeoutMs: 60_000,
+    disposeGraceMs: 60_000,
     ...overrides,
   }
   const producer = new OutputProducer()
@@ -72,7 +90,10 @@ class ReferenceBuffer {
   private text = ''
   private truncated = false
 
-  constructor(private readonly maxBytes: number, private readonly maxLines?: number) {}
+  constructor(
+    private readonly maxBytes: number,
+    private readonly maxLines?: number,
+  ) {}
 
   append(chunk: string): void {
     if (chunk.length === 0) return
@@ -89,7 +110,9 @@ class ReferenceBuffer {
     this.truncated ||= bounded.truncated
   }
 
-  snapshot() { return { text: this.text, truncated: this.truncated } }
+  snapshot() {
+    return { text: this.text, truncated: this.truncated }
+  }
 
   consume() {
     const result = { delta: this.text, truncated: this.truncated }
@@ -111,7 +134,10 @@ function referenceRead(buffer: ReferenceBuffer, maxBytes: number, request: Termi
   const bounded = referenceTail(lines.slice(Math.max(0, end - (request.count ?? 500)), end).join('\n'), maxBytes)
   const returnedLines = bounded.text.length === 0 ? 0 : bounded.text.split('\n').length
   return {
-    text: bounded.text, totalLines, lineBegin: offset, lineEnd: offset + returnedLines,
+    text: bounded.text,
+    totalLines,
+    lineBegin: offset,
+    lineEnd: offset + returnedLines,
     truncated: snapshot.truncated || bounded.truncated,
   }
 }
@@ -132,13 +158,21 @@ describe('LocalPtySession incremental output compatibility', () => {
     const chunk = 'a'.repeat(4096)
     for (let index = 0; index < limit / chunk.length; index += 1) producer.emit(chunk)
     expect(session.read({})).toEqual({
-      text: 'a'.repeat(limit), totalLines: 1, lineBegin: 0, lineEnd: 1, truncated: false,
+      text: 'a'.repeat(limit),
+      totalLines: 1,
+      lineBegin: 0,
+      lineEnd: 1,
+      truncated: false,
     })
 
     producer.emit('界😀TAIL')
     const retained = `${'a'.repeat(limit - 11)}界😀TAIL`
     expect(session.read({})).toEqual({
-      text: retained, totalLines: 1, lineBegin: 0, lineEnd: 1, truncated: true,
+      text: retained,
+      totalLines: 1,
+      lineBegin: 0,
+      lineEnd: 1,
+      truncated: true,
     })
     expect(operation.readOutput()).toEqual({ delta: retained, truncated: true })
     expect(operation.readOutput()).toEqual({ delta: '', truncated: false })
@@ -147,8 +181,10 @@ describe('LocalPtySession incremental output compatibility', () => {
     producer.emit('done')
     producer.exit()
     await expect(operation.done).resolves.toEqual({
-      viewport: 'done', waitReason: 'session_exit',
-      sessionStatus: { kind: 'exited', exitCode: 0, signal: null }, truncated: true,
+      viewport: 'done',
+      waitReason: 'session_exit',
+      sessionStatus: { kind: 'exited', exitCode: 0, signal: null },
+      truncated: true,
     })
     expect(operation.readOutput()).toEqual({ delta: 'done', truncated: false })
     expect(operation.readOutput()).toEqual({ delta: '', truncated: false })
@@ -203,7 +239,11 @@ describe('LocalPtySession incremental output compatibility', () => {
     expect(operation.readOutput()).toEqual({ delta: '', truncated: false })
   })
 
-  it.each([[1, 1, 1], [17, 7, 3], [64, 13, 5]])(
+  it.each([
+    [1, 1, 1],
+    [17, 7, 3],
+    [64, 13, 5],
+  ])(
     'matches eager reads and active output with byte caps %i/%i and %i lines',
     async (scrollbackMaxBytes, maxReadBytes, scrollbackLines) => {
       const { producer, session } = fixture({ scrollbackMaxBytes, maxReadBytes, scrollbackLines })
@@ -223,7 +263,8 @@ describe('LocalPtySession incremental output compatibility', () => {
       producer.exit()
       const expected = output.snapshot()
       expect(await operation.done).toMatchObject({
-        viewport: expected.text, truncated: expected.truncated || scrollback.snapshot().truncated,
+        viewport: expected.text,
+        truncated: expected.truncated || scrollback.snapshot().truncated,
         waitReason: 'session_exit',
       })
       expect(operation.readOutput()).toEqual(output.consume())
@@ -242,7 +283,10 @@ describe('LocalPtySession incremental output compatibility', () => {
       if (checkpoints.has(index + 1)) {
         expect(session.read({})).toEqual({
           text: text.slice(Math.max(0, index + 1 - limit), index + 1),
-          totalLines: 1, lineBegin: 0, lineEnd: 1, truncated: index + 1 > limit,
+          totalLines: 1,
+          lineBegin: 0,
+          lineEnd: 1,
+          truncated: index + 1 > limit,
         })
       }
     }
@@ -270,14 +314,25 @@ describe('LocalPtySession incremental output compatibility', () => {
     expect(buffer.consume()).toEqual(reference.consume())
   })
 
-  it.each([1, 2, 3, 4, 5, 8, 17])('preserves lone and split surrogates with a %i-byte limit', (maxBytes) => {
+  it.each([1, 2, 3, 4, 5, 8, 17])('preserves lone and split surrogates with a %i-byte limit', maxBytes => {
     const { session } = fixture({ scrollbackMaxBytes: maxBytes, maxReadBytes: maxBytes, scrollbackLines: 3 })
     // TextDecoder replaces lone surrogates; only these UTF-16 cases use the private buffer.
     const buffer = session['scrollback']
     const reference = new ReferenceBuffer(maxBytes, 3)
     const chunks = [
-      '\ud83d', '\ude00', 'x', '\ud83d', '', '\ude00', '\n', '\ud800', 'abc', '\udfff',
-      'prefix'.repeat(20) + '\ud800', '\udfff', '\n\n\n',
+      '\ud83d',
+      '\ude00',
+      'x',
+      '\ud83d',
+      '',
+      '\ude00',
+      '\n',
+      '\ud800',
+      'abc',
+      '\udfff',
+      'prefix'.repeat(20) + '\ud800',
+      '\udfff',
+      '\n\n\n',
       ...deterministicChunks(['a', '\ud800', '\udfff', '\ud83d\ude00', '\n', 'é', '界', '', '\n\n'], 150),
     ]
     for (const [index, chunk] of chunks.entries()) {

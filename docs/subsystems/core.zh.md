@@ -160,38 +160,38 @@ type AgentStatus = 'idle' | 'running'
 /** One process-local live assistant streaming publication. */
 type AssistantStreamFrame =
   | {
-    readonly type: 'start'
-    readonly attemptId: LlmAttemptId
-    /** Monotone within one attached Agent lifecycle; replacement restarts at 1. */
-    readonly revision: number
-    readonly turn: number
-    readonly step: number
-  }
+      readonly type: 'start'
+      readonly attemptId: LlmAttemptId
+      /** Monotone within one attached Agent lifecycle; replacement restarts at 1. */
+      readonly revision: number
+      readonly turn: number
+      readonly step: number
+    }
   | {
-    readonly type: 'chunk'
-    readonly attemptId: LlmAttemptId
-    readonly revision: number
-    /** Dense zero-based position within the attempt. */
-    readonly index: number
-    /** Safe-integer timestamp reused by the durable embedded stream. */
-    readonly time: number
-    readonly chunk: StreamChunk
-  }
+      readonly type: 'chunk'
+      readonly attemptId: LlmAttemptId
+      readonly revision: number
+      /** Dense zero-based position within the attempt. */
+      readonly index: number
+      /** Safe-integer timestamp reused by the durable embedded stream. */
+      readonly time: number
+      readonly chunk: StreamChunk
+    }
   | {
-    readonly type: 'end'
-    readonly attemptId: LlmAttemptId
-    readonly revision: number
-    /** Number of chunk frames emitted by this attempt. */
-    readonly index: number
-    /** Durable settlement committed before this notification, or live abandonment without one. */
-    readonly outcome:
-      | {
-        readonly kind: 'committed'
-        readonly eventType: 'assistant/message' | 'assistant/attempt'
-        readonly seq: SessionSeq
-      }
-      | { readonly kind: 'abandoned' }
-  }
+      readonly type: 'end'
+      readonly attemptId: LlmAttemptId
+      readonly revision: number
+      /** Number of chunk frames emitted by this attempt. */
+      readonly index: number
+      /** Durable settlement committed before this notification, or live abandonment without one. */
+      readonly outcome:
+        | {
+            readonly kind: 'committed'
+            readonly eventType: 'assistant/message' | 'assistant/attempt'
+            readonly seq: SessionSeq
+          }
+        | { readonly kind: 'abandoned' }
+    }
 ```
 
 `running` 描述整个驱动器的排空区间，可能跨越连续的排队轮次；它不能证明某个轮次仍然打开。dispose 会把 agent 从注册表移除并发出 `agent/disposed`；它不是一个终态 status 值。`followup()` 不返回句柄：其 `MessageId` 标识的是持久的 inbox 插入、认领与丢弃事实，而非之后的助手输出或轮次结束。`whenIdle()` 观察的是整个 agent，因此只有当调用方明确拥有从回执到空闲的这段区间时，才能把它称为一次 run（[决策](../../.agents/notes/implemented/architecture/2026-07-30-followup-enqueue-and-owned-runs.zh.md)）。
@@ -262,12 +262,7 @@ interface Inbox {
    * @param inserted - messages to insert at the resolved position.
    * @returns messages removed by the splice.
    */
-  splice(
-    target: InboxTarget,
-    start: number,
-    deleteCount: number,
-    inserted: UserMessage[],
-  ): UserMessage[]
+  splice(target: InboxTarget, start: number, deleteCount: number, inserted: UserMessage[]): UserMessage[]
 }
 ```
 
@@ -328,11 +323,11 @@ pre-step 决策使用与持久 user-role 输入相同、带标识的 `UserMessag
 type PreStepDecision =
   | { kind: 'reject' }
   | {
-    kind: 'enter'
-    messages: UserMessage[]
-    /** Start a distinct model-message series before this step's admitted messages. */
-    startsRequestSeries?: true
-  }
+      kind: 'enter'
+      messages: UserMessage[]
+      /** Start a distinct model-message series before this step's admitted messages. */
+      startsRequestSeries?: true
+    }
 ```
 
 `agent/request-error` 在失败的模型步骤关闭之后、其轮次关闭之前运行。listener 可以在失败轮次的 signal 仍然存活时修复持久状态或 await 策略工作。处理该错误的 listener 返回 `{ kind: 'retry' }` 且不调用 `next()`；默认的 `undefined` 会让失败保持终态。
@@ -818,7 +813,7 @@ An entered agent is ready for per-agent initialization after factory setup. List
  * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
  * @mode serial
  */
-'agent/created'(this: Scoped<Agent>, payload: { agent: Agent; source: SessionStartSource; signal?: AbortSignal }): undefined | Promise<undefined>
+'agent/created'( this: Scoped<Agent>, payload: { agent: Agent; source: SessionStartSource; signal?: AbortSignal }, ): undefined | Promise<undefined>
 ```
 
 Types: [Scoped](scope.zh.md)
@@ -955,7 +950,7 @@ Reject a proposed step or replace the messages that enter it. Calling `next()` p
  * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
  * @mode waterfall
  */
-'agent/pre-step'(this: Scoped<Agent>, payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal }, next: () => Promise<PreStepDecision>): Promise<PreStepDecision>
+'agent/pre-step'( this: Scoped<Agent>, payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal }, next: () => Promise<PreStepDecision>, ): Promise<PreStepDecision>
 ```
 
 Types: [Scoped](scope.zh.md) · [UserMessage](session.zh.md)
@@ -984,8 +979,8 @@ Replace the frozen call configuration. `await next()` yields the config the mach
  * @param payload.signal - the current turn's explicit abort signal.
  * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
  * @mode waterfall
-*/
-'agent/request'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; signal: AbortSignal }, next: () => Promise<LlmCallConfig>): Promise<LlmCallConfig>
+ */
+'agent/request'( this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; signal: AbortSignal }, next: () => Promise<LlmCallConfig>, ): Promise<LlmCallConfig>
 ```
 
 Types: [LlmCallConfig](llm-streaming.zh.md) · [Scoped](scope.zh.md)
@@ -1014,7 +1009,7 @@ Handle one failed model-request attempt before the loop retries or closes its st
  * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
  * @mode waterfall
  */
-'agent/request-error'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; provider: string; failure: LlmFailure; retryPolicy: ResolvedRetryPolicy | undefined; signal: AbortSignal }, next: () => Promise<RequestErrorAction>): Promise<RequestErrorAction>
+'agent/request-error'( this: Scoped<Agent>, payload: { agent: Agent turn: number step: number provider: string failure: LlmFailure retryPolicy: ResolvedRetryPolicy | undefined signal: AbortSignal }, next: () => Promise<RequestErrorAction>, ): Promise<RequestErrorAction>
 ```
 
 Types: [LlmFailure](llm-streaming.zh.md) · [ResolvedRetryPolicy](llm-streaming.zh.md) · [Scoped](scope.zh.md)

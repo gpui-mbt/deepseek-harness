@@ -47,16 +47,20 @@ interface RunCodeFlavor {
 }
 
 /** Keep tool-call rules here; the runtime owns evaluation syntax and state retention. */
-function runCodeFlavor(language: string, execution = {
-  programDescription: 'the program to execute',
-  outputInstruction: 'Curate the program output.',
-  codeDescription: `The ${language} program to execute, following this tool's execution instructions.`,
-}): RunCodeFlavor {
+function runCodeFlavor(
+  language: string,
+  execution = {
+    programDescription: 'the program to execute',
+    outputInstruction: 'Curate the program output.',
+    codeDescription: `The ${language} program to execute, following this tool's execution instructions.`,
+  },
+): RunCodeFlavor {
   return {
-    description: `Execute a ${language} program against the available tools. Takes two required arguments: `
-      + `\`code\`, ${execution.programDescription}, and \`description\`, a short summary of what the program does. `
-      + 'Call tools as `await tools.name(args)` per the declarations in the system prompt. '
-      + `${execution.outputInstruction} Image-bearing subtool results are attached after the run.`,
+    description:
+      `Execute a ${language} program against the available tools. Takes two required arguments: ` +
+      `\`code\`, ${execution.programDescription}, and \`description\`, a short summary of what the program does. ` +
+      'Call tools as `await tools.name(args)` per the declarations in the system prompt. ' +
+      `${execution.outputInstruction} Image-bearing subtool results are attached after the run.`,
     codeDescription: execution.codeDescription,
   }
 }
@@ -92,35 +96,50 @@ const RUN_CODE_FLAVORS: Record<string, RunCodeFlavor> = {
  * static spec and the language-aware `parameters` getter so the two emissions
  * can never drift.
  */
-const RUN_CODE_DESCRIPTION_PARAM_DESCRIPTION
-  = 'Clear, concise description of what this program does in active voice, '
-    + '5-10 words (shown in the UI). '
-    + 'Examples: "Count TODO markers across packages"; '
-    + '"Read failing test and its fixture"; "Rename config key in every cordis.yml".'
+const RUN_CODE_DESCRIPTION_PARAM_DESCRIPTION =
+  'Clear, concise description of what this program does in active voice, ' +
+  '5-10 words (shown in the UI). ' +
+  'Examples: "Count TODO markers across packages"; ' +
+  '"Read failing test and its fixture"; "Rename config key in every cordis.yml".'
 
 const RUN_CODE_CONTROLS = {
   timeoutMs: { type: 'number', description: 'Positive elapsed-time budget in milliseconds, capped by the deployment maximum.' },
-  sandbox_permissions: { type: 'string', enum: [...ESCALATION_TARGETS], description: 'Wider sandbox mode for this complete program execution; requires justification and approval.' },
-  justification: { type: 'string', description: 'Reason this complete program needs wider access, shown to the user for approval. Use the language of the user’s current request.' },
+  sandbox_permissions: {
+    type: 'string',
+    enum: [...ESCALATION_TARGETS],
+    description: 'Wider sandbox mode for this complete program execution; requires justification and approval.',
+  },
+  justification: {
+    type: 'string',
+    description:
+      'Reason this complete program needs wider access, shown to the user for approval. Use the language of the user’s current request.',
+  },
 } as const
 
 function controlParameters(runtime: PtcRuntime | undefined) {
   // Catalog readers have no mounted runtime; real model assembly requires one.
   if (runtime === undefined) return RUN_CODE_CONTROLS
   return {
-    ...runtime.timeout === undefined ? {} : {
-      timeoutMs: { ...RUN_CODE_CONTROLS.timeoutMs,
-        description: `Positive elapsed-time budget in milliseconds, including nested tool and approval waits. Default ${runtime.timeout.defaultMs}; capped at ${runtime.timeout.maxMs}. Zero does not disable the deadline.` },
-    },
-    ...runtime.sandboxMode === undefined ? {} : {
-      sandbox_permissions: RUN_CODE_CONTROLS.sandbox_permissions,
-      justification: RUN_CODE_CONTROLS.justification,
-    },
+    ...(runtime.timeout === undefined
+      ? {}
+      : {
+          timeoutMs: {
+            ...RUN_CODE_CONTROLS.timeoutMs,
+            description: `Positive elapsed-time budget in milliseconds, including nested tool and approval waits. Default ${runtime.timeout.defaultMs}; capped at ${runtime.timeout.maxMs}. Zero does not disable the deadline.`,
+          },
+        }),
+    ...(runtime.sandboxMode === undefined
+      ? {}
+      : {
+          sandbox_permissions: RUN_CODE_CONTROLS.sandbox_permissions,
+          justification: RUN_CODE_CONTROLS.justification,
+        }),
   }
 }
 
 function escalationGuidance(runtime: PtcRuntime | undefined): string {
-  return runtime?.sandboxMode === undefined ? ''
+  return runtime?.sandboxMode === undefined
+    ? ''
     : ' A sandbox escalation approves this complete program for one execution only. Nested tools retain their own policies and approvals. Request wider access only after evidence of a denial. Earlier effects may already have completed: inspect them before explicitly retrying. Programs are never replayed automatically.'
 }
 
@@ -151,11 +170,14 @@ function resolveFlavor(peekRuntime: () => PtcRuntime | undefined): RunCodeFlavor
   // resolve an inherited Object.prototype member as a flavor.
   const flavor = RUN_CODE_FLAVORS[runtime.language]
   if (!Object.hasOwn(RUN_CODE_FLAVORS, runtime.language) || flavor === undefined) {
-    const known = Object.keys(RUN_CODE_FLAVORS).map(name => JSON.stringify(name)).join(', ')
-    throw new Error(`dsh-tools: no run_code schema flavor registered for runtime language ${JSON.stringify(runtime.language)} (known: ${known})`)
+    const known = Object.keys(RUN_CODE_FLAVORS)
+      .map(name => JSON.stringify(name))
+      .join(', ')
+    throw new Error(
+      `dsh-tools: no run_code schema flavor registered for runtime language ${JSON.stringify(runtime.language)} (known: ${known})`,
+    )
   }
-  return runtime.language === 'typescript' && runtime.programFormat === 'function-body'
-    ? TYPESCRIPT_FUNCTION_FLAVOR : flavor
+  return runtime.language === 'typescript' && runtime.programFormat === 'function-body' ? TYPESCRIPT_FUNCTION_FLAVOR : flavor
 }
 
 /**
@@ -206,9 +228,7 @@ const JSON_INDENT = '  '
 const MAX_JSON_INDENT_CHARS = 10
 
 /** A pending fragment in the iterative JSON presentation traversal. */
-type JsonRenderTask =
-  | { kind: 'text'; text: string }
-  | { kind: 'value'; value: JsonValue; depth: number; compact: boolean }
+type JsonRenderTask = { kind: 'text'; text: string } | { kind: 'value'; value: JsonValue; depth: number; compact: boolean }
 
 /** Render one non-string JSON root without recursive traversal or unbounded indentation growth. */
 function renderJsonValue(value: Exclude<JsonValue, string>): string {
@@ -246,9 +266,7 @@ function renderJsonValue(value: Exclude<JsonValue, string>): string {
         tasks.push({ kind: 'value', value: item, depth: childDepth, compact })
         tasks.push({
           kind: 'text',
-          text: compact
-            ? index === 0 ? '' : ','
-            : `${index === 0 ? '\n' : ',\n'}${JSON_INDENT.repeat(childDepth)}`,
+          text: compact ? (index === 0 ? '' : ',') : `${index === 0 ? '\n' : ',\n'}${JSON_INDENT.repeat(childDepth)}`,
         })
       }
       continue
@@ -371,7 +389,8 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
         const rendered = value.result === undefined ? '' : renderValue(value.result)
         const parts = [value.logs.join('\n'), rendered].filter(part => part.length > 0)
         if (value.sandbox?.enforcement === 'partial') parts.push('File sandbox enforcement is partial on this host.')
-        if (value.sandbox?.denied) parts.push(`The ${value.sandbox.mode} file sandbox denied an operation.${escalationGuidance(peekRuntime())}`)
+        if (value.sandbox?.denied)
+          parts.push(`The ${value.sandbox.mode} file sandbox denied an operation.${escalationGuidance(peekRuntime())}`)
         return [{ type: 'text', text: parts.length > 0 ? parts.join('\n') : '(run_code completed with no output)' }]
       },
     },
@@ -392,15 +411,21 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
         let policy = standingPolicy
         if (args.sandbox_permissions !== undefined && args.justification !== undefined) {
           if (standingPolicy === undefined) throw new Error('sandbox_permissions is not available for this PTC runtime')
-          const approvedMode = await approveEscalation({
-            requestedMode: args.sandbox_permissions,
-            justification: args.justification,
-            effectiveMode: standingPolicy.mode,
-            subject: 'program',
-          }, {
-            approver: options.peekApprover(), agent: exec.agent, callId: exec.callId,
-            toolName: RUN_CODE_NAME, signal: callSignal,
-          })
+          const approvedMode = await approveEscalation(
+            {
+              requestedMode: args.sandbox_permissions,
+              justification: args.justification,
+              effectiveMode: standingPolicy.mode,
+              subject: 'program',
+            },
+            {
+              approver: options.peekApprover(),
+              agent: exec.agent,
+              callId: exec.callId,
+              toolName: RUN_CODE_NAME,
+              signal: callSignal,
+            },
+          )
           policy = { ...standingPolicy, mode: approvedMode }
         }
         const cwd = await options.resolveWorkingDirectory({ ...exec, signal: callSignal })
@@ -411,7 +436,9 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
         // (its executor kills on this signal) instead of orphaned, and
         // queued-unstarted dispatches are abandoned.
         const runController = new AbortController()
-        const onOuterAbort = (): void => { runController.abort(callSignal.reason) }
+        const onOuterAbort = (): void => {
+          runController.abort(callSignal.reason)
+        }
         callSignal.addEventListener('abort', onOuterAbort, { once: true })
 
         let dispatches = 0
@@ -473,7 +500,9 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
               for (;;) {
                 // Create the wakeup promise before inspecting state so a settle or submission arriving
                 // between the checks and the await below cannot be lost.
-                const signal = new Promise<void>((resolve) => { wake = resolve })
+                const signal = new Promise<void>(resolve => {
+                  wake = resolve
+                })
                 const commitHead = commitQueue[0]
                 if (commitHead !== undefined && commitHead.settled) {
                   commitQueue.shift()
@@ -492,8 +521,7 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
                   }
                   // Reclassify at start time (fail-closed on registry changes).
                   const mode = head.classify()
-                  const capacity = !exclusiveActive
-                    && (mode === 'exclusive' ? inFlight.size === 0 : inFlight.size < maxParallel)
+                  const capacity = !exclusiveActive && (mode === 'exclusive' ? inFlight.size === 0 : inFlight.size < maxParallel)
                   if (capacity) {
                     if (mode === 'exclusive') exclusiveActive = true
                     head.mode = mode
@@ -536,147 +564,154 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
         // would be narrowed away by control flow analysis.
         const runOver = (): boolean => runController.signal.aborted
 
-        const binding = (schema: ToolSchema): PtcBindingFunction => async (rawArgs: unknown): Promise<JsonValue> => {
-          const { name } = schema
-          if (runOver()) {
-            throw new Error(`run_code run is over (${String(runController.signal.reason)}); ${name} not dispatched`)
-          }
-          const normalized = jsonNormalizeArgs(rawArgs)
-          const n = ++dispatches
-          const subCallId = brandString<ToolCallId>(`${String(exec.callId)}:ptc:${n}`)
-          const input = {
-            callId: subCallId,
-            rootCallId: exec.rootCallId,
-            name,
-            schema,
-            arguments: normalized.dispatched,
-            ...exec.agent ? { agent: exec.agent } : {},
-            parent: exec.token,
-            signal: runController.signal,
-          }
-          type DispatchOutcome = { isError: true; message: string } | { isError: false; value: JsonValue }
-          const scheduler = registry[TOOL_RUNTIME_SCHEDULER]
-          const outcome = await new Promise<DispatchOutcome>((resolve, reject) => {
-            // Set by the dispatch stage (or start() for a pre-settled result): what commit() finalizes in submission order.
-            let parked:
-              | { kind: 'post-result' | 'final-result'; exec: ToolRunContext; result: ToolExecutionResult }
-              | undefined
-            const settle = (result: ToolExecutionResult): void => {
-              // The program gets its value NOW: the log-content listener (for
-              // example, a spill backend) must never delay the binding or occupy
-              // a dispatch slot. The event append is tracked side work; the run's
-              // settlement drains logWork so every settle event is still appended
-              // inside the open turn (shapeDispatchLog is contained, so this
-              // chain cannot reject).
-              resolve(result.isError
-                ? { isError: true, message: result.error.message }
-                : { isError: false, value: result.value })
-              const agent = exec.agent
-              if (agent === undefined) return
-              const task: Promise<void> = (async () => {
-                // The listener may replace the durable copy with a preview and
-                // locator; the program's value and model-visible result are
-                // untouched.
-                const logged = await shapeDispatchLog({
-                  exec, agent, subCallId, name, isError: result.isError,
-                  // The registry deep-froze this projection at result
-                  // finalization; append snapshots the final copy again, so
-                  // the log stays detached.
-                  content: result.content,
-                })
-                agent.session.append('tool/ptc-dispatch', {
-                  rootCallId: exec.rootCallId,
-                  parentCallId: exec.callId,
-                  subCallId,
-                  name,
-                  // The SIBLING parse of the dispatched value: byte-identical JSON,
-                  // but a separate object — a tool mutating its args cannot desync
-                  // this record from what it actually received.
-                  arguments: normalized.logged,
-                  isError: result.isError,
-                  ...result.error?.info === undefined ? {} : { error: result.error.info },
-                  content: logged,
-                  ...result.meta === undefined ? {} : { meta: result.meta },
-                })
-              })().finally(() => { logWork.delete(task) })
-              logWork.add(task)
+        const binding =
+          (schema: ToolSchema): PtcBindingFunction =>
+          async (rawArgs: unknown): Promise<JsonValue> => {
+            const { name } = schema
+            if (runOver()) {
+              throw new Error(`run_code run is over (${String(runController.signal.reason)}); ${name} not dispatched`)
             }
-            pendingQueue.push({
-              flight: Promise.resolve(),
-              settled: false,
-              // Re-read per driver pass against the same agent view the SDK
-              // declared; fail-closed exclusive when undeclared/invalid.
-              classify: () => registry.executionMode(input).kind,
-              abandon: () => {
-                reject(new Error(`run_code run is over (${String(runController.signal.reason)}); ${name} tool call abandoned`))
-              },
-              async start(): Promise<void> {
-                exec.agent?.session.append('tool/ptc-dispatch-start', {
-                  rootCallId: exec.rootCallId,
-                  parentCallId: exec.callId,
-                  subCallId,
-                  name,
-                  arguments: normalized.logged,
-                })
-                // Ordered prepare runs INSIDE the driver lane: the next entry's
-                // pre-execute waits for this resolution, as under the native
-                // scheduler. Only the launched body below overlaps.
-                const prepared = await scheduler.prepare(input)
-                if (prepared.kind === 'dispatch') {
-                  this.flight = scheduler.dispatch(prepared.exec).then((dispatchOutcome) => {
-                    parked = { kind: dispatchOutcome.kind, exec: prepared.exec, result: dispatchOutcome.result }
-                    this.settled = true
-                  })
-                  return
-                }
-                parked = { kind: prepared.kind, exec: prepared.exec, result: prepared.result }
-                this.settled = true
-              },
-              async commit(): Promise<void> {
-                /* v8 ignore next -- commit() runs only after `settled` flipped, which set parked. */
-                if (parked === undefined) return
-                const result = parked.kind === 'post-result'
-                  ? await scheduler.finalize(parked.exec, parked.result)
-                  : scheduler.finish(parked.exec, parked.result)
-                if (!result.isError && result.content.some(block => block.type === 'image')) {
-                  exec.deferContext(createUserMessage({
+            const normalized = jsonNormalizeArgs(rawArgs)
+            const n = ++dispatches
+            const subCallId = brandString<ToolCallId>(`${String(exec.callId)}:ptc:${n}`)
+            const input = {
+              callId: subCallId,
+              rootCallId: exec.rootCallId,
+              name,
+              schema,
+              arguments: normalized.dispatched,
+              ...(exec.agent ? { agent: exec.agent } : {}),
+              parent: exec.token,
+              signal: runController.signal,
+            }
+            type DispatchOutcome = { isError: true; message: string } | { isError: false; value: JsonValue }
+            const scheduler = registry[TOOL_RUNTIME_SCHEDULER]
+            const outcome = await new Promise<DispatchOutcome>((resolve, reject) => {
+              // Set by the dispatch stage (or start() for a pre-settled result): what commit() finalizes in submission order.
+              let parked: { kind: 'post-result' | 'final-result'; exec: ToolRunContext; result: ToolExecutionResult } | undefined
+              const settle = (result: ToolExecutionResult): void => {
+                // The program gets its value NOW: the log-content listener (for
+                // example, a spill backend) must never delay the binding or occupy
+                // a dispatch slot. The event append is tracked side work; the run's
+                // settlement drains logWork so every settle event is still appended
+                // inside the open turn (shapeDispatchLog is contained, so this
+                // chain cannot reject).
+                resolve(result.isError ? { isError: true, message: result.error.message } : { isError: false, value: result.value })
+                const agent = exec.agent
+                if (agent === undefined) return
+                const task: Promise<void> = (async () => {
+                  // The listener may replace the durable copy with a preview and
+                  // locator; the program's value and model-visible result are
+                  // untouched.
+                  const logged = await shapeDispatchLog({
+                    exec,
+                    agent,
+                    subCallId,
+                    name,
+                    isError: result.isError,
+                    // The registry deep-froze this projection at result
+                    // finalization; append snapshots the final copy again, so
+                    // the log stays detached.
                     content: result.content,
-                    source: { kind: 'ptc-mode' },
-                  }))
-                }
-                for (const context of result.additionalContexts ?? []) {
-                  exec.deferContext(context)
-                }
-                // The composite forwards `additionalContexts` above and
-                // `concludesTurn` here from the nested result. Only a successful
-                // nested result can carry the terminal marker
-                // (ToolExecutionFailure types it never), so a policy-converted
-                // failure cannot stop the turn through a recovering program.
-                if (result.concludesTurn) exec.concludeTurn()
-                settle(result)
-                // Backpressure on pending event-append tasks: each task retains
-                // a full result while a slow backend stores it, so the pool cap
-                // bounds their count. Beyond the cap, the
-                // ordered lane waits, so later sub-calls cannot start and
-                // pending I/O/memory cannot grow without bound.
-                while (logWork.size > maxParallel) await Promise.race(logWork)
-              },
+                  })
+                  agent.session.append('tool/ptc-dispatch', {
+                    rootCallId: exec.rootCallId,
+                    parentCallId: exec.callId,
+                    subCallId,
+                    name,
+                    // The SIBLING parse of the dispatched value: byte-identical JSON,
+                    // but a separate object — a tool mutating its args cannot desync
+                    // this record from what it actually received.
+                    arguments: normalized.logged,
+                    isError: result.isError,
+                    ...(result.error?.info === undefined ? {} : { error: result.error.info }),
+                    content: logged,
+                    ...(result.meta === undefined ? {} : { meta: result.meta }),
+                  })
+                })().finally(() => {
+                  logWork.delete(task)
+                })
+                logWork.add(task)
+              }
+              pendingQueue.push({
+                flight: Promise.resolve(),
+                settled: false,
+                // Re-read per driver pass against the same agent view the SDK
+                // declared; fail-closed exclusive when undeclared/invalid.
+                classify: () => registry.executionMode(input).kind,
+                abandon: () => {
+                  reject(new Error(`run_code run is over (${String(runController.signal.reason)}); ${name} tool call abandoned`))
+                },
+                async start(): Promise<void> {
+                  exec.agent?.session.append('tool/ptc-dispatch-start', {
+                    rootCallId: exec.rootCallId,
+                    parentCallId: exec.callId,
+                    subCallId,
+                    name,
+                    arguments: normalized.logged,
+                  })
+                  // Ordered prepare runs INSIDE the driver lane: the next entry's
+                  // pre-execute waits for this resolution, as under the native
+                  // scheduler. Only the launched body below overlaps.
+                  const prepared = await scheduler.prepare(input)
+                  if (prepared.kind === 'dispatch') {
+                    this.flight = scheduler.dispatch(prepared.exec).then(dispatchOutcome => {
+                      parked = { kind: dispatchOutcome.kind, exec: prepared.exec, result: dispatchOutcome.result }
+                      this.settled = true
+                    })
+                    return
+                  }
+                  parked = { kind: prepared.kind, exec: prepared.exec, result: prepared.result }
+                  this.settled = true
+                },
+                async commit(): Promise<void> {
+                  /* v8 ignore next -- commit() runs only after `settled` flipped, which set parked. */
+                  if (parked === undefined) return
+                  const result =
+                    parked.kind === 'post-result'
+                      ? await scheduler.finalize(parked.exec, parked.result)
+                      : scheduler.finish(parked.exec, parked.result)
+                  if (!result.isError && result.content.some(block => block.type === 'image')) {
+                    exec.deferContext(
+                      createUserMessage({
+                        content: result.content,
+                        source: { kind: 'ptc-mode' },
+                      }),
+                    )
+                  }
+                  for (const context of result.additionalContexts ?? []) {
+                    exec.deferContext(context)
+                  }
+                  // The composite forwards `additionalContexts` above and
+                  // `concludesTurn` here from the nested result. Only a successful
+                  // nested result can carry the terminal marker
+                  // (ToolExecutionFailure types it never), so a policy-converted
+                  // failure cannot stop the turn through a recovering program.
+                  if (result.concludesTurn) exec.concludeTurn()
+                  settle(result)
+                  // Backpressure on pending event-append tasks: each task retains
+                  // a full result while a slow backend stores it, so the pool cap
+                  // bounds their count. Beyond the cap, the
+                  // ordered lane waits, so later sub-calls cannot start and
+                  // pending I/O/memory cannot grow without bound.
+                  while (logWork.size > maxParallel) await Promise.race(logWork)
+                },
+              })
+              wakeup()
+              void drive()
             })
-            wakeup()
-            void drive()
-          })
-          // A budget expiry or outer cancel that occurs while this call was in
-          // flight already aborted the dispatch; stop the program now rather
-          // than hand it a result from a run that is over.
-          if (runOver()) {
-            throw new Error(`run_code run is over (${String(runController.signal.reason)}); ${name} result discarded`)
+            // A budget expiry or outer cancel that occurs while this call was in
+            // flight already aborted the dispatch; stop the program now rather
+            // than hand it a result from a run that is over.
+            if (runOver()) {
+              throw new Error(`run_code run is over (${String(runController.signal.reason)}); ${name} result discarded`)
+            }
+            // The worker turns a binding rejection into ToolCallError and adds
+            // only the binding name. Native content and internal error metadata
+            // stay outside the program-facing failure contract.
+            if (outcome.isError) throw new Error(outcome.message)
+            return outcome.value
           }
-          // The worker turns a binding rejection into ToolCallError and adds
-          // only the binding name. Native content and internal error metadata
-          // stay outside the program-facing failure contract.
-          if (outcome.isError) throw new Error(outcome.message)
-          return outcome.value
-        }
 
         // Null-prototype + defineProperty, mirroring the worker-side namespace
         // build: a registered tool named `__proto__` must become an ordinary
@@ -699,7 +734,7 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
             if (exec.agent !== undefined) {
               const agent = exec.agent
               let runtimes = stateOwners.get(agent)
-              if (runtimes === undefined) stateOwners.set(agent, runtimes = new WeakSet())
+              if (runtimes === undefined) stateOwners.set(agent, (runtimes = new WeakSet()))
               // Cordis can wrap service returns repeatedly; cleanup belongs to the original provider.
               let provider = runtime
               for (;;) {
@@ -712,19 +747,23 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
                 runtimes.add(provider)
               }
             }
-            result = await runtime.run(runtime.resolve({
-              program: args.code,
-              ...exec.agent === undefined || policy?.mode !== standingPolicy?.mode ? {} : { stateOwner: exec.agent },
-              bindings: [{
-                global: 'tools',
-                functions,
-                errorClass: { name: 'ToolCallError', memberNameProperty: 'toolName' },
-              }],
-              signal: runController.signal,
-              ...cwd !== undefined ? { cwd } : {},
-              ...policy !== undefined ? { sandboxPolicy: policy } : {},
-              ...args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {},
-            }))
+            result = await runtime.run(
+              runtime.resolve({
+                program: args.code,
+                ...(exec.agent === undefined || policy?.mode !== standingPolicy?.mode ? {} : { stateOwner: exec.agent }),
+                bindings: [
+                  {
+                    global: 'tools',
+                    functions,
+                    errorClass: { name: 'ToolCallError', memberNameProperty: 'toolName' },
+                  },
+                ],
+                signal: runController.signal,
+                ...(cwd !== undefined ? { cwd } : {}),
+                ...(policy !== undefined ? { sandboxPolicy: policy } : {}),
+                ...(args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {}),
+              }),
+            )
           } finally {
             // Abort sub-dispatches and drain every in-flight dispatch before
             // closing the turn (queued-unstarted ones are abandoned unlogged).
@@ -735,20 +774,25 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
 
           if (result.error) {
             const logsText = result.logs.length > 0 ? `\nCaptured output:\n${result.logs.join('\n')}` : ''
-            const sandboxText = result.sandbox === undefined ? ''
-              : `\nFile sandbox: ${result.sandbox.mode}${result.sandbox.enforcement === undefined ? '' : `; enforcement: ${result.sandbox.enforcement}`}${result.sandbox.denied ? '; operation denied' : ''}.`
-            throw new CodeRunFailedError(`code run failed (${result.error.kind}): ${result.error.message}${logsText}${sandboxText}${result.sandbox?.denied ? escalationGuidance(runtime) : ''}`)
+            const sandboxText =
+              result.sandbox === undefined
+                ? ''
+                : `\nFile sandbox: ${result.sandbox.mode}${result.sandbox.enforcement === undefined ? '' : `; enforcement: ${result.sandbox.enforcement}`}${result.sandbox.denied ? '; operation denied' : ''}.`
+            throw new CodeRunFailedError(
+              `code run failed (${result.error.kind}): ${result.error.message}${logsText}${sandboxText}${result.sandbox?.denied ? escalationGuidance(runtime) : ''}`,
+            )
           }
           return {
             logs: result.logs,
-            ...result.sandbox === undefined ? {} : { sandbox: result.sandbox },
-            ...result.value !== undefined ? { result: result.value } : {},
+            ...(result.sandbox === undefined ? {} : { sandbox: result.sandbox }),
+            ...(result.value !== undefined ? { result: result.value } : {}),
           }
         } finally {
           callSignal.removeEventListener('abort', onOuterAbort)
         }
       }
-      return runtime.sandboxMode === undefined || exec.agent === undefined ? run(exec.signal)
+      return runtime.sandboxMode === undefined || exec.agent === undefined
+        ? run(exec.signal)
         : calls.run(exec.agent.session.id, exec.signal, () => options.resolveSandboxPolicy(exec).mode, run)
     },
     // The model-authored description is the call's always-visible UI label
@@ -772,21 +816,26 @@ export function createRunCodeTool(registry: ToolRuntime, options: RunCodeBridgeO
     get: () => {
       const runtime = peekRuntime()
       const instructions = runtime?.executionInstructions
-      return resolveFlavor(peekRuntime).description
-        + (instructions ? ` ${instructions}` : '')
-        + (runtime === undefined ? '' : " Each program starts in the Session's current directory. Running programs keep their initial directory.")
-        + escalationGuidance(runtime)
+      return (
+        resolveFlavor(peekRuntime).description +
+        (instructions ? ` ${instructions}` : '') +
+        (runtime === undefined
+          ? ''
+          : " Each program starts in the Session's current directory. Running programs keep their initial directory.") +
+        escalationGuidance(runtime)
+      )
     },
   })
   Object.defineProperty(definition, 'parameters', {
     enumerable: true,
     // Recompile through the same spec→schema projection defineTool used, so
     // the emitted schema always matches the validated specification.
-    get: () => parameterSchemaSpecToJsonSchema({
-      code: { type: 'string', required: true, description: resolveFlavor(peekRuntime).codeDescription },
-      description: { type: 'string', required: true, description: RUN_CODE_DESCRIPTION_PARAM_DESCRIPTION },
-      ...controlParameters(peekRuntime()),
-    }),
+    get: () =>
+      parameterSchemaSpecToJsonSchema({
+        code: { type: 'string', required: true, description: resolveFlavor(peekRuntime).codeDescription },
+        description: { type: 'string', required: true, description: RUN_CODE_DESCRIPTION_PARAM_DESCRIPTION },
+        ...controlParameters(peekRuntime()),
+      }),
   })
   return definition
 }

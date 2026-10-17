@@ -1,9 +1,6 @@
 import { SessionFormatError, sessionFormatCount, sessionFormatSafeInteger } from '@deepseek-ai/dsh-session-format'
 import { deepEqualJson } from '@deepseek-ai/dsh-util-values'
-import type {
-  SessionFormatEvent,
-  SessionFormatJsonValue,
-} from '@deepseek-ai/dsh-session-format'
+import type { SessionFormatEvent, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
 import { assertReleasedV0Keys, releasedV0Record } from './validation-helpers.ts'
 
 type JsonRecord = Record<string, SessionFormatJsonValue>
@@ -24,7 +21,7 @@ export function assertReleasedPayloadSemantics(event: SessionFormatEvent, versio
       literalValue(data['target'], ['next-turn', 'next-step'], `${label} target`)
       countValue(data['start'], `${label} start`)
       if (data['removedCount'] !== undefined) countValue(data['removedCount'], `${label} removedCount`)
-      arrayValue(data['inserted'], `${label} inserted`, (value) => {
+      arrayValue(data['inserted'], `${label} inserted`, value => {
         messageValue(value, `${label} inserted message`, version, 'user')
       })
       if (data['outcome'] !== undefined) literalValue(data['outcome'], ['canceled'], `${label} outcome`)
@@ -171,9 +168,8 @@ export function assertReleasedPayloadSemantics(event: SessionFormatEvent, versio
       return
     case 'session-log-deepseek/delivery-accepted':
       {
-        const acceptedVersion = data['sessionFormatVersion'] === undefined
-          ? 0
-          : countValue(data['sessionFormatVersion'], `${label} sessionFormatVersion`)
+        const acceptedVersion =
+          data['sessionFormatVersion'] === undefined ? 0 : countValue(data['sessionFormatVersion'], `${label} sessionFormatVersion`)
         if (acceptedVersion !== version) return
         nonEmptyString(data['sessionId'], `${label} sessionId`)
         earlierSeq(data['throughSeq'], event.seq, `${label} throughSeq`)
@@ -191,7 +187,7 @@ export function assertReleasedPayloadSemantics(event: SessionFormatEvent, versio
       seqArray(data['messageSeqs'], event.seq, `${label} messageSeqs`, true)
       modelRouteValue(data['route'], `${label} route`)
       stringValue(data['system'], `${label} system`)
-      arrayValue(data['messages'], `${label} messages`, (value) => {
+      arrayValue(data['messages'], `${label} messages`, value => {
         messageValue(value, `${label} message`, version)
       })
       positiveIntegerValue(data['maxTokens'], `${label} maxTokens`)
@@ -339,11 +335,7 @@ function finiteNumberValue(value: SessionFormatJsonValue | undefined, label: str
   return value
 }
 
-function literalValue(
-  value: SessionFormatJsonValue | undefined,
-  allowed: readonly SessionFormatJsonValue[],
-  label: string,
-): void {
+function literalValue(value: SessionFormatJsonValue | undefined, allowed: readonly SessionFormatJsonValue[], label: string): void {
   if (!allowed.some(candidate => candidate === value)) {
     throw new SessionFormatError(`${label} must be one of ${allowed.map(String).join(', ')}`)
   }
@@ -405,8 +397,10 @@ function llmFailureValue(value: SessionFormatJsonValue | undefined, label: strin
     const status = safeIntegerValue(failure['status'], `${label} status`)
     if (status < 100 || status > 599) throw new SessionFormatError(`${label} status must be 100 through 599`)
   }
-  if (failure['providerRetryAfterMs'] !== undefined
-    && finiteNumberValue(failure['providerRetryAfterMs'], `${label} providerRetryAfterMs`) <= 0) {
+  if (
+    failure['providerRetryAfterMs'] !== undefined &&
+    finiteNumberValue(failure['providerRetryAfterMs'], `${label} providerRetryAfterMs`) <= 0
+  ) {
     throw new SessionFormatError(`${label} providerRetryAfterMs must be positive`)
   }
   if (failure['requestId'] !== undefined) nonEmptyString(failure['requestId'], `${label} requestId`)
@@ -459,12 +453,7 @@ function contentBlockValue(value: SessionFormatJsonValue, label: string, version
 }
 
 function imageAttachmentValue(value: SessionFormatJsonValue | undefined, label: string): void {
-  const attachment = exactRecord(
-    value,
-    label,
-    ['attachmentId', 'mediaType', 'bytes', 'width', 'height'],
-    ['name', 'originalDimensions'],
-  )
+  const attachment = exactRecord(value, label, ['attachmentId', 'mediaType', 'bytes', 'width', 'height'], ['name', 'originalDimensions'])
   nonEmptyString(attachment['attachmentId'], `${label} attachmentId`)
   literalValue(attachment['mediaType'], ['image/png', 'image/jpeg', 'image/webp', 'image/gif'], `${label} mediaType`)
   countValue(attachment['bytes'], `${label} bytes`)
@@ -498,9 +487,7 @@ function messageValue(
   }
   if (expected === 'tool') {
     const content = message['content']
-    const block = Array.isArray(content) && content.length === 1
-      ? releasedV0Record(content[0], `${label} tool result`)
-      : undefined
+    const block = Array.isArray(content) && content.length === 1 ? releasedV0Record(content[0], `${label} tool result`) : undefined
     const source = releasedV0Record(message['source'], `${label} source`)
     if (block?.['type'] !== 'tool-result' || block['toolCallId'] !== source['callId']) {
       throw new SessionFormatError(`${label} must contain exactly one tool-result block`)
@@ -515,21 +502,19 @@ function legacyGoalMessageValue(message: JsonRecord, source: JsonRecord, label: 
   if (source['round'] !== 0) throw new SessionFormatError(`${label} legacy goal source round must be 0`)
   const change = releasedV0Record(source['change'], `${label} source change`)
   goalChangeValue(change, `${label} source change`)
-  const ref = releasedV0Record(
-    change['operation'] === 'clear' ? change['cleared'] : change['goal'],
-    `${label} source change ref`,
-  )
+  const ref = releasedV0Record(change['operation'] === 'clear' ? change['cleared'] : change['goal'], `${label} source change ref`)
   if (source['goalId'] !== ref['id'] || source['revision'] !== ref['revision']) {
     throw new SessionFormatError(`${label} legacy goal source does not match its change`)
   }
-  const payload = change['operation'] === 'clear'
-    ? { cleared: change['cleared'], clearedAt: change['clearedAt'] }
-    : {
-      goal: change['goal'],
-      roundsStarted: change['roundsStarted'],
-      createdAt: change['createdAt'],
-      updatedAt: change['updatedAt'],
-    }
+  const payload =
+    change['operation'] === 'clear'
+      ? { cleared: change['cleared'], clearedAt: change['clearedAt'] }
+      : {
+          goal: change['goal'],
+          roundsStarted: change['roundsStarted'],
+          createdAt: change['createdAt'],
+          updatedAt: change['updatedAt'],
+        }
   const expected = [{ type: 'text', text: `<goal_state>${JSON.stringify(payload)}</goal_state>` }]
   if (!deepEqualJson(message['content'], expected)) {
     throw new SessionFormatError(`${label} legacy goal content does not match its change`)
@@ -665,8 +650,16 @@ function sessionReferenceSourceValue(source: JsonRecord, label: string, version:
       member,
       memberLabel,
       [
-        'sessionId', 'label', 'capturedThroughSeq', 'compacted', 'originalMessages',
-        'retainedMessages', 'omittedMessages', 'omittedBytes', 'truncated', 'inputIndex',
+        'sessionId',
+        'label',
+        'capturedThroughSeq',
+        'compacted',
+        'originalMessages',
+        'retainedMessages',
+        'omittedMessages',
+        'omittedBytes',
+        'truncated',
+        'inputIndex',
       ],
       version >= 1 ? ['capturedFormatVersion'] : [],
     )
@@ -674,10 +667,7 @@ function sessionReferenceSourceValue(source: JsonRecord, label: string, version:
     stringValue(reference['label'], `${memberLabel} label`)
     if (reference['capturedThroughSeq'] !== null) countValue(reference['capturedThroughSeq'], `${memberLabel} capturedThroughSeq`)
     if (reference['capturedFormatVersion'] !== undefined) {
-      const capturedVersion = countValue(
-        reference['capturedFormatVersion'],
-        `${memberLabel} capturedFormatVersion`,
-      )
+      const capturedVersion = countValue(reference['capturedFormatVersion'], `${memberLabel} capturedFormatVersion`)
       if (capturedVersion < 1 || capturedVersion > version) {
         throw new SessionFormatError(`${memberLabel} capturedFormatVersion must be between 1 and ${version}`)
       }
@@ -848,12 +838,7 @@ function goalChangeValue(data: JsonRecord, label: string): void {
     countValue(data['clearedAt'], `${label} clearedAt`)
     return
   }
-  assertReleasedV0Keys(
-    data,
-    ['kind', 'version', 'operation', 'goal', 'roundsStarted', 'createdAt', 'updatedAt'],
-    [],
-    `${label} data`,
-  )
+  assertReleasedV0Keys(data, ['kind', 'version', 'operation', 'goal', 'roundsStarted', 'createdAt', 'updatedAt'], [], `${label} data`)
   literalValue(data['operation'], ['create', 'edit', 'pause', 'resume', 'complete', 'block'], `${label} operation`)
   goalSnapshotValue(data['goal'], `${label} goal`)
   countValue(data['roundsStarted'], `${label} roundsStarted`)
@@ -890,12 +875,7 @@ function scheduleChangeValue(data: JsonRecord, label: string): void {
     scheduleRecordValue(data['schedule'], `${label} schedule`)
     return
   }
-  assertReleasedV0Keys(
-    data,
-    ['version', 'operation', 'id'],
-    data['operation'] === 'dispatch' ? ['acceptedAt'] : [],
-    `${label} data`,
-  )
+  assertReleasedV0Keys(data, ['version', 'operation', 'id'], data['operation'] === 'dispatch' ? ['acceptedAt'] : [], `${label} data`)
   literalValue(data['operation'], ['delete', 'dispatch'], `${label} operation`)
   scheduleIdValue(data['id'], `${label} id`)
   if (data['acceptedAt'] !== undefined) instantValue(data['acceptedAt'], `${label} acceptedAt`)
@@ -926,10 +906,12 @@ function scheduleIdValue(value: SessionFormatJsonValue | undefined, label: strin
 }
 
 function instantValue(value: SessionFormatJsonValue | undefined, label: string): void {
-  if (typeof value !== 'string'
-    || !/^(?!0000)\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}Z$/u.test(value)
-    || !Number.isFinite(Date.parse(value))
-    || new Date(Date.parse(value)).toISOString() !== value) {
+  if (
+    typeof value !== 'string' ||
+    !/^(?!0000)\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}Z$/u.test(value) ||
+    !Number.isFinite(Date.parse(value)) ||
+    new Date(Date.parse(value)).toISOString() !== value
+  ) {
     throw new SessionFormatError(`${label} must be a canonical UTC instant`)
   }
 }
@@ -1008,12 +990,7 @@ function teamMemberValue(value: SessionFormatJsonValue | undefined, label: strin
 }
 
 function teamTaskValue(value: SessionFormatJsonValue | undefined, label: string): void {
-  const task = exactRecord(
-    value,
-    label,
-    ['id', 'revision', 'subject', 'description', 'status', 'blockedBy', 'writeScopes'],
-    ['ownerId'],
-  )
+  const task = exactRecord(value, label, ['id', 'revision', 'subject', 'description', 'status', 'blockedBy', 'writeScopes'], ['ownerId'])
   nonEmptyString(task['id'], `${label} id`)
   positiveIntegerValue(task['revision'], `${label} revision`)
   stringValue(task['subject'], `${label} subject`)

@@ -11,8 +11,17 @@ import css from './ConversationRoot.module.css'
  * @returns the active view area, or null while the Session remains blank.
  */
 export function DefaultConversationViews({
-  view, useSession, useConversation, useConversationViews, inputActions, useStore, actions,
-  renderSlot, bindDraftPersistence, openView, useInspectCall,
+  view,
+  useSession,
+  useConversation,
+  useConversationViews,
+  inputActions,
+  useStore,
+  actions,
+  renderSlot,
+  bindDraftPersistence,
+  openView,
+  useInspectCall,
 }: ConversationSessionSlotProps) {
   const tabs = useConversationViews(value => value)
   const inspectCall = useInspectCall(value => value)
@@ -25,7 +34,9 @@ export function DefaultConversationViews({
   useEffect(() => {
     const unbindDraftPersistence = bindDraftPersistence(actions.setDraft)
     inputActions.persistDraft()
-    return () => { unbindDraftPersistence() }
+    return () => {
+      unbindDraftPersistence()
+    }
     // The Session input owns content before this persistence writer is attached.
   }, [inputActions])
 
@@ -33,12 +44,17 @@ export function DefaultConversationViews({
   const viewId = view ?? active?.id
   return (
     <div className={css.viewArea}>
-      {viewId !== undefined && renderSlot('conversation.view', {
-        inspectCall,
-        viewRequest,
-        openView,
-        completeViewRequest: actions.completeViewRequest,
-      }, { only: viewId })}
+      {viewId !== undefined &&
+        renderSlot(
+          'conversation.view',
+          {
+            inspectCall,
+            viewRequest,
+            openView,
+            completeViewRequest: actions.completeViewRequest,
+          },
+          { only: viewId },
+        )}
     </div>
   )
 }

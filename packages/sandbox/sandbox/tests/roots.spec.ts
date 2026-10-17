@@ -7,7 +7,7 @@
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { canonicalPath, writableRoots } from '@deepseek-ai/dsh-sandbox'
 
 /** Every temp root created by this file, removed after each test. */

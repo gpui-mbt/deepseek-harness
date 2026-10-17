@@ -1,7 +1,7 @@
 /** Real profile patch behavior and reference lifetime. */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { parse } from 'yaml'
 import z from '@deepseek-ai/schemastery'
 import { configurationFixture as fixture } from './configuration-fixture.ts'
@@ -13,7 +13,11 @@ it('persists a model edit, updates the real consumer without remounting, and res
   await ctx.settings.mutate('default-model', [{ op: 'set', path: ['model'], value: 'changed' }])
   expect([...ctx.loader.entries()].find(entry => entry.options.id === 'default-model')!.fiber === fiber).toBe(true)
   expect(consumer.currentSelection()).toEqual({ provider: 'test', model: 'changed' })
-  expect(parse(readFileSync(profile.patchPath, 'utf8'))).toContainEqual({ id: 'default-model', name: 'cordis:model', config: { provider: 'test', model: 'changed' } })
+  expect(parse(readFileSync(profile.patchPath, 'utf8'))).toContainEqual({
+    id: 'default-model',
+    name: 'cordis:model',
+    config: { provider: 'test', model: 'changed' },
+  })
   await ctx.fiber.dispose()
   const restored = await start()
   expect(restored.agentDefaultModel.currentSelection()).toEqual({ provider: 'test', model: 'changed' })
@@ -62,7 +66,10 @@ it('serializes concurrent writes and refuses stale revisions after external chan
 
 it('preserves configuration expressions while editing a different live field', async () => {
   const { ctx, profile, start } = await fixture()
-  writeFileSync(profile.patchPath, '- id: first\n  config:\n    ordinary: !!js "\'expression-value\'"\n    count: 3\n- id: second\n  config:\n    ordinary: !!js "\'untouched-expression\'"\n')
+  writeFileSync(
+    profile.patchPath,
+    '- id: first\n  config:\n    ordinary: !!js "\'expression-value\'"\n    count: 3\n- id: second\n  config:\n    ordinary: !!js "\'untouched-expression\'"\n',
+  )
   await ctx.settings.update('first', { count: 4 })
   const saved = readFileSync(profile.patchPath, 'utf8')
   expect(saved).toContain('!!js')
@@ -83,9 +90,13 @@ it('edits array elements and appends without replacing redacted secrets', async 
     { op: 'set', path: ['list', '0', 'name'], value: 'renamed' },
     { op: 'set', path: ['list', '1'], value: { name: 'second' } },
   ])
-  expect(ctx.settings.describe().find(row => row.ns === 'first')!.value).toMatchObject({ list: [{ name: 'renamed', token: 'hidden' }, { name: 'second' }] })
+  expect(ctx.settings.describe().find(row => row.ns === 'first')!.value).toMatchObject({
+    list: [{ name: 'renamed', token: 'hidden' }, { name: 'second' }],
+  })
   await ctx.settings.mutate('first', [{ op: 'unset', path: ['list', '1'] }])
-  expect(ctx.settings.describe({ redactSecrets: true }).find(row => row.ns === 'first')!.value).toMatchObject({ list: [{ name: 'renamed' }] })
+  expect(ctx.settings.describe({ redactSecrets: true }).find(row => row.ns === 'first')!.value).toMatchObject({
+    list: [{ name: 'renamed' }],
+  })
   await expect(ctx.settings.mutate('first', [{ op: 'unset', path: ['ordinary'] }])).rejects.toThrow('not volatile')
 })
 
@@ -103,15 +114,21 @@ it('resets a whole form without losing ordinary fields or pinning inherited defa
 it('rejects non-JSON inputs and invalid array paths without changing the patch', async () => {
   const { ctx, profile } = await fixture({ hmr: false })
   const before = readFileSync(profile.patchPath, 'utf8')
-  const circular: unknown[] = []; circular.push(circular)
-  const object: Record<string, unknown> = {}; object.self = object
+  const circular: unknown[] = []
+  circular.push(circular)
+  const object: Record<string, unknown> = {}
+  object.self = object
   const custom = Object.create({ constructor: undefined }) as object
   for (const value of [NaN, Infinity, 1n, Symbol('value'), () => {}, new Date(), custom, circular, object, [undefined]]) {
     await expect(ctx.settings.update('first', { count: value })).rejects.toThrow('Config')
   }
   expect(readFileSync(profile.patchPath, 'utf8')).toBe(before)
   await ctx.settings.update('first', { list: [{ name: 'one' }], count: undefined })
-  for (const path of [['list', '-1'], ['list', '2'], ['list', '1', 'name']]) {
+  for (const path of [
+    ['list', '-1'],
+    ['list', '2'],
+    ['list', '1', 'name'],
+  ]) {
     await expect(ctx.settings.mutate('first', [{ op: 'set', path, value: 'x' }])).rejects.toThrow('out of range')
   }
   await expect(ctx.settings.mutate('first', [{ op: 'unset', path: ['list', '1'] }])).rejects.toThrow('out of range')
@@ -128,7 +145,11 @@ it('refuses missing entries and ordinary-only plugin forms', async () => {
 })
 
 it('edits and resets nested fields while retaining ordinary siblings', async () => {
-  const schema = z.object({ ordinary: z.string(), nested: z.object({ fixed: z.string().default('fixed'), live: z.number().default(3).volatile() }), count: z.number().default(2).volatile() })
+  const schema = z.object({
+    ordinary: z.string(),
+    nested: z.object({ fixed: z.string().default('fixed'), live: z.number().default(3).volatile() }),
+    count: z.number().default(2).volatile(),
+  })
   const { ctx } = await fixture({ schema, hmr: false })
   await ctx.settings.update('first', { nested: { live: 8 }, count: 7 })
   expect(ctx.settings.describe().find(row => row.ns === 'first')!.value).toEqual({ nested: { live: 8 }, count: 7 })
@@ -149,9 +170,12 @@ it('resets a volatile root and rejects editing ordinary-only schemas', async () 
 })
 
 it('restores the profile patch when a plugin rejects activation after validation', async () => {
-  const { ctx, profile } = await fixture({ hmr: false, apply: (_ctx, config) => {
-    if ((config as { ordinary: string }).ordinary === 'rejected') throw new Error('activation refused')
-  } })
+  const { ctx, profile } = await fixture({
+    hmr: false,
+    apply: (_ctx, config) => {
+      if ((config as { ordinary: string }).ordinary === 'rejected') throw new Error('activation refused')
+    },
+  })
   const entry = ctx.configEditor.entries().find(entry => entry.options.id === 'first')!
   const before = readFileSync(profile.patchPath, 'utf8')
   await expect(ctx.configEditor.edit(entry, raw => ({ ...raw, ordinary: 'rejected' }))).rejects.toThrow()
@@ -163,7 +187,9 @@ it('invalidates removed forms once and rejects writes held across entry removal'
   const { ctx } = await fixture({ hmr: false })
   const original = ctx.settings.describe().find(row => row.ns === 'first')!
   const updates: Array<[string, number]> = []
-  ctx.on('settings/document-updated', (ns, revision) => { updates.push([ns, revision]) })
+  ctx.on('settings/document-updated', (ns, revision) => {
+    updates.push([ns, revision])
+  })
   const entry = ctx.configEditor.entries().find(entry => entry.options.id === 'first')!
   entry.parent.remove(entry.options.id)
   expect(ctx.settings.describe().some(row => row.ns === 'first')).toBe(false)
@@ -174,10 +200,14 @@ it('invalidates removed forms once and rejects writes held across entry removal'
 
 it('restores inherited array elements and preserves metadata during a full reset', async () => {
   const { ctx, profile } = await fixture({ hmr: false })
-  writeFileSync(profile.patchPath, '- id: first\n  name: cordis:probe\n  disabled: false\n  config:\n    ordinary: fixed\n    token: private\n    count: 8\n- id: second\n  disabled: false\n')
+  writeFileSync(
+    profile.patchPath,
+    '- id: first\n  name: cordis:probe\n  disabled: false\n  config:\n    ordinary: fixed\n    token: private\n    count: 8\n- id: second\n  disabled: false\n',
+  )
   await ctx.settings.replace('first', {})
   expect(parse(readFileSync(profile.patchPath, 'utf8'))).toEqual([
-    { id: 'first', name: 'cordis:probe', disabled: false }, { id: 'second', disabled: false },
+    { id: 'first', name: 'cordis:probe', disabled: false },
+    { id: 'second', disabled: false },
   ])
   await ctx.settings.mutate('first', [{ op: 'set', path: ['list', '0'], value: { name: 'one' } }])
   await ctx.settings.mutate('first', [{ op: 'unset', path: ['list', '0', 'token'] }])
@@ -187,10 +217,17 @@ it('restores inherited array elements and preserves metadata during a full reset
 
 it('resolves group-owned entries and preserves defaults for an entry without raw config', async () => {
   const { ctx, profile } = await fixture({ hmr: false, schema: z.object({ count: z.number().default(2).volatile() }) })
-  writeFileSync(profile.patchPath, JSON.stringify([{ insert: [
-    { id: 'group', name: 'cordis:group', group: true, config: [{ id: 'nested', name: 'cordis:probe' }] },
-    { id: 'unconfigured', name: 'cordis:probe' },
-  ] }]))
+  writeFileSync(
+    profile.patchPath,
+    JSON.stringify([
+      {
+        insert: [
+          { id: 'group', name: 'cordis:group', group: true, config: [{ id: 'nested', name: 'cordis:probe' }] },
+          { id: 'unconfigured', name: 'cordis:probe' },
+        ],
+      },
+    ]),
+  )
   await ctx.settings.update('first', { count: 3 })
   expect(ctx.settings.describe().some(row => row.ns === 'nested')).toBe(true)
   await ctx.settings.update('unconfigured', { count: 4 })
@@ -221,8 +258,10 @@ it('refuses an entry disabled after a form was read', async () => {
 it('edits schema-default array rows without dropping secrets and removes rows instead of restoring them', async () => {
   const schema = z.object({
     ordinary: z.string(),
-    rows: z.array(z.object({ name: z.string(), token: z.string().role('secret') }))
-      .default([{ name: 'default', token: 'private-default' }]).volatile(),
+    rows: z
+      .array(z.object({ name: z.string(), token: z.string().role('secret') }))
+      .default([{ name: 'default', token: 'private-default' }])
+      .volatile(),
   })
   const { ctx } = await fixture({ schema, hmr: false })
   await ctx.settings.mutate('first', [{ op: 'set', path: ['rows', '0', 'name'], value: 'edited' }])
@@ -232,15 +271,20 @@ it('edits schema-default array rows without dropping secrets and removes rows in
 })
 
 it('edits dictionary keys and creates optional live containers', async () => {
-  const { ctx } = await fixture({ hmr: false, schema: z.object({
-    bag: z.any().volatile(), providers: z.dict(z.object({ endpoint: z.string() })).volatile(),
-  }) })
+  const { ctx } = await fixture({
+    hmr: false,
+    schema: z.object({
+      bag: z.any().volatile(),
+      providers: z.dict(z.object({ endpoint: z.string() })).volatile(),
+    }),
+  })
   await ctx.settings.mutate('first', [
     { op: 'set', path: ['bag', 'key'], value: 'value' },
     { op: 'set', path: ['providers', 'one', 'endpoint'], value: 'https://example.test' },
   ])
   expect(ctx.settings.describe().find(row => row.ns === 'first')!.value).toEqual({
-    bag: { key: 'value' }, providers: { one: { endpoint: 'https://example.test' } },
+    bag: { key: 'value' },
+    providers: { one: { endpoint: 'https://example.test' } },
   })
   await ctx.settings.mutate('first', [{ op: 'unset', path: ['bag', 'missing', 'nested', 'key'] }])
   const ordinary = await fixture({ schema: z.object({ ordinary: z.string() }), hmr: false })
@@ -261,7 +305,9 @@ it('does not publish a queued form refresh after disposal', async () => {
   const entries = ctx.configEditor.entries()
   const settings = entries.find(row => row.options.id === 'settings')!
   const updates: string[] = []
-  ctx.on('settings/document-updated', (ns) => { updates.push(ns) })
+  ctx.on('settings/document-updated', ns => {
+    updates.push(ns)
+  })
   ctx.emit('app-boot/config-reload')
   await settings.fiber!.dispose()
   await Promise.resolve()
@@ -290,11 +336,18 @@ it('defaults to automatic pages and applies reversible presentation policy to on
 })
 
 it('registers optional presentation policy after Settings loads and removes it with the caller', async () => {
-  const { ctx } = await fixture({ hmr: false, apply: (plugin) => {
-    plugin.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, plugin.fiber)) })
-  } })
+  const { ctx } = await fixture({
+    hmr: false,
+    apply: plugin => {
+      plugin.inject(['settings'], child => {
+        child.effect(() => child.settings.configure({ auto: false }, plugin.fiber))
+      })
+    },
+  })
   await ctx.loader.await()
-  await vi.waitFor(() => { expect(ctx.settings.describe().find(view => view.ns === 'first')!.autoGenerate).toBe(false) })
+  await vi.waitFor(() => {
+    expect(ctx.settings.describe().find(view => view.ns === 'first')!.autoGenerate).toBe(false)
+  })
   const provider = ctx.configEditor.entries().find(entry => entry.options.id === 'settings')!
   const entry = ctx.configEditor.entries().find(entry => entry.options.id === 'first')!
   const owner = entry.fiber
@@ -304,12 +357,16 @@ it('registers optional presentation policy after Settings loads and removes it w
   await provider.update({ disabled: false })
   await ctx.loader.await()
   expect(entry.fiber).toBe(owner)
-  await vi.waitFor(() => { expect(ctx.settings.describe().find(view => view.ns === 'first')!.autoGenerate).toBe(false) })
+  await vi.waitFor(() => {
+    expect(ctx.settings.describe().find(view => view.ns === 'first')!.autoGenerate).toBe(false)
+  })
   await entry.update({ disabled: true })
   expect(ctx.settings.describe().some(view => view.ns === 'first')).toBe(false)
   await entry.update({ disabled: false })
   await ctx.loader.await()
-  await vi.waitFor(() => { expect(ctx.settings.describe().find(view => view.ns === 'first')!.autoGenerate).toBe(false) })
+  await vi.waitFor(() => {
+    expect(ctx.settings.describe().find(view => view.ns === 'first')!.autoGenerate).toBe(false)
+  })
 })
 
 it('imports the removed settings.yaml into the profile once and keeps rejected sections in the renamed file', async () => {
@@ -318,8 +375,14 @@ it('imports the removed settings.yaml into the profile once and keeps rejected s
   const legacy = join(home, 'settings.yaml')
   writeFileSync(legacy, 'default-model:\n  model: legacy\nfirst:\n  ordinary: rejected\nmissing:\n  count: 1\n')
   const restored = await start()
-  await vi.waitFor(() => { expect(restored.agentDefaultModel.currentSelection().model).toBe('legacy') })
-  expect(parse(readFileSync(profile.patchPath, 'utf8'))).toContainEqual({ id: 'default-model', name: 'cordis:model', config: { provider: 'test', model: 'legacy' } })
+  await vi.waitFor(() => {
+    expect(restored.agentDefaultModel.currentSelection().model).toBe('legacy')
+  })
+  expect(parse(readFileSync(profile.patchPath, 'utf8'))).toContainEqual({
+    id: 'default-model',
+    name: 'cordis:model',
+    config: { provider: 'test', model: 'legacy' },
+  })
   expect(restored.settings.describe({ redactSecrets: true }).find(row => row.ns === 'first')!.value).toEqual({ count: 2, list: [] })
   expect(existsSync(legacy)).toBe(false)
   expect(readFileSync(`${legacy}.imported`, 'utf8')).toContain('rejected')
@@ -327,15 +390,20 @@ it('imports the removed settings.yaml into the profile once and keeps rejected s
   await restored.fiber.dispose()
   writeFileSync(legacy, '')
   const again = await start()
-  await vi.waitFor(() => { expect(readFileSync(`${legacy}.imported`, 'utf8')).toBe('') })
+  await vi.waitFor(() => {
+    expect(readFileSync(`${legacy}.imported`, 'utf8')).toBe('')
+  })
   await again.fiber.dispose()
   writeFileSync(legacy, 'default-model:\n  model: blocked\n')
   rmSync(`${legacy}.imported`)
   mkdirSync(join(home, 'settings.yaml.imported', 'occupied'), { recursive: true })
   const blocked = await start()
-  const failures = (): unknown[] => blocked.logger.buffer.filter(message => message.type === 'error').map((message): unknown => message.args[0])
+  const failures = (): unknown[] =>
+    blocked.logger.buffer.filter(message => message.type === 'error').map((message): unknown => message.args[0])
   // The rename fails with EISDIR on POSIX and EPERM on Windows; the reported error names the rename either way.
-  await vi.waitFor(() => { expect(failures().some(failure => failure instanceof Error && failure.message.includes('rename'))).toBe(true) })
+  await vi.waitFor(() => {
+    expect(failures().some(failure => failure instanceof Error && failure.message.includes('rename'))).toBe(true)
+  })
   expect(blocked.agentDefaultModel.currentSelection().model).toBe('legacy')
 })
 
@@ -349,8 +417,13 @@ it('describes an entry whose required field only the profile supplies, and repor
   const first = restored.settings.describe().find(row => row.ns === 'first')!
   expect(first.value).toEqual({ count: 4 })
   expect(first.base).toEqual({})
-  vi.spyOn(restored.settings, 'describe').mockImplementationOnce(() => { throw new Error('refresh failed') })
+  vi.spyOn(restored.settings, 'describe').mockImplementationOnce(() => {
+    throw new Error('refresh failed')
+  })
   restored.emit('app-boot/config-reload')
-  const failures = (): unknown[] => restored.logger.buffer.filter(message => message.type === 'error').map((message): unknown => message.args[0])
-  await vi.waitFor(() => { expect(failures()).toContainEqual(expect.objectContaining({ message: 'refresh failed' })) })
+  const failures = (): unknown[] =>
+    restored.logger.buffer.filter(message => message.type === 'error').map((message): unknown => message.args[0])
+  await vi.waitFor(() => {
+    expect(failures()).toContainEqual(expect.objectContaining({ message: 'refresh failed' }))
+  })
 })

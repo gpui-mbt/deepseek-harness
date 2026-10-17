@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import { unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -117,29 +117,22 @@ describe('observeJobOutput', () => {
 
     const { frames, done } = observed(ctx, { jobId: job.id, sessionId: owner.id })
     await done
-    expect(frames.some(frame => frame.type === 'output'
-      && frame.chunks.some(chunk => chunk.text === 'classified'))).toBe(true)
+    expect(frames.some(frame => frame.type === 'output' && frame.chunks.some(chunk => chunk.text === 'classified'))).toBe(true)
 
     const foreign = new AbortController()
-    await expect(collect(
-      observeJobOutput(ctx.jobs, { jobId: job.id }, OBSERVE, foreign.signal),
-      1,
-      foreign,
-    )).rejects.toThrow(/belongs to another session/)
+    await expect(collect(observeJobOutput(ctx.jobs, { jobId: job.id }, OBSERVE, foreign.signal), 1, foreign)).rejects.toThrow(
+      /belongs to another session/,
+    )
 
     const abort = new AbortController()
-    await expect(collect(
-      observeJobOutput(ctx.jobs, { jobId: job.id, sessionId: owner.id, from: -1 }, OBSERVE, abort.signal),
-      1,
-      abort,
-    )).rejects.toThrow(/invalid observe offset/)
+    await expect(
+      collect(observeJobOutput(ctx.jobs, { jobId: job.id, sessionId: owner.id, from: -1 }, OBSERVE, abort.signal), 1, abort),
+    ).rejects.toThrow(/invalid observe offset/)
 
     const abortUnknown = new AbortController()
-    await expect(collect(
-      observeJobOutput(ctx.jobs, { jobId: JobId('bash-999') }, OBSERVE, abortUnknown.signal),
-      1,
-      abortUnknown,
-    )).rejects.toThrow(/unknown job/)
+    await expect(
+      collect(observeJobOutput(ctx.jobs, { jobId: JobId('bash-999') }, OBSERVE, abortUnknown.signal), 1, abortUnknown),
+    ).rejects.toThrow(/unknown job/)
   })
 
   it('anchors with the live progress and takes the fast wait path for a wake that lands mid-yield', async () => {
@@ -262,11 +255,7 @@ describe('JobController', () => {
     await job.settle({ status: 'completed' })
 
     const abort = new AbortController()
-    const frames = await collect<JobFollowFrame>(
-      ctx.jobController.follow({ sessionId: owner.id, jobId: job.id }, abort.signal),
-      3,
-      abort,
-    )
+    const frames = await collect<JobFollowFrame>(ctx.jobController.follow({ sessionId: owner.id, jobId: job.id }, abort.signal), 3, abort)
     expect(frames.map(frame => frame.type)).toEqual(['opened', 'output', 'status'])
   })
 
@@ -277,11 +266,7 @@ describe('JobController', () => {
     await job.settle({ status: 'completed' })
 
     const abort = new AbortController()
-    const frames = await collect<JobFollowFrame>(
-      ctx.jobController.follow({ jobId: job.id }, abort.signal),
-      3,
-      abort,
-    )
+    const frames = await collect<JobFollowFrame>(ctx.jobController.follow({ jobId: job.id }, abort.signal), 3, abort)
     expect(frames.map(frame => frame.type)).toEqual(['opened', 'output', 'status'])
   })
 

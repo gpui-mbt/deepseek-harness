@@ -1,10 +1,7 @@
 /** ConsoleBackend implementation over native Node Runtime notifications. */
 
 import type { RuntimeBackendObjectHandle } from '../../../shared/cdp/ids.ts'
-import type {
-  RuntimeConsoleBackendEvent,
-  RuntimeConsoleType,
-} from '../../../shared/cdp/index.ts'
+import type { RuntimeConsoleBackendEvent, RuntimeConsoleType } from '../../../shared/cdp/index.ts'
 import type { HostInspectorSession } from './bridge.ts'
 import type { ConsoleBackend } from '../../../shared/cdp/realm.ts'
 import { isNativeRecord } from './values.ts'
@@ -12,8 +9,24 @@ import { HostNotificationChannel } from './bridge.ts'
 import type { HostRuntimeBackend } from './runtime.ts'
 
 const CONSOLE_TYPES = new Set<RuntimeConsoleType>([
-  'log', 'debug', 'info', 'error', 'warning', 'dir', 'dirxml', 'table', 'trace', 'clear',
-  'startGroup', 'startGroupCollapsed', 'endGroup', 'assert', 'profile', 'profileEnd', 'count', 'timeEnd',
+  'log',
+  'debug',
+  'info',
+  'error',
+  'warning',
+  'dir',
+  'dirxml',
+  'table',
+  'trace',
+  'clear',
+  'startGroup',
+  'startGroupCollapsed',
+  'endGroup',
+  'assert',
+  'profile',
+  'profileEnd',
+  'count',
+  'timeEnd',
 ])
 
 /** Converts native Runtime notifications to realm-neutral Console events. */
@@ -27,9 +40,8 @@ export class HostConsoleBackend implements ConsoleBackend {
     this.events = new HostNotificationChannel(
       target,
       message => message.method === 'Runtime.consoleAPICalled' || message.method === 'Runtime.exceptionThrown',
-      async message => message.method === 'Runtime.consoleAPICalled'
-        ? this.consoleEvent(message.params)
-        : this.exceptionEvent(message.params),
+      async message =>
+        message.method === 'Runtime.consoleAPICalled' ? this.consoleEvent(message.params) : this.exceptionEvent(message.params),
     )
   }
 

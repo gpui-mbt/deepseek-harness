@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ScheduleDeleteResult, ScheduleId, ScheduleRecord } from '@deepseek-ai/dsh-schedule/client'
@@ -6,7 +6,11 @@ import { createCatalogSource } from '../src/client/catalog-source.ts'
 
 const id = 'reminder' as ScheduleId
 const row: ScheduleRecord = {
-  id, kind: 'at', title: 'Read status', prompt: 'Read status', scheduledAt: '2026-10-01T00:00:00.000Z',
+  id,
+  kind: 'at',
+  title: 'Read status',
+  prompt: 'Read status',
+  scheduledAt: '2026-10-01T00:00:00.000Z',
 }
 const failure = { ok: false as const, error: new RemoteError('gateway/internal', 'Unavailable', {}) }
 const ready = (records: ScheduleRecord[]): RemoteResult<ScheduleRecord[]> => ({ ok: true, value: records })
@@ -17,15 +21,36 @@ function harness() {
   const changedDisposed = vi.fn()
   const resetDisposed = vi.fn()
   const list = vi.fn<() => Promise<RemoteResult<ScheduleRecord[]>>>().mockResolvedValue(ready([row]))
-  const remove = vi.fn<(value: ScheduleId) => Promise<RemoteResult<ScheduleDeleteResult>>>()
+  const remove = vi
+    .fn<(value: ScheduleId) => Promise<RemoteResult<ScheduleDeleteResult>>>()
     .mockResolvedValue({ ok: true, value: { id, deleted: true } })
   const entry = createCatalogSource({
-    list, remove,
-    subscribeChanged: (listener) => { changed = listener; return changedDisposed },
-    subscribeReset: (listener) => { reset = listener; return resetDisposed },
+    list,
+    remove,
+    subscribeChanged: listener => {
+      changed = listener
+      return changedDisposed
+    },
+    subscribeReset: listener => {
+      reset = listener
+      return resetDisposed
+    },
   })
   const source = entry.hooks.catalog
-  return { entry, source, list, remove, changed: () => { changed() }, reset: () => { reset() }, changedDisposed, resetDisposed }
+  return {
+    entry,
+    source,
+    list,
+    remove,
+    changed: () => {
+      changed()
+    },
+    reset: () => {
+      reset()
+    },
+    changedDisposed,
+    resetDisposed,
+  }
 }
 
 /**
@@ -38,7 +63,9 @@ function harness() {
  * @returns resolution after the in-flight read has published.
  */
 async function flushed(): Promise<void> {
-  await new Promise((resolve) => { setTimeout(resolve, 0) })
+  await new Promise(resolve => {
+    setTimeout(resolve, 0)
+  })
 }
 
 describe('Schedule catalog Remote source', () => {
@@ -156,8 +183,7 @@ describe('Schedule catalog Remote source', () => {
     expect(h.list).toHaveBeenCalledTimes(2)
     inFlight.resolve(ready([]))
     await flushed()
-    expect(h.source.getSnapshot())
-      .toMatchObject({ status: 'ready', records: [row], readRequest: 2, readSettled: 2 })
+    expect(h.source.getSnapshot()).toMatchObject({ status: 'ready', records: [row], readRequest: 2, readSettled: 2 })
     dispose()
   })
 
@@ -233,8 +259,7 @@ describe('Schedule catalog Remote source', () => {
     h.list.mockResolvedValueOnce(ready([]))
     await h.entry.onRetry(2)
     expect(h.list).toHaveBeenCalledTimes(3)
-    expect(h.source.getSnapshot())
-      .toMatchObject({ status: 'ready', records: [], readRequest: 3, readSettled: 3 })
+    expect(h.source.getSnapshot()).toMatchObject({ status: 'ready', records: [], readRequest: 3, readSettled: 3 })
 
     // The older read was superseded, so its late row cannot come back either.
     slow.resolve(ready([row]))
@@ -260,8 +285,7 @@ describe('Schedule catalog Remote source', () => {
 
     slow.resolve(ready([row]))
     await Promise.all([shared, joined])
-    expect(h.source.getSnapshot())
-      .toMatchObject({ status: 'ready', records: [row], readRequest: 3, readSettled: 2 })
+    expect(h.source.getSnapshot()).toMatchObject({ status: 'ready', records: [row], readRequest: 3, readSettled: 2 })
     dispose()
   })
 
@@ -290,8 +314,7 @@ describe('Schedule catalog Remote source', () => {
     slowC.resolve(ready([row]))
     await readsC
     await flushed()
-    expect(h.source.getSnapshot())
-      .toMatchObject({ status: 'ready', records: [row], readRequest: 3, readSettled: 3 })
+    expect(h.source.getSnapshot()).toMatchObject({ status: 'ready', records: [row], readRequest: 3, readSettled: 3 })
     dispose()
   })
 
@@ -318,8 +341,7 @@ describe('Schedule catalog Remote source', () => {
     // The acknowledgement's own read is the third call: the subscription's, the
     // stale one, and this one.
     expect(h.list).toHaveBeenCalledTimes(3)
-    expect(h.source.getSnapshot())
-      .toMatchObject({ status: 'ready', records: [], deleting: [], readRequest: 3, readSettled: 3 })
+    expect(h.source.getSnapshot()).toMatchObject({ status: 'ready', records: [], deleting: [], readRequest: 3, readSettled: 3 })
 
     // The stale read's late result cannot put the deleted row back.
     stale.resolve(ready([row]))
@@ -348,7 +370,7 @@ describe('Schedule catalog Remote source', () => {
     dispose()
   })
 
-  it.each(['remote', 'transport'] as const)('settles another deletion as deleted while a %s failure retains its own row', async (mode) => {
+  it.each(['remote', 'transport'] as const)('settles another deletion as deleted while a %s failure retains its own row', async mode => {
     const h = harness()
     const otherId = 'later-reminder' as ScheduleId
     const rows = [row, { ...row, id: otherId }]
@@ -375,9 +397,10 @@ describe('Schedule catalog Remote source', () => {
     }
   })
 
-  describe.each(['remote', 'transport'] as const)('overlapping deletions with a %s failure', (mode) => {
+  describe.each(['remote', 'transport'] as const)('overlapping deletions with a %s failure', mode => {
     it.each(['before acknowledgement', 'during refresh', 'after refresh'] as const)(
-      'settles each deletion with its own outcome when the failure lands %s of the successful one', async (order) => {
+      'settles each deletion with its own outcome when the failure lands %s of the successful one',
+      async order => {
         const h = harness()
         const otherId = 'other-reminder' as ScheduleId
         const otherRow = { ...row, id: otherId }
@@ -403,7 +426,8 @@ describe('Schedule catalog Remote source', () => {
         try {
           expect(h.remove.mock.calls).toEqual([[id], [otherId]])
           expect(h.source.getSnapshot()).toMatchObject({
-            records: [row, otherRow], deleting: [id, otherId],
+            records: [row, otherRow],
+            deleting: [id, otherId],
           })
           if (order === 'before acknowledgement') {
             await failA()
@@ -412,14 +436,16 @@ describe('Schedule catalog Remote source', () => {
           succeeded.resolve({ ok: true, value: { id: otherId, deleted: true } })
           await refreshStarted.promise
           expect(h.source.getSnapshot()).toMatchObject({
-            records: [row, otherRow], status: 'loading',
+            records: [row, otherRow],
+            status: 'loading',
             deleting: order === 'before acknowledgement' ? [] : [id],
           })
           if (order === 'during refresh') await failA()
           refreshed.resolve(ready([row]))
           await expect(removingB).resolves.toBe('deleted')
           expect(h.source.getSnapshot()).toMatchObject({
-            records: [row], status: 'ready',
+            records: [row],
+            status: 'ready',
             deleting: order === 'after refresh' ? [id] : [],
           })
           if (order === 'after refresh') await failA()

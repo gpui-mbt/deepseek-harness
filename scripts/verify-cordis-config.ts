@@ -35,9 +35,7 @@ export interface PluginReference {
 const root = resolve(import.meta.dirname, '..')
 // These overlays are consumed by the built dsh app, so their bare specifiers
 // resolve from apps/cli.
-const appOverlayFiles = new Set([
-  ...globSync('apps/cli/config/examples/**/*.yml', { cwd: root }),
-])
+const appOverlayFiles = new Set([...globSync('apps/cli/config/examples/**/*.yml', { cwd: root })])
 const metadataFields = ['id', 'name', 'group', 'inject', 'intercept', 'isolate'] as const
 
 /** The adaptive directory-picker chooser package (mounts a backend row at boot). */
@@ -104,7 +102,7 @@ if (import.meta.main) {
  * `dsh.client` declaration disagree.
  */
 function validateClientHalvesDeclared(): string[] {
-  return globSync('packages/client/*/package.json', { cwd: root }).flatMap((manifestPath) => {
+  return globSync('packages/client/*/package.json', { cwd: root }).flatMap(manifestPath => {
     const manifest = readManifest(manifestPath) as PackageManifest & {
       exports?: Record<string, unknown>
       dsh?: { client?: unknown }
@@ -112,9 +110,11 @@ function validateClientHalvesDeclared(): string[] {
     const shipsClient = manifest.exports !== undefined && Object.hasOwn(manifest.exports, './client')
     const declaresClient = manifest.dsh?.client !== undefined
     if (shipsClient === declaresClient) return []
-    return [shipsClient
-      ? `${manifestPath}: exports "./client" but declares no dsh.client, so its browser half is never served`
-      : `${manifestPath}: declares dsh.client but exports no "./client" entry to serve`]
+    return [
+      shipsClient
+        ? `${manifestPath}: exports "./client" but declares no dsh.client, so its browser half is never served`
+        : `${manifestPath}: declares dsh.client but exports no "./client" entry to serve`,
+    ]
   })
 }
 
@@ -142,7 +142,9 @@ function validatePresetPlaneSeparation(): string[] {
   // layer is its host patch followed by one patch file per shipped preset.
   const hostFile = 'packages/bundle/base/cordis.patch.yml'
   const overlayDir = 'packages/bundle/web-app'
-  const overlayManifest = JSON.parse(readFileSync(resolve(root, overlayDir, 'package.json'), 'utf8')) as { dsh: { bundle: DshBundleManifest } }
+  const overlayManifest = JSON.parse(readFileSync(resolve(root, overlayDir, 'package.json'), 'utf8')) as {
+    dsh: { bundle: DshBundleManifest }
+  }
   const overlayFiles = bundlePatchFiles(overlayManifest.dsh.bundle).map(file => `${overlayDir}/${file.replace(/^\.\//, '')}`)
   const disabled = new Set<string>()
   const overlayRows = new Set<string>()
@@ -158,7 +160,8 @@ function validatePresetPlaneSeparation(): string[] {
   for (const file of overlayFiles) {
     for (const definition of presetDefinitions(loadEntries(file))) {
       for (const id of collectRowIds(definition.plugins)) {
-        if (active.has(id)) problems.push(`${file}#${definition.id}: row "${id}" is also active in the host composition; a row belongs to exactly one plane`)
+        if (active.has(id))
+          problems.push(`${file}#${definition.id}: row "${id}" is also active in the host composition; a row belongs to exactly one plane`)
       }
     }
   }
@@ -210,7 +213,8 @@ function validateEntry(value: unknown, file: string, path: string): void {
     }
   }
   if (isAgentPresetEntry(value)) {
-    for (let index = 0; index < value.config.plugins.length; index++) validateEntry(value.config.plugins[index], file, `${path}.config.plugins[${index}]`)
+    for (let index = 0; index < value.config.plugins.length; index++)
+      validateEntry(value.config.plugins[index], file, `${path}.config.plugins[${index}]`)
   }
   if (isUnknownArray(value.insert)) {
     for (let index = 0; index < value.insert.length; index++) {
@@ -248,23 +252,21 @@ function validateAppResolution(): string[] {
     // Runtime resolution includes every in-box bundle's own dependencies.
     // Optional Profile bundles stay outside the app installation until that
     // Profile installs them.
-    ...Object.fromEntries(globSync('packages/bundle/*/package.json', { cwd: root })
-      .flatMap(file => Object.entries(readManifest(file).dependencies ?? {}))),
+    ...Object.fromEntries(
+      globSync('packages/bundle/*/package.json', { cwd: root }).flatMap(file => Object.entries(readManifest(file).dependencies ?? {})),
+    ),
   }
-  const shipped = new Set(globSync('*.cordis.yml', { cwd: resolve(root, 'apps/cli/config') })
-    .map(file => `apps/cli/config/${file}`))
+  const shipped = new Set(globSync('*.cordis.yml', { cwd: resolve(root, 'apps/cli/config') }).map(file => `apps/cli/config/${file}`))
   const appReferences = pluginReferences.filter(reference => shipped.has(reference.file) || appOverlayFiles.has(reference.file))
-  violations.push(...missingPluginDependencies(
-    appReferences,
-    appDependencies,
-    'apps/cli/package.json dependencies or a bundle manifest',
-  ))
+  violations.push(...missingPluginDependencies(appReferences, appDependencies, 'apps/cli/package.json dependencies or a bundle manifest'))
   const appTestReferences = pluginReferences.filter(reference => reference.file.startsWith('apps/cli/tests/'))
-  violations.push(...missingPluginDependencies(
-    appTestReferences,
-    { ...appManifest.dependencies, ...appManifest.devDependencies },
-    'apps/cli/package.json dependencies or devDependencies',
-  ))
+  violations.push(
+    ...missingPluginDependencies(
+      appTestReferences,
+      { ...appManifest.dependencies, ...appManifest.devDependencies },
+      'apps/cli/package.json dependencies or devDependencies',
+    ),
+  )
   // Each bundle's patch rows must resolve from that bundle's own dependencies:
   // per-layer resolution anchors on the bundle package directory.
   for (const manifestPath of bundleManifests) {
@@ -272,8 +274,7 @@ function validateAppResolution(): string[] {
     const manifest = readManifest(manifestPath)
     const bundle = manifest.dsh?.bundle
     if (bundle === undefined) continue
-    const patchFiles = new Set(bundlePatchPaths(resolve(root, bundleDir), bundle)
-      .map(file => relative(root, file).replaceAll('\\', '/')))
+    const patchFiles = new Set(bundlePatchPaths(resolve(root, bundleDir), bundle).map(file => relative(root, file).replaceAll('\\', '/')))
     const references = pluginReferences.filter(reference => patchFiles.has(reference.file))
     violations.push(...bundlePluginDependencyErrors(manifestPath, manifest, references))
   }
@@ -295,7 +296,8 @@ function validatePackageTestResolution(): string[] {
     referencesByManifest.set(manifestPath, references)
   }
   return [...referencesByManifest].flatMap(([manifestPath, references]) =>
-    packageTestPluginDependencyErrors(manifestPath, readManifest(manifestPath), references))
+    packageTestPluginDependencyErrors(manifestPath, readManifest(manifestPath), references),
+  )
 }
 
 /**
@@ -327,19 +329,18 @@ export function packageTestPluginDependencyErrors(
  * @returns Missing dependency diagnostics.
  */
 export function packageTestFixtureDependencyErrors(repoRoot: string = root): string[] {
-  const fixtureDirectories = new Set(cordisConfigFiles(repoRoot)
-    .filter(file => packageTestManifestPath(file) !== undefined)
-    .map(file => dirname(file).replaceAll('\\', '/')))
+  const fixtureDirectories = new Set(
+    cordisConfigFiles(repoRoot)
+      .filter(file => packageTestManifestPath(file) !== undefined)
+      .map(file => dirname(file).replaceAll('\\', '/')),
+  )
   if (fixtureDirectories.size === 0) {
     return ['package test fixture dependency scan found no package-owned Loader configs']
   }
   const referencesByManifest = new Map<string, PluginReference[]>()
   let fixtureModuleCount = 0
   for (const fixtureDirectory of fixtureDirectories) {
-    const files = globSync([
-      `${fixtureDirectory}/**/*.ts`,
-      `${fixtureDirectory}/**/*.mjs`,
-    ], { cwd: repoRoot })
+    const files = globSync([`${fixtureDirectory}/**/*.ts`, `${fixtureDirectory}/**/*.mjs`], { cwd: repoRoot })
     fixtureModuleCount += files.length
     for (const file of files) {
       const manifestPath = packageTestManifestPath(file)
@@ -356,11 +357,8 @@ export function packageTestFixtureDependencyErrors(repoRoot: string = root): str
     return ['package test fixture dependency scan found no fixture modules beside Loader configs']
   }
   return [...referencesByManifest].flatMap(([manifestPath, references]) =>
-    packageTestPluginDependencyErrors(
-      manifestPath,
-      readManifest(manifestPath, repoRoot),
-      references,
-    ))
+    packageTestPluginDependencyErrors(manifestPath, readManifest(manifestPath, repoRoot), references),
+  )
 }
 
 /** Owner manifest for a package-local test path. */
@@ -447,7 +445,9 @@ function validateSourcePlaneResolution(): string[] {
   for (const [specifier, locations] of locationsBySpecifier) {
     const resolved = ts.resolveModuleName(specifier, containingFile, options, host).resolvedModule
     if (resolved !== undefined && sourceExtensions.has(resolved.extension)) continue
-    violations.push(`${[...locations].join(', ')}: ${specifier} does not resolve to workspace source through tsconfig.base.json paths (add a mapping so the tsx source launch does not depend on built lib/)`)
+    violations.push(
+      `${[...locations].join(', ')}: ${specifier} does not resolve to workspace source through tsconfig.base.json paths (add a mapping so the tsx source launch does not depend on built lib/)`,
+    )
   }
   return violations
 }
@@ -471,9 +471,9 @@ function missingPluginDependencies(
       for (const backend of CHOOSER_BACKEND_PACKAGES) require(backend, reference.file)
     }
   }
-  return [...requiredPackages].flatMap(([packageName, locations]) => packageName in dependencies
-    ? []
-    : `${[...locations].join(', ')}: ${packageName} must be declared in ${dependencyOwner}`)
+  return [...requiredPackages].flatMap(([packageName, locations]) =>
+    packageName in dependencies ? [] : `${[...locations].join(', ')}: ${packageName} must be declared in ${dependencyOwner}`,
+  )
 }
 
 function readManifest(path: string, repoRoot: string = root): PackageManifest {

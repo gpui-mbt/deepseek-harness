@@ -24,9 +24,7 @@ export function githubRepository(remoteUrl: string): WorkspaceGitGithub | null {
   const segments = remote.path.split('/').filter(segment => segment !== '')
   if (segments.length !== 2) return null
   const [owner, repository] = segments as [string, string]
-  const name = repository.endsWith(GIT_SUFFIX)
-    ? repository.slice(0, -GIT_SUFFIX.length)
-    : repository
+  const name = repository.endsWith(GIT_SUFFIX) ? repository.slice(0, -GIT_SUFFIX.length) : repository
   // A path whose repository segment is only the suffix names no repository.
   if (name === '') return null
   return { slug: `${owner}/${name}`, url: `https://github.com/${owner}/${name}` }
