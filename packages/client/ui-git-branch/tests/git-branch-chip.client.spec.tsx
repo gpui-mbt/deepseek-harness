@@ -221,6 +221,8 @@ describe('GitBranchChip', () => {
     const chip = screen.getByRole('button', { name: '分支 main' })
     fireEvent.click(chip)
     expect(screen.queryByRole('dialog')).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'a' })
+    expect(screen.queryByRole('dialog')).toBeTruthy()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(chip.getAttribute('aria-expanded')).toBe('false')

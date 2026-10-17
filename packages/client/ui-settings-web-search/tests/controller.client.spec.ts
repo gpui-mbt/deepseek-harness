@@ -122,6 +122,16 @@ describe('WebSearchCardController', () => {
     })
   })
 
+  it('re-emits when the active form scope publishes', () => {
+    const bench = controllerFor([DEEPSEEK, OLLAMA, 'web'], {
+      web: { searchProvider: 'deepseek-official' },
+      [DEEPSEEK]: {},
+    })
+    expect(bench.forms.stubs.get(DEEPSEEK)!.listenerCount()).toBeGreaterThan(0)
+    bench.forms.stubs.get(DEEPSEEK)!.publish({ value: { baseURL: 'https://search.test' } })
+    expect(bench.state()).toBeDefined()
+  })
+
   it('lists only the providers the Host serves and shows the selector for two or more', () => {
     const bench = controllerFor([DEEPSEEK, OLLAMA, 'web'], { web: { searchProvider: 'deepseek-official' } })
 

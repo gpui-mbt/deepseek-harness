@@ -96,6 +96,19 @@ describe('GitBranchController watches', () => {
     controller.dispose()
   })
 
+  it('re-reads one watched Session immediately and ignores an unwatched one', async () => {
+    const { controller, calls } = bench()
+    controller.acquire(SESSION)
+    await settle()
+    controller.refresh(OTHER)
+    await settle()
+    expect(calls).toEqual([SESSION])
+    controller.refresh(SESSION)
+    await settle()
+    expect(calls).toEqual([SESSION, SESSION])
+    controller.dispose()
+  })
+
   it('polls on the interval only while the page is visible and refreshes when it returns', async () => {
     const { controller, calls } = bench()
     controller.acquire(SESSION)

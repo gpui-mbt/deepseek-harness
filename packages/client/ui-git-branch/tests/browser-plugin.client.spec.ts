@@ -97,6 +97,10 @@ describe('ui-git-branch browser half', () => {
       })
     })
     expect(status).toHaveBeenCalledWith(SESSION, expect.any(AbortSignal))
+    injected.refresh(SESSION)
+    await vi.waitFor(() => {
+      expect(status).toHaveBeenCalledTimes(2)
+    })
     injected.release(SESSION)
     expect(injected.hooks.gitBranch.getSnapshot()[SESSION]).toBeUndefined()
     await fiber.dispose()
