@@ -15,7 +15,8 @@ const ERROR_STEPS: Record<ManagementError['code'], string> = {
   unaddressable: 'This entry has no unique profile patch target; tell the user to edit the profile patch file directly.',
   'unknown-plugin': 'Call list_plugins and retry with an exact entryId.',
   'invalid-spec': 'Retry with an npm package name, a git URL, a tarball URL, or an absolute local directory.',
-  'already-installed': 'The package is already installed; to install another version, call remove_bundle first, then install_bundle again.',
+  'already-installed':
+    'Ask the user whether to replace the installed bundle; retry install_bundle with overwrite: true, or call remove_bundle first. A package the DSH installation provides cannot be replaced.',
   'ambiguous-install': 'The dependency change named no single package; call list_bundles to see what was installed.',
   'not-bundle': 'The package declares no dsh.bundle and cannot be managed as a plugin; install a DSH plugin bundle instead.',
   'not-removable': 'Call list_bundles; only bundles marked removable can be removed.',
@@ -141,6 +142,11 @@ export function apply(ctx: Context): void {
           description:
             'For install_bundle: the npm registry URL asked first, when the user names one; otherwise the configured registry is asked, and its configured fallbacks while a registry is unreachable.',
         },
+        overwrite: {
+          type: 'boolean',
+          description:
+            'For install_bundle: replace a bundle this profile already installs. Its plugins stop before pnpm rewrites the package, then start again from the new files. A package the DSH installation provides is never replaced.',
+        },
         offset: { type: 'number', description: 'Zero-based list offset; defaults to 0.' },
         limit: { type: 'number', description: 'List page size, from 1 to 100; defaults to 25.' },
       },
@@ -209,6 +215,7 @@ export function apply(ctx: Context): void {
                   ...(args.enabled === undefined ? {} : { enabled: args.enabled }),
                   ...(args.approvedBuilds === undefined ? {} : { approvedBuilds: args.approvedBuilds }),
                   ...(args.registry === undefined ? {} : { registry: args.registry }),
+                  ...(args.overwrite === undefined ? {} : { overwrite: args.overwrite }),
                 }),
               ),
             )

@@ -108,7 +108,7 @@ export const ja: LocaleDictOf<'pluginManager'> = {
   installConfirmedTitle: 'プラグインをインストール',
   installConfirmedRefused: 'このプラグインはインストールできません',
   installProblemInvalid: 'このパッケージ名またはアドレスは認識できません: {reason}',
-  installProblemInstalled: 'このプラグインはインストール済みです',
+  installProblemInstalled: 'このパッケージは DSH に同梱されているため置き換えられません',
   installProblemShipped: 'このプラグインは DSH に同梱されています。DSH をアップグレードすると新しくなります',
   installProblemNotFound: '該当するプラグインが見つかりません',
   installProblemNotPackage: 'そのパスは存在しないか、有効なプラグインパッケージではありません',
