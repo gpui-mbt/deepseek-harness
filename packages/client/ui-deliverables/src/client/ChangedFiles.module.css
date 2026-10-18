@@ -14,8 +14,15 @@ button.header:disabled { cursor: progress; }
 .stat { display: inline-flex; font-size: 10px; line-height: 16px; color: var(--dsw-alias-label-tertiary); }
 .statCounts { display: inline-flex; gap: 6px; font-family: var(--ds-font-family-code); }
 .previewHint { display: none; }
-.header:hover .statCounts, .header:focus-visible .statCounts { display: none; }
-.header:hover .previewHint, .header:focus-visible .previewHint { display: inline; }
+.header:focus-visible .statCounts { display: none; }
+.header:focus-visible .previewHint { display: inline; }
+
+/* The counts-to-preview swap is a pointer affordance: a touch tap latches
+   :hover on the header and would leave the counts hidden afterwards. */
+@media (hover: hover) {
+  .header:hover .statCounts { display: none; }
+  .header:hover .previewHint { display: inline; }
+}
 .stat[data-error='true'], .counts[data-error='true'] { color: var(--dsw-alias-state-error-primary); }
 .added { color: var(--dsw-alias-state-success-primary); }
 .deleted { color: var(--dsw-alias-state-error-primary); }

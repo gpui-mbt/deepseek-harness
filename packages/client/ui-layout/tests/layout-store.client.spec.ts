@@ -80,6 +80,21 @@ describe('createLayoutStore', () => {
     actions.setViewportWidth(980)
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
   })
+
+  it('clears the manual override when crossing the drawer width', () => {
+    // The expanded narrow navigation is a drawer below 768px and a column
+    // above it; the state cannot carry across the change of surface.
+    const { store, actions } = createLayoutStore().create()
+    actions.setViewportWidth(980)
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    actions.setViewportWidth(767)
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    actions.setViewportWidth(768)
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+  })
 })
 
 describe('main panel selection', () => {

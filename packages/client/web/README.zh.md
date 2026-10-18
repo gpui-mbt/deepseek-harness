@@ -31,6 +31,10 @@ kind: "package-library"
 
 外壳基础样式会在支持的浏览器中为普通内容自动添加中西文间距。语义化代码以及终端、diff、读取和搜索输出容器会保留源码中的原始间距和列对齐；不支持 `text-autospace` 的浏览器会忽略这两项声明。
 
+### 视口与触摸输入
+
+外壳是固定高度的应用，因此挂载点跟随可见视口而非布局视口：`viewport.ts` 将视觉视口高度发布为 `--dsh-viewport-height`，并在软键盘遮挡页面时标记 `html[data-soft-keyboard]`（此时外壳省略 Home 指示条的安全区）。外壳样式表据此设置 `#root` 高度，禁止页面自身滚动和过滚动刷新，从 `env()` 发布 `--dsh-safe-*` 安全区，并在粗指针设备上把文本输入控件保持在 16px——iOS Safari 会为更小的字号缩放页面，并忽略 `user-scalable=no`。
+
 Web 和 Desktop 的数学公式渲染要求支持 WOFF2。[Web 构建](../../../apps/web/katex-fonts.ts)以 WOFF2 保留全部 KaTeX 字体样式，并排除 WOFF/TTF 后备格式；任一字体样式缺少 WOFF2 都会使构建失败。字体的字形、字重、样式和布局规则保持不变。
 
 ### 启动过程是怎样的
@@ -87,6 +91,8 @@ Web 和 Desktop 的数学公式渲染要求支持 WOFF2。[Web 构建](../../../
 | [`src/boot-client.ts`](src/boot-client.ts) | `bootClient` / `assertEntriesActive`：挂载 Loader、每个 manifest 行一个 entry、激活审计 |
 | [`src/mount.ts`](src/mount.ts) | `mountClient`：经 `uiRenderer` 依赖 fiber 完成渲染器交接 |
 | [`src/boot-page.ts`](src/boot-page.ts) | 无框架启动页：spinner、逐 entry 状态、失败渲染 |
+| [`src/viewport.ts`](src/viewport.ts) | 视觉视口投影：`--dsh-viewport-height` 与软键盘标记 |
+| [`src/base.css`](src/base.css) | 外壳挂载样式：可见视口高度、过滚动抑制、安全区、触摸文本输入下限 |
 | [`src/platform.ts`](src/platform.ts) | `PLATFORM_MODULES` / `PRELOADED_CLIENT_EXTERNALS`：隐式 external 基座 |
 | [`src/seed.ts`](src/seed.ts) | 启动时交给 loader 的静态模块表 |
 | [`src/window-drag/regions.ts`](src/window-drag/regions.ts) | darwin app-region 组合模型，以及 `base.css` 减除的交互元素选择器 |

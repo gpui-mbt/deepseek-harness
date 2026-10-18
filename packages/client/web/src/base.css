@@ -2,10 +2,47 @@
  * plugin before the loader roster activates. */
 
 html,
-body,
-#root {
+body {
   height: 100%;
   margin: 0;
+  /* The application frame owns every scroll region; nothing scrolls the page. */
+  overflow: hidden;
+  /* Safari's landscape text inflation must not resize the fixed frame. */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Touch only: a pull-to-refresh gesture over the shell would reload the page and
+   drop the live connection. It stays off the fine-pointer path because Chromium
+   hands Home/End to the root scroller instead of the focused editor once that
+   scroller refuses chaining, which strands the composer caret. */
+@media (pointer: coarse) {
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+}
+
+/* The mount point fills the visible viewport, not the layout viewport: iOS
+   Safari keeps the layout viewport's height while the software keyboard, the
+   collapsing toolbar, and pinch zoom change what the user can see.
+   viewport.ts publishes the visual viewport's height; a browser without one,
+   or the frame drawn before the first projection, keeps the layout height. */
+#root {
+  height: var(--dsh-viewport-height, 100%);
+}
+
+/* Safe-area insets, published once so chrome sheets consume the variables
+   instead of repeating env(). The keyboard covers the home indicator, so the
+   bottom inset drops while it is open (viewport.ts owns the mark). */
+:root {
+  --dsh-safe-top: env(safe-area-inset-top, 0px);
+  --dsh-safe-right: env(safe-area-inset-right, 0px);
+  --dsh-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --dsh-safe-left: env(safe-area-inset-left, 0px);
+}
+
+html[data-soft-keyboard] {
+  --dsh-safe-bottom: 0px;
 }
 
 body {
@@ -28,6 +65,9 @@ body {
   background: var(--dsw-alias-bg-base, #fff);
   /* Supporting browsers insert CJK/Latin spacing in inherited prose. */
   text-autospace: normal;
+  /* The product draws its own pressed and focus states; WebKit's grey tap
+     flash would stack on top of every control on touch devices. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* macOS desktop (the Electron preload sets data-platform): the window's
@@ -105,4 +145,20 @@ input,
 select,
 textarea {
   font-family: inherit;
+  /* No double-tap-zoom delay on the app's controls; pinch zoom stays. */
+  touch-action: manipulation;
+}
+
+/* iOS Safari zooms the page when a focused text control computes below 16px,
+   and it ignores `user-scalable=no` for that decision. Touch layouts therefore
+   keep text entry at 16px whatever the feature sheet chose; the rule sits in
+   the shell sheet and outranks component rules because the alternative is a
+   zoomed application frame on every tap into the composer. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select,
+  [contenteditable='true'] {
+    font-size: max(16px, 1em) !important;
+  }
 }

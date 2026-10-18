@@ -72,7 +72,11 @@ function mountFrame(windowWidth = frameWidth) {
   const slotCalls: { key: string; props: object; options: RenderOpts | undefined }[] = []
   const renderSlot: AppFrameProps['renderSlot'] = (key, owner, options) => {
     slotCalls.push({ key, props: owner, options })
-    return <div data-testid={`${key}-content`} data-entry-key={options?.entryKey} />
+    return (
+      <div data-testid={`${key}-content`} data-entry-key={options?.entryKey}>
+        {key === 'sidebar' || key === 'shell.leading' ? <button type="button">{key}</button> : null}
+      </div>
+    )
   }
   const useSessions: AppFrameProps['useSessions'] = sel =>
     sel({
@@ -342,6 +346,81 @@ describe('AppFrame', () => {
   })
 })
 
+describe('AppFrame narrow drawer', () => {
+  beforeEach(() => {
+    frameWidth = 390
+  })
+
+  it('replaces the collapsed rail with a drawer and keeps the centre full width', () => {
+    const { frame, sidebarOwner } = mountFrame()
+    expect(tracks(frame)).toEqual([0, 0])
+    expect(frame.hasAttribute('data-mobile')).toBe(true)
+    // The drawer keeps the wide navigation layout: it slides out whole.
+    expect(sidebarOwner()).toEqual({ collapsed: false, width: 280 })
+    expect(frame.querySelector('[data-side="sidebar"]')).toBeNull()
+    expect(frame.querySelector('[data-shell-leading]')).not.toBeNull()
+    const drawer = frame.querySelector<HTMLElement>('[data-drawer]')
+    expect(drawer).not.toBeNull()
+    expect(drawer!.style.width).toBe('280px')
+    expect(drawer!.dataset.open).toBeUndefined()
+    // A closed drawer is out of the tab order and out of screen readers.
+    expect(drawer!.hasAttribute('inert')).toBe(true)
+  })
+
+  it('keeps the column and no drawer at a wide frame', () => {
+    frameWidth = 1200
+    const { frame } = mountFrame()
+    expect(frame.hasAttribute('data-mobile')).toBe(false)
+    expect(frame.querySelector('[data-drawer]')).toBeNull()
+    expect(frame.querySelector('[data-shell-leading]')).toBeNull()
+  })
+
+  it('opens from the toggle, moves focus in, and returns it on Escape', () => {
+    const { frame, instance } = mountFrame()
+    const drawer = frame.querySelector<HTMLElement>('[data-drawer]')!
+    const scrim = frame.querySelector<HTMLElement>('[data-drawer-scrim]')!
+
+    act(() => {
+      instance.actions.toggleSidebar()
+    })
+    expect(drawer.dataset.open).toBe('true')
+    expect(scrim.dataset.open).toBe('true')
+    expect(drawer.hasAttribute('inert')).toBe(false)
+    expect(document.activeElement?.textContent).toBe('sidebar')
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    expect(drawer.dataset.open).toBeUndefined()
+    expect(scrim.dataset.open).toBeUndefined()
+    expect(drawer.hasAttribute('inert')).toBe(true)
+    expect(document.activeElement?.textContent).toBe('shell.leading')
+  })
+
+  it('dismisses on the scrim and when the drawer reveals a chosen panel', () => {
+    const { frame, instance } = mountFrame()
+    const drawer = frame.querySelector<HTMLElement>('[data-drawer]')!
+    const scrim = frame.querySelector<HTMLElement>('[data-drawer-scrim]')!
+
+    act(() => {
+      instance.actions.toggleSidebar()
+    })
+    act(() => {
+      scrim.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    })
+    expect(drawer.dataset.open).toBeUndefined()
+
+    act(() => {
+      instance.actions.toggleSidebar()
+    })
+    expect(drawer.dataset.open).toBe('true')
+    act(() => {
+      instance.actions.selectPanel('panel-a' as MainPanelId)
+    })
+    expect(drawer.dataset.open).toBeUndefined()
+  })
+})
+
 describe('AppFrame normal width concessions', () => {
   it('measures the frame, not the window, before choosing the first-open preference', () => {
     frameWidth = 1000
@@ -377,7 +456,7 @@ describe('AppFrame normal width concessions', () => {
     act(() => {
       instance.actions.closeRightbar()
     })
-    resize(455)
+    resize(800)
     expect(tracks(frame)).toEqual([56, 0])
     resize(1920)
     expect(tracks(frame)).toEqual([420, 0])
@@ -400,9 +479,12 @@ describe('AppFrame normal width concessions', () => {
   })
 
   it.each([
-    [756, 300, true],
-    [755, 0, false],
+    [756, 340, true],
+    [700, 300, true],
+    [699, 0, false],
   ] as const)('reports eligibility at %ipx', (width, rightbar, canShow) => {
+    // Below MOBILE_MAX there is no rail: the center keeps its protected minimum
+    // and the right panel's bid is priced against the whole frame.
     frameWidth = width
     const { instance, rightOwner } = mountFrame()
     act(() => {
@@ -626,13 +708,15 @@ describe('AppFrame right panel presentation', () => {
   })
 
   it('retains fullscreen without a track when normal columns cannot fit', () => {
-    frameWidth = 700
+    // One pixel below the 700px that fits the center minimum and the right
+    // panel's floor: still shown, with no track and no handle.
+    frameWidth = 699
     const { frame, instance, rightOwner } = mountFrame()
     act(() => {
       instance.actions.openRightbar(false, true)
     })
-    expect(tracks(frame)).toEqual([56, 0])
-    expect(rightOwner()).toEqual({ width: 0, viewportWidth: 700, canShow: false })
+    expect(tracks(frame)).toEqual([0, 0])
+    expect(rightOwner()).toEqual({ width: 0, viewportWidth: 699, canShow: false })
     expect(instance.getSnapshot().layoutInfo.rightbarShown).toBe(true)
     expect(frame.querySelector('[data-side="rightbar"]')).toBeNull()
   })

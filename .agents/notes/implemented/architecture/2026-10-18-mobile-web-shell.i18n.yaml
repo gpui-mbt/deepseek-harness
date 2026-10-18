@@ -1,0 +1,31 @@
+# Bilingual-pair consistency record for 2026-10-18-mobile-web-shell.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-18-mobile-web-shell.md
+/agent-note-a-phone-width-shell-for-the-web-gui:
+  en: 6d1cdf833a072ae1
+  zh: 1ef13cd508a1b4d7
+/agent-note-a-phone-width-shell-for-the-web-gui/problem:
+  en: 669b1eb68e550251
+  zh: 551629c4832cd040
+/agent-note-a-phone-width-shell-for-the-web-gui/decision:
+  en: a15c7c13f167e5ac
+  zh: 63bcc2ef60c2f344
+/agent-note-a-phone-width-shell-for-the-web-gui/decision/the-mount-point-follows-the-visual-viewport:
+  en: c2814a1fe62f456d
+  zh: 48f39847434e7660
+/agent-note-a-phone-width-shell-for-the-web-gui/decision/safe-areas-are-published-once:
+  en: 7a085476789057dc
+  zh: 45a505da96235aed
+/agent-note-a-phone-width-shell-for-the-web-gui/decision/768px-is-the-phone-breakpoint:
+  en: 8de647a467e0d174
+  zh: 35d34874bfbfa161
+/agent-note-a-phone-width-shell-for-the-web-gui/decision/text-entry-has-a-floor-on-touch:
+  en: 218c34a303e92953
+  zh: 9aa1a47b00d0ac4c
+/agent-note-a-phone-width-shell-for-the-web-gui/alternatives-considered:
+  en: 838316dfadbca2a4
+  zh: f8ecf885039ec805
+/agent-note-a-phone-width-shell-for-the-web-gui/consequences:
+  en: 030ddca8da440727
+  zh: e0699985bef8963a

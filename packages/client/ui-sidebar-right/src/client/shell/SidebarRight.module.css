@@ -69,6 +69,11 @@
 
 .panel[data-sidebar-right-panel='fullscreen'] {
   --dsh-dockkit-dock-layer: 40;
+  /* A fullscreen panel spans the viewport edge to edge; the frame already
+     insets the vertical bands, so only the horizontal safe areas are left to
+     keep the panes clear of a landscape notch. */
+  padding-left: var(--dsh-safe-left);
+  padding-right: var(--dsh-safe-right);
 }
 
 /* No whole-box subtraction here: Electron drag regions are window geometry,

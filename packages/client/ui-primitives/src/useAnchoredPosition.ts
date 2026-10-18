@@ -12,6 +12,7 @@
 
 import { useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react'
 import { overlayTopMargin } from './overlay-top-margin.ts'
+import { visibleViewport } from './visible-viewport.ts'
 
 /** Inputs for {@link useAnchoredPosition}. */
 export interface AnchoredPositionOptions {
@@ -55,8 +56,11 @@ export function useAnchoredPosition(options: AnchoredPositionOptions): CSSProper
       const height = panel?.offsetHeight ?? 0
       let left = align === 'end' ? rect.right - width : rect.left
       let top = side === 'top' ? rect.top - gap - height : rect.bottom + gap
-      if (width > 0) left = Math.min(Math.max(left, margin), window.innerWidth - width - margin)
-      if (height > 0) top = Math.min(Math.max(top, overlayTopMargin(margin)), window.innerHeight - height - margin)
+      // The visible rectangle rather than the window: a software keyboard or a
+      // collapsing toolbar changes it without resizing the window.
+      const view = visibleViewport()
+      if (width > 0) left = Math.min(Math.max(left, view.left + margin), view.left + view.width - width - margin)
+      if (height > 0) top = Math.min(Math.max(top, view.top + overlayTopMargin(margin)), view.top + view.height - height - margin)
       /* v8 ignore stop */
       setPosition({ left, top })
     }

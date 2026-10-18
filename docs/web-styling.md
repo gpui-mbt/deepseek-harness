@@ -34,6 +34,14 @@ Global style sheets belong in `ui-theme/src/styles/`. Component styles live besi
 
 The [DSH unified corner-radius standard](ui-radius.md) defines the radius scale, component size mapping, circle and capsule exceptions, nested hover geometry, and settings-card fills and strokes.
 
+## Viewport and touch
+
+The application frame is sized from the visual viewport: ui-web publishes `--dsh-viewport-height` from it and marks `html[data-soft-keyboard]` while a keyboard covers part of the page. Feature sheets size overlays from those variables or `dvh`, never from the layout viewport's `100vh`, and a full-bleed overlay follows the visible height.
+
+Safe-area insets are published as `--dsh-safe-top`, `--dsh-safe-right`, `--dsh-safe-bottom`, and `--dsh-safe-left`. The frame applies the vertical bands; a surface that reaches a screen edge applies the horizontal ones; a full-bleed overlay pads its own content rather than insetting the frame.
+
+Touch layouts keep text-entry controls at a 16px minimum font size, because iOS Safari zooms the page for anything smaller and ignores `user-scalable=no`. Hover-only affordances sit inside `@media (hover: hover)`: a touch tap latches `:hover`, so an unguarded reveal or swap would stay behind after the finger leaves.
+
 ## Changing the system
 
 Add or change a shared token in the owning `ui-theme` sheet, then consume its semantic alias from feature packages. Update the owning package reference when a public styling contract changes. Visual behavior follows the [testing policy](testing.md); the [archived styling-system Agent Note](../.agents/notes/archived/process/2026-07-19-web-styling-system.md) records framework rationale.

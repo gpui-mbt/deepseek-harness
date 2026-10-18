@@ -176,10 +176,15 @@
 }
 
 
-/* Project leading slot: folder by default, expand arrow on row hover. */
+/* Project leading slot: folder by default, expand arrow on row hover. The swap
+   is a pointer affordance: a touch tap latches :hover and would strand the row
+   without its folder icon, while the row still expands on tap. */
 .projectRow .chevron { display: none; }
-.projectRow:hover .chevron { display: inline-flex; }
-.projectRow:hover .folder { display: none; }
+
+@media (hover: hover) {
+  .projectRow:hover .chevron { display: inline-flex; }
+  .projectRow:hover .folder { display: none; }
+}
 
 /* Expand arrow (filled triangle): points right closed, rotates to point down open. */
 .arrow {

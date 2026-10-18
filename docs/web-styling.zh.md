@@ -34,6 +34,14 @@
 
 圆角尺度、组件尺寸映射、正圆与胶囊例外、嵌套 hover，以及设置卡片的底色与描边统一由 [DSH 统一圆角规范](ui-radius.zh.md)定义。
 
+## 视口与触摸输入
+
+应用框架按视觉视口确定尺寸：ui-web 从视觉视口发布 `--dsh-viewport-height`，并在键盘遮挡部分页面时标记 `html[data-soft-keyboard]`。功能样式表用这些变量或 `dvh` 确定浮层尺寸，而不使用布局视口的 `100vh`；全出血浮层跟随可见高度。
+
+安全区以 `--dsh-safe-top`、`--dsh-safe-right`、`--dsh-safe-bottom`、`--dsh-safe-left` 发布。框架应用垂直方向，触及屏幕边缘的界面应用水平方向，全出血浮层为自身内容留出内边距而不是内缩框架。
+
+触摸布局把文本输入控件保持在 16px 最小字号，因为 iOS Safari 会为更小的字号缩放页面并忽略 `user-scalable=no`。仅悬停生效的表现放在 `@media (hover: hover)` 内：触摸点按会锁定 `:hover`，未加保护的显示或替换在手指离开后仍会保留。
+
 ## 变更系统
 
 在所属 `ui-theme` 样式表中添加或修改共享 token，然后在功能包中使用其语义别名。公共样式约定发生变化时，更新所属包的参考文档。视觉行为遵循[测试策略](testing.zh.md)；[已归档的样式系统 Agent Note](../.agents/notes/archived/process/2026-07-19-web-styling-system.md) 记录框架依据。
