@@ -64,6 +64,33 @@ async function readShell(page: Page): Promise<ShellReading> {
   })
 }
 
+/**
+ * Drag one finger across the page, starting at an edge coordinate.
+ * @param page - the phone page under test.
+ * @param fromX - touch start in CSS px.
+ * @param toX - touch end in CSS px.
+ * @param y - the row to drag along.
+ * @param within - selector of the surface the finger touches; defaults to the page body.
+ */
+async function swipe(page: Page, fromX: number, toX: number, y = 400, within?: string): Promise<void> {
+  await page.evaluate(
+    ({ fromX, toX, y, within }) => {
+      const target = within === undefined ? document.body : (document.querySelector<HTMLElement>(within) ?? document.body)
+      const point = (x: number): Touch => new Touch({ identifier: 1, target, clientX: x, clientY: y })
+      const fire = (type: string, x: number): void => {
+        const touches = type === 'touchend' ? [] : [point(x)]
+        target.dispatchEvent(
+          new TouchEvent(type, { bubbles: true, cancelable: true, touches, targetTouches: touches, changedTouches: [point(x)] }),
+        )
+      }
+      fire('touchstart', fromX)
+      for (const step of [0.25, 0.5, 0.75, 1]) fire('touchmove', fromX + (toX - fromX) * step)
+      fire('touchend', toX)
+    },
+    { fromX, toX, y, within },
+  )
+}
+
 it('lays the shipped composition out for a 390px phone frame', async () => {
   const scaffold = await launchWebScaffold({})
   const browser = await chromium.launch()
@@ -110,7 +137,17 @@ it('lays the shipped composition out for a 390px phone frame', async () => {
     await page.locator('[data-drawer-scrim]').tap({ position: { x: 370, y: 400 } })
     await expect.poll(() => page.locator('[data-drawer][data-open]').count()).toBe(0)
 
-    // 4. The workspace picker and the live composer fit the phone frame, and
+    // 4. A swipe from the leading edge reaches the same drawer, and a drag that
+    //    starts away from the edge stays with the conversation. Dragging the
+    //    drawer back toward the edge dismisses it.
+    await swipe(page, 120, 300)
+    await expect.poll(() => page.locator('[data-drawer][data-open]').count()).toBe(0)
+    await swipe(page, 4, 140)
+    await expect.poll(() => page.locator('[data-drawer][data-open]').count()).toBe(1)
+    await swipe(page, 200, 60, 400, '[data-drawer]')
+    await expect.poll(() => page.locator('[data-drawer][data-open]').count()).toBe(0)
+
+    // 5. The workspace picker and the live composer fit the phone frame, and
     //    the composer's text stays at iOS Safari's focus-zoom floor.
     await connectFreshWorkspace(page, scaffold.workspaceCwd, 'phone-shell')
     const input = page.locator('[data-composer-input][contenteditable="true"]').first()
@@ -121,16 +158,29 @@ it('lays the shipped composition out for a 390px phone frame', async () => {
     expect(await input.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16)
     expect((await readShell(page)).scrollWidth).toBe(390)
 
-    // 5. The right panel is the full viewport at this width.
+    // 6. The right panel is the full viewport at this width, and the trailing
+    //    edge reveals it too, after the header control collapses it again.
     await page.locator('[data-sidebar-right-expand]').click()
-    const panel = page.locator('[data-sidebar-right-panel="fullscreen"]')
+    const panel = page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]')
     await panel.waitFor()
     const panelBox = await panel.boundingBox()
     expect(panelBox).not.toBeNull()
     expect(Math.round(panelBox!.width)).toBe(390)
     expect(Math.round(panelBox!.x)).toBe(0)
 
-    // 6. The mount height follows the published visible height (what the shell
+    await page.getByRole('button', { name: 'Collapse right sidebar', exact: true }).click()
+    await expect.poll(() => page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]').count()).toBe(0)
+    await swipe(page, 386, 240)
+    await expect
+      .poll(() => page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]').count())
+      .toBe(1)
+    // The panel itself sends it back toward the edge it came from.
+    await swipe(page, 120, 260, 400, '[data-sidebar-right-panel="fullscreen"]')
+    await expect
+      .poll(() => page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]').count())
+      .toBe(0)
+
+    // 7. The mount height follows the published visible height (what the shell
     //    observer does when a software keyboard shrinks the visual viewport).
     await page.evaluate(() => {
       document.documentElement.style.setProperty('--dsh-viewport-height', '600px')
