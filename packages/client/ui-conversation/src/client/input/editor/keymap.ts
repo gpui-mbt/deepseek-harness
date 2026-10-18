@@ -4,7 +4,9 @@
  * paste routing. Registered at CRITICAL priority so it decides before
  * @lexical/plain-text's own Enter/paste defaults; a handler returning false
  * falls through to those defaults (Shift+Enter's line break, ordinary
- * spaces, text paste the bar routes itself).
+ * spaces, text paste the bar routes itself). A touch-primary device turns
+ * Enter into that same line break: its keyboard has no Shift and the send
+ * control owns submission, so only a hardware Ctrl/Cmd+Enter sends there.
  *
  * IME guard: a composition-closing Enter/Space must not submit or adjudicate.
  * KeyboardEvent.isComposing covers most engines; Safari delivers the closing
@@ -38,7 +40,7 @@ export interface ComposerKeymapHandlers {
   dismissPopup(): void
   /** Whether Enter may submit right now (locked/busy states refuse). */
   canSubmit(): boolean
-  /** Plain Enter submits; exactly Ctrl+Enter or Cmd+Enter selects accelerated delivery. */
+  /** Plain Enter submits on a fine pointer and breaks the line on a touch surface; exactly Ctrl+Enter or Cmd+Enter selects accelerated delivery. */
   submit(accelerated: boolean): void
   /**
    * Pasted files with directory metadata supplied by the clipboard entry API.
@@ -55,6 +57,16 @@ function isComposingEvent(event: KeyboardEvent, recentlyComposing: () => boolean
   // keyCode 229 is the legacy IME-composition signal engines emit without isComposing.
   // oxlint-disable-next-line typescript/no-deprecated
   return event.isComposing || event.keyCode === 229 || recentlyComposing()
+}
+
+/**
+ * Whether the primary pointer is a touch surface. Read per keydown rather than
+ * cached: an iPad changes it when a trackpad connects, and the media query is
+ * the same signal the touch layout already uses.
+ * @returns true when Enter should break the line instead of sending.
+ */
+function touchPrimary(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
 }
 
 /**
@@ -170,6 +182,9 @@ export function registerComposerKeymap(editor: LexicalEditor, handlers: Composer
           event?.preventDefault()
           return true
         }
+        // A touch keyboard has no Shift key, so Enter is its line break and the
+        // send control is the submit gesture; a hardware modifier still sends.
+        if (event !== null && touchPrimary() && !event.ctrlKey && !event.metaKey) return false
         event?.preventDefault()
         if (event?.repeat === true) return true // held-down Enter must not machine-gun sends
         if (!handlers.canSubmit()) return true

@@ -30,6 +30,8 @@ Both side surfaces also open from an edge swipe and close when dragged back towa
 
 Text-entry controls compute at least 16px on `(pointer: coarse)`. iOS Safari zooms the page for anything smaller and ignores `user-scalable=no`, so this is the only fix that keeps pinch zoom available. The rule lives in the shell sheet and outranks feature sheets, which keep their desktop sizes; the composer card follows it so its placeholder and toolbar grow with the draft.
 
+The same touch signal turns Enter into a line break in the composer: a software keyboard has no Shift, so the desktop Shift+Enter convention cannot reach the send gesture, and the send control is the submit. A hardware Ctrl+Enter or Cmd+Enter still sends, and an open command menu still takes Enter before the line break. The composer reads the media query at keydown rather than caching it, because an iPad flips it when a trackpad connects.
+
 ## Alternatives considered
 
 - **Keep the 56px rail below 768px.** The rail costs one seventh of a 390px frame, and expanding it squeezes the conversation to 110px. A drawer leaves the conversation full-bleed and keeps the same navigation content.

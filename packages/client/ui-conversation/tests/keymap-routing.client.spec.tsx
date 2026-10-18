@@ -82,6 +82,84 @@ describe('keymap keydown routing', () => {
     expect(submit).toHaveBeenCalledWith(true)
   })
 
+  it('breaks the line on a touch surface and keeps modifier Enter sending', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query === '(pointer: coarse)' }))
+    const editor = createEditor({
+      namespace: 'touch-enter',
+      onError: e => {
+        throw e
+      },
+    })
+    const root = document.createElement('div')
+    root.contentEditable = 'true'
+    document.body.append(root)
+    editor.setRootElement(root)
+    onTestFinished(() => {
+      editor.setRootElement(null)
+      root.remove()
+      vi.unstubAllGlobals()
+    })
+    registerPlainText(editor)
+    const submit = vi.fn()
+    const unregister = registerComposerKeymap(editor, {
+      arbitrate: () => 'pass',
+      space: () => false,
+      dismissPopup: () => {},
+      canSubmit: () => true,
+      submit,
+      intakeFiles: () => {},
+      pasteText: () => {},
+    })
+    onTestFinished(unregister)
+
+    // No Shift on a software keyboard: Enter is the line break, unprevented so
+    // the editor inserts it.
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    root.dispatchEvent(enter)
+    expect(submit).not.toHaveBeenCalled()
+    expect(enter.defaultPrevented).toBe(false)
+
+    // A hardware modifier keeps the accelerated send.
+    root.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, metaKey: true }))
+    expect(submit).toHaveBeenCalledExactlyOnceWith(true)
+  })
+
+  it('lets an open menu take Enter before the touch line break', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }))
+    const editor = createEditor({
+      namespace: 'touch-enter-menu',
+      onError: e => {
+        throw e
+      },
+    })
+    const root = document.createElement('div')
+    root.contentEditable = 'true'
+    document.body.append(root)
+    editor.setRootElement(root)
+    onTestFinished(() => {
+      editor.setRootElement(null)
+      root.remove()
+      vi.unstubAllGlobals()
+    })
+    registerPlainText(editor)
+    const submit = vi.fn()
+    const unregister = registerComposerKeymap(editor, {
+      arbitrate: () => 'consumed',
+      space: () => false,
+      dismissPopup: () => {},
+      canSubmit: () => true,
+      submit,
+      intakeFiles: () => {},
+      pasteText: () => {},
+    })
+    onTestFinished(unregister)
+
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    root.dispatchEvent(enter)
+    expect(submit).not.toHaveBeenCalled()
+    expect(enter.defaultPrevented).toBe(true)
+  })
+
   it.each([
     { altKey: true },
     { altKey: true, metaKey: true },
