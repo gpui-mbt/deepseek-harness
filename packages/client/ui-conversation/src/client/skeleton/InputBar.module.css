@@ -76,6 +76,16 @@
   --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
+/* iOS Safari zooms the page when a focused text control computes below 16px,
+   and the composer is the control users tap most. The shell sheet already
+   raises the editable itself; the card follows so the placeholder, hint, and
+   button row inherit the same size instead of staying at the desktop one. */
+@media (pointer: coarse) {
+  .card {
+    font-size: max(16px, var(--dsh-content-font-size, 14px));
+  }
+}
+
 /* No-workspace trigger state: an inset 1px dashed outline marks the card as a
    workspace picker rather than a live composer. Keeping the complete stroke
    inside the rounded box prevents clipped corner pixels from reading heavier. */

@@ -10,6 +10,7 @@ import { observeComposition } from './keyboard-composition.ts'
 import { focusWithoutRing } from './focus.ts'
 import { ShortcutKeys } from './ShortcutKeys.tsx'
 import { MenuSurface } from './MenuSurface.tsx'
+import { visibleViewport } from './visible-viewport.ts'
 import css from './Menu.module.css'
 
 /** Selectable row (optionally with a nested submenu). */
@@ -289,8 +290,11 @@ export function Menu({
       }
       if (r === null) return
       const MARGIN = 12
-      const vw = window.innerWidth
-      const vh = window.innerHeight
+      // Clamp to what the user can see, not to the layout viewport: a software
+      // keyboard, a collapsing toolbar, or pinch zoom changes the visible
+      // rectangle without resizing the window, and a menu clamped to the
+      // layout viewport would land under the keyboard.
+      const view = visibleViewport()
       const listEl = listRef.current
       const lw = listEl?.offsetWidth ?? 0
       const lh = listEl?.offsetHeight ?? 0
@@ -308,8 +312,8 @@ export function Menu({
         y = side === 'bottom' ? r.bottom + 4 : r.top - lh - 4
       }
 
-      if (lw > 0) x = Math.min(Math.max(x, MARGIN), vw - lw - MARGIN)
-      if (lh > 0) y = Math.min(Math.max(y, overlayTopMargin(MARGIN)), vh - lh - MARGIN)
+      if (lw > 0) x = Math.min(Math.max(x, view.left + MARGIN), view.left + view.width - lw - MARGIN)
+      if (lh > 0) y = Math.min(Math.max(y, view.top + overlayTopMargin(MARGIN)), view.top + view.height - lh - MARGIN)
 
       setFixedPos(current => (current?.left === x && current.top === y ? current : { left: x, top: y }))
     }

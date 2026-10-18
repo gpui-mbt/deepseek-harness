@@ -2,7 +2,15 @@
   position: relative; /* anchors the drag handles, which straddle column borders */
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
+  box-sizing: border-box;
   height: 100%;
+  /* Vertical safe areas cut across every column, so the frame owns them. The
+     horizontal ones belong to the surfaces that actually reach a screen edge
+     (the sidebar column, the narrow drawer, the fullscreen right panel):
+     padding the frame itself would inset a full-bleed 100vw panel. Both
+     resolve to 0 wherever the document publishes no insets. */
+  padding-top: var(--dsh-safe-top);
+  padding-bottom: var(--dsh-safe-bottom);
   overflow: hidden;
   background: var(--dsw-alias-bg-base);
 }
@@ -56,17 +64,94 @@
 }
 
 .sidebarCol {
+  grid-column: 1;
   min-width: 0;
   overflow: hidden;
+  /* The collapsed rail is the leftmost column, so it owns the left inset. */
+  padding-left: var(--dsh-safe-left);
   background: var(--dsw-specific-sidebar-fill);
   border-right: 0.5px solid var(--dsw-alias-border-l3);
 }
 
+/* Narrow frames: the navigation is a drawer over the centre rather than a
+   column. The frame renders the same sidebar element and swaps this class in,
+   so crossing the breakpoint keeps the occupant mounted (its scroll position
+   and stores survive) and no column track is reserved for it. */
+.drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 18;
+  max-width: 100%;
+  overflow: hidden;
+  padding-left: var(--dsh-safe-left);
+  background: var(--dsw-specific-sidebar-fill);
+  /* Elevated surface: the hairline stroke is the shadow's first layer, so the
+     drawer takes no neutral border of its own. */
+  border: 0;
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l3);
+  box-shadow: var(--dsw-elevation-prominent);
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition:
+    transform var(--ds-transition-duration-slow) var(--ds-ease-in-out),
+    visibility 0s linear var(--ds-transition-duration-slow);
+}
+
+.drawer[data-open] {
+  transform: none;
+  visibility: visible;
+  transition: transform var(--ds-transition-duration-slow) var(--ds-ease-in-out);
+}
+
+/* The scrim dismisses the drawer. It stays in the tree on wide frames (the
+   sidebar element must keep its position in the document) and takes no pointer
+   until a narrow frame opens the drawer. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 17;
+  background: var(--dsw-alias-bg-mask-3);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--ds-transition-duration) var(--ds-ease-in-out),
+    visibility 0s linear var(--ds-transition-duration);
+}
+
+.scrim[data-open] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity var(--ds-transition-duration) var(--ds-ease-in-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .drawer[data-open],
+  .scrim,
+  .scrim[data-open] {
+    transition: none;
+  }
+}
+
+/* The drawer is out of flow, so the centre and the right track carry their
+   grid columns explicitly instead of relying on document order. */
 .centerCol {
+  grid-column: 2;
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* A phone frame has no sidebar column beside the centre, so the centre's own
+   chrome owns both horizontal insets (landscape notch). */
+.frame[data-mobile] .centerCol {
+  padding-left: var(--dsh-safe-left);
+  padding-right: var(--dsh-safe-right);
 }
 
 /* macOS desktop: the frame goes transparent so window vibrancy reaches the
@@ -214,6 +299,17 @@
   -webkit-app-region: no-drag;
 }
 
+/* A phone frame has no rail and no traffic lights: the seat holds the same two
+   controls at the frame's leading edge, and the clearance it publishes is the
+   two 28px controls plus their gaps and the 12px start. */
+.frame[data-mobile] {
+  --dsh-frame-leading-clearance: 84px;
+}
+
+.frame[data-mobile] .leadingSeat {
+  left: calc(12px + var(--dsh-safe-left));
+}
+
 /* Drag handles are frame children (columns clip overflow): an 8px hit strip
    centered on the column border via inline left, above column content. No
    handle draws a visible pill: the details column was the only one that did,
@@ -265,6 +361,7 @@
  * where it is. The occupant draws its own left border.
  */
 .rightbarCol {
+  grid-column: 3;
   position: relative;
   min-width: 0;
   overflow: visible;

@@ -11,6 +11,7 @@ import { bootClient } from './boot-client.ts'
 import { BootPage } from './boot-page.ts'
 import { mountClient } from './mount.ts'
 import { getStaticModules } from './seed.ts'
+import { installViewportProjection } from './viewport.ts'
 import { installWindowDragRecall } from './window-drag/recall.ts'
 import './base.css'
 
@@ -24,6 +25,7 @@ export class AppWebEntry {
   private readonly page: BootPage
   private ctx: Context | undefined
   private stopDragRecall: (() => void) | undefined
+  private stopViewportProjection: (() => void) | undefined
   private modules!: ClientModuleSystem
   private manifest!: BootManifest
 
@@ -46,6 +48,11 @@ export class AppWebEntry {
    */
   async run(onFailure?: (reason: unknown) => void): Promise<void> {
     try {
+      // The shell's mount height follows the visual viewport from the first
+      // boot-page frame: the frame is a fixed-height application, and on iOS
+      // Safari the layout viewport keeps its height while the keyboard and the
+      // collapsing toolbar change what the user can see.
+      this.stopViewportProjection = installViewportProjection({ document: this.container.ownerDocument })
       // Boot-readiness gate: whichever bootstrap applies the injection table
       // settles this deferred once every row has taken effect — the served
       // index resolves it in the rendered tail, so the await returns on the
@@ -106,6 +113,8 @@ export class AppWebEntry {
   async dispose(): Promise<void> {
     this.stopDragRecall?.()
     this.stopDragRecall = undefined
+    this.stopViewportProjection?.()
+    this.stopViewportProjection = undefined
     const ctx = this.ctx
     this.ctx = undefined
     if (ctx !== undefined) await ctx.fiber.dispose()

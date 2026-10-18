@@ -25,6 +25,14 @@ export const SIDEBAR_COLLAPSED = 56
  * LG breakpoint); a manual toggle below it re-expands over the squeezed center
  * (stores.ts narrowExpanded). */
 export const SIDEBAR_AUTO_COLLAPSE = 1024
+/** Viewport width below which the left navigation is a drawer over the center
+ * instead of a column, with no collapsed rail. Matches the right panel's
+ * automatic-fullscreen width, so a phone-width frame presents both sidebars as
+ * overlays. */
+export const MOBILE_MAX = 768
+/** Narrow drawer width ceiling: the default column width, unless the frame is
+ * too narrow to leave the conversation visible beside it. */
+export const DRAWER_MAX_RATIO = 0.85
 /** Right column drag clamp floor. */
 export const RIGHTBAR_MIN = 300
 /** Maximum normal right panel width as a fraction of the frame. */

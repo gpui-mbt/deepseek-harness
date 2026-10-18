@@ -74,7 +74,10 @@ it('reserves bottom content height without remounting it on main-panel navigatio
         }, platform)
         expected.push(`${platform}: ${JSON.stringify(await check(360, platform === 'windows' ? 40 : 0))}`)
       }
-      await page.setViewportSize({ width: 520, height: 600 })
+      // A narrow frame that still keeps a sidebar column: below 768px the
+      // navigation is a drawer over the centre (mobile-shell.e2e.ts), so the
+      // column-height contract is read at the rail width instead.
+      await page.setViewportSize({ width: 800, height: 600 })
       await expect.poll(() => page.locator('[data-shell-bottom]').locator('..').getAttribute('data-sidebar-collapsed')).toBe('true')
       expected.push(`narrow: ${JSON.stringify(await check(360))}`)
       scaffold.ctx.loader.remove(entryId)

@@ -62,8 +62,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * the seats it declares disappear with it. To add something to the
      * sidebar, register into one of those inner seats instead.
      *
-     * The occupant receives the frame's live column state (collapsed, width)
-     * and is expected to render the compact control rail while collapsed.
+     * The occupant receives the frame's live navigation state (collapsed,
+     * width) and is expected to render the compact control rail while
+     * collapsed. Below 768px the frame places the same occupant in a drawer
+     * over the centre and always reports `collapsed: false`, so a narrow
+     * presentation never fades into the rail.
      */
     sidebar: { kind: 'single'; scope: 'root'; owner: SidebarOwnerProps }
     /**
@@ -127,9 +130,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Sidebar owner share: live column state from the frame's concession solve. */
 export interface SidebarOwnerProps {
-  /** True when the sidebar is closed (the column renders the compact control rail). */
+  /** True when the navigation is closed (the column renders the compact control rail); always false in the narrow drawer. */
   collapsed: boolean
-  /** Rendered column width in px (SIDEBAR_COLLAPSED when collapsed). */
+  /** Rendered width in px: the column width, the collapsed rail width, or the drawer width. */
   width: number
 }
 

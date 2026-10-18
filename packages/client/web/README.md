@@ -31,6 +31,10 @@ Static application pages install `__DSH_BOOT_READY__` before the entry runs. The
 
 The shell base styles apply automatic CJK/Latin spacing to ordinary content in supporting browsers. Semantic code and terminal, diff, read, and search output containers retain literal source spacing and column alignment; browsers without `text-autospace` support ignore both declarations.
 
+### Viewport and touch
+
+The frame is a fixed-height application, so the mount point follows the visible viewport rather than the layout viewport: `viewport.ts` publishes the visual viewport's height as `--dsh-viewport-height`, and marks `html[data-soft-keyboard]` while a software keyboard covers part of the page (the shell drops the home-indicator inset then). The shell sheet sizes `#root` from that variable, keeps the body from scrolling or reloading on an overscroll, publishes the `--dsh-safe-*` insets from `env()`, and holds text-entry controls at 16px on coarse pointers — iOS Safari zooms the page for anything smaller and ignores `user-scalable=no`.
+
 Web and Desktop mathematical rendering requires WOFF2 support. The [Web build](../../../apps/web/katex-fonts.ts) retains every KaTeX font face in WOFF2 and omits WOFF/TTF fallbacks; a face without WOFF2 rejects the build. Font glyphs, weights, styles, and layout rules are preserved.
 
 ### What boot looks like
@@ -87,6 +91,8 @@ The boot kernel delegates manifest entry creation to Client Modules so live grap
 | [`src/boot-client.ts`](src/boot-client.ts) | `bootClient` / `assertEntriesActive`: Loader mount, one entry per manifest row, activation audit |
 | [`src/mount.ts`](src/mount.ts) | `mountClient`: renderer handoff through a `uiRenderer` dependency fiber |
 | [`src/boot-page.ts`](src/boot-page.ts) | Framework-free boot page: spinner, per-entry status, failure rendering |
+| [`src/viewport.ts`](src/viewport.ts) | Visual viewport projection: `--dsh-viewport-height` and the software-keyboard mark |
+| [`src/base.css`](src/base.css) | Shell mount styles: visible-viewport height, overscroll containment, safe-area insets, touch text-entry floor |
 | [`src/platform.ts`](src/platform.ts) | `PLATFORM_MODULES` / `PRELOADED_CLIENT_EXTERNALS`: the implicit external baseline |
 | [`src/seed.ts`](src/seed.ts) | Static module table handed to the loader at boot |
 | [`src/window-drag/regions.ts`](src/window-drag/regions.ts) | The darwin app-region composition model, and the interactive selector `base.css` subtracts |
