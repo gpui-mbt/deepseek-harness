@@ -158,7 +158,17 @@ it('lays the shipped composition out for a 390px phone frame', async () => {
     expect(await input.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThanOrEqual(16)
     expect((await readShell(page)).scrollWidth).toBe(390)
 
-    // 6. The right panel is the full viewport at this width, and the trailing
+    // 6. Enter breaks the line on a touch surface instead of sending: the draft
+    //    keeps both lines and the send control stays the submit gesture.
+    await input.click()
+    await page.keyboard.type('line one')
+    await page.keyboard.press('Enter')
+    await page.keyboard.type('line two')
+    await expect
+      .poll(async () => input.evaluate(element => (element as HTMLElement).innerText))
+      .toMatch(/line one\n+line two/u)
+
+    // 7. The right panel is the full viewport at this width, and the trailing
     //    edge reveals it too, after the header control collapses it again.
     await page.locator('[data-sidebar-right-expand]').click()
     const panel = page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]')
@@ -180,7 +190,7 @@ it('lays the shipped composition out for a 390px phone frame', async () => {
       .poll(() => page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]').count())
       .toBe(0)
 
-    // 7. The mount height follows the published visible height (what the shell
+    // 8. The mount height follows the published visible height (what the shell
     //    observer does when a software keyboard shrinks the visual viewport).
     await page.evaluate(() => {
       document.documentElement.style.setProperty('--dsh-viewport-height', '600px')
