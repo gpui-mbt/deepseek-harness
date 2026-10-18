@@ -591,6 +591,8 @@ export class PluginManagerController {
   private pendingConfirm: (() => Promise<void>) | undefined
   /** Cancels the check the dialog has in flight. */
   private inspectAbort: AbortController | undefined
+  /** Whether the installation in flight replaces a bundle the profile already installs; a script-approval retry reuses it. */
+  private overwriteInstall = false
   private request: InstallRequest | undefined
   private noticeSeq = 0
   private analyticsAttempt: { input: string; started: number } | undefined
@@ -1061,14 +1063,16 @@ export class PluginManagerController {
       this.analyticsAttempt = { input: sanitizeInstallInput(spec), started: Date.now() }
       this.ctx.get('productAnalytics')?.track('plugin_install_click', { input_value: sanitizeInstallInput(spec) })
     }
-    // A name the list already shows is refused at once, before the Host is asked.
+    // A package this DSH installation provides cannot be replaced. A profile
+    // plugin the list already shows is inspected normally: the dialog replaces
+    // it rather than asking the person to uninstall first.
     const listed = state.packages.find(pkg => pkg.name === spec)
     const catalogSubject = install.subject?.selection === undefined || install.subject.spec !== spec ? undefined : install.subject
-    if (listed !== undefined && listed.availability !== 'missing' && catalogSubject === undefined) {
+    if (listed?.availability === 'installation' && catalogSubject === undefined) {
       this.finishAnalytics('failed', 'already-installed')
       this.patchInstall({
         phase: 'idle',
-        inputError: { problem: listed.availability === 'installation' ? 'shipped' : 'already-installed', reason: spec },
+        inputError: { problem: 'shipped', reason: spec },
       })
       return
     }
@@ -1107,7 +1111,7 @@ export class PluginManagerController {
     if (!this.transientRegistry) this.registryMemory.set(selected)
     if (catalogSubject !== undefined) {
       this.inspectAbort = undefined
-      await this.startInstall({ ...catalogSubject, registry })
+      await this.startInstall({ ...catalogSubject, registry }, undefined, false)
       return
     }
     const inspected = await this.ctx.remote.pluginManager.inspect(spec, { registry }, controller.signal)
@@ -1118,21 +1122,39 @@ export class PluginManagerController {
       this.patchInstall({ phase: 'idle', inputError: { problem: 'unknown', reason: inspected.error.message } })
       return
     }
-    if (inspected.value.status === 'refused') {
-      const { problem, reason, registries } = inspected.value
+    // Typing a spec that names a bundle this profile already installs replaces
+    // it: the dialog is the person's explicit install, so the Host is asked to
+    // overwrite instead of telling them to uninstall first.
+    let answer = inspected.value
+    let overwrite = false
+    if (answer.status === 'refused' && answer.problem === 'already-installed') {
+      const replacing = await this.ctx.remote.pluginManager.inspect(spec, { registry, overwrite: true }, controller.signal)
+      if (this.gone(controller.signal)) return
+      if (!replacing.ok) {
+        this.finishAnalytics('failed', replacing.error.code)
+        this.patchInstall({ phase: 'idle', inputError: { problem: 'unknown', reason: replacing.error.message } })
+        return
+      }
+      answer = replacing.value
+      overwrite = answer.status === 'accepted'
+    }
+    if (answer.status === 'refused') {
+      const { problem, reason, registries } = answer
       this.finishAnalytics('failed', problem)
       this.patchInstall({ phase: 'idle', inputError: { problem, reason, ...(registries === undefined ? {} : { registries }) } })
       return
     }
-    await this.startInstall({ spec, ...inspected.value })
+    await this.startInstall({ spec, ...answer }, undefined, overwrite)
   }
 
   /**
    * Hand the checked spec to the Host and settle the dialog from its answer.
    * `approvedBuilds` names the pending install scripts the person allowed;
    * the Host saves that permission for this profile before pnpm runs.
+   * `overwrite` lets the Host replace a bundle the profile already installs.
    */
-  private async startInstall(subject: InstallSubject, approvedBuilds?: readonly string[]): Promise<void> {
+  private async startInstall(subject: InstallSubject, approvedBuilds?: readonly string[], overwrite = false): Promise<void> {
+    this.overwriteInstall = overwrite
     const { spec, registry } = subject
     const requestId = randomUUID() as PluginInstallRequestId
     const request: InstallRequest = { requestId, acknowledged: false, replyLost: false, recovering: false }
@@ -1155,6 +1177,9 @@ export class PluginManagerController {
       enabled: subject.selection ?? false,
       requestId,
       registry,
+      // The install dialog is the person's explicit install: a bundle the
+      // profile already has is replaced instead of refused.
+      ...(overwrite ? { overwrite: true } : {}),
       ...(subject.saveExact === undefined ? {} : { saveExact: subject.saveExact }),
       ...(approvedBuilds === undefined ? {} : { approvedBuilds: [...approvedBuilds] }),
     })
@@ -1256,7 +1281,7 @@ export class PluginManagerController {
     if (install.phase !== 'failed' || install.subject === null || pending === undefined || pending.length === 0) return
     if (this.ctx.get('productAnalytics')?.enabled)
       this.analyticsAttempt = { input: sanitizeInstallInput(install.subject.spec), started: Date.now() }
-    await this.startInstall(install.subject, pending)
+    await this.startInstall(install.subject, pending, this.overwriteInstall)
   }
 
   /**

@@ -878,7 +878,7 @@ describe('PluginManagerController', () => {
     expect(state().install.open).toBe(false)
   })
 
-  it('refuses a spec the list already shows without asking the Host, and words what the Host refused', async () => {
+  it('asks the Host about a bundle the list already shows, and refuses a package the installation supplies', async () => {
     const shipped: BundleInfo = {
       ...BUNDLE,
       name: '@deepseek-ai/dsh-official',
@@ -888,44 +888,104 @@ describe('PluginManagerController', () => {
       optional: true,
       removable: false,
     }
+    const inspect = vi
+      .fn()
+      .mockResolvedValueOnce(ok({ status: 'refused', problem: 'not-found', reason: 'E404', registries: [null, MIRROR] }))
+      .mockResolvedValueOnce(ok({ status: 'refused', problem: 'not-a-bundle', reason: 'plain declares no dsh.bundle' }))
+      .mockResolvedValueOnce(refused('gateway/internal', 'offline'))
     const { plugins, face, state, controller } = bench({
       listBundles: vi.fn(() => Promise.resolve(ok([BUNDLE, shipped]))),
-      inspect: vi
-        .fn()
-        .mockResolvedValueOnce(ok({ status: 'refused', problem: 'not-found', reason: 'E404', registries: [null, MIRROR] }))
-        .mockResolvedValueOnce(ok({ status: 'refused', problem: 'not-a-bundle', reason: 'plain declares no dsh.bundle' }))
-        .mockResolvedValueOnce(refused('gateway/internal', 'offline')),
+      inspect,
     })
     await controller.load()
     face.openInstall()
+    // A profile bundle the list shows is re-inspected, so the install can replace it.
     face.editInstallSpec(BUNDLE.name)
-    face.runInstall()
-    expect(plugins.inspect).not.toHaveBeenCalled()
-    expect(state().install).toMatchObject({ phase: 'idle', inputError: { problem: 'already-installed', reason: BUNDLE.name } })
-    // A bundle the installation supplies upgrades with DSH instead.
-    face.editInstallSpec(shipped.name)
-    face.runInstall()
-    expect(state().install).toMatchObject({ phase: 'idle', inputError: { problem: 'shipped', reason: shipped.name } })
-    // Typing clears the refusal.
-    face.editInstallSpec('nope')
-    expect(state().install.inputError).toBeNull()
     face.runInstall()
     await vi.waitFor(() => {
       expect(state().install.inputError).toEqual({ problem: 'not-found', reason: 'E404', registries: [null, MIRROR] })
     })
-    expect(state().install.phase).toBe('idle')
-    expect(plugins.installBundle).not.toHaveBeenCalled()
+    expect(inspect).toHaveBeenCalledWith(BUNDLE.name, { registry: null }, expect.any(AbortSignal))
+    // A bundle the installation supplies upgrades with DSH instead.
+    face.editInstallSpec(shipped.name)
+    face.runInstall()
+    expect(state().install).toMatchObject({ phase: 'idle', inputError: { problem: 'shipped', reason: shipped.name } })
+    expect(inspect).toHaveBeenCalledOnce()
+    // Typing clears the refusal.
     face.editInstallSpec('plain')
+    await vi.waitFor(() => {
+      expect(state().install.inputError).toBeNull()
+    })
     face.runInstall()
     await vi.waitFor(() => {
       expect(state().install.inputError).toEqual({ problem: 'not-a-bundle', reason: 'plain declares no dsh.bundle' })
     })
+    expect(state().install.phase).toBe('idle')
+    expect(plugins.installBundle).not.toHaveBeenCalled()
     // A refused answer, rather than a refused spec, reads as unknown with the transport's words.
     face.editInstallSpec('x')
     face.runInstall()
     await vi.waitFor(() => {
       expect(state().install.inputError).toEqual({ problem: 'unknown', reason: 'offline' })
     })
+  })
+
+  it('replaces an installed bundle by re-asking the Host with overwrite', async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValueOnce(ok({ status: 'refused', problem: 'already-installed', reason: 'dsh-x is already installed' }))
+      .mockResolvedValueOnce(ok({ ...INSPECTED, name: 'dsh-x', version: '2.0.0' }))
+    const installBundle = vi
+      .fn()
+      .mockResolvedValue(ok({ ...APPLIED, target: 'dsh-x', bundle: 'dsh-x', version: '2.0.0' }))
+    const { plugins, face, state, controller } = bench({ inspect, installBundle })
+    await controller.load()
+    face.openInstall()
+    face.editInstallSpec('dsh-x')
+    face.runInstall()
+    await vi.waitFor(() => {
+      expect(state().install.phase).toBe('done')
+    })
+    expect(inspect).toHaveBeenNthCalledWith(1, 'dsh-x', { registry: null }, expect.any(AbortSignal))
+    expect(inspect).toHaveBeenNthCalledWith(2, 'dsh-x', { registry: null, overwrite: true }, expect.any(AbortSignal))
+    expect(plugins.installBundle).toHaveBeenCalledWith('dsh-x', expect.objectContaining({ overwrite: true }))
+  })
+
+  it('keeps a package the installation supplies refused when overwrite cannot replace it', async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValueOnce(ok({ status: 'refused', problem: 'already-installed', reason: 'core is already installed' }))
+      .mockResolvedValueOnce(
+        ok({ status: 'refused', problem: 'already-installed', reason: 'core is provided by the DSH installation and cannot be replaced' }),
+      )
+    const { plugins, face, state, controller } = bench({ inspect })
+    await controller.load()
+    face.openInstall()
+    face.editInstallSpec('core')
+    face.runInstall()
+    await vi.waitFor(() => {
+      expect(state().install.inputError).toMatchObject({
+        problem: 'already-installed',
+        reason: expect.stringContaining('provided by the DSH installation') as string,
+      })
+    })
+    expect(plugins.installBundle).not.toHaveBeenCalled()
+  })
+
+  it('reports a transport failure while re-checking an installed bundle', async () => {
+    const inspect = vi
+      .fn()
+      .mockResolvedValueOnce(ok({ status: 'refused', problem: 'already-installed', reason: 'dsh-x is already installed' }))
+      .mockResolvedValueOnce(refused('gateway/unavailable', 'offline'))
+    const { plugins, face, state, controller } = bench({ inspect })
+    await controller.load()
+    face.openInstall()
+    face.editInstallSpec('dsh-x')
+    face.runInstall()
+    await vi.waitFor(() => {
+      expect(state().install.inputError).toEqual({ problem: 'unknown', reason: 'offline' })
+    })
+    expect(plugins.installBundle).not.toHaveBeenCalled()
   })
 
   it('leaves the check or the failed screen for the spec at once', async () => {

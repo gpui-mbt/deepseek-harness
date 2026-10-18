@@ -182,12 +182,20 @@ export interface InstallBundleOptions {
   approvedBuilds?: string[]
   /** The registry asked first; absent, the configured one. The configured fallbacks follow while a registry is unreachable or stale. */
   registry?: Registry
+  /**
+   * Replace an already-installed profile bundle instead of refusing it: its rows
+   * are unloaded before pnpm rewrites the package, then reselected and reloaded.
+   * A package the DSH installation provides is never replaced.
+   */
+  overwrite?: boolean
 }
 
 /** Where an inspection asks. */
 export interface InspectOptions {
   /** The registry asked first; absent, the configured one. */
   readonly registry?: Registry
+  /** Accept a package this profile already installs, so the caller can offer a replacement. */
+  readonly overwrite?: boolean
 }
 
 /** The form one install spec takes, in pnpm's vocabulary. */

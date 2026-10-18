@@ -527,11 +527,18 @@ export class PluginManager extends TypertRemoteService {
     }
     const manifest = readProfileManifest('dsh', this.profile.dir)
     const installation = JSON.parse(readFileSync(this.profile.installAnchor, 'utf8')) as InstallationManifest
-    const known = new Set([
-      ...bundleSelection(manifest),
-      ...Object.keys(manifest.dependencies ?? {}),
-      ...Object.keys(installation.dependencies ?? {}),
-    ])
+    const profileOwned = new Set([...bundleSelection(manifest), ...Object.keys(manifest.dependencies ?? {})])
+    const installationOwned = new Set(Object.keys(installation.dependencies ?? {}))
+    // Replacing a profile bundle is what `overwrite` asks for; a package the DSH
+    // installation provides is never replaceable, because its module identity
+    // belongs to the running installation.
+    const installed = (name: string): PluginSpecInspection | undefined => {
+      if (installationOwned.has(name) && !profileOwned.has(name)) {
+        return refused('already-installed', `${name} is provided by the DSH installation and cannot be replaced`)
+      }
+      if (profileOwned.has(name) && options?.overwrite !== true) return refused('already-installed', `${name} is already installed`)
+      return undefined
+    }
     const plan = registryPlan(options?.registry, await this.registries())
     const registry = plan[0] as Registry
     switch (parsed.kind) {
@@ -550,12 +557,14 @@ export class PluginManager extends TypertRemoteService {
         }
         const inspection = inspectionOf('path', read, registry)
         if (inspection.name === undefined) return refused('not-a-package', 'the package.json names no package')
-        if (known.has(inspection.name)) return refused('already-installed', `${inspection.name} is already installed`)
+        const blocked = installed(inspection.name)
+        if (blocked !== undefined) return blocked
         if (!inspection.bundle) return refused('not-a-bundle', `${inspection.name} declares no dsh.bundle`)
         return inspection
       }
       case 'registry': {
-        if (known.has(parsed.name)) return refused('already-installed', `${parsed.name} is already installed`)
+        const blocked = installed(parsed.name)
+        if (blocked !== undefined) return blocked
         const registries: Registry[] = []
         const refusedBy = (problem: PluginInspectProblem, reason: string): PluginSpecInspection => ({
           status: 'refused',
@@ -678,16 +687,23 @@ export class PluginManager extends TypertRemoteService {
         if (spec.trim() === '' || spec.startsWith('-')) throw new ManagementFailure('invalid-spec')
         if (stopped()) throw new InstallCancelledError()
         const before = readProfileManifest('dsh', this.profile.dir).dependencies ?? {}
-        // With HMR, an installed package is removed before another version is installed, so its plugins stop first.
+        // With HMR, an installed bundle's rows stop before pnpm rewrites the
+        // package they came from; replacing it needs the caller's consent.
         const known = specPackageName(spec, before, this.profile.dir)
-        if (this.ownerContext.get('hmr') !== undefined && known !== undefined && Object.hasOwn(before, known)) {
-          throw new ManagementFailure('already-installed')
-        }
+        const replacing =
+          this.ownerContext.get('hmr') !== undefined && known !== undefined && Object.hasOwn(before, known) ? known : undefined
+        if (replacing !== undefined && options?.overwrite !== true) throw new ManagementFailure('already-installed')
         if (options?.approvedBuilds !== undefined) {
           await approveBuilds(this.profile.dir, options.approvedBuilds)
           result.approvedBuilds = options.approvedBuilds
         }
         const files = await this.readRestoredFiles()
+        if (replacing !== undefined) {
+          await this.configure(async () => {
+            await this.selectBundle(replacing, false)
+            await this.reload()
+          })
+        }
         let name: string
         let version: string | undefined
         try {
@@ -779,6 +795,9 @@ export class PluginManager extends TypertRemoteService {
         } catch (error) {
           // pnpm has exited by now, so the files it rewrote go back as they were.
           await this.restoreFiles(files)
+          // A replaced bundle's rows stopped before the run; a failed
+          // replacement puts the restored dependency back in service.
+          if (replacing !== undefined) await this.configure(() => this.reload())
           throw error
         }
         control.phase = 'applying'

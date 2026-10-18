@@ -5704,7 +5704,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'InspectOptions',
-    declaration: 'export interface InspectOptions {\n    readonly registry?: Registry;\n}',
+    declaration: 'export interface InspectOptions {\n    readonly registry?: Registry;\n    readonly overwrite?: boolean;\n}',
   },
   {
     name: 'InspectorId',
@@ -5724,7 +5724,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'InstallBundleOptions',
-    declaration: 'export interface InstallBundleOptions {\n    enabled?: boolean;\n    saveExact?: boolean;\n    requestId?: PluginInstallRequestId;\n    approvedBuilds?: string[];\n    registry?: Registry;\n}',
+    declaration: 'export interface InstallBundleOptions {\n    enabled?: boolean;\n    saveExact?: boolean;\n    requestId?: PluginInstallRequestId;\n    approvedBuilds?: string[];\n    registry?: Registry;\n    overwrite?: boolean;\n}',
   },
   {
     name: 'InstallSpecKind',

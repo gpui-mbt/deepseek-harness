@@ -1607,6 +1607,62 @@ it('reads what a spec names before installing it', async () => {
   expect(view).toHaveBeenCalledTimes(13)
 })
 
+it('accepts an installed profile bundle for replacement only when the caller overwrites', async () => {
+  const { manager, profile } = await fixture()
+  const view = vi.spyOn(operations, 'viewProfilePackage')
+  onTestFinished(() => {
+    view.mockRestore()
+  })
+  // `extra` is this profile's dependency and `core` its selected bundle.
+  expect(await manager.inspect('extra')).toMatchObject({ status: 'refused', problem: 'already-installed' })
+  expect(await manager.inspect('core')).toMatchObject({ status: 'refused', problem: 'already-installed' })
+  // A package the DSH installation provides is never replaceable.
+  writeFileSync(profile.installAnchor, JSON.stringify({ name: 'installation', dependencies: { 'dsh-shipped': '1.0.0' } }))
+  expect(await manager.inspect('dsh-shipped', { overwrite: true })).toMatchObject({
+    status: 'refused',
+    problem: 'already-installed',
+    reason: 'dsh-shipped is provided by the DSH installation and cannot be replaced',
+  })
+  view.mockResolvedValueOnce({
+    exitCode: 0,
+    stdout: JSON.stringify({ name: 'extra', version: '2.0.0', dsh: { bundle: { patch: './cordis.patch.yml' } } }),
+    stderr: '',
+    timedOut: false,
+  })
+  expect(await manager.inspect('extra', { overwrite: true })).toMatchObject({
+    status: 'accepted',
+    kind: 'registry',
+    name: 'extra',
+    version: '2.0.0',
+  })
+})
+
+it('replaces an installed bundle on consent and keeps it running', async () => {
+  const { manager, dir, bundle } = await fixture('live')
+  const install = vi.spyOn(operations, 'runProfilePnpm').mockImplementation(async (_context, args) => {
+    const name = String(args[1])
+    bundle(name, [{ id: 'managed', name: './plugin.mjs' }])
+    writeFileSync(
+      join(dir, 'node_modules', name, 'package.json'),
+      JSON.stringify({ name, version: '2.0.0', dsh: { bundle: { patch: './cordis.patch.yml' } } }),
+    )
+    const manifest = readProfileManifest('test', dir)
+    manifest.dependencies = { ...manifest.dependencies, [name]: '2.0.0' }
+    writeFileSync(join(dir, 'package.json'), JSON.stringify(manifest))
+    return { exitCode: 0, output: 'installed', truncated: false, logPath: join(dir, 'pnpm.log') }
+  })
+  onTestFinished(() => {
+    install.mockRestore()
+  })
+  // Without consent the running bundle is refused.
+  expect(await manager.installBundle('extra')).toMatchObject({ application: 'failed', error: { code: 'already-installed' } })
+  expect(install).not.toHaveBeenCalled()
+  const result = await manager.installBundle('extra', { overwrite: true })
+  expect(result).toMatchObject({ application: 'applied', stage: 'enable', bundle: 'extra', version: '2.0.0' })
+  expect((await manager.listBundles()).find(row => row.name === 'extra')).toMatchObject({ enabled: true, version: '2.0.0' })
+  expect((await manager.listPlugins()).find(row => row.patchId === 'managed')?.fiberPhase).toBe('active')
+})
+
 it('announces each manager operation as a change, and a patch generation applied outside it not at all', async () => {
   const { ctx, manager, profile } = await fixture('startup')
   const changes: PluginChange[] = []
