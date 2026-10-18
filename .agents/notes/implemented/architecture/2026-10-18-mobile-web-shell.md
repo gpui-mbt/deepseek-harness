@@ -24,6 +24,8 @@ Four of those are platform behaviour rather than styling: the visual viewport sh
 
 Below 768px — the width at which the right panel already presents fullscreen — the left navigation is a drawer: the frame reserves no track for it, removes the rail, and swaps the same sidebar element's class, so crossing the breakpoint keeps the occupant mounted with its scroll position and stores. The frame mounts the `shell.leading` seat there, which gives ui-sidebar's existing reopen and New Session controls the header's leading corner. A manually expanded navigation clears when crossing either 768px or 1024px, because the expanded state is a different surface on the other side. 768–1024px keeps the column and its rail.
 
+Both side surfaces also open from an edge swipe and close when dragged back toward the edge they came from, through `installEdgeSwipe` and `installSwipeDismiss` in ui-primitives: a start band 24px from the visible viewport edge, a 48px completion distance, and an axis decision after 10px that leaves vertical drags, touches outside the allowed area, touches that begin on an open drawer, scrim, or dialog, and dismiss drags starting in horizontally scrolling content or on a docking-kit tab or divider to the browser. Each listener exists only while its surface is in the state that gesture changes. iOS Safari's own back gesture owns the extreme leading edge, so the header control remains the reliable entry there.
+
 ### Text entry has a floor on touch
 
 Text-entry controls compute at least 16px on `(pointer: coarse)`. iOS Safari zooms the page for anything smaller and ignores `user-scalable=no`, so this is the only fix that keeps pinch zoom available. The rule lives in the shell sheet and outranks feature sheets, which keep their desktop sizes; the composer card follows it so its placeholder and toolbar grow with the draft.
@@ -38,7 +40,7 @@ Text-entry controls compute at least 16px on `(pointer: coarse)`. iOS Safari zoo
 
 ## Consequences
 
-- `apps/web/tests/mobile-shell.e2e.ts` holds the phone-frame contract: no page-wide horizontal overflow, a mount height equal to the viewport, the drawer opening from the leading seat and closing on Escape, the scrim, or the surface it revealed, a composer inside the visible rectangle with 16px text, and a fullscreen right panel.
+- `apps/web/tests/mobile-shell.e2e.ts` holds the phone-frame contract: no page-wide horizontal overflow, a mount height equal to the viewport, the drawer opening from the leading seat or an edge swipe and closing on Escape, the scrim, its own reverse drag, or the surface it revealed, a composer inside the visible rectangle with 16px text, and a fullscreen right panel opened by its header control or the trailing-edge swipe and closed by its reverse drag.
 - `composer-focus.e2e.ts` is the regression that shaped the overscroll rule; it exercises Home, End, and caret restoration on a fine pointer.
 - Settings becomes a full-bleed panel with a horizontal section strip below 768px. The directory picker, the model menu, and the right panel are exercised at 390px by the same end-to-end scenario.
 - Landscape phones reach 844px and keep the rail layout. `MOBILE_MAX` in `packages/client/ui-layout/src/client/columns.ts` is the single value to change if that trade-off needs revisiting.

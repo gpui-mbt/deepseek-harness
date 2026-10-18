@@ -172,6 +172,21 @@ function drag(handle: Element, fromX: number, toX: number): void {
   pointer(handle, 'pointerup', toX)
 }
 
+/** Dispatch one touch gesture at the document, as a touch surface would. */
+function touchSwipe(fromX: number, toX: number, y = 300, target: EventTarget = document.body): void {
+  const fire = (type: string, x: number): void => {
+    const event = new Event(type, { bubbles: true, cancelable: true })
+    const touch = { clientX: x, clientY: y, target }
+    Object.defineProperty(event, 'touches', { value: type === 'touchend' ? [] : [touch] })
+    act(() => {
+      document.dispatchEvent(event)
+    })
+  }
+  fire('touchstart', fromX)
+  for (const step of [0.5, 1]) fire('touchmove', fromX + (toX - fromX) * step)
+  fire('touchend', toX)
+}
+
 beforeEach(() => {
   originalTitle = document.title
   frameWidth = 1920
@@ -395,6 +410,22 @@ describe('AppFrame narrow drawer', () => {
     expect(scrim.dataset.open).toBeUndefined()
     expect(drawer.hasAttribute('inert')).toBe(true)
     expect(document.activeElement?.textContent).toBe('shell.leading')
+  })
+
+  it('opens with a swipe from the leading edge and closes with the reverse drag', () => {
+    const { frame } = mountFrame()
+    const drawer = frame.querySelector<HTMLElement>('[data-drawer]')!
+
+    // Away from the edge the conversation owns the drag.
+    touchSwipe(120, 260)
+    expect(drawer.dataset.open).toBeUndefined()
+
+    touchSwipe(4, 140)
+    expect(drawer.dataset.open).toBe('true')
+
+    // The drawer itself sends it back.
+    touchSwipe(200, 60, 300, drawer)
+    expect(drawer.dataset.open).toBeUndefined()
   })
 
   it('dismisses on the scrim and when the drawer reveals a chosen panel', () => {

@@ -16,6 +16,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { installEdgeSwipe, installSwipeDismiss } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import {
   CENTER_MIN,
@@ -359,6 +360,26 @@ export function AppFrame({ useStore, useSessions, usePanelInfo, actions, renderS
       : leadingRef.current?.querySelector<HTMLElement>('button')
     target?.focus()
   }, [drawerOpen, mobile])
+
+  // A phone frame also reveals the navigation with a swipe from the leading
+  // edge, which a hand already there can make without reaching for the header.
+  // The listener exists only while the drawer is closed: an open drawer owns
+  // its own surface, and the gesture must not compete with it.
+  useEffect(() => {
+    if (!mobile || !navigationHidden) return
+    return installEdgeSwipe({
+      edge: 'left',
+      onSwipe: () => {
+        actions.toggleSidebar()
+      },
+    })
+  }, [actions, mobile, navigationHidden])
+  // The reverse drag on the drawer itself sends it back; the scrim already
+  // dismisses on a touch, so only the panel needs the gesture.
+  useEffect(() => {
+    if (!mobile || navigationHidden) return
+    return installSwipeDismiss({ element: drawerRef.current, direction: 'left', onSwipe: closeDrawer })
+  }, [closeDrawer, mobile, navigationHidden])
 
   return (
     <div

@@ -30,7 +30,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
 import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
-import { IconPanelLeftOutlineRegular, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconPanelLeftOutlineRegular, installEdgeSwipe, installSwipeDismiss, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '../contract/slots.ts'
 import type { DockIntents, DockMode, FloatRect, TabId, TabRecord, TabRenderer } from '@deepseek-ai/dsh-client-ui-dockkit'
@@ -471,6 +471,33 @@ export function RightbarSeat({
   useEffect(() => {
     if (active && surface === undefined) actions.open(sessionId)
   }, [actions, sessionId, surface, active])
+
+  // A touch surface reveals the panel with a swipe from the trailing edge,
+  // the same way the leading edge reveals the navigation. The listener exists
+  // only while the panel is collapsed; its own content owns gestures while open.
+  useEffect(() => {
+    if (!active || shown || surface === undefined) return
+    return installEdgeSwipe({
+      edge: 'right',
+      onSwipe: () => {
+        actions.setExpanded(sessionId, true)
+      },
+    })
+  }, [actions, active, sessionId, shown, surface])
+
+  // Dragging the panel back toward its edge dismisses it. The gesture keeps
+  // out of horizontally scrolling content and the docking kit's own drag
+  // affordances, so only a drag over the panel's own surface closes it.
+  useEffect(() => {
+    if (!active || !shown) return
+    return installSwipeDismiss({
+      element: panelRef.current,
+      direction: 'right',
+      onSwipe: () => {
+        actions.setExpanded(sessionId, false)
+      },
+    })
+  }, [actions, active, sessionId, shown])
 
   useLayoutEffect(() => {
     if (shown && !fullscreen && !canShow) actions.setExpanded(sessionId, false)

@@ -149,6 +149,8 @@ kind: "package-library"
 | [`src/icons/`](src/icons/) | 与尺寸无关的 `Regular` 和 `Medium` 产品图标组件 |
 | [`src/code-highlighting.ts`](src/code-highlighting.ts) | 共享的文件名 grammar 选择与惰性逐行高亮 |
 | [`src/input-modality.ts`](src/input-modality.ts) | 全文档输入模态，发布到 `<html>` |
+| [`src/swipe.ts`](src/swipe.ts) | 供两侧界面使用的边缘水平滑动与关闭滑动 |
+| [`src/visible-viewport.ts`](src/visible-viewport.ts) | 固定定位坐标系中的可见视口矩形 |
 | [`src/plugin-artwork.tsx`](src/plugin-artwork.tsx) | 固定配色插件插画，SVG def id 按实例生成 |
 | [`src/useAnchoredPosition.ts`](src/useAnchoredPosition.ts) / [`src/useAnchoredMaxHeight.ts`](src/useAnchoredMaxHeight.ts) | 浮动面板与浮层几何钩子 |
 | [`src/settings-form/`](src/settings-form/) | 设置页套件：基于设置 scope 的暂存表单模型、值字段与密文字段、表单框架 |
@@ -157,6 +159,11 @@ kind: "package-library"
 ### 输入模态
 
 [`input-modality.ts`](src/input-modality.ts) 为 tooltip 跟踪输入，并在 `<html>` 上发布 `data-input-modality`，供[主题焦点样式](../ui-theme/README.zh.md#understand-the-implementation)使用。`pointerModality()` 在指针输入后为 true，在任意按键后为 false，包括 IME（输入法）组合输入按键；`Tooltip` 据此决定聚焦时是否可以显示气泡。发布的属性保持 `pointer`，直到非组合输入的导航键（Tab、方向键、Home/End、PageUp/PageDown）到达，或非组合输入按键之后焦点移到不同控件。重新聚焦同一控件不会恢复键盘模态。指针输入、IME 组合输入按键和 window blur 都会清除待处理按键；没有待处理按键的焦点变化不改变模态。监听器与文档同寿命；从 Node 导入时不安装监听器。 焦点变化规则只观察传到 window 的事件；shadow root 内部不向外暴露这些事件的额外导航由组件负责。
+
+<a id="swipe-gestures"></a>
+### 滑动手势
+
+[`swipe.ts`](src/swipe.ts) 安装两侧界面使用的两种水平手势。`installEdgeSwipe({ edge, onSwipe, band?, distance? })` 在拖动从视口边缘 24px 带内起始并向内移动 48px 后触发；`installSwipeDismiss({ element, direction, onSwipe, distance? })` 在拖动从已打开界面内部起始并朝它来时的边缘移动后触发。两者都只在移动 10px 后判定轴向，并且仅在拖动明确为水平时接管并阻止触摸；垂直拖动、从带外开始的边缘滑动、起始于已打开抽屉、遮罩或对话框的触摸，以及起始于水平滚动区域或 docking kit 标签/分隔条上的关闭拖动，都留给浏览器。`touchmove` 只在一次合格手势期间注册而不是整个页面生命周期，因此普通滚动仍走被动监听路径。边缘取自可见视口的矩形，软键盘或双指缩放不会移动该带。iOS Safari 自身的返回手势占据最左侧边缘，左边缘滑动可能触发返回；抽屉与面板控件仍是可靠的入口。
 
 ### 流式 Markdown
 

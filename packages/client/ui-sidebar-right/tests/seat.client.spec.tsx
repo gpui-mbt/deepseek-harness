@@ -52,9 +52,23 @@ afterEach(async () => {
   }
 })
 
+/** Dispatch one touch gesture at the document, as a touch surface would. */
+function swipe(fromX: number, toX: number, y = 300, target: EventTarget = document.body): void {
+  const fire = (type: string, x: number): void => {
+    const event = new Event(type, { bubbles: true, cancelable: true })
+    const touch = { clientX: x, clientY: y, target }
+    Object.defineProperty(event, 'touches', { value: type === 'touchend' ? [] : [touch] })
+    act(() => {
+      document.dispatchEvent(event)
+    })
+  }
+  fire('touchstart', fromX)
+  for (const step of [0.5, 1]) fire('touchmove', fromX + (toX - fromX) * step)
+  fire('touchend', toX)
+}
+
 /** Browser-owned animation completion controlled independently of the test clock. */
-function transition(property = 'transform') {
-  const done = Promise.withResolvers<Animation>()
+function transition(property = 'transform') {  const done = Promise.withResolvers<Animation>()
   let state: AnimationPlayState = 'running'
   const animation = {
     transitionProperty: property,
@@ -1312,4 +1326,22 @@ it('keeps a resource tab and reports a synchronous cleanup failure from its clos
     logged.mockRestore()
     release()
   }
+})
+
+it('opens the panel with a swipe from the trailing edge and dismisses it with the reverse drag', async () => {
+  const h = await mountSeat(390)
+  expect(h.layout().expanded).toBe(false)
+
+  // Mid-screen drags belong to the conversation; only the edge reveals the panel.
+  swipe(200, 60)
+  expect(h.layout().expanded).toBe(false)
+
+  swipe(window.innerWidth - 4, window.innerWidth - 140)
+  expect(h.layout().expanded).toBe(true)
+
+  // The panel itself sends it back toward the edge it came from.
+  const panel = document.querySelector<HTMLElement>('[data-sidebar-right-panel]')
+  expect(panel).not.toBeNull()
+  swipe(120, 260, 300, panel!)
+  expect(h.layout().expanded).toBe(false)
 })
