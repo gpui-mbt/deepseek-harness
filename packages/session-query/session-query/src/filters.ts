@@ -15,10 +15,7 @@ import { SessionQueryError } from './config.ts'
  * @param filters - clauses whose list values are ORed within each clause.
  * @returns records accepted by every clause.
  */
-export function filterSessionResults<T extends SessionRecord>(
-  records: readonly T[],
-  filters: readonly SessionResultFilter[] = [],
-): T[] {
+export function filterSessionResults<T extends SessionRecord>(records: readonly T[], filters: readonly SessionResultFilter[] = []): T[] {
   const predicates = filters.map(sessionPredicate)
   return records.filter(record => predicates.every(predicate => predicate(record)))
 }
@@ -42,11 +39,9 @@ export function filterSessionEventDocuments<T extends SessionEventSearchDocument
  * @param filters - caller-owned clauses to materialize.
  * @returns detached validated clauses.
  */
-export function materializeSessionResultFilters(
-  filters: readonly SessionResultFilter[],
-): SessionResultFilter[] {
+export function materializeSessionResultFilters(filters: readonly SessionResultFilter[]): SessionResultFilter[] {
   assertArray(filters)
-  return filters.map((filter) => {
+  return filters.map(filter => {
     switch (filter.kind) {
       case 'id':
         return { kind: filter.kind, values: copyStrings(filter.kind, filter.values) }
@@ -72,11 +67,9 @@ export function materializeSessionResultFilters(
  * @param filters - caller-owned clauses to materialize.
  * @returns detached validated clauses.
  */
-export function materializeSessionEventResultFilters(
-  filters: readonly SessionEventResultFilter[],
-): SessionEventResultFilter[] {
+export function materializeSessionEventResultFilters(filters: readonly SessionEventResultFilter[]): SessionEventResultFilter[] {
   assertArray(filters)
-  return filters.map((filter) => {
+  return filters.map(filter => {
     switch (filter.kind) {
       case 'seq':
       case 'time':
@@ -105,10 +98,7 @@ export function materializeSessionEventResultFilters(
 export function compileSessionTextFilter(text: string): RegExp {
   const trimmed = text.trim()
   if (trimmed.length === 0) {
-    throw new SessionQueryError(
-      'session text filter must contain non-whitespace text',
-      'SESSION_QUERY_INVALID_FILTER',
-    )
+    throw new SessionQueryError('session text filter must contain non-whitespace text', 'SESSION_QUERY_INVALID_FILTER')
   }
   const pattern = trimmed
     .split(/\s+/u)
@@ -131,7 +121,7 @@ function sessionPredicate(filter: SessionResultFilter): (record: SessionRecord) 
       return record => filter.values.includes(record.header.parentSession ?? null)
     case 'availability':
       assertAllowedValues(filter.kind, filter.values, ['live', 'persisted'])
-      return record => filter.values.some(value => value === 'live' ? record.live : record.persisted)
+      return record => filter.values.some(value => (value === 'live' ? record.live : record.persisted))
     default:
       return unknownFilter(filter)
   }
@@ -179,14 +169,11 @@ function copyNullableStrings<T extends string>(name: string, values: readonly (T
   return [...values]
 }
 
-function copyRange<K extends 'created-at' | 'seq' | 'time'>(
-  kind: K,
-  range: SessionResultRange,
-): { kind: K } & SessionResultRange {
+function copyRange<K extends 'created-at' | 'seq' | 'time'>(kind: K, range: SessionResultRange): { kind: K } & SessionResultRange {
   const copy = {
     kind,
-    ...range.from === undefined ? {} : { from: range.from },
-    ...range.to === undefined ? {} : { to: range.to },
+    ...(range.from === undefined ? {} : { from: range.from }),
+    ...(range.to === undefined ? {} : { to: range.to }),
   }
   validateRange(kind, copy)
   return copy
@@ -197,17 +184,10 @@ function unknownFilter(filter: never): never {
   throw invalidFilter(`unknown filter kind ${typeof kind === 'string' ? `"${kind}"` : '(missing)'}`)
 }
 
-function assertAllowedValues(
-  name: string,
-  values: readonly string[],
-  allowed: readonly string[],
-): void {
+function assertAllowedValues(name: string, values: readonly string[], allowed: readonly string[]): void {
   for (const value of values) {
     if (!allowed.includes(value)) {
-      throw new SessionQueryError(
-        `session ${name} filter contains unknown value "${value}"`,
-        'SESSION_QUERY_INVALID_FILTER',
-      )
+      throw new SessionQueryError(`session ${name} filter contains unknown value "${value}"`, 'SESSION_QUERY_INVALID_FILTER')
     }
   }
 }
@@ -226,8 +206,7 @@ function validateRange(name: string, range: SessionResultRange): SessionResultRa
 }
 
 function matchesRange(value: number, range: SessionResultRange): boolean {
-  return (range.from === undefined || value >= range.from)
-    && (range.to === undefined || value <= range.to)
+  return (range.from === undefined || value >= range.from) && (range.to === undefined || value <= range.to)
 }
 
 function invalidRange(name: string, detail: string): SessionQueryError {

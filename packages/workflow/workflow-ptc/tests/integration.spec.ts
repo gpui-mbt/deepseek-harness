@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -36,7 +36,9 @@ describe('dsh-workflow-ptc over the real in-process stack', () => {
     const parentFollowup = vi.spyOn(parent, 'followup')
     const parentSteer = vi.spyOn(parent, 'steer')
     const published = new Set<string>()
-    ctx.on('subagent/start', (child) => { published.add(child.id) })
+    ctx.on('subagent/start', child => {
+      published.add(child.id)
+    })
     ctx.on('workflow/agent-start', (_info, agent) => {
       expect(published.has(agent.childId)).toBe(true)
       childIds.push(agent.childId)
@@ -59,10 +61,12 @@ return { prose, verdict: judged.verdict, confidence: judged.confidence }`,
     await run.dispose()
     expect(parentFollowup).not.toHaveBeenCalled()
     expect(parentSteer).not.toHaveBeenCalled()
-    expect(parent.session.snapshotEvents()
-      .filter(event => event.type === 'subagent/catalog')
-      .map(event => ({ id: event.data.childId, mode: event.data.mode })))
-      .toEqual(childIds.map(id => ({ id, mode: 'continuable' })))
+    expect(
+      parent.session
+        .snapshotEvents()
+        .filter(event => event.type === 'subagent/catalog')
+        .map(event => ({ id: event.data.childId, mode: event.data.mode })),
+    ).toEqual(childIds.map(id => ({ id, mode: 'continuable' })))
     // Both children were disposed to quiescence — no live child agents remain.
     expect(childIds.length).toBe(2)
     for (const childId of childIds) {
@@ -71,10 +75,7 @@ return { prose, verdict: judged.verdict, confidence: judged.confidence }`,
   })
 
   it('a child that fails against its schema (nudges exhausted) reaches the script as null', async () => {
-    const { ctx, parent } = await setup([
-      textResponse('prose only'),
-      textResponse('still prose after the nudge'),
-    ])
+    const { ctx, parent } = await setup([textResponse('prose only'), textResponse('still prose after the nudge')])
     const run = ctx.workflowEngine.start({
       meta: { name: 'null-path', description: 'schema failure maps to null' },
       script: `const judged = await agent('judge it', { schema: { type: 'object', properties: { v: { type: 'string' } } } })
@@ -92,8 +93,12 @@ return { got: judged === null ? 'null' : 'value' }`,
     const logs: string[] = []
     const published = new Set<string>()
     const starts: string[] = []
-    ctx.on('subagent/start', (child) => { published.add(child.id) })
-    ctx.on('workflow/log', (_info, message) => { logs.push(message) })
+    ctx.on('subagent/start', child => {
+      published.add(child.id)
+    })
+    ctx.on('workflow/log', (_info, message) => {
+      logs.push(message)
+    })
     ctx.on('workflow/agent-start', (_info, child) => {
       expect(published.has(child.childId)).toBe(true)
       starts.push(child.childId)

@@ -8,7 +8,14 @@ import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { errorChain, ReasoningEffortId, type MessageSource } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-client-file-upload'
-import { canOpenNativePath, nativeFileManager, nativeFileApplications, openNativeFileApplication, openNativeAssociatedPath, revealNativePath } from '@deepseek-ai/dsh-native-command'
+import {
+  canOpenNativePath,
+  nativeFileManager,
+  nativeFileApplications,
+  openNativeFileApplication,
+  openNativeAssociatedPath,
+  revealNativePath,
+} from '@deepseek-ai/dsh-native-command'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionInspection } from '@deepseek-ai/dsh-session-persistence'
 import type {} from '@deepseek-ai/dsh-session-projection-cache'
@@ -17,11 +24,7 @@ import { Remote, RemoteError, TypertRemoteService, principalOf } from '@deepseek
 import { canonicalClientTimeZone } from '@deepseek-ai/dsh-util-time'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import type {} from '@deepseek-ai/dsh-api-remote-access'
-import {
-  ApiSessionAgentController,
-  inspectApiSession,
-  type ApiSessionAgentResult,
-} from './agent.ts'
+import { ApiSessionAgentController, inspectApiSession, type ApiSessionAgentResult } from './agent.ts'
 import { SessionCommandController, hasPromptContent } from './commands.ts'
 import { SessionControlController } from './control.ts'
 import { SessionHistoryController } from './history.ts'
@@ -161,25 +164,33 @@ export class SessionController extends TypertRemoteService {
     installModelSelectionProjection(ctx)
     this.agents = new ApiSessionAgentController(ctx)
     this.commands = new SessionCommandController(ctx, this.agents, process.cwd())
-    ctx.effect(() => ctx.fileUploads.registerAgentResolver(async (sessionId) => {
-      const result = await this.agents.resolveAgent(sessionId)
-      if ('error' in result) throw result.error
-      return result.agent
-    }), 'session-controller: file-upload Agent resolver')
+    ctx.effect(
+      () =>
+        ctx.fileUploads.registerAgentResolver(async sessionId => {
+          const result = await this.agents.resolveAgent(sessionId)
+          if ('error' in result) throw result.error
+          return result.agent
+        }),
+      'session-controller: file-upload Agent resolver',
+    )
     this.controlState = new SessionControlController(ctx)
     // Registered before history so reverse-order teardown closes every
     // follower before waiting for already-admitted promotions.
-    ctx.effect(() => async () => {
-      await Promise.allSettled([...this.promotions])
-    }, 'session-controller.promotions')
-    this.history = new SessionHistoryController(ctx, (observation) => { this.promote(observation) })
+    ctx.effect(
+      () => async () => {
+        await Promise.allSettled([...this.promotions])
+      },
+      'session-controller.promotions',
+    )
+    this.history = new SessionHistoryController(ctx, observation => {
+      this.promote(observation)
+    })
     this.listState = new ApiSessionList(ctx, resolved.listWorkSliceMs)
     this.fileApplications = internals.fileApplications ?? nativeFileApplications
     this.openFileApplication = internals.openFileApplication ?? openNativeFileApplication
     this.openPath = internals.openPath ?? openNativeAssociatedPath
     this.revealPath = internals.revealPath ?? revealNativePath
-    this.canOpenPath = internals.canOpenPath
-      ?? (() => config.nativeOpen ?? (internals.openPath !== undefined || canOpenNativePath()))
+    this.canOpenPath = internals.canOpenPath ?? (() => config.nativeOpen ?? (internals.openPath !== undefined || canOpenNativePath()))
     ctx.plugin(SessionFileReferences)
     ctx.plugin(SessionMediaReferences)
     ctx.plugin(SessionSkillCatalog)
@@ -188,10 +199,10 @@ export class SessionController extends TypertRemoteService {
     // answer the Workspace registry's archive-admission events.
     ctx.plugin(ArchivedSessionGate)
 
-    ctx.on('session/created', (session) => {
+    ctx.on('session/created', session => {
       ctx.emit('api-session/added', this.listState.summaryFor(session))
     })
-    ctx.on('session/disposed', (session) => {
+    ctx.on('session/disposed', session => {
       ctx.emit('api-session/removed', session.id)
     })
     const publishAgentAvailability = ({ agent }: { agent: Agent }): undefined => {
@@ -210,12 +221,13 @@ export class SessionController extends TypertRemoteService {
     ctx.on('session/event', (session, event) => {
       if (event.type === 'request/header') {
         const agent = ctx.agents.get(session.id)
-        if (agent?.session === session) this.agents.consumeSelection(
-          agent,
-          event.data.header.config.provider,
-          event.data.header.config.model,
-          event.data.header.config.reasoningEffort,
-        )
+        if (agent?.session === session)
+          this.agents.consumeSelection(
+            agent,
+            event.data.header.config.provider,
+            event.data.header.config.model,
+            event.data.header.config.reasoningEffort,
+          )
       }
       if (event.type !== 'user/message' || event.data.source.kind !== 'user') return
       ctx.emit('api-session/activity', session.id, event.time)
@@ -232,7 +244,9 @@ export class SessionController extends TypertRemoteService {
       this.ctx.logger.error(`session-controller: background activation for "${sessionId}" failed: ${errorChain(error)}`)
     })
     this.promotions.add(task)
-    void task.finally(() => { this.promotions.delete(task) })
+    void task.finally(() => {
+      this.promotions.delete(task)
+    })
   }
 
   /**
@@ -250,10 +264,7 @@ export class SessionController extends TypertRemoteService {
    * @param signal - optional caller cancellation for persistence reads.
    * @returns the current attached state or persisted header and event prefix.
    */
-  inspect(
-    sessionId: SessionId,
-    signal?: AbortSignal,
-  ): Promise<SessionInspection> {
+  inspect(sessionId: SessionId, signal?: AbortSignal): Promise<SessionInspection> {
     const attached = this.ctx.sessions.get(sessionId)
     if (attached !== undefined) {
       return Promise.resolve({
@@ -322,10 +333,12 @@ export class SessionController extends TypertRemoteService {
     if (await hasProviderApiKey(this.ctx)) return
     const catalog = await buildModelCatalog(this.ctx)
     const model = catalog.groups.find(group => group.id === provider)?.models[0]
-    if (model === undefined) throw new RemoteError('session/provider-models-unavailable',
-      `provider "${provider}" has no available models`, { provider })
-    const selection = { provider, model: model.id,
-      ...model.reasoning?.defaultEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(model.reasoning.defaultEffort) },
+    if (model === undefined)
+      throw new RemoteError('session/provider-models-unavailable', `provider "${provider}" has no available models`, { provider })
+    const selection = {
+      provider,
+      model: model.id,
+      ...(model.reasoning?.defaultEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(model.reasoning.defaultEffort) }),
     }
     await this.ctx.agentDefaultModel.saveSelection(selection)
   }
@@ -365,10 +378,7 @@ export class SessionController extends TypertRemoteService {
    * @throws RemoteError when the request is invalid, has no verified Host mapping, is cancelled, or the opener fails.
    */
   @Remote('openWorkspacePath')
-  async openWorkspacePath(
-    request: SessionOpenWorkspacePathRequest,
-    signal: AbortSignal,
-  ): Promise<SessionOpenWorkspacePathValue> {
+  async openWorkspacePath(request: SessionOpenWorkspacePathRequest, signal: AbortSignal): Promise<SessionOpenWorkspacePathValue> {
     try {
       const path = await this.verifyDesktopPath(request.path, signal)
       if (request.action === 'reveal') await this.revealPath(path, signal)
@@ -378,12 +388,7 @@ export class SessionController extends TypertRemoteService {
     } catch (error: unknown) {
       if (signal.aborted) throw new RemoteError('gateway/cancelled', 'path open was aborted', {})
       if (error instanceof RemoteError) throw error
-      throw new RemoteError(
-        'gateway/internal',
-        'path open failed',
-        {},
-        { cause: error },
-      )
+      throw new RemoteError('gateway/internal', 'path open failed', {}, { cause: error })
     }
   }
 
@@ -396,7 +401,8 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote('workspacePathApplications')
   async workspacePathApplications(
-    request: { readonly path: string }, signal: AbortSignal,
+    request: { readonly path: string },
+    signal: AbortSignal,
   ): Promise<readonly SessionWorkspacePathApplication[]> {
     if (!this.canOpenPath()) return []
     try {
@@ -464,15 +470,11 @@ export class SessionController extends TypertRemoteService {
     if (!hasPromptContent(request.content)) {
       throw new RemoteError('gateway/bad-request', 'prompt content must include non-whitespace text or an attachment', {})
     }
-    const clientTimeZone = request.clientTimeZone === undefined
-      ? undefined
-      : canonicalClientTimeZone(request.clientTimeZone)
+    const clientTimeZone = request.clientTimeZone === undefined ? undefined : canonicalClientTimeZone(request.clientTimeZone)
     if (request.clientTimeZone !== undefined && clientTimeZone === undefined) {
-      throw new RemoteError(
-        'session/invalid-time-zone',
-        'clientTimeZone must be UTC or a valid IANA Area/Location name',
-        { value: request.clientTimeZone },
-      )
+      throw new RemoteError('session/invalid-time-zone', 'clientTimeZone must be UTC or a valid IANA Area/Location name', {
+        value: request.clientTimeZone,
+      })
     }
     // The caller is recorded only when it is not the owner, so owner messages keep their exact source.
     const principal = principalOf(this.ctx.invocation)
@@ -581,9 +583,7 @@ export class SessionController extends TypertRemoteService {
     }
   }
 
-  private liveProjections(
-    sessionId: SessionId,
-  ): Extract<SessionProjectionsValue, { readonly kind: 'sequenced' }> | undefined {
+  private liveProjections(sessionId: SessionId): Extract<SessionProjectionsValue, { readonly kind: 'sequenced' }> | undefined {
     const session = this.ctx.sessions.get(sessionId)
     if (session === undefined) return undefined
     const snapshot = this.ctx.sessionProjections.snapshot(session)
@@ -600,8 +600,11 @@ export class SessionController extends TypertRemoteService {
     for await (const frame of this.controlState.control(signal)) {
       switch (frame.type) {
         case 'baseline': {
-          const projections = Object.fromEntries(Object.entries(frame.value.projections)
-            .filter(([sessionId]) => this.ctx.remoteAccess.allows({ kind: 'session', id: sessionId as SessionId })))
+          const projections = Object.fromEntries(
+            Object.entries(frame.value.projections).filter(([sessionId]) =>
+              this.ctx.remoteAccess.allows({ kind: 'session', id: sessionId as SessionId }),
+            ),
+          )
           yield { type: 'baseline', value: { ...frame.value, projections } }
           break
         }
@@ -614,8 +617,6 @@ export class SessionController extends TypertRemoteService {
       }
     }
   }
-
-
 }
 
 export { buildModelCatalog }

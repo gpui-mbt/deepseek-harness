@@ -57,9 +57,7 @@ const REFERENCE_FIELDS: Record<string, true> = { url: true, src: true, href: tru
  * the browser resolves against its document. No request-target position in
  * browser code sees those values, so its reference fields are checked directly.
  */
-const REFERENCE_PRODUCERS = [
-  'packages/client/modules/src/index.ts',
-]
+const REFERENCE_PRODUCERS = ['packages/client/modules/src/index.ts']
 
 /** Rule that produced a violation, for diagnostics and for the gate's own coverage. */
 export type RouteResolutionRule = 'request-target' | 'location-base' | 'host-route-key' | 'reference-producer'
@@ -111,7 +109,9 @@ function unstrippedHostRouteKeys(node: ts.Node): ts.Identifier[] {
     return derived ? [] : [node]
   }
   const keys: ts.Identifier[] = []
-  node.forEachChild((child) => { keys.push(...unstrippedHostRouteKeys(child)) })
+  node.forEachChild(child => {
+    keys.push(...unstrippedHostRouteKeys(child))
+  })
   return keys
 }
 
@@ -136,8 +136,12 @@ function requestTargetOf(node: ts.Node): ts.Expression | undefined {
     const name = calleeName(node.expression)
     return name !== undefined && REQUEST_CONSTRUCTORS[name] === true ? node.arguments?.[0] : undefined
   }
-  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken
-    && ts.isPropertyAccessExpression(node.left) && REQUEST_PROPERTIES[node.left.name.text] === true) {
+  if (
+    ts.isBinaryExpression(node) &&
+    node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+    ts.isPropertyAccessExpression(node.left) &&
+    REQUEST_PROPERTIES[node.left.name.text] === true
+  ) {
     return node.right
   }
   if (ts.isJsxAttribute(node) && ts.isIdentifier(node.name) && REQUEST_PROPERTIES[node.name.text] === true) {
@@ -149,7 +153,10 @@ function requestTargetOf(node: ts.Node): ts.Expression | undefined {
 }
 
 /** One literal fragment of a composed value, with the node that carries it. */
-interface LiteralFragment { node: ts.Node; text: string }
+interface LiteralFragment {
+  node: ts.Node
+  text: string
+}
 
 /**
  * Literal fragments of a value composed of literals, `+` concatenation,
@@ -170,10 +177,7 @@ function literalFragments(node: ts.Expression): LiteralFragment[] {
   if (ts.isTemplateExpression(node)) {
     // Every fragment reports the template itself: an interpolated prefix makes
     // the offending span start mid-expression, and one template is one route.
-    return [
-      { node, text: node.head.text },
-      ...node.templateSpans.map(span => ({ node, text: span.literal.text })),
-    ]
+    return [{ node, text: node.head.text }, ...node.templateSpans.map(span => ({ node, text: span.literal.text }))]
   }
   return []
 }
@@ -240,8 +244,12 @@ export function findRouteResolutionViolations(
       const target = requestTargetOf(node)
       if (target !== undefined) checkTarget(target)
       if (ts.isNewExpression(node) && calleeName(node.expression) === 'URL') checkUrlBase(node)
-    } else if (ts.isPropertyAssignment(node) && ts.isIdentifier(node.name)
-      && REFERENCE_FIELDS[node.name.text] === true && ts.isExpression(node.initializer)) {
+    } else if (
+      ts.isPropertyAssignment(node) &&
+      ts.isIdentifier(node.name) &&
+      REFERENCE_FIELDS[node.name.text] === true &&
+      ts.isExpression(node.initializer)
+    ) {
       checkReferenceField(node.initializer)
     }
     ts.forEachChild(node, visit)
@@ -287,7 +295,7 @@ export function browserFaceSources(projectRoot: string = root): string[] {
     // `src/client` alone is scanned below. Without that half, all of `src/` is
     // the browser surface.
     if (hostConfigs.has(configPath) && existsSync(`${configRoot}/src/client`)) continue
-    const faceSources = parsed.fileNames.filter((file) => {
+    const faceSources = parsed.fileNames.filter(file => {
       const normalized = file.replaceAll('\\', '/')
       return normalized.startsWith(sourceRoot) && /\.tsx?$/.test(normalized)
     })
@@ -324,9 +332,7 @@ function main(): void {
   if (violations.length > 0) {
     console.error(`${GATE}: ${violations.length} app-owned route(s) that are not document-relative:`)
     for (const violation of violations) {
-      console.error(
-        `  ${violation.file}:${violation.line}:${violation.column} ${violation.pattern} — ${HINT[violation.rule]}`,
-      )
+      console.error(`  ${violation.file}:${violation.line}:${violation.column} ${violation.pattern} — ${HINT[violation.rule]}`)
     }
     process.exitCode = 1
     return

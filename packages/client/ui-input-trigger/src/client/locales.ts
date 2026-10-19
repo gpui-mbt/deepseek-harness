@@ -6,10 +6,10 @@
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
-  'command': '指令',
-  'skill': '技能',
-  'subagent': '子智能体',
-  'loading': '正在加载…',
+  command: '指令',
+  skill: '技能',
+  subagent: '子智能体',
+  loading: '正在加载…',
   'drill.aria': '进入目录',
   'drill.hint': '进入目录',
   'drill.key': 'Tab',
@@ -22,10 +22,10 @@ export type MenuKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
-  'command': 'Commands',
-  'skill': 'Skills',
-  'subagent': 'Subagents',
-  'loading': 'Loading…',
+  command: 'Commands',
+  skill: 'Skills',
+  subagent: 'Subagents',
+  loading: 'Loading…',
   'drill.aria': 'Browse folder',
   'drill.hint': 'Browse folder',
   'drill.key': 'Tab',

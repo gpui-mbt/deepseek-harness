@@ -21,12 +21,12 @@ export class InspectorWorkerLifecycle {
   }
 
   constructor(private readonly worker: Worker) {
-    worker.on('error', (error) => {
+    worker.on('error', error => {
       this.failure ??= error
       this.failureResolution.resolve(error)
       this.notifyUnexpectedExit()
     })
-    worker.once('exit', (code) => {
+    worker.once('exit', code => {
       this.exitCodeValue = code
       this.exitResolution.resolve(code)
       this.notifyUnexpectedExit()
@@ -61,8 +61,10 @@ export class InspectorWorkerLifecycle {
     try {
       return await Promise.race([
         message,
-        this.failureResolution.promise.then((error) => { throw error }),
-        this.exitResolution.promise.then((code) => {
+        this.failureResolution.promise.then(error => {
+          throw error
+        }),
+        this.exitResolution.promise.then(code => {
           throw new Error(`inspector Worker exited before readiness (code ${String(code)})`)
         }),
       ])
@@ -102,13 +104,12 @@ export class InspectorWorkerLifecycle {
     if (this.exitCodeValue !== undefined) return
     this.worker.postMessage({ type: 'shutdown' } satisfies InspectorHostControl)
     let timer: NodeJS.Timeout | undefined
-    const timeout = new Promise<'timeout'>((resolve) => {
-      timer = setTimeout(() => { resolve('timeout') }, timeoutMs)
+    const timeout = new Promise<'timeout'>(resolve => {
+      timer = setTimeout(() => {
+        resolve('timeout')
+      }, timeoutMs)
     })
-    const outcome = await Promise.race([
-      this.exitResolution.promise.then(() => 'exited' as const),
-      timeout,
-    ])
+    const outcome = await Promise.race([this.exitResolution.promise.then(() => 'exited' as const), timeout])
     if (timer !== undefined) clearTimeout(timer)
     if (outcome === 'exited') return
     await this.worker.terminate()
@@ -118,8 +119,6 @@ export class InspectorWorkerLifecycle {
   private notifyUnexpectedExit(): void {
     if (!this.running || this.expectedExit || this.notified || this.exitCodeValue === undefined) return
     this.notified = true
-    this.onUnexpectedExit?.(this.failure ?? new Error(
-      `inspector Worker exited unexpectedly with code ${String(this.exitCodeValue)}`,
-    ))
+    this.onUnexpectedExit?.(this.failure ?? new Error(`inspector Worker exited unexpectedly with code ${String(this.exitCodeValue)}`))
   }
 }

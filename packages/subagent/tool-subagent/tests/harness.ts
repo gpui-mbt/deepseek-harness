@@ -1,5 +1,5 @@
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
-import { afterEach } from 'vitest'
+import { afterEach } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { Agent, AgentOptions } from '@deepseek-ai/dsh-agent'
@@ -38,8 +38,15 @@ type SetupConfig = tool.Config & {
 }
 
 const TEST_ALLOWED_MODELS = [
-  'allowed-model', 'child-model', 'configured-model', 'current-model', 'fast-model',
-  'other-model', 'parent-model', 'selected-model', 'unlisted-model',
+  'allowed-model',
+  'child-model',
+  'configured-model',
+  'current-model',
+  'fast-model',
+  'other-model',
+  'parent-model',
+  'selected-model',
+  'unlisted-model',
 ].flatMap(model => [
   { provider: 'alpha', model },
   { provider: 'current-provider', model },
@@ -62,9 +69,9 @@ export async function setup(toolConfig: SetupConfig, mockConfig: Partial<mock.Co
     setupProviders.set(ctx, provider)
     const handle = await ctx.agents.create({
       sessionId: SessionId(`model-selection-setup-${++setupAgentCounter}`),
-      ...parentAgentOptions !== undefined ? { agentOptions: parentAgentOptions } : {},
+      ...(parentAgentOptions !== undefined ? { agentOptions: parentAgentOptions } : {}),
       setup: async (agentCtx, agent) => {
-        const fiber = agentCtx.inject(tool.inject, (runtimeCtx) => {
+        const fiber = agentCtx.inject(tool.inject, runtimeCtx => {
           return tool.apply(runtimeCtx, { ...config, modelSelectionSettings: true }, agent.session)
         })
         await fiber.await()
@@ -103,27 +110,28 @@ export function modelSelectionSetupAgent(ctx: Context): Agent {
 let callCounter = 0
 
 /** Execute the registered subagent tool through the real ToolRuntime pipeline. */
-export async function callSubagent(
-  ctx: Context,
-  args: unknown,
-  over: { agent?: Agent | undefined; signal?: AbortSignal } = {},
-) {
+export async function callSubagent(ctx: Context, args: unknown, over: { agent?: Agent | undefined; signal?: AbortSignal } = {}) {
   // Distinguish "no override" (use a default agent) from an explicit
   // `{ agent: undefined }` (test the no-agent path). Under
   // exactOptionalPropertyTypes the key is omitted rather than set to undefined.
-  const agent = 'agent' in over ? over.agent : setupAgents.get(ctx)
-    ?? (await ctx.agents.create({ sessionId: SessionId(`tool-call-parent-${++setupAgentCounter}`) })).agent
+  const agent =
+    'agent' in over
+      ? over.agent
+      : (setupAgents.get(ctx) ?? (await ctx.agents.create({ sessionId: SessionId(`tool-call-parent-${++setupAgentCounter}`) })).agent)
   return ctx.tools.execute({
     signal: testToolSignal,
     callId: ToolCallId(`call-${++callCounter}`),
     name: 'subagent',
     arguments: args,
-    ...agent ? { agent } : {},
-    ...over.signal ? { signal: over.signal } : {},
+    ...(agent ? { agent } : {}),
+    ...(over.signal ? { signal: over.signal } : {}),
   })
 }
 
 /** Join text blocks from one rendered tool result. */
 export function text(result: { content: readonly { type: string; text?: string }[] }): string {
-  return result.content.filter(block => block.type === 'text').map(block => block.text).join('')
+  return result.content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('')
 }

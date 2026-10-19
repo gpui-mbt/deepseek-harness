@@ -24,7 +24,10 @@ const GIT_URL = /^git(?:\+[a-z]+)?:\/\/|^git@[^:]+:/i
 const HOSTED_REPOSITORY_URL = /^https?:\/\/[^/]+\/[^/]+\/[^/#]+(?:\.git)?(?:#.*)?$/i
 /** The hosts pnpm's shorthands stand for. */
 const GIT_SHORTHAND_HOSTS: Readonly<Record<string, string>> = {
-  github: 'github.com', gitlab: 'gitlab.com', bitbucket: 'bitbucket.org', gist: 'gist.github.com',
+  github: 'github.com',
+  gitlab: 'gitlab.com',
+  bitbucket: 'bitbucket.org',
+  gist: 'gist.github.com',
 }
 /** A tarball, on disk or over HTTP. */
 const TARBALL_SPEC = /\.(?:tgz|tar\.gz)(?:#.*)?$/i
@@ -38,7 +41,10 @@ export class InvalidInstallSpecError extends Error {
    * @param spec - the spec as typed, trimmed.
    * @param reason - why it is refused, as one sentence.
    */
-  constructor(readonly spec: string, readonly reason: string) {
+  constructor(
+    readonly spec: string,
+    readonly reason: string,
+  ) {
     super(`plugin-manager: ${reason}: ${spec}`)
     this.name = 'InvalidInstallSpecError'
   }

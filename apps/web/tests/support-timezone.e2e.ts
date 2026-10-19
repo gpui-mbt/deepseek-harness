@@ -1,8 +1,8 @@
 import { chromium } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { newEnglishPage } from './support.ts'
 
-it.each(['UTC', 'America/Los_Angeles'])('isolates the recorded browser timezone from %s', async (hostTimeZone) => {
+it.each(['UTC', 'America/Los_Angeles'])('isolates the recorded browser timezone from %s', async hostTimeZone => {
   const browser = await chromium.launch({ env: { ...process.env, TZ: hostTimeZone } })
   try {
     const ambientPage = await browser.newPage()

@@ -12,36 +12,89 @@
  * Imports go through the package name so the harness and the shim resolve to one
  * module instance (see `../polyfill/als-shim.spec.ts` for why that matters).
  */
-import { expect, test } from 'vitest'
+import { expect, test } from 'vite-plus/test'
 import { posix as nodePosix, win32 as nodeWin32 } from 'node:path'
 import * as shim from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/path.ts'
 
 const CASES = [
-  '', '.', '..', '/', '//', '///', 'a', '/a', 'a/', '/a/', 'a/b', '/a/b/c', 'a//b', '/a//b/',
-  './a', '../a', 'a/./b', 'a/../b', '/a/../..', '/../a', 'a/b/../../c', '.hidden', 'a.b.c',
-  '/a/b/c.txt', 'c.txt', '.txt', 'a/.txt', 'a/b.', '/a/b/.', '/a/b/..', 'foo/bar/../baz/./qux',
-  '/dsh/node_modules/@deepseek-ai/dsh-session/lib/index.js', 'node_modules/.bin/x',
+  '',
+  '.',
+  '..',
+  '/',
+  '//',
+  '///',
+  'a',
+  '/a',
+  'a/',
+  '/a/',
+  'a/b',
+  '/a/b/c',
+  'a//b',
+  '/a//b/',
+  './a',
+  '../a',
+  'a/./b',
+  'a/../b',
+  '/a/../..',
+  '/../a',
+  'a/b/../../c',
+  '.hidden',
+  'a.b.c',
+  '/a/b/c.txt',
+  'c.txt',
+  '.txt',
+  'a/.txt',
+  'a/b.',
+  '/a/b/.',
+  '/a/b/..',
+  'foo/bar/../baz/./qux',
+  '/dsh/node_modules/@deepseek-ai/dsh-session/lib/index.js',
+  'node_modules/.bin/x',
 ]
 
 const JOINS: string[][] = [
-  ['a', 'b'], ['/a', 'b'], ['a', '/b'], ['a', '..'], ['a', '../..'], ['', 'b'], ['a', ''],
-  ['/dsh', 'config', 'cordis.yml'], ['/dsh/node_modules', '@scope/pkg', 'lib/index.js'],
-  ['a/', '/b'], ['.', 'a'], ['..', 'a'], ['/', 'a'], [],
+  ['a', 'b'],
+  ['/a', 'b'],
+  ['a', '/b'],
+  ['a', '..'],
+  ['a', '../..'],
+  ['', 'b'],
+  ['a', ''],
+  ['/dsh', 'config', 'cordis.yml'],
+  ['/dsh/node_modules', '@scope/pkg', 'lib/index.js'],
+  ['a/', '/b'],
+  ['.', 'a'],
+  ['..', 'a'],
+  ['/', 'a'],
+  [],
 ]
 
 const RESOLVES: string[][] = [
-  ['a'], ['/a', 'b'], ['/a', '/b'], ['a', '..'], ['/dsh', './config/../config/cordis.yml'],
-  ['/a/b', '../c'], ['/'], ['', 'a'], ['/dsh/node_modules/pkg', './lib/../lib/index.js'],
+  ['a'],
+  ['/a', 'b'],
+  ['/a', '/b'],
+  ['a', '..'],
+  ['/dsh', './config/../config/cordis.yml'],
+  ['/a/b', '../c'],
+  ['/'],
+  ['', 'a'],
+  ['/dsh/node_modules/pkg', './lib/../lib/index.js'],
 ]
 
 const RELATIVES: [string, string][] = [
-  ['/a/b', '/a/b/c'], ['/a/b/c', '/a/b'], ['/a', '/b'], ['/a/b', '/a/b'], ['/', '/a'],
+  ['/a/b', '/a/b/c'],
+  ['/a/b/c', '/a/b'],
+  ['/a', '/b'],
+  ['/a/b', '/a/b'],
+  ['/', '/a'],
   ['/dsh/node_modules/a', '/dsh/node_modules/b/lib/x.js'],
 ]
 
 const compare = (label: string, actual: unknown, expected: unknown): void => {
   const [shimmed, node] = [JSON.stringify(actual), JSON.stringify(expected)]
-  test(label, () => { expect(shimmed).toBe(node) })
+  test(label, () => {
+    expect(shimmed).toBe(node)
+  })
 }
 
 // resolve() consults process.cwd() on both sides; pin it so they agree, then put
@@ -52,10 +105,16 @@ process.chdir('/')
 for (const value of CASES) {
   for (const fn of ['normalize', 'dirname', 'basename', 'extname', 'isAbsolute', 'parse'] as const) {
     try {
-      compare(`${fn}(${JSON.stringify(value)})`, (shim[fn] as (v: string) => unknown)(value), (nodePosix[fn] as (v: string) => unknown)(value))
+      compare(
+        `${fn}(${JSON.stringify(value)})`,
+        (shim[fn] as (v: string) => unknown)(value),
+        (nodePosix[fn] as (v: string) => unknown)(value),
+      )
     } catch (error) {
       const thrown = String(error)
-      test(`${fn}(${JSON.stringify(value)}) does not throw`, () => { expect.unreachable(thrown) })
+      test(`${fn}(${JSON.stringify(value)}) does not throw`, () => {
+        expect.unreachable(thrown)
+      })
     }
   }
   compare(`basename(${JSON.stringify(value)}, '.txt')`, shim.basename(value, '.txt'), nodePosix.basename(value, '.txt'))
@@ -76,7 +135,9 @@ for (const value of WIN32_ABSOLUTES) {
     compare(`win32.isAbsolute(${JSON.stringify(value)})`, shim.win32.isAbsolute(value), nodeWin32.isAbsolute(value))
   } catch (error) {
     const thrown = String(error)
-    test(`win32.isAbsolute(${JSON.stringify(value)}) does not throw`, () => { expect.unreachable(thrown) })
+    test(`win32.isAbsolute(${JSON.stringify(value)}) does not throw`, () => {
+      expect.unreachable(thrown)
+    })
   }
 }
 

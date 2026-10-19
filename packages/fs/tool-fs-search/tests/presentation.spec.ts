@@ -8,14 +8,9 @@
  * deliver.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
-import {
-  globSearchMeta,
-  grepSearchMeta,
-  groupMatchesByFile,
-  searchViewFromMeta,
-} from '../src/presentation.ts'
+import { globSearchMeta, grepSearchMeta, groupMatchesByFile, searchViewFromMeta } from '../src/presentation.ts'
 import type { GrepMatch } from '../src/search-core.ts'
 import { retainGlobPaths, retainGrepMatches } from '../src/search-core.ts'
 
@@ -26,12 +21,14 @@ const WIDE = 1_000_000
 
 describe('groupMatchesByFile', () => {
   it('groups matches by first-seen file order, keeping line/lineNumber only', () => {
-    expect(groupMatchesByFile([
-      match('b.ts', 2, 'x'),
-      match('a.ts', 1, 'y'),
-      match('b.ts', 5, 'z'),
-    ])).toEqual([
-      { path: 'b.ts', matches: [{ lineNumber: 2, line: 'x' }, { lineNumber: 5, line: 'z' }] },
+    expect(groupMatchesByFile([match('b.ts', 2, 'x'), match('a.ts', 1, 'y'), match('b.ts', 5, 'z')])).toEqual([
+      {
+        path: 'b.ts',
+        matches: [
+          { lineNumber: 2, line: 'x' },
+          { lineNumber: 5, line: 'z' },
+        ],
+      },
       { path: 'a.ts', matches: [{ lineNumber: 1, line: 'y' }] },
     ])
   })
@@ -46,17 +43,36 @@ describe('grepSearchMeta', () => {
     const meta = grepSearchMeta(retainGrepMatches([match('a.ts', 1, 'one'), match('a.ts', 2, 'two')], 10, 2000), WIDE)
     expect(meta).toEqual({
       shape: 'matches',
-      files: [{ path: 'a.ts', matches: [{ lineNumber: 1, line: 'one' }, { lineNumber: 2, line: 'two' }] }],
+      files: [
+        {
+          path: 'a.ts',
+          matches: [
+            { lineNumber: 1, line: 'one' },
+            { lineNumber: 2, line: 'two' },
+          ],
+        },
+      ],
       truncated: false,
       total: 2,
     })
   })
 
   it('reports the pre-cap total and truncation from the shared retention pass', () => {
-    const meta = grepSearchMeta(retainGrepMatches([match('a.ts', 1, 'one'), match('a.ts', 2, 'two'), match('b.ts', 3, 'three')], 2, 2000), WIDE)
+    const meta = grepSearchMeta(
+      retainGrepMatches([match('a.ts', 1, 'one'), match('a.ts', 2, 'two'), match('b.ts', 3, 'three')], 2, 2000),
+      WIDE,
+    )
     expect(meta).toEqual({
       shape: 'matches',
-      files: [{ path: 'a.ts', matches: [{ lineNumber: 1, line: 'one' }, { lineNumber: 2, line: 'two' }] }],
+      files: [
+        {
+          path: 'a.ts',
+          matches: [
+            { lineNumber: 1, line: 'one' },
+            { lineNumber: 2, line: 'two' },
+          ],
+        },
+      ],
       truncated: true,
       total: 3,
     })
@@ -64,7 +80,10 @@ describe('grepSearchMeta', () => {
 
   it('carries the per-line preview budget (UTF-8 boundary) the retention pass applied', () => {
     const meta = grepSearchMeta(retainGrepMatches([match('a.txt', 1, 'aéaéaéaé')], 10, 7), WIDE)
-    expect(meta).toMatchObject({ shape: 'matches', files: [{ path: 'a.txt', matches: [{ lineNumber: 1, line: 'aéaéa (line truncated)' }] }] })
+    expect(meta).toMatchObject({
+      shape: 'matches',
+      files: [{ path: 'a.txt', matches: [{ lineNumber: 1, line: 'aéaéa (line truncated)' }] }],
+    })
   })
 
   it('drops trailing file groups until the serialized meta fits the byte cap, marking it truncated', () => {
@@ -94,11 +113,21 @@ describe('grepSearchMeta', () => {
 
 describe('globSearchMeta', () => {
   it('projects the path list with total and a false truncation flag within the cap', () => {
-    expect(globSearchMeta(retainGlobPaths(['a.ts', 'b.ts'], 10), WIDE)).toEqual({ shape: 'paths', paths: ['a.ts', 'b.ts'], truncated: false, total: 2 })
+    expect(globSearchMeta(retainGlobPaths(['a.ts', 'b.ts'], 10), WIDE)).toEqual({
+      shape: 'paths',
+      paths: ['a.ts', 'b.ts'],
+      truncated: false,
+      total: 2,
+    })
   })
 
   it('reports the pre-cap total and truncation from the shared retention pass', () => {
-    expect(globSearchMeta(retainGlobPaths(['a.ts', 'b.ts', 'c.ts'], 2), WIDE)).toEqual({ shape: 'paths', paths: ['a.ts', 'b.ts'], truncated: true, total: 3 })
+    expect(globSearchMeta(retainGlobPaths(['a.ts', 'b.ts', 'c.ts'], 2), WIDE)).toEqual({
+      shape: 'paths',
+      paths: ['a.ts', 'b.ts'],
+      truncated: true,
+      total: 3,
+    })
   })
 
   it('drops trailing paths until the serialized meta fits the byte cap, marking it truncated', () => {
@@ -130,10 +159,20 @@ describe('searchViewFromMeta (defensive narrowing)', () => {
   })
 
   it('narrows a zero-result payload into a valid empty card (not a rejected projection)', () => {
-    expect(searchViewFromMeta(m({ shape: 'matches', files: [], truncated: false, total: 0 })))
-      .toEqual({ card: 'search', shape: 'matches', files: [], truncated: false, total: 0 })
-    expect(searchViewFromMeta(m({ shape: 'paths', paths: [], truncated: false, total: 0 })))
-      .toEqual({ card: 'search', shape: 'paths', paths: [], truncated: false, total: 0 })
+    expect(searchViewFromMeta(m({ shape: 'matches', files: [], truncated: false, total: 0 }))).toEqual({
+      card: 'search',
+      shape: 'matches',
+      files: [],
+      truncated: false,
+      total: 0,
+    })
+    expect(searchViewFromMeta(m({ shape: 'paths', paths: [], truncated: false, total: 0 }))).toEqual({
+      card: 'search',
+      shape: 'paths',
+      paths: [],
+      truncated: false,
+      total: 0,
+    })
   })
 
   it('rejects undefined / non-object / array meta', () => {

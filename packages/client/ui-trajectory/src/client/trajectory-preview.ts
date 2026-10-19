@@ -14,7 +14,5 @@ export function trajectoryPreviewText(text: string): string {
   const source = text.slice(0, PREVIEW_SOURCE_CHARACTERS)
   const compact = extractMarkdownPlainText(source).replace(/\s+/g, ' ').trim()
   const preview = compact.slice(0, PREVIEW_OUTPUT_CHARACTERS).trimEnd()
-  return source.length < text.length || preview.length < compact.length
-    ? `${preview}…`
-    : preview
+  return source.length < text.length || preview.length < compact.length ? `${preview}…` : preview
 }

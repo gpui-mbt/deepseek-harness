@@ -4,18 +4,19 @@ import { existsSync, readdirSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
 function clientCssDeclarations(): string[] {
   const clientGroups = ['client', 'extensions']
-  return clientGroups.flatMap((group) => {
-    const clientRoot = resolve(root, 'packages', group)
-    return readdirSync(clientRoot, { withFileTypes: true })
-      .filter(entry => entry.isDirectory())
-      .map(entry => resolve(clientRoot, entry.name, 'src/css-modules.d.ts'))
-  })
+  return clientGroups
+    .flatMap(group => {
+      const clientRoot = resolve(root, 'packages', group)
+      return readdirSync(clientRoot, { withFileTypes: true })
+        .filter(entry => entry.isDirectory())
+        .map(entry => resolve(clientRoot, entry.name, 'src/css-modules.d.ts'))
+    })
     .filter(existsSync)
     .map(file => file.replaceAll(sep, '/'))
     .sort()

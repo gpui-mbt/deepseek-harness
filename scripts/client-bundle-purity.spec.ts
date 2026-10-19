@@ -6,8 +6,8 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { build, type Rolldown, type TsdownBundle, type UserConfig } from 'tsdown'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { build, type Rolldown, type UserConfig } from 'tsdown'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { clientBundle, requestedExternals, staticLinked } from '../packages/client/tsdown.client.ts'
 
 type ResolveId = (source: string) => null | { id: string; external: boolean }
@@ -25,14 +25,21 @@ interface SourceMapPlugin {
 
 interface InputIsolationPlugin {
   name: string
-  generateBundle: (this: {
-    getModuleInfo(id: string): { importedIds: string[]; dynamicallyImportedIds: string[] } | null
-  }, options: unknown, bundle: Record<string, {
-      type: 'chunk'
-      modules: Record<string, object>
-      imports: string[]
-      dynamicImports: string[]
-    }>) => void
+  generateBundle: (
+    this: {
+      getModuleInfo(id: string): { importedIds: string[]; dynamicallyImportedIds: string[] } | null
+    },
+    options: unknown,
+    bundle: Record<
+      string,
+      {
+        type: 'chunk'
+        modules: Record<string, object>
+        imports: string[]
+        dynamicImports: string[]
+      }
+    >,
+  ) => void
 }
 
 function packageDir(packagePath: string): string {
@@ -44,42 +51,40 @@ const REQUESTING_PACKAGE = '@deepseek-ai/dsh-client-ui-conversation'
 const REQUESTING_PACKAGE_DIR = packageDir('client/ui-conversation')
 
 function clientConfigs(dir = REQUESTING_PACKAGE_DIR) {
-  return clientBundle(dir, ['lib/types/index.js'])(
-    { env: { DSH_BUILD_FACE: 'client' } },
-  ).filter(config => config.platform === 'browser')
+  return clientBundle(dir, ['lib/types/index.js'])({ env: { DSH_BUILD_FACE: 'client' } }).filter(config => config.platform === 'browser')
 }
 
 describe('client bundle build faces', () => {
   it('names both configs and the loader registration after the package directory manifest', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-client-manifest-'))
-    onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
+    onTestFinished(() => {
+      rmSync(root, { recursive: true, force: true })
+    })
     writeFileSync(join(root, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh-client-fixture' }))
     const configs = clientBundle(root, ['lib/types/index.js'])({ env: { DSH_BUILD_FACE: 'client' } })
-    expect(configs.map(config => config.name)).toEqual([
-      '@deepseek-ai/dsh-client-fixture', '@deepseek-ai/dsh-client-fixture/client',
-    ])
+    expect(configs.map(config => config.name)).toEqual(['@deepseek-ai/dsh-client-fixture', '@deepseek-ai/dsh-client-fixture/client'])
     const outputOptions = configs[1]?.outputOptions
     if (typeof outputOptions !== 'object' || typeof outputOptions.banner !== 'function') {
       throw new Error('client banner missing')
     }
-    expect(outputOptions.banner({ isEntry: true, fileName: 'client.js' } as Rolldown.RenderedChunk))
-      .toBe('window.__ModuleLoader__.load({ id: "@deepseek-ai/dsh-client-fixture", factory: (require) => {')
+    expect(outputOptions.banner({ isEntry: true, fileName: 'client.js' } as Rolldown.RenderedChunk)).toBe(
+      'window.__ModuleLoader__.load({ id: "@deepseek-ai/dsh-client-fixture", factory: (require) => {',
+    )
   })
 
   it('rejects a package directory without a named manifest', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-client-manifest-'))
-    onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
-    expect(() => clientBundle(root, ['lib/types/index.js']))
-      .toThrow(/cannot read .*package\.json; pass the package directory/)
+    onTestFinished(() => {
+      rmSync(root, { recursive: true, force: true })
+    })
+    expect(() => clientBundle(root, ['lib/types/index.js'])).toThrow(/cannot read .*package\.json; pass the package directory/)
     writeFileSync(join(root, 'package.json'), JSON.stringify({ private: true }))
     expect(() => staticLinked(root, ['lib/types/index.js'])).toThrow(/declares no string package name/)
   })
 
   it('opts shared Clients into independent Node ESM and browser factory entries', () => {
     for (const dir of ['client/connection', 'api/gateway', 'typert/registry']) {
-      const configs = clientBundle(packageDir(dir), ['lib/types/index.js'], { dualClient: true })(
-        { env: { DSH_BUILD_FACE: 'client' } },
-      )
+      const configs = clientBundle(packageDir(dir), ['lib/types/index.js'], { dualClient: true })({ env: { DSH_BUILD_FACE: 'client' } })
       const node = configs.find(config => config.name?.endsWith('/client-node'))
       const browser = configs.find(config => config.name?.endsWith('/client'))
       expect(node?.entry).toEqual({ 'client.node': 'lib/types/client/index.js' })
@@ -90,19 +95,15 @@ describe('client bundle build faces', () => {
       expect(browser?.outputOptions).toMatchObject({ entryFileNames: 'client.browser.js' })
       expect(configs.find(config => config.platform === 'node' && config.name?.endsWith('/client'))).toBeUndefined()
     }
-    const ordinary = clientBundle(REQUESTING_PACKAGE_DIR, ['lib/types/index.js'])(
-      { env: { DSH_BUILD_FACE: 'client' } },
-    )
+    const ordinary = clientBundle(REQUESTING_PACKAGE_DIR, ['lib/types/index.js'])({ env: { DSH_BUILD_FACE: 'client' } })
     expect(ordinary.some(config => config.name?.endsWith('/client-node'))).toBe(false)
-    expect(ordinary.find(config => config.platform === 'browser')?.outputOptions)
-      .toMatchObject({ entryFileNames: 'client.js' })
+    expect(ordinary.find(config => config.platform === 'browser')?.outputOptions).toMatchObject({ entryFileNames: 'client.js' })
   })
 
   it('watches source in development and consumes emitted JavaScript in the Client build', () => {
     const bundle = clientBundle(REQUESTING_PACKAGE_DIR, ['lib/types/index.js'])
     const development = bundle({ env: {} }).find(config => config.platform === 'browser')
-    const artifact = bundle({ env: { DSH_BUILD_FACE: 'client' } })
-      .find(config => config.platform === 'browser')
+    const artifact = bundle({ env: { DSH_BUILD_FACE: 'client' } }).find(config => config.platform === 'browser')
 
     expect(development?.entry).toEqual({ client: 'src/client/index.ts' })
     expect(artifact?.entry).toEqual({ client: 'lib/types/client/index.js' })
@@ -111,7 +112,9 @@ describe('client bundle build faces', () => {
 
 function dynamicImportFixture(prefix: string): string {
   const root = mkdtempSync(join(tmpdir(), prefix))
-  onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
+  onTestFinished(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
   const entry = join(root, 'lib/types/client/index.js')
   mkdirSync(dirname(entry), { recursive: true })
   writeFileSync(join(root, 'package.json'), JSON.stringify({ name: REQUESTING_PACKAGE, type: 'module' }))
@@ -123,16 +126,22 @@ function dynamicImportFixture(prefix: string): string {
 describe('client bundle dynamic imports', () => {
   it('keeps a dual Client browser chunk disjoint from its Node output', async () => {
     const root = dynamicImportFixture('dsh-dual-client-chunk-')
-    const configs = clientBundle(root, ['lib/types/index.js'], { dualClient: true })(
-      { env: { DSH_BUILD_FACE: 'client' } },
-    )
+    const configs = clientBundle(root, ['lib/types/index.js'], { dualClient: true })({ env: { DSH_BUILD_FACE: 'client' } })
     for (const platform of ['node', 'browser'] as const) {
       const config = configs.find(config => config.name?.endsWith(platform === 'node' ? '/client-node' : '/client'))
       if (config === undefined) throw new Error(`${platform} config missing`)
-      const builds = await build({
-        ...config, cwd: root, config: false, tsconfig: false,
-        write: false, clean: false, exports: false, report: false, logLevel: 'silent',
+      const handle = await build({
+        ...config,
+        cwd: root,
+        config: false,
+        tsconfig: false,
+        write: false,
+        clean: false,
+        exports: false,
+        report: false,
+        logLevel: 'silent',
       })
+      const builds = handle.bundles
       try {
         const names = builds.flatMap(bundle => bundle.chunks).map(chunk => chunk.fileName)
         expect(names).toContain(platform === 'node' ? 'client.node.js' : 'client.browser.js')
@@ -148,18 +157,26 @@ describe('client bundle dynamic imports', () => {
     const config = clientConfigs()[0]
     if (config === undefined) throw new Error('client config missing')
 
-    let builds: TsdownBundle[] = []
+    let handle: Awaited<ReturnType<typeof build>> | undefined
     try {
-      builds = await build({
-        ...config, cwd: root, config: false, tsconfig: false,
-        write: false, clean: false, exports: false, report: false, logLevel: 'silent',
+      handle = await build({
+        ...config,
+        cwd: root,
+        config: false,
+        tsconfig: false,
+        write: false,
+        clean: false,
+        exports: false,
+        report: false,
+        logLevel: 'silent',
       })
+      const builds = handle.bundles
       const chunks = builds.flatMap(bundle => bundle.chunks).filter(chunk => chunk.type === 'chunk')
       const output = chunks.find(chunk => chunk.fileName === 'client.js')?.code
       expect(output).toContain('require.async("./client.terminal.js")')
       expect(output).not.toContain('Promise.resolve().then(() => require("./client.terminal.js"))')
     } finally {
-      for (const bundle of builds) await bundle[Symbol.asyncDispose]()
+      for (const bundle of handle?.bundles ?? []) await bundle[Symbol.asyncDispose]()
     }
   })
 })
@@ -279,7 +296,9 @@ describe('client bundle experimental input isolation', () => {
 
   function fixture() {
     const root = mkdtempSync(join(tmpdir(), 'dsh-client-inputs-'))
-    onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
+    onTestFinished(() => {
+      rmSync(root, { recursive: true, force: true })
+    })
     const owner = join(root, 'client')
     const entry = join(owner, 'lib/types/client/index.js')
     const prototype = join(root, 'prototype/src/index.js')
@@ -291,24 +310,31 @@ describe('client bundle experimental input isolation', () => {
   }
 
   function config(kind: 'static' | 'dynamic', dir = REQUESTING_PACKAGE_DIR): UserConfig {
-    const configs = kind === 'static'
-      ? staticLinked(dir, ['lib/types/client/index.js'])({ env: { DSH_BUILD_FACE: 'client' } })
-      : clientConfigs(dir)
+    const configs =
+      kind === 'static' ? staticLinked(dir, ['lib/types/client/index.js'])({ env: { DSH_BUILD_FACE: 'client' } }) : clientConfigs(dir)
     const browser = configs.find(config => config.platform === 'browser')
     if (browser === undefined) throw new Error('client config missing')
     return browser
   }
 
   async function bundle(owner: string, config: UserConfig): Promise<string> {
-    let builds: TsdownBundle[] = []
+    let handle: Awaited<ReturnType<typeof build>> | undefined
     try {
-      builds = await build({
-        ...config, cwd: owner, config: false, tsconfig: false,
-        write: false, clean: false, exports: false, report: false, logLevel: 'silent',
+      handle = await build({
+        ...config,
+        cwd: owner,
+        config: false,
+        tsconfig: false,
+        write: false,
+        clean: false,
+        exports: false,
+        report: false,
+        logLevel: 'silent',
       })
+      const builds = handle.bundles
       return builds.flatMap(build => build.chunks.filter(chunk => chunk.type === 'chunk').map(chunk => chunk.code)).join('\n')
     } finally {
-      for (const build of builds) await build[Symbol.asyncDispose]()
+      for (const build of handle?.bundles ?? []) await build[Symbol.asyncDispose]()
     }
   }
 
@@ -320,30 +346,36 @@ describe('client bundle experimental input isolation', () => {
     const plugins = config('dynamic').plugins as InputIsolationPlugin[]
     const plugin = plugins.find(plugin => plugin.name === 'dsh-client-input-isolation')
     if (plugin === undefined) throw new Error('client input isolation plugin missing')
-    plugin.generateBundle.call({
-      getModuleInfo: () => imports === undefined ? null : { importedIds: imports, dynamicallyImportedIds: [] },
-    }, {}, {
-      'client.js': { type: 'chunk', modules: { [module]: {} }, imports: [], dynamicImports: [] },
-    })
+    plugin.generateBundle.call(
+      {
+        getModuleInfo: () => (imports === undefined ? null : { importedIds: imports, dynamicallyImportedIds: [] }),
+      },
+      {},
+      {
+        'client.js': { type: 'chunk', modules: { [module]: {} }, imports: [], dynamicImports: [] },
+      },
+    )
   }
 
   it('accepts the exact compiler runtime helper without a source module record', () => {
-    expect(() => { checkCompilerModule('\0rolldown/runtime.js') }).not.toThrow()
+    expect(() => {
+      checkCompilerModule('\0rolldown/runtime.js')
+    }).not.toThrow()
   })
 
-  it.each(['\0rolldown/other.js', '\0rolldown/runtime.js?user', '\0other/runtime.js'])(
-    'rejects the unrecorded module %j',
-    (module) => {
-      expect(() => { checkCompilerModule(module) }).toThrow(/has no bundler module record/)
-    },
-  )
+  it.each(['\0rolldown/other.js', '\0rolldown/runtime.js?user', '\0other/runtime.js'])('rejects the unrecorded module %j', module => {
+    expect(() => {
+      checkCompilerModule(module)
+    }).toThrow(/has no bundler module record/)
+  })
 
   it('checks runtime helper dependencies when the compiler supplies a module record', () => {
-    expect(() => { checkCompilerModule('\0rolldown/runtime.js', [experimental]) })
-      .toThrow(/client bundle isolation.*experimental/)
+    expect(() => {
+      checkCompilerModule('\0rolldown/runtime.js', [experimental])
+    }).toThrow(/client bundle isolation.*experimental/)
   })
 
-  it.each(['static', 'dynamic'] as const)('rejects experimental files folded into a %s client artifact', async (kind) => {
+  it.each(['static', 'dynamic'] as const)('rejects experimental files folded into a %s client artifact', async kind => {
     const { owner, entry, prototype } = fixture()
     writeFileSync(entry, `export { marker } from ${JSON.stringify(importPath(entry, prototype))}\n`)
 
@@ -352,7 +384,7 @@ describe('client bundle experimental input isolation', () => {
     expect(existsSync(join(owner, 'lib/index.js'))).toBe(false)
   })
 
-  it.each(['static', 'dynamic'] as const)('keeps retained-name experimental %s inputs outside ordinary artifacts', async (kind) => {
+  it.each(['static', 'dynamic'] as const)('keeps retained-name experimental %s inputs outside ordinary artifacts', async kind => {
     const { root, owner, entry, prototype } = fixture()
     const name = '@deepseek-ai/dsh-tool-terminal'
     writeFileSync(join(root, 'prototype/package.json'), JSON.stringify({ name, type: 'module' }))
@@ -376,7 +408,7 @@ describe('client bundle experimental input isolation', () => {
     await expect(bundle(owner, guarded)).rejects.toThrow(/client bundle isolation.*experimental/)
   })
 
-  it.each(['static', 'dynamic'] as const)('allows an experimental %s artifact to keep its own inputs', async (kind) => {
+  it.each(['static', 'dynamic'] as const)('allows an experimental %s artifact to keep its own inputs', async kind => {
     const { owner, entry, prototype } = fixture()
     writeFileSync(entry, `export { marker } from ${JSON.stringify(importPath(entry, prototype))}\n`)
 
@@ -386,10 +418,16 @@ describe('client bundle experimental input isolation', () => {
   it('rejects experimental ownership preserved only by an emitted compiler source map', async () => {
     const { owner, entry, prototype } = fixture()
     writeFileSync(entry, 'export const marker = "experimental sentinel"\n//# sourceMappingURL=index.js.map\n')
-    writeFileSync(`${entry}.map`, JSON.stringify({
-      version: 3, names: [], mappings: 'AAAA', sources: [importPath(entry, prototype)],
-      sourcesContent: ['export const marker = "experimental sentinel"\n'],
-    }))
+    writeFileSync(
+      `${entry}.map`,
+      JSON.stringify({
+        version: 3,
+        names: [],
+        mappings: 'AAAA',
+        sources: [importPath(entry, prototype)],
+        sourcesContent: ['export const marker = "experimental sentinel"\n'],
+      }),
+    )
 
     await expect(bundle(owner, config('static'))).rejects.toThrow(/client bundle isolation.*experimental/)
   })
@@ -398,8 +436,9 @@ describe('client bundle experimental input isolation', () => {
     const { owner, entry, prototype } = fixture()
     writeFileSync(entry, 'export { marker } from "./ordinary.js"\n')
 
-    await expect(bundle(owner, { ...config('static'), alias: { './ordinary.js': prototype } }))
-      .rejects.toThrow(/client bundle isolation.*experimental/)
+    await expect(bundle(owner, { ...config('static'), alias: { './ordinary.js': prototype } })).rejects.toThrow(
+      /client bundle isolation.*experimental/,
+    )
   })
 
   it('rejects an experimental runtime import left external by a static client library', async () => {
@@ -409,44 +448,60 @@ describe('client bundle experimental input isolation', () => {
     await expect(bundle(owner, config('static'))).rejects.toThrow(/client bundle isolation.*experimental/)
   })
 
-  it.each([false, true])('checks omitted source-map files against their package owner (experimental: %s)', async (experimentalSource) => {
+  it.each([false, true])('checks omitted source-map files against their package owner (experimental: %s)', async experimentalSource => {
     const { root, owner, entry } = fixture()
     const dependency = join(root, 'dependency')
     mkdirSync(dependency)
     writeFileSync(join(dependency, 'package.json'), JSON.stringify({ name: experimentalSource ? experimental : 'ordinary-library' }))
     writeFileSync(entry, 'export const marker = "mapped sentinel"\n//# sourceMappingURL=index.js.map\n')
-    writeFileSync(`${entry}.map`, JSON.stringify({
-      version: 3, names: [], mappings: 'AAAA', sourceRoot: importPath(entry, dependency),
-      sources: ['unshipped.ts'], sourcesContent: ['export const marker = "mapped sentinel"\n'],
-    }))
+    writeFileSync(
+      `${entry}.map`,
+      JSON.stringify({
+        version: 3,
+        names: [],
+        mappings: 'AAAA',
+        sourceRoot: importPath(entry, dependency),
+        sources: ['unshipped.ts'],
+        sourcesContent: ['export const marker = "mapped sentinel"\n'],
+      }),
+    )
 
     const result = bundle(owner, config('static'))
     if (experimentalSource) await expect(result).rejects.toThrow(/client bundle isolation.*experimental/)
     else await expect(result).resolves.toContain('mapped sentinel')
   })
 
-  it.each(['.css', '.module.css', '.css?inline'])('rejects experimental %s inputs behind client CSS virtual loaders', async (extension) => {
+  it.each(['.css', '.module.css', '.css?inline'])('rejects experimental %s inputs behind client CSS virtual loaders', async extension => {
     const { owner, entry, prototype } = fixture()
     const css = join(dirname(prototype), `style${extension.replace('?inline', '')}`)
     writeFileSync(css, 'body { color: red; }\n')
     const specifier = `${importPath(entry, css)}${extension.endsWith('?inline') ? '?inline' : ''}`
-    writeFileSync(entry, extension === '.css'
-      ? `import ${JSON.stringify(specifier)}\nexport const marker = true\n`
-      : `export { default as style } from ${JSON.stringify(specifier)}\n`)
+    writeFileSync(
+      entry,
+      extension === '.css'
+        ? `import ${JSON.stringify(specifier)}\nexport const marker = true\n`
+        : `export { default as style } from ${JSON.stringify(specifier)}\n`,
+    )
 
     await expect(bundle(owner, config('dynamic'))).rejects.toThrow(/client bundle isolation.*experimental/)
   })
 
-  it.each(['static', 'dynamic'] as const)('keeps ordinary %s bundles and source maps buildable', async (kind) => {
+  it.each(['static', 'dynamic'] as const)('keeps ordinary %s bundles and source maps buildable', async kind => {
     const { owner, entry } = fixture()
     const source = join(owner, 'src/client/index.ts')
     mkdirSync(dirname(source), { recursive: true })
     writeFileSync(source, 'export const marker = "stable sentinel"\n')
     writeFileSync(entry, 'export const marker = "stable sentinel"\n//# sourceMappingURL=index.js.map\n')
-    writeFileSync(`${entry}.map`, JSON.stringify({
-      version: 3, names: [], mappings: 'AAAA', sources: [importPath(entry, source)],
-      sourcesContent: ['export const marker = "stable sentinel"\n'],
-    }))
+    writeFileSync(
+      `${entry}.map`,
+      JSON.stringify({
+        version: 3,
+        names: [],
+        mappings: 'AAAA',
+        sources: [importPath(entry, source)],
+        sourcesContent: ['export const marker = "stable sentinel"\n'],
+      }),
+    )
 
     await expect(bundle(owner, config(kind))).resolves.toContain('stable sentinel')
   })
@@ -458,9 +513,7 @@ describe('client bundle module requests', () => {
       external: ['react', 'react/jsx-runtime', '@deepseek-ai/dsh-client-ui-slots'],
     })
 
-    expect([...requests].sort()).toEqual([
-      '@deepseek-ai/dsh-client-ui-slots', 'react', 'react/jsx-runtime',
-    ])
+    expect([...requests].sort()).toEqual(['@deepseek-ai/dsh-client-ui-slots', 'react', 'react/jsx-runtime'])
   })
 
   it('requests nothing when the declaration is absent', () => {
@@ -468,8 +521,9 @@ describe('client bundle module requests', () => {
   })
 
   it('rejects a malformed declaration instead of reading past it', () => {
-    expect(() => requestedExternals('@deepseek-ai/dsh-client-fixture', { external: 'react' }))
-      .toThrow(/dsh\.client\.external must be a string array/)
+    expect(() => requestedExternals('@deepseek-ai/dsh-client-fixture', { external: 'react' })).toThrow(
+      /dsh\.client\.external must be a string array/,
+    )
   })
 })
 
@@ -546,14 +600,8 @@ describe('client bundle debug artifacts', () => {
 describe('client bundle CSS Modules watch graph', () => {
   it('registers the physical stylesheet read behind a virtual module', async () => {
     const plugin = cssModulePlugin()
-    const importer = fileURLToPath(new URL(
-      '../packages/client/ui-conversation/src/client/queue/QueueDock.tsx',
-      import.meta.url,
-    ))
-    const stylesheet = fileURLToPath(new URL(
-      '../packages/client/ui-conversation/src/client/queue/QueueDock.module.css',
-      import.meta.url,
-    ))
+    const importer = fileURLToPath(new URL('../packages/client/ui-conversation/src/client/queue/QueueDock.tsx', import.meta.url))
+    const stylesheet = fileURLToPath(new URL('../packages/client/ui-conversation/src/client/queue/QueueDock.module.css', import.meta.url))
     const virtualId = plugin.resolveId?.('./QueueDock.module.css', importer)
     if (virtualId === null || virtualId === undefined) throw new Error('CSS Modules import was not resolved')
     const addWatchFile = vi.fn()

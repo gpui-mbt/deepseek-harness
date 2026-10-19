@@ -1,7 +1,7 @@
 /** Compile request-only inputs against the actual LLM and durable write interfaces. */
 import { resolve } from 'node:path'
 import ts from 'typescript'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const root = resolve(import.meta.dirname, '..')
 const probePath = resolve(import.meta.dirname, '__request_input_probe.ts')
@@ -71,12 +71,16 @@ void [request, files, images, offloaded, durableProjection, existing]
 `
 
 it('accepts mixed requests and rejects lightweight inputs at durable message writes', { timeout: 60_000 }, () => {
-  const parsed = ts.getParsedCommandLineOfConfigFile(resolve(root, 'tsconfig.host.json'), {}, {
-    ...ts.sys,
-    onUnRecoverableConfigFileDiagnostic(diagnostic) {
-      throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+  const parsed = ts.getParsedCommandLineOfConfigFile(
+    resolve(root, 'tsconfig.host.json'),
+    {},
+    {
+      ...ts.sys,
+      onUnRecoverableConfigFileDiagnostic(diagnostic) {
+        throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+      },
     },
-  })
+  )
   expect(parsed).toBeDefined()
   const options: ts.CompilerOptions = {
     ...parsed!.options,
@@ -92,7 +96,7 @@ it('accepts mixed requests and rejects lightweight inputs at durable message wri
   const host: ts.CompilerHost = {
     ...base,
     fileExists: path => resolve(path) === probePath || base.fileExists(path),
-    readFile: path => resolve(path) === probePath ? probe : base.readFile(path),
+    readFile: path => (resolve(path) === probePath ? probe : base.readFile(path)),
     getSourceFile(path, languageVersion, onError, shouldCreateNewSourceFile) {
       return resolve(path) === probePath
         ? ts.createSourceFile(path, probe, languageVersion, true)
@@ -100,13 +104,19 @@ it('accepts mixed requests and rejects lightweight inputs at durable message wri
     },
   }
   const program = ts.createProgram([probePath], options, host)
-  for (const path of ['packages/llm/llm/src/types.ts', 'packages/core/session/src/index.ts', 'packages/session/session-title-llm/src/index.ts']) {
+  for (const path of [
+    'packages/llm/llm/src/types.ts',
+    'packages/core/session/src/index.ts',
+    'packages/session/session-title-llm/src/index.ts',
+  ]) {
     expect(program.getSourceFile(resolve(root, path)), path).toBeDefined()
   }
   const source = program.getSourceFile(probePath)!
   const diagnostics = [...program.getSyntacticDiagnostics(source), ...program.getSemanticDiagnostics(source)]
-  expect(diagnostics.map((diagnostic) => {
-    const line = source.getLineAndCharacterOfPosition(diagnostic.start ?? 0).line + 1
-    return `${line}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`
-  })).toEqual([])
+  expect(
+    diagnostics.map(diagnostic => {
+      const line = source.getLineAndCharacterOfPosition(diagnostic.start ?? 0).line + 1
+      return `${line}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')}`
+    }),
+  ).toEqual([])
 })

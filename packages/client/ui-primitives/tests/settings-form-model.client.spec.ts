@@ -3,10 +3,14 @@
  * call a save reaches, and what happens to drafts the Host did not accept.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
-  SettingsFormModel, settingsNumberField, settingsTextField,
-  type SettingsFormPathOp, type SettingsFormScope, type SettingsFormScopeSnapshot,
+  SettingsFormModel,
+  settingsNumberField,
+  settingsTextField,
+  type SettingsFormPathOp,
+  type SettingsFormScope,
+  type SettingsFormScopeSnapshot,
 } from '../src/index.ts'
 
 interface StubScope<T> {
@@ -17,21 +21,40 @@ interface StubScope<T> {
 
 /** An in-memory scope: starts loading, records mutations, and lets the test publish Host acceptances. */
 function stubScope<T>(): StubScope<T> {
-  let snapshot: SettingsFormScopeSnapshot<T> = { status: 'loading', value: undefined, base: undefined, user: undefined, writable: false, revision: undefined }
+  let snapshot: SettingsFormScopeSnapshot<T> = {
+    status: 'loading',
+    value: undefined,
+    base: undefined,
+    user: undefined,
+    writable: false,
+    revision: undefined,
+  }
   const listeners = new Set<() => void>()
   const mutate = vi.fn<SettingsFormScope<T>['mutate']>(() => Promise.resolve(true))
   const scope: SettingsFormScope<T> = {
     getSnapshot: () => snapshot,
-    subscribe: (listener) => { listeners.add(listener); return () => { listeners.delete(listener) } },
+    subscribe: listener => {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
     mutate,
   }
-  return { scope, mutate, publish: (next) => { snapshot = { ...snapshot, ...next }; for (const listener of listeners) listener() } }
+  return {
+    scope,
+    mutate,
+    publish: next => {
+      snapshot = { ...snapshot, ...next }
+      for (const listener of listeners) listener()
+    },
+  }
 }
 
 /** Make the stub behave like a Host that accepts every write. */
 function acceptWrites<T>(host: StubScope<T>): void {
-  const section = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().value as object })
-  const layer = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().user as object })
+  const section = (): Record<string, unknown> => ({ ...(host.scope.getSnapshot().value as object) })
+  const layer = (): Record<string, unknown> => ({ ...(host.scope.getSnapshot().user as object) })
   host.mutate.mockImplementation((ops: readonly SettingsFormPathOp[]) => {
     const value = { ...section() }
     const user = { ...layer() }
@@ -69,7 +92,14 @@ describe('SettingsFormModel', () => {
     host.publish({ status: 'ready', writable: true, value: {} })
     const first = vi.fn(() => Promise.resolve(false))
     const second = vi.fn(() => Promise.resolve(true))
-    const subject = new SettingsFormModel(host.scope, [], [{ field: 'first', write: first }, { field: 'second', write: second }])
+    const subject = new SettingsFormModel(
+      host.scope,
+      [],
+      [
+        { field: 'first', write: first },
+        { field: 'second', write: second },
+      ],
+    )
     subject.actions().edit('first', 'one')
     subject.actions().edit('second', 'two')
     await subject.save()
@@ -117,7 +147,9 @@ describe('SettingsFormModel', () => {
 
     await subject.save()
 
-    expect(host.mutate.mock.calls.map(([ops]) => ops)).toEqual([[['timeoutMs', 9_000]].map(([field, value]) => ({ op: 'set', path: [field], value }))])
+    expect(host.mutate.mock.calls.map(([ops]) => ops)).toEqual([
+      [['timeoutMs', 9_000]].map(([field, value]) => ({ op: 'set', path: [field], value })),
+    ])
     expect(subject.shell()).toMatchObject({ dirty: false, failed: false, saving: false })
   })
 
@@ -206,7 +238,9 @@ describe('SettingsFormModel', () => {
     subject.actions().edit('baseURL', '  https://other.test  ')
     await subject.save()
 
-    expect(host.mutate.mock.calls.map(([ops]) => ops)).toEqual([[['baseURL', 'https://other.test']].map(([field, value]) => ({ op: 'set', path: [field], value }))])
+    expect(host.mutate.mock.calls.map(([ops]) => ops)).toEqual([
+      [['baseURL', 'https://other.test']].map(([field, value]) => ({ op: 'set', path: [field], value })),
+    ])
   })
 
   it('keeps the drafts a save did not land, and reports the failure', async () => {

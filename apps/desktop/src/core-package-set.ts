@@ -14,10 +14,7 @@ export const DESKTOP_PACKAGES_DIR = 'desktop-packages'
 export const DESKTOP_HOST_PACKAGE = '@deepseek-ai/dsh-desktop-host'
 
 /** Package-relative Desktop Host files required before a profile can boot. */
-export const DESKTOP_HOST_RUNTIME_FILES = [
-  'lib/index.js',
-  'lib/cli.js',
-] as const
+export const DESKTOP_HOST_RUNTIME_FILES = ['lib/index.js', 'lib/cli.js'] as const
 
 /** One immutable npm tarball in the Desktop core package set. */
 export interface DesktopCorePackageRecord {
@@ -51,19 +48,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * @param expectedReleaseVersion - Required dsh and Desktop Host version when validating one release.
  * @returns The normalized package set in deterministic name order.
  */
-export function parseDesktopCorePackageSet(
-  value: unknown,
-  expectedReleaseVersion?: string,
-): DesktopCorePackageSet {
+export function parseDesktopCorePackageSet(value: unknown, expectedReleaseVersion?: string): DesktopCorePackageSet {
   if (!isRecord(value) || value.schemaVersion !== 1 || !Array.isArray(value.packages)) {
     throw new Error('desktop package set: invalid descriptor')
   }
   const packages = value.packages.map((entry): DesktopCorePackageRecord => {
-    if (!isRecord(entry) || typeof entry.name !== 'string' || !PACKAGE_NAME_PATTERN.test(entry.name)
-      || typeof entry.version !== 'string' || !VERSION_PATTERN.test(entry.version)
-      || typeof entry.file !== 'string' || !FILE_PATTERN.test(entry.file)
-      || typeof entry.bytes !== 'number' || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0
-      || typeof entry.integrity !== 'string' || !INTEGRITY_PATTERN.test(entry.integrity)) {
+    if (
+      !isRecord(entry) ||
+      typeof entry.name !== 'string' ||
+      !PACKAGE_NAME_PATTERN.test(entry.name) ||
+      typeof entry.version !== 'string' ||
+      !VERSION_PATTERN.test(entry.version) ||
+      typeof entry.file !== 'string' ||
+      !FILE_PATTERN.test(entry.file) ||
+      typeof entry.bytes !== 'number' ||
+      !Number.isSafeInteger(entry.bytes) ||
+      entry.bytes < 0 ||
+      typeof entry.integrity !== 'string' ||
+      !INTEGRITY_PATTERN.test(entry.integrity)
+    ) {
       throw new Error('desktop package set: invalid package record')
     }
     return {
@@ -128,10 +131,7 @@ export function desktopDshPackageSpec(packageSet: DesktopCorePackageSet): string
  * @param expectedReleaseVersion - Exact dsh and Desktop Host version bound to Electron.
  * @returns The verified package set.
  */
-export function verifyDesktopCorePackageSet(
-  projectDir: string,
-  expectedReleaseVersion: string,
-): DesktopCorePackageSet {
+export function verifyDesktopCorePackageSet(projectDir: string, expectedReleaseVersion: string): DesktopCorePackageSet {
   const packageSet = readDesktopCorePackageSet(projectDir, expectedReleaseVersion)
   const packageDir = join(projectDir, DESKTOP_PACKAGES_DIR)
   const expectedFiles = packageSet.packages.map(entry => entry.file).sort()
@@ -167,10 +167,7 @@ function escapeRegExp(value: string): string {
  * @param lockfile - Generated pnpm lockfile text.
  * @param packageSet - Verified local core package set.
  */
-export function verifyDesktopCoreLockfile(
-  lockfile: string,
-  packageSet: DesktopCorePackageSet,
-): void {
+export function verifyDesktopCoreLockfile(lockfile: string, packageSet: DesktopCorePackageSet): void {
   for (const record of packageSet.packages) {
     const registryResolution = new RegExp(
       `^  ['"]?${escapeRegExp(record.name)}@${escapeRegExp(record.version)}(?:\\([^\\r\\n]*\\))?['"]?:`,

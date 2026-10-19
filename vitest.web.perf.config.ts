@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vite-plus'
 import webConfig from './vitest.web.config.ts'
 import { vitestExecArgv } from './vitest.shared.ts'
 
@@ -8,12 +8,10 @@ export default defineConfig({
   ...webConfig,
   test: {
     ...webConfig.test,
+    clearMocks: false,
     // Memory diagnostics use forced-GC baselines only in this manual inventory.
     execArgv: [...vitestExecArgv, '--expose-gc'],
-    include: [
-      'apps/web/tests/**/*.perf.ts',
-      'packages/client/ui-conversation/tests/**/*.perf.client.ts',
-    ],
+    include: ['apps/web/tests/**/*.perf.ts', 'packages/client/ui-conversation/tests/**/*.perf.client.ts'],
     disableConsoleIntercept: true,
     hookTimeout: 180_000,
     testTimeout: 600_000,

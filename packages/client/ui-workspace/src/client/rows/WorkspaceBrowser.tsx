@@ -17,15 +17,26 @@
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  Button, HoverCardGroup, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineRegular, IconArchiveOutlineRegular,
-  IconChevronsUpDownOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
-  IconFlatListOutlineRegular, IconFolderCloseRegular, IconProjectAddOutlineRegular,
-  IconQueueOutlineRegular, IconSearchOutlineRegular, IconSlidersTwoOutlineRegular,
-  IconWorkspaceTreeOutlineRegular, Menu, Modal, Tooltip,
+  Button,
+  HoverCardGroup,
+  IconArchiveCheckOutlineRegular,
+  IconArchiveOffOutlineRegular,
+  IconArchiveOutlineRegular,
+  IconChevronsUpDownOutlineRegular,
+  IconClockOutlineRegular,
+  IconCloseFillRegular,
+  IconFlatListOutlineRegular,
+  IconFolderCloseRegular,
+  IconProjectAddOutlineRegular,
+  IconQueueOutlineRegular,
+  IconSearchOutlineRegular,
+  IconSlidersTwoOutlineRegular,
+  IconWorkspaceTreeOutlineRegular,
+  Menu,
+  Modal,
+  Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type {
-  SessionListState, SessionSearchResultItem,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionListState, SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import { workspaceDisplayTitle } from '@deepseek-ai/dsh-api-workspace-controller/default-workspace'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -33,8 +44,16 @@ import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { ArchivedFilter, GroupNode, SessionNode, SessionOrderBy, SessionRowState } from '../tree.ts'
 import {
-  deriveFlat, deriveGroups, deriveSearchResults, orderByRecency, owningGroupKey, owningParentFolder,
-  pinCurrentBlank, reconcileManualOrder, sessionMemberIds, UNGROUPED_KEY,
+  deriveFlat,
+  deriveGroups,
+  deriveSearchResults,
+  orderByRecency,
+  owningGroupKey,
+  owningParentFolder,
+  pinCurrentBlank,
+  reconcileManualOrder,
+  sessionMemberIds,
+  UNGROUPED_KEY,
 } from '../tree.ts'
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
 import { AnimatedRows } from './AnimatedRows.tsx'
@@ -57,12 +76,15 @@ const SESSION_WATERMARK_BASE = 5
 const SESSION_WATERMARK_AUTO_MAX = 50
 
 /** Show the blank row plus the first `watermark` non-blank rows, in list order. */
-function watermarkRows(sessions: readonly SessionNode[], watermark: number): {
+function watermarkRows(
+  sessions: readonly SessionNode[],
+  watermark: number,
+): {
   rows: readonly SessionNode[]
   hiddenCount: number
 } {
   let count = 0
-  const rows = sessions.filter((session) => {
+  const rows = sessions.filter(session => {
     if (session.blank) return true
     count += 1
     return count <= watermark
@@ -84,20 +106,20 @@ function requiredWatermark(
   for (const session of sessions) {
     if (session.blank) continue
     index += 1
-    const attention = index <= SESSION_WATERMARK_AUTO_MAX && (
-      session.running || session.runningSubagentCount > 0 || session.pendingInteraction !== undefined
-      || session.completed || session.id === current
-    )
+    const attention =
+      index <= SESSION_WATERMARK_AUTO_MAX &&
+      (session.running ||
+        session.runningSubagentCount > 0 ||
+        session.pendingInteraction !== undefined ||
+        session.completed ||
+        session.id === current)
     if (attention || session.id === revealSessionId) required = index
   }
   return required
 }
 
 /** Raise each listed group's watermark to its requirement; returns `marks` itself when nothing rises. */
-function raiseWatermarks(
-  marks: Readonly<Record<string, number>>,
-  required: ReadonlyMap<string, number>,
-): Readonly<Record<string, number>> {
+function raiseWatermarks(marks: Readonly<Record<string, number>>, required: ReadonlyMap<string, number>): Readonly<Record<string, number>> {
   let raised = marks
   for (const [key, watermark] of required) {
     if (watermark > (raised[key] ?? SESSION_WATERMARK_BASE)) raised = { ...raised, [key]: watermark }
@@ -112,7 +134,7 @@ function sanitizeSearchQuery(value: string): string {
   let end = SEARCH_QUERY_MAX_CODE_UNITS
   const last = withoutNul.charCodeAt(end - 1)
   const next = withoutNul.charCodeAt(end)
-  if (last >= 0xD800 && last <= 0xDBFF && next >= 0xDC00 && next <= 0xDFFF) end--
+  if (last >= 0xd800 && last <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) end--
   return withoutNul.slice(0, end)
 }
 
@@ -128,7 +150,9 @@ function useNativeDragAcceptance(active: boolean): void {
       event.preventDefault()
       if (event.dataTransfer !== null) event.dataTransfer.dropEffect = 'move'
     }
-    const acceptDrop = (event: DragEvent): void => { event.preventDefault() }
+    const acceptDrop = (event: DragEvent): void => {
+      event.preventDefault()
+    }
     document.addEventListener('dragover', acceptDrag)
     document.addEventListener('drop', acceptDrop)
     return () => {
@@ -139,7 +163,15 @@ function useNativeDragAcceptance(active: boolean): void {
 }
 
 /** Grouping, ordering, and archived-filter menu; own open state so it resets with the wide chrome. */
-function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrderPick, onArchivedFilterPick, t }: {
+function ViewOptionsMenu({
+  groupBy,
+  orderBy,
+  archivedFilter,
+  onGroupPick,
+  onOrderPick,
+  onArchivedFilterPick,
+  t,
+}: {
   groupBy: SessionGroupBy
   orderBy: SessionOrderBy
   archivedFilter: ArchivedFilter
@@ -152,7 +184,9 @@ function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrde
   return (
     <Menu
       open={open}
-      onClose={() => { setOpen(false) }}
+      onClose={() => {
+        setOpen(false)
+      }}
       items={[
         { type: 'label' as const, id: 'group-by', text: t('groupBy.label') },
         { id: 'workspace', label: t('groupBy.workspace'), icon: <IconFolderCloseRegular /> },
@@ -168,12 +202,8 @@ function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrde
         { id: 'show-archived', label: t('viewOptions.showArchived'), icon: <IconQueueOutlineRegular /> },
         { id: 'only-archived', label: t('viewOptions.onlyArchived'), icon: <IconArchiveCheckOutlineRegular /> },
       ]}
-      selectedIds={[
-        groupBy,
-        orderBy,
-        { default: 'hide-archived', show: 'show-archived', only: 'only-archived' }[archivedFilter],
-      ]}
-      onSelect={(id) => {
+      selectedIds={[groupBy, orderBy, { default: 'hide-archived', show: 'show-archived', only: 'only-archived' }[archivedFilter]]}
+      onSelect={id => {
         if (id === 'workspace' || id === 'workspace-tree' || id === 'flat') onGroupPick(id)
         else if (id === 'manual' || id === 'updated') onOrderPick(id)
         else if (id === 'hide-archived') onArchivedFilterPick('default')
@@ -187,18 +217,20 @@ function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrde
       // Portal: the section header clips overflow, so an in-place list would
       // be cut off at the header's bounds.
       portal
-      anchor={(
+      anchor={
         <Tooltip label={t('viewOptions.label')} side="bottom" delayMs={500}>
           <button
             type="button"
             className={clsx(css.iconButton, css.wide)}
             aria-label={t('viewOptions.label')}
-            onClick={() => { setOpen(v => !v) }}
+            onClick={() => {
+              setOpen(v => !v)
+            }}
           >
             <IconSlidersTwoOutlineRegular />
           </button>
         </Tooltip>
-      )}
+      }
     />
   )
 }
@@ -223,9 +255,16 @@ function sessionDragOrder(
 ): SessionId[] | undefined {
   const source = rows.find(row => row.id === drag.sessionId)
   const target = rows.find(row => row.id === over.id)
-  if (source === undefined || target === undefined || source.blank
-    || source.pinned !== drag.pinned || target.pinned !== drag.pinned
-    || source.id === target.id || !order.includes(source.id)) return
+  if (
+    source === undefined ||
+    target === undefined ||
+    source.blank ||
+    source.pinned !== drag.pinned ||
+    target.pinned !== drag.pinned ||
+    source.id === target.id ||
+    !order.includes(source.id)
+  )
+    return
   const section = rows.filter(row => row.pinned === drag.pinned)
   const sourceIndex = section.findIndex(row => row.id === source.id)
   const withoutSource = section.filter(row => row.id !== source.id)
@@ -252,50 +291,50 @@ function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }):
 
 type SessionTreeProps = Pick<
   WorkspaceBrowserProps,
-  'useSessionStatus' | 'startSession' | 'open'
-  | 'insertWorkspaceBefore' | 't' | 'usePanelInfo'
-> & PropsRenderSlots<
-  | 'sidebar.workspaces.session.menu.item'
-  | 'sidebar.workspaces.session.row.action'
-  | 'sidebar.session.row.leading'
-  | 'sidebar.session.row.hover'
-> & {
-  shortcuts: readonly import('@deepseek-ai/dsh-client-shortcuts/client').ShortcutCatalogEntry[]
-  /** Always-mounted Session list snapshot. */
-  list: SessionListState
-  /** Host account home for POSIX hover-path abbreviation. */
-  home?: string | undefined
-  /** Workspaces in Host group order with browser-projected Session order. */
-  workspaces: readonly WorkspaceView[]
-  /** Browser-projected order for Sessions outside every Workspace. */
-  ungroupedSessionIds: readonly SessionId[]
-  /** Whether the current Workspace stream has a complete Host baseline. */
-  workspaceReady: boolean
-  /** Grouping, ordering, and filter changes replace the view without row motion. */
-  animationResetKey: string
-  /** Nest Workspaces under their nearest registered ancestors. */
-  nestWorkspaces: boolean
-  /** Explicit persisted group expansion, including descendants in tree mode. */
-  groupExpansion: Readonly<Record<string, boolean>>
-  /** Persist one Workspace group's expansion. */
-  setGroupExpanded: (key: string, expanded: boolean) => void
-  /** Save a drag order and select Manual. */
-  setSessionOrder: (accountKey: string, order: readonly string[]) => void
-  /** Registry-global pin and archive sets plus the archived-visibility choice. */
-  rowState: SessionRowState
-  /** Switch the archived filter back to the default hide-archived view. */
-  onLeaveArchivedOnly: () => void
-  /** Open the browser-owned rename dialog for a real Workspace group. */
-  onRenameRequest: (workspaceId: WorkspaceId, currentTitle: string) => void
-  /** Open the browser-owned delete-confirmation dialog for a real Workspace group. */
-  onDeleteRequest: (workspaceId: WorkspaceId, currentTitle: string) => void
-  /** Open the rename dialog from a row title double-click. */
-  onSessionRenameRequest: (sessionId: SessionNode['id'], currentTitle: string) => void
-  /** One Session chosen from search that must be exposed and scrolled into view. */
-  revealSessionId?: SessionId | undefined
-  /** Acknowledge that the chosen Session row has been revealed. */
-  onSessionRevealed: (sessionId: SessionId) => void
-}
+  'useSessionStatus' | 'startSession' | 'open' | 'insertWorkspaceBefore' | 't' | 'usePanelInfo'
+> &
+  PropsRenderSlots<
+    | 'sidebar.workspaces.session.menu.item'
+    | 'sidebar.workspaces.session.row.action'
+    | 'sidebar.session.row.leading'
+    | 'sidebar.session.row.hover'
+  > & {
+    shortcuts: readonly import('@deepseek-ai/dsh-client-shortcuts/client').ShortcutCatalogEntry[]
+    /** Always-mounted Session list snapshot. */
+    list: SessionListState
+    /** Host account home for POSIX hover-path abbreviation. */
+    home?: string | undefined
+    /** Workspaces in Host group order with browser-projected Session order. */
+    workspaces: readonly WorkspaceView[]
+    /** Browser-projected order for Sessions outside every Workspace. */
+    ungroupedSessionIds: readonly SessionId[]
+    /** Whether the current Workspace stream has a complete Host baseline. */
+    workspaceReady: boolean
+    /** Grouping, ordering, and filter changes replace the view without row motion. */
+    animationResetKey: string
+    /** Nest Workspaces under their nearest registered ancestors. */
+    nestWorkspaces: boolean
+    /** Explicit persisted group expansion, including descendants in tree mode. */
+    groupExpansion: Readonly<Record<string, boolean>>
+    /** Persist one Workspace group's expansion. */
+    setGroupExpanded: (key: string, expanded: boolean) => void
+    /** Save a drag order and select Manual. */
+    setSessionOrder: (accountKey: string, order: readonly string[]) => void
+    /** Registry-global pin and archive sets plus the archived-visibility choice. */
+    rowState: SessionRowState
+    /** Switch the archived filter back to the default hide-archived view. */
+    onLeaveArchivedOnly: () => void
+    /** Open the browser-owned rename dialog for a real Workspace group. */
+    onRenameRequest: (workspaceId: WorkspaceId, currentTitle: string) => void
+    /** Open the browser-owned delete-confirmation dialog for a real Workspace group. */
+    onDeleteRequest: (workspaceId: WorkspaceId, currentTitle: string) => void
+    /** Open the rename dialog from a row title double-click. */
+    onSessionRenameRequest: (sessionId: SessionNode['id'], currentTitle: string) => void
+    /** One Session chosen from search that must be exposed and scrolled into view. */
+    revealSessionId?: SessionId | undefined
+    /** Acknowledge that the chosen Session row has been revealed. */
+    onSessionRevealed: (sessionId: SessionId) => void
+  }
 
 /** The list-empty placeholder — a glyph over the text; the archived-only view names its filter and offers the way back. */
 function EmptySessions({ rowState, onLeaveArchivedOnly, t }: Pick<SessionTreeProps, 'rowState' | 'onLeaveArchivedOnly' | 't'>) {
@@ -315,24 +354,36 @@ function EmptySessions({ rowState, onLeaveArchivedOnly, t }: Pick<SessionTreePro
 
 /** The scrolling session tree; unmounting drops the sessions subscription and the session watermarks. */
 function SessionTree({
-  list, useSessionStatus, startSession, open, workspaces, ungroupedSessionIds,
-  rowState, onLeaveArchivedOnly,
-  workspaceReady, animationResetKey, usePanelInfo,
-  onRenameRequest, onDeleteRequest, onSessionRenameRequest,
+  list,
+  useSessionStatus,
+  startSession,
+  open,
+  workspaces,
+  ungroupedSessionIds,
+  rowState,
+  onLeaveArchivedOnly,
+  workspaceReady,
+  animationResetKey,
+  usePanelInfo,
+  onRenameRequest,
+  onDeleteRequest,
+  onSessionRenameRequest,
   renderSlot,
   insertWorkspaceBefore,
-  nestWorkspaces, groupExpansion, setGroupExpanded,
-  setSessionOrder, home, t,
-  revealSessionId, onSessionRevealed, shortcuts,
+  nestWorkspaces,
+  groupExpansion,
+  setGroupExpanded,
+  setSessionOrder,
+  home,
+  t,
+  revealSessionId,
+  onSessionRevealed,
+  shortcuts,
 }: SessionTreeProps) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const statuses = useSessionStatus(s => s)
-  const current = panelActive
-    ? undefined
-    : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
-  const revealGroup = revealSessionId === undefined || !workspaceReady
-    ? undefined
-    : owningGroupKey(workspaces, revealSessionId)
+  const current = panelActive ? undefined : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  const revealGroup = revealSessionId === undefined || !workspaceReady ? undefined : owningGroupKey(workspaces, revealSessionId)
   // Per-group raised watermarks; an absent key means the base watermark.
   const [storedWatermarks, setStoredWatermarks] = useState<Readonly<Record<string, number>>>({})
   // Advances on user-driven watermark changes so AnimatedRows settles them; automatic raises animate.
@@ -344,9 +395,7 @@ function SessionTree({
   const workspaceDropCommitted = useRef(false)
   const nativeDragActive = drag !== null || workspaceDrag !== null
   useNativeDragAcceptance(nativeDragActive)
-  const currentGroup = current === undefined || !workspaceReady
-    ? undefined
-    : owningGroupKey(workspaces, current)
+  const currentGroup = current === undefined || !workspaceReady ? undefined : owningGroupKey(workspaces, current)
   useEffect(() => {
     if (current === undefined || currentGroup === undefined || Object.hasOwn(groupExpansion, currentGroup)) return
     setGroupExpanded(currentGroup, true)
@@ -355,10 +404,12 @@ function SessionTree({
     if (!nestWorkspaces) return new Map<string, WorkspaceId | undefined>()
     const keysByPath = new Map(workspaces.map(workspace => [workspace.path, workspace.workspaceId]))
     const paths = [...keysByPath.keys()]
-    return new Map<string, WorkspaceId | undefined>(workspaces.map((workspace) => {
-      const path = owningParentFolder(workspace.path, paths)
-      return [workspace.workspaceId, path === undefined ? undefined : keysByPath.get(path)]
-    }))
+    return new Map<string, WorkspaceId | undefined>(
+      workspaces.map(workspace => {
+        const path = owningParentFolder(workspace.path, paths)
+        return [workspace.workspaceId, path === undefined ? undefined : keysByPath.get(path)]
+      }),
+    )
   }, [nestWorkspaces, workspaces])
   const currentAncestors = useMemo(() => {
     const keys = new Set<string>()
@@ -369,14 +420,16 @@ function SessionTree({
   }, [currentGroup, parents])
   const expandedGroups = useMemo(() => {
     const ancestorKeys = new Set<string | undefined>(parents.values())
-    return [...workspaces.map(workspace => workspace.workspaceId), UNGROUPED_KEY]
-      .filter(key => groupExpansion[key] ?? ancestorKeys.has(key))
+    return [...workspaces.map(workspace => workspace.workspaceId), UNGROUPED_KEY].filter(
+      key => groupExpansion[key] ?? ancestorKeys.has(key),
+    )
   }, [groupExpansion, parents, workspaces])
   const groups = useMemo(
-    () => deriveGroups(list, workspaces, rowState, statuses, {
-      expandedGroups,
-      ungroupedOrder: ungroupedSessionIds,
-    }),
+    () =>
+      deriveGroups(list, workspaces, rowState, statuses, {
+        expandedGroups,
+        ungroupedOrder: ungroupedSessionIds,
+      }),
     [list, workspaces, rowState, statuses, expandedGroups, ungroupedSessionIds],
   )
   useEffect(() => {
@@ -386,11 +439,12 @@ function SessionTree({
       }
     }
   }, [groupExpansion, parents, revealGroup, setGroupExpanded])
-  const baselines = new Map(groups.map(group => [group.key, Math.max(SESSION_WATERMARK_BASE, requiredWatermark(
-    group.sessions,
-    current,
-    group.key === revealGroup ? revealSessionId : undefined,
-  ))]))
+  const baselines = new Map(
+    groups.map(group => [
+      group.key,
+      Math.max(SESSION_WATERMARK_BASE, requiredWatermark(group.sessions, current, group.key === revealGroup ? revealSessionId : undefined)),
+    ]),
+  )
   const foldedKeys = new Set(groups.filter(group => !group.expanded).map(group => group.key))
   const underFoldedAncestor = (key: string): boolean => {
     for (let owner = parents.get(key); owner !== undefined; owner = parents.get(owner)) {
@@ -422,18 +476,16 @@ function SessionTree({
     const group = groups.find(candidate => candidate.key === activeDrag.accountKey)
     if (group === undefined) return
     if (over.id === activeDrag.sessionId) return
-    const accountSessionIds = activeDrag.accountKey === UNGROUPED_KEY
-      ? ungroupedSessionIds
-      : workspaces.find(workspace => workspace.workspaceId === activeDrag.accountKey)?.sessionIds
+    const accountSessionIds =
+      activeDrag.accountKey === UNGROUPED_KEY
+        ? ungroupedSessionIds
+        : workspaces.find(workspace => workspace.workspaceId === activeDrag.accountKey)?.sessionIds
     if (accountSessionIds === undefined) return
     const renderedSessions = watermarkRows(group.sessions, sessionWatermarks[group.key] ?? SESSION_WATERMARK_BASE).rows
     const nextOrder = sessionDragOrder(accountSessionIds, renderedSessions, activeDrag, over)
     if (nextOrder !== undefined) setSessionOrder(activeDrag.accountKey, nextOrder)
   }
-  const commitWorkspaceDrag = (
-    activeDrag: WorkspaceDragState,
-    over: NonNullable<WorkspaceDragState['over']>,
-  ): void => {
+  const commitWorkspaceDrag = (activeDrag: WorkspaceDragState, over: NonNullable<WorkspaceDragState['over']>): void => {
     if (workspaceDropCommitted.current) return
     workspaceDropCommitted.current = true
     setWorkspaceDrag(null)
@@ -444,9 +496,7 @@ function SessionTree({
     const anchor = over.half === 'before' ? over.id : siblings[rowIndex + 1]?.workspaceId
     if (anchor === activeDrag.workspaceId) return
     const sourceIndex = siblings.findIndex(workspace => workspace.workspaceId === activeDrag.workspaceId)
-    const anchorIndex = anchor === undefined
-      ? siblings.length
-      : siblings.findIndex(workspace => workspace.workspaceId === anchor)
+    const anchorIndex = anchor === undefined ? siblings.length : siblings.findIndex(workspace => workspace.workspaceId === anchor)
     if (sourceIndex !== -1 && (anchorIndex === sourceIndex || anchorIndex === sourceIndex + 1)) return
     insertWorkspaceBefore(activeDrag.workspaceId, anchor).catch((reason: unknown) => {
       console.warn('workspace reorder rejected:', reason)
@@ -467,9 +517,10 @@ function SessionTree({
     return children
   }, [groups, parents])
   const rootGroups = childrenByParent.get(undefined) ?? []
-  const workspaceDropAtListStart = rootGroups[0]?.workspaceId !== undefined
-    && workspaceDrag?.over?.id === rootGroups[0].workspaceId
-    && workspaceDrag.over.half === 'before'
+  const workspaceDropAtListStart =
+    rootGroups[0]?.workspaceId !== undefined &&
+    workspaceDrag?.over?.id === rootGroups[0].workspaceId &&
+    workspaceDrag.over.half === 'before'
 
   const rowKeys: string[] = groups.length === 0 ? ['empty'] : []
   const renderGroup = (group: GroupNode, depth: number): ReactNode => {
@@ -485,39 +536,40 @@ function SessionTree({
     const sessions = visible.rows
     for (const node of sessions) rowKeys.push(`session:${node.id}`)
     if (collapsed.hiddenCount > 0) rowKeys.push(`overflow:${group.key}`)
-    const workspaceMarker = workspaceId !== undefined && workspaceDrag?.over?.id === workspaceId
-      ? workspaceDrag.over.half
-      : null
-    const workspaceDragProps = workspaceId === undefined ? undefined : {
-      start: () => {
-        workspaceDropCommitted.current = false
-        setWorkspaceDrag({ workspaceId, over: null })
-      },
-      end: () => {
-        if (workspaceDrag?.over !== null && workspaceDrag?.over !== undefined) {
-          commitWorkspaceDrag(workspaceDrag, workspaceDrag.over)
-        } else {
-          setWorkspaceDrag(null)
-        }
-        workspaceDropCommitted.current = false
-      },
-    }
-    const hoverWorkspace = workspaceId === undefined || !compatibleDrag
-      ? undefined
-      : (half: 'before' | 'after') => {
-        setWorkspaceDrag(active => active === null
-          ? active
-          : { ...active, over: { id: workspaceId, half } })
-      }
-    const dropWorkspace = workspaceId === undefined || !compatibleDrag
-      ? undefined
-      : (half: 'before' | 'after') => {
-        commitWorkspaceDrag(workspaceDrag, { id: workspaceId, half })
-      }
+    const workspaceMarker = workspaceId !== undefined && workspaceDrag?.over?.id === workspaceId ? workspaceDrag.over.half : null
+    const workspaceDragProps =
+      workspaceId === undefined
+        ? undefined
+        : {
+            start: () => {
+              workspaceDropCommitted.current = false
+              setWorkspaceDrag({ workspaceId, over: null })
+            },
+            end: () => {
+              if (workspaceDrag?.over !== null && workspaceDrag?.over !== undefined) {
+                commitWorkspaceDrag(workspaceDrag, workspaceDrag.over)
+              } else {
+                setWorkspaceDrag(null)
+              }
+              workspaceDropCommitted.current = false
+            },
+          }
+    const hoverWorkspace =
+      workspaceId === undefined || !compatibleDrag
+        ? undefined
+        : (half: 'before' | 'after') => {
+            setWorkspaceDrag(active => (active === null ? active : { ...active, over: { id: workspaceId, half } }))
+          }
+    const dropWorkspace =
+      workspaceId === undefined || !compatibleDrag
+        ? undefined
+        : (half: 'before' | 'after') => {
+            commitWorkspaceDrag(workspaceDrag, { id: workspaceId, half })
+          }
     return (
-    // Group section: header, descendant Workspaces, and own Session rows. The
-    // inter-group breathing room is the section's own margin
-    // (WorkspaceBrowser.module.css).
+      // Group section: header, descendant Workspaces, and own Session rows. The
+      // inter-group breathing room is the section's own margin
+      // (WorkspaceBrowser.module.css).
       <div
         key={group.key}
         style={{ '--dsh-workspace-indent': `${depth * 12}px` } as CSSProperties}
@@ -526,33 +578,37 @@ function SessionTree({
           workspaceMarker === 'before' && css.workspaceDropBefore,
           workspaceMarker === 'after' && css.workspaceDropAfter,
         )}
-        onDragOver={workspaceDrag === null
-          ? undefined
-          : (e) => {
-            e.preventDefault()
-            if (hoverWorkspace === undefined && parents.get(group.key) !== undefined) return
-            e.stopPropagation()
-            if (hoverWorkspace === undefined) {
-              e.dataTransfer.dropEffect = 'none'
-              if (workspaceDrag.over !== null) setWorkspaceDrag({ ...workspaceDrag, over: null })
-            } else {
-              e.dataTransfer.dropEffect = 'move'
-              hoverWorkspace(workspaceGroupHalf(e))
-            }
-          }}
-        onDrop={workspaceDrag === null
-          ? undefined
-          : (e) => {
-            e.preventDefault()
-            if (dropWorkspace === undefined && parents.get(group.key) !== undefined) return
-            e.stopPropagation()
-            if (dropWorkspace === undefined) {
-              workspaceDropCommitted.current = true
-              setWorkspaceDrag(null)
-            } else {
-              dropWorkspace(workspaceGroupHalf(e))
-            }
-          }}
+        onDragOver={
+          workspaceDrag === null
+            ? undefined
+            : e => {
+                e.preventDefault()
+                if (hoverWorkspace === undefined && parents.get(group.key) !== undefined) return
+                e.stopPropagation()
+                if (hoverWorkspace === undefined) {
+                  e.dataTransfer.dropEffect = 'none'
+                  if (workspaceDrag.over !== null) setWorkspaceDrag({ ...workspaceDrag, over: null })
+                } else {
+                  e.dataTransfer.dropEffect = 'move'
+                  hoverWorkspace(workspaceGroupHalf(e))
+                }
+              }
+        }
+        onDrop={
+          workspaceDrag === null
+            ? undefined
+            : e => {
+                e.preventDefault()
+                if (dropWorkspace === undefined && parents.get(group.key) !== undefined) return
+                e.stopPropagation()
+                if (dropWorkspace === undefined) {
+                  workspaceDropCommitted.current = true
+                  setWorkspaceDrag(null)
+                } else {
+                  dropWorkspace(workspaceGroupHalf(e))
+                }
+              }
+        }
       >
         <ProjectRowItem
           newShortcut={shortcuts.find(row => row.id === 'session.new')}
@@ -571,31 +627,28 @@ function SessionTree({
             }
           }}
           drag={workspaceDragProps}
-          actions={group.workspaceId === undefined
-            ? undefined
-            : {
-              rename: () => {
-              /* v8 ignore next -- narrowing guard: the actions object exists only for real-workspace groups. */
-                if (group.workspaceId !== undefined) onRenameRequest(group.workspaceId, group.label)
-              },
-              delete: () => {
-              /* v8 ignore next -- narrowing guard: the actions object exists only for real-workspace groups. */
-                if (group.workspaceId !== undefined) onDeleteRequest(group.workspaceId, group.label)
-              },
-            }}
+          actions={
+            group.workspaceId === undefined
+              ? undefined
+              : {
+                  rename: () => {
+                    /* v8 ignore next -- narrowing guard: the actions object exists only for real-workspace groups. */
+                    if (group.workspaceId !== undefined) onRenameRequest(group.workspaceId, group.label)
+                  },
+                  delete: () => {
+                    /* v8 ignore next -- narrowing guard: the actions object exists only for real-workspace groups. */
+                    if (group.workspaceId !== undefined) onDeleteRequest(group.workspaceId, group.label)
+                  },
+                }
+          }
         />
-        {childRows.length > 0 && (
-          <div role="group">
-            {childRows}
-          </div>
-        )}
-        {sessions.map((node) => {
-        // Session drag never leaves its browser-local account, and pinned
-        // rows reorder only within their leading pinned block.
+        {childRows.length > 0 && <div role="group">{childRows}</div>}
+        {sessions.map(node => {
+          // Session drag never leaves its browser-local account, and pinned
+          // rows reorder only within their leading pinned block.
           const sameGroupDrag = drag !== null && drag.accountKey === group.key
           const compatibleTarget = sameGroupDrag && drag.pinned === node.pinned
-          const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
-            node.blank ? 'after' : half
+          const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' => (node.blank ? 'after' : half)
           const dragProps = {
             start: () => {
               sessionDropCommitted.current = false
@@ -604,13 +657,18 @@ function SessionTree({
             active: compatibleTarget,
             marker: sameGroupDrag && drag.over?.id === node.id ? drag.over.half : null,
             hover: (half: 'before' | 'after') => {
-            /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
-              setDrag(d => (d === null ? d : {
-                ...d, over: { id: node.id, half: normalizeHalf(half) },
-              }))
+              /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
+              setDrag(d =>
+                d === null
+                  ? d
+                  : {
+                      ...d,
+                      over: { id: node.id, half: normalizeHalf(half) },
+                    },
+              )
             },
             drop: (half: 'before' | 'after') => {
-            /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
+              /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
               if (drag === null) return
               commitSessionDrag(drag, { id: node.id, half: normalizeHalf(half) })
             },
@@ -629,9 +687,13 @@ function SessionTree({
               onOpen={open}
               onRenameRequest={onSessionRenameRequest}
               renderSlot={renderSlot}
-              onReveal={node.id === revealSessionId && group.key === revealGroup
-                ? () => { onSessionRevealed(node.id) }
-                : undefined}
+              onReveal={
+                node.id === revealSessionId && group.key === revealGroup
+                  ? () => {
+                      onSessionRevealed(node.id)
+                    }
+                  : undefined
+              }
               drag={dragProps}
               t={t}
             />
@@ -655,9 +717,7 @@ function SessionTree({
               setWatermarkMotionKey(key => key + 1)
             }}
           >
-            {sessionsExpanded
-              ? t('sessions.collapse')
-              : t('sessions.expand', { n: visible.hiddenCount })}
+            {sessionsExpanded ? t('sessions.collapse') : t('sessions.expand', { n: visible.hiddenCount })}
           </button>
         )}
       </div>
@@ -675,9 +735,7 @@ function SessionTree({
         ready={list.phase === 'ready' && workspaceReady && !nativeDragActive}
         resetKey={JSON.stringify([animationResetKey, watermarkMotionKey])}
       >
-        {groups.length === 0 && (
-          <EmptySessions rowState={rowState} onLeaveArchivedOnly={onLeaveArchivedOnly} t={t} />
-        )}
+        {groups.length === 0 && <EmptySessions rowState={rowState} onLeaveArchivedOnly={onLeaveArchivedOnly} t={t} />}
         {groupRows}
       </AnimatedRows>
       <span className={css.fade} />
@@ -687,9 +745,22 @@ function SessionTree({
 
 /** The flat "In one list" body: every session is one draggable top-level row. */
 function FlatList({
-  list, sessionIds, rowState, workspaces, onLeaveArchivedOnly, useSessionStatus, open, onSessionRenameRequest,
-  usePanelInfo, setSessionOrder, workspaceReady, animationResetKey,
-  revealSessionId, onSessionRevealed, renderSlot, t,
+  list,
+  sessionIds,
+  rowState,
+  workspaces,
+  onLeaveArchivedOnly,
+  useSessionStatus,
+  open,
+  onSessionRenameRequest,
+  usePanelInfo,
+  setSessionOrder,
+  workspaceReady,
+  animationResetKey,
+  revealSessionId,
+  onSessionRevealed,
+  renderSlot,
+  t,
 }: Pick<
   SessionTreeProps,
   | 'useSessionStatus'
@@ -720,9 +791,7 @@ function FlatList({
   const [drag, setDrag] = useState<DragState | null>(null)
   const dropCommitted = useRef(false)
   useNativeDragAcceptance(drag !== null)
-  const currentId = panelActive
-    ? undefined
-    : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  const currentId = panelActive ? undefined : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
   const commitDrag = (activeDrag: DragState, over: NonNullable<DragState['over']>): void => {
     if (dropCommitted.current) return
     dropCommitted.current = true
@@ -740,13 +809,10 @@ function FlatList({
         ready={list.phase === 'ready' && workspaceReady && drag === null}
         resetKey={animationResetKey}
       >
-        {rows.length === 0 && (
-          <EmptySessions rowState={rowState} onLeaveArchivedOnly={onLeaveArchivedOnly} t={t} />
-        )}
-        {rows.map((node) => {
+        {rows.length === 0 && <EmptySessions rowState={rowState} onLeaveArchivedOnly={onLeaveArchivedOnly} t={t} />}
+        {rows.map(node => {
           const active = drag !== null && drag.pinned === node.pinned
-          const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
-            node.blank ? 'after' : half
+          const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' => (node.blank ? 'after' : half)
           return (
             <SessionNodeItem
               key={node.id}
@@ -756,9 +822,13 @@ function FlatList({
               onOpen={open}
               onRenameRequest={onSessionRenameRequest}
               renderSlot={renderSlot}
-              onReveal={node.id === revealSessionId
-                ? () => { onSessionRevealed(node.id) }
-                : undefined}
+              onReveal={
+                node.id === revealSessionId
+                  ? () => {
+                      onSessionRevealed(node.id)
+                    }
+                  : undefined
+              }
               flat
               drag={{
                 start: () => {
@@ -767,12 +837,17 @@ function FlatList({
                 },
                 active,
                 marker: active && drag.over?.id === node.id ? drag.over.half : null,
-                hover: (half) => {
-                  setDrag(current => current === null ? current : {
-                    ...current, over: { id: node.id, half: normalizeHalf(half) },
-                  })
+                hover: half => {
+                  setDrag(current =>
+                    current === null
+                      ? current
+                      : {
+                          ...current,
+                          over: { id: node.id, half: normalizeHalf(half) },
+                        },
+                  )
                 },
-                drop: (half) => {
+                drop: half => {
                   if (drag !== null) commitDrag(drag, { id: node.id, half: normalizeHalf(half) })
                 },
                 end: () => {
@@ -826,40 +901,20 @@ function SearchResults({
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const list = useSessions(s => s)
   const statuses = useSessionStatus(s => s)
-  const currentRemote = remote.query === query
-    ? remote
-    : { query, status: 'loading' as const, items: [], hasMore: false }
+  const currentRemote = remote.query === query ? remote : { query, status: 'loading' as const, items: [], hasMore: false }
   const results = useMemo(
-    () => deriveSearchResults(
-      list,
-      workspaces,
-      query,
-      archivedSessionIds,
-      archivedFilter,
-      statuses,
-      currentRemote,
-      resultLimit,
-    ),
+    () => deriveSearchResults(list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit),
     [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit],
   )
   const pending = currentRemote.status === 'loading'
-  const currentId = panelActive
-    ? undefined
-    : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  const currentId = panelActive ? undefined : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
 
   return (
     <div className={clsx(css.treeBody, css.wide)}>
       <div className={css.list}>
         <div className={css.searchTree} role="tree" aria-label={t('search.results.aria')}>
           {results.items.map(result => (
-            <SearchResultItem
-              key={result.id}
-              result={result}
-              currentId={currentId}
-              onOpen={open}
-              onUnarchive={onUnarchive}
-              t={t}
-            />
+            <SearchResultItem key={result.id} result={result} currentId={currentId} onOpen={open} onUnarchive={onUnarchive} t={t} />
           ))}
         </div>
         {pending && (
@@ -877,14 +932,8 @@ function SearchResults({
             ))}
           </div>
         )}
-        {!pending && results.items.length === 0 && (
-          <div className={css.empty}>{t('search.noMatches')}</div>
-        )}
-        {results.hasMore && (
-          <div className={css.searchStatus}>
-            {t('search.hasMore', { n: resultLimit })}
-          </div>
-        )}
+        {!pending && results.items.length === 0 && <div className={css.empty}>{t('search.noMatches')}</div>}
+        {results.hasMore && <div className={css.searchStatus}>{t('search.hasMore', { n: resultLimit })}</div>}
       </div>
       <span className={css.fade} />
     </div>
@@ -939,10 +988,11 @@ export function WorkspaceBrowser({
   // its identity across a language switch.
   const defaultWorkspaceName = t('workspace.defaultName')
   const workspaces = useMemo(
-    () => storedWorkspaces.map(workspace => ({
-      ...workspace,
-      title: workspaceDisplayTitle(workspace.title, defaultWorkspaceName),
-    })),
+    () =>
+      storedWorkspaces.map(workspace => ({
+        ...workspace,
+        title: workspaceDisplayTitle(workspace.title, defaultWorkspaceName),
+      })),
     [storedWorkspaces, defaultWorkspaceName],
   )
   const workspacePhase = useWorkspaces(state => state.phase)
@@ -968,69 +1018,60 @@ export function WorkspaceBrowser({
     }
     open(sessionId)
   }
-  const leaveArchivedOnly = (): void => { actions.setArchivedFilter('default') }
+  const leaveArchivedOnly = (): void => {
+    actions.setArchivedFilter('default')
+  }
   const workspaceReady = workspacePhase === 'ready' && workspaceStreamState !== 'loading'
-  const mainSessionId = Object.values(list.byId)
-    .find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
-  const currentBlank = mainSessionId !== undefined && list.byId[mainSessionId]?.blank === true
-    ? mainSessionId
-    : undefined
+  const mainSessionId = Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  const currentBlank = mainSessionId !== undefined && list.byId[mainSessionId]?.blank === true ? mainSessionId : undefined
   const ungroupedMemberIds = useMemo(() => {
     const accounted = new Set(workspaces.flatMap(workspace => workspace.sessionIds))
     return list.ids.filter(id => list.byId[id] !== undefined && !accounted.has(id))
   }, [list, workspaces])
-  const orderState = useMemo(
-    () => ({ pinnedSessionIds, archivedSessionIds }),
-    [archivedSessionIds, pinnedSessionIds],
-  )
-  const rowState = useMemo<SessionRowState>(
-    () => ({ ...orderState, archivedFilter }),
-    [orderState, archivedFilter],
-  )
+  const orderState = useMemo(() => ({ pinnedSessionIds, archivedSessionIds }), [archivedSessionIds, pinnedSessionIds])
+  const rowState = useMemo<SessionRowState>(() => ({ ...orderState, archivedFilter }), [orderState, archivedFilter])
   const flatMemberIds = useMemo(() => sessionMemberIds(list), [list])
-  const orderedWorkspaces = useMemo(() => workspaces.map((workspace) => {
-    const memberIds = workspace.sessionIds
-    const baseOrder = orderBy === 'updated'
-      ? orderByRecency(memberIds, list.byId)
-      : reconcileManualOrder(memberIds, sessionOrderByAccount[workspace.workspaceId], list.byId, orderState)
-    return {
-      ...workspace,
-      sessionIds: pinCurrentBlank(
-        baseOrder,
-        currentBlank !== undefined && memberIds.includes(currentBlank) ? currentBlank : undefined,
-      ),
-    }
-  }), [currentBlank, list.byId, orderBy, orderState, sessionOrderByAccount, workspaces])
+  const orderedWorkspaces = useMemo(
+    () =>
+      workspaces.map(workspace => {
+        const memberIds = workspace.sessionIds
+        const baseOrder =
+          orderBy === 'updated'
+            ? orderByRecency(memberIds, list.byId)
+            : reconcileManualOrder(memberIds, sessionOrderByAccount[workspace.workspaceId], list.byId, orderState)
+        return {
+          ...workspace,
+          sessionIds: pinCurrentBlank(baseOrder, currentBlank !== undefined && memberIds.includes(currentBlank) ? currentBlank : undefined),
+        }
+      }),
+    [currentBlank, list.byId, orderBy, orderState, sessionOrderByAccount, workspaces],
+  )
   const orderedUngroupedSessionIds = useMemo(() => {
-    const baseOrder = orderBy === 'updated'
-      ? orderByRecency(ungroupedMemberIds, list.byId)
-      : reconcileManualOrder(ungroupedMemberIds, sessionOrderByAccount[UNGROUPED_KEY], list.byId, orderState)
-    return pinCurrentBlank(
-      baseOrder,
-      currentBlank !== undefined && ungroupedMemberIds.includes(currentBlank) ? currentBlank : undefined,
-    )
+    const baseOrder =
+      orderBy === 'updated'
+        ? orderByRecency(ungroupedMemberIds, list.byId)
+        : reconcileManualOrder(ungroupedMemberIds, sessionOrderByAccount[UNGROUPED_KEY], list.byId, orderState)
+    return pinCurrentBlank(baseOrder, currentBlank !== undefined && ungroupedMemberIds.includes(currentBlank) ? currentBlank : undefined)
   }, [currentBlank, list.byId, orderBy, orderState, sessionOrderByAccount, ungroupedMemberIds])
   const orderedFlatSessionIds = useMemo(() => {
-    const baseOrder = orderBy === 'updated'
-      ? orderByRecency(flatMemberIds, list.byId)
-      : reconcileManualOrder(flatMemberIds, sessionOrderByAccount[FLAT_SESSION_ORDER_KEY], list.byId, orderState)
-    return pinCurrentBlank(
-      baseOrder,
-      currentBlank !== undefined && flatMemberIds.includes(currentBlank) ? currentBlank : undefined,
-    )
+    const baseOrder =
+      orderBy === 'updated'
+        ? orderByRecency(flatMemberIds, list.byId)
+        : reconcileManualOrder(flatMemberIds, sessionOrderByAccount[FLAT_SESSION_ORDER_KEY], list.byId, orderState)
+    return pinCurrentBlank(baseOrder, currentBlank !== undefined && flatMemberIds.includes(currentBlank) ? currentBlank : undefined)
   }, [currentBlank, flatMemberIds, list.byId, orderBy, orderState, sessionOrderByAccount])
-  const activeSessionOrders = useMemo<Readonly<Record<string, readonly SessionId[]>>>(() => Object.fromEntries([
-    ...orderedWorkspaces.map(workspace => [workspace.workspaceId, workspace.sessionIds] as const),
-    [UNGROUPED_KEY, orderedUngroupedSessionIds] as const,
-    [FLAT_SESSION_ORDER_KEY, orderedFlatSessionIds] as const,
-  ]), [orderedFlatSessionIds, orderedUngroupedSessionIds, orderedWorkspaces])
+  const activeSessionOrders = useMemo<Readonly<Record<string, readonly SessionId[]>>>(
+    () =>
+      Object.fromEntries([
+        ...orderedWorkspaces.map(workspace => [workspace.workspaceId, workspace.sessionIds] as const),
+        [UNGROUPED_KEY, orderedUngroupedSessionIds] as const,
+        [FLAT_SESSION_ORDER_KEY, orderedFlatSessionIds] as const,
+      ]),
+    [orderedFlatSessionIds, orderedUngroupedSessionIds, orderedWorkspaces],
+  )
   useEffect(() => {
     if (workspacePhase !== 'ready') return
-    actions.retainAccountKeys([
-      UNGROUPED_KEY,
-      FLAT_SESSION_ORDER_KEY,
-      ...workspaces.map(workspace => workspace.workspaceId),
-    ])
+    actions.retainAccountKeys([UNGROUPED_KEY, FLAT_SESSION_ORDER_KEY, ...workspaces.map(workspace => workspace.workspaceId)])
   }, [actions.retainAccountKeys, workspacePhase, workspaces])
   useEffect(() => {
     if (list.phase !== 'ready' || workspaceReady || orderBy !== 'manual' || currentBlank === undefined) return
@@ -1056,18 +1097,11 @@ export function WorkspaceBrowser({
   ])
   useEffect(() => {
     if (list.phase !== 'ready' || !workspaceReady || orderBy !== 'manual' || currentBlank === undefined) return
-    const moved = Object.entries(activeSessionOrders).some(([key, ids]) =>
-      ids[0] === currentBlank && sessionOrderByAccount[key]?.[0] !== currentBlank)
+    const moved = Object.entries(activeSessionOrders).some(
+      ([key, ids]) => ids[0] === currentBlank && sessionOrderByAccount[key]?.[0] !== currentBlank,
+    )
     if (moved) actions.syncSessionOrders(activeSessionOrders)
-  }, [
-    actions.syncSessionOrders,
-    activeSessionOrders,
-    currentBlank,
-    list.phase,
-    orderBy,
-    sessionOrderByAccount,
-    workspaceReady,
-  ])
+  }, [actions.syncSessionOrders, activeSessionOrders, currentBlank, list.phase, orderBy, sessionOrderByAccount, workspaceReady])
   const saveSessionOrder = (accountKey: string, order: readonly string[]): void => {
     actions.setSessionOrder(accountKey, order, activeSessionOrders)
   }
@@ -1102,7 +1136,7 @@ export function WorkspaceBrowser({
     open(sessionId)
   }
   const acknowledgeSessionReveal = (sessionId: SessionId): void => {
-    setRevealSessionId(current => current === sessionId ? undefined : current)
+    setRevealSessionId(current => (current === sessionId ? undefined : current))
   }
   useEffect(() => {
     if (normalizedQuery !== '') setRevealSessionId(undefined)
@@ -1117,7 +1151,9 @@ export function WorkspaceBrowser({
         searchInput.current?.focus({ preventScroll: true })
         setSearchOnExpand(false)
       }, EXPAND_SLIDE_MS)
-      return () => { window.clearTimeout(timer) }
+      return () => {
+        window.clearTimeout(timer)
+      }
     }
   }, [wide, searchOnExpand])
   useEffect(() => {
@@ -1149,7 +1185,9 @@ export function WorkspaceBrowser({
       setSearchExpanded(false)
     }
     document.addEventListener('click', onClick)
-    return () => { document.removeEventListener('click', onClick) }
+    return () => {
+      document.removeEventListener('click', onClick)
+    }
   }, [normalizedQuery, wide, searchExpanded, searchOnExpand])
 
   useEffect(() => {
@@ -1165,23 +1203,25 @@ export function WorkspaceBrowser({
       hasMore: false,
     })
     const timer = window.setTimeout(() => {
-      searchSessions(normalizedQuery, controller.signal).then((result) => {
-        if (controller.signal.aborted) return
-        setRemoteSearch({
-          query: normalizedQuery,
-          status: 'ready',
-          items: result.items,
-          hasMore: result.hasMore,
+      searchSessions(normalizedQuery, controller.signal)
+        .then(result => {
+          if (controller.signal.aborted) return
+          setRemoteSearch({
+            query: normalizedQuery,
+            status: 'ready',
+            items: result.items,
+            hasMore: result.hasMore,
+          })
         })
-      }).catch(() => {
-        if (controller.signal.aborted) return
-        setRemoteSearch({
-          query: normalizedQuery,
-          status: 'error',
-          items: [],
-          hasMore: false,
+        .catch(() => {
+          if (controller.signal.aborted) return
+          setRemoteSearch({
+            query: normalizedQuery,
+            status: 'error',
+            items: [],
+            hasMore: false,
+          })
         })
-      })
     }, SEARCH_DEBOUNCE_MS)
     return () => {
       window.clearTimeout(timer)
@@ -1201,10 +1241,12 @@ export function WorkspaceBrowser({
   // Self is excluded by identity, not by title: the draft is seeded with the
   // localized label, which for an automatically titled Workspace equals its
   // own displayed title without being a conflict with itself.
-  const renameDuplicate = renameTarget !== null && renameTrimmed !== ''
-    && workspaces.some(w => w.workspaceId !== renameTarget.workspaceId && w.title === renameTrimmed)
-  const renameBlocked = renaming || renameTrimmed === ''
-    || renameTarget === null || renameTrimmed === renameTarget.storedTitle || renameDuplicate
+  const renameDuplicate =
+    renameTarget !== null &&
+    renameTrimmed !== '' &&
+    workspaces.some(w => w.workspaceId !== renameTarget.workspaceId && w.title === renameTrimmed)
+  const renameBlocked =
+    renaming || renameTrimmed === '' || renameTarget === null || renameTrimmed === renameTarget.storedTitle || renameDuplicate
   const closeRename = () => {
     if (renaming) return
     setRenameTarget(null)
@@ -1214,13 +1256,15 @@ export function WorkspaceBrowser({
     if (renameBlocked) return
     setRenaming(true)
     setRenameError(null)
-    renameWorkspace(renameTarget.workspaceId, renameTrimmed).then(() => {
-      setRenaming(false)
-      setRenameTarget(null)
-    }).catch((reason: unknown) => {
-      setRenaming(false)
-      setRenameError(reason instanceof Error ? reason.message : String(reason))
-    })
+    renameWorkspace(renameTarget.workspaceId, renameTrimmed)
+      .then(() => {
+        setRenaming(false)
+        setRenameTarget(null)
+      })
+      .catch((reason: unknown) => {
+        setRenaming(false)
+        setRenameError(reason instanceof Error ? reason.message : String(reason))
+      })
   }
 
   // The search results' restore button; the row actions own the rest of the
@@ -1238,8 +1282,7 @@ export function WorkspaceBrowser({
   const [deleteCommittedId, setDeleteCommittedId] = useState<WorkspaceId | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   useEffect(() => {
-    if (deleteCommittedId === null
-      || workspaces.some(workspace => workspace.workspaceId === deleteCommittedId)) return
+    if (deleteCommittedId === null || workspaces.some(workspace => workspace.workspaceId === deleteCommittedId)) return
     setDeleting(false)
     setDeleteCommittedId(null)
     setDeleteTarget(null)
@@ -1255,15 +1298,17 @@ export function WorkspaceBrowser({
     setDeleting(true)
     setDeleteCommittedId(null)
     setDeleteError(null)
-    deleteWorkspace(deleteTarget.workspaceId).then(() => {
-      // Keep the confirmation pending until this component has rendered the
-      // committed list projection without the deleted id. Closing earlier
-      // exposes one stale React frame to the next Create Workspace gesture.
-      setDeleteCommittedId(deleteTarget.workspaceId)
-    }).catch((reason: unknown) => {
-      setDeleting(false)
-      setDeleteError(reason instanceof Error ? reason.message : String(reason))
-    })
+    deleteWorkspace(deleteTarget.workspaceId)
+      .then(() => {
+        // Keep the confirmation pending until this component has rendered the
+        // committed list projection without the deleted id. Closing earlier
+        // exposes one stale React frame to the next Create Workspace gesture.
+        setDeleteCommittedId(deleteTarget.workspaceId)
+      })
+      .catch((reason: unknown) => {
+        setDeleting(false)
+        setDeleteError(reason instanceof Error ? reason.message : String(reason))
+      })
   }
 
   return (
@@ -1307,8 +1352,10 @@ export function WorkspaceBrowser({
                 maxLength={SEARCH_QUERY_MAX_CODE_UNITS}
                 value={query}
                 tabIndex={searchExpanded ? 0 : -1}
-                onChange={(e) => { setQuery(sanitizeSearchQuery(e.target.value)) }}
-                onKeyDown={(e) => {
+                onChange={e => {
+                  setQuery(sanitizeSearchQuery(e.target.value))
+                }}
+                onKeyDown={e => {
                   if (e.key !== 'Escape') return
                   setQuery('')
                   setSearchExpanded(false)
@@ -1319,7 +1366,7 @@ export function WorkspaceBrowser({
                   type="button"
                   className={css.clearButton}
                   aria-label={t('search.clear')}
-                  onClick={(e) => {
+                  onClick={e => {
                     e.stopPropagation()
                     setQuery('')
                     setSearchExpanded(false)
@@ -1338,7 +1385,9 @@ export function WorkspaceBrowser({
               orderBy={orderBy}
               archivedFilter={archivedFilter}
               onGroupPick={actions.setGroupBy}
-              onOrderPick={(mode) => { actions.setOrderBy(mode, activeSessionOrders) }}
+              onOrderPick={mode => {
+                actions.setOrderBy(mode, activeSessionOrders)
+              }}
               onArchivedFilterPick={actions.setArchivedFilter}
               t={t}
             />
@@ -1375,36 +1424,40 @@ export function WorkspaceBrowser({
           addOnly
           onBusyChange={setDirectoryBusy}
           side="right"
-          onPick={(workspaceId) => {
+          onPick={workspaceId => {
             closeAddWorkspace()
             startSession(workspaceId, { clearPreviousDraft: false })
           }}
-          onClose={() => { closeAddWorkspace() }}
+          onClose={() => {
+            closeAddWorkspace()
+          }}
         />
       </div>
 
       {/* The collapsed rail keeps search as its own 36px control. */}
-      {!wide && <div className={css.search}>
-        <Tooltip label={t('search')} shortcutKeys={searchShortcut?.keys}>
-          <button
-            type="button"
-            className={css.searchButton}
-            aria-label={t('search.sessions.aria')}
-            aria-keyshortcuts={searchShortcut?.aria}
-            onClick={() => {
-              requestSearch()
-            }}
-          >
-            <IconSearchOutlineRegular size={18} />
-          </button>
-        </Tooltip>
-      </div>}
+      {!wide && (
+        <div className={css.search}>
+          <Tooltip label={t('search')} shortcutKeys={searchShortcut?.keys}>
+            <button
+              type="button"
+              className={css.searchButton}
+              aria-label={t('search.sessions.aria')}
+              aria-keyshortcuts={searchShortcut?.aria}
+              onClick={() => {
+                requestSearch()
+              }}
+            >
+              <IconSearchOutlineRegular size={18} />
+            </button>
+          </Tooltip>
+        </div>
+      )}
 
       {/* Always-mounted seat keeps the region's flex slot while the list
           itself is wide-only. */}
       <div className={css.listArea}>
-        {wide && (normalizedQuery !== ''
-          ? (
+        {wide &&
+          (normalizedQuery !== '' ? (
             <SearchResults
               usePanelInfo={usePanelInfo}
               useSessions={useSessions}
@@ -1419,67 +1472,64 @@ export function WorkspaceBrowser({
               resultLimit={searchResultLimit}
               t={t}
             />
-          )
-          : groupBy === 'flat'
-            ? (
-              <FlatList
-                usePanelInfo={usePanelInfo}
-                list={list}
-                sessionIds={orderedFlatSessionIds}
-                rowState={rowState}
-                onLeaveArchivedOnly={leaveArchivedOnly}
-                workspaceReady={workspaceReady}
-                animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}
-                workspaces={orderedWorkspaces}
-                useSessionStatus={useSessionStatus}
-                open={guardedOpen}
-                onSessionRenameRequest={requestSessionRename}
-                renderSlot={renderSlot}
-                setSessionOrder={saveSessionOrder}
-                revealSessionId={revealSessionId}
-                onSessionRevealed={acknowledgeSessionReveal}
-                t={t}
-              />
-            )
-            : (
-              <SessionTree
-                usePanelInfo={usePanelInfo}
-                list={list}
-                shortcuts={shortcuts}
-                useSessionStatus={useSessionStatus}
-                onSessionRenameRequest={requestSessionRename}
-                renderSlot={renderSlot}
-                workspaces={orderedWorkspaces}
-                ungroupedSessionIds={orderedUngroupedSessionIds}
-                workspaceReady={workspaceReady}
-                nestWorkspaces={groupBy === 'workspace-tree'}
-                animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}
-                groupExpansion={groupExpansion}
-                setGroupExpanded={actions.setGroupExpanded}
-                setSessionOrder={saveSessionOrder}
-                rowState={rowState}
-                onLeaveArchivedOnly={leaveArchivedOnly}
-                startSession={startSession}
-                open={guardedOpen}
-                insertWorkspaceBefore={insertWorkspaceBefore}
-                revealSessionId={revealSessionId}
-                onSessionRevealed={acknowledgeSessionReveal}
-                home={home}
-                t={t}
-                onRenameRequest={(workspaceId, displayTitle) => {
-                  setRenameTarget({
-                    workspaceId,
-                    storedTitle: storedWorkspaces.find(w => w.workspaceId === workspaceId)?.title ?? displayTitle,
-                  })
-                  setRenameDraft(displayTitle)
-                  setRenameError(null)
-                }}
-                onDeleteRequest={(workspaceId, title) => {
-                  setDeleteTarget({ workspaceId, title })
-                  setDeleteError(null)
-                }}
-              />
-            ))}
+          ) : groupBy === 'flat' ? (
+            <FlatList
+              usePanelInfo={usePanelInfo}
+              list={list}
+              sessionIds={orderedFlatSessionIds}
+              rowState={rowState}
+              onLeaveArchivedOnly={leaveArchivedOnly}
+              workspaceReady={workspaceReady}
+              animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}
+              workspaces={orderedWorkspaces}
+              useSessionStatus={useSessionStatus}
+              open={guardedOpen}
+              onSessionRenameRequest={requestSessionRename}
+              renderSlot={renderSlot}
+              setSessionOrder={saveSessionOrder}
+              revealSessionId={revealSessionId}
+              onSessionRevealed={acknowledgeSessionReveal}
+              t={t}
+            />
+          ) : (
+            <SessionTree
+              usePanelInfo={usePanelInfo}
+              list={list}
+              shortcuts={shortcuts}
+              useSessionStatus={useSessionStatus}
+              onSessionRenameRequest={requestSessionRename}
+              renderSlot={renderSlot}
+              workspaces={orderedWorkspaces}
+              ungroupedSessionIds={orderedUngroupedSessionIds}
+              workspaceReady={workspaceReady}
+              nestWorkspaces={groupBy === 'workspace-tree'}
+              animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}
+              groupExpansion={groupExpansion}
+              setGroupExpanded={actions.setGroupExpanded}
+              setSessionOrder={saveSessionOrder}
+              rowState={rowState}
+              onLeaveArchivedOnly={leaveArchivedOnly}
+              startSession={startSession}
+              open={guardedOpen}
+              insertWorkspaceBefore={insertWorkspaceBefore}
+              revealSessionId={revealSessionId}
+              onSessionRevealed={acknowledgeSessionReveal}
+              home={home}
+              t={t}
+              onRenameRequest={(workspaceId, displayTitle) => {
+                setRenameTarget({
+                  workspaceId,
+                  storedTitle: storedWorkspaces.find(w => w.workspaceId === workspaceId)?.title ?? displayTitle,
+                })
+                setRenameDraft(displayTitle)
+                setRenameError(null)
+              }}
+              onDeleteRequest={(workspaceId, title) => {
+                setDeleteTarget({ workspaceId, title })
+                setDeleteError(null)
+              }}
+            />
+          ))}
       </div>
 
       <Modal
@@ -1487,12 +1537,16 @@ export function WorkspaceBrowser({
         onClose={closeRename}
         closeLabel={t('close')}
         title={t('rename.workspace.title')}
-        footer={(
+        footer={
           <>
-            <Button variant="outline" disabled={renaming} onClick={closeRename}>{t('cancel')}</Button>
-            <Button variant="primary" disabled={renameBlocked} onClick={confirmRename}>{t('rename')}</Button>
+            <Button variant="outline" disabled={renaming} onClick={closeRename}>
+              {t('cancel')}
+            </Button>
+            <Button variant="primary" disabled={renameBlocked} onClick={confirmRename}>
+              {t('rename')}
+            </Button>
           </>
-        )}
+        }
       >
         <input
           className={css.renameInput}
@@ -1500,11 +1554,20 @@ export function WorkspaceBrowser({
           aria-label={t('field.workspaceName')}
           data-modal-autofocus
           disabled={renaming}
-          onFocus={(e) => { e.target.select() }}
-          onChange={(e) => { setRenameDraft(e.target.value); setRenameError(null) }}
-          onCompositionStart={() => { composingRef.current = true }}
-          onCompositionEnd={() => { composingRef.current = false }}
-          onKeyDown={(e) => {
+          onFocus={e => {
+            e.target.select()
+          }}
+          onChange={e => {
+            setRenameDraft(e.target.value)
+            setRenameError(null)
+          }}
+          onCompositionStart={() => {
+            composingRef.current = true
+          }}
+          onCompositionEnd={() => {
+            composingRef.current = false
+          }}
+          onKeyDown={e => {
             if (e.key === 'Enter' && !composingRef.current) {
               e.preventDefault()
               confirmRename()
@@ -1512,9 +1575,15 @@ export function WorkspaceBrowser({
           }}
         />
         {renameDuplicate && (
-          <div className={css.renameError} role="alert">{t('conflict.named', { name: renameTrimmed })}</div>
+          <div className={css.renameError} role="alert">
+            {t('conflict.named', { name: renameTrimmed })}
+          </div>
         )}
-        {renameError !== null && <div className={css.renameError} role="alert">{renameError}</div>}
+        {renameError !== null && (
+          <div className={css.renameError} role="alert">
+            {renameError}
+          </div>
+        )}
       </Modal>
 
       <Modal
@@ -1522,25 +1591,28 @@ export function WorkspaceBrowser({
         onClose={closeDelete}
         closeLabel={t('close')}
         title={t('delete.workspace')}
-        {...deleteTarget === null
-          ? {}
-          : { description: t('delete.desc', { name: deleteTarget.title }) }}
-        footer={(
+        {...(deleteTarget === null ? {} : { description: t('delete.desc', { name: deleteTarget.title }) })}
+        footer={
           <>
-            <Button variant="outline" disabled={deleting} onClick={closeDelete}>{t('cancel')}</Button>
-            <Button
-              variant="outline"
-              className={css.deleteAction}
-              disabled={deleting}
-              onClick={confirmDelete}
-            >
+            <Button variant="outline" disabled={deleting} onClick={closeDelete}>
+              {t('cancel')}
+            </Button>
+            <Button variant="outline" className={css.deleteAction} disabled={deleting} onClick={confirmDelete}>
               {t('delete.workspace')}
             </Button>
           </>
-        )}
+        }
       >
-        {deleting && <div className={css.deleteStatus} role="status">{t('delete.pending')}</div>}
-        {deleteError !== null && <div className={css.renameError} role="alert">{deleteError}</div>}
+        {deleting && (
+          <div className={css.deleteStatus} role="status">
+            {t('delete.pending')}
+          </div>
+        )}
+        {deleteError !== null && (
+          <div className={css.renameError} role="alert">
+            {deleteError}
+          </div>
+        )}
       </Modal>
     </div>
   )

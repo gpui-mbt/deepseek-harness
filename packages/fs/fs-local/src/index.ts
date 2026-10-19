@@ -54,10 +54,7 @@ export interface Config {
 
 type ResolvedConfig = Required<Config>
 const DEFAULT_DIFF_BASIS_MAX_BYTES = 10 * 1024 * 1024
-const MAX_DIFF_BASIS_BYTES = Math.min(
-  bufferConstants.MAX_LENGTH,
-  bufferConstants.MAX_STRING_LENGTH,
-)
+const MAX_DIFF_BASIS_BYTES = Math.min(bufferConstants.MAX_LENGTH, bufferConstants.MAX_STRING_LENGTH)
 
 /**
  * The host-filesystem backend. Reads resolve relative paths from {@link Config.cwd}
@@ -73,13 +70,16 @@ export class LocalFileSystem extends FileSystem {
     signal.throwIfAborted()
     const root = directory ? path : dirname(path)
     const watcher = watch(root, {
-      ignoreInitial: true, depth: 0,
+      ignoreInitial: true,
+      depth: 0,
       ignored: entry => !directory && resolve(entry) !== root && resolve(entry) !== path,
     })
     watcher.on('all', (_event, entry) => {
       if (directory || resolve(entry) === path) changed()
     })
-    watcher.on('error', (error) => { changed(error instanceof Error ? error : new Error(String(error))) })
+    watcher.on('error', error => {
+      changed(error instanceof Error ? error : new Error(String(error)))
+    })
     try {
       await once(watcher, 'ready', { signal })
       return () => watcher.close()
@@ -106,9 +106,11 @@ export class LocalFileSystem extends FileSystem {
   constructor(ctx: Context, config: Config) {
     super(ctx)
     const resolved = config as ResolvedConfig
-    if (!Number.isSafeInteger(resolved.diffBasisMaxBytes)
-      || resolved.diffBasisMaxBytes <= 0
-      || resolved.diffBasisMaxBytes > MAX_DIFF_BASIS_BYTES) {
+    if (
+      !Number.isSafeInteger(resolved.diffBasisMaxBytes) ||
+      resolved.diffBasisMaxBytes <= 0 ||
+      resolved.diffBasisMaxBytes > MAX_DIFF_BASIS_BYTES
+    ) {
       throw new Error(`fs-local: diffBasisMaxBytes must be a positive safe integer no greater than ${MAX_DIFF_BASIS_BYTES}`)
     }
     this.config = resolved
@@ -119,7 +121,10 @@ export class LocalFileSystem extends FileSystem {
     const prior = this.locks.get(targetKey) ?? Promise.resolve()
     const run = prior.then(op, op)
     // Keep the chain alive but swallow this op's result/throw for the *next* waiter.
-    const tail = run.then(() => undefined, () => undefined)
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    )
     this.locks.set(targetKey, tail)
     try {
       return await run
@@ -199,12 +204,7 @@ export class LocalFileSystem extends FileSystem {
     }))
   }
 
-  override async writeText(
-    target: FsTarget,
-    content: string,
-    expected?: FsWriteIntent,
-    signal?: AbortSignal,
-  ): Promise<FsWriteOutcome> {
+  override async writeText(target: FsTarget, content: string, expected?: FsWriteIntent, signal?: AbortSignal): Promise<FsWriteOutcome> {
     return this.withLock(target.targetKey, async () => {
       const existing = await probe(target.targetKey)
       if (existing && existing.type !== 'file') {
@@ -228,11 +228,8 @@ export class LocalFileSystem extends FileSystem {
       // `probe()` cannot turn this best-effort presentation read into an
       // unbounded allocation. Either side at/above the configured limit yields
       // `before: null`; consumers retain their whole-file fallback.
-      const diffable = existing !== null
-        && Buffer.byteLength(content, 'utf8') < this.config.diffBasisMaxBytes
-      const before = diffable
-        ? await readTextForDiff(target.targetKey, this.config.diffBasisMaxBytes, signal)
-        : null
+      const diffable = existing !== null && Buffer.byteLength(content, 'utf8') < this.config.diffBasisMaxBytes
+      const before = diffable ? await readTextForDiff(target.targetKey, this.config.diffBasisMaxBytes, signal) : null
       await writeFileAtomic(
         target.targetKey,
         content,

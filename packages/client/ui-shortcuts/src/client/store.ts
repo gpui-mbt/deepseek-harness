@@ -12,9 +12,17 @@ export function createShortcutsStore(): EngineStoreHandle<State, Actions> {
   return defineStore({
     init: (): State => ({ open: false, query: '', focusRequest: 0 }),
     actions: {
-      open: (d) => { d.open = true; d.focusRequest++ },
-      close: (d) => { d.open = false; d.query = '' },
-      search: (d, query: string) => { d.query = query },
+      open: d => {
+        d.open = true
+        d.focusRequest++
+      },
+      close: d => {
+        d.open = false
+        d.query = ''
+      },
+      search: (d, query: string) => {
+        d.query = query
+      },
     },
   })
 }

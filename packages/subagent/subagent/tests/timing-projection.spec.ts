@@ -1,5 +1,5 @@
 import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore from '@deepseek-ai/dsh-session'
 import type { SessionEvent, TurnEndReason } from '@deepseek-ai/dsh-session'
@@ -8,12 +8,7 @@ import SubagentRuntime from '../src/index.ts'
 import { SUBAGENT_DESCRIPTOR_VERSION } from '../src/descriptor.ts'
 import { subagentIdentityProjectionDefinition, subagentTimingProjectionDefinition, type TimingState } from '../src/projection.ts'
 
-function event(
-  type: SessionEvent['type'],
-  seq: number,
-  time: number,
-  reason: TurnEndReason = { kind: 'completed' },
-): SessionEvent {
+function event(type: SessionEvent['type'], seq: number, time: number, reason: TurnEndReason = { kind: 'completed' }): SessionEvent {
   return {
     type,
     seq,
@@ -57,67 +52,54 @@ describe('subagent timing projection', () => {
   })
 
   it('resets inherited seed timing at the child descriptor and sums later completed turns', () => {
-    expect(fold([
-      event('turn/start', 0, 100),
-      event('subagent/descriptor', 1, 110),
-      event('turn/end', 2, 300),
-      event('turn/start', 3, 1_000),
-      event('subagent/descriptor', 4, 1_100),
-      event('turn/end', 5, 4_100),
-      event('turn/start', 6, 10_000),
-      event('turn/end', 7, 12_000),
-    ])).toEqual({ settledMs: 5_100, lastTurnCompleted: true })
+    expect(
+      fold([
+        event('turn/start', 0, 100),
+        event('subagent/descriptor', 1, 110),
+        event('turn/end', 2, 300),
+        event('turn/start', 3, 1_000),
+        event('subagent/descriptor', 4, 1_100),
+        event('turn/end', 5, 4_100),
+        event('turn/start', 6, 10_000),
+        event('turn/end', 7, 12_000),
+      ]),
+    ).toEqual({ settledMs: 5_100, lastTurnCompleted: true })
   })
 
   it('exposes an open turn start and never subtracts time for reversed boundaries', () => {
-    expect(fold([
-      event('turn/start', 0, 1_000),
-      event('subagent/descriptor', 1, 1_100),
-      event('turn/end', 2, 900),
-      event('turn/start', 3, 2_000),
-      event('assistant/attempt', 4, 2_500),
-    ])).toEqual({ settledMs: 0, active: { since: 2_000, through: 2_500 } })
+    expect(
+      fold([
+        event('turn/start', 0, 1_000),
+        event('subagent/descriptor', 1, 1_100),
+        event('turn/end', 2, 900),
+        event('turn/start', 3, 2_000),
+        event('assistant/attempt', 4, 2_500),
+      ]),
+    ).toEqual({ settledMs: 0, active: { since: 2_000, through: 2_500 } })
   })
 
   it('publishes only the latest closed turn completion and clears it when another turn opens', () => {
-    expect(fold([
-      event('turn/start', 0, 100),
-      event('subagent/descriptor', 1, 110),
-      event('turn/end', 2, 200),
-      event('turn/start', 3, 300),
-      event('turn/end', 4, 400, { kind: 'interrupted' }),
-    ])).toEqual({ settledMs: 200, lastTurnCompleted: false })
+    expect(
+      fold([
+        event('turn/start', 0, 100),
+        event('subagent/descriptor', 1, 110),
+        event('turn/end', 2, 200),
+        event('turn/start', 3, 300),
+        event('turn/end', 4, 400, { kind: 'interrupted' }),
+      ]),
+    ).toEqual({ settledMs: 200, lastTurnCompleted: false })
 
-    expect(fold([
-      event('turn/start', 0, 100),
-      event('subagent/descriptor', 1, 110),
-      event('turn/end', 2, 200),
-      event('turn/start', 3, 300),
-    ])).toEqual({ settledMs: 100, active: { since: 300, through: 300 } })
+    expect(
+      fold([event('turn/start', 0, 100), event('subagent/descriptor', 1, 110), event('turn/end', 2, 200), event('turn/start', 3, 300)]),
+    ).toEqual({ settledMs: 100, active: { since: 300, through: 300 } })
   })
 
   it('ignores completed pre-descriptor turns and unrelated events', () => {
     const initial = subagentTimingProjectionDefinition.init()
-    expect(subagentTimingProjectionDefinition.apply(
-      initial,
-      event('assistant/attempt', 0, 1),
-    )).toBe(initial)
-    expect(subagentTimingProjectionDefinition.apply(
-      initial,
-      event('turn/end', 1, 2),
-    )).toBe(initial)
-    const descriptor = subagentTimingProjectionDefinition.apply(
-      initial,
-      event('subagent/descriptor', 2, 3),
-    )
-    expect(subagentTimingProjectionDefinition.apply(
-      descriptor,
-      event('turn/end', 3, 4),
-    )).toBe(descriptor)
-    expect(fold([
-      event('turn/start', 0, 100),
-      event('turn/end', 1, 200),
-      event('subagent/descriptor', 2, 300),
-    ])).toEqual({ settledMs: 0 })
+    expect(subagentTimingProjectionDefinition.apply(initial, event('assistant/attempt', 0, 1))).toBe(initial)
+    expect(subagentTimingProjectionDefinition.apply(initial, event('turn/end', 1, 2))).toBe(initial)
+    const descriptor = subagentTimingProjectionDefinition.apply(initial, event('subagent/descriptor', 2, 3))
+    expect(subagentTimingProjectionDefinition.apply(descriptor, event('turn/end', 3, 4))).toBe(descriptor)
+    expect(fold([event('turn/start', 0, 100), event('turn/end', 1, 200), event('subagent/descriptor', 2, 300)])).toEqual({ settledMs: 0 })
   })
 })

@@ -2,10 +2,16 @@
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { expandTurnProcesses, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -13,11 +19,23 @@ const ROOT = fileURLToPath(new URL('../../../snapshots', import.meta.url))
 const MODE = webSnapshotMode()
 
 const CASES = [
-  { name: 'diff-context', source: 'session/fs-edit/session.v3.jsonl', totals: '+1 -1', shared: 'level=info', inventory: ['ui.expected.md'] },
-  { name: 'diff-bounded', source: 'web/diff-bounded/session.v3.jsonl', totals: '+130 -130', shared: 'shared heading', inventory: ['session.v3.jsonl', 'ui.expected.md'] },
+  {
+    name: 'diff-context',
+    source: 'session/fs-edit/session.v3.jsonl',
+    totals: '+1 -1',
+    shared: 'level=info',
+    inventory: ['ui.expected.md'],
+  },
+  {
+    name: 'diff-bounded',
+    source: 'web/diff-bounded/session.v3.jsonl',
+    totals: '+130 -130',
+    shared: 'shared heading',
+    inventory: ['session.v3.jsonl', 'ui.expected.md'],
+  },
 ]
 
-describe.skipIf(MODE === 'record').each(CASES)('web e2e: $name', (scenario) => {
+describe.skipIf(MODE === 'record').each(CASES)('web e2e: $name', scenario => {
   let scaffold: WebScaffold
   let browser: Browser
   let page: Page
@@ -58,8 +76,11 @@ describe.skipIf(MODE === 'record').each(CASES)('web e2e: $name', (scenario) => {
     expect(await edit.getByText(scenario.totals, { exact: true }).count()).toBe(1)
     expect(await card.textContent()).not.toContain(scenario.totals)
     const snapshotDir = `${ROOT}/web/${scenario.name}`
-    await compareOrRefreshGolden(`${snapshotDir}/ui.expected.md`,
-      await captureStableAria(page, '[data-variant="edit"]', scaffold.workspaceCwd), MODE)
+    await compareOrRefreshGolden(
+      `${snapshotDir}/ui.expected.md`,
+      await captureStableAria(page, '[data-variant="edit"]', scaffold.workspaceCwd),
+      MODE,
+    )
     await assertFixtureInventory(snapshotDir, scenario.inventory)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])

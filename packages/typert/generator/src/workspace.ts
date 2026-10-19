@@ -108,8 +108,7 @@ export class WorkspaceTypertGenerator {
    * @returns one artifact per contributor face.
    */
   generateContributors(faces?: readonly TypertFace[]): WorkspaceEmitResult[] {
-    const packages = this.discover(faces, manifest => hasTypertExport(manifest.exports))
-      .map(candidate => candidate.package)
+    const packages = this.discover(faces, manifest => hasTypertExport(manifest.exports)).map(candidate => candidate.package)
     return packages.length === 0 ? [] : this.generate(packages, faces)
   }
 
@@ -124,13 +123,10 @@ export class WorkspaceTypertGenerator {
       types: `./lib/typert.${artifact.face}.d.ts`,
       default: `./lib/typert.${artifact.face}.js`,
     }
-    const actual = manifest.exports !== null && typeof manifest.exports === 'object'
-      ? (manifest.exports as Record<string, unknown>)[subpath]
-      : undefined
+    const actual =
+      manifest.exports !== null && typeof manifest.exports === 'object' ? (manifest.exports as Record<string, unknown>)[subpath] : undefined
     if (!sameExport(actual, expected)) {
-      throw new TypertAnalysisError(
-        `typert(${artifact.face}): ${artifact.package} must export ${subpath} as ${JSON.stringify(expected)}`,
-      )
+      throw new TypertAnalysisError(`typert(${artifact.face}): ${artifact.package} must export ${subpath} as ${JSON.stringify(expected)}`)
     }
     const files = Array.isArray(manifest.files) ? manifest.files : []
     for (const file of [`lib/typert.${artifact.face}.js`, `lib/typert.${artifact.face}.d.ts`]) {
@@ -143,28 +139,22 @@ export class WorkspaceTypertGenerator {
       types: './lib/typert.remote-client.d.ts',
       default: './lib/typert.remote-client.js',
     }
-    const remoteActual = manifest.exports !== null && typeof manifest.exports === 'object'
-      ? (manifest.exports as Record<string, unknown>)['./remote']
-      : undefined
+    const remoteActual =
+      manifest.exports !== null && typeof manifest.exports === 'object'
+        ? (manifest.exports as Record<string, unknown>)['./remote']
+        : undefined
     // The declaration map is emitted beside these two but never published: it
     // serves editor navigation in the workspace, where the package link
     // resolves its source.
-    const remoteFiles = [
-      'lib/typert.remote-client.js',
-      'lib/typert.remote-client.d.ts',
-    ]
+    const remoteFiles = ['lib/typert.remote-client.js', 'lib/typert.remote-client.d.ts']
     if (artifact.remote === undefined) {
       if (remoteActual !== undefined || remoteFiles.some(file => files.includes(file))) {
-        throw new TypertAnalysisError(
-          `typert(host): ${artifact.package} publishes Remote artifacts but has no Remote methods`,
-        )
+        throw new TypertAnalysisError(`typert(host): ${artifact.package} publishes Remote artifacts but has no Remote methods`)
       }
       return
     }
     if (!sameExport(remoteActual, remoteExpected)) {
-      throw new TypertAnalysisError(
-        `typert(host): ${artifact.package} must export ./remote as ${JSON.stringify(remoteExpected)}`,
-      )
+      throw new TypertAnalysisError(`typert(host): ${artifact.package} must export ./remote as ${JSON.stringify(remoteExpected)}`)
     }
     for (const file of remoteFiles) {
       if (!files.includes(file)) {
@@ -201,9 +191,9 @@ export function findWorkspaceRoot(start: string): string {
  */
 export function hasTypertExport(exportsField: unknown): boolean {
   if (exportsField === null || typeof exportsField !== 'object' || Array.isArray(exportsField)) return false
-  return Object.hasOwn(exportsField, './typert')
-    || Object.hasOwn(exportsField, './client/typert')
-    || Object.hasOwn(exportsField, './remote')
+  return (
+    Object.hasOwn(exportsField, './typert') || Object.hasOwn(exportsField, './client/typert') || Object.hasOwn(exportsField, './remote')
+  )
 }
 
 function sameExport(actual: unknown, expected: { types: string; default: string }): boolean {

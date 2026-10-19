@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { setTimeout } from 'node:timers/promises'
 import { logoutAccount } from '../src/protocol.ts'
 import { revokeAccount } from '../src/logout.ts'
@@ -9,7 +9,9 @@ beforeEach(() => {
   vi.resetAllMocks()
   vi.mocked(setTimeout).mockResolvedValue(undefined)
 })
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 const policy = { maxRetries: 5, delayMs: 1_000, requestTimeoutMs: 30_000 }
 
@@ -23,8 +25,7 @@ it('makes at most six requests with five exponentially increasing delays and the
   vi.mocked(logoutAccount).mockRejectedValue(new Error('unavailable'))
   const controller = new AbortController()
   const headers = { cookie: 'test-gate' }
-  await expect(revokeAccount('https://platform.deepseek.com', 'old-token', policy, controller.signal, headers))
-    .resolves.toBeUndefined()
+  await expect(revokeAccount('https://platform.deepseek.com', 'old-token', policy, controller.signal, headers)).resolves.toBeUndefined()
   expect(logoutAccount).toHaveBeenCalledTimes(6)
   expect(vi.mocked(setTimeout).mock.calls.map(args => args[0])).toEqual([1_000, 2_000, 4_000, 8_000, 16_000])
   for (const args of vi.mocked(logoutAccount).mock.calls) {
@@ -48,10 +49,19 @@ it('honors a disabled retry policy', async () => {
 
 it('cancels an in-flight request when the provider closes', async () => {
   const controller = new AbortController()
-  vi.mocked(logoutAccount).mockImplementation((_origin, _token, signal) => new Promise((_resolve, reject) => {
-    signal.addEventListener('abort', () => { reject(new Error('cancelled')) }, { once: true })
-    controller.abort()
-  }))
+  vi.mocked(logoutAccount).mockImplementation(
+    (_origin, _token, signal) =>
+      new Promise((_resolve, reject) => {
+        signal.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('cancelled'))
+          },
+          { once: true },
+        )
+        controller.abort()
+      }),
+  )
   await revokeAccount('https://platform.deepseek.com', 'old-token', policy, controller.signal, {})
   expect(logoutAccount).toHaveBeenCalledTimes(1)
   expect(setTimeout).not.toHaveBeenCalled()

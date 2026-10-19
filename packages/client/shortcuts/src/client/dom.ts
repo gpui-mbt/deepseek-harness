@@ -10,14 +10,19 @@ import type { ShortcutPlatform, ShortcutRuntime } from '../protocol.ts'
  * @param navigator - browser device identification.
  * @returns explicit runtime and platform for default resolution.
  */
-export function detectEnvironment(document: Document, navigator: Navigator): {
+export function detectEnvironment(
+  document: Document,
+  navigator: Navigator,
+): {
   runtime: ShortcutRuntime
   platform: ShortcutPlatform
 } {
   const desktop = document.documentElement.dataset.platform
   const device = desktop ?? navigator.platform
-  return { runtime: desktop === undefined ? 'web' : 'desktop',
-    platform: /darwin|mac|iphone|ipad/iu.test(device) ? 'macos' : /win/iu.test(device) ? 'windows' : 'linux' }
+  return {
+    runtime: desktop === undefined ? 'web' : 'desktop',
+    platform: /darwin|mac|iphone|ipad/iu.test(device) ? 'macos' : /win/iu.test(device) ? 'windows' : 'linux',
+  }
 }
 
 /**
@@ -28,27 +33,46 @@ export function detectEnvironment(document: Document, navigator: Navigator): {
  * @param native - native input owns configurable bindings; DOM delivery only feeds fixed actions.
  * @returns disposer releasing every listener, the modal observer, and cached nodes.
  */
-export function installKeyboard(window: Window, shortcuts: Pick<ShortcutRegistry, 'dispatch' | 'runtime' | 'platform'>,
-  fixed?: (input: ShortcutFixedInput) => void, native = false): () => void {
+export function installKeyboard(
+  window: Window,
+  shortcuts: Pick<ShortcutRegistry, 'dispatch' | 'runtime' | 'platform'>,
+  fixed?: (input: ShortcutFixedInput) => void,
+  native = false,
+): () => void {
   const document = window.document
   const composition = observeComposition(document)
   let pending = false
   let pendingTimer: number | undefined
-  const reset = (): void => { fixed?.({ type: 'reset' }) }
+  const reset = (): void => {
+    fixed?.({ type: 'reset' })
+  }
   let deadKey = false
   let dialogs: NodeListOf<HTMLElement> | undefined
-  const blur = (): void => { deadKey = false; reset() }
-  const containsModal = (node: Node): boolean => node instanceof Element
-    && (node.matches(modalSelector) || node.querySelector(modalSelector) !== null)
+  const blur = (): void => {
+    deadKey = false
+    reset()
+  }
+  const containsModal = (node: Node): boolean =>
+    node instanceof Element && (node.matches(modalSelector) || node.querySelector(modalSelector) !== null)
   const changedModals = (records: MutationRecord[]): void => {
     if (records.length > 0) dialogs = undefined
-    if (records.some(record => record.type === 'attributes'
-      ? record.oldValue === 'dialog' || record.oldValue === 'true' || containsModal(record.target)
-      : [...record.addedNodes, ...record.removedNodes].some(containsModal))) reset()
+    if (
+      records.some(record =>
+        record.type === 'attributes'
+          ? record.oldValue === 'dialog' || record.oldValue === 'true' || containsModal(record.target)
+          : [...record.addedNodes, ...record.removedNodes].some(containsModal),
+      )
+    )
+      reset()
   }
   const observer = new MutationObserver(changedModals)
-  observer.observe(document.documentElement, { childList: true, subtree: true,
-    attributes: true, attributeFilter: ['role', 'aria-modal'], attributeOldValue: true })
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['role', 'aria-modal'],
+    attributeOldValue: true,
+  })
   const capture = (): void => {
     if (pending) reset()
     window.clearTimeout(pendingTimer)
@@ -67,30 +91,50 @@ export function installKeyboard(window: Window, shortcuts: Pick<ShortcutRegistry
     pending = false
     const target = event.composedPath().find(value => value instanceof Element)
     const element = target instanceof Element ? target : document.activeElement
-    const region = element?.closest('.xterm') ? 'terminal'
-      : element?.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]') ? 'editable' : 'page'
+    const region = element?.closest('.xterm')
+      ? 'terminal'
+      : element?.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]')
+        ? 'editable'
+        : 'page'
     // Local handlers can change modals before MutationObserver delivers its records.
     changedModals(observer.takeRecords())
     dialogs ??= document.querySelectorAll<HTMLElement>(modalSelector)
     const top = dialogs[dialogs.length - 1]
-    const context: ShortcutContext = { region, modal: top === undefined ? null : top.dataset.shortcutModal ?? 'other', target: element }
-    const guarded = composition.guards(event) || deadKey
-      || event.getModifierState('AltGraph')
+    const context: ShortcutContext = { region, modal: top === undefined ? null : (top.dataset.shortcutModal ?? 'other'), target: element }
+    const guarded = composition.guards(event) || deadKey || event.getModifierState('AltGraph')
     const isDead = event.key === 'Dead'
     // macOS can report Option+Command+N as Dead outside input-method composition.
-    const commandDeadKey = isDead && shortcuts.runtime === 'web' && shortcuts.platform === 'macos'
-      && event.code === 'KeyN' && event.metaKey && event.altKey && !event.ctrlKey && !event.shiftKey
+    const commandDeadKey =
+      isDead &&
+      shortcuts.runtime === 'web' &&
+      shortcuts.platform === 'macos' &&
+      event.code === 'KeyN' &&
+      event.metaKey &&
+      event.altKey &&
+      !event.ctrlKey &&
+      !event.shiftKey
     deadKey = isDead
-    const gesture = { code: event.code, control: event.ctrlKey, alt: event.altKey, shift: event.shiftKey,
-      meta: event.metaKey, repeat: event.repeat, composing: guarded || isDead, defaultPrevented: event.defaultPrevented }
+    const gesture = {
+      code: event.code,
+      control: event.ctrlKey,
+      alt: event.altKey,
+      shift: event.shiftKey,
+      meta: event.metaKey,
+      repeat: event.repeat,
+      composing: guarded || isDead,
+      defaultPrevented: event.defaultPrevented,
+    }
     const consume = (): void => {
       event.preventDefault()
       if (commandDeadKey) deadKey = false
     }
     fixed?.({ type: 'keydown', gesture, context, consume })
     if (native) return
-    shortcuts.dispatch({ ...gesture, composing: guarded || (isDead && !commandDeadKey),
-      defaultPrevented: event.defaultPrevented }, context, consume)
+    shortcuts.dispatch(
+      { ...gesture, composing: guarded || (isDead && !commandDeadKey), defaultPrevented: event.defaultPrevented },
+      context,
+      consume,
+    )
   }
   document.addEventListener('compositionstart', reset, true)
   document.addEventListener('compositionend', reset, true)

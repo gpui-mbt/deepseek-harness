@@ -1,12 +1,14 @@
 /** Candidate scheduling is measured by calls and query offsets, never clocks. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
-import type {
-  UserTextFacts, UserTextRule, UserTextNode, UserTextTransformContext,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
+import type { UserTextFacts, UserTextRule, UserTextNode, UserTextTransformContext } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UserTextRegistry } from '../src/client/conversation/user-text-registry.ts'
 
-interface Range { readonly start: number; readonly end: number; readonly label: string }
+interface Range {
+  readonly start: number
+  readonly end: number
+  readonly label: string
+}
 type Id = 'schedule.a' | 'schedule.b' | 'schedule.c'
 type Field = 'scheduleA' | 'scheduleB' | 'scheduleC'
 
@@ -42,8 +44,8 @@ function tracked(id: Id, field: Field, order: number) {
     const candidates = context.read(field) ?? []
     let best: Range | undefined
     for (const item of candidates) {
-      if (item.start >= from && (best === undefined || item.start < best.start
-        || (item.start === best.start && item.end > best.end))) best = item
+      if (item.start >= from && (best === undefined || item.start < best.start || (item.start === best.start && item.end > best.end)))
+        best = item
     }
     return best === undefined ? undefined : { id, start: best.start, end: best.end, data: { label: best.label } }
   })
@@ -57,7 +59,11 @@ function kit() {
   const c = tracked('schedule.c', 'scheduleC', 2)
   const fixture = setup([c.rule, b.rule, a.rule])
   const evaluate = (facts: Readonly<Partial<UserTextFacts>>) => fixture.evaluate({ text: TEXT, facts })
-  const clear = () => { a.match.mockClear(); b.match.mockClear(); c.match.mockClear() }
+  const clear = () => {
+    a.match.mockClear()
+    b.match.mockClear()
+    c.match.mockClear()
+  }
   return { ...fixture, a, b, c, evaluate, clear }
 }
 
@@ -95,7 +101,8 @@ describe('UserText candidate scheduling', () => {
     expect(k.b.calls()).toEqual([0, 10, 14])
     expect(k.c.calls()).toEqual([0])
     expect(nodes.filter(node => node.id !== 'text').map(node => [node.id, node.start])).toEqual([
-      ['schedule.a', 2], ['schedule.b', 12],
+      ['schedule.a', 2],
+      ['schedule.b', 12],
     ])
     coverage(nodes)
   })
@@ -108,10 +115,13 @@ describe('UserText candidate scheduling', () => {
     expect(k.c.calls()).toEqual([0])
   })
 
-  it.each(['', 'plain'])('initializes Facts-free matchers even for %j', (text) => {
+  it.each(['', 'plain'])('initializes Facts-free matchers even for %j', text => {
     const a = vi.fn((_text: string, _from: number) => undefined)
     const b = vi.fn((_text: string, _from: number) => undefined)
-    const { evaluate } = setup([{ id: 'schedule.a', order: 0, match: a }, { id: 'schedule.b', order: 1, match: b }])
+    const { evaluate } = setup([
+      { id: 'schedule.a', order: 0, match: a },
+      { id: 'schedule.b', order: 1, match: b },
+    ])
     const first = evaluate({ text, facts: {} })
     expect(a.mock.calls.map(([, from]) => from)).toEqual([0])
     expect(b.mock.calls.map(([, from]) => from)).toEqual([0])
@@ -193,10 +203,12 @@ describe('UserText candidate scheduling', () => {
     expect(k.c.calls()).toEqual([])
   })
 
-  it.each(['remove', 'shrink'] as const)('exposes cached losers and unsearched gaps when a winner changes: %s', (action) => {
+  it.each(['remove', 'shrink'] as const)('exposes cached losers and unsearched gaps when a winner changes: %s', action => {
     const k = kit()
     const facts = {
-      scheduleA: [range(0, 10)], scheduleB: [range(2, 3), range(5, 6), range(12, 14)], scheduleC: [range(4, 5)],
+      scheduleA: [range(0, 10)],
+      scheduleB: [range(2, 3), range(5, 6), range(12, 14)],
+      scheduleC: [range(4, 5)],
     }
     k.evaluate(facts)
     expect(k.b.calls()).toEqual([0, 10, 14])
@@ -294,7 +306,11 @@ describe('UserText candidate scheduling', () => {
     })
     const { evaluate } = setup([{ id: 'schedule.a', order: 0, match }])
     let failure: unknown
-    try { evaluate({ text: TEXT, facts: {} }) } catch (error) { failure = error }
+    try {
+      evaluate({ text: TEXT, facts: {} })
+    } catch (error) {
+      failure = error
+    }
     expect(failure).toHaveProperty('ruleId', 'schedule.a')
     expect(failure).toHaveProperty('cause', cause)
     expect(() => evaluate({ text: TEXT, facts: { scheduleOther: 1 } })).toThrow(failure)
@@ -315,7 +331,8 @@ describe('UserText candidate scheduling', () => {
     const old = { scheduleA: [range(0, 3)] }
     expect(() => evaluate({ text: TEXT, facts: old })).toThrow(/schedule.b/)
     expect(b.mock.calls.map(([, from]) => from)).toEqual([0, 3])
-    a.match.mockClear(); b.mockClear()
+    a.match.mockClear()
+    b.mockClear()
     const moved = evaluate({ text: TEXT, facts: { scheduleA: [range(0, 4)] } })
     expect(moved[0]?.end).toBe(4)
     expect(b.mock.calls.map(([, from]) => from)).toEqual([4])
@@ -326,32 +343,57 @@ describe('UserText candidate scheduling', () => {
 
   it('rejects a matcher that moves behind the cursor or produces another rule ID', () => {
     const behind = vi.fn((_text: string, _from: number): UserTextNode<'schedule.a'> => ({
-      id: 'schedule.a', start: 0, end: 1, data: { label: 'stuck' },
+      id: 'schedule.a',
+      start: 0,
+      end: 1,
+      data: { label: 'stuck' },
     }))
     const first = setup([{ id: 'schedule.a', order: 0, match: behind }])
     expect(() => first.evaluate({ text: TEXT, facts: {} })).toThrow(/schedule.a/)
     expect(behind.mock.calls.map(([, from]) => from)).toEqual([0, 1])
-    const foreign = setup([{ id: 'schedule.a', order: 0, match: () => ({
-      id: 'schedule.b', start: 0, end: 1, data: { label: 'foreign' },
-    }) }])
+    const foreign = setup([
+      {
+        id: 'schedule.a',
+        order: 0,
+        match: () => ({
+          id: 'schedule.b',
+          start: 0,
+          end: 1,
+          data: { label: 'foreign' },
+        }),
+      },
+    ])
     expect(() => foreign.evaluate({ text: TEXT, facts: {} })).toThrow(/schedule.a/)
   })
 
   it('closes matcher read contexts on success, throws and invalid asynchronous output', () => {
     let escaped: UserTextTransformContext | undefined
-    const { evaluate } = setup([{ id: 'schedule.a', order: 0, match: (_text, _from, context) => {
-      escaped = context
-      if (context.read('scheduleEnabled')) throw new Error('failed')
-      return undefined
-    } }])
+    const { evaluate } = setup([
+      {
+        id: 'schedule.a',
+        order: 0,
+        match: (_text, _from, context) => {
+          escaped = context
+          if (context.read('scheduleEnabled')) throw new Error('failed')
+          return undefined
+        },
+      },
+    ])
     evaluate({ text: TEXT, facts: {} })
     expect(() => escaped?.read('scheduleA')).toThrow(/closed/)
     expect(() => evaluate({ text: TEXT, facts: { scheduleEnabled: true } })).toThrow(/schedule.a/)
     expect(() => escaped?.read('scheduleA')).toThrow(/closed/)
-    const asyncCase = setup([{ id: 'schedule.a', order: 0,
-      // @ts-expect-error A matcher must return one synchronous candidate or undefined.
-      match: (_text, _from, context) => { escaped = context; return Promise.resolve(undefined) },
-    }])
+    const asyncCase = setup([
+      {
+        id: 'schedule.a',
+        order: 0,
+        // @ts-expect-error A matcher must return one synchronous candidate or undefined.
+        match: (_text, _from, context) => {
+          escaped = context
+          return Promise.resolve(undefined)
+        },
+      },
+    ])
     expect(() => asyncCase.evaluate({ text: TEXT, facts: {} })).toThrow(/schedule.a/)
     expect(() => escaped?.read('scheduleA')).toThrow(/closed/)
   })
@@ -397,7 +439,12 @@ describe('UserText candidate scheduling', () => {
     expect(evaluate({ text: 'abc', facts: {} })).toBe(first)
     evaluate({ text: 'abcd', facts: {} })
     evaluate({ text: '', facts: {} })
-    expect(match.mock.calls.map(([text, from]) => [text, from])).toEqual([['abc', 0], ['abc', 0], ['abcd', 0], ['', 0]])
+    expect(match.mock.calls.map(([text, from]) => [text, from])).toEqual([
+      ['abc', 0],
+      ['abc', 0],
+      ['abcd', 0],
+      ['', 0],
+    ])
   })
 
   it('reuses independent caches across registration, removal and priority changes', () => {
@@ -408,28 +455,43 @@ describe('UserText candidate scheduling', () => {
     evaluate(input)
     a.match.mockClear()
     let remove = registry.register(b.rule)
-    expect(evaluate(input).filter(node => node.id !== 'text').map(node => node.id)).toEqual(['schedule.a'])
+    expect(
+      evaluate(input)
+        .filter(node => node.id !== 'text')
+        .map(node => node.id),
+    ).toEqual(['schedule.a'])
     expect(a.calls()).toEqual([])
     expect(b.calls()).toEqual([0, 4])
     remove()
     evaluate(input)
     remove = registry.register({ ...b.rule, order: -1 })
-    a.match.mockClear(); b.match.mockClear()
-    expect(evaluate(input).filter(node => node.id !== 'text').map(node => node.id)).toEqual(['schedule.b'])
+    a.match.mockClear()
+    b.match.mockClear()
+    expect(
+      evaluate(input)
+        .filter(node => node.id !== 'text')
+        .map(node => node.id),
+    ).toEqual(['schedule.b'])
     expect(a.calls()).toEqual([])
     expect(b.calls()).toEqual([0, 7])
     remove()
-    expect(evaluate(input).filter(node => node.id !== 'text').map(node => node.id)).toEqual(['schedule.a'])
+    expect(
+      evaluate(input)
+        .filter(node => node.id !== 'text')
+        .map(node => node.id),
+    ).toEqual(['schedule.a'])
   })
 
   it('matches fresh evaluation throughout deterministic additions, removals and overlapping refreshes', () => {
     const k = kit()
     const variants = [[], [range(0, 10)], [range(2, 4), range(12, 15)], [range(5, 6), range(20, 25)]]
-    for (const scheduleA of variants) for (const scheduleB of variants) for (const scheduleC of variants) {
-      const facts = { scheduleA, scheduleB, scheduleC }
-      const nodes = k.evaluate(facts)
-      expect(nodes).toEqual(k.registry.createEvaluator()({ text: TEXT, facts }))
-      coverage(nodes)
-    }
+    for (const scheduleA of variants)
+      for (const scheduleB of variants)
+        for (const scheduleC of variants) {
+          const facts = { scheduleA, scheduleB, scheduleC }
+          const nodes = k.evaluate(facts)
+          expect(nodes).toEqual(k.registry.createEvaluator()({ text: TEXT, facts }))
+          coverage(nodes)
+        }
   })
 })

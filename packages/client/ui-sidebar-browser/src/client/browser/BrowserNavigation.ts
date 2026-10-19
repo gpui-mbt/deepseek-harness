@@ -51,9 +51,7 @@ export class BrowserNavigation {
    * @returns whether Forward is available.
    */
   static canGoForward(state: BrowserTabState): boolean {
-    return state.navigation.status !== 'unknown'
-      && state.index >= 0
-      && state.index < state.entries.length - 1
+    return state.navigation.status !== 'unknown' && state.index >= 0 && state.index < state.entries.length - 1
   }
 
   /** Current immutable serializable state. */
@@ -127,10 +125,7 @@ export class BrowserNavigation {
     }
   }
 
-  private request(
-    target: BrowserTarget,
-    basis: BrowserTabState,
-  ): NonNullable<BrowserTabState['request']> {
+  private request(target: BrowserTarget, basis: BrowserTabState): NonNullable<BrowserTabState['request']> {
     const request = { revision: (this.value.request?.revision ?? 0) + 1, target }
     this.value = {
       ...basis,

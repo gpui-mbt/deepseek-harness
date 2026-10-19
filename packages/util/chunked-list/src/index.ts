@@ -25,11 +25,11 @@ export interface ChunkedList<T> {
  */
 export function appendChunkedList<T>(head: ChunkedList<T> | undefined, value: T): ChunkedList<T> {
   if (head === undefined || head.values.length === CHUNK_CAPACITY) {
-    return { values: [value], ...head === undefined ? {} : { previous: head } }
+    return { values: [value], ...(head === undefined ? {} : { previous: head }) }
   }
   return {
     values: [...head.values, value],
-    ...head.previous === undefined ? {} : { previous: head.previous },
+    ...(head.previous === undefined ? {} : { previous: head.previous }),
   }
 }
 
@@ -50,9 +50,13 @@ export function* iterateChunkedList<T>(head: ChunkedList<T> | undefined): Genera
  * @returns recursive Zod schema rejecting empty or oversized chunks and unknown fields.
  */
 export function chunkedListSchema<T>(valueSchema: z.ZodType<T>): z.ZodType<ChunkedList<T>> {
-  const schema: z.ZodType<ChunkedList<T>> = z.lazy(() => z.object({
-    values: z.array(valueSchema).min(1).max(CHUNK_CAPACITY),
-    previous: schema.optional(),
-  }).strict())
+  const schema: z.ZodType<ChunkedList<T>> = z.lazy(() =>
+    z
+      .object({
+        values: z.array(valueSchema).min(1).max(CHUNK_CAPACITY),
+        previous: schema.optional(),
+      })
+      .strict(),
+  )
   return schema
 }

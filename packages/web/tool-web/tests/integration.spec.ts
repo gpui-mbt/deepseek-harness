@@ -7,7 +7,7 @@
  * with only its network boundary stubbed.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { AddressInfo } from 'node:net'
 import { Context } from '@deepseek-ai/cordis'
@@ -33,8 +33,13 @@ let fiber: Awaited<ReturnType<Context['plugin']>>
 
 beforeEach(async () => {
   vi.spyOn(publicHttpNetwork, 'resolve').mockResolvedValue([{ address: '127.0.0.1', family: 4 }])
-  handler = (_req, res) => { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<h1>Hello</h1><p>World</p>') }
-  server = createServer((req, res) => { handler(req, res) })
+  handler = (_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html' })
+    res.end('<h1>Hello</h1><p>World</p>')
+  }
+  server = createServer((req, res) => {
+    handler(req, res)
+  })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 
@@ -56,7 +61,11 @@ afterEach(async () => {
   await fiber.dispose()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
-  await new Promise<void>(resolve => server.close(() => { resolve() }))
+  await new Promise<void>(resolve =>
+    server.close(() => {
+      resolve()
+    }),
+  )
 })
 
 let counter = 0
@@ -68,17 +77,20 @@ describe('web_fetch integration over the real backend', () => {
   it('fetches an html page and renders it to markdown', async () => {
     const out = await call('web_fetch', { url: base })
     expect(out.isError).toBe(false)
-    const text = out.content.map(b => b.type === 'text' ? b.text : '').join('')
+    const text = out.content.map(b => (b.type === 'text' ? b.text : '')).join('')
     expect(text).toContain(`Fetched ${base}`)
     expect(text).toContain('# Hello')
     expect(text).toContain('World')
   })
 
   it('reports a 404 as a result, not an error', async () => {
-    handler = (_req, res) => { res.writeHead(404, { 'content-type': 'text/plain' }); res.end('missing') }
+    handler = (_req, res) => {
+      res.writeHead(404, { 'content-type': 'text/plain' })
+      res.end('missing')
+    }
     const out = await call('web_fetch', { url: base })
     expect(out.isError).toBe(false)
-    expect(out.content.map(b => b.type === 'text' ? b.text : '').join('')).toContain('HTTP 404')
+    expect(out.content.map(b => (b.type === 'text' ? b.text : '')).join('')).toContain('HTTP 404')
   })
 
   it('surfaces WEB_INVALID_URL as a structured tool error', async () => {
@@ -88,7 +100,10 @@ describe('web_fetch integration over the real backend', () => {
   })
 
   it('surfaces a blocked cross-origin redirect as WEB_REDIRECT_BLOCKED', async () => {
-    handler = (_req, res) => { res.writeHead(302, { location: 'https://example.com/' }); res.end() }
+    handler = (_req, res) => {
+      res.writeHead(302, { location: 'https://example.com/' })
+      res.end()
+    }
     const out = await call('web_fetch', { url: base })
     expect(out.isError).toBe(true)
     expect(out.error?.info?.code).toBe('WEB_REDIRECT_BLOCKED')
@@ -97,13 +112,19 @@ describe('web_fetch integration over the real backend', () => {
 
 describe('web_search integration over the real Exa provider', () => {
   it('runs web_search end-to-end and formats the provider result', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(
-      JSON.stringify({ results: [{ url: 'https://result.test', title: 'Result', highlights: ['a highlight'] }] }),
-      { status: 200, headers: { 'content-type': 'application/json' } },
-    )))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ results: [{ url: 'https://result.test', title: 'Result', highlights: ['a highlight'] }] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+      ),
+    )
     const out = await call('web_search', { queries: ['deepseek-official'] })
     expect(out.isError).toBe(false)
-    expect(out.content.map(b => b.type === 'text' ? b.text : '').join('')).toContain('[Result](https://result.test)')
+    expect(out.content.map(b => (b.type === 'text' ? b.text : '')).join('')).toContain('[Result](https://result.test)')
   })
 })
 
@@ -131,7 +152,9 @@ describe('tool-call timeout returns TOOL_TIMEOUT (deadline wins over a slow fetc
     // client aborts. The cooperative deadline (via exec.signal → the fetch
     // provider → undici) is what ends the call.
     openSockets = []
-    slowServer = createServer((_req, res) => { openSockets.push(res) })
+    slowServer = createServer((_req, res) => {
+      openSockets.push(res)
+    })
     await new Promise<void>(resolve => slowServer.listen(0, '127.0.0.1', resolve))
     slowBase = `http://127.0.0.1:${(slowServer.address() as AddressInfo).port}`
 
@@ -149,11 +172,20 @@ describe('tool-call timeout returns TOOL_TIMEOUT (deadline wins over a slow fetc
   afterEach(async () => {
     for (const res of openSockets) res.destroy()
     await tfiber.dispose()
-    await new Promise<void>(resolve => slowServer.close(() => { resolve() }))
+    await new Promise<void>(resolve =>
+      slowServer.close(() => {
+        resolve()
+      }),
+    )
   })
 
   it('returns a structured TOOL_TIMEOUT (not the provider WEB_FETCH_TIMEOUT) when the tool-call budget wins', async () => {
-    const out = await tctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('slow-1'), name: 'web_fetch', arguments: { url: slowBase } })
+    const out = await tctx.tools.execute({
+      signal: testToolSignal,
+      callId: ToolCallId('slow-1'),
+      name: 'web_fetch',
+      arguments: { url: slowBase },
+    })
     expect(out.isError).toBe(true)
     // The outer tool-call deadline won: TOOL_TIMEOUT, owned by dsh-tool-call-timeout-policy,
     // NOT the provider's own WEB_FETCH_TIMEOUT (its 30s backstop never fired).

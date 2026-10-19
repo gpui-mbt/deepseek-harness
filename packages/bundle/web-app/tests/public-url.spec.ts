@@ -4,7 +4,7 @@
  * rejections pin the hazards WHATWG URL parsing accepts on its own.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parsePublicUrl } from '../src/public-url.ts'
 
 describe('parsePublicUrl', () => {
@@ -15,8 +15,6 @@ describe('parsePublicUrl', () => {
     expect(parsePublicUrl('https://[::1]:8443/ui').href).toBe('https://[::1]:8443/ui/')
     expect(parsePublicUrl('HTTPS://app.example/UI').href).toBe('https://app.example/UI/')
   })
-
-
 
   it.each([
     // One row per rejection branch; the whitespace check precedes the scheme check.

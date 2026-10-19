@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { runFixtureTurn } from '../src/agent-turn.ts'
 
 type Listener = (session: unknown, event: SessionEvent) => void
@@ -27,10 +27,12 @@ function turnHarness(): {
   const agent = {
     session,
     whenIdle,
-    followup: vi.fn((message: { readonly id: unknown }) => { followup(message) }),
+    followup: vi.fn((message: { readonly id: unknown }) => {
+      followup(message)
+    }),
   }
   const ctx = {
-    get: (name: string) => name === 'agents' ? { roots: () => [agent] } : undefined,
+    get: (name: string) => (name === 'agents' ? { roots: () => [agent] } : undefined),
     on: (_name: string, callback: Listener) => {
       listener = callback
       return disposeListener
@@ -41,8 +43,12 @@ function turnHarness(): {
     ctx,
     session,
     foreignSession,
-    emit: (target, value) => { listener?.(target, event(value)) },
-    setFollowup: (callback) => { followup = callback },
+    emit: (target, value) => {
+      listener?.(target, event(value))
+    },
+    setFollowup: callback => {
+      followup = callback
+    },
     whenIdle,
     disposeListener,
     flush,
@@ -55,8 +61,9 @@ describe('runFixtureTurn', () => {
     ['multiple roots', { roots: () => [{}, {}] }, 2],
   ])('rejects %s', async (_label, registry, count) => {
     const ctx = { get: () => registry, on: () => () => {} } as unknown as Context
-    await expect(runFixtureTurn(ctx, { task: 'ignored' }))
-      .rejects.toThrow(`fixture turn requires exactly one top-level agent, found ${count}`)
+    await expect(runFixtureTurn(ctx, { task: 'ignored' })).rejects.toThrow(
+      `fixture turn requires exactly one top-level agent, found ${count}`,
+    )
   })
 
   it('waits for the configured agent to publish before requiring it', async () => {
@@ -66,7 +73,7 @@ describe('runFixtureTurn', () => {
     let created: (() => void) | undefined
     const dispose = vi.fn()
     const ctx = {
-      get: (name: string) => name === 'agents' ? { roots: () => [...roots] } : undefined,
+      get: (name: string) => (name === 'agents' ? { roots: () => [...roots] } : undefined),
       on: (name: string, callback: () => void) => {
         if (name === 'agent/created') created = callback
         return dispose
@@ -84,40 +91,61 @@ describe('runFixtureTurn', () => {
   it('observes only the owned interval and returns its final text and deduplicated usage', async () => {
     const harness = turnHarness()
     const observed: SessionEvent[] = []
-    harness.setFollowup((message) => {
+    harness.setFollowup(message => {
       harness.emit(harness.foreignSession, {
-        type: 'assistant/message', seq: 0, time: 0, data: { stream: [], message: { content: [] } },
+        type: 'assistant/message',
+        seq: 0,
+        time: 0,
+        data: { stream: [], message: { content: [] } },
       })
       harness.emit(harness.session, {
-        type: 'step/start', seq: 0, time: 0, data: { turn: 1, step: 1 },
+        type: 'step/start',
+        seq: 0,
+        time: 0,
+        data: { turn: 1, step: 1 },
       })
       harness.emit(harness.session, {
-        type: 'agent/inbox/spliced', seq: 1, time: 1, data: { inserted: [{ id: 'other' }] },
+        type: 'agent/inbox/spliced',
+        seq: 1,
+        time: 1,
+        data: { inserted: [{ id: 'other' }] },
       })
       harness.emit(harness.session, {
-        type: 'agent/inbox/spliced', seq: 2, time: 2, data: { inserted: [message] },
+        type: 'agent/inbox/spliced',
+        seq: 2,
+        time: 2,
+        data: { inserted: [message] },
       })
       harness.emit(harness.session, {
-        type: 'assistant/attempt', seq: 3, time: 3,
+        type: 'assistant/attempt',
+        seq: 3,
+        time: 3,
         data: {
           turn: 1,
           step: 1,
           stream: [
             { type: 'text-chunks', time0: 3, index: 0, dt: [], texts: ['partial'] },
             {
-              type: 'chunk', time: 4,
+              type: 'chunk',
+              time: 4,
               chunk: {
-                type: 'usage', usage: { inputTokens: 2, outputTokens: 3, reasoningTokens: 1 },
+                type: 'usage',
+                usage: { inputTokens: 2, outputTokens: 3, reasoningTokens: 1 },
               },
             },
           ],
         },
       })
       harness.emit(harness.session, {
-        type: 'feedback/record', seq: 4, time: 4, data: { text: 'interleaved' },
+        type: 'feedback/record',
+        seq: 4,
+        time: 4,
+        data: { text: 'interleaved' },
       })
       harness.emit(harness.session, {
-        type: 'assistant/message', seq: 5, time: 5,
+        type: 'assistant/message',
+        seq: 5,
+        time: 5,
         data: {
           turn: 1,
           step: 1,
@@ -127,25 +155,34 @@ describe('runFixtureTurn', () => {
         },
       })
       harness.emit(harness.session, {
-        type: 'assistant/attempt', seq: 6, time: 6,
+        type: 'assistant/attempt',
+        seq: 6,
+        time: 6,
         data: {
           turn: 1,
           step: 2,
-          stream: [{
-            type: 'chunk', time: 6,
-            chunk: {
-              type: 'usage',
-              usage: { inputTokens: 1, outputTokens: 2, cacheWriteTokens: 7, reasoningTokens: 2 },
+          stream: [
+            {
+              type: 'chunk',
+              time: 6,
+              chunk: {
+                type: 'usage',
+                usage: { inputTokens: 1, outputTokens: 2, cacheWriteTokens: 7, reasoningTokens: 2 },
+              },
             },
-          }],
+          ],
         },
       })
       harness.emit(harness.session, {
-        type: 'assistant/message', seq: 7, time: 7,
+        type: 'assistant/message',
+        seq: 7,
+        time: 7,
         data: { turn: 1, step: 2, stream: [], message: { content: [{ type: 'tool-call' }] } },
       })
       harness.emit(harness.session, {
-        type: 'assistant/attempt', seq: 8, time: 8,
+        type: 'assistant/attempt',
+        seq: 8,
+        time: 8,
         data: {
           turn: 1,
           step: 3,
@@ -153,14 +190,21 @@ describe('runFixtureTurn', () => {
         },
       })
       harness.emit(harness.foreignSession, {
-        type: 'assistant/message', seq: 9, time: 9, data: { stream: [], message: { content: [] } },
+        type: 'assistant/message',
+        seq: 9,
+        time: 9,
+        data: { stream: [], message: { content: [] } },
       })
     })
 
-    await expect(runFixtureTurn(harness.ctx, {
-      task: 'prove the fixture',
-      onEvent: (_sessionId, current) => { observed.push(current) },
-    })).resolves.toEqual({
+    await expect(
+      runFixtureTurn(harness.ctx, {
+        task: 'prove the fixture',
+        onEvent: (_sessionId, current) => {
+          observed.push(current)
+        },
+      }),
+    ).resolves.toEqual({
       type: 'result',
       sessionId: 'fixture-session',
       output: 'final answer',
@@ -180,9 +224,12 @@ describe('runFixtureTurn', () => {
 
   it('omits usage when the interval records none', async () => {
     const harness = turnHarness()
-    harness.setFollowup((message) => {
+    harness.setFollowup(message => {
       harness.emit(harness.session, {
-        type: 'agent/inbox/spliced', seq: 0, time: 0, data: { inserted: [message] },
+        type: 'agent/inbox/spliced',
+        seq: 0,
+        time: 0,
+        data: { inserted: [message] },
       })
     })
 

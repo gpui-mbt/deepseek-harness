@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { en as commonEn, zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/index.ts'
@@ -29,14 +29,26 @@ function meter(values: Record<string, unknown>, translate: ContextMeterProps['t'
 
 describe('ContextMeter', () => {
   it('computes occupancy only when both a numerator and capacity are known', () => {
-    expect(contextOccupancy({ pressureTokens: 32_000, projectedTokens: 6_000, contextWindow: 128_000 }))
-      .toEqual({ percent: 5, usedTokens: 6_000, contextWindow: 128_000 })
-    expect(contextOccupancy({ pressureTokens: 32_000, contextWindow: 128_000 }))
-      .toEqual({ percent: 25, usedTokens: 32_000, contextWindow: 128_000 })
+    expect(contextOccupancy({ pressureTokens: 32_000, projectedTokens: 6_000, contextWindow: 128_000 })).toEqual({
+      percent: 5,
+      usedTokens: 6_000,
+      contextWindow: 128_000,
+    })
+    expect(contextOccupancy({ pressureTokens: 32_000, contextWindow: 128_000 })).toEqual({
+      percent: 25,
+      usedTokens: 32_000,
+      contextWindow: 128_000,
+    })
     expect(contextOccupancy({ pressureTokens: 32_000 })).toBeNull()
     expect(contextOccupancy({ contextWindow: 128_000 })).toBeNull()
     expect(contextOccupancy(undefined)).toBeNull()
     expect(contextOccupancy({ pressureTokens: 300_000, contextWindow: 128_000 })?.percent).toBe(100)
+  })
+
+  it('formats million-scale token counts', () => {
+    const view = meter({ contextPressure: { pressureTokens: 1_500_000, contextWindow: 2_000_000 } })
+    fireEvent.click(view.getByRole('button'))
+    expect(view.getByRole('dialog').textContent).toContain(t('number.million', { value: '1.5' }))
   })
 
   it('renders nothing until both pressure and capacity are known', () => {
@@ -76,12 +88,10 @@ describe('ContextMeter', () => {
     fireEvent.click(zhView.getByRole('button', { name: '上下文已用 25%' }))
     // The reading follows the label in Chinese and leads it in English; both
     // headers read as one sentence rather than a concatenated fragment.
-    expect(zhView.queryByRole('dialog')!.textContent)
-      .toMatch(/^上下文已用25%/)
+    expect(zhView.queryByRole('dialog')!.textContent).toMatch(/^上下文已用25%/)
     const enView = meter(values, tEn)
     fireEvent.click(enView.getByRole('button', { name: '25% of context used' }))
-    expect(enView.queryByRole('dialog', { name: 'of context used' })!.textContent)
-      .toMatch(/^25%of context used/)
+    expect(enView.queryByRole('dialog', { name: 'of context used' })!.textContent).toMatch(/^25%of context used/)
   })
 
   it('draws no bar segment at zero occupancy', () => {

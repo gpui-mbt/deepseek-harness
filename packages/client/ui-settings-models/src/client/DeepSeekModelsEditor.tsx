@@ -72,17 +72,13 @@ export interface DeepSeekModelsValidationFailure {
   /** Zero-based model position. */
   index: number
   /** Message key owned by the Models settings section. */
-  key: 'modelIdRequired' | 'modelIdDuplicate' | 'modelNameInvalid' | 'modelContextInvalid'
-  | 'modelMaxTokensInvalid'
+  key: 'modelIdRequired' | 'modelIdDuplicate' | 'modelNameInvalid' | 'modelContextInvalid' | 'modelMaxTokensInvalid'
 }
 
 /** Convert a schema-validated catalog value into records without dropping hidden fields. */
 export function modelDrafts(value: unknown): DeepSeekModelDraft[] {
   if (!Array.isArray(value)) return []
-  return value.map(entry =>
-    typeof entry === 'object' && entry !== null && !Array.isArray(entry)
-      ? entry as DeepSeekModelDraft
-      : {})
+  return value.map(entry => (typeof entry === 'object' && entry !== null && !Array.isArray(entry) ? (entry as DeepSeekModelDraft) : {}))
 }
 
 /**
@@ -108,13 +104,11 @@ export function validateDeepSeekModels(value: unknown): DeepSeekModelsValidation
       return { index, key: 'modelNameInvalid' }
     }
     const contextWindow = model['contextWindow']
-    if (contextWindow !== undefined
-      && (typeof contextWindow !== 'number' || !Number.isInteger(contextWindow) || contextWindow <= 0)) {
+    if (contextWindow !== undefined && (typeof contextWindow !== 'number' || !Number.isInteger(contextWindow) || contextWindow <= 0)) {
       return { index, key: 'modelContextInvalid' }
     }
     const maxTokens = model['maxTokens']
-    if (maxTokens !== undefined
-      && (typeof maxTokens !== 'number' || !Number.isInteger(maxTokens) || maxTokens <= 0)) {
+    if (maxTokens !== undefined && (typeof maxTokens !== 'number' || !Number.isInteger(maxTokens) || maxTokens <= 0)) {
       return { index, key: 'modelMaxTokensInvalid' }
     }
   }
@@ -174,7 +168,7 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
   }
 
   const remove = (index: number): void => {
-    setEditing((current) => {
+    setEditing(current => {
       const next = new Map<string, string>()
       for (const [key, text] of current) {
         const at = rowOf(key)
@@ -184,7 +178,7 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
       }
       return next
     })
-    setExpanded((current) => {
+    setExpanded(current => {
       const next = new Set<number>()
       for (const at of current) {
         if (at === index) continue
@@ -202,7 +196,7 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
   }
 
   const toggle = (index: number): void => {
-    setExpanded((current) => {
+    setExpanded(current => {
       const next = new Set(current)
       if (!next.delete(index)) next.add(index)
       return next
@@ -225,7 +219,7 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
     // user can still see and correct.
     const parsed = parseCapacity(typed)
     if (parsed !== undefined && Number.isNaN(parsed)) return
-    setEditing((current) => {
+    setEditing(current => {
       const next = new Map(current)
       next.delete(key)
       return next
@@ -234,14 +228,17 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
 
   const capacityInput = (model: DeepSeekModelDraft, index: number, field: CapacityField, fallback: number | undefined) => ({
     value: capacityText(model, index, field),
-    placeholder: fallback === undefined
-      ? props.t(field === 'contextWindow' ? 'contextWindowPlaceholder' : 'maxTokensPlaceholder')
-      : formatCapacity(fallback),
+    placeholder:
+      fallback === undefined
+        ? props.t(field === 'contextWindow' ? 'contextWindowPlaceholder' : 'maxTokensPlaceholder')
+        : formatCapacity(fallback),
     onChange: (text: string) => {
       setEditing(current => new Map(current).set(`${String(index)}:${field}`, text))
       update(index, field, parseCapacity(text))
     },
-    onBlur: () => { settleCapacity(index, field) },
+    onBlur: () => {
+      settleCapacity(index, field)
+    },
   })
 
   return (
@@ -249,55 +246,56 @@ export function DeepSeekModelsEditor(props: DeepSeekModelsEditorProps): ReactNod
       <div className={styles['modelListHead']}>
         <div className={styles['modelCatalogHeading']}>
           <span className={styles['modelCatalogTitle']}>{props.t('models')}</span>
-          <span className={styles['modelCatalogMeta']}>
-            {props.overridden ? props.t('modelsCustomized') : props.t('modelsInherited')}
-          </span>
+          <span className={styles['modelCatalogMeta']}>{props.overridden ? props.t('modelsCustomized') : props.t('modelsInherited')}</span>
         </div>
-        {props.overridden
-          ? (
-            <button
-              type="button"
-              className={styles['linkButton']}
-              disabled={props.disabled}
-              onClick={reset}
-            >
-              {props.t('resetModels')}
-            </button>
-          )
-          : null}
+        {props.overridden ? (
+          <button type="button" className={styles['linkButton']} disabled={props.disabled} onClick={reset}>
+            {props.t('resetModels')}
+          </button>
+        ) : null}
       </div>
-      {props.models.length === 0
-        ? <p className={styles['modelEmpty']}>{props.t('modelsEmpty')}</p>
-        : (
-          <div className={styles['modelList']}>
-            {props.models.map((model, index) => (
-              <ModelRow
-                key={index}
-                model={model}
-                position={index + 1}
-                inputField="inputModalities"
-                expanded={expanded.has(index)}
-                disabled={props.disabled}
-                t={props.t}
-                contextWindow={capacityInput(model, index, 'contextWindow', props.defaultContextWindow)}
-                maxTokens={capacityInput(model, index, 'maxTokens', props.defaultMaxTokens)}
-                onFieldChange={(field, value) => { update(index, field, value) }}
-                onIdBlur={(value) => {
-                  const trimmed = value.trim()
-                  if (trimmed !== value) update(index, 'id', trimmed)
-                }}
-                onChange={(next) => { props.onChange(props.models.map((row, at) => at === index ? next : row)) }}
-                onToggle={() => { toggle(index) }}
-                onRemove={() => { remove(index) }}
-              />
-            ))}
-          </div>
-        )}
+      {props.models.length === 0 ? (
+        <p className={styles['modelEmpty']}>{props.t('modelsEmpty')}</p>
+      ) : (
+        <div className={styles['modelList']}>
+          {props.models.map((model, index) => (
+            <ModelRow
+              key={index}
+              model={model}
+              position={index + 1}
+              inputField="inputModalities"
+              expanded={expanded.has(index)}
+              disabled={props.disabled}
+              t={props.t}
+              contextWindow={capacityInput(model, index, 'contextWindow', props.defaultContextWindow)}
+              maxTokens={capacityInput(model, index, 'maxTokens', props.defaultMaxTokens)}
+              onFieldChange={(field, value) => {
+                update(index, field, value)
+              }}
+              onIdBlur={value => {
+                const trimmed = value.trim()
+                if (trimmed !== value) update(index, 'id', trimmed)
+              }}
+              onChange={next => {
+                props.onChange(props.models.map((row, at) => (at === index ? next : row)))
+              }}
+              onToggle={() => {
+                toggle(index)
+              }}
+              onRemove={() => {
+                remove(index)
+              }}
+            />
+          ))}
+        </div>
+      )}
       <button
         type="button"
         className={styles['addModelButton']}
         disabled={props.disabled}
-        onClick={() => { props.onChange([...props.models.map(model => ({ ...model })), { id: '' }]) }}
+        onClick={() => {
+          props.onChange([...props.models.map(model => ({ ...model })), { id: '' }])
+        }}
       >
         <IconPlusOutlineRegular size={14} />
         {props.t('addModel')}

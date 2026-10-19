@@ -117,9 +117,11 @@ export function ModelReasoningEfforts({ model, levels, position, disabled, t, on
   const label = `${t('modelReasoning')} ${String(position)}`
   const used = entries?.map(([level]) => level) ?? []
 
-  const write = (next: Entries | undefined): void => { onChange(withEfforts(model, next)) }
+  const write = (next: Entries | undefined): void => {
+    onChange(withEfforts(model, next))
+  }
   const replaceAt = (current: Entries, index: number, entry: readonly [string, unknown]): Entries =>
-    current.map((existing, at) => at === index ? entry : existing)
+    current.map((existing, at) => (at === index ? entry : existing))
 
   const changeLevel = (current: Entries, index: number, from: string, wire: unknown, to: string): void => {
     // Only a custom spelling between two thinking levels carries over; a value
@@ -130,8 +132,8 @@ export function ModelReasoningEfforts({ model, levels, position, disabled, t, on
 
   const addLevel = (current: Entries): void => {
     const highest = Math.max(-1, ...used.map(level => levels.indexOf(level)))
-    const level = levels.find((candidate, index) => index > highest && !used.includes(candidate))
-      ?? levels.find(candidate => !used.includes(candidate))
+    const level =
+      levels.find((candidate, index) => index > highest && !used.includes(candidate)) ?? levels.find(candidate => !used.includes(candidate))
     /* v8 ignore next -- the add button is disabled once every level has a row */
     if (level === undefined) return
     write([...current, [level, defaultValue(level)]])
@@ -151,7 +153,7 @@ export function ModelReasoningEfforts({ model, levels, position, disabled, t, on
 
   // A stored key the offered levels do not name stays selectable in its own row.
   const choicesFor = (level: string): readonly string[] => [
-    ...levels.includes(level) ? [] : [level],
+    ...(levels.includes(level) ? [] : [level]),
     ...levels.filter(choice => choice === level || !used.includes(choice)),
   ]
   const initialEntries = INITIAL_LEVELS.filter(level => levels.includes(level)).map(level => [level, defaultValue(level)] as const)
@@ -165,83 +167,97 @@ export function ModelReasoningEfforts({ model, levels, position, disabled, t, on
         <span className={`${styles['modelFieldLabel']} ${styles['modelReasoningLabel']}`}>
           {t('modelReasoning')}
           <Tooltip label={t('modelReasoningHelpText')} side="right" delayMs={0} focusDelayMs={0} portal openOnClick>
-            <button type="button" className={styles['helpButton']} aria-label={t('modelReasoningHelp')}>?</button>
+            <button type="button" className={styles['helpButton']} aria-label={t('modelReasoningHelp')}>
+              ?
+            </button>
           </Tooltip>
         </span>
         <Switch
           checked={entries !== undefined}
           label={label}
           disabled={disabled}
-          onChange={(on) => { write(on ? initialEntries : undefined) }}
+          onChange={on => {
+            write(on ? initialEntries : undefined)
+          }}
         />
       </div>
-      {entries === undefined
-        ? null
-        : (
-          <>
-            {entries.length > 0
-              ? (
-                <div className={styles['modelReasoningRow']} aria-hidden="true">
-                  <span className={styles['modelFieldLabel']}>{t('modelReasoningLevel')}</span>
-                  <span className={styles['modelFieldLabel']}>{t('modelReasoningValue')}</span>
-                </div>
-              )
-              : null}
-            {entries.map(([level, wire], index) => (
-              // A row is the entry at this position of the stored dict: changing its
-              // level edits that entry in place and rows keep no state of their own,
-              // so the position is the row's identity. Keying by level would remount
-              // the select on every change and drop keyboard focus.
-              <div key={index} className={styles['modelReasoningRow']}>
-                <select
-                  className={`${styles['input']} ${styles['selectInput']}`}
-                  value={level}
-                  aria-label={`${t('modelReasoningLevel')} ${String(index + 1)}`}
-                  disabled={disabled}
-                  onChange={(event) => { changeLevel(entries, index, level, wire, event.target.value) }}
-                >
-                  {choicesFor(level).map(choice => (
-                    <option key={choice} value={choice}>{choice}</option>
-                  ))}
-                </select>
-                <input
-                  className={`${styles['input']} ${styles['modelReasoningValueInput']}`}
-                  type="text"
-                  value={typing?.level === level ? typing.text : typeof wire === 'string' ? wire : ''}
-                  placeholder={level === 'off' ? t('modelReasoningOffValuePlaceholder') : level}
-                  aria-label={`${level} ${t('modelReasoningValue')}`}
-                  aria-invalid={!acceptedValue(level, wire)}
-                  // Off only turns reasoning off; a value stored in cordis.patch.yml is shown and kept.
-                  disabled={disabled || level === 'off'}
-                  onChange={(event) => { editValue(entries, index, level, event.target.value) }}
-                  onBlur={() => { leaveValue(entries, index, level, wire) }}
-                />
-                <button
-                  type="button"
-                  className={`${styles['iconButton']} ${styles['iconButtonDanger']}`}
-                  aria-label={`${t('modelReasoningRemove')} ${level}`}
-                  title={t('modelReasoningRemove')}
-                  disabled={disabled}
-                  onClick={() => { write(entries.filter((_entry, at) => at !== index)) }}
-                >
-                  <IconTrashOutlineRegular size={14} />
-                </button>
-              </div>
-            ))}
-            {refused
-              ? <p className={styles['error']}>{t('modelReasoningValueRequired')}</p>
-              : missingLevel ? <p className={styles['error']}>{t('modelReasoningNeedsLevel')}</p> : null}
-            <button
-              type="button"
-              className={styles['addModelButton']}
-              disabled={disabled || levels.every(level => used.includes(level))}
-              onClick={() => { addLevel(entries) }}
-            >
-              <IconPlusOutlineRegular size={14} />
-              {t('modelReasoningAdd')}
-            </button>
-          </>
-        )}
+      {entries === undefined ? null : (
+        <>
+          {entries.length > 0 ? (
+            <div className={styles['modelReasoningRow']} aria-hidden="true">
+              <span className={styles['modelFieldLabel']}>{t('modelReasoningLevel')}</span>
+              <span className={styles['modelFieldLabel']}>{t('modelReasoningValue')}</span>
+            </div>
+          ) : null}
+          {entries.map(([level, wire], index) => (
+            // A row is the entry at this position of the stored dict: changing its
+            // level edits that entry in place and rows keep no state of their own,
+            // so the position is the row's identity. Keying by level would remount
+            // the select on every change and drop keyboard focus.
+            <div key={index} className={styles['modelReasoningRow']}>
+              <select
+                className={`${styles['input']} ${styles['selectInput']}`}
+                value={level}
+                aria-label={`${t('modelReasoningLevel')} ${String(index + 1)}`}
+                disabled={disabled}
+                onChange={event => {
+                  changeLevel(entries, index, level, wire, event.target.value)
+                }}
+              >
+                {choicesFor(level).map(choice => (
+                  <option key={choice} value={choice}>
+                    {choice}
+                  </option>
+                ))}
+              </select>
+              <input
+                className={`${styles['input']} ${styles['modelReasoningValueInput']}`}
+                type="text"
+                value={typing?.level === level ? typing.text : typeof wire === 'string' ? wire : ''}
+                placeholder={level === 'off' ? t('modelReasoningOffValuePlaceholder') : level}
+                aria-label={`${level} ${t('modelReasoningValue')}`}
+                aria-invalid={!acceptedValue(level, wire)}
+                // Off only turns reasoning off; a value stored in cordis.patch.yml is shown and kept.
+                disabled={disabled || level === 'off'}
+                onChange={event => {
+                  editValue(entries, index, level, event.target.value)
+                }}
+                onBlur={() => {
+                  leaveValue(entries, index, level, wire)
+                }}
+              />
+              <button
+                type="button"
+                className={`${styles['iconButton']} ${styles['iconButtonDanger']}`}
+                aria-label={`${t('modelReasoningRemove')} ${level}`}
+                title={t('modelReasoningRemove')}
+                disabled={disabled}
+                onClick={() => {
+                  write(entries.filter((_entry, at) => at !== index))
+                }}
+              >
+                <IconTrashOutlineRegular size={14} />
+              </button>
+            </div>
+          ))}
+          {refused ? (
+            <p className={styles['error']}>{t('modelReasoningValueRequired')}</p>
+          ) : missingLevel ? (
+            <p className={styles['error']}>{t('modelReasoningNeedsLevel')}</p>
+          ) : null}
+          <button
+            type="button"
+            className={styles['addModelButton']}
+            disabled={disabled || levels.every(level => used.includes(level))}
+            onClick={() => {
+              addLevel(entries)
+            }}
+          >
+            <IconPlusOutlineRegular size={14} />
+            {t('modelReasoningAdd')}
+          </button>
+        </>
+      )}
     </div>
   )
 }

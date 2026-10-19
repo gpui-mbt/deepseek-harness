@@ -6,7 +6,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import { JsonStorageBackend } from '@deepseek-ai/dsh-storage-json'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { afterEach, beforeEach, expect, it, vi, type MockInstance } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi, type MockInstance } from 'vite-plus/test'
 import ScheduleService from '../src/index.ts'
 import { scheduleDomain } from '../src/storage.ts'
 import { ScheduleId } from '../src/domain.ts'
@@ -15,16 +15,27 @@ import { agentFor, harness } from './harness.ts'
 
 const roots: string[] = []
 const contexts: Context[] = []
-beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-16T00:00:00Z')) })
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-09-16T00:00:00Z'))
+})
 afterEach(async () => {
   const errors: unknown[] = []
   for (const ctx of contexts.splice(0)) {
-    try { await ctx.fiber.dispose() } catch (error) { errors.push(error) }
+    try {
+      await ctx.fiber.dispose()
+    } catch (error) {
+      errors.push(error)
+    }
   }
   vi.restoreAllMocks()
   vi.useRealTimers()
   for (const root of roots.splice(0)) {
-    try { await rm(root, { recursive: true, force: true }) } catch (error) { errors.push(error) }
+    try {
+      await rm(root, { recursive: true, force: true })
+    } catch (error) {
+      errors.push(error)
+    }
   }
   if (errors.length > 0) throw new AggregateError(errors, 'Schedule recovery cleanup failed')
 })
@@ -43,18 +54,28 @@ function encoded(tasks: Record<string, unknown>, version = 1) {
 const oldTask = {
   sessionId: 'original',
   record: {
-    id: 'a-good', kind: 'after', title: 'Old due reminder', prompt: 'Old due reminder', afterSeconds: 60,
+    id: 'a-good',
+    kind: 'after',
+    title: 'Old due reminder',
+    prompt: 'Old due reminder',
+    afterSeconds: 60,
     scheduledAt: '2026-09-15T23:59:59.000Z',
   },
 }
 const repairedTask = {
-  sessionId: 'original', status: 'inactive',
+  sessionId: 'original',
+  status: 'inactive',
   record: {
-    id: 'z-broken', kind: 'at', title: 'Retained receipt', prompt: 'Retained receipt',
+    id: 'z-broken',
+    kind: 'at',
+    title: 'Retained receipt',
+    prompt: 'Retained receipt',
     scheduledAt: '2026-09-15T20:00:00.000Z',
   },
   lastDelivery: {
-    scheduledAt: '2026-09-15T20:00:00.000Z', deliveredAt: '2026-09-15T20:00:01.000Z', messageId: 'original-message',
+    scheduledAt: '2026-09-15T20:00:00.000Z',
+    deliveredAt: '2026-09-15T20:00:01.000Z',
+    messageId: 'original-message',
   },
 }
 
@@ -64,23 +85,28 @@ it.each([
   [encoded({ 'a-good': oldTask, 'z-broken': { invalid: true } }), 'invalid-record'],
 ])('rejects the complete task domain on invalid stored data and recovers after repair', async (broken, code) => {
   const { root, path } = await rootWith({}, broken)
-  let observed: {
-    ctx: Context
-    facility: DomainFacility
-    agent: ReturnType<typeof agentFor>
-    resolveCalls: () => number
-  } | undefined
+  let observed:
+    | {
+        ctx: Context
+        facility: DomainFacility
+        agent: ReturnType<typeof agentFor>
+        resolveCalls: () => number
+      }
+    | undefined
   const changed = vi.fn()
-  await expect(harness({
-    backend: new JsonStorageBackend(root), onContext: ctx => contexts.push(ctx),
-    beforeService: async (ctx, facility) => {
-      const agent = agentFor(ctx)
-      ctx.effect(() => ctx.agents.enter(agent, undefined))
-      ctx.on('schedule/changed', changed)
-      const resolve = vi.spyOn(ctx.sessionController, 'resolveAgent')
-      observed = { ctx, facility, agent, resolveCalls: () => resolve.mock.calls.length }
-    },
-  }).then(() => 'Schedule activated')).rejects.toMatchObject({ code })
+  await expect(
+    harness({
+      backend: new JsonStorageBackend(root),
+      onContext: ctx => contexts.push(ctx),
+      beforeService: async (ctx, facility) => {
+        const agent = agentFor(ctx)
+        ctx.effect(() => ctx.agents.enter(agent, undefined))
+        ctx.on('schedule/changed', changed)
+        const resolve = vi.spyOn(ctx.sessionController, 'resolveAgent')
+        observed = { ctx, facility, agent, resolveCalls: () => resolve.mock.calls.length }
+      },
+    }).then(() => 'Schedule activated'),
+  ).rejects.toMatchObject({ code })
   if (observed === undefined) throw new Error('Schedule dependencies did not initialize')
   const { ctx, facility, agent } = observed
   expect(ctx.get('schedule')).toBeUndefined()
@@ -104,7 +130,10 @@ it.each([
 })
 
 it.each([
-  null, [], {}, { records: [], earlierRecordsUnavailable: 'true' },
+  null,
+  [],
+  {},
+  { records: [], earlierRecordsUnavailable: 'true' },
   { records: [], earlierRecordsUnavailable: false, earlierRecordsPruned: 'true' },
   { records: [], earlierRecordsUnavailable: false, extra: true },
   { records: [repairedTask.lastDelivery], earlierRecordsUnavailable: undefined },
@@ -117,15 +146,16 @@ it.each([
   { records: [{ ...repairedTask.lastDelivery, messageId: 'different' }], earlierRecordsUnavailable: false },
   { records: [{ ...repairedTask.lastDelivery, scheduledAt: '2026-09-15T19:00:00.000Z' }], earlierRecordsUnavailable: false },
   { records: [{ ...repairedTask.lastDelivery, deliveredAt: '2026-09-15T19:00:00.000Z' }], earlierRecordsUnavailable: false },
-])('rejects malformed or inconsistent saved history without rewriting task files %#', async (deliveryHistory) => {
+])('rejects malformed or inconsistent saved history without rewriting task files %#', async deliveryHistory => {
   const bytes = encoded({ 'z-broken': { ...repairedTask, deliveryHistory } })
   const { root, path } = await rootWith({}, bytes)
-  await expect(harness({ backend: new JsonStorageBackend(root), onContext: ctx => contexts.push(ctx) }))
-    .rejects.toMatchObject({ code: 'invalid-record' })
+  await expect(harness({ backend: new JsonStorageBackend(root), onContext: ctx => contexts.push(ctx) })).rejects.toMatchObject({
+    code: 'invalid-record',
+  })
   expect(await readFile(path, 'utf8')).toBe(bytes)
 })
 
-it.each([true, false])('reads legacy history with receipt=%s without rewriting stored files', async (hasReceipt) => {
+it.each([true, false])('reads legacy history with receipt=%s without rewriting stored files', async hasReceipt => {
   const legacy = hasReceipt ? repairedTask : { ...oldTask, status: 'inactive' }
   const taskId = ScheduleId(legacy.record.id)
   const bytes = encoded({ [taskId]: legacy })
@@ -134,8 +164,11 @@ it.each([true, false])('reads legacy history with receipt=%s without rewriting s
   const changed = vi.fn()
   test.ctx.on('schedule/changed', changed)
   expect(await test.service.history({ sessionId: SessionId(legacy.sessionId), id: taskId, limit: 100 })).toEqual({
-    id: taskId, records: hasReceipt ? [repairedTask.lastDelivery] : [], earlierRecordsUnavailable: true,
-    earlierRecordsPruned: false, retention: { days: 30, records: 200 },
+    id: taskId,
+    records: hasReceipt ? [repairedTask.lastDelivery] : [],
+    earlierRecordsUnavailable: true,
+    earlierRecordsPruned: false,
+    retention: { days: 30, records: 200 },
   })
   expect(changed).not.toHaveBeenCalled()
   expect(test.resolve).not.toHaveBeenCalled()
@@ -144,54 +177,69 @@ it.each([true, false])('reads legacy history with receipt=%s without rewriting s
   expect(await readFile(path, 'utf8')).toBe(bytes)
 })
 
-it.each(['create', 'delete'] as const)('returns the durable %s result when an ancestor unloads before dispatch admission', async (operation) => {
-  const future = { ...oldTask, record: { ...oldTask.record, scheduledAt: '2026-09-17T00:00:00.000Z' } }
-  const { root, path } = await rootWith(operation === 'delete' ? { 'a-good': future } : {})
-  const test = await harness({ backend: new JsonStorageBackend(root), onContext: ctx => contexts.push(ctx) })
-  await vi.advanceTimersByTimeAsync(0)
-  const admission = vi.spyOn(test.ctx.agents, 'withoutInitiator')
-  const warning = vi.spyOn(test.ctx.logger, 'warn')
-  const stop = vi.spyOn(ScheduleRuntime.prototype, 'dispose')
-  let unloading: Promise<void> | undefined
-  let cleanupHadStarted: boolean | undefined
-  test.ctx.on('schedule/changed', () => {
-    unloading = test.ctx.fiber.dispose()
-    cleanupHadStarted = stop.mock.calls.length !== 0
-  })
-  const mutation = operation === 'create'
-    ? test.service.create(SessionId('original'), {
-      prompt: 'Accepted before unload', after_seconds: 60, title: 'Accepted before unload',
+it.each(['create', 'delete'] as const)(
+  'returns the durable %s result when an ancestor unloads before dispatch admission',
+  async operation => {
+    const future = { ...oldTask, record: { ...oldTask.record, scheduledAt: '2026-09-17T00:00:00.000Z' } }
+    const { root, path } = await rootWith(operation === 'delete' ? { 'a-good': future } : {})
+    const test = await harness({ backend: new JsonStorageBackend(root), onContext: ctx => contexts.push(ctx) })
+    await vi.advanceTimersByTimeAsync(0)
+    const admission = vi.spyOn(test.ctx.agents, 'withoutInitiator')
+    const warning = vi.spyOn(test.ctx.logger, 'warn')
+    const stop = vi.spyOn(ScheduleRuntime.prototype, 'dispose')
+    let unloading: Promise<void> | undefined
+    let cleanupHadStarted: boolean | undefined
+    test.ctx.on('schedule/changed', () => {
+      unloading = test.ctx.fiber.dispose()
+      cleanupHadStarted = stop.mock.calls.length !== 0
     })
-    : test.service.delete({ sessionId: SessionId('original'), id: ScheduleId('a-good') })
-  const outcome = await mutation.then(value => ({ value }), (error: unknown) => ({ error }))
-  await unloading
-  expect(cleanupHadStarted).toBe(false)
-  const stored = JSON.parse(await readFile(path, 'utf8')) as {
-    tables: { tasks: Record<string, unknown> }
-  }
-  if (operation === 'create') {
-    const created = Object.values(stored.tables.tasks)
-    expect(created).toHaveLength(1)
-    expect(created[0]).toMatchObject({
-      sessionId: 'original', status: 'active', record: { prompt: 'Accepted before unload', kind: 'after' },
-    })
-    expect(outcome).not.toHaveProperty('error')
-    if (!('value' in outcome)) throw new Error('Accepted creation did not return its record')
-    expect(created[0]).toEqual({ sessionId: 'original', record: outcome.value, status: 'active',
-      deliveryHistory: { records: [], earlierRecordsUnavailable: false } })
-  } else {
-    expect(stored.tables.tasks).toEqual({})
-    expect(outcome).toEqual({ value: { id: 'a-good', deleted: true } })
-  }
-  expect(admission).toHaveBeenCalledTimes(1)
-  expect(admission.mock.results[0]).toMatchObject({ type: 'throw' })
-  expect(warning).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('agent initiator scope is disposed'))
-  expect(test.resolve).not.toHaveBeenCalled()
-  expect(vi.getTimerCount()).toBe(0)
-  await vi.advanceTimersByTimeAsync(86_400_000)
-  expect(admission).toHaveBeenCalledTimes(1)
-  expect(test.resolve).not.toHaveBeenCalled()
-})
+    const mutation =
+      operation === 'create'
+        ? test.service.create(SessionId('original'), {
+            prompt: 'Accepted before unload',
+            after_seconds: 60,
+            title: 'Accepted before unload',
+          })
+        : test.service.delete({ sessionId: SessionId('original'), id: ScheduleId('a-good') })
+    const outcome = await mutation.then(
+      value => ({ value }),
+      (error: unknown) => ({ error }),
+    )
+    await unloading
+    expect(cleanupHadStarted).toBe(false)
+    const stored = JSON.parse(await readFile(path, 'utf8')) as {
+      tables: { tasks: Record<string, unknown> }
+    }
+    if (operation === 'create') {
+      const created = Object.values(stored.tables.tasks)
+      expect(created).toHaveLength(1)
+      expect(created[0]).toMatchObject({
+        sessionId: 'original',
+        status: 'active',
+        record: { prompt: 'Accepted before unload', kind: 'after' },
+      })
+      expect(outcome).not.toHaveProperty('error')
+      if (!('value' in outcome)) throw new Error('Accepted creation did not return its record')
+      expect(created[0]).toEqual({
+        sessionId: 'original',
+        record: outcome.value,
+        status: 'active',
+        deliveryHistory: { records: [], earlierRecordsUnavailable: false },
+      })
+    } else {
+      expect(stored.tables.tasks).toEqual({})
+      expect(outcome).toEqual({ value: { id: 'a-good', deleted: true } })
+    }
+    expect(admission).toHaveBeenCalledTimes(1)
+    expect(admission.mock.results[0]).toMatchObject({ type: 'throw' })
+    expect(warning).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('agent initiator scope is disposed'))
+    expect(test.resolve).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(86_400_000)
+    expect(admission).toHaveBeenCalledTimes(1)
+    expect(test.resolve).not.toHaveBeenCalled()
+  },
+)
 
 it('supports explicit initialization of a directly constructed service', async () => {
   const { root } = await rootWith({})
@@ -205,11 +253,14 @@ it('logs startup dispatch admission failure without rejecting initialized storag
   let facility: DomainFacility | undefined
   let admission: MockInstance<Context['agents']['withoutInitiator']> | undefined
   const test = await harness({
-    backend: new JsonStorageBackend(root), onContext: ctx => contexts.push(ctx),
+    backend: new JsonStorageBackend(root),
+    onContext: ctx => contexts.push(ctx),
     beforeService: async (ctx, storage) => {
       facility = storage
       vi.spyOn(ctx.logger, 'warn')
-      admission = vi.spyOn(ctx.agents, 'withoutInitiator').mockImplementationOnce(() => { throw new Error('startup dispatch failed') })
+      admission = vi.spyOn(ctx.agents, 'withoutInitiator').mockImplementationOnce(() => {
+        throw new Error('startup dispatch failed')
+      })
     },
   })
   expect(test.ctx.logger.warn).toHaveBeenCalledExactlyOnceWith('schedule: dispatch stopped: Error: startup dispatch failed')
@@ -217,7 +268,9 @@ it('logs startup dispatch admission failure without rejecting initialized storag
   expect(facility?.get('schedule')).toBeDefined()
   expect(vi.getTimerCount()).toBe(0)
   await test.service.create(SessionId('original'), {
-    prompt: 'Explicit later wake', after_seconds: 60, title: 'Explicit later wake',
+    prompt: 'Explicit later wake',
+    after_seconds: 60,
+    title: 'Explicit later wake',
   })
   await vi.advanceTimersByTimeAsync(0)
   expect(admission).toHaveBeenCalledTimes(2)
@@ -237,15 +290,18 @@ it('does not start dispatch when storage opens after its owner begins unloading'
   }>()
   const release = Promise.withResolvers<undefined>()
   const startup = harness({
-    backend: new JsonStorageBackend(root), onContext: ctx => contexts.push(ctx),
+    backend: new JsonStorageBackend(root),
+    onContext: ctx => contexts.push(ctx),
     beforeService: async (ctx, facility) => {
       const launch = vi.spyOn(ctx.agents, 'withoutInitiator')
       const install = vi.spyOn(ctx, 'plugin')
       const open = facility.open.bind(facility)
-      vi.spyOn(facility, 'open').mockImplementationOnce(async (spec) => {
+      vi.spyOn(facility, 'open').mockImplementationOnce(async spec => {
         const domain = await open(spec)
         acquired.resolve({
-          ctx, facility, launches: () => launch.mock.calls.length,
+          ctx,
+          facility,
+          launches: () => launch.mock.calls.length,
           unload: async () => {
             const result = install.mock.results[0]
             if (result?.type !== 'return') throw new Error('Schedule registration did not return a plugin handle')
@@ -258,7 +314,12 @@ it('does not start dispatch when storage opens after its owner begins unloading'
     },
   })
   let startupFailure = ''
-  const settled = startup.then(() => undefined, (error: unknown) => { startupFailure = String(error) })
+  const settled = startup.then(
+    () => undefined,
+    (error: unknown) => {
+      startupFailure = String(error)
+    },
+  )
   try {
     const { ctx, facility, launches, unload } = await acquired.promise
     const disposed = unload()
@@ -281,21 +342,34 @@ it('does not start dispatch when storage opens after its owner begins unloading'
 
 it('retains a hand-authored v1 daily alias, pinned target, and receipt without rewriting bytes', async () => {
   const daily = {
-    sessionId: 'daily-session', status: 'active',
+    sessionId: 'daily-session',
+    status: 'active',
     record: {
-      id: 'daily', kind: 'daily', title: 'Keep the committed target', prompt: 'Keep the committed target',
-      time: '12:00:00.250', timeZone: 'US/Eastern', scheduledAt: '2026-12-01T13:30:00.125Z',
+      id: 'daily',
+      kind: 'daily',
+      title: 'Keep the committed target',
+      prompt: 'Keep the committed target',
+      time: '12:00:00.250',
+      timeZone: 'US/Eastern',
+      scheduledAt: '2026-12-01T13:30:00.125Z',
     },
     lastDelivery: {
-      scheduledAt: '2026-09-15T16:00:00.250Z', deliveredAt: '2026-09-15T16:00:01.000Z', messageId: 'daily-message',
+      scheduledAt: '2026-09-15T16:00:00.250Z',
+      deliveredAt: '2026-09-15T16:00:01.000Z',
+      messageId: 'daily-message',
     },
   }
   const bytes = encoded({ daily })
   const { root, path } = await rootWith({}, bytes)
   const test = await harness({ backend: new JsonStorageBackend(root), onContext: ctx => contexts.push(ctx) })
-  const expected = [{
-    ...daily.record, sessionId: daily.sessionId, status: daily.status, lastDelivery: daily.lastDelivery,
-  }]
+  const expected = [
+    {
+      ...daily.record,
+      sessionId: daily.sessionId,
+      status: daily.status,
+      lastDelivery: daily.lastDelivery,
+    },
+  ]
   expect(await test.service.catalog()).toEqual(expected)
   expect(test.resolve).not.toHaveBeenCalled()
   expect(await readFile(path, 'utf8')).toBe(bytes)

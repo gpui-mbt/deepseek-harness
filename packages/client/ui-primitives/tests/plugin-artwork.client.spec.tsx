@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
-  GuideArtworkBrowser, GuideArtworkFiles,
-  PluginArtworkDefault, PluginArtworkLoop, PluginArtworkSearch, PluginArtworkSubagent, PluginArtworkTerminal,
+  GuideArtworkBrowser,
+  GuideArtworkFiles,
+  PluginArtworkDefault,
+  PluginArtworkLoop,
+  PluginArtworkSearch,
+  PluginArtworkSubagent,
+  PluginArtworkTerminal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 afterEach(cleanup)
@@ -39,7 +44,9 @@ describe('plugin artwork', () => {
   it('pairs the search green with the loop upper-right blue-violet in its ring and handle', () => {
     const { container } = render(<PluginArtworkSearch />)
     const ring = container.querySelector<HTMLElement>('foreignObject div')
-    expect(ring?.style.background).toBe('conic-gradient(from 90deg, rgb(65, 225, 172) 0deg, rgb(101, 142, 255) 62.0619deg, rgb(65, 225, 172) 360deg)')
+    expect(ring?.style.background).toBe(
+      'conic-gradient(from 90deg, rgb(65, 225, 172) 0deg, rgb(101, 142, 255) 62.0619deg, rgb(65, 225, 172) 360deg)',
+    )
     expect(container.querySelector('path[stroke]')?.getAttribute('stroke')).toBe('#658EFF')
   })
 
@@ -61,7 +68,12 @@ describe('plugin artwork', () => {
     const ids = [...container.querySelectorAll('[id]')].map(node => node.id)
     expect(new Set(ids).size).toBe(ids.length)
     for (const reference of container.querySelectorAll('[fill^="url("], [stroke^="url("], [clip-path^="url("]')) {
-      const target = (reference.getAttribute('fill') ?? reference.getAttribute('stroke') ?? reference.getAttribute('clip-path') ?? '').slice('url(#'.length, -1)
+      const target = (
+        reference.getAttribute('fill') ??
+        reference.getAttribute('stroke') ??
+        reference.getAttribute('clip-path') ??
+        ''
+      ).slice('url(#'.length, -1)
       expect(ids).toContain(target)
     }
   })

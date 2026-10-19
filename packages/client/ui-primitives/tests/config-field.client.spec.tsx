@@ -1,16 +1,22 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { ConfigField, type ConfigFieldProps } from '../src/ConfigField.tsx'
 
 afterEach(cleanup)
 
 it('shares controlled inputs and reset actions between generated and custom forms', () => {
   const props: ConfigFieldProps = {
-    label: 'Timeout', value: '500', secret: false, choices: [], disabled: false,
-    overridden: true, invalid: false,
+    label: 'Timeout',
+    value: '500',
+    secret: false,
+    choices: [],
+    disabled: false,
+    overridden: true,
+    invalid: false,
     labels: { reset: 'Reset', inherited: 'Inherited', invalid: 'Invalid value' },
-    onChange: vi.fn(), onReset: vi.fn(),
+    onChange: vi.fn(),
+    onReset: vi.fn(),
   }
   const view = render(<ConfigField {...props} />)
   fireEvent.change(screen.getByLabelText('Timeout'), { target: { value: '600' } })

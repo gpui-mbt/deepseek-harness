@@ -2,13 +2,15 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import ts from 'typescript'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { assertSupportedJsonSchema, validateJsonSchemaValue } from '@deepseek-ai/dsh-tools'
 import { WorkspaceTypertGenerator } from '../src/workspace.ts'
 import { executableRemoteModule } from './remote-module.ts'
 
 const roots: string[] = []
-afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }) })
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
+})
 
 interface RuntimeValue {
   create(): { parse(value: unknown): unknown }
@@ -54,7 +56,10 @@ function fixture(): string {
   const root = mkdtempSync(join(tmpdir(), 'dsh-remote-metadata-'))
   roots.push(root)
   cpSync(resolve(import.meta.dirname, 'fixtures/remote-model'), root, { recursive: true })
-  editFile(root, 'packages/remote/src/index.ts', source => source.replace('  @Remote\n', `  /**
+  editFile(root, 'packages/remote/src/index.ts', source =>
+    source.replace(
+      '  @Remote\n',
+      `  /**
    * Create a named goal.
    * @param agent - owning Agent.
    * @param request - goal fields.
@@ -62,10 +67,12 @@ function fixture(): string {
    * @returns the created reference.
    */
   @Remote
-`))
-  editFile(root, 'packages/remote/src/types.ts', source => source.replace(
-    '  readonly title: string', '  /** Human-readable goal name. */\n  readonly title: string',
-  ))
+`,
+    ),
+  )
+  editFile(root, 'packages/remote/src/types.ts', source =>
+    source.replace('  readonly title: string', '  /** Human-readable goal name. */\n  readonly title: string'),
+  )
   return root
 }
 
@@ -81,9 +88,15 @@ function assertConsumerTypechecks(root: string, dts: string, source: string): vo
   expect(config.error).toBeUndefined()
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, root)
   expect(parsed.errors).toEqual([])
-  const options = { ...parsed.options, composite: false, skipLibCheck: false, paths: {
-    ...parsed.options.paths, '@fixture/remote/remote': [declaration],
-  } }
+  const options = {
+    ...parsed.options,
+    composite: false,
+    skipLibCheck: false,
+    paths: {
+      ...parsed.options.paths,
+      '@fixture/remote/remote': [declaration],
+    },
+  }
   const diagnostics = ts.getPreEmitDiagnostics(ts.createProgram([consumer], options))
   expect(diagnostics.map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))).toEqual([])
 }
@@ -93,27 +106,40 @@ describe('Remote method metadata', { timeout: 60_000 }, () => {
     const root = fixture()
     const extension = join(root, 'packages/extension')
     mkdirSync(join(extension, 'src'), { recursive: true })
-    writeFileSync(join(extension, 'package.json'), JSON.stringify({
-      name: '@fixture/extension', private: true, type: 'module',
-      exports: {
-        '.': './src/index.ts',
-        './typert': { types: './lib/typert.host.d.ts', default: './lib/typert.host.js' },
-      },
-      files: ['lib/typert.host.js', 'lib/typert.host.d.ts'],
-    }))
-    writeFileSync(join(extension, 'tsconfig.json'), JSON.stringify({
-      extends: '../../tsconfig.base.json', include: ['src'], references: [{ path: '../remote' }],
-      compilerOptions: { rootDir: 'src', outDir: 'lib/types', noEmit: false, declaration: true, emitDeclarationOnly: true },
-    }))
-    writeFileSync(join(extension, 'src/index.ts'), `import '@fixture/remote/types'
+    writeFileSync(
+      join(extension, 'package.json'),
+      JSON.stringify({
+        name: '@fixture/extension',
+        private: true,
+        type: 'module',
+        exports: {
+          '.': './src/index.ts',
+          './typert': { types: './lib/typert.host.d.ts', default: './lib/typert.host.js' },
+        },
+        files: ['lib/typert.host.js', 'lib/typert.host.d.ts'],
+      }),
+    )
+    writeFileSync(
+      join(extension, 'tsconfig.json'),
+      JSON.stringify({
+        extends: '../../tsconfig.base.json',
+        include: ['src'],
+        references: [{ path: '../remote' }],
+        compilerOptions: { rootDir: 'src', outDir: 'lib/types', noEmit: false, declaration: true, emitDeclarationOnly: true },
+      }),
+    )
+    writeFileSync(
+      join(extension, 'src/index.ts'),
+      `import '@fixture/remote/types'
 /** @typert schema */
 export interface ExtensionMarker { readonly enabled: boolean }
 declare module '@fixture/remote/types' {
   interface CreateGoalRequest { readonly extension?: { readonly label: string } }
   interface CreateGoalResult { readonly extension?: string }
 }
-`)
-    editFile(root, 'tsconfig.host.json', (source) => {
+`,
+    )
+    editFile(root, 'tsconfig.host.json', source => {
       const config = JSON.parse(source) as { references: { path: string }[] }
       config.references.push({ path: './packages/extension' })
       return JSON.stringify(config)
@@ -128,9 +154,13 @@ declare module '@fixture/remote/types' {
     for (const strict of [false, true]) {
       const view = method.input({ strict })
       expect(view.create().parse(input)).toEqual(input)
-      expect(view.jsonSchema).toMatchObject({ properties: { request: {
-        properties: { extension: { additionalProperties: !strict } },
-      } } })
+      expect(view.jsonSchema).toMatchObject({
+        properties: {
+          request: {
+            properties: { extension: { additionalProperties: !strict } },
+          },
+        },
+      })
     }
     const extra = { ...input, request: { ...input.request, extension: { label: 'installed', extra: true } } }
     expect(method.input().create().parse(extra)).toEqual(input)
@@ -154,7 +184,9 @@ declare module '@fixture/remote/types' {
     for (const descriptors of [host.TYPERT.invocations, remote.TYPERT_REMOTE.descriptors]) {
       const current = descriptors.find(candidate => candidate.id.endsWith('/create')) as RuntimeMethod
       expect(current).toMatchObject({
-        id: '@fixture/remote#goals/create', namespace: 'goals', method: 'create',
+        id: '@fixture/remote#goals/create',
+        namespace: 'goals',
+        method: 'create',
         invocation: { kind: 'direct' },
       })
       expect(current).not.toHaveProperty('metadata')
@@ -170,21 +202,40 @@ declare module '@fixture/remote/types' {
       for (const strict of [false, true]) {
         const input = current.input({ strict })
         expect(input.jsonSchema).toEqual(method.input({ strict }).jsonSchema)
-        expect(input.jsonSchema).toMatchObject({ properties: {
-          request: { description: 'goal fields.', additionalProperties: !strict, properties: { title: { description: 'Human-readable goal name.' } } },
-        } })
+        expect(input.jsonSchema).toMatchObject({
+          properties: {
+            request: {
+              description: 'goal fields.',
+              additionalProperties: !strict,
+              properties: { title: { description: 'Human-readable goal name.' } },
+            },
+          },
+        })
         expect(input.jsonSchemaError).toBeUndefined()
         assertSupportedJsonSchema(input.jsonSchema)
-        expect(input.create().parse({ agentId: 'agent', request: { title: 'ship' } })).toEqual({ agentId: 'agent', request: { title: 'ship' } })
+        expect(input.create().parse({ agentId: 'agent', request: { title: 'ship' } })).toEqual({
+          agentId: 'agent',
+          request: { title: 'ship' },
+        })
         for (const invalid of [
           { request: { title: 'ship' } },
           { agentId: 'agent' },
           { agentId: 'agent', request: { title: 'ship' }, extra: true },
-        ]) expect(() => input.create().parse(invalid)).toThrow()
+        ])
+          expect(() => input.create().parse(invalid)).toThrow()
       }
-      expect(current.input().create().parse({ agentId: 'agent', request: { title: 'ship', extra: true } }))
-        .toEqual({ agentId: 'agent', request: { title: 'ship' } })
-      expect(() => current.input({ strict: true }).create().parse({ agentId: 'agent', request: { title: 'ship', extra: true } })).toThrow()
+      expect(
+        current
+          .input()
+          .create()
+          .parse({ agentId: 'agent', request: { title: 'ship', extra: true } }),
+      ).toEqual({ agentId: 'agent', request: { title: 'ship' } })
+      expect(() =>
+        current
+          .input({ strict: true })
+          .create()
+          .parse({ agentId: 'agent', request: { title: 'ship', extra: true } }),
+      ).toThrow()
       expect(current.parameters[1]!.codec.create().parse({ title: 'ship', extra: true })).toEqual({ title: 'ship' })
       expect(current.result.description).toBe('the created reference.')
       expect(current.result.jsonSchema).toEqual(method.result.jsonSchema)
@@ -195,8 +246,10 @@ declare module '@fixture/remote/types' {
       expect(() => current.result.create().parse({ ref: 1 })).toThrow()
       const create = vi.fn(async () => ({ ok: true, value: { ref: 'created' } }))
       const signal = new AbortController().signal
-      await expect(current.invoke({ goals: { create } }, { agentId: 'agent', request: { title: 'ship' } }, signal))
-        .resolves.toEqual({ ok: true, value: { ref: 'created' } })
+      await expect(current.invoke({ goals: { create } }, { agentId: 'agent', request: { title: 'ship' } }, signal)).resolves.toEqual({
+        ok: true,
+        value: { ref: 'created' },
+      })
       expect(create).toHaveBeenCalledWith('agent', { title: 'ship' }, signal)
     }
     const scoped = remote.TYPERT_REMOTE.descriptors.find(descriptor => descriptor.id.endsWith('/rename'))!
@@ -223,7 +276,7 @@ declare module '@fixture/remote/types' {
     expect(artifact.remote.js).not.toContain("wire: 'request'")
     for (const [index, source] of [artifact.js, artifact.remote.js].entries()) {
       const tree = ts.createSourceFile('artifact.js', source, ts.ScriptTarget.ESNext, true, ts.ScriptKind.JS)
-      const imports = tree.statements.filter(ts.isImportDeclaration).map((statement) => {
+      const imports = tree.statements.filter(ts.isImportDeclaration).map(statement => {
         if (!ts.isStringLiteral(statement.moduleSpecifier)) throw new Error('nonliteral import')
         return statement.moduleSpecifier.text
       })
@@ -242,21 +295,25 @@ declare module '@fixture/remote/types' {
       collectParameters(tree)
       expect(parameterSpecs).toHaveLength(4)
       for (const parameter of parameterSpecs) {
-        const codecs = parameter.properties.filter(ts.isPropertyAssignment)
+        const codecs = parameter.properties
+          .filter(ts.isPropertyAssignment)
           .filter(property => ['codec', 'strictCodec'].includes(property.name.getText(tree)))
         expect(codecs.map(property => property.name.getText(tree))).toEqual(['codec', 'strictCodec'])
         for (const codec of codecs) expect(ts.isObjectLiteralExpression(codec.initializer)).toBe(true)
       }
       const states = [...source.matchAll(/^let ([\w$]+\$value)$/gm)].map(match => match[1]!)
       expect(states.length).toBeGreaterThan(0)
-      const generated = await executableRemoteModule<Generated & {
-        readonly TYPERT?: { readonly invocations: readonly RuntimeDescriptor[] }
-        readSchemaStates(): readonly unknown[]
-      }>(`${source}\nexport const readSchemaStates = () => [${states.join(', ')}]\n`)
+      const generated = await executableRemoteModule<
+        Generated & {
+          readonly TYPERT?: { readonly invocations: readonly RuntimeDescriptor[] }
+          readSchemaStates(): readonly unknown[]
+        }
+      >(`${source}\nexport const readSchemaStates = () => [${states.join(', ')}]\n`)
       expect(generated.readSchemaStates()).toEqual(states.map(() => undefined))
-      const method = index === 0
-        ? generated.TYPERT!.invocations.find(descriptor => descriptor.id.endsWith('/create')) as RuntimeMethod
-        : generated.TYPERT_REMOTE.methods['goals/create']!
+      const method =
+        index === 0
+          ? (generated.TYPERT!.invocations.find(descriptor => descriptor.id.endsWith('/create')) as RuntimeMethod)
+          : generated.TYPERT_REMOTE.methods['goals/create']!
       const first = method.input({ strict: index === 0 })
       const second = method.input({ strict: index !== 0 })
       expect(generated.readSchemaStates()).toEqual(states.map(() => undefined))
@@ -272,13 +329,23 @@ declare module '@fixture/remote/types' {
 
   it('generates normal and strict input views from plain Remote methods without changing result codecs', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string', `readonly title: string
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace(
+        'readonly title: string',
+        `readonly title: string
   readonly metadata: { readonly label: string }
-  readonly items?: readonly { readonly label: string }[]`))
-    editFile(root, 'packages/remote/src/index.ts', source => source.replace('  constructor() {', `  @Remote
+  readonly items?: readonly { readonly label: string }[]`,
+      ),
+    )
+    editFile(root, 'packages/remote/src/index.ts', source =>
+      source.replace(
+        '  constructor() {',
+        `  @Remote
   echo(request: CreateGoalRequest): CreateGoalRequest { return request }
 
-  constructor() {`))
+  constructor() {`,
+      ),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
@@ -295,15 +362,23 @@ declare module '@fixture/remote/types' {
     expect(normal.jsonSchema).toBe(normal.jsonSchema)
     expect(strict.jsonSchema).toBe(strict.jsonSchema)
     expect(strict.jsonSchema).not.toBe(normal.jsonSchema)
-    for (const [view, additionalProperties] of [[normal, true], [strict, false]] as const) {
+    for (const [view, additionalProperties] of [
+      [normal, true],
+      [strict, false],
+    ] as const) {
       assertSupportedJsonSchema(view.jsonSchema)
-      expect(view.jsonSchema).toMatchObject({ additionalProperties: false, properties: { request: {
-        additionalProperties,
+      expect(view.jsonSchema).toMatchObject({
+        additionalProperties: false,
         properties: {
-          metadata: { additionalProperties },
-          items: { items: { additionalProperties } },
+          request: {
+            additionalProperties,
+            properties: {
+              metadata: { additionalProperties },
+              items: { items: { additionalProperties } },
+            },
+          },
         },
-      } } })
+      })
     }
     const input = { agentId: 'agent', request: { title: 'ship', metadata: { label: 'app payload' }, items: [{ label: 'first' }] } }
     expect(strict.create().parse(input)).toEqual(input)
@@ -343,7 +418,10 @@ declare module '@fixture/remote/types' {
     expect(method.result.description).toBeUndefined()
     for (const view of [method.input(), method.input({ strict: true })]) {
       expect(view.jsonSchemaError).toBeUndefined()
-      expect(view.create().parse({ agentId: 'agent', request: { title: 'ship' } })).toEqual({ agentId: 'agent', request: { title: 'ship' } })
+      expect(view.create().parse({ agentId: 'agent', request: { title: 'ship' } })).toEqual({
+        agentId: 'agent',
+        request: { title: 'ship' },
+      })
     }
     expect(method.result.jsonSchemaError).toBeUndefined()
     expect(method.result.create().parse({ ref: 'created' })).toEqual({ ref: 'created' })
@@ -374,23 +452,35 @@ declare module '@fixture/remote/types' {
       for (const parameter of descriptor.parameters) verify(parameter.codec)
       verify(descriptor.result)
     }
-    const expected = Object.keys(remote.TYPERT_REMOTE.methods).length * 3
-      + host.TYPERT.invocations.reduce((total, descriptor) => total + descriptor.parameters.length + 1, 0)
+    const expected =
+      Object.keys(remote.TYPERT_REMOTE.methods).length * 3 +
+      host.TYPERT.invocations.reduce((total, descriptor) => total + descriptor.parameters.length + 1, 0)
     expect(projected + reported).toBe(expected)
     expect(projected).toBeGreaterThan(0)
   })
 
   it('typechecks ordinary declarations for named invocation, Context exclusion, uplink, and decoded bytes', () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/index.ts', source => `import type { RemoteStream } from '@deepseek-ai/dsh-typert-protocol'\n${source.replace('  constructor() {', `  @Remote
+    editFile(
+      root,
+      'packages/remote/src/index.ts',
+      source =>
+        `import type { RemoteStream } from '@deepseek-ai/dsh-typert-protocol'\n${source.replace(
+          '  constructor() {',
+          `  @Remote
   bytes(): Uint8Array { return new Uint8Array([255]) }
 
   @Remote({ mode: 'stream' })
   async *attach(): RemoteStream<CreateGoalResult, CreateGoalRequest> { yield { ref: 'first' } }
 
-  constructor() {`)}`)
+  constructor() {`,
+        )}`,
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
-    assertConsumerTypechecks(root, artifact!.remote!.dts, `import { TYPERT_REMOTE } from '@fixture/remote/remote'
+    assertConsumerTypechecks(
+      root,
+      artifact!.remote!.dts,
+      `import { TYPERT_REMOTE } from '@fixture/remote/remote'
 import type { InvocationDescriptor, TypertClientRemote, TypertRemoteInfo, TypertRemoteInputOptions, TypertRemoteMethod, TypertRemoteValue, RemoteResult, RemoteStreamHandle, TypertRemoteScopeMap } from '@deepseek-ai/dsh-typert-protocol'
 import type { CreateGoalRequest, CreateGoalResult } from '@fixture/remote/types'
 declare const remote: TypertClientRemote
@@ -484,12 +574,15 @@ async function bytes() {
 }
 void [info, typedMethod, descriptor, descriptors, unaryMode, streamMode, direct, id, codecMode, typeSymbol, keys]
 void [strictParsed, normalInput, wrongInput, output, value, wrongResult, wrongOutput, description, schema, projectionError, parameterDescription, resultDescription, typedStream, typedWatch, bytes]
-`)
+`,
+    )
   })
 
   it('keeps overlapping-union input parsers and source docs when JSON Schema projection is unsupported', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string', 'readonly title: { first: string } | { second: string }'))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace('readonly title: string', 'readonly title: { first: string } | { second: string }'),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
@@ -509,8 +602,9 @@ void [strictParsed, normalInput, wrongInput, output, value, wrongResult, wrongOu
 
   it('keeps recursive input parsers independent when JSON Schema cannot represent them', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string',
-      'readonly title: string\n  readonly next?: CreateGoalRequest'))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace('readonly title: string', 'readonly title: string\n  readonly next?: CreateGoalRequest'),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
@@ -529,13 +623,17 @@ void [strictParsed, normalInput, wrongInput, output, value, wrongResult, wrongOu
 
   it('supplies Zod to parameterless Host and Remote artifacts without exported schemas', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/index.ts', () => `import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
+    editFile(
+      root,
+      'packages/remote/src/index.ts',
+      () => `import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 export class GoalService extends TypertRemoteService {
   constructor() { super(undefined, 'goals') }
   @Remote
   ready(): boolean { return true }
 }
-`)
+`,
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     if (artifact?.remote === undefined) throw new Error('missing Remote artifact')
     for (const source of [artifact.js, artifact.remote.js]) {
@@ -560,13 +658,18 @@ export class GoalService extends TypertRemoteService {
 
   it('supports optional named arguments and parameterless methods', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/index.ts', source => source.replace('  constructor() {', `  @Remote
+    editFile(root, 'packages/remote/src/index.ts', source =>
+      source.replace(
+        '  constructor() {',
+        `  @Remote
   ready(): boolean { return true }
 
   @Remote
   labelled(id: string, label?: string): string { return label ?? id }
 
-  constructor() {`))
+  constructor() {`,
+      ),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const ready = generated.TYPERT_REMOTE.methods['goals/ready']!
@@ -591,7 +694,10 @@ export class GoalService extends TypertRemoteService {
     const callLabelled = vi.fn(async () => ({ ok: true, value: 'goal' }))
     await labelled.invoke({ goals: { labelled: callLabelled } }, { id: 'goal' })
     expect(callLabelled).toHaveBeenCalledWith('goal', undefined)
-    assertConsumerTypechecks(root, artifact!.remote!.dts, `import { TYPERT_REMOTE } from '@fixture/remote/remote'
+    assertConsumerTypechecks(
+      root,
+      artifact!.remote!.dts,
+      `import { TYPERT_REMOTE } from '@fixture/remote/remote'
 import type { TypertClientRemote, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 declare const remote: TypertClientRemote
 const ready: Promise<RemoteResult<boolean>> = TYPERT_REMOTE.methods['goals/ready'].invoke(remote, {})
@@ -600,20 +706,28 @@ TYPERT_REMOTE.methods['goals/labelled'].invoke(remote, { id: 'goal', label: 'shi
 // @ts-expect-error Optional labels still require strings when present.
 TYPERT_REMOTE.methods['goals/labelled'].invoke(remote, { id: 'goal', label: 1 })
 void ready
-`)
+`,
+    )
   })
 
   it('preserves discriminator unions and nested unknown-field rejection in tool schemas', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string',
-      "readonly title: { readonly kind: 'text'; readonly text: string } | { readonly kind: 'count'; readonly count: number }"))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace(
+        'readonly title: string',
+        "readonly title: { readonly kind: 'text'; readonly text: string } | { readonly kind: 'count'; readonly count: number }",
+      ),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
     const strict = method.input({ strict: true })
     const schema = strict.jsonSchema
     assertSupportedJsonSchema(schema)
-    for (const title of [{ kind: 'text', text: 'ship' }, { kind: 'count', count: 2 }]) {
+    for (const title of [
+      { kind: 'text', text: 'ship' },
+      { kind: 'count', count: 2 },
+    ]) {
       const input = { agentId: 'agent', request: { title } }
       expect(validateJsonSchemaValue(schema, input)).toEqual([])
       expect(strict.create().parse(input)).toEqual(input)
@@ -628,9 +742,16 @@ void ready
   it('returns the ordinary stream handle without wrapping its uplink or disposal', async () => {
     const [artifact] = new WorkspaceTypertGenerator(fixture()).generate()
     const generated = await executable(artifact!.remote!.js)
-    const handle = Object.assign((async function* () { yield { ref: 'first' } })(), {
-      send: vi.fn(), end: vi.fn(), dispose: vi.fn(),
-    })
+    const handle = Object.assign(
+      (async function* () {
+        yield { ref: 'first' }
+      })(),
+      {
+        send: vi.fn(),
+        end: vi.fn(),
+        dispose: vi.fn(),
+      },
+    )
     const watch = vi.fn(() => handle)
     const method = generated.TYPERT_REMOTE.methods['goals/watch']!
     expect(method.mode).toBe('stream')
@@ -646,34 +767,55 @@ void ready
     const root = fixture()
     const directory = join(root, 'packages/json-values-fixture')
     mkdirSync(join(directory, 'src'), { recursive: true })
-    writeFileSync(join(directory, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh-util-values', exports: { '.': './src/index.ts' } }))
+    writeFileSync(
+      join(directory, 'package.json'),
+      JSON.stringify({ name: '@deepseek-ai/dsh-util-values', exports: { '.': './src/index.ts' } }),
+    )
     writeFileSync(join(directory, 'tsconfig.json'), readFileSync(join(root, 'packages/domain/tsconfig.json'), 'utf8'))
-    writeFileSync(join(directory, 'src/index.ts'), 'export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }\n')
-    editFile(root, 'tsconfig.host.json', (source) => {
+    writeFileSync(
+      join(directory, 'src/index.ts'),
+      'export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue }\n',
+    )
+    editFile(root, 'tsconfig.host.json', source => {
       const config = JSON.parse(source) as { references: { path: string }[] }
       config.references.push({ path: './packages/json-values-fixture' })
       return JSON.stringify(config)
     })
-    editFile(root, 'tsconfig.base.json', (source) => {
+    editFile(root, 'tsconfig.base.json', source => {
       const config = JSON.parse(source) as { compilerOptions: { paths: Record<string, string[]> } }
       config.compilerOptions.paths['@deepseek-ai/dsh-util-values'] = ['./packages/json-values-fixture/src/index.ts']
       return JSON.stringify(config)
     })
-    editFile(root, 'packages/remote/src/types.ts', source => "import type { JsonValue } from '@deepseek-ai/dsh-util-values'\n" + source
-      .replace('readonly title: string', 'readonly title: string\n  readonly payload: JsonValue\n  readonly labels?: Record<string, JsonValue>'))
+    editFile(
+      root,
+      'packages/remote/src/types.ts',
+      source =>
+        "import type { JsonValue } from '@deepseek-ai/dsh-util-values'\n" +
+        source.replace(
+          'readonly title: string',
+          'readonly title: string\n  readonly payload: JsonValue\n  readonly labels?: Record<string, JsonValue>',
+        ),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
-    const input = { agentId: 'agent', request: { title: 'ship', payload: [null, { nested: [true, 3] }], labels: { tag: ['a', 'b'], extra: { nested: true } } } }
+    const input = {
+      agentId: 'agent',
+      request: { title: 'ship', payload: [null, { nested: [true, 3] }], labels: { tag: ['a', 'b'], extra: { nested: true } } },
+    }
     for (const strict of [false, true]) {
       const view = method.input({ strict })
       const schema = view.jsonSchema
       assertSupportedJsonSchema(schema)
       expect(JSON.stringify(schema)).not.toContain('$ref')
-      expect(schema).toMatchObject({ properties: { request: {
-        additionalProperties: !strict,
-        properties: { payload: {}, labels: { type: 'object', additionalProperties: true } },
-      } } })
+      expect(schema).toMatchObject({
+        properties: {
+          request: {
+            additionalProperties: !strict,
+            properties: { payload: {}, labels: { type: 'object', additionalProperties: true } },
+          },
+        },
+      })
       expect(validateJsonSchemaValue(schema, input)).toEqual([])
       expect(view.create().parse(input)).toEqual(input)
       expect(() => view.create().parse({ agentId: 'agent', request: { title: 'ship', payload: undefined } })).toThrow()
@@ -682,8 +824,9 @@ void ready
 
   it('keeps typed dictionary keys open when input JSON Schema is unsupported', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string',
-      'readonly title: string\n  readonly labels: Record<string, string>'))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace('readonly title: string', 'readonly title: string\n  readonly labels: Record<string, string>'),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
@@ -701,8 +844,9 @@ void ready
 
   it('retains tuple input parsers under both policies without requiring a tool projection', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string',
-      'readonly title: readonly [{ readonly first: string }, { readonly second: string }]'))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace('readonly title: string', 'readonly title: readonly [{ readonly first: string }, { readonly second: string }]'),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
@@ -720,8 +864,12 @@ void ready
 
   it('keeps declared dictionary properties more specific than the index value', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string',
-      'readonly title: string\n  readonly payload: { readonly fixed: { readonly a: string; readonly b: string }; readonly [key: string]: { readonly a: string } }'))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace(
+        'readonly title: string',
+        'readonly title: string\n  readonly payload: { readonly fixed: { readonly a: string; readonly b: string }; readonly [key: string]: { readonly a: string } }',
+      ),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
@@ -732,50 +880,113 @@ void ready
       expect(view.jsonSchema).toBeUndefined()
       expect(view.jsonSchemaError).toContain('selected dictionaries')
     }
-    const withExtraValue = { ...input, request: { ...input.request, payload: { ...input.request.payload, extra: { a: 'extra', b: 'not declared' } } } }
+    const withExtraValue = {
+      ...input,
+      request: { ...input.request, payload: { ...input.request.payload, extra: { a: 'extra', b: 'not declared' } } },
+    }
     expect(method.input().create().parse(withExtraValue)).toEqual(input)
     expect(() => method.input({ strict: true }).create().parse(withExtraValue)).toThrow()
   })
 
   it('enforces index values on named fields without rejecting their merged nested fields', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string',
-      'readonly title: string\n  readonly payload: Record<string, { readonly base: string }> & { readonly fixed: { readonly own: string } }'))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace(
+        'readonly title: string',
+        'readonly title: string\n  readonly payload: Record<string, { readonly base: string }> & { readonly fixed: { readonly own: string } }',
+      ),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
-    const valid = { agentId: 'agent', request: { title: 'ship', payload: {
-      fixed: { base: 'common', own: 'specific' }, extra: { base: 'value' },
-    } } }
+    const valid = {
+      agentId: 'agent',
+      request: {
+        title: 'ship',
+        payload: {
+          fixed: { base: 'common', own: 'specific' },
+          extra: { base: 'value' },
+        },
+      },
+    }
     const strict = method.input({ strict: true })
     expect(strict.jsonSchema).toBeUndefined()
     expect(strict.jsonSchemaError).toContain('selected dictionaries')
     for (const view of [method.input(), strict]) {
       expect(view.create().parse(valid)).toEqual(valid)
-      expect(() => view.create().parse({ ...valid, request: { ...valid.request, payload: {
-        ...valid.request.payload, fixed: { own: 'specific' },
-      } } })).toThrow()
+      expect(() =>
+        view.create().parse({
+          ...valid,
+          request: {
+            ...valid.request,
+            payload: {
+              ...valid.request.payload,
+              fixed: { own: 'specific' },
+            },
+          },
+        }),
+      ).toThrow()
     }
-    expect(() => strict.create().parse({ ...valid, request: { ...valid.request, payload: {
-      ...valid.request.payload, fixed: { base: 'common' },
-    } } })).toThrow()
-    expect(() => strict.create().parse({ ...valid, request: { ...valid.request, payload: {
-      ...valid.request.payload, fixed: { ...valid.request.payload.fixed, unexpected: true },
-    } } })).toThrow()
-    expect(() => strict.create().parse({ ...valid, request: { ...valid.request, payload: {
-      ...valid.request.payload, extra: { base: 'value', unexpected: true },
-    } } })).toThrow()
-    expect(() => strict.create().parse({ ...valid, request: { ...valid.request, payload: {
-      ...valid.request.payload, extra: { own: 'missing base' },
-    } } })).toThrow()
+    expect(() =>
+      strict.create().parse({
+        ...valid,
+        request: {
+          ...valid.request,
+          payload: {
+            ...valid.request.payload,
+            fixed: { base: 'common' },
+          },
+        },
+      }),
+    ).toThrow()
+    expect(() =>
+      strict.create().parse({
+        ...valid,
+        request: {
+          ...valid.request,
+          payload: {
+            ...valid.request.payload,
+            fixed: { ...valid.request.payload.fixed, unexpected: true },
+          },
+        },
+      }),
+    ).toThrow()
+    expect(() =>
+      strict.create().parse({
+        ...valid,
+        request: {
+          ...valid.request,
+          payload: {
+            ...valid.request.payload,
+            extra: { base: 'value', unexpected: true },
+          },
+        },
+      }),
+    ).toThrow()
+    expect(() =>
+      strict.create().parse({
+        ...valid,
+        request: {
+          ...valid.request,
+          payload: {
+            ...valid.request.payload,
+            extra: { own: 'missing base' },
+          },
+        },
+      }),
+    ).toThrow()
     const outer = { ...valid, request: { ...valid.request, payload: { ...valid.request.payload, extraOuter: true } } }
     expect(() => strict.create().parse(outer)).toThrow()
   })
 
   it('merges overlapping indexed fields before closing their nested objects', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string',
-      'readonly title: string\n  readonly payload: Record<string, { readonly base: string; readonly nested: { readonly left: string } }> & { readonly fixed: { readonly own: string; readonly nested: { readonly right: string } } }'))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace(
+        'readonly title: string',
+        'readonly title: string\n  readonly payload: Record<string, { readonly base: string; readonly nested: { readonly left: string } }> & { readonly fixed: { readonly own: string; readonly nested: { readonly right: string } } }',
+      ),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const strict = generated.TYPERT_REMOTE.methods['goals/create']!.input({ strict: true })
@@ -783,32 +994,55 @@ void ready
     const input = { agentId: 'agent', request: { title: 'ship', payload: { fixed } } }
     expect(strict.create().parse(input)).toEqual(input)
     for (const nested of [{ right: 'declared' }, { left: 'index' }, { ...fixed.nested, extra: true }]) {
-      expect(() => strict.create().parse({ ...input, request: { ...input.request, payload: {
-        fixed: { ...fixed, nested },
-      } } })).toThrow()
+      expect(() =>
+        strict.create().parse({
+          ...input,
+          request: {
+            ...input.request,
+            payload: {
+              fixed: { ...fixed, nested },
+            },
+          },
+        }),
+      ).toThrow()
     }
   })
 
   it('keeps a shared indexed value type valid for a named field', async () => {
     const root = fixture()
     editFile(root, 'packages/remote/src/types.ts', source => `${source}\ntype Entry = { readonly base: string }\n`)
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string',
-      'readonly title: string\n  readonly payload: Record<string, Entry> & { readonly fixed: Entry }'))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace(
+        'readonly title: string',
+        'readonly title: string\n  readonly payload: Record<string, Entry> & { readonly fixed: Entry }',
+      ),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const strict = generated.TYPERT_REMOTE.methods['goals/create']!.input({ strict: true })
     const input = { agentId: 'agent', request: { title: 'ship', payload: { fixed: { base: 'common' } } } }
     expect(strict.create().parse(input)).toEqual(input)
-    expect(() => strict.create().parse({ ...input, request: { ...input.request, payload: {
-      fixed: { base: 'common', extra: true },
-    } } })).toThrow()
+    expect(() =>
+      strict.create().parse({
+        ...input,
+        request: {
+          ...input.request,
+          payload: {
+            fixed: { base: 'common', extra: true },
+          },
+        },
+      }),
+    ).toThrow()
   })
 
   it.each([
     {
       name: 'a union of named object fields',
       type: 'Record<string, { base: string }> & { fixed: { own: string } | { other: number } }',
-      valid: [{ base: 'base', own: 'own' }, { base: 'base', other: 1 }],
+      valid: [
+        { base: 'base', own: 'own' },
+        { base: 'base', other: 1 },
+      ],
       invalid: [{ own: 'own' }, { other: 1 }, { base: 'base' }, null],
       optional: false,
     },
@@ -835,8 +1069,9 @@ void ready
     },
   ])('combines indexed constraints for $name before closing objects', async ({ type, valid, invalid, optional }) => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace('readonly title: string',
-      `readonly title: string\n  readonly payload: ${type}`))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace('readonly title: string', `readonly title: string\n  readonly payload: ${type}`),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
@@ -859,17 +1094,31 @@ void ready
 
   it('keeps normal and closed recursive helper identifiers distinct', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => `${source}\nexport interface Branch { readonly value: string; readonly next?: Branch }\nexport interface closed$Branch { readonly value: string; readonly next?: closed$Branch }\n`)
-    editFile(root, 'packages/remote/src/index.ts', source => `import type { Branch, closed$Branch } from './types.ts'\n${source.replace('  constructor() {', `  @Remote
+    editFile(
+      root,
+      'packages/remote/src/types.ts',
+      source =>
+        `${source}\nexport interface Branch { readonly value: string; readonly next?: Branch }\nexport interface closed$Branch { readonly value: string; readonly next?: closed$Branch }\n`,
+    )
+    editFile(
+      root,
+      'packages/remote/src/index.ts',
+      source =>
+        `import type { Branch, closed$Branch } from './types.ts'\n${source.replace(
+          '  constructor() {',
+          `  @Remote
   recursive(request: Branch): closed$Branch { return request }
 
-  constructor() {`)}`)
+  constructor() {`,
+        )}`,
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const input = { request: { value: 'first', next: { value: 'second' } } }
     for (const source of [artifact!.js, artifact!.remote!.js]) {
       await executableRemoteModule(source)
-      const variables = ts.createSourceFile('artifact.js', source, ts.ScriptTarget.ESNext, true, ts.ScriptKind.JS).statements
-        .filter(ts.isVariableStatement)
+      const variables = ts
+        .createSourceFile('artifact.js', source, ts.ScriptTarget.ESNext, true, ts.ScriptKind.JS)
+        .statements.filter(ts.isVariableStatement)
         .flatMap(statement => statement.declarationList.declarations.map(declaration => declaration.name.getText()))
       expect(new Set(variables).size).toBe(variables.length)
     }
@@ -877,7 +1126,12 @@ void ready
     const method = generated.TYPERT_REMOTE.methods['goals/recursive']!
     expect(method.input().create().parse(input)).toEqual(input)
     expect(method.input({ strict: true }).create().parse(input)).toEqual(input)
-    expect(() => method.input({ strict: true }).create().parse({ request: { value: 'first', next: { value: 'second', extra: true } } })).toThrow()
+    expect(() =>
+      method
+        .input({ strict: true })
+        .create()
+        .parse({ request: { value: 'first', next: { value: 'second', extra: true } } }),
+    ).toThrow()
     expect(method.result.create().parse(input.request)).toEqual(input.request)
   })
 
@@ -889,38 +1143,48 @@ void ready
     for (const file of ['package.json', 'tsconfig.json', 'src/index.ts']) {
       writeFileSync(join(destination, file), readFileSync(join(real, file)))
     }
-    editFile(root, 'tsconfig.host.json', (source) => {
+    editFile(root, 'tsconfig.host.json', source => {
       const config = JSON.parse(source) as { references: { path: string }[] }
       config.references.push({ path: './packages/util/brand' })
       return JSON.stringify(config)
     })
-    editFile(root, 'tsconfig.base.json', (source) => {
+    editFile(root, 'tsconfig.base.json', source => {
       const config = JSON.parse(source) as { compilerOptions: { paths: Record<string, string[]> } }
       config.compilerOptions.paths['@deepseek-ai/dsh-brand'] = ['./packages/util/brand/src/index.ts']
       return JSON.stringify(config)
     })
-    editFile(root, 'packages/domain/src/types.ts', () => `import type { Branded } from '@deepseek-ai/dsh-brand'
+    editFile(
+      root,
+      'packages/domain/src/types.ts',
+      () => `import type { Branded } from '@deepseek-ai/dsh-brand'
 /** Stable nominal Agent identity. */
 export type AgentId = Branded<'AgentId'>
-`)
+`,
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
     for (const view of [method.input(), method.input({ strict: true })]) {
       expect(view.jsonSchema).toMatchObject({ properties: { agentId: { type: 'string' } } })
-      expect(view.create().parse({ agentId: 'agent', request: { title: 'ship' } }))
-        .toEqual({ agentId: 'agent', request: { title: 'ship' } })
+      expect(view.create().parse({ agentId: 'agent', request: { title: 'ship' } })).toEqual({
+        agentId: 'agent',
+        request: { title: 'ship' },
+      })
     }
     expect(artifact!.remote!.dts).toContain("readonly 'agentId': AgentId")
   })
 
   it('closes merged object intersections once, including nested request objects', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace(/export interface CreateGoalRequest \{[\s\S]*?\n\}/,
-      `export type CreateGoalRequest = {
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace(
+        /export interface CreateGoalRequest \{[\s\S]*?\n\}/,
+        `export type CreateGoalRequest = {
   readonly title: string
   readonly nested: { readonly alpha: string } & { readonly beta: number }
-} & { readonly priority: number }`))
+} & { readonly priority: number }`,
+      ),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const method = generated.TYPERT_REMOTE.methods['goals/create']!
@@ -939,8 +1203,11 @@ export type AgentId = Branded<'AgentId'>
 
   it('retains output codecs and source docs when optional JSON Schema projection is unsupported', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/index.ts', source => source.replace('Promise<CreateGoalResult>', 'Promise<readonly [string, number]>')
-      .replace('return { ref: `${agent.id}:${request.title}` }', 'return [agent.id, request.title.length]'))
+    editFile(root, 'packages/remote/src/index.ts', source =>
+      source
+        .replace('Promise<CreateGoalResult>', 'Promise<readonly [string, number]>')
+        .replace('return { ref: `${agent.id}:${request.title}` }', 'return [agent.id, request.title.length]'),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const output = generated.TYPERT_REMOTE.methods['goals/create']!.result
@@ -953,18 +1220,24 @@ export type AgentId = Branded<'AgentId'>
 
   it('keeps recursive codec references valid when removing a nominal object marker', async () => {
     const root = fixture()
-    editFile(root, 'packages/remote/src/types.ts', source => source.replace(/export interface CreateGoalResult \{[\s\S]*?\n\}/, `declare const nodeBrand: unique symbol
-export type CreateGoalResult = { readonly ref: string; readonly next?: CreateGoalResult } & { readonly [nodeBrand]: 'node' }`))
-    editFile(root, 'packages/remote/src/index.ts', source => source
-      .replace('return { ref: `${agent.id}:${request.title}` }', 'return { ref: `${agent.id}:${request.title}` } as CreateGoalResult')
-      .replace('yield { ref: agent.id }', 'yield { ref: agent.id } as CreateGoalResult'))
+    editFile(root, 'packages/remote/src/types.ts', source =>
+      source.replace(
+        /export interface CreateGoalResult \{[\s\S]*?\n\}/,
+        `declare const nodeBrand: unique symbol
+export type CreateGoalResult = { readonly ref: string; readonly next?: CreateGoalResult } & { readonly [nodeBrand]: 'node' }`,
+      ),
+    )
+    editFile(root, 'packages/remote/src/index.ts', source =>
+      source
+        .replace('return { ref: `${agent.id}:${request.title}` }', 'return { ref: `${agent.id}:${request.title}` } as CreateGoalResult')
+        .replace('yield { ref: agent.id }', 'yield { ref: agent.id } as CreateGoalResult'),
+    )
     const [artifact] = new WorkspaceTypertGenerator(root).generate()
     const generated = await executable(artifact!.remote!.js)
     const output = generated.TYPERT_REMOTE.methods['goals/create']!.result
     expect(output.jsonSchema).toBeUndefined()
     expect(output.jsonSchemaError).toContain('recursive selected type')
-    expect(output.create().parse({ ref: 'first', next: { ref: 'second' } }))
-      .toEqual({ ref: 'first', next: { ref: 'second' } })
+    expect(output.create().parse({ ref: 'first', next: { ref: 'second' } })).toEqual({ ref: 'first', next: { ref: 'second' } })
     expect(() => output.create().parse({ ref: 'first', next: { ref: 2 } })).toThrow()
   })
 })

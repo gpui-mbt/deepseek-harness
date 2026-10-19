@@ -341,31 +341,31 @@ interface JobRead {
  */
 type JobEvent =
   | {
-    /** Registration commit, progress line change, stopping transition, or removal from the visible set. */
-    readonly type: 'registered' | 'progress' | 'stopping' | 'removed'
-    readonly job: JobView
-  }
+      /** Registration commit, progress line change, stopping transition, or removal from the visible set. */
+      readonly type: 'registered' | 'progress' | 'stopping' | 'removed'
+      readonly job: JobView
+    }
   | {
-    readonly type: 'settled'
-    readonly job: JobView
-    readonly cause: JobSettleCause
-    /**
-     * Whether this settlement released a live {@link JobRegistry.wait}. That
-     * waiter's caller receives the terminal projection as its own result, so
-     * a completion reporter treats an awaited settlement as already delivered
-     * and reports only the unawaited ones. A wait that timed out or was
-     * aborted before the settlement does not count.
-     */
-    readonly awaited: boolean
-  }
+      readonly type: 'settled'
+      readonly job: JobView
+      readonly cause: JobSettleCause
+      /**
+       * Whether this settlement released a live {@link JobRegistry.wait}. That
+       * waiter's caller receives the terminal projection as its own result, so
+       * a completion reporter treats an awaited settlement as already delivered
+       * and reports only the unawaited ones. A wait that timed out or was
+       * aborted before the settlement does not count.
+       */
+      readonly awaited: boolean
+    }
   | {
-    readonly type: 'output'
-    readonly id: JobId
-    /** Owning session, absent for an unowned job. */
-    readonly owner?: SessionId
-    /** The ring's total after the append (or at settlement, which ends the stream). */
-    readonly total: number
-  }
+      readonly type: 'output'
+      readonly id: JobId
+      /** Owning session, absent for an unowned job. */
+      readonly owner?: SessionId
+      /** The ring's total after the append (or at settlement, which ends the stream). */
+      readonly total: number
+    }
 ```
 
 ```ts type-equiv
@@ -376,9 +376,7 @@ type JobEvent =
  * serves every composition in the process, and a mount under one preset must
  * not hear another preset's agents. `{ owners: 'all' }` delivers everything.
  */
-type JobEventFilter =
-  | { readonly owner: SessionId }
-  | { readonly owners: 'all' | 'scope' }
+type JobEventFilter = { readonly owner: SessionId } | { readonly owners: 'all' | 'scope' }
 ```
 
 ## 服务行为

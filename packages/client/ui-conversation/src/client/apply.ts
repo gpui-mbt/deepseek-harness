@@ -19,8 +19,12 @@ import { sessionReferenceRule } from './user-text/session-reference-rule.ts'
 import { collapseWhitespaceRule, trimWhitespaceRule } from './user-text/whitespace-rules.ts'
 import type { ViewTab } from './contract/views.ts'
 import type {
-  ComposerBarInjected, ConversationInjected, ConversationSessionHeaderInjected,
-  ConversationSessionInjected, DraftFileUploads, UserTextInjected,
+  ComposerBarInjected,
+  ConversationInjected,
+  ConversationSessionHeaderInjected,
+  ConversationSessionInjected,
+  DraftFileUploads,
+  UserTextInjected,
 } from './contract/slots.ts'
 import type { InputNotice } from './contract/input.ts'
 import type { ReferenceInsert } from './contract/draft-editor.ts'
@@ -56,9 +60,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Services required by the Conversation plugin. */
-export const inject = [
-  'slots', 'sessions', 'fileUpload', 'uiSession', 'uiWorkspace', 'locale', 'configForms',
-]
+export const inject = ['slots', 'sessions', 'fileUpload', 'uiSession', 'uiWorkspace', 'locale', 'configForms']
 
 /** Conversation runtime configuration. */
 export interface Config {
@@ -162,23 +164,28 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   uiConversation.userText.register(sessionReferenceRule)
   uiConversation.userText.register(collapseWhitespaceRule)
   uiConversation.userText.register(trimWhitespaceRule)
-  slots.registerFactory({
-    name: 'conversation.user.text',
-    scope: 'session',
-    children: {
-      'conversation.user.text.node': { kind: 'keyed', scope: 'session', inline: true },
-    },
-    inject: (): UserTextInjected => ({
-      hooks: {
-        userTextRevision: {
-          getSnapshot: () => uiConversation.userText.getSnapshot(),
-          subscribe: listener => uiConversation.userText.subscribe(listener),
-        },
+  slots.registerFactory(
+    {
+      name: 'conversation.user.text',
+      scope: 'session',
+      children: {
+        'conversation.user.text.node': { kind: 'keyed', scope: 'session', inline: true },
       },
-      createUserTextEvaluator: () => uiConversation.userText.createEvaluator(),
-      reportTransformFailure: (error) => { console.error('[ui-conversation] user-text transformation failed:', error) },
-    }),
-  }, UserText)
+      inject: (): UserTextInjected => ({
+        hooks: {
+          userTextRevision: {
+            getSnapshot: () => uiConversation.userText.getSnapshot(),
+            subscribe: listener => uiConversation.userText.subscribe(listener),
+          },
+        },
+        createUserTextEvaluator: () => uiConversation.userText.createEvaluator(),
+        reportTransformFailure: error => {
+          console.error('[ui-conversation] user-text transformation failed:', error)
+        },
+      }),
+    },
+    UserText,
+  )
   slots.inject('conversation.user.text.node', function* () {
     yield slots.register({ name: 'conversation.user.text.node', key: 'text', priority: 100 }, PlainUserText)
     yield slots.register({ name: 'conversation.user.text.node', key: 'session', priority: 100 }, SessionReference)
@@ -187,22 +194,29 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-conversation: dictionaries')
   const t = ctx.locale.bind(NS)
   const conversationStore = createConversationStore()
-  const submissionPolicy = new ComposerSubmissionPolicy(
-    ctx.configForms.get<ConversationSettings>(CONVERSATION_SETTINGS_NAMESPACE),
+  const submissionPolicy = new ComposerSubmissionPolicy(ctx.configForms.get<ConversationSettings>(CONVERSATION_SETTINGS_NAMESPACE))
+
+  ctx.effect(() => () => {
+    submissionPolicy.dispose()
+  })
+
+  ctx.slots.inject('settings.general.item', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.general.item',
+        id: 'composer-enter',
+        order: 20,
+        locale: NS,
+        inject: (): EnterBehaviorRowInjected => ({
+          hooks: { busyEnter: submissionPolicy.busyEnter },
+          setBusyEnter: behavior => {
+            submissionPolicy.setBusyEnter(behavior)
+          },
+        }),
+      },
+      EnterBehaviorRow,
+    ),
   )
-
-  ctx.effect(() => () => { submissionPolicy.dispose() })
-
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'composer-enter',
-    order: 20,
-    locale: NS,
-    inject: (): EnterBehaviorRowInjected => ({
-      hooks: { busyEnter: submissionPolicy.busyEnter },
-      setBusyEnter: (behavior) => { submissionPolicy.setBusyEnter(behavior) },
-    }),
-  }, EnterBehaviorRow))
 
   const viewTabs = (): ViewTab[] => {
     const tabs: ViewTab[] = []
@@ -231,13 +245,19 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     if (trackedBindings.has(binding)) return
     trackedBindings.add(binding)
     bindings.add(binding)
-    binding.ctx.effect(() => () => { bindings.delete(binding) }, 'ui-conversation: active Provider binding')
+    binding.ctx.effect(
+      () => () => {
+        bindings.delete(binding)
+      },
+      'ui-conversation: active Provider binding',
+    )
   }
   const refreshViews = (): void => {
     const current = conversationViews.getSnapshot()
     const next = viewTabs()
-    const unchanged = current.length === next.length
-      && current.every((tab, index) => {
+    const unchanged =
+      current.length === next.length &&
+      current.every((tab, index) => {
         const candidate = next.at(index)
         return candidate !== undefined && tab.id === candidate.id && tab.label === candidate.label
       })
@@ -256,54 +276,99 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   }, 'ui-conversation: View selection')
 
   const stop = (sessionId: SessionId): void => {
-    scopedConversation(sessions, sessionId).cancel().catch((_error: unknown) => {
-      // Stop failure is published through Session promptError.
-    })
+    scopedConversation(sessions, sessionId)
+      .cancel()
+      .catch((_error: unknown) => {
+        // Stop failure is published through Session promptError.
+      })
   }
   const stopShortcut = createSnapshotStore<readonly string[]>([])
-  ctx.inject(['shortcuts'], (scope) => {
+  ctx.inject(['shortcuts'], scope => {
     const fixedInputs: readonly ShortcutFixedCommand[] = [
-      { id: 'fixed.send' as ShortcutCommandId, label: () => t('input.send'), keys: ['Enter'],
-        bindings: [{ code: 'Enter', modifiers: [] }], group: 'input' },
-      { id: 'fixed.newline' as ShortcutCommandId, label: () => t('shortcut.newline'),
+      {
+        id: 'fixed.send' as ShortcutCommandId,
+        label: () => t('input.send'),
+        keys: ['Enter'],
+        bindings: [{ code: 'Enter', modifiers: [] }],
+        group: 'input',
+      },
+      {
+        id: 'fixed.newline' as ShortcutCommandId,
+        label: () => t('shortcut.newline'),
         keys: scope.shortcuts.describeBinding({ code: 'Enter', modifiers: ['shift'] }).keys,
-        bindings: [{ code: 'Enter', modifiers: ['shift'] }], group: 'input' },
-      { id: 'fixed.complementary' as ShortcutCommandId, label: () => t('shortcut.complementary'),
+        bindings: [{ code: 'Enter', modifiers: ['shift'] }],
+        group: 'input',
+      },
+      {
+        id: 'fixed.complementary' as ShortcutCommandId,
+        label: () => t('shortcut.complementary'),
         keys: scope.shortcuts.describeBinding({ code: 'Enter', modifiers: ['primary'] }).keys,
-        bindings: [{ code: 'Enter', modifiers: ['control'] }, { code: 'Enter', modifiers: ['meta'] }], group: 'input' },
-      { id: 'fixed.slash' as ShortcutCommandId, label: () => t('shortcut.slash'), keys: ['/'],
-        bindings: [{ code: 'Slash', modifiers: [] }], group: 'input' },
-      { id: 'fixed.mention' as ShortcutCommandId, label: () => t('shortcut.mention'), keys: ['@'],
-        bindings: [{ code: 'Digit2', modifiers: ['shift'] }], group: 'input' },
+        bindings: [
+          { code: 'Enter', modifiers: ['control'] },
+          { code: 'Enter', modifiers: ['meta'] },
+        ],
+        group: 'input',
+      },
+      {
+        id: 'fixed.slash' as ShortcutCommandId,
+        label: () => t('shortcut.slash'),
+        keys: ['/'],
+        bindings: [{ code: 'Slash', modifiers: [] }],
+        group: 'input',
+      },
+      {
+        id: 'fixed.mention' as ShortcutCommandId,
+        label: () => t('shortcut.mention'),
+        keys: ['@'],
+        bindings: [{ code: 'Digit2', modifiers: ['shift'] }],
+        group: 'input',
+      },
     ]
     for (const command of fixedInputs) {
       scope.effect(() => scope.shortcuts.registerFixed(command), `ui-conversation: ${command.id}`)
     }
-    scope.effect(() => installStopShortcut(
-      scope.shortcuts, sessions, binding => uiConversation.binding(binding).openTurn, ctx.uiSession, stop,
-    ), 'ui-conversation: fixed stop input')
+    scope.effect(
+      () => installStopShortcut(scope.shortcuts, sessions, binding => uiConversation.binding(binding).openTurn, ctx.uiSession, stop),
+      'ui-conversation: fixed stop input',
+    )
     scope.effect(() => {
       const command: ShortcutFixedCommand = {
-        id: 'response.stop' as ShortcutCommandId, label: () => t('input.stop'), keys: ['Esc', 'Esc'], bindings: [{ code: 'Escape', modifiers: [] }], group: 'input',
+        id: 'response.stop' as ShortcutCommandId,
+        label: () => t('input.stop'),
+        keys: ['Esc', 'Esc'],
+        bindings: [{ code: 'Escape', modifiers: [] }],
+        group: 'input',
       }
       const dispose = scope.shortcuts.registerFixed(command)
       stopShortcut.set(command.keys)
-      return () => { stopShortcut.set([]); dispose() }
+      return () => {
+        stopShortcut.set([])
+        dispose()
+      }
     }, 'ui-conversation: fixed stop reference')
   })
 
   const inputHub = new InputHub(ctx, t)
   const composerBlocks = new ComposerBlockRegistry()
 
-  ctx.inject(['commandUi'], (scope) => {
+  ctx.inject(['commandUi'], scope => {
     const commands = scope.get('commandUi') as FileCommandRegistry
-    scope.effect(() => commands.register({
-      name: 'file',
-      label: () => t('input.file'),
-      icon: IconPaperclipOutlineRegular,
-      available: session => inputHub.canPickFiles(session.sessionId),
-      ui: { kind: 'action', run: (session) => { inputHub.pickFiles(session.sessionId) } },
-    }), 'ui-conversation: File action')
+    scope.effect(
+      () =>
+        commands.register({
+          name: 'file',
+          label: () => t('input.file'),
+          icon: IconPaperclipOutlineRegular,
+          available: session => inputHub.canPickFiles(session.sessionId),
+          ui: {
+            kind: 'action',
+            run: session => {
+              inputHub.pickFiles(session.sessionId)
+            },
+          },
+        }),
+      'ui-conversation: File action',
+    )
   })
 
   // Conversation assembly and input share the Session binding lifecycle. The
@@ -311,7 +376,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
   ctx.uiSession.provide({
     hooks: ['conversation', 'input'],
     props: ['inputActions'],
-    resolve: (binding) => {
+    resolve: binding => {
       trackBinding(binding)
       const shell = inputHub.shellFor(binding)
       const conversation = uiConversation.binding(binding)
@@ -326,243 +391,290 @@ export function apply(ctx: Context, config: Config = Config({})): void {
     },
   })
 
-  const registerConversationRoot = () => slots.register({
-    name: 'main.conversation',
-    children: {
-      'conversation.header': { kind: 'single', scope: 'session-maybe' },
-    },
-  }, ConversationRoot)
-
-  const registerConversationContent = () => slots.registerFactory({
-    name: 'conversation.content',
-    scope: 'session-maybe',
-    locale: NS,
-    children: {
-      'conversation.session': { kind: 'single', scope: 'session' },
-      'conversation.composer': { kind: 'chain', scope: 'session' },
-      'conversation.composer.bar': { kind: 'single', scope: 'session-maybe' },
-      'conversation.input.dock': { kind: 'list', scope: 'session' },
-      'conversation.hero.brand.mark': { kind: 'single', scope: 'root' },
-      'conversation.hero.workspace': { kind: 'single', scope: 'root' },
-      'conversation.hero.agentPreset': { kind: 'single', scope: 'session-maybe' },
-      'conversation.hero.options': { kind: 'list', scope: 'session' },
-    },
-    slots: {
-      views: { scope: 'session' },
-      widthControls: { scope: 'root' },
-    },
-    inject: (sessionId: SessionId | undefined): ConversationInjected => ({
-      hooks: {
-        composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
-      },
-      selectWorkspace: workspaceId => workspaceNavigation.openWorkspace(workspaceId, (nextId) => {
-        if (sessionId !== undefined && nextId !== sessionId) {
-          const from = inputHub.shell(sessionId)
-          const draft = from.draftSnapshot
-          const attachmentIds = from.snapshot.attachmentIds
-          const next = inputHub.shell(nextId)
-          if (attachmentIds.length === 0 || next.addAttachments(attachmentIds)) {
-            if (sessions.binding(nextId) === undefined) {
-              throw new Error(`ui-conversation: session "${nextId}" resolved no binding`)
-            }
-            concreteConversation(ctx).rebindDraftFiles(nextId, attachmentIds)
-            if (draft.text !== '') {
-              next.setDraft(draft)
-              from.setDraft('')
-            }
-            if (attachmentIds.length > 0) {
-              for (const id of attachmentIds) from.removeAttachment(id)
-            }
-          }
-        }
-      }),
-    }),
-  }, ConversationContent)
-
-  const registerConversationSession = () => slots.register({
-    name: 'conversation.session',
-    children: {
-      'conversation.view': { kind: 'list', scope: 'session' },
-    },
-    store: conversationStore,
-    inject: (sessionId: SessionId, actions: BoundActions<typeof conversationStore>): ConversationSessionInjected => {
-      const openView = (view: string, focus: string): void => {
-        if (!viewTabs().some(tab => tab.id === view)) return
-        activateView(sessionId, view)
-        actions.openView(view, focus)
-      }
-      const inspectionTarget = () => uiConversation.views.entries().find(definition =>
-        definition.toolCallFocus !== undefined
-        && conversationViews.getSnapshot().some(view => view.id === definition.target),
-      )
-      const inspectCall = (callId: string): void => {
-        const target = inspectionTarget()
-        if (target?.toolCallFocus !== undefined) openView(target.target, target.toolCallFocus(callId))
-      }
-      return {
-        hooks: {
-          conversationViews,
-          inspectCall: {
-            getSnapshot: () => inspectionTarget() === undefined ? undefined : inspectCall,
-            subscribe: (listener) => {
-              const disposeViews = conversationViews.subscribe(listener)
-              const disposeDefinitions = uiConversation.views.subscribe(listener)
-              return () => { disposeViews(); disposeDefinitions() }
-            },
-          },
+  const registerConversationRoot = () =>
+    slots.register(
+      {
+        name: 'main.conversation',
+        children: {
+          'conversation.header': { kind: 'single', scope: 'session-maybe' },
         },
-        bindDraftPersistence: write => inputHub.shell(sessionId).bindDraftPersistence(write),
-        openView,
-      }
-    },
-  }, ConversationSession)
-
-  const registerHeader = () => slots.register({
-    name: 'conversation.header',
-    children: {
-      'conversation.header.leading': { kind: 'single', scope: 'root' },
-      'conversation.session.header': { kind: 'single', scope: 'session' },
-    },
-  }, ConversationHeader)
-
-  const registerSessionHeader = () => slots.register({
-    name: 'conversation.session.header',
-    locale: NS,
-    children: {
-      'conversation.session.header.lineage': { kind: 'single', scope: 'session' },
-      'conversation.session.header.actions': { kind: 'list', scope: 'session' },
-      'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
-      'conversation.session.header.corner': { kind: 'single', scope: 'session' },
-    },
-    store: conversationStore,
-    inject: (sessionId: SessionId, actions: BoundActions<typeof conversationStore>): ConversationSessionHeaderInjected => ({
-      hooks: { conversationViews },
-      open: (id) => { workspaceNavigation.openSession(id) },
-      selectView: (view) => {
-        activateView(sessionId, view)
-        actions.setView(view)
       },
-    }),
-  }, ConversationSessionHeader)
+      ConversationRoot,
+    )
 
-  const registerComposerBar = () => slots.register({
-    name: 'conversation.composer.bar',
-    locale: NS,
-    children: {
-      'conversation.input.attachments': { kind: 'single', scope: 'session-maybe' },
-      'conversation.input.overlay': { kind: 'list', scope: 'session' },
-      'conversation.input.permission': { kind: 'single', scope: 'session' },
-      'conversation.input.left': { kind: 'list', scope: 'session' },
-      'conversation.input.plan': { kind: 'single', scope: 'session' },
-      'conversation.input.right': { kind: 'list', scope: 'session' },
-      'conversation.input.model': { kind: 'single', scope: 'session' },
-      'conversation.input.activity': { kind: 'single', scope: 'session' },
-      'conversation.composer.dock': { kind: 'list', scope: 'session' },
-    },
-    inject: (sessionId: SessionId | undefined): ComposerBarInjected => {
-      if (sessionId === undefined) {
-        return {
-          keyboard: undefined,
-          addFiles: undefined,
-          removeAttachment: undefined,
-          resolveDraftAttachments: undefined,
-          retryFileUpload: undefined,
-          toggleCommandMenu: undefined,
-          stop: undefined,
+  const registerConversationContent = () =>
+    slots.registerFactory(
+      {
+        name: 'conversation.content',
+        scope: 'session-maybe',
+        locale: NS,
+        children: {
+          'conversation.session': { kind: 'single', scope: 'session' },
+          'conversation.composer': { kind: 'chain', scope: 'session' },
+          'conversation.composer.bar': { kind: 'single', scope: 'session-maybe' },
+          'conversation.input.dock': { kind: 'list', scope: 'session' },
+          'conversation.hero.brand.mark': { kind: 'single', scope: 'root' },
+          'conversation.hero.workspace': { kind: 'single', scope: 'root' },
+          'conversation.hero.agentPreset': { kind: 'single', scope: 'session-maybe' },
+          'conversation.hero.options': { kind: 'list', scope: 'session' },
+        },
+        slots: {
+          views: { scope: 'session' },
+          widthControls: { scope: 'root' },
+        },
+        inject: (sessionId: SessionId | undefined): ConversationInjected => ({
           hooks: {
-            stopShortcut,
-            busyEnter: submissionPolicy.busyEnter,
-            fileUploads: ABSENT_FILE_UPLOADS,
-            notices: ABSENT_NOTICES,
-            lexicon: ABSENT_LEXICON,
-            menuLauncher: ABSENT_MENU_LAUNCHER,
+            composerBlock: sessionId === undefined ? ABSENT_BLOCK : composerBlocks.storeFor(sessionId),
           },
-        }
-      }
-      const conversation = concreteConversation(ctx)
-      const shell = inputHub.shell(sessionId)
-      const inputTriggers = inputHub.inputTriggers(sessionId)
-      const bridge = hostPathBridge()
-      return {
-        keyboard: shell,
-        addFiles: (files, directories = new Set()) => {
-          if (sessions.binding(sessionId) === undefined) return t('file.sessionUnavailable')
-          if (shell.snapshot.phase === 'adjudicating' || shell.snapshot.phase === 'submitting') {
-            return t('attachment.dropBlocked')
+          selectWorkspace: workspaceId =>
+            workspaceNavigation.openWorkspace(workspaceId, nextId => {
+              if (sessionId !== undefined && nextId !== sessionId) {
+                const from = inputHub.shell(sessionId)
+                const draft = from.draftSnapshot
+                const attachmentIds = from.snapshot.attachmentIds
+                const next = inputHub.shell(nextId)
+                if (attachmentIds.length === 0 || next.addAttachments(attachmentIds)) {
+                  if (sessions.binding(nextId) === undefined) {
+                    throw new Error(`ui-conversation: session "${nextId}" resolved no binding`)
+                  }
+                  concreteConversation(ctx).rebindDraftFiles(nextId, attachmentIds)
+                  if (draft.text !== '') {
+                    next.setDraft(draft)
+                    from.setDraft('')
+                  }
+                  if (attachmentIds.length > 0) {
+                    for (const id of attachmentIds) from.removeAttachment(id)
+                  }
+                }
+              }
+            }),
+        }),
+      },
+      ConversationContent,
+    )
+
+  const registerConversationSession = () =>
+    slots.register(
+      {
+        name: 'conversation.session',
+        children: {
+          'conversation.view': { kind: 'list', scope: 'session' },
+        },
+        store: conversationStore,
+        inject: (sessionId: SessionId, actions: BoundActions<typeof conversationStore>): ConversationSessionInjected => {
+          const openView = (view: string, focus: string): void => {
+            if (!viewTabs().some(tab => tab.id === view)) return
+            activateView(sessionId, view)
+            actions.openView(view, focus)
           }
-          const uploads: File[] = []
-          const references: ReferenceInsert[] = []
-          const cwd = sessions.list.getSnapshot().byId[sessionId]?.cwd
-          for (const file of files) {
-            const directory = directories.has(file)
-            if (bridge === undefined && directory) return t('attachment.directoryDesktopOnly')
-            const path = bridge?.pathFor(file) ?? ''
-            if (directory && path === '') return t('attachment.pathUnavailable')
-            if (path === '' || (!directory && isImageMediaType(file.type))) {
-              uploads.push(file)
-              continue
-            }
-            const relative = relativizeToCwd(path, cwd)
-            // A completed directory chip needs closed quotes; the directory grammar keeps them open for drill.
-            const mention = formatFileMention({ path: directory ? `${relative}/` : relative, kind: 'file' }, false)
-            if (mention === undefined) return t('attachment.pathUnsupported')
-            const label = workspaceTitleOf(path) || file.name
-            references.push({
-              source: 'reference', ref: mention, label: directory ? `${label}/` : label,
-              appearance: directory ? 'folder' : 'file', clipboardText: mention,
-            })
+          const inspectionTarget = () =>
+            uiConversation.views
+              .entries()
+              .find(
+                definition =>
+                  definition.toolCallFocus !== undefined && conversationViews.getSnapshot().some(view => view.id === definition.target),
+              )
+          const inspectCall = (callId: string): void => {
+            const target = inspectionTarget()
+            if (target?.toolCallFocus !== undefined) openView(target.target, target.toolCallFocus(callId))
           }
-          try {
-            const drafts = conversation.createDrafts(sessionId, uploads)
-            if (!shell.addFiles(references, drafts.map(draft => draft.id))) {
-              conversation.releaseDraftAttachments(drafts)
-              return t('attachment.dropBlocked')
-            }
-            return null
-          } catch (error: unknown) {
-            if (error instanceof UnsupportedImageMediaTypeError) return t('image.unsupportedType')
-            return error instanceof Error ? error.message : String(error)
+          return {
+            hooks: {
+              conversationViews,
+              inspectCall: {
+                getSnapshot: () => (inspectionTarget() === undefined ? undefined : inspectCall),
+                subscribe: listener => {
+                  const disposeViews = conversationViews.subscribe(listener)
+                  const disposeDefinitions = uiConversation.views.subscribe(listener)
+                  return () => {
+                    disposeViews()
+                    disposeDefinitions()
+                  }
+                },
+              },
+            },
+            bindDraftPersistence: write => inputHub.shell(sessionId).bindDraftPersistence(write),
+            openView,
           }
         },
-        removeAttachment: (id) => {
-          if (shell.removeAttachment(id)) conversation.releaseDraftAttachment(id)
+      },
+      ConversationSession,
+    )
+
+  const registerHeader = () =>
+    slots.register(
+      {
+        name: 'conversation.header',
+        children: {
+          'conversation.header.leading': { kind: 'single', scope: 'root' },
+          'conversation.session.header': { kind: 'single', scope: 'session' },
         },
-        resolveDraftAttachments: ids => conversation.resolveDraftAttachments(ids),
-        retryFileUpload: (id) => {
-          if (sessions.binding(sessionId) !== undefined) conversation.retryFileUpload(sessionId, id)
+      },
+      ConversationHeader,
+    )
+
+  const registerSessionHeader = () =>
+    slots.register(
+      {
+        name: 'conversation.session.header',
+        locale: NS,
+        children: {
+          'conversation.session.header.lineage': { kind: 'single', scope: 'session' },
+          'conversation.session.header.actions': { kind: 'list', scope: 'session' },
+          'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+          'conversation.session.header.corner': { kind: 'single', scope: 'session' },
         },
-        toggleCommandMenu: inputTriggers === undefined
-          ? undefined
-          : (selection) => {
-            shell.dismissPopup()
-            const snapshot = shell.snapshot
-            inputTriggers.toggleSource('command', {
-              trigger: '/',
-              query: '',
-              quoted: false,
-              position: snapshot.draft.slice(0, selection.start).trim() === '' ? 'leading' : 'inline',
-              span: { ...selection, draftRev: snapshot.draftRev },
-            })
+        store: conversationStore,
+        inject: (sessionId: SessionId, actions: BoundActions<typeof conversationStore>): ConversationSessionHeaderInjected => ({
+          hooks: { conversationViews },
+          open: id => {
+            workspaceNavigation.openSession(id)
           },
-        stop: () => { stop(sessionId) },
-        hooks: {
-          stopShortcut,
-          busyEnter: submissionPolicy.busyEnter,
-          fileUploads: conversation.fileUploads,
-          notices: shell.notices,
-          lexicon: shell.lexicon,
-          menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
+          selectView: view => {
+            activateView(sessionId, view)
+            actions.setView(view)
+          },
+        }),
+      },
+      ConversationSessionHeader,
+    )
+
+  const registerComposerBar = () =>
+    slots.register(
+      {
+        name: 'conversation.composer.bar',
+        locale: NS,
+        children: {
+          'conversation.input.attachments': { kind: 'single', scope: 'session-maybe' },
+          'conversation.input.overlay': { kind: 'list', scope: 'session' },
+          'conversation.input.permission': { kind: 'single', scope: 'session' },
+          'conversation.input.left': { kind: 'list', scope: 'session' },
+          'conversation.input.plan': { kind: 'single', scope: 'session' },
+          'conversation.input.right': { kind: 'list', scope: 'session' },
+          'conversation.input.model': { kind: 'single', scope: 'session' },
+          'conversation.input.activity': { kind: 'single', scope: 'session' },
+          'conversation.composer.dock': { kind: 'list', scope: 'session' },
         },
-      }
-    },
-  }, InputBar)
+        inject: (sessionId: SessionId | undefined): ComposerBarInjected => {
+          if (sessionId === undefined) {
+            return {
+              keyboard: undefined,
+              addFiles: undefined,
+              removeAttachment: undefined,
+              resolveDraftAttachments: undefined,
+              retryFileUpload: undefined,
+              toggleCommandMenu: undefined,
+              stop: undefined,
+              hooks: {
+                stopShortcut,
+                busyEnter: submissionPolicy.busyEnter,
+                fileUploads: ABSENT_FILE_UPLOADS,
+                notices: ABSENT_NOTICES,
+                lexicon: ABSENT_LEXICON,
+                menuLauncher: ABSENT_MENU_LAUNCHER,
+              },
+            }
+          }
+          const conversation = concreteConversation(ctx)
+          const shell = inputHub.shell(sessionId)
+          const inputTriggers = inputHub.inputTriggers(sessionId)
+          const bridge = hostPathBridge()
+          return {
+            keyboard: shell,
+            addFiles: (files, directories = new Set()) => {
+              if (sessions.binding(sessionId) === undefined) return t('file.sessionUnavailable')
+              if (shell.snapshot.phase === 'adjudicating' || shell.snapshot.phase === 'submitting') {
+                return t('attachment.dropBlocked')
+              }
+              const uploads: File[] = []
+              const references: ReferenceInsert[] = []
+              const cwd = sessions.list.getSnapshot().byId[sessionId]?.cwd
+              for (const file of files) {
+                const directory = directories.has(file)
+                if (bridge === undefined && directory) return t('attachment.directoryDesktopOnly')
+                const path = bridge?.pathFor(file) ?? ''
+                if (directory && path === '') return t('attachment.pathUnavailable')
+                if (path === '' || (!directory && isImageMediaType(file.type))) {
+                  uploads.push(file)
+                  continue
+                }
+                const relative = relativizeToCwd(path, cwd)
+                // A completed directory chip needs closed quotes; the directory grammar keeps them open for drill.
+                const mention = formatFileMention({ path: directory ? `${relative}/` : relative, kind: 'file' }, false)
+                if (mention === undefined) return t('attachment.pathUnsupported')
+                const label = workspaceTitleOf(path) || file.name
+                references.push({
+                  source: 'reference',
+                  ref: mention,
+                  label: directory ? `${label}/` : label,
+                  appearance: directory ? 'folder' : 'file',
+                  clipboardText: mention,
+                })
+              }
+              try {
+                const drafts = conversation.createDrafts(sessionId, uploads)
+                if (
+                  !shell.addFiles(
+                    references,
+                    drafts.map(draft => draft.id),
+                  )
+                ) {
+                  conversation.releaseDraftAttachments(drafts)
+                  return t('attachment.dropBlocked')
+                }
+                return null
+              } catch (error: unknown) {
+                if (error instanceof UnsupportedImageMediaTypeError) return t('image.unsupportedType')
+                return error instanceof Error ? error.message : String(error)
+              }
+            },
+            removeAttachment: id => {
+              if (shell.removeAttachment(id)) conversation.releaseDraftAttachment(id)
+            },
+            resolveDraftAttachments: ids => conversation.resolveDraftAttachments(ids),
+            retryFileUpload: id => {
+              if (sessions.binding(sessionId) !== undefined) conversation.retryFileUpload(sessionId, id)
+            },
+            toggleCommandMenu:
+              inputTriggers === undefined
+                ? undefined
+                : selection => {
+                    shell.dismissPopup()
+                    const snapshot = shell.snapshot
+                    inputTriggers.toggleSource('command', {
+                      trigger: '/',
+                      query: '',
+                      quoted: false,
+                      position: snapshot.draft.slice(0, selection.start).trim() === '' ? 'leading' : 'inline',
+                      span: { ...selection, draftRev: snapshot.draftRev },
+                    })
+                  },
+            stop: () => {
+              stop(sessionId)
+            },
+            hooks: {
+              stopShortcut,
+              busyEnter: submissionPolicy.busyEnter,
+              fileUploads: conversation.fileUploads,
+              notices: shell.notices,
+              lexicon: shell.lexicon,
+              menuLauncher: inputTriggers?.launcher ?? ABSENT_MENU_LAUNCHER,
+            },
+          }
+        },
+      },
+      InputBar,
+    )
 
   slots.inject('main', function* () {
-    yield slots.register({
-      name: 'main',
-      key: 'conversation',
-      children: { 'main.conversation': { kind: 'single', scope: 'session-maybe' } },
-    }, ConversationPanel)
+    yield slots.register(
+      {
+        name: 'main',
+        key: 'conversation',
+        children: { 'main.conversation': { kind: 'single', scope: 'session-maybe' } },
+      },
+      ConversationPanel,
+    )
     yield registerConversationRoot()
     yield registerConversationContent()
     yield registerConversationSession()

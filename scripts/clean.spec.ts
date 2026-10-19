@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 
 import { RepositoryCleaner } from './clean.ts'
 
@@ -20,10 +20,13 @@ function write(path: string, content = ''): void {
 
 function addProject(root: string, path: string, outDir = 'lib/types'): void {
   write(join(root, 'tsconfig.json'), JSON.stringify({ files: [], references: [{ path }] }))
-  write(join(root, path, 'tsconfig.json'), JSON.stringify({
-    compilerOptions: { composite: true, outDir },
-    include: ['src'],
-  }))
+  write(
+    join(root, path, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: { composite: true, outDir },
+      include: ['src'],
+    }),
+  )
   write(join(root, path, 'src/index.ts'), 'export {}\n')
 }
 
@@ -86,10 +89,13 @@ describe('RepositoryCleaner', () => {
     const root = fixture()
     const externalProject = fixture()
     write(join(root, 'tsconfig.json'), JSON.stringify({ files: [], references: [{ path: './linked' }] }))
-    write(join(externalProject, 'tsconfig.json'), JSON.stringify({
-      compilerOptions: { composite: true, outDir: 'lib/types' },
-      include: ['src'],
-    }))
+    write(
+      join(externalProject, 'tsconfig.json'),
+      JSON.stringify({
+        compilerOptions: { composite: true, outDir: 'lib/types' },
+        include: ['src'],
+      }),
+    )
     write(join(externalProject, 'src/index.ts'), 'export {}\n')
     write(join(externalProject, 'lib/types/index.js'))
     symlinkSync(externalProject, join(root, 'linked'), process.platform === 'win32' ? 'junction' : 'dir')

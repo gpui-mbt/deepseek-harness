@@ -8,7 +8,7 @@ import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import * as locators from './snapshot-spill-locators.ts'
 import * as commands from '../snapshots/session/session-query-spill/resolve-spill-command.mjs'
 
@@ -33,12 +33,17 @@ it.skipIf(process.platform === 'win32')('resolves the exact spill verifier, reta
     const saved = await ctx.spillStore.saveText({
       owner: { sessionId: SessionId('query-verifier') },
       source: { kind: 'tool', toolName: 'session_event_read', callId: ToolCallId('query'), label: 'result' },
-      suggestedName: 'session_event_read.txt', content: 'request/header session_event_search',
+      suggestedName: 'session_event_read.txt',
+      content: 'request/header session_event_search',
     })
     const adapter = ctx.plugin(commands)
     disposers.push(() => adapter.dispose())
     await adapter
-    const command = 'file="' + saved.locator + '"' + "; grep -Fq request/header \"$file\" && grep -Fq session_event_search \"$file\" && printf 'SPILL_CANONICAL_OK\\n'"
+    const command =
+      'file="' +
+      saved.locator +
+      '"' +
+      '; grep -Fq request/header "$file" && grep -Fq session_event_search "$file" && printf \'SPILL_CANONICAL_OK\\n\''
     const spec = ctx.shell.resolve({ command })
     const output = await (await ctx.shell.execute(spec)).result()
     expect(output.timedOut).toBe(false)

@@ -12,7 +12,7 @@ export { Config } from './onboarding-config.ts'
  * @param config - plugin options with schema defaults applied by the Loader.
  */
 export function apply(ctx: Context, config: Config): void {
-  ctx.on('webserver/index-inject', (table) => {
+  ctx.on('webserver/index-inject', table => {
     table.push({
       kind: 'global',
       name: ONBOARDING_CONFIG_GLOBAL,

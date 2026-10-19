@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -61,7 +61,9 @@ describe('ACP machine permission policy', () => {
   it('fails closed when the client errors the permission request', async () => {
     harness = await makeBridgeHarness()
     const request = await ownedRequest()
-    harness.onPermission = () => { throw new Error('client gone') }
+    harness.onPermission = () => {
+      throw new Error('client gone')
+    }
     await expect(harness.ctx.approval.request(request)).resolves.toBe('unavailable')
   })
 
@@ -78,16 +80,16 @@ describe('ACP machine permission policy', () => {
         append: () => ({}),
       },
     } as unknown as Agent
-    await expect(harness.ctx.approval.request({ agent: foreign, toolName: 'bash', callId: ToolCallId('call') }))
-      .resolves.toBe('unavailable')
+    await expect(harness.ctx.approval.request({ agent: foreign, toolName: 'bash', callId: ToolCallId('call') })).resolves.toBe(
+      'unavailable',
+    )
     expect(harness.permissionRequests).toHaveLength(0)
   })
 
   it('delegates requests that have no protocol tool-call identity', async () => {
     harness = await makeBridgeHarness()
     const request = await ownedRequest()
-    await expect(harness.ctx.approval.request({ agent: request.agent, toolName: request.toolName }))
-      .resolves.toBe('unavailable')
+    await expect(harness.ctx.approval.request({ agent: request.agent, toolName: request.toolName })).resolves.toBe('unavailable')
     expect(harness.permissionRequests).toHaveLength(0)
   })
 })

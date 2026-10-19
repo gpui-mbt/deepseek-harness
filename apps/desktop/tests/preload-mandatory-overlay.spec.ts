@@ -1,6 +1,6 @@
 import { MessageChannel } from 'node:worker_threads'
 import { JSDOM } from 'jsdom'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { installMandatoryUpdateOverlay } from '../src/preload-mandatory-overlay.ts'
 import { MANDATORY_IPC } from '../src/mandatory-update-ipc.ts'
 import { resolveDesktopLocale } from '../src/locale.ts'
@@ -26,14 +26,23 @@ function setup() {
   vi.stubGlobal('window', dom.window)
   vi.stubGlobal('document', dom.window.document)
   vi.stubGlobal('HTMLElement', dom.window.HTMLElement)
-  vi.stubGlobal('MessageChannel', function createChannel() { channel = new MessageChannel(); return channel })
+  vi.stubGlobal('MessageChannel', function createChannel() {
+    channel = new MessageChannel()
+    return channel
+  })
   vi.spyOn(dom.window.document, 'readyState', 'get').mockReturnValue('complete')
   const shadow = vi.spyOn(dom.window.HTMLElement.prototype, 'attachShadow')
   installMandatoryUpdateOverlay()
-  const publish = ipc.on.mock.calls.find(([name]) => name === MANDATORY_IPC.state)![1] as
-    (event: unknown, state: MandatoryUpdateView) => void
-  const view: MandatoryUpdateView = { locale: resolveDesktopLocale('zh-CN'), policy: { blocking: true, checking: false },
-    update: { phase: 'available', version: '2.0.0' }, deferred: false }
+  const publish = ipc.on.mock.calls.find(([name]) => name === MANDATORY_IPC.state)![1] as (
+    event: unknown,
+    state: MandatoryUpdateView,
+  ) => void
+  const view: MandatoryUpdateView = {
+    locale: resolveDesktopLocale('zh-CN'),
+    policy: { blocking: true, checking: false },
+    update: { phase: 'available', version: '2.0.0' },
+    deferred: false,
+  }
   publish({}, view)
   ipc.invoke.mockClear()
   const root = shadow.mock.results[0]!.value as ShadowRoot
@@ -63,9 +72,11 @@ it('rejects forged window events and accepts actions only through the transferre
   const data = { type: 'dsh-mandatory-action', id: 1, action: 'download', version: '2.0.0', revision: undefined }
   dom.window.dispatchEvent(new dom.window.MessageEvent('message', { source: f.frame.contentWindow, origin: 'dsh-app://shell', data }))
   expect(ipc.invoke).not.toHaveBeenCalled()
-  const result = new Promise<unknown>(resolve => channel.port2.on('message', (message: unknown) => {
-    if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'dsh-mandatory-result') resolve(message)
-  }))
+  const result = new Promise<unknown>(resolve =>
+    channel.port2.on('message', (message: unknown) => {
+      if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'dsh-mandatory-result') resolve(message)
+    }),
+  )
   channel.port2.postMessage(data)
   await expect(result).resolves.toEqual({ type: 'dsh-mandatory-result', id: 1, ok: true })
   expect(ipc.invoke).toHaveBeenCalledExactlyOnceWith(MANDATORY_IPC.action, 'download', '2.0.0', undefined)

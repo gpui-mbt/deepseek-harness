@@ -58,7 +58,10 @@ export function createReviewStore(): EngineStoreHandle<ReviewState, ReviewAction
       navigated: (d, tabId: TabId, revision: number, index: number) => {
         const tab = d.byTab[tabId]
         if (tab === undefined) d.byTab[tabId] = { index, split: true, wrap: false, navigated: revision }
-        else { tab.index = index; tab.navigated = revision }
+        else {
+          tab.index = index
+          tab.navigated = revision
+        }
       },
       /**
        * Show another listed file.
@@ -66,19 +69,27 @@ export function createReviewStore(): EngineStoreHandle<ReviewState, ReviewAction
        * @param tabId - the tab being drawn.
        * @param index - original index in the summary's files array.
        */
-      selected: (d, tabId: TabId, index: number) => { bucket(d, tabId).index = index },
+      selected: (d, tabId: TabId, index: number) => {
+        bucket(d, tabId).index = index
+      },
       /**
        * Switch between the unified and the side-by-side view.
        * @param d - draft state.
        * @param tabId - the tab being drawn.
        */
-      toggledSplit: (d, tabId: TabId) => { const tab = bucket(d, tabId); tab.split = !tab.split },
+      toggledSplit: (d, tabId: TabId) => {
+        const tab = bucket(d, tabId)
+        tab.split = !tab.split
+      },
       /**
        * Switch line wrapping.
        * @param d - draft state.
        * @param tabId - the tab being drawn.
        */
-      toggledWrap: (d, tabId: TabId) => { const tab = bucket(d, tabId); tab.wrap = !tab.wrap },
+      toggledWrap: (d, tabId: TabId) => {
+        const tab = bucket(d, tabId)
+        tab.wrap = !tab.wrap
+      },
       /**
        * Drop a tab's bucket once its record is gone.
        * @param d - draft state.

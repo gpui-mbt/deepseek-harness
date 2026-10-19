@@ -11,13 +11,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { createSnapshotStore, type ObservableSnapshot, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type {
-  ResourceOpenContext,
-  ResourceProtocol,
-  ResourceProvider,
-  Resources,
-  ResourceSnapshot,
-} from './contract.ts'
+import type { ResourceOpenContext, ResourceProtocol, ResourceProvider, Resources, ResourceSnapshot } from './contract.ts'
 
 /** A provider with its value type erased, so one map holds every protocol. */
 interface RuntimeProvider {
@@ -85,22 +79,33 @@ export class ResourceRegistry implements Resources {
     if (this.providers.has(protocol)) {
       throw new Error(`resources: protocol "${protocol}" already has a provider`)
     }
-    const dispose = this.ctx.effect(() => {
-      this.providers.set(protocol, runtime)
-      for (const record of this.recordsOf(protocol)) this.attach(record)
-      return () => {
-        this.providers.delete(protocol)
-        for (const record of this.recordsOf(protocol)) this.detach(record)
-      }
-    }, `resources.register(${JSON.stringify(protocol)})`)
-    return () => { void dispose() }
+    const dispose = this.ctx.effect(
+      () => {
+        this.providers.set(protocol, runtime)
+        for (const record of this.recordsOf(protocol)) this.attach(record)
+        return () => {
+          this.providers.delete(protocol)
+          for (const record of this.recordsOf(protocol)) this.detach(record)
+        }
+      },
+      `resources.register(${JSON.stringify(protocol)})`,
+    )
+    return () => {
+      void dispose()
+    }
   }
 
   pin(address: string, signal: AbortSignal): void {
     if (signal.aborted) return
     const record = this.record(address)
     this.hold(record)
-    signal.addEventListener('abort', () => { this.release(record) }, { once: true })
+    signal.addEventListener(
+      'abort',
+      () => {
+        this.release(record)
+      },
+      { once: true },
+    )
   }
 
   source(address: string): ObservableSnapshot<ResourceSnapshot<unknown>> {
@@ -118,9 +123,7 @@ export class ResourceRegistry implements Resources {
 
   private create(address: string): ResourceRecord {
     const protocol = protocolOf(address)
-    const store = createSnapshotStore<ResourceSnapshot<unknown>>(
-      idle(this.providerOf(protocol) === undefined ? 'none' : 'loading'),
-    )
+    const store = createSnapshotStore<ResourceSnapshot<unknown>>(idle(this.providerOf(protocol) === undefined ? 'none' : 'loading'))
     const record: ResourceRecord = {
       address,
       protocol,
@@ -129,7 +132,7 @@ export class ResourceRegistry implements Resources {
       controller: undefined,
       source: {
         getSnapshot: () => store.getSnapshot(),
-        subscribe: (listener) => {
+        subscribe: listener => {
           const unsubscribe = store.subscribe(listener)
           this.hold(record)
           let active = true
@@ -203,9 +206,11 @@ export class ResourceRegistry implements Resources {
       // A frame the provider yields after the release that aborted it belongs
       // to nobody; ending the loop also returns the iterator.
       if (signal.aborted) break
-      record.store.set(frame.ok
-        ? { status: 'live', value: frame.value, failure: undefined }
-        : { status: 'failed', value: record.store.getSnapshot().value, failure: frame.error })
+      record.store.set(
+        frame.ok
+          ? { status: 'live', value: frame.value, failure: undefined }
+          : { status: 'failed', value: record.store.getSnapshot().value, failure: frame.error },
+      )
     }
   }
 }

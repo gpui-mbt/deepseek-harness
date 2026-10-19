@@ -2,7 +2,9 @@
 
 import { useState, type ReactNode } from 'react'
 import {
-  IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconTrashOutlineRegular,
+  IconChevronDownOutlineRegular,
+  IconChevronRightOutlineRegular,
+  IconTrashOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DeepSeekModelDraft } from './DeepSeekModelsEditor.tsx'
 import type { RoutingProviderOption } from './store.ts'
@@ -56,16 +58,14 @@ export interface RoutingDraft {
  */
 export function routingDraftOf(model: DeepSeekModelDraft): RoutingDraft {
   const candidates = model['peak']
-  const candidate = Array.isArray(candidates) && candidates.length > 0
-    ? candidates[0] as Record<string, unknown>
-    : undefined
+  const candidate = Array.isArray(candidates) && candidates.length > 0 ? (candidates[0] as Record<string, unknown>) : undefined
   const provider = candidate?.['provider']
   const destination = candidate?.['model']
   const apiKeyEnv = candidate?.['apiKeyEnv']
   return {
     provider: typeof provider === 'string' ? provider : '',
     model: typeof destination === 'string' ? destination : '',
-    ...typeof apiKeyEnv === 'string' && apiKeyEnv !== '' ? { apiKeyEnv } : {},
+    ...(typeof apiKeyEnv === 'string' && apiKeyEnv !== '' ? { apiKeyEnv } : {}),
   }
 }
 
@@ -116,16 +116,16 @@ export function ModelRow(props: ModelRowProps): ReactNode {
   // choice here keeps the model control usable without writing a window that
   // would silently route the routed model's own id.
   const [stagedProvider, setStagedProvider] = useState('')
-  const destination: RoutingDraft | undefined = routing === undefined
-    ? undefined
-    : { ...routing, provider: routing.provider === '' ? stagedProvider : routing.provider }
+  const destination: RoutingDraft | undefined =
+    routing === undefined ? undefined : { ...routing, provider: routing.provider === '' ? stagedProvider : routing.provider }
   // A stored destination the catalog no longer lists stays selectable, so the
   // row shows what the profile actually says instead of blanking the select.
-  const routingOptions = props.routingProviders === undefined || destination === undefined
-    ? []
-    : destination.provider !== '' && !props.routingProviders.some(option => option.id === destination.provider)
-      ? [{ id: destination.provider, name: destination.provider, models: [] }, ...props.routingProviders]
-      : props.routingProviders
+  const routingOptions =
+    props.routingProviders === undefined || destination === undefined
+      ? []
+      : destination.provider !== '' && !props.routingProviders.some(option => option.id === destination.provider)
+        ? [{ id: destination.provider, name: destination.provider, models: [] }, ...props.routingProviders]
+        : props.routingProviders
   const editRouting = (next: Partial<RoutingDraft>): void => {
     /* v8 ignore next -- the control is only rendered when the draft exists */
     if (destination === undefined) return
@@ -134,12 +134,11 @@ export function ModelRow(props: ModelRowProps): ReactNode {
     // the day/night pair this control exists for often shares one id, and a
     // model the new provider does not offer belongs to the provider that is gone.
     const nextModels = routingOptions.find(option => option.id === next.provider)?.models ?? []
-    const keepsModel = next.provider === undefined
-      || (next.model === undefined && nextModels.includes(destination.model))
+    const keepsModel = next.provider === undefined || (next.model === undefined && nextModels.includes(destination.model))
     const merged: RoutingDraft = {
       provider: next.provider ?? destination.provider,
-      model: keepsModel ? next.model ?? destination.model : '',
-      ...destination.apiKeyEnv === undefined || destinationChanged ? {} : { apiKeyEnv: destination.apiKeyEnv },
+      model: keepsModel ? (next.model ?? destination.model) : '',
+      ...(destination.apiKeyEnv === undefined || destinationChanged ? {} : { apiKeyEnv: destination.apiKeyEnv }),
     }
     setStagedProvider(merged.provider)
     // A window serves a chosen destination, so an incomplete one is not a
@@ -150,12 +149,11 @@ export function ModelRow(props: ModelRowProps): ReactNode {
   const destinationChosen = destination !== undefined && destination.provider !== '' && destination.model !== ''
   // The destination's own catalog, which a stored value survives even when the
   // deployment stopped listing it.
-  const routingModels = destination === undefined
-    ? []
-    : routingOptions.find(option => option.id === destination.provider)?.models ?? []
-  const routingModelOptions = destination !== undefined && destination.model !== '' && !routingModels.includes(destination.model)
-    ? [destination.model, ...routingModels]
-    : routingModels
+  const routingModels = destination === undefined ? [] : (routingOptions.find(option => option.id === destination.provider)?.models ?? [])
+  const routingModelOptions =
+    destination !== undefined && destination.model !== '' && !routingModels.includes(destination.model)
+      ? [destination.model, ...routingModels]
+      : routingModels
   return (
     <div className={styles['modelEntry']}>
       <div className={styles['modelRow']}>
@@ -168,7 +166,7 @@ export function ModelRow(props: ModelRowProps): ReactNode {
             placeholder={t(field === 'id' ? 'modelId' : 'modelName')}
             aria-label={`${t(field === 'id' ? 'modelId' : 'modelName')} ${String(position)}`}
             disabled={disabled}
-            onChange={(event) => {
+            onChange={event => {
               const value = event.target.value
               props.onFieldChange(field, field === 'name' && value === '' ? undefined : value)
             }}
@@ -196,92 +194,108 @@ export function ModelRow(props: ModelRowProps): ReactNode {
           <IconTrashOutlineRegular size={14} />
         </button>
       </div>
-      {props.expanded
-        ? (
-          <div className={styles['modelAdvanced']}>
-            {(['contextWindow', 'maxTokens'] as const).map(field => (
-              <label className={styles['modelField']} key={field}>
-                <span className={styles['modelFieldLabel']}>{t(field)}</span>
-                <input
-                  className={styles['input']}
-                  type="text"
-                  inputMode="numeric"
-                  value={props[field].value}
-                  placeholder={props[field].placeholder}
-                  aria-label={`${t(field)} ${String(position)}`}
-                  disabled={disabled}
-                  onChange={(event) => { props[field].onChange(event.target.value) }}
-                  onBlur={props[field].onBlur}
-                />
-              </label>
-            ))}
-            <ModelInputTypes
-              model={model} field={props.inputField} position={position}
-              fallback={props.inputFallback} disabled={disabled || props.inputLoading === true} t={t} onChange={props.onChange}
+      {props.expanded ? (
+        <div className={styles['modelAdvanced']}>
+          {(['contextWindow', 'maxTokens'] as const).map(field => (
+            <label className={styles['modelField']} key={field}>
+              <span className={styles['modelFieldLabel']}>{t(field)}</span>
+              <input
+                className={styles['input']}
+                type="text"
+                inputMode="numeric"
+                value={props[field].value}
+                placeholder={props[field].placeholder}
+                aria-label={`${t(field)} ${String(position)}`}
+                disabled={disabled}
+                onChange={event => {
+                  props[field].onChange(event.target.value)
+                }}
+                onBlur={props[field].onBlur}
+              />
+            </label>
+          ))}
+          <ModelInputTypes
+            model={model}
+            field={props.inputField}
+            position={position}
+            fallback={props.inputFallback}
+            disabled={disabled || props.inputLoading === true}
+            t={t}
+            onChange={props.onChange}
+          />
+          {props.reasoningLevels !== undefined && props.reasoningLevels.length > 0 ? (
+            <ModelReasoningEfforts
+              model={model}
+              levels={props.reasoningLevels}
+              position={position}
+              disabled={disabled}
+              t={t}
+              onChange={props.onChange}
             />
-            {props.reasoningLevels !== undefined && props.reasoningLevels.length > 0
-              ? (
-                <ModelReasoningEfforts
-                  model={model} levels={props.reasoningLevels} position={position} disabled={disabled} t={t} onChange={props.onChange}
-                />
-              )
-              : null}
-            {destination === undefined || routingOptions.length === 0
-              ? null
-              : (
-                <div className={styles['routingFields']}>
-                  <span className={styles['modelFieldLabel']}>{t('peakRouting')}</span>
-                  <label className={styles['modelField']}>
-                    <span className={styles['modelFieldLabel']}>{t('routingProvider')}</span>
-                    <select
-                      className={`${styles['input']} ${styles['selectInput']}`}
-                      value={destination.provider}
-                      aria-label={`${t('routingProvider')} ${String(position)}`}
-                      disabled={disabled}
-                      onChange={(event) => { editRouting({ provider: event.target.value }) }}
-                    >
-                      <option value="">{t('routingNone')}</option>
-                      {routingOptions.map(option => (
-                        <option key={option.id} value={option.id}>{option.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className={styles['modelField']}>
-                    <span className={styles['modelFieldLabel']}>{t('routingModel')}</span>
-                    <select
-                      className={`${styles['input']} ${styles['selectInput']}`}
-                      value={destination.model}
-                      aria-label={`${t('routingModel')} ${String(position)}`}
-                      disabled={disabled || destination.provider === ''}
-                      onChange={(event) => { editRouting({ model: event.target.value }) }}
-                    >
-                      {/* The destination model is a choice, not a default: the
+          ) : null}
+          {destination === undefined || routingOptions.length === 0 ? null : (
+            <div className={styles['routingFields']}>
+              <span className={styles['modelFieldLabel']}>{t('peakRouting')}</span>
+              <label className={styles['modelField']}>
+                <span className={styles['modelFieldLabel']}>{t('routingProvider')}</span>
+                <select
+                  className={`${styles['input']} ${styles['selectInput']}`}
+                  value={destination.provider}
+                  aria-label={`${t('routingProvider')} ${String(position)}`}
+                  disabled={disabled}
+                  onChange={event => {
+                    editRouting({ provider: event.target.value })
+                  }}
+                >
+                  <option value="">{t('routingNone')}</option>
+                  {routingOptions.map(option => (
+                    <option key={option.id} value={option.id}>
+                      {option.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles['modelField']}>
+                <span className={styles['modelFieldLabel']}>{t('routingModel')}</span>
+                <select
+                  className={`${styles['input']} ${styles['selectInput']}`}
+                  value={destination.model}
+                  aria-label={`${t('routingModel')} ${String(position)}`}
+                  disabled={disabled || destination.provider === ''}
+                  onChange={event => {
+                    editRouting({ model: event.target.value })
+                  }}
+                >
+                  {/* The destination model is a choice, not a default: the
                           placeholder asks for one and cannot be selected back. */}
-                      <option value="" disabled>{t('routingModelPlaceholder')}</option>
-                      {routingModelOptions.map(id => (
-                        <option key={id} value={id}>{id}</option>
-                      ))}
-                    </select>
-                  </label>
-                  {!destinationChosen
-                    ? <p className={styles['routingHint']}>{t('routingHint')}</p>
-                    : (
-                      <>
-                        {/* The period is policy, not a setting: the window is
+                  <option value="" disabled>
+                    {t('routingModelPlaceholder')}
+                  </option>
+                  {routingModelOptions.map(id => (
+                    <option key={id} value={id}>
+                      {id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {!destinationChosen ? (
+                <p className={styles['routingHint']}>{t('routingHint')}</p>
+              ) : (
+                <>
+                  {/* The period is policy, not a setting: the window is
                             Ollama Cloud's weekday peak, shown in both zones the
                             operator reasons in. */}
-                        <div className={styles['routingWindow']}>
-                          <span className={styles['modelFieldLabel']}>{t('routingWindow')}</span>
-                          <p className={styles['routingWindowValue']}>{windowValue(t)}</p>
-                          <p className={styles['routingHint']}>{t('routingPeakNote')}</p>
-                        </div>
-                      </>
-                    )}
-                </div>
+                  <div className={styles['routingWindow']}>
+                    <span className={styles['modelFieldLabel']}>{t('routingWindow')}</span>
+                    <p className={styles['routingWindowValue']}>{windowValue(t)}</p>
+                    <p className={styles['routingHint']}>{t('routingPeakNote')}</p>
+                  </div>
+                </>
               )}
-          </div>
-        )
-        : null}
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   )
 }

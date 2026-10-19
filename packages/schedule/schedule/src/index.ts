@@ -12,14 +12,31 @@ import { scheduleDomain } from './storage.ts'
 import { deliveryHistoryPage } from './delivery-history.ts'
 import { resolveScheduleUpdate } from './update.ts'
 import {
-  foldScheduleEvents, ScheduleInputError, ScheduleLogError, ScheduleId, createAfterScheduleRecord, createAtScheduleRecord,
-  createEveryScheduleRecord, createDailyScheduleRecord, createWeeklyScheduleRecord, createCronScheduleRecord,
+  foldScheduleEvents,
+  ScheduleInputError,
+  ScheduleLogError,
+  ScheduleId,
+  createAfterScheduleRecord,
+  createAtScheduleRecord,
+  createEveryScheduleRecord,
+  createDailyScheduleRecord,
+  createWeeklyScheduleRecord,
+  createCronScheduleRecord,
   scheduleTitle,
 } from './domain.ts'
 import type {
-  DeliveryRetentionBounds, ScheduleCatalogEntry, ScheduleCreateRequest, ScheduleDeleteRequest, ScheduleDeleteResult,
-  ScheduleDeliveryHistoryRequest, ScheduleDeliveryHistoryResult, ScheduleListRequest, ScheduleRecord,
-  ScheduleUpdateRequest, ScheduleUpdateResult, SubagentSessionError,
+  DeliveryRetentionBounds,
+  ScheduleCatalogEntry,
+  ScheduleCreateRequest,
+  ScheduleDeleteRequest,
+  ScheduleDeleteResult,
+  ScheduleDeliveryHistoryRequest,
+  ScheduleDeliveryHistoryResult,
+  ScheduleListRequest,
+  ScheduleRecord,
+  ScheduleUpdateRequest,
+  ScheduleUpdateResult,
+  SubagentSessionError,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -59,7 +76,6 @@ export {
   scheduleView,
   weeklyTime,
 } from './domain.ts'
-
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -122,7 +138,7 @@ export class ScheduleService extends TypertRemoteService {
       days: config.deliveryHistoryDays ?? DEFAULT_DELIVERY_HISTORY_DAYS,
       records: config.deliveryHistoryRecords ?? DEFAULT_DELIVERY_HISTORY_RECORDS,
     }
-    this.ready = ctx.storageDomain.open(scheduleDomain).then(async (domain) => {
+    this.ready = ctx.storageDomain.open(scheduleDomain).then(async domain => {
       for (const [key, task] of domain.table('tasks').entries()) {
         if (key !== task.record.id) {
           // The mismatch is the actionable failure; a rejecting close must not replace it.
@@ -152,35 +168,43 @@ export class ScheduleService extends TypertRemoteService {
         throw error
       }
       const tasks = domain.table('tasks')
-      this.runtime = new ScheduleRuntime(ctx,
+      this.runtime = new ScheduleRuntime(
+        ctx,
         () => [...tasks.entries()].map(([, task]) => task),
         work => this.serialize(work),
-        async (task) => {
+        async task => {
           await tasks.put(task.record.id, task)
           this.emitChanged()
         },
-        this.retention)
+        this.retention,
+      )
       this.runtime.requestDrive()
       return cleanup
     })
-    ctx.on('session/created', (session) => {
-      // Historical Schedule events remain readable but do not populate Host tasks.
-      // A throwing `session/created` listener rolls the attach back, so an unreadable
-      // legacy stream must warn here instead of blocking Session creation.
-      let activeLegacy = 0
-      try {
-        // oxlint-disable-next-line typescript/no-deprecated -- Explicit warning for legacy Schedule history.
-        activeLegacy = foldScheduleEvents(session.ownEvents()).active.length
-      } catch (error: unknown) {
-        /* v8 ignore next -- foldScheduleEvents normalizes every rejected stream to ScheduleLogError. */
-        if (!(error instanceof ScheduleLogError)) throw error
-        ctx.logger.warn(`schedule: Session "${session.id}" historical events could not be read (${error.message}); the legacy reminder is ignored.`)
-        return
-      }
-      if (activeLegacy > 0) {
-        ctx.logger.warn(`schedule: Session "${session.id}" contains legacy reminders; recreate active reminders with schedule_create.`)
-      }
-    }, { global: true })
+    ctx.on(
+      'session/created',
+      session => {
+        // Historical Schedule events remain readable but do not populate Host tasks.
+        // A throwing `session/created` listener rolls the attach back, so an unreadable
+        // legacy stream must warn here instead of blocking Session creation.
+        let activeLegacy = 0
+        try {
+          // oxlint-disable-next-line typescript/no-deprecated -- Explicit warning for legacy Schedule history.
+          activeLegacy = foldScheduleEvents(session.ownEvents()).active.length
+        } catch (error: unknown) {
+          /* v8 ignore next -- foldScheduleEvents normalizes every rejected stream to ScheduleLogError. */
+          if (!(error instanceof ScheduleLogError)) throw error
+          ctx.logger.warn(
+            `schedule: Session "${session.id}" historical events could not be read (${error.message}); the legacy reminder is ignored.`,
+          )
+          return
+        }
+        if (activeLegacy > 0) {
+          ctx.logger.warn(`schedule: Session "${session.id}" contains legacy reminders; recreate active reminders with schedule_create.`)
+        }
+      },
+      { global: true },
+    )
     // Host tasks outlive their Session's Agent, so archive admission reads the
     // stored rows rather than a live runtime: an idle Session whose reminders
     // are still armed refuses the archive, and an archiving stop deletes those
@@ -226,9 +250,15 @@ export class ScheduleService extends TypertRemoteService {
    * @returns The durably stored schedule. Cancellation does not roll back an in-flight write.
    */
   async create(sessionId: SessionId, request: ScheduleCreateRequest, signal?: AbortSignal): Promise<ScheduleRecord> {
-    if (Number(request.at !== undefined) + Number(request.after_seconds !== undefined)
-      + Number(request.every_seconds !== undefined) + Number(request.daily !== undefined)
-      + Number(request.weekly !== undefined) + Number(request.cron !== undefined) > 1) {
+    if (
+      Number(request.at !== undefined) +
+        Number(request.after_seconds !== undefined) +
+        Number(request.every_seconds !== undefined) +
+        Number(request.daily !== undefined) +
+        Number(request.weekly !== undefined) +
+        Number(request.cron !== undefined) >
+      1
+    ) {
       throw new ScheduleInputError('invalid_selector', 'Exactly one reminder selector is required.')
     }
     const title = scheduleTitle(request.title)
@@ -237,14 +267,11 @@ export class ScheduleService extends TypertRemoteService {
     let record: ScheduleRecord
     if (request.at !== undefined) {
       record = createAtScheduleRecord(id, request.prompt, request.at, now, title)
-    }
-    else if (request.after_seconds !== undefined) {
+    } else if (request.after_seconds !== undefined) {
       record = createAfterScheduleRecord(id, request.prompt, request.after_seconds, now, title)
-    }
-    else if (request.every_seconds !== undefined) {
+    } else if (request.every_seconds !== undefined) {
       record = createEveryScheduleRecord(id, request.prompt, request.every_seconds, now, title)
-    }
-    else if (request.daily !== undefined) record = createDailyScheduleRecord(id, request.prompt, request.daily, now, title)
+    } else if (request.daily !== undefined) record = createDailyScheduleRecord(id, request.prompt, request.daily, now, title)
     else if (request.weekly !== undefined) record = createWeeklyScheduleRecord(id, request.prompt, request.weekly, now, title)
     else if (request.cron !== undefined) record = createCronScheduleRecord(id, request.prompt, request.cron, now, title)
     else throw new ScheduleInputError('invalid_selector', 'Exactly one reminder selector is required.')
@@ -254,7 +281,10 @@ export class ScheduleService extends TypertRemoteService {
       const domain = await this.getDomain()
       signal?.throwIfAborted()
       await domain.table('tasks').put(id, {
-        sessionId, record, status: 'active', deliveryHistory: { records: [], earlierRecordsUnavailable: false },
+        sessionId,
+        record,
+        status: 'active',
+        deliveryHistory: { records: [], earlierRecordsUnavailable: false },
       })
       this.emitChanged()
       this.runtime?.requestDrive()
@@ -286,7 +316,9 @@ export class ScheduleService extends TypertRemoteService {
     const domain = await this.getDomain()
     return [...domain.table('tasks').entries()]
       .map(([, task]) => ({
-        ...task.record, sessionId: task.sessionId, status: task.status,
+        ...task.record,
+        sessionId: task.sessionId,
+        status: task.status,
         ...(task.lastDelivery === undefined ? {} : { lastDelivery: task.lastDelivery }),
       }))
       .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt) || a.id.localeCompare(b.id))

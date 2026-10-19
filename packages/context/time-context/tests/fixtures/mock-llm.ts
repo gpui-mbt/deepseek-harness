@@ -3,7 +3,7 @@ import { LlmAdapter, type StreamChunk } from '@deepseek-ai/dsh-llm'
 
 /** Deterministic one-step adapter for the time-context Loader fixture. */
 class TimeContextMockAdapter extends LlmAdapter {
-  async * stream(): AsyncIterable<StreamChunk> {
+  async *stream(): AsyncIterable<StreamChunk> {
     const text = 'time context sampled'
     yield { type: 'block-start', index: 0, blockType: 'text' }
     yield { type: 'text-delta', index: 0, text }

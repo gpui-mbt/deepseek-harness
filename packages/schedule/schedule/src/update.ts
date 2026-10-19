@@ -1,22 +1,40 @@
 /** Optimistic name, instruction, and timing updates of retained Host tasks, without Session mutations. */
 import { isDeepStrictEqual } from 'node:util'
 import {
-  canonicalizeCronExpression, canonicalizeTimeZone, createAtScheduleRecord, createCronScheduleRecord,
-  createDailyScheduleRecord, createEveryScheduleRecord, createWeeklyScheduleRecord, decodeScheduleRecord,
-  decodeStoredTitle, parseAtInput, parseCronInput, parseDailyInput, parseWeeklyInput,
-  ScheduleInputError, ScheduleLogError, scheduleTitle,
+  canonicalizeCronExpression,
+  canonicalizeTimeZone,
+  createAtScheduleRecord,
+  createCronScheduleRecord,
+  createDailyScheduleRecord,
+  createEveryScheduleRecord,
+  createWeeklyScheduleRecord,
+  decodeScheduleRecord,
+  decodeStoredTitle,
+  parseAtInput,
+  parseCronInput,
+  parseDailyInput,
+  parseWeeklyInput,
+  ScheduleInputError,
+  ScheduleLogError,
+  scheduleTitle,
 } from './domain.ts'
 import type { ScheduleRecord, ScheduleTimingChange, ScheduleUpdateContent, ScheduleUpdateResult } from './types.ts'
 
 /** Name the exact selector property each timing kind must carry, or undefined for an unknown discriminant. */
 function timingSelector(kind: string): string | undefined {
   switch (kind) {
-    case 'at': return 'at'
-    case 'every': return 'every_seconds'
-    case 'daily': return 'daily'
-    case 'weekly': return 'weekly'
-    case 'cron': return 'cron'
-    default: return undefined
+    case 'at':
+      return 'at'
+    case 'every':
+      return 'every_seconds'
+    case 'daily':
+      return 'daily'
+    case 'weekly':
+      return 'weekly'
+    case 'cron':
+      return 'cron'
+    default:
+      return undefined
   }
 }
 
@@ -70,9 +88,7 @@ export function retainedTitle(record: ScheduleRecord): string {
  * @returns The same record when both are unchanged, otherwise a frozen copy with the new content.
  */
 function withContent(current: ScheduleRecord, title: string, prompt: string): ScheduleRecord {
-  return title === current.title && prompt === current.prompt
-    ? current
-    : Object.freeze({ ...current, title, prompt })
+  return title === current.title && prompt === current.prompt ? current : Object.freeze({ ...current, title, prompt })
 }
 
 /**
@@ -94,8 +110,8 @@ function changedRecord(
   const change = validateChange(value)
   switch (change.kind) {
     case 'at':
-      if ((current.kind === 'after' || current.kind === 'at')
-        && parseAtInput(change.at) === Date.parse(current.scheduledAt)) return withContent(current, title, prompt)
+      if ((current.kind === 'after' || current.kind === 'at') && parseAtInput(change.at) === Date.parse(current.scheduledAt))
+        return withContent(current, title, prompt)
       return createAtScheduleRecord(current.id, prompt, change.at, now, title)
     case 'every':
       if (current.kind === 'every' && change.every_seconds === current.everySeconds) {
@@ -105,25 +121,31 @@ function changedRecord(
     case 'daily': {
       if (current.kind === 'daily') {
         const normalized = parseDailyInput(change.daily)
-        if (normalized.time === current.time
-          && normalized.timeZone === canonicalizeTimeZone(current.timeZone)) return withContent(current, title, prompt)
+        if (normalized.time === current.time && normalized.timeZone === canonicalizeTimeZone(current.timeZone))
+          return withContent(current, title, prompt)
       }
       return createDailyScheduleRecord(current.id, prompt, change.daily, now, title)
     }
     case 'weekly': {
       if (current.kind === 'weekly') {
         const normalized = parseWeeklyInput(change.weekly)
-        if (normalized.time === current.time
-          && normalized.timeZone === canonicalizeTimeZone(current.timeZone)
-          && isDeepStrictEqual(normalized.weekdays, current.weekdays)) return withContent(current, title, prompt)
+        if (
+          normalized.time === current.time &&
+          normalized.timeZone === canonicalizeTimeZone(current.timeZone) &&
+          isDeepStrictEqual(normalized.weekdays, current.weekdays)
+        )
+          return withContent(current, title, prompt)
       }
       return createWeeklyScheduleRecord(current.id, prompt, change.weekly, now, title)
     }
     case 'cron': {
       if (current.kind === 'cron') {
         const normalized = parseCronInput(change.cron)
-        if (normalized.expression === canonicalizeCronExpression(current.expression)
-          && normalized.timeZone === canonicalizeTimeZone(current.timeZone)) return withContent(current, title, prompt)
+        if (
+          normalized.expression === canonicalizeCronExpression(current.expression) &&
+          normalized.timeZone === canonicalizeTimeZone(current.timeZone)
+        )
+          return withContent(current, title, prompt)
       }
       return createCronScheduleRecord(current.id, prompt, change.cron, now, title)
     }

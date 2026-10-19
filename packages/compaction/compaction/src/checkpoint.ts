@@ -30,14 +30,11 @@ export type CompactionCheckpointSource = typeof COMPACT_CHECKPOINT_MARKER & {
  * @param sourceCommandId - initiating manual command, when present.
  * @returns immutable checkpoint source.
  */
-export function compactCheckpointSource(
-  compactionId: CompactionId,
-  sourceCommandId?: CommandId,
-): CompactionCheckpointSource {
+export function compactCheckpointSource(compactionId: CompactionId, sourceCommandId?: CommandId): CompactionCheckpointSource {
   return Object.freeze({
     ...COMPACT_CHECKPOINT_MARKER,
     compactionId,
-    ...sourceCommandId === undefined ? {} : { sourceCommandId },
+    ...(sourceCommandId === undefined ? {} : { sourceCommandId }),
   })
 }
 

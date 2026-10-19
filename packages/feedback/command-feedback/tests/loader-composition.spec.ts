@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -37,12 +37,16 @@ async function agent(ctx: Context): Promise<Agent> {
     session,
     inbox: unsupportedInbox(),
     ctx: scope.ctx,
-    get status() { return status },
+    get status() {
+      return status
+    },
     send: () => {},
     followup: () => {},
     steer: () => {},
     inject: () => {},
-    cancel() { status = 'idle' },
+    cancel() {
+      status = 'idle'
+    },
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
@@ -55,13 +59,16 @@ describe('/feedback real Loader composition through cordis.yml', () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-command-feedback-loader-'))
     vi.stubEnv('DSH_HOME', root)
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, [
-      "- name: '@deepseek-ai/dsh-agent'",
-      "- name: '@deepseek-ai/dsh-session'",
-      "- name: '@deepseek-ai/dsh-commands'",
-      "- name: '@deepseek-ai/dsh-command-feedback'",
-      '',
-    ].join('\n'))
+    await writeFile(
+      configPath,
+      [
+        "- name: '@deepseek-ai/dsh-agent'",
+        "- name: '@deepseek-ai/dsh-session'",
+        "- name: '@deepseek-ai/dsh-commands'",
+        "- name: '@deepseek-ai/dsh-command-feedback'",
+        '',
+      ].join('\n'),
+    )
 
     context = new Context()
     context.baseUrl = pathToFileURL(root).href + '/'
@@ -102,8 +109,13 @@ describe('/feedback real Loader composition through cordis.yml', () => {
     })
 
     // The domain event owns the payload; generic command bookkeeping omits it.
-    expect(owner.session.snapshotEvents().map(event => event.type))
-      .toEqual(['command/run', 'feedback/record', 'command/done', 'command/run', 'command/done'])
+    expect(owner.session.snapshotEvents().map(event => event.type)).toEqual([
+      'command/run',
+      'feedback/record',
+      'command/done',
+      'command/run',
+      'command/done',
+    ])
     const run = owner.session.snapshotEvents().find(event => event.type === 'command/run')
     expect(run?.type === 'command/run' && Object.hasOwn(run.data, 'args')).toBe(false)
     const feedback = owner.session.snapshotEvents().find(event => event.type === 'feedback/record')

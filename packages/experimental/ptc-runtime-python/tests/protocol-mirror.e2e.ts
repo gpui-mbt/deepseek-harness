@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { logTruncationMarker, PROTOCOL_FD, WIRE_FRAME_FIELDS } from '../src/protocol.ts'
 
 /**
@@ -56,7 +56,7 @@ describe.skipIf(!python3Available)('protocol.py mirrors protocol.ts at runtime',
     expect(seen.markers).toEqual(budgets.map(budget => logTruncationMarker(budget)))
   })
 
-  it('agrees on every frame type\'s wire field set between the TS and Python declarations', async () => {
+  it("agrees on every frame type's wire field set between the TS and Python declarations", async () => {
     // Turn the TypedDict mirror from a review-only obligation into an executable
     // check: enumerate EVERY TypedDict in py/protocol.py (public names carrying
     // __required_keys__) and assert both the frame roster and each frame's
@@ -74,8 +74,7 @@ describe.skipIf(!python3Available)('protocol.py mirrors protocol.ts at runtime',
       'def keys(td): return {"required": sorted(td.__required_keys__), "optional": sorted(td.__optional_keys__)}',
       // Every public TypedDict in the module — not a name list from the TS side,
       // so a Python-only extra frame is visible here.
-      'frames = {n: keys(v) for n, v in vars(p).items()'
-      + ' if not n.startswith("_") and hasattr(v, "__required_keys__")}',
+      'frames = {n: keys(v) for n, v in vars(p).items()' + ' if not n.startswith("_") and hasattr(v, "__required_keys__")}',
       'print(json.dumps(frames))',
     ].join('\n')
     const { stdout } = await execFileAsync('python3', [...python3Flags, '-c', probe])

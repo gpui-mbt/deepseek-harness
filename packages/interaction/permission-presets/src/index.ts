@@ -110,16 +110,14 @@ interface PermissionProjectionState extends KnobState {
   seeded: boolean
 }
 
-const permissionStateSchema: zod.ZodType<PermissionProjectionState> = zod.object({
-  preset: zod.string().nullable(),
-  sandbox: zod.union([
-    zod.literal('read-only'),
-    zod.literal('workspace-write'),
-    zod.literal('danger-full-access'),
-  ]).nullable(),
-  approval: zod.union([zod.literal('ask'), zod.literal('never')]).nullable(),
-  seeded: zod.boolean(),
-}).strict()
+const permissionStateSchema: zod.ZodType<PermissionProjectionState> = zod
+  .object({
+    preset: zod.string().nullable(),
+    sandbox: zod.union([zod.literal('read-only'), zod.literal('workspace-write'), zod.literal('danger-full-access')]).nullable(),
+    approval: zod.union([zod.literal('ask'), zod.literal('never')]).nullable(),
+    seeded: zod.boolean(),
+  })
+  .strict()
 
 /** State for the empty log: every knob at its composition default. */
 const EMPTY_KNOBS: KnobState = { preset: null, sandbox: null, approval: null }
@@ -131,10 +129,7 @@ const EMPTY_KNOBS: KnobState = { preset: null, sandbox: null, approval: null }
  * @param event - one committed session event.
  * @returns the next state; the same reference when the event is unrelated.
  */
-function applyPermissionEvent(
-  state: PermissionProjectionState,
-  event: SessionEvent,
-): PermissionProjectionState {
+function applyPermissionEvent(state: PermissionProjectionState, event: SessionEvent): PermissionProjectionState {
   switch (event.type) {
     case 'permission/preset':
       return { ...state, preset: event.data.preset }
@@ -180,21 +175,29 @@ export interface Config {
 export class PermissionPresetService extends TypertRemoteService {
   // Inline schema call: the config catalog walks `static Config` statically.
   static Config = z.object({
-    presets: z.dict(z.object({
-      sandbox: z.union(SANDBOX_MODES as SandboxMode[]).required(),
-      approval: z.union(APPROVAL_POLICIES as ApprovalPolicy[]).required(),
-      name: z.string(),
-      description: z.string(),
-    })).default({
-      'workspace-write': {
-        sandbox: 'workspace-write', approval: 'ask',
-        name: 'workspace-write', description: 'Write inside the workspace and permitted temporary directories; wider retries require approval.',
-      },
-      'danger-full-access': {
-        sandbox: 'danger-full-access', approval: 'never',
-        name: 'danger-full-access', description: 'Full file access without approval prompts.',
-      },
-    }),
+    presets: z
+      .dict(
+        z.object({
+          sandbox: z.union(SANDBOX_MODES as SandboxMode[]).required(),
+          approval: z.union(APPROVAL_POLICIES as ApprovalPolicy[]).required(),
+          name: z.string(),
+          description: z.string(),
+        }),
+      )
+      .default({
+        'workspace-write': {
+          sandbox: 'workspace-write',
+          approval: 'ask',
+          name: 'workspace-write',
+          description: 'Write inside the workspace and permitted temporary directories; wider retries require approval.',
+        },
+        'danger-full-access': {
+          sandbox: 'danger-full-access',
+          approval: 'never',
+          name: 'danger-full-access',
+          description: 'Full file access without approval prompts.',
+        },
+      }),
     defaultPreset: z.string().volatile(),
   })
 
@@ -207,7 +210,9 @@ export class PermissionPresetService extends TypertRemoteService {
   constructor(ctx: Context, config: Config) {
     super(ctx, 'permissionPresets')
 
-    ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
+    ctx.inject(['settings'], child => {
+      child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+    })
     // The schema defaulted the table — the cast records that runtime fact.
     this.presets = config.presets
     if (CUSTOM_PRESET in this.presets) {
@@ -217,7 +222,9 @@ export class PermissionPresetService extends TypertRemoteService {
       throw new Error(`permission: "${AUTO_PRESET}" is reserved and cannot name a configured preset`)
     }
     if (ctx.shell.sandboxMode === undefined) {
-      throw new Error('permission: the mounted bash executor does not confine (no sandboxMode) — presets bundle a sandbox mode, so composing this plugin over an unconfined executor is a misconfiguration')
+      throw new Error(
+        'permission: the mounted bash executor does not confine (no sandboxMode) — presets bundle a sandbox mode, so composing this plugin over an unconfined executor is a misconfiguration',
+      )
     }
     const inferredDefault = this.derive(EMPTY_KNOBS)
     const defaultPreset = config.defaultPreset.get() ?? inferredDefault
@@ -242,7 +249,7 @@ export class PermissionPresetService extends TypertRemoteService {
       apply: applyPermissionEvent,
       wire: { viewSchema: selectionSchema, view: state => ({ currentValue: this.derive(state) }) },
     })
-    ctx.on('session/created', (session) => {
+    ctx.on('session/created', session => {
       this.pinInitialPermission(session)
     })
     for (const session of ctx.sessions.list()) {
@@ -252,7 +259,7 @@ export class PermissionPresetService extends TypertRemoteService {
     // The /permission command: the one write path a web client uses (the
     // popup contribution submits the picked preset as this line). The child
     // activates only when a command registry is composed.
-    ctx.inject(['commands'], (commandCtx) => {
+    ctx.inject(['commands'], commandCtx => {
       commandCtx.commands.register({
         definitionId: CommandDefinitionId('@deepseek-ai/dsh-permission-presets'),
         name: 'permission',
@@ -269,7 +276,9 @@ export class PermissionPresetService extends TypertRemoteService {
           if (!this.names.includes(name)) {
             return { kind: 'error', text: `unknown preset "${name}" (available: ${this.names.join(', ')})` }
           }
-          this.apply(agent.session, name, (policy) => { this.ctx.approval.setPolicy(agent, policy) })
+          this.apply(agent.session, name, policy => {
+            this.ctx.approval.setPolicy(agent, policy)
+          })
           return { kind: 'success', text: `preset ${name}` }
         },
       })
@@ -386,7 +395,7 @@ export class PermissionPresetService extends TypertRemoteService {
       return { value: CUSTOM_PRESET, name: 'Custom', description: 'Current sandbox and approval settings do not match a preset.' }
     }
     const spec = this.resolve(name)
-    return { value: name, name: spec.name ?? name, ...spec.description !== undefined ? { description: spec.description } : {} }
+    return { value: name, name: spec.name ?? name, ...(spec.description !== undefined ? { description: spec.description } : {}) }
   }
 
   /**
@@ -396,7 +405,9 @@ export class PermissionPresetService extends TypertRemoteService {
    * @param name - the preset to switch to; unknown names throw.
    */
   set(session: Session, name: string): void {
-    this.apply(session, name, (policy) => { setApprovalPolicy(session, policy) })
+    this.apply(session, name, policy => {
+      setApprovalPolicy(session, policy)
+    })
   }
 
   /** Apply one preset through its durable identity and canonical knob setters. */
@@ -473,8 +484,7 @@ export class PermissionPresetService extends TypertRemoteService {
 
   /** Resolve one configured or currently live fixed preset without throwing. */
   private specOf(name: string): PresetSpec | undefined {
-    return this.presets[name]
-      ?? (name === AUTO_PRESET && this.autoAdmit !== undefined ? AUTO_PRESET_SPEC : undefined)
+    return this.presets[name] ?? (name === AUTO_PRESET && this.autoAdmit !== undefined ? AUTO_PRESET_SPEC : undefined)
   }
 }
 

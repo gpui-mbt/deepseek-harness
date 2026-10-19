@@ -17,7 +17,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
  * then, otherwise it installs when the service arrives.
  */
 export async function mountClient(ctx: Context, container: HTMLElement): Promise<void> {
-  const mounted = ctx.inject(['uiRenderer'], (scope) => {
+  const mounted = ctx.inject(['uiRenderer'], scope => {
     scope.effect(() => scope.uiRenderer.mount(container), 'web boot: application mount')
   })
   await mounted

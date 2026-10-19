@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createRef, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Button, ConnectionIndicator, Input, Menu, MenuItemButton, Modal, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import { POINTER_GRACE_MS } from '../src/pointer-grace.ts'
 
@@ -20,7 +20,11 @@ describe('Button', () => {
 
   it('renders children, icon, and forwards clicks', () => {
     const onClick = vi.fn()
-    render(<Button variant="primary" icon={<svg data-testid="ic" />} onClick={onClick}>Go</Button>)
+    render(
+      <Button variant="primary" icon={<svg data-testid="ic" />} onClick={onClick}>
+        Go
+      </Button>,
+    )
     const button = screen.getByRole('button', { name: 'Go' })
     expect(screen.getByTestId('ic')).toBeDefined()
     fireEvent.click(button)
@@ -29,7 +33,11 @@ describe('Button', () => {
 
   it('disabled blocks interaction', () => {
     const onClick = vi.fn()
-    render(<Button disabled onClick={onClick}>No</Button>)
+    render(
+      <Button disabled onClick={onClick}>
+        No
+      </Button>,
+    )
     fireEvent.click(screen.getByRole('button'))
     expect(onClick).not.toHaveBeenCalled()
   })
@@ -52,7 +60,11 @@ describe('Pill', () => {
     const { container, rerender } = render(<Pill className="x">tab</Pill>)
     const asSpan = container.firstElementChild as HTMLElement
     expect(asSpan.classList.contains('x')).toBe(true)
-    rerender(<Pill active className="x" onClick={() => {}}>tab</Pill>)
+    rerender(
+      <Pill active className="x" onClick={() => {}}>
+        tab
+      </Pill>,
+    )
     const asButton = screen.getByRole('button')
     expect(asButton.classList.contains('x')).toBe(true)
   })
@@ -88,11 +100,9 @@ describe('Menu', () => {
 
   it('shows items only while open; select fires onSelect', () => {
     const onSelect = vi.fn()
-    const { rerender } = render(
-      <Menu open={false} anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={() => {}} />)
+    const { rerender } = render(<Menu open={false} anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={() => {}} />)
     expect(screen.queryByRole('menu')).toBeNull()
-    rerender(
-      <Menu open anchor={<span>trigger</span>} items={items} selectedId="a" onSelect={onSelect} onClose={() => {}} />)
+    rerender(<Menu open anchor={<span>trigger</span>} items={items} selectedId="a" onSelect={onSelect} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Alpha' }))
     expect(onSelect).toHaveBeenCalledWith('a')
   })
@@ -107,9 +117,20 @@ describe('Menu', () => {
           anchor={<button type="button">trigger</button>}
           items={[{ id: 'a', label: 'Alpha' }]}
           onSelect={() => {}}
-          onClose={() => { setOpen(false) }}
+          onClose={() => {
+            setOpen(false)
+          }}
         >
-          <MenuItemButton separatorBefore shortcut={{ keys: ['Ctrl', 'P'], aria: 'Control+P' }} onSelect={() => { onAction(); setOpen(false) }}>Publish</MenuItemButton>
+          <MenuItemButton
+            separatorBefore
+            shortcut={{ keys: ['Ctrl', 'P'], aria: 'Control+P' }}
+            onSelect={() => {
+              onAction()
+              setOpen(false)
+            }}
+          >
+            Publish
+          </MenuItemButton>
         </Menu>
       )
     }
@@ -130,15 +151,16 @@ describe('Menu', () => {
     fireEvent.click(publish)
     expect(onAction).toHaveBeenCalledOnce()
     expect(screen.queryByRole('menu')).toBeNull()
-    await act(async () => { await Promise.resolve() })
+    await act(async () => {
+      await Promise.resolve()
+    })
     expect(document.activeElement).toBe(trigger)
   })
 
   it('disabled item does not select; Escape and outside pointerdown close', () => {
     const onSelect = vi.fn()
     const onClose = vi.fn()
-    render(
-      <Menu open anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={onClose} />)
+    render(<Menu open anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={onClose} />)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Beta' }))
     expect(onSelect).not.toHaveBeenCalled()
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -149,16 +171,14 @@ describe('Menu', () => {
 
   it('inside pointerdown does not close', () => {
     const onClose = vi.fn()
-    render(
-      <Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
+    render(<Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
     fireEvent.pointerDown(screen.getByRole('menuitem', { name: 'Alpha' }))
     expect(onClose).not.toHaveBeenCalled()
   })
 
   it('window blur closes only when focus moved into an iframe', () => {
     const onClose = vi.fn()
-    render(
-      <Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
+    render(<Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
     // An app or tab switch blurs the window without focusing an iframe: stays open.
     fireEvent.blur(window)
     expect(onClose).not.toHaveBeenCalled()
@@ -188,7 +208,8 @@ describe('Menu', () => {
         selectedId="a"
         onSelect={() => {}}
         onClose={() => {}}
-      />)
+      />,
+    )
     expect((container.firstElementChild as HTMLElement).classList.contains('x')).toBe(true)
     const menu = screen.getByRole('menu')
     expect(menu.className).toMatch(/sideTop|alignEnd/)
@@ -200,16 +221,7 @@ describe('Menu', () => {
   })
 
   it('fill selection holds the row fill instead of a trailing check', () => {
-    render(
-      <Menu
-        open
-        selection="fill"
-        anchor={<span>trigger</span>}
-        items={items}
-        selectedId="a"
-        onSelect={() => {}}
-        onClose={() => {}}
-      />)
+    render(<Menu open selection="fill" anchor={<span>trigger</span>} items={items} selectedId="a" onSelect={() => {}} onClose={() => {}} />)
     const selected = screen.getByRole('menuitem', { name: 'Alpha' })
     expect(selected.querySelector('svg')).toBeNull()
     expect(selected.className).toMatch(/selectedFill/)
@@ -230,7 +242,8 @@ describe('Menu', () => {
         ]}
         onSelect={() => {}}
         onClose={() => {}}
-      />)
+      />,
+    )
     expect(screen.getByTestId('ic')).toBeDefined()
     expect(screen.getByRole('separator')).toBeDefined()
   })
@@ -238,8 +251,7 @@ describe('Menu', () => {
   it('Tab settles the focused row; Shift+Tab closes back to the anchor', () => {
     const onSelect = vi.fn()
     const onClose = vi.fn()
-    render(
-      <Menu open autoFocus anchor={<button type="button">trigger</button>} items={items} onSelect={onSelect} onClose={onClose} />)
+    render(<Menu open autoFocus anchor={<button type="button">trigger</button>} items={items} onSelect={onSelect} onClose={onClose} />)
     // autoFocus parks the keyboard on the first row; Tab settles it like Enter.
     const alpha = screen.getByRole('menuitem', { name: 'Alpha' })
     expect(document.activeElement).toBe(alpha)
@@ -255,8 +267,7 @@ describe('Menu', () => {
   })
 
   it('Tab from the trigger enters the open list, and elsewhere on the page stays native', () => {
-    render(
-      <Menu open anchor={<button type="button">trigger</button>} items={items} onSelect={() => {}} onClose={() => {}} />)
+    render(<Menu open anchor={<button type="button">trigger</button>} items={items} onSelect={() => {}} onClose={() => {}} />)
     const trigger = screen.getByRole('button', { name: 'trigger' })
     trigger.focus()
     expect(fireEvent.keyDown(trigger, { key: 'Tab' })).toBe(false)
@@ -277,8 +288,7 @@ describe('Menu', () => {
       { id: 'b', label: 'Beta' },
       { id: 'c', label: 'Gamma' },
     ]
-    render(
-      <Menu open anchor={<button type="button">trigger</button>} items={rows} onSelect={() => {}} onClose={onClose} />)
+    render(<Menu open anchor={<button type="button">trigger</button>} items={rows} onSelect={() => {}} onClose={onClose} />)
     const trigger = screen.getByRole('button', { name: 'trigger' })
     const alpha = screen.getByRole('menuitem', { name: 'Alpha' })
     const beta = screen.getByRole('menuitem', { name: 'Beta' })
@@ -307,8 +317,7 @@ describe('Menu', () => {
   })
 
   it('enters at the last enabled row on ↑ and steps over a disabled one', () => {
-    render(
-      <Menu open anchor={<button type="button">trigger</button>} items={items} onSelect={() => {}} onClose={() => {}} />)
+    render(<Menu open anchor={<button type="button">trigger</button>} items={items} onSelect={() => {}} onClose={() => {}} />)
     const trigger = screen.getByRole('button', { name: 'trigger' })
     trigger.focus()
     // Beta is disabled: it is not a step target, so Alpha is the only row.
@@ -328,7 +337,8 @@ describe('Menu', () => {
         ]}
         onSelect={onSelect}
         onClose={() => {}}
-      />)
+      />,
+    )
     const heading = screen.getByText('Group by')
     expect(heading.getAttribute('role')).toBe('presentation')
     // The heading is not a menu item — only the danger row is interactive.
@@ -344,18 +354,24 @@ describe('Menu', () => {
     try {
       const onClose = vi.fn()
       const { rerender } = render(
-        <Menu open closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
+        <Menu open closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />,
+      )
       const wrapper = screen.getByText('trigger').parentElement as HTMLElement
       fireEvent.pointerLeave(wrapper)
       // Still open through the grace: the pointer may be crossing the gap.
-      act(() => { vi.advanceTimersByTime(POINTER_GRACE_MS - 1) })
+      act(() => {
+        vi.advanceTimersByTime(POINTER_GRACE_MS - 1)
+      })
       expect(onClose).not.toHaveBeenCalled()
-      act(() => { vi.advanceTimersByTime(1) })
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
       expect(onClose).toHaveBeenCalledTimes(1)
-      rerender(
-        <Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
+      rerender(<Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
       fireEvent.pointerLeave(wrapper)
-      act(() => { vi.advanceTimersByTime(POINTER_GRACE_MS * 10) })
+      act(() => {
+        vi.advanceTimersByTime(POINTER_GRACE_MS * 10)
+      })
       expect(onClose).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
@@ -366,13 +382,16 @@ describe('Menu', () => {
     vi.useFakeTimers()
     try {
       const onClose = vi.fn()
-      render(
-        <Menu open closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
+      render(<Menu open closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
       const wrapper = screen.getByText('trigger').parentElement as HTMLElement
       fireEvent.pointerLeave(wrapper)
-      act(() => { vi.advanceTimersByTime(POINTER_GRACE_MS - 50) })
+      act(() => {
+        vi.advanceTimersByTime(POINTER_GRACE_MS - 50)
+      })
       fireEvent.pointerEnter(wrapper)
-      act(() => { vi.advanceTimersByTime(POINTER_GRACE_MS * 10) })
+      act(() => {
+        vi.advanceTimersByTime(POINTER_GRACE_MS * 10)
+      })
       expect(onClose).not.toHaveBeenCalled()
     } finally {
       vi.useRealTimers()
@@ -384,14 +403,16 @@ describe('Menu', () => {
     try {
       const onClose = vi.fn()
       const { rerender } = render(
-        <Menu open closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
+        <Menu open closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />,
+      )
       const wrapper = screen.getByText('trigger').parentElement as HTMLElement
       fireEvent.pointerLeave(wrapper)
       // The owner closes for its own reason (selection/Escape) mid-grace; the
       // armed timer must not survive to shut a list reopened right after.
-      rerender(
-        <Menu open={false} closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
-      act(() => { vi.advanceTimersByTime(POINTER_GRACE_MS * 10) })
+      rerender(<Menu open={false} closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
+      act(() => {
+        vi.advanceTimersByTime(POINTER_GRACE_MS * 10)
+      })
       expect(onClose).not.toHaveBeenCalled()
     } finally {
       vi.useRealTimers()
@@ -402,10 +423,11 @@ describe('Menu', () => {
     vi.useFakeTimers()
     try {
       const onClose = vi.fn()
-      render(
-        <Menu open={false} closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
+      render(<Menu open={false} closeOnPointerLeave anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={onClose} />)
       fireEvent.pointerLeave(screen.getByText('trigger').parentElement as HTMLElement)
-      act(() => { vi.advanceTimersByTime(POINTER_GRACE_MS * 10) })
+      act(() => {
+        vi.advanceTimersByTime(POINTER_GRACE_MS * 10)
+      })
       expect(onClose).not.toHaveBeenCalled()
     } finally {
       vi.useRealTimers()
@@ -417,7 +439,8 @@ describe('Menu', () => {
     render(
       <div onClick={rowClick}>
         <Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={() => {}} />
-      </div>)
+      </div>,
+    )
     fireEvent.click(screen.getByRole('menuitem', { name: 'Alpha' }))
     expect(rowClick).not.toHaveBeenCalled()
   })
@@ -460,14 +483,13 @@ describe('Menu', () => {
           {
             id: 'new',
             label: 'New Workspace',
-            submenu: [
-              { id: 'ok', label: 'Create ok', icon: <svg data-testid="sub-ic" />, shortcut: { keys: ['⌘', 'N'], aria: 'Meta+N' } },
-            ],
+            submenu: [{ id: 'ok', label: 'Create ok', icon: <svg data-testid="sub-ic" />, shortcut: { keys: ['⌘', 'N'], aria: 'Meta+N' } }],
           },
         ]}
         onSelect={onSelect}
         onClose={() => {}}
-      />)
+      />,
+    )
     const plain = screen.getByRole('menuitem', { name: 'Plain' })
     fireEvent.mouseEnter(plain.parentElement as HTMLElement)
     fireEvent.focus(plain)
@@ -488,16 +510,7 @@ describe('Menu', () => {
 
   it('portal mode prefers getAnchorRect over measuring its own wrapper', () => {
     const rect = { left: 40, right: 72, top: 100, bottom: 128, width: 32, height: 28, x: 40, y: 100, toJSON: () => ({}) } as DOMRect
-    render(
-      <Menu
-        portal
-        open
-        getAnchorRect={() => rect}
-        anchor={null}
-        items={items}
-        onSelect={() => {}}
-        onClose={() => {}}
-      />)
+    render(<Menu portal open getAnchorRect={() => rect} anchor={null} items={items} onSelect={() => {}} onClose={() => {}} />)
     const menu = screen.getByRole('menu')
     // side=bottom, align=start: below the host-supplied rect, left-aligned.
     expect(menu.style.left).toBe('40px')
@@ -505,16 +518,7 @@ describe('Menu', () => {
   })
 
   it('portal mode skips the frame when getAnchorRect returns null (no menu until a rect exists)', () => {
-    render(
-      <Menu
-        portal
-        open
-        getAnchorRect={() => null}
-        anchor={null}
-        items={items}
-        onSelect={() => {}}
-        onClose={() => {}}
-      />)
+    render(<Menu portal open getAnchorRect={() => null} anchor={null} items={items} onSelect={() => {}} onClose={() => {}} />)
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
@@ -526,19 +530,25 @@ describe('Menu', () => {
     try {
       const view = render(<Menu {...props} open />)
       rect = new DOMRect(140, 180, 32, 28)
-      act(() => { vi.advanceTimersToNextFrame() })
+      act(() => {
+        vi.advanceTimersToNextFrame()
+      })
       expect(screen.getByRole('menu').style.left).toBe('140px')
       expect(screen.getByRole('menu').style.top).toBe('212px')
 
       view.rerender(<Menu {...props} open={false} />)
       getAnchorRect.mockClear()
-      act(() => { vi.advanceTimersToNextFrame() })
+      act(() => {
+        vi.advanceTimersToNextFrame()
+      })
       expect(getAnchorRect).not.toHaveBeenCalled()
 
       view.rerender(<Menu {...props} open />)
       view.unmount()
       getAnchorRect.mockClear()
-      act(() => { vi.advanceTimersToNextFrame() })
+      act(() => {
+        vi.advanceTimersToNextFrame()
+      })
       expect(getAnchorRect).not.toHaveBeenCalled()
     } finally {
       cleanup()
@@ -549,8 +559,7 @@ describe('Menu', () => {
   it('portal mode renders the list under body, positions it fixed, and still closes on outside pointerdown', () => {
     const onSelect = vi.fn()
     const onClose = vi.fn()
-    const { container } = render(
-      <Menu portal open anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={onClose} />)
+    const { container } = render(<Menu portal open anchor={<span>trigger</span>} items={items} onSelect={onSelect} onClose={onClose} />)
     const menu = screen.getByRole('menu')
     // Outside the anchor wrapper subtree — overflow-clipping ancestors can't crop it.
     expect(container.contains(menu)).toBe(false)
@@ -570,8 +579,7 @@ describe('Menu', () => {
   })
 
   it('portal mode resolves align=end / side=top to clamped left/top coordinates', () => {
-    render(
-      <Menu portal open align="end" side="top" anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={() => {}} />)
+    render(<Menu portal open align="end" side="top" anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={() => {}} />)
     const menu = screen.getByRole('menu')
     expect(menu.style.left).not.toBe('')
     expect(menu.style.top).not.toBe('')
@@ -589,17 +597,17 @@ describe('Menu', () => {
         footer={[{ id: 'new', label: 'Create new' }]}
         onSelect={onSelect}
         onClose={() => {}}
-      />)
+      />,
+    )
     const footerItem = screen.getByRole('menuitem', { name: 'Create new' })
-    expect((footerItem.closest('div[class*="footer"]'))).not.toBeNull()
+    expect(footerItem.closest('div[class*="footer"]')).not.toBeNull()
     expect(screen.getByRole('menuitem', { name: 'Alpha' }).closest('div[class*="footer"]')).toBeNull()
     fireEvent.click(footerItem)
     expect(onSelect).toHaveBeenCalledWith('new')
   })
 
   it('caps the list height for internal scrolling unless a submenu row is present', () => {
-    const { rerender } = render(
-      <Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={() => {}} />)
+    const { rerender } = render(<Menu open anchor={<span>trigger</span>} items={items} onSelect={() => {}} onClose={() => {}} />)
     expect(screen.getByRole('menu').className).toMatch(/scrollable/)
     rerender(
       <Menu
@@ -608,7 +616,8 @@ describe('Menu', () => {
         items={[{ id: 'p', label: 'Parent', submenu: [{ id: 's', label: 'Sub' }] }]}
         onSelect={() => {}}
         onClose={() => {}}
-      />)
+      />,
+    )
     expect(screen.getByRole('menu').className).not.toMatch(/scrollable/)
   })
 })
@@ -617,12 +626,24 @@ describe('Modal', () => {
   it('is absent while closed; Escape and mask click call onClose', () => {
     const onClose = vi.fn()
     const { rerender } = render(
-      <Modal open={false} onClose={onClose} title="Create new workspace" closeLabel="Close">body</Modal>)
+      <Modal open={false} onClose={onClose} title="Create new workspace" closeLabel="Close">
+        body
+      </Modal>,
+    )
     expect(screen.queryByRole('dialog')).toBeNull()
     rerender(
-      <Modal open onClose={onClose} title="Create new workspace" closeLabel="Configure later" description="Name it." contentClassName="scrolling-content" footer={<button type="button">Create</button>}>
+      <Modal
+        open
+        onClose={onClose}
+        title="Create new workspace"
+        closeLabel="Configure later"
+        description="Name it."
+        contentClassName="scrolling-content"
+        footer={<button type="button">Create</button>}
+      >
         <input aria-label="name" />
-      </Modal>)
+      </Modal>,
+    )
     const dialog = screen.getByRole('dialog', { name: 'Create new workspace' })
     expect(dialog).toBeDefined()
     // The full-page layer escapes caller stacking contexts but remains in
@@ -665,9 +686,7 @@ describe('ConnectionIndicator', () => {
       restartActionLabel: 'Connecting, restart now',
       onReconnect: reconnect,
     }
-    const { container, rerender } = render(
-      <ConnectionIndicator state={undefined} {...labels} />,
-    )
+    const { container, rerender } = render(<ConnectionIndicator state={undefined} {...labels} />)
     expect(container.firstChild).toBeNull()
     rerender(<ConnectionIndicator state="disconnected" {...labels} />)
     const indicator = screen.getByRole('button', { name: 'Disconnected, reconnect now' })
@@ -698,12 +717,12 @@ describe('ConnectionIndicator', () => {
         restartActionLabel: 'Connecting, restart now',
         onReconnect: vi.fn(),
       }
-      const { container, rerender } = render(
-        <ConnectionIndicator state="disconnected" {...labels} />,
-      )
+      const { container, rerender } = render(<ConnectionIndicator state="disconnected" {...labels} />)
       rerender(<ConnectionIndicator state={undefined} {...labels} />)
       expect(screen.getByRole('button', { name: 'Disconnected, reconnect now' })).toBeTruthy()
-      act(() => { vi.advanceTimersByTime(150) })
+      act(() => {
+        vi.advanceTimersByTime(150)
+      })
       expect(container.firstChild).toBeNull()
     } finally {
       vi.useRealTimers()

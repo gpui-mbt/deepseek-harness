@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import type { AgentHandle } from '@deepseek-ai/dsh-agent'
 import { createUserMessage, LlmAdapter } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
@@ -56,11 +56,7 @@ class StagedAdapter extends LlmAdapter {
   }
 }
 
-async function waitForRunningChild(
-  scaffold: WebScaffold,
-  adapter: StagedAdapter,
-  childId: SessionIdValue,
-): Promise<void> {
+async function waitForRunningChild(scaffold: WebScaffold, adapter: StagedAdapter, childId: SessionIdValue): Promise<void> {
   const deadline = Date.now() + 10_000
   while (adapter.activeCalls !== 1 || scaffold.ctx.agents.get(childId)?.status !== 'running') {
     if (Date.now() >= deadline) throw new Error('held child did not enter its running model call')
@@ -80,10 +76,7 @@ describe('web e2e: sidebar subagent activity', () => {
   beforeAll(async () => {
     scaffold = await launchWebScaffold()
     adapter = new StagedAdapter()
-    scaffold.ctx.effect(
-      () => scaffold.ctx.llm.registerAdapter([HOLD_PROVIDER], adapter),
-      'sidebar subagent activity staged adapter',
-    )
+    scaffold.ctx.effect(() => scaffold.ctx.llm.registerAdapter([HOLD_PROVIDER], adapter), 'sidebar subagent activity staged adapter')
     const cwd = join(scaffold.workspaceCwd, 'workspace')
     await mkdir(cwd)
     parentHandle = await scaffold.ctx.agents.create({
@@ -91,10 +84,12 @@ describe('web e2e: sidebar subagent activity', () => {
       meta: { cwd },
       agentOptions: { provider: HOLD_PROVIDER, model: HOLD_MODEL },
     })
-    parentHandle.agent.followup(createUserMessage({
-      content: [{ type: 'text', text: 'Delegate a background job.' }],
-      source: { kind: 'user' },
-    }))
+    parentHandle.agent.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: 'Delegate a background job.' }],
+        source: { kind: 'user' },
+      }),
+    )
     await parentHandle.agent.whenIdle()
     const started = await scaffold.ctx.subagents.startActivation({
       delivery: 'parent',

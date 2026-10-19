@@ -60,7 +60,8 @@ function writeFixtureFile(path: string, content: string): void {
 }
 
 /** Contributor source that imports {@link writeCompiledDependency}'s package through a subpath. */
-export const DEPENDENT_TYPERT_SOURCE = "import type { Shape } from '@fixture/dep/types'\n\n/** @typert schema */\nexport interface Payload { shape: Shape }\n"
+export const DEPENDENT_TYPERT_SOURCE =
+  "import type { Shape } from '@fixture/dep/types'\n\n/** @typert schema */\nexport interface Payload { shape: Shape }\n"
 
 /**
  * Add a Host package, `@fixture/dep`, linked into `node_modules` and referenced from
@@ -73,16 +74,30 @@ export const DEPENDENT_TYPERT_SOURCE = "import type { Shape } from '@fixture/dep
 export function writeCompiledDependency(root: string, compiled = true): string {
   const dependency = join(root, 'packages/fixture/dep')
   const declaration = 'export interface Shape { side: number }\n'
-  writeFixtureFile(join(dependency, 'package.json'), `${JSON.stringify({
-    name: '@fixture/dep',
-    type: 'module',
-    exports: { './types': { types: './lib/types/types.d.ts', default: './lib/types/types.js' } },
-  }, null, 2)}\n`)
-  writeFixtureFile(join(dependency, 'tsconfig.json'), `${JSON.stringify({
-    extends: '../../../tsconfig.base.json',
-    compilerOptions: { rootDir: 'src', outDir: 'lib/types' },
-    include: ['src'],
-  }, null, 2)}\n`)
+  writeFixtureFile(
+    join(dependency, 'package.json'),
+    `${JSON.stringify(
+      {
+        name: '@fixture/dep',
+        type: 'module',
+        exports: { './types': { types: './lib/types/types.d.ts', default: './lib/types/types.js' } },
+      },
+      null,
+      2,
+    )}\n`,
+  )
+  writeFixtureFile(
+    join(dependency, 'tsconfig.json'),
+    `${JSON.stringify(
+      {
+        extends: '../../../tsconfig.base.json',
+        compilerOptions: { rootDir: 'src', outDir: 'lib/types' },
+        include: ['src'],
+      },
+      null,
+      2,
+    )}\n`,
+  )
   const aggregatePath = join(root, 'tsconfig.host.json')
   const aggregate = JSON.parse(readFileSync(aggregatePath, 'utf8')) as { references: { path: string }[] }
   aggregate.references.push({ path: './packages/fixture/dep' })

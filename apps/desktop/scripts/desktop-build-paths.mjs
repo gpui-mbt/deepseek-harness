@@ -1,32 +1,30 @@
-/** Resolve build-owned Desktop paths without sharing mutable state across release targets. */
+/** Resolve build-owned Desktop paths without sharing mutable state across build targets. */
 
 import { join, resolve } from 'node:path'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const BUILD_ROOT = join(APP_ROOT, '.desktop-build')
-const SUPPORTED_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64'])
+const SUPPORTED_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64', 'linux-arm64'])
+
+/** @typedef {'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64' | 'linux-arm64'} DesktopBuildTarget */
 
 /**
- * Resolve the fixed build target selected by a packaging environment.
- * @param {NodeJS.ProcessEnv} env - Packaging environment.
+ * Resolve the fixed build target selected by a packaging or development environment.
+ * Linux targets are development-only; package-target.ts enumerates release targets separately.
+ * @param {NodeJS.ProcessEnv} env - Packaging or development environment.
  * @param {NodeJS.Platform} hostPlatform - Build-host platform used when no target override exists.
  * @param {string} hostArch - Build-host architecture used when no target override exists.
- * @returns {'mac-arm64' | 'mac-x64' | 'win-x64'} Supported Desktop target name.
+ * @returns {DesktopBuildTarget} Supported Desktop build target name.
  */
-export function resolveDesktopBuildTarget(
-  env = process.env,
-  hostPlatform = process.platform,
-  hostArch = process.arch,
-) {
+export function resolveDesktopBuildTarget(env = process.env, hostPlatform = process.platform, hostArch = process.arch) {
   const platform = env.DSH_DESKTOP_TARGET_PLATFORM ?? env.npm_config_platform ?? hostPlatform
-  const arch = env.DSH_DESKTOP_TARGET_ARCH ?? env.npm_config_arch
-    ?? (platform === 'win32' || platform === 'win' ? 'x64' : hostArch)
+  const arch = env.DSH_DESKTOP_TARGET_ARCH ?? env.npm_config_arch ?? (platform === 'win32' || platform === 'win' ? 'x64' : hostArch)
   const os = platform === 'darwin' ? 'mac' : platform === 'win32' || platform === 'win' ? 'win' : platform
   const target = `${os}-${arch}`
   if (!SUPPORTED_TARGETS.has(target)) {
     throw new Error(`desktop build paths: unsupported target ${target}`)
   }
-  return /** @type {'mac-arm64' | 'mac-x64' | 'win-x64'} */ (target)
+  return /** @type {DesktopBuildTarget} */ (target)
 }
 
 function assertSupportedTarget(target) {
@@ -36,8 +34,8 @@ function assertSupportedTarget(target) {
 }
 
 /**
- * Return the mutable preparation and artifact directories owned by one release target.
- * @param {'mac-arm64' | 'mac-x64' | 'win-x64'} target - Supported Desktop target name.
+ * Return the mutable preparation and artifact directories owned by one build target.
+ * @param {DesktopBuildTarget} target - Supported Desktop build target name.
  * @returns {{ root: string, artifacts: string, unsignedArtifacts: string, unnotarizedArtifacts: string, runtime: string, packageSet: string, dsh: string, dshPnpm: string, electron: string, packedDsh: string, packedVendor: string, packedLandlock: string, downloads: string }} Target paths plus the shared immutable download cache.
  */
 export function desktopTargetBuildPaths(target) {
@@ -62,16 +60,18 @@ export function desktopTargetBuildPaths(target) {
 }
 
 /**
- * Return the platform and architecture of the payload one release target prepares.
+ * Return the platform and architecture of the payload one build target prepares.
  * Windows is prepared as x64 only, so this differs from the build host on an arm64 Windows machine.
- * @param {'mac-arm64' | 'mac-x64' | 'win-x64'} target - Supported Desktop target name.
- * @returns {{ platform: 'darwin' | 'win32', arch: 'arm64' | 'x64' }} Platform and architecture of the prepared payload.
+ * @param {DesktopBuildTarget} target - Supported Desktop build target name.
+ * @returns {{ platform: 'darwin' | 'win32' | 'linux', arch: 'arm64' | 'x64' }} Platform and architecture of the prepared payload.
  */
 export function desktopTargetPlatform(target) {
   assertSupportedTarget(target)
   return {
-    platform: /** @type {'darwin' | 'win32'} */ (target === 'win-x64' ? 'win32' : 'darwin'),
-    arch: /** @type {'arm64' | 'x64'} */ (target === 'mac-arm64' ? 'arm64' : 'x64'),
+    platform: /** @type {'darwin' | 'win32' | 'linux'} */ (
+      target === 'win-x64' ? 'win32' : target.startsWith('linux-') ? 'linux' : 'darwin'
+    ),
+    arch: /** @type {'arm64' | 'x64'} */ (target === 'mac-arm64' || target === 'linux-arm64' ? 'arm64' : 'x64'),
   }
 }
 
@@ -82,11 +82,7 @@ export function desktopTargetPlatform(target) {
  * @param {string} hostArch - Build-host architecture used when no target override exists.
  * @returns {ReturnType<typeof desktopTargetBuildPaths>} Selected target paths.
  */
-export function resolveDesktopTargetBuildPaths(
-  env = process.env,
-  hostPlatform = process.platform,
-  hostArch = process.arch,
-) {
+export function resolveDesktopTargetBuildPaths(env = process.env, hostPlatform = process.platform, hostArch = process.arch) {
   return desktopTargetBuildPaths(resolveDesktopBuildTarget(env, hostPlatform, hostArch))
 }
 
@@ -99,11 +95,7 @@ export function resolveDesktopTargetBuildPaths(
  * @param {string} hostArch - Build-host architecture used when no target override exists.
  * @returns {string} Primary-runtime directory prepared for the selected target.
  */
-export function developmentRuntimeDirectory(
-  env = process.env,
-  hostPlatform = process.platform,
-  hostArch = process.arch,
-) {
+export function developmentRuntimeDirectory(env = process.env, hostPlatform = process.platform, hostArch = process.arch) {
   return join(resolveDesktopTargetBuildPaths(env, hostPlatform, hostArch).runtime, 'primary-runtime')
 }
 

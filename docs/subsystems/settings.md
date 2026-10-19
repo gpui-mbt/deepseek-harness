@@ -95,7 +95,7 @@ Host service backing the generated `ctx.remote.settings` namespace. Every remote
  * @returns the namespace's redacted view after the write.
  * @throws RemoteError when the request is invalid, no provider is mounted, or the provider refuses the write.
  */
-@Remote update( ns: string, patch: Record<string, JsonValue>, expectedRevision: number | undefined, ): Promise<SettingsNamespaceView>
+@Remote update(ns: string, patch: Record<string, JsonValue>, expectedRevision: number | undefined): Promise<SettingsNamespaceView>
 
 /**
  * Replace one namespace's stored user section wholesale.
@@ -105,7 +105,7 @@ Host service backing the generated `ctx.remote.settings` namespace. Every remote
  * @returns the namespace's redacted view after the write.
  * @throws RemoteError when the request is invalid, no provider is mounted, or the provider refuses the write.
  */
-@Remote replace( ns: string, section: Record<string, JsonValue>, expectedRevision: number | undefined, ): Promise<SettingsNamespaceView>
+@Remote replace(ns: string, section: Record<string, JsonValue>, expectedRevision: number | undefined): Promise<SettingsNamespaceView>
 
 /**
  * Apply path-addressed edits to one namespace's user section, resolved against
@@ -117,7 +117,7 @@ Host service backing the generated `ctx.remote.settings` namespace. Every remote
  * @returns the namespace's redacted view after the write.
  * @throws RemoteError when the request is invalid, no provider is mounted, or the provider refuses the write.
  */
-@Remote async mutate( ns: string, ops: SettingsPathOpView[], expectedRevision: number | undefined, ): Promise<SettingsNamespaceView>
+@Remote async mutate(ns: string, ops: SettingsPathOpView[], expectedRevision: number | undefined): Promise<SettingsNamespaceView>
 
 /**
  * Materialize the provider-owned settings document and open it in a native text editor.

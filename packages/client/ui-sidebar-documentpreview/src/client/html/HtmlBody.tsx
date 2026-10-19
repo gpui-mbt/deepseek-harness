@@ -32,12 +32,21 @@ type FrameInput = Pick<HtmlBodyProps, 'resourceAddress' | 'readRelated' | 'addRe
 type FrameState = Pick<FrameInput, 'data' | 'readRelated'> & { readonly url: string | undefined }
 
 /** One mounted file owns its root Blob; replacing content also replaces the browsing context. */
-function HtmlFrame({ data, resourceAddress, readRelated, addResource, setResources, signal, frameName, t }: FrameInput & { t: HtmlBodyProps['t'] }): ReactNode {
+function HtmlFrame({
+  data,
+  resourceAddress,
+  readRelated,
+  addResource,
+  setResources,
+  signal,
+  frameName,
+  t,
+}: FrameInput & { t: HtmlBodyProps['t'] }): ReactNode {
   const [frame, setFrame] = useState<FrameState>()
   useEffect(() => {
     const controller = new AbortController()
     const resources = new Set<string>()
-    const readRelative = createReadHtmlRelative(readRelated, resourceAddress, signal, (address) => {
+    const readRelative = createReadHtmlRelative(readRelated, resourceAddress, signal, address => {
       resources.add(address)
       addResource(address)
     })
@@ -64,8 +73,23 @@ function HtmlFrame({ data, resourceAddress, readRelated, addResource, setResourc
   if (frame?.data !== data || frame.readRelated !== readRelated) {
     return <LoadingIndicator label={t('loading')} />
   }
-  if (frame.url === undefined) return <p className={css.status} role="alert">{t('failed')}</p>
-  return <iframe key={frame.url} name={frameName} className={css.frame} src={frame.url} sandbox="allow-scripts" title={t('frame')} data-html-preview />
+  if (frame.url === undefined)
+    return (
+      <p className={css.status} role="alert">
+        {t('failed')}
+      </p>
+    )
+  return (
+    <iframe
+      key={frame.url}
+      name={frameName}
+      className={css.frame}
+      src={frame.url}
+      sandbox="allow-scripts"
+      title={t('frame')}
+      data-html-preview
+    />
+  )
 }
 
 /**
@@ -74,7 +98,14 @@ function HtmlFrame({ data, resourceAddress, readRelated, addResource, setResourc
  * @returns an isolated HTML document, or nothing for text delivery.
  */
 export function HtmlBody({
-  content, resourceAddress, readRelated, useTabInfo, useInteractivePreview, addResource, setResources, t,
+  content,
+  resourceAddress,
+  readRelated,
+  useTabInfo,
+  useInteractivePreview,
+  addResource,
+  setResources,
+  t,
 }: HtmlBodyProps): ReactNode {
   const interactivePreview = useInteractivePreview(value => value)
   const { tab } = useTabInfo()
@@ -84,8 +115,19 @@ export function HtmlBody({
   if (content.kind !== 'bytes') return null
   const frameName = `dsh-sidebar-html-${tab.id}`
   if (!interactivePreview) return <BasicHtmlFrame data={content.data} frameName={frameName} t={t} />
-  return <HtmlFrame key={resourceAddress} data={content.data} resourceAddress={resourceAddress}
-    readRelated={readRelated} signal={tab.signal} frameName={frameName} addResource={addResource} setResources={setResources} t={t} />
+  return (
+    <HtmlFrame
+      key={resourceAddress}
+      data={content.data}
+      resourceAddress={resourceAddress}
+      readRelated={readRelated}
+      signal={tab.signal}
+      frameName={frameName}
+      addResource={addResource}
+      setResources={setResources}
+      t={t}
+    />
+  )
 }
 
 /** Static preview mounts a separate browsing context so a mode change retires running scripts. */
@@ -98,6 +140,11 @@ function BasicHtmlFrame({ data, frameName, t }: Pick<FrameInput, 'data' | 'frame
       return undefined
     }
   }, [data])
-  if (html === undefined) return <p className={css.status} role="alert">{t('failed')}</p>
+  if (html === undefined)
+    return (
+      <p className={css.status} role="alert">
+        {t('failed')}
+      </p>
+    )
   return <iframe name={frameName} className={css.frame} srcDoc={html} sandbox="" title={t('frame')} data-html-preview />
 }

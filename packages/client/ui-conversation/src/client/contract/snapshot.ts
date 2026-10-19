@@ -23,12 +23,7 @@ export type ConversationPhase = 'blank' | 'engaging' | 'active'
  * @param conversation - current target-neutral Conversation state.
  * @returns the phase used by the header, View ring, and composer layout.
  */
-export function conversationPhase(
-  session: SessionSnapshot,
-  conversation: ConversationSnapshot,
-): ConversationPhase {
-  const active = conversation.activeTargets.size > 0
-    || (!session.blank && !session.awaitingFirstTurn)
-    || session.running
+export function conversationPhase(session: SessionSnapshot, conversation: ConversationSnapshot): ConversationPhase {
+  const active = conversation.activeTargets.size > 0 || (!session.blank && !session.awaitingFirstTurn) || session.running
   return active ? 'active' : session.promptAttempted ? 'engaging' : 'blank'
 }

@@ -20,8 +20,7 @@ export type HostReleasePromptInjected = {
 }
 
 /** Overlay props: the root overlay owner share, the `settings` copy, and the injected face. */
-export type HostReleasePromptProps =
-  PropsRuntime<'shell.overlay'> & PropsLocale<'settings'> & InjectFace<HostReleasePromptInjected>
+export type HostReleasePromptProps = PropsRuntime<'shell.overlay'> & PropsLocale<'settings'> & InjectFace<HostReleasePromptInjected>
 
 /**
  * Name both ends of one release transition: their versions when those differ, otherwise their commits.
@@ -72,13 +71,17 @@ export function HostReleasePrompt({ useReleaseChange, dismissRelease, reloadPage
       closeLabel={t('hostRelease.later')}
       onClose={dismissRelease}
       className={clsx(css.dialog)}
-      footer={(
+      footer={
         <>
           {/* The dialog opens without a user gesture, so focus lands on keeping the page: a pending Enter must not reload it. */}
-          <Button variant="outline" data-modal-autofocus onClick={dismissRelease}>{t('hostRelease.later')}</Button>
-          <Button variant="primary" onClick={reloadPage}>{t('hostRelease.reload')}</Button>
+          <Button variant="outline" data-modal-autofocus onClick={dismissRelease}>
+            {t('hostRelease.later')}
+          </Button>
+          <Button variant="primary" onClick={reloadPage}>
+            {t('hostRelease.reload')}
+          </Button>
         </>
-      )}
+      }
     >
       <div className={css.transitions}>
         <Transition label={t('hostRelease.service')} from={serviceFrom} to={serviceTo} done />

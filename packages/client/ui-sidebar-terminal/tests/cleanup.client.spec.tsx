@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Cleanup errors remain reachable after the terminal tab has disappeared. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, within } from '@testing-library/react'
 import { allowAllAccess, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TerminalCloseFailure } from '@deepseek-ai/dsh-api-terminal-controller/client'
@@ -11,10 +11,16 @@ import { en } from '../src/client/locales.ts'
 afterEach(cleanup)
 
 type CleanupProps = Parameters<typeof TerminalCleanup>[0]
-const unusedHook = (): never => { throw new Error('Terminal cleanup does not consume global hooks') }
+const unusedHook = (): never => {
+  throw new Error('Terminal cleanup does not consume global hooks')
+}
 const standard: Omit<CleanupProps, 'useCloseFailures' | 'retryClose' | 't'> = {
-  useSessions: unusedHook, useSessionStatus: unusedHook, useSessionRetainInfo: unusedHook, usePanelInfo: unusedHook,
-  useWorkspaces: unusedHook, useResource: unusedHook,
+  useSessions: unusedHook,
+  useSessionStatus: unusedHook,
+  useSessionRetainInfo: unusedHook,
+  usePanelInfo: unusedHook,
+  useWorkspaces: unusedHook,
+  useResource: unusedHook,
   ...allowAllAccess,
 }
 

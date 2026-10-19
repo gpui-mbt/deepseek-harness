@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { CommandDefinition, CommandInvocation } from '@deepseek-ai/dsh-commands'
 import * as SessionLogDownload from '../src/index.ts'
@@ -10,7 +10,9 @@ describe('/export Web download command', () => {
     ctx.provide('commands', {
       register(next: CommandDefinition) {
         descriptor = next
-        return () => { descriptor = undefined }
+        return () => {
+          descriptor = undefined
+        }
       },
     } as never)
     ctx.provide('connection', {
@@ -24,10 +26,12 @@ describe('/export Web download command', () => {
     })
     const invoke = (rawInput: string) => descriptor?.handler({ rawInput } as CommandInvocation)
     await expect(invoke('')).resolves.toEqual({
-      kind: 'success', text: 'Session log download requested.',
+      kind: 'success',
+      text: 'Session log download requested.',
     })
     await expect(invoke(' output.zip')).resolves.toEqual({
-      kind: 'error', text: 'The Web /export command does not accept a path.',
+      kind: 'error',
+      text: 'The Web /export command does not accept a path.',
     })
 
     await fiber.dispose()

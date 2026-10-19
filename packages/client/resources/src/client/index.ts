@@ -34,7 +34,12 @@ export function apply(ctx: ClientContext): void {
   const disposeService = ctx.reflect.provide('resources', resources)
   // Registered first, so it tears down last: the face outlives every provider
   // that registered into it.
-  ctx.effect(() => () => { void disposeService() }, 'client-resources: service face')
+  ctx.effect(
+    () => () => {
+      void disposeService()
+    },
+    'client-resources: service face',
+  )
   ctx.slots.provideRoot({
     keyedHooks: { resource: address => resources.source(address) },
   } satisfies RootStandardSourceContribution)

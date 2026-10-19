@@ -1,5 +1,5 @@
 /** Credential-scoped listing cache: first-use waits, background refresh, retention, and disposal. */
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { timeoutOf } from '@deepseek-ai/dsh-timeout'
 import { AccountModelCatalog } from '../src/catalog.ts'
 import { LISTING_TIMEOUT } from '../src/listing.ts'
@@ -21,7 +21,14 @@ function harness(timeoutMs = 60_000, honorsAbort = true) {
     token: () => Promise.resolve(token),
     load: (_url, value, signal) => {
       const settle = Promise.withResolvers<ModelListing>()
-      if (honorsAbort) signal.addEventListener('abort', () => { settle.reject(signal.reason) }, { once: true })
+      if (honorsAbort)
+        signal.addEventListener(
+          'abort',
+          () => {
+            settle.reject(signal.reason)
+          },
+          { once: true },
+        )
       loads.push({ token: value, signal, settle })
       return settle.promise
     },
@@ -31,9 +38,17 @@ function harness(timeoutMs = 60_000, honorsAbort = true) {
   })
   const flush = () => new Promise(resolve => setImmediate(resolve))
   return {
-    catalog, loads, info, warn, flush,
-    advance: (ms: number) => { clock += ms },
-    account: (value: string | undefined) => { token = value },
+    catalog,
+    loads,
+    info,
+    warn,
+    flush,
+    advance: (ms: number) => {
+      clock += ms
+    },
+    account: (value: string | undefined) => {
+      token = value
+    },
   }
 }
 
@@ -64,7 +79,7 @@ it('bounds the first wait by the request deadline and serves no listing after a 
   expect(warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('using the bundled catalog'))
 })
 
-it('abandons only the caller\'s wait when its signal aborts', async () => {
+it("abandons only the caller's wait when its signal aborts", async () => {
   const { catalog, loads, flush } = harness()
   const controller = new AbortController()
   const waiting = catalog.view(controller.signal)
@@ -114,7 +129,7 @@ it('refreshes a stale listing in the background and keeps it through a failing s
   expect(warn).toHaveBeenCalledTimes(2)
 })
 
-it('rescopes on another account and discards the previous account\'s result', async () => {
+it("rescopes on another account and discards the previous account's result", async () => {
   const { catalog, loads, flush, account } = harness()
   const first = catalog.view()
   await flush()

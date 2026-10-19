@@ -92,8 +92,7 @@ function requireGit(cwd: string, args: string[], context: string): string {
 function requireGitBytes(cwd: string, args: string[], context: string): Buffer {
   const result = executeGitBytes(cwd, args)
   if (result.status !== 0) {
-    const detail = result.error?.message
-      ?? (result.stderr.toString('utf8').trim() || `Git exited with status ${String(result.status)}`)
+    const detail = result.error?.message ?? (result.stderr.toString('utf8').trim() || `Git exited with status ${String(result.status)}`)
     throw new Error(`${context}: ${detail}`)
   }
   return result.stdout
@@ -115,14 +114,11 @@ function parseOptions(args: string[]): ChangeScopeOptions {
 
 function resolveCommit(root: string, label: 'base' | 'head', ref: string): string {
   const context = `cannot resolve ${label} ref ${JSON.stringify(ref)}`
-  const result = executeGit(root, [
-    '-c',
-    'core.warnAmbiguousRefs=true',
-    'rev-parse',
-    '--verify',
-    '--end-of-options',
-    `${ref}^{commit}`,
-  ], context)
+  const result = executeGit(
+    root,
+    ['-c', 'core.warnAmbiguousRefs=true', 'rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`],
+    context,
+  )
   if (/\bambiguous\b/iu.test(result.stderr)) {
     throw new Error(`${label} ref ${JSON.stringify(ref)} is ambiguous; use a fully qualified ref or commit ID`)
   }
@@ -137,11 +133,7 @@ function resolveCommit(root: string, label: 'base' | 'head', ref: string): strin
 }
 
 function resolveMergeBase(root: string, baseSha: string, headSha: string): string {
-  const result = executeGit(
-    root,
-    ['merge-base', '--all', baseSha, headSha],
-    'cannot resolve the merge base',
-  )
+  const result = executeGit(root, ['merge-base', '--all', baseSha, headSha], 'cannot resolve the merge base')
   if (result.status !== 0) {
     throw new Error(`base and head do not have a merge base: ${failureDetail(result)}`)
   }
@@ -172,30 +164,23 @@ function parsePathSet(output: Buffer, context: string): string[] {
 }
 
 function diffPaths(root: string, args: string[], context: string): string[] {
-  return parsePathSet(requireGitBytes(root, [
-    'diff',
-    '--no-ext-diff',
-    '--no-textconv',
-    '--no-renames',
-    '--ignore-submodules=none',
-    '--name-only',
-    '-z',
-    ...args,
-    '--',
-  ], context), context)
+  return parsePathSet(
+    requireGitBytes(
+      root,
+      ['diff', '--no-ext-diff', '--no-textconv', '--no-renames', '--ignore-submodules=none', '--name-only', '-z', ...args, '--'],
+      context,
+    ),
+    context,
+  )
 }
 
 function stripGitLineTerminator(output: string): string {
   const withoutLineFeed = output.endsWith('\n') ? output.slice(0, -1) : output
-  return process.platform === 'win32' && withoutLineFeed.endsWith('\r')
-    ? withoutLineFeed.slice(0, -1)
-    : withoutLineFeed
+  return process.platform === 'win32' && withoutLineFeed.endsWith('\r') ? withoutLineFeed.slice(0, -1) : withoutLineFeed
 }
 
 function collectReport(options: ChangeScopeOptions, cwd: string): ChangeScopeReport {
-  const root = stripGitLineTerminator(
-    requireGit(cwd, ['rev-parse', '--show-toplevel'], 'cannot locate a Git worktree'),
-  )
+  const root = stripGitLineTerminator(requireGit(cwd, ['rev-parse', '--show-toplevel'], 'cannot locate a Git worktree'))
   const baseSha = resolveCommit(root, 'base', options.base)
   const headSha = resolveCommit(root, 'head', options.head)
   const mergeBaseSha = resolveMergeBase(root, baseSha, headSha)
@@ -215,11 +200,10 @@ function collectReport(options: ChangeScopeOptions, cwd: string): ChangeScopeRep
       committed: diffPaths(root, [mergeBaseSha, headSha], 'cannot inspect committed paths'),
       staged: diffPaths(root, ['--cached'], 'cannot inspect staged paths'),
       unstaged: diffPaths(root, [], 'cannot inspect unstaged paths'),
-      untracked: parsePathSet(requireGitBytes(
-        root,
-        ['ls-files', '--others', '--exclude-standard', '-z', '--'],
+      untracked: parsePathSet(
+        requireGitBytes(root, ['ls-files', '--others', '--exclude-standard', '-z', '--'], 'cannot inspect untracked paths'),
         'cannot inspect untracked paths',
-      ), 'cannot inspect untracked paths'),
+      ),
     },
   }
 }

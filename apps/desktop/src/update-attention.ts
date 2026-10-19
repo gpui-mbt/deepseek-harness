@@ -12,7 +12,10 @@ export class DesktopUpdateAttention {
    * @param locale - Shell-owned notification copy.
    * @param platform - Native attention implementation, replaceable for platform tests.
    */
-  constructor(private readonly locale: DesktopLocale, private readonly platform: string = process.platform) {}
+  constructor(
+    private readonly locale: DesktopLocale,
+    private readonly platform: string = process.platform,
+  ) {}
 
   /**
    * @param version - Prepared target whose confirmation is waiting.
@@ -24,7 +27,9 @@ export class DesktopUpdateAttention {
     if (this.version === version) return
     this.version = version
     if (parent.isFocused() || modal.isFocused()) return
-    const clear = (): void => { this.clear() }
+    const clear = (): void => {
+      this.clear()
+    }
     let bounce: number | undefined
     parent.on('focus', clear)
     modal.on('focus', clear)
@@ -37,11 +42,16 @@ export class DesktopUpdateAttention {
     try {
       if (this.platform === 'win32') parent.flashFrame(true)
       if (this.platform === 'darwin') bounce = app.dock?.bounce('informational')
-    } catch (error) { console.warn('desktop update: attention unavailable', error) }
+    } catch (error) {
+      console.warn('desktop update: attention unavailable', error)
+    }
     try {
       if (!Notification.isSupported()) return
-      const notification = new Notification({ title: this.locale.messages.mandatoryReady,
-        body: this.locale.messages.mandatoryNotification, silent: true })
+      const notification = new Notification({
+        title: this.locale.messages.mandatoryReady,
+        body: this.locale.messages.mandatoryNotification,
+        silent: true,
+      })
       this.notification = notification
       notification.on('failed', () => {
         if (this.notification === notification) this.notification = undefined
@@ -53,7 +63,9 @@ export class DesktopUpdateAttention {
         returnToConfirmation()
       })
       notification.show()
-    } catch (error) { console.warn('desktop update: notification unavailable', error) }
+    } catch (error) {
+      console.warn('desktop update: notification unavailable', error)
+    }
   }
 
   /** Release owned native reminders without scheduling another for the same target. */
@@ -61,14 +73,23 @@ export class DesktopUpdateAttention {
     const notification = this.notification
     this.notification = undefined
     notification?.removeAllListeners()
-    try { notification?.close() }
-    catch (error) { console.warn('desktop update: could not close notification', error) }
+    try {
+      notification?.close()
+    } catch (error) {
+      console.warn('desktop update: could not close notification', error)
+    }
     const stop = this.stop
     this.stop = undefined
-    try { stop?.() }
-    catch (error) { console.warn('desktop update: could not clear attention', error) }
+    try {
+      stop?.()
+    } catch (error) {
+      console.warn('desktop update: could not clear attention', error)
+    }
   }
 
   /** Start a new download episode, or dispose all owned reminders. */
-  reset(): void { this.clear(); this.version = undefined }
+  reset(): void {
+    this.clear()
+    this.version = undefined
+  }
 }

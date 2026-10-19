@@ -10,11 +10,13 @@ const responseSchema = z.discriminatedUnion('ok', [
 ])
 
 /** Transferable reply channel paired with a validated operation payload. */
-export const requestSchema = z.object({
-  method: z.string(),
-  args: z.unknown(),
-  reply: z.instanceof(MessagePort),
-}).strict()
+export const requestSchema = z
+  .object({
+    method: z.string(),
+    args: z.unknown(),
+    reply: z.instanceof(MessagePort),
+  })
+  .strict()
 
 /**
  * Send one request and release its reply port after response or peer shutdown.
@@ -40,7 +42,9 @@ export async function request(target: MessagePort | Worker, method: string, args
       else result.reject(new Error(response.data.error))
     })
     port1.once('messageerror', result.reject)
-    port1.once('close', () => { result.reject(new Error('Stagehand Worker reply channel closed')) })
+    port1.once('close', () => {
+      result.reject(new Error('Stagehand Worker reply channel closed'))
+    })
     try {
       target.postMessage({ method, args, reply: port2 }, [port2])
     } catch (error) {

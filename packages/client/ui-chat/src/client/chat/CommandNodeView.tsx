@@ -1,8 +1,6 @@
 import { memo, useMemo } from 'react'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import type {
-  ChatNodeViewProps, CommandRowOwnerProps,
-} from '../contract/slots.ts'
+import type { ChatNodeViewProps, CommandRowOwnerProps } from '../contract/slots.ts'
 import { CompactionCommandCard } from './CompactionCommandCard.tsx'
 import { GenericCommandCard } from './GenericCommandCard.tsx'
 import css from './ChatView.module.css'
@@ -24,17 +22,11 @@ export const CommandNodeView = memo(function CommandNodeView({ node, renderSlot,
 })
 
 /** One integrated `/compact` command and compaction transaction renderer. */
-export const ManualCompactionNodeView = memo(function ManualCompactionNodeView({
-  node, t,
-}: ChatNodeViewProps<'manual-compaction'>) {
+export const ManualCompactionNodeView = memo(function ManualCompactionNodeView({ node, t }: ChatNodeViewProps<'manual-compaction'>) {
   const data = node.data
   return (
     <div className={css.callRow}>
-      <CompactionCommandCard
-        node={data.command}
-        {...data.compaction === null ? {} : { compaction: data.compaction }}
-        t={t}
-      />
+      <CompactionCommandCard node={data.command} {...(data.compaction === null ? {} : { compaction: data.compaction })} t={t} />
     </div>
   )
 })

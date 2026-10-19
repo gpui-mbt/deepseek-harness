@@ -1,14 +1,10 @@
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createAssistantMessage } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, SessionSeq, type SessionEvent } from '@deepseek-ai/dsh-session'
 import { parseSessionLog, prepareSessionSnapshotFixtureForComparison } from '@deepseek-ai/dsh-llm-replay'
 import { scrubSessionSnapshot } from '@deepseek-ai/dsh-session-snapshot'
-import {
-  canonicalSessionFixture,
-  inspectSessionFixtureLayouts,
-  isPhysicalSessionFixture,
-} from './session-fixture-layout.ts'
+import { canonicalSessionFixture, inspectSessionFixtureLayouts, isPhysicalSessionFixture } from './session-fixture-layout.ts'
 
 const HEADER = `  {"type":"session","version":${SESSION_FORMAT_VERSION},"id":"fixture","createdAt":1,"isSeeded":false,"delegationDepth":0}  `
 const root = resolve(import.meta.dirname, '..')
@@ -60,29 +56,32 @@ function decodedBody(content: string): SessionEvent[] {
 }
 
 describe('canonicalSessionFixture', () => {
-  it.each([
-    { sources: [0, 1, 2] },
-    { sources: [0, 2] },
-    { sources: [2, 0, 1] },
-  ])('writes canonical snapshots preserving source reference order: $sources', ({ sources }) => {
-    const event = {
-      type: 'user/message', seq: 3, time: 15,
-      data: { id: 'fixture-user', role: 'user', source: { kind: 'user' }, content: [] },
-      sourceEventSeqs: sources, surfaceOp: 'append',
-    }
-    const raw = [HEADER, ...[...fixtureEvents(), event].map(value => JSON.stringify(value)), ''].join('\n')
-    const written = scrubSessionSnapshot(prepareSessionSnapshotFixtureForComparison(raw))
+  it.each([{ sources: [0, 1, 2] }, { sources: [0, 2] }, { sources: [2, 0, 1] }])(
+    'writes canonical snapshots preserving source reference order: $sources',
+    ({ sources }) => {
+      const event = {
+        type: 'user/message',
+        seq: 3,
+        time: 15,
+        data: { id: 'fixture-user', role: 'user', source: { kind: 'user' }, content: [] },
+        sourceEventSeqs: sources,
+        surfaceOp: 'append',
+      }
+      const raw = [HEADER, ...[...fixtureEvents(), event].map(value => JSON.stringify(value)), ''].join('\n')
+      const written = scrubSessionSnapshot(prepareSessionSnapshotFixtureForComparison(raw))
 
-    expect(canonicalSessionFixture(written)).toBe(written)
-    expect(decodedBody(written).at(-1)?.sourceEventSeqs).toEqual(sources)
-    expect(scrubSessionSnapshot(written)).toBe(written)
-  })
+      expect(canonicalSessionFixture(written)).toBe(written)
+      expect(decodedBody(written).at(-1)?.sourceEventSeqs).toEqual(sources)
+      expect(scrubSessionSnapshot(written)).toBe(written)
+    },
+  )
 
   it('preserves the header line and nested compact stream losslessly', () => {
     const canonical = canonicalSessionFixture(unpackedFixture(), 'fixture.jsonl')
     expect(canonical).toBeDefined()
     expect(canonical?.split('\n')[0]).toBe(HEADER)
-    const message = canonical?.split('\n')
+    const message = canonical
+      ?.split('\n')
       .map(line => JSON.parse(line || '{}') as Record<string, unknown>)
       .find(record => record.type === 'assistant/message')
     expect(message).toMatchObject({
@@ -93,8 +92,9 @@ describe('canonicalSessionFixture', () => {
     })
     expect(message).not.toHaveProperty('seq')
     expect(message).not.toHaveProperty('time')
-    expect(decodedBody(canonical ?? '').map(({ seq: _seq, time: _time, ...event }) => event))
-      .toStrictEqual(fixtureEvents().map(({ seq: _seq, time: _time, ...event }) => event))
+    expect(decodedBody(canonical ?? '').map(({ seq: _seq, time: _time, ...event }) => event)).toStrictEqual(
+      fixtureEvents().map(({ seq: _seq, time: _time, ...event }) => event),
+    )
   })
 
   it('ignores JSONL whose first record is not a session header', () => {
@@ -108,11 +108,7 @@ describe('canonicalSessionFixture', () => {
   })
 
   it('is idempotent for an already projected fixture', () => {
-    const projected = [
-      HEADER,
-      '{"type":"turn/start","data":{"turn":1}}',
-      '',
-    ].join('\n')
+    const projected = [HEADER, '{"type":"turn/start","data":{"turn":1}}', ''].join('\n')
     expect(canonicalSessionFixture(projected)).toBe(projected)
   })
 
@@ -127,9 +123,16 @@ describe('canonicalSessionFixture', () => {
     expect(decodedBody(projected)[1]).not.toHaveProperty('data.header.tools')
   })
 
-  it.each([0, 1, 2])('preserves v%i request-header tokens and source bytes after validation', (version) => {
+  it.each([0, 1, 2])('preserves v%i request-header tokens and source bytes after validation', version => {
     const source = [
-      JSON.stringify({ type: 'session', version, id: 'fixture', createdAt: 1, delegationDepth: 0, ...version >= 2 ? { isSeeded: false } : {} }),
+      JSON.stringify({
+        type: 'session',
+        version,
+        id: 'fixture',
+        createdAt: 1,
+        delegationDepth: 0,
+        ...(version >= 2 ? { isSeeded: false } : {}),
+      }),
       '{"type":"turn/start","data":{"turn":1}}',
       '{"type":"step/start","data":{"turn":1,"step":1}}',
       '{"type":"request/header","data":{"header":{"config":{"provider":"mock","model":"mock"},"system":"{{system}}","tools":"{{tools}}"},"reason":"initial"}}',
@@ -153,74 +156,99 @@ describe('canonicalSessionFixture', () => {
     expect(() => decodedBody(canonical!)).toThrow(/session snapshot line 1:.*seed request\/header.*empty tools/)
   })
 
-  it.each(historicalVersions)('preserves physically valid v%i bytes without requiring migration to current', (version) => {
-    const header = { type: 'session', version, id: 'historical', createdAt: 1, delegationDepth: 0, ...(version >= 2 ? { isSeeded: false } : {}) }
+  it.each(historicalVersions)('preserves physically valid v%i bytes without requiring migration to current', version => {
+    const header = {
+      type: 'session',
+      version,
+      id: 'historical',
+      createdAt: 1,
+      delegationDepth: 0,
+      ...(version >= 2 ? { isSeeded: false } : {}),
+    }
     const content = [
       JSON.stringify(header),
-      JSON.stringify({ type: 'user/message', data: { role: 'user', id: 'historical-user', source: { kind: 'user' }, content: [] }, surfaceOp: 'append' }),
+      JSON.stringify({
+        type: 'user/message',
+        data: { role: 'user', id: 'historical-user', source: { kind: 'user' }, content: [] },
+        surfaceOp: 'append',
+      }),
       '',
     ].join('\n')
     expect(canonicalSessionFixture(content)).toBe(content)
   })
 
-  it.each(historicalVersions)('rejects v%i sequence gaps and invalid source-event ranges with source line diagnostics', (version) => {
-    const header = JSON.stringify({ type: 'session', version, id: 'historical', createdAt: 1, delegationDepth: 0, ...(version >= 2 ? { isSeeded: false } : {}) })
-    expect(() => canonicalSessionFixture(`${header}\n{"type":"feedback/record","seq":3,"data":{"text":"gap"}}\n`, 'gap.jsonl'))
-      .toThrow(/gap\.jsonl: session snapshot line 2:.*seq/)
-    expect(() => canonicalSessionFixture(`${header}\n{"type":"feedback/record","data":{},"sourceEventSeqs":[[2,0]]}\n`, 'range.jsonl'))
-      .toThrow(/range\.jsonl: session snapshot line 2:/)
+  it.each(historicalVersions)('rejects v%i sequence gaps and invalid source-event ranges with source line diagnostics', version => {
+    const header = JSON.stringify({
+      type: 'session',
+      version,
+      id: 'historical',
+      createdAt: 1,
+      delegationDepth: 0,
+      ...(version >= 2 ? { isSeeded: false } : {}),
+    })
+    expect(() => canonicalSessionFixture(`${header}\n{"type":"feedback/record","seq":3,"data":{"text":"gap"}}\n`, 'gap.jsonl')).toThrow(
+      /gap\.jsonl: session snapshot line 2:.*seq/,
+    )
+    expect(() =>
+      canonicalSessionFixture(`${header}\n{"type":"feedback/record","data":{},"sourceEventSeqs":[[2,0]]}\n`, 'range.jsonl'),
+    ).toThrow(/range\.jsonl: session snapshot line 2:/)
   })
 
-  it.each(historicalVersions)('finalizes the v%i source inherited cut', (version) => {
-    const header = { type: 'session', version, id: 'historical', createdAt: 1, delegationDepth: 0, ...(version >= 2 ? { isSeeded: true } : { seedLength: 1 }) }
-    expect(() => canonicalSessionFixture(`${JSON.stringify(header)}\n`, 'cut.jsonl'))
-      .toThrow(/cut\.jsonl: session snapshot line 1:.*(?:inherited|seed)/)
+  it.each(historicalVersions)('finalizes the v%i source inherited cut', version => {
+    const header = {
+      type: 'session',
+      version,
+      id: 'historical',
+      createdAt: 1,
+      delegationDepth: 0,
+      ...(version >= 2 ? { isSeeded: true } : { seedLength: 1 }),
+    }
+    expect(() => canonicalSessionFixture(`${JSON.stringify(header)}\n`, 'cut.jsonl')).toThrow(
+      /cut\.jsonl: session snapshot line 1:.*(?:inherited|seed)/,
+    )
   })
 
   it('refuses unsupported generation headers', () => {
     const header = { type: 'session', version: 99, id: 'future', createdAt: 1, isSeeded: false, delegationDepth: 0 }
-    expect(() => canonicalSessionFixture(`${JSON.stringify(header)}\n`, 'future.jsonl'))
-      .toThrow(/future\.jsonl: session snapshot line 1:.*99/)
+    expect(() => canonicalSessionFixture(`${JSON.stringify(header)}\n`, 'future.jsonl')).toThrow(
+      /future\.jsonl: session snapshot line 1:.*99/,
+    )
   })
 
   it('fails loud on malformed records after a session header', () => {
-    expect(() => canonicalSessionFixture(`${HEADER}\n{not-json}\n`, 'broken.jsonl'))
-      .toThrow(/broken\.jsonl: session snapshot line 2 contains invalid JSON/)
+    expect(() => canonicalSessionFixture(`${HEADER}\n{not-json}\n`, 'broken.jsonl')).toThrow(
+      /broken\.jsonl: session snapshot line 2 contains invalid JSON/,
+    )
   })
 
   it('labels malformed packed rows with the fixture path and line', () => {
     const releasedHeader = '{"type":"session","version":0,"id":"fixture","createdAt":1,"delegationDepth":0}'
-    expect(() => canonicalSessionFixture(`${releasedHeader}\n{"type":"text-chunks"}\n`, 'broken.jsonl'))
-      .toThrow(/broken\.jsonl: session snapshot line 2: released text-chunks row 0 lacks required member "data"/)
+    expect(() => canonicalSessionFixture(`${releasedHeader}\n{"type":"text-chunks"}\n`, 'broken.jsonl')).toThrow(
+      /broken\.jsonl: session snapshot line 2: released text-chunks row 0 lacks required member "data"/,
+    )
   })
 })
 
 describe('isPhysicalSessionFixture', () => {
   it('recognizes fixtures that preserve physical persistence encoding', () => {
-    expect(isPhysicalSessionFixture(
-      'packages/experimental/webworker-runtime/tests/fixtures/vfs-example/home/sessions/--dsh-workspace--/main/session.jsonl',
-    )).toBe(true)
-    expect(isPhysicalSessionFixture(
-      'packages/experimental/webworker-runtime/tests/fixtures/vfs-example/home/sessions/--dsh-workspace--/main/session.v1.jsonl',
-    )).toBe(true)
-    expect(isPhysicalSessionFixture(
-      'scripts/snapshots/python-sdk-single-exe/advanced/session.1.jsonl',
-    )).toBe(true)
-    expect(isPhysicalSessionFixture(
-      'scripts/snapshots/python-sdk-single-exe/advanced/session.1.v1.jsonl',
-    )).toBe(true)
-    expect(isPhysicalSessionFixture(
-      'scripts/snapshots/python-sdk-single-exe/advanced/session.jsonl',
-    )).toBe(true)
-    expect(isPhysicalSessionFixture(
-      'scripts/snapshots/python-sdk-single-exe/restart/session.2.jsonl',
-    )).toBe(true)
-    expect(isPhysicalSessionFixture(
-      'packages/experimental/webworker-runtime/tests/fixtures/vfs-example/home/sessions/README.jsonl',
-    )).toBe(false)
-    expect(isPhysicalSessionFixture(
-      'scripts/snapshots/python-sdk-single-exe/advanced/requests.jsonl',
-    )).toBe(false)
+    expect(
+      isPhysicalSessionFixture(
+        'packages/experimental/webworker-runtime/tests/fixtures/vfs-example/home/sessions/--dsh-workspace--/main/session.jsonl',
+      ),
+    ).toBe(true)
+    expect(
+      isPhysicalSessionFixture(
+        'packages/experimental/webworker-runtime/tests/fixtures/vfs-example/home/sessions/--dsh-workspace--/main/session.v1.jsonl',
+      ),
+    ).toBe(true)
+    expect(isPhysicalSessionFixture('scripts/snapshots/python-sdk-single-exe/advanced/session.1.jsonl')).toBe(true)
+    expect(isPhysicalSessionFixture('scripts/snapshots/python-sdk-single-exe/advanced/session.1.v1.jsonl')).toBe(true)
+    expect(isPhysicalSessionFixture('scripts/snapshots/python-sdk-single-exe/advanced/session.jsonl')).toBe(true)
+    expect(isPhysicalSessionFixture('scripts/snapshots/python-sdk-single-exe/restart/session.2.jsonl')).toBe(true)
+    expect(isPhysicalSessionFixture('packages/experimental/webworker-runtime/tests/fixtures/vfs-example/home/sessions/README.jsonl')).toBe(
+      false,
+    )
+    expect(isPhysicalSessionFixture('scripts/snapshots/python-sdk-single-exe/advanced/requests.jsonl')).toBe(false)
     expect(isPhysicalSessionFixture('apps/web/tests/snapshots/example/session.jsonl')).toBe(false)
   })
 })
@@ -229,8 +257,5 @@ it('keeps every session-format JSONL fixture projected into canonical event layo
   const nonCanonical = inspectSessionFixtureLayouts(root)
     .filter(fixture => fixture.source !== fixture.canonical)
     .map(fixture => fixture.path)
-  expect(
-    nonCanonical,
-    'Run `pnpm run migrate:packed-session-fixtures` and commit the mechanical fixture rewrite.',
-  ).toEqual([])
+  expect(nonCanonical, 'Run `pnpm run migrate:packed-session-fixtures` and commit the mechanical fixture rewrite.').toEqual([])
 })

@@ -6,7 +6,7 @@ import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SpeechProviderId } from '@deepseek-ai/dsh-experimental-speech-to-text/types'
 import { RemoteError, type TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { mountVoiceInput, inject } from '../src/client/mount.ts'
 import { apply as hostApply } from '../src/index.ts'
@@ -18,9 +18,12 @@ const REMOTE: TypertRemoteContribution = {
   descriptors: [],
 }
 
-vi.mock('../src/client/readiness.ts', () => ({ observeReadiness: () => ({
-  state: createSnapshotStore({ catalog: null, connected: true, error: null }), dispose: async () => {},
-}) }))
+vi.mock('../src/client/readiness.ts', () => ({
+  observeReadiness: () => ({
+    state: createSnapshotStore({ catalog: null, connected: true, error: null }),
+    dispose: async () => {},
+  }),
+}))
 
 /** Narrow the erased registry payload before exercising its registered actions. */
 function assertVoiceActions(value: Record<string, unknown>): asserts value is Record<string, unknown> & VoiceInputInjected {
@@ -35,9 +38,12 @@ function assertVoiceActions(value: Record<string, unknown>): asserts value is Re
 }
 
 async function fixture(fail = false) {
-  const ctx = new Context(), unmount = vi.fn(async () => {})
+  const ctx = new Context(),
+    unmount = vi.fn(async () => {})
   class Remote extends Service {
-    constructor() { super(ctx, 'remote') }
+    constructor() {
+      super(ctx, 'remote')
+    }
     async $mount(contribution: TypertRemoteContribution) {
       expect(contribution).toBe(REMOTE)
       return unmount
@@ -53,13 +59,21 @@ async function fixture(fail = false) {
   ctx.provide('remote.speech', { configure, prepare, cancelPreparation, transcribe })
   ctx.provide('locale', new LocaleRuntime(ctx))
   await ctx.plugin(SlotRegistry)
-  ctx.slots.register({ name: 'root', children: {
-    'conversation.input.activity': { kind: 'single', scope: 'session' },
-    'plugins.bundle.activation': { kind: 'keyed', scope: 'root' },
-    'plugins.bundle.config': { kind: 'keyed', scope: 'root' },
-  } } as never,
-  () => null)
-  if (fail) vi.spyOn(ctx.slots, 'inject').mockImplementationOnce(() => { throw new Error('slot failed') })
+  ctx.slots.register(
+    {
+      name: 'root',
+      children: {
+        'conversation.input.activity': { kind: 'single', scope: 'session' },
+        'plugins.bundle.activation': { kind: 'keyed', scope: 'root' },
+        'plugins.bundle.config': { kind: 'keyed', scope: 'root' },
+      },
+    } as never,
+    () => null,
+  )
+  if (fail)
+    vi.spyOn(ctx.slots, 'inject').mockImplementationOnce(() => {
+      throw new Error('slot failed')
+    })
   return { ctx, unmount, openBundle, configure, prepare, cancelPreparation, transcribe }
 }
 
@@ -99,7 +113,8 @@ it('withdraws its Remote, localized slot and microphone captures on disposal', a
     await expect(actions.configure({ language: 'en' })).rejects.toThrow('offline')
     await expect(actions.prepare('local' as SpeechProviderId)).rejects.toThrow('offline')
     await expect(actions.cancelPreparation('local' as SpeechProviderId)).rejects.toThrow('offline')
-    const request = { providerId: 'local' as SpeechProviderId, audioBase64: '' }, signal = new AbortController().signal
+    const request = { providerId: 'local' as SpeechProviderId, audioBase64: '' },
+      signal = new AbortController().signal
     await actions.transcribe(request, signal)
     expect(b.configure).toHaveBeenCalledTimes(2)
     expect(b.transcribe).toHaveBeenCalledWith(request, signal)
@@ -108,7 +123,9 @@ it('withdraws its Remote, localized slot and microphone captures on disposal', a
     expect(b.ctx.slots.entries('conversation.input.activity')).toHaveLength(0)
     expect(b.ctx.slots.entries('plugins.bundle.activation')).toHaveLength(0)
     expect(b.unmount).toHaveBeenCalledOnce()
-  } finally { await b.ctx.fiber.dispose() }
+  } finally {
+    await b.ctx.fiber.dispose()
+  }
 })
 
 it('rolls back the Remote contribution when the slot registration fails', async () => {
@@ -116,11 +133,15 @@ it('rolls back the Remote contribution when the slot registration fails', async 
   try {
     await expect(mountVoiceInput(b.ctx, REMOTE)).rejects.toThrow('slot failed')
     expect(b.unmount).toHaveBeenCalledOnce()
-  } finally { await b.ctx.fiber.dispose() }
+  } finally {
+    await b.ctx.fiber.dispose()
+  }
 })
 
 it('joins the same audio closure when cancellation overlaps Client plugin withdrawal', async () => {
-  const b = await fixture(), audio = captureFixture(), closing = Promise.withResolvers<undefined>()
+  const b = await fixture(),
+    audio = captureFixture(),
+    closing = Promise.withResolvers<undefined>()
   audio.close.mockReturnValueOnce(closing.promise)
   let cancelled: Promise<void> | undefined, removed: Promise<void> | undefined
   try {
@@ -136,7 +157,8 @@ it('joins the same audio closure when cancellation overlaps Client plugin withdr
     await recording.start()
     expect(audio.getUserMedia.mock.calls.at(-1)?.[0].audio).toMatchObject({ deviceId: { exact: 'usb' } })
     cancelled = recording.dispose()
-    const originalDispose = recording.dispose.bind(recording), joined = Promise.withResolvers<{ pending: Promise<void> }>()
+    const originalDispose = recording.dispose.bind(recording),
+      joined = Promise.withResolvers<{ pending: Promise<void> }>()
     vi.spyOn(recording, 'dispose').mockImplementationOnce(() => {
       const pending = originalDispose()
       joined.resolve({ pending })
@@ -147,13 +169,21 @@ it('joins the same audio closure when cancellation overlaps Client plugin withdr
     expect(pending).toBe(cancelled)
     expect(b.unmount).not.toHaveBeenCalled()
     closing.resolve(undefined)
-    await cancelled; await removed
+    await cancelled
+    await removed
     expect(audio.close).toHaveBeenCalledOnce()
     expect(b.unmount).toHaveBeenCalledOnce()
   } finally {
     closing.resolve(undefined)
-    try { await cancelled; await removed } finally {
-      try { await b.ctx.fiber.dispose() } finally { vi.unstubAllGlobals() }
+    try {
+      await cancelled
+      await removed
+    } finally {
+      try {
+        await b.ctx.fiber.dispose()
+      } finally {
+        vi.unstubAllGlobals()
+      }
     }
   }
 })

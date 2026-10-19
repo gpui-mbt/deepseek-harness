@@ -11,9 +11,7 @@ import {
 } from './model.ts'
 
 /** Whether a retained routed snapshot still has a live source generation. */
-export type CordisTreeSourceConnection =
-  | { readonly state: 'connected' }
-  | { readonly state: 'disconnected'; readonly reason: string }
+export type CordisTreeSourceConnection = { readonly state: 'connected' } | { readonly state: 'disconnected'; readonly reason: string }
 
 /** One source generation and its latest routed Cordis snapshot. */
 export interface CordisTreeSource {
@@ -55,9 +53,8 @@ function projectRealm(realm: CordisTreeSourceSnapshot): CordisRuntimeTree['clien
       kind: realm.source.kind,
       label: realm.source.label,
     },
-    connection: realm.connection.state === 'connected'
-      ? { state: 'connected' }
-      : { state: 'disconnected', reason: realm.connection.reason },
+    connection:
+      realm.connection.state === 'connected' ? { state: 'connected' } : { state: 'disconnected', reason: realm.connection.reason },
     revision: realm.snapshot.revision,
     truncated: realm.snapshot.truncated,
     root: projectContext(realm.snapshot.root),

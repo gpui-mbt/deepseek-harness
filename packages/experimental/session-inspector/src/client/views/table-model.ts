@@ -58,7 +58,9 @@ export class InspectorTableHierarchy {
    * @param key - Row identity.
    * @returns Whether this row owns a disclosure.
    */
-  isBranch(key: string): boolean { return this.branches.has(key) }
+  isBranch(key: string): boolean {
+    return this.branches.has(key)
+  }
 
   /**
    * Find the current row's visible parent headers, including itself when it is a header.

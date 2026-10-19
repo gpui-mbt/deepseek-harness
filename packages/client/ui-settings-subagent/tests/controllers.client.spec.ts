@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError, stubConfigForm, type StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { SubagentLimitsCardController, type SubagentLimitsSettings } from '../src/client/subagent-limits-card-controller.ts'
@@ -11,8 +11,8 @@ import {
 
 /** Make the stub behave like a Host that accepts every write. */
 function acceptWrites<T>(host: StubConfigForm<T>): void {
-  const section = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().value as object })
-  const layer = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().user as object })
+  const section = (): Record<string, unknown> => ({ ...(host.scope.getSnapshot().value as object) })
+  const layer = (): Record<string, unknown> => ({ ...(host.scope.getSnapshot().user as object) })
   host.set.mockImplementation((field: string, value: unknown) => {
     host.publish({ value: { ...section(), [field]: value } as T, user: { ...layer(), [field]: value } })
   })
@@ -44,20 +44,24 @@ function ctxWith(namespaces: object) {
   return { remote: namespaces } as never
 }
 
-function modelsApi(options: {
-  groups?: readonly {
-    id: string
-    name: string
-    models: readonly { id: string; name: string }[]
-  }[]
-  failures?: readonly { id: string; name: string; message: string }[]
-  error?: string
-} = {}) {
-  const models = vi.fn(() => Promise.resolve({
-    ...(options.error === undefined
-      ? { ok: true as const, value: { groups: options.groups ?? [], failures: options.failures ?? [] } }
-      : { ok: false as const, error: new RemoteError('gateway/internal', options.error, {}) }),
-  }))
+function modelsApi(
+  options: {
+    groups?: readonly {
+      id: string
+      name: string
+      models: readonly { id: string; name: string }[]
+    }[]
+    failures?: readonly { id: string; name: string; message: string }[]
+    error?: string
+  } = {},
+) {
+  const models = vi.fn(() =>
+    Promise.resolve({
+      ...(options.error === undefined
+        ? { ok: true as const, value: { groups: options.groups ?? [], failures: options.failures ?? [] } }
+        : { ok: false as const, error: new RemoteError('gateway/internal', options.error, {}) }),
+    }),
+  )
   return { ctx: ctxWith({ session: { modelCatalog: models } }), models }
 }
 
@@ -81,12 +85,22 @@ describe('SubagentModelSelectionCardController', () => {
 
     expect(candidates).toEqual([
       {
-        key: 'alpha\0fast', provider: 'alpha', model: 'fast', providerName: 'Alpha API',
-        modelName: 'Fast', available: true, selected: false,
+        key: 'alpha\0fast',
+        provider: 'alpha',
+        model: 'fast',
+        providerName: 'Alpha API',
+        modelName: 'Fast',
+        available: true,
+        selected: false,
       },
       {
-        key: 'legacy\0old', provider: 'legacy', model: 'old', providerName: 'legacy',
-        modelName: 'old', available: false, selected: true,
+        key: 'legacy\0old',
+        provider: 'legacy',
+        model: 'old',
+        providerName: 'legacy',
+        modelName: 'old',
+        available: false,
+        selected: true,
       },
     ])
   })
@@ -99,8 +113,11 @@ describe('SubagentModelSelectionCardController', () => {
     })
     const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
     host.publish({
-      status: 'ready', writable: true, revision: 3,
-      value: { enabled: false, allowedModels: [] }, user: {},
+      status: 'ready',
+      writable: true,
+      revision: 3,
+      value: { enabled: false, allowedModels: [] },
+      user: {},
     })
     const face = controller.inject()
 
@@ -112,10 +129,13 @@ describe('SubagentModelSelectionCardController', () => {
     face.toggleModel('alpha\0fast')
     face.save()
     await vi.waitFor(() => {
-      expect(host.mutate).toHaveBeenCalledWith([
-        { op: 'set', path: ['enabled'], value: true },
-        { op: 'set', path: ['allowedModels'], value: [{ provider: 'alpha', model: 'fast' }] },
-      ], 3)
+      expect(host.mutate).toHaveBeenCalledWith(
+        [
+          { op: 'set', path: ['enabled'], value: true },
+          { op: 'set', path: ['allowedModels'], value: [{ provider: 'alpha', model: 'fast' }] },
+        ],
+        3,
+      )
     })
 
     expect(face.hooks.subagentModelSelectionCard.getSnapshot()).toMatchObject({
@@ -135,7 +155,9 @@ describe('SubagentModelSelectionCardController', () => {
     face.toggleEnabled()
 
     expect(face.hooks.subagentModelSelectionCard.getSnapshot()).toMatchObject({
-      enabled: true, dirty: true, invalid: true,
+      enabled: true,
+      dirty: true,
+      invalid: true,
     })
   })
 
@@ -173,12 +195,17 @@ describe('SubagentModelSelectionCardController', () => {
     })
     const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
     host.publish({
-      status: 'ready', writable: true, revision: 5,
-      value: { enabled: true, allowedModels: [{ provider: 'alpha', model: 'fast' }] }, user: {},
+      status: 'ready',
+      writable: true,
+      revision: 5,
+      value: { enabled: true, allowedModels: [{ provider: 'alpha', model: 'fast' }] },
+      user: {},
     })
     const face = controller.inject()
     const state = () => face.hooks.subagentModelSelectionCard.getSnapshot()
-    await vi.waitFor(() => { expect(state().catalogStatus).toBe('ready') })
+    await vi.waitFor(() => {
+      expect(state().catalogStatus).toBe('ready')
+    })
     expect(state().catalogPartial).toBe(true)
 
     face.toggleModel('missing')
@@ -198,26 +225,35 @@ describe('SubagentModelSelectionCardController', () => {
     const host = stubConfigForm<SubagentModelSelectionSettings>()
     acceptWrites(host)
     host.publish({
-      status: 'ready', writable: true, revision: 5,
-      value: { enabled: true, allowedModels: [{ provider: 'alpha', model: 'fast' }] }, user: {},
+      status: 'ready',
+      writable: true,
+      revision: 5,
+      value: { enabled: true, allowedModels: [{ provider: 'alpha', model: 'fast' }] },
+      user: {},
     })
     const models = modelsApi({
       groups: [{ id: 'alpha', name: 'Alpha API', models: [{ id: 'fast', name: 'Fast' }] }],
     })
     const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
     const face = controller.inject()
-    await vi.waitFor(() => { expect(models.models).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(models.models).toHaveBeenCalledOnce()
+    })
 
     face.toggleEnabled()
     face.save()
     await vi.waitFor(() => {
-      expect(host.mutate).toHaveBeenCalledWith([
-        { op: 'set', path: ['enabled'], value: false },
-        { op: 'set', path: ['allowedModels'], value: [{ provider: 'alpha', model: 'fast' }] },
-      ], 5)
+      expect(host.mutate).toHaveBeenCalledWith(
+        [
+          { op: 'set', path: ['enabled'], value: false },
+          { op: 'set', path: ['allowedModels'], value: [{ provider: 'alpha', model: 'fast' }] },
+        ],
+        5,
+      )
     })
     expect(face.hooks.subagentModelSelectionCard.getSnapshot()).toMatchObject({
-      enabled: false, dirty: false,
+      enabled: false,
+      dirty: false,
     })
   })
 
@@ -230,9 +266,13 @@ describe('SubagentModelSelectionCardController', () => {
     const state = () => face.hooks.subagentModelSelectionCard.getSnapshot()
 
     face.toggleEnabled()
-    await vi.waitFor(() => { expect(state().catalogStatus).toBe('error') })
+    await vi.waitFor(() => {
+      expect(state().catalogStatus).toBe('error')
+    })
     face.retryCatalog()
-    await vi.waitFor(() => { expect(models.models).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(models.models).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('rejects a draft after the Host revision changes', async () => {
@@ -242,8 +282,11 @@ describe('SubagentModelSelectionCardController', () => {
     })
     const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
     host.publish({
-      status: 'ready', writable: true, revision: 4,
-      value: { enabled: false, allowedModels: [] }, user: {},
+      status: 'ready',
+      writable: true,
+      revision: 4,
+      value: { enabled: false, allowedModels: [] },
+      user: {},
     })
     const face = controller.inject()
     face.toggleEnabled()
@@ -257,7 +300,9 @@ describe('SubagentModelSelectionCardController', () => {
       value: { enabled: true, allowedModels: [{ provider: 'other', model: 'new' }] },
     })
     expect(face.hooks.subagentModelSelectionCard.getSnapshot()).toMatchObject({
-      conflicted: true, failed: false, dirty: true,
+      conflicted: true,
+      failed: false,
+      dirty: true,
     })
     face.save()
     await Promise.resolve()
@@ -265,7 +310,10 @@ describe('SubagentModelSelectionCardController', () => {
     expect(host.mutate).not.toHaveBeenCalled()
     face.discard()
     expect(face.hooks.subagentModelSelectionCard.getSnapshot()).toMatchObject({
-      conflicted: false, failed: false, dirty: false, enabled: true,
+      conflicted: false,
+      failed: false,
+      dirty: false,
+      enabled: true,
     })
   })
 
@@ -276,12 +324,17 @@ describe('SubagentModelSelectionCardController', () => {
     })
     const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
     host.publish({
-      status: 'ready', writable: true, revision: 4,
-      value: { enabled: false, allowedModels: [] }, user: {},
+      status: 'ready',
+      writable: true,
+      revision: 4,
+      value: { enabled: false, allowedModels: [] },
+      user: {},
     })
     const face = controller.inject()
     face.toggleEnabled()
-    await vi.waitFor(() => { expect(face.hooks.subagentModelSelectionCard.getSnapshot().candidates).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(face.hooks.subagentModelSelectionCard.getSnapshot().candidates).toHaveLength(1)
+    })
     face.toggleModel('alpha\0fast')
 
     host.publish({
@@ -290,7 +343,9 @@ describe('SubagentModelSelectionCardController', () => {
     })
 
     expect(face.hooks.subagentModelSelectionCard.getSnapshot()).toMatchObject({
-      conflicted: false, dirty: false, enabled: true,
+      conflicted: false,
+      dirty: false,
+      enabled: true,
     })
   })
 
@@ -298,25 +353,30 @@ describe('SubagentModelSelectionCardController', () => {
     const host = stubConfigForm<SubagentModelSelectionSettings>()
     acceptWrites(host)
     host.publish({
-      status: 'ready', writable: true, revision: 2,
-      value: { enabled: false, allowedModels: [] }, user: {},
+      status: 'ready',
+      writable: true,
+      revision: 2,
+      value: { enabled: false, allowedModels: [] },
+      user: {},
     })
     const refreshed = deferred<never>()
-    const models = vi.fn()
+    const models = vi
+      .fn()
       .mockResolvedValueOnce({
-        ok: true, value: {
+        ok: true,
+        value: {
           groups: [{ id: 'alpha', name: 'Alpha', models: [{ id: 'fast', name: 'Fast' }] }],
           failures: [],
         },
       })
       .mockImplementationOnce(() => refreshed.promise)
-    const controller = new SubagentModelSelectionCardController(
-      host.scope, ctxWith({ session: { modelCatalog: models } }),
-    )
+    const controller = new SubagentModelSelectionCardController(host.scope, ctxWith({ session: { modelCatalog: models } }))
     const face = controller.inject()
     const state = () => face.hooks.subagentModelSelectionCard.getSnapshot()
     face.toggleEnabled()
-    await vi.waitFor(() => { expect(state().candidates).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(state().candidates).toHaveLength(1)
+    })
     face.toggleModel('alpha\0fast')
 
     controller.refreshCatalog()
@@ -325,19 +385,23 @@ describe('SubagentModelSelectionCardController', () => {
       candidates: [expect.objectContaining({ key: 'alpha\0fast', selected: true })],
     })
     refreshed.resolve({
-      ok: true, value: { groups: [], failures: [] },
+      ok: true,
+      value: { groups: [], failures: [] },
     } as never)
-    await vi.waitFor(() => { expect(state().catalogStatus).toBe('ready') })
-    expect(state().candidates).toEqual([
-      expect.objectContaining({ key: 'alpha\0fast', available: false, selected: true }),
-    ])
+    await vi.waitFor(() => {
+      expect(state().catalogStatus).toBe('ready')
+    })
+    expect(state().candidates).toEqual([expect.objectContaining({ key: 'alpha\0fast', available: false, selected: true })])
 
     face.save()
     await vi.waitFor(() => {
-      expect(host.mutate).toHaveBeenCalledWith([
-        { op: 'set', path: ['enabled'], value: true },
-        { op: 'set', path: ['allowedModels'], value: [{ provider: 'alpha', model: 'fast' }] },
-      ], 2)
+      expect(host.mutate).toHaveBeenCalledWith(
+        [
+          { op: 'set', path: ['enabled'], value: true },
+          { op: 'set', path: ['allowedModels'], value: [{ provider: 'alpha', model: 'fast' }] },
+        ],
+        2,
+      )
     })
   })
 
@@ -347,13 +411,18 @@ describe('SubagentModelSelectionCardController', () => {
       groups: [{ id: 'alpha', name: 'Alpha', models: [{ id: 'fast', name: 'Fast' }] }],
     })
     host.publish({
-      status: 'ready', writable: true, revision: 4,
-      value: { enabled: false, allowedModels: [] }, user: {},
+      status: 'ready',
+      writable: true,
+      revision: 4,
+      value: { enabled: false, allowedModels: [] },
+      user: {},
     })
     const controller = new SubagentModelSelectionCardController(host.scope, models.ctx)
     const face = controller.inject()
     face.toggleEnabled()
-    await vi.waitFor(() => { expect(face.hooks.subagentModelSelectionCard.getSnapshot().candidates).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(face.hooks.subagentModelSelectionCard.getSnapshot().candidates).toHaveLength(1)
+    })
     face.toggleModel('alpha\0fast')
 
     controller.resetConnection()
@@ -363,7 +432,9 @@ describe('SubagentModelSelectionCardController', () => {
     })
 
     expect(face.hooks.subagentModelSelectionCard.getSnapshot()).toMatchObject({
-      conflicted: false, dirty: false, enabled: true,
+      conflicted: false,
+      dirty: false,
+      enabled: true,
     })
     face.save()
     await Promise.resolve()
@@ -373,31 +444,39 @@ describe('SubagentModelSelectionCardController', () => {
   it('reloads the model catalog after invalidation', async () => {
     const host = stubConfigForm<SubagentModelSelectionSettings>()
     host.publish({
-      status: 'ready', writable: true, revision: 1,
-      value: { enabled: true, allowedModels: [] }, user: {},
+      status: 'ready',
+      writable: true,
+      revision: 1,
+      value: { enabled: true, allowedModels: [] },
+      user: {},
     })
-    const models = vi.fn()
+    const models = vi
+      .fn()
       .mockResolvedValueOnce({
-        ok: true, value: {
+        ok: true,
+        value: {
           groups: [{ id: 'alpha', name: 'Alpha', models: [{ id: 'fast', name: 'Fast' }] }],
           failures: [],
         },
       })
       .mockResolvedValueOnce({
-        ok: true, value: {
+        ok: true,
+        value: {
           groups: [{ id: 'beta', name: 'Beta', models: [{ id: 'new', name: 'New' }] }],
           failures: [],
         },
       })
-    const controller = new SubagentModelSelectionCardController(
-      host.scope, ctxWith({ session: { modelCatalog: models } }),
-    )
+    const controller = new SubagentModelSelectionCardController(host.scope, ctxWith({ session: { modelCatalog: models } }))
     const state = () => controller.inject().hooks.subagentModelSelectionCard.getSnapshot()
-    await vi.waitFor(() => { expect(state().candidates[0]?.provider).toBe('alpha') })
+    await vi.waitFor(() => {
+      expect(state().candidates[0]?.provider).toBe('alpha')
+    })
 
     controller.refreshCatalog()
 
-    await vi.waitFor(() => { expect(state().candidates[0]?.provider).toBe('beta') })
+    await vi.waitFor(() => {
+      expect(state().candidates[0]?.provider).toBe('beta')
+    })
     expect(models).toHaveBeenCalledTimes(2)
   })
 
@@ -411,10 +490,12 @@ describe('SubagentModelSelectionCardController', () => {
       await write.promise
       const enabled = ops.find(op => op.path[0] === 'enabled')
       const allowedModels = ops.find(op => op.path[0] === 'allowedModels')
-      host.publish({ value: {
-        enabled: enabled?.op === 'set' ? enabled.value as boolean : false,
-        allowedModels: allowedModels?.op === 'set' ? allowedModels.value as never[] : [],
-      } })
+      host.publish({
+        value: {
+          enabled: enabled?.op === 'set' ? (enabled.value as boolean) : false,
+          allowedModels: allowedModels?.op === 'set' ? (allowedModels.value as never[]) : [],
+        },
+      })
       return true
     })
     const controller = new SubagentModelSelectionCardController({ ...host.scope, mutate }, catalog.ctx)
@@ -425,7 +506,9 @@ describe('SubagentModelSelectionCardController', () => {
     host.publish({ status: 'ready', writable: true, value: { enabled: false, allowedModels: [] }, user: {} })
     face.save()
     face.toggleEnabled()
-    await vi.waitFor(() => { expect(face.hooks.subagentModelSelectionCard.getSnapshot().catalogStatus).toBe('ready') })
+    await vi.waitFor(() => {
+      expect(face.hooks.subagentModelSelectionCard.getSnapshot().catalogStatus).toBe('ready')
+    })
     face.save()
     face.toggleModel('alpha\0fast')
     face.save()
@@ -464,7 +547,8 @@ describe('SubagentModelSelectionCardController', () => {
     resolvingFace.toggleEnabled()
     resolving.dispose()
     pendingResolve.resolve({
-      ok: true, value: { groups: [], failures: [] },
+      ok: true,
+      value: { groups: [], failures: [] },
     } as never)
     await pendingResolve.promise
   })
@@ -497,7 +581,13 @@ describe('SubagentLimitsCardController', () => {
     const host = stubConfigForm<SubagentLimitsSettings>()
     const face = new SubagentLimitsCardController(host.scope).inject()
     const state = () => face.hooks.subagentLimitsCard.getSnapshot()
-    host.publish({ status: 'ready', writable: true, value: { maxDepth: 3, maxActiveSubagents: 8 }, base: { maxDepth: 3, maxActiveSubagents: 8 }, user: {} })
+    host.publish({
+      status: 'ready',
+      writable: true,
+      value: { maxDepth: 3, maxActiveSubagents: 8 },
+      base: { maxDepth: 3, maxActiveSubagents: 8 },
+      user: {},
+    })
     acceptWrites(host)
     expect(state().maxActiveSubagents.text).toBe('8')
     for (const draft of ['-1', '1.5', '9007199254740992', 'wat', '-0']) {
@@ -510,13 +600,17 @@ describe('SubagentLimitsCardController', () => {
     face.edit('maxActiveSubagents', '12')
     expect(host.set).not.toHaveBeenCalled()
     face.save()
-    await vi.waitFor(() => { expect(state().saving).toBe(false) })
+    await vi.waitFor(() => {
+      expect(state().saving).toBe(false)
+    })
     expect(host.scope.getSnapshot().value).toEqual({ maxDepth: 0, maxActiveSubagents: 12 })
     face.resetField('maxDepth')
     face.edit('maxActiveSubagents', '')
     expect(state().invalid).toBe(false)
     face.save()
-    await vi.waitFor(() => { expect(state().saving).toBe(false) })
+    await vi.waitFor(() => {
+      expect(state().saving).toBe(false)
+    })
     expect(host.scope.getSnapshot().value).toEqual({ maxDepth: 3, maxActiveSubagents: 8 })
   })
 })
@@ -528,21 +622,24 @@ describe('shared Subagent card actions', () => {
     const limitFace = new SubagentLimitsCardController(limits.scope).inject()
     const modelFace = new SubagentModelSelectionCardController(models.scope, modelsApi().ctx).inject()
     limits.publish({
-      status: 'ready', writable: true, revision: 2,
+      status: 'ready',
+      writable: true,
+      revision: 2,
       value: { maxDepth: 3, maxActiveSubagents: 8 },
-      base: { maxDepth: 3, maxActiveSubagents: 8 }, user: {},
+      base: { maxDepth: 3, maxActiveSubagents: 8 },
+      user: {},
     })
     models.publish({
-      status: 'ready', writable: true, revision: 5,
-      value: { enabled: false, allowedModels: [{ provider: 'alpha', model: 'fast' }] }, user: {},
+      status: 'ready',
+      writable: true,
+      revision: 5,
+      value: { enabled: false, allowedModels: [{ provider: 'alpha', model: 'fast' }] },
+      user: {},
     })
     acceptWrites(limits)
     acceptWrites(models)
     const face = subagentCardFace(limitFace, modelFace)
-    const state = () => subagentCardShell(
-      face.hooks.subagentLimitsCard.getSnapshot(),
-      face.hooks.subagentModelSelectionCard.getSnapshot(),
-    )
+    const state = () => subagentCardShell(face.hooks.subagentLimitsCard.getSnapshot(), face.hooks.subagentModelSelectionCard.getSnapshot())
     return { limits, models, face, state }
   }
 
@@ -551,19 +648,26 @@ describe('shared Subagent card actions', () => {
     face.editLimit('maxDepth', '2')
     face.toggleEnabled()
     face.save()
-    await vi.waitFor(() => { expect(state()).toMatchObject({ saving: false, dirty: false, failed: false }) })
+    await vi.waitFor(() => {
+      expect(state()).toMatchObject({ saving: false, dirty: false, failed: false })
+    })
     expect(limits.mutate).toHaveBeenCalledWith([{ op: 'set', path: ['maxDepth'], value: 2 }], 2)
-    expect(models.mutate).toHaveBeenCalledWith([
-      { op: 'set', path: ['enabled'], value: true },
-      { op: 'set', path: ['allowedModels'], value: [{ provider: 'alpha', model: 'fast' }] },
-    ], 5)
+    expect(models.mutate).toHaveBeenCalledWith(
+      [
+        { op: 'set', path: ['enabled'], value: true },
+        { op: 'set', path: ['allowedModels'], value: [{ provider: 'alpha', model: 'fast' }] },
+      ],
+      5,
+    )
   })
 
   it('saves a limit-only draft without rewriting model authorization', async () => {
     const { limits, models, face, state } = card()
     face.editLimit('maxDepth', '2')
     face.save()
-    await vi.waitFor(() => { expect(state()).toMatchObject({ saving: false, dirty: false, failed: false }) })
+    await vi.waitFor(() => {
+      expect(state()).toMatchObject({ saving: false, dirty: false, failed: false })
+    })
     expect(limits.scope.getSnapshot().value?.maxDepth).toBe(2)
     expect(models.mutate).not.toHaveBeenCalled()
     expect(models.scope.getSnapshot().value?.enabled).toBe(false)
@@ -590,7 +694,9 @@ describe('shared Subagent card actions', () => {
       expect(face.hooks.subagentLimitsCard.getSnapshot()).toMatchObject({ dirty: true, maxDepth: { text: '2' } })
     } finally {
       pending.resolve(undefined)
-      await vi.waitFor(() => { expect(state().saving).toBe(false) })
+      await vi.waitFor(() => {
+        expect(state().saving).toBe(false)
+      })
     }
     expect(state()).toMatchObject({ dirty: false, failed: false })
     expect(limits.scope.getSnapshot().value?.maxDepth).toBe(2)
@@ -615,11 +721,15 @@ describe('shared Subagent card actions', () => {
     face.editLimit('maxDepth', '2')
     face.toggleEnabled()
     face.save()
-    await vi.waitFor(() => { expect(state()).toMatchObject({ saving: false, dirty: true, failed: true }) })
+    await vi.waitFor(() => {
+      expect(state()).toMatchObject({ saving: false, dirty: true, failed: true })
+    })
     expect(face.hooks.subagentLimitsCard.getSnapshot().dirty).toBe(false)
     expect(face.hooks.subagentModelSelectionCard.getSnapshot()).toMatchObject({ enabled: true, dirty: true })
     face.save()
-    await vi.waitFor(() => { expect(state()).toMatchObject({ saving: false, dirty: false, failed: false }) })
+    await vi.waitFor(() => {
+      expect(state()).toMatchObject({ saving: false, dirty: false, failed: false })
+    })
     expect(limits.mutate).toHaveBeenCalledOnce()
     expect(models.mutate).toHaveBeenCalledTimes(2)
   })

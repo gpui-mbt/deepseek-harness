@@ -25,7 +25,16 @@ const execute = promisify(execFile)
 export async function git(cwd: string, ...args: string[]): Promise<string> {
   const result = await execute('git', ['-c', 'core.hooksPath=/dev/null', ...args], {
     cwd,
-    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '', GIT_CONFIG_PARAMETERS: '', GIT_CONFIG_COUNT: '0', GIT_DIR: undefined, GIT_WORK_TREE: undefined, GIT_INDEX_FILE: undefined },
+    env: {
+      ...process.env,
+      GIT_CONFIG_NOSYSTEM: '1',
+      GIT_CONFIG_GLOBAL: '',
+      GIT_CONFIG_PARAMETERS: '',
+      GIT_CONFIG_COUNT: '0',
+      GIT_DIR: undefined,
+      GIT_WORK_TREE: undefined,
+      GIT_INDEX_FILE: undefined,
+    },
   })
   return result.stdout.trim()
 }
@@ -42,9 +51,19 @@ export function testAgent(ctx: Context, cwd: string, name = 'worktree-test'): Ag
   const id = SessionId(name)
   const session = Session.create(id, [], { version: SESSION_FORMAT_VERSION, id, createdAt: 0, isSeeded: false, cwd })
   const agent: Agent = {
-    id, session, options: {}, status: 'idle', ctx: scope.ctx, inbox: unsupportedInbox(),
-    send() {}, followup() {}, steer() {}, inject() {}, cancel() {},
-    whenIdle: async () => {}, runMaintenance: task => task(new AbortController().signal),
+    id,
+    session,
+    options: {},
+    status: 'idle',
+    ctx: scope.ctx,
+    inbox: unsupportedInbox(),
+    send() {},
+    followup() {},
+    steer() {},
+    inject() {},
+    cancel() {},
+    whenIdle: async () => {},
+    runMaintenance: task => task(new AbortController().signal),
   }
   ctx.agents.register(agent)
   return agent
@@ -101,11 +120,14 @@ export async function contents(path: string): Promise<string> {
 export async function filterCommand(root: string, processFilter = false): Promise<{ command: string; marker: string }> {
   const script = join(root, 'filter.cjs')
   const marker = join(root, 'filter-executed')
-  await writeFile(script, `
+  await writeFile(
+    script,
+    `
 const fs = require('node:fs');
 fs.appendFileSync(${JSON.stringify(marker)}, 'executed\\n');
 ${processFilter ? 'process.exit(1);' : "process.stdout.write('filtered\\n' + fs.readFileSync(0, 'utf8'));"}
-`)
+`,
+  )
   const quoted = (value: string) => `'${value.replaceAll('\\', '/').replaceAll("'", "'\\''")}'`
   return { command: `${quoted(process.execPath)} ${quoted(script)}`, marker }
 }

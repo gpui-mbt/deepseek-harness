@@ -50,7 +50,10 @@ export function createFlockEntryLoader(steps: FlockEntryLoaderSteps): () => Prom
     return steps.importEntry()
   }
   return () => {
-    loading ??= load().catch((error: unknown) => { loading = undefined; throw error })
+    loading ??= load().catch((error: unknown) => {
+      loading = undefined
+      throw error
+    })
     return loading
   }
 }
@@ -74,11 +77,13 @@ function hostAddonBuilt(): boolean {
 async function buildNativeSystem(): Promise<void> {
   const pnpmEntry = process.env.npm_execpath
   if (pnpmEntry === undefined || pnpmEntry === '') {
-    throw new Error(`desktop package: flock addon is not built; run ${BUILD_COMMAND_TEXT} or invoke this script through a pnpm package command`)
+    throw new Error(
+      `desktop package: flock addon is not built; run ${BUILD_COMMAND_TEXT} or invoke this script through a pnpm package command`,
+    )
   }
   for (const args of BUILD_COMMANDS) {
     const child = spawn(process.execPath, [pnpmEntry, ...args], { cwd: REPOSITORY_ROOT, stdio: 'inherit' })
-    const [code, signal] = await once(child, 'close') as [number | null, NodeJS.Signals | null]
+    const [code, signal] = (await once(child, 'close')) as [number | null, NodeJS.Signals | null]
     if (code !== 0) throw new Error(`desktop package: pnpm ${args.join(' ')} exited with ${String(code ?? signal)}`)
   }
 }

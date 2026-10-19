@@ -15,7 +15,9 @@ export function AskQuestionCard({ card }: { card: AskQuestionCardModel }) {
         <p className={css.verdict}>{card.verdict}</p>
         <ul className={css.questionList}>
           {card.questions.map(question => (
-            <li className={css.unansweredQuestion} key={question.id}>{question.question}</li>
+            <li className={css.unansweredQuestion} key={question.id}>
+              {question.question}
+            </li>
           ))}
         </ul>
       </div>
@@ -27,11 +29,15 @@ export function AskQuestionCard({ card }: { card: AskQuestionCardModel }) {
         <div className={css.item} key={question.id}>
           <dt className={css.question}>{question.question}</dt>
           <dd className={css.answer}>
-            {question.answers.length === 0
-              ? <span className={css.skipped}>{card.skippedLabel}</span>
-              : question.answers.map((answer, index) => (
-                <span className={css.answerLine} key={`${question.id}-${String(index)}`}>{answer}</span>
-              ))}
+            {question.answers.length === 0 ? (
+              <span className={css.skipped}>{card.skippedLabel}</span>
+            ) : (
+              question.answers.map((answer, index) => (
+                <span className={css.answerLine} key={`${question.id}-${String(index)}`}>
+                  {answer}
+                </span>
+              ))
+            )}
           </dd>
         </div>
       ))}

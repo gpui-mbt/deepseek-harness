@@ -33,12 +33,23 @@ async function makeReadonly(directory: string, manifest: ArtifactManifest): Prom
  */
 export async function extractHelper(archive: string, directory: string): Promise<string> {
   const entries: { path: string; type: string }[] = []
-  await list({ file: archive, onReadEntry: (entry) => { entries.push({ path: entry.path, type: entry.type }) } })
+  await list({
+    file: archive,
+    onReadEntry: entry => {
+      entries.push({ path: entry.path, type: entry.type })
+    },
+  })
   const seen = new Set<string>()
   for (const entry of entries) {
     const path = entry.path.replace(/\/$/, '')
-    if (!['File', 'Directory'].includes(entry.type) || path.split('/').some(part => part === '..' || part === '.' || part === '')
-      || path.includes('\\') || !path.startsWith('dsh-ssh-helper') || (path !== 'dsh-ssh-helper' && !path.startsWith('dsh-ssh-helper/')) || seen.has(path)) {
+    if (
+      !['File', 'Directory'].includes(entry.type) ||
+      path.split('/').some(part => part === '..' || part === '.' || part === '') ||
+      path.includes('\\') ||
+      !path.startsWith('dsh-ssh-helper') ||
+      (path !== 'dsh-ssh-helper' && !path.startsWith('dsh-ssh-helper/')) ||
+      seen.has(path)
+    ) {
       throw new Error(`Invalid SSH helper archive entry: ${entry.path} (${entry.type})`)
     }
     seen.add(path)
@@ -57,13 +68,18 @@ export async function extractHelper(archive: string, directory: string): Promise
  */
 export async function runArtifactDriver(config: string, report: string, sandbox: string, environment: NodeJS.ProcessEnv): Promise<void> {
   const child = spawn(process.execPath, ['--import', 'tsx/esm', join(fixtures, 'driver.ts'), config, report, sandbox], {
-    cwd: root, stdio: ['ignore', 'pipe', 'pipe'], env: environment,
+    cwd: root,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: environment,
   })
   let output = ''
-  for (const stream of [child.stdout, child.stderr]) stream.on('data', (chunk: Buffer) => {
-    output = (output + chunk.toString()).slice(-32_768)
-  })
-  const force = setTimeout(() => { child.kill('SIGKILL') }, 120_000)
+  for (const stream of [child.stdout, child.stderr])
+    stream.on('data', (chunk: Buffer) => {
+      output = (output + chunk.toString()).slice(-32_768)
+    })
+  const force = setTimeout(() => {
+    child.kill('SIGKILL')
+  }, 120_000)
   try {
     await new Promise<void>((resolve, reject) => {
       child.once('error', reject)
@@ -72,7 +88,9 @@ export async function runArtifactDriver(config: string, report: string, sandbox:
         else reject(new Error(`SSH artifact consumer exited (${code ?? signal}):\n${output}`))
       })
     })
-  } finally { clearTimeout(force) }
+  } finally {
+    clearTimeout(force)
+  }
 }
 
 /**
@@ -90,8 +108,10 @@ export function artifactComposition(connection: { id: string; name: string; conf
     { id: 'subprocess', name: '@deepseek-ai/dsh-subprocess-ssh' },
     { id: 'sandbox', name: '@deepseek-ai/dsh-sandbox-ssh' },
   ]
-  return rows.map(row => `- ${JSON.stringify(row)}`).join('\n')
-    + '\n- id: ptc\n  name: "@deepseek-ai/dsh-ptc-runtime-node"\n  inject: [ssh]\n  config:\n    launch: !!js ctx.ssh.ptcLaunch\n'
+  return (
+    rows.map(row => `- ${JSON.stringify(row)}`).join('\n') +
+    '\n- id: ptc\n  name: "@deepseek-ai/dsh-ptc-runtime-node"\n  inject: [ssh]\n  config:\n    launch: !!js ctx.ssh.ptcLaunch\n'
+  )
 }
 
 /**
@@ -99,17 +119,23 @@ export function artifactComposition(connection: { id: string; name: string; conf
  * @param argv - verifier flags.
  */
 export async function verifySshHelper(argv: string[]): Promise<void> {
-  const { values } = parseArgs({ args: argv, options: {
-    archive: { type: 'string' }, sandbox: { type: 'string', default: 'required' },
-    report: { type: 'string' },
-    backend: { type: 'string' },
-  } })
-  if (values.archive === undefined || !['required', 'unavailable'].includes(values.sandbox)) throw new Error('Use --archive=<file> --sandbox=required|unavailable')
-  if (values.backend !== undefined && !['bwrap', 'landlock-run', 'sandbox-exec'].includes(values.backend)) throw new Error('Unknown expected sandbox backend')
+  const { values } = parseArgs({
+    args: argv,
+    options: {
+      archive: { type: 'string' },
+      sandbox: { type: 'string', default: 'required' },
+      report: { type: 'string' },
+      backend: { type: 'string' },
+    },
+  })
+  if (values.archive === undefined || !['required', 'unavailable'].includes(values.sandbox))
+    throw new Error('Use --archive=<file> --sandbox=required|unavailable')
+  if (values.backend !== undefined && !['bwrap', 'landlock-run', 'sandbox-exec'].includes(values.backend))
+    throw new Error('Unknown expected sandbox backend')
   if (values.backend === 'landlock-run' && process.platform !== 'linux') throw new Error('Landlock verification requires Linux')
   const archive = resolve(values.archive)
   const checksum = (await readFile(`${archive}.sha256`, 'utf8')).split(/\s/)[0]
-  if (await fileDigest(archive) !== checksum) throw new Error('SSH helper archive checksum mismatch')
+  if ((await fileDigest(archive)) !== checksum) throw new Error('SSH helper archive checksum mismatch')
   const temporary = await realpath(await mkdtemp(join(homedir(), '.dsh-helper-check-')))
   try {
     const installed = await extractHelper(archive, temporary)
@@ -120,7 +146,8 @@ export async function verifySshHelper(argv: string[]): Promise<void> {
     await makeReadonly(installed, manifest)
     const workspace = join(temporary, 'workspace')
     const home = join(temporary, 'home')
-    await mkdir(workspace); await mkdir(home)
+    await mkdir(workspace)
+    await mkdir(home)
     let path = '/usr/bin:/bin'
     if (values.backend === 'landlock-run') {
       const bin = join(temporary, 'bin')
@@ -132,26 +159,51 @@ export async function verifySshHelper(argv: string[]): Promise<void> {
     const executable = join(installed, 'dsh-ssh-helper')
     const helperHash = await fileDigest(executable)
     const environment = {
-      HOME: home, PATH: process.env.PATH, DSH_HOME: join(home, 'dsh'),
-      TSX_TSCONFIG_PATH: join(root, 'tsconfig.base.json'), DSH_TELEMETRY_DISABLED: '1',
+      HOME: home,
+      PATH: process.env.PATH,
+      DSH_HOME: join(home, 'dsh'),
+      TSX_TSCONFIG_PATH: join(root, 'tsconfig.base.json'),
+      DSH_TELEMETRY_DISABLED: '1',
       ...(values.backend === undefined ? {} : { DSH_EXPECT_SANDBOX_RUNNER: values.backend }),
     }
-    const runs = await Promise.allSettled([0, 1].map(async (index) => {
-      const cwd = join(workspace, String(index))
-      await mkdir(cwd)
-      const config = join(temporary, `cordis-${index}.yml`)
-      const report = join(temporary, `report-${index}.json`)
-      await writeFile(config, artifactComposition({ id: 'ssh', name: join(fixtures, 'direct-helper.ts'), config: {
-        executable, helperHash, workspace: cwd, home, path,
-      } }, cwd))
-      await runArtifactDriver(config, report, values.sandbox, environment)
-    }))
+    const runs = await Promise.allSettled(
+      [0, 1].map(async index => {
+        const cwd = join(workspace, String(index))
+        await mkdir(cwd)
+        const config = join(temporary, `cordis-${index}.yml`)
+        const report = join(temporary, `report-${index}.json`)
+        await writeFile(
+          config,
+          artifactComposition(
+            {
+              id: 'ssh',
+              name: join(fixtures, 'direct-helper.ts'),
+              config: {
+                executable,
+                helperHash,
+                workspace: cwd,
+                home,
+                path,
+              },
+            },
+            cwd,
+          ),
+        )
+        await runArtifactDriver(config, report, values.sandbox, environment)
+      }),
+    )
     const failures = runs.filter(result => result.status === 'rejected').map((result): unknown => result.reason)
     if (failures.length > 0) throw new AggregateError(failures, 'Concurrent SSH artifact consumers failed')
-    if (process.platform === 'darwin') await probeRestrictedWorker(executable, workspace, home, await realpath(root), await realpath(process.execPath))
-    const evidence = { manifest, runtime: runtimeReportSchema.parse(JSON.parse(await readFile(join(temporary, 'report-0.json'), 'utf8'))),
-      restrictedWorker: process.platform === 'darwin', expectedBackend: values.backend ?? null,
-      readonlyInstall: true, concurrentColdStarts: 2 }
+    if (process.platform === 'darwin')
+      await probeRestrictedWorker(executable, workspace, home, await realpath(root), await realpath(process.execPath))
+    const evidence = {
+      manifest,
+      runtime: runtimeReportSchema.parse(JSON.parse(await readFile(join(temporary, 'report-0.json'), 'utf8'))),
+      restrictedWorker: process.platform === 'darwin',
+      expectedBackend: values.backend ?? null,
+      readonlyInstall: true,
+      concurrentColdStarts: 2,
+    }
     if (values.report !== undefined) {
       const destination = resolve(values.report)
       await mkdir(dirname(destination), { recursive: true })

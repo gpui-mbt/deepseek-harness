@@ -9,10 +9,14 @@
 
 /** Dictionary keys carrying one shipped preset's display copy. */
 export type BuiltInPresetCopyKey =
-  | 'presetStandardName' | 'presetStandardDescription'
-  | 'presetPtcName' | 'presetPtcDescription'
-  | 'presetMinimalName' | 'presetMinimalDescription'
-  | 'presetCordisName' | 'presetCordisDescription'
+  | 'presetStandardName'
+  | 'presetStandardDescription'
+  | 'presetPtcName'
+  | 'presetPtcDescription'
+  | 'presetMinimalName'
+  | 'presetMinimalDescription'
+  | 'presetCordisName'
+  | 'presetCordisDescription'
 
 /** Preset roster fields needed to resolve display copy. */
 export interface PresetDisplaySource {
@@ -60,14 +64,11 @@ export function isBuiltInPreset(preset: PresetDisplaySource): boolean {
  * @param t - active locale lookup covering {@link BuiltInPresetCopyKey}.
  * @returns localized copy for a known shipped preset, otherwise declaration metadata.
  */
-export function presetDisplayText(
-  preset: PresetDisplaySource,
-  t: (key: BuiltInPresetCopyKey) => string,
-): PresetDisplayText {
+export function presetDisplayText(preset: PresetDisplaySource, t: (key: BuiltInPresetCopyKey) => string): PresetDisplayText {
   const keys = isBuiltInPreset(preset) ? BUILT_IN_PRESET_KEYS[preset.id] : undefined
   if (keys !== undefined) return { name: t(keys.name), description: t(keys.description) }
   return {
     name: preset.name ?? preset.id,
-    ...preset.description === undefined ? {} : { description: preset.description },
+    ...(preset.description === undefined ? {} : { description: preset.description }),
   }
 }

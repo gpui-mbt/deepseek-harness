@@ -1,11 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import type {
-  KeywordTypeName,
-  MemberModel,
-  TypeDeclarationModel,
-  TypeGraph,
-  TypeNodeModel,
-} from '../src/model.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import type { KeywordTypeName, MemberModel, TypeDeclarationModel, TypeGraph, TypeNodeModel } from '../src/model.ts'
 import { childTypeNodeIds } from '../src/model.ts'
 import { TypeGraphRenderError, TypeGraphRenderer } from '../src/renderer.ts'
 
@@ -19,7 +13,10 @@ describe('TypeGraphRenderer defensive and optional shapes', () => {
       [keyword('keyword', 'string'), []],
       [{ id: 'literal', kind: 'literal', value: 1, text: '1' }, []],
       [{ id: 'parenthesized', kind: 'parenthesized', type: 'leaf' }, ['leaf']],
-      [{ id: 'reference', kind: 'reference', name: 'Ref', target: { kind: 'standard', name: 'Ref' }, arguments: ['left', 'right'] }, ['left', 'right']],
+      [
+        { id: 'reference', kind: 'reference', name: 'Ref', target: { kind: 'standard', name: 'Ref' }, arguments: ['left', 'right'] },
+        ['left', 'right'],
+      ],
       [{ id: 'union', kind: 'union', types: ['left', 'right'] }, ['left', 'right']],
       [{ id: 'intersection', kind: 'intersection', types: ['left', 'right'] }, ['left', 'right']],
       [{ id: 'array', kind: 'array', element: 'leaf' }, ['leaf']],
@@ -29,11 +26,41 @@ describe('TypeGraphRenderer defensive and optional shapes', () => {
       [{ id: 'constructor', kind: 'constructor', abstract: false, signature }, []],
       [{ id: 'indexed', kind: 'indexed-access', object: 'left', index: 'right' }, ['left', 'right']],
       [{ id: 'operator', kind: 'operator', operator: 'keyof', type: 'leaf' }, ['leaf']],
-      [{ id: 'conditional', kind: 'conditional', check: 'check', extends: 'extends', whenTrue: 'yes', whenFalse: 'no' }, ['check', 'extends', 'yes', 'no']],
-      [{ id: 'infer-full', kind: 'infer', parameter: { id: 'infer', name: 'Value', const: false, constraint: 'constraint', default: 'fallback' } }, ['constraint', 'fallback']],
+      [
+        { id: 'conditional', kind: 'conditional', check: 'check', extends: 'extends', whenTrue: 'yes', whenFalse: 'no' },
+        ['check', 'extends', 'yes', 'no'],
+      ],
+      [
+        {
+          id: 'infer-full',
+          kind: 'infer',
+          parameter: { id: 'infer', name: 'Value', const: false, constraint: 'constraint', default: 'fallback' },
+        },
+        ['constraint', 'fallback'],
+      ],
       [{ id: 'infer-empty', kind: 'infer', parameter: { id: 'infer', name: 'Value', const: false } }, []],
-      [{ id: 'mapped-full', kind: 'mapped', parameter: { id: 'key', name: 'Key', const: false, constraint: 'constraint', default: 'fallback' }, nameType: 'name', value: 'value', readonly: 'preserve', optional: 'preserve' }, ['constraint', 'fallback', 'name', 'value']],
-      [{ id: 'mapped-empty', kind: 'mapped', parameter: { id: 'key', name: 'Key', const: false }, readonly: 'preserve', optional: 'preserve' }, []],
+      [
+        {
+          id: 'mapped-full',
+          kind: 'mapped',
+          parameter: { id: 'key', name: 'Key', const: false, constraint: 'constraint', default: 'fallback' },
+          nameType: 'name',
+          value: 'value',
+          readonly: 'preserve',
+          optional: 'preserve',
+        },
+        ['constraint', 'fallback', 'name', 'value'],
+      ],
+      [
+        {
+          id: 'mapped-empty',
+          kind: 'mapped',
+          parameter: { id: 'key', name: 'Key', const: false },
+          readonly: 'preserve',
+          optional: 'preserve',
+        },
+        [],
+      ],
       [{ id: 'template', kind: 'template-literal', head: '', spans: [{ type: 'leaf', text: '' }] }, ['leaf']],
       [{ id: 'query', kind: 'type-query', expression: 'value', arguments: ['leaf'] }, ['leaf']],
       [{ id: 'import', kind: 'import-type', module: 'fixture', arguments: ['leaf'], typeof: false }, ['leaf']],
@@ -112,8 +139,7 @@ describe('TypeGraphRenderer defensive and optional shapes', () => {
     expect(renderer.renderType('mapped')).toBe('{ [Key in string]: unknown }')
     expect(renderer.renderType('empty-object')).toBe('{}')
     expect(renderer.renderDeclaration('empty-enum')).toBe('export enum EmptyEnum {\n}')
-    expect(renderer.declarationClosureForMembers(['root-member']).map(item => item.name))
-      .toEqual(['Dependency'])
+    expect(renderer.declarationClosureForMembers(['root-member']).map(item => item.name)).toEqual(['Dependency'])
   })
 
   it('fails loudly for every broken graph edge and impossible discriminant', () => {

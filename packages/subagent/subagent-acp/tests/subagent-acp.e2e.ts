@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
@@ -35,8 +35,8 @@ function resolveChildLaunch(dshHome: string) {
     configArgs: ['--profile', 'acp', '--patch', exampleConfig, '--patch', transportPatch],
     tsconfigPath: repoTsconfig,
     env: {
-      ...process.env.DEEPSEEK_API_KEY !== undefined ? { DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY } : {},
-      ...process.env.DEEPSEEK_BASE_URL !== undefined ? { DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL } : {},
+      ...(process.env.DEEPSEEK_API_KEY !== undefined ? { DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY } : {}),
+      ...(process.env.DEEPSEEK_BASE_URL !== undefined ? { DEEPSEEK_BASE_URL: process.env.DEEPSEEK_BASE_URL } : {}),
       DSH_HOME: dshHome,
       DSH_PERMISSION_MODE: 'danger-full-access',
     },
@@ -85,7 +85,10 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('ACP backend with-key e2e (drive 
     // The real child process completed its turn and streamed a real answer back
     // across the ACP boundary.
     expect(result.stopReason).toBe('completed')
-    const text = result.output.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
+    const text = result.output
+      .filter(b => b.type === 'text')
+      .map(b => (b as { text: string }).text)
+      .join('')
     expect(text.length).toBeGreaterThan(0)
     expect(text.toUpperCase()).toContain('PONG')
   }, 180_000)
@@ -109,9 +112,14 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('ACP backend with-key e2e (drive 
 
     const run = await startExternalActivation(ctx, 'acp', {
       cwd: workdir,
-      prompt: [{ type: 'text', text:
-        'Use the bash tool to write the text ACP_CHILD_WAS_HERE into a file named proof.txt '
-        + 'in the current directory. Then reply DONE.' }],
+      prompt: [
+        {
+          type: 'text',
+          text:
+            'Use the bash tool to write the text ACP_CHILD_WAS_HERE into a file named proof.txt ' +
+            'in the current directory. Then reply DONE.',
+        },
+      ],
       parent: fakeParent,
       signal: new AbortController().signal,
     })

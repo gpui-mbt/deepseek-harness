@@ -5,12 +5,8 @@ import { pathToFileURL } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
-import { afterEach, describe, expect, it } from 'vitest'
-import WebhookRuntime, {
-  WebhookDeliveryId,
-  WebhookRuleId,
-  WebhookSourceId,
-} from '../src/index.ts'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
+import WebhookRuntime, { WebhookDeliveryId, WebhookRuleId, WebhookSourceId } from '../src/index.ts'
 
 let root: string | undefined
 let context: Context | undefined
@@ -26,20 +22,16 @@ describe('real Loader composition', () => {
   it('loads the default Service export and an effect-scoped rule', { timeout: 60_000 }, async () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-webhook-loader-'))
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, [
-      '- name: fixture-dependencies',
-      "- name: '@deepseek-ai/dsh-webhook'",
-      '- name: fixture-rule',
-      '',
-    ].join('\n'))
+    await writeFile(
+      configPath,
+      ['- name: fixture-dependencies', "- name: '@deepseek-ai/dsh-webhook'", '- name: fixture-rule', ''].join('\n'),
+    )
 
     const called = Promise.withResolvers<boolean>()
     const dependencies = {
       name: 'fixture-dependencies',
       apply(ctx: Context) {
-        for (const service of [
-          'agents', 'agentDefaultModel', 'agentPresets', 'permissionPresets', 'sessionTitle', 'workspaceRegistry',
-        ]) {
+        for (const service of ['agents', 'agentDefaultModel', 'agentPresets', 'permissionPresets', 'sessionTitle', 'workspaceRegistry']) {
           ctx.provide(service as never, {} as never)
         }
       },

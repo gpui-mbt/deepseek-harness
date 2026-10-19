@@ -30,30 +30,44 @@ export function pointerModality(): boolean {
 }
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('pointerdown', () => {
-    pointer = true
-    pointerOwnsFocus = true
-    keyFocusOrigin = undefined
-    publish()
-  }, true)
-  window.addEventListener('keydown', (event) => {
-    pointer = false
-    if (event.isComposing) {
+  window.addEventListener(
+    'pointerdown',
+    () => {
+      pointer = true
+      pointerOwnsFocus = true
       keyFocusOrigin = undefined
-      return
-    }
-    // composedPath preserves the real control inside an open shadow root.
-    keyFocusOrigin = event.composedPath()[0]
-    if (!FOCUS_NAVIGATION.has(event.key) && !event.key.startsWith('Arrow')) return
-    pointerOwnsFocus = false
-    publish()
-  }, true)
-  window.addEventListener('focusin', (event) => {
-    if (keyFocusOrigin === undefined || event.composedPath()[0] === keyFocusOrigin) return
+      publish()
+    },
+    true,
+  )
+  window.addEventListener(
+    'keydown',
+    event => {
+      pointer = false
+      if (event.isComposing) {
+        keyFocusOrigin = undefined
+        return
+      }
+      // composedPath preserves the real control inside an open shadow root.
+      keyFocusOrigin = event.composedPath()[0]
+      if (!FOCUS_NAVIGATION.has(event.key) && !event.key.startsWith('Arrow')) return
+      pointerOwnsFocus = false
+      publish()
+    },
+    true,
+  )
+  window.addEventListener(
+    'focusin',
+    event => {
+      if (keyFocusOrigin === undefined || event.composedPath()[0] === keyFocusOrigin) return
+      keyFocusOrigin = undefined
+      if (!pointerOwnsFocus) return
+      pointerOwnsFocus = false
+      publish()
+    },
+    true,
+  )
+  window.addEventListener('blur', () => {
     keyFocusOrigin = undefined
-    if (!pointerOwnsFocus) return
-    pointerOwnsFocus = false
-    publish()
-  }, true)
-  window.addEventListener('blur', () => { keyFocusOrigin = undefined })
+  })
 }

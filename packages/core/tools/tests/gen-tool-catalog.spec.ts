@@ -2,7 +2,7 @@
  * Guarantee tests for the tool-schema catalog generator (`scripts/gen-tool-catalog.ts`).
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   assertManifestComplete,
   assertToolsHarvested,
@@ -26,20 +26,79 @@ describe('gen-tool-catalog collectToolCatalog', () => {
     const catalog = await collectToolCatalog()
     const names = catalog.flatMap(entry => entry.schemas.map(s => s.name)).sort()
     expect(names).toEqual([
-      'ask_user_question', 'bash', 'bash', 'cordis_inspect_list',
+      'ask_user_question',
+      'bash',
+      'bash',
+      'cordis_inspect_list',
       'cordis_inspect_query',
-      'create_goal', 'create_worktree', 'edit', 'exit_plan_mode', 'get_goal', 'glob', 'grep',
-      'interrupt_agent', 'interrupt_agent', 'job_kill', 'job_list', 'job_output',
-      'list_agents', 'list_agents', 'list_mcp_resource_templates', 'list_mcp_resources',
-      'list_subagent_models', 'load_workspace_dependencies', 'lsp', 'plugin_manager', 'plugin_market', 'present', 'pwsh', 'pwsh', 'ralph',
-      'read', 'read_image', 'read_mcp_resource', 'run_code', 'schedule_create', 'schedule_delete',
-      'schedule_list', 'schedule_update', 'send_message', 'send_message', 'session_event_read', 'session_event_search',
-      'session_event_trace', 'session_search', 'session_trace', 'skill', 'spawn_teammate',
-      'stagehand_act', 'stagehand_extract', 'stagehand_navigate', 'stagehand_observe', 'stagehand_screenshot', 'stagehand_tabs',
-      'str_replace_editor', 'subagent', 'team_task_create',
-      'team_task_get', 'team_task_list', 'team_task_update', 'terminal_close', 'terminal_list',
-      'terminal_open', 'terminal_read', 'terminal_send', 'terminal_signal', 'todo_write',
-      'update_goal', 'wait_agent', 'web_fetch', 'web_search', 'workflow', 'working_directory', 'write',
+      'create_goal',
+      'create_worktree',
+      'edit',
+      'exit_plan_mode',
+      'get_goal',
+      'glob',
+      'grep',
+      'interrupt_agent',
+      'interrupt_agent',
+      'job_kill',
+      'job_list',
+      'job_output',
+      'list_agents',
+      'list_agents',
+      'list_mcp_resource_templates',
+      'list_mcp_resources',
+      'list_subagent_models',
+      'load_workspace_dependencies',
+      'lsp',
+      'plugin_manager',
+      'plugin_market',
+      'present',
+      'pwsh',
+      'pwsh',
+      'ralph',
+      'read',
+      'read_image',
+      'read_mcp_resource',
+      'run_code',
+      'schedule_create',
+      'schedule_delete',
+      'schedule_list',
+      'schedule_update',
+      'send_message',
+      'send_message',
+      'session_event_read',
+      'session_event_search',
+      'session_event_trace',
+      'session_search',
+      'session_trace',
+      'skill',
+      'spawn_teammate',
+      'stagehand_act',
+      'stagehand_extract',
+      'stagehand_navigate',
+      'stagehand_observe',
+      'stagehand_screenshot',
+      'stagehand_tabs',
+      'str_replace_editor',
+      'subagent',
+      'team_task_create',
+      'team_task_get',
+      'team_task_list',
+      'team_task_update',
+      'terminal_close',
+      'terminal_list',
+      'terminal_open',
+      'terminal_read',
+      'terminal_send',
+      'terminal_signal',
+      'todo_write',
+      'update_goal',
+      'wait_agent',
+      'web_fetch',
+      'web_search',
+      'workflow',
+      'working_directory',
+      'write',
     ])
     // Every tool carries a JSON-Schema `parameters` object (what the model sees).
     for (const entry of catalog) {
@@ -56,12 +115,10 @@ describe('gen-tool-catalog collectToolCatalog', () => {
 
   it('resolves a runtime-spread enum to its literal members (the payoff over AST)', async () => {
     const catalog = await collectToolCatalog()
-    const todo = catalog
-      .flatMap(entry => entry.schemas)
-      .find(s => s.name === 'todo_write')
+    const todo = catalog.flatMap(entry => entry.schemas).find(s => s.name === 'todo_write')
     // `todo-todo` writes `enum: [...STATUSES]` — a source AST would see the
     // spread, not the values. Booting yields the shipped enum literals.
-    const status = (((todo?.parameters as unknown as JsonSchema).properties?.todos)?.items)?.properties?.status
+    const status = (todo?.parameters as unknown as JsonSchema).properties?.todos?.items?.properties?.status
     expect(status?.enum).toEqual(['pending', 'in_progress', 'completed'])
   })
 
@@ -102,14 +159,20 @@ describe('gen-tool-catalog collectToolCatalog', () => {
 
 describe('gen-tool-catalog assertManifestComplete', () => {
   it('passes when the manifest lists every on-disk tool package (the default)', () => {
-    expect(() => { assertManifestComplete() }).not.toThrow()
+    expect(() => {
+      assertManifestComplete()
+    }).not.toThrow()
   })
 
   it('throws, naming the omitted package, when a tool package is missing from the manifest', () => {
     // An empty manifest scanned against the real tree: every `tool-*` package
     // is unlisted, so the guard must fire and name them.
-    expect(() => { assertManifestComplete([]) }).toThrow(/not in the boot manifest/)
-    expect(() => { assertManifestComplete([]) }).toThrow(/tool-bash/)
+    expect(() => {
+      assertManifestComplete([])
+    }).toThrow(/not in the boot manifest/)
+    expect(() => {
+      assertManifestComplete([])
+    }).toThrow(/tool-bash/)
   })
 })
 
@@ -124,15 +187,21 @@ describe('gen-tool-catalog assertToolsHarvested', () => {
   }
 
   it('accepts a boot that registered at least one tool', () => {
-    expect(() => { assertToolsHarvested(entry, 1) }).not.toThrow()
+    expect(() => {
+      assertToolsHarvested(entry, 1)
+    }).not.toThrow()
   })
 
   it('throws, naming the package and its requirements, when a boot registers nothing', () => {
     // The failure this guards is silent by construction: the package is in the
     // manifest, its plugin merely stays PENDING on an unmounted service, and the
     // catalog would ship without its tools while every gate stays green.
-    expect(() => { assertToolsHarvested(entry, 0) }).toThrow(/@deepseek-ai\/dsh-tool-demo booted without registering a single tool/)
-    expect(() => { assertToolsHarvested(entry, 0) }).toThrow(/ctx.somethingUnmounted/)
+    expect(() => {
+      assertToolsHarvested(entry, 0)
+    }).toThrow(/@deepseek-ai\/dsh-tool-demo booted without registering a single tool/)
+    expect(() => {
+      assertToolsHarvested(entry, 0)
+    }).toThrow(/ctx.somethingUnmounted/)
   })
 })
 

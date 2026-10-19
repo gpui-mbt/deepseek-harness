@@ -20,16 +20,31 @@ async function sshdReady(container: string): Promise<void> {
   const logs = spawn('docker', ['logs', '--follow', container], { stdio: ['ignore', 'pipe', 'pipe'] })
   let text = ''
   const ready = Promise.withResolvers<void>()
-  const closed = new Promise<void>((resolve) => { logs.once('close', () => { resolve(); ready.reject(new Error(`sshd exited before readiness: ${text}`)) }) })
+  const closed = new Promise<void>(resolve => {
+    logs.once('close', () => {
+      resolve()
+      ready.reject(new Error(`sshd exited before readiness: ${text}`))
+    })
+  })
   const read = (chunk: Buffer): void => {
     text = (text + chunk.toString()).slice(-8192)
     if (text.includes('Server listening on')) ready.resolve()
   }
-  logs.stdout.on('data', read); logs.stderr.on('data', read)
-  logs.once('error', (error) => { ready.reject(error) })
-  const deadline = setTimeout(() => { ready.reject(new Error(`sshd readiness timed out: ${text}`)) }, 30_000)
-  try { await ready.promise }
-  finally { clearTimeout(deadline); logs.kill('SIGTERM'); await closed }
+  logs.stdout.on('data', read)
+  logs.stderr.on('data', read)
+  logs.once('error', error => {
+    ready.reject(error)
+  })
+  const deadline = setTimeout(() => {
+    ready.reject(new Error(`sshd readiness timed out: ${text}`))
+  }, 30_000)
+  try {
+    await ready.promise
+  } finally {
+    clearTimeout(deadline)
+    logs.kill('SIGTERM')
+    await closed
+  }
 }
 
 /**
@@ -54,9 +69,19 @@ export async function verifySshTransport(argv: string[]): Promise<void> {
     imageBuilt = true
     const identity = join(temporary, 'identity')
     await run('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', identity])
-    container = await docker('run', '--detach', '--platform', platform, '--publish', '127.0.0.1::22',
-      '--mount', `type=bind,src=${installed},dst=/opt/dsh-helper,readonly`,
-      '--mount', `type=bind,src=${identity}.pub,dst=/fixture-key.pub,readonly`, image)
+    container = await docker(
+      'run',
+      '--detach',
+      '--platform',
+      platform,
+      '--publish',
+      '127.0.0.1::22',
+      '--mount',
+      `type=bind,src=${installed},dst=/opt/dsh-helper,readonly`,
+      '--mount',
+      `type=bind,src=${identity}.pub,dst=/fixture-key.pub,readonly`,
+      image,
+    )
     await sshdReady(container)
     const published = await docker('port', container, '22/tcp')
     const port = /^127\.0\.0\.1:(\d+)$/.exec(published)?.[1]
@@ -65,7 +90,11 @@ export async function verifySshTransport(argv: string[]): Promise<void> {
     const knownHosts = join(temporary, 'known_hosts')
     await writeFile(knownHosts, `[127.0.0.1]:${port} ${publicKey}\n`, { mode: 0o600 })
     const sshConfig = join(temporary, 'ssh_config')
-    await writeFile(sshConfig, `Host artifact\n  HostName 127.0.0.1\n  Port ${port}\n  User dsh\n  IdentityFile "${identity}"\n  IdentitiesOnly yes\n  UserKnownHostsFile "${knownHosts}"\n  GlobalKnownHostsFile /dev/null\n`, { mode: 0o600 })
+    await writeFile(
+      sshConfig,
+      `Host artifact\n  HostName 127.0.0.1\n  Port ${port}\n  User dsh\n  IdentityFile "${identity}"\n  IdentitiesOnly yes\n  UserKnownHostsFile "${knownHosts}"\n  GlobalKnownHostsFile /dev/null\n`,
+      { mode: 0o600 },
+    )
     const bin = join(temporary, 'bin')
     await mkdir(bin)
     const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`
@@ -73,18 +102,39 @@ export async function verifySshTransport(argv: string[]): Promise<void> {
     await chmod(join(bin, 'ssh'), 0o755)
     const workspace = '/home/dsh/workspace'
     const config = join(temporary, 'cordis.yml')
-    await writeFile(config, artifactComposition({ id: 'ssh', name: '@deepseek-ai/dsh-ssh', config: {
-      host: 'artifact', launch: { kind: 'executable' }, helper: '/opt/dsh-helper/dsh-ssh-helper',
-      helperHash: await fileDigest(join(installed, 'dsh-ssh-helper')), workspace,
-    } }, workspace))
+    await writeFile(
+      config,
+      artifactComposition(
+        {
+          id: 'ssh',
+          name: '@deepseek-ai/dsh-ssh',
+          config: {
+            host: 'artifact',
+            launch: { kind: 'executable' },
+            helper: '/opt/dsh-helper/dsh-ssh-helper',
+            helperHash: await fileDigest(join(installed, 'dsh-ssh-helper')),
+            workspace,
+          },
+        },
+        workspace,
+      ),
+    )
     const home = join(temporary, 'client-home')
     await mkdir(home)
     const report = join(temporary, 'report.json')
     await runArtifactDriver(config, report, 'portable', {
-      HOME: home, PATH: `${bin}:${process.env.PATH ?? '/usr/bin:/bin'}`, DSH_HOME: join(home, 'dsh'),
-      TSX_TSCONFIG_PATH: join(root, 'tsconfig.base.json'), DSH_TELEMETRY_DISABLED: '1', DSH_VERIFY_NO_NODE: '1',
+      HOME: home,
+      PATH: `${bin}:${process.env.PATH ?? '/usr/bin:/bin'}`,
+      DSH_HOME: join(home, 'dsh'),
+      TSX_TSCONFIG_PATH: join(root, 'tsconfig.base.json'),
+      DSH_TELEMETRY_DISABLED: '1',
+      DSH_VERIFY_NO_NODE: '1',
     })
-    const evidence = { manifest, runtime: runtimeReportSchema.parse(JSON.parse(await readFile(report, 'utf8'))), glibc: await docker('exec', container, 'getconf', 'GNU_LIBC_VERSION') }
+    const evidence = {
+      manifest,
+      runtime: runtimeReportSchema.parse(JSON.parse(await readFile(report, 'utf8'))),
+      glibc: await docker('exec', container, 'getconf', 'GNU_LIBC_VERSION'),
+    }
     assert.equal(evidence.glibc, 'glibc 2.28')
     if (values.report !== undefined) {
       const destination = resolve(values.report)
@@ -97,10 +147,14 @@ export async function verifySshTransport(argv: string[]): Promise<void> {
     const logs = await run('docker', ['logs', container], { maxBuffer: 1024 * 1024 })
     throw new Error(`SSH container diagnostics:\n${logs.stdout}\n${logs.stderr}`, { cause: error })
   } finally {
-    try { if (container !== undefined) await docker('rm', '--force', container) }
-    finally {
-      try { if (imageBuilt) await docker('image', 'rm', image) }
-      finally { await rm(temporary, { recursive: true, force: true }) }
+    try {
+      if (container !== undefined) await docker('rm', '--force', container)
+    } finally {
+      try {
+        if (imageBuilt) await docker('image', 'rm', image)
+      } finally {
+        await rm(temporary, { recursive: true, force: true })
+      }
     }
   }
 }

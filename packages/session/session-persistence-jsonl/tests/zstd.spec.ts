@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { appendFile, mkdir, mkdtemp, open, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import type { FileHandle } from 'node:fs/promises'
@@ -9,20 +9,20 @@ import { SessionSeq, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import type { SessionPersistence } from '@deepseek-ai/dsh-session-persistence'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { generationLogPath, logPath, scanLog, sessionDir, toHeaderLine, type JsonlCompression } from '../src/format.ts'
 import {
-  generationLogPath, logPath, scanLog, sessionDir, toHeaderLine, type JsonlCompression,
-} from '../src/format.ts'
-import {
-  compressZstdFrame, createZstdFrameDecoder, decompressZstdFrame, decompressZstdPrefix, scanZstdFrames,
+  compressZstdFrame,
+  createZstdFrameDecoder,
+  decompressZstdFrame,
+  decompressZstdPrefix,
+  scanZstdFrames,
   type ZstdFrameDecoder,
 } from '../src/zstd.ts'
 import { NodePrivateZstdFrameDecoder } from '../src/zstd-private-decoder.ts'
 import { PublicZstdFrameDecoder } from '../src/zstd-public-decoder.ts'
-import {
-  runPersistenceContract, meta, oneTurnLog, releasedV1OneTurnLog,
-} from '../../session-persistence/tests/contract.ts'
+import { runPersistenceContract, meta, oneTurnLog, releasedV1OneTurnLog } from '../../session-persistence/tests/contract.ts'
 
-const MAGIC = Buffer.from([0x28, 0xB5, 0x2F, 0xFD])
+const MAGIC = Buffer.from([0x28, 0xb5, 0x2f, 0xfd])
 const roots: string[] = []
 const contexts: Context[] = []
 
@@ -161,7 +161,9 @@ runPersistenceContract('jsonl-zstd', async () => {
     const fiber = await ctx.plugin(JsonlSessionPersistence, { root })
     return {
       persistence: ctx.sessionPersistence,
-      dispose: async () => { await fiber.dispose() },
+      dispose: async () => {
+        await fiber.dispose()
+      },
     }
   }
   const primary = await instance()
@@ -175,12 +177,13 @@ runPersistenceContract('jsonl-zstd', async () => {
     // A torn final frame: the batch's append never resolved, so the whole
     // frame is an uncommitted crash fragment for the write path to truncate.
     corruptTail: async (id, cwd) => {
-      const line = JSON.stringify({
-        type: 'assistant/chunk',
-        seq: SessionSeq(8),
-        time: 9,
-        data: { turn: 2, step: 1, chunk: { type: 'text-delta', index: 0, text: deterministicNoise(300_000) } },
-      }) + '\n'
+      const line =
+        JSON.stringify({
+          type: 'assistant/chunk',
+          seq: SessionSeq(8),
+          time: 9,
+          data: { turn: 2, step: 1, chunk: { type: 'text-delta', index: 0, text: deterministicNoise(300_000) } },
+        }) + '\n'
       const partial = await tornFrame(line, decoded => !decoded.includes('\n'))
       await appendFile(logPath(root, cwd, id, 'zstd'), partial)
     },
@@ -194,7 +197,10 @@ describe('Zstandard frame structure', () => {
     const stream = Buffer.concat([first, second])
     expect(scanZstdFrames(Buffer.alloc(0))).toEqual({ frames: [] })
     expect(scanZstdFrames(stream)).toEqual({
-      frames: [{ start: 0, end: first.length }, { start: first.length, end: stream.length }],
+      frames: [
+        { start: 0, end: first.length },
+        { start: first.length, end: stream.length },
+      ],
     })
     expect(scanZstdFrames(stream, 1)).toEqual({ frames: [{ start: 0, end: first.length }] })
     expect(first[4]! & 0x04).toBe(0x04)
@@ -238,11 +244,8 @@ describe('Zstandard frame structure', () => {
     const frame = await compressZstdFrame('frame\n')
     const range = [{ start: 0, end: frame.length }]
     const corrupt = Buffer.from(frame)
-    corrupt[corrupt.length - 1] = corrupt[corrupt.length - 1]! ^ 0xFF
-    const factories: Array<() => ZstdFrameDecoder> = [
-      () => new PublicZstdFrameDecoder(),
-      () => NodePrivateZstdFrameDecoder.create()!,
-    ]
+    corrupt[corrupt.length - 1] = corrupt[corrupt.length - 1]! ^ 0xff
+    const factories: Array<() => ZstdFrameDecoder> = [() => new PublicZstdFrameDecoder(), () => NodePrivateZstdFrameDecoder.create()!]
 
     for (const create of factories) {
       const interrupted = create()
@@ -268,10 +271,7 @@ describe('Zstandard frame structure', () => {
       const frame = await compressZstdFrame(plaintext)
       const decoder = NodePrivateZstdFrameDecoder.create()!
       ;(decoder as unknown as { output: Buffer }).output = Buffer.allocUnsafe(8)
-      const [decoded] = Array.from(
-        decoder.decode(frame, [{ start: 0, end: frame.length }]),
-        chunk => Buffer.from(chunk),
-      )
+      const [decoded] = Array.from(decoder.decode(frame, [{ start: 0, end: frame.length }]), chunk => Buffer.from(chunk))
       expect(decoded).toEqual(plaintext)
     }
   })
@@ -332,40 +332,25 @@ describe('Zstandard frame structure', () => {
     })
 
     const rawFiveBytes = Buffer.from([(5 << 3) | 1, 0, 0])
-    expect(scanZstdFrames(Buffer.concat([
-      MAGIC,
-      Buffer.from([0x20, 0x00]),
-      rawFiveBytes,
-      Buffer.from([0x01, 0x02]),
-    ]))).toEqual({ frames: [], tornStart: 0 })
+    expect(scanZstdFrames(Buffer.concat([MAGIC, Buffer.from([0x20, 0x00]), rawFiveBytes, Buffer.from([0x01, 0x02])]))).toEqual({
+      frames: [],
+      tornStart: 0,
+    })
 
-    const reservedBlock = Buffer.concat([
-      MAGIC,
-      Buffer.from([0x20, 0x00, 0x07, 0x00, 0x00]),
-    ])
+    const reservedBlock = Buffer.concat([MAGIC, Buffer.from([0x20, 0x00, 0x07, 0x00, 0x00])])
     expect(() => scanZstdFrames(reservedBlock)).toThrow(/reserved block type/)
   })
 
   it('covers standard header variants, RLE blocks, multiple blocks, and checksums', () => {
-    for (const descriptor of [0x00, 0x21, 0x42, 0x83, 0xE3]) {
+    for (const descriptor of [0x00, 0x21, 0x42, 0x83, 0xe3]) {
       const frame = emptyStructuralFrame(descriptor)
       expect(scanZstdFrames(frame)).toEqual({ frames: [{ start: 0, end: frame.length }] })
     }
 
-    const rle = Buffer.concat([
-      MAGIC,
-      Buffer.from([0x20, 0x01]),
-      Buffer.from([(1 << 3) | (1 << 1) | 1, 0, 0]),
-      Buffer.from([0x41]),
-    ])
+    const rle = Buffer.concat([MAGIC, Buffer.from([0x20, 0x01]), Buffer.from([(1 << 3) | (1 << 1) | 1, 0, 0]), Buffer.from([0x41])])
     expect(scanZstdFrames(rle)).toEqual({ frames: [{ start: 0, end: rle.length }] })
 
-    const twoBlocks = Buffer.concat([
-      MAGIC,
-      Buffer.from([0x20, 0x00]),
-      Buffer.from([0, 0, 0]),
-      Buffer.from([1, 0, 0]),
-    ])
+    const twoBlocks = Buffer.concat([MAGIC, Buffer.from([0x20, 0x00]), Buffer.from([0, 0, 0]), Buffer.from([1, 0, 0])])
     expect(scanZstdFrames(twoBlocks)).toEqual({ frames: [{ start: 0, end: twoBlocks.length }] })
 
     const checksummed = emptyStructuralFrame(0x24)
@@ -403,11 +388,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const scan = scanZstdFrames(buffer)
     expect(scan.frames).toHaveLength(2)
     const plaintext = await decodeCompleteFrames(buffer)
-    expect(plaintext.toString()).toBe([
-      JSON.stringify(toHeaderLine(header)),
-      ...oneTurnLog().map(e => JSON.stringify(e)),
-      '',
-    ].join('\n'))
+    expect(plaintext.toString()).toBe([JSON.stringify(toHeaderLine(header)), ...oneTurnLog().map(e => JSON.stringify(e)), ''].join('\n'))
     expect((await readAll(ctx.sessionPersistence, header.id)).events).toEqual(oneTurnLog())
   })
 
@@ -420,7 +401,9 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const [turn, user, step, ...tail] = releasedV1OneTurnLog()
     // Synthetic historical input opens its step before any surface so V3 can reserve the system head.
     const historical = [turn!, step!, user!, ...tail].map((event, seq) => ({
-      ...event, seq: SessionSeq(seq), time: seq < 3 ? seq + 1 : event.time,
+      ...event,
+      seq: SessionSeq(seq),
+      time: seq < 3 ? seq + 1 : event.time,
     }))
     const source = Buffer.concat([
       await compressZstdFrame(`${JSON.stringify(releasedV0Header(header))}\n`),
@@ -435,23 +418,30 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
         historical[0],
         historical[1],
         {
-          type: 'system/message', seq: 2, time: 2, surfaceOp: 'append',
+          type: 'system/message',
+          seq: 2,
+          time: 2,
+          surfaceOp: 'append',
           data: {
-            turn: 1, step: 1,
+            turn: 1,
+            step: 1,
             message: {
               id: 'v2-to-v3-system-fc06c3f7720f3bc94ea7a2b7fadde6a5b100c6ab6ca342d2222bd017184a0b67',
-              role: 'system', source: { kind: 'system-prompt' }, content: [],
+              role: 'system',
+              source: { kind: 'system-prompt' },
+              content: [],
             },
           },
         },
         { ...historical[2], seq: 3 },
-        ...oneTurnLog().slice(3).map(event => ({ ...event, seq: event.seq + 1 })),
+        ...oneTurnLog()
+          .slice(3)
+          .map(event => ({ ...event, seq: event.seq + 1 })),
       ],
     })
     expect(await readFile(sourcePath)).toEqual(source)
     await expect(readFile(currentPath)).rejects.toMatchObject({ code: 'ENOENT' })
   })
-
 
   it('a read rejects a present zstd artifact that carries no frame', async () => {
     const root = await freshRoot()
@@ -476,10 +466,14 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     await writeLog(backend, header, events)
 
     const plaintext = (await decodeCompleteFrames(await readFile(path))).toString()
-    const recordTypes = plaintext.trimEnd().split('\n')
+    const recordTypes = plaintext
+      .trimEnd()
+      .split('\n')
       .map(line => (JSON.parse(line) as { type: string }).type)
     expect(recordTypes).not.toContain('text-chunks')
-    const assistant = plaintext.trimEnd().split('\n')
+    const assistant = plaintext
+      .trimEnd()
+      .split('\n')
       .map(line => JSON.parse(line) as { type: string; data?: { stream?: Array<{ type: string }> } })
       .find(record => record.type === 'assistant/message')
     expect(assistant?.data?.stream?.some(record => record.type === 'text-chunks')).toBe(true)
@@ -515,7 +509,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const path = logPath(root, header.cwd, header.id, 'zstd')
     const buffer = Buffer.from(await readFile(path))
     const eventFrame = scanZstdFrames(buffer).frames[1]!
-    buffer[eventFrame.end - 1] = buffer[eventFrame.end - 1]! ^ 0xFF
+    buffer[eventFrame.end - 1] = buffer[eventFrame.end - 1]! ^ 0xff
     await writeFile(path, buffer)
 
     const listed = await ctx.sessionPersistence.list()
@@ -538,7 +532,9 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const reader = ctx.sessionPersistence as unknown as ZstdReaderInternals
     vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(501)
     const pending = reader.readZstdPrefix(stream, controller.signal)
-    queueMicrotask(() => { controller.abort(reason) })
+    queueMicrotask(() => {
+      controller.abort(reason)
+    })
 
     await expect(pending).rejects.toBe(reason)
   })
@@ -549,9 +545,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const header = meta('yield-zstd-frames')
     const events = oneTurnLog().slice(0, 2)
     const headerFrame = await compressZstdFrame(`${JSON.stringify(toHeaderLine(header))}\n`)
-    const eventFrames = await Promise.all(events.map(async event => (
-      compressZstdFrame(`${JSON.stringify(event)}\n`)
-    )))
+    const eventFrames = await Promise.all(events.map(async event => compressZstdFrame(`${JSON.stringify(event)}\n`)))
     const stream = Buffer.concat([headerFrame, ...eventFrames])
     const reader = ctx.sessionPersistence as unknown as ZstdReaderInternals
     vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(501)
@@ -561,37 +555,34 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     expect(prefix.events).toEqual(events)
   })
 
-  it.each(['none', 'zstd'] as const)(
-    'observes cancellation after each async %s header read during listing',
-    async (compression) => {
-      const root = await freshRoot()
-      const ctx = await mount(root, compression)
-      const header = meta(`cancel-${compression}-header-read`, '/work')
-      await writeLog(ctx.sessionPersistence, header, oneTurnLog())
-      await ctx.sessionPersistence.list()
-      const path = logPath(root, header.cwd, header.id, compression)
-      const probe = await open(path, 'r')
-      const prototype = Object.getPrototypeOf(probe) as { read: HeaderRead }
-      const originalRead = prototype.read
-      await probe.close()
-      const controller = new AbortController()
-      const reason = new Error(`cancel ${compression} header read`)
-      const read = vi.spyOn(prototype, 'read').mockImplementation(async function (
-        this: FileHandle,
-        buffer: Buffer,
-        offset: number,
-        length: number,
-        position: number | null,
-      ) {
-        const result = await originalRead.call(this, buffer, offset, length, position)
-        controller.abort(reason)
-        return result
-      })
+  it.each(['none', 'zstd'] as const)('observes cancellation after each async %s header read during listing', async compression => {
+    const root = await freshRoot()
+    const ctx = await mount(root, compression)
+    const header = meta(`cancel-${compression}-header-read`, '/work')
+    await writeLog(ctx.sessionPersistence, header, oneTurnLog())
+    await ctx.sessionPersistence.list()
+    const path = logPath(root, header.cwd, header.id, compression)
+    const probe = await open(path, 'r')
+    const prototype = Object.getPrototypeOf(probe) as { read: HeaderRead }
+    const originalRead = prototype.read
+    await probe.close()
+    const controller = new AbortController()
+    const reason = new Error(`cancel ${compression} header read`)
+    const read = vi.spyOn(prototype, 'read').mockImplementation(async function (
+      this: FileHandle,
+      buffer: Buffer,
+      offset: number,
+      length: number,
+      position: number | null,
+    ) {
+      const result = await originalRead.call(this, buffer, offset, length, position)
+      controller.abort(reason)
+      return result
+    })
 
-      await expect(ctx.sessionPersistence.list({ signal: controller.signal })).rejects.toBe(reason)
-      expect(read).toHaveBeenCalledTimes(1)
-    },
-  )
+    await expect(ctx.sessionPersistence.list({ signal: controller.signal })).rejects.toBe(reason)
+    expect(read).toHaveBeenCalledTimes(1)
+  })
 
   it('recovers complete records from a torn final frame and rewrites them on the next append', async () => {
     const root = await freshRoot()
@@ -616,10 +607,13 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
       },
     ]
     const plaintext = openTurn.map(e => JSON.stringify(e)).join('\n') + '\n'
-    await appendFile(path, await tornFrame(plaintext, (decoded) => {
-      const newlines = decoded.match(/\n/g)?.length ?? 0
-      return newlines >= 2 && !decoded.endsWith('\n')
-    }))
+    await appendFile(
+      path,
+      await tornFrame(plaintext, decoded => {
+        const newlines = decoded.match(/\n/g)?.length ?? 0
+        return newlines >= 2 && !decoded.endsWith('\n')
+      }),
+    )
 
     // Complete JSONL records already flushed into the torn frame are real
     // emitted events: reads recover them, while the half-written chunk stays
@@ -636,13 +630,14 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
       { type: 'turn/end', seq: SessionSeq(9), time: 11, data: { turn: 2, reason: { kind: 'interrupted' } } },
     ]
     await appendBatch(ctx.sessionPersistence, header.id, closers)
-    expect(warn).toHaveBeenCalledWith('session-persistence-jsonl: session "recover-torn" recovered from a torn tail; incomplete tail bytes were discarded')
+    expect(warn).toHaveBeenCalledWith(
+      'session-persistence-jsonl: session "recover-torn" recovered from a torn tail; incomplete tail bytes were discarded',
+    )
 
     const repaired = await readFile(path)
     expect(repaired.subarray(0, committed.length)).toEqual(committed)
     expect(scanZstdFrames(repaired).tornStart).toBeUndefined()
-    expect(scanLog(await decodeCompleteFrames(repaired)).events)
-      .toEqual([...oneTurnLog(), openTurn[0]!, openTurn[1]!, ...closers])
+    expect(scanLog(await decodeCompleteFrames(repaired)).events).toEqual([...oneTurnLog(), openTurn[0]!, openTurn[1]!, ...closers])
   })
 
   it('retries the torn-tail rewrite when its first durable write fails', async () => {
@@ -666,10 +661,13 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
         },
       },
     ]
-    await appendFile(path, await tornFrame(recovered.map(e => JSON.stringify(e)).join('\n') + '\n', (decoded) => {
-      const newlines = decoded.match(/\n/g)?.length ?? 0
-      return newlines >= 2 && !decoded.endsWith('\n')
-    }))
+    await appendFile(
+      path,
+      await tornFrame(recovered.map(e => JSON.stringify(e)).join('\n') + '\n', decoded => {
+        const newlines = decoded.match(/\n/g)?.length ?? 0
+        return newlines >= 2 && !decoded.endsWith('\n')
+      }),
+    )
 
     const handle = await ctx.sessionPersistence.open(header.id, 'write')
     try {
@@ -690,8 +688,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
 
     const repaired = await readFile(path)
     expect(scanZstdFrames(repaired).tornStart).toBeUndefined()
-    expect(scanLog(await decodeCompleteFrames(repaired)).events.map(e => e.seq))
-      .toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    expect(scanLog(await decodeCompleteFrames(repaired)).events.map(e => e.seq)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
   })
 
   it('drops a frame torn in its header before it has produced plaintext', async () => {
@@ -743,10 +740,7 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     const ctx = await mount(root)
     const header = meta('complete-bad-jsonl')
     await writeLog(ctx.sessionPersistence, header, oneTurnLog())
-    await appendFile(
-      logPath(root, header.cwd, header.id, 'zstd'),
-      await compressZstdFrame('{"type":"turn/start"'),
-    )
+    await appendFile(logPath(root, header.cwd, header.id, 'zstd'), await compressZstdFrame('{"type":"turn/start"'))
     await expect(readAll(ctx.sessionPersistence, header.id)).rejects.toThrow(/complete frame contains a torn JSONL record/)
   })
 
@@ -799,14 +793,12 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
 
     const twoLinesId = SessionId('two-lines')
     await mkdir(sessionDir(root, undefined, twoLinesId), { recursive: true })
-    await writeFile(logPath(root, undefined, twoLinesId, 'zstd'), await compressZstdFrame([
-      JSON.stringify(toHeaderLine(meta('two-lines'))),
-      JSON.stringify({ type: 'turn/start' }),
-      '',
-    ].join('\n')))
+    await writeFile(
+      logPath(root, undefined, twoLinesId, 'zstd'),
+      await compressZstdFrame([JSON.stringify(toHeaderLine(meta('two-lines'))), JSON.stringify({ type: 'turn/start' }), ''].join('\n')),
+    )
     expect(await ctx.sessionPersistence.list()).toEqual([])
-    await expect(ctx.sessionPersistence.open(twoLinesId, 'read'))
-      .rejects.toThrow(/first frame is not exactly one header line/)
+    await expect(ctx.sessionPersistence.open(twoLinesId, 'read')).rejects.toThrow(/first frame is not exactly one header line/)
   })
 
   it('rejects missing, empty, and checksum-corrupt header frames on targeted reads', async () => {
@@ -817,19 +809,19 @@ describe('JsonlSessionPersistence: default Zstandard encoding', () => {
     await writeFile(logPath(root, undefined, SessionId('partial-only'), 'zstd'), MAGIC)
     await writeFile(logPath(root, undefined, SessionId('empty-header'), 'zstd'), await compressZstdFrame(''))
     const corruptHeader = Buffer.from(await compressZstdFrame(`${JSON.stringify(toHeaderLine(meta('bad-checksum')))}\n`))
-    corruptHeader[corruptHeader.length - 1] = corruptHeader[corruptHeader.length - 1]! ^ 0xFF
+    corruptHeader[corruptHeader.length - 1] = corruptHeader[corruptHeader.length - 1]! ^ 0xff
     await writeFile(logPath(root, undefined, SessionId('bad-checksum'), 'zstd'), corruptHeader)
     const ctx = await mount(root)
 
-    await expect(ctx.sessionPersistence.open(SessionId('partial-only'), 'read'))
-      .rejects.toThrow(/empty or header-less Zstandard session log/)
-    await expect(ctx.sessionPersistence.open(SessionId('empty-header'), 'read'))
-      .rejects.toThrow(/first frame is not exactly one header line/)
+    await expect(ctx.sessionPersistence.open(SessionId('partial-only'), 'read')).rejects.toThrow(
+      /empty or header-less Zstandard session log/,
+    )
+    await expect(ctx.sessionPersistence.open(SessionId('empty-header'), 'read')).rejects.toThrow(
+      /first frame is not exactly one header line/,
+    )
     expect(await ctx.sessionPersistence.list()).toEqual([])
-    await expect(ctx.sessionPersistence.stat(SessionId('bad-checksum')))
-      .rejects.toThrow(/header frame failed validation/)
-    await expect(ctx.sessionPersistence.open(SessionId('bad-checksum'), 'read'))
-      .rejects.toThrow(/frame at byte 0 failed validation/)
+    await expect(ctx.sessionPersistence.stat(SessionId('bad-checksum'))).rejects.toThrow(/header frame failed validation/)
+    await expect(ctx.sessionPersistence.open(SessionId('bad-checksum'), 'read')).rejects.toThrow(/frame at byte 0 failed validation/)
   })
 })
 
@@ -855,11 +847,10 @@ describe('JsonlSessionPersistence: encoding selection', () => {
 
     const loadHeader = meta('late-raw-load', '/late')
     await mkdir(sessionDir(root, loadHeader.cwd, loadHeader.id), { recursive: true })
-    await writeFile(logPath(root, loadHeader.cwd, loadHeader.id, 'none'), [
-      JSON.stringify(toHeaderLine(loadHeader)),
-      ...oneTurnLog().map(e => JSON.stringify(e)),
-      '',
-    ].join('\n'))
+    await writeFile(
+      logPath(root, loadHeader.cwd, loadHeader.id, 'none'),
+      [JSON.stringify(toHeaderLine(loadHeader)), ...oneTurnLog().map(e => JSON.stringify(e)), ''].join('\n'),
+    )
     await expect(ctx.sessionPersistence.open(loadHeader.id, 'read')).rejects.toThrow(/uses \.jsonl/)
     await expect(ctx.sessionPersistence.open(loadHeader.id, 'write')).rejects.toThrow(/uses \.jsonl/)
     await expect(ctx.sessionPersistence.list()).rejects.toThrow(/uses \.jsonl/)
@@ -872,11 +863,10 @@ describe('JsonlSessionPersistence: encoding selection', () => {
     const header = meta('late-raw-materialize', '/late')
     const handle = await ctx.sessionPersistence.create(header)
     await mkdir(sessionDir(root, header.cwd, header.id), { recursive: true })
-    await writeFile(logPath(root, header.cwd, header.id, 'none'), [
-      JSON.stringify(toHeaderLine(header)),
-      ...oneTurnLog().map(e => JSON.stringify(e)),
-      '',
-    ].join('\n'))
+    await writeFile(
+      logPath(root, header.cwd, header.id, 'none'),
+      [JSON.stringify(toHeaderLine(header)), ...oneTurnLog().map(e => JSON.stringify(e)), ''].join('\n'),
+    )
     await expect(handle.append(oneTurnLog())).rejects.toThrow(/uses \.jsonl/)
     await handle.close()
     expect((await readdir(sessionDir(root, header.cwd, header.id))).some(name => name.endsWith('.jsonl.zstd'))).toBe(false)

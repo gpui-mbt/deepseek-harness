@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { packageStylesheets, parseRules } from './stylesheet-scan.ts'
 
 const packages = fileURLToPath(new URL('../../../', import.meta.url))
@@ -16,11 +16,20 @@ function menuViolations(source: string): string[] {
     const surface = opening?.tagName.getText(ast) === 'MenuSurface'
     if (opening !== undefined) {
       const role = opening.attributes.properties.find(attribute => ts.isJsxAttribute(attribute) && attribute.name.getText(ast) === 'role')
-      if (role !== undefined && ts.isJsxAttribute(role) && role.initializer !== undefined
-        && ts.isStringLiteral(role.initializer) && ['menu', 'listbox'].includes(role.initializer.text)
-        && !surface && !insideSurface) failures.push(role.initializer.text)
+      if (
+        role !== undefined &&
+        ts.isJsxAttribute(role) &&
+        role.initializer !== undefined &&
+        ts.isStringLiteral(role.initializer) &&
+        ['menu', 'listbox'].includes(role.initializer.text) &&
+        !surface &&
+        !insideSurface
+      )
+        failures.push(role.initializer.text)
     }
-    ts.forEachChild(node, (child) => { visit(child, insideSurface || surface) })
+    ts.forEachChild(node, child => {
+      visit(child, insideSurface || surface)
+    })
   }
   visit(ast, false)
   return failures
@@ -45,12 +54,15 @@ function sourceFiles(): string[] {
 }
 
 function materialOverrides(css: string, selectors: ReadonlySet<string>): string[] {
-  return parseRules(css).flatMap((rule) => {
-    const targetsMenu = rule.selectors.some(selector => !selector.includes('::') && [...selector.matchAll(/\.([\w-]+)/g)]
-      .some(match => selectors.has(match[1]!)))
-    return targetsMenu ? rule.declarations
-      .filter(([name]) => ['background', 'background-color', 'backdrop-filter', 'anchor-name'].includes(name))
-      .map(([name]) => `${rule.selectors.join(', ')}: ${name}`) : []
+  return parseRules(css).flatMap(rule => {
+    const targetsMenu = rule.selectors.some(
+      selector => !selector.includes('::') && [...selector.matchAll(/\.([\w-]+)/g)].some(match => selectors.has(match[1]!)),
+    )
+    return targetsMenu
+      ? rule.declarations
+          .filter(([name]) => ['background', 'background-color', 'backdrop-filter', 'anchor-name'].includes(name))
+          .map(([name]) => `${rule.selectors.join(', ')}: ${name}`)
+      : []
   })
 }
 
@@ -63,20 +75,20 @@ describe('shared menu material', () => {
   })
 
   it('requires shared material outside the schedule-owned menu and clock picker', () => {
-    expect(sourceFiles().flatMap(file => menuViolations(readFileSync(file, 'utf8'))
-      .map(role => `${relative(packages, file).replaceAll('\\', '/')}: ${role}`))).toEqual([
-      'client/ui-schedule/src/client/ClockPicker.tsx: listbox',
-      'client/ui-schedule/src/client/TaskMenu.tsx: menu',
-    ])
+    expect(
+      sourceFiles().flatMap(file =>
+        menuViolations(readFileSync(file, 'utf8')).map(role => `${relative(packages, file).replaceAll('\\', '/')}: ${role}`),
+      ),
+    ).toEqual(['client/ui-schedule/src/client/ClockPicker.tsx: listbox', 'client/ui-schedule/src/client/TaskMenu.tsx: menu'])
   })
 
   it('rejects local material overrides, including state rules', () => {
-    expect(materialOverrides('.menu { background: white; backdrop-filter: none; }', new Set(['menu'])))
-      .toEqual(['.menu: background', '.menu: backdrop-filter'])
-    expect(materialOverrides('.menu:hover { background-color: white; }', new Set(['menu'])))
-      .toEqual(['.menu:hover: background-color'])
-    expect(materialOverrides('.menu { padding: 4px; } .item { background: red; }', new Set(['menu'])))
-      .toEqual([])
+    expect(materialOverrides('.menu { background: white; backdrop-filter: none; }', new Set(['menu']))).toEqual([
+      '.menu: background',
+      '.menu: backdrop-filter',
+    ])
+    expect(materialOverrides('.menu:hover { background-color: white; }', new Set(['menu']))).toEqual(['.menu:hover: background-color'])
+    expect(materialOverrides('.menu { padding: 4px; } .item { background: red; }', new Set(['menu']))).toEqual([])
   })
 
   it('keeps menu consumer classes from replacing the material', () => {
@@ -104,11 +116,18 @@ describe('shared menu material', () => {
   })
 
   it('keeps menu fill and blur tokens owned by the theme on every platform', () => {
-    const failures = packageStylesheets().flatMap(file => parseRules(readFileSync(file, 'utf8'))
-      .flatMap(rule => rule.declarations.filter(([name]) =>
-        (['--dsw-specific-menu', '--dsw-menu-surface-fill'].includes(name) && !file.endsWith('/ui-theme/src/styles/design-platform.css'))
-        || (name === '--dsw-menu-backdrop-filter' && !file.endsWith('/ui-theme/src/styles/gradient-shadow-text.css'))))
-      .map(([name]) => `${file}: ${name}`))
+    const failures = packageStylesheets().flatMap(file =>
+      parseRules(readFileSync(file, 'utf8'))
+        .flatMap(rule =>
+          rule.declarations.filter(
+            ([name]) =>
+              (['--dsw-specific-menu', '--dsw-menu-surface-fill'].includes(name) &&
+                !file.endsWith('/ui-theme/src/styles/design-platform.css')) ||
+              (name === '--dsw-menu-backdrop-filter' && !file.endsWith('/ui-theme/src/styles/gradient-shadow-text.css')),
+          ),
+        )
+        .map(([name]) => `${file}: ${name}`),
+    )
     expect(failures).toEqual([])
   })
 })

@@ -18,10 +18,14 @@ const api: WelcomeApi = {
   startSignIn: () => ipcRenderer.invoke(WELCOME_IPC.start) as Promise<AccountView>,
   cancelSignIn: (id: SignInAttemptId) => ipcRenderer.invoke(WELCOME_IPC.cancel, id) as Promise<AccountView>,
   copySignInLink: (id: SignInAttemptId) => ipcRenderer.invoke(WELCOME_IPC.copyLink, id) as Promise<void>,
-  onAccountState: (listener) => {
-    const receive = (_event: Electron.IpcRendererEvent, state: AccountView): void =>{  listener(state) }
+  onAccountState: listener => {
+    const receive = (_event: Electron.IpcRendererEvent, state: AccountView): void => {
+      listener(state)
+    }
     ipcRenderer.on(WELCOME_IPC.state, receive)
-    return () => { ipcRenderer.removeListener(WELCOME_IPC.state, receive) }
+    return () => {
+      ipcRenderer.removeListener(WELCOME_IPC.state, receive)
+    }
   },
   saveApiKey: (value: string) => ipcRenderer.invoke(WELCOME_IPC.saveApiKey, value) as Promise<WelcomeSaveResult>,
   skip: () => ipcRenderer.invoke(WELCOME_IPC.skip) as Promise<void>,

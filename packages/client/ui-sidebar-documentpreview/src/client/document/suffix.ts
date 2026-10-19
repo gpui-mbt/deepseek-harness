@@ -29,8 +29,11 @@ export function documentFileName(path: string): string {
  * @returns the matched suffix's normalized length, or 0 when none matches.
  */
 export function matchedSuffixLength(name: string, extensions: readonly string[]): number {
-  return Math.max(0, ...extensions
-    .map(normalizeSuffix)
-    .filter(extension => name.endsWith(`.${extension}`))
-    .map(extension => extension.length))
+  return Math.max(
+    0,
+    ...extensions
+      .map(normalizeSuffix)
+      .filter(extension => name.endsWith(`.${extension}`))
+      .map(extension => extension.length),
+  )
 }

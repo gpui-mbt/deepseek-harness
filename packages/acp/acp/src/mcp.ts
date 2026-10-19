@@ -23,11 +23,7 @@ export class AcpMcpConfigError extends Error {
  * @param servers - stable ACP stdio or HTTP server declarations.
  * @param sessionCwd - canonical primary workspace used by stdio servers.
  */
-export async function mountAcpMcpServers(
-  agentCtx: Context,
-  servers: readonly McpServer[],
-  sessionCwd: string,
-): Promise<void> {
+export async function mountAcpMcpServers(agentCtx: Context, servers: readonly McpServer[], sessionCwd: string): Promise<void> {
   const configs = resolveMcpConfigs(servers, sessionCwd)
   for (const config of configs) await agentCtx.plugin(McpClient, config)
 }
@@ -46,27 +42,31 @@ function resolveMcpConfigs(servers: readonly McpServer[], sessionCwd: string): M
         throw new AcpMcpConfigError(`mcpServers[${index}].command must be an absolute path`)
       }
       const env = entriesToRecord(server.env, `mcpServers[${index}].env`, 'environment')
-      const config = validateClientConfig(index, () => McpClient.Config({
-        transport: 'stdio',
-        serverName,
-        command: server.command,
-        args: server.args,
-        env,
-        cwd: sessionCwd,
-        failOnStartupError: true,
-      }))
+      const config = validateClientConfig(index, () =>
+        McpClient.Config({
+          transport: 'stdio',
+          serverName,
+          command: server.command,
+          args: server.args,
+          env,
+          cwd: sessionCwd,
+          failOnStartupError: true,
+        }),
+      )
       return { ...config, env }
     }
     if (server.type === 'http') {
       assertHttpUrl(server.url, `mcpServers[${index}].url`)
       const headers = entriesToRecord(server.headers, `mcpServers[${index}].headers`, 'header')
-      const config = validateClientConfig(index, () => McpClient.Config({
-        transport: 'streamable-http',
-        serverName,
-        url: server.url,
-        headers,
-        failOnStartupError: true,
-      }))
+      const config = validateClientConfig(index, () =>
+        McpClient.Config({
+          transport: 'streamable-http',
+          serverName,
+          url: server.url,
+          headers,
+          failOnStartupError: true,
+        }),
+      )
       return { ...config, headers }
     }
     throw new AcpMcpConfigError(`mcpServers[${index}] transport ${server.type} is not supported`)
@@ -91,12 +91,7 @@ function entriesToRecord(
       } catch (_invalidHeader) {
         throw new AcpMcpConfigError(`${field} contains an invalid header entry`)
       }
-    } else if (
-      entry.name.length === 0
-      || entry.name.includes('=')
-      || entry.name.includes('\0')
-      || entry.value.includes('\0')
-    ) {
+    } else if (entry.name.length === 0 || entry.name.includes('=') || entry.name.includes('\0') || entry.value.includes('\0')) {
       throw new AcpMcpConfigError(`${field} contains an invalid environment entry`)
     }
     const identity = kind === 'header' ? entry.name.toLowerCase() : entry.name
@@ -113,10 +108,12 @@ function normalizeServerName(name: string): string {
     throw new AcpMcpConfigError('mcpServers contains an invalid server name')
   }
   if (VALID_SERVER_NAME.test(name)) return name
-  const slug = name.normalize('NFKD')
-    .replace(/[^A-Za-z0-9_-]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 20) || 'server'
+  const slug =
+    name
+      .normalize('NFKD')
+      .replace(/[^A-Za-z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 20) || 'server'
   const digest = createHash('sha256').update(name).digest('hex').slice(0, 8)
   return `${slug}_${digest}`.slice(0, 32)
 }

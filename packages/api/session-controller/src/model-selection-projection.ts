@@ -4,11 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import { z } from 'zod'
-import type {
-  ModelSelection,
-  ModelSelectionProjection,
-  ModelSelectionProjectionState,
-} from './types.ts'
+import type { ModelSelection, ModelSelectionProjection, ModelSelectionProjectionState } from './types.ts'
 
 const modelSelectionSchema = z.object({
   provider: z.string().min(1),
@@ -32,14 +28,9 @@ const modelSelectionProjectionSchema = z.object({
  * @param event - next committed Session event.
  * @returns the original or advanced selection state.
  */
-function applyModelSelectionProjection(
-  state: ModelSelectionProjectionState,
-  event: SessionEvent,
-): ModelSelectionProjectionState {
+function applyModelSelectionProjection(state: ModelSelectionProjectionState, event: SessionEvent): ModelSelectionProjectionState {
   if (event.type === 'model/selection') {
-    return sameSelection(state.pending, event.data)
-      ? state
-      : { lastUsed: state.lastUsed, pending: event.data }
+    return sameSelection(state.pending, event.data) ? state : { lastUsed: state.lastUsed, pending: event.data }
   }
   if (event.type !== 'request/header') return state
   const lastUsed: ModelSelection = {
@@ -50,9 +41,7 @@ function applyModelSelectionProjection(
       : { reasoningEffort: String(event.data.header.config.reasoningEffort) }),
   }
   const pending = sameSelection(state.pending, lastUsed) ? null : state.pending
-  return sameSelection(state.lastUsed, lastUsed) && pending === state.pending
-    ? state
-    : { lastUsed, pending }
+  return sameSelection(state.lastUsed, lastUsed) && pending === state.pending ? state : { lastUsed, pending }
 }
 
 const modelSelectionProjection = {
@@ -68,10 +57,14 @@ const modelSelectionProjection = {
 } satisfies ProjectionDefinition<'modelSelection', ModelSelectionProjectionState>
 
 function sameSelection(left: ModelSelection | null, right: ModelSelection | null): boolean {
-  return left === right || (left !== null && right !== null
-    && left.provider === right.provider
-    && left.model === right.model
-    && left.reasoningEffort === right.reasoningEffort)
+  return (
+    left === right ||
+    (left !== null &&
+      right !== null &&
+      left.provider === right.provider &&
+      left.model === right.model &&
+      left.reasoningEffort === right.reasoningEffort)
+  )
 }
 
 /**

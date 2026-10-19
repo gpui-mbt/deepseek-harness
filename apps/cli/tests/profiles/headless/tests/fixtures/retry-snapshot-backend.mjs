@@ -1,26 +1,25 @@
 /** Deterministic provider adapter for the headless retry-policy snapshot. */
 
-import {
-  LlmAdapter,
-  LlmError,
-  resolveRetryPolicy,
-} from '@deepseek-ai/dsh-llm'
+import { LlmAdapter, LlmError, resolveRetryPolicy } from '@deepseek-ai/dsh-llm'
 
 class RetrySnapshotAdapter extends LlmAdapter {
   requests = 0
   firstMessages
-  policy = resolveRetryPolicy({
-    mode: 'normal',
-    maxRetries: 1,
-    retryableCodes: ['RATE_LIMIT'],
-    backoff: { initialDelayMs: 1, maxDelayMs: 1, jitterRatio: 0 },
-  }, 'retry-snapshot-backend.retryPolicy')
+  policy = resolveRetryPolicy(
+    {
+      mode: 'normal',
+      maxRetries: 1,
+      retryableCodes: ['RATE_LIMIT'],
+      backoff: { initialDelayMs: 1, maxDelayMs: 1, jitterRatio: 0 },
+    },
+    'retry-snapshot-backend.retryPolicy',
+  )
 
   providerRetryPolicy() {
     return this.policy
   }
 
-  async * stream(options) {
+  async *stream(options) {
     const messages = JSON.stringify(options.messages)
     this.requests++
     if (this.requests === 1) {

@@ -1,6 +1,6 @@
 import { access, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { SandboxUnavailableError } from '@deepseek-ai/dsh-sandbox'
 import LocalSandbox from '@deepseek-ai/dsh-sandbox-local'
@@ -41,7 +41,9 @@ describe.skipIf(!sandboxUsable)('worktree standing sandbox policy', () => {
     ctx = await harness(root, {}, 'read-only')
     const agent = testAgent(ctx, root)
     const confine = vi.spyOn(ctx.sandbox, 'confine')
-    await expect(ctx.worktrees.create(agent, { name: 'denied' })).rejects.toThrow(/permission denied|operation not permitted|read-only file system/i)
+    await expect(ctx.worktrees.create(agent, { name: 'denied' })).rejects.toThrow(
+      /permission denied|operation not permitted|read-only file system/i,
+    )
     expect(await readdir(pool)).toEqual([])
     expect(ctx.workingDirectory.get(agent.session)).toBe(root)
     expect(await git(root, 'branch', '--list', 'denied')).toBe('')
@@ -81,7 +83,9 @@ describe.skipIf(!sandboxUsable)('worktree standing sandbox policy', () => {
     ctx = await harness(linked, {}, 'workspace-write')
     const agent = testAgent(ctx, linked)
     const confine = vi.spyOn(ctx.sandbox, 'confine')
-    await expect(ctx.worktrees.create(agent, { name: 'denied-admin' })).rejects.toThrow(/permission denied|operation not permitted|read-only file system/i)
+    await expect(ctx.worktrees.create(agent, { name: 'denied-admin' })).rejects.toThrow(
+      /permission denied|operation not permitted|read-only file system/i,
+    )
     expect(ctx.workingDirectory.get(agent.session)).toBe(linked)
     expect(await git(root, 'branch', '--list', 'denied-admin')).toBe('')
     expect(confine.mock.calls.every(call => call[1].mode === 'workspace-write' && call[1].workspaceRoot === linked)).toBe(true)

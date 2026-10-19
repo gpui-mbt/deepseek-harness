@@ -38,7 +38,7 @@ interface LocalReading {
  */
 function localReading(now: number, timeZone: string | undefined): LocalReading {
   const parts = new Intl.DateTimeFormat('en-GB', {
-    ...timeZone === undefined ? {} : { timeZone },
+    ...(timeZone === undefined ? {} : { timeZone }),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -46,8 +46,7 @@ function localReading(now: number, timeZone: string | undefined): LocalReading {
     minute: '2-digit',
     hourCycle: 'h23',
   }).formatToParts(new Date(now))
-  const read = (type: Intl.DateTimeFormatPartTypes): string =>
-    parts.find(part => part.type === type)?.value ?? ''
+  const read = (type: Intl.DateTimeFormatPartTypes): string => parts.find(part => part.type === type)?.value ?? ''
   // The date is rebuilt at midnight UTC so a weekday step stays exact across
   // daylight-saving transitions, where subtracting 24 hours would not.
   return {
@@ -64,9 +63,7 @@ function localReading(now: number, timeZone: string | undefined): LocalReading {
  * @returns whether the reading is inside the window.
  */
 function inWindow(clock: string, from: string, to: string): boolean {
-  return from <= to
-    ? clock >= from && clock < to
-    : clock >= from || clock < to
+  return from <= to ? clock >= from && clock < to : clock >= from || clock < to
 }
 
 /**
@@ -93,7 +90,7 @@ function onListedDay(window: ModelRoutingWindow, reading: LocalReading): boolean
  * @returns the active window, or `undefined` when none contains the reading.
  */
 export function activeRoutingWindow(routing: ModelRouting, now: number): ModelRoutingWindow | undefined {
-  return routing.windows.find((entry) => {
+  return routing.windows.find(entry => {
     const reading = localReading(now, entry.timeZone)
     return inWindow(reading.clock, entry.from, entry.to) && onListedDay(entry, reading)
   })

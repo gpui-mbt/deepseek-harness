@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Read-only spreadsheet panning keeps the workbook context equal to the clamped scrollbar offsets. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { defaultContext, handleGlobalWheel, type Context, type GlobalCache } from '@fortune-sheet/core'
 
 /**
@@ -14,11 +14,15 @@ function scrollbar(): HTMLDivElement {
   let top = 0
   Object.defineProperty(element, 'scrollLeft', {
     get: () => left,
-    set: (value: number) => { left = Math.max(0, value) },
+    set: (value: number) => {
+      left = Math.max(0, value)
+    },
   })
   Object.defineProperty(element, 'scrollTop', {
     get: () => top,
-    set: (value: number) => { top = Math.max(0, value) },
+    set: (value: number) => {
+      top = Math.max(0, value)
+    },
   })
   return element
 }
@@ -29,8 +33,11 @@ function scrollbar(): HTMLDivElement {
 function readOnlyContext(): Context {
   const context = defaultContext({
     globalCache: { undoList: [], redoList: [] },
-    cellInput: { current: null }, fxInput: { current: null }, canvas: { current: null },
-    cellArea: { current: null }, workbookContainer: { current: null },
+    cellInput: { current: null },
+    fxInput: { current: null },
+    canvas: { current: null },
+    cellArea: { current: null },
+    workbookContainer: { current: null },
   })
   context.allowEdit = false
   context.scrollLeft = 240

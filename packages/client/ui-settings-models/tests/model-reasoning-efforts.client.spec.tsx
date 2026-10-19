@@ -2,7 +2,7 @@
 /** Reasoning levels of hand-declared pi-ai models: echo, level rows, API values, refusals, and placement. */
 import { useState } from 'react'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { DeepSeekModelDraft } from '../src/client/DeepSeekModelsEditor.tsx'
 import { validateDeepSeekModels } from '../src/client/DeepSeekModelsEditor.tsx'
 import { ModelListEditor } from '../src/client/ModelListEditor.tsx'
@@ -24,8 +24,15 @@ function renderGroup(initial: DeepSeekModelDraft, options: { disabled?: boolean;
     const [model, setModel] = useState(initial)
     return (
       <ModelReasoningEfforts
-        model={model} levels={options.levels ?? LEVELS} position={1} disabled={options.disabled ?? false} t={t}
-        onChange={(next) => { writes.push(next); setModel(next) }}
+        model={model}
+        levels={options.levels ?? LEVELS}
+        position={1}
+        disabled={options.disabled ?? false}
+        t={t}
+        onChange={next => {
+          writes.push(next)
+          setModel(next)
+        }}
       />
     )
   }
@@ -71,7 +78,10 @@ describe('ModelReasoningEfforts', () => {
     const { writes } = renderGroup({ id: 'chat', contextWindow: 131072, compat: { supportsDeveloperRole: false } })
     fireEvent.click(toggle())
     expect(writes.at(-1)).toEqual({
-      id: 'chat', contextWindow: 131072, compat: { supportsDeveloperRole: false }, reasoningEfforts: DEFAULTS,
+      id: 'chat',
+      contextWindow: 131072,
+      compat: { supportsDeveloperRole: false },
+      reasoningEfforts: DEFAULTS,
     })
     expect(levels()).toEqual(['off', 'low', 'medium', 'high'])
   })
@@ -88,14 +98,26 @@ describe('ModelReasoningEfforts', () => {
     const { efforts } = renderGroup({ id: 'chat', reasoningEfforts: { low: 'low', max: 'max' } })
     fireEvent.click(add())
     expect(levels()).toEqual(['low', 'max', 'off'])
-    expect(entriesOf(efforts())).toEqual([['low', 'low'], ['max', 'max'], ['off', null]])
+    expect(entriesOf(efforts())).toEqual([
+      ['low', 'low'],
+      ['max', 'max'],
+      ['off', null],
+    ])
     fireEvent.click(add())
     expect(levels()).toEqual(['low', 'max', 'off', 'minimal'])
-    expect(entriesOf(efforts())).toEqual([['low', 'low'], ['max', 'max'], ['off', null], ['minimal', 'minimal']])
+    expect(entriesOf(efforts())).toEqual([
+      ['low', 'low'],
+      ['max', 'max'],
+      ['off', null],
+      ['minimal', 'minimal'],
+    ])
   })
 
   it('stops adding once every level has a row', () => {
-    renderGroup({ id: 'chat', reasoningEfforts: { off: null, minimal: 'minimal', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh' } })
+    renderGroup({
+      id: 'chat',
+      reasoningEfforts: { off: null, minimal: 'minimal', low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh' },
+    })
     fireEvent.click(add())
     expect(levels()).toHaveLength(7)
     expect(add().disabled).toBe(true)
@@ -105,13 +127,29 @@ describe('ModelReasoningEfforts', () => {
     const { efforts } = renderGroup({ id: 'chat', reasoningEfforts: { low: 'low', high: 'deep', max: 'max' } })
     fireEvent.change(select(1), { target: { value: 'xhigh' } })
     expect(levels()).toEqual(['xhigh', 'high', 'max'])
-    expect(entriesOf(efforts())).toEqual([['xhigh', 'xhigh'], ['high', 'deep'], ['max', 'max']])
+    expect(entriesOf(efforts())).toEqual([
+      ['xhigh', 'xhigh'],
+      ['high', 'deep'],
+      ['max', 'max'],
+    ])
     fireEvent.change(select(2), { target: { value: 'medium' } })
-    expect(entriesOf(efforts())).toEqual([['xhigh', 'xhigh'], ['medium', 'deep'], ['max', 'max']])
+    expect(entriesOf(efforts())).toEqual([
+      ['xhigh', 'xhigh'],
+      ['medium', 'deep'],
+      ['max', 'max'],
+    ])
     fireEvent.change(select(2), { target: { value: 'off' } })
-    expect(entriesOf(efforts())).toEqual([['xhigh', 'xhigh'], ['off', null], ['max', 'max']])
+    expect(entriesOf(efforts())).toEqual([
+      ['xhigh', 'xhigh'],
+      ['off', null],
+      ['max', 'max'],
+    ])
     fireEvent.change(select(2), { target: { value: 'low' } })
-    expect(entriesOf(efforts())).toEqual([['xhigh', 'xhigh'], ['low', 'low'], ['max', 'max']])
+    expect(entriesOf(efforts())).toEqual([
+      ['xhigh', 'xhigh'],
+      ['low', 'low'],
+      ['max', 'max'],
+    ])
   })
 
   it('edits API values, storing the level name for a cleared field and showing it once the field is left', () => {
@@ -176,7 +214,11 @@ describe('ModelReasoningEfforts', () => {
   it('offers the levels it is given, seeding only the defaults the list names', () => {
     const { efforts } = renderGroup({ id: 'gateway' }, { levels: ['off', 'low', 'high', 'ultra'] })
     fireEvent.click(toggle())
-    expect(entriesOf(efforts())).toEqual([['off', null], ['low', 'low'], ['high', 'high']])
+    expect(entriesOf(efforts())).toEqual([
+      ['off', null],
+      ['low', 'low'],
+      ['high', 'high'],
+    ])
     expect([...select(3).options].map(option => option.value)).toEqual(['high', 'ultra'])
     fireEvent.click(add())
     expect(levels()).toEqual(['off', 'low', 'high', 'ultra'])
@@ -188,7 +230,10 @@ describe('ModelReasoningEfforts', () => {
     expect(levels()).toEqual(['turbo', 'high'])
     expect([...select(1).options].map(option => option.value)).toEqual(['turbo', 'off', 'minimal', 'low', 'medium', 'xhigh', 'max'])
     fireEvent.change(value('high'), { target: { value: 'deep' } })
-    expect(entriesOf(efforts())).toEqual([['turbo', 'turbo-x'], ['high', 'deep']])
+    expect(entriesOf(efforts())).toEqual([
+      ['turbo', 'turbo-x'],
+      ['high', 'deep'],
+    ])
   })
 
   it('disables every control while read-only or saving', () => {
@@ -206,26 +251,21 @@ describe('ModelReasoningEfforts', () => {
 })
 
 describe('reasoning-level validation', () => {
-  it.each([
-    [{}],
-    [null],
-    [{ off: null }],
-    [{ off: 'none' }],
-  ])('refuses %j, which offers nothing beyond off', (stored) => {
-    expect(validateReasoningEfforts([{ id: 'ok' }, { id: 'chat', reasoningEfforts: stored }]))
-      .toEqual({ index: 1, key: 'modelReasoningNeedsLevel' })
+  it.each([[{}], [null], [{ off: null }], [{ off: 'none' }]])('refuses %j, which offers nothing beyond off', stored => {
+    expect(validateReasoningEfforts([{ id: 'ok' }, { id: 'chat', reasoningEfforts: stored }])).toEqual({
+      index: 1,
+      key: 'modelReasoningNeedsLevel',
+    })
   })
 
-  it.each([
-    [{ high: null }],
-    [{ off: null, high: '' }],
-    [{ off: '', high: 'high' }],
-  ])('refuses %j, which holds a value the adapter rejects', (stored) => {
-    expect(validateReasoningEfforts([{ id: 'chat', reasoningEfforts: stored }]))
-      .toEqual({ index: 0, key: 'modelReasoningValueRequired' })
-  })
+  it.each([[{ high: null }], [{ off: null, high: '' }], [{ off: '', high: 'high' }]])(
+    'refuses %j, which holds a value the adapter rejects',
+    stored => {
+      expect(validateReasoningEfforts([{ id: 'chat', reasoningEfforts: stored }])).toEqual({ index: 0, key: 'modelReasoningValueRequired' })
+    },
+  )
 
-  it.each([[undefined], [false], [{ high: 'high' }], [{ off: null, max: 'ultra' }]])('accepts %j', (stored) => {
+  it.each([[undefined], [false], [{ high: 'high' }], [{ off: null, max: 'ultra' }]])('accepts %j', stored => {
     expect(validateReasoningEfforts([{ id: 'chat', reasoningEfforts: stored }])).toBeUndefined()
   })
 
@@ -253,8 +293,17 @@ describe('reasoning levels in the model list', () => {
       const [models, setModels] = useState(initial)
       return (
         <ModelListEditor
-          models={models} onChange={(next) => { writes.push(next); setModels(next) }} reasoningLevels={LEVELS}
-          probe={{ settingsNs: 'llm-pi-ai' }} operations={operations} disabled={false} t={t} onBusyChange={() => {}}
+          models={models}
+          onChange={next => {
+            writes.push(next)
+            setModels(next)
+          }}
+          reasoningLevels={LEVELS}
+          probe={{ settingsNs: 'llm-pi-ai' }}
+          operations={operations}
+          disabled={false}
+          t={t}
+          onBusyChange={() => {}}
         />
       )
     }
@@ -269,7 +318,7 @@ describe('reasoning levels in the model list', () => {
     expect(writes.at(-1)).toEqual([{ id: 'my-reasoner', reasoningEfforts: DEFAULTS }])
   })
 
-  it('writes only the surviving model\'s own levels after the row above it is deleted', () => {
+  it("writes only the surviving model's own levels after the row above it is deleted", () => {
     // Rows are keyed by position, so the survivor reuses the deleted model's editor instance.
     const { writes } = renderList([{ id: 'a' }, { id: 'b' }])
     fireEvent.click(screen.getByRole('button', { name: `${en.modelAdvanced} 1` }))
@@ -290,11 +339,19 @@ describe('reasoning levels in the model list', () => {
     ['without a level list', undefined],
     ['with an empty level list', []],
   ])('shows no reasoning control %s, leaving catalog rows to the installed catalog', (_label, reasoningLevels) => {
-    render(<ModelListEditor
-      models={[{ id: 'gpt-5' }]} onChange={vi.fn()} catalogProvider="openai" reasoningLevels={reasoningLevels}
-      probe={{ settingsNs: 'llm-pi-ai', provider: 'openai' }}
-      operations={operations} disabled={false} t={t} onBusyChange={() => {}}
-    />)
+    render(
+      <ModelListEditor
+        models={[{ id: 'gpt-5' }]}
+        onChange={vi.fn()}
+        catalogProvider="openai"
+        reasoningLevels={reasoningLevels}
+        probe={{ settingsNs: 'llm-pi-ai', provider: 'openai' }}
+        operations={operations}
+        disabled={false}
+        t={t}
+        onBusyChange={() => {}}
+      />,
+    )
     fireEvent.click(screen.getByRole('button', { name: `${en.modelAdvanced} 1` }))
     expect(screen.getByRole('group', { name: `${en.modelInputTypes} 1` })).toBeTruthy()
     expect(screen.queryByRole('switch', { name: `${en.modelReasoning} 1` })).toBeNull()

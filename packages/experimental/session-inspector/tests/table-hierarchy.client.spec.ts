@@ -1,8 +1,13 @@
 /** Disclosure state and sticky ancestors use the same depth-first row hierarchy. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { InspectorTableHierarchy, inspectorRowCollapsed, type InspectorDisclosure, type InspectorRow } from '../src/client/views/table-model.ts'
+import {
+  InspectorTableHierarchy,
+  inspectorRowCollapsed,
+  type InspectorDisclosure,
+  type InspectorRow,
+} from '../src/client/views/table-model.ts'
 import { InspectorRecordSource } from '../src/client/views/table-model.ts'
 
 const rows: readonly InspectorRow[] = [

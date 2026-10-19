@@ -86,19 +86,12 @@ export interface ContinuableSubagentDescriptorData extends SubagentDescriptorBas
 }
 
 /** The supported durable subagent identity and optional continuation composition. */
-export type SubagentDescriptorData =
-  | OneShotSubagentDescriptorData
-  | ContinuableSubagentDescriptorData
+export type SubagentDescriptorData = OneShotSubagentDescriptorData | ContinuableSubagentDescriptorData
 
 /** Continuable composition fields before the snapshot stamps their format version. */
 export type ContinuableSubagentDescriptorInput = Omit<ContinuableSubagentDescriptorData, 'version'>
 
-const DESCRIPTOR_BASE_KEYS = [
-  'version',
-  'mode',
-  'provider',
-  'label',
-] as const
+const DESCRIPTOR_BASE_KEYS = ['version', 'mode', 'provider', 'label'] as const
 const ONE_SHOT_DESCRIPTOR_KEYS = new Set(DESCRIPTOR_BASE_KEYS)
 const CONTINUABLE_DESCRIPTOR_KEYS = new Set([
   ...DESCRIPTOR_BASE_KEYS,
@@ -159,8 +152,8 @@ function parseToolFilter(value: unknown): ToolRestriction {
     throw new Error('persisted subagent descriptor toolFilter must declare allow and/or deny')
   }
   return {
-    ...allow !== undefined ? { allow } : {},
-    ...deny !== undefined ? { deny } : {},
+    ...(allow !== undefined ? { allow } : {}),
+    ...(deny !== undefined ? { deny } : {}),
   }
 }
 
@@ -179,11 +172,7 @@ function parseSubagentDescriptor(value: unknown): SubagentDescriptorData | undef
   if (mode !== 'one-shot' && mode !== 'continuable') {
     throw new Error('persisted subagent descriptor mode must be "one-shot" or "continuable"')
   }
-  assertKnownKeys(
-    value,
-    mode === 'one-shot' ? ONE_SHOT_DESCRIPTOR_KEYS : CONTINUABLE_DESCRIPTOR_KEYS,
-    'payload',
-  )
+  assertKnownKeys(value, mode === 'one-shot' ? ONE_SHOT_DESCRIPTOR_KEYS : CONTINUABLE_DESCRIPTOR_KEYS, 'payload')
   const provider = value['provider']
   if (typeof provider !== 'string') {
     throw new Error('persisted subagent descriptor provider must be a string')
@@ -194,7 +183,7 @@ function parseSubagentDescriptor(value: unknown): SubagentDescriptorData | undef
       version: SUBAGENT_DESCRIPTOR_VERSION,
       mode,
       provider,
-      ...label !== undefined ? { label } : {},
+      ...(label !== undefined ? { label } : {}),
     }
   }
   const label = value['label']
@@ -205,19 +194,17 @@ function parseSubagentDescriptor(value: unknown): SubagentDescriptorData | undef
   const agentModel = optionalString(value, 'agentModel')
   const agentReasoningEffort = optionalString(value, 'agentReasoningEffort') as ReasoningEffortId | undefined
   const persona = optionalString(value, 'persona')
-  const toolFilter = Object.hasOwn(value, 'toolFilter')
-    ? parseToolFilter(value['toolFilter'])
-    : undefined
+  const toolFilter = Object.hasOwn(value, 'toolFilter') ? parseToolFilter(value['toolFilter']) : undefined
   return {
     version: SUBAGENT_DESCRIPTOR_VERSION,
     mode,
     provider,
     label,
-    ...agentProvider !== undefined ? { agentProvider } : {},
-    ...agentModel !== undefined ? { agentModel } : {},
-    ...agentReasoningEffort !== undefined ? { agentReasoningEffort } : {},
-    ...persona !== undefined ? { persona } : {},
-    ...toolFilter !== undefined ? { toolFilter } : {},
+    ...(agentProvider !== undefined ? { agentProvider } : {}),
+    ...(agentModel !== undefined ? { agentModel } : {}),
+    ...(agentReasoningEffort !== undefined ? { agentReasoningEffort } : {}),
+    ...(persona !== undefined ? { persona } : {}),
+    ...(toolFilter !== undefined ? { toolFilter } : {}),
   }
 }
 
@@ -227,19 +214,17 @@ function parseSubagentDescriptor(value: unknown): SubagentDescriptorData | undef
  * @returns the versioned, detached continuable descriptor payload.
  * @throws when a field is not losslessly JSON-serializable.
  */
-export function snapshotSubagentDescriptor(
-  input: ContinuableSubagentDescriptorInput,
-): ContinuableSubagentDescriptorData {
+export function snapshotSubagentDescriptor(input: ContinuableSubagentDescriptorInput): ContinuableSubagentDescriptorData {
   const candidate: ContinuableSubagentDescriptorData = {
     version: SUBAGENT_DESCRIPTOR_VERSION,
     mode: input.mode,
     provider: input.provider,
     label: input.label,
-    ...input.agentProvider !== undefined ? { agentProvider: input.agentProvider } : {},
-    ...input.agentModel !== undefined ? { agentModel: input.agentModel } : {},
-    ...input.agentReasoningEffort !== undefined ? { agentReasoningEffort: input.agentReasoningEffort } : {},
-    ...input.persona !== undefined ? { persona: input.persona } : {},
-    ...input.toolFilter !== undefined ? { toolFilter: input.toolFilter } : {},
+    ...(input.agentProvider !== undefined ? { agentProvider: input.agentProvider } : {}),
+    ...(input.agentModel !== undefined ? { agentModel: input.agentModel } : {}),
+    ...(input.agentReasoningEffort !== undefined ? { agentReasoningEffort: input.agentReasoningEffort } : {}),
+    ...(input.persona !== undefined ? { persona: input.persona } : {}),
+    ...(input.toolFilter !== undefined ? { toolFilter: input.toolFilter } : {}),
   }
   const snapshot = snapshotJsonValue(candidate)
   if (snapshot === undefined) {
@@ -261,9 +246,7 @@ export function snapshotSubagentDescriptor(
  *   declared schema.
  */
 export function foldSubagentDescriptor(events: readonly SessionEvent[]): SubagentDescriptorData | undefined {
-  const event = events.find(
-    (candidate): candidate is SessionEvent<'subagent/descriptor'> => candidate.type === 'subagent/descriptor',
-  )
+  const event = events.find((candidate): candidate is SessionEvent<'subagent/descriptor'> => candidate.type === 'subagent/descriptor')
   if (event === undefined) return undefined
   return parseSubagentDescriptor(event.data)
 }

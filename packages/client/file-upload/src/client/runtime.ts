@@ -6,9 +6,7 @@ import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { FILE_UPLOAD_ROUTE } from '../protocol.ts'
-import type {
-  ClientFileUploadHooks, EncodedFileUploadRequest, FileUploadFetch, FileUploadValue,
-} from '../types.ts'
+import type { ClientFileUploadHooks, EncodedFileUploadRequest, FileUploadFetch, FileUploadValue } from '../types.ts'
 import type { FileUploadBody, FileUploadService } from './contract.ts'
 
 interface FileUploadRequest {
@@ -28,11 +26,7 @@ interface FileUploadResponse {
 interface FileUploadRemoteContext extends Context {
   readonly remote: {
     readonly fileUploads: {
-      upload(
-        sessionId: SessionId,
-        request: EncodedFileUploadRequest,
-        signal?: AbortSignal,
-      ): Promise<RemoteResult<FileUploadValue>>
+      upload(sessionId: SessionId, request: EncodedFileUploadRequest, signal?: AbortSignal): Promise<RemoteResult<FileUploadValue>>
     }
   }
 }
@@ -65,10 +59,7 @@ interface UploadXhr {
   send(body: Blob): void
 }
 
-type UploadWorkerFetch = (
-  input: string,
-  init: RequestInit & { readonly duplex: 'half' },
-) => Promise<Response>
+type UploadWorkerFetch = (input: string, init: RequestInit & { readonly duplex: 'half' }) => Promise<Response>
 
 /**
  * Self-contained Worker body; its string form becomes the Blob Worker source.
@@ -88,7 +79,7 @@ export function fileUploadWorker(
       xhr.open('POST', request.url)
       xhr.withCredentials = true
       for (const [name, value] of Object.entries(request.headers)) xhr.setRequestHeader(name, value)
-      xhr.upload.onprogress = (progress) => {
+      xhr.upload.onprogress = progress => {
         scope.postMessage({
           kind: 'progress',
           loaded: progress.loaded,
@@ -243,9 +234,7 @@ function workerTransport(): FileUploadTransport {
       if (typeof Worker !== 'function') {
         return Promise.reject(new Error('background upload requires Web Worker support'))
       }
-      const workerUrl = URL.createObjectURL(new Blob([
-        `(${fileUploadWorker.toString()})()`,
-      ], { type: 'text/javascript' }))
+      const workerUrl = URL.createObjectURL(new Blob([`(${fileUploadWorker.toString()})()`], { type: 'text/javascript' }))
       const worker = new Worker(workerUrl, { name: 'dsh-file-upload' })
       URL.revokeObjectURL(workerUrl)
       return new Promise((resolve, reject) => {
@@ -271,13 +260,19 @@ function workerTransport(): FileUploadTransport {
               ...(output.total === undefined ? {} : { total: output.total }),
             })
           } else if (output.kind === 'complete') {
-            finish(() => { resolve({ status: output.status, body: output.body }) })
+            finish(() => {
+              resolve({ status: output.status, body: output.body })
+            })
           } else {
-            finish(() => { reject(new Error(output.message)) })
+            finish(() => {
+              reject(new Error(output.message))
+            })
           }
         }
-        worker.onerror = (event) => {
-          finish(() => { reject(new Error(event.message || 'background upload worker failed')) })
+        worker.onerror = event => {
+          finish(() => {
+            reject(new Error(event.message || 'background upload worker failed'))
+          })
         }
         if (request.signal?.aborted === true) {
           abort()
@@ -304,8 +299,7 @@ function parseFileUploadResult(body: string): RemoteResult<FileUploadValue> {
   }
   if (!value.ok) {
     const error = value.error
-    if (!isRecord(error) || typeof error.code !== 'string'
-      || typeof error.message !== 'string' || !isRecord(error.details)) {
+    if (!isRecord(error) || typeof error.code !== 'string' || typeof error.message !== 'string' || !isRecord(error.details)) {
       throw new TypeError('file upload transport returned an invalid failure')
     }
     return {
@@ -315,9 +309,16 @@ function parseFileUploadResult(body: string): RemoteResult<FileUploadValue> {
   }
   const result = value.value
   const file = isRecord(result) ? result.file : undefined
-  if (!isRecord(result) || typeof result.receiptId !== 'string' || !isRecord(file)
-    || typeof file.attachmentId !== 'string' || typeof file.name !== 'string'
-    || typeof file.bytes !== 'number' || !Number.isSafeInteger(file.bytes) || file.bytes < 0) {
+  if (
+    !isRecord(result) ||
+    typeof result.receiptId !== 'string' ||
+    !isRecord(file) ||
+    typeof file.attachmentId !== 'string' ||
+    typeof file.name !== 'string' ||
+    typeof file.bytes !== 'number' ||
+    !Number.isSafeInteger(file.bytes) ||
+    file.bytes < 0
+  ) {
     throw new TypeError('file upload transport returned an invalid receipt')
   }
   return {

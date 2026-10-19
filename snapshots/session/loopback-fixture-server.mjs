@@ -3,7 +3,7 @@ import { createServer } from 'node:http'
 
 function listen(server) {
   return new Promise((resolve, reject) => {
-    const onError = (error) => {
+    const onError = error => {
       server.off('error', onError)
       reject(error)
     }
@@ -23,7 +23,7 @@ function listen(server) {
 async function close(server) {
   if (!server.listening) return
   await new Promise((resolve, reject) => {
-    server.close(error => error ? reject(error) : resolve(undefined))
+    server.close(error => (error ? reject(error) : resolve(undefined)))
     server.closeAllConnections()
   })
 }

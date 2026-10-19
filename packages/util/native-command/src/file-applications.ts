@@ -54,7 +54,9 @@ function run(argv) {
  * to one entry; an empty list when the platform has no association query.
  */
 export async function nativeFileApplications(
-  path: string, signal: AbortSignal, internals: PathOpenerInternals = {},
+  path: string,
+  signal: AbortSignal,
+  internals: PathOpenerInternals = {},
 ): Promise<readonly NativeFileApplication[]> {
   return queryFileApplications(path, signal, internals, true)
 }
@@ -64,14 +66,22 @@ export async function nativeFileApplications(
  * launch validation keeps every registered copy.
  */
 async function queryFileApplications(
-  path: string, signal: AbortSignal, internals: PathOpenerInternals, display: boolean,
+  path: string,
+  signal: AbortSignal,
+  internals: PathOpenerInternals,
+  display: boolean,
 ): Promise<readonly NativeFileApplication[]> {
   signal.throwIfAborted()
   const target = await desktopTarget(path, signal, internals)
   const run = internals.run ?? runNativeCommand
   if (target.platform === 'linux') return linuxFileApplications(path, signal, run, internals.env ?? process.env)
   if (target.platform === 'darwin') {
-    const { stdout } = await run('osascript', ['-l', 'JavaScript', '-e', MAC_APPLICATIONS, target.path, display ? 'icons' : 'handlers'], signal, 'hidden')
+    const { stdout } = await run(
+      'osascript',
+      ['-l', 'JavaScript', '-e', MAC_APPLICATIONS, target.path, display ? 'icons' : 'handlers'],
+      signal,
+      'hidden',
+    )
     const applications = parseMacApplications(JSON.parse(stdout))
     return display ? dedupeMacApplications(applications) : applications
   }
@@ -95,7 +105,7 @@ interface MacApplication extends NativeFileApplication {
 function parseMacApplications(value: unknown): readonly MacApplication[] {
   if (!Array.isArray(value)) throw new Error('Invalid native application list')
   const entries: readonly unknown[] = value
-  return entries.map((entry) => {
+  return entries.map(entry => {
     if (typeof entry !== 'object' || entry === null) throw new Error('Invalid native application entry')
     const bundle = macField('bundle' in entry ? entry.bundle : null)
     const version = macField('version' in entry ? entry.version : null)
@@ -169,7 +179,10 @@ function compareVersions(left: string | null, right: string | null): number {
  * @returns after the system launcher accepts the file.
  */
 export async function openNativeFileApplication(
-  path: string, application: string, signal: AbortSignal, internals: PathOpenerInternals = {},
+  path: string,
+  application: string,
+  signal: AbortSignal,
+  internals: PathOpenerInternals = {},
 ): Promise<void> {
   const target = await desktopTarget(path, signal, internals)
   const run = internals.run ?? runNativeCommand
@@ -185,7 +198,9 @@ export async function openNativeFileApplication(
 
 /** Resolve the desktop that owns the file, including Windows applications reached from WSL. */
 async function desktopTarget(
-  path: string, signal: AbortSignal, internals: PathOpenerInternals,
+  path: string,
+  signal: AbortSignal,
+  internals: PathOpenerInternals,
 ): Promise<{ platform: NodeJS.Platform; path: string }> {
   signal.throwIfAborted()
   const platform = internals.platform ?? process.platform

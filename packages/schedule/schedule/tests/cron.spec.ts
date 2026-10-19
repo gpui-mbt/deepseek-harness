@@ -1,11 +1,25 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Temporal } from '@js-temporal/polyfill'
 import {
-  canonicalizeCronExpression, canonicalizeTimeZone, createAtScheduleRecord, createCronScheduleRecord,
-  createDailyScheduleRecord, createEveryScheduleRecord, createWeeklyScheduleRecord, decodeScheduleChange,
-  decodeScheduleRecord, foldScheduleEvents, isRecurringScheduleRecord, parseCronInput,
-  renderRecurringReminderBatchFraming, resolveCronOccurrence, resolveRecurringOccurrence,
-  ScheduleId, ScheduleInputError, ScheduleLogError, CRON_SEARCH_HORIZON_YEARS,
+  canonicalizeCronExpression,
+  canonicalizeTimeZone,
+  createAtScheduleRecord,
+  createCronScheduleRecord,
+  createDailyScheduleRecord,
+  createEveryScheduleRecord,
+  createWeeklyScheduleRecord,
+  decodeScheduleChange,
+  decodeScheduleRecord,
+  foldScheduleEvents,
+  isRecurringScheduleRecord,
+  parseCronInput,
+  renderRecurringReminderBatchFraming,
+  resolveCronOccurrence,
+  resolveRecurringOccurrence,
+  ScheduleId,
+  ScheduleInputError,
+  ScheduleLogError,
+  CRON_SEARCH_HORIZON_YEARS,
 } from '../src/domain.ts'
 import { resolveScheduleUpdate } from '../src/update.ts'
 import type { CronInput, CronScheduleRecord, ScheduleRecord, ScheduleTimingChange } from '../src/types.ts'
@@ -14,7 +28,11 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 
 function cron(now: string, expression: string, timeZone = 'UTC'): CronScheduleRecord {
   return createCronScheduleRecord(
-    ScheduleId('cron'), '  Cron reminder  ', { expression, time_zone: timeZone }, Date.parse(now), 'Cron reminder',
+    ScheduleId('cron'),
+    '  Cron reminder  ',
+    { expression, time_zone: timeZone },
+    Date.parse(now),
+    'Cron reminder',
   )
 }
 
@@ -41,8 +59,11 @@ describe('cron occurrence resolution when the due local date is not the UTC deci
     const zone = 'Pacific/Kiritimati'
     const decision = Date.parse('2026-01-01T11:00:00.000Z')
     const record = createCronScheduleRecord(
-      ScheduleId('date-line'), 'Date line', { expression: '30 0 * * *', time_zone: zone },
-      Date.parse('2025-12-31T00:00:00.000Z'), 'Date line',
+      ScheduleId('date-line'),
+      'Date line',
+      { expression: '30 0 * * *', time_zone: zone },
+      Date.parse('2025-12-31T00:00:00.000Z'),
+      'Date line',
     )
     const resolved = Date.parse(resolveCronOccurrence(record, decision).occurrenceAt)
     expect(resolved).toBe(Date.parse('2026-01-01T10:30:00.000Z'))
@@ -111,8 +132,17 @@ describe('cron expression parsing and canonicalization', () => {
 
   it('preserves every field star flag and idempotence across canonicalization', () => {
     const expressions = [
-      '0 9 1-31 * */7', '0 9 */31 * 1', '0 9 */2 * 1', '0 9 * * */7', '0 9 * * 1', '*/1 * * * *',
-      '0 9 */2,4 * *', '0 9 1-31/2 * 1', '0 9 * * */2', '0 9 */30 * *', '0,0,30 * * * *',
+      '0 9 1-31 * */7',
+      '0 9 */31 * 1',
+      '0 9 */2 * 1',
+      '0 9 * * */7',
+      '0 9 * * 1',
+      '*/1 * * * *',
+      '0 9 */2,4 * *',
+      '0 9 1-31/2 * 1',
+      '0 9 * * */2',
+      '0 9 */30 * *',
+      '0,0,30 * * * *',
     ]
     for (const expression of expressions) {
       const canonical = canonicalizeCronExpression(expression)
@@ -128,8 +158,15 @@ describe('cron expression parsing and canonicalization', () => {
 
   it('resolves an expression exactly like its stored canonical spelling', () => {
     const expressions = [
-      '0 9 1-31 * */7', '0 9 */31 * 1', '0 9 */2 * 1', '0 9 * * */7', '0 9 * * 1',
-      '0 9 */2,4 * *', '0 9 1-31/2 * 1', '0 9 * * */2', '0 0 1-31 * 5',
+      '0 9 1-31 * */7',
+      '0 9 */31 * 1',
+      '0 9 */2 * 1',
+      '0 9 * * */7',
+      '0 9 * * 1',
+      '0 9 */2,4 * *',
+      '0 9 1-31/2 * 1',
+      '0 9 * * */2',
+      '0 0 1-31 * 5',
     ]
     const floors = ['2026-09-02T00:00:00Z', '2026-09-13T00:00:00Z', '2026-09-20T00:00:00Z']
     for (const expression of expressions) {
@@ -187,15 +224,22 @@ describe('cron expression parsing and canonicalization', () => {
   })
 
   it('normalizes a cron selector without calculating a target', () => {
-    expect(parseCronInput({ expression: '*/15 9-17 * * 1-5', time_zone: 'Asia/Shanghai' }))
-      .toEqual({ expression: '*/15 9-17 * * 1-5', timeZone: 'Asia/Shanghai' })
-    expect(parseCronInput({ expression: '00 09 * * 7', time_zone: 'US/Eastern' }))
-      .toEqual({ expression: '0 9 * * 0', timeZone: canonicalizeTimeZone('US/Eastern') })
+    expect(parseCronInput({ expression: '*/15 9-17 * * 1-5', time_zone: 'Asia/Shanghai' })).toEqual({
+      expression: '*/15 9-17 * * 1-5',
+      timeZone: 'Asia/Shanghai',
+    })
+    expect(parseCronInput({ expression: '00 09 * * 7', time_zone: 'US/Eastern' })).toEqual({
+      expression: '0 9 * * 0',
+      timeZone: canonicalizeTimeZone('US/Eastern'),
+    })
   })
 
   it.each<[unknown, string]>([
-    [null, 'invalid_rule'], [[], 'invalid_rule'], [{}, 'invalid_rule'],
-    [{ expression: '0 0 * * *' }, 'invalid_rule'], [{ time_zone: 'UTC' }, 'invalid_rule'],
+    [null, 'invalid_rule'],
+    [[], 'invalid_rule'],
+    [{}, 'invalid_rule'],
+    [{ expression: '0 0 * * *' }, 'invalid_rule'],
+    [{ time_zone: 'UTC' }, 'invalid_rule'],
     [{ expression: '0 0 * * *', time_zone: 'UTC', extra: true }, 'invalid_rule'],
     [{ expression: 7, time_zone: 'UTC' }, 'invalid_rule'],
     [{ expression: '0 0 L * *', time_zone: 'UTC' }, 'invalid_rule'],
@@ -211,8 +255,13 @@ describe('cron target selection', () => {
   it('chooses the first strictly future matching minute in the rule zone', () => {
     const record = cron('2026-09-16T00:00:00Z', '30 9 * * *', 'Asia/Shanghai')
     expect(record).toEqual({
-      id: 'cron', kind: 'cron', title: 'Cron reminder', prompt: 'Cron reminder', expression: '30 9 * * *',
-      timeZone: 'Asia/Shanghai', scheduledAt: '2026-09-16T01:30:00.000Z',
+      id: 'cron',
+      kind: 'cron',
+      title: 'Cron reminder',
+      prompt: 'Cron reminder',
+      expression: '30 9 * * *',
+      timeZone: 'Asia/Shanghai',
+      scheduledAt: '2026-09-16T01:30:00.000Z',
     })
     expect(Object.isFrozen(record)).toBe(true)
   })
@@ -238,12 +287,13 @@ describe('cron target selection', () => {
     const record = cron('2026-03-01T00:00:00Z', '30 2 * 3 0', 'America/New_York')
     expect(record.scheduledAt).toBe('2026-03-01T07:30:00.000Z')
     expect(decision(record, '2026-03-08T12:00:00Z')).toEqual({
-      occurrenceAt: '2026-03-01T07:30:00.000Z', nextScheduledAt: '2026-03-15T06:30:00.000Z',
+      occurrenceAt: '2026-03-01T07:30:00.000Z',
+      nextScheduledAt: '2026-03-15T06:30:00.000Z',
     })
-    expect(cron('2026-03-02T00:00:00Z', '30 2 * 3 0', 'America/New_York').scheduledAt)
-      .toBe('2026-03-15T06:30:00.000Z')
+    expect(cron('2026-03-02T00:00:00Z', '30 2 * 3 0', 'America/New_York').scheduledAt).toBe('2026-03-15T06:30:00.000Z')
     expect(decision(record, '2026-03-15T06:30:00Z')).toEqual({
-      occurrenceAt: '2026-03-15T06:30:00.000Z', nextScheduledAt: '2026-03-22T06:30:00.000Z',
+      occurrenceAt: '2026-03-15T06:30:00.000Z',
+      nextScheduledAt: '2026-03-22T06:30:00.000Z',
     })
   })
 
@@ -252,7 +302,8 @@ describe('cron target selection', () => {
     expect(record.scheduledAt).toBe('2026-11-01T05:30:00.000Z')
     for (const now of ['2026-11-01T05:30:00Z', '2026-11-01T06:00:00Z', '2026-11-01T06:30:00Z']) {
       expect(decision(record, now)).toEqual({
-        occurrenceAt: '2026-11-01T05:30:00.000Z', nextScheduledAt: '2026-11-08T06:30:00.000Z',
+        occurrenceAt: '2026-11-01T05:30:00.000Z',
+        nextScheduledAt: '2026-11-08T06:30:00.000Z',
       })
     }
   })
@@ -280,22 +331,27 @@ describe('cron target selection', () => {
     const record = cron('2026-09-15T00:00:00Z', '0 9,17 * * *')
     expect(record.scheduledAt).toBe('2026-09-15T09:00:00.000Z')
     expect(decision(record, '2026-09-15T10:00:00Z')).toEqual({
-      occurrenceAt: '2026-09-15T09:00:00.000Z', nextScheduledAt: '2026-09-15T17:00:00.000Z',
+      occurrenceAt: '2026-09-15T09:00:00.000Z',
+      nextScheduledAt: '2026-09-15T17:00:00.000Z',
     })
     expect(decision(record, '2026-09-15T20:00:00Z')).toEqual({
-      occurrenceAt: '2026-09-15T17:00:00.000Z', nextScheduledAt: '2026-09-16T09:00:00.000Z',
+      occurrenceAt: '2026-09-15T17:00:00.000Z',
+      nextScheduledAt: '2026-09-16T09:00:00.000Z',
     })
   })
 
   it('honors a pinned committed target and never repeats a same-date occurrence', () => {
     const pinned: CronScheduleRecord = {
-      ...cron('2026-09-15T00:00:00Z', '0 9,17 * * *'), scheduledAt: '2026-09-15T12:00:00.000Z',
+      ...cron('2026-09-15T00:00:00Z', '0 9,17 * * *'),
+      scheduledAt: '2026-09-15T12:00:00.000Z',
     }
     expect(decision(pinned, '2026-09-15T12:30:00Z')).toEqual({
-      occurrenceAt: pinned.scheduledAt, nextScheduledAt: '2026-09-15T17:00:00.000Z',
+      occurrenceAt: pinned.scheduledAt,
+      nextScheduledAt: '2026-09-15T17:00:00.000Z',
     })
     expect(decision(pinned, '2026-09-15T17:30:00Z')).toEqual({
-      occurrenceAt: '2026-09-15T17:00:00.000Z', nextScheduledAt: '2026-09-16T09:00:00.000Z',
+      occurrenceAt: '2026-09-15T17:00:00.000Z',
+      nextScheduledAt: '2026-09-16T09:00:00.000Z',
     })
   })
 
@@ -303,25 +359,37 @@ describe('cron target selection', () => {
     const record = cron('2026-06-01T00:00:00Z', '0 9 * * 1-5')
     expect(record.scheduledAt).toBe('2026-06-01T09:00:00.000Z')
     expect(decision(record, '2026-09-16T08:59:59Z')).toEqual({
-      occurrenceAt: '2026-09-15T09:00:00.000Z', nextScheduledAt: '2026-09-16T09:00:00.000Z',
+      occurrenceAt: '2026-09-15T09:00:00.000Z',
+      nextScheduledAt: '2026-09-16T09:00:00.000Z',
     })
     expect(decision(record, '2026-09-16T09:00:00Z')).toEqual({
-      occurrenceAt: '2026-09-16T09:00:00.000Z', nextScheduledAt: '2026-09-17T09:00:00.000Z',
+      occurrenceAt: '2026-09-16T09:00:00.000Z',
+      nextScheduledAt: '2026-09-17T09:00:00.000Z',
     })
   })
 
   it('retains the committed target when no local occurrence is representable', () => {
     const impossible: CronScheduleRecord = {
-      id: ScheduleId('impossible'), kind: 'cron', title: 'Impossible cron', prompt: 'Impossible cron',
-      expression: '0 0 30 2 *', timeZone: 'UTC', scheduledAt: '2026-09-15T00:00:00.000Z',
+      id: ScheduleId('impossible'),
+      kind: 'cron',
+      title: 'Impossible cron',
+      prompt: 'Impossible cron',
+      expression: '0 0 30 2 *',
+      timeZone: 'UTC',
+      scheduledAt: '2026-09-15T00:00:00.000Z',
     }
     expect(decision(impossible, '2026-09-16T00:00:00Z')).toEqual({ occurrenceAt: impossible.scheduledAt })
   })
 
   it('stops an unsatisfiable rule at the documented horizon instead of the year ceiling', () => {
     const impossible: CronScheduleRecord = {
-      id: ScheduleId('bounded'), kind: 'cron', title: 'Unsatisfiable cron', prompt: 'Unsatisfiable cron',
-      expression: '0 0 30 2 *', timeZone: 'UTC', scheduledAt: '2026-09-15T00:00:00.000Z',
+      id: ScheduleId('bounded'),
+      kind: 'cron',
+      title: 'Unsatisfiable cron',
+      prompt: 'Unsatisfiable cron',
+      expression: '0 0 30 2 *',
+      timeZone: 'UTC',
+      scheduledAt: '2026-09-15T00:00:00.000Z',
     }
     // The search advances one LocalDate per candidate day and per skipped month, and the
     // polyfill exposes that arithmetic on its prototypes, so those calls count the walk.
@@ -371,11 +439,11 @@ describe('cron target selection', () => {
 
   it('resolves local dates on either side of the lowest supported UTC year', () => {
     expect(cron('0001-01-01T00:00:00Z', '30 0 * * *').scheduledAt).toBe('0001-01-01T00:30:00.000Z')
-    expect(cron('0001-01-01T00:00:00Z', '0 0 * * *', 'Etc/GMT-1').scheduledAt)
-      .toBe('0001-01-01T23:00:00.000Z')
+    expect(cron('0001-01-01T00:00:00Z', '0 0 * * *', 'Etc/GMT-1').scheduledAt).toBe('0001-01-01T23:00:00.000Z')
     // A decision this early keeps the backward search on the four-digit floor, not the horizon.
     expect(decision(cron('0001-01-01T00:00:00Z', '0 0 * * *'), '0001-01-02T00:00:00Z')).toEqual({
-      occurrenceAt: '0001-01-02T00:00:00.000Z', nextScheduledAt: '0001-01-03T00:00:00.000Z',
+      occurrenceAt: '0001-01-02T00:00:00.000Z',
+      nextScheduledAt: '0001-01-03T00:00:00.000Z',
     })
   })
 
@@ -384,33 +452,33 @@ describe('cron target selection', () => {
     // decision inside the floor's UTC day is local and dated one day earlier.
     const record = cron('0001-01-01T00:01:00Z', '* * * * *', 'Etc/GMT+1')
     expect(decision(record, '0001-01-01T00:30:00Z')).toEqual({
-      occurrenceAt: '0001-01-01T00:30:00.000Z', nextScheduledAt: '0001-01-01T00:31:00.000Z',
+      occurrenceAt: '0001-01-01T00:30:00.000Z',
+      nextScheduledAt: '0001-01-01T00:31:00.000Z',
     })
   })
 
   it('retains the final occurrence and reports exhaustion without a five-digit target', () => {
     const record = cron('9999-12-31T23:00:00Z', '* * * * *')
     expect(decision(record, '9999-12-31T23:59:59.999Z')).toEqual({ occurrenceAt: '9999-12-31T23:59:00.000Z' })
-    expect(() => cron('9999-12-31T23:59:00Z', '* * * * *'))
-      .toThrow(expect.objectContaining({ code: 'time_out_of_range' }))
+    expect(() => cron('9999-12-31T23:59:00Z', '* * * * *')).toThrow(expect.objectContaining({ code: 'time_out_of_range' }))
   })
 
   it('rejects an impossible schedule and an unsupported creation instant', () => {
     expect(() => cron('2026-01-01T00:00:00Z', '0 0 30 2 *')).toThrow(/four-digit-year/)
     for (const now of [Number.NaN, 0.5, Date.parse('0000-12-31T23:59:59.999Z'), Date.parse('+010000-01-01T00:00:00Z')]) {
-      expect(() => createCronScheduleRecord(
-        ScheduleId('bad'), 'Reminder', { expression: '0 0 * * *', time_zone: 'UTC' }, now, 'Reminder',
-      )).toThrow(expect.objectContaining({ code: 'time_out_of_range' }))
+      expect(() =>
+        createCronScheduleRecord(ScheduleId('bad'), 'Reminder', { expression: '0 0 * * *', time_zone: 'UTC' }, now, 'Reminder'),
+      ).toThrow(expect.objectContaining({ code: 'time_out_of_range' }))
     }
   })
 
   it('rejects empty prompts and blank fields before computing a target', () => {
-    expect(() => createCronScheduleRecord(
-      ScheduleId('bad'), ' ', { expression: '0 0 * * *', time_zone: 'UTC' }, 0, 'Title',
-    )).toThrow(/prompt/)
-    expect(() => createCronScheduleRecord(
-      ScheduleId('bad'), 'Reminder', { expression: '0 0 * * *', time_zone: 'UTC' }, 0, 'x'.repeat(121),
-    )).toThrow(/title/)
+    expect(() => createCronScheduleRecord(ScheduleId('bad'), ' ', { expression: '0 0 * * *', time_zone: 'UTC' }, 0, 'Title')).toThrow(
+      /prompt/,
+    )
+    expect(() =>
+      createCronScheduleRecord(ScheduleId('bad'), 'Reminder', { expression: '0 0 * * *', time_zone: 'UTC' }, 0, 'x'.repeat(121)),
+    ).toThrow(/title/)
   })
 })
 
@@ -429,8 +497,7 @@ describe('cron durable decoding', () => {
   })
 
   it('rejects a non-canonical stored expression and an unparseable one', () => {
-    expect(() => decodeScheduleRecord({ ...record, expression: '00 09 * * 1-5' }))
-      .toThrow(/cron expression must be canonical/)
+    expect(() => decodeScheduleRecord({ ...record, expression: '00 09 * * 1-5' })).toThrow(/cron expression must be canonical/)
     expect(() => decodeScheduleRecord({ ...record, expression: '0 0 L * *' })).toThrow(ScheduleLogError)
   })
 
@@ -439,56 +506,80 @@ describe('cron durable decoding', () => {
     // hand the legacy decoder the cron record it must reject.
     const data: unknown = { version: 1, operation: 'create', schedule: record }
     expect(() => decodeScheduleChange(data)).toThrow(ScheduleLogError)
-    expect(() => foldScheduleEvents([{ type: 'schedule/change', seq: SessionSeq(0), time: 0, data } as SessionEvent]))
-      .toThrow(ScheduleLogError)
+    expect(() => foldScheduleEvents([{ type: 'schedule/change', seq: SessionSeq(0), time: 0, data } as SessionEvent])).toThrow(
+      ScheduleLogError,
+    )
   })
 
   it.each([
-    { kind: 'daily' }, { kind: 'after' }, { id: '' }, { id: ' padded' }, { title: '' }, { title: ' padded' },
-    { prompt: '' }, { prompt: ' padded' }, { expression: 7 }, { timeZone: 7 }, { timeZone: 'Unknown/Zone' },
-    { scheduledAt: '2026-09-15T01:00:00Z' }, { extra: true },
-  ])('rejects the malformed durable cron field %#', (fields) => {
+    { kind: 'daily' },
+    { kind: 'after' },
+    { id: '' },
+    { id: ' padded' },
+    { title: '' },
+    { title: ' padded' },
+    { prompt: '' },
+    { prompt: ' padded' },
+    { expression: 7 },
+    { timeZone: 7 },
+    { timeZone: 'Unknown/Zone' },
+    { scheduledAt: '2026-09-15T01:00:00Z' },
+    { extra: true },
+  ])('rejects the malformed durable cron field %#', fields => {
     expect(() => decodeScheduleRecord({ ...record, ...fields })).toThrow(ScheduleLogError)
   })
 
-  it.each(['id', 'kind', 'title', 'prompt', 'expression', 'timeZone', 'scheduledAt'])(
-    'rejects a cron record missing %s', (key) => {
-      const incomplete = Object.fromEntries(Object.entries(record).filter(([field]) => field !== key))
-      expect(() => decodeScheduleRecord(incomplete)).toThrow(ScheduleLogError)
-    })
+  it.each(['id', 'kind', 'title', 'prompt', 'expression', 'timeZone', 'scheduledAt'])('rejects a cron record missing %s', key => {
+    const incomplete = Object.fromEntries(Object.entries(record).filter(([field]) => field !== key))
+    expect(() => decodeScheduleRecord(incomplete)).toThrow(ScheduleLogError)
+  })
 
   it('shares recurring selection and batch framing with the existing recurring kinds', () => {
-    const every = createEveryScheduleRecord(
-      ScheduleId('every'), 'Every', 300, Date.parse('2026-09-15T00:00:00Z'), 'Every',
-    )
+    const every = createEveryScheduleRecord(ScheduleId('every'), 'Every', 300, Date.parse('2026-09-15T00:00:00Z'), 'Every')
     expect(isRecurringScheduleRecord(record)).toBe(true)
     expect(isRecurringScheduleRecord(every)).toBe(true)
-    expect(isRecurringScheduleRecord(createAtScheduleRecord(ScheduleId('at'), 'Once', '2026-09-15T01:00:00Z',
-      Date.parse('2026-09-15T00:00:00Z'), 'Once'))).toBe(false)
+    expect(
+      isRecurringScheduleRecord(
+        createAtScheduleRecord(ScheduleId('at'), 'Once', '2026-09-15T01:00:00Z', Date.parse('2026-09-15T00:00:00Z'), 'Once'),
+      ),
+    ).toBe(false)
     expect(resolveRecurringOccurrence(record, Date.parse(record.scheduledAt))).toEqual(decision(record, record.scheduledAt))
-    expect(renderRecurringReminderBatchFraming([{ record, occurrenceAt: record.scheduledAt }])).toBe([
-      '[SCHEDULE REMINDER BATCH]',
-      'This is a scheduled message from the user',
-      `reminders_json: [{"schedule_id":"cron","occurrence_at":"${record.scheduledAt}","reminder_prompt":"Cron reminder"}]`,
-    ].join('\n'))
+    expect(renderRecurringReminderBatchFraming([{ record, occurrenceAt: record.scheduledAt }])).toBe(
+      [
+        '[SCHEDULE REMINDER BATCH]',
+        'This is a scheduled message from the user',
+        `reminders_json: [{"schedule_id":"cron","occurrence_at":"${record.scheduledAt}","reminder_prompt":"Cron reminder"}]`,
+      ].join('\n'),
+    )
   })
 })
 
 describe('cron timing edits', () => {
   const now = Date.parse('2026-09-16T00:00:00.125Z')
   const id = ScheduleId('timing')
-  const current: ScheduleRecord = createCronScheduleRecord(id, 'Keep prompt', {
-    expression: '0 9 * * 1-5', time_zone: 'US/Eastern',
-  }, now, 'Kept name')
+  const current: ScheduleRecord = createCronScheduleRecord(
+    id,
+    'Keep prompt',
+    {
+      expression: '0 9 * * 1-5',
+      time_zone: 'US/Eastern',
+    },
+    now,
+    'Kept name',
+  )
 
   function update(change: ScheduleTimingChange, acceptedAt = now) {
     return resolveScheduleUpdate(current, current, change, acceptedAt)
   }
 
   it('is a no-op for an equivalent normalized cron rule', () => {
-    const result = update({
-      kind: 'cron', cron: { expression: '00 09 * * 5,4,3,2,1', time_zone: 'America/New_York' },
-    }, now + 86_400_000)
+    const result = update(
+      {
+        kind: 'cron',
+        cron: { expression: '00 09 * * 5,4,3,2,1', time_zone: 'America/New_York' },
+      },
+      now + 86_400_000,
+    )
     expect(result).toEqual({ id, updated: false, record: current })
     if (!('record' in result)) throw new Error('Expected unchanged record')
     expect(result.record).toBe(current)
@@ -496,9 +587,17 @@ describe('cron timing edits', () => {
 
   it('is a no-op for the stored zone alias as well as the canonical name', () => {
     const aliased: ScheduleRecord = { ...current, timeZone: 'US/Eastern' }
-    expect(resolveScheduleUpdate(aliased, aliased, {
-      kind: 'cron', cron: { expression: '0 9 * * 1-5', time_zone: 'America/New_York' },
-    }, now + 86_400_000)).toEqual({ id, updated: false, record: aliased })
+    expect(
+      resolveScheduleUpdate(
+        aliased,
+        aliased,
+        {
+          kind: 'cron',
+          cron: { expression: '0 9 * * 1-5', time_zone: 'America/New_York' },
+        },
+        now + 86_400_000,
+      ),
+    ).toEqual({ id, updated: false, record: aliased })
   })
 
   it.each<[CronInput, string]>([
@@ -507,9 +606,15 @@ describe('cron timing edits', () => {
     [{ expression: '30 9 * * 1-5', time_zone: 'US/Eastern' }, '2026-09-16T13:30:00.000Z'],
   ])('reanchors a changed cron rule at the accepted save sample (%#)', (input, scheduledAt) => {
     expect(update({ kind: 'cron', cron: input }, now + 75_000)).toEqual({
-      id, updated: true, record: {
-        id, kind: 'cron', title: 'Kept name', prompt: 'Keep prompt',
-        expression: canonicalizeCronExpression(input.expression), timeZone: canonicalizeTimeZone(input.time_zone),
+      id,
+      updated: true,
+      record: {
+        id,
+        kind: 'cron',
+        title: 'Kept name',
+        prompt: 'Keep prompt',
+        expression: canonicalizeCronExpression(input.expression),
+        timeZone: canonicalizeTimeZone(input.time_zone),
         scheduledAt,
       },
     })
@@ -521,12 +626,12 @@ describe('cron timing edits', () => {
       createAtScheduleRecord(id, 'Keep prompt', '2026-09-16T01:00:00.125Z', now, 'Keep prompt'),
       createEveryScheduleRecord(id, 'Keep prompt', 300, now, 'Keep prompt'),
       createDailyScheduleRecord(id, 'Keep prompt', { time: '09:00:00.125', time_zone: 'UTC' }, now, 'Keep prompt'),
-      createWeeklyScheduleRecord(
-        id, 'Keep prompt', { time: '09:00:00.125', time_zone: 'UTC', weekdays: [1] }, now, 'Keep prompt',
-      ),
+      createWeeklyScheduleRecord(id, 'Keep prompt', { time: '09:00:00.125', time_zone: 'UTC', weekdays: [1] }, now, 'Keep prompt'),
     ] as ScheduleRecord[]) {
       expect(resolveScheduleUpdate(other, other, { kind: 'cron', cron: input }, now)).toEqual({
-        id, updated: true, record: createCronScheduleRecord(id, 'Keep prompt', input, now, 'Keep prompt'),
+        id,
+        updated: true,
+        record: createCronScheduleRecord(id, 'Keep prompt', input, now, 'Keep prompt'),
       })
     }
   })
@@ -539,7 +644,9 @@ describe('cron timing edits', () => {
       { kind: 'at', at: '2026-09-16T10:00:00Z' },
     ] as ScheduleTimingChange[]) {
       expect(update(change, now)).toMatchObject({
-        id, updated: true, record: { id, kind: change.kind, prompt: 'Keep prompt' },
+        id,
+        updated: true,
+        record: { id, kind: change.kind, prompt: 'Keep prompt' },
       })
     }
   })
@@ -550,7 +657,7 @@ describe('cron timing edits', () => {
     [{ expression: '0 0 30 2 *', time_zone: 'UTC' }],
     // An extra selector key is not representable in CronInput, so the wire shape is unchecked here.
     [{ expression: '0 0 * * *', time_zone: 'UTC', extra: true }],
-  ])('returns a bounded input error for the invalid cron timing %#', (candidate) => {
+  ])('returns a bounded input error for the invalid cron timing %#', candidate => {
     const result = update({ kind: 'cron', cron: candidate as CronInput }, now)
     if (!('code' in result)) throw new Error('Expected a bounded input error')
     expect(['invalid_rule', 'invalid_time_zone', 'time_out_of_range']).toContain(result.code)

@@ -19,8 +19,10 @@ export interface TranslationBodyInjected {
   translate: TranslateText
 }
 
-export type TranslationBodyProps = PropsRuntime<'conversation.chat.reasoning.body'>
-  & PropsRenderFactories & PropsLocale<typeof NS> & InjectFace<TranslationBodyInjected>
+export type TranslationBodyProps = PropsRuntime<'conversation.chat.reasoning.body'> &
+  PropsRenderFactories &
+  PropsLocale<typeof NS> &
+  InjectFace<TranslationBodyInjected>
 
 /**
  * Render translated reasoning, retaining the complete original until a failed request is retried.
@@ -39,23 +41,68 @@ export function TranslationBody(props: TranslationBodyProps) {
   useEffect(() => {
     const controller = new ReasoningTranslation({ provider: preferences.provider, targetLanguage }, maxTextChars, translate, setState)
     translation.current = controller
-    return () => { controller.dispose(); translation.current = undefined }
+    return () => {
+      controller.dispose()
+      translation.current = undefined
+    }
   }, [preferences.provider, targetLanguage, maxTextChars, translate])
-  useEffect(() => { translation.current?.update(text, running) },
-    [text, running, preferences.provider, targetLanguage, maxTextChars, translate])
-  const labels = useMemo(() => ({ code: { copyLabel: t('copy'), copiedLabel: t('copied'),
-    toolbarLabels: { codeLabel: t('codeTitle'), wrapLabel: t('wrap'), unwrapLabel: t('unwrap') } }, footnotes: t('footnotes') }), [t])
+  useEffect(() => {
+    translation.current?.update(text, running)
+  }, [text, running, preferences.provider, targetLanguage, maxTextChars, translate])
+  const labels = useMemo(
+    () => ({
+      code: {
+        copyLabel: t('copy'),
+        copiedLabel: t('copied'),
+        toolbarLabels: { codeLabel: t('codeTitle'), wrapLabel: t('wrap'), unwrapLabel: t('unwrap') },
+      },
+      footnotes: t('footnotes'),
+    }),
+    [t],
+  )
   const showOriginal = original || state.failed
   const actionLabel = t(showOriginal ? 'translation' : 'original')
-  return <div data-cot-translation="true" data-translation-state={state.failed ? 'failed' : state.pending ? 'pending' : 'ready'}
-    data-translation-view={showOriginal ? 'original' : 'translated'}>
-    <div className={css.toolbar}>
-      <Button className={css.viewToggle} size="sm" variant="ghost" disabled={state.failed}
-        onClick={() => { setOriginal(!showOriginal) }}>{actionLabel}</Button>
-      {state.pending && <span role="status" aria-label={t('translating')}><IconLoadingOutlineRegular size={14} className={css.spinner} /></span>}
-      {state.failed && <><span className={css.failure} role="status">{t('failed')}</span>
-        <Button size="sm" variant="ghost" onClick={() => { translation.current?.retry() }}>{t('retry')}</Button></>}
+  return (
+    <div
+      data-cot-translation="true"
+      data-translation-state={state.failed ? 'failed' : state.pending ? 'pending' : 'ready'}
+      data-translation-view={showOriginal ? 'original' : 'translated'}
+    >
+      <div className={css.toolbar}>
+        <Button
+          className={css.viewToggle}
+          size="sm"
+          variant="ghost"
+          disabled={state.failed}
+          onClick={() => {
+            setOriginal(!showOriginal)
+          }}
+        >
+          {actionLabel}
+        </Button>
+        {state.pending && (
+          <span role="status" aria-label={t('translating')}>
+            <IconLoadingOutlineRegular size={14} className={css.spinner} />
+          </span>
+        )}
+        {state.failed && (
+          <>
+            <span className={css.failure} role="status">
+              {t('failed')}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                translation.current?.retry()
+              }}
+            >
+              {t('retry')}
+            </Button>
+          </>
+        )}
+      </div>
+      {renderFactorySlot('conversation.chat.reasoning.content', { text: showOriginal ? text : state.text, running, labels })}
     </div>
-    {renderFactorySlot('conversation.chat.reasoning.content', { text: showOriginal ? text : state.text, running, labels })}
-  </div>
+  )
 }

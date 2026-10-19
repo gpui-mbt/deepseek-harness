@@ -52,27 +52,25 @@ export function runPnpmCommand(root: string, args: readonly string[]): void {
  * @returns Arguments for `process.execPath`, including the heap limit the Host face needs.
  * @throws If the aggregate configuration is invalid, has no references, or can emit files.
  */
-export function referencedProjectsCompilerArgs(
-  root: string,
-  face: 'host' | 'client',
-  mode: CompilationMode = 'checked',
-): string[] {
+export function referencedProjectsCompilerArgs(root: string, face: 'host' | 'client', mode: CompilationMode = 'checked'): string[] {
   const configPath = resolve(root, `tsconfig.${face}.json`)
-  const config = ts.getParsedCommandLineOfConfigFile(configPath, {}, {
-    ...ts.sys,
-    onUnRecoverableConfigFileDiagnostic(diagnostic) {
-      throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+  const config = ts.getParsedCommandLineOfConfigFile(
+    configPath,
+    {},
+    {
+      ...ts.sys,
+      onUnRecoverableConfigFileDiagnostic(diagnostic) {
+        throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+      },
     },
-  })
+  )
   if (config === undefined) throw new Error(`compile-referenced-projects: cannot read ${configPath}`)
   const references = config.projectReferences
   if (references === undefined || references.length === 0) {
     throw new Error(`compile-referenced-projects: ${configPath} requires non-empty project references`)
   }
   if (config.errors.length > 0) {
-    throw new Error(config.errors
-      .map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
-      .join('\n'))
+    throw new Error(config.errors.map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')).join('\n'))
   }
   if (config.options.noEmit !== true) {
     throw new Error(`compile-referenced-projects: ${configPath} requires noEmit: true to exclude its aggregate program`)
@@ -81,7 +79,7 @@ export function referencedProjectsCompilerArgs(
     ...hostHeapArgs(face),
     fileURLToPath(import.meta.resolve('typescript/bin/tsc')),
     '-b',
-    ...mode === 'benchmark-emit' ? ['--noCheck'] : [],
+    ...(mode === 'benchmark-emit' ? ['--noCheck'] : []),
     // Relative arguments keep the complete workspace graph below Windows' command-line limit.
     ...references.map(reference => relative(root, reference.path)),
   ]
@@ -120,20 +118,11 @@ function hostHeapArgs(face: 'host' | 'client'): string[] {
  * @param mode - Check package types by default; benchmark emission defers diagnostics to required full builds.
  * @throws If the aggregate emits files, its configuration is invalid, or package compilation fails.
  */
-export function compileReferencedProjects(
-  root: string,
-  face: 'host' | 'client',
-  mode: CompilationMode = 'checked',
-): void {
+export function compileReferencedProjects(root: string, face: 'host' | 'client', mode: CompilationMode = 'checked'): void {
   runStep(root, compilerStep(root, face, mode, []))
 }
 
-function compilerStep(
-  root: string,
-  face: 'host' | 'client',
-  mode: CompilationMode,
-  needs: readonly LibraryStepId[],
-): LibraryStep {
+function compilerStep(root: string, face: 'host' | 'client', mode: CompilationMode, needs: readonly LibraryStepId[]): LibraryStep {
   return {
     id: face === 'host' ? 'host-src' : 'client-src',
     label: `${face} compiler`,
@@ -183,7 +172,12 @@ export function libraryBuildSteps(root: string, faces: 'host' | 'all', mode: Com
     ...host,
     pnpmStep('desktop-bundle', 'Desktop bundle', ['--filter', '@deepseek-ai/dsh-desktop', 'run', 'bundle'], ['host-bundle']),
     compilerStep(root, 'client', mode, ['desktop-bundle']),
-    pnpmStep('client-bundle', 'Client bundle', ['exec', 'tsdown', '--config-loader', 'native', '--env.DSH_BUILD_FACE', 'client'], ['client-src']),
+    pnpmStep(
+      'client-bundle',
+      'Client bundle',
+      ['exec', 'tsdown', '--config-loader', 'native', '--env.DSH_BUILD_FACE', 'client'],
+      ['client-src'],
+    ),
   ]
 }
 

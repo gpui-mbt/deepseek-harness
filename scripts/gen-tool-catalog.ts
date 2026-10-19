@@ -237,7 +237,8 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(BrowserUseRegistry)
       await ctx.plugin(AgentRegistry)
       await ctx.plugin(StagehandBrowserTools, {
-        mode: 'launch', model: { modelName: 'openai/gpt-5.4-mini', apiKey: 'catalog-placeholder' },
+        mode: 'launch',
+        model: { modelName: 'openai/gpt-5.4-mini', apiKey: 'catalog-placeholder' },
       })
     },
   },
@@ -251,8 +252,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(UserQuestionService)
       await ctx.plugin(ToolAskUser)
     },
-    note:
-      'ask_user_question keeps the original blocking behavior by default; set `mode: timed` to opt into a foreground timeout and pending result while the question remains answerable. In timed mode, `timeout: -1` keeps that call blocking indefinitely.',
+    note: 'ask_user_question keeps the original blocking behavior by default; set `mode: timed` to opt into a foreground timeout and pending result while the question remains answerable. In timed mode, `timeout: -1` keeps that call blocking indefinitely.',
   },
   {
     pkg: '@deepseek-ai/dsh-tools',
@@ -265,8 +265,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
     // at assembly/execution time, so the schema harvest needs none mounted).
     toolsConfig: { mode: 'ptc' },
     async mount() {},
-    note:
-      'Owned by the tool registry as a reserved transport outside filterable capability layers under `mode: ptc` (see the PTC mode Agent Note). Under `ptc` it is the registry\'s only wire contribution; the other visible capabilities are declared in a generated SDK section in the loaded runtime\'s language, and a program calls them through bindings scheduled under the native concurrency contract (submission-ordered starts and policy; concurrency-safe bodies overlap up to `maxParallelSubCalls`) that re-enter the complete guarded tool pipeline and link each nested execution to this outer result.',
+    note: "Owned by the tool registry as a reserved transport outside filterable capability layers under `mode: ptc` (see the PTC mode Agent Note). Under `ptc` it is the registry's only wire contribution; the other visible capabilities are declared in a generated SDK section in the loaded runtime's language, and a program calls them through bindings scheduled under the native concurrency contract (submission-ordered starts and policy; concurrency-safe bodies overlap up to `maxParallelSubCalls`) that re-enter the complete guarded tool pipeline and link each nested execution to this outer result.",
   },
   {
     pkg: '@deepseek-ai/dsh-plan-mode',
@@ -277,14 +276,20 @@ const TOOL_PACKAGES: ToolPackage[] = [
     async mount(ctx) {
       await ctx.plugin(PlanModeController, { section: 'Tool catalog schema harvest.' })
     },
-    note:
-      'exit_plan_mode stays in the model-facing schema while planning is inactive so transitions add no tool-catalog churn on top of the plan-policy change. Its execute path rejects calls outside plan mode; in plan mode it presents the plan over the user-questions seam (approve / keep planning with feedback), and approval logs plan mode inactive at the step boundary.',
+    note: 'exit_plan_mode stays in the model-facing schema while planning is inactive so transitions add no tool-catalog churn on top of the plan-policy change. Its execute path rejects calls outside plan mode; in plan mode it presents the plan over the user-questions seam (approve / keep planning with feedback), and approval logs plan mode inactive at the step boundary.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-bash',
     dir: 'tool-bash',
     source: 'packages/shell/tool-bash/src/index.ts',
-    requires: ['ctx.workingDirectory', 'ctx.tools', 'ctx.shell', 'ctx.systemPrompt', 'ctx.shellEnv', 'ctx.jobs for run_in_background and the job-backed foreground path'],
+    requires: [
+      'ctx.workingDirectory',
+      'ctx.tools',
+      'ctx.shell',
+      'ctx.systemPrompt',
+      'ctx.shellEnv',
+      'ctx.jobs for run_in_background and the job-backed foreground path',
+    ],
     writes: ['tool/call', 'tool/result'],
     async mount(ctx) {
       await ctx.plugin(LocalSubprocessRuntime)
@@ -295,8 +300,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(LocalJobRegistry)
       await ctx.plugin(ToolBash)
     },
-    note:
-      'The bash tool is the model-facing consumer of the bash executor seam. With a job registry composed every call registers with the generic `ctx.jobs` runtime as it starts, collected/stopped through the `job_*` tools from `@deepseek-ai/dsh-tool-jobs`; without one, or with `enableRunInBackground: false`, the tool registers a foreground-only schema without the `run_in_background` parameter.',
+    note: 'The bash tool is the model-facing consumer of the bash executor seam. With a job registry composed every call registers with the generic `ctx.jobs` runtime as it starts, collected/stopped through the `job_*` tools from `@deepseek-ai/dsh-tool-jobs`; without one, or with `enableRunInBackground: false`, the tool registers a foreground-only schema without the `run_in_background` parameter.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-present',
@@ -313,7 +317,14 @@ const TOOL_PACKAGES: ToolPackage[] = [
     pkg: '@deepseek-ai/dsh-tool-pwsh',
     dir: 'tool-pwsh',
     source: 'packages/shell/tool-pwsh/src/index.ts',
-    requires: ['ctx.workingDirectory', 'ctx.tools', 'ctx.shell', 'ctx.systemPrompt', 'ctx.shellEnv', 'ctx.jobs for run_in_background and the job-backed foreground path'],
+    requires: [
+      'ctx.workingDirectory',
+      'ctx.tools',
+      'ctx.shell',
+      'ctx.systemPrompt',
+      'ctx.shellEnv',
+      'ctx.jobs for run_in_background and the job-backed foreground path',
+    ],
     writes: ['tool/call', 'tool/result'],
     async mount(ctx) {
       // The pwsh tool consumes the bash executor seam; the schema harvest
@@ -326,8 +337,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(LocalJobRegistry)
       await ctx.plugin(ToolPwsh)
     },
-    note:
-      'The pwsh tool is the PowerShell-dialect consumer of the bash executor seam for Windows compositions (a PowerShell executor such as `@deepseek-ai/dsh-pwsh-local` backs `ctx.shell`); it mirrors the bash tool call-for-call minus sandbox controls — `run_in_background` runs register with the generic `ctx.jobs` runtime and are collected/stopped through the `job_*` tools, and the managed `DSH_*` environment comes from `@deepseek-ai/dsh-shell-env`. Each call runs in a fresh process (no persistent PTY session), with native `C:\\...` paths and `$env:NAME` variables.',
+    note: 'The pwsh tool is the PowerShell-dialect consumer of the bash executor seam for Windows compositions (a PowerShell executor such as `@deepseek-ai/dsh-pwsh-local` backs `ctx.shell`); it mirrors the bash tool call-for-call minus sandbox controls — `run_in_background` runs register with the generic `ctx.jobs` runtime and are collected/stopped through the `job_*` tools, and the managed `DSH_*` environment comes from `@deepseek-ai/dsh-shell-env`. Each call runs in a fresh process (no persistent PTY session), with native `C:\\...` paths and `$env:NAME` variables.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-cordis',
@@ -339,8 +349,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(CordisHostRunner)
       await ctx.plugin(ToolCordis)
     },
-    note:
-      'Creator mode provides two read-only runtime inspection tools. The Cordis host runner supplies the inspection registry; Client queries require a connected page. Author persistent changes as bundles and install them with plugin_manager.',
+    note: 'Creator mode provides two read-only runtime inspection tools. The Cordis host runner supplies the inspection registry; Client queries require a connected page. Author persistent changes as bundles and install them with plugin_manager.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-bash-persistent',
@@ -352,8 +361,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(TerminalSessionService)
       await ctx.plugin(ToolBashPersistent)
     },
-    note:
-      'One owner-isolated persistent bash tool; deployment composition supplies the PTY backend and may override the model-facing environment description.',
+    note: 'One owner-isolated persistent bash tool; deployment composition supplies the PTY backend and may override the model-facing environment description.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-pwsh-persistent',
@@ -365,8 +373,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(TerminalSessionService)
       await ctx.plugin(ToolPwshPersistent)
     },
-    note:
-      'One owner-isolated persistent pwsh tool, the Windows counterpart of the persistent bash tool; deployment composition supplies a pwsh-dialect PTY backend and may override the model-facing environment description.',
+    note: 'One owner-isolated persistent pwsh tool, the Windows counterpart of the persistent bash tool; deployment composition supplies a pwsh-dialect PTY backend and may override the model-facing environment description.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-str-replace-editor',
@@ -377,23 +384,34 @@ const TOOL_PACKAGES: ToolPackage[] = [
     async mount(ctx) {
       await ctx.plugin(ToolStrReplaceEditor)
     },
-    note:
-      'Standalone view/create/unique literal replace/line insert tool over the filesystem seam; it composes with any shell or terminal API.',
+    note: 'Standalone view/create/unique literal replace/line insert tool over the filesystem seam; it composes with any shell or terminal API.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-fs',
     dir: 'tool-fs',
     source: 'packages/fs/tool-fs/src/index.ts',
-    requires: ['ctx.workingDirectory', 'ctx.tools', 'ctx.fs', 'ctx.systemPrompt', 'ctx.attachments (image-tool registration)', 'ctx.llm + an image-capable route (image-tool execution)'],
-    writes: ['tool/call', 'fs/write-intent or fs/edit-intent for mutations', 'fs/observed after read presence/absence or successful file operation', 'durable attachment (read_image)', 'tool/result'],
+    requires: [
+      'ctx.workingDirectory',
+      'ctx.tools',
+      'ctx.fs',
+      'ctx.systemPrompt',
+      'ctx.attachments (image-tool registration)',
+      'ctx.llm + an image-capable route (image-tool execution)',
+    ],
+    writes: [
+      'tool/call',
+      'fs/write-intent or fs/edit-intent for mutations',
+      'fs/observed after read presence/absence or successful file operation',
+      'durable attachment (read_image)',
+      'tool/result',
+    ],
     async mount(ctx) {
       // The catalog seam marker opts into
       // the attachments-conditional image schema without attachment I/O.
       await ctx.plugin(CatalogAttachmentStore)
       await ctx.plugin(ToolFs)
     },
-    note:
-      'The read-before-write/edit policy is added by `@deepseek-ai/dsh-fs-observation-policy` (an `fs/*` event-gate plugin, no schema change); a deployment that loads these tools is expected to also load it. The image tool is not registered without `ctx.attachments`; its schema is route-independent, and execution refuses unless the exact routed model declares image input.',
+    note: 'The read-before-write/edit policy is added by `@deepseek-ai/dsh-fs-observation-policy` (an `fs/*` event-gate plugin, no schema change); a deployment that loads these tools is expected to also load it. The image tool is not registered without `ctx.attachments`; its schema is route-independent, and execution refuses unless the exact routed model declares image input.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-fs-search',
@@ -410,8 +428,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(LocalSubprocessRuntime)
       await ctx.plugin(ToolFsSearch, { sampleOverCapGlobResults: true })
     },
-    note:
-      'glob and grep are unconditional discovery tools that spawn the packaged ripgrep binary (`@vscode/ripgrep`) through ctx.subprocess as ordinary foreground calls (never background jobs) — no host `rg` install and no shell layer. The catalog uses `sampleOverCapGlobResults: true`; deployments must choose that behavior explicitly. Capped results save the complete formatted list through the optional ctx.spillStore backend; returned locators are follow-up-readable/searchable when the backend exposes local paths in co-located deployments.',
+    note: 'glob and grep are unconditional discovery tools that spawn the packaged ripgrep binary (`@vscode/ripgrep`) through ctx.subprocess as ordinary foreground calls (never background jobs) — no host `rg` install and no shell layer. The catalog uses `sampleOverCapGlobResults: true`; deployments must choose that behavior explicitly. Capped results save the complete formatted list through the optional ctx.spillStore backend; returned locators are follow-up-readable/searchable when the backend exposes local paths in co-located deployments.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-terminal',
@@ -423,8 +440,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(TerminalSessionService)
       await ctx.plugin(ToolPty)
     },
-    note:
-      'The six terminal tools are opt-in and complement one-shot shell/filesystem tools. `terminal_send(run_in_background: true)` registers with `ctx.jobs`; TUI, named key sequences, BEL, resize, auto-start, and cross-agent sharing are absent from the schema.',
+    note: 'The six terminal tools are opt-in and complement one-shot shell/filesystem tools. `terminal_send(run_in_background: true)` registers with `ctx.jobs`; TUI, named key sequences, BEL, resize, auto-start, and cross-agent sharing are absent from the schema.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-goal',
@@ -437,8 +453,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(GoalService)
       await ctx.plugin(ToolGoal)
     },
-    note:
-      'create, edit, pause, and resume require direct-human root authority; complete and blocked also accept the exact current goal round. The default blocked lower bound is three admitted rounds.',
+    note: 'create, edit, pause, and resume require direct-human root authority; complete and blocked also accept the exact current goal round. The default blocked lower bound is three admitted rounds.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-schedule',
@@ -453,11 +468,11 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolSchedule)
     },
     note:
-      'A preset or Agent scope mounts this package; the preset decides which agents receive the four '
-      + 'management tools. Each call acts on the calling Agent\'s Session. '
-      + 'Accepts after_seconds, explicit absolute at, bounded fixed-rate every_seconds, daily and weekly '
-      + 'local times in an explicit IANA zone, and cron as a five-field expression. '
-      + 'Management uses the Host storage domain; due messages resume the original Session.',
+      'A preset or Agent scope mounts this package; the preset decides which agents receive the four ' +
+      "management tools. Each call acts on the calling Agent's Session. " +
+      'Accepts after_seconds, explicit absolute at, bounded fixed-rate every_seconds, daily and weekly ' +
+      'local times in an explicit IANA zone, and cron as a five-field expression. ' +
+      'Management uses the Host storage domain; due messages resume the original Session.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-lsp',
@@ -470,14 +485,19 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(Lsp)
       await ctx.plugin(ToolLsp)
     },
-    note:
-      'The lsp tool keeps provider selection and language-server subprocesses behind ctx.lsp, so its model-visible schema stays stable across providers. Requires a registered provider (e.g. `@deepseek-ai/dsh-lsp-stdio`) at runtime; without one, a query returns the structured `LSP_UNAVAILABLE` error rather than changing the schema.',
+    note: 'The lsp tool keeps provider selection and language-server subprocesses behind ctx.lsp, so its model-visible schema stays stable across providers. Requires a registered provider (e.g. `@deepseek-ai/dsh-lsp-stdio`) at runtime; without one, a query returns the structured `LSP_UNAVAILABLE` error rather than changing the schema.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-ralph',
     dir: 'tool-ralph',
     source: 'packages/experimental/tool-ralph/src/index.ts',
-    requires: ['ctx.tools', 'ctx.workflowEngine', 'ctx.subagents', 'ctx.systemPrompt', 'a calling Agent (exec.agent parents every fresh round)'],
+    requires: [
+      'ctx.tools',
+      'ctx.workflowEngine',
+      'ctx.subagents',
+      'ctx.systemPrompt',
+      'a calling Agent (exec.agent parents every fresh round)',
+    ],
     writes: ['tool/call', 'tool/result', 'workflow and child session events during execution'],
     async mount(ctx) {
       await ctx.plugin(SubagentRuntime)
@@ -485,8 +505,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(CatalogWorkflowEngine)
       await ctx.plugin(ToolRalph, { subagentProvider: 'mock' })
     },
-    note:
-      'A fixed foreground workflow starts one fresh structured child per round; the model selects only the immutable objective and an optional round cap.',
+    note: 'A fixed foreground workflow starts one fresh structured child per round; the model selects only the immutable objective and an optional round cap.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-skill',
@@ -515,8 +534,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(SqliteSessionQueryEngine, { path: ':memory:' })
       await ctx.plugin(ToolSessionQuery)
     },
-    note:
-      'The five read-only tools hide provider cursors and authorize every result from the immutable calling agent session. The package is opt-in; compositions that need enforced deadlines or bounded inline output also mount the generic timeout or spill policies.',
+    note: 'The five read-only tools hide provider cursors and authorize every result from the immutable calling agent session. The package is opt-in; compositions that need enforced deadlines or bounded inline output also mount the generic timeout or spill policies.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-subagent',
@@ -535,8 +553,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolSubagent, { provider: 'mock' })
       registerListSubagentModels(ctx, { routes: [{ provider: 'mock', model: 'mock' }] })
     },
-    note:
-      'The registered delegation name is the load-time `toolName` config (default `subagent`); the default schema above has model selection off, while the discovery schema is shown as the fixed companion available in an enabled Session. Web presets sample the Plugins preference for each new top-level Session and preserve that decision for its child Sessions; `subagent_fork` remains fixed-route. Each instance selects its backend through `provider` and reads model-selection settings through `modelSelectionSettings`. Every delegation returns a child id promptly; local children accept follow-ups, while external backends report their single execution automatically.',
+    note: 'The registered delegation name is the load-time `toolName` config (default `subagent`); the default schema above has model selection off, while the discovery schema is shown as the fixed companion available in an enabled Session. Web presets sample the Plugins preference for each new top-level Session and preserve that decision for its child Sessions; `subagent_fork` remains fixed-route. Each instance selects its backend through `provider` and reads model-selection settings through `modelSelectionSettings`. Every delegation returns a child id promptly; local children accept follow-ups, while external backends report their single execution automatically.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-subagent-control',
@@ -556,8 +573,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolSubagentControl)
       await ctx.plugin(ToolSubagentListAgents)
     },
-    note:
-      'The globally named discovery, interruption, and local-message tools over managed subagents: provider-bound `tool-subagent` instances register distinct delegation tools, while this package registers `send_message` and `interrupt_agent` once, plus `list_agents` from its separately loaded `/list-agents` plugin (whose catalog rows use the sessionProjections and live Agent registries).',
+    note: 'The globally named discovery, interruption, and local-message tools over managed subagents: provider-bound `tool-subagent` instances register distinct delegation tools, while this package registers `send_message` and `interrupt_agent` once, plus `list_agents` from its separately loaded `/list-agents` plugin (whose catalog rows use the sessionProjections and live Agent registries).',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-jobs',
@@ -569,8 +585,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(LocalJobRegistry)
       await ctx.plugin(ToolJobs)
     },
-    note:
-      'The kind-agnostic background-job controller: background bash commands and PTY sends are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers\' `ctx.jobs.start()`.',
+    note: "The kind-agnostic background-job controller: background bash commands and PTY sends are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers' `ctx.jobs.start()`.",
   },
   {
     pkg: '@deepseek-ai/dsh-experimental-tool-agent-team',
@@ -584,31 +599,37 @@ const TOOL_PACKAGES: ToolPackage[] = [
       const session = ctx.sessions.create(SessionId('tool-catalog-team-lead'))
       let agent!: Agent
       const membership = {
-        get root() { return agent },
+        get root() {
+          return agent
+        },
         id: session.id,
         role: 'lead' as const,
         name: 'lead',
       }
       ctx.provide('agentTeams', {
-        tryMembership: (candidate: Agent) => candidate === agent ? membership : undefined,
+        tryMembership: (candidate: Agent) => (candidate === agent ? membership : undefined),
         membership: () => membership,
       } as unknown as TeamService)
-      await ctx.plugin(Object.assign(async (inner: Context) => {
-        agent = {
-          id: session.id,
-          session,
-          options: {},
-          status: 'idle',
-        } as unknown as Agent
-        Object.assign(agent, { ctx: createScope(inner, agent).ctx })
-        await inner.agents.register(agent)
-      }, { inject: ['tools', 'systemPrompt', 'agents', 'agentTeams'] }))
+      await ctx.plugin(
+        Object.assign(
+          async (inner: Context) => {
+            agent = {
+              id: session.id,
+              session,
+              options: {},
+              status: 'idle',
+            } as unknown as Agent
+            Object.assign(agent, { ctx: createScope(inner, agent).ctx })
+            await inner.agents.register(agent)
+          },
+          { inject: ['tools', 'systemPrompt', 'agents', 'agentTeams'] },
+        ),
+      )
       await ctx.plugin(ToolTeam)
       catalogChildScopes.set(ctx, agent)
     },
     scope: ctx => catalogChildScopes.get(ctx) as Agent,
-    note:
-      'All nine tools are scoped to implicit Team Leads and durable teammates. The shipped dsh-base bundle keeps the package disabled; the documented Agent Teams profile patch enables it while disabling the legacy continuable-child control names.',
+    note: 'All nine tools are scoped to implicit Team Leads and durable teammates. The shipped dsh-base bundle keeps the package disabled; the documented Agent Teams profile patch enables it while disabling the legacy continuable-child control names.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-todo',
@@ -619,8 +640,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
     async mount(ctx) {
       await ctx.plugin(ToolTodo, { allowParallelInProgress: true })
     },
-    note:
-      'todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task.',
+    note: 'todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-working-directory',
@@ -685,8 +705,7 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(WebFetchLocal)
       await ctx.plugin(ToolWeb)
     },
-    note:
-      'web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps.',
+    note: 'web_search and web_fetch keep provider selection behind ctx.web so model-visible schemas stay stable across backend swaps.',
   },
 ]
 
@@ -716,13 +735,15 @@ export type ToolCatalog = CatalogPackage[]
  * `scanRoot` defaults to the repo root; a test may point it at a fixture tree.
  */
 export function assertManifestComplete(packages: ToolPackage[] = TOOL_PACKAGES, scanRoot: string = root): void {
-  const onDisk = globSync('packages/*/tool-*', { cwd: scanRoot }).map(p => basename(p)).sort()
+  const onDisk = globSync('packages/*/tool-*', { cwd: scanRoot })
+    .map(p => basename(p))
+    .sort()
   const listed = new Set(packages.map(p => p.dir))
   const missing = onDisk.filter(dir => !listed.has(dir))
   if (missing.length > 0) {
     throw new Error(
-      `gen-tool-catalog: ${missing.length} tool package(s) not in the boot manifest: ${missing.join(', ')}. `
-      + 'Add each to TOOL_PACKAGES in scripts/gen-tool-catalog.ts so its schema is catalogued.',
+      `gen-tool-catalog: ${missing.length} tool package(s) not in the boot manifest: ${missing.join(', ')}. ` +
+        'Add each to TOOL_PACKAGES in scripts/gen-tool-catalog.ts so its schema is catalogued.',
     )
   }
 }
@@ -744,9 +765,9 @@ export function assertManifestComplete(packages: ToolPackage[] = TOOL_PACKAGES, 
 export function assertToolsHarvested(entry: ToolPackage, harvested: number): void {
   if (harvested > 0) return
   throw new Error(
-    `gen-tool-catalog: ${entry.pkg} booted without registering a single tool. `
-    + 'Its plugin is most likely PENDING on a service this manifest entry does not mount — '
-    + `compare the plugin's inject with mount() and requires: ${entry.requires.join(', ')}.`,
+    `gen-tool-catalog: ${entry.pkg} booted without registering a single tool. ` +
+      'Its plugin is most likely PENDING on a service this manifest entry does not mount — ' +
+      `compare the plugin's inject with mount() and requires: ${entry.requires.join(', ')}.`,
   )
 }
 
@@ -775,15 +796,12 @@ export async function collectToolCatalog(packages: ToolPackage[] = TOOL_PACKAGES
       assertToolsHarvested(entry, schemas.length)
       catalog.push({
         pkg: entry.pkg,
-        sources: Object.fromEntries(schemas.map(schema => [
-          schema.name,
-          toolSource(entry, schema.name),
-        ])),
+        sources: Object.fromEntries(schemas.map(schema => [schema.name, toolSource(entry, schema.name)])),
         requires: entry.requires,
         writes: entry.writes,
         schemas,
-        ...entry.shippedNames !== undefined ? { shippedNames: entry.shippedNames } : {},
-        ...entry.note !== undefined ? { note: entry.note } : {},
+        ...(entry.shippedNames !== undefined ? { shippedNames: entry.shippedNames } : {}),
+        ...(entry.note !== undefined ? { note: entry.note } : {}),
       })
     } finally {
       await ctx.fiber.dispose()
@@ -797,9 +815,7 @@ function toolSource(entry: ToolPackage, toolName: string): string {
   if (typeof entry.source === 'string') return entry.source
   const source = entry.source[toolName]
   if (source === undefined) {
-    throw new Error(
-      `gen-tool-catalog: ${entry.pkg} has no source mapping for harvested tool ${toolName}`,
-    )
+    throw new Error(`gen-tool-catalog: ${entry.pkg} has no source mapping for harvested tool ${toolName}`)
   }
   return source
 }
@@ -829,11 +845,11 @@ export function render(catalog: ToolCatalog): string {
     '',
     '# Tool Schema Catalog',
     '',
-    'Every model-facing tool a shipped plugin contributes to `ctx.tools`: the `name`, `description`, and JSON-Schema `parameters` the model receives via the system-prompt assembly. It complements the [subsystem pages](subsystems/core.md) (the types plus each page\'s generated Cordis API region) — this page is the *tools* the agent is offered.',
+    "Every model-facing tool a shipped plugin contributes to `ctx.tools`: the `name`, `description`, and JSON-Schema `parameters` the model receives via the system-prompt assembly. It complements the [subsystem pages](subsystems/core.md) (the types plus each page's generated Cordis API region) — this page is the *tools* the agent is offered.",
     '',
-    'This file is GENERATED and verified fresh by `pnpm run verify-tool-catalog` (part of `doc-sync`) — do not edit it by hand. Unlike the cordis catalog (a pure source-AST pass), this generator BOOTS each tool plugin on a real context and reads `ctx.tools.schemas()`, because a tool schema is not statically knowable (runtime-spread enums, concatenated descriptions, config-driven names, raw-JSON-Schema MCP tools). A completeness guard globs `packages/*/tool-*` and fails if any package is missing from the generator\'s boot manifest, so a new tool cannot be silently undocumented.',
+    "This file is GENERATED and verified fresh by `pnpm run verify-tool-catalog` (part of `doc-sync`) — do not edit it by hand. Unlike the cordis catalog (a pure source-AST pass), this generator BOOTS each tool plugin on a real context and reads `ctx.tools.schemas()`, because a tool schema is not statically knowable (runtime-spread enums, concatenated descriptions, config-driven names, raw-JSON-Schema MCP tools). A completeness guard globs `packages/*/tool-*` and fails if any package is missing from the generator's boot manifest, so a new tool cannot be silently undocumented.",
     '',
-    'Scope: shipped product tools under `packages/*/tool-*`, each booted with its DEFAULT config, except where a Config field is REQUIRED with no default — there the generator must choose, and the per-package note records which branch this page shows. The registered tool NAME can be a load-time config (e.g. `tool-subagent`\'s `toolName`), so a deployment may expose a package under a different or additional name — a per-package note records those shipped aliases where they exist. The `examples/` demo tools (e.g. `echo`) are excluded, matching the cordis catalog\'s packages-only scope.',
+    "Scope: shipped product tools under `packages/*/tool-*`, each booted with its DEFAULT config, except where a Config field is REQUIRED with no default — there the generator must choose, and the per-package note records which branch this page shows. The registered tool NAME can be a load-time config (e.g. `tool-subagent`'s `toolName`), so a deployment may expose a package under a different or additional name — a per-package note records those shipped aliases where they exist. The `examples/` demo tools (e.g. `echo`) are excluded, matching the cordis catalog's packages-only scope.",
     '',
     '## Tool Package Map',
     '',
@@ -841,7 +857,10 @@ export function render(catalog: ToolCatalog): string {
     '',
     '| Tool package | Model-visible names | Requires | Writes / affects | Shipped aliases | Deployment note |',
     '| --- | --- | --- | --- | --- | --- |',
-    ...catalog.map(entry => `| \`${entry.pkg}\` | ${codeList(entry.schemas.map(schema => schema.name))} | ${codeList(entry.requires)} | ${codeList(entry.writes)} | ${codeList(entry.shippedNames)} | ${tableCell(entry.note)} |`),
+    ...catalog.map(
+      entry =>
+        `| \`${entry.pkg}\` | ${codeList(entry.schemas.map(schema => schema.name))} | ${codeList(entry.requires)} | ${codeList(entry.writes)} | ${codeList(entry.shippedNames)} | ${tableCell(entry.note)} |`,
+    ),
     '',
   ]
   for (const entry of catalog) {

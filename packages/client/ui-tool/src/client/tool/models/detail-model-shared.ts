@@ -31,21 +31,32 @@ export function nonempty(value: unknown): value is string {
  * @returns Parsed JSON, or undefined for non-JSON output.
  */
 export function detailJson(text: string): unknown {
-  try { return JSON.parse(text) }
-  catch {
+  try {
+    return JSON.parse(text)
+  } catch {
     // Text receipts and reports are decoded by their tool-specific adapters.
     return undefined
   }
 }
 
 const STATUS_KEYS = {
-  running: 'detail.status.running', idle: 'detail.status.idle', ready: 'detail.status.ready',
-  inactive: 'detail.status.inactive', provisioning: 'detail.status.provisioning',
-  failed: 'detail.status.failed', error: 'detail.status.failed',
-  completed: 'detail.status.completed', complete: 'detail.status.completed', done: 'detail.status.completed',
-  pending: 'detail.todo.pending', in_progress: 'detail.todo.in_progress',
-  deleted: 'detail.status.deleted', killed: 'detail.status.killed',
-  blocked: 'detail.goal.blocked', accepted: 'detail.status.accepted', queued: 'detail.status.queued',
+  running: 'detail.status.running',
+  idle: 'detail.status.idle',
+  ready: 'detail.status.ready',
+  inactive: 'detail.status.inactive',
+  provisioning: 'detail.status.provisioning',
+  failed: 'detail.status.failed',
+  error: 'detail.status.failed',
+  completed: 'detail.status.completed',
+  complete: 'detail.status.completed',
+  done: 'detail.status.completed',
+  pending: 'detail.todo.pending',
+  in_progress: 'detail.todo.in_progress',
+  deleted: 'detail.status.deleted',
+  killed: 'detail.status.killed',
+  blocked: 'detail.goal.blocked',
+  accepted: 'detail.status.accepted',
+  queued: 'detail.status.queued',
 } as const
 
 /**
@@ -56,28 +67,59 @@ const STATUS_KEYS = {
  */
 export function detailBadge(status: string, t: DetailTranslate): NonNullable<DetailItem['badge']> {
   const key = Object.hasOwn(STATUS_KEYS, status) ? STATUS_KEYS[status as keyof typeof STATUS_KEYS] : undefined
-  const tone = ['completed', 'complete', 'done', 'accepted'].includes(status) ? 'success'
-    : ['failed', 'error'].includes(status) ? 'error'
-      : ['blocked', 'killed', 'pending', 'queued', 'inactive'].includes(status) ? 'warning'
-        : ['running', 'in_progress', 'provisioning'].includes(status) ? 'info' : 'neutral'
+  const tone = ['completed', 'complete', 'done', 'accepted'].includes(status)
+    ? 'success'
+    : ['failed', 'error'].includes(status)
+      ? 'error'
+      : ['blocked', 'killed', 'pending', 'queued', 'inactive'].includes(status)
+        ? 'warning'
+        : ['running', 'in_progress', 'provisioning'].includes(status)
+          ? 'info'
+          : 'neutral'
   return { label: key === undefined ? status : t(key), tone }
 }
 
 const FIELD_KEYS = {
-  id: 'detail.field.id', revision: 'detail.field.revision', platform: 'detail.field.platform',
-  provider: 'detail.field.provider', model: 'detail.field.model', role: 'detail.field.role',
-  context: 'detail.field.context', ownerName: 'detail.field.owner', ready: 'detail.field.ready',
-  blockedBy: 'detail.field.dependencies', writeScopes: 'detail.field.writeScopes',
-  writeScopeWarnings: 'detail.field.warnings', diagnostics: 'detail.field.diagnostics',
-  methods: 'detail.field.methods', inputSchema: 'detail.field.inputSchema', outputSchema: 'detail.field.outputSchema',
-  currentPackageId: 'detail.field.currentPackage', nextPackageId: 'detail.field.nextPackage',
-  latestRun: 'detail.field.latestRun', packages: 'detail.field.packages', registrations: 'detail.field.registrations',
-  props: 'detail.field.props', data: 'detail.field.data', source: 'detail.field.source',
-  arguments: 'row.input', content: 'detail.field.content', message: 'detail.field.message',
-  messageId: 'detail.field.messageId', status: 'detail.state', root: 'detail.field.root',
-  pid: 'detail.field.pid', type: 'detail.field.type', time: 'detail.field.time',
-  seq: 'detail.field.seq', turn: 'detail.field.turn', step: 'detail.field.step', callId: 'detail.field.callId',
-  agentsStarted: 'detail.field.agents', output: 'row.output', result: 'detail.field.result',
+  id: 'detail.field.id',
+  revision: 'detail.field.revision',
+  platform: 'detail.field.platform',
+  provider: 'detail.field.provider',
+  model: 'detail.field.model',
+  role: 'detail.field.role',
+  context: 'detail.field.context',
+  ownerName: 'detail.field.owner',
+  ready: 'detail.field.ready',
+  blockedBy: 'detail.field.dependencies',
+  writeScopes: 'detail.field.writeScopes',
+  writeScopeWarnings: 'detail.field.warnings',
+  diagnostics: 'detail.field.diagnostics',
+  methods: 'detail.field.methods',
+  inputSchema: 'detail.field.inputSchema',
+  outputSchema: 'detail.field.outputSchema',
+  currentPackageId: 'detail.field.currentPackage',
+  nextPackageId: 'detail.field.nextPackage',
+  latestRun: 'detail.field.latestRun',
+  packages: 'detail.field.packages',
+  registrations: 'detail.field.registrations',
+  props: 'detail.field.props',
+  data: 'detail.field.data',
+  source: 'detail.field.source',
+  arguments: 'row.input',
+  content: 'detail.field.content',
+  message: 'detail.field.message',
+  messageId: 'detail.field.messageId',
+  status: 'detail.state',
+  root: 'detail.field.root',
+  pid: 'detail.field.pid',
+  type: 'detail.field.type',
+  time: 'detail.field.time',
+  seq: 'detail.field.seq',
+  turn: 'detail.field.turn',
+  step: 'detail.field.step',
+  callId: 'detail.field.callId',
+  agentsStarted: 'detail.field.agents',
+  output: 'row.output',
+  result: 'detail.field.result',
 } as const
 
 /**
@@ -114,7 +156,8 @@ export function inspectionItems(value: unknown, t: DetailTranslate, depth = 0): 
   }
   if (Array.isArray(value)) {
     const items = value.slice(0, MAX_INSPECTION_ITEMS).flatMap(entry => inspectionItems(entry, t, depth + 1))
-    if (value.length > MAX_INSPECTION_ITEMS) items.push({ description: t('detail.moreInInspect', { count: value.length - MAX_INSPECTION_ITEMS }), fields: [] })
+    if (value.length > MAX_INSPECTION_ITEMS)
+      items.push({ description: t('detail.moreInInspect', { count: value.length - MAX_INSPECTION_ITEMS }), fields: [] })
     return items.length === 0 ? [{ description: t('detail.empty'), fields: [] }] : items
   }
   if (!detailRecord(value)) return [{ description: scalar(value, t), fields: [] }]
@@ -135,18 +178,24 @@ export function inspectionItems(value: unknown, t: DetailTranslate, depth = 0): 
     if (Array.isArray(field) && field.length === 0) continue
     if (key === 'arguments' && typeof field === 'string') {
       const args = detailJson(field)
-      if (detailRecord(args)) { groups.push({ label: detailLabel(key, t), items: inspectionItems(args, t, depth + 1) }); continue }
+      if (detailRecord(args)) {
+        groups.push({ label: detailLabel(key, t), items: inspectionItems(args, t, depth + 1) })
+        continue
+      }
     }
-    if (field !== null && typeof field === 'object') groups.push({ label: detailLabel(key, t), items: inspectionItems(field, t, depth + 1) })
+    if (field !== null && typeof field === 'object')
+      groups.push({ label: detailLabel(key, t), items: inspectionItems(field, t, depth + 1) })
     else fields.push({ label: detailLabel(key, t), value: scalar(field, t) })
   }
-  return [{
-    ...(title === undefined && typeof value.status !== 'string' ? {} : { title: title ?? t('detail.field.result') }),
-    ...(descriptionKey === undefined ? {} : { description: String(value[descriptionKey]) }),
-    ...(typeof value.status === 'string' ? { badge: detailBadge(value.status, t) } : {}),
-    fields,
-    ...(groups.length === 0 ? {} : { groups }),
-  }]
+  return [
+    {
+      ...(title === undefined && typeof value.status !== 'string' ? {} : { title: title ?? t('detail.field.result') }),
+      ...(descriptionKey === undefined ? {} : { description: String(value[descriptionKey]) }),
+      ...(typeof value.status === 'string' ? { badge: detailBadge(value.status, t) } : {}),
+      fields,
+      ...(groups.length === 0 ? {} : { groups }),
+    },
+  ]
 }
 
 /**

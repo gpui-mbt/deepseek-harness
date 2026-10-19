@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createAssistantMessage, createToolResultMessage, createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, ImageBlock } from '@deepseek-ai/dsh-llm'
 import { deriveEventMessage, foldSurface, Session, SessionId, SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
@@ -33,8 +33,10 @@ describe('durable image selections', () => {
   it('preserves message identity, original data, and previously derived snapshots', () => {
     const session = createSession(SessionId('images'))
     const source = input(session, [
-      { type: 'text', text: 'before' }, image,
-      image, { type: 'text', text: 'after' },
+      { type: 'text', text: 'before' },
+      image,
+      image,
+      { type: 'text', text: 'after' },
       { type: 'text', text: 'unchanged' },
       image,
     ])
@@ -73,9 +75,17 @@ describe('durable image selections', () => {
     const restored = Session.fromRestore(session.id, events, session.header, SessionLogOffset(0), 'shared-frozen', [imageOffloadProjection])
     expect(marked(restored)).toEqual([true, false])
     const childId = SessionId('child')
-    const child = createSession(childId, events, {
-      ...session.header, id: childId, parentSession: session.id, isSeeded: true,
-    }, SessionLogOffset(events.length))
+    const child = createSession(
+      childId,
+      events,
+      {
+        ...session.header,
+        id: childId,
+        parentSession: session.id,
+        isSeeded: true,
+      },
+      SessionLogOffset(events.length),
+    )
     expect(marked(child)).toEqual([true, false])
     input(child, [image])
     expect(marked(child)).toEqual([true, false, false])
@@ -84,17 +94,26 @@ describe('durable image selections', () => {
 
   it('counts all images in a tool result without changing its call identity', () => {
     const session = createSession(SessionId('tool'))
-    const source = session.append('tool/result', {
-      turn: 1, step: 1,
-      message: createToolResultMessage({ callId: ToolCallId('shot'), isError: false, content: [image, image] }),
-    }, { surfaceOp: 'append' })
+    const source = session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({ callId: ToolCallId('shot'), isError: false, content: [image, image] }),
+      },
+      { surfaceOp: 'append' },
+    )
     session.append('image/offload', { targets: [{ seq: source.seq, imageIndexes: [1] }] })
     expect(marked(session)).toEqual([false, true])
     expect(session.deriveEventMessage(source)?.source).toEqual(source.data.message.source)
   })
 
   it.each([
-    null, {}, { targets: [] }, { targets: 'bad' }, { targets: [null] },
+    null,
+    {},
+    { targets: [] },
+    { targets: 'bad' },
+    { targets: [null] },
     { targets: [{ seq: 0, imageIndexes: [] }] },
     { targets: [{ seq: 0, imageIndexes: [0], extra: true }] },
     { targets: [{ seq: 0, imageIndexes: [0] }], extra: true },
@@ -106,8 +125,13 @@ describe('durable image selections', () => {
     { targets: [{ seq: 0, imageIndexes: [0, 0] }] },
     { targets: [{ seq: 0, imageIndexes: [2] }] },
     { targets: [{ seq: 1, imageIndexes: [0] }] },
-    { targets: [{ seq: 0, imageIndexes: [0] }, { seq: 0, imageIndexes: [1] }] },
-  ])('rejects malformed selections at append and replay without partial application: %j', (data) => {
+    {
+      targets: [
+        { seq: 0, imageIndexes: [0] },
+        { seq: 0, imageIndexes: [1] },
+      ],
+    },
+  ])('rejects malformed selections at append and replay without partial application: %j', data => {
     const session = createSession(SessionId('invalid'))
     input(session)
     const events = session.snapshotEvents()
@@ -128,13 +152,20 @@ describe('durable image selections', () => {
     session.append('image/offload', { targets: [{ seq: source.seq, imageIndexes: [0] }] })
     expect(() => session.append('image/offload', { targets: [{ seq: source.seq, imageIndexes: [0] }] })).toThrow(/already offloaded/)
     session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'summary' }], source: { kind: 'user' } }), {
-      surfaceOp: { op: 'replace', startSeq: source.seq, endSeq: source.seq }, sourceEventSeqs: [source.seq],
+      surfaceOp: { op: 'replace', startSeq: source.seq, endSeq: source.seq },
+      sourceEventSeqs: [source.seq],
     })
     expect(() => session.append('image/offload', { targets: [{ seq: source.seq, imageIndexes: [1] }] })).toThrow(/not a current/)
-    const assistant = session.append('assistant/message', {
-      turn: 1, step: 1, stream: [],
-      message: createAssistantMessage({ content: [image], source: { provider: 'mock', model: 'mock' } }),
-    }, { surfaceOp: 'append' })
+    const assistant = session.append(
+      'assistant/message',
+      {
+        turn: 1,
+        step: 1,
+        stream: [],
+        message: createAssistantMessage({ content: [image], source: { provider: 'mock', model: 'mock' } }),
+      },
+      { surfaceOp: 'append' },
+    )
     expect(() => session.append('image/offload', { targets: [{ seq: assistant.seq, imageIndexes: [0] }] })).toThrow(/must be user\/message/)
   })
 })

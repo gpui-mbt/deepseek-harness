@@ -3,7 +3,16 @@ import { existsSync } from 'node:fs'
 import { join, posix } from 'node:path'
 import { parseMarketIndex } from '@deepseek-ai/dsh-plugin-market-index'
 import semver from 'semver'
-import { cacheKey, gitRefs, npmPackument, npmTarball, withGitObjects, type FetchLimits, type GitObjects, type GitTransports } from './fetchers.ts'
+import {
+  cacheKey,
+  gitRefs,
+  npmPackument,
+  npmTarball,
+  withGitObjects,
+  type FetchLimits,
+  type GitObjects,
+  type GitTransports,
+} from './fetchers.ts'
 import { readJsonFile, writeIfChanged, type PackageFiles } from './files.ts'
 import { GENERATED_ICON, readDisplayMetadata, type Display, type IconFile } from './metadata.ts'
 import { dshRange, findBundlePackages, isBundle, readManifest, type Manifest } from './packages.ts'
@@ -77,10 +86,13 @@ function entryOf(name: string, releases: readonly Release[]): GeneratedEntry {
   const { title, description, icon, author, homepage, repository, metadata } = sorted[0]?.display ?? {}
   return {
     name,
-    ...title === undefined ? {} : { title }, ...description === undefined ? {} : { description },
-    ...icon === undefined ? {} : { icon }, ...author === undefined ? {} : { author }, ...homepage === undefined ? {} : { homepage },
-    ...repository === undefined ? {} : { repository },
-    ...metadata === undefined ? {} : { metadata },
+    ...(title === undefined ? {} : { title }),
+    ...(description === undefined ? {} : { description }),
+    ...(icon === undefined ? {} : { icon }),
+    ...(author === undefined ? {} : { author }),
+    ...(homepage === undefined ? {} : { homepage }),
+    ...(repository === undefined ? {} : { repository }),
+    ...(metadata === undefined ? {} : { metadata }),
     versions: sorted.map(release => release.version),
   }
 }
@@ -95,9 +107,15 @@ class Cache {
   }
 
   usable(plugins: unknown): plugins is GeneratedEntry[] {
-    return invalid(plugins) === undefined
-      && (plugins as GeneratedEntry[]).every(({ icon }) => icon === undefined || icon.startsWith('data:')
-        || (icon.startsWith('icons/') && GENERATED_ICON.test(icon.slice('icons/'.length)) && existsSync(join(this.dir, icon))))
+    return (
+      invalid(plugins) === undefined &&
+      (plugins as GeneratedEntry[]).every(
+        ({ icon }) =>
+          icon === undefined ||
+          icon.startsWith('data:') ||
+          (icon.startsWith('icons/') && GENERATED_ICON.test(icon.slice('icons/'.length)) && existsSync(join(this.dir, icon))),
+      )
+    )
   }
 
   /** @returns cached plugins, or undefined when the record is absent or unusable. */
@@ -129,13 +147,17 @@ class Cache {
 
 /** Build a release from a version's manifest, or warn why the version is not listed. */
 function releaseOf(
-  name: string, manifest: Manifest, version: string, publishTimestamp: number, source: Record<string, string>,
+  name: string,
+  manifest: Manifest,
+  version: string,
+  publishTimestamp: number,
+  source: Record<string, string>,
   warn: (message: string) => void,
 ): Release | undefined {
   const range = dshRange(manifest)
   const release = {
     name,
-    version: { version, publishTimestamp, source, ...typeof range === 'string' ? { engines: { dsh: range } } : {} },
+    version: { version, publishTimestamp, source, ...(typeof range === 'string' ? { engines: { dsh: range } } : {}) },
   }
   const problem = range instanceof Error ? range.message : invalid([entryOf(name, [release])])?.replace('$.plugins[0]', 'entry')
   if (problem === undefined) return release
@@ -144,10 +166,17 @@ function releaseOf(
 }
 
 async function readDisplay(
-  files: PackageFiles, manifest: Manifest, label: string, options: GenerateOptions, icons: IconFile[],
+  files: PackageFiles,
+  manifest: Manifest,
+  label: string,
+  options: GenerateOptions,
+  icons: IconFile[],
 ): Promise<Display> {
   const { display, iconFile } = await readDisplayMetadata(files, manifest, {
-    inlineBytes: options.inlineIconBytes, warn: (message) => { options.warn(`${label}: ${message}`) },
+    inlineBytes: options.inlineIconBytes,
+    warn: message => {
+      options.warn(`${label}: ${message}`)
+    },
   })
   if (iconFile !== undefined) icons.push(iconFile)
   return display
@@ -159,8 +188,10 @@ async function readDisplay(
  */
 async function readNpm(source: Extract<Source, { kind: 'npm' }>, options: GenerateOptions, cache: Cache): Promise<GeneratedEntry[]> {
   const packument = await npmPackument(options.registry, source.name, options.limits)
-  const npmSource = { type: 'npm', ...options.recordRegistry ? { registry: options.registry } : {} }
-  const warn = (message: string) => { options.warn(`${source.line}: ${message}`) }
+  const npmSource = { type: 'npm', ...(options.recordRegistry ? { registry: options.registry } : {}) }
+  const warn = (message: string) => {
+    options.warn(`${source.line}: ${message}`)
+  }
   const releases = Object.entries(packument.versions ?? {}).flatMap(([version, manifest]) => {
     const published = packument.time?.[version]
     const deprecated = typeof manifest.deprecated === 'string' && manifest.deprecated !== ''
@@ -172,13 +203,24 @@ async function readNpm(source: Extract<Source, { kind: 'npm' }>, options: Genera
     warn('no published version declares dsh.bundle')
     return []
   }
-  const file = cache.file('npm', options.registry, options.inlineIconBytes, source.name, releases.map(release => release.version.version).sort())
+  const file = cache.file(
+    'npm',
+    options.registry,
+    options.inlineIconBytes,
+    source.name,
+    releases.map(release => release.version.version).sort(),
+  )
   const cached = cache.plugins(file)
   if (cached !== undefined) return cached
   const { files, manifest } = await npmTarball(source.name, highest, packument.versions?.[highest]?.dist, options.limits)
   const icons: IconFile[] = []
   const display = await readDisplay(files, manifest, `${source.name}@${highest}`, options, icons)
-  const plugins = [entryOf(source.name, releases.map(release => release.version.version === highest ? { ...release, display } : release))]
+  const plugins = [
+    entryOf(
+      source.name,
+      releases.map(release => (release.version.version === highest ? { ...release, display } : release)),
+    ),
+  ]
   cache.write(file, { plugins }, icons)
   return plugins
 }
@@ -194,7 +236,7 @@ interface ReleaseTag {
 
 function releaseTag(tag: string, commit: string): ReleaseTag | undefined {
   const { name, version = '' } = /^(?:(?<name>.+)@|v)?(?<version>[^@]+)$/u.exec(tag)?.groups ?? {}
-  return semver.valid(version) === version ? { tag, commit, version, ...name === undefined ? {} : { name } } : undefined
+  return semver.valid(version) === version ? { tag, commit, version, ...(name === undefined ? {} : { name }) } : undefined
 }
 
 /**
@@ -205,21 +247,32 @@ async function readGit(source: Extract<Source, { kind: 'git' }>, options: Genera
   const transports = options.gitTransports ?? ['https', 'ssh']
   const refs = await gitRefs(source.url, transports, options.limits)
   const tags = [...refs.tags].flatMap(([tag, commit]) => releaseTag(tag, commit) ?? [])
-  const file = cache.file('git', options.inlineIconBytes, source.url, refs.head, tags.map(tag => [tag.tag, tag.commit]))
+  const file = cache.file(
+    'git',
+    options.inlineIconBytes,
+    source.url,
+    refs.head,
+    tags.map(tag => [tag.tag, tag.commit]),
+  )
   const cached = cache.plugins(file)
   if (cached !== undefined) return cached
-  const warn = (message: string) => { options.warn(`${source.line}: ${message}`) }
+  const warn = (message: string) => {
+    options.warn(`${source.line}: ${message}`)
+  }
   const unitFile = (kind: string, commit: string, path: string) => cache.file(kind, options.inlineIconBytes, source.url, commit, path)
-  const plugins = await withGitObjects(source.url, refs, transports, options.limits, async (objects) => {
+  const plugins = await withGitObjects(source.url, refs, transports, options.limits, async objects => {
     const packages = await headPackages(await objects.tree(refs.head, ''), warn)
     // Lower ranks win when several commits carry one version: `<name>@` tags, then unified tags, then the default branch.
     const units = [
-      ...tags.flatMap(tag => packages.filter(found => tag.name === undefined || tag.name === found.name)
-        .map(found => ({ found, commit: tag.commit, version: tag.version, rank: tag.name === undefined ? 1 : 0 }))),
+      ...tags.flatMap(tag =>
+        packages
+          .filter(found => tag.name === undefined || tag.name === found.name)
+          .map(found => ({ found, commit: tag.commit, version: tag.version, rank: tag.name === undefined ? 1 : 0 })),
+      ),
       ...packages.map(found => ({ found, commit: refs.head, version: undefined, rank: 2 })),
     ].map(unit => ({ ...unit, file: unitFile('release', unit.commit, unit.found.path) }))
     const cached = new Map(units.map(unit => [unit.file, cache.release(unit.file)]))
-    await objects.fetch(units.flatMap(unit => cached.get(unit.file) === undefined ? [unit.commit] : []))
+    await objects.fetch(units.flatMap(unit => (cached.get(unit.file) === undefined ? [unit.commit] : [])))
     const releases = new Map<string, Release | null>()
     const candidates: { release: Release; rank: number; path: string }[] = []
     for (const unit of units) {
@@ -239,11 +292,14 @@ async function readGit(source: Extract<Source, { kind: 'git' }>, options: Genera
     }
     const entries: GeneratedEntry[] = []
     for (const [name, versions] of chosen) {
-      const highest = entryOf(name, [...versions.values()].map(choice => choice.release)).versions[0]
+      const highest = entryOf(
+        name,
+        [...versions.values()].map(choice => choice.release),
+      ).versions[0]
       if (highest === undefined) continue
       const { path } = versions.get(highest.version) as { path: string }
       const display = await readGitDisplay(objects, highest.source.commit as string, path, `${name}@${highest.version}`)
-      const listed = [...versions.values()].map(({ release }) => release.version === highest ? { ...release, display } : release)
+      const listed = [...versions.values()].map(({ release }) => (release.version === highest ? { ...release, display } : release))
       entries.push(entryOf(name, listed))
     }
     return entries
@@ -260,9 +316,11 @@ async function readGit(source: Extract<Source, { kind: 'git' }>, options: Genera
     try {
       const files = await objects.tree(commit, path)
       const manifest = await readManifest(files, '')
-      const gitSource = { type: 'git', url: source.url, commit, ...path === '' ? {} : { path } }
-      release = isBundle(manifest) && typeof manifest?.name === 'string' && typeof manifest.version === 'string'
-        ? releaseOf(manifest.name, manifest, manifest.version, await objects.committed(commit), gitSource, warn) ?? null : null
+      const gitSource = { type: 'git', url: source.url, commit, ...(path === '' ? {} : { path }) }
+      release =
+        isBundle(manifest) && typeof manifest?.name === 'string' && typeof manifest.version === 'string'
+          ? (releaseOf(manifest.name, manifest, manifest.version, await objects.committed(commit), gitSource, warn) ?? null)
+          : null
     } catch (error) {
       warn(`${commit}:${path} skipped: ${(error as Error).message}`)
       release = null
@@ -278,7 +336,7 @@ async function readGit(source: Extract<Source, { kind: 'git' }>, options: Genera
     if (known !== undefined) return known
     const files = await objects.tree(commit, path)
     const icons: IconFile[] = []
-    const display = await readDisplay(files, await readManifest(files, '') as Manifest, label, options, icons)
+    const display = await readDisplay(files, (await readManifest(files, '')) as Manifest, label, options, icons)
     cache.write(displayFile, { display }, icons)
     return display
   }
@@ -321,7 +379,11 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
   const cache = new Cache(options.cacheDir)
   const failed: (string | undefined)[] = new Array<string | undefined>(options.sources.length)
   const results = await mapLimited(options.sources, options.concurrency, async (source, position) => {
-    const lastFile = join(options.cacheDir, 'last', `${cacheKey(JSON.stringify([CACHE_VERSION, options.registry, options.inlineIconBytes, source.line]))}.json`)
+    const lastFile = join(
+      options.cacheDir,
+      'last',
+      `${cacheKey(JSON.stringify([CACHE_VERSION, options.registry, options.inlineIconBytes, source.line]))}.json`,
+    )
     try {
       const plugins = source.kind === 'npm' ? await readNpm(source, options, cache) : await readGit(source, options, cache)
       cache.write(lastFile, { plugins }, [])
@@ -350,7 +412,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
   const index = {
     format: 1 as const,
     title: options.title,
-    ...options.description === undefined ? {} : { description: options.description },
+    ...(options.description === undefined ? {} : { description: options.description }),
     plugins,
   }
   parseMarketIndex(index, VALIDATION_URL)

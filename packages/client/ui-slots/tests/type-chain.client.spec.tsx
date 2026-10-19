@@ -2,11 +2,19 @@
 // composed register constraint — children spec x SlotMap alignment, renderSlot
 // key-set containment, store share matching, inject face completeness — plus
 // the full positive chain. Bodies with @ts-expect-error sites never run.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { ReactNode } from 'react'
 import type {
-  BoundActions, DefineStore, FactoryComponentPropsOf, FactoryLocalComponentPropsOf,
-  PropsRenderFactories, PropsRenderSlots, PropsRuntime, PropsStore, SlotComponent, SlotHookFactory,
+  BoundActions,
+  DefineStore,
+  FactoryComponentPropsOf,
+  FactoryLocalComponentPropsOf,
+  PropsRenderFactories,
+  PropsRenderSlots,
+  PropsRuntime,
+  PropsStore,
+  SlotComponent,
+  SlotHookFactory,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotCore } from '@deepseek-ai/dsh-client-ui-slots'
 
@@ -65,7 +73,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** Chain-currency fixture: the owner share carries a union the selectors narrow. */
-interface Item { kind: 'q' | 'a'; id: string }
+interface Item {
+  kind: 'q' | 'a'
+  id: string
+}
 
 declare const defineStore: DefineStore
 
@@ -75,35 +86,44 @@ function createPanelStore() {
     init: () => ({ sidebar: 280, details: 0 }),
     persist: 'test.panels',
     actions: {
-      setSidebar: (d, px: number) => { d.sidebar = px },
-      setDetails: (d, px: number) => { d.details = px },
+      setSidebar: (d, px: number) => {
+        d.sidebar = px
+      },
+      setDetails: (d, px: number) => {
+        d.details = px
+      },
     },
   })
 }
 
-const _chatStore = () => defineStore({
-  init: () => ({ selection: null as { id: string } | null, draft: '' }),
-  actions: {
-    select: (d, t: { id: string }) => { d.selection = t },
-    setDraft: (d, text: string) => { d.draft = text },
-    clearDraft: (d) => { d.draft = '' },
-  },
-})
+const _chatStore = () =>
+  defineStore({
+    init: () => ({ selection: null as { id: string } | null, draft: '' }),
+    actions: {
+      select: (d, t: { id: string }) => {
+        d.selection = t
+      },
+      setDraft: (d, text: string) => {
+        d.draft = text
+      },
+      clearDraft: d => {
+        d.draft = ''
+      },
+    },
+  })
 type ChatHandle = ReturnType<typeof _chatStore>
 
-type FrameProps =
-  & PropsRuntime<'chain.frame'>
-  & PropsRenderSlots<'chain.side' | 'chain.conv'>
-  & PropsRenderFactories
-  & PropsStore<ReturnType<typeof createPanelStore>>
-  & { openSettings: () => void }
+type FrameProps = PropsRuntime<'chain.frame'> &
+  PropsRenderSlots<'chain.side' | 'chain.conv'> &
+  PropsRenderFactories &
+  PropsStore<ReturnType<typeof createPanelStore>> & { openSettings: () => void }
 
-type ConvProps =
-  & PropsRuntime<'chain.conv'>
-  & PropsStore<ChatHandle>
-  & { send: (t: string) => void }
+type ConvProps = PropsRuntime<'chain.conv'> & PropsStore<ChatHandle> & { send: (t: string) => void }
 
-interface TurnDataMap { tail: string; files: string }
+interface TurnDataMap {
+  tail: string
+  files: string
+}
 type UseTurnData = <Key extends keyof TurnDataMap>(key: Key) => TurnDataMap[Key] | undefined
 interface ContextInjected {
   hooks: {
@@ -115,7 +135,7 @@ const CONTEXT_INJECT: ContextInjected = {
   hooks: {
     turnData: (_standard, hookContext) => {
       const id: string = hookContext
-      return key => id === '' ? undefined : ({ tail: 'tail', files: 'files' })[key]
+      return key => (id === '' ? undefined : { tail: 'tail', files: 'files' }[key])
     },
   },
 }
@@ -137,9 +157,7 @@ declare function WideTakeover(props: PropsRuntime<'chain.takeover'> & { matched:
 declare function NarrowTakeover(props: PropsRuntime<'chain.takeover'> & { matched: { kind: 'q'; id: string; extra: number } }): ReactNode
 declare function FactoryBody(props: FactoryComponentPropsOf<'chain.factory'>): ReactNode
 declare function FactoryViews(props: FactoryLocalComponentPropsOf<'chain.factory', 'views'>): ReactNode
-declare function NarrowFactoryViews(
-  props: FactoryLocalComponentPropsOf<'chain.factory', 'views'> & { missing: boolean },
-): ReactNode
+declare function NarrowFactoryViews(props: FactoryLocalComponentPropsOf<'chain.factory', 'views'> & { missing: boolean }): ReactNode
 declare function OverlappingFactory(props: FactoryComponentPropsOf<'chain.factory.overlap'>): ReactNode
 declare function LocalOverlappingFactory(props: FactoryComponentPropsOf<'chain.factory.local-overlap'>): ReactNode
 declare function BadChildFactory(props: FactoryComponentPropsOf<'chain.factory.bad-child'>): ReactNode
@@ -151,31 +169,37 @@ describe('terminal-design type chain', () => {
     const samples = (core: SlotCore, chat: ChatHandle, fp: FrameProps, cp: ConvProps, acts: BoundActions<ChatHandle>) => {
       // ── positive chain ─────────────────────────────────────────────
       // Frame: children + factory store + inject; actions arrive baked.
-      core.register({
-        name: 'chain.frame',
-        children: {
-          'chain.side': { kind: 'single', scope: 'root' },
-          'chain.conv': { kind: 'single', scope: 'session' },
+      core.register(
+        {
+          name: 'chain.frame',
+          children: {
+            'chain.side': { kind: 'single', scope: 'root' },
+            'chain.conv': { kind: 'single', scope: 'session' },
+          },
+          store: createPanelStore,
+          inject: actions => {
+            actions.setSidebar(0)
+            return { openSettings: () => {} }
+          },
         },
-        store: createPanelStore,
-        inject: (actions) => {
-          actions.setSidebar(0)
-          return { openSettings: () => {} }
-        },
-      }, Frame)
+        Frame,
+      )
 
       // Conv: shared handle; inject params derive as (sessionId, actions).
-      core.register({
-        name: 'chain.conv',
-        store: chat,
-        inject: (sessionId, actions) => ({
-          send: (text: string) => {
-            const sid: string = sessionId
-            actions.setDraft(text)
-            void sid
-          },
-        }),
-      }, Conv)
+      core.register(
+        {
+          name: 'chain.conv',
+          store: chat,
+          inject: (sessionId, actions) => ({
+            send: (text: string) => {
+              const sid: string = sessionId
+              actions.setDraft(text)
+              void sid
+            },
+          }),
+        },
+        Conv,
+      )
 
       // Pure reader: same handle, no inject.
       core.register({ name: 'chain.conv', store: chat }, Details)
@@ -194,18 +218,24 @@ describe('terminal-design type chain', () => {
       // Chain registration: select is mandatory, M infers from its return,
       // matched joins the component constraint; priority is the explicit
       // chain position.
-      core.register({
-        name: 'chain.takeover',
-        select: ({ items }) => items.find(i => i.kind === 'q') ?? null,
-        priority: 1,
-      }, Takeover)
+      core.register(
+        {
+          name: 'chain.takeover',
+          select: ({ items }) => items.find(i => i.kind === 'q') ?? null,
+          priority: 1,
+        },
+        Takeover,
+      )
 
       // A component accepting a wider matched than the selector supplies
       // checks through parameter contravariance.
-      core.register({
-        name: 'chain.takeover',
-        select: ({ items }) => items.find(i => i.kind === 'q') ?? null,
-      }, WideTakeover)
+      core.register(
+        {
+          name: 'chain.takeover',
+          select: ({ items }) => items.find(i => i.kind === 'q') ?? null,
+        },
+        WideTakeover,
+      )
 
       // renderSlotChain share: chain keys dispatch with the fallback bag;
       // non-chain keys stay on renderSlot.
@@ -216,33 +246,46 @@ describe('terminal-design type chain', () => {
       // A parent registration declares the Slot inject once; every child
       // entry receives the same custom Hook, bound to official standard props
       // and each render occurrence's opaque context.
-      core.register({
-        name: 'chain.frame',
-        children: {
-          'chain.context': { kind: 'single', scope: 'session', inject: CONTEXT_INJECT },
+      core.register(
+        {
+          name: 'chain.frame',
+          children: {
+            'chain.context': { kind: 'single', scope: 'session', inject: CONTEXT_INJECT },
+          },
         },
-      }, ContextOwner)
+        ContextOwner,
+      )
       core.register({ name: 'chain.context' }, ContextReader)
       const contextProps: ContextProps = null as never
       const tail: string | undefined = contextProps.useTurnData('tail')
       const contextSlots: PropsRenderSlots<'chain.context'> = null as never
-      contextSlots.renderSlot('chain.context', {}, {
-        hookContext: 'turn:1',
-      })
+      contextSlots.renderSlot(
+        'chain.context',
+        {},
+        {
+          hookContext: 'turn:1',
+        },
+      )
       void tail
 
       // ── negatives ──────────────────────────────────────────────────
       // children spec must match the SlotMap entry.
-      core.register({
-        name: 'chain.frame',
-        // @ts-expect-error chain.conv is session-scoped in SlotMap
-        children: { 'chain.conv': { kind: 'single', scope: 'root' } },
-      }, (() => null) as SlotComponent<never>)
-      core.register({
-        name: 'chain.frame',
-        // @ts-expect-error chain.context requires its Slot-level inject declaration
-        children: { 'chain.context': { kind: 'single', scope: 'session' } },
-      }, ContextOwner)
+      core.register(
+        {
+          name: 'chain.frame',
+          // @ts-expect-error chain.conv is session-scoped in SlotMap
+          children: { 'chain.conv': { kind: 'single', scope: 'root' } },
+        },
+        (() => null) as SlotComponent<never>,
+      )
+      core.register(
+        {
+          name: 'chain.frame',
+          // @ts-expect-error chain.context requires its Slot-level inject declaration
+          children: { 'chain.context': { kind: 'single', scope: 'session' } },
+        },
+        ContextOwner,
+      )
 
       // renderSlot key set ⊄ children declaration.
       // @ts-expect-error component renderSlot keys exceed the declaration
@@ -267,11 +310,14 @@ describe('terminal-design type chain', () => {
       core.register({ name: 'chain.conv' }, Needs)
 
       // root-scope inject takes no sessionId.
-      core.register({
-        name: 'chain.side',
-        // @ts-expect-error root-scope inject has no sessionId parameter
-        inject: (sessionId: string) => ({ x: sessionId }),
-      }, (_p => null) as SlotComponent<PropsRuntime<'chain.side'> & { x: string }>)
+      core.register(
+        {
+          name: 'chain.side',
+          // @ts-expect-error root-scope inject has no sessionId parameter
+          inject: (sessionId: string) => ({ x: sessionId }),
+        },
+        (_p => null) as SlotComponent<PropsRuntime<'chain.side'> & { x: string }>,
+      )
 
       // keyed registration without key.
       // @ts-expect-error keyed registration requires options.key
@@ -285,17 +331,23 @@ describe('terminal-design type chain', () => {
       // supply (NoInfer pins M to the select return — the component position
       // must not widen it).
       // @ts-expect-error component matched prop drifts from the select return
-      core.register({
-        name: 'chain.takeover',
-        select: ({ items }: { items: readonly Item[] }) => items.find(i => i.kind === 'q') ?? null,
-      }, NarrowTakeover)
+      core.register(
+        {
+          name: 'chain.takeover',
+          select: ({ items }: { items: readonly Item[] }) => items.find(i => i.kind === 'q') ?? null,
+        },
+        NarrowTakeover,
+      )
 
       // select must return M | null, not undefined (find() must be coalesced).
       // @ts-expect-error select may not return undefined
-      core.register({
-        name: 'chain.takeover',
-        select: ({ items }: { items: readonly Item[] }) => items.find(i => i.kind === 'q'),
-      }, Takeover)
+      core.register(
+        {
+          name: 'chain.takeover',
+          select: ({ items }: { items: readonly Item[] }) => items.find(i => i.kind === 'q'),
+        },
+        Takeover,
+      )
 
       // Chain keys are not renderSlot-dispatchable (and vice versa).
       // @ts-expect-error chain keys dispatch through renderSlotChain only
@@ -317,8 +369,7 @@ describe('terminal-design type chain', () => {
       // @ts-expect-error a contextual slot requires its occurrence context
       contextSlots.renderSlot('chain.context', {})
       // @ts-expect-error hookContext is the slot-declared string
-      const _wrongContextFactory: SlotHookFactory<'chain.context', UseTurnData> =
-        (_standard, _hookContext: number) => () => undefined
+      const _wrongContextFactory: SlotHookFactory<'chain.context', UseTurnData> = (_standard, _hookContext: number) => () => undefined
       void _wrongContextFactory
 
       // baked actions strip the draft parameter.
@@ -333,24 +384,31 @@ describe('terminal-design type chain', () => {
       void sideOnly.SessionProvider
 
       // Factory registration derives every supplied share from one map entry.
-      core.registerFactory({
-        name: 'chain.factory',
-        scope: 'session',
-        children: { 'chain.side': { kind: 'single', scope: 'root' } },
-        store: chat,
-        inject: (sessionId, actions) => ({
-          send: (text: string) => {
-            const sid: string = sessionId
-            actions.setDraft(text)
-            void sid
-          },
-        }),
-        locale: 'chain.factory',
-        slots: { views: { scope: 'session' } },
-      }, FactoryBody)
-      fp.renderFactorySlot('chain.factory', { tone: 'quiet' }, {
-        slots: { views: FactoryViews },
-      })
+      core.registerFactory(
+        {
+          name: 'chain.factory',
+          scope: 'session',
+          children: { 'chain.side': { kind: 'single', scope: 'root' } },
+          store: chat,
+          inject: (sessionId, actions) => ({
+            send: (text: string) => {
+              const sid: string = sessionId
+              actions.setDraft(text)
+              void sid
+            },
+          }),
+          locale: 'chain.factory',
+          slots: { views: { scope: 'session' } },
+        },
+        FactoryBody,
+      )
+      fp.renderFactorySlot(
+        'chain.factory',
+        { tone: 'quiet' },
+        {
+          slots: { views: FactoryViews },
+        },
+      )
 
       const factoryProps = null as never as FactoryComponentPropsOf<'chain.factory'>
       const Views = factoryProps.useFactorySlot('views', FactoryViews)
@@ -366,42 +424,57 @@ describe('terminal-design type chain', () => {
       fp.renderFactorySlot('chain.factory', { tone: 'quiet' }, { slots: { other: FactoryViews } })
       // @ts-expect-error selected local Component requires unsupported props
       fp.renderFactorySlot('chain.factory', { tone: 'quiet' }, { slots: { views: NarrowFactoryViews } })
-      core.registerFactory({
-        name: 'chain.factory',
-        // @ts-expect-error Factory scope must match the declaration
-        scope: 'root',
-        children: { 'chain.side': { kind: 'single', scope: 'root' } },
-        store: chat,
-        inject: (_sessionId, _actions) => ({ send: (_text: string) => {} }),
-        locale: 'chain.factory',
-        slots: { views: { scope: 'session' } },
-      }, FactoryBody)
+      core.registerFactory(
+        {
+          name: 'chain.factory',
+          // @ts-expect-error Factory scope must match the declaration
+          scope: 'root',
+          children: { 'chain.side': { kind: 'single', scope: 'root' } },
+          store: chat,
+          inject: (_sessionId, _actions) => ({ send: (_text: string) => {} }),
+          locale: 'chain.factory',
+          slots: { views: { scope: 'session' } },
+        },
+        FactoryBody,
+      )
       // @ts-expect-error Factory input may not replace a framework-provided prop
       core.registerFactory({ name: 'chain.factory.overlap', scope: 'root' }, OverlappingFactory)
-      // @ts-expect-error Factory registration props may not replace a local slot's scope props
-      core.registerFactory({
-        name: 'chain.factory.local-overlap',
-        scope: 'root',
-        inject: () => ({ sessionId: 'wrong owner' }),
-        slots: { views: { scope: 'session' } },
-      }, LocalOverlappingFactory)
-      // @ts-expect-error Factory children must match their SlotMap declarations
-      core.registerFactory({
-        name: 'chain.factory.bad-child',
-        scope: 'root',
-        children: { 'chain.conv': { kind: 'single', scope: 'root' } },
-      }, BadChildFactory)
-      core.registerFactory({
-        name: 'chain.factory.factory-store',
-        scope: 'root',
-        store: createPanelStore,
-      }, FactoryStoreBody)
-      core.registerFactory({
-        name: 'chain.factory.factory-store',
-        scope: 'root',
-        // @ts-expect-error a StoreFactory declaration accepts a handle or one StoreFactory, not a nested factory
-        store: () => createPanelStore,
-      }, FactoryStoreBody)
+      core.registerFactory(
+        // @ts-expect-error Factory registration props may not replace a local slot's scope props
+        {
+          name: 'chain.factory.local-overlap',
+          scope: 'root',
+          inject: () => ({ sessionId: 'wrong owner' }),
+          slots: { views: { scope: 'session' } },
+        },
+        LocalOverlappingFactory,
+      )
+      core.registerFactory(
+        // @ts-expect-error Factory children must match their SlotMap declarations
+        {
+          name: 'chain.factory.bad-child',
+          scope: 'root',
+          children: { 'chain.conv': { kind: 'single', scope: 'root' } },
+        },
+        BadChildFactory,
+      )
+      core.registerFactory(
+        {
+          name: 'chain.factory.factory-store',
+          scope: 'root',
+          store: createPanelStore,
+        },
+        FactoryStoreBody,
+      )
+      core.registerFactory(
+        {
+          name: 'chain.factory.factory-store',
+          scope: 'root',
+          // @ts-expect-error a StoreFactory declaration accepts a handle or one StoreFactory, not a nested factory
+          store: () => createPanelStore,
+        },
+        FactoryStoreBody,
+      )
     }
     expect(samples).toBeTypeOf('function')
   })

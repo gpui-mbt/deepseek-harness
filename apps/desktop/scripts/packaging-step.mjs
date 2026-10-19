@@ -10,7 +10,14 @@ import { recordPackagingEvent, packagingOutputRedactor } from './packaging-run.m
  * @param {readonly string[]} secrets Credential values removed from errors.
  * @returns {Promise<unknown>} Action result; logging failures also reject the phase.
  */
-export async function packagingStep(directory, stage, action, secrets = Object.entries(process.env).filter(([name]) => /KEY|SECRET|TOKEN|PASSWORD|APPLE_ID/iu.test(name)).map(([, value]) => value ?? '')) {
+export async function packagingStep(
+  directory,
+  stage,
+  action,
+  secrets = Object.entries(process.env)
+    .filter(([name]) => /KEY|SECRET|TOKEN|PASSWORD|APPLE_ID/iu.test(name))
+    .map(([, value]) => value ?? ''),
+) {
   if (directory === undefined) return action()
   const stageId = randomUUID()
   const started = performance.now()
@@ -21,7 +28,14 @@ export async function packagingStep(directory, stage, action, secrets = Object.e
     return result
   } catch (error) {
     const message = packagingErrorDetails(error, secrets)
-    recordPackagingEvent(directory, { type: 'stage-end', stage, stageId, elapsedMs: performance.now() - started, success: false, error: message })
+    recordPackagingEvent(directory, {
+      type: 'stage-end',
+      stage,
+      stageId,
+      elapsedMs: performance.now() - started,
+      success: false,
+      error: message,
+    })
     throw error
   }
 }
@@ -38,11 +52,16 @@ export function packagingErrorDetails(error, secrets) {
     if (!(value instanceof Error)) return String(value)
     if (seen.has(value)) return '[circular error]'
     seen.add(value)
-    return [value.stack ?? value.message, ...(value instanceof AggregateError ? value.errors.map(details) : []),
-      ...(value.cause === undefined ? [] : [details(value.cause)])].join('\n')
+    return [
+      value.stack ?? value.message,
+      ...(value instanceof AggregateError ? value.errors.map(details) : []),
+      ...(value.cause === undefined ? [] : [details(value.cause)]),
+    ].join('\n')
   }
   let message = ''
-  const redactor = packagingOutputRedactor(secrets, text => { message += text })
+  const redactor = packagingOutputRedactor(secrets, text => {
+    message += text
+  })
   redactor.write(Buffer.from(details(error)))
   redactor.end()
   return message

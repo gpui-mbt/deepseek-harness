@@ -34,27 +34,50 @@ const WORKLOADS = {
 
 const stateSchema = z.object({
   sessionOrdinal: z.number().int(),
-  events: z.array(z.object({
-    ordinal: z.number().int().nonnegative(),
-    category: z.enum(['input', 'output', 'tool']),
-    metrics: z.object({ tokens: z.number().int(), bytes: z.number().int(), elapsedMs: z.number().int() }),
-    content: z.array(z.object({ kind: z.enum(['text', 'metadata']), text: z.string() })),
-    tags: z.array(z.string()),
-  })),
-  requests: z.array(z.object({
-    ordinal: z.number().int(), firstRow: z.number().int(), lastRow: z.number().int(),
-    route: z.object({ provider: z.string(), model: z.string(), options: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])) }),
-    usage: z.object({ inputTokens: z.number().int(), outputTokens: z.number().int(), cache: z.object({ hit: z.number().int(), miss: z.number().int() }) }),
-    references: z.array(z.object({ ordinal: z.number().int(), weight: z.number() })),
-  })),
+  events: z.array(
+    z.object({
+      ordinal: z.number().int().nonnegative(),
+      category: z.enum(['input', 'output', 'tool']),
+      metrics: z.object({ tokens: z.number().int(), bytes: z.number().int(), elapsedMs: z.number().int() }),
+      content: z.array(z.object({ kind: z.enum(['text', 'metadata']), text: z.string() })),
+      tags: z.array(z.string()),
+    }),
+  ),
+  requests: z.array(
+    z.object({
+      ordinal: z.number().int(),
+      firstRow: z.number().int(),
+      lastRow: z.number().int(),
+      route: z.object({
+        provider: z.string(),
+        model: z.string(),
+        options: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+      }),
+      usage: z.object({
+        inputTokens: z.number().int(),
+        outputTokens: z.number().int(),
+        cache: z.object({ hit: z.number().int(), miss: z.number().int() }),
+      }),
+      references: z.array(z.object({ ordinal: z.number().int(), weight: z.number() })),
+    }),
+  ),
   totals: z.object({ rows: z.number().int(), requests: z.number().int(), tokens: z.number().int() }),
 })
-const viewSchema = z.object({ sessionOrdinal: z.number().int(), rows: z.number().int(), requests: z.number().int(), tokens: z.number().int() })
+const viewSchema = z.object({
+  sessionOrdinal: z.number().int(),
+  rows: z.number().int(),
+  requests: z.number().int(),
+  tokens: z.number().int(),
+})
 type ProjectionState = z.infer<typeof stateSchema>
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
-  interface SessionProjectionStateMap { syntheticProjectionList: ProjectionState }
-  interface SessionProjectionMap { syntheticProjectionList: z.infer<typeof viewSchema> }
+  interface SessionProjectionStateMap {
+    syntheticProjectionList: ProjectionState
+  }
+  interface SessionProjectionMap {
+    syntheticProjectionList: z.infer<typeof viewSchema>
+  }
 }
 
 interface Memory {
@@ -96,29 +119,45 @@ interface ViewObservation {
 }
 
 function headerOf(ordinal: number): SessionHeader {
-  return { version: SESSION_FORMAT_VERSION, id: SessionId(`projection-bench-${ordinal}`),
-    createdAt: BASE_TIME + ordinal, cwd: CWD, isSeeded: false, delegationDepth: 0 }
+  return {
+    version: SESSION_FORMAT_VERSION,
+    id: SessionId(`projection-bench-${ordinal}`),
+    createdAt: BASE_TIME + ordinal,
+    cwd: CWD,
+    isSeeded: false,
+    delegationDepth: 0,
+  }
 }
 
 function makeState(sessionOrdinal: number, baseRows: number): ProjectionState {
-  const count = Math.floor(baseRows * ROW_PERCENTAGES[sessionOrdinal % ROW_PERCENTAGES.length]! / 100)
+  const count = Math.floor((baseRows * ROW_PERCENTAGES[sessionOrdinal % ROW_PERCENTAGES.length]!) / 100)
   const events: ProjectionState['events'] = Array.from({ length: count }, (_, ordinal) => ({
-    ordinal, category: (['input', 'output', 'tool'] as const)[ordinal % 3]!,
-    metrics: { tokens: 32 + ordinal % 97, bytes: 128 + ordinal % 257, elapsedMs: ordinal % 41 },
+    ordinal,
+    category: (['input', 'output', 'tool'] as const)[ordinal % 3]!,
+    metrics: { tokens: 32 + (ordinal % 97), bytes: 128 + (ordinal % 257), elapsedMs: ordinal % 41 },
     content: [
-      { kind: 'text', text: `Generated observation ${sessionOrdinal}:${ordinal}. ` + 'Synthetic text. '.repeat(4 + ordinal % 4) },
+      { kind: 'text', text: `Generated observation ${sessionOrdinal}:${ordinal}. ` + 'Synthetic text. '.repeat(4 + (ordinal % 4)) },
       { kind: 'metadata', text: `bucket-${ordinal % 11}` },
     ],
     tags: [`group-${sessionOrdinal % 7}`, `kind-${ordinal % 3}`],
   }))
   const requests = Array.from({ length: Math.ceil(count / 8) }, (_, ordinal) => ({
-    ordinal, firstRow: ordinal * 8, lastRow: Math.min(count - 1, ordinal * 8 + 7),
+    ordinal,
+    firstRow: ordinal * 8,
+    lastRow: Math.min(count - 1, ordinal * 8 + 7),
     route: { provider: 'synthetic', model: 'generated-model', options: { temperature: 0, streaming: true, tier: 'fixed' } },
-    usage: { inputTokens: 100 + ordinal % 500, outputTokens: 30 + ordinal % 200, cache: { hit: ordinal % 100, miss: 20 } },
-    references: Array.from({ length: Math.min(8, count - ordinal * 8) }, (_, index) => ({ ordinal: ordinal * 8 + index, weight: (index + 1) / 8 })),
+    usage: { inputTokens: 100 + (ordinal % 500), outputTokens: 30 + (ordinal % 200), cache: { hit: ordinal % 100, miss: 20 } },
+    references: Array.from({ length: Math.min(8, count - ordinal * 8) }, (_, index) => ({
+      ordinal: ordinal * 8 + index,
+      weight: (index + 1) / 8,
+    })),
   }))
-  return { sessionOrdinal, events, requests,
-    totals: { rows: count, requests: requests.length, tokens: events.reduce((sum, event) => sum + event.metrics.tokens, 0) } }
+  return {
+    sessionOrdinal,
+    events,
+    requests,
+    totals: { rows: count, requests: requests.length, tokens: events.reduce((sum, event) => sum + event.metrics.tokens, 0) },
+  }
 }
 
 async function mountStorage(ctx: Context, root: string): Promise<void> {
@@ -127,7 +166,7 @@ async function mountStorage(ctx: Context, root: string): Promise<void> {
   await ctx.plugin(StorageDomain, { backend: 'json' })
 }
 
-async function seed(root: string, workload: typeof WORKLOADS[keyof typeof WORKLOADS]): Promise<ProjectionListReport['fixture']> {
+async function seed(root: string, workload: (typeof WORKLOADS)[keyof typeof WORKLOADS]): Promise<ProjectionListReport['fixture']> {
   const ctx = new Context()
   const fixture = { ...workload, totalRows: 0, totalRequests: 0, stateJsonBytes: 0 }
   try {
@@ -145,11 +184,20 @@ async function seed(root: string, workload: typeof WORKLOADS[keyof typeof WORKLO
         const header = headerOf(ordinal)
         const directory = sessionDir(join(root, 'sessions'), header.cwd, header.id)
         await mkdir(directory, { recursive: true })
-        await writeFile(generationLogPath(join(root, 'sessions'), header.cwd, header.id, SESSION_FORMAT_VERSION, 'zstd'),
-          await compressZstdFrame(JSON.stringify(toHeaderLine(header)) + '\n'), { flag: 'wx' })
+        await writeFile(
+          generationLogPath(join(root, 'sessions'), header.cwd, header.id, SESSION_FORMAT_VERSION, 'zstd'),
+          await compressZstdFrame(JSON.stringify(toHeaderLine(header)) + '\n'),
+          { flag: 'wx' },
+        )
         const state = makeState(ordinal, workload.baseRows)
         await table.put(header.id, {
-          identity: { formatVersion: header.version, createdAt: header.createdAt, cwd: header.cwd, isSeeded: false, inheritedEventCount: SessionLogOffset(0) },
+          identity: {
+            formatVersion: header.version,
+            createdAt: header.createdAt,
+            cwd: header.cwd,
+            isSeeded: false,
+            inheritedEventCount: SessionLogOffset(0),
+          },
           rows: {
             [KEY]: { ver: 1, seq: -1, val: state },
             sessionListMetadata: { ver: 1, seq: -1, val: { blank: true, lastPromptAt: null } },
@@ -168,12 +216,20 @@ async function seed(root: string, workload: typeof WORKLOADS[keyof typeof WORKLO
   return fixture
 }
 
-async function mountHost(ctx: Context, root: string, workload: typeof WORKLOADS[keyof typeof WORKLOADS], observation: ViewObservation, listWorkSliceMs?: number): Promise<SessionController> {
+async function mountHost(
+  ctx: Context,
+  root: string,
+  workload: (typeof WORKLOADS)[keyof typeof WORKLOADS],
+  observation: ViewObservation,
+  listWorkSliceMs?: number,
+): Promise<SessionController> {
   await ctx.plugin(SessionStore)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(SessionProjectionRegistry)
   ctx.sessionProjections.register({
-    key: KEY, stateVersion: 1, stateSchema,
+    key: KEY,
+    stateVersion: 1,
+    stateSchema,
     init: header => makeState(Number(header.id.slice('projection-bench-'.length)), workload.baseRows),
     apply: state => state,
     wire: {
@@ -206,7 +262,11 @@ async function mountHost(ctx: Context, root: string, workload: typeof WORKLOADS[
   ctx.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'synthetic', model: 'generated-model' }) } as never)
   ctx.provide('workspaceRegistry', { list: () => [], archivedSessionIds: [] } as never)
   new RemoteAccessService(ctx)
-  return new SessionController(ctx, { nativeOpen: false, ...(listWorkSliceMs === undefined ? {} : { listWorkSliceMs }) }, { canOpenPath: () => false })
+  return new SessionController(
+    ctx,
+    { nativeOpen: false, ...(listWorkSliceMs === undefined ? {} : { listWorkSliceMs }) },
+    { canOpenPath: () => false },
+  )
 }
 
 async function memory(): Promise<Memory> {
@@ -219,7 +279,13 @@ async function memory(): Promise<Memory> {
   return { heapUsedBytes: usage.heapUsed, rssBytes: usage.rss, peakRssBytes: process.resourceUsage().maxRSS * 1024 }
 }
 
-async function measure(controller: SessionController, observation: ViewObservation, sessions: number, baseline: Memory, fullProbe = false): Promise<ListSample> {
+async function measure(
+  controller: SessionController,
+  observation: ViewObservation,
+  sessions: number,
+  baseline: Memory,
+  fullProbe = false,
+): Promise<ListSample> {
   const histogram = monitorEventLoopDelay({ resolution: 1 })
   let immediate: NodeJS.Immediate | undefined
   const initialViews = observation.calls
@@ -228,7 +294,10 @@ async function measure(controller: SessionController, observation: ViewObservati
   let yieldCalls = 0
   Object.defineProperty(scheduler, 'yield', {
     configurable: true,
-    value: () => { yieldCalls++; return yieldWork() },
+    value: () => {
+      yieldCalls++
+      return yieldWork()
+    },
   })
   let queued: Promise<void> | undefined
   let callbackDelayMs = 0
@@ -239,7 +308,7 @@ async function measure(controller: SessionController, observation: ViewObservati
     if (!fullProbe) observation.onView = undefined
     const beforeView = observation.calls - 1
     const start = performance.now()
-    queued = new Promise<void>((resolve) => {
+    queued = new Promise<void>(resolve => {
       immediate = setImmediate(() => {
         const elapsed = performance.now() - start
         if (maxViewsPerBatch === 0) callbackDelayMs = elapsed
@@ -275,10 +344,22 @@ async function measure(controller: SessionController, observation: ViewObservati
     const endpoint = await memory()
     // Both endpoint values remain reachable while GC measures the retained heap.
     assert.ok(json.length > result.items.length)
-    return { listMs: listDone - start, listAndJsonMs: jsonDone - start,
-      listCpuMs: (listCpu.user + listCpu.system) / 1000, listAndJsonCpuMs: (jsonCpu.user + jsonCpu.system) / 1000,
-      callbackDelayMs, maxCallbackDelayMs, maxViewsPerBatch, yieldCalls: listYieldCalls, eventLoopMaxMs, items: result.items.length, wireViews: observation.calls - initialViews,
-      responseJsonBytes: Buffer.byteLength(json), retainedHeapDeltaBytes: endpoint.heapUsedBytes - baseline.heapUsedBytes, memory: endpoint }
+    return {
+      listMs: listDone - start,
+      listAndJsonMs: jsonDone - start,
+      listCpuMs: (listCpu.user + listCpu.system) / 1000,
+      listAndJsonCpuMs: (jsonCpu.user + jsonCpu.system) / 1000,
+      callbackDelayMs,
+      maxCallbackDelayMs,
+      maxViewsPerBatch,
+      yieldCalls: listYieldCalls,
+      eventLoopMaxMs,
+      items: result.items.length,
+      wireViews: observation.calls - initialViews,
+      responseJsonBytes: Buffer.byteLength(json),
+      retainedHeapDeltaBytes: endpoint.heapUsedBytes - baseline.heapUsedBytes,
+      memory: endpoint,
+    }
   } finally {
     observation.onView = undefined
     if (immediate !== undefined) clearImmediate(immediate)
@@ -295,9 +376,11 @@ assertBuiltBenchmarkRuntime(import.meta.url, {
   persistence: import.meta.resolve('@deepseek-ai/dsh-session-persistence-jsonl'),
 })
 const [root, workload, sliceArgument] = process.argv.slice(2)
-if (root === undefined || (workload !== 'modest' && workload !== 'tail' && workload !== 'cheap')) throw new Error('usage: projection-list.worker.js <private-root> <modest|tail|cheap> [work-slice-ms]')
+if (root === undefined || (workload !== 'modest' && workload !== 'tail' && workload !== 'cheap'))
+  throw new Error('usage: projection-list.worker.js <private-root> <modest|tail|cheap> [work-slice-ms]')
 const listWorkSliceMs = sliceArgument === undefined ? undefined : Number(sliceArgument)
-if (listWorkSliceMs !== undefined && (!Number.isSafeInteger(listWorkSliceMs) || listWorkSliceMs < 1)) throw new Error('work-slice-ms must be a positive integer')
+if (listWorkSliceMs !== undefined && (!Number.isSafeInteger(listWorkSliceMs) || listWorkSliceMs < 1))
+  throw new Error('work-slice-ms must be a positive integer')
 const ctx = new Context()
 try {
   const fixture = await seed(root, WORKLOADS[workload])

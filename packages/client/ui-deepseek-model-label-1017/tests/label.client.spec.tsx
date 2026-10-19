@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -32,16 +32,19 @@ const targets = [
   ['deepseek-account', 'deepseek-flash'],
   ['ollama-cloud', 'deepseek-v4.1-flash:1017'],
 ].flatMap(([provider, id]) => placements.map(placement => ({ provider: provider!, id: id!, placement })))
-it.each(targets)('shows the badge for $provider/$id at $placement without rewriting its catalog entry', async ({ provider, id, placement }) => {
-  const { host, session } = await runtime()
-  await host.declare({ [SLOT]: { kind: 'single', scope: 'session', inline: true } })
-  await host.mount(LabelPlugin)
-  const input = owner(provider, NAME, id, placement)
-  const view = host.renderSlot(SLOT, input, { session, fallback: input.model.name })
-  expect(view.container.textContent).toBe(`${NAME} 1017`)
-  expect(view.view.getByText('1017').tagName).toBe('SPAN')
-  expect(input.model).toEqual({ id, name: NAME })
-})
+it.each(targets)(
+  'shows the badge for $provider/$id at $placement without rewriting its catalog entry',
+  async ({ provider, id, placement }) => {
+    const { host, session } = await runtime()
+    await host.declare({ [SLOT]: { kind: 'single', scope: 'session', inline: true } })
+    await host.mount(LabelPlugin)
+    const input = owner(provider, NAME, id, placement)
+    const view = host.renderSlot(SLOT, input, { session, fallback: input.model.name })
+    expect(view.container.textContent).toBe(`${NAME} 1017`)
+    expect(view.view.getByText('1017').tagName).toBe('SPAN')
+    expect(input.model).toEqual({ id, name: NAME })
+  },
+)
 
 it.each([
   { label: 'another provider', value: owner('external') },

@@ -115,13 +115,13 @@ const ZERO_WIDTH = /^[\p{Mn}\p{Me}\p{Cf}\u200b-\u200f\u2060]$/u
  * must stay out of this set.
  */
 const WIDE_CHAR = new RegExp(
-  '\\p{Script=Han}|\\p{Script=Hiragana}|\\p{Script=Katakana}|\\p{Script=Hangul}'
-  // Emoji presentation only: the U+2600-U+27BF symbol block is mostly SINGLE
-  // width — `\u2713` (the check every progress line writes, this fixture
-  // included) advances one column, verified against a real terminal, so taking
-  // the whole block as wide misaligned exactly the output this card exists for.
-  + '|\\p{Emoji_Presentation}'
-  + '|[\\uff01-\\uff60\\u3000-\\u303e]',
+  '\\p{Script=Han}|\\p{Script=Hiragana}|\\p{Script=Katakana}|\\p{Script=Hangul}' +
+    // Emoji presentation only: the U+2600-U+27BF symbol block is mostly SINGLE
+    // width — `\u2713` (the check every progress line writes, this fixture
+    // included) advances one column, verified against a real terminal, so taking
+    // the whole block as wide misaligned exactly the output this card exists for.
+    '|\\p{Emoji_Presentation}' +
+    '|[\\uff01-\\uff60\\u3000-\\u303e]',
   'u',
 )
 
@@ -159,7 +159,13 @@ const SGR_NONE: SgrState = { fg: '', bg: '', attrs: [] }
 
 /** Attribute closers, mapped to the opener parameters each one turns off. */
 const ATTR_CLOSERS: Record<string, readonly string[]> = {
-  22: ['1', '2'], 23: ['3'], 24: ['4'], 25: ['5', '6'], 27: ['7'], 28: ['8'], 29: ['9'],
+  22: ['1', '2'],
+  23: ['3'],
+  24: ['4'],
+  25: ['5', '6'],
+  27: ['7'],
+  28: ['8'],
+  29: ['9'],
 }
 
 /**
@@ -173,7 +179,10 @@ function foldSgr(state: SgrState, params: string): SgrState {
   let next = state
   for (let index = 0; index < codes.length; index++) {
     const code = String(codes[index])
-    if (code === '' || code === '0') { next = SGR_NONE; continue }
+    if (code === '' || code === '0') {
+      next = SGR_NONE
+      continue
+    }
     // Extended color: `38;5;N` / `38;2;R;G;B` and the `48` background pair
     // consume their own arguments, so they are taken whole.
     if (code === '38' || code === '48') {
@@ -190,10 +199,22 @@ function foldSgr(state: SgrState, params: string): SgrState {
       continue
     }
     const numeric = Number(code)
-    if (code === '39') { next = { ...next, fg: '' }; continue }
-    if (code === '49') { next = { ...next, bg: '' }; continue }
-    if ((numeric >= 30 && numeric <= 37) || (numeric >= 90 && numeric <= 97)) { next = { ...next, fg: code }; continue }
-    if ((numeric >= 40 && numeric <= 47) || (numeric >= 100 && numeric <= 107)) { next = { ...next, bg: code }; continue }
+    if (code === '39') {
+      next = { ...next, fg: '' }
+      continue
+    }
+    if (code === '49') {
+      next = { ...next, bg: '' }
+      continue
+    }
+    if ((numeric >= 30 && numeric <= 37) || (numeric >= 90 && numeric <= 97)) {
+      next = { ...next, fg: code }
+      continue
+    }
+    if ((numeric >= 40 && numeric <= 47) || (numeric >= 100 && numeric <= 107)) {
+      next = { ...next, bg: code }
+      continue
+    }
     if (!next.attrs.includes(code)) next = { ...next, attrs: [...next.attrs, code] }
   }
   return next
@@ -215,8 +236,7 @@ function openSgr(state: SgrState): string {
 
 /** Whether two states are the same, so a boundary is only emitted on a change. */
 function sameSgr(a: SgrState, b: SgrState): boolean {
-  return a.fg === b.fg && a.bg === b.bg && a.attrs.length === b.attrs.length
-    && a.attrs.every((attr, index) => attr === b.attrs[index])
+  return a.fg === b.fg && a.bg === b.bg && a.attrs.length === b.attrs.length && a.attrs.every((attr, index) => attr === b.attrs[index])
 }
 
 /**
@@ -264,8 +284,14 @@ function replayLine(line: string, entrySgr: SgrState): { text: string; sgr: SgrS
 
   const consume = (chunk: string): void => {
     for (const char of chunk) {
-      if (char === '\r') { cursor = 0; continue }
-      if (char === '\u0008') { cursor = Math.max(0, cursor - 1); continue }
+      if (char === '\r') {
+        cursor = 0
+        continue
+      }
+      if (char === '\u0008') {
+        cursor = Math.max(0, cursor - 1)
+        continue
+      }
       if (char === '\t') {
         // A tab advances to the next 8-column stop, leaving the cells it skips
         // as they were — which is how a redraw can leave a tabbed column
@@ -291,7 +317,10 @@ function replayLine(line: string, entrySgr: SgrState): { text: string; sgr: SgrS
       // A wide character occupies two columns; the trailing one is a spacer,
       // marked so that overwriting the lead cell leaves a blank behind instead
       // of closing the gap and shifting everything after it left.
-      if (isWide(char)) { columns[cursor] = { sgr, char: '', spacer: true }; cursor++ }
+      if (isWide(char)) {
+        columns[cursor] = { sgr, char: '', spacer: true }
+        cursor++
+      }
     }
   }
 
@@ -417,9 +446,7 @@ function resolveStyle(chunk: AnsiChunk): CSSProperties | undefined {
     // A run that paints its own background keeps anser's literal pair so the
     // authored foreground/background contrast survives; a foreground-only run
     // maps onto a theme token, which adapts to light and dark surfaces.
-    style.color = background === undefined
-      ? TOKEN_BY_BASIC_RGB[chunk.fg.replace(/\s+/g, '')] ?? literal
-      : literal
+    style.color = background === undefined ? (TOKEN_BY_BASIC_RGB[chunk.fg.replace(/\s+/g, '')] ?? literal) : literal
   }
   for (const decoration of chunk.decorations) Object.assign(style, STYLE_BY_DECORATION[decoration])
   return Object.keys(style).length === 0 ? undefined : style

@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { MessageBoxOptions, MessageBoxReturnValue } from 'electron'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { DesktopBackgroundNotice } from '../src/background-notice.ts'
 import { resolveDesktopLocale } from '../src/locale.ts'
 
@@ -31,11 +31,19 @@ it('keeps the window visible until confirmation and remembers acknowledgement ac
   f.notice.close(f.hide)
   expect(f.hide).not.toHaveBeenCalled()
   expect(existsSync(f.markerPath)).toBe(false)
-  expect(f.show).toHaveBeenCalledExactlyOnceWith({ type: 'info', title: 'DeepSeek Harness',
-    message: '正在运行的任务不会中断，可在系统托盘中重新打开窗口', buttons: ['确认'], defaultId: 0, cancelId: -1 })
+  expect(f.show).toHaveBeenCalledExactlyOnceWith({
+    type: 'info',
+    title: 'DeepSeek Harness',
+    message: '正在运行的任务不会中断，可在系统托盘中重新打开窗口',
+    buttons: ['确认'],
+    defaultId: 0,
+    cancelId: -1,
+  })
   expect(f.focus).toHaveBeenCalledOnce()
   f.response.resolve({ response: 0, checkboxChecked: false })
-  await vi.waitFor(() => { expect(f.hide).toHaveBeenCalledOnce() })
+  await vi.waitFor(() => {
+    expect(f.hide).toHaveBeenCalledOnce()
+  })
   expect(existsSync(f.markerPath)).toBe(true)
   new DesktopBackgroundNotice(f.options).close(f.hide)
   expect(f.hide).toHaveBeenCalledTimes(2)
@@ -51,7 +59,9 @@ it('keeps cancellation eligible for another close and never records it', async (
   expect(existsSync(f.markerPath)).toBe(false)
   f.show.mockResolvedValue({ response: 0, checkboxChecked: false })
   f.notice.close(f.hide)
-  await vi.waitFor(() => { expect(f.hide).toHaveBeenCalledOnce() })
+  await vi.waitFor(() => {
+    expect(f.hide).toHaveBeenCalledOnce()
+  })
   expect(f.show).toHaveBeenCalledTimes(2)
 })
 
@@ -74,7 +84,9 @@ it('keeps acknowledgement in memory when its marker cannot be written', async ()
   const notice = new DesktopBackgroundNotice({ ...f.options, markerPath: join(f.root, 'blocker', 'confirmed') })
   notice.close(f.hide)
   f.response.resolve({ response: 0, checkboxChecked: false })
-  await vi.waitFor(() => { expect(f.hide).toHaveBeenCalledOnce() })
+  await vi.waitFor(() => {
+    expect(f.hide).toHaveBeenCalledOnce()
+  })
   notice.close(f.hide)
   expect(f.hide).toHaveBeenCalledTimes(2)
   expect(f.show).toHaveBeenCalledOnce()
@@ -86,10 +98,14 @@ it('keeps the window visible after a dialog failure and permits another attempt'
   vi.spyOn(console, 'warn').mockImplementation(() => {})
   f.notice.close(f.hide)
   f.response.reject(new Error('dialog unavailable'))
-  await vi.waitFor(() => { expect(console.warn).toHaveBeenCalled() })
+  await vi.waitFor(() => {
+    expect(console.warn).toHaveBeenCalled()
+  })
   expect(f.hide).not.toHaveBeenCalled()
   expect(existsSync(f.markerPath)).toBe(false)
   f.show.mockResolvedValue({ response: 0, checkboxChecked: false })
   f.notice.close(f.hide)
-  await vi.waitFor(() => { expect(f.hide).toHaveBeenCalledOnce() })
+  await vi.waitFor(() => {
+    expect(f.hide).toHaveBeenCalledOnce()
+  })
 })

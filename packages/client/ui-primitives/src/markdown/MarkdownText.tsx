@@ -16,10 +16,7 @@ import type { ReactNode } from 'react'
 import clsx from 'clsx'
 import { IncrementalMarkdownParser } from './incremental.ts'
 import { parseGfm, parseGfmWithMath } from './parse.ts'
-import {
-  collectReferenceTargets, createReferenceTargets, renderBlocks, renderFootnoteSection,
-  wrapBlockChildren,
-} from './render.tsx'
+import { collectReferenceTargets, createReferenceTargets, renderBlocks, renderFootnoteSection, wrapBlockChildren } from './render.tsx'
 import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages, MarkdownRenderContext, ReferenceTargets } from './render.tsx'
 import 'katex/dist/katex.min.css'
 import css from './MarkdownText.module.css'
@@ -46,11 +43,14 @@ function renderSettled(
     footnoteCounts: new Map(),
   }
   const blocks = wrapBlockChildren(
-    renderBlocks(root.children.map((node, index) => ({
-      node,
-      /* v8 ignore next -- parseFull uses parseGfm, which stamps every top-level node. */
-      key: node.position?.start.offset ?? -(index + 1),
-    })), context),
+    renderBlocks(
+      root.children.map((node, index) => ({
+        node,
+        /* v8 ignore next -- parseFull uses parseGfm, which stamps every top-level node. */
+        key: node.position?.start.offset ?? -(index + 1),
+      })),
+      context,
+    ),
     false,
   )
   const section = renderFootnoteSection(context)
@@ -95,7 +95,10 @@ class StreamingRenderer {
       this.frozenFootnoteCounts = new Map()
     }
     const newlyFrozen = frozen.slice(this.frozenCount)
-    collectReferenceTargets(newlyFrozen.map(block => block.node), this.frozenTargets)
+    collectReferenceTargets(
+      newlyFrozen.map(block => block.node),
+      this.frozenTargets,
+    )
     // Targets visible this frame: everything frozen so far plus the current
     // tail parse — a newly frozen block's references resolved against the
     // same parse tree its definitions came from.
@@ -103,7 +106,10 @@ class StreamingRenderer {
       definitions: new Map(this.frozenTargets.definitions),
       footnotes: new Map(this.frozenTargets.footnotes),
     }
-    collectReferenceTargets(tail.map(block => block.node), frameTargets)
+    collectReferenceTargets(
+      tail.map(block => block.node),
+      frameTargets,
+    )
     if (newlyFrozen.length > 0) {
       const frozenContext: MarkdownRenderContext = {
         streaming: true,
@@ -172,7 +178,12 @@ class StreamingRenderer {
  * absolute HTTP(S) images render directly.
  */
 export const MarkdownText = memo(function MarkdownText({
-  text, streaming = false, labels, fileMentions, pathImages, variant = 'body',
+  text,
+  streaming = false,
+  labels,
+  fileMentions,
+  pathImages,
+  variant = 'body',
 }: {
   text: string
   streaming?: boolean
@@ -194,6 +205,12 @@ export const MarkdownText = memo(function MarkdownText({
     }
     return streamRef.current.render(text)
   }, [text, streaming, labels, fileMentions, pathImages])
-  return <div className={clsx(css.markdown, variant === 'compact' && css.compact)}
-    data-markdown-variant={variant === 'compact' ? variant : undefined}>{children}</div>
+  return (
+    <div
+      className={clsx(css.markdown, variant === 'compact' && css.compact)}
+      data-markdown-variant={variant === 'compact' ? variant : undefined}
+    >
+      {children}
+    </div>
+  )
 })

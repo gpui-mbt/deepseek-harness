@@ -1,7 +1,7 @@
 import { fork, type ChildProcess } from 'node:child_process'
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { expect, it, type TestContext } from 'vitest'
+import { expect, it, type TestContext } from 'vite-plus/test'
 import { withWindowsSigningStage } from '../scripts/windows-signing-stage.mjs'
 
 const test = it.skipIf(process.platform !== 'win32')
@@ -25,23 +25,39 @@ async function fixture(t: TestContext) {
   })
   function child(input: string, mode = 'sign'): StageChild {
     const process = fork(join(import.meta.dirname, 'fixtures/windows-signing-stage.mjs'), [root, input, mode], {
-      execArgv: [], stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+      execArgv: [],
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
     })
     const events: string[] = []
     let stderr = ''
-    process.stderr!.on('data', (chunk) => { stderr += String(chunk) })
-    const waiters = new Map<string, () => void>()
-    process.on('message', (message: { type: string }) => { events.push(message.type); waiters.get(message.type)?.() })
-    const closed = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => {
-      process.once('close', (code, signal) => { resolve({ code, signal }) })
+    process.stderr!.on('data', chunk => {
+      stderr += String(chunk)
     })
-    const failed = new Promise<never>((_resolve, reject) => { process.once('error', reject) })
-    const item = { process, events, closed,
-      wait: (event: string) => Promise.race([
-        events.includes(event) ? Promise.resolve() : new Promise<void>(resolve => waiters.set(event, resolve)),
-        closed.then((result) => { throw new Error(`fixture exited before ${event}: ${JSON.stringify(result)} ${stderr}`) }),
-        failed,
-      ]),
+    const waiters = new Map<string, () => void>()
+    process.on('message', (message: { type: string }) => {
+      events.push(message.type)
+      waiters.get(message.type)?.()
+    })
+    const closed = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(resolve => {
+      process.once('close', (code, signal) => {
+        resolve({ code, signal })
+      })
+    })
+    const failed = new Promise<never>((_resolve, reject) => {
+      process.once('error', reject)
+    })
+    const item = {
+      process,
+      events,
+      closed,
+      wait: (event: string) =>
+        Promise.race([
+          events.includes(event) ? Promise.resolve() : new Promise<void>(resolve => waiters.set(event, resolve)),
+          closed.then(result => {
+            throw new Error(`fixture exited before ${event}: ${JSON.stringify(result)} ${stderr}`)
+          }),
+          failed,
+        ]),
     }
     children.push(item)
     return item
@@ -53,7 +69,7 @@ async function fixture(t: TestContext) {
   return { root, first, second, child }
 }
 
-test('independent signing stages wait and recheck the cache before accessing hardware', async (t) => {
+test('independent signing stages wait and recheck the cache before accessing hardware', async t => {
   const f = await fixture(t)
   const first = f.child(f.first)
   await first.wait('entered')
@@ -70,7 +86,7 @@ test('independent signing stages wait and recheck the cache before accessing har
   expect(second.events).toContain('signature-cache-hit')
 })
 
-test('an interrupted holder releases only the stage lock and retains hardware failure evidence', async (t) => {
+test('an interrupted holder releases only the stage lock and retains hardware failure evidence', async t => {
   const f = await fixture(t)
   const first = f.child(f.first)
   await first.wait('entered')
@@ -83,18 +99,20 @@ test('an interrupted holder releases only the stage lock and retains hardware fa
   })
 })
 
-test('a failed stage releases its handle before another process enters', async (t) => {
+test('a failed stage releases its handle before another process enters', async t => {
   const f = await fixture(t)
-  await expect(withWindowsSigningStage({ stateDirectory: join(f.root, 'state'), stage: 'failed', record: () => {} }, async () => {
-    throw new Error('stage failed')
-  })).rejects.toThrow('stage failed')
+  await expect(
+    withWindowsSigningStage({ stateDirectory: join(f.root, 'state'), stage: 'failed', record: () => {} }, async () => {
+      throw new Error('stage failed')
+    }),
+  ).rejects.toThrow('stage failed')
   const next = f.child(f.first)
   await next.wait('entered')
   next.process.send('release')
   expect(await next.closed).toEqual({ code: 0, signal: null })
 })
 
-test('accepts a state directory whose spelling differs only in Windows path case', async (t) => {
+test('accepts a state directory whose spelling differs only in Windows path case', async t => {
   const f = await fixture(t)
   let entered = false
   await withWindowsSigningStage({ stateDirectory: join(f.root, 'state').toUpperCase(), stage: 'case', record: () => {} }, async () => {
@@ -103,21 +121,33 @@ test('accepts a state directory whose spelling differs only in Windows path case
   expect(entered).toBe(true)
 })
 
-test('a cancelled waiter never enters and does not release another process lock', async (t) => {
+test('a cancelled waiter never enters and does not release another process lock', async t => {
   const f = await fixture(t)
   const holder = f.child(f.first)
   await holder.wait('entered')
   const controller = new AbortController()
   let entered = false
-  await expect(withWindowsSigningStage({ stateDirectory: join(f.root, 'state'), stage: 'cancelled', signal: controller.signal,
-    record: (event) => { if ('type' in event && event.type === 'signing-stage-wait') controller.abort() },
-  }, async () => { entered = true })).rejects.toThrow()
+  await expect(
+    withWindowsSigningStage(
+      {
+        stateDirectory: join(f.root, 'state'),
+        stage: 'cancelled',
+        signal: controller.signal,
+        record: event => {
+          if ('type' in event && event.type === 'signing-stage-wait') controller.abort()
+        },
+      },
+      async () => {
+        entered = true
+      },
+    ),
+  ).rejects.toThrow()
   expect(entered).toBe(false)
   holder.process.send('release')
   expect(await holder.closed).toEqual({ code: 0, signal: null })
 })
 
-test('cache clearing waits until another process finishes signing and publishing', async (t) => {
+test('cache clearing waits until another process finishes signing and publishing', async t => {
   const f = await fixture(t)
   const signer = f.child(f.first)
   await signer.wait('entered')

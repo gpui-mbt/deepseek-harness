@@ -3,10 +3,13 @@
  * production UserText evaluator.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { UserTextNode, UserTextRule, UserTextTransformContext } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UserTextRegistry } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/user-text-registry.ts'
-import { collapseWhitespaceRule, trimWhitespaceRule } from '@deepseek-ai/dsh-client-ui-conversation/src/client/user-text/whitespace-rules.ts'
+import {
+  collapseWhitespaceRule,
+  trimWhitespaceRule,
+} from '@deepseek-ai/dsh-client-ui-conversation/src/client/user-text/whitespace-rules.ts'
 import { formatTables } from '../src/client/format-tables.ts'
 import { createSecretRule } from '../src/client/secret-rule.ts'
 
@@ -18,7 +21,9 @@ const join = (...parts: string[]): string => parts.join('')
 
 function setup(rules: readonly UserTextRule[] = [createSecretRule()]) {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   const registry = new UserTextRegistry(ctx)
   for (const rule of rules) registry.register(rule)
   return registry.createEvaluator()
@@ -142,11 +147,14 @@ describe('secretRule masking', () => {
     expect(masks(text)).toEqual([`${begin}\n${stars(16)}`])
   })
 
-  it.each([join('s', 'k-'), join('gl', 'pat-'), join('xo', 'xb-')])('finds a private key block whose first dash ends the key prefix %s', (prefix) => {
-    const block = [join('-----BEGIN', ' RSA PRIVATE KEY-----'), 'MIIEowIBAAKCAQEA', join('-----END', ' RSA PRIVATE KEY-----')].join('\n')
-    const text = `x${prefix.slice(0, -1)}${block}`
-    expect(found(text)).toEqual([block])
-  })
+  it.each([join('s', 'k-'), join('gl', 'pat-'), join('xo', 'xb-')])(
+    'finds a private key block whose first dash ends the key prefix %s',
+    prefix => {
+      const block = [join('-----BEGIN', ' RSA PRIVATE KEY-----'), 'MIIEowIBAAKCAQEA', join('-----END', ' RSA PRIVATE KEY-----')].join('\n')
+      const text = `x${prefix.slice(0, -1)}${block}`
+      expect(found(text)).toEqual([block])
+    },
+  )
 
   it('masks a key longer than four thousand characters one mark per character', () => {
     const key = join('sk', '-', hex(16), 'a'.repeat(5_000))
@@ -158,7 +166,11 @@ describe('secretRule masking', () => {
     const block = [join('-----BEGIN', ' RSA PRIVATE KEY-----'), 'MIIE', join('-----END', ' RSA PRIVATE KEY-----')].join('\r\n')
     const text = `${key}${block}`
     expect(found(text)).toEqual([text])
-    const tail = text.slice(8).split('\r\n').map(line => stars(line.length)).join('\r\n')
+    const tail = text
+      .slice(8)
+      .split('\r\n')
+      .map(line => stars(line.length))
+      .join('\r\n')
     expect(masks(text)).toEqual([text.slice(0, 8) + tail])
   })
 
@@ -205,9 +217,14 @@ describe('secretRule scheduling', () => {
   it('reads no Facts, queries forward once per credential, and reuses the result across Facts updates', () => {
     const read = vi.fn()
     const rule = createSecretRule()
-    const match = vi.fn<UserTextRule<'secret'>['match']>((text, from, context) => rule.match(text, from, {
-      read: (key) => { read(key); return context.read(key) },
-    }))
+    const match = vi.fn<UserTextRule<'secret'>['match']>((text, from, context) =>
+      rule.match(text, from, {
+        read: key => {
+          read(key)
+          return context.read(key)
+        },
+      }),
+    )
     const evaluate = setup([{ ...rule, match }])
     const first = join('gh', 'p_', mixed(36))
     const second = join('sk', '-', hex(32))
@@ -215,7 +232,9 @@ describe('secretRule scheduling', () => {
     const before = evaluate({ text, facts: {} })
     expect(before.filter(isSecret).map(node => text.slice(node.start, node.end))).toEqual([first, second])
     expect(before.map(node => [node.start, node.end])).toEqual([
-      [0, first.length], [first.length, first.length + 3], [first.length + 3, text.length],
+      [0, first.length],
+      [first.length, first.length + 3],
+      [first.length + 3, text.length],
     ])
     expect(match.mock.calls.map(([, from]) => from)).toEqual([0, first.length, text.length])
     expect(evaluate({ text, facts: { collapseWhitespace: true } })).toBe(before)
@@ -223,11 +242,16 @@ describe('secretRule scheduling', () => {
     expect(read).not.toHaveBeenCalled()
   })
 
-  it.each(['postgres://admin:p4ss@db', 'redis://:p4ss@cache'])('finds the same address password in %s from any cursor before it', (text) => {
+  it.each(['postgres://admin:p4ss@db', 'redis://:p4ss@cache'])('finds the same address password in %s from any cursor before it', text => {
     const start = text.indexOf('p4ss')
     for (let from = 0; from <= start; from++) {
       // A fresh instance per cursor: no query earlier in the text warms its memo.
-      expect(createSecretRule().match(text, from, context), `from ${String(from)}`).toEqual({ id: 'secret', start, end: start + 4, data: { masked: stars(4) } })
+      expect(createSecretRule().match(text, from, context), `from ${String(from)}`).toEqual({
+        id: 'secret',
+        start,
+        end: start + 4,
+        data: { masked: stars(4) },
+      })
     }
     expect(createSecretRule().match(text, start + 1, context)).toBeUndefined()
   })
@@ -239,7 +263,7 @@ describe('secretRule scheduling', () => {
     const evaluate = setup([createSecretRule(), collapseWhitespaceRule, trimWhitespaceRule])
     const nodes = evaluate({ text: `  私钥：\n${block}\n  `, facts: { collapseWhitespace: true, trimWhitespace: true } })
     const display = (node: UserTextNode): string =>
-      isSecret(node) ? node.data.masked : node.id === 'text' ? node.data.display ?? node.data.text : ''
+      isSecret(node) ? node.data.masked : node.id === 'text' ? (node.data.display ?? node.data.text) : ''
     expect(nodes.map(display).join('')).toBe(`私钥： ${[begin, stars(16), end].join('\n')}`)
   })
 })

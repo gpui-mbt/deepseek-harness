@@ -32,19 +32,21 @@ See the [decision record](../../.agents/notes/implemented/architecture/2026-09-1
 
 ```ts type-equiv
 /** Installed helper invocation; script deployments may also install a PTC bootstrap. */
-type HelperLaunch = {
-  /** Run the installed script with a separately installed Node executable. */
-  kind: 'node-script'
-  /** Absolute remote Node executable. */
-  node: string
-  /** Absolute remote PTC bootstrap; requires bootstrapHash. */
-  bootstrapPath?: string
-  /** Lowercase SHA-256 of bootstrapPath; requires that path. */
-  bootstrapHash?: string
-} | {
-  /** Run the helper executable with its embedded Node and PTC worker. */
-  kind: 'executable'
-}
+type HelperLaunch =
+  | {
+      /** Run the installed script with a separately installed Node executable. */
+      kind: 'node-script'
+      /** Absolute remote Node executable. */
+      node: string
+      /** Absolute remote PTC bootstrap; requires bootstrapHash. */
+      bootstrapPath?: string
+      /** Lowercase SHA-256 of bootstrapPath; requires that path. */
+      bootstrapHash?: string
+    }
+  | {
+      /** Run the helper executable with its embedded Node and PTC worker. */
+      kind: 'executable'
+    }
 ```
 
 ```ts type-equiv

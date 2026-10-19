@@ -8,7 +8,7 @@
  */
 
 import { tmpdir } from 'node:os'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
@@ -34,12 +34,18 @@ describe('windows-acl win32 chain (LocalSandboxProvider)', () => {
     })
     const confined = await sandbox.confine(['pwsh', '/Command', 'x'], WW)
     expect(confined.argv).toEqual([
-      'node', 'windows-acl-runner.js',
-      '--workspace', '/ws',
-      '--temp', tmpdir(),
-      '--mode', 'workspace-write',
+      'node',
+      'windows-acl-runner.js',
+      '--workspace',
+      '/ws',
+      '--temp',
+      tmpdir(),
+      '--mode',
+      'workspace-write',
       '--',
-      'pwsh', '/Command', 'x',
+      'pwsh',
+      '/Command',
+      'x',
     ])
     expect(confined.enforcement).toBe('partial')
     expect(confined.denialSignatures).toEqual(['access is denied', 'access to the path', 'permission denied', 'operation not permitted'])

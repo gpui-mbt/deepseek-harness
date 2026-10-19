@@ -74,10 +74,7 @@ export function assertReleasedV1Header(header: SessionFormatHeader): void {
  * @param knownEventTypes - event types understood by the installed current Session package.
  * @returns the same validated detached artifact.
  */
-export function restoreReleasedV1Artifact(
-  artifact: SessionFormatArtifact,
-  knownEventTypes: ReadonlySet<string>,
-): SessionFormatArtifact {
+export function restoreReleasedV1Artifact(artifact: SessionFormatArtifact, knownEventTypes: ReadonlySet<string>): SessionFormatArtifact {
   assertReleasedV1Header(artifact.header)
   assertReleasedArtifactCoordinates(artifact, false, knownEventTypes)
   return artifact
@@ -125,9 +122,7 @@ export function assertReleasedArtifactCoordinates(
       )
     }
     const surface = disposition !== undefined ? SURFACE_EVENT_TYPES.has(type) : type === 'steering/message'
-    const optional = frozenEnvelope
-      ? surface ? SURFACE_OPTIONAL : LOG_OPTIONAL
-      : SURFACE_OPTIONAL
+    const optional = frozenEnvelope ? (surface ? SURFACE_OPTIONAL : LOG_OPTIONAL) : SURFACE_OPTIONAL
     assertReleasedV0Keys(record, EVENT_REQUIRED, optional, `Session event ${index}`)
     if (record['seq'] !== index) {
       throw new SessionFormatError(`Session event ${index} has non-dense seq ${JSON.stringify(record['seq'])}`)
@@ -204,9 +199,10 @@ export function assertReleasedEventPayload(event: SessionFormatEvent, version: 0
     }
     return
   }
-  const versionOptional = version === 1 && event.type === 'session-log-deepseek/delivery-accepted'
-    ? [...disposition.optional, 'sessionFormatVersion']
-    : disposition.optional
+  const versionOptional =
+    version === 1 && event.type === 'session-log-deepseek/delivery-accepted'
+      ? [...disposition.optional, 'sessionFormatVersion']
+      : disposition.optional
   assertReleasedV0Keys(data, disposition.required, versionOptional, `${event.type} ${event.seq} data`)
   for (const key of disposition.opaque) {
     if (Object.hasOwn(data, key) && !isJsonValue(data[key])) {

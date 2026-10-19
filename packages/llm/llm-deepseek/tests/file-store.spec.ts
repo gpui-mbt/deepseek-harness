@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'
 import { DeepSeekFileStore, MAX_IMAGE_BYTES } from '../src/file-store.ts'
@@ -48,14 +48,17 @@ function uploadFetch(now: () => number = () => NOW) {
     if (init?.method === 'POST') {
       uploads += 1
       const createdAt = now() / 1_000
-      return new Response(JSON.stringify({
-        id: `file-api-${uploads}`,
-        type: 'file',
-        size_bytes: 3,
-        created_at: new Date(createdAt * 1_000).toISOString(),
-        filename: `dsh-${'a'.repeat(16)}-${'b'.repeat(8)}.png`,
-        mime_type: 'image/png',
-      }), { status: 200 })
+      return new Response(
+        JSON.stringify({
+          id: `file-api-${uploads}`,
+          type: 'file',
+          size_bytes: 3,
+          created_at: new Date(createdAt * 1_000).toISOString(),
+          filename: `dsh-${'a'.repeat(16)}-${'b'.repeat(8)}.png`,
+          mime_type: 'image/png',
+        }),
+        { status: 200 },
+      )
     }
     if (init?.method === 'DELETE') {
       const id = requestUrl(_url).split('/').at(-1)
@@ -95,7 +98,9 @@ describe('DeepSeekFileStore', () => {
     const first = await store.ensureUploaded(VERSION, CONNECTION, POLICY)
     expect(first.record.scope).toBe(deepSeekFileScope(`${CONNECTION.baseURL}/v1`, JSON.stringify(Object.entries(CONNECTION.headers))))
     expect(first.record.scope).not.toBe(other.record.scope)
-    expect((await store.ensureUploaded(VERSION, { ...CONNECTION, baseURL: `${CONNECTION.baseURL}/v1/` }, POLICY)).record).toEqual(first.record)
+    expect((await store.ensureUploaded(VERSION, { ...CONNECTION, baseURL: `${CONNECTION.baseURL}/v1/` }, POLICY)).record).toEqual(
+      first.record,
+    )
     const reopened = new DeepSeekFileStore({ index, fetch: remote.fetchImpl, now: () => now })
     expect((await reopened.ensureUploaded(VERSION, CONNECTION, POLICY)).record).toEqual(first.record)
     await reopened.invalidate([{ variantId: VERSION.variantId, fileId: other.record.fileId }], CONNECTION)
@@ -120,7 +125,12 @@ describe('DeepSeekFileStore', () => {
     const cursors: (string | null)[] = []
     let uploads = 0
     const file = (id: string, age: number, filename = 'dsh-owned.png') => ({
-      id, type: 'file', size_bytes: 3, created_at: new Date(NOW - age).toISOString(), filename, mime_type: 'image/png',
+      id,
+      type: 'file',
+      size_bytes: 3,
+      created_at: new Date(NOW - age).toISOString(),
+      filename,
+      mime_type: 'image/png',
     })
     const fetchImpl: typeof fetch = async (input, init) => {
       const url = new URL(requestUrl(input))
@@ -137,12 +147,18 @@ describe('DeepSeekFileStore', () => {
       expect(url.searchParams.has('purpose')).toBe(false)
       const cursor = url.searchParams.get('after_id')
       cursors.push(cursor)
-      return new Response(JSON.stringify(cursor === null
-        ? { data: [file('newest', 1_000), file('middle', 2_000)], last_id: 'middle', has_more: true }
-        : { data: [file('oldest-owned', 3_000), file('foreign', 4_000, 'user-file.png')], has_more: false }))
+      return new Response(
+        JSON.stringify(
+          cursor === null
+            ? { data: [file('newest', 1_000), file('middle', 2_000)], last_id: 'middle', has_more: true }
+            : { data: [file('oldest-owned', 3_000), file('foreign', 4_000, 'user-file.png')], has_more: false },
+        ),
+      )
     }
     const store = new DeepSeekFileStore({ index: new DeepSeekUploadIndex(join(dir, 'index.json')), fetch: fetchImpl, now: () => NOW })
-    await expect(store.ensureUploaded(VERSION, CONNECTION, { ...POLICY, quotaCleanupBatch: 1 })).resolves.toMatchObject({ record: { fileId: 'file-uploaded' } })
+    await expect(store.ensureUploaded(VERSION, CONNECTION, { ...POLICY, quotaCleanupBatch: 1 })).resolves.toMatchObject({
+      record: { fileId: 'file-uploaded' },
+    })
     expect(cursors).toEqual([null, 'middle'])
     expect(deleted).toEqual(['oldest-owned'])
     expect(uploads).toBe(2)
@@ -155,17 +171,16 @@ describe('DeepSeekFileStore', () => {
     const remote = uploadFetch()
     const first = new DeepSeekFileStore({ index, now: () => NOW, fetch: remote.fetchImpl })
 
-    const [a, b] = await Promise.all([
-      first.ensureUploaded(VERSION, CONNECTION, POLICY),
-      first.ensureUploaded(VERSION, CONNECTION, POLICY),
-    ])
+    const [a, b] = await Promise.all([first.ensureUploaded(VERSION, CONNECTION, POLICY), first.ensureUploaded(VERSION, CONNECTION, POLICY)])
     expect(a.record.fileId).toBe('file-api-1')
     expect(b.record.fileId).toBe('file-api-1')
     expect(remote.uploads()).toBe(1)
 
     const resumed = new DeepSeekFileStore({ index, now: () => NOW, fetch: remote.fetchImpl })
-    await expect(resumed.ensureUploaded(VERSION, CONNECTION, POLICY))
-      .resolves.toMatchObject({ record: { fileId: 'file-api-1' }, uploaded: false })
+    await expect(resumed.ensureUploaded(VERSION, CONNECTION, POLICY)).resolves.toMatchObject({
+      record: { fileId: 'file-api-1' },
+      uploaded: false,
+    })
     expect(remote.uploads()).toBe(1)
   })
 
@@ -179,9 +194,13 @@ describe('DeepSeekFileStore', () => {
       uploadSignal = init?.signal ?? undefined
       return new Promise<Response>((resolve, reject) => {
         complete = resolve
-        uploadSignal?.addEventListener('abort', () => {
-          reject(new Error('upload aborted', { cause: uploadSignal?.reason }))
-        }, { once: true })
+        uploadSignal?.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('upload aborted', { cause: uploadSignal?.reason }))
+          },
+          { once: true },
+        )
       })
     }) as typeof fetch
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: fetchImpl })
@@ -197,14 +216,19 @@ describe('DeepSeekFileStore', () => {
 
     await expect(cancelled).rejects.toBe(reason)
     expect(uploadSignal?.aborted).toBe(false)
-    complete?.(new Response(JSON.stringify({
-      id: 'file-api-shared',
-      type: 'file',
-      size_bytes: 3,
-      created_at: new Date(NOW).toISOString(),
-      filename: `dsh-${'a'.repeat(16)}-${'b'.repeat(8)}.png`,
-      mime_type: 'image/png',
-    }), { status: 200 }))
+    complete?.(
+      new Response(
+        JSON.stringify({
+          id: 'file-api-shared',
+          type: 'file',
+          size_bytes: 3,
+          created_at: new Date(NOW).toISOString(),
+          filename: `dsh-${'a'.repeat(16)}-${'b'.repeat(8)}.png`,
+          mime_type: 'image/png',
+        }),
+        { status: 200 },
+      ),
+    )
     await expect(completed).resolves.toMatchObject({ record: { fileId: 'file-api-shared' } })
   })
 
@@ -216,9 +240,13 @@ describe('DeepSeekFileStore', () => {
     const fetchImpl = vi.fn((_url: string | URL | Request, init?: RequestInit) => {
       uploadSignal = init?.signal ?? undefined
       return new Promise<Response>((_resolve, reject) => {
-        uploadSignal?.addEventListener('abort', () => {
-          reject(new Error('upload aborted', { cause: uploadSignal?.reason }))
-        }, { once: true })
+        uploadSignal?.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('upload aborted', { cause: uploadSignal?.reason }))
+          },
+          { once: true },
+        )
       })
     }) as typeof fetch
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: fetchImpl })
@@ -238,13 +266,18 @@ describe('DeepSeekFileStore', () => {
   it('normalizes a non-Error cancellation reason', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
     roots.push(dir)
-    const fetchImpl = vi.fn((_url: string | URL | Request, init?: RequestInit) => (
-      new Promise<Response>((_resolve, reject) => {
-        init?.signal?.addEventListener('abort', () => {
-          reject(new Error('upload aborted', { cause: init.signal?.reason }))
-        }, { once: true })
-      })
-    )) as typeof fetch
+    const fetchImpl = vi.fn(
+      (_url: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => {
+              reject(new Error('upload aborted', { cause: init.signal?.reason }))
+            },
+            { once: true },
+          )
+        }),
+    ) as typeof fetch
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
       now: () => NOW,
@@ -271,17 +304,30 @@ describe('DeepSeekFileStore', () => {
       requests += 1
       if (requests === 1) {
         return new Promise<Response>((_resolve, reject) => {
-          init?.signal?.addEventListener('abort', () => {
-            queueMicrotask(() => {
-              reject(new Error('upload aborted', { cause: init.signal?.reason }))
-            })
-          }, { once: true })
+          init?.signal?.addEventListener(
+            'abort',
+            () => {
+              queueMicrotask(() => {
+                reject(new Error('upload aborted', { cause: init.signal?.reason }))
+              })
+            },
+            { once: true },
+          )
         })
       }
-      return Promise.resolve(new Response(JSON.stringify({
-        id: 'file-api-retry', type: 'file', size_bytes: 3, created_at: new Date(NOW).toISOString(),
-        filename: 'dsh-retry.png', mime_type: 'image/png',
-      }), { status: 200 }))
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            id: 'file-api-retry',
+            type: 'file',
+            size_bytes: 3,
+            created_at: new Date(NOW).toISOString(),
+            filename: 'dsh-retry.png',
+            mime_type: 'image/png',
+          }),
+          { status: 200 },
+        ),
+      )
     }) as typeof fetch
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
@@ -304,8 +350,10 @@ describe('DeepSeekFileStore', () => {
     const fetchImpl = vi.fn() as typeof fetch
     const store = new DeepSeekFileStore({ now: () => NOW, fetch: fetchImpl })
     const oversized = { ...VERSION, bytes: MAX_IMAGE_BYTES + 1 }
-    await expect(store.ensureUploaded(oversized, CONNECTION, POLICY))
-      .rejects.toMatchObject({ code: 'INVALID_REQUEST', message: 'DeepSeek image exceeds the 32 MiB per-image limit.' })
+    await expect(store.ensureUploaded(oversized, CONNECTION, POLICY)).rejects.toMatchObject({
+      code: 'INVALID_REQUEST',
+      message: 'DeepSeek image exceeds the 32 MiB per-image limit.',
+    })
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
@@ -324,26 +372,37 @@ describe('DeepSeekFileStore', () => {
     }) as typeof fetch
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: fetchImpl })
 
-    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY))
-      .rejects.toBeInstanceOf(Error)
-    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY))
-      .resolves.toMatchObject({ record: { fileId: 'file-api-1' }, uploaded: true })
+    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY)).rejects.toBeInstanceOf(Error)
+    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY)).resolves.toMatchObject({
+      record: { fileId: 'file-api-1' },
+      uploaded: true,
+    })
   })
 
   it('rejects an upload response whose byte count differs from the request version', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
     roots.push(dir)
-    const fetchImpl = vi.fn(() => Promise.resolve(new Response(JSON.stringify({
-      id: 'file-api-wrong-size', type: 'file', size_bytes: 2, created_at: new Date(NOW).toISOString(),
-      filename: 'dsh-wrong.png', mime_type: 'image/png',
-    }), { status: 200 }))) as typeof fetch
+    const fetchImpl = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            id: 'file-api-wrong-size',
+            type: 'file',
+            size_bytes: 2,
+            created_at: new Date(NOW).toISOString(),
+            filename: 'dsh-wrong.png',
+            mime_type: 'image/png',
+          }),
+          { status: 200 },
+        ),
+      ),
+    ) as typeof fetch
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
       now: () => NOW,
       fetch: fetchImpl,
     })
-    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY))
-      .rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY)).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
   })
 
   it.each([
@@ -389,14 +448,20 @@ describe('DeepSeekFileStore', () => {
     const remote = uploadFetch(() => now)
     const store = new DeepSeekFileStore({ index, now: () => now, fetch: remote.fetchImpl })
 
-    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY))
-      .resolves.toMatchObject({ record: { fileId: 'file-api-1' }, uploaded: true })
+    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY)).resolves.toMatchObject({
+      record: { fileId: 'file-api-1' },
+      uploaded: true,
+    })
     now = NOW + (POLICY.expiresAfterSeconds - POLICY.refreshMarginSeconds) * 1_000 - 1
-    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY))
-      .resolves.toMatchObject({ record: { fileId: 'file-api-1' }, uploaded: false })
+    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY)).resolves.toMatchObject({
+      record: { fileId: 'file-api-1' },
+      uploaded: false,
+    })
     now += 1
-    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY))
-      .resolves.toMatchObject({ record: { fileId: 'file-api-2' }, uploaded: true })
+    await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY)).resolves.toMatchObject({
+      record: { fileId: 'file-api-2' },
+      uploaded: true,
+    })
 
     expect(remote.uploads()).toBe(2)
     expect(vi.mocked(remote.fetchImpl).mock.calls.every(([, init]) => init?.method === 'POST')).toBe(true)
@@ -452,27 +517,61 @@ describe('DeepSeekFileStore', () => {
     const fetchImpl = vi.fn((input: string | URL | Request, init?: RequestInit) => {
       if (init?.method === 'POST') {
         uploads += 1
-        if (uploads === 1) return Promise.resolve(new Response(JSON.stringify({
-          error: { message: 'stored file quota exceeded', code: 'file_quota' },
-        }), { status: 400 }))
-        return Promise.resolve(new Response(JSON.stringify({
-          id: 'file-api-recovered', type: 'file', size_bytes: 3, created_at: new Date(NOW).toISOString(),
-          filename: 'dsh-recovered.png', mime_type: 'image/png',
-        }), { status: 200 }))
+        if (uploads === 1)
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                error: { message: 'stored file quota exceeded', code: 'file_quota' },
+              }),
+              { status: 400 },
+            ),
+          )
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              id: 'file-api-recovered',
+              type: 'file',
+              size_bytes: 3,
+              created_at: new Date(NOW).toISOString(),
+              filename: 'dsh-recovered.png',
+              mime_type: 'image/png',
+            }),
+            { status: 200 },
+          ),
+        )
       }
       if (init?.method === 'DELETE') {
-        return Promise.resolve(new Response(JSON.stringify({
-          id: 'file-api-old', type: 'file_deleted',
-        }), { status: 200 }))
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              id: 'file-api-old',
+              type: 'file_deleted',
+            }),
+            { status: 200 },
+          ),
+        )
       }
       expect(new URL(requestUrl(input)).pathname).toBe('/v1/files')
-      return Promise.resolve(new Response(JSON.stringify({
-        data: [{
-          id: 'file-api-old', type: 'file', size_bytes: 3, created_at: new Date(NOW).toISOString(),
-          filename: 'dsh-old.png', mime_type: 'image/png',
-        }],
-        first_id: 'file-api-old', last_id: 'file-api-old', has_more: false,
-      }), { status: 200 }))
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: [
+              {
+                id: 'file-api-old',
+                type: 'file',
+                size_bytes: 3,
+                created_at: new Date(NOW).toISOString(),
+                filename: 'dsh-old.png',
+                mime_type: 'image/png',
+              },
+            ],
+            first_id: 'file-api-old',
+            last_id: 'file-api-old',
+            has_more: false,
+          }),
+          { status: 200 },
+        ),
+      )
     }) as typeof fetch
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
@@ -481,7 +580,8 @@ describe('DeepSeekFileStore', () => {
     })
 
     await expect(store.ensureUploaded(VERSION, CONNECTION, POLICY)).resolves.toMatchObject({
-      record: { fileId: 'file-api-recovered' }, uploaded: true,
+      record: { fileId: 'file-api-recovered' },
+      uploaded: true,
     })
     expect(uploads).toBe(2)
   })
@@ -490,16 +590,33 @@ describe('DeepSeekFileStore', () => {
     const dir = await mkdtemp(join(tmpdir(), 'dsh-file-store-'))
     roots.push(dir)
     const fetchImpl = vi.fn((_input: string | URL | Request, init?: RequestInit) => {
-      if (init?.method === 'POST') return Promise.resolve(new Response(JSON.stringify({
-        error: { message: 'file count quota exceeded', code: 'file_quota' },
-      }), { status: 400 }))
-      return Promise.resolve(new Response(JSON.stringify({
-        data: [{
-          id: 'file-api-foreign', type: 'file', size_bytes: 3, created_at: new Date(NOW).toISOString(),
-          filename: 'foreign.png', mime_type: 'image/png',
-        }],
-        has_more: false,
-      }), { status: 200 }))
+      if (init?.method === 'POST')
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: { message: 'file count quota exceeded', code: 'file_quota' },
+            }),
+            { status: 400 },
+          ),
+        )
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: [
+              {
+                id: 'file-api-foreign',
+                type: 'file',
+                size_bytes: 3,
+                created_at: new Date(NOW).toISOString(),
+                filename: 'foreign.png',
+                mime_type: 'image/png',
+              },
+            ],
+            has_more: false,
+          }),
+          { status: 200 },
+        ),
+      )
     }) as typeof fetch
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
@@ -524,19 +641,24 @@ describe('DeepSeekFileStore', () => {
       const after = target.searchParams.get('after_id')
       if (after !== null && deleted.has(after)) throw new Error('deleted cursor cannot be reused')
       const id = after === null ? 'file-api-oldest' : 'file-api-next'
-      return new Response(JSON.stringify({
-        data: [{
-          id,
-          type: 'file',
-          size_bytes: 3,
-          created_at: new Date(NOW).toISOString(),
-          filename: `dsh-${id}.png`,
-          mime_type: 'image/png',
-        }],
-        first_id: id,
-        last_id: id,
-        has_more: after === null,
-      }), { status: 200 })
+      return new Response(
+        JSON.stringify({
+          data: [
+            {
+              id,
+              type: 'file',
+              size_bytes: 3,
+              created_at: new Date(NOW).toISOString(),
+              filename: `dsh-${id}.png`,
+              mime_type: 'image/png',
+            },
+          ],
+          first_id: id,
+          last_id: id,
+          has_more: after === null,
+        }),
+        { status: 200 },
+      )
     }) as typeof fetch
     const store = new DeepSeekFileStore({
       index: new DeepSeekUploadIndex(join(dir, 'index.json')),
@@ -560,10 +682,16 @@ describe('DeepSeekFileStore', () => {
         }
         page += 1
         const lastId = mode === 'missing' ? undefined : 'file-api-same'
-        return Promise.resolve(new Response(JSON.stringify({
-          data: [], has_more: true,
-          ...lastId === undefined ? {} : { last_id: lastId },
-        }), { status: 200 }))
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: [],
+              has_more: true,
+              ...(lastId === undefined ? {} : { last_id: lastId }),
+            }),
+            { status: 200 },
+          ),
+        )
       }) as typeof fetch
       const store = new DeepSeekFileStore({
         index: new DeepSeekUploadIndex(join(dir, `${mode}.json`)),
@@ -580,9 +708,7 @@ describe('DeepSeekFileStore', () => {
     roots.push(dir)
     const index = new DeepSeekUploadIndex(join(dir, 'index.json'))
     const store = new DeepSeekFileStore({ index, now: () => NOW, fetch: vi.fn() as typeof fetch })
-    const reclaim = vi.spyOn(store, 'reclaimOldestOwned')
-      .mockResolvedValueOnce(1_000)
-      .mockResolvedValueOnce(2)
+    const reclaim = vi.spyOn(store, 'reclaimOldestOwned').mockResolvedValueOnce(1_000).mockResolvedValueOnce(2)
     const clear = vi.spyOn(index, 'clear')
 
     await expect(store.releaseAll(CONNECTION)).resolves.toBe(1_002)

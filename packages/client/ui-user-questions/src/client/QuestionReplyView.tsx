@@ -2,16 +2,18 @@ import { memo, useCallback, useState } from 'react'
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  IconCheckOutlineRegular, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular,
-  IconCopyOutlineRegular, Tooltip, writeClipboard,
+  IconCheckOutlineRegular,
+  IconChevronDownOutlineRegular,
+  IconChevronRightOutlineRegular,
+  IconCopyOutlineRegular,
+  Tooltip,
+  writeClipboard,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { QuestionReplyData } from './question-reply.ts'
 import { replyAnswerValues, replyClipboardText } from './question-reply.ts'
 import css from './QuestionReplyView.module.css'
 
-type QuestionReplyViewProps =
-  PropsRuntime<'conversation.chat.node', 'question-reply'>
-  & PropsLocale<'question'>
+type QuestionReplyViewProps = PropsRuntime<'conversation.chat.node', 'question-reply'> & PropsLocale<'question'>
 
 /**
  * Right-aligned late-reply bubble: a label naming the earlier pending
@@ -31,15 +33,20 @@ export function QuestionReplyBubble({ data, t }: { data: QuestionReplyData; t: P
   const label = t('reply.label')
   const [open, setOpen] = useState(false)
   const toggleLabel = t(open ? 'reply.close' : 'reply.open')
-  const summary = data.questions.map(question => replyAnswerValues(data, question.id)).flat().join(', ')
+  const summary = data.questions
+    .map(question => replyAnswerValues(data, question.id))
+    .flat()
+    .join(', ')
   const copyText = replyClipboardText(data, t)
   const [copied, setCopied] = useState(false)
   const onCopy = useCallback(() => {
     if (copied) return
-    void writeClipboard(copyText).then((ok) => {
+    void writeClipboard(copyText).then(ok => {
       if (!ok) return
       setCopied(true)
-      window.setTimeout(() => { setCopied(false) }, 1000)
+      window.setTimeout(() => {
+        setCopied(false)
+      }, 1000)
     })
   }, [copied, copyText])
   return (
@@ -50,7 +57,9 @@ export function QuestionReplyBubble({ data, t }: { data: QuestionReplyData; t: P
           className={css.toggle}
           aria-expanded={open}
           aria-label={`${label} · ${toggleLabel}`}
-          onClick={() => { setOpen(value => !value) }}
+          onClick={() => {
+            setOpen(value => !value)
+          }}
         >
           <span className={css.labelRow}>
             {/* The caret is the only sign the bubble opens; the label alone
@@ -62,11 +71,12 @@ export function QuestionReplyBubble({ data, t }: { data: QuestionReplyData; t: P
           </span>
           {!open && <span className={css.summary}>{summary === '' ? t('reply.skipped') : summary}</span>}
         </button>
-        {open && (data.questions.length === 0
-          ? <p className={css.text}>{data.text}</p>
-          : (
+        {open &&
+          (data.questions.length === 0 ? (
+            <p className={css.text}>{data.text}</p>
+          ) : (
             <dl className={css.details}>
-              {data.questions.map((question) => {
+              {data.questions.map(question => {
                 const values = replyAnswerValues(data, question.id)
                 return (
                   <div key={question.id}>
@@ -76,7 +86,12 @@ export function QuestionReplyBubble({ data, t }: { data: QuestionReplyData; t: P
                       {question.detail && <span className={css.detail}>{question.detail}</span>}
                       {question.options && question.options.length > 0 && (
                         <ul className={css.options}>
-                          {question.options.map(option => <li key={option.label}>{option.label}{option.description && ` — ${option.description}`}</li>)}
+                          {question.options.map(option => (
+                            <li key={option.label}>
+                              {option.label}
+                              {option.description && ` — ${option.description}`}
+                            </li>
+                          ))}
                         </ul>
                       )}
                     </dt>

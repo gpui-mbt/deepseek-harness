@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { resolveActiveView } from '../src/client/view-selection.ts'
 import type { ViewTab } from '../src/client/contract/views.ts'
 

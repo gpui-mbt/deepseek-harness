@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
@@ -19,17 +19,23 @@ async function liveAgent(ctx: Context, rawId: string, initial: AgentStatus): Pro
     options: {},
     session: Session.create(id),
     inbox: { nextTurn: [], nextStep: [] } as never,
-    get status() { return status },
+    get status() {
+      return status
+    },
     ctx,
     send: () => {},
     followup: () => {},
     steer: () => ({ outcome: Promise.resolve({ status: 'rejected' as const }) }),
     inject: () => {},
-    cancel: (cause, options) => { cancels.push([cause, options]) },
+    cancel: (cause, options) => {
+      cancels.push([cause, options])
+    },
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
     cancels,
-    setStatus: (next) => { status = next },
+    setStatus: next => {
+      status = next
+    },
   }
   await ctx.agents.register(agent)
   return agent
@@ -44,7 +50,7 @@ function stop(ctx: Context, sessionId: SessionId): Promise<void> {
 }
 
 describe('Turn archive admission', () => {
-  it('reports the turn family only while the session\'s Agent is running, ahead of later providers', async () => {
+  it("reports the turn family only while the session's Agent is running, ahead of later providers", async () => {
     const ctx = new Context()
     await ctx.plugin(AgentRegistry)
     const agent = await liveAgent(ctx, 'busy', 'running')

@@ -40,10 +40,13 @@ function sdkCommand(profile: string): Command {
     .name(`dsh --profile ${profile}`)
     .description('Serve DeepSeek Harness SDK clients over stdio JSON-RPC.')
     .helpOption('-h, --help', 'show this help')
-    .addHelpText('after', `
+    .addHelpText(
+      'after',
+      `
 Example:
   dsh --profile ${profile}     serve one SDK runtime until its client disconnects
-`)
+`,
+    )
 }
 
 /**

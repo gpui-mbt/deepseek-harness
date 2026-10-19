@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Events } from '@deepseek-ai/cordis'
 import { bindScopeParent, createScope } from '@deepseek-ai/dsh-scope'
@@ -28,8 +28,14 @@ async function mintAgentScope(ctx: Context, name: string): Promise<{ scope: Scop
   // The scoped context resolves services through the MINTING plugin's
   // dependency chain — the minter must inject what scope holders will reach
   // (in production the agent loop's inject list plays this role).
-  await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, key) },
-    { inject: ['tools', 'systemPrompt'] }))
+  await ctx.plugin(
+    Object.assign(
+      (inner: Context) => {
+        scope = createScope(inner, key)
+      },
+      { inject: ['tools', 'systemPrompt'] },
+    ),
+  )
   return { scope, key }
 }
 
@@ -52,7 +58,7 @@ async function run(ctx: Context, name: string, agent?: Agent): Promise<string> {
     callId: ToolCallId('c1'),
     name,
     arguments: {},
-    ...agent ? { agent } : {},
+    ...(agent ? { agent } : {}),
   })
   const first = result.content[0]
   return first?.type === 'text' ? first.text : JSON.stringify(result.content)
@@ -74,7 +80,12 @@ describe('scoped tool registration', () => {
     ctx.tools.register(tool('shared'))
     scope.ctx.tools.register(tool('mine'))
 
-    expect(ctx.tools.schemas(key).map(t => t.name).sort()).toEqual(['mine', 'shared'])
+    expect(
+      ctx.tools
+        .schemas(key)
+        .map(t => t.name)
+        .sort(),
+    ).toEqual(['mine', 'shared'])
     expect(ctx.tools.schemas().map(t => t.name)).toEqual(['shared'])
     expect(ctx.tools.schemas(other).map(t => t.name)).toEqual(['shared'])
 
@@ -127,12 +138,22 @@ describe('restrict()', () => {
     scope.ctx.tools.restrict({ allow: ['read'] })
 
     // The scope-local registration survives the allow-list; the unlisted global is gone.
-    expect(ctx.tools.schemas(key).map(t => t.name).sort()).toEqual(['capture', 'read'])
+    expect(
+      ctx.tools
+        .schemas(key)
+        .map(t => t.name)
+        .sort(),
+    ).toEqual(['capture', 'read'])
     expect(await run(ctx, 'bash', key)).toBe('Error: unknown tool "bash"')
     expect(await run(ctx, 'read', key)).toBe('ran:read')
     expect(await run(ctx, 'capture', key)).toBe('ran:capture')
     // Other scopes and the global view are untouched.
-    expect(ctx.tools.schemas().map(t => t.name).sort()).toEqual(['bash', 'read'])
+    expect(
+      ctx.tools
+        .schemas()
+        .map(t => t.name)
+        .sort(),
+    ).toEqual(['bash', 'read'])
   })
 
   it('applies snapshotted filters to the live global registry before merging later scope-local tools', async () => {
@@ -148,10 +169,18 @@ describe('restrict()', () => {
     denied.scope.ctx.tools.register(tool('denied-local'))
     allowed.scope.ctx.tools.register(tool('allowed-local'))
 
-    expect(ctx.tools.schemas(denied.key).map(t => t.name).sort())
-      .toEqual(['denied-local', 'read', 'web'])
-    expect(ctx.tools.schemas(allowed.key).map(t => t.name).sort())
-      .toEqual(['allowed-local', 'read'])
+    expect(
+      ctx.tools
+        .schemas(denied.key)
+        .map(t => t.name)
+        .sort(),
+    ).toEqual(['denied-local', 'read', 'web'])
+    expect(
+      ctx.tools
+        .schemas(allowed.key)
+        .map(t => t.name)
+        .sort(),
+    ).toEqual(['allowed-local', 'read'])
     expect(await run(ctx, 'web', denied.key)).toBe('ran:web')
     expect(await run(ctx, 'web', allowed.key)).toBe('Error: unknown tool "web"')
     expect(await run(ctx, 'denied-local', denied.key)).toBe('ran:denied-local')
@@ -167,7 +196,12 @@ describe('restrict()', () => {
     expect(ctx.tools.schemas(key).map(t => t.name)).toEqual(['a'])
     liftAllow()
     // The deny remains after the allow-list is lifted.
-    expect(ctx.tools.schemas(key).map(t => t.name).sort()).toEqual(['a', 'c'])
+    expect(
+      ctx.tools
+        .schemas(key)
+        .map(t => t.name)
+        .sort(),
+    ).toEqual(['a', 'c'])
   })
 
   it('compiles the readonly filter values at registration', async () => {
@@ -196,8 +230,7 @@ describe('restrict()', () => {
 
     const emptyCtx = await mount()
     const { scope: emptyScope } = await mintAgentScope(emptyCtx, 'empty')
-    expect(() => emptyScope.ctx.tools.restrict({ deny: ['ghost'] }))
-      .toThrow(/known global tools: \(none\)/)
+    expect(() => emptyScope.ctx.tools.restrict({ deny: ['ghost'] })).toThrow(/known global tools: \(none\)/)
   })
 })
 
@@ -207,8 +240,14 @@ describe('restrict() over an inherited scope layer', () => {
     const key = { id: name as SessionId } as Agent
     bindScopeParent(key, parentKey)
     let scope!: Scope
-    await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, key) },
-      { inject: ['tools', 'systemPrompt'] }))
+    await ctx.plugin(
+      Object.assign(
+        (inner: Context) => {
+          scope = createScope(inner, key)
+        },
+        { inject: ['tools', 'systemPrompt'] },
+      ),
+    )
     return { scope, key }
   }
 
@@ -221,7 +260,12 @@ describe('restrict() over an inherited scope layer', () => {
     parent.scope.ctx.tools.register(tool('read'))
     const child = await mintChild(ctx, parent.key, 'child')
 
-    expect(ctx.tools.schemas(child.key).map(t => t.name).sort()).toEqual(['bash', 'read'])
+    expect(
+      ctx.tools
+        .schemas(child.key)
+        .map(t => t.name)
+        .sort(),
+    ).toEqual(['bash', 'read'])
     child.scope.ctx.tools.restrict({ deny: ['bash'] })
 
     // Reading the exempt set as "the global layer" left this unfiltered, and
@@ -229,10 +273,15 @@ describe('restrict() over an inherited scope layer', () => {
     expect(ctx.tools.schemas(child.key).map(t => t.name)).toEqual(['read'])
     expect(await run(ctx, 'bash', child.key)).toBe('Error: unknown tool "bash"')
     // The ancestor keeps its whole surface: a child's filter is its own.
-    expect(ctx.tools.schemas(parent.key).map(t => t.name).sort()).toEqual(['bash', 'read'])
+    expect(
+      ctx.tools
+        .schemas(parent.key)
+        .map(t => t.name)
+        .sort(),
+    ).toEqual(['bash', 'read'])
   })
 
-  it('keeps the child\'s own registrations outside its own filter', async () => {
+  it("keeps the child's own registrations outside its own filter", async () => {
     // The delegation runtime registers a child's reporting and structured
     // output tools into the child's own layer; an `allow` naming only the
     // capabilities the child may use must not strip them.
@@ -245,11 +294,16 @@ describe('restrict() over an inherited scope layer', () => {
 
     child.scope.ctx.tools.restrict({ allow: ['read'] })
 
-    expect(ctx.tools.schemas(child.key).map(t => t.name).sort()).toEqual(['read', 'report'])
+    expect(
+      ctx.tools
+        .schemas(child.key)
+        .map(t => t.name)
+        .sort(),
+    ).toEqual(['read', 'report'])
     expect(await run(ctx, 'report', child.key)).toBe('ran:report')
   })
 
-  it('lets an ancestor\'s restriction reach every scope nested inside it', async () => {
+  it("lets an ancestor's restriction reach every scope nested inside it", async () => {
     const ctx = await mount()
     ctx.tools.register(tool('web'))
     const parent = await mintAgentScope(ctx, 'parent')
@@ -385,7 +439,7 @@ describe('scoped execution dispatch', () => {
     const tokens = new Set<ToolExecutionToken>()
     ctx.tools.register({
       ...tool('safe'),
-      execute: (args) => {
+      execute: args => {
         safeCalls += 1
         safeArguments = args
         return Promise.resolve('safe')
@@ -398,7 +452,7 @@ describe('scoped execution dispatch', () => {
         return Promise.resolve('danger')
       },
     })
-    scope.ctx.tools.guard(exec => exec.name === 'danger' ? 'danger denied' : undefined)
+    scope.ctx.tools.guard(exec => (exec.name === 'danger' ? 'danger denied' : undefined))
     ctx.on('tools/pre-execute', (exec, next) => {
       tokens.add(exec.token)
       expect(Object.isFrozen(exec.arguments)).toBe(true)
@@ -412,7 +466,9 @@ describe('scoped execution dispatch', () => {
       tokens.add(exec.token)
       return next()
     })
-    scope.ctx.on('tools/result', () => { scopedResults += 1 })
+    scope.ctx.on('tools/result', () => {
+      scopedResults += 1
+    })
 
     expect(await run(ctx, 'danger', key)).toBe('Error: danger denied')
     const callerArguments = { source: true }
@@ -473,7 +529,9 @@ describe('scoped execution dispatch', () => {
       expect(Object.isFrozen(exec)).toBe(true)
       expect(result.isError).toBe(true)
     })
-    ctx.on('tools/result', () => { globalObserved += 1 })
+    ctx.on('tools/result', () => {
+      globalObserved += 1
+    })
     const callerArguments = { invalid: () => undefined }
 
     const scopedResult = await ctx.tools.execute({
@@ -521,7 +579,9 @@ describe('scoped execution dispatch', () => {
       observed.push(exec.parent)
       return next()
     })
-    ctx.on('tools/result', (exec) => { observed.push(exec.parent) })
+    ctx.on('tools/result', exec => {
+      observed.push(exec.parent)
+    })
     const forged = { fake: true } as unknown as ToolExecutionToken
     let parentReads = 0
     const input = {
@@ -560,17 +620,39 @@ describe('scoped execution dispatch', () => {
     const forged = { fake: true } as unknown as ToolExecutionToken
     const reads = { callId: 0, name: 0, arguments: 0, agent: 0, parent: 0, signal: 0 }
     const input = {
-      get callId() { reads.callId += 1; return ToolCallId('unstable-error') },
-      get name() { reads.name += 1; return 't' },
-      get arguments(): unknown { reads.arguments += 1; return { invalid: () => undefined } },
-      get agent() { reads.agent += 1; return reads.agent === 1 ? key : driftAgent },
-      get parent() { reads.parent += 1; return reads.parent <= 2 ? parent : forged },
-      get signal() { reads.signal += 1; return reads.signal === 1 ? acceptedSignal : driftSignal },
+      get callId() {
+        reads.callId += 1
+        return ToolCallId('unstable-error')
+      },
+      get name() {
+        reads.name += 1
+        return 't'
+      },
+      get arguments(): unknown {
+        reads.arguments += 1
+        return { invalid: () => undefined }
+      },
+      get agent() {
+        reads.agent += 1
+        return reads.agent === 1 ? key : driftAgent
+      },
+      get parent() {
+        reads.parent += 1
+        return reads.parent <= 2 ? parent : forged
+      },
+      get signal() {
+        reads.signal += 1
+        return reads.signal === 1 ? acceptedSignal : driftSignal
+      },
     } as ToolExecutionInput
     let observed: Readonly<ToolExecution> | undefined
     let scopedObserved = 0
-    ctx.on('tools/result', (exec) => { observed = exec })
-    scope.ctx.on('tools/result', () => { scopedObserved += 1 })
+    ctx.on('tools/result', exec => {
+      observed = exec
+    })
+    scope.ctx.on('tools/result', () => {
+      scopedObserved += 1
+    })
 
     const result = await ctx.tools.execute(input)
 
@@ -617,7 +699,12 @@ describe('scoped execution dispatch', () => {
 
   it.each([
     ['Map', new Map([['mutable', true]])],
-    ['class instance', new (class Arguments { value = 1 })()],
+    [
+      'class instance',
+      new (class Arguments {
+        value = 1
+      })(),
+    ],
   ])('rejects cloneable non-JSON arguments (%s) before policy or dispatch', async (_kind, argumentsValue) => {
     const ctx = await mount()
     let policyCalls = 0
@@ -642,13 +729,18 @@ describe('scoped execution dispatch', () => {
 
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: ToolCallId('bad-arguments'), name: 't', arguments: argumentsValue,
+      callId: ToolCallId('bad-arguments'),
+      name: 't',
+      arguments: argumentsValue,
     })
 
     expect(result.isError).toBe(true)
-    expect(result.content).toEqual([{
-      type: 'text', text: 'Error: tool execution arguments must be losslessly JSON-serializable',
-    }])
+    expect(result.content).toEqual([
+      {
+        type: 'text',
+        text: 'Error: tool execution arguments must be losslessly JSON-serializable',
+      },
+    ])
     expect({ policyCalls, bodyCalls, observed }).toEqual({ policyCalls: 0, bodyCalls: 0, observed: 1 })
   })
 
@@ -658,12 +750,14 @@ describe('scoped execution dispatch', () => {
     let reads = 0
     const argumentsValue = Object.defineProperty({}, 'value', {
       enumerable: true,
-      get: () => ++reads === 1 ? 'safe' : new Map([['mutable', true]]),
+      get: () => (++reads === 1 ? 'safe' : new Map([['mutable', true]])),
     })
 
     const result = await ctx.tools.execute({
       signal: testToolSignal,
-      callId: ToolCallId('unstable-arguments'), name: 't', arguments: argumentsValue,
+      callId: ToolCallId('unstable-arguments'),
+      name: 't',
+      arguments: argumentsValue,
     })
 
     expect(reads).toBe(1)
@@ -684,14 +778,18 @@ describe('scoped execution dispatch', () => {
     ctx.on('internal/dispatch', (mode, name) => {
       if (name === 'tools/result') dispatchModes.push(mode)
     })
-    ctx.on('tools/execute', async (_exec, next) => {
-      await next()
-      return {
-        content: [{ type: 'text', text: 'outer failure' }],
-        isError: true,
-        error: { message: 'outer failure' },
-      }
-    }, { prepend: true })
+    ctx.on(
+      'tools/execute',
+      async (_exec, next) => {
+        await next()
+        return {
+          content: [{ type: 'text', text: 'outer failure' }],
+          isError: true,
+          error: { message: 'outer failure' },
+        }
+      },
+      { prepend: true },
+    )
     scope.ctx.on('tools/result', (_exec, result) => {
       expect(Object.isFrozen(_exec)).toBe(true)
       expect(Object.isFrozen(_exec.arguments)).toBe(true)
@@ -700,10 +798,16 @@ describe('scoped execution dispatch', () => {
       seen.push(result.isError)
     })
     ctx.on('tools/result', () => {
-      throw { toString: () => { throw new Error('coercion trap') } }
+      throw {
+        toString: () => {
+          throw new Error('coercion trap')
+        },
+      }
     })
     ctx.on('tools/result', () => Promise.reject(new Error('async observer failure')) as never)
-    ctx.on('tools/result', (_exec, result) => { seen.push(result.isError) })
+    ctx.on('tools/result', (_exec, result) => {
+      seen.push(result.isError)
+    })
 
     const result = await ctx.tools.execute({ signal: testToolSignal, callId: ToolCallId('final'), name: 't', arguments: {}, agent: key })
     await Promise.resolve()
@@ -711,9 +815,8 @@ describe('scoped execution dispatch', () => {
     expect(seen).toEqual([true, true])
     expect(dispatchModes).toEqual(['emit'])
     expect(warn).toHaveBeenCalledTimes(2)
-    expect(warn.mock.calls.map(call => String(call[0]))).toEqual(expect.arrayContaining([
-      expect.stringContaining('<unprintable thrown value>'),
-      expect.stringContaining('async observer failure'),
-    ]))
+    expect(warn.mock.calls.map(call => String(call[0]))).toEqual(
+      expect.arrayContaining([expect.stringContaining('<unprintable thrown value>'), expect.stringContaining('async observer failure')]),
+    )
   })
 })

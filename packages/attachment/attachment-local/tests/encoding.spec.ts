@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { CompressionLimiter } from '../src/compression-limiter.ts'
 import { encodeFirstWithinLimit, isExhaustedEncoding } from '../src/encoding.ts'
 
@@ -25,11 +25,14 @@ describe('lazy image encoding', () => {
 
   it('rejects an empty candidate list and reports the smallest exhausted candidate', async () => {
     await expect(encodeFirstWithinLimit([], 8)).rejects.toThrow('requires at least one candidate')
-    const result = await encodeFirstWithinLimit([
-      () => Promise.resolve({ data: new Uint8Array(12), quality: 85 }),
-      () => Promise.resolve({ data: new Uint8Array(9), quality: 80 }),
-      () => Promise.resolve({ data: new Uint8Array(10), quality: 75 }),
-    ], 8)
+    const result = await encodeFirstWithinLimit(
+      [
+        () => Promise.resolve({ data: new Uint8Array(12), quality: 85 }),
+        () => Promise.resolve({ data: new Uint8Array(9), quality: 80 }),
+        () => Promise.resolve({ data: new Uint8Array(10), quality: 75 }),
+      ],
+      8,
+    )
 
     expect(isExhaustedEncoding(result)).toBe(true)
     expect(result).toMatchObject({ smallest: { quality: 80 } })
@@ -44,14 +47,16 @@ describe('CompressionLimiter', () => {
     let active = 0
     let maximum = 0
     const started: number[] = []
-    const tasks = gates.map((gate, index) => limiter.run(async () => {
-      active += 1
-      maximum = Math.max(maximum, active)
-      started.push(index)
-      await gate.promise
-      active -= 1
-      return index
-    }))
+    const tasks = gates.map((gate, index) =>
+      limiter.run(async () => {
+        active += 1
+        maximum = Math.max(maximum, active)
+        started.push(index)
+        await gate.promise
+        active -= 1
+        return index
+      }),
+    )
 
     await Promise.resolve()
     expect(started).toEqual([0, 1])

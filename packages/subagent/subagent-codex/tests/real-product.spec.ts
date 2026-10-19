@@ -1,47 +1,29 @@
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
 import { startExternalActivation } from '../../subagent/tests/external-activation-helpers.ts'
 import { execFile } from 'node:child_process'
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
-import type {
-  SubprocessHandle,
-  SubprocessOutcome,
-  SubprocessSpawnSpec,
-} from '@deepseek-ai/dsh-subprocess'
+import type { SubprocessHandle, SubprocessOutcome, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import * as codex from '../src/index.ts'
 import type { CodexPermissionMode } from '../src/run.ts'
-import {
-  startResponsesFixture,
-  type ResponsesBehavior,
-  type ResponsesFixture,
-} from './responses-fixture.ts'
+import { startResponsesFixture, type ResponsesBehavior, type ResponsesFixture } from './responses-fixture.ts'
 import { cleanupRealProduct } from './real-product-cleanup.ts'
 
 const execFileAsync = promisify(execFile)
 const packageRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const codexBinDir = join(packageRoot, 'node_modules', '.bin')
 const codexPackageJson = createRequire(import.meta.url).resolve('@openai/codex/package.json')
-const codexPackage = JSON.parse(readFileSync(
-  codexPackageJson,
-  'utf8',
-)) as { version: string; bin: { codex: string } }
+const codexPackage = JSON.parse(readFileSync(codexPackageJson, 'utf8')) as { version: string; bin: { codex: string } }
 const codexEntry = resolve(dirname(codexPackageJson), codexPackage.bin.codex)
 const codexPackageRoot = dirname(dirname(codexEntry))
 
@@ -68,9 +50,7 @@ interface RealInstanceFixture {
 
 type ResponsesScript = readonly ResponsesBehavior[] | ((workspace: string) => readonly ResponsesBehavior[])
 
-async function realInstanceFixture(
-  script: ResponsesScript,
-): Promise<RealInstanceFixture> {
+async function realInstanceFixture(script: ResponsesScript): Promise<RealInstanceFixture> {
   const root = mkdtempSync(join(tmpdir(), 'dsh-codex-real-'))
   roots.push(root)
   const workspace = join(root, 'workspace')
@@ -79,25 +59,28 @@ async function realInstanceFixture(
   mkdirSync(codexHome)
   const fixture = await startResponsesFixture(typeof script === 'function' ? script(workspace) : script)
   fixtures.push(fixture)
-  writeFileSync(join(codexHome, 'config.toml'), [
-    'model = "fixture-model"',
-    'model_provider = "fixture"',
-    'approval_policy = "on-request"',
-    'sandbox_mode = "read-only"',
-    'disable_response_storage = true',
-    'check_for_update_on_startup = false',
-    '',
-    '[model_providers.fixture]',
-    'name = "Fixture Responses"',
-    `base_url = "${fixture.baseUrl}"`,
-    'env_key = "OPENAI_API_KEY"',
-    'wire_api = "responses"',
-    'requires_openai_auth = false',
-    '',
-    '[analytics]',
-    'enabled = false',
-    '',
-  ].join('\n'))
+  writeFileSync(
+    join(codexHome, 'config.toml'),
+    [
+      'model = "fixture-model"',
+      'model_provider = "fixture"',
+      'approval_policy = "on-request"',
+      'sandbox_mode = "read-only"',
+      'disable_response_storage = true',
+      'check_for_update_on_startup = false',
+      '',
+      '[model_providers.fixture]',
+      'name = "Fixture Responses"',
+      `base_url = "${fixture.baseUrl}"`,
+      'env_key = "OPENAI_API_KEY"',
+      'wire_api = "responses"',
+      'requires_openai_auth = false',
+      '',
+      '[analytics]',
+      'enabled = false',
+      '',
+    ].join('\n'),
+  )
   const env = {
     OPENAI_API_KEY: 'dsh-fake-openai-key',
     CODEX_HOME: codexHome,
@@ -128,7 +111,7 @@ async function realRuntime(): Promise<RealRuntime> {
   const handles: SubprocessHandle[] = []
   const spawnSpecs: SubprocessSpawnSpec[] = []
   const spawn = ctx.subprocess.spawn.bind(ctx.subprocess)
-  vi.spyOn(ctx.subprocess, 'spawn').mockImplementation((spec) => {
+  vi.spyOn(ctx.subprocess, 'spawn').mockImplementation(spec => {
     spawnSpecs.push(spec)
     const handle = spawn(spec)
     handles.push(handle)
@@ -148,7 +131,7 @@ async function realHarness(
   const { ctx, handles, spawnSpecs } = await realRuntime()
   await ctx.plugin(codex, {
     env: instance.env,
-    ...permissionMode === undefined ? {} : { permissionMode },
+    ...(permissionMode === undefined ? {} : { permissionMode }),
     disposeGraceMs: 2_000,
   })
   const parent = {
@@ -179,11 +162,7 @@ async function expectQuiescent(handles: readonly SubprocessHandle[]): Promise<vo
 }
 
 function expectedProcessExitDiagnostic(outcome: SubprocessOutcome): string {
-  const fields = [
-    'product: Codex',
-    'stage: process',
-    'category: process',
-  ]
+  const fields = ['product: Codex', 'stage: process', 'category: process']
   if (outcome.exitCode !== null) fields.push(`exit code: ${outcome.exitCode}`)
   if (outcome.signal !== null) fields.push(`signal: ${outcome.signal}`)
   return `Product subagent failure (${fields.join('; ')})`
@@ -201,13 +180,11 @@ function responseInputTexts(body: Record<string, unknown>): string[] {
     if (item === null || typeof item !== 'object') return []
     const content = (item as Record<string, unknown>).content
     if (!Array.isArray(content)) return []
-    return content.flatMap((part): string[] => (
-      part !== null
-      && typeof part === 'object'
-      && typeof (part as Record<string, unknown>).text === 'string'
+    return content.flatMap((part): string[] =>
+      part !== null && typeof part === 'object' && typeof (part as Record<string, unknown>).text === 'string'
         ? [(part as Record<string, unknown>).text as string]
-        : []
-    ))
+        : [],
+    )
   })
 }
 
@@ -215,9 +192,7 @@ describe('real @openai/codex 0.153.4 product', () => {
   it('starts approve-for-me through the real app-server and returns exact text', async () => {
     const sentinel = 'REAL_CODEX_SENTINEL_0_149_1'
     const task = 'Return the fixture sentinel exactly.'
-    const { harness, fixture } = await realHarness([
-      { kind: 'complete', text: sentinel },
-    ], 'approve-for-me')
+    const { harness, fixture } = await realHarness([{ kind: 'complete', text: sentinel }], 'approve-for-me')
     expect(codexPackage.version).toBe('0.153.4')
     const version = await execFileAsync(process.execPath, [codexEntry, '--version'], {
       env: { ...process.env, ...harness.env },
@@ -225,17 +200,10 @@ describe('real @openai/codex 0.153.4 product', () => {
     expect(version.stdout.trim()).toBe('codex-cli 0.153.4')
     const schemaRoot = mkdtempSync(join(tmpdir(), 'dsh-codex-schema-'))
     roots.push(schemaRoot)
-    await execFileAsync(process.execPath, [
-      codexEntry,
-      'app-server',
-      'generate-json-schema',
-      '--out',
-      schemaRoot,
-    ], { env: { ...process.env, ...harness.env } })
-    const schema = JSON.parse(readFileSync(
-      join(schemaRoot, 'ClientRequest.json'),
-      'utf8',
-    )) as {
+    await execFileAsync(process.execPath, [codexEntry, 'app-server', 'generate-json-schema', '--out', schemaRoot], {
+      env: { ...process.env, ...harness.env },
+    })
+    const schema = JSON.parse(readFileSync(join(schemaRoot, 'ClientRequest.json'), 'utf8')) as {
       definitions: {
         ThreadStartParams: JsonSchemaNode
       }
@@ -256,12 +224,7 @@ describe('real @openai/codex 0.153.4 product', () => {
     })
     await run.dispose()
 
-    expect(harness.spawnSpecs[0]?.argv).toEqual([
-      process.execPath,
-      codexEntry,
-      'app-server',
-      '--stdio',
-    ])
+    expect(harness.spawnSpecs[0]?.argv).toEqual([process.execPath, codexEntry, 'app-server', '--stdio'])
 
     expect(fixture.requests).toHaveLength(1)
     const recorded = fixture.requests[0]!
@@ -281,22 +244,24 @@ describe('real @openai/codex 0.153.4 product', () => {
     cpSync(codexPackageRoot, isolatedPackage, { recursive: true, dereference: true })
     const isolatedEntry = join(isolatedPackage, 'bin', 'codex.js')
 
-    await expect(execFileAsync(process.execPath, [isolatedEntry, '--version'], {
-      env: {
-        PATH: codexBinDir,
-        ...process.platform === 'win32' && process.env.SystemRoot !== undefined
-          ? { SystemRoot: process.env.SystemRoot }
-          : {},
-      },
-    })).rejects.toThrow(/Missing optional dependency @openai\/codex-[a-z0-9-]+/)
+    await expect(
+      execFileAsync(process.execPath, [isolatedEntry, '--version'], {
+        env: {
+          PATH: codexBinDir,
+          ...(process.platform === 'win32' && process.env.SystemRoot !== undefined ? { SystemRoot: process.env.SystemRoot } : {}),
+        },
+      }),
+    ).rejects.toThrow(/Missing optional dependency @openai\/codex-[a-z0-9-]+/)
   }, 30_000)
 
   it('runs two named instances concurrently and unloads one without revoking its run', async () => {
     const safeInstance = await realInstanceFixture([{ kind: 'hold' }])
-    const bypassInstance = await realInstanceFixture([{
-      kind: 'complete',
-      text: 'NAMED_CODEX_BYPASS_RESULT',
-    }])
+    const bypassInstance = await realInstanceFixture([
+      {
+        kind: 'complete',
+        text: 'NAMED_CODEX_BYPASS_RESULT',
+      },
+    ])
     const { ctx, handles, spawnSpecs } = await realRuntime()
     const safeFiber = await ctx.plugin(codex, {
       providerName: 'codex-safe',
@@ -337,11 +302,13 @@ describe('real @openai/codex 0.153.4 product', () => {
     await safeInstance.fixture.requestStarted
     await safeFiber.dispose()
     expect(ctx.subagents.list()).toEqual(['codex-bypass'])
-    await expect(startExternalActivation(ctx, 'codex-safe', {
-      prompt: [{ type: 'text', text: 'This start must fail.' }],
-      parent: safeParent,
-      signal: new AbortController().signal,
-    })).rejects.toMatchObject({ code: 'NO_PROVIDER' })
+    await expect(
+      startExternalActivation(ctx, 'codex-safe', {
+        prompt: [{ type: 'text', text: 'This start must fail.' }],
+        parent: safeParent,
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toMatchObject({ code: 'NO_PROVIDER' })
 
     await expect(bypassRun.result).resolves.toEqual({
       output: [{ type: 'text', text: 'NAMED_CODEX_BYPASS_RESULT' }],
@@ -357,21 +324,15 @@ describe('real @openai/codex 0.153.4 product', () => {
     expect(bypassInstance.fixture.requests).toHaveLength(1)
     expect(safeInstance.fixture.requests[0]?.body.model).toBe('codex-safe-model')
     expect(bypassInstance.fixture.requests[0]?.body.model).toBe('codex-bypass-model')
-    expect(safeInstance.fixture.requests[0]?.body.input)
-      .not.toEqual(bypassInstance.fixture.requests[0]?.body.input)
-    expect(spawnSpecs.map(spec => spec.env?.CODEX_HOME).sort()).toEqual([
-      safeInstance.env.CODEX_HOME,
-      bypassInstance.env.CODEX_HOME,
-    ].sort())
+    expect(safeInstance.fixture.requests[0]?.body.input).not.toEqual(bypassInstance.fixture.requests[0]?.body.input)
+    expect(spawnSpecs.map(spec => spec.env?.CODEX_HOME).sort()).toEqual([safeInstance.env.CODEX_HOME, bypassInstance.env.CODEX_HOME].sort())
     await expectQuiescent(handles)
     await bypassFiber.dispose()
     expect(ctx.subagents.list()).toEqual([])
   }, 60_000)
 
   it('overrides on-request with never and reports a denied command safely', async () => {
-    const command = process.platform === 'win32'
-      ? 'cmd /c type nul > approval-side-effect'
-      : 'touch approval-side-effect'
+    const command = process.platform === 'win32' ? 'cmd /c type nul > approval-side-effect' : 'touch approval-side-effect'
     const commandCalls = [
       {
         name: 'exec_command',
@@ -411,9 +372,7 @@ describe('real @openai/codex 0.153.4 product', () => {
     expect(result.output).toEqual([])
     expect(result.stopReason).toBe('error')
     const diagnosticLines = result.diagnostic?.split('\n') ?? []
-    expect(diagnosticLines[0]).toBe(
-      'Product subagent failure (product: Codex; stage: turn; category: product-error)',
-    )
+    expect(diagnosticLines[0]).toBe('Product subagent failure (product: Codex; stage: turn; category: product-error)')
     expect(diagnosticLines).toHaveLength(1)
     expect(result.diagnostic).not.toContain(command)
     expect(result.diagnostic).not.toContain(harness.workspace)
@@ -422,22 +381,20 @@ describe('real @openai/codex 0.153.4 product', () => {
     expect(existsSync(sideEffect)).toBe(false)
     expect(fixture.requests).toHaveLength(2)
     const tools = fixture.requests[0]!.body.tools as Array<Record<string, unknown>>
-    expect(commandCalls.some(call => tools.some(tool => (
-      tool.type === 'function' && tool.name === call.name
-    )))).toBe(true)
-    expect(fixture.requests.every(requestEntry =>
-      requestEntry.headers.authorization === 'Bearer dsh-fake-openai-key',
-    )).toBe(true)
+    expect(commandCalls.some(call => tools.some(tool => tool.type === 'function' && tool.name === call.name))).toBe(true)
+    expect(fixture.requests.every(requestEntry => requestEntry.headers.authorization === 'Bearer dsh-fake-openai-key')).toBe(true)
     await expectQuiescent(harness.handles)
   }, 60_000)
 
   it('reports a real service failure and an early app-server exit safely', async () => {
     {
-      const { harness } = await realHarness([{
-        kind: 'error',
-        status: 503,
-        message: 'SECRET_TOKEN in /private/secret.txt',
-      }])
+      const { harness } = await realHarness([
+        {
+          kind: 'error',
+          status: 503,
+          message: 'SECRET_TOKEN in /private/secret.txt',
+        },
+      ])
       const run = await startExternalActivation(harness.ctx, 'codex', {
         prompt: [{ type: 'text', text: 'Exercise the service failure path.' }],
         parent: harness.parent,
@@ -445,9 +402,7 @@ describe('real @openai/codex 0.153.4 product', () => {
       })
       const result = await run.result
       expect(result).toMatchObject({ output: [], stopReason: 'error' })
-      expect(result.diagnostic).toBe(
-        'Product subagent failure (product: Codex; stage: turn; category: service)',
-      )
+      expect(result.diagnostic).toBe('Product subagent failure (product: Codex; stage: turn; category: service)')
       expect(result.diagnostic).not.toContain('SECRET_TOKEN')
       expect(result.diagnostic).not.toContain('/private/secret.txt')
       await run.dispose()
@@ -478,9 +433,10 @@ describe('real @openai/codex 0.153.4 product', () => {
     const sideEffect = 'bypass-side-effect'
     const { harness, fixture } = await realHarness((workspace): readonly ResponsesBehavior[] => {
       const target = join(workspace, sideEffect)
-      const command = process.platform === 'win32'
-        ? `powershell.exe -NoLogo -NoProfile -NonInteractive -Command "Set-Content -LiteralPath '${target.replaceAll("'", "''")}' -Value 'bypass' -NoNewline"`
-        : `printf bypass > ${JSON.stringify(target)}`
+      const command =
+        process.platform === 'win32'
+          ? `powershell.exe -NoLogo -NoProfile -NonInteractive -Command "Set-Content -LiteralPath '${target.replaceAll("'", "''")}' -Value 'bypass' -NoNewline"`
+          : `printf bypass > ${JSON.stringify(target)}`
       const commandCalls = [
         {
           name: 'exec_command',

@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { SessionFormatUnsupportedMigrationError } from '@deepseek-ai/dsh-session-format-catalog'
 import { expectedUnsupported, unversionedProtocolFixtures } from './session-format-corpus-inventory.ts'
@@ -30,8 +30,7 @@ function declaresFormat(text: string): boolean {
   const firstLine = text.split(/\r?\n/).find(line => line.trim().length > 0)
   if (firstLine === undefined) return false
   const header: unknown = JSON.parse(firstLine)
-  return header !== null && typeof header === 'object' && !Array.isArray(header)
-    && Object.hasOwn(header, 'version')
+  return header !== null && typeof header === 'object' && !Array.isArray(header) && Object.hasOwn(header, 'version')
 }
 
 function filenameFormatVersion(path: string): number {
@@ -42,12 +41,7 @@ function filenameFormatVersion(path: string): number {
 
 type Unsupported = { sourceVersion: number; reason: string }
 
-function assertRestoration(
-  key: string,
-  sourceVersion: number,
-  restore: () => unknown,
-  unsupported: Unsupported | undefined,
-): void {
+function assertRestoration(key: string, sourceVersion: number, restore: () => unknown, unsupported: Unsupported | undefined): void {
   if (unsupported === undefined) {
     expect(restore, key + ': current-format restoration').not.toThrow()
     return
@@ -101,38 +95,59 @@ describe('committed Session format corpus', () => {
 
 describe('corpus unsupported policy', () => {
   const refusal = { sourceVersion: 2, reason: 'deliberate historical refusal' }
-  const refused = (): never => { throw new SessionFormatUnsupportedMigrationError(refusal.reason) }
+  const refused = (): never => {
+    throw new SessionFormatUnsupportedMigrationError(refusal.reason)
+  }
 
   it('rejects an unlisted migration refusal', () => {
-    expect(() => { assertRestoration('unlisted', 2, refused, undefined) }).toThrow('current-format restoration')
+    expect(() => {
+      assertRestoration('unlisted', 2, refused, undefined)
+    }).toThrow('current-format restoration')
   })
 
   it('rejects an exception that starts restoring successfully', () => {
-    expect(() => { assertRestoration('supported', 2, () => [], refusal) }).toThrow('expected unsupported migration')
+    expect(() => {
+      assertRestoration('supported', 2, () => [], refusal)
+    }).toThrow('expected unsupported migration')
   })
 
   it('rejects a changed refusal reason', () => {
-    expect(() => { assertRestoration('changed', 2, refused, { ...refusal, reason: 'different' }) }).toThrow('exact refusal reason')
+    expect(() => {
+      assertRestoration('changed', 2, refused, { ...refusal, reason: 'different' })
+    }).toThrow('exact refusal reason')
   })
 
   it('rejects corruption masquerading as an unsupported migration', () => {
-    expect(() => { assertRestoration('corrupt', 2, () => { throw new Error(refusal.reason) }, refusal) })
-      .toThrow('expected unsupported migration')
+    expect(() => {
+      assertRestoration(
+        'corrupt',
+        2,
+        () => {
+          throw new Error(refusal.reason)
+        },
+        refusal,
+      )
+    }).toThrow('expected unsupported migration')
   })
 
   it('rejects a mismatched source generation', () => {
-    expect(() => { assertRestoration('wrong-version', 1, refused, refusal) }).toThrow('inventoried source generation')
+    expect(() => {
+      assertRestoration('wrong-version', 1, refused, refusal)
+    }).toThrow('inventoried source generation')
   })
 
   it('never exempts a current-generation fixture', () => {
     expect(() => {
       assertRestoration('current', SESSION_FORMAT_VERSION, refused, {
-        ...refusal, sourceVersion: SESSION_FORMAT_VERSION,
+        ...refusal,
+        sourceVersion: SESSION_FORMAT_VERSION,
       })
     }).toThrow('current-generation fixtures cannot be unsupported')
   })
 
   it('accepts only the exact typed historical refusal', () => {
-    expect(() => { assertRestoration('historical', 2, refused, refusal) }).not.toThrow()
+    expect(() => {
+      assertRestoration('historical', 2, refused, refusal)
+    }).not.toThrow()
   })
 })

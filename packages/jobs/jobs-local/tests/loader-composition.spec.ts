@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -22,12 +22,7 @@ describe('jobs-local through a real Loader composition', () => {
   it('applies the provider-owned admission config from a Cordis row', async () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-jobs-local-loader-'))
     const configPath = join(root, 'cordis.yml')
-    await writeFile(configPath, [
-      "- name: '@deepseek-ai/dsh-jobs-local'",
-      '  config:',
-      '    maxConcurrentJobsPerOwner: 1',
-      '',
-    ].join('\n'))
+    await writeFile(configPath, ["- name: '@deepseek-ai/dsh-jobs-local'", '  config:', '    maxConcurrentJobsPerOwner: 1', ''].join('\n'))
 
     context = new Context()
     context.baseUrl = pathToFileURL(root).href + '/'
@@ -53,14 +48,20 @@ describe('jobs-local through a real Loader composition', () => {
       kind: 'bash',
       label: 'hold loader slot',
       run: () => ({
-        cancel: () => { settle({ status: 'killed' }) },
-        done: new Promise((resolve) => { settle = resolve }),
+        cancel: () => {
+          settle({ status: 'killed' })
+        },
+        done: new Promise(resolve => {
+          settle = resolve
+        }),
       }),
     })
-    expect(() => context!.jobs.start({
-      kind: 'bash',
-      label: 'blocked loader job',
-      run: () => ({ cancel: () => {}, done: Promise.resolve({ status: 'completed' }) }),
-    })).toThrow('(limit: 1)')
+    expect(() =>
+      context!.jobs.start({
+        kind: 'bash',
+        label: 'blocked loader job',
+        run: () => ({ cancel: () => {}, done: Promise.resolve({ status: 'completed' }) }),
+      }),
+    ).toThrow('(limit: 1)')
   })
 })

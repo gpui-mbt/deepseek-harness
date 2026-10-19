@@ -65,7 +65,9 @@ export interface SignatureCacheMigrationOptions {
  * @param options Validated directories and credential-free audit sink.
  * @returns Counts of published, retained and skipped entries; corruption rejects without repair. Actual use rechecks trust.
  */
-export function migrateSignatureCache(options: SignatureCacheMigrationOptions): Promise<{ published: number, retained: number, skipped: number }>
+export function migrateSignatureCache(
+  options: SignatureCacheMigrationOptions,
+): Promise<{ published: number; retained: number; skipped: number }>
 
 /**
  * Inspect or explicitly clear complete entries under the caller's signing-stage lock.
@@ -73,4 +75,4 @@ export function migrateSignatureCache(options: SignatureCacheMigrationOptions): 
  * @param clear Remove complete entries after atomic retirement; incomplete staging directories remain untouched.
  * @returns Count and bytes of complete entries, plus the number of skipped incomplete entries.
  */
-export function maintainSignatureCache(root: string, clear?: boolean): Promise<{ entries: number, bytes: number, incomplete: number }>
+export function maintainSignatureCache(root: string, clear?: boolean): Promise<{ entries: number; bytes: number; incomplete: number }>

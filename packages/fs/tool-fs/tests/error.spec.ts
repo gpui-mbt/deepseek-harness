@@ -3,7 +3,7 @@
  * failures, the stale-version remedy, code preservation, and passthrough.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { FsError } from '@deepseek-ai/dsh-fs'
 import { remediateFsError } from '../src/error.ts'
 

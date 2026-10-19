@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { presentDesktopUpdate } from '../../desktop/src/update-presentation.ts'
 import { en } from '../../desktop/src/locale.ts'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
@@ -18,7 +18,7 @@ interface CarrierFixture {
 type FixtureWindow = Window & typeof globalThis & { updateFixture: CarrierFixture }
 
 describe('web e2e: Desktop update workspace chrome', () => {
-  it.each(['zh-CN', 'en-US'])('renders update states and routes explicit actions in %s', async (locale) => {
+  it.each(['zh-CN', 'en-US'])('renders update states and routes explicit actions in %s', async locale => {
     const scaffold = await launchWebScaffold({})
     try {
       const browser = await chromium.launch()
@@ -28,16 +28,28 @@ describe('web e2e: Desktop update workspace chrome', () => {
           let current: Presentation = { phase: 'idle' }
           const listeners = new Set<(state: Presentation) => void>()
           const fixture: CarrierFixture = {
-            opens: 0, listeners,
-            publish(state) { current = state; for (const listener of listeners) listener(state) },
+            opens: 0,
+            listeners,
+            publish(state) {
+              current = state
+              for (const listener of listeners) listener(state)
+            },
           }
           Object.assign(window, {
             updateFixture: fixture,
-            dshDesktop: { protocolVersion: 1, updates: {
-              status: async () => current,
-              open: async () => { fixture.opens += 1 },
-              subscribe(listener: (state: Presentation) => void) { listeners.add(listener); return () => listeners.delete(listener) },
-            } },
+            dshDesktop: {
+              protocolVersion: 1,
+              updates: {
+                status: async () => current,
+                open: async () => {
+                  fixture.opens += 1
+                },
+                subscribe(listener: (state: Presentation) => void) {
+                  listeners.add(listener)
+                  return () => listeners.delete(listener)
+                },
+              },
+            },
           })
         })
         const tripwire = watchConsole(page)
@@ -55,9 +67,10 @@ describe('web e2e: Desktop update workspace chrome', () => {
           const version = '0.1.5-nightly.20260911'
           // The carrier classification deliberately uses English shell copy; Web copy follows its own locale.
           const available = presentDesktopUpdate({ phase: 'available', version }, en)
-          const publish = async (state: Presentation) => page.evaluate((value) => {
-            (window as FixtureWindow).updateFixture.publish(value)
-          }, state)
+          const publish = async (state: Presentation) =>
+            page.evaluate(value => {
+              ;(window as FixtureWindow).updateFixture.publish(value)
+            }, state)
           const opens = async () => page.evaluate(() => (window as FixtureWindow).updateFixture.opens)
           await publish(available)
           const update = page.getByRole('button', { name: availableLabel, exact: true })
@@ -102,21 +115,31 @@ describe('web e2e: Desktop update workspace chrome', () => {
           expect(failedBackground).toBe(updateBackground)
           await errorBadge.hover()
           const tooltip = page.getByRole('tooltip', { name: errorDetail, exact: true })
-          await expect.poll(() => tooltip.evaluateAll(elements => elements.map(element => getComputedStyle(element).opacity))).toEqual(['1'])
+          await expect
+            .poll(() => tooltip.evaluateAll(elements => elements.map(element => getComputedStyle(element).opacity)))
+            .toEqual(['1'])
           await page.screenshot({ path: join(evidence, 'collapsed-error.png') })
           await toggle.click()
           const retry = page.getByRole('button', { name: retryLabel, exact: true })
           await retry.waitFor()
           await expect.poll(() => errorBadge.count()).toBe(0)
           // The expanding ancestor can move the button after hover's element-only stability check.
-          await retry.evaluate(async (element) => {
-            const movements = document.getAnimations().filter(animation => animation.effect instanceof KeyframeEffect
-              && animation.effect.target instanceof Element && animation.effect.target.contains(element)
-              && animation.effect.getComputedTiming().endTime !== Infinity)
+          await retry.evaluate(async element => {
+            const movements = document
+              .getAnimations()
+              .filter(
+                animation =>
+                  animation.effect instanceof KeyframeEffect &&
+                  animation.effect.target instanceof Element &&
+                  animation.effect.target.contains(element) &&
+                  animation.effect.getComputedTiming().endTime !== Infinity,
+              )
             await Promise.all(movements.map(animation => animation.finished))
           })
           await retry.hover()
-          await expect.poll(() => tooltip.evaluateAll(elements => elements.map(element => getComputedStyle(element).opacity))).toEqual(['1'])
+          await expect
+            .poll(() => tooltip.evaluateAll(elements => elements.map(element => getComputedStyle(element).opacity)))
+            .toEqual(['1'])
           await page.screenshot({ path: join(evidence, 'retry.png') })
           await retry.click()
           await expect.poll(opens).toBe(2)
@@ -132,15 +155,35 @@ describe('web e2e: Desktop update workspace chrome', () => {
           expect(tripwire.pageErrors).toEqual([])
           expect(tripwire.warnings).toEqual([])
           expect(await page.evaluate(() => (window as FixtureWindow).updateFixture.listeners.size)).toBe(1)
-          await writeFile(join(evidence, 'result.json'), JSON.stringify({ locale, geometry, updateBackground, failedBackground,
-            passed: true, explicitActions: 3, carrier: 'substituted', host: 'real Web composition',
-            electron: false, installerExecuted: false }, null, 2) + '\n')
+          await writeFile(
+            join(evidence, 'result.json'),
+            JSON.stringify(
+              {
+                locale,
+                geometry,
+                updateBackground,
+                failedBackground,
+                passed: true,
+                explicitActions: 3,
+                carrier: 'substituted',
+                host: 'real Web composition',
+                electron: false,
+                installerExecuted: false,
+              },
+              null,
+              2,
+            ) + '\n',
+          )
           console.log(`Desktop workspace chrome evidence: ${evidence}`)
         } catch (error) {
           await page.screenshot({ path: join(evidence, 'failure.png') }).catch(() => undefined)
           throw error
         }
-      } finally { await browser.close() }
-    } finally { await scaffold.close() }
+      } finally {
+        await browser.close()
+      }
+    } finally {
+      await scaffold.close()
+    }
   })
 })

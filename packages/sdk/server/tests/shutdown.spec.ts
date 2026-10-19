@@ -7,7 +7,7 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import SubagentRuntime, { NO_START_CAPABILITIES, type SubagentActivation } from '@deepseek-ai/dsh-subagent'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import { HarnessSdkJsonRpcServer } from '../src/server.ts'
 
@@ -19,7 +19,9 @@ async function setup() {
   await ctx.plugin(SubagentRuntime)
   ctx.llm.registerAdapter(['mock'], new MockAdapter(Array.from({ length: 6 }, () => textResponse('answer'))))
   ctx.subagents.registerProvider({
-    name: 'local-test', capabilities: NO_START_CAPABILITIES, inheritsParentContext: false,
+    name: 'local-test',
+    capabilities: NO_START_CAPABILITIES,
+    inheritsParentContext: false,
     prepareContinuable: () => Promise.resolve({}),
   })
   const server = new HarnessSdkJsonRpcServer(ctx, {
@@ -31,13 +33,16 @@ async function setup() {
 }
 
 describe('SDK descendant shutdown', () => {
-  it.each([1, 2])('releases parked descendants at depth %s and preserves an unrelated tree', async (depth) => {
+  it.each([1, 2])('releases parked descendants at depth %s and preserves an unrelated tree', async depth => {
     const { ctx, server } = await setup()
     const receipts: SubagentActivation[] = []
-    const gates = new Map<SessionId, {
-      entered: PromiseWithResolvers<undefined>
-      release: PromiseWithResolvers<undefined>
-    }>()
+    const gates = new Map<
+      SessionId,
+      {
+        entered: PromiseWithResolvers<undefined>
+        release: PromiseWithResolvers<undefined>
+      }
+    >()
     ctx.on('agent/pre-step', async ({ agent }, next) => {
       const gate = gates.get(agent.id)
       if (gate !== undefined) {
@@ -50,7 +55,11 @@ describe('SDK descendant shutdown', () => {
       const gate = { entered: Promise.withResolvers<undefined>(), release: Promise.withResolvers<undefined>() }
       gates.set(id, gate)
       const receipt = await ctx.subagents.startActivation({
-        provider: 'local-test', childId: id, label: 'parked child', delivery: 'caller', signal: new AbortController().signal,
+        provider: 'local-test',
+        childId: id,
+        label: 'parked child',
+        delivery: 'caller',
+        signal: new AbortController().signal,
         request: { parent, prompt: [{ type: 'text', text: 'work' }] },
       })
       receipts.push(receipt)
@@ -81,12 +90,15 @@ describe('SDK descendant shutdown', () => {
       for (const child of owned) gates.get(child.id)!.release.resolve(undefined)
       await Promise.all(owned.map(child => child.whenIdle()))
       const { agent: outside } = await ctx.agents.create({
-        sessionId: SessionId('outside'), agentOptions: { provider: 'mock', model: 'mock' },
+        sessionId: SessionId('outside'),
+        agentOptions: { provider: 'mock', model: 'mock' },
       })
       const outsideChild = await start(outside, SessionId('outside-child'))
       await park(outside, outsideChild)
       const disposed: SessionId[] = []
-      ctx.on('agent/disposed', ({ agent }) => { disposed.push(agent.id) })
+      ctx.on('agent/disposed', ({ agent }) => {
+        disposed.push(agent.id)
+      })
 
       await expect(server.shutdown()).resolves.toEqual({})
 
@@ -104,12 +116,12 @@ describe('SDK descendant shutdown', () => {
     }
   })
 
-  it.each([false, true])('disposes roots after descendant drain fails (root failure=%s)', async (rootFails) => {
+  it.each([false, true])('disposes roots after descendant drain fails (root failure=%s)', async rootFails => {
     const { ctx, server } = await setup()
     const drainFailure = new Error('descendant drain failed')
     const rootFailure = new Error('root teardown failed')
     const create = ctx.agents.create.bind(ctx.agents)
-    vi.spyOn(ctx.agents, 'create').mockImplementation(async (options) => {
+    vi.spyOn(ctx.agents, 'create').mockImplementation(async options => {
       const handle = await create(options)
       return {
         agent: handle.agent,
@@ -127,7 +139,8 @@ describe('SDK descendant shutdown', () => {
       const shutdown = server.shutdown()
       if (rootFails) {
         await expect(shutdown).rejects.toMatchObject({
-          message: 'SDK server teardown failed', errors: [drainFailure, rootFailure],
+          message: 'SDK server teardown failed',
+          errors: [drainFailure, rootFailure],
         })
       } else {
         await expect(shutdown).rejects.toBe(drainFailure)

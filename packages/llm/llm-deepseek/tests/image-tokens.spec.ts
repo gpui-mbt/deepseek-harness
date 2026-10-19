@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { deepSeekImageTokens, deepSeekRequestImageDimensions } from '../src/image-tokens.ts'
 
 describe('DeepSeek image tokens', () => {
@@ -23,7 +23,14 @@ describe('DeepSeek image tokens', () => {
   })
 
   it('caps every image at 1024 tokens regardless of source size', () => {
-    for (const [width, height] of [[2000, 2000], [5000, 5000], [8192, 8192], [16, 8192], [9000, 1], [1, 9000]]) {
+    for (const [width, height] of [
+      [2000, 2000],
+      [5000, 5000],
+      [8192, 8192],
+      [16, 8192],
+      [9000, 1],
+      [1, 9000],
+    ]) {
       expect(deepSeekImageTokens(width!, height!)).toBeLessThanOrEqual(1024)
     }
   })

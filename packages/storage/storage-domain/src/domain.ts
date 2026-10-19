@@ -90,8 +90,7 @@ export interface KvTable<K extends string, V> {
 }
 
 /** Global handle of a spec: typed when declared, `never` (inaccessible) when not. */
-export type DomainGlobalHandleOf<S extends DomainSpec> =
-  S extends { readonly global: DomainGlobalSpec<infer G> } ? DomainGlobal<G> : never
+export type DomainGlobalHandleOf<S extends DomainSpec> = S extends { readonly global: DomainGlobalSpec<infer G> } ? DomainGlobal<G> : never
 
 /** One open domain, typed by its spec. */
 export interface Domain<S extends DomainSpec> {
@@ -178,8 +177,12 @@ export class DomainImpl {
       domainName: spec.name,
       unit,
       enqueue: job => this.enqueue(job),
-      assertReadable: () => { this.assertReadable() },
-      emitChanged: (change) => { this.emitChanged(change) },
+      assertReadable: () => {
+        this.assertReadable()
+      },
+      emitChanged: change => {
+        this.emitChanged(change)
+      },
     }
     for (const [table, tableRecords] of records) {
       this.tables.set(table, new KvTableImpl(host, table, tableRecords))
@@ -191,11 +194,12 @@ export class DomainImpl {
           this.assertReadable()
           return this.globalValue
         },
-        set: value => this.enqueue(async () => {
-          await this.unit.setGlobal(value)
-          this.globalValue = value
-          this.emitChanged({ domain: this.name, table: '', key: '', operation: 'put', value })
-        }),
+        set: value =>
+          this.enqueue(async () => {
+            await this.unit.setGlobal(value)
+            this.globalValue = value
+            this.emitChanged({ domain: this.name, table: '', key: '', operation: 'put', value })
+          }),
       }
     }
   }
@@ -332,10 +336,7 @@ class KvTableImpl<K extends string, V> implements KvTable<K, V> {
   update(key: K, fn: (current: V) => V): Promise<V> {
     return this.host.enqueue(async () => {
       if (!this.records.has(key)) {
-        throw new DomainError(
-          'missing-key',
-          `domain '${this.host.domainName}' table '${this.tableName}' has no record '${key}' to update`,
-        )
+        throw new DomainError('missing-key', `domain '${this.host.domainName}' table '${this.tableName}' has no record '${key}' to update`)
       }
       const next = fn(this.records.get(key) as V)
       await this.host.unit.putRecord(this.tableName, key, next)

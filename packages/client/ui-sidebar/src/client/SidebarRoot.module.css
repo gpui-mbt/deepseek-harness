@@ -465,9 +465,15 @@
 }
 
 .newSessionLabelMask { flex: 1; min-width: 0; }
-.newSession:is(:hover, :focus-visible) .newSessionLabelMask:has(+ .newSessionShortcut) { overflow: hidden; mask-image: linear-gradient(to right, black calc(100% - 16px), transparent); }
+.newSession:focus-visible .newSessionLabelMask:has(+ .newSessionShortcut) { overflow: hidden; mask-image: linear-gradient(to right, black calc(100% - 16px), transparent); }
 .newSessionContent { display: flex; width: 100cqw; align-items: center; justify-content: center; gap: 6px; }
 .newSessionContent > svg { flex: none; }
+
+/* The shortcut hint is a pointer affordance: a touch tap latches :hover on the
+   button and would leave the hint (and the masked label) behind. */
+@media (hover: hover) {
+  .newSession:hover .newSessionLabelMask:has(+ .newSessionShortcut) { overflow: hidden; mask-image: linear-gradient(to right, black calc(100% - 16px), transparent); }
+}
 
 .newSessionShortcut {
   opacity: 0;
@@ -477,7 +483,11 @@
   font-weight: 400;
 }
 
-.newSession:is(:hover, :focus-visible) .newSessionShortcut { opacity: 1; }
+.newSession:focus-visible .newSessionShortcut { opacity: 1; }
+
+@media (hover: hover) {
+  .newSession:hover .newSessionShortcut { opacity: 1; }
+}
 
 .panelList {
   flex: none;

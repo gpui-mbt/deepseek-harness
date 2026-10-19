@@ -149,6 +149,8 @@ The package enforces one separation: presentational React atoms with zero Cordis
 | [`src/icons/`](src/icons/) | Size-neutral `Regular` and `Medium` product glyph components |
 | [`src/code-highlighting.ts`](src/code-highlighting.ts) | Shared filename grammar selection and lazy line highlighting |
 | [`src/input-modality.ts`](src/input-modality.ts) | Document-wide input modality published on `<html>` |
+| [`src/swipe.ts`](src/swipe.ts) | Edge and dismiss horizontal swipes used by the side surfaces |
+| [`src/visible-viewport.ts`](src/visible-viewport.ts) | Visible viewport rectangle in fixed-position coordinates |
 | [`src/plugin-artwork.tsx`](src/plugin-artwork.tsx) | Fixed-palette plugin artwork with per-instance SVG def ids |
 | [`src/useAnchoredPosition.ts`](src/useAnchoredPosition.ts) / [`src/useAnchoredMaxHeight.ts`](src/useAnchoredMaxHeight.ts) | Floating-panel and overlay geometry hooks |
 | [`src/settings-form/`](src/settings-form/) | The settings page kit: the staged form model over a settings scope, the value and secret fields, and the form frame |
@@ -157,6 +159,11 @@ The package enforces one separation: presentational React atoms with zero Cordis
 ### Input modality
 
 [`input-modality.ts`](src/input-modality.ts) tracks input for tooltips and publishes `data-input-modality` on `<html>` for the [theme's focus styles](../ui-theme/README.md#understand-the-implementation). `pointerModality()` is true after pointer input and false after any key, including IME composition keys; `Tooltip` uses it to decide whether focus may show a bubble. The published attribute stays `pointer` until a non-composing navigation key (Tab, arrows, Home/End, PageUp/PageDown), or focus on a different control after a non-composing key. Refocusing the same control does not restore keyboard modality. Pointer input, an IME composition key, and window blur each clear the pending key; focus changes without a pending key leave the modality unchanged. The listeners live for the document lifetime; Node imports install none. The focus-change rule observes events exposed to window; components own additional navigation inside shadow roots that do not expose those events.
+
+<a id="swipe-gestures"></a>
+### Swipe gestures
+
+[`swipe.ts`](src/swipe.ts) installs the two horizontal gestures the side surfaces use. `installEdgeSwipe({ edge, onSwipe, band?, distance? })` fires when a drag starts in a 24px band at a viewport edge and travels 48px inward; `installSwipeDismiss({ element, direction, onSwipe, distance? })` fires when a drag starts inside an open surface and travels back toward the edge it came from. Both decide the axis only after 10px of movement and claim — and stop — the touch only once the drag is clearly horizontal; a vertical drag, an edge swipe starting outside the band, a touch on an open drawer, scrim, or dialog, and a dismiss drag starting in a horizontally scrolling region or on a docking-kit tab or divider stay with the browser. `touchmove` is registered for the length of a qualifying gesture rather than for the page's lifetime, so ordinary scrolling keeps a passive listener path. The edge comes from the visible viewport's rectangle, so a software keyboard or pinch zoom does not move the band. iOS Safari's own back gesture owns the extreme leading edge, where a left-edge swipe may navigate instead; the drawer and panel controls remain the reliable entry.
 
 ### Streaming markdown
 

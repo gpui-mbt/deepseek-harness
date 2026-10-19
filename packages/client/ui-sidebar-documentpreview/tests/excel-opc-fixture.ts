@@ -9,6 +9,6 @@ export const excelOpcCases = ['comments', 'table', 'prefix', 'part-name', 'relat
  * @param name - Retained fixture name.
  * @returns Complete XLSX bytes owned by the caller.
  */
-export async function excelOpcFixture(name: typeof excelOpcCases[number]): Promise<Uint8Array<ArrayBuffer>> {
+export async function excelOpcFixture(name: (typeof excelOpcCases)[number]): Promise<Uint8Array<ArrayBuffer>> {
   return new Uint8Array(await readFile(new URL(`./fixtures/excel-opc/${name}.xlsx`, import.meta.url)))
 }

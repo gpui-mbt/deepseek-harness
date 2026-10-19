@@ -9,7 +9,7 @@ import SkillRegistry from '@deepseek-ai/dsh-skill'
 import * as SkillOffice from '@deepseek-ai/dsh-skill-office'
 import { isSea } from 'node:sea'
 import { execa } from 'execa'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 
 vi.mock('node:sea', () => ({ isSea: vi.fn(() => false) }))
 
@@ -27,14 +27,20 @@ describe('bundled Office skills', () => {
       const route = (await ctx.skills.get('office'))!
       expect(Math.ceil(route.description.length / 4)).toBeLessThanOrEqual(50)
       expect(Math.ceil(route.content.length / 4)).toBeLessThanOrEqual(200)
-      for (const [name, previousTokens] of [['office-docx', 1688], ['office-pptx', 1879], ['office-xlsx', 2330]] as const) {
+      for (const [name, previousTokens] of [
+        ['office-docx', 1688],
+        ['office-pptx', 1879],
+        ['office-xlsx', 2330],
+      ] as const) {
         const skill = (await ctx.skills.get(name))!
         expect(Math.ceil(skill.content.length / 4)).toBeLessThanOrEqual(Math.floor(previousTokens * 0.65))
         expect(skill.content).not.toMatch(/read_image|transparent|DPI/)
         expect(skill.content).not.toContain('dsoffice')
         expect(skill.content).toContain('office-render')
       }
-    } finally { await ctx.fiber.dispose() }
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('loads each packaged body and removes all candidates on disposal', async () => {
@@ -46,7 +52,11 @@ describe('bundled Office skills', () => {
       expect(catalog.map(skill => skill.name)).toEqual(names)
       for (const skill of catalog) {
         expect(skill.description.length).toBeLessThanOrEqual(500)
-        expect(skill).toMatchObject({ source: 'bundled', provider: 'dsh-office', invocation: { modelInvocable: true, userInvocable: true } })
+        expect(skill).toMatchObject({
+          source: 'bundled',
+          provider: 'dsh-office',
+          invocation: { modelInvocable: true, userInvocable: true },
+        })
         const loaded = await ctx.skills.get(skill.name)
         expect(loaded?.resourceBase).toEqual({ kind: 'directory', path: join(assets, skill.name).split(sep).join('/') })
         const raw = await readFile(join(assets, skill.name, 'SKILL.md'), 'utf8')
@@ -68,13 +78,16 @@ describe('bundled Office skills', () => {
       const external = join(root, '中文 assets')
       await cp(assets, external, { recursive: true })
       const configPath = join(root, 'cordis.yml')
-      await writeFile(configPath, [
-        "- name: '@deepseek-ai/dsh-skill'",
-        "- name: '@deepseek-ai/dsh-skill-office'",
-        '  config:',
-        `    assetRoot: ${JSON.stringify(external)}`,
-        '',
-      ].join('\n'))
+      await writeFile(
+        configPath,
+        [
+          "- name: '@deepseek-ai/dsh-skill'",
+          "- name: '@deepseek-ai/dsh-skill-office'",
+          '  config:',
+          `    assetRoot: ${JSON.stringify(external)}`,
+          '',
+        ].join('\n'),
+      )
       ctx.baseUrl = pathToFileURL(root).href + '/'
       await ctx.plugin(Loader)
       ctx.loader.builtins.include = Include
@@ -85,10 +98,18 @@ describe('bundled Office skills', () => {
       ctx.loader.internal = {
         version: 'v2',
         loadCache: new Map(),
-        register() { throw new Error('unexpected register') },
-        getOrCreateModuleJob() { throw new Error('unexpected module job') },
-        resolveSync() { throw new Error('unexpected resolution') },
-        load() { throw new Error('unexpected load') },
+        register() {
+          throw new Error('unexpected register')
+        },
+        getOrCreateModuleJob() {
+          throw new Error('unexpected module job')
+        },
+        resolveSync() {
+          throw new Error('unexpected resolution')
+        },
+        load() {
+          throw new Error('unexpected load')
+        },
         async import(specifier: string) {
           if (!modules.has(specifier)) throw new Error(`Unexpected Loader import: ${specifier}`)
           return modules.get(specifier)
@@ -134,15 +155,23 @@ describe('bundled Office skills', () => {
     const ctx = new Context()
     try {
       await ctx.plugin(SkillRegistry)
-      expect(() => { SkillOffice.apply(ctx, { assetRoot: 'assets' }) }).toThrow('absolute directory')
+      expect(() => {
+        SkillOffice.apply(ctx, { assetRoot: 'assets' })
+      }).toThrow('absolute directory')
       await cp(assets, root, { recursive: true })
       await rm(join(root, 'office-docx', 'SKILL.md'))
-      expect(() => { SkillOffice.apply(ctx, { assetRoot: root }) }).toThrow('SKILL.md')
+      expect(() => {
+        SkillOffice.apply(ctx, { assetRoot: root })
+      }).toThrow('SKILL.md')
       await writeFile(join(root, 'office-docx', 'SKILL.md'), '# Missing frontmatter\ndescription: body text\n')
-      expect(() => { SkillOffice.apply(ctx, { assetRoot: root }) }).toThrow('has no YAML frontmatter')
+      expect(() => {
+        SkillOffice.apply(ctx, { assetRoot: root })
+      }).toThrow('has no YAML frontmatter')
       for (const header of ['', 'null', 'scalar', 'name: office-docx', 'description: 3', 'description: ""']) {
         await writeFile(join(root, 'office-docx', 'SKILL.md'), `---\n${header}\n---\n# Instructions\n`)
-        expect(() => { SkillOffice.apply(ctx, { assetRoot: root }) }).toThrow('has no description')
+        expect(() => {
+          SkillOffice.apply(ctx, { assetRoot: root })
+        }).toThrow('has no description')
       }
       expect(await ctx.skills.list()).toEqual([])
     } finally {
@@ -163,7 +192,11 @@ it('executes capabilities using only paths returned by the loaded skill from a s
     expect(json).toBeDefined()
     const { libreofficeKit } = JSON.parse(json!) as { libreofficeKit: { node: string; cli: string } }
     const result = await execa(libreofficeKit.node, [libreofficeKit.cli, 'capabilities'], {
-      cwd: root, env: { PATH: '' }, timeout: 20_000, killSignal: 'SIGKILL', reject: false,
+      cwd: root,
+      env: { PATH: '' },
+      timeout: 20_000,
+      killSignal: 'SIGKILL',
+      reject: false,
     })
     expect(result.timedOut, result.stderr).toBe(false)
     expect(result.signal, result.stderr).toBeUndefined()
@@ -174,7 +207,6 @@ it('executes capabilities using only paths returned by the loaded skill from a s
     await rm(root, { recursive: true, force: true })
   }
 })
-
 
 it('validates operation paths on loading while authoring remains available', async () => {
   const ctx = new Context()

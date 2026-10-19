@@ -16,15 +16,17 @@ interface VerificationRequest {
 function parseRequest(value: unknown): VerificationRequest {
   if (typeof value !== 'object' || value === null) throw new Error('migration verifier request must be an object')
   const request = value as Partial<VerificationRequest>
-  if (typeof request.path !== 'string'
-    || request.compression !== 'none' && request.compression !== 'zstd'
-    || typeof request.expectedId !== 'string'
-    || !Number.isSafeInteger(request.expectedEventCount)
-    || (request.expectedEventCount as number) < 0
-    || request.expectedPrefix !== undefined
-      && (!Number.isSafeInteger(request.expectedPrefix.bytes)
-        || request.expectedPrefix.bytes < 0
-        || !/^[0-9a-f]{64}$/.test(request.expectedPrefix.digest))) {
+  if (
+    typeof request.path !== 'string' ||
+    (request.compression !== 'none' && request.compression !== 'zstd') ||
+    typeof request.expectedId !== 'string' ||
+    !Number.isSafeInteger(request.expectedEventCount) ||
+    (request.expectedEventCount as number) < 0 ||
+    (request.expectedPrefix !== undefined &&
+      (!Number.isSafeInteger(request.expectedPrefix.bytes) ||
+        request.expectedPrefix.bytes < 0 ||
+        !/^[0-9a-f]{64}$/.test(request.expectedPrefix.digest)))
+  ) {
     throw new Error('migration verifier request is malformed')
   }
   return request as VerificationRequest

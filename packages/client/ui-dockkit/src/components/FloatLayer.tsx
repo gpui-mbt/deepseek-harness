@@ -50,9 +50,7 @@ interface FloatDrag {
 function draggedRect(drag: FloatDrag, x: number, y: number): FloatRect {
   const dx = x - drag.originX
   const dy = y - drag.originY
-  return drag.mode === 'move'
-    ? movedRect(drag.rect, dx, dy)
-    : resizedRect(drag.rect, dx, dy, FLOAT_MIN_SIZE)
+  return drag.mode === 'move' ? movedRect(drag.rect, dx, dy) : resizedRect(drag.rect, dx, dy, FLOAT_MIN_SIZE)
 }
 
 /** Whether two rectangles agree in every coordinate. */
@@ -73,7 +71,9 @@ function raised(state: LayoutState, paneId: PaneId): boolean {
  */
 export function useFloatGestures(state: LayoutState, intents: DockIntents) {
   const [preview, setPreview] = useState<{ paneId: PaneId; rect: FloatRect } | undefined>(undefined)
-  const begin = useGesture(() => { setPreview(undefined) })
+  const begin = useGesture(() => {
+    setPreview(undefined)
+  })
 
   /** Focus and raise a panel from a press or click on it, unless it is raised already. */
   const raise = (paneId: PaneId): void => {
@@ -89,14 +89,16 @@ export function useFloatGestures(state: LayoutState, intents: DockIntents) {
     const root = document.documentElement
     const windows = root.hasAttribute('data-windows-titlebar')
     // Desktop publishes the caption height in pixels on the root's inline style.
-    const caption = windows && !root.hasAttribute('data-fullscreen')
-      ? Number.parseFloat(root.style.getPropertyValue('--dsh-windows-titlebar-height')) : 0
+    const caption =
+      windows && !root.hasAttribute('data-fullscreen') ? Number.parseFloat(root.style.getPropertyValue('--dsh-windows-titlebar-height')) : 0
     const saved = floatRect(getPane(state, paneId))
     const rect = { ...saved, y: Math.max(saved.y, windows ? caption + 20 : 0) }
     const start: FloatDrag = { mode, originX: event.clientX, originY: event.clientY, rect }
     begin(event.currentTarget, event.pointerId, {
-      move: (moved) => { setPreview({ paneId, rect: draggedRect(start, moved.clientX, moved.clientY) }) },
-      up: (released) => {
+      move: moved => {
+        setPreview({ paneId, rect: draggedRect(start, moved.clientX, moved.clientY) })
+      },
+      up: released => {
         const rect = draggedRect(start, released.clientX, released.clientY)
         if (sameRect(rect, start.rect)) raise(paneId)
         else if (mode === 'move') intents.moveFloat(paneId, rect.x, rect.y)
@@ -113,7 +115,15 @@ export function useFloatGestures(state: LayoutState, intents: DockIntents) {
  * @param props - owning pane/tab, localized labels and gesture callbacks.
  * @returns the float header without a content container.
  */
-export function FloatHeader({ paneId, tab, labels, intents, renderTabTitle, canCloseTab, drag }: {
+export function FloatHeader({
+  paneId,
+  tab,
+  labels,
+  intents,
+  renderTabTitle,
+  canCloseTab,
+  drag,
+}: {
   readonly paneId: PaneId
   readonly tab: TabRecord
   readonly labels: DockLabels
@@ -123,24 +133,47 @@ export function FloatHeader({ paneId, tab, labels, intents, renderTabTitle, canC
   readonly drag: ReturnType<typeof useFloatGestures>['drag']
 }): ReactNode {
   return (
-    <header className={clsx(css.tabStrip, css.floatHeader)} data-dockkit-float-grip={paneId}
-      onPointerDown={(event) => { drag('move', paneId, event) }}>
+    <header
+      className={clsx(css.tabStrip, css.floatHeader)}
+      data-dockkit-float-grip={paneId}
+      onPointerDown={event => {
+        drag('move', paneId, event)
+      }}
+    >
       <div className={clsx(css.tab, css.floatTitle)} data-dockkit-float-title>
         <TabTitle>{renderTabTitle?.(tab) ?? tab.title}</TabTitle>
       </div>
       <div className={css.stripFill} />
       <Tooltip label={labels.dockFloat} side="bottom" delayMs={500}>
-        <button type="button" className={css.iconButton} aria-label={labels.dockFloat}
-          data-dockkit-float-dock={paneId} onPointerDown={(event) => { event.stopPropagation() }}
-          onClick={() => { intents.unfloatPane(paneId) }}>
+        <button
+          type="button"
+          className={css.iconButton}
+          aria-label={labels.dockFloat}
+          data-dockkit-float-dock={paneId}
+          onPointerDown={event => {
+            event.stopPropagation()
+          }}
+          onClick={() => {
+            intents.unfloatPane(paneId)
+          }}
+        >
           <IconPanelLeftOutlineRegular className={css.dockGlyph} />
         </button>
       </Tooltip>
       {(canCloseTab?.(tab.id) ?? true) && (
         <Tooltip label={labels.closeTab} shortcutKeys={labels.closeTabKeys} side="bottom" delayMs={500}>
-          <button type="button" className={css.iconButton} aria-label={labels.closeTab}
-            data-dockkit-float-close={paneId} onPointerDown={(event) => { event.stopPropagation() }}
-            onClick={() => { intents.closeTab(tab.id) }}>
+          <button
+            type="button"
+            className={css.iconButton}
+            aria-label={labels.closeTab}
+            data-dockkit-float-close={paneId}
+            onPointerDown={event => {
+              event.stopPropagation()
+            }}
+            onClick={() => {
+              intents.closeTab(tab.id)
+            }}
+          >
             <IconCloseOutlineRegular />
           </button>
         </Tooltip>
@@ -176,14 +209,18 @@ export function FloatLayer({ state, intents, labels, renderTab, renderTabTitle, 
               height: live.height,
               zIndex: lifted === undefined ? depth + 1 : state.floats.length + 1,
             }}
-            onPointerDown={() => { raise(paneId) }}
+            onPointerDown={() => {
+              raise(paneId)
+            }}
           >
             <FloatHeader {...{ paneId, tab, labels, intents, renderTabTitle, canCloseTab, drag }} />
             <div className={css.floatBody}>{renderTab(tab)}</div>
             <div
               className={css.floatResize}
               data-dockkit-float-resize={paneId}
-              onPointerDown={(event) => { drag('resize', paneId, event) }}
+              onPointerDown={event => {
+                drag('resize', paneId, event)
+              }}
             />
           </div>
         )

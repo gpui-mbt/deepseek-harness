@@ -7,7 +7,7 @@
  * make a stale or undocumented contract fail loudly instead of shipping.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { collectSlotEntries, oversizedSlotReports, resolveSlotEntries, validateSlotContracts } from './gen-client-catalog.ts'
 import type { SlotDeclaration, SlotRegistration, TypeDeclaration } from './slot-walk.ts'
 
@@ -38,20 +38,19 @@ function registration(over: Partial<SlotRegistration> = {}): SlotRegistration {
 
 /** An exported owner-props declaration the catalog can resolve. */
 const OWNER_TYPES = new Map<string, TypeDeclaration>([
-  ['DemoOwnerProps', {
-    name: 'DemoOwnerProps',
-    text: '/** Owner share. */\nexport interface DemoOwnerProps {\n  /** Column width. */\n  width: number\n}',
-    source: 'packages/client/demo/src/client/contract/slots.ts:20',
-  }],
+  [
+    'DemoOwnerProps',
+    {
+      name: 'DemoOwnerProps',
+      text: '/** Owner share. */\nexport interface DemoOwnerProps {\n  /** Column width. */\n  width: number\n}',
+      source: 'packages/client/demo/src/client/contract/slots.ts:20',
+    },
+  ],
 ])
 
 describe('client slot contract validation', () => {
   it('accepts a documented slot whose owner props resolve', () => {
-    expect(validateSlotContracts(
-      [declaration({ ownerType: 'DemoOwnerProps' })],
-      [registration()],
-      OWNER_TYPES,
-    )).toEqual([])
+    expect(validateSlotContracts([declaration({ ownerType: 'DemoOwnerProps' })], [registration()], OWNER_TYPES)).toEqual([])
   })
 
   it('rejects a slot with no registrant-facing prose, naming the writing template', () => {
@@ -109,12 +108,7 @@ describe('client slot projection', () => {
   })
 
   it('treats a list seat as additive even when shipped entries exist', () => {
-    const [entry] = resolveSlotEntries(
-      [declaration({ kind: 'list' })],
-      [registration({ id: 'shipped' })],
-      OWNER_TYPES,
-      kits,
-    )
+    const [entry] = resolveSlotEntries([declaration({ kind: 'list' })], [registration({ id: 'shipped' })], OWNER_TYPES, kits)
     expect(entry?.replaceRisk).toBe('none')
     expect(entry?.occupants).toEqual(["client-demo DemoSeat id 'shipped'"])
     expect(entry?.registerOptions.map(option => option.name)).toEqual(['id', 'order', 'label'])
@@ -122,23 +116,15 @@ describe('client slot projection', () => {
 
   it('names the entry whose mount makes a child seat exist', () => {
     const parent = registration({ key: 'demo.parent', children: ['demo.seat'] })
-    const entries = resolveSlotEntries(
-      [declaration(), declaration({ key: 'demo.parent' })],
-      [parent],
-      OWNER_TYPES,
-      kits,
-    )
-    expect(entries.find(entry => entry.key === 'demo.seat')?.declaredBy)
-      .toContain("an entry in 'demo.parent' (client-demo)")
-    expect(entries.find(entry => entry.key === 'demo.parent')?.declaredBy)
-      .toContain('built in')
+    const entries = resolveSlotEntries([declaration(), declaration({ key: 'demo.parent' })], [parent], OWNER_TYPES, kits)
+    expect(entries.find(entry => entry.key === 'demo.seat')?.declaredBy).toContain("an entry in 'demo.parent' (client-demo)")
+    expect(entries.find(entry => entry.key === 'demo.parent')?.declaredBy).toContain('built in')
   })
 
   it('names the Factory definition that declares an ordinary child seat', () => {
     const factory = registration({ key: 'demo.factory', children: ['demo.seat'], factory: true })
     const [entry] = resolveSlotEntries([declaration()], [factory], OWNER_TYPES, kits)
-    expect(entry?.declaredBy)
-      .toContain("factory 'demo.factory' (client-demo)")
+    expect(entry?.declaredBy).toContain("factory 'demo.factory' (client-demo)")
     expect(entry?.occupants).toEqual([])
   })
 
@@ -191,7 +177,8 @@ describe('client slot projection', () => {
       ['Owner', 'export type Owner = DemoOwnerProps & (Phase | Alias)'],
       ['Alias', 'export type Alias = Owner'],
       ['BigSnapshot', 'export interface BigSnapshot { history: string[] }'],
-    ] as const) types.set(name, { name, text, source: 'owner.ts:1' })
+    ] as const)
+      types.set(name, { name, text, source: 'owner.ts:1' })
     const [entry] = resolveSlotEntries([declaration({ ownerType: 'Owner' })], [], types, kits)
     expect(entry?.ownerProps).toHaveLength(4)
     expect(entry?.ownerProps.join('\n')).toContain('width: number')
@@ -209,9 +196,12 @@ describe('client slot projection', () => {
   })
 
   it('uses an authored example when a slot interaction needs more than generic markup', () => {
-    const [entry] = resolveSlotEntries([
-      declaration({ jsDoc: '/** A seat.\n * @example\n * return { custom: true }\n */' }),
-    ], [], OWNER_TYPES, kits)
+    const [entry] = resolveSlotEntries(
+      [declaration({ jsDoc: '/** A seat.\n * @example\n * return { custom: true }\n */' })],
+      [],
+      OWNER_TYPES,
+      kits,
+    )
     expect(entry?.example).toBe('return { custom: true }')
   })
 })
@@ -249,8 +239,9 @@ describe('the real workspace surface', () => {
     const root = entries.find(entry => entry.key === 'root')
     expect(root?.replaceRisk).toBe('shadows-shipped-ui')
     expect(root?.occupants.join(' ')).toContain('AppFrame')
-    expect(entries.find(entry => entry.key === 'conversation.session')?.declaredBy)
-      .toContain("factory 'conversation.content' (client-ui-conversation)")
+    expect(entries.find(entry => entry.key === 'conversation.session')?.declaredBy).toContain(
+      "factory 'conversation.content' (client-ui-conversation)",
+    )
     const tool = entries.find(entry => entry.key === 'tool.call.toolview')!
     const owner = tool.ownerProps.join('\n')
     for (const field of ['callId', 'toolName', 'useDisclosure', 'cwd', 'home', 'openFile', 'loadImage', 'inspect']) {

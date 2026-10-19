@@ -6,11 +6,9 @@
 import type { UserMessage } from '@deepseek-ai/dsh-llm/types'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate, RemoteError, SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
-import type {
-  BeginSubmissionInput, PendingSubmissionRetirement,
-} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { BeginSubmissionInput, PendingSubmissionRetirement } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { ComposerBlockRegistry } from '../src/client/input/blocks.ts'
 import { InputHub } from '../src/client/input/hub.ts'
@@ -26,9 +24,9 @@ async function bench(maxConcurrentFileUploads = 2) {
     if (session.uploadFile === undefined) throw new Error('test file upload has no Session override')
     return session.uploadFile(...args)
   }
-  const prompt = vi.fn((
-    _content?: unknown, _mode?: unknown, _signal?: AbortSignal, _rpcId?: string,
-  ) => Promise.resolve({ ok: true as const, value: { accepted: true as const } }))
+  const prompt = vi.fn((_content?: unknown, _mode?: unknown, _signal?: AbortSignal, _rpcId?: string) =>
+    Promise.resolve({ ok: true as const, value: { accepted: true as const } }),
+  )
   const updateQueue = vi.fn(() => Promise.resolve({ ok: true as const, value: { accepted: true as const } }))
   const cancel = vi.fn(() => Promise.resolve({ ok: true as const, value: { accepted: true as const } }))
   const loadOlder = vi.fn(() => Promise.resolve())
@@ -92,28 +90,34 @@ describe('ConversationController', () => {
     b.cancel.mockResolvedValueOnce({ ok: false, error: new RemoteError('gateway/internal', 'nope', {}) } as never)
     await expect(b.scoped.cancel()).rejects.toThrow('conversation.cancel failed: gateway/internal: nope')
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: new RemoteError('gateway/internal', 'broken', {}),
+      ok: false,
+      error: new RemoteError('gateway/internal', 'broken', {}),
     } as never)
-    await expect(b.scoped.updateQueue('item-1' as never, { kind: 'steer' }))
-      .rejects.toThrow('conversation.updateQueue failed: gateway/internal: broken')
+    await expect(b.scoped.updateQueue('item-1' as never, { kind: 'steer' })).rejects.toThrow(
+      'conversation.updateQueue failed: gateway/internal: broken',
+    )
     await b.runtime.dispose()
   })
 
   it('treats QueueDock Steer pre-admission races as converged Queue delivery', async () => {
     const b = await bench()
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: new RemoteError('session/steer-unavailable', 'closed', { itemId: 'item-1' as MessageId }),
+      ok: false,
+      error: new RemoteError('session/steer-unavailable', 'closed', { itemId: 'item-1' as MessageId }),
     } as never)
     await expect(b.scoped.updateQueue('item-1' as never, { kind: 'steer' })).resolves.toBeUndefined()
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: new RemoteError('session/queue-item-not-found', 'claimed', { itemId: 'item-1' as MessageId }),
+      ok: false,
+      error: new RemoteError('session/queue-item-not-found', 'claimed', { itemId: 'item-1' as MessageId }),
     } as never)
     await expect(b.scoped.updateQueue('item-2' as never, { kind: 'steer' })).resolves.toBeUndefined()
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: new RemoteError('session/queue-item-not-found', 'claimed', { itemId: 'item-1' as MessageId }),
+      ok: false,
+      error: new RemoteError('session/queue-item-not-found', 'claimed', { itemId: 'item-1' as MessageId }),
     } as never)
-    await expect(b.scoped.updateQueue('item-3' as never, { kind: 'remove' }))
-      .rejects.toThrow('conversation.updateQueue failed: session/queue-item-not-found: claimed')
+    await expect(b.scoped.updateQueue('item-3' as never, { kind: 'remove' })).rejects.toThrow(
+      'conversation.updateQueue failed: session/queue-item-not-found: claimed',
+    )
     await b.runtime.dispose()
   })
 
@@ -164,13 +168,15 @@ describe('ConversationController', () => {
     const b = await bench()
     const created = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
     const session = b.runtime.sessions.binding('s1')!.session
-    const uploadFile = vi.fn((_data: Blob | Uint8Array) => Promise.resolve({
-      ok: true as const,
-      value: {
-        receiptId: 'receipt-1' as never,
-        file: { attachmentId: 'sha256:1' as never, name: 'notes.pdf', bytes: 2 },
-      },
-    }))
+    const uploadFile = vi.fn((_data: Blob | Uint8Array) =>
+      Promise.resolve({
+        ok: true as const,
+        value: {
+          receiptId: 'receipt-1' as never,
+          file: { attachmentId: 'sha256:1' as never, name: 'notes.pdf', bytes: 2 },
+        },
+      }),
+    )
     ;(session as { uploadFile?: unknown }).uploadFile = uploadFile
     const drafts = b.root.createDrafts(session.sessionId, [
       new File([Uint8Array.of(1)], 'valid.png', { type: 'image/png' }),
@@ -199,7 +205,8 @@ describe('ConversationController', () => {
           receiptId: `receipt-${name}` as never,
           file: { attachmentId: `file-${name}` as never, name: name ?? 'file', bytes: 1 },
         },
-      }))
+      }),
+    )
     const drafts = b.root.createDrafts(session.sessionId, [
       new File([Uint8Array.of(1)], 'one.txt', { type: 'text/plain' }),
       new File([Uint8Array.of(2)], 'two.txt', { type: 'text/plain' }),
@@ -240,33 +247,42 @@ describe('ConversationController', () => {
       gates.set(fileName, gate)
       active += 1
       maxActive = Math.max(maxActive, active)
-      return gate.promise.finally(() => { active -= 1 })
+      return gate.promise.finally(() => {
+        active -= 1
+      })
     })
     ;(session as { uploadFile?: unknown }).uploadFile = uploadFile
-    const drafts = b.root.createDrafts(session.sessionId, ['one', 'two', 'three', 'four', 'removed'].map(name =>
-      new File([Uint8Array.of(1)], `${name}.txt`, { type: 'text/plain' })))
+    const drafts = b.root.createDrafts(
+      session.sessionId,
+      ['one', 'two', 'three', 'four', 'removed'].map(name => new File([Uint8Array.of(1)], `${name}.txt`, { type: 'text/plain' })),
+    )
 
-    await vi.waitFor(() => { expect(uploadFile.mock.calls.map(call => call[1])).toEqual(['one.txt', 'two.txt']) })
-    await expect(b.root.serializeDraftAttachments([drafts[2]!.id]))
-      .rejects.toThrow('one or more files have not finished uploading')
+    await vi.waitFor(() => {
+      expect(uploadFile.mock.calls.map(call => call[1])).toEqual(['one.txt', 'two.txt'])
+    })
+    await expect(b.root.serializeDraftAttachments([drafts[2]!.id])).rejects.toThrow('one or more files have not finished uploading')
     b.root.releaseDraftAttachment(drafts[4]!.id)
 
-    const complete = (name: string) => gates.get(name)?.resolve({
-      ok: true,
-      value: {
-        receiptId: `receipt-${name}` as never,
-        file: { attachmentId: `file-${name}` as never, name, bytes: 1 },
-      },
-    })
+    const complete = (name: string) =>
+      gates.get(name)?.resolve({
+        ok: true,
+        value: {
+          receiptId: `receipt-${name}` as never,
+          file: { attachmentId: `file-${name}` as never, name, bytes: 1 },
+        },
+      })
     complete('one.txt')
-    await vi.waitFor(() => { expect(uploadFile).toHaveBeenCalledTimes(3) })
+    await vi.waitFor(() => {
+      expect(uploadFile).toHaveBeenCalledTimes(3)
+    })
     complete('two.txt')
-    await vi.waitFor(() => { expect(uploadFile).toHaveBeenCalledTimes(4) })
+    await vi.waitFor(() => {
+      expect(uploadFile).toHaveBeenCalledTimes(4)
+    })
     complete('three.txt')
     complete('four.txt')
     await vi.waitFor(() => {
-      expect(drafts.slice(0, 4).every(draft =>
-        b.root.fileUploads.getSnapshot()[draft.id]?.status === 'ready')).toBe(true)
+      expect(drafts.slice(0, 4).every(draft => b.root.fileUploads.getSnapshot()[draft.id]?.status === 'ready')).toBe(true)
     })
     expect(maxActive).toBe(2)
     expect(uploadFile.mock.calls.map(call => call[1])).not.toContain('removed.txt')
@@ -282,34 +298,43 @@ describe('ConversationController', () => {
       value: { receiptId: never; file: { attachmentId: never; name: string; bytes: number } }
     }>()
     let reportProgress: ((progress: { loaded: number; total?: number }) => void) | undefined
-    const uploadFile = vi.fn((
-      _file: Blob | Uint8Array,
-      _name?: string,
-      _signal?: AbortSignal,
-      onProgress?: (progress: { loaded: number; total?: number }) => void,
-    ) => {
-      reportProgress = onProgress
-      return settled.promise
-    })
+    const uploadFile = vi.fn(
+      (
+        _file: Blob | Uint8Array,
+        _name?: string,
+        _signal?: AbortSignal,
+        onProgress?: (progress: { loaded: number; total?: number }) => void,
+      ) => {
+        reportProgress = onProgress
+        return settled.promise
+      },
+    )
     ;(session as { uploadFile?: unknown }).uploadFile = uploadFile
     const [attachment] = b.root.createDrafts(session.sessionId, [
       new File([new Uint8Array(8)], 'background.bin', { type: 'application/octet-stream' }),
     ])
     if (attachment === undefined) throw new Error('file draft missing')
     b.shell.addAttachments([attachment.id])
-    await vi.waitFor(() => { expect(uploadFile).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(uploadFile).toHaveBeenCalledOnce()
+    })
 
     await b.runtime.sessions.add({
       id: 's2',
       session: {
-        prompt: b.prompt, updateQueue: b.updateQueue, cancel: b.cancel, loadOlder: b.loadOlder,
+        prompt: b.prompt,
+        updateQueue: b.updateQueue,
+        cancel: b.cancel,
+        loadOlder: b.loadOlder,
       },
     })
     using other = b.runtime.sessions.retain('s2' as SessionId)
     await other.ready
     reportProgress?.({ loaded: 3, total: 8 })
     expect(b.root.fileUploads.getSnapshot()[attachment.id]).toEqual({
-      status: 'uploading', loaded: 3, total: 8,
+      status: 'uploading',
+      loaded: 3,
+      total: 8,
     })
     expect(b.shell.snapshot.attachmentIds).toEqual([attachment.id])
 
@@ -333,27 +358,33 @@ describe('ConversationController', () => {
     let sourceSignal: AbortSignal | undefined
     const sourceUpload = vi.fn((_data: Blob | Uint8Array, _name?: string, signal?: AbortSignal) => {
       sourceSignal = signal
-      return new Promise((resolve) => {
-        signal?.addEventListener('abort', () => {
-          resolve({ ok: false, error: { message: 'aborted' } })
-        }, { once: true })
+      return new Promise(resolve => {
+        signal?.addEventListener(
+          'abort',
+          () => {
+            resolve({ ok: false, error: { message: 'aborted' } })
+          },
+          { once: true },
+        )
       })
     })
     ;(source as { uploadFile?: unknown }).uploadFile = sourceUpload
-    const [attachment] = b.root.createDrafts(source.sessionId, [
-      new File([Uint8Array.of(4)], 'carry.pdf', { type: 'application/pdf' }),
-    ])
+    const [attachment] = b.root.createDrafts(source.sessionId, [new File([Uint8Array.of(4)], 'carry.pdf', { type: 'application/pdf' })])
     if (attachment === undefined) throw new Error('file draft missing')
-    await vi.waitFor(() => { expect(sourceUpload).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(sourceUpload).toHaveBeenCalledOnce()
+    })
 
     const target = {
-      uploadFile: vi.fn(() => Promise.resolve({
-        ok: true as const,
-        value: {
-          receiptId: 'target-receipt' as never,
-          file: { attachmentId: 'target-file' as never, name: 'carry.pdf', bytes: 1 },
-        },
-      })),
+      uploadFile: vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            receiptId: 'target-receipt' as never,
+            file: { attachmentId: 'target-file' as never, name: 'carry.pdf', bytes: 1 },
+          },
+        }),
+      ),
     }
     await b.runtime.sessions.add({ id: 's2', session: target })
     using _target = b.runtime.sessions.retain('s2' as SessionId)
@@ -363,7 +394,8 @@ describe('ConversationController', () => {
     expect(sourceSignal?.aborted).toBe(true)
     await vi.waitFor(() => {
       expect(b.root.fileUploads.getSnapshot()[attachment.id]).toEqual({
-        status: 'ready', receiptId: 'target-receipt',
+        status: 'ready',
+        receiptId: 'target-receipt',
         file: { attachmentId: 'target-file', name: 'carry.pdf', bytes: 1 },
       })
     })
@@ -376,18 +408,22 @@ describe('ConversationController', () => {
     let uploadSignal: AbortSignal | undefined
     const uploadFile = vi.fn((_data: Blob | Uint8Array, _name?: string, signal?: AbortSignal) => {
       uploadSignal = signal
-      return new Promise((resolve) => {
-        signal?.addEventListener('abort', () => {
-          resolve({ ok: false, error: { message: 'aborted' } })
-        }, { once: true })
+      return new Promise(resolve => {
+        signal?.addEventListener(
+          'abort',
+          () => {
+            resolve({ ok: false, error: { message: 'aborted' } })
+          },
+          { once: true },
+        )
       })
     })
     ;(session as { uploadFile?: unknown }).uploadFile = uploadFile
-    const [attachment] = b.root.createDrafts(session.sessionId, [
-      new File([Uint8Array.of(5)], 'removed.pdf', { type: 'application/pdf' }),
-    ])
+    const [attachment] = b.root.createDrafts(session.sessionId, [new File([Uint8Array.of(5)], 'removed.pdf', { type: 'application/pdf' })])
     if (attachment === undefined) throw new Error('file draft missing')
-    await vi.waitFor(() => { expect(uploadFile).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(uploadFile).toHaveBeenCalledOnce()
+    })
 
     b.root.releaseDraftAttachment(attachment.id)
 
@@ -400,33 +436,40 @@ describe('ConversationController', () => {
     const b = await bench()
     const session = b.runtime.sessions.binding('s1')!.session
     let retire: ((retirement: unknown) => void) | undefined
-    ;(session as unknown as { beginSubmission: (input: { onRetire?: (retirement: unknown) => void }) => unknown })
-      .beginSubmission = (input) => {
+    ;(session as unknown as { beginSubmission: (input: { onRetire?: (retirement: unknown) => void }) => unknown }).beginSubmission =
+      input => {
         retire = input.onRetire
         return { requestId: 'file-rpc-id', abandon: vi.fn() }
       }
-    ;(session as { uploadFile?: unknown }).uploadFile = vi.fn(() => Promise.resolve({
-      ok: true as const,
-      value: {
-        receiptId: 'send-receipt' as never,
-        file: { attachmentId: 'send-file' as never, name: 'sent.pdf', bytes: 1 },
-      },
-    }))
-    const [attachment] = b.root.createDrafts(session.sessionId, [
-      new File([Uint8Array.of(6)], 'sent.pdf', { type: 'application/pdf' }),
-    ])
+    ;(session as { uploadFile?: unknown }).uploadFile = vi.fn(() =>
+      Promise.resolve({
+        ok: true as const,
+        value: {
+          receiptId: 'send-receipt' as never,
+          file: { attachmentId: 'send-file' as never, name: 'sent.pdf', bytes: 1 },
+        },
+      }),
+    )
+    const [attachment] = b.root.createDrafts(session.sessionId, [new File([Uint8Array.of(6)], 'sent.pdf', { type: 'application/pdf' })])
     if (attachment === undefined) throw new Error('file draft missing')
     await vi.waitFor(() => {
       expect(b.root.fileUploads.getSnapshot()[attachment.id]?.status).toBe('ready')
     })
 
     const sending = b.root.sendSession(session, 'read', [attachment.id], 'queue')
-    await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(b.prompt).toHaveBeenCalledOnce()
+    })
 
-    expect(b.prompt).toHaveBeenCalledWith([
-      { type: 'file', receiptId: 'send-receipt' },
-      { type: 'text', text: 'read' },
-    ], 'queue', undefined, expect.any(String))
+    expect(b.prompt).toHaveBeenCalledWith(
+      [
+        { type: 'file', receiptId: 'send-receipt' },
+        { type: 'text', text: 'read' },
+      ],
+      'queue',
+      undefined,
+      expect.any(String),
+    )
     expect(b.root.resolveDraftAttachments([attachment.id])).toHaveLength(1)
     expect(b.prompt.mock.calls[0]?.[3]).toBe('file-rpc-id')
     retire?.({
@@ -443,22 +486,26 @@ describe('ConversationController', () => {
     const session = b.runtime.sessions.binding('s1')!.session
     let uploadSignal: AbortSignal | undefined
     let finishUpload: (() => void) | undefined
-    ;(session as { uploadFile?: unknown }).uploadFile = vi.fn(
-      (_data: Uint8Array, _name?: string, signal?: AbortSignal) => {
-        uploadSignal = signal
-        return new Promise((resolve) => {
-          finishUpload = () => { resolve({ ok: false, error: { message: 'aborted' } }) }
-        })
-      },
-    )
-    b.root.createDrafts(session.sessionId, [
-      new File([Uint8Array.of(7)], 'dispose.pdf', { type: 'application/pdf' }),
-    ])
-    await vi.waitFor(() => { expect(uploadSignal).toBeDefined() })
+    ;(session as { uploadFile?: unknown }).uploadFile = vi.fn((_data: Uint8Array, _name?: string, signal?: AbortSignal) => {
+      uploadSignal = signal
+      return new Promise(resolve => {
+        finishUpload = () => {
+          resolve({ ok: false, error: { message: 'aborted' } })
+        }
+      })
+    })
+    b.root.createDrafts(session.sessionId, [new File([Uint8Array.of(7)], 'dispose.pdf', { type: 'application/pdf' })])
+    await vi.waitFor(() => {
+      expect(uploadSignal).toBeDefined()
+    })
 
     let disposed = false
-    const disposal = b.fiber.dispose().then(() => { disposed = true })
-    await vi.waitFor(() => { expect(uploadSignal?.aborted).toBe(true) })
+    const disposal = b.fiber.dispose().then(() => {
+      disposed = true
+    })
+    await vi.waitFor(() => {
+      expect(uploadSignal?.aborted).toBe(true)
+    })
     await Promise.resolve()
     expect(disposed).toBe(false)
     finishUpload?.()
@@ -476,11 +523,13 @@ describe('ConversationController', () => {
     await b.runtime.dispose()
     // No Client Sessions service at all: a bare context lacks the assembled controller.
     const bare = new Context()
-    await bare.plugin(ConversationController, {
-      input: new InputHub(bare, makeTranslate(zh, {})),
-      blocks: new ComposerBlockRegistry(),
-      maxConcurrentFileUploads: 2,
-    }).await()
+    await bare
+      .plugin(ConversationController, {
+        input: new InputHub(bare, makeTranslate(zh, {})),
+        blocks: new ComposerBlockRegistry(),
+        maxConcurrentFileUploads: 2,
+      })
+      .await()
     const orphan = bare.get('conversation') as ConversationController
     await expect(orphan.send('x')).rejects.toThrow(/sessions service unavailable/)
   })
@@ -525,7 +574,9 @@ describe('sendSession submission echo', () => {
       expect(echo?.attachments[0]?.type).toBe('image')
       expect(echo?.attachments[0]?.value).toMatchObject({ previewUrl: 'blob:echo-1', name: 'a.png' })
       expect(b.prompt).not.toHaveBeenCalled()
-      await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => {
+        expect(b.prompt).toHaveBeenCalledOnce()
+      })
       expect(b.prompt).toHaveBeenCalledWith(
         [
           { type: 'image', mediaType: 'image/png', data: expect.any(String) as string, name: 'a.png' },
@@ -551,13 +602,15 @@ describe('sendSession submission echo', () => {
     const b = await echoBench()
     try {
       const session = b.runtime.sessions.binding('s1')!.session
-      ;(session as { uploadFile?: unknown }).uploadFile = vi.fn(() => Promise.resolve({
-        ok: true as const,
-        value: {
-          receiptId: 'mixed-file-receipt' as never,
-          file: { attachmentId: 'mixed-file' as never, name: 'notes.txt', bytes: 1 },
-        },
-      }))
+      ;(session as { uploadFile?: unknown }).uploadFile = vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            receiptId: 'mixed-file-receipt' as never,
+            file: { attachmentId: 'mixed-file' as never, name: 'notes.txt', bytes: 1 },
+          },
+        }),
+      )
       const drafts = b.root.createDrafts(session.sessionId, [
         new File([Uint8Array.of(1)], 'first.png', { type: 'image/png' }),
         new File([Uint8Array.of(2)], 'notes.txt', { type: 'text/plain' }),
@@ -566,17 +619,28 @@ describe('sendSession submission echo', () => {
       await vi.waitFor(() => {
         expect(b.root.fileUploads.getSnapshot()[drafts[1]!.id]?.status).toBe('ready')
       })
-      const sending = b.root.sendSession(session, 'ordered', drafts.map(draft => draft.id), 'steer')
+      const sending = b.root.sendSession(
+        session,
+        'ordered',
+        drafts.map(draft => draft.id),
+        'steer',
+      )
       const echo = await b.begun
       expect(echo?.mode).toBe('steer')
-      expect(echo?.attachments.map(attachment => attachment.type === 'image'
-        ? { type: attachment.type, name: attachment.value.name }
-        : { type: attachment.type, value: attachment.value })).toEqual([
+      expect(
+        echo?.attachments.map(attachment =>
+          attachment.type === 'image'
+            ? { type: attachment.type, name: attachment.value.name }
+            : { type: attachment.type, value: attachment.value },
+        ),
+      ).toEqual([
         { type: 'image', name: 'first.png' },
         { type: 'file', value: { attachmentId: 'mixed-file', name: 'notes.txt', bytes: 1 } },
         { type: 'image', name: 'last.png' },
       ])
-      await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => {
+        expect(b.prompt).toHaveBeenCalledOnce()
+      })
       expect(b.prompt.mock.calls[0]?.[0]).toEqual([
         { type: 'image', mediaType: 'image/png', data: expect.any(String) as string, name: 'first.png' },
         { type: 'file', receiptId: 'mixed-file-receipt' },
@@ -614,20 +678,24 @@ describe('sendSession submission echo', () => {
   it('passes each delivery mode before image serialization', async () => {
     const b = await echoBench()
     try {
-      await b.runtime.sessions.updateSessionSnapshot('s1', (draft) => { draft.running = true })
+      await b.runtime.sessions.updateSessionSnapshot('s1', draft => {
+        draft.running = true
+      })
       const session = b.runtime.sessions.binding('s1')!.session
-      await expect(b.root.sendSession(session, '立即纠偏', [], 'steer'))
-        .resolves.toEqual({ kind: 'success' })
-      expect(b.beginSubmission).toHaveBeenLastCalledWith(expect.objectContaining({
-        mode: 'steer',
-        text: '立即纠偏',
-      }))
-      await expect(b.root.sendSession(session, '稍后处理', [], 'queue'))
-        .resolves.toEqual({ kind: 'success' })
-      expect(b.beginSubmission).toHaveBeenLastCalledWith(expect.objectContaining({
-        mode: 'queue',
-        text: '稍后处理',
-      }))
+      await expect(b.root.sendSession(session, '立即纠偏', [], 'steer')).resolves.toEqual({ kind: 'success' })
+      expect(b.beginSubmission).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          mode: 'steer',
+          text: '立即纠偏',
+        }),
+      )
+      await expect(b.root.sendSession(session, '稍后处理', [], 'queue')).resolves.toEqual({ kind: 'success' })
+      expect(b.beginSubmission).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          mode: 'queue',
+          text: '稍后处理',
+        }),
+      )
     } finally {
       b.restore()
     }
@@ -645,7 +713,9 @@ describe('sendSession submission echo', () => {
       ])
       const session = b.runtime.sessions.binding('s1')!.session
       const sending = b.root.sendSession(session, '', [attachment!.id], 'queue')
-      await vi.waitFor(() => { expect(b.prompt).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => {
+        expect(b.prompt).toHaveBeenCalledOnce()
+      })
       const ref = {
         attachmentId: 'att-1' as never,
         mediaType: 'image/png' as const,
@@ -670,15 +740,18 @@ describe('sendSession submission echo', () => {
     const b = await echoBench()
     try {
       const session = b.runtime.sessions.binding('s1')!.session
-      ;(session as { uploadFile?: unknown }).uploadFile = vi.fn(() => Promise.resolve({
-        ok: true as const,
-        value: {
-          receiptId: 'kept-file-receipt' as never,
-          file: { attachmentId: 'kept-file' as never, name: 'kept.txt', bytes: 1 },
-        },
-      }))
+      ;(session as { uploadFile?: unknown }).uploadFile = vi.fn(() =>
+        Promise.resolve({
+          ok: true as const,
+          value: {
+            receiptId: 'kept-file-receipt' as never,
+            file: { attachmentId: 'kept-file' as never, name: 'kept.txt', bytes: 1 },
+          },
+        }),
+      )
       b.prompt.mockResolvedValueOnce({
-        ok: false, error: new RemoteError('session/attachment-invalid', 'nope', { reason: 'nope' }),
+        ok: false,
+        error: new RemoteError('session/attachment-invalid', 'nope', { reason: 'nope' }),
       } as never)
       const attachments = b.root.createDrafts(session.sessionId, [
         new File([Uint8Array.of(7)], 'kept.png', { type: 'image/png' }),
@@ -687,8 +760,14 @@ describe('sendSession submission echo', () => {
       await vi.waitFor(() => {
         expect(b.root.fileUploads.getSnapshot()[attachments[1]!.id]?.status).toBe('ready')
       })
-      await expect(b.root.sendSession(session, '失败', attachments.map(attachment => attachment.id), 'queue'))
-        .resolves.toEqual({ kind: 'error' })
+      await expect(
+        b.root.sendSession(
+          session,
+          '失败',
+          attachments.map(attachment => attachment.id),
+          'queue',
+        ),
+      ).resolves.toEqual({ kind: 'error' })
       b.retire.onRetire?.({ reason: 'failed' })
       expect(b.root.resolveDraftAttachments(attachments.map(attachment => attachment.id))).toHaveLength(2)
       expect(b.revoked).not.toHaveBeenCalled()
@@ -714,8 +793,7 @@ describe('sendSession submission echo', () => {
         new File([Uint8Array.of(1)], 'broken.png', { type: 'image/png' }),
       ])
       const session = b.runtime.sessions.binding('s1')!.session
-      await expect(b.root.sendSession(session, 'x', [attachment!.id], 'queue'))
-        .rejects.toThrow('read failed')
+      await expect(b.root.sendSession(session, 'x', [attachment!.id], 'queue')).rejects.toThrow('read failed')
       expect(b.abandon).toHaveBeenCalledOnce()
       expect(b.prompt).not.toHaveBeenCalled()
     } finally {
@@ -741,7 +819,10 @@ describe('sendSession submission echo', () => {
 
   it('bounds the paint yield when the frame clock is throttled', async () => {
     const b = await echoBench()
-    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn(() => 1),
+    )
     try {
       const session = b.runtime.sessions.binding('s1')!.session
       const sending = b.root.sendSession(session, '后台标签', [], 'queue')
@@ -838,20 +919,26 @@ describe('InputHub queue steering (empty-draft accelerated Enter)', () => {
     await b.runtime.sessions.setProjection('s1', 'inbox', { 'next-turn': [row('q-1'), row('q-2')], 'next-step': [] })
     // The turn closes before the second row: the flush stops, silently.
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: new RemoteError('session/steer-unavailable', 'closed', { itemId: 'item-1' as MessageId }),
+      ok: false,
+      error: new RemoteError('session/steer-unavailable', 'closed', { itemId: 'item-1' as MessageId }),
     } as never)
     b.shell.steerQueue()
-    await vi.waitFor(() => { expect(b.updateQueue).toHaveBeenCalledTimes(1) })
+    await vi.waitFor(() => {
+      expect(b.updateQueue).toHaveBeenCalledTimes(1)
+    })
     expect(b.shell.notices.getSnapshot()).toBeNull()
 
     // A row the host already claimed (e.g. a repeated empty-draft chord):
     // the duplicate Steer is a silent no-op.
     await b.runtime.sessions.setProjection('s1', 'inbox', { 'next-turn': [row('q-3')], 'next-step': [] })
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: new RemoteError('session/queue-item-not-found', 'claimed', { itemId: 'item-1' as MessageId }),
+      ok: false,
+      error: new RemoteError('session/queue-item-not-found', 'claimed', { itemId: 'item-1' as MessageId }),
     } as never)
     b.shell.steerQueue()
-    await vi.waitFor(() => { expect(b.updateQueue).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(b.updateQueue).toHaveBeenCalledTimes(2)
+    })
     expect(b.shell.notices.getSnapshot()).toBeNull()
     await b.runtime.dispose()
   })
@@ -860,13 +947,12 @@ describe('InputHub queue steering (empty-draft accelerated Enter)', () => {
     const b = await bench()
     await b.runtime.sessions.setProjection('s1', 'inbox', { 'next-turn': [row('q-1'), row('q-2')], 'next-step': [] })
     b.updateQueue.mockResolvedValueOnce({
-      ok: false, error: new RemoteError('gateway/internal', 'broken', {}),
+      ok: false,
+      error: new RemoteError('gateway/internal', 'broken', {}),
     } as never)
     b.shell.steerQueue()
     await vi.waitFor(() => {
-      expect(b.shell.notices.getSnapshot()).toEqual(
-        expect.objectContaining({ level: 'error', text: '插话发送失败，请重试。' }),
-      )
+      expect(b.shell.notices.getSnapshot()).toEqual(expect.objectContaining({ level: 'error', text: '插话发送失败，请重试。' }))
     })
     expect(b.updateQueue).toHaveBeenCalledTimes(1)
     await b.runtime.dispose()
@@ -880,7 +966,6 @@ describe('InputHub queue steering (empty-draft accelerated Enter)', () => {
   })
 })
 
-
 it('captures run mode and queue intent at submission before later projection changes', async () => {
   const b = await bench()
   const track = vi.fn()
@@ -888,17 +973,33 @@ it('captures run mode and queue intent at submission before later projection cha
   try {
     await b.runtime.sessions.setProjection('s1', 'plan', { active: true, pending: false })
     await b.runtime.sessions.setProjection('s1', 'goal', { goal: { phase: 'active' } })
-    await b.runtime.sessions.setProjection('s1', 'modelSelection', { next: { provider: 'fixture', model: 'model', reasoningEffort: 'high' }, lastUsed: null })
-    await b.runtime.sessions.updateSessionSnapshot('s1', (state) => { state.running = true; state.blank = false })
+    await b.runtime.sessions.setProjection('s1', 'modelSelection', {
+      next: { provider: 'fixture', model: 'model', reasoningEffort: 'high' },
+      lastUsed: null,
+    })
+    await b.runtime.sessions.updateSessionSnapshot('s1', state => {
+      state.running = true
+      state.blank = false
+    })
     b.shell.setDraft('private prompt')
     b.shell.submit('queue', 'click')
-    expect(track).toHaveBeenCalledExactlyOnceWith('send_button_click', {
-      session_id: 's1', model_name: 'fixture/model', thinking_effort: 'high', run_mode: 'plan', msg_type: 'queue',
-    }, expect.any(Number))
+    expect(track).toHaveBeenCalledExactlyOnceWith(
+      'send_button_click',
+      {
+        session_id: 's1',
+        model_name: 'fixture/model',
+        thinking_effort: 'high',
+        run_mode: 'plan',
+        msg_type: 'queue',
+      },
+      expect.any(Number),
+    )
     await b.runtime.sessions.setProjection('s1', 'plan', { active: false, pending: false })
     expect(track).toHaveBeenCalledTimes(1)
     expect(JSON.stringify(track.mock.calls)).not.toContain('private prompt')
-  } finally { await b.runtime.dispose() }
+  } finally {
+    await b.runtime.dispose()
+  }
 })
 
 it.each([
@@ -909,9 +1010,14 @@ it.each([
   const track = vi.fn()
   b.runtime.ctx.provide('productAnalytics', { enabled: true, track } as never)
   try {
-    await b.runtime.sessions.updateSessionSnapshot('s1', (state) => { state.running = running; state.blank = true })
+    await b.runtime.sessions.updateSessionSnapshot('s1', state => {
+      state.running = running
+      state.blank = true
+    })
     b.shell.setDraft('message')
     b.shell.submit(mode, 'enter')
     expect(track).toHaveBeenCalledExactlyOnceWith('send_button_click', { run_mode: 'default', msg_type: expected }, expect.any(Number))
-  } finally { await b.runtime.dispose() }
+  } finally {
+    await b.runtime.dispose()
+  }
 })

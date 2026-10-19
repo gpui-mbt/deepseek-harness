@@ -1,6 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply, inject } from '../src/client/index.ts'
@@ -37,7 +37,9 @@ describe('settings domain base plugin', () => {
     await fiber.await()
     expect(ctx.get('configForms')).toBeInstanceOf(ConfigForms)
     expect(ctx.get('settingsSchema')).toBeInstanceOf(SettingsSchemaService)
-    await vi.waitFor(() => { expect(describeCall).toHaveBeenCalledTimes(1) })
+    await vi.waitFor(() => {
+      expect(describeCall).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('refreshes remote ConfigForm values and revisions on document commits and connection resets', async () => {
@@ -46,7 +48,10 @@ describe('settings domain base plugin', () => {
     await ctx.configForms.describe().ensure()
     const scope = ctx.configForms.get<{ preference: string }>('ui-test')
     expect(scope.getSnapshot()).toMatchObject({
-      status: 'ready', value: { preference: 'light' }, revision: 0, writable: true,
+      status: 'ready',
+      value: { preference: 'light' },
+      revision: 0,
+      writable: true,
     })
     describeCall.mockResolvedValue(described('dark', 1))
     remote.emit('settings/document-updated', ['ui-test', 1])
@@ -63,7 +68,9 @@ describe('settings domain base plugin', () => {
   it('fiber disposal retires the service and its invalidation subscriptions', async () => {
     const { ctx, describeCall, remote, fiber } = bench()
     await fiber.await()
-    await vi.waitFor(() => { expect(describeCall).toHaveBeenCalledTimes(1) })
+    await vi.waitFor(() => {
+      expect(describeCall).toHaveBeenCalledTimes(1)
+    })
     await fiber.dispose()
     expect(ctx.get('configForms')).toBeUndefined()
     expect(ctx.get('settingsSchema')).toBeUndefined()

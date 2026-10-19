@@ -35,9 +35,7 @@ export function loadCordisYaml(source: string): unknown {
  * @returns whether the value contains one preserved expression.
  */
 export function isJsExpr(value: unknown): value is JsExpr {
-  return typeof value === 'object'
-    && value !== null
-    && typeof (value as Record<string, unknown>).__jsExpr === 'string'
+  return typeof value === 'object' && value !== null && typeof (value as Record<string, unknown>).__jsExpr === 'string'
 }
 
 /**
@@ -46,11 +44,12 @@ export function isJsExpr(value: unknown): value is JsExpr {
  * @returns whether the entry is an explicit or package-named Cordis group.
  */
 export function isCordisGroupEntry(value: unknown): value is Record<string, unknown> & { config: unknown[] } {
-  return typeof value === 'object'
-    && value !== null
-    && Array.isArray((value as Record<string, unknown>).config)
-    && ((value as Record<string, unknown>).group === true
-      || (value as Record<string, unknown>).name === '@deepseek-ai/cordis-plugin-group')
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as Record<string, unknown>).config) &&
+    ((value as Record<string, unknown>).group === true || (value as Record<string, unknown>).name === '@deepseek-ai/cordis-plugin-group')
+  )
 }
 
 /** Test whether an entry declares an Agent preset with a child plugin list.

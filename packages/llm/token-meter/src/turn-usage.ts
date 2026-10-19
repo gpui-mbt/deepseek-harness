@@ -39,22 +39,22 @@ interface NormalizedAttempt {
 type AttemptState =
   | { readonly kind: 'idle' }
   | {
-    readonly kind: 'open'
-    readonly turn: number
-    readonly step: number
-    readonly sample?: TokenUsage
-  }
+      readonly kind: 'open'
+      readonly turn: number
+      readonly step: number
+      readonly sample?: TokenUsage
+    }
   | {
-    readonly kind: 'finishClosed'
-    readonly turn: number
-    readonly step: number
-  }
+      readonly kind: 'finishClosed'
+      readonly turn: number
+      readonly step: number
+    }
   | {
-    readonly kind: 'settled'
-    readonly turn: number
-    readonly step: number
-    readonly by: 'message' | 'retry'
-  }
+      readonly kind: 'settled'
+      readonly turn: number
+      readonly step: number
+      readonly by: 'message' | 'retry'
+    }
 
 function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
@@ -79,9 +79,7 @@ function streamUsage(stream: SessionEvent<'assistant/message'>['data']['stream']
 }
 
 function normalizeUsage(usage: TokenUsage, route?: TurnTokenUsageRoute): NormalizedAttempt | undefined {
-  const {
-    inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, reasoningTokens, totalTokens,
-  } = usage
+  const { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, reasoningTokens, totalTokens } = usage
   if (!isCount(inputTokens) || !isCount(outputTokens)) return undefined
   if (cacheReadTokens !== undefined && !isCount(cacheReadTokens)) return undefined
   if (cacheWriteTokens !== undefined && !isCount(cacheWriteTokens)) return undefined
@@ -91,8 +89,8 @@ function normalizeUsage(usage: TokenUsage, route?: TurnTokenUsageRoute): Normali
 
   const knownPrompt = safeSum([
     inputTokens,
-    ...cacheReadTokens === undefined ? [] : [cacheReadTokens],
-    ...cacheWriteTokens === undefined ? [] : [cacheWriteTokens],
+    ...(cacheReadTokens === undefined ? [] : [cacheReadTokens]),
+    ...(cacheWriteTokens === undefined ? [] : [cacheWriteTokens]),
   ])
   if (knownPrompt === undefined) return undefined
 
@@ -116,10 +114,10 @@ function normalizeUsage(usage: TokenUsage, route?: TurnTokenUsageRoute): Normali
     inputTokens,
     outputTokens,
     totalTokens: exactTotal,
-    ...cacheReadTokens === undefined ? {} : { cacheReadTokens },
-    ...cacheWriteTokens === undefined ? {} : { cacheWriteTokens },
-    ...reasoningTokens === undefined ? {} : { reasoningTokens },
-    ...route === undefined ? {} : { route },
+    ...(cacheReadTokens === undefined ? {} : { cacheReadTokens }),
+    ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
+    ...(reasoningTokens === undefined ? {} : { reasoningTokens }),
+    ...(route === undefined ? {} : { route }),
   }
 }
 
@@ -151,18 +149,14 @@ function aggregateAttempts(attempts: readonly NormalizedAttempt[]): TurnTokenUsa
     uncachedInputTokens: inputTokens,
     outputTokens,
     totalTokens,
-    ...cacheReadTokens === undefined ? {} : { cacheReadTokens },
-    ...cacheWriteTokens === undefined ? {} : { cacheWriteTokens },
-    ...reasoningTokens === undefined ? {} : { reasoningTokens },
-    ...routes === undefined ? {} : { routes },
+    ...(cacheReadTokens === undefined ? {} : { cacheReadTokens }),
+    ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
+    ...(reasoningTokens === undefined ? {} : { reasoningTokens }),
+    ...(routes === undefined ? {} : { routes }),
   }
 }
 
-function sameAttempt(
-  state: Exclude<AttemptState, { kind: 'idle' }>,
-  turn: number,
-  step: number,
-): boolean {
+function sameAttempt(state: Exclude<AttemptState, { kind: 'idle' }>, turn: number, step: number): boolean {
   return state.turn === turn && state.step === step
 }
 
@@ -216,17 +210,18 @@ export function deriveTurnTokenUsage(events: readonly SessionEvent[]): TurnToken
       continue
     }
     if (event.type === 'llm/retry-started') {
-      if (event.data.turn !== turn
-        || state.kind !== 'settled'
-        || state.by !== 'retry'
-        || !sameAttempt(state, event.data.turn, event.data.step)) invalid = true
+      if (
+        event.data.turn !== turn ||
+        state.kind !== 'settled' ||
+        state.by !== 'retry' ||
+        !sameAttempt(state, event.data.turn, event.data.step)
+      )
+        invalid = true
       else state = { kind: 'open', turn, step: event.data.step }
       continue
     }
     if (event.type === 'assistant/attempt') {
-      if (event.data.turn !== turn
-        || state.kind !== 'open'
-        || !sameAttempt(state, event.data.turn, event.data.step)) {
+      if (event.data.turn !== turn || state.kind !== 'open' || !sameAttempt(state, event.data.turn, event.data.step)) {
         invalid = true
         continue
       }
@@ -237,9 +232,7 @@ export function deriveTurnTokenUsage(events: readonly SessionEvent[]): TurnToken
       continue
     }
     if (event.type === 'assistant/message') {
-      if (event.data.turn !== turn
-        || state.kind !== 'open'
-        || !sameAttempt(state, event.data.turn, event.data.step)) {
+      if (event.data.turn !== turn || state.kind !== 'open' || !sameAttempt(state, event.data.turn, event.data.step)) {
         invalid = true
         continue
       }
@@ -250,8 +243,7 @@ export function deriveTurnTokenUsage(events: readonly SessionEvent[]): TurnToken
       continue
     }
     if (event.type === 'llm/retry') {
-      if (event.data.turn !== turn || state.kind === 'idle'
-        || !sameAttempt(state, event.data.turn, event.data.step)) {
+      if (event.data.turn !== turn || state.kind === 'idle' || !sameAttempt(state, event.data.turn, event.data.step)) {
         invalid = true
         continue
       }
@@ -260,8 +252,7 @@ export function deriveTurnTokenUsage(events: readonly SessionEvent[]): TurnToken
       continue
     }
     if (event.type === 'step/end') {
-      if (event.data.turn !== turn || state.kind === 'idle'
-        || !sameAttempt(state, event.data.turn, event.data.step)) {
+      if (event.data.turn !== turn || state.kind === 'idle' || !sameAttempt(state, event.data.turn, event.data.step)) {
         invalid = true
         continue
       }

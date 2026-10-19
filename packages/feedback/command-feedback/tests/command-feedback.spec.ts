@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
@@ -38,14 +38,20 @@ function stubAgent(ctx: Context, id: string): { agent: Agent; session: Session }
     session,
     inbox: unsupportedInbox(),
     ctx: new Context(),
-    get status() { return status },
+    get status() {
+      return status
+    },
     send: () => {},
     followup: () => {},
     steer: () => {},
     inject: () => {},
-    cancel() { status = 'idle' },
+    cancel() {
+      status = 'idle'
+    },
     runMaintenance: task => task(new AbortController().signal),
-    whenIdle() { return Promise.resolve() },
+    whenIdle() {
+      return Promise.resolve()
+    },
   }
   return { agent, session }
 }
@@ -63,19 +69,15 @@ async function harness(): Promise<Harness> {
 
 /** Execute `/feedback` through the same registry boundary as a UI adapter. */
 async function run(test: Harness, suffix = ''): Promise<{ kind: string; text?: string }> {
-  const settled = await test.ctx.commands.execute(
-    test.agent,
-    `/feedback${suffix}`,
-    [],
-    new AbortController().signal,
-  )
+  const settled = await test.ctx.commands.execute(test.agent, `/feedback${suffix}`, [], new AbortController().signal)
   if (settled === undefined) throw new Error('feedback command was not registered')
   return settled.result
 }
 
 /** Authoritative feedback payloads in log order. */
 function feedbackRecords(session: Session): FeedbackRecord[] {
-  return session.snapshotEvents()
+  return session
+    .snapshotEvents()
     .filter(event => event.type === 'feedback/record')
     .map(event => event.data)
 }
@@ -113,31 +115,31 @@ describe('sessionFeedback Host Remote', () => {
     const binding = test.ctx.sessionFeedback.typertRemote
     expect(binding.serviceKey).toBe('sessionFeedback')
     expect(binding.namespace).toBe('sessionFeedback')
-    expect(remoteMethods(test.ctx.sessionFeedback)).toEqual([
-      { method: 'record', invocation: { kind: 'direct' } },
-    ])
+    expect(remoteMethods(test.ctx.sessionFeedback)).toEqual([{ method: 'record', invocation: { kind: 'direct' } }])
   })
 
   it('records a remark on the live Session without command bookkeeping', async () => {
     const test = await harness()
-    await expect(test.ctx.sessionFeedback.record({
-      sessionId: test.session.id, text: '  the diff view is unreadable ', category: 'product-interaction',
-    })).resolves.toEqual({ ok: true, value: { recorded: true } })
-    await expect(test.ctx.sessionFeedback.record({ sessionId: test.session.id }))
-      .resolves.toEqual({ ok: true, value: { recorded: true } })
+    await expect(
+      test.ctx.sessionFeedback.record({
+        sessionId: test.session.id,
+        text: '  the diff view is unreadable ',
+        category: 'product-interaction',
+      }),
+    ).resolves.toEqual({ ok: true, value: { recorded: true } })
+    await expect(test.ctx.sessionFeedback.record({ sessionId: test.session.id })).resolves.toEqual({ ok: true, value: { recorded: true } })
     expect(test.session.snapshotEvents().map(event => event.type)).toEqual(['feedback/record', 'feedback/record'])
-    expect(feedbackRecords(test.session)).toEqual([
-      { text: 'the diff view is unreadable', category: 'product-interaction' },
-      {},
-    ])
+    expect(feedbackRecords(test.session)).toEqual([{ text: 'the diff view is unreadable', category: 'product-interaction' }, {}])
     expect(getOrCreateAnonymousUserId).not.toHaveBeenCalled()
   })
 
   it('reports session-not-found for a Session no live owner carries', async () => {
     const test = await harness()
     const missing = SessionId('no-such-session')
-    await expect(test.ctx.sessionFeedback.record({ sessionId: missing, text: 'lost' }))
-      .resolves.toEqual({ ok: false, error: { code: 'session-not-found', sessionId: missing } })
+    await expect(test.ctx.sessionFeedback.record({ sessionId: missing, text: 'lost' })).resolves.toEqual({
+      ok: false,
+      error: { code: 'session-not-found', sessionId: missing },
+    })
     expect(test.session.snapshotEvents()).toEqual([])
   })
 
@@ -167,29 +169,27 @@ describe('/feedback human command', () => {
     commandFeedback.recordFeedback(test.session, { text: '  recorded outside a command  ' })
     commandFeedback.recordFeedback(test.session, { text: ' \n\t ', category: 'service-stability' })
     commandFeedback.recordFeedback(test.session, {})
-    expect(test.session.snapshotEvents().map(event => event.type))
-      .toEqual(['feedback/record', 'feedback/record', 'feedback/record'])
+    expect(test.session.snapshotEvents().map(event => event.type)).toEqual(['feedback/record', 'feedback/record', 'feedback/record'])
     // Blank text is recorded as absent; an entry with neither member still records.
-    expect(feedbackRecords(test.session)).toEqual([
-      { text: 'recorded outside a command' },
-      { category: 'service-stability' },
-      {},
-    ])
+    expect(feedbackRecords(test.session)).toEqual([{ text: 'recorded outside a command' }, { category: 'service-stability' }, {}])
   })
 
   it('publishes the fixed category taxonomy in presentation order', () => {
     expect(commandFeedback.FEEDBACK_CATEGORIES).toEqual([
-      'task-result', 'instruction-following', 'product-interaction', 'service-stability',
-      'resource-cost', 'security-privacy-permission', 'other',
+      'task-result',
+      'instruction-following',
+      'product-interaction',
+      'service-stability',
+      'resource-cost',
+      'security-privacy-permission',
+      'other',
     ])
   })
 
   it('keeps command bookkeeping around the authoritative feedback event', async () => {
     const test = await harness()
     await run(test, ' nothing else happens')
-    expect(test.session.snapshotEvents().map(event => event.type)).toEqual([
-      'command/run', 'feedback/record', 'command/done',
-    ])
+    expect(test.session.snapshotEvents().map(event => event.type)).toEqual(['command/run', 'feedback/record', 'command/done'])
   })
 
   it('normalizes surrounding whitespace without parsing command-like content', async () => {
@@ -253,8 +253,9 @@ describe('/feedback human command', () => {
     const test = await harness()
     const controller = new AbortController()
     controller.abort(new Error('user cancelled the command'))
-    await expect(test.ctx.commands.execute(test.agent, '/feedback too late', [], controller.signal))
-      .rejects.toThrow('user cancelled the command')
+    await expect(test.ctx.commands.execute(test.agent, '/feedback too late', [], controller.signal)).rejects.toThrow(
+      'user cancelled the command',
+    )
     expect(test.session.snapshotEvents()).toEqual([])
   })
 })

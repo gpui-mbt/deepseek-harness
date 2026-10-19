@@ -13,7 +13,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { PwshLocalExecutor, ENCODING_PREAMBLE, candidatePwshPaths, resolvePwshPath } from '@deepseek-ai/dsh-pwsh-local'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
@@ -32,7 +32,6 @@ function start(x: { execute(spec: ShellExecSpec): Promise<ShellExecution> }, spe
   return x.execute({ ...spec, onExpiry: 'none' })
 }
 
-
 const spillDir = mkdtempSync(join(tmpdir(), 'dsh-pwsh-exec-spec-'))
 
 afterAll(() => {
@@ -47,7 +46,7 @@ afterEach(async () => {
   const directories = tempDirs.splice(0)
   const results = await Promise.allSettled(ownedContexts.map(ctx => ctx.fiber.dispose()))
   for (const dir of directories) rmSync(dir, { recursive: true, force: true })
-  const failures: unknown[] = results.flatMap((result): unknown[] => result.status === 'rejected' ? [result.reason] : [])
+  const failures: unknown[] = results.flatMap((result): unknown[] => (result.status === 'rejected' ? [result.reason] : []))
   if (failures.length > 0) throw new AggregateError(failures, 'PowerShell fixture cleanup failed')
 })
 
@@ -65,22 +64,23 @@ function commandBarrier() {
   return {
     command: 'while (-not (Test-Path -LiteralPath $env:DSH_TEST_RELEASE)) { Start-Sleep -Milliseconds 20 }',
     env: { DSH_TEST_RELEASE: path },
-    release: () => { writeFileSync(path, '') },
+    release: () => {
+      writeFileSync(path, '')
+    },
   }
 }
 
 // The probe follows the executor's own resolution (Program Files installs on
 // Windows are found even when bare `pwsh` is not on PATH).
-const hasPwsh = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
+const hasPwsh =
+  spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
 
 /** Normalize PowerShell's platform line endings (CRLF on Windows, LF elsewhere). */
 const lf = (text: string): string => text.replace(/\r\n/g, '\n')
 
 /** Filesystem path equality across macOS temp symlinks and Windows drive-letter casing. */
 function samePath(actual: string, expected: string): boolean {
-  const norm = (value: string) => (
-    process.platform === 'win32' ? realpathSync.native(value).toLowerCase() : realpathSync.native(value)
-  )
+  const norm = (value: string) => (process.platform === 'win32' ? realpathSync.native(value).toLowerCase() : realpathSync.native(value))
   return norm(actual) === norm(expected)
 }
 
@@ -100,10 +100,15 @@ async function setup(config: Parameters<typeof PwshLocalExecutor.Config>[0] = {}
  */
 async function readUntil(proc: ShellProcess, expected: string, timeoutMs: number): Promise<string> {
   let all = ''
-  await expect.poll(() => {
-    all += proc.readOutput().delta
-    return lf(all)
-  }, { timeout: timeoutMs }).toContain(expected)
+  await expect
+    .poll(
+      () => {
+        all += proc.readOutput().delta
+        return lf(all)
+      },
+      { timeout: timeoutMs },
+    )
+    .toContain(expected)
   return lf(all)
 }
 
@@ -116,11 +121,17 @@ describe('resolvePwshPath and candidatePwshPaths (pure, every platform)', () => 
   it('falls through an empty configured path to platform resolution', () => {
     // SystemRoot points at a non-existent tree so the Windows PowerShell 5.1
     // fallback candidate cannot exist either.
-    expect(resolvePwshPath('', {
-      PATH: 'P:\\Store',
-      ProgramFiles: 'P:\\no-program-files',
-      SystemRoot: 'S:\\no-windows',
-    }, 'win32')).toBe('pwsh')
+    expect(
+      resolvePwshPath(
+        '',
+        {
+          PATH: 'P:\\Store',
+          ProgramFiles: 'P:\\no-program-files',
+          SystemRoot: 'S:\\no-windows',
+        },
+        'win32',
+      ),
+    ).toBe('pwsh')
   })
 
   it('returns pwsh on non-Windows platforms regardless of the environment', () => {
@@ -147,11 +158,10 @@ describe('resolvePwshPath and candidatePwshPaths (pure, every platform)', () => 
       join('S:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
     ])
     // A missing PATH contributes no entries (the empty-string fallback).
-    expect(candidatePwshPaths({ ProgramFiles: 'P:\\Program Files', SystemRoot: 'S:\\Windows' }))
-      .toEqual([
-        join('P:\\Program Files', 'PowerShell', '7', 'pwsh.exe'),
-        join('S:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
-      ])
+    expect(candidatePwshPaths({ ProgramFiles: 'P:\\Program Files', SystemRoot: 'S:\\Windows' })).toEqual([
+      join('P:\\Program Files', 'PowerShell', '7', 'pwsh.exe'),
+      join('S:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
+    ])
   })
 
   it('returns the first EXISTING win32 candidate, else pwsh', () => {
@@ -161,13 +171,17 @@ describe('resolvePwshPath and candidatePwshPaths (pure, every platform)', () => 
     mkdirSync(store, { recursive: true })
     writeFileSync(join(store, 'pwsh.exe'), '')
     // The existing PATH entry wins over the non-existent Program Files install.
-    expect(resolvePwshPath(undefined, { ProgramFiles: join(dir, 'missing'), PATH: store }, 'win32'))
-      .toBe(join(store, 'pwsh.exe'))
+    expect(resolvePwshPath(undefined, { ProgramFiles: join(dir, 'missing'), PATH: store }, 'win32')).toBe(join(store, 'pwsh.exe'))
     // No candidate exists anywhere (SystemRoot points at a non-existent tree,
     // so even the Windows PowerShell 5.1 fallback cannot exist) → the
     // PATH-resolution fallback.
-    expect(resolvePwshPath(undefined, { ProgramFiles: join(dir, 'missing'), PATH: join(dir, 'empty'), SystemRoot: join(dir, 'no-windows') }, 'win32'))
-      .toBe('pwsh')
+    expect(
+      resolvePwshPath(
+        undefined,
+        { ProgramFiles: join(dir, 'missing'), PATH: join(dir, 'empty'), SystemRoot: join(dir, 'no-windows') },
+        'win32',
+      ),
+    ).toBe('pwsh')
   })
 
   it('accepts a link-shaped PATH candidate whose target cannot be stat-ed', () => {
@@ -179,8 +193,7 @@ describe('resolvePwshPath and candidatePwshPaths (pure, every platform)', () => 
     mkdirSync(store, { recursive: true })
     const link = join(store, 'pwsh.exe')
     symlinkSync(join(dir, 'no-such-target.exe'), link)
-    expect(resolvePwshPath(undefined, { ProgramFiles: join(dir, 'missing'), PATH: store }, 'win32'))
-      .toBe(link)
+    expect(resolvePwshPath(undefined, { ProgramFiles: join(dir, 'missing'), PATH: store }, 'win32')).toBe(link)
   })
 
   it('skips a directory candidate and falls through to the PATH-resolution default', () => {
@@ -188,23 +201,35 @@ describe('resolvePwshPath and candidatePwshPaths (pure, every platform)', () => 
     tempDirs.push(dir)
     const store = join(dir, 'store')
     mkdirSync(join(store, 'pwsh.exe'), { recursive: true })
-    expect(resolvePwshPath(undefined, {
-      ProgramFiles: join(dir, 'missing'),
-      PATH: store,
-      SystemRoot: join(dir, 'no-windows'),
-    }, 'win32')).toBe('pwsh')
+    expect(
+      resolvePwshPath(
+        undefined,
+        {
+          ProgramFiles: join(dir, 'missing'),
+          PATH: store,
+          SystemRoot: join(dir, 'no-windows'),
+        },
+        'win32',
+      ),
+    ).toBe('pwsh')
   })
 })
 
 describe('spawn construction (pure, every platform)', () => {
   /** A subprocess service that records spawn specs and settles instantly. */
   class CapturingSubprocessRuntime extends SubprocessRuntime {
-    async terminalEnvironment() { return { platform: 'posix' as const } }
+    async terminalEnvironment() {
+      return { platform: 'posix' as const }
+    }
     specs: SubprocessSpawnSpec[] = []
     done: Promise<SubprocessOutcome> = Promise.resolve({ exitCode: 0, signal: null })
     stderrText = ''
-    override async resolveExecutable(command: string): Promise<string> { return command }
-    override spawnTerminal(): Promise<never> { throw new Error('pwsh spawns pipes, never terminals') }
+    override async resolveExecutable(command: string): Promise<string> {
+      return command
+    }
+    override spawnTerminal(): Promise<never> {
+      throw new Error('pwsh spawns pipes, never terminals')
+    }
     private readonly stdoutReader: SubprocessOutputReader = {
       readFrom: () => ({ text: '', lossy: false, nextOffset: 0 }),
     }
@@ -250,7 +275,7 @@ describe('spawn construction (pure, every platform)', () => {
     subprocess.stderrText = 'target stderr'
     subprocess.done = Promise.reject(new Error('provider lost the direct outcome'))
 
-    const proc = (await start(ctx.shell, ctx.shell.resolve({ command: 'Write-Output maybe-ran' })))
+    const proc = await start(ctx.shell, ctx.shell.resolve({ command: 'Write-Output maybe-ran' }))
     await expect(proc.done).resolves.toBeUndefined()
     expect(proc.status).toBe('killed')
     const output = proc.readOutput().delta
@@ -266,11 +291,13 @@ describe('spawn construction (pure, every platform)', () => {
     await ctx.plugin(PwshLocalExecutor)
     const providerError = new Error('unprintable provider error')
     Object.defineProperty(providerError, Symbol.toPrimitive, {
-      value: () => { throw new Error('provider formatting must not escape') },
+      value: () => {
+        throw new Error('provider formatting must not escape')
+      },
     })
     subprocess.done = Promise.reject(providerError)
 
-    const proc = (await start(ctx.shell, ctx.shell.resolve({ command: 'Write-Output maybe-ran' })))
+    const proc = await start(ctx.shell, ctx.shell.resolve({ command: 'Write-Output maybe-ran' }))
     await expect(proc.done).resolves.toBeUndefined()
     expect(proc.status).toBe('killed')
     expect(proc.readOutput().delta).toContain('unprintable provider failure')
@@ -284,7 +311,7 @@ describe('spawn construction (pure, every platform)', () => {
     const rejected = Promise.withResolvers<SubprocessOutcome>()
     subprocess.done = rejected.promise
     const controller = new AbortController()
-    const ex = (await start(ctx.shell, ctx.shell.resolve({ command: 'Write-Output maybe-ran', signal: controller.signal })))
+    const ex = await start(ctx.shell, ctx.shell.resolve({ command: 'Write-Output maybe-ran', signal: controller.signal }))
     controller.abort()
     // A provider that terminated the range before the target started has no
     // exit to report and rejects with the cancellation reason instead.
@@ -301,7 +328,7 @@ describe('spawn construction (pure, every platform)', () => {
     await ctx.plugin(PwshLocalExecutor)
     const rejected = Promise.withResolvers<SubprocessOutcome>()
     subprocess.done = rejected.promise
-    const ex = (await start(ctx.shell, ctx.shell.resolve({ command: 'Write-Output maybe-ran' })))
+    const ex = await start(ctx.shell, ctx.shell.resolve({ command: 'Write-Output maybe-ran' }))
     expect(ex.kill()).toBe(true)
     rejected.reject(new Error('subprocess terminated before target start'))
     await expect(ex.done).resolves.toBeUndefined()
@@ -317,7 +344,7 @@ describe('spawn construction (pure, every platform)', () => {
 
     const killedOutcome = Promise.withResolvers<SubprocessOutcome>()
     subprocess.done = killedOutcome.promise
-    const killed = (await start(ctx.shell, ctx.shell.resolve({ command: 'Write-Output maybe-ran' })))
+    const killed = await start(ctx.shell, ctx.shell.resolve({ command: 'Write-Output maybe-ran' }))
     expect(killed.kill()).toBe(true)
     killedOutcome.resolve({ exitCode: 0, signal: null })
     await killed.done
@@ -327,10 +354,13 @@ describe('spawn construction (pure, every platform)', () => {
     const abortedOutcome = Promise.withResolvers<SubprocessOutcome>()
     subprocess.done = abortedOutcome.promise
     const controller = new AbortController()
-    const aborted = (await start(ctx.shell, ctx.shell.resolve({
-      command: 'Write-Output maybe-ran',
-      signal: controller.signal,
-    })))
+    const aborted = await start(
+      ctx.shell,
+      ctx.shell.resolve({
+        command: 'Write-Output maybe-ran',
+        signal: controller.signal,
+      }),
+    )
     controller.abort()
     abortedOutcome.resolve({ exitCode: 0, signal: null })
     await aborted.done
@@ -341,9 +371,15 @@ describe('spawn construction (pure, every platform)', () => {
 describe('background spawn failure (fake backend, every platform)', () => {
   /** A subprocess service whose spawn rejects the way a missing pwsh does. */
   class RejectingSubprocessRuntime extends SubprocessRuntime {
-    override async terminalEnvironment() { return { platform: 'posix' as const } }
-    override async resolveExecutable(command: string): Promise<string> { return command }
-    override spawnTerminal(): Promise<never> { throw new Error('pwsh spawns pipes, never terminals') }
+    override async terminalEnvironment() {
+      return { platform: 'posix' as const }
+    }
+    override async resolveExecutable(command: string): Promise<string> {
+      return command
+    }
+    override spawnTerminal(): Promise<never> {
+      throw new Error('pwsh spawns pipes, never terminals')
+    }
     private readonly reader: SubprocessOutputReader = {
       readFrom: () => ({ text: '', lossy: false, nextOffset: 0 }),
     }
@@ -365,7 +401,7 @@ describe('background spawn failure (fake backend, every platform)', () => {
     const ctx = createContext()
     new RejectingSubprocessRuntime(ctx)
     await ctx.plugin(PwshLocalExecutor)
-    const proc = (await ctx.shell.execute(ctx.shell.resolve({ command: 'Write-Output hi', onExpiry: 'none' })))
+    const proc = await ctx.shell.execute(ctx.shell.resolve({ command: 'Write-Output hi', onExpiry: 'none' }))
     await expect(proc.done).resolves.toBeUndefined()
     expect(proc.status).toBe('killed')
     const note = 'subprocess failed before reporting an outcome: Error: spawn pwsh ENOENT'
@@ -381,9 +417,15 @@ describe('cancellation against a hanging backend (fake backend, every platform)'
   /** A subprocess service whose process runs until the test settles it and ignores the spawn signal. */
   class HangingSubprocessRuntime extends SubprocessRuntime {
     settle: (outcome: { exitCode: number | null; signal: NodeJS.Signals | null }) => void = () => {}
-    override async terminalEnvironment(): Promise<never> { throw new Error('fixture does not open terminals') }
-    override async resolveExecutable(command: string): Promise<string> { return command }
-    override spawnTerminal(): Promise<never> { throw new Error('pwsh spawns pipes, never terminals') }
+    override async terminalEnvironment(): Promise<never> {
+      throw new Error('fixture does not open terminals')
+    }
+    override async resolveExecutable(command: string): Promise<string> {
+      return command
+    }
+    override spawnTerminal(): Promise<never> {
+      throw new Error('pwsh spawns pipes, never terminals')
+    }
     private readonly reader: SubprocessOutputReader = {
       readFrom: () => ({ text: '', lossy: false, nextOffset: 0 }),
     }
@@ -394,7 +436,9 @@ describe('cancellation against a hanging backend (fake backend, every platform)'
         stderr: undefined,
         control: undefined,
         collected: { stdout: this.reader, stderr: this.reader },
-        done: new Promise((resolve) => { this.settle = resolve }),
+        done: new Promise(resolve => {
+          this.settle = resolve
+        }),
         terminate: () => {},
         waitForExit: async () => true,
       }
@@ -412,7 +456,7 @@ describe('cancellation against a hanging backend (fake backend, every platform)'
     const { ctx, subprocess } = await bench()
     const controller = new AbortController()
     controller.abort()
-    const ex = (await ctx.shell.execute(ctx.shell.resolve({ command: 'Start-Sleep 30', timeoutMs: 20, signal: controller.signal })))
+    const ex = await ctx.shell.execute(ctx.shell.resolve({ command: 'Start-Sleep 30', timeoutMs: 20, signal: controller.signal }))
     subprocess.settle({ exitCode: null, signal: 'SIGTERM' })
     const result = await ex.result()
     expect(ex.status).toBe('killed')
@@ -423,7 +467,7 @@ describe('cancellation against a hanging backend (fake backend, every platform)'
   it('a caller abort before the deadline stays the first cause when the process outlives the deadline', async () => {
     const { ctx, subprocess } = await bench()
     const controller = new AbortController()
-    const ex = (await ctx.shell.execute(ctx.shell.resolve({ command: 'Start-Sleep 30', timeoutMs: 20, signal: controller.signal })))
+    const ex = await ctx.shell.execute(ctx.shell.resolve({ command: 'Start-Sleep 30', timeoutMs: 20, signal: controller.signal }))
     controller.abort()
     // The fake ignores the relayed abort, so the process outlives the deadline the way a real one does inside its termination grace.
     await new Promise(resolve => setTimeout(resolve, 40))
@@ -468,8 +512,11 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.run', () => {
 
   it('rejects unusable numeric config at the next command and invalid timeout overrides at resolve', async () => {
     for (const [config, field] of [
-      [{ timeoutMs: Number.NaN }, /timeoutMs/], [{ maxTimeoutMs: 0 }, /maxTimeoutMs/], [{ maxOutputBytes: -1 }, /maxOutputBytes/],
-      [{ maxSpillBytes: 0 }, /maxSpillBytes/], [{ graceMs: 0 }, /graceMs/],
+      [{ timeoutMs: Number.NaN }, /timeoutMs/],
+      [{ maxTimeoutMs: 0 }, /maxTimeoutMs/],
+      [{ maxOutputBytes: -1 }, /maxOutputBytes/],
+      [{ maxSpillBytes: 0 }, /maxSpillBytes/],
+      [{ graceMs: 0 }, /graceMs/],
       [{ graceMs: MAX_TIMER_DELAY_MS + 1 }, `graceMs must be no greater than ${MAX_TIMER_DELAY_MS}`],
     ] as const) {
       const { bash: unusable } = await setup(config)
@@ -489,10 +536,13 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.run', () => {
 
     // Raw Console writes avoid PowerShell's own line-ending and formatting
     // layers, so the byte counts are exact on every platform.
-    const result = await run(bash, bash.resolve({
-      command: '[Console]::Out.Write("x" * 500); [Console]::Error.WriteLine("e" * 500)',
-      stdoutMaxBytes: 500,
-    }))
+    const result = await run(
+      bash,
+      bash.resolve({
+        command: '[Console]::Out.Write("x" * 500); [Console]::Error.WriteLine("e" * 500)',
+        stdoutMaxBytes: 500,
+      }),
+    )
 
     expect(result.stdout.text).toBe('x'.repeat(500))
     expect(result.stdout.truncated).toBe(false)
@@ -513,7 +563,9 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.run', () => {
     const { bash } = await setup()
     const controller = new AbortController()
     const pending = run(bash, bash.resolve({ command: 'Start-Sleep -Seconds 60', signal: controller.signal }))
-    setTimeout(() => { controller.abort() }, 50)
+    setTimeout(() => {
+      controller.abort()
+    }, 50)
     const result = await pending
     expect(result.aborted).toBe(true)
     // Mutually exclusive: an upstream cancel classifies as aborted, never also timedOut.
@@ -568,10 +620,13 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
   it('start returns immediately with a running handle that settles as completed', async ({ task }) => {
     const { bash } = await setup()
     const barrier = commandBarrier()
-    const proc = (await start(bash, bash.resolve({
-      command: `Write-Output ready; [Console]::Out.Flush(); ${barrier.command}; Write-Output done`,
-      env: barrier.env,
-    })))
+    const proc = await start(
+      bash,
+      bash.resolve({
+        command: `Write-Output ready; [Console]::Out.Flush(); ${barrier.command}; Write-Output done`,
+        env: barrier.env,
+      }),
+    )
     expect(proc.status).toBe('running')
     expect(await readUntil(proc, 'ready\n', task.timeout)).toBe('ready\n')
     expect(proc.status).toBe('running')
@@ -585,12 +640,15 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
 
   it('threads stdin and extra env into a background process', async () => {
     const { bash } = await setup()
-    const proc = (await start(bash, bash.resolve({
-      command: '$s = ([Console]::In.ReadToEnd()).TrimEnd(); Write-Output $s; Write-Output "[$env:BG_VAR][$env:DSH_BG_VAR]"',
-      stdin: 'bg-stdin\n',
-      env: { BG_VAR: 'bg-env' },
-      dshEnv: { DSH_BG_VAR: 'bg-dsh-env' },
-    })))
+    const proc = await start(
+      bash,
+      bash.resolve({
+        command: '$s = ([Console]::In.ReadToEnd()).TrimEnd(); Write-Output $s; Write-Output "[$env:BG_VAR][$env:DSH_BG_VAR]"',
+        stdin: 'bg-stdin\n',
+        env: { BG_VAR: 'bg-env' },
+        dshEnv: { DSH_BG_VAR: 'bg-dsh-env' },
+      }),
+    )
     await proc.done
     expect(proc.status).toBe('completed')
     expect(proc.signal).toBeNull()
@@ -601,10 +659,13 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
   it('readOutput is consuming: increments are never re-delivered, and reads stay valid after exit', async ({ task }) => {
     const { bash } = await setup()
     const barrier = commandBarrier()
-    const proc = (await start(bash, bash.resolve({
-      command: `Write-Output first; [Console]::Out.Flush(); ${barrier.command}; Write-Output second`,
-      env: barrier.env,
-    })))
+    const proc = await start(
+      bash,
+      bash.resolve({
+        command: `Write-Output first; [Console]::Out.Flush(); ${barrier.command}; Write-Output second`,
+        env: barrier.env,
+      }),
+    )
     const first = await readUntil(proc, 'first\n', task.timeout)
     expect(first).toBe('first\n')
     expect(proc.status).toBe('running')
@@ -622,28 +683,28 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
 
   it('readOutput marks stderr sections', async () => {
     const { bash } = await setup()
-    const proc = (await start(bash, bash.resolve({ command: 'Write-Output out; [Console]::Error.WriteLine("err")' })))
+    const proc = await start(bash, bash.resolve({ command: 'Write-Output out; [Console]::Error.WriteLine("err")' }))
     await proc.done
     expect(lf(proc.readOutput().delta)).toBe('out\n[stderr]\nerr\n')
   })
 
   it('readOutput reports stderr-only deltas without a leading newline', async () => {
     const { bash } = await setup()
-    const proc = (await start(bash, bash.resolve({ command: '[Console]::Error.WriteLine("err")' })))
+    const proc = await start(bash, bash.resolve({ command: '[Console]::Error.WriteLine("err")' }))
     await proc.done
     expect(lf(proc.readOutput().delta)).toBe('[stderr]\nerr\n')
   })
 
   it('readOutput adds a separator only when stdout lacks a trailing newline', async () => {
     const { bash } = await setup()
-    const proc = (await start(bash, bash.resolve({ command: '[Console]::Out.Write("out"); [Console]::Error.WriteLine("err")' })))
+    const proc = await start(bash, bash.resolve({ command: '[Console]::Out.Write("out"); [Console]::Error.WriteLine("err")' }))
     await proc.done
     expect(lf(proc.readOutput().delta)).toBe('out\n[stderr]\nerr\n')
   })
 
   it('readOutput flags lossy reads and reports stdout spill paths', async () => {
     const { bash } = await setup({ maxOutputBytes: 100 })
-    const proc = (await start(bash, bash.resolve({ command: '1..100 | ForEach-Object { "line-$_" }' })))
+    const proc = await start(bash, bash.resolve({ command: '1..100 | ForEach-Object { "line-$_" }' }))
     await proc.done
     const read = proc.readOutput()
     // Window slid past offset 0 → lossy, spill path points at the full stream.
@@ -653,7 +714,7 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
 
   it('readOutput reports stderr spill paths', async () => {
     const { bash } = await setup({ maxOutputBytes: 100 })
-    const proc = (await start(bash, bash.resolve({ command: '1..100 | ForEach-Object { [Console]::Error.WriteLine("line-$_") }' })))
+    const proc = await start(bash, bash.resolve({ command: '1..100 | ForEach-Object { [Console]::Error.WriteLine("line-$_") }' }))
     await proc.done
     const read = proc.readOutput()
     expect(read.lossy).toBe(true)
@@ -663,7 +724,7 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
 
   it('kill() requests managed-range termination: true once, false after settlement', async () => {
     const { bash } = await setup()
-    const proc = (await start(bash, bash.resolve({ command: 'Start-Sleep -Seconds 60' })))
+    const proc = await start(bash, bash.resolve({ command: 'Start-Sleep -Seconds 60' }))
     expect(proc.kill()).toBe(true)
     await proc.done
     expect(proc.status).toBe('killed')
@@ -672,7 +733,7 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
 
   it('kill() returns false for a naturally completed process', async () => {
     const { bash } = await setup()
-    const proc = (await start(bash, bash.resolve({ command: 'Write-Output ok' })))
+    const proc = await start(bash, bash.resolve({ command: 'Write-Output ok' }))
     await proc.done
     expect(proc.status).toBe('completed')
     expect(proc.kill()).toBe(false)
@@ -681,7 +742,7 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
   it('a spec.signal abort settles the handle as killed, not completed', async () => {
     const { bash } = await setup()
     const controller = new AbortController()
-    const proc = (await start(bash, bash.resolve({ command: 'Start-Sleep -Seconds 60', signal: controller.signal })))
+    const proc = await start(bash, bash.resolve({ command: 'Start-Sleep -Seconds 60', signal: controller.signal }))
     controller.abort()
     await proc.done
     expect(proc.status).toBe('killed')
@@ -689,7 +750,7 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
 
   it.skipIf(process.platform === 'win32')('a self-signal exit settles the handle as killed, not completed (POSIX)', async () => {
     const { bash } = await setup()
-    const proc = (await start(bash, bash.resolve({ command: 'Stop-Process -Id $PID' })))
+    const proc = await start(bash, bash.resolve({ command: 'Stop-Process -Id $PID' }))
     await proc.done
     expect(proc.status).toBe('killed')
     expect(proc.exitCode).toBeNull()
@@ -699,7 +760,7 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
 
   it('an asynchronous creation failure settles as killed with a stage-neutral note', async () => {
     const { bash } = await setup()
-    const proc = (await start(bash, bash.resolve({ command: 'Write-Output ok', workdir: '/nonexistent-dsh' })))
+    const proc = await start(bash, bash.resolve({ command: 'Write-Output ok', workdir: '/nonexistent-dsh' }))
     // done resolves (never rejects) even though the process never ran.
     await expect(proc.done).resolves.toBeUndefined()
     expect(proc.status).toBe('killed')
@@ -708,8 +769,10 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
 
   it('a SYNCHRONOUS spawn throw is contained, and the observed stderr serves the note', async () => {
     const { ctx, bash } = await setup()
-    vi.spyOn(ctx.subprocess, 'spawn').mockImplementation(() => { throw new Error('sync spawn boom') })
-    const proc = (await start(bash, bash.resolve({ command: 'Write-Output never' })))
+    vi.spyOn(ctx.subprocess, 'spawn').mockImplementation(() => {
+      throw new Error('sync spawn boom')
+    })
+    const proc = await start(bash, bash.resolve({ command: 'Write-Output never' }))
     await expect(proc.done).resolves.toBeUndefined()
     expect(proc.status).toBe('killed')
     // The process never ran, so observers read the note as the whole stderr
@@ -728,12 +791,12 @@ describe.skipIf(!hasPwsh)('PwshLocalExecutor.start (background process handles)'
 describe.skipIf(!hasPwsh)('execute() projections under none policy', () => {
   it('classifies a no-deadline execution: clean settle, then an aborted one', async () => {
     const { bash } = await setup()
-    const clean = (await start(bash, bash.resolve({ command: 'Write-Output bg' })))
+    const clean = await start(bash, bash.resolve({ command: 'Write-Output bg' }))
     await clean.done
     await expect(clean.result()).resolves.toMatchObject({ exitCode: 0, timedOut: false, aborted: false })
 
     const controller = new AbortController()
-    const killed = (await start(bash, bash.resolve({ command: 'Start-Sleep -Seconds 30', signal: controller.signal })))
+    const killed = await start(bash, bash.resolve({ command: 'Start-Sleep -Seconds 30', signal: controller.signal }))
     controller.abort()
     await killed.done
     await expect(killed.result()).resolves.toMatchObject({ timedOut: false, aborted: true })
@@ -750,7 +813,7 @@ describe.skipIf(!hasPwsh)('process lifecycle ownership (the subprocess service, 
 
     // The child prints its own pid so the test can probe liveness through the
     // public read surface alone.
-    const proc = (await start(bash, bash.resolve({ command: 'Write-Output $PID; Start-Sleep -Seconds 60' })))
+    const proc = await start(bash, bash.resolve({ command: 'Write-Output $PID; Start-Sleep -Seconds 60' }))
     const pid = Number((await readUntil(proc, '\n', task.timeout)).trim())
     expect(Number.isInteger(pid) && pid > 0).toBe(true)
 
@@ -780,10 +843,10 @@ describe.skipIf(!hasPwsh)('process lifecycle ownership (the subprocess service, 
     await ctx.plugin(PwshLocalExecutor, { graceMs: 200 })
     const bash = ctx.shell as PwshLocalExecutor
 
-    const finished = (await start(bash, bash.resolve({ command: 'Write-Output done' })))
+    const finished = await start(bash, bash.resolve({ command: 'Write-Output done' }))
     await finished.done
     expect(finished.status).toBe('completed')
-    const running = (await start(bash, bash.resolve({ command: 'Start-Sleep -Seconds 60' })))
+    const running = await start(bash, bash.resolve({ command: 'Start-Sleep -Seconds 60' }))
 
     await managerFiber.dispose()
     // A settled process was untouched; the live one was terminated and joined.

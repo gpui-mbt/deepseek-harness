@@ -5,7 +5,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
  * @module @deepseek-ai/dsh-session-query-sqlite/tests/load-path
  */
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import SessionStore, { SessionSeq, SESSION_FORMAT_VERSION, SessionId } from '@deepseek-ai/dsh-session'
@@ -49,21 +49,24 @@ describe('dsh-session-query-sqlite real Loader path', () => {
 
     const id = SessionId('loader-path')
     const writer = await ctx.sessionPersistence.create({ version: SESSION_FORMAT_VERSION, id, createdAt: 10, isSeeded: false })
-    await writer.append([{
-      type: 'user/message',
-      seq: SessionSeq(0),
-      time: 10,
-      data: createUserMessage({
-        content: [{ type: 'text', text: 'real Loader needle' }], source: { kind: 'user' },
-      }),
-      surfaceOp: 'append',
-    }])
+    await writer.append([
+      {
+        type: 'user/message',
+        seq: SessionSeq(0),
+        time: 10,
+        data: createUserMessage({
+          content: [{ type: 'text', text: 'real Loader needle' }],
+          source: { kind: 'user' },
+        }),
+        surfaceOp: 'append',
+      },
+    ])
     await writer.close()
 
-    await expect(ctx.sessionQuery.searchSessions({ query: 'Loader needle' }))
-      .resolves.toMatchObject({ items: [{ header: { id }, persisted: true, live: false }] })
-    await expect(ctx.sessionQuery.listSessions())
-      .resolves.toMatchObject([{ header: { id }, persisted: true, live: false }])
+    await expect(ctx.sessionQuery.searchSessions({ query: 'Loader needle' })).resolves.toMatchObject({
+      items: [{ header: { id }, persisted: true, live: false }],
+    })
+    await expect(ctx.sessionQuery.listSessions()).resolves.toMatchObject([{ header: { id }, persisted: true, live: false }])
     await query.dispose()
     await persistence.dispose()
   })

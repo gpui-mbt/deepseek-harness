@@ -5,7 +5,7 @@
  * multi-hunk replaceAll, pure insertion/deletion, no-op) that UIs render.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { computeHunkDiffs, diffsFromMeta, DIFF_CONTEXT } from '../src/diff.ts'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 
@@ -16,11 +16,13 @@ describe('computeHunkDiffs', () => {
     const before = lines(8)
     const after = before.replace('line4', 'CHANGED')
     const diffs = computeHunkDiffs('f.txt', before, after)
-    expect(diffs).toEqual([{
-      path: 'f.txt',
-      oldText: 'line1\nline2\nline3\nline4\nline5\nline6\nline7',
-      newText: 'line1\nline2\nline3\nCHANGED\nline5\nline6\nline7',
-    }])
+    expect(diffs).toEqual([
+      {
+        path: 'f.txt',
+        oldText: 'line1\nline2\nline3\nline4\nline5\nline6\nline7',
+        newText: 'line1\nline2\nline3\nCHANGED\nline5\nline6\nline7',
+      },
+    ])
   })
 
   it('a scattered replace_all yields one FileDiff PER hunk (matching per-site editor blocks)', () => {

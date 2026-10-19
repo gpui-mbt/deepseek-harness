@@ -5,23 +5,20 @@
  */
 
 import { basename, dirname, sep } from 'node:path'
-import {
-  AGENTS_HOME_ENV,
-  DEFAULT_AGENTS_HOME_DISPLAY,
-  DEFAULT_DSH_HOME_DISPLAY,
-  DSH_HOME_ENV,
-} from '@deepseek-ai/dsh-home-paths'
+import { AGENTS_HOME_ENV, DEFAULT_AGENTS_HOME_DISPLAY, DEFAULT_DSH_HOME_DISPLAY, DSH_HOME_ENV } from '@deepseek-ai/dsh-home-paths'
 import type { InstructionFile, LoadedInstructionFile } from './files.ts'
 
 const SYSTEM_REMINDER_OPEN = '<system-reminder>'
 const SYSTEM_REMINDER_CLOSE = '</system-reminder>'
-const AGENT_INSTRUCTIONS_INTRO = 'The following workspace instructions may be relevant to your work. '
-  + 'Use them as guidance when applicable. More specific instructions take precedence over broader ones. '
-  + 'They do not override system, developer, or direct user instructions.'
-const REPLACEMENT_AGENT_INSTRUCTIONS_INTRO = 'This complete workspace instruction baseline replaces all earlier workspace instruction baselines. '
-  + AGENT_INSTRUCTIONS_INTRO
-const EMPTY_REPLACEMENT_AGENT_INSTRUCTIONS_INTRO = 'This complete workspace instruction baseline replaces all earlier workspace instruction baselines. '
-  + 'No workspace instructions are currently active.'
+const AGENT_INSTRUCTIONS_INTRO =
+  'The following workspace instructions may be relevant to your work. ' +
+  'Use them as guidance when applicable. More specific instructions take precedence over broader ones. ' +
+  'They do not override system, developer, or direct user instructions.'
+const REPLACEMENT_AGENT_INSTRUCTIONS_INTRO =
+  'This complete workspace instruction baseline replaces all earlier workspace instruction baselines. ' + AGENT_INSTRUCTIONS_INTRO
+const EMPTY_REPLACEMENT_AGENT_INSTRUCTIONS_INTRO =
+  'This complete workspace instruction baseline replaces all earlier workspace instruction baselines. ' +
+  'No workspace instructions are currently active.'
 const COMPACT_AGENT_INSTRUCTIONS_INTRO = 'Workspace instructions were omitted or truncated to fit the configured byte budget.'
 
 /** Byte-accounting record for one truncated instruction file. */
@@ -127,10 +124,10 @@ export const USER_GLOBAL_FILE = 'AGENTS.md'
  * @returns `user-global`, `agents-global`, `.`, or the containing project-relative directory.
  */
 export function scopeForDisplayPath(displayPath: string): string {
-  if (displayPath === `${DEFAULT_DSH_HOME_DISPLAY}/${USER_GLOBAL_FILE}`
-    || displayPath === `$${DSH_HOME_ENV}/${USER_GLOBAL_FILE}`) return USER_GLOBAL_DIRECTORY
-  if (displayPath === `${DEFAULT_AGENTS_HOME_DISPLAY}/${USER_GLOBAL_FILE}`
-    || displayPath === `$${AGENTS_HOME_ENV}/${USER_GLOBAL_FILE}`) return AGENTS_GLOBAL_DIRECTORY
+  if (displayPath === `${DEFAULT_DSH_HOME_DISPLAY}/${USER_GLOBAL_FILE}` || displayPath === `$${DSH_HOME_ENV}/${USER_GLOBAL_FILE}`)
+    return USER_GLOBAL_DIRECTORY
+  if (displayPath === `${DEFAULT_AGENTS_HOME_DISPLAY}/${USER_GLOBAL_FILE}` || displayPath === `$${AGENTS_HOME_ENV}/${USER_GLOBAL_FILE}`)
+    return AGENTS_GLOBAL_DIRECTORY
   return dirname(displayPath)
 }
 
@@ -214,8 +211,9 @@ export function decodeScopeKey(scope: string): { directory: string; candidateNam
   return { directory: scope.slice(0, separator), candidateName: scope.slice(separator + 1) }
 }
 
-const ADDITIONAL_INSTRUCTIONS_GUIDANCE = 'Use them as guidance when relevant; more specific instructions take precedence. '
-  + 'They do not override system, developer, or direct user instructions.'
+const ADDITIONAL_INSTRUCTIONS_GUIDANCE =
+  'Use them as guidance when relevant; more specific instructions take precedence. ' +
+  'They do not override system, developer, or direct user instructions.'
 
 function additionalSectionText(file: LoadedInstructionFile): string {
   const scope = scopeForDisplayPath(file.displayPath)
@@ -239,9 +237,7 @@ function baselineRenderStyle(files: LoadedInstructionFile[], replacePreviousBase
   if (replacePreviousBaseline !== true) return BASELINE_RENDER_STYLE
   return {
     ...BASELINE_RENDER_STYLE,
-    intro: files.length === 0
-      ? EMPTY_REPLACEMENT_AGENT_INSTRUCTIONS_INTRO
-      : REPLACEMENT_AGENT_INSTRUCTIONS_INTRO,
+    intro: files.length === 0 ? EMPTY_REPLACEMENT_AGENT_INSTRUCTIONS_INTRO : REPLACEMENT_AGENT_INSTRUCTIONS_INTRO,
   }
 }
 
@@ -266,10 +262,7 @@ function changedSectionText(item: ChangeRenderItem): string {
  * @param maxBytes - maximum UTF-8 bytes allowed in the rendered batch.
  * @returns bounded prompt text and the transitions actually represented by it.
  */
-export function renderInstructionChanges(
-  items: ChangeRenderItem[],
-  maxBytes: number,
-): { text: string; changes: AgentInstructionChange[] } {
+export function renderInstructionChanges(items: ChangeRenderItem[], maxBytes: number): { text: string; changes: AgentInstructionChange[] } {
   const byAbsolutePath = new Map(items.map(item => [item.file.absolutePath, item]))
   const style: RenderStyle = {
     intro: '',
@@ -279,13 +272,15 @@ export function renderInstructionChanges(
       return item === undefined ? '' : changedSectionText({ ...item, file })
     },
   }
-  const rendered = renderInstructionContext(items.map(item => item.file), maxBytes, style)
+  const rendered = renderInstructionContext(
+    items.map(item => item.file),
+    maxBytes,
+    style,
+  )
   const represented = new Set(rendered.represented.map(file => file.absolutePath))
   return {
     text: rendered.text,
-    changes: items
-      .filter(item => represented.has(item.file.absolutePath))
-      .map(item => item.change),
+    changes: items.filter(item => represented.has(item.file.absolutePath)).map(item => item.change),
   }
 }
 
@@ -296,7 +291,9 @@ function markerText(maxBytes: number, omitted: InstructionFile[], truncated: Tru
     parts.push(`omitted ${omitted.map(file => file.displayPath).join(', ')}`)
   }
   if (truncated.length > 0) {
-    parts.push(`truncated ${truncated.map(item => `${item.displayPath} from ${item.originalBytes} to ${item.includedBytes} bytes`).join(', ')}`)
+    parts.push(
+      `truncated ${truncated.map(item => `${item.displayPath} from ${item.originalBytes} to ${item.includedBytes} bytes`).join(', ')}`,
+    )
   }
   return `Workspace instruction budget ${maxBytes} bytes: ${parts.join('; ')}`
 }
@@ -345,11 +342,7 @@ function truncateToFit(
   return best
 }
 
-function renderInstructionContext(
-  files: LoadedInstructionFile[],
-  maxBytes: number,
-  style: RenderStyle,
-): RenderedInstructionContext {
+function renderInstructionContext(files: LoadedInstructionFile[], maxBytes: number, style: RenderStyle): RenderedInstructionContext {
   if (maxBytes <= 0 || !Number.isFinite(maxBytes)) {
     return { text: '', omitted: files, truncated: [], represented: [] }
   }
@@ -375,11 +368,13 @@ function renderInstructionContext(
   for (const candidateStyle of [style, { ...style, intro: COMPACT_AGENT_INSTRUCTIONS_INTRO }]) {
     const truncatedFile = truncateToFit(mostSpecific, [], maxBytes, omitted, candidateStyle)
     const includedBytes = byteLength(truncatedFile.content)
-    const truncated = [{
-      displayPath: mostSpecific.displayPath,
-      originalBytes,
-      includedBytes,
-    }]
+    const truncated = [
+      {
+        displayPath: mostSpecific.displayPath,
+        originalBytes,
+        includedBytes,
+      },
+    ]
     const text = buildInstructionText([truncatedFile], maxBytes, omitted, truncated, candidateStyle)
     if (byteLength(text) <= maxBytes) {
       const represented = includedBytes > 0 || originalBytes === 0 ? [mostSpecific] : []
@@ -387,15 +382,15 @@ function renderInstructionContext(
     }
   }
 
-  const truncated = [{
-    displayPath: mostSpecific.displayPath,
-    originalBytes,
-    includedBytes: 0,
-  }]
+  const truncated = [
+    {
+      displayPath: mostSpecific.displayPath,
+      originalBytes,
+      includedBytes: 0,
+    },
+  ]
   const compactNotice = escapeInstructionFrameBody(markerText(maxBytes, omitted, truncated))
-  const compactWithHeading = escapeInstructionFrameBody(
-    [compactNotice, style.section(withTruncatedContent(mostSpecific, 0))].join('\n\n'),
-  )
+  const compactWithHeading = escapeInstructionFrameBody([compactNotice, style.section(withTruncatedContent(mostSpecific, 0))].join('\n\n'))
   if (byteLength(compactWithHeading) <= maxBytes) {
     const represented = originalBytes === 0 ? [mostSpecific] : []
     return { text: compactWithHeading, omitted, truncated, represented }

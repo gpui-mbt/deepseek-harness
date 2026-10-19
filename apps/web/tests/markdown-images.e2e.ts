@@ -5,13 +5,9 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { createMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
-import {
-  SESSION_FORMAT_VERSION,
-  Session,
-  SessionId,
-} from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-title'
 import {
   assertFixtureInventory,
@@ -32,10 +28,7 @@ const SEED_ID = 'markdown-images-web-e2e'
 const REMOTE_ALT = 'Remote test image'
 const LOCAL_ALT = 'Local test image'
 const WORKSPACE_ALT = 'Workspace test image'
-const PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
-  'base64',
-)
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
 
 interface ImageOrigin {
   server: Server
@@ -73,7 +66,7 @@ async function startImageOrigin(): Promise<ImageOrigin> {
 /** Stop one image origin after the browser and host release their requests. */
 async function stopServer(server: Server): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    server.close((error) => {
+    server.close(error => {
       if (error === undefined) resolve()
       else reject(error)
     })
@@ -85,55 +78,65 @@ function markdownImageFixture(remoteUrl: string, outsidePath: string): string {
   const session = Session.create(SessionId('markdown-image-source'))
   const eventTimeOrigin = new Date().setHours(12, 0, 0, 0)
   session.append('turn/start', { turn: 1 })
-  const user = session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'Show the Markdown image policy.' }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  const user = session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'Show the Markdown image policy.' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
   session.append('session/title', {
     title: 'Markdown image policy',
     messageSeqs: [user.seq],
     source: { kind: 'fallback' },
   })
   session.append('step/start', { turn: 1, step: 1 })
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 1,
-    message: createMessage({
-      role: 'assistant',
-      content: [{
-        type: 'text',
-        text: [
-          '## Markdown images',
-          '',
-          `![${REMOTE_ALT}](${remoteUrl})`,
-          '',
-          `![${LOCAL_ALT}](./local-image.png)`,
-          '',
-          `![${WORKSPACE_ALT}]({{cwd}}/valid.png)`,
-          '',
-          '[View comparison](./valid.png)',
-          '',
-          '![Space path]({{cwd}}/test workspace/测试图.png)',
-          '',
-          '![Encoded path]({{cwd}}/test%20workspace/测试图.png)',
-          '',
-          '![Encoded filename]({{cwd}}/test%20workspace/测试%23100%25.png)',
-          '',
-          '![Oversized image]({{cwd}}/oversized.png)',
-          '',
-          `![Outside workspace image](${outsidePath})`,
-          '',
-          '![Missing image]({{cwd}}/missing.png)',
-          '',
-          '![]({{cwd}}/corrupt.png)',
-          '',
-          'REMOTE_IMAGE_DONE',
-        ].join('\n'),
-      }],
-      source: { kind: 'model', provider: 'fixture', model: 'fixture' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 1,
+      message: createMessage({
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: [
+              '## Markdown images',
+              '',
+              `![${REMOTE_ALT}](${remoteUrl})`,
+              '',
+              `![${LOCAL_ALT}](./local-image.png)`,
+              '',
+              `![${WORKSPACE_ALT}]({{cwd}}/valid.png)`,
+              '',
+              '[View comparison](./valid.png)',
+              '',
+              '![Space path]({{cwd}}/test workspace/测试图.png)',
+              '',
+              '![Encoded path]({{cwd}}/test%20workspace/测试图.png)',
+              '',
+              '![Encoded filename]({{cwd}}/test%20workspace/测试%23100%25.png)',
+              '',
+              '![Oversized image]({{cwd}}/oversized.png)',
+              '',
+              `![Outside workspace image](${outsidePath})`,
+              '',
+              '![Missing image]({{cwd}}/missing.png)',
+              '',
+              '![]({{cwd}}/corrupt.png)',
+              '',
+              'REMOTE_IMAGE_DONE',
+            ].join('\n'),
+          },
+        ],
+        source: { kind: 'model', provider: 'fixture', model: 'fixture' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('step/end', { turn: 1, step: 1 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 
@@ -152,10 +155,12 @@ function markdownImageFixture(remoteUrl: string, outsidePath: string): string {
     // the stats line renders its LLM segment only while the step's measured
     // milliseconds exceed zero, so a fixture that leaves the times unset lets
     // the replay's own speed decide whether the golden matches.
-    ...session.snapshotEvents().map(event => JSON.stringify({
-      ...event,
-      time: eventTimeOrigin + event.seq * 1_000,
-    })),
+    ...session.snapshotEvents().map(event =>
+      JSON.stringify({
+        ...event,
+        time: eventTimeOrigin + event.seq * 1_000,
+      }),
+    ),
     '',
   ].join('\n')
 }
@@ -185,14 +190,18 @@ describe('web e2e: Markdown image rendering', () => {
     }
     const outsidePath = join(scaffold.persistenceRoot, 'outside.png')
     await writeFile(outsidePath, PNG)
-    await writeFile(join(scaffold.workspaceCwd, 'active.html'), '<p>File preview</p><script>document.body.dataset.scriptRan = "yes"</script>')
-    await seedSession(scaffold, markdownImageFixture(imageOrigin.url, outsidePath), SEED_ID, undefined,
-      { createdAt: WEB_FIXTURE_TIME - 60_000 })
+    await writeFile(
+      join(scaffold.workspaceCwd, 'active.html'),
+      '<p>File preview</p><script>document.body.dataset.scriptRan = "yes"</script>',
+    )
+    await seedSession(scaffold, markdownImageFixture(imageOrigin.url, outsidePath), SEED_ID, undefined, {
+      createdAt: WEB_FIXTURE_TIME - 60_000,
+    })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     await pinBrowserClock(page)
     tripwire = watchConsole(page)
-    page.on('response', (response) => {
+    page.on('response', response => {
       const url = new URL(response.url())
       if (url.pathname !== '/api/file') return
       const path = url.searchParams.get('path')
@@ -225,115 +234,137 @@ describe('web e2e: Markdown image rendering', () => {
     }
   })
 
-  it.skipIf(MODE === 'record')('loads permitted images and shows authored text for failures', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-markdown-images'))
-    await page.getByRole('treeitem').first().click()
-    await page.getByRole('treeitem').nth(1).click()
-    await expect.poll(() => page.getByText('REMOTE_IMAGE_DONE', { exact: true }).count(), {
-      timeout: 15_000,
-    }).toBe(1)
+  it.skipIf(MODE === 'record')(
+    'loads permitted images and shows authored text for failures',
+    async () => {
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-markdown-images'))
+      await page.getByRole('treeitem').first().click()
+      await page.getByRole('treeitem').nth(1).click()
+      await expect
+        .poll(() => page.getByText('REMOTE_IMAGE_DONE', { exact: true }).count(), {
+          timeout: 15_000,
+        })
+        .toBe(1)
 
-    const image = page.getByRole('img', { name: REMOTE_ALT })
-    await image.waitFor({ timeout: 10_000 })
-    await expect.poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth), {
-      timeout: 10_000,
-    }).toBeGreaterThan(0)
-    expect(await image.evaluate((element) => {
-      const computed = getComputedStyle(element)
-      return {
-        borderRadius: computed.borderRadius,
-        decoding: element.getAttribute('decoding'),
-        loading: element.getAttribute('loading'),
-        maxWidth: computed.maxWidth,
-        referrerPolicy: element.getAttribute('referrerpolicy'),
+      const image = page.getByRole('img', { name: REMOTE_ALT })
+      await image.waitFor({ timeout: 10_000 })
+      await expect
+        .poll(() => image.evaluate(element => (element as HTMLImageElement).naturalWidth), {
+          timeout: 10_000,
+        })
+        .toBeGreaterThan(0)
+      expect(
+        await image.evaluate(element => {
+          const computed = getComputedStyle(element)
+          return {
+            borderRadius: computed.borderRadius,
+            decoding: element.getAttribute('decoding'),
+            loading: element.getAttribute('loading'),
+            maxWidth: computed.maxWidth,
+            referrerPolicy: element.getAttribute('referrerpolicy'),
+          }
+        }),
+      ).toEqual({
+        borderRadius: '12px',
+        decoding: 'async',
+        loading: 'lazy',
+        maxWidth: 'min(100%, 640px)',
+        referrerPolicy: 'no-referrer',
+      })
+      await expect
+        .poll(() => page.getByRole('img', { name: LOCAL_ALT }).evaluate(element => (element as HTMLImageElement).naturalWidth))
+        .toBe(1)
+      for (const name of ['Space path', 'Encoded path', 'Encoded filename']) {
+        await expect
+          .poll(() => page.getByRole('img', { name, exact: true }).evaluate(element => (element as HTMLImageElement).naturalWidth))
+          .toBe(1)
       }
-    })).toEqual({
-      borderRadius: '12px',
-      decoding: 'async',
-      loading: 'lazy',
-      maxWidth: 'min(100%, 640px)',
-      referrerPolicy: 'no-referrer',
-    })
-    await expect.poll(() => page.getByRole('img', { name: LOCAL_ALT }).evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(1)
-    for (const name of ['Space path', 'Encoded path', 'Encoded filename']) {
-      await expect.poll(() => page.getByRole('img', { name, exact: true }).evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(1)
-    }
-    expect(imageOrigin.requests).toEqual([{ path: '/image.png', referer: undefined }])
+      expect(imageOrigin.requests).toEqual([{ path: '/image.png', referer: undefined }])
 
-    const workspaceImage = page.getByRole('img', { name: WORKSPACE_ALT })
-    await expect.poll(() => mediaResponses.get(join(scaffold.workspaceCwd, 'valid.png'))).toBe(200)
-    await expect.poll(() => workspaceImage.evaluate(element => (element as HTMLImageElement).naturalWidth, undefined, {
-      timeout: 1_000,
-    }))
-      .toBe(1)
-    const outsideImage = page.getByRole('img', { name: 'Outside workspace image' })
-    await expect.poll(() => outsideImage.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(1)
-    for (const alt of ['Oversized image', 'Missing image']) {
-      await page.getByText(`Image preview unavailable · ${alt}`, { exact: true }).waitFor()
-      expect(await page.getByRole('img', { name: alt }).count()).toBe(0)
-    }
-    await page.getByText(`Image preview unavailable · ${join(scaffold.workspaceCwd, 'corrupt.png')}`, { exact: true }).waitFor()
-    expect(mediaResponses).toEqual(new Map([
-      [join(scaffold.workspaceCwd, 'valid.png'), 200],
-      [`${scaffold.workspaceCwd}/./local-image.png`, 200],
-      [join(scaffold.workspaceCwd, 'test workspace/测试图.png'), 200],
-      [join(scaffold.workspaceCwd, 'test workspace/测试#100%.png'), 200],
-      [join(scaffold.workspaceCwd, 'oversized.png'), 413],
-      [join(scaffold.persistenceRoot, 'outside.png'), 200],
-      [join(scaffold.workspaceCwd, 'missing.png'), 404],
-      [join(scaffold.workspaceCwd, 'corrupt.png'), 200],
-    ]))
+      const workspaceImage = page.getByRole('img', { name: WORKSPACE_ALT })
+      await expect.poll(() => mediaResponses.get(join(scaffold.workspaceCwd, 'valid.png'))).toBe(200)
+      await expect
+        .poll(() =>
+          workspaceImage.evaluate(element => (element as HTMLImageElement).naturalWidth, undefined, {
+            timeout: 1_000,
+          }),
+        )
+        .toBe(1)
+      const outsideImage = page.getByRole('img', { name: 'Outside workspace image' })
+      await expect.poll(() => outsideImage.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(1)
+      for (const alt of ['Oversized image', 'Missing image']) {
+        await page.getByText(`Image preview unavailable · ${alt}`, { exact: true }).waitFor()
+        expect(await page.getByRole('img', { name: alt }).count()).toBe(0)
+      }
+      await page.getByText(`Image preview unavailable · ${join(scaffold.workspaceCwd, 'corrupt.png')}`, { exact: true }).waitFor()
+      expect(mediaResponses).toEqual(
+        new Map([
+          [join(scaffold.workspaceCwd, 'valid.png'), 200],
+          [`${scaffold.workspaceCwd}/./local-image.png`, 200],
+          [join(scaffold.workspaceCwd, 'test workspace/测试图.png'), 200],
+          [join(scaffold.workspaceCwd, 'test workspace/测试#100%.png'), 200],
+          [join(scaffold.workspaceCwd, 'oversized.png'), 413],
+          [join(scaffold.persistenceRoot, 'outside.png'), 200],
+          [join(scaffold.workspaceCwd, 'missing.png'), 404],
+          [join(scaffold.workspaceCwd, 'corrupt.png'), 200],
+        ]),
+      )
 
-    await page.getByRole('button', { name: `View full image: ${WORKSPACE_ALT}`, exact: true }).click()
-    const lightbox = page.getByRole('dialog', { name: 'Image preview', exact: true })
-    await lightbox.waitFor()
-    const lightboxMask = lightbox.locator(':scope > div > [aria-hidden="true"]')
-    const lightboxClose = lightbox.getByRole('button', { name: 'Close image preview' })
-    for (const windows of [true, false]) {
-      await page.evaluate((value) => {
-        document.documentElement.toggleAttribute('data-windows-titlebar', value)
-        document.documentElement.style.setProperty('--dsh-windows-titlebar-height', value ? '40px' : '')
-      }, windows)
-      // The Windows caption stays unpainted and the close control sits below it.
-      expect((await lightboxMask.boundingBox())?.y).toBe(windows ? 40 : 0)
-      expect((await lightboxClose.boundingBox())?.y).toBe(windows ? 60 : 20)
-    }
-    await lightboxClose.click()
-    await lightbox.waitFor({ state: 'detached' })
-    const link = page.getByRole('button', { name: 'View comparison', exact: true })
-    await link.hover()
-    const hoverImage = page.getByRole('img', { name: './valid.png', exact: true })
-    await hoverImage.waitFor()
-    await expect.poll(() => hoverImage.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(1)
-    await page.keyboard.press('Escape')
-    await hoverImage.waitFor({ state: 'detached' })
-    await link.press('Tab')
-    await page.keyboard.press('Shift+Tab')
-    await hoverImage.waitFor()
-    await page.keyboard.press('Escape')
-    await hoverImage.waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: `View full image: ${WORKSPACE_ALT}`, exact: true }).click()
+      const lightbox = page.getByRole('dialog', { name: 'Image preview', exact: true })
+      await lightbox.waitFor()
+      const lightboxMask = lightbox.locator(':scope > div > [aria-hidden="true"]')
+      const lightboxClose = lightbox.getByRole('button', { name: 'Close image preview' })
+      for (const windows of [true, false]) {
+        await page.evaluate(value => {
+          document.documentElement.toggleAttribute('data-windows-titlebar', value)
+          document.documentElement.style.setProperty('--dsh-windows-titlebar-height', value ? '40px' : '')
+        }, windows)
+        // The Windows caption stays unpainted and the close control sits below it.
+        expect((await lightboxMask.boundingBox())?.y).toBe(windows ? 40 : 0)
+        expect((await lightboxClose.boundingBox())?.y).toBe(windows ? 60 : 20)
+      }
+      await lightboxClose.click()
+      await lightbox.waitFor({ state: 'detached' })
+      const link = page.getByRole('button', { name: 'View comparison', exact: true })
+      await link.hover()
+      const hoverImage = page.getByRole('img', { name: './valid.png', exact: true })
+      await hoverImage.waitFor()
+      await expect.poll(() => hoverImage.evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(1)
+      await page.keyboard.press('Escape')
+      await hoverImage.waitFor({ state: 'detached' })
+      await link.press('Tab')
+      await page.keyboard.press('Shift+Tab')
+      await hoverImage.waitFor()
+      await page.keyboard.press('Escape')
+      await hoverImage.waitFor({ state: 'detached' })
 
-    const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(SEED_ID).join('{{seededId}}')
-    await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
-    expect(tripwire.pageErrors).toEqual([])
-    expect(tripwire.warnings).toEqual([])
-    await assertFixtureInventory(SNAPSHOT_DIR, ['ui.expected.md'])
-    await link.evaluate((element) => { element.scrollIntoView({ block: 'end' }) })
-    await page.mouse.move(0, 0)
-    await link.hover()
-    await hoverImage.waitFor()
-    const linkRect = await link.boundingBox()
-    if (linkRect === null) throw new Error('image link is not visible')
-    const previewRect = await hoverImage.evaluate((element) => {
-      const rect = element.parentElement!.parentElement!.getBoundingClientRect()
-      return { top: rect.top, bottom: rect.bottom }
-    })
-    expect(previewRect.bottom <= linkRect.y || previewRect.top >= linkRect.y + linkRect.height).toBe(true)
-    const thumbnailRect = await hoverImage.boundingBox()
-    if (thumbnailRect === null) throw new Error('image preview is not visible')
-    expect(thumbnailRect.y + thumbnailRect.height).toBeLessThanOrEqual(previewRect.bottom)
-    await page.mouse.click(linkRect.x + linkRect.width / 2, linkRect.y + linkRect.height / 2)
-    await expect.poll(() => page.locator('[data-image-preview] img').evaluate(element => (element as HTMLImageElement).naturalWidth)).toBe(1)
-  }, 60_000)
+      const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)).split(SEED_ID).join('{{seededId}}')
+      await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
+      expect(tripwire.pageErrors).toEqual([])
+      expect(tripwire.warnings).toEqual([])
+      await assertFixtureInventory(SNAPSHOT_DIR, ['ui.expected.md'])
+      await link.evaluate(element => {
+        element.scrollIntoView({ block: 'end' })
+      })
+      await page.mouse.move(0, 0)
+      await link.hover()
+      await hoverImage.waitFor()
+      const linkRect = await link.boundingBox()
+      if (linkRect === null) throw new Error('image link is not visible')
+      const previewRect = await hoverImage.evaluate(element => {
+        const rect = element.parentElement!.parentElement!.getBoundingClientRect()
+        return { top: rect.top, bottom: rect.bottom }
+      })
+      expect(previewRect.bottom <= linkRect.y || previewRect.top >= linkRect.y + linkRect.height).toBe(true)
+      const thumbnailRect = await hoverImage.boundingBox()
+      if (thumbnailRect === null) throw new Error('image preview is not visible')
+      expect(thumbnailRect.y + thumbnailRect.height).toBeLessThanOrEqual(previewRect.bottom)
+      await page.mouse.click(linkRect.x + linkRect.width / 2, linkRect.y + linkRect.height / 2)
+      await expect
+        .poll(() => page.locator('[data-image-preview] img').evaluate(element => (element as HTMLImageElement).naturalWidth))
+        .toBe(1)
+    },
+    60_000,
+  )
 })

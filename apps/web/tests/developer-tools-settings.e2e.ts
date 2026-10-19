@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type {} from '@deepseek-ai/dsh-api-session-controller'
 import { chromium } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, watchConsole } from './scaffold.ts'
 import { connectFreshWorkspace, openSettings, newEnglishPage } from './support.ts'
 
@@ -16,13 +16,15 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   onTestFinished(() => browser.close())
   const page = await newEnglishPage(browser)
   const tripwire = watchConsole(page)
-  const livePresets = async () => (await scaffold.ctx.sessionController.list({}, new AbortController().signal))
-    .items.map(item => item.projections?.values.agentPreset)
+  const livePresets = async () =>
+    (await scaffold.ctx.sessionController.list({}, new AbortController().signal)).items.map(item => item.projections?.values.agentPreset)
   await page.goto(scaffold.authenticatedUrl)
   await openSettings(page, 'en')
   const toggle = page.getByRole('switch', { name: 'Show coding view' })
   expect(await toggle.getAttribute('aria-checked')).toBe('true')
-  expect(await readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8')).not.toMatch(/id: ui-settings(?:\r?\n|$)/)
+  expect(await readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8')).not.toMatch(
+    /id: ui-settings(?:\r?\n|$)/,
+  )
   await toggle.click()
   await expect.poll(() => toggle.getAttribute('aria-checked')).toBe('false')
   expect(await readFile(join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml'), 'utf8')).toContain('enabled: false')
@@ -34,7 +36,8 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await expect.poll(() => page.getByRole('heading', { name: 'Agent presets', exact: true }).count()).toBe(1)
   const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
   expect(await settings.getByRole('switch').count()).toBe(0)
-  const visiblePresets = () => settings.locator('[data-agent-preset-id]').evaluateAll(cards => cards.map(card => card.getAttribute('data-agent-preset-id')))
+  const visiblePresets = () =>
+    settings.locator('[data-agent-preset-id]').evaluateAll(cards => cards.map(card => card.getAttribute('data-agent-preset-id')))
   await expect.poll(visiblePresets).toEqual(['standard', 'cordis', 'custom'])
   await settings.getByRole('button', { name: 'Set as new task default: Custom mode', exact: true }).click()
   await settings.getByRole('button', { name: 'New task default: Custom mode', exact: true }).waitFor()
@@ -46,8 +49,12 @@ it('persists Coding Tools and limits the built-in PTC and Minimal choices in ses
   await scaffold.ctx.settings.update('ui-settings', { enabled: false })
   await expect.poll(visiblePresets).toEqual(['standard', 'cordis', 'custom'])
   await settings.getByRole('button', { name: 'New task default: Standard mode', exact: true }).waitFor()
-  await expect.poll(async () => (await scaffold.ctx.agentPresets.remoteExportList()).presets.find(preset => preset.isDefault)?.id).toBe('standard')
-  await expect.poll(() => settings.getByRole('button', { name: 'Let the agent help me create a preset', exact: true }).isEnabled()).toBe(true)
+  await expect
+    .poll(async () => (await scaffold.ctx.agentPresets.remoteExportList()).presets.find(preset => preset.isDefault)?.id)
+    .toBe('standard')
+  await expect
+    .poll(() => settings.getByRole('button', { name: 'Let the agent help me create a preset', exact: true }).isEnabled())
+    .toBe(true)
   await settings.getByRole('button', { name: 'Close', exact: true }).last().click()
   await connectFreshWorkspace(page, scaffold.workspaceCwd)
   await expect.poll(livePresets).toEqual(['standard'])

@@ -1,8 +1,6 @@
 /** Client range access and type narrowing for aligned Session history records. */
 
-import type {
-  SessionHistoryRecord,
-} from '../../types.ts'
+import type { SessionHistoryRecord } from '../../types.ts'
 import type { SessionEventLikeEntry } from '../contract/events.ts'
 
 /**
@@ -10,9 +8,7 @@ import type { SessionEventLikeEntry } from '../contract/events.ts'
  * @param records - validated history transport records.
  * @returns the same record array with typed inner events.
  */
-export function historyEntries(
-  records: readonly SessionHistoryRecord[],
-): readonly SessionEventLikeEntry[] {
+export function historyEntries(records: readonly SessionHistoryRecord[]): readonly SessionEventLikeEntry[] {
   return records as unknown as readonly SessionEventLikeEntry[]
 }
 

@@ -102,13 +102,13 @@ export type PiAiThinkingFormat = NonNullable<OpenAICompletionsCompat['thinkingFo
  * carries its arguments.
  */
 const THINKING_FORMAT_GATE: Record<PiAiThinkingFormat, true> = {
-  'openai': true,
-  'deepseek': true,
-  'openrouter': true,
-  'together': true,
-  'baseten': true,
-  'zai': true,
-  'qwen': true,
+  openai: true,
+  deepseek: true,
+  openrouter: true,
+  together: true,
+  baseten: true,
+  zai: true,
+  qwen: true,
   'chat-template': true,
   'qwen-chat-template': true,
   'string-thinking': true,
@@ -189,7 +189,11 @@ function servesChat(provider: Provider): boolean {
  * @returns the catalog provider index, in catalog order.
  */
 function catalogProviders(): Map<string, Provider> {
-  providerIndex ??= new Map(builtinProviders().filter(servesChat).map(provider => [provider.id, provider]))
+  providerIndex ??= new Map(
+    builtinProviders()
+      .filter(servesChat)
+      .map(provider => [provider.id, provider]),
+  )
   return providerIndex
 }
 
@@ -508,7 +512,9 @@ type UpstreamCompat = OpenAICompletionsCompat & OpenAIResponsesCompat & Anthropi
  */
 export type EveryProfileFieldMatchesUpstream = AssertTrue<
   PiAiCompatProfile extends Partial<Pick<UpstreamCompat, OfferedCompatField>>
-    ? Partial<Pick<UpstreamCompat, OfferedCompatField>> extends PiAiCompatProfile ? true : false
+    ? Partial<Pick<UpstreamCompat, OfferedCompatField>> extends PiAiCompatProfile
+      ? true
+      : false
     : false
 >
 
@@ -528,8 +534,7 @@ export type EveryProfileFieldMatchesUpstream = AssertTrue<
  */
 function configuredCompatEntries(compat: PiAiCompatProfile | undefined): readonly (readonly [string, unknown])[] {
   return Object.entries(compat ?? {}).flatMap(([field, value]) => {
-    const empty = typeof value === 'object' && value !== null && !Array.isArray(value)
-      && Object.keys(value as object).length === 0
+    const empty = typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value as object).length === 0
     return empty ? [] : [[field, value] as const]
   })
 }
@@ -541,7 +546,7 @@ function configuredCompatEntries(compat: PiAiCompatProfile | undefined): readonl
  *   is either a withheld field or a name no upstream compat type declares.
  */
 function compatProtocols(field: string): readonly string[] {
-  return Object.entries(COMPAT_GATES).flatMap(([api, gate]) => gate[field] === 'offer' ? [api] : [])
+  return Object.entries(COMPAT_GATES).flatMap(([api, gate]) => (gate[field] === 'offer' ? [api] : []))
 }
 
 /**
@@ -551,7 +556,7 @@ function compatProtocols(field: string): readonly string[] {
  * @returns the offered field names, or an empty list for a protocol taking no compat.
  */
 function offeredCompatFields(api: string): readonly string[] {
-  return Object.entries(compatGate(api) ?? {}).flatMap(([field, disposition]) => disposition === 'offer' ? [field] : [])
+  return Object.entries(compatGate(api) ?? {}).flatMap(([field, disposition]) => (disposition === 'offer' ? [field] : []))
 }
 
 /**
@@ -579,11 +584,7 @@ function allOfferedCompatFields(): readonly string[] {
  * @param compat - the configured switches, when any.
  * @throws Error naming the offending key.
  */
-function assertOfferedCompatFields(
-  provider: string,
-  site: string,
-  compat: PiAiCompatProfile | undefined,
-): void {
+function assertOfferedCompatFields(provider: string, site: string, compat: PiAiCompatProfile | undefined): void {
   // Every key, not only the ones carrying a value: a withheld or undeclared
   // name is never in the schema, so schemastery cannot have materialized it —
   // whatever its value, a person wrote it and expects it to do something.
@@ -595,11 +596,17 @@ function assertOfferedCompatFields(
     if (compatProtocols(field).length === 0) {
       const declared = Object.values(COMPAT_GATES).some(gate => gate[field] !== undefined)
       if (declared) {
-        invalid(provider, `${site} sets compat "${field}", which is not configurable here: pi-ai's installed`
-          + ' catalog sets it for the vendors that need it, so name that provider as the route instead')
+        invalid(
+          provider,
+          `${site} sets compat "${field}", which is not configurable here: pi-ai's installed` +
+            ' catalog sets it for the vendors that need it, so name that provider as the route instead',
+        )
       }
-      invalid(provider, `${site} sets compat "${field}", which no wire protocol declares; the configurable`
-        + ` switches are ${allOfferedCompatFields().join(', ')}`)
+      invalid(
+        provider,
+        `${site} sets compat "${field}", which no wire protocol declares; the configurable` +
+          ` switches are ${allOfferedCompatFields().join(', ')}`,
+      )
     }
     // A valueless key (`supportsDeveloperRole:`) survives schemastery, which
     // passes nullable data through before any member schema runs — the same
@@ -609,8 +616,11 @@ function assertOfferedCompatFields(
     // resolved, leaving pi-ai's `??` at its baseURL detection: the "written but
     // not applied" outcome this surface exists to refuse.
     if (value == null) {
-      invalid(provider, `${site} sets compat "${field}" with no value; give it one, or remove the key to`
-        + ' leave the field to the next layer — the installed catalog entry, then pi-ai\'s own detection')
+      invalid(
+        provider,
+        `${site} sets compat "${field}" with no value; give it one, or remove the key to` +
+          " leave the field to the next layer — the installed catalog entry, then pi-ai's own detection",
+      )
     }
   }
 }
@@ -739,11 +749,7 @@ interface ModelReasoning {
  * @param base - the installed catalog entry of the same id, when one exists.
  * @returns the reasoning fields the materialized model carries.
  */
-function resolveModelReasoning(
-  provider: string,
-  entry: PiAiModelProfile,
-  base: Model<Api> | undefined,
-): ModelReasoning {
+function resolveModelReasoning(provider: string, entry: PiAiModelProfile, base: Model<Api> | undefined): ModelReasoning {
   const efforts = entry.reasoningEfforts
   if (efforts === undefined) {
     // Reasoning rides the installed entry or is absent: a bare capability flag
@@ -762,26 +768,34 @@ function resolveModelReasoning(
   // while an explicit `{}` arrives as an empty dict. Both declare nothing,
   // and neither is a spelling of "inherit" or "disable".
   if ((efforts as unknown) === null || Object.keys(efforts).length === 0) {
-    invalid(provider, `model "${entry.id}" has an empty reasoningEfforts; declare the offered levels, set`
-      + ' false for a non-reasoning model, or omit the field to keep the installed catalog\'s capability')
+    invalid(
+      provider,
+      `model "${entry.id}" has an empty reasoningEfforts; declare the offered levels, set` +
+        " false for a non-reasoning model, or omit the field to keep the installed catalog's capability",
+    )
   }
-  const declared = THINKING_LEVELS.flatMap((level) => {
+  const declared = THINKING_LEVELS.flatMap(level => {
     const wire = efforts[level]
     return wire === undefined ? [] : [[level, wire] as const]
   })
   for (const [level, wire] of declared) {
     if (wire === null) {
       if (level !== 'off') {
-        invalid(provider, `model "${entry.id}" reasoningEfforts.${level} needs the wire value dispatch`
-          + ' should send; only "off" may leave it empty')
+        invalid(
+          provider,
+          `model "${entry.id}" reasoningEfforts.${level} needs the wire value dispatch` + ' should send; only "off" may leave it empty',
+        )
       }
     } else if (wire.length === 0) {
       invalid(provider, `model "${entry.id}" reasoningEfforts.${level} must not be an empty string`)
     }
   }
   if (!declared.some(([level]) => level !== 'off')) {
-    invalid(provider, `model "${entry.id}" reasoningEfforts offers no level beyond "off"; declare a thinking`
-      + ' level, or set reasoningEfforts to false for a non-reasoning model')
+    invalid(
+      provider,
+      `model "${entry.id}" reasoningEfforts offers no level beyond "off"; declare a thinking` +
+        ' level, or set reasoningEfforts to false for a non-reasoning model',
+    )
   }
   const map: ThinkingLevelMap = {}
   for (const level of THINKING_LEVELS) {
@@ -832,9 +846,12 @@ function resolveModelCompat(
   for (const [field, value] of configuredCompatEntries(entry.compat)) {
     if (gate?.[field] !== 'offer') {
       const offered = offeredCompatFields(api)
-      invalid(provider, `model "${entry.id}" sets compat "${field}", but its api is "${api}", which does not`
-        + ` take it; that switch exists on ${compatProtocols(field).join(', ')}, and "${api}" offers`
-        + ` ${offered.length === 0 ? 'no configurable compat' : offered.join(', ')}`)
+      invalid(
+        provider,
+        `model "${entry.id}" sets compat "${field}", but its api is "${api}", which does not` +
+          ` take it; that switch exists on ${compatProtocols(field).join(', ')}, and "${api}" offers` +
+          ` ${offered.length === 0 ? 'no configurable compat' : offered.join(', ')}`,
+      )
     }
     configured[field] = value
   }
@@ -888,16 +905,22 @@ function assertPeakCandidates(
   window: BundledPeakWindow | undefined,
 ): void {
   if (window === undefined) {
-    invalid(provider, `model "${modelId}" declares peak destinations, but this build ships no published peak`
-      + ' window for it; only a model whose price policy ships with the catalog can route')
+    invalid(
+      provider,
+      `model "${modelId}" declares peak destinations, but this build ships no published peak` +
+        ' window for it; only a model whose price policy ships with the catalog can route',
+    )
   }
   for (const candidate of candidates) {
     if (candidate.provider.length === 0) {
       invalid(provider, `model "${modelId}" peak has an empty provider`)
     }
     if (catalogProvider(candidate.provider) === undefined) {
-      invalid(provider, `model "${modelId}" peak provider "${candidate.provider}" is not an installed pi-ai`
-        + ' catalog provider; peak candidates resolve from the installed catalog')
+      invalid(
+        provider,
+        `model "${modelId}" peak provider "${candidate.provider}" is not an installed pi-ai` +
+          ' catalog provider; peak candidates resolve from the installed catalog',
+      )
     }
     // A candidate that names no model serves the routed model's own id; one
     // that names another model must find it on the candidate, or the request
@@ -918,10 +941,7 @@ function assertPeakCandidates(
  * @param validation - strict writes reject every error; deferred reads retain model diagnostics.
  * @returns the materialized models and the explicitly configured request caps.
  */
-export function resolveRouteModels(
-  request: RouteCatalogRequest,
-  validation: 'strict' | 'deferred' = 'strict',
-): RouteCatalog {
+export function resolveRouteModels(request: RouteCatalogRequest, validation: 'strict' | 'deferred' = 'strict'): RouteCatalog {
   const { provider } = request
   const defaults = catalogModels(provider)
   const providerBaseUrl = catalogProvider(provider)?.baseUrl ?? bundledProvider(provider)?.baseURL
@@ -936,12 +956,18 @@ export function resolveRouteModels(
   for (const [id, override] of Object.entries(overrides)) {
     if (id.length === 0) invalid(provider, 'has a modelOverrides entry with an empty model id')
     if (defaults.size === 0) {
-      invalid(provider, `sets modelOverrides for "${id}", but the installed catalog does not describe this route;`
-        + ' a declared route spells every model out in its models list')
+      invalid(
+        provider,
+        `sets modelOverrides for "${id}", but the installed catalog does not describe this route;` +
+          ' a declared route spells every model out in its models list',
+      )
     }
     if (configured.length > 0) {
-      invalid(provider, `sets modelOverrides for "${id}" beside a models list; models already replaces the served`
-        + ' catalog, so declare the fields on its entries')
+      invalid(
+        provider,
+        `sets modelOverrides for "${id}" beside a models list; models already replaces the served` +
+          ' catalog, so declare the fields on its entries',
+      )
     }
     if (!defaults.has(id)) {
       const message = `modelOverrides names "${id}", which the installed catalog does not describe`
@@ -958,12 +984,13 @@ export function resolveRouteModels(
   // An override becomes the catalog entry's configuration, so everything a
   // models entry may declare — capacities, efforts, compat — resolves through
   // the same path with the same diagnostics and request-default semantics.
-  const entries: readonly PiAiModelProfile[] = configured.length > 0
-    ? configured
-    : [...defaults.values()].map(model => ({ id: model.id, ...overrides[model.id] }))
+  const entries: readonly PiAiModelProfile[] =
+    configured.length > 0 ? configured : [...defaults.values()].map(model => ({ id: model.id, ...overrides[model.id] }))
   if (entries.length === 0) {
-    invalid(provider, 'resolves no models; the installed catalog does not describe this route, so its models'
-      + ' must be listed in configuration')
+    invalid(
+      provider,
+      'resolves no models; the installed catalog does not describe this route, so its models' + ' must be listed in configuration',
+    )
   }
   const routeApi = sharedCatalogApi(defaults)
   // Vocabulary before protocols: a withheld or undeclared switch is refused
@@ -990,8 +1017,11 @@ export function resolveRouteModels(
     const base = defaults.get(entry.id)
     const api = request.api ?? base?.api ?? routeApi
     if (api === undefined) {
-      invalid(provider, `model "${entry.id}" needs an api; the installed catalog does not describe it, so set the`
-        + ' route\'s api to the wire protocol its endpoint speaks')
+      invalid(
+        provider,
+        `model "${entry.id}" needs an api; the installed catalog does not describe it, so set the` +
+          " route's api to the wire protocol its endpoint speaks",
+      )
     }
     const baseUrl = request.baseURL ?? base?.baseUrl ?? providerBaseUrl
     if (baseUrl === undefined) {
@@ -1053,8 +1083,10 @@ export function resolveRouteModels(
   for (const [field] of configuredCompatEntries(request.compat)) {
     const takers = compatProtocols(field)
     if (serviceableModels.some(model => takers.includes(model.api))) continue
-    invalid(provider, `sets compat "${field}", but no model on the route speaks a protocol that takes it;`
-      + ` it exists on ${takers.join(', ')}`)
+    invalid(
+      provider,
+      `sets compat "${field}", but no model on the route speaks a protocol that takes it;` + ` it exists on ${takers.join(', ')}`,
+    )
   }
   const serviceableIds = new Set(serviceableModels.map(model => model.id))
   return {

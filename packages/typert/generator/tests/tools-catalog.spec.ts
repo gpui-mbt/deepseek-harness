@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import type { TypertContribution } from '@deepseek-ai/dsh-typert-registry/types'
@@ -10,6 +10,14 @@ import { WorkspaceAnalyzer } from '../src/analyzer.ts'
 import { FaceModelEmitter } from '../src/emitter.ts'
 
 const workspaceRoot = resolve(import.meta.dirname, '../../../..')
+
+/** Runtime and catalog signatures differ only by formatter whitespace and trailing commas. */
+const signature = (value: string): string =>
+  value
+    .replace(/\s+/g, ' ')
+    .replace(/\(\s+/g, '(')
+    .replace(/,\s*\)/g, ')')
+    .trim()
 const temporaryRoots: string[] = []
 
 afterEach(() => {
@@ -31,7 +39,7 @@ describe('model-driven dsh-tools generation', () => {
     temporaryRoots.push(root)
     const modulePath = join(root, 'host.mjs')
     writeFileSync(modulePath, artifact.js)
-    const generated = await import(`${pathToFileURL(modulePath).href}?test=${Date.now()}`) as {
+    const generated = (await import(`${pathToFileURL(modulePath).href}?test=${Date.now()}`)) as {
       TYPERT: TypertContribution
     }
 
@@ -44,31 +52,35 @@ describe('model-driven dsh-tools generation', () => {
     expect({
       key: service?.key,
       summary: service?.summary,
-      methods: service?.members
-        .filter(member => member.kind === 'method' && !member.name.startsWith('['))
-        .map(member => member.signature),
-    }).toEqual((() => {
-      const api = SERVICE_API.find(candidate => candidate.key === 'tools')
-      return {
-        key: api?.key,
-        summary: api?.summary,
-        methods: api?.methods.map(method => method.signature),
-      }
-    })())
-    expect(record?.model.events.filter(event => event.name.startsWith('tools/')).map(event => ({
-      name: event.name,
-      mode: event.mode,
-      signature: event.signature,
-      summary: event.summary,
-    }))).toEqual(EVENT_API.filter(event => event.name.startsWith('tools/')).map(event => ({
-      name: event.name,
-      mode: event.mode,
-      signature: event.signature,
-      summary: event.summary,
-    })))
-    expect(service?.types.find(type => type.name === 'ToolDefinition')).toEqual(
-      TYPE_API.find(type => type.name === 'ToolDefinition'),
+      methods: service?.members.filter(member => member.kind === 'method' && !member.name.startsWith('[')).map(member => member.signature),
+    }).toEqual(
+      (() => {
+        const api = SERVICE_API.find(candidate => candidate.key === 'tools')
+        return {
+          key: api?.key,
+          summary: api?.summary,
+          methods: api?.methods.map(method => method.signature),
+        }
+      })(),
     )
+    expect(
+      record?.model.events
+        .filter(event => event.name.startsWith('tools/'))
+        .map(event => ({
+          name: event.name,
+          mode: event.mode,
+          signature: signature(event.signature),
+          summary: event.summary,
+        })),
+    ).toEqual(
+      EVENT_API.filter(event => event.name.startsWith('tools/')).map(event => ({
+        name: event.name,
+        mode: event.mode,
+        signature: signature(event.signature),
+        summary: event.summary,
+      })),
+    )
+    expect(service?.types.find(type => type.name === 'ToolDefinition')).toEqual(TYPE_API.find(type => type.name === 'ToolDefinition'))
 
     await dispose()
     expect(ctx.typert.getPackage('@deepseek-ai/dsh-tools', 'host')).toBeUndefined()

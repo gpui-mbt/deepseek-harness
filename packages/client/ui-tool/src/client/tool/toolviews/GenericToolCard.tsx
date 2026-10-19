@@ -1,6 +1,10 @@
 import type { ReactNode } from 'react'
 import {
-  IconApiOutlineRegular, IconBrowseOutlineRegular, IconCodeOutlineRegular, IconEditOutlineRegular, IconSearchOutlineRegular,
+  IconApiOutlineRegular,
+  IconBrowseOutlineRegular,
+  IconCodeOutlineRegular,
+  IconEditOutlineRegular,
+  IconSearchOutlineRegular,
   IconSparkleRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ToolCallOwnerProps, ToolTreeProps } from '../../contract/slots.ts'
@@ -32,9 +36,7 @@ export type GenericToolCardProps = ToolCallOwnerProps & {
 /** @param props - current tool stage and locale. @returns its preparation or dispatched card. */
 export function GenericToolCard({ toolName, block, cwd, home, openFile, inspect, useDisclosure, t }: GenericToolCardProps) {
   const model = toolRowModel(toolName, block, cwd, home)
-  const autoReview = model.autoReviewDenial === null
-    ? null
-    : localizeAutoReviewDenial(model.autoReviewDenial, t)
+  const autoReview = model.autoReviewDenial === null ? null : localizeAutoReviewDenial(model.autoReviewDenial, t)
   const terminal = terminalCardModel(block, cwd)
   const read = readCardModel(block, cwd, home)
   const diff = diffCardModel(block)
@@ -42,9 +44,7 @@ export function GenericToolCard({ toolName, block, cwd, home, openFile, inspect,
   const web = webCardModel(block)
   // A failing exit status is the terminal card's own error signal (the call
   // itself settles isError:false), surfaced through the row's error summary.
-  const state = model.state === 'ok' && terminal !== null && terminalFailed(terminal)
-    ? 'error'
-    : model.state
+  const state = model.state === 'ok' && terminal !== null && terminalFailed(terminal) ? 'error' : model.state
   const singleFile = model.filePath !== undefined
   return (
     <ToolRow

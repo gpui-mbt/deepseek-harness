@@ -30,7 +30,7 @@ function isTransientWindowsRenameError(error: unknown): boolean {
 /** Replace the target after bounded retries for transient Windows interference. */
 async function renameAtomicTemp(temp: string, filename: string): Promise<void> {
   let delay = WINDOWS_RENAME_RETRY_INITIAL_MS
-  for (let retries = 0;; retries += 1) {
+  for (let retries = 0; ; retries += 1) {
     try {
       await rename(temp, filename)
       return
@@ -80,7 +80,7 @@ export interface WriteFileAtomicOptions {
 export async function writeFileAtomic(filename: string, content: string | Uint8Array, options: WriteFileAtomicOptions): Promise<void> {
   await mkdir(dirname(filename), {
     recursive: true,
-    ...options.dirMode === undefined ? {} : { mode: options.dirMode },
+    ...(options.dirMode === undefined ? {} : { mode: options.dirMode }),
   })
   // TODO(settings-atomic-durability): Use a replacement that fsyncs the file
   // and parent directory and preserves owner-only permissions on Windows.
@@ -160,7 +160,7 @@ async function takeOverExitedLock(lockPath: string): Promise<boolean> {
     throw error
   }
   try {
-    if (await readLockRecord(lockPath) !== record || !holderExited(record)) return false
+    if ((await readLockRecord(lockPath)) !== record || !holderExited(record)) return false
     try {
       await rm(lockPath, { force: true })
     } catch (error) {
@@ -235,11 +235,7 @@ export interface FileLockOptions {
  * @param options - acquisition options; omitted waits {@link DEFAULT_LOCK_WAIT_MS}.
  * @returns the operation's result; the lock releases on both outcomes.
  */
-export async function withFileLock<T>(
-  filename: string,
-  operation: () => Promise<T>,
-  options?: FileLockOptions,
-): Promise<T> {
+export async function withFileLock<T>(filename: string, operation: () => Promise<T>, options?: FileLockOptions): Promise<T> {
   const lockPath = `${filename}.lock`
   const deadline = Date.now() + (options?.waitMs ?? DEFAULT_LOCK_WAIT_MS)
   let delay = LOCK_RETRY_INITIAL_MS
@@ -250,11 +246,10 @@ export async function withFileLock<T>(
       await writeFile(lockPath, `${process.pid}\n`, { mode: 0o600, flag: 'wx' })
       break
     } catch (error) {
-      if (!await isLockContention(error, lockPath)) {
+      if (!(await isLockContention(error, lockPath))) {
         // Windows can release the competing lock between exclusive create and lstat.
-        if (process.platform !== 'win32'
-          || (error as NodeJS.ErrnoException | null)?.code !== 'EPERM'
-          || retriedUnconfirmedPermissionError) throw error
+        if (process.platform !== 'win32' || (error as NodeJS.ErrnoException | null)?.code !== 'EPERM' || retriedUnconfirmedPermissionError)
+          throw error
         retriedUnconfirmedPermissionError = true
       } else if (await takeOverExitedLock(lockPath)) continue
     }

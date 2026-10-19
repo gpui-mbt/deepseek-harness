@@ -65,7 +65,9 @@ self.addEventListener('message', (event: MessageEvent) => {
     })
     host = created
     for (const queued of pending) {
-      runAtAsyncContextRoot(() => { created.handleMessage(queued) })
+      runAtAsyncContextRoot(() => {
+        created.handleMessage(queued)
+      })
     }
     pending.length = 0
     created.start().catch(() => {
@@ -86,5 +88,7 @@ self.addEventListener('message', (event: MessageEvent) => {
   const ready = host
   // A tunnel request belongs to no boundary: dispatch it at the context root so
   // it cannot inherit whatever ran just before it on this thread.
-  runAtAsyncContextRoot(() => { ready.handleMessage(event.data) })
+  runAtAsyncContextRoot(() => {
+    ready.handleMessage(event.data)
+  })
 })

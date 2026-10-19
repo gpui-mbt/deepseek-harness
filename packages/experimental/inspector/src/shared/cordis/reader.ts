@@ -17,8 +17,6 @@ export interface CordisRuntimeTreeReader {
  * @param read - Synchronous or asynchronous latest-tree read.
  * @returns A reader suitable for query and CDP adapters.
  */
-export function createCordisRuntimeTreeReader(
-  read: () => CordisRuntimeTree | Promise<CordisRuntimeTree>,
-): CordisRuntimeTreeReader {
+export function createCordisRuntimeTreeReader(read: () => CordisRuntimeTree | Promise<CordisRuntimeTree>): CordisRuntimeTreeReader {
   return { getTree: async () => await read() }
 }

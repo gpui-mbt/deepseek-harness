@@ -19,7 +19,7 @@ import type {} from '@deepseek-ai/dsh-permission-presets'
 import type {} from '@deepseek-ai/dsh-session-title-llm'
 import type {} from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-tools'
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { textResponse, toolCallResponse } from '../../../packages/core/agent-loop/tests/mock-adapter.ts'
 
 const root = fileURLToPath(new URL('../../..', import.meta.url))
@@ -43,7 +43,7 @@ class BundleModel extends LlmAdapter {
     return Promise.resolve({ provider, id: model, name: model })
   }
 
-  async * stream(request: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(request: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(request)
     if (request.purpose === 'session-title') {
       yield* textResponse(`Bundle title ${String(++this.titleNumber)}`)
@@ -51,7 +51,11 @@ class BundleModel extends LlmAdapter {
     }
     if (request.tools?.some(tool => tool.name === 'structured_output')) {
       yield* toolCallResponse(`report-${randomUUID()}`, 'structured_output', {
-        status: 'complete', summary: 'OPTIONAL_RALPH_DONE', evidence: ['The scripted worker completed.'], nextSteps: [], blocker: '',
+        status: 'complete',
+        summary: 'OPTIONAL_RALPH_DONE',
+        evidence: ['The scripted worker completed.'],
+        nextSteps: [],
+        blocker: '',
       })
       return
     }
@@ -76,8 +80,12 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     await mkdir(workspace)
     const home = join(temporary, 'home')
     const values = {
-      DSH_HOME: home, DSH_AGENTS_HOME: join(temporary, 'agents'), DSH_BUNDLED_SKILL_DIR: join(temporary, 'skills'),
-      DSH_TELEMETRY_DISABLED: '1', TMUX: '', TMUX_PANE: '',
+      DSH_HOME: home,
+      DSH_AGENTS_HOME: join(temporary, 'agents'),
+      DSH_BUNDLED_SKILL_DIR: join(temporary, 'skills'),
+      DSH_TELEMETRY_DISABLED: '1',
+      TMUX: '',
+      TMUX_PANE: '',
     }
     originalEnvironment = Object.fromEntries(Object.keys(values).map(key => [key, process.env[key]]))
     Object.assign(process.env, values)
@@ -87,27 +95,52 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     const directory = join(home, 'profiles', 'web')
     app.initProfile(directory, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'])
     await writeFile(join(directory, 'cordis.yml'), '[]\n')
-    await writeFile(join(directory, 'cordis.patch.yml'), JSON.stringify([
-      { id: 'agent-default-model', config: { provider: 'bundle-test', model: 'scripted' } },
-    ]))
+    await writeFile(
+      join(directory, 'cordis.patch.yml'),
+      JSON.stringify([{ id: 'agent-default-model', config: { provider: 'bundle-test', model: 'scripted' } }]),
+    )
     const profile = app.loadProfileDirectory('bundle-test', directory, installAnchor)
     const profileContext: ProfileContext = {
-      name: 'web', dir: directory, patchPath: profile.patchPath, installAnchor, cwd: workspace, home,
-      startedBundles: profile.layers.map(layer => layer.packageName), overlays: [], telemetryDisabledEnv: '1',
+      name: 'web',
+      dir: directory,
+      patchPath: profile.patchPath,
+      installAnchor,
+      cwd: workspace,
+      home,
+      startedBundles: profile.layers.map(layer => layer.packageName),
+      overlays: [],
+      telemetryDisabledEnv: '1',
     }
     const resolution = await app.createRuntimeResolution({ installAnchor, home, profile })
     const listeners = new Set<() => void>()
     let ready = false
-    ctx = await app.boot('bundle-test', join(directory, 'cordis.yml'), app.readProfilePatches('bundle-test', profileContext), async (owner) => {
-      owner.provide('profileContext', profileContext)
-      owner.provide('appReady', { onReady: (listener) => {
-        if (ready) { listener(); return () => {} }
-        listeners.add(listener)
-        return () => { listeners.delete(listener) }
-      } })
-      await owner.plugin(app.PluginPackages, { resolution })
-      cmdline.provideCmdline(owner, { args: ['--no-open', '--port', '0'], exit: (code) => { throw new Error(`Web command exited ${String(code)}`) } })
-    })
+    ctx = await app.boot(
+      'bundle-test',
+      join(directory, 'cordis.yml'),
+      app.readProfilePatches('bundle-test', profileContext),
+      async owner => {
+        owner.provide('profileContext', profileContext)
+        owner.provide('appReady', {
+          onReady: listener => {
+            if (ready) {
+              listener()
+              return () => {}
+            }
+            listeners.add(listener)
+            return () => {
+              listeners.delete(listener)
+            }
+          },
+        })
+        await owner.plugin(app.PluginPackages, { resolution })
+        cmdline.provideCmdline(owner, {
+          args: ['--no-open', '--port', '0'],
+          exit: code => {
+            throw new Error(`Web command exited ${String(code)}`)
+          },
+        })
+      },
+    )
     ready = true
     for (const listener of listeners) listener()
     listeners.clear()
@@ -139,7 +172,8 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
 
   async function agent(preset = 'standard', cwd = workspace): Promise<AgentHandle> {
     const handle = await ctx.agents.create({
-      sessionId: SessionId(`optional-${preset}-${randomUUID()}`), meta: { cwd, agentPreset: preset },
+      sessionId: SessionId(`optional-${preset}-${randomUUID()}`),
+      meta: { cwd, agentPreset: preset },
       agentOptions: { provider: 'bundle-test', model: 'scripted' },
       setup: scoped => ctx.agentPresets.mount(scoped, preset).then(() => undefined),
     })
@@ -162,10 +196,17 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     expect(result, JSON.stringify(result)).toMatchObject({ changed: true, application: 'applied' })
   }
 
-  const names = (owner?: Agent) => ctx.tools.schemas(owner).map(tool => tool.name).sort()
-  const toolResult = (owner: Agent, callId: string) => owner.session.deriveMessages()
-    .flatMap(message => message.role === 'tool' && message.toolCallId === callId ? message.content : [])
-    .flatMap(block => block.type === 'text' ? [block.text] : []).join('\n')
+  const names = (owner?: Agent) =>
+    ctx.tools
+      .schemas(owner)
+      .map(tool => tool.name)
+      .sort()
+  const toolResult = (owner: Agent, callId: string) =>
+    owner.session
+      .deriveMessages()
+      .flatMap(message => (message.role === 'tool' && message.toolCallId === callId ? message.content : []))
+      .flatMap(block => (block.type === 'text' ? [block.text] : []))
+      .join('\n')
 
   it('keeps the default host and minimal tool catalogs while every optional bundle is off', async () => {
     const minimal = await agent('minimal')
@@ -190,10 +231,13 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
       toolCallResponse('ptc-search', 'run_code', {
         code: 'console.log(await tools.session_trace({}));',
         description: 'Read the current session lineage',
-      }), textResponse('PTC_SEARCH_DONE'),
+      }),
+      textResponse('PTC_SEARCH_DONE'),
     ])
     expect(toolResult(coded.agent, 'ptc-search')).toContain(coded.agent.session.id)
-    expect(coded.agent.session.snapshotEvents().some(event => event.type === 'tool/ptc-dispatch' && event.data.name === 'session_trace')).toBe(true)
+    expect(
+      coded.agent.session.snapshotEvents().some(event => event.type === 'tool/ptc-dispatch' && event.data.name === 'session_trace'),
+    ).toBe(true)
     await select(bundles.search, false)
   })
 
@@ -213,7 +257,8 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     expect(names(live.agent)).toContain('session_search')
     const searcher = await agent()
     await turn(searcher.agent, 'Find the previous marker in session history.', [
-      toolCallResponse('search-history', 'session_search', { query: 'OPTIONAL_SEARCH_MARKER' }), textResponse('SEARCH_DONE'),
+      toolCallResponse('search-history', 'session_search', { query: 'OPTIONAL_SEARCH_MARKER' }),
+      textResponse('SEARCH_DONE'),
     ])
     expect(toolResult(searcher.agent, 'search-history')).toContain(seedId)
     expect(toolResult(searcher.agent, 'search-history')).toContain(live.agent.session.id)
@@ -225,21 +270,29 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     const sessionId = searcher.agent.session.id
     await searcher.dispose()
     handles.delete(searcher)
-    const reopened = await ctx.agents.resume({ resumeSessionId: sessionId, setup: scoped => ctx.agentPresets.mount(scoped, 'standard').then(() => undefined) })
+    const reopened = await ctx.agents.resume({
+      resumeSessionId: sessionId,
+      setup: scoped => ctx.agentPresets.mount(scoped, 'standard').then(() => undefined),
+    })
     handles.add(reopened)
     expect(names(reopened.agent)).not.toContain('session_search')
   })
 
   it('loads the actual badge asset only while its bundle is selected', async () => {
     const owner = await agent()
-    const load = (callId: string) => ctx.tools.execute({
-      callId: ToolCallId(callId), name: 'skill', arguments: { name: 'dsh-badge' },
-      agent: owner.agent, signal: new AbortController().signal,
-    })
+    const load = (callId: string) =>
+      ctx.tools.execute({
+        callId: ToolCallId(callId),
+        name: 'skill',
+        arguments: { name: 'dsh-badge' },
+        agent: owner.agent,
+        signal: new AbortController().signal,
+      })
     expect((await load('badge-before')).isError).toBe(true)
     await select(bundles.badge, true)
     await turn(owner.agent, 'Load the dsh badge skill.', [
-      toolCallResponse('badge-on', 'skill', { name: 'dsh-badge' }), textResponse('BADGE_DONE'),
+      toolCallResponse('badge-on', 'skill', { name: 'dsh-badge' }),
+      textResponse('BADGE_DONE'),
     ])
     expect(toolResult(owner.agent, 'badge-on')).toContain('powered by dsh')
     expect(toolResult(owner.agent, 'badge-on')).toContain('dsh-badge.png')
@@ -261,17 +314,21 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     }
     await turn(owner.agent, 'Use a persistent terminal to retain a variable, write its value, and close the terminal.', [
       toolCallResponse('terminal-open', 'terminal_open', { type: 'shell', name: 'optional', cwd: workspace }),
-      (request) => {
+      request => {
         terminalId = /started terminal session (pty-\d+)/.exec(JSON.stringify(request.messages))?.[1]
         return toolCallResponse('terminal-set', 'terminal_send', {
-          sessionId: id(), text: process.platform === 'win32' ? "$env:DSH_OPTIONAL = 'TERMINAL_BUNDLE_OK'" : 'export DSH_OPTIONAL=TERMINAL_BUNDLE_OK',
+          sessionId: id(),
+          text: process.platform === 'win32' ? "$env:DSH_OPTIONAL = 'TERMINAL_BUNDLE_OK'" : 'export DSH_OPTIONAL=TERMINAL_BUNDLE_OK',
         })
       },
-      () => toolCallResponse('terminal-write', 'terminal_send', {
-        sessionId: id(), text: process.platform === 'win32'
-          ? `Set-Content -NoNewline -Path '${target.replaceAll("'", "''")}' -Value $env:DSH_OPTIONAL`
-          : `printf '%s' "$DSH_OPTIONAL" > ${JSON.stringify(target)}`,
-      }),
+      () =>
+        toolCallResponse('terminal-write', 'terminal_send', {
+          sessionId: id(),
+          text:
+            process.platform === 'win32'
+              ? `Set-Content -NoNewline -Path '${target.replaceAll("'", "''")}' -Value $env:DSH_OPTIONAL`
+              : `printf '%s' "$DSH_OPTIONAL" > ${JSON.stringify(target)}`,
+        }),
       () => toolCallResponse('terminal-close', 'terminal_close', { sessionId: id() }),
       textResponse('TERMINAL_DONE'),
     ])
@@ -290,7 +347,11 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     ])
     expect(toolResult(owner.agent, 'ralph-run')).toContain('Ralph worker reported completion after 1 round')
     expect(toolResult(owner.agent, 'ralph-run')).toContain('OPTIONAL_RALPH_DONE')
-    expect(model.requests.some(request => request.sessionId !== owner.agent.session.id && request.tools?.some(tool => tool.name === 'structured_output'))).toBe(true)
+    expect(
+      model.requests.some(
+        request => request.sessionId !== owner.agent.session.id && request.tools?.some(tool => tool.name === 'structured_output'),
+      ),
+    ).toBe(true)
     await select(bundles.ralph, false)
     expect(names((await agent()).agent)).not.toContain('ralph')
   })
@@ -315,8 +376,9 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
     await expect.poll(() => titleRequests(following.agent).length).toBe(2)
     expect(titleRequests(following.agent).every(event => event.data.titleProvider === 'session-title-all-prompts-llm')).toBe(true)
     const followingInput = titleRequests(following.agent)[1]?.data.messages[0]?.content[0]
-    expect(followingInput?.type === 'text' && followingInput.text)
-      .toContain(`Update the session title from this JSON object:\n{"currentTitle":${JSON.stringify(currentTitle)},`)
+    expect(followingInput?.type === 'text' && followingInput.text).toContain(
+      `Update the session title from this JSON object:\n{"currentTitle":${JSON.stringify(currentTitle)},`,
+    )
     await select(bundles.titles, false)
     const restored = await agent()
     await turn(restored.agent, 'Restore first-prompt titles.', [textResponse('ONE')])
@@ -339,7 +401,8 @@ describe.skipIf(!existsSync(join(root, 'apps/cli/lib/bin.js')))('Official option
       toolCallResponse('combined-program', 'run_code', {
         code: 'console.log(await tools.session_trace({})); console.log(await tools.skill({ name: "dsh-badge" }));',
         description: 'Use optional session search and badge together',
-      }), textResponse('COMBINED_DONE'),
+      }),
+      textResponse('COMBINED_DONE'),
     ])
     expect(toolResult(coded, 'combined-program')).toContain(coded.session.id)
     expect(toolResult(coded, 'combined-program')).toContain('dsh-badge')

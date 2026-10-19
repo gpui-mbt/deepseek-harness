@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readlinkSync, rmSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import { LocalSandboxProvider } from '@deepseek-ai/dsh-sandbox-local'
@@ -17,7 +17,10 @@ import { bwrapProfileArgs } from '../src/profiles.ts'
  * ephemeral `/tmp`, so workspace-write actually proves the workspace-root rebind.
  */
 
-const probe = spawnSync('bwrap', [...bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], { timeout: 5_000, stdio: 'ignore' })
+const probe = spawnSync('bwrap', [...bwrapProfileArgs({ mode: 'read-only', workspaceRoot: '/' }), '--', 'true'], {
+  timeout: 5_000,
+  stdio: 'ignore',
+})
 const bwrapUsable = probe.status === 0
 
 let ctx: Context | undefined
@@ -80,7 +83,7 @@ describe.skipIf(!bwrapUsable)('sandbox-local: real bwrap confinement', () => {
 
   it.each(['read-only', 'workspace-write'] as const)(
     '%s runs in a private PID namespace and blocks writes through procfs root magic links',
-    async (mode) => {
+    async mode => {
       const workdir = await tempDir(homedir())
       const outside = await tempDir(homedir())
       const target = join(outside, 'escaped.txt')
@@ -95,11 +98,7 @@ describe.skipIf(!bwrapUsable)('sandbox-local: real bwrap confinement', () => {
       expect(visibility.result.stdout.trim()).not.toBe('')
       expect(visibility.result.stdout.trim()).not.toBe(hostPidNamespace)
 
-      const escape = await runConfined(
-        sandbox,
-        `printf escaped > /proc/1/root${target}`,
-        { mode, workspaceRoot: workdir },
-      )
+      const escape = await runConfined(sandbox, `printf escaped > /proc/1/root${target}`, { mode, workspaceRoot: workdir })
       expect(escape.result.status).not.toBe(0)
       expect(existsSync(target)).toBe(false)
     },
@@ -121,7 +120,10 @@ describe.skipIf(!bwrapUsable)('sandbox-local: real bwrap confinement', () => {
     const outside = await tempDir(homedir())
     const sandbox = await provider()
 
-    const inside = await runConfined(sandbox, `printf bwrap-ok > ${workdir}/allowed.txt`, { mode: 'workspace-write', workspaceRoot: workdir })
+    const inside = await runConfined(sandbox, `printf bwrap-ok > ${workdir}/allowed.txt`, {
+      mode: 'workspace-write',
+      workspaceRoot: workdir,
+    })
     expect(inside.result.status).toBe(0)
     expect(readFileSync(join(workdir, 'allowed.txt'), 'utf8')).toBe('bwrap-ok')
 
@@ -138,7 +140,10 @@ describe.skipIf(!bwrapUsable)('sandbox-local: real bwrap confinement', () => {
     const target = `/tmp/dsh-bwrap-e2e-ephemeral-${process.pid}.txt`
     tempFiles.push(target)
     const sandbox = await provider()
-    const { result } = await runConfined(sandbox, `printf tmp-ok > ${target} && cat ${target}`, { mode: 'workspace-write', workspaceRoot: workdir })
+    const { result } = await runConfined(sandbox, `printf tmp-ok > ${target} && cat ${target}`, {
+      mode: 'workspace-write',
+      workspaceRoot: workdir,
+    })
     expect(result.status).toBe(0)
     expect(result.stdout).toBe('tmp-ok')
     expect(existsSync(target)).toBe(false)

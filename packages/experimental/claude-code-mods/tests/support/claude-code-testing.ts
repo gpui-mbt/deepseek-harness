@@ -8,7 +8,7 @@
 
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { describe as vitestDescribe, expect as vitestExpect, test as vitestTest } from 'vitest'
+import { describe as vitestDescribe, expect as vitestExpect, test as vitestTest } from 'vite-plus/test'
 import type { ModPlugin } from '../../src/define-mod.ts'
 import { createModTestKit, mock } from '../../src/testing.ts'
 import type { ModTestKit, TestKitRaisers } from '../../src/testing.ts'

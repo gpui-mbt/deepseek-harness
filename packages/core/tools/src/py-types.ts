@@ -118,10 +118,41 @@ function isBareIdentifier(name: string): boolean {
  * special-method lookup bypasses the hook.
  */
 const RESERVED = new Set([
-  'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class',
-  'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global',
-  'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise',
-  'return', 'try', 'while', 'with', 'yield',
+  'False',
+  'None',
+  'True',
+  'and',
+  'as',
+  'assert',
+  'async',
+  'await',
+  'break',
+  'class',
+  'continue',
+  'def',
+  'del',
+  'elif',
+  'else',
+  'except',
+  'finally',
+  'for',
+  'from',
+  'global',
+  'if',
+  'import',
+  'in',
+  'is',
+  'lambda',
+  'nonlocal',
+  'not',
+  'or',
+  'pass',
+  'raise',
+  'return',
+  'try',
+  'while',
+  'with',
+  'yield',
   // Not a keyword, but CPython refuses to ASSIGN it at compile time
   // (`SyntaxError: cannot assign to __debug__`), which is what a TypedDict
   // field, a parameter name, and a keyword argument all are.
@@ -495,8 +526,16 @@ function renderType(schema: unknown, className: string, state: RenderState): str
     entries: [string, JsonSchemaNode][]
     allocated?: string
   }
-  const newFrame = (schema: JsonSchemaNode, className: string, listDepth: number): Frame =>
-    ({ schema, className, phase: 'start', listDepth, children: [], childIndex: 0, childTypes: [], entries: [] })
+  const newFrame = (schema: JsonSchemaNode, className: string, listDepth: number): Frame => ({
+    schema,
+    className,
+    phase: 'start',
+    listDepth,
+    children: [],
+    childIndex: 0,
+    childTypes: [],
+    entries: [],
+  })
   try {
     // Validate the WHOLE tree once, then trust it — the same contract the
     // sibling ts-types renderer follows at a typed same-process boundary. Every
@@ -610,7 +649,11 @@ function renderType(schema: unknown, className: string, state: RenderState): str
         // pin the walk's linear time and the class-name propagation cap. The
         // standard this renderer holds is grammatical validity, not
         // compilability under one interpreter's stack.
-        frame.children = node.oneOf.map((branch, index) => ({ schema: branch, className: childClassName(frame.className, `${index + 1}`), listDepth: frame.listDepth }))
+        frame.children = node.oneOf.map((branch, index) => ({
+          schema: branch,
+          className: childClassName(frame.className, `${index + 1}`),
+          listDepth: frame.listDepth,
+        }))
         continue
       }
       if (node.type === undefined) {
@@ -619,11 +662,21 @@ function renderType(schema: unknown, className: string, state: RenderState): str
         continue
       }
       switch (node.type) {
-        case 'string': finish(renderConstrainedScalar(node, 'str', state)); break
-        case 'number': finish(renderConstrainedScalar(node, 'float', state)); break
-        case 'integer': finish(renderConstrainedScalar(node, 'int', state)); break
-        case 'boolean': finish(renderConstrainedScalar(node, 'bool', state)); break
-        case 'null': finish('None'); break
+        case 'string':
+          finish(renderConstrainedScalar(node, 'str', state))
+          break
+        case 'number':
+          finish(renderConstrainedScalar(node, 'float', state))
+          break
+        case 'integer':
+          finish(renderConstrainedScalar(node, 'int', state))
+          break
+        case 'boolean':
+          finish(renderConstrainedScalar(node, 'bool', state))
+          break
+        case 'null':
+          finish('None')
+          break
         case 'array': {
           if (node.items === undefined) {
             state.typing.add('Any')
@@ -666,7 +719,10 @@ function renderType(schema: unknown, className: string, state: RenderState): str
           // NAME-MANGLED inside class syntax (`_ClassName__token`), describing a
           // different JSON key than the registered schema — degrade like any
           // other inexpressible field name.
-          if (className === '' || !entries.every(([name]) => isBareIdentifier(name) && !RESERVED.has(name) && !(name.startsWith('__') && !name.endsWith('__')))) {
+          if (
+            className === '' ||
+            !entries.every(([name]) => isBareIdentifier(name) && !RESERVED.has(name) && !(name.startsWith('__') && !name.endsWith('__')))
+          ) {
             state.typing.add('Any')
             finish('dict[str, Any]')
             break
@@ -688,7 +744,11 @@ function renderType(schema: unknown, className: string, state: RenderState): str
           // wraps around it. frame.allocated was assigned three statements up;
           // the ?? arm is for the type system only.
           /* v8 ignore next -- allocated is always set before children are built. */
-          frame.children = entries.map(([field, child]) => ({ schema: child, className: childClassName(frame.allocated ?? '', camelCase(field)), listDepth: 1 }))
+          frame.children = entries.map(([field, child]) => ({
+            schema: child,
+            className: childClassName(frame.allocated ?? '', camelCase(field)),
+            listDepth: 1,
+          }))
           break
         }
         /* v8 ignore next 4 -- assertSupportedJsonSchema narrowed this closed type union. */
@@ -760,7 +820,7 @@ The available tools:`
  * @returns the complete section text.
  */
 export function renderToolsSdkPy(schemas: ToolSdkSchema[]): string {
-  const sorted = [...schemas].sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+  const sorted = [...schemas].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
   const state: RenderState = { classes: [], usedClassNames: new Set(), nextClassCounter: new Map(), typing: new Set(['Protocol']) }
   // ONE ordered member stream, matching the documented lexicographic contract
   // and the TypeScript flavor (which quotes exotic keys in place rather than
@@ -781,9 +841,11 @@ export function renderToolsSdkPy(schemas: ToolSdkSchema[]): string {
       // what a tool does. A docstring is a complete body, so the `...` stub is
       // only for the description-less case.
       const doc = docLines(schema.description, 2)
-      members.push(doc.length > 0
-        ? `${pad(1)}async def ${schema.name}(self, args: ${argType}) -> ${outputType}:`
-        : `${pad(1)}async def ${schema.name}(self, args: ${argType}) -> ${outputType}: ...`)
+      members.push(
+        doc.length > 0
+          ? `${pad(1)}async def ${schema.name}(self, args: ${argType}) -> ${outputType}:`
+          : `${pad(1)}async def ${schema.name}(self, args: ${argType}) -> ${outputType}: ...`,
+      )
       members.push(...doc)
       statements += 1
     } else {

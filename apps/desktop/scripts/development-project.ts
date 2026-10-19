@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path'
 import { createDevelopmentProjectMetadata } from '../src/project-manager.ts'
 import type { DesktopRelease } from '../src/release.ts'
 import { DESKTOP_RUNTIME_FILE, type DesktopRuntimeDescriptor } from '../src/runtime-tree.ts'
-import type { DesktopAutoUpdateTarget } from './desktop-auto-update-environment.mjs'
+import type { DesktopBuildTarget } from './desktop-build-paths.mjs'
 import { desktopTargetPlatform } from './desktop-build-paths.mjs'
 
 interface PackageManifest {
@@ -38,7 +38,7 @@ export interface DevelopmentProjectOptions {
   /** Release identity written into the disposable project metadata. */
   readonly release: DesktopRelease
   /** Build target whose prepared payload the disposable project runs against. */
-  readonly target: DesktopAutoUpdateTarget
+  readonly target: DesktopBuildTarget
 }
 
 function readManifest(path: string): PackageManifest {
@@ -126,8 +126,8 @@ export function prepareDevelopmentProject(options: DevelopmentProjectOptions): s
   const cliManifest = readManifest(join(options.cliDir, 'package.json'))
   if (cliManifest.name !== '@deepseek-ai/dsh' || cliManifest.version !== options.release.version) {
     throw new Error(
-      `desktop development: apps/cli must be @deepseek-ai/dsh@${options.release.version}, found `
-      + `${String(cliManifest.name)}@${String(cliManifest.version)}`,
+      `desktop development: apps/cli must be @deepseek-ai/dsh@${options.release.version}, found ` +
+        `${String(cliManifest.name)}@${String(cliManifest.version)}`,
     )
   }
   if (!existsSync(options.dependencyDir)) {
@@ -136,8 +136,8 @@ export function prepareDevelopmentProject(options: DevelopmentProjectOptions): s
   const hostManifest = readManifest(join(options.hostDir, 'package.json'))
   if (hostManifest.name !== '@deepseek-ai/dsh-desktop-host' || hostManifest.version !== options.release.version) {
     throw new Error(
-      `desktop development: apps/desktop-host must be @deepseek-ai/dsh-desktop-host@${options.release.version}, found `
-      + `${String(hostManifest.name)}@${String(hostManifest.version)}`,
+      `desktop development: apps/desktop-host must be @deepseek-ai/dsh-desktop-host@${options.release.version}, found ` +
+        `${String(hostManifest.name)}@${String(hostManifest.version)}`,
     )
   }
   if (!existsSync(join(options.hostDir, 'lib', 'index.js'))) {
@@ -158,12 +158,17 @@ export function prepareDevelopmentProject(options: DevelopmentProjectOptions): s
   const hostLink = join(destinationModules, '@deepseek-ai', 'dsh-desktop-host')
   removeOwnedPath(hostLink)
   linkDirectory(options.hostDir, hostLink)
-  const sharedPackages = [...new Set([...names, '@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host'])].flatMap((name) => {
+  const sharedPackages = [...new Set([...names, '@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host'])].flatMap(name => {
     const manifest = readManifest(join(destinationModules, name, 'package.json'))
     return typeof manifest.version === 'string' ? [{ name, version: manifest.version, path: `node_modules/${name}` }] : []
   })
-  const runtime: DesktopRuntimeDescriptor = { schemaVersion: 1, release: options.release,
-    ...desktopTargetPlatform(options.target), sharedPackages, files: [] }
+  const runtime: DesktopRuntimeDescriptor = {
+    schemaVersion: 1,
+    release: options.release,
+    ...desktopTargetPlatform(options.target),
+    sharedPackages,
+    files: [],
+  }
   writeFileSync(join(options.projectDir, DESKTOP_RUNTIME_FILE), `${JSON.stringify(runtime, undefined, 2)}\n`)
   return options.projectDir
 }

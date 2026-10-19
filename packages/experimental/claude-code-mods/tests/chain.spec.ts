@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { BudgetClock, dispatch, ENGINE_ORIGIN, HookTimeoutError, RewriteRefusedError } from '../src/chain.ts'
 import type { DispatchRequest, LoadedMod, RegisteredHook } from '../src/chain.ts'
 import { createModsApi } from '../src/api.ts'
@@ -12,7 +12,9 @@ function hook(owner: LoadedMod, event: string, fn: AnyHook, matcher?: HookMatche
 
 const fakeApi = {} as ModsApi
 
-function request<E, R>(overrides: Partial<DispatchRequest<E, R>> & Pick<DispatchRequest<E, R>, 'input' | 'core' | 'hooks'>): DispatchRequest<E, R> {
+function request<E, R>(
+  overrides: Partial<DispatchRequest<E, R>> & Pick<DispatchRequest<E, R>, 'input' | 'core' | 'hooks'>,
+): DispatchRequest<E, R> {
   return {
     event: 'tool.call',
     origin: ENGINE_ORIGIN,
@@ -53,12 +55,14 @@ describe('dispatch: the three moves', () => {
       }),
       hook(b, 'prompt.submit', (_$, e, next) => next({ ...(e as object), seenBy: 'b' })),
     ]
-    const result = await dispatch(request({
-      event: 'prompt.submit',
-      input: { text: '  raw  ', nested: { deep: true } },
-      core: e => e,
-      hooks,
-    }))
+    const result = await dispatch(
+      request({
+        event: 'prompt.submit',
+        input: { text: '  raw  ', nested: { deep: true } },
+        core: e => e,
+        hooks,
+      }),
+    )
     expect(result).toMatchObject({ text: 'trimmed', seenBy: 'b' })
     expect(frozen).toBe(true)
   })
@@ -68,11 +72,13 @@ describe('dispatch: the three moves', () => {
     const b = mod('b', 1)
     const later = vi.fn(async (_$: ModsApi, e: unknown, next: (e: unknown) => Promise<unknown>) => next(e))
     const core = vi.fn(() => ({ result: 'ran' }))
-    const result = await dispatch(request({
-      input: { tool: 'Bash' },
-      core,
-      hooks: [hook(a, 'tool.call', () => ({ deny: 'no' })), hook(b, 'tool.call', later)],
-    }))
+    const result = await dispatch(
+      request({
+        input: { tool: 'Bash' },
+        core,
+        hooks: [hook(a, 'tool.call', () => ({ deny: 'no' })), hook(b, 'tool.call', later)],
+      }),
+    )
     expect(result).toEqual({ deny: 'no' })
     expect(later).not.toHaveBeenCalled()
     expect(core).not.toHaveBeenCalled()
@@ -88,40 +94,64 @@ describe('dispatch: the three moves', () => {
         order.push('a')
         return next({ ...(e as object), tool: 'Edit' })
       }),
-      hook(b, 'tool.call', async (_$, e, next) => {
-        order.push('b')
-        return next(e)
-      }, { tool: 'Bash' }),
-      hook(c, 'tool.call', async (_$, e, next) => {
-        order.push('c')
-        return next(e)
-      }, { tool: ['Edit', 'Write'] }),
+      hook(
+        b,
+        'tool.call',
+        async (_$, e, next) => {
+          order.push('b')
+          return next(e)
+        },
+        { tool: 'Bash' },
+      ),
+      hook(
+        c,
+        'tool.call',
+        async (_$, e, next) => {
+          order.push('c')
+          return next(e)
+        },
+        { tool: ['Edit', 'Write'] },
+      ),
     ]
-    await dispatch(request({ input: { tool: 'Bash' }, core: () => { order.push('core'); return {} }, hooks }))
+    await dispatch(
+      request({
+        input: { tool: 'Bash' },
+        core: () => {
+          order.push('core')
+          return {}
+        },
+        hooks,
+      }),
+    )
     expect(order).toEqual(['a', 'c', 'core'])
   })
 
   it('reaches the core directly when no hook is registered, and passes a primitive input through unfrozen', async () => {
     await expect(dispatch(request({ input: 1, core: e => e + 1, hooks: [] }))).resolves.toBe(2)
     const a = mod('a')
-    await expect(dispatch(request({ input: 'text', core: e => ({ got: e }), hooks: [hook(a, 'tool.call', (_$, e, next) => next(e))] })))
-      .resolves.toEqual({ got: 'text' })
+    await expect(
+      dispatch(request({ input: 'text', core: e => ({ got: e }), hooks: [hook(a, 'tool.call', (_$, e, next) => next(e))] })),
+    ).resolves.toEqual({ got: 'text' })
   })
 
   it('exposes origin, budget, and signal on next; next.to rejects', async () => {
     const a = mod('a')
     const controller = new AbortController()
     let observed: Record<string, unknown> = {}
-    await dispatch(request({
-      input: {},
-      core: () => ({}),
-      signal: controller.signal,
-      hooks: [hook(a, 'tool.call', async (_$, e, next) => {
-        observed = { origin: next.origin, ms: next.budget.ms, remaining: next.budget.remainingMs, aborted: next.signal.aborted }
-        await expect(next.to(e, 'append')).rejects.toThrow(/next\.to is only available/)
-        return next(e)
-      })],
-    }))
+    await dispatch(
+      request({
+        input: {},
+        core: () => ({}),
+        signal: controller.signal,
+        hooks: [
+          hook(a, 'tool.call', async (_$, e, next) => {
+            observed = { origin: next.origin, ms: next.budget.ms, remaining: next.budget.remainingMs, aborted: next.signal.aborted }
+            await expect(next.to(e, 'append')).rejects.toThrow(/next\.to is only available/)
+            return next(e)
+          }),
+        ],
+      }),
+    )
     expect(observed.origin).toEqual(ENGINE_ORIGIN)
     expect(observed.ms).toBe(200)
     expect(observed.remaining).toBeLessThanOrEqual(200)
@@ -130,7 +160,7 @@ describe('dispatch: the three moves', () => {
 })
 
 describe('dispatch: one run beneath per hook', () => {
-  it('hands a second next call the first run and awaits a started run before the hook\'s own answer settles', async () => {
+  it("hands a second next call the first run and awaits a started run before the hook's own answer settles", async () => {
     const a = mod('a')
     const core = vi.fn(async () => {
       await new Promise(resolve => setTimeout(resolve, 20))
@@ -175,27 +205,33 @@ describe('dispatch: one run beneath per hook', () => {
     // `validateNext` throws for a rewritten input: the hook is skipped and the original input runs beneath.
     const rewriting = hook(a, 'tool.call', (_$, e, next) => next({ ...(e as object), command: 'changed' }))
     const core = vi.fn((e: unknown) => ({ ok: JSON.stringify(e) }))
-    const result = await dispatch(request<{ command: string }, { ok: string }>({
-      input: { command: 'original' },
-      core,
-      hooks: [rewriting],
-      report,
-      validateNext: (e) => {
-        if (e.command !== 'original') throw new RewriteRefusedError('rewrote the arguments of echo; rewrites are not served')
-      },
-    }))
+    const result = await dispatch(
+      request<{ command: string }, { ok: string }>({
+        input: { command: 'original' },
+        core,
+        hooks: [rewriting],
+        report,
+        validateNext: e => {
+          if (e.command !== 'original') throw new RewriteRefusedError('rewrote the arguments of echo; rewrites are not served')
+        },
+      }),
+    )
     expect(result).toEqual({ ok: '{"command":"original"}' })
     expect(report).toHaveBeenCalledWith('a: tool.call hook skipped: rewrote the arguments of echo; rewrites are not served')
     expect(core).toHaveBeenCalledTimes(1)
 
     // A validator that throws a bare value is reported through its text.
-    const bare = await dispatch(request<{ command: string }, { ok: string }>({
-      input: { command: 'original' },
-      core,
-      hooks: [hook(a, 'tool.call', (_$, e, next) => next({ ...(e as object), command: 'other' }))],
-      report,
-      validateNext: () => { throw 'refused as text' },
-    }))
+    const bare = await dispatch(
+      request<{ command: string }, { ok: string }>({
+        input: { command: 'original' },
+        core,
+        hooks: [hook(a, 'tool.call', (_$, e, next) => next({ ...(e as object), command: 'other' }))],
+        report,
+        validateNext: () => {
+          throw 'refused as text'
+        },
+      }),
+    )
     expect(bare).toEqual({ ok: '{"command":"original"}' })
     expect(report).toHaveBeenCalledWith('a: tool.call hook skipped: threw Error: refused as text')
   })
@@ -206,8 +242,10 @@ describe('dispatch: failures', () => {
     const a = mod('a')
     const b = mod('b', 1)
     const report = vi.fn()
-    const failing = hook(a, 'tool.call', () => { throw new Error('boom') })
-    const hooks = [failing, hook(b, 'tool.call', async (_$, e, next) => ({ ...(await next(e)) as object, b: true }))]
+    const failing = hook(a, 'tool.call', () => {
+      throw new Error('boom')
+    })
+    const hooks = [failing, hook(b, 'tool.call', async (_$, e, next) => ({ ...((await next(e)) as object), b: true }))]
     const first = await dispatch(request({ input: {}, core: () => ({ result: 'ran' }), hooks, report }))
     const second = await dispatch(request({ input: {}, core: () => ({ result: 'ran' }), hooks, report }))
     expect(first).toEqual({ result: 'ran', b: true })
@@ -220,15 +258,19 @@ describe('dispatch: failures', () => {
     const a = mod('a')
     const core = vi.fn(() => ({ result: 'ran' }))
     const report = vi.fn()
-    const result = await dispatch(request({
-      input: {},
-      core,
-      report,
-      hooks: [hook(a, 'tool.call', async (_$, e, next) => {
-        await next(e)
-        throw 'late'
-      })],
-    }))
+    const result = await dispatch(
+      request({
+        input: {},
+        core,
+        report,
+        hooks: [
+          hook(a, 'tool.call', async (_$, e, next) => {
+            await next(e)
+            throw 'late'
+          }),
+        ],
+      }),
+    )
     expect(result).toEqual({ result: 'ran' })
     expect(core).toHaveBeenCalledTimes(1)
     expect(report).toHaveBeenCalledWith('a: tool.call hook skipped: threw late')
@@ -237,7 +279,9 @@ describe('dispatch: failures', () => {
   it('treats a hook that resolves to no result as skipped', async () => {
     const a = mod('a')
     const report = vi.fn()
-    const result = await dispatch(request({ input: {}, core: () => ({ ok: true }), report, hooks: [hook(a, 'tool.call', () => undefined)] }))
+    const result = await dispatch(
+      request({ input: {}, core: () => ({ ok: true }), report, hooks: [hook(a, 'tool.call', () => undefined)] }),
+    )
     expect(result).toEqual({ ok: true })
     expect(report).toHaveBeenCalledWith('a: tool.call hook skipped: returned no result')
   })
@@ -245,12 +289,18 @@ describe('dispatch: failures', () => {
   it('propagates an error thrown by the core without blaming the hook that awaited it', async () => {
     const a = mod('a')
     const report = vi.fn()
-    await expect(dispatch(request({
-      input: {},
-      core: () => { throw new Error('engine down') },
-      report,
-      hooks: [hook(a, 'tool.call', (_$, e, next) => next(e))],
-    }))).rejects.toThrow('engine down')
+    await expect(
+      dispatch(
+        request({
+          input: {},
+          core: () => {
+            throw new Error('engine down')
+          },
+          report,
+          hooks: [hook(a, 'tool.call', (_$, e, next) => next(e))],
+        }),
+      ),
+    ).rejects.toThrow('engine down')
     expect(report).not.toHaveBeenCalled()
   })
 
@@ -259,17 +309,21 @@ describe('dispatch: failures', () => {
     const report = vi.fn()
     const core = vi.fn(() => ({ result: 'ran' }))
     let lateNext: Promise<unknown> | undefined
-    const result = await dispatch(request({
-      input: {},
-      core,
-      report,
-      budgetMs: 20,
-      hooks: [hook(a, 'tool.call', async (_$, e, next) => {
-        await new Promise(resolve => setTimeout(resolve, 60))
-        lateNext = next(e)
-        return { deny: 'too late' }
-      })],
-    }))
+    const result = await dispatch(
+      request({
+        input: {},
+        core,
+        report,
+        budgetMs: 20,
+        hooks: [
+          hook(a, 'tool.call', async (_$, e, next) => {
+            await new Promise(resolve => setTimeout(resolve, 60))
+            lateNext = next(e)
+            return { deny: 'too late' }
+          }),
+        ],
+      }),
+    )
     expect(result).toEqual({ result: 'ran' })
     expect(report).toHaveBeenCalledWith('a: tool.call hook skipped: timeout, ran past its 20 ms limit')
     await new Promise(resolve => setTimeout(resolve, 60))
@@ -280,34 +334,51 @@ describe('dispatch: failures', () => {
   it('does not count time spent inside next or a mods API call against the budget', async () => {
     const a = mod('a')
     const report = vi.fn()
-    const result = await dispatch(request({
-      input: {},
-      core: () => new Promise((resolve) => { setTimeout(() => { resolve({ result: 'slow core' }) }, 150) }),
-      report,
-      // Generous against a loaded CI host: only the hook's own microseconds between awaits may count.
-      budgetMs: 100,
-      // A real `$` whose every call takes 60 ms to answer: the clock pauses for the call.
-      api: (hooked, clock) => createModsApi({
-        mod: hooked.mod,
-        clock,
-        invoke: () => new Promise((resolve) => { setTimeout(() => { resolve('contents') }, 150) }),
-        timers: { after: () => ({ cancel() {} }), every: () => ({ cancel() {} }) },
-        report: () => {},
+    const result = await dispatch(
+      request({
+        input: {},
+        core: () =>
+          new Promise(resolve => {
+            setTimeout(() => {
+              resolve({ result: 'slow core' })
+            }, 150)
+          }),
+        report,
+        // Generous against a loaded CI host: only the hook's own microseconds between awaits may count.
+        budgetMs: 100,
+        // A real `$` whose every call takes 60 ms to answer: the clock pauses for the call.
+        api: (hooked, clock) =>
+          createModsApi({
+            mod: hooked.mod,
+            clock,
+            invoke: () =>
+              new Promise(resolve => {
+                setTimeout(() => {
+                  resolve('contents')
+                }, 150)
+              }),
+            timers: { after: () => ({ cancel() {} }), every: () => ({ cancel() {} }) },
+            report: () => {},
+          }),
+        hooks: [
+          hook(a, 'tool.call', async ($, e, next) => {
+            expect(await $.fs.read('notes.md')).toBe('contents')
+            return next(e)
+          }),
+        ],
       }),
-      hooks: [hook(a, 'tool.call', async ($, e, next) => {
-        expect(await $.fs.read('notes.md')).toBe('contents')
-        return next(e)
-      })],
-    }))
+    )
     expect(result).toEqual({ result: 'slow core' })
     expect(report).not.toHaveBeenCalled()
   })
 })
 
 describe('dispatch: .catch handlers', () => {
-  it('lets the handler answer in a failed hook\'s place with next.error and next.called set', async () => {
+  it("lets the handler answer in a failed hook's place with next.error and next.called set", async () => {
     const a = mod('a')
-    const failing = hook(a, 'tool.call', () => { throw new Error('boom') })
+    const failing = hook(a, 'tool.call', () => {
+      throw new Error('boom')
+    })
     let caught: Record<string, unknown> = {}
     failing.catchHandler = (_$, _e, next) => {
       caught = { kind: next.error?.kind, message: next.error?.message, called: next.called }
@@ -327,7 +398,7 @@ describe('dispatch: .catch handlers', () => {
     })
     failing.catchHandler = async (_$, e, next) => {
       expect(next.called).toBe(true)
-      return { ...(await next(e)) as object, patched: true }
+      return { ...((await next(e)) as object), patched: true }
     }
     const result = await dispatch(request({ input: {}, core, hooks: [failing] }))
     expect(result).toEqual({ result: 'ran', patched: true })
@@ -337,33 +408,53 @@ describe('dispatch: .catch handlers', () => {
   it('lets the handler call next itself when the hook never did, and falls back to skipping when it returns nothing or fails', async () => {
     const a = mod('a')
     const report = vi.fn()
-    const viaNext = hook(a, 'tool.call', () => { throw new Error('boom') })
+    const viaNext = hook(a, 'tool.call', () => {
+      throw new Error('boom')
+    })
     viaNext.catchHandler = (_$, e, next) => next(e)
     expect(await dispatch(request({ input: {}, core: () => ({ ok: 1 }), hooks: [viaNext], report }))).toEqual({ ok: 1 })
 
     // A handler's next makes the same rewrite check as the hook's: a rewrite is refused and the handler is skipped.
-    const rewritingHandler = hook(a, 'tool.call', () => { throw new Error('boom') })
+    const rewritingHandler = hook(a, 'tool.call', () => {
+      throw new Error('boom')
+    })
     rewritingHandler.catchHandler = (_$, e, next) => next({ ...(e as object), command: 'changed' })
     const core = vi.fn((e: unknown) => ({ ok: JSON.stringify(e) }))
-    expect(await dispatch(request<{ command: string }, { ok: string }>({
-      input: { command: 'original' },
-      core,
-      hooks: [rewritingHandler],
-      report,
-      validateNext: (e) => {
-        if (e.command !== 'original') throw new RewriteRefusedError('rewrites are not served')
-      },
-    }))).toEqual({ ok: '{"command":"original"}' })
+    expect(
+      await dispatch(
+        request<{ command: string }, { ok: string }>({
+          input: { command: 'original' },
+          core,
+          hooks: [rewritingHandler],
+          report,
+          validateNext: e => {
+            if (e.command !== 'original') throw new RewriteRefusedError('rewrites are not served')
+          },
+        }),
+      ),
+    ).toEqual({ ok: '{"command":"original"}' })
     expect(report).toHaveBeenCalledWith('a: tool.call .catch handler skipped: rewrites are not served')
-    const bareHandler = hook(a, 'tool.call', () => { throw new Error('boom') })
+    const bareHandler = hook(a, 'tool.call', () => {
+      throw new Error('boom')
+    })
     bareHandler.catchHandler = (_$, e, next) => next({ ...(e as object), command: 'other' })
-    await dispatch(request<{ command: string }, { ok: string }>({
-      input: { command: 'original' }, core, hooks: [bareHandler], report, validateNext: () => { throw 'refused as text' },
-    }))
+    await dispatch(
+      request<{ command: string }, { ok: string }>({
+        input: { command: 'original' },
+        core,
+        hooks: [bareHandler],
+        report,
+        validateNext: () => {
+          throw 'refused as text'
+        },
+      }),
+    )
     expect(report).toHaveBeenCalledWith('a: tool.call .catch handler skipped: threw Error: refused as text')
 
     // A handler that ran beneath and then returned nothing: what it ran stands, nothing runs again.
-    const ranBeneath = hook(a, 'tool.call', () => { throw new Error('boom') })
+    const ranBeneath = hook(a, 'tool.call', () => {
+      throw new Error('boom')
+    })
     ranBeneath.catchHandler = async (_$, e, next) => {
       await next(e)
       return undefined
@@ -372,16 +463,24 @@ describe('dispatch: .catch handlers', () => {
     expect(await dispatch(request({ input: {}, core: onceCore, hooks: [ranBeneath], report }))).toEqual({ ok: 'once' })
     expect(onceCore).toHaveBeenCalledTimes(1)
 
-    const silent = hook(a, 'tool.call', () => { throw new Error('boom') })
+    const silent = hook(a, 'tool.call', () => {
+      throw new Error('boom')
+    })
     silent.catchHandler = () => undefined
     expect(await dispatch(request({ input: {}, core: () => ({ ok: 2 }), hooks: [silent], report }))).toEqual({ ok: 2 })
 
-    const throwing = hook(a, 'tool.call', () => { throw new Error('boom') })
-    throwing.catchHandler = () => { throw new Error('handler boom') }
+    const throwing = hook(a, 'tool.call', () => {
+      throw new Error('boom')
+    })
+    throwing.catchHandler = () => {
+      throw new Error('handler boom')
+    }
     expect(await dispatch(request({ input: {}, core: () => ({ ok: 3 }), hooks: [throwing], report }))).toEqual({ ok: 3 })
     expect(report).toHaveBeenCalledWith('a: tool.call .catch handler skipped: threw Error: handler boom')
 
-    const inspecting = hook(a, 'tool.call', () => { throw new Error('boom') })
+    const inspecting = hook(a, 'tool.call', () => {
+      throw new Error('boom')
+    })
     inspecting.catchHandler = async (_$, e, next) => {
       expect(next.budget.ms).toBe(100)
       expect(next.budget.remainingMs).toBeLessThanOrEqual(100)
@@ -390,7 +489,9 @@ describe('dispatch: .catch handlers', () => {
     }
     expect(await dispatch(request({ input: {}, core: () => ({ ok: 5 }), hooks: [inspecting], report }))).toEqual({ deny: 'inspected' })
 
-    const slow = hook(a, 'tool.call', () => { throw new Error('boom') })
+    const slow = hook(a, 'tool.call', () => {
+      throw new Error('boom')
+    })
     let lateNext: Promise<unknown> | undefined
     slow.catchHandler = async (_$, e, next) => {
       await new Promise(resolve => setTimeout(resolve, 60))
@@ -428,7 +529,11 @@ describe('BudgetClock', () => {
     clock.pause()
     clock.resume()
     expect(clock.remainingMs).toBe(50)
-    const pending = new Promise((resolve) => { setTimeout(() => { resolve('pending') }, 20) })
+    const pending = new Promise(resolve => {
+      setTimeout(() => {
+        resolve('pending')
+      }, 20)
+    })
     const raced = await Promise.race([clock.expired.catch((error: unknown) => error), pending])
     expect(raced).toBe('pending')
   })

@@ -17,10 +17,7 @@ export interface CdpTargetDescriptor {
  * @param target - Synthetic page-target identity.
  * @returns A response result or the unowned-method sentinel.
  */
-export function handleScaffold(
-  request: CdpRequest,
-  target: CdpTargetDescriptor,
-): object | typeof CDP_METHOD_NOT_HANDLED {
+export function handleScaffold(request: CdpRequest, target: CdpTargetDescriptor): object | typeof CDP_METHOD_NOT_HANDLED {
   const frame = {
     id: 'dsh-inspector-host-frame',
     loaderId: 'dsh-inspector-loader',

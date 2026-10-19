@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Menu-group naming, sticky transitions, and viewport-observer ownership. */
 import { cleanup, fireEvent, isInaccessible, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { MenuGroup, observeStickyMenuGroups } from '../src/MenuGroup.tsx'
 
 const disposers: (() => void)[] = []
@@ -17,26 +17,41 @@ class StubIntersectionObserver implements IntersectionObserver {
   unobserve = vi.fn<(target: Element) => void>()
   disconnect = vi.fn<() => void>()
   takeRecords = vi.fn<() => IntersectionObserverEntry[]>(() => [])
-  constructor(private readonly callback: IntersectionObserverCallback, options: IntersectionObserverInit = {}) {
+  constructor(
+    private readonly callback: IntersectionObserverCallback,
+    options: IntersectionObserverInit = {},
+  ) {
     this.root = options.root ?? null
     this.rootMargin = options.rootMargin ?? '0px'
-    this.thresholds = typeof options.threshold === 'number' ? [options.threshold] : options.threshold ?? [0]
+    this.thresholds = typeof options.threshold === 'number' ? [options.threshold] : (options.threshold ?? [0])
     intersections.push(this)
   }
-  notify(...entries: IntersectionObserverEntry[]): void { this.callback(entries, this) }
+  notify(...entries: IntersectionObserverEntry[]): void {
+    this.callback(entries, this)
+  }
 }
 
 class StubResizeObserver implements ResizeObserver {
   observe = vi.fn<(target: Element, options?: ResizeObserverOptions) => void>()
   unobserve = vi.fn<(target: Element) => void>()
   disconnect = vi.fn<() => void>()
-  constructor(private readonly callback: ResizeObserverCallback) { sizes.push(this) }
+  constructor(private readonly callback: ResizeObserverCallback) {
+    sizes.push(this)
+  }
   notify(target: Element, height = 200): void {
     const size: ResizeObserverSize = { blockSize: height, inlineSize: 200 }
-    this.callback([{
-      target, contentRect: new DOMRect(0, 0, 200, height),
-      borderBoxSize: [size], contentBoxSize: [size], devicePixelContentBoxSize: [size],
-    }], this)
+    this.callback(
+      [
+        {
+          target,
+          contentRect: new DOMRect(0, 0, 200, height),
+          borderBoxSize: [size],
+          contentBoxSize: [size],
+          devicePixelContentBoxSize: [size],
+        },
+      ],
+      this,
+    )
   }
 }
 
@@ -69,20 +84,32 @@ function directChild(section: HTMLElement, attribute: string): HTMLElement {
 function fixture() {
   const view = render(
     <div data-testid="viewport">
-      <MenuGroup label="Provider A"><button type="button">Model A</button></MenuGroup>
-      <MenuGroup label="Provider B"><button type="button">Model B</button></MenuGroup>
-      <MenuGroup label="Provider C"><button type="button">Model C</button></MenuGroup>
+      <MenuGroup label="Provider A">
+        <button type="button">Model A</button>
+      </MenuGroup>
+      <MenuGroup label="Provider B">
+        <button type="button">Model B</button>
+      </MenuGroup>
+      <MenuGroup label="Provider C">
+        <button type="button">Model C</button>
+      </MenuGroup>
     </div>,
   )
   const viewport = screen.getByTestId('viewport')
   const groups = screen.getAllByRole('group').map(section => ({
-    section, heading: directChild(section, 'data-menu-group-heading'), start: directChild(section, 'data-menu-group-start'),
+    section,
+    heading: directChild(section, 'data-menu-group-heading'),
+    start: directChild(section, 'data-menu-group-start'),
   }))
   return { ...view, viewport, groups }
 }
 
 function entry(
-  target: Element, top: number, height: number, time: number, rootHeight = 1,
+  target: Element,
+  top: number,
+  height: number,
+  time: number,
+  rootHeight = 1,
   rootBounds: DOMRectReadOnly | null = new DOMRect(0, 100, 200, rootHeight),
 ): IntersectionObserverEntry {
   const bottom = top + height
@@ -90,10 +117,13 @@ function entry(
   const intersectionBottom = Math.min(bottom, 100 + rootHeight)
   const intersectionHeight = Math.max(0, intersectionBottom - intersectionTop)
   return {
-    target, time, boundingClientRect: new DOMRect(0, top, 200, height),
+    target,
+    time,
+    boundingClientRect: new DOMRect(0, top, 200, height),
     rootBounds,
     intersectionRect: new DOMRect(0, intersectionTop, 200, intersectionHeight),
-    intersectionRatio: intersectionHeight / height, isIntersecting: bottom >= 100 && top <= 100 + rootHeight,
+    intersectionRatio: intersectionHeight / height,
+    isIntersecting: bottom >= 100 && top <= 100 + rootHeight,
   }
 }
 
@@ -112,7 +142,9 @@ function startObserving(viewport: HTMLElement) {
 
 describe('MenuGroup', () => {
   it('names each section with a unique direct heading and keeps the sentinel out of the accessible tree', () => {
-    const { groups: [first, second] } = fixture()
+    const {
+      groups: [first, second],
+    } = fixture()
     expect(first!.section.tagName).toBe('SECTION')
     expect(first!.section.hasAttribute('data-menu-group')).toBe(true)
     expect(first!.section.getAttribute('aria-labelledby')).toBe(first!.heading.id)
@@ -136,10 +168,17 @@ describe('MenuGroup', () => {
 
 describe('observeStickyMenuGroups', () => {
   it('does not synchronously read layout when observing a 30-model menu', () => {
-    render(<div data-testid="large-viewport">{Array.from({ length: 6 }, (_, index) =>
-      <MenuGroup key={index} label={`Provider ${index}`}>
-        {Array.from({ length: 5 }, (_, row) => <button key={row} type="button">{`Model ${index}-${row}`}</button>)}
-      </MenuGroup>)}</div>)
+    render(
+      <div data-testid="large-viewport">
+        {Array.from({ length: 6 }, (_, index) => (
+          <MenuGroup key={index} label={`Provider ${index}`}>
+            {Array.from({ length: 5 }, (_, row) => (
+              <button key={row} type="button">{`Model ${index}-${row}`}</button>
+            ))}
+          </MenuGroup>
+        ))}
+      </div>,
+    )
     const viewport = screen.getByTestId('large-viewport')
     const groups = screen.getAllByRole('group')
     const read = vi.spyOn(Element.prototype, 'getBoundingClientRect')
@@ -180,7 +219,10 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('waits for asynchronous size and intersection delivery, including an already-scrolled viewport', () => {
-    const { viewport, groups: [first] } = fixture()
+    const {
+      viewport,
+      groups: [first],
+    } = fixture()
     viewport.scrollTop = 20
     observe(viewport)
     expect(first!.heading.hasAttribute('data-stuck')).toBe(false)
@@ -193,7 +235,10 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('keeps the initial top transparent, handles fractional crossing, and clears on upward return to zero', () => {
-    const { viewport, groups: [first] } = fixture()
+    const {
+      viewport,
+      groups: [first],
+    } = fixture()
     const { start, strip } = startObserving(viewport)
     expect(start.root).toBe(viewport)
     expect(start.thresholds).toEqual([0, 1])
@@ -216,7 +261,10 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('clears at the section tail and hands off only after the following group crosses the top', () => {
-    const { viewport, groups: [first, second] } = fixture()
+    const {
+      viewport,
+      groups: [first, second],
+    } = fixture()
     const { start, strip } = startObserving(viewport)
     strip.notify(entry(first!.section, 80, 100, 1), entry(second!.section, 183, 100, 1))
     expect(first!.heading.hasAttribute('data-stuck')).toBe(true)
@@ -231,7 +279,10 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('finds the middle group after a fast jump even when its sentinel reports no new intersection', () => {
-    const { viewport, groups: [first, second, third] } = fixture()
+    const {
+      viewport,
+      groups: [first, second, third],
+    } = fixture()
     const { start, strip } = startObserving(viewport)
     start.notify(startEntry(first!.start, 100, 1), startEntry(second!.start, 503, 1), startEntry(third!.start, 906, 1))
     strip.notify(entry(first!.section, 100, 400, 1), entry(second!.section, 503, 400, 1), entry(third!.section, 906, 400, 1))
@@ -242,7 +293,10 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('orders samples from both observers by entry time rather than callback delivery', () => {
-    const { viewport, groups: [first] } = fixture()
+    const {
+      viewport,
+      groups: [first],
+    } = fixture()
     const { start, strip } = startObserving(viewport)
     start.notify(startEntry(first!.start, 99.75, 3))
     strip.notify(entry(first!.section, 100, 100, 2))
@@ -258,7 +312,10 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('rebuilds only the strip on viewport height changes and invalidates its old callback', () => {
-    const { viewport, groups: [first] } = fixture()
+    const {
+      viewport,
+      groups: [first],
+    } = fixture()
     const { size, strip } = startObserving(viewport)
     strip.notify(entry(first!.section, 80, 100, 1))
     size.notify(viewport)
@@ -280,7 +337,10 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('ignores unavailable root bounds and unrelated intersection targets', () => {
-    const { viewport, groups: [first] } = fixture()
+    const {
+      viewport,
+      groups: [first],
+    } = fixture()
     const { start, strip } = startObserving(viewport)
     strip.notify(entry(first!.section, 80, 100, 1))
     strip.notify(entry(first!.section, 100, 100, 2, 1, null), entry(viewport, 100, 100, 2))
@@ -289,7 +349,10 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('disconnects every observer, clears only stuck headings, and prevents all late writes', () => {
-    const { viewport, groups: [first] } = fixture()
+    const {
+      viewport,
+      groups: [first],
+    } = fixture()
     const { dispose, start, size, strip } = startObserving(viewport)
     strip.notify(entry(first!.section, 80, 100, 1))
     const remove = vi.spyOn(first!.heading, 'removeAttribute')
@@ -317,11 +380,21 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('recaptures filtered groups and rejects callbacks from the previous setup', () => {
-    const { viewport, rerender, groups: [first] } = fixture()
+    const {
+      viewport,
+      rerender,
+      groups: [first],
+    } = fixture()
     const previous = startObserving(viewport)
     previous.strip.notify(entry(first!.section, 80, 100, 1))
     previous.dispose()
-    rerender(<div data-testid="viewport"><MenuGroup label="Filtered"><button type="button">Match</button></MenuGroup></div>)
+    rerender(
+      <div data-testid="viewport">
+        <MenuGroup label="Filtered">
+          <button type="button">Match</button>
+        </MenuGroup>
+      </div>,
+    )
     const group = screen.getByRole('group', { name: 'Filtered' })
     const heading = directChild(group, 'data-menu-group-heading')
     observe(viewport)
@@ -340,12 +413,25 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('observes only direct groups with both direct headings and start sentinels', () => {
-    render(<div data-testid="viewport">
-      <MenuGroup label="Direct"><MenuGroup label="Nested" /></MenuGroup>
-      <section data-menu-group=""><span data-menu-group-start="" /><div><div data-menu-group-heading="">Indirect</div></div></section>
-      <section data-menu-group=""><div data-menu-group-heading="">No start</div></section>
-      <section><div data-menu-group-heading="">Unmarked</div></section>
-    </div>)
+    render(
+      <div data-testid="viewport">
+        <MenuGroup label="Direct">
+          <MenuGroup label="Nested" />
+        </MenuGroup>
+        <section data-menu-group="">
+          <span data-menu-group-start="" />
+          <div>
+            <div data-menu-group-heading="">Indirect</div>
+          </div>
+        </section>
+        <section data-menu-group="">
+          <div data-menu-group-heading="">No start</div>
+        </section>
+        <section>
+          <div data-menu-group-heading="">Unmarked</div>
+        </section>
+      </div>,
+    )
     const viewport = screen.getByTestId('viewport')
     const group = screen.getByRole('group', { name: 'Direct' })
     const { start, strip } = startObserving(viewport)
@@ -359,7 +445,14 @@ describe('observeStickyMenuGroups', () => {
   })
 
   it('acquires no observers or listeners without valid direct groups', () => {
-    render(<div data-testid="viewport"><div><MenuGroup label="Nested" /></div><section data-menu-group="" /></div>)
+    render(
+      <div data-testid="viewport">
+        <div>
+          <MenuGroup label="Nested" />
+        </div>
+        <section data-menu-group="" />
+      </div>,
+    )
     const viewport = screen.getByTestId('viewport')
     const addScroll = vi.spyOn(viewport, 'addEventListener')
     const addResize = vi.spyOn(window, 'addEventListener')
@@ -371,9 +464,12 @@ describe('observeStickyMenuGroups', () => {
     expect(dispose).not.toThrow()
   })
 
-  it.each(['IntersectionObserver', 'ResizeObserver'])('keeps CSS sticky headings transparent without %s', (api) => {
+  it.each(['IntersectionObserver', 'ResizeObserver'])('keeps CSS sticky headings transparent without %s', api => {
     vi.stubGlobal(api, undefined)
-    const { viewport, groups: [first] } = fixture()
+    const {
+      viewport,
+      groups: [first],
+    } = fixture()
     const read = vi.spyOn(Element.prototype, 'getBoundingClientRect')
     const dispose = observe(viewport)
     viewport.scrollTop = 20

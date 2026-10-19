@@ -10,7 +10,7 @@
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
@@ -24,26 +24,44 @@ import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 afterEach(cleanup)
 
 const ARGS = JSON.stringify({ questions: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] })
-const READABLE_ARGS = JSON.stringify({ questions: [
-  { id: 'goal', question: 'What do you want to accomplish?' },
-  { id: 'scope', question: 'Which project should this apply to?' },
-  { id: 'notes', question: 'Anything else?' },
-] })
+const READABLE_ARGS = JSON.stringify({
+  questions: [
+    { id: 'goal', question: 'What do you want to accomplish?' },
+    { id: 'scope', question: 'Which project should this apply to?' },
+    { id: 'notes', question: 'Anything else?' },
+  ],
+})
 const PENDING_RESULT = JSON.stringify({ pending: true, callId: 'c1' })
 
 const resultNode = (argsRaw: string, resultText: string | null, over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'ask_user_question', argsRaw } : over.call
   return {
-    kind: 'tool-result', seq: 10, time: 2_000, callTime: 1_000, callId: 'c1',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq: 10,
+    time: 2_000,
+    callTime: 1_000,
+    callId: 'c1',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     content: resultText === null ? [] : [{ type: 'text', text: resultText }],
-    isError: false, subCalls: [], ...over,
+    isError: false,
+    subCalls: [],
+    ...over,
   }
 }
 
-const runningCall = (argsRaw: string): ToolCallBlock =>
-  ({ phase: 'start', args: PartialArguments.fromText(argsRaw), callId: 'c1', name: 'ask_user_question', argsRaw, turn: 1, step: 1, time: 1_000, subCalls: [] })
+const runningCall = (argsRaw: string): ToolCallBlock => ({
+  phase: 'start',
+  args: PartialArguments.fromText(argsRaw),
+  callId: 'c1',
+  name: 'ask_user_question',
+  argsRaw,
+  turn: 1,
+  step: 1,
+  time: 1_000,
+  subCalls: [],
+})
 
 const t = makeTranslate(zh, commonZh)
 
@@ -66,10 +84,12 @@ function rowProps(block: ToolCallBlock, env: RowEnvironment = {}): Parameters<ty
     active: (env.answerable ?? []).map(callId => ({ callId })),
     settled: Object.entries(env.settled ?? {}).map(([callId, answers]) => ({ callId, answers })),
   }
-  const useProjection = (key: string, select: (value: unknown) => unknown) =>
-    select(key === 'inbox' ? env.inbox : view)
+  const useProjection = (key: string, select: (value: unknown) => unknown) => select(key === 'inbox' ? env.inbox : view)
   const props = {
-    useDisclosure, callId: 'c1', toolName: 'ask_user_question', t,
+    useDisclosure,
+    callId: 'c1',
+    toolName: 'ask_user_question',
+    t,
     ...('kind' in block ? { phase: 'result', block } : { phase: block.phase, block }),
     openFile: vi.fn(),
     loadImage: vi.fn(async () => ''),
@@ -87,9 +107,17 @@ const answers = (entries: unknown[]): string => JSON.stringify({ answers: entrie
 
 const queuedReply = (callId: string, entries: unknown[]): unknown => ({
   source: { kind: 'user-question-reply', callId, outcome: 'answered' },
-  content: [{ type: 'text', text: JSON.stringify({
-    kind: 'answer_to_pending_question', tool: 'ask_user_question', callId, answers: entries,
-  }) }],
+  content: [
+    {
+      type: 'text',
+      text: JSON.stringify({
+        kind: 'answer_to_pending_question',
+        tool: 'ask_user_question',
+        callId,
+        answers: entries,
+      }),
+    },
+  ],
 })
 
 /** Every pill the row can offer, by its visible copy. */
@@ -150,10 +178,7 @@ describe('AskQuestionRow', () => {
 
   it('a pending row keeps the disclosure on its leading glyph while the body reopens the panel', () => {
     const revealPanel = vi.fn(() => true)
-    const view = render(<AskQuestionRow {...rowProps(
-      resultNode(READABLE_ARGS, PENDING_RESULT),
-      { answerable: ['c1'], revealPanel },
-    )} />)
+    const view = render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, PENDING_RESULT), { answerable: ['c1'], revealPanel })} />)
 
     expect(view.container.querySelector('[data-disclosure-row]')?.getAttribute('role')).toBeNull()
 
@@ -175,14 +200,16 @@ describe('AskQuestionRow', () => {
       { id: 'scope', selected: [], custom: 'the web app' },
       { id: 'notes', selected: [] },
     ]
-    render(<AskQuestionRow {...rowProps(
-      resultNode(READABLE_ARGS, PENDING_RESULT),
-      {
-        answerable: ['c1'],
-        inbox: { 'next-step': [queuedReply('other', batch), queuedReply('c1', batch)], 'next-turn': [] },
-        revealPanel, reviewPanel,
-      },
-    )} />)
+    render(
+      <AskQuestionRow
+        {...rowProps(resultNode(READABLE_ARGS, PENDING_RESULT), {
+          answerable: ['c1'],
+          inbox: { 'next-step': [queuedReply('other', batch), queuedReply('c1', batch)], 'next-turn': [] },
+          revealPanel,
+          reviewPanel,
+        })}
+      />,
+    )
 
     expect(screen.getByText('2/3 已回答')).toBeTruthy()
     expect(screen.queryByRole('button', { name: PILL.reopen })).toBeNull()
@@ -200,25 +227,41 @@ describe('AskQuestionRow', () => {
       { id: 'scope', selected: [] },
       { id: 'notes', selected: [] },
     ]
-    const view = render(<AskQuestionRow {...rowProps(block, {
-      answerable: ['c1'], inbox: { 'next-step': [], 'next-turn': [queuedReply('c1', batch)] },
-    })} />)
+    const view = render(
+      <AskQuestionRow
+        {...rowProps(block, {
+          answerable: ['c1'],
+          inbox: { 'next-step': [], 'next-turn': [queuedReply('c1', batch)] },
+        })}
+      />,
+    )
     expect(screen.getByRole('button', { name: PILL.review })).toBeTruthy()
 
-    view.rerender(<AskQuestionRow {...rowProps(block, {
-      answerable: ['c1'], inbox: { 'next-step': [], 'next-turn': [] },
-    })} />)
+    view.rerender(
+      <AskQuestionRow
+        {...rowProps(block, {
+          answerable: ['c1'],
+          inbox: { 'next-step': [], 'next-turn': [] },
+        })}
+      />,
+    )
     expect(screen.getByRole('button', { name: PILL.reopen })).toBeTruthy()
     expect(screen.queryByRole('button', { name: PILL.review })).toBeNull()
   })
 
   it('does not lock a question for an unrelated or malformed queued message', () => {
-    const bad = { source: { kind: 'user-question-reply', callId: 'c1' }, content: [
-      { type: 'text', text: JSON.stringify({ kind: 'wrong', callId: 'c1', answers: [] }) },
-    ] }
-    render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, PENDING_RESULT), {
-      answerable: ['c1'], inbox: { 'next-step': [queuedReply('other', [])], 'next-turn': [bad] },
-    })} />)
+    const bad = {
+      source: { kind: 'user-question-reply', callId: 'c1' },
+      content: [{ type: 'text', text: JSON.stringify({ kind: 'wrong', callId: 'c1', answers: [] }) }],
+    }
+    render(
+      <AskQuestionRow
+        {...rowProps(resultNode(READABLE_ARGS, PENDING_RESULT), {
+          answerable: ['c1'],
+          inbox: { 'next-step': [queuedReply('other', [])], 'next-turn': [bad] },
+        })}
+      />,
+    )
     expect(screen.getByRole('button', { name: PILL.reopen })).toBeTruthy()
     expect(screen.queryByRole('button', { name: PILL.review })).toBeNull()
   })
@@ -227,10 +270,7 @@ describe('AskQuestionRow', () => {
     // The pill is a button inside the row's own button: without the keydown
     // guard, one Enter would both reopen the panel and expand the record.
     const revealPanel = vi.fn(() => true)
-    render(<AskQuestionRow {...rowProps(
-      resultNode(READABLE_ARGS, PENDING_RESULT),
-      { answerable: ['c1'], revealPanel },
-    )} />)
+    render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, PENDING_RESULT), { answerable: ['c1'], revealPanel })} />)
     fireEvent.keyDown(screen.getByRole('button', { name: PILL.reopen }), { key: 'Enter' })
     expect(screen.getByRole('button', { expanded: false })).toBeTruthy()
   })
@@ -239,10 +279,7 @@ describe('AskQuestionRow', () => {
     // The projection lists the call but no card answers for it — a resumed
     // Session before its repair pass, or a composition with no question UI.
     const revealPanel = vi.fn(() => false)
-    render(<AskQuestionRow {...rowProps(
-      resultNode(READABLE_ARGS, PENDING_RESULT),
-      { answerable: ['c1'], revealPanel },
-    )} />)
+    render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, PENDING_RESULT), { answerable: ['c1'], revealPanel })} />)
 
     fireEvent.click(screen.getByRole('button', { name: PILL.reopen }))
     expect(revealPanel).toHaveBeenCalledWith('c1')
@@ -267,7 +304,8 @@ describe('AskQuestionRow', () => {
   it('reopens a crash-repaired question while the projection still lists it', () => {
     const revealPanel = vi.fn(() => true)
     const repaired = resultNode(READABLE_ARGS, 'The tool call was interrupted after it was recorded.', {
-      isError: true, error: { name: 'SessionFormatError', code: 'TOOL_OUTCOME_UNKNOWN' },
+      isError: true,
+      error: { name: 'SessionFormatError', code: 'TOOL_OUTCOME_UNKNOWN' },
     })
     render(<AskQuestionRow {...rowProps(repaired, { answerable: ['c1'], revealPanel })} />)
 
@@ -284,7 +322,8 @@ describe('AskQuestionRow', () => {
       { id: 'notes', selected: [] },
     ]
     const repaired = resultNode(READABLE_ARGS, 'The tool call was interrupted after it was recorded.', {
-      isError: true, error: { name: 'SessionFormatError', code: 'TOOL_OUTCOME_UNKNOWN' },
+      isError: true,
+      error: { name: 'SessionFormatError', code: 'TOOL_OUTCOME_UNKNOWN' },
     })
     render(<AskQuestionRow {...rowProps(repaired, { settled: { c1: batch }, reviewPanel })} />)
 
@@ -296,7 +335,8 @@ describe('AskQuestionRow', () => {
   it('shows an unreadable late reply after crash repair as closed', () => {
     const reviewPanel = vi.fn(() => true)
     const repaired = resultNode(READABLE_ARGS, 'The tool call was interrupted after it was recorded.', {
-      isError: true, error: { name: 'SessionFormatError', code: 'TOOL_OUTCOME_UNKNOWN' },
+      isError: true,
+      error: { name: 'SessionFormatError', code: 'TOOL_OUTCOME_UNKNOWN' },
     })
     render(<AskQuestionRow {...rowProps(repaired, { settled: { c1: [] }, reviewPanel })} />)
 
@@ -315,10 +355,7 @@ describe('AskQuestionRow', () => {
       { id: 'scope', selected: [], custom: 'the web app' },
       { id: 'notes', selected: [] },
     ]
-    render(<AskQuestionRow {...rowProps(
-      resultNode(READABLE_ARGS, PENDING_RESULT),
-      { settled: { c1: answered }, reviewPanel },
-    )} />)
+    render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, PENDING_RESULT), { settled: { c1: answered }, reviewPanel })} />)
 
     expect(screen.getByText('2/3 已回答')).toBeTruthy()
     expect(screen.queryByText('已结束')).toBeNull()
@@ -349,10 +386,14 @@ describe('AskQuestionRow', () => {
   })
 
   it('a still-answerable row keeps its reopen pill even after another call was settled', () => {
-    render(<AskQuestionRow {...rowProps(
-      resultNode(READABLE_ARGS, PENDING_RESULT),
-      { answerable: ['c1'], settled: { other: [{ id: 'goal', selected: ['x'] }] } },
-    )} />)
+    render(
+      <AskQuestionRow
+        {...rowProps(resultNode(READABLE_ARGS, PENDING_RESULT), {
+          answerable: ['c1'],
+          settled: { other: [{ id: 'goal', selected: ['x'] }] },
+        })}
+      />,
+    )
     expect(screen.getByRole('button', { name: PILL.reopen })).toBeTruthy()
     expect(screen.queryByRole('button', { name: PILL.review })).toBeNull()
   })
@@ -363,19 +404,25 @@ describe('AskQuestionRow', () => {
   })
 
   it('settled result counts answered entries (selected choices or custom text)', () => {
-    render(<AskQuestionRow {...rowProps(resultNode(ARGS, answers([
-      { id: 'a', selected: ['x'] },
-      { id: 'b', selected: [], custom: 'freeform' },
-      { id: 'c', selected: ['y', 'z'], custom: '' },
-    ])))} />)
+    render(
+      <AskQuestionRow
+        {...rowProps(
+          resultNode(
+            ARGS,
+            answers([
+              { id: 'a', selected: ['x'] },
+              { id: 'b', selected: [], custom: 'freeform' },
+              { id: 'c', selected: ['y', 'z'], custom: '' },
+            ]),
+          ),
+        )}
+      />,
+    )
     expect(screen.getByText('3/3 已回答')).toBeTruthy()
   })
 
   it('shows a pending result as readable still-answerable questions', () => {
-    const view = render(<AskQuestionRow {...rowProps(
-      resultNode(READABLE_ARGS, PENDING_RESULT),
-      { answerable: ['c1'] },
-    )} />)
+    const view = render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, PENDING_RESULT), { answerable: ['c1'] })} />)
 
     expect(screen.getByText('已继续工作，仍可回答')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { expanded: false }))
@@ -386,11 +433,20 @@ describe('AskQuestionRow', () => {
   })
 
   it('expands a successful result as paired questions and readable answer lines', () => {
-    render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, answers([
-      { id: 'scope', selected: ['deepseek-harness'] },
-      { id: 'goal', selected: ['Develop a feature'], custom: 'Keep the API small' },
-      { id: 'notes', selected: [] },
-    ])))} />)
+    render(
+      <AskQuestionRow
+        {...rowProps(
+          resultNode(
+            READABLE_ARGS,
+            answers([
+              { id: 'scope', selected: ['deepseek-harness'] },
+              { id: 'goal', selected: ['Develop a feature'], custom: 'Keep the API small' },
+              { id: 'notes', selected: [] },
+            ]),
+          ),
+        )}
+      />,
+    )
 
     fireEvent.click(screen.getByRole('button', { expanded: false }))
 
@@ -406,31 +462,34 @@ describe('AskQuestionRow', () => {
   })
 
   it('a timed call the projection settled in time offers its record as a read-only panel, options included', () => {
-    const args = JSON.stringify({ questions: [{
-      id: 'goal',
-      question: 'What do you want to accomplish?',
-      header: 'Goal',
-      detail: 'Pick the closest match.',
-      multi_select: false,
-      options: [{ label: 'Develop a feature', description: 'New behavior' }, { label: 'Fix a bug' }],
-    }] })
+    const args = JSON.stringify({
+      questions: [
+        {
+          id: 'goal',
+          question: 'What do you want to accomplish?',
+          header: 'Goal',
+          detail: 'Pick the closest match.',
+          multi_select: false,
+          options: [{ label: 'Develop a feature', description: 'New behavior' }, { label: 'Fix a bug' }],
+        },
+      ],
+    })
     const reviewPanel = vi.fn(() => true)
     const batch = [{ id: 'goal', selected: ['Fix a bug'] }]
-    render(<AskQuestionRow {...rowProps(
-      resultNode(args, answers(batch)),
-      { settled: { c1: batch }, reviewPanel },
-    )} />)
+    render(<AskQuestionRow {...rowProps(resultNode(args, answers(batch)), { settled: { c1: batch }, reviewPanel })} />)
 
     fireEvent.click(screen.getByRole('button', { name: PILL.review }))
     expect(reviewPanel).toHaveBeenCalledWith('c1', {
-      questions: [{
-        id: 'goal',
-        question: 'What do you want to accomplish?',
-        header: 'Goal',
-        detail: 'Pick the closest match.',
-        multiSelect: false,
-        options: [{ label: 'Develop a feature', description: 'New behavior' }, { label: 'Fix a bug' }],
-      }],
+      questions: [
+        {
+          id: 'goal',
+          question: 'What do you want to accomplish?',
+          header: 'Goal',
+          detail: 'Pick the closest match.',
+          multiSelect: false,
+          options: [{ label: 'Develop a feature', description: 'New behavior' }, { label: 'Fix a bug' }],
+        },
+      ],
       answers: batch,
     })
   })
@@ -438,11 +497,20 @@ describe('AskQuestionRow', () => {
   it('an answered legacy call reads exactly as before timed questions existed: transcript, no pill', () => {
     // The projection never lists a call the blocking legacy tool made, so the
     // row has nothing to reopen and no panel to read the answers back in.
-    const view = render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, answers([
-      { id: 'goal', selected: ['Develop a feature'] },
-      { id: 'scope', selected: [], custom: 'the web app' },
-      { id: 'notes', selected: [] },
-    ])))} />)
+    const view = render(
+      <AskQuestionRow
+        {...rowProps(
+          resultNode(
+            READABLE_ARGS,
+            answers([
+              { id: 'goal', selected: ['Develop a feature'] },
+              { id: 'scope', selected: [], custom: 'the web app' },
+              { id: 'notes', selected: [] },
+            ]),
+          ),
+        )}
+      />,
+    )
 
     expect(screen.getByText('2/3 已回答')).toBeTruthy()
     expect(screen.queryByRole('button', { name: PILL.review })).toBeNull()
@@ -462,18 +530,27 @@ describe('AskQuestionRow', () => {
 
   it.each([
     { label: 'fewer answers than questions', batch: [{ id: 'goal', selected: ['x'] }] },
-    { label: 'an answer to a question never asked', batch: [
-      { id: 'goal', selected: ['x'] }, { id: 'scope', selected: [] }, { id: 'other', selected: ['y'] },
-    ] },
-    { label: 'the same question answered twice', batch: [
-      { id: 'goal', selected: ['x'] }, { id: 'goal', selected: ['y'] }, { id: 'notes', selected: [] },
-    ] },
+    {
+      label: 'an answer to a question never asked',
+      batch: [
+        { id: 'goal', selected: ['x'] },
+        { id: 'scope', selected: [] },
+        { id: 'other', selected: ['y'] },
+      ],
+    },
+    {
+      label: 'the same question answered twice',
+      batch: [
+        { id: 'goal', selected: ['x'] },
+        { id: 'goal', selected: ['y'] },
+        { id: 'notes', selected: [] },
+      ],
+    },
   ])('a settled batch with $label offers no panel, like the transcript it cannot pair', ({ batch }) => {
     const reviewPanel = vi.fn(() => true)
-    const view = render(<AskQuestionRow {...rowProps(
-      resultNode(READABLE_ARGS, answers(batch)),
-      { settled: { c1: batch }, reviewPanel },
-    )} />)
+    const view = render(
+      <AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, answers(batch)), { settled: { c1: batch }, reviewPanel })} />,
+    )
     expect(screen.queryByRole('button', { name: PILL.review })).toBeNull()
     fireEvent.click(screen.getByRole('button', { expanded: false }))
     expect(view.container.querySelector('[class*="ioCard"]')).not.toBeNull()
@@ -484,8 +561,7 @@ describe('AskQuestionRow', () => {
     { label: 'a cancelled set', code: 'ASK_CANCELLED' },
     { label: 'an aborted turn', code: 'ASK_ABORTED' },
   ])('$label has no answers to review', ({ code }) => {
-    render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, null,
-      { isError: true, error: { name: 'UserQuestionError', code } }))} />)
+    render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, null, { isError: true, error: { name: 'UserQuestionError', code } }))} />)
     expect(screen.queryByRole('button', { name: PILL.review })).toBeNull()
     expect(screen.queryByRole('button', { name: PILL.reopen })).toBeNull()
   })
@@ -496,12 +572,18 @@ describe('AskQuestionRow', () => {
       { id: 'scope', selected: ['deepseek-harness'] },
       { id: 'notes', selected: [] },
     ])
-    const view = render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, resultText, {
-      content: [
-        { type: 'text', text: resultText },
-        { type: 'reasoning', text: 'unexpected diagnostic' },
-      ],
-    }))} />)
+    const view = render(
+      <AskQuestionRow
+        {...rowProps(
+          resultNode(READABLE_ARGS, resultText, {
+            content: [
+              { type: 'text', text: resultText },
+              { type: 'reasoning', text: 'unexpected diagnostic' },
+            ],
+          }),
+        )}
+      />,
+    )
 
     expect(screen.getByText(READABLE_ARGS)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { expanded: false }))
@@ -511,11 +593,11 @@ describe('AskQuestionRow', () => {
   })
 
   it('skipped questions (no selection, no custom) stay out of the answered count', () => {
-    const view = render(<AskQuestionRow {...rowProps(resultNode(ARGS, answers([
-      { id: 'a', selected: ['x'] },
-      { id: 'b', selected: [], custom: '' },
-      { id: 'c' },
-    ])))} />)
+    const view = render(
+      <AskQuestionRow
+        {...rowProps(resultNode(ARGS, answers([{ id: 'a', selected: ['x'] }, { id: 'b', selected: [], custom: '' }, { id: 'c' }])))}
+      />,
+    )
     expect(screen.getByText('1/3 已回答')).toBeTruthy()
     expect(view.container.querySelector('[data-state="ok"]')).not.toBeNull()
   })
@@ -553,21 +635,28 @@ describe('AskQuestionRow', () => {
     { label: 'duplicate question ids', args: '{"questions":[{"id":"a","question":"Q1"},{"id":"a","question":"Q2"}]}' },
     { label: 'different question count', args: '{"questions":[]}' },
   ])('keeps raw details when answer pairing sees $label', ({ args }) => {
-    const view = render(<AskQuestionRow {...rowProps(resultNode(args, answers([
-      { id: 'a', selected: ['x'] },
-    ])))} />)
+    const view = render(<AskQuestionRow {...rowProps(resultNode(args, answers([{ id: 'a', selected: ['x'] }])))} />)
     expect(screen.getByText('1/1 已回答')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { expanded: false }))
     expect(view.container.querySelector('[class*="ioCard"]')).not.toBeNull()
   })
 
   it.each([
-    { label: 'duplicate answer ids', values: [{ id: 'a', selected: ['x'] }, { id: 'a', selected: ['y'] }] },
+    {
+      label: 'duplicate answer ids',
+      values: [
+        { id: 'a', selected: ['x'] },
+        { id: 'a', selected: ['y'] },
+      ],
+    },
     { label: 'unknown answer id', values: [{ id: 'other', selected: ['x'] }] },
   ])('keeps raw details for $label', ({ values }) => {
-    const args = JSON.stringify({ questions: values.map((_, index) => ({
-      id: String.fromCharCode(97 + index), question: `Question ${String(index + 1)}`,
-    })) })
+    const args = JSON.stringify({
+      questions: values.map((_, index) => ({
+        id: String.fromCharCode(97 + index),
+        question: `Question ${String(index + 1)}`,
+      })),
+    })
     const view = render(<AskQuestionRow {...rowProps(resultNode(args, answers(values)))} />)
     fireEvent.click(screen.getByRole('button', { expanded: false }))
     expect(view.container.querySelector('[class*="ioCard"]')).not.toBeNull()
@@ -575,8 +664,11 @@ describe('AskQuestionRow', () => {
 
   it('user cancellation shows the original questions without raw JSON or an error body', () => {
     // ASK_CANCELLED: the ask_user_question handler's cancel error.
-    const view = render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, null,
-      { isError: true, error: { name: 'UserQuestionError', code: 'ASK_CANCELLED' } }))} />)
+    const view = render(
+      <AskQuestionRow
+        {...rowProps(resultNode(READABLE_ARGS, null, { isError: true, error: { name: 'UserQuestionError', code: 'ASK_CANCELLED' } }))}
+      />,
+    )
     expect(screen.getByText('已取消')).toBeTruthy()
     expect(view.container.querySelector('[data-state="ok"]')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { expanded: false }))
@@ -591,8 +683,11 @@ describe('AskQuestionRow', () => {
 
   it('a turn abort shows the original questions with stopped semantics', () => {
     // ASK_ABORTED: the ask handler's turn-abort settlement.
-    const view = render(<AskQuestionRow {...rowProps(resultNode(READABLE_ARGS, null,
-      { isError: true, error: { name: 'UserQuestionError', code: 'ASK_ABORTED' } }))} />)
+    const view = render(
+      <AskQuestionRow
+        {...rowProps(resultNode(READABLE_ARGS, null, { isError: true, error: { name: 'UserQuestionError', code: 'ASK_ABORTED' } }))}
+      />,
+    )
     expect(screen.getByText('已中断')).toBeTruthy()
     expect(view.container.querySelector('[data-state="stopped"]')).not.toBeNull()
     fireEvent.click(screen.getByRole('button', { expanded: false }))
@@ -606,16 +701,20 @@ describe('AskQuestionRow', () => {
     { label: 'an empty question set', args: '{"questions":[]}' },
     { label: 'a question without visible text', args: '{"questions":[{"id":"a"}]}' },
   ])('cancelled result keeps raw diagnostics for $label', ({ args }) => {
-    const view = render(<AskQuestionRow {...rowProps(resultNode(args, null,
-      { isError: true, error: { name: 'UserQuestionError', code: 'ASK_CANCELLED' } }))} />)
+    const view = render(
+      <AskQuestionRow
+        {...rowProps(resultNode(args, null, { isError: true, error: { name: 'UserQuestionError', code: 'ASK_CANCELLED' } }))}
+      />,
+    )
     expect(screen.getByText('已取消')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { expanded: false }))
     expect(view.container.querySelector('[class*="ioCard"]')).not.toBeNull()
   })
 
   it('an interrupted turn reads as stopped, not cancelled', () => {
-    const view = render(<AskQuestionRow {...rowProps(resultNode(ARGS, null,
-      { isError: true, error: { name: 'Interrupted', code: 'interrupted' } }))} />)
+    const view = render(
+      <AskQuestionRow {...rowProps(resultNode(ARGS, null, { isError: true, error: { name: 'Interrupted', code: 'interrupted' } }))} />,
+    )
     expect(view.container.querySelector('[data-state="stopped"]')).not.toBeNull()
     expect(view.container.querySelector('[data-state="stopped"] svg')).not.toBeNull()
     expect(screen.queryByText('已取消')).toBeNull()
@@ -649,7 +748,9 @@ describe('AskQuestionRow', () => {
     expect(inject).toHaveBeenCalledWith('tool.call.toolview', expect.any(Function))
     expect(register).toHaveBeenCalledWith(
       {
-        name: 'tool.call.toolview', key: 'ask_user_question', locale: 'conversation',
+        name: 'tool.call.toolview',
+        key: 'ask_user_question',
+        locale: 'conversation',
         inject: expect.any(Function) as ToolviewDeclaration['inject'],
       },
       AskQuestionRow,

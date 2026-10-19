@@ -32,11 +32,18 @@ export function assertSessionWireEvent(value: unknown): asserts value is Session
     }
   }
   const seq = event['seq']
-  if (typeof event['type'] !== 'string'
-    || typeof seq !== 'number' || !Number.isSafeInteger(seq) || seq < 0 || Object.is(seq, -0)
-    || typeof event['time'] !== 'number' || !Number.isSafeInteger(event['time'])
-    || !Object.hasOwn(event, 'data') || event['data'] === undefined
-    || (Object.hasOwn(event, 'ignorable') && event['ignorable'] !== true)) {
+  if (
+    typeof event['type'] !== 'string' ||
+    typeof seq !== 'number' ||
+    !Number.isSafeInteger(seq) ||
+    seq < 0 ||
+    Object.is(seq, -0) ||
+    typeof event['time'] !== 'number' ||
+    !Number.isSafeInteger(event['time']) ||
+    !Object.hasOwn(event, 'data') ||
+    event['data'] === undefined ||
+    (Object.hasOwn(event, 'ignorable') && event['ignorable'] !== true)
+  ) {
     throw new Error(`${subject} has an invalid envelope`)
   }
   // Event names and payloads are merge-extensible; only event-local owner rules run here.

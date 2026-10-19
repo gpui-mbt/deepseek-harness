@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createScope, scopeOf } from '@deepseek-ai/dsh-scope'
 import type { Scope, ScopeKey } from '@deepseek-ai/dsh-scope'
@@ -15,8 +15,14 @@ async function mintScope(ctx: Context, name: string): Promise<Scope> {
   let scope!: Scope
   // The scoped context resolves services through the MINTING plugin's
   // dependency chain — the minter must inject what scope holders will reach.
-  await ctx.plugin(Object.assign((inner: Context) => { scope = createScope(inner, { name }) },
-    { inject: ['systemPrompt'] }))
+  await ctx.plugin(
+    Object.assign(
+      (inner: Context) => {
+        scope = createScope(inner, { name })
+      },
+      { inject: ['systemPrompt'] },
+    ),
+  )
   return scope
 }
 
@@ -77,7 +83,6 @@ describe('scoped sections', () => {
     expect(globalText).not.toHaveBeenCalled()
     expect(scopedText).toHaveBeenCalledOnce()
   })
-
 })
 
 describe('scoped variables', () => {
@@ -131,16 +136,15 @@ describe('scoped cache-safe context', () => {
     const scope = await mintScope(ctx, 'child-context')
     ctx.systemPrompt.context({ name: 'policy', order: 1, text: 'global policy' })
     scope.ctx.systemPrompt.context({ name: 'policy', order: 1, text: 'scoped policy' })
-    expect(() => scope.ctx.systemPrompt.context({ name: 'policy', order: 2, text: 'duplicate' }))
-      .toThrow('prompt context "policy" is already registered in this scope')
+    expect(() => scope.ctx.systemPrompt.context({ name: 'policy', order: 2, text: 'duplicate' })).toThrow(
+      'prompt context "policy" is already registered in this scope',
+    )
 
-    expect(renderContextSnapshot(await ctx.systemPrompt.assemble({ scope: scopeKeyOf(scope) })))
-      .toContain('scoped policy')
+    expect(renderContextSnapshot(await ctx.systemPrompt.assemble({ scope: scopeKeyOf(scope) }))).toContain('scoped policy')
     expect(renderContextSnapshot(await ctx.systemPrompt.assemble())).toContain('global policy')
 
     await scope.dispose()
-    expect(renderContextSnapshot(await ctx.systemPrompt.assemble({ scope: scopeKeyOf(scope) })))
-      .toContain('global policy')
+    expect(renderContextSnapshot(await ctx.systemPrompt.assemble({ scope: scopeKeyOf(scope) }))).toContain('global policy')
   })
 
   it('suppresses all context for one scope and restores it when disposed', async () => {
@@ -156,8 +160,7 @@ describe('scoped cache-safe context', () => {
     expect(renderContextSnapshot(global)).toContain('global policy')
 
     dispose()
-    expect(renderContextSnapshot(await ctx.systemPrompt.assemble({ scope: key })))
-      .toContain('global policy')
+    expect(renderContextSnapshot(await ctx.systemPrompt.assemble({ scope: key }))).toContain('global policy')
   })
 })
 
@@ -225,8 +228,7 @@ describe('scoped assemble dispatch', () => {
     }
   })
 
-
-  it('an agent.ctx assemble listener shapes only its own scope\'s assemblies', async () => {
+  it("an agent.ctx assemble listener shapes only its own scope's assemblies", async () => {
     const ctx = await mount()
     const scope = await mintScope(ctx, 'child')
     const shaped: (ScopeKey | undefined)[] = []
@@ -243,5 +245,4 @@ describe('scoped assemble dispatch', () => {
     expect(global.sections.some(s => s.name === 'listener:extra')).toBe(false)
     expect(shaped).toHaveLength(1)
   })
-
 })

@@ -4,7 +4,12 @@ import { accessSync, constants, readFileSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseEnv } from 'node:util'
-import { resolveDesktopAppId, resolveMacOSNotarizationEnvironment, resolveMacOSSigningEnvironment, resolveNpmRegistry } from './desktop-release-environment.mjs'
+import {
+  resolveDesktopAppId,
+  resolveMacOSNotarizationEnvironment,
+  resolveMacOSSigningEnvironment,
+  resolveNpmRegistry,
+} from './desktop-release-environment.mjs'
 import { resolveDesktopAutoUpdateConfig } from './desktop-auto-update-environment.mjs'
 import { createWindowsTokenSigner } from './windows-sign.mjs'
 import { resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
@@ -14,10 +19,14 @@ import { resolveWindowsSignatureCacheDirectory } from './windows-signature-cache
 import { resolveWindowsPackageSettings } from './windows-package-settings.mjs'
 
 const APP_ROOT = fileURLToPath(new URL('..', import.meta.url))
-const SHARED_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|NPM_REGISTRY|MANDATORY_UPDATE_(?:CONFIG|(?:TEST|PROD)_ORIGIN))|DOWNLOAD_TEST_RELEASE_ID|DOWNLOAD_(?:TEST|PROD)_(?:ORIGIN|COS_BUCKET|COS_SECRET_ID|COS_SECRET_KEY))$/u
-const WINDOWS_SETTING = /^DSH_DESKTOP_WINDOWS_(?:CER_FILE|SIGNTOOL|KEY_CONTAINER|TOKEN_PIN|SIGNATURE_CACHE_DIR|SIGNATURE_CACHE_CONCURRENCY)$/u
-const MACOS_SETTING = /^(?:DSH_DESKTOP_MACOS_(?:SIGNING_IDENTITY|TEAM_ID|SIGNATURE_CACHE_DIR|PACK_CONCURRENCY|DOWNLOAD_PROXY|NOTARIZATION_PROXY)|APPLE_(?:API_KEY|API_KEY_ID|API_ISSUER|ID|APP_SPECIFIC_PASSWORD|TEAM_ID|KEYCHAIN|KEYCHAIN_PROFILE)|CSC_(?:LINK|KEY_PASSWORD))$/u
-const AMBIENT_RELEASE_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|MANDATORY_UPDATE_.*|WINDOWS_.*|MACOS_.*)|APPLE_.*|(?:WIN_)?CSC_.*|DOWNLOAD_(?:TEST|PROD)_.*)$/iu
+const SHARED_SETTING =
+  /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|NPM_REGISTRY|MANDATORY_UPDATE_(?:CONFIG|(?:TEST|PROD)_ORIGIN))|DOWNLOAD_TEST_RELEASE_ID|DOWNLOAD_(?:TEST|PROD)_(?:ORIGIN|COS_BUCKET|COS_SECRET_ID|COS_SECRET_KEY))$/u
+const WINDOWS_SETTING =
+  /^DSH_DESKTOP_WINDOWS_(?:CER_FILE|SIGNTOOL|KEY_CONTAINER|TOKEN_PIN|SIGNATURE_CACHE_DIR|SIGNATURE_CACHE_CONCURRENCY)$/u
+const MACOS_SETTING =
+  /^(?:DSH_DESKTOP_MACOS_(?:SIGNING_IDENTITY|TEAM_ID|SIGNATURE_CACHE_DIR|PACK_CONCURRENCY|DOWNLOAD_PROXY|NOTARIZATION_PROXY)|APPLE_(?:API_KEY|API_KEY_ID|API_ISSUER|ID|APP_SPECIFIC_PASSWORD|TEAM_ID|KEYCHAIN|KEYCHAIN_PROFILE)|CSC_(?:LINK|KEY_PASSWORD))$/u
+const AMBIENT_RELEASE_SETTING =
+  /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|MANDATORY_UPDATE_.*|WINDOWS_.*|MACOS_.*)|APPLE_.*|(?:WIN_)?CSC_.*|DOWNLOAD_(?:TEST|PROD)_.*)$/iu
 const FILE_SETTINGS = ['DSH_DESKTOP_WINDOWS_CER_FILE', 'DSH_DESKTOP_WINDOWS_SIGNTOOL', 'APPLE_API_KEY', 'APPLE_KEYCHAIN', 'CSC_LINK']
 
 /**
@@ -52,26 +61,36 @@ export function loadDesktopPackageEnvironment(platform, environment = process.en
     path = join(root, 'presets', `${preset}.env`)
   }
   const platformSetting = platform === 'win32' ? WINDOWS_SETTING : MACOS_SETTING
-  const publicPlatformSetting = platform === 'win32'
-    ? /^DSH_DESKTOP_WINDOWS_SIGNATURE_CACHE_(?:DIR|CONCURRENCY)$/u
-    : /^DSH_DESKTOP_MACOS_(?:SIGNATURE_CACHE_DIR|PACK_CONCURRENCY|DOWNLOAD_PROXY|NOTARIZATION_PROXY)$/u
-  const settings = readSettings(path, name => preset === undefined
-    ? SHARED_SETTING.test(name) || platformSetting.test(name)
-    : /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|NPM_REGISTRY|MANDATORY_UPDATE_(?:CONFIG|(?:TEST|PROD)_ORIGIN))|DOWNLOAD_TEST_(?:ORIGIN|RELEASE_ID))$/u.test(name) || publicPlatformSetting.test(name))
+  const publicPlatformSetting =
+    platform === 'win32'
+      ? /^DSH_DESKTOP_WINDOWS_SIGNATURE_CACHE_(?:DIR|CONCURRENCY)$/u
+      : /^DSH_DESKTOP_MACOS_(?:SIGNATURE_CACHE_DIR|PACK_CONCURRENCY|DOWNLOAD_PROXY|NOTARIZATION_PROXY)$/u
+  const settings = readSettings(path, name =>
+    preset === undefined
+      ? SHARED_SETTING.test(name) || platformSetting.test(name)
+      : /^(?:DSH_DESKTOP_(?:APP_ID|AUTO_UPDATE_ENV|NPM_REGISTRY|MANDATORY_UPDATE_(?:CONFIG|(?:TEST|PROD)_ORIGIN))|DOWNLOAD_TEST_(?:ORIGIN|RELEASE_ID))$/u.test(
+          name,
+        ) || publicPlatformSetting.test(name),
+  )
   if (preset !== undefined) {
     if (settings.DSH_DESKTOP_AUTO_UPDATE_ENV !== preset) throw new Error('desktop package: preset deployment must match its name')
     if (!options.unsigned && (platform === 'darwin' || !options.prepareOnly)) {
       const filename = platform === 'win32' ? 'windows-signing.env' : 'macos-signing.env'
-      Object.assign(settings, readSettings(join(dirname(dirname(path)), 'secrets', filename),
-        name => platform === 'win32'
-          ? /^DSH_DESKTOP_WINDOWS_(?:CER_FILE|SIGNTOOL|KEY_CONTAINER|TOKEN_PIN)$/u.test(name)
-          : MACOS_SETTING.test(name) && !publicPlatformSetting.test(name)))
+      Object.assign(
+        settings,
+        readSettings(join(dirname(dirname(path)), 'secrets', filename), name =>
+          platform === 'win32'
+            ? /^DSH_DESKTOP_WINDOWS_(?:CER_FILE|SIGNTOOL|KEY_CONTAINER|TOKEN_PIN)$/u.test(name)
+            : MACOS_SETTING.test(name) && !publicPlatformSetting.test(name),
+        ),
+      )
     }
   }
   const releaseId = environment.PACKAGE_TEST_RELEASE_ID?.trim()
   if (releaseId) {
     if (preset !== 'test') throw new Error('desktop package: test release ID override requires the test preset')
-    if (!/^[a-f0-9]{32}$/u.test(releaseId)) throw new Error('desktop package: test release ID must contain 32 lowercase hexadecimal characters')
+    if (!/^[a-f0-9]{32}$/u.test(releaseId))
+      throw new Error('desktop package: test release ID must contain 32 lowercase hexadecimal characters')
     settings.DOWNLOAD_TEST_RELEASE_ID = releaseId
   }
   return {
@@ -92,15 +111,13 @@ function readSettings(path, accepts) {
   let contents
   try {
     contents = readFileSync(path, 'utf8')
-  }
-  catch {
+  } catch {
     throw new Error(`desktop package: cannot read ${path}; copy ${path}.example and fill in the local settings`)
   }
   let settings
   try {
     settings = parseEnv(contents.replace(/^\uFEFF/u, ''))
-  }
-  catch {
+  } catch {
     // Parser diagnostics can contain credential-bearing input.
     throw new Error(`desktop package: invalid dotenv syntax in ${path}`)
   }
@@ -120,8 +137,7 @@ function requireReadableFile(environment, name) {
   try {
     if (!statSync(environment[name]).isFile()) throw new Error('not a file')
     accessSync(environment[name], constants.R_OK)
-  }
-  catch {
+  } catch {
     throw new Error(`desktop package: ${name} must identify a readable local file`)
   }
 }
@@ -142,15 +158,17 @@ export function validateDesktopPackageEnvironment(environment, target, options =
   if (options.unsigned) return
   if (!options.prepareOnly) resolveDesktopAutoUpdateConfig(environment, target.platform, target.arch)
   if (target.platform === 'win32') {
-    if (!options.prepareOnly) createWindowsTokenSigner({
-      certificateFile: environment.DSH_DESKTOP_WINDOWS_CER_FILE,
-      signTool: environment.DSH_DESKTOP_WINDOWS_SIGNTOOL,
-      tokenPin: environment.DSH_DESKTOP_WINDOWS_TOKEN_PIN,
-      keyContainer: environment.DSH_DESKTOP_WINDOWS_KEY_CONTAINER,
-    })
+    if (!options.prepareOnly)
+      createWindowsTokenSigner({
+        certificateFile: environment.DSH_DESKTOP_WINDOWS_CER_FILE,
+        signTool: environment.DSH_DESKTOP_WINDOWS_SIGNTOOL,
+        tokenPin: environment.DSH_DESKTOP_WINDOWS_TOKEN_PIN,
+        keyContainer: environment.DSH_DESKTOP_WINDOWS_KEY_CONTAINER,
+      })
     if (!options.prepareOnly) resolveWindowsSignatureCacheDirectory(environment)
   } else {
-    if (environment.DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR !== undefined) validateMacOSSignatureCacheDirectory(environment.DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR)
+    if (environment.DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR !== undefined)
+      validateMacOSSignatureCacheDirectory(environment.DSH_DESKTOP_MACOS_SIGNATURE_CACHE_DIR)
     resolveMacOSSigningEnvironment(environment)
     if (!options.skipNotarization) {
       const strategies = [
@@ -167,7 +185,9 @@ export function validateDesktopPackageEnvironment(environment, target, options =
     }
     requireReadableFile(environment, 'CSC_LINK')
     if (environment.CSC_KEY_PASSWORD === undefined) {
-      throw new Error('desktop package: CSC_KEY_PASSWORD must be set to the p12 export password (use an explicit empty value for an unencrypted p12)')
+      throw new Error(
+        'desktop package: CSC_KEY_PASSWORD must be set to the p12 export password (use an explicit empty value for an unencrypted p12)',
+      )
     }
   }
 }

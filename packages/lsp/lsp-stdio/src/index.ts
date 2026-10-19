@@ -14,11 +14,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { LspError, LspProviderId } from '@deepseek-ai/dsh-lsp'
-import type {
-  LspProvider,
-  LspProviderQuery,
-  LspQueryResult,
-} from '@deepseek-ai/dsh-lsp'
+import type { LspProvider, LspProviderQuery, LspQueryResult } from '@deepseek-ai/dsh-lsp'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import { abortable, abortError } from './abort.ts'
 import { canonicalizeWorkspace, readHostSource } from './host.ts'
@@ -128,7 +124,7 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   if (entries.length === 0) throw new Error('lsp-stdio: servers must contain at least one server')
 
   const setupAbort = new AbortController()
-  const stopSetupCancellation = ctx.on('internal/plugin', (fiber) => {
+  const stopSetupCancellation = ctx.on('internal/plugin', fiber => {
     // An async plugin callback must observe its own disposal before Cordis can
     // run effect cleanup, because unload otherwise waits for this callback.
     if (fiber === ctx.fiber && fiber.uid === null) {
@@ -143,19 +139,9 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
       if (providerId.trim() === '') throw new Error('lsp-stdio: server ids must be non-empty strings')
       const resolved = rawConfig as ResolvedServerConfig
       validateServerConfig(providerId, resolved)
-      const executable = await ctx.subprocess.resolveExecutable(
-        resolved.command,
-        resolved.env,
-        setupAbort.signal,
-      )
+      const executable = await ctx.subprocess.resolveExecutable(resolved.command, resolved.env, setupAbort.signal)
       setupAbort.signal.throwIfAborted()
-      return new LocalLspProvider(
-        providerId,
-        ctx.fs,
-        resolved,
-        executable,
-        spec => ctx.subprocess.spawn(spec),
-      )
+      return new LocalLspProvider(providerId, ctx.fs, resolved, executable, spec => ctx.subprocess.spawn(spec))
     })
     try {
       return await Promise.all(lookups)
@@ -252,9 +238,7 @@ class LocalLspProvider implements LspProvider {
 
   /** Fuse caller cancellation with provider disposal for every filesystem and protocol await. */
   private querySignal(signal?: AbortSignal): AbortSignal {
-    return signal === undefined
-      ? this.lifetime.signal
-      : AbortSignal.any([signal, this.lifetime.signal])
+    return signal === undefined ? this.lifetime.signal : AbortSignal.any([signal, this.lifetime.signal])
   }
 
   async query(request: LspProviderQuery, signal?: AbortSignal): Promise<LspQueryResult> {
@@ -262,7 +246,10 @@ class LocalLspProvider implements LspProvider {
     this.assertActive(signal)
     const querySignal = this.querySignal(signal)
     const workspaceResult = canonicalizeWorkspace(this.fs, request.workspaceRoot, querySignal)
-    const workspaceLookup = workspaceResult.then(() => undefined, () => undefined)
+    const workspaceLookup = workspaceResult.then(
+      () => undefined,
+      () => undefined,
+    )
     this.workspaceLookups.add(workspaceLookup)
     let workspace: HostWorkspace
     try {
@@ -283,9 +270,7 @@ class LocalLspProvider implements LspProvider {
       let instance = this.instanceFor(workspaceKey, workspace)
       let canRetryTransport = true
       for (;;) {
-        const [queryOutcome] = await Promise.allSettled([
-          instance.query(request, source, querySignal),
-        ])
+        const [queryOutcome] = await Promise.allSettled([instance.query(request, source, querySignal)])
         let teardownOutcome: PromiseSettledResult<void> | undefined
         if (instance.dead) {
           ;[teardownOutcome] = await Promise.allSettled([instance.dispose()])
@@ -294,10 +279,7 @@ class LocalLspProvider implements LspProvider {
         }
         if (teardownOutcome?.status === 'rejected') {
           if (queryOutcome.status === 'rejected') {
-            throw new AggregateError(
-              [queryOutcome.reason, teardownOutcome.reason],
-              'LSP operation and teardown failed',
-            )
+            throw new AggregateError([queryOutcome.reason, teardownOutcome.reason], 'LSP operation and teardown failed')
           }
           throw teardownOutcome.reason
         }
@@ -320,7 +302,12 @@ class LocalLspProvider implements LspProvider {
     const result = abortable(previous, signal).then(run)
     // The tail follows the actual prior work even when this caller aborts its wait. It never rejects,
     // so later callers serialize without inheriting an earlier query's outcome.
-    const tail = previous.then(() => result).then(() => undefined, () => undefined)
+    const tail = previous
+      .then(() => result)
+      .then(
+        () => undefined,
+        () => undefined,
+      )
     this.queues.set(workspace, tail)
     void tail.then(() => {
       if (this.queues.get(workspace) === tail) this.queues.delete(workspace)
@@ -369,11 +356,7 @@ class LocalLspProvider implements LspProvider {
     const draining = [...this.queues.values()]
     const resolving = [...this.workspaceLookups]
     this.instances.clear()
-    const results = await Promise.allSettled([
-      ...live.map(instance => instance.dispose()),
-      ...draining,
-      ...resolving,
-    ])
+    const results = await Promise.allSettled([...live.map(instance => instance.dispose()), ...draining, ...resolving])
     this.queues.clear()
     this.workspaceLookups.clear()
     throwTeardownFailures(results, 'lsp-stdio instance teardown failed')

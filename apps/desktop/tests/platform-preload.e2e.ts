@@ -2,7 +2,7 @@
 import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 
 interface Bridge {
   getAuthToken(): string
@@ -22,7 +22,9 @@ function load(mainFrame: boolean, response: unknown, origin = 'https://platform.
         ipcRenderer: ipc,
       }
     },
-    process: { isMainFrame: mainFrame, argv: ['--dsh-platform-origin=https://platform.deepseek.com'] }, location: new URL('/usage', origin), exports: {},
+    process: { isMainFrame: mainFrame, argv: ['--dsh-platform-origin=https://platform.deepseek.com'] },
+    location: new URL('/usage', origin),
+    exports: {},
   })
   return { bridge: bridges.get('dsh'), invoke, ipc }
 }
@@ -55,7 +57,6 @@ it('exposes no bridge when the document leaves the allowed origin', () => {
   expect(bridge).toBeUndefined()
   expect(invoke).not.toHaveBeenCalled()
 })
-
 
 it('caches language changes before subscription and removes disposed listeners', () => {
   const { bridge, ipc, invoke } = load(true, { origin: 'https://platform.deepseek.com', token: 'fixture-secret', locale: 'zh_CN' })

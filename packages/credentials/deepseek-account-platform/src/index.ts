@@ -7,12 +7,37 @@ import { promises as streamPromises } from 'node:stream'
 import { Context, Service } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { z } from 'zod'
-import { DeepSeekAccount, installAccountTaskCancellation, mergePlatformCookies, platformClientHeaders, platformWireLocale, type AccountBonusBatch, type AccountBonusOrderId, type AccountClientMetadata, type AccountDetails, type AccountUserId, type AccountView, type PlatformSession, type SignInAttemptId, type SignInAttemptView } from '@deepseek-ai/dsh-deepseek-account'
+import {
+  DeepSeekAccount,
+  installAccountTaskCancellation,
+  mergePlatformCookies,
+  platformClientHeaders,
+  platformWireLocale,
+  type AccountBonusBatch,
+  type AccountBonusOrderId,
+  type AccountClientMetadata,
+  type AccountDetails,
+  type AccountUserId,
+  type AccountView,
+  type PlatformSession,
+  type SignInAttemptId,
+  type SignInAttemptView,
+} from '@deepseek-ai/dsh-deepseek-account'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { AuthorizationSession } from '@deepseek-ai/dsh-authorization'
 import { profile, readAccountDetail, readUnnotifiedBonuses, sendBonusNotified } from './details.ts'
 import { revokeAccount, type LogoutRetryPolicy } from './logout.ts'
-import { AccountUnauthorizedError, PlatformAuthError, platformHeaders, platformOrigin, browserUrl, requestPlatform, initialization, exchange, loginOrigin } from './protocol.ts'
+import {
+  AccountUnauthorizedError,
+  PlatformAuthError,
+  platformHeaders,
+  platformOrigin,
+  browserUrl,
+  requestPlatform,
+  initialization,
+  exchange,
+  loginOrigin,
+} from './protocol.ts'
 
 const KEY = credentialKey('deepseek-account-platform', 'default')
 const DEVICE = credentialKey('deepseek-account-platform', 'device')
@@ -116,8 +141,14 @@ export class PlatformAccount extends DeepSeekAccount {
     this.embeddedPageDist = resolved.embeddedPageDist
     this.origin = platformOrigin(resolved.platformOrigin, resolved.allowLoopbackHttp)
     const inference = new URL(resolved.inferenceOrigin)
-    if (!['http:', 'https:'].includes(inference.protocol) || inference.username || inference.password
-      || inference.pathname !== '/' || inference.search || inference.hash) {
+    if (
+      !['http:', 'https:'].includes(inference.protocol) ||
+      inference.username ||
+      inference.password ||
+      inference.pathname !== '/' ||
+      inference.search ||
+      inference.hash
+    ) {
       throw new Error('account: inferenceOrigin must be an HTTP(S) origin without credentials, path, query or fragment')
     }
     this.inferenceOrigin = inference.origin
@@ -133,35 +164,42 @@ export class PlatformAccount extends DeepSeekAccount {
     this.balanceTimeout = resolved.balanceTimeoutMs
     this.attemptTimeout = resolved.attemptTimeoutMs
     this.logoutPolicy = {
-      maxRetries: resolved.logoutMaxRetries, delayMs: resolved.logoutRetryDelayMs, requestTimeoutMs: this.requestTimeout,
+      maxRetries: resolved.logoutMaxRetries,
+      delayMs: resolved.logoutRetryDelayMs,
+      requestTimeoutMs: this.requestTimeout,
     }
     ctx.authorization.registerFlow({
-      key: KEY, label: 'DeepSeek', methods: [{ id: 'browser', label: 'DeepSeek' }],
-      run: (session) => {
+      key: KEY,
+      label: 'DeepSeek',
+      methods: [{ id: 'browser', label: 'DeepSeek' }],
+      run: session => {
         const attempt = this.attempt
         if (attempt === undefined) return Promise.reject(new PlatformAuthError('protocol'))
         attempt.running = this.run(session, attempt)
         return attempt.running
       },
     })
-    ctx.on('credentials/record-updated', (key) => {
+    ctx.on('credentials/record-updated', key => {
       if (key !== KEY) return
       this.invalidateDetails()
       this.changed()
     })
-    ctx.effect(() => async () => {
-      this.closed = true
-      this.logoutLifetime.abort()
-      this.invalidateDetails()
-      const active = this.attempt
-      if (active !== undefined) {
-        if (active.view.phase !== 'committing') active.controller.abort()
-        await active.done
-      }
-      await this.removing
-      await Promise.all(this.revocations)
-      this.changed()
-    }, 'account: active attempt lifetime')
+    ctx.effect(
+      () => async () => {
+        this.closed = true
+        this.logoutLifetime.abort()
+        this.invalidateDetails()
+        const active = this.attempt
+        if (active !== undefined) {
+          if (active.view.phase !== 'committing') active.controller.abort()
+          await active.done
+        }
+        await this.removing
+        await Promise.all(this.revocations)
+        this.changed()
+      },
+      'account: active attempt lifetime',
+    )
   }
 
   async [Service.init](): Promise<void> {
@@ -213,8 +251,12 @@ export class PlatformAccount extends DeepSeekAccount {
     const accountId = await this.currentAccountId(lifetime, stored, headers)
     if (accountId === null) return null
     try {
-      const bonuses = await readUnnotifiedBonuses(this.origin, stored.token,
-        AbortSignal.any([lifetime.signal, AbortSignal.timeout(this.requestTimeout)]), headers)
+      const bonuses = await readUnnotifiedBonuses(
+        this.origin,
+        stored.token,
+        AbortSignal.any([lifetime.signal, AbortSignal.timeout(this.requestTimeout)]),
+        headers,
+      )
       return { accountId, bonuses }
     } catch (error) {
       if (error instanceof AccountUnauthorizedError) {
@@ -233,8 +275,13 @@ export class PlatformAccount extends DeepSeekAccount {
     const current = await this.currentAccountId(lifetime, stored, headers)
     if (current === null || current !== accountId) return false
     try {
-      await sendBonusNotified(this.origin, stored.token, orderId,
-        AbortSignal.any([lifetime.signal, AbortSignal.timeout(this.requestTimeout)]), headers)
+      await sendBonusNotified(
+        this.origin,
+        stored.token,
+        orderId,
+        AbortSignal.any([lifetime.signal, AbortSignal.timeout(this.requestTimeout)]),
+        headers,
+      )
       return true
     } catch (error) {
       if (error instanceof AccountUnauthorizedError) {
@@ -252,8 +299,11 @@ export class PlatformAccount extends DeepSeekAccount {
    * @param headers - client identity headers of the calling operation.
    * @returns the account identity, or null while signed out or after the credential changed.
    */
-  private async currentAccountId(lifetime: AbortController, stored: z.infer<typeof grant>,
-    headers: Record<string, string>): Promise<AccountUserId | null> {
+  private async currentAccountId(
+    lifetime: AbortController,
+    stored: z.infer<typeof grant>,
+    headers: Record<string, string>,
+  ): Promise<AccountUserId | null> {
     // A profile already read for this same captured grant names the account, so a bonus read or
     // acknowledgement reuses it instead of issuing another current query.
     if (this.lastProfile?.token === stored.token) return this.identityOf(this.lastProfile.profile)
@@ -292,10 +342,13 @@ export class PlatformAccount extends DeepSeekAccount {
     return profile.value.id
   }
 
-  private async getDetail<K extends keyof AccountDetails>(field: K, headers: Record<string, string>,
-    captured?: { lifetime: AbortController; stored: z.infer<typeof grant> }): Promise<AccountDetails[K] | null> {
+  private async getDetail<K extends keyof AccountDetails>(
+    field: K,
+    headers: Record<string, string>,
+    captured?: { lifetime: AbortController; stored: z.infer<typeof grant> },
+  ): Promise<AccountDetails[K] | null> {
     const lifetime = captured?.lifetime ?? this.detailsLifetime
-    const stored = captured?.stored ?? await this.readCurrentGrant(lifetime)
+    const stored = captured?.stored ?? (await this.readCurrentGrant(lifetime))
     if (stored === null || lifetime.signal.aborted) return null
     if (field === 'profile' && this.attempt?.initialProfile?.token === stored.token) {
       const initial = this.attempt.initialProfile.value
@@ -303,8 +356,13 @@ export class PlatformAccount extends DeepSeekAccount {
       return initial as AccountDetails[K]
     }
     try {
-      const details = await readAccountDetail(field, this.origin, stored.token,
-        AbortSignal.any([lifetime.signal, AbortSignal.timeout(field === 'balance' ? this.balanceTimeout : this.requestTimeout)]), headers)
+      const details = await readAccountDetail(
+        field,
+        this.origin,
+        stored.token,
+        AbortSignal.any([lifetime.signal, AbortSignal.timeout(field === 'balance' ? this.balanceTimeout : this.requestTimeout)]),
+        headers,
+      )
       return this.detailsLifetime !== lifetime ? null : details
     } catch (_unauthorized) {
       // readAccountDetail exposes only authenticated credential rejection failures.
@@ -338,19 +396,18 @@ export class PlatformAccount extends DeepSeekAccount {
       this.ctx.emit('deepseek-account/signed-out')
       this.changed()
       return this.getState()
-    })().finally(() => { this.removing = undefined })
+    })().finally(() => {
+      this.removing = undefined
+    })
     await this.removing
   }
 
   override async getDeviceIdentity(): Promise<{ deviceId?: string; userId?: AccountUserId; osVersion: string }> {
-    const [record, session] = await Promise.all([
-      this.ctx.credentials.readRecord(DEVICE),
-      this.getPlatformSession(),
-    ])
+    const [record, session] = await Promise.all([this.ctx.credentials.readRecord(DEVICE), this.getPlatformSession()])
     const parsed = record?.kind === 'grant' ? device.safeParse(record.payload) : undefined
     return {
-      ...parsed?.success ? { deviceId: parsed.data.id } : {},
-      ...session?.userId == null ? {} : { userId: session.userId },
+      ...(parsed?.success ? { deviceId: parsed.data.id } : {}),
+      ...(session?.userId == null ? {} : { userId: session.userId }),
       osVersion: deviceOsVersion(),
     }
   }
@@ -363,10 +420,13 @@ export class PlatformAccount extends DeepSeekAccount {
     const requestHeaders = { ...this.accountRequestHeaders }
     // Identity comes from the profile read for this same grant; an unknown ID requires disposable
     // browser storage. A replaced credential never publishes the account its predecessor named.
-    return { origin: this.origin, token: stored.token,
+    return {
+      origin: this.origin,
+      token: stored.token,
       userId: this.lastProfile?.token === stored.token ? this.lastProfile.profile.value.id || null : null,
       ...(this.embeddedPageDist ? { embeddedPageDist: this.embeddedPageDist } : {}),
-      requestHeaders }
+      requestHeaders,
+    }
   }
 
   private async readCurrentGrant(lifetime: AbortController): Promise<z.infer<typeof grant> | null> {
@@ -415,34 +475,42 @@ export class PlatformAccount extends DeepSeekAccount {
       if (this.attempt !== previous) return this.getState()
     }
     const attempt: Attempt = {
-      origin, loginSource,
+      origin,
+      loginSource,
       locale: platformWireLocale(client.locale),
       clientHeaders: platformClientHeaders(this.platform, client),
       view: { id: randomUUID() as SignInAttemptId, phase: 'initializing' },
-      controller: new AbortController(), done: Promise.resolve(), running: Promise.resolve(),
+      controller: new AbortController(),
+      done: Promise.resolve(),
+      running: Promise.resolve(),
     }
     this.attempt = attempt
-    attempt.done = this.ctx.authorization.begin({
-      key: KEY, signal: attempt.controller.signal,
-      interaction: { notify: () => undefined, prompt: () => Promise.reject(new PlatformAuthError('protocol')) },
-    }).then((outcome) => {
-      this.update(attempt, { phase: outcome.status === 'authorized' ? 'succeeded' : 'cancelled' })
-      if (outcome.status === 'authorized' && attempt.completionUrl !== undefined) {
-        attempt.callback?.writeHead(302, { location: attempt.completionUrl, 'cache-control': 'no-store' }).end()
-      } else attempt.callback?.writeHead(204, { 'cache-control': 'no-store' }).end()
-    }).catch((error: unknown) => {
-      const code = error instanceof PlatformAuthError ? error.code : 'protocol'
-      console.error('[deepseek-account] sign-in failed', { errorCode: code })
-      this.update(attempt, { phase: code === 'expired' ? 'expired' : 'failed', errorCode: code })
-      this.finishFailedCallback(attempt)
-    }).then(async () => {
-      // begin() may report cancellation before the HTTP work observes its signal.
-      await attempt.running.catch(() => undefined)
-      if (attempt.callback !== undefined) {
-        await streamPromises.finished(attempt.callback, { cleanup: true }).catch(() => undefined)
-      }
-      await attempt.disposeCallback?.()
-    })
+    attempt.done = this.ctx.authorization
+      .begin({
+        key: KEY,
+        signal: attempt.controller.signal,
+        interaction: { notify: () => undefined, prompt: () => Promise.reject(new PlatformAuthError('protocol')) },
+      })
+      .then(outcome => {
+        this.update(attempt, { phase: outcome.status === 'authorized' ? 'succeeded' : 'cancelled' })
+        if (outcome.status === 'authorized' && attempt.completionUrl !== undefined) {
+          attempt.callback?.writeHead(302, { location: attempt.completionUrl, 'cache-control': 'no-store' }).end()
+        } else attempt.callback?.writeHead(204, { 'cache-control': 'no-store' }).end()
+      })
+      .catch((error: unknown) => {
+        const code = error instanceof PlatformAuthError ? error.code : 'protocol'
+        console.error('[deepseek-account] sign-in failed', { errorCode: code })
+        this.update(attempt, { phase: code === 'expired' ? 'expired' : 'failed', errorCode: code })
+        this.finishFailedCallback(attempt)
+      })
+      .then(async () => {
+        // begin() may report cancellation before the HTTP work observes its signal.
+        await attempt.running.catch(() => undefined)
+        if (attempt.callback !== undefined) {
+          await streamPromises.finished(attempt.callback, { cleanup: true }).catch(() => undefined)
+        }
+        await attempt.disposeCallback?.()
+      })
     this.changed()
     return this.getState()
   }
@@ -476,21 +544,34 @@ export class PlatformAccount extends DeepSeekAccount {
       this.ctx.emit('deepseek-account/signed-out')
       this.changed()
       return this.getState()
-    })().finally(() => { this.removing = undefined })
+    })().finally(() => {
+      this.removing = undefined
+    })
     return this.removing
   }
 
   override async *watch(signal: AbortSignal, includeIdentityChanges = false): AsyncIterable<AccountView> {
     let dirty = true
     let wake: (() => void) | undefined
-    const wakeUp = (): void => { dirty = true; wake?.() }
-    const changed = (identityOnly: boolean): void => { if (!identityOnly || includeIdentityChanges) wakeUp() }
+    const wakeUp = (): void => {
+      dirty = true
+      wake?.()
+    }
+    const changed = (identityOnly: boolean): void => {
+      if (!identityOnly || includeIdentityChanges) wakeUp()
+    }
     this.listeners.add(changed)
     signal.addEventListener('abort', wakeUp, { once: true })
     try {
       while (!this.closed && !signal.aborted) {
-        if (dirty) { dirty = false; yield await this.getState(); continue }
-        await new Promise<void>((resolve) => { wake = resolve })
+        if (dirty) {
+          dirty = false
+          yield await this.getState()
+          continue
+        }
+        await new Promise<void>(resolve => {
+          wake = resolve
+        })
       }
     } finally {
       this.listeners.delete(changed)
@@ -500,8 +581,12 @@ export class PlatformAccount extends DeepSeekAccount {
 
   private revoke(token: string, headers: Record<string, string>): void {
     if (this.closed) return
-    const revocation = revokeAccount(this.origin, token, this.logoutPolicy,
-      this.logoutLifetime.signal, { ...this.requestHeaders, ...headers }).finally(() => { this.revocations.delete(revocation) })
+    const revocation = revokeAccount(this.origin, token, this.logoutPolicy, this.logoutLifetime.signal, {
+      ...this.requestHeaders,
+      ...headers,
+    }).finally(() => {
+      this.revocations.delete(revocation)
+    })
     this.revocations.add(revocation)
   }
 
@@ -511,7 +596,9 @@ export class PlatformAccount extends DeepSeekAccount {
     this.detailsLifetime = new AbortController()
   }
 
-  private changed(identityOnly = false): void { for (const listener of this.listeners) listener(identityOnly) }
+  private changed(identityOnly = false): void {
+    for (const listener of this.listeners) listener(identityOnly)
+  }
 
   private update(attempt: Attempt, value: Partial<SignInAttemptView>): void {
     const { authorizeUrl: _url, ...rest } = attempt.view
@@ -532,36 +619,71 @@ export class PlatformAccount extends DeepSeekAccount {
     const deadline = new AbortController()
     let expiresAt = Date.now() + this.attemptTimeout
     const signal = AbortSignal.any([session.signal, deadline.signal])
-    let timer = setTimeout(() =>{  deadline.abort() }, this.attemptTimeout)
-    const abort = (): void => { code.reject(new PlatformAuthError('expired')) }
+    let timer = setTimeout(() => {
+      deadline.abort()
+    }, this.attemptTimeout)
+    const abort = (): void => {
+      code.reject(new PlatformAuthError('expired'))
+    }
     signal.addEventListener('abort', abort, { once: true })
     try {
-      attempt.disposeCallback = this.ctx.effect(() => webServer.register({
-        kind: 'exact', path: '/oauth/callback', handler: (req, res) => {
-          let url: URL
-          try { url = new URL(req.url ?? '/', 'http://127.0.0.1') }
-          catch { res.writeHead(400, { 'cache-control': 'no-store' }).end(); return }
-          const receivedCode = url.searchParams.get('code')
-          const receivedState = url.searchParams.get('state') ?? ''
-          const validState = Buffer.byteLength(receivedState) === Buffer.byteLength(state)
-            && timingSafeEqual(Buffer.from(receivedState), Buffer.from(state))
-          if (req.method !== 'GET' || url.pathname !== '/oauth/callback' || !validState || !receivedCode
-            || url.searchParams.getAll('state').length !== 1 || url.searchParams.getAll('code').length !== 1) {
-            res.writeHead(400, { 'cache-control': 'no-store' }).end(); return
-          }
-          if (signal.aborted || attempt.callback !== undefined || attempt.view.phase !== 'waiting-browser') {
-            res.writeHead(410, { 'cache-control': 'no-store' }).end(); return
-          }
-          attempt.callback = res
-          code.resolve(receivedCode)
-        },
-      }), 'account: browser callback')
+      attempt.disposeCallback = this.ctx.effect(
+        () =>
+          webServer.register({
+            kind: 'exact',
+            path: '/oauth/callback',
+            handler: (req, res) => {
+              let url: URL
+              try {
+                url = new URL(req.url ?? '/', 'http://127.0.0.1')
+              } catch {
+                res.writeHead(400, { 'cache-control': 'no-store' }).end()
+                return
+              }
+              const receivedCode = url.searchParams.get('code')
+              const receivedState = url.searchParams.get('state') ?? ''
+              const validState =
+                Buffer.byteLength(receivedState) === Buffer.byteLength(state) &&
+                timingSafeEqual(Buffer.from(receivedState), Buffer.from(state))
+              if (
+                req.method !== 'GET' ||
+                url.pathname !== '/oauth/callback' ||
+                !validState ||
+                !receivedCode ||
+                url.searchParams.getAll('state').length !== 1 ||
+                url.searchParams.getAll('code').length !== 1
+              ) {
+                res.writeHead(400, { 'cache-control': 'no-store' }).end()
+                return
+              }
+              if (signal.aborted || attempt.callback !== undefined || attempt.view.phase !== 'waiting-browser') {
+                res.writeHead(410, { 'cache-control': 'no-store' }).end()
+                return
+              }
+              attempt.callback = res
+              code.resolve(receivedCode)
+            },
+          }),
+        'account: browser callback',
+      )
       signal.throwIfAborted()
       const redirectUri = `${attempt.origin}/oauth/callback`
-      const init = initialization.safeParse(await this.request('auth_init', {
-        code_challenge: challenge, code_challenge_method: 'S256', state, redirect_uri: redirectUri, locale: attempt.locale,
-        login_source: attempt.loginSource,
-      }, signal, attempt.clientHeaders), { reportInput: true })
+      const init = initialization.safeParse(
+        await this.request(
+          'auth_init',
+          {
+            code_challenge: challenge,
+            code_challenge_method: 'S256',
+            state,
+            redirect_uri: redirectUri,
+            locale: attempt.locale,
+            login_source: attempt.loginSource,
+          },
+          signal,
+          attempt.clientHeaders,
+        ),
+        { reportInput: true },
+      )
       if (!init.success) this.rejectPayload('auth_init', init.error)
       const authorizeUrl = browserUrl(init.data.authorize_url, this.origin, '/dsh/authorize', this.rewriteBrowserOrigin)
       authorizeId = init.data.authorize_id
@@ -569,21 +691,39 @@ export class PlatformAccount extends DeepSeekAccount {
       const now = Date.now()
       expiresAt = Math.min(expiresAt, now + init.data.expires_in * 1000)
       const remaining = expiresAt - now
-      if (remaining <= 0) { deadline.abort(); signal.throwIfAborted() }
+      if (remaining <= 0) {
+        deadline.abort()
+        signal.throwIfAborted()
+      }
       clearTimeout(timer)
-      timer = setTimeout(() =>{  deadline.abort() }, remaining)
+      timer = setTimeout(() => {
+        deadline.abort()
+      }, remaining)
       this.update(attempt, { phase: 'waiting-browser', authorizeUrl, expiresAt })
       const receivedCode = await code.promise
       signal.throwIfAborted()
       this.update(attempt, { phase: 'exchanging' })
-      const deviceRecord = await this.ctx.credentials.modifyRecord(DEVICE, current => Promise.resolve(current === undefined
-        ? { kind: 'grant', payload: { id: randomUUID() } } : undefined))
+      const deviceRecord = await this.ctx.credentials.modifyRecord(DEVICE, current =>
+        Promise.resolve(current === undefined ? { kind: 'grant', payload: { id: randomUUID() } } : undefined),
+      )
       if (deviceRecord?.kind !== 'grant') throw new PlatformAuthError('storage')
       const identity = device.parse(deviceRecord.payload)
-      const result = exchange.safeParse(await this.request('auth_exchange', {
-        code: receivedCode, code_verifier: verifier, redirect_uri: redirectUri,
-        device_id: identity.id, device_model: `${platform()}-${arch()}`, os_version: deviceOsVersion(),
-      }, signal, attempt.clientHeaders), { reportInput: true })
+      const result = exchange.safeParse(
+        await this.request(
+          'auth_exchange',
+          {
+            code: receivedCode,
+            code_verifier: verifier,
+            redirect_uri: redirectUri,
+            device_id: identity.id,
+            device_model: `${platform()}-${arch()}`,
+            os_version: deviceOsVersion(),
+          },
+          signal,
+          attempt.clientHeaders,
+        ),
+        { reportInput: true },
+      )
       if (!result.success) this.rejectPayload('auth_exchange', result.error)
       const completionUrl = new URL(browserUrl(result.data.authorized_url, this.origin, '/dsh/authorized', this.rewriteBrowserOrigin))
       completionUrl.searchParams.set('login_source', attempt.loginSource)
@@ -591,15 +731,19 @@ export class PlatformAccount extends DeepSeekAccount {
       if (Date.now() >= expiresAt) deadline.abort()
       signal.throwIfAborted()
       if (result.data.user != null) {
-        try { attempt.initialProfile = { token: result.data.token, value: { status: 'ready', value: profile(result.data.user) } } }
-        catch {
+        try {
+          attempt.initialProfile = { token: result.data.token, value: { status: 'ready', value: profile(result.data.user) } }
+        } catch {
           // Invalid optional user data falls back to current without discarding a valid authorization.
         }
       }
       this.update(attempt, { phase: 'committing' })
       clearTimeout(timer)
-      try { await session.commit({ kind: 'grant', payload: { version: 1, token: result.data.token, issuer: this.origin } }) }
-      catch { throw new PlatformAuthError('storage') }
+      try {
+        await session.commit({ kind: 'grant', payload: { version: 1, token: result.data.token, issuer: this.origin } })
+      } catch {
+        throw new PlatformAuthError('storage')
+      }
     } catch (error) {
       if (deadline.signal.aborted) throw new PlatformAuthError('expired')
       throw error
@@ -613,8 +757,10 @@ export class PlatformAccount extends DeepSeekAccount {
 
   private rejectPayload(stage: string, error: z.ZodError): never {
     console.error('[deepseek-account] payload rejected', {
-      stage, issues: error.issues.map(issue => ({
-        path: issue.path, code: issue.code,
+      stage,
+      issues: error.issues.map(issue => ({
+        path: issue.path,
+        code: issue.code,
         receivedType: issue.input === null ? 'null' : Array.isArray(issue.input) ? 'array' : typeof issue.input,
       })),
     })
@@ -623,29 +769,49 @@ export class PlatformAccount extends DeepSeekAccount {
 
   private cancelRequest(authorizeId: string, verifier: string, headers: Record<string, string>): void {
     if (this.closed) return
-    const cancellation = this.request('auth_cancel', { authorize_id: authorizeId, code_verifier: verifier },
-      this.logoutLifetime.signal, headers).then(() => undefined, () => {
-      // Remote cancellation failures never reverse local cancellation or expose verifier diagnostics.
-    }).finally(() => { this.revocations.delete(cancellation) })
+    const cancellation = this.request(
+      'auth_cancel',
+      { authorize_id: authorizeId, code_verifier: verifier },
+      this.logoutLifetime.signal,
+      headers,
+    )
+      .then(
+        () => undefined,
+        () => {
+          // Remote cancellation failures never reverse local cancellation or expose verifier diagnostics.
+        },
+      )
+      .finally(() => {
+        this.revocations.delete(cancellation)
+      })
     this.revocations.add(cancellation)
   }
 
   private request(method: string, body: unknown, signal: AbortSignal, headers: Record<string, string>): Promise<unknown> {
-    return requestPlatform(this.origin, method, body,
-      AbortSignal.any([signal, AbortSignal.timeout(this.requestTimeout)]), { ...this.requestHeaders, ...headers })
+    return requestPlatform(this.origin, method, body, AbortSignal.any([signal, AbortSignal.timeout(this.requestTimeout)]), {
+      ...this.requestHeaders,
+      ...headers,
+    })
   }
 
   private finishFailedCallback(attempt: Attempt): void {
     if (attempt.loginSource === 'web') {
       const nonce = randomBytes(16).toString('base64url')
-      const message = attempt.locale === 'zh_CN' ? '登录失败，请关闭此标签页并在原页面重试。'
-        : 'Sign-in failed. Close this tab and try again in the original tab.'
-      attempt.callback?.writeHead(200, {
-        'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store',
-        'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; frame-ancestors 'none'`,
-        'referrer-policy': 'no-referrer',
-      }).end(`<!doctype html><html lang="${attempt.locale === 'zh_CN' ? 'zh-CN' : 'en'}"><meta charset="utf-8"><title>${message}</title>`
-        + `<body><p>${message}</p><script nonce="${nonce}">window.close()</script></body></html>`)
+      const message =
+        attempt.locale === 'zh_CN'
+          ? '登录失败，请关闭此标签页并在原页面重试。'
+          : 'Sign-in failed. Close this tab and try again in the original tab.'
+      attempt.callback
+        ?.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+          'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; frame-ancestors 'none'`,
+          'referrer-policy': 'no-referrer',
+        })
+        .end(
+          `<!doctype html><html lang="${attempt.locale === 'zh_CN' ? 'zh-CN' : 'en'}"><meta charset="utf-8"><title>${message}</title>` +
+            `<body><p>${message}</p><script nonce="${nonce}">window.close()</script></body></html>`,
+        )
     } else {
       // Native account subscribers focus the login window; retain the browser’s Platform document.
       attempt.callback?.writeHead(204, { 'cache-control': 'no-store' }).end()

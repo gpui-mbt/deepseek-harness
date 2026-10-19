@@ -1,5 +1,5 @@
 /** Controlled source and engine completions exercise admission and shared content ownership. */
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { ConversionQueue } from '../src/queue.ts'
 import { Config, OfficeSourceKey, OfficeToPdfGeneration, type OfficeToPdfRequest } from '../src/index.ts'
 
@@ -20,17 +20,25 @@ it('shares authorized source metadata before reading and content across distinct
   const h = harness()
   const entered = Promise.withResolvers<undefined>()
   const complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
-  const a = source('a'), b = source('b')
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
+  const a = source('a'),
+    b = source('b')
   const first = h.queue.read(a.request)
   await entered.promise
   const same = h.queue.read(a.request)
   const equalContent = h.queue.read(b.request)
   try {
-    await vi.waitFor(() => { expect(b.read).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(b.read).toHaveBeenCalledOnce()
+    })
     expect(a.read).toHaveBeenCalledOnce()
     expect(h.convert).toHaveBeenCalledOnce()
-  } finally { complete.resolve(output) }
+  } finally {
+    complete.resolve(output)
+  }
   const results = await Promise.all([first, same, equalContent])
   expect(new Set(results.map(result => result.cacheKey)).size).toBe(1)
   results[0].pdf[0] = 0
@@ -42,12 +50,17 @@ it('shares authorized source metadata before reading and content across distinct
 
 it('continues queued work when the first queued reader cancels immediately after admission', async () => {
   const h = harness({ maxConcurrentConversions: 1 })
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const first = h.queue.read(source('active', 1).request)
   await entered.promise
   const cancelled = new AbortController()
-  const second = source('cancelled', 2), third = source('later', 3)
+  const second = source('cancelled', 2),
+    third = source('later', 3)
   second.read.mockImplementation(async () => {
     cancelled.abort()
     return { bytes: new Uint8Array([2]), version: 'v1' }
@@ -58,7 +71,9 @@ it('continues queued work when the first queued reader cancels immediately after
   try {
     expect(second.read).not.toHaveBeenCalled()
     expect(third.read).not.toHaveBeenCalled()
-  } finally { complete.resolve(output) }
+  } finally {
+    complete.resolve(output)
+  }
   await first
   await rejected
   await expect(later).resolves.toMatchObject(output)
@@ -69,15 +84,27 @@ it('continues queued work when the first queued reader cancels immediately after
 
 it('promotes a queued prewarm when a foreground reader joins, without another source read', async () => {
   const h = harness({ maxConcurrentConversions: 1 })
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const first = h.queue.read(source('active', 1).request)
   await entered.promise
   const order: string[] = []
-  const a = source('a', 2, 'background'), b = source('b', 3, 'background')
-  a.read.mockImplementation(async () => { order.push('a'); return { bytes: new Uint8Array([2]), version: 'v1' } })
-  b.read.mockImplementation(async () => { order.push('b'); return { bytes: new Uint8Array([3]), version: 'v1' } })
-  const backgroundA = h.queue.read(a.request), backgroundB = h.queue.read(b.request)
+  const a = source('a', 2, 'background'),
+    b = source('b', 3, 'background')
+  a.read.mockImplementation(async () => {
+    order.push('a')
+    return { bytes: new Uint8Array([2]), version: 'v1' }
+  })
+  b.read.mockImplementation(async () => {
+    order.push('b')
+    return { bytes: new Uint8Array([3]), version: 'v1' }
+  })
+  const backgroundA = h.queue.read(a.request),
+    backgroundB = h.queue.read(b.request)
   const foreground = h.queue.read({ ...b.request, priority: 'foreground' })
   expect(a.read).not.toHaveBeenCalled()
   expect(b.read).not.toHaveBeenCalled()
@@ -89,8 +116,12 @@ it('promotes a queued prewarm when a foreground reader joins, without another so
 
 it('evicts queued speculation for foreground work and bounds the metadata queue', async () => {
   const h = harness({ maxConcurrentConversions: 1, maxQueuedJobs: 1 })
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const first = h.queue.read(source('active').request)
   await entered.promise
   const prewarm = source('prewarm', 2, 'background')
@@ -121,10 +152,17 @@ it('refuses disabled prewarming before reading a source while admitting foregrou
 
 it('refuses disabled prewarming joins and releases cancelled foreground capacity', async () => {
   const h = harness({ maxBackgroundConversions: 0, maxConcurrentConversions: 1, maxQueuedJobs: 1, maxReaders: 5 })
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
-  const running = source('running', 1), queued = source('queued', 2), later = source('later', 3)
-  const foreground = new AbortController(), background = new AbortController()
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
+  const running = source('running', 1),
+    queued = source('queued', 2),
+    later = source('later', 3)
+  const foreground = new AbortController(),
+    background = new AbortController()
   const pending: Promise<unknown>[] = [h.queue.read(running.request)]
   const rejected = vi.fn()
   try {
@@ -156,8 +194,12 @@ it('refuses disabled prewarming joins and releases cancelled foreground capacity
 
 it('reserves foreground capacity while limiting concurrent prewarming', async () => {
   const h = harness({ maxConcurrentConversions: 2, maxBackgroundConversions: 1 })
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const first = h.queue.read(source('first', 1, 'background').request)
   await entered.promise
   const second = source('second', 2, 'background')
@@ -171,10 +213,15 @@ it('reserves foreground capacity while limiting concurrent prewarming', async ()
 
 it('holds reserved source capacity until canceled engine work actually settles', async () => {
   const h = harness({ maxConcurrentConversions: 2, maxInputBytes: 1, maxSourceBytes: 1 })
-  const entered = Promise.withResolvers<AbortSignal>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce((_bytes, _extension, signal: AbortSignal) => { entered.resolve(signal); return complete.promise })
+  const entered = Promise.withResolvers<AbortSignal>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce((_bytes, _extension, signal: AbortSignal) => {
+    entered.resolve(signal)
+    return complete.promise
+  })
   const caller = new AbortController()
-  const firstSource = source('first'), nextSource = source('next', 2)
+  const firstSource = source('first'),
+    nextSource = source('next', 2)
   const first = expect(h.queue.read(firstSource.request, caller.signal)).rejects.toMatchObject({ name: 'AbortError' })
   const signal = await entered.promise
   caller.abort()
@@ -190,9 +237,14 @@ it('holds reserved source capacity until canceled engine work actually settles',
 
 it('bounds shared readers and leaves other readers alive after cancellation', async () => {
   const h = harness({ maxReaders: 2 })
-  const entered = Promise.withResolvers<AbortSignal>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce((_bytes, _extension, signal: AbortSignal) => { entered.resolve(signal); return complete.promise })
-  const a = source('a'), caller = new AbortController()
+  const entered = Promise.withResolvers<AbortSignal>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce((_bytes, _extension, signal: AbortSignal) => {
+    entered.resolve(signal)
+    return complete.promise
+  })
+  const a = source('a'),
+    caller = new AbortController()
   const first = expect(h.queue.read(a.request, caller.signal)).rejects.toMatchObject({ name: 'AbortError' })
   const signal = await entered.promise
   const second = h.queue.read(a.request)
@@ -206,13 +258,21 @@ it('bounds shared readers and leaves other readers alive after cancellation', as
 
 it('keeps digest-shared readers alive when the original source reader leaves', async () => {
   const h = harness()
-  const entered = Promise.withResolvers<AbortSignal>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce((_bytes, _extension, signal: AbortSignal) => { entered.resolve(signal); return complete.promise })
-  const a = source('a'), b = source('b'), caller = new AbortController()
+  const entered = Promise.withResolvers<AbortSignal>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce((_bytes, _extension, signal: AbortSignal) => {
+    entered.resolve(signal)
+    return complete.promise
+  })
+  const a = source('a'),
+    b = source('b'),
+    caller = new AbortController()
   const first = expect(h.queue.read(a.request, caller.signal)).rejects.toMatchObject({ name: 'AbortError' })
   const signal = await entered.promise
   const second = h.queue.read(b.request)
-  await vi.waitFor(() => { expect(b.read).toHaveBeenCalledOnce() })
+  await vi.waitFor(() => {
+    expect(b.read).toHaveBeenCalledOnce()
+  })
   caller.abort()
   await first
   expect(signal.aborted).toBe(false)
@@ -246,7 +306,10 @@ it('reserves the input cap for an unknown stat size and rejects known overflow b
 
 it('evicts least-recently-used content and bounds pre-read aliases independently', async () => {
   const h = harness({ maxCachedEntries: 2, maxCachedBytes: 8, maxSourceEntries: 1 })
-  const a = source('a', 1), alias = source('alias', 1), b = source('b', 2), c = source('c', 3)
+  const a = source('a', 1),
+    alias = source('alias', 1),
+    b = source('b', 2),
+    c = source('c', 3)
   await h.queue.read(a.request)
   await h.queue.read(alias.request)
   await h.queue.read(a.request)
@@ -271,7 +334,10 @@ it('does not retain failures or PDFs above the retention budget', async () => {
 
 it('evicts every alias of the least-recently-used PDF while preserving other aliases', async () => {
   const h = harness({ maxCachedEntries: 2 })
-  const a = source('a', 1), alias = source('alias', 1), b = source('b', 2), c = source('c', 3)
+  const a = source('a', 1),
+    alias = source('alias', 1),
+    b = source('b', 2),
+    c = source('c', 3)
   await h.queue.read(a.request)
   await h.queue.read(alias.request)
   await h.queue.read(b.request)
@@ -287,21 +353,32 @@ it('evicts every alias of the least-recently-used PDF while preserving other ali
 
 it('keeps a synchronous abort replacement shareable after the old conversion settles late', async () => {
   const h = harness({ maxConcurrentConversions: 2 })
-  const firstEntered = Promise.withResolvers<undefined>(), firstComplete = Promise.withResolvers<typeof output>()
-  const replacementEntered = Promise.withResolvers<undefined>(), replacementComplete = Promise.withResolvers<typeof output>()
+  const firstEntered = Promise.withResolvers<undefined>(),
+    firstComplete = Promise.withResolvers<typeof output>()
+  const replacementEntered = Promise.withResolvers<undefined>(),
+    replacementComplete = Promise.withResolvers<typeof output>()
   const replacementSpawned = Promise.withResolvers<{ work: ReturnType<ConversionQueue['read']> }>()
-  const a = source('a'), caller = new AbortController()
+  const a = source('a'),
+    caller = new AbortController()
   const pending: Promise<unknown>[] = []
-  h.convert.mockImplementationOnce((_bytes, _extension, signal) => {
-    signal.addEventListener('abort', () => {
-      const work = h.queue.read(a.request)
-      pending.push(work)
-      replacementSpawned.resolve({ work })
-    }, { once: true })
-    firstEntered.resolve(undefined)
-    return firstComplete.promise
-  })
-    .mockImplementationOnce(() => { replacementEntered.resolve(undefined); return replacementComplete.promise })
+  h.convert
+    .mockImplementationOnce((_bytes, _extension, signal) => {
+      signal.addEventListener(
+        'abort',
+        () => {
+          const work = h.queue.read(a.request)
+          pending.push(work)
+          replacementSpawned.resolve({ work })
+        },
+        { once: true },
+      )
+      firstEntered.resolve(undefined)
+      return firstComplete.promise
+    })
+    .mockImplementationOnce(() => {
+      replacementEntered.resolve(undefined)
+      return replacementComplete.promise
+    })
   const first = expect(h.queue.read(a.request, caller.signal)).rejects.toMatchObject({ cause: 'reader left' })
   pending.push(first)
   try {
@@ -318,7 +395,9 @@ it('keeps a synchronous abort replacement shareable after the old conversion set
     const alias = source('alias', 1, 'background')
     const sameContent = h.queue.read(alias.request)
     pending.push(sameSource, sameContent)
-    await vi.waitFor(() => { expect(alias.read).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(alias.read).toHaveBeenCalledOnce()
+    })
     expect(a.read).toHaveBeenCalledTimes(2)
     expect(h.convert).toHaveBeenCalledTimes(3)
     replacementComplete.resolve(output)
@@ -332,7 +411,8 @@ it('keeps a synchronous abort replacement shareable after the old conversion set
 })
 
 it('separates Office extensions and converter generations in content identity', async () => {
-  const h = harness(), a = source('a')
+  const h = harness(),
+    a = source('a')
   const first = await h.queue.read(a.request)
   const otherFormat = await h.queue.read({ ...a.request, extension: 'pptx' })
   const other = new ConversionQueue(Config({}), OfficeToPdfGeneration('replacement'), h.convert)
@@ -344,8 +424,12 @@ it('separates Office extensions and converter generations in content identity', 
 
 it('reserves the final reader admission for foreground interest', async () => {
   const h = harness({ maxReaders: 2 })
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const a = source('a', 1, 'background')
   const background = h.queue.read(a.request)
   await entered.promise
@@ -357,29 +441,47 @@ it('reserves the final reader admission for foreground interest', async () => {
 })
 
 it('serves ready PDFs while every outstanding reader slot is occupied', async () => {
-  const h = harness({ maxReaders: 1 }), cached = source('cached')
+  const h = harness({ maxReaders: 1 }),
+    cached = source('cached')
   await h.queue.read(cached.request)
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const pending = h.queue.read(source('active', 2).request)
   try {
     await entered.promise
     await expect(h.queue.read(cached.request)).resolves.toMatchObject(output)
     expect(cached.read).toHaveBeenCalledOnce()
     expect(h.convert).toHaveBeenCalledTimes(2)
-  } finally { complete.resolve(output); await pending }
+  } finally {
+    complete.resolve(output)
+    await pending
+  }
 })
 
 it('keeps background reservations behind foreground work waiting for source capacity', async () => {
   const h = harness({ maxInputBytes: 50, maxSourceBytes: 60, maxConcurrentConversions: 2 })
-  const running = source('running', 1), foreground = source('foreground', 2), background = source('background', 3, 'background')
-  const entered = Promise.withResolvers<undefined>(), foregroundEntered = Promise.withResolvers<undefined>()
-  const complete = Promise.withResolvers<typeof output>(), foregroundComplete = Promise.withResolvers<typeof output>()
+  const running = source('running', 1),
+    foreground = source('foreground', 2),
+    background = source('background', 3, 'background')
+  const entered = Promise.withResolvers<undefined>(),
+    foregroundEntered = Promise.withResolvers<undefined>()
+  const complete = Promise.withResolvers<typeof output>(),
+    foregroundComplete = Promise.withResolvers<typeof output>()
   const order: number[] = []
-  h.convert.mockImplementation((bytes) => {
+  h.convert.mockImplementation(bytes => {
     order.push(bytes[0]!)
-    if (bytes[0] === 1) { entered.resolve(undefined); return complete.promise }
-    if (bytes[0] === 2) { foregroundEntered.resolve(undefined); return foregroundComplete.promise }
+    if (bytes[0] === 1) {
+      entered.resolve(undefined)
+      return complete.promise
+    }
+    if (bytes[0] === 2) {
+      foregroundEntered.resolve(undefined)
+      return foregroundComplete.promise
+    }
     return Promise.resolve(output)
   })
   const first = h.queue.read({ ...running.request, source: { ...running.request.source, bytes: 15 } })
@@ -402,16 +504,23 @@ it('keeps background reservations behind foreground work waiting for source capa
 
 it('starts eligible background work when its queued foreground blocker is cancelled', async () => {
   const h = harness({ maxInputBytes: 50, maxSourceBytes: 60, maxConcurrentConversions: 2 })
-  const running = source('running', 1), foreground = source('foreground', 2), background = source('background', 3, 'background')
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
+  const running = source('running', 1),
+    foreground = source('foreground', 2),
+    background = source('background', 3, 'background')
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const first = h.queue.read({ ...running.request, source: { ...running.request.source, bytes: 15 } })
   const caller = new AbortController()
   let speculative: Promise<unknown> | undefined
   try {
     await entered.promise
-    const cancelled = expect(h.queue.read({ ...foreground.request, source: { ...foreground.request.source, bytes: 48 } }, caller.signal))
-      .rejects.toMatchObject({ name: 'AbortError' })
+    const cancelled = expect(
+      h.queue.read({ ...foreground.request, source: { ...foreground.request.source, bytes: 48 } }, caller.signal),
+    ).rejects.toMatchObject({ name: 'AbortError' })
     speculative = h.queue.read({ ...background.request, source: { ...background.request.source, bytes: 45 } })
     expect(background.read).not.toHaveBeenCalled()
     caller.abort()
@@ -420,14 +529,24 @@ it('starts eligible background work when its queued foreground blocker is cancel
     expect(background.read).toHaveBeenCalledOnce()
     await speculative
     expect(h.convert).toHaveBeenCalledTimes(2)
-  } finally { caller.abort(); complete.resolve(output); await Promise.allSettled([first, speculative]) }
+  } finally {
+    caller.abort()
+    complete.resolve(output)
+    await Promise.allSettled([first, speculative])
+  }
 })
 
 it('starts eligible background work after a queued promotion loses its final foreground reader', async () => {
   const h = harness({ maxInputBytes: 50, maxSourceBytes: 60, maxConcurrentConversions: 2 })
-  const running = source('running', 1), promoted = source('promoted', 2, 'background'), background = source('background', 3, 'background')
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
+  const running = source('running', 1),
+    promoted = source('promoted', 2, 'background'),
+    background = source('background', 3, 'background')
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const first = h.queue.read({ ...running.request, source: { ...running.request.source, bytes: 15 } })
   const callers = [new AbortController(), new AbortController()]
   const pending: Promise<unknown>[] = [first]
@@ -435,8 +554,9 @@ it('starts eligible background work after a queued promotion loses its final for
     await entered.promise
     const request = { ...promoted.request, source: { ...promoted.request.source, bytes: 48 } }
     pending.push(h.queue.read(request))
-    const cancelled = callers.map(caller => expect(h.queue.read({ ...request, priority: 'foreground' }, caller.signal))
-      .rejects.toMatchObject({ name: 'AbortError' }))
+    const cancelled = callers.map(caller =>
+      expect(h.queue.read({ ...request, priority: 'foreground' }, caller.signal)).rejects.toMatchObject({ name: 'AbortError' }),
+    )
     pending.push(...cancelled)
     pending.push(h.queue.read({ ...background.request, source: { ...background.request.source, bytes: 45 } }))
     expect(background.read).not.toHaveBeenCalled()
@@ -456,19 +576,27 @@ it('starts eligible background work after a queued promotion loses its final for
 
 it('counts a demoted queued prewarm against background concurrency when it starts', async () => {
   const h = harness({ maxConcurrentConversions: 2, maxBackgroundConversions: 1 })
-  const complete = Promise.withResolvers<typeof output>(), prewarmComplete = Promise.withResolvers<typeof output>()
+  const complete = Promise.withResolvers<typeof output>(),
+    prewarmComplete = Promise.withResolvers<typeof output>()
   const prewarmEntered = Promise.withResolvers<undefined>()
-  h.convert.mockImplementation((bytes) => {
+  h.convert.mockImplementation(bytes => {
     if (bytes[0] === 1 || bytes[0] === 2) return complete.promise
-    if (bytes[0] === 3) { prewarmEntered.resolve(undefined); return prewarmComplete.promise }
+    if (bytes[0] === 3) {
+      prewarmEntered.resolve(undefined)
+      return prewarmComplete.promise
+    }
     return Promise.resolve(output)
   })
-  const first = h.queue.read(source('first', 1).request), second = h.queue.read(source('second', 2).request)
-  const prewarm = source('promoted', 3, 'background'), other = source('other', 4, 'background')
-  const warming = h.queue.read(prewarm.request), waiting = h.queue.read(other.request)
+  const first = h.queue.read(source('first', 1).request),
+    second = h.queue.read(source('second', 2).request)
+  const prewarm = source('promoted', 3, 'background'),
+    other = source('other', 4, 'background')
+  const warming = h.queue.read(prewarm.request),
+    waiting = h.queue.read(other.request)
   const caller = new AbortController()
-  const cancelled = expect(h.queue.read({ ...prewarm.request, priority: 'foreground' }, caller.signal))
-    .rejects.toMatchObject({ name: 'AbortError' })
+  const cancelled = expect(h.queue.read({ ...prewarm.request, priority: 'foreground' }, caller.signal)).rejects.toMatchObject({
+    name: 'AbortError',
+  })
   try {
     expect(prewarm.read).not.toHaveBeenCalled()
     caller.abort()
@@ -487,8 +615,12 @@ it('counts a demoted queued prewarm against background concurrency when it start
 
 it('releases source indexes when the last reader for each digest-shared path leaves', async () => {
   const h = harness({ maxReaders: 2, maxSourceEntries: 2 })
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const first = h.queue.read(source('retained').request)
   await entered.promise
   // Both retained indexes must stay bounded while the underlying converter is blocked.
@@ -496,31 +628,48 @@ it('releases source indexes when the last reader for each digest-shared path lea
   const retained = [...indexes.sources.values()][0]!
   try {
     for (let index = 0; index < 5; index++) {
-      const alias = source(`cancelled-${index}`), caller = new AbortController()
+      const alias = source(`cancelled-${index}`),
+        caller = new AbortController()
       const joined = h.queue.read(alias.request, caller.signal)
       const rejected = expect(joined).rejects.toMatchObject({ name: 'AbortError' })
-      await vi.waitFor(() => { expect(retained.sources.size).toBe(2) })
+      await vi.waitFor(() => {
+        expect(retained.sources.size).toBe(2)
+      })
       caller.abort()
       await rejected
       expect(indexes.sources.size).toBe(1)
       expect(retained.sources.size).toBe(1)
     }
     expect(h.convert).toHaveBeenCalledOnce()
-  } finally { complete.resolve(output); await first }
+  } finally {
+    complete.resolve(output)
+    await first
+  }
 })
 
 it('rereads a cancelled source on reopen while sharing its running or completed conversion', async () => {
   const h = harness({ maxReaders: 2, maxSourceEntries: 2 })
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
-  const first = h.queue.read(source('retained').request), reopened = source('reopened')
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
+  const first = h.queue.read(source('retained').request),
+    reopened = source('reopened')
   try {
     await entered.promise
     for (const count of [1, 2]) {
       const caller = new AbortController()
       const cancelled = expect(h.queue.read(reopened.request, caller.signal)).rejects.toMatchObject({ name: 'AbortError' })
-      try { await vi.waitFor(() => { expect(reopened.read).toHaveBeenCalledTimes(count) }) }
-      finally { caller.abort(); await cancelled }
+      try {
+        await vi.waitFor(() => {
+          expect(reopened.read).toHaveBeenCalledTimes(count)
+        })
+      } finally {
+        caller.abort()
+        await cancelled
+      }
     }
     complete.resolve(output)
     await first
@@ -529,14 +678,22 @@ it('rereads a cancelled source on reopen while sharing its running or completed 
     await h.queue.read(reopened.request)
     expect(reopened.read).toHaveBeenCalledTimes(3)
     expect(h.convert).toHaveBeenCalledOnce()
-  } finally { complete.resolve(output); await first }
+  } finally {
+    complete.resolve(output)
+    await first
+  }
 })
 
 it('keeps speculative admission occupied after promotion while allowing other foreground work', async () => {
   const h = harness({ maxConcurrentConversions: 2, maxBackgroundConversions: 1 })
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
-  const original = source('original', 1, 'background'), waiting = source('waiting', 2, 'background')
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
+  const original = source('original', 1, 'background'),
+    waiting = source('waiting', 2, 'background')
   const first = h.queue.read(original.request)
   await entered.promise
   const promoted = h.queue.read({ ...original.request, priority: 'foreground' })
@@ -544,19 +701,29 @@ it('keeps speculative admission occupied after promotion while allowing other fo
   try {
     await h.queue.read(source('requested', 3).request)
     expect(waiting.read).not.toHaveBeenCalled()
-  } finally { complete.resolve(output); await Promise.all([first, promoted, speculative]) }
+  } finally {
+    complete.resolve(output)
+    await Promise.all([first, promoted, speculative])
+  }
   expect(waiting.read).toHaveBeenCalledOnce()
 })
 
 it('classifies provider disposal independently from caller cancellation', async () => {
   const h = harness()
-  const entered = Promise.withResolvers<undefined>(), complete = Promise.withResolvers<typeof output>()
-  h.convert.mockImplementationOnce(() => { entered.resolve(undefined); return complete.promise })
+  const entered = Promise.withResolvers<undefined>(),
+    complete = Promise.withResolvers<typeof output>()
+  h.convert.mockImplementationOnce(() => {
+    entered.resolve(undefined)
+    return complete.promise
+  })
   const pending = expect(h.queue.read(source('active').request)).rejects.toMatchObject({ code: 'unavailable' })
   await entered.promise
   const closing = h.queue.dispose()
   try {
     await pending
     await expect(h.queue.read(source('later').request)).rejects.toMatchObject({ code: 'unavailable' })
-  } finally { complete.resolve(output); await closing }
+  } finally {
+    complete.resolve(output)
+    await closing
+  }
 })

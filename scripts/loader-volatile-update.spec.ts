@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context, type Fiber, type Plugin } from '@deepseek-ai/cordis'
 import Loader, { Group } from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -44,9 +44,16 @@ describe('volatile Loader updates', () => {
     const ctx = await runtimeContext()
     const Config = z.object({ title: z.string() }).volatile()
     const events = vi.fn()
-    const fiber = await mountEntry(ctx, { Config, apply(owner: Context) {
-      owner.on('loader/volatile-update', events)
-    } }, { title: 'first' })
+    const fiber = await mountEntry(
+      ctx,
+      {
+        Config,
+        apply(owner: Context) {
+          owner.on('loader/volatile-update', events)
+        },
+      },
+      { title: 'first' },
+    )
     const reference = fiber.config as ReturnType<typeof Config>
     await update(fiber, { title: 'second' })
     expect(fiber.config).toBe(reference)
@@ -87,11 +94,14 @@ describe('volatile Loader updates', () => {
     const notifications = vi.fn()
     const disposed = vi.fn()
     const configs: ReturnType<typeof Config>[] = []
-    const plugin = { Config, apply(owner: Context, config: ReturnType<typeof Config>) {
-      configs.push(config)
-      owner.on('loader/volatile-update', notifications)
-      owner.effect(() => disposed)
-    } }
+    const plugin = {
+      Config,
+      apply(owner: Context, config: ReturnType<typeof Config>) {
+        configs.push(config)
+        owner.on('loader/volatile-update', notifications)
+        owner.effect(() => disposed)
+      },
+    }
     const fiber = await mountEntry(ctx, plugin, {})
     const before = configs[0]!
     await update(fiber, { title: 'invalid candidate', nested: { count: -1 } })
@@ -110,13 +120,22 @@ describe('volatile Loader updates', () => {
   it('bypasses custom update hooks for volatile changes and retains them for mixed changes', async () => {
     const ctx = await runtimeContext()
     const hooks: string[] = []
-    const globalHook = vi.fn((_config: unknown, _noSave: boolean, next: () => void) => { next() })
+    const globalHook = vi.fn((_config: unknown, _noSave: boolean, next: () => void) => {
+      next()
+    })
     ctx.on('internal/update', globalHook, { global: true })
-    const fiber = await mountEntry(ctx, { Config, apply(owner: Context) {
-      owner.on('internal/update', (config: ReturnType<typeof Config>) => {
-        hooks.push(config.title.get())
-      })
-    } }, {})
+    const fiber = await mountEntry(
+      ctx,
+      {
+        Config,
+        apply(owner: Context) {
+          owner.on('internal/update', (config: ReturnType<typeof Config>) => {
+            hooks.push(config.title.get())
+          })
+        },
+      },
+      {},
+    )
     const initial = fiber.config as ReturnType<typeof Config>
     await update(fiber, { title: 'accepted' })
     expect(fiber.config).toBe(initial)
@@ -143,7 +162,16 @@ describe('volatile Loader updates', () => {
     await update(fiber, { live: 'd', date: '2026-01-02', list: ['b'] })
     await fiber.await()
     expect(apply).toHaveBeenCalledTimes(3)
-    const ordinary = await mountEntry(ctx, { Config: z.object({ value: z.string() }), apply() { apply() } }, { value: 'same' })
+    const ordinary = await mountEntry(
+      ctx,
+      {
+        Config: z.object({ value: z.string() }),
+        apply() {
+          apply()
+        },
+      },
+      { value: 'same' },
+    )
     ordinary.update({ value: 'same' })
     await ordinary.await()
     expect(apply).toHaveBeenCalledTimes(5)
@@ -152,17 +180,33 @@ describe('volatile Loader updates', () => {
   it('resolves pending updates and creates fresh references after dependency replacement', async () => {
     const ctx = await runtimeContext()
     const configs: ReturnType<typeof Config>[] = []
-    const consumer = await mountEntry(ctx, { Config, inject: ['volatile-test-provider'], apply(_ctx: Context, config: ReturnType<typeof Config>) {
-      configs.push(config)
-    } }, {})
+    const consumer = await mountEntry(
+      ctx,
+      {
+        Config,
+        inject: ['volatile-test-provider'],
+        apply(_ctx: Context, config: ReturnType<typeof Config>) {
+          configs.push(config)
+        },
+      },
+      {},
+    )
     await update(consumer, { title: 'pending' })
-    const provider = await ctx.plugin({ apply(owner: Context) { owner.provide('volatile-test-provider', {}) } })
+    const provider = await ctx.plugin({
+      apply(owner: Context) {
+        owner.provide('volatile-test-provider', {})
+      },
+    })
     await consumer.await()
     expect(configs[0]!.title.get()).toBe('pending')
     await update(consumer, { title: 'live' })
     await provider.dispose()
     const before = configs[0]!.title
-    await ctx.plugin({ apply(owner: Context) { owner.provide('volatile-test-provider', {}) } })
+    await ctx.plugin({
+      apply(owner: Context) {
+        owner.provide('volatile-test-provider', {})
+      },
+    })
     await consumer.await()
     expect(configs).toHaveLength(2)
     expect(configs[1]!.title.get()).toBe('live')
@@ -174,7 +218,11 @@ describe('volatile Loader updates', () => {
     const schema = z.object({
       live: z.string().volatile(),
       url: z.transform(z.string(), value => new URL(value)),
-      data: z.transform(z.string(), () => { const data: Record<string, unknown> = {}; data.self = data; return data }),
+      data: z.transform(z.string(), () => {
+        const data: Record<string, unknown> = {}
+        data.self = data
+        return data
+      }),
     })
     const apply = vi.fn(function () {})
     const oldUrl = 'https://a.example/'
@@ -195,9 +243,16 @@ describe('volatile Loader updates', () => {
     const ctx = await runtimeContext()
     const schema = z.object({ values: z.array(z.any()).volatile() })
     const events = vi.fn()
-    const fiber = await mountEntry(ctx, { Config: schema, apply(owner: Context) {
-      owner.on('loader/volatile-update', events)
-    } }, { values: [undefined] })
+    const fiber = await mountEntry(
+      ctx,
+      {
+        Config: schema,
+        apply(owner: Context) {
+          owner.on('loader/volatile-update', events)
+        },
+      },
+      { values: [undefined] },
+    )
     await update(fiber, { values: [null] })
     expect((fiber.config as ReturnType<typeof schema>).values.get()).toEqual([null])
     expect(events).toHaveBeenCalledExactlyOnceWith([['values']])
@@ -207,20 +262,29 @@ describe('volatile Loader updates', () => {
 it('reloads real YAML and persists plain values independently of custom update hooks', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-volatile-'))
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose(); await rm(root, { recursive: true, force: true }) })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+    await rm(root, { recursive: true, force: true })
+  })
   ctx.baseUrl = pathToFileURL(root).href + '/'
   await ctx.plugin(Loader)
   const configs: ReturnType<typeof Config>[] = []
   ctx.loader.builtins.include = Include
   ctx.loader.builtins.group = Group
   const updates = vi.fn()
-  const consumer = { Config, apply(owner: Context, config: ReturnType<typeof Config>) {
-    configs.push(config)
-    owner.on('internal/update', updates)
-  } }
+  const consumer = {
+    Config,
+    apply(owner: Context, config: ReturnType<typeof Config>) {
+      configs.push(config)
+      owner.on('internal/update', updates)
+    },
+  }
   ctx.loader.builtins['volatile-test'] = consumer
   const filename = join(root, 'cordis.yml')
-  await writeFile(filename, '- id: group\n  name: cordis:group\n  group: true\n  config:\n    - id: consumer\n      name: cordis:volatile-test\n      config:\n        title: initial\n')
+  await writeFile(
+    filename,
+    '- id: group\n  name: cordis:group\n  group: true\n  config:\n    - id: consumer\n      name: cordis:volatile-test\n      config:\n        title: initial\n',
+  )
   const rootId = await ctx.loader.create({ name: 'cordis:include', config: { path: pathToFileURL(filename).href } })
   await ctx.loader.await()
   const include = ctx.loader.resolve(rootId).subtree as Include
@@ -235,9 +299,17 @@ it('reloads real YAML and persists plain values independently of custom update h
     await include.refresh()
     await ctx.loader.await()
   })
-  await writeFile(filename, '- id: group\n  name: cordis:group\n  group: true\n  config:\n    - id: consumer\n      name: cordis:volatile-test\n      config:\n        title: file-update\n')
+  await writeFile(
+    filename,
+    '- id: group\n  name: cordis:group\n  group: true\n  config:\n    - id: consumer\n      name: cordis:volatile-test\n      config:\n        title: file-update\n',
+  )
   // The config watcher stabilizes writes for two seconds before publishing a change.
-  await vi.waitFor(() => { expect(configs[0]!.title.get()).toBe('file-update') }, { timeout: 10_000 })
+  await vi.waitFor(
+    () => {
+      expect(configs[0]!.title.get()).toBe('file-update')
+    },
+    { timeout: 10_000 },
+  )
   await stopWatching()
   expect(configs).toHaveLength(1)
   expect(include.store.group!.fiber).toBe(group)
@@ -270,7 +342,10 @@ it('reloads real YAML and persists plain values independently of custom update h
 it('updates volatile children through Group and Include custom updates and saves ordinary config', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-volatile-tree-'))
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose(); await rm(root, { recursive: true, force: true }) })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+    await rm(root, { recursive: true, force: true })
+  })
   ctx.baseUrl = pathToFileURL(root).href + '/'
   await ctx.plugin(Loader)
   ctx.loader.builtins.include = Include
@@ -278,11 +353,14 @@ it('updates volatile children through Group and Include custom updates and saves
   const configs: ReturnType<typeof Config>[] = []
   const notifications = vi.fn()
   const childUpdates = vi.fn()
-  ctx.loader.builtins['volatile-test'] = { Config, apply(owner: Context, config: ReturnType<typeof Config>) {
-    configs.push(config)
-    owner.on('loader/volatile-update', notifications)
-    owner.on('internal/update', childUpdates)
-  } }
+  ctx.loader.builtins['volatile-test'] = {
+    Config,
+    apply(owner: Context, config: ReturnType<typeof Config>) {
+      configs.push(config)
+      owner.on('loader/volatile-update', notifications)
+      owner.on('internal/update', childUpdates)
+    },
+  }
   const child = (title: string) => ({ id: 'consumer', name: 'cordis:volatile-test', config: { title } })
   const filename = join(root, 'tree.json')
   const includePath = pathToFileURL(filename).href
@@ -322,7 +400,9 @@ it('updates volatile children through Group and Include custom updates and saves
   entry.fiber!.update({ title: 'ephemeral', fixed: 'ordinary' }, true)
   expect(childUpdates).toHaveBeenCalledTimes(2)
   expect(entry.options.config).toEqual({ title: 'custom-update', fixed: 'ordinary' })
-  expect(() => { entry.fiber!.update({ nested: { count: -1 } }) }).toThrow()
+  expect(() => {
+    entry.fiber!.update({ nested: { count: -1 } })
+  }).toThrow()
   expect(childUpdates).toHaveBeenCalledTimes(2)
   expect(entry.options.config).toEqual({ title: 'custom-update', fixed: 'ordinary' })
 })
@@ -330,7 +410,9 @@ it('updates volatile children through Group and Include custom updates and saves
 it('commits volatile edits in place and retains direct Fiber updates', async () => {
   const ctx = await runtimeContext()
   const notifications = vi.fn()
-  const apply = vi.fn(function (owner: Context) { owner.on('loader/volatile-update', notifications) })
+  const apply = vi.fn(function (owner: Context) {
+    owner.on('loader/volatile-update', notifications)
+  })
   const fiber = await mountEntry(ctx, { Config, apply }, {})
   const original = fiber.config as ReturnType<typeof Config>
   await ctx.loader.create({ name: 'cordis:disabled', disabled: true })
@@ -347,7 +429,9 @@ it('commits volatile edits in place and retains direct Fiber updates', async () 
   const current = fiber.config as ReturnType<typeof Config>
   expect(current.title.get()).toBe('mixed')
 
-  const hook = vi.fn((_config: unknown, _noSave: boolean, next: () => void) => { next() })
+  const hook = vi.fn((_config: unknown, _noSave: boolean, next: () => void) => {
+    next()
+  })
   fiber.ctx.on('internal/update', hook)
   fiber.update({ title: 'direct' })
   await fiber.await()
@@ -360,15 +444,29 @@ it('commits volatile edits in place and retains direct Fiber updates', async () 
 it('parses a volatile-only update through the config hook without patching the entry context', async () => {
   const ctx = await runtimeContext()
   const trace: string[] = []
-  const trim = vi.fn((value: string) => { trace.push('validate'); return value.trim() })
+  const trim = vi.fn((value: string) => {
+    trace.push('validate')
+    return value.trim()
+  })
   const Config = z.object({ block: z.object({ title: z.transform(z.string(), trim, true) }).volatile() })
-  const fiber = await mountEntry(ctx, { Config, apply(owner: Context) {
-    owner.on('loader/volatile-update', () => { trace.push('notify') })
-  } }, { block: { title: 'initial' } })
+  const fiber = await mountEntry(
+    ctx,
+    {
+      Config,
+      apply(owner: Context) {
+        owner.on('loader/volatile-update', () => {
+          trace.push('notify')
+        })
+      },
+    },
+    { block: { title: 'initial' } },
+  )
   const current = fiber.config as ReturnType<typeof Config>
   const resolveHook = vi.fn((_raw: unknown, next: () => unknown) => next())
   fiber.ctx.on('internal/config', resolveHook)
-  const contextPatch = vi.fn((_entry: unknown, next: () => void) => { next() })
+  const contextPatch = vi.fn((_entry: unknown, next: () => void) => {
+    next()
+  })
   ctx.on('loader/patch-context', contextPatch)
   trim.mockClear()
   trace.length = 0
@@ -382,25 +480,34 @@ it('parses a volatile-only update through the config hook without patching the e
   expect(fiber._config).toBe(raw)
 })
 
-it.each([true, false])('keeps old references untouched when isolation replaces a dependency (available: %s)', async (available) => {
+it.each([true, false])('keeps old references untouched when isolation replaces a dependency (available: %s)', async available => {
   const ctx = await runtimeContext()
   const configs: ReturnType<typeof Config>[] = []
   const notifications = vi.fn()
-  ctx.loader.builtins.provider = { apply(owner: Context) { owner.provide('volatile-isolated-service', {}) } }
+  ctx.loader.builtins.provider = {
+    apply(owner: Context) {
+      owner.provide('volatile-isolated-service', {})
+    },
+  }
   ctx.loader.builtins.consumer = {
-    inject: ['volatile-isolated-service'], Config,
+    inject: ['volatile-isolated-service'],
+    Config,
     apply(owner: Context, config: ReturnType<typeof Config>) {
       configs.push(config)
       owner.on('loader/volatile-update', notifications)
     },
   }
-  const provider = (realm: string) => ctx.loader.create({
-    name: 'cordis:provider', isolate: { 'volatile-isolated-service': realm },
-  })
+  const provider = (realm: string) =>
+    ctx.loader.create({
+      name: 'cordis:provider',
+      isolate: { 'volatile-isolated-service': realm },
+    })
   await provider('a')
   if (available) await provider('b')
   const id = await ctx.loader.create({
-    name: 'cordis:consumer', isolate: { 'volatile-isolated-service': 'a' }, config: { title: 'old' },
+    name: 'cordis:consumer',
+    isolate: { 'volatile-isolated-service': 'a' },
+    config: { title: 'old' },
   })
   await ctx.loader.await()
   const original = configs[0]!
@@ -417,67 +524,84 @@ it.each([true, false])('keeps old references untouched when isolation replaces a
   expect(configs[1]!.title.get()).toBe('new')
 })
 
-it.each(['group', 'include'] as const)('applies profile patches to a %s subtree without HMR and keeps mixed updates on the normal lifecycle', async (kind) => {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-volatile-profile-'))
-  onTestFinished(() => rm(root, { recursive: true, force: true }))
-  const configs: ReturnType<typeof Config>[] = []
-  const events = vi.fn()
-  const dispose = vi.fn()
-  const consumer = { Config, apply(owner: Context, config: ReturnType<typeof Config>) {
-    configs.push(config)
-    owner.on('loader/volatile-update', events)
-    owner.effect(() => dispose)
-  } }
-  const child = (title: string, fixed = 'fixed') => ({ id: 'consumer', name: 'cordis:consumer', config: { title, fixed } })
-  const nested = join(root, 'nested.json')
-  await writeFile(nested, JSON.stringify([child('initial')]))
-  const carrierConfig = (title: string, fixed = 'fixed') => kind === 'group'
-    ? [child(title, fixed)]
-    : { path: pathToFileURL(nested).href, patches: [{ id: 'consumer', config: { title, fixed } }] }
-  const filename = join(root, 'cordis.yml')
-  await writeFile(filename, JSON.stringify([{ id: 'parent', name: `cordis:${kind}`, group: kind === 'group', config: carrierConfig('initial') }]))
-  const ctx = await boot('volatile-test', filename, undefined, async (ctx) => {
-    ctx.loader.builtins.consumer = consumer
-  })
-  onTestFinished(() => ctx.fiber.dispose())
-  expect(ctx.get('hmr')).toBeUndefined()
-  const parent = [...ctx.loader.entries()].find(entry => entry.options.id === 'parent')!
-  const entry = [...ctx.loader.entries()].find(entry => entry.options.id === 'consumer')!
-  const parentFiber = parent.fiber
-  const childFiber = entry.fiber
-  const original = configs[0]!
-  const reference = original.title
-  const patch = (title: string, fixed = 'fixed') => [{ id: 'parent', config: carrierConfig(title, fixed) }]
-  await reconcileProfilePatches(ctx, patch('first'), 'volatile-test')
-  await reconcileProfilePatches(ctx, patch('second'), 'volatile-test')
-  expect(parent.fiber).toBe(parentFiber)
-  expect(entry.fiber).toBe(childFiber)
-  expect(entry.fiber!.config).toBe(original)
-  expect(original.title).toBe(reference)
-  expect(reference.get()).toBe('second')
-  expect(configs).toHaveLength(1)
-  expect(dispose).not.toHaveBeenCalled()
-  expect(events).toHaveBeenCalledTimes(2)
-  expect(events).toHaveBeenLastCalledWith([['title']])
-  await reconcileProfilePatches(ctx, patch('second'), 'volatile-test')
-  expect(events).toHaveBeenCalledTimes(2)
-  await reconcileProfilePatches(ctx, patch('mixed', 'changed'), 'volatile-test')
-  expect(parent.fiber).toBe(parentFiber)
-  expect(configs).toHaveLength(2)
-  expect(dispose).toHaveBeenCalledOnce()
-  expect(reference.get()).toBe('second')
-  expect(configs[1]!.title.get()).toBe('mixed')
-  expect(events).toHaveBeenCalledTimes(2)
-})
+it.each(['group', 'include'] as const)(
+  'applies profile patches to a %s subtree without HMR and keeps mixed updates on the normal lifecycle',
+  async kind => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-volatile-profile-'))
+    onTestFinished(() => rm(root, { recursive: true, force: true }))
+    const configs: ReturnType<typeof Config>[] = []
+    const events = vi.fn()
+    const dispose = vi.fn()
+    const consumer = {
+      Config,
+      apply(owner: Context, config: ReturnType<typeof Config>) {
+        configs.push(config)
+        owner.on('loader/volatile-update', events)
+        owner.effect(() => dispose)
+      },
+    }
+    const child = (title: string, fixed = 'fixed') => ({ id: 'consumer', name: 'cordis:consumer', config: { title, fixed } })
+    const nested = join(root, 'nested.json')
+    await writeFile(nested, JSON.stringify([child('initial')]))
+    const carrierConfig = (title: string, fixed = 'fixed') =>
+      kind === 'group'
+        ? [child(title, fixed)]
+        : { path: pathToFileURL(nested).href, patches: [{ id: 'consumer', config: { title, fixed } }] }
+    const filename = join(root, 'cordis.yml')
+    await writeFile(
+      filename,
+      JSON.stringify([{ id: 'parent', name: `cordis:${kind}`, group: kind === 'group', config: carrierConfig('initial') }]),
+    )
+    const ctx = await boot('volatile-test', filename, undefined, async ctx => {
+      ctx.loader.builtins.consumer = consumer
+    })
+    onTestFinished(() => ctx.fiber.dispose())
+    expect(ctx.get('hmr')).toBeUndefined()
+    const parent = [...ctx.loader.entries()].find(entry => entry.options.id === 'parent')!
+    const entry = [...ctx.loader.entries()].find(entry => entry.options.id === 'consumer')!
+    const parentFiber = parent.fiber
+    const childFiber = entry.fiber
+    const original = configs[0]!
+    const reference = original.title
+    const patch = (title: string, fixed = 'fixed') => [{ id: 'parent', config: carrierConfig(title, fixed) }]
+    await reconcileProfilePatches(ctx, patch('first'), 'volatile-test')
+    await reconcileProfilePatches(ctx, patch('second'), 'volatile-test')
+    expect(parent.fiber).toBe(parentFiber)
+    expect(entry.fiber).toBe(childFiber)
+    expect(entry.fiber!.config).toBe(original)
+    expect(original.title).toBe(reference)
+    expect(reference.get()).toBe('second')
+    expect(configs).toHaveLength(1)
+    expect(dispose).not.toHaveBeenCalled()
+    expect(events).toHaveBeenCalledTimes(2)
+    expect(events).toHaveBeenLastCalledWith([['title']])
+    await reconcileProfilePatches(ctx, patch('second'), 'volatile-test')
+    expect(events).toHaveBeenCalledTimes(2)
+    await reconcileProfilePatches(ctx, patch('mixed', 'changed'), 'volatile-test')
+    expect(parent.fiber).toBe(parentFiber)
+    expect(configs).toHaveLength(2)
+    expect(dispose).toHaveBeenCalledOnce()
+    expect(reference.get()).toBe('second')
+    expect(configs[1]!.title.get()).toBe('mixed')
+    expect(events).toHaveBeenCalledTimes(2)
+  },
+)
 
 it('logs an invalid candidate and keeps its references while other entries commit', async () => {
   const ctx = await runtimeContext()
   const events = vi.fn()
-  const plugin = { Config, apply(owner: Context) { owner.on('loader/volatile-update', events) } }
+  const plugin = {
+    Config,
+    apply(owner: Context) {
+      owner.on('loader/volatile-update', events)
+    },
+  }
   const invalid = await mountEntry(ctx, plugin)
   const healthy = await mountEntry(ctx, plugin)
   const warning = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
-  onTestFinished(() => { warning.mockRestore() })
+  onTestFinished(() => {
+    warning.mockRestore()
+  })
   await invalid.entry!.update({ config: { title: 'invalid', nested: { count: -1 } } })
   await healthy.entry!.update({ config: { title: 'healthy' } })
   expect(warning).toHaveBeenCalledTimes(2)
@@ -487,15 +611,28 @@ it('logs an invalid candidate and keeps its references while other entries commi
   expect(events).toHaveBeenCalledExactlyOnceWith([['title']])
 })
 
-it.each([false, true])('retains raw expression edits for dependency restoration (volatile: %s)', async (volatile) => {
+it.each([false, true])('retains raw expression edits for dependency restoration (volatile: %s)', async volatile => {
   const ctx = await runtimeContext()
   const schema = z.object({ value: volatile ? z.string().volatile() : z.string() })
   const values: unknown[] = []
-  const provide = (a: string, b: string) => ctx.plugin({ apply(owner: Context) { owner.provide('volatile-expression-source', { a, b }) } })
+  const provide = (a: string, b: string) =>
+    ctx.plugin({
+      apply(owner: Context) {
+        owner.provide('volatile-expression-source', { a, b })
+      },
+    })
   const provider = await provide('same', 'same')
-  const fiber = await mountEntry(ctx, { Config: schema, inject: ['volatile-expression-source'], apply(_owner: Context, config: ReturnType<typeof schema>) {
-    values.push(typeof config.value === 'string' ? config.value : config.value.get())
-  } }, { value: { __jsExpr: "ctx.get('volatile-expression-source').a" } })
+  const fiber = await mountEntry(
+    ctx,
+    {
+      Config: schema,
+      inject: ['volatile-expression-source'],
+      apply(_owner: Context, config: ReturnType<typeof schema>) {
+        values.push(typeof config.value === 'string' ? config.value : config.value.get())
+      },
+    },
+    { value: { __jsExpr: "ctx.get('volatile-expression-source').a" } },
+  )
   const raw = { value: { __jsExpr: "ctx.get('volatile-expression-source').b" } }
   await fiber.entry!.update({ config: raw })
   await fiber.await()
@@ -513,10 +650,17 @@ it('remounts when changed expressions resolve to ordinary values different from 
   ctx.provide('volatile-expression-source', source)
   const configs: ReturnType<typeof Config>[] = []
   const events = vi.fn()
-  const fiber = await mountEntry(ctx, { Config, apply(owner: Context, config: ReturnType<typeof Config>) {
-    configs.push(config)
-    owner.on('loader/volatile-update', events)
-  } }, { fixed: { __jsExpr: "ctx.get('volatile-expression-source').a" }, title: 'old' })
+  const fiber = await mountEntry(
+    ctx,
+    {
+      Config,
+      apply(owner: Context, config: ReturnType<typeof Config>) {
+        configs.push(config)
+        owner.on('loader/volatile-update', events)
+      },
+    },
+    { fixed: { __jsExpr: "ctx.get('volatile-expression-source').a" }, title: 'old' },
+  )
   source.a = source.b = 'changed'
   await update(fiber, { fixed: { __jsExpr: "ctx.get('volatile-expression-source').b" }, title: 'new' })
   expect(configs).toHaveLength(2)
@@ -536,7 +680,9 @@ it('compares ordinary URL transforms by value and remounts when an expression re
     live: z.string().volatile(),
   })
   const events = vi.fn()
-  const mount = vi.fn(function (owner: Context) { owner.on('loader/volatile-update', events) })
+  const mount = vi.fn(function (owner: Context) {
+    owner.on('loader/volatile-update', events)
+  })
   const fixed = { __jsExpr: "ctx.get('volatile-transform-source').value" }
   const raw = { url: 'https://example.com/', fixed, live: 'old' }
   const fiber = await mountEntry(ctx, { Config: schema, apply: mount }, raw)
@@ -565,7 +711,9 @@ it('remounts when an ordinary parent expression removes a live reference path', 
   ctx.provide('volatile-path-source', source)
   const schema = z.object({ block: z.object({ value: z.string().volatile() }).extra('default', undefined), live: z.string().volatile() })
   const events = vi.fn()
-  const mount = vi.fn(function (owner: Context) { owner.on('loader/volatile-update', events) })
+  const mount = vi.fn(function (owner: Context) {
+    owner.on('loader/volatile-update', events)
+  })
   const raw = { block: { __jsExpr: "ctx.get('volatile-path-source').block" }, live: 'old' }
   const fiber = await mountEntry(ctx, { Config: schema, apply: mount }, raw)
   const current = fiber.config as ReturnType<typeof schema>
@@ -606,12 +754,24 @@ it('keeps a noSave volatile value as the pending raw config across a no-op entry
 it('isolates a failing notification listener and dispatches with a Context receiver', async () => {
   const ctx = await runtimeContext()
   const receivers: unknown[] = []
-  const fiber = await mountEntry(ctx, { Config, apply(owner: Context) {
-    owner.on('loader/volatile-update', function (this: Context) { receivers.push(this.fiber); throw new Error('listener boom') })
-  } }, {})
+  const fiber = await mountEntry(
+    ctx,
+    {
+      Config,
+      apply(owner: Context) {
+        owner.on('loader/volatile-update', function (this: Context) {
+          receivers.push(this.fiber)
+          throw new Error('listener boom')
+        })
+      },
+    },
+    {},
+  )
   const other = await mountEntry(ctx, { Config, apply() {} }, {})
   const warning = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
-  onTestFinished(() => { warning.mockRestore() })
+  onTestFinished(() => {
+    warning.mockRestore()
+  })
   await update(fiber, { title: 'committed' })
   expect((fiber.config as ReturnType<typeof Config>).title.get()).toBe('committed')
   expect(receivers).toEqual([fiber])
@@ -622,7 +782,9 @@ it('isolates a failing notification listener and dispatches with a Context recei
 
 it('remounts instead of committing when an ordinary field parses into a fresh class instance', async () => {
   const ctx = await runtimeContext()
-  class Handle { constructor(public readonly name: string) {} }
+  class Handle {
+    constructor(public readonly name: string) {}
+  }
   const schema = z.object({ handle: z.transform(z.string(), value => new Handle(value)), live: z.string().volatile() })
   const mount = vi.fn()
   const fiber = await mountEntry(ctx, { Config: schema, apply: mount }, { handle: 'h', live: 'old' })

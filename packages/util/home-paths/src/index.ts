@@ -178,9 +178,7 @@ export function dshHomePath(...segments: string[]): string {
  * @returns the normalized absolute joined path.
  */
 export function dshInstancePath(instance: string | undefined, ...segments: string[]): string {
-  return instance === undefined
-    ? dshHomePath(...segments)
-    : dshHomePath(INSTANCES_DIR_NAME, instance, ...segments)
+  return instance === undefined ? dshHomePath(...segments) : dshHomePath(INSTANCES_DIR_NAME, instance, ...segments)
 }
 
 /**

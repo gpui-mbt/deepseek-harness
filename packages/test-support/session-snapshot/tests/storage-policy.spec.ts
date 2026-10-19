@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, expect, test } from 'vite-plus/test'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { sessionFixtureName } from '../src/session-files.ts'
 import { assertSessionFixtureStorage } from '../src/suite.ts'
@@ -11,15 +11,24 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
-const system = { type: 'system/message', data: { message: {
-  role: 'system', content: [{ type: 'text', text: '{{system}}' }],
-} } }
+const system = {
+  type: 'system/message',
+  data: {
+    message: {
+      role: 'system',
+      content: [{ type: 'text', text: '{{system}}' }],
+    },
+  },
+}
 const request = { type: 'request/header', data: { header: { tools: '{{tools}}' } } }
 const historicalRequest = { type: 'request/header', data: { header: { system: '{{system}}', tools: '{{tools}}' } } }
 
 function fixture(id: number, version: number, events: unknown[]): string {
-  return [{ type: 'session', version, id: `{{session:${id}}}`, createdAt: 0, delegationDepth: id - 1 }, ...events]
-    .map(record => JSON.stringify(record)).join('\n') + '\n'
+  return (
+    [{ type: 'session', version, id: `{{session:${id}}}`, createdAt: 0, delegationDepth: id - 1 }, ...events]
+      .map(record => JSON.stringify(record))
+      .join('\n') + '\n'
+  )
 }
 
 function registerGuard(childEvents: unknown[], historicalEvents?: unknown[]): () => Promise<void> {
@@ -32,13 +41,19 @@ function registerGuard(childEvents: unknown[], historicalEvents?: unknown[]): ()
   writeFileSync(join(dir, 'session.1.v1.jsonl'), fixture(2, 1, [request]))
   writeFileSync(join(dir, sessionFixtureName(1, SESSION_FORMAT_VERSION)), fixture(2, SESSION_FORMAT_VERSION, childEvents))
   if (historicalEvents !== undefined) {
-    writeFileSync(join(dir, 'session.2.jsonl'), [
-      JSON.stringify({ type: 'session', id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', createdAt: 0 }),
-      ...historicalEvents.map(event => JSON.stringify(event)),
-      '',
-    ].join('\n'))
+    writeFileSync(
+      join(dir, 'session.2.jsonl'),
+      [
+        JSON.stringify({ type: 'session', id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', createdAt: 0 }),
+        ...historicalEvents.map(event => JSON.stringify(event)),
+        '',
+      ].join('\n'),
+    )
   }
-  const contents = (): string[] => readdirSync(dir).sort().map(file => readFileSync(join(dir, file), 'utf8'))
+  const contents = (): string[] =>
+    readdirSync(dir)
+      .sort()
+      .map(file => readFileSync(join(dir, file), 'utf8'))
   const before = contents()
   return async () => {
     await assertSessionFixtureStorage(dir, 'pin')
@@ -68,9 +83,22 @@ test('rejects an unredacted identity in a selected current child beside historic
 
 test.each([
   ['missing prompt', [request], 'has a request/header with no preceding system/message'],
-  ['unscrubbed prompt', [{ ...system, data: { message: {
-    role: 'system', content: [{ type: 'text', text: 'leaked child prompt' }],
-  } } }, request], 'carries an unscrubbed system prompt'],
+  [
+    'unscrubbed prompt',
+    [
+      {
+        ...system,
+        data: {
+          message: {
+            role: 'system',
+            content: [{ type: 'text', text: 'leaked child prompt' }],
+          },
+        },
+      },
+      request,
+    ],
+    'carries an unscrubbed system prompt',
+  ],
   ['unscrubbed tools', [system, { type: 'request/header', data: { header: { tools: [] } } }], 'carries unscrubbed tool schemas'],
 ] as const)('rejects a selected child with %s', async (_name, events, message) => {
   await expect(registerGuard([...events])()).rejects.toThrow(`pin/${sessionFixtureName(1, SESSION_FORMAT_VERSION)} ${message}`)

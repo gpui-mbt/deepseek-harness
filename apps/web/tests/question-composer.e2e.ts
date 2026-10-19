@@ -12,17 +12,23 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { TIMED_WAIT_PARAMETER } from '@deepseek-ai/dsh-user-questions'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, recordFixture, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
-import {
-  connectFreshWorkspace, expandTurnProcesses, newEnglishPage, saveFailureShot,
-} from './support.ts'
+import { connectFreshWorkspace, expandTurnProcesses, newEnglishPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/question-composer', import.meta.url))
 const FIXTURE = join(SNAPSHOT_DIR, 'session.v3.jsonl')
@@ -71,7 +77,8 @@ async function capMetrics(field: Locator): Promise<{ textLines: number; scrolls:
 // The options carry long descriptions on purpose: the squeeze assertion below
 // needs option copy that WRAPS, which is the only text layout that reproduces a
 // collapsed row painting its copy outside its own box.
-const PROMPT = 'Use the ask_user_question tool to ask me exactly one multi-select question with id "color", question "Which color do you prefer?", header "Pick one", and two options: label "Blue" with description "A cool recessive hue that reads as calm and trustworthy in long reading sessions and dense dashboards.", and label "Green" with description "A restful mid-spectrum hue with the highest perceived brightness, easiest on the eye over long sessions." Set multi_select to true. After I answer, reply with the single word DONE and stop.'
+const PROMPT =
+  'Use the ask_user_question tool to ask me exactly one multi-select question with id "color", question "Which color do you prefer?", header "Pick one", and two options: label "Blue" with description "A cool recessive hue that reads as calm and trustworthy in long reading sessions and dense dashboards.", and label "Green" with description "A restful mid-spectrum hue with the highest perceived brightness, easiest on the eye over long sessions." Set multi_select to true. After I answer, reply with the single word DONE and stop.'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -127,12 +134,18 @@ function pendingResultText(callId: string): string {
  */
 function lateReplyMessage(callId: string, questions: unknown): Record<string, unknown> {
   return {
-    content: [{
-      type: 'text',
-      text: JSON.stringify({
-        kind: 'answer_to_pending_question', tool: 'ask_user_question', callId, questions, answers: LATE_ANSWERS,
-      }),
-    }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify({
+          kind: 'answer_to_pending_question',
+          tool: 'ask_user_question',
+          callId,
+          questions,
+          answers: LATE_ANSWERS,
+        }),
+      },
+    ],
     source: { kind: 'user-question-reply', callId, outcome: 'answered' },
     role: 'user',
     id: '{{message:7}}',
@@ -185,8 +198,7 @@ function resettledFixture(fixture: string, outcome: 'cancelled' | 'queued' | 'la
     }
     if (replaced) {
       const data = event.data
-      if ((event.type === 'step/end' && isRecord(data) && data.step === 1)
-        || event.type === 'turn/end') lines.push(line)
+      if ((event.type === 'step/end' && isRecord(data) && data.step === 1) || event.type === 'turn/end') lines.push(line)
       continue
     }
     if (event.type === 'request/header' && outcome !== 'cancelled') {
@@ -221,10 +233,12 @@ function resettledFixture(fixture: string, outcome: 'cancelled' | 'queued' | 'la
     }
     if (asked === undefined) throw new Error('question fixture settles a call it never made')
     if (outcome === 'cancelled') {
-      message.content[0].content = [{
-        type: 'text',
-        text: 'Error: the user cancelled ask_user_question',
-      }]
+      message.content[0].content = [
+        {
+          type: 'text',
+          text: 'Error: the user cancelled ask_user_question',
+        },
+      ]
       message.content[0].isError = true
       data.error = {
         name: 'UserQuestionError',
@@ -295,7 +309,9 @@ describe('web e2e: resident question composer round trip', () => {
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15, compareReplaySession: true })
-    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
+    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+      sessionEvents.push(event)
+    })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)
@@ -354,17 +370,19 @@ describe('web e2e: resident question composer round trip', () => {
       const original = page.viewportSize() ?? { width: 1680, height: 1000 }
       for (const height of [520, 440, 380]) {
         await page.setViewportSize({ width: 900, height })
-        const squeeze = await composer.evaluate((card) => {
+        const squeeze = await composer.evaluate(card => {
           // Role/ARIA selectors, not the CSS-module class names: the built
           // client hashes those.
-          const rows = [...card.querySelectorAll<HTMLElement>(
-            '[role="radio"], [role="checkbox"], [aria-expanded]',
-          )]
-          const spill = rows.map(row => Math.max(...[...row.children].map((child) => {
-            const box = row.getBoundingClientRect()
-            const inner = child.getBoundingClientRect()
-            return Math.max(box.top - inner.top, inner.bottom - box.bottom)
-          })))
+          const rows = [...card.querySelectorAll<HTMLElement>('[role="radio"], [role="checkbox"], [aria-expanded]')]
+          const spill = rows.map(row =>
+            Math.max(
+              ...[...row.children].map(child => {
+                const box = row.getBoundingClientRect()
+                const inner = child.getBoundingClientRect()
+                return Math.max(box.top - inner.top, inner.bottom - box.bottom)
+              }),
+            ),
+          )
           const list = card.querySelector<HTMLElement>('[data-question-scroll]')
           return {
             rows: rows.length,
@@ -408,8 +426,7 @@ describe('web e2e: resident question composer round trip', () => {
       await custom.press('Shift+Enter')
       expect(await custom.inputValue()).toBe('\n\n')
       expect(await composer.getByText('Which color do you prefer?').count()).toBeGreaterThan(0)
-      expect(await custom.evaluate(el => el.getBoundingClientRect().height))
-        .toBeGreaterThan(oneLineHeight * 2.5)
+      expect(await custom.evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThan(oneLineHeight * 2.5)
 
       expect(await capMetrics(custom)).toEqual({ textLines: CAP_LINES, scrolls: true })
       await custom.fill('')
@@ -433,14 +450,12 @@ describe('web e2e: resident question composer round trip', () => {
       // A strict Session-slot switch remounts the composer. Open a fresh blank
       // Session, then return to the still-waiting request and require its
       // Session-scoped store to restore both option and free-text drafts.
-      const originalRow = page.locator('[role="treeitem"]')
-        .filter({ hasText: 'Use the ask_user_question tool' }).first()
+      const originalRow = page.locator('[role="treeitem"]').filter({ hasText: 'Use the ask_user_question tool' }).first()
       await page.getByRole('button', { name: 'New session', exact: true }).last().click()
       // Scope to the tree: the wide sidebar's New Session button carries the
       // same visible label, and an unscoped match would either settle on the
       // button before the row exists or trip strict mode once it does.
-      await page.getByRole('tree', { name: 'Sessions' })
-        .getByText('New Session', { exact: true }).waitFor({ timeout: 15_000 })
+      await page.getByRole('tree', { name: 'Sessions' }).getByText('New Session', { exact: true }).waitFor({ timeout: 15_000 })
       await expect.poll(() => composer.count(), { timeout: 10_000 }).toBe(0)
       await originalRow.click()
       await composer.waitFor({ timeout: 15_000 })
@@ -462,10 +477,9 @@ describe('web e2e: resident question composer round trip', () => {
     answeredSession = sessionId
     // World state: the tool result carries the chosen answer, and DONE lands.
     const results = sessionEvents.filter(e => e.type === 'tool/result')
-    const answerText = results.flatMap(event => event.data.message.content
-      .filter(item => item.type === 'text')
-      .map(item => item.text),
-    ).at(-1)
+    const answerText = results
+      .flatMap(event => event.data.message.content.filter(item => item.type === 'text').map(item => item.text))
+      .at(-1)
     expect(JSON.parse(answerText ?? '')).toEqual({
       answers: [{ id: 'color', selected: ['Blue'], custom: 'Include accessibility notes' }],
     })
@@ -500,52 +514,53 @@ describe('web e2e: resident question composer round trip', () => {
   // padding, which is where a cap measured in box pixels drifts off the line
   // count — so it is asked straight through the user-questions seam (the same
   // service the tool calls; no model round is involved in a layout metric).
-  it.skipIf(MODE === 'record')('grows the optionless answer to the same cap', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-question-optionless'))
-    const sessionId = answeredSession
-    expect(sessionId).toBeDefined()
-    const agent = scaffold.ctx.agents.get(sessionId as SessionId)
-    expect(agent).toBeDefined()
-    const asked = scaffold.ctx.userQuestions.ask({
-      agent: agent as NonNullable<typeof agent>,
-      questions: [{ id: 'free', header: 'More', question: 'Anything else?' }],
-    })
+  it.skipIf(MODE === 'record')(
+    'grows the optionless answer to the same cap',
+    async () => {
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-question-optionless'))
+      const sessionId = answeredSession
+      expect(sessionId).toBeDefined()
+      const agent = scaffold.ctx.agents.get(sessionId as SessionId)
+      expect(agent).toBeDefined()
+      const asked = scaffold.ctx.userQuestions.ask({
+        agent: agent as NonNullable<typeof agent>,
+        questions: [{ id: 'free', header: 'More', question: 'Anything else?' }],
+      })
 
-    const composer = page.locator('[data-question-key]')
-    await composer.waitFor({ timeout: 30_000 })
-    const field = composer.getByRole('textbox')
-    // The empty field reserves its two lines AND the textarea fills that frame:
-    // a reserved box the control does not fill leaves a strip that looks like
-    // the field but takes no click.
-    expect(await field.evaluate((el) => {
-      const frame = el.parentElement as HTMLElement
-      const style = getComputedStyle(frame)
-      const inner = frame.getBoundingClientRect().height
-        - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth)
-      return {
-        reserved: Math.round(frame.getBoundingClientRect().height),
-        fills: Math.abs(el.getBoundingClientRect().height - inner) < 0.5,
-      }
-    })).toEqual({ reserved: 64, fills: true })
-    // The same cap the inline shape stops at — the assertion a border-box cap fails.
-    expect(await capMetrics(field)).toEqual({ textLines: CAP_LINES, scrolls: true })
+      const composer = page.locator('[data-question-key]')
+      await composer.waitFor({ timeout: 30_000 })
+      const field = composer.getByRole('textbox')
+      // The empty field reserves its two lines AND the textarea fills that frame:
+      // a reserved box the control does not fill leaves a strip that looks like
+      // the field but takes no click.
+      expect(
+        await field.evaluate(el => {
+          const frame = el.parentElement as HTMLElement
+          const style = getComputedStyle(frame)
+          const inner = frame.getBoundingClientRect().height - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth)
+          return {
+            reserved: Math.round(frame.getBoundingClientRect().height),
+            fills: Math.abs(el.getBoundingClientRect().height - inner) < 0.5,
+          }
+        }),
+      ).toEqual({ reserved: 64, fills: true })
+      // The same cap the inline shape stops at — the assertion a border-box cap fails.
+      expect(await capMetrics(field)).toEqual({ textLines: CAP_LINES, scrolls: true })
 
-    // Settle the wait so teardown is not racing a pending question.
-    await composer.getByRole('button', { name: 'Skip' }).click()
-    expect(await asked).toEqual({ answers: [{ id: 'free', selected: [] }] })
-    await expect.poll(() => page.locator('[data-question-key]').count(), { timeout: 10_000 }).toBe(0)
-  }, 60_000)
-
+      // Settle the wait so teardown is not racing a pending question.
+      await composer.getByRole('button', { name: 'Skip' }).click()
+      expect(await asked).toEqual({ answers: [{ id: 'free', selected: [] }] })
+      await expect.poll(() => page.locator('[data-question-key]').count(), { timeout: 10_000 }).toBe(0)
+    },
+    60_000,
+  )
 })
 
 describe.skipIf(MODE === 'record')('web e2e: cancelled question transcript', () => {
   let seeded: SeededTranscript
 
   beforeAll(async () => {
-    seeded = await openSeededTranscript(
-      resettledFixture(await readFile(FIXTURE, 'utf8'), 'cancelled'),
-      CANCELLED_SEED_ID,
-    )
+    seeded = await openSeededTranscript(resettledFixture(await readFile(FIXTURE, 'utf8'), 'cancelled'), CANCELLED_SEED_ID)
   }, 120_000)
 
   afterAll(async () => {
@@ -566,14 +581,11 @@ describe.skipIf(MODE === 'record')('web e2e: cancelled question transcript', () 
       .waitFor({ timeout: 10_000 })
     await cancelledPage.getByText('Which color do you prefer?', { exact: true }).waitFor({ timeout: 10_000 })
     expect(await cancelledPage.getByText(/"questions"/).count()).toBe(0)
-    expect(await cancelledPage
-      .getByText('Error: the user cancelled ask_user_question', { exact: true }).count()).toBe(0)
+    expect(await cancelledPage.getByText('Error: the user cancelled ask_user_question', { exact: true }).count()).toBe(0)
 
-    const snapshot = (await captureStableAria(
-      cancelledPage,
-      '[class*="centerCol"]',
-      scaffold.workspaceCwd,
-    )).split(CANCELLED_SEED_ID).join('{{seededId}}')
+    const snapshot = (await captureStableAria(cancelledPage, '[class*="centerCol"]', scaffold.workspaceCwd))
+      .split(CANCELLED_SEED_ID)
+      .join('{{seededId}}')
     await compareOrRefreshGolden(CANCELLED_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
@@ -584,10 +596,7 @@ describe.skipIf(MODE === 'record')('web e2e: queued question reply', () => {
   let seeded: SeededTranscript
 
   beforeAll(async () => {
-    seeded = await openSeededTranscript(
-      resettledFixture(await readFile(FIXTURE, 'utf8'), 'queued'),
-      QUEUED_SEED_ID,
-    )
+    seeded = await openSeededTranscript(resettledFixture(await readFile(FIXTURE, 'utf8'), 'queued'), QUEUED_SEED_ID)
   }, 120_000)
 
   afterAll(async () => {
@@ -613,7 +622,8 @@ describe.skipIf(MODE === 'record')('web e2e: queued question reply', () => {
     await page.getByText('Answered after the timeout', { exact: true }).waitFor()
 
     const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(QUEUED_SEED_ID).join('{{seededId}}')
+      .split(QUEUED_SEED_ID)
+      .join('{{seededId}}')
     await compareOrRefreshGolden(QUEUED_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
@@ -628,10 +638,7 @@ describe.skipIf(MODE === 'record')('web e2e: late-answered question transcript',
   let seeded: SeededTranscript
 
   beforeAll(async () => {
-    seeded = await openSeededTranscript(
-      resettledFixture(await readFile(FIXTURE, 'utf8'), 'late-answered'),
-      LATE_ANSWERED_SEED_ID,
-    )
+    seeded = await openSeededTranscript(resettledFixture(await readFile(FIXTURE, 'utf8'), 'late-answered'), LATE_ANSWERED_SEED_ID)
   }, 120_000)
 
   afterAll(async () => {
@@ -676,11 +683,9 @@ describe.skipIf(MODE === 'record')('web e2e: late-answered question transcript',
     expect(await review.getByRole('button', { name: 'Submit' }).count()).toBe(0)
     expect(await review.getByRole('button', { name: 'Skip' }).count()).toBe(0)
 
-    const snapshot = (await captureStableAria(
-      latePage,
-      '[class*="centerCol"]',
-      scaffold.workspaceCwd,
-    )).split(LATE_ANSWERED_SEED_ID).join('{{seededId}}')
+    const snapshot = (await captureStableAria(latePage, '[class*="centerCol"]', scaffold.workspaceCwd))
+      .split(LATE_ANSWERED_SEED_ID)
+      .join('{{seededId}}')
     await compareOrRefreshGolden(LATE_ANSWERED_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])

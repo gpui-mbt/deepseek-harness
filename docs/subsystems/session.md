@@ -282,10 +282,12 @@ type SessionEvent<T extends SessionEventType = SessionEventType> = {
      * inconvenience) rather than silently resuming a gutted session.
      */
     ignorable?: true
-  } & (K extends SurfaceEventType ? SurfaceIntent<K> : {
-    surfaceOp?: never
-    sourceEventSeqs?: never
-  })
+  } & (K extends SurfaceEventType
+    ? SurfaceIntent<K>
+    : {
+        surfaceOp?: never
+        sourceEventSeqs?: never
+      })
 }[T]
 ```
 
@@ -306,12 +308,7 @@ The message-producing types (`SurfaceEventType` — `system/message`, `developer
  * event types may carry {@link SurfaceOp}; system, user, and tool events may also cite
  * earlier sources through {@link SessionEvent.sourceEventSeqs}.
  */
-type SurfaceEventType =
-  | 'system/message'
-  | 'developer/message'
-  | 'user/message'
-  | 'assistant/message'
-  | 'tool/result'
+type SurfaceEventType = 'system/message' | 'developer/message' | 'user/message' | 'assistant/message' | 'tool/result'
 ```
 
 ### `SurfaceOp` — how an event entered the surface
@@ -330,9 +327,7 @@ type SurfaceEventType =
  *   shadowed surface node. Used by compaction; any surface-replacing producer
  *   may use it.
  */
-type SurfaceOp =
-  | 'append'
-  | { op: 'replace'; startSeq: SessionSeq; endSeq: SessionSeq }
+type SurfaceOp = 'append' | { op: 'replace'; startSeq: SessionSeq; endSeq: SessionSeq }
 ```
 
 `'append'` is the normal tail-append path. `replace` contains exactly `op`, `startSeq`, and `endSeq`, with no aliases or extra keys. It shadows the inclusive span between those current surface event sequences and inserts the new event in their place; equal endpoints replace one entry. Endpoints must precede the replacing event, but their relative order is surface order, not numeric sequence order.
@@ -346,13 +341,15 @@ type SurfaceOp =
  */
 type SurfaceIntent<T extends SurfaceEventType = SurfaceEventType> = {
   surfaceOp: SurfaceOp
-} & (T extends 'assistant/message' ? {
-  /** Assistant messages embed their provider stream instead of citing source events. */
-  sourceEventSeqs?: never
-} : {
-  /** Complete non-empty set of known earlier source-event seqs. */
-  sourceEventSeqs?: SessionSeq[]
-})
+} & (T extends 'assistant/message'
+  ? {
+      /** Assistant messages embed their provider stream instead of citing source events. */
+      sourceEventSeqs?: never
+    }
+  : {
+      /** Complete non-empty set of known earlier source-event seqs. */
+      sourceEventSeqs?: SessionSeq[]
+    })
 ```
 
 Required for `SurfaceEventType` events — every message-producing event must declare how it joins the surface, the sole source of derived model history. A human-facing transcript is the other projection and reads the log's append-origin events instead, because the surface deliberately shadows the ranges a replacement summarizes (`isAppendSurfaceEvent` in [dsh-session](../../packages/core/session/README.md)). Non-surface types reject it at compile time.
@@ -552,10 +549,7 @@ declare class Session {
    * @param toSeqExclusive - non-negative exclusive sequence number; defaults to the current end.
    * @returns a frozen array of the selected deeply frozen events.
    */
-  snapshotEvents(
-    fromSeq: SessionLogOffset = SessionLogOffset(0),
-    toSeqExclusive: SessionLogOffset = this.seq,
-    ): readonly SessionEvent[];
+  snapshotEvents(fromSeq: SessionLogOffset = SessionLogOffset(0), toSeqExclusive: SessionLogOffset = this.seq): readonly SessionEvent[];
   /**
    * Return this Session's events after its fork-inherited prefix.
    * @deprecated Existing logic may remain unmigrated for now, but new calls are prohibited.
@@ -837,7 +831,7 @@ resolveAgent(sessionId: SessionId): Promise<ApiSessionAgentResult>
  * @param signal - optional caller cancellation for persistence reads.
  * @returns the current attached state or persisted header and event prefix.
  */
-inspect( sessionId: SessionId, signal?: AbortSignal, ): Promise<SessionInspection>
+inspect(sessionId: SessionId, signal?: AbortSignal): Promise<SessionInspection>
 
 /**
  * Read all visible Session rows without resuming an Agent.
@@ -902,7 +896,7 @@ workspaceDesktop(): { name: string; available: boolean; fileManager: 'finder' | 
  * @returns confirmation after the native opener accepts the path.
  * @throws RemoteError when the request is invalid, has no verified Host mapping, is cancelled, or the opener fails.
  */
-@Remote('openWorkspacePath') async openWorkspacePath( request: SessionOpenWorkspacePathRequest, signal: AbortSignal, ): Promise<SessionOpenWorkspacePathValue>
+@Remote('openWorkspacePath') async openWorkspacePath(request: SessionOpenWorkspacePathRequest, signal: AbortSignal): Promise<SessionOpenWorkspacePathValue>
 
 /**
  * Query current file handlers on the serving desktop without activating an Agent.

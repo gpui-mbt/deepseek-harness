@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { PackageFiles } from '../src/files.ts'
 import { readDisplayMetadata } from '../src/metadata.ts'
 import { dshRange, findBundlePackages, isBundle, readManifest, type Manifest } from '../src/packages.ts'
@@ -6,23 +6,37 @@ import { parseSources } from '../src/sources.ts'
 
 /** An in-memory tree from relative path → file contents. */
 function tree(contents: Record<string, string | Uint8Array>): PackageFiles {
-  return new PackageFiles(new Map(Object.entries(contents).map(([path, value]) => {
-    const bytes = Buffer.from(value)
-    return [path, { size: bytes.length, read: () => Promise.resolve(bytes) }]
-  })))
+  return new PackageFiles(
+    new Map(
+      Object.entries(contents).map(([path, value]) => {
+        const bytes = Buffer.from(value)
+        return [path, { size: bytes.length, read: () => Promise.resolve(bytes) }]
+      }),
+    ),
+  )
 }
 
-const bundle = (name: string, extra: object = {}): string => JSON.stringify({ name, version: '1.0.0', dsh: { bundle: { patch: './cordis.patch.yml' } }, ...extra })
+const bundle = (name: string, extra: object = {}): string =>
+  JSON.stringify({ name, version: '1.0.0', dsh: { bundle: { patch: './cordis.patch.yml' } }, ...extra })
 
 async function readDisplay(files: PackageFiles, manifest: Manifest, inlineBytes = 100) {
   const warnings: string[] = []
-  const result = await readDisplayMetadata(files, manifest, { inlineBytes, warn: (message) => { warnings.push(message) } })
+  const result = await readDisplayMetadata(files, manifest, {
+    inlineBytes,
+    warn: message => {
+      warnings.push(message)
+    },
+  })
   return { ...result, warnings }
 }
 
 describe('parseSources', () => {
   it('reads package names and repository URLs, ignoring comments, blanks, and repeats', () => {
-    expect(parseSources('# market\n\n@scope/dsh-a\ndsh-b\nhttps://github.com/o/r.git\nhttps://github.com/o/r/\ndsh-b\nhttps://gitlab.example.com/g/sub/r\n')).toEqual([
+    expect(
+      parseSources(
+        '# market\n\n@scope/dsh-a\ndsh-b\nhttps://github.com/o/r.git\nhttps://github.com/o/r/\ndsh-b\nhttps://gitlab.example.com/g/sub/r\n',
+      ),
+    ).toEqual([
       { kind: 'npm', line: '@scope/dsh-a', name: '@scope/dsh-a' },
       { kind: 'npm', line: 'dsh-b', name: 'dsh-b' },
       { kind: 'git', line: 'https://github.com/o/r.git', url: 'https://github.com/o/r' },
@@ -48,47 +62,78 @@ describe('parseSources', () => {
 
 describe('isBundle and dshRange', () => {
   it('accepts only a bundle whose patch is a string or a list of strings', () => {
-    expect([
-      { patch: 'a.yml' }, { patch: ['a.yml', 'b.yml'] }, { patch: [] }, { patch: [1] }, {}, [], null, 'a.yml',
-    ].map(value => isBundle({ dsh: { bundle: value } }))).toEqual([true, true, true, false, false, false, false, false])
+    expect(
+      [{ patch: 'a.yml' }, { patch: ['a.yml', 'b.yml'] }, { patch: [] }, { patch: [1] }, {}, [], null, 'a.yml'].map(value =>
+        isBundle({ dsh: { bundle: value } }),
+      ),
+    ).toEqual([true, true, true, false, false, false, false, false])
     expect(isBundle(undefined)).toBe(false)
   })
 
   it('copies engines.dsh, else joins DSH peer ranges, and refuses ranges installation rejects', () => {
     expect(dshRange({ engines: { dsh: '>=0.2.0' }, peerDependencies: { '@deepseek-ai/dsh': '1' } })).toBe('>=0.2.0')
-    expect(dshRange({ peerDependencies: { react: '18', '@deepseek-ai/dsh-agent': 'workspace:*', '@deepseek-ai/dsh': '*' } })).toBeUndefined()
+    expect(
+      dshRange({ peerDependencies: { react: '18', '@deepseek-ai/dsh-agent': 'workspace:*', '@deepseek-ai/dsh': '*' } }),
+    ).toBeUndefined()
     // Installation refuses an empty range, any `workspace:` engines.dsh, and a padded workspace peer on every DSH version.
     for (const manifest of [
-      { peerDependencies: { '@deepseek-ai/dsh': ' ' } }, { engines: { dsh: '' } }, { engines: { dsh: 'workspace:*' } },
+      { peerDependencies: { '@deepseek-ai/dsh': ' ' } },
+      { engines: { dsh: '' } },
+      { engines: { dsh: 'workspace:*' } },
       { peerDependencies: { '@deepseek-ai/dsh': ' workspace:*' } },
-    ]) expect(dshRange(manifest)).toBeInstanceOf(Error)
+    ])
+      expect(dshRange(manifest)).toBeInstanceOf(Error)
     expect(dshRange({ engines: { dsh: '>1 <1' } })).toEqual(new Error('no DSH version satisfies the DSH range: >1 <1'))
     expect(dshRange({ engines: { dsh: ' * ' } })).toBeUndefined()
     expect(dshRange({ engines: { node: '22' }, peerDependencies: [] })).toBeUndefined()
-    expect(dshRange({
-      peerDependencies: { '@deepseek-ai/dsh-a': '^0.2.0 || ^0.3.0', '@deepseek-ai/dsh-b': '>=0.2.1', '@deepseek-ai/dsh-c': '>=0.2.1', '@deepseek-ai/dsh-d': '<1 ||' },
-    })).toBe('>=0.2.0 <0.3.0-0 >=0.2.1 || >=0.3.0 <0.4.0-0 >=0.2.1')
+    expect(
+      dshRange({
+        peerDependencies: {
+          '@deepseek-ai/dsh-a': '^0.2.0 || ^0.3.0',
+          '@deepseek-ai/dsh-b': '>=0.2.1',
+          '@deepseek-ai/dsh-c': '>=0.2.1',
+          '@deepseek-ai/dsh-d': '<1 ||',
+        },
+      }),
+    ).toBe('>=0.2.0 <0.3.0-0 >=0.2.1 || >=0.3.0 <0.4.0-0 >=0.2.1')
     // A hyphen range is expanded before combining, and combinations no version satisfies are dropped.
-    expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '1.0.0 - 2.0.0', '@deepseek-ai/dsh-x': '>=1.5.0 || <0.5.0' } })).toBe('>=1.0.0-0 <2.0.1-0 >=1.5.0')
-    expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '^0.1.0', '@deepseek-ai/dsh-x': '^0.2.0' } }))
-      .toEqual(new Error('no DSH version satisfies every DSH peer range: ^0.1.0, ^0.2.0'))
+    expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '1.0.0 - 2.0.0', '@deepseek-ai/dsh-x': '>=1.5.0 || <0.5.0' } })).toBe(
+      '>=1.0.0-0 <2.0.1-0 >=1.5.0',
+    )
+    expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '^0.1.0', '@deepseek-ai/dsh-x': '^0.2.0' } })).toEqual(
+      new Error('no DSH version satisfies every DSH peer range: ^0.1.0, ^0.2.0'),
+    )
     expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '^0.2.0-rc.1' } })).toBe('^0.2.0-rc.1')
     expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '>=0.1.0 || *', '@deepseek-ai/dsh-x': '^0.2.0 || *' } })).toBeUndefined()
-    expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '<0.1.0', '@deepseek-ai/dsh-x': '>=0.2.0' } }))
-      .toEqual(new Error('no DSH version satisfies every DSH peer range: <0.1.0, >=0.2.0'))
+    expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '<0.1.0', '@deepseek-ai/dsh-x': '>=0.2.0' } })).toEqual(
+      new Error('no DSH version satisfies every DSH peer range: <0.1.0, >=0.2.0'),
+    )
     expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '*', '@deepseek-ai/dsh-x': '>=0' } })).toBeUndefined()
     expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh-llm': '*', '@deepseek-ai/dsh-x': '*' } })).toBeUndefined()
-    const wide = Object.fromEntries(Array.from({ length: 3 }, (_, peer) => [`@deepseek-ai/dsh-${peer}`, Array.from({ length: 10 }, (_, minor) => `>=0.${minor}.${peer}`).join(' || ')]))
+    const wide = Object.fromEntries(
+      Array.from({ length: 3 }, (_, peer) => [
+        `@deepseek-ai/dsh-${peer}`,
+        Array.from({ length: 10 }, (_, minor) => `>=0.${minor}.${peer}`).join(' || '),
+      ]),
+    )
     expect(dshRange({ peerDependencies: wide })).toEqual(new Error('DSH peer ranges combine into more than 256 alternatives'))
-    expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh-a': 'workspace:>=1' } })).toEqual(new Error('DSH range "workspace:>=1" is not a valid SemVer range'))
+    expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh-a': 'workspace:>=1' } })).toEqual(
+      new Error('DSH range "workspace:>=1" is not a valid SemVer range'),
+    )
     expect(dshRange({ engines: { dsh: 'not a range' } })).toBeInstanceOf(Error)
-    expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '>=0.2.0', '@deepseek-ai/dsh-x': 'not a range' } })).toEqual(new Error('DSH range "not a range" is not a valid SemVer range'))
+    expect(dshRange({ peerDependencies: { '@deepseek-ai/dsh': '>=0.2.0', '@deepseek-ai/dsh-x': 'not a range' } })).toEqual(
+      new Error('DSH range "not a range" is not a valid SemVer range'),
+    )
   })
 })
 
 describe('findBundlePackages', () => {
   it('takes the root package when it is a bundle, even with workspaces', async () => {
-    expect(await findBundlePackages(tree({ 'package.json': bundle('root', { workspaces: ['packages/*'] }), 'packages/a/package.json': bundle('a') }))).toEqual([''])
+    expect(
+      await findBundlePackages(
+        tree({ 'package.json': bundle('root', { workspaces: ['packages/*'] }), 'packages/a/package.json': bundle('a') }),
+      ),
+    ).toEqual([''])
   })
 
   it('expands package.json and pnpm workspace globs', async () => {
@@ -104,7 +149,11 @@ describe('findBundlePackages', () => {
       'other/package.json': bundle('other'),
     })
     const warnings: string[] = []
-    expect(await findBundlePackages(files, (message) => { warnings.push(message) })).toEqual(['dsh-x', 'packages/core/c', 'plugins/a', 'single', 'tools/group/b'])
+    expect(
+      await findBundlePackages(files, message => {
+        warnings.push(message)
+      }),
+    ).toEqual(['dsh-x', 'packages/core/c', 'plugins/a', 'single', 'tools/group/b'])
     expect(warnings).toEqual(['workspace glob "missing" matches no directory'])
   })
 
@@ -128,7 +177,11 @@ describe('findBundlePackages', () => {
   })
 
   it('ignores a malformed workspace file and parent-relative globs', async () => {
-    const files = tree({ 'pnpm-workspace.yaml': 'packages: [', 'package.json': JSON.stringify({ workspaces: ['../x', 'missing/*'] }), 'p/package.json': bundle('p') })
+    const files = tree({
+      'pnpm-workspace.yaml': 'packages: [',
+      'package.json': JSON.stringify({ workspaces: ['../x', 'missing/*'] }),
+      'p/package.json': bundle('p'),
+    })
     expect(await findBundlePackages(files)).toEqual(['p'])
     expect(await findBundlePackages(tree({ 'pnpm-workspace.yaml': 'packages: p', 'p/package.json': bundle('p') }))).toEqual(['p'])
   })
@@ -136,66 +189,89 @@ describe('findBundlePackages', () => {
 
 describe('PackageFiles', () => {
   it('resolves references inside the tree only', () => {
-    expect([['', './a/b'], ['a', '../c'], ['a', '../..'], ['', '/etc/passwd'], ['a', '.'], ['', 'x/']].map(([base, path]) => PackageFiles.resolve(base as string, path as string)))
-      .toEqual(['a/b', 'c', undefined, undefined, 'a', 'x'])
+    expect(
+      [
+        ['', './a/b'],
+        ['a', '../c'],
+        ['a', '../..'],
+        ['', '/etc/passwd'],
+        ['a', '.'],
+        ['', 'x/'],
+      ].map(([base, path]) => PackageFiles.resolve(base as string, path as string)),
+    ).toEqual(['a/b', 'c', undefined, undefined, 'a', 'x'])
   })
 
   it('lists directories and files and reroots subtrees', async () => {
-    const files = tree({ 'a/x.json': '1', 'a/b/y.json': '2', 'z': '3' })
-    expect([files.directories(''), files.fileNames(''), files.fileNames('a'), files.directories('missing'), files.fileNames('missing')])
-      .toEqual([['a'], ['z'], ['x.json'], [], []])
+    const files = tree({ 'a/x.json': '1', 'a/b/y.json': '2', z: '3' })
+    expect([
+      files.directories(''),
+      files.fileNames(''),
+      files.fileNames('a'),
+      files.directories('missing'),
+      files.fileNames('missing'),
+    ]).toEqual([['a'], ['z'], ['x.json'], [], []])
     expect(files.within('')).toBe(files)
-    expect(Buffer.from(await files.within('a').read('b/y.json') ?? []).toString()).toBe('2')
+    expect(Buffer.from((await files.within('a').read('b/y.json')) ?? []).toString()).toBe('2')
     expect(await files.read('missing')).toBeUndefined()
   })
 })
 
 describe('readDisplayMetadata', () => {
-  it.each([
-    { keywords: ['search', '', ' search ', 'search', '搜索'] },
-    { keywords: [] },
-  ])('preserves manifest keywords $keywords', async ({ keywords }) => {
-    const result = await readDisplay(tree({}), { name: 'dsh-a', keywords })
-    expect(result).toEqual({ display: { title: 'dsh-a', metadata: { keywords } }, warnings: [] })
-  })
+  it.each([{ keywords: ['search', '', ' search ', 'search', '搜索'] }, { keywords: [] }])(
+    'preserves manifest keywords $keywords',
+    async ({ keywords }) => {
+      const result = await readDisplay(tree({}), { name: 'dsh-a', keywords })
+      expect(result).toEqual({ display: { title: 'dsh-a', metadata: { keywords } }, warnings: [] })
+    },
+  )
 
   it('omits metadata without manifest keywords', async () => {
     expect(await readDisplay(tree({}), { name: 'dsh-a' })).toEqual({ display: { title: 'dsh-a' }, warnings: [] })
   })
 
-  it.each([['search', 1], [null], 'search', null, 1, false, {}].map(keywords => ({ keywords })))('warns and omits invalid keywords $keywords entirely', async ({ keywords }) => {
-    const result = await readDisplay(tree({}), { name: 'dsh-a', keywords })
-    expect(result).toEqual({
-      display: { title: 'dsh-a' },
-      warnings: ['package.json keywords must be an array of strings; it is omitted'],
-    })
-  })
+  it.each([['search', 1], [null], 'search', null, 1, false, {}].map(keywords => ({ keywords })))(
+    'warns and omits invalid keywords $keywords entirely',
+    async ({ keywords }) => {
+      const result = await readDisplay(tree({}), { name: 'dsh-a', keywords })
+      expect(result).toEqual({
+        display: { title: 'dsh-a' },
+        warnings: ['package.json keywords must be an array of strings; it is omitted'],
+      })
+    },
+  )
 
   it.each([
     ['github:jane/dsh-a', { url: 'https://github.com/jane/dsh-a' }],
     ['jane/dsh-a', { url: 'https://github.com/jane/dsh-a' }],
     ['  github:jane/dsh-a  ', { url: 'https://github.com/jane/dsh-a' }],
     ['github:jane/dsh-a#semver:^1', { url: 'https://github.com/jane/dsh-a' }],
-    [{ type: 'git', url: 'git+ssh://git@github.com/jane/plugins.git', directory: 'packages/a' }, { url: 'https://github.com/jane/plugins', directory: 'packages/a' }],
-    [{ url: 'git+https://u:p@git.example/g/sub/r.git?x=1#main', directory: './packages/a/' }, { url: 'https://git.example/g/sub/r', directory: 'packages/a' }],
+    [
+      { type: 'git', url: 'git+ssh://git@github.com/jane/plugins.git', directory: 'packages/a' },
+      { url: 'https://github.com/jane/plugins', directory: 'packages/a' },
+    ],
+    [
+      { url: 'git+https://u:p@git.example/g/sub/r.git?x=1#main', directory: './packages/a/' },
+      { url: 'https://git.example/g/sub/r', directory: 'packages/a' },
+    ],
     [{ url: 'http://git.intranet/o/r' }, { url: 'http://git.intranet/o/r' }],
   ])('converts the manifest repository %j to its web page', async (repository, expected) => {
-    expect(await readDisplay(tree({}), { name: 'dsh-a', repository })).toEqual({ display: { title: 'dsh-a', repository: expected }, warnings: [] })
-  })
-
-  it.each([
-    'git://git.example/o/r.git',
-    { url: 'ssh://git@git.example/o/r.git' },
-    { directory: 'packages/a' },
-    3,
-  ])('warns and omits a repository %j without an http(s) page', async (repository) => {
     expect(await readDisplay(tree({}), { name: 'dsh-a', repository })).toEqual({
-      display: { title: 'dsh-a' },
-      warnings: [`package.json repository ${JSON.stringify(repository)} names no http(s) repository page; it is omitted`],
+      display: { title: 'dsh-a', repository: expected },
+      warnings: [],
     })
   })
 
-  it.each(['../a', 'a/./b', 'a b', 4])('keeps the repository but omits the directory %j', async (directory) => {
+  it.each(['git://git.example/o/r.git', { url: 'ssh://git@git.example/o/r.git' }, { directory: 'packages/a' }, 3])(
+    'warns and omits a repository %j without an http(s) page',
+    async repository => {
+      expect(await readDisplay(tree({}), { name: 'dsh-a', repository })).toEqual({
+        display: { title: 'dsh-a' },
+        warnings: [`package.json repository ${JSON.stringify(repository)} names no http(s) repository page; it is omitted`],
+      })
+    },
+  )
+
+  it.each(['../a', 'a/./b', 'a b', 4])('keeps the repository but omits the directory %j', async directory => {
     expect(await readDisplay(tree({}), { name: 'dsh-a', repository: { url: 'https://github.com/o/r', directory } })).toEqual({
       display: { title: 'dsh-a', repository: { url: 'https://github.com/o/r' } },
       warnings: [`package.json repository.directory ${JSON.stringify(directory)} is not a relative directory; it is omitted`],
@@ -227,8 +303,16 @@ describe('readDisplayMetadata', () => {
       'locale/ko.json': JSON.stringify({}),
       'locale/readme.md': 'not a locale',
     })
-    const { display, warnings } = await readDisplay(files, { name: 'dsh-a', description: 'Does A', author: { name: 'Jane', email: 'j@example.com' } })
-    expect(display).toEqual({ title: { en: 'Alpha', fr: 'Alpha (fr)', zh: '甲' }, description: { en: 'Does A', zh: '做甲' }, author: 'Jane' })
+    const { display, warnings } = await readDisplay(files, {
+      name: 'dsh-a',
+      description: 'Does A',
+      author: { name: 'Jane', email: 'j@example.com' },
+    })
+    expect(display).toEqual({
+      title: { en: 'Alpha', fr: 'Alpha (fr)', zh: '甲' },
+      description: { en: 'Does A', zh: '做甲' },
+      author: 'Jane',
+    })
     expect(warnings).toEqual([
       'locale file locale/Bad_Name.json ignored: its name is not a language id',
       expect.stringMatching(/^locale file locale\/de\.json ignored: SyntaxError/u) as string,
@@ -240,12 +324,29 @@ describe('readDisplayMetadata', () => {
   })
 
   it('reads no locale directory without locale/en.json and returns plain strings without translations', async () => {
-    expect((await readDisplay(tree({ 'locale/zh.json': JSON.stringify({ meta: { title: '甲' } }) }), { name: 'dsh-a', author: 'Jane <j@example.com>' })).display)
-      .toEqual({ title: 'dsh-a', author: 'Jane' })
-    expect((await readDisplay(tree({ 'locale/en.json': JSON.stringify({ meta: { description: 'English only' } }) }), { name: 'dsh-a', author: { url: 'x' } })).display)
-      .toEqual({ title: 'dsh-a', description: 'English only' })
-    expect((await readDisplay(tree({ 'locale/en.json': '{}', 'locale/zh.json': JSON.stringify({ meta: { description: '只有中文' } }) }), { name: 'dsh-a' })).display)
-      .toEqual({ title: 'dsh-a' })
+    expect(
+      (
+        await readDisplay(tree({ 'locale/zh.json': JSON.stringify({ meta: { title: '甲' } }) }), {
+          name: 'dsh-a',
+          author: 'Jane <j@example.com>',
+        })
+      ).display,
+    ).toEqual({ title: 'dsh-a', author: 'Jane' })
+    expect(
+      (
+        await readDisplay(tree({ 'locale/en.json': JSON.stringify({ meta: { description: 'English only' } }) }), {
+          name: 'dsh-a',
+          author: { url: 'x' },
+        })
+      ).display,
+    ).toEqual({ title: 'dsh-a', description: 'English only' })
+    expect(
+      (
+        await readDisplay(tree({ 'locale/en.json': '{}', 'locale/zh.json': JSON.stringify({ meta: { description: '只有中文' } }) }), {
+          name: 'dsh-a',
+        })
+      ).display,
+    ).toEqual({ title: 'dsh-a' })
   })
 
   it('resolves locale files and the icon through the exports map', async () => {
@@ -260,24 +361,38 @@ describe('readDisplayMetadata', () => {
     })
     const { display, warnings } = await readDisplay(files, {
       name: 'dsh-a',
-      exports: { './locale/fr.json': './other/fr.json', './locale/*': './dist/locale/*', './icon': { types: './icon.d.ts', default: './art/icon.svg' } },
+      exports: {
+        './locale/fr.json': './other/fr.json',
+        './locale/*': './dist/locale/*',
+        './icon': { types: './icon.d.ts', default: './art/icon.svg' },
+      },
     })
     expect(display).toEqual({ title: { en: 'Alpha', zh: '甲' }, icon: 'data:image/svg+xml;base64,PHN2Zy8+' })
     expect(warnings).toEqual(['locale file dist/locale/fr.json ignored: ./locale/fr.json does not resolve into dist/locale'])
     expect((await readDisplay(files, { name: 'dsh-a', exports: { '.': './index.js' } })).display).toEqual({ title: 'dsh-a' })
-    const flat = tree({ 'en.json': JSON.stringify({ meta: { title: 'Alpha' } }), 'zh.json': JSON.stringify({ meta: { title: '甲' } }), 'package.json': '{}' })
+    const flat = tree({
+      'en.json': JSON.stringify({ meta: { title: 'Alpha' } }),
+      'zh.json': JSON.stringify({ meta: { title: '甲' } }),
+      'package.json': '{}',
+    })
     expect((await readDisplay(flat, { exports: { './locale/*': './*' } })).display).toEqual({ title: { en: 'Alpha', zh: '甲' } })
     expect((await readDisplay(flat, {})).display).toEqual({})
-    expect((await readDisplay(files, { name: 'dsh-a', exports: { './locale/en.json': './../outside.json' } })).display).toEqual({ title: 'dsh-a' })
+    expect((await readDisplay(files, { name: 'dsh-a', exports: { './locale/en.json': './../outside.json' } })).display).toEqual({
+      title: 'dsh-a',
+    })
   })
 
   it('inlines small icons, returns larger ones as files, and prefers the manifest icon', async () => {
     const files = tree({ 'icon.svg': '<svg/>', 'big.png': new Uint8Array(200), 'assets/i.webp': new Uint8Array(4) })
-    expect((await readDisplay(files, { name: 'a', icon: './icon.svg', exports: { './icon': './assets/i.webp' } })).display.icon).toBe('data:image/svg+xml;base64,PHN2Zy8+')
+    expect((await readDisplay(files, { name: 'a', icon: './icon.svg', exports: { './icon': './assets/i.webp' } })).display.icon).toBe(
+      'data:image/svg+xml;base64,PHN2Zy8+',
+    )
     const large = await readDisplay(files, { name: 'a', icon: 'big.png' })
     expect(large.display.icon).toMatch(/^icons\/[0-9a-f]{16}\.png$/u)
     expect(large.iconFile?.bytes.length).toBe(200)
-    expect((await readDisplay(files, { name: 'a', exports: { './icon': { import: { default: './assets/i.webp' } } } })).display.icon).toBe('data:image/webp;base64,AAAAAA==')
+    expect((await readDisplay(files, { name: 'a', exports: { './icon': { import: { default: './assets/i.webp' } } } })).display.icon).toBe(
+      'data:image/webp;base64,AAAAAA==',
+    )
     expect((await readDisplay(files, { name: 'a', exports: { './icon': [] } })).warnings).toEqual([])
   })
 

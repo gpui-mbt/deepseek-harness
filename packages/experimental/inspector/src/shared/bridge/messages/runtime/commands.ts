@@ -83,11 +83,11 @@ export type ClientRuntimeCompletion = RuntimeCompletion<ClientRemoteObjectHandle
 export type ClientRuntimeResult =
   | { readonly op: 'evaluate'; readonly completion: ClientRuntimeCompletion }
   | {
-    readonly op: 'get-properties'
-    readonly properties: readonly ClientRuntimePropertyDescriptor[]
-    readonly internalProperties?: readonly ClientRuntimeInternalPropertyDescriptor[]
-    readonly exceptionDetails?: ClientRuntimeExceptionDetails
-  }
+      readonly op: 'get-properties'
+      readonly properties: readonly ClientRuntimePropertyDescriptor[]
+      readonly internalProperties?: readonly ClientRuntimeInternalPropertyDescriptor[]
+      readonly exceptionDetails?: ClientRuntimeExceptionDetails
+    }
   | { readonly op: 'call-function'; readonly completion: ClientRuntimeCompletion }
   | { readonly op: 'await-promise'; readonly completion: ClientRuntimeCompletion }
   | { readonly op: 'release-object' }

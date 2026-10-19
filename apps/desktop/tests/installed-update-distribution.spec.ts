@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { load } from 'js-yaml'
 import { createInstalledUpdateRun } from '../scripts/installed-update-qualification.ts'
 import { planInstalledUpdateDistribution } from '../scripts/installed-update-distribution.ts'
@@ -20,16 +20,23 @@ async function fixture<T>(body: (manifest: string) => Promise<T>): Promise<T> {
       const body = Buffer.from(`inert fixture ${version}`)
       await writeFile(join(output, filename), body)
       await writeFile(join(output, `${filename}.blockmap`), 'inert map')
-      await writeFile(join(output, 'nightly.yml'), JSON.stringify({ version,
-        files: [{ url: filename, size: body.length, sha512: createHash('sha512').update(body).digest('base64') }] }))
+      await writeFile(
+        join(output, 'nightly.yml'),
+        JSON.stringify({
+          version,
+          files: [{ url: filename, size: body.length, sha512: createHash('sha512').update(body).digest('base64') }],
+        }),
+      )
     }
     return await body(join(run.root, 'run.json'))
-  } finally { await rm(directory, { recursive: true, force: true }) }
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 }
 
 describe('qualification distribution file planning', () => {
   it('keeps two binary sets separate from successive bodies at one fixed feed URL without publication authority', async () => {
-    await fixture(async (manifest) => {
+    await fixture(async manifest => {
       const [old, next] = await Promise.all(versions.map(version => planInstalledUpdateDistribution(manifest, version)))
       expect(old!.feed.url).toBe(next!.feed.url)
       expect(old!.feed.sha512).not.toBe(next!.feed.sha512)
@@ -39,14 +46,17 @@ describe('qualification distribution file planning', () => {
       expect(next!.feed.key).toMatch(/^dsh-desk\/feeds\/qualification\/[a-f0-9]{24}\/win-x64\/nightly.yml$/u)
       expect(next!.publicationAuthorized).toBe(false)
       expect(next!.verified).toBe('file-integrity-only')
-      expect(load(next!.feed.contents)).toMatchObject({ version: versions[1],
-        files: [{ url: `https://download-test.deepseek.com/${next!.binaries[0]!.key}` }] })
+      expect(load(next!.feed.contents)).toMatchObject({
+        version: versions[1],
+        files: [{ url: `https://download-test.deepseek.com/${next!.binaries[0]!.key}` }],
+      })
     })
   })
 
   it.each(['changed-bytes', 'missing-map', 'foreign-url', 'wrong-version', 'legacy-hash'])(
-    'rejects %s before producing any distribution plan', async (failure) => {
-      await fixture(async (manifest) => {
+    'rejects %s before producing any distribution plan',
+    async failure => {
+      await fixture(async manifest => {
         const plan = await planInstalledUpdateDistribution(manifest, versions[0])
         const installer = plan.binaries[0]!.path
         const metadataPath = join(installer, '..', 'nightly.yml')

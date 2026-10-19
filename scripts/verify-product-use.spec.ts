@@ -3,7 +3,7 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { ProductPackagePolicy } from './product-package-policy.ts'
 import { verifyProductUse } from './verify-product-use.ts'
 import { writeFixtureFile as write } from './fixture-file.ts'
@@ -30,9 +30,13 @@ function pkg(root: string, directory: string, name: string, fields: Record<strin
 
 function profiles(root: string, optional: string[] = [], onDemand: string[] = []): void {
   write(root, catalog, `export const ON_DEMAND_BUNDLES = ${JSON.stringify(onDemand)}\n`)
-  write(root, profile, `export const PROFILE_TEMPLATES = ${JSON.stringify(Object.fromEntries(
-    ['web', 'acp', 'headless', 'sdk', 'sdk-minimal'].map(name => [name, { bundles: [base] }]),
-  ))}\nexport const DEFAULT_PROFILE_BUNDLES = ['${base}']\nexport const OPTIONAL_BUNDLES = ${JSON.stringify(optional)}\n`)
+  write(
+    root,
+    profile,
+    `export const PROFILE_TEMPLATES = ${JSON.stringify(
+      Object.fromEntries(['web', 'acp', 'headless', 'sdk', 'sdk-minimal'].map(name => [name, { bundles: [base] }])),
+    )}\nexport const DEFAULT_PROFILE_BUNDLES = ['${base}']\nexport const OPTIONAL_BUNDLES = ${JSON.stringify(optional)}\n`,
+  )
 }
 
 function fixture(): string {
@@ -83,7 +87,7 @@ describe('product package use', () => {
     `import { type Shape } from '${candidate}'`,
     `export type * from '${candidate}'`,
     `type Shape = import('${candidate}').Shape`,
-  ])('does not count type-only source: %s', (source) => {
+  ])('does not count type-only source: %s', source => {
     const root = fixture()
     pkg(root, candidateDir, candidate)
     write(root, 'apps/cli/src/bin.ts', source)
@@ -91,9 +95,11 @@ describe('product package use', () => {
   })
 
   it.each([
-    `import '${candidate}'`, `export * from '${candidate}'`,
-    `await import('${candidate}')`, `const value = require('${candidate}')`,
-  ])('follows runtime source: %s', (source) => {
+    `import '${candidate}'`,
+    `export * from '${candidate}'`,
+    `await import('${candidate}')`,
+    `const value = require('${candidate}')`,
+  ])('follows runtime source: %s', source => {
     const root = fixture()
     pkg(root, candidateDir, candidate)
     write(root, 'apps/cli/src/bin.ts', source)
@@ -122,14 +128,14 @@ describe('product package use', () => {
     expect(failures(root)).toBe('')
   })
 
-  it.each(['apps/desktop/src/main.ts', 'apps/web/src/main.ts'])('reaches the %s entrypoint', (entry) => {
+  it.each(['apps/desktop/src/main.ts', 'apps/web/src/main.ts'])('reaches the %s entrypoint', entry => {
     const root = fixture()
     pkg(root, candidateDir, candidate)
     write(root, entry, `import '${candidate}'`)
     expect(failures(root)).toBe('')
   })
 
-  it.each(['acp', 'headless', 'sdk', 'sdk-minimal'])('composes the %s profile independently', (name) => {
+  it.each(['acp', 'headless', 'sdk', 'sdk-minimal'])('composes the %s profile independently', name => {
     const root = fixture()
     pkg(root, candidateDir, candidate, { dsh: { bundle: { patch: './feature.patch.yml' } } })
     write(root, `${candidateDir}/feature.patch.yml`, [{ insert: [{ name: candidate }] }])
@@ -138,22 +144,41 @@ describe('product package use', () => {
     expect(failures(root)).toBe('')
   })
 
-  it.each([true, false])('excludes disabled Include children with initial=%s', (initial) => {
+  it.each([true, false])('excludes disabled Include children with initial=%s', initial => {
     const root = fixture()
     pkg(root, candidateDir, candidate)
     const children = [{ name: candidate }]
     if (!initial) write(root, 'packages/boot/app-boot/src/included.yml', children)
-    write(root, patch, [{ insert: [{ name: core }, {
-      name: 'cordis:include', disabled: true, config: { path: './included.yml', ...(initial ? { initial: children } : {}) },
-    }] }])
+    write(root, patch, [
+      {
+        insert: [
+          { name: core },
+          {
+            name: 'cordis:include',
+            disabled: true,
+            config: { path: './included.yml', ...(initial ? { initial: children } : {}) },
+          },
+        ],
+      },
+    ])
     expect(failures(root)).toContain('no product runtime use')
   })
 
   it('honors disabled groups, presets, nested initial entries, and conditional disabled expressions', () => {
     const root = fixture()
     pkg(root, candidateDir, candidate)
-    write(root, patch, [{ insert: [{ name: core }, { group: true, disabled: true, config: [{ name: candidate }] },
-      { name: 'cordis:include', config: { path: './missing.yml', initial: [{ disabled: true, group: true, config: [{ name: candidate }] }] } }] }])
+    write(root, patch, [
+      {
+        insert: [
+          { name: core },
+          { group: true, disabled: true, config: [{ name: candidate }] },
+          {
+            name: 'cordis:include',
+            config: { path: './missing.yml', initial: [{ disabled: true, group: true, config: [{ name: candidate }] }] },
+          },
+        ],
+      },
+    ])
     expect(failures(root)).toContain('no product runtime use')
     write(root, patch, `- insert:\n    - name: '${core}'\n    - name: '${candidate}'\n      disabled: !!js process.platform === 'win32'\n`)
     expect(failures(root)).toBe('')
@@ -163,9 +188,21 @@ describe('product package use', () => {
     const root = fixture()
     pkg(root, candidateDir, candidate)
     write(root, 'packages/boot/app-boot/src/included.yml', [{ id: 'child', name: candidate }])
-    write(root, patch, [{ insert: [{ name: core }, { name: 'cordis:include', config: {
-      path: './included.yml', initial: [{ name: candidate }], patches: [{ id: 'child', disabled: true }],
-    } }] }])
+    write(root, patch, [
+      {
+        insert: [
+          { name: core },
+          {
+            name: 'cordis:include',
+            config: {
+              path: './included.yml',
+              initial: [{ name: candidate }],
+              patches: [{ id: 'child', disabled: true }],
+            },
+          },
+        ],
+      },
+    ])
     expect(failures(root)).toContain('no product runtime use')
     write(root, 'packages/boot/app-boot/src/included.yml', [])
     expect(failures(root)).toContain('no product runtime use')
@@ -177,7 +214,8 @@ describe('product package use', () => {
     write(root, patch, [
       { insert: [{ id: 'root', group: true, config: [{ name: candidate }] }, { id: 'candidate', name: candidate }, { name: core }] },
       { id: 'missing', insert: [{ name: candidate }] },
-      { id: 'root', config: [] }, { id: 'candidate', disabled: true },
+      { id: 'root', config: [] },
+      { id: 'candidate', disabled: true },
     ])
     expect(failures(root)).toContain('no product runtime use')
   })
@@ -186,16 +224,21 @@ describe('product package use', () => {
     const root = fixture()
     pkg(root, candidateDir, candidate)
     pkg(root, 'packages/preset/agent-preset', '@deepseek-ai/dsh-agent-preset')
-    const entry = { id: 'preset', name: '@deepseek-ai/dsh-agent-preset', config: {
-      id: 'standard', plugins: [{ group: true, config: [{ name: candidate }] }],
-    } }
+    const entry = {
+      id: 'preset',
+      name: '@deepseek-ai/dsh-agent-preset',
+      config: {
+        id: 'standard',
+        plugins: [{ group: true, config: [{ name: candidate }] }],
+      },
+    }
     write(root, patch, [{ insert: [{ name: core }, entry] }])
     expect(failures(root)).toBe('')
     write(root, patch, [{ insert: [{ name: core }, entry] }, { id: 'preset', disabled: true }])
     expect(failures(root)).toContain(`${candidateDir} (${candidate}): no product runtime use`)
   })
 
-  it.each(['shipped', 'on-demand'])('keeps %s optional selection and its runtime closure separate from default use', (delivery) => {
+  it.each(['shipped', 'on-demand'])('keeps %s optional selection and its runtime closure separate from default use', delivery => {
     const root = fixture()
     const bundle = '@deepseek-ai/dsh-experimental-feature'
     pkg(root, 'packages/experimental/feature', bundle, { dsh: { bundle: { patch: './cordis.patch.yml' } } })
@@ -210,7 +253,7 @@ describe('product package use', () => {
     expect(result.defaultPackages).not.toContain(candidateDir)
   })
 
-  it.each(['shipped', 'on-demand'])('does not count a %s optional patch whose target is absent', (delivery) => {
+  it.each(['shipped', 'on-demand'])('does not count a %s optional patch whose target is absent', delivery => {
     const root = fixture()
     const bundle = '@deepseek-ai/dsh-experimental-feature'
     pkg(root, 'packages/experimental/feature', bundle, { dsh: { bundle: { patch: './cordis.patch.yml' } } })
@@ -222,9 +265,14 @@ describe('product package use', () => {
 
   it('counts declared generated Remote metadata without loading an artifact or its Host implementation', () => {
     const root = fixture()
-    pkg(root, candidateDir, candidate, { exports: { './remote': {
-      types: './lib/typert.remote-client.d.ts', default: './lib/typert.remote-client.js',
-    } } })
+    pkg(root, candidateDir, candidate, {
+      exports: {
+        './remote': {
+          types: './lib/typert.remote-client.d.ts',
+          default: './lib/typert.remote-client.js',
+        },
+      },
+    })
     pkg(root, 'packages/core/host-only', '@deepseek-ai/dsh-host-only')
     write(root, `${candidateDir}/src/index.ts`, "import '@deepseek-ai/dsh-host-only'")
     write(root, 'apps/web/src/main.ts', `import '${candidate}/remote'`)
@@ -265,8 +313,11 @@ describe('product package use', () => {
     pkg(root, candidateDir, candidate, { dsh: { client: { platform: 'web' } } })
     pkg(root, 'packages/client/indirect', '@deepseek-ai/dsh-client-indirect')
     write(root, `${candidateDir}/src/client.ts`, "import '@deepseek-ai/dsh-client-indirect'")
-    write(root, 'packages/host/directory-picker-auto/src/index.ts',
-      `export const BACKEND_PACKAGES = { native: '${candidate}' }\nexport const SURFACE_PACKAGES = { native: '${candidate}' }\n`)
+    write(
+      root,
+      'packages/host/directory-picker-auto/src/index.ts',
+      `export const BACKEND_PACKAGES = { native: '${candidate}' }\nexport const SURFACE_PACKAGES = { native: '${candidate}' }\n`,
+    )
     write(root, patch, [{ insert: [{ name: core }, { name: picker }] }])
     expect(failures(root)).toBe('')
   })

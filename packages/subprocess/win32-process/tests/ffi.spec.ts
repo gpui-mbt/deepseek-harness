@@ -1,12 +1,6 @@
 import koffi from 'koffi'
-import { describe, expect, it, vi } from 'vitest'
-import {
-  Win32Error,
-  allocPtrSlot,
-  decodePtr,
-  isNullPtr,
-  throwLastError,
-} from '../src/index.ts'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import { Win32Error, allocPtrSlot, decodePtr, isNullPtr, throwLastError } from '../src/index.ts'
 import { PROCESS_INFORMATION_SIZE, STARTUPINFOW_SIZE } from '../src/abi.ts'
 import { errorText, processInformationType, startupInfoType } from '../src/ffi.ts'
 import type { NativePtr, Win32ProcessBindings } from '../src/index.ts'

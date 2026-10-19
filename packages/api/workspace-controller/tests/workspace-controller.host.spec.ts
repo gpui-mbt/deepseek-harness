@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import Storage from '@deepseek-ai/dsh-storage'
@@ -47,7 +47,9 @@ interface Deferred<T> {
 
 function deferred<T>(): Deferred<T> {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>((settle) => { resolve = settle })
+  const promise = new Promise<T>(settle => {
+    resolve = settle
+  })
   return { promise, resolve }
 }
 
@@ -85,7 +87,11 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 /** Opens the Workspace follow stream; each Workspace and Session in it still needs its own role. */
 const FOLLOWER: RemoteAccessRole<'global'> = { name: 'test:workspace-follower', resource: 'global', actions: ['workspace/follow'] }
 /** Shows one Workspace in the follow stream. */
-const WORKSPACE_VIEWER: RemoteAccessRole<'workspace'> = { name: 'test:workspace-viewer', resource: 'workspace', actions: ['workspace/follow'] }
+const WORKSPACE_VIEWER: RemoteAccessRole<'workspace'> = {
+  name: 'test:workspace-viewer',
+  resource: 'workspace',
+  actions: ['workspace/follow'],
+}
 /** Shows one Session id in the follow stream. */
 const SESSION_VIEWER: RemoteAccessRole<'session'> = { name: 'test:session-viewer', resource: 'session', actions: ['workspace/follow'] }
 
@@ -94,7 +100,14 @@ function followerContext(ctx: Context, principal: Principal): Context {
   const invocation: RemoteInvocation = {
     request: { namespace: 'workspace', method: 'follow', args: {} },
     service: 'workspaceController',
-    peer: { id: 'workspace-access-peer' as PeerId, ctx, principal, interactions: 'answer', signal: new AbortController().signal, dispose: async () => {} },
+    peer: {
+      id: 'workspace-access-peer' as PeerId,
+      ctx,
+      principal,
+      interactions: 'answer',
+      signal: new AbortController().signal,
+      dispose: async () => {},
+    },
     signal: new AbortController().signal,
     uplink: <In>(): AsyncIterable<In> => ({ [Symbol.asyncIterator]: () => ({ next: async () => ({ done: true, value: undefined }) }) }),
   }
@@ -107,9 +120,7 @@ function stageDir(root: string, name: string): string {
   return path
 }
 
-async function nextFrame(
-  iterator: AsyncIterator<WorkspaceFollowFrame>,
-): Promise<WorkspaceFollowFrame> {
+async function nextFrame(iterator: AsyncIterator<WorkspaceFollowFrame>): Promise<WorkspaceFollowFrame> {
   const next = await iterator.next()
   if (next.done === true) throw new Error('Workspace stream ended before the expected frame')
   return next.value
@@ -119,10 +130,7 @@ describe('WorkspaceController commands', () => {
   it('serializes concurrent path adoption and preserves an existing title', async () => {
     const { controller, root } = await harness()
     const path = stageDir(root, 'alpha')
-    const results = await Promise.all([
-      controller.create({ path }),
-      controller.create({ path }),
-    ])
+    const results = await Promise.all([controller.create({ path }), controller.create({ path })])
     const created = results.find(result => result.created)
     const resolved = results.find(result => !result.created)
     expect(created).toMatchObject({ workspace: { path, title: 'alpha' } })
@@ -147,23 +155,24 @@ describe('WorkspaceController commands', () => {
       details: { path: join(root, 'missing') },
     })
     expect(existsSync(join(root, 'missing'))).toBe(false)
-    await expect(controller.rename({ workspaceId: first.workspace.workspaceId, title: '  ' }))
-      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+    await expect(controller.rename({ workspaceId: first.workspace.workspaceId, title: '  ' })).rejects.toMatchObject({
+      code: 'gateway/bad-request',
+    })
     await controller.rename({ workspaceId: first.workspace.workspaceId, title: 'occupied' })
-    await expect(controller.rename({ workspaceId: second.workspace.workspaceId, title: ' occupied ' }))
-      .rejects.toMatchObject({ code: 'workspace/name-conflict' })
-    await expect(controller.delete({ workspaceId: 'missing' as WorkspaceId }))
-      .rejects.toMatchObject({ code: 'workspace/not-found' })
+    await expect(controller.rename({ workspaceId: second.workspace.workspaceId, title: ' occupied ' })).rejects.toMatchObject({
+      code: 'workspace/name-conflict',
+    })
+    await expect(controller.delete({ workspaceId: 'missing' as WorkspaceId })).rejects.toMatchObject({ code: 'workspace/not-found' })
   })
 
   it('preserves Remote failures and propagates unexpected registry failures', async () => {
     const { controller, ctx, root } = await harness()
     const remoteFailure = new RemoteError('fixture/failure', 'already mapped', {})
-    const resolveByPath = vi.spyOn(ctx.workspaceRegistry, 'resolveByPath')
+    const resolveByPath = vi
+      .spyOn(ctx.workspaceRegistry, 'resolveByPath')
       .mockRejectedValueOnce(remoteFailure)
       .mockRejectedValueOnce('plain failure')
-    await expect(controller.create({ path: stageDir(root, 'remote-failure') }))
-      .rejects.toBe(remoteFailure)
+    await expect(controller.create({ path: stageDir(root, 'remote-failure') })).rejects.toBe(remoteFailure)
     const plainFailure = controller.create({ path: stageDir(root, 'plain-failure') })
     await expect(plainFailure).rejects.toMatchObject({ code: 'workspace/invalid-path' })
     await expect(plainFailure).rejects.toThrow('plain failure')
@@ -175,35 +184,32 @@ describe('WorkspaceController commands', () => {
 
     const orderFailure = new Error('order storage failed')
     vi.spyOn(ctx.workspaceRegistry, 'insertBefore').mockRejectedValueOnce(orderFailure)
-    await expect(controller.insertBefore({ workspaceId: created.workspace.workspaceId }))
-      .rejects.toBe(orderFailure)
+    await expect(controller.insertBefore({ workspaceId: created.workspace.workspaceId })).rejects.toBe(orderFailure)
 
     const moveFailure = new Error('membership storage failed')
     vi.spyOn(workspace, 'insertSessionBefore').mockRejectedValueOnce(moveFailure)
-    await expect(controller.insertSessionBefore({
-      workspaceId: created.workspace.workspaceId,
-      sessionId: SessionId('session'),
-    })).rejects.toBe(moveFailure)
+    await expect(
+      controller.insertSessionBefore({
+        workspaceId: created.workspace.workspaceId,
+        sessionId: SessionId('session'),
+      }),
+    ).rejects.toBe(moveFailure)
 
     const archiveFailure = new Error('archive storage failed')
     vi.spyOn(ctx.workspaceRegistry, 'archiveSession').mockRejectedValueOnce(archiveFailure)
-    await expect(controller.archiveSession({ sessionId: SessionId('session') }))
-      .rejects.toBe(archiveFailure)
+    await expect(controller.archiveSession({ sessionId: SessionId('session') })).rejects.toBe(archiveFailure)
 
     const unarchiveFailure = new Error('unarchive storage failed')
     vi.spyOn(ctx.workspaceRegistry, 'unarchiveSession').mockRejectedValueOnce(unarchiveFailure)
-    await expect(controller.unarchiveSession({ sessionId: SessionId('session') }))
-      .rejects.toBe(unarchiveFailure)
+    await expect(controller.unarchiveSession({ sessionId: SessionId('session') })).rejects.toBe(unarchiveFailure)
 
     const pinFailure = new Error('pin storage failed')
     vi.spyOn(ctx.workspaceRegistry, 'pinSession').mockRejectedValueOnce(pinFailure)
-    await expect(controller.pinSession({ sessionId: SessionId('session') }))
-      .rejects.toBe(pinFailure)
+    await expect(controller.pinSession({ sessionId: SessionId('session') })).rejects.toBe(pinFailure)
 
     const unpinFailure = new Error('unpin storage failed')
     vi.spyOn(ctx.workspaceRegistry, 'unpinSession').mockRejectedValueOnce(unpinFailure)
-    await expect(controller.unpinSession({ sessionId: SessionId('session') }))
-      .rejects.toBe(unpinFailure)
+    await expect(controller.unpinSession({ sessionId: SessionId('session') })).rejects.toBe(unpinFailure)
   })
 
   it('resolves queued Workspace identities when their operation starts', async () => {
@@ -213,7 +219,7 @@ describe('WorkspaceController commands', () => {
     const gate = deferred<undefined>()
     const originalResolveByPath = ctx.workspaceRegistry.resolveByPath.bind(ctx.workspaceRegistry)
     const resolveByPath = vi.spyOn(ctx.workspaceRegistry, 'resolveByPath')
-    resolveByPath.mockImplementationOnce(async (path) => {
+    resolveByPath.mockImplementationOnce(async path => {
       await gate.promise
       return originalResolveByPath(path)
     })
@@ -234,14 +240,15 @@ describe('WorkspaceController commands', () => {
     const { controller, ctx, root } = await harness()
     const first = await controller.create({ path: stageDir(root, 'first') })
     const second = await controller.create({ path: stageDir(root, 'second') })
-    await expect(controller.insertBefore({
-      workspaceId: first.workspace.workspaceId,
-      beforeWorkspaceId: second.workspace.workspaceId,
-    })).resolves.toEqual({
+    await expect(
+      controller.insertBefore({
+        workspaceId: first.workspace.workspaceId,
+        beforeWorkspaceId: second.workspace.workspaceId,
+      }),
+    ).resolves.toEqual({
       workspaceIds: [first.workspace.workspaceId, second.workspace.workspaceId],
     })
-    await expect(controller.insertBefore({ workspaceId: 'missing' as WorkspaceId }))
-      .rejects.toMatchObject({ code: 'workspace/not-found' })
+    await expect(controller.insertBefore({ workspaceId: 'missing' as WorkspaceId })).rejects.toMatchObject({ code: 'workspace/not-found' })
 
     const session = ctx.sessions.create(SessionId('session-one'), {
       meta: { cwd: first.workspace.path },
@@ -249,32 +256,41 @@ describe('WorkspaceController commands', () => {
     const workspace = ctx.workspaceRegistry.get(first.workspace.workspaceId)
     if (workspace === undefined) throw new Error('fixture Workspace disappeared')
     await workspace.attachSession(session.id)
-    await expect(controller.insertSessionBefore({
-      workspaceId: first.workspace.workspaceId,
-      sessionId: session.id,
-    })).resolves.toMatchObject({ workspace: { sessionIds: [session.id] } })
-    await expect(controller.insertSessionBefore({
-      workspaceId: first.workspace.workspaceId,
-      sessionId: SessionId('missing-session'),
-    })).rejects.toMatchObject({ code: 'workspace/move-invalid' })
-    await expect(controller.insertSessionBefore({
-      workspaceId: first.workspace.workspaceId,
-      sessionId: session.id,
-      beforeSessionId: SessionId('missing-anchor'),
-    })).rejects.toMatchObject({
+    await expect(
+      controller.insertSessionBefore({
+        workspaceId: first.workspace.workspaceId,
+        sessionId: session.id,
+      }),
+    ).resolves.toMatchObject({ workspace: { sessionIds: [session.id] } })
+    await expect(
+      controller.insertSessionBefore({
+        workspaceId: first.workspace.workspaceId,
+        sessionId: SessionId('missing-session'),
+      }),
+    ).rejects.toMatchObject({ code: 'workspace/move-invalid' })
+    await expect(
+      controller.insertSessionBefore({
+        workspaceId: first.workspace.workspaceId,
+        sessionId: session.id,
+        beforeSessionId: SessionId('missing-anchor'),
+      }),
+    ).rejects.toMatchObject({
       code: 'workspace/move-invalid',
       details: { beforeSessionId: 'missing-anchor' },
     })
-    await expect(controller.insertSessionBefore({
-      workspaceId: 'missing' as WorkspaceId,
-      sessionId: session.id,
-    })).rejects.toMatchObject({ code: 'workspace/not-found' })
+    await expect(
+      controller.insertSessionBefore({
+        workspaceId: 'missing' as WorkspaceId,
+        sessionId: session.id,
+      }),
+    ).rejects.toMatchObject({ code: 'workspace/not-found' })
 
     // A session reported active by the registry's activity waterfall is a
     // stable business failure carrying what still runs, and nothing is written.
     const activity = [{ kind: 'probe' as const }, { kind: 'probe-items' as const, items: [{ id: 'item-1', label: 'build' }] }]
     const stopReporting = ctx.on('workspace/session-activity', async ({ sessionId }, next) =>
-      sessionId === session.id ? [...activity, ...(await next())] : next())
+      sessionId === session.id ? [...activity, ...(await next())] : next(),
+    )
     await expect(controller.archiveSession({ sessionId: session.id })).rejects.toMatchObject({
       code: 'workspace/session-active',
       details: { sessionId: session.id, activity },
@@ -283,24 +299,22 @@ describe('WorkspaceController commands', () => {
     // Asking to stop the work archives the still-active Session and reaches
     // the stop providers first.
     const stops: string[] = []
-    const stopListening = ctx.on('workspace/session-stop', ({ sessionId }) => { stops.push(String(sessionId)) })
-    await expect(controller.archiveSession({ sessionId: session.id, stopActivity: true }))
-      .resolves.toEqual({ archivedSessionIds: [session.id] })
+    const stopListening = ctx.on('workspace/session-stop', ({ sessionId }) => {
+      stops.push(String(sessionId))
+    })
+    await expect(controller.archiveSession({ sessionId: session.id, stopActivity: true })).resolves.toEqual({
+      archivedSessionIds: [session.id],
+    })
     expect(stops).toEqual([String(session.id)])
     stopListening()
-    await expect(controller.unarchiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [] })
+    await expect(controller.unarchiveSession({ sessionId: session.id })).resolves.toEqual({ archivedSessionIds: [] })
     stopReporting()
 
-    await expect(controller.archiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [session.id] })
-    await expect(controller.archiveSession({ sessionId: SessionId('unknown') }))
-      .rejects.toMatchObject({ code: 'session/not-found' })
-    await expect(controller.unarchiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [] })
+    await expect(controller.archiveSession({ sessionId: session.id })).resolves.toEqual({ archivedSessionIds: [session.id] })
+    await expect(controller.archiveSession({ sessionId: SessionId('unknown') })).rejects.toMatchObject({ code: 'session/not-found' })
+    await expect(controller.unarchiveSession({ sessionId: session.id })).resolves.toEqual({ archivedSessionIds: [] })
     // Unarchive is idempotent: an id that is not archived is not an error.
-    await expect(controller.unarchiveSession({ sessionId: session.id }))
-      .resolves.toEqual({ archivedSessionIds: [] })
+    await expect(controller.unarchiveSession({ sessionId: session.id })).resolves.toEqual({ archivedSessionIds: [] })
   })
 
   it('pins only known unarchived Sessions and unpins idempotently', async () => {
@@ -310,24 +324,19 @@ describe('WorkspaceController commands', () => {
       meta: { cwd: created.workspace.path },
     })
 
-    await expect(controller.pinSession({ sessionId: session.id }))
-      .resolves.toEqual({ pinnedSessionIds: [session.id] })
-    await expect(controller.pinSession({ sessionId: SessionId('unknown') }))
-      .rejects.toMatchObject({ code: 'session/not-found' })
+    await expect(controller.pinSession({ sessionId: session.id })).resolves.toEqual({ pinnedSessionIds: [session.id] })
+    await expect(controller.pinSession({ sessionId: SessionId('unknown') })).rejects.toMatchObject({ code: 'session/not-found' })
 
     // Pinning an archived Session is a caller error, not a missing session.
     const archived = ctx.sessions.create(SessionId('stored'), {
       meta: { cwd: created.workspace.path },
     })
     await controller.archiveSession({ sessionId: archived.id })
-    await expect(controller.pinSession({ sessionId: archived.id }))
-      .rejects.toMatchObject({ code: 'gateway/bad-request' })
+    await expect(controller.pinSession({ sessionId: archived.id })).rejects.toMatchObject({ code: 'gateway/bad-request' })
 
-    await expect(controller.unpinSession({ sessionId: session.id }))
-      .resolves.toEqual({ pinnedSessionIds: [] })
+    await expect(controller.unpinSession({ sessionId: session.id })).resolves.toEqual({ pinnedSessionIds: [] })
     // Unpin is idempotent: an id that is not pinned is not an error.
-    await expect(controller.unpinSession({ sessionId: session.id }))
-      .resolves.toEqual({ pinnedSessionIds: [] })
+    await expect(controller.unpinSession({ sessionId: session.id })).resolves.toEqual({ pinnedSessionIds: [] })
   })
 })
 
@@ -365,7 +374,8 @@ describe('WorkspaceController follow', () => {
     const iterator = feed.follow(abort.signal)[Symbol.asyncIterator]()
     try {
       await expect(nextFrame(iterator)).resolves.toMatchObject({
-        type: 'baseline', value: { pinnedSessionIds: [session.id] },
+        type: 'baseline',
+        value: { pinnedSessionIds: [session.id] },
       })
       await controller.unpinSession({ sessionId: session.id })
       await expect(nextFrame(iterator)).resolves.toEqual({ type: 'pinned', pinnedSessionIds: [] })
@@ -386,22 +396,27 @@ describe('WorkspaceController follow', () => {
 
     const first = await controller.create({ path: stageDir(root, 'first') })
     await expect(nextFrame(iterator)).resolves.toMatchObject({
-      type: 'upsert', workspace: { workspaceId: first.workspace.workspaceId },
+      type: 'upsert',
+      workspace: { workspaceId: first.workspace.workspaceId },
     })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'order', workspaceIds: [first.workspace.workspaceId],
+      type: 'order',
+      workspaceIds: [first.workspace.workspaceId],
     })
     await controller.rename({ workspaceId: first.workspace.workspaceId, title: 'renamed' })
     await expect(nextFrame(iterator)).resolves.toMatchObject({
-      type: 'upsert', workspace: { title: 'renamed' },
+      type: 'upsert',
+      workspace: { title: 'renamed' },
     })
 
     const second = await controller.create({ path: stageDir(root, 'second') })
     await expect(nextFrame(iterator)).resolves.toMatchObject({
-      type: 'upsert', workspace: { workspaceId: second.workspace.workspaceId },
+      type: 'upsert',
+      workspace: { workspaceId: second.workspace.workspaceId },
     })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'order', workspaceIds: [second.workspace.workspaceId, first.workspace.workspaceId],
+      type: 'order',
+      workspaceIds: [second.workspace.workspaceId, first.workspace.workspaceId],
     })
     await controller.insertBefore({
       workspaceId: first.workspace.workspaceId,
@@ -417,28 +432,34 @@ describe('WorkspaceController follow', () => {
     })
     await controller.archiveSession({ sessionId: session.id })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'archived', archivedSessionIds: [session.id],
+      type: 'archived',
+      archivedSessionIds: [session.id],
     })
     // Unarchive rides the same complete-set increment: no new frame type.
     await controller.unarchiveSession({ sessionId: session.id })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'archived', archivedSessionIds: [],
+      type: 'archived',
+      archivedSessionIds: [],
     })
     await controller.pinSession({ sessionId: session.id })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'pinned', pinnedSessionIds: [session.id],
+      type: 'pinned',
+      pinnedSessionIds: [session.id],
     })
     // Unpin rides the same complete-set increment: no new frame type.
     await controller.unpinSession({ sessionId: session.id })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'pinned', pinnedSessionIds: [],
+      type: 'pinned',
+      pinnedSessionIds: [],
     })
     await controller.delete({ workspaceId: second.workspace.workspaceId })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'order', workspaceIds: [first.workspace.workspaceId],
+      type: 'order',
+      workspaceIds: [first.workspace.workspaceId],
     })
     await expect(nextFrame(iterator)).resolves.toEqual({
-      type: 'remove', workspaceId: second.workspace.workspaceId,
+      type: 'remove',
+      workspaceId: second.workspace.workspaceId,
     })
 
     abort.abort()
@@ -483,7 +504,8 @@ describe('WorkspaceController follow', () => {
     await controller.rename({ workspaceId: hiddenId, title: 'still hidden' })
     await controller.rename({ workspaceId: shownId, title: 'renamed' })
     await expect(nextFrame(iterator)).resolves.toMatchObject({
-      type: 'upsert', workspace: { workspaceId: shownId, title: 'renamed', sessionIds: [shared.id] },
+      type: 'upsert',
+      workspace: { workspaceId: shownId, title: 'renamed', sessionIds: [shared.id] },
     })
     await controller.unpinSession({ sessionId: secret.id })
     await expect(nextFrame(iterator)).resolves.toEqual({ type: 'pinned', pinnedSessionIds: [shared.id] })
@@ -518,7 +540,9 @@ describe('WorkspaceController follow', () => {
       ],
     })
     const abort = new AbortController()
-    const iterator = followerContext(ctx, { kind: 'test-guest', guest: 'withdrawn' }).workspaceController.follow(abort.signal)[Symbol.asyncIterator]()
+    const iterator = followerContext(ctx, { kind: 'test-guest', guest: 'withdrawn' })
+      .workspaceController.follow(abort.signal)
+      [Symbol.asyncIterator]()
     const ids = (frame: WorkspaceFollowFrame): string[] =>
       frame.type === 'baseline' || frame.type === 'replace' ? frame.value.items.map(item => item.workspaceId).sort() : []
     const opening = await nextFrame(iterator)
@@ -555,16 +579,30 @@ describe('WorkspaceController follow', () => {
     const iterator = controller.follow(abort.signal)[Symbol.asyncIterator]()
     await nextFrame(iterator)
     ctx.emit('domain/changed', {
-      domain: 'other', table: 'records', key: 'x', operation: 'put', value: {},
+      domain: 'other',
+      table: 'records',
+      key: 'x',
+      operation: 'put',
+      value: {},
     })
     ctx.emit('domain/changed', {
-      domain: 'workspace', table: '', key: '', operation: 'deleted',
+      domain: 'workspace',
+      table: '',
+      key: '',
+      operation: 'deleted',
     })
     ctx.emit('domain/changed', {
-      domain: 'workspace', table: 'other', key: 'x', operation: 'put', value: {},
+      domain: 'workspace',
+      table: 'other',
+      key: 'x',
+      operation: 'put',
+      value: {},
     })
     ctx.emit('domain/changed', {
-      domain: 'workspace', table: 'workspaces', key: 'unknown', operation: 'deleted',
+      domain: 'workspace',
+      table: 'workspaces',
+      key: 'unknown',
+      operation: 'deleted',
     })
     const pending = iterator.next()
     const created = await controller.create({ path: stageDir(root, 'visible') })
@@ -586,8 +624,9 @@ describe('first-use Remote', () => {
     const { controller, ctx, root } = await harness({ systemDocuments: true })
     const workspace = await ctx.workspaceRegistry.initializeDefault(async () => root)
     const signal = AbortSignal.abort()
-    await expect(controller.initializeDefault(signal))
-      .resolves.toMatchObject({ workspace: { workspaceId: workspace!.id, path: root, title: basename(root) } })
+    await expect(controller.initializeDefault(signal)).resolves.toMatchObject({
+      workspace: { workspaceId: workspace!.id, path: root, title: basename(root) },
+    })
   })
 
   it('returns a durable Workspace named after its fixed directory without allocating a Session', async () => {
@@ -604,10 +643,8 @@ describe('first-use Remote', () => {
   it('skips ineligible first use and propagates preparation failures', async () => {
     const { controller, ctx, root } = await harness()
     await ctx.workspaceRegistry.create(root)
-    await expect(controller.initializeDefault(new AbortController().signal))
-      .resolves.toBeUndefined()
+    await expect(controller.initializeDefault(new AbortController().signal)).resolves.toBeUndefined()
     vi.spyOn(ctx.workspaceRegistry, 'initializeDefault').mockRejectedValueOnce(new Error('permission denied'))
-    await expect(controller.initializeDefault(new AbortController().signal))
-      .rejects.toThrow('permission denied')
+    await expect(controller.initializeDefault(new AbortController().signal)).rejects.toThrow('permission denied')
   })
 })

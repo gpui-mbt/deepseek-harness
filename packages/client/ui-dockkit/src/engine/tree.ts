@@ -3,9 +3,7 @@
  * (the operation vocabulary is closed, so a miss is a caller defect), and every
  * writer returns a new state that keeps untouched nodes at their old identity.
  */
-import type {
-  FloatRect, LayoutNode, LayoutState, NodeId, PaneId, PaneNode, SplitNode, TabId, TabRecord,
-} from '../contract/types.ts'
+import type { FloatRect, LayoutNode, LayoutState, NodeId, PaneId, PaneNode, SplitNode, TabId, TabRecord } from '../contract/types.ts'
 
 /**
  * Reject an unhandled discriminant at the end of a closed switch.
@@ -190,10 +188,7 @@ export function keysOf<K extends string>(record: Readonly<Record<K, unknown>>): 
  * @param updates - nodes by id; a `null` update deletes that id.
  * @returns the layout with those nodes replaced; untouched nodes keep their identity.
  */
-export function withNodes(
-  state: LayoutState,
-  updates: Readonly<Record<NodeId, LayoutNode | null>>,
-): LayoutState {
+export function withNodes(state: LayoutState, updates: Readonly<Record<NodeId, LayoutNode | null>>): LayoutState {
   const nodes: Record<NodeId, LayoutNode> = {}
   for (const [id, node] of entriesOf(state.nodes)) {
     if (!(id in updates)) nodes[id] = node
@@ -210,10 +205,7 @@ export function withNodes(
  * @param updates - records by id; a `null` update deletes that id.
  * @returns the layout with those records replaced; untouched records keep their identity.
  */
-export function withTabs(
-  state: LayoutState,
-  updates: Readonly<Record<TabId, TabRecord | null>>,
-): LayoutState {
+export function withTabs(state: LayoutState, updates: Readonly<Record<TabId, TabRecord | null>>): LayoutState {
   const tabs: Record<TabId, TabRecord> = {}
   for (const [id, tab] of entriesOf(state.tabs)) {
     if (!(id in updates)) tabs[id] = tab
@@ -283,7 +275,7 @@ export function replaceInParent(state: LayoutState, targetId: NodeId, replacemen
     if (state.rootId !== targetId) throw new Error(`layout: ${targetId} is neither rooted nor parented`)
     return { ...state, rootId: replacementId }
   }
-  const children = parent.children.map(child => child === targetId ? replacementId : child)
+  const children = parent.children.map(child => (child === targetId ? replacementId : child))
   return withNodes(state, { [parent.id]: { ...parent, children } })
 }
 

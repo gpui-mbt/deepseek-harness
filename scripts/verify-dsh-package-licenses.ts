@@ -66,9 +66,7 @@ export function inspectDshPackageLicenses(root: string): DshPackageLicenseReport
     packageCount++
     if (manifest.license !== 'MIT') {
       const normalizedFile = file.split(sep).join('/')
-      failures.push(
-        `${normalizedFile}: ${name} must declare "license": "MIT"; found ${printable(manifest.license)}.`,
-      )
+      failures.push(`${normalizedFile}: ${name} must declare "license": "MIT"; found ${printable(manifest.license)}.`)
     }
   }
 
@@ -82,8 +80,6 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
     for (const failure of report.failures) process.stderr.write(`  ${failure}\n`)
     process.exitCode = 1
   } else {
-    process.stdout.write(
-      `verify-dsh-package-licenses: ${String(report.packageCount)} DSH package(s) checked; all declare MIT.\n`,
-    )
+    process.stdout.write(`verify-dsh-package-licenses: ${String(report.packageCount)} DSH package(s) checked; all declare MIT.\n`)
   }
 }

@@ -46,21 +46,25 @@ class MockAdapter extends LlmAdapter {
   }
 
   override listModels(provider: string) {
-    return Promise.resolve(provider === this.provider ? [
-      {
-        provider: this.provider,
-        id: 'mock',
-        name: 'Mock Reasoner',
-        description: 'Mock model with selectable reasoning.',
-        inputModalities: this.imageCapable ? ['text', 'image'] as const : ['text'] as const,
-      },
-      {
-        provider: this.provider,
-        id: 'plain',
-        name: 'Mock Plain',
-        inputModalities: ['text'] as const,
-      },
-    ] : [])
+    return Promise.resolve(
+      provider === this.provider
+        ? [
+            {
+              provider: this.provider,
+              id: 'mock',
+              name: 'Mock Reasoner',
+              description: 'Mock model with selectable reasoning.',
+              inputModalities: this.imageCapable ? (['text', 'image'] as const) : (['text'] as const),
+            },
+            {
+              provider: this.provider,
+              id: 'plain',
+              name: 'Mock Plain',
+              inputModalities: ['text'] as const,
+            },
+          ]
+        : [],
+    )
   }
 
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
@@ -70,19 +74,21 @@ class MockAdapter extends LlmAdapter {
       name: model,
       inputModalities: this.imageCapable && model === 'mock' ? ['text', 'image'] : ['text'],
       context: { contextWindow: 1_024 },
-      ...model === 'mock' ? {
-        reasoning: {
-          efforts: [
-            { id: ReasoningEffortId('low'), name: 'Low' },
-            { id: ReasoningEffortId('high'), name: 'High' },
-          ],
-          defaultEffort: ReasoningEffortId('high'),
-        },
-      } : {},
+      ...(model === 'mock'
+        ? {
+            reasoning: {
+              efforts: [
+                { id: ReasoningEffortId('low'), name: 'Low' },
+                { id: ReasoningEffortId('high'), name: 'High' },
+              ],
+              defaultEffort: ReasoningEffortId('high'),
+            },
+          }
+        : {}),
     })
   }
 
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
     const entry = this.script.shift()
     if (entry === undefined) throw new Error('MockAdapter: script exhausted')
@@ -94,7 +100,13 @@ class MockAdapter extends LlmAdapter {
           reject(new Error('aborted'))
           return
         }
-        options.signal?.addEventListener('abort', () => { reject(new Error('aborted')) }, { once: true })
+        options.signal?.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('aborted'))
+          },
+          { once: true },
+        )
       })
       return
     }
@@ -218,18 +230,20 @@ export interface BridgeHarness {
 type AcpConfigOverrides = { [K in keyof AcpConfig]?: AcpConfig[K] | undefined }
 
 /** Build the bridge and a connected SDK client over cross-wired byte streams. */
-export async function makeBridgeHarness(options: {
-  script?: (StreamChunk[] | 'hang')[]
-  config?: AcpConfigOverrides
-  persona?: string
-  imageCapable?: boolean
-  attachments?: boolean
-  persistenceRoot?: string
-} = {}): Promise<BridgeHarness> {
+export async function makeBridgeHarness(
+  options: {
+    script?: (StreamChunk[] | 'hang')[]
+    config?: AcpConfigOverrides
+    persona?: string
+    imageCapable?: boolean
+    attachments?: boolean
+    persistenceRoot?: string
+  } = {},
+): Promise<BridgeHarness> {
   const adapter = new MockAdapter(options.script ?? [], options.imageCapable === true)
   const ctx = new Context()
   const ownsPersistenceRoot = options.persistenceRoot === undefined
-  const persistenceRoot = options.persistenceRoot ?? await mkdtemp(join(tmpdir(), 'dsh-acp-test-'))
+  const persistenceRoot = options.persistenceRoot ?? (await mkdtemp(join(tmpdir(), 'dsh-acp-test-')))
   await mountAgentLoopTestDependencies(ctx, { systemPrompt: { personaPrefix: options.persona ?? '' } })
   await ctx.plugin(JsonlSessionPersistence, { root: persistenceRoot, compression: 'none' })
   await ctx.plugin(TokenMeter)
@@ -260,12 +274,18 @@ export async function makeBridgeHarness(options: {
     onPermission: () => ({ outcome: { outcome: 'cancelled' } }),
     onSessionUpdateError: undefined,
     registerCatalogProvider: provider => ctx.llm.registerAdapter([provider], new MockAdapter([], false, provider)),
-    replacePrimaryProviders: (providers) => { primaryAdapter.replace(providers) },
+    replacePrimaryProviders: providers => {
+      primaryAdapter.replace(providers)
+    },
     client: undefined as unknown as BridgeClient,
     acpFiber: undefined as unknown as BridgeHarness['acpFiber'],
     loopFiber,
-    closeClientTransport: async () => { await clientToAgentWriter.close() },
-    abortClientTransport: async () => { await clientToAgentWriter.abort(new Error('client transport failed')) },
+    closeClientTransport: async () => {
+      await clientToAgentWriter.close()
+    },
+    abortClientTransport: async () => {
+      await clientToAgentWriter.abort(new Error('client transport failed'))
+    },
     dispose: async () => {
       await ctx.fiber.dispose()
       if (ownsPersistenceRoot) await rm(persistenceRoot, { recursive: true, force: true })
@@ -290,7 +310,9 @@ export async function makeBridgeHarness(options: {
   harness.acpFiber = await ctx.plugin({
     name: 'acp-test',
     inject: [...AcpPlugin.inject],
-    apply: (inner: Context) => { AcpPlugin.apply(inner, config) },
+    apply: (inner: Context) => {
+      AcpPlugin.apply(inner, config)
+    },
   })
   const clientConnection = clientApp.connect(clientStream)
   const client = clientConnection.agent

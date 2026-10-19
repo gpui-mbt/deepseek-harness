@@ -24,14 +24,16 @@ export class ActivationPool {
   reserve(capacity: number): () => void {
     if (this.slots.size >= capacity) {
       throw new SubagentError(
-        `subagent limit reached (active child limit: ${capacity}); wait for an existing child to finish `
-        + 'or complete this work with the current agents',
+        `subagent limit reached (active child limit: ${capacity}); wait for an existing child to finish ` +
+          'or complete this work with the current agents',
         'ACTIVATION_LIMIT_REACHED',
       )
     }
     const slot = Symbol()
     this.slots.add(slot)
-    return () => { this.slots.delete(slot) }
+    return () => {
+      this.slots.delete(slot)
+    }
   }
 }
 
@@ -76,20 +78,20 @@ interface ActivationBase {
 /** Resources retained only for the selected execution kind. */
 export type ActivationResource =
   | {
-    readonly kind: 'local'
-    readonly handle: AgentHandle
-    readonly outputStart: SessionLogOffset
-    readonly structured: StructuredAttachment | undefined
-    /** Latest live failure not superseded by a later committed turn ending. */
-    failureAt: SessionLogOffset | undefined
-    /** Renewed when local settlement must recheck input or owned children. */
-    poke: PromiseWithResolvers<void>
-  }
+      readonly kind: 'local'
+      readonly handle: AgentHandle
+      readonly outputStart: SessionLogOffset
+      readonly structured: StructuredAttachment | undefined
+      /** Latest live failure not superseded by a later committed turn ending. */
+      failureAt: SessionLogOffset | undefined
+      /** Renewed when local settlement must recheck input or owned children. */
+      poke: PromiseWithResolvers<void>
+    }
   | {
-    readonly kind: 'external'
-    readonly run: SubagentRun
-    readonly controller: AbortController
-  }
+      readonly kind: 'external'
+      readonly run: SubagentRun
+      readonly controller: AbortController
+    }
 
 /** One managed execution period with its provider-specific resources. */
 export type Activation = ActivationBase & ActivationResource
@@ -114,11 +116,13 @@ export function activationAgent(activation: Activation): Agent | undefined {
  */
 export function requireLocalActivation(activation: Activation): LocalActivation {
   switch (activation.kind) {
-    case 'local': return activation
+    case 'local':
+      return activation
     case 'external':
       throw new SubagentError(`subagent "${activation.childId}" does not accept follow-up input`, 'NOT_CONTINUABLE')
     /* v8 ignore next 2 -- Both execution kinds are handled above. */
-    default: return assertNever(activation)
+    default:
+      return assertNever(activation)
   }
 }
 
@@ -135,8 +139,7 @@ export function observeLocalFailure(activation: LocalActivation, wake: () => voi
     wake()
   })
   child.ctx.on('session/event', (session, event) => {
-    if (session === child.session && event.type === 'turn/end'
-      && activation.failureAt !== undefined && event.seq >= activation.failureAt) {
+    if (session === child.session && event.type === 'turn/end' && activation.failureAt !== undefined && event.seq >= activation.failureAt) {
       activation.failureAt = undefined
     }
   })
@@ -176,7 +179,10 @@ export class ChildLock {
     const result = previous.then(operation, operation)
     // Absorb rejections in the chaining tail so one failed critical section
     // cannot reject an unrelated later caller.
-    const tail = result.then(() => undefined, () => undefined)
+    const tail = result.then(
+      () => undefined,
+      () => undefined,
+    )
     this.tails.set(childId, tail)
     void tail.then(() => {
       if (this.tails.get(childId) === tail) this.tails.delete(childId)

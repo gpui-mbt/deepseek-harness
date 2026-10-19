@@ -19,10 +19,7 @@ import type { Domain } from './domain.ts'
 export { DomainError } from './error.ts'
 export type { DomainErrorCode, DomainErrorOptions, InvalidRecordDetail } from './error.ts'
 export { defineDomain, domainTable, descriptorOf } from './spec.ts'
-export type {
-  DomainSpec, DomainGlobalSpec, DomainTableSpec,
-  TableKeyOf, TableValueOf, GlobalValueOf,
-} from './spec.ts'
+export type { DomainSpec, DomainGlobalSpec, DomainTableSpec, TableKeyOf, TableValueOf, GlobalValueOf } from './spec.ts'
 export type { DomainChanged } from './events.ts'
 export type { Domain, DomainGlobal, DomainGlobalHandleOf, KvTable } from './domain.ts'
 
@@ -109,10 +106,7 @@ export class DomainFacility {
       const backendName = this.config.routes?.[spec.name] ?? this.config.backend
       const backend = this.ctx.storage.backend.get(backendName)
       if (!backend.kv) {
-        throw new DomainError(
-          'facet-unsupported',
-          `backend '${backendName}' routed for domain '${spec.name}' has no kv facet`,
-        )
+        throw new DomainError('facet-unsupported', `backend '${backendName}' routed for domain '${spec.name}' has no kv facet`)
       }
       const unit = await backend.kv.open(descriptorOf(spec))
       try {
@@ -132,8 +126,8 @@ export class DomainFacility {
               const moved = await unit.backupRecord(table, key)
               // parseRecord always wraps the zod failure as the cause.
               this.ctx.logger.error(
-                `domain '${spec.name}': stored record '${key}' in table '${table}' failed schema validation; `
-                + `moved to '${moved}' and treated as absent. Cause: ${String((error as DomainError).cause)}`,
+                `domain '${spec.name}': stored record '${key}' in table '${table}' failed schema validation; ` +
+                  `moved to '${moved}' and treated as absent. Cause: ${String((error as DomainError).cause)}`,
               )
               continue
             }
@@ -144,11 +138,12 @@ export class DomainFacility {
         // A null stored global means "never written": serve `initial` without
         // materializing it — the first `set` writes.
         const globalSpec = spec.global
-        const globalValue = globalSpec === undefined
-          ? undefined
-          : snapshot.global === null
-            ? globalSpec.initial
-            : parseRecord(spec.name, '', '', () => globalSpec.schema.parse(snapshot.global))
+        const globalValue =
+          globalSpec === undefined
+            ? undefined
+            : snapshot.global === null
+              ? globalSpec.initial
+              : parseRecord(spec.name, '', '', () => globalSpec.schema.parse(snapshot.global))
         // The onClosed hook runs strictly after teardown completes: writes
         // landing during the drain still emit domain/changed, and the name
         // frees up for reopening only once the domain is fully closed.
@@ -200,11 +195,10 @@ function parseRecord<T>(domain: string, table: string, key: string, parse: () =>
     return parse()
   } catch (error) {
     const slot = table === '' ? 'global' : `record '${key}' in table '${table}'`
-    throw new DomainError(
-      'invalid-record',
-      `domain '${domain}': stored ${slot} does not match its schema`,
-      { detail: { table, key }, cause: error },
-    )
+    throw new DomainError('invalid-record', `domain '${domain}': stored ${slot} does not match its schema`, {
+      detail: { table, key },
+      cause: error,
+    })
   }
 }
 
@@ -215,12 +209,9 @@ function parseRecord<T>(domain: string, table: string, key: string, parse: () =>
  * @returns resolution after an already-available backend set activates the form.
  */
 export function apply(ctx: Context, config: Config): Promise<void> {
-  const backendServices = [...new Set([
-    config.backend,
-    ...Object.values(config.routes ?? {}),
-  ])].map(storageBackendServiceKey)
+  const backendServices = [...new Set([config.backend, ...Object.values(config.routes ?? {})])].map(storageBackendServiceKey)
 
-  const fiber = ctx.inject(backendServices, (domainCtx) => {
+  const fiber = ctx.inject(backendServices, domainCtx => {
     const facility = new DomainFacility(domainCtx, config)
     domainCtx.effect(() => {
       const unmount = domainCtx.storage.mount('domain', facility)

@@ -8,10 +8,15 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, seedSession, watchConsole,
-  webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -74,7 +79,7 @@ function measureList(page: Page): Promise<ListMetrics> {
     // Computed pseudo style folds in hover even at rest, so inspect the cascade.
     // Cross-origin sheets may throw and cannot contain the app-owned rule.
     const hoverRules = [...document.styleSheets]
-      .flatMap((sheet) => {
+      .flatMap(sheet => {
         try {
           return [...sheet.cssRules]
         } catch {
@@ -194,12 +199,7 @@ function renderGeometry(light: PaletteMetrics, dark: PaletteMetrics): string {
     `- content area ends before the border box: ${String(metrics.clientRight < metrics.borderRight)}`,
     '',
   ]
-  return [
-    '# Sidebar session list scrollbar',
-    '',
-    ...palette('Light palette', light),
-    ...palette('Dark palette', dark),
-  ].join('\n').trimEnd()
+  return ['# Sidebar session list scrollbar', '', ...palette('Light palette', light), ...palette('Dark palette', dark)].join('\n').trimEnd()
 }
 
 /**
@@ -238,9 +238,8 @@ async function pointAt(page: Page, where: 'list' | 'away'): Promise<void> {
   if (box === null) throw new Error('sidebar session list has no layout box')
   const viewport = page.viewportSize()
   if (viewport === null) throw new Error('page has no viewport')
-  const target = where === 'list'
-    ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-    : { x: viewport.width - 5, y: box.y + box.height / 2 }
+  const target =
+    where === 'list' ? { x: box.x + box.width / 2, y: box.y + box.height / 2 } : { x: viewport.width - 5, y: box.y + box.height / 2 }
   await page.mouse.move(target.x, target.y)
 }
 
@@ -258,16 +257,14 @@ async function expandSeededSessions(page: Page): Promise<void> {
   const rows = page.locator('[role="tree"][aria-label="Sessions"] [role="treeitem"]')
   const deadline = Date.now() + 30_000
   for (;;) {
-    if (await bucket.getAttribute('aria-expanded') !== 'true') {
+    if ((await bucket.getAttribute('aria-expanded')) !== 'true') {
       await page.getByText('Ungrouped', { exact: true }).click()
     }
     const showMore = page.getByRole('button', { name: /Show \d+ more sessions/ })
-    if (await bucket.getAttribute('aria-expanded') === 'true'
-      && await rows.count() <= SEED_COUNT / 2
-      && await showMore.count() > 0) {
+    if ((await bucket.getAttribute('aria-expanded')) === 'true' && (await rows.count()) <= SEED_COUNT / 2 && (await showMore.count()) > 0) {
       await showMore.click()
     }
-    if (await bucket.getAttribute('aria-expanded') === 'true' && await rows.count() > SEED_COUNT / 2) return
+    if ((await bucket.getAttribute('aria-expanded')) === 'true' && (await rows.count()) > SEED_COUNT / 2) return
     if (Date.now() > deadline) {
       throw new Error(`Ungrouped bucket never revealed more than ${SEED_COUNT / 2} rows`)
     }
@@ -344,7 +341,9 @@ describe('web e2e: sidebar session list scrollbar (reserved gutter / themed thum
     // leaves the column quiet. This is the one deliberate loss, and
     // it is pinned here rather than only described, so making a scroll
     // re-reveal the bar has to be a decision rather than a side effect.
-    await page.locator('[role="tree"][aria-label="Sessions"]').evaluate((el) => { el.scrollTop += 200 })
+    await page.locator('[role="tree"][aria-label="Sessions"]').evaluate(el => {
+      el.scrollTop += 200
+    })
     await page.waitForTimeout(500)
     expect(await resolveThumb(page)).toBe(NO_THUMB)
     await pointAt(page, 'list')
@@ -389,12 +388,16 @@ describe('web e2e: sidebar session list scrollbar (reserved gutter / themed thum
     // The dark palette declares different scrollbar tokens; driving the body
     // attribute pins the cascade the way lifecycle-chrome does (the Settings
     // gesture that sets it is owned there).
-    await page.evaluate(() => { document.body.setAttribute('data-ds-dark-theme', '') })
+    await page.evaluate(() => {
+      document.body.setAttribute('data-ds-dark-theme', '')
+    })
     const dark = await measureList(page)
     expect(dark.token).not.toBe(light.token)
     expect(dark.hoverToken).not.toBe(dark.token)
     expect(dark.hoverToken).not.toBe(light.hoverToken)
-    await page.evaluate(() => { document.body.removeAttribute('data-ds-dark-theme') })
+    await page.evaluate(() => {
+      document.body.removeAttribute('data-ds-dark-theme')
+    })
     const restored = await measureList(page)
     expect(restored.token).toBe(light.token)
     expect(restored.hoverToken).toBe(light.hoverToken)
@@ -404,9 +407,13 @@ describe('web e2e: sidebar session list scrollbar (reserved gutter / themed thum
   it('matches the committed scrollbar geometry golden in both palettes', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-sidebar-scrollbar-golden'))
     const light = await measurePalette(page)
-    await page.evaluate(() => { document.body.setAttribute('data-ds-dark-theme', '') })
+    await page.evaluate(() => {
+      document.body.setAttribute('data-ds-dark-theme', '')
+    })
     const dark = await measurePalette(page)
-    await page.evaluate(() => { document.body.removeAttribute('data-ds-dark-theme') })
+    await page.evaluate(() => {
+      document.body.removeAttribute('data-ds-dark-theme')
+    })
     await compareOrRefreshGolden(GEOMETRY_EXPECTED, renderGeometry(light, dark), MODE)
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)

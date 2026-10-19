@@ -21,16 +21,29 @@ export function beginWindowsSigningAttempt(options) {
   const attemptId = randomUUID()
   mkdirSync(root, { recursive: true })
   let descriptor
-  try { descriptor = openSync(lock, 'wx', 0o600) }
-  catch (error) {
+  try {
+    descriptor = openSync(lock, 'wx', 0o600)
+  } catch (error) {
     failPackagingRun(runDirectory, 'hardware-signing-interlock-unavailable')
-    throw new Error(`Windows signing refused: interlock unavailable at ${lock}; inspect the previous attempt before administrator-approved recovery (${error.code})`)
+    throw new Error(
+      `Windows signing refused: interlock unavailable at ${lock}; inspect the previous attempt before administrator-approved recovery (${error.code})`,
+    )
   }
   try {
-    writeFileSync(descriptor, `${JSON.stringify({ attemptId, runDirectory, pid: process.pid, startedAt: new Date().toISOString(), target: options.target })}\n`, { flush: true })
-  } finally { closeSync(descriptor) }
-  try { recordPackagingEvent(runDirectory, { type: 'sign-start', attemptId, target: options.target }) }
-  catch (error) { failPackagingRun(runDirectory, 'signing-audit-write-failed'); throw error }
+    writeFileSync(
+      descriptor,
+      `${JSON.stringify({ attemptId, runDirectory, pid: process.pid, startedAt: new Date().toISOString(), target: options.target })}\n`,
+      { flush: true },
+    )
+  } finally {
+    closeSync(descriptor)
+  }
+  try {
+    recordPackagingEvent(runDirectory, { type: 'sign-start', attemptId, target: options.target })
+  } catch (error) {
+    failPackagingRun(runDirectory, 'signing-audit-write-failed')
+    throw error
+  }
   return {
     started(pid) {
       recordPackagingEvent(runDirectory, { type: 'sign-command-start', attemptId, commandPid: pid })
@@ -42,8 +55,11 @@ export function beginWindowsSigningAttempt(options) {
     },
     failure(code, diagnostic) {
       // The attempt file stays in place even if recording the failure or notifying the parent fails.
-      try { recordPackagingEvent(runDirectory, { type: 'sign-failure', attemptId, target: options.target, code, diagnostic }) }
-      finally { failPackagingRun(runDirectory, 'hardware-signing-failed') }
+      try {
+        recordPackagingEvent(runDirectory, { type: 'sign-failure', attemptId, target: options.target, code, diagnostic })
+      } finally {
+        failPackagingRun(runDirectory, 'hardware-signing-failed')
+      }
     },
   }
 }

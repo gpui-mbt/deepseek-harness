@@ -8,7 +8,7 @@
  * lifecycle, and the directory invalidation event subscriptions.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { CommandResult } from '@deepseek-ai/dsh-commands/types'
 import { CommandDefinitionId } from '@deepseek-ai/dsh-commands/brand'
 import { scopeOf } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -16,7 +16,13 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { RemoteError, TestRemote, TestSessions } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionFixture } from '@deepseek-ai/dsh-client-test-runtime'
 import { IconGoalOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ClientSessionContext, ConsumeTokenRequest, InputTriggerPick, InputTriggerSource, SubmitAttachment } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
+import type {
+  ClientSessionContext,
+  ConsumeTokenRequest,
+  InputTriggerPick,
+  InputTriggerSource,
+  SubmitAttachment,
+} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { CommandContribution, CommandDecoration, PopupSelectSpec, SelectOption } from '../src/client/contract.ts'
 import type { CommandDescriptor } from '../src/client/directory.ts'
 import { CommandUiRuntime } from '../src/client/service.ts'
@@ -32,10 +38,7 @@ const S1_CMDS: CommandDescriptor[] = [
   { name: 'goal', description: 'leadingInput kind', input: { hint: 'goal text' } },
 ]
 
-const S2_CMDS: CommandDescriptor[] = [
-  ...S1_CMDS,
-  { name: 'attach', description: 'scoped shadow', input: { hint: 'path' } },
-]
+const S2_CMDS: CommandDescriptor[] = [...S1_CMDS, { name: 'attach', description: 'scoped shadow', input: { hint: 'path' } }]
 
 type ExecuteValue = { matched: boolean; commandId?: string; result?: CommandResult }
 
@@ -78,9 +81,13 @@ async function bench(opts: BenchOptions = {}) {
     list: async (sessionId: SessionId) => {
       listCalls.push({ sessionId })
       return await carried(async () => {
-        const value = await (opts.commands ?? (p => Promise.resolve({
-          commands: p.sessionId === sid('s2') ? S2_CMDS : S1_CMDS,
-        })))({ sessionId })
+        const value = await (
+          opts.commands ??
+          (p =>
+            Promise.resolve({
+              commands: p.sessionId === sid('s2') ? S2_CMDS : S1_CMDS,
+            }))
+        )({ sessionId })
         return value.commands
       })
     },
@@ -99,33 +106,34 @@ async function bench(opts: BenchOptions = {}) {
     registerSource(src: InputTriggerSource) {
       const key = `${src.trigger} ${src.name}`
       registered.set(key, src)
-      return () => { registered.delete(key) }
+      return () => {
+        registered.delete(key)
+      }
     },
   })
   // Deterministic key-echo translator: notice assertions read `key{json}`.
   ctx.provide('locale', {
     bind: (ns: string) => (key: string, params?: Record<string, unknown>) =>
-      opts.translate?.(ns, key, params)
-      ?? `${ns}:${key}${params === undefined ? '' : JSON.stringify(params)}`,
+      opts.translate?.(ns, key, params) ?? `${ns}:${key}${params === undefined ? '' : JSON.stringify(params)}`,
   })
-  const sessions = new TestSessions(async (action) => { await action() }, ctx)
+  const sessions = new TestSessions(async action => {
+    await action()
+  }, ctx)
   onTestFinished(async () => {
     await sessions.disposeScopes()
     await ctx.fiber.dispose()
   })
   const removeSessions = ctx.provide('sessions', sessions)
-  for (const id of new Set(['s1', 's2', 'other', 'ghost', ...opts.addressed === undefined ? [] : [opts.addressed]])) {
+  for (const id of new Set(['s1', 's2', 'other', 'ghost', ...(opts.addressed === undefined ? [] : [opts.addressed])])) {
     await sessions.add({
       id,
-      ...opts.initialOpen === undefined ? {} : { initialOpen: opts.initialOpen },
-      ...opts.snapshot === undefined ? {} : { snapshot: opts.snapshot },
+      ...(opts.initialOpen === undefined ? {} : { initialOpen: opts.initialOpen }),
+      ...(opts.snapshot === undefined ? {} : { snapshot: opts.snapshot }),
     })
   }
   const mint = (key: string) => {
     const id = sid(key)
-    const target = id === opts.addressed
-      ? { parentSessionId: sid('parent'), childSessionId: id, mode: 'continuable' as const }
-      : id
+    const target = id === opts.addressed ? { parentSessionId: sid('parent'), childSessionId: id, mode: 'continuable' as const } : id
     const binding = sessions.binding(id) ?? sessions.retainFor(ctx, target).binding
     return { ctx: binding.ctx, fiber: binding.ctx.fiber }
   }
@@ -148,7 +156,9 @@ async function bench(opts: BenchOptions = {}) {
         notify: (level: 'info' | 'error', text: string) => {
           notices.push({ scope: scopeOf(actx), level, text })
         },
-        focus: () => { focuses.push(scopeOf(actx)) },
+        focus: () => {
+          focuses.push(scopeOf(actx))
+        },
       }),
     },
   })
@@ -162,8 +172,22 @@ async function bench(opts: BenchOptions = {}) {
     await source.candidates(session, { query: '', position: 'leading', drilled: false, signal: new AbortController().signal })
   }
   return {
-    ctx, fiber, command, source, mint, warm, listCalls, executeCalls, executions, registered, notices, focuses, remote,
-    removeSessions, removeConversation, sessions,
+    ctx,
+    fiber,
+    command,
+    source,
+    mint,
+    warm,
+    listCalls,
+    executeCalls,
+    executions,
+    registered,
+    notices,
+    focuses,
+    remote,
+    removeSessions,
+    removeConversation,
+    sessions,
   }
 }
 
@@ -194,8 +218,12 @@ const themeContribution = (over: Partial<CommandContribution> = {}): CommandCont
   ...over,
 })
 
-const req = (query: string, position: 'leading' | 'inline' = 'leading') =>
-  ({ query, position, drilled: false, signal: new AbortController().signal })
+const req = (query: string, position: 'leading' | 'inline' = 'leading') => ({
+  query,
+  position,
+  drilled: false,
+  signal: new AbortController().signal,
+})
 
 describe('registration', () => {
   it('reports missing initialization dependencies', () => {
@@ -219,9 +247,13 @@ describe('registration', () => {
   it('the warm hook prewarms the session key: one pull per session, no duplicate over pending', async () => {
     const { source, listCalls } = await bench()
     source.warm!(proj('s1'))
-    await vi.waitFor(() => { expect(listCalls).toEqual([{ sessionId: sid('s1') }]) })
+    await vi.waitFor(() => {
+      expect(listCalls).toEqual([{ sessionId: sid('s1') }])
+    })
     source.warm!(proj('s2'))
-    await vi.waitFor(() => { expect(listCalls).toEqual([{ sessionId: sid('s1') }, { sessionId: sid('s2') }]) })
+    await vi.waitFor(() => {
+      expect(listCalls).toEqual([{ sessionId: sid('s1') }, { sessionId: sid('s2') }])
+    })
     source.warm!(proj('s1')) // s1 already pending → no duplicate pull
     expect(listCalls).toHaveLength(2)
   })
@@ -237,7 +269,9 @@ describe('candidates', () => {
       expect(b.sessions.retainInfo(sid('s1')).getSnapshot().retainedBy.commandCatalog).toBe(1)
       expect(b.listCalls).toEqual([])
       opened.resolve(undefined)
-      await vi.waitFor(() => { expect(b.listCalls).toHaveLength(1) })
+      await vi.waitFor(() => {
+        expect(b.listCalls).toHaveLength(1)
+      })
       expect(b.sessions.retainInfo(sid('s1')).getSnapshot().referenceCount).toBe(2)
       response.resolve({ commands: S1_CMDS })
       await pending
@@ -248,7 +282,7 @@ describe('candidates', () => {
     }
   })
 
-  it.each([true, false])('refuses an unsuccessful history open (reported error: %s)', async (reported) => {
+  it.each([true, false])('refuses an unsuccessful history open (reported error: %s)', async reported => {
     const error = new RemoteError('gateway/internal', 'history unavailable', {})
     const b = await bench({ snapshot: { openState: 'error', openError: reported ? error : null } })
     await expect(b.source.candidates(proj('s1'), req(''))).rejects.toThrow(reported ? 'history unavailable' : 'is not open')
@@ -322,7 +356,11 @@ describe('candidates', () => {
   it('localizes canonical built-in and contribution descriptions on every candidate request', async () => {
     let locale = 'zh'
     const commands: CommandDescriptor[] = [
-      { definitionId: CommandDefinitionId('@deepseek-ai/dsh-command-compact'), name: 'compact', description: 'Compact older conversation history' },
+      {
+        definitionId: CommandDefinitionId('@deepseek-ai/dsh-command-compact'),
+        name: 'compact',
+        description: 'Compact older conversation history',
+      },
       { name: 'goal', description: 'scoped goal override' },
       { name: 'custom', description: 'plugin-authored copy' },
     ]
@@ -359,12 +397,40 @@ describe('candidates', () => {
   describe('menu presentation (design doc for #3567)', () => {
     /** First-party definitions plus an unrelated command, in Host registration order. */
     const SHIPPED: CommandDescriptor[] = [
-      { definitionId: CommandDefinitionId('@deepseek-ai/dsh-command-compact'), name: 'compact', description: 'Compact older conversation history' },
-      { definitionId: CommandDefinitionId('@deepseek-ai/dsh-session-log-export'), name: 'export', description: 'Download this Session log as a ZIP archive' },
-      { definitionId: CommandDefinitionId('@deepseek-ai/dsh-command-feedback'), name: 'feedback', description: 'Record feedback about this session', input: { hint: '<text>' } },
-      { definitionId: CommandDefinitionId('@deepseek-ai/dsh-command-goal'), name: 'goal', description: 'Set or view the goal for a long-running task', input: { hint: '<objective>', attachments: true } },
-      { definitionId: CommandDefinitionId('@deepseek-ai/dsh-permission-presets'), name: 'permission', description: 'Switch the permission preset (sandbox mode + approval policy)', input: { hint: '<preset>' } },
-      { definitionId: CommandDefinitionId('@deepseek-ai/dsh-plan-mode'), name: 'plan', description: 'Enter or leave plan mode', input: { hint: '[off|message]', attachments: true } },
+      {
+        definitionId: CommandDefinitionId('@deepseek-ai/dsh-command-compact'),
+        name: 'compact',
+        description: 'Compact older conversation history',
+      },
+      {
+        definitionId: CommandDefinitionId('@deepseek-ai/dsh-session-log-export'),
+        name: 'export',
+        description: 'Download this Session log as a ZIP archive',
+      },
+      {
+        definitionId: CommandDefinitionId('@deepseek-ai/dsh-command-feedback'),
+        name: 'feedback',
+        description: 'Record feedback about this session',
+        input: { hint: '<text>' },
+      },
+      {
+        definitionId: CommandDefinitionId('@deepseek-ai/dsh-command-goal'),
+        name: 'goal',
+        description: 'Set or view the goal for a long-running task',
+        input: { hint: '<objective>', attachments: true },
+      },
+      {
+        definitionId: CommandDefinitionId('@deepseek-ai/dsh-permission-presets'),
+        name: 'permission',
+        description: 'Switch the permission preset (sandbox mode + approval policy)',
+        input: { hint: '<preset>' },
+      },
+      {
+        definitionId: CommandDefinitionId('@deepseek-ai/dsh-plan-mode'),
+        name: 'plan',
+        description: 'Enter or leave plan mode',
+        input: { hint: '[off|message]', attachments: true },
+      },
       { name: 'deploy', description: 'third-party command' },
     ]
     const Glyph = () => null
@@ -389,9 +455,7 @@ describe('candidates', () => {
       command.register(modelContribution())
       command.register(fileContribution())
       const rows = await source.candidates(proj('s1'), req(''))
-      expect(rows.map(row => row.name)).toEqual([
-        'file', 'goal', 'plan', 'feedback', 'compact', 'permission', 'model', 'export', 'deploy',
-      ])
+      expect(rows.map(row => row.name)).toEqual(['file', 'goal', 'plan', 'feedback', 'compact', 'permission', 'model', 'export', 'deploy'])
       expect(rows.map(row => row.section)).toEqual([
         ...Array<string>(4).fill('command:section.add'),
         ...Array<string>(5).fill('command:section.commands'),
@@ -420,7 +484,10 @@ describe('candidates', () => {
       expect(source.matchSpace!(proj('s1'), '/goal')).toHaveProperty('claim.name', 'goal')
     })
 
-    it.each([['en', en], ['zh', zh]] as const)('description edits preserve menu claims and bilingual parsing under %s', async (_locale, dictionary) => {
+    it.each([
+      ['en', en],
+      ['zh', zh],
+    ] as const)('description edits preserve menu claims and bilingual parsing under %s', async (_locale, dictionary) => {
       const commands = SHIPPED.map(command => ({ ...command, description: command.description + '.' }))
       const { fiber, source, warm } = await bench({
         commands: () => Promise.resolve({ commands }),
@@ -435,8 +502,9 @@ describe('candidates', () => {
         expect(picked).toHaveProperty('claim.token', `/${dictionary[`token.${name}`]} `)
         for (const spelling of [en[`token.${name}`], zh[`token.${name}`]]) {
           expect(source.matchSpace!(proj('s1'), `/${spelling}`)).toHaveProperty('claim.name', name)
-          expect(await source.matchEnter!(proj('s1'), `/${spelling} text`, new AbortController().signal, { attachments: 0 }))
-            .toHaveProperty('claim.token', `/${spelling} `)
+          expect(
+            await source.matchEnter!(proj('s1'), `/${spelling} text`, new AbortController().signal, { attachments: 0 }),
+          ).toHaveProperty('claim.token', `/${spelling} `)
         }
       }
     })
@@ -460,7 +528,10 @@ describe('candidates', () => {
       command.register(fileContribution(run))
       const scope = mint('s1')
       const consumes: ConsumeTokenRequest[] = []
-      scope.ctx.on('slash/input-consume-token', (r) => { consumes.push(r); return true })
+      scope.ctx.on('slash/input-consume-token', r => {
+        consumes.push(r)
+        return true
+      })
       await warm(proj('s1'))
       expect(menuPick(source, 'file', proj('s1'))).toBe('handled')
       expect(consumes).toEqual([{ guard: { kind: 'span', span: { start: 0, end: 5, draftRev: 3 } } }])
@@ -504,7 +575,9 @@ describe('candidates', () => {
       expect(typed.claim.token).toBe('/plan ')
       executeCalls.length = 0
       expect(await source.matchEnter!(proj('s1'), '/压缩', new AbortController().signal, { attachments: 0 })).toBe('handled')
-      await vi.waitFor(() => { expect(executeCalls).toEqual([{ sessionId: sid('s1'), line: '/compact', images: [] }]) })
+      await vi.waitFor(() => {
+        expect(executeCalls).toEqual([{ sessionId: sid('s1'), line: '/compact', images: [] }])
+      })
     })
   })
 })
@@ -571,9 +644,13 @@ describe('decorations (bare-invocation UI on host commands)', () => {
   it('duplicate decoration names fail loud', async () => {
     const { command } = await bench()
     const dispose = command.decorate(goalDecoration())
-    expect(() => { command.decorate(goalDecoration()) }).toThrow('duplicate decoration for /goal')
+    expect(() => {
+      command.decorate(goalDecoration())
+    }).toThrow('duplicate decoration for /goal')
     dispose()
-    expect(() => { command.decorate(goalDecoration())() }).not.toThrow()
+    expect(() => {
+      command.decorate(goalDecoration())()
+    }).not.toThrow()
   })
 })
 
@@ -614,7 +691,7 @@ describe('dispatch (menu column)', () => {
     const { command, source, mint, warm, executeCalls } = await bench()
     const scope = mint('s1')
     const consumes: ConsumeTokenRequest[] = []
-    scope.ctx.on('slash/input-consume-token', (r) => {
+    scope.ctx.on('slash/input-consume-token', r => {
       consumes.push(r)
       return true
     })
@@ -632,7 +709,7 @@ describe('dispatch (menu column)', () => {
     const { command, source, mint, warm } = await bench()
     const scope = mint('s1')
     const consumes: ConsumeTokenRequest[] = []
-    scope.ctx.on('slash/input-consume-token', (r) => {
+    scope.ctx.on('slash/input-consume-token', r => {
       consumes.push(r)
       return true
     })
@@ -643,7 +720,9 @@ describe('dispatch (menu column)', () => {
     expect(consumes).toEqual([{ guard: { kind: 'bare-token', token: '/plan' } }])
     expect(run).toHaveBeenCalledTimes(1)
     // An argued line never consults the decoration.
-    await expect(source.matchEnter!(proj('s1'), '/plan later', new AbortController().signal, { attachments: 0 })).resolves.not.toBe('handled')
+    await expect(source.matchEnter!(proj('s1'), '/plan later', new AbortController().signal, { attachments: 0 })).resolves.not.toBe(
+      'handled',
+    )
     expect(run).toHaveBeenCalledTimes(1)
   })
 
@@ -651,7 +730,7 @@ describe('dispatch (menu column)', () => {
     const { source, mint, warm, executeCalls, executions } = await bench()
     const scope = mint('s1')
     const consumes: ConsumeTokenRequest[] = []
-    scope.ctx.on('slash/input-consume-token', (r) => {
+    scope.ctx.on('slash/input-consume-token', r => {
       consumes.push(r)
       return true
     })
@@ -660,11 +739,13 @@ describe('dispatch (menu column)', () => {
     expect(consumes).toEqual([{ guard: { kind: 'span', span: { start: 0, end: 5, draftRev: 3 } } }])
     await vi.waitFor(() => {
       expect(executeCalls).toEqual([{ sessionId: sid('s1'), line: '/plan', images: [] }])
-      expect(executions).toEqual([{
-        sessionId: sid('s1'),
-        name: 'plan',
-        result: { kind: 'success' },
-      }])
+      expect(executions).toEqual([
+        {
+          sessionId: sid('s1'),
+          name: 'plan',
+          result: { kind: 'success' },
+        },
+      ])
     })
   })
 
@@ -714,10 +795,15 @@ describe('matchEnter (enter column)', () => {
   it('strong-waits a cold key before adjudicating', async () => {
     let release!: (value: { commands: CommandDescriptor[] }) => void
     const { source } = await bench({
-      commands: () => new Promise((resolve) => { release = resolve }),
+      commands: () =>
+        new Promise(resolve => {
+          release = resolve
+        }),
     })
     const wait = source.matchEnter!(proj('s1'), '/goal args', signal(), { attachments: 0 })
-    await vi.waitFor(() => { expect(release).toBeTypeOf('function') })
+    await vi.waitFor(() => {
+      expect(release).toBeTypeOf('function')
+    })
     release({ commands: S1_CMDS })
     const outcome = await wait
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
@@ -734,14 +820,22 @@ describe('matchEnter (enter column)', () => {
   it('matchClaim waits for a cold catalog and answers only the space column claim without acting', async () => {
     let release!: (value: { commands: CommandDescriptor[] }) => void
     const { command, source, mint, executeCalls } = await bench({
-      commands: () => new Promise((resolve) => { release = resolve }),
+      commands: () =>
+        new Promise(resolve => {
+          release = resolve
+        }),
     })
     const run = vi.fn()
     command.register({ name: 'file', label: () => 'file', available: () => true, ui: { kind: 'action', run } })
     const consumes: ConsumeTokenRequest[] = []
-    mint('s1').ctx.on('slash/input-consume-token', (r) => { consumes.push(r); return true })
+    mint('s1').ctx.on('slash/input-consume-token', r => {
+      consumes.push(r)
+      return true
+    })
     const wait = source.matchClaim!(proj('s1'), '/goal', signal())
-    await vi.waitFor(() => { expect(release).toBeTypeOf('function') })
+    await vi.waitFor(() => {
+      expect(release).toBeTypeOf('function')
+    })
     release({ commands: S1_CMDS })
     await expect(wait).resolves.toMatchObject({ name: 'goal', token: '/goal ' })
     for (const token of ['/plan', '/file', '/xyz', 'goal']) {
@@ -773,7 +867,7 @@ describe('matchEnter (enter column)', () => {
     const { source, mint, warm, executeCalls } = await bench()
     const scope = mint('s1')
     const consumes: ConsumeTokenRequest[] = []
-    scope.ctx.on('slash/input-consume-token', (r) => {
+    scope.ctx.on('slash/input-consume-token', r => {
       consumes.push(r)
       return true
     })
@@ -821,8 +915,9 @@ describe('matchEnter envelope policy (images)', () => {
   it('a leadingInput command not declaring acceptance refuses; a declaring one claims with images minted', async () => {
     const { source, warm } = await bench({ commands: () => Promise.resolve({ commands: IMG_CMDS }) })
     await warm(proj('s1'))
-    await expect(source.matchEnter!(proj('s1'), '/goal ship', signal(), { attachments: 1 }))
-      .rejects.toThrow('command:notice.attachmentsUnsupported{"command":"goal"}')
+    await expect(source.matchEnter!(proj('s1'), '/goal ship', signal(), { attachments: 1 })).rejects.toThrow(
+      'command:notice.attachmentsUnsupported{"command":"goal"}',
+    )
     const outcome = await source.matchEnter!(proj('s1'), '/vision what is this', signal(), { attachments: 1 })
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
     expect(outcome.claim.token).toBe('/vision ')
@@ -835,18 +930,21 @@ describe('matchEnter envelope policy (images)', () => {
     command.decorate({ name: 'plan', available: () => true, ui: themeUi() })
     const scope = mint('s1')
     await warm(proj('s1'))
-    await expect(source.matchEnter!(proj('s1'), '/theme', signal(), { attachments: 1 }))
-      .rejects.toThrow('command:notice.attachmentsUnsupported{"command":"theme"}')
-    await expect(source.matchEnter!(proj('s1'), '/plan', signal(), { attachments: 2 }))
-      .rejects.toThrow('command:notice.attachmentsUnsupported{"command":"plan"}')
+    await expect(source.matchEnter!(proj('s1'), '/theme', signal(), { attachments: 1 })).rejects.toThrow(
+      'command:notice.attachmentsUnsupported{"command":"theme"}',
+    )
+    await expect(source.matchEnter!(proj('s1'), '/plan', signal(), { attachments: 2 })).rejects.toThrow(
+      'command:notice.attachmentsUnsupported{"command":"plan"}',
+    )
     expect(command.popupFor(scope.ctx).state.getSnapshot().open).toBe(false)
   })
 
   it('bare host detached execute refuses images before any RPC', async () => {
     const { source, warm, executeCalls } = await bench()
     await warm(proj('s1'))
-    await expect(source.matchEnter!(proj('s1'), '/plan', signal(), { attachments: 1 }))
-      .rejects.toThrow('command:notice.attachmentsUnsupported{"command":"plan"}')
+    await expect(source.matchEnter!(proj('s1'), '/plan', signal(), { attachments: 1 })).rejects.toThrow(
+      'command:notice.attachmentsUnsupported{"command":"plan"}',
+    )
     expect(executeCalls).toEqual([])
   })
 
@@ -860,8 +958,7 @@ describe('matchEnter envelope policy (images)', () => {
     const outcome = await source.matchEnter!(proj('s1'), '/vision x', signal(), { attachments: 1 })
     if (outcome === undefined || outcome === 'handled' || !('claim' in outcome)) throw new Error('expected claim')
     // Handler error: the error outcome keeps draft and images in the composer.
-    await expect(outcome.claim.submit('x', new Context(), [png]))
-      .resolves.toEqual({ kind: 'error', text: 'handler refused' })
+    await expect(outcome.claim.submit('x', new Context(), [png])).resolves.toEqual({ kind: 'error', text: 'handler refused' })
     expect(executeCalls).toEqual([{ sessionId: sid('s1'), line: '/vision x', images: [png] }])
     result = { kind: 'success', text: 'described' }
     await expect(outcome.claim.submit('x', new Context(), [png])).resolves.toEqual({ kind: 'success' })
@@ -891,11 +988,13 @@ describe('execute payload', () => {
     // Pure admission: no outcome text ever rides the submit result — the
     // durable command lifecycle events render the outcome in the flow.
     expect(settled).toEqual({ kind: 'success' })
-    expect(executions).toEqual([{
-      sessionId: sid('s1'),
-      name: 'goal',
-      result: { kind: 'success' },
-    }])
+    expect(executions).toEqual([
+      {
+        sessionId: sid('s1'),
+        name: 'goal',
+        result: { kind: 'success' },
+      },
+    ])
   })
 
   it('contains local acknowledgment listeners without changing an admitted result', async () => {
@@ -907,7 +1006,9 @@ describe('execute payload', () => {
     const asyncFailure = new Error('async observer failed')
     const after = vi.fn()
     const warn = vi.spyOn(b.ctx.logger, 'warn').mockImplementation(() => undefined)
-    b.ctx.on('command/executed', () => { throw syncFailure })
+    b.ctx.on('command/executed', () => {
+      throw syncFailure
+    })
     const rejectingListener = (() => Promise.reject(asyncFailure)) as () => void
     b.ctx.on('command/executed', rejectingListener)
     b.ctx.on('command/executed', after)
@@ -967,11 +1068,13 @@ describe('detached admission notices', () => {
     await flush()
     // A dead Remote call and a rejected one now read alike: both arrive as a
     // failed result, so the notice names the endpoint either way.
-    expect(notices).toEqual([{
-      scope: sid('s1'),
-      level: 'error',
-      text: 'command.execute failed: gateway/internal: network down',
-    }])
+    expect(notices).toEqual([
+      {
+        scope: sid('s1'),
+        level: 'error',
+        text: 'command.execute failed: gateway/internal: network down',
+      },
+    ])
   })
 
   it('a torn-down scope drops the failure notice', async () => {
@@ -1026,23 +1129,32 @@ describe('popupFor', () => {
     const pending = Promise.withResolvers<readonly SelectOption[]>()
     let pendingSignal: AbortSignal | undefined
     const onSelect = vi.fn()
-    command.register(themeContribution({ ui: themeUi({
-      options: (session, signal) => {
-        if (session.sessionId === sid('s2')) {
-          pendingSignal = signal
-          return pending.promise
-        }
-        return Promise.resolve([{
-          id: 'dark',
-          label: 'Dark',
-          confirmation: {
-            title: 'Confirm theme', description: 'Change theme', acknowledgeLabel: 'Acknowledge',
-            cancelLabel: 'Cancel', confirmLabel: 'Confirm',
+    command.register(
+      themeContribution({
+        ui: themeUi({
+          options: (session, signal) => {
+            if (session.sessionId === sid('s2')) {
+              pendingSignal = signal
+              return pending.promise
+            }
+            return Promise.resolve([
+              {
+                id: 'dark',
+                label: 'Dark',
+                confirmation: {
+                  title: 'Confirm theme',
+                  description: 'Change theme',
+                  acknowledgeLabel: 'Acknowledge',
+                  cancelLabel: 'Cancel',
+                  confirmLabel: 'Confirm',
+                },
+              },
+            ])
           },
-        }])
-      },
-      onSelect,
-    }) }))
+          onSelect,
+        }),
+      }),
+    )
     command.register(themeContribution({ name: 'other' }))
     const scope = mint('s1')
     const first = command.popupFor(scope.ctx)
@@ -1090,7 +1202,7 @@ describe('popupFor', () => {
     command.register(themeContribution({ ui: themeUi({ onSelect }) }))
     const scope = mint('s1')
     const consumes: ConsumeTokenRequest[] = []
-    scope.ctx.on('slash/input-consume-token', (r) => {
+    scope.ctx.on('slash/input-consume-token', r => {
       consumes.push(r)
       return true
     })
@@ -1108,7 +1220,7 @@ describe('popupFor', () => {
     command.register(themeContribution())
     const scope = mint('s1')
     const consumes: ConsumeTokenRequest[] = []
-    scope.ctx.on('slash/input-consume-token', (r) => {
+    scope.ctx.on('slash/input-consume-token', r => {
       consumes.push(r)
       return true
     })
@@ -1140,9 +1252,7 @@ describe('directory invalidation events', () => {
       commands: () => {
         round += 1
         return Promise.resolve({
-          commands: round === 1
-            ? S1_CMDS
-            : [{ name: 'fresh', description: '', input: { hint: 'h' } }],
+          commands: round === 1 ? S1_CMDS : [{ name: 'fresh', description: '', input: { hint: 'h' } }],
         })
       },
     })
@@ -1156,13 +1266,11 @@ describe('directory invalidation events', () => {
   it('agent-preset/selected drops and repulls the recomposed session while leaving others served', async () => {
     const rounds = new Map<SessionId, number>()
     const { source, warm, remote } = await bench({
-      commands: (payload) => {
+      commands: payload => {
         const round = (rounds.get(payload.sessionId) ?? 0) + 1
         rounds.set(payload.sessionId, round)
         return Promise.resolve({
-          commands: round === 1
-            ? S1_CMDS
-            : [{ name: 'fresh', description: '', input: { hint: 'h' } }],
+          commands: round === 1 ? S1_CMDS : [{ name: 'fresh', description: '', input: { hint: 'h' } }],
         })
       },
     })
@@ -1183,9 +1291,12 @@ describe('directory invalidation events', () => {
     let block = false
     let release!: (value: { commands: CommandDescriptor[] }) => void
     const { ctx, source, warm } = await bench({
-      commands: () => (block
-        ? new Promise((resolve) => { release = resolve })
-        : Promise.resolve({ commands: S2_CMDS })),
+      commands: () =>
+        block
+          ? new Promise(resolve => {
+              release = resolve
+            })
+          : Promise.resolve({ commands: S2_CMDS }),
     })
     await warm(proj('s2'))
     expect(source.matchSpace!(proj('s2'), '/attach')).not.toBeUndefined()
@@ -1193,7 +1304,9 @@ describe('directory invalidation events', () => {
     ctx.emit('connection/reset')
     // Hard reset: silent until the rewarm lands.
     expect(source.matchSpace!(proj('s2'), '/attach')).toBeUndefined()
-    await vi.waitFor(() => { expect(release).toBeTypeOf('function') })
+    await vi.waitFor(() => {
+      expect(release).toBeTypeOf('function')
+    })
     release({ commands: S2_CMDS })
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(source.matchSpace!(proj('s2'), '/attach')).not.toBeUndefined()

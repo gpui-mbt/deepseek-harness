@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { call, CONTENT_OUTPUT_CODE, dummyTool, mount, setup, text } from './helpers.ts'
 
 /**
@@ -43,7 +43,9 @@ describe('sandbox context façade — escape surface is closed', () => {
 
   it('the classic ctx.root.tools.register bypass registers nothing and fails loud', async () => {
     const harness = await setup()
-    const message = await runTouching(harness, `
+    const message = await runTouching(
+      harness,
+      `
       ctx.root.tools.register({
         name: 'smuggled',
         description: 'raw, unguarded',
@@ -51,7 +53,8 @@ describe('sandbox context façade — escape surface is closed', () => {
         ${CONTENT_OUTPUT_CODE}
         async execute() { return [] },
       })
-    `)
+    `,
+    )
     expect(message).toContain('sandbox ctx does not expose "root"')
     // The whole point: the bypass never reaches the registry.
     expect(harness.ctx.tools.get('smuggled')).toBeUndefined()
@@ -59,8 +62,7 @@ describe('sandbox context façade — escape surface is closed', () => {
 
   it('rejects assignment to the façade rather than silently dropping it', async () => {
     const harness = await setup()
-    await expect(mount(harness, 'return { name: \'writer\', apply(ctx) { ctx.stash = 1 } }'))
-      .rejects.toThrow('sandbox ctx is read-only')
+    await expect(mount(harness, "return { name: 'writer', apply(ctx) { ctx.stash = 1 } }")).rejects.toThrow('sandbox ctx is read-only')
   })
 
   it('denies a service whose method returns a Context (the .ctx escape), registering nothing', async () => {
@@ -70,7 +72,9 @@ describe('sandbox context façade — escape surface is closed', () => {
     const harness = await setup()
     const message = await (async (): Promise<string> => {
       try {
-        await mount(harness, `
+        await mount(
+          harness,
+          `
           return {
             name: 'svc-ctx-escape',
             inject: ['systemPrompt', 'tools'],
@@ -84,7 +88,8 @@ describe('sandbox context façade — escape surface is closed', () => {
               })
             },
           }
-        `)
+        `,
+        )
       } catch (error) {
         return error instanceof Error ? error.message : String(error)
       }
@@ -100,9 +105,13 @@ describe('sandbox context façade — escape surface is closed', () => {
     const harness = await setup()
     harness.ctx.plugin({
       name: 'host-async-svc',
-      apply(c) { c.provide('hostAsync', { grab: async () => 'host-fetched' }) },
+      apply(c) {
+        c.provide('hostAsync', { grab: async () => 'host-fetched' })
+      },
     })
-    await mount(harness, `
+    await mount(
+      harness,
+      `
       return {
         name: 'async-consumer',
         inject: ['hostAsync', 'tools'],
@@ -119,7 +128,8 @@ describe('sandbox context façade — escape surface is closed', () => {
           }))
         },
       }
-    `)
+    `,
+    )
     const result = await call(harness.ctx, 'do_fetch', {})
     expect(result.isError).toBe(false)
     expect(text(result)).toBe('host-fetched')
@@ -127,7 +137,10 @@ describe('sandbox context façade — escape surface is closed', () => {
 
   it('reads a symbol property as undefined and answers the `in` operator without throwing', async () => {
     const harness = await setup()
-    await expect(mount(harness, `
+    await expect(
+      mount(
+        harness,
+        `
       return {
         name: 'introspector',
         inject: ['tools'],
@@ -136,7 +149,9 @@ describe('sandbox context façade — escape surface is closed', () => {
           console.log('probe', sym === undefined, 'tools' in ctx, 'on' in ctx, 'root' in ctx)
         },
       }
-    `)).resolves.toBeTruthy()
+    `,
+      ),
+    ).resolves.toBeTruthy()
   })
 })
 
@@ -148,12 +163,15 @@ describe('sandbox context façade — inject gate on services', () => {
     const harness = await setup()
     const message = await runTouching(harness, 'const s = ctx.systemPrompt')
     expect(message).toContain('service "systemPrompt" is not injected')
-    expect(message).toContain('inject: [\'systemPrompt\', …]')
+    expect(message).toContain("inject: ['systemPrompt', …]")
   })
 
   it('allows optional undeclared services through ctx.get', async () => {
     const harness = await setup()
-    await expect(mount(harness, `
+    await expect(
+      mount(
+        harness,
+        `
       return {
         name: 'optional-reader',
         apply(ctx) {
@@ -161,26 +179,35 @@ describe('sandbox context façade — inject gate on services', () => {
           if (service !== undefined) console.log('optional service is available')
         },
       }
-    `)).resolves.toBeTruthy()
+    `,
+      ),
+    ).resolves.toBeTruthy()
   })
 
   it('allows a service the host half DID declare in inject', async () => {
     const harness = await setup()
-    await expect(mount(harness, `
+    await expect(
+      mount(
+        harness,
+        `
       return {
         name: 'declared',
         inject: ['systemPrompt', 'tools'],
         apply(ctx) { console.log('has systemPrompt:', typeof ctx.systemPrompt) }
       }
-    `)).resolves.toBeTruthy()
+    `,
+      ),
+    ).resolves.toBeTruthy()
   })
 
   it('a cross-package consumer must declare the provider — the undeclared path is refused, not left as a zombie tool', async () => {
     // Without declared inject, Cordis cannot park the consumer when its provider stops. The
     // façade refuses access up front instead of leaving a zombie tool.
     const harness = await setup()
-    await mount(harness, 'return { name: \'greeter-provider\', apply(ctx) { ctx.provide(\'greeter\', { greet: (n) => \'hi \' + n }) } }')
-    await mount(harness, `
+    await mount(harness, "return { name: 'greeter-provider', apply(ctx) { ctx.provide('greeter', { greet: (n) => 'hi ' + n }) } }")
+    await mount(
+      harness,
+      `
       return {
         name: 'sloppy-consumer',
         inject: ['tools'],
@@ -194,7 +221,8 @@ describe('sandbox context façade — inject gate on services', () => {
           }))
         },
       }
-    `)
+    `,
+    )
     // The tool registers (its execute is lazy), but calling it hits the gate:
     // `ctx.greeter` is undeclared, so it fails with the teaching error rather
     // than silently working and later stranding.
@@ -211,7 +239,9 @@ describe('sandbox tools façade — get is a read-only schema view', () => {
     // returns the same name/description/parameters view as schemas(), with no execute.
     const harness = await setup()
     harness.ctx.tools.register(dummyTool('host_tool'))
-    await mount(harness, `
+    await mount(
+      harness,
+      `
       return {
         name: 'reporter',
         inject: ['tools'],
@@ -233,7 +263,8 @@ describe('sandbox tools façade — get is a read-only schema view', () => {
           }))
         },
       }
-    `)
+    `,
+    )
     const reported = await call(harness.ctx, 'report_view', {})
     expect(reported.isError).toBe(false)
     const shape = JSON.parse(text(reported)) as { hasExecute: boolean; hasPresentCall: boolean; name: string; keys: string[] }
@@ -245,7 +276,9 @@ describe('sandbox tools façade — get is a read-only schema view', () => {
 
   it('ctx.tools.get returns undefined for an unknown tool', async () => {
     const harness = await setup()
-    await mount(harness, `
+    await mount(
+      harness,
+      `
       return {
         name: 'unknown-probe',
         inject: ['tools'],
@@ -261,7 +294,8 @@ describe('sandbox tools façade — get is a read-only schema view', () => {
           }))
         },
       }
-    `)
+    `,
+    )
     expect(text(await call(harness.ctx, 'probe_unknown', {}))).toBe('true')
   })
 })

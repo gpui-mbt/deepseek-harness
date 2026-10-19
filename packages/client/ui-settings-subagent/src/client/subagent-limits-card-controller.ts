@@ -2,8 +2,13 @@
 
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
-  SettingsFormModel, settingsNumberField,
-  type SettingsFieldSpec, type SettingsFieldState, type SettingsFormActions, type SettingsFormScope, type SettingsFormShell,
+  SettingsFormModel,
+  settingsNumberField,
+  type SettingsFieldSpec,
+  type SettingsFieldState,
+  type SettingsFormActions,
+  type SettingsFormScope,
+  type SettingsFormShell,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Host-owned delegation defaults and live capacity. */
@@ -29,7 +34,7 @@ function limitField(field: keyof SubagentLimitsSettings, minimum: number): Setti
   const numeric = settingsNumberField(field)
   return {
     ...numeric,
-    parse: (text) => {
+    parse: text => {
       const write = numeric.parse(text)
       if (write?.kind !== 'set') return write
       const value = write.value as number
@@ -61,6 +66,7 @@ export class SubagentLimitsCardController {
     return { hooks: { subagentLimitsCard: this.store }, ...this.form.actions() }
   }
   /** Release accepted-value subscriptions. */
-  dispose(): void { this.form.dispose() }
-
+  dispose(): void {
+    this.form.dispose()
+  }
 }

@@ -38,7 +38,10 @@ export class TestRemote {
    * @param ctx - the spec's root Context.
    * @param namespaces - scripted namespace faces reached as `ctx.remote.<name>`.
    */
-  constructor(private readonly ctx: Context, namespaces: Readonly<Record<string, object>> = {}) {
+  constructor(
+    private readonly ctx: Context,
+    namespaces: Readonly<Record<string, object>> = {},
+  ) {
     this.validateNamespaces(namespaces)
     ctx.provide('remote', this)
     this.installNamespaces(namespaces)
@@ -77,7 +80,7 @@ export class TestRemote {
   emit(event: string, args: readonly unknown[]): void {
     const listeners = this.subscriptions.get(event)
     if (listeners === undefined) return
-    for (const listener of [...listeners]) listener(...args as never[])
+    for (const listener of [...listeners]) listener(...(args as never[]))
   }
 
   /**
@@ -90,7 +93,9 @@ export class TestRemote {
     const listeners = this.subscriptions.get(event) ?? new Set()
     this.subscriptions.set(event, listeners)
     listeners.add(listener)
-    return () => { listeners.delete(listener) }
+    return () => {
+      listeners.delete(listener)
+    }
   }
 
   /**

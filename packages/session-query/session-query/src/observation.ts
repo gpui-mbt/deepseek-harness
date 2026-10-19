@@ -2,12 +2,16 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import { SessionLogOffset, SessionSeq } from '@deepseek-ai/dsh-session'
-import type { Session, SessionEvent, SessionHeader, SessionId , SessionLogOffset as SessionLogOffsetType , SessionSeqCursor } from '@deepseek-ai/dsh-session'
-import type SessionPersistence from '@deepseek-ai/dsh-session-persistence'
 import type {
-  SessionPersistenceRevision,
-  SessionPersistenceSnapshot,
-} from '@deepseek-ai/dsh-session-persistence'
+  Session,
+  SessionEvent,
+  SessionHeader,
+  SessionId,
+  SessionLogOffset as SessionLogOffsetType,
+  SessionSeqCursor,
+} from '@deepseek-ai/dsh-session'
+import type SessionPersistence from '@deepseek-ai/dsh-session-persistence'
+import type { SessionPersistenceRevision, SessionPersistenceSnapshot } from '@deepseek-ai/dsh-session-persistence'
 import type { ProjectionSnapshot } from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-session-projection-cache'
 import { SESSION_QUERY_DEFAULT_PREPARED_SESSION_CACHE_SIZE, SessionQueryError } from './config.ts'
@@ -95,10 +99,7 @@ export class SessionObservationReader {
    * @returns one exact immutable observation.
    * @throws {@link SessionQueryError} with code `SESSION_QUERY_CORRUPT_SESSION` when live or prepared projection computation fails.
    */
-  async read(
-    sessionId: SessionId,
-    options: SessionObservationOptions = {},
-  ): Promise<SessionObservation> {
+  async read(sessionId: SessionId, options: SessionObservationOptions = {}): Promise<SessionObservation> {
     const { signal, projectionMode = 'all' } = options
     for (;;) {
       throwIfObservationAborted(signal)
@@ -132,11 +133,9 @@ export class SessionObservationReader {
           // fresher source, so retry the live path. Any other rejection means
           // the stored log failed restore validation.
           if (this.ctx.sessions.get(sessionId) !== undefined) continue
-          throw new SessionQueryError(
-            `stored session "${sessionId}" is corrupt: ${errorMessage(error)}`,
-            'SESSION_QUERY_CORRUPT_SESSION',
-            { cause: error },
-          )
+          throw new SessionQueryError(`stored session "${sessionId}" is corrupt: ${errorMessage(error)}`, 'SESSION_QUERY_CORRUPT_SESSION', {
+            cause: error,
+          })
         }
         entry = {
           persistenceIdentity: persistence.identity,
@@ -152,11 +151,9 @@ export class SessionObservationReader {
       try {
         projections = projectionMode === 'none' ? undefined : this.preparedProjections(entry)
       } catch (error: unknown) {
-        throw new SessionQueryError(
-          `failed to project session "${sessionId}": ${errorMessage(error)}`,
-          'SESSION_QUERY_CORRUPT_SESSION',
-          { cause: error },
-        )
+        throw new SessionQueryError(`failed to project session "${sessionId}": ${errorMessage(error)}`, 'SESSION_QUERY_CORRUPT_SESSION', {
+          cause: error,
+        })
       }
       return this.preparedLease(sessionId, entry, projections)
     }
@@ -201,11 +198,7 @@ export class SessionObservationReader {
   }
 
   /** Return a still-valid cached entry and mark it most recently used. */
-  private cachedEntry(
-    persistenceIdentity: symbol,
-    sessionId: SessionId,
-    revision: SessionPersistenceRevision,
-  ): PreparedEntry | undefined {
+  private cachedEntry(persistenceIdentity: symbol, sessionId: SessionId, revision: SessionPersistenceRevision): PreparedEntry | undefined {
     const cached = this.cache.get(sessionId)
     if (cached === undefined || cached.persistenceIdentity !== persistenceIdentity || cached.revision !== revision) {
       return undefined
@@ -240,11 +233,7 @@ export class SessionObservationReader {
   }
 
   /** Build one disposable lease over a cached entry, pinning it until every lease releases. */
-  private preparedLease(
-    sessionId: SessionId,
-    entry: PreparedEntry,
-    projections: ProjectionSnapshot | undefined,
-  ): SessionObservation {
+  private preparedLease(sessionId: SessionId, entry: PreparedEntry, projections: ProjectionSnapshot | undefined): SessionObservation {
     entry.refs += 1
     const lease = (): SessionObservation => {
       let disposed = false
@@ -255,7 +244,7 @@ export class SessionObservationReader {
         events: entry.events,
         cursor: entry.events.at(-1)?.seq ?? -1,
         revision: entry.revision,
-        ...projections === undefined ? {} : { projections },
+        ...(projections === undefined ? {} : { projections }),
         retain: () => {
           if (disposed) throw new Error(`session observation "${sessionId}" is disposed`)
           entry.refs += 1
@@ -272,25 +261,18 @@ export class SessionObservationReader {
     return lease()
   }
 
-  private live(
-    session: Session,
-    projectionMode: NonNullable<SessionObservationOptions['projectionMode']>,
-  ): SessionObservation {
+  private live(session: Session, projectionMode: NonNullable<SessionObservationOptions['projectionMode']>): SessionObservation {
     // The cut is the log length now. The log only appends, so the prefix
     // below `seq` is the same array whenever a consumer first reads `events`.
     const seq = session.seq
     let materialized: readonly SessionEvent[] | undefined
     let projections: ProjectionSnapshot | undefined
     try {
-      projections = projectionMode === 'none'
-        ? undefined
-        : this.ctx.get('sessionProjections')?.snapshot(session)
+      projections = projectionMode === 'none' ? undefined : this.ctx.get('sessionProjections')?.snapshot(session)
     } catch (error: unknown) {
-      throw new SessionQueryError(
-        `failed to project session "${session.id}": ${errorMessage(error)}`,
-        'SESSION_QUERY_CORRUPT_SESSION',
-        { cause: error },
-      )
+      throw new SessionQueryError(`failed to project session "${session.id}": ${errorMessage(error)}`, 'SESSION_QUERY_CORRUPT_SESSION', {
+        cause: error,
+      })
     }
     const lease = (): SessionObservation => {
       let disposed = false
@@ -304,12 +286,14 @@ export class SessionObservationReader {
           return materialized
         },
         cursor: seq === 0 ? -1 : SessionSeq(seq - 1),
-        ...projections === undefined ? {} : { projections },
+        ...(projections === undefined ? {} : { projections }),
         retain: () => {
           if (disposed) throw new Error(`session observation "${session.id}" is disposed`)
           return lease()
         },
-        [Symbol.dispose]: () => { disposed = true },
+        [Symbol.dispose]: () => {
+          disposed = true
+        },
       }
     }
     return lease()
@@ -327,27 +311,19 @@ export class SessionObservationReader {
 
 function throwIfObservationAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted !== true) return
-  throw new SessionQueryError(
-    'session observation was aborted',
-    'SESSION_QUERY_ABORTED',
-    { cause: signal.reason },
-  )
+  throw new SessionQueryError('session observation was aborted', 'SESSION_QUERY_ABORTED', { cause: signal.reason })
 }
 
 function mapPersistenceFailure(sessionId: SessionId, error: unknown): SessionQueryError {
   if (hasErrorName(error, 'SessionPersistenceNotFoundError')) return notFound(sessionId, error)
   if (hasErrorName(error, 'SessionPersistenceCorruptionError')) {
-    return new SessionQueryError(
-      `stored session "${sessionId}" is corrupt: ${error.message}`,
-      'SESSION_QUERY_CORRUPT_SESSION',
-      { cause: error },
-    )
+    return new SessionQueryError(`stored session "${sessionId}" is corrupt: ${error.message}`, 'SESSION_QUERY_CORRUPT_SESSION', {
+      cause: error,
+    })
   }
-  return new SessionQueryError(
-    `failed to observe session "${sessionId}": ${errorMessage(error)}`,
-    'SESSION_QUERY_PERSISTENCE_FAILED',
-    { cause: error },
-  )
+  return new SessionQueryError(`failed to observe session "${sessionId}": ${errorMessage(error)}`, 'SESSION_QUERY_PERSISTENCE_FAILED', {
+    cause: error,
+  })
 }
 
 function notFound(sessionId: SessionId, cause?: unknown): SessionQueryError {

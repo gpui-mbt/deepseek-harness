@@ -34,13 +34,16 @@ export function apply(ctx: Context): void {
 
   ctx.on('tools/post-execute', async (exec, result, next) => {
     const downstream = await next()
-    if (result.isError
-      || downstream.kind !== 'accept'
-      || exec.agent === undefined
-      || exec.name !== 'read'
-      || typeof exec.arguments !== 'object'
-      || exec.arguments === null
-      || !('file_path' in exec.arguments)) return downstream
+    if (
+      result.isError ||
+      downstream.kind !== 'accept' ||
+      exec.agent === undefined ||
+      exec.name !== 'read' ||
+      typeof exec.arguments !== 'object' ||
+      exec.arguments === null ||
+      !('file_path' in exec.arguments)
+    )
+      return downstream
     const cwd = exec.agent.session.header.cwd
     if (cwd === undefined) throw new Error('Global instruction snapshot requires a session cwd')
     const homeFile = join(cwd, '.dsh', 'AGENTS.md')

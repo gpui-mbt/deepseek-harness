@@ -1,27 +1,42 @@
 /** Exact rules, native drafts, and Host failure mapping the retained-task detail composes. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ScheduleCatalogEntry, ScheduleId, ScheduleRecord } from '@deepseek-ai/dsh-schedule/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import {
-  draftZone, timingDraft, timingError, timingSnapshot, zonedWallClock,
-} from '../src/client/task-timing.ts'
+import { draftZone, timingDraft, timingError, timingSnapshot, zonedWallClock } from '../src/client/task-timing.ts'
 import type { TimingDraft } from '../src/client/task-timing.ts'
 
 const at: ScheduleCatalogEntry = {
-  id: 'at' as ScheduleId, sessionId: 'original' as SessionId, status: 'active', kind: 'at',
-  title: 'One-time instruction', prompt: 'One-time instruction', scheduledAt: '2099-10-01T09:12:34.567Z',
+  id: 'at' as ScheduleId,
+  sessionId: 'original' as SessionId,
+  status: 'active',
+  kind: 'at',
+  title: 'One-time instruction',
+  prompt: 'One-time instruction',
+  scheduledAt: '2099-10-01T09:12:34.567Z',
 }
 const after: ScheduleCatalogEntry = { ...at, id: 'after' as ScheduleId, kind: 'after', afterSeconds: 90 }
 const every: ScheduleCatalogEntry = { ...at, id: 'every' as ScheduleId, kind: 'every', everySeconds: 301 }
 const daily: ScheduleCatalogEntry = {
-  ...at, id: 'daily' as ScheduleId, kind: 'daily', time: '09:12:34.567', timeZone: 'Asia/Shanghai',
+  ...at,
+  id: 'daily' as ScheduleId,
+  kind: 'daily',
+  time: '09:12:34.567',
+  timeZone: 'Asia/Shanghai',
 }
 const weekly: ScheduleCatalogEntry = {
-  ...at, id: 'weekly' as ScheduleId, kind: 'weekly', time: '09:12:34.567',
-  timeZone: 'Asia/Shanghai', weekdays: [1, 3],
+  ...at,
+  id: 'weekly' as ScheduleId,
+  kind: 'weekly',
+  time: '09:12:34.567',
+  timeZone: 'Asia/Shanghai',
+  weekdays: [1, 3],
 }
 const cron: ScheduleCatalogEntry = {
-  ...at, id: 'cron' as ScheduleId, kind: 'cron', expression: '0 9 * * 1-5', timeZone: 'Asia/Shanghai',
+  ...at,
+  id: 'cron' as ScheduleId,
+  kind: 'cron',
+  expression: '0 9 * * 1-5',
+  timeZone: 'Asia/Shanghai',
 }
 
 // Literal records, written independently of timingSnapshot, that fix each kind's complete expected rule.
@@ -31,46 +46,78 @@ const literalExpectedRules: readonly {
   expected: ScheduleRecord
 }[] = [
   {
-    kind: 'at', task: at,
+    kind: 'at',
+    task: at,
     expected: {
-      id: 'at' as ScheduleId, title: 'One-time instruction', prompt: 'One-time instruction', kind: 'at',
+      id: 'at' as ScheduleId,
+      title: 'One-time instruction',
+      prompt: 'One-time instruction',
+      kind: 'at',
       scheduledAt: '2099-10-01T09:12:34.567Z',
     },
   },
   {
-    kind: 'after', task: after,
+    kind: 'after',
+    task: after,
     expected: {
-      id: 'after' as ScheduleId, title: 'One-time instruction', prompt: 'One-time instruction', kind: 'after',
-      afterSeconds: 90, scheduledAt: '2099-10-01T09:12:34.567Z',
-    },
-  },
-  {
-    kind: 'every', task: every,
-    expected: {
-      id: 'every' as ScheduleId, title: 'One-time instruction', prompt: 'One-time instruction', kind: 'every',
-      everySeconds: 301, scheduledAt: '2099-10-01T09:12:34.567Z',
-    },
-  },
-  {
-    kind: 'daily', task: daily,
-    expected: {
-      id: 'daily' as ScheduleId, title: 'One-time instruction', prompt: 'One-time instruction', kind: 'daily',
-      time: '09:12:34.567', timeZone: 'Asia/Shanghai', scheduledAt: '2099-10-01T09:12:34.567Z',
-    },
-  },
-  {
-    kind: 'weekly', task: weekly,
-    expected: {
-      id: 'weekly' as ScheduleId, title: 'One-time instruction', prompt: 'One-time instruction', kind: 'weekly',
-      time: '09:12:34.567', timeZone: 'Asia/Shanghai', weekdays: [1, 3],
+      id: 'after' as ScheduleId,
+      title: 'One-time instruction',
+      prompt: 'One-time instruction',
+      kind: 'after',
+      afterSeconds: 90,
       scheduledAt: '2099-10-01T09:12:34.567Z',
     },
   },
   {
-    kind: 'cron', task: cron,
+    kind: 'every',
+    task: every,
     expected: {
-      id: 'cron' as ScheduleId, title: 'One-time instruction', prompt: 'One-time instruction', kind: 'cron',
-      expression: '0 9 * * 1-5', timeZone: 'Asia/Shanghai', scheduledAt: '2099-10-01T09:12:34.567Z',
+      id: 'every' as ScheduleId,
+      title: 'One-time instruction',
+      prompt: 'One-time instruction',
+      kind: 'every',
+      everySeconds: 301,
+      scheduledAt: '2099-10-01T09:12:34.567Z',
+    },
+  },
+  {
+    kind: 'daily',
+    task: daily,
+    expected: {
+      id: 'daily' as ScheduleId,
+      title: 'One-time instruction',
+      prompt: 'One-time instruction',
+      kind: 'daily',
+      time: '09:12:34.567',
+      timeZone: 'Asia/Shanghai',
+      scheduledAt: '2099-10-01T09:12:34.567Z',
+    },
+  },
+  {
+    kind: 'weekly',
+    task: weekly,
+    expected: {
+      id: 'weekly' as ScheduleId,
+      title: 'One-time instruction',
+      prompt: 'One-time instruction',
+      kind: 'weekly',
+      time: '09:12:34.567',
+      timeZone: 'Asia/Shanghai',
+      weekdays: [1, 3],
+      scheduledAt: '2099-10-01T09:12:34.567Z',
+    },
+  },
+  {
+    kind: 'cron',
+    task: cron,
+    expected: {
+      id: 'cron' as ScheduleId,
+      title: 'One-time instruction',
+      prompt: 'One-time instruction',
+      kind: 'cron',
+      expression: '0 9 * * 1-5',
+      timeZone: 'Asia/Shanghai',
+      scheduledAt: '2099-10-01T09:12:34.567Z',
     },
   },
 ]
@@ -78,27 +125,33 @@ const literalExpectedRules: readonly {
 // Native input values each kind initializes, written independently of timingDraft.
 const literalDrafts: readonly { kind: ScheduleRecord['kind']; task: ScheduleCatalogEntry; expected: TimingDraft }[] = [
   {
-    kind: 'at', task: at,
+    kind: 'at',
+    task: at,
     expected: { date: '2099-10-01', time: '17:12:34.567', timeZone: 'Asia/Shanghai', seconds: '', expression: '' },
   },
   {
-    kind: 'after', task: after,
+    kind: 'after',
+    task: after,
     expected: { date: '2099-10-01', time: '17:12:34.567', timeZone: 'Asia/Shanghai', seconds: '', expression: '' },
   },
   {
-    kind: 'every', task: every,
+    kind: 'every',
+    task: every,
     expected: { date: '', time: '', timeZone: '', seconds: '301', expression: '' },
   },
   {
-    kind: 'daily', task: daily,
+    kind: 'daily',
+    task: daily,
     expected: { date: '', time: '09:12:34.567', timeZone: 'Asia/Shanghai', seconds: '', expression: '' },
   },
   {
-    kind: 'weekly', task: weekly,
+    kind: 'weekly',
+    task: weekly,
     expected: { date: '', time: '09:12:34.567', timeZone: 'Asia/Shanghai', seconds: '', expression: '' },
   },
   {
-    kind: 'cron', task: cron,
+    kind: 'cron',
+    task: cron,
     expected: { date: '', time: '', timeZone: 'Asia/Shanghai', seconds: '', expression: '0 9 * * 1-5' },
   },
 ]
@@ -136,27 +189,37 @@ describe('timingDraft', () => {
   // A one-shot target stores only its instant, so its rows start in this device's
   // zone. The case pins that zone to keep the literals host-independent:
   // 09:12:34.567Z is 17:12:34.567 on the same date in Asia/Shanghai.
-  afterEach(() => { vi.restoreAllMocks() })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
   it.each(literalDrafts)('initializes the $kind native inputs', ({ task, expected }) => {
     vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
-      ...new Intl.DateTimeFormat().resolvedOptions(), timeZone: 'Asia/Shanghai',
+      ...new Intl.DateTimeFormat().resolvedOptions(),
+      timeZone: 'Asia/Shanghai',
     })
     expect(timingDraft(task)).toStrictEqual(expected)
   })
 })
 
 describe('device zone', () => {
-  afterEach(() => { vi.restoreAllMocks() })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
 
   it('falls back to UTC when the runtime reports no device zone', () => {
     // `resolvedOptions().timeZone` may be empty on a runtime that cannot name
     // the device zone; the draft then needs one explicit fallback to store.
     vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
-      ...new Intl.DateTimeFormat().resolvedOptions(), timeZone: '',
+      ...new Intl.DateTimeFormat().resolvedOptions(),
+      timeZone: '',
     })
     expect(draftZone(at)).toEqual({ zone: 'UTC', stored: false })
     expect(timingDraft(at)).toStrictEqual({
-      date: '2099-10-01', time: '09:12:34.567', timeZone: 'UTC', seconds: '', expression: '',
+      date: '2099-10-01',
+      time: '09:12:34.567',
+      timeZone: 'UTC',
+      seconds: '',
+      expression: '',
     })
   })
 
@@ -164,7 +227,11 @@ describe('device zone', () => {
     expect(zonedWallClock('2099-10-01T09:12:34.567Z', 'Not/AZone')).toBe('')
     // A rule that stores such a zone keeps its own clock text and date rows empty.
     expect(timingDraft({ ...daily, timeZone: 'Not/AZone' })).toStrictEqual({
-      date: '', time: '09:12:34.567', timeZone: 'Not/AZone', seconds: '', expression: '',
+      date: '',
+      time: '09:12:34.567',
+      timeZone: 'Not/AZone',
+      seconds: '',
+      expression: '',
     })
   })
 })

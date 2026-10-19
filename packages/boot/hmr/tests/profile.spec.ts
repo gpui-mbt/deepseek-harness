@@ -9,18 +9,21 @@ import Timer from '@deepseek-ai/cordis-plugin-timer'
 import { boot, initProfile, readProfileManifest, readProfilePatches, type ProfileContext } from '@deepseek-ai/dsh-app-boot'
 import { withFileLock } from '@deepseek-ai/dsh-atomic-write'
 import { FSWatcher } from 'chokidar'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import Hmr from '../src/index.ts'
 
 const watchers = vi.hoisted(() => [] as FSWatcher[])
-vi.mock('chokidar', async (original) => {
+vi.mock('chokidar', async original => {
   const native = await original<typeof import('chokidar')>()
-  return { ...native, watch: () => {
-    const watcher = new native.FSWatcher()
-    watchers.push(watcher)
-    queueMicrotask(() => watcher.emit('ready'))
-    return watcher
-  } }
+  return {
+    ...native,
+    watch: () => {
+      const watcher = new native.FSWatcher()
+      watchers.push(watcher)
+      queueMicrotask(() => watcher.emit('ready'))
+      return watcher
+    },
+  }
 })
 
 async function fixture(beforeWatch?: (profile: ProfileContext) => void) {
@@ -29,42 +32,76 @@ async function fixture(beforeWatch?: (profile: ProfileContext) => void) {
   initProfile(dir, [])
   writeFileSync(join(dir, 'cordis.yml'), '[]\n')
   const profile: ProfileContext = {
-    name: 'test', dir, patchPath: join(dir, 'cordis.patch.yml'), home, cwd: home,
-    installAnchor: join(home, 'package.json'), startedBundles: [], overlays: [], telemetryDisabledEnv: undefined,
+    name: 'test',
+    dir,
+    patchPath: join(dir, 'cordis.patch.yml'),
+    home,
+    cwd: home,
+    installAnchor: join(home, 'package.json'),
+    startedBundles: [],
+    overlays: [],
+    telemetryDisabledEnv: undefined,
   }
-  const rows = [{ insert: [
-    { id: 'timer', name: 'cordis:timer' },
-    { id: 'hmr', name: 'cordis:hmr', config: { root: [] } },
-    { id: 'probe', name: 'cordis:probe', config: { value: 'initial' } },
-  ] }]
+  const rows = [
+    {
+      insert: [
+        { id: 'timer', name: 'cordis:timer' },
+        { id: 'hmr', name: 'cordis:hmr', config: { root: [] } },
+        { id: 'probe', name: 'cordis:probe', config: { value: 'initial' } },
+      ],
+    },
+  ]
   writeFileSync(profile.patchPath, JSON.stringify(rows))
   let commit: (() => void) | undefined
   const start = watchers.length
-  const ctx = await boot('test', join(dir, 'cordis.yml'), readProfilePatches('test', profile), (host) => {
+  const ctx = await boot('test', join(dir, 'cordis.yml'), readProfilePatches('test', profile), host => {
     beforeWatch?.(profile)
     host.provide('profileContext', profile)
-    host.provide('appReady', { onReady(listener) { commit = listener; return () => { commit = undefined } } })
+    host.provide('appReady', {
+      onReady(listener) {
+        commit = listener
+        return () => {
+          commit = undefined
+        }
+      },
+    })
     host.loader.builtins.timer = Timer
     host.loader.builtins.hmr = Hmr
-    host.loader.builtins.probe = { apply(ctx: Context, config: { value: string }) { ctx.provide('profileProbe', config.value) } }
+    host.loader.builtins.probe = {
+      apply(ctx: Context, config: { value: string }) {
+        ctx.provide('profileProbe', config.value)
+      },
+    }
   })
-  onTestFinished(async () => { await ctx.fiber.dispose(); rmSync(home, { recursive: true, force: true }) })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+    rmSync(home, { recursive: true, force: true })
+  })
   const configWatches = watchers.slice(start, start + 3)
-  const emit = (index: number, filename: string) => { configWatches[index]!.emit('change', filename) }
+  const emit = (index: number, filename: string) => {
+    configWatches[index]!.emit('change', filename)
+  }
   const drain = () => ctx.hmr.runExclusive(async () => {})
   return { ctx, profile, dir, home, emit, drain, commit: () => commit?.() }
 }
 
 it('waits for application readiness and applies profile, home and manifest changes', async () => {
   const f = await fixture()
-  const patches = [{ insert: [
-    { id: 'timer', name: 'cordis:timer' }, { id: 'hmr', name: 'cordis:hmr', config: { root: [] } },
-    { id: 'probe', name: 'cordis:probe', config: { value: 'edited' } },
-  ] }]
+  const patches = [
+    {
+      insert: [
+        { id: 'timer', name: 'cordis:timer' },
+        { id: 'hmr', name: 'cordis:hmr', config: { root: [] } },
+        { id: 'probe', name: 'cordis:probe', config: { value: 'edited' } },
+      ],
+    },
+  ]
   writeFileSync(f.profile.patchPath, JSON.stringify(patches))
   f.emit(0, f.profile.patchPath)
   let completed = false
-  const drained = f.drain().then(() => { completed = true })
+  const drained = f.drain().then(() => {
+    completed = true
+  })
   await Promise.resolve(undefined)
   expect(completed).toBe(false)
   expect(f.ctx.get('profileProbe')).toBe('initial')
@@ -103,7 +140,9 @@ it('ignores dependency-only manifest changes and reloads a changed bundle list',
   f.commit()
   const include = [...f.ctx.loader.entries()].find(entry => entry.id === 'include')!
   const update = vi.spyOn(include, 'update')
-  onTestFinished(() => { update.mockRestore() })
+  onTestFinished(() => {
+    update.mockRestore()
+  })
   const manifestPath = join(f.dir, 'package.json')
   const manifest = readProfileManifest('test', f.dir)
   manifest.dependencies = { added: '1.0.0' }
@@ -139,7 +178,9 @@ it('reports unreadable inputs and recovers after the file is corrected', async (
   const f = await fixture()
   f.commit()
   const warn = vi.spyOn(f.ctx.logger, 'warn').mockImplementation(() => {})
-  onTestFinished(() => { warn.mockRestore() })
+  onTestFinished(() => {
+    warn.mockRestore()
+  })
   const original = readFileSync(f.profile.patchPath, 'utf8')
   rmSync(f.profile.patchPath)
   mkdirSync(f.profile.patchPath)
@@ -168,7 +209,10 @@ it('cancels a queued module notification when startup is interrupted', async () 
   const queued = Promise.withResolvers<undefined>()
   const hmr = f.ctx.hmr
   const run = hmr.runExclusive.bind(hmr)
-  vi.spyOn(hmr, 'runExclusive').mockImplementation((operation) => { queued.resolve(undefined); return run(operation) })
+  vi.spyOn(hmr, 'runExclusive').mockImplementation(operation => {
+    queued.resolve(undefined)
+    return run(operation)
+  })
   watchers.at(-1)!.emit('change', 'pending.mjs')
   await queued.promise
   await f.ctx.fiber.dispose()
@@ -179,7 +223,9 @@ it('logs unchanged inactive entries while applying an unrelated file edit', asyn
   const f = await fixture()
   f.commit()
   const warn = vi.spyOn(f.ctx.logger, 'warn').mockImplementation(() => {})
-  onTestFinished(() => { warn.mockRestore() })
+  onTestFinished(() => {
+    warn.mockRestore()
+  })
   const initial = readFileSync(f.profile.patchPath, 'utf8')
   const rows = JSON.parse(initial) as { insert: { id: string; name: string }[] }[]
   rows[0]!.insert.push({ id: 'missing', name: './missing.mjs' })
@@ -195,7 +241,7 @@ it('logs unchanged inactive entries while applying an unrelated file edit', asyn
 })
 
 it('applies a patch edited after boot parsing but before watcher registration', async () => {
-  const f = await fixture((profile) => {
+  const f = await fixture(profile => {
     const original = readFileSync(profile.patchPath, 'utf8')
     writeFileSync(profile.patchPath, original.replace('initial', 'edited-during-boot'))
   })

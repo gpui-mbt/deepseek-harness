@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { chromium, type Page, type CDPSession, type Locator } from 'playwright'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { launchWebScaffold, seedSession, watchConsole, webSnapshotMode } from '../../apps/web/tests/scaffold.ts'
 import { newEnglishPage } from '../../apps/web/tests/support.ts'
 import { ciTimeBudget, PERFORMANCE_BUDGET_HEADROOM } from '../support/calibration.ts'
@@ -27,7 +27,8 @@ const SCALED_ENDPOINTS = ['open', 'page', 'trajectory', 'streamTask'] as const
 const IO_SHARE = 0.05
 const CASE: BenchmarkCase = {
   id: 'long-session-browser',
-  measures: 'Chromium on the built Web GUI: opening a 240-turn Session, the slowest older page, first Trajectory view, and main-thread task time while a reply streams.',
+  measures:
+    'Chromium on the built Web GUI: opening a 240-turn Session, the slowest older page, first Trajectory view, and main-thread task time while a reply streams.',
   affects: 'Everyday Web GUI use with a long Session.',
 }
 
@@ -50,10 +51,17 @@ async function measureOlderPage(page: Page, previous: number, now = () => perfor
   const buttons = await locator.elementHandles()
   try {
     expect(buttons).toHaveLength(1)
-    return await measure(page, async () => {
-      await buttons[0]!.click()
-      await page.waitForFunction(({ selector, previous }) => document.querySelectorAll(selector).length > previous, { selector: TAIL, previous })
-    }, now)
+    return await measure(
+      page,
+      async () => {
+        await buttons[0]!.click()
+        await page.waitForFunction(({ selector, previous }) => document.querySelectorAll(selector).length > previous, {
+          selector: TAIL,
+          previous,
+        })
+      },
+      now,
+    )
   } finally {
     await Promise.all(buttons.map(button => button.dispose()))
   }
@@ -79,44 +87,78 @@ function expectInputOverlap(value: boolean): void {
 }
 
 async function waitForReplyMarker(page: Page, marker: string, timeout = 30000) {
-  return page.waitForFunction(({ marker, first, done }) => {
-    const reply = Array.from(document.querySelectorAll('[data-chat-flow-kind="assistant-step"]')).at(-1)
-    if (!reply) return false
-    const text = document.createTreeWalker(reply, NodeFilter.SHOW_TEXT)
-    let node: Node | null
-    while ((node = text.nextNode())) {
-      if (!node.textContent?.includes(marker) || !node.parentElement?.checkVisibility({ checkVisibilityCSS: true })) continue
-      const composer = Array.from(document.querySelectorAll('[data-composer-input][contenteditable="true"]')).at(-1)
-      const transcript = reply.textContent ?? ''
-      return { atMs: window.performance.now(), focused: document.activeElement === composer, first: transcript.includes(first), done: transcript.includes(done) }
-    }
-    return false
-  }, { marker, first: FIRST, done: DONE }, { polling: 'raf', timeout })
+  return page.waitForFunction(
+    ({ marker, first, done }) => {
+      const reply = Array.from(document.querySelectorAll('[data-chat-flow-kind="assistant-step"]')).at(-1)
+      if (!reply) return false
+      const text = document.createTreeWalker(reply, NodeFilter.SHOW_TEXT)
+      let node: Node | null
+      while ((node = text.nextNode())) {
+        if (!node.textContent?.includes(marker) || !node.parentElement?.checkVisibility({ checkVisibilityCSS: true })) continue
+        const composer = Array.from(document.querySelectorAll('[data-composer-input][contenteditable="true"]')).at(-1)
+        const transcript = reply.textContent ?? ''
+        return {
+          atMs: window.performance.now(),
+          focused: document.activeElement === composer,
+          first: transcript.includes(first),
+          done: transcript.includes(done),
+        }
+      }
+      return false
+    },
+    { marker, first: FIRST, done: DONE },
+    { polling: 'raf', timeout },
+  )
 }
 
 async function waitForTrajectory(page: Page, timeout = 30000): Promise<void> {
   // Selector retry backoff can delay observation after the view is already ready.
-  const ready = await page.waitForFunction(() => {
-    const search = document.querySelector('input[type="search"][aria-label="Search trajectory"]')
-    if (!search?.checkVisibility({ checkVisibilityCSS: true })) return false
-    return Array.from(document.querySelectorAll('[data-trajectory-scroll] [data-trajectory-row-key]'))
-      .some(row => row.checkVisibility({ checkVisibilityCSS: true }))
-  }, undefined, { polling: 'raf', timeout })
+  const ready = await page.waitForFunction(
+    () => {
+      const search = document.querySelector('input[type="search"][aria-label="Search trajectory"]')
+      if (!search?.checkVisibility({ checkVisibilityCSS: true })) return false
+      return Array.from(document.querySelectorAll('[data-trajectory-scroll] [data-trajectory-row-key]')).some(row =>
+        row.checkVisibility({ checkVisibilityCSS: true }),
+      )
+    },
+    undefined,
+    { polling: 'raf', timeout },
+  )
   await ready.dispose()
 }
 
 async function watchInputOverlap(composer: Locator): Promise<void> {
-  await composer.evaluate((element, markers) => {
-    element.removeAttribute('data-benchmark-input-witness')
-    element.removeAttribute('data-benchmark-input-overlap')
-    element.removeAttribute('data-benchmark-input-timing')
-    element.addEventListener('input', (event) => {
-      const transcript = Array.from(document.querySelectorAll('[data-chat-flow-kind="assistant-step"]')).at(-1)?.textContent ?? ''
-      element.setAttribute('data-benchmark-input-overlap', String(event.isTrusted && transcript.includes(markers.first) && !transcript.includes(markers.done)))
-      element.setAttribute('data-benchmark-input-witness', JSON.stringify({ trusted: event.isTrusted, first: transcript.includes(markers.first), done: transcript.includes(markers.done) }))
-      element.setAttribute('data-benchmark-input-timing', JSON.stringify({ atMs: window.performance.now(), eventAtMs: event.timeStamp, focused: document.activeElement === element }))
-    }, { once: true })
-  }, { first: FIRST, done: DONE })
+  await composer.evaluate(
+    (element, markers) => {
+      element.removeAttribute('data-benchmark-input-witness')
+      element.removeAttribute('data-benchmark-input-overlap')
+      element.removeAttribute('data-benchmark-input-timing')
+      element.addEventListener(
+        'input',
+        event => {
+          const transcript = Array.from(document.querySelectorAll('[data-chat-flow-kind="assistant-step"]')).at(-1)?.textContent ?? ''
+          element.setAttribute(
+            'data-benchmark-input-overlap',
+            String(event.isTrusted && transcript.includes(markers.first) && !transcript.includes(markers.done)),
+          )
+          element.setAttribute(
+            'data-benchmark-input-witness',
+            JSON.stringify({
+              trusted: event.isTrusted,
+              first: transcript.includes(markers.first),
+              done: transcript.includes(markers.done),
+            }),
+          )
+          element.setAttribute(
+            'data-benchmark-input-timing',
+            JSON.stringify({ atMs: window.performance.now(), eventAtMs: event.timeStamp, focused: document.activeElement === element }),
+          )
+        },
+        { once: true },
+      )
+    },
+    { first: FIRST, done: DONE },
+  )
 }
 
 it('accepts recorded hosted open samples and rejects slower endpoints', () => {
@@ -153,9 +195,13 @@ it('waits for visible marker text in the latest Assistant step', async () => {
   const browser = await chromium.launch({ headless: true })
   try {
     const page = await browser.newPage()
-    await page.setContent(`<div data-chat-flow-kind="assistant-step">${FIRST}</div><div data-chat-flow-kind="assistant-step"><span style="visibility:hidden">${FIRST}</span></div>`)
+    await page.setContent(
+      `<div data-chat-flow-kind="assistant-step">${FIRST}</div><div data-chat-flow-kind="assistant-step"><span style="visibility:hidden">${FIRST}</span></div>`,
+    )
     await expect(waitForReplyMarker(page, FIRST, 100)).rejects.toThrow('Timeout')
-    await page.locator('span').evaluate(element => { element.style.visibility = 'visible' })
+    await page.locator('span').evaluate(element => {
+      element.style.visibility = 'visible'
+    })
     const observation = await waitForReplyMarker(page, FIRST)
     expect(await observation.jsonValue()).toMatchObject({ first: true, done: false })
     await observation.dispose()
@@ -169,12 +215,20 @@ it('waits for visible Trajectory controls and records rather than unrelated tabl
   const browser = await chromium.launch({ headless: true })
   try {
     const page = await browser.newPage()
-    await page.setContent('<input type="search" aria-label="Search trajectory" style="visibility:hidden"><table><tbody><tr><td>unrelated</td></tr></tbody></table><div data-trajectory-scroll><table><tbody><tr data-trajectory-row-key="record"><td>record</td></tr></tbody></table></div>')
+    await page.setContent(
+      '<input type="search" aria-label="Search trajectory" style="visibility:hidden"><table><tbody><tr><td>unrelated</td></tr></tbody></table><div data-trajectory-scroll><table><tbody><tr data-trajectory-row-key="record"><td>record</td></tr></tbody></table></div>',
+    )
     await expect(waitForTrajectory(page, 100)).rejects.toThrow('Timeout')
-    await page.locator('[data-trajectory-row-key]').evaluate(element => { element.style.display = 'none' })
-    await page.locator('input').evaluate(element => { element.style.visibility = 'visible' })
+    await page.locator('[data-trajectory-row-key]').evaluate(element => {
+      element.style.display = 'none'
+    })
+    await page.locator('input').evaluate(element => {
+      element.style.visibility = 'visible'
+    })
     await expect(waitForTrajectory(page, 100)).rejects.toThrow('Timeout')
-    await page.locator('[data-trajectory-row-key]').evaluate(element => { element.style.display = 'table-row' })
+    await page.locator('[data-trajectory-row-key]').evaluate(element => {
+      element.style.display = 'table-row'
+    })
     await waitForTrajectory(page)
   } finally {
     await browser.close()
@@ -200,13 +254,25 @@ it('excludes older-page selector preparation while retaining the trusted click',
     const button = page.getByRole('button', { name: 'Load earlier', exact: true })
     const click = button.click.bind(button)
     const elementHandles = button.elementHandles.bind(button)
-    const prepare = async (): Promise<void> => { entered.resolve(undefined); await release.promise }
+    const prepare = async (): Promise<void> => {
+      entered.resolve(undefined)
+      await release.promise
+    }
     vi.spyOn(page, 'getByRole').mockReturnValue(button)
     // The Locator spy gates preparation in the original selector-inside-timer control.
-    vi.spyOn(button, 'click').mockImplementation(async options => { await prepare(); await click(options) })
-    vi.spyOn(button, 'elementHandles').mockImplementation(async () => { await prepare(); return elementHandles() })
+    vi.spyOn(button, 'click').mockImplementation(async options => {
+      await prepare()
+      await click(options)
+    })
+    vi.spyOn(button, 'elementHandles').mockImplementation(async () => {
+      await prepare()
+      return elementHandles()
+    })
     let now = 0
-    operation = measureOlderPage(page, 1, () => now).then(value => ({ value }), (error: unknown) => ({ error }))
+    operation = measureOlderPage(page, 1, () => now).then(
+      value => ({ value }),
+      (error: unknown) => ({ error }),
+    )
     await Promise.race([
       entered.promise,
       operation.then(outcome => {
@@ -226,8 +292,14 @@ it('excludes older-page selector preparation while retaining the trusted click',
     expect(await page.locator(TAIL).count()).toBe(2)
   } finally {
     release.resolve(undefined)
-    try { await browser.close() } finally {
-      try { await operation } finally { vi.restoreAllMocks() }
+    try {
+      await browser.close()
+    } finally {
+      try {
+        await operation
+      } finally {
+        vi.restoreAllMocks()
+      }
     }
   }
 })
@@ -250,9 +322,15 @@ it('waits for a named older-page control before starting its clock', async () =>
     const locator = page.getByRole('button', { name: 'Load earlier', exact: true })
     const waitFor = locator.waitFor.bind(locator)
     vi.spyOn(page, 'getByRole').mockReturnValue(locator)
-    vi.spyOn(locator, 'waitFor').mockImplementation(options => { entered.resolve(undefined); return waitFor(options) })
+    vi.spyOn(locator, 'waitFor').mockImplementation(options => {
+      entered.resolve(undefined)
+      return waitFor(options)
+    })
     let now = 0
-    operation = measureOlderPage(page, 1, () => now).then(value => ({ value }), (error: unknown) => ({ error }))
+    operation = measureOlderPage(page, 1, () => now).then(
+      value => ({ value }),
+      (error: unknown) => ({ error }),
+    )
     await Promise.race([
       entered.promise,
       operation.then(outcome => {
@@ -272,8 +350,14 @@ it('waits for a named older-page control before starting its clock', async () =>
     expect(await page.locator('button').getAttribute('data-click-trusted')).toBe('true')
     expect(await page.locator(TAIL).count()).toBe(2)
   } finally {
-    try { await browser.close() } finally {
-      try { await operation } finally { vi.restoreAllMocks() }
+    try {
+      await browser.close()
+    } finally {
+      try {
+        await operation
+      } finally {
+        vi.restoreAllMocks()
+      }
     }
   }
 })
@@ -282,10 +366,16 @@ it('keeps browser deadlines active with a fixed measurement clock', async () => 
   const browser = await chromium.launch({ headless: true })
   try {
     const page = await browser.newPage()
-    await expect(measure(page, async () => {
-      const pending = await page.waitForFunction(() => false, undefined, { timeout: 100 })
-      await pending.dispose()
-    }, () => 0)).rejects.toThrow('Timeout 100ms exceeded')
+    await expect(
+      measure(
+        page,
+        async () => {
+          const pending = await page.waitForFunction(() => false, undefined, { timeout: 100 })
+          await pending.dispose()
+        },
+        () => 0,
+      ),
+    ).rejects.toThrow('Timeout 100ms exceeded')
   } finally {
     await browser.close()
   }
@@ -298,10 +388,15 @@ it('rejects older-page rendering beyond the unchanged paging ceiling', async () 
     const page = await browser.newPage()
     await page.setContent('<button type="button">Load earlier</button><div data-chat-flow-key="9:turn-tail"></div>')
     await page.locator('button').evaluate(button => {
-      button.addEventListener('click', event => { button.setAttribute('data-click-trusted', String(event.isTrusted)) })
+      button.addEventListener('click', event => {
+        button.setAttribute('data-click-trusted', String(event.isTrusted))
+      })
     })
     let now = 0
-    operation = measureOlderPage(page, 1, () => now).then(value => ({ value }), (error: unknown) => ({ error }))
+    operation = measureOlderPage(page, 1, () => now).then(
+      value => ({ value }),
+      (error: unknown) => ({ error }),
+    )
     await page.waitForFunction(() => document.querySelector('button')?.getAttribute('data-click-trusted') === 'true')
     now = PAGE_BUDGET_MS + 1
     await page.evaluate(() => {
@@ -314,8 +409,14 @@ it('rejects older-page rendering beyond the unchanged paging ceiling', async () 
     expect(outcome.value).toBe(PAGE_BUDGET_MS + 1)
     expect(() => expectEndpointWithinBudget(outcome.value, PAGE_BUDGET_MS)).toThrow()
   } finally {
-    try { await browser.close() } finally {
-      try { await operation } finally { vi.restoreAllMocks() }
+    try {
+      await browser.close()
+    } finally {
+      try {
+        await operation
+      } finally {
+        vi.restoreAllMocks()
+      }
     }
   }
 })
@@ -332,25 +433,47 @@ it('rejects ambiguous or replaced older-page buttons before paging', async () =>
     vi.spyOn(page, 'getByRole').mockReturnValue(button)
     vi.spyOn(button, 'elementHandles').mockImplementation(async () => {
       const handles = await elementHandles()
-      await button.evaluate(element => { element.replaceWith(element.cloneNode(true)) })
+      await button.evaluate(element => {
+        element.replaceWith(element.cloneNode(true))
+      })
       return handles
     })
     await expect(measureOlderPage(page, 0)).rejects.toThrow('Element is not attached')
   } finally {
-    try { await browser.close() } finally { vi.restoreAllMocks() }
+    try {
+      await browser.close()
+    } finally {
+      vi.restoreAllMocks()
+    }
   }
 })
 
 it('opens, pages, navigates and streams into a 240-turn browser history', async () => {
   if (webSnapshotMode() !== 'replay') throw new Error('browser benchmarks require keyless replay mode')
-  const samples: { open: number; page: number; trajectory: number; first: number; streamTask: number; streamWall: number; input: number; inputOverlapped: boolean; heapMb: number; nodes: number }[] = []
+  const samples: {
+    open: number
+    page: number
+    trajectory: number
+    first: number
+    streamTask: number
+    streamWall: number
+    input: number
+    inputOverlapped: boolean
+    heapMb: number
+    nodes: number
+  }[] = []
   for (let sample = 0; sample < SAMPLES; sample++) {
     const failures: unknown[] = []
     const root = await mkdtemp(join(tmpdir(), 'dsh-browser-benchmark-'))
     try {
       const replayOverride = join(root, 'reply.json')
       await writeFile(replayOverride, JSON.stringify([{ kind: 'chunks', chunks: syntheticReply() }]))
-      const scaffold = await launchWebScaffold({ replayFixture: join(root, 'override-only.jsonl'), replayOverride, paceMs: PACE_MS, replayContextWindow: 10000000 })
+      const scaffold = await launchWebScaffold({
+        replayFixture: join(root, 'override-only.jsonl'),
+        replayOverride,
+        paceMs: PACE_MS,
+        replayContextWindow: 10000000,
+      })
       try {
         const history = syntheticHistory()
         await seedSession(scaffold, history, SESSION_ID)
@@ -362,7 +485,9 @@ it('opens, pages, navigates and streams into a 240-turn browser history', async 
           page.setDefaultTimeout(30000)
           await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
           expect(new URL(page.url()).origin).toBe(scaffold.baseUrl)
-          console.log(JSON.stringify({ benchmark: 'long-session-browser/server', url: scaffold.baseUrl, browser: browser.version(), sample }))
+          console.log(
+            JSON.stringify({ benchmark: 'long-session-browser/server', url: scaffold.baseUrl, browser: browser.version(), sample }),
+          )
           await page.waitForSelector('[class*="frame"]')
           await page.getByRole('treeitem').first().click()
           const result = page.getByRole('treeitem').nth(1)
@@ -386,7 +511,10 @@ it('opens, pages, navigates and streams into a 240-turn browser history', async 
             await waitForTrajectory(page)
           })
           await page.getByRole('tab', { name: 'Chat', exact: true }).click()
-          await page.waitForFunction(({ selector, expected }) => document.querySelectorAll(selector).length === expected, { selector: TAIL, expected: HISTORY_TURNS })
+          await page.waitForFunction(({ selector, expected }) => document.querySelectorAll(selector).length === expected, {
+            selector: TAIL,
+            expected: HISTORY_TURNS,
+          })
           const composer = page.locator('[data-composer-input][contenteditable="true"]').last()
           await composer.fill('Continue the synthetic review and summarize the validation. '.repeat(30))
           const cdp = await page.context().newCDPSession(page)
@@ -406,49 +534,101 @@ it('opens, pages, navigates and streams into a 240-turn browser history', async 
             await page.keyboard.type('next synthetic question')
             await expect.poll(() => composer.textContent()).toBe('next synthetic question')
           })
-          const inputOverlapped = await composer.getAttribute('data-benchmark-input-overlap') === 'true'
+          const inputOverlapped = (await composer.getAttribute('data-benchmark-input-overlap')) === 'true'
           const firstObservation = await firstMarker.jsonValue()
           await firstMarker.dispose()
-          console.log(JSON.stringify({ benchmark: 'long-session-browser/input', sample, first, input, firstObservation, witness: await composer.getAttribute('data-benchmark-input-witness'), inputTiming: await composer.getAttribute('data-benchmark-input-timing') }))
+          console.log(
+            JSON.stringify({
+              benchmark: 'long-session-browser/input',
+              sample,
+              first,
+              input,
+              firstObservation,
+              witness: await composer.getAttribute('data-benchmark-input-witness'),
+              inputTiming: await composer.getAttribute('data-benchmark-input-timing'),
+            }),
+          )
           expectInputOverlap(inputOverlapped)
           await (await waitForReplyMarker(page, DONE)).dispose()
           const settlement = await settled
           if (!settlement.ok) throw settlement.error
-          await page.waitForFunction(({ selector, expected }) => document.querySelectorAll(selector).length === expected, { selector: TAIL, expected: HISTORY_TURNS + 1 })
+          await page.waitForFunction(({ selector, expected }) => document.querySelectorAll(selector).length === expected, {
+            selector: TAIL,
+            expected: HISTORY_TURNS + 1,
+          })
           await painted(page)
           const streamWall = performance.now() - started
-          const streamTask = await taskMs(cdp) - beforeTask
+          const streamTask = (await taskMs(cdp)) - beforeTask
           await cdp.send('HeapProfiler.collectGarbage')
           const metrics = (await cdp.send('Performance.getMetrics')).metrics
           const heap = metrics.find(metric => metric.name === 'JSHeapUsedSize')
           if (heap === undefined) throw new Error('Chromium heap metric missing')
-          samples.push({ open, page: Math.max(...pages), trajectory, first, streamTask, streamWall, input, inputOverlapped, heapMb: heap.value / 1048576, nodes: await page.locator('*').count() })
+          samples.push({
+            open,
+            page: Math.max(...pages),
+            trajectory,
+            first,
+            streamTask,
+            streamWall,
+            input,
+            inputOverlapped,
+            heapMb: heap.value / 1048576,
+            nodes: await page.locator('*').count(),
+          })
           console.log(JSON.stringify({ benchmark: 'long-session-browser/sample', sample, initialTurns, pages, ...samples.at(-1) }))
           await watchInputOverlap(composer)
           await composer.click()
           await page.keyboard.type('!')
-          const lateInputOverlapped = await composer.getAttribute('data-benchmark-input-overlap') === 'true'
-          expect(await composer.getAttribute('data-benchmark-input-witness')).toBe(JSON.stringify({ trusted: true, first: true, done: true }))
+          const lateInputOverlapped = (await composer.getAttribute('data-benchmark-input-overlap')) === 'true'
+          expect(await composer.getAttribute('data-benchmark-input-witness')).toBe(
+            JSON.stringify({ trusted: true, first: true, done: true }),
+          )
           expect(() => expectInputOverlap(lateInputOverlapped)).toThrow()
           expect(consoleWatch.pageErrors).toEqual([])
           expect(consoleWatch.warnings).toEqual([])
-        } catch (error) { failures.push(error) } finally {
+        } catch (error) {
+          failures.push(error)
+        } finally {
           await browser.close().catch((error: unknown) => failures.push(error))
         }
-      } catch (error) { failures.push(error) } finally {
+      } catch (error) {
+        failures.push(error)
+      } finally {
         await scaffold.close().catch((error: unknown) => failures.push(error))
       }
-    } catch (error) { failures.push(error) } finally {
+    } catch (error) {
+      failures.push(error)
+    } finally {
       await rm(root, { recursive: true, force: true }).catch((error: unknown) => failures.push(error))
     }
     if (failures.length > 0) throw new AggregateError(failures, 'browser benchmark failed')
   }
-  const aggregate = Object.fromEntries(Object.keys(REFERENCE).map(key => [key, median(samples.map(sample => sample[key as keyof typeof REFERENCE]))]))
+  const aggregate = Object.fromEntries(
+    Object.keys(REFERENCE).map(key => [key, median(samples.map(sample => sample[key as keyof typeof REFERENCE]))]),
+  )
   const budgets: Record<string, number> = {
-    ...Object.fromEntries(Object.entries(REFERENCE).map(([key, value]) => [key, ciTimeBudget(value) + (key === 'streamWall' ? REPLAY_DURATION_MS : 0)])),
-    open: OPEN_BUDGET_MS, page: PAGE_BUDGET_MS, trajectory: TRAJECTORY_BUDGET_MS,
+    ...Object.fromEntries(
+      Object.entries(REFERENCE).map(([key, value]) => [key, ciTimeBudget(value) + (key === 'streamWall' ? REPLAY_DURATION_MS : 0)]),
+    ),
+    open: OPEN_BUDGET_MS,
+    page: PAGE_BUDGET_MS,
+    trajectory: TRAJECTORY_BUDGET_MS,
   }
-  console.log(JSON.stringify({ benchmark: 'long-session-browser/median', turns: HISTORY_TURNS, deltas: DELTAS, paceMs: PACE_MS, samples, aggregate, referenceMs: REFERENCE, expectedOpenCiMs: EXPECTED_OPEN_CI_MS, expectedPageCiMs: EXPECTED_PAGE_CI_MS, expectedTrajectoryCiMs: EXPECTED_TRAJECTORY_CI_MS, budgets }))
+  console.log(
+    JSON.stringify({
+      benchmark: 'long-session-browser/median',
+      turns: HISTORY_TURNS,
+      deltas: DELTAS,
+      paceMs: PACE_MS,
+      samples,
+      aggregate,
+      referenceMs: REFERENCE,
+      expectedOpenCiMs: EXPECTED_OPEN_CI_MS,
+      expectedPageCiMs: EXPECTED_PAGE_CI_MS,
+      expectedTrajectoryCiMs: EXPECTED_TRAJECTORY_CI_MS,
+      budgets,
+    }),
+  )
   recordTimings(CASE, Object.fromEntries(SCALED_ENDPOINTS.map(key => [key, { ms: aggregate[key]!, ioShare: IO_SHARE }])), budgets)
   for (const [key, value] of Object.entries(aggregate)) expectEndpointWithinBudget(value, budgets[key]!)
 })

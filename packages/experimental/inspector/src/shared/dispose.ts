@@ -9,7 +9,9 @@
  * @throws AggregateError containing every failed cleanup action in release order.
  */
 export async function disposeInspectorResources(
-  disposers: readonly (() => unknown)[], close: () => unknown, message: string,
+  disposers: readonly (() => unknown)[],
+  close: () => unknown,
+  message: string,
 ): Promise<void> {
   const failures: unknown[] = []
   for (const dispose of [...disposers].reverse().concat(close)) {

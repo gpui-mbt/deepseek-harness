@@ -1,10 +1,9 @@
 /** CSS checks for the completed-turn footer's content spacing. */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
-const read = (name: string): string =>
-  readFileSync(fileURLToPath(new URL(`../src/client/chat/${name}`, import.meta.url)), 'utf8')
+const read = (name: string): string => readFileSync(fileURLToPath(new URL(`../src/client/chat/${name}`, import.meta.url)), 'utf8')
 
 describe('completed-turn spacing', () => {
   it('combines the flow and footer offsets around turn-tail content', () => {

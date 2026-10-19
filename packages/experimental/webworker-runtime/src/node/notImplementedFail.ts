@@ -26,9 +26,9 @@
  */
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- only the return position carries the Node declaration
 export function notImplementedFail<Face = (...args: never[]) => never>(module: string, symbol: string): Face {
-  return (function refuse(): never {
+  return function refuse(): never {
     throw notAvailableError(module, symbol)
-  }) as Face
+  } as Face
 }
 
 /** Node's standard code for a feature the running platform cannot provide. */

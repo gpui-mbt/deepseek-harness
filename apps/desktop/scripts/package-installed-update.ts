@@ -8,7 +8,8 @@ async function main(): Promise<void> {
   if (!manifest || !version || extra.length !== 0 || (mode !== undefined && mode !== '--check' && mode !== '--execute')) {
     throw new Error('invalid invocation')
   }
-  const result = await packageInstalledUpdate(manifest, version, { execute: mode === '--execute',
+  const result = await packageInstalledUpdate(manifest, version, {
+    execute: mode === '--execute',
     confirm: async (id, selectedVersion) => {
       if (!stdin.isTTY || !stdout.isTTY) return false
       const terminal = createInterface({ input: stdin, output: stdout })
@@ -18,13 +19,19 @@ async function main(): Promise<void> {
         console.log('PIN 只从 .env.windows 读取；签名接口要求它短暂出现在 SignTool 参数中。不会安装或上传。')
         const expected = `PACKAGE ${selectedVersion} ${id}`
         return (await terminal.question(`仅授权这个版本，请输入 ${expected}：`)) === expected
-      } finally { terminal.close() }
-    } })
+      } finally {
+        terminal.close()
+      }
+    },
+  })
   console.log(JSON.stringify(result, null, 2))
 }
 
 main().catch((error: unknown) => {
-  console.error(error instanceof InstalledUpdateSigningHoldError ? error.message
-    : 'installed update packaging stopped. Check prepared files and the retained record; do not retry or remove protection automatically.')
+  console.error(
+    error instanceof InstalledUpdateSigningHoldError
+      ? error.message
+      : 'installed update packaging stopped. Check prepared files and the retained record; do not retry or remove protection automatically.',
+  )
   process.exitCode = 1
 })

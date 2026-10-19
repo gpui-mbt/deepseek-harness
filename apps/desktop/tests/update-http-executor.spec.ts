@@ -1,13 +1,21 @@
 import { EventEmitter } from 'node:events'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ClientRequest } from 'electron'
 import { DesktopUpdateHttpExecutor } from '../src/update-http-executor.ts'
 
-beforeEach(() => { vi.useFakeTimers() })
-afterEach(() => { vi.useRealTimers() })
+beforeEach(() => {
+  vi.useFakeTimers()
+})
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 function fixture() {
-  const request = Object.assign(new EventEmitter(), { abort: vi.fn(() => { request.emit('abort') }) })
+  const request = Object.assign(new EventEmitter(), {
+    abort: vi.fn(() => {
+      request.emit('abort')
+    }),
+  })
   const reject = vi.fn()
   new DesktopUpdateHttpExecutor(1000).addErrorAndTimeoutHandlers(request as unknown as ClientRequest, reject)
   return { request, reject }
@@ -36,7 +44,7 @@ describe('Electron updater inactivity deadline', () => {
     expect(response.listenerCount('data')).toBe(0)
   })
 
-  it.each(['abort', 'error'])('removes the deadline on request %s', async (event) => {
+  it.each(['abort', 'error'])('removes the deadline on request %s', async event => {
     const { request, reject } = fixture()
     request.emit(event, new Error('transport failure'))
     const count = reject.mock.calls.length
@@ -64,7 +72,7 @@ describe('Electron updater inactivity deadline', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it.each([0, 999, 1.5, NaN, 2_147_483_648])('rejects invalid inactivity configuration: %s', (value) => {
+  it.each([0, 999, 1.5, NaN, 2_147_483_648])('rejects invalid inactivity configuration: %s', value => {
     expect(() => new DesktopUpdateHttpExecutor(value)).toThrow('idle timeout')
   })
 })

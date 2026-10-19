@@ -3,7 +3,7 @@
  * records exact image occurrences and retries without replacing messages.
  */
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -13,7 +13,17 @@ import { ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import { resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek'
 import { inlineImages } from '@deepseek-ai/dsh-llm-deepseek/src/images.ts'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createAssistantMessage, createToolResultMessage, createUserMessage, projectOffloadedImages, offloadedImageText, IMAGE_OFFLOAD_REQUIRED_CODE, LlmAdapter, LlmError, ToolCallId } from '@deepseek-ai/dsh-llm'
+import {
+  createAssistantMessage,
+  createToolResultMessage,
+  createUserMessage,
+  projectOffloadedImages,
+  offloadedImageText,
+  IMAGE_OFFLOAD_REQUIRED_CODE,
+  LlmAdapter,
+  LlmError,
+  ToolCallId,
+} from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { isReplacementSurfaceEvent, SessionId } from '@deepseek-ai/dsh-session'
 import type { Session } from '@deepseek-ai/dsh-session'
@@ -30,23 +40,35 @@ class ScriptedAdapter extends LlmAdapter {
     super()
   }
 
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
     if (this.serializeSummary && options.purpose === 'compaction') {
       inlineImages(
         projectOffloadedImages(options.messages, ref => offloadedImageText(ref)),
-        new Map([image('first').attachment].map(ref => [ref.attachmentId, {
-          variantId: ImageVariantId(`sha256:${'b'.repeat(64)}`), attachment: ref,
-          data: new Uint8Array(ref.bytes), mediaType: ref.mediaType, bytes: ref.bytes,
-          width: ref.width, height: ref.height, depth: 'uchar', space: 'srgb', hasAlpha: false,
-        }])),
+        new Map(
+          [image('first').attachment].map(ref => [
+            ref.attachmentId,
+            {
+              variantId: ImageVariantId(`sha256:${'b'.repeat(64)}`),
+              attachment: ref,
+              data: new Uint8Array(ref.bytes),
+              mediaType: ref.mediaType,
+              bytes: ref.bytes,
+              width: ref.width,
+              height: ref.height,
+              depth: 'uchar',
+              space: 'srgb',
+              hasAlpha: false,
+            },
+          ]),
+        ),
         resolveAdapterOptions({ maxInlineRequestImageBytes: 1, inlineImageOffloadByteQuantum: 1 }),
       )
     }
     const entry = this.script.shift()
     if (entry === undefined) throw new Error('script exhausted')
     if (typeof entry === 'function') entry()
-    else yield * entry
+    else yield* entry
   }
 }
 
@@ -98,7 +120,8 @@ function offloadedNames(options: GenerateOptions): string[] {
 
 /** Surface replacements appended by the recovery, as `[original seq, replacement seq]` pairs. */
 function replacements(session: Session): [number, number][] {
-  return session.snapshotEvents()
+  return session
+    .snapshotEvents()
     .filter(isReplacementSurfaceEvent)
     .map(event => [Number(event.sourceEventSeqs?.[0]), Number(event.seq)])
 }
@@ -117,21 +140,26 @@ async function summaryHarness(script: ScriptEntry[]) {
 }
 
 async function seedImages(agent: Agent, names: string[]) {
-  agent.followup(createUserMessage({
-    content: [{ type: 'text', text: 'conversation details '.repeat(400) }, ...names.map(image)],
-    source: { kind: 'user' },
-  }))
+  agent.followup(
+    createUserMessage({
+      content: [{ type: 'text', text: 'conversation details '.repeat(400) }, ...names.map(image)],
+      source: { kind: 'user' },
+    }),
+  )
   await agent.whenIdle()
   const nodes = agent.session.surface.nodes
   return { start: nodes.at(-2)!, end: nodes.at(-1)! }
 }
 
 describe('summary image offload', () => {
-  it.each([new Error('summary failed'), new LlmError('no count', IMAGE_OFFLOAD_REQUIRED_CODE)])('delegates unhandled summary errors: %s', async (error) => {
-    const { ctx, agent } = await summaryHarness([])
-    expect(ctx.waterfall('compaction/summary-error', { session: agent.session, sourceEventSeqs: [], error }, () => false)).toBe(false)
-    expect(decisions(agent.session)).toEqual([])
-  })
+  it.each([new Error('summary failed'), new LlmError('no count', IMAGE_OFFLOAD_REQUIRED_CODE)])(
+    'delegates unhandled summary errors: %s',
+    async error => {
+      const { ctx, agent } = await summaryHarness([])
+      expect(ctx.waterfall('compaction/summary-error', { session: agent.session, sourceEventSeqs: [], error }, () => false)).toBe(false)
+      expect(decisions(agent.session)).toEqual([])
+    },
+  )
 
   it('recovers real summary image preparation with a tighter budget and fresh pricing', async () => {
     const { compact, agent, adapter } = await summaryHarness([textResponse('answer'), textResponse('checkpoint')])
@@ -155,8 +183,12 @@ describe('summary image offload', () => {
 
   it('offloads only the selected summary span and stops after exhausting its images', async () => {
     const { compact, agent, adapter } = await summaryHarness([
-      textResponse('before'), textResponse('selected'), textResponse('after'),
-      offloadRequired(1), offloadRequired(1), offloadRequired(1),
+      textResponse('before'),
+      textResponse('selected'),
+      textResponse('after'),
+      offloadRequired(1),
+      offloadRequired(1),
+      offloadRequired(1),
     ])
     await seedImages(agent, ['outside-before'])
     const selected = await seedImages(agent, ['first', 'second'])
@@ -165,7 +197,8 @@ describe('summary image offload', () => {
     await expect(compact.compactRegion(selected.start, selected.end, agent)).rejects.toMatchObject({ code: IMAGE_OFFLOAD_REQUIRED_CODE })
     expect(adapter.requests.slice(3).map(offloadedNames)).toEqual([[], ['first'], ['first', 'second']])
     expect(decisions(agent.session).map(event => event.data.targets)).toEqual([
-      [{ seq: selected.start, imageIndexes: [0] }], [{ seq: selected.start, imageIndexes: [1] }],
+      [{ seq: selected.start, imageIndexes: [0] }],
+      [{ seq: selected.start, imageIndexes: [1] }],
     ])
     expect(agent.session.surface.replaceGeneration).toBe(0)
     const end = agent.session.snapshotEvents().at(-1)
@@ -175,10 +208,17 @@ describe('summary image offload', () => {
 
   it('preserves omission when a subsequent summary failure is terminal', async () => {
     const { compact, agent, adapter } = await summaryHarness([
-      textResponse('answer'), offloadRequired(1), () => { throw new LlmError('provider outage', 'SERVER') },
+      textResponse('answer'),
+      offloadRequired(1),
+      () => {
+        throw new LlmError('provider outage', 'SERVER')
+      },
     ])
     await seedImages(agent, ['first'])
-    await expect(compact.compactNow(agent, new AbortController().signal)).rejects.toMatchObject({ code: 'summary', cause: { code: 'SERVER' } })
+    await expect(compact.compactNow(agent, new AbortController().signal)).rejects.toMatchObject({
+      code: 'summary',
+      cause: { code: 'SERVER' },
+    })
     expect(adapter.requests).toHaveLength(3)
     expect(decisions(agent.session)).toHaveLength(1)
     expect(agent.session.surface.replaceGeneration).toBe(0)
@@ -188,7 +228,11 @@ describe('summary image offload', () => {
     const controller = new AbortController()
     const reason = new Error('cancel summary')
     const { compact, agent, adapter } = await summaryHarness([
-      textResponse('answer'), () => { controller.abort(reason); return offloadRequired(1)() },
+      textResponse('answer'),
+      () => {
+        controller.abort(reason)
+        return offloadRequired(1)()
+      },
     ])
     await seedImages(agent, ['first'])
     await expect(compact.compactNow(agent, controller.signal)).rejects.toBe(reason)
@@ -201,7 +245,9 @@ describe('summary image offload', () => {
     await seedImages(agent, ['first'])
     const controller = new AbortController()
     const reason = new Error('cancel after offload')
-    ctx.on('session/event', (_session, event) => { if (event.type === 'image/offload') controller.abort(reason) })
+    ctx.on('session/event', (_session, event) => {
+      if (event.type === 'image/offload') controller.abort(reason)
+    })
     await expect(compact.compactNow(agent, controller.signal)).rejects.toBe(reason)
     expect(adapter.requests).toHaveLength(2)
     expect(decisions(agent.session)).toHaveLength(1)
@@ -211,10 +257,14 @@ describe('summary image offload', () => {
     const { compact, agent, adapter } = await summaryHarness([textResponse('answer')])
     const selected = await seedImages(agent, ['first'])
     adapter.script.push(() => {
-      agent.session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'replacement' }], source: { kind: 'user' } }), {
-        surfaceOp: { op: 'replace', startSeq: selected.start, endSeq: selected.end },
-        sourceEventSeqs: [selected.start, selected.end],
-      })
+      agent.session.append(
+        'user/message',
+        createUserMessage({ content: [{ type: 'text', text: 'replacement' }], source: { kind: 'user' } }),
+        {
+          surfaceOp: { op: 'replace', startSeq: selected.start, endSeq: selected.end },
+          sourceEventSeqs: [selected.start, selected.end],
+        },
+      )
       return offloadRequired(1)()
     })
     await expect(compact.compactNow(agent, new AbortController().signal)).rejects.toMatchObject({ code: 'changed' })
@@ -232,8 +282,7 @@ describe('compaction-image-offload', () => {
     })
     agent.followup(createUserMessage({ content: [image('original')], source: { kind: 'user' } }))
     await agent.whenIdle()
-    expect(agent.session.snapshotEvents().find(event => event.type === 'turn/end'))
-      .toMatchObject({ data: { reason: { kind: 'aborted' } } })
+    expect(agent.session.snapshotEvents().find(event => event.type === 'turn/end')).toMatchObject({ data: { reason: { kind: 'aborted' } } })
     expect(adapter.requests).toHaveLength(1)
     expect(decisions(agent.session)).toEqual([])
 
@@ -253,8 +302,7 @@ describe('compaction-image-offload', () => {
     })
     agent.followup(createUserMessage({ content: [image('original')], source: { kind: 'user' } }))
     await agent.whenIdle()
-    expect(agent.session.snapshotEvents().find(event => event.type === 'turn/end'))
-      .toMatchObject({ data: { reason: { kind: 'aborted' } } })
+    expect(agent.session.snapshotEvents().find(event => event.type === 'turn/end')).toMatchObject({ data: { reason: { kind: 'aborted' } } })
     expect(adapter.requests).toHaveLength(1)
     expect(decisions(agent.session)).toHaveLength(1)
 
@@ -275,10 +323,12 @@ describe('compaction-image-offload', () => {
       return next()
     })
 
-    agent.followup(createUserMessage({
-      content: [image('a'), image('b'), image('c')],
-      source: { kind: 'user' },
-    }))
+    agent.followup(
+      createUserMessage({
+        content: [image('a'), image('b'), image('c')],
+        source: { kind: 'user' },
+      }),
+    )
     await agent.whenIdle()
 
     expect(adapter.requests).toHaveLength(2)
@@ -308,24 +358,43 @@ describe('compaction-image-offload', () => {
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('offload-reordered'), { provider: 'mock', model: 'mock' })
     // An empty-content assistant node derives no message and carries no occurrence.
-    agent.session.append('assistant/message', {
-      turn: 0,
-      step: 0,
-      message: createAssistantMessage({ content: [], source: { provider: 'mock', model: 'mock' } }),
-      stream: [],
-    }, { surfaceOp: 'append' })
-    const first = agent.session.append('user/message', createUserMessage({
-      content: [image('first')], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    agent.session.append('user/message', createUserMessage({
-      content: [image('second')], source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
-    agent.session.append('user/message', createUserMessage({
-      content: [image('replacement')], source: { kind: 'user' },
-    }), {
-      surfaceOp: { op: 'replace', startSeq: first.seq, endSeq: first.seq },
-      sourceEventSeqs: [first.seq],
-    })
+    agent.session.append(
+      'assistant/message',
+      {
+        turn: 0,
+        step: 0,
+        message: createAssistantMessage({ content: [], source: { provider: 'mock', model: 'mock' } }),
+        stream: [],
+      },
+      { surfaceOp: 'append' },
+    )
+    const first = agent.session.append(
+      'user/message',
+      createUserMessage({
+        content: [image('first')],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
+    agent.session.append(
+      'user/message',
+      createUserMessage({
+        content: [image('second')],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
+    agent.session.append(
+      'user/message',
+      createUserMessage({
+        content: [image('replacement')],
+        source: { kind: 'user' },
+      }),
+      {
+        surfaceOp: { op: 'replace', startSeq: first.seq, endSeq: first.seq },
+        sourceEventSeqs: [first.seq],
+      },
+    )
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'send' }], source: { kind: 'user' } }))
     await agent.whenIdle()
@@ -333,9 +402,12 @@ describe('compaction-image-offload', () => {
     expect(adapter.requests).toHaveLength(2)
     expect(offloadedNames(adapter.requests[1]!)).toEqual(['replacement', 'second'])
     expect(replacements(agent.session)).toHaveLength(1)
-    expect(decisions(agent.session).map(event => event.data.targets)).toEqual([[
-      { seq: 3, imageIndexes: [0] }, { seq: 2, imageIndexes: [0] },
-    ]])
+    expect(decisions(agent.session).map(event => event.data.targets)).toEqual([
+      [
+        { seq: 3, imageIndexes: [0] },
+        { seq: 2, imageIndexes: [0] },
+      ],
+    ])
   })
 
   it('offloads a tool-result image and leaves later images untouched', async () => {
@@ -346,49 +418,65 @@ describe('compaction-image-offload', () => {
     const callId = ToolCallId('shot')
     const innerCallId = ToolCallId('inner')
     agent.session.append('turn/start', { turn: 0 })
-    agent.session.append('assistant/message', {
-      turn: 0,
-      step: 1,
-      message: createAssistantMessage({
-        content: [
-          { type: 'tool-call', id: emptyCallId, name: 'read_image', arguments: '{}' },
-          { type: 'tool-call', id: callId, name: 'read_image', arguments: '{}' },
-          { type: 'tool-call', id: innerCallId, name: 'read_image', arguments: '{}' },
-        ],
-        source: { provider: 'mock', model: 'mock' },
-      }),
-      stream: [],
-    }, { surfaceOp: 'append' })
+    agent.session.append(
+      'assistant/message',
+      {
+        turn: 0,
+        step: 1,
+        message: createAssistantMessage({
+          content: [
+            { type: 'tool-call', id: emptyCallId, name: 'read_image', arguments: '{}' },
+            { type: 'tool-call', id: callId, name: 'read_image', arguments: '{}' },
+            { type: 'tool-call', id: innerCallId, name: 'read_image', arguments: '{}' },
+          ],
+          source: { provider: 'mock', model: 'mock' },
+        }),
+        stream: [],
+      },
+      { surfaceOp: 'append' },
+    )
     agent.session.append('tool/call', { turn: 0, step: 1, callId: emptyCallId, name: 'read_image', arguments: '{}' })
-    agent.session.append('tool/result', {
-      turn: 0,
-      step: 1,
-      message: createToolResultMessage({
-        callId: emptyCallId,
-        content: [{ type: 'text', text: 'no image' }],
-        isError: false,
-      }),
-    }, { surfaceOp: 'append' })
+    agent.session.append(
+      'tool/result',
+      {
+        turn: 0,
+        step: 1,
+        message: createToolResultMessage({
+          callId: emptyCallId,
+          content: [{ type: 'text', text: 'no image' }],
+          isError: false,
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     agent.session.append('tool/call', { turn: 0, step: 1, callId, name: 'read_image', arguments: '{}' })
-    const result = agent.session.append('tool/result', {
-      turn: 0,
-      step: 1,
-      message: createToolResultMessage({
-        callId,
-        content: [image('first')],
-        isError: false,
-      }),
-    }, { surfaceOp: 'append' })
+    const result = agent.session.append(
+      'tool/result',
+      {
+        turn: 0,
+        step: 1,
+        message: createToolResultMessage({
+          callId,
+          content: [image('first')],
+          isError: false,
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     agent.session.append('tool/call', { turn: 0, step: 1, callId: innerCallId, name: 'read_image', arguments: '{}' })
-    agent.session.append('tool/result', {
-      turn: 0,
-      step: 1,
-      message: createToolResultMessage({
-        callId: innerCallId,
-        content: [image('second')],
-        isError: false,
-      }),
-    }, { surfaceOp: 'append' })
+    agent.session.append(
+      'tool/result',
+      {
+        turn: 0,
+        step: 1,
+        message: createToolResultMessage({
+          callId: innerCallId,
+          content: [image('second')],
+          isError: false,
+        }),
+      },
+      { surfaceOp: 'append' },
+    )
     agent.session.append('turn/end', { turn: 0, reason: { kind: 'completed' } })
 
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'send' }], source: { kind: 'user' } }))
@@ -404,9 +492,12 @@ describe('compaction-image-offload', () => {
     const adapter = new ScriptedAdapter([offloadRequired(1), offloadRequired(1), textResponse('sent')])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('offload-repeat'), { provider: 'mock', model: 'mock' })
-    agent.followup(createUserMessage({
-      content: [image('first'), image('second'), image('third')], source: { kind: 'user' },
-    }))
+    agent.followup(
+      createUserMessage({
+        content: [image('first'), image('second'), image('third')],
+        source: { kind: 'user' },
+      }),
+    )
     await agent.whenIdle()
     expect(adapter.requests.map(offloadedNames)).toEqual([[], ['first'], ['first', 'second']])
     expect(decisions(agent.session).map(event => event.data.targets[0]?.imageIndexes)).toEqual([[0], [1]])
@@ -429,18 +520,26 @@ describe('compaction-image-offload', () => {
     await agent.whenIdle()
     expect(adapter.requests).toHaveLength(1)
     expect(decisions(agent.session)).toEqual([])
-    expect(ctx.waterfall('compaction/summary-error', {
-      session: agent.session,
-      sourceEventSeqs: agent.session.surface.nodes,
-      error: new LlmError('summary budget exceeded', IMAGE_OFFLOAD_REQUIRED_CODE, { offloadImages: 1 }),
-    }, () => false)).toBe(false)
+    expect(
+      ctx.waterfall(
+        'compaction/summary-error',
+        {
+          session: agent.session,
+          sourceEventSeqs: agent.session.surface.nodes,
+          error: new LlmError('summary budget exceeded', IMAGE_OFFLOAD_REQUIRED_CODE, { offloadImages: 1 }),
+        },
+        () => false,
+      ),
+    ).toBe(false)
     expect(decisions(agent.session)).toEqual([])
   })
 
   it('leaves every other failure to downstream recovery', async () => {
-    const adapter = new ScriptedAdapter([() => {
-      throw new LlmError('provider outage', 'SERVER')
-    }])
+    const adapter = new ScriptedAdapter([
+      () => {
+        throw new LlmError('provider outage', 'SERVER')
+      },
+    ])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('offload-other-failure'), { provider: 'mock', model: 'mock' })
     const delegated: string[] = []

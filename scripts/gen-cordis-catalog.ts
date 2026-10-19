@@ -20,20 +20,11 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import {
-  projectCordisCatalog,
-  renderInheritedPage,
-  renderPageRegion,
-  REGION_BEGIN,
-  REGION_END,
-} from '@deepseek-ai/dsh-typert-generator'
+import { projectCordisCatalog, renderInheritedPage, renderPageRegion, REGION_BEGIN, REGION_END } from '@deepseek-ai/dsh-typert-generator'
 import type { CordisCatalogPolicy } from '@deepseek-ai/dsh-typert-generator'
 import { renderCordisCoreApiPages } from './cordis-core-api.ts'
 import { contextKeyMap, contextMergeFiles, eventNameList } from './cordis-walk.ts'
-import {
-  parseTranslationPairingManifest,
-  translationPairSourcePredicate,
-} from './translation-pairing.ts'
+import { parseTranslationPairingManifest, translationPairSourcePredicate } from './translation-pairing.ts'
 import { rewriteTranslationLinkLocales } from './translation-links.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -171,17 +162,25 @@ export const SERVICE_PAGE: Record<string, string> = {
  * to a model as `cordis_runtime_inspect what:"client"`).
  */
 export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
-  invocation: 'not a service: per-call accessor (RemoteInvocation | undefined) the Gateway derives for each Remote call — packages/api/gateway/README.md owns the contract',
+  invocation:
+    'not a service: per-call accessor (RemoteInvocation | undefined) the Gateway derives for each Remote call — packages/api/gateway/README.md owns the contract',
   webTerminals: 'client-side terminal view models — packages/api/terminal-controller/README.md owns the API',
   appReady: 'not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract',
   appExit: 'not a service: launcher-provided bounded process-exit callback — packages/boot/cmdline/README.md owns the launcher contract',
-  cmdlineArgs: 'not a service: launcher-provided immutable app argument accessor — packages/boot/cmdline/README.md owns the launcher contract',
-  configuredAgentIdentities: 'not a service: launcher-provided boot-context value (ConfiguredAgentIdentities | undefined) — packages/core/agent-loop/README.md owns this launcher contract',
-  launcherSessionQueryPath: 'not a service: launcher-provided boot-context value (string | undefined) — packages/session-query/session-query-sqlite/README.md owns this launcher contract',
-  dshHomePath: 'not a service: boot-provided root accessor function (typeof dshHomePath | undefined) for Loader !!js config expressions — packages/boot/app-boot/README.md owns the boot contract',
-  dshInstancePath: 'not a service: boot-provided instance-scoped path accessor function (typeof dshInstancePath | undefined) for Loader !!js config expressions — packages/boot/app-boot/README.md owns the boot contract',
-  launchEnvironment: 'not a service: launcher-provided root accessor value (LaunchEnvironmentSnapshot | undefined) — packages/util/launch-environment/README.md owns this launcher contract',
-  pluginPackages: 'profile-boot-owned package resolver service used by optional consumers — packages/boot/app-boot/README.md owns this internal API',
+  cmdlineArgs:
+    'not a service: launcher-provided immutable app argument accessor — packages/boot/cmdline/README.md owns the launcher contract',
+  configuredAgentIdentities:
+    'not a service: launcher-provided boot-context value (ConfiguredAgentIdentities | undefined) — packages/core/agent-loop/README.md owns this launcher contract',
+  launcherSessionQueryPath:
+    'not a service: launcher-provided boot-context value (string | undefined) — packages/session-query/session-query-sqlite/README.md owns this launcher contract',
+  dshHomePath:
+    'not a service: boot-provided root accessor function (typeof dshHomePath | undefined) for Loader !!js config expressions — packages/boot/app-boot/README.md owns the boot contract',
+  dshInstancePath:
+    'not a service: boot-provided instance-scoped path accessor function (typeof dshInstancePath | undefined) for Loader !!js config expressions — packages/boot/app-boot/README.md owns the boot contract',
+  launchEnvironment:
+    'not a service: launcher-provided root accessor value (LaunchEnvironmentSnapshot | undefined) — packages/util/launch-environment/README.md owns this launcher contract',
+  pluginPackages:
+    'profile-boot-owned package resolver service used by optional consumers — packages/boot/app-boot/README.md owns this internal API',
   fileUpload: 'client-side browser upload service — packages/client/file-upload/README.md owns the API',
   uiRenderer: 'client-side interface-typed browser service — packages/client/ui-renderer/README.md owns the API',
   uiSession: 'client-side Session source adapter — packages/client/ui-session/README.md owns the API',
@@ -225,36 +224,36 @@ export const EVENT_SCOPE_PAGE: Record<string, string> = {
   hmr: 'boot.md',
   'plugin-manager': 'boot.md',
   'plugin-market': 'boot.md',
-  'agent': 'core.md',
+  agent: 'core.md',
   'agent-loop': 'core.md',
   'agent-preset': 'core.md',
   'api-session': 'session.md',
-  'approval': 'approval.md',
-  'commands': 'commands.md',
-  'connection': 'web-server.md',
-  'compaction': 'compaction.md',
-  'cordis': 'extensions.md',
-  'authorization': 'credentials.md',
-  'credentials': 'credentials.md',
+  approval: 'approval.md',
+  commands: 'commands.md',
+  connection: 'web-server.md',
+  compaction: 'compaction.md',
+  cordis: 'extensions.md',
+  authorization: 'credentials.md',
+  credentials: 'credentials.md',
   'deepseek-account': 'credentials.md',
-  'domain': 'storage.md',
-  'fs': 'filesystem.md',
-  'goal': 'goal.md',
-  'schedule': 'schedule.md',
-  'llm': 'llm-streaming.md',
+  domain: 'storage.md',
+  fs: 'filesystem.md',
+  goal: 'goal.md',
+  schedule: 'schedule.md',
+  llm: 'llm-streaming.md',
   'permission-presets': 'permission-presets.md',
-  'session': 'session.md',
-  'settings': 'settings.md',
-  'skills': 'skills.md',
-  'subagent': 'subagent.md',
+  session: 'session.md',
+  settings: 'settings.md',
+  skills: 'skills.md',
+  subagent: 'subagent.md',
   'system-prompt': 'system-prompt.md',
   'session-telemetry': 'session-telemetry.md',
-  'feedback': 'feedback.md',
-  'tools': 'tools.md',
+  feedback: 'feedback.md',
+  tools: 'tools.md',
   'user-questions': 'user-questions.md',
-  'webserver': 'web-server.md',
-  'workflow': 'workflow.md',
-  'workspace': 'workspace.md',
+  webserver: 'web-server.md',
+  workflow: 'workflow.md',
+  workspace: 'workspace.md',
 }
 
 /**
@@ -842,7 +841,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
 
 /** TypeScript lib and pinned framework types with no repository-owned data page. */
 export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
-  'Entry', 'Array',
+  'Entry',
+  'Array',
   'Plugin',
   'AbortSignal',
   'AsyncIterable',
@@ -944,7 +944,8 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   DynamicCordisSnapshotRow: 'dynamic-package payload contract is owned by packages/extensions/cordis-host-runner/src/types.ts',
   DynamicCordisStopResponse: 'dynamic Plugin stop result is owned by packages/extensions/cordis-host-runner/src/types.ts',
   DynamicCordisUndefineReceipt: 'dynamic-package payload contract is owned by packages/extensions/cordis-host-runner/src/types.ts',
-  HostCordisInspectProviderRegistration: 'Host inspect provider registration is owned by packages/extensions/cordis-host-runner/src/inspect-registry.ts',
+  HostCordisInspectProviderRegistration:
+    'Host inspect provider registration is owned by packages/extensions/cordis-host-runner/src/inspect-registry.ts',
   DomainImpl: 'domain implementation contract is owned by packages/storage/storage-domain/README.md',
   CommandExecution: 'executor return contract is owned by packages/interaction/commands/src/index.ts',
   'z.core.JSONSchema.BaseSchema': 'zod projection output is owned by the zod v4 API',
@@ -954,8 +955,7 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   LocaleDict: 'service-local dictionary fields are owned by packages/client/i18n/src/index.ts',
   ThemeTokens: 'service-local token dictionary is owned by packages/client/ui-theme/src/index.ts',
   Translate: 'service-local bound translator is owned by packages/client/i18n/src/index.ts',
-  WebUpgradeRoute:
-    'upgrade route registration contract is owned by packages/host/webserver/src/index.ts',
+  WebUpgradeRoute: 'upgrade route registration contract is owned by packages/host/webserver/src/index.ts',
   JsonValue: 'JSON value union is owned by packages/core/session/src/json.ts',
   KnobState: 'projection unit state fields are owned by packages/interaction/permission-presets/README.md',
   PromptAssembly: 'assembly result is owned by packages/core/system-prompt/README.md',
@@ -996,45 +996,56 @@ export const CORDIS_CATALOG_POLICY: CordisCatalogPolicy = {
   foundationTypeNames: FOUNDATION_TYPE_NAMES,
   typeLinkExemptions: TYPE_LINK_EXEMPTIONS,
   runtimeServiceExclusions: new Set(['cordisInspect', 'dynamicCordisRunner']),
-  runtimeServices: [{
-    key: 'timer',
-    type: 'TimerService',
-    abstract: false,
-    doc: 'Disposable timer helpers mixed into Cordis contexts.',
-    source: 'vendor/timer/src/index.ts:12',
-    methods: [
-      {
-        signature: 'timeout(callback: () => void, delay: number): () => void',
-        jsDoc: '/** Run a callback once and return its disposer. */',
-      },
-      {
-        signature: 'timeout(delay: number): Promise<void>',
-        jsDoc: '/** Resolve after a delay; disposal rejects the pending promise. */',
-      },
-      {
-        signature: 'interval(callback: () => void, delay: number): () => void',
-        jsDoc: '/** Run a callback repeatedly and return its disposer. */',
-      },
-      {
-        signature: 'interval<R = any>(delay: number): AsyncIterableIterator<void, R, void>',
-        jsDoc: '/** Return an async iterator of timer ticks. */',
-      },
-      {
-        signature: 'throttle<F extends (...args: any[]) => void>(callback: F, delay: number, noTrailing?: boolean): F & { dispose: () => void }',
-        jsDoc: '/** Return a throttled function whose timer is disposed with the current fiber. */',
-      },
-      {
-        signature: 'debounce<F extends (...args: any[]) => void>(callback: F, delay: number): F & { dispose: () => void }',
-        jsDoc: '/** Return a debounced function whose timer is disposed with the current fiber. */',
-      },
-    ],
-  }],
+  runtimeServices: [
+    {
+      key: 'timer',
+      type: 'TimerService',
+      abstract: false,
+      doc: 'Disposable timer helpers mixed into Cordis contexts.',
+      source: 'vendor/timer/src/index.ts:12',
+      methods: [
+        {
+          signature: 'timeout(callback: () => void, delay: number): () => void',
+          jsDoc: '/** Run a callback once and return its disposer. */',
+        },
+        {
+          signature: 'timeout(delay: number): Promise<void>',
+          jsDoc: '/** Resolve after a delay; disposal rejects the pending promise. */',
+        },
+        {
+          signature: 'interval(callback: () => void, delay: number): () => void',
+          jsDoc: '/** Run a callback repeatedly and return its disposer. */',
+        },
+        {
+          signature: 'interval<R = any>(delay: number): AsyncIterableIterator<void, R, void>',
+          jsDoc: '/** Return an async iterator of timer ticks. */',
+        },
+        {
+          signature:
+            'throttle<F extends (...args: any[]) => void>(callback: F, delay: number, noTrailing?: boolean): F & { dispose: () => void }',
+          jsDoc: '/** Return a throttled function whose timer is disposed with the current fiber. */',
+        },
+        {
+          signature: 'debounce<F extends (...args: any[]) => void>(callback: F, delay: number): F & { dispose: () => void }',
+          jsDoc: '/** Return a debounced function whose timer is disposed with the current fiber. */',
+        },
+      ],
+    },
+  ],
   inheritedEvents: [
     { name: 'internal/plugin', summary: 'A plugin fiber was created.', source: 'vendor/cordis/src/events.ts:331' },
     { name: 'internal/status', summary: 'A fiber changed lifecycle state.', source: 'vendor/cordis/src/events.ts:333' },
-    { name: 'internal/service', summary: 'Interception hook for a service binding (no core producer).', source: 'vendor/cordis/src/events.ts:341' },
+    {
+      name: 'internal/service',
+      summary: 'Interception hook for a service binding (no core producer).',
+      source: 'vendor/cordis/src/events.ts:341',
+    },
     { name: 'internal/update', summary: 'Waterfall: a fiber config update is being applied.', source: 'vendor/cordis/src/events.ts:343' },
-    { name: 'internal/config', summary: 'Waterfall: a fiber config is being resolved before validation.', source: 'vendor/cordis/src/events.ts:339' },
+    {
+      name: 'internal/config',
+      summary: 'Waterfall: a fiber config is being resolved before validation.',
+      source: 'vendor/cordis/src/events.ts:339',
+    },
     { name: 'internal/get', summary: 'Waterfall: a service is being read from the store.', source: 'vendor/cordis/src/events.ts:345' },
     { name: 'internal/set', summary: 'Waterfall: a service is being written to the store.', source: 'vendor/cordis/src/events.ts:347' },
     { name: 'internal/listener', summary: 'A listener was registered.', source: 'vendor/cordis/src/events.ts:349' },
@@ -1044,21 +1055,49 @@ export const CORDIS_CATALOG_POLICY: CordisCatalogPolicy = {
     { name: 'loader/entry-init', summary: 'A config entry is being initialized.', source: 'vendor/loader/src/index.ts:27' },
     { name: 'loader/partial-dispose', summary: 'An entry is being partially disposed on reload.', source: 'vendor/loader/src/index.ts:28' },
     { name: 'loader/patch-context', summary: 'A context is being patched during a reload.', source: 'vendor/loader/src/index.ts:41' },
-    { name: 'loader/volatile-update', summary: 'Volatile config values committed into the running fiber without a remount; dispatched to the owning fiber only.', source: 'vendor/loader/src/index.ts:34' },
+    {
+      name: 'loader/volatile-update',
+      summary: 'Volatile config values committed into the running fiber without a remount; dispatched to the owning fiber only.',
+      source: 'vendor/loader/src/index.ts:34',
+    },
   ],
   inheritedServices: [
     { name: 'ctx.on / ctx.once', summary: 'Register an event listener (disposable).', source: 'vendor/cordis/src/events.ts:34' },
-    { name: 'ctx.emit / ctx.parallel / ctx.serial / ctx.bail / ctx.waterfall', summary: 'Dispatch an event (sync / awaited / first-bail / short-circuit chain).', source: 'vendor/cordis/src/events.ts:34' },
+    {
+      name: 'ctx.emit / ctx.parallel / ctx.serial / ctx.bail / ctx.waterfall',
+      summary: 'Dispatch an event (sync / awaited / first-bail / short-circuit chain).',
+      source: 'vendor/cordis/src/events.ts:34',
+    },
     { name: 'ctx.plugin / ctx.inject', summary: 'Load a plugin / declare required services.', source: 'vendor/cordis/src/registry.ts:164' },
     { name: 'ctx.effect', summary: 'Register a disposable side effect tied to the fiber.', source: 'vendor/cordis/src/fiber.ts:9' },
-    { name: 'ctx.get / ctx.set / ctx.provide / ctx.accessor / ctx.mixin', summary: 'Low-level service-store access and binding.', source: 'vendor/cordis/src/reflect.ts:7' },
-    { name: 'ctx.extend / ctx.isolate / ctx.intercept', summary: 'Derive a child context (scoped services / isolation / interception).', source: 'vendor/cordis/src/context.ts:42' },
-    { name: 'ctx.root / ctx.fiber / ctx.registry / ctx.reflect / ctx.events / ctx.logger', summary: 'Ambient handles onto the running context graph.', source: 'vendor/cordis/src/context.ts:16' },
-    { name: 'ctx.timer (+ interval / timeout / throttle / debounce)', summary: 'Disposable timer helpers. The `timer` key is provided at runtime; the four supported helpers are mixed onto ctx directly (declared via Pick).', source: 'vendor/timer/src/index.ts:4' },
-    { name: 'ctx.loader', summary: 'The config Loader that booted the app (present under the loader).', source: 'vendor/loader/src/index.ts:30' },
+    {
+      name: 'ctx.get / ctx.set / ctx.provide / ctx.accessor / ctx.mixin',
+      summary: 'Low-level service-store access and binding.',
+      source: 'vendor/cordis/src/reflect.ts:7',
+    },
+    {
+      name: 'ctx.extend / ctx.isolate / ctx.intercept',
+      summary: 'Derive a child context (scoped services / isolation / interception).',
+      source: 'vendor/cordis/src/context.ts:42',
+    },
+    {
+      name: 'ctx.root / ctx.fiber / ctx.registry / ctx.reflect / ctx.events / ctx.logger',
+      summary: 'Ambient handles onto the running context graph.',
+      source: 'vendor/cordis/src/context.ts:16',
+    },
+    {
+      name: 'ctx.timer (+ interval / timeout / throttle / debounce)',
+      summary:
+        'Disposable timer helpers. The `timer` key is provided at runtime; the four supported helpers are mixed onto ctx directly (declared via Pick).',
+      source: 'vendor/timer/src/index.ts:4',
+    },
+    {
+      name: 'ctx.loader',
+      summary: 'The config Loader that booted the app (present under the loader).',
+      source: 'vendor/loader/src/index.ts:30',
+    },
   ],
 }
-
 
 /**
  * Splice a page's generated Cordis API region into its Markdown content.
@@ -1077,7 +1116,9 @@ export function spliceRegion(content: string, region: string): string {
   const begins = lines.flatMap((line, index) => (line === REGION_BEGIN ? [index] : []))
   const ends = lines.flatMap((line, index) => (line === REGION_END ? [index] : []))
   if (begins.length !== 1 || ends.length !== 1) {
-    throw new Error(`expected exactly 1 cordis-surface region, found ${begins.length} BEGIN/${ends.length} END; add the BEGIN/END cordis-surface markers once`)
+    throw new Error(
+      `expected exactly 1 cordis-surface region, found ${begins.length} BEGIN/${ends.length} END; add the BEGIN/END cordis-surface markers once`,
+    )
   }
   const begin = begins[0] ?? -1
   const end = ends[0] ?? -1
@@ -1110,9 +1151,7 @@ export interface WalkPartitionMaps {
 /** Project paired Markdown destinations in one generated region to the page's locale. */
 export function localizePageRegion(region: string, pageRel: string, scanRoot: string = root): string {
   if (!pageRel.endsWith('.zh.md')) return region
-  const manifest = parseTranslationPairingManifest(
-    readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8'),
-  )
+  const manifest = parseTranslationPairingManifest(readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8'))
   return rewriteTranslationLinkLocales(region, {
     repoRoot: scanRoot,
     sourcePath: pageRel,
@@ -1136,16 +1175,20 @@ export function localizePageRegion(region: string, pageRel: string, scanRoot: st
 export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkPartitionMaps): string[] {
   const problems: string[] = []
   for (const [key, source] of input.renderedKeys) {
-    if (!Object.hasOwn(maps.servicePage, key)) problems.push(`service ctx.${key} (${source}) has no SERVICE_PAGE entry; every service maps to exactly one subsystems page.`)
+    if (!Object.hasOwn(maps.servicePage, key))
+      problems.push(`service ctx.${key} (${source}) has no SERVICE_PAGE entry; every service maps to exactly one subsystems page.`)
   }
   for (const scope of [...input.renderedScopes].sort()) {
-    if (!Object.hasOwn(maps.eventScopePage, scope)) problems.push(`event scope '${scope}/*' has no EVENT_SCOPE_PAGE entry; every event scope maps to exactly one subsystems page.`)
+    if (!Object.hasOwn(maps.eventScopePage, scope))
+      problems.push(`event scope '${scope}/*' has no EVENT_SCOPE_PAGE entry; every event scope maps to exactly one subsystems page.`)
   }
   for (const key of Object.keys(maps.servicePage)) {
-    if (!input.renderedKeys.has(key)) problems.push(`SERVICE_PAGE maps 'ctx.${key}' but the projection discovers no such service; remove the stale entry.`)
+    if (!input.renderedKeys.has(key))
+      problems.push(`SERVICE_PAGE maps 'ctx.${key}' but the projection discovers no such service; remove the stale entry.`)
   }
   for (const scope of Object.keys(maps.eventScopePage)) {
-    if (!input.renderedScopes.has(scope)) problems.push(`EVENT_SCOPE_PAGE maps '${scope}/*' but the projection discovers no such scope; remove the stale entry.`)
+    if (!input.renderedScopes.has(scope))
+      problems.push(`EVENT_SCOPE_PAGE maps '${scope}/*' but the projection discovers no such scope; remove the stale entry.`)
   }
   // The rendering projection only sees a Context key it can resolve to a
   // documented service class. The independent scan reads EVERY Context merge
@@ -1155,12 +1198,16 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
     const rendered = input.renderedKeys.has(key)
     const exempt = Object.hasOwn(maps.serviceWalkExemptions, key)
     if (!rendered && !exempt) {
-      problems.push(`ctx.${key} (${rel}) is declared in a Context merge but invisible to the rendering projection; map it in SERVICE_PAGE (after making it renderable) or name it in SERVICE_WALK_EXEMPTIONS with its documentation owner.`)
+      problems.push(
+        `ctx.${key} (${rel}) is declared in a Context merge but invisible to the rendering projection; map it in SERVICE_PAGE (after making it renderable) or name it in SERVICE_WALK_EXEMPTIONS with its documentation owner.`,
+      )
     }
-    if (rendered && exempt) problems.push(`ctx.${key} is rendered by the projection but still listed in SERVICE_WALK_EXEMPTIONS; remove the stale exemption.`)
+    if (rendered && exempt)
+      problems.push(`ctx.${key} is rendered by the projection but still listed in SERVICE_WALK_EXEMPTIONS; remove the stale exemption.`)
   }
   for (const key of Object.keys(maps.serviceWalkExemptions)) {
-    if (!input.declaredKeys.has(key)) problems.push(`SERVICE_WALK_EXEMPTIONS names 'ctx.${key}' but no Context merge declares it; remove the stale exemption.`)
+    if (!input.declaredKeys.has(key))
+      problems.push(`SERVICE_WALK_EXEMPTIONS names 'ctx.${key}' but no Context merge declares it; remove the stale exemption.`)
   }
   // The event mirror of the service backstop: the projection walks only files
   // reachable from host-face package exports, so a client-face or unreachable
@@ -1169,12 +1216,16 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
     const rendered = input.renderedEventNames.has(name)
     const exempt = Object.hasOwn(maps.eventWalkExemptions, name)
     if (!rendered && !exempt) {
-      problems.push(`event '${name}' (${rel}) is declared in an Events merge but invisible to the rendering projection; make it renderable (mapped via EVENT_SCOPE_PAGE) or name it in EVENT_WALK_EXEMPTIONS with its documentation owner.`)
+      problems.push(
+        `event '${name}' (${rel}) is declared in an Events merge but invisible to the rendering projection; make it renderable (mapped via EVENT_SCOPE_PAGE) or name it in EVENT_WALK_EXEMPTIONS with its documentation owner.`,
+      )
     }
-    if (rendered && exempt) problems.push(`event '${name}' is rendered by the projection but still listed in EVENT_WALK_EXEMPTIONS; remove the stale exemption.`)
+    if (rendered && exempt)
+      problems.push(`event '${name}' is rendered by the projection but still listed in EVENT_WALK_EXEMPTIONS; remove the stale exemption.`)
   }
   for (const name of Object.keys(maps.eventWalkExemptions)) {
-    if (!input.declaredEvents.has(name)) problems.push(`EVENT_WALK_EXEMPTIONS names '${name}' but no Events merge declares it; remove the stale exemption.`)
+    if (!input.declaredEvents.has(name))
+      problems.push(`EVENT_WALK_EXEMPTIONS names '${name}' but no Events merge declares it; remove the stale exemption.`)
   }
   // Self-check the scan itself: everything the projection renders is declared
   // in a Context/Events merge the scan must also reach, so a rendered key or
@@ -1182,10 +1233,16 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
   // block walk) — a partial blind spot that exemption staleness alone would
   // never appear.
   for (const key of input.renderedKeys.keys()) {
-    if (!input.declaredKeys.has(key)) problems.push(`ctx.${key} is rendered by the projection but the independent scan finds no Context merge declaring it; the scan has a blind spot (glob, prefilter, or module-block walk) — fix the scan, not the maps.`)
+    if (!input.declaredKeys.has(key))
+      problems.push(
+        `ctx.${key} is rendered by the projection but the independent scan finds no Context merge declaring it; the scan has a blind spot (glob, prefilter, or module-block walk) — fix the scan, not the maps.`,
+      )
   }
   for (const name of input.renderedEventNames) {
-    if (!input.declaredEvents.has(name)) problems.push(`event '${name}' is rendered by the projection but the independent scan finds no Events merge declaring it; the scan has a blind spot (glob, prefilter, or module-block walk) — fix the scan, not the maps.`)
+    if (!input.declaredEvents.has(name))
+      problems.push(
+        `event '${name}' is rendered by the projection but the independent scan finds no Events merge declaring it; the scan has a blind spot (glob, prefilter, or module-block walk) — fix the scan, not the maps.`,
+      )
   }
   return problems
 }
@@ -1215,19 +1272,23 @@ export function computeOutputs(): [string, string][] {
       if (!declaredEvents.has(name)) declaredEvents.set(name, rel)
     }
   }
-  const problems = walkPartitionProblems({
-    renderedKeys: new Map(services.map(s => [s.key, s.source])),
-    renderedScopes: new Set(events.map(e => e.scope)),
-    renderedEventNames: new Set(events.map(e => e.name)),
-    declaredKeys,
-    declaredEvents,
-  }, {
-    servicePage: SERVICE_PAGE,
-    serviceWalkExemptions: SERVICE_WALK_EXEMPTIONS,
-    eventScopePage: EVENT_SCOPE_PAGE,
-    eventWalkExemptions: EVENT_WALK_EXEMPTIONS,
-  })
-  if (problems.length > 0) throw new Error(`gen-cordis-catalog: ${problems.length} partition violation(s):\n${problems.map(p => `  ${p}`).join('\n')}`)
+  const problems = walkPartitionProblems(
+    {
+      renderedKeys: new Map(services.map(s => [s.key, s.source])),
+      renderedScopes: new Set(events.map(e => e.scope)),
+      renderedEventNames: new Set(events.map(e => e.name)),
+      declaredKeys,
+      declaredEvents,
+    },
+    {
+      servicePage: SERVICE_PAGE,
+      serviceWalkExemptions: SERVICE_WALK_EXEMPTIONS,
+      eventScopePage: EVENT_SCOPE_PAGE,
+      eventWalkExemptions: EVENT_WALK_EXEMPTIONS,
+    },
+  )
+  if (problems.length > 0)
+    throw new Error(`gen-cordis-catalog: ${problems.length} partition violation(s):\n${problems.map(p => `  ${p}`).join('\n')}`)
 
   const pages = [...new Set([...Object.values(SERVICE_PAGE), ...Object.values(EVENT_SCOPE_PAGE)])].sort()
   const outputs: [string, string][] = [
@@ -1260,7 +1321,8 @@ export function computeOutputs(): [string, string][] {
       }
     }
   }
-  if (problems.length > 0) throw new Error(`gen-cordis-catalog: ${problems.length} page violation(s):\n${problems.map(p => `  ${p}`).join('\n')}`)
+  if (problems.length > 0)
+    throw new Error(`gen-cordis-catalog: ${problems.length} page violation(s):\n${problems.map(p => `  ${p}`).join('\n')}`)
   return outputs
 }
 
@@ -1270,10 +1332,7 @@ export function computeOutputs(): [string, string][] {
  * @returns nothing; writes files or reports freshness through the process.
  */
 export function main(): void {
-  const outputs: [string, string][] = [
-    ...computeOutputs(),
-    ...renderCordisCoreApiPages(),
-  ]
+  const outputs: [string, string][] = [...computeOutputs(), ...renderCordisCoreApiPages()]
   if (process.argv.includes('--check')) {
     const stale: string[] = []
     for (const [out, content] of outputs) {

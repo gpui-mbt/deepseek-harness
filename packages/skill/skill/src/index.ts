@@ -202,10 +202,7 @@ function renderResourceHint(skill: Pick<SkillDefinition, 'provider' | 'resourceB
         'Resolve relative URLs mentioned by this skill against the base URL before using them. Load referenced resources only as needed.',
       ]
     case 'opaque':
-      return [
-        `Resources for this skill: ${escapeText(base.description)}`,
-        'Load referenced resources only as needed.',
-      ]
+      return [`Resources for this skill: ${escapeText(base.description)}`, 'Load referenced resources only as needed.']
     /* v8 ignore start -- SkillResourceBase is a closed union; a future kind must fail compilation here. */
     default:
       return assertNever(base, 'SkillResourceBase.kind')
@@ -331,9 +328,14 @@ class SkillLayer implements ScopeLayer {
   readonly runtime = new Map<string, SkillDefinition>()
 
   constructor(scope: ScopeKey | undefined) {
-    this.providers = new NamedEntries(name => new Error(scope === undefined
-      ? `a skill provider named "${name}" is already registered`
-      : `a skill provider named "${name}" is already registered in this scope`))
+    this.providers = new NamedEntries(
+      name =>
+        new Error(
+          scope === undefined
+            ? `a skill provider named "${name}" is already registered`
+            : `a skill provider named "${name}" is already registered in this scope`,
+        ),
+    )
   }
 
   /** Whether every contribution table in this aggregate layer is empty. */
@@ -361,7 +363,9 @@ export class SkillRegistry extends Service {
   private readonly collectCacheMaxEntries: number
   private readonly layers = new ScopedLayers<SkillLayer>(
     scope => new SkillLayer(scope),
-    () => { this.invalidateCache() },
+    () => {
+      this.invalidateCache()
+    },
   )
   private readonly collectCache = new Map<string, Map<string, IndexedCandidate>>()
   private revision = 0
@@ -410,7 +414,7 @@ export class SkillRegistry extends Service {
       this.nextProviderOrder += 1
       return this.layers.effect(
         this.ctx,
-        (layer) => {
+        layer => {
           const undo = layer.providers.insert(name, { provider, order })
           registration = { layer, name }
           return () => {
@@ -451,9 +455,11 @@ export class SkillRegistry extends Service {
     }
     return this.layers.effect(
       this.ctx,
-      (layer) => {
+      layer => {
         layer.runtime.set(definition.name, definition)
-        return () => { layer.runtime.delete(definition.name) }
+        return () => {
+          layer.runtime.delete(definition.name)
+        }
       },
       { label: 'skills.register()' },
     )
@@ -481,9 +487,7 @@ export class SkillRegistry extends Service {
   async snapshot(options: SkillViewOptions = {}): Promise<SkillCatalogSnapshot> {
     const collected = await this.collect(options)
     return {
-      skills: [...collected.entries.values()]
-        .map(entry => toSummary(entry.candidate))
-        .sort(compareSkillSummary),
+      skills: [...collected.entries.values()].map(entry => toSummary(entry.candidate)).sort(compareSkillSummary),
       complete: collected.cacheable,
     }
   }
@@ -503,10 +507,7 @@ export class SkillRegistry extends Service {
     throwIfAborted(options.signal)
     const match = collected.entries.get(name)
     if (match === undefined) return undefined
-    const definition = await waitWithAbort(
-      match.provider.get(match.candidate, options),
-      options.signal,
-    )
+    const definition = await waitWithAbort(match.provider.get(match.candidate, options), options.signal)
     if (definition === undefined) return undefined
     validateDefinition(definition)
     if (definition.name !== match.candidate.name) {
@@ -692,15 +693,15 @@ function runtimeCandidate(skill: SkillDefinition): SkillCandidate {
   return {
     name: skill.name,
     description: skill.description,
-    ...skill.whenToUse !== undefined ? { whenToUse: skill.whenToUse } : {},
+    ...(skill.whenToUse !== undefined ? { whenToUse: skill.whenToUse } : {}),
     invocation: skill.invocation,
     source: skill.source,
     provider: skill.provider,
-    ...skill.resourceBase !== undefined ? { resourceBase: skill.resourceBase } : {},
+    ...(skill.resourceBase !== undefined ? { resourceBase: skill.resourceBase } : {}),
     rank: RUNTIME_RANK,
     locator: skill,
-    ...skill.path !== undefined ? { path: skill.path } : {},
-    ...skill.metadata !== undefined ? { metadata: skill.metadata } : {},
+    ...(skill.path !== undefined ? { path: skill.path } : {}),
+    ...(skill.metadata !== undefined ? { metadata: skill.metadata } : {}),
   }
 }
 
@@ -770,13 +771,13 @@ function toSummary(skill: SkillDefinition | SkillCandidate): SkillSummary {
   const { name, description, whenToUse, invocation, source, provider, resourceBase } = skill
   return {
     name,
-    ...skill.path === undefined ? {} : { path: skill.path },
+    ...(skill.path === undefined ? {} : { path: skill.path }),
     description,
-    ...whenToUse !== undefined ? { whenToUse } : {},
+    ...(whenToUse !== undefined ? { whenToUse } : {}),
     invocation,
     source,
     provider,
-    ...resourceBase !== undefined ? { resourceBase } : {},
+    ...(resourceBase !== undefined ? { resourceBase } : {}),
   }
 }
 
@@ -805,9 +806,7 @@ function compareCodePoints(left: string, right: string): number {
 }
 
 function compareIndexedCandidates(left: IndexedCandidate, right: IndexedCandidate): number {
-  return left.candidate.rank - right.candidate.rank
-    || left.providerOrder - right.providerOrder
-    || left.localOrder - right.localOrder
+  return left.candidate.rank - right.candidate.rank || left.providerOrder - right.providerOrder || left.localOrder - right.localOrder
 }
 
 function assertPositiveInteger(name: string, value: number, minimum = 1): void {
@@ -829,7 +828,7 @@ function waitWithAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined):
     }
     signal.addEventListener('abort', onAbort, { once: true })
     void promise.then(
-      (value) => {
+      value => {
         cleanup()
         resolve(value)
       },

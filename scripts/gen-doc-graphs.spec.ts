@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import ts from 'typescript'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import { collectPackageSources, EventRelationCollector, withMemoizedFileSystemProbes } from './gen-doc-graphs.ts'
 import { TypeScriptProject } from './ts-project.ts'
 
@@ -34,8 +34,7 @@ const FIXTURE: Record<string, string> = {
     '}',
     '',
   ].join('\n'),
-  'packages/core/agent/src/dispatch.ts':
-    'export interface AgentEventDispatch { emit(...args: unknown[]): void }\n',
+  'packages/core/agent/src/dispatch.ts': 'export interface AgentEventDispatch { emit(...args: unknown[]): void }\n',
   // fireLocal: every same-file reference is a direct callee, so the locality
   // proof holds and only this file is indexed. fireAliased: the exported
   // const is a value-position reference, so the proof fails and the global
@@ -49,19 +48,13 @@ const FIXTURE: Record<string, string> = {
     'export const aliased = fireAliased',
     '',
   ].join('\n'),
-  'packages/fix/pkgb/src/index.ts': [
-    "import { aliased } from '../../pkga/src/index.ts'",
-    "aliased(['pkgb/aliased-event'])",
-    '',
-  ].join('\n'),
+  'packages/fix/pkgb/src/index.ts': ["import { aliased } from '../../pkga/src/index.ts'", "aliased(['pkgb/aliased-event'])", ''].join('\n'),
   // Global script files (no import/export): scriptFire is program-visible, so
   // the cross-file call in caller.ts leaves no same-file reference. Only the
   // module-ness premise check routes this helper to the global index; without
   // it the proof would pass and the event would silently drop.
-  'packages/fix/pkgc/src/globals.ts':
-    "declare var gEvents: import('../../../../vendor/cordis/src/events.ts').EventsService\n",
-  'packages/fix/pkgc/src/helper.ts':
-    "function scriptFire(args: [string]): void { void gEvents.dispatch('emit', args) }\n",
+  'packages/fix/pkgc/src/globals.ts': "declare var gEvents: import('../../../../vendor/cordis/src/events.ts').EventsService\n",
+  'packages/fix/pkgc/src/helper.ts': "function scriptFire(args: [string]): void { void gEvents.dispatch('emit', args) }\n",
   'packages/fix/pkgc/src/caller.ts': "scriptFire(['pkgc/script-event'])\n",
 }
 
@@ -104,11 +97,26 @@ describe('memoized filesystem probes', () => {
     const calls: string[] = []
     const system: ts.System = {
       ...ts.sys,
-      fileExists: (path) => { calls.push(`file ${path}`); return path === 'present' },
-      directoryExists: (path) => { calls.push(`directory ${path}`); return true },
-      realpath: (path) => { calls.push(`realpath ${path}`); return `/real/${path}` },
-      readDirectory: (path, extensions) => { calls.push(`read ${path} ${String(extensions)}`); return [`${path}/a.ts`] },
-      getDirectories: (path) => { calls.push(`directories ${path}`); return [`${path}/child`] },
+      fileExists: path => {
+        calls.push(`file ${path}`)
+        return path === 'present'
+      },
+      directoryExists: path => {
+        calls.push(`directory ${path}`)
+        return true
+      },
+      realpath: path => {
+        calls.push(`realpath ${path}`)
+        return `/real/${path}`
+      },
+      readDirectory: (path, extensions) => {
+        calls.push(`read ${path} ${String(extensions)}`)
+        return [`${path}/a.ts`]
+      },
+      getDirectories: path => {
+        calls.push(`directories ${path}`)
+        return [`${path}/child`]
+      },
     }
     return { system, calls }
   }
@@ -120,19 +128,40 @@ describe('memoized filesystem probes', () => {
       const listed = system.readDirectory('dir', ['.ts'])
       listed.push('mutated')
       return [
-        system.fileExists('present'), system.fileExists('present'), system.fileExists('absent'),
-        system.directoryExists('dir'), system.directoryExists('dir'),
-        system.realpath?.('link'), system.realpath?.('link'),
-        system.readDirectory('dir', ['.ts']), system.readDirectory('dir', ['.tsx']),
-        system.getDirectories('dir'), system.getDirectories('dir'),
+        system.fileExists('present'),
+        system.fileExists('present'),
+        system.fileExists('absent'),
+        system.directoryExists('dir'),
+        system.directoryExists('dir'),
+        system.realpath?.('link'),
+        system.realpath?.('link'),
+        system.readDirectory('dir', ['.ts']),
+        system.readDirectory('dir', ['.tsx']),
+        system.getDirectories('dir'),
+        system.getDirectories('dir'),
       ]
     }, system)
     expect(results).toEqual([
-      true, true, false, true, true, '/real/link', '/real/link',
-      ['dir/a.ts'], ['dir/a.ts'], ['dir/child'], ['dir/child'],
+      true,
+      true,
+      false,
+      true,
+      true,
+      '/real/link',
+      '/real/link',
+      ['dir/a.ts'],
+      ['dir/a.ts'],
+      ['dir/child'],
+      ['dir/child'],
     ])
     expect(calls).toEqual([
-      'read dir .ts', 'file present', 'file absent', 'directory dir', 'realpath link', 'read dir .tsx', 'directories dir',
+      'read dir .ts',
+      'file present',
+      'file absent',
+      'directory dir',
+      'realpath link',
+      'read dir .tsx',
+      'directories dir',
     ])
     expect({ ...system }).toEqual(original)
   })
@@ -147,11 +176,13 @@ describe('memoized filesystem probes', () => {
       return true
     }
     const replaced = { ...system }
-    expect(() => withMemoizedFileSystemProbes(() => {
-      expect(() => system.fileExists('path')).toThrow('transient')
-      expect(system.fileExists('path')).toBe(true)
-      throw new Error('run failed')
-    }, system)).toThrow('run failed')
+    expect(() =>
+      withMemoizedFileSystemProbes(() => {
+        expect(() => system.fileExists('path')).toThrow('transient')
+        expect(system.fileExists('path')).toBe(true)
+        throw new Error('run failed')
+      }, system),
+    ).toThrow('run failed')
     expect(attempts).toBe(2)
     expect({ ...system }).toEqual(replaced)
     expect(replaced).not.toEqual(original)
@@ -159,7 +190,8 @@ describe('memoized filesystem probes', () => {
 
   it('builds the same Program through the memoized system', () => {
     const memoized = withMemoizedFileSystemProbes(() => new TypeScriptProject(root))
-    expect(memoized.sourceFiles().map(sourceFile => sourceFile.fileName))
-      .toEqual(project.sourceFiles().map(sourceFile => sourceFile.fileName))
+    expect(memoized.sourceFiles().map(sourceFile => sourceFile.fileName)).toEqual(
+      project.sourceFiles().map(sourceFile => sourceFile.fileName),
+    )
   })
 })

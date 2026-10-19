@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 
 const boot = vi.hoisted(() => ({
   run: vi.fn(),
   applyIndexInjections: vi.fn(async () => {}),
 }))
 vi.mock('@deepseek-ai/dsh-client-web', () => ({
-  AppWebEntry: class { run = boot.run },
+  AppWebEntry: class {
+    run = boot.run
+  },
   applyIndexInjections: boot.applyIndexInjections,
 }))
 
@@ -38,7 +40,12 @@ it('rejects the shared boot wait when the Desktop Host cannot start', async () =
   const failure = new Error('Host failed')
   const rejected = expect(gate.promise).rejects.toBe(failure)
   vi.stubGlobal('__DSH_BOOT_READY__', gate)
-  vi.stubGlobal('dshDesktopBoot', { ready: async () => { throw failure }, failed: vi.fn() })
+  vi.stubGlobal('dshDesktopBoot', {
+    ready: async () => {
+      throw failure
+    },
+    failed: vi.fn(),
+  })
   await import('../src/main.ts')
   await rejected
   expect(boot.applyIndexInjections).not.toHaveBeenCalled()
@@ -52,13 +59,12 @@ it('leaves browser failure presentation with the Web boot kernel', async () => {
   expect(boot.run).toHaveBeenCalledWith(undefined)
 })
 
-it.each(['root', 'readiness'])('reports missing %s before client plugin startup', async (missing) => {
+it.each(['root', 'readiness'])('reports missing %s before client plugin startup', async missing => {
   if (missing !== 'root') document.body.innerHTML = '<div id="root"></div>'
   const failed = vi.fn(async () => {})
   vi.stubGlobal('dshDesktopBoot', { ready: vi.fn(), failed })
   vi.stubGlobal('__DSH_BOOT_READY__', undefined)
   await import('../src/main.ts')
-  expect(failed).toHaveBeenCalledWith(missing === 'root'
-    ? 'web app: missing #root' : 'desktop web: boot readiness is missing')
+  expect(failed).toHaveBeenCalledWith(missing === 'root' ? 'web app: missing #root' : 'desktop web: boot readiness is missing')
   expect(boot.run).not.toHaveBeenCalled()
 })

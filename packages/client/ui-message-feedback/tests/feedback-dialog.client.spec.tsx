@@ -8,7 +8,7 @@
  * through dismissToast once its fade completes.
  */
 import { useSyncExternalStore } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
@@ -24,7 +24,12 @@ const t = makeTranslate(zh, commonZh)
 /** Render the entry over a fixed state and recording verbs. */
 function mount(overrides: Partial<FeedbackDialogState> = {}) {
   const state: FeedbackDialogState = {
-    target: { kind: 'session' }, category: null, text: '', submitting: false, failure: null, toast: 0,
+    target: { kind: 'session' },
+    category: null,
+    text: '',
+    submitting: false,
+    failure: null,
+    toast: 0,
     ...overrides,
   }
   const verbs = {
@@ -35,7 +40,10 @@ function mount(overrides: Partial<FeedbackDialogState> = {}) {
     dismissToast: vi.fn(),
   }
   const useDialog = (<T,>(select: (v: FeedbackDialogState) => T): T =>
-    useSyncExternalStore(() => () => {}, () => select(state))) as never
+    useSyncExternalStore(
+      () => () => {},
+      () => select(state),
+    )) as never
   const props = { useDialog, ...verbs, t } as Parameters<typeof FeedbackDialog>[0]
   return { ...render(<FeedbackDialog {...props} />), ...verbs }
 }
@@ -61,9 +69,7 @@ describe('FeedbackDialog', () => {
     const dialog = ui.getByRole('dialog', { name: zh['dialog.title'] })
     expect(dialog).toBeTruthy()
     const chips = ui.getByRole('group', { name: zh['dialog.categories'] }).querySelectorAll('button')
-    expect([...chips].map(chip => chip.textContent)).toEqual(
-      FEEDBACK_CATEGORIES.map(category => zh[`category.${category}`]),
-    )
+    expect([...chips].map(chip => chip.textContent)).toEqual(FEEDBACK_CATEGORIES.map(category => zh[`category.${category}`]))
     expect(ui.getByLabelText(zh['dialog.detail']).getAttribute('placeholder')).toBe(zh['dialog.hint'])
     expect(ui.getByRole('button', { name: commonZh.submit }).hasAttribute('disabled')).toBe(false)
   })
@@ -122,7 +128,9 @@ describe('FeedbackDialog', () => {
     try {
       const ui = mount({ failure: 'version-conflict' })
 
-      act(() => { vi.advanceTimersByTime(7000) })
+      act(() => {
+        vi.advanceTimersByTime(7000)
+      })
 
       expect(ui.dismissFailure).toHaveBeenCalledTimes(1)
     } finally {
@@ -144,7 +152,9 @@ describe('FeedbackDialog', () => {
       const ui = mount({ target: null, toast: 3 })
 
       expect(ui.getByRole('alert').textContent).toBe(zh['toast.recorded'])
-      act(() => { vi.advanceTimersByTime(4000) })
+      act(() => {
+        vi.advanceTimersByTime(4000)
+      })
       expect(ui.dismissToast).toHaveBeenCalledWith(3)
     } finally {
       vi.useRealTimers()

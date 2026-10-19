@@ -45,10 +45,13 @@ export type ExcludedEntry = 'shebang' | 'bin'
  * @returns repository-relative candidate sources, `.ts` and `.tsx`, for each `lib/<path>.js` target.
  */
 export function binSources(packageDirectory: string, bin: unknown): string[] {
-  const targets = typeof bin === 'string'
-    ? [bin]
-    : typeof bin === 'object' && bin !== null ? Object.values(bin).filter(value => typeof value === 'string') : []
-  return targets.flatMap((target) => {
+  const targets =
+    typeof bin === 'string'
+      ? [bin]
+      : typeof bin === 'object' && bin !== null
+        ? Object.values(bin).filter(value => typeof value === 'string')
+        : []
+  return targets.flatMap(target => {
     const match = /^lib\/(.+)\.js$/u.exec(posix.normalize(target))
     if (match === null) return []
     return ['ts', 'tsx'].map(extension => `${packageDirectory}/src/${match[1] as string}.${extension}`)
@@ -104,10 +107,16 @@ export interface TopLevelAwaitViolation {
  * @returns true for every function-like node and class static blocks.
  */
 function startsFunctionScope(node: ts.Node): node is ts.FunctionLikeDeclaration | ts.ClassStaticBlockDeclaration {
-  return ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node)
-    || ts.isMethodDeclaration(node) || ts.isConstructorDeclaration(node)
-    || ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)
-    || ts.isClassStaticBlockDeclaration(node)
+  return (
+    ts.isFunctionDeclaration(node) ||
+    ts.isFunctionExpression(node) ||
+    ts.isArrowFunction(node) ||
+    ts.isMethodDeclaration(node) ||
+    ts.isConstructorDeclaration(node) ||
+    ts.isGetAccessorDeclaration(node) ||
+    ts.isSetAccessorDeclaration(node) ||
+    ts.isClassStaticBlockDeclaration(node)
+  )
 }
 
 /**
@@ -158,8 +167,7 @@ export function findTopLevelAwaits(file: string, sourceText: string): TopLevelAw
     if (ts.isAwaitExpression(node) && atModuleScope(node)) record(node, 'await expression')
     else if (ts.isForOfStatement(node) && node.awaitModifier !== undefined && atModuleScope(node)) {
       record(node, 'for await loop')
-    } else if (ts.isVariableDeclarationList(node)
-      && (node.flags & ts.NodeFlags.BlockScoped) === AWAIT_USING && atModuleScope(node)) {
+    } else if (ts.isVariableDeclarationList(node) && (node.flags & ts.NodeFlags.BlockScoped) === AWAIT_USING && atModuleScope(node)) {
       record(node, 'await using declaration')
     }
     ts.forEachChild(node, visit)
@@ -177,7 +185,9 @@ export function findTopLevelAwaits(file: string, sourceText: string): TopLevelAw
  * that holds TypeScript sources, because the gate would then pass by scanning less than it claims.
  */
 export function sourceCorpus(repositoryRoot: string = root, pattern: string = SOURCE_GLOB): string[] {
-  const files = globSync(pattern, { cwd: repositoryRoot }).map(file => file.replaceAll('\\', '/')).sort()
+  const files = globSync(pattern, { cwd: repositoryRoot })
+    .map(file => file.replaceAll('\\', '/'))
+    .sort()
   if (files.length === 0) throw new Error(`${GATE}: scanned an empty corpus; ${pattern} no longer matches.`)
   if (!files.some(file => file.endsWith('.tsx'))) {
     throw new Error(`${GATE}: the corpus holds no .tsx file; ${pattern} no longer covers TSX sources.`)
@@ -212,9 +222,7 @@ function holdsTypeScript(directory: string): boolean {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
     throw error
   }
-  return entries.some(entry => entry.isDirectory()
-    ? holdsTypeScript(join(directory, entry.name))
-    : /\.tsx?$/u.test(entry.name))
+  return entries.some(entry => (entry.isDirectory() ? holdsTypeScript(join(directory, entry.name)) : /\.tsx?$/u.test(entry.name)))
 }
 
 /** What one repository scan checked, excluded, and found. */
@@ -250,8 +258,10 @@ function main(): void {
   const { checked, excluded, violations } = scanRepository()
   const exclusions = excluded.map(entry => `${entry.file} (${entry.reason})`).join(', ')
   if (violations.length === 0) {
-    console.log(`${GATE}: ${String(checked)} package source file(s) contain no module-scope await; `
-      + `${String(excluded.length)} executable(s) excluded: ${exclusions || 'none'}.`)
+    console.log(
+      `${GATE}: ${String(checked)} package source file(s) contain no module-scope await; ` +
+        `${String(excluded.length)} executable(s) excluded: ${exclusions || 'none'}.`,
+    )
     return
   }
   console.error(`${GATE}: ${String(violations.length)} module-scope await(s) in package sources:\n`)
@@ -260,7 +270,7 @@ function main(): void {
     console.error(`    ${violation.text}`)
   }
   console.error('\nMove the asynchronous work into a function the module calls, such as an explicit `main()`,')
-  console.error('and handle that promise\'s failure where the module starts it.')
+  console.error("and handle that promise's failure where the module starts it.")
   process.exitCode = 1
 }
 

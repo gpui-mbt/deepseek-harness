@@ -22,19 +22,32 @@ export const RunningStatus = memo(function RunningStatus({ startTime, t }: Runni
   useEffect(() => {
     if (startTime === undefined) return
     setNow(Date.now())
-    const timer = setInterval(() => { setNow(Date.now()) }, LIVE_RUN_CLOCK_INTERVAL_MS)
-    return () => { clearInterval(timer) }
+    const timer = setInterval(() => {
+      setNow(Date.now())
+    }, LIVE_RUN_CLOCK_INTERVAL_MS)
+    return () => {
+      clearInterval(timer)
+    }
   }, [startTime])
-  const label = startTime === undefined ? t('chat.deepDiving') : t('chat.deepDivingFor', {
-    duration: formatRunDuration(Math.max(1000, now - startTime), t).map(part => part.text).join(''),
-  })
+  const label =
+    startTime === undefined
+      ? t('chat.deepDiving')
+      : t('chat.deepDivingFor', {
+          duration: formatRunDuration(Math.max(1000, now - startTime), t)
+            .map(part => part.text)
+            .join(''),
+        })
   return (
     <div className={css.running} data-chat-running>
-      <span className={a11yCss.visuallyHidden} role="status" aria-live="polite" aria-atomic="true">{t('chat.deepDiving')}</span>
+      <span className={a11yCss.visuallyHidden} role="status" aria-live="polite" aria-atomic="true">
+        {t('chat.deepDiving')}
+      </span>
       <span className={css.runningDivider} aria-hidden="true" />
       <span className={css.runningContent}>
         <RunningWhaleTail />
-        <TextShimmer active className={css.runningText}>{label}</TextShimmer>
+        <TextShimmer active className={css.runningText}>
+          {label}
+        </TextShimmer>
       </span>
     </div>
   )

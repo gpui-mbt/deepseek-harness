@@ -1,5 +1,5 @@
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -28,10 +28,14 @@ async function appendPersistedTitle(ctx: Context, id: ReturnType<typeof SessionI
     session.append('turn/start', {
       turn: 1,
     })
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'Persist this session title' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'Persist this session title' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
     await ctx.sessionTitle.refresh(session)
   } finally {
@@ -49,12 +53,7 @@ async function expectPersistedTitle(ctx: Context, id: ReturnType<typeof SessionI
       source: { kind: 'fallback' },
       eventSeq: 3,
     })
-    expect(events.map(event => event.type)).toEqual([
-      'turn/start',
-      'user/message',
-      'turn/end',
-      'session/title',
-    ])
+    expect(events.map(event => event.type)).toEqual(['turn/start', 'user/message', 'turn/end', 'session/title'])
   } finally {
     await handle.close()
   }

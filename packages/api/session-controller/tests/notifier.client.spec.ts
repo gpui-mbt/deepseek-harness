@@ -3,10 +3,13 @@
  * no-listener laziness, synchronous notifyNow, and unsubscribe.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Notifier } from '../src/client/sessions/notifier.ts'
 
-const microtask = (): Promise<void> => new Promise((resolve) => { queueMicrotask(resolve) })
+const microtask = (): Promise<void> =>
+  new Promise(resolve => {
+    queueMicrotask(resolve)
+  })
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -27,7 +30,9 @@ describe('Session notifier', () => {
 
   it('skips rebuild with zero listeners and ensureFresh rebuilds lazily exactly once', async () => {
     let rebuilds = 0
-    const notifier = new Notifier(() => { rebuilds++ })
+    const notifier = new Notifier(() => {
+      rebuilds++
+    })
     notifier.markDirty()
     await microtask()
     expect(rebuilds).toBe(0) // lazy: kept dirty
@@ -47,7 +52,9 @@ describe('Session notifier', () => {
 
   it('notifyNow with zero listeners stays lazy like markDirty', () => {
     let rebuilds = 0
-    const notifier = new Notifier(() => { rebuilds++ })
+    const notifier = new Notifier(() => {
+      rebuilds++
+    })
     notifier.notifyNow()
     expect(rebuilds).toBe(0)
     notifier.ensureFresh()
@@ -56,7 +63,9 @@ describe('Session notifier', () => {
 
   it('a scheduled flush after notifyNow already flushed is a no-op', async () => {
     let rebuilds = 0
-    const notifier = new Notifier(() => { rebuilds++ })
+    const notifier = new Notifier(() => {
+      rebuilds++
+    })
     notifier.subscribe(() => undefined)
     notifier.markDirty() // schedules the microtask flush
     notifier.notifyNow() // flushes synchronously, clears dirty
@@ -92,7 +101,9 @@ describe('Session notifier', () => {
     })
     let notifications = 0
     const notifier = new Notifier(() => undefined)
-    notifier.subscribe(() => { notifications++ })
+    notifier.subscribe(() => {
+      notifications++
+    })
 
     notifier.markFrameDirty()
     notifier.markDirty()
@@ -106,7 +117,9 @@ describe('Session notifier', () => {
   it('falls back to microtask batching when animation frames are unavailable', async () => {
     let notifications = 0
     const notifier = new Notifier(() => undefined)
-    notifier.subscribe(() => { notifications++ })
+    notifier.subscribe(() => {
+      notifications++
+    })
 
     notifier.markFrameDirty()
     notifier.markFrameDirty()
@@ -118,7 +131,9 @@ describe('Session notifier', () => {
   it('unsubscribed listeners stop receiving notifications', async () => {
     let calls = 0
     const notifier = new Notifier(() => undefined)
-    const unsubscribe = notifier.subscribe(() => { calls++ })
+    const unsubscribe = notifier.subscribe(() => {
+      calls++
+    })
     notifier.notifyNow()
     expect(calls).toBe(1)
     unsubscribe()

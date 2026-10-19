@@ -17,9 +17,10 @@ export interface MenuSurfaceProps extends ComponentPropsWithoutRef<'div'> {
  * @param ref - The visible menu div, excluding the non-interactive backing.
  * @returns Menu content plus a backing portal removed with the menu.
  */
-export const MenuSurface = forwardRef<HTMLDivElement, MenuSurfaceProps>(function MenuSurface({
-  compact = false, className, style, children, ...props
-}, ref) {
+export const MenuSurface = forwardRef<HTMLDivElement, MenuSurfaceProps>(function MenuSurface(
+  { compact = false, className, style, children, ...props },
+  ref,
+) {
   const id = useId()
   const backingRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -31,16 +32,28 @@ export const MenuSurface = forwardRef<HTMLDivElement, MenuSurfaceProps>(function
   const anchorStyle: CSSProperties & { '--dsh-menu-anchor': string } = {
     '--dsh-menu-anchor': `--dsh-menu-${id.replaceAll(':', '')}`,
   }
-  return <>
-    <div {...props} ref={ref} data-menu-material="translucent"
-      className={clsx(css.surface, compact && css.compact, className)} style={{ ...style, ...anchorStyle }}>
-      <div aria-hidden="true" className={css.material} />
-      {children}
-    </div>
-    {createPortal(
-      <div ref={backingRef} aria-hidden="true" data-menu-backing="" className={clsx(css.backing, compact && css.compact)}
-        style={{ ...anchorStyle, visibility: style?.visibility }} />,
-      document.body,
-    )}
-  </>
+  return (
+    <>
+      <div
+        {...props}
+        ref={ref}
+        data-menu-material="translucent"
+        className={clsx(css.surface, compact && css.compact, className)}
+        style={{ ...style, ...anchorStyle }}
+      >
+        <div aria-hidden="true" className={css.material} />
+        {children}
+      </div>
+      {createPortal(
+        <div
+          ref={backingRef}
+          aria-hidden="true"
+          data-menu-backing=""
+          className={clsx(css.backing, compact && css.compact)}
+          style={{ ...anchorStyle, visibility: style?.visibility }}
+        />,
+        document.body,
+      )}
+    </>
+  )
 })

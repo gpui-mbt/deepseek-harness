@@ -5,7 +5,7 @@
  * abstract service contract, so a minimal fake backend exercises it.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { FileSystem, FsError, FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import type {
@@ -26,8 +26,12 @@ class FakeFileSystem extends FileSystem {
   override async resolve(path: string): Promise<FsTarget> {
     return { targetKey: FsTargetKey(path), displayPath: path }
   }
-  override processPath(target: FsTarget): string { return String(target.targetKey) }
-  override fileUrl(target: FsTarget): string { return `file:///${encodeURIComponent(String(target.targetKey))}` }
+  override processPath(target: FsTarget): string {
+    return String(target.targetKey)
+  }
+  override fileUrl(target: FsTarget): string {
+    return `file:///${encodeURIComponent(String(target.targetKey))}`
+  }
   override contains(parent: FsTarget, child: FsTarget): boolean {
     return child.targetKey === parent.targetKey || String(child.targetKey).startsWith(`${parent.targetKey}/`)
   }
@@ -48,7 +52,9 @@ class FakeFileSystem extends FileSystem {
   }
   override async streamText(target: FsTarget): Promise<AsyncIterable<string>> {
     const content = await this.readText(target)
-    return (async function* () { yield content })()
+    return (async function* () {
+      yield content
+    })()
   }
   override async readBytes(target: FsTarget, _signal: AbortSignal | undefined, maxBytes: number): Promise<Uint8Array> {
     const bytes = new TextEncoder().encode(await this.readText(target))
@@ -148,8 +154,7 @@ describe('FileSystem provider seam', () => {
     const ctx = new Context()
     await ctx.plugin(FakeFileSystem)
     const fs = ctx.fs as FakeFileSystem
-    await expect(fs.watch(await fs.resolve('a.txt'), () => {}, new AbortController().signal))
-      .rejects.toMatchObject({ code: 'FS_IO_ERROR' })
+    await expect(fs.watch(await fs.resolve('a.txt'), () => {}, new AbortController().signal)).rejects.toMatchObject({ code: 'FS_IO_ERROR' })
   })
 
   it('listDir returns child entry targets without reading file content', async () => {
@@ -157,13 +162,15 @@ describe('FileSystem provider seam', () => {
     await ctx.plugin(FakeFileSystem)
     const fs = ctx.fs as FakeFileSystem
     const entries = await fs.listDir(await fs.resolve('skills'))
-    expect(entries).toEqual([{
-      name: 'alpha.md',
-      type: 'file',
-      target: { targetKey: 'skills/alpha.md', displayPath: 'skills/alpha.md' },
-      size: 2,
-      version: 'v1',
-    }])
+    expect(entries).toEqual([
+      {
+        name: 'alpha.md',
+        type: 'file',
+        target: { targetKey: 'skills/alpha.md', displayPath: 'skills/alpha.md' },
+        size: 2,
+        version: 'v1',
+      },
+    ])
   })
 
   it('stat returns undefined for an absent target', async () => {

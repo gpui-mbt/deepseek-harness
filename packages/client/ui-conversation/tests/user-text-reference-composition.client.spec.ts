@@ -1,6 +1,6 @@
 /** Real business matchers compose by original position through the data-layer scheduler. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { UserTextFacts, UserTextRule, UserTextNode, UserTextTransformContext } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UserTextRegistry } from '../src/client/conversation/user-text-registry.ts'
 import { sessionReferenceRule } from '../src/client/user-text/session-reference-rule.ts'
@@ -14,7 +14,7 @@ function setup() {
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
   const registry = new UserTextRegistry(ctx)
-  const matches = RULES.map((rule) => {
+  const matches = RULES.map(rule => {
     const match = vi.fn((text: string, from: number, context: UserTextTransformContext) => rule.match(text, from, context))
     registry.register({ ...rule, match } satisfies UserTextRule)
     return { id: rule.id, match }
@@ -54,7 +54,8 @@ describe('original-text reference competition', () => {
   })
 
   it.each([
-    ['@会话一@src/a.ts', '@src/a.ts'], ['@会话一/plan', '/plan'],
+    ['@会话一@src/a.ts', '@src/a.ts'],
+    ['@会话一/plan', '/plan'],
   ])('does not turn the suffix into an original word boundary in %s', (text, tail) => {
     const { evaluate } = setup()
     expect(evaluate({ text, facts: { sessionLabels: ['会话一'], skillNames: ['plan'] } })).toEqual([
@@ -68,7 +69,8 @@ describe('original-text reference competition', () => {
     const facts = { sessionLabels: ['会话一', 'types'], skillNames: ['plan'] }
     const text = '@会话一 @src/a.ts /plan'
     expect(references(text, evaluate({ text, facts }))).toEqual([
-      ['session', '@会话一', { label: '会话一' }], ['file', '@src/a.ts', { path: 'src/a.ts', label: 'a.ts' }],
+      ['session', '@会话一', { label: '会话一' }],
+      ['file', '@src/a.ts', { path: 'src/a.ts', label: 'a.ts' }],
       ['skill', '/plan', { name: 'plan' }],
     ])
     expect(evaluate({ text: '@types/react/index.d.ts', facts })).toEqual([
@@ -100,13 +102,16 @@ describe('original-text reference competition', () => {
       '@多词 /review @src/a.ts /goal',
     ]
     const factsList: readonly Partial<UserTextFacts>[] = [
-      {}, { sessionLabels: ['会话一', 'types'] }, { skillNames: ['review', 'plan'] },
+      {},
+      { sessionLabels: ['会话一', 'types'] },
+      { skillNames: ['review', 'plan'] },
       { sessionLabels: ['会话一', 'types'], skillNames: ['review', 'plan'] },
       { sessionLabels: ['多词 /review', '会话一'], skillNames: ['review'], commands: [{ start: 0, end: 7, name: 'review' }] },
       {},
     ]
-    for (const text of texts) for (const facts of factsList) {
-      expect(evaluate({ text, facts })).toEqual(registry.createEvaluator()({ text, facts }))
-    }
+    for (const text of texts)
+      for (const facts of factsList) {
+        expect(evaluate({ text, facts })).toEqual(registry.createEvaluator()({ text, facts }))
+      }
   })
 })

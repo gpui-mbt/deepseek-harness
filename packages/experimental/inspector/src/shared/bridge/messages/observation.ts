@@ -166,16 +166,15 @@ export type WorkerToSourceFrame =
  * @returns The validated Worker-to-source frame.
  */
 export function parseWorkerSourceFrame(value: unknown): WorkerToSourceFrame {
-  if (!isJsonValue(value)
-    || !isPlainObject(value)
-    || value.v !== INSPECTOR_PROTOCOL_VERSION
-    || typeof value.t !== 'string') {
+  if (!isJsonValue(value) || !isPlainObject(value) || value.v !== INSPECTOR_PROTOCOL_VERSION || typeof value.t !== 'string') {
     throw new Error('inspector protocol: invalid Worker source frame')
   }
   if (value.t === 'source/rejected') {
     exactKeys(value, ['v', 't', 'code', 'message'], 'source/rejected frame')
-    if ((value.code !== 'invalid-frame' && value.code !== 'version-mismatch' && value.code !== 'unauthorized')
-      || typeof value.message !== 'string') {
+    if (
+      (value.code !== 'invalid-frame' && value.code !== 'version-mismatch' && value.code !== 'unauthorized') ||
+      typeof value.message !== 'string'
+    ) {
       throw new Error('inspector protocol: invalid source/rejected frame')
     }
     return { v: INSPECTOR_PROTOCOL_VERSION, t: 'source/rejected', code: value.code, message: value.message }
@@ -208,8 +207,7 @@ export function parseWorkerSourceFrame(value: unknown): WorkerToSourceFrame {
       nextSequence: natural(value.nextSequence, 'nextSequence'),
     }
   }
-  if (value.t === 'source/resnapshot'
-    && typeof value.reason === 'string') {
+  if (value.t === 'source/resnapshot' && typeof value.reason === 'string') {
     exactKeys(value, ['v', 't', 'sourceId', 'generation', 'expectedSequence', 'reason'], 'source/resnapshot frame')
     return {
       ...common,
@@ -289,7 +287,7 @@ function parseOpen(value: Record<string, unknown>): SourceOpenFrame {
   if (kind !== 'client' && capabilities.length > 0) {
     throw new Error('inspector protocol: Host sources cannot declare Client capabilities')
   }
-  const topics = value.topics.map((topic) => {
+  const topics = value.topics.map(topic => {
     if (typeof topic !== 'string' || topic.length === 0 || topic.length > 128) {
       throw new Error('inspector protocol: every source topic must contain 1 to 128 characters')
     }
@@ -315,18 +313,18 @@ function parseSourceCapability(value: unknown): InspectorSourceCapability {
     throw new Error('inspector protocol: source capability must have a type')
   }
   switch (value.type) {
-    case 'client-runtime': return parseClientRuntimeCapability(value)
-    case 'client-console': return parseClientConsoleCapability(value)
-    case 'client-sources': return parseClientSourcesCapability(value)
-    default: throw new Error(`inspector protocol: unknown source capability ${JSON.stringify(value.type)}`)
+    case 'client-runtime':
+      return parseClientRuntimeCapability(value)
+    case 'client-console':
+      return parseClientConsoleCapability(value)
+    case 'client-sources':
+      return parseClientSourcesCapability(value)
+    default:
+      throw new Error(`inspector protocol: unknown source capability ${JSON.stringify(value.type)}`)
   }
 }
 
-function parseRecordsFrame(
-  value: Record<string, unknown>,
-  maxRecords: number,
-  replace: boolean,
-): SourceReplaceFrame | SourceAppendFrame {
+function parseRecordsFrame(value: Record<string, unknown>, maxRecords: number, replace: boolean): SourceReplaceFrame | SourceAppendFrame {
   exactKeys(
     value,
     replace
@@ -360,13 +358,15 @@ function parseRecordsFrame(
 }
 
 function parseRecord(value: unknown): InspectorRecordInput {
-  if (!isPlainObject(value)
-    || typeof value.monotonicMs !== 'number'
-    || !Number.isFinite(value.monotonicMs)
-    || typeof value.topic !== 'string'
-    || value.topic.length === 0
-    || value.topic.length > 128
-    || !isJsonValue(value.payload)) {
+  if (
+    !isPlainObject(value) ||
+    typeof value.monotonicMs !== 'number' ||
+    !Number.isFinite(value.monotonicMs) ||
+    typeof value.topic !== 'string' ||
+    value.topic.length === 0 ||
+    value.topic.length > 128 ||
+    !isJsonValue(value.payload)
+  ) {
     throw new Error('inspector protocol: invalid observation record')
   }
   exactKeys(value, ['monotonicMs', 'topic', 'payload'], 'observation record')

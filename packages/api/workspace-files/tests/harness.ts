@@ -62,7 +62,7 @@ export async function openWorkspace(prefix: string): Promise<Harness> {
     outside,
     ctx,
     scope: fileScope(workspace),
-    endpoint: (caps) => {
+    endpoint: caps => {
       if (service !== undefined) {
         if (caps !== undefined) throw new Error('the harness serves one WorkspaceFiles per test; hoist the endpoint')
         return service

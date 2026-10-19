@@ -44,13 +44,19 @@ export const Config = z.object({
  * @param config - validated deployment options.
  */
 export function apply(ctx: Context, config: Config): void {
-  ctx.inject(['settings'], (scope) => {
+  ctx.inject(['settings'], scope => {
     scope.effect(() => scope.settings.configure({ auto: false }, ctx.fiber))
   })
-  ctx.on('webserver/index-inject', (table) => {
-    table.push({ kind: 'global', name: CONTACT_CONFIG_GLOBAL, value: {
-      contactFormUrl: config.contactFormUrl, contactSource: config.contactSource,
-      bonusAckRetryDelayMs: config.bonusAckRetryDelayMs, bonusAckRetryMaxDelayMs: config.bonusAckRetryMaxDelayMs,
-    } satisfies ContactConfig })
+  ctx.on('webserver/index-inject', table => {
+    table.push({
+      kind: 'global',
+      name: CONTACT_CONFIG_GLOBAL,
+      value: {
+        contactFormUrl: config.contactFormUrl,
+        contactSource: config.contactSource,
+        bonusAckRetryDelayMs: config.bonusAckRetryDelayMs,
+        bonusAckRetryMaxDelayMs: config.bonusAckRetryMaxDelayMs,
+      } satisfies ContactConfig,
+    })
   })
 }

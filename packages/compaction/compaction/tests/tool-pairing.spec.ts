@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { createUserMessage, ToolCallId , createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
+import { describe, expect, it } from 'vite-plus/test'
+import { createUserMessage, ToolCallId, createMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { CompactionId, compactCheckpointSource, toolPairingBalancedAfter, toolPairingBalancedBefore } from '@deepseek-ai/dsh-compaction'
 import { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
@@ -7,7 +7,7 @@ import type { SessionEvent, SessionSeq as SessionSeqType } from '@deepseek-ai/ds
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -33,32 +33,44 @@ function after(session: Session, type: SessionEvent['type'], nth = 0): boolean {
 
 function closedToolStep(): Session {
   const session = Session.create(SessionId('closed-tool-step'))
-  session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'go' }],
-    source: { kind: 'user' },
-  }), SURFACE)
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 1,
-    message: createMessage({
-      role: 'assistant',
-      content: [{ type: 'tool-call', id: ToolCallId('c1'), name: 'bash', arguments: '{}' }],
-      source: {
-        kind: 'model',
-        ...{ provider: 'mock', model: 'mock' },
-      },
+  session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'go' }],
+      source: { kind: 'user' },
     }),
-  }, SURFACE)
-  session.append('tool/result', {
-    turn: 1,
-    step: 1,
-    message: createToolResultMessage({
-      callId: ToolCallId('c1'),
-      content: [{ type: 'text', text: 'done' }],
-      isError: false,
-    }),
-  }, SURFACE)
+    SURFACE,
+  )
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 1,
+      message: createMessage({
+        role: 'assistant',
+        content: [{ type: 'tool-call', id: ToolCallId('c1'), name: 'bash', arguments: '{}' }],
+        source: {
+          kind: 'model',
+          ...{ provider: 'mock', model: 'mock' },
+        },
+      }),
+    },
+    SURFACE,
+  )
+  session.append(
+    'tool/result',
+    {
+      turn: 1,
+      step: 1,
+      message: createToolResultMessage({
+        callId: ToolCallId('c1'),
+        content: [{ type: 'text', text: 'done' }],
+        isError: false,
+      }),
+    },
+    SURFACE,
+  )
   return session
 }
 
@@ -73,56 +85,74 @@ describe('tool-pairing boundaries', () => {
     expect(after(closed, 'tool/result')).toBe(true)
 
     const open = Session.create(SessionId('open-tool-step'))
-    open.append('assistant/message', {
-      stream: [],
-      turn: 1,
-      step: 1,
-      message: createMessage({
-        role: 'assistant',
-        content: [{ type: 'tool-call', id: ToolCallId('open'), name: 'bash', arguments: '{}' }],
-        source: {
-          kind: 'model',
-          ...{ provider: 'mock', model: 'mock' },
-        },
-      }),
-    }, SURFACE)
+    open.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn: 1,
+        step: 1,
+        message: createMessage({
+          role: 'assistant',
+          content: [{ type: 'tool-call', id: ToolCallId('open'), name: 'bash', arguments: '{}' }],
+          source: {
+            kind: 'model',
+            ...{ provider: 'mock', model: 'mock' },
+          },
+        }),
+      },
+      SURFACE,
+    )
     expect(toolPairingBalancedAfter(open, open.surface.nodes[0]!)).toBe(false)
   })
 
   it('requires every result from a multiple-call assistant message', () => {
     const session = Session.create(SessionId('multiple-calls'))
-    session.append('assistant/message', {
-      stream: [],
-      turn: 1,
-      step: 1,
-      message: createMessage({
-        role: 'assistant',
-        content: [
-          { type: 'tool-call', id: ToolCallId('c1'), name: 'one', arguments: '{}' },
-          { type: 'tool-call', id: ToolCallId('c2'), name: 'two', arguments: '{}' },
-        ],
-        source: {
-          kind: 'model',
-          ...{ provider: 'mock', model: 'mock' },
-        },
-      }),
-    }, SURFACE)
-    session.append('tool/result', {
-      turn: 1, step: 1,
-      message: createToolResultMessage({
-        callId: ToolCallId('c1'),
-        content: [],
-        isError: false,
-      }),
-    }, SURFACE)
-    session.append('tool/result', {
-      turn: 1, step: 1,
-      message: createToolResultMessage({
-        callId: ToolCallId('c2'),
-        content: [],
-        isError: false,
-      }),
-    }, SURFACE)
+    session.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn: 1,
+        step: 1,
+        message: createMessage({
+          role: 'assistant',
+          content: [
+            { type: 'tool-call', id: ToolCallId('c1'), name: 'one', arguments: '{}' },
+            { type: 'tool-call', id: ToolCallId('c2'), name: 'two', arguments: '{}' },
+          ],
+          source: {
+            kind: 'model',
+            ...{ provider: 'mock', model: 'mock' },
+          },
+        }),
+      },
+      SURFACE,
+    )
+    session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({
+          callId: ToolCallId('c1'),
+          content: [],
+          isError: false,
+        }),
+      },
+      SURFACE,
+    )
+    session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({
+          callId: ToolCallId('c2'),
+          content: [],
+          isError: false,
+        }),
+      },
+      SURFACE,
+    )
 
     expect(after(session, 'tool/result', 0)).toBe(false)
     expect(after(session, 'tool/result', 1)).toBe(true)
@@ -130,39 +160,56 @@ describe('tool-pairing boundaries', () => {
 
   it('keeps neutral nodes inside an open pair unbalanced and free nodes balanced', () => {
     const midStep = Session.create(SessionId('neutral-mid-step'))
-    midStep.append('assistant/message', {
-      stream: [],
-      turn: 1,
-      step: 1,
-      message: createMessage({
-        role: 'assistant',
-        content: [{ type: 'tool-call', id: ToolCallId('c1'), name: 'bash', arguments: '{}' }],
-        source: {
-          kind: 'model',
-          ...{ provider: 'mock', model: 'mock' },
-        },
+    midStep.append(
+      'assistant/message',
+      {
+        stream: [],
+        turn: 1,
+        step: 1,
+        message: createMessage({
+          role: 'assistant',
+          content: [{ type: 'tool-call', id: ToolCallId('c1'), name: 'bash', arguments: '{}' }],
+          source: {
+            kind: 'model',
+            ...{ provider: 'mock', model: 'mock' },
+          },
+        }),
+      },
+      SURFACE,
+    )
+    midStep.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'background update' }],
+        source: { kind: 'test' },
       }),
-    }, SURFACE)
-    midStep.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'background update' }],
-      source: { kind: 'test' },
-    }), SURFACE)
-    midStep.append('tool/result', {
-      turn: 1, step: 1,
-      message: createToolResultMessage({
-        callId: ToolCallId('c1'),
-        content: [],
-        isError: false,
-      }),
-    }, SURFACE)
+      SURFACE,
+    )
+    midStep.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({
+          callId: ToolCallId('c1'),
+          content: [],
+          isError: false,
+        }),
+      },
+      SURFACE,
+    )
     expect(before(midStep, 'user/message')).toBe(false)
     expect(after(midStep, 'user/message')).toBe(false)
 
     const free = Session.create(SessionId('neutral-free'))
-    free.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'idle injection' }],
-      source: { kind: 'user' },
-    }), SURFACE)
+    free.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'idle injection' }],
+        source: { kind: 'user' },
+      }),
+      SURFACE,
+    )
     expect(before(free, 'user/message')).toBe(true)
     expect(after(free, 'user/message')).toBe(true)
   })
@@ -175,13 +222,17 @@ describe('tool-pairing surface identity', () => {
     expect(toolPairingBalancedAfter(session, staleTail)).toBe(true)
 
     const nodes = session.surface.nodes
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'checkpoint' }],
-      source: compactCheckpointSource(CompactionId('tool-pairing-compaction')),
-    }), {
-      surfaceOp: { op: 'replace', startSeq: nodes[0]!, endSeq: nodes.at(-1)! },
-      sourceEventSeqs: [...nodes],
-    })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'checkpoint' }],
+        source: compactCheckpointSource(CompactionId('tool-pairing-compaction')),
+      }),
+      {
+        surfaceOp: { op: 'replace', startSeq: nodes[0]!, endSeq: nodes.at(-1)! },
+        sourceEventSeqs: [...nodes],
+      },
+    )
 
     const checkpoint = session.surface.nodes[0]!
     expect(toolPairingBalancedBefore(session, checkpoint)).toBe(true)
@@ -203,10 +254,14 @@ describe('tool-pairing surface identity', () => {
     expect(() => toolPairingBalancedBefore(session, missing)).toThrow(/surface seq 999 not found/)
     expect(() => toolPairingBalancedAfter(session, missing)).toThrow(/surface seq 999 not found/)
 
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'first node after empty cache' }],
-      source: { kind: 'user' },
-    }), SURFACE)
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'first node after empty cache' }],
+        source: { kind: 'user' },
+      }),
+      SURFACE,
+    )
     expect(toolPairingBalancedAfter(session, session.surface.nodes[0]!)).toBe(true)
   })
 })
@@ -215,14 +270,19 @@ describe('tool-pairing cache refresh', () => {
   it('does no event reads for unchanged or log-only growth, folds only appended nodes, and rebuilds on replace', () => {
     const events: SessionEvent[] = [
       {
-        type: 'user/message', seq: SessionSeq(0), time: 0,
+        type: 'user/message',
+        seq: SessionSeq(0),
+        time: 0,
         data: createUserMessage({
-          content: [{ type: 'text', text: 'user' }], source: { kind: 'user' },
+          content: [{ type: 'text', text: 'user' }],
+          source: { kind: 'user' },
         }),
         surfaceOp: 'append',
       },
       {
-        type: 'assistant/message', seq: SessionSeq(1), time: 1,
+        type: 'assistant/message',
+        seq: SessionSeq(1),
+        time: 1,
         data: {
           stream: [],
           turn: 1,
@@ -239,9 +299,12 @@ describe('tool-pairing cache refresh', () => {
         surfaceOp: 'append',
       },
       {
-        type: 'tool/result', seq: SessionSeq(2), time: 2,
+        type: 'tool/result',
+        seq: SessionSeq(2),
+        time: 2,
         data: {
-          turn: 1, step: 1,
+          turn: 1,
+          step: 1,
           message: createToolResultMessage({
             callId: ToolCallId('c1'),
             content: [],
@@ -255,8 +318,12 @@ describe('tool-pairing cache refresh', () => {
     let generation = 0
     let eventReads = 0
     const surface = {
-      get nodes() { return nodes },
-      get replaceGeneration() { return generation },
+      get nodes() {
+        return nodes
+      },
+      get replaceGeneration() {
+        return generation
+      },
     }
     const session = {
       surface,
@@ -274,15 +341,21 @@ describe('tool-pairing cache refresh', () => {
     expect(eventReads).toBe(3)
 
     events.push({
-      type: 'turn/end', seq: SessionSeq(3), time: 3, data: { turn: 1, reason: { kind: 'completed' } },
+      type: 'turn/end',
+      seq: SessionSeq(3),
+      time: 3,
+      data: { turn: 1, reason: { kind: 'completed' } },
     })
     expect(toolPairingBalancedAfter(session, nodes[2]!)).toBe(true)
     expect(eventReads).toBe(3)
 
     events.push({
-      type: 'user/message', seq: SessionSeq(4), time: 4,
+      type: 'user/message',
+      seq: SessionSeq(4),
+      time: 4,
       data: createUserMessage({
-        content: [{ type: 'text', text: 'tail' }], source: { kind: 'user' },
+        content: [{ type: 'text', text: 'tail' }],
+        source: { kind: 'user' },
       }),
       surfaceOp: 'append',
     })
@@ -292,7 +365,9 @@ describe('tool-pairing cache refresh', () => {
 
     events.push(
       {
-        type: 'assistant/message', seq: SessionSeq(5), time: 5,
+        type: 'assistant/message',
+        seq: SessionSeq(5),
+        time: 5,
         data: {
           stream: [],
           turn: 2,
@@ -309,9 +384,12 @@ describe('tool-pairing cache refresh', () => {
         surfaceOp: 'append',
       },
       {
-        type: 'tool/result', seq: SessionSeq(6), time: 6,
+        type: 'tool/result',
+        seq: SessionSeq(6),
+        time: 6,
         data: {
-          turn: 2, step: 1,
+          turn: 2,
+          step: 1,
           message: createToolResultMessage({
             callId: ToolCallId('c2'),
             content: [],
@@ -326,9 +404,12 @@ describe('tool-pairing cache refresh', () => {
     expect(eventReads).toBe(6)
 
     events.push({
-      type: 'user/message', seq: SessionSeq(7), time: 7,
+      type: 'user/message',
+      seq: SessionSeq(7),
+      time: 7,
       data: createUserMessage({
-        content: [{ type: 'text', text: 'replacement' }], source: { kind: 'user' },
+        content: [{ type: 'text', text: 'replacement' }],
+        source: { kind: 'user' },
       }),
       surfaceOp: { op: 'replace', startSeq: SessionSeq(0), endSeq: SessionSeq(6) },
     })
@@ -341,16 +422,24 @@ describe('tool-pairing cache refresh', () => {
   it('rebuilds defensively when a same-generation surface entry count regresses', () => {
     const events: SessionEvent[] = [
       {
-        type: 'user/message', seq: SessionSeq(0), time: 0,
+        type: 'user/message',
+        seq: SessionSeq(0),
+        time: 0,
         data: createUserMessage({
-          content: [], source: { kind: 'user' },
-        }), surfaceOp: 'append',
+          content: [],
+          source: { kind: 'user' },
+        }),
+        surfaceOp: 'append',
       },
       {
-        type: 'user/message', seq: SessionSeq(1), time: 1,
+        type: 'user/message',
+        seq: SessionSeq(1),
+        time: 1,
         data: createUserMessage({
-          content: [], source: { kind: 'user' },
-        }), surfaceOp: 'append',
+          content: [],
+          source: { kind: 'user' },
+        }),
+        surfaceOp: 'append',
       },
     ]
     const nodes: SessionSeqType[] = [SessionSeq(0), SessionSeq(1)]
@@ -367,31 +456,46 @@ describe('tool-pairing cache refresh', () => {
 describe('tool-pairing corrupt surfaces', () => {
   it('throws for an orphan result during a rebuild', () => {
     const session = Session.create(SessionId('orphan-rebuild'))
-    session.append('tool/result', {
-      turn: 1, step: 1,
-      message: createToolResultMessage({
-        callId: ToolCallId('orphan'),
-        content: [],
-        isError: false,
-      }),
-    }, SURFACE)
+    session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({
+          callId: ToolCallId('orphan'),
+          content: [],
+          isError: false,
+        }),
+      },
+      SURFACE,
+    )
     expect(() => toolPairingBalancedAfter(session, session.surface.nodes[0]!)).toThrow(/no matching tool-call/)
   })
 
   it('retries an orphan result in an appended tail without committing partial cache state', () => {
     const session = Session.create(SessionId('orphan-tail'))
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'safe head' }], source: { kind: 'user' },
-    }), SURFACE)
-    expect(toolPairingBalancedAfter(session, session.surface.nodes[0]!)).toBe(true)
-    session.append('tool/result', {
-      turn: 1, step: 1,
-      message: createToolResultMessage({
-        callId: ToolCallId('orphan'),
-        content: [],
-        isError: false,
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'safe head' }],
+        source: { kind: 'user' },
       }),
-    }, SURFACE)
+      SURFACE,
+    )
+    expect(toolPairingBalancedAfter(session, session.surface.nodes[0]!)).toBe(true)
+    session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({
+          callId: ToolCallId('orphan'),
+          content: [],
+          isError: false,
+        }),
+      },
+      SURFACE,
+    )
     expect(() => toolPairingBalancedAfter(session, session.surface.nodes[1]!)).toThrow(/no matching tool-call/)
     expect(() => toolPairingBalancedAfter(session, session.surface.nodes[1]!)).toThrow(/no matching tool-call/)
   })
@@ -399,24 +503,38 @@ describe('tool-pairing corrupt surfaces', () => {
   it('throws when a current surface seq has no matching event or indexes the wrong event', () => {
     const missingSeq = SessionSeq(1)
     const missing = {
-      eventAt: (seq: number) => [{
-        type: 'user/message', seq: SessionSeq(0), time: 0,
-        data: createUserMessage({
-          content: [], source: { kind: 'user' },
-        }), surfaceOp: 'append',
-      } satisfies SessionEvent][seq],
+      eventAt: (seq: number) =>
+        [
+          {
+            type: 'user/message',
+            seq: SessionSeq(0),
+            time: 0,
+            data: createUserMessage({
+              content: [],
+              source: { kind: 'user' },
+            }),
+            surfaceOp: 'append',
+          } satisfies SessionEvent,
+        ][seq],
       surface: { nodes: [missingSeq], replaceGeneration: 0 },
     } as unknown as Session
     expect(() => toolPairingBalancedBefore(missing, missingSeq)).toThrow(/no matching session event/)
 
     const mismatchedSeq = SessionSeq(0)
     const mismatched = {
-      eventAt: (seq: number) => [{
-        type: 'user/message', seq: SessionSeq(99), time: 0,
-        data: createUserMessage({
-          content: [], source: { kind: 'user' },
-        }), surfaceOp: 'append',
-      } satisfies SessionEvent][seq],
+      eventAt: (seq: number) =>
+        [
+          {
+            type: 'user/message',
+            seq: SessionSeq(99),
+            time: 0,
+            data: createUserMessage({
+              content: [],
+              source: { kind: 'user' },
+            }),
+            surfaceOp: 'append',
+          } satisfies SessionEvent,
+        ][seq],
       surface: { nodes: [mismatchedSeq], replaceGeneration: 0 },
     } as unknown as Session
     expect(() => toolPairingBalancedBefore(mismatched, mismatchedSeq)).toThrow(/no matching session event/)

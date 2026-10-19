@@ -11,9 +11,15 @@
  * The capture is module state, so the cases below run in order: the first
  * observes the empty slot before anything fills it.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
-  createServer, get, request, requestListener, ServerResponse, STATUS_CODES, whenRequestListener,
+  createServer,
+  get,
+  request,
+  requestListener,
+  ServerResponse,
+  STATUS_CODES,
+  whenRequestListener,
 } from '../../src/node/builtin_modules/implemented/http.ts'
 import type { RequestListener } from '../../src/transport/synthetic-http.ts'
 
@@ -23,7 +29,7 @@ describe('request listener capture', () => {
   it('keeps a caller waiting until the webserver installs its listener', async () => {
     expect(requestListener()).toBeUndefined()
     let settled = false
-    const awaited = whenRequestListener().then((captured) => {
+    const awaited = whenRequestListener().then(captured => {
       settled = true
       return captured
     })
@@ -53,7 +59,11 @@ describe('binding', () => {
   it('reports the bind through the callback the webserver fiber waits on', async () => {
     const server = createServer(listener)
     let bound = false
-    expect(server.listen(3080, () => { bound = true })).toBe(server)
+    expect(
+      server.listen(3080, () => {
+        bound = true
+      }),
+    ).toBe(server)
     await Promise.resolve()
     expect(bound).toBe(true)
   })
@@ -65,7 +75,9 @@ describe('binding', () => {
   it('completes close without a socket to release', async () => {
     const server = createServer(listener)
     let closed = false
-    server.close(() => { closed = true })
+    server.close(() => {
+      closed = true
+    })
     server.closeAllConnections()
     server.closeIdleConnections()
     await Promise.resolve()
@@ -80,8 +92,6 @@ describe('outbound requests', () => {
   })
 
   it('publishes the status texts a handler writes by hand', () => {
-    expect([STATUS_CODES[200], STATUS_CODES[404], STATUS_CODES[503]]).toEqual([
-      'OK', 'Not Found', 'Service Unavailable',
-    ])
+    expect([STATUS_CODES[200], STATUS_CODES[404], STATUS_CODES[503]]).toEqual(['OK', 'Not Found', 'Service Unavailable'])
   })
 })

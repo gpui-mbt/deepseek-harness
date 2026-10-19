@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { en, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale, zh } from '../src/locale.ts'
 
 describe('desktop locale dictionaries', () => {
@@ -10,8 +10,7 @@ describe('desktop locale dictionaries', () => {
   })
 
   it('formats named values without consuming unknown placeholders', () => {
-    expect(formatDesktopMessage('{name}@{version} {missing}', { name: 'plugin', version: '1.2.3' }))
-      .toBe('plugin@1.2.3 {missing}')
+    expect(formatDesktopMessage('{name}@{version} {missing}', { name: 'plugin', version: '1.2.3' })).toBe('plugin@1.2.3 {missing}')
   })
 
   it('prefers an explicit supported choice, then the first supported system language', () => {
@@ -23,5 +22,4 @@ describe('desktop locale dictionaries', () => {
     expect(resolveDesktopStartupLocale(null, []).id).toBe('en')
     expect(resolveDesktopStartupLocale('ja', ['zh-CN']).id).toBe('zh-CN')
   })
-
 })

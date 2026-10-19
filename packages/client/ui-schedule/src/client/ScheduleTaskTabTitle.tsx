@@ -16,9 +16,9 @@ import { useTaskTabTarget } from './task-tab-target.ts'
 import css from './TaskManagerPage.module.css'
 
 /** Props of the task tab's chip: the tab it names and the catalog row it reads. */
-export type ScheduleTaskTabTitleProps = PropsRuntime<'sidebar.right.pane.tab.title'>
-  & PropsLocale<'schedule.manager'>
-  & InjectFace<ScheduleTaskCatalogInjected & ScheduleTaskBindingInjected>
+export type ScheduleTaskTabTitleProps = PropsRuntime<'sidebar.right.pane.tab.title'> &
+  PropsLocale<'schedule.manager'> &
+  InjectFace<ScheduleTaskCatalogInjected & ScheduleTaskBindingInjected>
 
 /**
  * Render the clock glyph and the named task's stored title as the chip text.

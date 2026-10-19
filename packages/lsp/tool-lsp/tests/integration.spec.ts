@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { mkdtemp, mkdir, rm, writeFile, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -35,16 +35,21 @@ afterEach(async () => {
 
 /** An inline stdio server that answers initialize + definition; `hang` makes textDocument/* stall. */
 function serverScript(hang: boolean): string {
-  const definition = JSON.stringify({ uri: pathToFileURL(join(ws, 'a.ts')).href, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } } })
-  return 'let b=Buffer.alloc(0);'
-    + `const DEF=${definition};`
-    + 'const fr=(o)=>{const x=Buffer.from(JSON.stringify({jsonrpc:"2.0",...o}));return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};'
-    + 'process.stdin.on("data",c=>{b=Buffer.concat([b,c]);for(;;){const s=b.indexOf("\\r\\n\\r\\n");if(s<0)break;const len=Number(/(\\d+)/.exec(b.toString("ascii",0,s))[1]);if(b.length<s+4+len)break;const m=JSON.parse(b.toString("utf8",s+4,s+4+len));b=b.subarray(s+4+len);'
-    + 'if(m.method==="initialize")process.stdout.write(fr({id:m.id,result:{capabilities:{positionEncoding:"utf-16",textDocumentSync:1,definitionProvider:true}}}));'
-    + `else if(m.method==="textDocument/definition"){${hang ? '' : 'process.stdout.write(fr({id:m.id,result:DEF}));'}}`
-    + 'else if(m.method==="shutdown")process.stdout.write(fr({id:m.id,result:null}));'
-    + 'else if(m.method==="exit")process.exit(0);'
-    + '}});'
+  const definition = JSON.stringify({
+    uri: pathToFileURL(join(ws, 'a.ts')).href,
+    range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+  })
+  return (
+    'let b=Buffer.alloc(0);' +
+    `const DEF=${definition};` +
+    'const fr=(o)=>{const x=Buffer.from(JSON.stringify({jsonrpc:"2.0",...o}));return Buffer.concat([Buffer.from(`Content-Length: ${x.length}\\r\\n\\r\\n`),x]);};' +
+    'process.stdin.on("data",c=>{b=Buffer.concat([b,c]);for(;;){const s=b.indexOf("\\r\\n\\r\\n");if(s<0)break;const len=Number(/(\\d+)/.exec(b.toString("ascii",0,s))[1]);if(b.length<s+4+len)break;const m=JSON.parse(b.toString("utf8",s+4,s+4+len));b=b.subarray(s+4+len);' +
+    'if(m.method==="initialize")process.stdout.write(fr({id:m.id,result:{capabilities:{positionEncoding:"utf-16",textDocumentSync:1,definitionProvider:true}}}));' +
+    `else if(m.method==="textDocument/definition"){${hang ? '' : 'process.stdout.write(fr({id:m.id,result:DEF}));'}}` +
+    'else if(m.method==="shutdown")process.stdout.write(fr({id:m.id,result:null}));' +
+    'else if(m.method==="exit")process.exit(0);' +
+    '}});'
+  )
 }
 
 async function mount(hang: boolean, timeoutMs?: number): Promise<Context> {

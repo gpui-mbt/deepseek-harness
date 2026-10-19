@@ -79,8 +79,8 @@ export async function runHook(
     timeoutMs,
     stdin,
     signal: options.signal,
-    ...options.cwd !== undefined ? { workdir: options.cwd } : {},
-    ...options.env !== undefined ? { env: options.env } : {},
+    ...(options.cwd !== undefined ? { workdir: options.cwd } : {}),
+    ...(options.env !== undefined ? { env: options.env } : {}),
   }
 
   try {

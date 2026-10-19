@@ -55,17 +55,20 @@ await childFiber.await()
 Reflect.set(globalThis, '__cordisClientProbe', context)
 Reflect.set(globalThis, '__cordisClientFiberProbe', childFiber)
 
-const sourceCatalog = input.sourceCatalog === undefined
-  ? undefined
-  : new ClientSourceCatalog([{
-    scriptKey: inspectorId<'RuntimeScriptKey'>('bundle', 'scriptKey'),
-    url: input.sourceCatalog.sourceUrl,
-    hash: 'test',
-    sourceMapUrl: input.sourceCatalog.sourceMapUrl,
-    isModule: false,
-    loadSource: async () => input.sourceCatalog!.sourceText,
-    loadSourceMap: async () => input.sourceCatalog!.sourceMap,
-  }])
+const sourceCatalog =
+  input.sourceCatalog === undefined
+    ? undefined
+    : new ClientSourceCatalog([
+        {
+          scriptKey: inspectorId<'RuntimeScriptKey'>('bundle', 'scriptKey'),
+          url: input.sourceCatalog.sourceUrl,
+          hash: 'test',
+          sourceMapUrl: input.sourceCatalog.sourceMapUrl,
+          isModule: false,
+          loadSource: async () => input.sourceCatalog!.sourceText,
+          loadSourceMap: async () => input.sourceCatalog!.sourceMap,
+        },
+      ])
 const source = new ClientInspectorSource(input.bootstrap, input.label, sourceCatalog)
 const disposeCordis = publishCordisTree(context, source, {
   maxNodes: input.bootstrap.maxCordisNodes,
@@ -76,7 +79,7 @@ let addedFiber: Fiber | undefined
 
 port.on('message', (message: ClientFixtureRequest) => {
   void dispatch(message).then(
-    (value) => {
+    value => {
       port.postMessage({ type: 'response', id: message.id, ok: true, value })
       if (message.op === 'close') port.close()
     },

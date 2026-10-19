@@ -46,10 +46,12 @@ export function partitionPairedMarkdownDerivatives<T>(
     if (sibling === null) continue
     const originals = byDoc.get(sibling)
     if (originals === undefined || originals.length !== candidates.length) continue
-    if (candidates.every((candidate, index) => {
-      const original = originals[index]
-      return original !== undefined && fingerprintOf(candidate) === fingerprintOf(original)
-    })) {
+    if (
+      candidates.every((candidate, index) => {
+        const original = originals[index]
+        return original !== undefined && fingerprintOf(candidate) === fingerprintOf(original)
+      })
+    ) {
       derivativeDocs.add(doc)
     }
   }
@@ -57,7 +59,7 @@ export function partitionPairedMarkdownDerivatives<T>(
   const primary: T[] = []
   const derivatives: T[] = []
   for (const block of blocks) {
-    (derivativeDocs.has(docOf(block)) ? derivatives : primary).push(block)
+    ;(derivativeDocs.has(docOf(block)) ? derivatives : primary).push(block)
   }
   return { primary, derivatives }
 }

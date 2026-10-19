@@ -34,7 +34,9 @@ export interface PackageGraphNode {
  */
 export function collectPackageGraph(root: string, groupOrder: readonly string[], gate: string): PackageGraphNode[] {
   const packages: PackageGraphNode[] = []
-  for (const rel of globSync('packages/*/*/package.json', { cwd: root }).map(path => path.split(sep).join('/')).sort()) {
+  for (const rel of globSync('packages/*/*/package.json', { cwd: root })
+    .map(path => path.split(sep).join('/'))
+    .sort()) {
     const json = JSON.parse(readFileSync(resolve(root, rel), 'utf8')) as {
       name: string
       peerDependencies?: Record<string, string>
@@ -135,7 +137,7 @@ function sinkCycles(remaining: ReadonlyMap<string, PackageGraphNode>): PackageGr
   for (const pkg of remaining.values()) {
     if (!indices.has(pkg.short)) visit(pkg)
   }
-  return components.filter((component) => {
+  return components.filter(component => {
     const names = new Set(component.map(pkg => pkg.short))
     const first = component[0]
     const cyclic = component.length > 1 || first.deps.includes(first.short)

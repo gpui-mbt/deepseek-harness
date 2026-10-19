@@ -31,8 +31,7 @@ export const constants = {
 export const zstdCompressSync: typeof import('node:zlib').zstdCompressSync = notImplementedFail(MODULE, 'zstdCompressSync')
 
 /** One-shot Zstandard decompression (unavailable; the worker never reads compressed logs). */
-export const zstdDecompressSync: typeof import('node:zlib').zstdDecompressSync
-  = notImplementedFail(MODULE, 'zstdDecompressSync')
+export const zstdDecompressSync: typeof import('node:zlib').zstdDecompressSync = notImplementedFail(MODULE, 'zstdDecompressSync')
 
 /** Callback form of {@link zstdCompressSync} (`promisify`'d at module scope by the backend). */
 export const zstdCompress: typeof import('node:zlib').zstdCompress = notImplementedFail(MODULE, 'zstdCompress')
@@ -47,12 +46,15 @@ export const zstdDecompress: typeof import('node:zlib').zstdDecompress = notImpl
  * @returns the incompatible placeholder stream.
  */
 export function createZstdDecompress(): Record<string, unknown> {
-  return { close: () => { /* nothing was opened */ } }
+  return {
+    close: () => {
+      /* nothing was opened */
+    },
+  }
 }
 
 /** Streaming Zstandard encoder (unavailable; the backend only needs one-shot). */
-export const createZstdCompress: typeof import('node:zlib').createZstdCompress
-  = notImplementedFail(MODULE, 'createZstdCompress')
+export const createZstdCompress: typeof import('node:zlib').createZstdCompress = notImplementedFail(MODULE, 'createZstdCompress')
 
 /** gzip family (unavailable; no consumer in the reachable tree). */
 export const gzip: typeof import('node:zlib').gzip = notImplementedFail(MODULE, 'gzip')
@@ -75,11 +77,20 @@ export const __esModule = true
  * JSONL backend reads, and `createZstdDecompress` answers the placeholder the
  * same backend's private-shape probe must decline.
  */
-type NodeFace = Partial<Omit<typeof import('node:zlib'), 'constants' | 'createZstdDecompress'>>
-  & Record<'constants' | 'createZstdDecompress', unknown>
+type NodeFace = Partial<Omit<typeof import('node:zlib'), 'constants' | 'createZstdDecompress'>> &
+  Record<'constants' | 'createZstdDecompress', unknown>
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
-  constants, zstdCompress, zstdCompressSync, zstdDecompress, zstdDecompressSync,
-  createZstdCompress, createZstdDecompress, gzip, gzipSync, gunzip, gunzipSync,
+  constants,
+  zstdCompress,
+  zstdCompressSync,
+  zstdDecompress,
+  zstdDecompressSync,
+  createZstdCompress,
+  createZstdDecompress,
+  gzip,
+  gzipSync,
+  gunzip,
+  gunzipSync,
 } satisfies NodeFace

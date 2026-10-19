@@ -2,7 +2,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { boot, initProfile, readProfilePatches, type ProfileContext } from '@deepseek-ai/dsh-app-boot'
 import ConfigEditor from '@deepseek-ai/dsh-config-editor'
 import Settings from '@deepseek-ai/dsh-settings'
@@ -18,24 +18,38 @@ it('saves language and provider preferences without remounting and restores them
     const bundle = join(dir, 'node_modules', 'test-bundle')
     mkdirSync(bundle, { recursive: true })
     writeFileSync(join(home, 'package.json'), '{"name":"test-installation"}\n')
-    writeFileSync(join(bundle, 'package.json'), JSON.stringify({ name: 'test-bundle', version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' } } }))
+    writeFileSync(
+      join(bundle, 'package.json'),
+      JSON.stringify({ name: 'test-bundle', version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' } } }),
+    )
     writeFileSync(join(bundle, 'cordis.patch.yml'), readFileSync(new URL('./fixtures/selection.patch.yml', import.meta.url)))
     writeFileSync(join(dir, 'cordis.yml'), '[]\n')
     const profile: ProfileContext = {
-      name: 'test', startedBundles: ['test-bundle'], dir, patchPath: join(dir, 'cordis.patch.yml'),
-      installAnchor: join(home, 'package.json'), cwd: home, home, overlays: [], telemetryDisabledEnv: undefined,
+      name: 'test',
+      startedBundles: ['test-bundle'],
+      dir,
+      patchPath: join(dir, 'cordis.patch.yml'),
+      installAnchor: join(home, 'package.json'),
+      cwd: home,
+      home,
+      overlays: [],
+      telemetryDisabledEnv: undefined,
     }
-    const start = () => boot('test', join(dir, 'cordis.yml'), readProfilePatches('test', profile), (root) => {
-      root.provide('profileContext', profile)
-      Object.assign(root.loader.builtins, { editor: ConfigEditor, settings: Settings, speech: SpeechToText })
-    })
+    const start = () =>
+      boot('test', join(dir, 'cordis.yml'), readProfilePatches('test', profile), root => {
+        root.provide('profileContext', profile)
+        Object.assign(root.loader.builtins, { editor: ConfigEditor, settings: Settings, speech: SpeechToText })
+      })
     ctx = await start()
     const speech = ctx.get('speechToText')!
     const languages = ['auto', 'zh', 'en', 'yue', 'ja', 'ko']
-    for (const id of ['sensevoice-local', 'another-provider']) speech.register({
-      info: { id: id as SpeechProviderId, name: id, location: 'host-local', languages },
-      transcribe: async () => { throw new Error('Changing preferences must not transcribe audio') },
-    })
+    for (const id of ['sensevoice-local', 'another-provider'])
+      speech.register({
+        info: { id: id as SpeechProviderId, name: id, location: 'host-local', languages },
+        transcribe: async () => {
+          throw new Error('Changing preferences must not transcribe audio')
+        },
+      })
     const entry = ctx.configEditor.entries().find(row => row.options.id === 'speech-to-text')!
     expect(entry.id).toBe('include:speech-to-text')
     const fiber = entry.fiber
@@ -54,6 +68,10 @@ it('saves language and provider preferences without remounting and restores them
     ctx = await start()
     expect(ctx.get('speechToText')!.snapshot().selection).toEqual({ providerId: 'another-provider', language: 'zh' })
   } finally {
-    try { await ctx?.fiber.dispose() } finally { rmSync(home, { recursive: true, force: true }) }
+    try {
+      await ctx?.fiber.dispose()
+    } finally {
+      rmSync(home, { recursive: true, force: true })
+    }
   }
 })

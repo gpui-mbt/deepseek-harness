@@ -3,20 +3,30 @@ import { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { isRunningAccountTask } from '@deepseek-ai/dsh-deepseek-account'
 import type {} from '@deepseek-ai/dsh-agent'
-import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
+import type {
+  AccountBonusBatch,
+  AccountBonusOrderId,
+  AccountClientMetadata,
+  AccountDetails,
+  AccountUserId,
+} from '@deepseek-ai/dsh-deepseek-account/types'
 import type { AccountView, SignInAttemptId } from './types.ts'
 
 /** Account commands and reconnect-safe state stream. */
 export class AccountController extends TypertRemoteService {
   static inject = ['deepseekAccount', 'agents']
   /** @param ctx - Host with the account provider mounted. */
-  constructor(ctx: Context) { super(ctx, 'accountController', { namespace: 'account' }) }
+  constructor(ctx: Context) {
+    super(ctx, 'accountController', { namespace: 'account' })
+  }
   /**
    * Read the safe account projection.
    * @returns current account and attempt state.
    */
   @Remote
-  getState(): Promise<AccountView> { return this.ctx.deepseekAccount.getState() }
+  getState(): Promise<AccountView> {
+    return this.ctx.deepseekAccount.getState()
+  }
   /**
    * Query display-safe Platform profile data.
    * @param client - identity of the requesting UI; the Host derives Platform request headers from it.
@@ -72,7 +82,9 @@ export class AccountController extends TypertRemoteService {
    * @returns settled cancellation or commit state.
    */
   @Remote
-  cancelSignIn(attemptId: SignInAttemptId): Promise<AccountView> { return this.ctx.deepseekAccount.cancelSignIn(attemptId) }
+  cancelSignIn(attemptId: SignInAttemptId): Promise<AccountView> {
+    return this.ctx.deepseekAccount.cancelSignIn(attemptId)
+  }
   /**
    * Inspect the latest logged request providers of running tasks, including tools and retries.
    * @returns whether running work has a latest request context on the account route.
@@ -87,7 +99,9 @@ export class AccountController extends TypertRemoteService {
    * @returns state after removing the local account grant.
    */
   @Remote
-  signOut(client: AccountClientMetadata): Promise<AccountView> { return this.ctx.deepseekAccount.signOut(client) }
+  signOut(client: AccountClientMetadata): Promise<AccountView> {
+    return this.ctx.deepseekAccount.signOut(client)
+  }
   /**
    * Subscribe to credential expiry without replaying prior notifications.
    * @param signal - stream lifetime.
@@ -97,13 +111,24 @@ export class AccountController extends TypertRemoteService {
   async *watchExpiry(signal: AbortSignal): AsyncIterable<'session-expired'> {
     let pending = 0
     let wake: (() => void) | undefined
-    const stop = this.ctx.on('deepseek-account/session-expired', () => { pending++; wake?.() })
-    const abort = (): void => { wake?.() }
+    const stop = this.ctx.on('deepseek-account/session-expired', () => {
+      pending++
+      wake?.()
+    })
+    const abort = (): void => {
+      wake?.()
+    }
     signal.addEventListener('abort', abort, { once: true })
     try {
       while (!signal.aborted) {
-        if (pending > 0) { pending--; yield 'session-expired'; continue }
-        await new Promise<void>((resolve) => { wake = resolve })
+        if (pending > 0) {
+          pending--
+          yield 'session-expired'
+          continue
+        }
+        await new Promise<void>(resolve => {
+          wake = resolve
+        })
       }
     } finally {
       stop()
@@ -116,6 +141,8 @@ export class AccountController extends TypertRemoteService {
    * @returns initial snapshot and subsequent changes.
    */
   @Remote({ mode: 'stream' })
-  watch(signal: AbortSignal): AsyncIterable<AccountView> { return this.ctx.deepseekAccount.watch(signal) }
+  watch(signal: AbortSignal): AsyncIterable<AccountView> {
+    return this.ctx.deepseekAccount.watch(signal)
+  }
 }
 export default AccountController

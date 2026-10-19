@@ -50,14 +50,16 @@ export function registerAgentTeamUi(ctx: ClientContext): void {
     },
   }
 
-  ctx.slots.inject(
-    'conversation.session.header.actions',
-    () => ctx.slots.register({
-      name: 'conversation.session.header.actions',
-      id: 'agent-team',
-      order: -20,
-      locale: NS,
-      inject: () => actions,
-    }, TeamAction),
+  ctx.slots.inject('conversation.session.header.actions', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.session.header.actions',
+        id: 'agent-team',
+        order: -20,
+        locale: NS,
+        inject: () => actions,
+      },
+      TeamAction,
+    ),
   )
 }

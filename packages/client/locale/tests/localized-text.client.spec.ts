@@ -1,10 +1,12 @@
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { LocaleRuntime } from '../src/client/index.ts'
 
 function make() {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   return { ctx, locale: new LocaleRuntime(ctx) }
 }
 

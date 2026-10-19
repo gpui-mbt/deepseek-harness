@@ -6,7 +6,7 @@
  * platform; the real-FFI round-trip lives in grant.spec.ts (win32 only).
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { tmpdir } from 'node:os'
 import koffi from 'koffi'
 
@@ -43,16 +43,24 @@ function grantThenFailApi(): { api: Win32Bindings; failReads: () => void } {
     lockFileEx: vi.fn(() => 1),
     unlockFileEx: vi.fn(() => 1),
     closeHandle: vi.fn(() => 1),
-    getNamedSecurityInfoW: vi.fn((
-      _path: unknown, _type: unknown, _info: unknown, _owner: unknown, _group: unknown,
-      dacl: NativePtr, sacl: NativePtr, descriptor: NativePtr,
-    ) => {
-      if (state.failReads) return 2 // ERROR_FILE_NOT_FOUND — the revoke's read fails
-      koffi.encode(dacl, PVOID, 0n) // no explicit DACL: the merge builds one
-      koffi.encode(sacl, PVOID, 0n)
-      koffi.encode(descriptor, PVOID, 0n)
-      return 0
-    }),
+    getNamedSecurityInfoW: vi.fn(
+      (
+        _path: unknown,
+        _type: unknown,
+        _info: unknown,
+        _owner: unknown,
+        _group: unknown,
+        dacl: NativePtr,
+        sacl: NativePtr,
+        descriptor: NativePtr,
+      ) => {
+        if (state.failReads) return 2 // ERROR_FILE_NOT_FOUND — the revoke's read fails
+        koffi.encode(dacl, PVOID, 0n) // no explicit DACL: the merge builds one
+        koffi.encode(sacl, PVOID, 0n)
+        koffi.encode(descriptor, PVOID, 0n)
+        return 0
+      },
+    ),
     setEntriesInAclW: vi.fn((_count: unknown, _entries: unknown, _old: unknown, newAcl: NativePtr) => {
       koffi.encode(newAcl, PVOID, 9n)
       return 0
@@ -62,7 +70,12 @@ function grantThenFailApi(): { api: Win32Bindings; failReads: () => void } {
     getLastError: vi.fn(() => 2),
     formatMessageW: vi.fn(() => 0),
   })
-  return { api, failReads: () => { state.failReads = true } }
+  return {
+    api,
+    failReads: () => {
+      state.failReads = true
+    },
+  }
 }
 
 describe('AclWriteGrant failure paths', () => {
@@ -93,7 +106,9 @@ describe('AclWriteGrant failure paths', () => {
     grant.add('C:\\granted')
     expect(grant.paths).toEqual(['C:\\granted'])
     failReads()
-    expect(() =>{  grant.dispose() }).toThrow(AggregateError)
+    expect(() => {
+      grant.dispose()
+    }).toThrow(AggregateError)
   })
 
   it('dispose aggregates a failing SID free into an AggregateError', () => {
@@ -109,7 +124,9 @@ describe('AclWriteGrant failure paths', () => {
       formatMessageW: vi.fn(() => 0),
     })
     const grant = AclWriteGrant.create('S-1-4-42-42', api)
-    expect(() =>{  grant.dispose() }).toThrow(AggregateError)
+    expect(() => {
+      grant.dispose()
+    }).toThrow(AggregateError)
   })
 
   it('create fails closed when the Low label SID cannot be created', () => {

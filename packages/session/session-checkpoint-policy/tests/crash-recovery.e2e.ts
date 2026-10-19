@@ -4,11 +4,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import SessionStore, {
-  SessionId, TOOL_OUTCOME_UNKNOWN, interruptedTurnClosers,
-  type SessionEvent,
-} from '@deepseek-ai/dsh-session'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
+import SessionStore, { SessionId, TOOL_OUTCOME_UNKNOWN, interruptedTurnClosers, type SessionEvent } from '@deepseek-ai/dsh-session'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 
 const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
@@ -22,14 +19,17 @@ async function waitForMarker(path: string, expected: string): Promise<string> {
   // vi.waitFor retries every callback throw, so terminal states RESOLVE out
   // of the retry loop (complete marker, or content that can no longer become
   // the expected marker) and only the still-in-progress states throw-to-retry.
-  const content = await vi.waitFor(async () => {
-    const current = await readFile(path, 'utf8').catch((error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      throw new Error(`crash child did not publish failpoint ${JSON.stringify(expected)} at ${path}`, { cause: error })
-    })
-    if (current === expected || !expected.startsWith(current)) return current
-    throw new Error(`crash child has not finished publishing failpoint ${JSON.stringify(expected)}`)
-  }, { interval: 10, timeout: CHILD_FAILPOINT_TIMEOUT_MS })
+  const content = await vi.waitFor(
+    async () => {
+      const current = await readFile(path, 'utf8').catch((error: unknown) => {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        throw new Error(`crash child did not publish failpoint ${JSON.stringify(expected)} at ${path}`, { cause: error })
+      })
+      if (current === expected || !expected.startsWith(current)) return current
+      throw new Error(`crash child has not finished publishing failpoint ${JSON.stringify(expected)}`)
+    },
+    { interval: 10, timeout: CHILD_FAILPOINT_TIMEOUT_MS },
+  )
   if (content !== expected) {
     throw new Error(`crash child wrote unexpected failpoint ${JSON.stringify(content)}`)
   }
@@ -94,11 +94,20 @@ describe.skipIf(process.platform === 'win32')('semantic checkpoint hard-crash re
     expect(crashed.markerText).toBe('request-dispatched')
     const events = await load(crashed.root)
     expect(events.map(event => event.type)).toEqual([
-      'agent/inbox/spliced', 'turn/start', 'agent/inbox/spliced',
-      'step/start', 'system/message', 'user/message', 'request/header', 'request/context', 'step/end', 'turn/end',
+      'agent/inbox/spliced',
+      'turn/start',
+      'agent/inbox/spliced',
+      'step/start',
+      'system/message',
+      'user/message',
+      'request/header',
+      'request/context',
+      'step/end',
+      'turn/end',
     ])
     expect(events.at(-1)).toMatchObject({
-      type: 'turn/end', data: { reason: { kind: 'interrupted' } },
+      type: 'turn/end',
+      data: { reason: { kind: 'interrupted' } },
     })
   })
 
@@ -110,7 +119,8 @@ describe.skipIf(process.platform === 'win32')('semantic checkpoint hard-crash re
     expect(events.some(event => event.type === 'tool/call')).toBe(true)
     const result = events.find(event => event.type === 'tool/result')
     expect(result?.type === 'tool/result' && result.data.error).toEqual({
-      name: 'ToolOutcomeUnknownError', code: TOOL_OUTCOME_UNKNOWN,
+      name: 'ToolOutcomeUnknownError',
+      code: TOOL_OUTCOME_UNKNOWN,
     })
     if (result?.type !== 'tool/result' || result.data.message.content[0]?.type !== 'text') {
       throw new Error('expected a text tool result')

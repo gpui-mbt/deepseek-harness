@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SessionFormatArtifact, SessionFormatEvent } from '@deepseek-ai/dsh-session-format'
 import { restoreReleasedV4Artifact } from '../src/index.ts'
 
@@ -9,7 +9,17 @@ function artifact(events: readonly { type: string; data: unknown; ignorable?: tr
 
 describe('known V4 event interpretation', () => {
   it('keeps unknown ignorable payloads and coordinates opaque to every native semantic pass', () => {
-    const unknown = ['tool/result', 'system/message', 'request/header', 'session/title-llm-request', 'subagent/catalog', 'session-log-deepseek/delivery-accepted', 'compaction/start', 'compaction/end', 'session/end-seed'].map(type => ({ type, data: null, ignorable: true as const }))
+    const unknown = [
+      'tool/result',
+      'system/message',
+      'request/header',
+      'session/title-llm-request',
+      'subagent/catalog',
+      'session-log-deepseek/delivery-accepted',
+      'compaction/start',
+      'compaction/end',
+      'session/end-seed',
+    ].map(type => ({ type, data: null, ignorable: true as const }))
     const input = artifact([...unknown, { type: 'turn/start', data: { turn: 1 } }, { type: 'turn/end', data: { turn: 1 } }])
     const before = JSON.stringify(input)
     expect(restoreReleasedV4Artifact(input, new Set(['turn/start', 'turn/end']))).toBe(input)

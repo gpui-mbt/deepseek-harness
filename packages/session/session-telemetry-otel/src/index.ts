@@ -43,10 +43,13 @@ const NON_CANONICAL_EVENT_WARNING = 'session telemetry ignored an event absent f
 function isFeedback(session: Session, event: SessionEvent): boolean {
   if (event.seq < session.inheritedEventCount) return false
   switch (event.type) {
-    case 'feedback/record': return true
+    case 'feedback/record':
+      return true
     case 'feedback/message-put':
-    case 'feedback/message-delete': return event.data.sessionId === session.id
-    default: return false
+    case 'feedback/message-delete':
+      return event.data.sessionId === session.id
+    default:
+      return false
   }
 }
 
@@ -70,10 +73,13 @@ function assertNever(value: never): never {
 /** Map the serialized mode onto the seam's backend-independent sharing vocabulary. */
 function sharingStatusFor(mode: SessionTelemetryMode): SessionTelemetrySharingStatus {
   switch (mode) {
-    case SessionTelemetryMode.FEEDBACK_ONLY: return 'feedback-only'
-    case SessionTelemetryMode.DISABLED: return 'disabled'
+    case SessionTelemetryMode.FEEDBACK_ONLY:
+      return 'feedback-only'
+    case SessionTelemetryMode.DISABLED:
+      return 'disabled'
     /* v8 ignore next 2 -- resolveMode already rejected unknown values before this switch; the closed enum cannot reach the default. */
-    default: return assertNever(mode)
+    default:
+      return assertNever(mode)
   }
 }
 
@@ -183,7 +189,9 @@ export class OpenTelemetrySessionBackend extends SessionTelemetryBackend {
     }
     const shutdownTimeoutMillis = config.shutdownTimeoutMillis ?? DEFAULT_SHUTDOWN_TIMEOUT_MILLIS
     if (!Number.isFinite(shutdownTimeoutMillis) || shutdownTimeoutMillis <= 0 || shutdownTimeoutMillis > MAX_TIMER_DELAY_MILLIS) {
-      throw new Error(`session-telemetry-otel: shutdownTimeoutMillis must be a positive finite number no greater than ${MAX_TIMER_DELAY_MILLIS}, got ${String(shutdownTimeoutMillis)}`)
+      throw new Error(
+        `session-telemetry-otel: shutdownTimeoutMillis must be a positive finite number no greater than ${MAX_TIMER_DELAY_MILLIS}, got ${String(shutdownTimeoutMillis)}`,
+      )
     }
     this.shutdownTimeoutMillis = shutdownTimeoutMillis
     const { version } = createRequire(import.meta.url)('../package.json') as { version: string }
@@ -197,10 +205,12 @@ export class OpenTelemetrySessionBackend extends SessionTelemetryBackend {
         'service.version': APP_IDENTITY.version,
         'user.id': getOrCreateAnonymousUserId(),
       },
-      onFailure: (message, error) => { ctx.logger.warn(message, error) },
+      onFailure: (message, error) => {
+        ctx.logger.warn(message, error)
+      },
     })
     this.provider = reporter
-    const enqueue: SessionTelemetrySink['emit'] = (record) => {
+    const enqueue: SessionTelemetrySink['emit'] = record => {
       if (record.sourceEvent === undefined) {
         ctx.logger.warn('Session log record withheld: redaction removed sourceEvent')
         return
@@ -230,13 +240,17 @@ export class OpenTelemetrySessionBackend extends SessionTelemetryBackend {
       }
       coordinator.captureSession(session, event.seq)
     })
-    ctx.on('feedback/committed', (inspection) => {
+    ctx.on('feedback/committed', inspection => {
       const snapshot = structuredClone(inspection)
       const committed = snapshot.events.at(-1)
       if (committed === undefined) return
       const session = Session.fromRestore(
-        snapshot.meta.id, snapshot.events, snapshot.meta, snapshot.inheritedEventCount,
-        'detached', ctx.sessions.messageProjections,
+        snapshot.meta.id,
+        snapshot.events,
+        snapshot.meta,
+        snapshot.inheritedEventCount,
+        'detached',
+        ctx.sessions.messageProjections,
       )
       // fromRestore appends a lifecycle marker that this submission did not commit.
       if (isFeedback(session, committed)) coordinator.captureSession(session, committed.seq)

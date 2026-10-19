@@ -1,7 +1,7 @@
 /** What the browser half registers, when, what refreshes the model catalogue, and that it all leaves with the fiber. */
 
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
@@ -25,9 +25,13 @@ async function bench(served?: string[]) {
   locale.setLocale('zh')
   ctx.provide('locale', locale)
   const models = vi.fn(() => Promise.resolve({ ok: true as const, value: { groups: [], failures: [] } }))
-  const describeSettings = vi.fn(() => Promise.resolve(served === undefined
-    ? { ok: false, error: new RemoteError('gateway/internal', 'no provider', {}) }
-    : { ok: true, value: { writable: true, hasDocument: true, namespaces: served.map(ns => view(ns)) } }))
+  const describeSettings = vi.fn(() =>
+    Promise.resolve(
+      served === undefined
+        ? { ok: false, error: new RemoteError('gateway/internal', 'no provider', {}) }
+        : { ok: true, value: { writable: true, hasDocument: true, namespaces: served.map(ns => view(ns)) } },
+    ),
+  )
   const remote = new TestRemote(ctx, {
     session: { modelCatalog: models },
     settings: { describe: describeSettings },
@@ -38,10 +42,13 @@ async function bench(served?: string[]) {
 
 /** The Plugins page's item slot, as its owner declares it. */
 function declareRoot(slots: SlotRegistry): () => void {
-  return slots.register({
-    name: 'root',
-    children: { 'plugins.item': { kind: 'list', scope: 'root' } },
-  } as never, () => null)
+  return slots.register(
+    {
+      name: 'root',
+      children: { 'plugins.item': { kind: 'list', scope: 'root' } },
+    } as never,
+    () => null,
+  )
 }
 
 describe('ui-settings-subagent apply', () => {
@@ -59,7 +66,9 @@ describe('ui-settings-subagent apply', () => {
 
     await ctx.plugin({ inject: [...inject], apply }).await()
 
-    await vi.waitFor(() => { expect(slots.entries('plugins.item')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(slots.entries('plugins.item')).toHaveLength(1)
+    })
     const entry = slots.entries('plugins.item')[0]!
     expect(entry.options).toMatchObject({ id: 'subagent', order: 10 })
     expect(resolveSlotLabel(entry.options.label)).toBe('子智能体')
@@ -72,14 +81,18 @@ describe('ui-settings-subagent apply', () => {
     const { ctx, slots, describeSettings } = await bench(['subagent-model-selection-settings'])
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
-    await vi.waitFor(() => { expect(slots.entries('plugins.item')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(slots.entries('plugins.item')).toHaveLength(1)
+    })
     await ctx.plugin({ inject: [...inject], apply }).dispose()
     expect(slots.entries('plugins.item')).toHaveLength(1)
 
     const other = await bench(['shell'])
     declareRoot(other.slots)
     await other.ctx.plugin({ inject: [...inject], apply }).await()
-    await vi.waitFor(() => { expect(other.describeSettings).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(other.describeSettings).toHaveBeenCalled()
+    })
     expect(other.slots.entries('plugins.item')).toHaveLength(0)
     expect(describeSettings).toHaveBeenCalled()
   })
@@ -108,7 +121,9 @@ describe('ui-settings-subagent apply', () => {
     declareRoot(slots)
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    await vi.waitFor(() => { expect(slots.entries('plugins.item')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(slots.entries('plugins.item')).toHaveLength(1)
+    })
 
     await fiber.dispose()
 

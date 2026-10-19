@@ -6,4 +6,8 @@
  * @param invoke Apple command executor.
  * @returns Final tool output consumed by electron-notarize; upload failure prevents waiting.
  */
-export function runLoggedNotarytool(args: readonly string[], directory?: string, invoke?: (args: readonly string[]) => Promise<string>): Promise<string>
+export function runLoggedNotarytool(
+  args: readonly string[],
+  directory?: string,
+  invoke?: (args: readonly string[]) => Promise<string>,
+): Promise<string>

@@ -1,17 +1,14 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { makeBridgeHarness, textResponse, type BridgeHarness, type CapturedUpdate } from './harness.ts'
 
-function messageTextFor(
-  updates: { sessionId: string; update: CapturedUpdate }[],
-  sessionId: string,
-): string {
-  return updates.flatMap(({ sessionId: owner, update }) => (
-    owner === sessionId && update.sessionUpdate === 'agent_message_chunk' && update.content.type === 'text'
-      ? [update.content.text]
-      : []
-  )).join('')
+function messageTextFor(updates: { sessionId: string; update: CapturedUpdate }[], sessionId: string): string {
+  return updates
+    .flatMap(({ sessionId: owner, update }) =>
+      owner === sessionId && update.sessionUpdate === 'agent_message_chunk' && update.content.type === 'text' ? [update.content.text] : [],
+    )
+    .join('')
 }
 
 describe('ACP multi-session isolation', () => {
@@ -47,12 +44,17 @@ describe('ACP multi-session isolation', () => {
     const b = (await harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })).sessionId
 
     const pendingA = harness.client.prompt({ sessionId: a, prompt: [{ type: 'text', text: 'hang A' }] })
-    await vi.waitFor(() => { expect(harness!.ctx.agents.get(SessionId(a))?.status).toBe('running') })
+    await vi.waitFor(() => {
+      expect(harness!.ctx.agents.get(SessionId(a))?.status).toBe('running')
+    })
     await harness.client.cancel({ sessionId: a })
     await expect(pendingA).resolves.toEqual({ stopReason: 'cancelled' })
-    await expect(harness.client.prompt({ sessionId: b, prompt: [{ type: 'text', text: 'go B' }] }))
-      .resolves.toEqual({ stopReason: 'end_turn' })
-    await vi.waitFor(() => { expect(messageTextFor(harness!.sessionUpdates, b)).toBe('B done') })
+    await expect(harness.client.prompt({ sessionId: b, prompt: [{ type: 'text', text: 'go B' }] })).resolves.toEqual({
+      stopReason: 'end_turn',
+    })
+    await vi.waitFor(() => {
+      expect(messageTextFor(harness!.sessionUpdates, b)).toBe('B done')
+    })
   })
 
   it('enforces one in-flight prompt independently for each session', async () => {
@@ -67,8 +69,7 @@ describe('ACP multi-session isolation', () => {
       expect(harness!.ctx.agents.get(SessionId(b))?.status).toBe('running')
     })
 
-    await expect(harness.client.prompt({ sessionId: a, prompt: [{ type: 'text', text: 'again' }] }))
-      .rejects.toThrow(/already in flight/)
+    await expect(harness.client.prompt({ sessionId: a, prompt: [{ type: 'text', text: 'again' }] })).rejects.toThrow(/already in flight/)
     await Promise.all([harness.client.cancel({ sessionId: a }), harness.client.cancel({ sessionId: b })])
     await expect(pendingA).resolves.toEqual({ stopReason: 'cancelled' })
     await expect(pendingB).resolves.toEqual({ stopReason: 'cancelled' })

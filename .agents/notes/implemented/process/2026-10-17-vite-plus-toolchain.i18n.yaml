@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for 2026-10-17-vite-plus-toolchain.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-10-17-vite-plus-toolchain.md
+/agent-note-run-the-repository-toolchain-through-vite:
+  en: aa7df2c787b3899d
+  zh: d3e8ff48394eb884
+/agent-note-run-the-repository-toolchain-through-vite/problem:
+  en: 1d9cf20e5e088254
+  zh: 37898700f078f05b
+/agent-note-run-the-repository-toolchain-through-vite/decision:
+  en: eab03347d5b2cf30
+  zh: dccc96e50981ede4
+/agent-note-run-the-repository-toolchain-through-vite/alternatives-considered:
+  en: cec44929e76166e4
+  zh: a8ddbeb4b4bd6f6b
+/agent-note-run-the-repository-toolchain-through-vite/consequences:
+  en: 963d4bc8253121bd
+  zh: 5722ec19d47f5f32
+/agent-note-run-the-repository-toolchain-through-vite/verification:
+  en: c7942ee6f2820d82
+  zh: b41e0bf6787a0310

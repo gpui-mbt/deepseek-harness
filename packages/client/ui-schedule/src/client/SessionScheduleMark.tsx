@@ -9,14 +9,10 @@
  * retains, and unarchives nothing, and it never reads a Session log.
  */
 
-import {
-  IconClockOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconClockOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
-import {
-  useSessionScheduleFacts, type SessionScheduleCatalogObservable,
-} from './session-schedule-state.ts'
+import { useSessionScheduleFacts, type SessionScheduleCatalogObservable } from './session-schedule-state.ts'
 import { NS } from './locales.ts'
 import css from './SessionScheduleMark.module.css'
 
@@ -27,8 +23,9 @@ export interface SessionScheduleMarkInjected {
 }
 
 /** Full props of the Session-row clock mark. */
-export type SessionScheduleMarkProps =
-  PropsRuntime<'sidebar.session.row.leading'> & PropsLocale<typeof NS> & InjectFace<SessionScheduleMarkInjected>
+export type SessionScheduleMarkProps = PropsRuntime<'sidebar.session.row.leading'> &
+  PropsLocale<typeof NS> &
+  InjectFace<SessionScheduleMarkInjected>
 
 /**
  * Render the clock mark while this Session's active tasks are non-empty.
@@ -37,9 +34,7 @@ export type SessionScheduleMarkProps =
  * @param props.t - Schedule catalog locale seat.
  * @returns the mark, or nothing while the read is unresolved, failed, ended, or empty.
  */
-export function SessionScheduleMark({
-  sessionId, useCatalog, t,
-}: SessionScheduleMarkProps) {
+export function SessionScheduleMark({ sessionId, useCatalog, t }: SessionScheduleMarkProps) {
   const facts = useSessionScheduleFacts(useCatalog, sessionId)
   if (!facts.hasActive) return null
   return (
@@ -48,7 +43,9 @@ export function SessionScheduleMark({
       data-session-schedule-mark=""
       // A press on the mark must not activate the Session through the row's
       // own click target; the row keeps every other cell as its activation area.
-      onClick={(event) => { event.stopPropagation() }}
+      onClick={event => {
+        event.stopPropagation()
+      }}
     >
       <IconClockOutlineRegular size={14} />
       {/* The glyph is aria-hidden, so the count reaches assistive technology

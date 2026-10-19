@@ -63,7 +63,9 @@ export class DesktopUpdateCoordinator {
       const transportOwner = updater as AppUpdater & { httpExecutor: DesktopUpdateHttpExecutor }
       transportOwner.httpExecutor = new DesktopUpdateHttpExecutor(
         Number(process.env.DSH_DESKTOP_UPDATE_HTTP_IDLE_TIMEOUT_MS ?? 60_000),
-        (authInfo, callback) => { updater.emit('login', authInfo, callback) },
+        (authInfo, callback) => {
+          updater.emit('login', authInfo, callback)
+        },
       )
     }
     this.updater.autoDownload = false
@@ -78,7 +80,9 @@ export class DesktopUpdateCoordinator {
   }
 
   /** Latest observable state; complete download identity remains main-process-owned. */
-  get state(): DesktopUpdateState { return this.current }
+  get state(): DesktopUpdateState {
+    return this.current
+  }
 
   /**
    * Check metadata without downloading, joining any current check.
@@ -89,8 +93,11 @@ export class DesktopUpdateCoordinator {
     this.assertLive()
     if (this.downloadOperation !== undefined || this.installOperation !== undefined || this.downloaded) return this.current
     if (!manual && this.current.phase === 'error' && this.current.failedOperation === 'download') return this.current
-    this.checkOperation ??= Promise.resolve().then(() => this.doCheck())
-      .finally(() => { this.checkOperation = undefined })
+    this.checkOperation ??= Promise.resolve()
+      .then(() => this.doCheck())
+      .finally(() => {
+        this.checkOperation = undefined
+      })
     const result = await this.checkOperation
     if (manual && result.phase === 'error') this.setState(result)
     return result
@@ -103,23 +110,27 @@ export class DesktopUpdateCoordinator {
   async download(version: string): Promise<DesktopUpdateState> {
     this.assertLive()
     if (this.downloaded || this.installOperation !== undefined) return this.current
-    this.downloadOperation ??= Promise.resolve().then(async () => {
-      await this.checkOperation
-      this.assertLive()
-      if (this.candidate === undefined) throw new Error('desktop update: no checked update is available')
-      if (version !== this.candidate) throw new Error('desktop update: download confirmation is stale')
-      this.setState({ phase: 'downloading', version, percent: 0 })
-      try {
-        await this.updater.downloadUpdate()
-        if (!this.downloaded) throw new Error('desktop update: platform preparation did not report readiness')
-        this.downloadResult?.(true)
-        return this.setState({ phase: 'ready', version })
-      } catch (error) {
-        this.downloaded = false
-        this.downloadResult?.(false, error instanceof DesktopUpdatePreparationError ? error.kind : 'download_failed')
-        return this.setState(this.failure(error, 'download'))
-      }
-    }).finally(() => { this.downloadOperation = undefined })
+    this.downloadOperation ??= Promise.resolve()
+      .then(async () => {
+        await this.checkOperation
+        this.assertLive()
+        if (this.candidate === undefined) throw new Error('desktop update: no checked update is available')
+        if (version !== this.candidate) throw new Error('desktop update: download confirmation is stale')
+        this.setState({ phase: 'downloading', version, percent: 0 })
+        try {
+          await this.updater.downloadUpdate()
+          if (!this.downloaded) throw new Error('desktop update: platform preparation did not report readiness')
+          this.downloadResult?.(true)
+          return this.setState({ phase: 'ready', version })
+        } catch (error) {
+          this.downloaded = false
+          this.downloadResult?.(false, error instanceof DesktopUpdatePreparationError ? error.kind : 'download_failed')
+          return this.setState(this.failure(error, 'download'))
+        }
+      })
+      .finally(() => {
+        this.downloadOperation = undefined
+      })
     return this.downloadOperation
   }
 
@@ -130,19 +141,24 @@ export class DesktopUpdateCoordinator {
    */
   async install(version: string): Promise<DesktopUpdateState> {
     this.assertLive()
-    if (!this.downloaded || this.downloadOperation !== undefined || version !== this.candidate) throw new Error('desktop update: confirmed target is not ready')
-    this.installOperation ??= Promise.resolve().then(async () => {
-      this.setState({ phase: 'installing', version })
-      try {
-        if (!await this.beforeRestart()) return this.setState({ phase: 'ready', version })
-        this.assertLive()
-        this.updater.quitAndInstall(true, true)
-        return this.current
-      } catch (error) {
-        if (this.current.phase === 'error' && this.current.failedOperation === 'install') return this.current
-        return this.setState(this.failure(error, 'install'))
-      }
-    }).finally(() => { this.installOperation = undefined })
+    if (!this.downloaded || this.downloadOperation !== undefined || version !== this.candidate)
+      throw new Error('desktop update: confirmed target is not ready')
+    this.installOperation ??= Promise.resolve()
+      .then(async () => {
+        this.setState({ phase: 'installing', version })
+        try {
+          if (!(await this.beforeRestart())) return this.setState({ phase: 'ready', version })
+          this.assertLive()
+          this.updater.quitAndInstall(true, true)
+          return this.current
+        } catch (error) {
+          if (this.current.phase === 'error' && this.current.failedOperation === 'install') return this.current
+          return this.setState(this.failure(error, 'install'))
+        }
+      })
+      .finally(() => {
+        this.installOperation = undefined
+      })
     return this.installOperation
   }
 
@@ -152,8 +168,9 @@ export class DesktopUpdateCoordinator {
     this.updater.off('download-progress', this.onProgress)
     this.updater.off('update-downloaded', this.onDownloaded)
     // Pending updater promises can still emit EventEmitter errors during shutdown.
-    void Promise.allSettled([this.checkOperation, this.downloadOperation, this.installOperation])
-      .then(() => { this.updater.off('error', this.onError) })
+    void Promise.allSettled([this.checkOperation, this.downloadOperation, this.installOperation]).then(() => {
+      this.updater.off('error', this.onError)
+    })
   }
 
   private assertLive(): void {
@@ -169,12 +186,18 @@ export class DesktopUpdateCoordinator {
   }
 
   private failure(error: unknown, failedOperation: 'check' | 'download' | 'install'): DesktopUpdateState {
-    return { phase: 'error', ...this.target(), failedOperation,
+    return {
+      phase: 'error',
+      ...this.target(),
+      failedOperation,
       message: error instanceof Error ? error.message : String(error),
-      ...(error instanceof DesktopUpdatePreparationError ? {
-        preparationFailure: error.kind,
-        ...(error.technicalDetails === undefined ? {} : { technicalDetails: error.technicalDetails }),
-      } : {}) }
+      ...(error instanceof DesktopUpdatePreparationError
+        ? {
+            preparationFailure: error.kind,
+            ...(error.technicalDetails === undefined ? {} : { technicalDetails: error.technicalDetails }),
+          }
+        : {}),
+    }
   }
 
   private target(): { version?: string } {

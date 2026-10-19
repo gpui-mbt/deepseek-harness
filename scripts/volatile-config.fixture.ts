@@ -7,5 +7,8 @@ export const Config = z.object({
   title: z.string().default('hello').volatile(),
   optional: z.string().volatile(),
   nested: z.object({ count: z.number().min(0).volatile().default(1) }).default({}),
-  group: z.object({ list: z.array(z.string()) }).default({ list: [] }).volatile(),
+  group: z
+    .object({ list: z.array(z.string()) })
+    .default({ list: [] })
+    .volatile(),
 })

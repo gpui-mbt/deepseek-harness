@@ -24,7 +24,12 @@ export interface ImageLightboxLabels {
  * @param props.onClose - dismiss callback owned by the opener.
  * @returns the modal preview dialog.
  */
-export function ImageLightbox({ src, alt, labels, onClose }: {
+export function ImageLightbox({
+  src,
+  alt,
+  labels,
+  onClose,
+}: {
   src: string
   alt: string
   labels: ImageLightboxLabels
@@ -37,8 +42,14 @@ export function ImageLightbox({ src, alt, labels, onClose }: {
     restoreRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     closeRef.current?.focus()
     const onKeyDown = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === 'Escape') { event.stopPropagation(); onClose() }
-      if (event.key === 'Tab') { event.preventDefault(); closeRef.current?.focus() }
+      if (event.key === 'Escape') {
+        event.stopPropagation()
+        onClose()
+      }
+      if (event.key === 'Tab') {
+        event.preventDefault()
+        closeRef.current?.focus()
+      }
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => {
@@ -48,12 +59,7 @@ export function ImageLightbox({ src, alt, labels, onClose }: {
   }, [onClose])
 
   return createPortal(
-    <div
-      className={css.backdrop}
-      role="dialog"
-      aria-modal="true"
-      aria-label={labels.dialog}
-    >
+    <div className={css.backdrop} role="dialog" aria-modal="true" aria-label={labels.dialog}>
       <div className={css.stage}>
         <div className={css.mask} aria-hidden="true" onMouseDown={onClose} />
         <img className={css.image} src={src} alt={alt} />

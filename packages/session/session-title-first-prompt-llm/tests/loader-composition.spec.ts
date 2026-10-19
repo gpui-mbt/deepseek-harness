@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -22,7 +22,7 @@ let context: Context | undefined
 class LoaderAdapter extends LlmAdapter {
   readonly requests: GenerateOptions[] = []
 
-  override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
     yield { type: 'text-delta', index: 0, text: 'Loader composed title' }
     yield { type: 'finish', reason: { kind: 'stop' } }
@@ -52,23 +52,26 @@ async function loadComposition(
 ): Promise<Context> {
   root = await mkdtemp(join(tmpdir(), 'dsh-title-loader-'))
   const configPath = join(root, 'cordis.yml')
-  await writeFile(configPath, [
-    "- name: '@deepseek-ai/dsh-llm'",
-    "- name: '@deepseek-ai/dsh-session'",
-    "- name: '@deepseek-ai/dsh-session-projection'",
-    "- name: '@deepseek-ai/dsh-session-title'",
-    '  config:',
-    '    fallbackMaxWords: 5',
-    '    fallbackMaxBytes: 40',
-    '    maxTitleBytes: 80',
-    "- name: '@deepseek-ai/dsh-session-title-first-prompt-llm'",
-    '  config:',
-    '    targetWords: 5',
-    '    targetCjkCharacters: 10',
-    ...providerConfig.map(line => `    ${line}`),
-    ...entries,
-    '',
-  ].join('\n'))
+  await writeFile(
+    configPath,
+    [
+      "- name: '@deepseek-ai/dsh-llm'",
+      "- name: '@deepseek-ai/dsh-session'",
+      "- name: '@deepseek-ai/dsh-session-projection'",
+      "- name: '@deepseek-ai/dsh-session-title'",
+      '  config:',
+      '    fallbackMaxWords: 5',
+      '    fallbackMaxBytes: 40',
+      '    maxTitleBytes: 80',
+      "- name: '@deepseek-ai/dsh-session-title-first-prompt-llm'",
+      '  config:',
+      '    targetWords: 5',
+      '    targetCjkCharacters: 10',
+      ...providerConfig.map(line => `    ${line}`),
+      ...entries,
+      '',
+    ].join('\n'),
+  )
 
   context = new Context()
   context.baseUrl = pathToFileURL(root).href + '/'
@@ -104,19 +107,19 @@ async function loadComposition(
  * @param config - the main request's logged call config.
  * @returns the session and the prompt's seq.
  */
-async function promptThenRequest(
-  ctx: Context,
-  id: string,
-  config: LlmCallConfig,
-): Promise<{ session: Session; messageSeq: SessionSeq }> {
+async function promptThenRequest(ctx: Context, id: string, config: LlmCallConfig): Promise<{ session: Session; messageSeq: SessionSeq }> {
   const session = ctx.sessions.create(SessionId(id))
   session.append('turn/start', {
     turn: 1,
   })
-  const message = session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'Compose a title through Loader' }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  const message = session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'Compose a title through Loader' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
   await new Promise(resolve => setTimeout(resolve, 0))
   session.append('request/header', {
     header: { config },
@@ -162,34 +165,37 @@ describe('session-title Loader composition', () => {
   it('titles a session on an inherited pi-ai route that cannot stop reasoning', async () => {
     vi.stubEnv('PI_TITLE_KEY', 'test-key')
     const server = await mockServer([{ events: anthropicTextEvents }])
-    const ctx = await loadComposition([
-      'maxInputBytes: 4096',
-      'maxOutputTokens: 64',
-      'timeoutMs: 60000',
-    ], [
-      "- name: '@deepseek-ai/dsh-llm-pi-ai'",
-      '  config:',
-      '    providers:',
-      '      gateway:',
-      '        apiKeyEnv: PI_TITLE_KEY',
-      '        api: anthropic-messages',
-      `        baseURL: ${server.url}`,
-      '        reasoning: max',
-      '        models:',
-      '          - id: adaptive-model',
-      '            reasoningEfforts: { low: low, high: high, max: max }',
-      '            compat:',
-      '              forceAdaptiveThinking: true',
-    ], new Map([['@deepseek-ai/dsh-llm-pi-ai', LlmPiAi]]))
+    const ctx = await loadComposition(
+      ['maxInputBytes: 4096', 'maxOutputTokens: 64', 'timeoutMs: 60000'],
+      [
+        "- name: '@deepseek-ai/dsh-llm-pi-ai'",
+        '  config:',
+        '    providers:',
+        '      gateway:',
+        '        apiKeyEnv: PI_TITLE_KEY',
+        '        api: anthropic-messages',
+        `        baseURL: ${server.url}`,
+        '        reasoning: max',
+        '        models:',
+        '          - id: adaptive-model',
+        '            reasoningEfforts: { low: low, high: high, max: max }',
+        '            compat:',
+        '              forceAdaptiveThinking: true',
+      ],
+      new Map([['@deepseek-ai/dsh-llm-pi-ai', LlmPiAi]]),
+    )
 
     const { session, messageSeq } = await promptThenRequest(ctx, 'pi-ai-title', {
       provider: 'gateway',
       model: 'adaptive-model',
       reasoningEffort: ReasoningEffortId('max'),
     })
-    await vi.waitFor(() => {
-      expect(ctx.sessionTitle.get(session)?.source.kind).toBe('provider')
-    }, { timeout: 10_000 })
+    await vi.waitFor(
+      () => {
+        expect(ctx.sessionTitle.get(session)?.source.kind).toBe('provider')
+      },
+      { timeout: 10_000 },
+    )
 
     // The title request inherits the route but not its effort, so the
     // output cap holds the visible title instead of max-effort thinking.

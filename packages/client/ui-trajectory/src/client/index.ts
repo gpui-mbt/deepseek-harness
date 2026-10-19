@@ -21,9 +21,7 @@ import { registerTrajectoryAssistantDefinition } from './trajectory-assistant-de
 import { registerTrajectoryCompactionDefinitions } from './trajectory-compaction-definition.ts'
 import { registerTrajectoryMessageDefinitions } from './trajectory-message-definitions.ts'
 import { registerTrajectoryRequestHeaderDefinition } from './trajectory-request-header-definition.ts'
-import {
-  EMPTY_TRAJECTORY_SNAPSHOT, registerTrajectoryConversationView,
-} from './trajectory-snapshot-builder.ts'
+import { EMPTY_TRAJECTORY_SNAPSHOT, registerTrajectoryConversationView } from './trajectory-snapshot-builder.ts'
 import type { TrajectorySnapshot } from './trajectory-contract.ts'
 import { registerTrajectoryToolDefinition } from './trajectory-tool-definition.ts'
 import { TrajectoryView, type TrajectoryViewInjected } from './TrajectoryView.tsx'
@@ -76,36 +74,44 @@ export function apply(ctx: Context): void {
     hooks: ['trajectory'],
     resolve: binding => ({ hooks: { trajectory: trajectorySource(binding) } }),
   })
-  ctx.slots.inject('conversation.view', () => ctx.slots.register({
-    name: 'conversation.view',
-    id: 'trajectory',
-    order: 10,
-    locale: NS,
-    label: () => t('view.trajectory'),
-    children: { 'conversation.trajectory.images': { kind: 'single', scope: 'session' } },
-    inject: (sessionId: SessionId): TrajectoryViewInjected => {
-      const session = ctx.sessions.binding(sessionId)?.session
-      if (session === undefined) {
-        throw new Error(`ui-trajectory: session "${sessionId}" is unavailable`)
-      }
-      const trajectory = ctx.uiConversation.binding(sessionId).target('trajectory')
-      return {
-        hooks: { duration },
-        jsonStringWrapping: {
-          getDefault: () => stringWrapping.getSnapshot(),
-          setDefault: (value) => { stringWrapping.set(value) },
+  ctx.slots.inject('conversation.view', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.view',
+        id: 'trajectory',
+        order: 10,
+        locale: NS,
+        label: () => t('view.trajectory'),
+        children: { 'conversation.trajectory.images': { kind: 'single', scope: 'session' } },
+        inject: (sessionId: SessionId): TrajectoryViewInjected => {
+          const session = ctx.sessions.binding(sessionId)?.session
+          if (session === undefined) {
+            throw new Error(`ui-trajectory: session "${sessionId}" is unavailable`)
+          }
+          const trajectory = ctx.uiConversation.binding(sessionId).target('trajectory')
+          return {
+            hooks: { duration },
+            jsonStringWrapping: {
+              getDefault: () => stringWrapping.getSnapshot(),
+              setDefault: value => {
+                stringWrapping.set(value)
+              },
+            },
+            loadOlder: async () => {
+              const before = trajectory.getSnapshot()
+              await session.loadOlder()
+              return trajectory.getSnapshot() !== before
+            },
+            loadImage: Object.assign((attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment), {
+              peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment),
+            }),
+            setActualDuration: value => {
+              duration.set(value)
+            },
+          }
         },
-        loadOlder: async () => {
-          const before = trajectory.getSnapshot()
-          await session.loadOlder()
-          return trajectory.getSnapshot() !== before
-        },
-        loadImage: Object.assign(
-          (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
-          { peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment) },
-        ),
-        setActualDuration: (value) => { duration.set(value) },
-      }
-    },
-  }, TrajectoryView))
+      },
+      TrajectoryView,
+    ),
+  )
 }

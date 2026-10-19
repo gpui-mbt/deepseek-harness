@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { createSessionFormatCatalogWithChildren, sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { sessionFormatLogFilename } from '@deepseek-ai/dsh-session-format'
 import { packPreviewFixture } from '../src/preview.ts'
@@ -35,7 +35,10 @@ function source() {
 }
 
 function restore(bytes: Uint8Array | undefined) {
-  const [header, ...rows] = text(bytes).trimEnd().split('\n').map(row => JSON.parse(row) as unknown)
+  const [header, ...rows] = text(bytes)
+    .trimEnd()
+    .split('\n')
+    .map(row => JSON.parse(row) as unknown)
   const reader = createSessionFormatCatalogWithChildren([]).createRestore(header, { recovery: 'strict', validation: 'current' })
   for (const row of rows) reader.decodeRow(row)
   return reader.finish()
@@ -63,35 +66,45 @@ describe('Node preparation of Preview Session data', () => {
     expect(packVfsOverlay(fixture.trees).files).toEqual(original.files)
   })
 
-  it.each(['missing-descriptor', 'other-root', 'other-origin', 'current-child'] as const)('catalogs direct subagent children in the same root, retaining missing descriptors as unknown: %s', (mode) => {
-    const fixture = source()
-    const parent = fixture.put(3)
-    const childDirectory = join(fixture.trees[0]!.directory, 'sessions', mode === 'other-root' ? 'other' : 'project', 'child')
-    mkdirSync(childDirectory, { recursive: true })
-    const version = mode === 'current-child' ? currentVersion : 3
-    const child = { type: 'session', version, id: 'child', createdAt: 2, isSeeded: false,
-      delegationDepth: 1, parentSession: 'example', ...(mode === 'other-origin' ? {} : { origin: 'subagent' }) }
-    const descriptor = { type: 'subagent/descriptor', seq: 0, time: 3,
-      data: { version: 3, mode: 'one-shot', provider: 'spawn' } }
-    const childPath = join(childDirectory, sessionFormatLogFilename(version))
-    writeFileSync(childPath,
-      JSON.stringify(child) + '\n' + (mode === 'current-child' ? JSON.stringify(descriptor) + '\n' : ''))
-    const before = readFileSync(parent)
-    const childBefore = readFileSync(childPath)
-    const original = packVfsOverlay(fixture.trees)
-    const packed = packPreviewFixture(fixture.trees)
-    const restored = restore(packed.files[`home/sessions/project/example/${sessionFormatLogFilename(currentVersion)}`])
-    expect(restored.inheritedEventCount).toBe(0)
-    const catalog = mode === 'current-child'
-      ? [{ version: 0, childId: 'child', childCreatedAt: 2, mode: 'one-shot' }]
-      : mode === 'missing-descriptor'
-        ? [{ version: 1, childId: 'child', childCreatedAt: 2, mode: 'unknown' }]
-        : []
-    expect(restored.events).toEqual(catalog.map(data => ({ type: 'subagent/catalog', seq: 0, time: 1, data })))
-    for (const [path, bytes] of Object.entries(original.files)) expect(packed.files[path], path).toEqual(bytes)
-    expect(readFileSync(parent)).toEqual(before)
-    expect(readFileSync(childPath)).toEqual(childBefore)
-  })
+  it.each(['missing-descriptor', 'other-root', 'other-origin', 'current-child'] as const)(
+    'catalogs direct subagent children in the same root, retaining missing descriptors as unknown: %s',
+    mode => {
+      const fixture = source()
+      const parent = fixture.put(3)
+      const childDirectory = join(fixture.trees[0]!.directory, 'sessions', mode === 'other-root' ? 'other' : 'project', 'child')
+      mkdirSync(childDirectory, { recursive: true })
+      const version = mode === 'current-child' ? currentVersion : 3
+      const child = {
+        type: 'session',
+        version,
+        id: 'child',
+        createdAt: 2,
+        isSeeded: false,
+        delegationDepth: 1,
+        parentSession: 'example',
+        ...(mode === 'other-origin' ? {} : { origin: 'subagent' }),
+      }
+      const descriptor = { type: 'subagent/descriptor', seq: 0, time: 3, data: { version: 3, mode: 'one-shot', provider: 'spawn' } }
+      const childPath = join(childDirectory, sessionFormatLogFilename(version))
+      writeFileSync(childPath, JSON.stringify(child) + '\n' + (mode === 'current-child' ? JSON.stringify(descriptor) + '\n' : ''))
+      const before = readFileSync(parent)
+      const childBefore = readFileSync(childPath)
+      const original = packVfsOverlay(fixture.trees)
+      const packed = packPreviewFixture(fixture.trees)
+      const restored = restore(packed.files[`home/sessions/project/example/${sessionFormatLogFilename(currentVersion)}`])
+      expect(restored.inheritedEventCount).toBe(0)
+      const catalog =
+        mode === 'current-child'
+          ? [{ version: 0, childId: 'child', childCreatedAt: 2, mode: 'one-shot' }]
+          : mode === 'missing-descriptor'
+            ? [{ version: 1, childId: 'child', childCreatedAt: 2, mode: 'unknown' }]
+            : []
+      expect(restored.events).toEqual(catalog.map(data => ({ type: 'subagent/catalog', seq: 0, time: 1, data })))
+      for (const [path, bytes] of Object.entries(original.files)) expect(packed.files[path], path).toEqual(bytes)
+      expect(readFileSync(parent)).toEqual(before)
+      expect(readFileSync(childPath)).toEqual(childBefore)
+    },
+  )
 
   it('uses the highest generation and leaves an already-current image byte-identical', () => {
     const fixture = source()
@@ -107,18 +120,23 @@ describe('Node preparation of Preview Session data', () => {
     expect(packPreviewFixture(fixture.trees)).toEqual(packVfsOverlay(fixture.trees))
   })
 
-  it.each(['future', 'corrupt', 'unknown-required'] as const)('refuses selected %s data without falling back or changing inputs', (mode) => {
+  it.each(['future', 'corrupt', 'unknown-required'] as const)('refuses selected %s data without falling back or changing inputs', mode => {
     const fixture = source()
     fixture.put(3)
-    const path = fixture.put(mode === 'future' ? currentVersion + 1 : currentVersion,
-      mode === 'corrupt' ? '{invalid JSON}\n'
-        : mode === 'unknown-required' ? JSON.stringify({ type: 'external/required', seq: 0, time: 1, data: null }) + '\n' : '')
+    const path = fixture.put(
+      mode === 'future' ? currentVersion + 1 : currentVersion,
+      mode === 'corrupt'
+        ? '{invalid JSON}\n'
+        : mode === 'unknown-required'
+          ? JSON.stringify({ type: 'external/required', seq: 0, time: 1, data: null }) + '\n'
+          : '',
+    )
     const before = readFileSync(path)
     expect(() => packPreviewFixture(fixture.trees)).toThrow()
     expect(readFileSync(path)).toEqual(before)
   })
 
-  it.each([{ version: 2 }, { id: 'other' }])('refuses selected metadata that disagrees with its location: %j', (overrides) => {
+  it.each([{ version: 2 }, { id: 'other' }])('refuses selected metadata that disagrees with its location: %j', overrides => {
     const fixture = source()
     fixture.put(3, '', overrides)
     expect(() => packPreviewFixture(fixture.trees)).toThrow('disagrees with its Session header')

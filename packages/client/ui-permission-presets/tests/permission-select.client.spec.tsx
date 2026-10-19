@@ -1,21 +1,22 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import type {
-  PermissionCatalog, PermissionSelection,
-} from '@deepseek-ai/dsh-permission-presets/client'
-import {
-  PermissionSelect, type PermissionSelectProps,
-} from '../src/client/PermissionSelect.tsx'
+import type { PermissionCatalog, PermissionSelection } from '@deepseek-ai/dsh-permission-presets/client'
+import { PermissionSelect, type PermissionSelectProps } from '../src/client/PermissionSelect.tsx'
 import type { PermissionCatalogState } from '../src/client/catalog.ts'
 import { accessZh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
 
 const CATALOG: PermissionCatalog = {
-  defaultPreset: 'read-only', defaultOptions: [{ value: 'read-only', name: 'read-only' }, { value: 'workspace-write', name: 'workspace-write' }, { value: 'danger-full-access', name: 'danger-full-access' }],
+  defaultPreset: 'read-only',
+  defaultOptions: [
+    { value: 'read-only', name: 'read-only' },
+    { value: 'workspace-write', name: 'workspace-write' },
+    { value: 'danger-full-access', name: 'danger-full-access' },
+  ],
   options: [
     { value: 'read-only', name: 'read-only' },
     { value: 'workspace-write', name: 'workspace-write' },
@@ -30,12 +31,14 @@ const CATALOG: PermissionCatalog = {
 
 const t: PermissionSelectProps['t'] = makeTranslate(accessZh)
 
-function setup(options: {
-  selection?: PermissionSelection | undefined
-  catalog?: PermissionCatalog | null
-  locked?: boolean
-  select?: (preset: string) => Promise<boolean>
-} = {}) {
+function setup(
+  options: {
+    selection?: PermissionSelection | undefined
+    catalog?: PermissionCatalog | null
+    locked?: boolean
+    select?: (preset: string) => Promise<boolean>
+  } = {},
+) {
   const selection = createSnapshotStore<{ value: PermissionSelection | undefined }>({
     value: 'selection' in options ? options.selection : { currentValue: 'workspace-write' },
   })
@@ -76,25 +79,30 @@ describe('PermissionSelect', () => {
       select: () => submitted.promise,
     })
     expect(trigger().textContent).toBe('仅可查看')
-    expect([...trigger().querySelectorAll('svg')]
-      .every(icon => icon.closest('[aria-hidden="true"]') !== null)).toBe(true)
+    expect([...trigger().querySelectorAll('svg')].every(icon => icon.closest('[aria-hidden="true"]') !== null)).toBe(true)
 
     fireEvent.click(trigger())
-    expect(screen.getAllByRole('menuitem').map(item => item.textContent))
-      .toEqual(['仅可查看', '工作区内修改', '完全权限', '自动审查EXP'])
+    expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['仅可查看', '工作区内修改', '完全权限', '自动审查EXP'])
     fireEvent.click(screen.getByRole('menuitem', { name: '工作区内修改' }))
 
     expect(select).toHaveBeenCalledExactlyOnceWith('workspace-write')
     expect(trigger().textContent).toBe('工作区内修改')
     expect(trigger().disabled).toBe(true)
     submitted.resolve(true)
-    await act(async () => { await submitted.promise })
+    await act(async () => {
+      await submitted.promise
+    })
     expect(trigger().disabled).toBe(false)
   })
 
   it('preserves host labels and ignores the already-current row', () => {
     const catalog: PermissionCatalog = {
-      defaultPreset: 'read-only', defaultOptions: [{ value: 'read-only', name: 'read-only' }, { value: 'workspace-write', name: 'workspace-write' }, { value: 'danger-full-access', name: 'danger-full-access' }],
+      defaultPreset: 'read-only',
+      defaultOptions: [
+        { value: 'read-only', name: 'read-only' },
+        { value: 'workspace-write', name: 'workspace-write' },
+        { value: 'danger-full-access', name: 'danger-full-access' },
+      ],
       options: [
         { value: 'workspace-write', name: 'Project Files' },
         { value: 'danger-full-access', name: 'Operator Mode' },
@@ -105,8 +113,12 @@ describe('PermissionSelect', () => {
     const { select } = setup({ catalog })
     expect(trigger().textContent).toBe('Project Files')
     fireEvent.click(trigger())
-    expect(screen.getAllByRole('menuitem').map(item => item.textContent))
-      .toEqual(['Project Files', 'Operator Mode', 'Custom Mode', '__proto__'])
+    expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual([
+      'Project Files',
+      'Operator Mode',
+      'Custom Mode',
+      '__proto__',
+    ])
     fireEvent.click(screen.getByRole('menuitem', { name: 'Project Files' }))
     expect(select).not.toHaveBeenCalled()
   })
@@ -146,8 +158,7 @@ describe('PermissionSelect', () => {
     const autoOption = screen.getByRole('menuitem', { name: '自动审查 EXP' })
     const autoGlyph = autoOption.querySelector('svg[aria-hidden="true"]')
     expect(autoGlyph).not.toBeNull()
-    expect(autoGlyph!.innerHTML)
-      .not.toBe(screen.getByRole('menuitem', { name: '完全权限' }).querySelector('svg')!.innerHTML)
+    expect(autoGlyph!.innerHTML).not.toBe(screen.getByRole('menuitem', { name: '完全权限' }).querySelector('svg')!.innerHTML)
     fireEvent.click(autoOption)
 
     const dialog = screen.getByRole('dialog', { name: '确认启用自动审查（实验）？' })
@@ -156,7 +167,9 @@ describe('PermissionSelect', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: '我已了解这些风险，并愿意继续' }))
     fireEvent.click(screen.getByRole('button', { name: '启用自动审查' }))
     expect(select).toHaveBeenCalledExactlyOnceWith('auto')
-    act(() => { selection.set({ value: { currentValue: 'auto' } }) })
+    act(() => {
+      selection.set({ value: { currentValue: 'auto' } })
+    })
     await act(async () => {})
 
     expect(trigger().getAttribute('aria-label')).toBe('访问模式，当前：自动审查')
@@ -176,13 +189,17 @@ describe('PermissionSelect', () => {
     cleanup()
     const vanished = setup()
     fireEvent.click(trigger())
-    act(() => { vanished.catalog.set({ value: null }) })
+    act(() => {
+      vanished.catalog.set({ value: null })
+    })
     expect(vanished.view.container.innerHTML).toBe('')
 
     cleanup()
     const missingSelection = setup()
     fireEvent.click(trigger())
-    act(() => { missingSelection.selection.set({ value: undefined }) })
+    act(() => {
+      missingSelection.selection.set({ value: undefined })
+    })
     expect(missingSelection.view.container.innerHTML).toBe('')
   })
 
@@ -197,12 +214,16 @@ describe('PermissionSelect', () => {
     try {
       chooseAuto()
       fireEvent.click(screen.getByRole('checkbox'))
-      act(() => { catalog.set({ value: withoutAuto }) })
+      act(() => {
+        catalog.set({ value: withoutAuto })
+      })
       expect(screen.queryByRole('dialog')).toBeNull()
       expect(select).not.toHaveBeenCalled()
       expect(trigger().disabled).toBe(false)
 
-      act(() => { catalog.set({ value: CATALOG }) })
+      act(() => {
+        catalog.set({ value: CATALOG })
+      })
       expect(screen.queryByRole('dialog')).toBeNull()
       chooseAuto()
       expect(screen.getByRole<HTMLInputElement>('checkbox').checked).toBe(false)
@@ -219,7 +240,9 @@ describe('PermissionSelect', () => {
       expect(trigger().disabled).toBe(true)
     } finally {
       submitted.resolve(false)
-      await act(async () => { await submitted.promise })
+      await act(async () => {
+        await submitted.promise
+      })
     }
     expect(trigger().disabled).toBe(false)
   })
@@ -235,7 +258,9 @@ describe('PermissionSelect', () => {
     expect(trigger().textContent).toBe('工作区内修改')
     await act(async () => {})
     expect(trigger().textContent).toBe('Custom')
-    act(() => { selection.set({ value: { currentValue: 'workspace-write' } }) })
+    act(() => {
+      selection.set({ value: { currentValue: 'workspace-write' } })
+    })
     expect(trigger().textContent).toBe('工作区内修改')
   })
 })

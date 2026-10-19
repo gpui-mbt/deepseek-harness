@@ -43,9 +43,9 @@ export interface ScheduleTaskBindingInjected {
 export interface ScheduleTaskTabInjected extends TaskDetailInjected, ScheduleTaskCatalogInjected, ScheduleTaskBindingInjected {}
 
 /** Props of the task tab's body: the tab it draws, localized copy, and its catalog face. */
-export type ScheduleTaskTabProps = PropsRuntime<'sidebar.right.pane.tab'>
-  & PropsLocale<'schedule.manager'>
-  & InjectFace<ScheduleTaskTabInjected>
+export type ScheduleTaskTabProps = PropsRuntime<'sidebar.right.pane.tab'> &
+  PropsLocale<'schedule.manager'> &
+  InjectFace<ScheduleTaskTabInjected>
 
 /**
  * Render the single task named by this tab's navigation parameters or by the
@@ -59,9 +59,7 @@ export type ScheduleTaskTabProps = PropsRuntime<'sidebar.right.pane.tab'>
  * @returns the task's detail, or its centered loading, query-failure, or missing-task state.
  */
 export function ScheduleTaskTab(props: ScheduleTaskTabProps): ReactNode {
-  const {
-    sessionId, useTabInfo, useCatalog, onRetry, taskBindings, t,
-  } = props
+  const { sessionId, useTabInfo, useCatalog, onRetry, taskBindings, t } = props
   const { tab } = useTabInfo()
   const { navigated, navigation, recovered, params } = useTaskTabTarget(sessionId, tab, taskBindings)
   const catalog = useCatalog(snapshot => snapshot)
@@ -77,9 +75,7 @@ export function ScheduleTaskTab(props: ScheduleTaskTabProps): ReactNode {
   // forgotten keeps the baseline it appeared with. A row the records already hold is
   // shown from whatever read published it.
   const navigationRevision = navigated ? tab.navigation.revision : undefined
-  const [baseline, setBaseline] = useState(() => (
-    { revision: navigationRevision, request: catalog.readRequest }
-  ))
+  const [baseline, setBaseline] = useState(() => ({ revision: navigationRevision, request: catalog.readRequest }))
   if (baseline.revision !== navigationRevision) {
     setBaseline({ revision: navigationRevision, request: catalog.readRequest })
   }
@@ -115,23 +111,31 @@ export function ScheduleTaskTab(props: ScheduleTaskTabProps): ReactNode {
     // A ready catalog from a read this tab may not use is not that answer: the
     // tab is waiting for its own read, so it reports the load instead.
     const pending = catalog.status === 'ready' && !answered
-    return <div className={css.tabBody}>
-      {answered
-        ? <div className={css.empty} role="status">
-          <IconClockOutlineRegular size={24} className={css.emptyGlyph} />
-          <h3>{t('detail.missing')}</h3>
-        </div>
-        : <CatalogFeedback status={pending ? 'loading' : catalog.status} populated={false} onRetry={onRetry} t={t} />}
-    </div>
+    return (
+      <div className={css.tabBody}>
+        {answered ? (
+          <div className={css.empty} role="status">
+            <IconClockOutlineRegular size={24} className={css.emptyGlyph} />
+            <h3>{t('detail.missing')}</h3>
+          </div>
+        ) : (
+          <CatalogFeedback status={pending ? 'loading' : catalog.status} populated={false} onRetry={onRetry} t={t} />
+        )}
+      </div>
+    )
   }
 
-  return <div className={css.tabBody}>
-    <TaskDetail
-      {...detail.props}
-      task={task}
-      authoritative={catalogRecord !== undefined}
-      onDeleted={() => { tab.actions.close() }}
-      withinSession={sessionId}
-    />
-  </div>
+  return (
+    <div className={css.tabBody}>
+      <TaskDetail
+        {...detail.props}
+        task={task}
+        authoritative={catalogRecord !== undefined}
+        onDeleted={() => {
+          tab.actions.close()
+        }}
+        withinSession={sessionId}
+      />
+    </div>
+  )
 }

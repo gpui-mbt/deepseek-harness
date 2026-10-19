@@ -11,9 +11,7 @@ const ROOT = resolve(import.meta.dirname, '..')
 
 /** Return an object-shaped YAML value, or undefined for every other shape. */
 function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : undefined
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
 }
 
 /** Parse a skill's YAML frontmatter as an object. */
@@ -58,8 +56,7 @@ export function collectSkillInvocationMetadataViolations(root: string): string[]
     let openai: Record<string, unknown>
     try {
       frontmatter = parseSkillFrontmatter(readFileSync(skillFile, 'utf8'))
-    }
-    catch (error) {
+    } catch (error) {
       violations.push(`${relativeRoot}/SKILL.md: ${error instanceof Error ? error.message : String(error)}`)
       continue
     }
@@ -67,8 +64,7 @@ export function collectSkillInvocationMetadataViolations(root: string): string[]
       const parsed = asRecord(load(readFileSync(openaiFile, 'utf8')))
       if (parsed === undefined) throw new Error('agents/openai.yaml must be a YAML object')
       openai = parsed
-    }
-    catch (error) {
+    } catch (error) {
       violations.push(`${relativeRoot}/agents/openai.yaml: ${error instanceof Error ? error.message : String(error)}`)
       continue
     }
@@ -95,8 +91,7 @@ export function collectSkillInvocationMetadataViolations(root: string): string[]
     const codexManualOnly = allowImplicitInvocation === false
     if (claudeManualOnly !== codexManualOnly) {
       violations.push(
-        `${relativeRoot}: Claude Code manual-only=${String(claudeManualOnly)}`
-        + ` but Codex manual-only=${String(codexManualOnly)}`,
+        `${relativeRoot}: Claude Code manual-only=${String(claudeManualOnly)}` + ` but Codex manual-only=${String(codexManualOnly)}`,
       )
     }
     if (claudeManualOnly && userInvocable === false) {
@@ -116,7 +111,5 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
     process.exit(1)
   }
 
-  process.stdout.write(
-    `verify-skill-invocation-metadata: ${String(skills.length)} cross-product skill policy pair(s) aligned.\n`,
-  )
+  process.stdout.write(`verify-skill-invocation-metadata: ${String(skills.length)} cross-product skill policy pair(s) aligned.\n`)
 }

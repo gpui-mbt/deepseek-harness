@@ -8,7 +8,9 @@ export type OfficeSourceKey = Branded<'OfficeSourceKey'>
  * @param key - unambiguous encoding of authorization scope, execution world, and canonical path.
  * @returns branded source locator; source authorization remains the caller's responsibility.
  */
-export function OfficeSourceKey(key: string): OfficeSourceKey { return brandString<OfficeSourceKey>(key) }
+export function OfficeSourceKey(key: string): OfficeSourceKey {
+  return brandString<OfficeSourceKey>(key)
+}
 
 /** One provider lifetime, including its engine, rendering settings, and font configuration. */
 export type OfficeToPdfGeneration = Branded<'OfficeToPdfGeneration'>
@@ -28,4 +30,6 @@ export type OfficeToPdfKey = Branded<'OfficeToPdfKey'>
  * @param value - generation and content identity created by the provider.
  * @returns branded conversion identity.
  */
-export function OfficeToPdfKey(value: string): OfficeToPdfKey { return brandString<OfficeToPdfKey>(value) }
+export function OfficeToPdfKey(value: string): OfficeToPdfKey {
+  return brandString<OfficeToPdfKey>(value)
+}

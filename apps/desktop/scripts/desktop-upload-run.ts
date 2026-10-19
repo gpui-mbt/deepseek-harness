@@ -9,8 +9,23 @@ import type { DesktopUploadArtifact, DesktopUploadPlan } from './desktop-upload-
 import { DESKTOP_COS_REGION } from './desktop-cos.ts'
 import { recordPackagingEvent } from './packaging-run.mjs'
 
-const FAILURE_CODES = new Set(['AccessDenied', 'InternalError', 'NoSuchBucket', 'BadDigest', 'SignatureDoesNotMatch',
-  'RequestTimeout', 'TimeoutError', 'AbortError', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ENOSPC', 'EACCES', 'EPERM', 'ENOENT'])
+const FAILURE_CODES = new Set([
+  'AccessDenied',
+  'InternalError',
+  'NoSuchBucket',
+  'BadDigest',
+  'SignatureDoesNotMatch',
+  'RequestTimeout',
+  'TimeoutError',
+  'AbortError',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'ENOSPC',
+  'EACCES',
+  'EPERM',
+  'ENOENT',
+])
 
 /** Object keys fingerprinted into every upload record to bind evidence to this uploader. */
 const UPLOADER_SOURCES = ['desktop-upload-run.ts', 'upload-target.ts', 'desktop-upload-plan.ts', 'desktop-cos.ts']
@@ -33,22 +48,19 @@ function receipt(value: unknown): object {
   const response = value as { statusCode?: unknown; RequestId?: unknown }
   return {
     ...(typeof response.statusCode === 'number' ? { httpStatus: response.statusCode } : {}),
-    ...(typeof response.RequestId === 'string' && /^[\w+/=.-]{1,256}$/u.test(response.RequestId)
-      ? { requestId: response.RequestId } : {}),
+    ...(typeof response.RequestId === 'string' && /^[\w+/=.-]{1,256}$/u.test(response.RequestId) ? { requestId: response.RequestId } : {}),
   }
 }
 
 function failureReceipt(error: unknown): object {
-  const codes = typeof error === 'object' && error !== null
-    ? ['code' in error ? error.code : undefined, 'name' in error ? error.name : undefined] : []
+  const codes =
+    typeof error === 'object' && error !== null ? ['code' in error ? error.code : undefined, 'name' in error ? error.name : undefined] : []
   const errorCode = codes.find(code => typeof code === 'string' && FAILURE_CODES.has(code)) ?? 'UNCLASSIFIED'
   return { errorCode, ...receipt(error) }
 }
 
 function streamedBody(artifact: DesktopUploadArtifact): Readable {
-  return artifact.contents === undefined
-    ? createReadStream(artifact.path)
-    : Readable.from([Buffer.from(artifact.contents)])
+  return artifact.contents === undefined ? createReadStream(artifact.path) : Readable.from([Buffer.from(artifact.contents)])
 }
 
 /**
@@ -80,28 +92,57 @@ export async function uploadDesktopRelease(plan: DesktopUploadPlan, cos: COS, re
     for (const artifact of plan.artifacts) {
       stage = 'hash-input'
       key = artifact.key
-      artifacts.push({ ...artifact, ...await fingerprint(artifact) })
+      artifacts.push({ ...artifact, ...(await fingerprint(artifact)) })
     }
     const sourceSha256: Record<string, string> = {}
     for (const filename of UPLOADER_SOURCES) {
-      sourceSha256[filename] = createHash('sha256').update(await readFile(join(import.meta.dirname, filename))).digest('hex')
+      sourceSha256[filename] = createHash('sha256')
+        .update(await readFile(join(import.meta.dirname, filename)))
+        .digest('hex')
     }
-    await writeFile(join(directory, 'plan.json'), `${JSON.stringify({ schemaVersion: 1,
-      environment: plan.environment, target: plan.target, version: plan.version, bucket: plan.bucket,
-      publicUrl: plan.publicUrl, maxAttempts: 1, sourceSha256, artifacts }, null, 2)}\n`, { flag: 'wx', mode: 0o600, flush: true })
+    await writeFile(
+      join(directory, 'plan.json'),
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          environment: plan.environment,
+          target: plan.target,
+          version: plan.version,
+          bucket: plan.bucket,
+          publicUrl: plan.publicUrl,
+          maxAttempts: 1,
+          sourceSha256,
+          artifacts,
+        },
+        null,
+        2,
+      )}\n`,
+      { flag: 'wx', mode: 0o600, flush: true },
+    )
     for (const artifact of artifacts) {
       key = artifact.key
       stage = 'verify-input'
       const current = await fingerprint(artifact)
       if (current.sha512 !== artifact.sha512 || current.size !== artifact.size) throw new Error('desktop upload: input changed')
       stage = 'put'
-      recordPackagingEvent(directory, { type: 'put-intent', key, size: artifact.size, sha512: artifact.sha512,
-        channelMetadata: artifact.channelMetadata })
+      recordPackagingEvent(directory, {
+        type: 'put-intent',
+        key,
+        size: artifact.size,
+        sha512: artifact.sha512,
+        channelMetadata: artifact.channelMetadata,
+      })
       const body = streamedBody(artifact)
       try {
-        const response = await cos.putObject({ Bucket: plan.bucket, Region: DESKTOP_COS_REGION, Key: key,
-          Body: body, ContentLength: artifact.size, ContentType: artifact.contentType,
-          Headers: { 'Content-MD5': artifact.md5 } })
+        const response = await cos.putObject({
+          Bucket: plan.bucket,
+          Region: DESKTOP_COS_REGION,
+          Key: key,
+          Body: body,
+          ContentLength: artifact.size,
+          ContentType: artifact.contentType,
+          Headers: { 'Content-MD5': artifact.md5 },
+        })
         confirmedPuts++
         stage = 'record-response'
         recordPackagingEvent(directory, { type: 'put-confirmed', key, attempts: 1, ...receipt(response) })
@@ -118,9 +159,27 @@ export async function uploadDesktopRelease(plan: DesktopUploadPlan, cos: COS, re
     failure = failureReceipt(error)
     throw new Error(`desktop upload: stopped at ${stage}; inspect ${directory} before another upload`)
   } finally {
-    await writeFile(join(directory, 'result.json'), `${JSON.stringify({ schemaVersion: 1, startedAt,
-      finishedAt: new Date().toISOString(), environment: plan.environment, target: plan.target, version: plan.version,
-      success, stage, key, confirmedPuts, failure, publicReadback: 'not-performed' }, null, 2)}\n`,
-    { flag: 'wx', mode: 0o600, flush: true })
+    await writeFile(
+      join(directory, 'result.json'),
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          startedAt,
+          finishedAt: new Date().toISOString(),
+          environment: plan.environment,
+          target: plan.target,
+          version: plan.version,
+          success,
+          stage,
+          key,
+          confirmedPuts,
+          failure,
+          publicReadback: 'not-performed',
+        },
+        null,
+        2,
+      )}\n`,
+      { flag: 'wx', mode: 0o600, flush: true },
+    )
   }
 }

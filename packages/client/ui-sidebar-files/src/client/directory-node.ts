@@ -139,8 +139,9 @@ export class DirectoryNode {
         const level = await this.load(this.path, this.signal)
         if (this.signal.aborted || level === undefined) return
         this.initialized = true
-        const directories = new Set(level.entries.filter(entry => entry.type === 'directory')
-          .map(entry => `${this.path.replace(/[/\\]+$/, '')}/${entry.name}`))
+        const directories = new Set(
+          level.entries.filter(entry => entry.type === 'directory').map(entry => `${this.path.replace(/[/\\]+$/, '')}/${entry.name}`),
+        )
         for (const path of this.children.keys()) {
           if (!directories.has(path)) await this.collapse(path)
         }

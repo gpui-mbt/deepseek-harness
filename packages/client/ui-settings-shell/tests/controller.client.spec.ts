@@ -1,12 +1,12 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { stubConfigForm, type StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import { ShellCardController, type ShellSettings } from '../src/client/shell-card-controller.ts'
 
 /** Make the stub behave like a Host that accepts every write. */
 function acceptWrites<T>(host: StubConfigForm<T>): void {
-  const section = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().value as object })
-  const layer = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().user as object })
+  const section = (): Record<string, unknown> => ({ ...(host.scope.getSnapshot().value as object) })
+  const layer = (): Record<string, unknown> => ({ ...(host.scope.getSnapshot().user as object) })
   host.set.mockImplementation((field: string, value: unknown) => {
     host.publish({ value: { ...section(), [field]: value } as T, user: { ...layer(), [field]: value } })
   })
@@ -61,9 +61,16 @@ describe('ShellCardController', () => {
     expect(face.hooks.shellCard.getSnapshot().dirty).toBe(true)
 
     face.save()
-    await vi.waitFor(() => { expect(host.mutate).toHaveBeenCalledTimes(1) })
+    await vi.waitFor(() => {
+      expect(host.mutate).toHaveBeenCalledTimes(1)
+    })
 
-    expect(host.mutate.mock.calls.map(([ops]) => ops)).toEqual([[['timeoutMs', 9_000], ['maxOutputBytes', 1_024]].map(([field, value]) => ({ op: 'set', path: [field], value }))])
+    expect(host.mutate.mock.calls.map(([ops]) => ops)).toEqual([
+      [
+        ['timeoutMs', 9_000],
+        ['maxOutputBytes', 1_024],
+      ].map(([field, value]) => ({ op: 'set', path: [field], value })),
+    ])
     expect(face.hooks.shellCard.getSnapshot().dirty).toBe(false)
   })
 
@@ -84,7 +91,9 @@ describe('ShellCardController', () => {
     expect(face.hooks.shellCard.getSnapshot().timeoutMs.text).toBe('60000')
 
     face.save()
-    await vi.waitFor(() => { expect(host.mutate).toHaveBeenCalledWith([{ op: 'unset', path: ['timeoutMs'] }], undefined) })
+    await vi.waitFor(() => {
+      expect(host.mutate).toHaveBeenCalledWith([{ op: 'unset', path: ['timeoutMs'] }], undefined)
+    })
 
     expect(face.hooks.shellCard.getSnapshot()).toMatchObject({
       dirty: false,

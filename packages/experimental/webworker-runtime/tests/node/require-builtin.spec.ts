@@ -3,13 +3,15 @@
  * reach Node through when `--expose-internals` is absent. It answers Node's module ids with the members those
  * callers read, backed by the Worker loader; anything the Worker does not provide refuses with Node's platform code.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vite-plus/test'
 import { createNodeBuiltins } from '../../src/node/builtins.ts'
 import { installProcessGlobal } from '../../src/node/globals/process.ts'
 import { setActiveModuleLoader, WorkerModuleLoader, type WorkerRequire } from '../../src/module-system/module-loader.ts'
 import { MemoryVfs } from '../../src/storage/memory.ts'
 
-interface Addon { requireBuiltin(id: string): unknown }
+interface Addon {
+  requireBuiltin(id: string): unknown
+}
 interface CascadedLoader {
   resolveSync(
     parentURL: string | undefined,
@@ -30,9 +32,13 @@ let require: WorkerRequire
 beforeEach(() => {
   const vfs = new MemoryVfs()
   vfs.seedDirectory('/dsh/node_modules/pkg/locale')
-  vfs.writeFileSync('/dsh/node_modules/pkg/package.json', JSON.stringify({
-    name: 'pkg', exports: { '.': './index.js', './locale/*.json': './locale/*.json' },
-  }))
+  vfs.writeFileSync(
+    '/dsh/node_modules/pkg/package.json',
+    JSON.stringify({
+      name: 'pkg',
+      exports: { '.': './index.js', './locale/*.json': './locale/*.json' },
+    }),
+  )
   vfs.writeFileSync('/dsh/node_modules/pkg/index.js', 'module.exports = { marker: "pkg" }')
   vfs.writeFileSync('/dsh/node_modules/pkg/locale/en.json', '{}')
   const loader = new WorkerModuleLoader({ vfs, root: '/dsh', staticModules: createNodeBuiltins() })
@@ -55,15 +61,22 @@ function cascaded(): CascadedLoader {
 }
 
 function codeOf(run: () => unknown): unknown {
-  try { run() } catch (error) { return (error as { code?: unknown }).code }
+  try {
+    run()
+  } catch (error) {
+    return (error as { code?: unknown }).code
+  }
   throw new Error('expected a refusal')
 }
 
 describe('node-addon-require-builtin in the Worker', () => {
   it('answers each provided id with one module object', () => {
     for (const id of [
-      'internal/modules/esm/loader', 'internal/modules/esm/module_map', 'internal/modules/cjs/loader',
-      'internal/modules/package_json_reader', 'internal/bootstrap/realm',
+      'internal/modules/esm/loader',
+      'internal/modules/esm/module_map',
+      'internal/modules/cjs/loader',
+      'internal/modules/package_json_reader',
+      'internal/bootstrap/realm',
     ]) {
       expect(addon().requireBuiltin(id), id).toBe(addon().requireBuiltin(id))
     }
@@ -82,10 +95,11 @@ describe('the cascaded ESM loader', () => {
   })
 
   it('resolves with the Node 24 argument order', () => {
-    expect(cascaded().resolveSync('file:///dsh/', { specifier: 'pkg/locale/en.json', attributes: {} }))
-      .toEqual({ url: 'file:///dsh/node_modules/pkg/locale/en.json', format: 'json' })
-    expect(cascaded().resolveSync('file:///dsh/', { specifier: 'node:path' }))
-      .toEqual({ url: 'node:path', format: 'builtin' })
+    expect(cascaded().resolveSync('file:///dsh/', { specifier: 'pkg/locale/en.json', attributes: {} })).toEqual({
+      url: 'file:///dsh/node_modules/pkg/locale/en.json',
+      format: 'json',
+    })
+    expect(cascaded().resolveSync('file:///dsh/', { specifier: 'node:path' })).toEqual({ url: 'node:path', format: 'builtin' })
   })
 
   it('reports a missing resource with the codes Node ESM resolution uses', () => {

@@ -14,10 +14,7 @@ import styles from './WebSearchCard.module.css'
 import type { WebSearchCardFace } from './web-search-card-controller.ts'
 
 /** Props the renderer binds for the web-search page. */
-export type WebSearchCardProps =
-  PropsRuntime<'plugins.item'>
-  & PropsLocale<'settings.webSearch'>
-  & InjectFace<WebSearchCardFace>
+export type WebSearchCardProps = PropsRuntime<'plugins.item'> & PropsLocale<'settings.webSearch'> & InjectFace<WebSearchCardFace>
 
 /**
  * Render the web-search provider's one-liner or its settings form, as the Plugins page asks.
@@ -37,12 +34,20 @@ export function WebSearchCard(props: WebSearchCardProps) {
         <div className={styles.feature}>
           <label className={styles.toggleRow}>
             <span>{t('useSearchApi')}</span>
-            <Switch checked={searchApi} label={t('useSearchApi')} disabled={disabled || state.apiSwitchBlocked}
-              onChange={(checked) => { props.setSearchApi(checked) }} />
+            <Switch
+              checked={searchApi}
+              label={t('useSearchApi')}
+              disabled={disabled || state.apiSwitchBlocked}
+              onChange={checked => {
+                props.setSearchApi(checked)
+              }}
+            />
           </label>
           <p className={styles.hint}>
             {t('useSearchApiHint')}
-            <a className={styles.link} href={t('searchGuideUrl')} target="_blank" rel="noopener noreferrer">{t('searchGuide')}</a>
+            <a className={styles.link} href={t('searchGuideUrl')} target="_blank" rel="noopener noreferrer">
+              {t('searchGuide')}
+            </a>
           </p>
         </div>
       )}
@@ -58,7 +63,9 @@ export function WebSearchCard(props: WebSearchCardProps) {
         text={state.apiKey.text}
         configured={state.apiKeyConfigured}
         stateLabel={state.apiKeyConfigured ? t('apiKeySet') : t('apiKeyUnset')}
-        onEdit={(text) => { props.edit('apiKey', text) }}
+        onEdit={text => {
+          props.edit('apiKey', text)
+        }}
       />
       <SettingsValueField
         id="plugin-config-web-search-endpoint"
@@ -69,8 +76,12 @@ export function WebSearchCard(props: WebSearchCardProps) {
         invalidLabel={t('invalidNumber')}
         disabled={disabled}
         {...state.baseURL}
-        onEdit={(text) => { props.edit('baseURL', text) }}
-        onReset={() => { props.resetField('baseURL') }}
+        onEdit={text => {
+          props.edit('baseURL', text)
+        }}
+        onReset={() => {
+          props.resetField('baseURL')
+        }}
       />
       <SettingsValueField
         id={searchApi ? 'plugin-config-web-search-count' : 'plugin-config-web-search-max-uses'}
@@ -82,8 +93,12 @@ export function WebSearchCard(props: WebSearchCardProps) {
         numeric
         disabled={disabled}
         {...state[limitField]}
-        onEdit={(text) => { props.edit(limitField, text) }}
-        onReset={() => { props.resetField(limitField) }}
+        onEdit={text => {
+          props.edit(limitField, text)
+        }}
+        onReset={() => {
+          props.resetField(limitField)
+        }}
       />
     </SettingsForm>
   )

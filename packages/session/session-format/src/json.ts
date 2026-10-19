@@ -1,9 +1,6 @@
 import { deepFreeze, snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
 import { SessionFormatError } from './error.ts'
-import type {
-  SessionFormatHeader,
-  SessionFormatJsonValue,
-} from './types.ts'
+import type { SessionFormatHeader, SessionFormatJsonValue } from './types.ts'
 
 /**
  * Test whether a value is a non-null, non-array object.

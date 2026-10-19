@@ -5,7 +5,7 @@
  * projections read the product's real sections, its connection control is the
  * roster's Connection, and it survives a Loader rebuild of the declarer.
  */
-import { describe, expect, onTestFinished, vi } from 'vitest'
+import { describe, expect, onTestFinished, vi } from 'vite-plus/test'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { createClientTest, type TestClient, webApp } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/index.ts'
 import { inject } from '../src/client/index.ts'
@@ -49,42 +49,56 @@ const PRODUCT_ONBOARDING: readonly { id: string; order: number }[] = [
 ]
 
 describe('ui-settings-general shell', () => {
-  it('shares one carrier subscription between both update locations and releases it on unload', async ({ start }) => {
-    const initial = Promise.withResolvers<DesktopUpdatePresentation>()
-    let publish: ((state: DesktopUpdatePresentation) => void) | undefined
-    const off = vi.fn()
-    const subscribe = vi.fn((listener: typeof publish) => { publish = listener; return off })
-    const open = vi.fn(async () => {})
-    vi.stubGlobal('dshDesktop', { protocolVersion: 1, updates: { status: () => initial.promise, subscribe, open } })
-    onTestFinished(() => { vi.unstubAllGlobals(); initial.resolve({ phase: 'idle' }) })
-    const c = await start()
-    const row = injectedOf(c)
-    const badge = (c.ctx.slots.entries('sidebar.toggle.badge')[0]!.inject as () => Pick<SettingsRootInjected, 'hooks'>)()
-    expect(badge.hooks.desktopUpdate).toBe(row.hooks.desktopUpdate)
-    expect(subscribe).toHaveBeenCalledOnce()
-    const status = { phase: 'available' as const, version: '1.0.1' }
-    publish!(status)
-    expect(row.hooks.desktopUpdate.getSnapshot().presentation).toEqual(status)
-    row.openDesktopUpdate()
-    await c.flush()
-    expect(open).toHaveBeenCalledOnce()
-    await c.unload(SELF)
-    await c.flush()
-    expect(off).toHaveBeenCalledOnce()
-    expect(c.ctx.slots.entries('sidebar.toggle.badge')).toHaveLength(0)
-    publish!({ phase: 'error', version: status.version, failure: 'install' })
-    expect(row.hooks.desktopUpdate.getSnapshot().presentation).toEqual(status)
-  }, COLD_BOOT_TIMEOUT_MS)
+  it(
+    'shares one carrier subscription between both update locations and releases it on unload',
+    async ({ start }) => {
+      const initial = Promise.withResolvers<DesktopUpdatePresentation>()
+      let publish: ((state: DesktopUpdatePresentation) => void) | undefined
+      const off = vi.fn()
+      const subscribe = vi.fn((listener: typeof publish) => {
+        publish = listener
+        return off
+      })
+      const open = vi.fn(async () => {})
+      vi.stubGlobal('dshDesktop', { protocolVersion: 1, updates: { status: () => initial.promise, subscribe, open } })
+      onTestFinished(() => {
+        vi.unstubAllGlobals()
+        initial.resolve({ phase: 'idle' })
+      })
+      const c = await start()
+      const row = injectedOf(c)
+      const badge = (c.ctx.slots.entries('sidebar.toggle.badge')[0]!.inject as () => Pick<SettingsRootInjected, 'hooks'>)()
+      expect(badge.hooks.desktopUpdate).toBe(row.hooks.desktopUpdate)
+      expect(subscribe).toHaveBeenCalledOnce()
+      const status = { phase: 'available' as const, version: '1.0.1' }
+      publish!(status)
+      expect(row.hooks.desktopUpdate.getSnapshot().presentation).toEqual(status)
+      row.openDesktopUpdate()
+      await c.flush()
+      expect(open).toHaveBeenCalledOnce()
+      await c.unload(SELF)
+      await c.flush()
+      expect(off).toHaveBeenCalledOnce()
+      expect(c.ctx.slots.entries('sidebar.toggle.badge')).toHaveLength(0)
+      publish!({ phase: 'error', version: status.version, failure: 'install' })
+      expect(row.hooks.desktopUpdate.getSnapshot().presentation).toEqual(status)
+    },
+    COLD_BOOT_TIMEOUT_MS,
+  )
 
   it('declares its services', () => {
     expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.settings', 'configForms', 'shortcuts', 'modules'])
   })
 
-  it('occupies sidebar.settings, declared by ui-sidebar, and declares every child slot', async ({ start }) => {
-    const c = await start()
-    expect(c.ctx.slots.entries('sidebar.settings').map(entry => entry.component)).toEqual([SettingsRoot])
-    for (const name of CHILD_NAMES) expect(c.ctx.slots.spec(name)).toEqual(CHILD_SPECS[name])
-  }, COLD_BOOT_TIMEOUT_MS)
+  it(
+    'occupies sidebar.settings, declared by ui-sidebar, and declares every child slot',
+    async ({ start }) => {
+      const c = await start()
+      expect(c.ctx.slots.entries('sidebar.settings').map(entry => entry.component)).toEqual([SettingsRoot])
+      for (const name of CHILD_NAMES) expect(c.ctx.slots.spec(name)).toEqual(CHILD_SPECS[name])
+    },
+    COLD_BOOT_TIMEOUT_MS,
+  )
 
   it('projects the section ledger: product sections in order, defaults for bare rows, stable snapshots', async ({ start }) => {
     const c = await start()
@@ -119,9 +133,13 @@ describe('ui-settings-general shell', () => {
       expect(sections.getSnapshot().map(row => row.id)).toEqual(['account', ...PRODUCT_SECTIONS])
     })
     c.mock.streams.push('account/watch', { status: 'credential-stored', attempt: null })
-    await vi.waitFor(() => { expect(sections.getSnapshot().filter(row => row.id === 'account')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(sections.getSnapshot().filter(row => row.id === 'account')).toHaveLength(1)
+    })
     c.mock.streams.push('account/watch', { status: 'signed-out', attempt: null })
-    await vi.waitFor(() => { expect(sections.getSnapshot().map(row => row.id)).toEqual(PRODUCT_SECTIONS) })
+    await vi.waitFor(() => {
+      expect(sections.getSnapshot().map(row => row.id)).toEqual(PRODUCT_SECTIONS)
+    })
   })
 
   it('projects the roster Connection control without copying its state; reconnect opens a new $events generation', async ({ start }) => {
@@ -131,7 +149,9 @@ describe('ui-settings-general shell', () => {
     expect(injected.hooks.connectionState.getSnapshot()).toBe('connected')
     injected.reconnect()
     await c.mock.streams.opened('$events', 2)
-    await vi.waitFor(() => { expect(c.connection.state.getSnapshot()).toBe('connected') })
+    await vi.waitFor(() => {
+      expect(c.connection.state.getSnapshot()).toBe('connected')
+    })
   })
 
   it('projects onboarding entries into stable coordinator order', async ({ start }) => {

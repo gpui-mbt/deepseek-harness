@@ -42,22 +42,15 @@ export class SessionSkillCatalog extends TypertRemoteService {
       if (observation.projections === undefined) {
         throw new Error('skill catalog requires a projected Session observation')
       }
-      cwd = observation.projections.values.workingDirectory
-        ?? observation.header.cwd
-        ?? this.ctx.workingDirectory.defaultDirectory
+      cwd = observation.projections.values.workingDirectory ?? observation.header.cwd ?? this.ctx.workingDirectory.defaultDirectory
       agentPreset = observation.projections.values.agentPreset ?? undefined
       const live = this.ctx.agents.get(sessionId)
       if (live !== undefined) cwd = await this.ctx.workingDirectory.ensure(live, signal)
     } catch (error: unknown) {
-      if (error instanceof SessionQueryError
-        && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
+      if (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
         throw new RemoteError('session/not-found', `session "${sessionId}" not found`, { sessionId })
       }
-      throw new RemoteError(
-        'gateway/internal',
-        `session "${sessionId}" could not be inspected: ${String(error)}`,
-        {},
-      )
+      throw new RemoteError('gateway/internal', `session "${sessionId}" could not be inspected: ${String(error)}`, {})
     }
 
     const live = this.ctx.agents.get(sessionId)
@@ -67,7 +60,7 @@ export class SessionSkillCatalog extends TypertRemoteService {
     if (skillRegistry === undefined) {
       throw new RemoteError(
         'gateway/internal',
-        'skill registry is absent: neither this session\'s agent preset nor the host composition mounts @deepseek-ai/dsh-skill',
+        "skill registry is absent: neither this session's agent preset nor the host composition mounts @deepseek-ai/dsh-skill",
         {},
       )
     }
@@ -79,9 +72,9 @@ export class SessionSkillCatalog extends TypertRemoteService {
       return {
         skills: skills.map(skill => ({
           name: skill.name,
-          ...skill.path === undefined ? {} : { path: skill.path },
+          ...(skill.path === undefined ? {} : { path: skill.path }),
           description: skill.description,
-          ...skill.whenToUse === undefined ? {} : { whenToUse: skill.whenToUse },
+          ...(skill.whenToUse === undefined ? {} : { whenToUse: skill.whenToUse }),
           modelInvocable: skill.invocation.modelInvocable,
         })),
       }
@@ -91,9 +84,7 @@ export class SessionSkillCatalog extends TypertRemoteService {
   }
 
   /** Resolve a live or standing preset scope without creating an Agent. */
-  private async scopeFor(
-    agentPreset: string | undefined,
-  ): Promise<({ key: ScopeKey } & AsyncDisposable) | undefined> {
+  private async scopeFor(agentPreset: string | undefined): Promise<({ key: ScopeKey } & AsyncDisposable) | undefined> {
     const presets = this.ctx.get('agentPresets')
     if (presets === undefined) return undefined
     try {

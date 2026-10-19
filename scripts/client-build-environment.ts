@@ -1,13 +1,6 @@
 import { createHash } from 'node:crypto'
 import { execFileSync, spawnSync } from 'node:child_process'
-import {
-  existsSync,
-  globSync,
-  mkdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, globSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
 /** Prefix reserved for build-time values that may be embedded in browser artifacts. */
@@ -51,11 +44,13 @@ export type ClientBuildEnvironment = Readonly<Record<string, string>>
  */
 export function repositoryCommitHash(root: string, environment: NodeJS.ProcessEnv = process.env): string {
   const explicit = environment[CLIENT_COMMIT_HASH_VARIABLE]
-  const value = explicit ?? execFileSync('git', ['rev-parse', 'HEAD'], {
-    cwd: root,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'ignore'],
-  }).trim()
+  const value =
+    explicit ??
+    execFileSync('git', ['rev-parse', 'HEAD'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
   if (!/^[0-9a-f]{7,40}$/iu.test(value)) {
     throw new Error(`${CLIENT_COMMIT_HASH_VARIABLE} must be a Git commit hash; got ${JSON.stringify(value)}`)
   }
@@ -76,8 +71,7 @@ export function repositoryVersion(root: string): string {
     const detail = error instanceof Error ? error.message : String(error)
     throw new Error(`cannot read repository version from ${path}: ${detail}`)
   }
-  if (!isObject(manifest) || typeof manifest.version !== 'string'
-    || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(manifest.version)) {
+  if (!isObject(manifest) || typeof manifest.version !== 'string' || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(manifest.version)) {
     throw new Error(`repository package.json has an invalid version ${JSON.stringify(isObject(manifest) ? manifest.version : undefined)}`)
   }
   return manifest.version
@@ -115,10 +109,7 @@ export function repositoryGitDirty(root: string): boolean | undefined {
  * @param environment - caller environment supplying optional commit and public extensions.
  * @returns complete public client environment for the default build.
  */
-export function repositoryClientBuildEnvironment(
-  root: string,
-  environment: NodeJS.ProcessEnv = process.env,
-): ClientBuildEnvironment {
+export function repositoryClientBuildEnvironment(root: string, environment: NodeJS.ProcessEnv = process.env): ClientBuildEnvironment {
   const inherited = { ...clientBuildEnvironment(environment) }
   delete inherited.DSH_CLIENT_COMMIT_HASH
   delete inherited.DSH_CLIENT_GIT_DIRTY
@@ -173,9 +164,11 @@ export interface ClientBuildRecord {
  * @returns defined `DSH_CLIENT_*` values only.
  */
 function clientBuildEnvironment(environment: NodeJS.ProcessEnv): ClientBuildEnvironment {
-  return Object.fromEntries(Object.entries(environment)
-    .filter(([name, value]) => name.startsWith(CLIENT_BUILD_ENV_PREFIX) && value !== undefined)
-    .sort(([left], [right]) => left.localeCompare(right))) as Record<string, string>
+  return Object.fromEntries(
+    Object.entries(environment)
+      .filter(([name, value]) => name.startsWith(CLIENT_BUILD_ENV_PREFIX) && value !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right)),
+  ) as Record<string, string>
 }
 
 /**
@@ -239,11 +232,12 @@ export function assertClientBuildEnvironment(
   environment: Readonly<Record<string, string | undefined>>,
   expected: Readonly<Record<`DSH_CLIENT_${string}`, string>>,
 ): void {
-  const actual = Object.fromEntries(Object.entries(environment)
-    .filter(([name, value]) => name.startsWith(CLIENT_BUILD_ENV_PREFIX) && value !== undefined)
-    .sort(([left], [right]) => left.localeCompare(right)))
-  const normalizedExpected = Object.fromEntries(Object.entries(expected)
-    .sort(([left], [right]) => left.localeCompare(right)))
+  const actual = Object.fromEntries(
+    Object.entries(environment)
+      .filter(([name, value]) => name.startsWith(CLIENT_BUILD_ENV_PREFIX) && value !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right)),
+  )
+  const normalizedExpected = Object.fromEntries(Object.entries(expected).sort(([left], [right]) => left.localeCompare(right)))
   if (JSON.stringify(actual) === JSON.stringify(normalizedExpected)) return
 
   const names = [...new Set([...Object.keys(actual), ...Object.keys(normalizedExpected)])].sort()
@@ -262,9 +256,7 @@ export function assertClientBuildEnvironment(
  * @param environment - environment inherited by the build process.
  * @returns deterministic Vite/tsdown `define` expressions.
  */
-export function clientBuildEnvironmentDefines(
-  environment: NodeJS.ProcessEnv,
-): Record<string, string> {
+export function clientBuildEnvironmentDefines(environment: NodeJS.ProcessEnv): Record<string, string> {
   return { 'process.env': '{}', ...clientBuildValueDefines(environment) }
 }
 
@@ -274,9 +266,7 @@ export function clientBuildEnvironmentDefines(
  * @param environment - environment inherited by the build process.
  * @returns one deterministic tsdown `define` expression per public value the build sets.
  */
-export function clientBuildValueDefines(
-  environment: NodeJS.ProcessEnv,
-): Record<string, string> {
+export function clientBuildValueDefines(environment: NodeJS.ProcessEnv): Record<string, string> {
   const defines: Record<string, string> = {}
   for (const [name, value] of Object.entries(clientBuildEnvironment(environment))) {
     defines[`process.env.${name}`] = JSON.stringify(value)
@@ -290,10 +280,7 @@ export function clientBuildValueDefines(
  * @param environment - exact public environment supplied to both bundlers.
  * @returns the record written to disk.
  */
-export function writeClientBuildRecord(
-  root: string,
-  environment: ClientBuildEnvironment,
-): ClientBuildRecord {
+export function writeClientBuildRecord(root: string, environment: ClientBuildEnvironment): ClientBuildRecord {
   const record: ClientBuildRecord = {
     formatVersion: CLIENT_BUILD_RECORD_FORMAT,
     environment: clientBuildEnvironment(environment),
@@ -311,10 +298,7 @@ export function writeClientBuildRecord(
  * @param expected - optional exact public environment required by a consumer.
  * @returns the parsed and artifact-verified record.
  */
-export function readClientBuildRecord(
-  root: string,
-  expected?: Readonly<Record<`DSH_CLIENT_${string}`, string>>,
-): ClientBuildRecord {
+export function readClientBuildRecord(root: string, expected?: Readonly<Record<`DSH_CLIENT_${string}`, string>>): ClientBuildRecord {
   const path = resolve(root, CLIENT_BUILD_RECORD_PATH)
   if (!existsSync(path)) {
     throw new Error(`client build record ${CLIENT_BUILD_RECORD_PATH} is missing; run a complete pnpm run build first`)
@@ -332,9 +316,7 @@ export function readClientBuildRecord(
 
   const current = clientArtifactDigest(root)
   if (current.fileCount !== record.artifacts.fileCount || current.sha256 !== record.artifacts.sha256) {
-    throw new Error(
-      `client artifacts differ from ${CLIENT_BUILD_RECORD_PATH}; run a complete pnpm run build before consuming them`,
-    )
+    throw new Error(`client artifacts differ from ${CLIENT_BUILD_RECORD_PATH}; run a complete pnpm run build before consuming them`)
   }
   return record
 }

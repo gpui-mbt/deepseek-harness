@@ -1,5 +1,5 @@
 import tsconfigPaths from 'vite-tsconfig-paths'
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vite-plus'
 import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
 
 // Web browser lane: real host entry points, built-client interaction snapshots,
@@ -17,11 +17,11 @@ export default defineConfig({
   // Same resolution note as vitest.config.ts: the tsconfig.base.json paths
   // facade has no include (match-all), so apps/web/tests resolves bare
   // workspace imports to source like every other lane.
-  plugins: [
-    tsconfigPaths({ projects: ['./tsconfig.base.json'] }),
-    standardDecoratorPlugin(),
-  ],
+  plugins: [tsconfigPaths({ projects: ['./tsconfig.base.json'] }), standardDecoratorPlugin()],
+  resolve: { dedupe: ['vitest', '@vitest/spy', 'vite-plus'] },
   test: {
+    // Preserve Vitest 4 mock-history behavior for setup and cross-test calls.
+    clearMocks: false,
     execArgv: vitestExecArgv,
     include: [
       'apps/web/tests/**/*.e2e.ts',

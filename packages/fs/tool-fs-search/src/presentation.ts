@@ -26,11 +26,7 @@
  * @module @deepseek-ai/dsh-tool-fs-search/presentation
  */
 
-import type {
-  SearchFileMatches,
-  SearchLineMatch,
-  SearchResultView,
-} from '@deepseek-ai/dsh-tools'
+import type { SearchFileMatches, SearchLineMatch, SearchResultView } from '@deepseek-ai/dsh-tools'
 import type { RetainedItems } from '@deepseek-ai/dsh-output-retention'
 import type { GrepMatch } from './search-core.ts'
 

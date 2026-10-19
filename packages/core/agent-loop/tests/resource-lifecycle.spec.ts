@@ -2,7 +2,7 @@ import { setImmediate } from 'node:timers/promises'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -16,7 +16,7 @@ import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import * as ToolSubagent from '@deepseek-ai/dsh-tool-subagent'
 import { MockAdapter, textResponse } from './mock-adapter.ts'
 
-it.each([0, 1, 2])('retains Agent resources until all work exits with %i failed teardowns', async (failures) => {
+it.each([0, 1, 2])('retains Agent resources until all work exits with %i failed teardowns', async failures => {
   const ctx = new Context()
   const release = Promise.withResolvers<undefined>()
   onTestFinished(async () => {
@@ -29,11 +29,20 @@ it.each([0, 1, 2])('retains Agent resources until all work exits with %i failed 
   for (let index = 0; index < failures; index++) {
     const handle = await ctx.agents.create({ sessionId: SessionId(`failed-cleanup-${index}`) })
     const error = new Error(`teardown failure ${index}`)
-    vi.spyOn(handle.agent, 'cancel').mockImplementation(() => { throw error })
+    vi.spyOn(handle.agent, 'cancel').mockImplementation(() => {
+      throw error
+    })
     failed.push({ handle, error })
   }
   let ownerCtx!: Context
-  const owner = await ctx.plugin(Object.assign((inner: Context) => { ownerCtx = inner }, { inject: ['agents'] }))
+  const owner = await ctx.plugin(
+    Object.assign(
+      (inner: Context) => {
+        ownerCtx = inner
+      },
+      { inject: ['agents'] },
+    ),
+  )
   const { agent } = await ownerCtx.agents.create({ sessionId: SessionId('pending-cleanup') })
   const aborted = Promise.withResolvers<undefined>()
   let workExited = false
@@ -42,11 +51,15 @@ it.each([0, 1, 2])('retains Agent resources until all work exits with %i failed 
   let scopeDisposed = false
   let abortHandled = 0
   const controller = new AbortController()
-  controller.signal.addEventListener('abort', () => {
-    agent.cancel({ kind: 'parent' })
-    agent.cancel({ kind: 'parent' })
-    abortHandled++
-  }, { once: true })
+  controller.signal.addEventListener(
+    'abort',
+    () => {
+      agent.cancel({ kind: 'parent' })
+      agent.cancel({ kind: 'parent' })
+      abortHandled++
+    },
+    { once: true },
+  )
   agent.ctx.effect(() => () => {
     controller.abort()
     controller.abort()
@@ -54,11 +67,17 @@ it.each([0, 1, 2])('retains Agent resources until all work exits with %i failed 
     scopeDisposedBeforeWorkExit = !workExited
   })
   const projections = ctx.sessionProjections
-  const work = agent.runMaintenance(async (signal) => {
-    signal.addEventListener('abort', () => { aborted.resolve(undefined) }, { once: true })
+  const work = agent.runMaintenance(async signal => {
+    signal.addEventListener(
+      'abort',
+      () => {
+        aborted.resolve(undefined)
+      },
+      { once: true },
+    )
     await release.promise
-    projectionPresentAtWorkExit = projections.stateOf(agent.session, 'inbox') !== undefined
-      && projections.stateOf(agent.session, 'turnBoundary') !== undefined
+    projectionPresentAtWorkExit =
+      projections.stateOf(agent.session, 'inbox') !== undefined && projections.stateOf(agent.session, 'turnBoundary') !== undefined
     workExited = true
   })
   const disposal = loop.dispose()
@@ -80,7 +99,7 @@ it.each([0, 1, 2])('retains Agent resources until all work exits with %i failed 
   expect(ctx.sessions.get(agent.session.id)).toBeUndefined()
 })
 
-it.each(['loop', 'root'] as const)('unloads %s while a background child is stopping', async (owner) => {
+it.each(['loop', 'root'] as const)('unloads %s while a background child is stopping', async owner => {
   const ctx = new Context()
   const release = Promise.withResolvers<undefined>()
   const root = mkdtempSync(join(tmpdir(), 'dsh-resource-lifecycle-'))
@@ -108,7 +127,8 @@ it.each(['loop', 'root'] as const)('unloads %s while a background child is stopp
   })
   ctx.llm.registerAdapter(['mock'], new MockAdapter([textResponse('unused')]))
   const { agent: parent } = await ctx.agents.create({
-    sessionId: parentId, agentOptions: { provider: 'mock', model: 'mock' },
+    sessionId: parentId,
+    agentOptions: { provider: 'mock', model: 'mock' },
   })
   const requestEntered = Promise.withResolvers<Agent>()
   ctx.on('agent/request', async (event, next) => {
@@ -118,8 +138,10 @@ it.each(['loop', 'root'] as const)('unloads %s while a background child is stopp
     return next()
   })
   const started = await ctx.tools.execute({
-    agent: parent, signal: new AbortController().signal,
-    callId: ToolCallId('background-start'), name: 'subagent',
+    agent: parent,
+    signal: new AbortController().signal,
+    callId: ToolCallId('background-start'),
+    name: 'subagent',
     arguments: { description: 'child', prompt: 'wait' },
   })
   expect(started.isError).toBe(false)
@@ -135,14 +157,15 @@ it.each(['loop', 'root'] as const)('unloads %s while a background child is stopp
   expect(child.status).toBe('idle')
   const events = child.session.snapshotEvents()
   expect(events.at(-1)).toMatchObject({ type: 'turn/end', data: { reason: { kind: 'aborted' } } })
-  expect(events.filter(event => event.type === 'agent/inbox/spliced' && event.data.outcome === 'canceled'))
-    .toMatchObject([
-      { data: { target: 'next-step', removedCount: 1 } },
-      { data: { target: 'next-turn', removedCount: 1 } },
-    ])
+  expect(events.filter(event => event.type === 'agent/inbox/spliced' && event.data.outcome === 'canceled')).toMatchObject([
+    { data: { target: 'next-step', removedCount: 1 } },
+    { data: { target: 'next-turn', removedCount: 1 } },
+  ])
   if (owner === 'loop') {
     const verify = new Context()
-    onTestFinished(async () => { await verify.fiber.dispose() })
+    onTestFinished(async () => {
+      await verify.fiber.dispose()
+    })
     await verify.plugin(JsonlSessionPersistence, { root })
     const reader = await verify.sessionPersistence.open(child.id, 'read')
     expect((await reader.read()).events).toEqual(events)
@@ -150,18 +173,31 @@ it.each(['loop', 'root'] as const)('unloads %s while a background child is stopp
   }
 })
 
-it.each([false, true])('releases the Agent scope after cancel failure with scope failure %s', async (failScope) => {
+it.each([false, true])('releases the Agent scope after cancel failure with scope failure %s', async failScope => {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(AgentLoop, { agents: [] })
   let ownerCtx!: Context
-  const owner = await ctx.plugin(Object.assign((inner: Context) => { ownerCtx = inner }, { inject: ['agents'] }))
+  const owner = await ctx.plugin(
+    Object.assign(
+      (inner: Context) => {
+        ownerCtx = inner
+      },
+      { inject: ['agents'] },
+    ),
+  )
   const handle = await ownerCtx.agents.create({ sessionId: SessionId('failed-owner-cleanup') })
   let scopeDisposed = false
-  handle.agent.ctx.effect(() => () => { scopeDisposed = true })
+  handle.agent.ctx.effect(() => () => {
+    scopeDisposed = true
+  })
   const failure = new Error('teardown failure')
-  vi.spyOn(handle.agent, 'cancel').mockImplementation(() => { throw failure })
+  vi.spyOn(handle.agent, 'cancel').mockImplementation(() => {
+    throw failure
+  })
   const scopeFailure = new Error('scope teardown failure')
   if (failScope) {
     const fiber = handle.agent.ctx.fiber

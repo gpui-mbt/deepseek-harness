@@ -10,15 +10,25 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
-  ArbitrateKey, ArbitrateOutcome, CommandClaim, PickOutcome, ReferenceInsert,
+  ArbitrateKey,
+  ArbitrateOutcome,
+  CommandClaim,
+  PickOutcome,
+  ReferenceInsert,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { detectTrigger } from '../core/detect.ts'
 import { MENU_CLOSED, menuReduce, seedGroups } from '../core/menu.ts'
 import type { MenuEvent, MenuState, TriggerHit } from '../core/contract.ts'
 import type {
-  ClientSessionContext, InputTriggerCandidate, InputTriggerCrumb, InputTriggerSource, PickAction,
-  SubmitEnvelope, TriggerChar, TriggerGuard,
+  ClientSessionContext,
+  InputTriggerCandidate,
+  InputTriggerCrumb,
+  InputTriggerSource,
+  PickAction,
+  SubmitEnvelope,
+  TriggerChar,
+  TriggerGuard,
 } from '../types.ts'
 
 /** Token identity a dismissal sticks to: the same trigger, query, and span bounds. */
@@ -32,8 +42,13 @@ interface DismissedHit {
 
 /** Whether a tracked hit is the one the user just dismissed (same token, same query). */
 function dismissedHit(dismissed: DismissedHit, hit: TriggerHit): boolean {
-  return dismissed.trigger === hit.trigger && dismissed.query === hit.query && dismissed.quoted === hit.quoted
-    && dismissed.start === hit.span.start && dismissed.end === hit.span.end
+  return (
+    dismissed.trigger === hit.trigger &&
+    dismissed.query === hit.query &&
+    dismissed.quoted === hit.quoted &&
+    dismissed.start === hit.span.start &&
+    dismissed.end === hit.span.end
+  )
 }
 
 /** Roster access the controller borrows from the root service (registration order preserved). */
@@ -72,8 +87,9 @@ export class InputTriggerController {
    * the answer changes with every hit, and render-side consumers subscribe
    * instead of re-polling sources during a render.
    */
-  readonly headers: SnapshotStore<ReadonlyMap<string, readonly InputTriggerCrumb[]>> =
-    createSnapshotStore<ReadonlyMap<string, readonly InputTriggerCrumb[]>>(new Map())
+  readonly headers: SnapshotStore<ReadonlyMap<string, readonly InputTriggerCrumb[]>> = createSnapshotStore<
+    ReadonlyMap<string, readonly InputTriggerCrumb[]>
+  >(new Map())
   /**
    * Aggregated hot reference lexicon, grouped by trigger (plain-text-reference decision;
    * see .agents/notes/archived/architecture/2026-07-25-web-input-machine-and-slash-pipeline.md):
@@ -84,8 +100,9 @@ export class InputTriggerController {
    * spawn/exit) — render-side consumers subscribe instead of re-reading a
    * mutable answer.
    */
-  readonly lexicon: SnapshotStore<ReadonlyMap<TriggerChar, readonly string[]>> =
-    createSnapshotStore<ReadonlyMap<TriggerChar, readonly string[]>>(new Map())
+  readonly lexicon: SnapshotStore<ReadonlyMap<TriggerChar, readonly string[]>> = createSnapshotStore<
+    ReadonlyMap<TriggerChar, readonly string[]>
+  >(new Map())
 
   /** The authoritative hit: single truth for span CAS material (menu snapshot never carries it alone). */
   private hit: TriggerHit | null = null
@@ -156,10 +173,15 @@ export class InputTriggerController {
       }
     }
     const prev = this.menu.getSnapshot()
-    const same = !launched && prev.open && prev.hit !== null
-      && prev.hit.trigger === hit.trigger && prev.hit.query === hit.query
-      && prev.hit.quoted === hit.quoted
-      && prev.hit.span.start === hit.span.start && prev.hit.span.end === hit.span.end
+    const same =
+      !launched &&
+      prev.open &&
+      prev.hit !== null &&
+      prev.hit.trigger === hit.trigger &&
+      prev.hit.query === hit.query &&
+      prev.hit.quoted === hit.quoted &&
+      prev.hit.span.start === hit.span.start &&
+      prev.hit.span.end === hit.span.end
     this.hit = hit
     if (same) return
     const roster = this.deps.roster.sources(hit.trigger)
@@ -361,9 +383,10 @@ export class InputTriggerController {
     if (this.disposed) return false
     const session = this.project()
     for (const owner of this.deps.roster.all()) {
-      const matches = source === undefined
-        ? reference.ref.startsWith(owner.trigger) && owner.lexicon?.(session)?.includes(reference.ref.slice(1))
-        : owner.name === source
+      const matches =
+        source === undefined
+          ? reference.ref.startsWith(owner.trigger) && owner.lexicon?.(session)?.includes(reference.ref.slice(1))
+          : owner.name === source
       if (matches && owner.openReference?.(session, reference)) {
         this.dismiss()
         return true
@@ -458,8 +481,7 @@ export class InputTriggerController {
   refreshOpenMenu(): void {
     if (this.disposed || !this.menu.getSnapshot().open || this.hit === null) return
     const launched = this.launcher.getSnapshot()
-    const roster = this.deps.roster.sources(this.hit.trigger)
-      .filter(source => launched === null || source.name === launched)
+    const roster = this.deps.roster.sources(this.hit.trigger).filter(source => launched === null || source.name === launched)
     if (roster.length === 0) return
     this.fetchCandidates(this.hit, roster)
   }
@@ -487,11 +509,13 @@ export class InputTriggerController {
       return actx.bail(actx, 'slash/input-begin-command', { claim: outcome.claim, span }) === true
     }
     if ('text' in outcome) {
-      return actx.bail(actx, 'slash/input-insert-text', {
-        text: outcome.text,
-        span,
-        ...outcome.continue === true ? { continue: true } : {},
-      }) === true
+      return (
+        actx.bail(actx, 'slash/input-insert-text', {
+          text: outcome.text,
+          span,
+          ...(outcome.continue === true ? { continue: true } : {}),
+        }) === true
+      )
     }
     return actx.bail(actx, 'slash/input-insert-reference', { reference: outcome.insert, span }) === true
   }
@@ -522,17 +546,20 @@ export class InputTriggerController {
   /** Wire one source's lexicon invalidation channel into refresh (hookless or roll-less sources never notify). */
   private watchLexicon(source: InputTriggerSource, projection: ClientSessionContext): void {
     if (source.lexicon === undefined || source.subscribeLexicon === undefined) return
-    this.lexiconOffs.set(source, source.subscribeLexicon(projection, () => {
-      this.refreshLexicon()
-      const hit = this.hit
-      if (hit === null || !this.menu.getSnapshot().open || hit.trigger !== source.trigger) return
-      // Let every source process the same invalidation before rebuilding the
-      // open menu, so one source cannot contribute its previous catalog.
-      void Promise.resolve().then(() => {
-        if (this.disposed || this.hit !== hit || !this.menu.getSnapshot().open) return
-        this.fetchCandidates(hit, this.deps.roster.sources(hit.trigger))
-      })
-    }))
+    this.lexiconOffs.set(
+      source,
+      source.subscribeLexicon(projection, () => {
+        this.refreshLexicon()
+        const hit = this.hit
+        if (hit === null || !this.menu.getSnapshot().open || hit.trigger !== source.trigger) return
+        // Let every source process the same invalidation before rebuilding the
+        // open menu, so one source cannot contribute its previous catalog.
+        void Promise.resolve().then(() => {
+          if (this.disposed || this.hit !== hit || !this.menu.getSnapshot().open) return
+          this.fetchCandidates(hit, this.deps.roster.sources(hit.trigger))
+        })
+      }),
+    )
   }
 
   /** Launch the candidate fetch for one hit generation, superseding the previous one. */
@@ -552,7 +579,7 @@ export class InputTriggerController {
           signal: controller.signal,
         })
         .then(
-          (items) => {
+          items => {
             if (controller.signal.aborted) return
             this.reduce({ type: 'source-settled', generation, source: source.name, items })
           },
@@ -581,12 +608,7 @@ export class InputTriggerController {
    * @param hit - the authoritative hit supplying position and span CAS.
    * @param action - settling pick or drill.
    */
-  private settle(
-    src: InputTriggerSource,
-    candidate: InputTriggerCandidate,
-    hit: TriggerHit,
-    action: PickAction,
-  ): void {
+  private settle(src: InputTriggerSource, candidate: InputTriggerCandidate, hit: TriggerHit, action: PickAction): void {
     const outcome = src.onPick({
       candidate,
       session: this.project(),
@@ -644,9 +666,16 @@ export class InputTriggerController {
   /** Record the open menu's identity as dismissed, so a bare re-track cannot revive it. */
   private rememberDismissed(): void {
     const hit = this.hit
-    this.dismissed = hit === null ? null : {
-      trigger: hit.trigger, query: hit.query, quoted: hit.quoted, start: hit.span.start, end: hit.span.end,
-    }
+    this.dismissed =
+      hit === null
+        ? null
+        : {
+            trigger: hit.trigger,
+            query: hit.query,
+            quoted: hit.quoted,
+            start: hit.span.start,
+            end: hit.span.end,
+          }
   }
 
   private clearLauncher(): void {

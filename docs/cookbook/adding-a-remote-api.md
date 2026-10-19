@@ -193,5 +193,5 @@ it('renders the failure code the Host reported', async () => {
 
 1. `pnpm run build:lib`: mandatory once a signature, the code table, the namespace, or an export name changed, because it produces the Client declarations and codecs.
 2. `pnpm run typecheck`: both the Host and the Client program, where a code merged into an unreachable package turns red.
-3. Run both sides' specs by name: `npx vitest run <owner spec> <client spec>`.
+3. Run both sides' specs by name: `pnpm exec vp test --config vitest.config.ts <owner spec> <client spec>`.
 4. Add a recorded-session snapshot when the endpoint reaches a product-visible surface, per the [testing policy](../testing.md).

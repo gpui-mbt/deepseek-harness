@@ -76,10 +76,12 @@ export function replyPairsOf(text: string): Pick<QuestionReplyData, 'questions' 
       ...(typeof question.detail === 'string' ? { detail: question.detail } : {}),
       ...(typeof question.header === 'string' ? { header: question.header } : {}),
       ...(Array.isArray(question.options)
-        ? { options: question.options.flatMap((option) => {
-          if (!isRecord(option) || typeof option.label !== 'string') return []
-          return [{ label: option.label, ...(typeof option.description === 'string' ? { description: option.description } : {}) }]
-        }) }
+        ? {
+            options: question.options.flatMap(option => {
+              if (!isRecord(option) || typeof option.label !== 'string') return []
+              return [{ label: option.label, ...(typeof option.description === 'string' ? { description: option.description } : {}) }]
+            }),
+          }
         : {}),
       ...(typeof question.multiSelect === 'boolean' ? { multiSelect: question.multiSelect } : {}),
     })
@@ -119,25 +121,21 @@ export function replyAnswerValues(data: QuestionReplyData, id: string): string[]
  */
 export function replyClipboardText(data: QuestionReplyData, t: PropsLocale<'question'>['t']): string {
   if (data.questions.length === 0) return data.text
-  return data.questions.map((question) => {
-    const values = replyAnswerValues(data, question.id)
-    const heading = question.header && question.header !== question.question
-      ? `${question.header} — ${question.question}`
-      : question.question
-    const answer = values.length === 0
-      ? t('reply.skipped')
-      : `${t('reply.answerLabel')}${values.join(', ')}`
-    return `${heading}\n${answer}`
-  }).join('\n\n')
+  return data.questions
+    .map(question => {
+      const values = replyAnswerValues(data, question.id)
+      const heading =
+        question.header && question.header !== question.question ? `${question.header} — ${question.question}` : question.question
+      const answer = values.length === 0 ? t('reply.skipped') : `${t('reply.answerLabel')}${values.join(', ')}`
+      return `${heading}\n${answer}`
+    })
+    .join('\n\n')
 }
 
 /** Validate a late reply source at the persisted conversation boundary. */
-function replySource(
-  event: Pick<SessionEvent<'user/message'>, 'data'>,
-): { callId: string; outcome: QuestionReplyData['outcome'] } | null {
+function replySource(event: Pick<SessionEvent<'user/message'>, 'data'>): { callId: string; outcome: QuestionReplyData['outcome'] } | null {
   const source: unknown = event.data.source
-  return isRecord(source) && source.kind === 'user-question-reply'
-    && typeof source.callId === 'string' && source.outcome === 'answered'
+  return isRecord(source) && source.kind === 'user-question-reply' && typeof source.callId === 'string' && source.outcome === 'answered'
     ? { callId: source.callId, outcome: 'answered' }
     : null
 }
@@ -149,7 +147,7 @@ function replySource(
 export const questionReplyDefinition: ConversationNodeDefinition<QuestionReplyState> = {
   kind: 'user-question-reply',
   target: 'chat',
-  match: (event) => {
+  match: event => {
     if (event.type !== 'user/message' || !isAppendSurfaceEvent(event)) return null
     return replySource(event) === null ? null : { id: String(event.data.id), role: 'start', exclusive: true }
   },
@@ -170,7 +168,7 @@ export const questionReplyDefinition: ConversationNodeDefinition<QuestionReplySt
     }
   },
   update: context => context.state,
-  buildViewNode: (context) => {
+  buildViewNode: context => {
     if (context.state === undefined) return null
     const { seq, ...data } = context.state
     return {

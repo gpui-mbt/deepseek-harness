@@ -13,7 +13,9 @@ import { request } from './worker-rpc.ts'
  * @returns a runtime whose close requires SDK request drainage before releasing ownership.
  */
 export async function openBrowserWorker(
-  config: NativeBrowserConfig, signal: AbortSignal, warn: (message: string) => void,
+  config: NativeBrowserConfig,
+  signal: AbortSignal,
+  warn: (message: string) => void,
 ): Promise<NativeBrowserRuntime> {
   signal.throwIfAborted()
   const entry = new URL('./worker.js', import.meta.url)
@@ -30,30 +32,39 @@ export async function openBrowserWorker(
     worker = new Worker(new URL(`data:text/javascript,${encodeURIComponent(bootstrap)}`), { workerData: config, execArgv: [], env })
   }
   let termination: Promise<number> | undefined
-  const terminate = () => termination ??= worker.terminate()
+  const terminate = () => (termination ??= worker.terminate())
   const lifetime = new AbortController()
-  worker.once('error', (error) => { lifetime.abort(error) })
-  worker.once('exit', (code) => { lifetime.abort(new Error(`Stagehand browser Worker exited (${code})`)) })
+  worker.once('error', error => {
+    lifetime.abort(error)
+  })
+  worker.once('exit', code => {
+    lifetime.abort(new Error(`Stagehand browser Worker exited (${code})`))
+  })
   let closing: Promise<void> | undefined
-  const close = () => closing ??= (async () => {
-    let timeout: ReturnType<typeof setTimeout> | undefined
-    try {
-      await Promise.race([
-        request(worker, 'close', undefined, lifetime.signal),
-        new Promise<never>((_resolve, reject) => {
-          timeout = setTimeout(() => { reject(new Error('Stagehand connection cleanup timed out')) }, config.shutdownGraceMs)
-        }),
-      ])
-    } catch (error) {
-      warn(`Stagehand SDK cleanup did not finish: ${String(error)}`)
-      throw new StagehandDrainError(`Stagehand SDK requests did not drain: ${String(error)}`, { cause: error })
-    } finally {
-      clearTimeout(timeout)
-      await terminate()
-      worker.removeAllListeners()
-    }
-  })()
-  const abortOpening = () => { void terminate() }
+  const close = () =>
+    (closing ??= (async () => {
+      let timeout: ReturnType<typeof setTimeout> | undefined
+      try {
+        await Promise.race([
+          request(worker, 'close', undefined, lifetime.signal),
+          new Promise<never>((_resolve, reject) => {
+            timeout = setTimeout(() => {
+              reject(new Error('Stagehand connection cleanup timed out'))
+            }, config.shutdownGraceMs)
+          }),
+        ])
+      } catch (error) {
+        warn(`Stagehand SDK cleanup did not finish: ${String(error)}`)
+        throw new StagehandDrainError(`Stagehand SDK requests did not drain: ${String(error)}`, { cause: error })
+      } finally {
+        clearTimeout(timeout)
+        await terminate()
+        worker.removeAllListeners()
+      }
+    })())
+  const abortOpening = () => {
+    void terminate()
+  }
   signal.addEventListener('abort', abortOpening, { once: true })
   try {
     await request(worker, 'ready', undefined, lifetime.signal)
@@ -72,7 +83,11 @@ export async function openBrowserWorker(
       signal?.throwIfAborted()
       lifetime.signal.throwIfAborted()
       if (closing !== undefined) throw new Error('Stagehand browser Worker is closed')
-      const canceled = () => { void close().catch((error: unknown) => { lifetime.abort(error) }) }
+      const canceled = () => {
+        void close().catch((error: unknown) => {
+          lifetime.abort(error)
+        })
+      }
       signal?.addEventListener('abort', canceled, { once: true })
       try {
         const result = await request(worker, method, args, lifetime.signal)

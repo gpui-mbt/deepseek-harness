@@ -116,7 +116,14 @@ export function sectionSpans(markdown: string): MarkdownSpan[] {
   const spans: MarkdownSpan[] = []
   const firstHeadingLine = headings[0]?.line ?? lines.length + 1
   if (firstHeadingLine > 1) {
-    spans.push({ index: 0, kind: 'preamble', label: '(preamble before the first heading)', startLine: 1, endLine: firstHeadingLine - 1, text: sliceLines(lines, 1, firstHeadingLine - 1) })
+    spans.push({
+      index: 0,
+      kind: 'preamble',
+      label: '(preamble before the first heading)',
+      startLine: 1,
+      endLine: firstHeadingLine - 1,
+      text: sliceLines(lines, 1, firstHeadingLine - 1),
+    })
   }
   for (const [order, heading] of headings.entries()) {
     const endLine = (headings[order + 1]?.line ?? lines.length + 1) - 1
@@ -143,9 +150,7 @@ export function sectionSpans(markdown: string): MarkdownSpan[] {
  * @returns True when index-wise mapping is sound.
  */
 export function spansAligned(left: MarkdownSpan[], right: MarkdownSpan[]): boolean {
-  return left.length > 0
-    && left.length === right.length
-    && left.every((span, index) => span.kind === right[index]?.kind)
+  return left.length > 0 && left.length === right.length && left.every((span, index) => span.kind === right[index]?.kind)
 }
 
 /**
@@ -160,7 +165,8 @@ export function changedSpanIndices(before: MarkdownSpan[], after: MarkdownSpan[]
 }
 
 function codeSpansOf(markdown: string): MarkdownSpan[] {
-  return markdownUnits(markdown).filter(span => span.kind.endsWith(':code'))
+  return markdownUnits(markdown)
+    .filter(span => span.kind.endsWith(':code'))
     .map((span, index) => ({ ...span, index }))
 }
 
@@ -250,11 +256,12 @@ export function termOffsets(text: string, term: string, englishInflections = fal
   if (term === '') return []
   const escape = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const wordLike = /^[A-Za-z0-9][A-Za-z0-9 ._-]*[A-Za-z0-9]$/.test(term)
-  const inflected = englishInflections && wordLike
-    ? /[^aeiou]y$/i.test(term)
-      ? `${escape(term.slice(0, -1))}(?:y|ies)`
-      : `${escape(term)}(?:s|es)?`
-    : escape(term)
+  const inflected =
+    englishInflections && wordLike
+      ? /[^aeiou]y$/i.test(term)
+        ? `${escape(term.slice(0, -1))}(?:y|ies)`
+        : `${escape(term)}(?:s|es)?`
+      : escape(term)
   const expression = new RegExp(wordLike ? `(?<![A-Za-z0-9_])${inflected}(?![A-Za-z0-9_])` : inflected, 'gi')
   return [...text.matchAll(expression)].map(match => match.index)
 }
@@ -331,7 +338,9 @@ export function firstOccurrenceContext(
     for (const index of [oldIndex, newIndex]) {
       if (index !== undefined && !changed.has(index)) extra.add(index)
     }
-    notes.push(`${row.english}: the document-wide first occurrence moved from ${oldIndex === undefined ? 'absent' : `#${oldIndex}`} to ${newIndex === undefined ? 'absent' : `#${newIndex}`}; the ${row.first} form moves with it (later occurrences drop the annotation).`)
+    notes.push(
+      `${row.english}: the document-wide first occurrence moved from ${oldIndex === undefined ? 'absent' : `#${oldIndex}`} to ${newIndex === undefined ? 'absent' : `#${newIndex}`}; the ${row.first} form moves with it (later occurrences drop the annotation).`,
+    )
   }
   return { notes, extraSpanIndices: [...extra].sort((left, right) => left - right) }
 }
@@ -408,7 +417,9 @@ function renderBundles(out: string[], input: TranslationBriefInput, bundles: Bri
   const counterpartLanguage = input.direction === 'en-to-zh' ? 'Chinese' : 'English'
   for (const bundle of bundles) {
     out.push('')
-    out.push(`### #${bundle.index} ${bundle.label}${bundle.reason === 'first-occurrence' ? ' — unchanged; included for a first-occurrence move' : ''} — counterpart at ${input.counterpartPath}:${bundle.counterpartStartLine}`)
+    out.push(
+      `### #${bundle.index} ${bundle.label}${bundle.reason === 'first-occurrence' ? ' — unchanged; included for a first-occurrence move' : ''} — counterpart at ${input.counterpartPath}:${bundle.counterpartStartLine}`,
+    )
     const fence = fenceFor([bundle.confirmedSourceText, bundle.currentSourceText, bundle.counterpartText].join('\n'), '~')
     if (bundle.confirmedSourceText !== bundle.currentSourceText) {
       out.push('')
@@ -456,7 +467,9 @@ export function renderTranslationBrief(input: TranslationBriefInput): string {
     out.push('')
     out.push('## Mechanical update — no translation judgment involved')
     out.push('')
-    out.push(`Every change since the last confirmed state is inside fenced code blocks, which are byte-identical across the pair. Run \`pnpm run gen-translation-brief --apply ${input.sourcePath}\` to splice the updated fences into the counterpart (the result is structure-validated before writing), then record per the Finish steps.`)
+    out.push(
+      `Every change since the last confirmed state is inside fenced code blocks, which are byte-identical across the pair. Run \`pnpm run gen-translation-brief --apply ${input.sourcePath}\` to splice the updated fences into the counterpart (the result is structure-validated before writing), then record per the Finish steps.`,
+    )
   }
   out.push('')
   out.push(`## ${sourceLanguage} diff (last-confirmed → current)`)
@@ -482,7 +495,9 @@ export function renderTranslationBrief(input: TranslationBriefInput): string {
       out.push('')
       out.push('## Whole-document update required')
       out.push('')
-      out.push(`${input.scope.reason} Open \`${input.counterpartPath}\` directly, locate the affected regions yourself, and reconcile under docs/i18n/translation-rules.md.`)
+      out.push(
+        `${input.scope.reason} Open \`${input.counterpartPath}\` directly, locate the affected regions yourself, and reconcile under docs/i18n/translation-rules.md.`,
+      )
       break
     default:
       input.scope satisfies never
@@ -504,7 +519,9 @@ export function renderTranslationBrief(input: TranslationBriefInput): string {
   out.push('')
   out.push('## Finish')
   out.push('')
-  out.push('1. Apply the smallest counterpart edit that covers the change, then verify the changed spans clause by clause against the source.')
+  out.push(
+    '1. Apply the smallest counterpart edit that covers the change, then verify the changed spans clause by clause against the source.',
+  )
   out.push(`2. \`pnpm run verify-translation-pairing --write ${input.sourcePath.replace(/\.zh\.md$/, '.md')}\``)
   out.push(`3. \`pnpm run verify-translation-pairing ${input.sourcePath.replace(/\.zh\.md$/, '.md')}\``)
   out.push('')

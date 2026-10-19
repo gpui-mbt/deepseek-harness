@@ -82,23 +82,29 @@ const MAX_RANGE_ALTERNATIVES = 256
  */
 export function dshRange(manifest: Manifest): string | undefined | Error {
   const declared = isObject(manifest.engines) ? manifest.engines.dsh : undefined
-  const ranges = typeof declared === 'string' ? [declared]
-    : Object.entries(isObject(manifest.peerDependencies) ? manifest.peerDependencies : {})
-      .flatMap(([name, range]) => DSH_PEER.test(name) && typeof range === 'string' && !CURRENT_DSH.has(range) ? [range] : [])
+  const ranges =
+    typeof declared === 'string'
+      ? [declared]
+      : Object.entries(isObject(manifest.peerDependencies) ? manifest.peerDependencies : {}).flatMap(([name, range]) =>
+          DSH_PEER.test(name) && typeof range === 'string' && !CURRENT_DSH.has(range) ? [range] : [],
+        )
   const used = [...new Set(ranges.map(range => range.trim()))].filter(range => range !== '*')
   if (used.length === 0) return undefined
   let combinations: string[][] = [[]]
   for (const range of used) {
     if (!valid(range)) return invalidRange(range)
-    const alternatives = new semver.Range(range, { includePrerelease: true }).set
-      .map(set => set.map(comparator => comparator.value).filter(Boolean))
+    const alternatives = new semver.Range(range, { includePrerelease: true }).set.map(set =>
+      set.map(comparator => comparator.value).filter(Boolean),
+    )
     if (combinations.length * alternatives.length > MAX_RANGE_ALTERNATIVES) {
       return new Error(`DSH peer ranges combine into more than ${MAX_RANGE_ALTERNATIVES} alternatives`)
     }
-    combinations = combinations.flatMap(prefix => alternatives.map(alternative => [...new Set([...prefix, ...alternative])]))
+    combinations = combinations
+      .flatMap(prefix => alternatives.map(alternative => [...new Set([...prefix, ...alternative])]))
       .filter(combination => semver.minVersion(new semver.Range(combination.join(' ') || '*', { includePrerelease: true })) !== null)
   }
-  if (combinations.length === 0) return new Error(`no DSH version satisfies ${used.length === 1 ? 'the DSH range' : 'every DSH peer range'}: ${used.join(', ')}`)
+  if (combinations.length === 0)
+    return new Error(`no DSH version satisfies ${used.length === 1 ? 'the DSH range' : 'every DSH peer range'}: ${used.join(', ')}`)
   const written = [...new Set(combinations.map(combination => combination.join(' ') || '*'))]
   if (written.includes('*')) return undefined
   return used.length === 1 ? used[0] : written.join(' || ')
@@ -121,7 +127,7 @@ async function workspaceGlobs(files: PackageFiles, manifest: Manifest | undefine
     // A malformed workspace file declares no packages.
     parsed = undefined
   }
-  return [...fromManifest, ...isObject(parsed) ? strings(parsed.packages) : []].filter(glob => !glob.startsWith('!'))
+  return [...fromManifest, ...(isObject(parsed) ? strings(parsed.packages) : [])].filter(glob => !glob.startsWith('!'))
 }
 
 function directories(files: PackageFiles, dir: string): string[] {
@@ -130,7 +136,13 @@ function directories(files: PackageFiles, dir: string): string[] {
 
 /** Match one path segment against a glob segment in which `*` stands for any characters. */
 function segmentMatches(pattern: string, name: string): boolean {
-  return new RegExp(`^${pattern.split('*').map(part => part.replace(/[.+?^${}()|[\]\\]/gu, '\\$&')).join('.*')}$`, 'u').test(name)
+  return new RegExp(
+    `^${pattern
+      .split('*')
+      .map(part => part.replace(/[.+?^${}()|[\]\\]/gu, '\\$&'))
+      .join('.*')}$`,
+    'u',
+  ).test(name)
 }
 
 /**
@@ -138,7 +150,10 @@ function segmentMatches(pattern: string, name: string): boolean {
  * wildcards, or `**` for zero or more directories up to the scan depth; parent-relative globs match nothing.
  */
 function expandGlob(files: PackageFiles, glob: string): string[] {
-  const segments = posix.normalize(glob.replace(/^\.\//u, '').replace(/\/+$/u, '')).split('/').filter(segment => segment !== '' && segment !== '.')
+  const segments = posix
+    .normalize(glob.replace(/^\.\//u, '').replace(/\/+$/u, ''))
+    .split('/')
+    .filter(segment => segment !== '' && segment !== '.')
   if (segments.includes('..')) return []
   const found = new Set<string>()
   const walk = (relative: string, rest: string[], depth: number): void => {

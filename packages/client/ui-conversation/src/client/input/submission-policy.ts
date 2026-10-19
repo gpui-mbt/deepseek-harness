@@ -3,13 +3,9 @@
  * resolves submission gestures into queue/steer delivery modes; Host and
  * Agent keep the actual delivery-window authority.
  */
-import {
-  createSnapshotStore, type SnapshotStore,
-} from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {
-  BusyEnterBehavior, ComposerSubmitGesture, InputSubmitMode,
-} from '../contract/composer-submission.ts'
+import type { BusyEnterBehavior, ComposerSubmitGesture, InputSubmitMode } from '../contract/composer-submission.ts'
 import { BUSY_ENTER_FIELD, DEFAULT_BUSY_ENTER_BEHAVIOR } from '../../submission-settings.ts'
 import type { ConversationSettings } from '../../submission-settings.ts'
 
@@ -55,13 +51,17 @@ export class ComposerSubmissionPolicy {
   constructor(host?: ConfigForm<ConversationSettings>) {
     this.host = host
     if (host !== undefined) {
-      this.unsubscribe = host.subscribe(() => { this.adopt(host) })
+      this.unsubscribe = host.subscribe(() => {
+        this.adopt(host)
+      })
       this.adopt(host)
     }
   }
 
   /** Release the preference subscription. */
-  dispose(): void { this.unsubscribe?.() }
+  dispose(): void {
+    this.unsubscribe?.()
+  }
 
   /**
    * Change the busy-state submission behavior; the live value publishes

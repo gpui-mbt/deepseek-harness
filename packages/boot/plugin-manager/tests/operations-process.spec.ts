@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { initProfile } from '@deepseek-ai/dsh-app-boot'
 import { runProfilePnpm, type PackageOperationOptions } from '../src/operations.ts'
 
@@ -64,7 +64,11 @@ async function readPid(pidFile: string): Promise<number> {
 /** Wait until a descendant this spec killed is really gone, so its directory can be removed. */
 async function awaitGone(pid: number): Promise<void> {
   for (let attempt = 0; attempt < 200; attempt += 1) {
-    try { process.kill(pid, 0) } catch { return /* the descendant is gone */ }
+    try {
+      process.kill(pid, 0)
+    } catch {
+      return /* the descendant is gone */
+    }
     await sleep(25)
   }
 }
@@ -86,17 +90,26 @@ function fixture(child: string, descendant: string) {
     writeFileSync(stopFile, '')
     if (existsSync(pidFile)) {
       const pid = Number(readFileSync(pidFile, 'utf8'))
-      try { process.kill(pid, 'SIGKILL') } catch { /* the descendant exited with its own timer */ }
+      try {
+        process.kill(pid, 'SIGKILL')
+      } catch {
+        /* the descendant exited with its own timer */
+      }
       await awaitGone(pid)
     }
     rmSync(home, { recursive: true, force: true })
   })
   const options: PackageOperationOptions = {
-    command: process.execPath, args: ['-e', child], execution: 'service', outputBytes: 1000,
+    command: process.execPath,
+    args: ['-e', child],
+    execution: 'service',
+    outputBytes: 1000,
     activateNewBundles: false,
     env: {
-      DSH_DESCENDANT_PID_FILE: pidFile, DSH_DESCENDANT_STOP_FILE: stopFile,
-      DSH_DESCENDANT_SCRIPT: scriptFile, DSH_LATE_FILE: lateFile,
+      DSH_DESCENDANT_PID_FILE: pidFile,
+      DSH_DESCENDANT_STOP_FILE: stopFile,
+      DSH_DESCENDANT_SCRIPT: scriptFile,
+      DSH_LATE_FILE: lateFile,
     },
   }
   return { context: { home, profile: 'test', installAnchor, cwd: home }, pidFile, lateFile, options }
@@ -124,7 +137,9 @@ describe.skipIf(process.platform === 'win32')('a run with descendants', () => {
     const { context, options } = fixture(DRAIN_CHILD, HOLDER_SCRIPT)
     const run = runProfilePnpm(context, ['add', './held'], {
       ...options,
-      onOutput() { throw new Error('output destination closed') },
+      onOutput() {
+        throw new Error('output destination closed')
+      },
     })
     await expect(run).rejects.toThrow('output destination closed')
   })
@@ -144,13 +159,22 @@ describe.skipIf(process.platform === 'win32')('a run with descendants', () => {
 it('waits for a run recorded by an exited operation before starting its own', async () => {
   const { context, lateFile, options } = fixture(
     // The run reports whether the recorded run had finished writing when it started.
-    'console.log(require("node:fs").existsSync(process.env.DSH_LATE_FILE) ? "started after" : "started before")', '',
+    'console.log(require("node:fs").existsSync(process.env.DSH_LATE_FILE) ? "started after" : "started before")',
+    '',
   )
-  const orphan = spawn(process.execPath, ['-e', `setTimeout(() => { require('node:fs').writeFileSync(${JSON.stringify(lateFile)}, 'late') }, 500)`], {
-    stdio: 'ignore',
-  })
+  const orphan = spawn(
+    process.execPath,
+    ['-e', `setTimeout(() => { require('node:fs').writeFileSync(${JSON.stringify(lateFile)}, 'late') }, 500)`],
+    {
+      stdio: 'ignore',
+    },
+  )
   onTestFinished(async () => {
-    try { orphan.kill('SIGKILL') } catch { /* the recorded run already exited */ }
+    try {
+      orphan.kill('SIGKILL')
+    } catch {
+      /* the recorded run already exited */
+    }
     await awaitGone(orphan.pid as number)
   })
   const dir = join(context.home, 'profiles', 'test')

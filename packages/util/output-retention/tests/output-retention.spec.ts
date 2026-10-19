@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   describeOmitted,
   formatRetentionNotice,
@@ -60,10 +60,8 @@ describe('ItemRetainer — zero budget', () => {
   })
 
   it('rejects a non-integer / negative maxItems', () => {
-    expect(() => new ItemRetainer({ kind: 'head', maxItems: -1 }))
-      .toThrow(/maxItems must be a non-negative integer/)
-    expect(() => new ItemRetainer({ kind: 'head', maxItems: 1.5 }))
-      .toThrow(/maxItems must be a non-negative integer/)
+    expect(() => new ItemRetainer({ kind: 'head', maxItems: -1 })).toThrow(/maxItems must be a non-negative integer/)
+    expect(() => new ItemRetainer({ kind: 'head', maxItems: 1.5 })).toThrow(/maxItems must be a non-negative integer/)
   })
 })
 
@@ -191,14 +189,10 @@ describe('TextRetainer — zero budgets', () => {
   })
 
   it('rejects non-integer / negative byte budgets', () => {
-    expect(() => new TextRetainer({ kind: 'head', maxBytes: -1 }))
-      .toThrow(/maxBytes must be a non-negative integer/)
-    expect(() => new TextRetainer({ kind: 'tail', maxBytes: 2.5 }))
-      .toThrow(/maxBytes must be a non-negative integer/)
-    expect(() => new TextRetainer({ kind: 'headTail', headBytes: -1, tailBytes: 2 }))
-      .toThrow(/headBytes must be a non-negative integer/)
-    expect(() => new TextRetainer({ kind: 'headTail', headBytes: 2, tailBytes: 1.1 }))
-      .toThrow(/tailBytes must be a non-negative integer/)
+    expect(() => new TextRetainer({ kind: 'head', maxBytes: -1 })).toThrow(/maxBytes must be a non-negative integer/)
+    expect(() => new TextRetainer({ kind: 'tail', maxBytes: 2.5 })).toThrow(/maxBytes must be a non-negative integer/)
+    expect(() => new TextRetainer({ kind: 'headTail', headBytes: -1, tailBytes: 2 })).toThrow(/headBytes must be a non-negative integer/)
+    expect(() => new TextRetainer({ kind: 'headTail', headBytes: 2, tailBytes: 1.1 })).toThrow(/tailBytes must be a non-negative integer/)
   })
 })
 
@@ -371,7 +365,8 @@ describe('formatRetentionNotice', () => {
       omitted: { kind: 'exact', count: 500 },
     }
     const out = formatRetentionNotice(headTail, n =>
-      typeof n.limit === 'object' ? `Kept ${n.limit.head}B head + ${n.limit.tail}B tail.` : '')
+      typeof n.limit === 'object' ? `Kept ${n.limit.head}B head + ${n.limit.tail}B tail.` : '',
+    )
     expect(out).toBe('Omitted 500 bytes. Kept 2000B head + 2000B tail.')
   })
 })

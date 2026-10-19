@@ -5,7 +5,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { StreamableHTTPClientTransport, type Transport } from '@modelcontextprotocol/client'
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
@@ -18,8 +18,14 @@ const { mockTransport } = vi.hoisted(() => ({ mockTransport: vi.fn<() => Transpo
 vi.mock('../src/transport.ts', () => ({ createTransport: mockTransport }))
 
 const config: Config = {
-  transport: 'stdio', serverName: 'fixture', command: 'fixture', args: [], env: {}, cwd: '',
-  toolCallTimeoutMs: 60_000, failOnStartupError: false,
+  transport: 'stdio',
+  serverName: 'fixture',
+  command: 'fixture',
+  args: [],
+  env: {},
+  cwd: '',
+  toolCallTimeoutMs: 60_000,
+  failOnStartupError: false,
 }
 const fixture = fileURLToPath(new URL('./fixtures/negotiation-lifecycle.mjs', import.meta.url))
 
@@ -30,17 +36,31 @@ async function connection(factory: () => Transport, retry: boolean) {
   await ctx.plugin(ToolRuntime)
   const errors: string[] = []
   const warns: string[] = []
-  ctx.logger.error = (message: unknown) => { errors.push(String(message)) }
-  ctx.logger.warn = (message: unknown) => { warns.push(String(message)) }
+  ctx.logger.error = (message: unknown) => {
+    errors.push(String(message))
+  }
+  ctx.logger.warn = (message: unknown) => {
+    warns.push(String(message))
+  }
   const transports: Transport[] = []
   mockTransport.mockImplementation(() => {
     const transport = factory()
     transports.push(transport)
     return transport
   })
-  const handle = startConnection(ctx, config, resolveReconnectPolicy({
-    enabled: retry, initialDelayMs: 1, maxDelayMs: 1, maxAttempts: 3,
-  }, 'fixture'))
+  const handle = startConnection(
+    ctx,
+    config,
+    resolveReconnectPolicy(
+      {
+        enabled: retry,
+        initialDelayMs: 1,
+        maxDelayMs: 1,
+        maxAttempts: 3,
+      },
+      'fixture',
+    ),
+  )
   onTestFinished(async () => {
     for (const transport of transports) await transport.close()
     await handle.dispose()
@@ -54,11 +74,20 @@ async function stdioFixture() {
   const eventsPath = join(root, 'events.jsonl')
   const releasePath = join(root, 'release')
   await writeFile(eventsPath, '')
-  const events = async (): Promise<{ event: string; pid: number; previousAlive?: boolean }[]> => (await readFile(eventsPath, 'utf8'))
-    .split('\n').filter(Boolean).map(line => JSON.parse(line) as { event: string; pid: number; previousAlive?: boolean })
-  const handle = await connection(() => new StdioClientTransport({
-    command: process.execPath, args: [fixture, eventsPath, releasePath], env: {},
-  }), false)
+  const events = async (): Promise<{ event: string; pid: number; previousAlive?: boolean }[]> =>
+    (await readFile(eventsPath, 'utf8'))
+      .split('\n')
+      .filter(Boolean)
+      .map(line => JSON.parse(line) as { event: string; pid: number; previousAlive?: boolean })
+  const handle = await connection(
+    () =>
+      new StdioClientTransport({
+        command: process.execPath,
+        args: [fixture, eventsPath, releasePath],
+        env: {},
+      }),
+    false,
+  )
   return { handle, events, release: () => writeFile(releasePath, '') }
 }
 
@@ -77,9 +106,12 @@ describe('SDK negotiation lifecycle', () => {
 
   it('disposes during a probe without starting or retaining a serving process', async () => {
     const { handle, events, release } = await stdioFixture()
-    await vi.waitFor(async () => {
-      expect((await events()).some(item => item.event === 'server/discover')).toBe(true)
-    }, { timeout: 15_000 })
+    await vi.waitFor(
+      async () => {
+        expect((await events()).some(item => item.event === 'server/discover')).toBe(true)
+      },
+      { timeout: 15_000 },
+    )
     const disposing = handle.dispose()
     await release()
     await disposing
@@ -99,7 +131,7 @@ describe('SDK negotiation lifecycle', () => {
     onTestFinished(async () => {
       server.closeAllConnections()
       const closed: PromiseWithResolvers<void> = Promise.withResolvers()
-      server.close((error) => {
+      server.close(error => {
         if (error) closed.reject(error)
         else closed.resolve()
       })
@@ -113,32 +145,45 @@ describe('SDK negotiation lifecycle', () => {
     const handle = await connection(() => new StreamableHTTPClientTransport(url), true)
     expect((await handle.ready).error).toBeDefined()
     expect(handle.errors).toEqual([])
-    await vi.waitFor(() => { expect(handle.errors.some(line => line.includes('giving up after 3'))).toBe(true) })
+    await vi.waitFor(() => {
+      expect(handle.errors.some(line => line.includes('giving up after 3'))).toBe(true)
+    })
     expect(requests).toBe(4)
     expect(handle.warns.filter(line => line.includes('connection failed; retrying'))).toHaveLength(3)
   })
 
   it('retries failed stdio probes when no child could be spawned', async () => {
-    const handle = await connection(() => new StdioClientTransport({
-      command: join(fixture, 'missing-command'), env: {},
-    }), true)
+    const handle = await connection(
+      () =>
+        new StdioClientTransport({
+          command: join(fixture, 'missing-command'),
+          env: {},
+        }),
+      true,
+    )
     expect((await handle.ready).error).toBeDefined()
     expect(handle.errors).toEqual([])
-    await vi.waitFor(() => { expect(handle.errors.some(line => line.includes('giving up after 3'))).toBe(true) })
+    await vi.waitFor(() => {
+      expect(handle.errors.some(line => line.includes('giving up after 3'))).toBe(true)
+    })
     expect(handle.transports).toHaveLength(4)
     expect(handle.warns.filter(line => line.includes('connection failed; retrying'))).toHaveLength(3)
   })
 
   it('stops retries when a failed probe cannot confirm transport cleanup', async () => {
-    const close = vi.fn()
+    const close = vi
+      .fn()
       .mockRejectedValueOnce(new Error('SDK shutdown failed'))
       .mockRejectedValueOnce(new Error('supervisor shutdown failed'))
       .mockResolvedValue(undefined)
-    const handle = await connection(() => ({
-      start: () => Promise.reject(new Error('probe failed')),
-      send: () => Promise.resolve(),
-      close,
-    }), true)
+    const handle = await connection(
+      () => ({
+        start: () => Promise.reject(new Error('probe failed')),
+        send: () => Promise.resolve(),
+        close,
+      }),
+      true,
+    )
     expect((await handle.ready).error).toBeDefined()
     expect(handle.errors).toEqual([
       'mcp-client(fixture): failed generation could not confirm transport closure — reconnect stopped to avoid overlapping server processes; reload the plugin or restart the Host to retry',

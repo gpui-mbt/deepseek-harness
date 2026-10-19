@@ -21,13 +21,9 @@
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { createMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
-import {
-  SESSION_FORMAT_VERSION,
-  Session,
-  SessionId,
-} from '@deepseek-ai/dsh-session'
+import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-title'
 import {
   assertFixtureInventory,
@@ -41,9 +37,7 @@ import {
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
 const SNAPSHOT_DIR = fileURLToPath(new URL('./expected/markdown-wide-table', import.meta.url))
-const GEOMETRY_EXPECTED = fileURLToPath(
-  new URL('./expected/markdown-wide-table/geometry.expected.md', import.meta.url),
-)
+const GEOMETRY_EXPECTED = fileURLToPath(new URL('./expected/markdown-wide-table/geometry.expected.md', import.meta.url))
 const MODE = webSnapshotMode()
 const SEED_ID = 'markdown-wide-table-web-e2e'
 /** Painted into the final paragraph; the open barrier waits for it. */
@@ -80,8 +74,7 @@ const CJK_SENTENCE = '这个单元格包含一段较长的中文说明，用来�
 /** The assistant markdown includes fitting and overflowing wide tables. */
 function tablesMarkdown(): string {
   const wideHeader = [WIDE_MARKER, ...Array.from({ length: 11 }, (_, i) => `C${String(i + 2).padStart(2, '0')}`)]
-  const wideRow = (row: number): string[] =>
-    Array.from({ length: 12 }, (_, i) => `v${String(row)}${String(i + 1).padStart(2, '0')}`)
+  const wideRow = (row: number): string[] => Array.from({ length: 12 }, (_, i) => `v${String(row)}${String(i + 1).padStart(2, '0')}`)
   return [
     'Markdown tables exercise the wide-table layout rules.',
     '',
@@ -116,26 +109,34 @@ function wideTableFixture(): string {
   const session = Session.create(SessionId('markdown-wide-table-source'))
   const eventTimeOrigin = new Date().setHours(12, 0, 0, 0)
   session.append('turn/start', { turn: 1 })
-  const user = session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'Show the wide-table layout scenarios.' }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  const user = session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'Show the wide-table layout scenarios.' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
   session.append('session/title', {
     title: 'Markdown wide tables',
     messageSeqs: [user.seq],
     source: { kind: 'fallback' },
   })
   session.append('step/start', { turn: 1, step: 1 })
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 1,
-    message: createMessage({
-      role: 'assistant',
-      content: [{ type: 'text', text: tablesMarkdown() }],
-      source: { kind: 'model', provider: 'fixture', model: 'fixture' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 1,
+      message: createMessage({
+        role: 'assistant',
+        content: [{ type: 'text', text: tablesMarkdown() }],
+        source: { kind: 'model', provider: 'fixture', model: 'fixture' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('step/end', { turn: 1, step: 1 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
   const header = {
@@ -150,10 +151,12 @@ function wideTableFixture(): string {
   return [
     JSON.stringify(header),
     // Spaced event times, as the sibling markdown fixtures pin them.
-    ...session.snapshotEvents().map(event => JSON.stringify({
-      ...event,
-      time: eventTimeOrigin + event.seq * 1_000,
-    })),
+    ...session.snapshotEvents().map(event =>
+      JSON.stringify({
+        ...event,
+        time: eventTimeOrigin + event.seq * 1_000,
+      }),
+    ),
     '',
   ].join('\n')
 }
@@ -178,9 +181,9 @@ interface TableReading {
 
 /** Read all three tables' relations in one pass. */
 function readTables(page: Page): Promise<TableReading[]> {
-  return page.evaluate((markers) => {
+  return page.evaluate(markers => {
     const wrappers = [...document.querySelectorAll<HTMLElement>('[class*="tableScroll"]')]
-    return markers.map((marker) => {
+    return markers.map(marker => {
       const wrapper = wrappers.find(candidate => candidate.textContent?.includes(marker) ?? false)
       if (wrapper === undefined) throw new Error(`table wrapper ${marker} not rendered`)
       const table = wrapper.querySelector('table')
@@ -210,19 +213,27 @@ interface TableStop {
  * @param target - the page whose frame to read.
  */
 async function awaitTableLayout(target: Page): Promise<void> {
-  await target.evaluate(async () => { await document.fonts.ready })
-  await target.waitForFunction(() => {
-    const element = document.querySelector('[data-sidebar-collapsed][data-rightbar-collapsed]')
-    if (element === null) return false
-    const tracks = getComputedStyle(element).gridTemplateColumns.split(' ').map(Number.parseFloat)
-    const root = element.querySelector<HTMLElement>('div[data-phase]')
-    // Mirrored from ui-layout's SIDEBAR_COLLAPSED; these tests use the Host compiler face.
-    return tracks[0] === 56 && tracks.at(-1) === 0
-      && element.getAnimations().every(animation =>
-        animation.playState === 'finished' || animation.playState === 'idle')
-      && root !== null
-      && root.style.getPropertyValue('--dsh-conversation-column-width') === `${String(root.offsetWidth)}px`
-  }, undefined, { timeout: 10_000 })
+  await target.evaluate(async () => {
+    await document.fonts.ready
+  })
+  await target.waitForFunction(
+    () => {
+      const element = document.querySelector('[data-sidebar-collapsed][data-rightbar-collapsed]')
+      if (element === null) return false
+      const tracks = getComputedStyle(element).gridTemplateColumns.split(' ').map(Number.parseFloat)
+      const root = element.querySelector<HTMLElement>('div[data-phase]')
+      // Mirrored from ui-layout's SIDEBAR_COLLAPSED; these tests use the Host compiler face.
+      return (
+        tracks[0] === 56 &&
+        tracks.at(-1) === 0 &&
+        element.getAnimations().every(animation => animation.playState === 'finished' || animation.playState === 'idle') &&
+        root !== null &&
+        root.style.getPropertyValue('--dsh-conversation-column-width') === `${String(root.offsetWidth)}px`
+      )
+    },
+    undefined,
+    { timeout: 10_000 },
+  )
 }
 
 /**
@@ -242,11 +253,12 @@ function renderGeometry(stops: TableStop[], wrapTighter: Map<string, boolean>): 
     '',
     '| viewport | table | fills the column | scrolls | breaks out past the column |',
     '| --- | --- | --- | --- | --- |',
-    ...stops.flatMap((stop) => {
+    ...stops.flatMap(stop => {
       const columnWidth = stop.tables[0]!.clientWidth
-      return stop.tables.map((table, index) =>
-        `| ${String(stop.width)}px | ${TABLE_NAMES[index]} | ${String(table.overflow <= 1)} `
-        + `| ${String(table.overflow > 1)} | ${String(table.clientWidth > columnWidth + 8)} |`,
+      return stop.tables.map(
+        (table, index) =>
+          `| ${String(stop.width)}px | ${TABLE_NAMES[index]} | ${String(table.overflow <= 1)} ` +
+          `| ${String(table.overflow > 1)} | ${String(table.clientWidth > columnWidth + 8)} |`,
       )
     }),
     '',
@@ -369,8 +381,7 @@ describe('web e2e: markdown tables fill the column, wide ones break out and scro
     await wide.focus()
     await page.keyboard.press('ArrowRight')
     await page.keyboard.press('ArrowRight')
-    await expect.poll(() => wide.evaluate(element => element.scrollLeft), { timeout: 5_000 })
-      .toBeGreaterThan(0)
+    await expect.poll(() => wide.evaluate(element => element.scrollLeft), { timeout: 5_000 }).toBeGreaterThan(0)
     expect(tripwire.pageErrors).toEqual([])
   }, 120_000)
 
@@ -383,14 +394,14 @@ describe('web e2e: markdown tables fill the column, wide ones break out and scro
     // hover reveal toggles overflow-x itself; the resting padding matches
     // the bar height so the swap does not move anything below. Both are
     // ordinary properties whose computed values follow :hover.
-    const overflowState = () => wide.evaluate(element => [
-      getComputedStyle(element).overflowX,
-      getComputedStyle(element).paddingBottom,
-    ].join(' '))
+    const overflowState = () =>
+      wide.evaluate(element => [getComputedStyle(element).overflowX, getComputedStyle(element).paddingBottom].join(' '))
     // Park the pointer away and drop focus: the keyboard case above leaves
     // the wrapper focused, and focus-visible also reveals the bar.
     await page.mouse.move(4, 4)
-    await wide.evaluate((element) => { element.blur() })
+    await wide.evaluate(element => {
+      element.blur()
+    })
     await expect.poll(overflowState, { timeout: 5_000 }).toBe('hidden 5px')
     // Resting hidden overflow keeps the scroll position reachable and intact.
     expect(await wide.evaluate(element => element.scrollLeft)).toBeGreaterThanOrEqual(0)
@@ -406,19 +417,24 @@ describe('web e2e: markdown tables fill the column, wide ones break out and scro
     onTestFailed(() => saveFailureShot(page, 'web-e2e-markdown-short-table-height'))
     await settleAt(1680)
     const short = page.locator('[class*="tableScroll"]', { hasText: SHORT_MARKER })
-    await short.evaluate((element) => { element.scrollIntoView({ block: 'center', behavior: 'instant' }) })
+    await short.evaluate(element => {
+      element.scrollIntoView({ block: 'center', behavior: 'instant' })
+    })
     await page.mouse.move(4, 4)
-    await short.evaluate((element) => { element.blur() })
+    await short.evaluate(element => {
+      element.blur()
+    })
     expect(await short.evaluate(element => element.classList.contains('md-table-wide'))).toBe(true)
     expect(await short.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1)
-    const position = () => short.evaluate((element) => {
-      const following = element.nextElementSibling
-      if (following === null) throw new Error('short table has no following paragraph')
-      return {
-        height: element.getBoundingClientRect().height,
-        followingTop: following.getBoundingClientRect().top,
-      }
-    })
+    const position = () =>
+      short.evaluate(element => {
+        const following = element.nextElementSibling
+        if (following === null) throw new Error('short table has no following paragraph')
+        return {
+          height: element.getBoundingClientRect().height,
+          followingTop: following.getBoundingClientRect().top,
+        }
+      })
     const resting = await position()
     await short.hover()
     await expect.poll(position).toEqual(resting)
@@ -426,7 +442,9 @@ describe('web e2e: markdown tables fill the column, wide ones break out and scro
     await short.focus()
     expect(await short.evaluate(element => document.activeElement === element)).toBe(true)
     await expect.poll(position).toEqual(resting)
-    await short.evaluate((element) => { element.blur() })
+    await short.evaluate(element => {
+      element.blur()
+    })
     await expect.poll(position).toEqual(resting)
     expect(tripwire.pageErrors).toEqual([])
   }, 120_000)
@@ -436,11 +454,14 @@ describe('web e2e: markdown tables fill the column, wide ones break out and scro
     await settleAt(1680)
     const hitAtHandle = async (marker: string) => {
       const wrapper = page.locator('[class*="tableScroll"]', { hasText: marker })
-      await wrapper.evaluate((element) => { element.scrollIntoView({ block: 'center', behavior: 'instant' }) })
-      return await page.evaluate((tableMarker) => {
+      await wrapper.evaluate(element => {
+        element.scrollIntoView({ block: 'center', behavior: 'instant' })
+      })
+      return await page.evaluate(tableMarker => {
         const handle = document.querySelector<HTMLElement>('[data-width-handle="right"]')
-        const wrapper = [...document.querySelectorAll<HTMLElement>('[class*="tableScroll"]')]
-          .find(candidate => candidate.textContent?.includes(tableMarker) ?? false)
+        const wrapper = [...document.querySelectorAll<HTMLElement>('[class*="tableScroll"]')].find(
+          candidate => candidate.textContent?.includes(tableMarker) ?? false,
+        )
         const table = wrapper?.querySelector('table') ?? null
         if (handle === null || table === null) throw new Error(`missing hit-test geometry for ${tableMarker}`)
         const handleRect = handle.getBoundingClientRect()
@@ -474,13 +495,22 @@ describe('web e2e: markdown tables fill the column, wide ones break out and scro
     await sweep()
     await settleAt(1100)
     try {
-      await page.evaluate(() => { document.documentElement.style.zoom = '1.25' })
-      await expect.poll(async () => {
-        const [fill, wide, longCell] = await readTables(page)
-        return fill!.overflow <= 1 && longCell!.overflow <= 1 && wide!.overflow > 1
-      }, { timeout: 10_000 }).toBe(true)
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = '1.25'
+      })
+      await expect
+        .poll(
+          async () => {
+            const [fill, wide, longCell] = await readTables(page)
+            return fill!.overflow <= 1 && longCell!.overflow <= 1 && wide!.overflow > 1
+          },
+          { timeout: 10_000 },
+        )
+        .toBe(true)
     } finally {
-      await page.evaluate(() => { document.documentElement.style.zoom = '' })
+      await page.evaluate(() => {
+        document.documentElement.style.zoom = ''
+      })
     }
     expect(tripwire.pageErrors).toEqual([])
   }, 120_000)
@@ -507,11 +537,12 @@ describe('web e2e: markdown tables fill the column, wide ones break out and scro
       await awaitTableLayout(hidpiPage)
       const readings = await readTables(hidpiPage)
       const baseline = (await sweep()).find(stop => stop.width === 1100)!
-      const relations = (tables: TableReading[]) => tables.map(table => ({
-        marker: table.marker,
-        fills: table.overflow <= 1,
-        breaksOut: table.clientWidth > tables[0]!.clientWidth + 8,
-      }))
+      const relations = (tables: TableReading[]) =>
+        tables.map(table => ({
+          marker: table.marker,
+          fills: table.overflow <= 1,
+          breaksOut: table.clientWidth > tables[0]!.clientWidth + 8,
+        }))
       expect(relations(readings)).toEqual(relations(baseline.tables))
       expect(hidpiTripwire.pageErrors).toEqual([])
     } finally {

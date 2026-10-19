@@ -34,11 +34,9 @@ async function probeTar(): Promise<string | undefined> {
     const listed = await run('tar', ['-tzf', basename(archive)], { cwd: dirname(archive), windowsHide: true, timeout: 20_000 })
     if (!listed.stdout.includes('probe.txt')) return `tar listed ${JSON.stringify(listed.stdout)} instead of the archived member`
     return undefined
-  }
-  catch (error) {
+  } catch (error) {
     return error instanceof Error ? error.message : String(error)
-  }
-  finally {
+  } finally {
     await rm(directory, { recursive: true, force: true })
   }
 }
@@ -46,22 +44,23 @@ async function probeTar(): Promise<string | undefined> {
 async function probeWindowsInstallerToolchain(environment: NodeJS.ProcessEnv): Promise<DesktopToolchainProbeFailure[]> {
   const failures: DesktopToolchainProbeFailure[] = []
   const programFiles = environment['ProgramFiles(x86)']
-  const vswhere = programFiles === undefined
-    ? undefined
-    : join(programFiles, 'Microsoft Visual Studio/Installer/vswhere.exe')
+  const vswhere = programFiles === undefined ? undefined : join(programFiles, 'Microsoft Visual Studio/Installer/vswhere.exe')
   if (vswhere === undefined) {
     failures.push({ tool: 'vswhere', detail: 'ProgramFiles(x86) is not set, so Visual Studio cannot be located' })
-  }
-  else {
+  } else {
     try {
-      const located = await run(vswhere, ['-latest', '-products', '*',
-        '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-property', 'installationPath'],
-      { windowsHide: true, timeout: 30_000 })
+      const located = await run(
+        vswhere,
+        ['-latest', '-products', '*', '-requires', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', '-property', 'installationPath'],
+        { windowsHide: true, timeout: 30_000 },
+      )
       if (located.stdout.trim() === '') {
-        failures.push({ tool: 'vswhere', detail: 'Visual Studio C++ build tools are not installed, so the installer helper cannot compile' })
+        failures.push({
+          tool: 'vswhere',
+          detail: 'Visual Studio C++ build tools are not installed, so the installer helper cannot compile',
+        })
       }
-    }
-    catch (error) {
+    } catch (error) {
       failures.push({ tool: 'vswhere', detail: error instanceof Error ? error.message : String(error) })
     }
   }
@@ -81,7 +80,7 @@ export async function probeDesktopToolchain(
   const failures: DesktopToolchainProbeFailure[] = []
   const tar = await probeTar()
   if (tar !== undefined) failures.push({ tool: 'tar', detail: tar })
-  if (platform === 'win32') failures.push(...await probeWindowsInstallerToolchain(environment))
+  if (platform === 'win32') failures.push(...(await probeWindowsInstallerToolchain(environment)))
   return failures
 }
 
@@ -91,12 +90,12 @@ export async function probeDesktopToolchain(
  * @param environment - Packaging environment used to locate Windows tooling.
  * @returns Resolves when every probe passes.
  */
-export async function requireDesktopToolchain(
-  platform: 'darwin' | 'win32',
-  environment: NodeJS.ProcessEnv = process.env,
-): Promise<void> {
+export async function requireDesktopToolchain(platform: 'darwin' | 'win32', environment: NodeJS.ProcessEnv = process.env): Promise<void> {
   const failures = await probeDesktopToolchain(platform, environment)
   if (failures.length === 0) return
-  throw new Error(`desktop package: the build host cannot run this packaging sequence:\n${
-    failures.map(failure => `  ${failure.tool}: ${failure.detail}`).join('\n')}`)
+  throw new Error(
+    `desktop package: the build host cannot run this packaging sequence:\n${failures
+      .map(failure => `  ${failure.tool}: ${failure.detail}`)
+      .join('\n')}`,
+  )
 }

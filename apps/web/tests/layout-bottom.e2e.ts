@@ -1,7 +1,7 @@
 /** Bottom Slot geometry and lifetime in the shipped Web composition. */
 import { fileURLToPath } from 'node:url'
 import { chromium, type Page } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode } from './scaffold.ts'
 
 async function geometry(page: Page) {
@@ -14,7 +14,9 @@ async function geometry(page: Page) {
       return { top: box.top, height: box.height, bottom: box.bottom }
     }
     return {
-      bottom: rect(bottom), main: rect(main), sidebar: rect(sidebar),
+      bottom: rect(bottom),
+      main: rect(main),
+      sidebar: rect(sidebar),
       rightbar: rect(document.querySelector('[data-rightbar-col]')!),
       overlay: rect(document.querySelector('[data-shell-overlay]')!),
       handles: [...document.querySelectorAll('[data-side]')].map(rect),
@@ -64,7 +66,7 @@ it('reserves bottom content height without remounting it on main-panel navigatio
       await original?.dispose()
 
       for (const platform of ['darwin', 'windows', 'browser']) {
-        await page.evaluate((value) => {
+        await page.evaluate(value => {
           document.documentElement.removeAttribute('data-platform')
           document.documentElement.toggleAttribute('data-windows-titlebar', value === 'windows')
           if (value === 'darwin') document.documentElement.setAttribute('data-platform', value)
@@ -72,7 +74,10 @@ it('reserves bottom content height without remounting it on main-panel navigatio
         }, platform)
         expected.push(`${platform}: ${JSON.stringify(await check(360, platform === 'windows' ? 40 : 0))}`)
       }
-      await page.setViewportSize({ width: 520, height: 600 })
+      // A narrow frame that still keeps a sidebar column: below 768px the
+      // navigation is a drawer over the centre (mobile-shell.e2e.ts), so the
+      // column-height contract is read at the rail width instead.
+      await page.setViewportSize({ width: 800, height: 600 })
       await expect.poll(() => page.locator('[data-shell-bottom]').locator('..').getAttribute('data-sidebar-collapsed')).toBe('true')
       expected.push(`narrow: ${JSON.stringify(await check(360))}`)
       scaffold.ctx.loader.remove(entryId)
@@ -89,8 +94,15 @@ it('reserves bottom content height without remounting it on main-panel navigatio
       expect(await check(0)).toBeDefined()
       expect(console.pageErrors).toEqual([])
       expect(console.warnings).toEqual([])
-      await compareOrRefreshGolden(fileURLToPath(new URL('./expected/layout-bottom/geometry.expected.md', import.meta.url)),
-        expected.join('\n'), webSnapshotMode())
-    } finally { await browser.close() }
-  } finally { await scaffold.close() }
+      await compareOrRefreshGolden(
+        fileURLToPath(new URL('./expected/layout-bottom/geometry.expected.md', import.meta.url)),
+        expected.join('\n'),
+        webSnapshotMode(),
+      )
+    } finally {
+      await browser.close()
+    }
+  } finally {
+    await scaffold.close()
+  }
 })

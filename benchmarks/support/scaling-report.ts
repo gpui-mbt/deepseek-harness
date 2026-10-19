@@ -53,16 +53,15 @@ function caseFields(benchmarkCase: BenchmarkCase): CaseFields {
  * interval or, where the worker cannot measure CPU time, a declared share from 0 to 1 of wall time spent
  * waiting on storage.
  */
-export type Timing =
-  | { readonly ms: number; readonly cpuMs: number }
-  | { readonly ms: number; readonly ioShare: number }
+export type Timing = { readonly ms: number; readonly cpuMs: number } | { readonly ms: number; readonly ioShare: number }
 
 /** One recorded wall-clock endpoint. */
-export type TimingRecord = CaseFields & Timing & {
-  readonly kind: 'time'
-  readonly metric: string
-  readonly budgetMs?: number
-}
+export type TimingRecord = CaseFields &
+  Timing & {
+    readonly kind: 'time'
+    readonly metric: string
+    readonly budgetMs?: number
+  }
 
 /**
  * Append measured endpoints of one benchmark case to the report results.
@@ -75,10 +74,12 @@ export function recordTimings(
   timings: Readonly<Record<string, Timing>>,
   budgetsMs: Readonly<Record<string, number>> = {},
 ): void {
-  appendRecords(Object.entries(timings).map(([metric, timing]): TimingRecord => {
-    const budgetMs = budgetsMs[metric]
-    return { kind: 'time', ...caseFields(benchmarkCase), metric, ...timing, ...budgetMs === undefined ? {} : { budgetMs } }
-  }))
+  appendRecords(
+    Object.entries(timings).map(([metric, timing]): TimingRecord => {
+      const budgetMs = budgetsMs[metric]
+      return { kind: 'time', ...caseFields(benchmarkCase), metric, ...timing, ...(budgetMs === undefined ? {} : { budgetMs }) }
+    }),
+  )
 }
 
 /** One recorded peak memory measurement. */
@@ -110,18 +111,24 @@ export function setup(): void {
 /** Vitest global teardown: render the report when any case recorded a timing. */
 export function teardown(): void {
   if (!existsSync(RESULTS_PATH)) return
-  const records = readFileSync(RESULTS_PATH, 'utf8').split('\n').filter(line => line !== '').map(line => JSON.parse(line) as TimingRecord | MemoryRecord)
+  const records = readFileSync(RESULTS_PATH, 'utf8')
+    .split('\n')
+    .filter(line => line !== '')
+    .map(line => JSON.parse(line) as TimingRecord | MemoryRecord)
   const cpuModel = cpus()[0]?.model.trim() ?? 'unknown CPU'
-  writeFileSync(REPORT_PATH, renderReport({
-    records,
-    cpuModel,
-    platform: `${process.platform}-${process.arch}`,
-    node: process.version,
-    revision: process.env['GITHUB_SHA'],
-    generatedAt: new Date().toISOString(),
-    cores: availableParallelism(),
-    measuredProfile: matchMachineProfile(cpuModel),
-  }))
+  writeFileSync(
+    REPORT_PATH,
+    renderReport({
+      records,
+      cpuModel,
+      platform: `${process.platform}-${process.arch}`,
+      node: process.version,
+      revision: process.env['GITHUB_SHA'],
+      generatedAt: new Date().toISOString(),
+      cores: availableParallelism(),
+      measuredProfile: matchMachineProfile(cpuModel),
+    }),
+  )
   console.log(`benchmark report: ${REPORT_PATH}`)
 }
 

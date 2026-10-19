@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test'
 import {
   JsonSchemaError,
   parameterSchemaSpecToJsonSchema,
@@ -12,37 +12,47 @@ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 
 describe('the unified author schema DSL', () => {
   it('compiles every value root and the author-only json node', () => {
-    expect(valueSchemaSpecToJsonSchema({ type: 'string', enum: ['a', 'b'], const: 'a' }))
-      .toEqual({ type: 'string', enum: ['a', 'b'], const: 'a' })
+    expect(valueSchemaSpecToJsonSchema({ type: 'string', enum: ['a', 'b'], const: 'a' })).toEqual({
+      type: 'string',
+      enum: ['a', 'b'],
+      const: 'a',
+    })
     expect(valueSchemaSpecToJsonSchema({ type: 'number' })).toEqual({ type: 'number' })
     expect(valueSchemaSpecToJsonSchema({ type: 'integer' })).toEqual({ type: 'integer' })
     expect(valueSchemaSpecToJsonSchema({ type: 'boolean' })).toEqual({ type: 'boolean' })
     expect(valueSchemaSpecToJsonSchema({ type: 'null' })).toEqual({ type: 'null' })
-    expect(valueSchemaSpecToJsonSchema({ type: 'array', items: { type: 'json' } }))
-      .toEqual({ type: 'array', items: {} })
-    expect(valueSchemaSpecToJsonSchema({ type: 'object', additionalProperties: false, properties: {} }))
-      .toEqual({ type: 'object', additionalProperties: false, properties: {} })
-    expect(valueSchemaSpecToJsonSchema({
-      type: 'json',
-      description: 'anything',
-      title: 'Any JSON',
-      default: null,
-      examples: [{ nested: true }],
-    })).toEqual({ description: 'anything', title: 'Any JSON', default: null, examples: [{ nested: true }] })
-    expect(valueSchemaSpecToJsonSchema({ oneOf: [{ type: 'string' }, { type: 'null' }] }))
-      .toEqual({ oneOf: [{ type: 'string' }, { type: 'null' }] })
+    expect(valueSchemaSpecToJsonSchema({ type: 'array', items: { type: 'json' } })).toEqual({ type: 'array', items: {} })
+    expect(valueSchemaSpecToJsonSchema({ type: 'object', additionalProperties: false, properties: {} })).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      properties: {},
+    })
+    expect(
+      valueSchemaSpecToJsonSchema({
+        type: 'json',
+        description: 'anything',
+        title: 'Any JSON',
+        default: null,
+        examples: [{ nested: true }],
+      }),
+    ).toEqual({ description: 'anything', title: 'Any JSON', default: null, examples: [{ nested: true }] })
+    expect(valueSchemaSpecToJsonSchema({ oneOf: [{ type: 'string' }, { type: 'null' }] })).toEqual({
+      oneOf: [{ type: 'string' }, { type: 'null' }],
+    })
   })
 
   it('keeps the implicit parameter root open while preserving explicit object openness', () => {
-    expect(parameterSchemaSpecToJsonSchema({
-      closed: {
-        type: 'object',
-        additionalProperties: false,
-        required: true,
-        properties: { id: { type: 'integer', required: true } },
-      },
-      open: { type: 'object', additionalProperties: true },
-    })).toEqual({
+    expect(
+      parameterSchemaSpecToJsonSchema({
+        closed: {
+          type: 'object',
+          additionalProperties: false,
+          required: true,
+          properties: { id: { type: 'integer', required: true } },
+        },
+        open: { type: 'object', additionalProperties: true },
+      }),
+    ).toEqual({
       type: 'object',
       properties: {
         closed: {
@@ -76,17 +86,21 @@ describe('the unified author schema DSL', () => {
     ]) {
       expect(() => valueSchemaSpecToJsonSchema(schema as ValueSchemaSpec), JSON.stringify(schema)).toThrow(JsonSchemaError)
     }
-    expect(() => parameterSchemaSpecToJsonSchema({
-      value: { type: 'string', required: false },
-    } as unknown as ParameterSchemaSpec)).toThrow(JsonSchemaError)
+    expect(() =>
+      parameterSchemaSpecToJsonSchema({
+        value: { type: 'string', required: false },
+      } as unknown as ParameterSchemaSpec),
+    ).toThrow(JsonSchemaError)
     expect(() => parameterSchemaSpecToJsonSchema(null as unknown as ParameterSchemaSpec)).toThrow(JsonSchemaError)
     expect(() => parameterSchemaSpecToJsonSchema({ bad: 42 } as unknown as ParameterSchemaSpec)).toThrow(JsonSchemaError)
 
     const symbolKey = Symbol('hidden')
-    expect(() => parameterSchemaSpecToJsonSchema({
-      value: { type: 'string' },
-      [symbolKey]: { type: 'number' },
-    } as unknown as ParameterSchemaSpec)).toThrow(JsonSchemaError)
+    expect(() =>
+      parameterSchemaSpecToJsonSchema({
+        value: { type: 'string' },
+        [symbolKey]: { type: 'number' },
+      } as unknown as ParameterSchemaSpec),
+    ).toThrow(JsonSchemaError)
     const hiddenKey = Object.defineProperty({ value: { type: 'string' } }, 'hidden', {
       value: { type: 'number' },
     })
@@ -95,10 +109,12 @@ describe('the unified author schema DSL', () => {
     sparseOneOf[0] = { type: 'string' }
     expect(() => valueSchemaSpecToJsonSchema({ oneOf: sparseOneOf } as unknown as ValueSchemaSpec)).toThrow(JsonSchemaError)
     const decoratedEnum = Object.assign(['a'], { hidden: true })
-    expect(() => valueSchemaSpecToJsonSchema({
-      type: 'string',
-      enum: decoratedEnum,
-    })).toThrow(JsonSchemaError)
+    expect(() =>
+      valueSchemaSpecToJsonSchema({
+        type: 'string',
+        enum: decoratedEnum,
+      }),
+    ).toThrow(JsonSchemaError)
   })
 
   it('rejects cyclic author schemas', () => {
@@ -148,42 +164,48 @@ describe('the unified author schema DSL', () => {
     expectTypeOf<InferValue<{ type: 'array'; items: { type: 'string' } }>>().toEqualTypeOf<string[]>()
     expectTypeOf<InferValue<{ type: 'array' }>>().toEqualTypeOf<JsonValue[]>()
     expectTypeOf<InferValue<{ type: 'json' }>>().toEqualTypeOf<JsonValue>()
-    expectTypeOf<InferValue<{ oneOf: readonly [{ type: 'string' }, { type: 'null' }] }>>()
-      .toEqualTypeOf<string | null>()
-    expectTypeOf<InferValue<{
-      type: 'object'
-      additionalProperties: false
-      properties: { id: { type: 'integer'; required: true }; label: { type: 'string' } }
-    }>>().toEqualTypeOf<{ id: number; label?: string }>()
-    expectTypeOf<InferValue<{
-      type: 'object'
-      additionalProperties: true
-      properties: { id: { type: 'integer'; required: true } }
-    }>>().toEqualTypeOf<{ id: number } & Record<string, JsonValue>>()
+    expectTypeOf<InferValue<{ oneOf: readonly [{ type: 'string' }, { type: 'null' }] }>>().toEqualTypeOf<string | null>()
+    expectTypeOf<
+      InferValue<{
+        type: 'object'
+        additionalProperties: false
+        properties: { id: { type: 'integer'; required: true }; label: { type: 'string' } }
+      }>
+    >().toEqualTypeOf<{ id: number; label?: string }>()
+    expectTypeOf<
+      InferValue<{
+        type: 'object'
+        additionalProperties: true
+        properties: { id: { type: 'integer'; required: true } }
+      }>
+    >().toEqualTypeOf<{ id: number } & Record<string, JsonValue>>()
   })
 
   it('bounds inference for deeply nested author schemas', () => {
-    type Repeat<Count extends number, Result extends unknown[] = []> =
-      Result['length'] extends Count ? Result : Repeat<Count, [unknown, ...Result]>
-    type DeepArraySchema<Levels extends unknown[]> =
-      Levels extends [unknown, ...infer Rest]
-        ? { type: 'array'; items: DeepArraySchema<Rest> }
-        : { type: 'string' }
-    type PeelArrays<Value, Levels extends unknown[]> =
-      Levels extends [unknown, ...infer Rest]
-        ? Value extends (infer Item)[] ? PeelArrays<Item, Rest> : never
-        : Value
+    type Repeat<Count extends number, Result extends unknown[] = []> = Result['length'] extends Count
+      ? Result
+      : Repeat<Count, [unknown, ...Result]>
+    type DeepArraySchema<Levels extends unknown[]> = Levels extends [unknown, ...infer Rest]
+      ? { type: 'array'; items: DeepArraySchema<Rest> }
+      : { type: 'string' }
+    type PeelArrays<Value, Levels extends unknown[]> = Levels extends [unknown, ...infer Rest]
+      ? Value extends (infer Item)[]
+        ? PeelArrays<Item, Rest>
+        : never
+      : Value
 
     type DeepValue = InferValue<DeepArraySchema<Repeat<50>>>
     expectTypeOf<PeelArrays<DeepValue, Repeat<16>>>().toEqualTypeOf<JsonValue>()
   })
 
   it('infers required and optional parameter keys', () => {
-    expectTypeOf<InferArgs<{
-      path: { type: 'string'; required: true }
-      offset: { type: 'integer' }
-      data: { type: 'json' }
-    }>>().toEqualTypeOf<{ path: string; offset?: number; data?: JsonValue }>()
+    expectTypeOf<
+      InferArgs<{
+        path: { type: 'string'; required: true }
+        offset: { type: 'integer' }
+        data: { type: 'json' }
+      }>
+    >().toEqualTypeOf<{ path: string; offset?: number; data?: JsonValue }>()
   })
 
   it('makes invalid author forms compile-time errors', () => {

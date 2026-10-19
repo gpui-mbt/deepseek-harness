@@ -2,18 +2,28 @@
 import { fileURLToPath } from 'node:url'
 import { mkdir } from 'node:fs/promises'
 import { chromium, type Browser } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { launchWebScaffold, type WebScaffold } from './scaffold.ts'
 
 it('serves the built DevTools frontend under its own path without rebuilding DevTools', async () => {
   const resources: { scaffold?: WebScaffold; browser?: Browser } = {}
   onTestFinished(async () => {
-    try { await resources.browser?.close() } finally { await resources.scaffold?.close() }
+    try {
+      await resources.browser?.close()
+    } finally {
+      await resources.scaffold?.close()
+    }
   })
   const scaffold = await launchWebScaffold({
-    profile: { packages: [{
-      dir: fileURLToPath(new URL('../../../packages/experimental/inspector-profile', import.meta.url)), enabled: true,
-    }], hmr: false },
+    profile: {
+      packages: [
+        {
+          dir: fileURLToPath(new URL('../../../packages/experimental/inspector-profile', import.meta.url)),
+          enabled: true,
+        },
+      ],
+      hmr: false,
+    },
     extraOverlayPath: [
       fileURLToPath(new URL('./pin-browse-picker.overlay.yml', import.meta.url)),
       fileURLToPath(new URL('./fixtures/shared-inspector.patch.yml', import.meta.url)),
@@ -61,16 +71,20 @@ it('serves the built DevTools frontend under its own path without rebuilding Dev
   const failedRequests: string[] = []
   const imageRequests: string[] = []
   const failedImages: string[] = []
-  page.on('response', (response) => {
+  page.on('response', response => {
     if (response.request().resourceType() !== 'image') return
     imageRequests.push(response.url())
     if (response.status() >= 400) failedImages.push(response.url())
   })
-  page.on('pageerror', (error) => { errors.push(error.message) })
-  page.on('console', (message) => {
+  page.on('pageerror', error => {
+    errors.push(error.message)
+  })
+  page.on('console', message => {
     if (message.type() === 'error' || message.type() === 'warning') consoleMessages.push(message.text())
   })
-  page.on('requestfailed', (request) => { failedRequests.push(`${request.url()}: ${request.failure()?.errorText}`) })
+  page.on('requestfailed', request => {
+    failedRequests.push(`${request.url()}: ${request.failure()?.errorText}`)
+  })
   await page.goto(`${root}devtools_app.html`, { waitUntil: 'load' })
   try {
     await page.getByRole('tab', { name: 'Console', exact: true }).waitFor({ state: 'visible' })
@@ -89,10 +103,12 @@ it('serves the built DevTools frontend under its own path without rebuilding Dev
     await prompt.fill('[process.release.name, 6 * 7].join(":")')
     await prompt.press('Enter')
     await page.getByText('node:42', { exact: false }).waitFor({ state: 'visible' })
-    expect(await page.evaluate(() => ({
-      fontSize: getComputedStyle(document.body).fontSize,
-      zoom: getComputedStyle(document.documentElement).zoom,
-    }))).toEqual({ fontSize: '12px', zoom: '1' })
+    expect(
+      await page.evaluate(() => ({
+        fontSize: getComputedStyle(document.body).fontSize,
+        zoom: getComputedStyle(document.documentElement).zoom,
+      })),
+    ).toEqual({ fontSize: '12px', zoom: '1' })
     expect(imageRequests.length).toBeGreaterThan(0)
     expect(imageRequests.filter(url => !url.startsWith(root))).toEqual([])
     expect(failedImages).toEqual([])
@@ -101,7 +117,9 @@ it('serves the built DevTools frontend under its own path without rebuilding Dev
     await mkdir(shots, { recursive: true })
     await page.screenshot({ path: fileURLToPath(new URL('startup-failure.png', shots)) })
     const state = await page.evaluate(() => ({
-      ready: document.readyState, runtime: 'runtime' in window, body: document.body.innerHTML.slice(0, 2000),
+      ready: document.readyState,
+      runtime: 'runtime' in window,
+      body: document.body.innerHTML.slice(0, 2000),
     }))
     const snapshot = await page.locator('body').ariaSnapshot()
     throw new Error(JSON.stringify({ errors, consoleMessages, failedRequests, state, page: snapshot }), { cause: error })

@@ -25,12 +25,7 @@ import type {
   SubprocessTerminalEnvironment,
   SubprocessTerminalSpawnSpec,
 } from '@deepseek-ai/dsh-subprocess'
-import {
-  bindManagedProcess,
-  childEnv,
-  spawnSubprocess,
-  validateSubprocessSpec,
-} from './spawn.ts'
+import { bindManagedProcess, childEnv, spawnSubprocess, validateSubprocessSpec } from './spawn.ts'
 import { logSpillFailure, prepareManagedProcessBinding } from './output.ts'
 import type { LocalSubprocessHandle, SpawnInternals } from './spawn.ts'
 import {
@@ -90,7 +85,9 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
   constructor(ctx: Context) {
     super(ctx)
     ctx.effect(() => {
-      const onHostExit = (): void => { this.terminateForHostExit() }
+      const onHostExit = (): void => {
+        this.terminateForHostExit()
+      }
       process.prependListener('exit', onHostExit)
       return async () => {
         await this.disposeManagedProcesses()
@@ -129,19 +126,31 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       handle.terminate()
       // Direct result and range observation are independent. Start both so an
       // unreadable owner cannot hide behind a result that never settles.
-      pending.push(Promise.all([
-        handle.done.catch(() => {}),
-        handle.waitForExit(),
-      ]).then(() => { this.live.delete(handle) }))
+      pending.push(
+        Promise.all([handle.done.catch(() => {}), handle.waitForExit()]).then(() => {
+          this.live.delete(handle)
+        }),
+      )
     }
     for (const terminal of this.terminals) {
-      pending.push(terminal.terminate().then(() => { this.terminals.delete(terminal) }))
+      pending.push(
+        terminal.terminate().then(() => {
+          this.terminals.delete(terminal)
+        }),
+      )
     }
     const outcomes = await Promise.allSettled(pending)
-    await Promise.all([...this.controlChannels].map(control => new Promise<void>((resolveClose) => {
-      control.once('close', () => { resolveClose() })
-      control.destroy()
-    })))
+    await Promise.all(
+      [...this.controlChannels].map(
+        control =>
+          new Promise<void>(resolveClose => {
+            control.once('close', () => {
+              resolveClose()
+            })
+            control.destroy()
+          }),
+      ),
+    )
     this.controlChannels.clear()
     const failures: unknown[] = []
     for (const outcome of outcomes) {
@@ -152,19 +161,13 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     if (failures.length > 1) throw new AggregateError(failures, 'local subprocess teardown failed')
   }
 
-  async resolveExecutable(
-    command: string,
-    env?: Readonly<Record<string, string>>,
-    signal?: AbortSignal,
-  ): Promise<string> {
+  async resolveExecutable(command: string, env?: Readonly<Record<string, string>>, signal?: AbortSignal): Promise<string> {
     if (command.length === 0) throw new Error('subprocess-local: executable must be non-empty')
     signal?.throwIfAborted()
     const environment = childEnv(env)
     const absolute = isAbsolute(command)
     if (!absolute && (command.includes('/') || (process.platform === 'win32' && command.includes('\\')))) {
-      throw new Error(
-        `subprocess-local: command ${JSON.stringify(command)} is a relative path; use an absolute path or a bare PATH name`,
-      )
+      throw new Error(`subprocess-local: command ${JSON.stringify(command)} is a relative path; use an absolute path or a bare PATH name`)
     }
     const candidates = absolute ? [command] : this.executableCandidates(command, environment)
     for (const candidate of candidates) {
@@ -180,18 +183,20 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       }
     }
     signal?.throwIfAborted()
-    throw new SubprocessExecutableNotFoundError(absolute
-      ? `subprocess-local: command ${JSON.stringify(command)} is not an executable file`
-      : `subprocess-local: command ${JSON.stringify(command)} was not found on PATH`)
+    throw new SubprocessExecutableNotFoundError(
+      absolute
+        ? `subprocess-local: command ${JSON.stringify(command)} is not an executable file`
+        : `subprocess-local: command ${JSON.stringify(command)} was not found on PATH`,
+    )
   }
 
   private executableCandidates(command: string, env: NodeJS.ProcessEnv): string[] {
     const path = environmentValue(env, 'PATH') ?? ''
-    const extensions = process.platform === 'win32' && extname(command) === ''
-      ? (environmentValue(env, 'PATHEXT') ?? '.COM;.EXE;.BAT;.CMD').split(';')
-      : ['']
-    return path.split(delimiter).flatMap(directory =>
-      extensions.map(extension => resolve(process.cwd(), directory, command + extension)))
+    const extensions =
+      process.platform === 'win32' && extname(command) === ''
+        ? (environmentValue(env, 'PATHEXT') ?? '.COM;.EXE;.BAT;.CMD').split(';')
+        : ['']
+    return path.split(delimiter).flatMap(directory => extensions.map(extension => resolve(process.cwd(), directory, command + extension)))
   }
 
   spawn(spec: SubprocessSpawnSpec): SubprocessHandle {
@@ -205,9 +210,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     } else {
       const binding = prepareManagedProcessBinding(internals)
       const linuxScope = containmentMode === 'linux-scope' ? this.linuxScopeDecision : undefined
-      const launch = linuxScope === undefined
-        ? launchWindowsJob(spec, env)
-        : launchLinuxScope(spec, env, linuxScope.literalArgv)
+      const launch = linuxScope === undefined ? launchWindowsJob(spec, env) : launchLinuxScope(spec, env, linuxScope.literalArgv)
       handle = bindManagedProcess(spec, launch, binding)
       if (linuxScope !== undefined) this.watchLinuxScopeStart(handle.done, linuxScope.generation)
     }
@@ -215,14 +218,18 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     const control = handle.control
     if (control !== undefined) {
       this.controlChannels.add(control)
-      control.once('close', () => { this.controlChannels.delete(control) })
+      control.once('close', () => {
+        this.controlChannels.delete(control)
+      })
     }
     // Release ownership only once the whole managed range is gone, not at direct-child
     // settlement — a TERM-trapping helper that outlives the leader must stay
     // owned so teardown can still escalate it. For the common no-survivor
     // case waitForExit resolves immediately after settlement.
     const release = (): Promise<void> =>
-      handle.waitForExit().then(() => { this.live.delete(handle) })
+      handle.waitForExit().then(() => {
+        this.live.delete(handle)
+      })
     void handle.done.then(release, release).catch(() => {})
     return handle
   }
@@ -234,9 +241,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     })
   }
 
-  private selectContainmentMode(
-    kind: 'ordinary' | 'terminal',
-  ): 'linux-scope' | 'windows-job' | 'fallback' {
+  private selectContainmentMode(kind: 'ordinary' | 'terminal'): 'linux-scope' | 'windows-job' | 'fallback' {
     const platform = this.internals.platform ?? process.platform
     let fallbackReason: string | undefined
     if (platform === 'linux') {
@@ -257,20 +262,18 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     return 'fallback'
   }
 
-  private warnFallback(
-    platform: NodeJS.Platform,
-    kind: 'ordinary' | 'terminal',
-    selectedReason?: string,
-  ): void {
+  private warnFallback(platform: NodeJS.Platform, kind: 'ordinary' | 'terminal', selectedReason?: string): void {
     if (this.fallbackWarningIssued) return
     this.fallbackWarningIssued = true
-    const reason = selectedReason ?? (platform === 'darwin'
-      ? 'macOS has no supported persistent process-range owner'
-      : platform === 'win32'
-        ? kind === 'terminal'
-          ? 'Windows ConPTY remains outside Job containment'
-          : 'the Win32 Job runner is unavailable'
-        : `platform ${platform} has no native managed range`)
+    const reason =
+      selectedReason ??
+      (platform === 'darwin'
+        ? 'macOS has no supported persistent process-range owner'
+        : platform === 'win32'
+          ? kind === 'terminal'
+            ? 'Windows ConPTY remains outside Job containment'
+            : 'the Win32 Job runner is unavailable'
+          : `platform ${platform} has no native managed range`)
     this.ctx.logger.warn(
       `subprocess-local is using weaker process-tree containment because ${reason}; descendants that escape the process group or direct-parent tree are not guaranteed to terminate or delay waitForExit()`,
     )
@@ -282,7 +285,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     signal?.throwIfAborted()
     const platform = process.platform === 'win32' ? 'windows' : 'posix'
     const defaultShell = platform === 'windows' ? process.env.ComSpec || undefined : process.env.SHELL || userInfo().shell || undefined
-    return { platform, ...defaultShell === undefined ? {} : { defaultShell } }
+    return { platform, ...(defaultShell === undefined ? {} : { defaultShell }) }
   }
 
   // Local PTY allocation is synchronous, but the provider contract permits remote asynchronous allocation.
@@ -304,7 +307,7 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       rows: spec.rows,
       cols: spec.cols,
       cwd: spec.cwd,
-      env: { ...activity?.env ?? env, TERM: spec.terminalType },
+      env: { ...(activity?.env ?? env), TERM: spec.terminalType },
       // Windows' own console host (the standby pool runs Server 2022 and
       // Windows 10 22H2) renders the persistent-pwsh prompt tail in a form the
       // readiness path cannot match; the console host node-pty ships emits it
@@ -315,15 +318,15 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
     let scope: ReturnType<typeof prepareLinuxTerminalScope> | undefined
     let terminal: NodePty.IPty
     try {
-      scope = linuxScope === undefined
-        ? undefined
-        : prepareLinuxTerminalScope(launch, { ...activity?.env ?? env, PWD: spec.cwd, TERM: spec.terminalType }, linuxScope.literalArgv)
-      if (scope !== undefined) { options.cwd = scope.cwd; options.env = scope.env }
-      terminal = requireNodePty().spawn(
-        scope?.command ?? file,
-        scope?.args ?? [...launch.argv.slice(1)],
-        options,
-      )
+      scope =
+        linuxScope === undefined
+          ? undefined
+          : prepareLinuxTerminalScope(launch, { ...(activity?.env ?? env), PWD: spec.cwd, TERM: spec.terminalType }, linuxScope.literalArgv)
+      if (scope !== undefined) {
+        options.cwd = scope.cwd
+        options.env = scope.env
+      }
+      terminal = requireNodePty().spawn(scope?.command ?? file, scope?.args ?? [...launch.argv.slice(1)], options)
     } catch (error) {
       scope?.cleanup()
       activity?.dispose()
@@ -346,7 +349,9 @@ export class LocalSubprocessRuntime extends SubprocessRuntime {
       owner,
       scope?.resolveOutcome,
       activity,
-      () => { this.terminals.delete(handle as LocalTerminalHandle) },
+      () => {
+        this.terminals.delete(handle as LocalTerminalHandle)
+      },
       spec.shellActivity === true,
     )
     this.terminals.add(handle)

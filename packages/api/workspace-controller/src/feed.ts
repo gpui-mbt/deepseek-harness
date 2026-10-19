@@ -4,16 +4,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Deque } from '@deepseek-ai/dsh-deque'
 import type { DomainChanged } from '@deepseek-ai/dsh-storage-domain'
 import type { Workspace, WorkspaceRecord } from '@deepseek-ai/dsh-workspace'
-import {
-  workspaceDomainState,
-  workspaceRecord,
-  WorkspaceId,
-} from '@deepseek-ai/dsh-workspace'
-import type {
-  WorkspaceBaseline,
-  WorkspaceFollowFrame,
-  WorkspaceView,
-} from './types.ts'
+import { workspaceDomainState, workspaceRecord, WorkspaceId } from '@deepseek-ai/dsh-workspace'
+import type { WorkspaceBaseline, WorkspaceFollowFrame, WorkspaceView } from './types.ts'
 
 /** The frames the feed produces: every follow frame except `replace`, which only access filtering sends. */
 type WorkspaceFeedFrame = Exclude<WorkspaceFollowFrame, { readonly type: 'replace' }>
@@ -61,11 +53,16 @@ export class WorkspaceFeed {
     this.order = baseline.map(workspace => String(workspace.id))
     this.archived = ctx.workspaceRegistry.archivedSessionIds.map(String)
     this.pinned = ctx.workspaceRegistry.pinnedSessionIds.map(String)
-    ctx.on('domain/changed', (change: DomainChanged) => { this.changed(change) })
-    ctx.effect(() => () => {
-      for (const follower of this.followers) follower.close()
-      this.followers.clear()
-    }, 'workspace-controller.feed')
+    ctx.on('domain/changed', (change: DomainChanged) => {
+      this.changed(change)
+    })
+    ctx.effect(
+      () => () => {
+        for (const follower of this.followers) follower.close()
+        this.followers.clear()
+      },
+      'workspace-controller.feed',
+    )
   }
 
   /**
@@ -180,7 +177,7 @@ class WorkspaceFollower {
   }
 
   private wait(signal: AbortSignal): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const finish = (): void => {
         signal.removeEventListener('abort', finish)
         /* v8 ignore next -- one read owns the sole installed wait callback. */

@@ -1,6 +1,6 @@
 import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { provideWorkingDirectoryFixture, mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -60,7 +60,9 @@ async function harness(dir: string, adapter: MockAdapter, beforeHooks?: (ctx: Co
 function waitForIdle(_ctx: Context, agent: Agent): Promise<void> {
   return agent.whenIdle()
 }
-function events(agent: Agent): readonly SessionEvent[] { return agent.session.snapshotEvents() }
+function events(agent: Agent): readonly SessionEvent[] {
+  return agent.session.snapshotEvents()
+}
 
 /** Poll `predicate` until true or the deadline passes (detached hook effects can't be awaited directly). */
 async function waitFor(predicate: () => boolean, timeout = 5000, interval = 10): Promise<void> {
@@ -76,22 +78,29 @@ describe('unmatched hooks and directory recovery', () => {
     {},
     { PreToolUse: [{ matcher: 'AnotherTool', hooks: [{ type: 'command', command: 'exit 1' }] }] },
     { PreToolUse: [{ hooks: [] }] },
-  ])('does not validate a missing directory when no hook command will run', async (hooks) => {
+  ])('does not validate a missing directory when no hook command will run', async hooks => {
     const dir = configDir()
     writeHooks(dir, hooks)
     const ctx = await harness(dir, new MockAdapter([]))
-    const ensure = vi.spyOn(ctx.get('workingDirectory')!, 'ensure')
-      .mockRejectedValue(new Error('original directory is missing'))
+    const ensure = vi.spyOn(ctx.get('workingDirectory')!, 'ensure').mockRejectedValue(new Error('original directory is missing'))
     try {
-      ctx.tools.register(defineContentToolFixture({
-        name: 'working_directory', description: 'recover a directory',
-        parameters: { cd: { type: 'string', required: true } },
-        async execute(args) { return [{ type: 'text', text: args.cd }] },
-      }))
+      ctx.tools.register(
+        defineContentToolFixture({
+          name: 'working_directory',
+          description: 'recover a directory',
+          parameters: { cd: { type: 'string', required: true } },
+          async execute(args) {
+            return [{ type: 'text', text: args.cd }]
+          },
+        }),
+      )
       const agent = await ctx.agentLoop.create(SessionId('recovery'), { provider: 'mock', model: 'mock' })
       const result = await ctx.tools.execute({
-        name: 'working_directory', callId: ToolCallId('recover'), arguments: { cd: dir },
-        agent, signal: new AbortController().signal,
+        name: 'working_directory',
+        callId: ToolCallId('recover'),
+        arguments: { cd: dir },
+        agent,
+        signal: new AbortController().signal,
       })
       expect(result.isError).toBe(false)
       expect(ensure).not.toHaveBeenCalled()
@@ -115,9 +124,11 @@ describe('hooks-codex bridge', () => {
     ctx.effect(() => ctx.agents.enter(agent, undefined))
     await ctx.agents.announce(agent, 'resume')
 
-    expect(inject).toHaveBeenCalledWith(expect.objectContaining({
-      content: [{ type: 'text', text: 'resumed context' }],
-    }))
+    expect(inject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: [{ type: 'text', text: 'resumed context' }],
+      }),
+    )
   })
 
   it('a PreToolUse hook (exit 2) denies a tool the regex matcher matches as a substring', async () => {
@@ -129,7 +140,17 @@ describe('hooks-codex bridge', () => {
     const adapter = new MockAdapter([toolCallResponse('c1', 'Bash', { command: 'ls' }), textResponse('done')])
     const ctx = await harness(dir, adapter)
     let ran = false
-    ctx.tools.register(defineContentToolFixture({ name: 'Bash', description: 'b', parameters: { command: { type: 'string' } }, async execute() { ran = true; return [{ type: 'text', text: 'no' }] } }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'Bash',
+        description: 'b',
+        parameters: { command: { type: 'string' } },
+        async execute() {
+          ran = true
+          return [{ type: 'text', text: 'no' }]
+        },
+      }),
+    )
     const agent = await ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'run ls' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
@@ -137,7 +158,9 @@ describe('hooks-codex bridge', () => {
     expect(ran).toBe(false)
     const result = events(agent).find(e => e.type === 'tool/result')
     expect(result?.type === 'tool/result' && result.data.message.isError).toBe(true)
-    expect(result?.type === 'tool/result' && result.data.message.content.some(b => b.type === 'text' && b.text.includes('codex blocked it'))).toBe(true)
+    expect(
+      result?.type === 'tool/result' && result.data.message.content.some(b => b.type === 'text' && b.text.includes('codex blocked it')),
+    ).toBe(true)
     expect(events(agent).some(e => e.type === 'hook/invoked' && e.data.dialect === 'codex' && e.data.point === 'PreToolUse')).toBe(true)
   })
 
@@ -146,7 +169,11 @@ describe('hooks-codex bridge', () => {
     // Stop ignores its malformed matcher field. Block once with a marker;
     // until the loop guard lands, an always-blocking hook would never finish.
     const marker = join(dir, 'fired')
-    const cont = script(dir, 'cont.sh', `#!/usr/bin/env bash\nif [ -e "${marker}" ]; then exit 0; fi\ntouch "${marker}"\necho "keep going: address the goal" >&2\nexit 2\n`)
+    const cont = script(
+      dir,
+      'cont.sh',
+      `#!/usr/bin/env bash\nif [ -e "${marker}" ]; then exit 0; fi\ntouch "${marker}"\necho "keep going: address the goal" >&2\nexit 2\n`,
+    )
     writeHooks(dir, { Stop: [{ matcher: '[', hooks: [{ type: 'command', command: cont }] }] })
 
     const adapter = new MockAdapter([textResponse('first answer'), textResponse('second answer after goal')])
@@ -179,9 +206,14 @@ describe('hooks-codex bridge', () => {
 
     expect(() => process.kill(pid, 0)).toThrow()
     expect(adapter.requests).toHaveLength(0)
-    expect(events(agent).filter(event => event.type === 'turn/start' || event.type === 'hook/invoked'
-      || event.type === 'hook/result' || event.type === 'turn/end').map(event => event.type))
-      .toEqual(['turn/start', 'hook/invoked', 'hook/result', 'turn/end'])
+    expect(
+      events(agent)
+        .filter(
+          event =>
+            event.type === 'turn/start' || event.type === 'hook/invoked' || event.type === 'hook/result' || event.type === 'turn/end',
+        )
+        .map(event => event.type),
+    ).toEqual(['turn/start', 'hook/invoked', 'hook/result', 'turn/end'])
   })
 
   it('only the five bridge-supported Codex events are honored — a SubagentStop entry is ignored', async () => {
@@ -215,16 +247,16 @@ describe('hooks-codex bridge', () => {
     })
     const adapter = new MockAdapter([textResponse('ok')])
     const warn = vi.fn()
-    const ctx = await harness(dir, adapter, (ctx) => { ctx.logger.warn = warn as never })
+    const ctx = await harness(dir, adapter, ctx => {
+      ctx.logger.warn = warn as never
+    })
     const agent = await ctx.agentLoop.create(SessionId('invalid-codex-matcher'), { provider: 'mock', model: 'mock' })
     agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
     await waitForIdle(ctx, agent)
     expect(adapter.requests).toHaveLength(1)
     expect(events(agent).some(event => event.type === 'hook/invoked')).toBe(false)
 
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining(
-      'invalid codex regex matcher "[" on event "PreToolUse"',
-    ))
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('invalid codex regex matcher "[" on event "PreToolUse"'))
   })
 
   it('disposing the bridge fiber removes its listeners (HMR safety)', async () => {

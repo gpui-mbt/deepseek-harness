@@ -15,7 +15,9 @@ const ignoreImplicitDismiss = (): void => {}
  * @returns the body-portaled modal.
  */
 export function OnboardingModal({
-  title, focusTitle = false, children,
+  title,
+  focusTitle = false,
+  children,
 }: {
   title: string
   focusTitle?: boolean
@@ -28,7 +30,9 @@ export function OnboardingModal({
     if (appRoot === null) return
     const previous = appRoot.inert
     appRoot.inert = true
-    return () => { appRoot.inert = previous }
+    return () => {
+      appRoot.inert = previous
+    }
   }, [])
 
   useEffect(() => {
@@ -36,15 +40,11 @@ export function OnboardingModal({
   }, [focusTitle])
 
   return (
-    <Modal
-      open
-      title={title}
-      onClose={ignoreImplicitDismiss}
-      headless
-      className={css.dialog as string}
-    >
+    <Modal open title={title} onClose={ignoreImplicitDismiss} headless className={css.dialog as string}>
       <div className={css.content}>
-        <h2 ref={titleRef} className={css.title} tabIndex={focusTitle ? -1 : undefined}>{title}</h2>
+        <h2 ref={titleRef} className={css.title} tabIndex={focusTitle ? -1 : undefined}>
+          {title}
+        </h2>
         <div className={css.body}>{children}</div>
       </div>
     </Modal>

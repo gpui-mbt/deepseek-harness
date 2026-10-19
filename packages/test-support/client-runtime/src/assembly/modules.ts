@@ -33,7 +33,7 @@ export async function loadPluginModules(plan: AssemblyPlan): Promise<ReadonlyMap
       modules.set(name, modulesClient)
       continue
     }
-    modules.set(name, provided ?? await importClient(name))
+    modules.set(name, provided ?? (await importClient(name)))
   }
   return modules
 }
@@ -57,15 +57,14 @@ async function importClient(name: string): Promise<ClientPluginModule> {
  * @param modules - loaded plugin modules keyed by package name.
  * @returns module system to install as `loader.internal`; its `manifest` is the parsed graph.
  */
-export function createInProcessModules(
-  graph: WebBootGraph,
-  modules: ReadonlyMap<string, ClientPluginModule>,
-): ClientModuleLoader {
+export function createInProcessModules(graph: WebBootGraph, modules: ReadonlyMap<string, ClientPluginModule>): ClientModuleLoader {
   const target: ClientModuleLoaderTarget = {
     mode: 'queue',
     pendingQueue: [],
     /* v8 ignore next -- construction replaces this sink before draining the prefilled queue. */
-    load: () => { throw new Error('client-test-runtime: module facade is not initialized') },
+    load: () => {
+      throw new Error('client-test-runtime: module facade is not initialized')
+    },
     create: options => createClientModuleSystem(target, { id: MODULES_PACKAGE, exports: modulesClient }, options),
   }
   for (const [id, namespace] of modules) {

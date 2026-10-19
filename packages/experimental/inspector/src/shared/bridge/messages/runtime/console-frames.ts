@@ -5,11 +5,7 @@ import { isPlainObject } from '../../../json.ts'
 import type { RuntimeConsoleBackendEvent, RuntimeConsoleType } from '../../../cdp/index.ts'
 import { exactKeys, exactObject, wireId } from '../../../validation.ts'
 import { INSPECTOR_PROTOCOL_VERSION } from '../../version.ts'
-import {
-  parseClientRuntimeExceptionDetails,
-  parseClientRuntimeRemoteObject,
-  parseClientRuntimeStackTrace,
-} from './value-codec.ts'
+import { parseClientRuntimeExceptionDetails, parseClientRuntimeRemoteObject, parseClientRuntimeStackTrace } from './value-codec.ts'
 
 /** Source capability that permits Client Console event forwarding. */
 export interface ClientConsoleCapability {
@@ -60,12 +56,9 @@ export function parseClientConsoleCapability(value: unknown): ClientConsoleCapab
  * @param value - Untrusted decoded frame.
  * @returns A validated enable or disable frame.
  */
-export function parseClientConsoleControlFrame(
-  value: Record<string, unknown>,
-): ClientConsoleEnableFrame | ClientConsoleDisableFrame {
+export function parseClientConsoleControlFrame(value: Record<string, unknown>): ClientConsoleEnableFrame | ClientConsoleDisableFrame {
   exactKeys(value, ['v', 't', 'sourceId', 'generation', 'sessionId'], 'Client Console control frame')
-  if (value.v !== INSPECTOR_PROTOCOL_VERSION
-    || (value.t !== 'client-console/enable' && value.t !== 'client-console/disable')) {
+  if (value.v !== INSPECTOR_PROTOCOL_VERSION || (value.t !== 'client-console/enable' && value.t !== 'client-console/disable')) {
     throw new Error('inspector protocol: invalid Client Console control frame')
   }
   return {
@@ -104,10 +97,12 @@ function parseEvent(value: unknown): RuntimeConsoleBackendEvent<ClientRemoteObje
   if (value.type === 'console-api') {
     exactKeys(value, ['type', 'event'], 'Client Console API event')
     const event = exactObject(value.event, ['type', 'arguments', 'timestamp', 'contextId', 'stackTrace'], 'Console API event')
-    if (!CONSOLE_TYPES.has(event.type as RuntimeConsoleType)
-      || !Array.isArray(event.arguments)
-      || typeof event.timestamp !== 'number'
-      || !Number.isFinite(event.timestamp)) {
+    if (
+      !CONSOLE_TYPES.has(event.type as RuntimeConsoleType) ||
+      !Array.isArray(event.arguments) ||
+      typeof event.timestamp !== 'number' ||
+      !Number.isFinite(event.timestamp)
+    ) {
       throw new Error('inspector protocol: invalid Console API event')
     }
     return {
@@ -142,6 +137,22 @@ function integer(value: unknown, label: string): number {
 }
 
 const CONSOLE_TYPES = new Set<RuntimeConsoleType>([
-  'log', 'debug', 'info', 'error', 'warning', 'dir', 'dirxml', 'table', 'trace', 'clear',
-  'startGroup', 'startGroupCollapsed', 'endGroup', 'assert', 'profile', 'profileEnd', 'count', 'timeEnd',
+  'log',
+  'debug',
+  'info',
+  'error',
+  'warning',
+  'dir',
+  'dirxml',
+  'table',
+  'trace',
+  'clear',
+  'startGroup',
+  'startGroupCollapsed',
+  'endGroup',
+  'assert',
+  'profile',
+  'profileEnd',
+  'count',
+  'timeEnd',
 ])

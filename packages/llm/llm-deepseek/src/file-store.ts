@@ -55,15 +55,11 @@ function fileScope(connection: DeepSeekFileConnection) {
 
 function abortReason(signal: AbortSignal): Error {
   const reason: unknown = signal.reason
-  return reason instanceof Error
-    ? reason
-    : new Error('DeepSeek file upload cancelled with a non-Error reason.', { cause: reason })
+  return reason instanceof Error ? reason : new Error('DeepSeek file upload cancelled with a non-Error reason.', { cause: reason })
 }
 
 function uploadFailure(error: unknown): Error {
-  return error instanceof Error
-    ? error
-    : new Error('DeepSeek file upload failed with a non-Error reason.', { cause: error })
+  return error instanceof Error ? error : new Error('DeepSeek file upload failed with a non-Error reason.', { cause: error })
 }
 
 function waitForUpload(operation: SharedUpload, signal: AbortSignal | undefined): Promise<DeepSeekFileReference> {
@@ -90,24 +86,31 @@ function waitForUpload(operation: SharedUpload, signal: AbortSignal | undefined)
       reject(reason)
     }
     signal.addEventListener('abort', abort, { once: true })
-    void operation.promise.then((value) => {
-      signal.removeEventListener('abort', abort)
-      release()
-      resolve(value)
-    }, (error: unknown) => {
-      signal.removeEventListener('abort', abort)
-      release()
-      reject(uploadFailure(error))
-    })
+    void operation.promise.then(
+      value => {
+        signal.removeEventListener('abort', abort)
+        release()
+        resolve(value)
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', abort)
+        release()
+        reject(uploadFailure(error))
+      },
+    )
   })
 }
 
 function extension(mediaType: RequestImageAttachment['mediaType']): 'png' | 'jpeg' | 'webp' | 'gif' {
   switch (mediaType) {
-    case 'image/png': return 'png'
-    case 'image/jpeg': return 'jpeg'
-    case 'image/webp': return 'webp'
-    case 'image/gif': return 'gif'
+    case 'image/png':
+      return 'png'
+    case 'image/jpeg':
+      return 'jpeg'
+    case 'image/webp':
+      return 'webp'
+    case 'image/gif':
+      return 'gif'
   }
 }
 
@@ -137,7 +140,7 @@ export class DeepSeekFileStore {
     return new DeepSeekFilesClient({
       baseURL: connection.baseURL,
       headers: connection.headers,
-      ...this.fetchImpl === undefined ? {} : { fetch: this.fetchImpl },
+      ...(this.fetchImpl === undefined ? {} : { fetch: this.fetchImpl }),
     })
   }
 
@@ -171,17 +174,22 @@ export class DeepSeekFileStore {
       waiters: 0,
       promise: undefined as never,
     }
-    shared.promise = this.ensureUploadedOnce(version, connection, policy, controller.signal).then((value) => {
-      shared.settled = true
-      return value
-    }, (error: unknown) => {
-      shared.settled = true
-      throw uploadFailure(error)
-    })
+    shared.promise = this.ensureUploadedOnce(version, connection, policy, controller.signal).then(
+      value => {
+        shared.settled = true
+        return value
+      },
+      (error: unknown) => {
+        shared.settled = true
+        throw uploadFailure(error)
+      },
+    )
     this.inflight.set(key, shared)
-    void shared.promise.finally(() => {
-      if (this.inflight.get(key) === shared) this.inflight.delete(key)
-    }).catch(() => {})
+    void shared.promise
+      .finally(() => {
+        if (this.inflight.get(key) === shared) this.inflight.delete(key)
+      })
+      .catch(() => {})
     return waitForUpload(shared, signal)
   }
 
@@ -270,12 +278,7 @@ export class DeepSeekFileStore {
     signal?: AbortSignal,
   ): Promise<boolean> {
     const scope = fileScope(connection)
-    const record = await this.index.get(
-      scope,
-      version.variantId,
-      this.now(),
-      policy.refreshMarginSeconds * 1_000,
-    )
+    const record = await this.index.get(scope, version.variantId, this.now(), policy.refreshMarginSeconds * 1_000)
     if (record === undefined) return false
     await this.client(connection).delete(record.fileId, signal)
     await this.index.remove(scope, [{ variantId: version.variantId, fileId: record.fileId }])
@@ -289,19 +292,15 @@ export class DeepSeekFileStore {
    * @param signal - request cancellation.
    * @returns number of successfully deleted files.
    */
-  async reclaimOldestOwned(
-    connection: DeepSeekFileConnection,
-    count: number,
-    signal?: AbortSignal,
-  ): Promise<number> {
+  async reclaimOldestOwned(connection: DeepSeekFileConnection, count: number, signal?: AbortSignal): Promise<number> {
     const client = this.client(connection)
     let after: DeepSeekFileId | undefined
     const owned: { id: DeepSeekFileId; createdAt: number }[] = []
     while (true) {
       const page = await client.list({
-        ...after === undefined ? {} : { after },
+        ...(after === undefined ? {} : { after }),
         limit: 1_000,
-        ...signal === undefined ? {} : { signal },
+        ...(signal === undefined ? {} : { signal }),
       })
       for (const file of page.data) {
         if (!file.filename.startsWith(OWNED_FILE_PREFIX)) continue

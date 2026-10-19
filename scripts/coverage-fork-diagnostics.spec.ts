@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { runGate } from './run-gates.ts'
 import { PassThrough } from 'node:stream'
-import { afterEach, describe, expect, it, type MockInstance, vi } from 'vitest'
+import { afterEach, describe, expect, it, type MockInstance, vi } from 'vite-plus/test'
 import { ForksPoolWorker } from 'vitest/node'
 import type { PoolOptions, PoolWorker, TestProject, WorkerRequest, WorkerResponse } from 'vitest/node'
 import { coverageForkPool } from './coverage-fork-diagnostics.ts'
@@ -29,13 +29,18 @@ async function fixture(exitCode: number, early = false): Promise<string> {
   roots.push(root)
   await mkdir(join(root, 'workers'))
   // The public pool's distPath selects a plain Node protocol fixture, not a nested Vitest run.
-  await writeFile(join(root, 'workers/forks.js'), early ? `process.exit(${exitCode})\n` : `
+  await writeFile(
+    join(root, 'workers/forks.js'),
+    early
+      ? `process.exit(${exitCode})\n`
+      : `
 process.on('message', (message) => {
   if (message.type === 'run' || message.type === 'collect') process.send({ kind: 'ready', pid: process.pid })
   if (message.type === 'cancel') process.exit(${exitCode})
   if (message.type === 'stop') process.exit(0)
 })
-`)
+`,
+  )
   return root
 }
 
@@ -45,12 +50,18 @@ function poolOptions(root: string) {
   const error = vi.fn<(message: string) => void>()
   // ForksPoolWorker needs only the logger and project name from the Vitest project.
   const logger: Pick<TestProject['vitest']['logger'], 'outputStream' | 'errorStream' | 'error'> = {
-    outputStream, errorStream, error,
+    outputStream,
+    errorStream,
+    error,
   }
   const project = { name: 'fixture', vitest: { logger } } as TestProject
   const options: PoolOptions = {
-    distPath: root, project, method: 'run', environment: { name: 'node', options: null },
-    execArgv: [], env: {},
+    distPath: root,
+    project,
+    method: 'run',
+    environment: { name: 'node', options: null },
+    execArgv: [],
+    env: {},
   }
   return { options, error, outputStream, errorStream }
 }
@@ -107,9 +118,13 @@ async function start(root: string, diagnostic = true) {
   })
   await pool.start()
   started = true
-  pool.on('close', () => { closed.resolve(undefined) })
-  const exited = new Promise<number | null>((resolve) => { pool.on('exit', resolve) })
-  const ready = new Promise<number>((resolve) => {
+  pool.on('close', () => {
+    closed.resolve(undefined)
+  })
+  const exited = new Promise<number | null>(resolve => {
+    pool.on('exit', resolve)
+  })
+  const ready = new Promise<number>(resolve => {
     pool.on('message', (message: unknown) => {
       const response = message as { kind: string; pid: number }
       if (response.kind === 'ready') resolve(response.pid)
@@ -120,7 +135,8 @@ async function start(root: string, diagnostic = true) {
 
 function request(filepath: string, workerId: number): Extract<WorkerRequest, { type: 'run' }> {
   return {
-    __vitest_worker_request__: true, type: 'run',
+    __vitest_worker_request__: true,
+    type: 'run',
     context: { files: [{ filepath }], workerId, providedContext: {}, environment: { name: 'node', options: null } },
   }
 }
@@ -132,12 +148,17 @@ async function configuredPool(pool: 'stock' | 'diagnostic', outcome: 'exit' | 'p
   const cacheDir = await mkdtemp(join(tmpdir(), 'dsh-configured-fork-cache-'))
   roots.push(cacheDir)
   const controller = new AbortController()
-  const result = runGate({
-    id: `fork-${pool}`, label: 'fork fixture', displayCommand: 'Vitest pool fixture',
-    command: process.execPath,
-    args: [resolve('node_modules/vitest/vitest.mjs'), 'run', '--config', 'scripts/fixtures/coverage-fork.config.ts'],
-    env: { DSH_TEST_FORK_POOL: pool, DSH_TEST_FORK_OUTCOME: outcome, DSH_TEST_FORK_CACHE: cacheDir },
-  }, AbortSignal.any([signal, controller.signal]))
+  const result = runGate(
+    {
+      id: `fork-${pool}`,
+      label: 'fork fixture',
+      displayCommand: 'Vitest pool fixture',
+      command: process.execPath,
+      args: [resolve('node_modules/vitest/vitest.mjs'), 'run', '--config', 'scripts/fixtures/coverage-fork.config.ts'],
+      env: { DSH_TEST_FORK_POOL: pool, DSH_TEST_FORK_OUTCOME: outcome, DSH_TEST_FORK_CACHE: cacheDir },
+    },
+    AbortSignal.any([signal, controller.signal]),
+  )
   let settled = false
   cleanups.push(async () => {
     if (!settled) controller.abort()
@@ -160,10 +181,7 @@ function workerExitReport(output: string, pool: string): string | undefined {
 
 describe('coverage fork configuration entry', () => {
   it('preserves the real Vitest failure and adds metadata before its error report', async ({ signal }) => {
-    const [stock, diagnostic] = await Promise.all([
-      configuredPool('stock', 'exit', signal),
-      configuredPool('diagnostic', 'exit', signal),
-    ])
+    const [stock, diagnostic] = await Promise.all([configuredPool('stock', 'exit', signal), configuredPool('diagnostic', 'exit', signal)])
     const stockOutput = stock.output.map(chunk => chunk.text).join('')
     const output = diagnostic.output.map(chunk => chunk.text).join('')
     for (const [pool, result, text] of [
@@ -191,13 +209,17 @@ describe('coverage fork configuration entry', () => {
     const anyNumber: unknown = expect.any(Number)
     const anyString: unknown = expect.any(String)
     expect(record).toEqual({
-      pid, project: 'configured-fork', workerId: anyNumber,
-      files: [anyString], exitCode: 23, signalCode: null,
+      pid,
+      project: 'configured-fork',
+      workerId: anyNumber,
+      files: [anyString],
+      exitCode: 23,
+      signalCode: null,
     })
-    expect(record.files.map(file => file.replaceAll('\\', '/')))
-      .toEqual([resolve('scripts/fixtures/coverage-fork.fixture.ts').replaceAll('\\', '/')])
-    expect(output.indexOf('coverage-worker-exit:'))
-      .toBeLessThan(output.indexOf(workerExitReport(output, 'coverage-forks')!))
+    expect(record.files.map(file => file.replaceAll('\\', '/'))).toEqual([
+      resolve('scripts/fixtures/coverage-fork.fixture.ts').replaceAll('\\', '/'),
+    ])
+    expect(output.indexOf('coverage-worker-exit:')).toBeLessThan(output.indexOf(workerExitReport(output, 'coverage-forks')!))
   })
 
   it('keeps a successful configured run silent and successful', async ({ signal }) => {
@@ -220,12 +242,21 @@ describe('coverage fork exit callback', () => {
     const exit = observers.exit
     if (exit === undefined) throw new Error('exit observer was not registered')
     Reflect.apply(exit, receiver, [null, 'SIGTERM'])
-    expect(error).toHaveBeenCalledWith(`coverage-worker-exit: ${JSON.stringify({
-      pid, project: 'fixture', workerId: 9, files: ['/signal.spec.ts'], exitCode: null, signalCode: 'SIGTERM',
-    })}`)
+    expect(error).toHaveBeenCalledWith(
+      `coverage-worker-exit: ${JSON.stringify({
+        pid,
+        project: 'fixture',
+        workerId: 9,
+        files: ['/signal.spec.ts'],
+        exitCode: null,
+        signalCode: 'SIGTERM',
+      })}`,
+    )
     error.mockClear()
     pool.send(stop)
-    expect(() => { Reflect.apply(exit, undefined, [null, 'SIGTERM']) }).not.toThrow()
+    expect(() => {
+      Reflect.apply(exit, undefined, [null, 'SIGTERM'])
+    }).not.toThrow()
     expect(error).not.toHaveBeenCalled()
   })
 
@@ -241,9 +272,16 @@ describe('coverage fork exit callback', () => {
     const exit = observers.exit
     if (exit === undefined) throw new Error('exit observer was not registered')
     Reflect.apply(exit, { pid: 42 }, [23, null])
-    expect(error).toHaveBeenCalledWith(`coverage-worker-exit: ${JSON.stringify({
-      pid: 42, project: 'fixture', workerId: 11, files: ['/raced.spec.ts'], exitCode: 23, signalCode: null,
-    })}`)
+    expect(error).toHaveBeenCalledWith(
+      `coverage-worker-exit: ${JSON.stringify({
+        pid: 42,
+        project: 'fixture',
+        workerId: 11,
+        files: ['/raced.spec.ts'],
+        exitCode: 23,
+        signalCode: null,
+      })}`,
+    )
   })
 })
 
@@ -258,9 +296,16 @@ describe('coverage fork exit diagnostics', () => {
     expect(instance.pool.deserialize(null)).toBeNull()
     instance.pool.send(cancel)
     expect(await instance.exited).toBe(23)
-    expect(instance.error).toHaveBeenCalledWith(`coverage-worker-exit: ${JSON.stringify({
-      pid, project: 'fixture', workerId: 5, files: ['/collected.spec.ts'], exitCode: 23, signalCode: null,
-    })}`)
+    expect(instance.error).toHaveBeenCalledWith(
+      `coverage-worker-exit: ${JSON.stringify({
+        pid,
+        project: 'fixture',
+        workerId: 5,
+        files: ['/collected.spec.ts'],
+        exitCode: 23,
+        signalCode: null,
+      })}`,
+    )
   })
 
   it('does not attribute a post-completion exit to a finished file', async () => {
@@ -268,14 +313,22 @@ describe('coverage fork exit diagnostics', () => {
     instance.pool.send(request('/finished.spec.ts', 6))
     const pid = await instance.ready
     const finished = {
-      __vitest_worker_response__: true, type: 'testfileFinished',
+      __vitest_worker_response__: true,
+      type: 'testfileFinished',
     } satisfies Extract<WorkerResponse, { type: 'testfileFinished' }>
     expect(instance.pool.deserialize(finished)).toBe(finished)
     instance.pool.send(cancel)
     expect(await instance.exited).toBe(23)
-    expect(instance.error).toHaveBeenCalledWith(`coverage-worker-exit: ${JSON.stringify({
-      pid, project: 'fixture', workerId: null, files: [], exitCode: 23, signalCode: null,
-    })}`)
+    expect(instance.error).toHaveBeenCalledWith(
+      `coverage-worker-exit: ${JSON.stringify({
+        pid,
+        project: 'fixture',
+        workerId: null,
+        files: [],
+        exitCode: 23,
+        signalCode: null,
+      })}`,
+    )
   })
 
   it('records the exact owner while an independent ready fork remains alive', async () => {
@@ -287,9 +340,18 @@ describe('coverage fork exit diagnostics', () => {
     expect(firstPid).not.toBe(secondPid)
     first.pool.send(cancel)
     expect(await first.exited).toBe(23)
-    expect(first.error.mock.calls).toEqual([[`coverage-worker-exit: ${JSON.stringify({
-      pid: firstPid, project: 'fixture', workerId: 1, files: ['/first.spec.ts'], exitCode: 23, signalCode: null,
-    })}`]])
+    expect(first.error.mock.calls).toEqual([
+      [
+        `coverage-worker-exit: ${JSON.stringify({
+          pid: firstPid,
+          project: 'fixture',
+          workerId: 1,
+          files: ['/first.spec.ts'],
+          exitCode: 23,
+          signalCode: null,
+        })}`,
+      ],
+    ])
     expect(second.error).not.toHaveBeenCalled()
     expect(() => process.kill(secondPid, 0)).not.toThrow()
     second.pool.send(stop)
@@ -303,9 +365,16 @@ describe('coverage fork exit diagnostics', () => {
     const pid = await instance.ready
     instance.pool.send(cancel)
     expect(await instance.exited).toBe(0)
-    expect(instance.error).toHaveBeenCalledWith(`coverage-worker-exit: ${JSON.stringify({
-      pid, project: 'fixture', workerId: 3, files: ['/unfinished.spec.ts'], exitCode: 0, signalCode: null,
-    })}`)
+    expect(instance.error).toHaveBeenCalledWith(
+      `coverage-worker-exit: ${JSON.stringify({
+        pid,
+        project: 'fixture',
+        workerId: 3,
+        files: ['/unfinished.spec.ts'],
+        exitCode: 0,
+        signalCode: null,
+      })}`,
+    )
   })
 
   it('records an exit before any file request without inventing a file owner', async () => {
@@ -315,7 +384,12 @@ describe('coverage fork exit diagnostics', () => {
     const record = JSON.parse(instance.error.mock.calls[0]![0].slice('coverage-worker-exit: '.length)) as Record<string, unknown>
     const anyNumber: unknown = expect.any(Number)
     expect(record).toEqual({
-      pid: anyNumber, project: 'fixture', workerId: null, files: [], exitCode: 31, signalCode: null,
+      pid: anyNumber,
+      project: 'fixture',
+      workerId: null,
+      files: [],
+      exitCode: 31,
+      signalCode: null,
     })
   })
 

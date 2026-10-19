@@ -1,5 +1,5 @@
 /** The `read` endpoint: its four gates and the line window it cuts. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { FsError } from '@deepseek-ai/dsh-fs'
@@ -19,8 +19,7 @@ afterEach(async () => {
   await harness.dispose()
 })
 
-const endpoint = (caps?: { maxBytes?: number; maxLines?: number }): ReturnType<Harness['endpoint']> =>
-  harness.endpoint(caps)
+const endpoint = (caps?: { maxBytes?: number; maxLines?: number }): ReturnType<Harness['endpoint']> => harness.endpoint(caps)
 
 /** Twenty lines, `line 1` through `line 20`, terminated by a final newline. */
 async function twentyLines(): Promise<void> {
@@ -29,11 +28,10 @@ async function twentyLines(): Promise<void> {
 
 /** A file whose second line carries a NUL byte past the backend's 8 KiB binary sample. */
 async function lateNul(): Promise<void> {
-  await writeFile(join(workspace, 'late-nul.txt'), Buffer.concat([
-    Buffer.from(`${'a'.repeat(9000)}\nb`, 'utf8'),
-    Buffer.from([0]),
-    Buffer.from('c\n', 'utf8'),
-  ]))
+  await writeFile(
+    join(workspace, 'late-nul.txt'),
+    Buffer.concat([Buffer.from(`${'a'.repeat(9000)}\nb`, 'utf8'), Buffer.from([0]), Buffer.from('c\n', 'utf8')]),
+  )
 }
 
 describe('workspaceFiles.read — the happy path', () => {

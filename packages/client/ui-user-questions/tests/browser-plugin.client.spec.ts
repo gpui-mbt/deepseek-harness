@@ -1,6 +1,6 @@
 /** Scoped Remote Event wiring and projection publishing for the browser question consumer. */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -19,13 +19,15 @@ const SESSION_SCOPE = Symbol('question-session-scope')
 const CALL = ToolCallId('call-timed')
 const QUESTIONS = [{ id: 'mode', question: 'Choose a mode' }] as const
 const ANSWER = { answers: [{ id: 'mode', selected: ['Fast'] }] }
-const PLAN_QUESTIONS: PendingQuestion['questions'] = [{
-  id: 'plan',
-  question: 'Approve this plan?',
-  detail: '# Plan',
-  options: [{ label: 'Approve' }, { label: 'Keep planning' }],
-  intent: { kind: 'plan-review', approve: 'Approve' },
-}]
+const PLAN_QUESTIONS: PendingQuestion['questions'] = [
+  {
+    id: 'plan',
+    question: 'Approve this plan?',
+    detail: '# Plan',
+    options: [{ label: 'Approve' }, { label: 'Keep planning' }],
+    intent: { kind: 'plan-review', approve: 'Approve' },
+  },
+]
 /** One settled call as its tool call row reads it back. */
 const RECORD = { questions: [...QUESTIONS], answers: [...ANSWER.answers] }
 const CONTINUED: PendingUserQuestion = { callId: CALL, questions: [...QUESTIONS], state: 'continued' }
@@ -44,11 +46,7 @@ type QuestionRequest = {
 }
 type QuestionAnswer = typeof ANSWER
 type QuestionNext = () => Promise<QuestionAnswer>
-type QuestionListener = (
-  this: Context,
-  request: QuestionRequest,
-  next: QuestionNext,
-) => Promise<QuestionAnswer>
+type QuestionListener = (this: Context, request: QuestionRequest, next: QuestionNext) => Promise<QuestionAnswer>
 type RemoteBooleanResult = { ok: true; value: boolean } | { ok: false; error: { message: string } }
 
 /** `absent` seeds a projection face that has published nothing yet. */
@@ -76,9 +74,7 @@ async function bench(
   const locale = new LocaleRuntime(ctx)
   ctx.provide('locale', locale)
   const agent = ctx.extend({ [SESSION_SCOPE]: SESSION_ID })
-  const scopeOf = vi.fn((candidate: Context) => (
-    candidate as Context & { [SESSION_SCOPE]?: SessionId }
-  )[SESSION_SCOPE])
+  const scopeOf = vi.fn((candidate: Context) => (candidate as Context & { [SESSION_SCOPE]?: SessionId })[SESSION_SCOPE])
   const projection = createSnapshotStore<UserQuestionProjectionView | undefined>(durable === 'absent' ? undefined : view(durable))
   const inbox = createSnapshotStore<InboxWireState | undefined>(initialInbox)
   const list = createSnapshotStore({
@@ -89,19 +85,22 @@ async function bench(
     jobsBySession: {},
     currentAddress: undefined,
   })
-  const binding = vi.fn((sessionId: SessionId) => sessionId === SESSION_ID
-    ? ({ sessionId: SESSION_ID, session: { projections: { faceOf: (name: string) => name === 'inbox' ? inbox : projection } } })
-    : undefined)
+  const binding = vi.fn((sessionId: SessionId) =>
+    sessionId === SESSION_ID
+      ? { sessionId: SESSION_ID, session: { projections: { faceOf: (name: string) => (name === 'inbox' ? inbox : projection) } } }
+      : undefined,
+  )
   ctx.provide('sessions', { scopeOf, list, binding } as never)
   const pending = new Map<PendingQuestion, () => Promise<void>>()
-  const registerPendingInteraction = vi.fn((_precedence: (value: PendingQuestion) => number) => (
-    value: PendingQuestion,
-    delegate: () => Promise<void>,
-  ) => {
-    _precedence(value)
-    pending.set(value, delegate)
-    return () => { pending.delete(value) }
-  })
+  const registerPendingInteraction = vi.fn(
+    (_precedence: (value: PendingQuestion) => number) => (value: PendingQuestion, delegate: () => Promise<void>) => {
+      _precedence(value)
+      pending.set(value, delegate)
+      return () => {
+        pending.delete(value)
+      }
+    },
+  )
   ctx.provide('uiSession', { registerPendingInteraction } as never)
   const registerNode = vi.fn((_definition: { kind: string }) => () => {})
   ctx.provide('uiConversation', { events: { register: registerNode } } as never)
@@ -109,7 +108,9 @@ async function bench(
   const on = vi.fn((event: string, value: QuestionListener) => {
     expect(event).toBe('user-questions/request')
     listener = value
-    return () => { listener = undefined }
+    return () => {
+      listener = undefined
+    }
   })
   const remoteQuestions = {
     attachWait: vi.fn((_sessionId: SessionId, _callId: ToolCallId, signal: AbortSignal) => {
@@ -121,7 +122,9 @@ async function bench(
       signal.addEventListener('abort', dispose, { once: true })
       let first = true
       return {
-        dispose, send: () => {}, end: () => {},
+        dispose,
+        send: () => {},
+        end: () => {},
         [Symbol.asyncIterator]: () => ({
           next: () => {
             if (!first) return ended.promise
@@ -131,19 +134,16 @@ async function bench(
         }),
       }
     }),
-    answer: vi.fn(async (
-      _sessionId: SessionId, _callId: string, _answer: QuestionAnswer,
-    ): Promise<RemoteBooleanResult> => ({ ok: true, value: true })),
+    answer: vi.fn(async (_sessionId: SessionId, _callId: string, _answer: QuestionAnswer): Promise<RemoteBooleanResult> => ({
+      ok: true,
+      value: true,
+    })),
   }
   ctx.provide('remote.userQuestions', remoteQuestions as never)
   ctx.provide('remote', { $on: on, userQuestions: remoteQuestions } as never)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
-  const invoke = (
-    owner: Context,
-    request: QuestionRequest,
-    next: QuestionNext,
-  ): Promise<QuestionAnswer> => {
+  const invoke = (owner: Context, request: QuestionRequest, next: QuestionNext): Promise<QuestionAnswer> => {
     if (listener === undefined) throw new Error('question listener was not installed')
     return listener.call(owner, request, next)
   }
@@ -184,7 +184,9 @@ describe('apply', () => {
     const b = await bench()
     const dispose = vi.fn()
     b.remoteQuestions.attachWait.mockImplementationOnce(() => ({
-      dispose, send: () => {}, end: () => {},
+      dispose,
+      send: () => {},
+      end: () => {},
       [Symbol.asyncIterator]: () => ({
         next: () => Promise.resolve({ done: true as const, value: undefined }),
       }),
@@ -209,7 +211,9 @@ describe('apply', () => {
     const b = await bench(true, [CONTINUED])
     const controller = new AbortController()
     b.remoteQuestions.attachWait.mockImplementationOnce(() => ({
-      dispose: vi.fn(), send: () => {}, end: () => {},
+      dispose: vi.fn(),
+      send: () => {},
+      end: () => {},
       [Symbol.asyncIterator]: () => ({
         next: () => {
           controller.abort()
@@ -218,8 +222,9 @@ describe('apply', () => {
       }),
     }))
     try {
-      await expect(b.invoke(b.agent, { ...timed(), signal: controller.signal }, async () => ANSWER))
-        .rejects.toMatchObject({ code: 'ASK_ABORTED' })
+      await expect(b.invoke(b.agent, { ...timed(), signal: controller.signal }, async () => ANSWER)).rejects.toMatchObject({
+        code: 'ASK_ABORTED',
+      })
       const card = b.pending.getSnapshot()[0]!
       expect(card.snapshot()).toMatchObject({ state: 'continued', channel: 'rpc' })
       await card.answer(ANSWER)
@@ -236,9 +241,12 @@ describe('apply', () => {
     b.remoteQuestions.attachWait.mockImplementationOnce(() => {
       let reads = 0
       return {
-        dispose: () => { ended.resolve({ done: true, value: undefined }) },
-        send: () => {}, end: () => {},
-        [Symbol.asyncIterator]: () => ({ next: () => ++reads === 1 ? opening.promise : ended.promise }),
+        dispose: () => {
+          ended.resolve({ done: true, value: undefined })
+        },
+        send: () => {},
+        end: () => {},
+        [Symbol.asyncIterator]: () => ({ next: () => (++reads === 1 ? opening.promise : ended.promise) }),
       }
     })
     try {
@@ -249,7 +257,9 @@ describe('apply', () => {
       expect(card.snapshot().closed).toBe(false)
 
       opening.resolve({ done: false, value: { remainingMs: 60_000 } })
-      await vi.waitFor(() => { expect(card.snapshot().channel).toBe('waterfall') })
+      await vi.waitFor(() => {
+        expect(card.snapshot().channel).toBe('waterfall')
+      })
       await card.answer(ANSWER)
       await expect(result).resolves.toEqual(ANSWER)
     } finally {
@@ -276,12 +286,16 @@ describe('apply', () => {
     const wait = new TimedQuestionWait(Date.now() + 5_000, undefined, new Error('unclaimed timeout'))
     const claimed = Promise.withResolvers<undefined>()
     const released = Promise.withResolvers<undefined>()
-    const dispose = vi.fn(() => { released.resolve(undefined) })
+    const dispose = vi.fn(() => {
+      released.resolve(undefined)
+    })
     b.remoteQuestions.attachWait.mockImplementationOnce((_sessionId, _callId, signal) => {
       const iterator = wait.attach(signal)[Symbol.asyncIterator]()
       let reads = 0
       return {
-        dispose, send: () => {}, end: () => {},
+        dispose,
+        send: () => {},
+        end: () => {},
         [Symbol.asyncIterator]: () => ({
           next: () => {
             const result = iterator.next()
@@ -377,15 +391,16 @@ describe('apply', () => {
     const face = (entry.inject as () => { keyedHooks: { questionCard: (key: string) => PendingQuestion | undefined } })()
     expect(face.keyedHooks.questionCard(pending.key)).toBe(pending)
     expect(face.keyedHooks.questionCard('question:missing')).toBeUndefined()
-    const select = entry.select as (
-      owner: { pendingInteraction: PendingQuestion | undefined },
-    ) => PendingQuestion | null
+    const select = entry.select as (owner: { pendingInteraction: PendingQuestion | undefined }) => PendingQuestion | null
     expect(select({ pendingInteraction: undefined })).toBeNull()
     expect(select({ pendingInteraction: pending })).toBe(pending)
     expect(pending).toMatchObject({ kind: 'question', sessionId: SESSION_ID, questions: QUESTIONS, callId: undefined })
     expect(pending.snapshot()).toEqual({
-      state: 'open', waitState: 'counting', countdown: undefined,
-      channel: 'waterfall', closed: false,
+      state: 'open',
+      waitState: 'counting',
+      countdown: undefined,
+      channel: 'waterfall',
+      closed: false,
     })
 
     await pending.answer(ANSWER)
@@ -435,7 +450,9 @@ describe('apply', () => {
     expect(b.pending.getSnapshot()).toHaveLength(1)
 
     let released = false
-    const release = b.releasePending().then(() => { released = true })
+    const release = b.releasePending().then(() => {
+      released = true
+    })
     await Promise.resolve()
     await Promise.resolve()
     // The registry's release awaits the listener's `next()`, exactly as the
@@ -460,7 +477,10 @@ describe('apply', () => {
     expect(pending.key).toBe(`question:${SESSION_ID}:${CALL}`)
     expect(pending.dismissal).toBe('hide')
     expect(pending.snapshot()).toMatchObject({
-      state: 'open', waitState: 'counting', channel: 'waterfall', closed: false,
+      state: 'open',
+      waitState: 'counting',
+      channel: 'waterfall',
+      closed: false,
     })
     // The card owns the countdown, so it reads the deadline down from now.
     expect(pending.snapshot().countdown).toEqual({ remainingMs: expect.any(Number) as number, running: true })
@@ -472,8 +492,11 @@ describe('apply', () => {
     await rejection
     expect(b.pending.getSnapshot()).toEqual([pending])
     expect(pending.snapshot()).toEqual({
-      state: 'open', waitState: 'counting', countdown: undefined,
-      channel: 'none', closed: false,
+      state: 'open',
+      waitState: 'counting',
+      countdown: undefined,
+      channel: 'none',
+      closed: false,
     })
     await expect(pending.answer(ANSWER)).rejects.toThrow(/no channel/)
   })
@@ -500,8 +523,11 @@ describe('apply', () => {
     expect(pending.key).toBe(`question:${SESSION_ID}:${CALL}`)
     expect(pending.dismissal).toBe('hide')
     expect(pending.snapshot()).toEqual({
-      state: 'open', waitState: 'counting', countdown: undefined,
-      channel: 'waterfall', closed: false,
+      state: 'open',
+      waitState: 'counting',
+      countdown: undefined,
+      channel: 'waterfall',
+      closed: false,
     })
   })
 
@@ -542,8 +568,11 @@ describe('apply', () => {
     expect(card.liveKeys()).toEqual([card.key])
     // No channel and no countdown: the call settled, so nothing is answerable.
     expect(card.snapshot()).toEqual({
-      state: 'open', waitState: 'counting', countdown: undefined,
-      channel: 'none', closed: false,
+      state: 'open',
+      waitState: 'counting',
+      countdown: undefined,
+      channel: 'none',
+      closed: false,
     })
     await expect(card.answer(ANSWER)).rejects.toThrow(/no channel accepts an answer yet/)
 
@@ -610,9 +639,7 @@ describe('apply', () => {
 
     b.projection.set(view([CONTINUED, { callId: ToolCallId('call-other'), questions: [...QUESTIONS], state: 'continued' }]))
     const cards = b.pending.getSnapshot()
-    expect(cards.map(card => card.key)).toEqual([
-      `question:${SESSION_ID}:${CALL}`, `question:${SESSION_ID}:call-other`,
-    ])
+    expect(cards.map(card => card.key)).toEqual([`question:${SESSION_ID}:${CALL}`, `question:${SESSION_ID}:call-other`])
     const card = cards[0]!
     expect(card.snapshot()).toMatchObject({ state: 'continued', channel: 'rpc' })
     expect(card.liveKeys()).toEqual(cards.map(item => item.key))
@@ -631,7 +658,12 @@ describe('apply', () => {
     const b = await bench(true, [CONTINUED, { ...CONTINUED, callId: currentCall, state: 'open' }])
     const current = b.invoke(b.agent, { ...timed(), wait: { callId: currentCall, timed: true } }, async () => ANSWER)
     await vi.waitFor(() => {
-      expect(b.pending.getSnapshot().find(card => card.callId === currentCall)?.snapshot().channel).toBe('waterfall')
+      expect(
+        b.pending
+          .getSnapshot()
+          .find(card => card.callId === currentCall)
+          ?.snapshot().channel,
+      ).toBe('waterfall')
     })
 
     const currentCard = b.pending.getSnapshot().find(card => card.callId === currentCall)!
@@ -652,7 +684,12 @@ describe('apply', () => {
     try {
       const current = b.invoke(b.agent, { ...timed(), wait: { callId: currentCall, timed: true } }, async () => ANSWER)
       await vi.waitFor(() => {
-        expect(b.pending.getSnapshot().find(card => card.callId === currentCall)?.snapshot().channel).toBe('waterfall')
+        expect(
+          b.pending
+            .getSnapshot()
+            .find(card => card.callId === currentCall)
+            ?.snapshot().channel,
+        ).toBe('waterfall')
       })
       const oldCard = b.pending.getSnapshot()[0]!
       b.inbox.set(queuedInbox(CALL))
@@ -662,9 +699,16 @@ describe('apply', () => {
       expect(b.panels()?.reveal(SESSION_ID, CALL)).toBe(false)
 
       b.inbox.set(emptyInbox())
-      expect(b.pending.getSnapshot().find(card => card.callId === CALL)?.snapshot())
-        .toMatchObject({ state: 'continued', channel: 'rpc' })
-      b.pending.getSnapshot().find(card => card.callId === currentCall)?.timeout()
+      expect(
+        b.pending
+          .getSnapshot()
+          .find(card => card.callId === CALL)
+          ?.snapshot(),
+      ).toMatchObject({ state: 'continued', channel: 'rpc' })
+      b.pending
+        .getSnapshot()
+        .find(card => card.callId === currentCall)
+        ?.timeout()
       await expect(current).rejects.toMatchObject({ code: 'ASK_TIMED_OUT' })
     } finally {
       await b.fiber.dispose()
@@ -687,8 +731,12 @@ describe('apply', () => {
       expect(b.pending.getSnapshot().map(card => card.callId)).toEqual([CALL, otherCall])
 
       b.inbox.set({
-        'next-step': [null, { source: null }, { source: { kind: 'other', callId: CALL } },
-          { source: { kind: 'user-question-reply', callId: 42 } }],
+        'next-step': [
+          null,
+          { source: null },
+          { source: { kind: 'other', callId: CALL } },
+          { source: { kind: 'user-question-reply', callId: 42 } },
+        ],
         'next-turn': [{ source: { kind: 'user-question-reply', callId: otherCall } }],
       })
       expect(b.pending.getSnapshot().map(card => card.callId)).toEqual([CALL])

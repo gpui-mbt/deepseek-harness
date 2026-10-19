@@ -3,7 +3,7 @@
  * request-init assertions alone cannot observe that boundary.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { createServer, type IncomingMessage, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { OllamaFetchProvider, OllamaSearchProvider } from '@deepseek-ai/dsh-web-ollama-api'
@@ -11,11 +11,9 @@ import { OllamaFetchProvider, OllamaSearchProvider } from '@deepseek-ai/dsh-web-
 /** Construct the providers over a fixed options value; production passes a live thunk. */
 import type { OllamaFetchProviderOptions, OllamaSearchProviderOptions } from '@deepseek-ai/dsh-web-ollama-api'
 
-const searchProvider = (options: OllamaSearchProviderOptions): OllamaSearchProvider =>
-  new OllamaSearchProvider(() => options)
+const searchProvider = (options: OllamaSearchProviderOptions): OllamaSearchProvider => new OllamaSearchProvider(() => options)
 
-const fetchProvider = (options: OllamaFetchProviderOptions): OllamaFetchProvider =>
-  new OllamaFetchProvider(() => options)
+const fetchProvider = (options: OllamaFetchProviderOptions): OllamaFetchProvider => new OllamaFetchProvider(() => options)
 
 const TEST_API_KEY = 'redirect-test-key'
 const TEST_QUERY = 'private redirect query'
@@ -31,10 +29,13 @@ let redirectOrigin: string
 let targetOrigin: string
 
 const targetServer = createServer((request, response) => {
-  void captureRequest(request).then((received) => {
-    targetRequests.push(received)
-    response.writeHead(204).end()
-  }, (error: unknown) => response.destroy(asError(error)))
+  void captureRequest(request).then(
+    received => {
+      targetRequests.push(received)
+      response.writeHead(204).end()
+    },
+    (error: unknown) => response.destroy(asError(error)),
+  )
 })
 
 const redirectServer = createServer((request, response) => {
@@ -53,7 +54,7 @@ afterAll(async () => {
 })
 
 describe('OllamaSearchProvider redirect policy', () => {
-  it.each([301, 302, 303, 307, 308])('rejects HTTP %i before contacting Location', async (status) => {
+  it.each([301, 302, 303, 307, 308])('rejects HTTP %i before contacting Location', async status => {
     targetRequests.length = 0
     const provider = searchProvider({
       apiKey: TEST_API_KEY,
@@ -61,11 +62,9 @@ describe('OllamaSearchProvider redirect policy', () => {
       maxResults: 1,
     })
 
-    await expect(provider.search({ query: TEST_QUERY }))
-      .rejects.toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
+    await expect(provider.search({ query: TEST_QUERY })).rejects.toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
     expect(targetRequests).toHaveLength(0)
   })
-
 
   it('shows default 307 following forwards the custom credential and POST body', async () => {
     targetRequests.length = 0
@@ -73,7 +72,7 @@ describe('OllamaSearchProvider redirect policy', () => {
     await fetch(`${redirectOrigin}/307`, {
       method: 'POST',
       headers: {
-        'authorization': `Bearer ${TEST_API_KEY}`,
+        authorization: `Bearer ${TEST_API_KEY}`,
         'content-type': 'application/json',
       },
       body,
@@ -88,15 +87,14 @@ describe('OllamaSearchProvider redirect policy', () => {
 })
 
 describe('OllamaFetchProvider redirect policy', () => {
-  it.each([301, 302, 303, 307, 308])('rejects HTTP %i before contacting Location', async (status) => {
+  it.each([301, 302, 303, 307, 308])('rejects HTTP %i before contacting Location', async status => {
     targetRequests.length = 0
     const provider = fetchProvider({
       apiKey: TEST_API_KEY,
       fetchBaseURL: `${redirectOrigin}/${status}`,
     })
 
-    await expect(provider.fetch({ url: 'https://ollama.com' }))
-      .rejects.toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
+    await expect(provider.fetch({ url: 'https://ollama.com' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
     expect(targetRequests).toHaveLength(0)
   })
 })
@@ -112,7 +110,7 @@ function captureRequest(request: IncomingMessage): Promise<ReceivedRequest> {
     request.once('error', reject)
     request.once('end', () => {
       resolve({
-        ...request.method !== undefined ? { method: request.method } : {},
+        ...(request.method !== undefined ? { method: request.method } : {}),
         headers: request.headers,
         body: Buffer.concat(chunks).toString('utf8'),
       })
@@ -133,10 +131,12 @@ async function listen(server: Server): Promise<string> {
 /** Close a listening fixture server after every request has settled. */
 async function close(server: Server): Promise<void> {
   if (!server.listening) return
-  await new Promise<void>((resolve, reject) => server.close((error) => {
-    if (error === undefined) resolve()
-    else reject(error)
-  }))
+  await new Promise<void>((resolve, reject) =>
+    server.close(error => {
+      if (error === undefined) resolve()
+      else reject(error)
+    }),
+  )
 }
 
 /** Normalize an unknown fixture failure for `ServerResponse.destroy`. */

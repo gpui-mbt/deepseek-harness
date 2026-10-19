@@ -17,10 +17,10 @@ export class HostSourceBackend implements SourceBackend {
   private readonly listeners = new Set<(script: RuntimeScript) => void>()
   private readonly unsubscribe: () => void
 
-  constructor(
-    private readonly target: HostInspectorSession,
-  ) {
-    this.unsubscribe = target.subscribe((message) => { this.receive(message) })
+  constructor(private readonly target: HostInspectorSession) {
+    this.unsubscribe = target.subscribe(message => {
+      this.receive(message)
+    })
   }
 
   listScripts(): Promise<readonly RuntimeScript[]> {
@@ -46,7 +46,9 @@ export class HostSourceBackend implements SourceBackend {
    */
   subscribe(listener: (script: RuntimeScript) => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /** Release the native notification subscription and cached catalog. */
@@ -59,13 +61,16 @@ export class HostSourceBackend implements SourceBackend {
   private receive(message: HostInspectorNotification): void {
     if (message.method !== 'Debugger.scriptParsed') return
     const params = message.params
-    if (params === undefined
-      || typeof params.scriptId !== 'string'
-      || typeof params.url !== 'string'
-      || !isInteger(params.startLine)
-      || !isInteger(params.startColumn)
-      || !isInteger(params.endLine)
-      || !isInteger(params.endColumn)) return
+    if (
+      params === undefined ||
+      typeof params.scriptId !== 'string' ||
+      typeof params.url !== 'string' ||
+      !isInteger(params.startLine) ||
+      !isInteger(params.startColumn) ||
+      !isInteger(params.endLine) ||
+      !isInteger(params.endColumn)
+    )
+      return
     const scriptKey = hostScriptKey(params.scriptId)
     const descriptor: RuntimeScript = {
       scriptKey,
@@ -76,9 +81,7 @@ export class HostSourceBackend implements SourceBackend {
       startColumn: params.startColumn,
       endLine: params.endLine,
       endColumn: params.endColumn,
-      ...(typeof params.sourceMapURL === 'string' && params.sourceMapURL.length > 0
-        ? { sourceMapUrl: params.sourceMapURL }
-        : {}),
+      ...(typeof params.sourceMapURL === 'string' && params.sourceMapURL.length > 0 ? { sourceMapUrl: params.sourceMapURL } : {}),
       ...(isInteger(params.executionContextId) ? { executionContextId: params.executionContextId } : {}),
       ...(typeof params.isModule === 'boolean' ? { isModule: params.isModule } : {}),
       ...(isInteger(params.length) ? { length: params.length } : {}),

@@ -22,7 +22,18 @@
  */
 
 import { createRequire } from 'node:module'
-import { existsSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  readlinkSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
 import { applyEntryPatches, type PatchOptions } from '@deepseek-ai/cordis-plugin-include'
@@ -167,9 +178,15 @@ export interface RuntimeResolution {
  * @returns the absolute profile directory (which may not exist yet).
  */
 export function resolveProfileDir(name: string, home: string = resolveDshHome()): string {
-  if (name === '' || name.includes('/') || name.includes('\\') || name === '.' || name === '..'
+  if (
+    name === '' ||
+    name.includes('/') ||
+    name.includes('\\') ||
+    name === '.' ||
+    name === '..' ||
     // Node reserves this name for dependency lookup.
-    || name === 'node_modules') {
+    name === 'node_modules'
+  ) {
     throw new Error(`dsh: invalid profile name ${JSON.stringify(name)}`)
   }
   return join(home, PROFILES_DIR, name)
@@ -259,10 +276,7 @@ autoInstallPeers: false
  * @param dir - the profile directory from {@link resolveProfileDir}.
  * @param bundles - the initial `dsh.profile.bundles` layer list.
  */
-export function initProfile(
-  dir: string,
-  bundles: readonly string[],
-): void {
+export function initProfile(dir: string, bundles: readonly string[]): void {
   mkdirSync(dir, { recursive: true })
   const manifestPath = join(dir, 'package.json')
   if (!existsSync(manifestPath)) {
@@ -344,8 +358,8 @@ function linkedProfileRoots(profile: Profile, profilesDir: string): LinkedRoot[]
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       continue
     }
-    if (excludedTrees.some(prefix => realPath + sep === prefix || realPath.startsWith(prefix))
-      || !statSync(realPath).isDirectory()) continue
+    if (excludedTrees.some(prefix => realPath + sep === prefix || realPath.startsWith(prefix)) || !statSync(realPath).isDirectory())
+      continue
     roots.push({ name: relative(modules, linkPath).split(sep).join('/'), realPath })
   }
   return roots.sort((left, right) => left.name.localeCompare(right.name))
@@ -379,7 +393,8 @@ function profileDependencyNames(manifest: ProfileManifest): string[] {
 
 /** Resolve the installation packages that the runtime resolver supplies to every profile. */
 function collectInstallationScopePackages(
-  installAnchor: string, skippedBundles: ReadonlySet<string>,
+  installAnchor: string,
+  skippedBundles: ReadonlySet<string>,
 ): {
   packageNames: ReadonlySet<string>
   packageDirs: ReadonlyMap<string, string>
@@ -446,39 +461,54 @@ export interface RuntimeResolutionOptions {
  * @param options - installation anchor, optional loaded profile, and Harness home.
  * @returns the complete immutable runtime resolution.
  */
-export async function createRuntimeResolution(
-  options: RuntimeResolutionOptions,
-): Promise<ProfileRuntimeResolution> {
+export async function createRuntimeResolution(options: RuntimeResolutionOptions): Promise<ProfileRuntimeResolution> {
   const { installAnchor, profile, home = resolveDshHome() } = options
   const profilesDir = join(home, PROFILES_DIR)
   const manifest = readOptionalProfileManifest(profile)
   const { packageNames, packageDirs, declarers, versions } = collectInstallationScopePackages(
-    installAnchor, new Set(profile?.skippedBundles.map(skipped => skipped.packageName)),
+    installAnchor,
+    new Set(profile?.skippedBundles.map(skipped => skipped.packageName)),
   )
   const profileDeclarers = new Map<string, string>()
   const profileVersions = new Map<string, string | undefined>()
   const localPackageNames = profile === undefined ? [] : installedProfilePackageNames(profile, manifest)
-  const profilePackages: ReadonlyMap<string, string> = profile === undefined
-    ? new Map<string, string>()
-    : collectProfileScopePackages(profile, packageNames, profileDeclarers, profileVersions)
+  const profilePackages: ReadonlyMap<string, string> =
+    profile === undefined
+      ? new Map<string, string>()
+      : collectProfileScopePackages(profile, packageNames, profileDeclarers, profileVersions)
   const linkedRoots = profile === undefined ? [] : linkedProfileRoots(profile, profilesDir)
   // The Promise return type is the pre-stable API; construction has no asynchronous step.
-  return await Promise.resolve(new ProfileRuntimeResolution({ installAnchor, profileDir: profile?.dir, home }, {
-    profilesDir,
-    profileDir: profile?.dir,
-    localPackageNames: Object.freeze(localPackageNames),
-    linkedRoots: Object.freeze(linkedRoots.map(root => Object.freeze(root))),
-    entries: Object.freeze([
-      ...[...packageDirs].map(([name, packageDir]) => Object.freeze({
-        name, packageDir, version: versions.get(name),
-        declarer: declarers.get(name) as string, scope: 'installation' as const,
-      })),
-      ...[...profilePackages].map(([name, packageDir]) => Object.freeze({
-        name, packageDir, version: profileVersions.get(name),
-        declarer: profileDeclarers.get(name) as string, scope: 'profile' as const,
-      })),
-    ]),
-  }))
+  return await Promise.resolve(
+    new ProfileRuntimeResolution(
+      { installAnchor, profileDir: profile?.dir, home },
+      {
+        profilesDir,
+        profileDir: profile?.dir,
+        localPackageNames: Object.freeze(localPackageNames),
+        linkedRoots: Object.freeze(linkedRoots.map(root => Object.freeze(root))),
+        entries: Object.freeze([
+          ...[...packageDirs].map(([name, packageDir]) =>
+            Object.freeze({
+              name,
+              packageDir,
+              version: versions.get(name),
+              declarer: declarers.get(name) as string,
+              scope: 'installation' as const,
+            }),
+          ),
+          ...[...profilePackages].map(([name, packageDir]) =>
+            Object.freeze({
+              name,
+              packageDir,
+              version: profileVersions.get(name),
+              declarer: profileDeclarers.get(name) as string,
+              scope: 'profile' as const,
+            }),
+          ),
+        ]),
+      },
+    ),
+  )
 }
 
 /** Inputs a {@link ProfileRuntimeResolution} reuses to compute its successor. */
@@ -523,8 +553,9 @@ export class ProfileRuntimeResolution implements RuntimeResolution {
   computeLatestResolution(): Promise<ProfileRuntimeResolution> {
     const { installAnchor, home, profileDir } = this.#source
     return createRuntimeResolution({
-      installAnchor, home,
-      ...profileDir === undefined ? {} : { profile: loadProfileDirectory('dsh', profileDir, installAnchor) },
+      installAnchor,
+      home,
+      ...(profileDir === undefined ? {} : { profile: loadProfileDirectory('dsh', profileDir, installAnchor) }),
     })
   }
 }
@@ -543,13 +574,13 @@ function readOptionalProfileManifest(profile: Profile | undefined): ProfileManif
 /** Return installed direct dependencies that Node resolves before profile fallback. */
 function installedProfilePackageNames(profile: Profile, manifest: ProfileManifest | undefined): string[] {
   if (manifest === undefined) return []
-  return profileDependencyNames(manifest)
-    .filter(name => existsSync(join(profile.dir, 'node_modules', name, 'package.json')))
+  return profileDependencyNames(manifest).filter(name => existsSync(join(profile.dir, 'node_modules', name, 'package.json')))
 }
 
 /** Collect the first resolvable package directory for each dependency name. */
 function dependencyClosure(
-  anchors: readonly string[], reserved: ReadonlySet<string>,
+  anchors: readonly string[],
+  reserved: ReadonlySet<string>,
   declarers?: Map<string, string>,
   versions?: Map<string, string | undefined>,
 ): Map<string, string> {
@@ -590,7 +621,8 @@ function dependencyClosure(
 
 /** Collect packages carried by the profile's selected bundles that the installation does not supply. */
 function collectProfileScopePackages(
-  profile: Profile, installationPackageNames: ReadonlySet<string>,
+  profile: Profile,
+  installationPackageNames: ReadonlySet<string>,
   declarers?: Map<string, string>,
   versions?: Map<string, string | undefined>,
 ): Map<string, string> {
@@ -711,16 +743,14 @@ function packageDirFromAnchor(anchor: string, packageName: string): string | und
  * @param profileDir - the profile directory (second anchor).
  * @returns the bundle package's absolute directory.
  */
-export function resolveBundleDir(
-  binName: string, packageName: string, installAnchor: string, profileDir: string,
-): string {
+export function resolveBundleDir(binName: string, packageName: string, installAnchor: string, profileDir: string): string {
   for (const anchor of [installAnchor, join(profileDir, 'package.json')]) {
     const dir = packageDirFromAnchor(anchor, packageName)
     if (dir !== undefined) return dir
   }
   throw new Error(
-    `${binName}: cannot resolve profile bundle ${JSON.stringify(packageName)} from the dsh installation or ${profileDir}; `
-    + `run 'dsh plugin --profile ${basename(profileDir)} install' if its dependency is not installed`,
+    `${binName}: cannot resolve profile bundle ${JSON.stringify(packageName)} from the dsh installation or ${profileDir}; ` +
+      `run 'dsh plugin --profile ${basename(profileDir)} install' if its dependency is not installed`,
   )
 }
 
@@ -737,12 +767,7 @@ export function resolveBundleDir(
  * @param options - `userLayer: false` skips reading `cordis.patch.yml`.
  * @returns the successfully loaded bundle layers and optional user patch layer.
  */
-export function loadProfileDirectory(
-  binName: string,
-  dir: string,
-  installAnchor: string,
-  options: { userLayer?: boolean } = {},
-): Profile {
+export function loadProfileDirectory(binName: string, dir: string, installAnchor: string, options: { userLayer?: boolean } = {}): Profile {
   const manifest = dropRetiredBundles(dir, readProfileManifest(binName, dir))
   const bundles = manifest.dsh?.profile?.bundles ?? []
   const layers: ProfileLayer[] = []
@@ -767,9 +792,7 @@ export function loadProfileDirectory(
     }
   }
   const patchPath = join(dir, PROFILE_PATCH_FILENAME)
-  const patches = options.userLayer !== false && existsSync(patchPath)
-    ? loadOverlayPatches(binName, patchPath)
-    : []
+  const patches = options.userLayer !== false && existsSync(patchPath) ? loadOverlayPatches(binName, patchPath) : []
   return { name: basename(dir), dir, layers, patchPath, patches, skippedBundles }
 }
 
@@ -787,7 +810,10 @@ export function loadProfileDirectory(
  * @returns the loaded profile (empty `patches` when the user layer is skipped).
  */
 export function loadProfile(
-  binName: string, name: string, installAnchor: string, home: string = resolveDshHome(),
+  binName: string,
+  name: string,
+  installAnchor: string,
+  home: string = resolveDshHome(),
   options: { userLayer?: boolean } = {},
 ): Profile {
   const dir = resolveProfileDir(name, home)
@@ -813,9 +839,7 @@ export function loadProfile(
  * @param warn - sink for skipped-patch diagnostics; defaults to silent (boot repeats them).
  * @returns the composed entry list.
  */
-export function composeEntries(
-  layers: readonly PatchOptions[][], warn: (message: string) => void = () => {},
-): EntryOptions[] {
+export function composeEntries(layers: readonly PatchOptions[][], warn: (message: string) => void = () => {}): EntryOptions[] {
   return applyEntryPatches([], structuredClone(layers.flat()), (message: string, ...args: unknown[]) => {
     let index = 0
     warn(message.replace(/%C/g, () => JSON.stringify(args[index++])))

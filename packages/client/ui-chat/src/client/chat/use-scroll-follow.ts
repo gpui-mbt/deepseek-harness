@@ -28,14 +28,19 @@ export class ScrollFollow {
    * @param following - initial follow intent.
    * @param threshold - accepted distance from the floor, in pixels.
    */
-  constructor(private following: boolean, private readonly threshold: number) {}
+  constructor(
+    private following: boolean,
+    private readonly threshold: number,
+  ) {}
 
   /**
    * Find the mounted controller for reading-position compensation.
    * @param element - scrollport with an optional follow owner.
    * @returns its controller, when bound.
    */
-  static forElement(element: HTMLElement): ScrollFollow | undefined { return this.owners.get(element) }
+  static forElement(element: HTMLElement): ScrollFollow | undefined {
+    return this.owners.get(element)
+  }
 
   /**
    * Share this controller with reading-position compensation for the same scrollport.
@@ -44,27 +49,35 @@ export class ScrollFollow {
    */
   bind(element: HTMLElement): () => void {
     ScrollFollow.owners.set(element, this)
-    return () => { if (ScrollFollow.owners.get(element) === this) ScrollFollow.owners.delete(element) }
+    return () => {
+      if (ScrollFollow.owners.get(element) === this) ScrollFollow.owners.delete(element)
+    }
   }
 
   /**
    * Expose follow intent independently of the current offset.
    * @returns whether content growth should follow the floor.
    */
-  get active(): boolean { return this.following }
+  get active(): boolean {
+    return this.following
+  }
 
   /**
    * Expose outstanding native motion before accepting reader input.
    * @returns whether a native follow animation has an outstanding target.
    */
-  get animating(): boolean { return this.target !== null }
+  get animating(): boolean {
+    return this.target !== null
+  }
 
   /**
    * Classify bottom arrivals using this scrollport's own tolerance.
    * @param metrics - current scroll geometry.
    * @returns whether the position is within the follow threshold.
    */
-  nearBottom(metrics: ViewportMetrics): boolean { return Math.abs(metrics.floor - metrics.top) <= this.threshold }
+  nearBottom(metrics: ViewportMetrics): boolean {
+    return Math.abs(metrics.floor - metrics.top) <= this.threshold
+  }
 
   /**
    * Commit caller-owned follow decisions without moving the scrollport.
@@ -87,8 +100,10 @@ export class ScrollFollow {
    * @param movedByReader - caller attribution; omitted callers compare the last sampled position.
    * @returns updated follow intent.
    */
-  sample(metrics: ViewportMetrics, movedByReader = this.sampledTop === undefined
-    || Math.abs(metrics.top - this.sampledTop) > 0.5): boolean {
+  sample(
+    metrics: ViewportMetrics,
+    movedByReader = this.sampledTop === undefined || Math.abs(metrics.top - this.sampledTop) > 0.5,
+  ): boolean {
     this.sampledTop = metrics.top
     if (!this.animating && movedByReader) this.following = this.nearBottom(metrics)
     return this.active
@@ -102,8 +117,7 @@ export class ScrollFollow {
   settle(metrics: ViewportMetrics): boolean {
     const target = this.target
     this.target = null
-    return this.sample(metrics, target === null ? undefined
-      : Math.abs(metrics.top - Math.min(target, metrics.floor)) > this.threshold)
+    return this.sample(metrics, target === null ? undefined : Math.abs(metrics.top - Math.min(target, metrics.floor)) > this.threshold)
   }
 
   /**

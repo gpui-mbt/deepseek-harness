@@ -1,4 +1,4 @@
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { ShellProcess } from '@deepseek-ai/dsh-shell'
 import { processJob, processOutcome, processSources } from '../src/background.ts'
 
@@ -14,14 +14,20 @@ function processHandle() {
   })
   const readOutput = vi.fn(() => ({ delta: 'output', lossy: false }))
   const process: ShellProcess = {
-    status: 'running', exitCode: null, signal: null, done: exited.promise,
-    readOutput, kill,
+    status: 'running',
+    exitCode: null,
+    signal: null,
+    done: exited.promise,
+    readOutput,
+    kill,
     observed: {
       stdout: { readFrom: fromByte => ({ text: 'output'.slice(fromByte), nextOffset: 6, lossy: false }) },
       stderr: { readFrom: () => ({ text: '', nextOffset: 0, lossy: false }) },
     },
   }
-  onTestFinished(() => { exited.resolve(undefined) })
+  onTestFinished(() => {
+    exited.resolve(undefined)
+  })
   return { process, exited, killed, kill, readOutput }
 }
 
@@ -32,7 +38,10 @@ describe('background job ownership during asynchronous shell startup', () => {
     let published: ShellProcess | undefined
     const source = processSources(() => published)[0]!
     const outcome = vi.fn(processOutcome)
-    const hooks = processJob(async () => { published = await prepared.promise; return published }, outcome)
+    const hooks = processJob(async () => {
+      published = await prepared.promise
+      return published
+    }, outcome)
     expect(source.read(0).text).toBe('')
     expect(outcome).not.toHaveBeenCalled()
     prepared.resolve(child.process)
@@ -48,10 +57,16 @@ describe('background job ownership during asynchronous shell startup', () => {
 
   it('aborts pending preparation through the job-owned signal', async () => {
     let received: AbortSignal | undefined
-    const hooks = processJob((signal) => {
+    const hooks = processJob(signal => {
       received = signal
       return new Promise<ShellProcess>((_resolve, reject) => {
-        signal.addEventListener('abort', () => { reject(new Error(String(signal.reason))) }, { once: true })
+        signal.addEventListener(
+          'abort',
+          () => {
+            reject(new Error(String(signal.reason)))
+          },
+          { once: true },
+        )
       })
     }, processOutcome)
     expect(received?.aborted).toBe(false)
@@ -66,7 +81,9 @@ describe('background job ownership during asynchronous shell startup', () => {
     const prepared = Promise.withResolvers<ShellProcess>()
     const hooks = processJob(() => prepared.promise, processOutcome)
     let settled = false
-    void hooks.done.then(() => { settled = true })
+    void hooks.done.then(() => {
+      settled = true
+    })
     hooks.cancel('cancel before process publication')
     prepared.resolve(child.process)
     await child.killed.promise
@@ -81,7 +98,9 @@ describe('background job ownership during asynchronous shell startup', () => {
     const hooks = processJob(async () => child.process, processOutcome)
     await Promise.resolve()
     let settled = false
-    void hooks.done.then(() => { settled = true })
+    void hooks.done.then(() => {
+      settled = true
+    })
     hooks.cancel('stop')
     hooks.cancel('stop again')
     await child.killed.promise
@@ -94,11 +113,16 @@ describe('background job ownership during asynchronous shell startup', () => {
   it('joins a late process even when its termination request throws', async () => {
     const child = processHandle()
     const attempted = Promise.withResolvers<undefined>()
-    vi.mocked(child.kill).mockImplementation(() => { attempted.resolve(undefined); throw new Error('termination failed') })
+    vi.mocked(child.kill).mockImplementation(() => {
+      attempted.resolve(undefined)
+      throw new Error('termination failed')
+    })
     const prepared = Promise.withResolvers<ShellProcess>()
     const hooks = processJob(() => prepared.promise, processOutcome)
     let settled = false
-    void hooks.done.then(() => { settled = true })
+    void hooks.done.then(() => {
+      settled = true
+    })
     hooks.cancel('stop before publication')
     prepared.resolve(child.process)
     await attempted.promise
@@ -109,7 +133,9 @@ describe('background job ownership during asynchronous shell startup', () => {
 
   it('reports a startup failure through job completion without publishing output', async () => {
     const render = vi.fn(processOutcome)
-    const hooks = processJob(async () => { throw new Error('remote sandbox unavailable') }, render)
+    const hooks = processJob(async () => {
+      throw new Error('remote sandbox unavailable')
+    }, render)
     expect(await hooks.done).toEqual({ status: 'failed', detail: 'remote sandbox unavailable' })
     expect(render).not.toHaveBeenCalled()
   })
@@ -117,7 +143,10 @@ describe('background job ownership during asynchronous shell startup', () => {
   it('reports a primitive upstream abort reason as a failed startup', async () => {
     const upstream = new AbortController()
     upstream.abort('upstream preparation stopped')
-    const hooks = processJob(async () => { upstream.signal.throwIfAborted(); throw new Error('unreachable') }, processOutcome)
+    const hooks = processJob(async () => {
+      upstream.signal.throwIfAborted()
+      throw new Error('unreachable')
+    }, processOutcome)
     expect(await hooks.done).toEqual({ status: 'failed', detail: 'upstream preparation stopped' })
   })
 })

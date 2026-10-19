@@ -7,13 +7,11 @@
  */
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { expect, it, onTestFailed } from 'vitest'
+import { expect, it, onTestFailed } from 'vite-plus/test'
 import { LlmAdapter, type GenerateOptions, type StreamChunk } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import { launchWebScaffold, watchConsole, type WebScaffold } from '../tests/scaffold.ts'
-import {
-  connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft,
-} from '../tests/support.ts'
+import { connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft } from '../tests/support.ts'
 
 const CHUNK_COUNT = 100_000
 const CHUNKS_PER_INTERVAL = 128
@@ -41,9 +39,15 @@ class ReasoningStressAdapter extends LlmAdapter {
   private resolveBatch: (() => void) | undefined
   private batchInFlight = false
   private finishRequested = false
-  private readonly finishGate = new Promise<void>((resolve) => { this.finishStream = resolve })
-  readonly started = new Promise<void>((resolve) => { this.resolveStarted = resolve })
-  readonly completed = new Promise<void>((resolve) => { this.resolveCompleted = resolve })
+  private readonly finishGate = new Promise<void>(resolve => {
+    this.finishStream = resolve
+  })
+  readonly started = new Promise<void>(resolve => {
+    this.resolveStarted = resolve
+  })
+  readonly completed = new Promise<void>(resolve => {
+    this.resolveCompleted = resolve
+  })
   private emitted = 0
   private emitting = false
 
@@ -59,7 +63,9 @@ class ReasoningStressAdapter extends LlmAdapter {
     }
     if (this.batchInFlight) throw new Error('reasoning stress adapter accepts one batch release at a time')
     this.batchInFlight = true
-    const delivered = new Promise<void>((resolve) => { this.resolveBatch = resolve })
+    const delivered = new Promise<void>(resolve => {
+      this.resolveBatch = resolve
+    })
     const release = this.releaseBatch
     this.releaseBatch = undefined
     release()
@@ -83,7 +89,7 @@ class ReasoningStressAdapter extends LlmAdapter {
     const parts: string[] = []
     yield { type: 'block-start', index: 0, blockType: 'reasoning' }
     while (this.emitted < CHUNK_COUNT) {
-      await new Promise<void>((resolve) => {
+      await new Promise<void>(resolve => {
         this.releaseBatch = resolve
         if (this.emitted === 0) this.resolveStarted()
         if (this.finishRequested) resolve()
@@ -92,9 +98,7 @@ class ReasoningStressAdapter extends LlmAdapter {
       options.signal?.throwIfAborted()
       const end = Math.min(this.emitted + CHUNKS_PER_INTERVAL, CHUNK_COUNT)
       while (this.emitted < end) {
-        const text = this.emitted === CHUNK_COUNT - 1
-          ? `\n${MARKER}`
-          : this.emitted % 64 === 63 ? '推理\n' : '推理'
+        const text = this.emitted === CHUNK_COUNT - 1 ? `\n${MARKER}` : this.emitted % 64 === 63 ? '推理\n' : '推理'
         parts.push(text)
         yield { type: 'reasoning-delta', index: 0, text }
         this.emitted += 1
@@ -133,10 +137,7 @@ it('keeps the browser responsive while rendering 100,000 reasoning chunks', asyn
   const adapter = new ReasoningStressAdapter()
   try {
     scaffold = await launchWebScaffold()
-    scaffold.ctx.effect(
-      () => scaffold!.ctx.llm.registerAdapter([PROVIDER], adapter),
-      'reasoning stress adapter',
-    )
+    scaffold.ctx.effect(() => scaffold!.ctx.llm.registerAdapter([PROVIDER], adapter), 'reasoning stress adapter')
     await scaffold.ctx.agentDefaultModel.saveSelection({ provider: PROVIDER, model: MODEL })
     browser = await chromium.launch({ headless: process.env.DSH_WEB_STRESS_HEADFUL !== '1' })
     page = await newEnglishPage(browser)
@@ -165,9 +166,13 @@ it('keeps the browser responsive while rendering 100,000 reasoning chunks', asyn
         probe.lastTickAt = tickAt
         probe.samples++
       }, intervalMs)
-      document.body.addEventListener('reasoning-stress-interaction', () => {
-        probe.interactionHandledAt = performance.now()
-      }, { once: true })
+      document.body.addEventListener(
+        'reasoning-stress-interaction',
+        () => {
+          probe.interactionHandledAt = performance.now()
+        },
+        { once: true },
+      )
       window.setTimeout(() => {
         document.body.dispatchEvent(new CustomEvent('reasoning-stress-interaction'))
       }, 1_000)
@@ -183,14 +188,22 @@ it('keeps the browser responsive while rendering 100,000 reasoning chunks', asyn
     await adapter.emitNextBatch()
     const liveThink = activePage.locator('[data-variant="think"][data-state="running"]').last()
     await liveThink.waitFor({ timeout: 60_000 })
-    await activePage.evaluate(intervalMs => new Promise<void>((resolve) => {
-      window.setTimeout(resolve, intervalMs)
-    }), CHUNK_INTERVAL_MS)
+    await activePage.evaluate(
+      intervalMs =>
+        new Promise<void>(resolve => {
+          window.setTimeout(resolve, intervalMs)
+        }),
+      CHUNK_INTERVAL_MS,
+    )
     while (adapter.state().emitted < CHUNK_COUNT) {
       await adapter.emitNextBatch()
-      await activePage.evaluate(intervalMs => new Promise<void>((resolve) => {
-        window.setTimeout(resolve, intervalMs)
-      }), CHUNK_INTERVAL_MS)
+      await activePage.evaluate(
+        intervalMs =>
+          new Promise<void>(resolve => {
+            window.setTimeout(resolve, intervalMs)
+          }),
+        CHUNK_INTERVAL_MS,
+      )
     }
     await adapter.completed
     await expect.poll(() => liveThink.textContent(), { timeout: 60_000, interval: 100 }).toContain(MARKER)
@@ -200,9 +213,7 @@ it('keeps the browser responsive while rendering 100,000 reasoning chunks', asyn
       const probe = win.__reasoningStressProbe
       if (probe === undefined) throw new Error('reasoning stress metrics unavailable')
       window.clearInterval(probe.intervalId)
-      const interactionDelayMs = probe.interactionHandledAt === null
-        ? null
-        : probe.interactionHandledAt - probe.interactionDueAt
+      const interactionDelayMs = probe.interactionHandledAt === null ? null : probe.interactionHandledAt - probe.interactionDueAt
       return {
         maxMainThreadDelayMs: Math.max(0, probe.maxDelayMs),
         interactionDelayMs,

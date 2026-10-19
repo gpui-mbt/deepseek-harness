@@ -4,15 +4,29 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import type { CSSProperties, KeyboardEvent, ReactNode } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, IconChevronUpOutlineRegular,
-  IconClockOutlineRegular, IconCloseOutlineRegular,
-  IconEllipsisOutlineRegular, IconTrashOutlineRegular, Modal, Pill, ReferenceIconRegular, Tooltip,
+  Button,
+  IconChevronDownOutlineRegular,
+  IconChevronRightOutlineRegular,
+  IconChevronUpOutlineRegular,
+  IconClockOutlineRegular,
+  IconCloseOutlineRegular,
+  IconEllipsisOutlineRegular,
+  IconTrashOutlineRegular,
+  Modal,
+  Pill,
+  ReferenceIconRegular,
+  Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type {
-  ScheduleCatalogEntry, ScheduleId, ScheduleRecord, ScheduleTimingChange, ScheduleUpdateContent,
-  ScheduleUpdateRequest, ScheduleUpdateResult,
+  ScheduleCatalogEntry,
+  ScheduleId,
+  ScheduleRecord,
+  ScheduleTimingChange,
+  ScheduleUpdateContent,
+  ScheduleUpdateRequest,
+  ScheduleUpdateResult,
 } from '@deepseek-ai/dsh-schedule/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { CatalogFeedback } from './CatalogFeedback.tsx'
@@ -42,9 +56,7 @@ export type TaskDetailTab = 'rule' | 'records'
 type RuleTranslate = PropsLocale<'schedule.manager'>['t']
 
 /** Recurrence choices the Run time card's Repeat row offers, in mock menu order. */
-const RULE_CHOICES = [
-  'weekly', 'weekdays', 'daily', 'every-hour', 'every-minute', 'every-second', 'once', 'cron',
-] as const
+const RULE_CHOICES = ['weekly', 'weekdays', 'daily', 'every-hour', 'every-minute', 'every-second', 'once', 'cron'] as const
 
 /** One recurrence choice a retained task can be switched to. */
 type RuleKind = 'daily' | 'weekdays' | 'weekly' | 'every' | 'once' | 'cron'
@@ -57,20 +69,31 @@ type IntervalChoice = Extract<RuleChoice, `every-${string}`>
 
 /** Repeat menu label of each recurrence choice. */
 const RULE_KIND_LABELS: Record<RuleKind, TaskManagerKey> = {
-  daily: 'rule.daily', weekdays: 'rule.weekdays', weekly: 'rule.weekly',
-  every: 'rule.everyMinutes', once: 'rule.once', cron: 'rule.cron',
+  daily: 'rule.daily',
+  weekdays: 'rule.weekdays',
+  weekly: 'rule.weekly',
+  every: 'rule.everyMinutes',
+  once: 'rule.once',
+  cron: 'rule.cron',
 }
 
 /** Repeat-menu label of each visible choice. */
 const RULE_CHOICE_LABELS: Record<RuleChoice, TaskManagerKey> = {
-  daily: 'rule.daily', weekdays: 'rule.weekdays', weekly: 'rule.weekly',
-  'every-minute': 'rule.everyMinutes', 'every-hour': 'rule.everyHours', 'every-second': 'rule.everySeconds',
-  once: 'rule.once', cron: 'rule.cron',
+  daily: 'rule.daily',
+  weekdays: 'rule.weekdays',
+  weekly: 'rule.weekly',
+  'every-minute': 'rule.everyMinutes',
+  'every-hour': 'rule.everyHours',
+  'every-second': 'rule.everySeconds',
+  once: 'rule.once',
+  cron: 'rule.cron',
 }
 
 /** Unit word the elapsed-interval row shows beside its quantity input. */
 const INTERVAL_UNIT_LABELS: Record<IntervalUnit, TaskManagerKey> = {
-  hour: 'timing.unit.hour', minute: 'timing.unit.minute', second: 'timing.unit.second',
+  hour: 'timing.unit.hour',
+  minute: 'timing.unit.minute',
+  second: 'timing.unit.second',
 }
 
 /** Lower-bound hint of the elapsed-interval row, stated in the row's own unit. */
@@ -89,7 +112,11 @@ const INTERVAL_ERROR_KEYS: Record<IntervalUnit, TaskManagerKey> = {
 
 /** Messages `draftError` can return; each clears as soon as edits fix the draft. */
 const LOCAL_FAILURES: ReadonlySet<TaskManagerKey> = new Set<TaskManagerKey>([
-  'rule.invalidTitle', 'rule.invalidPrompt', 'timing.invalidInterval', 'rule.cronInvalid', 'timing.invalid',
+  'rule.invalidTitle',
+  'rule.invalidPrompt',
+  'timing.invalidInterval',
+  'rule.cronInvalid',
+  'timing.invalid',
 ])
 
 /** Elapsed interval a rule receives when it starts repeating without a stored interval. */
@@ -109,7 +136,12 @@ const MIN_INTERVAL_SECONDS = 60
 
 /** Exhaustive recurrence-choice labels of the stored rule records. */
 const RULE_KIND_BY_RECORD: Record<ScheduleRecord['kind'], RuleKind> = {
-  at: 'once', after: 'once', every: 'every', daily: 'daily', weekly: 'weekly', cron: 'cron',
+  at: 'once',
+  after: 'once',
+  every: 'every',
+  daily: 'daily',
+  weekly: 'weekly',
+  cron: 'cron',
 }
 
 /** ISO weekdays of the weekly choice in display order, Monday through Sunday. */
@@ -134,8 +166,13 @@ const CLOCK_KINDS: readonly RuleKind[] = ['daily', 'weekdays', 'weekly']
 
 /** Localized name of each ISO weekday. */
 const WEEKDAY_LABELS: Record<Weekday, TaskManagerKey> = {
-  1: 'frequency.weekday.1', 2: 'frequency.weekday.2', 3: 'frequency.weekday.3', 4: 'frequency.weekday.4',
-  5: 'frequency.weekday.5', 6: 'frequency.weekday.6', 7: 'frequency.weekday.7',
+  1: 'frequency.weekday.1',
+  2: 'frequency.weekday.2',
+  3: 'frequency.weekday.3',
+  4: 'frequency.weekday.4',
+  5: 'frequency.weekday.5',
+  6: 'frequency.weekday.6',
+  7: 'frequency.weekday.7',
 }
 
 /**
@@ -149,7 +186,9 @@ function isWeekdayRule(weekdays: readonly number[]): boolean {
 }
 
 const sessionLinkMessages = {
-  loading: 'detail.sessionLoading', archived: 'detail.sessionArchived', unavailable: 'detail.sessionUnavailable',
+  loading: 'detail.sessionLoading',
+  archived: 'detail.sessionArchived',
+  unavailable: 'detail.sessionUnavailable',
 } as const
 
 /**
@@ -179,10 +218,9 @@ export interface TaskDetailInjected extends DeliveryHistoryInjected, TaskTimingI
 }
 
 /** One task's detail, as the Tasks page and the task tab both compose it. */
-export type TaskDetailProps = TaskDetailInjected
-  & PropsLocale<'schedule.manager'>
-  & Pick<PropsRuntime<'main'>, 'useSessions' | 'useWorkspaces'>
-  & {
+export type TaskDetailProps = TaskDetailInjected &
+  PropsLocale<'schedule.manager'> &
+  Pick<PropsRuntime<'main'>, 'useSessions' | 'useWorkspaces'> & {
     /** Task shown; an authoritative catalog row refreshes on its own, without an edit draft. */
     readonly task: ScheduleCatalogEntry
     /** Whether an authoritative catalog row backs the shown task; a draft alone disables deletion. */
@@ -264,7 +302,12 @@ export function useTaskDetail(
   const record = taskId === undefined ? undefined : catalog.records.find(item => item.id === taskId)
   const task = record ?? (draft !== null && draft.id === taskId ? draft : undefined)
   return {
-    record, task, id, confirmId, setConfirmId, setTab,
+    record,
+    task,
+    id,
+    confirmId,
+    setConfirmId,
+    setTab,
     props: {
       ...injected,
       status: catalog.status,
@@ -289,8 +332,27 @@ export function useTaskDetail(
  * @returns the detail region, its deletion confirmation dialog, and the linked Session entry.
  */
 export function TaskDetail({
-  task, authoritative, id, status, deleting, onDelete, onRetry, onUpdateTiming, loadHistory, onOpenSession,
-  onEditState, tab, onTabChange, confirmId, onConfirm, onDeleted, onClose, withinSession, useSessions, useWorkspaces, t,
+  task,
+  authoritative,
+  id,
+  status,
+  deleting,
+  onDelete,
+  onRetry,
+  onUpdateTiming,
+  loadHistory,
+  onOpenSession,
+  onEditState,
+  tab,
+  onTabChange,
+  confirmId,
+  onConfirm,
+  onDeleted,
+  onClose,
+  withinSession,
+  useSessions,
+  useWorkspaces,
+  t,
 }: TaskDetailProps): ReactNode {
   const sessions = useSessions(snapshot => snapshot)
   const workspaces = useWorkspaces(snapshot => snapshot)
@@ -315,11 +377,13 @@ export function TaskDetail({
   // The expanded entry's width for its current label, measured while it last
   // rendered expanded; the compact icon cannot report it.
   const linkedExpanded = useRef<{ label: string; width: number } | undefined>(undefined)
-  const linkedAction = linkedSession.titled
-    ? t('detail.openSessionTitle', { title: linkedSession.text })
-    : t('detail.openSession')
+  const linkedAction = linkedSession.titled ? t('detail.openSessionTitle', { title: linkedSession.text }) : t('detail.openSession')
   // The Session name is the entry's visually hidden accessible description in both layouts.
-  const linkedName = <span id={`${id}-session`} className={css.linkedSessionName}>{linkedSession.text}</span>
+  const linkedName = (
+    <span id={`${id}-session`} className={css.linkedSessionName}>
+      {linkedSession.text}
+    </span>
+  )
   const linkedDescribedBy = `${id}-session${sessionNotice === undefined ? '' : ` ${id}-session-state`}`
   useLayoutEffect(() => {
     if (!linkedShown) return
@@ -338,8 +402,8 @@ export function TaskDetail({
       // The tab list grows into the strip's free width, so its own width cannot
       // tell whether its tabs overflow; the tabs' extent can. The expanded entry
       // fits only when that extent still fits in the width it would leave.
-      const extent = (tabs.lastElementChild as Element).getBoundingClientRect().right
-        - (tabs.firstElementChild as Element).getBoundingClientRect().left
+      const extent =
+        (tabs.lastElementChild as Element).getBoundingClientRect().right - (tabs.firstElementChild as Element).getBoundingClientRect().left
       // Expanding again takes 1px more room than collapsing, so whole-pixel
       // clientWidth rounding cannot switch the two layouts back and forth.
       setLinkedCompact(extent > tabs.clientWidth - (expanded.width - width) - (linkedCompact ? 1 : 0))
@@ -349,7 +413,9 @@ export function TaskDetail({
     observer.observe(tabs)
     // A tab label can widen, as when a web font loads, without resizing the list.
     for (const tab of tabs.children) observer.observe(tab)
-    return () => { observer.disconnect() }
+    return () => {
+      observer.disconnect()
+    }
   }, [linkedShown, linkedCompact, linkedText])
   const taskIdentity = `${task.sessionId}\u0000${task.id}`
   const [edit, setEdit] = useState<RuleEdit>(() => initialRuleEdit(task))
@@ -377,9 +443,7 @@ export function TaskDetail({
   // A locally refused save re-reads the draft on every render, so its message
   // leaves the hint slot as soon as edits remove the cause and the descriptive
   // hint returns; Host failures stay until the next cancel or save.
-  const shownFailure = failure !== undefined && LOCAL_FAILURES.has(failure)
-    ? draftError(edit.shown)
-    : failure
+  const shownFailure = failure !== undefined && LOCAL_FAILURES.has(failure) ? draftError(edit.shown) : failure
   const [deletionConfirmed, setDeletionConfirmed] = useState(false)
   const deletionInFlight = useRef<ScheduleId | null>(null)
   const [trackedIdentity, setTrackedIdentity] = useState(taskIdentity)
@@ -404,7 +468,9 @@ export function TaskDetail({
 
   useEffect(() => {
     mounted.current = true
-    return () => { mounted.current = false }
+    return () => {
+      mounted.current = false
+    }
   }, [])
 
   useEffect(() => {
@@ -480,22 +546,22 @@ export function TaskDetail({
     // An ended task is read-only: its unsaved notice and Cancel action are gone,
     // so a surviving draft would read as the stored rule. The refresh replaces
     // the draft with the stored values instead.
-    setEdit(task.status === 'inactive'
-      ? { propKey, stored: storedValues, shown: storedValues }
-      // `mergeRuleDraft` decides by rule kind: a staged switch keeps its own time
-      // fields, a remote kind change adopts or keeps a whole rule, and matching
-      // kinds re-seed field by field, so a value the user changed survives while
-      // every other field takes the refreshed record. The refreshed record stays
-      // the complete expected rule of the next save.
-      : { propKey, stored: storedValues, shown: mergeRuleDraft(storedValues, edit.shown, edit.stored) })
+    setEdit(
+      task.status === 'inactive'
+        ? { propKey, stored: storedValues, shown: storedValues }
+        : // `mergeRuleDraft` decides by rule kind: a staged switch keeps its own time
+          // fields, a remote kind change adopts or keeps a whole rule, and matching
+          // kinds re-seed field by field, so a value the user changed survives while
+          // every other field takes the refreshed record. The refreshed record stays
+          // the complete expected rule of the next save.
+          { propKey, stored: storedValues, shown: mergeRuleDraft(storedValues, edit.shown, edit.stored) },
+    )
   }
   useEffect(() => {
     // An ended task is read-only and offers no Cancel, so nothing can submit the
     // draft any more: the stored values replace it rather than reading as saved.
     if (task.status !== 'inactive') return
-    setEdit(current => (shownValues(current.shown) === shownValues(current.stored)
-      ? current
-      : { ...current, shown: current.stored }))
+    setEdit(current => (shownValues(current.shown) === shownValues(current.stored) ? current : { ...current, shown: current.stored }))
   }, [task.status])
   const shown = edit.shown
   const dirty = shownValues(shown) !== shownValues(edit.stored)
@@ -543,10 +609,10 @@ export function TaskDetail({
     // memory this task has not got yet, because overwriting an existing one would
     // throw away an edited set and make the answer depend on how many kinds the
     // detour passed through.
-    const leavingSet = setOf(shown.kind, shown.weekdays)
-      ?? (taskMemory() === undefined ? setOf(storedValues.kind, storedValues.weekdays) : undefined)
+    const leavingSet =
+      setOf(shown.kind, shown.weekdays) ?? (taskMemory() === undefined ? setOf(storedValues.kind, storedValues.weekdays) : undefined)
     if (leavingSet !== undefined) rememberWeekdays(leavingSet)
-    setEdit((current) => {
+    setEdit(current => {
       // Choosing the stored kind again is not a change to stage: it restores
       // the stored values instead of reseeding the rows from the current
       // occurrence, which would stage the occurrence's UTC clock for a rule the
@@ -557,9 +623,7 @@ export function TaskDetail({
       // that instant in UTC and rewriting the zone the rule states. That pair is
       // the instant the committed occurrence already names, so the weekly choice
       // seeds its ISO weekday set from the occurrence in that zone.
-      const carriesClock = !restore
-        && CLOCK_KINDS.includes(kind)
-        && CLOCK_KINDS.includes(current.shown.kind)
+      const carriesClock = !restore && CLOCK_KINDS.includes(kind) && CLOCK_KINDS.includes(current.shown.kind)
       // The Monday-to-Friday choice and the weekly choice are the same stored
       // weekly rule, so switching between them keeps the day set the user
       // already has. Seeding it from one occurrence would collapse the rule to
@@ -570,9 +634,7 @@ export function TaskDetail({
       // one the stored rule itself states (a stored Monday-to-Friday rule still
       // means five days), and only then the occurrence's own day.
       const storedSet = setOf(current.stored.kind, current.stored.weekdays)
-      const carried = kind === 'weekly'
-        ? (setOf(current.shown.kind, current.shown.weekdays) ?? taskMemory() ?? storedSet)
-        : undefined
+      const carried = kind === 'weekly' ? (setOf(current.shown.kind, current.shown.weekdays) ?? taskMemory() ?? storedSet) : undefined
       return {
         ...current,
         // The weekdays choice stages the Monday-to-Friday set it submits; every
@@ -590,18 +652,19 @@ export function TaskDetail({
               : unit === undefined
                 ? seedDraft(task, kind)
                 : { ...seedDraft(task, kind), seconds: String(seedIntervalSeconds()) },
-          weekdays: kind === 'weekdays'
-            ? [...WEEKDAY_RULE]
-            : kind === 'weekly' && carried !== undefined
-              // Carried before restored: the set the draft carries is either
-              // the one the user just edited or the stored rule's own, so an
-              // edited set survives a detour back to the stored Weekly choice.
-              ? [...carried]
-              : restore
-                ? current.stored.weekdays
-                : kind === 'weekly' && carriesClock
-                  ? [zonedWeekday(task.scheduledAt, current.shown.draft.timeZone)]
-                  : seedWeekdays(task),
+          weekdays:
+            kind === 'weekdays'
+              ? [...WEEKDAY_RULE]
+              : kind === 'weekly' && carried !== undefined
+                ? // Carried before restored: the set the draft carries is either
+                  // the one the user just edited or the stored rule's own, so an
+                  // edited set survives a detour back to the stored Weekly choice.
+                  [...carried]
+                : restore
+                  ? current.stored.weekdays
+                  : kind === 'weekly' && carriesClock
+                    ? [zonedWeekday(task.scheduledAt, current.shown.draft.timeZone)]
+                    : seedWeekdays(task),
         },
       }
     })
@@ -642,7 +705,8 @@ export function TaskDetail({
     setPending(true)
     setFailure(undefined)
     const request: ScheduleUpdateRequest = {
-      sessionId: task.sessionId, id: task.id,
+      sessionId: task.sessionId,
+      id: task.id,
       // The refreshed record stays the complete expected rule even while an
       // unsaved draft keeps the shown values.
       expected: timingSnapshot(task),
@@ -651,19 +715,19 @@ export function TaskDetail({
     let result: RemoteResult<ScheduleUpdateResult>
     try {
       // A name- or instruction-only save submits no timing change: `change` is optional.
-      result = await onUpdateTiming(timingValues(shown) === timingValues(storedValues)
-        ? request
-        : { ...request, change: ruleChange(shown.draft, shown.kind, shown.weekdays) })
+      result = await onUpdateTiming(
+        timingValues(shown) === timingValues(storedValues)
+          ? request
+          : { ...request, change: ruleChange(shown.draft, shown.kind, shown.weekdays) },
+      )
     } catch (_error: unknown) {
       // A rejected request cannot establish whether the Host committed the edit.
-      if (!mounted.current || identityRef.current !== submitted
-        || generation !== submissions.current) return
+      if (!mounted.current || identityRef.current !== submitted || generation !== submissions.current) return
       setPending(false)
       setFailure('rule.error.unknown')
       return
     }
-    if (!mounted.current || identityRef.current !== submitted
-      || generation !== submissions.current) return
+    if (!mounted.current || identityRef.current !== submitted || generation !== submissions.current) return
     setPending(false)
     if (!result.ok) {
       setFailure('rule.error.unknown')
@@ -678,9 +742,7 @@ export function TaskDetail({
     // record. This response describes the record the save submitted, so it must
     // not put those older values back; the newer seed stays authoritative and
     // the in-flight draft leaves with the completed save.
-    setEdit(current => (current.propKey === propKey
-      ? { ...current, stored: saved, shown: saved }
-      : { ...current, shown: current.stored }))
+    setEdit(current => (current.propKey === propKey ? { ...current, stored: saved, shown: saved } : { ...current, shown: current.stored }))
   }
 
   const confirmDelete = (): void => {
@@ -691,234 +753,302 @@ export function TaskDetail({
     void onDelete(task.id)
   }
 
-  return <>
-    <aside ref={panelRef} className={css.detail} id={id} tabIndex={-1} aria-label={t('detail.label')}>
-      <div className={css.detailTabsBar}>
-        <div ref={detailTabsRef} className={css.detailTabs} role="tablist" aria-label={t('detail.tabs')}>
-          {(['rule', 'records'] as const).map(value => (
-            <button
-              key={value}
-              type="button"
-              data-detail-tab={value}
-              role="tab"
-              id={`${id}-${value}-tab`}
-              aria-controls={`${id}-${value}-panel`}
-              aria-selected={tab === value}
-              tabIndex={tab === value ? 0 : -1}
-              className={css.detailTab}
-              onClick={() => { onTabChange(value) }}
-              onKeyDown={(event) => {
-                if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-                let next: TaskDetailTab
-                switch (event.key) {
-                  case 'ArrowLeft':
-                  case 'ArrowRight':
-                    next = value === 'rule' ? 'records' : 'rule'
-                    break
-                  case 'Home': next = 'rule'; break
-                  case 'End': next = 'records'; break
-                  default: return
-                }
-                event.preventDefault()
-                onTabChange(next)
-                detailTabsRef.current?.querySelector<HTMLButtonElement>(`[data-detail-tab="${next}"]`)?.focus()
-              }}
-            >{t(`detail.${value}`)}</button>
-          ))}
-        </div>
-        <div className={css.detailActions}>
-          {/* The original Session belongs to the strip that also carries the view
+  return (
+    <>
+      <aside ref={panelRef} className={css.detail} id={id} tabIndex={-1} aria-label={t('detail.label')}>
+        <div className={css.detailTabsBar}>
+          <div ref={detailTabsRef} className={css.detailTabs} role="tablist" aria-label={t('detail.tabs')}>
+            {(['rule', 'records'] as const).map(value => (
+              <button
+                key={value}
+                type="button"
+                data-detail-tab={value}
+                role="tab"
+                id={`${id}-${value}-tab`}
+                aria-controls={`${id}-${value}-panel`}
+                aria-selected={tab === value}
+                tabIndex={tab === value ? 0 : -1}
+                className={css.detailTab}
+                onClick={() => {
+                  onTabChange(value)
+                }}
+                onKeyDown={event => {
+                  if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+                  let next: TaskDetailTab
+                  switch (event.key) {
+                    case 'ArrowLeft':
+                    case 'ArrowRight':
+                      next = value === 'rule' ? 'records' : 'rule'
+                      break
+                    case 'Home':
+                      next = 'rule'
+                      break
+                    case 'End':
+                      next = 'records'
+                      break
+                    default:
+                      return
+                  }
+                  event.preventDefault()
+                  onTabChange(next)
+                  detailTabsRef.current?.querySelector<HTMLButtonElement>(`[data-detail-tab="${next}"]`)?.focus()
+                }}
+              >
+                {t(`detail.${value}`)}
+              </button>
+            ))}
+          </div>
+          <div className={css.detailActions}>
+            {/* The original Session belongs to the strip that also carries the view
               tabs and the task's own actions, so it stays visible while the
               detail scrolls. Rules-only: the records view has no linked row. A
               detail hosted inside the linked Session itself omits the entry. */}
-          {/* One Button serves both layouts, so crossing the fit threshold keeps
+            {/* One Button serves both layouts, so crossing the fit threshold keeps
               its keyboard focus. The tooltip anchors on the wrapper, which still
               receives hover while the Button is disabled. */}
-          {linkedShown && <Tooltip label={linkedText} side="bottom" portal disabled={!linkedCompact}>
-            <span ref={linkedRef} className={css.detailContext}>
-              <Button
-                size={linkedCompact ? 'sm' : 'md'}
-                className={linkedCompact ? css.detailIconButton : css.linkedSession}
-                title={linkedCompact ? undefined : linkedSession.titled ? linkedSession.text : task.sessionId}
-                aria-label={linkedAction}
-                aria-describedby={linkedDescribedBy}
-                disabled={sessionLink !== 'available'}
-                onClick={() => { onOpenSession(task.sessionId) }}
-              >
-                {linkedCompact
-                  ? <>
-                    <ReferenceIconRegular kind="session" />
-                    {linkedName}
-                  </>
-                  : <>
-                    <span className={css.linkedSessionLabel}>{linkedText}</span>
-                    <span className={css.linkedSessionTarget}>
-                      {linkedName}
-                      <IconChevronRightOutlineRegular />
-                    </span>
-                  </>}
-              </Button>
-            </span>
-          </Tooltip>}
-          {/* The menu closes Escape from its own document keydown listener; this
+            {linkedShown && (
+              <Tooltip label={linkedText} side="bottom" portal disabled={!linkedCompact}>
+                <span ref={linkedRef} className={css.detailContext}>
+                  <Button
+                    size={linkedCompact ? 'sm' : 'md'}
+                    className={linkedCompact ? css.detailIconButton : css.linkedSession}
+                    title={linkedCompact ? undefined : linkedSession.titled ? linkedSession.text : task.sessionId}
+                    aria-label={linkedAction}
+                    aria-describedby={linkedDescribedBy}
+                    disabled={sessionLink !== 'available'}
+                    onClick={() => {
+                      onOpenSession(task.sessionId)
+                    }}
+                  >
+                    {linkedCompact ? (
+                      <>
+                        <ReferenceIconRegular kind="session" />
+                        {linkedName}
+                      </>
+                    ) : (
+                      <>
+                        <span className={css.linkedSessionLabel}>{linkedText}</span>
+                        <span className={css.linkedSessionTarget}>
+                          {linkedName}
+                          <IconChevronRightOutlineRegular />
+                        </span>
+                      </>
+                    )}
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
+            {/* The menu closes Escape from its own document keydown listener; this
               wrapper covers a menu whose own listener stands down, where the page's
               Escape handler would otherwise close the whole detail with it. */}
-          <span className={css.menuGuard} onKeyDown={(event) => {
-            guardMenuEscape(event, menuOpen, () => {
-              setMenuOpen(false)
-              moreRef.current?.focus()
-            })
-          }}>
-            <TaskMenu
-              open={menuOpen}
-              onClose={() => { setMenuOpen(false) }}
-              items={menuItems}
-              onSelect={() => {
-                setMenuOpen(false)
-                onConfirm(task.id)
+            <span
+              className={css.menuGuard}
+              onKeyDown={event => {
+                guardMenuEscape(event, menuOpen, () => {
+                  setMenuOpen(false)
+                  moreRef.current?.focus()
+                })
               }}
-              align="end"
-              portal
-              anchor={<Button
-                size="sm"
-                className={css.detailIconButton}
-                aria-label={t('detail.more')}
-                title={t('detail.more')}
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                onClick={(event) => {
-                  moreRef.current = event.currentTarget
-                  setMenuOpen(open => !open)
+            >
+              <TaskMenu
+                open={menuOpen}
+                onClose={() => {
+                  setMenuOpen(false)
                 }}
-              >
-                <IconEllipsisOutlineRegular />
-              </Button>}
-            />
-          </span>
-          {onClose !== undefined && <Button size="sm" className={css.detailIconButton} aria-label={t('detail.close')} onClick={onClose}>
-            <IconCloseOutlineRegular />
-          </Button>}
+                items={menuItems}
+                onSelect={() => {
+                  setMenuOpen(false)
+                  onConfirm(task.id)
+                }}
+                align="end"
+                portal
+                anchor={
+                  <Button
+                    size="sm"
+                    className={css.detailIconButton}
+                    aria-label={t('detail.more')}
+                    title={t('detail.more')}
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                    onClick={event => {
+                      moreRef.current = event.currentTarget
+                      setMenuOpen(open => !open)
+                    }}
+                  >
+                    <IconEllipsisOutlineRegular />
+                  </Button>
+                }
+              />
+            </span>
+            {onClose !== undefined && (
+              <Button size="sm" className={css.detailIconButton} aria-label={t('detail.close')} onClick={onClose}>
+                <IconCloseOutlineRegular />
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
-      <div className={clsx(css.detailScroll, tab === 'records' && css.detailRecords)}>
-        {/* The catalog's transient status leads the scrolling content, so a
+        <div className={clsx(css.detailScroll, tab === 'records' && css.detailRecords)}>
+          {/* The catalog's transient status leads the scrolling content, so a
             failed refresh and its Retry stay reachable without scrolling a long
             rule form. It stays inside this region, so a read that starts or
             settles while this detail is mounted moves no fixed row above it. */}
-        <CatalogFeedback status={status} populated onRetry={onRetry} t={t} />
-        {/* The mock's `.detail-heading`: the editable name leads the scrolling
+          <CatalogFeedback status={status} populated onRetry={onRetry} t={t} />
+          {/* The mock's `.detail-heading`: the editable name leads the scrolling
             rule view, directly above the next-run line. The records view's tab
             strip is its whole header and carries neither. A deleted task has no
             rule left to show or edit, so both leave with it. An ended task can
             never be edited again, so its stored name is plain text rather than
             a read-only field. */}
-        {tab === 'rule' && !deleted && <header className={css.detailHeader}>
-          {task.status === 'inactive'
-            ? <h2 className={css.readonlyName}>{shown.title}</h2>
-            : <input
-              ref={nameRef}
-              className={css.editName}
-              aria-label={t('detail.name')}
-              disabled={busy || pending}
-              value={shown.title}
-              onChange={(event) => { editContent({ title: event.target.value }) }}
-            />}
-        </header>}
-        {tab === 'rule' && !deleted && <div className={css.nextRun}>
-          {task.status === 'active'
-            ? <p>
-              {t('detail.nextRun')}{' '}
-              <time dateTime={task.scheduledAt}>{nextRun.absolute}</time>
-              {' '}
-              {/* The relative distance stays beside the absolute stamp: the card
+          {tab === 'rule' && !deleted && (
+            <header className={css.detailHeader}>
+              {task.status === 'inactive' ? (
+                <h2 className={css.readonlyName}>{shown.title}</h2>
+              ) : (
+                <input
+                  ref={nameRef}
+                  className={css.editName}
+                  aria-label={t('detail.name')}
+                  disabled={busy || pending}
+                  value={shown.title}
+                  onChange={event => {
+                    editContent({ title: event.target.value })
+                  }}
+                />
+              )}
+            </header>
+          )}
+          {tab === 'rule' && !deleted && (
+            <div className={css.nextRun}>
+              {task.status === 'active' ? (
+                <p>
+                  {t('detail.nextRun')} <time dateTime={task.scheduledAt}>{nextRun.absolute}</time>{' '}
+                  {/* The relative distance stays beside the absolute stamp: the card
                   has always shown the countdown, and the document asks for the
                   local stamp as well. */}
-              <span className={css.nextRunRelative}>{nextRun.relative}</span>
-            </p>
-            : <p>{t('status.inactive')}</p>}
-        </div>}
-        <div role="tabpanel" id={`${id}-rule-panel`} aria-labelledby={`${id}-rule-tab`}
-          hidden={tab !== 'rule' || deleted} tabIndex={0}>
-          {!deleted && <>
-            {task.status === 'inactive'
-              ? <p className={css.readonlyPrompt}>{shown.prompt}</p>
-              : <textarea
-                className={css.instruction}
-                aria-label={t('detail.instruction')}
-                disabled={busy || pending}
-                value={shown.prompt}
-                onChange={(event) => { editContent({ prompt: event.target.value }) }}
-              />}
-            <RuleCard
-              key={JSON.stringify([task.sessionId, task.id])}
-              task={task}
-              disabled={busy || pending || task.status === 'inactive'}
-              values={shown}
-              intervalUnit={intervalUnit}
-              failure={shownFailure === 'timing.invalidInterval' ? INTERVAL_ERROR_KEYS[intervalUnit] : shownFailure}
-              onChooseKind={chooseKind}
-              onChooseZone={chooseZone}
-              onToggleWeekday={toggleWeekday}
-              onEditDraft={editDraft}
-              t={t}
-            />
-          </>}
-        </div>
-        <div role="tabpanel" id={`${id}-records-panel`} aria-labelledby={`${id}-records-tab`}
-          className={css.recordsPanel} hidden={tab !== 'records'} tabIndex={0}>
-          {/* Deletion removed the saved records with the task, so a deleted
+                  <span className={css.nextRunRelative}>{nextRun.relative}</span>
+                </p>
+              ) : (
+                <p>{t('status.inactive')}</p>
+              )}
+            </div>
+          )}
+          <div role="tabpanel" id={`${id}-rule-panel`} aria-labelledby={`${id}-rule-tab`} hidden={tab !== 'rule' || deleted} tabIndex={0}>
+            {!deleted && (
+              <>
+                {task.status === 'inactive' ? (
+                  <p className={css.readonlyPrompt}>{shown.prompt}</p>
+                ) : (
+                  <textarea
+                    className={css.instruction}
+                    aria-label={t('detail.instruction')}
+                    disabled={busy || pending}
+                    value={shown.prompt}
+                    onChange={event => {
+                      editContent({ prompt: event.target.value })
+                    }}
+                  />
+                )}
+                <RuleCard
+                  key={JSON.stringify([task.sessionId, task.id])}
+                  task={task}
+                  disabled={busy || pending || task.status === 'inactive'}
+                  values={shown}
+                  intervalUnit={intervalUnit}
+                  failure={shownFailure === 'timing.invalidInterval' ? INTERVAL_ERROR_KEYS[intervalUnit] : shownFailure}
+                  onChooseKind={chooseKind}
+                  onChooseZone={chooseZone}
+                  onToggleWeekday={toggleWeekday}
+                  onEditDraft={editDraft}
+                  t={t}
+                />
+              </>
+            )}
+          </div>
+          <div
+            role="tabpanel"
+            id={`${id}-records-panel`}
+            aria-labelledby={`${id}-records-tab`}
+            className={css.recordsPanel}
+            hidden={tab !== 'records'}
+            tabIndex={0}
+          >
+            {/* Deletion removed the saved records with the task, so a deleted
               task mounts no history in the frame before `onDeleted` closes
               this detail: no read is attempted against the removed row. */}
-          {tab === 'records' && !deleted && <DeliveryHistory
-            key={JSON.stringify([task.sessionId, task.id])}
-            id={task.id}
-            sessionId={task.sessionId}
-            latestMessageId={task.lastDelivery?.messageId}
-            timeZone={recordTimeZone(task)}
-            loadHistory={loadHistory}
-            t={t}
-          />}
+            {tab === 'records' && !deleted && (
+              <DeliveryHistory
+                key={JSON.stringify([task.sessionId, task.id])}
+                id={task.id}
+                sessionId={task.sessionId}
+                latestMessageId={task.lastDelivery?.messageId}
+                timeZone={recordTimeZone(task)}
+                loadHistory={loadHistory}
+                t={t}
+              />
+            )}
+          </div>
         </div>
-      </div>
-      {/* A notice about the original Session states its own line under the strip:
+        {/* A notice about the original Session states its own line under the strip:
           it appears only when that Session is archived or unreadable, and the
           linked control above it stays in the strip either way. */}
-      {tab === 'rule' && sessionNotice !== undefined && <p id={`${id}-session-state`} className={css.detailNotice} role="status">
-        {sessionNotice}
-      </p>}
-      {/* On the rule tab a failure shows inside the Run time card's hint slot;
+        {tab === 'rule' && sessionNotice !== undefined && (
+          <p id={`${id}-session-state`} className={css.detailNotice} role="status">
+            {sessionNotice}
+          </p>
+        )}
+        {/* On the rule tab a failure shows inside the Run time card's hint slot;
           this bar-side line covers only a save submitted from the records tab,
           where that slot is hidden with its panel. */}
-      {tab === 'records' && shownFailure !== undefined && <p className={css.saveFailure} role="alert">
-        {t(shownFailure === 'timing.invalidInterval' ? INTERVAL_ERROR_KEYS[intervalUnit] : shownFailure)}</p>}
-      {/* The mock's staged-edit bar sits under the detail tab strip and
+        {tab === 'records' && shownFailure !== undefined && (
+          <p className={css.saveFailure} role="alert">
+            {t(shownFailure === 'timing.invalidInterval' ? INTERVAL_ERROR_KEYS[intervalUnit] : shownFailure)}
+          </p>
+        )}
+        {/* The mock's staged-edit bar sits under the detail tab strip and
           appears only while the draft differs from the stored task. */}
-      {dirty && !deleted && task.status !== 'inactive' && <footer className={css.saveFooter}>
-        <span className={css.saveNotice}>{t('rule.unsaved')}</span>
-        <Button disabled={pending} onClick={cancelDraft}>{t('rule.cancel')}</Button>
-        <Button variant="primary" disabled={pending || !dirty} onClick={() => { void saveDraft() }}>
-          {t(pending ? 'rule.saving' : 'rule.save')}
-        </Button>
-      </footer>}
-    </aside>
-    <Modal
-      className={css.confirmDialog as string}
-      contentClassName={css.confirmContent as string}
-      open={confirming}
-      title={t('delete.title')}
-      description={t('delete.description')}
-      closeLabel={t('delete.close')}
-      onClose={closeConfirmation}
-      footer={confirming && <div ref={footerRef} className={css.confirmActions}>
-        <Button variant="outline" onClick={closeConfirmation}>{t('delete.cancel')}</Button>
-        <Button className={css.deleteButton} disabled={busy} onClick={confirmDelete}>
-          {t('delete.confirm')}
-        </Button>
-      </div>}
-    >
-      {confirming && <p className={css.confirmTitle}>{task.title}</p>}
-    </Modal>
-  </>
+        {dirty && !deleted && task.status !== 'inactive' && (
+          <footer className={css.saveFooter}>
+            <span className={css.saveNotice}>{t('rule.unsaved')}</span>
+            <Button disabled={pending} onClick={cancelDraft}>
+              {t('rule.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              disabled={pending || !dirty}
+              onClick={() => {
+                void saveDraft()
+              }}
+            >
+              {t(pending ? 'rule.saving' : 'rule.save')}
+            </Button>
+          </footer>
+        )}
+      </aside>
+      <Modal
+        className={css.confirmDialog as string}
+        contentClassName={css.confirmContent as string}
+        open={confirming}
+        title={t('delete.title')}
+        description={t('delete.description')}
+        closeLabel={t('delete.close')}
+        onClose={closeConfirmation}
+        footer={
+          confirming && (
+            <div ref={footerRef} className={css.confirmActions}>
+              <Button variant="outline" onClick={closeConfirmation}>
+                {t('delete.cancel')}
+              </Button>
+              <Button className={css.deleteButton} disabled={busy} onClick={confirmDelete}>
+                {t('delete.confirm')}
+              </Button>
+            </div>
+          )
+        }
+      >
+        {confirming && <p className={css.confirmTitle}>{task.title}</p>}
+      </Modal>
+    </>
+  )
 }
 
 /**
@@ -978,8 +1108,11 @@ function seedDraft(record: ScheduleCatalogEntry, kind: RuleKind): TimingDraft {
     case 'once': {
       const wallClock = zonedWallClock(record.scheduledAt, zone)
       return {
-        date: wallClock.slice(0, 10), time: wallClock.slice(11, 23),
-        timeZone: zone, seconds: '', expression: '',
+        date: wallClock.slice(0, 10),
+        time: wallClock.slice(11, 23),
+        timeZone: zone,
+        seconds: '',
+        expression: '',
       }
     }
     case 'every':
@@ -988,8 +1121,11 @@ function seedDraft(record: ScheduleCatalogEntry, kind: RuleKind): TimingDraft {
     case 'weekdays':
     case 'weekly':
       return {
-        date: '', time: zonedWallClock(record.scheduledAt, zone).slice(11, 23),
-        timeZone: zone, seconds: '', expression: '',
+        date: '',
+        time: zonedWallClock(record.scheduledAt, zone).slice(11, 23),
+        timeZone: zone,
+        seconds: '',
+        expression: '',
       }
     case 'cron':
       return { date: '', time: '', timeZone: zone, seconds: '', expression: seedCronExpression(record, zone) }
@@ -1038,9 +1174,16 @@ function zonedWeekday(instant: string, timeZone: string): Weekday {
   const at = new Date(instant)
   let calendarDay: Date
   try {
-    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
-      timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
-    }).formatToParts(at).map(part => [part.type, part.value]))
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+        .formatToParts(at)
+        .map(part => [part.type, part.value]),
+    )
     calendarDay = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)))
   } catch {
     // An unusable zone or instant cannot place the day; the UTC calendar day is
@@ -1048,7 +1191,7 @@ function zonedWeekday(instant: string, timeZone: string): Weekday {
     calendarDay = at
   }
   const day = calendarDay.getUTCDay()
-  return ((day + 6) % 7 + 1) as Weekday
+  return (((day + 6) % 7) + 1) as Weekday
 }
 
 /**
@@ -1061,34 +1204,35 @@ function zonedWeekday(instant: string, timeZone: string): Weekday {
  * @param weekdays - ISO weekday set the weekly choice saves.
  * @returns the complete timing change for the compare-and-update request.
  */
-function ruleChange(
-  draft: TimingDraft,
-  kind: RuleKind,
-  weekdays: readonly Weekday[],
-): ScheduleTimingChange {
+function ruleChange(draft: TimingDraft, kind: RuleKind, weekdays: readonly Weekday[]): ScheduleTimingChange {
   switch (kind) {
-    case 'once': return {
-      kind: 'at',
-      at: { date: draft.date, time: withSeconds(draft.time), time_zone: draft.timeZone.trim() },
-    }
-    case 'every': return { kind: 'every', every_seconds: Number(draft.seconds) }
-    case 'daily': return {
-      kind: 'daily',
-      daily: { time: withSeconds(draft.time), time_zone: draft.timeZone.trim() },
-    }
-    case 'cron': return {
-      kind: 'cron',
-      cron: { expression: draft.expression.trim(), time_zone: draft.timeZone.trim() },
-    }
+    case 'once':
+      return {
+        kind: 'at',
+        at: { date: draft.date, time: withSeconds(draft.time), time_zone: draft.timeZone.trim() },
+      }
+    case 'every':
+      return { kind: 'every', every_seconds: Number(draft.seconds) }
+    case 'daily':
+      return {
+        kind: 'daily',
+        daily: { time: withSeconds(draft.time), time_zone: draft.timeZone.trim() },
+      }
+    case 'cron':
+      return {
+        kind: 'cron',
+        cron: { expression: draft.expression.trim(), time_zone: draft.timeZone.trim() },
+      }
     case 'weekdays':
-    case 'weekly': return {
-      kind: 'weekly',
-      weekly: {
-        time: withSeconds(draft.time),
-        time_zone: draft.timeZone.trim(),
-        weekdays: kind === 'weekdays' ? [...WEEKDAY_RULE] : [...weekdays],
-      },
-    }
+    case 'weekly':
+      return {
+        kind: 'weekly',
+        weekly: {
+          time: withSeconds(draft.time),
+          time_zone: draft.timeZone.trim(),
+          weekdays: kind === 'weekdays' ? [...WEEKDAY_RULE] : [...weekdays],
+        },
+      }
   }
 }
 
@@ -1123,15 +1267,13 @@ function draftError(shown: RuleShown): TaskManagerKey | undefined {
   if (title.length === 0 || title.length > RULE_TITLE_MAX_LENGTH) return 'rule.invalidTitle'
   if (shown.prompt.trim().length === 0) return 'rule.invalidPrompt'
   if (shown.kind === 'every') {
-    return /^\d+$/.test(shown.draft.seconds) && Number(shown.draft.seconds) >= MIN_INTERVAL_SECONDS
-      ? undefined
-      : 'timing.invalidInterval'
+    return /^\d+$/.test(shown.draft.seconds) && Number(shown.draft.seconds) >= MIN_INTERVAL_SECONDS ? undefined : 'timing.invalidInterval'
   }
   if (shown.kind === 'cron') {
     return parseCronExpression(shown.draft.expression) === undefined ? 'rule.cronInvalid' : undefined
   }
-  if ((shown.kind === 'once' && !validIsoDate(shown.draft.date))
-    || !/^\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/.test(shown.draft.time)) return 'timing.invalid'
+  if ((shown.kind === 'once' && !validIsoDate(shown.draft.date)) || !/^\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?$/.test(shown.draft.time))
+    return 'timing.invalid'
   return undefined
 }
 
@@ -1300,8 +1442,11 @@ interface RuleEdit {
  */
 function ruleValues(record: ScheduleRecord): RuleShown {
   return {
-    title: record.title, prompt: record.prompt,
-    kind: ruleKind(record), draft: timingDraft(record), weekdays: seedWeekdays(record),
+    title: record.title,
+    prompt: record.prompt,
+    kind: ruleKind(record),
+    draft: timingDraft(record),
+    weekdays: seedWeekdays(record),
   }
 }
 
@@ -1362,12 +1507,14 @@ function sameWeekdays(left: readonly Weekday[], right: readonly Weekday[]): bool
  * @returns whether any timing field differs from the stored one.
  */
 function editedTiming(draft: RuleShown, stored: RuleShown): boolean {
-  return draft.draft.date !== stored.draft.date
-    || draft.draft.time !== stored.draft.time
-    || draft.draft.timeZone !== stored.draft.timeZone
-    || draft.draft.seconds !== stored.draft.seconds
-    || draft.draft.expression !== stored.draft.expression
-    || !sameWeekdays(draft.weekdays, stored.weekdays)
+  return (
+    draft.draft.date !== stored.draft.date ||
+    draft.draft.time !== stored.draft.time ||
+    draft.draft.timeZone !== stored.draft.timeZone ||
+    draft.draft.seconds !== stored.draft.seconds ||
+    draft.draft.expression !== stored.draft.expression ||
+    !sameWeekdays(draft.weekdays, stored.weekdays)
+  )
 }
 
 /**
@@ -1430,9 +1577,14 @@ export function mergeRuleDraft(authoritative: RuleShown, draft: RuleShown, store
   const stagedChoice = draft.kind !== stored.kind || !sameWeekdays(draft.weekdays, stored.weekdays)
   return {
     ...text,
-    kind: storedRuleChoice(draft.kind) === 'weekly'
-      ? (stagedChoice ? draft.kind : (isWeekdayRule(weekdays) ? 'weekdays' : 'weekly'))
-      : reseedValue(draft.kind, stored.kind, authoritative.kind),
+    kind:
+      storedRuleChoice(draft.kind) === 'weekly'
+        ? stagedChoice
+          ? draft.kind
+          : isWeekdayRule(weekdays)
+            ? 'weekdays'
+            : 'weekly'
+        : reseedValue(draft.kind, stored.kind, authoritative.kind),
     draft: {
       date: reseedValue(draft.draft.date, stored.draft.date, authoritative.draft.date),
       time: reseedValue(draft.draft.time, stored.draft.time, authoritative.draft.time),
@@ -1454,30 +1606,46 @@ export function mergeRuleDraft(authoritative: RuleShown, draft: RuleShown, store
  * @param props.onToggle - toggle one weekday in the rule being edited.
  * @returns the labelled Weekday row.
  */
-function WeekdayRow({ weekdays, disabled, t, rowId, onToggle }: {
+function WeekdayRow({
+  weekdays,
+  disabled,
+  t,
+  rowId,
+  onToggle,
+}: {
   weekdays: readonly number[]
   disabled: boolean
   t: PropsLocale<'schedule.manager'>['t']
   rowId: (name: string) => string
   onToggle: (weekday: Weekday) => void
 }): ReactNode {
-  return <div className={css.ruleRow}>
-    <span className={css.ruleLabel} id={rowId('weekday')}>{t('rule.weekday')}</span>
-    <div className={clsx(css.ruleWeekdays, css.ruleControl)} role="group" aria-labelledby={rowId('weekday')}>
-      {WEEKDAYS.map((weekday) => {
-        const selected = weekdays.includes(weekday)
-        return <Pill
-          key={weekday}
-          className={css.ruleControl}
-          active={selected}
-          disabled={disabled}
-          aria-pressed={selected}
-          aria-label={t('rule.weekdayOption', { weekday: t(WEEKDAY_LABELS[weekday]) })}
-          onClick={() => { onToggle(weekday) }}
-        >{t(WEEKDAY_LABELS[weekday])}</Pill>
-      })}
+  return (
+    <div className={css.ruleRow}>
+      <span className={css.ruleLabel} id={rowId('weekday')}>
+        {t('rule.weekday')}
+      </span>
+      <div className={clsx(css.ruleWeekdays, css.ruleControl)} role="group" aria-labelledby={rowId('weekday')}>
+        {WEEKDAYS.map(weekday => {
+          const selected = weekdays.includes(weekday)
+          return (
+            <Pill
+              key={weekday}
+              className={css.ruleControl}
+              active={selected}
+              disabled={disabled}
+              aria-pressed={selected}
+              aria-label={t('rule.weekdayOption', { weekday: t(WEEKDAY_LABELS[weekday]) })}
+              onClick={() => {
+                onToggle(weekday)
+              }}
+            >
+              {t(WEEKDAY_LABELS[weekday])}
+            </Pill>
+          )
+        })}
+      </div>
     </div>
-  </div>
+  )
 }
 
 /**
@@ -1490,7 +1658,16 @@ function WeekdayRow({ weekdays, disabled, t, rowId, onToggle }: {
  * @returns the bordered Run time card with its staged rows.
  */
 function RuleCard({
-  task, disabled, values, intervalUnit, failure, onChooseKind, onChooseZone, onToggleWeekday, onEditDraft, t,
+  task,
+  disabled,
+  values,
+  intervalUnit,
+  failure,
+  onChooseKind,
+  onChooseZone,
+  onToggleWeekday,
+  onEditDraft,
+  t,
 }: RuleCardProps): ReactNode {
   const shown = values
   const [repeatOpen, setRepeatOpen] = useState(false)
@@ -1573,313 +1750,396 @@ function RuleCard({
     return partial.includes(preferred) ? preferred : partial[0]
   }
   const zoneItems = zoneCatalog
-    .filter(item => `${item.zones.join(' ')} ${item.label}`
-      .toLocaleLowerCase(zoneLocale).includes(normalizedZoneQuery))
+    .filter(item => `${item.zones.join(' ')} ${item.label}`.toLocaleLowerCase(zoneLocale).includes(normalizedZoneQuery))
     .map(item => ({ ...item, id: namedZone(item.zones, item.id) ?? item.id }))
-  const recentItems = normalizedZoneQuery === '' ? recentZones.flatMap((zone) => {
-    const item = zoneCatalog.find(choice => choice.zones.includes(zone))
-    return item === undefined ? [] : [{ ...item, id: zone }]
-  }).filter((item, index, items) => items.findIndex(candidate => candidate.label === item.label) === index) : []
+  const recentItems =
+    normalizedZoneQuery === ''
+      ? recentZones
+          .flatMap(zone => {
+            const item = zoneCatalog.find(choice => choice.zones.includes(zone))
+            return item === undefined ? [] : [{ ...item, id: zone }]
+          })
+          .filter((item, index, items) => items.findIndex(candidate => candidate.label === item.label) === index)
+      : []
   const recentLabels = new Set(recentItems.map(item => item.label))
   const availableZoneItems = zoneItems.filter(item => !recentLabels.has(item.label))
-  const shownZoneItems: readonly TaskMenuEntry[] = recentItems.length === 0 ? availableZoneItems
-    : availableZoneItems.length === 0 ? recentItems : [
-      ...recentItems,
-      { type: 'separator', id: '__recent' },
-      ...availableZoneItems,
-    ]
+  const shownZoneItems: readonly TaskMenuEntry[] =
+    recentItems.length === 0
+      ? availableZoneItems
+      : availableZoneItems.length === 0
+        ? recentItems
+        : [...recentItems, { type: 'separator', id: '__recent' }, ...availableZoneItems]
   // The cron choice parses the staged expression in the browser, so the row can
   // describe a valid expression and reject an invalid one without a Host call.
   const parsedCron = shown.kind === 'cron' ? parseCronExpression(shown.draft.expression) : undefined
   // A rule that stored no zone needs one line saying so. The clock-time choices
   // whose rule does state a zone carry that fact in their own names, so their row
   // shows no hint at all, and the zone row's own picker names the rest.
-  const clockHint: TaskManagerKey | undefined = shown.kind === 'once' && !draftZone(task).stored
-    ? 'timing.zoneNoStored'
-    : undefined
+  const clockHint: TaskManagerKey | undefined = shown.kind === 'once' && !draftZone(task).stored ? 'timing.zoneNoStored' : undefined
   const clockLine = failure ?? clockHint
-  return <section className={css.ruleCard} aria-label={t('rule.title')}>
-    <h3>{t('rule.title')}</h3>
-    <div className={css.ruleRows}>
-      {/* Same Escape guard as the header menu: the page's own Escape handler
+  return (
+    <section className={css.ruleCard} aria-label={t('rule.title')}>
+      <h3>{t('rule.title')}</h3>
+      <div className={css.ruleRows}>
+        {/* Same Escape guard as the header menu: the page's own Escape handler
           must not close the whole task detail while this list is open. */}
-      <span className={css.menuGuard} onKeyDown={(event) => {
-        guardMenuEscape(event, repeatOpen, () => {
-          setRepeatOpen(false)
-          repeatRef.current?.focus()
-        })
-      }}>
-        <TaskMenu
-          className={css.ruleRowMenu}
-          open={repeatOpen}
-          onClose={() => { setRepeatOpen(false) }}
-          items={RULE_CHOICES.map(value => ({
-            id: value, label: t(RULE_CHOICE_LABELS[value]), disabled,
-          }))}
-          selectedId={shown.kind === 'every' ? `every-${intervalUnit}` : shown.kind}
-          onSelect={(id) => { chooseChoice(id as RuleChoice) }}
-          align="end"
-          portal
-          anchor={<button
-            ref={repeatRef}
-            type="button"
-            className={css.ruleValue}
-            disabled={disabled}
-            aria-haspopup="menu"
-            aria-expanded={repeatOpen}
-            onClick={() => { setRepeatOpen(open => !open) }}
-          >
-            <span className={css.ruleLabel}>{t('rule.repeat')}</span>
-            <span className={clsx(css.ruleValueFace, css.ruleControl)}>
-              <span className={css.ruleCurrent}>{shown.kind === 'every'
-                ? t(intervalRuleLabel(intervalUnit))
-                : repeatValue(task, shown.kind, t, frequencyZone)}</span>
-              <IconChevronDownOutlineRegular />
-            </span>
-          </button>}
-        />
-      </span>
-      {shown.kind === 'weekly' && <WeekdayRow
-        weekdays={shown.weekdays}
-        disabled={disabled}
-        t={t}
-        rowId={rowId}
-        onToggle={onToggleWeekday}
-      />}
-      {shown.kind === 'every' ? <div className={css.ruleRow}>
-        {/* The label names the row and stays the input's accessible name; the
+        <span
+          className={css.menuGuard}
+          onKeyDown={event => {
+            guardMenuEscape(event, repeatOpen, () => {
+              setRepeatOpen(false)
+              repeatRef.current?.focus()
+            })
+          }}
+        >
+          <TaskMenu
+            className={css.ruleRowMenu}
+            open={repeatOpen}
+            onClose={() => {
+              setRepeatOpen(false)
+            }}
+            items={RULE_CHOICES.map(value => ({
+              id: value,
+              label: t(RULE_CHOICE_LABELS[value]),
+              disabled,
+            }))}
+            selectedId={shown.kind === 'every' ? `every-${intervalUnit}` : shown.kind}
+            onSelect={id => {
+              chooseChoice(id as RuleChoice)
+            }}
+            align="end"
+            portal
+            anchor={
+              <button
+                ref={repeatRef}
+                type="button"
+                className={css.ruleValue}
+                disabled={disabled}
+                aria-haspopup="menu"
+                aria-expanded={repeatOpen}
+                onClick={() => {
+                  setRepeatOpen(open => !open)
+                }}
+              >
+                <span className={css.ruleLabel}>{t('rule.repeat')}</span>
+                <span className={clsx(css.ruleValueFace, css.ruleControl)}>
+                  <span className={css.ruleCurrent}>
+                    {shown.kind === 'every' ? t(intervalRuleLabel(intervalUnit)) : repeatValue(task, shown.kind, t, frequencyZone)}
+                  </span>
+                  <IconChevronDownOutlineRegular />
+                </span>
+              </button>
+            }
+          />
+        </span>
+        {shown.kind === 'weekly' && (
+          <WeekdayRow weekdays={shown.weekdays} disabled={disabled} t={t} rowId={rowId} onToggle={onToggleWeekday} />
+        )}
+        {shown.kind === 'every' ? (
+          <div className={css.ruleRow}>
+            {/* The label names the row and stays the input's accessible name; the
             unit rides beside the number instead of inside the label, so the
             same quantity never reads as hours in one state and seconds in
             another without saying which. */}
-        <label className={css.ruleLabel} htmlFor={rowId('interval')}>{t('timing.interval')}</label>
-        <span className={css.ruleInterval}>
-          {/* The pill grows with the staged quantity: the digit count feeds the
+            <label className={css.ruleLabel} htmlFor={rowId('interval')}>
+              {t('timing.interval')}
+            </label>
+            <span className={css.ruleInterval}>
+              {/* The pill grows with the staged quantity: the digit count feeds the
               input's ch-based width, so a wide number never runs under the
               arrow column or past the pill. */}
-          <span
-            className={css.ruleIntervalStepper}
-            style={{ '--interval-digits': String(intervalValue ?? '').length || 1 } as CSSProperties}
-          >
-            <input
-              id={rowId('interval')}
-              className={clsx(css.ruleInput, css.ruleControl, css.ruleIntervalInput)}
-              type="number"
-              // Both bounds are stated in the row's own unit, so the Host's
-              // 60-second floor reads as 60 seconds, 1 minute, or 1 hour and
-              // never as a fraction of a unit. Any step is accepted: a whole unit
-              // step would reject a staged value such as 1.5 hours, which is a
-              // whole 5400 seconds and so a legal interval.
-              min={intervalMin}
-              step="any"
-              disabled={disabled}
-              value={intervalValue ?? ''}
-              aria-describedby={rowId('interval-hint')}
-              onChange={(event) => {
-                const value = event.target.value
-                onEditDraft({
-                  seconds: value === ''
-                    ? ''
-                    : String(Math.round(Number(value) * INTERVAL_UNIT_SECONDS[intervalUnit])),
-                })
-              }}
-            />
-            <span className={css.ruleIntervalArrows}>
-              <button
-                type="button"
-                className={css.ruleIntervalArrow}
-                aria-label={t('timing.intervalIncrease')}
-                disabled={disabled}
-                onClick={() => { stepInterval(1) }}
+              <span
+                className={css.ruleIntervalStepper}
+                style={{ '--interval-digits': String(intervalValue ?? '').length || 1 } as CSSProperties}
               >
-                <IconChevronUpOutlineRegular size={9} />
-              </button>
-              <button
-                type="button"
-                className={css.ruleIntervalArrow}
-                aria-label={t('timing.intervalDecrease')}
-                disabled={disabled || (intervalValue !== undefined && intervalValue <= intervalMin)}
-                onClick={() => { stepInterval(-1) }}
-              >
-                <IconChevronDownOutlineRegular size={9} />
-              </button>
+                <input
+                  id={rowId('interval')}
+                  className={clsx(css.ruleInput, css.ruleControl, css.ruleIntervalInput)}
+                  type="number"
+                  // Both bounds are stated in the row's own unit, so the Host's
+                  // 60-second floor reads as 60 seconds, 1 minute, or 1 hour and
+                  // never as a fraction of a unit. Any step is accepted: a whole unit
+                  // step would reject a staged value such as 1.5 hours, which is a
+                  // whole 5400 seconds and so a legal interval.
+                  min={intervalMin}
+                  step="any"
+                  disabled={disabled}
+                  value={intervalValue ?? ''}
+                  aria-describedby={rowId('interval-hint')}
+                  onChange={event => {
+                    const value = event.target.value
+                    onEditDraft({
+                      seconds: value === '' ? '' : String(Math.round(Number(value) * INTERVAL_UNIT_SECONDS[intervalUnit])),
+                    })
+                  }}
+                />
+                <span className={css.ruleIntervalArrows}>
+                  <button
+                    type="button"
+                    className={css.ruleIntervalArrow}
+                    aria-label={t('timing.intervalIncrease')}
+                    disabled={disabled}
+                    onClick={() => {
+                      stepInterval(1)
+                    }}
+                  >
+                    <IconChevronUpOutlineRegular size={9} />
+                  </button>
+                  <button
+                    type="button"
+                    className={css.ruleIntervalArrow}
+                    aria-label={t('timing.intervalDecrease')}
+                    disabled={disabled || (intervalValue !== undefined && intervalValue <= intervalMin)}
+                    onClick={() => {
+                      stepInterval(-1)
+                    }}
+                  >
+                    <IconChevronDownOutlineRegular size={9} />
+                  </button>
+                </span>
+              </span>
+              <span className={css.ruleIntervalUnit}>{t(INTERVAL_UNIT_LABELS[intervalUnit])}</span>
             </span>
-          </span>
-          <span className={css.ruleIntervalUnit}>{t(INTERVAL_UNIT_LABELS[intervalUnit])}</span>
-        </span>
-      </div> : <>
-        {/* A one-shot target edits its date and clock separately; a stored
+          </div>
+        ) : (
+          <>
+            {/* A one-shot target edits its date and clock separately; a stored
             millisecond value stays in the draft until the clock is edited. */}
-        {shown.kind === 'once' && <div className={css.ruleRow}>
-          <label className={css.ruleLabel} htmlFor={rowId('date')}>{t('timing.date')}</label>
-          {/* The row exposes the date the way the design states it —
+            {shown.kind === 'once' && (
+              <div className={css.ruleRow}>
+                <label className={css.ruleLabel} htmlFor={rowId('date')}>
+                  {t('timing.date')}
+                </label>
+                {/* The row exposes the date the way the design states it —
               `YYYY/MM/DD` — while the draft keeps the ISO text the calendar
               writes back and the Host receives, so no browser-owned locale
               format stands between the row and the Host. */}
-          <span className={css.menuGuard} onKeyDown={(event) => {
-            guardMenuEscape(event, dateOpen, () => {
-              setDateOpen(false)
-              dateRef.current?.focus()
-            })
-          }}>
-            <button
-              ref={dateRef}
-              id={rowId('date')}
-              type="button"
-              className={clsx(css.ruleInput, css.ruleControl, css.pickerTrigger)}
-              disabled={disabled}
-              aria-label={t('timing.date')}
-              aria-haspopup="dialog"
-              aria-expanded={dateOpen}
-              aria-describedby={clockHint === undefined ? undefined : rowId('time-hint')}
-              onClick={() => { setDateOpen(open => !open) }}
-            >
-              <span>{slashDate(shown.draft.date)}</span>
-              <IconCalendarOutlineRegular className={css.pickerIcon} />
-            </button>
-            <DatePicker
-              open={dateOpen}
-              anchorRef={dateRef}
-              value={shown.draft.date}
-              onPick={(date) => { onEditDraft({ date }) }}
-              onClose={() => { setDateOpen(false) }}
-              t={t}
-            />
-          </span>
-        </div>}
-        {shown.kind !== 'cron' && <div className={css.ruleRow}>
-          <label className={css.ruleLabel} htmlFor={rowId('time')}>{t('timing.time')}</label>
-          {/* Both locales read the same 24-hour clock, so the row states one
+                <span
+                  className={css.menuGuard}
+                  onKeyDown={event => {
+                    guardMenuEscape(event, dateOpen, () => {
+                      setDateOpen(false)
+                      dateRef.current?.focus()
+                    })
+                  }}
+                >
+                  <button
+                    ref={dateRef}
+                    id={rowId('date')}
+                    type="button"
+                    className={clsx(css.ruleInput, css.ruleControl, css.pickerTrigger)}
+                    disabled={disabled}
+                    aria-label={t('timing.date')}
+                    aria-haspopup="dialog"
+                    aria-expanded={dateOpen}
+                    aria-describedby={clockHint === undefined ? undefined : rowId('time-hint')}
+                    onClick={() => {
+                      setDateOpen(open => !open)
+                    }}
+                  >
+                    <span>{slashDate(shown.draft.date)}</span>
+                    <IconCalendarOutlineRegular className={css.pickerIcon} />
+                  </button>
+                  <DatePicker
+                    open={dateOpen}
+                    anchorRef={dateRef}
+                    value={shown.draft.date}
+                    onPick={date => {
+                      onEditDraft({ date })
+                    }}
+                    onClose={() => {
+                      setDateOpen(false)
+                    }}
+                    t={t}
+                  />
+                </span>
+              </div>
+            )}
+            {shown.kind !== 'cron' && (
+              <div className={css.ruleRow}>
+                <label className={css.ruleLabel} htmlFor={rowId('time')}>
+                  {t('timing.time')}
+                </label>
+                {/* Both locales read the same 24-hour clock, so the row states one
               value instead of borrowing the browser's AM/PM formatting. */}
-          <span className={css.menuGuard} onKeyDown={(event) => {
-            guardMenuEscape(event, timeOpen, () => {
-              setTimeOpen(false)
-              timeRef.current?.focus()
-            })
-          }}>
-            <button
-              ref={timeRef}
-              id={rowId('time')}
-              type="button"
-              className={clsx(css.ruleInput, css.ruleControl, css.pickerTrigger)}
-              disabled={disabled}
-              aria-label={t('timing.time')}
-              aria-haspopup="dialog"
-              aria-expanded={timeOpen}
-              aria-describedby={clockHint === undefined ? undefined : rowId('time-hint')}
-              onClick={() => { setTimeOpen(open => !open) }}
-            >
-              <span>{secondPrecision(shown.draft.time)}</span>
-              <IconClockOutlineRegular className={css.pickerIcon} />
-            </button>
-            <ClockPicker
-              open={timeOpen}
-              anchorRef={timeRef}
-              value={shown.draft.time}
-              onPick={(time) => { onEditDraft({ time }) }}
-              onClose={() => { setTimeOpen(false) }}
-              t={t}
-            />
-          </span>
-        </div>}
-        {/* The cron rows edit their whole expression through one callback, so
+                <span
+                  className={css.menuGuard}
+                  onKeyDown={event => {
+                    guardMenuEscape(event, timeOpen, () => {
+                      setTimeOpen(false)
+                      timeRef.current?.focus()
+                    })
+                  }}
+                >
+                  <button
+                    ref={timeRef}
+                    id={rowId('time')}
+                    type="button"
+                    className={clsx(css.ruleInput, css.ruleControl, css.pickerTrigger)}
+                    disabled={disabled}
+                    aria-label={t('timing.time')}
+                    aria-haspopup="dialog"
+                    aria-expanded={timeOpen}
+                    aria-describedby={clockHint === undefined ? undefined : rowId('time-hint')}
+                    onClick={() => {
+                      setTimeOpen(open => !open)
+                    }}
+                  >
+                    <span>{secondPrecision(shown.draft.time)}</span>
+                    <IconClockOutlineRegular className={css.pickerIcon} />
+                  </button>
+                  <ClockPicker
+                    open={timeOpen}
+                    anchorRef={timeRef}
+                    value={shown.draft.time}
+                    onPick={time => {
+                      onEditDraft({ time })
+                    }}
+                    onClose={() => {
+                      setTimeOpen(false)
+                    }}
+                    t={t}
+                  />
+                </span>
+              </div>
+            )}
+            {/* The cron rows edit their whole expression through one callback, so
             the sentence the card derives from it sits with the card's other hints. */}
-        {shown.kind === 'cron' && <CronRows
-          task={task}
-          disabled={disabled}
-          expression={shown.draft.expression}
-          timeZone={shown.draft.timeZone}
-          hintId={rowId('expression-hint')}
-          onEditExpression={(expression) => { onEditDraft({ expression }) }}
-          t={t}
-        />}
-        {/* Same Escape guard as the Repeat menu: the page's own Escape handler
+            {shown.kind === 'cron' && (
+              <CronRows
+                task={task}
+                disabled={disabled}
+                expression={shown.draft.expression}
+                timeZone={shown.draft.timeZone}
+                hintId={rowId('expression-hint')}
+                onEditExpression={expression => {
+                  onEditDraft({ expression })
+                }}
+                t={t}
+              />
+            )}
+            {/* Same Escape guard as the Repeat menu: the page's own Escape handler
             must not close the whole task detail while this list is open. */}
-        <span className={css.menuGuard} onKeyDown={(event) => {
-          guardMenuEscape(event, zoneOpen, () => {
-            setZoneOpen(false)
-            zoneRef.current?.focus()
-          })
-        }}>
-          <TaskMenu
-            className={css.ruleRowMenu}
-            open={zoneOpen}
-            onClose={() => { setZoneOpen(false); setZoneQuery('') }}
-            items={shownZoneItems.length > 0 ? shownZoneItems : [{
-              id: '__empty', label: t('timing.zoneNoResults'), disabled: true,
-            }]}
-            listClassName={css.zoneMenu}
-            header={<input
-              className={css.zoneSearch}
-              type="search"
-              value={zoneQuery}
-              placeholder={t('timing.zoneSearch')}
-              aria-label={t('timing.zoneSearch')}
-              // The portaled list is hidden until it is placed, so focus comes from
-              // the menu's own handover rather than a mount-time autoFocus.
-              data-menu-field=""
-              onChange={(event) => { setZoneQuery(event.target.value) }}
-            />}
-            selectedId={shown.draft.timeZone}
-            onSelect={(id) => { chooseZone(id) }}
-            align="end"
-            portal
-            anchor={<button
-              ref={zoneRef}
-              type="button"
-              className={css.ruleValue}
-              disabled={disabled}
-              aria-haspopup="menu"
-              aria-expanded={zoneOpen}
-              onClick={() => {
-                setZoneOpen((open) => {
-                  if (open) setZoneQuery('')
-                  return !open
+            <span
+              className={css.menuGuard}
+              onKeyDown={event => {
+                guardMenuEscape(event, zoneOpen, () => {
+                  setZoneOpen(false)
+                  zoneRef.current?.focus()
                 })
               }}
             >
-              <span className={css.ruleLabel}>{t('timing.zone')}</span>
-              <span className={clsx(css.ruleValueFace, css.ruleControl)}>
-                <span className={css.ruleCurrent}>{zoneName(shown.draft.timeZone, systemZone, t)}</span>
-                <IconChevronDownOutlineRegular />
-              </span>
-            </button>}
-          />
-        </span>
-      </>}
-    </div>
-    {/* One hint slot under the rows: a refused save's message replaces the
+              <TaskMenu
+                className={css.ruleRowMenu}
+                open={zoneOpen}
+                onClose={() => {
+                  setZoneOpen(false)
+                  setZoneQuery('')
+                }}
+                items={
+                  shownZoneItems.length > 0
+                    ? shownZoneItems
+                    : [
+                        {
+                          id: '__empty',
+                          label: t('timing.zoneNoResults'),
+                          disabled: true,
+                        },
+                      ]
+                }
+                listClassName={css.zoneMenu}
+                header={
+                  <input
+                    className={css.zoneSearch}
+                    type="search"
+                    value={zoneQuery}
+                    placeholder={t('timing.zoneSearch')}
+                    aria-label={t('timing.zoneSearch')}
+                    // The portaled list is hidden until it is placed, so focus comes from
+                    // the menu's own handover rather than a mount-time autoFocus.
+                    data-menu-field=""
+                    onChange={event => {
+                      setZoneQuery(event.target.value)
+                    }}
+                  />
+                }
+                selectedId={shown.draft.timeZone}
+                onSelect={id => {
+                  chooseZone(id)
+                }}
+                align="end"
+                portal
+                anchor={
+                  <button
+                    ref={zoneRef}
+                    type="button"
+                    className={css.ruleValue}
+                    disabled={disabled}
+                    aria-haspopup="menu"
+                    aria-expanded={zoneOpen}
+                    onClick={() => {
+                      setZoneOpen(open => {
+                        if (open) setZoneQuery('')
+                        return !open
+                      })
+                    }}
+                  >
+                    <span className={css.ruleLabel}>{t('timing.zone')}</span>
+                    <span className={clsx(css.ruleValueFace, css.ruleControl)}>
+                      <span className={css.ruleCurrent}>{zoneName(shown.draft.timeZone, systemZone, t)}</span>
+                      <IconChevronDownOutlineRegular />
+                    </span>
+                  </button>
+                }
+              />
+            </span>
+          </>
+        )}
+      </div>
+      {/* One hint slot under the rows: a refused save's message replaces the
         descriptive copy there, and the description returns once edits remove
         the cause or Cancel restores the stored rule. */}
-    {shown.kind === 'every' && <p
-      id={rowId('interval-hint')}
-      role={failure === undefined ? undefined : 'alert'}
-      className={clsx(css.ruleHint, failure !== undefined && css.ruleHintError)}
-    >
-      {t(failure ?? INTERVAL_HINT_KEYS[intervalUnit])}
-    </p>}
-    {shown.kind !== 'every' && <>
-      {/* The cron choice shows no clock row, so its own sentence takes that
-          row's hint slot; a clock-time choice shows one only when its rule
-          stored no zone to read. */}
-      {shown.kind === 'cron'
-        ? <p
-          id={rowId('expression-hint')}
-          role={failure === undefined && parsedCron !== undefined ? undefined : 'alert'}
-          className={clsx(css.ruleHint, (failure !== undefined || parsedCron === undefined) && css.ruleHintError)}
-        >
-          {failure !== undefined ? t(failure)
-            : parsedCron === undefined ? t('rule.cronInvalid')
-              : cronPreview(parsedCron, t, t('time.locale'))}
-        </p>
-        : clockLine !== undefined && <p
-          id={rowId('time-hint')}
+      {shown.kind === 'every' && (
+        <p
+          id={rowId('interval-hint')}
           role={failure === undefined ? undefined : 'alert'}
           className={clsx(css.ruleHint, failure !== undefined && css.ruleHintError)}
         >
-          {t(clockLine)}
-        </p>}
-    </>}
-  </section>
+          {t(failure ?? INTERVAL_HINT_KEYS[intervalUnit])}
+        </p>
+      )}
+      {shown.kind !== 'every' && (
+        <>
+          {/* The cron choice shows no clock row, so its own sentence takes that
+          row's hint slot; a clock-time choice shows one only when its rule
+          stored no zone to read. */}
+          {shown.kind === 'cron' ? (
+            <p
+              id={rowId('expression-hint')}
+              role={failure === undefined && parsedCron !== undefined ? undefined : 'alert'}
+              className={clsx(css.ruleHint, (failure !== undefined || parsedCron === undefined) && css.ruleHintError)}
+            >
+              {failure !== undefined
+                ? t(failure)
+                : parsedCron === undefined
+                  ? t('rule.cronInvalid')
+                  : cronPreview(parsedCron, t, t('time.locale'))}
+            </p>
+          ) : (
+            clockLine !== undefined && (
+              <p
+                id={rowId('time-hint')}
+                role={failure === undefined ? undefined : 'alert'}
+                className={clsx(css.ruleHint, failure !== undefined && css.ruleHintError)}
+              >
+                {t(clockLine)}
+              </p>
+            )
+          )}
+        </>
+      )}
+    </section>
+  )
 }
 
 /** Cron builder frequency choices in menu order; `raw` edits the expression text itself. */
@@ -1959,9 +2219,8 @@ function CronRows({ task, disabled, expression, timeZone, hintId, onEditExpressi
     // staged zone, the same source the card's other choices seed from.
     const wallClock = zonedWallClock(task.scheduledAt, timeZone)
     const minute = shape !== undefined && shape.kind !== 'minutely' ? shape.minute : Number(wallClock.slice(14, 16))
-    const hour = shape?.kind === 'daily' || shape?.kind === 'weekly' || shape?.kind === 'monthly'
-      ? shape.hour
-      : Number(wallClock.slice(11, 13))
+    const hour =
+      shape?.kind === 'daily' || shape?.kind === 'weekly' || shape?.kind === 'monthly' ? shape.hour : Number(wallClock.slice(11, 13))
     switch (choice) {
       case 'minutely':
         onEditExpression(cronShapeExpression({ kind: 'minutely', step: CRON_DEFAULT_MINUTE_STEP }))
@@ -1975,23 +2234,28 @@ function CronRows({ task, disabled, expression, timeZone, hintId, onEditExpressi
       case 'weekly':
         // The guard above returns when the choice names the shape the expression
         // already has, so the seed never reuses a recognized weekly day set here.
-        onEditExpression(cronShapeExpression({
-          kind: 'weekly',
-          weekdays: [zonedWeekday(task.scheduledAt, timeZone)],
-          hour,
-          minute,
-        }))
+        onEditExpression(
+          cronShapeExpression({
+            kind: 'weekly',
+            weekdays: [zonedWeekday(task.scheduledAt, timeZone)],
+            hour,
+            minute,
+          }),
+        )
         return
       case 'monthly':
-        onEditExpression(cronShapeExpression({
-          kind: 'monthly',
-          days: [Number(wallClock.slice(8, 10))],
-          hour,
-          minute,
-        }))
+        onEditExpression(
+          cronShapeExpression({
+            kind: 'monthly',
+            days: [Number(wallClock.slice(8, 10))],
+            hour,
+            minute,
+          }),
+        )
         return
       /* v8 ignore next -- the switch covers every CronShapeChoice, so the default holds no reachable statement. */
-      default: assertNever(choice)
+      default:
+        assertNever(choice)
     }
   }
   const toggleDay = (current: Extract<CronBuilderState, { kind: 'weekly' }>, weekday: Weekday): void => {
@@ -2011,152 +2275,209 @@ function CronRows({ task, disabled, expression, timeZone, hintId, onEditExpressi
     onEditExpression(cronShapeExpression({ ...current, days }))
   }
   const pad = (value: number): string => String(value).padStart(2, '0')
-  const clock = builder?.kind === 'daily' || builder?.kind === 'weekly' || builder?.kind === 'monthly'
-    ? `${pad(builder.hour)}:${pad(builder.minute)}`
-    : ''
-  return <>
-    {/* Same Escape guard as the Repeat menu: the page's own Escape handler
+  const clock =
+    builder?.kind === 'daily' || builder?.kind === 'weekly' || builder?.kind === 'monthly'
+      ? `${pad(builder.hour)}:${pad(builder.minute)}`
+      : ''
+  return (
+    <>
+      {/* Same Escape guard as the Repeat menu: the page's own Escape handler
         must not close the whole task detail while this list is open. */}
-    <span className={css.menuGuard} onKeyDown={(event) => {
-      guardMenuEscape(event, freqOpen, () => {
-        setFreqOpen(false)
-        freqRef.current?.focus()
-      })
-    }}>
-      <TaskMenu
-        className={css.ruleRowMenu}
-        open={freqOpen}
-        onClose={() => { setFreqOpen(false) }}
-        items={CRON_SHAPE_CHOICES.map(value => ({ id: value, label: t(CRON_SHAPE_LABELS[value]), disabled }))}
-        selectedId={builder?.kind ?? 'raw'}
-        onSelect={(id) => { chooseShape(id as CronShapeChoice) }}
-        align="end"
-        portal
-        anchor={<button
-          ref={freqRef}
-          type="button"
-          className={css.ruleValue}
-          disabled={disabled}
-          aria-haspopup="menu"
-          aria-expanded={freqOpen}
-          aria-describedby={hintId}
-          onClick={() => { setFreqOpen(open => !open) }}
-        >
-          <span className={css.ruleLabel}>{t('cronForm.frequency')}</span>
-          <span className={clsx(css.ruleValueFace, css.ruleControl)}>
-            <span className={css.ruleCurrent}>{t(builder === undefined ? 'rule.cronLabel' : CRON_SHAPE_LABELS[builder.kind])}</span>
-            <IconChevronDownOutlineRegular />
-          </span>
-        </button>}
-      />
-    </span>
-    {builder?.kind === 'monthly' && <div className={css.ruleRow}>
-      <span className={css.ruleLabel} id={rowId('dates')}>{t('cronForm.dates')}</span>
-      <div className={clsx(css.ruleMonthDays, css.ruleControl)} role="group" aria-labelledby={rowId('dates')}>
-        {MONTH_DAYS.map((day) => {
-          const selected = builder.days.includes(day)
-          return <Pill
-            key={day}
-            className={css.ruleControl}
-            active={selected}
-            disabled={disabled}
-            aria-pressed={selected}
-            aria-label={t('cronForm.dateOption', { day })}
-            onClick={() => { toggleDate(builder, day) }}
-          >{day}</Pill>
-        })}
-      </div>
-    </div>}
-    {builder?.kind === 'weekly' && <WeekdayRow
-      weekdays={builder.weekdays}
-      disabled={disabled}
-      t={t}
-      rowId={rowId}
-      onToggle={(weekday) => { toggleDay(builder, weekday) }}
-    />}
-    {(builder?.kind === 'minutely' || builder?.kind === 'hourly') && <div className={css.ruleRow}>
-      <label className={css.ruleLabel} htmlFor={rowId('step')}>{t('timing.interval')}</label>
-      <span className={css.ruleInterval}>
-        <CronStepper
-          id={rowId('step')}
-          min={1}
-          max={builder.kind === 'minutely' ? 59 : 23}
-          value={builder.step}
-          disabled={disabled}
-          increaseLabel={t('timing.intervalIncrease')}
-          decreaseLabel={t('timing.intervalDecrease')}
-          onChange={(step) => { onEditExpression(cronShapeExpression({ ...builder, step })) }}
-        />
-        <span className={css.ruleIntervalUnit}>{t(builder.kind === 'minutely' ? 'timing.unit.minute' : 'timing.unit.hour')}</span>
-      </span>
-    </div>}
-    {builder?.kind === 'hourly' && <div className={css.ruleRow}>
-      <label className={css.ruleLabel} htmlFor={rowId('minute')}>{t('cronForm.atMinute')}</label>
-      <span className={css.ruleInterval}>
-        <CronStepper
-          id={rowId('minute')}
-          min={0}
-          max={59}
-          value={builder.minute}
-          disabled={disabled}
-          increaseLabel={t('cronForm.minuteIncrease')}
-          decreaseLabel={t('cronForm.minuteDecrease')}
-          onChange={(minute) => { onEditExpression(cronShapeExpression({ ...builder, minute })) }}
-        />
-      </span>
-    </div>}
-    {(builder?.kind === 'daily' || builder?.kind === 'weekly' || builder?.kind === 'monthly') && <div className={css.ruleRow}>
-      <label className={css.ruleLabel} htmlFor={rowId('time')}>{t('timing.time')}</label>
-      <span className={css.menuGuard} onKeyDown={(event) => {
-        guardMenuEscape(event, timeOpen, () => {
-          setTimeOpen(false)
-          timeRef.current?.focus()
-        })
-      }}>
-        <button
-          ref={timeRef}
-          id={rowId('time')}
-          type="button"
-          className={clsx(css.ruleInput, css.ruleControl, css.pickerTrigger)}
-          disabled={disabled}
-          aria-label={t('timing.time')}
-          aria-haspopup="dialog"
-          aria-expanded={timeOpen}
-          onClick={() => { setTimeOpen(open => !open) }}
-        >
-          <span>{clock}</span>
-          <IconClockOutlineRegular className={css.pickerIcon} />
-        </button>
-        <ClockPicker
-          open={timeOpen}
-          anchorRef={timeRef}
-          value={clock}
-          // A cron expression has no seconds field, so the panel offers none.
-          seconds={false}
-          onPick={(time) => {
-            onEditExpression(cronShapeExpression({ ...builder, hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)) }))
+      <span
+        className={css.menuGuard}
+        onKeyDown={event => {
+          guardMenuEscape(event, freqOpen, () => {
+            setFreqOpen(false)
+            freqRef.current?.focus()
+          })
+        }}
+      >
+        <TaskMenu
+          className={css.ruleRowMenu}
+          open={freqOpen}
+          onClose={() => {
+            setFreqOpen(false)
           }}
-          onClose={() => { setTimeOpen(false) }}
-          t={t}
+          items={CRON_SHAPE_CHOICES.map(value => ({ id: value, label: t(CRON_SHAPE_LABELS[value]), disabled }))}
+          selectedId={builder?.kind ?? 'raw'}
+          onSelect={id => {
+            chooseShape(id as CronShapeChoice)
+          }}
+          align="end"
+          portal
+          anchor={
+            <button
+              ref={freqRef}
+              type="button"
+              className={css.ruleValue}
+              disabled={disabled}
+              aria-haspopup="menu"
+              aria-expanded={freqOpen}
+              aria-describedby={hintId}
+              onClick={() => {
+                setFreqOpen(open => !open)
+              }}
+            >
+              <span className={css.ruleLabel}>{t('cronForm.frequency')}</span>
+              <span className={clsx(css.ruleValueFace, css.ruleControl)}>
+                <span className={css.ruleCurrent}>{t(builder === undefined ? 'rule.cronLabel' : CRON_SHAPE_LABELS[builder.kind])}</span>
+                <IconChevronDownOutlineRegular />
+              </span>
+            </button>
+          }
         />
       </span>
-    </div>}
-    {builder === undefined && <div className={css.ruleRow}>
-      <label className={css.ruleLabel} htmlFor={rowId('expression')}>{t('rule.cronLabel')}</label>
-      <input
-        id={rowId('expression')}
-        className={clsx(css.ruleInput, css.ruleControl)}
-        type="text"
-        spellCheck={false}
-        autoComplete="off"
-        disabled={disabled}
-        aria-invalid={parsed === undefined}
-        aria-describedby={hintId}
-        value={expression}
-        onChange={(event) => { onEditExpression(event.target.value) }}
-      />
-    </div>}
-  </>
+      {builder?.kind === 'monthly' && (
+        <div className={css.ruleRow}>
+          <span className={css.ruleLabel} id={rowId('dates')}>
+            {t('cronForm.dates')}
+          </span>
+          <div className={clsx(css.ruleMonthDays, css.ruleControl)} role="group" aria-labelledby={rowId('dates')}>
+            {MONTH_DAYS.map(day => {
+              const selected = builder.days.includes(day)
+              return (
+                <Pill
+                  key={day}
+                  className={css.ruleControl}
+                  active={selected}
+                  disabled={disabled}
+                  aria-pressed={selected}
+                  aria-label={t('cronForm.dateOption', { day })}
+                  onClick={() => {
+                    toggleDate(builder, day)
+                  }}
+                >
+                  {day}
+                </Pill>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      {builder?.kind === 'weekly' && (
+        <WeekdayRow
+          weekdays={builder.weekdays}
+          disabled={disabled}
+          t={t}
+          rowId={rowId}
+          onToggle={weekday => {
+            toggleDay(builder, weekday)
+          }}
+        />
+      )}
+      {(builder?.kind === 'minutely' || builder?.kind === 'hourly') && (
+        <div className={css.ruleRow}>
+          <label className={css.ruleLabel} htmlFor={rowId('step')}>
+            {t('timing.interval')}
+          </label>
+          <span className={css.ruleInterval}>
+            <CronStepper
+              id={rowId('step')}
+              min={1}
+              max={builder.kind === 'minutely' ? 59 : 23}
+              value={builder.step}
+              disabled={disabled}
+              increaseLabel={t('timing.intervalIncrease')}
+              decreaseLabel={t('timing.intervalDecrease')}
+              onChange={step => {
+                onEditExpression(cronShapeExpression({ ...builder, step }))
+              }}
+            />
+            <span className={css.ruleIntervalUnit}>{t(builder.kind === 'minutely' ? 'timing.unit.minute' : 'timing.unit.hour')}</span>
+          </span>
+        </div>
+      )}
+      {builder?.kind === 'hourly' && (
+        <div className={css.ruleRow}>
+          <label className={css.ruleLabel} htmlFor={rowId('minute')}>
+            {t('cronForm.atMinute')}
+          </label>
+          <span className={css.ruleInterval}>
+            <CronStepper
+              id={rowId('minute')}
+              min={0}
+              max={59}
+              value={builder.minute}
+              disabled={disabled}
+              increaseLabel={t('cronForm.minuteIncrease')}
+              decreaseLabel={t('cronForm.minuteDecrease')}
+              onChange={minute => {
+                onEditExpression(cronShapeExpression({ ...builder, minute }))
+              }}
+            />
+          </span>
+        </div>
+      )}
+      {(builder?.kind === 'daily' || builder?.kind === 'weekly' || builder?.kind === 'monthly') && (
+        <div className={css.ruleRow}>
+          <label className={css.ruleLabel} htmlFor={rowId('time')}>
+            {t('timing.time')}
+          </label>
+          <span
+            className={css.menuGuard}
+            onKeyDown={event => {
+              guardMenuEscape(event, timeOpen, () => {
+                setTimeOpen(false)
+                timeRef.current?.focus()
+              })
+            }}
+          >
+            <button
+              ref={timeRef}
+              id={rowId('time')}
+              type="button"
+              className={clsx(css.ruleInput, css.ruleControl, css.pickerTrigger)}
+              disabled={disabled}
+              aria-label={t('timing.time')}
+              aria-haspopup="dialog"
+              aria-expanded={timeOpen}
+              onClick={() => {
+                setTimeOpen(open => !open)
+              }}
+            >
+              <span>{clock}</span>
+              <IconClockOutlineRegular className={css.pickerIcon} />
+            </button>
+            <ClockPicker
+              open={timeOpen}
+              anchorRef={timeRef}
+              value={clock}
+              // A cron expression has no seconds field, so the panel offers none.
+              seconds={false}
+              onPick={time => {
+                onEditExpression(cronShapeExpression({ ...builder, hour: Number(time.slice(0, 2)), minute: Number(time.slice(3, 5)) }))
+              }}
+              onClose={() => {
+                setTimeOpen(false)
+              }}
+              t={t}
+            />
+          </span>
+        </div>
+      )}
+      {builder === undefined && (
+        <div className={css.ruleRow}>
+          <label className={css.ruleLabel} htmlFor={rowId('expression')}>
+            {t('rule.cronLabel')}
+          </label>
+          <input
+            id={rowId('expression')}
+            className={clsx(css.ruleInput, css.ruleControl)}
+            type="text"
+            spellCheck={false}
+            autoComplete="off"
+            disabled={disabled}
+            aria-invalid={parsed === undefined}
+            aria-describedby={hintId}
+            value={expression}
+            onChange={event => {
+              onEditExpression(event.target.value)
+            }}
+          />
+        </div>
+      )}
+    </>
+  )
 }
 
 /** Inputs of one whole-number stepper of the cron builder. */
@@ -2188,44 +2509,47 @@ interface CronStepperProps {
  */
 function CronStepper({ id, min, max, value, disabled, increaseLabel, decreaseLabel, onChange }: CronStepperProps): ReactNode {
   const clamp = (next: number): number => Math.min(max, Math.max(min, next))
-  return <span
-    className={css.ruleIntervalStepper}
-    style={{ '--interval-digits': String(value).length } as CSSProperties}
-  >
-    <input
-      id={id}
-      className={clsx(css.ruleInput, css.ruleControl, css.ruleIntervalInput)}
-      type="number"
-      min={min}
-      max={max}
-      step={1}
-      disabled={disabled}
-      value={value}
-      onChange={(event) => {
-        const next = Number(event.target.value)
-        if (event.target.value === '' || !Number.isSafeInteger(next)) return
-        onChange(clamp(next))
-      }}
-    />
-    <span className={css.ruleIntervalArrows}>
-      <button
-        type="button"
-        className={css.ruleIntervalArrow}
-        aria-label={increaseLabel}
-        disabled={disabled || value >= max}
-        onClick={() => { onChange(clamp(value + 1)) }}
-      >
-        <IconChevronUpOutlineRegular size={9} />
-      </button>
-      <button
-        type="button"
-        className={css.ruleIntervalArrow}
-        aria-label={decreaseLabel}
-        disabled={disabled || value <= min}
-        onClick={() => { onChange(clamp(value - 1)) }}
-      >
-        <IconChevronDownOutlineRegular size={9} />
-      </button>
+  return (
+    <span className={css.ruleIntervalStepper} style={{ '--interval-digits': String(value).length } as CSSProperties}>
+      <input
+        id={id}
+        className={clsx(css.ruleInput, css.ruleControl, css.ruleIntervalInput)}
+        type="number"
+        min={min}
+        max={max}
+        step={1}
+        disabled={disabled}
+        value={value}
+        onChange={event => {
+          const next = Number(event.target.value)
+          if (event.target.value === '' || !Number.isSafeInteger(next)) return
+          onChange(clamp(next))
+        }}
+      />
+      <span className={css.ruleIntervalArrows}>
+        <button
+          type="button"
+          className={css.ruleIntervalArrow}
+          aria-label={increaseLabel}
+          disabled={disabled || value >= max}
+          onClick={() => {
+            onChange(clamp(value + 1))
+          }}
+        >
+          <IconChevronUpOutlineRegular size={9} />
+        </button>
+        <button
+          type="button"
+          className={css.ruleIntervalArrow}
+          aria-label={decreaseLabel}
+          disabled={disabled || value <= min}
+          onClick={() => {
+            onChange(clamp(value - 1))
+          }}
+        >
+          <IconChevronDownOutlineRegular size={9} />
+        </button>
+      </span>
     </span>
-  </span>
+  )
 }

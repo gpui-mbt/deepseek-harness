@@ -3,10 +3,16 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import {
-  assertFinalWorkspaceSnapshot, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts, launchWebScaffold,
-  selectedSessionFixture, watchConsole, webSnapshotMode,
+  assertFinalWorkspaceSnapshot,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  selectedSessionFixture,
+  watchConsole,
+  webSnapshotMode,
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -36,8 +42,7 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
         await input.waitFor()
         // Language-neutral on disk, localized in the hero chip. The chip's
         // aria-label is its fixed call to action, so the label is its text.
-        await expect.poll(() => page.getByRole('button', { name: 'Choose workspace', exact: true }).textContent())
-          .toBe('Default workspace')
+        await expect.poll(() => page.getByRole('button', { name: 'Choose workspace', exact: true }).textContent()).toBe('Default workspace')
         expect(scaffold.ctx.workspaceRegistry.list()).toHaveLength(1)
         const initialSession = scaffold.ctx.sessions.list()[0]!
         expect(scaffold.ctx.sessions.list()).toHaveLength(1)
@@ -56,7 +61,10 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
         expect((await stat(workspace.path)).isDirectory()).toBe(true)
         expect(workspace.sessionIds).toContain(sessionId)
         expect(scaffold.ctx.sessions.get(sessionId)?.header.cwd).toBe(workspace.path)
-        await assertFinalWorkspaceSnapshot(fileURLToPath(new URL('../../../snapshots/web/default-workspace', import.meta.url)), workspace.path)
+        await assertFinalWorkspaceSnapshot(
+          fileURLToPath(new URL('../../../snapshots/web/default-workspace', import.meta.url)),
+          workspace.path,
+        )
         await page.getByText('DONE', { exact: true }).waitFor()
         await compareOrRefreshGolden(EXPECTED, await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd), MODE)
         expect(tripwire.pageErrors).toEqual([])
@@ -106,8 +114,9 @@ describe.skipIf(MODE === 'record')('web e2e: default Workspace', () => {
         expect(await input.textContent()).toBe('')
         expect(scaffold.ctx.workspaceRegistry.list()[0]?.path).toBe(chosen)
         expect(scaffold.ctx.sessions.list()).toHaveLength(1)
-        expect(scaffold.ctx.sessions.list().every(session =>
-          session.snapshotEvents().every(event => event.type !== 'user/message'))).toBe(true)
+        expect(scaffold.ctx.sessions.list().every(session => session.snapshotEvents().every(event => event.type !== 'user/message'))).toBe(
+          true,
+        )
         expect(tripwire.pageErrors).toEqual([])
         expect(tripwire.warnings).toEqual([])
       } catch (error) {

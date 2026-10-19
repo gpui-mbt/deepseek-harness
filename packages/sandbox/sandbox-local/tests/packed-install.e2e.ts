@@ -4,7 +4,7 @@ import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { packedWorkspaceClosure, readWorkspacePackages } from './packed-workspace-closure.ts'
 
 /**
@@ -31,11 +31,12 @@ const NATIVE_PACKAGE_PREFIX = '@deepseek-ai/node-addon-system'
 /** ELF `e_machine` (offset 18, LE) for this host: x86-64 = 62, AArch64 = 183. */
 const E_MACHINE = { x64: 62, arm64: 183 }[process.arch as 'x64' | 'arm64']
 
-const packable = process.platform === 'linux'
-  && E_MACHINE !== undefined
-  && existsSync(join(packageDir, 'lib', 'index.js'))
-  && existsSync(join(nativeDir, 'packages/entry/lib/index.js'))
-  && existsSync(sourceLauncher)
+const packable =
+  process.platform === 'linux' &&
+  E_MACHINE !== undefined &&
+  existsSync(join(packageDir, 'lib', 'index.js')) &&
+  existsSync(join(nativeDir, 'packages/entry/lib/index.js')) &&
+  existsSync(sourceLauncher)
 
 let consumerDir = ''
 let workDir = ''
@@ -72,10 +73,9 @@ describe.skipIf(!packable)('sandbox-local: packed-tarball distribution (publish-
 
     // Derive the current runtime closure so a newly introduced workspace
     // dependency cannot fall through to an unpublished registry version.
-    const workspaceClosure = packedWorkspaceClosure(
-      '@deepseek-ai/dsh-sandbox-local',
-      readWorkspacePackages(repoRoot),
-    ).filter(member => !member.name.startsWith(NATIVE_PACKAGE_PREFIX))
+    const workspaceClosure = packedWorkspaceClosure('@deepseek-ai/dsh-sandbox-local', readWorkspacePackages(repoRoot)).filter(
+      member => !member.name.startsWith(NATIVE_PACKAGE_PREFIX),
+    )
 
     // Pack each harness closure member with the exact bytes publish would upload.
     const tarballs: string[] = []
@@ -105,7 +105,9 @@ describe.skipIf(!packable)('sandbox-local: packed-tarball distribution (publish-
     // packages and reports a JSON verdict; every assertion happens back in
     // the test. bwrap is forced off so the wrap must select the INSTALLED
     // launcher; a non-enforcing kernel must surface the fail-closed error.
-    writeFileSync(join(consumerDir, 'consumer.mjs'), `
+    writeFileSync(
+      join(consumerDir, 'consumer.mjs'),
+      `
       import { spawnSync } from 'node:child_process'
       import { existsSync } from 'node:fs'
       import { Context } from '@deepseek-ai/cordis'
@@ -135,7 +137,8 @@ describe.skipIf(!packable)('sandbox-local: packed-tarball distribution (publish-
         }
       }
       console.log(JSON.stringify(out))
-    `)
+    `,
+    )
     const consumer = spawnSync('node', ['consumer.mjs', workDir], { cwd: consumerDir, encoding: 'utf8', timeout: 60_000 })
     expect(consumer.status, `consumer script failed:\n${consumer.stdout}\n${consumer.stderr}`).toBe(0)
     verdict = JSON.parse(consumer.stdout.trim().split('\n').pop() as string) as typeof verdict
@@ -145,19 +148,20 @@ describe.skipIf(!packable)('sandbox-local: packed-tarball distribution (publish-
     await Promise.all([consumerDir, workDir].filter(Boolean).map(dir => rm(dir, { recursive: true, force: true })))
   })
 
-  it('installs this checkout\'s launcher for the host: present, executable, byte-identical, and right ELF arch', () => {
+  it("installs this checkout's launcher for the host: present, executable, byte-identical, and right ELF arch", () => {
     const installed = join(consumerDir, 'node_modules', ...platformPackageName.split('/'), 'bin', 'landlock-run')
     expect(existsSync(installed), 'platform package missing from the installed tree').toBe(true)
     // A tarball or extraction step that strips the mode bit would leave the
     // probe failing exactly like a non-enforcing kernel — assert it apart.
-    expect(() => { accessSync(installed, constants.X_OK) }, 'installed launcher is not executable').not.toThrow()
+    expect(() => {
+      accessSync(installed, constants.X_OK)
+    }, 'installed launcher is not executable').not.toThrow()
     expect(readFileSync(installed), 'installed launcher bytes').toEqual(readFileSync(sourceLauncher))
     expect(readFileSync(installed).readUInt16LE(18), 'ELF e_machine').toBe(E_MACHINE)
   })
 
   it('the installed provider resolves the launcher INSIDE the consumer node_modules platform package', () => {
-    expect(verdict.launcher)
-      .toBe(join(consumerDir, 'node_modules', ...platformPackageName.split('/'), 'bin', 'landlock-run'))
+    expect(verdict.launcher).toBe(join(consumerDir, 'node_modules', ...platformPackageName.split('/'), 'bin', 'landlock-run'))
   })
 
   it('confines through the installed launcher (enforcing kernel) or fails closed (non-enforcing) — never unconfined', async () => {

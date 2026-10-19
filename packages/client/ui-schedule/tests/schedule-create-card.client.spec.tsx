@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import type { ScheduleCatalogEntry, ScheduleId } from '@deepseek-ai/dsh-schedule/client'
@@ -21,18 +21,34 @@ const PROMPT = 'Check the deployment\nand report'
 const ARGS = { prompt: PROMPT, daily: { time: '23:00:00', time_zone: 'Asia/Shanghai' } }
 
 const dailyTask = {
-  id: 'task-daily', kind: 'daily', title: 'Check the deployment', prompt: PROMPT,
-  scheduledAt: '2026-10-01T15:00:00.000Z', time: '23:00:00.000', timeZone: 'Asia/Shanghai',
+  id: 'task-daily',
+  kind: 'daily',
+  title: 'Check the deployment',
+  prompt: PROMPT,
+  scheduledAt: '2026-10-01T15:00:00.000Z',
+  time: '23:00:00.000',
+  timeZone: 'Asia/Shanghai',
 }
 
 const weeklyTask = {
-  id: 'task-weekly', kind: 'weekly', title: 'Check the deployment', prompt: PROMPT,
-  scheduledAt: '2026-10-01T01:00:00.000Z', time: '09:00:00.000', timeZone: 'Asia/Shanghai', weekdays: [1, 3],
+  id: 'task-weekly',
+  kind: 'weekly',
+  title: 'Check the deployment',
+  prompt: PROMPT,
+  scheduledAt: '2026-10-01T01:00:00.000Z',
+  time: '09:00:00.000',
+  timeZone: 'Asia/Shanghai',
+  weekdays: [1, 3],
 }
 
 const cronTask = {
-  id: 'task-cron', kind: 'cron', title: 'Check the deployment', prompt: PROMPT,
-  scheduledAt: '2026-10-01T01:15:00.000Z', expression: '*/15 9-17 * * 1-5', timeZone: 'Asia/Shanghai',
+  id: 'task-cron',
+  kind: 'cron',
+  title: 'Check the deployment',
+  prompt: PROMPT,
+  scheduledAt: '2026-10-01T01:15:00.000Z',
+  expression: '*/15 9-17 * * 1-5',
+  timeZone: 'Asia/Shanghai',
 }
 
 afterEach(cleanup)
@@ -42,22 +58,33 @@ function running(args: unknown = ARGS): ToolBlock {
   return {
     phase: 'start',
     args: PartialArguments.fromText(typeof args === 'string' ? args : JSON.stringify(args)),
-    callId: CALL, name: TOOL, argsRaw: typeof args === 'string' ? args : JSON.stringify(args),
-    turn: 1, step: 1, time: 0, subCalls: [],
+    callId: CALL,
+    name: TOOL,
+    argsRaw: typeof args === 'string' ? args : JSON.stringify(args),
+    turn: 1,
+    step: 1,
+    time: 0,
+    subCalls: [],
   }
 }
 
 /** One settled result block whose result text is the canonical value by default. */
-function settled(value: unknown, options: {
-  args?: unknown
-  text?: string
-  content?: readonly unknown[]
-  isError?: boolean
-  call?: boolean
-} = {}): ToolBlock {
+function settled(
+  value: unknown,
+  options: {
+    args?: unknown
+    text?: string
+    content?: readonly unknown[]
+    isError?: boolean
+    call?: boolean
+  } = {},
+): ToolBlock {
   const argsRaw = typeof options.args === 'string' ? options.args : JSON.stringify(options.args ?? ARGS)
   return {
-    kind: 'tool-result', seq: 1, time: 1, callId: CALL,
+    kind: 'tool-result',
+    seq: 1,
+    time: 1,
+    callId: CALL,
     name: options.call === false ? '' : TOOL,
     args: options.call === false ? PartialArguments.EMPTY : PartialArguments.fromText(argsRaw),
     call: options.call === false ? null : { name: TOOL, argsRaw },
@@ -78,7 +105,13 @@ function catalogEntry(fixture: unknown, status: ScheduleCatalogEntry['status'] =
 /** Component props with an injected open action; the framework fills the rest. */
 function props(block: ToolBlock, openTaskDetail = vi.fn(), t = makeTranslate(en)): ScheduleCreateCardProps {
   return {
-    callId: CALL, toolName: TOOL, block, openFile: vi.fn(), loadImage: vi.fn(), openTaskDetail, t,
+    callId: CALL,
+    toolName: TOOL,
+    block,
+    openFile: vi.fn(),
+    loadImage: vi.fn(),
+    openTaskDetail,
+    t,
   } as ScheduleCreateCardProps
 }
 
@@ -112,16 +145,25 @@ describe('narrowScheduleRecord', () => {
   })
 
   it.each([
-    [{ id: 'a', kind: 'after', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt, afterSeconds: 60 },
-      { id: 'a', kind: 'after', title: 'Check the deployment', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt, afterSeconds: 60 }],
-    [{ id: 'b', kind: 'at', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt },
-      { id: 'b', kind: 'at', title: 'Check the deployment', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt }],
-    [{ id: 'c', kind: 'every', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt, everySeconds: 300 },
-      { id: 'c', kind: 'every', title: 'Check the deployment', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt, everySeconds: 300 }],
+    [
+      { id: 'a', kind: 'after', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt, afterSeconds: 60 },
+      { id: 'a', kind: 'after', title: 'Check the deployment', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt, afterSeconds: 60 },
+    ],
+    [
+      { id: 'b', kind: 'at', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt },
+      { id: 'b', kind: 'at', title: 'Check the deployment', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt },
+    ],
+    [
+      { id: 'c', kind: 'every', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt, everySeconds: 300 },
+      { id: 'c', kind: 'every', title: 'Check the deployment', prompt: PROMPT, scheduledAt: dailyTask.scheduledAt, everySeconds: 300 },
+    ],
     [dailyTask, dailyTask],
     [weeklyTask, weeklyTask],
     [cronTask, cronTask],
-    [{ ...dailyTask, title: 'Deployment check' }, { ...dailyTask, title: 'Deployment check' }],
+    [
+      { ...dailyTask, title: 'Deployment check' },
+      { ...dailyTask, title: 'Deployment check' },
+    ],
     // A result recorded before the stored field existed keeps its task; the card
     // names it from the instruction's first line.
     [{ ...dailyTask, title: '' }, dailyTask],
@@ -135,19 +177,35 @@ describe('narrowScheduleRecord', () => {
 describe('scheduleCreateCardModel', () => {
   it('names a pending call from its arguments and reads no result text', () => {
     expect(scheduleCreateCardModel(running(), TOOL)).toEqual({
-      task: undefined, title: 'Check the deployment', output: null,
+      task: undefined,
+      title: 'Check the deployment',
+      output: null,
     })
   })
 
   it('names a still-preparing call by the tool until its arguments arrive', () => {
-    expect(scheduleCreateCardModel({
-      phase: 'preparing', args: PartialArguments.EMPTY, callId: CALL, name: TOOL, turn: 1, step: 1, time: 0, subCalls: [],
-    }, TOOL)).toEqual({ task: undefined, title: TOOL, output: null })
+    expect(
+      scheduleCreateCardModel(
+        {
+          phase: 'preparing',
+          args: PartialArguments.EMPTY,
+          callId: CALL,
+          name: TOOL,
+          turn: 1,
+          step: 1,
+          time: 0,
+          subCalls: [],
+        },
+        TOOL,
+      ),
+    ).toEqual({ task: undefined, title: TOOL, output: null })
   })
 
   it('narrows the created task out of the settled result JSON', () => {
     expect(scheduleCreateCardModel(settled(dailyTask), TOOL)).toEqual({
-      task: dailyTask, title: 'Check the deployment', output: JSON.stringify(dailyTask),
+      task: dailyTask,
+      title: 'Check the deployment',
+      output: JSON.stringify(dailyTask),
     })
   })
 
@@ -172,9 +230,17 @@ describe('scheduleCreateCardModel', () => {
     expect(scheduleCreateCardModel(settled(dailyTask, { content: [] }), TOOL).output).toBeNull()
     expect(scheduleCreateCardModel(settled(dailyTask, { content: [{ type: 'image', data: 'x' }] }), TOOL).output).toBeNull()
     expect(scheduleCreateCardModel(settled(dailyTask, { text: '' }), TOOL).output).toBeNull()
-    expect(scheduleCreateCardModel(settled(dailyTask, {
-      content: [{ type: 'text', text: JSON.stringify(dailyTask) }, { type: 'text', text: 'extra' }],
-    }), TOOL).output).toBeNull()
+    expect(
+      scheduleCreateCardModel(
+        settled(dailyTask, {
+          content: [
+            { type: 'text', text: JSON.stringify(dailyTask) },
+            { type: 'text', text: 'extra' },
+          ],
+        }),
+        TOOL,
+      ).output,
+    ).toBeNull()
   })
 
   it('reads no task from a replayed result that is not a complete rule', () => {
@@ -271,8 +337,7 @@ describe('ScheduleCreateCard', () => {
     const openTaskDetail = vi.fn()
     render(<ScheduleCreateCard {...props(settled(dailyTask), openTaskDetail)} currentTask={current} />)
     expect(screen.getByText('Updated deployment check')).toBeDefined()
-    expect(screen.getByText(`Weekly on Mon, Wed at 09:00 (${zoneLabel('Asia/Shanghai', makeTranslate(en))})`))
-      .toBeDefined()
+    expect(screen.getByText(`Weekly on Mon, Wed at 09:00 (${zoneLabel('Asia/Shanghai', makeTranslate(en))})`)).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: 'Open task details: Updated deployment check' }))
     expect(openTaskDetail).toHaveBeenCalledExactlyOnceWith('task-daily' as ScheduleId)
   })

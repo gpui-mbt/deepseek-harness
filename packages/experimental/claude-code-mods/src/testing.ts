@@ -14,9 +14,23 @@ import type { TreePattern, UiElement, UiNode } from './elements.ts'
 import { ModsEngine, OpDenied } from './engine.ts'
 import type { OpCore } from './engine.ts'
 import type {
-  CommandRunInput, CommandRunResult, ModDefinition, ModsApi, PromptSubmitInput, PromptSubmitResult,
-  SessionEndInput, SessionEndResult, SessionStartInput, SessionStartResult, ToolCallInput, ToolCallResult,
-  TurnCompleteInput, TurnCompleteResult, TurnStartInput, TurnStartResult, UiRenderInput,
+  CommandRunInput,
+  CommandRunResult,
+  ModDefinition,
+  ModsApi,
+  PromptSubmitInput,
+  PromptSubmitResult,
+  SessionEndInput,
+  SessionEndResult,
+  SessionStartInput,
+  SessionStartResult,
+  ToolCallInput,
+  ToolCallResult,
+  TurnCompleteInput,
+  TurnCompleteResult,
+  TurnStartInput,
+  TurnStartResult,
+  UiRenderInput,
 } from './types.ts'
 
 /**
@@ -176,7 +190,9 @@ export const mock = Object.freeze({
   clock(on: ModTestKit['on'], startAt = 0): { now: number; advance(ms: number): void } {
     const clock = {
       now: startAt,
-      advance(ms: number): void { clock.now += ms },
+      advance(ms: number): void {
+        clock.now += ms
+      },
     }
     on('clock.now', () => ({ value: clock.now }))
     on('clock.sleep', (_$, e: { ms: number }) => {
@@ -193,7 +209,7 @@ const DEFAULT_ENGINE_ANSWERS: Readonly<Record<string, (e: never) => unknown>> = 
   'session.end': (e: SessionEndInput) => ({ sessionId: e.sessionId }),
   'turn.start': (e: TurnStartInput) => ({ turnId: e.turnId }),
   'turn.complete': () => ({ text: '' }),
-  'prompt.submit': (e: PromptSubmitInput) => ({ text: e.text, ...e.context === undefined ? {} : { context: e.context } }),
+  'prompt.submit': (e: PromptSubmitInput) => ({ text: e.text, ...(e.context === undefined ? {} : { context: e.context }) }),
   'command.run': () => ({}),
   'ui.render': () => null,
 }
@@ -218,23 +234,29 @@ export async function createModTestKit(options: ModTestKitOptions = {}): Promise
   const reports: string[] = []
   const stubs = new Map<string, StubHook>()
   const engine = new ModsEngine<Record<never, never>>({
-    ops: (op) => {
+    ops: op => {
       const stub = stubs.get(op) ?? DEFAULT_OP_ANSWERS[op]
       return stub === undefined ? undefined : opStub(op, stub)
     },
     stateKey: () => 'test',
     budgetMs: options.budgetMs ?? 5_000,
     catchBudgetMs: 1_000,
-    report: (line) => { reports.push(line) },
+    report: line => {
+      reports.push(line)
+    },
   })
   const kitMod: LoadedMod = Object.freeze({
-    name: 'claude-code-testing', version: undefined, root: process.cwd(), options: Object.freeze({}), order: Number.MAX_SAFE_INTEGER,
+    name: 'claude-code-testing',
+    version: undefined,
+    root: process.cwd(),
+    options: Object.freeze({}),
+    order: Number.MAX_SAFE_INTEGER,
   })
   const binding = {}
   const signal = new AbortController().signal
 
   function opStub(op: string, stub: StubHook): OpCore<Record<never, never>> {
-    return async (input) => {
+    return async input => {
       const answer = await stub(engine.api(kitMod, undefined, binding, signal), input as never)
       if (typeof answer !== 'object' || answer === null) throw new Error(`${op}: a stub returned neither { value } nor { deny }`)
       const result = answer as { value?: unknown; deny?: unknown }
@@ -250,17 +272,22 @@ export async function createModTestKit(options: ModTestKitOptions = {}): Promise
   }
 
   function raise<R>(event: string, input: unknown): Promise<R> {
-    return engine.raise<unknown, R>(event, input, async (e) => {
-      const stub = stubs.get(event)
-      if (stub !== undefined) {
-        const answer = await stub(engine.api(kitMod, undefined, binding, signal), e as never)
-        if (typeof answer !== 'object' || answer === null) throw new Error(`${event}: the stub returned no result`)
-        return answer as R
-      }
-      const fallback = DEFAULT_ENGINE_ANSWERS[event]
-      if (fallback === undefined) throw new Error(`no implementation for ${event}`)
-      return fallback(e as never) as R
-    }, { binding, signal })
+    return engine.raise<unknown, R>(
+      event,
+      input,
+      async e => {
+        const stub = stubs.get(event)
+        if (stub !== undefined) {
+          const answer = await stub(engine.api(kitMod, undefined, binding, signal), e as never)
+          if (typeof answer !== 'object' || answer === null) throw new Error(`${event}: the stub returned no result`)
+          return answer as R
+        }
+        const fallback = DEFAULT_ENGINE_ANSWERS[event]
+        if (fallback === undefined) throw new Error(`no implementation for ${event}`)
+        return fallback(e as never) as R
+      },
+      { binding, signal },
+    )
   }
 
   let calls = 0
@@ -272,7 +299,7 @@ export async function createModTestKit(options: ModTestKitOptions = {}): Promise
     const input: UiRenderInput = {
       component: args.component,
       surface: args.requestId ?? args.component,
-      ...args.requestId === undefined ? {} : { requestId: args.requestId },
+      ...(args.requestId === undefined ? {} : { requestId: args.requestId }),
       props,
       viewport: { columns },
     }
@@ -289,7 +316,8 @@ export async function createModTestKit(options: ModTestKitOptions = {}): Promise
       text: renderText(element),
       async press(): Promise<void> {
         const onPress = element.props['onPress']
-        if (element.type !== 'Button' || typeof onPress !== 'function') throw new Error(`press() needs a Button with onPress, not a ${element.type}`)
+        if (element.type !== 'Button' || typeof onPress !== 'function')
+          throw new Error(`press() needs a Button with onPress, not a ${element.type}`)
         await (onPress as () => unknown)()
         await redraw()
       },
@@ -312,17 +340,24 @@ export async function createModTestKit(options: ModTestKitOptions = {}): Promise
         submit: input => raise<PromptSubmitResult>('prompt.submit', { wait: false, origin: { kind: 'composer' }, ...input }),
       },
       session: {
-        start: (input = {}) => raise<SessionStartResult>('session.start', { cwd: process.cwd(), surface: null, isInteractive: true, ...input }),
+        start: (input = {}) =>
+          raise<SessionStartResult>('session.start', { cwd: process.cwd(), surface: null, isInteractive: true, ...input }),
         end: (input = {}) => raise<SessionEndResult>('session.end', { reason: 'other', sessionId: 'test', ...input }),
       },
       turn: {
         start: input => raise<TurnStartResult>('turn.start', { text: '', ...input }),
-        complete: (input = {}) => raise<TurnCompleteResult>('turn.complete', {
-          turnId: '1', answer: '', durationMs: 0, isAborted: false, reason: 'answer', ...input,
-        }),
+        complete: (input = {}) =>
+          raise<TurnCompleteResult>('turn.complete', {
+            turnId: '1',
+            answer: '',
+            durationMs: 0,
+            isAborted: false,
+            reason: 'answer',
+            ...input,
+          }),
       },
       ui: {
-        mount: async (args) => {
+        mount: async args => {
           const key = args.requestId ?? args.component
           if (mounted.has(key)) throw new Error(`surface ${key} is already mounted`)
           mounted.add(key)

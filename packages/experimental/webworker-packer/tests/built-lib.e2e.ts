@@ -5,14 +5,14 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { pnpmInvocation } from '../../../../scripts/pnpm-invocation.ts'
 
 const experimentalDirectory = fileURLToPath(new URL('../..', import.meta.url))
 const packages = ['webworker-runtime', 'webworker-packer']
 const packageNames = new Set(packages.map(name => `@deepseek-ai/dsh-experimental-${name}`))
 
-it('loads both tarballs through plain Node and mounts their base image and overlay', { retry: 0 }, async (test) => {
+it('loads both tarballs through plain Node and mounts their base image and overlay', { retry: 0 }, async test => {
   const root = await mkdtemp(join(tmpdir(), 'dsh-webworker-packed-'))
   const links: string[] = []
   let pending: Promise<string> = Promise.resolve('')
@@ -33,7 +33,7 @@ it('loads both tarballs through plain Node and mounts their base image and overl
       cancelSignal: test.signal,
       killSignal: 'SIGKILL',
       reject: false,
-    }).then((result) => {
+    }).then(result => {
       expect(result.timedOut, `stderr:\n${result.stderr}`).toBe(false)
       expect(result.isCanceled, `stderr:\n${result.stderr}`).toBe(false)
       expect(result.signal, `stderr:\n${result.stderr}`).toBeUndefined()

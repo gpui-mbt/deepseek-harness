@@ -1,5 +1,5 @@
 import koffi from 'koffi'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   closeHandleChecked,
   isJobEmpty,
@@ -18,15 +18,9 @@ import {
   WAIT_TIMEOUT,
 } from '../src/abi.ts'
 import { processInformationType, startupInfoType } from '../src/ffi.ts'
-import type {
-  CurrentTokenProcessSpawnOptions,
-  CurrentTokenProcessBindings,
-  NativePtr,
-} from '../src/index.ts'
+import type { CurrentTokenProcessSpawnOptions, CurrentTokenProcessBindings, NativePtr } from '../src/index.ts'
 
-function options(
-  overrides: Partial<CurrentTokenProcessSpawnOptions> = {},
-): CurrentTokenProcessSpawnOptions {
+function options(overrides: Partial<CurrentTokenProcessSpawnOptions> = {}): CurrentTokenProcessSpawnOptions {
   return {
     command: 'probe.exe',
     applicationName: 'C:\\resolved\\probe.exe',
@@ -75,11 +69,11 @@ function api(overrides: Partial<CurrentTokenProcessBindings> = {}): CurrentToken
 }
 
 describe('ordinary Job process operations', () => {
-  it.each([3, 2])('supplies fd 7 with standard handle type %s and releases its temporary inheritance', (standardType) => {
+  it.each([3, 2])('supplies fd 7 with standard handle type %s and releases its temporary inheritance', standardType => {
     let descriptorBytes: Buffer | undefined
     const flags = vi.fn(() => 1)
     const bindings = api({
-      getFileType: vi.fn(handle => handle === 107n ? 3 : standardType),
+      getFileType: vi.fn(handle => (handle === 107n ? 3 : standardType)),
       setHandleInformation: flags,
       createProcessW: vi.fn((_app, _line, _pa, _ta, _inherit, _flags, _env, _cwd, startupPointer, processInfo) => {
         const startup = koffi.decode(startupPointer, startupInfoType()) as { cbReserved2: number; lpReserved2: NativePtr }
@@ -88,9 +82,14 @@ describe('ordinary Job process operations', () => {
         return 1
       }),
     })
-    expect(spawnCurrentTokenJobProcess(bindings, options({
-      stdio: { stdin: 4, stdout: 5, stderr: 6, control: 7 },
-    }))).toEqual({ pid: 1234, process: 60n, job: 50n })
+    expect(
+      spawnCurrentTokenJobProcess(
+        bindings,
+        options({
+          stdio: { stdin: 4, stdout: 5, stderr: 6, control: 7 },
+        }),
+      ),
+    ).toEqual({ pid: 1234, process: 60n, job: 50n })
     const bytes = descriptorBytes as Buffer
     expect(bytes.readUInt32LE(0)).toBe(8)
     const standardFlag = standardType === 3 ? 9 : 65
@@ -106,9 +105,14 @@ describe('ordinary Job process operations', () => {
     const closeHandle = vi.fn(() => 1)
     const setHandleInformation = vi.fn(() => 1)
     const bindings = api({ getFileType: vi.fn(() => 1), createProcessW, closeHandle, setHandleInformation })
-    expect(() => spawnCurrentTokenJobProcess(bindings, options({
-      stdio: { stdin: 4, stdout: 5, stderr: 6, control: 7 },
-    }))).toThrow('not a Windows pipe')
+    expect(() =>
+      spawnCurrentTokenJobProcess(
+        bindings,
+        options({
+          stdio: { stdin: 4, stdout: 5, stderr: 6, control: 7 },
+        }),
+      ),
+    ).toThrow('not a Windows pipe')
     expect(createProcessW).not.toHaveBeenCalled()
     expect(closeHandle).toHaveBeenCalledWith(50n)
     expect(setHandleInformation).toHaveBeenCalledWith(107n, 1, 0)
@@ -116,38 +120,54 @@ describe('ordinary Job process operations', () => {
 
   it('creates suspended, assigns the Job, and resumes before returning', () => {
     const events: string[] = []
-    const createProcessW = vi.fn((
-      _app: unknown,
-      _line: unknown,
-      _pa: unknown,
-      _ta: unknown,
-      _inherit: unknown,
-      _flags: unknown,
-      _env: unknown,
-      _cwd: unknown,
-      _startup: unknown,
-      info: NativePtr,
-    ) => {
-      events.push('create')
-      koffi.encode(info, processInformationType(), { hProcess: 60n, hThread: 61n, dwProcessId: 1234, dwThreadId: 5678 })
-      return 1
-    })
+    const createProcessW = vi.fn(
+      (
+        _app: unknown,
+        _line: unknown,
+        _pa: unknown,
+        _ta: unknown,
+        _inherit: unknown,
+        _flags: unknown,
+        _env: unknown,
+        _cwd: unknown,
+        _startup: unknown,
+        info: NativePtr,
+      ) => {
+        events.push('create')
+        koffi.encode(info, processInformationType(), { hProcess: 60n, hThread: 61n, dwProcessId: 1234, dwThreadId: 5678 })
+        return 1
+      },
+    )
     const bindings = api({
       createProcessW,
-      assignProcessToJobObject: vi.fn(() => { events.push('assign'); return 1 }),
-      resumeThread: vi.fn(() => { events.push('resume'); return 0 }),
-      closeHandle: vi.fn((handle: NativePtr) => { events.push(`close:${handle}`); return 1 }),
+      assignProcessToJobObject: vi.fn(() => {
+        events.push('assign')
+        return 1
+      }),
+      resumeThread: vi.fn(() => {
+        events.push('resume')
+        return 0
+      }),
+      closeHandle: vi.fn((handle: NativePtr) => {
+        events.push(`close:${handle}`)
+        return 1
+      }),
     })
-    expect(spawnCurrentTokenJobProcess(bindings, options({
-      args: ['literal $VALUE', 'a b'],
-      env: {
-        ZED: 'last',
-        '=C:': 'C:\\work',
-        alpha: 'first',
-        ALPHA: 'same-folded-key',
-        _A: 'underscore',
-      },
-    }))).toEqual({ pid: 1234, process: 60n, job: 50n })
+    expect(
+      spawnCurrentTokenJobProcess(
+        bindings,
+        options({
+          args: ['literal $VALUE', 'a b'],
+          env: {
+            ZED: 'last',
+            '=C:': 'C:\\work',
+            alpha: 'first',
+            ALPHA: 'same-folded-key',
+            _A: 'underscore',
+          },
+        }),
+      ),
+    ).toEqual({ pid: 1234, process: 60n, job: 50n })
     const environment = createProcessW.mock.calls[0]?.[6] as Buffer
     expect(createProcessW).toHaveBeenCalledWith(
       'C:\\resolved\\probe.exe',
@@ -161,9 +181,7 @@ describe('ordinary Job process operations', () => {
       expect.anything(),
       expect.anything(),
     )
-    expect(environment.toString('utf16le')).toBe(
-      '=C:=C:\\work\0alpha=first\0ALPHA=same-folded-key\0ZED=last\0_A=underscore\0\0',
-    )
+    expect(environment.toString('utf16le')).toBe('=C:=C:\\work\0alpha=first\0ALPHA=same-folded-key\0ZED=last\0_A=underscore\0\0')
     expect(events.indexOf('create')).toBeLessThan(events.indexOf('assign'))
     expect(events.indexOf('assign')).toBeLessThan(events.indexOf('resume'))
     expect(events).toContain('close:61')
@@ -183,9 +201,7 @@ describe('ordinary Job process operations', () => {
   it('resolves the target carrier descriptors and restores their handle flags', () => {
     let startup: Record<string, unknown> | undefined
     const setHandleInformation = vi.fn(() => 1)
-    const uvGetOsfhandle = vi.fn(
-      (fileDescriptor: number) => BigInt(100 + fileDescriptor) as NativePtr,
-    )
+    const uvGetOsfhandle = vi.fn((fileDescriptor: number) => BigInt(100 + fileDescriptor) as NativePtr)
     const bindings = api({
       setHandleInformation,
       uvGetOsfhandle,
@@ -206,8 +222,12 @@ describe('ordinary Job process operations', () => {
     expect(uvGetOsfhandle).toHaveBeenNthCalledWith(2, 5)
     expect(uvGetOsfhandle).toHaveBeenNthCalledWith(3, 6)
     expect(setHandleInformation.mock.calls).toEqual([
-      [104n, 1, 1], [105n, 1, 1], [106n, 1, 1],
-      [104n, 1, 0], [105n, 1, 0], [106n, 1, 0],
+      [104n, 1, 1],
+      [105n, 1, 1],
+      [106n, 1, 1],
+      [104n, 1, 0],
+      [105n, 1, 0],
+      [106n, 1, 0],
     ])
   })
 
@@ -236,7 +256,7 @@ describe('ordinary Job process operations', () => {
   })
 
   it('reports wait and exit-code query failures', () => {
-    const processWait = api({ waitForSingleObject: vi.fn(() => 0xFFFFFFFF) })
+    const processWait = api({ waitForSingleObject: vi.fn(() => 0xffffffff) })
     expect(() => pollProcessExit(processWait, 60n as NativePtr)).toThrow(Win32Error)
 
     const exitCode = api({ getExitCodeProcess: vi.fn(() => 0) })
@@ -249,21 +269,31 @@ describe('ordinary Job process operations', () => {
   it('checks Job termination and caller-owned handle closure', () => {
     const terminateJobObject = vi.fn(() => 1)
     const bindings = api({ terminateJobObject })
-    expect(() => { terminateJob(bindings, 50n as NativePtr, 1) }).not.toThrow()
-    expect(() => { closeHandleChecked(bindings, 50n as NativePtr, 'test Job') }).not.toThrow()
+    expect(() => {
+      terminateJob(bindings, 50n as NativePtr, 1)
+    }).not.toThrow()
+    expect(() => {
+      closeHandleChecked(bindings, 50n as NativePtr, 'test Job')
+    }).not.toThrow()
     expect(terminateJobObject).toHaveBeenCalledWith(50n, 1)
 
     const failing = api({ terminateJobObject: vi.fn(() => 0) })
-    expect(() => { terminateJob(failing, 50n as NativePtr, 1) }).toThrow(Win32Error)
+    expect(() => {
+      terminateJob(failing, 50n as NativePtr, 1)
+    }).toThrow(Win32Error)
 
     const closeFailure = api({ closeHandle: vi.fn(() => 0) })
-    expect(() => { closeHandleChecked(closeFailure, 50n as NativePtr, 'test Job') }).toThrow(Win32Error)
+    expect(() => {
+      closeHandleChecked(closeFailure, 50n as NativePtr, 'test Job')
+    }).toThrow(Win32Error)
   })
 
   it('probes an unnamed Job and closes its handle', () => {
     const closeHandle = vi.fn(() => 1)
     const bindings = api({ closeHandle })
-    expect(() => { probeCurrentTokenJobSupport(bindings) }).not.toThrow()
+    expect(() => {
+      probeCurrentTokenJobSupport(bindings)
+    }).not.toThrow()
     expect(closeHandle).toHaveBeenCalledExactlyOnceWith(50n)
   })
 
@@ -271,11 +301,16 @@ describe('ordinary Job process operations', () => {
     const expectFailure = (invalid: NativePtr | null): void => {
       const closeHandle = vi.fn(() => 1)
       const createProcessW = vi.fn(() => 1)
-      expect(() => spawnCurrentTokenJobProcess(api({
-        closeHandle,
-        createProcessW,
-        uvGetOsfhandle: vi.fn(() => invalid),
-      }), options())).toThrow('uv_get_osfhandle returned an invalid handle for target stdin fd 4')
+      expect(() =>
+        spawnCurrentTokenJobProcess(
+          api({
+            closeHandle,
+            createProcessW,
+            uvGetOsfhandle: vi.fn(() => invalid),
+          }),
+          options(),
+        ),
+      ).toThrow('uv_get_osfhandle returned an invalid handle for target stdin fd 4')
       expect(closeHandle).toHaveBeenCalledWith(50n)
       expect(createProcessW).not.toHaveBeenCalled()
     }

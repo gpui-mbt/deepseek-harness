@@ -197,15 +197,7 @@ export interface CreateTeamTaskRequest {
 }
 
 /** Supported task mutation actions. */
-export type TeamTaskAction =
-  | 'claim'
-  | 'release'
-  | 'edit'
-  | 'set_dependencies'
-  | 'complete'
-  | 'reopen'
-  | 'reassign'
-  | 'delete'
+export type TeamTaskAction = 'claim' | 'release' | 'edit' | 'set_dependencies' | 'complete' | 'reopen' | 'reassign' | 'delete'
 
 /** Compare-and-set mutation of one shared task. */
 export interface UpdateTeamTaskRequest {

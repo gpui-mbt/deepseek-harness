@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import sharp from 'sharp'
 import { canPassThroughNormalization, normalizeImage } from '../src/normalization.ts'
 import type { NormalizationPolicy } from '../src/normalization.ts'
@@ -36,8 +36,38 @@ describe('canPassThroughNormalization', () => {
     const clean = { animated: false, carriesMetadata: false, depth: 'uchar', space: 'srgb', hasAlpha: false }
     expect(canPassThroughNormalization({ mediaType: 'image/png', width: 8192, height: 4, ...clean }, 100, POLICY)).toBe(true)
     expect(canPassThroughNormalization({ mediaType: 'image/gif', width: 4, height: 4, ...clean }, 100, POLICY)).toBe(false)
-    expect(canPassThroughNormalization({ mediaType: 'image/webp', width: 4, height: 4, animated: true, carriesMetadata: false, depth: 'uchar', space: 'srgb', hasAlpha: false }, 100, POLICY)).toBe(false)
-    expect(canPassThroughNormalization({ mediaType: 'image/jpeg', width: 4, height: 4, animated: false, carriesMetadata: true, depth: 'uchar', space: 'srgb', hasAlpha: false }, 100, POLICY)).toBe(false)
+    expect(
+      canPassThroughNormalization(
+        {
+          mediaType: 'image/webp',
+          width: 4,
+          height: 4,
+          animated: true,
+          carriesMetadata: false,
+          depth: 'uchar',
+          space: 'srgb',
+          hasAlpha: false,
+        },
+        100,
+        POLICY,
+      ),
+    ).toBe(false)
+    expect(
+      canPassThroughNormalization(
+        {
+          mediaType: 'image/jpeg',
+          width: 4,
+          height: 4,
+          animated: false,
+          carriesMetadata: true,
+          depth: 'uchar',
+          space: 'srgb',
+          hasAlpha: false,
+        },
+        100,
+        POLICY,
+      ),
+    ).toBe(false)
     expect(canPassThroughNormalization({ mediaType: 'image/png', width: 4, height: 4, ...clean, depth: 'ushort' }, 100, POLICY)).toBe(false)
     expect(canPassThroughNormalization({ mediaType: 'image/png', width: 4, height: 4, ...clean, space: 'rgb16' }, 100, POLICY)).toBe(false)
     expect(canPassThroughNormalization({ mediaType: 'image/jpeg', width: 2049, height: 2048, ...clean }, 100, POLICY)).toBe(false)
@@ -57,10 +87,15 @@ describe('normalizeImage', () => {
     expect(normalized).toMatchObject({ mediaType: 'image/webp', width: 6, height: 4 })
   })
 
-  it.each([3, 4] as const)('converts a 16-bit %s-channel PNG to 8-bit sRGB without passthrough', async (channels) => {
-    const data = new Uint8Array(await sharp({
-      create: { width: 7, height: 5, channels, background: { r: 12, g: 34, b: 56, alpha: 0.5 } },
-    }).toColourspace('rgb16').png().toBuffer())
+  it.each([3, 4] as const)('converts a 16-bit %s-channel PNG to 8-bit sRGB without passthrough', async channels => {
+    const data = new Uint8Array(
+      await sharp({
+        create: { width: 7, height: 5, channels, background: { r: 12, g: 34, b: 56, alpha: 0.5 } },
+      })
+        .toColourspace('rgb16')
+        .png()
+        .toBuffer(),
+    )
     const detected = await detectImage(data)
     expect(detected).toMatchObject({ depth: 'ushort', space: 'rgb16', hasAlpha: channels === 4 })
 
@@ -69,7 +104,11 @@ describe('normalizeImage', () => {
     expect(normalized.data).not.toBe(data)
     expect(normalized.data).not.toEqual(data)
     await expect(detectImage(normalized.data)).resolves.toMatchObject({
-      depth: 'uchar', space: 'srgb', hasAlpha: channels === 4, width: 7, height: 5,
+      depth: 'uchar',
+      space: 'srgb',
+      hasAlpha: channels === 4,
+      width: 7,
+      height: 5,
     })
   })
 
@@ -80,7 +119,15 @@ describe('normalizeImage', () => {
     const normalized = await normalizeImage(data, detected, { maxPixels: POLICY.maxPixels, maxDimension: 5, maxBytes: POLICY.maxBytes })
 
     expect(normalized).toMatchObject({ mediaType: 'image/jpeg', width: 5, height: 3 })
-    await expect(detectImage(normalized.data)).resolves.toMatchObject({ mediaType: 'image/jpeg', width: 5, height: 3, animated: false, carriesMetadata: false, depth: 'uchar', space: 'srgb' })
+    await expect(detectImage(normalized.data)).resolves.toMatchObject({
+      mediaType: 'image/jpeg',
+      width: 5,
+      height: 3,
+      animated: false,
+      carriesMetadata: false,
+      depth: 'uchar',
+      space: 'srgb',
+    })
     const again = await normalizeImage(data, detected, { maxPixels: POLICY.maxPixels, maxDimension: 5, maxBytes: POLICY.maxBytes })
     expect(again.data).toEqual(normalized.data)
   })
@@ -104,7 +151,14 @@ describe('normalizeImage', () => {
     // gifload always decodes to RGBA, so a GIF re-encodes on the WebP ladder.
     expect(detected.hasAlpha).toBe(true)
     expect(normalized.mediaType).toBe('image/webp')
-    await expect(detectImage(normalized.data)).resolves.toMatchObject({ width: 6, height: 4, animated: false, carriesMetadata: false, depth: 'uchar', space: 'srgb' })
+    await expect(detectImage(normalized.data)).resolves.toMatchObject({
+      width: 6,
+      height: 4,
+      animated: false,
+      carriesMetadata: false,
+      depth: 'uchar',
+      space: 'srgb',
+    })
   })
 
   it('keeps a transparent source on the WebP ladder', async () => {
@@ -128,9 +182,13 @@ describe('normalizeImage', () => {
       rgba[pixel * 4 + 2] = rgb[pixel * 3 + 2] ?? 0
       rgba[pixel * 4 + 3] = 255
     }
-    const data = new Uint8Array(await sharp(rgba, {
-      raw: { width, height, channels: 4 },
-    }).png().toBuffer())
+    const data = new Uint8Array(
+      await sharp(rgba, {
+        raw: { width, height, channels: 4 },
+      })
+        .png()
+        .toBuffer(),
+    )
     await expect(detectImage(data)).resolves.toMatchObject({ hasAlpha: true })
 
     const normalized = await normalizeImage(data, await detectImage(data), {
@@ -155,10 +213,16 @@ describe('normalizeImage', () => {
       pixels[target + 2] = noise[source + 2] ?? 0
       pixels[target + 3] = pixel & 0xff
     }
-    const data = new Uint8Array(await sharp(pixels, { raw: { width: side, height: side, channels: 4 } }).png().toBuffer())
+    const data = new Uint8Array(
+      await sharp(pixels, { raw: { width: side, height: side, channels: 4 } })
+        .png()
+        .toBuffer(),
+    )
 
     const normalized = await normalizeImage(data, await detectImage(data), {
-      maxPixels: POLICY.maxPixels, maxDimension: side, maxBytes: 1_024,
+      maxPixels: POLICY.maxPixels,
+      maxDimension: side,
+      maxBytes: 1_024,
     })
 
     expect(normalized.data.byteLength).toBeGreaterThan(1_024)
@@ -183,10 +247,14 @@ describe('normalizeImage', () => {
         const index = (y * side + x) * 3
         pixels[index] = x & 0xff
         pixels[index + 1] = y & 0xff
-        pixels[index + 2] = (x + y) >> 1 & 0xff
+        pixels[index + 2] = ((x + y) >> 1) & 0xff
       }
     }
-    const data = new Uint8Array(await sharp(pixels, { raw: { width: side, height: side, channels: 3 } }).png().toBuffer())
+    const data = new Uint8Array(
+      await sharp(pixels, { raw: { width: side, height: side, channels: 3 } })
+        .png()
+        .toBuffer(),
+    )
     const detected = await detectImage(data)
     const budget = { maxPixels: POLICY.maxPixels, maxDimension: 128, maxBytes: POLICY.maxBytes }
 
@@ -201,7 +269,9 @@ describe('normalizeImage', () => {
     const data = await noiseImage(64, 64, 'png')
 
     const normalized = await normalizeImage(data, await detectImage(data), {
-      maxPixels: POLICY.maxPixels, maxDimension: 2048, maxBytes: 512,
+      maxPixels: POLICY.maxPixels,
+      maxDimension: 2048,
+      maxBytes: 512,
     })
 
     expect(normalized.data.byteLength).toBeGreaterThan(512)
@@ -209,9 +279,14 @@ describe('normalizeImage', () => {
   })
 
   it('re-encodes an in-budget oriented JPEG, baking rotation and stripping metadata', async () => {
-    const data = new Uint8Array(await sharp({
-      create: { width: 4, height: 2, channels: 3, background: { r: 1, g: 2, b: 3 } },
-    }).jpeg().withMetadata({ orientation: 6 }).toBuffer())
+    const data = new Uint8Array(
+      await sharp({
+        create: { width: 4, height: 2, channels: 3, background: { r: 1, g: 2, b: 3 } },
+      })
+        .jpeg()
+        .withMetadata({ orientation: 6 })
+        .toBuffer(),
+    )
     const detected = await detectImage(data)
     // Orientation 6 rotates 90°: the perceived source is 2x4.
     expect(detected).toMatchObject({ width: 2, height: 4, carriesMetadata: true })
@@ -224,9 +299,14 @@ describe('normalizeImage', () => {
   })
 
   it('re-encodes an in-budget image with an ICC profile and strips the profile', async () => {
-    const data = new Uint8Array(await sharp({
-      create: { width: 4, height: 2, channels: 3, background: { r: 1, g: 2, b: 3 } },
-    }).png().withIccProfile('p3').toBuffer())
+    const data = new Uint8Array(
+      await sharp({
+        create: { width: 4, height: 2, channels: 3, background: { r: 1, g: 2, b: 3 } },
+      })
+        .png()
+        .withIccProfile('p3')
+        .toBuffer(),
+    )
     const detected = await detectImage(data)
     expect(detected.carriesMetadata).toBe(true)
 
@@ -238,14 +318,19 @@ describe('normalizeImage', () => {
 
   it('maps an encoder fault on undecodable bytes to a storage failure', async () => {
     const detected = {
-      mediaType: 'image/png', width: 5000, height: 5000, animated: false, carriesMetadata: false,
-      depth: 'ushort', space: 'rgb16', hasAlpha: true,
+      mediaType: 'image/png',
+      width: 5000,
+      height: 5000,
+      animated: false,
+      carriesMetadata: false,
+      depth: 'ushort',
+      space: 'rgb16',
+      hasAlpha: true,
     } as const
-    await expect(normalizeImage(Uint8Array.of(1, 2, 3), detected, POLICY))
-      .rejects.toMatchObject({
-        code: 'ATTACHMENT_WRITE_FAILED',
-        message: 'The 16-bit PNG could not be converted to the normalized 8-bit sRGB form.',
-      })
+    await expect(normalizeImage(Uint8Array.of(1, 2, 3), detected, POLICY)).rejects.toMatchObject({
+      code: 'ATTACHMENT_WRITE_FAILED',
+      message: 'The 16-bit PNG could not be converted to the normalized 8-bit sRGB form.',
+    })
   })
 
   it.each([
@@ -262,18 +347,19 @@ describe('normalizeImage', () => {
       hasAlpha: false,
     } as const
 
-    await expect(normalizeImage(Uint8Array.of(1, 2, 3), detected, POLICY))
-      .rejects.toMatchObject({
-        code: 'ATTACHMENT_WRITE_FAILED',
-        message: `The ${source} could not be converted to the normalized 8-bit sRGB form.`,
-      })
+    await expect(normalizeImage(Uint8Array.of(1, 2, 3), detected, POLICY)).rejects.toMatchObject({
+      code: 'ATTACHMENT_WRITE_FAILED',
+      message: `The ${source} could not be converted to the normalized 8-bit sRGB form.`,
+    })
   })
 
   it('downscales by total pixels so an extreme aspect ratio keeps its short edge', async () => {
     const data = await flatImage(10, 40, 'png')
 
     const normalized = await normalizeImage(data, await detectImage(data), {
-      maxPixels: 100, maxDimension: 8192, maxBytes: POLICY.maxBytes,
+      maxPixels: 100,
+      maxDimension: 8192,
+      maxBytes: POLICY.maxBytes,
     })
 
     expect(normalized).toMatchObject({ mediaType: 'image/jpeg', width: 5, height: 20 })
@@ -283,19 +369,28 @@ describe('normalizeImage', () => {
     const data = await flatImage(4, 64, 'png')
 
     const normalized = await normalizeImage(data, await detectImage(data), {
-      maxPixels: 10_000, maxDimension: 16, maxBytes: POLICY.maxBytes,
+      maxPixels: 10_000,
+      maxDimension: 16,
+      maxBytes: POLICY.maxBytes,
     })
 
     expect(normalized).toMatchObject({ mediaType: 'image/jpeg', width: 1, height: 16 })
   })
 
   it('keeps an antialiased text screenshot readable on the JPEG ladder', async () => {
-    const source = new Uint8Array(await sharp(Buffer.from(`
+    const source = new Uint8Array(
+      await sharp(
+        Buffer.from(`
       <svg width="1024" height="512" xmlns="http://www.w3.org/2000/svg">
         <rect width="1024" height="512" fill="white"/>
         <text x="48" y="290" font-size="170" fill="#112f4d">Readable text</text>
       </svg>
-    `)).removeAlpha().png().toBuffer())
+    `),
+      )
+        .removeAlpha()
+        .png()
+        .toBuffer(),
+    )
 
     const normalized = await normalizeImage(source, await detectImage(source), {
       maxPixels: POLICY.maxPixels,

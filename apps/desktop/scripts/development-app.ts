@@ -17,7 +17,9 @@ export interface DevelopmentAppOptions {
   readonly openDevtools: string
 }
 
-function quote(value: string): string { return `'${value.replaceAll("'", "'\\''")}'` }
+function quote(value: string): string {
+  return `'${value.replaceAll("'", "'\\''")}'`
+}
 
 /**
  * Prepare and register a disposable .app without changing the installed Electron package.

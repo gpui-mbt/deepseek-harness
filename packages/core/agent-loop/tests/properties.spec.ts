@@ -9,7 +9,7 @@
  * idle→running→idle, while teardown is a registry lifecycle.
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import { createUserMessage, LlmAdapter } from '@deepseek-ai/dsh-llm'
@@ -25,7 +25,7 @@ import fc from 'fast-check'
 
 /** A never-exhausting adapter: every model call returns the same short reply. */
 class EchoAdapter extends LlmAdapter {
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     if (options.signal?.aborted) throw new Error('aborted')
     const text = 'ok'
     yield { type: 'block-start', index: 0, blockType: 'text' }
@@ -51,7 +51,7 @@ async function harness() {
 
 /** Resolve on the agent's next transition to idle (event-based, not polled). */
 function nextIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'idle') {
         dispose()
@@ -72,19 +72,22 @@ function recordStatus(ctx: Context, agent: Agent): { seen: string[]; dispose: ()
 }
 
 function userMessageTexts(agent: Agent): string[] {
-  return agent.session.snapshotEvents()
+  return agent.session
+    .snapshotEvents()
     .filter(e => e.type === 'user/message')
-    .map(e => e.data.content.flatMap(block => block.type === 'text' ? [block.text] : []).join(''))
+    .map(e => e.data.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join(''))
 }
 
 function turnNumbers(agent: Agent): number[] {
-  return agent.session.snapshotEvents()
+  return agent.session
+    .snapshotEvents()
     .filter(e => e.type === 'turn/start')
     .map(e => e.data.turn)
 }
 
 function turnEndNumbers(agent: Agent): number[] {
-  return agent.session.snapshotEvents()
+  return agent.session
+    .snapshotEvents()
     .filter(e => e.type === 'turn/end')
     .map(e => (e.data as { turn: number }).turn)
 }
@@ -108,9 +111,8 @@ function assertLegalStatusTrace(trace: string[]): void {
 
 describe('agent loop scheduling properties', () => {
   it('a synchronous burst gives every message its own strictly increasing turn', async () => {
-    await fc.assert(fc.asyncProperty(
-      fc.array(fc.string({ minLength: 1 }), { minLength: 1, maxLength: 6 }),
-      async (texts) => {
+    await fc.assert(
+      fc.asyncProperty(fc.array(fc.string({ minLength: 1 }), { minLength: 1, maxLength: 6 }), async texts => {
         const ctx = await harness()
         try {
           const agent = await ctx.agentLoop.create(SessionId('a'), { provider: 'mock', model: 'mock' })
@@ -131,14 +133,14 @@ describe('agent loop scheduling properties', () => {
         } finally {
           await ctx.fiber.dispose()
         }
-      },
-    ), { numRuns: 25, timeout: 2000 })
+      }),
+      { numRuns: 25, timeout: 2000 },
+    )
   })
 
   it('sequential sends each get their own turn with increasing numbers', async () => {
-    await fc.assert(fc.asyncProperty(
-      fc.array(fc.string({ minLength: 1 }), { minLength: 1, maxLength: 5 }),
-      async (texts) => {
+    await fc.assert(
+      fc.asyncProperty(fc.array(fc.string({ minLength: 1 }), { minLength: 1, maxLength: 5 }), async texts => {
         const ctx = await harness()
         try {
           const agent = await ctx.agentLoop.create(SessionId('a'), { provider: 'mock', model: 'mock' })
@@ -153,17 +155,17 @@ describe('agent loop scheduling properties', () => {
         } finally {
           await ctx.fiber.dispose()
         }
-      },
-    ), { numRuns: 20, timeout: 2000 })
+      }),
+      { numRuns: 20, timeout: 2000 },
+    )
   })
 
   it('mixed settled and same-tick sends preserve one turn per message', async () => {
     // Each step optionally waits for idle before the next send; that scheduling
     // choice must not change the ordinary message-to-turn mapping.
     const stepArb = fc.record({ text: fc.string({ minLength: 1 }), settle: fc.boolean() })
-    await fc.assert(fc.asyncProperty(
-      fc.array(stepArb, { minLength: 1, maxLength: 6 }),
-      async (steps) => {
+    await fc.assert(
+      fc.asyncProperty(fc.array(stepArb, { minLength: 1, maxLength: 6 }), async steps => {
         const ctx = await harness()
         try {
           const agent = await ctx.agentLoop.create(SessionId('a'), { provider: 'mock', model: 'mock' })
@@ -188,7 +190,8 @@ describe('agent loop scheduling properties', () => {
         } finally {
           await ctx.fiber.dispose()
         }
-      },
-    ), { numRuns: 25, timeout: 3000 })
+      }),
+      { numRuns: 25, timeout: 3000 },
+    )
   })
 })

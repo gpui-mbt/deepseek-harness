@@ -122,15 +122,15 @@ export interface TunnelStreamErrorFrame {
   readonly id: TunnelRequestId
   readonly failure:
     | {
-      readonly kind: 'remote'
-      readonly code: string
-      readonly message: string
-      readonly details: object
-    }
+        readonly kind: 'remote'
+        readonly code: string
+        readonly message: string
+        readonly details: object
+      }
     | {
-      readonly kind: 'carrier'
-      readonly message: string
-    }
+        readonly kind: 'carrier'
+        readonly message: string
+      }
 }
 
 /** Worker request to show one VFS text file in the page's read-only viewer; no reply follows. */
@@ -197,10 +197,7 @@ export function parseInboundFrame(data: unknown): TunnelInboundFrame {
     if (typeof value === 'string') headers[key.toLowerCase()] = value
   }
   const body = frame.body
-  if (body !== undefined
-    && !(body instanceof ArrayBuffer)
-    && !(body instanceof Blob)
-    && !(body instanceof ReadableStream)) {
+  if (body !== undefined && !(body instanceof ArrayBuffer) && !(body instanceof Blob) && !(body instanceof ReadableStream)) {
     throw new Error(`webworker tunnel: request ${String(id)} body must be an ArrayBuffer, Blob, or ReadableStream`)
   }
   return { t: 'req', id, method: frame.method, url: frame.url, headers, body }

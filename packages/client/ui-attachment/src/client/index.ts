@@ -16,23 +16,57 @@ export const inject = ['slots']
  * @param ctx - client plugin context with the Slot registry.
  */
 export function apply(ctx: ClientContext): void {
-  ctx.slots.registerFactory({
-    name: 'conversation.images.content', scope: 'root', locale: 'conversation',
-  }, MessageImagesContent)
-  ctx.slots.inject('conversation.input.attachments', () => ctx.slots.register({
-    name: 'conversation.input.attachments',
-    locale: 'conversation',
-  }, ComposerAttachments))
-  ctx.slots.inject('conversation.chat.message.images', () => ctx.slots.register({
-    name: 'conversation.chat.message.images', priority: 100,
-  }, MessageImages))
-  ctx.slots.inject('conversation.chat.user.images', () => ctx.slots.register({
-    name: 'conversation.chat.user.images', priority: 100,
-  }, MessageImages))
-  ctx.slots.inject('conversation.trajectory.images', () => ctx.slots.register({
-    name: 'conversation.trajectory.images', priority: 100,
-  }, MessageImages))
-  ctx.slots.inject('tool.call.images', () => ctx.slots.register({
-    name: 'tool.call.images', priority: 100,
-  }, MessageImages))
+  ctx.slots.registerFactory(
+    {
+      name: 'conversation.images.content',
+      scope: 'root',
+      locale: 'conversation',
+    },
+    MessageImagesContent,
+  )
+  ctx.slots.inject('conversation.input.attachments', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.input.attachments',
+        locale: 'conversation',
+      },
+      ComposerAttachments,
+    ),
+  )
+  ctx.slots.inject('conversation.chat.message.images', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.message.images',
+        priority: 100,
+      },
+      MessageImages,
+    ),
+  )
+  ctx.slots.inject('conversation.chat.user.images', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.user.images',
+        priority: 100,
+      },
+      MessageImages,
+    ),
+  )
+  ctx.slots.inject('conversation.trajectory.images', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.trajectory.images',
+        priority: 100,
+      },
+      MessageImages,
+    ),
+  )
+  ctx.slots.inject('tool.call.images', () =>
+    ctx.slots.register(
+      {
+        name: 'tool.call.images',
+        priority: 100,
+      },
+      MessageImages,
+    ),
+  )
 }

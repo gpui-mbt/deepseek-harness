@@ -43,19 +43,19 @@ export interface MarketRepository {
 /** Where one exact version is installed from. */
 export type MarketSource =
   | {
-    readonly type: 'npm'
-    /** http(s) registry URL; absent means the installing client's configured registry. */
-    readonly registry?: string
-  }
+      readonly type: 'npm'
+      /** http(s) registry URL; absent means the installing client's configured registry. */
+      readonly registry?: string
+    }
   | {
-    readonly type: 'git'
-    /** Canonical https repository URL without credentials, query, or fragment. */
-    readonly url: string
-    /** Lowercase 40-hex-digit commit SHA. */
-    readonly commit: string
-    /** Relative POSIX package directory; absent means the repository root. */
-    readonly path?: string
-  }
+      readonly type: 'git'
+      /** Canonical https repository URL without credentials, query, or fragment. */
+      readonly url: string
+      /** Lowercase 40-hex-digit commit SHA. */
+      readonly commit: string
+      /** Relative POSIX package directory; absent means the repository root. */
+      readonly path?: string
+    }
 
 /** Runtime requirements of one version. */
 export interface MarketEngines {

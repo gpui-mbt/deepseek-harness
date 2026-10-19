@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { MenuState, TriggerHit } from '../src/core/contract.ts'
 import { exactMatch, MENU_CLOSED, menuReduce, seedGroups } from '../src/core/menu.ts'
 
@@ -11,7 +11,13 @@ const hit = (query = ''): TriggerHit => ({
 })
 
 function open(sources: readonly string[], h: TriggerHit = hit()): MenuState {
-  return menuReduce(seedGroups(MENU_CLOSED, sources.map(name => ({ name }))), { type: 'hit', hit: h })
+  return menuReduce(
+    seedGroups(
+      MENU_CLOSED,
+      sources.map(name => ({ name })),
+    ),
+    { type: 'hit', hit: h },
+  )
 }
 
 const item = (name: string) => ({ name })

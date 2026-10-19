@@ -1,6 +1,6 @@
 /** Raw details retain shared values while terminating cyclic live object references. */
 
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { inspectorJson } from '../src/client/views/raw-json.ts'
 import { chatNodeWithLocation } from './chat-node-fixture.client.ts'
 
@@ -21,9 +21,18 @@ it('marks self-referencing objects, maps, and sets without modifying them', () =
   map.set('self', map)
   const set = new Set<unknown>()
   set.add(set)
-  expect(inspectorJson({ object, map, set })).toEqual({ failed: false, text: JSON.stringify({
-    object: { self: '[Circular]' }, map: { self: '[Circular]' }, set: ['[Circular]'],
-  }, null, 2) })
+  expect(inspectorJson({ object, map, set })).toEqual({
+    failed: false,
+    text: JSON.stringify(
+      {
+        object: { self: '[Circular]' },
+        map: { self: '[Circular]' },
+        set: ['[Circular]'],
+      },
+      null,
+      2,
+    ),
+  })
   expect(object.self).toBe(object)
   expect(map.get('self')).toBe(map)
   expect(set.has(set)).toBe(true)
@@ -33,16 +42,26 @@ it('expands shared non-circular values separately in each branch', () => {
   const shared = { value: 1 }
   const map = new Map([['value', shared]])
   expect(inspectorJson({ left: shared, right: shared, first: map, second: map })).toEqual({
-    failed: false, text: JSON.stringify({ left: shared, right: shared,
-      first: { value: shared }, second: { value: shared } }, null, 2),
+    failed: false,
+    text: JSON.stringify({ left: shared, right: shared, first: { value: shared }, second: { value: shared } }, null, 2),
   })
 })
 
 it('keeps bigint values readable and contains serialization errors', () => {
   expect(inspectorJson({ count: 123n })).toEqual({ text: '{\n  "count": "123n"\n}', failed: false })
   expect(inspectorJson(undefined)).toEqual({ text: '', failed: false })
-  expect(inspectorJson({ toJSON() { throw new Error('unavailable value') } }))
-    .toEqual({ text: 'unavailable value', failed: true })
-  expect(inspectorJson({ toJSON() { throw 'unavailable text' } }))
-    .toEqual({ text: 'unavailable text', failed: true })
+  expect(
+    inspectorJson({
+      toJSON() {
+        throw new Error('unavailable value')
+      },
+    }),
+  ).toEqual({ text: 'unavailable value', failed: true })
+  expect(
+    inspectorJson({
+      toJSON() {
+        throw 'unavailable text'
+      },
+    }),
+  ).toEqual({ text: 'unavailable text', failed: true })
 })

@@ -5,22 +5,29 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFinished } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from 'vite-plus/test'
 import type {} from '@deepseek-ai/dsh-workspace-changes'
 import type { ChangesSummary } from '@deepseek-ai/dsh-client-ui-deliverables/src/changes.ts'
 import { deriveReplayScript, parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import {
-  assertFinalWorkspaceSnapshot, captureExpandedTurnProcessAria, compareOrRefreshGolden,
-  fixtureUserPrompts, launchWebScaffold, recordFixture, watchConsole,
-  webSnapshotMode, type WebScaffold,
+  assertFinalWorkspaceSnapshot,
+  captureExpandedTurnProcessAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { openSettings, connectFreshWorkspaceZh, expandOwningTurnProcess, ZH_BROWSER_LOCALE } from './support.ts'
 
 const DIR = fileURLToPath(new URL('../../../snapshots/web/changed-files-turn', import.meta.url))
 const FIXTURE = join(DIR, 'session.v3.jsonl')
 const MODE = webSnapshotMode()
-const PROMPT = '不用先查看目录，直接做四件事：把 intro.md 里的标题「示例项目」改成「项目说明」，新建 src/util.ts 导出一个两数相加的 add 函数，新建 app.local 写一行 mode=demo，最后用 bash 在 notes.txt 末尾追加一行 done。'
+const PROMPT =
+  '不用先查看目录，直接做四件事：把 intro.md 里的标题「示例项目」改成「项目说明」，新建 src/util.ts 导出一个两数相加的 add 函数，新建 app.local 写一行 mode=demo，最后用 bash 在 notes.txt 末尾追加一行 done。'
 
 /** Seed a committed repository so the turn's own edits are the only difference between its snapshots; `*.local` stays ignored. */
 async function seedRepository(cwd: string): Promise<void> {
@@ -28,7 +35,11 @@ async function seedRepository(cwd: string): Promise<void> {
   await writeFile(join(cwd, 'intro.md'), '# 示例项目\n\n一个用于演示的仓库。\n')
   await writeFile(join(cwd, 'notes.txt'), 'start\n')
   await writeFile(join(cwd, '.gitignore'), '*.local\n')
-  const git = (...args: string[]) => execFileSync('git', ['-c', 'user.email=seed@example.com', '-c', 'user.name=seed', '-c', 'commit.gpgsign=false', ...args], { cwd, stdio: 'ignore' })
+  const git = (...args: string[]) =>
+    execFileSync('git', ['-c', 'user.email=seed@example.com', '-c', 'user.name=seed', '-c', 'commit.gpgsign=false', ...args], {
+      cwd,
+      stdio: 'ignore',
+    })
   git('init', '-q', '-b', 'main')
   git('add', '-A')
   git('commit', '-q', '-m', 'seed')
@@ -36,24 +47,33 @@ async function seedRepository(cwd: string): Promise<void> {
 
 /** Sample the real opacity transition at its midpoint without depending on wall-clock scheduling. */
 function hoverOpacityTransition(page: Page, closing: boolean): Promise<{ duration: number; opacity: number }> {
-  return page.evaluate(closing => new Promise((resolve) => {
-    const observer = new MutationObserver(() => {
-      const card = document.querySelector('[data-changes-hover-preview]')?.parentElement
-      if (card === undefined || card === null || card.hasAttribute('data-closing') !== closing) return
-      const initialOpacity = Number(getComputedStyle(card).opacity)
-      const animation = card.getAnimations().find(animation => animation instanceof CSSTransition && animation.transitionProperty === 'opacity')
-      observer.disconnect()
-      if (animation === undefined) { resolve({ duration: 0, opacity: initialOpacity }); return }
-      animation.pause()
-      animation.currentTime = 50
-      const opacity = Number(getComputedStyle(card).opacity)
-      const duration = Number(animation.effect!.getTiming().duration)
-      animation.finish()
-      resolve({ duration, opacity })
-    })
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-closing'] })
-    if (closing) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-  }), closing)
+  return page.evaluate(
+    closing =>
+      new Promise(resolve => {
+        const observer = new MutationObserver(() => {
+          const card = document.querySelector('[data-changes-hover-preview]')?.parentElement
+          if (card === undefined || card === null || card.hasAttribute('data-closing') !== closing) return
+          const initialOpacity = Number(getComputedStyle(card).opacity)
+          const animation = card
+            .getAnimations()
+            .find(animation => animation instanceof CSSTransition && animation.transitionProperty === 'opacity')
+          observer.disconnect()
+          if (animation === undefined) {
+            resolve({ duration: 0, opacity: initialOpacity })
+            return
+          }
+          animation.pause()
+          animation.currentTime = 50
+          const opacity = Number(getComputedStyle(card).opacity)
+          const duration = Number(animation.effect!.getTiming().duration)
+          animation.finish()
+          resolve({ duration, opacity })
+        })
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-closing'] })
+        if (closing) window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      }),
+    closing,
+  )
 }
 
 describe('web e2e: a git workspace turn ends with its changed files', () => {
@@ -84,7 +104,9 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     await seedRepository(join(scaffold.workspaceCwd, 'workspace'))
     browser = await chromium.launch()
     const context = await browser.newContext({
-      viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE, timezoneId: 'Asia/Shanghai',
+      viewport: { width: 1680, height: 1000 },
+      locale: ZH_BROWSER_LOCALE,
+      timezoneId: 'Asia/Shanghai',
     })
     page = await context.newPage()
     tripwire = watchConsole(page)
@@ -110,37 +132,46 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     if (MODE !== 'record') expect(fixtureUserPrompts(await readFile(FIXTURE, 'utf8'))).toEqual([PROMPT])
     const settled = scaffold.whenTurnSettled()
     const preparations = ['edit', 'write'].map(name => ({
-      name, callId: '', args: new PartialArguments(), ready: Promise.withResolvers<{ callId: string }>(),
-      release: Promise.withResolvers<undefined>(), held: false,
+      name,
+      callId: '',
+      args: new PartialArguments(),
+      ready: Promise.withResolvers<{ callId: string }>(),
+      release: Promise.withResolvers<undefined>(),
+      held: false,
       contentField: name === 'write' ? 'content' : 'old_string',
-      contentReady: Promise.withResolvers<undefined>(), contentRelease: Promise.withResolvers<undefined>(),
+      contentReady: Promise.withResolvers<undefined>(),
+      contentRelease: Promise.withResolvers<undefined>(),
       contentHeld: false,
     }))
     const names = new Map<string, string>()
-    const dispose = scaffold.ctx.on('llm/stream', async function* (_options, next) {
-      for await (const chunk of next()) {
-        yield chunk
-        if (chunk.type !== 'tool-call-delta') continue
-        if (chunk.name !== undefined) names.set(chunk.id, chunk.name)
-        const preparation = preparations.find(value => value.name === names.get(chunk.id))
-        if (preparation === undefined || preparation.contentHeld || chunk.argumentsDelta.length === 0) continue
-        if (preparation.callId === '') preparation.callId = chunk.id
-        if (preparation.callId !== chunk.id) continue
-        preparation.args.append(chunk.argumentsDelta)
-        if (!preparation.held) {
-          if (!preparation.args.complete('file_path')) continue
-          preparation.held = true
-          preparation.ready.resolve({ callId: chunk.id })
-          await preparation.release.promise
+    const dispose = scaffold.ctx.on(
+      'llm/stream',
+      async function* (_options, next) {
+        for await (const chunk of next()) {
+          yield chunk
+          if (chunk.type !== 'tool-call-delta') continue
+          if (chunk.name !== undefined) names.set(chunk.id, chunk.name)
+          const preparation = preparations.find(value => value.name === names.get(chunk.id))
+          if (preparation === undefined || preparation.contentHeld || chunk.argumentsDelta.length === 0) continue
+          if (preparation.callId === '') preparation.callId = chunk.id
+          if (preparation.callId !== chunk.id) continue
+          preparation.args.append(chunk.argumentsDelta)
+          if (!preparation.held) {
+            if (!preparation.args.complete('file_path')) continue
+            preparation.held = true
+            preparation.ready.resolve({ callId: chunk.id })
+            await preparation.release.promise
+          }
+          if (!preparation.args.has(preparation.contentField) || preparation.args.complete(preparation.contentField)) continue
+          const length = preparation.args.stringLength(preparation.contentField)
+          if (length === undefined || length === 0) continue
+          preparation.contentHeld = true
+          preparation.contentReady.resolve(undefined)
+          await preparation.contentRelease.promise
         }
-        if (!preparation.args.has(preparation.contentField) || preparation.args.complete(preparation.contentField)) continue
-        const length = preparation.args.stringLength(preparation.contentField)
-        if (length === undefined || length === 0) continue
-        preparation.contentHeld = true
-        preparation.contentReady.resolve(undefined)
-        await preparation.contentRelease.promise
-      }
-    }, { prepend: true })
+      },
+      { prepend: true },
+    )
     releasePreparations = () => {
       for (const preparation of preparations) {
         preparation.release.resolve(undefined)
@@ -151,10 +182,12 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     const input = page.locator('[data-composer-input]').first()
     await input.fill(PROMPT)
     await input.press('Enter')
-    const observations = preparations.map(async (preparation) => {
+    const observations = preparations.map(async preparation => {
       const { callId } = await Promise.race([
         preparation.ready.promise,
-        settled.then(() => { throw new Error(`No ${preparation.name} argument prefix was streamed`) }),
+        settled.then(() => {
+          throw new Error(`No ${preparation.name} argument prefix was streamed`)
+        }),
       ])
       const row = page.locator(`[data-chat-call-id="${callId}"] [data-state="preparing"]`)
       await row.waitFor({ state: 'attached' })
@@ -170,7 +203,9 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
       preparation.release.resolve(undefined)
       await Promise.race([
         preparation.contentReady.promise,
-        settled.then(() => { throw new Error(`No open ${preparation.name} content prefix was streamed`) }),
+        settled.then(() => {
+          throw new Error(`No open ${preparation.name} content prefix was streamed`)
+        }),
       ])
       await row.getByText('1KB', { exact: true }).waitFor()
       expect(await row.locator('[aria-expanded]').count()).toBe(0)
@@ -178,13 +213,18 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
       await compareOrRefreshGolden(join(DIR, `preparing-${preparation.name}-content.expected.md`), await row.ariaSnapshot(), MODE)
       preparation.contentRelease.resolve(undefined)
     })
-    const [sessionId] = await Promise.all([settled, ...observations]).finally(() => { releasePreparations?.() })
+    const [sessionId] = await Promise.all([settled, ...observations]).finally(() => {
+      releasePreparations?.()
+    })
     const session = scaffold.ctx.agents.get(sessionId)?.session
     if (session?.header.cwd === undefined) throw new Error('changed-files Session has no workspace')
     cwd = session.header.cwd
     if (MODE === 'record') await recordFixture(scaffold, sessionId, FIXTURE)
 
-    const announced = session.snapshotEvents().filter(event => event.type === 'workspace/changes').at(-1)
+    const announced = session
+      .snapshotEvents()
+      .filter(event => event.type === 'workspace/changes')
+      .at(-1)
     expect(announced, 'the turn must announce its changed files').toBeDefined()
     if (announced === undefined) throw new Error('no changed-files announcement')
     expect(announced.data).toEqual({ turn: 1 })
@@ -219,7 +259,7 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     // The header and every row open the turn's review in the Sidebar, with or without a Host desktop.
     expect(await card.getByRole('button', { name: '在侧边栏查看本轮改动' }).count()).toBe(1)
     expect(await card.getByRole('button', { name: '查看 notes.txt 的改动' }).count()).toBe(1)
-    const geometry = await card.evaluate((element) => {
+    const geometry = await card.evaluate(element => {
       const requiredElement = <T extends Element>(value: T | null | undefined, name: string): T => {
         if (value === null || value === undefined) throw new Error(`changed-files layout is missing ${name}`)
         return value
@@ -280,7 +320,7 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     await preview.locator('[data-review-view="unified"]').waitFor({ state: 'visible' })
     expect(await preview.locator('[data-diff-side]').count()).toBe(0)
     expect(await preview.locator('[data-diff-hunk-header]').isVisible()).toBe(false)
-    const geometry = await preview.evaluate((element) => {
+    const geometry = await preview.evaluate(element => {
       const popup = element.parentElement!.getBoundingClientRect()
       const card = document.querySelector('[data-changed-files]')!.getBoundingClientRect()
       return { inset: popup.left - card.left, width: popup.width, cardWidth: card.width, height: popup.height }
@@ -289,26 +329,35 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     expect(geometry.width).toBe(geometry.cardWidth - 48)
     expect(geometry.height).toBeLessThanOrEqual(420)
     const path = preview.locator('[data-changes-preview-path]')
-    expect(await row.evaluate(element => document.getElementById(element.getAttribute('aria-describedby')!)?.textContent)).toBe(await path.textContent())
+    expect(await row.evaluate(element => document.getElementById(element.getAttribute('aria-describedby')!)?.textContent)).toBe(
+      await path.textContent(),
+    )
     expect(await path.getAttribute('tabindex')).toBeNull()
-    const pathStyle = await path.evaluate((element) => {
+    const pathStyle = await path.evaluate(element => {
       const style = getComputedStyle(element)
       return { family: style.fontFamily, overflow: style.overflowX, whiteSpace: style.whiteSpace, ellipsis: style.textOverflow }
     })
     expect(pathStyle.family).toMatch(/mono/i)
     expect(pathStyle).toMatchObject({ overflow: 'auto', whiteSpace: 'nowrap', ellipsis: 'clip' })
-    await path.evaluate((element) => { element.style.maxWidth = '160px'; element.scrollLeft = 50 })
+    await path.evaluate(element => {
+      element.style.maxWidth = '160px'
+      element.scrollLeft = 50
+    })
     expect(await path.evaluate(element => element.scrollLeft)).toBe(50)
-    await path.evaluate((element) => { element.style.removeProperty('max-width') })
+    await path.evaluate(element => {
+      element.style.removeProperty('max-width')
+    })
     await compareOrRefreshGolden(join(DIR, 'hover.expected.md'), await preview.locator('[data-review-view]').ariaSnapshot(), MODE)
     await preview.hover()
-    await preview.locator('[data-review-view]').evaluate((element) => {
+    await preview.locator('[data-review-view]').evaluate(element => {
       const line = element.querySelector('[data-diff-line]')!
       for (let index = 0; index < 40; index++) element.appendChild(line.cloneNode(true))
     })
     await expect.poll(() => preview.evaluate(element => element.parentElement!.getBoundingClientRect().height)).toBe(420)
     const scroll = preview.locator('[data-review-view]')
-    await scroll.evaluate((element) => { element.scrollTop = 80 })
+    await scroll.evaluate(element => {
+      element.scrollTop = 80
+    })
     await expect.poll(() => scroll.evaluate(element => element.scrollTop)).toBe(80)
     await row.click()
     await preview.waitFor({ state: 'detached' })
@@ -320,9 +369,13 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     expect(await preview.locator('[data-review-view="unified"]').count()).toBe(1)
     expect(await preview.locator('[data-diff-note]').isVisible()).toBe(false)
     // Empty comparisons keep their status; only metadata accompanying code is hidden.
-    await preview.locator('[data-diff-note]').evaluate((element) => { element.setAttribute('data-diff-note', 'empty') })
+    await preview.locator('[data-diff-note]').evaluate(element => {
+      element.setAttribute('data-diff-note', 'empty')
+    })
     expect(await preview.locator('[data-diff-note]').isVisible()).toBe(true)
-    await preview.locator('[data-diff-note]').evaluate((element) => { element.setAttribute('data-diff-note', 'metadata') })
+    await preview.locator('[data-diff-note]').evaluate(element => {
+      element.setAttribute('data-diff-note', 'metadata')
+    })
     expect(await preview.locator('[data-diff-hunk-header]').isVisible()).toBe(false)
     await expect.poll(() => preview.evaluate(element => Number(getComputedStyle(element.parentElement!).opacity))).toBe(1)
     expect(await hoverOpacityTransition(page, true)).toEqual({ duration: 100, opacity: 0.5 })
@@ -364,7 +417,7 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     await review.locator('[data-review-view="unified"][data-review-wrap]').waitFor({ state: 'visible' })
     expect(await compareTool.getAttribute('aria-pressed')).toBe('true')
     await wrapTool.click()
-    const headerAlignment = await review.locator('[data-review-file="notes.txt"]').evaluate((button) => {
+    const headerAlignment = await review.locator('[data-review-file="notes.txt"]').evaluate(button => {
       const center = (element: Element) => {
         const rect = element.getBoundingClientRect()
         return rect.top + rect.height / 2
@@ -380,17 +433,21 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     })
     for (const offset of headerAlignment) expect(offset).toBeLessThanOrEqual(0.5)
     // The hunk header overflows the appended row when the comparison is narrow.
-    const emptyRowLayout = await page.addStyleTag({ content: `
+    const emptyRowLayout = await page.addStyleTag({
+      content: `
       [data-review-view="unified"] { width: 90px; }
-    ` })
+    `,
+    })
     try {
       const left = review.locator('[data-review-view="unified"]')
       const emptyRow = left.locator('[data-diff-line="add"]')
       const maximum = await left.evaluate(element => element.scrollWidth - element.clientWidth)
       expect(maximum).toBeGreaterThan(0)
-      await left.evaluate((element) => { element.scrollLeft = element.scrollWidth })
+      await left.evaluate(element => {
+        element.scrollLeft = element.scrollWidth
+      })
       await expect.poll(() => left.evaluate(element => element.scrollLeft)).toBe(maximum)
-      const fill = await emptyRow.evaluate((row) => {
+      const fill = await emptyRow.evaluate(row => {
         const column = row.closest('[data-review-view]')!
         const columnBox = column.getBoundingClientRect()
         const rowBox = row.getBoundingClientRect()
@@ -399,8 +456,9 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
           rowWidth: rowBox.width,
           contentWidth: column.scrollWidth,
           background: getComputedStyle(row).backgroundColor,
-          coversViewport: [columnBox.left + 4, columnBox.right - 4].every(x =>
-            document.elementFromPoint(x, y)?.closest('[data-diff-line]') === row),
+          coversViewport: [columnBox.left + 4, columnBox.right - 4].every(
+            x => document.elementFromPoint(x, y)?.closest('[data-diff-line]') === row,
+          ),
         }
       })
       expect(fill.background).not.toBe('rgba(0, 0, 0, 0)')
@@ -408,14 +466,14 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
       expect(fill.coversViewport).toBe(true)
     } finally {
       await emptyRowLayout.evaluate(element => element.parentNode!.removeChild(element))
-      await review.locator('[data-review-view]').evaluateAll((elements) => {
+      await review.locator('[data-review-view]').evaluateAll(elements => {
         for (const element of elements) element.scrollLeft = 0
       })
     }
     const primaryTextColour = await review.evaluate(element => getComputedStyle(element).color)
     const addedLine = review.locator('[data-diff-line="add"]')
     const rightContextLine = review.locator('[data-diff-line="context"]')
-    const addedRule = await addedLine.evaluate((line) => {
+    const addedRule = await addedLine.evaluate(line => {
       const number = line.children[0]
       const text = line.querySelector<HTMLElement>('span:last-child')
       if (number === undefined || text === null) throw new Error('added diff line is incomplete')
@@ -428,7 +486,7 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
         textLeft: text.getBoundingClientRect().left - left,
       }
     })
-    const rightContextRule = await rightContextLine.evaluate((line) => {
+    const rightContextRule = await rightContextLine.evaluate(line => {
       const number = line.children[0]
       const text = line.querySelector('span:last-child')
       if (number === undefined || text === null) throw new Error('context diff line is incomplete')
@@ -444,19 +502,22 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     expect(addedRule.textLeft).toBeCloseTo(rightContextRule.textLeft, 1)
     // The ignored file has no snapshot; its comparison comes from the copies captured around the write call.
     await review.getByRole('button', { name: '选择要查看的文件' }).click()
-    const selectedAlignment = await page.getByRole('menuitem').filter({ hasText: 'notes.txt' }).evaluate((row) => {
-      const center = (element: Element) => {
-        const rect = element.getBoundingClientRect()
-        return rect.top + rect.height / 2
-      }
-      const content = row.querySelector<HTMLElement>('span > span')
-      const path = content?.children[0]
-      const counts = content?.children[1]
-      const check = row.querySelector(':scope > svg')
-      if (path === undefined || counts === undefined || check === null) throw new Error('review menu alignment elements are missing')
-      const rowCenter = center(row)
-      return [center(path), center(counts), center(check)].map(value => Math.abs(value - rowCenter))
-    })
+    const selectedAlignment = await page
+      .getByRole('menuitem')
+      .filter({ hasText: 'notes.txt' })
+      .evaluate(row => {
+        const center = (element: Element) => {
+          const rect = element.getBoundingClientRect()
+          return rect.top + rect.height / 2
+        }
+        const content = row.querySelector<HTMLElement>('span > span')
+        const path = content?.children[0]
+        const counts = content?.children[1]
+        const check = row.querySelector(':scope > svg')
+        if (path === undefined || counts === undefined || check === null) throw new Error('review menu alignment elements are missing')
+        const rowCenter = center(row)
+        return [center(path), center(counts), center(check)].map(value => Math.abs(value - rowCenter))
+      })
     for (const offset of selectedAlignment) expect(offset).toBeLessThanOrEqual(0.5)
     await page.getByRole('menuitem').filter({ hasText: 'app.local' }).click()
     await review.locator('[data-review-file="app.local"]').waitFor({ state: 'visible' })
@@ -471,7 +532,7 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     expect(await compareTool.getAttribute('aria-pressed')).toBe('true')
     const deletedLine = review.locator('[data-diff-side="left"] [data-diff-line="del"]').first()
     await expect.poll(() => deletedLine.evaluate(line => line.querySelector('[data-diff-code] span[style]') !== null)).toBe(true)
-    const deletedRule = await deletedLine.evaluate((line) => {
+    const deletedRule = await deletedLine.evaluate(line => {
       const number = line.children[0]
       const text = line.querySelector<HTMLElement>('span:last-child')
       if (number === undefined || text === null) throw new Error('deleted diff line is incomplete')
@@ -484,16 +545,19 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
         textLeft: text.getBoundingClientRect().left - left,
       }
     })
-    const leftContextRule = await review.locator('[data-diff-side="left"] [data-diff-line="context"]').first().evaluate((line) => {
-      const number = line.children[0]
-      const text = line.children[1]
-      if (number === undefined || text === undefined) throw new Error('context diff line is incomplete')
-      const left = line.getBoundingClientRect().left
-      return {
-        numberLeft: number.getBoundingClientRect().left - left,
-        textLeft: text.getBoundingClientRect().left - left,
-      }
-    })
+    const leftContextRule = await review
+      .locator('[data-diff-side="left"] [data-diff-line="context"]')
+      .first()
+      .evaluate(line => {
+        const number = line.children[0]
+        const text = line.children[1]
+        if (number === undefined || text === undefined) throw new Error('context diff line is incomplete')
+        const left = line.getBoundingClientRect().left
+        return {
+          numberLeft: number.getBoundingClientRect().left - left,
+          textLeft: text.getBoundingClientRect().left - left,
+        }
+      })
     expect(deletedRule.shadow).toContain(deletedRule.markerColour)
     expect(deletedRule.textColour).toBe(primaryTextColour)
     expect(deletedRule.numberLeft).toBeCloseTo(leftContextRule.numberLeft, 1)
@@ -503,40 +567,65 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     expect(await compareTool.locator('svg').evaluate(icon => getComputedStyle(icon).transform)).toBe('none')
     await compareTool.click()
     await review.locator('[data-review-view="split"]').waitFor({ state: 'visible' })
-    await expect.poll(() => drawn(review.locator('[data-diff-side="left"]'))).toEqual(['del:1# 示例项目', 'context:2', 'context:3一个用于演示的仓库。'])
-    expect(await drawn(review.locator('[data-diff-side="right"]'))).toEqual(['del:1# 项目说明', 'context:2', 'context:3一个用于演示的仓库。'])
+    await expect
+      .poll(() => drawn(review.locator('[data-diff-side="left"]')))
+      .toEqual(['del:1# 示例项目', 'context:2', 'context:3一个用于演示的仓库。'])
+    expect(await drawn(review.locator('[data-diff-side="right"]'))).toEqual([
+      'del:1# 项目说明',
+      'context:2',
+      'context:3一个用于演示的仓库。',
+    ])
     // Constrain the recorded three-row diff to exercise unequal horizontal ranges and classic scrollbars.
-    const scrollLayout = await page.addStyleTag({ content: `
+    const scrollLayout = await page.addStyleTag({
+      content: `
       [data-changes-review] { height: 120px !important; }
       [data-diff-side] { scrollbar-width: auto; }
       [data-diff-side]::-webkit-scrollbar { width: 16px; height: 16px; }
       [data-diff-side="left"] { width: 65px; }
-    ` })
+    `,
+    })
     try {
       const left = review.locator('[data-diff-side="left"]')
       const right = review.locator('[data-diff-side="right"]')
-      const metrics = (side: typeof left) => side.evaluate(element => ({
-        x: element.scrollLeft, y: element.scrollTop,
-        maxX: element.scrollWidth - element.clientWidth,
-        maxY: element.scrollHeight - element.clientHeight,
-        bottom: element.lastElementChild!.getBoundingClientRect().bottom,
-      }))
+      const metrics = (side: typeof left) =>
+        side.evaluate(element => ({
+          x: element.scrollLeft,
+          y: element.scrollTop,
+          maxX: element.scrollWidth - element.clientWidth,
+          maxY: element.scrollHeight - element.clientHeight,
+          bottom: element.lastElementChild!.getBoundingClientRect().bottom,
+        }))
       const initialLeft = await metrics(left)
       const initialRight = await metrics(right)
       expect(initialLeft.maxX).toBeGreaterThan(0)
       expect(initialRight.maxX).toBe(0)
       expect(initialLeft.maxY).toBeGreaterThan(0)
       expect(initialLeft.maxY).toBe(initialRight.maxY)
-      await left.evaluate((element) => { element.scrollLeft = element.scrollWidth })
+      await left.evaluate(element => {
+        element.scrollLeft = element.scrollWidth
+      })
       await expect.poll(async () => (await metrics(left)).x).toBe(initialLeft.maxX)
-      await left.evaluate((element) => { element.scrollTop = element.scrollHeight })
+      await left.evaluate(element => {
+        element.scrollTop = element.scrollHeight
+      })
       await expect.poll(async () => (await metrics(right)).y).toBe(initialLeft.maxY)
       // Two frames allow the browser-generated peer event to run before checking the source.
-      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => { resolve() }))))
+      await page.evaluate(
+        () =>
+          new Promise<void>(resolve =>
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => {
+                resolve()
+              }),
+            ),
+          ),
+      )
       expect((await metrics(left)).x).toBe(initialLeft.maxX)
       expect((await metrics(left)).y).toBe(initialLeft.maxY)
       expect((await metrics(left)).bottom).toBeCloseTo((await metrics(right)).bottom, 1)
-      await right.evaluate((element) => { element.scrollTop = 0 })
+      await right.evaluate(element => {
+        element.scrollTop = 0
+      })
       await expect.poll(async () => (await metrics(left)).y).toBe(0)
       expect((await metrics(left)).x).toBe(initialLeft.maxX)
     } finally {
@@ -544,9 +633,11 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     }
     await review.getByRole('button', { name: '自动换行' }).click()
     await review.locator('[data-review-view][data-review-wrap]').waitFor({ state: 'visible' })
-    await expect.poll(() => drawn(review)).toEqual(['del:1# 示例项目1# 项目说明', 'context:22', 'context:3一个用于演示的仓库。3一个用于演示的仓库。'])
+    await expect
+      .poll(() => drawn(review))
+      .toEqual(['del:1# 示例项目1# 项目说明', 'context:22', 'context:3一个用于演示的仓库。3一个用于演示的仓库。'])
     const wrappedAddition = review.locator('[data-diff-line="del"] > span').nth(1)
-    const wrappedAdditionRule = await wrappedAddition.evaluate((cell) => {
+    const wrappedAdditionRule = await wrappedAddition.evaluate(cell => {
       const number = cell.children[0]
       const text = cell.querySelector<HTMLElement>('[data-diff-code]')
       if (number === undefined || text === null) throw new Error('wrapped addition is incomplete')
@@ -584,7 +675,10 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     const menu = page.getByRole('menu')
     await menu.waitFor({ state: 'visible' })
     const grip = floating.locator('[data-dockkit-float-grip]')
-    for (const delta of [{ x: 120, y: 60 }, { x: -60, y: -30 }]) {
+    for (const delta of [
+      { x: 120, y: 60 },
+      { x: -60, y: -30 },
+    ]) {
       const handle = await grip.boundingBox()
       const before = await selector.boundingBox()
       if (handle === null || before === null) throw new Error('floating review controls are not rendered')
@@ -593,15 +687,19 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
       await page.mouse.down()
       try {
         await page.mouse.move(start.x + delta.x, start.y + delta.y, { steps: 8 })
-        await expect.poll(async () => {
-          const anchor = await selector.boundingBox()
-          const list = await menu.boundingBox()
-          if (anchor === null || list === null) throw new Error('review file menu disappeared during drag')
-          return Math.max(
-            Math.abs(anchor.x - before.x - delta.x), Math.abs(anchor.y - before.y - delta.y),
-            Math.abs(list.x - anchor.x), Math.abs(list.y - anchor.y - anchor.height - 4),
-          )
-        }).toBeLessThanOrEqual(1)
+        await expect
+          .poll(async () => {
+            const anchor = await selector.boundingBox()
+            const list = await menu.boundingBox()
+            if (anchor === null || list === null) throw new Error('review file menu disappeared during drag')
+            return Math.max(
+              Math.abs(anchor.x - before.x - delta.x),
+              Math.abs(anchor.y - before.y - delta.y),
+              Math.abs(list.x - anchor.x),
+              Math.abs(list.y - anchor.y - anchor.height - 4),
+            )
+          })
+          .toBeLessThanOrEqual(1)
       } finally {
         await page.mouse.up()
       }
@@ -619,14 +717,18 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     const body = review.locator('[data-review-view="split"]:not([data-review-wrap])')
     await body.waitFor({ state: 'visible' })
     // A scrollable parent makes escaped edge gestures observable without native trackpad rebound.
-    const layout = await page.addStyleTag({ content: `
+    const layout = await page.addStyleTag({
+      content: `
       [data-changes-review] { height: 220px !important; }
       [data-review-view="split"] { display: block; max-width: 220px; }
       [data-review-view="split"] > div { width: 160px; height: 60px; margin: 160px; }
-    ` })
+    `,
+    })
     onTestFinished(async () => {
       await layout.evaluate(element => element.parentNode!.removeChild(element))
-      await body.evaluate((element) => { element.scrollTo(0, 0) })
+      await body.evaluate(element => {
+        element.scrollTo(0, 0)
+      })
       await review.getByRole('button', { name: '自动换行' }).click()
     })
     const input = await page.context().newCDPSession(page)
@@ -635,7 +737,7 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
         const column = review.locator(`[data-diff-side="${side}"]`)
         for (const axis of ['x', 'y'] as const) {
           for (const end of [false, true]) {
-            const parentPosition = await body.evaluate((element) => {
+            const parentPosition = await body.evaluate(element => {
               const x = (element.scrollWidth - element.clientWidth) / 2
               const y = (element.scrollHeight - element.clientHeight) / 2
               element.scrollTo(x, y)
@@ -643,15 +745,16 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
             })
             expect(parentPosition.x).toBeGreaterThan(0)
             expect(parentPosition.y).toBeGreaterThan(0)
-            const edge = await column.evaluate((element, { axis, end }) => {
-              const maximum = axis === 'x'
-                ? element.scrollWidth - element.clientWidth
-                : element.scrollHeight - element.clientHeight
-              element.scrollTo(axis === 'x' && end ? maximum : 0, axis === 'y' && end ? maximum : 0)
-              return { maximum, offset: end ? maximum : 0 }
-            }, { axis, end })
+            const edge = await column.evaluate(
+              (element, { axis, end }) => {
+                const maximum = axis === 'x' ? element.scrollWidth - element.clientWidth : element.scrollHeight - element.clientHeight
+                element.scrollTo(axis === 'x' && end ? maximum : 0, axis === 'y' && end ? maximum : 0)
+                return { maximum, offset: end ? maximum : 0 }
+              },
+              { axis, end },
+            )
             expect(edge.maximum).toBeGreaterThan(0)
-            const position = () => column.evaluate((element, axis) => axis === 'x' ? element.scrollLeft : element.scrollTop, axis)
+            const position = () => column.evaluate((element, axis) => (axis === 'x' ? element.scrollLeft : element.scrollTop), axis)
             await expect.poll(position).toBe(edge.offset)
             const box = await column.boundingBox()
             if (box === null) throw new Error('diff column has no visible bounds')
@@ -659,12 +762,16 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
             const distance = end ? -80 : 80
             // CDP acknowledges the completed gesture, including default scrolling, before observation.
             await input.send('Input.synthesizeScrollGesture', {
-              ...gesture, xDistance: axis === 'x' ? distance : 0, yDistance: axis === 'y' ? distance : 0,
+              ...gesture,
+              xDistance: axis === 'x' ? distance : 0,
+              yDistance: axis === 'y' ? distance : 0,
             })
             expect(await body.evaluate(element => ({ x: element.scrollLeft, y: element.scrollTop }))).toEqual(parentPosition)
             expect(await position()).toBe(edge.offset)
             await input.send('Input.synthesizeScrollGesture', {
-              ...gesture, xDistance: axis === 'x' ? -distance : 0, yDistance: axis === 'y' ? -distance : 0,
+              ...gesture,
+              xDistance: axis === 'x' ? -distance : 0,
+              yDistance: axis === 'y' ? -distance : 0,
             })
             await expect.poll(position).not.toBe(edge.offset)
           }
@@ -677,27 +784,42 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
 
   it('fills empty alignment rows across a mixed comparison’s scrollable columns', async () => {
     const preview = await page.context().newPage()
-    onTestFinished(async () => { await preview.close() })
-    await preview.route('**/api/changes.diff?*', route => route.fulfill({ json: {
-      kind: 'text', path: 'notes.txt', display: 'notes.txt', before: true, after: true, coarse: false,
-      hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 2, lines: ['-before', '+after', '+extra'] }],
-    } }))
+    onTestFinished(async () => {
+      await preview.close()
+    })
+    await preview.route('**/api/changes.diff?*', route =>
+      route.fulfill({
+        json: {
+          kind: 'text',
+          path: 'notes.txt',
+          display: 'notes.txt',
+          before: true,
+          after: true,
+          coarse: false,
+          hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 2, lines: ['-before', '+after', '+extra'] }],
+        },
+      }),
+    )
     await preview.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await preview.locator('[data-changed-files]').getByRole('button', { name: '查看 notes.txt 的改动' }).click()
     const review = preview.locator('[data-changes-review]')
     await review.locator('[data-review-view="split"]').waitFor({ state: 'visible' })
-    const emptyRowLayout = await preview.addStyleTag({ content: `
+    const emptyRowLayout = await preview.addStyleTag({
+      content: `
       [data-diff-side="left"] { width: 90px; }
       [data-diff-side="right"] { width: 120px; }
-    ` })
+    `,
+    })
     try {
       const left = review.locator('[data-diff-side="left"]')
       const emptyRow = left.locator('[data-diff-line="add"]')
       const maximum = await left.evaluate(element => element.scrollWidth - element.clientWidth)
       expect(maximum).toBeGreaterThan(0)
-      await left.evaluate((element) => { element.scrollLeft = element.scrollWidth })
+      await left.evaluate(element => {
+        element.scrollLeft = element.scrollWidth
+      })
       await expect.poll(() => left.evaluate(element => element.scrollLeft)).toBe(maximum)
-      const fill = await emptyRow.evaluate((row) => {
+      const fill = await emptyRow.evaluate(row => {
         const column = row.closest('[data-diff-side]')!
         const columnBox = column.getBoundingClientRect()
         const rowBox = row.getBoundingClientRect()
@@ -706,8 +828,9 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
           rowWidth: rowBox.width,
           contentWidth: column.scrollWidth,
           background: getComputedStyle(row).backgroundColor,
-          coversViewport: [columnBox.left + 4, columnBox.right - 4].every(x =>
-            document.elementFromPoint(x, y)?.closest('[data-diff-line]') === row),
+          coversViewport: [columnBox.left + 4, columnBox.right - 4].every(
+            x => document.elementFromPoint(x, y)?.closest('[data-diff-line]') === row,
+          ),
         }
       })
       expect(fill.background).not.toBe('rgba(0, 0, 0, 0)')
@@ -715,7 +838,7 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
       expect(fill.coversViewport).toBe(true)
     } finally {
       await emptyRowLayout.evaluate(element => element.parentNode!.removeChild(element))
-      await review.locator('[data-diff-side]').evaluateAll((elements) => {
+      await review.locator('[data-diff-side]').evaluateAll(elements => {
         for (const element of elements) element.scrollLeft = 0
       })
     }
@@ -729,17 +852,23 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
 
   it('preserves filename endings when the review narrows and updates the fade after resizing or selecting another file', async () => {
     const preview = await page.context().newPage()
-    onTestFinished(async () => { await preview.close() })
+    onTestFinished(async () => {
+      await preview.close()
+    })
     const previewTripwire = watchConsole(preview)
     const prefix = 'src/components/review/' + 'long-filename-'.repeat(8)
     const names = [`${prefix}before.ts`, `${prefix}after.ts`] as const
     // Project long display names into a separate page; recorded paths, comparisons, and Session data stay intact.
-    await preview.route('**/api/changes.summary?*', async (route) => {
+    await preview.route('**/api/changes.summary?*', async route => {
       const response = await route.fetch()
-      const summary = await response.json() as ChangesSummary
-      await route.fulfill({ response, json: {
-        ...summary, files: summary.files.map((file, index) => ({ ...file, display: names[index] ?? file.display })),
-      } })
+      const summary = (await response.json()) as ChangesSummary
+      await route.fulfill({
+        response,
+        json: {
+          ...summary,
+          files: summary.files.map((file, index) => ({ ...file, display: names[index] ?? file.display })),
+        },
+      })
     })
     await preview.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
     await preview.locator('[data-changed-files]').getByRole('button', { name: '在侧边栏查看本轮改动' }).click()
@@ -752,24 +881,27 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
         element.textContent = `[data-sidebar-right-panel] { width: ${width}px !important; }`
       }, width)
     }
-    const metrics = () => label.evaluate((element) => {
-      const text = element.firstElementChild!
-      const box = element.getBoundingClientRect()
-      const textBox = text.getBoundingClientRect()
-      const filename = text.lastElementChild!
-      const suffix = document.createRange()
-      const node = filename.firstChild!
-      suffix.setStart(node, Math.max(0, node.textContent!.length - 'before.ts'.length))
-      suffix.setEnd(node, node.textContent!.length)
-      const suffixBox = suffix.getBoundingClientRect()
-      return {
-        clipped: element.hasAttribute('data-path-clipped'), mask: getComputedStyle(element).maskImage,
-        left: textBox.left - box.left, right: box.right - textBox.right,
-        suffixVisible: suffixBox.left >= box.left && suffixBox.right <= box.right + 0.5,
-        directoryColor: getComputedStyle(text.firstElementChild!).color,
-        nameColor: getComputedStyle(filename).color,
-      }
-    })
+    const metrics = () =>
+      label.evaluate(element => {
+        const text = element.firstElementChild!
+        const box = element.getBoundingClientRect()
+        const textBox = text.getBoundingClientRect()
+        const filename = text.lastElementChild!
+        const suffix = document.createRange()
+        const node = filename.firstChild!
+        suffix.setStart(node, Math.max(0, node.textContent!.length - 'before.ts'.length))
+        suffix.setEnd(node, node.textContent!.length)
+        const suffixBox = suffix.getBoundingClientRect()
+        return {
+          clipped: element.hasAttribute('data-path-clipped'),
+          mask: getComputedStyle(element).maskImage,
+          left: textBox.left - box.left,
+          right: box.right - textBox.right,
+          suffixVisible: suffixBox.left >= box.left && suffixBox.right <= box.right + 0.5,
+          directoryColor: getComputedStyle(text.firstElementChild!).color,
+          nameColor: getComputedStyle(filename).color,
+        }
+      })
     await expect.poll(async () => (await metrics()).clipped).toBe(true)
     const clipped = await metrics()
     expect(clipped.left).toBeLessThan(0)
@@ -778,12 +910,12 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     expect(clipped.mask).toContain('linear-gradient')
     expect(clipped.directoryColor).not.toBe(clipped.nameColor)
     expect(await label.getAttribute('title')).toBe(names[0])
-    const controls = await selector.evaluate((button) => {
+    const controls = await selector.evaluate(button => {
       const header = button.parentElement!.parentElement!
       const bounds = header.getBoundingClientRect()
       const caret = button.querySelector('svg')!
       const counts = button.parentElement!.nextElementSibling!
-      return [caret, counts, ...header.querySelectorAll('[data-review-tool]')].map((element) => {
+      return [caret, counts, ...header.querySelectorAll('[data-review-tool]')].map(element => {
         const box = element.getBoundingClientRect()
         return box.width > 0 && box.left >= bounds.left && box.right <= bounds.right
       })
@@ -808,5 +940,4 @@ describe('web e2e: a git workspace turn ends with its changed files', () => {
     expect(previewTripwire.pageErrors).toEqual([])
     expect(previewTripwire.warnings).toEqual([])
   })
-
 })

@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { SandboxPolicy } from '@deepseek-ai/dsh-sandbox'
 import { launcherPath } from '@deepseek-ai/node-addon-system/landlock-run'
@@ -55,7 +55,10 @@ describe.skipIf(!landlockUsable)('sandbox-local: real Landlock confinement throu
   it('read-only denies a write — the file must NOT exist, the wrap reports the probed enforcement', async () => {
     const workdir = await tempDir(tmpdir())
     const sandbox = await provider()
-    const { result, enforcement: wrapped } = await runConfined(sandbox, `echo hi > ${workdir}/denied.txt`, { mode: 'read-only', workspaceRoot: workdir })
+    const { result, enforcement: wrapped } = await runConfined(sandbox, `echo hi > ${workdir}/denied.txt`, {
+      mode: 'read-only',
+      workspaceRoot: workdir,
+    })
     expect(result.status).not.toBe(0)
     expect(wrapped).toBe(enforcement)
     expect(existsSync(join(workdir, 'denied.txt'))).toBe(false)
@@ -86,7 +89,10 @@ describe.skipIf(!landlockUsable)('sandbox-local: real Landlock confinement throu
     const outside = await tempDir(homedir())
     const sandbox = await provider()
 
-    const inside = await runConfined(sandbox, `printf landlock-ok > ${workdir}/allowed.txt`, { mode: 'workspace-write', workspaceRoot: workdir })
+    const inside = await runConfined(sandbox, `printf landlock-ok > ${workdir}/allowed.txt`, {
+      mode: 'workspace-write',
+      workspaceRoot: workdir,
+    })
     expect(inside.result.status).toBe(0)
     expect(readFileSync(join(workdir, 'allowed.txt'), 'utf8')).toBe('landlock-ok')
 
@@ -99,7 +105,10 @@ describe.skipIf(!landlockUsable)('sandbox-local: real Landlock confinement throu
     const workdir = await tempDir(homedir())
     const scratch = await tempDir(tmpdir())
     const sandbox = await provider()
-    const { result } = await runConfined(sandbox, `printf tmp-ok > ${scratch}/scratch.txt`, { mode: 'workspace-write', workspaceRoot: workdir })
+    const { result } = await runConfined(sandbox, `printf tmp-ok > ${scratch}/scratch.txt`, {
+      mode: 'workspace-write',
+      workspaceRoot: workdir,
+    })
     expect(result.status).toBe(0)
     expect(readFileSync(join(scratch, 'scratch.txt'), 'utf8')).toBe('tmp-ok')
   })

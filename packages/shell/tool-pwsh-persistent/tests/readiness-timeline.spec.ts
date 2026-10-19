@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { SubprocessOutcome, SubprocessTerminalForeground, SubprocessTerminalHandle } from '@deepseek-ai/dsh-subprocess'
 import type { TerminalSendOperation, TerminalSendResult } from '@deepseek-ai/dsh-terminal'
 import { CONTROLLED_PROMPT, TerminalSanitizer } from '@deepseek-ai/dsh-terminal-bash/src/sanitize.ts'
@@ -23,20 +23,30 @@ function fakeTerminal(pid: number): { handle: SubprocessTerminalHandle; state: F
     pid,
     output: new Readable({ read() {} }),
     done: new Promise<SubprocessOutcome>(() => {}),
-    async write(data: string) { writes.push(data) },
+    async write(data: string) {
+      writes.push(data)
+    },
     async resize() {},
     async inspectForeground() {
       if (state.inspectError !== undefined) throw state.inspectError
       return state.foreground
     },
-    async inspectActivity() { return { state: 'unknown' as const, revision: 0 } },
-    async signalForeground() { return pid },
+    async inspectActivity() {
+      return { state: 'unknown' as const, revision: 0 }
+    },
+    async signalForeground() {
+      return pid
+    },
     async terminate() {},
   }
   return { handle, state, writes }
 }
 
-function fakeSend(): { operation: TerminalSendOperation; settle: (waitReason: TerminalSendResult['waitReason']) => void; reject: () => void } {
+function fakeSend(): {
+  operation: TerminalSendOperation
+  settle: (waitReason: TerminalSendResult['waitReason']) => void
+  reject: () => void
+} {
   const resolvers = Promise.withResolvers<TerminalSendResult>()
   const operation: TerminalSendOperation = {
     done: resolvers.promise,
@@ -45,8 +55,12 @@ function fakeSend(): { operation: TerminalSendOperation; settle: (waitReason: Te
   }
   return {
     operation,
-    settle: (waitReason) => { resolvers.resolve({ viewport: '', waitReason, sessionStatus: { kind: 'running' }, truncated: false }) },
-    reject: () => { resolvers.reject(new Error('inspection failed')) },
+    settle: waitReason => {
+      resolvers.resolve({ viewport: '', waitReason, sessionStatus: { kind: 'running' }, truncated: false })
+    },
+    reject: () => {
+      resolvers.reject(new Error('inspection failed'))
+    },
   }
 }
 
@@ -55,20 +69,38 @@ const settled = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 
 
 describe('replayPromptEvidence', () => {
   it('mirrors the session rule: exact tail, invalidated tail, pending prefix, absent marker', () => {
-    expect(replayPromptEvidence([{ prompt: true, promptTail: '' }, { prompt: false, promptTail: CONTROLLED_PROMPT }]))
-      .toEqual({ promptSeen: true, promptTail: CONTROLLED_PROMPT, promptTextSeen: true })
-    expect(replayPromptEvidence([{ prompt: true, promptTail: '' }, { prompt: false, promptTail: `${CONTROLLED_PROMPT}Write-Output` }]))
-      .toEqual({ promptSeen: true, promptTail: `${CONTROLLED_PROMPT}\0`, promptTextSeen: false })
-    expect(replayPromptEvidence([{ prompt: true, promptTail: '' }, { prompt: false, promptTail: 'dsh' }]))
-      .toEqual({ promptSeen: true, promptTail: 'dsh', promptTextSeen: false })
-    expect(replayPromptEvidence([{ prompt: false, promptTail: undefined }, { prompt: false, promptTail: 'dsh> ' }]))
-      .toEqual({ promptSeen: false, promptTail: '', promptTextSeen: false })
+    expect(
+      replayPromptEvidence([
+        { prompt: true, promptTail: '' },
+        { prompt: false, promptTail: CONTROLLED_PROMPT },
+      ]),
+    ).toEqual({ promptSeen: true, promptTail: CONTROLLED_PROMPT, promptTextSeen: true })
+    expect(
+      replayPromptEvidence([
+        { prompt: true, promptTail: '' },
+        { prompt: false, promptTail: `${CONTROLLED_PROMPT}Write-Output` },
+      ]),
+    ).toEqual({ promptSeen: true, promptTail: `${CONTROLLED_PROMPT}\0`, promptTextSeen: false })
+    expect(
+      replayPromptEvidence([
+        { prompt: true, promptTail: '' },
+        { prompt: false, promptTail: 'dsh' },
+      ]),
+    ).toEqual({ promptSeen: true, promptTail: 'dsh', promptTextSeen: false })
+    expect(
+      replayPromptEvidence([
+        { prompt: false, promptTail: undefined },
+        { prompt: false, promptTail: 'dsh> ' },
+      ]),
+    ).toEqual({ promptSeen: false, promptTail: '', promptTextSeen: false })
     // A later marker restarts the tail, as the session's onData does.
-    expect(replayPromptEvidence([
-      { prompt: true, promptTail: 'stale text' },
-      { prompt: true, promptTail: '' },
-      { prompt: false, promptTail: CONTROLLED_PROMPT },
-    ])).toEqual({ promptSeen: true, promptTail: CONTROLLED_PROMPT, promptTextSeen: true })
+    expect(
+      replayPromptEvidence([
+        { prompt: true, promptTail: 'stale text' },
+        { prompt: true, promptTail: '' },
+        { prompt: false, promptTail: CONTROLLED_PROMPT },
+      ]),
+    ).toEqual({ promptSeen: true, promptTail: CONTROLLED_PROMPT, promptTextSeen: true })
   })
 })
 

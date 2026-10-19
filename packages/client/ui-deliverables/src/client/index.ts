@@ -28,14 +28,12 @@ import { ReviewTab, type ReviewInjected } from './ReviewTab.tsx'
 import { CHANGES_REVIEW_ID, changesReviewDefinition } from './review-definition.ts'
 import { createReviewStore } from './review-store.ts'
 import { en, NS, zh, type DeliverablesKey } from './locales.ts'
-import {
-  deliverablesDefinition, presentedForClosing, producedFileMentions, selectProducedFiles,
-} from './turn-deliverables.ts'
+import { deliverablesDefinition, presentedForClosing, producedFileMentions, selectProducedFiles } from './turn-deliverables.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
     /** Changed-files card, review tab, delivery card, and file-mention copy. */
-    'deliverables': DeliverablesKey
+    deliverables: DeliverablesKey
   }
 }
 
@@ -58,46 +56,60 @@ export function apply(ctx: ClientContext): void {
   })
   ctx.uiConversation.events.register(deliverablesDefinition)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-deliverables: dictionaries')
-  ctx.slots.inject(
-    'conversation.chat.turnTail',
-    () => ctx.slots.register({
-      name: 'conversation.chat.turnTail',
-      id: '@deepseek-ai/dsh-client-ui-deliverables',
-      locale: NS,
-      children: { 'deliverables.file.actions': { kind: 'list', scope: 'session' } },
-      inject: (): DeliverablesInjected => ({
-        hooks: { changesDiff: diffs.state, presentedOpen: opener.state, presentedHost: opener.host, changesSummary: summaries.state,
-          showCodeDiff: ctx.configForms.developerTools.enabled },
-        loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
-        reloadPresentedHost: () => opener.loadHost(),
-        loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
-        openPresented: (sessionId, seq, index, action, application) => opener.open(sessionId, seq, index, action, application),
-        openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
-        openChangesReview: (coordinates, index) => {
-          ctx.sidebarRight.openResource(changesReviewAddress(coordinates), { params: { index } })
-        },
-      }),
-    }, DeliverablesTail),
+  ctx.slots.inject('conversation.chat.turnTail', () =>
+    ctx.slots.register(
+      {
+        name: 'conversation.chat.turnTail',
+        id: '@deepseek-ai/dsh-client-ui-deliverables',
+        locale: NS,
+        children: { 'deliverables.file.actions': { kind: 'list', scope: 'session' } },
+        inject: (): DeliverablesInjected => ({
+          hooks: {
+            changesDiff: diffs.state,
+            presentedOpen: opener.state,
+            presentedHost: opener.host,
+            changesSummary: summaries.state,
+            showCodeDiff: ctx.configForms.developerTools.enabled,
+          },
+          loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
+          reloadPresentedHost: () => opener.loadHost(),
+          loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
+          openPresented: (sessionId, seq, index, action, application) => opener.open(sessionId, seq, index, action, application),
+          openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
+          openChangesReview: (coordinates, index) => {
+            ctx.sidebarRight.openResource(changesReviewAddress(coordinates), { params: { index } })
+          },
+        }),
+      },
+      DeliverablesTail,
+    ),
   )
-  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register(
-    { name: 'tool.call.toolview', key: 'present', locale: NS }, PresentRow,
-  ))
+  ctx.slots.inject('tool.call.toolview', () => ctx.slots.register({ name: 'tool.call.toolview', key: 'present', locale: NS }, PresentRow))
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.sidebarRightTabs.register(changesReviewDefinition(t)), 'ui-deliverables: changes-review type')
-  ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register(
-    {
-      name: 'sidebar.right.pane.tab', key: CHANGES_REVIEW_ID, locale: NS, store: createReviewStore(),
-      children: { 'deliverables.review.file.actions': { kind: 'list', scope: 'session' } },
-      inject: (): ReviewInjected => ({
-        hooks: { changesSummary: summaries.state, changesDiff: diffs.state, presentedOpen: opener.state, presentedHost: opener.host },
-        loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
-        loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
-        reloadPresentedHost: () => opener.loadHost(),
-        openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
-      }),
-    },
-    ReviewTab,
-  )), 'ui-deliverables: changes-review body')
+  ctx.effect(
+    () =>
+      ctx.slots.inject('sidebar.right.pane.tab', () =>
+        ctx.slots.register(
+          {
+            name: 'sidebar.right.pane.tab',
+            key: CHANGES_REVIEW_ID,
+            locale: NS,
+            store: createReviewStore(),
+            children: { 'deliverables.review.file.actions': { kind: 'list', scope: 'session' } },
+            inject: (): ReviewInjected => ({
+              hooks: { changesSummary: summaries.state, changesDiff: diffs.state, presentedOpen: opener.state, presentedHost: opener.host },
+              loadChangesSummary: (sessionId, seq) => summaries.load(sessionId, seq),
+              loadChangesDiff: (sessionId, seq, index) => diffs.load(sessionId, seq, index),
+              reloadPresentedHost: () => opener.loadHost(),
+              openChanged: (sessionId, seq, index, action, application) => opener.openChanged(sessionId, seq, index, action, application),
+            }),
+          },
+          ReviewTab,
+        ),
+      ),
+    'ui-deliverables: changes-review body',
+  )
   // The prose side of the same vocabulary: the chat view reaches this face
   // via ctx.get, so its absence — this plugin composed out — is the off state.
   const mentions: ChatFileMentions = {
@@ -105,9 +117,12 @@ export function apply(ctx: ClientContext): void {
       const paths = selectProducedFiles(owner)
       const presented = presentedForClosing(owner)
       if (paths === null && presented.length === 0) return undefined
-      return producedFileMentions([...new Set([...paths ?? [], ...presented.map(file => file.path)])], owner.openFile,
+      return producedFileMentions(
+        [...new Set([...(paths ?? []), ...presented.map(file => file.path)])],
+        owner.openFile,
         path => t('presented.previewButton', { name: path }),
-        owner.turn.data.get('deliverables')?.produced.filter(operation => operation.seq <= owner.seq))
+        owner.turn.data.get('deliverables')?.produced.filter(operation => operation.seq <= owner.seq),
+      )
     },
   }
   ctx.provide('chatFileMentions', mentions)

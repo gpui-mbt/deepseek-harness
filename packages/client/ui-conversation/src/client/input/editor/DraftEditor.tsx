@@ -29,8 +29,19 @@ export interface DraftEditorProps {
  * @returns the existing text-area DOM without an additional wrapper.
  */
 export function DraftEditor({
-  classNames: css, editor, scrollRef, editable, editorDisabled, phase, placeholderText, ariaLabel,
-  workspaceTrigger, workspacePickerOpen, onWorkspaceKeyDown, hint, showPlaceholder,
+  classNames: css,
+  editor,
+  scrollRef,
+  editable,
+  editorDisabled,
+  phase,
+  placeholderText,
+  ariaLabel,
+  workspaceTrigger,
+  workspacePickerOpen,
+  onWorkspaceKeyDown,
+  hint,
+  showPlaceholder,
 }: DraftEditorProps): ReactNode {
   return (
     <div ref={scrollRef} className={css.scroll} data-input-scroll>
@@ -49,7 +60,7 @@ export function DraftEditor({
           aria-expanded={workspaceTrigger ? workspacePickerOpen : undefined}
           tabIndex={workspaceTrigger ? 0 : undefined}
           onKeyDown={workspaceTrigger ? onWorkspaceKeyDown : undefined}
-          style={hint === null ? undefined : { '--dsh-composer-hint': JSON.stringify(hint) } as CSSProperties}
+          style={hint === null ? undefined : ({ '--dsh-composer-hint': JSON.stringify(hint) } as CSSProperties)}
         />
         {showPlaceholder && (
           <div aria-hidden className={css.placeholder} data-composer-placeholder>

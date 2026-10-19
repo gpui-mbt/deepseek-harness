@@ -81,7 +81,7 @@ export function createLaunchEnvironmentSnapshot(layers: readonly LaunchEnvironme
   const bySource = new Map<LaunchEnvironmentSource, { path?: string; values: Map<string, string> }>()
   for (const layer of layers) {
     bySource.set(layer.source, {
-      ...layer.path === undefined ? {} : { path: layer.path },
+      ...(layer.path === undefined ? {} : { path: layer.path }),
       values: new Map(Object.entries(layer.values).map(([name, value]) => [lookupKey(name), value])),
     })
   }
@@ -92,7 +92,7 @@ export function createLaunchEnvironmentSnapshot(layers: readonly LaunchEnvironme
       const layer = bySource.get(source)
       const value = layer?.values.get(key)
       if (value === undefined) continue
-      return { value, source, ...layer?.path === undefined ? {} : { path: layer.path } }
+      return { value, source, ...(layer?.path === undefined ? {} : { path: layer.path }) }
     }
     return undefined
   }
@@ -112,8 +112,10 @@ export const DSH_LAUNCH_ENVIRONMENT_KEY = 'launchEnvironment'
  * @returns the snapshot to resolve user-facing values against.
  */
 export function launchEnvironmentOf(ctx: Context): LaunchEnvironmentSnapshot {
-  return ctx.get(DSH_LAUNCH_ENVIRONMENT_KEY)
-    ?? createLaunchEnvironmentSnapshot([{ source: 'process', values: process.env as Record<string, string> }])
+  return (
+    ctx.get(DSH_LAUNCH_ENVIRONMENT_KEY) ??
+    createLaunchEnvironmentSnapshot([{ source: 'process', values: process.env as Record<string, string> }])
+  )
 }
 
 /**
@@ -123,7 +125,7 @@ export function launchEnvironmentOf(ctx: Context): LaunchEnvironmentSnapshot {
  * @returns whether the inherited process layer carries either SSH marker.
  */
 export function launchedThroughSsh(environment: LaunchEnvironmentSnapshot): boolean {
-  return ['SSH_CONNECTION', 'SSH_TTY'].some((name) => {
+  return ['SSH_CONNECTION', 'SSH_TTY'].some(name => {
     const value = environment.getFrom(name, ['process'])?.value
     return value !== undefined && value !== ''
   })

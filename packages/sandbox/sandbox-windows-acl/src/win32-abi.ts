@@ -11,7 +11,7 @@ export const TOKEN_QUERY = 0x0008
 /** Token right required to replace the token default DACL. */
 export const TOKEN_ADJUST_DEFAULT = 0x0080
 /** Group attribute identifying the token logon SID. */
-export const SE_GROUP_LOGON_ID = 0xC0000000
+export const SE_GROUP_LOGON_ID = 0xc0000000
 /** Standard-rights portion excluded from the write capability grant. */
 export const STANDARD_RIGHTS_WRITE = 0x00020000
 /** Generic file write access bits. */
@@ -27,7 +27,7 @@ export const FILE_DELETE_CHILD = 0x0040
  */
 export const GRANT_MASK = (FILE_GENERIC_WRITE | DELETE | FILE_DELETE_CHILD) & ~STANDARD_RIGHTS_WRITE
 /** Full access used in the restricted token default DACL. */
-export const FILE_ALL_ACCESS = 0x1F01FF
+export const FILE_ALL_ACCESS = 0x1f01ff
 /** CreateRestrictedToken flag that disables maximum privileges. */
 export const DISABLE_MAX_PRIVILEGE = 0x1
 /** CreateRestrictedToken limited-user flag. */

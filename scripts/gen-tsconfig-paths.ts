@@ -101,8 +101,8 @@ export function collectPackageAliases(): PackageAlias[] {
     const previous = bySpecifier.get(name)
     if (previous !== undefined) {
       throw new Error(
-        `gen-tsconfig-paths: ${name} is claimed by packages/${previous.directory} and packages/${group}/${directory}; `
-        + 'an explicit alias cannot express the group-order tiebreak the wildcard used.',
+        `gen-tsconfig-paths: ${name} is claimed by packages/${previous.directory} and packages/${group}/${directory}; ` +
+          'an explicit alias cannot express the group-order tiebreak the wildcard used.',
       )
     }
     bySpecifier.set(name, {
@@ -158,10 +158,7 @@ export function mappedSpecifiers(text: string): Set<string> {
  * @param mapped - bare specifiers the config maps.
  * @returns Unmapped package names, in the order given.
  */
-export function uncoveredPackages(
-  packages: readonly string[],
-  mapped: ReadonlySet<string>,
-): string[] {
+export function uncoveredPackages(packages: readonly string[], mapped: ReadonlySet<string>): string[] {
   return packages.filter(name => !mapped.has(name))
 }
 
@@ -222,9 +219,9 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   const uncovered = uncoveredPackages(collectPackageNames(), mappedSpecifiers(next))
   if (uncovered.length > 0) {
     console.error(
-      'gen-tsconfig-paths: no alias maps '
-      + `${uncovered.join(', ')}; add a hand-written entry, because a package named after `
-      + 'something other than its directory cannot be generated.',
+      'gen-tsconfig-paths: no alias maps ' +
+        `${uncovered.join(', ')}; add a hand-written entry, because a package named after ` +
+        'something other than its directory cannot be generated.',
     )
     process.exitCode = 1
   } else if (current === next) {

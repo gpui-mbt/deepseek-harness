@@ -31,20 +31,11 @@ function markdownPreview(cell: TrajectoryCellProps): string {
 }
 
 function resultPreview(cell: TrajectoryCellProps): string {
-  return cell.resultPreviewMarkdown === undefined
-    ? cell.result ?? ''
-    : trajectoryPreviewText(cell.resultPreviewMarkdown)
+  return cell.resultPreviewMarkdown === undefined ? (cell.result ?? '') : trajectoryPreviewText(cell.resultPreviewMarkdown)
 }
 
-function recordSources(
-  turn: number | null,
-  group: string,
-  cell: TrajectoryCellProps,
-): readonly string[] {
-  const blocks = [
-    ...(cell.sourceBlocks ?? []),
-    ...(cell.outputBlocks ?? []),
-  ]
+function recordSources(turn: number | null, group: string, cell: TrajectoryCellProps): readonly string[] {
+  const blocks = [...(cell.sourceBlocks ?? []), ...(cell.outputBlocks ?? [])]
   return [
     turn === null ? 'between turns' : `turn ${turn}`,
     group,
@@ -59,13 +50,7 @@ function recordSources(
     cell.result ?? '',
     cell.resultPreviewMarkdown ?? '',
     cell.callId ?? '',
-    ...blocks.flatMap(block => [
-      block.type,
-      block.content,
-      block.callId ?? '',
-      block.toolName ?? '',
-      block.attachment?.name ?? '',
-    ]),
+    ...blocks.flatMap(block => [block.type, block.content, block.callId ?? '', block.toolName ?? '', block.attachment?.name ?? '']),
     searchableJson(cell.messageSource),
     searchableJson(cell.promptDetail),
     searchableJson(cell.previousPromptDetail),
@@ -94,16 +79,13 @@ export class TrajectorySearchIndex {
             const id = trajectoryRecordId(cell)
             const sources = recordSources(turn.turn, group.title, cell)
             const previous = this.entries.get(id)
-            const entry = previous !== undefined && sameSources(previous.sources, sources)
-              ? previous
-              : {
-                sources,
-                text: [
-                  ...sources,
-                  markdownPreview(cell),
-                  resultPreview(cell),
-                ].join('\n').toLocaleLowerCase(),
-              }
+            const entry =
+              previous !== undefined && sameSources(previous.sources, sources)
+                ? previous
+                : {
+                    sources,
+                    text: [...sources, markdownPreview(cell), resultPreview(cell)].join('\n').toLocaleLowerCase(),
+                  }
             this.entries.set(id, entry)
             seen.add(id)
           }

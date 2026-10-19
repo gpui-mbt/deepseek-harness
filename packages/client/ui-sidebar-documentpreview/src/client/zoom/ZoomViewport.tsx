@@ -1,6 +1,15 @@
 /** Shared zoom viewport, gesture handling, anchoring, and fit-width measurement. */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent,
-  type ReactNode, type RefCallback } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type RefCallback,
+} from 'react'
 import { ZoomControls, type ZoomControlsHandle } from './ZoomControls.tsx'
 import { FIT_WIDTH, MAX_FIXED_ZOOM, MIN_FIXED_ZOOM, type ZoomLabels, type ZoomPreference } from './types.ts'
 import css from './ZoomViewport.module.css'
@@ -82,18 +91,24 @@ export function ZoomViewport(props: ZoomViewportProps): ReactNode {
       setControlsVisible(false)
     }, CONTROLS_HIDE_DELAY_MS)
   }, [clearControlsHide])
-  const handleControlsActive = useCallback((active: boolean): void => {
-    controlsActive.current = active
-    if (active) showControls()
-    else scheduleControlsHide()
-  }, [scheduleControlsHide, showControls])
-  const handlePointerMove = useCallback((event: ReactPointerEvent<HTMLElement>): void => {
-    const inRevealZone = event.pointerType === 'mouse'
-      && event.clientY >= event.currentTarget.getBoundingClientRect().bottom - CONTROLS_REVEAL_HEIGHT_PX
-    pointerInRevealZone.current = inRevealZone
-    if (inRevealZone) showControls()
-    else scheduleControlsHide()
-  }, [scheduleControlsHide, showControls])
+  const handleControlsActive = useCallback(
+    (active: boolean): void => {
+      controlsActive.current = active
+      if (active) showControls()
+      else scheduleControlsHide()
+    },
+    [scheduleControlsHide, showControls],
+  )
+  const handlePointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLElement>): void => {
+      const inRevealZone =
+        event.pointerType === 'mouse' && event.clientY >= event.currentTarget.getBoundingClientRect().bottom - CONTROLS_REVEAL_HEIGHT_PX
+      pointerInRevealZone.current = inRevealZone
+      if (inRevealZone) showControls()
+      else scheduleControlsHide()
+    },
+    [scheduleControlsHide, showControls],
+  )
   const handlePointerLeave = useCallback((): void => {
     pointerInRevealZone.current = false
     scheduleControlsHide()
@@ -102,10 +117,13 @@ export function ZoomViewport(props: ZoomViewportProps): ReactNode {
     frame.current = node
     node?.style.setProperty('--document-zoom', String(zoomRef.current))
   }, [])
-  const attachScrollport = useCallback((node: HTMLDivElement | null): void => {
-    scrollport.current = node
-    props.scrollportRef(node)
-  }, [props.scrollportRef])
+  const attachScrollport = useCallback(
+    (node: HTMLDivElement | null): void => {
+      scrollport.current = node
+      props.scrollportRef(node)
+    },
+    [props.scrollportRef],
+  )
   const showZoom = useCallback((next: number, clientX?: number, clientY?: number): number => {
     const node = scrollport.current as HTMLDivElement
     const previous = zoomRef.current
@@ -133,11 +151,14 @@ export function ZoomViewport(props: ZoomViewportProps): ReactNode {
     }
     return next
   }, [])
-  const setZoom = useCallback((next: number): void => {
-    clearTimeout(pinchTimer.current)
-    pinchTimer.current = undefined
-    props.onPreference({ kind: 'fixed', scale: showZoom(next) })
-  }, [props.onPreference, showZoom])
+  const setZoom = useCallback(
+    (next: number): void => {
+      clearTimeout(pinchTimer.current)
+      pinchTimer.current = undefined
+      props.onPreference({ kind: 'fixed', scale: showZoom(next) })
+    },
+    [props.onPreference, showZoom],
+  )
   const fitWidth = useCallback((): void => {
     clearTimeout(pinchTimer.current)
     pinchTimer.current = undefined
@@ -152,12 +173,16 @@ export function ZoomViewport(props: ZoomViewportProps): ReactNode {
 
   useLayoutEffect(() => {
     const node = scrollport.current as HTMLDivElement
-    const measure = (): void => { setViewportWidth(node.clientWidth) }
+    const measure = (): void => {
+      setViewportWidth(node.clientWidth)
+    }
     measure()
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(measure)
     observer.observe(node)
-    return () => { observer.disconnect() }
+    return () => {
+      observer.disconnect()
+    }
   }, [])
   useEffect(() => {
     if (pinchTimer.current !== undefined) return
@@ -179,8 +204,8 @@ export function ZoomViewport(props: ZoomViewportProps): ReactNode {
       if (!event.ctrlKey || props.signal.aborted) return
       event.preventDefault()
       showControls()
-      const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16
-        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? node.clientHeight : 1
+      const unit =
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? node.clientHeight : 1
       const delta = Math.max(-40, Math.min(40, event.deltaY * unit))
       showZoom(zoomRef.current * Math.exp(-delta * 0.01), event.clientX, event.clientY)
       clearTimeout(pinchTimer.current)
@@ -199,16 +224,36 @@ export function ZoomViewport(props: ZoomViewportProps): ReactNode {
     }
   }, [clearControlsHide, props.onPreference, props.signal, scheduleControlsHide, showControls, showZoom])
 
-  return <section ref={attachFrame} className={css.frame} data-document-zoom-frame
-    data-document-zoom-mode={modeRef.current} style={{ '--document-zoom': zoomRef.current,
-      '--document-zoom-reveal-height': `${String(CONTROLS_REVEAL_HEIGHT_PX)}px` } as CSSProperties}
-    onPointerMove={handlePointerMove} onPointerLeave={handlePointerLeave}>
-    <div ref={attachScrollport} className={css.scrollport} data-document-zoom-scrollport>{props.children}</div>
-    <div className={css.revealZone} data-document-zoom-reveal-zone aria-hidden="true" />
-    {props.intrinsicWidth !== undefined && <ZoomControls ref={controls} zoom={zoomRef.current}
-      fitWidth={modeRef.current === 'fit-width'} labels={props.labels} visible={controlsVisible}
-      onZoom={setZoom} onFitWidth={fitWidth} onActiveChange={handleControlsActive} />}
-  </section>
+  return (
+    <section
+      ref={attachFrame}
+      className={css.frame}
+      data-document-zoom-frame
+      data-document-zoom-mode={modeRef.current}
+      style={
+        { '--document-zoom': zoomRef.current, '--document-zoom-reveal-height': `${String(CONTROLS_REVEAL_HEIGHT_PX)}px` } as CSSProperties
+      }
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
+    >
+      <div ref={attachScrollport} className={css.scrollport} data-document-zoom-scrollport>
+        {props.children}
+      </div>
+      <div className={css.revealZone} data-document-zoom-reveal-zone aria-hidden="true" />
+      {props.intrinsicWidth !== undefined && (
+        <ZoomControls
+          ref={controls}
+          zoom={zoomRef.current}
+          fitWidth={modeRef.current === 'fit-width'}
+          labels={props.labels}
+          visible={controlsVisible}
+          onZoom={setZoom}
+          onFitWidth={fitWidth}
+          onActiveChange={handleControlsActive}
+        />
+      )}
+    </section>
+  )
 }
 
 /** Shared surface class for actual-size and fit-width layout. */

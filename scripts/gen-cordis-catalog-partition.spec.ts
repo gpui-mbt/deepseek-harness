@@ -9,7 +9,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import ts from 'typescript'
 import { contextKeyMap, contextMergeFiles, eventNameList } from './cordis-walk.ts'
 import { walkPartitionProblems } from './gen-cordis-catalog.ts'
@@ -55,7 +55,9 @@ describe('walkPartitionProblems', () => {
     const { input, maps } = baseline()
     const problems = walkPartitionProblems(input, { ...maps, eventWalkExemptions: {} })
     expect(problems).toEqual([
-      expect.stringContaining("event 'theme/change' (packages/client/ui-theme/src/client/index.ts) is declared in an Events merge but invisible"),
+      expect.stringContaining(
+        "event 'theme/change' (packages/client/ui-theme/src/client/index.ts) is declared in an Events merge but invisible",
+      ),
     ])
   })
 
@@ -84,7 +86,9 @@ describe('walkPartitionProblems', () => {
     }
     expect(walkPartitionProblems(blind, maps)).toEqual([
       expect.stringContaining('ctx.llm is rendered by the projection but the independent scan finds no Context merge declaring it'),
-      expect.stringContaining("event 'llm/request' is rendered by the projection but the independent scan finds no Events merge declaring it"),
+      expect.stringContaining(
+        "event 'llm/request' is rendered by the projection but the independent scan finds no Events merge declaring it",
+      ),
     ])
   })
 
@@ -111,12 +115,14 @@ describe('walkPartitionProblems', () => {
       servicePage: { ghost: 'core.md' },
       eventScopePage: { specter: 'core.md' },
     })
-    expect(problems).toEqual(expect.arrayContaining([
-      expect.stringContaining('service ctx.llm (packages/llm/llm/src/index.ts:10) has no SERVICE_PAGE entry'),
-      expect.stringContaining("event scope 'llm/*' has no EVENT_SCOPE_PAGE entry"),
-      expect.stringContaining("SERVICE_PAGE maps 'ctx.ghost' but the projection discovers no such service"),
-      expect.stringContaining("EVENT_SCOPE_PAGE maps 'specter/*' but the projection discovers no such scope"),
-    ]))
+    expect(problems).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('service ctx.llm (packages/llm/llm/src/index.ts:10) has no SERVICE_PAGE entry'),
+        expect.stringContaining("event scope 'llm/*' has no EVENT_SCOPE_PAGE entry"),
+        expect.stringContaining("SERVICE_PAGE maps 'ctx.ghost' but the projection discovers no such service"),
+        expect.stringContaining("EVENT_SCOPE_PAGE maps 'specter/*' but the projection discovers no such scope"),
+      ]),
+    )
     expect(problems).toHaveLength(4)
   })
 })
@@ -127,15 +133,10 @@ describe('cordis-walk scan reach', () => {
     roots.push(root)
     const dir = join(root, 'packages/client/ui-x/src/client')
     mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, 'index.ts'), [
-      "declare module '@deepseek-ai/cordis' {",
-      '  interface Events {',
-      "    'x/changed'(): void",
-      '  }',
-      '}',
-      'export {}',
-      '',
-    ].join('\n'))
+    writeFileSync(
+      join(dir, 'index.ts'),
+      ["declare module '@deepseek-ai/cordis' {", '  interface Events {', "    'x/changed'(): void", '  }', '}', 'export {}', ''].join('\n'),
+    )
     const merges = contextMergeFiles(root, 'packages/*/*/src/**/*.ts')
     expect(merges.map(m => m.rel)).toEqual(['packages/client/ui-x/src/client/index.ts'])
     const only = merges[0]
@@ -152,29 +153,29 @@ describe('cordis-walk scan reach', () => {
     // The Typert analyzer reads every cordis module block in a file; the
     // backstop must not stop at the first one, skip the double-quoted legal
     // form, or ignore .tsx sources.
-    writeFileSync(join(dir, 'split.ts'), [
-      "declare module '@deepseek-ai/cordis' {",
-      '  interface Context {',
-      '    first: FirstService',
-      '  }',
-      '}',
-      'declare module "@deepseek-ai/cordis" {',
-      '  interface Events {',
-      "    'second/changed'(): void",
-      '  }',
-      '}',
-      'export {}',
-      '',
-    ].join('\n'))
-    writeFileSync(join(dir, 'view.tsx'), [
-      "declare module '@deepseek-ai/cordis' {",
-      '  interface Context {',
-      '    fromTsx: TsxService',
-      '  }',
-      '}',
-      'export {}',
-      '',
-    ].join('\n'))
+    writeFileSync(
+      join(dir, 'split.ts'),
+      [
+        "declare module '@deepseek-ai/cordis' {",
+        '  interface Context {',
+        '    first: FirstService',
+        '  }',
+        '}',
+        'declare module "@deepseek-ai/cordis" {',
+        '  interface Events {',
+        "    'second/changed'(): void",
+        '  }',
+        '}',
+        'export {}',
+        '',
+      ].join('\n'),
+    )
+    writeFileSync(
+      join(dir, 'view.tsx'),
+      ["declare module '@deepseek-ai/cordis' {", '  interface Context {', '    fromTsx: TsxService', '  }', '}', 'export {}', ''].join(
+        '\n',
+      ),
+    )
     const merges = contextMergeFiles(root, ['packages/*/*/src/**/*.ts', 'packages/*/*/src/**/*.tsx'])
     expect(merges.map(m => m.rel)).toEqual([
       'packages/client/ui-x/src/split.ts',
@@ -188,22 +189,27 @@ describe('cordis-walk scan reach', () => {
   })
 
   it('reads string-literal and identifier member names from an Events merge', () => {
-    const sf = ts.createSourceFile('x.ts', [
-      "declare module '@deepseek-ai/cordis' {",
-      '  interface Events {',
-      "    'scope/list'(items: string[]): void",
-      '    plain(): void',
-      '  }',
-      '  interface Context {',
-      '    thing: ThingService',
-      '  }',
-      '}',
-      '',
-    ].join('\n'), ts.ScriptTarget.Latest, true)
-    const body = sf.statements[0] && ts.isModuleDeclaration(sf.statements[0]) && sf.statements[0].body
-      && ts.isModuleBlock(sf.statements[0].body)
-      ? sf.statements[0].body
-      : null
+    const sf = ts.createSourceFile(
+      'x.ts',
+      [
+        "declare module '@deepseek-ai/cordis' {",
+        '  interface Events {',
+        "    'scope/list'(items: string[]): void",
+        '    plain(): void',
+        '  }',
+        '  interface Context {',
+        '    thing: ThingService',
+        '  }',
+        '}',
+        '',
+      ].join('\n'),
+      ts.ScriptTarget.Latest,
+      true,
+    )
+    const body =
+      sf.statements[0] && ts.isModuleDeclaration(sf.statements[0]) && sf.statements[0].body && ts.isModuleBlock(sf.statements[0].body)
+        ? sf.statements[0].body
+        : null
     if (!body) throw new Error('fixture did not parse to a module block')
     expect(eventNameList(body, sf)).toEqual(['scope/list', 'plain'])
     expect([...contextKeyMap(body, sf)]).toEqual([['thing', 'ThingService']])

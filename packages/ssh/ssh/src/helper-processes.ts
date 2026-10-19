@@ -8,7 +8,12 @@ import type { Duplex, Readable, Writable } from 'node:stream'
 import { finished, pipeline } from 'node:stream/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { SubprocessHandle, SubprocessSpawnSpec, SubprocessTerminalHandle } from '@deepseek-ai/dsh-subprocess'
-import { logSpillFailure, OutputCollector, prepareManagedProcessBinding, type SpillFailureReporter } from '@deepseek-ai/dsh-subprocess-local/output'
+import {
+  logSpillFailure,
+  OutputCollector,
+  prepareManagedProcessBinding,
+  type SpillFailureReporter,
+} from '@deepseek-ai/dsh-subprocess-local/output'
 import { doneSchema, outputSnapshotFrameLimit, spawnSchema, type SshProcessId, type SshStreamEndpoint } from './schemas.ts'
 import { z } from 'zod'
 import { SSH_STREAM_TLS_OPTIONS } from './stream-security.ts'
@@ -40,11 +45,21 @@ interface ProcessRecord {
 /** Join TLS, underlying socket, and listener closure before removing their directory. */
 async function closeEndpoint(endpoint: Endpoint): Promise<void> {
   const sockets = [...new Set([...(endpoint.socket === undefined ? [] : [endpoint.socket]), ...endpoint.pending])]
-  const closed = sockets.map(socket => new Promise<void>((resolve) => {
-    if (socket.closed) resolve()
-    else socket.once('close', () => { resolve() })
-  }))
-  const listenerClosed = new Promise<void>((resolve) => { endpoint.server.close(() => { resolve() }) })
+  const closed = sockets.map(
+    socket =>
+      new Promise<void>(resolve => {
+        if (socket.closed) resolve()
+        else
+          socket.once('close', () => {
+            resolve()
+          })
+      }),
+  )
+  const listenerClosed = new Promise<void>(resolve => {
+    endpoint.server.close(() => {
+      resolve()
+    })
+  })
   for (const socket of sockets) socket.destroy()
   await Promise.all([listenerClosed, ...closed])
 }
@@ -56,9 +71,15 @@ class CollectedOutputForwarder {
   private stopped = false
   private running: Promise<void> | undefined
 
-  constructor(socket: Socket, private readonly collector: OutputCollector, maxBytes: number) {
+  constructor(
+    socket: Socket,
+    private readonly collector: OutputCollector,
+    maxBytes: number,
+  ) {
     this.peer = new SshRpcPeer(socket, socket, outputSnapshotFrameLimit(maxBytes), 1)
-    this.peer.once('closed', () => { this.stopped = true })
+    this.peer.once('closed', () => {
+      this.stopped = true
+    })
   }
 
   offer(): void {
@@ -75,8 +96,12 @@ class CollectedOutputForwarder {
         const snapshot = this.collector.snapshot()
         await this.peer.request('snapshot', { tail: snapshot.bytes.toString('base64'), totalBytes: snapshot.totalBytes }, z.null())
       }
-    } catch { this.stopped = true; this.peer.close() }
-    finally { this.running = undefined }
+    } catch {
+      this.stopped = true
+      this.peer.close()
+    } finally {
+      this.running = undefined
+    }
   }
 
   async finish(): Promise<void> {
@@ -98,8 +123,10 @@ export class RemoteProcesses {
   private readonly reportSpillFailure: SpillFailureReporter
 
   constructor(
-    private readonly ctx: Context, private readonly root: string,
-    private readonly limit: number, private readonly preparationMs: number,
+    private readonly ctx: Context,
+    private readonly root: string,
+    private readonly limit: number,
+    private readonly preparationMs: number,
   ) {
     this.reportSpillFailure = logSpillFailure(ctx.logger, 'ssh helper')
   }
@@ -115,17 +142,28 @@ export class RemoteProcesses {
     const id = randomUUID() as SshProcessId
     const directory = join(this.root, id)
     const record: ProcessRecord = {
-      request, directory, endpoints: {}, controller: new AbortController(),
-      expiry: setTimeout(() => { void this.release(id).catch(() => {}) }, this.preparationMs),
+      request,
+      directory,
+      endpoints: {},
+      controller: new AbortController(),
+      expiry: setTimeout(() => {
+        void this.release(id).catch(() => {})
+      }, this.preparationMs),
     }
     this.records.set(id, record)
     try {
       record.preparing = (async () => {
         await mkdir(directory, { mode: 0o700 })
         record.controller.signal.throwIfAborted()
-        const names: Channel[] = request.terminal === undefined
-          ? ['stdout', 'stderr', ...(request.stdio?.stdin === 'pipe' ? ['stdin' as const] : []), ...(request.stdio?.control === 'pipe' ? ['control' as const] : [])]
-          : ['terminal']
+        const names: Channel[] =
+          request.terminal === undefined
+            ? [
+                'stdout',
+                'stderr',
+                ...(request.stdio?.stdin === 'pipe' ? ['stdin' as const] : []),
+                ...(request.stdio?.control === 'pipe' ? ['control' as const] : []),
+              ]
+            : ['terminal']
         for (const name of names) {
           record.endpoints[name] = await this.endpoint(join(directory, name))
           record.controller.signal.throwIfAborted()
@@ -134,8 +172,9 @@ export class RemoteProcesses {
       await record.preparing
       return {
         id,
-        streams: Object.fromEntries(Object.entries(record.endpoints).map(([name, endpoint]) =>
-          [name, { path: endpoint.path, capability: endpoint.capability }])),
+        streams: Object.fromEntries(
+          Object.entries(record.endpoints).map(([name, endpoint]) => [name, { path: endpoint.path, capability: endpoint.capability }]),
+        ),
       }
     } catch (error) {
       await this.release(id)
@@ -153,11 +192,14 @@ export class RemoteProcesses {
     const record = this.record(id)
     if (record.start !== undefined) throw new Error('SSH process launch was already requested')
     signal?.throwIfAborted()
-    const abort = (): void => { record.controller.abort(signal?.reason) }
+    const abort = (): void => {
+      record.controller.abort(signal?.reason)
+    }
     signal?.addEventListener('abort', abort, { once: true })
     record.start = this.startOnce(id, record)
-    try { await record.start }
-    catch (error) {
+    try {
+      await record.start
+    } catch (error) {
       // AbortSignal reasons need not be Errors; retain the caller's rejection.
       // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
       const failed = Promise.reject<Completion>(error)
@@ -165,7 +207,9 @@ export class RemoteProcesses {
       record.done = failed
       await this.finishFailed(id, record, failed)
       throw error
-    } finally { signal?.removeEventListener('abort', abort) }
+    } finally {
+      signal?.removeEventListener('abort', abort)
+    }
     return record.terminal === undefined ? {} : { pid: record.terminal.pid }
   }
 
@@ -177,14 +221,15 @@ export class RemoteProcesses {
     const request = record.request
     const cwd = this.ctx.fs.processPath(await this.ctx.fs.resolve(request.cwd, { signal: record.controller.signal }))
     record.controller.signal.throwIfAborted()
-    const env = request.env === undefined ? {} : Object.fromEntries(
-      Object.entries(request.env).map(([key, value]) => [key, value ?? undefined]),
-    )
+    const env =
+      request.env === undefined ? {} : Object.fromEntries(Object.entries(request.env).map(([key, value]) => [key, value ?? undefined]))
     if (request.terminal !== undefined) {
       const terminal = await this.ctx.subprocess.spawnTerminal({
-        argv: request.argv, cwd,
+        argv: request.argv,
+        cwd,
         env: Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined)),
-        graceMs: request.graceMs, ...request.terminal,
+        graceMs: request.graceMs,
+        ...request.terminal,
         signal: record.controller.signal,
       })
       record.terminal = terminal
@@ -193,16 +238,29 @@ export class RemoteProcesses {
       const output = pipeline(terminal.output, socket).catch(() => {})
       const done = terminal.done.then(outcome => ({ outcome, spills: {}, collected: {} }))
       record.done = done
-      void done.then(async () => {
-        if (request.terminal?.shellActivity === true) { await output; return }
-        await terminal.terminate()
-        await output
-        await this.rememberCompleted(id, record, done)
-      }, () => this.finishFailed(id, record, done)).catch(() => {})
+      void done
+        .then(
+          async () => {
+            if (request.terminal?.shellActivity === true) {
+              await output
+              return
+            }
+            await terminal.terminate()
+            await output
+            await this.rememberCompleted(id, record, done)
+          },
+          () => this.finishFailed(id, record, done),
+        )
+        .catch(() => {})
       return
     }
     const stdio = request.stdio as NonNullable<Request['stdio']>
-    const spec: SubprocessSpawnSpec = { argv: request.argv, cwd, env, graceMs: request.graceMs, signal: record.controller.signal,
+    const spec: SubprocessSpawnSpec = {
+      argv: request.argv,
+      cwd,
+      env,
+      graceMs: request.graceMs,
+      signal: record.controller.signal,
       stdio: { stdin: stdio.stdin, stdout: 'pipe', stderr: 'pipe', ...(stdio.control === undefined ? {} : { control: stdio.control }) },
     }
     const ordinary = this.ctx.subprocess.spawn(spec)
@@ -223,13 +281,24 @@ export class RemoteProcesses {
       const socket = await (record.endpoints[name] as Endpoint).connected
       if (typeof mode === 'object') {
         const binding = prepareManagedProcessBinding({ onSpillFailure: this.reportSpillFailure })
-        const collector = new OutputCollector(mode.maxBytes, name, mode.spill === undefined ? undefined : {
-          maxBytes: mode.spill.maxBytes, dir: binding.spillDir, onFailure: binding.onSpillFailure,
-        })
+        const collector = new OutputCollector(
+          mode.maxBytes,
+          name,
+          mode.spill === undefined
+            ? undefined
+            : {
+                maxBytes: mode.spill.maxBytes,
+                dir: binding.spillDir,
+                onFailure: binding.onSpillFailure,
+              },
+        )
         collectors[name] = collector
         const forwarder = new CollectedOutputForwarder(socket, collector, mode.maxBytes)
         forwarders.push(forwarder)
-        const receive = (chunk: Buffer): void => { collector.push(chunk); forwarder.offer() }
+        const receive = (chunk: Buffer): void => {
+          collector.push(chunk)
+          forwarder.offer()
+        }
         stream.on('data', receive)
         stopCapture.push(() => {
           stream.off('data', receive)
@@ -249,37 +318,51 @@ export class RemoteProcesses {
       const channel = control as Duplex
       const socket = await record.endpoints.control.connected
       socket.pipe(channel).pipe(socket)
-      socket.on('error', () => { channel.destroy() })
-      channel.on('error', () => { socket.destroy() })
+      socket.on('error', () => {
+        channel.destroy()
+      })
+      channel.on('error', () => {
+        socket.destroy()
+      })
       streams.push(finished(socket, { readable: false, cleanup: true }).catch(() => {}))
     }
-    const done = ordinary.done.finally(() => {
-      for (const stop of stopCapture) stop()
-    }).then(async (outcome) => {
-      for (const forwarder of forwarders) forwarded.push(forwarder.finish())
-      // A paused output reader may defer EOF, but must not retain the process-range owner.
-      await Promise.race([
-        Promise.all(streams),
-        new Promise<void>((resolve) => { const timer = setTimeout(resolve, request.graceMs); timer.unref() }),
-      ])
-      const spills: { stdout?: string; stderr?: string } = {}
-      const collected: Completion['collected'] = {}
-      for (const name of ['stdout', 'stderr'] as const) {
-        const collector = collectors[name]
-        if (collector === undefined) continue
-        const snapshot = collector.snapshot()
-        collected[name] = { tail: snapshot.bytes.toString('base64'), totalBytes: snapshot.totalBytes }
-        const path = collector.readFrom(0).spillPath
-        if (path !== undefined) spills[name] = path
-      }
-      return { outcome, spills, collected }
-    })
+    const done = ordinary.done
+      .finally(() => {
+        for (const stop of stopCapture) stop()
+      })
+      .then(async outcome => {
+        for (const forwarder of forwarders) forwarded.push(forwarder.finish())
+        // A paused output reader may defer EOF, but must not retain the process-range owner.
+        await Promise.race([
+          Promise.all(streams),
+          new Promise<void>(resolve => {
+            const timer = setTimeout(resolve, request.graceMs)
+            timer.unref()
+          }),
+        ])
+        const spills: { stdout?: string; stderr?: string } = {}
+        const collected: Completion['collected'] = {}
+        for (const name of ['stdout', 'stderr'] as const) {
+          const collector = collectors[name]
+          if (collector === undefined) continue
+          const snapshot = collector.snapshot()
+          collected[name] = { tail: snapshot.bytes.toString('base64'), totalBytes: snapshot.totalBytes }
+          const path = collector.readFrom(0).spillPath
+          if (path !== undefined) spills[name] = path
+        }
+        return { outcome, spills, collected }
+      })
     record.done = done
-    void done.then(async () => {
-      await ordinary.waitForExit()
-      await Promise.all([...streams, ...forwarded])
-      await this.rememberCompleted(id, record, done)
-    }, () => this.finishFailed(id, record, done)).catch(() => {})
+    void done
+      .then(
+        async () => {
+          await ordinary.waitForExit()
+          await Promise.all([...streams, ...forwarded])
+          await this.rememberCompleted(id, record, done)
+        },
+        () => this.finishFailed(id, record, done),
+      )
+      .catch(() => {})
   }
 
   /**
@@ -307,7 +390,10 @@ export class RemoteProcesses {
     const record = this.record(id)
     await record.start
     if (record.ordinary !== undefined) return record.ordinary.waitForExit(signal)
-    if (record.terminal !== undefined) { await record.terminal.terminate(); return true }
+    if (record.terminal !== undefined) {
+      await record.terminal.terminate()
+      return true
+    }
     throw new Error('SSH process was not started')
   }
 
@@ -340,8 +426,11 @@ export class RemoteProcesses {
   async terminal(id: SshProcessId, operation: 'write' | 'inspect' | 'activity' | 'signal', value?: string): Promise<unknown> {
     const terminal = this.record(id).terminal
     if (terminal === undefined) throw new Error('SSH handle does not own a terminal')
-    if (operation === 'write') { await terminal.write(z.string().parse(value)); return null }
-    if (operation === 'inspect') return await terminal.inspectForeground() ?? null
+    if (operation === 'write') {
+      await terminal.write(z.string().parse(value))
+      return null
+    }
+    if (operation === 'inspect') return (await terminal.inspectForeground()) ?? null
     if (operation === 'activity') return terminal.inspectActivity()
     return terminal.signalForeground(z.enum(['SIGINT', 'SIGTERM', 'SIGKILL', 'SIGTSTP', 'SIGHUP']).parse(value))
   }
@@ -365,7 +454,7 @@ export class RemoteProcesses {
     this.closing = true
     const releases = [...this.records.keys()].map(id => this.release(id))
     const outcomes = await Promise.allSettled([...releases, ...this.cleanups])
-    const errors = [...new Set(outcomes.flatMap(result => result.status === 'rejected' ? [result.reason as unknown] : []))]
+    const errors = [...new Set(outcomes.flatMap(result => (result.status === 'rejected' ? [result.reason as unknown] : [])))]
     if (errors.length > 0) throw new AggregateError(errors, 'SSH remote process cleanup failed')
   }
 
@@ -415,26 +504,37 @@ export class RemoteProcesses {
   private trackCleanup(work: () => Promise<void>): Promise<void> {
     const pending = Promise.resolve().then(work)
     this.cleanups.add(pending)
-    return pending.finally(() => { this.cleanups.delete(pending) })
+    return pending.finally(() => {
+      this.cleanups.delete(pending)
+    })
   }
 
   private async endpoint(path: string): Promise<Endpoint> {
     const connected = Promise.withResolvers<Socket>()
     const capability = randomBytes(32)
     const server = createServer({
-      ...SSH_STREAM_TLS_OPTIONS, allowHalfOpen: true, handshakeTimeout: this.preparationMs,
-      pskCallback: (_socket, identity) => identity === 'dsh-stream' ? capability : null,
+      ...SSH_STREAM_TLS_OPTIONS,
+      allowHalfOpen: true,
+      handshakeTimeout: this.preparationMs,
+      pskCallback: (_socket, identity) => (identity === 'dsh-stream' ? capability : null),
     })
     const endpoint: Endpoint = { path, capability: capability.toString('hex'), server, connected: connected.promise, pending: new Set() }
     server.maxConnections = 8
     void connected.promise.catch(() => {})
     server.on('connection', (socket: Socket) => {
       endpoint.pending.add(socket)
-      socket.once('close', () => { endpoint.pending.delete(socket) })
+      socket.once('close', () => {
+        endpoint.pending.delete(socket)
+      })
     })
-    server.on('tlsClientError', (_error, socket) => { socket.destroy() })
-    server.on('secureConnection', (socket) => {
-      if (endpoint.socket !== undefined) { socket.destroy(); return }
+    server.on('tlsClientError', (_error, socket) => {
+      socket.destroy()
+    })
+    server.on('secureConnection', socket => {
+      if (endpoint.socket !== undefined) {
+        socket.destroy()
+        return
+      }
       socket.disableRenegotiation()
       socket.pause()
       socket.on('error', () => {})
@@ -442,10 +542,17 @@ export class RemoteProcesses {
       server.close()
       connected.resolve(socket)
     })
-    server.on('error', (error) => { connected.reject(error) })
-    server.on('close', () => { if (endpoint.socket === undefined) connected.reject(new Error('SSH stream reservation closed')) })
+    server.on('error', error => {
+      connected.reject(error)
+    })
+    server.on('close', () => {
+      if (endpoint.socket === undefined) connected.reject(new Error('SSH stream reservation closed'))
+    })
     try {
-      await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(path, resolve) })
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject)
+        server.listen(path, resolve)
+      })
       await chmod(path, 0o600)
       return endpoint
     } catch (error) {

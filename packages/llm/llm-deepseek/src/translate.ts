@@ -33,7 +33,12 @@ function indexOf(event: Record<string, unknown>): number {
 
 function updateUsage(usage: TokenUsage, raw: unknown): void {
   const fields = object(raw)
-  const keys = { input_tokens: 'inputTokens', output_tokens: 'outputTokens', cache_read_input_tokens: 'cacheReadTokens', cache_creation_input_tokens: 'cacheWriteTokens' } as const
+  const keys = {
+    input_tokens: 'inputTokens',
+    output_tokens: 'outputTokens',
+    cache_read_input_tokens: 'cacheReadTokens',
+    cache_creation_input_tokens: 'cacheWriteTokens',
+  } as const
   for (const [wire, local] of Object.entries(keys)) {
     const value = fields[wire]
     if (value === undefined) continue
@@ -47,17 +52,26 @@ function startBlock(event: Record<string, unknown>, index: number): Block {
   let content: Block['content']
   let replay: ReplayBlock
   switch (native.type) {
-    case 'text': content = { type: 'text', text: string(native.text) }; replay = { type: 'text' }; break
+    case 'text':
+      content = { type: 'text', text: string(native.text) }
+      replay = { type: 'text' }
+      break
     case 'thinking':
       content = { type: 'reasoning', text: string(native.thinking) }
-      replay = { type: 'reasoning', ...native.signature === undefined ? {} : { signature: string(native.signature) } }
+      replay = { type: 'reasoning', ...(native.signature === undefined ? {} : { signature: string(native.signature) }) }
       break
     case 'tool_use':
-      content = { type: 'tool-call', id: ToolCallId(string(native.id)), name: string(native.name), arguments: JSON.stringify(object(native.input)) }
+      content = {
+        type: 'tool-call',
+        id: ToolCallId(string(native.id)),
+        name: string(native.name),
+        arguments: JSON.stringify(object(native.input)),
+      }
       if (!content.id || !content.name) return malformed('empty tool identity')
       replay = { type: 'tool-call' }
       break
-    default: throw new LlmError(`DeepSeek Messages does not support response block ${String(native.type)}`, 'UNSUPPORTED_CONTENT')
+    default:
+      throw new LlmError(`DeepSeek Messages does not support response block ${String(native.type)}`, 'UNSUPPORTED_CONTENT')
   }
   return { index, content, replay, closed: false, json: '' }
 }
@@ -89,10 +103,15 @@ function deltaChunk(block: Block, raw: unknown): StreamChunk | undefined {
 
 function stopReason(raw: unknown): FinishReason {
   switch (raw) {
-    case 'end_turn': case 'stop_sequence': return { kind: 'stop' }
-    case 'tool_use': return { kind: 'tool-calls' }
-    case 'max_tokens': return { kind: 'max-tokens' }
-    default: return malformed(`unsupported stop reason ${String(raw)}`)
+    case 'end_turn':
+    case 'stop_sequence':
+      return { kind: 'stop' }
+    case 'tool_use':
+      return { kind: 'tool-calls' }
+    case 'max_tokens':
+      return { kind: 'max-tokens' }
+    default:
+      return malformed(`unsupported stop reason ${String(raw)}`)
   }
 }
 
@@ -113,7 +132,9 @@ export async function* translate(events: AsyncIterable<Record<string, unknown>>,
       started = true
       continue
     }
-    if (!['content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'].includes(String(event.type))) {
+    if (
+      !['content_block_start', 'content_block_delta', 'content_block_stop', 'message_delta', 'message_stop'].includes(String(event.type))
+    ) {
       // Anthropic permits additional event types; content-bearing events remain validated below.
       continue
     }
@@ -125,7 +146,8 @@ export async function* translate(events: AsyncIterable<Record<string, unknown>>,
       blocks.set(wireIndex, block)
       yield { type: 'block-start', index: block.index, blockType: block.content.type }
       if (block.content.type === 'text' || block.content.type === 'reasoning') {
-        if (block.content.text) yield { type: block.content.type === 'text' ? 'text-delta' : 'reasoning-delta', index: block.index, text: block.content.text }
+        if (block.content.text)
+          yield { type: block.content.type === 'text' ? 'text-delta' : 'reasoning-delta', index: block.index, text: block.content.text }
       } else {
         yield { type: 'tool-call-delta', index: block.index, id: block.content.id, name: block.content.name, argumentsDelta: '' }
       }
@@ -145,20 +167,32 @@ export async function* translate(events: AsyncIterable<Record<string, unknown>>,
       if (delta.stop_reason != null) reason = stopReason(delta.stop_reason)
       if (event.usage !== undefined) updateUsage(usage, event.usage)
     } else {
-      if (reason === undefined || [...blocks.values()].some(block => !block.closed)) return malformed('message_stop without settled blocks and stop reason')
+      if (reason === undefined || [...blocks.values()].some(block => !block.closed))
+        return malformed('message_stop without settled blocks and stop reason')
       if (blocks.size === 0 && reason.kind === 'stop') throw new LlmError('DeepSeek Messages returned no content', 'EMPTY_RESPONSE')
       // Truncated tool JSON is retained in the stream, then pruned by the shared assembler.
       if (reason.kind !== 'max-tokens') {
         for (const { content } of blocks.values()) {
           if (content.type !== 'tool-call') continue
           let parsed: unknown
-          try { parsed = JSON.parse(content.arguments) } catch (_invalidProviderToolJson) { return malformed('tool input is invalid JSON') }
+          try {
+            parsed = JSON.parse(content.arguments)
+          } catch (_invalidProviderToolJson) {
+            return malformed('tool input is invalid JSON')
+          }
           object(parsed)
         }
       }
       usage.totalTokens = usage.inputTokens + usage.outputTokens + (usage.cacheReadTokens ?? 0) + (usage.cacheWriteTokens ?? 0)
       yield { type: 'usage', usage }
-      yield { type: 'finish', reason, replayState: replayState(model, [...blocks.values()].map(block => block.replay)) }
+      yield {
+        type: 'finish',
+        reason,
+        replayState: replayState(
+          model,
+          [...blocks.values()].map(block => block.replay),
+        ),
+      }
       return
     }
   }

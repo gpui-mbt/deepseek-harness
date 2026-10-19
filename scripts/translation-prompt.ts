@@ -145,28 +145,31 @@ export function renderTranslationRequest(document: string, input: TranslationReq
   const targetKey = input.sourceLanguage === 'English' ? 'chinese' : 'english'
   const messages: TranslationMessage[] = [{ role: 'system', content: renderTranslationPrompt(document, input) }]
   for (const example of input.examples) {
-    messages.push(
-      { role: 'user', content: example[sourceKey] },
-      { role: 'assistant', content: example[targetKey] },
-    )
+    messages.push({ role: 'user', content: example[sourceKey] }, { role: 'assistant', content: example[targetKey] })
   }
   messages.push({ role: 'user', content: input.sourceDocument })
   return { targetFilename: files.targetFilename, messages }
 }
 
 function escapeResponseBody(value: string): string {
-  return value.split('\n').map((line) => {
-    const delimiter = line.replace(/^\\+/, '')
-    return RESPONSE_DELIMITERS.has(delimiter) ? `\\${line}` : line
-  }).join('\n')
+  return value
+    .split('\n')
+    .map(line => {
+      const delimiter = line.replace(/^\\+/, '')
+      return RESPONSE_DELIMITERS.has(delimiter) ? `\\${line}` : line
+    })
+    .join('\n')
 }
 
 function unescapeResponseBody(value: string): string {
-  return value.split('\n').map((line) => {
-    if (!line.startsWith('\\')) return line
-    const candidate = line.slice(1)
-    return RESPONSE_DELIMITERS.has(candidate.replace(/^\\+/, '')) ? candidate : line
-  }).join('\n')
+  return value
+    .split('\n')
+    .map(line => {
+      if (!line.startsWith('\\')) return line
+      const candidate = line.slice(1)
+      return RESPONSE_DELIMITERS.has(candidate.replace(/^\\+/, '')) ? candidate : line
+    })
+    .join('\n')
 }
 
 /** Serialize a response in the exact escaped three-section format the prompt requests. */

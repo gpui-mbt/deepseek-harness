@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SessionFormatEventCollector } from '@deepseek-ai/dsh-session-format'
 import type {
   SessionFormatArtifact,
@@ -11,7 +11,12 @@ import { decodeSeqRanges as decodeCurrentSeqRanges } from '@deepseek-ai/dsh-sess
 import { releasedV2SessionFormatCodec } from '@deepseek-ai/dsh-session-format-v1-to-v2'
 
 const minimalPhysicalHeader = {
-  type: 'session', version: 2, id: 'codec', createdAt: 1, isSeeded: false, delegationDepth: 0,
+  type: 'session',
+  version: 2,
+  id: 'codec',
+  createdAt: 1,
+  isSeeded: false,
+  delegationDepth: 0,
 } as const
 
 const fullPhysicalHeader = {
@@ -38,17 +43,17 @@ function userMessage(seq: number, sourceEventSeqs?: readonly number[]): SessionF
     seq,
     time: seq + 1,
     data: {
-      id: `user-${seq}`, role: 'user', content: [textBlock], source: { kind: 'user' },
+      id: `user-${seq}`,
+      role: 'user',
+      content: [textBlock],
+      source: { kind: 'user' },
     },
     surfaceOp: 'append',
     ...(sourceEventSeqs === undefined ? {} : { sourceEventSeqs }),
   }
 }
 
-function artifact(
-  events: readonly SessionFormatEvent[],
-  overrides: Partial<SessionFormatArtifact> = {},
-): SessionFormatArtifact {
+function artifact(events: readonly SessionFormatEvent[], overrides: Partial<SessionFormatArtifact> = {}): SessionFormatArtifact {
   return {
     header: { version: 2, id: 'codec', createdAt: 1, isSeeded: false, delegationDepth: 0 },
     inheritedEventCount: 0,
@@ -57,11 +62,7 @@ function artifact(
   }
 }
 
-function decodeV2(
-  header: unknown,
-  rows: readonly unknown[],
-  recovery: SessionFormatRecovery = 'strict',
-): SessionFormatArtifact {
+function decodeV2(header: unknown, rows: readonly unknown[], recovery: SessionFormatRecovery = 'strict'): SessionFormatArtifact {
   const decoder: SessionFormatArtifactDecoder = releasedV2SessionFormatCodec.createDecoder(header, recovery)
   const context = new SessionFormatEventCollector()
   for (const row of rows) decoder.decodeRow(row, context)
@@ -82,7 +83,11 @@ describe('releasedV2SessionFormatCodec headers', () => {
   it('round-trips the minimal and complete optional header images', () => {
     expect(releasedV2SessionFormatCodec.version).toBe(2)
     expect(releasedV2SessionFormatCodec.decodeHeader(minimalPhysicalHeader)).toStrictEqual({
-      version: 2, id: 'codec', createdAt: 1, isSeeded: false, delegationDepth: 0,
+      version: 2,
+      id: 'codec',
+      createdAt: 1,
+      isSeeded: false,
+      delegationDepth: 0,
     })
     expect(releasedV2SessionFormatCodec.decodeHeader(fullPhysicalHeader)).toStrictEqual({
       version: 2,
@@ -111,12 +116,8 @@ describe('releasedV2SessionFormatCodec headers', () => {
         agentPreset: 'default',
       },
     })
-    expect(encodeV2(complete).header)
-      .toStrictEqual(fullPhysicalHeader)
-    expect(() => releasedV2SessionFormatCodec.encodeHeader(
-      artifact([]).header,
-      1,
-    )).toThrow(/unseeded.*inherited events/)
+    expect(encodeV2(complete).header).toStrictEqual(fullPhysicalHeader)
+    expect(() => releasedV2SessionFormatCodec.encodeHeader(artifact([]).header, 1)).toThrow(/unseeded.*inherited events/)
   })
 
   it.each([
@@ -143,28 +144,15 @@ describe('releasedV2SessionFormatCodec headers', () => {
 
 describe('releasedV2SessionFormatCodec rows', () => {
   it('stores one event per row and compacts scalar, pair, and long-run source-event references exactly', () => {
-    const source = artifact([
-      feedback(0),
-      userMessage(1, [0]),
-      userMessage(2, [0, 1]),
-      userMessage(3, [0, 1, 2]),
-    ])
+    const source = artifact([feedback(0), userMessage(1, [0]), userMessage(2, [0, 1]), userMessage(3, [0, 1, 2])])
     const encoded = encodeV2(source)
-    expect(encoded.rows.map(row => row['sourceEventSeqs'])).toStrictEqual([
-      undefined,
-      [0],
-      [0, 1],
-      [[0, 2]],
-    ])
+    expect(encoded.rows.map(row => row['sourceEventSeqs'])).toStrictEqual([undefined, [0], [0, 1], [[0, 2]]])
     expect(decodeV2(encoded.header, encoded.rows)).toStrictEqual(source)
   })
 
   it('keeps non-monotonic source-event references scalar-only for the current backend reader', () => {
     const sourceEventSeqs = [4, 5, 1, 2, 3]
-    const source = artifact([
-      feedback(0), feedback(1), feedback(2), feedback(3), feedback(4), feedback(5),
-      userMessage(6, sourceEventSeqs),
-    ])
+    const source = artifact([feedback(0), feedback(1), feedback(2), feedback(3), feedback(4), feedback(5), userMessage(6, sourceEventSeqs)])
 
     const encoded = encodeV2(source)
     const stored = encoded.rows[6]?.['sourceEventSeqs']
@@ -187,16 +175,21 @@ describe('releasedV2SessionFormatCodec rows', () => {
   })
 
   it('expands mixed stored source-event ranges and preserves unrelated rows', () => {
-    const rows: SessionFormatJsonObject[] = [feedback(0), feedback(1), feedback(2), feedback(3), feedback(4), {
-      ...userMessage(5),
-      sourceEventSeqs: [[0, 2], 4],
-    }]
+    const rows: SessionFormatJsonObject[] = [
+      feedback(0),
+      feedback(1),
+      feedback(2),
+      feedback(3),
+      feedback(4),
+      {
+        ...userMessage(5),
+        sourceEventSeqs: [[0, 2], 4],
+      },
+    ]
     const decoded = decodeV2(minimalPhysicalHeader, rows)
     expect(decoded.events[0]).toStrictEqual(feedback(0))
     expect(decoded.events[5]?.sourceEventSeqs).toStrictEqual([0, 1, 2, 4])
-    const descending = decodeV2(minimalPhysicalHeader, [
-      feedback(0), feedback(1), { ...userMessage(2), sourceEventSeqs: [1, 0] },
-    ])
+    const descending = decodeV2(minimalPhysicalHeader, [feedback(0), feedback(1), { ...userMessage(2), sourceEventSeqs: [1, 0] }])
     expect(descending.events[2]?.sourceEventSeqs).toStrictEqual([1, 0])
   })
 
@@ -214,64 +207,74 @@ describe('releasedV2SessionFormatCodec rows', () => {
     ['overlapping range and scalar', [[0, 1], 1], /unique earlier/],
     ['non-monotonic range', [3, [0, 2]], /strictly increasing/],
   ])('refuses malformed stored source-event ranges: %s', (_name, sourceEventSeqs, message) => {
-    const rows = [feedback(0), feedback(1), feedback(2), feedback(3), {
-      ...userMessage(4), sourceEventSeqs,
-    }]
+    const rows = [
+      feedback(0),
+      feedback(1),
+      feedback(2),
+      feedback(3),
+      {
+        ...userMessage(4),
+        sourceEventSeqs,
+      },
+    ]
     expect(() => decodeV2(minimalPhysicalHeader, rows)).toThrow(message)
   })
 
   it('contains ordinary and non-SessionFormatError row failures in a recoverable tail', () => {
-    const explosive = new Proxy(feedback(1), { ownKeys: () => { throw new Error('proxy failure') } })
+    const explosive = new Proxy(feedback(1), {
+      ownKeys: () => {
+        throw new Error('proxy failure')
+      },
+    })
     const primitiveFailure = new Proxy(feedback(1), {
       ownKeys: () => throwUnknown('primitive proxy failure'),
     })
-    expect(decodeV2(
-      minimalPhysicalHeader,
-      [feedback(0), explosive],
-      'recoverable',
-    ).events).toStrictEqual([feedback(0)])
-    expect(decodeV2(
-      minimalPhysicalHeader,
-      [feedback(0), null],
-      'recoverable',
-    ).events).toStrictEqual([feedback(0)])
-    expect(decodeV2(
-      minimalPhysicalHeader,
-      [feedback(0), primitiveFailure],
-      'recoverable',
-    ).events).toStrictEqual([feedback(0)])
-    expect(decodeV2(
-      minimalPhysicalHeader,
-      [null, [], feedback(0)],
-      'recoverable',
-    ).events).toStrictEqual([])
+    expect(decodeV2(minimalPhysicalHeader, [feedback(0), explosive], 'recoverable').events).toStrictEqual([feedback(0)])
+    expect(decodeV2(minimalPhysicalHeader, [feedback(0), null], 'recoverable').events).toStrictEqual([feedback(0)])
+    expect(decodeV2(minimalPhysicalHeader, [feedback(0), primitiveFailure], 'recoverable').events).toStrictEqual([feedback(0)])
+    expect(decodeV2(minimalPhysicalHeader, [null, [], feedback(0)], 'recoverable').events).toStrictEqual([])
   })
 
   it('refuses malformed strict rows, strict gaps, and terminal recoverable tails', () => {
-    expect(() => decodeV2(minimalPhysicalHeader, [null]))
-      .toThrow(/row 0/)
-    expect(() => decodeV2(minimalPhysicalHeader, [feedback(1)]))
-      .toThrow(/seq gap/)
-    expect(() => decodeV2(minimalPhysicalHeader, [{
-      type: 'turn/end', seq: 1, time: 1, data: { turn: 1, reason: { kind: 'completed' } },
-    }], 'recoverable')).toThrow(/seq gap/)
-    expect(() => decodeV2(minimalPhysicalHeader, [null, {
-      type: 'turn/end', seq: 0, time: 1, data: { turn: 1, reason: { kind: 'completed' } },
-    }], 'recoverable')).toThrow(/row 0/)
-    expect(() => decodeV2(minimalPhysicalHeader, [{ ...feedback(0), extra: true }]))
-      .toThrow(/unexpected field extra/)
-    expect(() => decodeV2(minimalPhysicalHeader, [{ type: 'feedback/record', seq: 0, time: 1 }]))
-      .toThrow(/lacks required field data/)
-    expect(() => decodeV2(minimalPhysicalHeader, [{ ...feedback(0), type: 1 }]))
-      .toThrow(/type must be a string/)
-    expect(() => decodeV2(minimalPhysicalHeader, [{ ...feedback(0), ignorable: false }]))
-      .toThrow(/ignorable must be true/)
+    expect(() => decodeV2(minimalPhysicalHeader, [null])).toThrow(/row 0/)
+    expect(() => decodeV2(minimalPhysicalHeader, [feedback(1)])).toThrow(/seq gap/)
+    expect(() =>
+      decodeV2(
+        minimalPhysicalHeader,
+        [
+          {
+            type: 'turn/end',
+            seq: 1,
+            time: 1,
+            data: { turn: 1, reason: { kind: 'completed' } },
+          },
+        ],
+        'recoverable',
+      ),
+    ).toThrow(/seq gap/)
+    expect(() =>
+      decodeV2(
+        minimalPhysicalHeader,
+        [
+          null,
+          {
+            type: 'turn/end',
+            seq: 0,
+            time: 1,
+            data: { turn: 1, reason: { kind: 'completed' } },
+          },
+        ],
+        'recoverable',
+      ),
+    ).toThrow(/row 0/)
+    expect(() => decodeV2(minimalPhysicalHeader, [{ ...feedback(0), extra: true }])).toThrow(/unexpected field extra/)
+    expect(() => decodeV2(minimalPhysicalHeader, [{ type: 'feedback/record', seq: 0, time: 1 }])).toThrow(/lacks required field data/)
+    expect(() => decodeV2(minimalPhysicalHeader, [{ ...feedback(0), type: 1 }])).toThrow(/type must be a string/)
+    expect(() => decodeV2(minimalPhysicalHeader, [{ ...feedback(0), ignorable: false }])).toThrow(/ignorable must be true/)
   })
 
   it('keeps the prefix before a recoverable non-terminal seq gap', () => {
-    expect(decodeV2(minimalPhysicalHeader, [
-      feedback(0), feedback(3), feedback(1),
-    ], 'recoverable').events).toStrictEqual([feedback(0)])
+    expect(decodeV2(minimalPhysicalHeader, [feedback(0), feedback(3), feedback(1)], 'recoverable').events).toStrictEqual([feedback(0)])
   })
 
   it('derives the last tagged seed marker and rejects lineage disagreements', () => {
@@ -283,12 +286,17 @@ describe('releasedV2SessionFormatCodec rows', () => {
     ]
     expect(decodeV2(seededHeader, markers).inheritedEventCount).toBe(2)
     expect(decodeV2(seededHeader, [markers[0]]).inheritedEventCount).toBe(0)
-    expect(() => decodeV2(seededHeader, []))
-      .toThrow(/lacks an inherited end-seed marker/)
-    expect(() => decodeV2(minimalPhysicalHeader, [markers[0]]))
-      .toThrow(/unseeded Session contains an inherited end-seed marker/)
-    expect(() => decodeV2(seededHeader, [{
-      type: 'session/end-seed', seq: 0, time: 1, data: null,
-    }])).toThrow(/must be an object/)
+    expect(() => decodeV2(seededHeader, [])).toThrow(/lacks an inherited end-seed marker/)
+    expect(() => decodeV2(minimalPhysicalHeader, [markers[0]])).toThrow(/unseeded Session contains an inherited end-seed marker/)
+    expect(() =>
+      decodeV2(seededHeader, [
+        {
+          type: 'session/end-seed',
+          seq: 0,
+          time: 1,
+          data: null,
+        },
+      ]),
+    ).toThrow(/must be an object/)
   })
 })

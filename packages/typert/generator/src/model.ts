@@ -136,11 +136,11 @@ export interface InvocationModel extends DocumentationModel {
   readonly invocation:
     | { readonly kind: 'direct' }
     | {
-      readonly kind: 'context'
-      readonly context: string
-      readonly wire: string
-      readonly boundary: RemoteBoundaryModel
-    }
+        readonly kind: 'context'
+        readonly context: string
+        readonly wire: string
+        readonly boundary: RemoteBoundaryModel
+      }
   readonly scope?: {
     readonly context: string
     readonly wire: string
@@ -277,11 +277,7 @@ export interface SignatureMemberModel extends MemberBase {
 }
 
 /** One declaration or object-literal member. */
-export type MemberModel =
-  | PropertyMemberModel
-  | MethodMemberModel
-  | AccessorMemberModel
-  | SignatureMemberModel
+export type MemberModel = PropertyMemberModel | MethodMemberModel | AccessorMemberModel | SignatureMemberModel
 
 /** One enum member, retaining its developer-authored initializer. */
 export interface EnumMemberModel extends DocumentationModel {
@@ -324,18 +320,18 @@ export type TypeTargetModel =
   | { readonly kind: 'declaration'; readonly symbol: SymbolId }
   | { readonly kind: 'type-parameter'; readonly parameter: string }
   | {
-    readonly kind: 'cross-face'
-    readonly face: TypertFace
-    readonly package: string
-    readonly subpath: string
-    readonly name: string
-  }
+      readonly kind: 'cross-face'
+      readonly face: TypertFace
+      readonly package: string
+      readonly subpath: string
+      readonly name: string
+    }
   | {
-    readonly kind: 'external'
-    readonly module: string
-    readonly subpath: string
-    readonly name: string
-  }
+      readonly kind: 'external'
+      readonly module: string
+      readonly subpath: string
+      readonly name: string
+    }
   | { readonly kind: 'standard'; readonly name: string }
 
 /** One tuple element, retaining labels and optional/rest modifiers. */
@@ -357,7 +353,13 @@ export type TypeNodeModel = (
   | { readonly id: TypeNodeId; readonly kind: 'keyword'; readonly name: KeywordTypeName }
   | { readonly id: TypeNodeId; readonly kind: 'literal'; readonly value: string | number | bigint | boolean | null; readonly text: string }
   | { readonly id: TypeNodeId; readonly kind: 'parenthesized'; readonly type: TypeNodeId }
-  | { readonly id: TypeNodeId; readonly kind: 'reference'; readonly name: string; readonly target: TypeTargetModel; readonly arguments: readonly TypeNodeId[] }
+  | {
+      readonly id: TypeNodeId
+      readonly kind: 'reference'
+      readonly name: string
+      readonly target: TypeTargetModel
+      readonly arguments: readonly TypeNodeId[]
+    }
   | { readonly id: TypeNodeId; readonly kind: 'union' | 'intersection'; readonly types: readonly TypeNodeId[] }
   | { readonly id: TypeNodeId; readonly kind: 'array'; readonly element: TypeNodeId }
   | { readonly id: TypeNodeId; readonly kind: 'tuple'; readonly elements: readonly TupleElementModel[] }
@@ -366,30 +368,43 @@ export type TypeNodeModel = (
   | { readonly id: TypeNodeId; readonly kind: 'constructor'; readonly abstract: boolean; readonly signature: SignatureModel }
   | { readonly id: TypeNodeId; readonly kind: 'indexed-access'; readonly object: TypeNodeId; readonly index: TypeNodeId }
   | { readonly id: TypeNodeId; readonly kind: 'operator'; readonly operator: TypeOperatorName; readonly type: TypeNodeId }
-  | { readonly id: TypeNodeId; readonly kind: 'conditional'; readonly check: TypeNodeId; readonly extends: TypeNodeId; readonly whenTrue: TypeNodeId; readonly whenFalse: TypeNodeId }
+  | {
+      readonly id: TypeNodeId
+      readonly kind: 'conditional'
+      readonly check: TypeNodeId
+      readonly extends: TypeNodeId
+      readonly whenTrue: TypeNodeId
+      readonly whenFalse: TypeNodeId
+    }
   | { readonly id: TypeNodeId; readonly kind: 'infer'; readonly parameter: TypeParameterModel }
   | {
-    readonly id: TypeNodeId
-    readonly kind: 'mapped'
-    readonly parameter: TypeParameterModel
-    readonly nameType?: TypeNodeId
-    readonly value?: TypeNodeId
-    readonly readonly: 'add' | 'remove' | 'preserve'
-    readonly optional: 'add' | 'remove' | 'preserve'
-  }
+      readonly id: TypeNodeId
+      readonly kind: 'mapped'
+      readonly parameter: TypeParameterModel
+      readonly nameType?: TypeNodeId
+      readonly value?: TypeNodeId
+      readonly readonly: 'add' | 'remove' | 'preserve'
+      readonly optional: 'add' | 'remove' | 'preserve'
+    }
   | { readonly id: TypeNodeId; readonly kind: 'template-literal'; readonly head: string; readonly spans: readonly TemplateSpanModel[] }
   | { readonly id: TypeNodeId; readonly kind: 'type-query'; readonly expression: string; readonly arguments: readonly TypeNodeId[] }
   | {
-    readonly id: TypeNodeId
-    readonly kind: 'import-type'
-    readonly module: string
-    readonly qualifier?: string
-    readonly arguments: readonly TypeNodeId[]
-    readonly typeof: boolean
-    readonly attributes?: string
-    readonly target?: TypeTargetModel
-  }
-  | { readonly id: TypeNodeId; readonly kind: 'predicate'; readonly asserts: boolean; readonly parameter: string; readonly type?: TypeNodeId }
+      readonly id: TypeNodeId
+      readonly kind: 'import-type'
+      readonly module: string
+      readonly qualifier?: string
+      readonly arguments: readonly TypeNodeId[]
+      readonly typeof: boolean
+      readonly attributes?: string
+      readonly target?: TypeTargetModel
+    }
+  | {
+      readonly id: TypeNodeId
+      readonly kind: 'predicate'
+      readonly asserts: boolean
+      readonly parameter: string
+      readonly type?: TypeNodeId
+    }
   | { readonly id: TypeNodeId; readonly kind: 'this' }
 ) & {
   /** Canonical lossless JsonValue, represented without recursive tool-schema references. */
@@ -404,35 +419,49 @@ export type TypeNodeModel = (
 export function childTypeNodeIds(node: TypeNodeModel): TypeNodeId[] {
   switch (node.kind) {
     case 'parenthesized':
-    case 'operator': return [node.type]
-    case 'reference': return [...node.arguments]
+    case 'operator':
+      return [node.type]
+    case 'reference':
+      return [...node.arguments]
     case 'union':
-    case 'intersection': return [...node.types]
-    case 'array': return [node.element]
-    case 'tuple': return node.elements.map(element => element.type)
-    case 'indexed-access': return [node.object, node.index]
-    case 'conditional': return [node.check, node.extends, node.whenTrue, node.whenFalse]
-    case 'mapped': return [
-      ...(node.parameter.constraint === undefined ? [] : [node.parameter.constraint]),
-      ...(node.parameter.default === undefined ? [] : [node.parameter.default]),
-      ...(node.nameType === undefined ? [] : [node.nameType]),
-      ...(node.value === undefined ? [] : [node.value]),
-    ]
-    case 'template-literal': return node.spans.map(span => span.type)
+    case 'intersection':
+      return [...node.types]
+    case 'array':
+      return [node.element]
+    case 'tuple':
+      return node.elements.map(element => element.type)
+    case 'indexed-access':
+      return [node.object, node.index]
+    case 'conditional':
+      return [node.check, node.extends, node.whenTrue, node.whenFalse]
+    case 'mapped':
+      return [
+        ...(node.parameter.constraint === undefined ? [] : [node.parameter.constraint]),
+        ...(node.parameter.default === undefined ? [] : [node.parameter.default]),
+        ...(node.nameType === undefined ? [] : [node.nameType]),
+        ...(node.value === undefined ? [] : [node.value]),
+      ]
+    case 'template-literal':
+      return node.spans.map(span => span.type)
     case 'type-query':
-    case 'import-type': return [...node.arguments]
-    case 'predicate': return node.type === undefined ? [] : [node.type]
-    case 'infer': return [
-      ...(node.parameter.constraint === undefined ? [] : [node.parameter.constraint]),
-      ...(node.parameter.default === undefined ? [] : [node.parameter.default]),
-    ]
+    case 'import-type':
+      return [...node.arguments]
+    case 'predicate':
+      return node.type === undefined ? [] : [node.type]
+    case 'infer':
+      return [
+        ...(node.parameter.constraint === undefined ? [] : [node.parameter.constraint]),
+        ...(node.parameter.default === undefined ? [] : [node.parameter.default]),
+      ]
     case 'keyword':
     case 'literal':
     case 'object':
     case 'function':
     case 'constructor':
-    case 'this': return []
-    default: return assertNever(node)
+    case 'this':
+      return []
+    default:
+      return assertNever(node)
   }
 }
 

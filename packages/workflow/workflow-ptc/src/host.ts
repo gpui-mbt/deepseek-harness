@@ -10,7 +10,14 @@ import type { SubagentActivation } from '@deepseek-ai/dsh-subagent'
 import { assertObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import type { ObjectJsonSchema } from '@deepseek-ai/dsh-tools'
 import { assertNever, snapshotJsonValue } from '@deepseek-ai/dsh-util-values'
-import type { WorkflowAgentEndInfo, WorkflowAgentInfo, WorkflowMeta, WorkflowResult, WorkflowRun, WorkflowRunId } from '@deepseek-ai/dsh-workflow'
+import type {
+  WorkflowAgentEndInfo,
+  WorkflowAgentInfo,
+  WorkflowMeta,
+  WorkflowResult,
+  WorkflowRun,
+  WorkflowRunId,
+} from '@deepseek-ai/dsh-workflow'
 import { WORKFLOW_GUEST_SOURCE } from './guest-source.ts'
 import type { WorkflowProgress } from './guest-types.ts'
 import { renderThrown } from './realm.ts'
@@ -55,9 +62,9 @@ function childRequest(value: unknown): ChildStartRequest {
   }
   return {
     prompt,
-    ...provider === undefined ? {} : { provider },
-    ...model === undefined ? {} : { model },
-    ...schema === undefined ? {} : { schema },
+    ...(provider === undefined ? {} : { provider }),
+    ...(model === undefined ? {} : { model }),
+    ...(schema === undefined ? {} : { schema }),
   }
 }
 
@@ -68,22 +75,27 @@ function agentInfo(value: unknown): WorkflowAgentInfo {
     seq: info.seq as number,
     label: text(info.label, 'agent label'),
     childId: SessionId(text(info.childId, 'child id')),
-    ...info.phase === undefined ? {} : { phase: text(info.phase, 'agent phase') },
+    ...(info.phase === undefined ? {} : { phase: text(info.phase, 'agent phase') }),
   }
 }
 
 function progress(value: unknown): WorkflowProgress {
   const event = object(value)
   switch (event.type) {
-    case 'phase': return { type: 'phase', title: text(event.title, 'phase') }
-    case 'log': return { type: 'log', message: text(event.message, 'log') }
-    case 'agent-start': return { type: 'agent-start', info: agentInfo(event.info) }
+    case 'phase':
+      return { type: 'phase', title: text(event.title, 'phase') }
+    case 'log':
+      return { type: 'log', message: text(event.message, 'log') }
+    case 'agent-start':
+      return { type: 'agent-start', info: agentInfo(event.info) }
     case 'agent-end': {
       const info = object(event.info)
-      if (info.outcome !== 'completed' && info.outcome !== 'failed' && info.outcome !== 'cancelled') throw new Error('invalid workflow agent outcome')
+      if (info.outcome !== 'completed' && info.outcome !== 'failed' && info.outcome !== 'cancelled')
+        throw new Error('invalid workflow agent outcome')
       return { type: 'agent-end', info: { ...agentInfo(info), outcome: info.outcome } }
     }
-    default: throw new Error('invalid workflow progress event')
+    default:
+      throw new Error('invalid workflow progress event')
   }
 }
 
@@ -94,14 +106,15 @@ function progressBatch(value: unknown): WorkflowProgress[] {
 
 function workflowResult(value: unknown): WorkflowResult {
   const result = object(value)
-  if (result.stopReason !== 'completed' && result.stopReason !== 'error' && result.stopReason !== 'cancelled') throw new Error('invalid workflow stop reason')
+  if (result.stopReason !== 'completed' && result.stopReason !== 'error' && result.stopReason !== 'cancelled')
+    throw new Error('invalid workflow stop reason')
   if (!Number.isSafeInteger(result.agentsStarted) || (result.agentsStarted as number) < 0) throw new Error('invalid workflow agent count')
   if (!Object.hasOwn(result, 'value')) throw new Error('workflow result is missing its value')
   return {
     value: result.value,
     stopReason: result.stopReason,
     agentsStarted: result.agentsStarted as number,
-    ...result.error === undefined ? {} : { error: text(result.error, 'error') },
+    ...(result.error === undefined ? {} : { error: text(result.error, 'error') }),
   }
 }
 
@@ -136,7 +149,9 @@ export class PtcWorkflowRun implements WorkflowRun {
     private readonly observer: ExecutionObserver,
     private readonly signal?: AbortSignal,
   ) {
-    this.externalAbort = () => { this.cancel('workflow signal aborted') }
+    this.externalAbort = () => {
+      this.cancel('workflow signal aborted')
+    }
     if (signal?.aborted) this.externalAbort()
     else signal?.addEventListener('abort', this.externalAbort, { once: true })
     this.cwd = ctx.workingDirectory.ensure(parent, this.controller.signal)
@@ -171,17 +186,30 @@ export class PtcWorkflowRun implements WorkflowRun {
 
   private track<T>(task: Promise<T>): Promise<T> {
     this.pending.add(task)
-    void task.then(() => { this.pending.delete(task) }, () => { this.pending.delete(task) })
+    void task.then(
+      () => {
+        this.pending.delete(task)
+      },
+      () => {
+        this.pending.delete(task)
+      },
+    )
     return task
   }
 
   private bindings(): Record<string, PtcBindingFunction> {
     return {
-      begin: () => { this.requireActive(); return Promise.resolve(json(this.init)) },
+      begin: () => {
+        this.requireActive()
+        return Promise.resolve(json(this.init))
+      },
       startChild: value => this.track(this.startChild(childRequest(value))),
       childResult: value => this.track(this.childResult(this.child(value))),
-      disposeChild: async (value) => { await this.disposeChild(this.child(value)); return null },
-      progress: (value) => {
+      disposeChild: async value => {
+        await this.disposeChild(this.child(value))
+        return null
+      },
+      progress: value => {
         for (const event of progressBatch(value)) this.onProgress(event)
         return Promise.resolve(null)
       },
@@ -209,13 +237,15 @@ export class PtcWorkflowRun implements WorkflowRun {
         cwd: await this.cwd,
         prompt: [{ type: 'text', text: request.prompt }],
         parent: this.parent,
-        ...request.schema === undefined ? {} : { outputSchema: request.schema },
-        ...request.provider === undefined && request.model === undefined ? {} : {
-          agentOptions: {
-            ...request.provider === undefined ? {} : { provider: request.provider },
-            ...request.model === undefined ? {} : { model: request.model },
-          },
-        },
+        ...(request.schema === undefined ? {} : { outputSchema: request.schema }),
+        ...(request.provider === undefined && request.model === undefined
+          ? {}
+          : {
+              agentOptions: {
+                ...(request.provider === undefined ? {} : { provider: request.provider }),
+                ...(request.model === undefined ? {} : { model: request.model }),
+              },
+            }),
       },
     })
     const record: ChildRecord = { callId, run }
@@ -232,14 +262,16 @@ export class PtcWorkflowRun implements WorkflowRun {
     const signal = this.controller.signal
     signal.throwIfAborted()
     const aborted = Promise.withResolvers<never>()
-    const onAbort = (): void => { aborted.reject(signal.reason) }
+    const onAbort = (): void => {
+      aborted.reject(signal.reason)
+    }
     signal.addEventListener('abort', onAbort, { once: true })
     try {
       const result = await Promise.race([record.run.result, aborted.promise])
       return json({
         output: result.output,
         stopReason: result.stopReason,
-        ...result.structured === undefined ? {} : { structured: result.structured },
+        ...(result.structured === undefined ? {} : { structured: result.structured }),
       })
     } finally {
       signal.removeEventListener('abort', onAbort)
@@ -247,26 +279,36 @@ export class PtcWorkflowRun implements WorkflowRun {
   }
 
   private disposeChild(record: ChildRecord): Promise<void> {
-    record.disposal ??= Promise.resolve().then(() => record.run.dispose()).catch((error: unknown) => {
-      this.ctx.logger.warn(`workflow-ptc: child dispose failed: ${renderThrown(error)}`)
-    }).finally(() => {
-      this.children.delete(record.callId)
-    })
+    record.disposal ??= Promise.resolve()
+      .then(() => record.run.dispose())
+      .catch((error: unknown) => {
+        this.ctx.logger.warn(`workflow-ptc: child dispose failed: ${renderThrown(error)}`)
+      })
+      .finally(() => {
+        this.children.delete(record.callId)
+      })
     return record.disposal
   }
 
   private onProgress(event: WorkflowProgress): void {
     this.requireActive()
     switch (event.type) {
-      case 'phase': this.observer.phase(event.title); break
-      case 'log': this.observer.log(event.message); break
+      case 'phase':
+        this.observer.phase(event.title)
+        break
+      case 'log':
+        this.observer.log(event.message)
+        break
       case 'agent-start':
         this.liveAgents.set(event.info.seq, event.info)
         this.observer.agentStart(event.info)
         break
-      case 'agent-end': this.endAgent(event.info); break
+      case 'agent-end':
+        this.endAgent(event.info)
+        break
       /* v8 ignore next -- progress() validates the closed message union before dispatch. */
-      default: assertNever(event, 'workflow progress')
+      default:
+        assertNever(event, 'workflow progress')
     }
   }
 
@@ -287,23 +329,32 @@ export class PtcWorkflowRun implements WorkflowRun {
       if (this.runtime.sandboxMode === undefined && this.policy.mode !== 'danger-full-access') {
         throw new Error(`workflow runtime cannot enforce the ${this.policy.mode} file policy`)
       }
-      const outcome = await this.runtime.run(this.runtime.resolve({
-        program: this.runtime.programFormat === 'repl' ? `await (async () => {\n${PROGRAM}\n})()` : PROGRAM,
-        bindings: [{ global: 'workflowHost', functions: this.bindings() }],
-        cwd,
-        ...this.runtime.sandboxMode === undefined ? {} : { sandboxPolicy: this.policy },
-        timeoutMs: null,
-        signal: this.controller.signal,
-      }))
+      const outcome = await this.runtime.run(
+        this.runtime.resolve({
+          program: this.runtime.programFormat === 'repl' ? `await (async () => {\n${PROGRAM}\n})()` : PROGRAM,
+          bindings: [{ global: 'workflowHost', functions: this.bindings() }],
+          cwd,
+          ...(this.runtime.sandboxMode === undefined ? {} : { sandboxPolicy: this.policy }),
+          timeoutMs: null,
+          signal: this.controller.signal,
+        }),
+      )
       this.terminal = true
       if (this.cancelReason !== undefined) result = this.cancelled()
-      else if (outcome.error !== undefined) result = { value: null, stopReason: 'error', error: `workflow execution failed (${outcome.error.kind}): ${outcome.error.message}`, agentsStarted: this.started }
+      else if (outcome.error !== undefined)
+        result = {
+          value: null,
+          stopReason: 'error',
+          error: `workflow execution failed (${outcome.error.kind}): ${outcome.error.message}`,
+          agentsStarted: this.started,
+        }
       else result = workflowResult(outcome.value)
     } catch (error: unknown) {
       this.terminal = true
-      result = this.cancelReason === undefined
-        ? { value: null, stopReason: 'error', error: renderThrown(error), agentsStarted: this.started }
-        : this.cancelled()
+      result =
+        this.cancelReason === undefined
+          ? { value: null, stopReason: 'error', error: renderThrown(error), agentsStarted: this.started }
+          : this.cancelled()
     } finally {
       this.terminal = true
       this.signal?.removeEventListener('abort', this.externalAbort)

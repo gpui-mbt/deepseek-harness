@@ -4,16 +4,14 @@
  * address, sits in the builtin band, and offers the guide page one entry that
  * opens its kind.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { createElement } from 'react'
 import { cleanup, render } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { SidebarRightTabRegistry } from '@deepseek-ai/dsh-client-ui-sidebar-right/src/client/tab-registry.ts'
 import { sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
-import {
-  FILES_ID, FILES_KIND, filesDefinition,
-} from '../src/client/definition.tsx'
+import { FILES_ID, FILES_KIND, filesDefinition } from '../src/client/definition.tsx'
 import { zh } from '../src/client/locales.ts'
 
 const t = makeTranslate(zh)

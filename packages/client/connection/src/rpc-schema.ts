@@ -18,17 +18,17 @@ export const rpcErrorSchema = z.object({
  * @param value - endpoint-owned success-value parser.
  * @returns parser for either a success value or generic failure.
  */
-export function rpcResultSchema<T>(value: z.ZodType<T>): z.ZodType<{
-  readonly ok: true
-  readonly value: T
-} | {
-  readonly ok: false
-  readonly error: z.infer<typeof rpcErrorSchema>
-}> {
-  return z.union([
-    z.object({ ok: z.literal(true), value }),
-    z.object({ ok: z.literal(false), error: rpcErrorSchema }),
-  ])
+export function rpcResultSchema<T>(value: z.ZodType<T>): z.ZodType<
+  | {
+      readonly ok: true
+      readonly value: T
+    }
+  | {
+      readonly ok: false
+      readonly error: z.infer<typeof rpcErrorSchema>
+    }
+> {
+  return z.union([z.object({ ok: z.literal(true), value }), z.object({ ok: z.literal(false), error: rpcErrorSchema })])
 }
 
 /** Client request envelope; endpoint payload validation belongs to its owner. */

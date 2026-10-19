@@ -44,7 +44,10 @@ interface LoadedAsset {
 
 /** Deliberate error serialized by the Client source transport. */
 export class ClientSourceCatalogError extends Error {
-  constructor(readonly code: ClientSourceError['code'], message: string) {
+  constructor(
+    readonly code: ClientSourceError['code'],
+    message: string,
+  ) {
     super(message)
   }
 }
@@ -90,9 +93,8 @@ export class ClientSourceCatalog {
     }
     const entry = this.assets.get(command.scriptKey)
     if (entry === undefined) throw new ClientSourceCatalogError('script-not-found', 'Client script is not available')
-    const bytes = command.content === 'source'
-      ? await this.sourceBytes(entry, maxContentBytes)
-      : await this.sourceMapBytes(entry, maxContentBytes)
+    const bytes =
+      command.content === 'source' ? await this.sourceBytes(entry, maxContentBytes) : await this.sourceMapBytes(entry, maxContentBytes)
     if (bytes === undefined) {
       return {
         op: command.op,
@@ -139,7 +141,7 @@ export class ClientSourceCatalog {
     entry.source ??= entry.asset.loadSource().catch((error: unknown) => {
       throw new ClientSourceCatalogError('load-failed', `Cannot load Client script: ${renderError(error)}`)
     })
-    return entry.source.then((source) => {
+    return entry.source.then(source => {
       if (new TextEncoder().encode(source).byteLength > maxContentBytes) {
         throw new ClientSourceCatalogError('result-too-large', 'Client script exceeds the configured content limit')
       }
@@ -155,12 +157,13 @@ export class ClientSourceCatalog {
   private async sourceMapBytes(entry: LoadedAsset, maxContentBytes: number): Promise<Uint8Array | undefined> {
     if (entry.asset.loadSourceMap === undefined) return undefined
     await this.source(entry, maxContentBytes)
-    entry.sourceMapBytes ??= entry.asset.loadSourceMap().then(value =>
-      value === undefined ? undefined : new TextEncoder().encode(value),
-    ).catch((error: unknown) => {
-      throw new ClientSourceCatalogError('load-failed', `Cannot load Client source map: ${renderError(error)}`)
-    })
-    return entry.sourceMapBytes.then((bytes) => {
+    entry.sourceMapBytes ??= entry.asset
+      .loadSourceMap()
+      .then(value => (value === undefined ? undefined : new TextEncoder().encode(value)))
+      .catch((error: unknown) => {
+        throw new ClientSourceCatalogError('load-failed', `Cannot load Client source map: ${renderError(error)}`)
+      })
+    return entry.sourceMapBytes.then(bytes => {
       if (bytes !== undefined && bytes.byteLength > maxContentBytes) {
         throw new ClientSourceCatalogError('result-too-large', 'Client source map exceeds the configured content limit')
       }
@@ -178,7 +181,7 @@ export function discoverInspectorClientSourceCatalog(): ClientSourceCatalog | un
   if (typeof graph !== 'object' || graph === null) return undefined
   const entries: unknown = Reflect.get(graph, 'entries')
   if (!Array.isArray(entries)) return undefined
-  const row = entries.find((value) => {
+  const row = entries.find(value => {
     if (typeof value !== 'object' || value === null) return false
     return Reflect.get(value, 'id') === PACKAGE_ID
   }) as Record<string, unknown> | undefined
@@ -187,20 +190,24 @@ export function discoverInspectorClientSourceCatalog(): ClientSourceCatalog | un
   if (base === undefined) return undefined
   const sourceUrl = new URL(row.url, base)
   let sourceMapUrl: string | undefined
-  return new ClientSourceCatalog([{
-    scriptKey: CLIENT_SCRIPT_KEY,
-    url: sourceUrl.href,
-    hash: row.rev,
-    get sourceMapUrl() { return sourceMapUrl },
-    isModule: false,
-    loadSource: async () => {
-      const source = await fetchText(sourceUrl.href)
-      const reference = /\/\/#\s*sourceMappingURL=(\S+)\s*$/u.exec(source)?.[1]
-      if (reference !== undefined) sourceMapUrl = new URL(reference, sourceUrl).href
-      return source
+  return new ClientSourceCatalog([
+    {
+      scriptKey: CLIENT_SCRIPT_KEY,
+      url: sourceUrl.href,
+      hash: row.rev,
+      get sourceMapUrl() {
+        return sourceMapUrl
+      },
+      isModule: false,
+      loadSource: async () => {
+        const source = await fetchText(sourceUrl.href)
+        const reference = /\/\/#\s*sourceMappingURL=(\S+)\s*$/u.exec(source)?.[1]
+        if (reference !== undefined) sourceMapUrl = new URL(reference, sourceUrl).href
+        return source
+      },
+      loadSourceMap: async () => (sourceMapUrl === undefined ? undefined : fetchText(sourceMapUrl)),
     },
-    loadSourceMap: async () => sourceMapUrl === undefined ? undefined : fetchText(sourceMapUrl),
-  }])
+  ])
 }
 
 async function fetchText(url: string): Promise<string> {

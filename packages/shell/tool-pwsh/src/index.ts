@@ -121,16 +121,17 @@ function validatePwshArgs(args: PwshToolArgs): void {
 /* jscpd:ignore-end */
 
 function pwshDescription(windowsSandbox: boolean): string {
-  const base = 'Execute a PowerShell command (`pwsh -Command`) and return its stdout/stderr. '
-    + 'Each call runs in a fresh pwsh process; pass `workdir` instead of using `cd`. Paths use native Windows form (`C:\\...`); read environment '
-    + 'variables with `$env:NAME`. '
-    + 'Managed `$env:DSH_*` variables expose current harness environment facts. '
-    + 'Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. '
-    + 'On Windows a force-killed command settles as `[exit code: 1]` without a signal marker — treat it as an interruption, not a command failure. '
-    + 'Provide `description` before `command` in the arguments. '
-    + 'Before any delete or move, verify that the resolved absolute target path is the intended one; never run it against a computed path you have not checked. '
-    + 'Do not assign to automatic variables such as `$HOME`; variable names are case-insensitive, so `$home` is the same read-only variable. '
-    + 'Commands may run under a file sandbox; a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]`, a policy denial: do not retry another way.'
+  const base =
+    'Execute a PowerShell command (`pwsh -Command`) and return its stdout/stderr. ' +
+    'Each call runs in a fresh pwsh process; pass `workdir` instead of using `cd`. Paths use native Windows form (`C:\\...`); read environment ' +
+    'variables with `$env:NAME`. ' +
+    'Managed `$env:DSH_*` variables expose current harness environment facts. ' +
+    'Long output is truncated to its tail; the full output is saved to a file whose path is reported when available. ' +
+    'On Windows a force-killed command settles as `[exit code: 1]` without a signal marker — treat it as an interruption, not a command failure. ' +
+    'Provide `description` before `command` in the arguments. ' +
+    'Before any delete or move, verify that the resolved absolute target path is the intended one; never run it against a computed path you have not checked. ' +
+    'Do not assign to automatic variables such as `$HOME`; variable names are case-insensitive, so `$home` is the same read-only variable. ' +
+    'Commands may run under a file sandbox; a blocked file operation is reported as `[sandbox: file access denied under <mode> mode]`, a policy denial: do not retry another way.'
   if (!windowsSandbox) return base
   // The language-mode and named-pipe contracts below are Windows-restricted-token
   // behavior, but the gate is 'any confining executor is mounted'
@@ -138,16 +139,19 @@ function pwshDescription(windowsSandbox: boolean): string {
   // with a confining executor is win32-only, so the gate is equivalent. A POSIX
   // pwsh-sandbox composition must gate both sentences on the platform instead
   // (tracked in the pwsh-tool-and-executor Agent Note).
-  return base + ' Under the Windows sandbox, read-only pwsh runs in PowerShell ConstrainedLanguage mode, while '
-    + 'workspace-write stays in FullLanguage unless host policy says otherwise. In read-only, prefer cmdlets and core types (`[string]`, `[datetime]`, `[regex]`, `[guid]`); '
-    + '.NET static calls (`[System.IO.*]::`, `[math]::`), `Add-Type`, COM objects, and reflection fail '
-    + 'with "only core types" errors. `-f` formatting, property access, and core cmdlets work. '
-    + 'In both confined modes, programs cannot open named pipes, so a command that captures another '
-    + 'program\'s output through piped stdio (Node.js `child_process.spawn`/`exec` with the default '
-    + '`stdio: \'pipe\'`) fails with EPERM, while `stdio: \'inherit\'` and `stdio: \'ignore\'` spawns '
-    + 'work and PowerShell\'s own pipelines are unaffected. That EPERM is the documented boundary: '
-    + 'do not retry the command another way — escalate the exact command once or restructure it to '
-    + 'avoid capturing output.'
+  return (
+    base +
+    ' Under the Windows sandbox, read-only pwsh runs in PowerShell ConstrainedLanguage mode, while ' +
+    'workspace-write stays in FullLanguage unless host policy says otherwise. In read-only, prefer cmdlets and core types (`[string]`, `[datetime]`, `[regex]`, `[guid]`); ' +
+    '.NET static calls (`[System.IO.*]::`, `[math]::`), `Add-Type`, COM objects, and reflection fail ' +
+    'with "only core types" errors. `-f` formatting, property access, and core cmdlets work. ' +
+    'In both confined modes, programs cannot open named pipes, so a command that captures another ' +
+    "program's output through piped stdio (Node.js `child_process.spawn`/`exec` with the default " +
+    "`stdio: 'pipe'`) fails with EPERM, while `stdio: 'inherit'` and `stdio: 'ignore'` spawns " +
+    "work and PowerShell's own pipelines are unaffected. That EPERM is the documented boundary: " +
+    'do not retry the command another way — escalate the exact command once or restructure it to ' +
+    'avoid capturing output.'
+  )
 }
 
 /** Resolve a relative per-call override against the Session's current directory. */
@@ -164,7 +168,7 @@ function canonicalPwshResult(result: ShellRunResult, cwd: string): PwshForegroun
   const output = (stream: ShellRunResult['stdout']) => ({
     text: stream.text,
     truncated: stream.truncated,
-    ...stream.spillPath !== undefined ? { spillPath: stream.spillPath } : {},
+    ...(stream.spillPath !== undefined ? { spillPath: stream.spillPath } : {}),
   })
   return {
     cwd,
@@ -177,14 +181,16 @@ function canonicalPwshResult(result: ShellRunResult, cwd: string): PwshForegroun
     /* jscpd:ignore-start -- the canonical projection and background-handle shape mirror dsh-tool-bash's by design (Agent Note). */
     stdout: output(result.stdout),
     stderr: output(result.stderr),
-    ...result.sandbox !== undefined ? {
-      sandbox: {
-        mode: result.sandbox.mode,
-        denied: result.sandbox.denied,
-        ...result.sandbox.enforcement !== undefined ? { enforcement: result.sandbox.enforcement } : {},
-        ...result.sandbox.runnerFailed !== undefined ? { runnerFailed: result.sandbox.runnerFailed } : {},
-      },
-    } : {},
+    ...(result.sandbox !== undefined
+      ? {
+          sandbox: {
+            mode: result.sandbox.mode,
+            denied: result.sandbox.denied,
+            ...(result.sandbox.enforcement !== undefined ? { enforcement: result.sandbox.enforcement } : {}),
+            ...(result.sandbox.runnerFailed !== undefined ? { runnerFailed: result.sandbox.runnerFailed } : {}),
+          },
+        }
+      : {}),
   }
 }
 
@@ -266,8 +272,9 @@ export function apply(ctx: Context, config: Config = {}): void {
   ctx.systemPrompt.section({
     name: 'tool:pwsh',
     order: ctx.systemPrompt.getSectionOrder('TOOL_PWSH'),
-    text: 'Non-zero exits are reported as `[exit code: N]` markers; investigate failures before moving on. '
-      + 'On Windows a killed process settles as `[exit code: 1]` without a signal marker; treat a bare exit 1 after an interruption as a termination, not a command failure.',
+    text:
+      'Non-zero exits are reported as `[exit code: N]` markers; investigate failures before moving on. ' +
+      'On Windows a killed process settles as `[exit code: 1]` without a signal marker; treat a bare exit 1 after an interruption as a termination, not a command failure.',
   })
 
   /**
@@ -287,11 +294,11 @@ export function apply(ctx: Context, config: Config = {}): void {
         kind: 'pwsh',
         label: args.command,
         toolCall: { callId: exec.callId, rootCallId: exec.rootCallId },
-        ...exec.agent ? { owner: exec.agent.id } : {},
+        ...(exec.agent ? { owner: exec.agent.id } : {}),
         output: processSources(() => proc),
         run: () => {
           const hooks = processJob(
-            async (signal) => {
+            async signal => {
               proc = await ctx.shell.execute({ ...spec, signal })
               return proc
             },
@@ -301,7 +308,7 @@ export function apply(ctx: Context, config: Config = {}): void {
             done: hooks.done,
             // A kill from outside this call (the human's, a parallel job_kill)
             // reaches the process here; its reason is what the model reads.
-            cancel: (reason) => {
+            cancel: reason => {
               stopped = reason
               hooks.cancel(reason)
             },
@@ -351,7 +358,7 @@ export function apply(ctx: Context, config: Config = {}): void {
           timeoutMs,
           stdout: { text: '', truncated: false },
           stderr: { text: '', truncated: false },
-          ...spec.sandboxPolicy !== undefined ? { sandbox: { mode: spec.sandboxPolicy.mode, denied: false } } : {},
+          ...(spec.sandboxPolicy !== undefined ? { sandbox: { mode: spec.sandboxPolicy.mode, denied: false } } : {}),
         }
       }
       if (view.status === 'running' || view.status === 'stopping') {
@@ -365,7 +372,11 @@ export function apply(ctx: Context, config: Config = {}): void {
           jobId: attached.id,
           timeoutMs,
           output: renderPwshJobRead(
-            ringDelta(read.chunks), read.lossy, read.job.output.spillPaths ?? [], attached.process()?.sandbox, escalationModes,
+            ringDelta(read.chunks),
+            read.lossy,
+            read.job.output.spillPaths ?? [],
+            attached.process()?.sandbox,
+            escalationModes,
           ),
         }
       }
@@ -380,7 +391,7 @@ export function apply(ctx: Context, config: Config = {}): void {
       if (process === undefined) throw new Error(view.detail)
       const result = await process.result()
       const stopped = attached.stopped()
-      return { ...canonicalPwshResult(result, spec.workdir), ...stopped !== undefined ? { stopped } : {} }
+      return { ...canonicalPwshResult(result, spec.workdir), ...(stopped !== undefined ? { stopped } : {}) }
     }
     /* jscpd:ignore-end */
     return defineTool({
@@ -391,9 +402,10 @@ export function apply(ctx: Context, config: Config = {}): void {
         description: {
           type: 'string',
           required: true,
-          description: 'Clear, concise description of what this command does in active voice, '
-            + '5-10 words (shown in the UI). Examples: "ls" → "List files in current directory"; '
-            + '"git status" → "Show working tree status"; "Get-Process" → "List running processes".',
+          description:
+            'Clear, concise description of what this command does in active voice, ' +
+            '5-10 words (shown in the UI). Examples: "ls" → "List files in current directory"; ' +
+            '"git status" → "Show working tree status"; "Get-Process" → "List running processes".',
         },
         command: { type: 'string', required: true, description: 'The PowerShell command to execute.' },
         timeoutMs: {
@@ -402,22 +414,34 @@ export function apply(ctx: Context, config: Config = {}): void {
             ? 'Timeout in milliseconds. The executor applies its configured default and cap; on expiry the command moves to the background as a job instead of being killed.'
             : 'Timeout in milliseconds. The executor applies its configured default and cap, and kills the command on expiry.',
         },
-        workdir: { type: 'string', description: 'Working directory for this command. Defaults to the session workspace; a relative path is resolved against it.' },
-        ...background ? {
-          run_in_background: { type: 'boolean' as const, description: 'Run in the background and return a job id immediately (collect with job_output, stop with job_kill). No timeout applies.' },
-        } : {},
-        ...escalationModes.length > 0 ? {
-          sandbox_permissions: {
-            type: 'string' as const,
-            enum: [...escalationModes],
-            description: sandboxPermissionsDescription('command'),
-          },
-          justification: {
-            type: 'string' as const,
-            description: 'Required with sandbox_permissions: one sentence for the user explaining why this exact command needs the wider access. '
-              + 'Use the language of the user’s current request.',
-          },
-        } : {},
+        workdir: {
+          type: 'string',
+          description: 'Working directory for this command. Defaults to the session workspace; a relative path is resolved against it.',
+        },
+        ...(background
+          ? {
+              run_in_background: {
+                type: 'boolean' as const,
+                description:
+                  'Run in the background and return a job id immediately (collect with job_output, stop with job_kill). No timeout applies.',
+              },
+            }
+          : {}),
+        ...(escalationModes.length > 0
+          ? {
+              sandbox_permissions: {
+                type: 'string' as const,
+                enum: [...escalationModes],
+                description: sandboxPermissionsDescription('command'),
+              },
+              justification: {
+                type: 'string' as const,
+                description:
+                  'Required with sandbox_permissions: one sentence for the user explaining why this exact command needs the wider access. ' +
+                  'Use the language of the user’s current request.',
+              },
+            }
+          : {}),
       },
       /* jscpd:ignore-end */
       output: {
@@ -490,14 +514,17 @@ export function apply(ctx: Context, config: Config = {}): void {
           ],
         },
         /* jscpd:ignore-end */
-        render: (_args, value) => [{
-          type: 'text',
-          text: value.kind === 'background'
-            ? `started background job ${value.jobId}`
-            : value.kind === 'promoted'
-              ? renderPwshPromoted(value)
-              : renderPwshResult(value as RenderablePwshResult, escalationModes),
-        }],
+        render: (_args, value) => [
+          {
+            type: 'text',
+            text:
+              value.kind === 'background'
+                ? `started background job ${value.jobId}`
+                : value.kind === 'promoted'
+                  ? renderPwshPromoted(value)
+                  : renderPwshResult(value as RenderablePwshResult, escalationModes),
+          },
+        ],
         presentationMeta: (_args, value) => ({ cwd: value.cwd }),
       },
       /* jscpd:ignore-start -- the execute path mirrors dsh-tool-bash's by design (see the pwsh-tool-and-executor Agent Note). */
@@ -505,20 +532,19 @@ export function apply(ctx: Context, config: Config = {}): void {
         validatePwshArgs(args)
         // Description is display metadata; workdir defaults to the caller's session.
         const standingPolicy = resolveSandboxPolicy(exec)
-        const approvedMode = args.sandbox_permissions !== undefined && args.justification !== undefined
-          ? await approvePwshEscalation(args.sandbox_permissions, args.justification, exec, standingPolicy)
-          : undefined
-        const policy = approvedMode === undefined
-          ? standingPolicy
-          : { ...(standingPolicy as SandboxExecutionPolicy), mode: approvedMode }
+        const approvedMode =
+          args.sandbox_permissions !== undefined && args.justification !== undefined
+            ? await approvePwshEscalation(args.sandbox_permissions, args.justification, exec, standingPolicy)
+            : undefined
+        const policy = approvedMode === undefined ? standingPolicy : { ...(standingPolicy as SandboxExecutionPolicy), mode: approvedMode }
         const cwd = exec.agent === undefined ? undefined : await ctx.workingDirectory.ensure(exec.agent, exec.signal)
         const workdir = resolveWorkdir(args.workdir, cwd)
         const request: ShellExecRequest = {
           command: args.command,
-          ...workdir !== undefined ? { workdir } : {},
-          ...args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {},
+          ...(workdir !== undefined ? { workdir } : {}),
+          ...(args.timeoutMs !== undefined ? { timeoutMs: args.timeoutMs } : {}),
           dshEnv: ctx.shellEnv.collect(exec),
-          ...policy !== undefined ? { sandboxPolicy: policy } : {},
+          ...(policy !== undefined ? { sandboxPolicy: policy } : {}),
         }
         if (args.run_in_background === true) {
           // Undeclared keys are allowed, so schema omission also needs enforcement.
@@ -572,7 +598,7 @@ export function apply(ctx: Context, config: Config = {}): void {
           card: 'terminal',
           title: args.command,
           description: args.description,
-          ...args.workdir !== undefined ? { cwd: args.workdir } : {},
+          ...(args.workdir !== undefined ? { cwd: args.workdir } : {}),
         }
       },
       /* jscpd:ignore-end */
@@ -581,7 +607,8 @@ export function apply(ctx: Context, config: Config = {}): void {
         const block = result.content.length === 1 ? result.content[0] : undefined
         if (block === undefined || block.type !== 'text') return undefined
         const raw = block.text
-        const isBackground = typeof args === 'object' && args !== null && (args as { run_in_background?: unknown }).run_in_background === true
+        const isBackground =
+          typeof args === 'object' && args !== null && (args as { run_in_background?: unknown }).run_in_background === true
         const isPromoted = (result as { value?: { kind?: unknown } }).value?.kind === 'promoted'
         // Background acknowledgements, promotions, and errors have no terminal exit status.
         if (isBackground || isPromoted || result.isError) {
@@ -605,7 +632,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     return
   }
   let foregroundOnly = ctx.get('jobs') === undefined ? ctx.tools.register(pwshTool(undefined)) : undefined
-  ctx.inject(['jobs'], (jobCtx) => {
+  ctx.inject(['jobs'], jobCtx => {
     foregroundOnly?.()
     foregroundOnly = undefined
     const unregister = ctx.tools.register(pwshTool(jobCtx.jobs))

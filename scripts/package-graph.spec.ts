@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { renderModuleGraph } from './gen-module-graph.ts'
 import { collectPackageGraph } from './package-graph.ts'
 
@@ -17,13 +17,17 @@ function fixture(packages: Readonly<Record<string, readonly string[]>>): string 
   for (const [name, dependencies] of Object.entries(packages)) {
     const directory = join(root, 'packages', 'client', name)
     mkdirSync(directory, { recursive: true })
-    writeFileSync(join(directory, 'package.json'), `${JSON.stringify({
-      name: `@deepseek-ai/dsh-${name}`,
-      peerDependencies: Object.fromEntries(dependencies.map(dependency => [
-        `@deepseek-ai/dsh-${dependency}`,
-        'workspace:^',
-      ])),
-    }, null, 2)}\n`)
+    writeFileSync(
+      join(directory, 'package.json'),
+      `${JSON.stringify(
+        {
+          name: `@deepseek-ai/dsh-${name}`,
+          peerDependencies: Object.fromEntries(dependencies.map(dependency => [`@deepseek-ai/dsh-${dependency}`, 'workspace:^'])),
+        },
+        null,
+        2,
+      )}\n`,
+    )
   }
   return root
 }
@@ -32,22 +36,21 @@ describe('collectPackageGraph', () => {
   it('orders packages after their dependencies', () => {
     const root = fixture({ application: ['feature'], feature: ['foundation'], foundation: [] })
 
-    expect(collectPackageGraph(root, ['client'], 'fixture').map(pkg => pkg.short))
-      .toEqual(['foundation', 'feature', 'application'])
+    expect(collectPackageGraph(root, ['client'], 'fixture').map(pkg => pkg.short)).toEqual(['foundation', 'feature', 'application'])
   })
 
   it('keeps a dependency cycle together and before its consumers', () => {
     const root = fixture({ consumer: ['left'], left: ['right'], right: ['left'], foundation: [] })
 
-    expect(collectPackageGraph(root, ['client'], 'fixture').map(pkg => pkg.short))
-      .toEqual(['foundation', 'left', 'right', 'consumer'])
+    expect(collectPackageGraph(root, ['client'], 'fixture').map(pkg => pkg.short)).toEqual(['foundation', 'left', 'right', 'consumer'])
   })
 
   it('rejects a missing in-repo peer', () => {
     const root = fixture({ consumer: ['missing'] })
 
-    expect(() => collectPackageGraph(root, ['client'], 'fixture'))
-      .toThrow('fixture: @deepseek-ai/dsh-consumer references missing in-repo peer @deepseek-ai/dsh-missing')
+    expect(() => collectPackageGraph(root, ['client'], 'fixture')).toThrow(
+      'fixture: @deepseek-ai/dsh-consumer references missing in-repo peer @deepseek-ai/dsh-missing',
+    )
   })
 })
 

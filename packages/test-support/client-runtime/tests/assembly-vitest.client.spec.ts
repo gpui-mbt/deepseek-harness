@@ -1,5 +1,5 @@
 /** Native fixture cleanup remains active after assertion failure and without a started client. */
-import { afterAll, describe, expect } from 'vitest'
+import { afterAll, describe, expect } from 'vite-plus/test'
 import { ok } from '@deepseek-ai/dsh-remote-mock'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { createClientTest, webApp, type TestClient } from '../src/assembly/index.ts'
@@ -32,8 +32,9 @@ describe('createClientTest', () => {
     clients.push(client)
     expect(client.mock).toBe(mock)
     expect(mock.log.streams('$events')).toHaveLength(1)
-    await expect(client.ctx.remote.session.rename({ sessionId: 's' as SessionId, title: 't' }))
-      .resolves.toEqual(ok({ title: 'test title', seq: 1 }))
+    await expect(client.ctx.remote.session.rename({ sessionId: 's' as SessionId, title: 't' })).resolves.toEqual(
+      ok({ title: 'test title', seq: 1 }),
+    )
     expect(remote.session.rename).toHaveBeenCalledExactlyOnceWith({ sessionId: 's', title: 't' })
   })
 

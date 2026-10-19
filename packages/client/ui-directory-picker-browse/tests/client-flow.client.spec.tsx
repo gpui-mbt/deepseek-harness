@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { DirectoryListing } from '@deepseek-ai/dsh-api-remotes/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -23,7 +23,10 @@ const HOME = '/home/u'
 const homeListing: DirectoryListing = {
   path: HOME,
   home: HOME,
-  crumbs: [{ name: '/', path: '/', hidden: false }, { name: 'u', path: HOME, hidden: false }],
+  crumbs: [
+    { name: '/', path: '/', hidden: false },
+    { name: 'u', path: HOME, hidden: false },
+  ],
   entries: [{ name: 'Documents', path: `${HOME}/Documents`, hidden: false }],
   truncated: false,
 }
@@ -36,17 +39,24 @@ async function bench() {
   const createDirectory = vi.fn(async (path: string, name: string) => `${path}/${name}`)
   ctx.provide('uiWorkspace', { listDirectory, createDirectory } as never)
   const slots = ctx.get('slots') as SlotRegistry
-  const declare = () => slots.register({
-    name: 'root',
-    children: Object.fromEntries(HOLES.map(name => [name, { kind: 'single', scope: 'root' }])),
-  } as never, () => null)
+  const declare = () =>
+    slots.register(
+      {
+        name: 'root',
+        children: Object.fromEntries(HOLES.map(name => [name, { kind: 'single', scope: 'root' }])),
+      } as never,
+      () => null,
+    )
   return { ctx, slots, listDirectory, createDirectory, declare }
 }
 
 function owner(overrides: Partial<DirectoryFlowOwnerProps> = {}): DirectoryFlowOwnerProps {
   return {
-    open: true, busy: false,
-    onPicked: vi.fn(), onCancel: vi.fn(), onError: vi.fn(),
+    open: true,
+    busy: false,
+    onPicked: vi.fn(),
+    onCancel: vi.fn(),
+    onError: vi.fn(),
     ...overrides,
   }
 }
@@ -81,7 +91,9 @@ describe('directory-picker-browse client half', () => {
     // throws after the outer injection installed its subscription.
     b.slots.register({ name: HOLES[1] } as never, () => null)
     const rejections: unknown[] = []
-    const onUnhandled = (reason: unknown): void => { rejections.push(reason) }
+    const onUnhandled = (reason: unknown): void => {
+      rejections.push(reason)
+    }
     process.on('unhandledRejection', onUnhandled)
     try {
       const fiber = b.ctx.plugin({ inject: [...inject], apply })
@@ -102,16 +114,20 @@ describe('directory-picker-browse client half', () => {
   it('rolls back wholesale and reports loudly when a rival injection wins declaration activation', async () => {
     const b = await bench()
     const rejections: unknown[] = []
-    const onUnhandled = (reason: unknown): void => { rejections.push(reason) }
+    const onUnhandled = (reason: unknown): void => {
+      rejections.push(reason)
+    }
     process.on('unhandledRejection', onUnhandled)
     process.on('uncaughtException', onUnhandled)
     try {
       // The rival subscribes first, so synchronous declaration notifications
       // let it occupy the pair before this provider's waiting injection runs.
-      b.slots.inject(HOLES[0], () => b.slots.inject(HOLES[1], function* () {
-        yield b.slots.register({ name: HOLES[0] } as never, () => null)
-        yield b.slots.register({ name: HOLES[1] } as never, () => null)
-      }))
+      b.slots.inject(HOLES[0], () =>
+        b.slots.inject(HOLES[1], function* () {
+          yield b.slots.register({ name: HOLES[0] } as never, () => null)
+          yield b.slots.register({ name: HOLES[1] } as never, () => null)
+        }),
+      )
       await b.ctx.plugin({ inject: [...inject], apply }).await()
       b.declare()
       await new Promise(resolve => setTimeout(resolve, 20))
@@ -144,7 +160,9 @@ describe('directory-picker-browse client half', () => {
     const locale = b.ctx.get('locale') as LocaleRuntime
     const disposeRival = locale.register('directory-browser', 'en', { 'browser.title': 'rival' })
     const rejections: unknown[] = []
-    const onUnhandled = (reason: unknown): void => { rejections.push(reason) }
+    const onUnhandled = (reason: unknown): void => {
+      rejections.push(reason)
+    }
     // cordis re-raises the apply throw as a late rejection (installFailLoud's contract).
     process.on('unhandledRejection', onUnhandled)
     try {
@@ -178,10 +196,12 @@ describe('directory-picker-browse client half', () => {
     b.declare()
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     const entry = b.slots.entries(HOLES[1])[0]!
-    const injected = (entry.inject as () => {
-      listDirectory: (path?: string) => Promise<DirectoryListing>
-      createDirectory: (path: string, name: string) => Promise<string>
-    })()
+    const injected = (
+      entry.inject as () => {
+        listDirectory: (path?: string) => Promise<DirectoryListing>
+        createDirectory: (path: string, name: string) => Promise<string>
+      }
+    )()
     await expect(injected.listDirectory()).resolves.toBe(homeListing)
     await expect(injected.createDirectory(HOME, 'fresh')).resolves.toBe(`${HOME}/fresh`)
     expect(b.listDirectory).toHaveBeenCalledOnce()
@@ -192,17 +212,12 @@ describe('directory-picker-browse client half', () => {
     const props = owner()
     const listDirectory = vi.fn(async (): Promise<DirectoryListing> => homeListing)
     const t = (key: string): string => key
-    render(
-      <BrowseDirectoryFlow
-        {...props}
-        listDirectory={listDirectory}
-        createDirectory={vi.fn(async () => '')}
-        t={t}
-      />,
-    )
+    render(<BrowseDirectoryFlow {...props} listDirectory={listDirectory} createDirectory={vi.fn(async () => '')} t={t} />)
     // The dialog opened at home; its confirm (browser.open) adopts the listed level.
     const openButton = screen.getByRole<HTMLButtonElement>('button', { name: 'browser.open' })
-    await waitFor(() => { expect(openButton.disabled).toBe(false) })
+    await waitFor(() => {
+      expect(openButton.disabled).toBe(false)
+    })
     fireEvent.click(openButton)
     expect(props.onPicked).toHaveBeenCalledWith(HOME)
     fireEvent.click(screen.getByRole('button', { name: 'browser.cancel' }))
@@ -225,6 +240,8 @@ describe('directory-picker-browse client half', () => {
 
 describe('directory-picker-browse node half', () => {
   it('the node apply is an inert loader seat', () => {
-    expect(() => { nodeApply() }).not.toThrow()
+    expect(() => {
+      nodeApply()
+    }).not.toThrow()
   })
 })

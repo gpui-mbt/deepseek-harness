@@ -7,13 +7,8 @@ import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import type { Workspace, WorkspaceId } from '@deepseek-ai/dsh-workspace'
-import { describe, expect, it, vi } from 'vitest'
-import {
-  ApiSessionAgentController,
-  ApiSessionCwdConflict,
-  type ApiSessionCreated,
-  type ApiSessionCreateRequest,
-} from '../src/agent.ts'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import { ApiSessionAgentController, ApiSessionCwdConflict, type ApiSessionCreated, type ApiSessionCreateRequest } from '../src/agent.ts'
 import { SessionCommandController } from '../src/commands.ts'
 import { installSessionReadTestServices, testSessionPersistence } from './test-remote.ts'
 
@@ -76,14 +71,13 @@ describe('Session creation failures', () => {
   it('maps missing Workspaces and attachment failures', async () => {
     const missing = await baseContext()
     missing.provide('workspaceRegistry', { get: () => undefined, list: () => [] } as never)
-    const missingController = new SessionCommandController(
-      missing,
-      controllerAgents(missing),
-      '/default',
+    const missingController = new SessionCommandController(missing, controllerAgents(missing), '/default')
+    await expectFailure(
+      missingController.create({
+        workspaceId: 'missing' as WorkspaceId,
+      }),
+      'workspace/not-found',
     )
-    await expectFailure(missingController.create({
-      workspaceId: 'missing' as WorkspaceId,
-    }), 'workspace/not-found')
     await missing.fiber.dispose()
 
     const failed = await baseContext()
@@ -101,20 +95,22 @@ describe('Session creation failures', () => {
       controllerAgents(failed, { createSession: publishedSession(failed, SessionId('workspace-session')) }),
       '/default',
     )
-    await expectFailure(failedController.create({
-      sessionId: SessionId('workspace-session'),
-      workspaceId: workspace.id,
-    }), 'session/workspace-attach-failed')
+    await expectFailure(
+      failedController.create({
+        sessionId: SessionId('workspace-session'),
+        workspaceId: workspace.id,
+      }),
+      'session/workspace-attach-failed',
+    )
     await failed.fiber.dispose()
   })
 
   it.each([
     {
-      error: new RemoteError(
-        'agent-preset/invalid',
-        'agent-presets: preset "broken" failed to mount: invalid composition',
-        { agentPreset: 'broken', reason: 'invalid composition' },
-      ),
+      error: new RemoteError('agent-preset/invalid', 'agent-presets: preset "broken" failed to mount: invalid composition', {
+        agentPreset: 'broken',
+        reason: 'invalid composition',
+      }),
       code: 'agent-preset/invalid',
     },
     {
@@ -132,15 +128,15 @@ describe('Session creation failures', () => {
   ])('maps $code creation failures', async ({ error, code }) => {
     const ctx = await baseContext()
     ctx.provide('workspaceRegistry', { get: () => undefined, list: () => [] } as never)
-    const controller = new SessionCommandController(
-      ctx,
-      controllerAgents(ctx, { createSession: () => Promise.reject(error) }),
-      '/default',
-    )
+    const controller = new SessionCommandController(ctx, controllerAgents(ctx, { createSession: () => Promise.reject(error) }), '/default')
 
-    await expectFailure(controller.create({
-      sessionId: SessionId('failed-create'), cwd: '/requested',
-    }), code)
+    await expectFailure(
+      controller.create({
+        sessionId: SessionId('failed-create'),
+        cwd: '/requested',
+      }),
+      code,
+    )
     await ctx.fiber.dispose()
   })
 
@@ -148,28 +144,30 @@ describe('Session creation failures', () => {
     const ctx = await baseContext()
     const controller = new SessionCommandController(ctx, controllerAgents(ctx), '/default')
 
-    await expectFailure(controller.create({
-      workspaceId: 'workspace-1' as WorkspaceId,
-      cwd: '/workspace',
-    }), 'gateway/bad-request')
+    await expectFailure(
+      controller.create({
+        workspaceId: 'workspace-1' as WorkspaceId,
+        cwd: '/workspace',
+      }),
+      'gateway/bad-request',
+    )
     await ctx.fiber.dispose()
   })
-
 })
 
-function completedSession(
-  ctx: Context,
-  id: string,
-  cwd?: string,
-  lineage: { parentSession?: SessionId; origin?: 'subagent' } = {},
-) {
+function completedSession(ctx: Context, id: string, cwd?: string, lineage: { parentSession?: SessionId; origin?: 'subagent' } = {}) {
   const session = ctx.sessions.create(SessionId(id), {
     meta: { ...(cwd === undefined ? {} : { cwd }), ...lineage },
   })
   session.append('turn/start', { turn: 1 })
-  session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'work' }], source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'work' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
   return session
 }
@@ -185,24 +183,31 @@ describe('Session fork failures', () => {
   it('maps missing cold sources with and without persistence', async () => {
     const withoutPersistence = await baseContext()
     withoutPersistence.provide('workspaceRegistry', { list: () => [] } as never)
-    const unavailableController = new SessionCommandController(
-      withoutPersistence, controllerAgents(withoutPersistence), '/default',
+    const unavailableController = new SessionCommandController(withoutPersistence, controllerAgents(withoutPersistence), '/default')
+    await expectFailure(
+      unavailableController.fork({
+        sessionId: SessionId('missing'),
+      }),
+      'session/not-found',
     )
-    await expectFailure(unavailableController.fork({
-      sessionId: SessionId('missing'),
-    }), 'session/not-found')
     await withoutPersistence.fiber.dispose()
 
     const missing = await baseContext()
     missing.provide('workspaceRegistry', { list: () => [] } as never)
-    missing.provide('sessionPersistence', testSessionPersistence(missing, {
-      list: () => Promise.resolve([]),
-      inspect: vi.fn(),
-    }) as never)
+    missing.provide(
+      'sessionPersistence',
+      testSessionPersistence(missing, {
+        list: () => Promise.resolve([]),
+        inspect: vi.fn(),
+      }) as never,
+    )
     const missingController = new SessionCommandController(missing, controllerAgents(missing), '/default')
-    await expectFailure(missingController.fork({
-      sessionId: SessionId('missing'),
-    }), 'session/not-found')
+    await expectFailure(
+      missingController.fork({
+        sessionId: SessionId('missing'),
+      }),
+      'session/not-found',
+    )
     await missing.fiber.dispose()
   })
 
@@ -233,8 +238,7 @@ describe('Session fork failures', () => {
   it('maps lineage lookup and Agent creation failures', async () => {
     const lineage = await baseContext()
     lineage.provide('workspaceRegistry', { list: () => [] } as never)
-    vi.spyOn(lineage.sessionQuery, 'traceSession')
-      .mockRejectedValue(new Error('lineage unavailable'))
+    vi.spyOn(lineage.sessionQuery, 'traceSession').mockRejectedValue(new Error('lineage unavailable'))
     const child = completedSession(lineage, 'subagent-source', '/workspace', {
       parentSession: SessionId('parent'),
       origin: 'subagent',
@@ -261,9 +265,9 @@ describe('Session fork failures', () => {
       attachSession: () => Promise.reject(new Error('workspace write failed')),
     } as unknown as Workspace
     ctx.provide('workspaceRegistry', { list: () => [workspace] } as never)
-    const create = vi.spyOn(ctx.agents, 'create').mockImplementation(
-      (options: CreateAgentOptions) => Promise.resolve(resolvedHandle(ctx, options.sessionId)),
-    )
+    const create = vi
+      .spyOn(ctx.agents, 'create')
+      .mockImplementation((options: CreateAgentOptions) => Promise.resolve(resolvedHandle(ctx, options.sessionId)))
     const controller = new SessionCommandController(ctx, controllerAgents(ctx), '/default')
 
     await expectFailure(controller.fork({ sessionId: source.id }), 'session/workspace-attach-failed')
@@ -278,12 +282,16 @@ describe('Session fork failures', () => {
     const ctx = await baseContext()
     ctx.provide('workspaceRegistry', { list: () => [] } as never)
     const source = completedSession(ctx, 'preset-source', '/workspace')
-    const create = vi.spyOn(ctx.agents, 'create').mockImplementation(
-      (options: CreateAgentOptions) => Promise.resolve(resolvedHandle(ctx, options.sessionId)),
+    const create = vi
+      .spyOn(ctx.agents, 'create')
+      .mockImplementation((options: CreateAgentOptions) => Promise.resolve(resolvedHandle(ctx, options.sessionId)))
+    const controller = new SessionCommandController(
+      ctx,
+      controllerAgents(ctx, {
+        composeAgent: () => Promise.resolve({ agentPreset: 'minimal', setup: () => {} }),
+      }),
+      '/default',
     )
-    const controller = new SessionCommandController(ctx, controllerAgents(ctx, {
-      composeAgent: () => Promise.resolve({ agentPreset: 'minimal', setup: () => {} }),
-    }), '/default')
 
     const forked = await controller.fork({ sessionId: source.id })
     expect(forked.sessionId).toMatch(/^session-/)

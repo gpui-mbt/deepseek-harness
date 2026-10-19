@@ -1,13 +1,17 @@
 // @vitest-environment jsdom
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
 import type { SessionBinding as ControllerBinding, SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
-  SessionProviderComponent, StoredEntry, ScopedStandardSourceBinding,
-  SlotRendererHost, SlotScopeAdapter, StandardSourceBinding,
+  SessionProviderComponent,
+  StoredEntry,
+  ScopedStandardSourceBinding,
+  SlotRendererHost,
+  SlotScopeAdapter,
+  StandardSourceBinding,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import { renderSessionArea } from '../../ui-session/src/client/session-provider.tsx'
@@ -25,8 +29,16 @@ function observable<T>(initial: T) {
   const subs = new Set<() => void>()
   return {
     getSnapshot: () => value,
-    subscribe: (fn: () => void) => { subs.add(fn); return () => { subs.delete(fn) } },
-    set: (next: T) => { value = next; for (const fn of [...subs]) fn() },
+    subscribe: (fn: () => void) => {
+      subs.add(fn)
+      return () => {
+        subs.delete(fn)
+      }
+    },
+    set: (next: T) => {
+      value = next
+      for (const fn of [...subs]) fn()
+    },
   }
 }
 
@@ -38,7 +50,10 @@ type SessionBody = (
 
 function makeHost(body: SessionBody, options: { installRenderArea?: boolean; optional?: boolean } = {}) {
   const absentBinding: StandardSourceBinding = {
-    key: undefined, hooks: { session: undefined }, keyedHooks: {}, props: { sessionId: undefined },
+    key: undefined,
+    hooks: { session: undefined },
+    keyedHooks: {},
+    props: { sessionId: undefined },
   }
   const absent = observable(absentBinding)
   const selected = observable<SessionReference | undefined>(undefined)
@@ -55,14 +70,11 @@ function makeHost(body: SessionBody, options: { installRenderArea?: boolean; opt
   const sessionAdapter: SlotScopeAdapter = {
     current: absent,
     bindingSource,
-    ...options.installRenderArea === false ? {} : { renderArea: renderSessionArea },
+    ...(options.installRenderArea === false ? {} : { renderArea: renderSessionArea }),
   }
   const scope = options.optional === true ? 'session-maybe' : 'session'
   const rootEntry: StoredEntry = {
-    component: (props: {
-      renderSlot: (key: string, owner: object) => ReactNode
-      SessionProvider: SessionProviderComponent
-    }) => {
+    component: (props: { renderSlot: (key: string, owner: object) => ReactNode; SessionProvider: SessionProviderComponent }) => {
       const reference = useSyncExternalStore(selected.subscribe, selected.getSnapshot)
       return body(props.renderSlot, props.SessionProvider, reference)
     },
@@ -70,33 +82,42 @@ function makeHost(body: SessionBody, options: { installRenderArea?: boolean; opt
     children: { 'k.session': { kind: 'single', scope } },
   }
   const host: SlotRendererHost = {
-    subscribe: () => () => {}, getVersion: () => 0,
-    entriesOf: key => key === 'root' ? [rootEntry] : sessionEntries,
-    entriesOfSlot: key => key === 'root' ? [rootEntry] : sessionEntries,
+    subscribe: () => () => {},
+    getVersion: () => 0,
+    entriesOf: key => (key === 'root' ? [rootEntry] : sessionEntries),
+    entriesOfSlot: key => (key === 'root' ? [rootEntry] : sessionEntries),
     reportEntryError: () => {},
     reportFactoryError: () => {},
-    specOf: key => key === 'k.session' ? { kind: 'single', scope } : undefined,
-    isLive: () => true, storeOf: () => undefined,
+    specOf: key => (key === 'k.session' ? { kind: 'single', scope } : undefined),
+    isLive: () => true,
+    storeOf: () => undefined,
     factoryStoreOf: () => undefined,
     retainFactoryOccurrence: () => () => {},
     subscribeFactory: () => () => {},
     getFactoryVersion: () => 0,
     factoryOf: () => undefined,
     isFactoryLive: () => false,
-    root, scopeRevision: observable(0), scope: () => sessionAdapter,
+    root,
+    scopeRevision: observable(0),
+    scope: () => sessionAdapter,
   }
   return {
-    host, bindingSource,
+    host,
+    bindingSource,
     current: {
-      set: (id: string | undefined) => { selected.set(id === undefined ? undefined : references.get(id)) },
+      set: (id: string | undefined) => {
+        selected.set(id === undefined ? undefined : references.get(id))
+      },
     },
     addSession: (id: string) => {
       const ctx = new Context()
       roots.push(ctx)
       const binding: ScopedStandardSourceBinding = {
-        key: id, ctx,
+        key: id,
+        ctx,
         hooks: { session: observable({ sid: id }) },
-        keyedHooks: {}, props: { sessionId: id },
+        keyedHooks: {},
+        props: { sessionId: id },
       }
       const release = vi.fn()
       const reference: SessionReference = {
@@ -111,32 +132,53 @@ function makeHost(body: SessionBody, options: { installRenderArea?: boolean; opt
       sources.set(reference, source)
       return { binding, reference, source, release }
     },
-    registerSession: (entry: StoredEntry) => { sessionEntries.push(entry) },
+    registerSession: (entry: StoredEntry) => {
+      sessionEntries.push(entry)
+    },
   }
 }
 
 function Counter({ sessionId }: { sessionId: string }) {
   const [count, setCount] = useState(0)
-  return <button onClick={() => { setCount(count + 1) }}>{sessionId}:{count}</button>
+  return (
+    <button
+      onClick={() => {
+        setCount(count + 1)
+      }}
+    >
+      {sessionId}:{count}
+    </button>
+  )
 }
 
 describe('SessionProvider', () => {
   it('renders explicit absence and switches only when the owner supplies a reference', () => {
-    const h = makeHost((renderSlot, Provider, reference) =>
-      <Provider session={reference} empty={() => <span>empty</span>}>{renderSlot('k.session', {})}</Provider>)
+    const h = makeHost((renderSlot, Provider, reference) => (
+      <Provider session={reference} empty={() => <span>empty</span>}>
+        {renderSlot('k.session', {})}
+      </Provider>
+    ))
     h.registerSession({ component: ({ sessionId }: { sessionId: string }) => <b>{sessionId}</b>, options: {} })
     h.addSession('s1')
     const view = render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
     expect(view.container.textContent).toBe('empty')
     expect(h.bindingSource).toHaveBeenCalledWith(undefined)
-    act(() => { h.current.set('s1') })
+    act(() => {
+      h.current.set('s1')
+    })
     expect(view.container.textContent).toBe('s1')
-    act(() => { h.current.set(undefined) })
+    act(() => {
+      h.current.set(undefined)
+    })
     expect(view.container.textContent).toBe('empty')
   })
 
   it('renders nothing for explicit absence when the empty branch is omitted', () => {
-    const h = makeHost((_renderSlot, Provider) => <Provider session={undefined}><b>session</b></Provider>)
+    const h = makeHost((_renderSlot, Provider) => (
+      <Provider session={undefined}>
+        <b>session</b>
+      </Provider>
+    ))
     const view = render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
     expect(view.container.textContent).toBe('')
   })
@@ -151,10 +193,17 @@ describe('SessionProvider', () => {
   })
 
   it('preserves a resident optional subtree when absence adopts its first Session', () => {
-    const h = makeHost((renderSlot, Provider, reference) => {
-      const body = renderSlot('k.session', {})
-      return <Provider session={reference} empty={() => body}>{body}</Provider>
-    }, { optional: true })
+    const h = makeHost(
+      (renderSlot, Provider, reference) => {
+        const body = renderSlot('k.session', {})
+        return (
+          <Provider session={reference} empty={() => body}>
+            {body}
+          </Provider>
+        )
+      },
+      { optional: true },
+    )
     h.registerSession({
       component: ({ sessionId }: { sessionId?: string }) => <Counter sessionId={sessionId ?? 'blank'} />,
       options: {},
@@ -165,17 +214,26 @@ describe('SessionProvider', () => {
     fireEvent.click(button)
     expect(button.textContent).toBe('blank:1')
 
-    act(() => { h.current.set('first') })
+    act(() => {
+      h.current.set('first')
+    })
 
     expect(view.getByRole('button')).toBe(button)
     expect(button.textContent).toBe('first:1')
   })
 
   it('resets an adopted optional subtree for a same-id replacement generation', () => {
-    const h = makeHost((renderSlot, Provider, reference) => {
-      const body = renderSlot('k.session', {})
-      return <Provider session={reference} empty={() => body}>{body}</Provider>
-    }, { optional: true })
+    const h = makeHost(
+      (renderSlot, Provider, reference) => {
+        const body = renderSlot('k.session', {})
+        return (
+          <Provider session={reference} empty={() => body}>
+            {body}
+          </Provider>
+        )
+      },
+      { optional: true },
+    )
     h.registerSession({ component: Counter, options: {} })
     h.addSession('same')
     h.current.set('same')
@@ -194,8 +252,7 @@ describe('SessionProvider', () => {
   })
 
   it('resets local state on a Session switch and on a same-id new Context generation', () => {
-    const h = makeHost((renderSlot, Provider, reference) =>
-      <Provider session={reference}>{renderSlot('k.session', {})}</Provider>)
+    const h = makeHost((renderSlot, Provider, reference) => <Provider session={reference}>{renderSlot('k.session', {})}</Provider>)
     h.registerSession({ component: Counter, options: {} })
     h.addSession('s1')
     h.addSession('s2')
@@ -203,7 +260,9 @@ describe('SessionProvider', () => {
     const view = render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
     fireEvent.click(view.getByRole('button'))
     expect(view.container.textContent).toBe('s1:1')
-    act(() => { h.current.set('s2') })
+    act(() => {
+      h.current.set('s2')
+    })
     expect(view.container.textContent).toBe('s2:0')
     fireEvent.click(view.getByRole('button'))
     act(() => {
@@ -214,12 +273,15 @@ describe('SessionProvider', () => {
   })
 
   it('refreshes descriptor props without remounting the live generation', () => {
-    const h = makeHost((renderSlot, Provider, reference) =>
-      <Provider session={reference}>{renderSlot('k.session', {})}</Provider>)
+    const h = makeHost((renderSlot, Provider, reference) => <Provider session={reference}>{renderSlot('k.session', {})}</Provider>)
     const session = h.addSession('s1')
     h.registerSession({
-      component: ({ sessionId, feature }: { sessionId: string; feature?: string }) =>
-        <><Counter sessionId={sessionId} /><b>{feature}</b></>,
+      component: ({ sessionId, feature }: { sessionId: string; feature?: string }) => (
+        <>
+          <Counter sessionId={sessionId} />
+          <b>{feature}</b>
+        </>
+      ),
       options: {},
     })
     h.current.set('s1')
@@ -229,7 +291,9 @@ describe('SessionProvider', () => {
       session.source.set({ ...session.binding, props: { ...session.binding.props, feature: 'added' } })
     })
     expect(view.container.textContent).toBe('s1:1added')
-    act(() => { session.source.set(session.binding) })
+    act(() => {
+      session.source.set(session.binding)
+    })
     expect(view.container.textContent).toBe('s1:1')
   })
 
@@ -238,7 +302,9 @@ describe('SessionProvider', () => {
       <Provider session={reference}>
         {renderSlot('k.session', { position: 'outer-before' })}
         <Provider session={nested.reference}>{renderSlot('k.session', { position: 'inner' })}</Provider>
-        <Provider session={undefined} empty={() => <i>nested-empty</i>}>hidden</Provider>
+        <Provider session={undefined} empty={() => <i>nested-empty</i>}>
+          hidden
+        </Provider>
         {renderSlot('k.session', { position: 'outer-after' })}
       </Provider>
     ))
@@ -246,7 +312,11 @@ describe('SessionProvider', () => {
     const nested = h.addSession('b')
     h.current.set('a')
     h.registerSession({
-      component: ({ sessionId, position }: { sessionId: string; position: string }) => <b>{position}:{sessionId};</b>,
+      component: ({ sessionId, position }: { sessionId: string; position: string }) => (
+        <b>
+          {position}:{sessionId};
+        </b>
+      ),
       options: {},
     })
     const view = render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)
@@ -257,8 +327,9 @@ describe('SessionProvider', () => {
   })
 
   it('delivers the Provider seat to entries declaring only optional Session children', () => {
-    const h = makeHost((renderSlot, Provider, reference) =>
-      <Provider session={reference}>{renderSlot('k.session', {})}</Provider>, { optional: true })
+    const h = makeHost((renderSlot, Provider, reference) => <Provider session={reference}>{renderSlot('k.session', {})}</Provider>, {
+      optional: true,
+    })
     h.addSession('optional')
     h.current.set('optional')
     h.registerSession({ component: ({ sessionId }: { sessionId?: string }) => <b>{sessionId}</b>, options: {} })
@@ -268,7 +339,6 @@ describe('SessionProvider', () => {
   it('fails loud when the Session adapter omits its area renderer', () => {
     const h = makeHost(() => null, { installRenderArea: false })
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(() => render(<>{createSlotRenderer().renderRoot(h.host, {})}</>))
-      .toThrow(/does not provide its area renderer/)
+    expect(() => render(<>{createSlotRenderer().renderRoot(h.host, {})}</>)).toThrow(/does not provide its area renderer/)
   })
 })

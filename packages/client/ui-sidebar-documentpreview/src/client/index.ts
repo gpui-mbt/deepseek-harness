@@ -100,25 +100,42 @@ export function apply(ctx: ClientContext): void {
     ctx.resources,
   )
   const source = { getSnapshot: previews.getSnapshot, subscribe: previews.subscribe }
-  ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register(
-    {
-      name: 'sidebar.right.pane.tab', key: TEXTPREVIEW_ID, locale: NS, store,
-      children: {
-        'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } } },
-        'sidebar.right.tab.document.actions': { kind: 'list', scope: 'session' },
-        'sidebar.right.tab.document.unpreviewable': { kind: 'list', scope: 'session' },
-        'sidebar.right.tab.document.action': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } } },
-      },
-      inject: (sessionId, actions): TextPreviewInjected => ({
-        ...face(sessionId, actions), hooks: { documentPreviews: source },
-      }),
-    },
-    TextPreview,
-  )), 'ui-sidebar-documentpreview: text body')
-  ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register(
-    { name: 'sidebar.right.pane.tab.title', key: TEXTPREVIEW_ID },
-    TextTitle,
-  )), 'ui-sidebar-documentpreview: text title')
+  ctx.effect(
+    () =>
+      ctx.slots.inject('sidebar.right.pane.tab', () =>
+        ctx.slots.register(
+          {
+            name: 'sidebar.right.pane.tab',
+            key: TEXTPREVIEW_ID,
+            locale: NS,
+            store,
+            children: {
+              'sidebar.right.tab.document': { kind: 'keyed', scope: 'session', inject: { hooks: { tabInfo: documentTabInfoFactory } } },
+              'sidebar.right.tab.document.actions': { kind: 'list', scope: 'session' },
+              'sidebar.right.tab.document.unpreviewable': { kind: 'list', scope: 'session' },
+              'sidebar.right.tab.document.action': {
+                kind: 'keyed',
+                scope: 'session',
+                inject: { hooks: { tabInfo: documentTabInfoFactory } },
+              },
+            },
+            inject: (sessionId, actions): TextPreviewInjected => ({
+              ...face(sessionId, actions),
+              hooks: { documentPreviews: source },
+            }),
+          },
+          TextPreview,
+        ),
+      ),
+    'ui-sidebar-documentpreview: text body',
+  )
+  ctx.effect(
+    () =>
+      ctx.slots.inject('sidebar.right.pane.tab.title', () =>
+        ctx.slots.register({ name: 'sidebar.right.pane.tab.title', key: TEXTPREVIEW_ID }, TextTitle),
+      ),
+    'ui-sidebar-documentpreview: text title',
+  )
   registerText(ctx)
   registerMarkdown(ctx)
   registerHtml(ctx)

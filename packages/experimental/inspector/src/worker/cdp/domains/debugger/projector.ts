@@ -23,8 +23,7 @@ export function scriptParsedEvent(realm: InspectorRealmSession, script: RuntimeS
       startColumn: script.startColumn,
       endLine: script.endLine,
       endColumn: script.endColumn,
-      executionContextId: script.executionContextId
-        ?? (realm.context.kind === 'synthetic' ? realm.context.id : 0),
+      executionContextId: script.executionContextId ?? (realm.context.kind === 'synthetic' ? realm.context.id : 0),
       hash: script.hash,
       buildId: script.buildId ?? '',
       ...(script.sourceMapUrl === undefined ? {} : { sourceMapURL: script.sourceMapUrl }),
@@ -65,9 +64,7 @@ export function debuggerEvent(
               ...(scope.endLocation === undefined ? {} : { endLocation: location(scope.endLocation) }),
             })),
             this: runtime.projectRemoteObject(realm, frame.thisObject, 'backtrace'),
-            ...(frame.returnValue === undefined
-              ? {}
-              : { returnValue: runtime.projectRemoteObject(realm, frame.returnValue, 'backtrace') }),
+            ...(frame.returnValue === undefined ? {} : { returnValue: runtime.projectRemoteObject(realm, frame.returnValue, 'backtrace') }),
           })),
           reason: event.reason,
           ...(event.data === undefined ? {} : { data: event.data }),

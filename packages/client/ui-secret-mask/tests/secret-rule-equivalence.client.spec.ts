@@ -3,16 +3,21 @@
  * matcher it replaced, through the production evaluator, on fixed and generated inputs.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import type { UserTextRule, UserTextTransformContext } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UserTextRegistry } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/user-text-registry.ts'
-import { collapseWhitespaceRule, trimWhitespaceRule } from '@deepseek-ai/dsh-client-ui-conversation/src/client/user-text/whitespace-rules.ts'
+import {
+  collapseWhitespaceRule,
+  trimWhitespaceRule,
+} from '@deepseek-ai/dsh-client-ui-conversation/src/client/user-text/whitespace-rules.ts'
 import { createSecretRule } from '../src/client/secret-rule.ts'
 import { regexSecretRule } from './regex-oracle.client.ts'
 
 function evaluator(rule: UserTextRule) {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   const registry = new UserTextRegistry(ctx)
   for (const each of [rule, collapseWhitespaceRule, trimWhitespaceRule]) registry.register(each)
   return registry.createEvaluator()
@@ -21,12 +26,56 @@ function evaluator(rule: UserTextRule) {
 const join = (...parts: string[]): string => parts.join('')
 /** Fragments that begin, continue, break, or end each recognized format. */
 const FRAGMENTS = [
-  join('s', 'k-'), join('s', 'k_live_'), join('r', 'k_test_'), join('AI', 'za'), join('gh', 'p_'), join('gh', 's_'),
-  join('github', '_pat_'), join('gl', 'pat-'), join('np', 'm_'), join('h', 'f_'), join('AK', 'IA'), join('AS', 'IA'),
-  join('LT', 'AI'), join('AK', 'ID'), join('xo', 'xb-'), join('wh', 'sec_'), join('ey', 'J'), '.', join('.ey', 'J'),
-  join('-----BEGIN', ' '), join('-----END', ' '), ' PRIVATE KEY-----', 'PRIVATE KEY-----', 'RSA ',
-  '://', 'https', 'postgres', ':', '@', '/', '?', '#', ' ', '\n', '\r\n', '\t', '-', '_', '+',
-  'a', 'Z', '0', '7', 'abcdefgh', 'ABCDEFGH', '01234567', 'a1B2c3D4e5F6g7H8i9J0', '用', '：', '🙂',
+  join('s', 'k-'),
+  join('s', 'k_live_'),
+  join('r', 'k_test_'),
+  join('AI', 'za'),
+  join('gh', 'p_'),
+  join('gh', 's_'),
+  join('github', '_pat_'),
+  join('gl', 'pat-'),
+  join('np', 'm_'),
+  join('h', 'f_'),
+  join('AK', 'IA'),
+  join('AS', 'IA'),
+  join('LT', 'AI'),
+  join('AK', 'ID'),
+  join('xo', 'xb-'),
+  join('wh', 'sec_'),
+  join('ey', 'J'),
+  '.',
+  join('.ey', 'J'),
+  join('-----BEGIN', ' '),
+  join('-----END', ' '),
+  ' PRIVATE KEY-----',
+  'PRIVATE KEY-----',
+  'RSA ',
+  '://',
+  'https',
+  'postgres',
+  ':',
+  '@',
+  '/',
+  '?',
+  '#',
+  ' ',
+  '\n',
+  '\r\n',
+  '\t',
+  '-',
+  '_',
+  '+',
+  'a',
+  'Z',
+  '0',
+  '7',
+  'abcdefgh',
+  'ABCDEFGH',
+  '01234567',
+  'a1B2c3D4e5F6g7H8i9J0',
+  '用',
+  '：',
+  '🙂',
 ] as const
 
 /** Deterministic generator so every run checks the same inputs. */
@@ -81,7 +130,10 @@ const FIXED = [
 const context: UserTextTransformContext = { read: () => undefined }
 
 describe('prefix-pruned credential matching', () => {
-  it.each([['fixed', FIXED], ['generated', generated(5_000, 5824)]] as const)('matches the regular-expression nodes on %s inputs', (_name, texts) => {
+  it.each([
+    ['fixed', FIXED],
+    ['generated', generated(5_000, 5824)],
+  ] as const)('matches the regular-expression nodes on %s inputs', (_name, texts) => {
     const pruned = evaluator(createSecretRule())
     const oracle = evaluator(regexSecretRule)
     for (const text of texts) {
@@ -95,7 +147,9 @@ describe('prefix-pruned credential matching', () => {
     const rule = createSecretRule()
     for (const text of [...FIXED.filter(text => text.length <= 600), ...generated(400, 77, 25)]) {
       for (let from = 0; from <= text.length; from++) {
-        expect(rule.match(text, from, context), `${JSON.stringify(text)} from ${String(from)}`).toEqual(regexSecretRule.match(text, from, context))
+        expect(rule.match(text, from, context), `${JSON.stringify(text)} from ${String(from)}`).toEqual(
+          regexSecretRule.match(text, from, context),
+        )
       }
     }
   })

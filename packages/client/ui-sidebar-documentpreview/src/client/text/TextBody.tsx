@@ -22,9 +22,10 @@ export function TextBody({ content, useTabInfo }: DocumentPreviewProps): ReactNo
                 key={number}
                 className={clsx(css.line, number === target && css.lineTarget)}
                 data-textpreview-line={number}
-                {...number === target ? { 'data-textpreview-target': number } : {}}
+                {...(number === target ? { 'data-textpreview-target': number } : {})}
               >
-                {text}{'\n'}
+                {text}
+                {'\n'}
               </div>
             )
           })}

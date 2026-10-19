@@ -2,21 +2,34 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { SubprocessTerminalSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import { prepareShellActivity, ShellActivity } from '../src/shell-activity.ts'
 
-vi.mock('node:fs', async (original) => {
+vi.mock('node:fs', async original => {
   const fs = await original<typeof import('node:fs')>()
   return { ...fs, writeFileSync: vi.fn(fs.writeFileSync) }
 })
 const cleanups: Array<() => void> = []
-afterEach(() => { for (const cleanup of cleanups.splice(0).reverse()) cleanup(); vi.mocked(writeFileSync).mockReset() })
-const spec: SubprocessTerminalSpawnSpec = { argv: ['/bin/zsh', '-i'], cwd: '/', rows: 24, cols: 80, terminalType: 'xterm-256color', graceMs: 100, shellActivity: true }
+afterEach(() => {
+  for (const cleanup of cleanups.splice(0).reverse()) cleanup()
+  vi.mocked(writeFileSync).mockReset()
+})
+const spec: SubprocessTerminalSpawnSpec = {
+  argv: ['/bin/zsh', '-i'],
+  cwd: '/',
+  rows: 24,
+  cols: 80,
+  terminalType: 'xterm-256color',
+  graceMs: 100,
+  shellActivity: true,
+}
 
 it('accepts only fresh complete records from the original shell and advances revisions on input', () => {
   const directory = mkdtempSync(join(tmpdir(), 'dsh-activity-record-'))
-  cleanups.push(() => { rmSync(directory, { recursive: true, force: true }) })
+  cleanups.push(() => {
+    rmSync(directory, { recursive: true, force: true })
+  })
   const activity = new ShellActivity(directory, [], {})
   expect(activity.inspect(123).state).toBe('unknown')
   const state = join(directory, 'state')
@@ -46,7 +59,9 @@ it('leaves unsupported executables, platforms, and custom launch arguments untou
 
 it('supports an unset original ZDOTDIR and removes private files on disposal', () => {
   const activity = prepareShellActivity(spec, {}, 'darwin')!
-  cleanups.push(() => { activity.dispose() })
+  cleanups.push(() => {
+    activity.dispose()
+  })
   expect(activity.env.ZDOTDIR).toBeDefined()
   expect(existsSync(activity.env.ZDOTDIR!)).toBe(true)
   activity.dispose()
@@ -56,7 +71,9 @@ it('supports an unset original ZDOTDIR and removes private files on disposal', (
 it('restores a quoted original ZDOTDIR before sourcing user startup files', () => {
   const env = Object.freeze({ ZDOTDIR: "/shell config/user's $settings", OTHER: 'preserved' })
   const activity = prepareShellActivity(spec, env, 'linux')!
-  cleanups.push(() => { activity.dispose() })
+  cleanups.push(() => {
+    activity.dispose()
+  })
   const directory = activity.env.ZDOTDIR!
   expect(directory).not.toBe(env.ZDOTDIR)
   expect(activity.env).toEqual({ ...env, ZDOTDIR: directory })
@@ -71,7 +88,7 @@ it('restores a quoted original ZDOTDIR before sourcing user startup files', () =
 
 it('removes the allocated private directory when writing its startup file fails', () => {
   let directory: string | undefined
-  vi.mocked(writeFileSync).mockImplementationOnce((path) => {
+  vi.mocked(writeFileSync).mockImplementationOnce(path => {
     directory = dirname(String(path))
     throw new Error('disk unavailable')
   })

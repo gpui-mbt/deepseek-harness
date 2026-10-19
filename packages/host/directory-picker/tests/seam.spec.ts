@@ -1,6 +1,6 @@
 /** Contract behavior the seam itself owns: registration identity and typed failures. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { DirectoryPicker, DirectoryPickerError } from '../src/index.ts'
 import type { DirectoryPickerCapability } from '../src/index.ts'

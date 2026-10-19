@@ -20,8 +20,10 @@ function plainSchema(schema: z): z {
   const result = new z(schema.toJSON())
   const walk = (node: z): void => {
     delete node.meta.volatile
-    if (node.meta.role === 'secret') { delete node.meta.default; delete node.meta.required }
-    else if (node.meta.default !== undefined) node.meta.default = redactSecrets(node as z<never>, node.meta.default).value
+    if (node.meta.role === 'secret') {
+      delete node.meta.default
+      delete node.meta.required
+    } else if (node.meta.default !== undefined) node.meta.default = redactSecrets(node as z<never>, node.meta.default).value
     for (const child of Object.values(node.dict ?? {})) walk(child)
     if (node.inner) walk(node.inner)
     for (const child of node.list ?? []) walk(child)
@@ -37,10 +39,12 @@ function plainSchema(schema: z): z {
 export function volatileForm(schema: z): z | undefined {
   if (schema.meta.volatile) return plainSchema(schema)
   if (schema.type === 'object') {
-    const dict = Object.fromEntries(Object.entries(schema.dict ?? {}).flatMap(([key, child]) => {
-      const field = volatileForm(child)
-      return field === undefined ? [] : [[key, field]]
-    }))
+    const dict = Object.fromEntries(
+      Object.entries(schema.dict ?? {}).flatMap(([key, child]) => {
+        const field = volatileForm(child)
+        return field === undefined ? [] : [[key, field]]
+      }),
+    )
     return Object.keys(dict).length === 0 ? undefined : z.object(dict)
   }
   return undefined
@@ -58,10 +62,12 @@ function isExpression(value: object): boolean {
  */
 export function projectForm(schema: z, value: unknown): unknown {
   if (schema.type === 'object' && value !== null && typeof value === 'object' && !isExpression(value)) {
-    return Object.fromEntries(Object.entries(schema.dict ?? {}).flatMap(([key, child]) => {
-      const field: unknown = Reflect.get(value, key)
-      return field === undefined ? [] : [[key, projectForm(child, field)]]
-    }))
+    return Object.fromEntries(
+      Object.entries(schema.dict ?? {}).flatMap(([key, child]) => {
+        const field: unknown = Reflect.get(value, key)
+        return field === undefined ? [] : [[key, projectForm(child, field)]]
+      }),
+    )
   }
   return value
 }

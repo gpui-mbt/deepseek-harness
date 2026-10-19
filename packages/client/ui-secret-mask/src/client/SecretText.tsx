@@ -14,7 +14,15 @@ const MASK_RUNS = new RegExp(`(\\${MASK}+)`, 'u')
 
 function EyeGlyph({ path }: { readonly path: string }) {
   return (
-    <svg className={css.icon} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.3} strokeLinecap="round" aria-hidden="true">
+    <svg
+      className={css.icon}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.3}
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
       <path d={path} />
     </svg>
   )
@@ -27,13 +35,17 @@ function EyeGlyph({ path }: { readonly path: string }) {
  */
 function MaskedText({ masked }: { readonly masked: string }) {
   let offset = 0
-  return masked.split(MASK_RUNS).map((part) => {
+  return masked.split(MASK_RUNS).map(part => {
     const key = offset
     offset += part.length
     if (part === '') return null
-    return part.startsWith(MASK)
-      ? <span key={key} className={css.mask}>{part}</span>
-      : <span key={key}>{part}</span>
+    return part.startsWith(MASK) ? (
+      <span key={key} className={css.mask}>
+        {part}
+      </span>
+    ) : (
+      <span key={key}>{part}</span>
+    )
   })
 }
 
@@ -58,7 +70,9 @@ export function SecretText({ node, raw, interactive, t }: SecretTextProps) {
           className={css.toggle}
           aria-pressed={revealed}
           aria-label={t(revealed ? 'secret.hide' : 'secret.reveal')}
-          onClick={() => { setRevealedRaw(revealed ? undefined : raw) }}
+          onClick={() => {
+            setRevealedRaw(revealed ? undefined : raw)
+          }}
         >
           <EyeGlyph path={revealed ? EYE_OFF_PATH : EYE_PATH} />
         </button>

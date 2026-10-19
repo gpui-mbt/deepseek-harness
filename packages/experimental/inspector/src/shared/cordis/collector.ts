@@ -2,12 +2,7 @@
 
 import { Context, type Fiber } from '@deepseek-ai/cordis'
 import { jsonByteLength, type InspectorJsonValue } from '../json.ts'
-import {
-  CORDIS_TREE_SCHEMA_VERSION,
-  type CordisContextTreeNode,
-  type CordisFiberTreeNode,
-  type CordisTreeSnapshot,
-} from './snapshot.ts'
+import { CORDIS_TREE_SCHEMA_VERSION, type CordisContextTreeNode, type CordisFiberTreeNode, type CordisTreeSnapshot } from './snapshot.ts'
 import type { InspectorObjectHandle } from './ids.ts'
 import { RealmObjectRegistry } from './object-registry.ts'
 
@@ -41,7 +36,10 @@ export class CordisTreeCollector {
   readonly objects = new RealmObjectRegistry()
   private revision = 0
 
-  constructor(private readonly root: Context, private readonly limits: CordisTreeLimits) {}
+  constructor(
+    private readonly root: Context,
+    private readonly limits: CordisTreeLimits,
+  ) {}
 
   /**
    * Capture the current reachable Context/Fiber tree.

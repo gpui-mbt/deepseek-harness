@@ -9,11 +9,11 @@ import type { VirtualExecutable, VirtualExecutableExit } from './virtual-executa
 export type LandlockInvocation =
   | { readonly kind: 'probe' }
   | {
-    readonly kind: 'run'
-    readonly readOnly: readonly string[]
-    readonly readWrite: readonly string[]
-    readonly argv: readonly string[]
-  }
+      readonly kind: 'run'
+      readonly readOnly: readonly string[]
+      readonly readWrite: readonly string[]
+      readonly argv: readonly string[]
+    }
 
 /** Launcher-owned failure; callers print its message with the `landlock-run:` prefix. */
 export class LandlockLauncherError extends Error {}
@@ -99,7 +99,7 @@ export async function landlockFileSystem(
   const normalizeGrant = async (path: string): Promise<string> => {
     if (path === '') throw new LandlockLauncherError('cannot open rule path: : No such file or directory')
     const target = vfsPath(path, cwd)
-    if (target !== DEV_ROOT && target !== NULL_PATH && await base.stat(target) === undefined) {
+    if (target !== DEV_ROOT && target !== NULL_PATH && (await base.stat(target)) === undefined) {
       throw new LandlockLauncherError(`cannot open rule path: ${path}: No such file or directory`)
     }
     return target
@@ -128,7 +128,7 @@ export async function landlockFileSystem(
     stat: async (path: string): Promise<ShellStats | undefined> => {
       const target = readPath(path, 'stat')
       if (target === NULL_PATH) return NULL_STATS
-      if (target === DEV_ROOT && !await base.stat(target)) return { directory: true, size: 0, mtimeMs: 0 }
+      if (target === DEV_ROOT && !(await base.stat(target))) return { directory: true, size: 0, mtimeMs: 0 }
       return await base.stat(target)
     },
     list: async (path: string): Promise<ShellDirent[]> => {
@@ -184,9 +184,7 @@ export const LANDLOCK_EXECUTABLE: VirtualExecutable = {
   runSync(args) {
     try {
       const invocation = parseLandlockArguments(args)
-      return invocation.kind === 'probe'
-        ? launcherExit(0, 'landlock: fully enforced\n')
-        : { kind: 'asynchronous' }
+      return invocation.kind === 'probe' ? launcherExit(0, 'landlock: fully enforced\n') : { kind: 'asynchronous' }
     } catch (error) {
       return launcherFailure(error)
     }

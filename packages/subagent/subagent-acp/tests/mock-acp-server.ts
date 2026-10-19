@@ -86,9 +86,8 @@ import {
 // When MOCK_ECHO_ENV names a variable, stream that variable's value in place
 // of MOCK_TEXT — lets a test assert exactly what env reached this process.
 const echoEnvName = process.env.MOCK_ECHO_ENV
-const TEXT = echoEnvName !== undefined
-  ? process.env[echoEnvName] ?? `<${echoEnvName} unset>`
-  : process.env.MOCK_TEXT ?? 'mock child answer'
+const TEXT =
+  echoEnvName !== undefined ? (process.env[echoEnvName] ?? `<${echoEnvName} unset>`) : (process.env.MOCK_TEXT ?? 'mock child answer')
 const ECHO_CWD = process.env.MOCK_ECHO_CWD === '1'
 const STOP = (process.env.MOCK_STOP ?? 'end_turn') as StopReason
 const HANG = process.env.MOCK_HANG === '1'
@@ -106,9 +105,10 @@ const READY_FILE = process.env.MOCK_READY_FILE
 const FLUSH_ON_EOF = process.env.MOCK_FLUSH_ON_EOF
 // When MOCK_NEWSESSION_READY/GO are set, newSession touches READY then blocks
 // until GO appears — letting a test cancel mid-newSession deterministically.
-const NEWSESSION_GATE = process.env.MOCK_NEWSESSION_READY !== undefined && process.env.MOCK_NEWSESSION_GO !== undefined
-  ? { ready: process.env.MOCK_NEWSESSION_READY, go: process.env.MOCK_NEWSESSION_GO }
-  : undefined
+const NEWSESSION_GATE =
+  process.env.MOCK_NEWSESSION_READY !== undefined && process.env.MOCK_NEWSESSION_GO !== undefined
+    ? { ready: process.env.MOCK_NEWSESSION_READY, go: process.env.MOCK_NEWSESSION_GO }
+    : undefined
 
 function makeAgent() {
   // Pending cancel resolver for the HANG path: a `session/cancel` resolves the
@@ -147,7 +147,9 @@ function makeAgent() {
       const hold = process.env.MOCK_PROMPT_HOLD
       if (hold !== undefined) {
         const released = Promise.withResolvers<undefined>()
-        const check = (): void => { if (!existsSync(hold)) released.resolve(undefined) }
+        const check = (): void => {
+          if (!existsSync(hold)) released.resolve(undefined)
+        }
         const watcher = watch(dirname(hold), check)
         watcher.on('error', released.reject)
         try {
@@ -164,10 +166,10 @@ function makeAgent() {
         const options = NO_ALLOW
           ? [{ optionId: 'no', name: 'Reject', kind: 'reject_once' as const }]
           : [
-            { optionId: 'yes', name: 'Allow', kind: 'allow_once' as const },
-            { optionId: 'no', name: 'Reject', kind: 'reject_once' as const },
-          ]
-        const decision = await conn.request(methods.client.session.requestPermission, {
+              { optionId: 'yes', name: 'Allow', kind: 'allow_once' as const },
+              { optionId: 'no', name: 'Reject', kind: 'reject_once' as const },
+            ]
+        const decision = (await conn.request(methods.client.session.requestPermission, {
           sessionId: params.sessionId,
           toolCall: {
             toolCallId: 'mock-call',
@@ -175,7 +177,7 @@ function makeAgent() {
             ...(TOOL_KIND === undefined ? {} : { kind: TOOL_KIND }),
           },
           options,
-        }) as RequestPermissionResponse
+        })) as RequestPermissionResponse
         if (decision.outcome.outcome === 'cancelled' && !IGNORE_PERMISSION_DECISION) {
           return { stopReason: 'cancelled' }
         }
@@ -198,7 +200,9 @@ function makeAgent() {
         },
       })
       if (CRASH_AFTER_CHUNK) {
-        await new Promise<void>((resolve) => { setImmediate(resolve) })
+        await new Promise<void>(resolve => {
+          setImmediate(resolve)
+        })
         process.exit(17)
       }
       // Signal "prompt is in flight" by touching the readiness file, so a test
@@ -207,8 +211,10 @@ function makeAgent() {
       if (READY_FILE !== undefined) writeFileSync(READY_FILE, 'ready')
       if (HANG) {
         // Never resolve on our own: wait for session/cancel to settle us.
-        return new Promise<PromptResponse>((resolve) => {
-          resolveCancel = (reason) => { resolve({ stopReason: reason }) }
+        return new Promise<PromptResponse>(resolve => {
+          resolveCancel = reason => {
+            resolve({ stopReason: reason })
+          }
         })
       }
       return { stopReason: STOP }
@@ -244,10 +250,9 @@ createAcpAgentApp({ name: 'dsh-subagent-acp-test-agent' })
   .onRequest(methods.agent.session.new, ({ params }) => implementation.newSession(params))
   .onRequest(methods.agent.session.prompt, ({ params, client }) => implementation.prompt(params, client))
   .onNotification(methods.agent.session.cancel, ({ params }) => implementation.cancel(params))
-  .connect(ndJsonStream(
-    Writable.toWeb(process.stdout) as WritableStream<Uint8Array>,
-    Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>,
-  ))
+  .connect(
+    ndJsonStream(Writable.toWeb(process.stdout) as WritableStream<Uint8Array>, Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>),
+  )
 
 // Under MOCK_TRAP_SIGTERM, ignore SIGTERM and keep stdin open so the process
 // neither quiesces on EOF nor dies on the graceful signal — exercising the
@@ -256,9 +261,13 @@ createAcpAgentApp({ name: 'dsh-subagent-acp-test-agent' })
 // a test waits for that CONDITION before disposing (the trap must be in place,
 // not merely the process spawned — otherwise SIGTERM hits the default handler).
 if (process.env.MOCK_TRAP_SIGTERM === '1') {
-  process.on('SIGTERM', () => { /* trapped: refuse to exit on the graceful signal */ })
+  process.on('SIGTERM', () => {
+    /* trapped: refuse to exit on the graceful signal */
+  })
   // Keep the event loop alive (a bare timer) so nothing else lets it exit.
-  setInterval(() => { /* stay alive until SIGKILL */ }, 1000)
+  setInterval(() => {
+    /* stay alive until SIGKILL */
+  }, 1000)
   if (READY_FILE !== undefined) writeFileSync(READY_FILE, 'trap-armed')
 }
 
@@ -293,6 +302,8 @@ if (process.env.MOCK_IGNORE_EOF === '1') {
     if (sigtermFile !== undefined) writeFileSync(sigtermFile, 'sigterm')
     process.exit(0)
   })
-  setInterval(() => { /* stay alive past EOF until SIGTERM */ }, 1000)
+  setInterval(() => {
+    /* stay alive past EOF until SIGTERM */
+  }, 1000)
   if (READY_FILE !== undefined) writeFileSync(READY_FILE, 'ignore-eof-armed')
 }

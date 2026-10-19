@@ -26,17 +26,17 @@
  */
 export type FileAddress =
   | {
-    readonly scope: 'session'
-    /** The Session whose Host workspace resolves the path. */
-    readonly sessionId: string
-    /** Absolute or workspace-relative `/`-separated path; empty for the workspace root itself. */
-    readonly path: string
-  }
+      readonly scope: 'session'
+      /** The Session whose Host workspace resolves the path. */
+      readonly sessionId: string
+      /** Absolute or workspace-relative `/`-separated path; empty for the workspace root itself. */
+      readonly path: string
+    }
   | {
-    readonly scope: 'absolute'
-    /** Absolute `/`-separated path: `/a/b` on POSIX, `C:/a/b` for a Windows drive, `//server/share/a` for a UNC path. */
-    readonly path: string
-  }
+      readonly scope: 'absolute'
+      /** Absolute `/`-separated path: `/a/b` on POSIX, `C:/a/b` for a Windows drive, `//server/share/a` for a UNC path. */
+      readonly path: string
+    }
 
 /** The scheme and type every file address opens with. */
 const FILE_ADDRESS_PREFIX = 'dsh-resource://file/'

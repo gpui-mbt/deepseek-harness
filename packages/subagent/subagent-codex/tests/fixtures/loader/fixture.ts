@@ -5,7 +5,7 @@ import type { GenerateOptions, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
 
 class CompositionOnlyAdapter extends LlmAdapter {
-  async * stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
     throw new Error('subagent-codex Loader composition must not invoke a model')
   }
 }

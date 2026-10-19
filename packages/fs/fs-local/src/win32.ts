@@ -6,22 +6,9 @@
 
 import { toNamespacedPath } from 'node:path'
 
-type GetFileSecurityW = (
-  path: string,
-  requestedInformation: number,
-  descriptor: Buffer | null,
-  length: number,
-  needed: [number],
-) => number
+type GetFileSecurityW = (path: string, requestedInformation: number, descriptor: Buffer | null, length: number, needed: [number]) => number
 type SetFileSecurityW = (path: string, securityInformation: number, descriptor: Buffer) => number
-type ReplaceFileW = (
-  replaced: string,
-  replacement: string,
-  backup: null,
-  flags: number,
-  exclude: null,
-  reserved: null,
-) => number
+type ReplaceFileW = (replaced: string, replacement: string, backup: null, flags: number, exclude: null, reserved: null) => number
 type GetLastError = () => number
 
 interface Win32Bindings {
@@ -49,9 +36,15 @@ async function win32(): Promise<Win32Bindings> {
   const advapi32 = koffi.load('advapi32.dll')
   const kernel32 = koffi.load('kernel32.dll')
   bindings = {
-    getFileSecurityW: advapi32.func('int __stdcall GetFileSecurityW(const char16_t *path, uint32_t requested, void *descriptor, uint32_t length, _Out_ uint32_t *needed)') as GetFileSecurityW,
-    setFileSecurityW: advapi32.func('int __stdcall SetFileSecurityW(const char16_t *path, uint32_t information, const void *descriptor)') as SetFileSecurityW,
-    replaceFileW: kernel32.func('int __stdcall ReplaceFileW(const char16_t *replaced, const char16_t *replacement, const char16_t *backup, uint32_t flags, void *exclude, void *reserved)') as ReplaceFileW,
+    getFileSecurityW: advapi32.func(
+      'int __stdcall GetFileSecurityW(const char16_t *path, uint32_t requested, void *descriptor, uint32_t length, _Out_ uint32_t *needed)',
+    ) as GetFileSecurityW,
+    setFileSecurityW: advapi32.func(
+      'int __stdcall SetFileSecurityW(const char16_t *path, uint32_t information, const void *descriptor)',
+    ) as SetFileSecurityW,
+    replaceFileW: kernel32.func(
+      'int __stdcall ReplaceFileW(const char16_t *replaced, const char16_t *replacement, const char16_t *backup, uint32_t flags, void *exclude, void *reserved)',
+    ) as ReplaceFileW,
     getLastError: kernel32.func('uint32_t __stdcall GetLastError()') as GetLastError,
   }
   return bindings
@@ -121,14 +114,7 @@ export async function copyFileDaclWin32(source: string, destination: string): Pr
  */
 export async function replaceFileWin32(replaced: string, replacement: string): Promise<void> {
   const api = await win32()
-  if (api.replaceFileW(
-    toNamespacedPath(replaced),
-    toNamespacedPath(replacement),
-    null,
-    0,
-    null,
-    null,
-  ) === 0) {
+  if (api.replaceFileW(toNamespacedPath(replaced), toNamespacedPath(replacement), null, 0, null, null) === 0) {
     throw win32Error('ReplaceFileW', api.getLastError(), replaced)
   }
 }

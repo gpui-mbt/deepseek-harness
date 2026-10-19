@@ -38,7 +38,11 @@ export type SchemaNode =
   | { readonly kind: 'opaque'; readonly reason: 'any' | 'unknown' }
   | { readonly kind: 'array'; readonly element: number }
   | { readonly kind: 'tuple'; readonly elements: readonly SchemaTupleElement[] }
-  | { readonly kind: 'object'; readonly properties: readonly SchemaProperty[]; readonly indices: readonly { readonly key: number; readonly value: number }[] }
+  | {
+      readonly kind: 'object'
+      readonly properties: readonly SchemaProperty[]
+      readonly indices: readonly { readonly key: number; readonly value: number }[]
+    }
   | { readonly kind: 'union'; readonly types: readonly number[] }
 
 /** A self-contained minimized graph with deterministic root-first node numbering. */
@@ -126,39 +130,68 @@ export function persistenceSchemaSnapshot(inventory: PersistenceSchemaInventory)
  */
 export function schemaChildren(node: SchemaNode): number[] {
   switch (node.kind) {
-    case 'array': return [node.element]
-    case 'tuple': return node.elements.map(element => element.type)
-    case 'object': return [...node.properties.map(property => property.type), ...node.indices.flatMap(index => [index.key, index.value])]
-    case 'union': return [...node.types]
+    case 'array':
+      return [node.element]
+    case 'tuple':
+      return node.elements.map(element => element.type)
+    case 'object':
+      return [...node.properties.map(property => property.type), ...node.indices.flatMap(index => [index.key, index.value])]
+    case 'union':
+      return [...node.types]
     case 'primitive':
     case 'literal':
-    case 'opaque': return []
-    default: return assertNever(node)
+    case 'opaque':
+      return []
+    default:
+      return assertNever(node)
   }
 }
 
 function mapNode(node: SchemaNode, ref: (id: number) => number): SchemaNode {
   switch (node.kind) {
-    case 'array': return { kind: 'array', element: ref(node.element) }
-    case 'tuple': return { kind: 'tuple', elements: node.elements.map(element => ({ type: ref(element.type), optional: element.optional, rest: element.rest })) }
-    case 'object': return {
-      kind: 'object',
-      properties: [...node.properties].sort((left, right) => compare(left.name, right.name))
-        .map(property => ({ name: property.name, type: ref(property.type), optional: property.optional,
-          ...(property.compatibility === undefined ? {} : { compatibility: {
-            version: property.compatibility.version, policy: property.compatibility.policy, binding: property.compatibility.binding,
-            discriminator: property.compatibility.discriminator, unknownKinds: property.compatibility.unknownKinds,
-            attributionKinds: [...new Set(property.compatibility.attributionKinds)].sort(compare),
-          } }),
-        })),
-      indices: node.indices.map(index => ({ key: ref(index.key), value: ref(index.value) }))
-        .sort((left, right) => left.key - right.key || left.value - right.value),
-    }
-    case 'union': return { kind: 'union', types: [...new Set(node.types.map(ref))].sort((left, right) => left - right) }
-    case 'primitive': return { kind: 'primitive', type: node.type }
-    case 'literal': return { kind: 'literal', value: node.value }
-    case 'opaque': return { kind: 'opaque', reason: node.reason }
-    default: return assertNever(node)
+    case 'array':
+      return { kind: 'array', element: ref(node.element) }
+    case 'tuple':
+      return {
+        kind: 'tuple',
+        elements: node.elements.map(element => ({ type: ref(element.type), optional: element.optional, rest: element.rest })),
+      }
+    case 'object':
+      return {
+        kind: 'object',
+        properties: [...node.properties]
+          .sort((left, right) => compare(left.name, right.name))
+          .map(property => ({
+            name: property.name,
+            type: ref(property.type),
+            optional: property.optional,
+            ...(property.compatibility === undefined
+              ? {}
+              : {
+                  compatibility: {
+                    version: property.compatibility.version,
+                    policy: property.compatibility.policy,
+                    binding: property.compatibility.binding,
+                    discriminator: property.compatibility.discriminator,
+                    unknownKinds: property.compatibility.unknownKinds,
+                    attributionKinds: [...new Set(property.compatibility.attributionKinds)].sort(compare),
+                  },
+                }),
+          })),
+        indices: node.indices
+          .map(index => ({ key: ref(index.key), value: ref(index.value) }))
+          .sort((left, right) => left.key - right.key || left.value - right.value),
+      }
+    case 'union':
+      return { kind: 'union', types: [...new Set(node.types.map(ref))].sort((left, right) => left - right) }
+    case 'primitive':
+      return { kind: 'primitive', type: node.type }
+    case 'literal':
+      return { kind: 'literal', value: node.value }
+    case 'opaque':
+      return { kind: 'opaque', reason: node.reason }
+    default:
+      return assertNever(node)
   }
 }
 
@@ -198,7 +231,9 @@ export function canonicalizeSchema(input: readonly SchemaNode[], root: number): 
   for (;;) {
     const colors = partition(nodes)
     const representatives = new Map<number, number>()
-    colors.forEach((color, index) => { if (!representatives.has(color)) representatives.set(color, index) })
+    colors.forEach((color, index) => {
+      if (!representatives.has(color)) representatives.set(color, index)
+    })
     const aliases = new Map<number, number>()
     nodes.forEach((node, index) => {
       if (node.kind !== 'union') return
@@ -216,7 +251,7 @@ export function canonicalizeSchema(input: readonly SchemaNode[], root: number): 
         return id
       }
       rootIndex = resolve(rootIndex)
-      nodes = nodes.map((node, index) => aliases.has(index) ? nodes[resolve(index)] as SchemaNode : mapNode(node, resolve))
+      nodes = nodes.map((node, index) => (aliases.has(index) ? (nodes[resolve(index)] as SchemaNode) : mapNode(node, resolve)))
       continue
     }
     const emitted = new Map<number, number>()
@@ -251,11 +286,13 @@ function normalizeUnions(input: readonly SchemaNode[]): SchemaNode[] {
   for (const [id, node] of input.entries()) {
     if (node.kind !== 'union') continue
     let members = [...new Set(flattened(id, new Set()))]
-    const primitives = new Set(members.flatMap((child) => {
-      const value = input[child] as SchemaNode
-      return value.kind === 'primitive' ? [value.type] : []
-    }))
-    const literals = members.flatMap((child) => {
+    const primitives = new Set(
+      members.flatMap(child => {
+        const value = input[child] as SchemaNode
+        return value.kind === 'primitive' ? [value.type] : []
+      }),
+    )
+    const literals = members.flatMap(child => {
       const value = input[child] as SchemaNode
       return value.kind === 'literal' ? [value.value] : []
     })
@@ -264,7 +301,7 @@ function normalizeUnions(input: readonly SchemaNode[]): SchemaNode[] {
       members.push(result.length)
       result.push({ kind: 'primitive', type: 'boolean' })
     }
-    members = members.filter((child) => {
+    members = members.filter(child => {
       const value = result[child] as SchemaNode
       if (value.kind === 'primitive') return value.type !== 'never'
       return value.kind !== 'literal' || !primitives.has(typeof value.value as 'string' | 'number' | 'boolean')
@@ -281,7 +318,10 @@ function normalizeUnions(input: readonly SchemaNode[]): SchemaNode[] {
  */
 export function schemaDigest(schema: CanonicalSchema): string {
   const version = schemaHasCompatibility(schema) ? 2 : 1
-  return createHash('sha256').update(`dsh-persistence-schema-v${String(version)}\n`).update(JSON.stringify(schema)).digest('hex')
+  return createHash('sha256')
+    .update(`dsh-persistence-schema-v${String(version)}\n`)
+    .update(JSON.stringify(schema))
+    .digest('hex')
 }
 
 /**
@@ -302,15 +342,20 @@ export function isArbitraryJsonSchema(schema: CanonicalSchema): boolean {
   return schemaDigest(schema) === JSON_VALUE_DIGEST
 }
 
-const JSON_VALUE_DIGEST = schemaDigest(canonicalizeSchema([
-  { kind: 'union', types: [1, 2, 3, 4, 5, 6] },
-  { kind: 'primitive', type: 'null' },
-  { kind: 'primitive', type: 'boolean' },
-  { kind: 'primitive', type: 'number' },
-  { kind: 'primitive', type: 'string' },
-  { kind: 'array', element: 0 },
-  { kind: 'object', properties: [], indices: [{ key: 4, value: 0 }] },
-], 0))
+const JSON_VALUE_DIGEST = schemaDigest(
+  canonicalizeSchema(
+    [
+      { kind: 'union', types: [1, 2, 3, 4, 5, 6] },
+      { kind: 'primitive', type: 'null' },
+      { kind: 'primitive', type: 'boolean' },
+      { kind: 'primitive', type: 'number' },
+      { kind: 'primitive', type: 'string' },
+      { kind: 'array', element: 0 },
+      { kind: 'object', properties: [], indices: [{ key: 4, value: 0 }] },
+    ],
+    0,
+  ),
+)
 
 function compare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0

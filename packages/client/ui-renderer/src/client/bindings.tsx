@@ -54,10 +54,7 @@ export function useScopeBinding(): StandardSourceBinding {
  * @param props.children - subtree that inherits the binding.
  * @returns the scoped React provider.
  */
-export function ScopeBindingProvider({ binding, children }: {
-  binding: StandardSourceBinding
-  children: ReactNode
-}): ReactNode {
+export function ScopeBindingProvider({ binding, children }: { binding: StandardSourceBinding; children: ReactNode }): ReactNode {
   return <ScopeBindingContext.Provider value={binding}>{children}</ScopeBindingContext.Provider>
 }
 
@@ -86,17 +83,12 @@ const absentSource: HostObservable<undefined> = {
  * @param source - current source, or absence.
  * @returns selector Hook returning `undefined` while absent.
  */
-export function maybeObservableHook<T>(
-  source: HostObservable<T> | undefined,
-): MaybeSnapshotSelectorHook<T> {
+export function maybeObservableHook<T>(source: HostObservable<T> | undefined): MaybeSnapshotSelectorHook<T> {
   if (source !== undefined) return observableHook(source)
   return useAbsentSnapshot
 }
 
-function useAbsentSnapshot<S>(
-  _selector: (snapshot: never) => S,
-  _equal?: (left: S, right: S) => boolean,
-): S | undefined {
+function useAbsentSnapshot<S>(_selector: (snapshot: never) => S, _equal?: (left: S, right: S) => boolean): S | undefined {
   observableHook(absentSource)(() => undefined)
   return undefined
 }
@@ -143,10 +135,7 @@ function keyedHookCall(
  * @param source - keyed resolver, or absence for an optional scope.
  * @returns cached keyed selector Hook.
  */
-export function keyedObservableHook(
-  source: KeyedStandardSource | undefined,
-  defaultKey?: string,
-): KeyedSnapshotHook {
+export function keyedObservableHook(source: KeyedStandardSource | undefined, defaultKey?: string): KeyedSnapshotHook {
   if (source === undefined) return absentKeyedHook
   let hooks = keyedHookCache.get(source)
   if (hooks === undefined) {
@@ -158,9 +147,7 @@ export function keyedObservableHook(
   if (hook === undefined) {
     hook = (keyOrSelector, second, equal) => {
       const call = keyedHookCall(defaultKey, keyOrSelector, second, equal)
-      const resolved = call.key === undefined
-        ? undefined
-        : call.member === undefined ? source(call.key) : source(call.key, call.member)
+      const resolved = call.key === undefined ? undefined : call.member === undefined ? source(call.key) : source(call.key, call.member)
       const useValue = observableHook(resolved ?? absentSource)
       return useValue(call.selector ?? identity, call.equal)
     }
@@ -185,13 +172,7 @@ export function RootStandardProvider({ children }: { children: ReactNode }) {
 }
 
 /** Subscribe to the scope roster before resolving and binding its current adapter. */
-export function ScopeProvider({
-  scope,
-  children,
-}: {
-  scope: 'session' | 'session-maybe'
-  children: ReactNode
-}) {
+export function ScopeProvider({ scope, children }: { scope: 'session' | 'session-maybe'; children: ReactNode }) {
   const host = useHost()
   observableHook(host.scopeRevision)(value => value)
   const adapter = host.scope(scope)

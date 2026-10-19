@@ -47,6 +47,6 @@ Keep the map's required `en` and `zh` type. Do not add package metadata, a Host 
 
 ## 5. Validate and review
 
-Run `pnpm exec vitest run scripts/builtin-plugin-preview.spec.ts packages/client/ui-plugin-manager/tests/components.client.spec.tsx scripts/client-bundle-css.spec.ts`, then `pnpm run build`. The asset test checks every registered pair, fixed SVG dimensions, self-contained content, and combined size. Type checking requires both languages. These checks enforce format; visual quality and equivalent meaning in both languages still require review.
+Run `pnpm exec vp test --config vitest.config.ts scripts/builtin-plugin-preview.spec.ts packages/client/ui-plugin-manager/tests/components.client.spec.tsx scripts/client-bundle-css.spec.ts`, then `pnpm run build`. The asset test checks every registered pair, fixed SVG dimensions, self-contained content, and combined size. Type checking requires both languages. These checks enforce format; visual quality and equivalent meaning in both languages still require review.
 
 Open the real plugin details in English and Chinese before activation. Decode the image and confirm 640×300 natural dimensions, placement, light/dark readability, and no horizontal overflow at 390 px. Also check a built-in without artwork and a third-party plugin. Follow [record-browser-gif](../../.agents/skills/record-browser-gif/SKILL.md) for PR evidence; record from the final clean commit and label the demonstrated flow accurately.

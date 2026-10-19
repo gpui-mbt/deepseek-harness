@@ -3,8 +3,16 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import { chromium, type Browser } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
-import { compareOrRefreshGolden, launchWebScaffold, seedSession, selectedSessionFixture, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
+import { expect, it, onTestFinished } from 'vite-plus/test'
+import {
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  selectedSessionFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
+} from './scaffold.ts'
 
 const bundle = fileURLToPath(new URL('../../../packages/experimental/inspector-profile', import.meta.url))
 const fixture = fileURLToPath(new URL('../../../snapshots/web/fresh-round-trip/session.v4.jsonl', import.meta.url))
@@ -72,37 +80,63 @@ it('toggles bottom DevTools from the page and iframe without a selected Session'
       await panel.waitFor({ state: 'hidden' })
       await original.dispose()
       expect(tripwire.pageErrors).toEqual([])
-      await compareOrRefreshGolden(fileURLToPath(new URL('./expected/shared-inspector/bottom.expected.md', import.meta.url)), [
-        '- shortcut: Ctrl/Cmd+Shift+.',
-        `- header: ${titleSize}, X collapse button`,
-        `- opened: main ${fullHeight - panelHeight}px, bottom ${panelHeight}px`,
-        `- resized up/down: main ${fullHeight - resizedHeight}px, bottom ${resizedHeight}px`,
-        `- collapsed: main ${fullHeight}px, iframe retained`,
-        '- reopened: same iframe document and height, Sources still selected',
-      ].join('\n'), webSnapshotMode())
-    } finally { await browser.close() }
-  } finally { await scaffold.close() }
+      await compareOrRefreshGolden(
+        fileURLToPath(new URL('./expected/shared-inspector/bottom.expected.md', import.meta.url)),
+        [
+          '- shortcut: Ctrl/Cmd+Shift+.',
+          `- header: ${titleSize}, X collapse button`,
+          `- opened: main ${fullHeight - panelHeight}px, bottom ${panelHeight}px`,
+          `- resized up/down: main ${fullHeight - resizedHeight}px, bottom ${resizedHeight}px`,
+          `- collapsed: main ${fullHeight}px, iframe retained`,
+          '- reopened: same iframe document and height, Sources still selected',
+        ].join('\n'),
+        webSnapshotMode(),
+      )
+    } finally {
+      await browser.close()
+    }
+  } finally {
+    await scaffold.close()
+  }
 })
 
 it.each([
   {
-    locale: 'zh-CN', file: 'zh', plugins: '插件', open: '查看 开发者工具', bundle: '开发者工具',
+    locale: 'zh-CN',
+    file: 'zh',
+    plugins: '插件',
+    open: '查看 开发者工具',
+    bundle: '开发者工具',
     description: '查看调试会话原始数据、聊天消息分组数据，以及调试 NodeJS 后端',
-    inspector: 'NodeJS 诊断', inspectorDescription: '按 Ctrl/Cmd+Shift+. 在底部面板打开 Chrome DevTools 进行开发调试',
-    session: '会话数据诊断', sessionDescription: '在会话侧边栏启用当前会话的原始数据和聊天分组数据分析功能',
-    openSidebar: '打开右侧边栏', sidebarDescription: '在侧边栏分析当前会话原始日志和聊天分组数据',
+    inspector: 'NodeJS 诊断',
+    inspectorDescription: '按 Ctrl/Cmd+Shift+. 在底部面板打开 Chrome DevTools 进行开发调试',
+    session: '会话数据诊断',
+    sessionDescription: '在会话侧边栏启用当前会话的原始数据和聊天分组数据分析功能',
+    openSidebar: '打开右侧边栏',
+    sidebarDescription: '在侧边栏分析当前会话原始日志和聊天分组数据',
   },
   {
-    locale: 'en-US', file: 'en', plugins: 'Plugins', open: 'View Developer Tools', bundle: 'Developer Tools',
+    locale: 'en-US',
+    file: 'en',
+    plugins: 'Plugins',
+    open: 'View Developer Tools',
+    bundle: 'Developer Tools',
     description: 'Inspect and debug raw session data, grouped chat messages, and the NodeJS backend.',
-    inspector: 'NodeJS Inspector', inspectorDescription: 'Press Ctrl/Cmd+Shift+. to open Chrome DevTools in the bottom panel for development and debugging.',
-    session: 'Session Log', sessionDescription: "Enable analysis of the current session's raw data and grouped chat messages in the session sidebar.",
-    openSidebar: 'Open right sidebar', sidebarDescription: 'Analyze raw logs and grouped chat messages for the current session in the sidebar.',
+    inspector: 'NodeJS Inspector',
+    inspectorDescription: 'Press Ctrl/Cmd+Shift+. to open Chrome DevTools in the bottom panel for development and debugging.',
+    session: 'Session Log',
+    sessionDescription: "Enable analysis of the current session's raw data and grouped chat messages in the session sidebar.",
+    openSidebar: 'Open right sidebar',
+    sidebarDescription: 'Analyze raw logs and grouped chat messages for the current session in the sidebar.',
   },
-])('shows the Inspector bundle and component copy in $locale', async (copy) => {
+])('shows the Inspector bundle and component copy in $locale', async copy => {
   const resources: { scaffold?: WebScaffold; browser?: Browser } = {}
   onTestFinished(async () => {
-    try { await resources.browser?.close() } finally { await resources.scaffold?.close() }
+    try {
+      await resources.browser?.close()
+    } finally {
+      await resources.scaffold?.close()
+    }
   })
   const scaffold = await launchWebScaffold({
     profile: { packages: [{ dir: bundle, enabled: true }], hmr: false },
@@ -132,11 +166,13 @@ it.each([
   ] as const) {
     const row = panel.locator('[data-plugin-row]', { hasText: id })
     await row.getByText(description, { exact: true }).waitFor()
-    snapshot.push(`- component: ${await row.getByText(title, { exact: true }).innerText()}`,
-      `  description: ${await row.getByText(description, { exact: true }).innerText()}`)
+    snapshot.push(
+      `- component: ${await row.getByText(title, { exact: true }).innerText()}`,
+      `  description: ${await row.getByText(description, { exact: true }).innerText()}`,
+    )
   }
   const workspace = page.getByRole('treeitem').first()
-  if (await workspace.getAttribute('aria-expanded') === 'false') await workspace.click()
+  if ((await workspace.getAttribute('aria-expanded')) === 'false') await workspace.click()
   await page.locator('[data-row-key="session:inspector-copy"]').click()
   await page.getByRole('button', { name: copy.openSidebar, exact: true }).click()
   const sessionGuide = page.locator('[data-sidebar-right-guide-entry="session-inspector-log"]')
@@ -146,19 +182,28 @@ it.each([
   await page.keyboard.press('ControlOrMeta+Shift+Period')
   const bottomTitle = page.locator('[data-inspector-panel] > header > span')
   await bottomTitle.getByText(copy.inspector, { exact: true }).waitFor()
-  snapshot.push(`- session sidebar: ${await sessionGuide.getByText(copy.session, { exact: true }).innerText()}`,
+  snapshot.push(
+    `- session sidebar: ${await sessionGuide.getByText(copy.session, { exact: true }).innerText()}`,
     `  description: ${await sessionGuide.getByText(copy.sidebarDescription, { exact: true }).innerText()}`,
-    `- NodeJS bottom: ${await bottomTitle.innerText()}`)
+    `- NodeJS bottom: ${await bottomTitle.innerText()}`,
+  )
   await sessionGuide.click()
   await page.getByRole('table', { name: copy.locale === 'zh-CN' ? '原始数据' : 'Raw Log', exact: true }).waitFor()
-  await compareOrRefreshGolden(fileURLToPath(new URL(`./expected/shared-inspector/metadata-${copy.file}.expected.md`, import.meta.url)),
-    snapshot.join('\n'), webSnapshotMode())
+  await compareOrRefreshGolden(
+    fileURLToPath(new URL(`./expected/shared-inspector/metadata-${copy.file}.expected.md`, import.meta.url)),
+    snapshot.join('\n'),
+    webSnapshotMode(),
+  )
 })
 
 it('marks a retained Client tree disconnected and clears the attribute when the page returns', async () => {
   const resources: { scaffold?: WebScaffold; browser?: Browser } = {}
   onTestFinished(async () => {
-    try { await resources.browser?.close() } finally { await resources.scaffold?.close() }
+    try {
+      await resources.browser?.close()
+    } finally {
+      await resources.scaffold?.close()
+    }
   })
   const scaffold = await launchWebScaffold({
     profile: { packages: [{ dir: bundle, enabled: true }], hmr: false },
@@ -173,11 +218,16 @@ it('marks a retained Client tree disconnected and clears the attribute when the 
   const context = await browser.newContext({ locale: 'en-US', viewport: { width: 1440, height: 900 } })
   const client = await context.newPage()
   await client.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-  const bootstrap = await (await scaffold.hostFetch('/api/experimental-inspector/bootstrap')).json() as { endpoint: string }
-  const targets = await (await fetch(`http://${new URL(bootstrap.endpoint).host}/json/list`)).json() as Array<{ devtoolsFrontendUrl: string }>
+  const bootstrap = (await (await scaffold.hostFetch('/api/experimental-inspector/bootstrap')).json()) as { endpoint: string }
+  const targets = (await (await fetch(`http://${new URL(bootstrap.endpoint).host}/json/list`)).json()) as Array<{
+    devtoolsFrontendUrl: string
+  }>
   const inspector = await context.newPage()
   await inspector.goto(targets[0]!.devtoolsFrontendUrl)
-  const clientTag = inspector.locator('.webkit-html-tag-name').filter({ hasText: /^client$/u }).first()
+  const clientTag = inspector
+    .locator('.webkit-html-tag-name')
+    .filter({ hasText: /^client$/u })
+    .first()
   const disconnected = inspector.locator('.webkit-html-attribute-name').filter({ hasText: /^disconnected$/u })
   await clientTag.waitFor()
   expect(await disconnected.count()).toBe(0)
@@ -194,21 +244,30 @@ it('marks a retained Client tree disconnected and clears the attribute when the 
   await inspector.getByRole('menuitem', { name: /^Host(?:\s|$)/u }).click()
   await inspector.getByRole('tab', { name: 'Elements', exact: true }).click()
   await client.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
-  await expect.poll(async () => {
-    const tree = await scaffold.ctx.inspector.cordis.getTree()
-    return tree.clients.find(realm => realm.source.sourceId === before.clients[0]!.source.sourceId)?.connection.state
-  }).toBe('connected')
+  await expect
+    .poll(async () => {
+      const tree = await scaffold.ctx.inspector.cordis.getTree()
+      return tree.clients.find(realm => realm.source.sourceId === before.clients[0]!.source.sourceId)?.connection.state
+    })
+    .toBe('connected')
   await expect.poll(() => disconnected.count()).toBe(0)
   await clientTag.waitFor()
   snapshot.push(`- reconnected Client disconnected attributes: ${await disconnected.count()}`)
-  await compareOrRefreshGolden(fileURLToPath(new URL('./expected/shared-inspector/client-status.expected.md', import.meta.url)),
-    snapshot.join('\n'), webSnapshotMode())
+  await compareOrRefreshGolden(
+    fileURLToPath(new URL('./expected/shared-inspector/client-status.expected.md', import.meta.url)),
+    snapshot.join('\n'),
+    webSnapshotMode(),
+  )
 })
 
 it('opens bottom DevTools and retains its document and selected panel across Sessions', async () => {
   const resources: { scaffold?: WebScaffold; browser?: Browser } = {}
   onTestFinished(async () => {
-    try { await resources.browser?.close() } finally { await resources.scaffold?.close() }
+    try {
+      await resources.browser?.close()
+    } finally {
+      await resources.scaffold?.close()
+    }
   })
   const scaffold = await launchWebScaffold({
     profile: { packages: [{ dir: bundle, enabled: true }], hmr: false },
@@ -243,7 +302,7 @@ it('opens bottom DevTools and retains its document and selected panel across Ses
   await extraPage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
   const extraGroup = extraPage.getByRole('treeitem').first()
   await extraGroup.waitFor()
-  if (await extraGroup.getAttribute('aria-expanded') === 'false') await extraGroup.click()
+  if ((await extraGroup.getAttribute('aria-expanded')) === 'false') await extraGroup.click()
   await extraPage.locator('[data-row-key="session:shared-a"]').click()
   await extraPage.locator('[data-inspector-panel]').waitFor({ state: 'attached' })
   await extraPage.keyboard.press('ControlOrMeta+Shift+Period')
@@ -252,12 +311,19 @@ it('opens bottom DevTools and retains its document and selected panel across Ses
   await extraFrontend.getByRole('button', { name: /^JavaScript context:/u }).click()
   await expect.poll(() => extraFrontend.getByRole('menuitem').count()).toBe(2)
   const firstSource = new URL((await iframe.getAttribute('src'))!, scaffold.baseUrl).searchParams.get('clientSourceId')
-  const secondSource = new URL((await extraPage.locator('iframe[data-inspector-devtools]').getAttribute('src'))!, scaffold.baseUrl).searchParams.get('clientSourceId')
+  const secondSource = new URL(
+    (await extraPage.locator('iframe[data-inspector-devtools]').getAttribute('src'))!,
+    scaffold.baseUrl,
+  ).searchParams.get('clientSourceId')
   expect(firstSource).toMatch(/^client-/u)
   expect(secondSource).toMatch(/^client-/u)
   expect(secondSource).not.toBe(firstSource)
-  await page.evaluate(() => { Reflect.set(window, '__inspectorPageMarker', 'embedding-page-one') })
-  await extraPage.evaluate(() => { Reflect.set(window, '__inspectorPageMarker', 'embedding-page-two') })
+  await page.evaluate(() => {
+    Reflect.set(window, '__inspectorPageMarker', 'embedding-page-one')
+  })
+  await extraPage.evaluate(() => {
+    Reflect.set(window, '__inspectorPageMarker', 'embedding-page-two')
+  })
   await extraFrontend.getByRole('menuitem', { name: /^Client —/u }).click()
   await extraFrontend.getByRole('textbox', { name: 'Console prompt', exact: true }).fill('window.__inspectorPageMarker')
   await extraFrontend.getByRole('textbox', { name: 'Console prompt', exact: true }).press('Enter')
@@ -268,18 +334,24 @@ it('opens bottom DevTools and retains its document and selected panel across Ses
   await frontend.getByText('embedding-page-one', { exact: false }).waitFor()
   await frontend.getByRole('button', { name: /^JavaScript context:/u }).click()
   await expect.poll(() => frontend.getByRole('menuitem').count()).toBe(2)
-  const bootstrap = await (await scaffold.hostFetch('/api/experimental-inspector/bootstrap')).json() as { endpoint: string }
-  const targets = await (await fetch(`http://${new URL(bootstrap.endpoint).host}/json/list`)).json() as Array<{ devtoolsFrontendUrl: string }>
+  const bootstrap = (await (await scaffold.hostFetch('/api/experimental-inspector/bootstrap')).json()) as { endpoint: string }
+  const targets = (await (await fetch(`http://${new URL(bootstrap.endpoint).host}/json/list`)).json()) as Array<{
+    devtoolsFrontendUrl: string
+  }>
   const direct = await page.context().newPage()
   await direct.goto(targets[0]!.devtoolsFrontendUrl)
   await direct.getByRole('tab', { name: 'Console', exact: true }).click()
   await direct.getByRole('button', { name: /^JavaScript context:/u }).click()
   await expect.poll(() => direct.getByRole('menuitem').count()).toBe(3)
-  await compareOrRefreshGolden(fileURLToPath(new URL('./expected/shared-inspector/connections.expected.md', import.meta.url)), [
-    `- embedded page one: ${await frontend.getByRole('menuitem').count()} contexts (Host + own Client)`,
-    '- embedded page two: own Client evaluates embedding-page-two',
-    `- direct devtools: ${await direct.getByRole('menuitem').count()} contexts (Host + both Clients)`,
-  ].join('\n'), webSnapshotMode())
+  await compareOrRefreshGolden(
+    fileURLToPath(new URL('./expected/shared-inspector/connections.expected.md', import.meta.url)),
+    [
+      `- embedded page one: ${await frontend.getByRole('menuitem').count()} contexts (Host + own Client)`,
+      '- embedded page two: own Client evaluates embedding-page-two',
+      `- direct devtools: ${await direct.getByRole('menuitem').count()} contexts (Host + both Clients)`,
+    ].join('\n'),
+    webSnapshotMode(),
+  )
   await extraPage.close()
   await expect.poll(() => direct.getByRole('menuitem').count()).toBe(2)
   await direct.close()
@@ -297,25 +369,35 @@ it('opens bottom DevTools and retains its document and selected panel across Ses
   expect(await frontend.getByRole('tab', { name: 'Connection', exact: true }).count()).toBe(0)
   await frontend.getByRole('tab', { name: 'Sources', exact: true }).click()
   await expect.poll(() => frontend.getByRole('tab', { name: 'Sources', exact: true }).getAttribute('aria-selected')).toBe('true')
-  await compareOrRefreshGolden(fileURLToPath(new URL('./expected/shared-inspector/page.expected.md', import.meta.url)),
-    await frontend.getByRole('tablist', { name: 'Panels', exact: true }).ariaSnapshot(), webSnapshotMode())
+  await compareOrRefreshGolden(
+    fileURLToPath(new URL('./expected/shared-inspector/page.expected.md', import.meta.url)),
+    await frontend.getByRole('tablist', { name: 'Panels', exact: true }).ariaSnapshot(),
+    webSnapshotMode(),
+  )
   await mkdir(shots, { recursive: true })
   await page.screenshot({ path: join(shots, 'devtools-bottom.png') })
-  await iframe.evaluate((node) => {
+  await iframe.evaluate(node => {
     if (!(node instanceof HTMLIFrameElement)) throw new Error('Expected the Inspector iframe')
     const evidence = { frame: node, document: node.contentDocument, loads: 0 }
-    node.addEventListener('load', () => { evidence.loads++ })
+    node.addEventListener('load', () => {
+      evidence.loads++
+    })
     Reflect.set(window, '__sharedInspectorEvidence', evidence)
   })
-  const unchanged = () => page.evaluate(() => {
-    const evidence = Reflect.get(window, '__sharedInspectorEvidence') as {
-      frame: HTMLIFrameElement
-      document: Document
-      loads: number
-    }
-    return { frame: evidence.frame === document.querySelector('[data-inspector-devtools]'),
-      document: evidence.frame.contentDocument === evidence.document, connected: evidence.frame.isConnected, loads: evidence.loads }
-  })
+  const unchanged = () =>
+    page.evaluate(() => {
+      const evidence = Reflect.get(window, '__sharedInspectorEvidence') as {
+        frame: HTMLIFrameElement
+        document: Document
+        loads: number
+      }
+      return {
+        frame: evidence.frame === document.querySelector('[data-inspector-devtools]'),
+        document: evidence.frame.contentDocument === evidence.document,
+        connected: evidence.frame.isConnected,
+        loads: evidence.loads,
+      }
+    })
   const identity = { frame: true, document: true, connected: true, loads: 0 }
 
   await page.locator('[data-row-key="session:shared-b"]').click()

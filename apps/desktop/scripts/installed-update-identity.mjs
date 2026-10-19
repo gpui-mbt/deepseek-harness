@@ -11,9 +11,12 @@ import { join } from 'node:path'
  * @returns {{ root: string, userData: string, harnessHome: string, journals: string }} Shared paths for both versions.
  */
 export function configureInstalledUpdateIdentity(app, run, metadata, environment) {
-  if (!/^[a-f0-9]{24}$/u.test(run.id) || run.versions.length !== 2
-    || metadata.dshDesktopAppId !== `com.deepseek.dsh.qualification.q${run.id}`
-    || !run.versions.includes(metadata.version)) {
+  if (
+    !/^[a-f0-9]{24}$/u.test(run.id) ||
+    run.versions.length !== 2 ||
+    metadata.dshDesktopAppId !== `com.deepseek.dsh.qualification.q${run.id}` ||
+    !run.versions.includes(metadata.version)
+  ) {
     throw new Error('installed update: qualification package identity does not match its bootstrap')
   }
   const root = join(app.getPath('appData'), 'dsh-update-qualification', run.id)

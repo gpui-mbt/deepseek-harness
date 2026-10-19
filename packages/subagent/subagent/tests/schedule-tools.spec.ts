@@ -5,7 +5,7 @@ import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
  * controller can never deliver a reminder there.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -53,16 +53,23 @@ async function setupScheduleHost(): Promise<{ ctx: Context; parent: Agent; dispa
   const pool = new MemoryMediaPool()
   const backend = new MemoryStorageBackend(pool)
   ctx.effect(() => ctx.storage.backend.register('fixture', backend))
-  ctx.effect(() => async () => { await backend.close() })
+  ctx.effect(() => async () => {
+    await backend.close()
+  })
   const facility = new DomainFacility(ctx, { backend: 'fixture' })
   ctx.effect(() => {
     const unmount = ctx.storage.mount('domain', facility)
     ctx.provide('storageDomain', facility)
-    return async () => { await facility.closeAll(); unmount() }
+    return async () => {
+      await facility.closeAll()
+      unmount()
+    }
   })
   // The fake is unreachable while the service refuses a subagent Session; a
   // call means the refusal let a reminder reach delivery.
-  const dispatched = vi.fn(async () => { throw new Error('a subagent Session must never be dispatched') })
+  const dispatched = vi.fn(async () => {
+    throw new Error('a subagent Session must never be dispatched')
+  })
   ctx.provide('sessionController', { resolveAgent: dispatched } as never)
   await ctx.plugin(ScheduleService)
   await ctx.plugin(AgentLoop, { agents: [] })
@@ -72,22 +79,26 @@ async function setupScheduleHost(): Promise<{ ctx: Context; parent: Agent; dispa
   await ctx.plugin(AgentPresets, { default: 'coding' })
   ctx.loader.builtins['tool-schedule'] = ToolSchedule
   await ctx.agentPresets.register({ id: 'coding', plugins: [{ name: 'cordis:tool-schedule' }] })
-  ctx.llm.registerAdapter(['mock'], new MockAdapter([
-    toolCallResponse('schedule-call', 'schedule_create', { prompt: 'Check', title: 'Check', after_seconds: 60 }),
-    textResponse('child done'),
-  ]))
+  ctx.llm.registerAdapter(
+    ['mock'],
+    new MockAdapter([
+      toolCallResponse('schedule-call', 'schedule_create', { prompt: 'Check', title: 'Check', after_seconds: 60 }),
+      textResponse('child done'),
+    ]),
+  )
   const handle = await ctx.agents.create({
     sessionId: SessionId('parent'),
     agentOptions: { provider: 'mock', model: 'mock' },
-    setup: async (agentCtx: Context) => void await ctx.agentPresets.mount(agentCtx, 'coding'),
+    setup: async (agentCtx: Context) => void (await ctx.agentPresets.mount(agentCtx, 'coding')),
   })
   return { ctx, parent: handle.agent, dispatched }
 }
 
 function toolResultTexts(agent: Agent): string[] {
-  return agent.session.snapshotEvents()
+  return agent.session
+    .snapshotEvents()
     .filter((event): event is SessionEvent<'tool/result'> => event.type === 'tool/result')
-    .map(event => event.data.message.content.map(block => block.type === 'text' ? block.text : '').join(''))
+    .map(event => event.data.message.content.map(block => (block.type === 'text' ? block.text : '')).join(''))
 }
 
 describe('a delegated child under a preset that mounts the Schedule tools', () => {

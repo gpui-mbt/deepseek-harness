@@ -1,19 +1,28 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { ChatConversationViewNode } from '../src/client/contract/chat-nodes.ts'
 import type { ConversationTimelineSnapshot, TurnLocation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { ChatSnapshotBuilder } from '../src/client/conversation-nodes/chat-snapshot-builder.ts'
 
 function turn(index: number): TurnLocation {
   return {
-    turn: index, start: undefined, end: undefined, status: 'closed', steps: [],
+    turn: index,
+    start: undefined,
+    end: undefined,
+    status: 'closed',
+    steps: [],
     data: { get: () => undefined, source: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }) },
   }
 }
 
 function node(index: number, owner = turn(index), text = ''): ChatConversationViewNode {
   return {
-    key: `user:${index}`, id: String(index), kind: 'user', target: 'chat', anchorSeq: index,
-    visibility: 'visible', location: { kind: 'turn', turn: owner },
+    key: `user:${index}`,
+    id: String(index),
+    kind: 'user',
+    target: 'chat',
+    anchorSeq: index,
+    visibility: 'visible',
+    location: { kind: 'turn', turn: owner },
     data: { kind: 'user', messageId: `message:${index}`, seq: index, time: index, content: [{ type: 'text', text }], source: null },
   }
 }
@@ -35,7 +44,7 @@ describe('assembler-owned Chat bottom membership', () => {
     const snapshot = builder.replace({ nodes, timeline: timeline(turns) })
     builder.publish()
     const sources = nodes.map(value => snapshot.nodes.bottomSource(value.key))
-    const listeners = sources.map((source) => {
+    const listeners = sources.map(source => {
       const listener = vi.fn()
       source.subscribe(listener)
       return listener

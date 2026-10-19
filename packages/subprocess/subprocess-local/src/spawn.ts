@@ -27,11 +27,7 @@ import { SUBPROCESS_CONTROL_FD } from '@deepseek-ai/dsh-subprocess/control'
 import { linuxProcessGroupHasLiveMembers } from './process-inspector.ts'
 import { OutputCollector, prepareManagedProcessBinding, type SpillFailureReporter } from './output.ts'
 
-type SpawnProcess = (
-  program: string,
-  args: readonly string[],
-  options: SpawnOptions,
-) => ChildProcess
+type SpawnProcess = (program: string, args: readonly string[], options: SpawnOptions) => ChildProcess
 
 /**
  * Build a child environment: explicit caller entries override the scrubbed
@@ -183,7 +179,7 @@ export function validateSubprocessSpec(spec: SubprocessSpawnSpec): void {
 function directChildResult(child: ChildProcess): Promise<SubprocessOutcome> {
   return new Promise((resolve, reject) => {
     let completed = false
-    child.once('error', (error) => {
+    child.once('error', error => {
       /* v8 ignore next -- ChildProcess may report a later operational error after its
          terminal exit event; the first terminal event owns the result. */
       if (completed) return
@@ -211,8 +207,12 @@ function fallbackOwner(
   let directSettled = false
   let observation: Promise<void> | undefined
   void direct.then(
-    () => { directSettled = true },
-    () => { directSettled = true },
+    () => {
+      directSettled = true
+    },
+    () => {
+      directSettled = true
+    },
   )
 
   const alive = (): boolean => {
@@ -233,7 +233,7 @@ function fallbackOwner(
   }
 
   return {
-    signal: (signal) => {
+    signal: signal => {
       if (!alive()) {
         stopped = true
         return
@@ -272,8 +272,7 @@ export function bindManagedProcess(
   const { spillDir, onSpillFailure } = prepareManagedProcessBinding(internals)
   const { stdin, stdout, stderr } = launch
 
-  const isCollect = (mode: SubprocessOutputMode): mode is SubprocessCollect =>
-    mode !== 'pipe' && mode !== 'inherit'
+  const isCollect = (mode: SubprocessOutputMode): mode is SubprocessCollect => mode !== 'pipe' && mode !== 'inherit'
   const outMode = spec.stdio.stdout
   const errMode = spec.stdio.stderr
   const stdinMode = spec.stdio.stdin
@@ -285,14 +284,16 @@ export function bindManagedProcess(
       label,
       mode.spill === undefined ? undefined : { maxBytes: mode.spill.maxBytes, dir: spillDir, onFailure: onSpillFailure },
     )
-    stream.on('data', (chunk: Buffer) => { collector.push(chunk) })
+    stream.on('data', (chunk: Buffer) => {
+      collector.push(chunk)
+    })
     return collector
   }
   const stdoutCollector = collectStream(outMode, stdout, 'stdout')
   const stderrCollector = collectStream(errMode, stderr, 'stderr')
   const observeOutputStream = (mode: SubprocessOutputMode, stream: Readable | null): Promise<void> | undefined => {
     if (mode === 'inherit' || stream === null || stream.readableEnded || stream.destroyed) return undefined
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const settle = (): void => {
         stream.off('end', settle)
         stream.off('close', settle)
@@ -322,7 +323,13 @@ export function bindManagedProcess(
 
   const scheduleOwnerCleanup = (): boolean => {
     if (launch.owner.cleanup === undefined) return false
-    queueMicrotask(() => { void done.finally(() => { launch.owner.cleanup?.() }).catch(() => {}) })
+    queueMicrotask(() => {
+      void done
+        .finally(() => {
+          launch.owner.cleanup?.()
+        })
+        .catch(() => {})
+    })
     return true
   }
 
@@ -376,13 +383,17 @@ export function bindManagedProcess(
   }
 
   // The caller owns timeout classification; this layer only reacts to abort.
-  const onAbort = (): void => { terminateWithReason(spec.signal?.reason) }
+  const onAbort = (): void => {
+    terminateWithReason(spec.signal?.reason)
+  }
   spec.signal?.addEventListener('abort', onAbort, { once: true })
 
   // Batch stdin is written and closed up front; process exit and captured
   // output remain authoritative, so write errors (EPIPE) are best-effort.
   if (typeof stdinMode === 'object' && stdin !== null) {
-    stdin.on('error', () => { /* stdin write is best-effort; outcome rides on exit/output. */ })
+    stdin.on('error', () => {
+      /* stdin write is best-effort; outcome rides on exit/output. */
+    })
     stdin.end(stdinMode.data)
   }
 
@@ -406,13 +417,17 @@ export function bindManagedProcess(
       // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- Exact cancellation reason is the contract.
       reject(error)
     }
-    launch.direct.then((outcome) => {
+    launch.direct.then(outcome => {
       if (stdoutClosed === undefined && stderrClosed === undefined) {
         settle(outcome)
         return
       }
-      pipeDrainTimer = setTimeout(() => { settle(outcome) }, spec.graceMs)
-      void outputStreamsClosed.then(() => { settle(outcome) })
+      pipeDrainTimer = setTimeout(() => {
+        settle(outcome)
+      }, spec.graceMs)
+      void outputStreamsClosed.then(() => {
+        settle(outcome)
+      })
     }, fail)
     function cleanup(): void {
       // graceTimer deliberately NOT cleared: forced termination must still
@@ -429,14 +444,14 @@ export function bindManagedProcess(
   return {
     /* v8 ignore start -- pipe-mode streams exist on every conforming launch;
        the null-coalesces guard an internal adapter defect only. */
-    stdin: stdinMode === 'pipe' ? stdin ?? undefined : undefined,
-    stdout: outMode === 'pipe' ? stdout ?? undefined : undefined,
-    stderr: errMode === 'pipe' ? stderr ?? undefined : undefined,
+    stdin: stdinMode === 'pipe' ? (stdin ?? undefined) : undefined,
+    stdout: outMode === 'pipe' ? (stdout ?? undefined) : undefined,
+    stderr: errMode === 'pipe' ? (stderr ?? undefined) : undefined,
     control: launch.control,
     /* v8 ignore stop */
     collected: {
-      ...stdoutCollector !== undefined ? { stdout: stdoutCollector } : {},
-      ...stderrCollector !== undefined ? { stderr: stderrCollector } : {},
+      ...(stdoutCollector !== undefined ? { stdout: stdoutCollector } : {}),
+      ...(stderrCollector !== undefined ? { stderr: stderrCollector } : {}),
     },
     done,
     terminate,
@@ -481,12 +496,16 @@ export function spawnSubprocess(spec: SubprocessSpawnSpec, internals: SpawnInter
     internals.linuxProcessGroupHasLiveMembers ?? linuxProcessGroupHasLiveMembers,
     direct,
   )
-  return bindManagedProcess(spec, {
-    stdin: child.stdin,
-    stdout: child.stdout,
-    stderr: child.stderr,
-    control: controlPipe(child, spec.stdio.control),
-    direct,
-    owner,
-  }, binding)
+  return bindManagedProcess(
+    spec,
+    {
+      stdin: child.stdin,
+      stdout: child.stdout,
+      stderr: child.stderr,
+      control: controlPipe(child, spec.stdio.control),
+      direct,
+      owner,
+    },
+    binding,
+  )
 }

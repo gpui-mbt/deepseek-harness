@@ -28,14 +28,16 @@ export function collectConfigSourceOwnershipViolations(root: string): string[] {
   for (const glob of SHIPPED_CONFIG_GLOBS) {
     for (const file of globSync(glob, { cwd: root })) {
       const rel = file.split(sep).join('/')
-      readFileSync(resolve(root, rel), 'utf8').split('\n').forEach((line, index) => {
-        if (!INLINE_DENY.test(line)) return
-        failures.push(
-          `${rel}:${String(index + 1)}: inlines a credential or endpoint from the environment.`
-          + ' The adapter resolves apiKeyEnv through ctx.credentials and the endpoint through the'
-          + ' environment snapshot; inlining here bypasses both ladders.',
-        )
-      })
+      readFileSync(resolve(root, rel), 'utf8')
+        .split('\n')
+        .forEach((line, index) => {
+          if (!INLINE_DENY.test(line)) return
+          failures.push(
+            `${rel}:${String(index + 1)}: inlines a credential or endpoint from the environment.` +
+              ' The adapter resolves apiKeyEnv through ctx.credentials and the endpoint through the' +
+              ' environment snapshot; inlining here bypasses both ladders.',
+          )
+        })
     }
   }
   return failures
@@ -50,7 +52,6 @@ if (process.argv[1] && import.meta.filename === resolve(process.argv[1])) {
   }
 
   process.stdout.write(
-    'verify-config-source-ownership: no credential or endpoint uses the ordinary inline environment form'
-    + ' in shipped configuration.\n',
+    'verify-config-source-ownership: no credential or endpoint uses the ordinary inline environment form' + ' in shipped configuration.\n',
   )
 }

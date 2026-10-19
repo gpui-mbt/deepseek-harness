@@ -87,7 +87,9 @@ class Follower implements AsyncIterable<WorkspaceFileNotice> {
           continue
         }
         if (this.ended) return
-        await new Promise<void>((resolve) => { this.wake = resolve })
+        await new Promise<void>(resolve => {
+          this.wake = resolve
+        })
         this.wake = undefined
       }
     } finally {
@@ -122,7 +124,7 @@ class SessionFeed {
       name: `workspace file changes of ${sessionId}`,
       // A predecessor still closing finishes first, so one target never has
       // two Host streams open at once.
-      open: (signal) => {
+      open: signal => {
         this.started = false
         return openAfter(after, () => remote.workspaceFiles.changes(sessionId, path, signal))
       },
@@ -279,12 +281,17 @@ export class ChangeFeed {
     const key = JSON.stringify([sessionId, path])
     const existing = this.sessions.get(key)
     if (existing !== undefined) return existing
-    const feed = new SessionFeed(this.remote, sessionId, path, this.closing.get(key), (closed) => {
+    const feed = new SessionFeed(this.remote, sessionId, path, this.closing.get(key), closed => {
       this.sessions.delete(key)
       // A dispose that rejects is still a settled close: nothing remains to wait for.
-      const tracked: Promise<void> = closed.then(() => undefined, () => undefined).then(() => {
-        if (this.closing.get(key) === tracked) this.closing.delete(key)
-      })
+      const tracked: Promise<void> = closed
+        .then(
+          () => undefined,
+          () => undefined,
+        )
+        .then(() => {
+          if (this.closing.get(key) === tracked) this.closing.delete(key)
+        })
       this.closing.set(key, tracked)
     })
     this.sessions.set(key, feed)

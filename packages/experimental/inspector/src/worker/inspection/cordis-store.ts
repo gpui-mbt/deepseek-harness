@@ -1,10 +1,6 @@
 /** Worker-owned repository of CDP-independent Cordis tree snapshots. */
 
-import {
-  parseCordisTreeSnapshot,
-  type CordisTreeNode,
-  type CordisTreeSnapshot,
-} from '../../shared/cordis/snapshot.ts'
+import { parseCordisTreeSnapshot, type CordisTreeNode, type CordisTreeSnapshot } from '../../shared/cordis/snapshot.ts'
 import { CORDIS_TREE_TOPIC } from '../../shared/bridge/messages/cordis.ts'
 import type { InspectorSourceDescriptor } from '../../shared/bridge/messages/observation.ts'
 import type { InspectorSourceGeneration, InspectorSourceId } from '../../shared/bridge/ids.ts'
@@ -57,9 +53,7 @@ export class CordisTreeStore implements InspectorRecordConsumer {
   /** Replace all retained state for one source generation. */
   replace(source: InspectorSourceDescriptor, records: readonly IngestedInspectorRecord[]): void {
     const next = this.latest(source, records)
-    const changed = next === undefined
-      ? this.remove(source.sourceId)
-      : this.install(source, next)
+    const changed = next === undefined ? this.remove(source.sourceId) : this.install(source, next)
     if (changed) this.emit({ type: 'snapshot-changed', source })
   }
 
@@ -123,9 +117,7 @@ export class CordisTreeStore implements InspectorRecordConsumer {
    */
   resolveObject(source: InspectorSourceDescriptor, reference: InspectorObjectReference): CordisTreeObjectRoute | undefined {
     const tree = this.trees.get(source.sourceId)
-    if (tree === undefined
-      || tree.source.generation !== source.generation
-      || tree.connection.state === 'disconnected') return undefined
+    if (tree === undefined || tree.source.generation !== source.generation || tree.connection.state === 'disconnected') return undefined
     const node = tree.nodesByObject.get(objectKey(reference))
     return node === undefined ? undefined : this.route(tree, node)
   }
@@ -172,13 +164,12 @@ export class CordisTreeStore implements InspectorRecordConsumer {
    */
   subscribe(listener: (event: CordisTreeStoreEvent) => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
-  private latest(
-    source: InspectorSourceDescriptor,
-    records: readonly IngestedInspectorRecord[],
-  ): CordisTreeSnapshot | undefined {
+  private latest(source: InspectorSourceDescriptor, records: readonly IngestedInspectorRecord[]): CordisTreeSnapshot | undefined {
     let snapshot: CordisTreeSnapshot | undefined
     for (const record of records) {
       if (record.topic !== CORDIS_TREE_TOPIC) continue
@@ -195,18 +186,22 @@ export class CordisTreeStore implements InspectorRecordConsumer {
 
   private install(source: InspectorSourceDescriptor, snapshot: CordisTreeSnapshot): boolean {
     const current = this.trees.get(source.sourceId)
-    if (current?.source.generation === source.generation
-      && current.snapshot === snapshot
-      && current.connection.state === 'connected') return false
+    if (current?.source.generation === source.generation && current.snapshot === snapshot && current.connection.state === 'connected')
+      return false
     this.disconnected.delete(source.sourceId)
     this.trees.set(source.sourceId, {
       source,
       snapshot,
       connection: { state: 'connected' },
-      nodesByObject: new Map(treeNodes(snapshot.root).map(node => [objectKey({
-        registryId: snapshot.objectRegistryId,
-        handle: node.objectHandle,
-      }), node])),
+      nodesByObject: new Map(
+        treeNodes(snapshot.root).map(node => [
+          objectKey({
+            registryId: snapshot.objectRegistryId,
+            handle: node.objectHandle,
+          }),
+          node,
+        ]),
+      ),
     })
     return true
   }

@@ -1,7 +1,7 @@
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
 import { mountLocalActivations, startTestActivation as start } from '../../subagent/tests/local-activation.ts'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
@@ -38,14 +38,17 @@ async function setup(script: Script) {
 }
 
 function text(blocks: readonly { type: string; text?: string }[]): string {
-  return blocks.filter(b => b.type === 'text').map(b => b.text).join('')
+  return blocks
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('')
 }
 
 describe('dsh-subagent-fork-in-process', () => {
   it('emits subagent/start only after the seeded child is published', async () => {
     const { ctx, parent } = await setup([textResponse('child answer')])
     let childAtStart: ReturnType<typeof ctx.agents.get>
-    ctx.on('subagent/start', (info) => {
+    ctx.on('subagent/start', info => {
       if (info.provider === 'fork') childAtStart = ctx.agents.get(info.id)
     })
 
@@ -89,11 +92,16 @@ describe('dsh-subagent-fork-in-process', () => {
     expect(child.session.header.isSeeded).toBe(true)
     expect(child.session.inheritedEventCount).toBe(parentPrefixLen)
     expect(child.session.snapshotEvents().slice(0, parentPrefixLen).at(-1)?.type).toBe('turn/end')
-    expect(child.session.snapshotEvents().slice(0, parentPrefixLen).filter(e => e.type === 'turn/end')).toHaveLength(2)
+    expect(
+      child.session
+        .snapshotEvents()
+        .slice(0, parentPrefixLen)
+        .filter(e => e.type === 'turn/end'),
+    ).toHaveLength(2)
     await run.dispose()
   })
 
-  it('seeds the child with the parent\'s completed-turn prefix (child inherits context)', async () => {
+  it("seeds the child with the parent's completed-turn prefix (child inherits context)", async () => {
     const { ctx, parent } = await setup([textResponse('parent answer'), textResponse('child answer')])
     parent.followup(createUserMessage({ content: [{ type: 'text', text: 'parent question' }], source: { kind: 'user' } }))
     await parent.whenIdle()
@@ -108,7 +116,10 @@ describe('dsh-subagent-fork-in-process', () => {
     // The child's log STARTS with the parent's prefix (seeded), then its own turn.
     expect(child.session.snapshotEvents().length).toBeGreaterThan(parentPrefixLen)
     // The seeded prefix carried the parent's user message.
-    const seededUser = child.session.snapshotEvents().slice(0, parentPrefixLen).find(e => e.type === 'user/message')
+    const seededUser = child.session
+      .snapshotEvents()
+      .slice(0, parentPrefixLen)
+      .find(e => e.type === 'user/message')
     expect(seededUser).toBeDefined()
     // Lineage stamped.
     expect(child.session.header.parentSession).toBe(parent.session.header.id)
@@ -147,10 +158,7 @@ describe('dsh-subagent-fork-in-process', () => {
   })
 
   it('captures structured output through the shipped plugin (seeded child, driver runtime)', async () => {
-    const { ctx, parent } = await setup([
-      textResponse('parent turn'),
-      toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 9 }),
-    ])
+    const { ctx, parent } = await setup([textResponse('parent turn'), toolCallResponse('c1', STRUCTURED_OUTPUT_TOOL, { answer: 9 })])
     parent.followup(createUserMessage({ content: [{ type: 'text', text: 'warm up' }], source: { kind: 'user' } }))
     await parent.whenIdle()
     const run = await start(ctx, 'fork', {
@@ -203,7 +211,7 @@ describe('dsh-subagent-fork-in-process', () => {
     expect(ctx.subagents.list()).toEqual([])
   })
 
-  it('contributes the completed-turn prefix as a continuable child\'s seed', async () => {
+  it("contributes the completed-turn prefix as a continuable child's seed", async () => {
     const { ctx, parent } = await setup([textResponse('parent turn'), textResponse('child answer')])
     const provider = ctx.subagents.getProvider('fork')!
     const signal = new AbortController().signal

@@ -194,15 +194,22 @@ export async function approveEscalation<A, C>(request: EscalationRequest, approv
       en: `Allow this operation with ${mode} permissions: ${justification}`,
       zh: `允许本次操作使用 ${mode} 权限：${justification}`,
     },
-    ...approval.signal ? { signal: approval.signal } : {},
+    ...(approval.signal ? { signal: approval.signal } : {}),
   })
   switch (outcome) {
     // The schema enum already pinned `mode` to the closed target vocabulary;
     // the check above proved it is strictly wider.
-    case 'allowed-once': return mode as SandboxMode
-    case 'rejected': throw new Error(`the user rejected escalating this ${subject} to "${mode}"; it stays denied, so stop and explain instead of working around it`)
-    case 'cancelled': throw new Error(`approval for escalating to "${mode}" was cancelled`)
-    case 'unavailable': throw new Error(`sandbox escalation to "${mode}" requires approval, but no approval channel is available`)
-    default: return assertNever(outcome, 'EscalationOutcome')
+    case 'allowed-once':
+      return mode as SandboxMode
+    case 'rejected':
+      throw new Error(
+        `the user rejected escalating this ${subject} to "${mode}"; it stays denied, so stop and explain instead of working around it`,
+      )
+    case 'cancelled':
+      throw new Error(`approval for escalating to "${mode}" was cancelled`)
+    case 'unavailable':
+      throw new Error(`sandbox escalation to "${mode}" requires approval, but no approval channel is available`)
+    default:
+      return assertNever(outcome, 'EscalationOutcome')
   }
 }

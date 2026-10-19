@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
@@ -38,7 +38,9 @@ function stubAgent(ctx: Context, rawId: string): Agent {
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
   }
-  agentScopeDisposers.set(agent, async () => { await scopeFiber.dispose() })
+  agentScopeDisposers.set(agent, async () => {
+    await scopeFiber.dispose()
+  })
   return agent
 }
 
@@ -64,7 +66,9 @@ class StubSession implements TerminalBackendSession {
     }
     let settle!: () => void
     let settled = false
-    const done = new Promise<void>((resolve) => { settle = resolve }).then(() => ({
+    const done = new Promise<void>(resolve => {
+      settle = resolve
+    }).then(() => ({
       viewport: 'done',
       waitReason: 'stdin_read' as const,
       sessionStatus: this.statusValue,
@@ -122,7 +126,9 @@ async function harness() {
   const ctx = new Context()
   await ctx.plugin(AgentRegistry)
   const fiber = await ctx.plugin(TerminalSessionService)
-  ptyServiceDisposers.set(ctx, async () => { await fiber.dispose() })
+  ptyServiceDisposers.set(ctx, async () => {
+    await fiber.dispose()
+  })
   return ctx
 }
 
@@ -164,7 +170,14 @@ describe('TerminalSessionService ownership and lifecycle', () => {
     await ctx.agents.register(foreign)
 
     const created = await ctx.terminals.spawn(owner, { type: 'stub', name: 'main', cwd: '/tmp' })
-    expect(created).toMatchObject({ sessionId: 'pty-1', name: 'main', type: 'stub', pid: 123, motd: 'stub ready', status: { kind: 'running' } })
+    expect(created).toMatchObject({
+      sessionId: 'pty-1',
+      name: 'main',
+      type: 'stub',
+      pid: 123,
+      motd: 'stub ready',
+      status: { kind: 'running' },
+    })
     expect(ctx.terminals.hasOwnerActivity(owner)).toBe(true)
     expect(ctx.terminals.list(owner)).toHaveLength(1)
     expect(ctx.terminals.list(foreign)).toEqual([])
@@ -267,11 +280,18 @@ describe('TerminalSessionService ownership and lifecycle', () => {
     const backendFailure = new Error('backend observed cancellation')
     ctx.terminals.registerBackend({
       type: 'abortable',
-      spawn: ({ signal }) => new Promise((_resolve, reject) => {
-        if (signal === undefined) throw new Error('missing spawn signal')
-        started.resolve(undefined)
-        signal.addEventListener('abort', () => { reject(backendFailure) }, { once: true })
-      }),
+      spawn: ({ signal }) =>
+        new Promise((_resolve, reject) => {
+          if (signal === undefined) throw new Error('missing spawn signal')
+          started.resolve(undefined)
+          signal.addEventListener(
+            'abort',
+            () => {
+              reject(backendFailure)
+            },
+            { once: true },
+          )
+        }),
     })
     const owner = stubAgent(ctx, 'owner')
     await ctx.agents.register(owner)
@@ -285,19 +305,24 @@ describe('TerminalSessionService ownership and lifecycle', () => {
     await expect(pending).rejects.toBe(reason)
   })
 
-  it.each(['owner', 'service'] as const)('retains caller-triggered backend cleanup failure until %s disposal', async (scope) => {
+  it.each(['owner', 'service'] as const)('retains caller-triggered backend cleanup failure until %s disposal', async scope => {
     const ctx = await harness()
     const started = Promise.withResolvers<undefined>()
     const cleanupFailure = new Error('backend cleanup failed')
     ctx.terminals.registerBackend({
       type: 'cleanup-failing',
-      spawn: ({ signal }) => new Promise((_resolve, reject) => {
-        if (signal === undefined) throw new Error('missing spawn signal')
-        started.resolve(undefined)
-        signal.addEventListener('abort', () => {
-          reject(new TerminalBackendCleanupError(signal.reason, cleanupFailure))
-        }, { once: true })
-      }),
+      spawn: ({ signal }) =>
+        new Promise((_resolve, reject) => {
+          if (signal === undefined) throw new Error('missing spawn signal')
+          started.resolve(undefined)
+          signal.addEventListener(
+            'abort',
+            () => {
+              reject(new TerminalBackendCleanupError(signal.reason, cleanupFailure))
+            },
+            { once: true },
+          )
+        }),
     })
     const owner = stubAgent(ctx, 'owner')
     await ctx.agents.register(owner)
@@ -330,7 +355,7 @@ describe('TerminalSessionService ownership and lifecycle', () => {
     let backendSignal: AbortSignal | undefined
     ctx.terminals.registerBackend({
       type: 'slow',
-      spawn: (spec) => {
+      spawn: spec => {
         backendSignal = spec.signal
         started.resolve(undefined)
         return gate.promise
@@ -341,13 +366,16 @@ describe('TerminalSessionService ownership and lifecycle', () => {
 
     const pending = ctx.terminals.spawn(owner, { type: 'slow' })
     const pendingFailure = pending.then(
-      () => { throw new Error('pending spawn unexpectedly succeeded') },
+      () => {
+        throw new Error('pending spawn unexpectedly succeeded')
+      },
       (error: unknown) => error,
     )
     await started.promise
     let disposalSettled = false
-    const disposal = (scope === 'owner' ? disposeAgentScope(owner) : disposeTerminalSessionService(ctx))
-      .then(() => { disposalSettled = true })
+    const disposal = (scope === 'owner' ? disposeAgentScope(owner) : disposeTerminalSessionService(ctx)).then(() => {
+      disposalSettled = true
+    })
     await new Promise(resolve => setTimeout(resolve, 0))
     const signalAbortedBeforeRelease = backendSignal?.aborted ?? false
     const signalReasonBeforeRelease: unknown = backendSignal?.reason
@@ -392,14 +420,19 @@ describe('TerminalSessionService ownership and lifecycle', () => {
     let backendAbortReason: unknown
     ctx.terminals.registerBackend({
       type: 'cleanup-failing',
-      spawn: ({ signal }) => new Promise((_resolve, reject) => {
-        if (signal === undefined) throw new Error('missing spawn signal')
-        started.resolve(undefined)
-        signal.addEventListener('abort', () => {
-          backendAbortReason = signal.reason
-          reject(new TerminalBackendCleanupError(signal.reason, cleanupFailure))
-        }, { once: true })
-      }),
+      spawn: ({ signal }) =>
+        new Promise((_resolve, reject) => {
+          if (signal === undefined) throw new Error('missing spawn signal')
+          started.resolve(undefined)
+          signal.addEventListener(
+            'abort',
+            () => {
+              backendAbortReason = signal.reason
+              reject(new TerminalBackendCleanupError(signal.reason, cleanupFailure))
+            },
+            { once: true },
+          )
+        }),
     })
     const owner = stubAgent(ctx, 'owner')
     await ctx.agents.register(owner)
@@ -412,14 +445,18 @@ describe('TerminalSessionService ownership and lifecycle', () => {
     }
     const disposal = scope === 'owner' ? internal.disposeOwned(owner) : internal.disposeAll()
     const pendingError = await pending.then(
-      () => { throw new Error('pending spawn unexpectedly succeeded') },
+      () => {
+        throw new Error('pending spawn unexpectedly succeeded')
+      },
       (error: unknown) => error,
     )
 
     expect(pendingError).toBe(backendAbortReason)
     expect(pendingError).toMatchObject({ code })
     const disposalError = await disposal.then(
-      () => { throw new Error('disposal unexpectedly succeeded') },
+      () => {
+        throw new Error('disposal unexpectedly succeeded')
+      },
       (error: unknown) => error,
     )
     expect(disposalError).toMatchObject({ message: 'failed to clean up PTY lifecycle' })
@@ -435,7 +472,7 @@ describe('TerminalSessionService ownership and lifecycle', () => {
     let count = 0
     ctx.terminals.registerBackend({
       type: 'slow',
-      spawn: () => ++count === 1 ? firstGate.promise : secondGate.promise,
+      spawn: () => (++count === 1 ? firstGate.promise : secondGate.promise),
     })
     const owner = stubAgent(ctx, 'owner')
     await ctx.agents.register(owner)
@@ -483,8 +520,14 @@ describe('TerminalSessionService ownership and lifecycle', () => {
         internal.disposedOwners.add(owner)
         ownerDisposal = internal.disposeOwned(owner)
         if (!signal.aborted) {
-          await new Promise<undefined>((resolve) => {
-            signal.addEventListener('abort', () => { resolve(undefined) }, { once: true })
+          await new Promise<undefined>(resolve => {
+            signal.addEventListener(
+              'abort',
+              () => {
+                resolve(undefined)
+              },
+              { once: true },
+            )
           })
         }
         return failedSpawn

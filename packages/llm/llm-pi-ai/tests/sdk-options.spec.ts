@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
 
 const streamSimple = vi.hoisted(() => vi.fn())
@@ -15,18 +15,21 @@ import { PiAiAdapter } from '../src/adapter.ts'
 import { resolveProfiles } from '../src/config.ts'
 import { memoryAuth } from './auth-double.ts'
 
-afterEach(() => { streamSimple.mockReset() })
+afterEach(() => {
+  streamSimple.mockReset()
+})
 
 /** A hand-declared OpenAI-compatible route with one fully described model. */
 function gatewayAdapter(): PiAiAdapter {
   return new PiAiAdapter({
-    profiles: () => resolveProfiles({
-      'local-gateway': {
-        api: 'openai-completions',
-        baseURL: 'http://127.0.0.1:9/v1',
-        models: [{ id: 'local-model', contextWindow: 8192, maxTokens: 1024 }],
-      },
-    }),
+    profiles: () =>
+      resolveProfiles({
+        'local-gateway': {
+          api: 'openai-completions',
+          baseURL: 'http://127.0.0.1:9/v1',
+          models: [{ id: 'local-model', contextWindow: 8192, maxTokens: 1024 }],
+        },
+      }),
     resolveApiKey: () => Promise.resolve('test-key'),
     auth: memoryAuth(),
   })
@@ -38,13 +41,16 @@ async function drain(adapter: PiAiAdapter): Promise<StreamChunk[]> {
     provider: 'local-gateway',
     model: 'local-model',
     messages: [],
-  })) chunks.push(chunk)
+  }))
+    chunks.push(chunk)
   return chunks
 }
 
 describe('pi-ai SDK retry boundary', () => {
   it('pins one SDK attempt even when the installed provider currently defaults to zero retries', async () => {
-    streamSimple.mockImplementation(() => { throw new Error('mock SDK boundary') })
+    streamSimple.mockImplementation(() => {
+      throw new Error('mock SDK boundary')
+    })
 
     const chunks = await drain(gatewayAdapter())
 
@@ -59,7 +65,9 @@ describe('pi-ai SDK retry boundary', () => {
   })
 
   it('dispatches a hand-declared route to the endpoint and model its configuration describes', async () => {
-    streamSimple.mockImplementation(() => { throw new Error('mock SDK boundary') })
+    streamSimple.mockImplementation(() => {
+      throw new Error('mock SDK boundary')
+    })
 
     await drain(gatewayAdapter())
 

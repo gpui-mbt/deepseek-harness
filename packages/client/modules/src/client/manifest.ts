@@ -328,7 +328,7 @@ export function parseBootManifest(wire: unknown): BootManifest {
  */
 function decodeRelease(value: unknown): WebBootRelease | undefined | null {
   if (value === undefined) return undefined
-  const release = typeof value === 'object' && value !== null ? value as Record<string, unknown> : undefined
+  const release = typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : undefined
   const commit = release?.commit
   if (release === undefined || typeof release.version !== 'string' || (commit !== undefined && typeof commit !== 'string')) return null
   return { version: release.version, ...(commit === undefined ? {} : { commit }) }

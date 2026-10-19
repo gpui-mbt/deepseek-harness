@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   benchmarkNpmResolution,
   buildRegistryIndex,
@@ -45,9 +45,12 @@ function processCanExecute(pid: number): boolean {
 describe('npm resolution benchmark', () => {
   it('parses repeat, timeout, threshold, and ref options', () => {
     expect(parseBenchmarkOptions([])).toEqual({ runs: 1, timeoutMs: 300_000 })
-    expect(parseBenchmarkOptions([
-      '--runs', '3', '--timeout-ms', '45000', '--max-ms', '20000', '--ref', 'master',
-    ])).toEqual({ runs: 3, timeoutMs: 45_000, maxMs: 20_000, ref: 'master' })
+    expect(parseBenchmarkOptions(['--runs', '3', '--timeout-ms', '45000', '--max-ms', '20000', '--ref', 'master'])).toEqual({
+      runs: 3,
+      timeoutMs: 45_000,
+      maxMs: 20_000,
+      ref: 'master',
+    })
     expect(parseBenchmarkOptions(['--', '--runs', '2'])).toEqual({ runs: 2, timeoutMs: 300_000 })
     expect(() => parseBenchmarkOptions(['--runs', '0'])).toThrow('--runs must be a positive integer')
   })
@@ -90,10 +93,7 @@ describe('npm resolution benchmark', () => {
   })
 
   it('runs npm against the local registry without requesting an archive', async () => {
-    const index: RegistryIndex = new Map([[
-      '@deepseek-ai/dsh',
-      new Map([['0.1.0', { name: '@deepseek-ai/dsh', version: '0.1.0' }]]),
-    ]])
+    const index: RegistryIndex = new Map([['@deepseek-ai/dsh', new Map([['0.1.0', { name: '@deepseek-ai/dsh', version: '0.1.0' }]])]])
     const result = await benchmarkNpmResolution(index, '0.1.0', 10_000)
 
     expect(result.durationMs).toBeGreaterThan(0)
@@ -103,18 +103,24 @@ describe('npm resolution benchmark', () => {
   })
 
   it('returns npm placement for two aliased package versions without requesting archives', async () => {
-    const index: RegistryIndex = new Map([[
-      '@deepseek-ai/dsh',
-      new Map([
-        ['0.1.0', { name: '@deepseek-ai/dsh', version: '0.1.0' }],
-        ['0.2.0', { name: '@deepseek-ai/dsh', version: '0.2.0' }],
-      ]),
-    ]])
+    const index: RegistryIndex = new Map([
+      [
+        '@deepseek-ai/dsh',
+        new Map([
+          ['0.1.0', { name: '@deepseek-ai/dsh', version: '0.1.0' }],
+          ['0.2.0', { name: '@deepseek-ai/dsh', version: '0.2.0' }],
+        ]),
+      ],
+    ])
 
-    const result = await resolveNpmPackageLock(index, {
-      '@deepseek-ai/dsh': '0.2.0',
-      'dsh-previous': 'npm:@deepseek-ai/dsh@0.1.0',
-    }, 10_000)
+    const result = await resolveNpmPackageLock(
+      index,
+      {
+        '@deepseek-ai/dsh': '0.2.0',
+        'dsh-previous': 'npm:@deepseek-ai/dsh@0.1.0',
+      },
+      10_000,
+    )
 
     expect(result.archiveRequests).toBe(0)
     expect(result.packageLock.packages['node_modules/@deepseek-ai/dsh']?.version).toBe('0.2.0')
@@ -139,15 +145,31 @@ describe('npm resolution benchmark', () => {
     process.env.npm_config_omit = 'peer'
     try {
       const index: RegistryIndex = new Map([
-        ['@deepseek-ai/dsh', new Map([['0.1.0', {
-          name: '@deepseek-ai/dsh',
-          version: '0.1.0',
-          peerDependencies: { '@deepseek-ai/dsh-peer': '1.0.0' },
-        }]])],
-        ['@deepseek-ai/dsh-peer', new Map([['1.0.0', {
-          name: '@deepseek-ai/dsh-peer',
-          version: '1.0.0',
-        }]])],
+        [
+          '@deepseek-ai/dsh',
+          new Map([
+            [
+              '0.1.0',
+              {
+                name: '@deepseek-ai/dsh',
+                version: '0.1.0',
+                peerDependencies: { '@deepseek-ai/dsh-peer': '1.0.0' },
+              },
+            ],
+          ]),
+        ],
+        [
+          '@deepseek-ai/dsh-peer',
+          new Map([
+            [
+              '1.0.0',
+              {
+                name: '@deepseek-ai/dsh-peer',
+                version: '1.0.0',
+              },
+            ],
+          ]),
+        ],
       ])
 
       const result = await resolveNpmPackageLock(index, { '@deepseek-ai/dsh': '0.1.0' }, 10_000)
@@ -168,7 +190,7 @@ describe('npm resolution benchmark', () => {
     const source = [
       "const { spawn } = require('node:child_process')",
       "process.on('SIGTERM', () => {})",
-      'const child = spawn(process.execPath, [\'-e\', "process.on(\'SIGTERM\', () => {}); setInterval(() => {}, 1000)"], { stdio: \'ignore\' })',
+      "const child = spawn(process.execPath, ['-e', \"process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)\"], { stdio: 'ignore' })",
       'console.log(child.pid)',
       'setInterval(() => {}, 1000)',
     ].join(';')

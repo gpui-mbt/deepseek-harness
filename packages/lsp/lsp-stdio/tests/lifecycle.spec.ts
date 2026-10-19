@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -53,12 +53,13 @@ async function mount(
   configureSubprocess?.(ctx)
   await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
   const register = ctx.lsp.registerProvider.bind(ctx.lsp)
-  const registrationSpy = captureProvider === undefined
-    ? undefined
-    : vi.spyOn(ctx.lsp, 'registerProvider').mockImplementation((provider) => {
-      captureProvider(provider)
-      return register(provider)
-    })
+  const registrationSpy =
+    captureProvider === undefined
+      ? undefined
+      : vi.spyOn(ctx.lsp, 'registerProvider').mockImplementation(provider => {
+          captureProvider(provider)
+          return register(provider)
+        })
   try {
     await ctx.plugin(LspLocal, {
       servers: { fake: fakeServer(fakeEnv, overrides) },
@@ -88,10 +89,7 @@ describe('lsp-stdio end to end over a fake server', () => {
     await ctx.plugin(LspLocal, {
       servers: {
         typescript: fakeServer({ LSP_FAKE_HOVER: JSON.stringify({ contents: 'ts' }) }),
-        python: fakeServer(
-          { LSP_FAKE_HOVER: JSON.stringify({ contents: 'py' }) },
-          { extensionToLanguage: { '.py': 'python' } },
-        ),
+        python: fakeServer({ LSP_FAKE_HOVER: JSON.stringify({ contents: 'py' }) }, { extensionToLanguage: { '.py': 'python' } }),
       },
     })
     expect(await ctx.lsp.query(query('hover', 'a.ts'))).toEqual({ kind: 'hover', hover: { contents: 'ts' } })
@@ -104,14 +102,19 @@ describe('lsp-stdio end to end over a fake server', () => {
     const result = await ctx.lsp.query(query('goToDefinition'))
     expect(result).toEqual<LspQueryResult>({
       kind: 'locations',
-      locations: [{ uri: pathToFileURL(join(ws, 'a.ts')).href, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } } }],
+      locations: [
+        { uri: pathToFileURL(join(ws, 'a.ts')).href, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } } },
+      ],
       resolvedWorkspaceUri: pathToFileURL(ws).href,
     })
     await ctx.fiber.dispose()
   })
 
   it('maps a LocationLink for implementation', async () => {
-    const link = { targetUri: pathToFileURL(join(ws, 'a.ts')).href, targetSelectionRange: { start: { line: 1, character: 0 }, end: { line: 1, character: 2 } } }
+    const link = {
+      targetUri: pathToFileURL(join(ws, 'a.ts')).href,
+      targetSelectionRange: { start: { line: 1, character: 0 }, end: { line: 1, character: 2 } },
+    }
     const ctx = await mount({ LSP_FAKE_IMPL: JSON.stringify([link]) })
     const result = await ctx.lsp.query(query('goToImplementation'))
     expect(result).toMatchObject({ kind: 'locations', locations: [{ range: { start: { line: 1, character: 0 } } }] })
@@ -136,7 +139,11 @@ describe('lsp-stdio end to end over a fake server', () => {
 
   it('returns an empty locations result for a null definition', async () => {
     const ctx = await mount({ LSP_FAKE_DEF: 'null' })
-    expect(await ctx.lsp.query(query('goToDefinition'))).toEqual({ kind: 'locations', locations: [], resolvedWorkspaceUri: pathToFileURL(ws).href })
+    expect(await ctx.lsp.query(query('goToDefinition'))).toEqual({
+      kind: 'locations',
+      locations: [],
+      resolvedWorkspaceUri: pathToFileURL(ws).href,
+    })
     await ctx.fiber.dispose()
   })
 
@@ -176,20 +183,23 @@ describe('lsp-stdio end to end over a fake server', () => {
     const ctx = await mount(
       { LSP_FAKE_ENCODING: 'utf-8', LSP_FAKE_DEF: 'null' },
       { shutdownTimeoutMs: 100, killGraceMs: 100 },
-      (registered) => { provider = registered },
-      (mounted) => {
+      registered => {
+        provider = registered
+      },
+      mounted => {
         const spawn = mounted.subprocess.spawn.bind(mounted.subprocess)
-        vi.spyOn(mounted.subprocess, 'spawn').mockImplementation((spec) => {
+        vi.spyOn(mounted.subprocess, 'spawn').mockImplementation(spec => {
           const handle = spawn(spec)
           if (!firstSpawn) return handle
           firstSpawn = false
           const waitForExit = handle.waitForExit.bind(handle)
-          const waitSpy = vi.spyOn(handle, 'waitForExit')
-            .mockImplementation(async (signal) => {
-              await waitForExit(signal)
-              throw teardownFailure
-            })
-          restoreFirstWait = () => { waitSpy.mockRestore() }
+          const waitSpy = vi.spyOn(handle, 'waitForExit').mockImplementation(async signal => {
+            await waitForExit(signal)
+            throw teardownFailure
+          })
+          restoreFirstWait = () => {
+            waitSpy.mockRestore()
+          }
           return handle
         })
       },
@@ -227,20 +237,24 @@ describe('lsp-stdio end to end over a fake server', () => {
     const ctx = await mount(
       { LSP_FAKE_DEF: 'null' },
       { shutdownTimeoutMs: 100, killGraceMs: 100 },
-      (registered) => { provider = registered },
-      (mounted) => {
+      registered => {
+        provider = registered
+      },
+      mounted => {
         const spawn = mounted.subprocess.spawn.bind(mounted.subprocess)
         let firstSpawn = true
-        vi.spyOn(mounted.subprocess, 'spawn').mockImplementation((spec) => {
+        vi.spyOn(mounted.subprocess, 'spawn').mockImplementation(spec => {
           const handle = spawn(spec)
           if (!firstSpawn) return handle
           firstSpawn = false
           const waitForExit = handle.waitForExit.bind(handle)
-          const waitSpy = vi.spyOn(handle, 'waitForExit').mockImplementation(async (signal) => {
+          const waitSpy = vi.spyOn(handle, 'waitForExit').mockImplementation(async signal => {
             await waitForExit(signal)
             throw teardownFailure
           })
-          restoreFirstWait = () => { waitSpy.mockRestore() }
+          restoreFirstWait = () => {
+            waitSpy.mockRestore()
+          }
           return handle
         })
       },
@@ -268,7 +282,11 @@ describe('lsp-stdio end to end over a fake server', () => {
 
   it('accepts openClose options sync', async () => {
     const ctx = await mount({ LSP_FAKE_SYNC: JSON.stringify({ openClose: true, change: 2 }), LSP_FAKE_DEF: 'null' })
-    expect(await ctx.lsp.query(query('goToDefinition'))).toEqual({ kind: 'locations', locations: [], resolvedWorkspaceUri: pathToFileURL(ws).href })
+    expect(await ctx.lsp.query(query('goToDefinition'))).toEqual({
+      kind: 'locations',
+      locations: [],
+      resolvedWorkspaceUri: pathToFileURL(ws).href,
+    })
     await ctx.fiber.dispose()
   })
 
@@ -300,15 +318,25 @@ describe('lsp-stdio end to end over a fake server', () => {
   it('reads a queued query source only when its lifecycle starts', async () => {
     const marker = join(root, 'opened.jsonl')
     let provider: LspProvider | undefined
-    const ctx = await mount({
-      LSP_FAKE_DEF: 'null',
-      LSP_FAKE_OPEN_MARKER: marker,
-    }, {}, (registered) => { provider = registered })
+    const ctx = await mount(
+      {
+        LSP_FAKE_DEF: 'null',
+        LSP_FAKE_OPEN_MARKER: marker,
+      },
+      {},
+      registered => {
+        provider = registered
+      },
+    )
     const firstReply = Promise.withResolvers<undefined>()
     const release = Promise.withResolvers<undefined>()
     const request = Object.getOwnPropertyDescriptor(LspConnection.prototype, 'request')?.value as LspConnection['request']
     let holdFirst = true
-    const requestSpy = vi.spyOn(LspConnection.prototype, 'request').mockImplementation(async function (this: LspConnection, method, params) {
+    const requestSpy = vi.spyOn(LspConnection.prototype, 'request').mockImplementation(async function (
+      this: LspConnection,
+      method,
+      params,
+    ) {
       const hold = method === 'textDocument/definition' && holdFirst
       if (hold) holdFirst = false
       const result = await request.call(this, method, params)
@@ -330,14 +358,16 @@ describe('lsp-stdio end to end over a fake server', () => {
       expect(firstTail).toBeDefined()
       const second = ctx.lsp.query(query('goToDefinition'))
       pending.push(Promise.allSettled([second]))
-      await vi.waitFor(() => { expect([...queues.values()][0]).not.toBe(firstTail) }, { timeout: 3000 })
+      await vi.waitFor(
+        () => {
+          expect([...queues.values()][0]).not.toBe(firstTail)
+        },
+        { timeout: 3000 },
+      )
       await writeFile(join(ws, 'a.ts'), 'const changed = 2\n')
       release.resolve(undefined)
       await Promise.all([first, second])
-      expect(await markerLines(marker)).toEqual([
-        'const x = 1\nconst y = x\n',
-        'const changed = 2\n',
-      ])
+      expect(await markerLines(marker)).toEqual(['const x = 1\nconst y = x\n', 'const changed = 2\n'])
     } finally {
       release.resolve(undefined)
       await Promise.all(pending)
@@ -366,10 +396,13 @@ describe('lsp-stdio end to end over a fake server', () => {
   it('surfaces the server stderr tail in the exit error', async () => {
     // A server that writes to stderr then exits without answering: the query rejection carries the
     // retained stderr tail so the failure is diagnosable.
-    const ctx = await mount({}, {
-      command: process.execPath,
-      args: ['-e', 'process.stderr.write("FATAL: boom\\n"); setTimeout(()=>process.exit(1), 50)'],
-    })
+    const ctx = await mount(
+      {},
+      {
+        command: process.execPath,
+        args: ['-e', 'process.stderr.write("FATAL: boom\\n"); setTimeout(()=>process.exit(1), 50)'],
+      },
+    )
     await expect(ctx.lsp.query(query('goToDefinition'))).rejects.toThrow(/FATAL: boom/)
     await ctx.fiber.dispose()
   })
@@ -394,18 +427,18 @@ describe('lsp-stdio end to end over a fake server', () => {
     // instance in the pool. The next query must evict-and-replace it and still succeed, rather than
     // failing once on the closed connection first.
     let provider: LspProvider | undefined
-    const ctx = await mount(
-      { LSP_FAKE_EXIT_AFTER_REPLY: '1', LSP_FAKE_DEF: JSON.stringify(locationJson(0)) },
-      {},
-      (registered) => { provider = registered },
-    )
+    const ctx = await mount({ LSP_FAKE_EXIT_AFTER_REPLY: '1', LSP_FAKE_DEF: JSON.stringify(locationJson(0)) }, {}, registered => {
+      provider = registered
+    })
     expect(await ctx.lsp.query(query('goToDefinition'))).toMatchObject({ kind: 'locations' })
     if (provider === undefined) throw new Error('expected lsp-stdio to register a provider')
     // This implementation-local test reaches the private pool only to synchronize with its actual
     // close state. A fixed wall-clock sleep can expire before a CPU-starved child runs its exit timer.
-    const instances = (provider as unknown as {
-      readonly instances: ReadonlyMap<string, { readonly dead: boolean }>
-    }).instances
+    const instances = (
+      provider as unknown as {
+        readonly instances: ReadonlyMap<string, { readonly dead: boolean }>
+      }
+    ).instances
     const instance = [...instances.values()][0]
     // The query's finally may already have observed the exit and evicted the dead slot. When the
     // slot remains, synchronize with its close before proving the next query replaces it.
@@ -423,7 +456,11 @@ describe('lsp-stdio end to end over a fake server', () => {
     controller.abort(new Error('mid-read cancel'))
     await expect(pending).rejects.toThrow(/mid-read cancel/)
     // A subsequent live query still works, proving no half-created instance poisoned the pool.
-    expect(await ctx.lsp.query(query('goToDefinition'))).toEqual({ kind: 'locations', locations: [], resolvedWorkspaceUri: pathToFileURL(ws).href })
+    expect(await ctx.lsp.query(query('goToDefinition'))).toEqual({
+      kind: 'locations',
+      locations: [],
+      resolvedWorkspaceUri: pathToFileURL(ws).href,
+    })
     await ctx.fiber.dispose()
   })
 
@@ -444,7 +481,9 @@ describe('lsp-stdio end to end over a fake server', () => {
     const pending = ctx.lsp.query(query('goToDefinition'))
     const signal = await started.promise
     let disposed = false
-    const disposing = ctx.fiber.dispose().then(() => { disposed = true })
+    const disposing = ctx.fiber.dispose().then(() => {
+      disposed = true
+    })
     await new Promise<void>(resolve => setImmediate(resolve))
 
     expect(signal.aborted).toBe(true)
@@ -478,7 +517,9 @@ describe('lsp-stdio end to end over a fake server', () => {
 
   it('waits for every owned teardown before aggregating instance failures', async () => {
     let provider: LspProvider | undefined
-    const ctx = await mount({ LSP_FAKE_DEF: 'null' }, {}, (registered) => { provider = registered })
+    const ctx = await mount({ LSP_FAKE_DEF: 'null' }, {}, registered => {
+      provider = registered
+    })
     if (provider === undefined) throw new Error('expected lsp-stdio to register a provider')
     const internals = provider as unknown as {
       readonly instances: Map<string, { dispose(): Promise<void> }>
@@ -489,13 +530,23 @@ describe('lsp-stdio end to end over a fake server', () => {
     const firstFailure = new Error('first instance cleanup failed')
     const secondFailure = new Error('second instance cleanup failed')
     const release = Promise.withResolvers<undefined>()
-    internals.instances.set('first', { dispose: async () => { throw firstFailure } })
-    internals.instances.set('second', { dispose: async () => { throw secondFailure } })
+    internals.instances.set('first', {
+      dispose: async () => {
+        throw firstFailure
+      },
+    })
+    internals.instances.set('second', {
+      dispose: async () => {
+        throw secondFailure
+      },
+    })
     internals.queues.set('pending', release.promise)
     internals.workspaceLookups.add(Promise.resolve())
 
     let settled = false
-    const disposing = internals.disposeAll().finally(() => { settled = true })
+    const disposing = internals.disposeAll().finally(() => {
+      settled = true
+    })
     await new Promise<void>(resolve => setImmediate(resolve))
     expect(settled).toBe(false)
     release.resolve(undefined)
@@ -512,13 +563,15 @@ describe('lsp-stdio end to end over a fake server', () => {
   it('waits for every provider before reporting plugin teardown failure', async () => {
     const ctx = new Context()
     const disposalErrors: unknown[] = []
-    ctx.logger.error = ((error: unknown) => { disposalErrors.push(error) }) as typeof ctx.logger.error
+    ctx.logger.error = ((error: unknown) => {
+      disposalErrors.push(error)
+    }) as typeof ctx.logger.error
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
     const providers: LspProvider[] = []
     const register = ctx.lsp.registerProvider.bind(ctx.lsp)
-    const registrationSpy = vi.spyOn(ctx.lsp, 'registerProvider').mockImplementation((provider) => {
+    const registrationSpy = vi.spyOn(ctx.lsp, 'registerProvider').mockImplementation(provider => {
       providers.push(provider)
       return register(provider)
     })
@@ -534,11 +587,17 @@ describe('lsp-stdio end to end over a fake server', () => {
     const release = Promise.withResolvers<undefined>()
     const first = providers[0] as LspProvider & { disposeAll(): Promise<void> }
     const second = providers[1] as LspProvider & { disposeAll(): Promise<void> }
-    first.disposeAll = async () => { throw failure }
-    second.disposeAll = async () => { await release.promise }
+    first.disposeAll = async () => {
+      throw failure
+    }
+    second.disposeAll = async () => {
+      await release.promise
+    }
 
     let disposed = false
-    const disposing = fiber.dispose().then(() => { disposed = true })
+    const disposing = fiber.dispose().then(() => {
+      disposed = true
+    })
     await new Promise<void>(resolve => setImmediate(resolve))
     expect(disposed).toBe(false)
     expect(disposalErrors).toEqual([])
@@ -573,15 +632,17 @@ describe('lsp-stdio end to end over a fake server', () => {
     await ctx.plugin(Lsp)
     await ctx.plugin(LocalSubprocessRuntime)
     await ctx.plugin(LocalFileSystem, { cwd: process.cwd() })
-    await expect(ctx.plugin(LspLocal, {
-      servers: {
-        missing: {
-          command: 'definitely-not-a-real-lsp-binary-xyz',
-          args: [],
-          extensionToLanguage: { '.ts': 'typescript' },
+    await expect(
+      ctx.plugin(LspLocal, {
+        servers: {
+          missing: {
+            command: 'definitely-not-a-real-lsp-binary-xyz',
+            args: [],
+            extensionToLanguage: { '.ts': 'typescript' },
+          },
         },
-      },
-    })).rejects.toThrow(/was not found on PATH/)
+      }),
+    ).rejects.toThrow(/was not found on PATH/)
     await ctx.fiber.dispose()
   })
 })
@@ -590,7 +651,11 @@ describe('lsp-stdio end to end over a fake server', () => {
 async function markerLines(path: string): Promise<string[]> {
   try {
     const text = await readFile(path, 'utf8')
-    return text.trim().split('\n').filter(Boolean).map(line => JSON.parse(line) as string)
+    return text
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map(line => JSON.parse(line) as string)
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw error
@@ -600,7 +665,7 @@ async function markerLines(path: string): Promise<string[]> {
 /** Poll an asynchronous condition until it succeeds or the test-local deadline expires. */
 async function waitFor(condition: () => Promise<boolean>, timeoutMs = 3000): Promise<void> {
   const started = Date.now()
-  while (!await condition()) {
+  while (!(await condition())) {
     if (Date.now() - started > timeoutMs) throw new Error('waitFor timed out')
     await new Promise<void>(resolve => setTimeout(resolve, 10))
   }

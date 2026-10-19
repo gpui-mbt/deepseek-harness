@@ -33,7 +33,9 @@ export function SystemPromptRow({ text, update = false, t }: SystemPromptRowProp
       open={open}
       expandable
       expandOnRowClick
-      onToggle={() => { setOpen(value => !value) }}
+      onToggle={() => {
+        setOpen(value => !value)
+      }}
     >
       <div className={css.body} data-system-prompt-body>
         <OpaqueBody content={[{ type: 'text', text }]} source={null} t={t} />
@@ -44,7 +46,8 @@ export function SystemPromptRow({ text, update = false, t }: SystemPromptRowProp
 
 /** System-prompt keyed Chat renderer. */
 export const SystemPromptNodeView = memo(function SystemPromptNodeView({
-  node, t,
+  node,
+  t,
 }: Pick<ChatNodeViewProps<'system-prompt'>, 'node' | 't'>) {
   return <SystemPromptRow text={node.data.text} update={node.data.update === true} t={t} />
 })

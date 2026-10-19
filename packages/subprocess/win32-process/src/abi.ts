@@ -9,7 +9,7 @@ export const SW_HIDE = 0
 /** HandleInformation flag that permits child inheritance. */
 export const HANDLE_FLAG_INHERIT = 0x1
 /** Infinite WaitForSingleObject timeout. */
-export const INFINITE = 0xFFFFFFFF
+export const INFINITE = 0xffffffff
 /** WaitForSingleObject returned because a zero-time probe is not signalled. */
 export const WAIT_TIMEOUT = 258
 /** CreateProcess flag that prevents user code from running before resume. */

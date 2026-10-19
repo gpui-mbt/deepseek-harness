@@ -1,6 +1,6 @@
 /** Regex projection preserves known portable patterns and rejects Unicode-dependent assertions. */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RegExpParser } from '@eslint-community/regexpp'
 import { createPatternCheck } from '../src/config-schema/pattern.ts'
 
@@ -42,7 +42,9 @@ describe('JSON Schema pattern compatibility', () => {
   })
 
   it('does not hide unexpected parser failures', () => {
-    const parse = vi.spyOn(RegExpParser.prototype, 'parsePattern').mockImplementation(() => { throw new Error('parser failed') })
+    const parse = vi.spyOn(RegExpParser.prototype, 'parsePattern').mockImplementation(() => {
+      throw new Error('parser failed')
+    })
     try {
       expect(() => portable('plain')).toThrow('parser failed')
     } finally {

@@ -33,12 +33,7 @@ export function spawnRunnerInvocation(): RunnerInvocation {
   if (extname(fileURLToPath(import.meta.url)) !== '.ts') {
     return [process.execPath, fileURLToPath(import.meta.resolve('@deepseek-ai/dsh-subprocess-local/runner'))]
   }
-  return [
-    process.execPath,
-    '--import',
-    import.meta.resolve('tsx/esm'),
-    fileURLToPath(new URL('./bin.ts', import.meta.url)),
-  ]
+  return [process.execPath, '--import', import.meta.resolve('tsx/esm'), fileURLToPath(new URL('./bin.ts', import.meta.url))]
 }
 
 /**
@@ -65,10 +60,7 @@ export function runnerInvocationAvailable(invocation: RunnerInvocation = spawnRu
  * @param invocation - resolved runner invocation whose source form needs the workspace paths map.
  * @returns environment for the runner before target state is restored.
  */
-export function runnerEnvironment(
-  selection: string,
-  invocation?: RunnerInvocation,
-): NodeJS.ProcessEnv {
+export function runnerEnvironment(selection: string, invocation?: RunnerInvocation): NodeJS.ProcessEnv {
   const entry = invocation?.at(-1)
   const env = childEnv()
   for (const name of Object.keys(env)) {
@@ -81,7 +73,7 @@ export function runnerEnvironment(
     ...env,
     [SUBPROCESS_RUNNER_ENV]: selection,
     SYSTEMD_LOG_TARGET: 'null',
-    ...entry?.endsWith('.ts') === true ? { TSX_TSCONFIG_PATH: SOURCE_TSCONFIG_PATH } : {},
+    ...(entry?.endsWith('.ts') === true ? { TSX_TSCONFIG_PATH: SOURCE_TSCONFIG_PATH } : {}),
   }
 }
 
@@ -116,11 +108,7 @@ export function parseRunnerTargetArgv(argv: readonly string[]): string[] {
  * @param stdinCarrier - runner fd 4 carrier; Windows ignore passes an opened null-device fd.
  * @returns child-process stdio options for the runner.
  */
-export function runnerStdio(
-  spec: SubprocessSpawnSpec,
-  ipc: boolean,
-  stdinCarrier: 'pipe' | number = 'pipe',
-): StdioOptions {
+export function runnerStdio(spec: SubprocessSpawnSpec, ipc: boolean, stdinCarrier: 'pipe' | number = 'pipe'): StdioOptions {
   const targetStdio: StdioOptions = [
     spec.stdio.stdin === 'ignore' ? 'ignore' : 'pipe',
     spec.stdio.stdout === 'inherit' ? 'inherit' : 'pipe',
@@ -179,10 +167,8 @@ function windowsPathDirectories(path: string): string[] {
     }
     const quote = path.charAt(start)
     const quoted = quote === '"' || quote === "'"
-    const quoteEnd = quoted
-      ? path.indexOf(quote, start + 1)
-      : -1
-    const separator = path.indexOf(';', quoted ? quoteEnd < 0 ? path.length : quoteEnd : start)
+    const quoteEnd = quoted ? path.indexOf(quote, start + 1) : -1
+    const separator = path.indexOf(';', quoted ? (quoteEnd < 0 ? path.length : quoteEnd) : start)
     const end = separator < 0 ? path.length : separator
     let directory = path.slice(start, end)
     if (directory.startsWith('"') || directory.startsWith("'")) directory = directory.slice(1)
@@ -207,11 +193,7 @@ function windowsSearchPathJoin(directory: string, name: string, cwd: string): st
     prefix = ''
   } else if (directory.length >= 1 && slash(directory.charAt(0))) {
     prefix = cwd.slice(0, 2)
-  } else if (
-    directory.length >= 2
-    && directory.charAt(1) === ':'
-    && (directory.length < 3 || !slash(directory.charAt(2)))
-  ) {
+  } else if (directory.length >= 2 && directory.charAt(1) === ':' && (directory.length < 3 || !slash(directory.charAt(2)))) {
     if (cwd.length < 2 || cwd.slice(0, 2).toLowerCase() !== directory.slice(0, 2).toLowerCase()) {
       prefix = ''
     } else {
@@ -232,11 +214,7 @@ function windowsExecutableNames(command: string, name: string): string[] {
   const dot = name.indexOf('.')
   const hasExtension = dot >= 0 && dot < name.length - 1
   const separator = name.endsWith('.') ? '' : '.'
-  return [
-    ...hasExtension ? [command] : [],
-    `${command}${separator}com`,
-    `${command}${separator}exe`,
-  ]
+  return [...(hasExtension ? [command] : []), `${command}${separator}com`, `${command}${separator}exe`]
 }
 
 /**
@@ -304,9 +282,7 @@ export function targetEnvironment(
     validateNoNullByte(index === 0 ? 'file' : `args[${String(index - 1)}]`, value, true)
   })
   validateNoNullByte('options.cwd', spec.cwd)
-  const env = Object.fromEntries(
-    Object.entries(childEnv(spec.env)).filter((entry): entry is [string, string] => entry[1] !== undefined),
-  )
+  const env = Object.fromEntries(Object.entries(childEnv(spec.env)).filter((entry): entry is [string, string] => entry[1] !== undefined))
   for (const [key, value] of Object.entries(env)) {
     validateNoNullByte(`options.env['${key}']`, key)
     validateNoNullByte(`options.env['${key}']`, value)

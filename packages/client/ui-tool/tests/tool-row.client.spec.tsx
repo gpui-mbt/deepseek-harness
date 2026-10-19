@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 
@@ -7,9 +7,7 @@ import type { StartedToolCall, ToolResultNode } from '@deepseek-ai/dsh-client-ui
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { localizeAutoReviewDenial, normalizeAutoReviewReason } from '../src/client/tool/models/auto-review-denial.ts'
-import {
-  classifyTool, formatToolBody, resultText, toolRowModel,
-} from '../src/client/tool/models/tool-call-model.ts'
+import { classifyTool, formatToolBody, resultText, toolRowModel } from '../src/client/tool/models/tool-call-model.ts'
 import { ToolRow } from '../src/client/tool/components/ToolRow.tsx'
 import { GenericToolCard, type GenericToolCardProps } from '../src/client/tool/toolviews/GenericToolCard.tsx'
 import { zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
@@ -25,19 +23,34 @@ const t: GenericToolCardProps['t'] = makeTranslate(zh, commonZh)
 const running = (over?: Partial<StartedToolCall>): StartedToolCall => {
   const argsRaw = over?.argsRaw ?? '{"command":"ls -la","description":"List files"}'
   return {
-    phase: 'start' as const, args: PartialArguments.fromText(argsRaw), callId: 'c1', name: 'bash', argsRaw,
-    turn: 1, step: 1, time: 1_000, subCalls: [], ...over,
+    phase: 'start' as const,
+    args: PartialArguments.fromText(argsRaw),
+    callId: 'c1',
+    name: 'bash',
+    argsRaw,
+    turn: 1,
+    step: 1,
+    time: 1_000,
+    subCalls: [],
+    ...over,
   }
 }
 
 const result = (over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'bash', argsRaw: '{"command":"ls -la","description":"List files"}' } : over.call
   return {
-    kind: 'tool-result', seq: 10, time: 2_000, callId: 'c1',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq: 10,
+    time: 2_000,
+    callId: 'c1',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: 1_000,
-    content: [], isError: false, subCalls: [], ...over,
+    content: [],
+    isError: false,
+    subCalls: [],
+    ...over,
   }
 }
 
@@ -117,11 +130,12 @@ describe('tool-call-model', () => {
     for (const withDescription of [true, false]) {
       const argsRaw = JSON.stringify({
         query: 'First argument',
-        ...withDescription ? { description: 'Preferred description\nSecond line' } : {},
+        ...(withDescription ? { description: 'Preferred description\nSecond line' } : {}),
       })
       for (const block of [running({ name, argsRaw }), result({ call: { name, argsRaw } })]) {
         expect(toolRowModel(name, block)).toMatchObject({
-          variant, summary: prefix + (withDescription ? 'Preferred description' : 'First argument'),
+          variant,
+          summary: prefix + (withDescription ? 'Preferred description' : 'First argument'),
         })
       }
     }
@@ -141,18 +155,22 @@ describe('tool-call-model', () => {
   })
 
   it('joins multi-query web search arguments in the summary', () => {
-    expect(toolRowModel('web_search', running({
-      name: 'web_search',
-      argsRaw: '{"queries":["first query","second\\nquery"]}',
-    })).summary).toBe('first query, second')
+    expect(
+      toolRowModel(
+        'web_search',
+        running({
+          name: 'web_search',
+          argsRaw: '{"queries":["first query","second\\nquery"]}',
+        }),
+      ).summary,
+    ).toBe('first query, second')
   })
 
   it('exposes filePath for path/file_path args and skips URL-only reads', () => {
     expect(toolRowModel('read', result({ call: { name: 'read', argsRaw: '{"path":"src/a.ts"}' } })).filePath).toBe('src/a.ts')
     expect(toolRowModel('write', result({ call: { name: 'write', argsRaw: '{"file_path":"src/a.ts"}' } })).filePath).toBe('src/a.ts')
     expect(toolRowModel('edit', result({ call: { name: 'edit', argsRaw: '{"file_path":"src/a.ts"}' } })).filePath).toBe('src/a.ts')
-    expect(toolRowModel('web_fetch', running({ name: 'web_fetch', argsRaw: '{"url":"https://example.com"}' })).filePath)
-      .toBeUndefined()
+    expect(toolRowModel('web_fetch', running({ name: 'web_fetch', argsRaw: '{"url":"https://example.com"}' })).filePath).toBeUndefined()
     expect(toolRowModel('bash', running()).filePath).toBeUndefined()
   })
 
@@ -166,19 +184,38 @@ describe('tool-call-model', () => {
     expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u/ws/a.md"}' }), '').summary).toBe('/Users/u/ws/a.md')
   })
 
-  it.each(['read', 'write', 'edit', 'read_image'].flatMap(name => [false, true].map(nested => ({ name, nested }))))('opens $name nested=$nested at its recorded target after later directory changes without relabeling it', ({ name, nested }) => {
-    const block = result({ ...(nested ? { parentCallId: 'outer' } : {}), call: { name, argsRaw: '{"file_path":"note.txt"}' }, meta: { path: '/workspace/b/note.txt' } })
-    for (const cwd of ['/workspace/a', '/workspace/c']) {
-      const model = toolRowModel(name, block, cwd)
-      expect(model.filePath).toBe('/workspace/b/note.txt')
-      expect(model.summary).toBe('note.txt')
-      const openFile = vi.fn()
-      const view = render(<GenericToolCard useDisclosure={useDisclosure} phase="result" callId="c1" toolName={name} block={block} cwd={cwd} openFile={openFile} loadImage={vi.fn(async () => '')} t={t} />)
-      fireEvent.click(view.getByText('note.txt'))
-      expect(openFile).toHaveBeenCalledWith('/workspace/b/note.txt')
-      view.unmount()
-    }
-  })
+  it.each(['read', 'write', 'edit', 'read_image'].flatMap(name => [false, true].map(nested => ({ name, nested }))))(
+    'opens $name nested=$nested at its recorded target after later directory changes without relabeling it',
+    ({ name, nested }) => {
+      const block = result({
+        ...(nested ? { parentCallId: 'outer' } : {}),
+        call: { name, argsRaw: '{"file_path":"note.txt"}' },
+        meta: { path: '/workspace/b/note.txt' },
+      })
+      for (const cwd of ['/workspace/a', '/workspace/c']) {
+        const model = toolRowModel(name, block, cwd)
+        expect(model.filePath).toBe('/workspace/b/note.txt')
+        expect(model.summary).toBe('note.txt')
+        const openFile = vi.fn()
+        const view = render(
+          <GenericToolCard
+            useDisclosure={useDisclosure}
+            phase="result"
+            callId="c1"
+            toolName={name}
+            block={block}
+            cwd={cwd}
+            openFile={openFile}
+            loadImage={vi.fn(async () => '')}
+            t={t}
+          />,
+        )
+        fireEvent.click(view.getByText('note.txt'))
+        expect(openFile).toHaveBeenCalledWith('/workspace/b/note.txt')
+        view.unmount()
+      }
+    },
+  )
 
   it('keeps old root results usable and waits for recorded targets before opening relative pending or nested calls', () => {
     const call = { name: 'read', argsRaw: '{"file_path":"note.txt"}' }
@@ -188,56 +225,46 @@ describe('tool-call-model', () => {
     expect(toolRowModel('read', running(call), '/original').filePath).toBeUndefined()
     expect(toolRowModel('read', result({ call, parentCallId: 'outer' }), '/original').filePath).toBeUndefined()
     expect(toolRowModel('read', result({ call, isError: true }), '/original').filePath).toBeUndefined()
-    expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"file_path":"/absolute/note.txt"}' })).filePath).toBe('/absolute/note.txt')
+    expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"file_path":"/absolute/note.txt"}' })).filePath).toBe(
+      '/absolute/note.txt',
+    )
   })
 
   it('abbreviates leftover POSIX home paths after cwd relativization', () => {
     const home = '/Users/u'
     const cwd = '/tmp/ws'
     expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u"}' }), cwd, home).summary).toBe('~')
-    expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u/notes.md"}' }), cwd, home).summary)
-      .toBe('~/notes.md')
+    expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u/notes.md"}' }), cwd, home).summary).toBe('~/notes.md')
     // Workspace-relative wins: a home-and-cwd descendant stays short, not `~/…`.
-    expect(toolRowModel(
-      'read',
-      running({ name: 'read', argsRaw: '{"path":"/Users/u/proj/src/a.ts"}' }),
-      '/Users/u/proj',
-      home,
-    ).summary).toBe('src/a.ts')
+    expect(
+      toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u/proj/src/a.ts"}' }), '/Users/u/proj', home).summary,
+    ).toBe('src/a.ts')
     // Prefix boundary: `/Users/u2` is not under `/Users/u`.
-    expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u2/a.ts"}' }), cwd, home).summary)
-      .toBe('/Users/u2/a.ts')
-    expect(toolRowModel(
-      'read',
-      running({ name: 'read', argsRaw: '{"path":"C:\\\\Users\\\\u\\\\a.ts"}' }),
-      cwd,
-      home,
-    ).summary).toBe('C:\\Users\\u\\a.ts')
-    expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u/a.ts"}' }), cwd).summary)
-      .toBe('/Users/u/a.ts')
+    expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u2/a.ts"}' }), cwd, home).summary).toBe('/Users/u2/a.ts')
+    expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"C:\\\\Users\\\\u\\\\a.ts"}' }), cwd, home).summary).toBe(
+      'C:\\Users\\u\\a.ts',
+    )
+    expect(toolRowModel('read', running({ name: 'read', argsRaw: '{"path":"/Users/u/a.ts"}' }), cwd).summary).toBe('/Users/u/a.ts')
   })
 
   it('body pretty-prints JSON args, keeps raw non-JSON, null when empty', () => {
-    expect(formatToolBody('bash', toolRowModel('bash', running({ argsRaw: '{"a":1}' })).bodyRaw ?? ''))
-      .toBe('{\n  "a": 1\n}')
-    expect(formatToolBody('bash', toolRowModel('bash', running({ argsRaw: 'raw' })).bodyRaw ?? ''))
-      .toBe('raw')
+    expect(formatToolBody('bash', toolRowModel('bash', running({ argsRaw: '{"a":1}' })).bodyRaw ?? '')).toBe('{\n  "a": 1\n}')
+    expect(formatToolBody('bash', toolRowModel('bash', running({ argsRaw: 'raw' })).bodyRaw ?? '')).toBe('raw')
     expect(toolRowModel('bash', running({ argsRaw: '' })).bodyRaw).toBeNull()
     expect(toolRowModel('bash', result({ call: null })).bodyRaw).toBeNull()
   })
 
   it('a code row with an empty program falls back to the args JSON envelope', () => {
     const model = toolRowModel('run_code', running({ name: 'run_code', argsRaw: '{"code":""}' }))
-    expect(formatToolBody(model.variant, model.bodyRaw ?? ''))
-      .toBe('{\n  "code": ""\n}')
+    expect(formatToolBody(model.variant, model.bodyRaw ?? '')).toBe('{\n  "code": ""\n}')
   })
 
   it('resultText flattens text blocks verbatim, other shapes as JSON, empty error content to name: code', () => {
     expect(resultText(result({ content: [{ type: 'text', text: 'a\nb' }] }))).toBe('a\nb')
-    expect(resultText(result({ content: [{ type: 'text', text: 'a' }, { type: 'image', data: 'x' } as never] })))
-      .toBe(`a\n${JSON.stringify({ type: 'image', data: 'x' }, null, 2)}`)
-    expect(resultText(result({ content: [], isError: true, error: { name: 'ToolError', code: 'denied' } })))
-      .toBe('ToolError: denied')
+    expect(resultText(result({ content: [{ type: 'text', text: 'a' }, { type: 'image', data: 'x' } as never] }))).toBe(
+      `a\n${JSON.stringify({ type: 'image', data: 'x' }, null, 2)}`,
+    )
+    expect(resultText(result({ content: [], isError: true, error: { name: 'ToolError', code: 'denied' } }))).toBe('ToolError: denied')
     expect(resultText(result({ content: [] }))).toBe('')
   })
 
@@ -262,26 +289,51 @@ describe('tool-call-model', () => {
       error: { name: 'AutoReviewDeniedError', code: 'AUTO_REVIEW_DENIED', reason: ' raw\nreason ' },
     })
     expect(toolRowModel('bash', denied).autoReviewDenial).toEqual({ reason: ' raw\nreason ' })
-    expect(toolRowModel('bash', result({
-      isError: true,
-      error: { name: 'AutoReviewDeniedError', code: 'AUTO_REVIEW_DENIED' },
-    })).autoReviewDenial).toEqual({ reason: null })
-    expect(toolRowModel('bash', result({
-      isError: true,
-      error: { name: 'AutoReviewDeniedError', code: 'AUTO_REVIEW_DENIED', reason: 42 },
-    } as never)).autoReviewDenial).toEqual({ reason: null })
-    expect(toolRowModel('bash', result({
-      isError: true,
-      error: { name: 'AutoReviewDeniedError', code: 'OTHER' },
-    })).autoReviewDenial).toBeNull()
-    expect(toolRowModel('bash', result({
-      isError: true,
-      error: { name: 'OtherError', code: 'AUTO_REVIEW_DENIED' },
-    })).autoReviewDenial).toBeNull()
-    expect(toolRowModel('bash', result({
-      isError: false,
-      error: { name: 'AutoReviewDeniedError', code: 'AUTO_REVIEW_DENIED' },
-    })).autoReviewDenial).toBeNull()
+    expect(
+      toolRowModel(
+        'bash',
+        result({
+          isError: true,
+          error: { name: 'AutoReviewDeniedError', code: 'AUTO_REVIEW_DENIED' },
+        }),
+      ).autoReviewDenial,
+    ).toEqual({ reason: null })
+    expect(
+      toolRowModel(
+        'bash',
+        result({
+          isError: true,
+          error: { name: 'AutoReviewDeniedError', code: 'AUTO_REVIEW_DENIED', reason: 42 },
+        } as never),
+      ).autoReviewDenial,
+    ).toEqual({ reason: null })
+    expect(
+      toolRowModel(
+        'bash',
+        result({
+          isError: true,
+          error: { name: 'AutoReviewDeniedError', code: 'OTHER' },
+        }),
+      ).autoReviewDenial,
+    ).toBeNull()
+    expect(
+      toolRowModel(
+        'bash',
+        result({
+          isError: true,
+          error: { name: 'OtherError', code: 'AUTO_REVIEW_DENIED' },
+        }),
+      ).autoReviewDenial,
+    ).toBeNull()
+    expect(
+      toolRowModel(
+        'bash',
+        result({
+          isError: false,
+          error: { name: 'AutoReviewDeniedError', code: 'AUTO_REVIEW_DENIED' },
+        }),
+      ).autoReviewDenial,
+    ).toBeNull()
     expect(toolRowModel('bash', running()).autoReviewDenial).toBeNull()
   })
 
@@ -296,25 +348,40 @@ describe('tool-call-model', () => {
   })
 
   it('gives Cordis lifecycle tools action titles over their generic variants', () => {
-    expect(toolRowModel('cordis_runtime_inspect', running({
-      name: 'cordis_runtime_inspect',
-      argsRaw: '{"what":"api","name":"tools"}',
-    }))).toMatchObject({
+    expect(
+      toolRowModel(
+        'cordis_runtime_inspect',
+        running({
+          name: 'cordis_runtime_inspect',
+          argsRaw: '{"what":"api","name":"tools"}',
+        }),
+      ),
+    ).toMatchObject({
       variant: 'read',
       titleKey: 'tool.title.inspect',
       summary: 'api',
     })
-    expect(toolRowModel('cordis_run', running({
-      name: 'cordis_run',
-      argsRaw: '{"id":"dyn-2"}',
-    }))).toMatchObject({
+    expect(
+      toolRowModel(
+        'cordis_run',
+        running({
+          name: 'cordis_run',
+          argsRaw: '{"id":"dyn-2"}',
+        }),
+      ),
+    ).toMatchObject({
       variant: 'others',
       titleKey: 'tool.title.runCordis',
       summary: 'dyn-2',
     })
-    expect(toolRowModel('cordis_undefine', result({
-      call: { name: 'cordis_undefine', argsRaw: '{"id":"dyn-2"}' },
-    }))).toMatchObject({
+    expect(
+      toolRowModel(
+        'cordis_undefine',
+        result({
+          call: { name: 'cordis_undefine', argsRaw: '{"id":"dyn-2"}' },
+        }),
+      ),
+    ).toMatchObject({
       variant: 'others',
       titleKey: 'tool.title.removeCordis',
       summary: 'dyn-2',
@@ -326,8 +393,12 @@ describe('ToolRow', () => {
   const rowProps = {
     useDisclosure,
     t,
-    variant: 'bash' as const, icon: <i data-testid="tool-icon" />, title: 'Bash',
-    summary: 'List files', bodyRaw: '{"a":1}', state: 'ok' as const,
+    variant: 'bash' as const,
+    icon: <i data-testid="tool-icon" />,
+    title: 'Bash',
+    summary: 'List files',
+    bodyRaw: '{"a":1}',
+    state: 'ok' as const,
   }
 
   it('renders leading icon, title and summary while collapsed', () => {
@@ -352,13 +423,25 @@ describe('ToolRow', () => {
   })
 
   it('shows totals once and shared context once when an edit expands', () => {
-    const view = render(<ToolRow {...rowProps} variant="edit" title="Edit" summary="settings.ts" diff={{
-      card: { diffs: [{
-        path: 'settings.ts',
-        oldText: 'start\nsecond\nthird\nold\nfourth\nfifth\nend',
-        newText: 'start\nsecond\nthird\nnew\nfourth\nfifth\nend',
-      }] },
-    }} />)
+    const view = render(
+      <ToolRow
+        {...rowProps}
+        variant="edit"
+        title="Edit"
+        summary="settings.ts"
+        diff={{
+          card: {
+            diffs: [
+              {
+                path: 'settings.ts',
+                oldText: 'start\nsecond\nthird\nold\nfourth\nfifth\nend',
+                newText: 'start\nsecond\nthird\nnew\nfourth\nfifth\nend',
+              },
+            ],
+          },
+        }}
+      />,
+    )
     expect(view.container.querySelector('[data-disclosure-row]')?.textContent).toContain('+1 -1')
     expect(view.container.querySelector('[data-diff]')).toBeNull()
     fireEvent.click(view.getByRole('button'))
@@ -373,14 +456,16 @@ describe('ToolRow', () => {
 
   it('formats the argument body only while expanding it', () => {
     const stringify = vi.spyOn(JSON, 'stringify')
-    const bodyFormatCalls = () => stringify.mock.calls.filter(
-      ([value, replacer, space]) => typeof value === 'object'
-        && value !== null
-        && 'a' in value
-        && (value as { a?: unknown }).a === 1
-        && replacer === null
-        && space === 2,
-    ).length
+    const bodyFormatCalls = () =>
+      stringify.mock.calls.filter(
+        ([value, replacer, space]) =>
+          typeof value === 'object' &&
+          value !== null &&
+          'a' in value &&
+          (value as { a?: unknown }).a === 1 &&
+          replacer === null &&
+          space === 2,
+      ).length
     const view = render(<ToolRow {...rowProps} />)
     expect(bodyFormatCalls()).toBe(0)
 
@@ -422,9 +507,7 @@ describe('ToolRow', () => {
 
   it('file rows expand from the row while the path link opens without toggling', () => {
     const open = vi.fn()
-    const view = render(
-      <ToolRow {...rowProps} variant="read" title="Read" summary="src/a.ts" filePath="src/a.ts" onOpenFile={open} />,
-    )
+    const view = render(<ToolRow {...rowProps} variant="read" title="Read" summary="src/a.ts" filePath="src/a.ts" onOpenFile={open} />)
     const row = view.getByRole('button', { name: /Read/ })
     const path = view.getByText('src/a.ts')
     for (const key of ['Enter', ' ', 'Tab']) {
@@ -442,9 +525,7 @@ describe('ToolRow', () => {
   })
 
   it('a file path without onOpenFile renders a plain summary on an expandable row', () => {
-    const view = render(
-      <ToolRow {...rowProps} variant="write" title="Write" summary="作文.md" filePath="作文.md" />,
-    )
+    const view = render(<ToolRow {...rowProps} variant="write" title="Write" summary="作文.md" filePath="作文.md" />)
     expect(view.container.querySelector('button')).toBeNull()
     const row = view.getByRole('button')
     fireEvent.click(row)
@@ -460,9 +541,7 @@ describe('ToolRow', () => {
   })
 
   it('an error row shows the failure first line in the collapsed summary and the full text expanded', () => {
-    const view = render(
-      <ToolRow {...rowProps} state="error" errorSummary="boom" output={'boom\ndetail'} />,
-    )
+    const view = render(<ToolRow {...rowProps} state="error" errorSummary="boom" output={'boom\ndetail'} />)
     expect(view.getByText('boom')).toBeTruthy()
     expect(view.queryByText('List files')).toBeNull()
     fireEvent.click(view.getByRole('button'))
@@ -484,9 +563,7 @@ describe('ToolRow', () => {
     expect(summary.contains(suffix)).toBe(false)
     view.unmount()
     // The failure line replaces the summary wholesale, so the suffix goes with it.
-    const failed = render(
-      <ToolRow {...rowProps} state="error" errorSummary="boom" summarySuffix="+2" />,
-    )
+    const failed = render(<ToolRow {...rowProps} state="error" errorSummary="boom" summarySuffix="+2" />)
     expect(failed.queryByText('+2')).toBeNull()
   })
 
@@ -507,8 +584,12 @@ describe('ToolRow', () => {
     const view = render(
       <ToolRow
         {...rowProps}
-        variant="write" title="Write" state="error" errorSummary="cannot overwrite"
-        filePath="src/a.ts" onOpenFile={open}
+        variant="write"
+        title="Write"
+        state="error"
+        errorSummary="cannot overwrite"
+        filePath="src/a.ts"
+        onOpenFile={open}
       />,
     )
     fireEvent.click(view.getByText('cannot overwrite'))
@@ -559,7 +640,12 @@ describe('ToolRow', () => {
 describe('GenericToolCard', () => {
   const props = (toolName: string, block: StartedToolCall | ToolResultNode): GenericToolCardProps => ({
     loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
-    useDisclosure, callId: 'c1', toolName, ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(), t,
+    useDisclosure,
+    callId: 'c1',
+    toolName,
+    ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+    openFile: vi.fn(),
+    t,
   })
 
   it('renders the classified variant row from the frozen slice', () => {
@@ -569,24 +655,23 @@ describe('GenericToolCard', () => {
     expect(view.container.querySelector('[data-variant="bash"]')).not.toBeNull()
   })
 
-  it.each([
-    'bash', 'read', 'grep', 'write', 'run_code', 'unknown_tool',
-  ] as const)('keeps the %s business family artwork on failure', (toolName) => {
-    const failed = result({
-      call: { name: toolName, argsRaw: '{}' },
-      content: [{ type: 'text', text: 'failed' }],
-      isError: true,
-    })
-    const view = render(<GenericToolCard {...props(toolName, failed)} />)
-    const root = view.container.querySelector(`[data-tool="${toolName}"]`)!
-    expect(root.querySelector('[data-disclosure-row] > :first-child svg')).not.toBeNull()
-    expect(root.querySelector('[data-state]')).toBeNull()
-  })
+  it.each(['bash', 'read', 'grep', 'write', 'run_code', 'unknown_tool'] as const)(
+    'keeps the %s business family artwork on failure',
+    toolName => {
+      const failed = result({
+        call: { name: toolName, argsRaw: '{}' },
+        content: [{ type: 'text', text: 'failed' }],
+        isError: true,
+      })
+      const view = render(<GenericToolCard {...props(toolName, failed)} />)
+      const root = view.container.querySelector(`[data-tool="${toolName}"]`)!
+      expect(root.querySelector('[data-disclosure-row] > :first-child svg')).not.toBeNull()
+      expect(root.querySelector('[data-state]')).toBeNull()
+    },
+  )
 
   it('unknown tools land on the others variant titled Tool call', () => {
-    const view = render(
-      <GenericToolCard {...props('custom_tool', running({ name: 'custom_tool', argsRaw: '{"note":"x"}' }))} />,
-    )
+    const view = render(<GenericToolCard {...props('custom_tool', running({ name: 'custom_tool', argsRaw: '{"note":"x"}' }))} />)
     expect(view.getByText('工具调用')).toBeTruthy()
     expect(view.container.querySelector('[data-variant="others"]')).not.toBeNull()
     expect(view.container.querySelector('[data-state="running"]')).not.toBeNull()
@@ -594,10 +679,15 @@ describe('GenericToolCard', () => {
 
   it('renders edit with its dedicated title, icon variant, and path summary', () => {
     const view = render(
-      <GenericToolCard {...props('edit', running({
-        name: 'edit',
-        argsRaw: '{"file_path":"src/x.ts","old_string":"before","new_string":"after"}',
-      }))} />,
+      <GenericToolCard
+        {...props(
+          'edit',
+          running({
+            name: 'edit',
+            argsRaw: '{"file_path":"src/x.ts","old_string":"before","new_string":"after"}',
+          }),
+        )}
+      />,
     )
     expect(view.getByText('编辑')).toBeTruthy()
     expect(view.getByText('src/x.ts')).toBeTruthy()
@@ -607,10 +697,15 @@ describe('GenericToolCard', () => {
 
   it('renders write with its dedicated title, icon variant, and path summary', () => {
     const view = render(
-      <GenericToolCard {...props('write', running({
-        name: 'write',
-        argsRaw: '{"file_path":"src/x.ts","content":"hello"}',
-      }))} />,
+      <GenericToolCard
+        {...props(
+          'write',
+          running({
+            name: 'write',
+            argsRaw: '{"file_path":"src/x.ts","content":"hello"}',
+          }),
+        )}
+      />,
     )
     expect(view.getByText('写入')).toBeTruthy()
     expect(view.getByText('src/x.ts')).toBeTruthy()
@@ -653,9 +748,7 @@ describe('GenericToolCard', () => {
     expect(view.getByText('工具未执行。原因：scope was not authorized')).toBeTruthy()
     expect(view.queryByText('输入')).toBeNull()
     expect(view.getAllByText('输出')).toHaveLength(1)
-    expect(stringify.mock.calls.some(([value]) => (
-      typeof value === 'object' && value !== null && 'path' in value
-    ))).toBe(false)
+    expect(stringify.mock.calls.some(([value]) => typeof value === 'object' && value !== null && 'path' in value)).toBe(false)
     expect(view.queryByText('Tool execution rejected by user')).toBeNull()
     expect(view.queryByText(/"path"/)).toBeNull()
   })

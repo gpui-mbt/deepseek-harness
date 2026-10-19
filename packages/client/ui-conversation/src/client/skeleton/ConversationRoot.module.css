@@ -27,6 +27,13 @@
   padding-bottom: 10px;
 }
 
+/* A phone frame reserves the leading seat's controls through
+   --dsh-frame-leading-clearance, so the header's own gutter narrows to the
+   ordinary page padding instead of the desktop 28/20 pair. */
+:global([data-mobile]) .header {
+  padding-inline: 12px;
+}
+
 /* Blank Sessions retain navigation controls without conversation title or tabs. */
 .headerBlank {
   min-height: 0;
@@ -151,6 +158,14 @@ button.crumb:hover {
   font-weight: 500;
   color: var(--dsw-alias-label-primary);
   cursor: default;
+}
+
+/* A narrow title row keeps only the current crumb: the ancestry is one tap away
+   in the navigation drawer, while the surviving title gets the row's width. */
+@container (max-width: 520px) {
+  .crumbs > .crumbSeg:not(:last-child) {
+    display: none;
+  }
 }
 
 .headerActions {

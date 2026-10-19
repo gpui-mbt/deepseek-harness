@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { runInNewContext } from 'node:vm'
 import * as yaml from 'js-yaml'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 interface Step {
   name?: string
@@ -19,7 +19,10 @@ interface CompatibilityJob {
   'runs-on': string
   if: string
   env: Record<string, string>
-  strategy: { 'fail-fast': boolean; matrix: { include: Array<{ node: string | number; name: string; runner: string; gate_concurrency: string }> } }
+  strategy: {
+    'fail-fast': boolean
+    matrix: { include: Array<{ node: string | number; name: string; runner: string; gate_concurrency: string }> }
+  }
   steps: Step[]
 }
 
@@ -33,9 +36,14 @@ const labels = ['self-hosted', 'linux', 'x64', 'vm-backup']
 // strings case-insensitively; JavaScript does not. This is not an Actions evaluator.
 function evaluate(expression: string, context: Record<string, unknown>): unknown {
   const body = expression.trim().slice(3, -2)
-  return runInNewContext(body, {
-    ...context, fromJSON: JSON.parse,
-  }, { timeout: 1000 })
+  return runInNewContext(
+    body,
+    {
+      ...context,
+      fromJSON: JSON.parse,
+    },
+    { timeout: 1000 },
+  )
 }
 
 function route(options: { mode?: string; author?: string; repository?: string; fork?: boolean; actor?: string } = {}): unknown {
@@ -44,10 +52,12 @@ function route(options: { mode?: string; author?: string; repository?: string; f
     github: {
       repository: 'deepseek-harness/deepseek-harness',
       actor: options.actor ?? 'maintainer',
-      event: { pull_request: {
-        user: { login: options.author ?? 'maintainer' },
-        head: { repo: { full_name: options.repository ?? 'deepseek-harness/deepseek-harness', fork: options.fork ?? false } },
-      } },
+      event: {
+        pull_request: {
+          user: { login: options.author ?? 'maintainer' },
+          head: { repo: { full_name: options.repository ?? 'deepseek-harness/deepseek-harness', fork: options.fork ?? false } },
+        },
+      },
     },
     matrix: { runner: 'ubuntu-latest' },
   })
@@ -77,7 +87,9 @@ describe('Node compatibility self-hosted routing', () => {
     ])
     expect(job.env.DSH_GATE_CONCURRENCY).toBe('${{ matrix.gate_concurrency }}')
     expect(job.steps.map(step => step.run)).toContain('pnpm run check:node-compat')
-    expect(job.steps.map(step => step.run)).toContain('pnpm exec vitest run packages/boot/app-boot/tests/loader-shape.compat.spec.ts')
+    expect(job.steps.map(step => step.run)).toContain(
+      'pnpm exec vp test --config vitest.config.ts packages/boot/app-boot/tests/loader-shape.compat.spec.ts',
+    )
     expect(workflow.jobs['python-sdk']['runs-on']).toBe('ubuntu-latest')
   })
 
@@ -88,7 +100,10 @@ describe('Node compatibility self-hosted routing', () => {
     })
     expect(setup.with?.['node-version']).toBe('${{ matrix.node }}')
     expect(setup.with?.['package-manager-cache']).toBe(false)
-    for (const [environment, cache] of [['github-hosted', 'pnpm'], ['self-hosted', '']]) {
+    for (const [environment, cache] of [
+      ['github-hosted', 'pnpm'],
+      ['self-hosted', ''],
+    ]) {
       const context = { runner: { environment, temp: '/runner/temp', tool_cache: '/runner/toolcache' } }
       expect(evaluate(setup.with?.cache as string, context)).toBe(cache)
       expect(evaluate(setup.env!.NODE_OPTIONS!, context)).toBe(
@@ -107,7 +122,10 @@ describe('Node compatibility self-hosted routing', () => {
       const env = { PATH: process.env.PATH, RUNNER_TEMP: root, RUNNER_TOOL_CACHE: join(root, 'persistent') }
       const probe = (options: Record<string, string | undefined>) => {
         const child = spawnSync(process.execPath, ['-p', 'process.env.RUNNER_TOOL_CACHE'], {
-          cwd: resolve(import.meta.dirname, '..'), env: options, encoding: 'utf8', timeout: 10_000,
+          cwd: resolve(import.meta.dirname, '..'),
+          env: options,
+          encoding: 'utf8',
+          timeout: 10_000,
         })
         expect(child.error).toBeUndefined()
         expect(child.signal).toBeNull()
@@ -138,7 +156,9 @@ describe('Node compatibility self-hosted routing', () => {
       ['/runner temp/node-compat-toolcache-other/node', 1],
     ] as const) {
       const child = spawnSync('bash', ['-e', '-u', '-o', 'pipefail', '-c', 'node() { printf "%s" "$TEST_EXECUTABLE"; }; ' + step.run!], {
-        env: { PATH: process.env.PATH, RUNNER_TEMP: '/runner temp', TEST_EXECUTABLE: executable }, encoding: 'utf8', timeout: 10_000,
+        env: { PATH: process.env.PATH, RUNNER_TEMP: '/runner temp', TEST_EXECUTABLE: executable },
+        encoding: 'utf8',
+        timeout: 10_000,
       })
       expect(child.error).toBeUndefined()
       expect(child.signal).toBeNull()
@@ -154,23 +174,26 @@ describe('Node compatibility self-hosted routing', () => {
     expect(step.if).toBe("runner.environment == 'self-hosted'")
     const root = mkdtempSync(join(tmpdir(), 'ci-compatible-selfhosted-'))
     try {
-      const outputs = ['runner-a', 'runner-b'].map((runner) => {
+      const outputs = ['runner-a', 'runner-b'].map(runner => {
         const envFile = join(root, runner + '.env')
         const temp = join(root, runner)
         const child = spawnSync('bash', ['-e', '-u', '-o', 'pipefail', '-c', step.run!], {
           env: { PATH: process.env.PATH, HOME: join(root, 'shared home'), RUNNER_TEMP: temp, GITHUB_ENV: envFile },
-          encoding: 'utf8', timeout: 10_000,
+          encoding: 'utf8',
+          timeout: 10_000,
         })
         expect(child.error).toBeUndefined()
         expect(child.signal).toBeNull()
         expect(child.status, child.stderr).toBe(0)
         const output = readFileSync(envFile, 'utf8')
-        expect(output).toBe([
-          'NODE_COMPILE_CACHE=' + temp + '/node-compile-cache',
-          'npm_config_devdir=' + temp + '/node-gyp',
-          'PNPM_CONFIG_STORE_DIR=' + join(root, 'shared home') + '/.local/share/pnpm/store',
-          '',
-        ].join('\n'))
+        expect(output).toBe(
+          [
+            'NODE_COMPILE_CACHE=' + temp + '/node-compile-cache',
+            'npm_config_devdir=' + temp + '/node-gyp',
+            'PNPM_CONFIG_STORE_DIR=' + join(root, 'shared home') + '/.local/share/pnpm/store',
+            '',
+          ].join('\n'),
+        )
         return output
       })
       expect(outputs[0]).not.toBe(outputs[1])

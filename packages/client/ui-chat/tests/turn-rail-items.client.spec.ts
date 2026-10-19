@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { mergeTurnRailItems } from '../src/client/chat/turn-rail-items.ts'
 import type { TurnNavigationItem } from '../src/client/contract/snapshot.ts'
 
@@ -14,10 +14,13 @@ describe('mergeTurnRailItems', () => {
   })
 
   it('maps outline-only turns to unloaded marks with both previews in ascending order', () => {
-    const items = mergeTurnRailItems([], [
-      { turn: 1, seq: 0, prompt: 'first', response: 'first answer' },
-      { turn: 2, seq: 9, prompt: '', response: '' },
-    ])
+    const items = mergeTurnRailItems(
+      [],
+      [
+        { turn: 1, seq: 0, prompt: 'first', response: 'first answer' },
+        { turn: 2, seq: 9, prompt: '', response: '' },
+      ],
+    )
     expect(items).toEqual([
       { turn: 1, prompt: 'first', response: 'first answer', anchor: { kind: 'unloaded', seq: 0 } },
       { turn: 2, prompt: '', response: '', anchor: { kind: 'unloaded', seq: 9 } },
@@ -59,15 +62,18 @@ describe('mergeTurnRailItems', () => {
     expect(mergeTurnRailItems([loadedItem(1)], 'not an outline')).toEqual([
       { turn: 1, prompt: 'p1', response: 'r1', anchor: { kind: 'loaded', key: 'anchor-1' } },
     ])
-    const items = mergeTurnRailItems([], [
-      { turn: -1, seq: 0, prompt: 'negative turn', response: '' },
-      { turn: 2, seq: 0.5, prompt: 'fractional seq', response: '' },
-      { turn: 4, seq: -0, prompt: 'negative zero seq', response: '' },
-      { turn: 5, seq: Number.MAX_SAFE_INTEGER + 1, prompt: 'unsafe seq', response: '' },
-      { turn: 3, seq: 4, prompt: 5, response: 6 },
-      { turn: 6, seq: 7, prompt: 'kept', response: 8 },
-      null,
-    ])
+    const items = mergeTurnRailItems(
+      [],
+      [
+        { turn: -1, seq: 0, prompt: 'negative turn', response: '' },
+        { turn: 2, seq: 0.5, prompt: 'fractional seq', response: '' },
+        { turn: 4, seq: -0, prompt: 'negative zero seq', response: '' },
+        { turn: 5, seq: Number.MAX_SAFE_INTEGER + 1, prompt: 'unsafe seq', response: '' },
+        { turn: 3, seq: 4, prompt: 5, response: 6 },
+        { turn: 6, seq: 7, prompt: 'kept', response: 8 },
+        null,
+      ],
+    )
     // turn/seq are load-bearing (drop); previews are decorative (degrade).
     expect(items).toEqual([
       { turn: 3, prompt: '', response: '', anchor: { kind: 'unloaded', seq: 4 } },

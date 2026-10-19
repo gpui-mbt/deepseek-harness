@@ -5,14 +5,14 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { browserDependencyAnalysis, productWebBundleIsolation } from '../apps/web/product-isolation.ts'
 import { WebProductBundleIsolation } from './web-product-bundle-isolation.ts'
 import { EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS } from './experimental-package-policy.ts'
 import { BundleInputIsolation } from './bundle-input-isolation.ts'
 
 const filesystem = vi.hoisted(() => ({ missingRoot: false }))
-vi.mock('node:fs', async (importOriginal) => {
+vi.mock('node:fs', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs')>()
   return {
     ...actual,
@@ -47,20 +47,21 @@ function fixture() {
   write('packages/experimental/prototype/index.js', 'globalThis.experimental = true')
   write('packages/experimental/prototype/style.css', '.experimental { color: red }')
   write('packages/experimental/prototype/tiny.svg', '<svg xmlns="http://www.w3.org/2000/svg"/>')
-  const run = (extra: Record<string, unknown> = {}): Promise<unknown> => vite.build({
-    configFile: false,
-    root: web,
-    logLevel: 'silent',
-    plugins: productWebBundleIsolation(root, web),
-    build: {
-      write: false,
-      minify: false,
-      rollupOptions: {
-        input: { index: join(web, 'index.html'), bootstrap: join(web, 'src/preview.js') },
+  const run = (extra: Record<string, unknown> = {}): Promise<unknown> =>
+    vite.build({
+      configFile: false,
+      root: web,
+      logLevel: 'silent',
+      plugins: productWebBundleIsolation(root, web),
+      build: {
+        write: false,
+        minify: false,
+        rollupOptions: {
+          input: { index: join(web, 'index.html'), bootstrap: join(web, 'src/preview.js') },
+        },
       },
-    },
-    ...extra,
-  })
+      ...extra,
+    })
   return { root, web, write, run, links }
 }
 
@@ -70,23 +71,28 @@ describe('default Web bundle input isolation', () => {
     test.write('apps/web/src/main.js', 'import "external-lib"; globalThis.product = true')
     const externalize = {
       name: 'fixture-external-analysis',
-      resolveId(id: string) { return id === 'external-lib' ? { id, external: true } : null },
+      resolveId(id: string) {
+        return id === 'external-lib' ? { id, external: true } : null
+      },
     }
-    await expect(test.run({ plugins: [...productWebBundleIsolation(test.root, test.web), externalize] }))
-      .rejects.toThrow(/external module external-lib has no bundled input proof/)
-    await expect(test.run({ plugins: [
-      ...productWebBundleIsolation(test.root, test.web), browserDependencyAnalysis(), externalize,
-    ] })).resolves.toBeDefined()
+    await expect(test.run({ plugins: [...productWebBundleIsolation(test.root, test.web), externalize] })).rejects.toThrow(
+      /external module external-lib has no bundled input proof/,
+    )
+    await expect(
+      test.run({ plugins: [...productWebBundleIsolation(test.root, test.web), browserDependencyAnalysis(), externalize] }),
+    ).resolves.toBeDefined()
     expect(existsSync(join(test.web, 'dist'))).toBe(false)
   })
 
   it('refuses output writing when dependency analysis bypasses the product check', async () => {
     const test = fixture()
     const output = join(test.root, 'analysis-output')
-    await expect(test.run({
-      plugins: [...productWebBundleIsolation(test.root, test.web), browserDependencyAnalysis()],
-      build: { write: true, outDir: output },
-    })).rejects.toThrow(/browser dependency analysis requires build.write: false/)
+    await expect(
+      test.run({
+        plugins: [...productWebBundleIsolation(test.root, test.web), browserDependencyAnalysis()],
+        build: { write: true, outDir: output },
+      }),
+    ).rejects.toThrow(/browser dependency analysis requires build.write: false/)
     expect(existsSync(output)).toBe(false)
   })
 
@@ -117,45 +123,63 @@ describe('default Web bundle input isolation', () => {
   it('checks resolver aliases by the actual file owner', async () => {
     const test = fixture()
     test.write('apps/web/src/main.js', 'import "feature"')
-    await expect(test.run({ resolve: { alias: { feature: join(test.root, 'packages/experimental/prototype/index.js') } } }))
-      .rejects.toThrow(/Web product isolation: experimental input/)
+    await expect(
+      test.run({ resolve: { alias: { feature: join(test.root, 'packages/experimental/prototype/index.js') } } }),
+    ).rejects.toThrow(/Web product isolation: experimental input/)
   })
 
-  it.each(['@deepseek-ai/dsh-experimental-aliased', ...Object.values(EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS)])('checks npm alias package identity %s independently of its directory name', async (name) => {
-    const test = fixture()
-    test.write('apps/web/src/main.js', 'import "ordinary-name"')
-    test.write('apps/web/node_modules/ordinary-name/package.json',
-      JSON.stringify({ name, type: 'module', main: 'index.js' }))
-    test.write('apps/web/node_modules/ordinary-name/index.js', 'globalThis.aliased = true')
-    await expect(test.run()).rejects.toThrow(/belongs to experimental package/)
-  })
+  it.each(['@deepseek-ai/dsh-experimental-aliased', ...Object.values(EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS)])(
+    'checks npm alias package identity %s independently of its directory name',
+    async name => {
+      const test = fixture()
+      test.write('apps/web/src/main.js', 'import "ordinary-name"')
+      test.write('apps/web/node_modules/ordinary-name/package.json', JSON.stringify({ name, type: 'module', main: 'index.js' }))
+      test.write('apps/web/node_modules/ordinary-name/index.js', 'globalThis.aliased = true')
+      await expect(test.run()).rejects.toThrow(/belongs to experimental package/)
+    },
+  )
 
   it('follows virtual module edges to their resolved inputs', async () => {
     const test = fixture()
     test.write('apps/web/src/main.js', 'import "virtual:feature"')
-    await expect(test.run({ plugins: [...productWebBundleIsolation(test.root, test.web), {
-      name: 'fixture-virtual-module',
-      resolveId(id: string) { return id === 'virtual:feature' ? '\u0000virtual:feature' : null },
-      load(id: string) {
-        return id === '\u0000virtual:feature'
-          ? `import ${JSON.stringify(join(test.root, 'packages/experimental/prototype/index.js'))}` : null
-      },
-    }] })).rejects.toThrow(/Web product isolation: experimental input/)
+    await expect(
+      test.run({
+        plugins: [
+          ...productWebBundleIsolation(test.root, test.web),
+          {
+            name: 'fixture-virtual-module',
+            resolveId(id: string) {
+              return id === 'virtual:feature' ? '\u0000virtual:feature' : null
+            },
+            load(id: string) {
+              return id === '\u0000virtual:feature'
+                ? `import ${JSON.stringify(join(test.root, 'packages/experimental/prototype/index.js'))}`
+                : null
+            },
+          },
+        ],
+      }),
+    ).rejects.toThrow(/Web product isolation: experimental input/)
   })
 
   it('rejects experimental inputs merged into a product-reachable shared chunk', async () => {
     const test = fixture()
     test.write('apps/web/src/main.js', 'import "./shared.js"; globalThis.product = true')
     test.write('apps/web/src/shared.js', 'globalThis.shared = true')
-    await expect(test.run({ build: {
-      write: false,
-      minify: false,
-      rollupOptions: {
-        input: { index: join(test.web, 'index.html'), bootstrap: join(test.web, 'src/preview.js') },
-        output: { manualChunks: (id: string) => id.endsWith('/shared.js') || id.includes('/packages/experimental/')
-          ? 'shared' : undefined },
-      },
-    } })).rejects.toThrow(/Web product isolation: experimental input/)
+    await expect(
+      test.run({
+        build: {
+          write: false,
+          minify: false,
+          rollupOptions: {
+            input: { index: join(test.web, 'index.html'), bootstrap: join(test.web, 'src/preview.js') },
+            output: {
+              manualChunks: (id: string) => (id.endsWith('/shared.js') || id.includes('/packages/experimental/') ? 'shared' : undefined),
+            },
+          },
+        },
+      }),
+    ).rejects.toThrow(/Web product isolation: experimental input/)
   })
 
   it('checks symlinked package ownership', async () => {
@@ -165,8 +189,7 @@ describe('default Web bundle input isolation', () => {
     mkdirSync(dirname(link), { recursive: true })
     symlinkSync(join(test.root, 'packages/experimental/prototype'), link, process.platform === 'win32' ? 'junction' : 'dir')
     test.links.push(link)
-    await expect(test.run({ resolve: { preserveSymlinks: true } }))
-      .rejects.toThrow(/Web product isolation: experimental input/)
+    await expect(test.run({ resolve: { preserveSymlinks: true } })).rejects.toThrow(/Web product isolation: experimental input/)
   })
 
   it.each([
@@ -207,41 +230,57 @@ describe('default Web bundle input isolation', () => {
   it('rejects an emitted entry without its original HTML input', () => {
     const test = fixture()
     const inputs = new WebProductBundleIsolation(test.root, test.web)
-    expect(() => { inputs.verify({}, () => null) }).toThrow(/index.html is missing its original HTML input/)
+    expect(() => {
+      inputs.verify({}, () => null)
+    }).toThrow(/index.html is missing its original HTML input/)
   })
 
   it('rejects a worker asset whose subbuild was not observed', () => {
     const test = fixture()
     const inputs = new WebProductBundleIsolation(test.root, test.web)
     inputs.assetReference('worker.js', 'index.html', 'asset')
-    expect(() => { inputs.verify({
-      'index.html': { type: 'asset', fileName: 'index.html', names: ['index.html'], originalFileNames: ['index.html'] },
-      'worker.js': { type: 'asset', fileName: 'worker.js', names: [], originalFileNames: [] },
-    }, () => null) }).toThrow(/worker.js has no recorded original files/)
+    expect(() => {
+      inputs.verify(
+        {
+          'index.html': { type: 'asset', fileName: 'index.html', names: ['index.html'], originalFileNames: ['index.html'] },
+          'worker.js': { type: 'asset', fileName: 'worker.js', names: [], originalFileNames: [] },
+        },
+        () => null,
+      )
+    }).toThrow(/worker.js has no recorded original files/)
   })
 })
 
 describe('bundler input ownership', () => {
-  it.each(Object.values(EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS))('rejects retained identity %s in unresolved inputs and source-map ownership', (name) => {
-    const test = fixture()
-    const ownership = new BundleInputIsolation(test.root, 'fixture')
-    for (const reference of [name, `${name}/client`, `\u0000virtual:${name}/client?raw`]) {
-      expect(() => { ownership.assertInput(reference) }).toThrow(/experimental input/)
-    }
-    const absentWindowsSource = `C:\\omitted\\node_modules\\${name.replaceAll('/', '\\')}\\src\\index.ts`
-    expect(() => { ownership.assertSourceMapInput(absentWindowsSource) }).toThrow(/experimental input/)
-    test.write('apps/web/node_modules/upstream/package.json', JSON.stringify({ name }))
-    expect(() => { ownership.assertSourceMapInput(join(test.web, 'node_modules/upstream/src/omitted.js')) })
-      .toThrow(/belongs to experimental package/)
-  })
+  it.each(Object.values(EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS))(
+    'rejects retained identity %s in unresolved inputs and source-map ownership',
+    name => {
+      const test = fixture()
+      const ownership = new BundleInputIsolation(test.root, 'fixture')
+      for (const reference of [name, `${name}/client`, `\u0000virtual:${name}/client?raw`]) {
+        expect(() => {
+          ownership.assertInput(reference)
+        }).toThrow(/experimental input/)
+      }
+      const absentWindowsSource = `C:\\omitted\\node_modules\\${name.replaceAll('/', '\\')}\\src\\index.ts`
+      expect(() => {
+        ownership.assertSourceMapInput(absentWindowsSource)
+      }).toThrow(/experimental input/)
+      test.write('apps/web/node_modules/upstream/package.json', JSON.stringify({ name }))
+      expect(() => {
+        ownership.assertSourceMapInput(join(test.web, 'node_modules/upstream/src/omitted.js'))
+      }).toThrow(/belongs to experimental package/)
+    },
+  )
 
   it('refuses source-map paths whose filesystem root is unavailable', () => {
     const test = fixture()
     const ownership = new BundleInputIsolation(test.root, 'fixture')
     filesystem.missingRoot = true
     try {
-      expect(() => { ownership.assertSourceMapInput(join(test.web, 'missing/source.js')) })
-        .toThrow(/has no existing filesystem root/)
+      expect(() => {
+        ownership.assertSourceMapInput(join(test.web, 'missing/source.js'))
+      }).toThrow(/has no existing filesystem root/)
     } finally {
       filesystem.missingRoot = false
     }
@@ -251,9 +290,18 @@ describe('bundler input ownership', () => {
     const test = fixture()
     const ownership = new BundleInputIsolation(test.root, 'fixture')
     const file = join(test.root, 'packages/experimental/prototype/index.js')
-    for (const id of [file, `${file}?raw`, `${pathToFileURL(file).href}?import`, `\u0000${file}?commonjs-proxy`,
-      `virtual:${file}`, `/@fs/${file.replaceAll('\\', '/')}`, file.replaceAll('/', '\\')]) {
-      expect(() => { ownership.assertInput(id) }, id).toThrow(/experimental input/)
+    for (const id of [
+      file,
+      `${file}?raw`,
+      `${pathToFileURL(file).href}?import`,
+      `\u0000${file}?commonjs-proxy`,
+      `virtual:${file}`,
+      `/@fs/${file.replaceAll('\\', '/')}`,
+      file.replaceAll('/', '\\'),
+    ]) {
+      expect(() => {
+        ownership.assertInput(id)
+      }, id).toThrow(/experimental input/)
     }
   })
 
@@ -262,10 +310,16 @@ describe('bundler input ownership', () => {
     const ownership = new BundleInputIsolation(test.root, 'fixture')
     const file = join(test.web, 'node_modules/upstream/src/omitted.js')
     test.write('apps/web/node_modules/upstream/package.json', '{"name":"upstream"}')
-    expect(() => { ownership.assertInput(file) }).toThrow(/is missing/)
-    expect(() => { ownership.assertSourceMapInput(file) }).not.toThrow()
+    expect(() => {
+      ownership.assertInput(file)
+    }).toThrow(/is missing/)
+    expect(() => {
+      ownership.assertSourceMapInput(file)
+    }).not.toThrow()
     test.write('apps/web/node_modules/upstream/package.json', '{"name":"@deepseek-ai/dsh-experimental-upstream"}')
     ownership.reset()
-    expect(() => { ownership.assertSourceMapInput(file) }).toThrow(/belongs to experimental package/)
+    expect(() => {
+      ownership.assertSourceMapInput(file)
+    }).toThrow(/belongs to experimental package/)
   })
 })

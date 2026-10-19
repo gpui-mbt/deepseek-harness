@@ -12,8 +12,16 @@ export function installMandatoryUpdateOverlay(): void {
   let frame: HTMLIFrameElement | undefined
   let port: MessagePort | undefined
   let closing: ReturnType<typeof setTimeout> | undefined
-  const publish = (): void => { port?.postMessage({ type: 'dsh-mandatory-state', state }) }
-  const remove = (): void => { port?.close(); port = undefined; host?.remove(); host = undefined; frame = undefined }
+  const publish = (): void => {
+    port?.postMessage({ type: 'dsh-mandatory-state', state })
+  }
+  const remove = (): void => {
+    port?.close()
+    port = undefined
+    host?.remove()
+    host = undefined
+    frame = undefined
+  }
   const render = (): void => {
     if (state === undefined || document.readyState === 'loading') return
     if (!state.policy.blocking) {
@@ -46,40 +54,68 @@ export function installMandatoryUpdateOverlay(): void {
     }
     publish()
   }
-  const receive = (_event: Electron.IpcRendererEvent, next: MandatoryUpdateView): void => { state = next; render() }
+  const receive = (_event: Electron.IpcRendererEvent, next: MandatoryUpdateView): void => {
+    state = next
+    render()
+  }
   const message = (event: MessageEvent<unknown>): void => {
     const value = event.data
     if (typeof value !== 'object' || value === null || !('type' in value)) return
-    if (value.type !== 'dsh-mandatory-action' || !('id' in value) || !Number.isSafeInteger(value.id)
-      || !('action' in value) || !('version' in value) || !('revision' in value)) return
+    if (
+      value.type !== 'dsh-mandatory-action' ||
+      !('id' in value) ||
+      !Number.isSafeInteger(value.id) ||
+      !('action' in value) ||
+      !('version' in value) ||
+      !('revision' in value)
+    )
+      return
     const target = port
     if (target === undefined) return
     void ipcRenderer.invoke(MANDATORY_IPC.action, value.action, value.version, value.revision).then(
-      () => { target.postMessage({ type: 'dsh-mandatory-result', id: value.id, ok: true }) },
-      () => { target.postMessage({ type: 'dsh-mandatory-result', id: value.id, ok: false }) },
+      () => {
+        target.postMessage({ type: 'dsh-mandatory-result', id: value.id, ok: true })
+      },
+      () => {
+        target.postMessage({ type: 'dsh-mandatory-result', id: value.id, ok: false })
+      },
     )
   }
   const blockBackgroundKey = (event: KeyboardEvent): void => {
-    if (frame === undefined || state?.policy.blocking !== true
-      || event.composedPath().some(target => target instanceof HTMLElement && target.hasAttribute('data-windows-menu'))) return
+    if (
+      frame === undefined ||
+      state?.policy.blocking !== true ||
+      event.composedPath().some(target => target instanceof HTMLElement && target.hasAttribute('data-windows-menu'))
+    )
+      return
     event.preventDefault()
     event.stopImmediatePropagation()
     frame.focus()
   }
   ipcRenderer.on(MANDATORY_IPC.state, receive)
-  void ipcRenderer.invoke(MANDATORY_IPC.status).then((initial: MandatoryUpdateView) => {
-    if (!disposed && state === undefined) { state = initial; render() }
-  }, () => {
-    // Development may omit policy configuration; a later main-frame load still resynchronizes configured policy.
-  })
+  void ipcRenderer.invoke(MANDATORY_IPC.status).then(
+    (initial: MandatoryUpdateView) => {
+      if (!disposed && state === undefined) {
+        state = initial
+        render()
+      }
+    },
+    () => {
+      // Development may omit policy configuration; a later main-frame load still resynchronizes configured policy.
+    },
+  )
   window.addEventListener('keydown', blockBackgroundKey, true)
   window.addEventListener('DOMContentLoaded', render, { once: true })
-  window.addEventListener('pagehide', () => {
-    disposed = true
-    clearTimeout(closing)
-    remove()
-    ipcRenderer.off(MANDATORY_IPC.state, receive)
-    window.removeEventListener('keydown', blockBackgroundKey, true)
-    window.removeEventListener('DOMContentLoaded', render)
-  }, { once: true })
+  window.addEventListener(
+    'pagehide',
+    () => {
+      disposed = true
+      clearTimeout(closing)
+      remove()
+      ipcRenderer.off(MANDATORY_IPC.state, receive)
+      window.removeEventListener('keydown', blockBackgroundKey, true)
+      window.removeEventListener('DOMContentLoaded', render)
+    },
+    { once: true },
+  )
 }

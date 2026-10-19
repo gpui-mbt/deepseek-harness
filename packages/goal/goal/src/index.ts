@@ -16,16 +16,9 @@ import type { Session, SessionEvent, SessionLogOffset } from '@deepseek-ai/dsh-s
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
-import {
-  applyGoalEvent,
-  goalChangeRef,
-} from './fold.ts'
+import { applyGoalEvent, goalChangeRef } from './fold.ts'
 import type { GoalFoldState } from './fold.ts'
-import {
-  GOAL_CHANGE_VERSION,
-  GoalError,
-  GoalId,
-} from './runtime.ts'
+import { GOAL_CHANGE_VERSION, GoalError, GoalId } from './runtime.ts'
 import type {
   CreateGoalRequest,
   CreateGoalResult,
@@ -39,13 +32,7 @@ import type {
   GoalSnapshot,
   GoalView,
 } from './types.ts'
-import type {
-  GoalChangeMeta,
-  GoalChanged,
-  GoalClearChangeMeta,
-  GoalOperation,
-  GoalSnapshotChangeMeta,
-} from './domain.ts'
+import type { GoalChangeMeta, GoalChanged, GoalClearChangeMeta, GoalOperation, GoalSnapshotChangeMeta } from './domain.ts'
 
 // The pure payload outlet (./types.ts, ONE home of the `goal` projection-key
 // declaration) re-exported onto the package root keeps the module edge in
@@ -80,25 +67,27 @@ const goalProjectionSchema: ZodType<GoalProjection | null> = zod.union([
   zod.null(),
 ]) as ZodType<GoalProjection | null>
 
-const goalProjectionStateSchema: ZodType<GoalProjectionState> = zod.object({
-  current: goalProjectionSchema,
-  seenGoalIds: zod.array(zod.string().min(1)).refine(
-    ids => new Set(ids).size === ids.length,
-    { message: 'seen goal ids must be unique' },
-  ),
-  failure: zod.string().min(1).nullable(),
-}).strict().superRefine((state, context) => {
-  if (state.current === null) return
-  if (!state.seenGoalIds.includes(state.current.goal.id)) {
-    context.addIssue({ code: 'custom', message: 'current goal id must be retained among seen goal ids' })
-  }
-  if (state.current.updatedAt < state.current.createdAt) {
-    context.addIssue({ code: 'custom', message: 'current goal update cannot precede its creation' })
-  }
-  if (state.current.roundsStarted > state.current.goal.maxGoalRounds) {
-    context.addIssue({ code: 'custom', message: 'current goal rounds cannot exceed its configured limit' })
-  }
-}) as unknown as ZodType<GoalProjectionState>
+const goalProjectionStateSchema: ZodType<GoalProjectionState> = zod
+  .object({
+    current: goalProjectionSchema,
+    seenGoalIds: zod
+      .array(zod.string().min(1))
+      .refine(ids => new Set(ids).size === ids.length, { message: 'seen goal ids must be unique' }),
+    failure: zod.string().min(1).nullable(),
+  })
+  .strict()
+  .superRefine((state, context) => {
+    if (state.current === null) return
+    if (!state.seenGoalIds.includes(state.current.goal.id)) {
+      context.addIssue({ code: 'custom', message: 'current goal id must be retained among seen goal ids' })
+    }
+    if (state.current.updatedAt < state.current.createdAt) {
+      context.addIssue({ code: 'custom', message: 'current goal update cannot precede its creation' })
+    }
+    if (state.current.roundsStarted > state.current.goal.maxGoalRounds) {
+      context.addIssue({ code: 'custom', message: 'current goal rounds cannot exceed its configured limit' })
+    }
+  }) as unknown as ZodType<GoalProjectionState>
 
 /** Build strict fold state from one checkpoint-safe projection state. */
 function goalFoldState(state: GoalProjectionState): GoalFoldState {
@@ -145,8 +134,7 @@ function goalProjectionState(state: GoalFoldState): GoalProjectionState {
  */
 export function applyGoalProjection(state: GoalProjectionState, event: SessionEvent): GoalProjectionState {
   if (state.failure !== null) return state
-  if (event.type !== 'goal/change'
-    && (event.type !== 'user/message' || event.data.source.kind !== 'goal')) return state
+  if (event.type !== 'goal/change' && (event.type !== 'user/message' || event.data.source.kind !== 'goal')) return state
   const folded = goalFoldState(state)
   try {
     applyGoalEvent(folded, event)
@@ -183,10 +171,12 @@ export interface ResolvedConfig {
 /** Process-local activation state crossing the synchronous append boundary. */
 interface GoalRuntimeState {
   activation: GoalActivation
-  pendingActivation: {
-    readonly offset: SessionLogOffset
-    readonly activation: GoalActivation
-  } | undefined
+  pendingActivation:
+    | {
+        readonly offset: SessionLogOffset
+        readonly activation: GoalActivation
+      }
+    | undefined
 }
 
 /** Validated create input with every deployment default materialized. */
@@ -221,17 +211,16 @@ function resolveCreateGoal(request: CreateGoalRequest, defaultMaxGoalRounds: num
 
 /** Validate and detach one policy-owned blocker explanation. */
 function resolveBlockReason(reason: unknown): GoalBlockReason {
-  const record = typeof reason === 'object' && reason !== null && !Array.isArray(reason)
-    ? reason as Record<string, unknown>
-    : undefined
+  const record = typeof reason === 'object' && reason !== null && !Array.isArray(reason) ? (reason as Record<string, unknown>) : undefined
   const code = record?.['code']
   const message = record?.['message']
-  if (typeof code !== 'string' || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(code)
-    || typeof message !== 'string' || message.trim().length === 0) {
-    throw new GoalError(
-      'goal block reason requires a lower-kebab-case code and a non-empty message',
-      'GOAL_INVALID_BLOCK_REASON',
-    )
+  if (
+    typeof code !== 'string' ||
+    !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(code) ||
+    typeof message !== 'string' ||
+    message.trim().length === 0
+  ) {
+    throw new GoalError('goal block reason requires a lower-kebab-case code and a non-empty message', 'GOAL_INVALID_BLOCK_REASON')
   }
   return { code, message: message.trim() }
 }
@@ -259,10 +248,10 @@ export class GoalService extends TypertRemoteService {
     ctx.on('session/event', (session, event) => {
       if (event.type !== 'goal/change') return
       const runtime = this.runtimeState(session)
-      const activation = runtime.pendingActivation !== undefined
-        && SessionSeq(runtime.pendingActivation.offset) === event.seq
-        ? runtime.pendingActivation.activation
-        : 'disarmed'
+      const activation =
+        runtime.pendingActivation !== undefined && SessionSeq(runtime.pendingActivation.offset) === event.seq
+          ? runtime.pendingActivation.activation
+          : 'disarmed'
       this.setActivation(session, activation)
     })
   }
@@ -336,8 +325,8 @@ export class GoalService extends TypertRemoteService {
     const goal: GoalSnapshot = {
       ...current,
       revision: current.revision + 1,
-      ...request.objective === undefined ? {} : { objective: resolveObjective(request.objective) },
-      ...request.maxGoalRounds === undefined ? {} : { maxGoalRounds: resolveMaxGoalRounds(request.maxGoalRounds) },
+      ...(request.objective === undefined ? {} : { objective: resolveObjective(request.objective) }),
+      ...(request.maxGoalRounds === undefined ? {} : { maxGoalRounds: resolveMaxGoalRounds(request.maxGoalRounds) }),
     }
     return this.commitCurrent(agent, currentState, runtime, 'edit', goal, runtime.activation)
   }
@@ -389,14 +378,7 @@ export class GoalService extends TypertRemoteService {
    */
   @Remote('complete')
   complete(agent: Agent, ref: GoalRef): GoalView {
-    return this.transition(
-      agent,
-      ref,
-      'complete',
-      ['active', 'paused', 'blocked'],
-      'complete',
-      'disarmed',
-    )
+    return this.transition(agent, ref, 'complete', ['active', 'paused', 'blocked'], 'complete', 'disarmed')
   }
 
   /**
@@ -504,13 +486,15 @@ export class GoalService extends TypertRemoteService {
     const goal = this.view(state.current, runtime)
     this.ctx.emit('goal/activation-changed', {
       sessionId: session.id,
-      ...goal === undefined ? {} : {
-        goal: {
-          id: goal.id,
-          revision: goal.revision,
-          activation: goal.activation,
-        },
-      },
+      ...(goal === undefined
+        ? {}
+        : {
+            goal: {
+              id: goal.id,
+              revision: goal.revision,
+              activation: goal.activation,
+            },
+          }),
     })
   }
 
@@ -620,7 +604,7 @@ export class GoalService extends TypertRemoteService {
     const notification: GoalChanged = {
       operation: change.operation,
       ref: { ...ref },
-      ...goal === undefined ? {} : { goal },
+      ...(goal === undefined ? {} : { goal }),
     }
     agentEvents(this.ctx, agent).emit('goal/changed', { change: notification })
   }

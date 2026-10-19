@@ -2,13 +2,9 @@ import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
-import {
-  launchAcpTestAgent,
-  type AgentUnderTest,
-  type LaunchedAcpTestAgent,
-} from '@deepseek-ai/dsh-session-snapshot'
+import { launchAcpTestAgent, type AgentUnderTest, type LaunchedAcpTestAgent } from '@deepseek-ai/dsh-session-snapshot'
 import { cleanupAcpExampleTest } from './cleanup.ts'
 
 /**
@@ -57,7 +53,10 @@ describe('acp-agent over real stdio (no key required)', () => {
     })
     await spawned.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
 
-    const lines = spawned.rawStdout().split('\n').filter(line => line.trim().length > 0)
+    const lines = spawned
+      .rawStdout()
+      .split('\n')
+      .filter(line => line.trim().length > 0)
     expect(lines.length).toBeGreaterThan(0)
     for (const line of lines) {
       // Every stdout line MUST parse as JSON (a JSON-RPC frame). A non-JSON
@@ -111,7 +110,12 @@ describe.skipIf(!process.env.DEEPSEEK_API_KEY)('acp-agent e2e: real prompt over 
 
     const res = await client.prompt({
       sessionId,
-      prompt: [{ type: 'text', text: 'Use the bash tool to write the exact text ACP_OK into a file named proof.txt in the current directory. Then stop.' }],
+      prompt: [
+        {
+          type: 'text',
+          text: 'Use the bash tool to write the exact text ACP_OK into a file named proof.txt in the current directory. Then stop.',
+        },
+      ],
     })
     expect(['end_turn', 'max_tokens']).toContain(res.stopReason)
 

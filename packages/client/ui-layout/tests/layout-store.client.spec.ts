@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createLayoutStore } from '../src/client/stores.ts'
 import type { MainPanelId } from '../src/client/service.ts'
 
-beforeEach(() => { vi.stubGlobal('innerWidth', 1920) })
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
+beforeEach(() => {
+  vi.stubGlobal('innerWidth', 1920)
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 describe('createLayoutStore', () => {
   it('starts with the default sidebar and no right panel preference', () => {
@@ -75,6 +80,21 @@ describe('createLayoutStore', () => {
     actions.setViewportWidth(980)
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
   })
+
+  it('clears the manual override when crossing the drawer width', () => {
+    // The expanded narrow navigation is a drawer below 768px and a column
+    // above it; the state cannot carry across the change of surface.
+    const { store, actions } = createLayoutStore().create()
+    actions.setViewportWidth(980)
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    actions.setViewportWidth(767)
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+    actions.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(true)
+    actions.setViewportWidth(768)
+    expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+  })
 })
 
 describe('main panel selection', () => {
@@ -120,18 +140,31 @@ describe('main panel selection', () => {
   })
 
   it.each(['setSidebar', 'toggleSidebar', 'setViewportWidth', 'setRightbar', 'openRightbar', 'closeRightbar'] as const)(
-    'preserves panelInfo identity when %s changes layoutInfo', (action) => {
+    'preserves panelInfo identity when %s changes layoutInfo',
+    action => {
       const { store, actions } = createLayoutStore().create()
       actions.selectPanel(panelA)
       if (action === 'closeRightbar') actions.openRightbar(true, true)
       const previous = store.getSnapshot()
       switch (action) {
-        case 'setSidebar': actions.setSidebar(400); break
-        case 'toggleSidebar': actions.toggleSidebar(); break
-        case 'setViewportWidth': actions.setViewportWidth(980); break
-        case 'setRightbar': actions.setRightbar(500); break
-        case 'openRightbar': actions.openRightbar(true, true); break
-        case 'closeRightbar': actions.closeRightbar(); break
+        case 'setSidebar':
+          actions.setSidebar(400)
+          break
+        case 'toggleSidebar':
+          actions.toggleSidebar()
+          break
+        case 'setViewportWidth':
+          actions.setViewportWidth(980)
+          break
+        case 'setRightbar':
+          actions.setRightbar(500)
+          break
+        case 'openRightbar':
+          actions.openRightbar(true, true)
+          break
+        case 'closeRightbar':
+          actions.closeRightbar()
+          break
       }
       expect(store.getSnapshot().panelInfo).toBe(previous.panelInfo)
       expect(store.getSnapshot().layoutInfo).not.toBe(previous.layoutInfo)
@@ -223,12 +256,15 @@ describe('right panel', () => {
 })
 
 describe('right panel instant geometry', () => {
-  it.each([true, false])('closes fullscreen with track=%s in one instant update and retains repeated close reports', (track) => {
+  it.each([true, false])('closes fullscreen with track=%s in one instant update and retains repeated close reports', track => {
     const { store, actions } = createLayoutStore().create()
     actions.openRightbar(track, true)
     actions.closeRightbar()
     expect(store.getSnapshot().layoutInfo).toMatchObject({
-      rightbarShown: false, rightbarTrack: false, rightbarFullscreen: false, rightbarInstant: true,
+      rightbarShown: false,
+      rightbarTrack: false,
+      rightbarFullscreen: false,
+      rightbarInstant: true,
     })
     const closed = store.getSnapshot()
     actions.closeRightbar()
@@ -240,7 +276,10 @@ describe('right panel instant geometry', () => {
     actions.openRightbar(true, true)
     actions.openRightbar(true, false)
     expect(store.getSnapshot().layoutInfo).toMatchObject({
-      rightbarShown: true, rightbarTrack: true, rightbarFullscreen: false, rightbarInstant: true,
+      rightbarShown: true,
+      rightbarTrack: true,
+      rightbarFullscreen: false,
+      rightbarInstant: true,
     })
     const restored = store.getSnapshot()
     actions.openRightbar(true, false)
@@ -261,7 +300,7 @@ describe('right panel instant geometry', () => {
     expect(store.getSnapshot().layoutInfo).toMatchObject({ rightbarTrack: false, rightbarInstant: false })
   })
 
-  it.each(['setSidebar', 'toggleSidebar', 'setRightbar', 'setViewportWidth'] as const)('clears instant geometry on %s', (action) => {
+  it.each(['setSidebar', 'toggleSidebar', 'setRightbar', 'setViewportWidth'] as const)('clears instant geometry on %s', action => {
     const { store, actions } = createLayoutStore().create()
     actions.openRightbar(true, true)
     actions.closeRightbar()
@@ -282,7 +321,7 @@ describe('right panel instant geometry', () => {
     expect(store.getSnapshot()).toBe(closed)
   })
 
-  it.each([true, false])('clears the exit marker on a fresh opening with fullscreen=%s', (fullscreen) => {
+  it.each([true, false])('clears the exit marker on a fresh opening with fullscreen=%s', fullscreen => {
     const { store, actions } = createLayoutStore().create()
     actions.openRightbar(true, true)
     actions.closeRightbar()

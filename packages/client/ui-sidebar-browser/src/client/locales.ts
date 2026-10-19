@@ -46,7 +46,8 @@ export const en = {
   external: 'Open in system browser',
   'sandbox.disable': 'Disable sandbox restrictions',
   'sandbox.enable': 'Restore sandbox restrictions',
-  'sandbox.warning': 'Sandbox restrictions are disabled; the page can navigate the top-level app and use downloads, modal dialogs, and input locks.',
+  'sandbox.warning':
+    'Sandbox restrictions are disabled; the page can navigate the top-level app and use downloads, modal dialogs, and input locks.',
   start: 'Enter an HTTP(S) address to start browsing',
   loading: 'Opening…',
   'restore.previous': 'Previously opened',

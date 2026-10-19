@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, render } from '@testing-library/react'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { apply, inject } from '../src/client/index.ts'
@@ -12,10 +12,7 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-const HOLES = [
-  'sidebar.brand.mark',
-  'sidebar.brand.name',
-] as const
+const HOLES = ['sidebar.brand.mark', 'sidebar.brand.name'] as const
 
 const HERO_HOLE = 'conversation.hero.brand.mark'
 
@@ -23,10 +20,14 @@ async function bench(declare = true) {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
   const slots = ctx.get('slots') as SlotRegistry
-  const declareHoles = () => slots.register({
-    name: 'root',
-    children: Object.fromEntries([...HOLES, HERO_HOLE].map(name => [name, { kind: 'single', scope: 'root' }])),
-  } as never, () => null)
+  const declareHoles = () =>
+    slots.register(
+      {
+        name: 'root',
+        children: Object.fromEntries([...HOLES, HERO_HOLE].map(name => [name, { kind: 'single', scope: 'root' }])),
+      } as never,
+      () => null,
+    )
   const disposeHoles = declare ? declareHoles() : undefined
   return { ctx, slots, declareHoles, disposeHoles }
 }

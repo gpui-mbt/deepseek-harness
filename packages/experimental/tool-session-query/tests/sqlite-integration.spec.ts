@@ -1,16 +1,11 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { createUserMessage, ToolCallId  } from '@deepseek-ai/dsh-llm'
-import SessionStore, {
-  SESSION_FORMAT_VERSION,
-  SessionId,
-  SessionSeq,
-  type Session,
-} from '@deepseek-ai/dsh-session'
+import { createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
+import SessionStore, { SESSION_FORMAT_VERSION, SessionId, SessionSeq, type Session } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import { turnBoundaryProjectionDefinition } from '@deepseek-ai/dsh-agent-loop'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -60,16 +55,18 @@ describe('tool-session-query with the real SQLite provider', () => {
       cwd: '/work',
       isSeeded: false,
     })
-    await writer.append([{
-      type: 'user/message',
-      seq: SessionSeq(0),
-      time: 2,
-      data: createUserMessage({
-        content: [{ type: 'text', text: 'persisted integration needle' }],
-        source: { kind: 'user' },
-      }),
-      surfaceOp: 'append',
-    }])
+    await writer.append([
+      {
+        type: 'user/message',
+        seq: SessionSeq(0),
+        time: 2,
+        data: createUserMessage({
+          content: [{ type: 'text', text: 'persisted integration needle' }],
+          source: { kind: 'user' },
+        }),
+        surfaceOp: 'append',
+      },
+    ])
     await writer.close()
 
     const caller = ctx.sessions.create(SessionId('caller'), {
@@ -79,36 +76,35 @@ describe('tool-session-query with the real SQLite provider', () => {
     caller.append(
       'user/message',
       createUserMessage({
-        content: [{ type: 'text', text: 'live integration needle' }], source: { kind: 'user' },
+        content: [{ type: 'text', text: 'live integration needle' }],
+        source: { kind: 'user' },
       }),
       { surfaceOp: 'append' },
     )
     caller.append('step/start', { turn: 1, step: 1 })
 
     let call = 0
-    const execute = (name: string, args: unknown) => ctx.tools.execute({
-      name,
-      arguments: args,
-      callId: ToolCallId(`integration-${++call}`),
-      signal: new AbortController().signal,
-      agent: fakeAgent(caller),
-    })
+    const execute = (name: string, args: unknown) =>
+      ctx.tools.execute({
+        name,
+        arguments: args,
+        callId: ToolCallId(`integration-${++call}`),
+        signal: new AbortController().signal,
+        agent: fakeAgent(caller),
+      })
 
     const sessions = await execute('session_search', { query: 'persisted integration needle' })
     expect(sessions.isError).toBe(false)
-    expect(sessions.content.map(block => block.type === 'text' ? block.text : '').join('\n'))
-      .toContain('Session persisted')
+    expect(sessions.content.map(block => (block.type === 'text' ? block.text : '')).join('\n')).toContain('Session persisted')
     const persistedEvents = await execute('session_event_search', {
       session_id: persisted,
       query: 'persisted integration needle',
     })
     expect(persistedEvents.isError).toBe(false)
-    expect(persistedEvents.content.map(block => block.type === 'text' ? block.text : '').join('\n'))
-      .toContain('seq 0')
+    expect(persistedEvents.content.map(block => (block.type === 'text' ? block.text : '')).join('\n')).toContain('seq 0')
     const liveEvents = await execute('session_event_search', { query: 'live integration needle' })
     expect(liveEvents.isError).toBe(false)
-    expect(liveEvents.content.map(block => block.type === 'text' ? block.text : '').join('\n'))
-      .toContain('seq 1')
+    expect(liveEvents.content.map(block => (block.type === 'text' ? block.text : '')).join('\n')).toContain('seq 1')
   })
 
   it('passes finite fractional epoch-millisecond bounds through SQLite comparisons', async () => {
@@ -182,13 +178,14 @@ describe('tool-session-query with the real SQLite provider', () => {
       meta: { createdAt: base + 1_000, cwd: '/work' },
     })
     let call = 0
-    const execute = (args: unknown) => ctx.tools.execute({
-      name: 'session_event_search',
-      arguments: args,
-      callId: ToolCallId(`fractional-integration-${++call}`),
-      signal: new AbortController().signal,
-      agent: fakeAgent(caller),
-    })
+    const execute = (args: unknown) =>
+      ctx.tools.execute({
+        name: 'session_event_search',
+        arguments: args,
+        callId: ToolCallId(`fractional-integration-${++call}`),
+        signal: new AbortController().signal,
+        agent: fakeAgent(caller),
+      })
 
     const lowerBound = await execute({
       session_id: persisted,
@@ -196,7 +193,7 @@ describe('tool-session-query with the real SQLite provider', () => {
       time_from: '2026-07-24T00:00:00.12300001Z',
     })
     expect(lowerBound.isError).toBe(false)
-    const lowerText = lowerBound.content.map(block => block.type === 'text' ? block.text : '').join('\n')
+    const lowerText = lowerBound.content.map(block => (block.type === 'text' ? block.text : '')).join('\n')
     expect(lowerText).toContain('seq 1')
     expect(lowerText).not.toContain('seq 0')
 
@@ -206,7 +203,7 @@ describe('tool-session-query with the real SQLite provider', () => {
       time_to: '2026-07-24T08:00:00.1239999+08:00',
     })
     expect(upperBound.isError).toBe(false)
-    const upperText = upperBound.content.map(block => block.type === 'text' ? block.text : '').join('\n')
+    const upperText = upperBound.content.map(block => (block.type === 'text' ? block.text : '')).join('\n')
     expect(upperText).toContain('seq 0')
     expect(upperText).not.toContain('seq 1')
 
@@ -217,8 +214,9 @@ describe('tool-session-query with the real SQLite provider', () => {
       time_to: '2026-07-24T08:00:00.1239999+08:00',
     })
     expect(emptySameMillisecond.isError).toBe(false)
-    expect(emptySameMillisecond.content.map(block => block.type === 'text' ? block.text : '').join('\n'))
-      .toContain('No prior event matches found.')
+    expect(emptySameMillisecond.content.map(block => (block.type === 'text' ? block.text : '')).join('\n')).toContain(
+      'No prior event matches found.',
+    )
 
     const preEpochLower = await execute({
       session_id: persisted,
@@ -226,8 +224,7 @@ describe('tool-session-query with the real SQLite provider', () => {
       time_from: '1969-12-31T23:59:59.87600001Z',
     })
     expect(preEpochLower.isError).toBe(false)
-    const preEpochLowerText = preEpochLower.content
-      .map(block => block.type === 'text' ? block.text : '').join('\n')
+    const preEpochLowerText = preEpochLower.content.map(block => (block.type === 'text' ? block.text : '')).join('\n')
     expect(preEpochLowerText).toContain('seq 3')
     expect(preEpochLowerText).not.toContain('seq 2')
 
@@ -237,8 +234,7 @@ describe('tool-session-query with the real SQLite provider', () => {
       time_to: '1969-12-31T19:59:59.8769999-04:00',
     })
     expect(preEpochUpper.isError).toBe(false)
-    const preEpochUpperText = preEpochUpper.content
-      .map(block => block.type === 'text' ? block.text : '').join('\n')
+    const preEpochUpperText = preEpochUpper.content.map(block => (block.type === 'text' ? block.text : '')).join('\n')
     expect(preEpochUpperText).toContain('seq 2')
     expect(preEpochUpperText).not.toContain('seq 3')
   })

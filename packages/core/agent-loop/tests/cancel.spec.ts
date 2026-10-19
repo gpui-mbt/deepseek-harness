@@ -8,7 +8,7 @@ import { ToolCallId, createUserMessage, expandAssistantStream } from '@deepseek-
  * @module dsh-agent-loop/tests/cancel
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId, SessionLogOffset, TurnEndReason } from '@deepseek-ai/dsh-session'
@@ -42,19 +42,23 @@ function send(agent: Agent, text: string) {
 
 /** Resolve on the agent's next idle transition (event-based, not status poll). */
 function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
-      if (subject === agent && status === 'idle') { dispose(); resolve() }
+      if (subject === agent && status === 'idle') {
+        dispose()
+        resolve()
+      }
     })
   })
 }
 
 /** All user-message texts recorded in the log (to assert what actually ran). */
 function userTexts(agent: Agent): string[] {
-  return agent.session.snapshotEvents()
+  return agent.session
+    .snapshotEvents()
     .filter(e => e.type === 'user/message')
-    .flatMap(e => e.type === 'user/message' ? e.data.content : [])
-    .flatMap(b => b.type === 'text' ? [b.text] : [])
+    .flatMap(e => (e.type === 'user/message' ? e.data.content : []))
+    .flatMap(b => (b.type === 'text' ? [b.text] : []))
 }
 
 describe('Agent.cancel()', () => {
@@ -71,10 +75,18 @@ describe('Agent.cancel()', () => {
     try {
       const agent = await ctx.agentLoop.create(SessionId('cancel-mutated-cause'), { provider: 'mock', model: 'mock' })
       const errors: unknown[] = []
-      ctx.on('agent/error', ({ error }) => { errors.push(error) })
+      ctx.on('agent/error', ({ error }) => {
+        errors.push(error)
+      })
       ctx.on('agent/request', ({ signal, turn }, next) => {
         if (turn === 1) {
-          signal.addEventListener('abort', () => { mutate(cause) }, { once: true })
+          signal.addEventListener(
+            'abort',
+            () => {
+              mutate(cause)
+            },
+            { once: true },
+          )
           agent.cancel(cause)
         }
         return next()
@@ -88,8 +100,7 @@ describe('Agent.cancel()', () => {
       await agent.whenIdle()
 
       return {
-        endings: agent.session.snapshotEvents()
-          .flatMap(event => event.type === 'turn/end' ? [event.data.reason] : []),
+        endings: agent.session.snapshotEvents().flatMap(event => (event.type === 'turn/end' ? [event.data.reason] : [])),
         errors,
         requests: adapter.requests.length,
       }
@@ -121,7 +132,7 @@ describe('Agent.cancel()', () => {
     { kind: 'parent' },
     { kind: 'hook', reason: 'policy stopped this turn' },
     { kind: 'disposed' },
-  ])('records $kind cancellation without the stack a transport assigned to the abort reason', async (cause) => {
+  ])('records $kind cancellation without the stack a transport assigned to the abort reason', async cause => {
     const expectedCause = { ...cause }
 
     const { endings, errors, requests } = await endingsAfterMutatingCancel(cause, assignTransportStack)
@@ -166,21 +177,26 @@ describe('Agent.cancel()', () => {
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
-    agent.followup(createUserMessage({
-      content: [{ type: 'text', text: 'preserved' }],
-      source: { kind: 'user' },
-    }))
+    agent.followup(
+      createUserMessage({
+        content: [{ type: 'text', text: 'preserved' }],
+        source: { kind: 'user' },
+      }),
+    )
     // A waking send starts and claims synchronously, so keepInbox has no
     // pending item to preserve by the time this cancellation runs.
     agent.cancel({ kind: 'user' }, { keepInbox: true })
-    expect(agent.session.snapshotEvents().some(event =>
-      event.type === 'agent/inbox/spliced' && event.data.outcome === 'canceled')).toBe(false)
+    expect(agent.session.snapshotEvents().some(event => event.type === 'agent/inbox/spliced' && event.data.outcome === 'canceled')).toBe(
+      false,
+    )
     await agent.whenIdle()
     expect(agent.inbox.nextTurn).toHaveLength(0)
     expect(userTexts(agent)).toEqual([])
     expect(adapter.requests).toHaveLength(0)
-    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end')?.data.reason)
-      .toEqual({ kind: 'aborted', reason: { kind: 'user' } })
+    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end')?.data.reason).toEqual({
+      kind: 'aborted',
+      reason: { kind: 'user' },
+    })
 
     const idle = waitForIdle(ctx, agent)
     send(agent, 'wake it')
@@ -190,11 +206,7 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel({ keepInbox: true }) parks queued work after an active turn aborts', async () => {
-    const adapter = new MockAdapter([
-      'hang',
-      textResponse('preserved reply'),
-      textResponse('wake reply'),
-    ])
+    const adapter = new MockAdapter(['hang', textResponse('preserved reply'), textResponse('wake reply')])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('keep-after-abort'), { provider: 'mock', model: 'mock' })
 
@@ -233,11 +245,12 @@ describe('Agent.cancel()', () => {
     expect(userTexts(agent)).toEqual(['active', 'B'])
     expect(adapter.requests).toHaveLength(2)
     expect(agent.inbox.nextTurn).toHaveLength(0)
-    expect(agent.session.snapshotEvents().filter(e => e.type === 'turn/end').map(e =>
-      e.type === 'turn/end' ? e.data.reason : null)).toEqual([
-      { kind: 'aborted', reason: { kind: 'user' } },
-      { kind: 'completed' },
-    ])
+    expect(
+      agent.session
+        .snapshotEvents()
+        .filter(e => e.type === 'turn/end')
+        .map(e => (e.type === 'turn/end' ? e.data.reason : null)),
+    ).toEqual([{ kind: 'aborted', reason: { kind: 'user' } }, { kind: 'completed' }])
   })
 
   it('cancel() without keepInbox clears a latched wake alongside the inbox', async () => {
@@ -323,7 +336,9 @@ describe('Agent.cancel()', () => {
     // abort-to-idle window must not latch, so `whenIdle()` does not wait on
     // a model turn over the session being torn down.
     const disposal = handle.dispose()
-    setTimeout(() => { send(agent, 'late wake') }, 10)
+    setTimeout(() => {
+      send(agent, 'late wake')
+    }, 10)
     await disposal
 
     expect(adapter.requests).toHaveLength(1)
@@ -344,8 +359,10 @@ describe('Agent.cancel()', () => {
     expect(userTexts(agent)).toEqual([])
     expect(agent.session.snapshotEvents().filter(event => event.type === 'turn/start')).toHaveLength(1)
     expect(agent.session.snapshotEvents().filter(event => event.type === 'step/start')).toHaveLength(0)
-    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end')?.data.reason)
-      .toEqual({ kind: 'aborted', reason: { kind: 'user' } })
+    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end')?.data.reason).toEqual({
+      kind: 'aborted',
+      reason: { kind: 'user' },
+    })
     expect(agent.status).toBe('idle')
   })
 
@@ -392,7 +409,11 @@ describe('Agent.cancel()', () => {
     // Must resolve (not hang). A timeout makes the failure a clear test failure.
     await Promise.race([
       idle,
-      new Promise((_r, reject) => setTimeout(() => { reject(new Error('whenIdle hung after pre-step cancel')) }, 1000)),
+      new Promise((_r, reject) =>
+        setTimeout(() => {
+          reject(new Error('whenIdle hung after pre-step cancel'))
+        }, 1000),
+      ),
     ])
     expect(agent.status).toBe('idle')
   })
@@ -420,10 +441,16 @@ describe('Agent.cancel()', () => {
     await replacementRegistered.promise
     if (replacementObservation === undefined) throw new Error('idle listener did not register replacement work')
 
-    await expect(Promise.race([
-      replacementObservation,
-      new Promise((_resolve, reject) => setTimeout(() => { reject(new Error('whenIdle hung after idle-listener cancel')) }, 1000)),
-    ])).resolves.toEqual({ status: 'idle', requests: 1, turns: 2 })
+    await expect(
+      Promise.race([
+        replacementObservation,
+        new Promise((_resolve, reject) =>
+          setTimeout(() => {
+            reject(new Error('whenIdle hung after idle-listener cancel'))
+          }, 1000),
+        ),
+      ]),
+    ).resolves.toEqual({ status: 'idle', requests: 1, turns: 2 })
 
     const idle = waitForIdle(ctx, agent)
     send(agent, 'later')
@@ -433,11 +460,7 @@ describe('Agent.cancel()', () => {
   })
 
   it('replacement work queued after idle-listener cancellation replays at convergence', async () => {
-    const adapter = new MockAdapter([
-      textResponse('first reply'),
-      textResponse('replacement reply'),
-      textResponse('wake reply'),
-    ])
+    const adapter = new MockAdapter([textResponse('first reply'), textResponse('replacement reply'), textResponse('wake reply')])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('idle-listener-post-cancel-send'), { provider: 'mock', model: 'mock' })
 
@@ -476,7 +499,9 @@ describe('Agent.cancel()', () => {
     const agent = await ctx.agentLoop.create(SessionId('a1'), { provider: 'mock', model: 'mock' })
 
     const reasons: TurnEndReason[] = []
-    ctx.on('session/event', (_s, event) => { if (event.type === 'turn/end') reasons.push(event.data.reason) })
+    ctx.on('session/event', (_s, event) => {
+      if (event.type === 'turn/end') reasons.push(event.data.reason)
+    })
 
     send(agent, 'go')
     await new Promise(r => setTimeout(r, 30))
@@ -492,21 +517,20 @@ describe('Agent.cancel()', () => {
   })
 
   it('cancel from an assistant/message observer skips execution but balances replay', async () => {
-    const adapter = new MockAdapter([
-      toolCallResponse('c1', 'danger', {}),
-      textResponse('recovered after cancellation'),
-    ])
+    const adapter = new MockAdapter([toolCallResponse('c1', 'danger', {}), textResponse('recovered after cancellation')])
     const ctx = await harness(adapter)
     let executions = 0
-    ctx.tools.register(defineContentToolFixture({
-      name: 'danger',
-      description: 'must not run after cancellation',
-      parameters: {},
-      async execute() {
-        executions += 1
-        return [{ type: 'text', text: 'ran' }]
-      },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'danger',
+        description: 'must not run after cancellation',
+        parameters: {},
+        async execute() {
+          executions += 1
+          return [{ type: 'text', text: 'ran' }]
+        },
+      }),
+    )
     const agent = await ctx.agentLoop.create(SessionId('cancel-after-assistant-message'), { provider: 'mock', model: 'mock' })
     const dispose = ctx.on('session/event', (session, event) => {
       if (session === agent.session && event.type === 'assistant/message') {
@@ -515,7 +539,9 @@ describe('Agent.cancel()', () => {
     })
 
     const reasons: TurnEndReason[] = []
-    ctx.on('session/event', (_session, event) => { if (event.type === 'turn/end') reasons.push(event.data.reason) })
+    ctx.on('session/event', (_session, event) => {
+      if (event.type === 'turn/end') reasons.push(event.data.reason)
+    })
 
     send(agent, 'go')
     await waitForIdle(ctx, agent)
@@ -540,10 +566,7 @@ describe('Agent.cancel()', () => {
     await waitForIdle(ctx, agent)
     const replayedResult = adapter.requests[1]!.messages.find(message => message.role === 'tool')
     expect(replayedResult).toMatchObject({ toolCallId: 'c1', isError: true })
-    expect(reasons).toEqual([
-      { kind: 'aborted', reason: { kind: 'user' } },
-      { kind: 'completed' },
-    ])
+    expect(reasons).toEqual([{ kind: 'aborted', reason: { kind: 'user' } }, { kind: 'completed' }])
   })
 
   it('a prompt sent AFTER a cancelled turn settles runs normally (marker reset)', async () => {
@@ -581,14 +604,13 @@ describe('Agent.cancel()', () => {
     // The prefix the user watched stream is committed as the step's message,
     // carrying the truncation marker and exact embedded stream that delivered it.
     const message = agent.session.snapshotEvents().find(e => e.type === 'assistant/message')
-    expect(message?.type === 'assistant/message' ? message.data.message.content : undefined)
-      .toEqual([{ type: 'text', text: 'partial' }])
+    expect(message?.type === 'assistant/message' ? message.data.message.content : undefined).toEqual([{ type: 'text', text: 'partial' }])
     expect(message?.type === 'assistant/message' ? message.data.interrupted : undefined).toBe(true)
-    expect(message?.type === 'assistant/message'
-      ? expandAssistantStream(message.data.stream).some(member => (
-        member.chunk.type === 'text-delta' && member.chunk.text === 'partial'
-      ))
-      : false).toBe(true)
+    expect(
+      message?.type === 'assistant/message'
+        ? expandAssistantStream(message.data.stream).some(member => member.chunk.type === 'text-delta' && member.chunk.text === 'partial')
+        : false,
+    ).toBe(true)
     expect(message?.sourceEventSeqs).toBeUndefined()
     const types = agent.session.snapshotEvents().map(e => e.type)
     expect(types.indexOf('assistant/message')).toBeLessThan(types.indexOf('step/end'))
@@ -597,10 +619,9 @@ describe('Agent.cancel()', () => {
     // The next request derives the finalized prefix: the model sees what the user saw.
     send(agent, 'continue')
     await waitForIdle(ctx, agent)
-    const replayed = adapter.requests[1]!.messages
-      .filter(m => m.role === 'assistant')
+    const replayed = adapter.requests[1]!.messages.filter(m => m.role === 'assistant')
       .flatMap(m => m.content)
-      .flatMap(b => b.type === 'text' ? [b.text] : [])
+      .flatMap(b => (b.type === 'text' ? [b.text] : []))
     expect(replayed).toContain('partial')
   })
 
@@ -608,12 +629,15 @@ describe('Agent.cancel()', () => {
     const response = textResponse('complete')
     const replayState = { response: { id: 'response' }, blocks: ['text-meta'] }
     response[response.length - 1] = {
-      type: 'finish', reason: { kind: 'stop' }, replayState,
+      type: 'finish',
+      reason: { kind: 'stop' },
+      replayState,
     }
     const adapter = new MockAdapter([response])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('terminal-cancel-replay'), {
-      provider: 'mock', model: 'mock',
+      provider: 'mock',
+      model: 'mock',
     })
     ctx.on('agent/assistant-stream', ({ agent: subject, frame }) => {
       if (subject === agent && frame.type === 'chunk' && frame.chunk.type === 'finish') {
@@ -625,26 +649,29 @@ describe('Agent.cancel()', () => {
     await waitForIdle(ctx, agent)
 
     const message = agent.session.snapshotEvents().find(event => event.type === 'assistant/message')
-    expect(message?.type === 'assistant/message' ? message.data.message.source.replayState : undefined)
-      .toEqual(replayState)
+    expect(message?.type === 'assistant/message' ? message.data.message.source.replayState : undefined).toEqual(replayState)
     expect(message?.type === 'assistant/message' ? message.data.interrupted : undefined).toBe(true)
-    expect(() => Session.fromRestore(
-      agent.session.id,
-      structuredClone([...agent.session.snapshotEvents()]),
-      structuredClone(agent.session.header),
-      SessionLogOffset(0),
-      'detached',
-    )).not.toThrow()
+    expect(() =>
+      Session.fromRestore(
+        agent.session.id,
+        structuredClone([...agent.session.snapshotEvents()]),
+        structuredClone(agent.session.header),
+        SessionLogOffset(0),
+        'detached',
+      ),
+    ).not.toThrow()
   })
 
   it('cancel during reasoning-only streaming finalizes the reasoning prefix', async () => {
-    const adapter = new MockAdapter([{
-      hangAfter: [
-        { type: 'block-start', index: 0, blockType: 'reasoning' },
-        { type: 'reasoning-delta', index: 0, text: 'thinking about it' },
-        { type: 'usage', usage: { inputTokens: 7, outputTokens: 4 } },
-      ],
-    }])
+    const adapter = new MockAdapter([
+      {
+        hangAfter: [
+          { type: 'block-start', index: 0, blockType: 'reasoning' },
+          { type: 'reasoning-delta', index: 0, text: 'thinking about it' },
+          { type: 'usage', usage: { inputTokens: 7, outputTokens: 4 } },
+        ],
+      },
+    ])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('reasoning-finalize'), { provider: 'mock', model: 'mock' })
 
@@ -654,23 +681,25 @@ describe('Agent.cancel()', () => {
     await waitForIdle(ctx, agent)
 
     const message = agent.session.snapshotEvents().find(e => e.type === 'assistant/message')
-    expect(message?.type === 'assistant/message' ? message.data.message.content : undefined)
-      .toEqual([{ type: 'reasoning', text: 'thinking about it' }])
+    expect(message?.type === 'assistant/message' ? message.data.message.content : undefined).toEqual([
+      { type: 'reasoning', text: 'thinking about it' },
+    ])
     // A usage chunk delivered before the cancel travels with the finalized prefix.
-    expect(message?.type === 'assistant/message' ? message.data.usage : undefined)
-      .toEqual({ inputTokens: 7, outputTokens: 4 })
+    expect(message?.type === 'assistant/message' ? message.data.usage : undefined).toEqual({ inputTokens: 7, outputTokens: 4 })
   })
 
   it('cancel drops a half-streamed tool call and keeps the completed text before it', async () => {
-    const adapter = new MockAdapter([{
-      hangAfter: [
-        { type: 'block-start', index: 0, blockType: 'text' },
-        { type: 'text-delta', index: 0, text: 'reading the file' },
-        { type: 'block-end', index: 0, block: { type: 'text', text: 'reading the file' } },
-        { type: 'block-start', index: 1, blockType: 'tool-call' },
-        { type: 'tool-call-delta', index: 1, id: ToolCallId('c1'), name: 'read', argumentsDelta: '{"pa' },
-      ],
-    }])
+    const adapter = new MockAdapter([
+      {
+        hangAfter: [
+          { type: 'block-start', index: 0, blockType: 'text' },
+          { type: 'text-delta', index: 0, text: 'reading the file' },
+          { type: 'block-end', index: 0, block: { type: 'text', text: 'reading the file' } },
+          { type: 'block-start', index: 1, blockType: 'tool-call' },
+          { type: 'tool-call-delta', index: 1, id: ToolCallId('c1'), name: 'read', argumentsDelta: '{"pa' },
+        ],
+      },
+    ])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('tool-call-drop'), { provider: 'mock', model: 'mock' })
 
@@ -681,17 +710,20 @@ describe('Agent.cancel()', () => {
 
     // The undispatched call is dropped whole — no dangling tool_use to pair.
     const message = agent.session.snapshotEvents().find(e => e.type === 'assistant/message')
-    expect(message?.type === 'assistant/message' ? message.data.message.content : undefined)
-      .toEqual([{ type: 'text', text: 'reading the file' }])
+    expect(message?.type === 'assistant/message' ? message.data.message.content : undefined).toEqual([
+      { type: 'text', text: 'reading the file' },
+    ])
     expect(agent.session.snapshotEvents().some(e => e.type === 'tool/call')).toBe(false)
   })
 
   it('cancel during error recovery does not finalize the failed stream', async () => {
-    const adapter = new MockAdapter([[
-      { type: 'block-start', index: 0, blockType: 'text' },
-      { type: 'text-delta', index: 0, text: 'doomed partial' },
-      { type: 'finish', reason: { kind: 'error', failure: { message: 'boom', code: 'SERVER_ERROR' } } },
-    ]])
+    const adapter = new MockAdapter([
+      [
+        { type: 'block-start', index: 0, blockType: 'text' },
+        { type: 'text-delta', index: 0, text: 'doomed partial' },
+        { type: 'finish', reason: { kind: 'error', failure: { message: 'boom', code: 'SERVER_ERROR' } } },
+      ],
+    ])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('recovery-cancel'), { provider: 'mock', model: 'mock' })
     // Cancellation lands while agent/request-error is in flight — the window
@@ -729,28 +761,33 @@ describe('Agent.cancel()', () => {
     const messages = agent.session.snapshotEvents().filter(e => e.type === 'assistant/message')
     expect(messages).toHaveLength(1)
     const message = messages[0]!
-    expect(message.type === 'assistant/message' ? message.data.message.content : undefined)
-      .toEqual([{ type: 'text', text: 'recovered' }])
+    expect(message.type === 'assistant/message' ? message.data.message.content : undefined).toEqual([{ type: 'text', text: 'recovered' }])
     expect(message.type === 'assistant/message' ? message.data.interrupted : undefined).toBeUndefined()
     const failed = agent.session.snapshotEvents().find(e => e.type === 'assistant/attempt')
-    expect(failed?.type === 'assistant/attempt'
-      ? expandAssistantStream(failed.data.stream).some(member => (
-        member.chunk.type === 'text-delta' && member.chunk.text === 'doomed partial'
-      ))
-      : false).toBe(true)
-    expect(message.type === 'assistant/message'
-      ? expandAssistantStream(message.data.stream).some(member => (
-        member.chunk.type === 'text-delta' && member.chunk.text === 'doomed partial'
-      ))
-      : true).toBe(false)
+    expect(
+      failed?.type === 'assistant/attempt'
+        ? expandAssistantStream(failed.data.stream).some(
+            member => member.chunk.type === 'text-delta' && member.chunk.text === 'doomed partial',
+          )
+        : false,
+    ).toBe(true)
+    expect(
+      message.type === 'assistant/message'
+        ? expandAssistantStream(message.data.stream).some(
+            member => member.chunk.type === 'text-delta' && member.chunk.text === 'doomed partial',
+          )
+        : true,
+    ).toBe(false)
   })
 
   it('retains a partial attempt when stream middleware rejects without cancellation', async () => {
     const failure = new Error('provider transport failed')
-    const adapter = new MockAdapter([[
-      { type: 'block-start', index: 0, blockType: 'text' },
-      { type: 'text-delta', index: 0, text: 'partial before failure' },
-    ]])
+    const adapter = new MockAdapter([
+      [
+        { type: 'block-start', index: 0, blockType: 'text' },
+        { type: 'text-delta', index: 0, text: 'partial before failure' },
+      ],
+    ])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('provider-stream-rejection'), { provider: 'mock', model: 'mock' })
     ctx.on('llm/stream', async function* (_options, next) {
@@ -764,21 +801,24 @@ describe('Agent.cancel()', () => {
     await waitForIdle(ctx, agent)
 
     const attempt = agent.session.snapshotEvents().find(event => event.type === 'assistant/attempt')
-    expect(attempt?.type === 'assistant/attempt'
-      ? expandAssistantStream(attempt.data.stream).map(member => member.chunk)
-      : []).toContainEqual({ type: 'text-delta', index: 0, text: 'partial before failure' })
+    expect(
+      attempt?.type === 'assistant/attempt' ? expandAssistantStream(attempt.data.stream).map(member => member.chunk) : [],
+    ).toContainEqual({ type: 'text-delta', index: 0, text: 'partial before failure' })
     expect(agent.session.snapshotEvents().find(event => event.type === 'turn/end')).toMatchObject({
-      type: 'turn/end', data: { reason: { kind: 'error', error: { message: failure.message } } },
+      type: 'turn/end',
+      data: { reason: { kind: 'error', error: { message: failure.message } } },
     })
   })
 
   it('cancel before any visible content finalizes nothing', async () => {
-    const adapter = new MockAdapter([{
-      hangAfter: [
-        { type: 'block-start', index: 0, blockType: 'tool-call' },
-        { type: 'tool-call-delta', index: 0, id: ToolCallId('c1'), name: 'read', argumentsDelta: '{"pa' },
-      ],
-    }])
+    const adapter = new MockAdapter([
+      {
+        hangAfter: [
+          { type: 'block-start', index: 0, blockType: 'tool-call' },
+          { type: 'tool-call-delta', index: 0, id: ToolCallId('c1'), name: 'read', argumentsDelta: '{"pa' },
+        ],
+      },
+    ])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('nothing-to-finalize'), { provider: 'mock', model: 'mock' })
 
@@ -800,13 +840,17 @@ describe('Agent.cancel()', () => {
     // cancel check (the one that must closeStep() to balance the already-open
     // step) — distinct from a turn-start cancel, caught before the step opens.
     let streamed = false
-    ctx.on('agent/assistant-stream', ({ frame }) => { if (frame.type === 'chunk') streamed = true })
+    ctx.on('agent/assistant-stream', ({ frame }) => {
+      if (frame.type === 'chunk') streamed = true
+    })
     const dispose = ctx.on('session/event', (session, event) => {
       if (session === agent.session && event.type === 'step/start') agent.cancel({ kind: 'user' })
     })
 
     const reasons: TurnEndReason[] = []
-    ctx.on('session/event', (_s, event) => { if (event.type === 'turn/end') reasons.push(event.data.reason) })
+    ctx.on('session/event', (_s, event) => {
+      if (event.type === 'turn/end') reasons.push(event.data.reason)
+    })
 
     send(agent, 'go')
     await waitForIdle(ctx, agent)
@@ -840,7 +884,9 @@ describe('Agent.cancel()', () => {
 
     let disposalDone: Promise<void> | undefined
     let streamed = false
-    ctx.on('agent/assistant-stream', ({ frame }) => { if (frame.type === 'chunk') streamed = true })
+    ctx.on('agent/assistant-stream', ({ frame }) => {
+      if (frame.type === 'chunk') streamed = true
+    })
     ctx.on('session/event', (session, event) => {
       if (session === agent.session && event.type === 'step/start') disposalDone = handle.dispose()
     })
@@ -893,7 +939,9 @@ describe('Agent.cancel()', () => {
     // `agent/status` is synchronous, so cancellation can land before the
     // durable turn-start commit and must drop the reserved work.
     let streamed = false
-    ctx.on('agent/assistant-stream', ({ frame }) => { if (frame.type === 'chunk') streamed = true })
+    ctx.on('agent/assistant-stream', ({ frame }) => {
+      if (frame.type === 'chunk') streamed = true
+    })
     const dispose = ctx.on('agent/status', ({ agent: subject, status }) => {
       if (subject === agent && status === 'running') agent.cancel({ kind: 'user' })
     })
@@ -983,19 +1031,16 @@ describe('Agent.cancel()', () => {
     const turnStarts = agent.session.snapshotEvents().filter(e => e.type === 'turn/start')
     expect(turnStarts.length).toBe(1) // only the original (cancelled) turn
     // The steering text was dropped — it never reached the log.
-    const flat = agent.session.snapshotEvents()
+    const flat = agent.session
+      .snapshotEvents()
       .filter(e => e.type === 'user/message')
       .flatMap(e => e.data.content)
-      .flatMap(b => b.type === 'text' ? [b.text] : [])
+      .flatMap(b => (b.type === 'text' ? [b.text] : []))
     expect(flat).not.toContain('steer text')
   })
 
   it('replays replacement work queued synchronously by an abort observer', async () => {
-    const adapter = new MockAdapter([
-      'hang',
-      textResponse('replacement reply'),
-      textResponse('wake reply'),
-    ])
+    const adapter = new MockAdapter(['hang', textResponse('replacement reply'), textResponse('wake reply')])
     const ctx = await harness(adapter)
     const agent = await ctx.agentLoop.create(SessionId('abort-observer-replacement'), { provider: 'mock', model: 'mock' })
 
@@ -1003,19 +1048,29 @@ describe('Agent.cancel()', () => {
     await expect.poll(() => adapter.requests.length).toBe(1)
     const signal = adapter.requests[0]?.signal
     if (signal === undefined) throw new Error('model request omitted its turn signal')
-    signal.addEventListener('abort', () => { send(agent, 'replacement') }, { once: true })
+    signal.addEventListener(
+      'abort',
+      () => {
+        send(agent, 'replacement')
+      },
+      { once: true },
+    )
     const idle = agent.whenIdle()
     agent.cancel({ kind: 'user' })
     await Promise.race([
       idle,
       new Promise((_resolve, reject) => {
         setTimeout(() => {
-          reject(new Error(`replacement did not settle: ${JSON.stringify({
-            status: agent.status,
-            requests: adapter.requests.length,
-            users: userTexts(agent),
-            events: agent.session.snapshotEvents().map(event => event.type),
-          })}`))
+          reject(
+            new Error(
+              `replacement did not settle: ${JSON.stringify({
+                status: agent.status,
+                requests: adapter.requests.length,
+                users: userTexts(agent),
+                events: agent.session.snapshotEvents().map(event => event.type),
+              })}`,
+            ),
+          )
         }, 1000)
       }),
     ])
@@ -1025,9 +1080,10 @@ describe('Agent.cancel()', () => {
     expect(adapter.requests).toHaveLength(2)
     expect(userTexts(agent)).toEqual(['original', 'replacement'])
     expect(agent.inbox.nextTurn).toHaveLength(0)
-    const reasons = agent.session.snapshotEvents()
+    const reasons = agent.session
+      .snapshotEvents()
       .filter(event => event.type === 'turn/end')
-      .map(event => event.type === 'turn/end' ? event.data.reason : undefined)
+      .map(event => (event.type === 'turn/end' ? event.data.reason : undefined))
     expect(reasons).toEqual([{ kind: 'aborted', reason: { kind: 'user' } }, { kind: 'completed' }])
 
     const replacementIdle = waitForIdle(ctx, agent)
@@ -1077,76 +1133,78 @@ describe('Agent.cancel()', () => {
     expect(turnEnd?.type === 'turn/end' && turnEnd.data.reason).toEqual({ kind: 'aborted', reason: { kind: 'user' } })
   })
 
-  it.each([
-    'pre-step',
-    'system-prompt',
-    'request',
-    'stopping',
-    'tool',
-  ] as const)('lets a cooperative %s boundary settle from the explicit turn signal', async (stage) => {
-    const adapter = new MockAdapter(stage === 'tool'
-      ? [toolCallResponse('blocked-tool', 'blocked', {})]
-      : [textResponse('done')])
-    const ctx = await harness(adapter)
-    const agent = await ctx.agentLoop.create(SessionId(`cooperative-${stage}`), { provider: 'mock', model: 'mock' })
-    const started = Promise.withResolvers<undefined>()
-    const blockUntilAbort = async (signal: AbortSignal): Promise<void> => {
-      started.resolve(undefined)
-      if (signal.aborted) return
-      await new Promise<void>((resolve) => {
-        signal.addEventListener('abort', () => { resolve() }, { once: true })
-      })
-    }
+  it.each(['pre-step', 'system-prompt', 'request', 'stopping', 'tool'] as const)(
+    'lets a cooperative %s boundary settle from the explicit turn signal',
+    async stage => {
+      const adapter = new MockAdapter(stage === 'tool' ? [toolCallResponse('blocked-tool', 'blocked', {})] : [textResponse('done')])
+      const ctx = await harness(adapter)
+      const agent = await ctx.agentLoop.create(SessionId(`cooperative-${stage}`), { provider: 'mock', model: 'mock' })
+      const started = Promise.withResolvers<undefined>()
+      const blockUntilAbort = async (signal: AbortSignal): Promise<void> => {
+        started.resolve(undefined)
+        if (signal.aborted) return
+        await new Promise<void>(resolve => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              resolve()
+            },
+            { once: true },
+          )
+        })
+      }
 
-    switch (stage) {
-      case 'pre-step':
-        ctx.on('agent/pre-step', async ({ agent: subject, signal }, next) => {
-          if (subject === agent) await blockUntilAbort(signal)
-          return next()
-        })
-        break
-      case 'system-prompt':
-        ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
-          if (context.agent === agent) {
-            if (context.signal === undefined) throw new Error('turn assembly omitted its signal')
-            await blockUntilAbort(context.signal)
-          }
-          return next()
-        })
-        break
-      case 'request':
-        ctx.on('agent/request', async ({ agent: subject, signal }, next) => {
-          if (subject === agent) await blockUntilAbort(signal)
-          return next()
-        })
-        break
-      case 'stopping':
-        ctx.on('agent/turn-stopping', async ({ agent: subject, signal }) => {
-          if (subject === agent) await blockUntilAbort(signal)
-        })
-        break
-      case 'tool':
-        ctx.tools.register(defineContentToolFixture({
-          name: 'blocked',
-          description: 'wait for cancellation',
-          parameters: {},
-          execute: async (_args, exec) => {
-            if (exec.signal === undefined) throw new Error('tool execution omitted its signal')
-            await blockUntilAbort(exec.signal)
-            return [{ type: 'text', text: 'cancelled' }]
-          },
-        }))
-        break
-    }
+      switch (stage) {
+        case 'pre-step':
+          ctx.on('agent/pre-step', async ({ agent: subject, signal }, next) => {
+            if (subject === agent) await blockUntilAbort(signal)
+            return next()
+          })
+          break
+        case 'system-prompt':
+          ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+            if (context.agent === agent) {
+              if (context.signal === undefined) throw new Error('turn assembly omitted its signal')
+              await blockUntilAbort(context.signal)
+            }
+            return next()
+          })
+          break
+        case 'request':
+          ctx.on('agent/request', async ({ agent: subject, signal }, next) => {
+            if (subject === agent) await blockUntilAbort(signal)
+            return next()
+          })
+          break
+        case 'stopping':
+          ctx.on('agent/turn-stopping', async ({ agent: subject, signal }) => {
+            if (subject === agent) await blockUntilAbort(signal)
+          })
+          break
+        case 'tool':
+          ctx.tools.register(
+            defineContentToolFixture({
+              name: 'blocked',
+              description: 'wait for cancellation',
+              parameters: {},
+              execute: async (_args, exec) => {
+                if (exec.signal === undefined) throw new Error('tool execution omitted its signal')
+                await blockUntilAbort(exec.signal)
+                return [{ type: 'text', text: 'cancelled' }]
+              },
+            }),
+          )
+          break
+      }
 
-    send(agent, 'go')
-    await started.promise
-    const idle = agent.whenIdle()
-    agent.cancel({ kind: 'user' })
-    await idle
-    const turnEnd = agent.session.snapshotEvents().findLast(event => event.type === 'turn/end')
-    expect(turnEnd?.type === 'turn/end' && turnEnd.data.reason)
-      .toEqual({ kind: 'aborted', reason: { kind: 'user' } })
-    await ctx.fiber.dispose()
-  })
+      send(agent, 'go')
+      await started.promise
+      const idle = agent.whenIdle()
+      agent.cancel({ kind: 'user' })
+      await idle
+      const turnEnd = agent.session.snapshotEvents().findLast(event => event.type === 'turn/end')
+      expect(turnEnd?.type === 'turn/end' && turnEnd.data.reason).toEqual({ kind: 'aborted', reason: { kind: 'user' } })
+      await ctx.fiber.dispose()
+    },
+  )
 })

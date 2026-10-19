@@ -8,20 +8,14 @@
  * it as plain Markdown.
  */
 
-import {
-  copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync,
-} from 'node:fs'
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, dirname, extname, posix, relative, resolve, sep } from 'node:path'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { gfm } from 'micromark-extension-gfm'
 import type { Nodes } from 'mdast'
 import { docsPages, localeCollections, orderedPages, type DocsLocale, type DocsPage } from '../website/docs.ts'
-import {
-  isExternalOrAbsoluteMarkdownUrl,
-  markdownDestination,
-  splitMarkdownUrlTarget,
-} from './markdown.ts'
+import { isExternalOrAbsoluteMarkdownUrl, markdownDestination, splitMarkdownUrlTarget } from './markdown.ts'
 
 const REPOSITORY_URL = 'https://github.com/deepseek-ai/deepseek-harness'
 const root = resolve(import.meta.dirname, '..')
@@ -103,9 +97,7 @@ function sourceMap(pages: DocsPage[]): Map<string, Map<DocsLocale, DocsPage>> {
 }
 
 function counterpartSource(source: string): string {
-  return source.endsWith('.zh.md')
-    ? source.replace(/\.zh\.md$/, '.md')
-    : source.replace(/\.md$/, '.zh.md')
+  return source.endsWith('.zh.md') ? source.replace(/\.zh\.md$/, '.md') : source.replace(/\.md$/, '.zh.md')
 }
 
 function resolveRepositoryTarget(sourceAbs: string, rawPath: string, repoRoot: string): { absPath: string; line?: number } {
@@ -166,17 +158,16 @@ export function rewriteMarkdown(source: string, options: RewriteMarkdownOptions)
     const { absPath, line } = resolveRepositoryTarget(sourceAbs, path, options.repoRoot)
     const targetPath = repoPath(absPath, options.repoRoot)
     const isLanguageSwitcher = targetPath === counterpartSource(options.sourcePath)
-    const targetLocale: DocsLocale = isLanguageSwitcher
-      ? options.locale === 'root' ? 'en' : 'root'
-      : options.locale
+    const targetLocale: DocsLocale = isLanguageSwitcher ? (options.locale === 'root' ? 'en' : 'root') : options.locale
     const page = published.get(targetPath)?.get(targetLocale)
-    const nextUrl = page !== undefined
-      ? routeTarget(options.route, page.route, suffix)
-      : node.type === 'image' && options.placeImage !== undefined
-        // The suffix rides along exactly as the GitHub branch keeps it: an SVG
-        // view fragment or a Vite query changes what the reference means.
-        ? `${options.placeImage(absPath)}${suffix}`
-        : githubTarget(absPath, line, suffix, options.repositoryRef, options.repoRoot, node.type === 'image')
+    const nextUrl =
+      page !== undefined
+        ? routeTarget(options.route, page.route, suffix)
+        : node.type === 'image' && options.placeImage !== undefined
+          ? // The suffix rides along exactly as the GitHub branch keeps it: an SVG
+            // view fragment or a Vite query changes what the reference means.
+            `${options.placeImage(absPath)}${suffix}`
+          : githubTarget(absPath, line, suffix, options.repositoryRef, options.repoRoot, node.type === 'image')
 
     const destination = markdownDestination(source, node)
     replacements.push({
@@ -301,7 +292,7 @@ function referencedImages(): string[] {
       pages: docsPages,
       repoRoot: root,
       repositoryRef: 'master',
-      placeImage: (absPath) => {
+      placeImage: absPath => {
         const real = publishableImage(absPath, root)
         if (real !== undefined) found.add(real)
         return ''
@@ -357,8 +348,8 @@ function projectPagesInto(
     const holder = claimed.get(target)
     if (holder !== undefined && holder !== sourceAbs) {
       throw new Error(
-        `project-doc-site: ${repoPath(sourceAbs, context.repoRoot)} and ${repoPath(holder, context.repoRoot)}`
-        + ` both project to ${relative(targetRoot, target).split(sep).join('/')}.`,
+        `project-doc-site: ${repoPath(sourceAbs, context.repoRoot)} and ${repoPath(holder, context.repoRoot)}` +
+          ` both project to ${relative(targetRoot, target).split(sep).join('/')}.`,
       )
     }
     // A file the projection did not claim is another producer's output — in
@@ -366,8 +357,8 @@ function projectPagesInto(
     // copies. Overwriting one would silently corrupt the site.
     if (holder === undefined && existsSync(target)) {
       throw new Error(
-        `project-doc-site: ${repoPath(sourceAbs, context.repoRoot)} would overwrite existing build file`
-        + ` ${relative(targetRoot, target).split(sep).join('/')}.`,
+        `project-doc-site: ${repoPath(sourceAbs, context.repoRoot)} would overwrite existing build file` +
+          ` ${relative(targetRoot, target).split(sep).join('/')}.`,
       )
     }
     claimed.set(target, sourceAbs)
@@ -393,12 +384,12 @@ function projectPagesInto(
       pages: context.pages,
       repoRoot: context.repoRoot,
       repositoryRef: context.repositoryRef,
-      placeImage: (absPath) => {
+      placeImage: absPath => {
         const real = publishableImage(absPath, context.repoRoot)
         if (real === undefined) {
           throw new Error(
-            `project-doc-site: ${page.source} references image ${repoPath(absPath, context.repoRoot)},`
-            + ' which is not a regular file inside the repository.',
+            `project-doc-site: ${page.source} references image ${repoPath(absPath, context.repoRoot)},` +
+              ' which is not a regular file inside the repository.',
           )
         }
         // Beside the page that references it, under its own basename: each
@@ -421,7 +412,8 @@ function projectPagesInto(
 export function projectDocs(): void {
   rmSync(generatedRoot, { recursive: true, force: true })
   projectPagesInto(generatedRoot, defaultProjectionContext(), (markdown, page) =>
-    addProjectionFrontmatter(projectedPageContent(markdown, page), page))
+    addProjectionFrontmatter(projectedPageContent(markdown, page), page),
+  )
 }
 
 /**
@@ -494,16 +486,14 @@ export function rawMarkdownFiles(pages: DocsPage[] = docsPages): string[] {
  * @param context Manifest and repository inputs, defaulting to this repository.
  */
 export function emitRawMarkdownPages(outDir: string, context: ProjectionContext = defaultProjectionContext()): void {
-  const aliases = context.pages.flatMap((page) => {
+  const aliases = context.pages.flatMap(page => {
     const alias = indexAliasRoute(page.route)
     return alias === undefined ? [] : [{ ...page, route: alias }]
   })
-  projectPagesInto(
-    outDir,
-    context,
-    (markdown, page) => `\uFEFF${rawMarkdownPageContent(markdown, page.source)}`,
-    [...context.pages, ...aliases],
-  )
+  projectPagesInto(outDir, context, (markdown, page) => `\uFEFF${rawMarkdownPageContent(markdown, page.source)}`, [
+    ...context.pages,
+    ...aliases,
+  ])
 }
 
 /**
@@ -520,15 +510,18 @@ export function rawMarkdownRoute(route: string, context: ProjectionContext = def
   const page = context.pages.find(candidate => candidate.route === route)
   if (page === undefined) return undefined
   const markdown = readFileSync(resolve(context.repoRoot, page.source), 'utf8')
-  return rawMarkdownPageContent(rewriteMarkdown(markdown, {
-    sourcePath: page.source,
-    locale: page.locale,
-    route: page.route,
-    pages: context.pages,
-    repoRoot: context.repoRoot,
-    repositoryRef: context.repositoryRef,
-    placeImage: absPath => `./${encodeURI(basename(absPath))}`,
-  }), page.source)
+  return rawMarkdownPageContent(
+    rewriteMarkdown(markdown, {
+      sourcePath: page.source,
+      locale: page.locale,
+      route: page.route,
+      pages: context.pages,
+      repoRoot: context.repoRoot,
+      repositoryRef: context.repositoryRef,
+      placeImage: absPath => `./${encodeURI(basename(absPath))}`,
+    }),
+    page.source,
+  )
 }
 
 /** Site identity written into llms.txt. */

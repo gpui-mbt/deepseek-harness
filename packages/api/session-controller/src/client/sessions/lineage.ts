@@ -43,9 +43,7 @@ export interface SessionListEntry {
  * @param summaries - the host's session.list items.
  * @returns display rows in render order.
  */
-export function flattenLineage(
-  summaries: readonly TitledSessionSummary[],
-): SessionListEntry[] {
+export function flattenLineage(summaries: readonly TitledSessionSummary[]): SessionListEntry[] {
   const byId = new Map<SessionId, TitledSessionSummary>()
   for (const s of summaries) byId.set(s.sessionId, s)
 

@@ -19,8 +19,14 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
-  SettingsFormModel, settingsNumberField, settingsTextField,
-  type SettingsFieldState, type SettingsFormActions, type SettingsFormShell, type SettingsFormScope, type SettingsFormScopeSnapshot,
+  SettingsFormModel,
+  settingsNumberField,
+  settingsTextField,
+  type SettingsFieldState,
+  type SettingsFormActions,
+  type SettingsFormShell,
+  type SettingsFormScope,
+  type SettingsFormScopeSnapshot,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /**
@@ -143,17 +149,17 @@ export class WebSearchCardController {
     private readonly scopes: WebSearchCardScopes,
     private readonly ctx: ClientContext,
   ) {
-    this.selection = new SettingsFormModel(scopes.web, [
-      settingsTextField('searchProvider'), settingsTextField('fetchProvider'),
-    ], [{ field: API_KEY_FIELD, write: text => this.writeKey(text) }])
-    this.messages = new SettingsFormModel(scopes.messages, [
-      settingsTextField('baseURL'), settingsNumberField('maxUses'),
-    ])
+    this.selection = new SettingsFormModel(
+      scopes.web,
+      [settingsTextField('searchProvider'), settingsTextField('fetchProvider')],
+      [{ field: API_KEY_FIELD, write: text => this.writeKey(text) }],
+    )
+    this.messages = new SettingsFormModel(scopes.messages, [settingsTextField('baseURL'), settingsNumberField('maxUses')])
     this.api = new SettingsFormModel(scopes.api, [
       settingsTextField('baseURL'),
       {
         ...settingsNumberField('count'),
-        parse: (text) => {
+        parse: text => {
           if (text.trim() === '') return { kind: 'clear' }
           const value = Number(text)
           return Number.isInteger(value) && value >= 1 && value <= 50 ? { kind: 'set', value } : undefined
@@ -169,7 +175,11 @@ export class WebSearchCardController {
     }
     this.unsubscribe = [
       ...[this.selection, this.messages, this.api].map(form => form.bind(() => form.shell()).subscribe(publish)),
-      ...[scopes.web, scopes.messages, scopes.api].map(scope => scope.subscribe(() => { void this.readCredential() })),
+      ...[scopes.web, scopes.messages, scopes.api].map(scope =>
+        scope.subscribe(() => {
+          void this.readCredential()
+        }),
+      ),
     ]
     void this.readCredential()
   }
@@ -273,10 +283,18 @@ export class WebSearchCardController {
     }
     return {
       hooks: { webSearchCard: this.store },
-      edit: (field, text) => { formOf(field).actions().edit(field, text) },
-      resetField: (field) => { formOf(field).actions().resetField(field) },
-      setSearchApi: (enabled) => { this.select(enabled) },
-      save: () => { void this.save() },
+      edit: (field, text) => {
+        formOf(field).actions().edit(field, text)
+      },
+      resetField: field => {
+        formOf(field).actions().resetField(field)
+      },
+      setSearchApi: enabled => {
+        this.select(enabled)
+      },
+      save: () => {
+        void this.save()
+      },
       discard: () => {
         for (const form of [this.selection, this.messages, this.api]) form.actions().discard()
       },

@@ -3,7 +3,7 @@ import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SessionResources } from '../src/index.ts'
 
 const contexts: Context[] = []
@@ -16,15 +16,29 @@ async function fixture() {
     const fiber = ctx.plugin(() => {})
     const session = Session.create(SessionId(id))
     const agent: Agent = {
-      id: session.id, session, ctx: fiber.ctx, options: {}, status: 'idle',
-      inbox: unsupportedInbox(), send() {}, followup() {}, inject() {}, cancel() {},
+      id: session.id,
+      session,
+      ctx: fiber.ctx,
+      options: {},
+      status: 'idle',
+      inbox: unsupportedInbox(),
+      send() {},
+      followup() {},
+      inject() {},
+      cancel() {},
       steer: () => ({ outcome: Promise.resolve({ status: 'rejected' as const }) }),
       runMaintenance: task => task(new AbortController().signal),
       whenIdle: () => Promise.resolve(undefined),
     }
     const unregister = ctx.agents.register(agent)
     await unregister
-    return { agent, async dispose() { await fiber.dispose(); await unregister() } }
+    return {
+      agent,
+      async dispose() {
+        await fiber.dispose()
+        await unregister()
+      },
+    }
   }
   return { ctx, owner }
 }
@@ -64,10 +78,17 @@ describe('Session browser resource ownership', () => {
     const released = Promise.withResolvers<undefined>()
     const closing = Promise.withResolvers<undefined>()
     const resources = new SessionResources(ctx, {
-      label: 'attached', exclusive: true,
+      label: 'attached',
+      exclusive: true,
       async open() {
         await opened.promise
-        return { value: {}, async close() { closing.resolve(undefined); await released.promise } }
+        return {
+          value: {},
+          async close() {
+            closing.resolve(undefined)
+            await released.promise
+          },
+        }
       },
     })
     expect(resources.available(a.agent)).toBe(true)
@@ -94,7 +115,10 @@ describe('Session browser resource ownership', () => {
     const { ctx, owner } = await fixture()
     const a = await owner('a')
     const b = await owner('b')
-    const open = vi.fn().mockRejectedValueOnce(new Error('browser unavailable')).mockResolvedValue({ value: 1, close: async () => {} })
+    const open = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('browser unavailable'))
+      .mockResolvedValue({ value: 1, close: async () => {} })
     const resources = new SessionResources<number>(ctx, { label: 'test', exclusive: true, open })
     await expect(resources.get(a.agent, new AbortController().signal)).rejects.toThrow('browser unavailable')
     expect(await resources.get(b.agent)).toBe(1)
@@ -120,8 +144,12 @@ describe('Session browser resource ownership', () => {
     const entered = Promise.withResolvers<undefined>()
     const failed = Promise.withResolvers<never>()
     const resources = new SessionResources(ctx, {
-      label: 'test', exclusive: false,
-      async open() { entered.resolve(undefined); return failed.promise },
+      label: 'test',
+      exclusive: false,
+      async open() {
+        entered.resolve(undefined)
+        return failed.promise
+      },
     })
     const acquiring = resources.get(a.agent)
     const rejected = expect(acquiring).rejects.toThrow('launch failed')
@@ -136,7 +164,8 @@ describe('Session browser resource ownership', () => {
     const a = await owner('a')
     const b = await owner('b')
     const resources = new SessionResources(ctx, {
-      label: 'test', exclusive: false,
+      label: 'test',
+      exclusive: false,
       open: async () => ({ value: {}, close: async () => {} }),
     })
     const entered = Promise.withResolvers<undefined>()
@@ -161,7 +190,7 @@ describe('Session browser resource ownership', () => {
     await resources.dispose()
   })
 
-  it.each(['get', 'run'] as const)('cancels one %s caller while another waiter retains the same acquisition', async (kind) => {
+  it.each(['get', 'run'] as const)('cancels one %s caller while another waiter retains the same acquisition', async kind => {
     const { ctx, owner } = await fixture()
     const a = await owner('a')
     const b = await owner('b')
@@ -178,9 +207,7 @@ describe('Session browser resource ownership', () => {
     const resources = new SessionResources(ctx, { label: 'test', exclusive: true, open })
     const controller = new AbortController()
     const execute = vi.fn(async (value: number) => value)
-    const acquiring = kind === 'get'
-      ? resources.get(a.agent, controller.signal)
-      : resources.run(a.agent, controller.signal, execute)
+    const acquiring = kind === 'get' ? resources.get(a.agent, controller.signal) : resources.run(a.agent, controller.signal, execute)
     const canceled = acquiring.catch((error: unknown) => error)
     const retained = resources.get(a.agent, new AbortController().signal).catch((error: unknown) => error)
     try {
@@ -206,14 +233,20 @@ describe('Session browser resource ownership', () => {
     const a = await owner('a')
     const ready = Promise.withResolvers<undefined>()
     const resources = new SessionResources(ctx, {
-      label: 'test', exclusive: false,
-      async open() { await ready.promise; return { value: 1, close: async () => {} } },
+      label: 'test',
+      exclusive: false,
+      async open() {
+        await ready.promise
+        return { value: 1, close: async () => {} }
+      },
     })
     const controller = new AbortController()
     const error = new Error('cancel ready waiter')
     const retained = resources.get(a.agent)
     const canceled = resources.get(a.agent, controller.signal).catch((failure: unknown) => failure)
-    const abort = retained.then(() => { controller.abort(error) })
+    const abort = retained.then(() => {
+      controller.abort(error)
+    })
     try {
       ready.resolve(undefined)
       await abort
@@ -231,14 +264,19 @@ describe('Session browser resource ownership', () => {
     const a = await owner('a')
     const b = await owner('b')
     const ready = Promise.withResolvers<never>()
-    const open = vi.fn().mockImplementationOnce(() => ready.promise).mockResolvedValue({ value: 1, close: async () => {} })
+    const open = vi
+      .fn()
+      .mockImplementationOnce(() => ready.promise)
+      .mockResolvedValue({ value: 1, close: async () => {} })
     const resources = new SessionResources<number>(ctx, { label: 'test', exclusive: true, open })
     const controller = new AbortController()
     const running = resources.run(a.agent, controller.signal, async value => value)
     controller.abort(new Error('cancel before waiting'))
     await expect(running).rejects.toThrow('cancel before waiting')
     ready.reject(new Error('late browser startup failed'))
-    await vi.waitFor(() => { expect(resources.available(b.agent)).toBe(true) })
+    await vi.waitFor(() => {
+      expect(resources.available(b.agent)).toBe(true)
+    })
     expect(await resources.get(b.agent)).toBe(1)
     await resources.dispose()
   })
@@ -264,7 +302,11 @@ describe('Session browser resource ownership', () => {
     await resources.dispose()
 
     const b = await owner('b')
-    const failed = new SessionResources<number>(ctx, { label: 'test', exclusive: false, open: vi.fn().mockRejectedValue('failed to connect') })
+    const failed = new SessionResources<number>(ctx, {
+      label: 'test',
+      exclusive: false,
+      open: vi.fn().mockRejectedValue('failed to connect'),
+    })
     await expect(failed.get(b.agent, new AbortController().signal)).rejects.toThrow('failed to connect')
     await failed.dispose()
   })
@@ -276,10 +318,18 @@ describe('Session browser resource ownership', () => {
     const release = Promise.withResolvers<undefined>()
     const closeEntered = Promise.withResolvers<undefined>()
     const closeReleased = Promise.withResolvers<undefined>()
-    const close = vi.fn(async () => { closeEntered.resolve(undefined); await closeReleased.promise })
+    const close = vi.fn(async () => {
+      closeEntered.resolve(undefined)
+      await closeReleased.promise
+    })
     const resources = new SessionResources(ctx, {
-      label: 'test', exclusive: false,
-      async open() { entered.resolve(undefined); await release.promise; return { value: {}, close } },
+      label: 'test',
+      exclusive: false,
+      async open() {
+        entered.resolve(undefined)
+        await release.promise
+        return { value: {}, close }
+      },
     })
     const acquiring = resources.get(a.agent)
     const rejected = expect(acquiring).rejects.toThrow('closing')
@@ -288,7 +338,9 @@ describe('Session browser resource ownership', () => {
     const providerDisposal = resources.dispose()
     expect(resources.dispose()).toBe(providerDisposal)
     let disposed = false
-    void providerDisposal.then(() => { disposed = true })
+    void providerDisposal.then(() => {
+      disposed = true
+    })
     release.resolve(undefined)
     await closeEntered.promise
     expect(disposed).toBe(false)
@@ -303,8 +355,14 @@ describe('Session browser resource ownership', () => {
     const running = Promise.withResolvers<undefined>()
     const stopped = Promise.withResolvers<undefined>()
     const resources = new SessionResources(ctx, {
-      label: 'test', exclusive: false,
-      open: async () => ({ value: {}, close: async () => { stopped.resolve(undefined) } }),
+      label: 'test',
+      exclusive: false,
+      open: async () => ({
+        value: {},
+        close: async () => {
+          stopped.resolve(undefined)
+        },
+      }),
     })
     const call = resources.run(a.agent, new AbortController().signal, async (_resource, signal) => {
       running.resolve(undefined)
@@ -322,8 +380,14 @@ describe('Session browser resource ownership', () => {
     const a = await owner('a')
     const b = await owner('b')
     const resources = new SessionResources(ctx, {
-      label: 'test', exclusive: true,
-      open: async () => ({ value: {}, close: async () => { throw new Error('close failed') } }),
+      label: 'test',
+      exclusive: true,
+      open: async () => ({
+        value: {},
+        close: async () => {
+          throw new Error('close failed')
+        },
+      }),
     })
     await resources.get(a.agent)
     await a.dispose()
@@ -333,7 +397,6 @@ describe('Session browser resource ownership', () => {
   })
 })
 
-
 it('reports early disposal cleanup failure while retaining the owned resource', async () => {
   const { ctx, owner } = await fixture()
   const a = await owner('early-close-failure')
@@ -341,11 +404,21 @@ it('reports early disposal cleanup failure while retaining the owned resource', 
   const stopped = Promise.withResolvers<undefined>()
   const warning = vi.spyOn(ctx.logger, 'warn')
   const resources = new SessionResources(ctx, {
-    label: 'early-close', exclusive: true,
-    open: async () => ({ value: {}, async close() { stopped.resolve(undefined); throw new Error('Close failed') } }),
+    label: 'early-close',
+    exclusive: true,
+    open: async () => ({
+      value: {},
+      async close() {
+        stopped.resolve(undefined)
+        throw new Error('Close failed')
+      },
+    }),
   })
   const controller = new AbortController()
-  const running = resources.run(a.agent, controller.signal, async () => { entered.resolve(undefined); await stopped.promise })
+  const running = resources.run(a.agent, controller.signal, async () => {
+    entered.resolve(undefined)
+    await stopped.promise
+  })
   const canceled = expect(running).rejects.toMatchObject({ kind: 'disposed' })
   await entered.promise
   controller.abort({ kind: 'disposed' })

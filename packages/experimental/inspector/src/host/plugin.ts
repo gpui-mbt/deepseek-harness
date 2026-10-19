@@ -34,12 +34,7 @@ export type {
 export type { InspectorClientBootstrap } from '../shared/bridge/messages/control.ts'
 export type { InspectorRecordInput, InspectorSourceDescriptor, InspectorSourceKind } from '../shared/bridge/messages/observation.ts'
 export type { InspectorJsonObject, InspectorJsonPrimitive, InspectorJsonValue } from '../shared/json.ts'
-export type {
-  CordisContextTreeNode,
-  CordisFiberTreeNode,
-  CordisTreeNode,
-  CordisTreeSnapshot,
-} from '../shared/cordis/snapshot.ts'
+export type { CordisContextTreeNode, CordisFiberTreeNode, CordisTreeNode, CordisTreeSnapshot } from '../shared/cordis/snapshot.ts'
 
 /** Configuration consumed by the Host implementation after package-entry validation. */
 export interface HostPluginConfig extends Omit<InspectorOptions, 'clientOrigins'> {
@@ -61,10 +56,14 @@ export async function apply(ctx: Context, config: HostPluginConfig): Promise<voi
     let worker: InspectorHandle | undefined
     const dispose = () => disposeInspectorResources(disposers, () => worker?.close(), 'experimental-inspector: disposal failed')
     try {
-      disposers.push(ctx.connection.fetch.register({
-        path: INSPECTOR_BOOTSTRAP_PATH, methods: ['GET'], requestBody: 'buffered',
-        fetch: request => bootstrapResponse(ready.promise, request.signal),
-      }))
+      disposers.push(
+        ctx.connection.fetch.register({
+          path: INSPECTOR_BOOTSTRAP_PATH,
+          methods: ['GET'],
+          requestBody: 'buffered',
+          fetch: request => bootstrapResponse(ready.promise, request.signal),
+        }),
+      )
       const handle = await startInspector(spec).catch((error: unknown) => {
         if (!isUnavailableOnPlatform(error)) throw error
         ctx.logger.warn('experimental-inspector: NodeJS Inspector is unavailable on this platform; Host inspection stays disabled', error)
@@ -77,93 +76,125 @@ export async function apply(ctx: Context, config: HostPluginConfig): Promise<voi
       worker = handle
       // Node-only frontend and launcher packages load after the Worker starts, so a platform without it never loads them.
       const { default: serveStatic } = await import('serve-static')
-      disposers.push(publishCordisTree(ctx, handle.source, {
-        maxNodes: spec.maxCordisNodes,
-        maxBytes: spec.maxSourceFrameBytes - 4_096,
-      }))
+      disposers.push(
+        publishCordisTree(ctx, handle.source, {
+          maxNodes: spec.maxCordisNodes,
+          maxBytes: spec.maxSourceFrameBytes - 4_096,
+        }),
+      )
       disposers.push(ctx.provide('inspector', createInspectorService(handle.source)))
-      disposers.push(ctx.on('webserver/index-inject', (table: IndexInjection[]) => {
-        table.push({ kind: 'global', name: '__DSH_INSPECTOR__', value: handle.endpoint.client })
-      }))
-      const assets = serveStatic(fileURLToPath(new URL('./lib/devtools/',
-        import.meta.resolve('@deepseek-ai/dsh-experimental-inspector/package.json'))), {
-        index: false, redirect: false, fallthrough: true,
-        setHeaders: (res) => { res.setHeader('X-Content-Type-Options', 'nosniff') },
-      })
-      disposers.push(ctx.webServer.register({
-        kind: 'prefix', path: DEVTOOLS_PATH,
-        handler: (req, res) => {
-          if (req.method !== 'GET' && req.method !== 'HEAD') {
-            res.writeHead(405, { allow: 'GET, HEAD' }).end()
-            return
-          }
-          if (!ctx.connection.authorizeIndex(req, res)) return
-          const url = new URL(req.url ?? '/', 'http://inspector.invalid')
-          if (url.pathname === DEVTOOLS_PATH || url.pathname === `${DEVTOOLS_PATH}/`) {
-            const location = `${url.pathname === DEVTOOLS_PATH ? 'devtools/' : ''}devtools_app.html${url.search}`
-            res.writeHead(302, { location }).end()
-            return
-          }
-          req.url = `${url.pathname.slice(DEVTOOLS_PATH.length)}${url.search}`
-          assets(req, res, (error?: unknown) => {
-            if (error !== undefined) {
-              ctx.logger.warn('experimental-inspector: frontend asset request failed', error)
-              if (res.headersSent) res.destroy()
-              else res.writeHead(500).end()
-            } else res.writeHead(404).end()
-          })
+      disposers.push(
+        ctx.on('webserver/index-inject', (table: IndexInjection[]) => {
+          table.push({ kind: 'global', name: '__DSH_INSPECTOR__', value: handle.endpoint.client })
+        }),
+      )
+      const assets = serveStatic(
+        fileURLToPath(new URL('./lib/devtools/', import.meta.resolve('@deepseek-ai/dsh-experimental-inspector/package.json'))),
+        {
+          index: false,
+          redirect: false,
+          fallthrough: true,
+          setHeaders: res => {
+            res.setHeader('X-Content-Type-Options', 'nosniff')
+          },
         },
-      }))
+      )
+      disposers.push(
+        ctx.webServer.register({
+          kind: 'prefix',
+          path: DEVTOOLS_PATH,
+          handler: (req, res) => {
+            if (req.method !== 'GET' && req.method !== 'HEAD') {
+              res.writeHead(405, { allow: 'GET, HEAD' }).end()
+              return
+            }
+            if (!ctx.connection.authorizeIndex(req, res)) return
+            const url = new URL(req.url ?? '/', 'http://inspector.invalid')
+            if (url.pathname === DEVTOOLS_PATH || url.pathname === `${DEVTOOLS_PATH}/`) {
+              const location = `${url.pathname === DEVTOOLS_PATH ? 'devtools/' : ''}devtools_app.html${url.search}`
+              res.writeHead(302, { location }).end()
+              return
+            }
+            req.url = `${url.pathname.slice(DEVTOOLS_PATH.length)}${url.search}`
+            assets(req, res, (error?: unknown) => {
+              if (error !== undefined) {
+                ctx.logger.warn('experimental-inspector: frontend asset request failed', error)
+                if (res.headersSent) res.destroy()
+                else res.writeHead(500).end()
+              } else res.writeHead(404).end()
+            })
+          },
+        }),
+      )
       const sockets = new Set<Duplex>()
       const track = (socket: Duplex): void => {
         sockets.add(socket)
-        socket.once('close', () => { sockets.delete(socket) })
+        socket.once('close', () => {
+          sockets.delete(socket)
+        })
       }
       disposers.push(async () => {
-        await Promise.all([...sockets].map(socket => new Promise<void>((resolve) => {
-          socket.once('close', resolve)
-          socket.destroy()
-        })))
+        await Promise.all(
+          [...sockets].map(
+            socket =>
+              new Promise<void>(resolve => {
+                socket.once('close', resolve)
+                socket.destroy()
+              }),
+          ),
+        )
       })
       const target = new URL(handle.endpoint.webSocketDebuggerUrl)
-      disposers.push(ctx.webServer.registerUpgrade({
-        path: `${DEVTOOLS_PATH}/cdp`,
-        handler: (req, socket, head) => {
-          const rejection = ctx.connection.requestRejection(req)
-          if (rejection !== undefined) {
-            const reason = rejection === 401 ? 'Unauthorized' : 'Forbidden'
-            socket.end(`HTTP/1.1 ${rejection} ${reason}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`)
-            return
-          }
-          const endpoint = new URL(target)
-          try {
-            const selected = readInspectorClientSelection(new URL(req.url ?? '/', 'http://inspector.invalid'))
-            if (selected !== undefined) endpoint.searchParams.set(INSPECTOR_CLIENT_QUERY, selected)
-          } catch (error) {
-            void error // Invalid selectors must not open an unfiltered connection.
-            socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n')
-            return
-          }
-          const upstream = connect(Number(target.port), target.hostname)
-          track(socket)
-          track(upstream)
-          upstream.once('connect', () => {
-            upstream.write(`GET ${endpoint.pathname}${endpoint.search} HTTP/1.1\r\nHost: ${target.host}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n`)
-            for (const [key, value] of Object.entries(req.headers)) {
-              if (key.startsWith('sec-websocket-') && value !== undefined) {
-                upstream.write(`${key}: ${Array.isArray(value) ? value.join(', ') : value}\r\n`)
-              }
+      disposers.push(
+        ctx.webServer.registerUpgrade({
+          path: `${DEVTOOLS_PATH}/cdp`,
+          handler: (req, socket, head) => {
+            const rejection = ctx.connection.requestRejection(req)
+            if (rejection !== undefined) {
+              const reason = rejection === 401 ? 'Unauthorized' : 'Forbidden'
+              socket.end(`HTTP/1.1 ${rejection} ${reason}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`)
+              return
             }
-            upstream.write('\r\n')
-            if (head.length > 0) upstream.write(head)
-            socket.pipe(upstream).pipe(socket)
-          })
-          upstream.once('error', () => { socket.destroy() })
-          socket.once('error', () => { upstream.destroy() })
-          upstream.once('close', () => { socket.destroy() })
-          socket.once('close', () => { upstream.destroy() })
-        },
-      }))
+            const endpoint = new URL(target)
+            try {
+              const selected = readInspectorClientSelection(new URL(req.url ?? '/', 'http://inspector.invalid'))
+              if (selected !== undefined) endpoint.searchParams.set(INSPECTOR_CLIENT_QUERY, selected)
+            } catch (error) {
+              void error // Invalid selectors must not open an unfiltered connection.
+              socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n')
+              return
+            }
+            const upstream = connect(Number(target.port), target.hostname)
+            track(socket)
+            track(upstream)
+            upstream.once('connect', () => {
+              upstream.write(
+                `GET ${endpoint.pathname}${endpoint.search} HTTP/1.1\r\nHost: ${target.host}\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n`,
+              )
+              for (const [key, value] of Object.entries(req.headers)) {
+                if (key.startsWith('sec-websocket-') && value !== undefined) {
+                  upstream.write(`${key}: ${Array.isArray(value) ? value.join(', ') : value}\r\n`)
+                }
+              }
+              upstream.write('\r\n')
+              if (head.length > 0) upstream.write(head)
+              socket.pipe(upstream).pipe(socket)
+            })
+            upstream.once('error', () => {
+              socket.destroy()
+            })
+            socket.once('error', () => {
+              upstream.destroy()
+            })
+            upstream.once('close', () => {
+              socket.destroy()
+            })
+            socket.once('close', () => {
+              upstream.destroy()
+            })
+          },
+        }),
+      )
       // This readiness URL is emitted while the plugin tree is still loading, before a logger sink is guaranteed.
       console.log(`dsh inspector: ${handle.endpoint.devtoolsFrontendUrl}`)
       ready.resolve(handle.endpoint.client)
@@ -202,7 +233,9 @@ function isUnavailableOnPlatform(error: unknown): boolean {
 async function bootstrapResponse(ready: Promise<InspectorClientBootstrap | undefined>, signal: AbortSignal): Promise<Response> {
   const headers = { 'cache-control': 'no-store' }
   const abandoned = Promise.withResolvers<undefined>()
-  const abandon = () => { abandoned.resolve(undefined) }
+  const abandon = () => {
+    abandoned.resolve(undefined)
+  }
   if (signal.aborted) abandon()
   else signal.addEventListener('abort', abandon, { once: true })
   try {

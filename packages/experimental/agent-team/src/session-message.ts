@@ -22,10 +22,6 @@ function pendingInboxMessages(events: readonly SessionEvent[]): UserMessage[] {
  * @param predicate - identity check for the accepted message.
  * @returns whether history or the current inbox contains a match.
  */
-export function messageAccepted(
-  events: readonly SessionEvent[],
-  predicate: (message: UserMessage) => boolean,
-): boolean {
-  return events.some(event => event.type === 'user/message' && predicate(event.data))
-    || pendingInboxMessages(events).some(predicate)
+export function messageAccepted(events: readonly SessionEvent[], predicate: (message: UserMessage) => boolean): boolean {
+  return events.some(event => event.type === 'user/message' && predicate(event.data)) || pendingInboxMessages(events).some(predicate)
 }

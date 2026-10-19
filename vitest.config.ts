@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import tsconfigPaths from 'vite-tsconfig-paths'
 import { resolvePwshPath } from './packages/shell/pwsh-local/src/resolve.ts'
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vite-plus'
 import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
 import { COVERAGE_EXEMPT_ENV, coverageExemptHeavySuites } from './scripts/coverage-exempt.ts'
 import { COVERAGE_PARTITION_MODE_ENV, COVERAGE_TEST_TIMEOUT_ENV, coverageTestTimeoutOptions } from './scripts/coverage-partitions.ts'
@@ -20,96 +20,99 @@ const uncoveredLocationsReporter = fileURLToPath(new URL('./scripts/coverage-unc
 // lib/ never loads a second module-singleton copy.
 const pathsPlugin = (): ReturnType<typeof tsconfigPaths> => tsconfigPaths({ projects: ['./tsconfig.base.json'] })
 
-const windowsUnsupportedPackages = process.platform === 'win32'
-  ? [
-      // Bash-requiring suites (a real POSIX shell is unavailable on Windows).
-      // The pwsh-requiring suites (pwsh-local, tool-pwsh) deliberately stay
-      // INCLUDED: PowerShell ships with Windows, so they run natively here.
-      // This explicit list (not a 'packages/shell/*' glob) keeps
-      // packages/shell/shell — the Service Definition package — running on Windows.
-      'packages/shell/bash-local',
-      'packages/shell/bash-sandbox',
-      'packages/shell/tool-bash',
-      'packages/experimental/hook-protocol',
-      'packages/experimental/hooks-claude-code',
-      'packages/experimental/hooks-codex',
-      'packages/terminal/terminal-bash',
-      'packages/experimental/ptc-runtime-python',
-      'packages/sandbox/sandbox-local',
-      // OpenSSH multiplexing and Unix-socket helper streams require POSIX endpoints.
-      'packages/ssh/*',
-    ]
-  : []
+const windowsUnsupportedPackages =
+  process.platform === 'win32'
+    ? [
+        // Bash-requiring suites (a real POSIX shell is unavailable on Windows).
+        // The pwsh-requiring suites (pwsh-local, tool-pwsh) deliberately stay
+        // INCLUDED: PowerShell ships with Windows, so they run natively here.
+        // This explicit list (not a 'packages/shell/*' glob) keeps
+        // packages/shell/shell — the Service Definition package — running on Windows.
+        'packages/shell/bash-local',
+        'packages/shell/bash-sandbox',
+        'packages/shell/tool-bash',
+        'packages/experimental/hook-protocol',
+        'packages/experimental/hooks-claude-code',
+        'packages/experimental/hooks-codex',
+        'packages/terminal/terminal-bash',
+        'packages/experimental/ptc-runtime-python',
+        'packages/sandbox/sandbox-local',
+        // OpenSSH multiplexing and Unix-socket helper streams require POSIX endpoints.
+        'packages/ssh/*',
+      ]
+    : []
 
-const windowsUnsupportedTests = process.platform === 'win32'
-  ? [
-      ...windowsUnsupportedPackages.map(path => `${path}/tests/**/*.spec.ts`),
-      'packages/subprocess/subprocess/tests/**/*.spec.ts',
-      'packages/subprocess/subprocess-local/tests/local.spec.ts',
-      'packages/subprocess/subprocess-local/tests/process-inspector.spec.ts',
-      'packages/subprocess/subprocess-local/tests/spawn.spec.ts',
-      'packages/subprocess/subprocess-local/tests/terminal.spec.ts',
-      // Oracle-diff suites: they compare the worker's POSIX path/url faces
-      // against the host Node's own answers, which are win32 semantics on
-      // Windows. The worker always speaks POSIX; the Linux lanes hold the diff.
-      'packages/experimental/webworker-runtime/tests/node/path-diff.spec.ts',
-      'packages/experimental/webworker-runtime/tests/node/shim-diff.spec.ts',
-      // The subprocess ladder over the worker's child_process face: its kill
-      // rung reaches the in-worker process table through `process.kill`,
-      // which the ladder's win32 branch replaces with taskkill-by-real-pid —
-      // undeliverable to a table pid. The worker host always reports 'linux',
-      // so the Linux lanes hold the ladder.
-      'packages/experimental/webworker-runtime/tests/node/child-process.spec.ts',
-    ]
-  : []
+const windowsUnsupportedTests =
+  process.platform === 'win32'
+    ? [
+        ...windowsUnsupportedPackages.map(path => `${path}/tests/**/*.spec.ts`),
+        'packages/subprocess/subprocess/tests/**/*.spec.ts',
+        'packages/subprocess/subprocess-local/tests/local.spec.ts',
+        'packages/subprocess/subprocess-local/tests/process-inspector.spec.ts',
+        'packages/subprocess/subprocess-local/tests/spawn.spec.ts',
+        'packages/subprocess/subprocess-local/tests/terminal.spec.ts',
+        // Oracle-diff suites: they compare the worker's POSIX path/url faces
+        // against the host Node's own answers, which are win32 semantics on
+        // Windows. The worker always speaks POSIX; the Linux lanes hold the diff.
+        'packages/experimental/webworker-runtime/tests/node/path-diff.spec.ts',
+        'packages/experimental/webworker-runtime/tests/node/shim-diff.spec.ts',
+        // The subprocess ladder over the worker's child_process face: its kill
+        // rung reaches the in-worker process table through `process.kill`,
+        // which the ladder's win32 branch replaces with taskkill-by-real-pid —
+        // undeliverable to a table pid. The worker host always reports 'linux',
+        // so the Linux lanes hold the ladder.
+        'packages/experimental/webworker-runtime/tests/node/child-process.spec.ts',
+      ]
+    : []
 
 // These suites compare against or assemble the Worker's fixed Linux platform.
 // Host-native Windows and macOS behavior is not their oracle.
-const nonLinuxWebWorkerTests = process.platform === 'linux'
-  ? []
-  : [
-      'packages/experimental/webworker-runtime/tests/node/fs-watch-stream.spec.ts',
-      'packages/experimental/webworker-runtime/tests/node/sandbox-stack.spec.ts',
-    ]
+const nonLinuxWebWorkerTests =
+  process.platform === 'linux'
+    ? []
+    : [
+        'packages/experimental/webworker-runtime/tests/node/fs-watch-stream.spec.ts',
+        'packages/experimental/webworker-runtime/tests/node/sandbox-stack.spec.ts',
+      ]
 
 const platformUnsupportedTests = [...windowsUnsupportedTests, ...nonLinuxWebWorkerTests]
 
-const windowsUnsupportedCoveragePackages = process.platform === 'win32'
-  ? [...windowsUnsupportedPackages, 'packages/subprocess/*']
-  : []
+const windowsUnsupportedCoveragePackages = process.platform === 'win32' ? [...windowsUnsupportedPackages, 'packages/subprocess/*'] : []
 
 // Windows-only packages: their sources execute exclusively on win32 (koffi
 // loads Win32 libraries), so the Linux coverage lane can never cover them.
 // The Windows dev/CI lane exercises them through the probe/runner suites; the
 // per-file 100% gate must not fail on their Linux-uncovered paths.
-const windowsOnlyCoverageExclusions = process.platform !== 'win32'
-  ? [
-      'packages/sandbox/sandbox-windows-acl/src/**/*.ts',
-      // The koffi-backed Win32 table (Toolhelp32/GetProcessTimes/taskkill)
-      // executes only on win32; its decision logic is unit-pinned on every
-      // host through the injected-internals suites.
-      'packages/subprocess/subprocess-local/src/windows-inspector.ts',
-    ]
-  : []
+const windowsOnlyCoverageExclusions =
+  process.platform !== 'win32'
+    ? [
+        'packages/sandbox/sandbox-windows-acl/src/**/*.ts',
+        // The koffi-backed Win32 table (Toolhelp32/GetProcessTimes/taskkill)
+        // executes only on win32; its decision logic is unit-pinned on every
+        // host through the injected-internals suites.
+        'packages/subprocess/subprocess-local/src/windows-inspector.ts',
+      ]
+    : []
 
 // The confinement runner entry executes exclusively as a spawned child
 // process (the sandbox seam's argv-prefix wrapper): its module-level main()
 // would run the confinement in-process if imported, and vitest's v8 coverage
 // never measures child processes. Its behavior is pinned end-to-end by
 // tests/runner.spec.ts, which spawns the real entry through tsx.
-const windowsRunnerCoverageExclusions = process.platform === 'win32'
-  ? [
-      'packages/sandbox/sandbox-windows-acl/src/runner.ts',
-      // The session write lock's POSIX face (fs-ext flock plus inode
-      // verification) executes only off-Windows: the Linux lanes hold its
-      // per-file 100%, while the Windows branch is unit-pinned by
-      // win32.spec's injected bindings and exercised natively by every
-      // Windows suite through the real backend.
-      'packages/session/session-persistence-jsonl/src/lease.ts',
-      // The macOS provider transport uses Unix sockets; POSIX lanes cover its real socket lifecycle.
-      'packages/experimental/cua-macos/src/shared-native.ts',
-    ]
-  : []
+const windowsRunnerCoverageExclusions =
+  process.platform === 'win32'
+    ? [
+        'packages/sandbox/sandbox-windows-acl/src/runner.ts',
+        // The session write lock's POSIX face (fs-ext flock plus inode
+        // verification) executes only off-Windows: the Linux lanes hold its
+        // per-file 100%, while the Windows branch is unit-pinned by
+        // win32.spec's injected bindings and exercised natively by every
+        // Windows suite through the real backend.
+        'packages/session/session-persistence-jsonl/src/lease.ts',
+        // The macOS provider transport uses Unix sockets; POSIX lanes cover its real socket lifecycle.
+        'packages/experimental/cua-macos/src/shared-native.ts',
+      ]
+    : []
 
 // pwsh-local's run/start/lifecycle suites self-skip without a real pwsh
 // (executor.spec.ts hasPwsh), leaving this file
@@ -118,12 +121,10 @@ const windowsRunnerCoverageExclusions = process.platform === 'win32'
 // runs the suites' own resolution (the dependency-free resolve.ts module),
 // so the exemption is active exactly when the suites skip — a mismatched
 // narrower probe could exempt the file on hosts whose suites actually run.
-const pwshCoverageExclusions = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
-  ? []
-  : [
-      'packages/shell/pwsh-local/src/index.ts',
-      'packages/shell/pwsh-sandbox/src/**/*.ts',
-    ]
+const pwshCoverageExclusions =
+  spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', '$true'], { encoding: 'utf8' }).status === 0
+    ? []
+    : ['packages/shell/pwsh-local/src/index.ts', 'packages/shell/pwsh-sandbox/src/**/*.ts']
 
 const testIncludes = [
   'packages/*/*/tests/**/*.spec.{ts,tsx}',
@@ -139,9 +140,7 @@ const coverageExemptRaw = process.env[COVERAGE_EXEMPT_ENV]
 if (coverageExemptRaw !== undefined && coverageExemptRaw !== '' && coverageExemptRaw !== '1') {
   throw new Error(`vitest config: ${COVERAGE_EXEMPT_ENV} must be '1' or unset, got ${JSON.stringify(coverageExemptRaw)}.`)
 }
-const coverageExemptExcludes = coverageExemptRaw === '1'
-  ? coverageExemptHeavySuites.map(suite => suite.exclude)
-  : []
+const coverageExemptExcludes = coverageExemptRaw === '1' ? coverageExemptHeavySuites.map(suite => suite.exclude) : []
 
 const coveragePartitionRaw = process.env[COVERAGE_PARTITION_MODE_ENV]
 if (coveragePartitionRaw !== undefined && coveragePartitionRaw !== '' && coveragePartitionRaw !== '1') {
@@ -155,7 +154,8 @@ const coveragePartitionMode = coveragePartitionRaw === '1'
 // owns the rule and its reach).
 const laneTestBudget = coverageTestTimeoutOptions(process.env[COVERAGE_TEST_TIMEOUT_ENV])
 // Outside CI, forks follow the local worker budget; CI keeps Vitest's own default for its runner.
-const localWorkerBudget = process.env.CI === 'true' ? {} : { maxWorkers: defaultParallelism(process.env, undefined, LOCAL_TEST_PARALLELISM_CAP) }
+const localWorkerBudget =
+  process.env.CI === 'true' ? {} : { maxWorkers: defaultParallelism(process.env, undefined, LOCAL_TEST_PARALLELISM_CAP) }
 
 // These suites exercise process-global state, process APIs, or timing-sensitive process I/O
 // that worker threads cannot isolate reliably under aggregate gate contention.
@@ -173,15 +173,21 @@ const processBoundTests = [
 
 // Claude Code's test-kit module names, served by the mods bridge's test support so the example mods' tests import them unchanged.
 const claudeCodeTestingAliases = {
-  'claude-code/testing': fileURLToPath(new URL('./packages/experimental/claude-code-mods/tests/support/claude-code-testing.ts', import.meta.url)),
+  'claude-code/testing': fileURLToPath(
+    new URL('./packages/experimental/claude-code-mods/tests/support/claude-code-testing.ts', import.meta.url),
+  ),
   'claude-code': fileURLToPath(new URL('./packages/experimental/claude-code-mods/tests/support/claude-code.ts', import.meta.url)),
 }
 
 export default defineConfig({
   plugins: [pathsPlugin(), standardDecoratorPlugin()],
-  resolve: { alias: claudeCodeTestingAliases },
+  resolve: { alias: claudeCodeTestingAliases, dedupe: ['vitest', '@vitest/spy', 'vite-plus'] },
   test: {
     ...localWorkerBudget,
+    // Vitest 5 clears mock history before each test by default; the suites
+    // assert calls recorded from setup or earlier tests.
+    clearMocks: false,
+    sharedViteServer: false,
     setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts'],
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
     include: testIncludes,
@@ -190,10 +196,12 @@ export default defineConfig({
     // Node stability; process-bound suites stay separate for inventory control.
     projects: [
       {
+        extends: false,
         plugins: [pathsPlugin(), standardDecoratorPlugin()],
-        resolve: { alias: claudeCodeTestingAliases },
+        resolve: { alias: claudeCodeTestingAliases, dedupe: ['vitest', '@vitest/spy', 'vite-plus'] },
         test: {
           name: 'thread-safe',
+          clearMocks: false,
           execArgv: vitestExecArgv,
           // Node 24 has aborted in its CJS lexer (v8::ToLocalChecked Empty
           // MaybeLocal in cjs_lexer::Parse) from worker threads on macOS,
@@ -202,27 +210,22 @@ export default defineConfig({
           ...laneTestBudget,
           setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts'],
           include: testIncludes,
-          exclude: [
-            ...platformUnsupportedTests,
-            ...processBoundTests,
-            ...coverageExemptExcludes,
-          ],
+          exclude: [...platformUnsupportedTests, ...processBoundTests, ...coverageExemptExcludes],
         },
       },
       {
+        extends: false,
         plugins: [pathsPlugin(), standardDecoratorPlugin()],
-        resolve: { alias: claudeCodeTestingAliases },
+        resolve: { alias: claudeCodeTestingAliases, dedupe: ['vitest', '@vitest/spy', 'vite-plus'] },
         test: {
           name: 'process-bound',
+          clearMocks: false,
           execArgv: vitestExecArgv,
           pool: 'forks',
           ...laneTestBudget,
           setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-dom-environment.ts'],
           include: processBoundTests,
-          exclude: [
-            ...platformUnsupportedTests,
-            ...coverageExemptExcludes,
-          ],
+          exclude: [...platformUnsupportedTests, ...coverageExemptExcludes],
         },
       },
     ],
@@ -248,8 +251,9 @@ export default defineConfig({
         'packages/*/*/src/oxlint-contract-*.ts',
         // Client/web UI files whose remaining branches need a browser-grade
         // harness the jsdom lane doesn't cover yet. TODO(gui): cover and
-        // remove as the client test lane matures.
-        'packages/client/ui-trajectory/src/*',
+        // remove as the client test lane matures. The recursive pattern keeps
+        // nested src/client modules under the same GUI debt exemption.
+        'packages/client/ui-trajectory/src/**',
         // Electron guest integration retains its unit specs; per-file coverage
         // is deferred until a native Electron harness covers guest behavior.
         'packages/client/ui-sidebar-browser/src/client/electron/**',
@@ -280,11 +284,16 @@ export default defineConfig({
         'packages/client/ui-chat/src/client/contract/snapshot.ts',
         'packages/client/ui-chat/src/client/historical-images.ts',
         'packages/client/ui-primitives/src/DisclosureRow.tsx',
-        'packages/client/ui-tool/src/*',
-        'packages/client/ui-slots/src/*',
-        'packages/client/ui-layout/src/*',
-        'packages/client/web/src/*',
+        'packages/client/ui-tool/src/**',
+        'packages/client/ui-slots/src/**',
+        'packages/client/ui-layout/src/**',
+        'packages/client/web/src/**',
         'packages/host/webserver/src/*',
+        // Linux-only exec/scope implementations cannot be attributed on macOS or
+        // Windows; the Linux CI lane keeps them under the per-file gate.
+        ...(process.platform === 'linux'
+          ? []
+          : ['packages/subprocess/subprocess-local/src/linux-execve.ts', 'packages/subprocess/subprocess-local/src/linux-scope.ts']),
         // The browser-worker runtime and its image packer: the executing
         // composition is a real dedicated Worker driven by the web browser lane
         // (apps/web/tests/preview-boot.e2e.ts), which unit-process V8 coverage

@@ -142,11 +142,7 @@ function containsClosingFence(text: string, marker: '`' | '~', markerLength: num
 }
 
 /** Advance an mdast point across one append while treating a split CRLF as one line ending. */
-function advancePoint(
-  point: OpenFenceState['end'],
-  appended: string,
-  precededByCarriageReturn: boolean,
-): OpenFenceState['end'] {
+function advancePoint(point: OpenFenceState['end'], appended: string, precededByCarriageReturn: boolean): OpenFenceState['end'] {
   let line = point.line
   let column = point.column
   let afterCarriageReturn = precededByCarriageReturn
@@ -229,9 +225,7 @@ export class IncrementalMarkdownParser {
     if (containsClosingFence(content, marker, run.length)) return null
     const syntheticPrefix = `${indent}${run}\n`
     const stableLength = committableLinePrefixLength(content)
-    const stableValue = stableLength === 0
-      ? ''
-      : this.fenceValue({ syntheticPrefix }, content.slice(0, stableLength))
+    const stableValue = stableLength === 0 ? '' : this.fenceValue({ syntheticPrefix }, content.slice(0, stableLength))
     if (stableValue === undefined) return null
     const pendingStart = contentStart + stableLength
     const stableSource = content.slice(0, stableLength)
@@ -253,35 +247,25 @@ export class IncrementalMarkdownParser {
   }
 
   /** Extend a recognized unclosed fence without parsing its completed content prefix again. */
-  private updateOpenFence(
-    state: OpenFenceState,
-    text: string,
-    previousText: string,
-  ): IncrementalBlocks | undefined {
+  private updateOpenFence(state: OpenFenceState, text: string, previousText: string): IncrementalBlocks | undefined {
     const pending = text.slice(state.pendingStart)
     if (containsClosingFence(pending, state.marker, state.markerLength)) return undefined
     const pendingValue = this.fenceValue(state, pending)
     if (pendingValue === undefined) return undefined
     const stableLength = committableLinePrefixLength(pending)
-    const stableValue = stableLength === 0
-      ? ''
-      : this.fenceValue(state, pending.slice(0, stableLength))
+    const stableValue = stableLength === 0 ? '' : this.fenceValue(state, pending.slice(0, stableLength))
     if (stableValue === undefined) return undefined
     // OpenFenceState is private and is installed only from this exact retained
     // code entry; updates replace that entry with another positioned Code.
     const block = state.tail[state.codeIndex] as PositionedBlock
     const previousNode = block.node as Code & { position: NonNullable<Code['position']> }
-    const end = advancePoint(
-      state.end,
-      text.slice(previousText.length),
-      state.endedWithCarriageReturn,
-    )
+    const end = advancePoint(state.end, text.slice(previousText.length), state.endedWithCarriageReturn)
     const node: Code = {
       ...previousNode,
       value: `${state.valuePrefix}${pendingValue}`,
       position: { start: previousNode.position.start, end },
     }
-    const tail = state.tail.map((entry, index) => index === state.codeIndex ? { ...entry, node } : entry)
+    const tail = state.tail.map((entry, index) => (index === state.codeIndex ? { ...entry, node } : entry))
     const cached = {
       frozen: state.frozen,
       tail,
@@ -291,9 +275,10 @@ export class IncrementalMarkdownParser {
       ...state,
       tail,
       pendingStart: state.pendingStart + stableLength,
-      valuePrefix: stableLength === 0
-        ? state.valuePrefix
-        : `${state.valuePrefix}${stableValue}${trailingLineTerminator(pending.slice(0, stableLength))}`,
+      valuePrefix:
+        stableLength === 0
+          ? state.valuePrefix
+          : `${state.valuePrefix}${stableValue}${trailingLineTerminator(pending.slice(0, stableLength))}`,
       end,
       endedWithCarriageReturn: text.endsWith('\r'),
     }

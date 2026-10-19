@@ -3,7 +3,7 @@ import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import {
   assertPersistedSessionVersion,
   assertSessionFixtureVersion,
@@ -108,7 +108,7 @@ const REPLAY_SCENARIOS: Scenario[] = [
     workspaceParent: tmpdir(),
     pinsChildToolSchemas: [1],
     pinsChildSystemPrompts: [1],
-    prepareWorkspace: (cwd) => {
+    prepareWorkspace: cwd => {
       writeFileSync(join(cwd, 'seed.txt'), 'prepared at runtime')
     },
   },
@@ -158,16 +158,22 @@ function staleRefreshFixtures(dir: string): void {
   plainBehavior.echoEnv = true
   writeFileSync(plainBehaviorFile, `${JSON.stringify(plainBehavior, null, 2)}\n`)
 
-  writeFileSync(join(dir, 'blocked-log', 'session.jsonl'), [
-    '{"type":"session","id":"99999999-8888-4777-8666-555555555555","createdAt":13,"cwd":"/rec/blocked-cwd","delegationDepth":0}',
-    '{"type":"hook/result","seq":0,"time":13,"data":{"decision":"stale","durationMs":99}}',
-    '',
-  ].join('\n'))
-  writeFileSync(join(dir, 'authored-error', 'session.jsonl'), [
-    '{"type":"session","id":"77777777-8888-4777-8666-555555555555","createdAt":13,"cwd":"/rec/error-cwd","delegationDepth":0}',
-    '{"type":"turn/end","seq":0,"time":9,"data":{"error":"stale"}}',
-    '',
-  ].join('\n'))
+  writeFileSync(
+    join(dir, 'blocked-log', 'session.jsonl'),
+    [
+      '{"type":"session","id":"99999999-8888-4777-8666-555555555555","createdAt":13,"cwd":"/rec/blocked-cwd","delegationDepth":0}',
+      '{"type":"hook/result","seq":0,"time":13,"data":{"decision":"stale","durationMs":99}}',
+      '',
+    ].join('\n'),
+  )
+  writeFileSync(
+    join(dir, 'authored-error', 'session.jsonl'),
+    [
+      '{"type":"session","id":"77777777-8888-4777-8666-555555555555","createdAt":13,"cwd":"/rec/error-cwd","delegationDepth":0}',
+      '{"type":"turn/end","seq":0,"time":9,"data":{"error":"stale"}}',
+      '',
+    ].join('\n'),
+  )
 }
 
 describe('defineAcpSnapshotSuite: replay mode', () => {
@@ -201,16 +207,9 @@ describe('defineAcpSnapshotSuite: refresh write-back', () => {
     expect(authored).toContain('"message":"model exploded"')
     expect(authored).not.toContain('"error":"stale"')
 
-    expect(readFileSync(join(refreshDir, 'pin-turn', 'system-prompt.expected.md'), 'utf8')).toBe([
-      'SYS PROMPT',
-      '',
-      '<!-- system/message change 1 -->',
-      '',
-      'SYS PROMPT',
-      '',
-      'NEW PROMPT LINE',
-      '',
-    ].join('\n'))
+    expect(readFileSync(join(refreshDir, 'pin-turn', 'system-prompt.expected.md'), 'utf8')).toBe(
+      ['SYS PROMPT', '', '<!-- system/message change 1 -->', '', 'SYS PROMPT', '', 'NEW PROMPT LINE', ''].join('\n'),
+    )
     const schemas = parseToolSchemasSnapshot(readFileSync(join(refreshDir, 'pin-turn', 'tool-schemas.expected.json'), 'utf8'))
     expect(schemas.initial.map(tool => (tool as { name: string }).name)).toEqual(['t1'])
     expect(schemas.changes.map(set => set.map(tool => (tool as { name: string }).name))).toEqual([['t1', 't2']])
@@ -222,8 +221,7 @@ describe('defineAcpSnapshotSuite: refresh write-back', () => {
 
     const pinSession = readFileSync(join(refreshDir, 'pin-turn', 'session.v3.jsonl'), 'utf8')
     expect(pinSession).toContain('"cwd":"{{cwd}}"')
-    expect(readFileSync(join(refreshDir, 'pin-turn', 'session.jsonl'), 'utf8'))
-      .not.toContain('"version"')
+    expect(readFileSync(join(refreshDir, 'pin-turn', 'session.jsonl'), 'utf8')).not.toContain('"version"')
     expect(pinSession.match(/"text":"{{system}}"/g)).toHaveLength(2)
     expect(pinSession).toContain('"surfaceOp":{"op":"replace","startSeq":2,"endSeq":2}')
     expect(pinSession).not.toContain('NEW PROMPT LINE')
@@ -248,15 +246,13 @@ describe('defineAcpSnapshotSuite: record inventory write-back', () => {
     if (!BOOTSTRAP) {
       expect(readFileSync(join(recordDir, 'rec-child', 'session.2.v3.jsonl'), 'utf8')).toBe(retiredChildFixture)
     }
-    expect(readFileSync(join(recordDir, 'rec-child', 'tool-schemas.1.expected.json'), 'utf8'))
-      .toContain('"name": "t1"')
+    expect(readFileSync(join(recordDir, 'rec-child', 'tool-schemas.1.expected.json'), 'utf8')).toContain('"name": "t1"')
   })
 
   it('retains an unchanged message relationship across the recorded parent and child fixtures', () => {
     const existingMessageId = '22222222-2222-4222-8222-222222222222'
     const freshMessageId = '11111111-1111-4111-8111-111111111111'
-    const fixtures = ['session.v3.jsonl', 'session.1.v3.jsonl']
-      .map(file => readFileSync(join(recordDir, 'rec-child', file), 'utf8'))
+    const fixtures = ['session.v3.jsonl', 'session.1.v3.jsonl'].map(file => readFileSync(join(recordDir, 'rec-child', file), 'utf8'))
 
     for (const fixture of fixtures) {
       expect(fixture).toContain('"id":"{{message:1}}"')
@@ -323,37 +319,38 @@ describe('defineAcpSnapshotSuite: registration contract', () => {
     ['toolSchemasSource', 'owner'],
     ['expectedHeaderChanges', 1],
     ['expectedPromptChanges', 1],
-  ] as const)(
-    'rejects %s away from a header pin',
-    (field, value) => {
-      expect(() => {
-        defineAcpSnapshotSuite({
-          agent: AGENT,
-          snapshotsDir: REPLAY_DIR,
-          scenarios: [{
+  ] as const)('rejects %s away from a header pin', (field, value) => {
+    expect(() => {
+      defineAcpSnapshotSuite({
+        agent: AGENT,
+        snapshotsDir: REPLAY_DIR,
+        scenarios: [
+          {
             name: 'plain',
             hasModelTurn: true,
             recorded: true,
             [field]: value,
-          }],
-          mode: 'replay',
-        })
-      }).toThrow(new RegExp(`plain\\.${field} is only valid on a header-pinning scenario`))
-    },
-  )
+          },
+        ],
+        mode: 'replay',
+      })
+    }).toThrow(new RegExp(`plain\\.${field} is only valid on a header-pinning scenario`))
+  })
 
   it('rejects an unknown or non-pinning sidecar source', () => {
     expect(() => {
       defineAcpSnapshotSuite({
         agent: AGENT,
         snapshotsDir: REPLAY_DIR,
-        scenarios: [{
-          name: 'pin',
-          hasModelTurn: true,
-          recorded: true,
-          pinsHeader: true,
-          systemPromptSource: 'missing',
-        }],
+        scenarios: [
+          {
+            name: 'pin',
+            hasModelTurn: true,
+            recorded: true,
+            pinsHeader: true,
+            systemPromptSource: 'missing',
+          },
+        ],
         mode: 'replay',
       })
     }).toThrow(/pin names unknown system-prompt snapshot source "missing"/)
@@ -493,27 +490,28 @@ describe('writerSnapshotName', () => {
   it('keeps native writer expectations outside historical replay selection', () => {
     expect(writerSnapshotName(0)).toBe('writer.expected.jsonl')
     expect(writerSnapshotName(2)).toBe('writer.2.expected.jsonl')
-    expect(sessionFixtureNames(['session.v1.jsonl', writerSnapshotName(0), writerSnapshotName(1)]))
-      .toEqual(['session.v1.jsonl'])
+    expect(sessionFixtureNames(['session.v1.jsonl', writerSnapshotName(0), writerSnapshotName(1)])).toEqual(['session.v1.jsonl'])
   })
 
-  it.each([-1, -0, 0.5, Number.MAX_SAFE_INTEGER + 1])('rejects invalid role %s', (index) => {
+  it.each([-1, -0, 0.5, Number.MAX_SAFE_INTEGER + 1])('rejects invalid role %s', index => {
     expect(() => writerSnapshotName(index)).toThrow('writer snapshot index must be a non-negative safe integer')
   })
 })
 
 describe('sessionFixtureNames', () => {
   it('selects the highest generation for each contiguous role while ignoring other files', () => {
-    expect(sessionFixtureNames([
-      'stdout.expected.jsonl',
-      'session.2.jsonl',
-      'session.jsonl',
-      'session.1.jsonl',
-      'session.v2.jsonl',
-      'session.v1.jsonl',
-      'session.1.v3.jsonl',
-      'input.json',
-    ])).toEqual(['session.v2.jsonl', 'session.1.v3.jsonl', 'session.2.jsonl'])
+    expect(
+      sessionFixtureNames([
+        'stdout.expected.jsonl',
+        'session.2.jsonl',
+        'session.jsonl',
+        'session.1.jsonl',
+        'session.v2.jsonl',
+        'session.v1.jsonl',
+        'session.1.v3.jsonl',
+        'input.json',
+      ]),
+    ).toEqual(['session.v2.jsonl', 'session.1.v3.jsonl', 'session.2.jsonl'])
   })
 
   it('accepts a primary-only scenario', () => {
@@ -525,8 +523,7 @@ describe('sessionFixtureNames', () => {
   })
 
   it('rejects gapped child fixtures', () => {
-    expect(() => sessionFixtureNames(['session.jsonl', 'session.2.jsonl']))
-      .toThrow('expected index 1, found session.2.jsonl')
+    expect(() => sessionFixtureNames(['session.jsonl', 'session.2.jsonl'])).toThrow('expected index 1, found session.2.jsonl')
   })
 
   it.each([
@@ -537,17 +534,14 @@ describe('sessionFixtureNames', () => {
     'session.V1.jsonl',
     'session.v01.jsonl',
     'session.1.v0.jsonl',
-  ])(
-    'rejects invalid fixture name %s',
-    (name) => {
-      expect(() => sessionFixtureNames(['session.jsonl', name]))
-        .toThrow(`invalid session fixture name: ${name}`)
-    },
-  )
+  ])('rejects invalid fixture name %s', name => {
+    expect(() => sessionFixtureNames(['session.jsonl', name])).toThrow(`invalid session fixture name: ${name}`)
+  })
 
   it('rejects duplicate role generations', () => {
-    expect(() => sessionFixtureNames(['session.jsonl', 'session.1.jsonl', 'session.1.jsonl']))
-      .toThrow('duplicate session fixture generation: session.1.jsonl')
+    expect(() => sessionFixtureNames(['session.jsonl', 'session.1.jsonl', 'session.1.jsonl'])).toThrow(
+      'duplicate session fixture generation: session.1.jsonl',
+    )
   })
 })
 
@@ -567,17 +561,20 @@ describe('Session generation filename helpers', () => {
     () => sessionFixtureName(0.5, 0),
     () => sessionFixtureName(0, -1),
     () => persistedSessionFilename(Number.MAX_SAFE_INTEGER + 1),
-  ])('rejects invalid numeric filename components', (render) => {
+  ])('rejects invalid numeric filename components', render => {
     expect(render).toThrow(/non-negative safe integer/)
   })
 
   it('parses canonical fixture and persistence names without admitting lookalikes', () => {
     expect(parseSessionFixtureName('session.2.v3.jsonl')).toEqual({ index: 2, version: 3, name: 'session.2.v3.jsonl' })
     expect(parseSessionFixtureName('notes.jsonl')).toBeUndefined()
-    expect(() => parseSessionFixtureName(`session.${'9'.repeat(400)}.jsonl`))
-      .toThrow('invalid session fixture name')
+    expect(() => parseSessionFixtureName(`session.${'9'.repeat(400)}.jsonl`)).toThrow('invalid session fixture name')
     expect(parsePersistedSessionFilename('session.jsonl')).toEqual({ version: 0, compression: 'raw', name: 'session.jsonl' })
-    expect(parsePersistedSessionFilename('session.v4.jsonl.zstd')).toEqual({ version: 4, compression: 'zstd', name: 'session.v4.jsonl.zstd' })
+    expect(parsePersistedSessionFilename('session.v4.jsonl.zstd')).toEqual({
+      version: 4,
+      compression: 'zstd',
+      name: 'session.v4.jsonl.zstd',
+    })
     expect(parsePersistedSessionFilename('session.1.jsonl')).toBeUndefined()
     expect(parsePersistedSessionFilename(`session.v${'9'.repeat(400)}.jsonl`)).toBeUndefined()
   })
@@ -604,15 +601,14 @@ describe('Session generation filename helpers', () => {
     expect(assertPersistedSessionVersion('session.v1.jsonl', v1)).toBe(1)
     expect(() => assertSessionFixtureVersion('notes.jsonl', v0)).toThrow('not a session fixture name')
     expect(assertSessionFixtureVersion('session.jsonl', '{"type":"session"}\n')).toBe(0)
-    expect(() => assertSessionFixtureVersion('session.v1.jsonl', '{"type":"session"}\n'))
-      .toThrow('a versionless projected Session header is format v0')
+    expect(() => assertSessionFixtureVersion('session.v1.jsonl', '{"type":"session"}\n')).toThrow(
+      'a versionless projected Session header is format v0',
+    )
     expect(() => assertSessionFixtureVersion('session.jsonl', '')).toThrow('session fixture is empty')
     expect(() => assertSessionFixtureVersion('session.jsonl', '{')).toThrow('session header contains invalid JSON')
     expect(() => assertPersistedSessionVersion('session.1.jsonl', v0)).toThrow('not a canonical Session persistence filename')
-    expect(() => assertSessionFixtureVersion('session.v1.jsonl', v0))
-      .toThrow('filename declares Session format v1, header declares v0')
-    expect(() => assertPersistedSessionVersion('session.jsonl', v1))
-      .toThrow('filename declares Session format v0, header declares v1')
+    expect(() => assertSessionFixtureVersion('session.v1.jsonl', v0)).toThrow('filename declares Session format v1, header declares v0')
+    expect(() => assertPersistedSessionVersion('session.jsonl', v1)).toThrow('filename declares Session format v0, header declares v1')
   })
 
   it.each([
@@ -645,9 +641,7 @@ describe('stdoutExpectedVariants', () => {
   })
 
   it('keeps only the shared golden on other platforms or without the declaration', () => {
-    expect(stdoutExpectedVariants(scenario, 'linux')).toEqual([
-      { file: 'stdout.expected.jsonl', cwdPathMode: 'canonical' },
-    ])
+    expect(stdoutExpectedVariants(scenario, 'linux')).toEqual([{ file: 'stdout.expected.jsonl', cwdPathMode: 'canonical' }])
     expect(stdoutExpectedVariants({ ...scenario, pinsNativeWindowsStdout: false }, 'win32')).toEqual([
       { file: 'stdout.expected.jsonl', cwdPathMode: 'canonical' },
     ])
@@ -712,14 +706,19 @@ describe('fixtureContext', () => {
 })
 
 describe('normalizedHeaders', () => {
-  const header = (tool: string): string => JSON.stringify({
-    type: 'request/header', seq: 0, time: 9, data: { header: { config: { model: 'm' }, tools: [{ name: tool }] }, reason: 'initial' },
-  })
+  const header = (tool: string): string =>
+    JSON.stringify({
+      type: 'request/header',
+      seq: 0,
+      time: 9,
+      data: { header: { config: { model: 'm' }, tools: [{ name: tool }] }, reason: 'initial' },
+    })
 
   it('extracts every request/header payload in log order, normalized', () => {
     const id = '11111111-2222-4333-8444-555555555555'
-    const log = `${JSON.stringify({ type: 'session', id, createdAt: 5, cwd: '/w' })}\n${header('one')}\n`
-      + `${JSON.stringify({ type: 'turn/start', seq: 1, time: 9, data: { turn: 1 } })}\n${header('two')}\n`
+    const log =
+      `${JSON.stringify({ type: 'session', id, createdAt: 5, cwd: '/w' })}\n${header('one')}\n` +
+      `${JSON.stringify({ type: 'turn/start', seq: 1, time: 9, data: { turn: 1 } })}\n${header('two')}\n`
     const headers = normalizedHeaders(log, { sessionIds: [id], cwd: '/w' })
     expect(headers).toEqual([
       { config: { model: 'm' }, tools: [{ name: 'one' }] },
@@ -792,9 +791,7 @@ describe('normalizedToolSchemas', () => {
       '{"type":"request/header","seq":4,"time":9,"data":{"header":"invalid"}}',
       '',
     ].join('\n')
-    expect(normalizedToolSchemas(log, { sessionIds: [], cwd: '/w' })).toEqual([
-      [{ name: 'read', description: 'work in {{cwd}}' }],
-    ])
+    expect(normalizedToolSchemas(log, { sessionIds: [], cwd: '/w' })).toEqual([[{ name: 'read', description: 'work in {{cwd}}' }]])
   })
 })
 
@@ -805,13 +802,11 @@ describe('formatSystemPromptSnapshot', () => {
   })
 
   it('renders readable changed-prompt sections', () => {
-    expect(formatSystemPromptSnapshot('prompt', ['new\nlines']))
-      .toBe('prompt\n\n<!-- system/message change 1 -->\n\nnew\nlines\n')
+    expect(formatSystemPromptSnapshot('prompt', ['new\nlines'])).toBe('prompt\n\n<!-- system/message change 1 -->\n\nnew\nlines\n')
   })
 
   it('does not double the newline of a changed prompt', () => {
-    expect(formatSystemPromptSnapshot('prompt\n', ['changed\n']))
-      .toBe('prompt\n\n<!-- system/message change 1 -->\n\nchanged\n')
+    expect(formatSystemPromptSnapshot('prompt\n', ['changed\n'])).toBe('prompt\n\n<!-- system/message change 1 -->\n\nchanged\n')
   })
 })
 
@@ -839,7 +834,9 @@ describe('assertChildSystemPromptSnapshot', () => {
   })
 
   it('rejects an empty or non-canonical child prompt', () => {
-    expect(() => { assertChildSystemPromptSnapshot('\n', 'SYS PROMPT\n', label) }).toThrow(/non-empty prompt/)
+    expect(() => {
+      assertChildSystemPromptSnapshot('\n', 'SYS PROMPT\n', label)
+    }).toThrow(/non-empty prompt/)
     expect(() => {
       assertChildSystemPromptSnapshot('CHILD GUIDANCE', 'SYS PROMPT\n', label)
     }).toThrow(/end in a newline/)
@@ -889,8 +886,10 @@ describe('tool-schema snapshots', () => {
   })
 
   it('restores initial schemas into the pinned header token', () => {
-    expect(restorePinnedToolSchemas({ system: '{{system}}', tools: '{{tools}}' }, snapshot.initial))
-      .toEqual({ system: '{{system}}', tools: snapshot.initial })
+    expect(restorePinnedToolSchemas({ system: '{{system}}', tools: '{{tools}}' }, snapshot.initial)).toEqual({
+      system: '{{system}}',
+      tools: snapshot.initial,
+    })
   })
 
   it('restores ordered tool names only when they match the sidecar', () => {
@@ -937,14 +936,15 @@ describe('stabilizeFixtureMessageIds', () => {
   it('reuses one committed message UUID across fixture-ready parent and child logs', () => {
     const freshId = '11111111-1111-4111-8111-111111111111'
     const existingId = '22222222-2222-4222-8222-222222222222'
-    const log = (session: string, id: string): string => [
-      JSON.stringify({ type: 'session', id: session, cwd: '{{cwd}}' }),
-      JSON.stringify({
-        type: 'user/message',
-        data: { role: 'user', content: [{ type: 'text', text: 'same' }], source: { kind: 'user' }, id },
-      }),
-      '',
-    ].join('\n')
+    const log = (session: string, id: string): string =>
+      [
+        JSON.stringify({ type: 'session', id: session, cwd: '{{cwd}}' }),
+        JSON.stringify({
+          type: 'user/message',
+          data: { role: 'user', content: [{ type: 'text', text: 'same' }], source: { kind: 'user' }, id },
+        }),
+        '',
+      ].join('\n')
     const fresh = [log('fresh-parent', freshId), log('fresh-child', freshId)]
     const existing = [log('old-parent', existingId), log('old-child', existingId)]
 
@@ -960,9 +960,20 @@ describe('stabilizeFixtureMessageIds', () => {
   it('stabilizes developer message identities through their explicit surface case', () => {
     const freshId = '11111111-1111-4111-8111-111111111111'
     const oldId = '22222222-2222-4222-8222-222222222222'
-    const log = (id: string) => JSON.stringify({ type: 'developer/message', data: { turn: 1, step: 1, message: {
-      id, role: 'developer', source: { kind: 'tool-registry' }, content: [{ type: 'tool-addition', toolName: 'search' }],
-    } } }) + '\n'
+    const log = (id: string) =>
+      JSON.stringify({
+        type: 'developer/message',
+        data: {
+          turn: 1,
+          step: 1,
+          message: {
+            id,
+            role: 'developer',
+            source: { kind: 'tool-registry' },
+            content: [{ type: 'tool-addition', toolName: 'search' }],
+          },
+        },
+      }) + '\n'
     expect(stabilizeFixtureMessageIds([log(freshId)], [log(oldId)])).toEqual([log(oldId)])
   })
 
@@ -982,36 +993,37 @@ describe('stabilizeFixtureMessageIds', () => {
       content: [{ type: 'text', text }],
       source: { kind: role === 'user' ? 'user' : 'model' },
     })
-    const log = (userId: string, assistantId: string, toolId: string, malformedId: string): string => [
-      JSON.stringify({ type: 'session', id: 'same', cwd: '{{cwd}}' }),
-      JSON.stringify({
-        type: 'agent/inbox/spliced',
-        data: {
-          inserted: [
-            message(userId, 'user', 'user'),
-            { ...message(userId, 'user', 'malformed inbox'), source: null },
-          ],
-        },
-      }),
-      JSON.stringify({ type: 'user/message', data: message(userId, 'user', 'user') }),
-      JSON.stringify({ type: 'assistant/message', data: { message: message(assistantId, 'assistant', 'assistant') } }),
-      JSON.stringify({ type: 'tool/result', data: { message: message(toolId, 'tool', 'tool') } }),
-      JSON.stringify({ type: 'turn/start', data: { id: userId } }),
-      JSON.stringify({ type: 'steering/message', data: message(userId, 'user', 'obsolete') }),
-      JSON.stringify({ type: 'user/message', data: { ...message(userId, 'user', 'malformed'), source: null } }),
-      JSON.stringify({ type: 'user/message', data: message(malformedId, 'user', 'non-UUID') }),
-      JSON.stringify({ type: 'assistant/message', data: null }),
-      JSON.stringify({ type: 42, data: message(userId, 'user', 'non-string type') }),
-      '',
-    ].join('\n')
+    const log = (userId: string, assistantId: string, toolId: string, malformedId: string): string =>
+      [
+        JSON.stringify({ type: 'session', id: 'same', cwd: '{{cwd}}' }),
+        JSON.stringify({
+          type: 'agent/inbox/spliced',
+          data: {
+            inserted: [message(userId, 'user', 'user'), { ...message(userId, 'user', 'malformed inbox'), source: null }],
+          },
+        }),
+        JSON.stringify({ type: 'user/message', data: message(userId, 'user', 'user') }),
+        JSON.stringify({ type: 'assistant/message', data: { message: message(assistantId, 'assistant', 'assistant') } }),
+        JSON.stringify({ type: 'tool/result', data: { message: message(toolId, 'tool', 'tool') } }),
+        JSON.stringify({ type: 'turn/start', data: { id: userId } }),
+        JSON.stringify({ type: 'steering/message', data: message(userId, 'user', 'obsolete') }),
+        JSON.stringify({ type: 'user/message', data: { ...message(userId, 'user', 'malformed'), source: null } }),
+        JSON.stringify({ type: 'user/message', data: message(malformedId, 'user', 'non-UUID') }),
+        JSON.stringify({ type: 'assistant/message', data: null }),
+        JSON.stringify({ type: 42, data: message(userId, 'user', 'non-string type') }),
+        '',
+      ].join('\n')
 
     const stable = stabilizeFixtureMessageIds(
       [log(ids.freshUser, ids.freshAssistant, ids.freshTool, 'not-a-uuid')],
       [log(ids.oldUser, ids.oldAssistant, ids.oldTool, ids.oldMalformed)],
     )[0] as string
-    const records = stable.trim().split('\n').map(line => JSON.parse(line) as Record<string, unknown>)
+    const records = stable
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line) as Record<string, unknown>)
 
-    const inserted = ((records[1]?.data as { inserted: Array<{ id: string }> }).inserted)
+    const inserted = (records[1]?.data as { inserted: Array<{ id: string }> }).inserted
     expect(inserted[0]?.id).toBe(ids.oldUser)
     expect(inserted[1]?.id).toBe(ids.freshUser)
     expect((records[2]?.data as { id: string }).id).toBe(ids.oldUser)
@@ -1036,11 +1048,9 @@ describe('stabilizeFixtureMessageIds', () => {
         source: { kind: 'user' },
       },
     })
-    const fresh = tokenizeSessionFixtureCwd([
-      JSON.stringify({ type: 'session', id: 'fresh', cwd: freshCwd }),
-      JSON.stringify(message(freshId, freshCwd)),
-      '',
-    ].join('\n'))
+    const fresh = tokenizeSessionFixtureCwd(
+      [JSON.stringify({ type: 'session', id: 'fresh', cwd: freshCwd }), JSON.stringify(message(freshId, freshCwd)), ''].join('\n'),
+    )
     const existing = [
       JSON.stringify({ type: 'session', id: 'old', cwd: '{{cwd}}' }),
       JSON.stringify(message(existingId, '{{cwd}}')),
@@ -1054,17 +1064,13 @@ describe('stabilizeFixtureMessageIds', () => {
     const freshId = '11111111-1111-4111-8111-111111111111'
     const conflictingId = '22222222-2222-4222-8222-222222222222'
     const competingId = '33333333-3333-4333-8333-333333333333'
-    const message = (id: string, text: string): string => JSON.stringify({
-      type: 'user/message',
-      data: { id, role: 'user', content: [{ type: 'text', text }], source: { kind: 'user' } },
-    })
+    const message = (id: string, text: string): string =>
+      JSON.stringify({
+        type: 'user/message',
+        data: { id, role: 'user', content: [{ type: 'text', text }], source: { kind: 'user' } },
+      })
     const fresh = `${message(freshId, 'shared')}\n`
-    const existing = [
-      message(conflictingId, 'shared'),
-      message(conflictingId, 'different'),
-      message(competingId, 'shared'),
-      '',
-    ].join('\n')
+    const existing = [message(conflictingId, 'shared'), message(conflictingId, 'different'), message(competingId, 'shared'), ''].join('\n')
 
     expect(stabilizeFixtureMessageIds([fresh], [existing])).toEqual([fresh])
   })
@@ -1083,10 +1089,7 @@ describe('refreshFixtureReplacements', () => {
       log('{"type":"session","id":"new-parent","cwd":"/new"}\n'),
       log('{"type":"session","id":"new-child","cwd":"/new"}\n'),
     ]
-    const fixtures = [
-      '{"type":"session","id":"","cwd":"/same"}\n',
-      '{"type":"session","id":"old-parent","cwd":"/old"}\n',
-    ]
+    const fixtures = ['{"type":"session","id":"","cwd":"/same"}\n', '{"type":"session","id":"old-parent","cwd":"/old"}\n']
     expect(refreshFixtureReplacements(logs, fixtures)).toEqual([
       { from: 'new-parent', to: 'old-parent' },
       { from: '/new', to: '/old' },
@@ -1094,44 +1097,44 @@ describe('refreshFixtureReplacements', () => {
   })
 
   it('stabilizes moved snapshot spill paths by filename while skipping unchanged or unmatched names', () => {
-    const spill = (session: string, hash: string, name: string): string =>
-      `/tmp/dsh-acp-snapshot-spill/session-${session}/${hash}-${name}`
+    const spill = (session: string, hash: string, name: string): string => `/tmp/dsh-acp-snapshot-spill/session-${session}/${hash}-${name}`
     const record = (text: string): string =>
-      `${JSON.stringify({ type: 'session', id: 'same', cwd: '/same' })}\n`
-      + `${JSON.stringify({ type: 'tool/result', data: { content: [{ type: 'text', text: `stored at: ${text} ` }] } })}\n`
+      `${JSON.stringify({ type: 'session', id: 'same', cwd: '/same' })}\n` +
+      `${JSON.stringify({ type: 'tool/result', data: { content: [{ type: 'text', text: `stored at: ${text} ` }] } })}\n`
     const freshBash = spill('aaaaaaaaaaaa', 'bbbbbbbbbbbb', 'bash.txt')
     const oldBash = spill('cccccccccccc', 'dddddddddddd', 'bash.txt')
     const shared = spill('eeeeeeeeeeee', 'ffffffffffff', 'grep.txt')
     const orphan = spill('111111111111', '222222222222', 'orphan.txt')
-    const logs: HarvestedLog[] = [{
-      id: 'diagnostic',
-      createdAt: 1,
-      content: record(`${freshBash} and ${shared}`),
-    }]
+    const logs: HarvestedLog[] = [
+      {
+        id: 'diagnostic',
+        createdAt: 1,
+        content: record(`${freshBash} and ${shared}`),
+      },
+    ]
     const fixtures = [record(`${oldBash} and ${shared} and ${orphan}`)]
     // bash.txt moved → replaced; grep.txt is identical and orphan.txt has no
     // fresh counterpart → both skipped.
-    expect(refreshFixtureReplacements(logs, fixtures)).toEqual([
-      { from: freshBash, to: oldBash },
-    ])
+    expect(refreshFixtureReplacements(logs, fixtures)).toEqual([{ from: freshBash, to: oldBash }])
   })
 
   it('leaves complete message ids out of the literal refresh replacement list', () => {
     const freshMessageId = '11111111-1111-4111-8111-111111111111'
     const existingMessageId = '22222222-2222-4222-8222-222222222222'
-    const log = (sessionId: string, messageId: string): string => [
-      JSON.stringify({ type: 'session', id: sessionId, cwd: '/same' }),
-      JSON.stringify({
-        type: 'user/message',
-        data: {
-          id: messageId,
-          role: 'user',
-          content: [{ type: 'text', text: 'same' }],
-          source: { kind: 'user' },
-        },
-      }),
-      '',
-    ].join('\n')
+    const log = (sessionId: string, messageId: string): string =>
+      [
+        JSON.stringify({ type: 'session', id: sessionId, cwd: '/same' }),
+        JSON.stringify({
+          type: 'user/message',
+          data: {
+            id: messageId,
+            role: 'user',
+            content: [{ type: 'text', text: 'same' }],
+            source: { kind: 'user' },
+          },
+        }),
+        '',
+      ].join('\n')
     const replacements = refreshFixtureReplacements(
       [{ id: 'diagnostic', createdAt: 1, content: log('fresh', freshMessageId) }],
       [log('old', existingMessageId)],
@@ -1158,12 +1161,14 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
-    expect(stabilize(fresh, existing)).toBe([
-      '{"type":"session","id":"same","createdAt":100}',
-      '{"type":"reasoning-chunks","seq0":2,"time0":100,"data":{"turn":1,"step":1,"index":0,"dt":[1,2],"texts":["new",""," split"]}}',
-      '{"type":"assistant/message","seq":5,"time":104,"data":{}}',
-      '',
-    ].join('\n'))
+    expect(stabilize(fresh, existing)).toBe(
+      [
+        '{"type":"session","id":"same","createdAt":100}',
+        '{"type":"reasoning-chunks","seq0":2,"time0":100,"data":{"turn":1,"step":1,"index":0,"dt":[1,2],"texts":["new",""," split"]}}',
+        '{"type":"assistant/message","seq":5,"time":104,"data":{}}',
+        '',
+      ].join('\n'),
+    )
   })
 
   it('preserves packed member times without flattening fresh chunk boundaries', () => {
@@ -1178,11 +1183,13 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
-    expect(stabilize(fresh, existing)).toBe([
-      '{"type":"session","id":"same","createdAt":100}',
-      '{"type":"text-chunks","seq0":2,"time0":100,"data":{"turn":1,"step":1,"index":0,"dt":[1,2],"texts":["new",""," split"]}}',
-      '',
-    ].join('\n'))
+    expect(stabilize(fresh, existing)).toBe(
+      [
+        '{"type":"session","id":"same","createdAt":100}',
+        '{"type":"text-chunks","seq0":2,"time0":100,"data":{"turn":1,"step":1,"index":0,"dt":[1,2],"texts":["new",""," split"]}}',
+        '',
+      ].join('\n'),
+    )
   })
 
   it('reads projected packed fixtures while retaining their data gaps', () => {
@@ -1197,18 +1204,24 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
-    expect(stabilize(fresh, existing)).toBe([
-      '{"type":"session","id":"same","createdAt":100}',
-      '{"type":"text-chunks","seq0":2,"time0":0,"data":{"turn":1,"step":1,"index":0,"dt":[1,2],"texts":["new",""," split"]}}',
-      '',
-    ].join('\n'))
+    expect(stabilize(fresh, existing)).toBe(
+      [
+        '{"type":"session","id":"same","createdAt":100}',
+        '{"type":"text-chunks","seq0":2,"time0":0,"data":{"turn":1,"step":1,"index":0,"dt":[1,2],"texts":["new",""," split"]}}',
+        '',
+      ].join('\n'),
+    )
   })
 
   it.each([
     ['the old run is absent', [], 200],
     ['the old run is shorter', [100, 101], 100],
     ['a later old time is invalid', [100, 'invalid', 103], 100],
-    ['an old gap is not exactly representable', [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER - 1, Number.MAX_SAFE_INTEGER - 1], Number.MIN_SAFE_INTEGER],
+    [
+      'an old gap is not exactly representable',
+      [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER - 1, Number.MAX_SAFE_INTEGER - 1],
+      Number.MIN_SAFE_INTEGER,
+    ],
   ])('keeps fresh packed gaps when %s', (_case, existingTimes, expectedTime0) => {
     const freshRow = {
       type: 'reasoning-chunks',
@@ -1225,7 +1238,10 @@ describe('stabilizeRefreshLog', () => {
     const output = stabilize(
       `${JSON.stringify({ type: 'session', id: 'same', createdAt: 200 })}\n${JSON.stringify(freshRow)}\n`,
       `${JSON.stringify({ type: 'session', id: 'same', createdAt: 100 })}\n${existingRows.map(row => JSON.stringify(row)).join('\n')}\n`,
-    ).trim().split('\n').map(line => JSON.parse(line) as Record<string, unknown>)
+    )
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line) as Record<string, unknown>)
 
     expect(output[1]).toStrictEqual({ ...freshRow, time0: expectedTime0 })
   })
@@ -1249,15 +1265,17 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
-    expect(stabilize(fresh, existing)).toBe([
-      '{"type":"session","id":"same","createdAt":100}',
-      '{"type":"turn/start","seq":0,"time":11}',
-      '{"type":"user/message","seq":1,"time":12}',
-      '{"type":"session/title","seq":2,"time":12}',
-      '{"type":"step/start","seq":3,"time":13}',
-      '{"type":"request/header","seq":4,"time":14}',
-      '',
-    ].join('\n'))
+    expect(stabilize(fresh, existing)).toBe(
+      [
+        '{"type":"session","id":"same","createdAt":100}',
+        '{"type":"turn/start","seq":0,"time":11}',
+        '{"type":"user/message","seq":1,"time":12}',
+        '{"type":"session/title","seq":2,"time":12}',
+        '{"type":"step/start","seq":3,"time":13}',
+        '{"type":"request/header","seq":4,"time":14}',
+        '',
+      ].join('\n'),
+    )
   })
 
   it('retains unchanged message ids across an unrelated inserted event', () => {
@@ -1282,45 +1300,44 @@ describe('stabilizeRefreshLog', () => {
         },
       },
     })
-    const lines = (records: Record<string, unknown>[]): string => [
-      JSON.stringify({ type: 'session', id: 'same', createdAt: 1, cwd: '/same' }),
-      ...records.map(record => JSON.stringify(record)),
-      '',
-    ].join('\n')
-    const fresh = lines([
-      user(freshUserId),
-      { type: 'session/inherited', data: {} },
-      assistant(freshAssistantId),
-    ])
+    const lines = (records: Record<string, unknown>[]): string =>
+      [
+        JSON.stringify({ type: 'session', id: 'same', createdAt: 1, cwd: '/same' }),
+        ...records.map(record => JSON.stringify(record)),
+        '',
+      ].join('\n')
+    const fresh = lines([user(freshUserId), { type: 'session/inherited', data: {} }, assistant(freshAssistantId)])
     const existing = lines([user(existingUserId), assistant(existingAssistantId)])
-    const replacements = refreshFixtureReplacements(
-      [{ id: 'diagnostic', createdAt: 1, content: fresh }],
-      [existing],
-    )
+    const replacements = refreshFixtureReplacements([{ id: 'diagnostic', createdAt: 1, content: fresh }], [existing])
     const refreshed = stabilize(fresh, existing, replacements)
-    const intermediate = refreshed.trim().split('\n')
+    const intermediate = refreshed
+      .trim()
+      .split('\n')
       .map(line => JSON.parse(line) as Record<string, unknown>)
     expect((intermediate[1]?.data as { id: string }).id).toBe(freshUserId)
-    expect(((intermediate[3]?.data as { message: { id: string } }).message).id).toBe(freshAssistantId)
+    expect((intermediate[3]?.data as { message: { id: string } }).message.id).toBe(freshAssistantId)
 
-    const output = (stabilizeFixtureMessageIds([refreshed], [existing])[0] as string).trim().split('\n')
+    const output = (stabilizeFixtureMessageIds([refreshed], [existing])[0] as string)
+      .trim()
+      .split('\n')
       .map(line => JSON.parse(line) as Record<string, unknown>)
 
     expect((output[1]?.data as { id: string }).id).toBe(existingUserId)
-    expect(((output[3]?.data as { message: { id: string } }).message).id).toBe(existingAssistantId)
+    expect((output[3]?.data as { message: { id: string } }).message.id).toBe(existingAssistantId)
   })
 
   it('leaves an aligned complete message id to the fixture-ready structural pass', () => {
     const freshId = '11111111-1111-4111-8111-111111111111'
     const existingId = '22222222-2222-4222-8222-222222222222'
-    const log = (id: string): string => [
-      JSON.stringify({ type: 'session', id: 'same', createdAt: 1, cwd: '/same' }),
-      JSON.stringify({
-        type: 'user/message',
-        data: { id, role: 'user', content: [{ type: 'text', text: 'same' }], source: { kind: 'user' } },
-      }),
-      '',
-    ].join('\n')
+    const log = (id: string): string =>
+      [
+        JSON.stringify({ type: 'session', id: 'same', createdAt: 1, cwd: '/same' }),
+        JSON.stringify({
+          type: 'user/message',
+          data: { id, role: 'user', content: [{ type: 'text', text: 'same' }], source: { kind: 'user' } },
+        }),
+        '',
+      ].join('\n')
     const fresh = log(freshId)
     const existing = log(existingId)
     const refreshed = stabilize(fresh, existing)
@@ -1347,18 +1364,22 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
-    expect(stabilize(fresh, existing, [
-      { from: 'new-parent', to: 'old-parent' },
-      { from: 'new-child', to: 'old-child' },
-      { from: '/new', to: '/old' },
-    ])).toBe([
-      '{"type":"session","id":"old-child","createdAt":100,"cwd":"/old","parentSession":"old-parent","seedLength":1}',
-      '{"type":"hook/result","seq":1,"time":11,"data":{"decision":"block","durationMs":99}}',
-      '{"type":"turn/end","seq":2,"time":12,"data":{"error":"fresh error"}}',
-      '{"type":"tool/result","seq":3,"time":44,"data":{"text":"old-parent in /old"}}',
-      '{"type":"hook/result","seq":4,"time":13,"data":{"decision":"allow","durationMs":5}}',
-      '',
-    ].join('\n'))
+    expect(
+      stabilize(fresh, existing, [
+        { from: 'new-parent', to: 'old-parent' },
+        { from: 'new-child', to: 'old-child' },
+        { from: '/new', to: '/old' },
+      ]),
+    ).toBe(
+      [
+        '{"type":"session","id":"old-child","createdAt":100,"cwd":"/old","parentSession":"old-parent","seedLength":1}',
+        '{"type":"hook/result","seq":1,"time":11,"data":{"decision":"block","durationMs":99}}',
+        '{"type":"turn/end","seq":2,"time":12,"data":{"error":"fresh error"}}',
+        '{"type":"tool/result","seq":3,"time":44,"data":{"text":"old-parent in /old"}}',
+        '{"type":"hook/result","seq":4,"time":13,"data":{"decision":"allow","durationMs":5}}',
+        '',
+      ].join('\n'),
+    )
   })
 
   it('preserves normalized volatile fields while accepting fresh semantic fields', () => {
@@ -1435,7 +1456,9 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
-    const output = stabilize(fresh, existing).trim().split('\n')
+    const output = stabilize(fresh, existing)
+      .trim()
+      .split('\n')
       .map(line => JSON.parse(line) as Record<string, unknown>)
     expect(output).toEqual([
       { type: 'session', id: 'same', createdAt: 100, cwd: '/old' },
@@ -1480,16 +1503,13 @@ describe('stabilizeRefreshLog', () => {
     ].join('\n')
     const freshContext = { ...fixtureContext(fresh), cwdAliases: [freshAlias] }
 
-    expect(stabilize(
-      fresh,
-      existing,
-      [{ from: freshCwd, to: existingCwd }],
-      freshContext,
-    )).toBe([
-      JSON.stringify({ type: 'session', id: 'same', createdAt: 100, cwd: existingCwd }),
-      JSON.stringify({ type: 'tool/result', data: { path: `${existingCwd}\\result.txt` } }),
-      '',
-    ].join('\n'))
+    expect(stabilize(fresh, existing, [{ from: freshCwd, to: existingCwd }], freshContext)).toBe(
+      [
+        JSON.stringify({ type: 'session', id: 'same', createdAt: 100, cwd: existingCwd }),
+        JSON.stringify({ type: 'tool/result', data: { path: `${existingCwd}\\result.txt` } }),
+        '',
+      ].join('\n'),
+    )
   })
 
   it('preserves one correlated volatile id through a consistent log-wide mapping', () => {
@@ -1508,12 +1528,14 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
-    expect(stabilize(fresh, existing)).toBe([
-      '{"type":"session","id":"same","createdAt":100,"cwd":"/old"}',
-      JSON.stringify({ type: 'approval/asked', data: { id: existingId } }),
-      JSON.stringify({ type: 'approval/decided', data: { id: existingId, outcome: 'allowed-once' } }),
-      '',
-    ].join('\n'))
+    expect(stabilize(fresh, existing)).toBe(
+      [
+        '{"type":"session","id":"same","createdAt":100,"cwd":"/old"}',
+        JSON.stringify({ type: 'approval/asked', data: { id: existingId } }),
+        JSON.stringify({ type: 'approval/decided', data: { id: existingId, outcome: 'allowed-once' } }),
+        '',
+      ].join('\n'),
+    )
   })
 
   it('keeps fresh correlated ids when record alignment is structurally ambiguous', () => {
@@ -1535,7 +1557,10 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
-    const ids = stabilize(fresh, existing).trim().split('\n').slice(1)
+    const ids = stabilize(fresh, existing)
+      .trim()
+      .split('\n')
+      .slice(1)
       .map(line => (JSON.parse(line) as { data: { id: string } }).data.id)
     expect(ids).toEqual([firstFreshId, secondFreshId, firstFreshId, secondFreshId])
   })
@@ -1555,7 +1580,9 @@ describe('stabilizeRefreshLog', () => {
       '',
     ].join('\n')
 
-    const output = stabilize(fresh, existing).trim().split('\n')
+    const output = stabilize(fresh, existing)
+      .trim()
+      .split('\n')
       .map(line => JSON.parse(line) as Record<string, unknown>)
     expect(output[1]).toEqual({ type: 'approval/asked', data: { id: freshId } })
   })
@@ -1579,28 +1606,36 @@ describe('stabilizeRefreshLog', () => {
       y: '44444444-4444-4444-8444-444444444444',
     } as const
     const types = ['approval/asked', 'approval/asked', 'approval/decided', 'approval/decided']
-    const log = (names: string[]): string => [
-      '{"type":"session","id":"same","createdAt":100,"cwd":"/old"}',
-      ...names.map((name, index) => JSON.stringify({ type: types[index], data: { id: ids[name as keyof typeof ids] } })),
-      '',
-    ].join('\n')
+    const log = (names: string[]): string =>
+      [
+        '{"type":"session","id":"same","createdAt":100,"cwd":"/old"}',
+        ...names.map((name, index) => JSON.stringify({ type: types[index], data: { id: ids[name as keyof typeof ids] } })),
+        '',
+      ].join('\n')
 
-    const outputIds = stabilize(log(freshNames), log(existingNames)).trim().split('\n').slice(1)
+    const outputIds = stabilize(log(freshNames), log(existingNames))
+      .trim()
+      .split('\n')
+      .slice(1)
       .map(line => (JSON.parse(line) as { data: { id: string } }).data.id)
     expect(outputIds).toEqual(freshNames.map(name => ids[name as keyof typeof ids]))
   })
 })
 
-
 describe('raw parent and child catalog clocks', () => {
   const child = '{"type":"session","id":"child","createdAt":100}\n'
-  const parent = (time: number) => [
-    { type: 'session', id: 'parent', createdAt: 1 },
-    { type: 'subagent/catalog', seq: 0, time: 2, data: { version: 0, childId: 'child', childCreatedAt: time, mode: 'one-shot' } },
-  ].map(row => JSON.stringify(row) + '\n').join('')
+  const parent = (time: number) =>
+    [
+      { type: 'session', id: 'parent', createdAt: 1 },
+      { type: 'subagent/catalog', seq: 0, time: 2, data: { version: 0, childId: 'child', childCreatedAt: time, mode: 'one-shot' } },
+    ]
+      .map(row => JSON.stringify(row) + '\n')
+      .join('')
 
   it('rejects mismatched raw clocks before normalization can erase them', () => {
-    expect(() => reconcileCatalogCreationTimes([parent(200), child], 'validate')).toThrow('creation time 200 disagrees with child header 100')
+    expect(() => reconcileCatalogCreationTimes([parent(200), child], 'validate')).toThrow(
+      'creation time 200 disagrees with child header 100',
+    )
     expect(reconcileCatalogCreationTimes([parent(100), child], 'validate')).toEqual([parent(100), child])
   })
 

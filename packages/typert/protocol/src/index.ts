@@ -6,12 +6,7 @@
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
-import type {
-  RemoteWireArgs,
-  TypertContextMap,
-  TypertResourceReader,
-  TypertResourceReaders,
-} from './types.ts'
+import type { RemoteWireArgs, TypertContextMap, TypertResourceReader, TypertResourceReaders } from './types.ts'
 
 export { RemoteError, remoteErrorOf } from './remote-error.ts'
 export { TYPERT_OWNED_VALUE, isTypertOwnedValue, typertOwnedValue } from './owned-value.ts'
@@ -120,9 +115,7 @@ export interface TypertGatewayBinding<Service extends object = object> {
 }
 
 /** Invocation mode recorded by a Remote method decorator. */
-export type RemoteInvocationMarker =
-  | { readonly kind: 'direct' }
-  | { readonly kind: 'context'; readonly context: string }
+export type RemoteInvocationMarker = { readonly kind: 'direct' } | { readonly kind: 'context'; readonly context: string }
 
 /** One decorator marker discovered for a live Service instance. */
 export interface RemoteMethodMarker {
@@ -302,11 +295,10 @@ export function Remote<This extends object, Args extends unknown[], Result>(
     return remoteDecorator({ kind: 'direct' }, { exportName: methodExportOrOptions })
   }
   if (typeof methodExportOrOptions === 'object') {
-    return remoteDecorator({ kind: 'direct' }, markerOptions(
-      methodExportOrOptions,
-      REMOTE_OPTION_KEYS,
-      'Remote options require name, mode: "stream", or resources',
-    ))
+    return remoteDecorator(
+      { kind: 'direct' },
+      markerOptions(methodExportOrOptions, REMOTE_OPTION_KEYS, 'Remote options require name, mode: "stream", or resources'),
+    )
   }
   if (context === undefined) throw new TypeError('typert-protocol: Remote decorator context is missing')
   addMarkerInitializer(context, { kind: 'direct' })
@@ -318,8 +310,11 @@ const REMOTE_SCOPE_OPTION_KEYS: ReadonlySet<string> = new Set(['name', 'resource
 /** Validate one decorator options object against its accepted keys and select the marker fields. */
 function markerOptions(options: RemoteMethodOptions, accepted: ReadonlySet<string>, requirement: string): RemoteMarkerOptions {
   const keys = Reflect.ownKeys(options)
-  if (keys.length === 0 || keys.some(key => typeof key !== 'string' || !accepted.has(key))
-    || (Object.hasOwn(options, 'mode') && options.mode !== 'stream')) {
+  if (
+    keys.length === 0 ||
+    keys.some(key => typeof key !== 'string' || !accepted.has(key)) ||
+    (Object.hasOwn(options, 'mode') && options.mode !== 'stream')
+  ) {
     throw new TypeError(`typert-protocol: ${requirement}`)
   }
   const { mode, name, resources } = options
@@ -344,10 +339,7 @@ function resourceReaders(resources: object): Readonly<Record<string, TypertResou
   return Object.freeze(readers)
 }
 
-function remoteDecorator(
-  invocation: RemoteInvocationMarker,
-  options: RemoteMarkerOptions = {},
-): RemoteMethodDecorator {
+function remoteDecorator(invocation: RemoteInvocationMarker, options: RemoteMarkerOptions = {}): RemoteMethodDecorator {
   return function <This extends object, Args extends unknown[], Result>(
     _method: (this: This, ...args: Args) => Result,
     context: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => Result>,
@@ -373,10 +365,7 @@ export function RemoteScope<This extends object, Args extends unknown[], Result>
   key: Extract<keyof TypertContextMap, string>,
   options: NoInfer<RemoteScopeOptions<RemoteWireArgs<Args>>>,
 ): RemoteTypedMethodDecorator<This, Args, Result>
-export function RemoteScope(
-  key: Extract<keyof TypertContextMap, string>,
-  option?: string | RemoteScopeOptions,
-): RemoteMethodDecorator {
+export function RemoteScope(key: Extract<keyof TypertContextMap, string>, option?: string | RemoteScopeOptions): RemoteMethodDecorator {
   validateName('Scope key', key)
   const invocation: RemoteInvocationMarker = { kind: 'context', context: key }
   if (option === undefined) return remoteDecorator(invocation)
@@ -384,11 +373,7 @@ export function RemoteScope(
     validateName('Remote export name', option)
     return remoteDecorator(invocation, { exportName: option })
   }
-  return remoteDecorator(invocation, markerOptions(
-    option,
-    REMOTE_SCOPE_OPTION_KEYS,
-    'RemoteScope options require name or resources',
-  ))
+  return remoteDecorator(invocation, markerOptions(option, REMOTE_SCOPE_OPTION_KEYS, 'RemoteScope options require name or resources'))
 }
 
 /**
@@ -456,10 +441,13 @@ function mark(
   const current = descriptor?.methods.find(candidate => candidate.method === method)
   if (current !== undefined) {
     // One decorator application owns one frozen reader record, so identity marks the same declaration.
-    if (current.exportName === marker.exportName
-      && current.mode === marker.mode
-      && current.resources === marker.resources
-      && sameInvocation(current.invocation, invocation)) return
+    if (
+      current.exportName === marker.exportName &&
+      current.mode === marker.mode &&
+      current.resources === marker.resources &&
+      sameInvocation(current.invocation, invocation)
+    )
+      return
     throw new Error(`typert-protocol: Remote method "${method}" has conflicting invocation markers`)
   }
   Object.defineProperty(prototype, REMOTE_METHOD_DESCRIPTOR, {

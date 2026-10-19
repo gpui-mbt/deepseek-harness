@@ -42,10 +42,7 @@ export function activeAtToken(line: string, cursorCol: number): ActiveAtToken | 
  * @param preserveQuote - retain an explicitly opened quote even when unnecessary.
  * @returns the insertion value, or `undefined` for a path the editor grammar cannot represent safely.
  */
-export function formatFileMention(
-  candidate: FileReferenceCandidate,
-  preserveQuote: boolean,
-): string | undefined {
+export function formatFileMention(candidate: FileReferenceCandidate, preserveQuote: boolean): string | undefined {
   const path = candidate.kind === 'directory' ? `${candidate.path}/` : candidate.path
   if (/[\u0000-\u001f\u007f-\u009f"]/u.test(path)) return undefined
   const quoted = preserveQuote || /\s/u.test(path)

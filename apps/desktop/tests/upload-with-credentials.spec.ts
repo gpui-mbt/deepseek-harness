@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, delimiter, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { resolveCredentialUploadEnvironment } from '../scripts/upload-target.ts'
 
 const execute = promisify(execFile)
@@ -12,7 +12,10 @@ const launcher = fileURLToPath(new URL('../scripts/upload-with-credentials.ps1',
 const roots: string[] = []
 const quote = (value: string): string => `'${value.replaceAll("'", "''")}'`
 
-async function check(mode: 'valid' | 'plaintext' | 'blank' | 'missing' | 'upload' | 'upload-latest' | 'upload-failure', deployment = 'production') {
+async function check(
+  mode: 'valid' | 'plaintext' | 'blank' | 'missing' | 'upload' | 'upload-latest' | 'upload-failure',
+  deployment = 'production',
+) {
   const root = await mkdtemp(join(tmpdir(), 'desktop-credentials-'))
   roots.push(root)
   const credentialPath = join(root, 'credential.clixml')
@@ -25,7 +28,9 @@ async function check(mode: 'valid' | 'plaintext' | 'blank' | 'missing' | 'upload
     await copyFile(launcher, entry)
     await symlink(fileURLToPath(new URL('../../../node_modules', import.meta.url)), join(root, 'node_modules'), 'junction')
     // Replace only the child uploader: this fixture must never contact real release storage.
-    await writeFile(join(scripts, 'upload-target.ts'), `
+    await writeFile(
+      join(scripts, 'upload-target.ts'),
+      `
       import assert from 'node:assert/strict'
       assert.equal(process.env.DOWNLOAD_PROD_COS_SECRET_ID, 'fixture-id')
       assert.equal(process.env.DOWNLOAD_PROD_COS_SECRET_KEY, 'fixture-secret')
@@ -38,10 +43,14 @@ async function check(mode: 'valid' | 'plaintext' | 'blank' | 'missing' | 'upload
       console.log('fixture-id fixture-secret')
       console.error('private service details fixture-secret')
       process.exit(${mode === 'upload-failure' ? 17 : 0})
-    `)
+    `,
+    )
     uploadArguments = ` -Upload -Target win-x64 -Bucket fixture-bucket${mode === 'upload-latest' ? ' -Latest' : ''}`
   }
-  const setup = mode === 'missing' ? '' : `
+  const setup =
+    mode === 'missing'
+      ? ''
+      : `
     [pscustomobject]@{
       SecretId = ${mode === 'plaintext' ? "'fixture-id'" : "ConvertTo-SecureString 'fixture-id' -AsPlainText -Force"}
       SecretKey = ConvertTo-SecureString '${mode === 'blank' ? ' ' : 'fixture-secret'}' -AsPlainText -Force
@@ -61,18 +70,21 @@ async function check(mode: 'valid' | 'plaintext' | 'blank' | 'missing' | 'upload
     Write-Output 'parent environment unchanged'
   `
   // The child creates its own DPAPI file; real runner credentials never enter the fixture.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([name]) =>
-    !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$|^DSH_DESKTOP_WINDOWS_|^APPLE_|^CSC_/iu.test(name),
-  ))
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([name]) => !/KEY|SECRET|TOKEN|PASSWORD|^NODE_OPTIONS$|^DSH_DESKTOP_WINDOWS_|^APPLE_|^CSC_/iu.test(name),
+    ),
+  )
   const pathKey = Object.keys(env).find(name => name.toLowerCase() === 'path') ?? 'PATH'
   env[pathKey] = `${dirname(process.execPath)}${delimiter}${env[pathKey] ?? ''}`
   try {
-    const result = await execute('pwsh', [
-      '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64'),
-    ], { env, timeout: 30_000 })
+    const result = await execute(
+      'pwsh',
+      ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
+      { env, timeout: 30_000 },
+    )
     return { code: 0, output: result.stdout + result.stderr }
-  }
-  catch (error) {
+  } catch (error) {
     const result = error as Error & { code: number | string; stdout: string; stderr: string; killed?: boolean }
     expect(result.killed).not.toBe(true)
     expect(typeof result.code).toBe('number')
@@ -86,36 +98,58 @@ afterEach(async () => {
 
 describe('credential launcher destination', () => {
   const fileEnvironment = {
-    DSH_DESKTOP_AUTO_UPDATE_ENV: 'test', DOWNLOAD_TEST_ORIGIN: 'https://download-test.example.com', DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
-    DOWNLOAD_TEST_COS_BUCKET: 'test-bucket', DOWNLOAD_TEST_COS_SECRET_ID: 'stale-id', DOWNLOAD_TEST_COS_SECRET_KEY: 'stale-key',
+    DSH_DESKTOP_AUTO_UPDATE_ENV: 'test',
+    DOWNLOAD_TEST_ORIGIN: 'https://download-test.example.com',
+    DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
+    DOWNLOAD_TEST_COS_BUCKET: 'test-bucket',
+    DOWNLOAD_TEST_COS_SECRET_ID: 'stale-id',
+    DOWNLOAD_TEST_COS_SECRET_KEY: 'stale-key',
   }
   const injectedEnvironment = {
-    DSH_DESKTOP_AUTO_UPDATE_ENV: 'test', DOWNLOAD_TEST_COS_BUCKET: 'test-bucket',
-    DOWNLOAD_TEST_COS_SECRET_ID: 'decrypted-id', DOWNLOAD_TEST_COS_SECRET_KEY: 'decrypted-key',
+    DSH_DESKTOP_AUTO_UPDATE_ENV: 'test',
+    DOWNLOAD_TEST_COS_BUCKET: 'test-bucket',
+    DOWNLOAD_TEST_COS_SECRET_ID: 'decrypted-id',
+    DOWNLOAD_TEST_COS_SECRET_KEY: 'decrypted-key',
   }
 
   it('uses decrypted credentials only for the matching packaged deployment and bucket', () => {
-    expect(resolveCredentialUploadEnvironment(fileEnvironment, injectedEnvironment, 'test', 'test-bucket', 'win-x64'))
-      .toMatchObject({ DOWNLOAD_TEST_COS_SECRET_ID: 'decrypted-id', DOWNLOAD_TEST_COS_SECRET_KEY: 'decrypted-key' })
-    expect(() => resolveCredentialUploadEnvironment(fileEnvironment, injectedEnvironment, 'production', 'test-bucket', 'win-x64'))
-      .toThrow(/differs from the packaged release destination/u)
-    expect(() => resolveCredentialUploadEnvironment(fileEnvironment, injectedEnvironment, 'test', 'other-bucket', 'win-x64'))
-      .toThrow(/differs from the packaged release destination/u)
+    expect(resolveCredentialUploadEnvironment(fileEnvironment, injectedEnvironment, 'test', 'test-bucket', 'win-x64')).toMatchObject({
+      DOWNLOAD_TEST_COS_SECRET_ID: 'decrypted-id',
+      DOWNLOAD_TEST_COS_SECRET_KEY: 'decrypted-key',
+    })
+    expect(() => resolveCredentialUploadEnvironment(fileEnvironment, injectedEnvironment, 'production', 'test-bucket', 'win-x64')).toThrow(
+      /differs from the packaged release destination/u,
+    )
+    expect(() => resolveCredentialUploadEnvironment(fileEnvironment, injectedEnvironment, 'test', 'other-bucket', 'win-x64')).toThrow(
+      /differs from the packaged release destination/u,
+    )
   })
 
   it('rejects child credentials that do not match the explicit launcher selection', () => {
-    expect(() => resolveCredentialUploadEnvironment(fileEnvironment, { ...injectedEnvironment,
-      DSH_DESKTOP_AUTO_UPDATE_ENV: 'production',
-    }, 'test', 'test-bucket', 'win-x64')).toThrow(/differs from its explicit arguments/u)
-    expect(() => resolveCredentialUploadEnvironment(fileEnvironment, { ...injectedEnvironment,
-      DOWNLOAD_TEST_COS_SECRET_KEY: '',
-    }, 'test', 'test-bucket', 'win-x64')).toThrow(/DOWNLOAD_TEST_COS_SECRET_KEY/u)
+    expect(() =>
+      resolveCredentialUploadEnvironment(
+        fileEnvironment,
+        { ...injectedEnvironment, DSH_DESKTOP_AUTO_UPDATE_ENV: 'production' },
+        'test',
+        'test-bucket',
+        'win-x64',
+      ),
+    ).toThrow(/differs from its explicit arguments/u)
+    expect(() =>
+      resolveCredentialUploadEnvironment(
+        fileEnvironment,
+        { ...injectedEnvironment, DOWNLOAD_TEST_COS_SECRET_KEY: '' },
+        'test',
+        'test-bucket',
+        'win-x64',
+      ),
+    ).toThrow(/DOWNLOAD_TEST_COS_SECRET_KEY/u)
   })
 })
 
 // DPAPI's user-and-machine encryption is Windows-only.
 describe.skipIf(process.platform !== 'win32')('Windows upload credentials', () => {
-  it.each(['production', 'test'])('checks %s credentials without uploading or changing the parent', async (deployment) => {
+  it.each(['production', 'test'])('checks %s credentials without uploading or changing the parent', async deployment => {
     const result = await check('valid', deployment)
     expect(result.code, result.output).toBe(0)
     const expected = await readFile(new URL('./expected/upload-credentials-check.txt', import.meta.url), 'utf8')
@@ -125,7 +159,7 @@ describe.skipIf(process.platform !== 'win32')('Windows upload credentials', () =
     expect(result.output).not.toContain('uploading')
   })
 
-  it.each(['plaintext', 'blank', 'missing'] as const)('rejects %s credentials without printing values', async (mode) => {
+  it.each(['plaintext', 'blank', 'missing'] as const)('rejects %s credentials without printing values', async mode => {
     const result = await check(mode)
     expect(result.code).toBe(1)
     expect(result.output).toContain('desktop credentials: failed;')
@@ -134,7 +168,7 @@ describe.skipIf(process.platform !== 'win32')('Windows upload credentials', () =
     expect(result.output).not.toContain('child environment verified')
   })
 
-  it.each(['upload', 'upload-latest', 'upload-failure'] as const)('isolates the %s child and sanitizes both output streams', async (mode) => {
+  it.each(['upload', 'upload-latest', 'upload-failure'] as const)('isolates the %s child and sanitizes both output streams', async mode => {
     const result = await check(mode)
     expect(result.code, result.output).toBe(mode === 'upload-failure' ? 1 : 0)
     expect(result.output).toContain('[REDACTED] [REDACTED]')

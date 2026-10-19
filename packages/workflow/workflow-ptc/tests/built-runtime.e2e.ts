@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const packageRoot = fileURLToPath(new URL('..', import.meta.url))
 const built = [
@@ -27,7 +27,9 @@ describe.skipIf(!built)('built workflow PTC runtime', () => {
       await mkdir(cwd)
       await writeFile(outside, 'unchanged')
       const driver = join(driverRoot, 'driver.mjs')
-      await writeFile(driver, `
+      await writeFile(
+        driver,
+        `
 import { Context } from '@deepseek-ai/cordis'
 import PtcWorkflowEngine from '@deepseek-ai/dsh-workflow-ptc'
 const ctx = new Context()
@@ -71,7 +73,9 @@ try {
     console.log('built-runtime-smoke-ok')
   } finally { await run.dispose() }
 } finally { await ctx.fiber.dispose() }
-`, 'utf8')
+`,
+        'utf8',
+      )
       const { stdout } = await runNode(process.execPath, [driver, cwd, outside], { cwd: packageRoot, timeout: 60_000 })
       expect(stdout).toContain('built-runtime-smoke-ok')
       expect(await readFile(outside, 'utf8')).toBe('unchanged')

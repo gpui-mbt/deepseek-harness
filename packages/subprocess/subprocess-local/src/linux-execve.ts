@@ -4,21 +4,12 @@ import { getSystemErrorMessage, getSystemErrorName } from 'node:util'
 import { SUBPROCESS_CONTROL_FD } from '@deepseek-ai/dsh-subprocess/control'
 import { createLazyRequire } from '@deepseek-ai/dsh-lazy-require'
 
-const requireKoffi = createLazyRequire<typeof import('koffi')['default']>('koffi', import.meta.url)
+const requireKoffi = createLazyRequire<(typeof import('koffi'))['default']>('koffi', import.meta.url)
 
 /** Replace the current process image while preserving the supplied argv and environment. */
-export type LinuxExecve = (
-  file: string,
-  argv: string[],
-  env: Record<string, string>,
-  control?: 'pipe',
-) => never
+export type LinuxExecve = (file: string, argv: string[], env: Record<string, string>, control?: 'pipe') => never
 
-type NativeExecve = (
-  file: string,
-  argv: Array<string | null>,
-  envp: Array<string | null>,
-) => number
+type NativeExecve = (file: string, argv: Array<string | null>, envp: Array<string | null>) => number
 
 type NativeFcntl = (fd: number, command: number, argument: number) => number
 
@@ -50,16 +41,10 @@ export function loadLinuxExecve(): LinuxExecve {
   if (cachedExecve !== undefined) return cachedExecve
   const koffi = requireKoffi()
   const libc = koffi.load(null)
-  const nativeExecve = libc.func(
-    'int execve(const char *pathname, const char **argv, const char **envp)',
-  ) as NativeExecve
-  const nativeFcntl = libc.func(
-    'int fcntl(int fd, int cmd, int arg)',
-  ) as NativeFcntl
+  const nativeExecve = libc.func('int execve(const char *pathname, const char **argv, const char **envp)') as NativeExecve
+  const nativeFcntl = libc.func('int fcntl(int fd, int cmd, int arg)') as NativeFcntl
   cachedExecve = (file, argv, env, control) => {
-    const descriptors = control === 'pipe'
-      ? [...STANDARD_FILE_DESCRIPTORS, SUBPROCESS_CONTROL_FD]
-      : STANDARD_FILE_DESCRIPTORS
+    const descriptors = control === 'pipe' ? [...STANDARD_FILE_DESCRIPTORS, SUBPROCESS_CONTROL_FD] : STANDARD_FILE_DESCRIPTORS
     for (const fd of descriptors) {
       const flags = nativeFcntl(fd, F_GETFD, 0)
       if (flags === -1) throw systemError(koffi.errno(), 'fcntl')
@@ -68,11 +53,7 @@ export function loadLinuxExecve(): LinuxExecve {
         throw systemError(koffi.errno(), 'fcntl')
       }
     }
-    nativeExecve(
-      file,
-      [...argv, null],
-      [...Object.entries(env).map(([key, value]) => `${key}=${value}`), null],
-    )
+    nativeExecve(file, [...argv, null], [...Object.entries(env).map(([key, value]) => `${key}=${value}`), null])
     throw systemError(koffi.errno(), 'execve', file)
   }
   return cachedExecve

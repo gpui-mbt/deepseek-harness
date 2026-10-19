@@ -8,5 +8,11 @@ export class DesktopUpdatePreparationError extends Error {
    * @param message - Locale-owned recovery guidance.
    * @param technicalDetails - Main-owned facts, excluding raw subprocess output and credentials.
    */
-  constructor(readonly kind: DesktopUpdatePreparationFailureKind, message: string, readonly technicalDetails?: string) { super(message) }
+  constructor(
+    readonly kind: DesktopUpdatePreparationFailureKind,
+    message: string,
+    readonly technicalDetails?: string,
+  ) {
+    super(message)
+  }
 }

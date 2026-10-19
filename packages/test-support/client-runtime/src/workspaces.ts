@@ -1,8 +1,6 @@
 /** Test-owned workspaces face: the renderer standard-kit observable plus recorded actions. */
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import type {
-  IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView,
-} from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { IWorkspaces, WorkspaceId, WorkspaceSnapshot, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { workspaceSnapshot } from './fixtures.ts'
@@ -17,9 +15,7 @@ type WorkspaceAction = {
 }[keyof IWorkspaces]
 
 /** Test replacement retaining one Controller command's parameters and result. */
-type WorkspaceStub<Key extends WorkspaceAction> = (
-  ...args: Parameters<IWorkspaces[Key]>
-) => ReturnType<IWorkspaces[Key]>
+type WorkspaceStub<Key extends WorkspaceAction> = (...args: Parameters<IWorkspaces[Key]>) => ReturnType<IWorkspaces[Key]>
 
 /**
  * Workspaces test double. Implements the same IWorkspaces face features
@@ -50,7 +46,9 @@ export class TestWorkspaces implements IWorkspaces {
    * @param mutate - draft mutator.
    */
   async update(mutate: (draft: WorkspaceFixtureSnapshot) => void): Promise<void> {
-    await this.stabilize(() => { this.list.update(mutate) })
+    await this.stabilize(() => {
+      this.list.update(mutate)
+    })
   }
 
   /**
@@ -149,7 +147,7 @@ export class TestWorkspaces implements IWorkspaces {
       await (stub(sessionId) as Promise<void>)
       return
     }
-    await this.update((draft) => {
+    await this.update(draft => {
       draft.archivedSessionIds = [...draft.archivedSessionIds, sessionId]
     })
   }
@@ -166,7 +164,7 @@ export class TestWorkspaces implements IWorkspaces {
       await (stub(sessionId) as Promise<void>)
       return
     }
-    await this.update((draft) => {
+    await this.update(draft => {
       draft.archivedSessionIds = draft.archivedSessionIds.filter(id => id !== sessionId)
     })
   }
@@ -183,11 +181,8 @@ export class TestWorkspaces implements IWorkspaces {
       await (stub(sessionId) as Promise<void>)
       return
     }
-    await this.update((draft) => {
-      draft.pinnedSessionIds = [
-        sessionId,
-        ...draft.pinnedSessionIds.filter(id => id !== sessionId),
-      ]
+    await this.update(draft => {
+      draft.pinnedSessionIds = [sessionId, ...draft.pinnedSessionIds.filter(id => id !== sessionId)]
     })
   }
 
@@ -203,7 +198,7 @@ export class TestWorkspaces implements IWorkspaces {
       await (stub(sessionId) as Promise<void>)
       return
     }
-    await this.update((draft) => {
+    await this.update(draft => {
       draft.pinnedSessionIds = draft.pinnedSessionIds.filter(id => id !== sessionId)
     })
   }

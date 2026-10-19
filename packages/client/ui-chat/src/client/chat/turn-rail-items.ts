@@ -18,9 +18,7 @@ export interface TurnRailItem {
   /** Bounded response preview (loaded window first, outline fallback). */
   readonly response: string
   /** How the rail reaches the Turn. */
-  readonly anchor:
-    | { readonly kind: 'loaded'; readonly key: string }
-    | { readonly kind: 'unloaded'; readonly seq: SessionSeq }
+  readonly anchor: { readonly kind: 'loaded'; readonly key: string } | { readonly kind: 'unloaded'; readonly seq: SessionSeq }
 }
 
 const EMPTY_ITEMS: readonly TurnRailItem[] = []
@@ -60,10 +58,7 @@ function outlineEntries(outline: unknown): readonly unknown[] {
  * @param outline - `turnOutline` projection value, treated as wire data.
  * @returns every known turn, ascending; a stable empty array when none.
  */
-export function mergeTurnRailItems(
-  loaded: readonly TurnNavigationItem[],
-  outline: unknown,
-): readonly TurnRailItem[] {
+export function mergeTurnRailItems(loaded: readonly TurnNavigationItem[], outline: unknown): readonly TurnRailItem[] {
   const byTurn = new Map<number, TurnRailItem>()
   for (const raw of outlineEntries(outline)) {
     const entry = outlineEntry(raw)
@@ -79,8 +74,8 @@ export function mergeTurnRailItems(
     const preview = byTurn.get(item.turn)
     byTurn.set(item.turn, {
       turn: item.turn,
-      prompt: item.prompt !== '' ? item.prompt : preview?.prompt ?? '',
-      response: item.response !== '' ? item.response : preview?.response ?? '',
+      prompt: item.prompt !== '' ? item.prompt : (preview?.prompt ?? ''),
+      response: item.response !== '' ? item.response : (preview?.response ?? ''),
       anchor: { kind: 'loaded', key: item.anchorKey },
     })
   }

@@ -8,7 +8,7 @@
 
 import { spawnSync } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { pickWin32Directory, type Win32DialogInternals, type Win32DialogWorkerLike } from '../src/win32-dialog.ts'
 import type { Win32DialogWorkerMessage } from '../src/win32-dialog-worker.ts'
 
@@ -56,13 +56,19 @@ const CLSID_FILE_OPEN_DIALOG = 'dc1c5a9c-e88a-4dde-a5a1-60f82a20aef7'
  * reason only loses the real-dialog case; a probe that cannot run at all —
  * no `powershell.exe` — keeps the win32 assumption.
  */
-const opensRealDialog = process.platform === 'win32' && spawnSync('powershell.exe', [
-  '-NoLogo',
-  '-NoProfile',
-  '-NonInteractive',
-  '-Command',
-  `try { [void][Activator]::CreateInstance([Type]::GetTypeFromCLSID([Guid]'${CLSID_FILE_OPEN_DIALOG}')) } catch { exit 1 }`,
-], { encoding: 'utf8' }).status !== 1
+const opensRealDialog =
+  process.platform === 'win32' &&
+  spawnSync(
+    'powershell.exe',
+    [
+      '-NoLogo',
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `try { [void][Activator]::CreateInstance([Type]::GetTypeFromCLSID([Guid]'${CLSID_FILE_OPEN_DIALOG}')) } catch { exit 1 }`,
+    ],
+    { encoding: 'utf8' },
+  ).status !== 1
 
 describe('pickWin32Directory', () => {
   it('resolves the selected path and the cancellation null', async () => {
@@ -108,8 +114,9 @@ describe('pickWin32Directory', () => {
     const spawnWorker = vi.fn()
     const controller = new AbortController()
     controller.abort()
-    await expect(pickWin32Directory(controller.signal, { spawnWorker, closeThreadWindows: async () => undefined }))
-      .rejects.toThrow('native directory picker aborted')
+    await expect(pickWin32Directory(controller.signal, { spawnWorker, closeThreadWindows: async () => undefined })).rejects.toThrow(
+      'native directory picker aborted',
+    )
     expect(spawnWorker).not.toHaveBeenCalled()
   })
 
@@ -130,7 +137,9 @@ describe('pickWin32Directory', () => {
   })
 
   it('starts the close service on the showing notice when the abort came first', async () => {
-    const closeFailures = vi.fn(async () => { throw new Error('window not there yet') })
+    const closeFailures = vi.fn(async () => {
+      throw new Error('window not there yet')
+    })
     const { worker, internals } = harness({ closeThreadWindows: closeFailures })
     const controller = new AbortController()
     // Attached before the race for the same unhandled-rejection reason above.
@@ -172,18 +181,26 @@ describe('pickWin32Directory', () => {
   // end: the tsx-bootstrapped worker spawns, loads koffi, and reports the
   // refusal — ole32.dll fails to load on POSIX, and a Windows Server image
   // that refuses the dialog class reports the same rejection.
-  it.skipIf(opensRealDialog)('rejects through the real worker where the Win32 surface is unavailable', async () => {
-    await expect(pickWin32Directory(live())).rejects.toThrow('win32 folder dialog failed')
-  }, 30_000)
+  it.skipIf(opensRealDialog)(
+    'rejects through the real worker where the Win32 surface is unavailable',
+    async () => {
+      await expect(pickWin32Directory(live())).rejects.toThrow('win32 folder dialog failed')
+    },
+    30_000,
+  )
 
   // Hosts with the dialog run the true COM smoke instead: a real dialog opens
   // briefly and the abort service closes it (the same lever a disconnecting
   // client pulls).
-  it.skipIf(!opensRealDialog)('opens and abort-closes a real dialog', async () => {
-    const controller = new AbortController()
-    setTimeout(() => {
-      controller.abort()
-    }, 400)
-    await expect(pickWin32Directory(controller.signal)).rejects.toThrow('native directory picker aborted')
-  }, 30_000)
+  it.skipIf(!opensRealDialog)(
+    'opens and abort-closes a real dialog',
+    async () => {
+      const controller = new AbortController()
+      setTimeout(() => {
+        controller.abort()
+      }, 400)
+      await expect(pickWin32Directory(controller.signal)).rejects.toThrow('native directory picker aborted')
+    },
+    30_000,
+  )
 })

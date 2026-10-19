@@ -75,14 +75,9 @@ export function readBlockLabels(t: T): ReadBlockLabels {
  */
 export function searchBlockLabels(t: T): SearchBlockLabels {
   return {
-    pathsSummary: (shown, total, truncated) => t(
-      truncated ? 'search.paths.truncated' : 'search.paths',
-      { shown, total },
-    ),
-    matchesSummary: (shown, total, files, truncated) => t(
-      truncated ? 'search.matches.truncated' : 'search.matches',
-      { shown, total, files },
-    ),
+    pathsSummary: (shown, total, truncated) => t(truncated ? 'search.paths.truncated' : 'search.paths', { shown, total }),
+    matchesSummary: (shown, total, files, truncated) =>
+      t(truncated ? 'search.matches.truncated' : 'search.matches', { shown, total, files }),
     copy: t('copy'),
     copied: t('copied'),
     noResults: t('search.noResults'),

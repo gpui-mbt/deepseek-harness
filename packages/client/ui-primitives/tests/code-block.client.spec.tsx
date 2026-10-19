@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { CodeBlock as LocalizedCodeBlock } from '../src/markdown/CodeBlock.tsx'
@@ -26,7 +26,7 @@ describe('highlightToHtml', () => {
     expect(html).toContain('var(--shiki-')
   })
 
-  it.each([['ts'], ['js'], ['bash'], ['sh'], ['jsonc']])('resolves the %s alias', (alias) => {
+  it.each([['ts'], ['js'], ['bash'], ['sh'], ['jsonc']])('resolves the %s alias', alias => {
     expect(highlightToHtml('x', alias)).toContain('shiki')
   })
 
@@ -39,14 +39,63 @@ describe('highlightToHtml', () => {
   // — is covered above). Touching each one drives its own dynamic import thunk, so
   // the whole LAZY_GRAMMARS table is exercised.
   const LAZY_ALIASES = [
-    'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'cs', 'kotlin', 'swift', 'php',
-    'yaml', 'toml', 'ini', 'md', 'mdx', 'html', 'css', 'scss', 'less', 'sql',
-    'xml', 'lua',
-    'fish', 'dotenv', 'log', 'csv', 'diff', 'http', 'rst', 'latex', 'bibtex',
-    'asciidoc', 'bat', 'powershell', 'r', 'julia', 'dart', 'scala', 'clojure',
-    'erlang', 'elixir', 'haskell', 'fsharp', 'vb', 'perl', 'verilog',
-    'system-verilog', 'graphql', 'proto', 'hcl', 'nix', 'vue', 'svelte', 'make',
-    'cmake', 'groovy',
+    'py',
+    'rb',
+    'go',
+    'rs',
+    'java',
+    'c',
+    'cpp',
+    'cs',
+    'kotlin',
+    'swift',
+    'php',
+    'yaml',
+    'toml',
+    'ini',
+    'md',
+    'mdx',
+    'html',
+    'css',
+    'scss',
+    'less',
+    'sql',
+    'xml',
+    'lua',
+    'fish',
+    'dotenv',
+    'log',
+    'csv',
+    'diff',
+    'http',
+    'rst',
+    'latex',
+    'bibtex',
+    'asciidoc',
+    'bat',
+    'powershell',
+    'r',
+    'julia',
+    'dart',
+    'scala',
+    'clojure',
+    'erlang',
+    'elixir',
+    'haskell',
+    'fsharp',
+    'vb',
+    'perl',
+    'verilog',
+    'system-verilog',
+    'graphql',
+    'proto',
+    'hcl',
+    'nix',
+    'vue',
+    'svelte',
+    'make',
+    'cmake',
+    'groovy',
   ]
 
   it('lazily loads every extension grammar: plain first, highlighted after load', async () => {
@@ -79,7 +128,9 @@ describe('highlightToHtml', () => {
     expect(hints.size).toBeGreaterThan(50)
     const allLoaded = (): boolean => [...hints].every(hint => highlightToHtml('x', hint) !== undefined)
     const registered = Promise.withResolvers<undefined>()
-    const stop = subscribeGrammarLoaded(() => { if (allLoaded()) registered.resolve(undefined) })
+    const stop = subscribeGrammarLoaded(() => {
+      if (allLoaded()) registered.resolve(undefined)
+    })
     try {
       // Touching each hint starts its dynamic import. A hint already loaded by an
       // earlier test fires no further notification, so only await when needed.
@@ -113,7 +164,7 @@ describe('CodeBlock', () => {
     expect(view.container.querySelector('[data-line-numbers]')).toBeNull()
   })
 
-  it.each(['ts', 'unregistered'])('numbers %s source lines without copying the gutter', async (lang) => {
+  it.each(['ts', 'unregistered'])('numbers %s source lines without copying the gutter', async lang => {
     const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.useFakeTimers()
@@ -122,12 +173,19 @@ describe('CodeBlock', () => {
       const code = 'const first = 1\n\nconst last = 3'
       const view = render(<CodeBlock code={`${code}\n`} lang={lang} lineNumbers />)
       expect(view.container.querySelector('[data-line-numbers]')).not.toBeNull()
-      expect([...view.container.querySelectorAll('code > .line')].map(line => line.textContent))
-        .toEqual(['const first = 1', '', 'const last = 3'])
+      expect([...view.container.querySelectorAll('code > .line')].map(line => line.textContent)).toEqual([
+        'const first = 1',
+        '',
+        'const last = 3',
+      ])
       expect(view.container.querySelector('pre')!.textContent).toBe(code)
-      await act(async () => { fireEvent.click(view.getByRole('button', { name: '复制' })) })
+      await act(async () => {
+        fireEvent.click(view.getByRole('button', { name: '复制' }))
+      })
       expect(writeText).toHaveBeenCalledWith(code)
-      await act(async () => { await vi.runOnlyPendingTimersAsync() })
+      await act(async () => {
+        await vi.runOnlyPendingTimersAsync()
+      })
     } finally {
       cleanup()
       vi.useRealTimers()
@@ -140,8 +198,8 @@ describe('CodeBlock', () => {
     const view = render(<CodeBlock code="" lineNumbers />)
     expect(view.container.querySelectorAll('code > .line')).toHaveLength(1)
     expect(view.container.querySelector('pre')!.textContent).toBe('')
-    const gutter = () => view.container.querySelector<HTMLElement>('[data-line-numbers]')!
-      .style.getPropertyValue('--dsl-code-block-line-number-width')
+    const gutter = () =>
+      view.container.querySelector<HTMLElement>('[data-line-numbers]')!.style.getPropertyValue('--dsl-code-block-line-number-width')
     expect(gutter()).toBe('2ch')
     view.rerender(<CodeBlock code="const first = 1" lang="ts" streaming lineNumbers />)
     const code = ['const first = 1', ...Array.from({ length: 99 }, (_, index) => `const line${index} = 0`)].join('\n')

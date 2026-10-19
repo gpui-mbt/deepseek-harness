@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { prepareSessionSnapshotFixtureForComparison } from '@deepseek-ai/dsh-llm-replay'
 import {
@@ -42,7 +42,8 @@ describe('normalizeStdout', () => {
 
   it('scrubs the cwd and session id anywhere they appear', () => {
     const raw = JSON.stringify({
-      jsonrpc: '2.0', method: 'session/update',
+      jsonrpc: '2.0',
+      method: 'session/update',
       params: { sessionId: ctx.sessionIds[0], cwd: ctx.cwd, note: `at ${ctx.cwd}/x` },
     })
     const out = normalizeStdout(raw, ctx)
@@ -120,10 +121,7 @@ describe('normalizeStdout', () => {
     const aliasedCtx: NormalizeContext = {
       sessionIds: [],
       cwd: String.raw`C:\Users\RUNNER~1\AppData\Local\Temp\acp-snapshot`,
-      cwdAliases: [
-        longCwd,
-        String.raw`C:\Users\runneradmin\AppData\Local\Temp\acp`,
-      ],
+      cwdAliases: [longCwd, String.raw`C:\Users\runneradmin\AppData\Local\Temp\acp`],
     }
     const raw = JSON.stringify({
       cwd: longCwd,
@@ -201,13 +199,15 @@ Additional instructions from: nested\AGENTS.md`,
       params: {
         update: {
           sessionUpdate: 'tool_call_update',
-          content: [{
-            type: 'content',
-            content: {
-              type: 'text',
-              text: 'Session prior — title\nTarget event seq 4:\n```json\n{\n  "seq": 4,\n  "time": 1784876275593,\n  "data": {\n    "time": 31337,\n    "note": "model-visible"\n  }\n}\n```\n\nAfter:\n  "time": 424242,\n  neighbor semantic text\n\n(Omitted 39387 bytes. Full formatted result stored at: /tmp/result.txt.)',
+          content: [
+            {
+              type: 'content',
+              content: {
+                type: 'text',
+                text: 'Session prior — title\nTarget event seq 4:\n```json\n{\n  "seq": 4,\n  "time": 1784876275593,\n  "data": {\n    "time": 31337,\n    "note": "model-visible"\n  }\n}\n```\n\nAfter:\n  "time": 424242,\n  neighbor semantic text\n\n(Omitted 39387 bytes. Full formatted result stored at: /tmp/result.txt.)',
+              },
             },
-          }],
+          ],
         },
       },
     })
@@ -227,13 +227,15 @@ Additional instructions from: nested\AGENTS.md`,
       params: {
         update: {
           sessionUpdate: 'tool_call_update',
-          content: [{
-            type: 'content',
-            content: {
-              type: 'text',
-              text: 'bash output:\n```json\n{\n  "time": 1784876275593,\n  "data": {}\n}\n```\n\n(Omitted 39387 bytes. Full formatted result stored at: /tmp/result.txt.)',
+          content: [
+            {
+              type: 'content',
+              content: {
+                type: 'text',
+                text: 'bash output:\n```json\n{\n  "time": 1784876275593,\n  "data": {}\n}\n```\n\n(Omitted 39387 bytes. Full formatted result stored at: /tmp/result.txt.)',
+              },
             },
-          }],
+          ],
         },
       },
     })
@@ -260,22 +262,31 @@ describe('normalizeSessionLog', () => {
     { format: 'full UUIDs', ids: ['bash-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bash-bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'] },
     { format: 'short UUIDs', ids: ['bash-aaaaaaaaaaaaaaaa', 'bash-bbbbbbbbbbbbbbbb'] },
   ])('keeps $format distinct in single-log and single-snapshot paths', ({ ids }) => {
-    const raw = [
-      { type: 'session', version: 0, id: ctx.sessionIds[0], cwd: ctx.cwd, createdAt: 100 },
-      { type: 'user/message', data: { text: 'Keep {{id:1}} literal.' } },
-      ...ids.flatMap(jobId => [
-        { type: 'job/registered', data: { jobId, startedAt: 100 } },
-        { type: 'job/settled', data: { jobId, startedAt: 100, finishedAt: 200 } },
-      ]),
-      { type: 'tool/call', data: { arguments: JSON.stringify({ job_id: ids[0] }) } },
-      { type: 'tool/result', data: { message: { content: [{ type: 'text', text: `read ${ids[0]}` }] } } },
-    ].map(record => JSON.stringify(record)).join('\n') + '\n'
+    const raw =
+      [
+        { type: 'session', version: 0, id: ctx.sessionIds[0], cwd: ctx.cwd, createdAt: 100 },
+        { type: 'user/message', data: { text: 'Keep {{id:1}} literal.' } },
+        ...ids.flatMap(jobId => [
+          { type: 'job/registered', data: { jobId, startedAt: 100 } },
+          { type: 'job/settled', data: { jobId, startedAt: 100, finishedAt: 200 } },
+        ]),
+        { type: 'tool/call', data: { arguments: JSON.stringify({ job_id: ids[0] }) } },
+        { type: 'tool/result', data: { message: { content: [{ type: 'text', text: `read ${ids[0]}` }] } } },
+      ]
+        .map(record => JSON.stringify(record))
+        .join('\n') + '\n'
     for (const normalize of [normalizeSessionLog, normalizeSessionSnapshot]) {
       const output = normalize(raw, ctx)
-      const jobs = output.split('\n').filter(Boolean).map(line => JSON.parse(line) as { type: string; data: { jobId: string } })
+      const jobs = output
+        .split('\n')
+        .filter(Boolean)
+        .map(line => JSON.parse(line) as { type: string; data: { jobId: string } })
         .filter(record => record.type.startsWith('job/'))
       expect(jobs.map(record => record.data.jobId)).toEqual(['{{id:2}}', '{{id:2}}', '{{id:3}}', '{{id:3}}'])
-      const call = output.split('\n').filter(Boolean).map(line => JSON.parse(line) as { type: string; data: { arguments: string } })
+      const call = output
+        .split('\n')
+        .filter(Boolean)
+        .map(line => JSON.parse(line) as { type: string; data: { arguments: string } })
         .find(record => record.type === 'tool/call')
       expect(JSON.parse(call!.data.arguments)).toEqual({ job_id: '{{id:2}}' })
       expect(output).toContain('read {{id:2}}')
@@ -295,10 +306,11 @@ describe('normalizeSessionLog', () => {
   const event = (over: object) => JSON.stringify({ type: 'turn/start', seq: 1, time: 999, data: { turn: 1 }, ...over })
 
   it('keeps unexpected request-header fields observable in comparisons', () => {
-    const request = (system: boolean) => event({
-      type: 'request/header',
-      data: { header: { config: { model: 'mock' }, ...(system ? { system: 'unexpected prompt' } : {}) } },
-    })
+    const request = (system: boolean) =>
+      event({
+        type: 'request/header',
+        data: { header: { config: { model: 'mock' }, ...(system ? { system: 'unexpected prompt' } : {}) } },
+      })
     for (const normalize of [normalizeSessionLog, normalizeSessionSnapshot]) {
       const actual = normalize(`${header({})}\n${request(true)}\n`, ctx)
       expect(actual).toContain('"system":"unexpected prompt"')
@@ -330,7 +342,9 @@ describe('normalizeSessionLog', () => {
 
   it('scrubs cwd and session id deep inside event data', () => {
     const ev = JSON.stringify({
-      type: 'tool/result', seq: 2, time: 5,
+      type: 'tool/result',
+      seq: 2,
+      time: 5,
       data: { content: [{ type: 'text', text: `wrote ${ctx.cwd}/proof.txt` }] },
     })
     const out = normalizeSessionLog(`${header({ cwd: ctx.cwd })}\n${ev}\n`, ctx)
@@ -356,12 +370,16 @@ describe('normalizeSessionLog', () => {
 
   it('scrubs random local spill paths under the snapshot cwd', () => {
     const ev = JSON.stringify({
-      type: 'tool/result', seq: 2, time: 5,
+      type: 'tool/result',
+      seq: 2,
+      time: 5,
       data: {
-        content: [{
-          type: 'text',
-          text: `Full formatted result stored at: ${ctx.cwd}/.spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.`,
-        }],
+        content: [
+          {
+            type: 'text',
+            text: `Full formatted result stored at: ${ctx.cwd}/.spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.`,
+          },
+        ],
       },
     })
     const out = normalizeSessionLog(`${header({ cwd: ctx.cwd })}\n${ev}\n`, ctx)
@@ -372,12 +390,16 @@ describe('normalizeSessionLog', () => {
 
   it('scrubs macOS /private aliases for local spill paths', () => {
     const ev = JSON.stringify({
-      type: 'tool/result', seq: 2, time: 5,
+      type: 'tool/result',
+      seq: 2,
+      time: 5,
       data: {
-        content: [{
-          type: 'text',
-          text: `Full formatted result stored at: /private${ctx.cwd}/.spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.`,
-        }],
+        content: [
+          {
+            type: 'text',
+            text: `Full formatted result stored at: /private${ctx.cwd}/.spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.`,
+          },
+        ],
       },
     })
     const out = normalizeSessionLog(`${header({ cwd: ctx.cwd })}\n${ev}\n`, ctx)
@@ -387,12 +409,16 @@ describe('normalizeSessionLog', () => {
 
   it('scrubs macOS /private prefix on cwd-rooted fs tool result paths', () => {
     const ev = JSON.stringify({
-      type: 'tool/result', seq: 2, time: 5,
+      type: 'tool/result',
+      seq: 2,
+      time: 5,
       data: {
-        content: [{
-          type: 'text',
-          text: `The file /private${ctx.cwd}/config.txt has been updated successfully.`,
-        }],
+        content: [
+          {
+            type: 'text',
+            text: `The file /private${ctx.cwd}/config.txt has been updated successfully.`,
+          },
+        ],
       },
     })
     const out = normalizeSessionLog(`${header({ cwd: ctx.cwd })}\n${ev}\n`, ctx)
@@ -402,12 +428,16 @@ describe('normalizeSessionLog', () => {
 
   it('scrubs fixed snapshot spill paths', () => {
     const ev = JSON.stringify({
-      type: 'tool/result', seq: 2, time: 5,
+      type: 'tool/result',
+      seq: 2,
+      time: 5,
       data: {
-        content: [{
-          type: 'text',
-          text: 'Full formatted result stored at: /tmp/dsh-acp-snapshot-spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.',
-        }],
+        content: [
+          {
+            type: 'text',
+            text: 'Full formatted result stored at: /tmp/dsh-acp-snapshot-spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.',
+          },
+        ],
       },
     })
     const out = normalizeSessionLog(`${header({ cwd: ctx.cwd })}\n${ev}\n`, ctx)
@@ -417,12 +447,16 @@ describe('normalizeSessionLog', () => {
 
   it('scrubs scenario-owned snapshot spill paths', () => {
     const ev = JSON.stringify({
-      type: 'tool/result', seq: 2, time: 5,
+      type: 'tool/result',
+      seq: 2,
+      time: 5,
       data: {
-        content: [{
-          type: 'text',
-          text: 'Full formatted result stored at: /tmp/dsh-acp-snap-012345678/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.',
-        }],
+        content: [
+          {
+            type: 'text',
+            text: 'Full formatted result stored at: /tmp/dsh-acp-snap-012345678/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.',
+          },
+        ],
       },
     })
     const out = normalizeSessionLog(`${header({ cwd: ctx.cwd })}\n${ev}\n`, ctx)
@@ -432,12 +466,16 @@ describe('normalizeSessionLog', () => {
 
   it('scrubs scenario-owned snapshot spill paths with Windows drive and separators', () => {
     const ev = JSON.stringify({
-      type: 'tool/result', seq: 2, time: 5,
+      type: 'tool/result',
+      seq: 2,
+      time: 5,
       data: {
-        content: [{
-          type: 'text',
-          text: String.raw`Full formatted result stored at: C:\t\dsh-acp-snap-012345678\session-c22bc3f1d2af\8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.`,
-        }],
+        content: [
+          {
+            type: 'text',
+            text: String.raw`Full formatted result stored at: C:\t\dsh-acp-snap-012345678\session-c22bc3f1d2af\8a7b6c5d4e3f-bash.txt. Use read with offset/limit, or grep this path to search within it.`,
+          },
+        ],
       },
     })
     const out = normalizeSessionLog(`${header({ cwd: ctx.cwd })}\n${ev}\n`, ctx)
@@ -448,13 +486,15 @@ describe('normalizeSessionLog', () => {
   it('shares cwd-rooted path handling with stdout normalization', () => {
     const windowsCtx: NormalizeContext = { sessionIds: [], cwd: String.raw`C:\work\snapshot` }
     const ev = JSON.stringify({
-      type: 'tool/result', seq: 2, time: 5,
+      type: 'tool/result',
+      seq: 2,
+      time: 5,
       data: { path: `${windowsCtx.cwd}\\nested\\proof.txt` },
     })
-    expect(normalizeSessionLog(`${header({ cwd: windowsCtx.cwd })}\n${ev}\n`, windowsCtx))
-      .toContain('{{cwd}}/nested/proof.txt')
-    expect(normalizeSessionLog(`${header({ cwd: windowsCtx.cwd })}\n${ev}\n`, windowsCtx, { cwdPathMode: 'native' }))
-      .toContain(String.raw`{{cwd}}\\nested\\proof.txt`)
+    expect(normalizeSessionLog(`${header({ cwd: windowsCtx.cwd })}\n${ev}\n`, windowsCtx)).toContain('{{cwd}}/nested/proof.txt')
+    expect(normalizeSessionLog(`${header({ cwd: windowsCtx.cwd })}\n${ev}\n`, windowsCtx, { cwdPathMode: 'native' })).toContain(
+      String.raw`{{cwd}}\\nested\\proof.txt`,
+    )
   })
 
   it('scrubs the session id in the header', () => {
@@ -464,7 +504,9 @@ describe('normalizeSessionLog', () => {
 
   it('zeroes a hook/result durationMs (run-to-run noise) but keeps its decision', () => {
     const ev = JSON.stringify({
-      type: 'hook/result', seq: 2, time: 5,
+      type: 'hook/result',
+      seq: 2,
+      time: 5,
       data: { turn: 1, point: 'UserPromptSubmit', handlerId: 'h', decision: 'block', exitCode: 2, durationMs: 37 },
     })
     const out = normalizeSessionLog(`${header({})}\n${ev}\n`, ctx)
@@ -473,9 +515,11 @@ describe('normalizeSessionLog', () => {
     expect(out).toContain('"decision":"block"') // the decision is the behavior — kept
   })
 
-  it('preserves a packed chunk row\'s sequence, zeroes time, and zeroes volatile dt gaps', () => {
+  it("preserves a packed chunk row's sequence, zeroes time, and zeroes volatile dt gaps", () => {
     const row = JSON.stringify({
-      type: 'text-chunks', seq0: 7, time0: 999,
+      type: 'text-chunks',
+      seq0: 7,
+      time0: 999,
       data: { turn: 1, step: 1, index: 0, dt: [212, 27, 0], texts: ['a', 'b', 'c', 'd'] },
     })
     const out = normalizeSessionLog(`${header({})}\n${row}\n`, ctx)
@@ -553,16 +597,21 @@ describe('normalizeSessionLog', () => {
   })
 
   it('normalizes job lifecycle clocks while preserving user timestamps and uncertainty', () => {
-    const input = [
-      header({}),
-      { type: 'job/registered', data: { startedAt: 100, jobId: 'bash-1' } },
-      { type: 'job/settled', data: { startedAt: 100, finishedAt: 200, producerReported: false } },
-      { type: 'job/registered', data: {} },
-      { type: 'job/settled', data: null },
-      { type: 'job/settled', data: 'invalid fixture remains invalid' },
-      { type: 'tool/result', data: { startedAt: 300, finishedAt: 400 } },
-    ].map(value => typeof value === 'string' ? value : JSON.stringify(value)).join('\n') + '\n'
-    const normalized = normalizeSessionLog(input, ctx).trim().split('\n')
+    const input =
+      [
+        header({}),
+        { type: 'job/registered', data: { startedAt: 100, jobId: 'bash-1' } },
+        { type: 'job/settled', data: { startedAt: 100, finishedAt: 200, producerReported: false } },
+        { type: 'job/registered', data: {} },
+        { type: 'job/settled', data: null },
+        { type: 'job/settled', data: 'invalid fixture remains invalid' },
+        { type: 'tool/result', data: { startedAt: 300, finishedAt: 400 } },
+      ]
+        .map(value => (typeof value === 'string' ? value : JSON.stringify(value)))
+        .join('\n') + '\n'
+    const normalized = normalizeSessionLog(input, ctx)
+      .trim()
+      .split('\n')
       .map(line => JSON.parse(line) as { data?: unknown })
     expect(normalized[1]?.data).toEqual({ startedAt: 0, jobId: 'bash-1' })
     expect(normalized[2]?.data).toEqual({ startedAt: 0, finishedAt: 0, producerReported: false })
@@ -607,108 +656,114 @@ describe('normalizeSessionLog', () => {
 
 describe('normalizeSessionSnapshot', () => {
   it('normalizes, scrubs, and projects each parsed body record', () => {
-    const raw = [
-      JSON.stringify({ type: 'session', version: 0, createdAt: 123, cwd: ctx.cwd }),
-      JSON.stringify({
-        type: 'system/message',
-        seq: 6,
-        time: 998,
-        data: { turn: 1, step: 1, message: { role: 'system', content: [{ type: 'text', text: `work in ${ctx.cwd}` }] } },
-      }),
-      JSON.stringify({
-        type: 'request/header',
-        seq: 7,
-        time: 999,
-        data: { header: { tools: [{ name: 'tool' }] } },
-      }),
-    ].join('\n') + '\n'
-    expect(normalizeSessionSnapshot(raw, ctx)).toBe([
-      JSON.stringify({ type: 'session', version: 0, createdAt: 0, cwd: '{{cwd}}' }),
-      JSON.stringify({
-        type: 'system/message',
-        data: { turn: 1, step: 1, message: { role: 'system', content: [{ type: 'text', text: '{{system}}' }] } },
-      }),
-      JSON.stringify({ type: 'request/header', data: { header: { tools: '{{tools}}' } } }),
-    ].join('\n') + '\n')
+    const raw =
+      [
+        JSON.stringify({ type: 'session', version: 0, createdAt: 123, cwd: ctx.cwd }),
+        JSON.stringify({
+          type: 'system/message',
+          seq: 6,
+          time: 998,
+          data: { turn: 1, step: 1, message: { role: 'system', content: [{ type: 'text', text: `work in ${ctx.cwd}` }] } },
+        }),
+        JSON.stringify({
+          type: 'request/header',
+          seq: 7,
+          time: 999,
+          data: { header: { tools: [{ name: 'tool' }] } },
+        }),
+      ].join('\n') + '\n'
+    expect(normalizeSessionSnapshot(raw, ctx)).toBe(
+      [
+        JSON.stringify({ type: 'session', version: 0, createdAt: 0, cwd: '{{cwd}}' }),
+        JSON.stringify({
+          type: 'system/message',
+          data: { turn: 1, step: 1, message: { role: 'system', content: [{ type: 'text', text: '{{system}}' }] } },
+        }),
+        JSON.stringify({ type: 'request/header', data: { header: { tools: '{{tools}}' } } }),
+      ].join('\n') + '\n',
+    )
   })
 
   it('normalizes an already-projected packed row', () => {
-    const raw = [
-      JSON.stringify({ type: 'session', version: 0 }),
-      JSON.stringify({
-        type: 'text-chunks',
-        data: { turn: 1, step: 1, index: 0, dt: [9, 8], texts: ['a', 'b', 'c'] },
-      }),
-    ].join('\n') + '\n'
+    const raw =
+      [
+        JSON.stringify({ type: 'session', version: 0 }),
+        JSON.stringify({
+          type: 'text-chunks',
+          data: { turn: 1, step: 1, index: 0, dt: [9, 8], texts: ['a', 'b', 'c'] },
+        }),
+      ].join('\n') + '\n'
     expect(normalizeSessionSnapshot(raw, ctx)).toContain('"dt":[0,0]')
   })
 
   it('retains historical packed-row boundaries while normalizing their timing', () => {
-    const raw = [
-      JSON.stringify({ type: 'session', version: 0 }),
-      JSON.stringify({
-        type: 'text-chunks',
-        data: { turn: 1, step: 1, index: 0, dt: [4, 5], texts: ['a', 'b', 'c'] },
-      }),
-      JSON.stringify({
-        type: 'text-chunks',
-        data: { turn: 1, step: 1, index: 0, dt: [6, 7], texts: ['d', 'e', 'f'] },
-      }),
-    ].join('\n') + '\n'
-    expect(normalizeSessionSnapshot(raw, ctx)).toBe([
-      JSON.stringify({ type: 'session', version: 0 }),
-      JSON.stringify({
-        type: 'text-chunks',
-        data: { turn: 1, step: 1, index: 0, dt: [0, 0], texts: ['a', 'b', 'c'] },
-      }),
-      JSON.stringify({
-        type: 'text-chunks',
-        data: { turn: 1, step: 1, index: 0, dt: [0, 0], texts: ['d', 'e', 'f'] },
-      }),
-      '',
-    ].join('\n'))
+    const raw =
+      [
+        JSON.stringify({ type: 'session', version: 0 }),
+        JSON.stringify({
+          type: 'text-chunks',
+          data: { turn: 1, step: 1, index: 0, dt: [4, 5], texts: ['a', 'b', 'c'] },
+        }),
+        JSON.stringify({
+          type: 'text-chunks',
+          data: { turn: 1, step: 1, index: 0, dt: [6, 7], texts: ['d', 'e', 'f'] },
+        }),
+      ].join('\n') + '\n'
+    expect(normalizeSessionSnapshot(raw, ctx)).toBe(
+      [
+        JSON.stringify({ type: 'session', version: 0 }),
+        JSON.stringify({
+          type: 'text-chunks',
+          data: { turn: 1, step: 1, index: 0, dt: [0, 0], texts: ['a', 'b', 'c'] },
+        }),
+        JSON.stringify({
+          type: 'text-chunks',
+          data: { turn: 1, step: 1, index: 0, dt: [0, 0], texts: ['d', 'e', 'f'] },
+        }),
+        '',
+      ].join('\n'),
+    )
   })
 
   it('preserves adjacent catalog facts in parent event order', () => {
-    const raw = [
-      JSON.stringify({ type: 'session', version: 0 }),
-      JSON.stringify({ type: 'tool/call', data: { callId: 'parallel' } }),
-      JSON.stringify({
-        type: 'subagent/catalog',
-        data: { version: 0, childId: '{{session:3}}', childCreatedAt: 123, mode: 'one-shot' },
-      }),
-      JSON.stringify({
-        type: 'subagent/catalog',
-        data: { version: 0, childId: '{{session:2}}', childCreatedAt: 124, mode: 'one-shot' },
-      }),
-      JSON.stringify({ type: 'tool/result', data: { callId: 'parallel' } }),
-    ].join('\n') + '\n'
+    const raw =
+      [
+        JSON.stringify({ type: 'session', version: 0 }),
+        JSON.stringify({ type: 'tool/call', data: { callId: 'parallel' } }),
+        JSON.stringify({
+          type: 'subagent/catalog',
+          data: { version: 0, childId: '{{session:3}}', childCreatedAt: 123, mode: 'one-shot' },
+        }),
+        JSON.stringify({
+          type: 'subagent/catalog',
+          data: { version: 0, childId: '{{session:2}}', childCreatedAt: 124, mode: 'one-shot' },
+        }),
+        JSON.stringify({ type: 'tool/result', data: { callId: 'parallel' } }),
+      ].join('\n') + '\n'
     const normalized = normalizeSessionSnapshot(raw, ctx)
     expect(normalized.indexOf('{{session:3}}')).toBeLessThan(normalized.indexOf('{{session:2}}'))
     expect(normalized).toContain('"childCreatedAt":0')
   })
 
   it('preserves malformed catalog payloads', () => {
-    const raw = [
-      JSON.stringify({ type: 'session', version: 0 }),
-      JSON.stringify({
-        type: 'subagent/catalog',
-        data: { version: 0, childId: '{{session:2}}', childCreatedAt: 1, mode: 'one-shot' },
-      }),
-      JSON.stringify({
-        type: 'subagent/catalog',
-        data: { version: 0, childId: 3, childCreatedAt: 3, mode: 'one-shot' },
-      }),
-    ].join('\n') + '\n'
+    const raw =
+      [
+        JSON.stringify({ type: 'session', version: 0 }),
+        JSON.stringify({
+          type: 'subagent/catalog',
+          data: { version: 0, childId: '{{session:2}}', childCreatedAt: 1, mode: 'one-shot' },
+        }),
+        JSON.stringify({
+          type: 'subagent/catalog',
+          data: { version: 0, childId: 3, childCreatedAt: 3, mode: 'one-shot' },
+        }),
+      ].join('\n') + '\n'
     const normalized = normalizeSessionSnapshot(raw, ctx)
     expect(normalized).toContain('{{session:2}}')
     expect(normalized).toContain('"childId":3')
   })
 
-  it.each([
-    { sources: [0, 1] },
-    { sources: [0, 2] },
-  ])('preserves source references and catalog order: $sources', ({ sources }) => {
+  it.each([{ sources: [0, 1] }, { sources: [0, 2] }])('preserves source references and catalog order: $sources', ({ sources }) => {
     const records = [
       { type: 'session', version: 2 },
       { type: 'tool/call', data: { callId: 'parallel' } },
@@ -717,66 +772,79 @@ describe('normalizeSessionSnapshot', () => {
       { type: 'tool/result', data: { callId: 'parallel' }, sourceEventSeqs: sources, surfaceOp: 'append' },
     ]
     const normalized = normalizeSessionSnapshot(records.map(record => JSON.stringify(record)).join('\n'), ctx)
-    expect(normalized).toBe([
-      records[0],
-      records[1],
-      { ...records[2], data: { ...records[2]?.data, childCreatedAt: 0 } },
-      { ...records[3], data: { ...records[3]?.data, childCreatedAt: 0 } },
-      records[4],
-    ].map(record => JSON.stringify(record)).join('\n') + '\n')
+    expect(normalized).toBe(
+      [
+        records[0],
+        records[1],
+        { ...records[2], data: { ...records[2]?.data, childCreatedAt: 0 } },
+        { ...records[3], data: { ...records[3]?.data, childCreatedAt: 0 } },
+        records[4],
+      ]
+        .map(record => JSON.stringify(record))
+        .join('\n') + '\n',
+    )
     expect(normalizeSessionSnapshot(normalized, ctx)).toBe(normalized)
   })
 
   it('migrates and re-packs multi-session fixtures after relationship-preserving id redaction', () => {
-    const raw = [
-      JSON.stringify({ type: 'session', version: 0, id: '{{session:1}}', createdAt: 0, delegationDepth: 0 }),
-      JSON.stringify({ type: 'turn/start', data: { turn: 1 } }),
-      JSON.stringify({ type: 'step/start', data: { turn: 1, step: 1 } }),
-      JSON.stringify({
-        type: 'reasoning-chunks',
-        data: { turn: 1, step: 1, index: 0, dt: [1, 2], texts: ['a', 'b', 'c'] },
-      }),
-      JSON.stringify({
-        type: 'reasoning-chunks',
-        data: { turn: 1, step: 1, index: 0, dt: [3, 4], texts: ['d', 'e', 'f'] },
-      }),
-    ].join('\n') + '\n'
-    expect(normalizeSessionSnapshots([raw], ctx)).toEqual([[
-      JSON.stringify({
-        type: 'session', id: '{{session:1}}', createdAt: 0, isSeeded: false, delegationDepth: 0,
-      }),
-      JSON.stringify({ type: 'turn/start', data: { turn: 1 } }),
-      JSON.stringify({ type: 'step/start', data: { turn: 1, step: 1 } }),
-      JSON.stringify({
-        type: 'system/message',
-        data: {
-          turn: 1,
-          step: 1,
-          message: {
-            id: 'v2-to-v3-system-590b72aa4994fd6d3c6e61bb4bf5bf2f80bae0bc7564d388378ba4f51b816fd6',
-            role: 'system',
-            source: { kind: 'system-prompt' },
-            content: [],
+    const raw =
+      [
+        JSON.stringify({ type: 'session', version: 0, id: '{{session:1}}', createdAt: 0, delegationDepth: 0 }),
+        JSON.stringify({ type: 'turn/start', data: { turn: 1 } }),
+        JSON.stringify({ type: 'step/start', data: { turn: 1, step: 1 } }),
+        JSON.stringify({
+          type: 'reasoning-chunks',
+          data: { turn: 1, step: 1, index: 0, dt: [1, 2], texts: ['a', 'b', 'c'] },
+        }),
+        JSON.stringify({
+          type: 'reasoning-chunks',
+          data: { turn: 1, step: 1, index: 0, dt: [3, 4], texts: ['d', 'e', 'f'] },
+        }),
+      ].join('\n') + '\n'
+    expect(normalizeSessionSnapshots([raw], ctx)).toEqual([
+      [
+        JSON.stringify({
+          type: 'session',
+          id: '{{session:1}}',
+          createdAt: 0,
+          isSeeded: false,
+          delegationDepth: 0,
+        }),
+        JSON.stringify({ type: 'turn/start', data: { turn: 1 } }),
+        JSON.stringify({ type: 'step/start', data: { turn: 1, step: 1 } }),
+        JSON.stringify({
+          type: 'system/message',
+          data: {
+            turn: 1,
+            step: 1,
+            message: {
+              id: 'v2-to-v3-system-590b72aa4994fd6d3c6e61bb4bf5bf2f80bae0bc7564d388378ba4f51b816fd6',
+              role: 'system',
+              source: { kind: 'system-prompt' },
+              content: [],
+            },
           },
-        },
-        surfaceOp: 'append',
-      }),
-      JSON.stringify({
-        type: 'assistant/attempt',
-        data: {
-          turn: 1,
-          step: 1,
-          stream: [{
-            type: 'reasoning-chunks',
-            time0: 0,
-            index: 0,
-            dt: [0, 0, 0, 0, 0],
-            texts: ['a', 'b', 'c', 'd', 'e', 'f'],
-          }],
-        },
-      }),
-      '',
-    ].join('\n')])
+          surfaceOp: 'append',
+        }),
+        JSON.stringify({
+          type: 'assistant/attempt',
+          data: {
+            turn: 1,
+            step: 1,
+            stream: [
+              {
+                type: 'reasoning-chunks',
+                time0: 0,
+                index: 0,
+                dt: [0, 0, 0, 0, 0],
+                texts: ['a', 'b', 'c', 'd', 'e', 'f'],
+              },
+            ],
+          },
+        }),
+        '',
+      ].join('\n'),
+    ])
   })
 
   it('normalizes an already-projected snapshot without a released-format field', () => {
@@ -792,35 +860,42 @@ describe('normalizeSessionSnapshot', () => {
   })
 
   it('rejects an empty snapshot before classifying its released format', () => {
-    expect(() => normalizeSessionSnapshots(['\n'], { sessionIds: [], cwd: '/unused' }))
-      .toThrow('session snapshot must start with a session header')
+    expect(() => normalizeSessionSnapshots(['\n'], { sessionIds: [], cwd: '/unused' })).toThrow(
+      'session snapshot must start with a session header',
+    )
   })
 
   it('rejects a nonempty snapshot whose first record is not a session header', () => {
     const raw = `${JSON.stringify({ type: 'turn/start', data: { turn: 1 } })}\n`
-    expect(() => normalizeSessionSnapshots([raw], { sessionIds: [], cwd: '/unused' }))
-      .toThrow('session snapshot must start with a session header')
+    expect(() => normalizeSessionSnapshots([raw], { sessionIds: [], cwd: '/unused' })).toThrow(
+      'session snapshot must start with a session header',
+    )
   })
 
   function deliveryLog(version: number, deliveryVersion = version, id = 'delivery'): string {
-    return [
-      { type: 'session', version, id, createdAt: 1, isSeeded: false, delegationDepth: 0 },
-      { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
-      {
-        type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 2,
-        data: { sessionId: id, throughSeq: 0, sessionFormatVersion: deliveryVersion },
-      },
-    ].map(record => JSON.stringify(record)).join('\n') + '\n'
+    return (
+      [
+        { type: 'session', version, id, createdAt: 1, isSeeded: false, delegationDepth: 0 },
+        { type: 'turn/start', seq: 0, time: 1, data: { turn: 1 } },
+        {
+          type: 'session-log-deepseek/delivery-accepted',
+          seq: 1,
+          time: 2,
+          data: { sessionId: id, throughSeq: 0, sessionFormatVersion: deliveryVersion },
+        },
+      ]
+        .map(record => JSON.stringify(record))
+        .join('\n') + '\n'
+    )
   }
 
   it('compares each strictly restored input using its own native delivery generation', () => {
-    const [historical, current] = normalizeSessionSnapshots(
-      [deliveryLog(3), deliveryLog(SESSION_FORMAT_VERSION)], ctx, { nativeWriterOutput: true },
-    )
+    const [historical, current] = normalizeSessionSnapshots([deliveryLog(3), deliveryLog(SESSION_FORMAT_VERSION)], ctx, {
+      nativeWriterOutput: true,
+    })
     expect(historical).toBe(current)
     expect(current).toContain('"sessionFormatVersion":"{{sourceSessionFormatVersion}}"')
-    expect(normalizeSessionSnapshot(deliveryLog(SESSION_FORMAT_VERSION), ctx))
-      .toContain(`"sessionFormatVersion":${SESSION_FORMAT_VERSION}`)
+    expect(normalizeSessionSnapshot(deliveryLog(SESSION_FORMAT_VERSION), ctx)).toContain(`"sessionFormatVersion":${SESSION_FORMAT_VERSION}`)
   })
 
   it('keeps source-versus-migrated-artifact delivery comparison generation-exact by default', () => {
@@ -832,16 +907,17 @@ describe('normalizeSessionSnapshot', () => {
   })
 
   it('keeps a wrong native delivery generation distinguishable from historical writer output', () => {
-    const [historical, staleCurrent] = normalizeSessionSnapshots(
-      [deliveryLog(3), deliveryLog(SESSION_FORMAT_VERSION, 3)], ctx, { nativeWriterOutput: true },
-    )
+    const [historical, staleCurrent] = normalizeSessionSnapshots([deliveryLog(3), deliveryLog(SESSION_FORMAT_VERSION, 3)], ctx, {
+      nativeWriterOutput: true,
+    })
     expect(staleCurrent).not.toBe(historical)
     expect(staleCurrent).toContain('"sessionFormatVersion":3')
   })
 
   it('refuses source delivery claiming V4 before creating comparison tokens', () => {
-    expect(() => normalizeSessionSnapshots([deliveryLog(3, 4)], ctx, { nativeWriterOutput: true }))
-      .toThrow('format v3 delivery marker claims target format v4')
+    expect(() => normalizeSessionSnapshots([deliveryLog(3, 4)], ctx, { nativeWriterOutput: true })).toThrow(
+      'format v3 delivery marker claims target format v4',
+    )
   })
 
   it('retains future delivery generations without renaming their event identity', () => {
@@ -849,7 +925,9 @@ describe('normalizeSessionSnapshot', () => {
     const target = prepareSessionSnapshotFixtureForComparison(source)
     const marker = JSON.parse(target.trimEnd().split('\n').at(-1)!) as unknown
     expect(marker).toEqual({
-      type: 'session-log-deepseek/delivery-accepted', seq: 1, time: 2,
+      type: 'session-log-deepseek/delivery-accepted',
+      seq: 1,
+      time: 2,
       data: { sessionId: 'recorded-session', throughSeq: 0, sessionFormatVersion: 99 },
     })
     const [historical, migrated] = normalizeSessionSnapshots([source, target], ctx, { nativeWriterOutput: true })
@@ -859,21 +937,31 @@ describe('normalizeSessionSnapshot', () => {
   })
 
   it('keeps captured generations and delivery lookalikes numeric in versioned inputs', () => {
-    const log = deliveryLog(SESSION_FORMAT_VERSION) + JSON.stringify({
-      type: 'custom/event', seq: 2, time: 3, ignorable: true,
-      data: { capturedFormatVersion: SESSION_FORMAT_VERSION, sessionFormatVersion: SESSION_FORMAT_VERSION },
-    }) + '\n'
+    const log =
+      deliveryLog(SESSION_FORMAT_VERSION) +
+      JSON.stringify({
+        type: 'custom/event',
+        seq: 2,
+        time: 3,
+        ignorable: true,
+        data: { capturedFormatVersion: SESSION_FORMAT_VERSION, sessionFormatVersion: SESSION_FORMAT_VERSION },
+      }) +
+      '\n'
     const [normalized] = normalizeSessionSnapshots([log], ctx, { nativeWriterOutput: true })
-    expect(normalized).toContain(JSON.stringify({
-      capturedFormatVersion: SESSION_FORMAT_VERSION, sessionFormatVersion: SESSION_FORMAT_VERSION,
-    }))
+    expect(normalized).toContain(
+      JSON.stringify({
+        capturedFormatVersion: SESSION_FORMAT_VERSION,
+        sessionFormatVersion: SESSION_FORMAT_VERSION,
+      }),
+    )
   })
 
   it('preserves delivery and captured-source generations without a validated source generation', () => {
-    const event = (version: number): string => JSON.stringify({
-      type: 'session-log-deepseek/delivery-accepted',
-      data: { sessionId: 's', throughSeq: 4, sessionFormatVersion: version },
-    })
+    const event = (version: number): string =>
+      JSON.stringify({
+        type: 'session-log-deepseek/delivery-accepted',
+        data: { sessionId: 's', throughSeq: 4, sessionFormatVersion: version },
+      })
     expect(normalizeSessionFormatMetadata(event(0))).toBe(event(0))
     expect(normalizeSessionFormatMetadata(event(3))).not.toBe(normalizeSessionFormatMetadata(event(0)))
   })
@@ -898,12 +986,7 @@ describe('normalizeSessionSnapshot', () => {
             kind: 'session-reference',
             form: 'recall',
             version: 1,
-            references: [
-              null,
-              'opaque',
-              [{ capturedFormatVersion: 6 }],
-              { capturedFormatVersion: 1, otherVersion: 9 },
-            ],
+            references: [null, 'opaque', [{ capturedFormatVersion: 6 }], { capturedFormatVersion: 1, otherVersion: 9 }],
           },
         },
       }),
@@ -926,20 +1009,16 @@ describe('normalizeSessionSnapshot', () => {
     ].join('\n')
 
     const [normalized] = normalizeSessionSnapshots([raw], { sessionIds: [], cwd: '/unused' })
-    const [, delivery, captured, sourceLookalike, opaqueEvent] = normalized
-      ?.trimEnd()
-      .split('\n')
-      .map(line => JSON.parse(line) as Record<string, unknown>) ?? []
+    const [, delivery, captured, sourceLookalike, opaqueEvent] =
+      normalized
+        ?.trimEnd()
+        .split('\n')
+        .map(line => JSON.parse(line) as Record<string, unknown>) ?? []
 
     expect(delivery?.data).toEqual({ sessionFormatVersion: 1, throughSeq: 21, otherVersion: 8 })
     expect(captured?.data).toMatchObject({
       source: {
-        references: [
-          null,
-          'opaque',
-          [{ capturedFormatVersion: 6 }],
-          { capturedFormatVersion: 1, otherVersion: 9 },
-        ],
+        references: [null, 'opaque', [{ capturedFormatVersion: 6 }], { capturedFormatVersion: 1, otherVersion: 9 }],
       },
     })
     expect(sourceLookalike?.data).toEqual({
@@ -984,21 +1063,21 @@ describe('normalizeSessionSnapshot', () => {
   })
 
   it('projects persisted source-event ranges back to logical seq arrays', () => {
-    const raw = [
-      JSON.stringify({ type: 'session', version: 0 }),
-      JSON.stringify({
-        type: 'assistant/message',
-        sourceEventSeqs: [[1, 3], 5],
-        surfaceOp: 'append',
-        data: { turn: 1, step: 1 },
-      }),
-    ].join('\n') + '\n'
+    const raw =
+      [
+        JSON.stringify({ type: 'session', version: 0 }),
+        JSON.stringify({
+          type: 'assistant/message',
+          sourceEventSeqs: [[1, 3], 5],
+          surfaceOp: 'append',
+          data: { turn: 1, step: 1 },
+        }),
+      ].join('\n') + '\n'
     expect(normalizeSessionSnapshot(raw, ctx)).toContain('"sourceEventSeqs":[1,2,3,5]')
   })
 
   it('rejects headerless input', () => {
-    expect(() => normalizeSessionSnapshot('{"type":"turn/start"}\n', ctx))
-      .toThrow('session snapshot must start with a session header')
+    expect(() => normalizeSessionSnapshot('{"type":"turn/start"}\n', ctx)).toThrow('session snapshot must start with a session header')
   })
 })
 
@@ -1037,10 +1116,12 @@ describe('tokenizeSessionFixtureCwd', () => {
         seq: 1,
         time: 2,
         data: {
-          content: [{
-            type: 'text',
-            text: `wrote ${reportedCwd}/proof.txt. alias /different/root/acp-snap-cwd-abc123/alias.txt. cwd ${context.cwd}. Next; kept ${context.cwd}-backup, ${context.cwd}.backup, and /tmp/authored.txt`,
-          }],
+          content: [
+            {
+              type: 'text',
+              text: `wrote ${reportedCwd}/proof.txt. alias /different/root/acp-snap-cwd-abc123/alias.txt. cwd ${context.cwd}. Next; kept ${context.cwd}-backup, ${context.cwd}.backup, and /tmp/authored.txt`,
+            },
+          ],
         },
       }),
       '',
@@ -1082,9 +1163,7 @@ describe('tokenizeSessionFixtureCwd', () => {
   })
 
   it('rejects a log without a session cwd', () => {
-    expect(() => tokenizeSessionFixtureCwd('')).toThrow(
-      'acp-snapshot: cannot tokenize a cwd without a basename',
-    )
+    expect(() => tokenizeSessionFixtureCwd('')).toThrow('acp-snapshot: cannot tokenize a cwd without a basename')
   })
 })
 
@@ -1103,13 +1182,15 @@ describe('extractSnapshotSpillPaths', () => {
     const unrelated = '/tmp/unrelated/session-123456abcdef/abcdef123456-session-reference-1.txt'
     expect(normalizeSessionLog(log.replaceAll(encodedLocator, unrelated), ctx)).toContain(unrelated)
     const expectedNotice = { ...notice, fullSnapshot: { ...notice.fullSnapshot, locator: '{{spillLocator:session-reference-1.txt}}' } }
-    expect(normalized).toBe(JSON.stringify({ type: 'user/message', data: { content: [{ type: 'text', text: JSON.stringify([expectedNotice]) }] } }) + '\n')
+    expect(normalized).toBe(
+      JSON.stringify({ type: 'user/message', data: { content: [{ type: 'text', text: JSON.stringify([expectedNotice]) }] } }) + '\n',
+    )
     expect(normalized).toContain('{{spillLocator:session-reference-1.txt}}')
     expect(normalized).toContain('omittedBytes\\":42')
     expect(normalized).toContain('bytes\\":1234')
   })
 
-  it.each(['canonical', 'native'] as const)('normalizes nested Windows local spill locators with %s paths', (cwdPathMode) => {
+  it.each(['canonical', 'native'] as const)('normalizes nested Windows local spill locators with %s paths', cwdPathMode => {
     const locator = String.raw`{{cwd}}\.spill\session-123456abcdef\abcdef123456-session-reference-1.txt`
     const notice = { locator, unrelated: String.raw`C:\work\literal\file.txt`, regex: String.raw`\d+\w` }
     const log = JSON.stringify({ type: 'user/message', data: { text: JSON.stringify(notice) } })
@@ -1125,10 +1206,12 @@ describe('extractSnapshotSpillPaths', () => {
       'stale copy at /tmp/dsh-acp-snap-012345678/session-aaaaaaaaaaaa/bbbbbbbbbbbb-grep.txt then',
       'fresh copy at /tmp/dsh-acp-snap-012345678/session-cccccccccccc/dddddddddddd-grep.txt then',
     ].join('\n')
-    expect(extractSnapshotSpillPaths(log)).toEqual(new Map([
-      ['bash.txt', '/tmp/dsh-acp-snapshot-spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt'],
-      ['grep.txt', '/tmp/dsh-acp-snap-012345678/session-cccccccccccc/dddddddddddd-grep.txt'],
-    ]))
+    expect(extractSnapshotSpillPaths(log)).toEqual(
+      new Map([
+        ['bash.txt', '/tmp/dsh-acp-snapshot-spill/session-c22bc3f1d2af/8a7b6c5d4e3f-bash.txt'],
+        ['grep.txt', '/tmp/dsh-acp-snap-012345678/session-cccccccccccc/dddddddddddd-grep.txt'],
+      ]),
+    )
   })
 
   it('returns an empty map when the log carries no snapshot spill paths', () => {
@@ -1157,8 +1240,7 @@ function systemMessageEvent(text: string, seq = 2): string {
 
 describe('scrubModelRequestBulk', () => {
   const headerLine = JSON.stringify({ type: 'session', version: 0, id: 's', createdAt: 1, cwd: '/w' })
-  const headerEvent = (header: object) =>
-    JSON.stringify({ type: 'request/header', seq: 3, time: 9, data: { header, reason: 'initial' } })
+  const headerEvent = (header: object) => JSON.stringify({ type: 'request/header', seq: 3, time: 9, data: { header, reason: 'initial' } })
 
   it('replaces system/message text and header tools with tokens, keeping config and reason', () => {
     const ev = headerEvent({
@@ -1186,14 +1268,22 @@ describe('scrubModelRequestBulk', () => {
     const nullData = JSON.stringify({ type: 'request/header', seq: 11, time: 9, data: null })
     const messageless = JSON.stringify({ type: 'system/message', seq: 12, time: 9, data: { turn: 1, step: 1 } })
     const textless = JSON.stringify({
-      type: 'system/message', seq: 13, time: 9, data: { message: { content: [{ type: 'image', data: 'x' }] } },
+      type: 'system/message',
+      seq: 13,
+      time: 9,
+      data: { message: { content: [{ type: 'image', data: 'x' }] } },
     })
     const raw = `${headerLine}\n${headerless}\n${nullData}\n${messageless}\n${textless}\n`
     expect(scrubModelRequestBulk(raw)).toBe(raw)
   })
 
   it('passes every other line through byte-for-byte and is idempotent', () => {
-    const other = JSON.stringify({ type: 'assistant/chunk', seq: 4, time: 9, data: { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'hi' } } })
+    const other = JSON.stringify({
+      type: 'assistant/chunk',
+      seq: 4,
+      time: 9,
+      data: { turn: 1, step: 1, chunk: { type: 'text-delta', index: 0, text: 'hi' } },
+    })
     const raw = `${headerLine}\n${systemMessageEvent('s')}\n${headerEvent({ config: { model: 'm' }, tools: [] })}\n${other}\n`
     const once = scrubModelRequestBulk(raw)
     expect(once.split('\n')[0]).toBe(headerLine)
@@ -1207,7 +1297,9 @@ describe('scrubSessionSnapshot', () => {
     const input = [
       { type: 'session', id: 's' },
       { type: 'assistant/message', sourceEventSeqs: [[1, 3], 5], surfaceOp: 'append', data: { turn: 1, step: 1 } },
-    ].map(record => JSON.stringify(record)).join('\n')
+    ]
+      .map(record => JSON.stringify(record))
+      .join('\n')
 
     const output = scrubSessionSnapshot(input)
     expect(output).toContain('"sourceEventSeqs":[1,2,3,5]')
@@ -1221,7 +1313,9 @@ describe('scrubSessionSnapshot', () => {
       { type: 'feedback/message-put', data: null },
       { type: 'feedback/message-put', data: { item: null } },
       { type: 'feedback/message-put', data: { item: {} } },
-    ].map(record => JSON.stringify(record)).join('\n')
+    ]
+      .map(record => JSON.stringify(record))
+      .join('\n')
     const output = scrubSessionSnapshot(input)
     expect(output).toContain('"version":"opaque-version","createdAt":0,"updatedAt":0,"note":"keep 12"')
     expect(scrubSessionSnapshot(output)).toBe(output)
@@ -1231,37 +1325,46 @@ describe('scrubSessionSnapshot', () => {
     const header = '  {"type":"session","version":0,"id":"s","createdAt":7}  '
     const system = systemMessageEvent('secret', 0)
     const request = JSON.stringify({
-      type: 'request/header', seq: 1, time: 9,
+      type: 'request/header',
+      seq: 1,
+      time: 9,
       data: { header: { tools: [{ name: 'read' }] }, reason: 'initial' },
     })
     const event = JSON.stringify({
-      type: 'turn/start', seq: 2, time: 10,
+      type: 'turn/start',
+      seq: 2,
+      time: 10,
       data: { turn: 1, seq: 41, time: 42 },
     })
 
-    expect(scrubSessionSnapshot(`${header}\n${system}\n${request}\n${event}\n`)).toBe([
-      header,
-      '{"type":"system/message","data":{"turn":1,"step":1,"message":{"id":"11111111-1111-4111-8111-111111111111","role":"system","content":[{"type":"text","text":"{{system}}"}],"source":{"kind":"plugin","plugin":"@deepseek-ai/dsh-system-prompt"}}}}',
-      '{"type":"request/header","data":{"header":{"tools":"{{tools}}"},"reason":"initial"}}',
-      '{"type":"turn/start","data":{"turn":1,"seq":41,"time":42}}',
-      '',
-    ].join('\n'))
+    expect(scrubSessionSnapshot(`${header}\n${system}\n${request}\n${event}\n`)).toBe(
+      [
+        header,
+        '{"type":"system/message","data":{"turn":1,"step":1,"message":{"id":"11111111-1111-4111-8111-111111111111","role":"system","content":[{"type":"text","text":"{{system}}"}],"source":{"kind":"plugin","plugin":"@deepseek-ai/dsh-system-prompt"}}}}',
+        '{"type":"request/header","data":{"header":{"tools":"{{tools}}"},"reason":"initial"}}',
+        '{"type":"turn/start","data":{"turn":1,"seq":41,"time":42}}',
+        '',
+      ].join('\n'),
+    )
   })
 
   it('rejects headerless input', () => {
-    expect(() => scrubSessionSnapshot('{"type":"turn/start"}\n'))
-      .toThrow('session snapshot must start with a session header')
+    expect(() => scrubSessionSnapshot('{"type":"turn/start"}\n')).toThrow('session snapshot must start with a session header')
   })
 })
 
 describe('scrubSystemPrompts', () => {
   it('scrubs only system/message text while keeping header tools verbatim', () => {
     const header = JSON.stringify({
-      type: 'request/header', seq: 1, time: 2,
+      type: 'request/header',
+      seq: 1,
+      time: 2,
       data: { header: { tools: [{ name: 'read', description: 'full schema' }] }, reason: 'initial' },
     })
     const replaced = JSON.stringify({
-      type: 'system/message', seq: 3, time: 4,
+      type: 'system/message',
+      seq: 3,
+      time: 4,
       surfaceOp: { op: 'replace', start: 0, end: 0 },
       sourceEventSeqs: [0],
       data: { turn: 1, step: 2, message: { role: 'system', content: [{ type: 'text', text: 'new prompt' }] } },
@@ -1279,16 +1382,28 @@ describe('scrubSystemPrompts', () => {
 
 describe('scrubToolSchemas', () => {
   it('retains historical tool names when developer messages reference declarations', () => {
-    const header = JSON.stringify({ type: 'request/header', data: { header: { tools: [
-      { name: 'search', description: 'Full schema', parameters: {} },
-      { name: 'fetch', description: 'Fetch schema', parameters: {} },
-    ] } } })
-    const update = JSON.stringify({ type: 'developer/message', data: {
-      headerSeq: 0, message: { content: [{ type: 'tool-addition', toolName: 'fetch' }] },
-    } })
+    const header = JSON.stringify({
+      type: 'request/header',
+      data: {
+        header: {
+          tools: [
+            { name: 'search', description: 'Full schema', parameters: {} },
+            { name: 'fetch', description: 'Fetch schema', parameters: {} },
+          ],
+        },
+      },
+    })
+    const update = JSON.stringify({
+      type: 'developer/message',
+      data: {
+        headerSeq: 0,
+        message: { content: [{ type: 'tool-addition', toolName: 'fetch' }] },
+      },
+    })
     const out = scrubToolSchemas(`${header}\n${update}\n`)
     expect(JSON.parse(out.split('\n')[0]!)).toEqual({
-      type: 'request/header', data: { header: { tools: ['search', 'fetch'] } },
+      type: 'request/header',
+      data: { header: { tools: ['search', 'fetch'] } },
     })
     expect(out.split('\n')[1]).toBe(update)
     expect(out).not.toContain('Full schema')
@@ -1297,18 +1412,24 @@ describe('scrubToolSchemas', () => {
 
   it('scrubs only tool-schema payloads while keeping prompts verbatim', () => {
     const header = JSON.stringify({
-      type: 'request/header', seq: 1, time: 2,
+      type: 'request/header',
+      seq: 1,
+      time: 2,
       data: {
         header: { tools: [{ name: 'read', description: 'full schema', parameters: { type: 'object' } }] },
         reason: 'initial',
       },
     })
     const changed = JSON.stringify({
-      type: 'request/header', seq: 2, time: 3,
+      type: 'request/header',
+      seq: 2,
+      time: 3,
       data: { header: { tools: [{ name: 'grep', description: 'new schema' }] }, reason: 'change' },
     })
     const toolless = JSON.stringify({
-      type: 'request/header', seq: 3, time: 4,
+      type: 'request/header',
+      seq: 3,
+      time: 4,
       data: { header: { config: { model: 'm' } }, reason: 'resume' },
     })
 

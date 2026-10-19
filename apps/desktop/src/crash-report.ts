@@ -113,9 +113,8 @@ export function renderCrashReport(input: CrashReportInput): string {
     `locale: ${input.app.locale}`,
     `shell pid: ${String(process.pid)}`,
   ]
-  const consoleSection = input.rendererConsole.length === 0
-    ? '(no error-level renderer console output was captured)'
-    : input.rendererConsole.join('\n')
+  const consoleSection =
+    input.rendererConsole.length === 0 ? '(no error-level renderer console output was captured)' : input.rendererConsole.join('\n')
   return [
     header.join('\n'),
     '',

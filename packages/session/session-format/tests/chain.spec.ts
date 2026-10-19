@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   createSessionFormatChain,
   defineSessionFormatMigration,
@@ -21,7 +21,10 @@ const currentHeader: SessionFormatHeader = {
 }
 
 const event: SessionFormatEvent = {
-  type: 'turn/start', seq: 0, time: 2, data: { turn: 1 },
+  type: 'turn/start',
+  seq: 0,
+  time: 2,
+  data: { turn: 1 },
 }
 
 const discard: SessionFormatMigrationContext = {
@@ -36,16 +39,10 @@ function throwUnknown(value: unknown): never {
 function identityStage(inheritedEventCount: number | undefined) {
   return {
     ...(inheritedEventCount === undefined ? {} : { headerInheritedEventCount: inheritedEventCount }),
-    transformEvent(
-      value: SessionFormatEvent,
-      context: SessionFormatMigrationContext,
-    ) {
+    transformEvent(value: SessionFormatEvent, context: SessionFormatMigrationContext) {
       context.emitEvent(value)
     },
-    transformRun(
-      run: SessionFormatEventRun,
-      context: SessionFormatMigrationContext,
-    ) {
+    transformRun(run: SessionFormatEventRun, context: SessionFormatMigrationContext) {
       context.emitRun(run)
     },
     finish: () => inheritedEventCount ?? 0,
@@ -84,8 +81,7 @@ function captureError(run: () => unknown): Error {
 
 describe('Session format chain', () => {
   it('bypasses adjacent stages for current input', () => {
-    const createStage = vi.fn(({ sourceInheritedEventCount }: SessionFormatMigrationStageInput) =>
-      identityStage(sourceInheritedEventCount))
+    const createStage = vi.fn(({ sourceInheritedEventCount }: SessionFormatMigrationStageInput) => identityStage(sourceInheritedEventCount))
     const current = chain(migration({ createStage }))
     const events = new SessionFormatEventCollector()
     const stream = current.createStream(currentHeader, 0, events)
@@ -116,29 +112,45 @@ describe('Session format chain', () => {
     const base = migration()
     expect(() => defineSessionFormatMigration({ ...base, name: '' })).toThrow(/name/)
     expect(() => defineSessionFormatMigration({ ...base, toVersion: 2 })).toThrow(/adjacent/)
-    expect(() => createSessionFormatChain({
-      currentVersion: 1, migrations: [], restoreCurrentHeader: value => value,
-    })).toThrow(/missing/)
-    expect(() => createSessionFormatChain({
-      currentVersion: 1, migrations: [base, base], restoreCurrentHeader: value => value,
-    })).toThrow(/duplicated/)
-    expect(() => createSessionFormatChain({
-      currentVersion: 2,
-      migrations: [base, { ...base, name: base.name, fromVersion: 1, toVersion: 2 }],
-      restoreCurrentHeader: value => value,
-    })).toThrow(/name .* duplicated/)
-    expect(() => createSessionFormatChain({
-      currentVersion: 1,
-      migrations: [base, { ...base, name: '@test/v1-to-v2', fromVersion: 1, toVersion: 2 }],
-      restoreCurrentHeader: value => value,
-    })).toThrow(/does not lead/)
+    expect(() =>
+      createSessionFormatChain({
+        currentVersion: 1,
+        migrations: [],
+        restoreCurrentHeader: value => value,
+      }),
+    ).toThrow(/missing/)
+    expect(() =>
+      createSessionFormatChain({
+        currentVersion: 1,
+        migrations: [base, base],
+        restoreCurrentHeader: value => value,
+      }),
+    ).toThrow(/duplicated/)
+    expect(() =>
+      createSessionFormatChain({
+        currentVersion: 2,
+        migrations: [base, { ...base, name: base.name, fromVersion: 1, toVersion: 2 }],
+        restoreCurrentHeader: value => value,
+      }),
+    ).toThrow(/name .* duplicated/)
+    expect(() =>
+      createSessionFormatChain({
+        currentVersion: 1,
+        migrations: [base, { ...base, name: '@test/v1-to-v2', fromVersion: 1, toVersion: 2 }],
+        restoreCurrentHeader: value => value,
+      }),
+    ).toThrow(/does not lead/)
   })
 
   it('composes stages whose inherited cut is derived from the body', () => {
     const first = migration({
       createStage: () => ({
-        transformEvent: (value, context) => { context.emitEvent(value) },
-        transformRun: (value, context) => { context.emitRun(value) },
+        transformEvent: (value, context) => {
+          context.emitEvent(value)
+        },
+        transformRun: (value, context) => {
+          context.emitRun(value)
+        },
         finish: () => 0,
       }),
     })
@@ -155,11 +167,7 @@ describe('Session format chain', () => {
       restoreCurrentHeader: header => header,
     })
 
-    expect(current.createStream(
-      { ...currentHeader, version: 0 },
-      0,
-      discard,
-    ).finish()).toBe(0)
+    expect(current.createStream({ ...currentHeader, version: 0 }, 0, discard).finish()).toBe(0)
 
     const createSecondStage = vi.fn(({ sourceKind }: SessionFormatMigrationStageInput) => {
       expect(sourceKind).toBe('transformed')
@@ -170,11 +178,7 @@ describe('Session format chain', () => {
       migrations: [migration(), { ...second, createStage: createSecondStage }],
       restoreCurrentHeader: header => header,
     })
-    const stream = complete.createStream(
-      { ...currentHeader, version: 0 },
-      0,
-      discard,
-    )
+    const stream = complete.createStream({ ...currentHeader, version: 0 }, 0, discard)
     expect(stream.finish()).toBe(0)
     expect(createSecondStage).toHaveBeenCalledOnce()
   })
@@ -192,59 +196,88 @@ describe('Session format chain', () => {
   it('classifies stage failures as unsupported and preserves explicit refusals', () => {
     const policyFailure = new Error('target relationship is invalid')
     const source = { ...currentHeader, version: 0 }
-    const failed = chain(migration({ createStage: () => { throw policyFailure } }))
+    const failed = chain(
+      migration({
+        createStage: () => {
+          throw policyFailure
+        },
+      }),
+    )
     const refusal = captureError(() => failed.createStream(source, 0, discard))
     expect(refusal).toBeInstanceOf(SessionFormatUnsupportedMigrationError)
     expect(refusal.message).toContain('target relationship is invalid')
     expect(refusal.cause).toBe(policyFailure)
 
     const alreadyUnsupported = new SessionFormatUnsupportedMigrationError('explicit edge refusal')
-    const preserved = chain(migration({ createStage: () => { throw alreadyUnsupported } }))
+    const preserved = chain(
+      migration({
+        createStage: () => {
+          throw alreadyUnsupported
+        },
+      }),
+    )
     expect(() => preserved.createStream(source, 0, discard)).toThrow(alreadyUnsupported)
 
     const finishFailure = new Error('finish relationship is invalid')
-    const finishing = chain(migration({
-      createStage: () => ({
-        ...identityStage(0),
-        finish: () => { throw finishFailure },
+    const finishing = chain(
+      migration({
+        createStage: () => ({
+          ...identityStage(0),
+          finish: () => {
+            throw finishFailure
+          },
+        }),
       }),
-    })).createStream(source, 0, discard)
+    ).createStream(source, 0, discard)
     const finishRefusal = captureError(() => finishing.finish())
     expect(finishRefusal).toBeInstanceOf(SessionFormatUnsupportedMigrationError)
     expect(finishRefusal.cause).toBe(finishFailure)
 
     const eventFailure = new Error('event relationship is invalid')
-    const eventFailing = chain(migration({
-      createStage: () => ({
-        ...identityStage(0),
-        transformEvent: () => { throw eventFailure },
+    const eventFailing = chain(
+      migration({
+        createStage: () => ({
+          ...identityStage(0),
+          transformEvent: () => {
+            throw eventFailure
+          },
+        }),
       }),
-    })).createStream(source, 0, discard)
-    expect(() => { eventFailing.emitEvent(event) }).toThrow(/event relationship is invalid/)
+    ).createStream(source, 0, discard)
+    expect(() => {
+      eventFailing.emitEvent(event)
+    }).toThrow(/event relationship is invalid/)
 
     const runFailure = new Error('run relationship is invalid')
-    const runFailing = chain(migration({
-      createStage: () => ({
-        ...identityStage(0),
-        transformRun: () => { throw runFailure },
+    const runFailing = chain(
+      migration({
+        createStage: () => ({
+          ...identityStage(0),
+          transformRun: () => {
+            throw runFailure
+          },
+        }),
       }),
-    })).createStream(source, 0, discard)
+    ).createStream(source, 0, discard)
     const runRefusal = captureError(() => {
       runFailing.emitRun({
         runType: 'test-run',
         firstSeq: 0,
         eventCount: 1,
-        *expand() { yield event },
+        *expand() {
+          yield event
+        },
       })
     })
     expect(runRefusal).toBeInstanceOf(SessionFormatUnsupportedMigrationError)
     expect(runRefusal.cause).toBe(runFailure)
 
-    const nonError = chain(migration({
-      createStage: () => throwUnknown('non-Error stage refusal'),
-    }))
-    expect(() => nonError.createStream(source, 0, discard))
-      .toThrow(/non-Error stage refusal/)
+    const nonError = chain(
+      migration({
+        createStage: () => throwUnknown('non-Error stage refusal'),
+      }),
+    )
+    expect(() => nonError.createStream(source, 0, discard)).toThrow(/non-Error stage refusal/)
   })
 
   it('collects compact runs as expanded events', () => {
@@ -253,7 +286,9 @@ describe('Session format chain', () => {
       runType: 'test-run',
       firstSeq: 0,
       eventCount: 1,
-      *expand() { yield event },
+      *expand() {
+        yield event
+      },
     })
     expect(collector.values).toEqual([event])
   })
@@ -280,7 +315,13 @@ describe('Session format chain', () => {
 
     const rejecting = createSessionFormatChain({
       currentVersion: 1,
-      migrations: [migration({ migrateHeader: () => { throw new Error('historical header policy') } })],
+      migrations: [
+        migration({
+          migrateHeader: () => {
+            throw new Error('historical header policy')
+          },
+        }),
+      ],
       restoreCurrentHeader,
     })
     expect(() => rejecting.migrateHeader(source)).toThrow(/historical header policy/)
@@ -288,7 +329,7 @@ describe('Session format chain', () => {
     const badCurrent = createSessionFormatChain({
       currentVersion: 1,
       migrations: [migration()],
-      restoreCurrentHeader: () => ({ version: 1 } as never),
+      restoreCurrentHeader: () => ({ version: 1 }) as never,
     })
     expect(() => badCurrent.migrateHeader(currentHeader)).toThrow(/current Session header restoration id/)
 

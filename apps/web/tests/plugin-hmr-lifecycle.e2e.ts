@@ -7,7 +7,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium, type Browser, type Locator, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import type { ChangeResult } from '@deepseek-ai/dsh-plugin-manager'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
 import { ZH_BROWSER_LOCALE } from './support.ts'
@@ -17,9 +17,14 @@ const NAME = 'e2e-hmr-addon'
 /** Real pnpm with its store, cache, and metadata under a test directory and no registry access. */
 function isolatedPnpm(scratch: string) {
   return {
-    command: 'pnpm', args: [],
+    command: 'pnpm',
+    args: [],
     // pnpm 11 reads settings from pnpm_config_* variables.
-    env: { pnpm_config_store_dir: join(scratch, 'pnpm-store'), pnpm_config_cache_dir: join(scratch, 'pnpm-cache'), pnpm_config_offline: 'true' },
+    env: {
+      pnpm_config_store_dir: join(scratch, 'pnpm-store'),
+      pnpm_config_cache_dir: join(scratch, 'pnpm-cache'),
+      pnpm_config_offline: 'true',
+    },
   }
 }
 
@@ -40,19 +45,28 @@ describe('web e2e: plugin lifecycle with HMR', () => {
   async function version(label: string, body = ''): Promise<string> {
     const dir = join(scratch, 'sources', label)
     await mkdir(dir, { recursive: true })
-    await writeFile(join(dir, 'package.json'), JSON.stringify({
-      name: NAME, version: `${label.replace(/\D/gu, '') || '0'}.0.0`, type: 'module', main: './index.mjs',
-      dsh: { bundle: { patch: './cordis.patch.yml' } },
-    }))
+    await writeFile(
+      join(dir, 'package.json'),
+      JSON.stringify({
+        name: NAME,
+        version: `${label.replace(/\D/gu, '') || '0'}.0.0`,
+        type: 'module',
+        main: './index.mjs',
+        dsh: { bundle: { patch: './cordis.patch.yml' } },
+      }),
+    )
     await writeFile(join(dir, 'cordis.patch.yml'), `- insert:\n    - id: ${NAME}\n      name: ${NAME}\n`)
-    await writeFile(join(dir, 'index.mjs'), `${body}
+    await writeFile(
+      join(dir, 'index.mjs'),
+      `${body}
 import { appendFileSync } from 'node:fs'
 export const name = '${NAME}'
 export function apply(ctx) {
   appendFileSync(${JSON.stringify(tracePath)}, 'start:${label}\\n')
   ctx.effect(() => () => { appendFileSync(${JSON.stringify(tracePath)}, 'stop:${label}\\n') })
 }
-`)
+`,
+    )
     return dir
   }
 
@@ -75,13 +89,13 @@ export function apply(ctx) {
   }
 
   async function openPanel(): Promise<Locator> {
-    if (await page.getByRole('dialog', { name: '设置' }).count() > 0) await page.keyboard.press('Escape')
+    if ((await page.getByRole('dialog', { name: '设置' }).count()) > 0) await page.keyboard.press('Escape')
     const panel = page.locator('[data-plugin-panel]')
     const list = panel.getByRole('heading', { name: '插件', exact: true })
     // The sidebar entry toggles the page, so it is pressed only while the page is closed.
-    if (await panel.count() === 0) {
+    if ((await panel.count()) === 0) {
       await page.getByRole('navigation', { name: '全局面板' }).getByRole('button', { name: '插件', exact: true }).click()
-    } else if (!await list.isVisible()) {
+    } else if (!(await list.isVisible())) {
       await panel.getByRole('button', { name: '返回插件', exact: true }).click()
     }
     await list.waitFor({ timeout: 10_000 })
@@ -103,7 +117,10 @@ export function apply(ctx) {
   async function uninstallThroughPage(panel: Locator): Promise<void> {
     await panel.getByRole('button', { name: `查看 ${NAME}`, exact: true }).click()
     await panel.getByRole('button', { name: `卸载 ${NAME}`, exact: true }).click()
-    await page.getByRole('dialog', { name: `卸载「${NAME}」？` }).getByRole('button', { name: '卸载', exact: true }).click()
+    await page
+      .getByRole('dialog', { name: `卸载「${NAME}」？` })
+      .getByRole('button', { name: '卸载', exact: true })
+      .click()
     // The page leaves the removed package's details for the list.
     await panel.getByRole('heading', { name: '插件', exact: true }).waitFor({ timeout: 30_000 })
     await expect.poll(() => panel.locator(`[data-plugin-package="${NAME}"]`).count(), { timeout: 30_000 }).toBe(0)
@@ -177,7 +194,10 @@ export function apply(ctx) {
 
   it('reports an upgrade that loads but cannot start, then recovers with a working version', async () => {
     const throwing = await version('v5')
-    await writeFile(join(throwing, 'index.mjs'), `export const name = '${NAME}'\nexport function apply() { throw new Error('v5 cannot start') }\n`)
+    await writeFile(
+      join(throwing, 'index.mjs'),
+      `export const name = '${NAME}'\nexport function apply() { throw new Error('v5 cannot start') }\n`,
+    )
     const failed = await reinstall(`file:${throwing}`)
     expect(failed).toMatchObject({ application: 'failed', error: { code: 'operation-error' } })
     expect(failed.error?.diagnostic).toContain('v5 cannot start')
@@ -223,9 +243,16 @@ describe('web e2e: plugin installation without HMR', () => {
     try {
       const dir = join(scratch, 'addon')
       await mkdir(dir)
-      await writeFile(join(dir, 'package.json'), JSON.stringify({
-        name: NAME, version: '1.0.0', type: 'module', main: './index.mjs', dsh: { bundle: { patch: './cordis.patch.yml' } },
-      }))
+      await writeFile(
+        join(dir, 'package.json'),
+        JSON.stringify({
+          name: NAME,
+          version: '1.0.0',
+          type: 'module',
+          main: './index.mjs',
+          dsh: { bundle: { patch: './cordis.patch.yml' } },
+        }),
+      )
       await writeFile(join(dir, 'cordis.patch.yml'), `- insert:\n    - id: ${NAME}\n      name: ${NAME}\n`)
       await writeFile(join(dir, 'index.mjs'), `export const name = '${NAME}'\nexport function apply() {}\n`)
       scaffold = await launchWebScaffold({ profile: { packages: [], hmr: false, packageManager: isolatedPnpm(scratch) } })
@@ -233,7 +260,7 @@ describe('web e2e: plugin installation without HMR', () => {
       const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: ZH_BROWSER_LOCALE })
       await page.goto(scaffold.authenticatedUrl)
       await page.waitForSelector('[class*="frame"]')
-      if (await page.getByRole('dialog', { name: '设置' }).count() > 0) await page.keyboard.press('Escape')
+      if ((await page.getByRole('dialog', { name: '设置' }).count()) > 0) await page.keyboard.press('Escape')
       await page.getByRole('navigation', { name: '全局面板' }).getByRole('button', { name: '插件', exact: true }).click()
       const panel = page.locator('[data-plugin-panel]')
       await panel.getByRole('button', { name: '添加插件', exact: true }).click()

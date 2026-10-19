@@ -1,8 +1,21 @@
 /** Streaming system-prompt promotion followed by canonical V3 envelope conversion. */
 
 import { createHash } from 'node:crypto'
-import { SessionFormatError, SessionFormatUnsupportedMigrationError, defineSessionFormatMigration, sessionFormatCount } from '@deepseek-ai/dsh-session-format'
-import type { SessionFormatEvent, SessionFormatEventRun, SessionFormatJsonObject, SessionFormatJsonValue, SessionFormatMigrationContext, SessionFormatMigrationStage, SessionFormatMigrationStageInput } from '@deepseek-ai/dsh-session-format'
+import {
+  SessionFormatError,
+  SessionFormatUnsupportedMigrationError,
+  defineSessionFormatMigration,
+  sessionFormatCount,
+} from '@deepseek-ai/dsh-session-format'
+import type {
+  SessionFormatEvent,
+  SessionFormatEventRun,
+  SessionFormatJsonObject,
+  SessionFormatJsonValue,
+  SessionFormatMigrationContext,
+  SessionFormatMigrationStage,
+  SessionFormatMigrationStageInput,
+} from '@deepseek-ai/dsh-session-format'
 import { assertReleasedV2Header } from '@deepseek-ai/dsh-session-format-v1-to-v2'
 import { assertEvent, canonicalizeTransformedEvent, record, SURFACE_TYPES } from './payload.ts'
 import { remapEvent } from './references.ts'
@@ -17,7 +30,9 @@ export const sessionFormatV2ToV3 = defineSessionFormatMigration({
     assertReleasedV2Header(header)
     return { ...header, version: 3, ...(header.agentPreset === 'code' ? { agentPreset: 'ptc' } : {}) }
   },
-  createStage(input) { return new ReleasedV2ToV3Stage(input) },
+  createStage(input) {
+    return new ReleasedV2ToV3Stage(input)
+  },
   validateTargetHeader: assertReleasedV3Header,
 })
 
@@ -54,10 +69,13 @@ class ReleasedV2ToV3Stage implements SessionFormatMigrationStage {
       source = { ...event, data: { ...data, header } }
     }
     if (SURFACE_TYPES.has(event.type) && this.head === undefined) {
-      throw new SessionFormatUnsupportedMigrationError('format v2 surface before first step cannot acquire a system head without changing chronology')
+      throw new SessionFormatUnsupportedMigrationError(
+        'format v2 surface before first step cannot acquire a system head without changing chronology',
+      )
     }
     if (event.type === 'session/end-seed' && data['inherited'] === true) {
-      if (!this.input.sourceHeader.isSeeded) throw new SessionFormatError('format v2 unseeded Session contains an inherited end-seed marker')
+      if (!this.input.sourceHeader.isSeeded)
+        throw new SessionFormatError('format v2 unseeded Session contains an inherited end-seed marker')
       this.sourceCut = event.seq
       this.targetCut = this.targetSeq
     }
@@ -85,8 +103,10 @@ class ReleasedV2ToV3Stage implements SessionFormatMigrationStage {
     if (this.input.sourceInheritedEventCount !== undefined && this.input.sourceInheritedEventCount !== cut) {
       throw new SessionFormatError('format v2 inherited end-seed marker disagrees with its source cut')
     }
-    if (this.lastForeignDeliverySeq !== undefined
-      && (this.input.sourceHeader.parentSession === undefined || this.lastForeignDeliverySeq >= cut)) {
+    if (
+      this.lastForeignDeliverySeq !== undefined &&
+      (this.input.sourceHeader.parentSession === undefined || this.lastForeignDeliverySeq >= cut)
+    ) {
       throw new SessionFormatError('current-generation delivery marker names the wrong Session')
     }
     return sessionFormatCount(this.targetCut, 'format v3 inherited event count')
@@ -94,21 +114,30 @@ class ReleasedV2ToV3Stage implements SessionFormatMigrationStage {
 
   private observeMessageIds(event: SessionFormatEvent): void {
     const data = record(event.data, event.type)
-    const messages = event.type === 'user/message' ? [data]
-      : event.type === 'assistant/message' || event.type === 'tool/result' ? [record(data['message'], 'message')]
-        : event.type === 'agent/inbox/spliced' ? data['inserted']
-          : event.type === 'session/title-llm-request' ? data['messages'] : []
+    const messages =
+      event.type === 'user/message'
+        ? [data]
+        : event.type === 'assistant/message' || event.type === 'tool/result'
+          ? [record(data['message'], 'message')]
+          : event.type === 'agent/inbox/spliced'
+            ? data['inserted']
+            : event.type === 'session/title-llm-request'
+              ? data['messages']
+              : []
     // assertEvent validates every owned message before identity observation.
     for (const message of messages as readonly SessionFormatJsonObject[]) {
       const id = message['id'] as string
-      if (this.generatedIds.has(id)) throw new SessionFormatUnsupportedMigrationError('source message id collides with a generated system message id')
+      if (this.generatedIds.has(id))
+        throw new SessionFormatUnsupportedMigrationError('source message id collides with a generated system message id')
       this.originalIds.add(id)
     }
   }
 
   private emitSystem(prompt: string, anchor: SessionFormatEvent, context: SessionFormatMigrationContext): void {
     if (this.step === undefined) {
-      throw new SessionFormatUnsupportedMigrationError('format v2 changed request prompt outside an open step cannot retain source chronology')
+      throw new SessionFormatUnsupportedMigrationError(
+        'format v2 changed request prompt outside an open step cannot retain source chronology',
+      )
     }
     const identity = JSON.stringify(['session-format-v2-to-v3', this.input.sourceHeader.id, anchor.seq, anchor.type])
     const id = 'v2-to-v3-system-' + createHash('sha256').update(identity).digest('hex')
@@ -117,20 +146,25 @@ class ReleasedV2ToV3Stage implements SessionFormatMigrationStage {
     }
     this.generatedIds.add(id)
     const seq = this.targetSeq++
-    context.emitEvent(canonicalizeTransformedEvent({
-      type: 'system/message', seq, time: anchor.time,
-      data: {
-        ...this.step,
-        message: {
-          id,
-          role: 'system', source: { kind: 'plugin', plugin: '@deepseek-ai/dsh-system-prompt' },
-          content: prompt === '' ? [] : [{ type: 'text', text: prompt }],
+    context.emitEvent(
+      canonicalizeTransformedEvent({
+        type: 'system/message',
+        seq,
+        time: anchor.time,
+        data: {
+          ...this.step,
+          message: {
+            id,
+            role: 'system',
+            source: { kind: 'plugin', plugin: '@deepseek-ai/dsh-system-prompt' },
+            content: prompt === '' ? [] : [{ type: 'text', text: prompt }],
+          },
         },
-      },
-      ...(this.head === undefined
-        ? { surfaceOp: 'append' }
-        : { surfaceOp: { op: 'replace', start: this.head, end: this.head }, sourceEventSeqs: [this.head] }),
-    }))
+        ...(this.head === undefined
+          ? { surfaceOp: 'append' }
+          : { surfaceOp: { op: 'replace', start: this.head, end: this.head }, sourceEventSeqs: [this.head] }),
+      }),
+    )
     this.head = seq
     this.prompt = prompt
   }
@@ -141,7 +175,8 @@ function renamePtcEvent(event: SessionFormatEvent): SessionFormatEvent {
   switch (event.type) {
     case 'agent-preset/selected':
       return (event.data as SessionFormatJsonObject)['agentPreset'] === 'code'
-        ? { ...event, data: { ...event.data as SessionFormatJsonObject, agentPreset: 'ptc' } } : event
+        ? { ...event, data: { ...(event.data as SessionFormatJsonObject), agentPreset: 'ptc' } }
+        : event
     case 'tool/code-dispatch-start':
       return { ...event, type: 'tool/ptc-dispatch-start' }
     case 'tool/code-dispatch':
@@ -156,9 +191,7 @@ function renamePtcEvent(event: SessionFormatEvent): SessionFormatEvent {
       const key = event.type === 'agent/inbox/spliced' ? 'inserted' : 'messages'
       const messages = data[key] as readonly SessionFormatJsonObject[]
       const renamed = messages.map(renameMessageSource)
-      return renamed.every((message, index) => message === messages[index])
-        ? event
-        : { ...event, data: { ...data, [key]: renamed } }
+      return renamed.every((message, index) => message === messages[index]) ? event : { ...event, data: { ...data, [key]: renamed } }
     }
     default:
       // Content, tool arguments, message IDs, and other payloads are not plugin attribution slots.

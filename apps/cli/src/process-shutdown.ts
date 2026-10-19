@@ -21,8 +21,12 @@ export interface ProcessShutdown {
  */
 export function createProcessShutdown(
   dispose: () => Promise<void>,
-  forceExit: (code: number) => void = (code) => { process.exit(code) },
-  complete: (code: number) => void = (code) => { process.exitCode = code },
+  forceExit: (code: number) => void = code => {
+    process.exit(code)
+  },
+  complete: (code: number) => void = code => {
+    process.exitCode = code
+  },
   timeoutMs = PROCESS_SHUTDOWN_TIMEOUT_MS,
 ): ProcessShutdown {
   let pending: Promise<void> | undefined
@@ -51,14 +55,20 @@ export function createProcessShutdown(
 
   const start = (code: number, forceAfterDispose: boolean): Promise<void> => {
     if (pending !== undefined) return pending
-    timeout = setTimeout(() => { forceExitOnce(code) }, timeoutMs)
-    pending = Promise.resolve().then(dispose).then(
-      () => {
-        if (forceAfterDispose) forceExitOnce(code)
-        else completeOnce(code)
-      },
-      () => { forceExitOnce(code) },
-    )
+    timeout = setTimeout(() => {
+      forceExitOnce(code)
+    }, timeoutMs)
+    pending = Promise.resolve()
+      .then(dispose)
+      .then(
+        () => {
+          if (forceAfterDispose) forceExitOnce(code)
+          else completeOnce(code)
+        },
+        () => {
+          forceExitOnce(code)
+        },
+      )
     return pending
   }
 

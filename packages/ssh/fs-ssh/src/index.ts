@@ -2,31 +2,64 @@
 import { posix } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { FileSystem, FsError } from '@deepseek-ai/dsh-fs'
-import type { FsDirEntry, FsEditOutcome, FsEditRequest, FsErrorCode, FsInfo, FsPathInfo, FsTarget, FsVersion, FsWriteIntent, FsWriteOutcome } from '@deepseek-ai/dsh-fs'
+import type {
+  FsDirEntry,
+  FsEditOutcome,
+  FsEditRequest,
+  FsErrorCode,
+  FsInfo,
+  FsPathInfo,
+  FsTarget,
+  FsVersion,
+  FsWriteIntent,
+  FsWriteOutcome,
+} from '@deepseek-ai/dsh-fs'
 import type { SandboxExecutionPolicy, SandboxMode } from '@deepseek-ai/dsh-sandbox'
 import type {} from '@deepseek-ai/dsh-sandbox-policy'
 import type {} from '@deepseek-ai/dsh-ssh'
 import { RemoteOperationError } from '@deepseek-ai/dsh-ssh/protocol'
-import { editResultSchema, entriesSchema, infoSchema, pathInfoSchema, targetSchema, textStreamIdSchema, writeResultSchema } from '@deepseek-ai/dsh-ssh/schemas'
+import {
+  editResultSchema,
+  entriesSchema,
+  infoSchema,
+  pathInfoSchema,
+  targetSchema,
+  textStreamIdSchema,
+  writeResultSchema,
+} from '@deepseek-ai/dsh-ssh/schemas'
 import { z } from 'zod'
 
 const errorCodes: Record<FsErrorCode, true> = {
-  FS_NOT_FOUND: true, FS_NOT_DIRECTORY: true, FS_NOT_TEXT: true, FS_NOT_REGULAR_FILE: true,
-  FS_TOO_LARGE: true, FS_PERMISSION_DENIED: true, FS_SANDBOX_DENIED: true, FS_IO_ERROR: true,
-  FS_STALE_VERSION: true, FS_NOT_OBSERVED: true, FS_AMBIGUOUS_EDIT: true, FS_EDIT_NOT_FOUND: true, FS_ABORTED: true,
+  FS_NOT_FOUND: true,
+  FS_NOT_DIRECTORY: true,
+  FS_NOT_TEXT: true,
+  FS_NOT_REGULAR_FILE: true,
+  FS_TOO_LARGE: true,
+  FS_PERMISSION_DENIED: true,
+  FS_SANDBOX_DENIED: true,
+  FS_IO_ERROR: true,
+  FS_STALE_VERSION: true,
+  FS_NOT_OBSERVED: true,
+  FS_AMBIGUOUS_EDIT: true,
+  FS_EDIT_NOT_FOUND: true,
+  FS_ABORTED: true,
 }
 
 /** Remote filesystem paired with the SSH subprocess and sandbox providers. */
 export class SshFileSystem extends FileSystem {
   static inject = ['ssh', 'sandboxPolicy']
 
-  override get sandboxMode(): SandboxMode { return this.ctx.sandboxPolicy.defaultMode }
-
-  override async resolve(path: string, opts?: { cwd?: string; signal?: AbortSignal }): Promise<FsTarget> {
-    return await this.call('fs.resolve', { path, cwd: opts?.cwd }, targetSchema, opts?.signal) as FsTarget
+  override get sandboxMode(): SandboxMode {
+    return this.ctx.sandboxPolicy.defaultMode
   }
 
-  override processPath(target: FsTarget): string { return String(target.targetKey) }
+  override async resolve(path: string, opts?: { cwd?: string; signal?: AbortSignal }): Promise<FsTarget> {
+    return (await this.call('fs.resolve', { path, cwd: opts?.cwd }, targetSchema, opts?.signal)) as FsTarget
+  }
+
+  override processPath(target: FsTarget): string {
+    return String(target.targetKey)
+  }
 
   override fileUrl(target: FsTarget): string {
     return pathToFileURL(this.processPath(target)).href
@@ -38,11 +71,11 @@ export class SshFileSystem extends FileSystem {
   }
 
   override async stat(target: FsTarget, signal?: AbortSignal): Promise<FsInfo | undefined> {
-    return await this.call('fs.stat', { target }, infoSchema.nullable(), signal) as FsInfo | null ?? undefined
+    return ((await this.call('fs.stat', { target }, infoSchema.nullable(), signal)) as FsInfo | null) ?? undefined
   }
 
   override async lstat(path: string, opts?: { cwd?: string }, signal?: AbortSignal): Promise<FsPathInfo | undefined> {
-    return await this.call('fs.lstat', { path, cwd: opts?.cwd }, pathInfoSchema.nullable(), signal) as FsPathInfo | null ?? undefined
+    return ((await this.call('fs.lstat', { path, cwd: opts?.cwd }, pathInfoSchema.nullable(), signal)) as FsPathInfo | null) ?? undefined
   }
 
   override readText(target: FsTarget, signal?: AbortSignal): Promise<string> {
@@ -76,30 +109,41 @@ export class SshFileSystem extends FileSystem {
   }
 
   override async listDir(target: FsTarget, signal?: AbortSignal): Promise<FsDirEntry[]> {
-    return await this.call('fs.list', { target }, entriesSchema, signal) as FsDirEntry[]
+    return (await this.call('fs.list', { target }, entriesSchema, signal)) as FsDirEntry[]
   }
 
   override async writeText(
-    target: FsTarget, content: string, expected?: FsWriteIntent, signal?: AbortSignal, sandboxPolicy?: SandboxExecutionPolicy,
+    target: FsTarget,
+    content: string,
+    expected?: FsWriteIntent,
+    signal?: AbortSignal,
+    sandboxPolicy?: SandboxExecutionPolicy,
   ): Promise<FsWriteOutcome> {
     const policy = sandboxPolicy ?? this.ctx.sandboxPolicy.resolve()
-    return await this.call('fs.write', { target, content, expected, policy }, writeResultSchema, signal) as FsWriteOutcome
+    return (await this.call('fs.write', { target, content, expected, policy }, writeResultSchema, signal)) as FsWriteOutcome
   }
 
   override async editText(
-    target: FsTarget, edit: FsEditRequest, expected?: { version: FsVersion },
-    signal?: AbortSignal, sandboxPolicy?: SandboxExecutionPolicy,
+    target: FsTarget,
+    edit: FsEditRequest,
+    expected?: { version: FsVersion },
+    signal?: AbortSignal,
+    sandboxPolicy?: SandboxExecutionPolicy,
   ): Promise<FsEditOutcome> {
     const policy = sandboxPolicy ?? this.ctx.sandboxPolicy.resolve()
-    return await this.call('fs.edit', { target, edit, expected, policy }, editResultSchema, signal) as FsEditOutcome
+    return (await this.call('fs.edit', { target, edit, expected, policy }, editResultSchema, signal)) as FsEditOutcome
   }
 
   private async call<T>(method: string, params: unknown, schema: z.ZodType<T>, signal?: AbortSignal): Promise<T> {
-    try { return await this.ctx.ssh.request(method, params, schema, signal) } catch (error) {
+    try {
+      return await this.ctx.ssh.request(method, params, schema, signal)
+    } catch (error) {
       if (error instanceof RemoteOperationError && error.code !== undefined && Object.hasOwn(errorCodes, error.code)) {
         throw new FsError(error.message, error.code as FsErrorCode, { cause: error })
       }
-      throw new FsError(error instanceof Error ? error.message : String(error), signal?.aborted ? 'FS_ABORTED' : 'FS_IO_ERROR', { cause: error })
+      throw new FsError(error instanceof Error ? error.message : String(error), signal?.aborted ? 'FS_ABORTED' : 'FS_IO_ERROR', {
+        cause: error,
+      })
     }
   }
 }

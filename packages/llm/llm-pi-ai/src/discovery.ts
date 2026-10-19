@@ -36,11 +36,7 @@ import { catalogModels } from './catalog.ts'
  * guessing at either would report an authentication failure as a provider
  * with no models. pi-ai's remaining protocols are absent for the same reason.
  */
-const LISTABLE_PROTOCOLS: ReadonlySet<string> = new Set([
-  'anthropic-messages',
-  'openai-completions',
-  'openai-responses',
-])
+const LISTABLE_PROTOCOLS: ReadonlySet<string> = new Set(['anthropic-messages', 'openai-completions', 'openai-responses'])
 
 /** Stable API version required by Anthropic's model-listing endpoint. */
 const ANTHROPIC_VERSION = '2023-06-01'
@@ -128,8 +124,7 @@ function listingUrl(baseURL: string, api: string): string {
  * a server that under-declares (or streams) tells us nothing up front.
  */
 async function readBounded(response: Response, url: string): Promise<string> {
-  const oversized = (): LlmError =>
-    new LlmError(`${url} answered with more than ${MAX_RESPONSE_BYTES} bytes`, 'DISCOVERY_FAILED')
+  const oversized = (): LlmError => new LlmError(`${url} answered with more than ${MAX_RESPONSE_BYTES} bytes`, 'DISCOVERY_FAILED')
   const declared = Number(response.headers.get('content-length') ?? Number.NaN)
   if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
     await response.body?.cancel()
@@ -189,8 +184,7 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
     const models = listing?.models
     if (models === null || typeof models !== 'object' || Array.isArray(models)) {
       throw new LlmError(
-        'the endpoint\'s model listing has neither a "data" array nor a "models" object; '
-        + 'enter this provider\'s models by hand',
+        'the endpoint\'s model listing has neither a "data" array nor a "models" object; ' + "enter this provider's models by hand",
         'DISCOVERY_FAILED',
       )
     }
@@ -222,8 +216,8 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
     models.push({
       id,
       name,
-      ...contextWindow === undefined ? {} : { contextWindow },
-      ...maxTokens === undefined ? {} : { maxTokens },
+      ...(contextWindow === undefined ? {} : { contextWindow }),
+      ...(maxTokens === undefined ? {} : { maxTokens }),
     })
   }
   return models
@@ -242,8 +236,8 @@ function usableProbeKey(raw: string): string {
   if (checked.ok) return checked.value
   throw new LlmError(
     checked.reason === 'empty'
-      ? 'this provider\'s API key is blank; enter it on the Models page, or clear it to probe unauthenticated'
-      : 'this provider\'s API key contains characters no HTTP header can carry; paste the raw key only',
+      ? "this provider's API key is blank; enter it on the Models page, or clear it to probe unauthenticated"
+      : "this provider's API key contains characters no HTTP header can carry; paste the raw key only",
     INVALID_CREDENTIAL_CODE,
   )
 }
@@ -287,8 +281,8 @@ export async function discoverModels(
   }
   if (request.baseURL === undefined || request.baseURL.length === 0) {
     throw new LlmError(
-      `pi-ai ships no catalog for provider "${request.provider ?? ''}", so its models can only come from its`
-      + " endpoint; set a baseURL, or enter this provider's models by hand",
+      `pi-ai ships no catalog for provider "${request.provider ?? ''}", so its models can only come from its` +
+        " endpoint; set a baseURL, or enter this provider's models by hand",
       'DISCOVERY_FAILED',
     )
   }
@@ -312,7 +306,7 @@ export async function discoverModels(
   // stored credential it supersedes. A route may still authenticate through a
   // deployment-owned Authorization header when neither key exists.
   const stored = storedProfile?.()
-  const supplied = request.apiKey ?? await stored?.resolveApiKey()
+  const supplied = request.apiKey ?? (await stored?.resolveApiKey())
   const apiKey = supplied === undefined ? undefined : usableProbeKey(supplied)
   let response: Response
   try {
@@ -328,7 +322,7 @@ export async function discoverModels(
     response = await fetch(url, {
       method: 'GET',
       headers,
-      ...request.signal === undefined ? {} : { signal: request.signal },
+      ...(request.signal === undefined ? {} : { signal: request.signal }),
     })
   } catch (error: unknown) {
     if (request.signal?.aborted) {

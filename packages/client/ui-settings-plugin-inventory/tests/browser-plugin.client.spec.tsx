@@ -2,7 +2,7 @@
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { ClientModuleLoader } from '@deepseek-ai/dsh-client-modules/client'
 import { Context, Service } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { cleanup } from '@testing-library/react'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -23,9 +23,13 @@ type ListResult =
 
 async function bench() {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   const retryClient = vi.fn(async () => {})
-  ctx.provide('modules', { entries: { state: createSnapshotStore({ syncing: false, failures: [] }), retry: retryClient } } as unknown as ClientModuleLoader)
+  ctx.provide('modules', {
+    entries: { state: createSnapshotStore({ syncing: false, failures: [] }), retry: retryClient },
+  } as unknown as ClientModuleLoader)
   await ctx.plugin(SlotRegistry).await()
   const locale = new LocaleRuntime(ctx)
   ctx.provide('locale', locale)
@@ -35,17 +39,19 @@ async function bench() {
     }
   }
   new RemoteService(ctx)
-  const list = vi.fn<() => Promise<ListResult>>()
-    .mockResolvedValue({ ok: true, value: EMPTY })
+  const list = vi.fn<() => Promise<ListResult>>().mockResolvedValue({ ok: true, value: EMPTY })
   ctx.provide('remote.pluginInventory', { list })
   return { ctx, retryClient, slots: ctx.get('slots') as SlotRegistry, locale, list }
 }
 
 function declare(slots: SlotRegistry): () => void {
-  return slots.register({
-    name: 'root',
-    children: { 'settings.plugins.tab': { kind: 'list', scope: 'root' } },
-  } as never, () => null)
+  return slots.register(
+    {
+      name: 'root',
+      children: { 'settings.plugins.tab': { kind: 'list', scope: 'root' } },
+    } as never,
+    () => null,
+  )
 }
 
 describe('ui-settings-plugin-inventory browser plugin', () => {
@@ -79,7 +85,9 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     const retryError = vi.spyOn(b.ctx.logger, 'error').mockImplementation(() => {})
     b.retryClient.mockRejectedValueOnce(new Error('retry unavailable'))
     injected.retryClient()
-    await vi.waitFor(() => { expect(retryError).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(retryError).toHaveBeenCalled()
+    })
     retryError.mockRestore()
     await expect(injected.list()).resolves.toEqual(EMPTY)
     expect(b.list).toHaveBeenCalledOnce()
@@ -101,7 +109,9 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     expect(b.slots.entries('settings.plugins.tab')).toHaveLength(0)
 
     const stop = declare(b.slots)
-    await vi.waitFor(() => { expect(b.slots.entries('settings.plugins.tab')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(b.slots.entries('settings.plugins.tab')).toHaveLength(1)
+    })
     b.locale.setLocale('en')
     expect(resolveSlotLabel(b.slots.entries('settings.plugins.tab')[0]!.options.label)).toBe('Plugin list')
 

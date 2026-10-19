@@ -7,9 +7,7 @@ import type { SettingsRootInjected } from './shell-contract.ts'
 
 type SettingsTranslate = PropsLocale<'settings'>['t']
 
-const BUSY_PHASES: ReadonlySet<DesktopUpdatePresentation['phase']> = new Set([
-  'checking', 'downloading', 'verifying', 'installing',
-])
+const BUSY_PHASES: ReadonlySet<DesktopUpdatePresentation['phase']> = new Set(['checking', 'downloading', 'verifying', 'installing'])
 
 function updateCopy(state: DesktopUpdatePresentation, t: SettingsTranslate): { label: string; detail: string } {
   const labels: Readonly<Record<DesktopUpdatePresentation['phase'], string>> = {
@@ -43,9 +41,7 @@ function updateCopy(state: DesktopUpdatePresentation, t: SettingsTranslate): { l
   if (state.phase === 'downloading' && state.version !== undefined) {
     return { label, detail: t('desktop.update.downloadDetail', { percent: state.percent ?? 0, version: state.version }) }
   }
-  return { label, detail: state.version === undefined
-    ? label
-    : t('desktop.update.versionDetail', { label, version: state.version }) }
+  return { label, detail: state.version === undefined ? label : t('desktop.update.versionDetail', { label, version: state.version }) }
 }
 
 /**
@@ -53,7 +49,13 @@ function updateCopy(state: DesktopUpdatePresentation, t: SettingsTranslate): { l
  * @param props - Connection priority, sidebar width, and localized bridge-failure copy.
  * @returns Desktop-only status beside the account button, or nothing in browsers.
  */
-export function DesktopUpdateIndicator({ wide, hidden, t, view, onOpen }: {
+export function DesktopUpdateIndicator({
+  wide,
+  hidden,
+  t,
+  view,
+  onOpen,
+}: {
   wide: boolean
   hidden: boolean
   t: SettingsTranslate
@@ -67,20 +69,35 @@ export function DesktopUpdateIndicator({ wide, hidden, t, view, onOpen }: {
   const label = failed ? retryLabel : copy.label
   const error = failed || state?.phase === 'error'
   const busy = opening || (state !== undefined && BUSY_PHASES.has(state.phase))
-  return <Tooltip label={failed ? retryLabel : copy.detail} side="top">
-    <button type="button" className={css.indicator}
-      aria-label={label} aria-disabled={busy} onClick={() => { if (!busy) onOpen() }}>
-      <span className={css.icon} aria-hidden="true">
-        {error ? <span className={css.errorDot} />
-          : busy ? <IconLoadingOutlineRegular className={css.spinner} size={14} /> : <IconDownloadOutlineRegular size={14} />}
-      </span>
-      <span>{label}</span>
-    </button>
-  </Tooltip>
+  return (
+    <Tooltip label={failed ? retryLabel : copy.detail} side="top">
+      <button
+        type="button"
+        className={css.indicator}
+        aria-label={label}
+        aria-disabled={busy}
+        onClick={() => {
+          if (!busy) onOpen()
+        }}
+      >
+        <span className={css.icon} aria-hidden="true">
+          {error ? (
+            <span className={css.errorDot} />
+          ) : busy ? (
+            <IconLoadingOutlineRegular className={css.spinner} size={14} />
+          ) : (
+            <IconDownloadOutlineRegular size={14} />
+          )}
+        </span>
+        <span>{label}</span>
+      </button>
+    </Tooltip>
+  )
 }
 
-type BadgeProps = PropsRuntime<'sidebar.toggle.badge'> & PropsLocale<'settings'>
-  & Pick<InjectFace<SettingsRootInjected>, 'useDesktopUpdate' | 'useConnectionState'>
+type BadgeProps = PropsRuntime<'sidebar.toggle.badge'> &
+  PropsLocale<'settings'> &
+  Pick<InjectFace<SettingsRootInjected>, 'useDesktopUpdate' | 'useConnectionState'>
 
 /**
  * @param props - Framework-bound carrier and connection state.
@@ -89,12 +106,17 @@ type BadgeProps = PropsRuntime<'sidebar.toggle.badge'> & PropsLocale<'settings'>
 export function DesktopUpdateBadge({ useDesktopUpdate, useConnectionState, t }: BadgeProps) {
   const { presentation: state, failed } = useDesktopUpdate(value => value)
   const connection = useConnectionState(value => value)
-  if (((connection === 'disconnected' || connection === 'connecting') && state?.phase !== 'installing')
-    || (!failed && (state === undefined || state.phase === 'idle'))) return null
+  if (
+    ((connection === 'disconnected' || connection === 'connecting') && state?.phase !== 'installing') ||
+    (!failed && (state === undefined || state.phase === 'idle'))
+  )
+    return null
   const retryLabel = t('desktop.update.retry')
   const copy = state === undefined ? { label: retryLabel, detail: retryLabel } : updateCopy(state, t)
   const label = failed ? retryLabel : copy.label
-  return <Tooltip label={failed ? label : copy.detail} side="right">
-    <span role="img" aria-label={label} className={css.badge} />
-  </Tooltip>
+  return (
+    <Tooltip label={failed ? label : copy.detail} side="right">
+      <span role="img" aria-label={label} className={css.badge} />
+    </Tooltip>
+  )
 }

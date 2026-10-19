@@ -4,16 +4,14 @@
  */
 // @vitest-environment jsdom
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { act, screen } from '@testing-library/react'
 import { SlotTestRuntime, stubConfigForm, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import type { SessionLiveEventEntry, SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
-import {
-  apply as applyConversation, inject as injectConversation,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { apply as applyConversation, inject as injectConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { apply as applyChat, inject as injectChat } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { QuotaNoticeInjected } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { CHAT_SETTINGS_NAMESPACE, type ChatSettings } from '../src/chat-settings.ts'
@@ -33,8 +31,11 @@ afterEach(async () => {
 
 /** One live `turn/end` failure entry for a session event window. */
 const quotaEntry = (seq: number, code: string): SessionLiveEventEntry => ({
-  type: 'event', event: {
-    type: 'turn/end', seq: seq as SessionSeq, time: seq,
+  type: 'event',
+  event: {
+    type: 'turn/end',
+    seq: seq as SessionSeq,
+    time: seq,
     data: { turn: 0, reason: { kind: 'error', error: { code, message: 'balance' } } },
   },
 })
@@ -50,16 +51,20 @@ async function bench() {
   const chatSettings = stubConfigForm<ChatSettings>()
   runtime.ctx.provide('configForms', {
     developerTools: { enabled: createSnapshotStore(true) },
-    get: (namespace: string) => namespace === CHAT_SETTINGS_NAMESPACE ? chatSettings.scope : stubConfigForm().scope,
+    get: (namespace: string) => (namespace === CHAT_SETTINGS_NAMESPACE ? chatSettings.scope : stubConfigForm().scope),
   } as never)
   runtime.ctx.provide('layout', { openRightbar: () => {}, closeRightbar: () => {} } as never)
   runtime.ctx.provide('sidebarRight', { openResource: () => {}, openTab: () => {} } as never)
   runtime.ctx.provide('sidebarRightTabs', {
-    register: () => () => {}, get: () => ({}), subscribe: () => () => {},
+    register: () => () => {},
+    get: () => ({}),
+    subscribe: () => () => {},
   } as never)
   runtime.ctx.provide('resources', { register: () => () => {} } as never)
   runtime.ctx.provide('uiWorkspace', {
-    openWorkspace: async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => { beforeOpen(SID) },
+    openWorkspace: async (_workspaceId: WorkspaceId, beforeOpen: (id: SessionId) => void) => {
+      beforeOpen(SID)
+    },
     openSession: () => {},
   } as never)
   runtime.remote.provideNamespaces({ session: { openWorkspacePath: async () => ({ ok: true, value: { opened: true } }) } })
@@ -73,7 +78,10 @@ async function bench() {
   const conversation = await runtime.mount({ inject: [...injectConversation], apply: applyConversation })
   let descriptor: Parameters<typeof runtime.ctx.uiSession.provide>[0] | undefined
   const provide = runtime.ctx.uiSession.provide.bind(runtime.ctx.uiSession)
-  runtime.ctx.uiSession.provide = (next) => { descriptor ??= next; return provide(next) }
+  runtime.ctx.uiSession.provide = next => {
+    descriptor ??= next
+    return provide(next)
+  }
   const chat = await runtime.mount({ inject: [...injectChat], apply: applyChat })
   if (descriptor === undefined) throw new Error('ui-chat did not provide its standard source')
   return { runtime, conversation, chat, sourceDescriptor: descriptor }
@@ -85,8 +93,7 @@ function noticeFace(runtime: SlotTestRuntime): QuotaNoticeInjected {
   const inject: ((...args: never[]) => Record<string, unknown>) | undefined = row?.inject
   if (inject === undefined) throw new Error('ui-chat did not register the quota notice host')
   const face = inject()
-  if (face.hooks === undefined || typeof face.dismissNotice !== 'function'
-    || typeof face.keepNoticeOpen !== 'function') {
+  if (face.hooks === undefined || typeof face.dismissNotice !== 'function' || typeof face.keepNoticeOpen !== 'function') {
     throw new Error('quota notice host inject face is incomplete')
   }
   return {
@@ -133,9 +140,15 @@ describe('frame-wide quota notices', () => {
     expect(notice.getSnapshot()).toBe(published)
     await b.runtime.sessions.appendEvent(SID, quotaEntry(3, 'AUTH'))
     expect(notice.getSnapshot()).toBe(published)
-    await b.runtime.sessions.appendEvent(SID, { type: 'event', event: {
-      type: 'turn/end', seq: 4 as SessionSeq, time: 4, data: { turn: 0, reason: { kind: 'completed' } },
-    } })
+    await b.runtime.sessions.appendEvent(SID, {
+      type: 'event',
+      event: {
+        type: 'turn/end',
+        seq: 4 as SessionSeq,
+        time: 4,
+        data: { turn: 0, reason: { kind: 'completed' } },
+      },
+    })
     expect(notice.getSnapshot()).toBe(published)
   })
 
@@ -154,7 +167,9 @@ describe('frame-wide quota notices', () => {
     // notice is host state, so it stays on screen.
     reference.release()
     expect(screen.getByRole('alert').textContent).toBe('Request quota exhausted.')
-    act(() => { noticeFace(b.runtime).dismissNotice() })
+    act(() => {
+      noticeFace(b.runtime).dismissNotice()
+    })
     expect(screen.queryByRole('alert')).toBeNull()
   })
 

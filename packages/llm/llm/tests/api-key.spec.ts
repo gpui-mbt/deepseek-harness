@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { assertUsableApiKey, INVALID_CREDENTIAL_CODE, normalizeApiKey } from '@deepseek-ai/dsh-llm'
 
 describe('normalizeApiKey', () => {
@@ -44,8 +44,9 @@ describe('assertUsableApiKey', () => {
   })
 
   it('refuses a blank stored credential, naming the reference', () => {
-    expect(() => assertUsableApiKey('   ', 'llm-deepseek', 'DEEPSEEK_API_KEY'))
-      .toThrow(/llm-deepseek: the API key resolved from DEEPSEEK_API_KEY is blank/)
+    expect(() => assertUsableApiKey('   ', 'llm-deepseek', 'DEEPSEEK_API_KEY')).toThrow(
+      /llm-deepseek: the API key resolved from DEEPSEEK_API_KEY is blank/,
+    )
   })
 
   it('refuses an unusable stored credential with the invalid-credential code', () => {

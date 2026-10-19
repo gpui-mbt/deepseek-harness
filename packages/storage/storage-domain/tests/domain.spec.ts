@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { z } from 'zod'
 import Storage, { storageBackendServiceKey } from '@deepseek-ai/dsh-storage'
@@ -34,7 +34,9 @@ async function harness(options?: { pool?: MemoryMediaPool; config?: Partial<Conf
   const facility = new DomainFacility(ctx, { backend: 'memory', routes: {}, ...options?.config })
   ctx.storage.mount('domain', facility)
   const changes: DomainChanged[] = []
-  ctx.on('domain/changed', (change) => { changes.push(change) })
+  ctx.on('domain/changed', change => {
+    changes.push(change)
+  })
   return { ctx, backend, facility, changes }
 }
 
@@ -42,46 +44,56 @@ describe('defineDomain', () => {
   it('rejects invalid names and versions loudly', () => {
     expect(() => defineDomain({ name: 'Bad-Name', version: 1, tables: {} })).toThrow(/must match/)
     expect(() => defineDomain({ name: 'ok', version: 1.5, tables: {} })).toThrow(/non-negative integer/)
-    expect(() => defineDomain({
-      name: 'ok', version: 1, tables: { 'Bad Table': domainTable<string, Item>(itemSchema) },
-    })).toThrow(/table name/)
+    expect(() =>
+      defineDomain({
+        name: 'ok',
+        version: 1,
+        tables: { 'Bad Table': domainTable<string, Item>(itemSchema) },
+      }),
+    ).toThrow(/table name/)
   })
 
   it('rejects a global schema that accepts null (the never-written sentinel)', () => {
-    expect(() => defineDomain({
-      name: 'ok',
-      version: 1,
-      global: { schema: settingsSchema.nullable(), initial: null },
-      tables: {},
-    })).toThrow(/must not accept null/)
+    expect(() =>
+      defineDomain({
+        name: 'ok',
+        version: 1,
+        global: { schema: settingsSchema.nullable(), initial: null },
+        tables: {},
+      }),
+    ).toThrow(/must not accept null/)
   })
 
   it('validates compatibleVersions entries and projects them onto the descriptor', () => {
-    expect(() => defineDomain({ name: 'ok', version: 2, compatibleVersions: [1.5], tables: {} }))
-      .toThrow(/compatibleVersions/)
-    expect(() => defineDomain({ name: 'ok', version: 2, compatibleVersions: [2], tables: {} }))
-      .toThrow(/below version/)
-    expect(() => defineDomain({ name: 'ok', version: 2, compatibleVersions: [-1], tables: {} }))
-      .toThrow(/compatibleVersions/)
-    expect(descriptorOf(defineDomain({ name: 'ok', version: 2, compatibleVersions: [0, 1], tables: {} })))
-      .toMatchObject({ compatibleVersions: [0, 1] })
+    expect(() => defineDomain({ name: 'ok', version: 2, compatibleVersions: [1.5], tables: {} })).toThrow(/compatibleVersions/)
+    expect(() => defineDomain({ name: 'ok', version: 2, compatibleVersions: [2], tables: {} })).toThrow(/below version/)
+    expect(() => defineDomain({ name: 'ok', version: 2, compatibleVersions: [-1], tables: {} })).toThrow(/compatibleVersions/)
+    expect(descriptorOf(defineDomain({ name: 'ok', version: 2, compatibleVersions: [0, 1], tables: {} }))).toMatchObject({
+      compatibleVersions: [0, 1],
+    })
     // An undeclared set is absent from the descriptor.
     expect(descriptorOf(spec)).not.toHaveProperty('compatibleVersions')
   })
 
   it('rejects an unknown invalidRecords policy', () => {
-    expect(() => defineDomain({
-      name: 'ok', version: 1, invalidRecords: 'zap' as 'backup-and-skip', tables: {},
-    })).toThrow(/invalidRecords/)
+    expect(() =>
+      defineDomain({
+        name: 'ok',
+        version: 1,
+        invalidRecords: 'zap' as 'backup-and-skip',
+        tables: {},
+      }),
+    ).toThrow(/invalidRecords/)
   })
 
   it('rejects an invalid layout and projects the declared one onto the descriptor', () => {
     // A spec built from config can carry any value; the union type is
     // compile-time only, so the runtime boundary check must reject it.
-    expect(() => defineDomain({ name: 'ok', version: 1, layout: 'every-record' as 'single', tables: {} }))
-      .toThrow(/layout/)
-    expect(descriptorOf(defineDomain({ name: 'per', version: 1, layout: 'per-record', tables: {} })))
-      .toMatchObject({ name: 'per', layout: 'per-record' })
+    expect(() => defineDomain({ name: 'ok', version: 1, layout: 'every-record' as 'single', tables: {} })).toThrow(/layout/)
+    expect(descriptorOf(defineDomain({ name: 'per', version: 1, layout: 'per-record', tables: {} }))).toMatchObject({
+      name: 'per',
+      layout: 'per-record',
+    })
     // The default (single) layout is absent from the descriptor.
     expect(descriptorOf(spec)).not.toHaveProperty('layout')
   })
@@ -212,10 +224,14 @@ describe('plugin apply', () => {
       inject: ['storage'],
       apply: (domainCtx: Context) => apply(domainCtx, { backend: 'memory' }),
     })
-    await vi.waitFor(() => { expect(ctx.storageDomain).toBeInstanceOf(DomainFacility) })
+    await vi.waitFor(() => {
+      expect(ctx.storageDomain).toBeInstanceOf(DomainFacility)
+    })
 
     disposeBackend()
-    await vi.waitFor(() => { expect(ctx.get('storageDomain')).toBeUndefined() })
+    await vi.waitFor(() => {
+      expect(ctx.get('storageDomain')).toBeUndefined()
+    })
     await fiber.dispose()
   })
 
@@ -230,7 +246,9 @@ describe('plugin apply', () => {
     const backend = new MemoryStorageBackend()
     ctx.storage.backend.register('memory', backend)
     const disposeBackend = ctx.provide(storageBackendServiceKey('memory'), backend)
-    await vi.waitFor(() => { expect(ctx.storageDomain).toBeInstanceOf(DomainFacility) })
+    await vi.waitFor(() => {
+      expect(ctx.storageDomain).toBeInstanceOf(DomainFacility)
+    })
     expect(ctx.storage.domain).toBe(ctx.storageDomain)
 
     disposeBackend()
@@ -261,8 +279,7 @@ describe('KvTable writes', () => {
     const { facility } = await harness()
     const table = (await facility.open(spec)).table('items')
     await table.put('counter', { label: 'c', count: 0 })
-    await Promise.all(Array.from({ length: 50 }, () =>
-      table.update('counter', current => ({ ...current, count: current.count + 1 }))))
+    await Promise.all(Array.from({ length: 50 }, () => table.update('counter', current => ({ ...current, count: current.count + 1 }))))
     expect(table.get('counter')).toEqual({ label: 'c', count: 50 })
   })
 
@@ -356,10 +373,7 @@ describe('close and lifecycle', () => {
     const { facility } = await harness({ pool })
     const domain = await facility.open(spec)
     const table = domain.table('items')
-    const pending = Promise.all([
-      table.put('a', { label: 'x', count: 1 }),
-      table.put('b', { label: 'y', count: 2 }),
-    ])
+    const pending = Promise.all([table.put('a', { label: 'x', count: 1 }), table.put('b', { label: 'y', count: 2 })])
     await Promise.all([domain.close(), domain.close()]) // idempotent
     await pending // queued before close → still landed
     // Durability is the drain contract: both queued writes reached the medium.

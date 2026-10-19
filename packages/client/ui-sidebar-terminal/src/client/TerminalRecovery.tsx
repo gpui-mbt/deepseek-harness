@@ -15,15 +15,36 @@ export interface TerminalRecoveryInjected {
  * @param props - Session header lifetime, restoration callback and localized copy.
  * @returns nothing on success, or an unobtrusive retry control.
  */
-export function TerminalRecovery({ restore, t }: PropsRuntime<'conversation.session.header.actions'> & PropsLocale<'sidebarTerminal'> & TerminalRecoveryInjected): ReactNode {
+export function TerminalRecovery({
+  restore,
+  t,
+}: PropsRuntime<'conversation.session.header.actions'> & PropsLocale<'sidebarTerminal'> & TerminalRecoveryInjected): ReactNode {
   const [error, setError] = useState<string>()
   const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let active = true
-    void restore().then(() => { if (active) setError(undefined) }, (reason: unknown) => {
-      if (active) setError(reason instanceof Error ? reason.message : String(reason))
-    })
-    return () => { active = false }
+    void restore().then(
+      () => {
+        if (active) setError(undefined)
+      },
+      (reason: unknown) => {
+        if (active) setError(reason instanceof Error ? reason.message : String(reason))
+      },
+    )
+    return () => {
+      active = false
+    }
   }, [restore, attempt])
-  return error === undefined ? null : <button type="button" title={t('recoveryFailed', { message: error })} onClick={() => { setError(undefined); setAttempt(value => value + 1) }}>{t('retryRecovery')}</button>
+  return error === undefined ? null : (
+    <button
+      type="button"
+      title={t('recoveryFailed', { message: error })}
+      onClick={() => {
+        setError(undefined)
+        setAttempt(value => value + 1)
+      }}
+    >
+      {t('retryRecovery')}
+    </button>
+  )
 }

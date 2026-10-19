@@ -1,7 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import {
-  settleRunResult,
-} from '../src/index.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import { settleRunResult } from '../src/index.ts'
 
 const MAX_SUBAGENT_DIAGNOSTIC_BYTES = 4_096
 
@@ -11,7 +9,9 @@ describe('outcome mapping helpers', () => {
     const oversized = '权限'.repeat(MAX_SUBAGENT_DIAGNOSTIC_BYTES)
     const controller = new AbortController()
     const exactResult = await settleRunResult({
-      attempt: async () => { throw new Error('provider failed') },
+      attempt: async () => {
+        throw new Error('provider failed')
+      },
       collectOutput: () => [],
       collectDiagnostic: () => exact,
       cancelled: () => false,
@@ -21,7 +21,9 @@ describe('outcome mapping helpers', () => {
     expect(exactResult.diagnostic).toBe(exact)
 
     const result = await settleRunResult({
-      attempt: async () => { throw new Error('provider failed') },
+      attempt: async () => {
+        throw new Error('provider failed')
+      },
       collectOutput: () => [],
       collectDiagnostic: () => oversized,
       cancelled: () => false,
@@ -29,8 +31,7 @@ describe('outcome mapping helpers', () => {
       onAbort: () => {},
     })
     const limited = result.diagnostic ?? ''
-    expect(Buffer.byteLength(limited, 'utf8'))
-      .toBeLessThanOrEqual(MAX_SUBAGENT_DIAGNOSTIC_BYTES)
+    expect(Buffer.byteLength(limited, 'utf8')).toBeLessThanOrEqual(MAX_SUBAGENT_DIAGNOSTIC_BYTES)
     expect(limited.endsWith('[diagnostic truncated]')).toBe(true)
     expect(limited).not.toContain('\uFFFD')
     expect(result.stopReason).toBe('error')
@@ -41,18 +42,18 @@ describe('outcome mapping helpers', () => {
     const controller = new AbortController()
     const oversized = '权限'.repeat(MAX_SUBAGENT_DIAGNOSTIC_BYTES)
     const failed = await settleRunResult({
-      attempt: () => Promise.resolve({
-        output: [],
-        diagnostic: oversized,
-        stopReason: 'error',
-      }),
+      attempt: () =>
+        Promise.resolve({
+          output: [],
+          diagnostic: oversized,
+          stopReason: 'error',
+        }),
       collectOutput: () => [],
       cancelled: () => false,
       signal: controller.signal,
       onAbort: () => {},
     })
-    expect(Buffer.byteLength(failed.diagnostic ?? '', 'utf8'))
-      .toBeLessThanOrEqual(MAX_SUBAGENT_DIAGNOSTIC_BYTES)
+    expect(Buffer.byteLength(failed.diagnostic ?? '', 'utf8')).toBeLessThanOrEqual(MAX_SUBAGENT_DIAGNOSTIC_BYTES)
     expect(failed.diagnostic).toMatch(/\[diagnostic truncated\]$/)
 
     const plainFailure = await settleRunResult({

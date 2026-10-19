@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { MarkdownText } from './markdown-test-components.tsx'
 import type { MarkdownPathImages } from '../src/markdown/MarkdownText.tsx'
 
@@ -8,8 +8,7 @@ afterEach(cleanup)
 
 const LOCAL_IMAGE = '![diagram](/tmp/graph.png)'
 
-const mapping = (value: string): string | undefined =>
-  value === '/tmp/graph.png' ? 'https://cdn.example.com/graph.png' : undefined
+const mapping = (value: string): string | undefined => (value === '/tmp/graph.png' ? 'https://cdn.example.com/graph.png' : undefined)
 
 describe('MarkdownText local-path images', () => {
   it('renders authored alt text when no path vocabulary exists', () => {
@@ -26,11 +25,9 @@ describe('MarkdownText local-path images', () => {
     expect(image?.getAttribute('alt')).toBe('diagram')
   })
 
-  it.each(['diagram', ''])('shows authored text after an image fails with alt %j', (alt) => {
+  it.each(['diagram', ''])('shows authored text after an image fails with alt %j', alt => {
     const pathImages: MarkdownPathImages = { resolve: mapping }
-    const { container } = render(
-      <MarkdownText text={`![${alt}](/tmp/graph.png)`} pathImages={pathImages} />,
-    )
+    const { container } = render(<MarkdownText text={`![${alt}](/tmp/graph.png)`} pathImages={pathImages} />)
     fireEvent.error(screen.getByAltText(alt))
     expect(container.querySelector('img')).toBeNull()
     expect(container.textContent).toBe(alt || '/tmp/graph.png')
@@ -38,13 +35,10 @@ describe('MarkdownText local-path images', () => {
 
   it('loads a replacement destination after the preceding image failed', () => {
     const pathImages: MarkdownPathImages = { resolve: value => `https://example.com${value}` }
-    const { container, rerender } = render(
-      <MarkdownText text={LOCAL_IMAGE} pathImages={pathImages} />,
-    )
+    const { container, rerender } = render(<MarkdownText text={LOCAL_IMAGE} pathImages={pathImages} />)
     fireEvent.error(screen.getByRole('img'))
     rerender(<MarkdownText text="![](/tmp/replacement.png)" pathImages={pathImages} />)
-    expect(container.querySelector('img')?.getAttribute('src'))
-      .toBe('https://example.com/tmp/replacement.png')
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('https://example.com/tmp/replacement.png')
   })
 
   it('keeps the alt fallback when the vocabulary misses', () => {
@@ -59,10 +53,8 @@ describe('MarkdownText local-path images', () => {
     const blob: MarkdownPathImages = { resolve: () => 'blob:https://example.com/id' }
     const dataRender = render(<MarkdownText text={LOCAL_IMAGE} pathImages={data} />)
     const blobRender = render(<MarkdownText text={LOCAL_IMAGE} pathImages={blob} />)
-    expect(dataRender.container.querySelector('img')?.getAttribute('src'))
-      .toBe('data:image/png;base64,AAAA')
-    expect(blobRender.container.querySelector('img')?.getAttribute('src'))
-      .toBe('blob:https://example.com/id')
+    expect(dataRender.container.querySelector('img')?.getAttribute('src')).toBe('data:image/png;base64,AAAA')
+    expect(blobRender.container.querySelector('img')?.getAttribute('src')).toBe('blob:https://example.com/id')
   })
 
   it('rejects non-absolute vocabulary results', () => {
@@ -80,8 +72,12 @@ describe('MarkdownText local-path images', () => {
     expect(view.container.querySelector('img')).toBeNull()
     view.rerender(<MarkdownText text={LOCAL_IMAGE} pathImages={{ resolve: () => src }} />)
     expect(view.getByRole('img').getAttribute('src')).toBe(src)
-    for (const result of ['dsh-app://shell/api/file?path=x', 'dsh-app://app/assets/image.png',
-      'dsh-app://app/api/file-other?path=x', 'dsh-app://app.example/api/file?path=x']) {
+    for (const result of [
+      'dsh-app://shell/api/file?path=x',
+      'dsh-app://app/assets/image.png',
+      'dsh-app://app/api/file-other?path=x',
+      'dsh-app://app.example/api/file?path=x',
+    ]) {
       view.rerender(<MarkdownText text={LOCAL_IMAGE} pathImages={{ resolve: () => result }} />)
       expect(view.container.querySelector('img')).toBeNull()
     }
@@ -100,20 +96,16 @@ describe('MarkdownText local-path images', () => {
     const reference = ['![diagram][fig]', '', '[fig]: /tmp/graph.png'].join('\n')
     const pathImages: MarkdownPathImages = { resolve: mapping }
     const { container } = render(<MarkdownText text={reference} pathImages={pathImages} />)
-    expect(container.querySelector('img')?.getAttribute('src'))
-      .toBe('https://cdn.example.com/graph.png')
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('https://cdn.example.com/graph.png')
   })
 
   it('applies the vocabulary only to settled renders, never while streaming', () => {
     const pathImages: MarkdownPathImages = { resolve: mapping }
-    const { container, rerender } = render(
-      <MarkdownText text={LOCAL_IMAGE} streaming pathImages={pathImages} />,
-    )
+    const { container, rerender } = render(<MarkdownText text={LOCAL_IMAGE} streaming pathImages={pathImages} />)
     // Streaming messages may still grow, so their prose keeps the inert alt
     // fallback until the settled pass self-heals it.
     expect(container.querySelector('img')).toBeNull()
     rerender(<MarkdownText text={LOCAL_IMAGE} pathImages={pathImages} />)
-    expect(container.querySelector('img')?.getAttribute('src'))
-      .toBe('https://cdn.example.com/graph.png')
+    expect(container.querySelector('img')?.getAttribute('src')).toBe('https://cdn.example.com/graph.png')
   })
 })

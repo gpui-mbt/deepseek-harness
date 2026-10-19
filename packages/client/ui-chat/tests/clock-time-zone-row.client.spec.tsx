@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -14,15 +14,27 @@ import { en, zh } from '../src/client/locale.ts'
 afterEach(cleanup)
 
 function emptySessions() {
-  return bindSnapshotSelector(createSnapshotStore<SessionListState>({
-    ids: [], byId: {}, phase: 'ready', projectionsBySession: {},
-  }))
+  return bindSnapshotSelector(
+    createSnapshotStore<SessionListState>({
+      ids: [],
+      byId: {},
+      phase: 'ready',
+      projectionsBySession: {},
+    }),
+  )
 }
 
 function emptyWorkspaces() {
-  return bindSnapshotSelector(createSnapshotStore<WorkspaceSnapshot>({
-    items: [], archivedSessionIds: [], pinnedSessionIds: [], state: 'idle', phase: 'ready', error: null,
-  }))
+  return bindSnapshotSelector(
+    createSnapshotStore<WorkspaceSnapshot>({
+      items: [],
+      archivedSessionIds: [],
+      pinnedSessionIds: [],
+      state: 'idle',
+      phase: 'ready',
+      error: null,
+    }),
+  )
 }
 
 function noPendingInteraction() {
@@ -34,7 +46,9 @@ const useResource = (() => ({ status: 'none' as const, value: undefined, failure
 
 function mount(zone: ClockTimeZone = 'local', dictionary: typeof en | typeof zh = en) {
   const source = createSnapshotStore<ClockTimeZone>(zone)
-  const setClockTimeZone = vi.fn((next: ClockTimeZone) => { source.set(next) })
+  const setClockTimeZone = vi.fn((next: ClockTimeZone) => {
+    source.set(next)
+  })
   const props: ClockTimeZoneRowProps = {
     ...allowAllAccess,
     usePanelInfo: selector => selector({ activePanelId: null }),

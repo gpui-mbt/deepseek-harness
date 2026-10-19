@@ -21,7 +21,7 @@ import { renderSendRead } from './render.ts'
  */
 export function sendSource(operation: () => TerminalSendOperation | undefined): JobOutputSource {
   return {
-    read: (fromByte) => {
+    read: fromByte => {
       const live = operation()
       if (live === undefined) return { text: '', nextOffset: fromByte, lossy: false }
       const text = renderSendRead(live.readOutput())

@@ -19,19 +19,21 @@ class MockDelegatingAdapter extends LlmAdapter {
     })
   }
 
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     const last = options.messages.at(-1)
-    const toolResultText = last?.role === 'tool'
-      ? last.content
-        .filter(block => block.type === 'text')
-        .map(block => block.text)
-        .join('')
-      : ''
+    const toolResultText =
+      last?.role === 'tool'
+        ? last.content
+            .filter(block => block.type === 'text')
+            .map(block => block.text)
+            .join('')
+        : ''
 
     if (!options.messages.some(message => message.role === 'tool')) {
-      const selectedRoute = process.env.DSH_TEST_CHILD_DEFAULT_ROUTE === '1'
-        ? { reasoning_effort: 'max' }
-        : { provider: 'mock', model: 'mock-routed', reasoning_effort: 'max' }
+      const selectedRoute =
+        process.env.DSH_TEST_CHILD_DEFAULT_ROUTE === '1'
+          ? { reasoning_effort: 'max' }
+          : { provider: 'mock', model: 'mock-routed', reasoning_effort: 'max' }
       const args = JSON.stringify({
         description: 'route probe',
         prompt: 'report your route and workspace',
@@ -39,7 +41,11 @@ class MockDelegatingAdapter extends LlmAdapter {
       })
       yield { type: 'block-start', index: 0, blockType: 'tool-call' }
       yield { type: 'tool-call-delta', index: 0, id: ToolCallId('call-delegate'), name: 'subagent', argumentsDelta: args }
-      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('call-delegate'), name: 'subagent', arguments: args } }
+      yield {
+        type: 'block-end',
+        index: 0,
+        block: { type: 'tool-call', id: ToolCallId('call-delegate'), name: 'subagent', arguments: args },
+      }
       yield { type: 'usage', usage: { inputTokens: 10, outputTokens: 5 } }
       yield { type: 'finish', reason: { kind: 'tool-calls' } }
       return
@@ -62,8 +68,6 @@ export const inject = ['llm']
  * @param ctx - the plugin context supplying `ctx.llm`.
  */
 export function apply(ctx: Context): void {
-  const providers = process.env.DSH_TEST_PARENT_PROVIDER === 'deepseek-official'
-    ? ['deepseek-official', 'mock']
-    : ['mock']
+  const providers = process.env.DSH_TEST_PARENT_PROVIDER === 'deepseek-official' ? ['deepseek-official', 'mock'] : ['mock']
   ctx.llm.registerAdapter(providers, new MockDelegatingAdapter())
 }

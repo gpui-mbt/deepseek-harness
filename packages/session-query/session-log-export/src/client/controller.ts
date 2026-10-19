@@ -127,7 +127,7 @@ export class SessionLogDownloadController {
   }
 
   private publish(sessionId: SessionId, entry: SessionLogDownloadEntry): void {
-    this.store.update((state) => {
+    this.store.update(state => {
       state.bySession = { ...state.bySession, [String(sessionId)]: entry }
     })
   }

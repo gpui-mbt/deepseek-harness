@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Exercises Conversation persistence through the real SlotRegistry store axis. */
-import { beforeEach, describe, expect, it, onTestFinished } from 'vitest'
+import { beforeEach, describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
@@ -14,10 +14,13 @@ async function createBench() {
   const runtime = await SlotTestRuntime.create()
   onTestFinished(() => runtime.dispose())
   const conversation = createConversationStore()
-  await runtime.root.declare({
-    'conversation.session': { kind: 'single', scope: 'session' },
-    'conversation.session.header': { kind: 'single', scope: 'session' },
-  }, (_props: PropsRenderSlots<'conversation.session' | 'conversation.session.header'>) => null)
+  await runtime.root.declare(
+    {
+      'conversation.session': { kind: 'single', scope: 'session' },
+      'conversation.session.header': { kind: 'single', scope: 'session' },
+    },
+    (_props: PropsRenderSlots<'conversation.session' | 'conversation.session.header'>) => null,
+  )
   runtime.slots.register({ name: 'conversation.session', store: conversation }, () => null)
   runtime.slots.register({ name: 'conversation.session.header', store: conversation }, () => null)
   runtime.renderRoot()

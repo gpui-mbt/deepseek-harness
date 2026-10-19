@@ -22,20 +22,16 @@ export default class PartialLandlockSandboxProvider extends SandboxProvider {
       }
     }
     return {
-      argv: [
-        'bash',
-        '-c',
-        `printf '%s\\n' '${NOTICE}' >&2; exec "$@"`,
-        'partial-landlock-run',
-        ...argv,
-      ],
+      argv: ['bash', '-c', `printf '%s\\n' '${NOTICE}' >&2; exec "$@"`, 'partial-landlock-run', ...argv],
       enforcement: 'partial',
       denialSignatures: ['permission denied'],
-      runnerFailureRules: [{
-        allowedExitCodes: [125],
-        fatalSignatures: ['landlock-run: '],
-        informationalLines: [NOTICE],
-      }],
+      runnerFailureRules: [
+        {
+          allowedExitCodes: [125],
+          fatalSignatures: ['landlock-run: '],
+          informationalLines: [NOTICE],
+        },
+      ],
     }
   }
 }

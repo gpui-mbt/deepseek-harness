@@ -5,8 +5,23 @@
  */
 
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { contentHasImage, IMAGE_OFFLOAD_REQUIRED_CODE, LlmError, offloadedImageText, projectOffloadedImages, requestImageHandleText, requiredImageOffload } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, GenerateOptions, ImageAttachmentAccessResolver, Message, RequestMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
+import {
+  contentHasImage,
+  IMAGE_OFFLOAD_REQUIRED_CODE,
+  LlmError,
+  offloadedImageText,
+  projectOffloadedImages,
+  requestImageHandleText,
+  requiredImageOffload,
+} from '@deepseek-ai/dsh-llm'
+import type {
+  ContentBlock,
+  GenerateOptions,
+  ImageAttachmentAccessResolver,
+  Message,
+  RequestMessage,
+  ToolCallId,
+} from '@deepseek-ai/dsh-llm'
 import type {
   AttachmentId,
   AttachmentStore,
@@ -14,7 +29,14 @@ import type {
   ImageRequestTarget,
   RequestImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
-import type { Context as PiContext, ImageContent, Message as PiMessage, SystemMessage, TextContent, Tool as PiTool } from '@earendil-works/pi-ai'
+import type {
+  Context as PiContext,
+  ImageContent,
+  Message as PiMessage,
+  SystemMessage,
+  TextContent,
+  Tool as PiTool,
+} from '@earendil-works/pi-ai'
 import { toPiAssistant } from './replay.ts'
 import { requestImageDimensions } from '@deepseek-ai/dsh-attachment'
 import { DEFAULT_REQUEST_IMAGE_MAX_BYTES, DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET } from './config.ts'
@@ -27,7 +49,6 @@ function flattenText(message: RequestMessage): string {
     .join('')
 }
 
-
 /** Recover the pi-ai toolResult message for one harness tool-role message. */
 function toolResultOf(
   message: Extract<Message, { role: 'tool' }>,
@@ -38,9 +59,7 @@ function toolResultOf(
     role: 'toolResult',
     toolCallId: message.toolCallId,
     toolName: toolNames.get(message.toolCallId) ?? 'unknown',
-    content: typeof content === 'string'
-      ? [{ type: 'text', text: content || '(no output)' }]
-      : content,
+    content: typeof content === 'string' ? [{ type: 'text', text: content || '(no output)' }] : content,
     isError: message.isError ?? false,
     timestamp: 0,
   }
@@ -53,10 +72,7 @@ function assertSupportedHistory(messages: readonly RequestMessage[]): void {
       throw new LlmError('Tool-change blocks require developer role', 'UNSUPPORTED_CONTENT')
     }
     if (message.role !== 'user' && message.role !== 'tool' && contentHasImage(message.content)) {
-      throw new LlmError(
-        `pi-ai cannot represent an image in an in-history ${message.role} message`,
-        'UNSUPPORTED_CONTENT',
-      )
+      throw new LlmError(`pi-ai cannot represent an image in an in-history ${message.role} message`, 'UNSUPPORTED_CONTENT')
     }
     if (message.role === 'system' && message.content.some(block => block.type !== 'text')) {
       throw new LlmError('pi-ai cannot represent non-text system messages', 'UNSUPPORTED_CONTENT')
@@ -97,10 +113,7 @@ function userContent(
   return content
 }
 
-function collectImageRefs(
-  blocks: readonly ContentBlock[],
-  refs: Map<AttachmentId, ImageAttachmentRef>,
-): void {
+function collectImageRefs(blocks: readonly ContentBlock[], refs: Map<AttachmentId, ImageAttachmentRef>): void {
   for (const block of blocks) {
     if (block.type === 'image') {
       if (block.offloaded !== true) refs.set(block.attachment.attachmentId, block.attachment)
@@ -117,9 +130,7 @@ async function prepareRequestImages(
   const refs = new Map<AttachmentId, ImageAttachmentRef>()
   for (const message of messages) collectImageRefs(message.content, refs)
   const orderedRefs = [...refs.values()]
-  const prepared = await Promise.all(orderedRefs.map(
-    ref => attachments.readImageRequest(ref, requestImageTarget(ref, budget), signal),
-  ))
+  const prepared = await Promise.all(orderedRefs.map(ref => attachments.readImageRequest(ref, requestImageTarget(ref, budget), signal)))
   const versions = new Map<AttachmentId, RequestImageAttachment>()
   for (const [index, ref] of orderedRefs.entries()) {
     versions.set(ref.attachmentId, prepared[index] as RequestImageAttachment)
@@ -161,9 +172,9 @@ function splitSystemPrompt(options: GenerateOptions): SystemPromptSplit {
 function piContext(systemPrompt: string | undefined, options: GenerateOptions, messages: PiMessage[]): PiContext {
   const tools = toolsOf(options)
   return {
-    ...systemPrompt !== undefined ? { systemPrompt } : {},
+    ...(systemPrompt !== undefined ? { systemPrompt } : {}),
     messages,
-    ...tools !== undefined && tools.length > 0 ? { tools } : {},
+    ...(tools !== undefined && tools.length > 0 ? { tools } : {}),
   }
 }
 
@@ -195,8 +206,8 @@ function appendDeveloper(message: Extract<Message, { role: 'developer' }>, optio
     role: 'system',
     content,
     timestamp: 0,
-    ...toolsAdded.length === 0 ? {} : { toolsAdded },
-    ...toolsRemoved.length === 0 ? {} : { toolsRemoved },
+    ...(toolsAdded.length === 0 ? {} : { toolsAdded }),
+    ...(toolsRemoved.length === 0 ? {} : { toolsRemoved }),
   })
 }
 
@@ -295,11 +306,7 @@ export function requestImageTarget(ref: ImageAttachmentRef, budget: PiImageReque
  * @returns the pi-ai context; `tools` is omitted when the request declares none.
  * @throws {LlmError} `UNSUPPORTED_CONTENT` for images in any history role, including a leading system message.
  */
-export function toPiContext(
-  options: GenerateOptions,
-  images?: undefined,
-  onReplayDegrade?: (reason: string) => void,
-): PiContext
+export function toPiContext(options: GenerateOptions, images?: undefined, onReplayDegrade?: (reason: string) => void): PiContext
 /**
  * Convert harness history to a pi-ai Context while resolving durable images.
  * Tool result names are recovered from preceding assistant tool calls. Image
@@ -322,9 +329,7 @@ export function toPiContext(
   images?: PiImageRequestContext,
   onReplayDegrade?: (reason: string) => void,
 ): PiContext | Promise<PiContext> {
-  return images === undefined
-    ? textOnlyContext(options, onReplayDegrade)
-    : toPiContextWithImages(options, images, onReplayDegrade)
+  return images === undefined ? textOnlyContext(options, onReplayDegrade) : toPiContextWithImages(options, images, onReplayDegrade)
 }
 
 async function toPiContextWithImages(
@@ -354,10 +359,7 @@ async function toPiContextWithImages(
       )
     }
   }
-  const exactMessages = projectOffloadedImages(
-    split.messages,
-    ref => offloadedImageText(ref, resolveImageAccess(ref)),
-  )
+  const exactMessages = projectOffloadedImages(split.messages, ref => offloadedImageText(ref, resolveImageAccess(ref)))
   const toolNames = new Map<ToolCallId, string>()
   const messages: PiMessage[] = []
 

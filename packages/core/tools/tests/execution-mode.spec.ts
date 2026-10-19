@@ -1,6 +1,6 @@
 /** Covers fail-closed per-call classification and model-schema isolation. */
 
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -27,24 +27,32 @@ function exec(name: string, args: unknown): ToolExecutionInput {
 describe('ToolRuntime.executionMode', () => {
   it('returns parallel only for an explicit true classifier', async () => {
     const ctx = await setup()
-    ctx.tools.register(defineContentToolFixture({
-      name: 'safe',
-      description: 'parallel-safe',
-      parameters: {},
-      isConcurrencySafe: () => true,
-      async execute() { return [] },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'safe',
+        description: 'parallel-safe',
+        parameters: {},
+        isConcurrencySafe: () => true,
+        async execute() {
+          return []
+        },
+      }),
+    )
     expect(ctx.tools.executionMode(exec('safe', {}))).toEqual({ kind: 'parallel' })
   })
 
   it('defaults to exclusive for a tool with no isConcurrencySafe declaration', async () => {
     const ctx = await setup()
-    ctx.tools.register(defineContentToolFixture({
-      name: 'plain',
-      description: 'no declaration',
-      parameters: {},
-      async execute() { return [] },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'plain',
+        description: 'no declaration',
+        parameters: {},
+        async execute() {
+          return []
+        },
+      }),
+    )
     expect(ctx.tools.executionMode(exec('plain', {}))).toEqual({ kind: 'exclusive' })
   })
 
@@ -55,26 +63,34 @@ describe('ToolRuntime.executionMode', () => {
 
   it('returns exclusive when the classifier returns false for these args', async () => {
     const ctx = await setup()
-    ctx.tools.register(defineContentToolFixture({
-      name: 'rw',
-      description: 'read or write',
-      parameters: { mode: { type: 'string', required: true } },
-      isConcurrencySafe: args => args.mode === 'read',
-      async execute() { return [] },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'rw',
+        description: 'read or write',
+        parameters: { mode: { type: 'string', required: true } },
+        isConcurrencySafe: args => args.mode === 'read',
+        async execute() {
+          return []
+        },
+      }),
+    )
     expect(ctx.tools.executionMode(exec('rw', { mode: 'read' }))).toEqual({ kind: 'parallel' })
     expect(ctx.tools.executionMode(exec('rw', { mode: 'write' }))).toEqual({ kind: 'exclusive' })
   })
 
   it('classifies invalid defineContentToolFixture arguments as exclusive without throwing', async () => {
     const ctx = await setup()
-    ctx.tools.register(defineContentToolFixture({
-      name: 'needs-mode',
-      description: 'requires mode',
-      parameters: { mode: { type: 'string', required: true } },
-      isConcurrencySafe: () => true,
-      async execute() { return [] },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'needs-mode',
+        description: 'requires mode',
+        parameters: { mode: { type: 'string', required: true } },
+        isConcurrencySafe: () => true,
+        async execute() {
+          return []
+        },
+      }),
+    )
     expect(ctx.tools.executionMode(exec('needs-mode', {}))).toEqual({ kind: 'exclusive' })
   })
 
@@ -85,8 +101,12 @@ describe('ToolRuntime.executionMode', () => {
       description: 'classifier throws',
       parameters: { type: 'object', properties: {} },
       output: { schema: { type: 'null' }, render: () => [] },
-      isConcurrencySafe() { throw new Error('boom') },
-      async execute() { return null },
+      isConcurrencySafe() {
+        throw new Error('boom')
+      },
+      async execute() {
+        return null
+      },
     }
     ctx.tools.register(raw)
     expect(ctx.tools.executionMode(exec('thrower', {}))).toEqual({ kind: 'exclusive' })
@@ -99,8 +119,12 @@ describe('ToolRuntime.executionMode', () => {
       description: 'classifier returns a truthy string',
       parameters: { type: 'object', properties: {} },
       output: { schema: { type: 'null' }, render: () => [] },
-      isConcurrencySafe() { return 'yes' },
-      async execute() { return null },
+      isConcurrencySafe() {
+        return 'yes'
+      },
+      async execute() {
+        return null
+      },
     } as unknown as ToolDefinition
     ctx.tools.register(raw)
     expect(ctx.tools.executionMode(exec('truthy', {}))).toEqual({ kind: 'exclusive' })
@@ -114,8 +138,13 @@ describe('ToolRuntime.executionMode', () => {
       description: 'raw',
       parameters: { type: 'object', properties: {} },
       output: { schema: { type: 'null' }, render: () => [] },
-      isConcurrencySafe(args) { seen = args; return true },
-      async execute() { return null },
+      isConcurrencySafe(args) {
+        seen = args
+        return true
+      },
+      async execute() {
+        return null
+      },
     })
     expect(ctx.tools.executionMode(exec('raw-safe', { anything: 1 }))).toEqual({ kind: 'parallel' })
     expect(seen).toEqual({ anything: 1 })
@@ -123,13 +152,17 @@ describe('ToolRuntime.executionMode', () => {
 
   it('isConcurrencySafe never reaches the model-facing schemas() projection', async () => {
     const ctx = await setup()
-    ctx.tools.register(defineContentToolFixture({
-      name: 'safe',
-      description: 'parallel-safe',
-      parameters: { x: { type: 'string', required: true } },
-      isConcurrencySafe: () => true,
-      async execute() { return [] },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'safe',
+        description: 'parallel-safe',
+        parameters: { x: { type: 'string', required: true } },
+        isConcurrencySafe: () => true,
+        async execute() {
+          return []
+        },
+      }),
+    )
     const schema = ctx.tools.schemas()[0] as unknown as Record<string, unknown>
     expect(Object.keys(schema).sort()).toEqual(['description', 'name', 'parameters'])
     expect(schema.isConcurrencySafe).toBeUndefined()

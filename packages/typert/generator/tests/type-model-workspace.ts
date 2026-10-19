@@ -17,7 +17,7 @@ import { Buffer } from 'node:buffer'
 import type * as NodeFileSystem from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import ts from 'typescript'
-import { afterAll, afterEach, beforeAll } from 'vitest'
+import { afterAll, afterEach, beforeAll } from 'vite-plus/test'
 
 type FileSystem = typeof NodeFileSystem
 
@@ -128,9 +128,10 @@ function makeMemoryDirectory(path: string, recursive: boolean): string | undefin
 
 function memoryEntries(path: string): FileSystemEntries {
   const prefix = `${key(path)}/`
-  const children = (entries: Iterable<string>): string[] => [...entries]
-    .flatMap(entry => entry.startsWith(prefix) && !entry.slice(prefix.length).includes('/') ? [entry.slice(prefix.length)] : [])
-    .sort()
+  const children = (entries: Iterable<string>): string[] =>
+    [...entries]
+      .flatMap(entry => (entry.startsWith(prefix) && !entry.slice(prefix.length).includes('/') ? [entry.slice(prefix.length)] : []))
+      .sort()
   return { files: children(files.keys()), directories: children(directories) }
 }
 
@@ -171,9 +172,7 @@ export function memoryFileSystem(real: FileSystem): Record<string, unknown> {
         real.writeFileSync(path, data, options)
         return
       }
-      writeMemoryFile(path, typeof data === 'string'
-        ? data
-        : Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString('utf8'))
+      writeMemoryFile(path, typeof data === 'string' ? data : Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString('utf8'))
     },
     mkdirSync(
       path: NodeFileSystem.PathLike,
@@ -208,16 +207,13 @@ function installMemorySystem(): () => void {
   // Every checkProject program re-reads the default libraries from the installed typescript package, which is immutable.
   const libraryRoot = key(dirname(ts.getDefaultLibFilePath({})))
   const libraryFiles = new Map<string, string | undefined>()
-  system.fileExists = path => isMemoryPath(path) ? files.has(key(path)) : original.fileExists.call(system, path)
-  system.directoryExists = path => isMemoryPath(path)
-    ? directories.has(key(path))
-    : original.directoryExists.call(system, path)
-  system.getDirectories = path => isMemoryPath(path)
-    ? [...memoryEntries(path).directories]
-    : original.getDirectories.call(system, path)
-  system.readDirectory = (path, extensions, excludes, includes, depth) => isMemoryPath(path)
-    ? match(path, extensions, excludes, includes, system.useCaseSensitiveFileNames, process.cwd(), depth, memoryEntries, entry => entry)
-    : original.readDirectory.call(system, path, extensions, excludes, includes, depth)
+  system.fileExists = path => (isMemoryPath(path) ? files.has(key(path)) : original.fileExists.call(system, path))
+  system.directoryExists = path => (isMemoryPath(path) ? directories.has(key(path)) : original.directoryExists.call(system, path))
+  system.getDirectories = path => (isMemoryPath(path) ? [...memoryEntries(path).directories] : original.getDirectories.call(system, path))
+  system.readDirectory = (path, extensions, excludes, includes, depth) =>
+    isMemoryPath(path)
+      ? match(path, extensions, excludes, includes, system.useCaseSensitiveFileNames, process.cwd(), depth, memoryEntries, entry => entry)
+      : original.readDirectory.call(system, path, extensions, excludes, includes, depth)
   system.readFile = (path, encoding) => {
     if (isMemoryPath(path)) return files.get(key(path))
     if (encoding !== undefined || !isWithin(key(path), libraryRoot)) return original.readFile.call(system, path, encoding)
@@ -225,8 +221,10 @@ function installMemorySystem(): () => void {
     return libraryFiles.get(path)
   }
   const { realpath } = original
-  if (realpath !== undefined) system.realpath = path => isMemoryPath(path) ? path : realpath.call(system, path)
-  return () => { Object.assign(system, original) }
+  if (realpath !== undefined) system.realpath = path => (isMemoryPath(path) ? path : realpath.call(system, path))
+  return () => {
+    Object.assign(system, original)
+  }
 }
 
 /**
@@ -235,7 +233,9 @@ function installMemorySystem(): () => void {
  */
 export function useMemoryWorkspaces(): void {
   let restore: (() => void) | undefined
-  beforeAll(() => { restore = installMemorySystem() })
+  beforeAll(() => {
+    restore = installMemorySystem()
+  })
   afterEach(() => {
     for (const root of caseRoots.splice(0)) removeTree(root)
   })

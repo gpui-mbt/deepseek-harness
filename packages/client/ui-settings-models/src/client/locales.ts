@@ -20,7 +20,8 @@ export const en = {
   addCatalog: 'Third-party model provider',
   addCustom: 'Custom model API',
   addCatalogHint: 'Pick OpenAI, Anthropic, Kimi, or another provider from the built-in catalog and enter its API key.',
-  addCustomHint: 'Connect a relay, a self-hosted server, or any other OpenAI- or Anthropic-compatible endpoint by its base URL, protocol, and models.',
+  addCustomHint:
+    'Connect a relay, a self-hosted server, or any other OpenAI- or Anthropic-compatible endpoint by its base URL, protocol, and models.',
   addCatalogExhausted: 'Every catalog provider is already configured.',
   addCustomUnavailable: 'No API protocol is available to declare.',
   provider: 'Provider',
@@ -46,7 +47,8 @@ export const en = {
   keyFallbackDetected: 'Env var detected. ({hint})',
   keyFallbackDetectedHidden: 'Env var detected.',
   keyFallbackUnchecked: 'Environment credential status has not been confirmed.',
-  keyHelp: 'Saved credentials are used first. Environment fallbacks shown here, in order: {env}. Sources are launch environment, $cwd/.env, then $DSH_HOME/.env.',
+  keyHelp:
+    'Saved credentials are used first. Environment fallbacks shown here, in order: {env}. Sources are launch environment, $cwd/.env, then $DSH_HOME/.env.',
   authHelp: 'Authentication details',
   customized: 'Customized settings',
   baseUrl: 'Base URL',
@@ -76,7 +78,8 @@ export const en = {
   modelReasoningLevel: 'Level',
   modelReasoningValue: 'API value',
   modelReasoningHelp: 'About reasoning levels',
-  modelReasoningHelpText: 'The API value is sent in the request\'s reasoning-effort field, such as OpenAI\'s reasoning_effort. It defaults to the level name; where the model provider\'s API documentation specifies a different value, follow it. Off turns reasoning off and needs no value; a value already written in the configuration is kept and sent.',
+  modelReasoningHelpText:
+    "The API value is sent in the request's reasoning-effort field, such as OpenAI's reasoning_effort. It defaults to the level name; where the model provider's API documentation specifies a different value, follow it. Off turns reasoning off and needs no value; a value already written in the configuration is kept and sent.",
   modelReasoningNeedsLevel: 'Add at least one level besides Off, or turn reasoning levels off.',
   modelReasoningValueRequired: 'Every level besides Off needs an API value, and no value can be empty.',
   modelReasoningAdd: 'Add level',
@@ -90,7 +93,8 @@ export const en = {
   routingWindow: 'Peak window',
   routingWeekdays: 'weekdays (Mon–Fri)',
   routingHint: 'Choose a destination provider and model to route this model.',
-  routingPeakNote: 'Ollama Cloud bills peak only on weekdays 12:00–18:00 UTC. Weekends are off-peak all day, so they are never part of this window.',
+  routingPeakNote:
+    'Ollama Cloud bills peak only on weekdays 12:00–18:00 UTC. Weekends are off-peak all day, so they are never part of this window.',
   addModel: 'Add model',
   removeModel: 'Delete model',
   modelsEmpty: 'No models will be shown in the selector. Unlisted IDs can still be sent directly.',
@@ -118,7 +122,8 @@ export const en = {
   fetchAdopt: 'Add selected',
   customTag: 'Custom',
   customRoute: 'Provider ID',
-  customRouteHint: 'Lowercase identifier, starting with a letter, that uniquely names this provider in requests and as its credential name.',
+  customRouteHint:
+    'Lowercase identifier, starting with a letter, that uniquely names this provider in requests and as its credential name.',
   customRouteInvalid: 'Start with a lowercase letter; then lowercase letters, digits, and dashes.',
   customRouteTaken: 'A provider already uses this ID.',
   customDisplayName: 'Display name',
@@ -136,7 +141,8 @@ export const en = {
   create: 'Create provider',
   creating: 'Creating\u2026',
   welcomeTitle: 'Preview Notice',
-  welcomeBody: 'DeepSeek Harness 0.2 is still in preview, and many areas need continued improvement and refinement. We welcome feedback and suggestions from all developers and users. The new desktop app now targets a broad range of users, while developer-related advanced features can be enabled in the settings. DeepSeek Harness’s product features and plugin APIs are expected to continue rapid iteration and evolution, and will gradually stabilize over time.\n\nWe look forward to exploring the limits of intelligence together with users and developers around the world, building on open-source, reusable, and composable infrastructure. We welcome everyone to bring their ideas to life with DeepSeek Harness and participate in the community to enrich the plugin ecosystem.',
+  welcomeBody:
+    'DeepSeek Harness 0.2 is still in preview, and many areas need continued improvement and refinement. We welcome feedback and suggestions from all developers and users. The new desktop app now targets a broad range of users, while developer-related advanced features can be enabled in the settings. DeepSeek Harness’s product features and plugin APIs are expected to continue rapid iteration and evolution, and will gradually stabilize over time.\n\nWe look forward to exploring the limits of intelligence together with users and developers around the world, building on open-source, reusable, and composable infrastructure. We welcome everyone to bring their ideas to life with DeepSeek Harness and participate in the community to enrich the plugin ecosystem.',
   welcomeContinue: 'Continue',
   welcomeError: 'The acknowledgement could not be saved. Please try again.',
   onboardingTitle: 'Add an API key to get started',
@@ -226,7 +232,8 @@ export const zh: { [Key in keyof typeof en]: string } = {
   modelReasoningLevel: '档位',
   modelReasoningValue: 'API 参数值',
   modelReasoningHelp: '推理等级说明',
-  modelReasoningHelpText: 'API 参数值会写入请求的推理强度字段（如 OpenAI 的 reasoning_effort），默认与档位名相同；如有不同，以模型提供商的 API 文档为准。Off 表示关闭思考，不需要填写参数值；配置中已写入的值会保留并发送。',
+  modelReasoningHelpText:
+    'API 参数值会写入请求的推理强度字段（如 OpenAI 的 reasoning_effort），默认与档位名相同；如有不同，以模型提供商的 API 文档为准。Off 表示关闭思考，不需要填写参数值；配置中已写入的值会保留并发送。',
   modelReasoningNeedsLevel: '至少添加一个 Off 以外的档位；不需要思考请关闭推理等级。',
   modelReasoningValueRequired: 'Off 以外的档位都需要填写 API 参数值，且参数值不能为空字符串。',
   modelReasoningAdd: '添加档位',
@@ -286,7 +293,8 @@ export const zh: { [Key in keyof typeof en]: string } = {
   create: '创建提供商',
   creating: '创建中\u2026',
   welcomeTitle: '预览版说明',
-  welcomeBody: 'DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。\n\n我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之上，共同探索智能上限。欢迎大家用 DeepSeek Harness 将想法变成现实，与社区一起丰富插件生态。',
+  welcomeBody:
+    'DeepSeek Harness 目前的 0.2 版本仍处于预览阶段，还有许多地方需要持续改进和打磨，希望听取广大开发者和用户的反馈建议。现在，新的桌面端面向广泛用户，开发者相关的进阶功能可在配置中开启使用。预计 DeepSeek Harness 的产品功能以及插件 API 都会继续快速迭代、持续演化，并逐渐趋于稳定。\n\n我们期待与全球用户和开发者一起，在开源、可复用、可组合的基础设施之上，共同探索智能上限。欢迎大家用 DeepSeek Harness 将想法变成现实，与社区一起丰富插件生态。',
   welcomeContinue: '继续',
   welcomeError: '暂时无法保存确认状态，请重试。',
   onboardingTitle: '添加一个 API Key 开始使用',

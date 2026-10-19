@@ -5,10 +5,13 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Browser, Locator, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import {
   acknowledgeReloadConnectionLoss,
-  launchWebScaffold, watchConsole, webSnapshotMode, WELCOME_NOTICE_COPY,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  WELCOME_NOTICE_COPY,
   type WebScaffold,
 } from './scaffold.ts'
 import { openSettings, ZH_BROWSER_LOCALE } from './support.ts'
@@ -72,13 +75,9 @@ describe.skipIf(MODE === 'record')('web e2e: trusted remote host preferences', (
 
     await welcome.getByRole('button', { name: WELCOME_NOTICE_COPY.zh.continueLabel }).click()
     await welcome.waitFor({ state: 'detached', timeout: 15_000 })
-    await expect.poll(
-      () => page.locator('#root').evaluate(root => (root as HTMLElement).inert),
-      { timeout: 15_000 },
-    ).toBe(false)
+    await expect.poll(() => page.locator('#root').evaluate(root => (root as HTMLElement).inert), { timeout: 15_000 }).toBe(false)
     const settingsPath = join(scaffold.harnessHome, 'profiles', 'scaffold', 'cordis.patch.yml')
-    await expect.poll(() => readFile(settingsPath, 'utf8'), { timeout: 10_000 })
-      .toContain('welcomeNoticeVersion:')
+    await expect.poll(() => readFile(settingsPath, 'utf8'), { timeout: 10_000 }).toContain('welcomeNoticeVersion:')
 
     // The acknowledged version is durable, so the notice stays away after a reload.
     await reloadPage()
@@ -89,14 +88,12 @@ describe.skipIf(MODE === 'record')('web e2e: trusted remote host preferences', (
     await dialog.getByLabel('提供商', { exact: true }).selectOption('minimax-cn')
     await dialog.getByRole('button', { name: '保存', exact: true }).click()
     await dialog.getByText('已保存 minimax-cn。', { exact: true }).waitFor({ timeout: 15_000 })
-    await expect.poll(() => readFile(settingsPath, 'utf8'), { timeout: 10_000 })
-      .toContain('minimax-cn: {}')
+    await expect.poll(() => readFile(settingsPath, 'utf8'), { timeout: 10_000 }).toContain('minimax-cn: {}')
 
     await dialog.getByRole('button', { name: '通用设置', exact: true }).click()
     await dialog.getByRole('button', { name: '深色', exact: true }).click()
     await expect.poll(() => page.locator('body').getAttribute('data-ds-dark-theme')).toBe('')
-    await expect.poll(() => readFile(settingsPath, 'utf8'), { timeout: 10_000 })
-      .toContain('preference: dark')
+    await expect.poll(() => readFile(settingsPath, 'utf8'), { timeout: 10_000 }).toContain('preference: dark')
 
     await reloadPage()
     await expectOnboardingSettled(page)
@@ -116,10 +113,7 @@ describe.skipIf(MODE === 'record')('web e2e: trusted remote host preferences', (
       await freshPage.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
       const freshDialog = await expectOnboardingSettled(freshPage)
       await freshDialog.getByRole('button', { name: '编辑 minimax-cn', exact: true }).waitFor({ timeout: 15_000 })
-      await expect.poll(
-        () => freshPage.locator('body').getAttribute('data-ds-dark-theme'),
-        { timeout: 15_000 },
-      ).toBe('')
+      await expect.poll(() => freshPage.locator('body').getAttribute('data-ds-dark-theme'), { timeout: 15_000 }).toBe('')
       expect(freshTripwire.warnings).toEqual([])
       expect(freshTripwire.pageErrors).toEqual([])
     } finally {

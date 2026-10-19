@@ -17,7 +17,8 @@ export type NativeArchitecture = 'arm64' | 'x64'
  * @throws When the current host has no native implementation.
  */
 export function nativeHostArchitecture(platform: string, architecture: string): NativeArchitecture {
-  if (platform !== 'darwin' || (architecture !== 'arm64' && architecture !== 'x64')) throw new Error('Computer Use currently requires macOS on Apple silicon or Intel. Windows support is in development')
+  if (platform !== 'darwin' || (architecture !== 'arm64' && architecture !== 'x64'))
+    throw new Error('Computer Use currently requires macOS on Apple silicon or Intel. Windows support is in development')
   return architecture
 }
 
@@ -76,15 +77,33 @@ async function compileNative(spec: NativeBuildSpec, signal: AbortSignal, executa
   const nativeRoot = join(spec.packageRoot, 'native')
   const scratch = join(nativeRoot, '.build', `runtime-${spec.architecture}`)
   const handle = spec.subprocess.spawn({
-    argv: ['/usr/bin/xcrun', 'swift', 'build', '--package-path', nativeRoot,
-      '--scratch-path', scratch, '--configuration', 'release', '--product', 'dsh-cua-native',
-      '--arch', spec.architecture === 'x64' ? 'x86_64' : 'arm64'],
-    cwd: spec.packageRoot, signal, graceMs: spec.graceMs,
+    argv: [
+      '/usr/bin/xcrun',
+      'swift',
+      'build',
+      '--package-path',
+      nativeRoot,
+      '--scratch-path',
+      scratch,
+      '--configuration',
+      'release',
+      '--product',
+      'dsh-cua-native',
+      '--arch',
+      spec.architecture === 'x64' ? 'x86_64' : 'arm64',
+    ],
+    cwd: spec.packageRoot,
+    signal,
+    graceMs: spec.graceMs,
     stdio: { stdin: 'ignore', stdout: { maxBytes: 65_536 }, stderr: { maxBytes: 65_536 } },
   })
   let outcome: SubprocessOutcome
-  try { outcome = await handle.done } finally {
-    try { handle.terminate() } finally {
+  try {
+    outcome = await handle.done
+  } finally {
+    try {
+      handle.terminate()
+    } finally {
       await handle.waitForExit()
     }
   }
@@ -95,7 +114,9 @@ async function compileNative(spec: NativeBuildSpec, signal: AbortSignal, executa
   }
   const built = await readFile(join(scratch, 'release', 'dsh-cua-native'))
   let previous: Buffer | undefined
-  try { previous = await readFile(executable) } catch (error) {
+  try {
+    previous = await readFile(executable)
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
   }
   signal.throwIfAborted()
@@ -104,7 +125,9 @@ async function compileNative(spec: NativeBuildSpec, signal: AbortSignal, executa
   const runtime = join(nativeRoot, '.build', 'prepared', spec.architecture, digest, 'dsh-cua-native')
   await mkdir(dirname(runtime), { recursive: true })
   let retained: Buffer | undefined
-  try { retained = await readFile(runtime) } catch (error) {
+  try {
+    retained = await readFile(runtime)
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
   }
   if (retained && !retained.equals(built)) throw new Error('Computer Use retained executable does not match its content digest')

@@ -62,11 +62,7 @@ interface Replacement {
 export type LinkNode = Extract<Nodes, { type: 'link' | 'definition' }>
 
 /** Offset of the one top-level switcher link immediately following the H1. */
-export function languageSwitcherLinkOffset(
-  tree: Nodes,
-  markdown: string,
-  acceptedTargets: string | readonly string[],
-): number | undefined {
+export function languageSwitcherLinkOffset(tree: Nodes, markdown: string, acceptedTargets: string | readonly string[]): number | undefined {
   if (tree.type !== 'root') return undefined
   const accepted = new Set(typeof acceptedTargets === 'string' ? [acceptedTargets] : acceptedTargets)
   const headingIndex = tree.children.findIndex(node => node.type === 'heading' && node.depth === 1)
@@ -88,11 +84,7 @@ export function languageSwitcherLinkOffset(
 }
 
 /** Whether the tree carries its canonical top-level language switcher. */
-export function hasLanguageSwitcher(
-  tree: Nodes,
-  markdown: string,
-  acceptedTargets: string | readonly string[],
-): boolean {
+export function hasLanguageSwitcher(tree: Nodes, markdown: string, acceptedTargets: string | readonly string[]): boolean {
   return languageSwitcherLinkOffset(tree, markdown, acceptedTargets) !== undefined
 }
 
@@ -125,10 +117,7 @@ function repositoryRelativePath(path: string): string | undefined {
   return normalized
 }
 
-function resolveRepositoryTarget(
-  rawPath: string,
-  context: TranslationLinkContext,
-): string | undefined {
+function resolveRepositoryTarget(rawPath: string, context: TranslationLinkContext): string | undefined {
   const decoded = decodePath(rawPath)
   const exact = repositoryRelativePath(posix.join(posix.dirname(context.sourcePath), decoded))
   if (exact === undefined) return undefined
@@ -138,34 +127,25 @@ function resolveRepositoryTarget(
 function translationPairTarget(targetPath: string, context: TranslationLinkContext): TranslationPairTarget | undefined {
   const source = targetPath.endsWith('.zh.md')
     ? targetPath.replace(/\.zh\.md$/, '.md')
-    : targetPath.endsWith('.md') ? targetPath : undefined
+    : targetPath.endsWith('.md')
+      ? targetPath
+      : undefined
   if (source === undefined || !context.isTranslationPairSource(source)) return undefined
   const zh = source.replace(/\.md$/, '.zh.md')
   return { source, zh }
 }
 
 function encodePathSegment(segment: string): string {
-  return encodeURIComponent(segment).replace(/[!'()*]/g, character => (
-    `%${character.charCodeAt(0).toString(16).toUpperCase()}`
-  ))
+  return encodeURIComponent(segment).replace(/[!'()*]/g, character => `%${character.charCodeAt(0).toString(16).toUpperCase()}`)
 }
 
-function relativeExpectedPath(
-  context: TranslationLinkContext,
-  expectedPath: string,
-  rawPath: string,
-): string {
+function relativeExpectedPath(context: TranslationLinkContext, expectedPath: string, rawPath: string): string {
   const relative = posix.relative(posix.dirname(context.sourcePath), expectedPath)
   const encoded = relative.split('/').map(encodePathSegment).join('/')
   return rawPath.startsWith('./') && !encoded.startsWith('.') ? `./${encoded}` : encoded
 }
 
-function expectedLocalePath(
-  rawPath: string,
-  locale: 'en' | 'zh',
-  context: TranslationLinkContext,
-  expectedPath: string,
-): string {
+function expectedLocalePath(rawPath: string, locale: 'en' | 'zh', context: TranslationLinkContext, expectedPath: string): string {
   if (locale === 'zh' && rawPath.endsWith('.md') && !rawPath.endsWith('.zh.md')) {
     return rawPath.replace(/\.md$/, '.zh.md')
   }
@@ -173,11 +153,7 @@ function expectedLocalePath(
   return relativeExpectedPath(context, expectedPath, rawPath)
 }
 
-function resolveTranslationLink(
-  url: string,
-  context: TranslationLinkContext,
-  authoredUrl: string,
-): ResolvedTranslationLink | undefined {
+function resolveTranslationLink(url: string, context: TranslationLinkContext, authoredUrl: string): ResolvedTranslationLink | undefined {
   if (isExternalOrAbsoluteMarkdownUrl(url)) return undefined
   const { path } = splitMarkdownUrlTarget(url)
   const authored = splitMarkdownUrlTarget(authoredUrl)
@@ -235,16 +211,14 @@ function visitDocumentLinkNodes(
   const switcherOffset = languageSwitcherLinkOffset(tree, markdown, skipTargets)
   const referencedIdentifiers = new Set<string>()
   const visitedDefinitions = new Set<string>()
-  visitMarkdown(tree, (node) => {
+  visitMarkdown(tree, node => {
     if (node.type === 'linkReference') referencedIdentifiers.add(node.identifier)
   })
-  visitMarkdown(tree, (node) => {
+  visitMarkdown(tree, node => {
     if (node.type === 'link' && node.position?.start.offset === switcherOffset) return
     if (node.type === 'link') {
       visitor(node)
-    } else if (node.type === 'definition'
-      && referencedIdentifiers.has(node.identifier)
-      && !visitedDefinitions.has(node.identifier)) {
+    } else if (node.type === 'definition' && referencedIdentifiers.has(node.identifier) && !visitedDefinitions.has(node.identifier)) {
       visitedDefinitions.add(node.identifier)
       visitor(node)
     }
@@ -258,12 +232,17 @@ function visitResolvedDocumentLinks(
   visitor: (node: LinkNode, destination: MarkdownDestination, resolved: ResolvedTranslationLink) => void,
   tree?: Nodes,
 ): void {
-  visitDocumentLinkNodes(markdown, skipTargets, (node) => {
-    if (isExternalOrAbsoluteMarkdownUrl(node.url)) return
-    const destination = markdownDestination(markdown, node)
-    const resolved = resolveTranslationLink(node.url, context, destination.url)
-    if (resolved !== undefined) visitor(node, destination, resolved)
-  }, tree)
+  visitDocumentLinkNodes(
+    markdown,
+    skipTargets,
+    node => {
+      if (isExternalOrAbsoluteMarkdownUrl(node.url)) return
+      const destination = markdownDestination(markdown, node)
+      const resolved = resolveTranslationLink(node.url, context, destination.url)
+      if (resolved !== undefined) visitor(node, destination, resolved)
+    },
+    tree,
+  )
 }
 
 /**
@@ -281,15 +260,21 @@ export function translationLinkLocaleViolations(
   tree?: Nodes,
 ): TranslationLinkLocaleViolation[] {
   const violations: TranslationLinkLocaleViolation[] = []
-  visitResolvedDocumentLinks(markdown, context, skipTargets, (node, destination, resolved) => {
-    if (hasExpectedLocale(resolved)) return
-    violations.push({
-      sourcePath: context.sourcePath,
-      line: node.position?.start.line ?? 0,
-      url: destination.url,
-      expectedUrl: resolved.expectedUrl,
-    })
-  }, tree)
+  visitResolvedDocumentLinks(
+    markdown,
+    context,
+    skipTargets,
+    (node, destination, resolved) => {
+      if (hasExpectedLocale(resolved)) return
+      violations.push({
+        sourcePath: context.sourcePath,
+        line: node.position?.start.line ?? 0,
+        url: destination.url,
+        expectedUrl: resolved.expectedUrl,
+      })
+    },
+    tree,
+  )
   return violations
 }
 
@@ -342,12 +327,18 @@ export function normalizeTranslationMarkdownLinkEdits(
   tree?: Nodes,
 ): TranslationLinkNormalization {
   const edits: TranslationLinkDestinationEdit[] = []
-  visitResolvedDocumentLinks(markdown, context, skipTargets, (node, destination, resolved) => {
-    edits.push({
-      node,
-      ...replacementFor(destination, `dsh-translation-target:${resolved.pair.source}${resolved.suffix}`),
-    })
-  }, tree)
+  visitResolvedDocumentLinks(
+    markdown,
+    context,
+    skipTargets,
+    (node, destination, resolved) => {
+      edits.push({
+        node,
+        ...replacementFor(destination, `dsh-translation-target:${resolved.pair.source}${resolved.suffix}`),
+      })
+    },
+    tree,
+  )
   const content = applyReplacements(markdown, [...edits])
   return { content, edits: edits.sort((left, right) => left.start - right.start) }
 }
@@ -370,15 +361,9 @@ export function normalizeTranslationMarkdownLinks(
 }
 
 /** Semantic target of one authored inline link or referenced definition. */
-export function semanticTranslationLinkNodeTarget(
-  node: LinkNode,
-  markdown: string,
-  context: TranslationLinkContext,
-): string {
+export function semanticTranslationLinkNodeTarget(node: LinkNode, markdown: string, context: TranslationLinkContext): string {
   if (isExternalOrAbsoluteMarkdownUrl(node.url)) return authoredExternalTarget(markdown, node)
   const destination = markdownDestination(markdown, node)
   const resolved = resolveTranslationLink(node.url, context, destination.url)
-  return resolved === undefined
-    ? destination.url
-    : `dsh-translation-target:${resolved.pair.source}${resolved.suffix}`
+  return resolved === undefined ? destination.url : `dsh-translation-target:${resolved.pair.source}${resolved.suffix}`
 }

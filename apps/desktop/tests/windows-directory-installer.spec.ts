@@ -2,12 +2,11 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { directoryInstallerExits, directoryInstallSection, directoryUninstaller } from '../scripts/windows-directory-installer.mjs'
 
 const require = createRequire(import.meta.url)
-const section = readFileSync(join(dirname(require.resolve('app-builder-lib/package.json')),
-  'templates/nsis/installSection.nsh'), 'utf8')
+const section = readFileSync(join(dirname(require.resolve('app-builder-lib/package.json')), 'templates/nsis/installSection.nsh'), 'utf8')
 
 it('keeps data cleanup out of the upstream template while retaining application removal and registration cleanup', () => {
   const source = readFileSync(join(dirname(require.resolve('app-builder-lib/package.json')), 'templates/nsis/uninstaller.nsh'), 'utf8')
@@ -20,10 +19,12 @@ it('keeps data cleanup out of the upstream template while retaining application 
   expect(directoryUninstaller(source.replaceAll('\n', '\r\n'))).toBe(adapted)
   expect(adapted).toContain('RMDir /r "\\\\?\\$INSTDIR"')
   expect(() => directoryUninstaller(source.replace('  Var /GLOBAL isDeleteAppData\n', ''))).toThrow('template changed')
-  expect(() => directoryUninstaller(source.replace('  DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"', ''))).toThrow('template changed')
+  expect(() => directoryUninstaller(source.replace('  DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"', ''))).toThrow(
+    'template changed',
+  )
 })
 
-it.each(['allowOnlyOneInstallerInstance.nsh', 'installUtil.nsh'])('cleans staged files before %s exits', (helper) => {
+it.each(['allowOnlyOneInstallerInstance.nsh', 'installUtil.nsh'])('cleans staged files before %s exits', helper => {
   const source = readFileSync(join(dirname(require.resolve('app-builder-lib/package.json')), 'templates/nsis/include', helper), 'utf8')
   const exits = source.match(/^\s*Quit\s*$/gm) ?? []
   expect(exits.length).toBeGreaterThan(0)
@@ -44,7 +45,8 @@ it('stages before stopping the application and promotes before registering the i
 })
 
 it.each(['!include installer.nsh', '!insertmacro setLinkVars', '!insertmacro installApplicationFiles'])(
-  'rejects a missing or duplicate upstream insertion point: %s', (point) => {
+  'rejects a missing or duplicate upstream insertion point: %s',
+  point => {
     expect(() => directoryInstallSection(section.replace(point, ''))).toThrow('Desktop NSIS template changed')
     expect(() => directoryInstallSection(`${section}\n${point}`)).toThrow('Desktop NSIS template changed')
   },

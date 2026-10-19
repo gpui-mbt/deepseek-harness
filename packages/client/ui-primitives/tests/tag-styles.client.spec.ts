@@ -6,7 +6,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const css = readFileSync(fileURLToPath(new URL('../src/Tag.module.css', import.meta.url)), 'utf8')
 
@@ -19,7 +19,7 @@ function declarations(tone: string): string {
 }
 
 describe('Tag.module.css', () => {
-  it.each(TONES)('gives the %s tone a rule that paints', (tone) => {
+  it.each(TONES)('gives the %s tone a rule that paints', tone => {
     expect(declarations(tone)).toMatch(/color:|background:|border:/)
   })
 

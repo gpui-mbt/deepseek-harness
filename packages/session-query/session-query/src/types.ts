@@ -89,17 +89,17 @@ export type SessionLineageTrace = {
   descendants: SessionLineageNode[]
 } & (
   | {
-    /** The complete parent chain is present in the logical corpus. */
-    complete: true
-    /** Detached record at the top of the complete lineage. */
-    root: SessionRecord
-  }
+      /** The complete parent chain is present in the logical corpus. */
+      complete: true
+      /** Detached record at the top of the complete lineage. */
+      root: SessionRecord
+    }
   | {
-    /** The parent chain leaves the visible logical corpus. */
-    complete: false
-    /** First parent id that is not present in the logical corpus. */
-    unresolvedParentId: SessionId
-  }
+      /** The parent chain leaves the visible logical corpus. */
+      complete: false
+      /** First parent id that is not present in the logical corpus. */
+      unresolvedParentId: SessionId
+    }
 )
 
 /** Request for direct surface replacements and relationships to cited source events around one event. */
@@ -171,21 +171,21 @@ export interface SessionTitleObservation {
 /** One ordered result from a batch title observation. */
 export type SessionTitleObservationResult =
   | {
-    /** Requested session id. */
-    sessionId: SessionId
-    /** Successful atomic header/title observation. */
-    status: 'fulfilled'
-    /** Header and optional latest title from one logical source. */
-    value: SessionTitleObservation
-  }
+      /** Requested session id. */
+      sessionId: SessionId
+      /** Successful atomic header/title observation. */
+      status: 'fulfilled'
+      /** Header and optional latest title from one logical source. */
+      value: SessionTitleObservation
+    }
   | {
-    /** Requested session id. */
-    sessionId: SessionId
-    /** Operational failure isolated to this session. */
-    status: 'rejected'
-    /** Original failure from logical-source resolution or title folding. */
-    reason: unknown
-  }
+      /** Requested session id. */
+      sessionId: SessionId
+      /** Operational failure isolated to this session. */
+      status: 'rejected'
+      /** Original failure from logical-source resolution or title folding. */
+      reason: unknown
+    }
 
 /** Inclusive numeric interval used by time and sequence filters. */
 export interface SessionResultRange {

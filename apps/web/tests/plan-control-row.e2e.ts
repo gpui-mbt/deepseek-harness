@@ -8,14 +8,18 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 // Type-only: pulls the plan/mode SessionEventMap merge so the discriminant
 // filter below types as the plan-mode event in the host aggregate.
 import type {} from '@deepseek-ai/dsh-plan-mode'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import {
-  assertFixtureInventory, compareOrRefreshGolden,
-  launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -34,7 +38,7 @@ const LONG_MODEL = 'DeepSeek-V4-Flash-Vision-Exp'
 
 /** Observe painted controls rather than the composer's internal compact flag. */
 async function controlLayout(page: Page) {
-  return page.getByRole('button', { name: /Select model/ }).evaluate((trigger) => {
+  return page.getByRole('button', { name: /Select model/ }).evaluate(trigger => {
     const card = trigger.closest('[data-composer-card]')
     const row = Array.from(card?.children ?? []).find(child => child.contains(trigger))
     if (!(row instanceof HTMLElement)) throw new Error('composer control row is missing')
@@ -47,14 +51,14 @@ async function controlLayout(page: Page) {
     const icon = trigger.querySelector(':scope > svg')
     if (label === null || icon === null) throw new Error('model trigger label or icon is missing')
     const rect = row.getBoundingClientRect()
-    const controls = Array.from(row.querySelectorAll('button')).filter(visible)
+    const controls = Array.from(row.querySelectorAll('button'))
+      .filter(visible)
       .map(button => button.getBoundingClientRect())
     return {
       width: rect.width,
       text: visible(label),
       icon: visible(icon),
-      singleLine: controls.length > 1
-        && Math.max(...controls.map(box => box.top)) < Math.min(...controls.map(box => box.bottom)),
+      singleLine: controls.length > 1 && Math.max(...controls.map(box => box.top)) < Math.min(...controls.map(box => box.bottom)),
       contained: controls.every(box => box.left >= rect.left && box.right <= rect.right),
     }
   })
@@ -63,12 +67,16 @@ async function controlLayout(page: Page) {
 /** Wait for the responsive column and control row to finish changing width. */
 async function resizeControls(page: Page, width: number): Promise<void> {
   await page.setViewportSize({ width, height: VIEWPORT.height })
-  await page.locator('[data-composer-card]').evaluate(async (card) => {
+  await page.locator('[data-composer-card]').evaluate(async card => {
     let previous = card.getBoundingClientRect().width
     let stable = 0
     const deadline = performance.now() + 5_000
     while (performance.now() < deadline) {
-      await new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve() }) })
+      await new Promise<void>(resolve => {
+        requestAnimationFrame(() => {
+          resolve()
+        })
+      })
       const current = card.getBoundingClientRect().width
       stable = Math.abs(current - previous) < 0.01 ? stable + 1 : 0
       if (stable >= 5) return
@@ -92,7 +100,14 @@ async function expectControlLayout(page: Page, compact: boolean): Promise<void> 
   const expected = { text: !compact, icon: compact, singleLine: true, contained: true }
   await expect.poll(() => controlLayout(page), { timeout: 10_000 }).toMatchObject(expected)
   for (let frame = 0; frame < 6; frame += 1) {
-    await page.evaluate(() => new Promise<void>((resolve) => { requestAnimationFrame(() => { resolve() }) }))
+    await page.evaluate(
+      () =>
+        new Promise<void>(resolve => {
+          requestAnimationFrame(() => {
+            resolve()
+          })
+        }),
+    )
     expect(await controlLayout(page)).toMatchObject(expected)
   }
 }
@@ -110,7 +125,9 @@ describe('web e2e: plan chip click area at the narrow viewport', () => {
     // steers a message), so the model trigger renders its real long label,
     // which is what made the reported overlap measurable.
     scaffold = await launchWebScaffold({ replayFixture: FIXTURE, replayProvidersOnly: true })
-    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { sessionEvents.push(event) })
+    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+      sessionEvents.push(event)
+    })
     browser = await chromium.launch()
     page = await newEnglishPage(browser, VIEWPORT.height)
     tripwire = watchConsole(page)
@@ -151,10 +168,13 @@ describe('web e2e: plan chip click area at the narrow viewport', () => {
     // The reported acceptance as numbers: both controls in viewport and
     // disjoint click areas (a non-zero overlap would fail), and — in the
     // click below — the chip center receiving the pointer.
-    const chipInViewport = chipBox!.x >= 0 && chipBox!.x + chipBox!.width <= VIEWPORT.width
-      && chipBox!.y >= 0 && chipBox!.y + chipBox!.height <= VIEWPORT.height
-    const triggerInViewport = triggerBox!.x >= 0 && triggerBox!.x + triggerBox!.width <= VIEWPORT.width
-      && triggerBox!.y >= 0 && triggerBox!.y + triggerBox!.height <= VIEWPORT.height
+    const chipInViewport =
+      chipBox!.x >= 0 && chipBox!.x + chipBox!.width <= VIEWPORT.width && chipBox!.y >= 0 && chipBox!.y + chipBox!.height <= VIEWPORT.height
+    const triggerInViewport =
+      triggerBox!.x >= 0 &&
+      triggerBox!.x + triggerBox!.width <= VIEWPORT.width &&
+      triggerBox!.y >= 0 &&
+      triggerBox!.y + triggerBox!.height <= VIEWPORT.height
     const overlapLeft = Math.max(chipBox!.x, triggerBox!.x)
     const overlapTop = Math.max(chipBox!.y, triggerBox!.y)
     const overlapRight = Math.min(chipBox!.x + chipBox!.width, triggerBox!.x + triggerBox!.width)
@@ -185,12 +205,12 @@ describe('web e2e: plan chip click area at the narrow viewport', () => {
     // The click must have committed the exit: the last plan/mode event flips
     // inactive (the /plan command's entry event stays active:true earlier in
     // the log, so the pair proves the exit and not just the entry).
-    const planModes = sessionEvents.filter(
-      (event): event is SessionEvent<'plan/mode'> => event.type === 'plan/mode',
-    )
+    const planModes = sessionEvents.filter((event): event is SessionEvent<'plan/mode'> => event.type === 'plan/mode')
     expect(planModes.at(-1)?.data.active).toBe(false)
 
-    await page.evaluate(async () => { await document.fonts.ready })
+    await page.evaluate(async () => {
+      await document.fonts.ready
+    })
     await resizeControls(page, 1680)
     await input.fill('/plan ')
     await input.press('Enter')
@@ -250,7 +270,9 @@ describe('web e2e: plan chip click area at the narrow viewport', () => {
       `- Shorter model restores text at the same width: ${String(shorter.width === collapsed.width && shorter.text && !shorter.icon)}`,
       `- Widening restores model text: ${String(widened.text && !widened.icon)}`,
       `- Removing the plan chip restores model text: ${String(withoutPlan.text && !withoutPlan.icon)}`,
-    ].join('\n').trimEnd()
+    ]
+      .join('\n')
+      .trimEnd()
     await compareOrRefreshGolden(LAYOUT_EXPECTED, golden, MODE)
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])

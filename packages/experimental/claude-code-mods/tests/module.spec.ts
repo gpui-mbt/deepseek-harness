@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { LoadedMod } from '../src/chain.ts'
 import { ModsEngine, OpDenied } from '../src/engine.ts'
 import { createOn, HookRegistry, registerMod } from '../src/module.ts'
@@ -16,7 +16,11 @@ describe('createOn', () => {
     on('tool.call', noop).catch(handler)
     on('tool.call', { tool: 'Bash' }, noop)
     on('ui.render', { component: 'Spinner' }, noop)
-    expect(hooks.map(hook => [hook.event, hook.matcher])).toEqual([['tool.call', undefined], ['tool.call', { tool: 'Bash' }], ['ui.render', { component: 'Spinner' }]])
+    expect(hooks.map(hook => [hook.event, hook.matcher])).toEqual([
+      ['tool.call', undefined],
+      ['tool.call', { tool: 'Bash' }],
+      ['ui.render', { component: 'Spinner' }],
+    ])
     expect(hooks[0]?.catchHandler).toBe(handler)
     expect(hooks.every(hook => hook.mod === owner)).toBe(true)
   })
@@ -35,7 +39,9 @@ describe('createOn', () => {
     expect(() => loose('turn.start', 'nope', noop)).toThrow(/matcher must be an object/)
     const registration = on('turn.complete', noop)
     const attach = registration.catch.bind(registration) as (handler: unknown) => void
-    expect(() => { attach('nope') }).toThrow(/needs a handler function/)
+    expect(() => {
+      attach('nope')
+    }).toThrow(/needs a handler function/)
   })
 })
 
@@ -60,7 +66,9 @@ describe('HookRegistry', () => {
     const c = mod('c', 2)
     expect(registry.select('fs.read', c).map(hook => hook.mod.name)).toEqual(['a', 'b', 'b'])
     expect(registry.describe(b)).toBe('tool.call{tool=Bash}, fs.read, *')
-    expect(() => { registry.add(mod('a', 5), []) }).toThrow(/another plugin of that name loads first/)
+    expect(() => {
+      registry.add(mod('a', 5), [])
+    }).toThrow(/another plugin of that name loads first/)
     registry.remove('b')
     registry.remove('nobody')
     expect(registry.select('tool.call').map(hook => hook.mod.name)).toEqual(['a'])
@@ -69,16 +77,30 @@ describe('HookRegistry', () => {
 })
 
 describe('registerMod', () => {
-  it('runs register with the mod\'s options and collects its hooks in registration order', async () => {
-    const { mod: loaded, hooks } = await registerMod({ name: 'first-mod', version: '0.1.0', root: '/mods/first', options: { greeting: 'hi' }, register: registerFirstMod }, 3)
+  it("runs register with the mod's options and collects its hooks in registration order", async () => {
+    const { mod: loaded, hooks } = await registerMod(
+      { name: 'first-mod', version: '0.1.0', root: '/mods/first', options: { greeting: 'hi' }, register: registerFirstMod },
+      3,
+    )
     expect(loaded).toEqual({ name: 'first-mod', version: '0.1.0', root: '/mods/first', order: 3, options: { greeting: 'hi' } })
     expect(hooks.map(hook => hook.event)).toEqual(['session.start', 'tool.call', 'command.run', 'ui.render'])
   })
 
-  it('reports a register that throws with Claude Code\'s wording, refuses an invalid name, and defaults the root to the cwd', async () => {
-    await expect(registerMod({ name: 'broken-mod', register: (on) => { on('tool.calls', noop) } }, 0))
-      .rejects.toThrow(/broken-mod: hooks module did not load: register threw .*"tool.calls" is not an event/)
-    await expect(registerMod({ name: 'bad name', register: noop as never }, 0)).rejects.toThrow(/a plugin name uses letters, digits, _ and - only/)
+  it("reports a register that throws with Claude Code's wording, refuses an invalid name, and defaults the root to the cwd", async () => {
+    await expect(
+      registerMod(
+        {
+          name: 'broken-mod',
+          register: on => {
+            on('tool.calls', noop)
+          },
+        },
+        0,
+      ),
+    ).rejects.toThrow(/broken-mod: hooks module did not load: register threw .*"tool.calls" is not an event/)
+    await expect(registerMod({ name: 'bad name', register: noop as never }, 0)).rejects.toThrow(
+      /a plugin name uses letters, digits, _ and - only/,
+    )
     const { mod: loaded } = await registerMod({ name: 'bare', register: () => {} }, 0)
     expect(loaded).toEqual({ name: 'bare', version: undefined, root: process.cwd(), options: {}, order: 0 })
   })
@@ -105,12 +127,19 @@ describe('ModsEngine', () => {
     expect(await second.state.get(ref)).toEqual({ value: undefined })
     await e.forgetSession('s1')
     expect(await first.state.get(ref)).toEqual({ value: undefined })
-    await expect(e.invoke(owner, 'state.get', { plugin: 1, key: 'x' }, { key: 's1' }, new AbortController().signal))
-      .rejects.toThrow(/needs \{ plugin, key \} strings/)
+    await expect(e.invoke(owner, 'state.get', { plugin: 1, key: 'x' }, { key: 's1' }, new AbortController().signal)).rejects.toThrow(
+      /needs \{ plugin, key \} strings/,
+    )
     // `$` is read-only, and a member outside the served table rejects by name.
-    expect(() => { (first as { env: unknown }).env = {} }).toThrow(TypeError)
-    expect(() => { Object.defineProperty(first, 'extra', { value: 1 }) }).toThrow(TypeError)
-    expect(() => { delete (first as { env?: unknown }).env }).toThrow(TypeError)
+    expect(() => {
+      ;(first as { env: unknown }).env = {}
+    }).toThrow(TypeError)
+    expect(() => {
+      Object.defineProperty(first, 'extra', { value: 1 })
+    }).toThrow(TypeError)
+    expect(() => {
+      delete (first as { env?: unknown }).env
+    }).toThrow(TypeError)
     const reaching = first as ModsApi & { model?: { complete: () => Promise<unknown> } }
     await expect(reaching.model?.complete()).rejects.toThrow('a: no implementation for model.complete')
     const before = Date.now()
@@ -123,8 +152,13 @@ describe('ModsEngine', () => {
   it('serves ops from the resolver, lets earlier mods intercept, and maps deny answers to rejections', async () => {
     const calls: string[] = []
     const { engine: e } = engine({
-      'fs.read': (input) => { calls.push(JSON.stringify(input)); return 'contents' },
-      'fs.write': () => { throw new OpDenied('read-only deployment') },
+      'fs.read': input => {
+        calls.push(JSON.stringify(input))
+        return 'contents'
+      },
+      'fs.write': () => {
+        throw new OpDenied('read-only deployment')
+      },
     })
     const policy = mod('policy', 0)
     const user = mod('user', 1)
@@ -159,10 +193,18 @@ describe('ModsEngine', () => {
       e.registry.add(owner, [])
       const $ = e.api(owner, undefined, { key: 's' }, new AbortController().signal)
       const ticks: string[] = []
-      const once = $.clock.after(10, () => { ticks.push('after') })
-      const every = $.clock.every(10, () => { ticks.push('every') })
-      $.clock.after(10, () => { throw new Error('tick failed') })
-      const cancelled = $.clock.after(5, () => { ticks.push('cancelled') })
+      const once = $.clock.after(10, () => {
+        ticks.push('after')
+      })
+      const every = $.clock.every(10, () => {
+        ticks.push('every')
+      })
+      $.clock.after(10, () => {
+        throw new Error('tick failed')
+      })
+      const cancelled = $.clock.after(5, () => {
+        ticks.push('cancelled')
+      })
       cancelled.cancel()
       await vi.advanceTimersByTimeAsync(25)
       expect(ticks).toEqual(['after', 'every', 'every'])
@@ -171,18 +213,30 @@ describe('ModsEngine', () => {
       every.cancel()
       await vi.advanceTimersByTimeAsync(20)
       expect(ticks).toEqual(['after', 'every', 'every'])
-      $.clock.every(10, () => { ticks.push('late') })
+      $.clock.every(10, () => {
+        ticks.push('late')
+      })
       await e.unload('a')
       await vi.advanceTimersByTimeAsync(30)
       expect(ticks).toEqual(['after', 'every', 'every'])
       const again = mod('b')
       e.registry.add(again, [])
       const $b = e.api(again, undefined, { key: 's' }, new AbortController().signal)
-      $b.clock.every(10, () => { ticks.push('b') })
+      $b.clock.every(10, () => {
+        ticks.push('b')
+      })
       await e.dispose()
       // A `$` a mod kept schedules nothing after its mod unloaded.
-      $b.clock.after(1, () => { ticks.push('late after') }).cancel()
-      $b.clock.every(1, () => { ticks.push('late every') }).cancel()
+      $b.clock
+        .after(1, () => {
+          ticks.push('late after')
+        })
+        .cancel()
+      $b.clock
+        .every(1, () => {
+          ticks.push('late every')
+        })
+        .cancel()
       await vi.advanceTimersByTimeAsync(30)
       expect(ticks).toEqual(['after', 'every', 'every'])
       expect(e.registry.list()).toEqual([])
@@ -198,9 +252,15 @@ describe('ModsEngine', () => {
       const owner = mod('a')
       e.registry.add(owner, [])
       const ticks: string[] = []
-      e.api(owner, undefined, { key: 's1' }, new AbortController().signal).clock.every(10, () => { ticks.push('s1') })
-      e.api(owner, undefined, { key: 's2' }, new AbortController().signal).clock.every(10, () => { ticks.push('s2') })
-      e.api(owner, undefined, { key: '' }, new AbortController().signal).clock.every(10, () => { ticks.push('sessionless') })
+      e.api(owner, undefined, { key: 's1' }, new AbortController().signal).clock.every(10, () => {
+        ticks.push('s1')
+      })
+      e.api(owner, undefined, { key: 's2' }, new AbortController().signal).clock.every(10, () => {
+        ticks.push('s2')
+      })
+      e.api(owner, undefined, { key: '' }, new AbortController().signal).clock.every(10, () => {
+        ticks.push('sessionless')
+      })
       await vi.advanceTimersByTimeAsync(10)
       expect(ticks).toEqual(['s1', 's2', 'sessionless'])
       await e.forgetSession('s1')
@@ -236,7 +296,9 @@ describe('ModsEngine', () => {
       return next(event)
     })
     e.registry.add(owner, hooks)
-    const result = await e.raise('turn.start', { turnId: '1', text: 'hi' }, event => ({ turnId: (event as { turnId: string }).turnId }), { binding: { key: 's' } })
+    const result = await e.raise('turn.start', { turnId: '1', text: 'hi' }, event => ({ turnId: (event as { turnId: string }).turnId }), {
+      binding: { key: 's' },
+    })
     expect(result).toEqual({ turnId: '1' })
     expect(origin).toEqual({ plugin: 'engine', tier: 'core' })
     expect(e.describe(owner)).toBe('turn.start')

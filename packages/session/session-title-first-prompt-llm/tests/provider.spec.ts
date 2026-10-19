@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import LlmRuntime, { createUserMessage, LlmAdapter, ReasoningEffortId, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -25,15 +25,15 @@ class RecordingAdapter extends LlmAdapter {
       provider,
       id: model,
       name: model,
-      ...efforts === undefined || floor === undefined
+      ...(efforts === undefined || floor === undefined
         ? {}
-        : { reasoning: { efforts: efforts.map(id => ({ id: ReasoningEffortId(id), name: id })) } },
+        : { reasoning: { efforts: efforts.map(id => ({ id: ReasoningEffortId(id), name: id })) } }),
     })
   }
 
-  override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     this.requests.push(options)
-    yield * this.script
+    yield* this.script
   }
 }
 
@@ -67,10 +67,7 @@ interface Harness {
   adapter: RecordingAdapter
 }
 
-async function harness(
-  script: readonly StreamChunk[] = FIRST_TITLE_SCRIPT,
-  reasoningEfforts?: readonly string[],
-): Promise<Harness> {
+async function harness(script: readonly StreamChunk[] = FIRST_TITLE_SCRIPT, reasoningEfforts?: readonly string[]): Promise<Harness> {
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(LlmRuntime)
@@ -85,10 +82,14 @@ async function harness(
 }
 
 function appendHumanPrompt(session: Session, text: string) {
-  return session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  return session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
 }
 
 async function settle(): Promise<void> {
@@ -109,7 +110,8 @@ describe('first-prompt LLM title provider', () => {
     const first = appendHumanPrompt(session, 'first input')
     await settle()
     session.append('request/header', {
-      header: { config: { provider: 'main', model: 'main-model' } }, reason: 'initial',
+      header: { config: { provider: 'main', model: 'main-model' } },
+      reason: 'initial',
     })
     await settle()
     appendHumanPrompt(session, 'second input must be ignored')
@@ -120,9 +122,9 @@ describe('first-prompt LLM title provider', () => {
     expect(adapter.requests).toHaveLength(2)
     for (const options of adapter.requests) {
       const text = textOf(options)
-      expect(text).toBe(`Generate the session title from this JSON array of human messages:\n${JSON.stringify([
-        { seq: first.seq, text: 'first input' },
-      ])}`)
+      expect(text).toBe(
+        `Generate the session title from this JSON array of human messages:\n${JSON.stringify([{ seq: first.seq, text: 'first input' }])}`,
+      )
       expect(text).not.toContain('currentTitle')
       expect(options.system).toBe(SYSTEM)
       expect(options.system).not.toContain('return it exactly unchanged')
@@ -149,15 +151,14 @@ describe('first-prompt LLM title provider', () => {
       ])}`,
     )
     expect(options.system).toBe(SYSTEM)
-    expect(session.snapshotEvents().findLast(event => event.type === 'session/title-llm-request')?.data)
-      .toEqual({
-        titleProvider: providerPlugin.name,
-        messageSeqs: [first.seq],
-        route: { provider: 'title-route', model: 'title-model' },
-        system: SYSTEM,
-        messages: options.messages,
-        maxTokens: 32,
-      })
+    expect(session.snapshotEvents().findLast(event => event.type === 'session/title-llm-request')?.data).toEqual({
+      titleProvider: providerPlugin.name,
+      messageSeqs: [first.seq],
+      route: { provider: 'title-route', model: 'title-model' },
+      system: SYSTEM,
+      messages: options.messages,
+      maxTokens: 32,
+    })
   })
 
   it('selects the route least supported reasoning effort for its own model calls', async () => {
@@ -235,12 +236,15 @@ describe('first-prompt LLM title provider', () => {
   it('requires positive target settings and rejects unknown configuration keys', () => {
     const ctx = new Context()
     onTestFinished(() => ctx.fiber.dispose())
-    expect(() => { providerPlugin.apply(ctx, { ...LLM_CONFIG, targetWords: 0 }) })
-      .toThrow(/targetWords.*positive integer/)
-    expect(() => { providerPlugin.apply(ctx, { ...LLM_CONFIG, targetCjkCharacters: 1.5 }) })
-      .toThrow(/targetCjkCharacters.*positive integer/)
-    expect(() => { providerPlugin.apply(ctx, { ...LLM_CONFIG, extra: true } as never) })
-      .toThrow(/unknown config key "extra"/)
+    expect(() => {
+      providerPlugin.apply(ctx, { ...LLM_CONFIG, targetWords: 0 })
+    }).toThrow(/targetWords.*positive integer/)
+    expect(() => {
+      providerPlugin.apply(ctx, { ...LLM_CONFIG, targetCjkCharacters: 1.5 })
+    }).toThrow(/targetCjkCharacters.*positive integer/)
+    expect(() => {
+      providerPlugin.apply(ctx, { ...LLM_CONFIG, extra: true } as never)
+    }).toThrow(/unknown config key "extra"/)
   })
 
   it('rejects an impossible empty provider request at its own boundary', async () => {
@@ -255,15 +259,17 @@ describe('first-prompt LLM title provider', () => {
     // the service never produces.
     let registered: SessionTitleProvider | undefined
     const register = ctx.sessionTitle.register.bind(ctx.sessionTitle)
-    ctx.sessionTitle.register = (provider) => {
+    ctx.sessionTitle.register = provider => {
       registered = provider
       return register(provider)
     }
     await ctx.plugin(providerPlugin, LLM_CONFIG)
-    await expect(registered!.generate({
-      session: Session.create(SessionId('empty-first-provider')),
-      messages: [],
-      signal: new AbortController().signal,
-    })).rejects.toThrow(/requires one human message/)
+    await expect(
+      registered!.generate({
+        session: Session.create(SessionId('empty-first-provider')),
+        messages: [],
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toThrow(/requires one human message/)
   })
 })

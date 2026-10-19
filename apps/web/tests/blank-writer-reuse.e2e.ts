@@ -1,7 +1,7 @@
 /** Blank Session writer acquisition through the shipped Web composition. */
 
 import { chromium, type Browser, type Page } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionHandle } from '@deepseek-ai/dsh-session-persistence'
 import { launchWebScaffold, watchConsole, type WebScaffold } from './scaffold.ts'
@@ -10,7 +10,7 @@ import { newEnglishPage } from './support.ts'
 const HELD = SessionId('blank-held')
 const FREE = SessionId('blank-free')
 
-describe.each([false, true])('web e2e: selected blank writer held: %s', (held) => {
+describe.each([false, true])('web e2e: selected blank writer held: %s', held => {
   let scaffold: WebScaffold
   let browser: Browser
   let writer: SessionHandle | undefined
@@ -45,7 +45,7 @@ describe.each([false, true])('web e2e: selected blank writer held: %s', (held) =
   async function openSavedBlank(sessionId = HELD): Promise<Page> {
     const page = await newEnglishPage(browser)
     tripwires.push(watchConsole(page))
-    await page.addInitScript((id) => {
+    await page.addInitScript(id => {
       localStorage.setItem('dsh.sessions.current', JSON.stringify({ sessionId: id }))
     }, sessionId)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
@@ -62,10 +62,12 @@ describe.each([false, true])('web e2e: selected blank writer held: %s', (held) =
 
   it('reuses the selected blank or creates on contention without trying another blank', async () => {
     const first = await openSavedBlank()
-    await expect.poll(async () => {
-      const id = await selected(first)
-      return id !== undefined && (!held || id !== HELD)
-    }).toBe(true)
+    await expect
+      .poll(async () => {
+        const id = await selected(first)
+        return id !== undefined && (!held || id !== HELD)
+      })
+      .toBe(true)
     const selectedId = SessionId((await selected(first))!)
     expect(selectedId).not.toBe(FREE)
     await expect.poll(() => scaffold.ctx.agents.get(selectedId)).toBeDefined()
@@ -73,8 +75,7 @@ describe.each([false, true])('web e2e: selected blank writer held: %s', (held) =
       expect(selectedId).toBe(HELD)
       const reclaimed = scaffold.ctx.agents.get(HELD)!
       expect(scaffold.ctx.sessionProjections.stateOf(reclaimed.session, 'plan')).toMatchObject({ active: true })
-      await expect(scaffold.ctx.sessionPersistence.open(HELD, 'write'))
-        .rejects.toMatchObject({ name: 'SessionAlreadyOwnedError' })
+      await expect(scaffold.ctx.sessionPersistence.open(HELD, 'write')).rejects.toMatchObject({ name: 'SessionAlreadyOwnedError' })
     }
     const count = held ? 3 : 2
     expect(scaffold.ctx.workspaceRegistry.list()[0]!.sessionIds).toHaveLength(count)

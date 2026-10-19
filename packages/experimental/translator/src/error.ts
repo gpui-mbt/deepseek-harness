@@ -9,7 +9,10 @@ export class TranslationError extends Error {
    * @param code - failure classification independent of localized UI wording.
    * @param message - diagnostic without source text or provider response content.
    */
-  constructor(readonly code: TranslationErrorCode, message: string) {
+  constructor(
+    readonly code: TranslationErrorCode,
+    message: string,
+  ) {
     super(message)
   }
 }

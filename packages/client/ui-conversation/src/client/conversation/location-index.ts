@@ -1,12 +1,20 @@
 import {
-  type AssistantLiveChunkEvent, type SessionEventLike, type SessionEventLikeEntry,
+  type AssistantLiveChunkEvent,
+  type SessionEventLike,
+  type SessionEventLikeEntry,
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import { notifySubscribers } from '@deepseek-ai/dsh-client-store'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type {
-  ConversationLocation, ConversationLocationData,
-  ConversationLocationDataSource, ConversationLocationDataStore, ConversationStepDataMap,
-  ConversationTimelineSnapshot, ConversationTurnDataMap, StepLocation, TurnLocation,
+  ConversationLocation,
+  ConversationLocationData,
+  ConversationLocationDataSource,
+  ConversationLocationDataStore,
+  ConversationStepDataMap,
+  ConversationTimelineSnapshot,
+  ConversationTurnDataMap,
+  StepLocation,
+  TurnLocation,
 } from '../contract/conversation.ts'
 
 interface OwnedLocationData {
@@ -36,7 +44,9 @@ class MutableLocationDataSource implements ConversationLocationDataSource<unknow
 
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   publish(): void {
@@ -140,18 +150,10 @@ const UNRESOLVED_LOCATION = { kind: 'unresolved' } as const
 function payloadCoordinates(event: SessionEventLike): Coordinates {
   const data = event.data as unknown as { turn?: unknown; step?: unknown }
   if (data.turn === null) return { session: true, location: undefined }
-  const turn = Number.isSafeInteger(data.turn) && (data.turn as number) >= 0
-    ? data.turn as number
-    : undefined
-  const step = Number.isSafeInteger(data.step) && (data.step as number) >= 0
-    ? data.step as number
-    : undefined
-  if (turn === undefined) return step === undefined
-    ? { location: undefined }
-    : { step, location: undefined }
-  return step === undefined
-    ? { turn, location: undefined }
-    : { turn, step, location: undefined }
+  const turn = Number.isSafeInteger(data.turn) && (data.turn as number) >= 0 ? (data.turn as number) : undefined
+  const step = Number.isSafeInteger(data.step) && (data.step as number) >= 0 ? (data.step as number) : undefined
+  if (turn === undefined) return step === undefined ? { location: undefined } : { step, location: undefined }
+  return step === undefined ? { turn, location: undefined } : { turn, step, location: undefined }
 }
 
 function sameReferences<T>(left: readonly T[], right: readonly T[]): boolean {
@@ -159,15 +161,20 @@ function sameReferences<T>(left: readonly T[], right: readonly T[]): boolean {
 }
 
 function sameStep(left: StepLocation | undefined, right: StepLocation): boolean {
-  return left !== undefined
-    && left.start === right.start && left.end === right.end && left.status === right.status
-    && left.data === right.data
+  return (
+    left !== undefined && left.start === right.start && left.end === right.end && left.status === right.status && left.data === right.data
+  )
 }
 
 function sameTurn(left: TurnLocation | undefined, right: TurnLocation): boolean {
-  return left !== undefined
-    && left.start === right.start && left.end === right.end && left.status === right.status
-    && left.data === right.data && sameReferences(left.steps, right.steps)
+  return (
+    left !== undefined &&
+    left.start === right.start &&
+    left.end === right.end &&
+    left.status === right.status &&
+    left.data === right.data &&
+    sameReferences(left.steps, right.steps)
+  )
 }
 
 function sameLocation(left: ConversationLocation | undefined, right: ConversationLocation | undefined): boolean {
@@ -220,9 +227,10 @@ export class ConversationLocationIndex {
     const turns = new Map<number, Map<string, OwnedLocationData>>()
     const steps = new Map<string, Map<string, OwnedLocationData>>()
     for (const { owner, data } of entries) {
-      const values = data.kind === 'turn'
-        ? turns.get(data.turn) ?? new Map<string, OwnedLocationData>()
-        : steps.get(stepDataKey(data.turn, requireStep(data))) ?? new Map<string, OwnedLocationData>()
+      const values =
+        data.kind === 'turn'
+          ? (turns.get(data.turn) ?? new Map<string, OwnedLocationData>())
+          : (steps.get(stepDataKey(data.turn, requireStep(data))) ?? new Map<string, OwnedLocationData>())
       const current = values.get(data.key)
       if (current !== undefined && current.owner !== owner) {
         throw new Error(`conversation Location data "${data.key}" is already owned by ${current.owner}`)
@@ -326,13 +334,14 @@ export class ConversationLocationIndex {
         currentTurn = explicit.turn
         if (explicit.step !== undefined) currentStep = explicit.step
       }
-      const turn = explicit.session === true ? undefined : explicit.turn ?? currentTurn
-      const step = explicit.session === true || event.type === 'turn/start' || event.type === 'turn/end'
-        ? undefined
-        : explicit.step ?? (turn === currentTurn ? currentStep : undefined)
+      const turn = explicit.session === true ? undefined : (explicit.turn ?? currentTurn)
+      const step =
+        explicit.session === true || event.type === 'turn/start' || event.type === 'turn/end'
+          ? undefined
+          : (explicit.step ?? (turn === currentTurn ? currentStep : undefined))
       coordinates.set(event.seq, {
-        ...turn === undefined ? {} : { turn },
-        ...turn === undefined || step === undefined ? {} : { step },
+        ...(turn === undefined ? {} : { turn }),
+        ...(turn === undefined || step === undefined ? {} : { step }),
         location: undefined,
       })
       if (turn !== undefined) turnDraft(turn, event.seq)
@@ -371,13 +380,11 @@ export class ConversationLocationIndex {
             step: candidate.step,
             start: candidate.start,
             end: candidate.end,
-            status: candidate.end !== undefined
-              ? 'closed'
-              : candidate.start === undefined ? 'unknown' : 'open',
+            status: candidate.end !== undefined ? 'closed' : candidate.start === undefined ? 'unknown' : 'open',
             data: this.stepData(candidate.turn, candidate.step),
           }
           const previous = previousSteps.get(candidate.step)
-          return sameStep(previous, value) ? previous as StepLocation : value
+          return sameStep(previous, value) ? (previous as StepLocation) : value
         })
       const value: TurnLocation = {
         turn: draft.turn,
@@ -387,14 +394,14 @@ export class ConversationLocationIndex {
         steps,
         data: this.turnData(draft.turn),
       }
-      nextTurns.set(draft.turn, sameTurn(previousTurn, value) ? previousTurn as TurnLocation : value)
+      nextTurns.set(draft.turn, sameTurn(previousTurn, value) ? (previousTurn as TurnLocation) : value)
     }
 
     const nextOrder = orderedDrafts.map(draft => draft.turn)
-    const turnOrder = this.timeline.turnOrder.length === nextOrder.length
-      && this.timeline.turnOrder.every((turn, index) => turn === nextOrder[index])
-      ? this.timeline.turnOrder
-      : nextOrder
+    const turnOrder =
+      this.timeline.turnOrder.length === nextOrder.length && this.timeline.turnOrder.every((turn, index) => turn === nextOrder[index])
+        ? this.timeline.turnOrder
+        : nextOrder
     let sameMap = previousTurns.size === nextTurns.size
     if (sameMap) {
       for (const [turn, value] of nextTurns) {
@@ -407,9 +414,7 @@ export class ConversationLocationIndex {
     for (const turn of new Set([...previousTurns.keys(), ...nextTurns.keys()])) {
       if (previousTurns.get(turn) !== nextTurns.get(turn)) this.changedTurns.add(turn)
     }
-    this.timeline = sameMap && turnOrder === this.timeline.turnOrder
-      ? this.timeline
-      : { turnOrder, turns: nextTurns }
+    this.timeline = sameMap && turnOrder === this.timeline.turnOrder ? this.timeline : { turnOrder, turns: nextTurns }
     this.stepsByTurn.clear()
     for (const [number, turn] of this.timeline.turns) {
       this.stepsByTurn.set(number, new Map(turn.steps.map(step => [step.step, step])))
@@ -426,10 +431,7 @@ export class ConversationLocationIndex {
 
     const changed = new Set<number>()
     for (const { event } of entries) {
-      if (!sameLocation(
-        previousCoordinates.get(event.seq)?.location,
-        this.coordinates.get(event.seq)?.location,
-      )) {
+      if (!sameLocation(previousCoordinates.get(event.seq)?.location, this.coordinates.get(event.seq)?.location)) {
         changed.add(event.seq)
       }
     }
@@ -442,8 +444,7 @@ export class ConversationLocationIndex {
    * @returns seqs whose immutable Location reference changed.
    */
   appendBoundary(event: SessionEvent): ReadonlySet<number> {
-    if (event.type !== 'turn/start' && event.type !== 'turn/end'
-      && event.type !== 'step/start' && event.type !== 'step/end') {
+    if (event.type !== 'turn/start' && event.type !== 'turn/end' && event.type !== 'step/start' && event.type !== 'step/end') {
       throw new Error(`conversation Location boundary expected, received ${event.type}`)
     }
 
@@ -462,12 +463,13 @@ export class ConversationLocationIndex {
     }
     const turnNumber = explicit.turn ?? this.currentTurn
     if (turnNumber === undefined) throw new Error(`conversation boundary ${event.type} has no turn`)
-    const stepNumber = event.type === 'turn/start' || event.type === 'turn/end'
-      ? undefined
-      : explicit.step ?? (turnNumber === this.currentTurn ? this.currentStep : undefined)
+    const stepNumber =
+      event.type === 'turn/start' || event.type === 'turn/end'
+        ? undefined
+        : (explicit.step ?? (turnNumber === this.currentTurn ? this.currentStep : undefined))
     this.coordinates.set(event.seq, {
       turn: turnNumber,
-      ...stepNumber === undefined ? {} : { step: stepNumber },
+      ...(stepNumber === undefined ? {} : { step: stepNumber }),
       location: this.coordinates.get(event.seq)?.location,
     })
     this.indexTurnSeq(turnNumber, event.seq)
@@ -486,30 +488,29 @@ export class ConversationLocationIndex {
         status: event.type === 'step/end' || previousStep?.end !== undefined ? 'closed' : 'open',
         data: this.stepData(turnNumber, number),
       }
-      const nextStep = sameStep(previousStep, candidate) ? previousStep as StepLocation : candidate
+      const nextStep = sameStep(previousStep, candidate) ? (previousStep as StepLocation) : candidate
       indexedSteps.set(number, nextStep)
       this.stepsByTurn.set(turnNumber, indexedSteps)
       const index = steps.findIndex(step => step.step === number)
-      steps = index < 0
-        ? [...steps, nextStep]
-        : steps.map((step, at) => at === index ? nextStep : step)
+      steps = index < 0 ? [...steps, nextStep] : steps.map((step, at) => (at === index ? nextStep : step))
     }
     const candidate: TurnLocation = {
       turn: turnNumber,
       start: event.type === 'turn/start' ? event : previousTurn?.start,
       end: event.type === 'turn/end' ? event : previousTurn?.end,
-      status: event.type === 'turn/end' || previousTurn?.end !== undefined
-        ? 'closed'
-        : event.type === 'turn/start' || previousTurn?.start !== undefined ? 'open' : 'unknown',
+      status:
+        event.type === 'turn/end' || previousTurn?.end !== undefined
+          ? 'closed'
+          : event.type === 'turn/start' || previousTurn?.start !== undefined
+            ? 'open'
+            : 'unknown',
       steps,
       data: this.turnData(turnNumber),
     }
-    const turn = sameTurn(previousTurn, candidate) ? previousTurn as TurnLocation : candidate
+    const turn = sameTurn(previousTurn, candidate) ? (previousTurn as TurnLocation) : candidate
     const turns = new Map(this.timeline.turns)
     turns.set(turnNumber, turn)
-    const turnOrder = previousTurn === undefined
-      ? [...this.timeline.turnOrder, turnNumber]
-      : this.timeline.turnOrder
+    const turnOrder = previousTurn === undefined ? [...this.timeline.turnOrder, turnNumber] : this.timeline.turnOrder
     this.timeline = { turnOrder, turns }
     if (turn !== previousTurn) this.changedTurns.add(turnNumber)
 
@@ -549,11 +550,14 @@ export class ConversationLocationIndex {
     }
     const turn = explicit.turn ?? this.currentTurn
     const step = explicit.step ?? (turn === this.currentTurn ? this.currentStep : undefined)
-    const coordinates: Coordinates = explicit.turn !== undefined && explicit.step !== undefined ? explicit : {
-      ...turn === undefined ? {} : { turn },
-      ...turn === undefined || step === undefined ? {} : { step },
-      location: undefined,
-    }
+    const coordinates: Coordinates =
+      explicit.turn !== undefined && explicit.step !== undefined
+        ? explicit
+        : {
+            ...(turn === undefined ? {} : { turn }),
+            ...(turn === undefined || step === undefined ? {} : { step }),
+            location: undefined,
+          }
     this.coordinates.set(event.seq, coordinates)
     if (turn !== undefined) this.indexTurnSeq(turn, event.seq)
     coordinates.location = this.resolve(event.seq)
@@ -579,9 +583,7 @@ export class ConversationLocationIndex {
    * Index one durable Assistant settlement inserted before an already visible tail.
    * @param event - message or attempt settlement with explicit Turn and Step coordinates.
    */
-  insertAssistantSettlement(
-    event: SessionEvent<'assistant/message'> | SessionEvent<'assistant/attempt'>,
-  ): void {
+  insertAssistantSettlement(event: SessionEvent<'assistant/message'> | SessionEvent<'assistant/attempt'>): void {
     const coordinates: Coordinates = {
       turn: event.data.turn,
       step: event.data.step,
@@ -622,16 +624,14 @@ export class ConversationLocationIndex {
   }
 
   private createDataStore(turn: number): MutableLocationDataStore {
-    return new MutableLocationDataStore((store) => {
+    return new MutableLocationDataStore(store => {
       this.dirtyDataStores.add(store)
       this.changedTurns.add(turn)
     })
   }
 
   private storeFor(data: ConversationLocationData): MutableLocationDataStore {
-    return data.kind === 'turn'
-      ? this.mutableTurnData(data.turn)
-      : this.mutableStepData(stepDataKey(data.turn, requireStep(data)))
+    return data.kind === 'turn' ? this.mutableTurnData(data.turn) : this.mutableStepData(stepDataKey(data.turn, requireStep(data)))
   }
 
   private resolve(seq: number): ConversationLocation {

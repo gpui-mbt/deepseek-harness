@@ -185,18 +185,27 @@ export function createFlowMotion(driver: () => InputFoldDriver | null, foldingCh
       if (height === 0 && marginTop === 0) box.finish()
     }
     const owned = [...boxes.values()]
-    const members = owned.filter(batchMember)
-      .sort((left, right) => left.element.compareDocumentPosition(right.element) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1)
+    const members = owned
+      .filter(batchMember)
+      .sort((left, right) => (left.element.compareDocumentPosition(right.element) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
     if (!members.some(box => box.closing)) return
     batch = true
     cancelled = false
-    const travelling = current.begin(members.map(box => box.closing ? box : {
-      element: box.element,
-      height: box.height - box.fromHeight,
-      marginTop: box.marginTop - box.fromMarginTop,
-      closing: false,
-    }))
-    batchCleanup = () => { current.finish(true) }
+    const travelling = current.begin(
+      members.map(box =>
+        box.closing
+          ? box
+          : {
+              element: box.element,
+              height: box.height - box.fromHeight,
+              marginTop: box.marginTop - box.fromMarginTop,
+              closing: false,
+            },
+      ),
+    )
+    batchCleanup = () => {
+      current.finish(true)
+    }
     for (const box of owned) box.take()
     for (const box of members) {
       box.element.style.transition = 'none'
@@ -286,12 +295,16 @@ export function createFlowMotion(driver: () => InputFoldDriver | null, foldingCh
     else frameRequest = requestAnimationFrame(tick)
   }
 
-  function foldActive(): boolean { return folding > 0 }
+  function foldActive(): boolean {
+    return folding > 0
+  }
 
   function onFoldIdle(listener: () => void): () => void {
     if (folding === 0) listener()
     else foldIdleListeners.add(listener)
-    return () => { foldIdleListeners.delete(listener) }
+    return () => {
+      foldIdleListeners.delete(listener)
+    }
   }
 
   function flushBatch(): void {
@@ -316,7 +329,9 @@ export function createFlowMotion(driver: () => InputFoldDriver | null, foldingCh
     batchScheduled = true
     // After the whole commit's collapses and reveals have started, before any box changes size.
     const epoch = clearEpoch
-    queueMicrotask(() => { if (epoch === clearEpoch) flushBatch() })
+    queueMicrotask(() => {
+      if (epoch === clearEpoch) flushBatch()
+    })
   }
 
   function foldStarted(): void {
@@ -385,8 +400,9 @@ export function createFlowMotion(driver: () => InputFoldDriver | null, foldingCh
     style.marginTop = `${marginTop}px`
     if (!held) {
       void element.offsetHeight
-      style.transition = `opacity ${FADE_OUT_MS}ms ${EASING}, `
-        + `height ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms, margin-top ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms`
+      style.transition =
+        `opacity ${FADE_OUT_MS}ms ${EASING}, ` +
+        `height ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms, margin-top ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms`
       style.opacity = '0'
       style.height = '0px'
       style.marginTop = '0px'
@@ -409,9 +425,21 @@ export function createFlowMotion(driver: () => InputFoldDriver | null, foldingCh
     }
     if (!held) element.addEventListener('transitionend', onEnd)
     running.set(element, cancel)
-    boxes.set(element, { element, height, marginTop, fromHeight: height, fromMarginTop: marginTop, closing: true, held, finish,
+    boxes.set(element, {
+      element,
+      height,
+      marginTop,
+      fromHeight: height,
+      fromMarginTop: marginTop,
+      closing: true,
+      held,
+      finish,
       release: () => {},
-      take: () => { element.removeEventListener('transitionend', onEnd); clearTimeout(timer) } })
+      take: () => {
+        element.removeEventListener('transitionend', onEnd)
+        clearTimeout(timer)
+      },
+    })
   }
 
   function reveal(element: HTMLElement): void {
@@ -437,8 +465,9 @@ export function createFlowMotion(driver: () => InputFoldDriver | null, foldingCh
     let timer: ReturnType<typeof setTimeout> | undefined
     const startTransition = (): void => {
       void element.offsetHeight
-      style.transition = `height ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms, margin-top ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms, `
-        + `opacity ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms`
+      style.transition =
+        `height ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms, margin-top ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms, ` +
+        `opacity ${CLOSE_MS}ms ${EASING} ${CLOSE_DELAY_MS}ms`
       style.height = `${height}px`
       style.marginTop = `${marginTop}px`
       style.opacity = '1'
@@ -449,12 +478,24 @@ export function createFlowMotion(driver: () => InputFoldDriver | null, foldingCh
     const held = batch
     if (!held) startTransition()
     running.set(element, finish)
-    const box: OwnedBox = { element, height, marginTop, fromHeight: 0, fromMarginTop: 0, closing: false, held, finish,
+    const box: OwnedBox = {
+      element,
+      height,
+      marginTop,
+      fromHeight: 0,
+      fromMarginTop: 0,
+      closing: false,
+      held,
+      finish,
       release: () => {
         box.held = false
         startTransition()
       },
-      take: () => { element.removeEventListener('transitionend', onEnd); clearTimeout(timer) } }
+      take: () => {
+        element.removeEventListener('transitionend', onEnd)
+        clearTimeout(timer)
+      },
+    }
     boxes.set(element, box)
   }
 
@@ -473,32 +514,45 @@ export function createFlowMotion(driver: () => InputFoldDriver | null, foldingCh
   }
 
   return {
-    collapse, reveal, cancelMotion, foldActive, onFoldIdle, cancelInput, resumeInput, clear,
+    collapse,
+    reveal,
+    cancelMotion,
+    foldActive,
+    onFoldIdle,
+    cancelInput,
+    resumeInput,
+    clear,
     inputActive: () => batch || (batchScheduled && [...boxes.values()].some(box => box.closing && batchMember(box))),
   }
 }
 
 function useFlowTransition(motion: FlowMotionRows | undefined, grow: boolean): HiddenTransition | undefined {
   const current = useRef<HTMLElement | null>(null)
-  useLayoutEffect(() => () => {
-    if (current.current !== null) motion?.cancelMotion(current.current)
-    current.current = null
-  }, [motion])
-  const transition = useCallback<HiddenTransition>((element, hidden, commit) => {
-    const mounted = current.current === element
-    const animate = mounted && motionEnabled(element)
-    current.current = element
-    if (hidden) {
-      if (hiddenOrCollapsing(element)) return
-      if (mounted && element.closest(MOTION_SCOPE) !== null && motion !== undefined) motion.collapse(element, commit)
-      else commit()
-      return
-    }
-    motion?.cancelMotion(element)
-    const wasHidden = element.hasAttribute('hidden')
-    commit()
-    if (wasHidden && animate && grow) motion?.reveal(element)
-  }, [motion, grow])
+  useLayoutEffect(
+    () => () => {
+      if (current.current !== null) motion?.cancelMotion(current.current)
+      current.current = null
+    },
+    [motion],
+  )
+  const transition = useCallback<HiddenTransition>(
+    (element, hidden, commit) => {
+      const mounted = current.current === element
+      const animate = mounted && motionEnabled(element)
+      current.current = element
+      if (hidden) {
+        if (hiddenOrCollapsing(element)) return
+        if (mounted && element.closest(MOTION_SCOPE) !== null && motion !== undefined) motion.collapse(element, commit)
+        else commit()
+        return
+      }
+      motion?.cancelMotion(element)
+      const wasHidden = element.hasAttribute('hidden')
+      commit()
+      if (wasHidden && animate && grow) motion?.reveal(element)
+    },
+    [motion, grow],
+  )
   return motion === undefined ? undefined : transition
 }
 

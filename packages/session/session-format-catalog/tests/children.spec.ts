@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { createSessionFormatCatalogWithChildren, sessionFormatCatalog } from '../src/index.ts'
 
 const header = { type: 'session', version: 3, id: 'parent', createdAt: 1, isSeeded: false, delegationDepth: 0 }
 const policy = { recovery: 'strict', validation: 'current' } as const
-const child = (id: string) => ({ childId: id, childCreatedAt: 2, descriptorCount: 1,
-  descriptor: { version: 3, provider: 'spawn', mode: 'one-shot' } })
+const child = (id: string) => ({
+  childId: id,
+  childCreatedAt: 2,
+  descriptorCount: 1,
+  descriptor: { version: 3, provider: 'spawn', mode: 'one-shot' },
+})
 
 describe('parent-specific catalog assembly', () => {
   it('requires explicit children for historical bodies while retaining header and native V4 reads', () => {
@@ -17,8 +21,7 @@ describe('parent-specific catalog assembly', () => {
   it('isolates interleaved restores and child evidence across parent catalogs', () => {
     const left = createSessionFormatCatalogWithChildren([child('left-child')])
     const first = left.createRestore(header, policy)
-    const second = createSessionFormatCatalogWithChildren([child('right-child')])
-      .createRestore({ ...header, id: 'other-parent' }, policy)
+    const second = createSessionFormatCatalogWithChildren([child('right-child')]).createRestore({ ...header, id: 'other-parent' }, policy)
     const repeated = left.createRestore(header, policy)
     const row = { type: 'feedback/record', seq: 0, time: 5, data: { text: 'retained' } }
     first.decodeRow(row)
@@ -26,8 +29,10 @@ describe('parent-specific catalog assembly', () => {
     repeated.decodeRow(row)
     const right = second.finish()
     const result = first.finish()
-    expect(result.events).toEqual([row, { type: 'subagent/catalog', seq: 1, time: 5,
-      data: { version: 0, childId: 'left-child', childCreatedAt: 2, mode: 'one-shot' } }])
+    expect(result.events).toEqual([
+      row,
+      { type: 'subagent/catalog', seq: 1, time: 5, data: { version: 0, childId: 'left-child', childCreatedAt: 2, mode: 'one-shot' } },
+    ])
     expect(right.events[1]?.data).toMatchObject({ childId: 'right-child' })
     expect(repeated.finish()).toEqual(result)
     const physical = sessionFormatCatalog.encodeCurrentHeader(result.header, result.inheritedEventCount)

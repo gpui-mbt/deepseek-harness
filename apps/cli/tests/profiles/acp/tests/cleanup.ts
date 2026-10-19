@@ -13,8 +13,8 @@ export async function cleanupAcpExampleTest(
   workdir: string | undefined,
 ): Promise<void> {
   const results: PromiseSettledResult<unknown>[] = []
-  if (spawned !== undefined) results.push(...await Promise.allSettled([spawned.close('SIGKILL')]))
-  if (workdir !== undefined) results.push(...await Promise.allSettled([rm(workdir, { recursive: true, force: true })]))
+  if (spawned !== undefined) results.push(...(await Promise.allSettled([spawned.close('SIGKILL')])))
+  if (workdir !== undefined) results.push(...(await Promise.allSettled([rm(workdir, { recursive: true, force: true })])))
 
   const failures = results
     .filter((result): result is PromiseRejectedResult => result.status === 'rejected')

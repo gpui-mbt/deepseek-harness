@@ -10,7 +10,15 @@ import z from '@deepseek-ai/schemastery'
 import { BUNDLED_SKILL_RANK, type SkillCandidate, type SkillProvider } from '@deepseek-ai/dsh-skill'
 import { parse as parseYaml } from 'yaml'
 
-const SKILL_NAMES = ['office', 'office-docx', 'office-pptx', 'office-xlsx', 'office-render', 'office-recalculate', 'office-export-pdf'] as const
+const SKILL_NAMES = [
+  'office',
+  'office-docx',
+  'office-pptx',
+  'office-xlsx',
+  'office-render',
+  'office-recalculate',
+  'office-export-pdf',
+] as const
 
 /** Office skill resource location. */
 export interface Config {
@@ -38,8 +46,7 @@ function parseSkill(raw: string, path: string): { description: string; content: 
   const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u.exec(raw)
   if (frontmatter?.[1] === undefined) throw new Error(`skill-office: ${path} has no YAML frontmatter`)
   const metadata: unknown = parseYaml(frontmatter[1])
-  const description = typeof metadata === 'object' && metadata !== null && 'description' in metadata
-    ? metadata.description : undefined
+  const description = typeof metadata === 'object' && metadata !== null && 'description' in metadata ? metadata.description : undefined
   if (typeof description !== 'string' || description.length === 0) throw new Error(`skill-office: ${path} has no description`)
   return { description, content: raw.slice(frontmatter[0].length).trim() }
 }
@@ -69,15 +76,19 @@ function officeRuntime(config: Config): string {
 export function apply(ctx: Context, config: Config = {}): void {
   const assetRoot = config.assetRoot ?? fileURLToPath(new URL('../assets/', import.meta.url))
   if (!isAbsolute(assetRoot)) throw new Error('skill-office: assetRoot must be an absolute directory')
-  const candidates: SkillCandidate[] = SKILL_NAMES.map((skillName) => {
+  const candidates: SkillCandidate[] = SKILL_NAMES.map(skillName => {
     const directory = join(assetRoot, skillName)
     const path = join(directory, 'SKILL.md')
     const { description } = parseSkill(readFileSync(path, 'utf8'), path)
     return {
-      name: skillName, description,
+      name: skillName,
+      description,
       invocation: { modelInvocable: true, userInvocable: true },
-      provider: 'dsh-office', source: 'bundled', rank: BUNDLED_SKILL_RANK,
-      resourceBase: { kind: 'directory', path: directory.split(sep).join('/') }, locator: path,
+      provider: 'dsh-office',
+      source: 'bundled',
+      rank: BUNDLED_SKILL_RANK,
+      resourceBase: { kind: 'directory', path: directory.split(sep).join('/') },
+      locator: path,
     }
   })
   const provider: SkillProvider = {
@@ -86,8 +97,9 @@ export function apply(ctx: Context, config: Config = {}): void {
     async get(candidate, options) {
       const { rank: _rank, locator, ...summary } = candidate
       const raw = await readFile(locator as string, { encoding: 'utf8', signal: options.signal })
-      const content = parseSkill(raw, locator as string).content
-        + (['office-render', 'office-recalculate', 'office-export-pdf'].includes(candidate.name) ? officeRuntime(config) : '')
+      const content =
+        parseSkill(raw, locator as string).content +
+        (['office-render', 'office-recalculate', 'office-export-pdf'].includes(candidate.name) ? officeRuntime(config) : '')
       return { ...summary, content }
     },
   }

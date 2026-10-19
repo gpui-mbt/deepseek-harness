@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { ShellExecutor } from '@deepseek-ai/dsh-shell'
 import type { ShellExecRequest, ShellExecSpec, ShellExecution, ShellProcessRead } from '@deepseek-ai/dsh-shell'
@@ -20,7 +20,7 @@ class StubExecutor extends ShellExecutor {
       timeoutMs: request.timeoutMs ?? 1000,
       onExpiry: request.onExpiry ?? 'kill',
       stdoutMaxBytes: request.stdoutMaxBytes ?? 64_000,
-      ...request.signal ? { signal: request.signal } : {},
+      ...(request.signal ? { signal: request.signal } : {}),
       sandboxPolicy: request.sandboxPolicy,
     }
   }
@@ -38,15 +38,16 @@ class StubExecutor extends ShellExecutor {
         proc.status = 'killed'
         return true
       },
-      result: () => Promise.resolve({
-        exitCode: 0,
-        signal: null,
-        timedOut: false,
-        aborted: false,
-        timeoutMs: spec.timeoutMs,
-        stdout: { text: 'ok', truncated: false },
-        stderr: { text: '', truncated: false },
-      }),
+      result: () =>
+        Promise.resolve({
+          exitCode: 0,
+          signal: null,
+          timedOut: false,
+          aborted: false,
+          timeoutMs: spec.timeoutMs,
+          stdout: { text: 'ok', truncated: false },
+          stderr: { text: '', truncated: false },
+        }),
     }
     return proc
   }
@@ -57,16 +58,23 @@ describe('ShellExecutor service seam', () => {
     const ctx = new Context()
     await ctx.plugin(StubExecutor)
     const spec = ctx.shell.resolve({ command: 'echo hi' })
-    expect(spec).toEqual({ command: 'echo hi', workdir: '/stub', timeoutMs: 1000, onExpiry: 'kill', stdoutMaxBytes: 64_000, sandboxPolicy: undefined })
+    expect(spec).toEqual({
+      command: 'echo hi',
+      workdir: '/stub',
+      timeoutMs: 1000,
+      onExpiry: 'kill',
+      stdoutMaxBytes: 64_000,
+      sandboxPolicy: undefined,
+    })
 
     // One execution, two views: the foreground result projection…
-    const ex = (await ctx.shell.execute(spec))
+    const ex = await ctx.shell.execute(spec)
     const result = await ex.result()
     expect(result.exitCode).toBe(0)
     expect(result.stdout.text).toBe('ok')
 
     // …and the live handle itself.
-    const proc = (await ctx.shell.execute({ ...spec, onExpiry: 'none' }))
+    const proc = await ctx.shell.execute({ ...spec, onExpiry: 'none' })
     expect(proc.status).toBe('running')
     expect(proc.readOutput()).toEqual({ delta: '', lossy: false })
     expect(proc.kill()).toBe(true)

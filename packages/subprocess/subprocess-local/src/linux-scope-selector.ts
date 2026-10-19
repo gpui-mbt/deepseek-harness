@@ -20,23 +20,23 @@ export type LinuxProbeTrigger = 'first' | 'scope-not-started' | 'new-listener' |
 /** One containment decision and the branch that produced it. */
 export type LinuxScopeDecision =
   | {
-    readonly kind: 'scope'
-    /** A probe found scope support, or a positive verdict confirmed the user manager. */
-    readonly reason: 'probe-available' | 'manager-confirmed'
-    readonly literalArgv: LiteralArgvOptions
-    /** Probe count when the verdict was made; pass it to scopeNotStarted for a failed launch. */
-    readonly generation: number
-    readonly probe: LinuxProbeTrigger | undefined
-  }
+      readonly kind: 'scope'
+      /** A probe found scope support, or a positive verdict confirmed the user manager. */
+      readonly reason: 'probe-available' | 'manager-confirmed'
+      readonly literalArgv: LiteralArgvOptions
+      /** Probe count when the verdict was made; pass it to scopeNotStarted for a failed launch. */
+      readonly generation: number
+      readonly probe: LinuxProbeTrigger | undefined
+    }
   | {
-    readonly kind: 'fallback'
-    /**
-     * A probe found no scope support; a positive verdict failed to confirm the manager for this launch;
-     * or a negative verdict saw no listener or the listener present at the failed probe.
-     */
-    readonly reason: 'probe-unavailable' | 'manager-unconfirmed' | 'no-listener' | 'same-listener'
-    readonly probe: LinuxProbeTrigger | undefined
-  }
+      readonly kind: 'fallback'
+      /**
+       * A probe found no scope support; a positive verdict failed to confirm the manager for this launch;
+       * or a negative verdict saw no listener or the listener present at the failed probe.
+       */
+      readonly reason: 'probe-unavailable' | 'manager-unconfirmed' | 'no-listener' | 'same-listener'
+      readonly probe: LinuxProbeTrigger | undefined
+    }
 
 type LinuxScopeState =
   | { readonly kind: 'unprobed'; readonly trigger: LinuxProbeTrigger }

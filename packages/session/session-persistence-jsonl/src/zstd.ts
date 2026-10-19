@@ -5,14 +5,12 @@
  * @module dsh-session-persistence-jsonl/zstd
  */
 
-import {
-  constants, zstdCompress, zstdDecompress, type ZstdOptions,
-} from 'node:zlib'
+import { constants, zstdCompress, zstdDecompress, type ZstdOptions } from 'node:zlib'
 import { promisify } from 'node:util'
 import { NodePrivateZstdFrameDecoder } from './zstd-private-decoder.ts'
 import { PublicZstdFrameDecoder } from './zstd-public-decoder.ts'
 
-const ZSTD_MAGIC = 0xFD2FB528
+const ZSTD_MAGIC = 0xfd2fb528
 const zstdCompressAsync = promisify(zstdCompress)
 const zstdDecompressAsync = promisify(zstdDecompress)
 const CHECKSUM_OPTIONS: ZstdOptions = {
@@ -69,9 +67,7 @@ export function scanZstdFrames(buffer: Buffer, maxFrames = Number.POSITIVE_INFIN
     const checksum = (descriptor & 0x04) !== 0
     const dictionaryFlag = descriptor & 0x03
     const dictionaryBytes = dictionaryFlag === 3 ? 4 : dictionaryFlag
-    const contentSizeBytes = contentSizeFlag === 0
-      ? (singleSegment ? 1 : 0)
-      : 1 << contentSizeFlag
+    const contentSizeBytes = contentSizeFlag === 0 ? (singleSegment ? 1 : 0) : 1 << contentSizeFlag
     const remainingHeaderBytes = (singleSegment ? 0 : 1) + dictionaryBytes + contentSizeBytes
     if (buffer.length - offset < remainingHeaderBytes) return { frames, tornStart: start }
     offset += remainingHeaderBytes

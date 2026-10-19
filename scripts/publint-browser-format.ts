@@ -11,6 +11,5 @@ export function isBrowserBundleFormatFalsePositive(message: Message): boolean {
   if (message.code !== 'FILE_INVALID_FORMAT') return false
   const filePath = (message.args as { actualFilePath?: string }).actualFilePath ?? ''
   const exportKey = Array.isArray(message.path) ? message.path.join('/') : ''
-  return /(^|\/)lib\/(?:client(?:\.browser)?|worker)\.js$/.test(filePath)
-    || filePath === '' && /(^|\/)\.\/worker$/.test(exportKey)
+  return /(^|\/)lib\/(?:client(?:\.browser)?|worker)\.js$/.test(filePath) || (filePath === '' && /(^|\/)\.\/worker$/.test(exportKey))
 }

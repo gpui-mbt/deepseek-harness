@@ -1,5 +1,13 @@
-import { describe, expect, it } from 'vitest'
-import { checkDoneValue, encodeJsonPlain, hasNonLosslessNumber, hasUnsafeIntegerToken, hostFrameParseCeiling, logTruncationMarker, validateChildFrame } from '../src/index.ts'
+import { describe, expect, it } from 'vite-plus/test'
+import {
+  checkDoneValue,
+  encodeJsonPlain,
+  hasNonLosslessNumber,
+  hasUnsafeIntegerToken,
+  hostFrameParseCeiling,
+  logTruncationMarker,
+  validateChildFrame,
+} from '../src/index.ts'
 
 describe('logTruncationMarker', () => {
   it('names the configured byte budget', () => {
@@ -25,8 +33,7 @@ describe('validateChildFrame', () => {
   it('carries a log frame truncation flag only for the literal true', () => {
     // The child's own ledger marker sets `truncated: true`; the host rebuilds
     // it so it stops capturing at the same point.
-    expect(validateChildFrame({ type: 'log', text: 'x', truncated: true }))
-      .toEqual({ type: 'log', text: 'x', truncated: true })
+    expect(validateChildFrame({ type: 'log', text: 'x', truncated: true })).toEqual({ type: 'log', text: 'x', truncated: true })
     // Any other truthy or non-boolean value is a forgery and is dropped from
     // the rebuild — otherwise it would silence capture for the rest of the run.
     expect(validateChildFrame({ type: 'log', text: 'x', truncated: 1 })).toEqual({ type: 'log', text: 'x' })
@@ -35,15 +42,25 @@ describe('validateChildFrame', () => {
   })
 
   it('rebuilds call frames with a numeric id, string global, and string name', () => {
-    expect(validateChildFrame({ type: 'call', id: 1, global: 'tools', name: 'echo', args: { x: 1 } }))
-      .toEqual({ type: 'call', id: 1, global: 'tools', name: 'echo', args: { x: 1 } })
+    expect(validateChildFrame({ type: 'call', id: 1, global: 'tools', name: 'echo', args: { x: 1 } })).toEqual({
+      type: 'call',
+      id: 1,
+      global: 'tools',
+      name: 'echo',
+      args: { x: 1 },
+    })
     // A frame with NO args key drops whole: rebuilding it as `undefined`
     // would invoke the binding with a non-JSON value, bypassing the
     // lossless-JSON argument boundary. Any present value is JSON-plain by
     // construction (frames arrive via JSON.parse), so null passes.
     expect(validateChildFrame({ type: 'call', id: 2, global: 'tools', name: 'echo' })).toBeUndefined()
-    expect(validateChildFrame({ type: 'call', id: 2, global: 'tools', name: 'echo', args: null }))
-      .toEqual({ type: 'call', id: 2, global: 'tools', name: 'echo', args: null })
+    expect(validateChildFrame({ type: 'call', id: 2, global: 'tools', name: 'echo', args: null })).toEqual({
+      type: 'call',
+      id: 2,
+      global: 'tools',
+      name: 'echo',
+      args: null,
+    })
     // A missing/mistyped required field drops.
     expect(validateChildFrame({ type: 'call', id: '1', global: 'tools', name: 'echo' })).toBeUndefined()
     expect(validateChildFrame({ type: 'call', id: 1, global: 7, name: 'echo' })).toBeUndefined()
@@ -53,16 +70,27 @@ describe('validateChildFrame', () => {
   it('rebuilds done frames with optional value/error', () => {
     expect(validateChildFrame({ type: 'done' })).toEqual({ type: 'done' })
     expect(validateChildFrame({ type: 'done', value: 42 })).toEqual({ type: 'done', value: 42 })
-    expect(validateChildFrame({ type: 'done', error: { kind: 'exception', message: 'boom' } }))
-      .toEqual({ type: 'done', error: { kind: 'exception', message: 'boom' } })
-    expect(validateChildFrame({ type: 'done', error: { kind: 'invalid-output', message: 'lossy' } }))
-      .toEqual({ type: 'done', error: { kind: 'invalid-output', message: 'lossy' } })
-    expect(validateChildFrame({ type: 'done', error: { kind: 'output-limit', message: 'big' } }))
-      .toEqual({ type: 'done', error: { kind: 'output-limit', message: 'big' } })
-    expect(validateChildFrame({ type: 'done', error: { kind: 'timeout', message: 'CPU time exhausted' } }))
-      .toEqual({ type: 'done', error: { kind: 'timeout', message: 'CPU time exhausted' } })
-    expect(validateChildFrame({ type: 'done', value: 1, error: { kind: 'exception', message: 'boom' } }))
-      .toEqual({ type: 'done', value: 1, error: { kind: 'exception', message: 'boom' } })
+    expect(validateChildFrame({ type: 'done', error: { kind: 'exception', message: 'boom' } })).toEqual({
+      type: 'done',
+      error: { kind: 'exception', message: 'boom' },
+    })
+    expect(validateChildFrame({ type: 'done', error: { kind: 'invalid-output', message: 'lossy' } })).toEqual({
+      type: 'done',
+      error: { kind: 'invalid-output', message: 'lossy' },
+    })
+    expect(validateChildFrame({ type: 'done', error: { kind: 'output-limit', message: 'big' } })).toEqual({
+      type: 'done',
+      error: { kind: 'output-limit', message: 'big' },
+    })
+    expect(validateChildFrame({ type: 'done', error: { kind: 'timeout', message: 'CPU time exhausted' } })).toEqual({
+      type: 'done',
+      error: { kind: 'timeout', message: 'CPU time exhausted' },
+    })
+    expect(validateChildFrame({ type: 'done', value: 1, error: { kind: 'exception', message: 'boom' } })).toEqual({
+      type: 'done',
+      value: 1,
+      error: { kind: 'exception', message: 'boom' },
+    })
     // A `value: undefined` field is dropped (JSON never carries it, but a forged
     // shape might; the rebuild coalesces to the absent case).
     expect(validateChildFrame({ type: 'done', value: undefined })).toEqual({ type: 'done' })
@@ -95,8 +123,13 @@ describe('validateChildFrame', () => {
     expect(validateChildFrame({ type: 'call', id: 1, global: 'tools', name: 'x', args: { n: Infinity } })).toBeUndefined()
     expect(validateChildFrame({ type: 'call', id: Infinity, global: 'tools', name: 'x', args: null })).toBeUndefined()
     // Plain zero and ordinary floats pass.
-    expect(validateChildFrame({ type: 'call', id: 1, global: 'tools', name: 'x', args: [0, 1.5] }))
-      .toEqual({ type: 'call', id: 1, global: 'tools', name: 'x', args: [0, 1.5] })
+    expect(validateChildFrame({ type: 'call', id: 1, global: 'tools', name: 'x', args: [0, 1.5] })).toEqual({
+      type: 'call',
+      id: 1,
+      global: 'tools',
+      name: 'x',
+      args: [0, 1.5],
+    })
   })
 
   it('drops a CALL frame whose id is negative zero', () => {
@@ -105,8 +138,13 @@ describe('validateChildFrame', () => {
     // collide with a real call whose id is `0`. The honest child never sends it.
     expect(validateChildFrame({ type: 'call', id: -0, global: 'tools', name: 'x', args: null })).toBeUndefined()
     // Plain positive zero is a legitimate id and passes.
-    expect(validateChildFrame({ type: 'call', id: 0, global: 'tools', name: 'x', args: null }))
-      .toEqual({ type: 'call', id: 0, global: 'tools', name: 'x', args: null })
+    expect(validateChildFrame({ type: 'call', id: 0, global: 'tools', name: 'x', args: null })).toEqual({
+      type: 'call',
+      id: 0,
+      global: 'tools',
+      name: 'x',
+      args: null,
+    })
   })
 
   it('passes DONE values through untouched — losslessness is metered later', () => {
@@ -214,7 +252,7 @@ describe('checkDoneValue', () => {
     expect(checkDoneValue(wide, 12)).toEqual({ ok: false, reason: 'over-budget' })
   })
 
-  it('meters a string\'s exact escaped size without allocating it', () => {
+  it("meters a string's exact escaped size without allocating it", () => {
     // A control-heavy string that fits by DECODED length but not once escaped
     // must still reject: 200 NULs are 200 UTF-16 units (would pass a naive
     // length bound against cap 1024) but escape to 200*6 + 2 = 1202 bytes.

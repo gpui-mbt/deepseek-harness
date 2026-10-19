@@ -33,8 +33,10 @@ export interface EnvironmentAttributes {
 type EnvironmentField = Exclude<keyof EnvironmentAttributes, 'missing_fields' | 'os_name' | 'app_arch'>
 
 const windowsVersion = z.object({
-  major: z.number().int().nonnegative().nullable(), minor: z.number().int().nonnegative().nullable(),
-  build: z.string().regex(/^\d+$/).nullable(), revision: z.number().int().nonnegative().nullable(),
+  major: z.number().int().nonnegative().nullable(),
+  minor: z.number().int().nonnegative().nullable(),
+  build: z.string().regex(/^\d+$/).nullable(),
+  revision: z.number().int().nonnegative().nullable(),
 })
 const windowsCpu = z.array(z.object({ cores: z.number().int().positive().nullable(), architecture: z.number().int().nullable() })).min(1)
 
@@ -57,26 +59,33 @@ export async function collectEnvironment(options: QueryOptions): Promise<Environ
   const hostPlatform = platform()
   const fields: EnvironmentAttributes = {
     os_name: hostPlatform === 'darwin' ? 'macos' : hostPlatform === 'win32' ? 'windows' : hostPlatform,
-    app_arch: process.arch, missing_fields: {},
+    app_arch: process.arch,
+    missing_fields: {},
   }
   const missing = (keys: readonly EnvironmentField[], reason: MissingReason): void => {
     for (const key of keys) fields.missing_fields[key] = reason
   }
   const read = <K extends EnvironmentField>(key: K, source: () => EnvironmentAttributes[K]): void => {
     let value: EnvironmentAttributes[K]
-    try { value = source() } catch (_error) {
+    try {
+      value = source()
+    } catch (_error) {
       // The failed OS source cannot invalidate independently collected fields.
-      missing([key], 'unavailable'); return
+      missing([key], 'unavailable')
+      return
     }
     if (value === undefined || value === '' || (typeof value === 'number' && (!Number.isSafeInteger(value) || value <= 0))) {
-      missing([key], 'unavailable'); return
+      missing([key], 'unavailable')
+      return
     }
     Object.assign(fields, { [key]: value })
   }
   read('os_version', () => `${hostPlatform} ${release()}`)
   read('memory_total_bytes', totalmem)
   let processors: ReturnType<typeof cpus> = []
-  try { processors = cpus() } catch (_error) {
+  try {
+    processors = cpus()
+  } catch (_error) {
     // CPU metadata is optional; memory and OS collection remain usable.
   }
   read('cpu_model', () => processors[0]?.model.trim())
@@ -89,8 +98,12 @@ export async function collectEnvironment(options: QueryOptions): Promise<Environ
       return fields
     }
     const command = join(root, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
-    const query = (script: string): Promise<QueryResult> => queryEnvironment(command,
-      ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], options)
+    const query = (script: string): Promise<QueryResult> =>
+      queryEnvironment(
+        command,
+        ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
+        options,
+      )
     const [version, cpu] = await Promise.all([query(VERSION_QUERY), query(CPU_QUERY)])
     if (version.kind === 'missing') missing(['os_version_full', 'os_build'], version.reason)
     else {
@@ -99,7 +112,8 @@ export async function collectEnvironment(options: QueryOptions): Promise<Environ
       else {
         if (parsed.build === null) missing(['os_build'], 'unavailable')
         else fields.os_build = parsed.build
-        if (parsed.major === null || parsed.minor === null || parsed.build === null || parsed.revision === null) missing(['os_version_full'], 'unavailable')
+        if (parsed.major === null || parsed.minor === null || parsed.build === null || parsed.revision === null)
+          missing(['os_version_full'], 'unavailable')
         else fields.os_version_full = `${parsed.major}.${parsed.minor}.${parsed.build}.${parsed.revision}`
       }
     }
@@ -109,11 +123,13 @@ export async function collectEnvironment(options: QueryOptions): Promise<Environ
       if (parsed === undefined) missing(['os_arch', 'cpu_physical_core_count'], 'invalid-value')
       else {
         const counts = parsed.map(value => value.cores)
-        if (counts.every((count): count is number => count !== null)) read('cpu_physical_core_count', () => counts.reduce((sum, count) => sum + count, 0))
+        if (counts.every((count): count is number => count !== null))
+          read('cpu_physical_core_count', () => counts.reduce((sum, count) => sum + count, 0))
         else missing(['cpu_physical_core_count'], 'unavailable')
         const architectures: Record<number, string> = { 0: 'ia32', 5: 'arm', 9: 'x64', 12: 'arm64' }
         const arch = parsed[0]?.architecture
-        if (arch == null || !parsed.every(value => value.architecture === arch) || architectures[arch] === undefined) missing(['os_arch'], 'unavailable')
+        if (arch == null || !parsed.every(value => value.architecture === arch) || architectures[arch] === undefined)
+          missing(['os_arch'], 'unavailable')
         else fields.os_arch = architectures[arch]
       }
     }
@@ -128,8 +144,13 @@ export async function collectEnvironment(options: QueryOptions): Promise<Environ
       const product = values.get('ProductVersion')
       const extra = values.get('ProductVersionExtra') || undefined
       const match = product?.match(/^(\d+(?:\.\d+){1,2})(?: (\([a-z]\)))?$/)
-      if (product !== undefined && match !== undefined && match !== null && (extra === undefined || /^\([a-z]\)$/.test(extra))
-        && (match[2] === undefined || extra === undefined || match[2] === extra)) {
+      if (
+        product !== undefined &&
+        match !== undefined &&
+        match !== null &&
+        (extra === undefined || /^\([a-z]\)$/.test(extra)) &&
+        (match[2] === undefined || extra === undefined || match[2] === extra)
+      ) {
         const suffix = match[2] ?? extra
         fields.os_version_full = suffix === undefined ? product : `${match[1]} ${suffix}`
       } else missing(['os_version_full'], 'invalid-value')
@@ -143,8 +164,7 @@ export async function collectEnvironment(options: QueryOptions): Promise<Environ
       const cores = values.get('hw.physicalcpu')
       if (cores !== undefined && /^\d+$/.test(cores) && Number.isSafeInteger(Number(cores)) && Number(cores) > 0) {
         fields.cpu_physical_core_count = Number(cores)
-      }
-      else missing(['cpu_physical_core_count'], 'invalid-value')
+      } else missing(['cpu_physical_core_count'], 'invalid-value')
       const arm = values.get('hw.optional.arm64')
       if (arm === '1') fields.os_arch = 'arm64'
       else if (arm === undefined || arm === '0') fields.os_arch = 'x64'
@@ -157,15 +177,22 @@ export async function collectEnvironment(options: QueryOptions): Promise<Environ
 }
 
 function lines(stdout: string): Map<string, string> {
-  return new Map(stdout.trim().split(/\r?\n/).map((line) => {
-    const colon = line.indexOf(':')
-    return [line.slice(0, colon).trim(), line.slice(colon + 1).trim()]
-  }))
+  return new Map(
+    stdout
+      .trim()
+      .split(/\r?\n/)
+      .map(line => {
+        const colon = line.indexOf(':')
+        return [line.slice(0, colon).trim(), line.slice(colon + 1).trim()]
+      }),
+  )
 }
 
 function decode<T>(stdout: string, schema: z.ZodType<T>): T | undefined {
   let value: unknown
-  try { value = JSON.parse(stdout) } catch (_error) {
+  try {
+    value = JSON.parse(stdout)
+  } catch (_error) {
     // Malformed command JSON supplies no validated metadata.
     return undefined
   }

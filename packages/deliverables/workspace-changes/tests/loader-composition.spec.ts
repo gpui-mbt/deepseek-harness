@@ -7,7 +7,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -31,13 +31,16 @@ describe('real Loader composition', () => {
   it('loads the shipped rows and records a turn’s changes', async () => {
     root = await mkdtemp(join(tmpdir(), 'dsh-workspace-changes-loader-'))
     const cwd = join(root, 'ws')
-    await writeFile(join(root, 'cordis.yml'), [
-      "- name: '@deepseek-ai/dsh-session'",
-      "- name: '@deepseek-ai/dsh-subprocess-local'",
-      "- name: '@deepseek-ai/dsh-fs-local'",
-      "- name: '@deepseek-ai/dsh-workspace-changes'",
-      '',
-    ].join('\n'))
+    await writeFile(
+      join(root, 'cordis.yml'),
+      [
+        "- name: '@deepseek-ai/dsh-session'",
+        "- name: '@deepseek-ai/dsh-subprocess-local'",
+        "- name: '@deepseek-ai/dsh-fs-local'",
+        "- name: '@deepseek-ai/dsh-workspace-changes'",
+        '',
+      ].join('\n'),
+    )
     context = new Context()
     context.baseUrl = `${pathToFileURL(root).href}/`
     await context.plugin(Loader)
@@ -66,7 +69,8 @@ describe('real Loader composition', () => {
     await rm(cwd, { recursive: true, force: true })
     git(root, 'init', '-q', cwd)
     await writeFile(join(cwd, 'tracked.txt'), 'one\n')
-    git(cwd, 'add', '-A'); git(cwd, 'commit', '-q', '-m', 'init')
+    git(cwd, 'add', '-A')
+    git(cwd, 'commit', '-q', '-m', 'init')
     const session = context.sessions.create(SessionId('composed'), { meta: { cwd } })
     startTurn(session, 1)
     await context.waterfall('tools/pre-execute', { agent: { session } } as never, () => Promise.resolve(undefined as never))
@@ -77,7 +81,11 @@ describe('real Loader composition', () => {
     const [recorded, ...rest] = changes(context, session)
     expect(rest).toEqual([])
     expect(recorded).toEqual({
-      turn: 1, cwd, total: 1, added: 1, deleted: 0,
+      turn: 1,
+      cwd,
+      total: 1,
+      added: 1,
+      deleted: 0,
       files: [{ path: 'tracked.txt', display: 'tracked.txt', added: 1, deleted: 0 }],
       snapshot: { before: expect.stringMatching(/^[0-9a-f]+$/) as string, after: expect.stringMatching(/^[0-9a-f]+$/) as string },
     })

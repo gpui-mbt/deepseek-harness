@@ -6,7 +6,15 @@ import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import { captureFile, sameCapture, type Capture } from './capture.ts'
 import { compareText } from './compare.ts'
 import {
-  blobText, diffTrees, gitlinkPaths, ignoredPaths, locateGitWorkspace, snapshotTree, treeBlob, type GitRunner, type GitWorkspace,
+  blobText,
+  diffTrees,
+  gitlinkPaths,
+  ignoredPaths,
+  locateGitWorkspace,
+  snapshotTree,
+  treeBlob,
+  type GitRunner,
+  type GitWorkspace,
 } from './git.ts'
 import { canonicalPath, compareDisplay, displayPathOf, durablePathOf, isInside, isTemporaryPath, temporaryRoots, toPosix } from './paths.ts'
 import type { WorkspaceChangedFile, WorkspaceChangesSummary, WorkspaceFileDiff } from './types.ts'
@@ -44,21 +52,20 @@ interface Repository {
 }
 
 /** The turn-start snapshot of a located repository. */
-interface Baseline extends Repository { tree: string }
+interface Baseline extends Repository {
+  tree: string
+}
 
 /** Where one readable side of a listed file's content lives. */
 type ContentSource =
   /** A path in a snapshot tree; absence, size, and text are read from git when asked for. */
-  | { kind: 'snapshot'; repository: Repository; tree: string; path: string }
-  | Exclude<Capture, { kind: 'oversized' }>
+  { kind: 'snapshot'; repository: Repository; tree: string; path: string } | Exclude<Capture, { kind: 'oversized' }>
 
 /**
  * What a listed file's comparison is served from: a refusal decided when the
  * turn was recorded, or the two sides to read and compare when asked for.
  */
-type FileSources =
-  | { refusal: 'binary' | 'oversized' }
-  | { refusal?: undefined; before: ContentSource; after: ContentSource }
+type FileSources = { refusal: 'binary' | 'oversized' } | { refusal?: undefined; before: ContentSource; after: ContentSource }
 
 /** A served summary with the content sources of its listed files, index-aligned with `summary.files`. */
 interface TurnRecord {
@@ -88,7 +95,10 @@ function freshState(turn: number): TurnState {
 }
 
 /** A listed file with the sources of its two sides. */
-interface Listed { file: WorkspaceChangedFile; sources: FileSources }
+interface Listed {
+  file: WorkspaceChangedFile
+  sources: FileSources
+}
 
 /** A snapshot side larger than the byte cap. */
 const OVERSIZED = Symbol('oversized')
@@ -131,7 +141,7 @@ export class TurnRecorder {
   start(turn: number): void {
     const state = freshState(turn)
     this.state = state
-    void this.enqueue(async (signal) => {
+    void this.enqueue(async signal => {
       try {
         this.paths ??= { cwd: await realpath(this.cwd), home: await canonicalPath(homedir()), temporaryRoots: await temporaryRoots() }
         const repository = await this.locate(this.paths.cwd, signal)
@@ -285,8 +295,10 @@ export class TurnRecorder {
   /** One side's text, null for an absent file, or {@link OVERSIZED} for a snapshot side beyond the byte cap. */
   private async readSide(source: ContentSource, signal: AbortSignal): Promise<string | null | typeof OVERSIZED> {
     switch (source.kind) {
-      case 'absent': return null
-      case 'file': return readFile(source.file, { encoding: 'utf8', signal })
+      case 'absent':
+        return null
+      case 'file':
+        return readFile(source.file, { encoding: 'utf8', signal })
       case 'snapshot': {
         const { git, workspace } = source.repository
         const blob = await treeBlob(git, workspace, source.tree, source.path, signal)
@@ -314,10 +326,12 @@ export class TurnRecorder {
         const absolute = resolve(root, entry.path)
         listed.set(absolute, {
           file: changedFile(paths, root, absolute, entry),
-          sources: entry.binary ? { refusal: 'binary' } : {
-            before: { kind: 'snapshot', repository, tree: baseline.tree, path: entry.oldPath ?? entry.path },
-            after: { kind: 'snapshot', repository, tree: after, path: entry.path },
-          },
+          sources: entry.binary
+            ? { refusal: 'binary' }
+            : {
+                before: { kind: 'snapshot', repository, tree: baseline.tree, path: entry.oldPath ?? entry.path },
+                after: { kind: 'snapshot', repository, tree: after, path: entry.path },
+              },
         })
       }
     }
@@ -331,9 +345,10 @@ export class TurnRecorder {
       inWorkspace = inWorkspace.filter(absolute => ![...gitlinks].some(link => isInside(resolve(root, link), absolute)))
     }
     // A snapshot covers every workspace file except the ignored ones; without one, every file-tool edit counts.
-    const uncoveredInWorkspace = baseline === null
-      ? new Set(inWorkspace.map(workTreePath))
-      : await ignoredPaths(baseline.git, baseline.workspace, inWorkspace.map(workTreePath), signal)
+    const uncoveredInWorkspace =
+      baseline === null
+        ? new Set(inWorkspace.map(workTreePath))
+        : await ignoredPaths(baseline.git, baseline.workspace, inWorkspace.map(workTreePath), signal)
     for (const absolute of captured) {
       // Outside the workspace, scratch files under a temporary root stay out.
       const uncovered = isInside(root, absolute)
@@ -358,7 +373,7 @@ export class TurnRecorder {
         total: sorted.length,
         added: sorted.reduce((sum, entry) => sum + entry.file.added, 0),
         deleted: sorted.reduce((sum, entry) => sum + entry.file.deleted, 0),
-        ...snapshot === undefined ? {} : { snapshot },
+        ...(snapshot === undefined ? {} : { snapshot }),
       },
       sources: kept.map(entry => entry.sources),
     })
@@ -376,7 +391,7 @@ export class TurnRecorder {
       return list({ added: 0, deleted: 0, binary: false, oversized: true }, { refusal: 'oversized' })
     }
     if (isBinary(before) || isBinary(after)) return list({ added: 0, deleted: 0, binary: true }, { refusal: 'binary' })
-    const text = async (side: typeof before): Promise<string | null> => side.kind === 'file' ? readFile(side.file, 'utf8') : null
+    const text = async (side: typeof before): Promise<string | null> => (side.kind === 'file' ? readFile(side.file, 'utf8') : null)
     const { added, deleted } = compareText(await text(before), await text(after), this.env.diffTimeoutMs)
     return list({ added, deleted, binary: false }, { before, after })
   }
@@ -387,7 +402,12 @@ function isBinary(capture: Capture): boolean {
   return capture.kind === 'file' && capture.binary
 }
 
-interface Counts { added: number; deleted: number; binary: boolean; oversized?: boolean }
+interface Counts {
+  added: number
+  deleted: number
+  binary: boolean
+  oversized?: boolean
+}
 
 function changedFile({ cwd, home }: Paths, root: string, absolute: string, counts: Counts): WorkspaceChangedFile {
   return {
@@ -395,7 +415,7 @@ function changedFile({ cwd, home }: Paths, root: string, absolute: string, count
     display: displayPathOf(absolute, cwd, root, home),
     added: counts.added,
     deleted: counts.deleted,
-    ...counts.binary ? { binary: true as const } : {},
-    ...counts.oversized === true ? { oversized: true as const } : {},
+    ...(counts.binary ? { binary: true as const } : {}),
+    ...(counts.oversized === true ? { oversized: true as const } : {}),
   }
 }

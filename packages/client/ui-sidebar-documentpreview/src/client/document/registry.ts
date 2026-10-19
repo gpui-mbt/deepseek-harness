@@ -38,11 +38,13 @@ export function matchingDocumentPreviews(
   path: string,
 ): readonly DocumentPreviewDefinition[] {
   const name = documentFileName(path)
-  return definitions.map((definition, order) => ({
-    definition, order,
-    rank: definition.priority === 'builtin' ? 0 : 1,
-    length: matchedSuffixLength(name, definition.extensions),
-  }))
+  return definitions
+    .map((definition, order) => ({
+      definition,
+      order,
+      rank: definition.priority === 'builtin' ? 0 : 1,
+      length: matchedSuffixLength(name, definition.extensions),
+    }))
     .filter(candidate => candidate.length > 0)
     .sort((left, right) => right.rank - left.rank || right.length - left.length || left.order - right.order)
     .map(candidate => candidate.definition)
@@ -54,10 +56,7 @@ export function matchingDocumentPreviews(
  * @param path - decoded filename or file path.
  * @returns true when a declared binary suffix matches the filename.
  */
-export function binaryDocumentPath(
-  definitions: readonly DocumentPreviewDefinition[],
-  path: string,
-): boolean {
+export function binaryDocumentPath(definitions: readonly DocumentPreviewDefinition[], path: string): boolean {
   const name = documentFileName(path)
   return definitions.some(definition => matchedSuffixLength(name, definition.binaryExtensions ?? []) > 0)
 }
@@ -81,7 +80,9 @@ export class DocumentPreviewRegistry {
    */
   readonly subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /**

@@ -1,6 +1,6 @@
 /** Required baseline budgets for reconnecting during a large active Assistant stream. */
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { runBuiltBenchmarkWorker } from '../support/built-worker.ts'
 import { ciTimeBudget, PERFORMANCE_BUDGET_HEADROOM } from '../support/calibration.ts'
 import { recordTimings, type BenchmarkCase } from '../support/scaling-report.ts'
@@ -24,7 +24,7 @@ function expectReplacementWithinBudget(value: number, budget: number): void {
 
 it('accepts recorded hosted reconnect samples and rejects replacement regressions', () => {
   const recordedSamples = [
-    [46.574411, 46.067910, 44.193704],
+    [46.574411, 46.06791, 44.193704],
     [55.995471, 55.187582, 55.474573],
     [64.954055, 67.441804, 65.694876],
   ]
@@ -42,7 +42,8 @@ it('reconstructs a 100000-delta live prefix within baseline time and retained-me
   for (let sample = 0; sample < SAMPLES; sample++) {
     const run = await runBuiltBenchmarkWorker<ReconnectReport>({
       worker: join(import.meta.dirname, '../.dsh-build/active-stream-reconnect/reconnect.worker.js'),
-      exposeGc: true, timeoutMs: 30000,
+      exposeGc: true,
+      timeoutMs: 30000,
     })
     expect(run.timedOut, run.stderr).toBe(false)
     expect(run.signal, run.stderr).toBeNull()
@@ -56,7 +57,17 @@ it('reconstructs a 100000-delta live prefix within baseline time and retained-me
   const retainedMb = samples.map(sample => sample.retainedMb).toSorted((a, b) => a - b)[1]!
   const budgetMs = REPLACE_BUDGET_MS
   const budgetMb = REFERENCE_RETAINED_MB * PERFORMANCE_BUDGET_HEADROOM
-  console.log(JSON.stringify({ benchmark: 'active-stream-reconnect', samples, median: { replaceMs, retainedMb }, referenceMs: REFERENCE_REPLACE_MS, referenceMb: REFERENCE_RETAINED_MB, budgetMs, budgetMb }))
+  console.log(
+    JSON.stringify({
+      benchmark: 'active-stream-reconnect',
+      samples,
+      median: { replaceMs, retainedMb },
+      referenceMs: REFERENCE_REPLACE_MS,
+      referenceMb: REFERENCE_RETAINED_MB,
+      budgetMs,
+      budgetMb,
+    }),
+  )
   recordTimings(CASE, { replaceMs: { ms: replaceMs, ioShare: IO_SHARE } }, { replaceMs: budgetMs })
   expectReplacementWithinBudget(replaceMs, budgetMs)
   expect.soft(retainedMb).toBeLessThanOrEqual(budgetMb)

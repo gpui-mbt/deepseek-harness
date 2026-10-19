@@ -1,6 +1,6 @@
 import { mountWorkingDirectoryFixture } from '../../subagent/tests/working-directory-fixture.ts'
 import { startExternalActivation } from '../../subagent/tests/external-activation-helpers.ts'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
@@ -15,7 +15,16 @@ import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
 import type { SubprocessHandle, SubprocessOutcome } from '@deepseek-ai/dsh-subprocess'
 import * as acp from '../src/index.ts'
 import * as acpRun from '../src/run.ts'
-import { acpStopReason, acpContentText, DEFAULT_DISPOSE_EOF_GRACE_MS, DEFAULT_DISPOSE_GRACE_MS, disposeAcpChild, startAcpRun, toAcpPrompt, type AcpRunSpec } from '../src/run.ts'
+import {
+  acpStopReason,
+  acpContentText,
+  DEFAULT_DISPOSE_EOF_GRACE_MS,
+  DEFAULT_DISPOSE_GRACE_MS,
+  disposeAcpChild,
+  startAcpRun,
+  toAcpPrompt,
+  type AcpRunSpec,
+} from '../src/run.ts'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import { spawnSubprocess } from '@deepseek-ai/dsh-subprocess-local/src/spawn.ts'
 
@@ -63,7 +72,10 @@ async function setup(mockEnv: SetupEnv = {}, permission: 'allow' | 'reject' = 'r
 }
 
 function text(blocks: readonly { type: string; text?: string }[]): string {
-  return blocks.filter(b => b.type === 'text').map(b => b.text).join('')
+  return blocks
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('')
 }
 
 function expectedFailure(fields: string): string {
@@ -97,19 +109,18 @@ function rejectFinalExitWait(child: SubprocessHandle, message: string): Subproce
     stderr: child.stderr,
     collected: child.collected,
     done: child.done,
-    terminate: () => { child.terminate() },
-    waitForExit: (signal?: AbortSignal) => signal === undefined
-      ? Promise.reject(new Error(message))
-      : Promise.resolve(false),
+    terminate: () => {
+      child.terminate()
+    },
+    waitForExit: (signal?: AbortSignal) => (signal === undefined ? Promise.reject(new Error(message)) : Promise.resolve(false)),
   }
 }
 
 function rejectFinalExitWaitAfterExit(child: SubprocessHandle, message: string): SubprocessHandle {
   return {
     ...rejectFinalExitWait(child, message),
-    waitForExit: (signal?: AbortSignal) => signal === undefined
-      ? child.done.then(() => Promise.reject(new Error(message)))
-      : Promise.resolve(false),
+    waitForExit: (signal?: AbortSignal) =>
+      signal === undefined ? child.done.then(() => Promise.reject(new Error(message))) : Promise.resolve(false),
   }
 }
 
@@ -121,7 +132,9 @@ function tapBoundedExitWait(child: SubprocessHandle, onWait: () => void): Subpro
     stderr: child.stderr,
     collected: child.collected,
     done: child.done,
-    terminate: () => { child.terminate() },
+    terminate: () => {
+      child.terminate()
+    },
     waitForExit: (signal?: AbortSignal) => {
       if (signal !== undefined) onWait()
       return child.waitForExit(signal)
@@ -129,11 +142,7 @@ function tapBoundedExitWait(child: SubprocessHandle, onWait: () => void): Subpro
   }
 }
 
-function replaceProtocolStreams(
-  child: SubprocessHandle,
-  stdin: PassThrough,
-  stdout: Readable,
-): SubprocessHandle {
+function replaceProtocolStreams(child: SubprocessHandle, stdin: PassThrough, stdout: Readable): SubprocessHandle {
   if (child.stdin === undefined) throw new Error('expected piped child stdin')
   stdin.pipe(child.stdin)
   return {
@@ -143,7 +152,9 @@ function replaceProtocolStreams(
     stderr: child.stderr,
     collected: child.collected,
     done: child.done,
-    terminate: () => { child.terminate() },
+    terminate: () => {
+      child.terminate()
+    },
     waitForExit: (signal?: AbortSignal) => child.waitForExit(signal),
   }
 }
@@ -181,7 +192,9 @@ function replaceProcessOutcome(child: SubprocessHandle, outcome: SubprocessOutco
     stderr: child.stderr,
     collected: child.collected,
     done: child.done.then(() => outcome),
-    terminate: () => { child.terminate() },
+    terminate: () => {
+      child.terminate()
+    },
     waitForExit: (signal?: AbortSignal) => child.waitForExit(signal),
   }
 }
@@ -210,8 +223,12 @@ describe('acpContentText / toAcpPrompt', () => {
   it('keeps text prompt blocks and drops non-text ones', () => {
     expect(toAcpPrompt([{ type: 'text', text: 'a' }])).toEqual([{ type: 'text', text: 'a' }])
     // A non-text harness block (e.g. reasoning) is dropped from the ACP prompt.
-    expect(toAcpPrompt([{ type: 'text', text: 'a' }, { type: 'reasoning', text: 'think' }]))
-      .toEqual([{ type: 'text', text: 'a' }])
+    expect(
+      toAcpPrompt([
+        { type: 'text', text: 'a' },
+        { type: 'reasoning', text: 'think' },
+      ]),
+    ).toEqual([{ type: 'text', text: 'a' }])
   })
 })
 
@@ -247,23 +264,30 @@ describe('child env layering (through the subprocess seam)', () => {
     const ctx = await setup({ MOCK_ECHO_ENV: 'DSH_ACP_TEST_FACT', DSH_ACP_TEST_FACT: 'managed' })
     const parent = { id: 'parent', session: { header: { cwd: process.cwd() } } } as unknown as Agent
     const run = await startExternalActivation(ctx, 'acp', {
-      label: 'p', prompt: [{ type: 'text' as const, text: 'p' }], parent, signal: new AbortController().signal,
+      label: 'p',
+      prompt: [{ type: 'text' as const, text: 'p' }],
+      parent,
+      signal: new AbortController().signal,
     })
     const result = await run.result
     await run.dispose()
-    const text = result.output.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('')
+    const text = result.output
+      .filter(b => b.type === 'text')
+      .map(b => (b as { text: string }).text)
+      .join('')
     expect(text).toBe('managed')
     await ctx.fiber.dispose()
   })
 })
 
 describe('disposeAcpChild (the backend-owned teardown ladder over seam verbs)', () => {
-  const node = (source: string, stdin: 'pipe' | 'ignore' = 'pipe') => spawnSubprocess({
-    argv: [process.execPath, '--input-type=module', '--eval', source],
-    cwd: process.cwd(),
-    stdio: { stdin, stdout: { maxBytes: 1000 }, stderr: { maxBytes: 1000 } },
-    graceMs: 200,
-  })
+  const node = (source: string, stdin: 'pipe' | 'ignore' = 'pipe') =>
+    spawnSubprocess({
+      argv: [process.execPath, '--input-type=module', '--eval', source],
+      cwd: process.cwd(),
+      stdio: { stdin, stdout: { maxBytes: 1000 }, stderr: { maxBytes: 1000 } },
+      graceMs: 200,
+    })
   const expectHostTermination = (outcome: SubprocessOutcome, posixSignal: NodeJS.Signals): void => {
     if (process.platform === 'win32') {
       expect(outcome.signal).toBeNull()
@@ -311,22 +335,32 @@ describe('disposeAcpChild (the backend-owned teardown ladder over seam verbs)', 
       stderr: undefined,
       collected: {},
       done: exited.promise.then(() => ({ exitCode: 1, signal: null })),
-      terminate: () => { calls.push('terminate') },
+      terminate: () => {
+        calls.push('terminate')
+      },
       waitForExit: (signal?: AbortSignal) => {
         if (signal === undefined) {
           calls.push('wait for exit')
           return exited.promise
         }
         calls.push('wait for EOF')
-        return new Promise((resolve) => {
-          signal.addEventListener('abort', () => { resolve(false) }, { once: true })
+        return new Promise(resolve => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              resolve(false)
+            },
+            { once: true },
+          )
         })
       },
     }
     let disposal: Promise<void> | undefined
     try {
       let disposed = false
-      disposal = disposeAcpChild(child, 150).then(() => { disposed = true })
+      disposal = disposeAcpChild(child, 150).then(() => {
+        disposed = true
+      })
       expect(stdin.writableEnded).toBe(true)
       await vi.advanceTimersByTimeAsync(149)
       expect(calls).toEqual(['wait for EOF'])
@@ -363,9 +397,7 @@ describe('disposeAcpChild (the backend-owned teardown ladder over seam verbs)', 
 
   it('still terminates and performs the final wait when the EOF wait rejects', async () => {
     const initialFailure = new Error('initial range observation failed')
-    const waitForExit = vi.fn()
-      .mockRejectedValueOnce(initialFailure)
-      .mockResolvedValueOnce(true)
+    const waitForExit = vi.fn().mockRejectedValueOnce(initialFailure).mockResolvedValueOnce(true)
     const terminate = vi.fn()
     const child: SubprocessHandle = {
       control: undefined,
@@ -386,9 +418,7 @@ describe('disposeAcpChild (the backend-owned teardown ladder over seam verbs)', 
   it('preserves both wait failures in observation order', async () => {
     const initialFailure = new Error('initial range observation failed')
     const finalFailure = new Error('final range observation failed')
-    const waitForExit = vi.fn()
-      .mockRejectedValueOnce(initialFailure)
-      .mockRejectedValueOnce(finalFailure)
+    const waitForExit = vi.fn().mockRejectedValueOnce(initialFailure).mockRejectedValueOnce(finalFailure)
     const child: SubprocessHandle = {
       control: undefined,
       stdin: new PassThrough(),
@@ -424,9 +454,7 @@ describe('disposeAcpChild (the backend-owned teardown ladder over seam verbs)', 
       collected: {},
       done: direct.promise,
       terminate: vi.fn(),
-      waitForExit: vi.fn()
-        .mockResolvedValueOnce(false)
-        .mockRejectedValueOnce(cleanupFailure),
+      waitForExit: vi.fn().mockResolvedValueOnce(false).mockRejectedValueOnce(cleanupFailure),
     }
     const starting = startAcpRun(request(), {
       command: 'fake-acp',
@@ -496,8 +524,9 @@ describe('cwd resolution', () => {
     const root = mkdtempSync(join(tmpdir(), 'acp-missing-cwd-'))
     try {
       const ctx = await setup({})
-      await expect(startExternalActivation(ctx, 'acp', { ...request('p'), cwd: join(root, 'missing') }))
-        .rejects.toThrow(`subagent-acp: ${expectedFailure('stage: initialize; category: configuration')}`)
+      await expect(startExternalActivation(ctx, 'acp', { ...request('p'), cwd: join(root, 'missing') })).rejects.toThrow(
+        `subagent-acp: ${expectedFailure('stage: initialize; category: configuration')}`,
+      )
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -546,12 +575,15 @@ describe('dsh-subagent-acp', () => {
     ['max_tokens', 'max-tokens'],
     ['refusal', 'refusal'],
   ] as const)('adds a permission fact to %s without changing its stop reason', async (remote, stopReason) => {
-    const ctx = await setup({
-      MOCK_PERMISSION: '1',
-      MOCK_PERMISSION_IGNORE_DECISION: '1',
-      MOCK_TOOL_KIND: 'read',
-      MOCK_STOP: remote,
-    }, 'reject')
+    const ctx = await setup(
+      {
+        MOCK_PERMISSION: '1',
+        MOCK_PERMISSION_IGNORE_DECISION: '1',
+        MOCK_TOOL_KIND: 'read',
+        MOCK_STOP: remote,
+      },
+      'reject',
+    )
     const run = await startExternalActivation(ctx, 'acp', request())
     const result = await run.result
     expect(result.stopReason).toBe(stopReason)
@@ -584,9 +616,7 @@ describe('dsh-subagent-acp', () => {
     const run = await startExternalActivation(ctx, 'acp', request())
     const result = await run.result
     expect(result.stopReason).toBe('error')
-    expect(result.diagnostic).toBe(
-      expectedFailure('stage: prompt; category: unknown; stop reason: unknown'),
-    )
+    expect(result.diagnostic).toBe(expectedFailure('stage: prompt; category: unknown; stop reason: unknown'))
     expect(result.diagnostic).not.toContain(rawReason)
     await run.dispose()
   })
@@ -620,11 +650,22 @@ describe('dsh-subagent-acp', () => {
     try {
       const controller = new AbortController()
       controller.abort()
-      await expect(startAcpRun(
-        request('p', controller.signal),
-        // `touch <sentinel>` — runs only if the process is actually spawned.
-        { command: 'touch', args: [sentinel], cwd: tmp, permission: 'reject', env: {}, disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS, disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS, spawn: spawnSubprocess },
-      )).rejects.toThrow('aborted before the ACP child started')
+      await expect(
+        startAcpRun(
+          request('p', controller.signal),
+          // `touch <sentinel>` — runs only if the process is actually spawned.
+          {
+            command: 'touch',
+            args: [sentinel],
+            cwd: tmp,
+            permission: 'reject',
+            env: {},
+            disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS,
+            disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
+            spawn: spawnSubprocess,
+          },
+        ),
+      ).rejects.toThrow('aborted before the ACP child started')
       // The binary was never launched — no sentinel.
       expect(existsSync(sentinel)).toBe(false)
     } finally {
@@ -638,12 +679,16 @@ describe('dsh-subagent-acp', () => {
     controller.abort()
     const parent = { id: 'parent', session: { header: {} } } as unknown as Agent
     const provider = ctx.subagents.getProvider('acp')!
-    await expect(Promise.resolve().then(async () => provider.start!({
-      prompt: [{ type: 'text' as const, text: 'p' }],
-      parent,
-      cwd: process.cwd(),
-      signal: controller.signal,
-    }))).rejects.toThrow('aborted before the ACP child started')
+    await expect(
+      Promise.resolve().then(async () =>
+        provider.start!({
+          prompt: [{ type: 'text' as const, text: 'p' }],
+          parent,
+          cwd: process.cwd(),
+          signal: controller.signal,
+        }),
+      ),
+    ).rejects.toThrow('aborted before the ACP child started')
   })
 
   it('reports an initialize-stage process exit without copying the transport error', async () => {
@@ -658,9 +703,7 @@ describe('dsh-subagent-acp', () => {
       spawn: spec => spawnSubprocess(spec),
     }).catch((cause: unknown) => cause)
     expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toBe(
-      `subagent-acp: ${expectedFailure('stage: initialize; category: process-exit; exit code: 11')}`,
-    )
+    expect((error as Error).message).toBe(`subagent-acp: ${expectedFailure('stage: initialize; category: process-exit; exit code: 11')}`)
   })
 
   it('reports initialize-stage transport when the child closes the protocol but stays alive', async () => {
@@ -675,9 +718,7 @@ describe('dsh-subagent-acp', () => {
       spawn: spec => closeProtocolImmediately(spawnSubprocess(spec)),
     }).catch((cause: unknown) => cause)
     expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toBe(
-      `subagent-acp: ${expectedFailure('stage: initialize; category: transport')}`,
-    )
+    expect((error as Error).message).toBe(`subagent-acp: ${expectedFailure('stage: initialize; category: transport')}`)
   })
 
   it('reuses a direct outcome already observed before the startup transport closes', async () => {
@@ -706,9 +747,7 @@ describe('dsh-subagent-acp', () => {
     await Promise.resolve()
     stdout.end()
 
-    await expect(starting).rejects.toThrow(
-      `subagent-acp: ${expectedFailure('stage: initialize; category: process-exit; exit code: 19')}`,
-    )
+    await expect(starting).rejects.toThrow(`subagent-acp: ${expectedFailure('stage: initialize; category: process-exit; exit code: 19')}`)
   })
 
   it('reaps a child whose session/new response omits the session id', async () => {
@@ -716,22 +755,25 @@ describe('dsh-subagent-acp', () => {
     const flushed = join(tmp, 'flushed')
     let boundedWaits = 0
     try {
-      await expect(startAcpRun(request(), {
-        command: process.execPath,
-        args: [mockServer],
-        cwd: process.cwd(),
-        permission: 'reject',
-        env: {
-          MOCK_MISSING_SESSION_ID: '1',
-          MOCK_FLUSH_ON_EOF: flushed,
-          MOCK_FLUSH_DELAY_MS: '20',
-        },
-        disposeEofGraceMs: 1000,
-        disposeGraceMs: 100,
-        spawn: spec => tapBoundedExitWait(spawnSubprocess(spec), () => { boundedWaits += 1 }),
-      })).rejects.toThrow(
-        `subagent-acp: ${expectedFailure('stage: new-session; category: protocol')}`,
-      )
+      await expect(
+        startAcpRun(request(), {
+          command: process.execPath,
+          args: [mockServer],
+          cwd: process.cwd(),
+          permission: 'reject',
+          env: {
+            MOCK_MISSING_SESSION_ID: '1',
+            MOCK_FLUSH_ON_EOF: flushed,
+            MOCK_FLUSH_DELAY_MS: '20',
+          },
+          disposeEofGraceMs: 1000,
+          disposeGraceMs: 100,
+          spawn: spec =>
+            tapBoundedExitWait(spawnSubprocess(spec), () => {
+              boundedWaits += 1
+            }),
+        }),
+      ).rejects.toThrow(`subagent-acp: ${expectedFailure('stage: new-session; category: protocol')}`)
       // Startup rejects only after its private child reaches quiescence. The
       // marker proves rollback closed stdin and allowed the child's EOF flush.
       expect(existsSync(flushed)).toBe(true)
@@ -753,16 +795,18 @@ describe('dsh-subagent-acp', () => {
       env: { MOCK_MISSING_SESSION_ID: '1' },
       disposeEofGraceMs: 10,
       disposeGraceMs: 10,
-      spawn: (spec) => {
+      spawn: spec => {
         realChild = spawnSubprocess(spec)
         return rejectFinalExitWaitAfterExit(realChild, rawCleanup)
       },
-      onError: (failure) => { errors.push(failure.message) },
+      onError: failure => {
+        errors.push(failure.message)
+      },
     }).catch((cause: unknown) => cause)
     expect(error).toBeInstanceOf(AggregateError)
     expect((error as Error).message).toContain(
-      `subagent-acp: ${expectedFailure('stage: new-session; category: protocol')}; `
-      + 'subagent-acp: Subagent failure (provider: ACP; stage: teardown; category: process-exit;',
+      `subagent-acp: ${expectedFailure('stage: new-session; category: protocol')}; ` +
+        'subagent-acp: Subagent failure (provider: ACP; stage: teardown; category: process-exit;',
     )
     expect((error as Error).message).not.toContain(rawCleanup)
     expect(errors).toContain('ACP child published without a session id')
@@ -787,11 +831,13 @@ describe('dsh-subagent-acp', () => {
         env: { MOCK_NEWSESSION_READY: ready, MOCK_NEWSESSION_GO: go },
         disposeEofGraceMs: 10,
         disposeGraceMs: 10,
-        spawn: (spec) => {
+        spawn: spec => {
           realChild = spawnSubprocess(spec)
           return rejectFinalExitWait(realChild, rawCleanup)
         },
-        onError: (error) => { errors.push(error.message) },
+        onError: error => {
+          errors.push(error.message)
+        },
       })
       await waitForFile(ready, task.timeout)
       controller.abort()
@@ -799,9 +845,7 @@ describe('dsh-subagent-acp', () => {
       const error = await starting.catch((cause: unknown) => cause)
       expect(error).toBeInstanceOf(AggregateError)
       expect((error as AggregateError).errors).toHaveLength(1)
-      expect((error as Error).message).toBe(
-        `subagent-acp: ${expectedFailure('stage: teardown; category: unknown')}`,
-      )
+      expect((error as Error).message).toBe(`subagent-acp: ${expectedFailure('stage: teardown; category: unknown')}`)
       expect((error as Error).message).not.toContain(rawCleanup)
       expect(errors).toEqual([rawCleanup])
       await realChild?.done
@@ -839,7 +883,7 @@ describe('dsh-subagent-acp', () => {
       env: { MOCK_TRAP_SIGTERM: '1', MOCK_TEXT: 'x', MOCK_READY_FILE: ready },
       disposeEofGraceMs: 150,
       disposeGraceMs: 150,
-      spawn: (spec) => {
+      spawn: spec => {
         child = spawnSubprocess(spec)
         return child
       },
@@ -885,8 +929,11 @@ describe('dsh-subagent-acp', () => {
         // the 2000ms EOF grace; the marker lands iff the EOF tier honored its own
         // wider grace.
         env: {
-          MOCK_HANG: '1', MOCK_TEXT: 'x', MOCK_READY_FILE: ready,
-          MOCK_FLUSH_ON_EOF: flushed, MOCK_FLUSH_DELAY_MS: '400',
+          MOCK_HANG: '1',
+          MOCK_TEXT: 'x',
+          MOCK_READY_FILE: ready,
+          MOCK_FLUSH_ON_EOF: flushed,
+          MOCK_FLUSH_DELAY_MS: '400',
         },
         disposeEofGraceMs: 2000,
         disposeGraceMs: 50,
@@ -920,13 +967,16 @@ describe('dsh-subagent-acp', () => {
         cwd: process.cwd(),
         permission: 'reject',
         env: {
-          MOCK_HANG: '1', MOCK_IGNORE_EOF: '1', MOCK_TEXT: 'x',
-          MOCK_READY_FILE: ready, MOCK_SIGTERM_FILE: sigterm,
+          MOCK_HANG: '1',
+          MOCK_IGNORE_EOF: '1',
+          MOCK_TEXT: 'x',
+          MOCK_READY_FILE: ready,
+          MOCK_SIGTERM_FILE: sigterm,
         },
         // Tiny EOF grace so the ignored-EOF window elapses quickly.
         disposeEofGraceMs: 150,
         disposeGraceMs: 2000,
-        spawn: (spec) => {
+        spawn: spec => {
           child = spawnSubprocess(spec)
           return child
         },
@@ -1043,35 +1093,41 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('appends a rejected permission fact to a later remote failure', async () => {
-    const ctx = await setup({
-      MOCK_PERMISSION: '1',
-      MOCK_PERMISSION_IGNORE_DECISION: '1',
-      MOCK_TOOL_KIND: 'edit',
-      MOCK_STOP: 'max_turn_requests',
-    }, 'reject')
+    const ctx = await setup(
+      {
+        MOCK_PERMISSION: '1',
+        MOCK_PERMISSION_IGNORE_DECISION: '1',
+        MOCK_TOOL_KIND: 'edit',
+        MOCK_STOP: 'max_turn_requests',
+      },
+      'reject',
+    )
     const run = await startExternalActivation(ctx, 'acp', request())
     const result = await run.result
     expect(result.stopReason).toBe('error')
     expect(result.diagnostic).toBe(
-      `${expectedFailure('stage: prompt; category: remote-limit; stop reason: max_turn_requests')}\n`
-      + expectedPermission('reject', 'edit', 'denied'),
+      `${expectedFailure('stage: prompt; category: remote-limit; stop reason: max_turn_requests')}\n` +
+        expectedPermission('reject', 'edit', 'denied'),
     )
     await run.dispose()
   })
 
   it('appends an allowed permission fact only when the run later fails', async () => {
-    const ctx = await setup({
-      MOCK_PERMISSION: '1',
-      MOCK_PERMISSION_IGNORE_DECISION: '1',
-      MOCK_TOOL_KIND: 'execute',
-      MOCK_STOP: 'max_turn_requests',
-    }, 'allow')
+    const ctx = await setup(
+      {
+        MOCK_PERMISSION: '1',
+        MOCK_PERMISSION_IGNORE_DECISION: '1',
+        MOCK_TOOL_KIND: 'execute',
+        MOCK_STOP: 'max_turn_requests',
+      },
+      'allow',
+    )
     const run = await startExternalActivation(ctx, 'acp', request())
     const result = await run.result
     expect(result.stopReason).toBe('error')
     expect(result.diagnostic).toBe(
-      `${expectedFailure('stage: prompt; category: remote-limit; stop reason: max_turn_requests')}\n`
-      + expectedPermission('allow', 'execute', 'allowed'),
+      `${expectedFailure('stage: prompt; category: remote-limit; stop reason: max_turn_requests')}\n` +
+        expectedPermission('allow', 'execute', 'allowed'),
     )
     await run.dispose()
   })
@@ -1121,23 +1177,33 @@ describe('dsh-subagent-acp', () => {
       env: { MOCK_HANG: '1' },
       disposeEofGraceMs: 100,
       disposeGraceMs: 5000,
-      spawn: (spec) => {
+      spawn: spec => {
         const child = spawnSubprocess(spec)
         return closeProtocolOnPrompt(
-          tapBoundedExitWait(child, () => { boundedExitWaits += 1 }),
-          () => { protocolEnded.resolve(undefined) },
+          tapBoundedExitWait(child, () => {
+            boundedExitWaits += 1
+          }),
+          () => {
+            protocolEnded.resolve(undefined)
+          },
         )
       },
     })
     await protocolEnded.promise
-    await new Promise<void>((resolve) => { setImmediate(resolve) })
+    await new Promise<void>(resolve => {
+      setImmediate(resolve)
+    })
     controller.abort()
-    await expect(Promise.race([
-      run.result,
-      new Promise<never>((_resolve, reject) => {
-        setTimeout(() => { reject(new Error('cancellation waited for process observation')) }, 500)
-      }),
-    ])).resolves.toEqual({ output: [], stopReason: 'aborted' })
+    await expect(
+      Promise.race([
+        run.result,
+        new Promise<never>((_resolve, reject) => {
+          setTimeout(() => {
+            reject(new Error('cancellation waited for process observation'))
+          }, 500)
+        }),
+      ]),
+    ).resolves.toEqual({ output: [], stopReason: 'aborted' })
     expect(boundedExitWaits).toBe(0)
     await run.dispose()
   })
@@ -1175,21 +1241,30 @@ describe('dsh-subagent-acp', () => {
       env: { MOCK_HANG: '1' },
       disposeEofGraceMs: 100,
       disposeGraceMs: 100,
-      spawn: (spec) => {
+      spawn: spec => {
         const child = spawnSubprocess(spec)
         realChild = child
-        return closeProtocolOnPrompt({
-          control: child.control,
-          stdin: child.stdin,
-          stdout: child.stdout,
-          stderr: child.stderr,
-          collected: child.collected,
-          done: direct.promise,
-          terminate: () => { child.terminate() },
-          waitForExit: (signal?: AbortSignal) => child.waitForExit(signal),
-        }, () => { direct.reject(processFailure) })
+        return closeProtocolOnPrompt(
+          {
+            control: child.control,
+            stdin: child.stdin,
+            stdout: child.stdout,
+            stderr: child.stderr,
+            collected: child.collected,
+            done: direct.promise,
+            terminate: () => {
+              child.terminate()
+            },
+            waitForExit: (signal?: AbortSignal) => child.waitForExit(signal),
+          },
+          () => {
+            direct.reject(processFailure)
+          },
+        )
       },
-      onError: (error) => { errors.push(error) },
+      onError: error => {
+        errors.push(error)
+      },
     })
     await expect(run.result).resolves.toEqual({
       output: [],
@@ -1210,10 +1285,7 @@ describe('dsh-subagent-acp', () => {
       env: { MOCK_CRASH_AFTER_CHUNK: '1' },
       disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS,
       disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
-      spawn: spec => replaceProcessOutcome(
-        spawnSubprocess(spec),
-        { exitCode: null, signal: 'SIGTERM' },
-      ),
+      spawn: spec => replaceProcessOutcome(spawnSubprocess(spec), { exitCode: null, signal: 'SIGTERM' }),
     })
     const result = await run.result
     expect(result).toEqual({
@@ -1226,14 +1298,18 @@ describe('dsh-subagent-acp', () => {
 
   it('rejects a returned-handle startup failure after provider-owned cleanup', async () => {
     const privateCommand = '/nonexistent/private/SECRET_TOKEN/acp-agent'
-    const error = await startAcpRun(
-      request(),
-      { command: privateCommand, args: [], cwd: process.cwd(), permission: 'reject', env: {}, disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS, disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS, spawn: spawnSubprocess },
-    ).catch((cause: unknown) => cause)
+    const error = await startAcpRun(request(), {
+      command: privateCommand,
+      args: [],
+      cwd: process.cwd(),
+      permission: 'reject',
+      env: {},
+      disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS,
+      disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
+      spawn: spawnSubprocess,
+    }).catch((cause: unknown) => cause)
     expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toBe(
-      `subagent-acp: ${expectedFailure('stage: initialize; category: transport')}`,
-    )
+    expect((error as Error).message).toBe(`subagent-acp: ${expectedFailure('stage: initialize; category: transport')}`)
     expect((error as Error).message).not.toContain(privateCommand)
   })
 
@@ -1248,13 +1324,15 @@ describe('dsh-subagent-acp', () => {
       env: {},
       disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS,
       disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
-      spawn: () => { throw new Error(rawMessage) },
-      onError: (failure) => { errors.push(failure.message) },
+      spawn: () => {
+        throw new Error(rawMessage)
+      },
+      onError: failure => {
+        errors.push(failure.message)
+      },
     }).catch((cause: unknown) => cause)
     expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toBe(
-      `subagent-acp: ${expectedFailure('stage: process; category: process-start')}`,
-    )
+    expect((error as Error).message).toBe(`subagent-acp: ${expectedFailure('stage: process; category: process-start')}`)
     expect((error as Error).message).not.toContain(rawMessage)
     expect(errors).toEqual([rawMessage])
   })
@@ -1270,7 +1348,9 @@ describe('dsh-subagent-acp', () => {
       }
     })
     const start = vi.spyOn(acpRun, 'startAcpRun')
-    onTestFinished(() => { start.mockRestore() })
+    onTestFinished(() => {
+      start.mockRestore()
+    })
     const ready = join(tmp, 'trap-armed')
     await ctx.plugin(SessionProjectionRegistry)
     await mountWorkingDirectoryFixture(ctx)
@@ -1293,10 +1373,13 @@ describe('dsh-subagent-acp', () => {
       disposeGraceMs: 5_000,
     })
     const run = await startExternalActivation(ctx, 'acp', request())
-    expect(start).toHaveBeenCalledExactlyOnceWith(expect.anything(), expect.objectContaining({
-      disposeEofGraceMs: 5_000,
-      disposeGraceMs: 5_000,
-    }))
+    expect(start).toHaveBeenCalledExactlyOnceWith(
+      expect.anything(),
+      expect.objectContaining({
+        disposeEofGraceMs: 5_000,
+        disposeGraceMs: 5_000,
+      }),
+    )
     await waitForFile(ready, task.timeout)
     await expect(run.dispose()).resolves.toBeUndefined()
     // The trapped child refuses stdin EOF, so the ladder waits out the EOF
@@ -1318,8 +1401,11 @@ describe('dsh-subagent-acp', () => {
       await mountWorkingDirectoryFixture(ctx)
       await ctx.plugin(SubagentRuntime)
       await ctx.plugin(LocalSubprocessRuntime)
-      await expect(ctx.plugin(acp, { providerName: 'acp', command: 'true', args: [], permission: 'reject', env: {}, ...bad }))
-        .rejects.toThrow(new RegExp(`subagent-acp: dispose(?:Eof)?GraceMs must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`))
+      await expect(
+        ctx.plugin(acp, { providerName: 'acp', command: 'true', args: [], permission: 'reject', env: {}, ...bad }),
+      ).rejects.toThrow(
+        new RegExp(`subagent-acp: dispose(?:Eof)?GraceMs must be a positive finite number no greater than ${MAX_TIMER_DELAY_MS}`),
+      )
       await ctx.fiber.dispose()
     }
   })
@@ -1343,9 +1429,8 @@ describe('dsh-subagent-acp', () => {
   })
 
   it('keeps permission diagnostics isolated across concurrent runs', async () => {
-    const start = (permission: 'allow' | 'reject', kind: 'edit' | 'execute') => startAcpRun(
-      request(),
-      {
+    const start = (permission: 'allow' | 'reject', kind: 'edit' | 'execute') =>
+      startAcpRun(request(), {
         command: process.execPath,
         args: [mockServer],
         cwd: process.cwd(),
@@ -1359,12 +1444,8 @@ describe('dsh-subagent-acp', () => {
         disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS,
         disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
         spawn: spawnSubprocess,
-      },
-    )
-    const [allowed, denied] = await Promise.all([
-      start('allow', 'execute'),
-      start('reject', 'edit'),
-    ])
+      })
+    const [allowed, denied] = await Promise.all([start('allow', 'execute'), start('reject', 'edit')])
     const [allowedResult, deniedResult] = await Promise.all([allowed.result, denied.result])
     expect(allowedResult.diagnostic).toContain(expectedPermission('allow', 'execute', 'allowed'))
     expect(allowedResult.diagnostic).not.toContain('policy: reject')
@@ -1385,18 +1466,18 @@ describe('dsh-subagent-acp', () => {
       env: { MOCK_HANG: '1', MOCK_IGNORE_CANCEL: '1' },
       disposeEofGraceMs: 10,
       disposeGraceMs: 10,
-      spawn: (spec) => {
+      spawn: spec => {
         const child = spawnSubprocess(spec)
         realChild = child
         return rejectFinalExitWait(child, rawMessage)
       },
-      onError: (error) => { errors.push(error.message) },
+      onError: error => {
+        errors.push(error.message)
+      },
     })
     const error = await run.dispose().catch((cause: unknown) => cause)
     expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toBe(
-      `subagent-acp: ${expectedFailure('stage: teardown; category: unknown')}`,
-    )
+    expect((error as Error).message).toBe(`subagent-acp: ${expectedFailure('stage: teardown; category: unknown')}`)
     expect((error as Error).message).not.toContain(rawMessage)
     expect(errors).toContain(rawMessage)
     await realChild?.done
@@ -1413,7 +1494,7 @@ describe('dsh-subagent-acp', () => {
       env: { MOCK_HANG: '1', MOCK_IGNORE_CANCEL: '1' },
       disposeEofGraceMs: 10,
       disposeGraceMs: 10,
-      spawn: (spec) => {
+      spawn: spec => {
         const child = spawnSubprocess(spec)
         realChild = child
         return rejectFinalExitWaitAfterExit(child, 'post-exit wait failed')
@@ -1421,9 +1502,7 @@ describe('dsh-subagent-acp', () => {
     })
     const error = await run.dispose().catch((cause: unknown) => cause)
     expect(error).toBeInstanceOf(Error)
-    expect((error as Error).message).toContain(
-      'subagent-acp: Subagent failure (provider: ACP; stage: teardown; category: process-exit;',
-    )
+    expect((error as Error).message).toContain('subagent-acp: Subagent failure (provider: ACP; stage: teardown; category: process-exit;')
     expect((error as Error).message).toMatch(/(?:exit code|signal): /)
     await realChild?.done
   })
@@ -1434,25 +1513,22 @@ describe('dsh-subagent-acp', () => {
     // fault is logged, not swallowed. The child exits after its session is
     // published but while prompt is in flight.
     const errors: { message: string; stopReason: string }[] = []
-    const run = await startAcpRun(
-      request(),
-      {
-        command: process.execPath,
-        args: [mockServer],
-        cwd: process.cwd(),
-        permission: 'reject',
-        env: { MOCK_CRASH_ON_PROMPT: '1' },
-        disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS,
-        disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
-        spawn: spawnSubprocess,
-        onError: (error, stopReason) => { errors.push({ message: error.message, stopReason }) },
+    const run = await startAcpRun(request(), {
+      command: process.execPath,
+      args: [mockServer],
+      cwd: process.cwd(),
+      permission: 'reject',
+      env: { MOCK_CRASH_ON_PROMPT: '1' },
+      disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS,
+      disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
+      spawn: spawnSubprocess,
+      onError: (error, stopReason) => {
+        errors.push({ message: error.message, stopReason })
       },
-    )
+    })
     const result = await run.result
     expect(result.stopReason).toBe('error')
-    expect(result.diagnostic).toBe(
-      expectedFailure('stage: process; category: process-exit; exit code: 1'),
-    )
+    expect(result.diagnostic).toBe(expectedFailure('stage: process; category: process-exit; exit code: 1'))
     expect(errors).toHaveLength(1)
     expect(errors[0]!.stopReason).toBe('error')
     expect(errors[0]!.message.length).toBeGreaterThan(0)
@@ -1462,18 +1538,16 @@ describe('dsh-subagent-acp', () => {
   it('logs a flattened child failure through the registered provider', async () => {
     const ctx = await setup({ MOCK_CRASH_ON_PROMPT: '1' })
     const warnings: string[] = []
-    ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
+    ctx.logger.warn = ((message: unknown) => {
+      warnings.push(String(message))
+    }) as typeof ctx.logger.warn
     const run = await startExternalActivation(ctx, 'acp', request())
     const result = await run.result
     expect(result.stopReason).toBe('error')
-    expect(result.diagnostic).toBe(
-      expectedFailure('stage: process; category: process-exit; exit code: 1'),
-    )
+    expect(result.diagnostic).toBe(expectedFailure('stage: process; category: process-exit; exit code: 1'))
     // Unsupported hosts can emit the subprocess provider's one-time fallback
     // warning before this provider-specific failure reaches the same logger.
-    expect(warnings).toContainEqual(
-      expect.stringContaining('subagent-acp "acp": child run failed (error):'),
-    )
+    expect(warnings).toContainEqual(expect.stringContaining('subagent-acp "acp": child run failed (error):'))
     await run.dispose()
   })
 
@@ -1481,25 +1555,22 @@ describe('dsh-subagent-acp', () => {
     // onError is a caller-supplied callback boundary: its own exception must be
     // contained, or it would reject `result` and break the seam's "result never
     // rejects" contract that the flattening above exists to uphold.
-    const run = await startAcpRun(
-      request(),
-      {
-        command: process.execPath,
-        args: [mockServer],
-        cwd: process.cwd(),
-        permission: 'reject',
-        env: { MOCK_CRASH_ON_PROMPT: '1' },
-        disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS,
-        disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
-        spawn: spawnSubprocess,
-        onError: () => { throw new Error('sink boom') },
+    const run = await startAcpRun(request(), {
+      command: process.execPath,
+      args: [mockServer],
+      cwd: process.cwd(),
+      permission: 'reject',
+      env: { MOCK_CRASH_ON_PROMPT: '1' },
+      disposeEofGraceMs: DEFAULT_DISPOSE_EOF_GRACE_MS,
+      disposeGraceMs: DEFAULT_DISPOSE_GRACE_MS,
+      spawn: spawnSubprocess,
+      onError: () => {
+        throw new Error('sink boom')
       },
-    )
+    })
     const result = await run.result
     expect(result.stopReason).toBe('error')
-    expect(result.diagnostic).toBe(
-      expectedFailure('stage: process; category: process-exit; exit code: 1'),
-    )
+    expect(result.diagnostic).toBe(expectedFailure('stage: process; category: process-exit; exit code: 1'))
     await run.dispose()
   })
 
@@ -1542,7 +1613,11 @@ describe('dsh-subagent-acp', () => {
       // would hang result forever — fail loud instead of stalling the suite.
       const result = await Promise.race([
         run.result,
-        new Promise<never>((_r, reject) => { setTimeout(() => { reject(new Error('result did not settle on cancel — backend waited on the child')) }, 4000) }),
+        new Promise<never>((_r, reject) => {
+          setTimeout(() => {
+            reject(new Error('result did not settle on cancel — backend waited on the child'))
+          }, 4000)
+        }),
       ])
       expect(result.stopReason).toBe('aborted')
       expect(result.diagnostic).toBeUndefined()

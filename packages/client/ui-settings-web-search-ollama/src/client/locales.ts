@@ -4,28 +4,45 @@ import type { SettingsFormLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Locale keys the page renders. */
 export type OllamaSearchSettingsLocaleKey =
-  | 'title' | 'description'
-  | 'useOllama' | 'useOllamaHint'
-  | 'apiKey' | 'apiKeyHint' | 'apiKeySet' | 'apiKeyUnset'
-  | 'searchBaseUrl' | 'searchBaseUrlHint' | 'fetchBaseUrl' | 'fetchBaseUrlHint'
-  | 'maxResults' | 'maxResultsHint'
-  | 'overridden' | 'reset' | 'readOnly' | 'unavailable'
-  | 'save' | 'saving' | 'saveFailed' | 'invalidNumber'
+  | 'title'
+  | 'description'
+  | 'useOllama'
+  | 'useOllamaHint'
+  | 'apiKey'
+  | 'apiKeyHint'
+  | 'apiKeySet'
+  | 'apiKeyUnset'
+  | 'searchBaseUrl'
+  | 'searchBaseUrlHint'
+  | 'fetchBaseUrl'
+  | 'fetchBaseUrlHint'
+  | 'maxResults'
+  | 'maxResultsHint'
+  | 'overridden'
+  | 'reset'
+  | 'readOnly'
+  | 'unavailable'
+  | 'save'
+  | 'saving'
+  | 'saveFailed'
+  | 'invalidNumber'
 
 /** English copy. */
 export const en: Record<OllamaSearchSettingsLocaleKey, string> = {
   title: 'Ollama Cloud search',
   description: 'Set up the Ollama Cloud web search and fetch providers.',
   useOllama: 'Use Ollama Cloud for web search and fetch',
-  useOllamaHint: 'On selects both Ollama Cloud operations; off restores the deployment\'s own selection.',
+  useOllamaHint: "On selects both Ollama Cloud operations; off restores the deployment's own selection.",
   apiKey: 'API key',
   apiKeyHint: 'Stored outside the settings file. Leave blank to keep the current key.',
   apiKeySet: 'A key is configured.',
   apiKeyUnset: 'No key is configured; this provider cannot search or fetch until one is set.',
   searchBaseUrl: 'Search API URL',
-  searchBaseUrlHint: 'Include the API prefix, such as https://ollama.com. The provider appends /api/web_search. Leave blank to restore the default.',
+  searchBaseUrlHint:
+    'Include the API prefix, such as https://ollama.com. The provider appends /api/web_search. Leave blank to restore the default.',
   fetchBaseUrl: 'Fetch API URL',
-  fetchBaseUrlHint: 'Include the API prefix, such as https://ollama.com. The provider appends /api/web_fetch. Leave blank to restore the default.',
+  fetchBaseUrlHint:
+    'Include the API prefix, such as https://ollama.com. The provider appends /api/web_fetch. Leave blank to restore the default.',
   maxResults: 'Results per search',
   maxResultsHint: 'Results returned per search when the caller requests no smaller bound.',
   overridden: 'Overridden',

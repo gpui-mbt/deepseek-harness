@@ -5,14 +5,17 @@
  * @param input Validated signing identity and task.
  * @returns Scrubbed environment plus the fields consumed and cleared by the signing CMD.
  */
-export function buildWindowsSigningEnvironment(environment: NodeJS.ProcessEnv, input: {
-  certificateFile: string
-  signTool: string
-  path: string
-  isNest: boolean
-  tokenPin: string
-  keyContainer: string
-}): NodeJS.ProcessEnv
+export function buildWindowsSigningEnvironment(
+  environment: NodeJS.ProcessEnv,
+  input: {
+    certificateFile: string
+    signTool: string
+    path: string
+    isNest: boolean
+    tokenPin: string
+    keyContainer: string
+  },
+): NodeJS.ProcessEnv
 
 /**
  * Pin updater verification to the release certificate's organization, country, and common name.
@@ -36,13 +39,7 @@ export function createWindowsTokenSigner(options: {
   runDirectory?: string | undefined
   stateDirectory?: string | undefined
   preserveSignature?: (path: string) => Promise<boolean>
-}): (
-  configuration: {
-    path: string
-    hash: string
-    isNest: boolean
-  },
-) => Promise<void>
+}): (configuration: { path: string; hash: string; isNest: boolean }) => Promise<void>
 
 /**
  * Remove inherited credentials before starting a signing-related subprocess.
@@ -60,11 +57,7 @@ export function scrubWindowsSigningEnvironment(environment: NodeJS.ProcessEnv): 
  * @param secrets Values that must not appear in the diagnostic.
  * @returns Sanitized signing failure without the original error as its cause.
  */
-export function createRedactedWindowsSigningError(
-  error: unknown,
-  path: string,
-  secrets: readonly string[],
-): Error
+export function createRedactedWindowsSigningError(error: unknown, path: string, secrets: readonly string[]): Error
 
 /**
  * Clear a certificate-table entry that points beyond the end of a generated executable.
@@ -81,19 +74,10 @@ export function repairDanglingAuthenticodeDirectory(path: string): Promise<boole
  * @returns Nothing.
  */
 export function installWindowsNsisBootstrapSigner(options: {
-  sign: (configuration: {
-    path: string
-    hash: string
-    isNest: boolean
-  }) => Promise<void>
+  sign: (configuration: { path: string; hash: string; isNest: boolean }) => Promise<void>
   wineVmManager?: {
     prototype: {
-      exec: (
-        file: string,
-        args: string[],
-        options?: { env?: NodeJS.ProcessEnv },
-        isLogOutIfDebug?: boolean,
-      ) => unknown
+      exec: (file: string, args: string[], options?: { env?: NodeJS.ProcessEnv }, isLogOutIfDebug?: boolean) => unknown
     }
   }
   platform?: NodeJS.Platform

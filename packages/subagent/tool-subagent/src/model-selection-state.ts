@@ -28,10 +28,17 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
   }
 }
 
-const modelSelectionPolicySchema: zod.ZodType<AllowedModelRoute[] | null> = zod.array(zod.object({
-  provider: zod.string().min(1),
-  model: zod.string().min(1),
-}).strict()).min(1).nullable()
+const modelSelectionPolicySchema: zod.ZodType<AllowedModelRoute[] | null> = zod
+  .array(
+    zod
+      .object({
+        provider: zod.string().min(1),
+        model: zod.string().min(1),
+      })
+      .strict(),
+  )
+  .min(1)
+  .nullable()
 
 /** Host-only projection of the durable model-selection policy. */
 export const subagentModelSelectionProjectionDefinition = {

@@ -1,9 +1,5 @@
 import { SessionFormatError, SessionFormatUnsupportedMigrationError } from './error.ts'
-import {
-  snapshotSessionFormatHeader,
-  sessionFormatCount,
-  sessionFormatVersion,
-} from './json.ts'
+import { snapshotSessionFormatHeader, sessionFormatCount, sessionFormatVersion } from './json.ts'
 import type {
   SessionFormatChain,
   SessionFormatChainOptions,
@@ -92,9 +88,7 @@ class CompiledSessionFormatChain implements SessionFormatChain {
     output: SessionFormatMigrationContext,
   ): SessionFormatMigrationStream {
     let header = sourceHeader
-    const validatedSourceCut = sourceCut === undefined
-      ? undefined
-      : sessionFormatCount(sourceCut, 'Session inherited event count')
+    const validatedSourceCut = sourceCut === undefined ? undefined : sessionFormatCount(sourceCut, 'Session inherited event count')
     let inheritedEventCount = validatedSourceCut
     const stages: Array<{
       readonly migration: SessionFormatMigration
@@ -118,12 +112,7 @@ class CompiledSessionFormatChain implements SessionFormatChain {
       stages.push({ migration, stage })
       inheritedEventCount = stage.headerInheritedEventCount
     }
-    return new CompiledSessionFormatMigrationStream(
-      header,
-      validatedSourceCut,
-      stages,
-      output,
-    )
+    return new CompiledSessionFormatMigrationStream(header, validatedSourceCut, stages, output)
   }
 
   migrateHeader(source: SessionFormatHeader): SessionFormatHeader {
@@ -133,17 +122,12 @@ class CompiledSessionFormatChain implements SessionFormatChain {
     }
     current = snapshotSessionFormatHeader(this.restoreCurrentHeader(current), 'current Session header restoration')
     if (current.version !== this.currentVersion) {
-      throw new SessionFormatError(
-        `current Session header restorer returned v${current.version}; expected v${this.currentVersion}`,
-      )
+      throw new SessionFormatError(`current Session header restorer returned v${current.version}; expected v${this.currentVersion}`)
     }
     return current
   }
 
-  private advanceHeader(
-    migration: SessionFormatMigration,
-    source: SessionFormatHeader,
-  ): SessionFormatHeader {
+  private advanceHeader(migration: SessionFormatMigration, source: SessionFormatHeader): SessionFormatHeader {
     let target: SessionFormatHeader
     try {
       target = migration.migrateHeader(snapshotSessionFormatHeader(source, `${migration.name} header input`))
@@ -197,8 +181,7 @@ class ChainedMigrationContext implements SessionFormatMigrationContext {
     } catch (error: unknown) {
       throwUnsupportedRefusal(this.entry.migration, error)
     }
-    if (this.entry.stage.headerInheritedEventCount !== undefined
-      && this.entry.stage.headerInheritedEventCount !== targetCut) {
+    if (this.entry.stage.headerInheritedEventCount !== undefined && this.entry.stage.headerInheritedEventCount !== targetCut) {
       throw new SessionFormatError(`${this.entry.migration.name} changed its predeclared inherited cut`)
     }
     return targetCut
@@ -241,11 +224,7 @@ class CompiledSessionFormatMigrationStream implements SessionFormatMigrationStre
   }
 }
 
-function throwUnsupportedRefusal(
-  migration: SessionFormatMigration,
-  error: unknown,
-  subject = 'Session',
-): never {
+function throwUnsupportedRefusal(migration: SessionFormatMigration, error: unknown, subject = 'Session'): never {
   if (error instanceof SessionFormatUnsupportedMigrationError) throw error
   const detail = error instanceof Error ? error.message : String(error)
   throw new SessionFormatUnsupportedMigrationError(

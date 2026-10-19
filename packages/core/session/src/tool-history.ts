@@ -29,7 +29,7 @@ export class ToolHistoryProjection {
       this.headers.set(event.seq, tools)
       // A retained name cannot acquire a different definition without losing
       // prefix reuse; an unchanged restored name is re-offered by its recorded addition.
-      const redeclared = tools.some((tool) => {
+      const redeclared = tools.some(tool => {
         const before = this.declared.get(tool.name)
         return before !== undefined && JSON.stringify(before) !== JSON.stringify(tool)
       })
@@ -43,7 +43,7 @@ export class ToolHistoryProjection {
     } else if (event.type === 'developer/message') {
       const { message, headerSeq } = event.data
       const definitions = headerSeq === undefined ? [] : this.headers.get(headerSeq)
-      const additions = message.content.flatMap((block) => {
+      const additions = message.content.flatMap(block => {
         if (block.type !== 'tool-addition') return []
         const tool = definitions?.find(tool => tool.name === block.toolName)
         if (tool === undefined) throw new Error(`tool history: missing definition for ${block.toolName}`)

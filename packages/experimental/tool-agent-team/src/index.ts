@@ -42,7 +42,8 @@ Use the target returned by spawn_teammate or list_agents for send_message${inter
 }
 
 const ACTIVE_WAIT_STATUSES: ReadonlySet<TeamMemberView['status']> = new Set(['running', 'provisioning'])
-const NO_ACTIVE_PEER_MESSAGE = 'No other Team member is running or provisioning. wait_agent cannot make progress or wake inactive teammates. Re-list with list_agents and team_task_list, then use send_message to wake each required inactive teammate before waiting again.'
+const NO_ACTIVE_PEER_MESSAGE =
+  'No other Team member is running or provisioning. wait_agent cannot make progress or wake inactive teammates. Re-list with list_agents and team_task_list, then use send_message to wake each required inactive teammate before waiting again.'
 
 /**
  * One model-facing roster row. The Lead pseudo-row omits the
@@ -147,7 +148,9 @@ const TASK_LIST_VALUE_SCHEMA = {
  * @param schema - canonical value schema for one tool.
  * @returns the `output` declaration accepted by {@link defineTool}.
  */
-function jsonOutput<const S extends ValueSchemaSpec>(schema: S): {
+function jsonOutput<const S extends ValueSchemaSpec>(
+  schema: S,
+): {
   schema: S
   render: (args: unknown, value: InferValue<S>) => [{ type: 'text'; text: string }]
 } {
@@ -168,236 +171,296 @@ function callingAgent(agent: Agent | undefined, toolName: string): Agent {
 function install(agent: Agent, ctx: Context, config: Required<Config>): () => void {
   const scoped = agent.ctx
   const disposers: Array<() => unknown> = []
-  const register = (disposer: () => unknown): void => { disposers.push(disposer) }
+  const register = (disposer: () => unknown): void => {
+    disposers.push(disposer)
+  }
   try {
-    register(scoped.systemPrompt.section({
-      name: 'team:policy',
-      order: scoped.systemPrompt.getSectionOrder('TEAM_POLICY'),
-      text: teamPolicy(config.interrupt),
-    }))
-    register(scoped.systemPrompt.context({
-      name: 'team:identity',
-      order: scoped.systemPrompt.getContextOrder('TEAM_IDENTITY'),
-      required: true,
-      text: () => {
-        const { role, name } = ctx.agentTeams.membership(agent)
-        return `${role === 'lead'
-          ? 'You are the Team Lead named "lead".'
-          : `You are teammate "${name}".\nYour Team Lead is named "lead".\nTo message your Team Lead, use send_message({ target: "lead", message: "..." }).`}
+    register(
+      scoped.systemPrompt.section({
+        name: 'team:policy',
+        order: scoped.systemPrompt.getSectionOrder('TEAM_POLICY'),
+        text: teamPolicy(config.interrupt),
+      }),
+    )
+    register(
+      scoped.systemPrompt.context({
+        name: 'team:identity',
+        order: scoped.systemPrompt.getContextOrder('TEAM_IDENTITY'),
+        required: true,
+        text: () => {
+          const { role, name } = ctx.agentTeams.membership(agent)
+          return `${
+            role === 'lead'
+              ? 'You are the Team Lead named "lead".'
+              : `You are teammate "${name}".\nYour Team Lead is named "lead".\nTo message your Team Lead, use send_message({ target: "lead", message: "..." }).`
+          }
 Use list_agents({}) to find your teammates and their names.
 To message another teammate, use send_message({ target: "<teammate name>", message: "..." }).`
-      },
-    }))
-
-    register(scoped.tools.register(defineTool({
-      name: 'spawn_teammate',
-      description: 'Create one named, durable teammate. Only the Team Lead may call this tool.',
-      parameters: {
-        name: { type: 'string', required: true, description: 'Unique lower-kebab-case teammate name.' },
-        description: { type: 'string', required: true, description: 'Short description of the delegated responsibility.' },
-        prompt: { type: 'string', required: true, description: 'Complete initial task for the teammate.' },
-        context: {
-          type: 'string',
-          enum: ['fresh', 'fork'],
-          description: 'fresh starts without Lead history; fork inherits completed Lead turns. Defaults to fresh.',
         },
-      },
-      output: jsonOutput(SPAWN_VALUE_SCHEMA),
-      async execute(args, exec) {
-        const agent = callingAgent(exec.agent, 'spawn_teammate')
-        const context = args.context ?? 'fresh'
-        const result = await ctx.agentTeams.spawnTeammate(agent, {
-          name: args.name,
-          description: args.description,
-          prompt: [{ type: 'text', text: args.prompt }],
-          context,
-          provider: context === 'fork' ? config.forkProvider : config.freshProvider,
-          signal: exec.signal,
-        })
-        return { member: modelMember(result.member) }
-      },
-    })))
+      }),
+    )
 
-    register(scoped.tools.register(defineTool({
-      name: 'send_message',
-      description: 'Send one message to another Team member. A running target receives it at the nearest step boundary; an inactive target starts or resumes a turn.',
-      parameters: {
-        target: { type: 'string', required: true, description: 'Member target returned by spawn_teammate or list_agents, including lead.' },
-        message: { type: 'string', required: true, description: 'Self-contained message for the target.' },
-      },
-      output: jsonOutput(SEND_VALUE_SCHEMA),
-      async execute(args, exec) {
-        await ctx.agentTeams.sendMessage(callingAgent(exec.agent, 'send_message'), {
-          target: args.target,
-          content: [{ type: 'text', text: args.message }],
-          signal: exec.signal,
-        })
-        return { sent: true }
-      },
-    })))
-
-    register(scoped.tools.register(defineTool({
-      name: 'list_agents',
-      description: 'List the Lead and every durable teammate with an addressable target and current availability. inactive means no turn is executing, not a task result. provisioning and failed describe member creation.',
-      parameters: {},
-      output: jsonOutput(MEMBER_LIST_VALUE_SCHEMA),
-      execute(_args, exec) {
-        return Promise.resolve(ctx.agentTeams.listMembers(callingAgent(exec.agent, 'list_agents')).map(modelMember))
-      },
-    })))
-
-    register(scoped.tools.register(defineTool({
-      name: 'wait_agent',
-      description: 'Wait for the next teammate status, message, or shared-task change after this call starts. This never wakes inactive members and returns noProgress immediately when no other member is running or provisioning. Re-list after wakeup or timeout instead of polling.',
-      parameters: {
-        timeout_ms: {
-          type: 'integer',
-          description: 'Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000.',
-        },
-      },
-      output: jsonOutput(WAIT_VALUE_SCHEMA),
-      async execute(args, exec) {
-        const caller = callingAgent(exec.agent, 'wait_agent')
-        const timeoutMs = args.timeout_ms ?? 30_000
-        // Preserve TeamService's authoritative timeout validation before the
-        // model-only no-progress shortcut.
-        if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 10_000 || timeoutMs > 3_600_000) {
-          return await ctx.agentTeams.waitForChange(caller, timeoutMs, exec.signal)
-        }
-        // The active-peer read and waiter registration must remain one synchronous
-        // span; awaiting between them can lose the only peer-status edge.
-        const hasActivePeer = ctx.agentTeams.listMembers(caller).some(member =>
-          member.id !== caller.id && ACTIVE_WAIT_STATUSES.has(member.status))
-        if (!hasActivePeer) {
-          return {
-            timedOut: false,
-            noProgress: {
-              reason: 'no-active-peer' as const,
-              message: NO_ACTIVE_PEER_MESSAGE,
+    register(
+      scoped.tools.register(
+        defineTool({
+          name: 'spawn_teammate',
+          description: 'Create one named, durable teammate. Only the Team Lead may call this tool.',
+          parameters: {
+            name: { type: 'string', required: true, description: 'Unique lower-kebab-case teammate name.' },
+            description: { type: 'string', required: true, description: 'Short description of the delegated responsibility.' },
+            prompt: { type: 'string', required: true, description: 'Complete initial task for the teammate.' },
+            context: {
+              type: 'string',
+              enum: ['fresh', 'fork'],
+              description: 'fresh starts without Lead history; fork inherits completed Lead turns. Defaults to fresh.',
             },
-          }
-        }
-        return await ctx.agentTeams.waitForChange(caller, timeoutMs, exec.signal)
-      },
-    })))
+          },
+          output: jsonOutput(SPAWN_VALUE_SCHEMA),
+          async execute(args, exec) {
+            const agent = callingAgent(exec.agent, 'spawn_teammate')
+            const context = args.context ?? 'fresh'
+            const result = await ctx.agentTeams.spawnTeammate(agent, {
+              name: args.name,
+              description: args.description,
+              prompt: [{ type: 'text', text: args.prompt }],
+              context,
+              provider: context === 'fork' ? config.forkProvider : config.freshProvider,
+              signal: exec.signal,
+            })
+            return { member: modelMember(result.member) }
+          },
+        }),
+      ),
+    )
+
+    register(
+      scoped.tools.register(
+        defineTool({
+          name: 'send_message',
+          description:
+            'Send one message to another Team member. A running target receives it at the nearest step boundary; an inactive target starts or resumes a turn.',
+          parameters: {
+            target: {
+              type: 'string',
+              required: true,
+              description: 'Member target returned by spawn_teammate or list_agents, including lead.',
+            },
+            message: { type: 'string', required: true, description: 'Self-contained message for the target.' },
+          },
+          output: jsonOutput(SEND_VALUE_SCHEMA),
+          async execute(args, exec) {
+            await ctx.agentTeams.sendMessage(callingAgent(exec.agent, 'send_message'), {
+              target: args.target,
+              content: [{ type: 'text', text: args.message }],
+              signal: exec.signal,
+            })
+            return { sent: true }
+          },
+        }),
+      ),
+    )
+
+    register(
+      scoped.tools.register(
+        defineTool({
+          name: 'list_agents',
+          description:
+            'List the Lead and every durable teammate with an addressable target and current availability. inactive means no turn is executing, not a task result. provisioning and failed describe member creation.',
+          parameters: {},
+          output: jsonOutput(MEMBER_LIST_VALUE_SCHEMA),
+          execute(_args, exec) {
+            return Promise.resolve(ctx.agentTeams.listMembers(callingAgent(exec.agent, 'list_agents')).map(modelMember))
+          },
+        }),
+      ),
+    )
+
+    register(
+      scoped.tools.register(
+        defineTool({
+          name: 'wait_agent',
+          description:
+            'Wait for the next teammate status, message, or shared-task change after this call starts. This never wakes inactive members and returns noProgress immediately when no other member is running or provisioning. Re-list after wakeup or timeout instead of polling.',
+          parameters: {
+            timeout_ms: {
+              type: 'integer',
+              description: 'Wait duration in milliseconds, from 10000 through 3600000. Defaults to 30000.',
+            },
+          },
+          output: jsonOutput(WAIT_VALUE_SCHEMA),
+          async execute(args, exec) {
+            const caller = callingAgent(exec.agent, 'wait_agent')
+            const timeoutMs = args.timeout_ms ?? 30_000
+            // Preserve TeamService's authoritative timeout validation before the
+            // model-only no-progress shortcut.
+            if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 10_000 || timeoutMs > 3_600_000) {
+              return await ctx.agentTeams.waitForChange(caller, timeoutMs, exec.signal)
+            }
+            // The active-peer read and waiter registration must remain one synchronous
+            // span; awaiting between them can lose the only peer-status edge.
+            const hasActivePeer = ctx.agentTeams
+              .listMembers(caller)
+              .some(member => member.id !== caller.id && ACTIVE_WAIT_STATUSES.has(member.status))
+            if (!hasActivePeer) {
+              return {
+                timedOut: false,
+                noProgress: {
+                  reason: 'no-active-peer' as const,
+                  message: NO_ACTIVE_PEER_MESSAGE,
+                },
+              }
+            }
+            return await ctx.agentTeams.waitForChange(caller, timeoutMs, exec.signal)
+          },
+        }),
+      ),
+    )
 
     if (config.interrupt) {
-      register(scoped.tools.register(defineTool({
-        name: 'interrupt_agent',
-        description: 'Interrupt one teammate\'s current turn while preserving its pending inbox. Team Lead only.',
-        parameters: {
-          target: { type: 'string', required: true, description: 'Teammate target returned by spawn_teammate or list_agents.' },
-        },
-        output: jsonOutput(INTERRUPT_VALUE_SCHEMA),
-        execute(args, exec) {
-          return Promise.resolve(ctx.agentTeams.interrupt(callingAgent(exec.agent, 'interrupt_agent'), args.target))
-        },
-      })))
+      register(
+        scoped.tools.register(
+          defineTool({
+            name: 'interrupt_agent',
+            description: "Interrupt one teammate's current turn while preserving its pending inbox. Team Lead only.",
+            parameters: {
+              target: { type: 'string', required: true, description: 'Teammate target returned by spawn_teammate or list_agents.' },
+            },
+            output: jsonOutput(INTERRUPT_VALUE_SCHEMA),
+            execute(args, exec) {
+              return Promise.resolve(ctx.agentTeams.interrupt(callingAgent(exec.agent, 'interrupt_agent'), args.target))
+            },
+          }),
+        ),
+      )
     }
 
-    register(scoped.tools.register(defineTool({
-      name: 'team_task_create',
-      description: 'Create one unowned pending task on the shared Team task board.',
-      parameters: {
-        subject: { type: 'string', required: true, description: 'Concise task title.' },
-        description: { type: 'string', required: true, description: 'Complete task details and acceptance criteria.' },
-        blocked_by: { type: 'array', items: { type: 'string' }, description: 'Task ids that must complete first.' },
-        write_scopes: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Advisory workspace-relative file or directory prefixes this task expects to modify.',
-        },
-      },
-      output: jsonOutput(TASK_VIEW_SCHEMA),
-      async execute(args, exec) {
-        return await ctx.agentTeams.createTask(callingAgent(exec.agent, 'team_task_create'), {
-          subject: args.subject,
-          description: args.description,
-          ...args.blocked_by === undefined ? {} : { blockedBy: args.blocked_by.map(TeamTaskId) },
-          ...args.write_scopes === undefined ? {} : { writeScopes: args.write_scopes },
-        })
-      },
-    })))
+    register(
+      scoped.tools.register(
+        defineTool({
+          name: 'team_task_create',
+          description: 'Create one unowned pending task on the shared Team task board.',
+          parameters: {
+            subject: { type: 'string', required: true, description: 'Concise task title.' },
+            description: { type: 'string', required: true, description: 'Complete task details and acceptance criteria.' },
+            blocked_by: { type: 'array', items: { type: 'string' }, description: 'Task ids that must complete first.' },
+            write_scopes: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Advisory workspace-relative file or directory prefixes this task expects to modify.',
+            },
+          },
+          output: jsonOutput(TASK_VIEW_SCHEMA),
+          async execute(args, exec) {
+            return await ctx.agentTeams.createTask(callingAgent(exec.agent, 'team_task_create'), {
+              subject: args.subject,
+              description: args.description,
+              ...(args.blocked_by === undefined ? {} : { blockedBy: args.blocked_by.map(TeamTaskId) }),
+              ...(args.write_scopes === undefined ? {} : { writeScopes: args.write_scopes }),
+            })
+          },
+        }),
+      ),
+    )
 
-    register(scoped.tools.register(defineTool({
-      name: 'team_task_list',
-      description: 'List shared tasks, including readiness, owner, revision, blockers, and write-scope warnings.',
-      parameters: {
-        status: {
-          type: 'string',
-          enum: ['pending', 'in_progress', 'completed'],
-          description: 'Optional exact status filter.',
-        },
-        owner: { type: 'string', description: 'Optional member target from spawn_teammate or list_agents, matching ownerName; use unowned for tasks without an owner.' },
-        ready: { type: 'boolean', description: 'Optional readiness filter.' },
-        cursor: { type: 'integer', description: 'Zero-based result offset. Defaults to 0.' },
-        limit: { type: 'integer', description: 'Number of rows, 1 through 100. Defaults to 50.' },
-      },
-      output: jsonOutput(TASK_LIST_VALUE_SCHEMA),
-      execute(args, exec) {
-        const status = args.status
-        const filtered = ctx.agentTeams.listTasks(callingAgent(exec.agent, 'team_task_list')).filter(task =>
-          (status === undefined || task.status === status)
-          && (args.owner === undefined || (args.owner === 'unowned' ? task.ownerName === undefined : task.ownerName === args.owner))
-          && (args.ready === undefined || task.ready === args.ready))
-        const cursor = args.cursor ?? 0
-        const limit = args.limit ?? 50
-        if (!Number.isSafeInteger(cursor) || cursor < 0) throw new Error('cursor must be a non-negative safe integer')
-        if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error('limit must be an integer from 1 through 100')
-        return Promise.resolve({
-          tasks: filtered.slice(cursor, cursor + limit),
-          ...(cursor + limit < filtered.length ? { nextCursor: cursor + limit } : {}),
-        })
-      },
-    })))
+    register(
+      scoped.tools.register(
+        defineTool({
+          name: 'team_task_list',
+          description: 'List shared tasks, including readiness, owner, revision, blockers, and write-scope warnings.',
+          parameters: {
+            status: {
+              type: 'string',
+              enum: ['pending', 'in_progress', 'completed'],
+              description: 'Optional exact status filter.',
+            },
+            owner: {
+              type: 'string',
+              description:
+                'Optional member target from spawn_teammate or list_agents, matching ownerName; use unowned for tasks without an owner.',
+            },
+            ready: { type: 'boolean', description: 'Optional readiness filter.' },
+            cursor: { type: 'integer', description: 'Zero-based result offset. Defaults to 0.' },
+            limit: { type: 'integer', description: 'Number of rows, 1 through 100. Defaults to 50.' },
+          },
+          output: jsonOutput(TASK_LIST_VALUE_SCHEMA),
+          execute(args, exec) {
+            const status = args.status
+            const filtered = ctx.agentTeams
+              .listTasks(callingAgent(exec.agent, 'team_task_list'))
+              .filter(
+                task =>
+                  (status === undefined || task.status === status) &&
+                  (args.owner === undefined || (args.owner === 'unowned' ? task.ownerName === undefined : task.ownerName === args.owner)) &&
+                  (args.ready === undefined || task.ready === args.ready),
+              )
+            const cursor = args.cursor ?? 0
+            const limit = args.limit ?? 50
+            if (!Number.isSafeInteger(cursor) || cursor < 0) throw new Error('cursor must be a non-negative safe integer')
+            if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error('limit must be an integer from 1 through 100')
+            return Promise.resolve({
+              tasks: filtered.slice(cursor, cursor + limit),
+              ...(cursor + limit < filtered.length ? { nextCursor: cursor + limit } : {}),
+            })
+          },
+        }),
+      ),
+    )
 
-    register(scoped.tools.register(defineTool({
-      name: 'team_task_get',
-      description: 'Read the complete latest value of one shared task before changing or executing it.',
-      parameters: {
-        task_id: { type: 'string', required: true, description: 'Shared task id.' },
-      },
-      output: jsonOutput(TASK_VIEW_SCHEMA),
-      async execute(args, exec) {
-        return Promise.resolve(ctx.agentTeams.getTask(
-          callingAgent(exec.agent, 'team_task_get'),
-          TeamTaskId(args.task_id),
-        ))
-      },
-    })))
+    register(
+      scoped.tools.register(
+        defineTool({
+          name: 'team_task_get',
+          description: 'Read the complete latest value of one shared task before changing or executing it.',
+          parameters: {
+            task_id: { type: 'string', required: true, description: 'Shared task id.' },
+          },
+          output: jsonOutput(TASK_VIEW_SCHEMA),
+          async execute(args, exec) {
+            return Promise.resolve(ctx.agentTeams.getTask(callingAgent(exec.agent, 'team_task_get'), TeamTaskId(args.task_id)))
+          },
+        }),
+      ),
+    )
 
-    register(scoped.tools.register(defineTool({
-      name: 'team_task_update',
-      description: 'Compare-and-set a shared task action using the latest revision from team_task_get or team_task_list.',
-      parameters: {
-        task_id: { type: 'string', required: true, description: 'Shared task id.' },
-        expected_revision: { type: 'integer', required: true, description: 'Current task revision used as the CAS precondition.' },
-        action: {
-          type: 'string',
-          required: true,
-          enum: ['claim', 'release', 'edit', 'set_dependencies', 'complete', 'reopen', 'reassign', 'delete'],
-          description: 'Task transition to apply.',
-        },
-        subject: { type: 'string', description: 'Replacement title for edit.' },
-        description: { type: 'string', description: 'Replacement details for edit.' },
-        blocked_by: { type: 'array', items: { type: 'string' }, description: 'Complete blocker list for set_dependencies.' },
-        write_scopes: { type: 'array', items: { type: 'string' }, description: 'Replacement advisory write scopes for edit.' },
-        owner: { type: 'string', description: 'Member target from spawn_teammate or list_agents for Lead-only reassign; omit to unassign.' },
-      },
-      output: jsonOutput(TASK_VIEW_SCHEMA),
-      async execute(args, exec) {
-        return await ctx.agentTeams.updateTask(callingAgent(exec.agent, 'team_task_update'), {
-          taskId: TeamTaskId(args.task_id),
-          expectedRevision: args.expected_revision,
-          action: args.action,
-          ...args.subject === undefined ? {} : { subject: args.subject },
-          ...args.description === undefined ? {} : { description: args.description },
-          ...args.blocked_by === undefined ? {} : { blockedBy: args.blocked_by.map(TeamTaskId) },
-          ...args.write_scopes === undefined ? {} : { writeScopes: args.write_scopes },
-          ...args.owner === undefined ? {} : { owner: args.owner },
-        })
-      },
-    })))
+    register(
+      scoped.tools.register(
+        defineTool({
+          name: 'team_task_update',
+          description: 'Compare-and-set a shared task action using the latest revision from team_task_get or team_task_list.',
+          parameters: {
+            task_id: { type: 'string', required: true, description: 'Shared task id.' },
+            expected_revision: { type: 'integer', required: true, description: 'Current task revision used as the CAS precondition.' },
+            action: {
+              type: 'string',
+              required: true,
+              enum: ['claim', 'release', 'edit', 'set_dependencies', 'complete', 'reopen', 'reassign', 'delete'],
+              description: 'Task transition to apply.',
+            },
+            subject: { type: 'string', description: 'Replacement title for edit.' },
+            description: { type: 'string', description: 'Replacement details for edit.' },
+            blocked_by: { type: 'array', items: { type: 'string' }, description: 'Complete blocker list for set_dependencies.' },
+            write_scopes: { type: 'array', items: { type: 'string' }, description: 'Replacement advisory write scopes for edit.' },
+            owner: {
+              type: 'string',
+              description: 'Member target from spawn_teammate or list_agents for Lead-only reassign; omit to unassign.',
+            },
+          },
+          output: jsonOutput(TASK_VIEW_SCHEMA),
+          async execute(args, exec) {
+            return await ctx.agentTeams.updateTask(callingAgent(exec.agent, 'team_task_update'), {
+              taskId: TeamTaskId(args.task_id),
+              expectedRevision: args.expected_revision,
+              action: args.action,
+              ...(args.subject === undefined ? {} : { subject: args.subject }),
+              ...(args.description === undefined ? {} : { description: args.description }),
+              ...(args.blocked_by === undefined ? {} : { blockedBy: args.blocked_by.map(TeamTaskId) }),
+              ...(args.write_scopes === undefined ? {} : { writeScopes: args.write_scopes }),
+              ...(args.owner === undefined ? {} : { owner: args.owner }),
+            })
+          },
+        }),
+      ),
+    )
   } catch (error: unknown) {
     for (const dispose of disposers.reverse()) void dispose()
     throw error
@@ -420,13 +483,18 @@ export function apply(ctx: Context, config: Config = {}): void {
     installed.set(agent, install(agent, ctx, resolved))
   }
   for (const agent of ctx.agents.list()) maybeInstall(agent)
-  ctx.on('agent/created', ({ agent }) => { maybeInstall(agent) })
+  ctx.on('agent/created', ({ agent }) => {
+    maybeInstall(agent)
+  })
   ctx.on('agent/disposed', ({ agent }) => {
     installed.get(agent)?.()
     installed.delete(agent)
   })
-  ctx.effect(() => () => {
-    for (const dispose of installed.values()) dispose()
-    installed.clear()
-  }, 'tool-team.scopedTools()')
+  ctx.effect(
+    () => () => {
+      for (const dispose of installed.values()) dispose()
+      installed.clear()
+    },
+    'tool-team.scopedTools()',
+  )
 }

@@ -6,7 +6,12 @@ import type { UserTextFacts } from '@deepseek-ai/dsh-client-ui-conversation/clie
 import { JsonBlock, StateDot, TextShimmer } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ClockTimeZone } from '../../chat-settings.ts'
 import type {
-  ChatNodeOwnerProps, ChatNodeViewProps, ChatViewSlotProps, UserContentAttachment, UserContentData, UserContentInput,
+  ChatNodeOwnerProps,
+  ChatNodeViewProps,
+  ChatViewSlotProps,
+  UserContentAttachment,
+  UserContentData,
+  UserContentInput,
 } from '../contract/slots.ts'
 import type { ModelRetryNode, TurnErrorNode, UserMessageNode } from '../contract/snapshot.ts'
 import { CompactionItem } from './CompactionItem.tsx'
@@ -32,11 +37,9 @@ function contentParts(content: readonly unknown[]): {
     if (b.type === 'text' && typeof b.text === 'string') texts.push(b.text)
     else if (b.type === 'image' && b.attachment !== undefined) {
       attachments.push({ type: 'image', image: { attachment: (b as UserImage).attachment } })
-    }
-    else if (b.type === 'file' && b.attachment !== undefined) {
+    } else if (b.type === 'file' && b.attachment !== undefined) {
       attachments.push({ type: 'file', file: (b as UserFile).attachment })
-    }
-    else rest.push(block)
+    } else rest.push(block)
   }
   return { text: texts.join(''), attachments, rest }
 }
@@ -50,11 +53,7 @@ interface RetryCountdown {
   seconds: number
 }
 
-function failureMessage(
-  message: string,
-  code: unknown,
-  t: ChatViewSlotProps['t'],
-): string {
+function failureMessage(message: string, code: unknown, t: ChatViewSlotProps['t']): string {
   if (code === 'ACCOUNT_SIGNED_OUT') return t('message.failure.accountSignedOut')
   if (code === 'INTERRUPTED') return t('message.failure.interrupted')
   if (code === 'ACCOUNT_SIGN_IN_REQUIRED') return t('message.failure.accountSignInRequired')
@@ -62,11 +61,7 @@ function failureMessage(
   return code === 'AUTH' ? t('message.failure.auth') : message
 }
 
-function ModelRetryItem({ node, active, t }: {
-  node: ModelRetryNode
-  active: boolean
-  t: ChatViewSlotProps['t']
-}) {
+function ModelRetryItem({ node, active, t }: { node: ModelRetryNode; active: boolean; t: ChatViewSlotProps['t'] }) {
   // Anchor the host-scheduled delay to this browser's first render of the
   // retry node. Host event time and Date.now() may belong to different clocks.
   const deadline = useMemo(() => Date.now() + node.delayMs, [node.delayMs, node.seq])
@@ -76,26 +71,22 @@ function ModelRetryItem({ node, active, t }: {
     deadline,
     seconds: retrySeconds(deadline - Date.now()),
   }))
-  const remainingSeconds = countdown.deadline === deadline
-    ? countdown.seconds
-    : retrySeconds(deadline - Date.now())
+  const remainingSeconds = countdown.deadline === deadline ? countdown.seconds : retrySeconds(deadline - Date.now())
 
   useEffect(() => {
     if (!active) return
     const updateCountdown = (): number => {
       const next = retrySeconds(deadline - Date.now())
-      setCountdown(current => (
-        current.deadline === deadline && current.seconds === next
-          ? current
-          : { deadline, seconds: next }
-      ))
+      setCountdown(current => (current.deadline === deadline && current.seconds === next ? current : { deadline, seconds: next }))
       return next
     }
     if (updateCountdown() === 1) return
     const timer = window.setInterval(() => {
       if (updateCountdown() === 1) window.clearInterval(timer)
     }, 250)
-    return () => { window.clearInterval(timer) }
+    return () => {
+      window.clearInterval(timer)
+    }
   }, [active, deadline])
 
   const label = active
@@ -111,9 +102,7 @@ function ModelRetryItem({ node, active, t }: {
     <details className={css.retryRow} data-active={active || undefined}>
       <summary className={css.retrySummary}>
         <span className={css.retryText} role="status">
-          <TextShimmer active={active}>
-            {t('message.retry.status', { label, retry: node.retry, maximum, seconds })}
-          </TextShimmer>
+          <TextShimmer active={active}>{t('message.retry.status', { label, retry: node.retry, maximum, seconds })}</TextShimmer>
         </span>
       </summary>
       <div className={css.retryDetails}>
@@ -131,15 +120,14 @@ function ModelRetryItem({ node, active, t }: {
 }
 
 /** Persistent, turn-positioned feedback for a terminal failure. */
-function TurnErrorItem({ node, t }: {
-  node: TurnErrorNode
-  t: ChatViewSlotProps['t']
-}) {
+function TurnErrorItem({ node, t }: { node: TurnErrorNode; t: ChatViewSlotProps['t'] }) {
   return (
     <div className={css.turnErrorRow} role="status">
       <StateDot state="error" className={css.turnErrorDot} />
       <div className={css.turnErrorCopy}>
-        <span className={css.turnErrorTitle}>{node.code === 'ACCOUNT_SIGNED_OUT' || node.code === 'INTERRUPTED' ? t('message.taskStopped') : t('message.turnError')}</span>
+        <span className={css.turnErrorTitle}>
+          {node.code === 'ACCOUNT_SIGNED_OUT' || node.code === 'INTERRUPTED' ? t('message.taskStopped') : t('message.turnError')}
+        </span>
         <span className={css.turnErrorMessage}>{failureMessage(node.message, node.code, t)}</span>
       </div>
       {node.code !== undefined && node.code !== 'INTERRUPTED' && <code className={css.turnErrorCode}>{node.code}</code>}
@@ -148,9 +136,7 @@ function TurnErrorItem({ node, t }: {
 }
 
 /** Persistent, turn-positioned notice for a turn ended at the output-token cap. */
-function TurnMaxTokensItem({ t }: {
-  t: ChatViewSlotProps['t']
-}) {
+function TurnMaxTokensItem({ t }: { t: ChatViewSlotProps['t'] }) {
   return (
     <div className={css.turnErrorRow} role="status">
       <StateDot state="warning" className={css.turnErrorDot} />
@@ -164,8 +150,18 @@ function TurnMaxTokensItem({ t }: {
 
 /** Right-aligned bubble shared by user and steering rows. */
 function UserStyleBubble({
-  content, loadImage, renderFactorySlot, actions, clock, pending = false, echo = false, referenceLabels, skillNames,
-  previewAttachments, facts: inputFacts = EMPTY_TEXT_FACTS, interactive = false,
+  content,
+  loadImage,
+  renderFactorySlot,
+  actions,
+  clock,
+  pending = false,
+  echo = false,
+  referenceLabels,
+  skillNames,
+  previewAttachments,
+  facts: inputFacts = EMPTY_TEXT_FACTS,
+  interactive = false,
 }: {
   content: readonly unknown[]
   renderFactorySlot: PropsRenderFactories['renderFactorySlot']
@@ -185,25 +181,28 @@ function UserStyleBubble({
   previewAttachments?: readonly UserContentAttachment[]
   /** Inputs used by text transforms, separate from row and rendering props. */
   facts?: Readonly<Partial<UserTextFacts>>
-} & Pick<ChatNodeOwnerProps, 'loadImage'> & Pick<UserContentInput, 'interactive'>): ReactNode {
+} & Pick<ChatNodeOwnerProps, 'loadImage'> &
+  Pick<UserContentInput, 'interactive'>): ReactNode {
   const parts = useMemo(() => contentParts(content), [content])
-  const prepared = useMemo<UserContentData>(() => ({
-    text: parts.text,
-    attachments: previewAttachments ?? parts.attachments,
-    extraBlocks: parts.rest,
-    ...(referenceLabels === undefined ? {} : { referenceLabels }),
-  }), [parts, previewAttachments, referenceLabels])
-  const facts = useMemo<Readonly<Partial<UserTextFacts>>>(() => ({
-    ...inputFacts,
-    ...(referenceLabels === undefined ? {} : { sessionLabels: referenceLabels }),
-    ...(skillNames === undefined ? {} : { skillNames }),
-  }), [inputFacts, referenceLabels, skillNames])
+  const prepared = useMemo<UserContentData>(
+    () => ({
+      text: parts.text,
+      attachments: previewAttachments ?? parts.attachments,
+      extraBlocks: parts.rest,
+      ...(referenceLabels === undefined ? {} : { referenceLabels }),
+    }),
+    [parts, previewAttachments, referenceLabels],
+  )
+  const facts = useMemo<Readonly<Partial<UserTextFacts>>>(
+    () => ({
+      ...inputFacts,
+      ...(referenceLabels === undefined ? {} : { sessionLabels: referenceLabels }),
+      ...(skillNames === undefined ? {} : { skillNames }),
+    }),
+    [inputFacts, referenceLabels, skillNames],
+  )
   return (
-    <div
-      className={css.userRow}
-      data-pending-steering={pending || undefined}
-      data-submission-echo={echo || undefined}
-    >
+    <div className={css.userRow} data-pending-steering={pending || undefined} data-submission-echo={echo || undefined}>
       {renderFactorySlot('conversation.chat.user.content', {
         content: prepared,
         loadImage,
@@ -222,7 +221,12 @@ function UserStyleBubble({
  * @param props - pending content, authorized image loader, and Factory/locale seats.
  * @returns the pending steering bubble.
  */
-export function PendingSteeringBubble({ content, loadImage, renderFactorySlot, t }: {
+export function PendingSteeringBubble({
+  content,
+  loadImage,
+  renderFactorySlot,
+  t,
+}: {
   content: readonly unknown[]
   renderFactorySlot: PropsRenderFactories['renderFactorySlot']
   t: ChatViewSlotProps['t']
@@ -233,13 +237,7 @@ export function PendingSteeringBubble({ content, loadImage, renderFactorySlot, t
       renderFactorySlot={renderFactorySlot}
       loadImage={loadImage}
       pending
-      actions={text => (
-        <MessageIconActions
-          text={text}
-          variant="user"
-          t={t}
-        />
-      )}
+      actions={text => <MessageIconActions text={text} variant="user" t={t} />}
     />
   )
 }
@@ -252,30 +250,36 @@ export function PendingSteeringBubble({ content, loadImage, renderFactorySlot, t
  * @param props - the pending submission, authorized image loader, and render seats.
  * @returns the echoed user bubble.
  */
-export function PendingSubmissionBubble({ submission, loadImage, renderFactorySlot, clockTimeZone, t }: {
+export function PendingSubmissionBubble({
+  submission,
+  loadImage,
+  renderFactorySlot,
+  clockTimeZone,
+  t,
+}: {
   submission: PendingSubmission
   renderFactorySlot: PropsRenderFactories['renderFactorySlot']
   clockTimeZone: ClockTimeZone
   t: ChatViewSlotProps['t']
 } & Pick<ChatNodeOwnerProps, 'loadImage'>): ReactNode {
-  const content = useMemo(
-    () => (submission.text === '' ? [] : [{ type: 'text', text: submission.text }]),
-    [submission.text],
-  )
+  const content = useMemo(() => (submission.text === '' ? [] : [{ type: 'text', text: submission.text }]), [submission.text])
   const previewAttachments = useMemo<readonly UserContentAttachment[]>(
-    () => submission.attachments.map(attachment => attachment.type === 'image'
-      ? {
-        type: 'image',
-        image: {
-          preview: {
-            url: attachment.value.previewUrl,
-            ...(attachment.value.name === undefined ? {} : { name: attachment.value.name }),
-            ...(attachment.value.width === undefined ? {} : { width: attachment.value.width }),
-            ...(attachment.value.height === undefined ? {} : { height: attachment.value.height }),
-          },
-        },
-      }
-      : { type: 'file', file: attachment.value }),
+    () =>
+      submission.attachments.map(attachment =>
+        attachment.type === 'image'
+          ? {
+              type: 'image',
+              image: {
+                preview: {
+                  url: attachment.value.previewUrl,
+                  ...(attachment.value.name === undefined ? {} : { name: attachment.value.name }),
+                  ...(attachment.value.width === undefined ? {} : { width: attachment.value.width }),
+                  ...(attachment.value.height === undefined ? {} : { height: attachment.value.height }),
+                },
+              },
+            }
+          : { type: 'file', file: attachment.value },
+      ),
     [submission.attachments],
   )
   return (
@@ -287,20 +291,18 @@ export function PendingSubmissionBubble({ submission, loadImage, renderFactorySl
       pending={submission.placement === 'steering'}
       echo
       clock={<MessageClock time={submission.time} zone={clockTimeZone} className={css.clock} t={t} />}
-      actions={text => (
-        <MessageIconActions
-          text={text}
-          variant="user"
-          t={t}
-        />
-      )}
+      actions={text => <MessageIconActions text={text} variant="user" t={t} />}
     />
   )
 }
 
 /** User and admitted-steering keyed Chat renderer. */
 export const UserMessageNodeView = memo(function UserMessageNodeView({
-  node, renderFactorySlot, loadImage, clockTimeZone, t,
+  node,
+  renderFactorySlot,
+  loadImage,
+  clockTimeZone,
+  t,
 }: ChatNodeViewProps<'user' | 'steering'>) {
   const data = node.data
   return (
@@ -309,16 +311,10 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
       interactive
       renderFactorySlot={renderFactorySlot}
       loadImage={loadImage}
-      {...data.referenceLabels === undefined ? {} : { referenceLabels: data.referenceLabels }}
-      {...data.skillNames === undefined ? {} : { skillNames: data.skillNames }}
+      {...(data.referenceLabels === undefined ? {} : { referenceLabels: data.referenceLabels })}
+      {...(data.skillNames === undefined ? {} : { skillNames: data.skillNames })}
       clock={<MessageClock time={data.time} zone={clockTimeZone} className={css.clock} t={t} />}
-      actions={text => (
-        <MessageIconActions
-          text={text}
-          variant="user"
-          t={t}
-        />
-      )}
+      actions={text => <MessageIconActions text={text} variant="user" t={t} />}
     />
   )
 })
@@ -326,15 +322,7 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
 /** Injected-context keyed Chat renderer. */
 export const ContextMessageNodeView = memo(function ContextMessageNodeView({ node, t }: ChatNodeViewProps<'context'>) {
   const data = node.data
-  return (
-    <ContextInjectionRow
-      content={data.content}
-      source={data.source}
-      producer={data.producer}
-      form={data.form}
-      t={t}
-    />
-  )
+  return <ContextInjectionRow content={data.content} source={data.source} producer={data.producer} form={data.form} t={t} />
 })
 
 /** Automatic compaction keyed Chat renderer. */

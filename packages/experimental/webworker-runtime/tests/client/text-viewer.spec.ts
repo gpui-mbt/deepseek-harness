@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 
-import { beforeAll, expect, it } from 'vitest'
+import { beforeAll, expect, it } from 'vite-plus/test'
 import { showTextViewer } from '../../src/client/text-viewer.ts'
 
 beforeAll(() => {
   // jsdom lacks the modal dialog methods.
-  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) { this.open = true }
-  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) { this.open = false }
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.open = true
+  }
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    this.open = false
+  }
 })
 
 function viewer(): HTMLDialogElement {
@@ -30,9 +34,13 @@ it('shows the file as plain text, replaces it on reuse, and closes from its butt
 it('keeps keys pressed in the viewer from reaching document-level modal layers', () => {
   showTextViewer('/dsh/home/a.yml', 'text')
   let reached = false
-  const listener = (): void => { reached = true }
+  const listener = (): void => {
+    reached = true
+  }
   document.addEventListener('keydown', listener)
-  viewer().querySelector('button')?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  viewer()
+    .querySelector('button')
+    ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   document.removeEventListener('keydown', listener)
   expect(reached).toBe(false)
 })

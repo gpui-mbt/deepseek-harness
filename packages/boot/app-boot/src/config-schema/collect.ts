@@ -82,7 +82,8 @@ export async function collectConfigSchemas(
   diagnostics: readonly ConfigSchemaDiagnostic[] = [],
 ): Promise<ConfigSchemaDump> {
   const result: { entries: CollectedConfigEntry[]; diagnostics: ConfigSchemaDiagnostic[] } = {
-    entries: [], diagnostics: [...diagnostics],
+    entries: [],
+    diagnostics: [...diagnostics],
   }
   const byOptions = new Map<object, CollectedConfigEntry>()
   const interception = installRuntimeInterception(resolution)
@@ -117,10 +118,12 @@ export async function collectConfigSchemas(
     const report = (path: string, error: unknown): void => {
       result.diagnostics.push({ level: 'error', path, message: error instanceof Error ? error.message : String(error) })
     }
-    const warn = (path: string) => (message: string, ...args: unknown[]): void => {
-      let index = 0
-      result.diagnostics.push({ level: 'warning', path, message: message.replace(/%C/g, () => JSON.stringify(args[index++])) })
-    }
+    const warn =
+      (path: string) =>
+      (message: string, ...args: unknown[]): void => {
+        let index = 0
+        result.diagnostics.push({ level: 'warning', path, message: message.replace(/%C/g, () => JSON.stringify(args[index++])) })
+      }
 
     const walkInclude = async (config: unknown, baseUrl: string, path: string): Promise<void> => {
       if (config === undefined) throw new Error('include config is missing')
@@ -128,7 +131,8 @@ export async function collectConfigSchemas(
       if (typeof config.path !== 'string') throw new Error('include path must be literal; config expressions are not evaluated')
       const filename = fileURLToPath(new URL(config.path, baseUrl))
       const extension = extname(filename)
-      if (!['.json', '.yaml', '.yml'].includes(extension)) throw new Error(`include extension ${JSON.stringify(extension)} is not supported`)
+      if (!['.json', '.yaml', '.yml'].includes(extension))
+        throw new Error(`include extension ${JSON.stringify(extension)} is not supported`)
       let source: unknown
       let canonical: string
       try {

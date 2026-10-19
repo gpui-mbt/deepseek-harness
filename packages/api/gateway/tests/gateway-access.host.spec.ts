@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, afterEach } from 'vitest'
+import { describe, expect, it, vi, afterEach } from 'vite-plus/test'
 import { Context, symbols } from '@deepseek-ai/cordis'
 import { apply as applyConnection, inject as connectionInject } from '@deepseek-ai/dsh-client-connection'
 import RemoteAccessService, {
@@ -60,9 +60,19 @@ const shelf = (id: string) => ({ kind: 'test-shelf', id }) as const
 const desk = (id: string) => ({ kind: 'test-desk', id }) as const
 
 const FIXTURE_ACTIONS: readonly RemoteAccessAction[] = [
-  'accessFixture/open', 'accessFixture/read', 'accessFixture/byAgent', 'accessFixture/byLookup',
-  'accessFixture/byLookupAndOption', 'accessFixture/byList', 'accessFixture/scoped', 'accessFixture/scopedOnDesk',
-  'accessFixture/scopedByReader', 'accessFixture/annotate', 'absentAccess/read', 'event:fixture/notice', 'event:fixture/shelf',
+  'accessFixture/open',
+  'accessFixture/read',
+  'accessFixture/byAgent',
+  'accessFixture/byLookup',
+  'accessFixture/byLookupAndOption',
+  'accessFixture/byList',
+  'accessFixture/scoped',
+  'accessFixture/scopedOnDesk',
+  'accessFixture/scopedByReader',
+  'accessFixture/annotate',
+  'absentAccess/read',
+  'event:fixture/notice',
+  'event:fixture/shelf',
 ]
 
 function role<K extends RemoteAccessResourceKind>(resource: K): RemoteAccessRole<K> {
@@ -158,9 +168,16 @@ class AccessFixture extends TypertRemoteService {
   @Remote({ mode: 'stream' })
   async *watch(signal: AbortSignal): AsyncIterable<string> {
     yield this.seen()
-    await new Promise<void>((resolve) => {
+    await new Promise<void>(resolve => {
       if (signal.aborted) resolve()
-      else signal.addEventListener('abort', () => { resolve() }, { once: true })
+      else
+        signal.addEventListener(
+          'abort',
+          () => {
+            resolve()
+          },
+          { once: true },
+        )
     })
   }
 
@@ -197,13 +214,18 @@ async function setup(options: { readonly connection?: boolean } = {}): Promise<{
   ctx.typert.resources.register('test-shelf', { field: 'shelfId' })
   await ctx.plugin(AccessFixture)
   let held: readonly RemoteAccessBinding[] = []
-  const bindings = vi.fn((guest: Guest): readonly RemoteAccessBinding[] => { void guest; return held })
+  const bindings = vi.fn((guest: Guest): readonly RemoteAccessBinding[] => {
+    void guest
+    return held
+  })
   ctx.remoteAccess.registerPolicy('test-guest', { bindings })
   const receiver = ctx.get('accessFixture') as AccessFixture & { [symbols.original]?: AccessFixture }
   return {
     ctx,
     fixture: receiver[symbols.original] ?? receiver,
-    hold: (...resources) => { held = resources.map(on) },
+    hold: (...resources) => {
+      held = resources.map(on)
+    },
     bindings,
   }
 }
@@ -218,11 +240,18 @@ function call(ctx: Context, peer: PeerScope, method: string, args: Record<string
   return ctx.typertGateway.invoke({ peer, namespace: 'accessFixture', method, args })
 }
 
-function registerScope(ctx: Context, resource: 'test-shelf' | undefined, resolve = vi.fn((id: string) => { void id; return ctx })): typeof resolve {
+function registerScope(
+  ctx: Context,
+  resource: 'test-shelf' | undefined,
+  resolve = vi.fn((id: string) => {
+    void id
+    return ctx
+  }),
+): typeof resolve {
   ctx.typert.contexts.registerHost('gatewayAccessScope', {
     wire: 'scopeId',
     wireTypeSymbol: '@fixture/access#ScopeId',
-    ...resource === undefined ? {} : { resource },
+    ...(resource === undefined ? {} : { resource }),
     resolve,
   })
   return resolve
@@ -269,7 +298,9 @@ describe('Gateway access checks', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(ctx.get('typertGateway')).toBeUndefined()
     await ctx.plugin(RemoteAccessService)
-    await vi.waitFor(() => { expect(ctx.get('typertGateway')).toBeDefined() })
+    await vi.waitFor(() => {
+      expect(ctx.get('typertGateway')).toBeDefined()
+    })
   })
 
   it('refuses a non-owner call no binding allows before the method runs', async () => {
@@ -301,7 +332,7 @@ describe('Gateway access checks', () => {
     ])
   })
 
-  it('reads a lookup parameter\'s resource and lets a reader replace it for its kind', async () => {
+  it("reads a lookup parameter's resource and lets a reader replace it for its kind", async () => {
     const { ctx, hold } = await setup()
     hold(shelf('s9'), desk('a1'), desk('a2'), desk('d9'))
     const decisions = recordDecisions()
@@ -315,8 +346,9 @@ describe('Gateway access checks', () => {
     })
     const guest = peerFor(ctx, GUEST)
     await expect(call(ctx, guest, 'byLookup', { agentId: 'a1' })).resolves.toBe('a1:test-guest')
-    await expect(call(ctx, guest, 'byLookupAndOption', { agentId: 'a2', request: { deskId: 'd9', shelfId: 's9' } }))
-      .resolves.toBe('a2:test-guest')
+    await expect(call(ctx, guest, 'byLookupAndOption', { agentId: 'a2', request: { deskId: 'd9', shelfId: 's9' } })).resolves.toBe(
+      'a2:test-guest',
+    )
     expect(decisions().map(({ resources }) => resources)).toEqual([
       [desk('a1')],
       // The reader owns `test-desk`; the registered `shelfId` field still names `test-shelf`.
@@ -330,10 +362,12 @@ describe('Gateway access checks', () => {
     const decide = vi.spyOn(RemoteAccessService.prototype, 'decide')
     const guest = peerFor(ctx, GUEST)
     await expect(call(ctx, guest, 'byList', { shelfIds: [] })).rejects.toMatchObject({
-      code: 'remote-access/denied', details: { action: 'accessFixture/byList', reason: 'resource-invalid' },
+      code: 'remote-access/denied',
+      details: { action: 'accessFixture/byList', reason: 'resource-invalid' },
     })
     await expect(call(ctx, guest, 'read', { request: { shelfId: 7 } })).rejects.toMatchObject({
-      code: 'remote-access/denied', details: { reason: 'resource-invalid' },
+      code: 'remote-access/denied',
+      details: { reason: 'resource-invalid' },
     })
     expect(decide).not.toHaveBeenCalled()
     expect(bindings).not.toHaveBeenCalled()
@@ -350,18 +384,21 @@ describe('Gateway access checks', () => {
       face: 'host',
       schemas: [],
       model: { services: [], events: [], objects: [] },
-      invocations: [{
-        id: '@fixture/gateway-access#absentAccess/read',
-        service: 'absentAccess',
-        namespace: 'absentAccess',
-        method: 'read',
-        invocation: { kind: 'direct' },
-        parameters: [],
-        result: { mode: 'strict', typeSymbol: '@fixture/gateway-access#Result', create: () => z.string() },
-      }],
+      invocations: [
+        {
+          id: '@fixture/gateway-access#absentAccess/read',
+          service: 'absentAccess',
+          namespace: 'absentAccess',
+          method: 'read',
+          invocation: { kind: 'direct' },
+          parameters: [],
+          result: { mode: 'strict', typeSymbol: '@fixture/gateway-access#Result', create: () => z.string() },
+        },
+      ],
     })
-    await expect(ctx.typertGateway.invoke({ peer: peerFor(ctx, GUEST), namespace: 'absentAccess', method: 'read', args: {} }))
-      .rejects.toMatchObject({ code: 'remote-access/denied', details: { action: 'absentAccess/read', reason: 'no-allow' } })
+    await expect(
+      ctx.typertGateway.invoke({ peer: peerFor(ctx, GUEST), namespace: 'absentAccess', method: 'read', args: {} }),
+    ).rejects.toMatchObject({ code: 'remote-access/denied', details: { action: 'absentAccess/read', reason: 'no-allow' } })
     expect(decisions()).toEqual([{ action: 'absentAccess/read', resources: [GLOBAL] }])
   })
 
@@ -392,49 +429,62 @@ describe('Gateway access checks', () => {
       code: 'gateway/arguments-invalid',
     })
     const shared = ctx.connection.createSharedFetchHandler('/api')
-    const response = await shared.fetch(new Request('http://host/api/accessFixture/read', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        type: 'client-request',
-        rpcId: 'rpc-1',
-        method: 'accessFixture/read',
-        principal: OWNER,
-        payload: { args: { request: { principal: OWNER } } },
+    const response = await shared.fetch(
+      new Request('http://host/api/accessFixture/read', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          type: 'client-request',
+          rpcId: 'rpc-1',
+          method: 'accessFixture/read',
+          principal: OWNER,
+          payload: { args: { request: { principal: OWNER } } },
+        }),
       }),
-    }), guest)
+      guest,
+    )
     expect(await response.json()).toMatchObject({ result: { ok: true, value: 'test-guest' } })
-    const payloadSibling = await shared.fetch(new Request('http://host/api/accessFixture/read', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        type: 'client-request',
-        rpcId: 'rpc-2',
-        method: 'accessFixture/read',
-        payload: { args: { request: {} }, principal: OWNER },
+    const payloadSibling = await shared.fetch(
+      new Request('http://host/api/accessFixture/read', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          type: 'client-request',
+          rpcId: 'rpc-2',
+          method: 'accessFixture/read',
+          payload: { args: { request: {} }, principal: OWNER },
+        }),
       }),
-    }), guest)
+      guest,
+    )
     expect(await payloadSibling.json()).toMatchObject({ result: { ok: false } })
     expect(fixture.principals).toEqual([GUEST])
   })
 })
 
 describe('Gateway access checks on Typert-validated arguments', () => {
-  const titleRequest = (create: () => z.ZodType = () => z.object({ title: z.string() })): InvocationParameterDescriptor =>
-    ({ name: 'request', wire: 'request', source: 'json', codec: strictCodec('TitleRequest', create) })
+  const titleRequest = (create: () => z.ZodType = () => z.object({ title: z.string() })): InvocationParameterDescriptor => ({
+    name: 'request',
+    wire: 'request',
+    source: 'json',
+    codec: strictCodec('TitleRequest', create),
+  })
 
   it('resolves resources from the decoded arguments, so an undeclared nested field names no resource', async () => {
     const { ctx, fixture, hold } = await setup()
     const create = vi.fn(() => z.object({ title: z.string() }))
     registerStrict(ctx, {
       annotate: [titleRequest(create)],
-      read: [{ name: 'request', wire: 'request', source: 'json', codec: strictCodec('ShelfRequest', () => z.object({ shelfId: z.string() })) }],
+      read: [
+        { name: 'request', wire: 'request', source: 'json', codec: strictCodec('ShelfRequest', () => z.object({ shelfId: z.string() })) },
+      ],
     })
     const decide = vi.spyOn(RemoteAccessService.prototype, 'decide')
     const guest = peerFor(ctx, GUEST)
     hold(shelf('s1'))
     await expect(call(ctx, guest, 'annotate', { request: { title: 't', shelfId: 's1' } })).rejects.toMatchObject({
-      code: 'remote-access/denied', details: { action: 'accessFixture/annotate', reason: 'no-allow' },
+      code: 'remote-access/denied',
+      details: { action: 'accessFixture/annotate', reason: 'no-allow' },
     })
     await expect(call(ctx, guest, 'read', { request: { shelfId: 's1', principal: OWNER } })).resolves.toBe('test-guest')
     hold(GLOBAL)
@@ -489,7 +539,10 @@ describe('Gateway access checks on Typert-validated arguments', () => {
     await expect(call(ctx, guest, 'byLookupAndOption', args)).resolves.toBe('a2:test-guest')
     expect(resolve).toHaveBeenCalledExactlyOnceWith('a2')
     // The undeclared `shelfId` names no `test-shelf` resource.
-    expect(decisions().map(({ resources }) => resources)).toEqual([[desk('a2'), desk('d9')], [desk('a2'), desk('d9')]])
+    expect(decisions().map(({ resources }) => resources)).toEqual([
+      [desk('a2'), desk('d9')],
+      [desk('a2'), desk('d9')],
+    ])
   })
 
   it('refuses arguments their codec rejects with gateway/input-invalid before the access check', async () => {
@@ -498,7 +551,8 @@ describe('Gateway access checks on Typert-validated arguments', () => {
     const decide = vi.spyOn(RemoteAccessService.prototype, 'decide')
     for (const peer of [peerFor(ctx, GUEST), ownerPeer(ctx)]) {
       await expect(call(ctx, peer, 'annotate', { request: { title: 7, shelfId: 's1' } })).rejects.toMatchObject({
-        code: 'gateway/input-invalid', details: { endpoint: 'accessFixture/annotate', field: 'request' },
+        code: 'gateway/input-invalid',
+        details: { endpoint: 'accessFixture/annotate', field: 'request' },
       })
     }
     expect(decide).not.toHaveBeenCalled()
@@ -513,7 +567,8 @@ describe('Gateway access checks for Context methods', () => {
     const resolve = registerScope(ctx, 'test-shelf')
     const guest = peerFor(ctx, GUEST)
     await expect(call(ctx, guest, 'scoped', { scopeId: 's1' })).rejects.toMatchObject({
-      code: 'remote-access/denied', details: { action: 'accessFixture/scoped', reason: 'no-allow' },
+      code: 'remote-access/denied',
+      details: { action: 'accessFixture/scoped', reason: 'no-allow' },
     })
     expect(resolve).not.toHaveBeenCalled()
     hold(shelf('s1'))
@@ -534,11 +589,7 @@ describe('Gateway access checks for Context methods', () => {
     hold(shelf('s1'), desk('d1'))
     await expect(call(ctx, guest, 'scopedOnDesk', { scopeId: 's1', request: { deskId: 'd1' } })).resolves.toBe('test-guest')
     await expect(call(ctx, guest, 'scopedByReader', { scopeId: 's9', request: { shelfId: 's1' } })).resolves.toBe('test-guest')
-    expect(decisions().map(({ resources }) => resources)).toEqual([
-      [shelf('s1'), desk('d1')],
-      [shelf('s1'), desk('d1')],
-      [shelf('s1')],
-    ])
+    expect(decisions().map(({ resources }) => resources)).toEqual([[shelf('s1'), desk('d1')], [shelf('s1'), desk('d1')], [shelf('s1')]])
   })
 
   it('refuses a malformed Context identity with resource-invalid without asking remoteAccess or resolving the Context', async () => {
@@ -549,7 +600,8 @@ describe('Gateway access checks for Context methods', () => {
     const guest = peerFor(ctx, GUEST)
     for (const scopeId of [7, '']) {
       await expect(call(ctx, guest, 'scoped', { scopeId })).rejects.toMatchObject({
-        code: 'remote-access/denied', details: { action: 'accessFixture/scoped', reason: 'resource-invalid' },
+        code: 'remote-access/denied',
+        details: { action: 'accessFixture/scoped', reason: 'resource-invalid' },
       })
     }
     expect(resolve).not.toHaveBeenCalled()
@@ -566,11 +618,7 @@ describe('Gateway access checks for Context methods', () => {
     hold(GLOBAL, desk('d1'))
     await expect(call(ctx, guest, 'scoped', { scopeId: 's1' })).resolves.toBe('test-guest')
     await expect(call(ctx, guest, 'scopedOnDesk', { scopeId: 's1', request: { deskId: 'd1' } })).resolves.toBe('test-guest')
-    expect(decisions().map(({ resources }) => resources)).toEqual([
-      [GLOBAL],
-      [GLOBAL],
-      [desk('d1')],
-    ])
+    expect(decisions().map(({ resources }) => resources)).toEqual([[GLOBAL], [GLOBAL], [desk('d1')]])
   })
 })
 
@@ -580,20 +628,25 @@ describe('Gateway Peer lifetime', () => {
     const peer = peerFor(ctx, OWNER)
     await peer.dispose()
     await expect(call(ctx, peer, 'open')).rejects.toMatchObject({ code: 'gateway/peer-disposed' })
-    await expect(ctx.typertGateway.stream({ peer, namespace: 'accessFixture', method: 'watch', args: {} }))
-      .rejects.toMatchObject({ code: 'gateway/peer-disposed' })
-    await expect(ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, new AbortController().signal))
-      .rejects.toMatchObject({ code: 'gateway/peer-disposed' })
-    const result = await ctx.connection.createSharedFetchHandler('/api').fetch(new Request('http://host/api/$events/result', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        type: 'client-request',
-        rpcId: 'rpc-disposed',
-        method: '$events/result',
-        payload: { args: { clientId: 'any', eventId: 'any', outcome: { kind: 'next' } } },
+    await expect(ctx.typertGateway.stream({ peer, namespace: 'accessFixture', method: 'watch', args: {} })).rejects.toMatchObject({
+      code: 'gateway/peer-disposed',
+    })
+    await expect(
+      ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, new AbortController().signal),
+    ).rejects.toMatchObject({ code: 'gateway/peer-disposed' })
+    const result = await ctx.connection.createSharedFetchHandler('/api').fetch(
+      new Request('http://host/api/$events/result', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          type: 'client-request',
+          rpcId: 'rpc-disposed',
+          method: '$events/result',
+          payload: { args: { clientId: 'any', eventId: 'any', outcome: { kind: 'next' } } },
+        }),
       }),
-    }), peer)
+      peer,
+    )
     expect(await result.json()).toMatchObject({ result: { ok: false, error: { code: 'gateway/peer-disposed' } } })
     await expect(call(ctx, ownerPeer(ctx), 'open')).resolves.toBe('owner')
   })
@@ -603,26 +656,36 @@ describe('Gateway Peer lifetime', () => {
     const peer = peerFor(ctx, OWNER)
     await peer.dispose()
     for (const payload of [{}, { args: 1 }, { args: {}, extra: true }]) {
-      await expect(ctx.typertGateway.wireStream.open('accessFixture/watch', payload, (async function* () {})(), peer, new AbortController().signal))
-        .rejects.toMatchObject({ code: 'gateway/peer-disposed' })
+      await expect(
+        ctx.typertGateway.wireStream.open('accessFixture/watch', payload, (async function* () {})(), peer, new AbortController().signal),
+      ).rejects.toMatchObject({ code: 'gateway/peer-disposed' })
     }
-    const response = await ctx.connection.createSharedFetchHandler('/api').fetch(new Request('http://host/api/accessFixture/open', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type: 'client-request', rpcId: 'rpc-malformed', method: 'accessFixture/open', payload: { args: 1 } }),
-    }), peer)
+    const response = await ctx.connection.createSharedFetchHandler('/api').fetch(
+      new Request('http://host/api/accessFixture/open', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ type: 'client-request', rpcId: 'rpc-malformed', method: 'accessFixture/open', payload: { args: 1 } }),
+      }),
+      peer,
+    )
     expect(await response.json()).toMatchObject({ result: { ok: false, error: { code: 'gateway/peer-disposed' } } })
   })
 
-  it('ends a disposed Peer\'s streams and lets its running unary calls finish', async () => {
+  it("ends a disposed Peer's streams and lets its running unary calls finish", async () => {
     const { ctx, fixture } = await setup()
     const peer = peerFor(ctx, OWNER)
     const other = peerFor(ctx, OWNER)
     const stream = (await ctx.typertGateway.stream({ peer, namespace: 'accessFixture', method: 'watch', args: {} }))[Symbol.asyncIterator]()
     const survivorAbort = new AbortController()
-    const survivor = (await ctx.typertGateway.stream({
-      peer: other, namespace: 'accessFixture', method: 'watch', args: {}, signal: survivorAbort.signal,
-    }))[Symbol.asyncIterator]()
+    const survivor = (
+      await ctx.typertGateway.stream({
+        peer: other,
+        namespace: 'accessFixture',
+        method: 'watch',
+        args: {},
+        signal: survivorAbort.signal,
+      })
+    )[Symbol.asyncIterator]()
     await expect(stream.next()).resolves.toEqual({ done: false, value: 'owner' })
     await expect(survivor.next()).resolves.toEqual({ done: false, value: 'owner' })
     const running = call(ctx, peer, 'slow')
@@ -634,7 +697,14 @@ describe('Gateway Peer lifetime', () => {
     await expect(running).resolves.toBe('owner')
     const next = survivor.next()
     let settled = false
-    void next.then(() => { settled = true }, () => { settled = true })
+    void next.then(
+      () => {
+        settled = true
+      },
+      () => {
+        settled = true
+      },
+    )
     await new Promise(resolve => setTimeout(resolve, 10))
     expect(settled).toBe(false)
     survivorAbort.abort()
@@ -646,16 +716,27 @@ describe('Gateway Peer lifetime', () => {
 function eventSource(ctx: Context): (dispatch: TypertRemoteEventDispatch) => void {
   const queue: TypertRemoteEventDispatch[] = []
   let wake: (() => void) | undefined
-  ctx.effect(() => ctx.typertGateway.registerRemoteEvents(async function* (signal) {
-    while (!signal.aborted) {
-      while (queue.length > 0) yield queue.shift() as TypertRemoteEventDispatch
-      await new Promise<void>((resolve) => {
-        wake = resolve
-        signal.addEventListener('abort', () => { resolve() }, { once: true })
-      })
-    }
-  }, { home: '/fixture' }))
-  return (dispatch) => {
+  ctx.effect(() =>
+    ctx.typertGateway.registerRemoteEvents(
+      async function* (signal) {
+        while (!signal.aborted) {
+          while (queue.length > 0) yield queue.shift() as TypertRemoteEventDispatch
+          await new Promise<void>(resolve => {
+            wake = resolve
+            signal.addEventListener(
+              'abort',
+              () => {
+                resolve()
+              },
+              { once: true },
+            )
+          })
+        }
+      },
+      { home: '/fixture' },
+    ),
+  )
+  return dispatch => {
     queue.push(dispatch)
     wake?.()
   }
@@ -670,17 +751,22 @@ describe('Gateway forwarded events for non-owner Peers', () => {
     ]
     const push = eventSource(ctx)
     for (const peer of passive) {
-      await expect(ctx.typertGateway.wireStream.open(
-        '$events', { args: {} }, (async function* () {})(), peer, new AbortController().signal,
-      )).rejects.toMatchObject({ code: 'gateway/interactions-forbidden' })
-      const result = await ctx.connection.createSharedFetchHandler('/api').fetch(new Request('http://host/api/$events/result', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          type: 'client-request', rpcId: 'rpc-passive', method: '$events/result',
-          payload: { args: { clientId: 'absent', eventId: 'absent', outcome: { kind: 'next' } } },
+      await expect(
+        ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, new AbortController().signal),
+      ).rejects.toMatchObject({ code: 'gateway/interactions-forbidden' })
+      const result = await ctx.connection.createSharedFetchHandler('/api').fetch(
+        new Request('http://host/api/$events/result', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            type: 'client-request',
+            rpcId: 'rpc-passive',
+            method: '$events/result',
+            payload: { args: { clientId: 'absent', eventId: 'absent', outcome: { kind: 'next' } } },
+          }),
         }),
-      }), peer)
+        peer,
+      )
       expect(await result.json()).toMatchObject({ result: { ok: false, error: { code: 'gateway/interactions-forbidden' } } })
     }
     push({ event: 'fixture/notice', args: ['ignored'] })
@@ -694,12 +780,16 @@ describe('Gateway forwarded events for non-owner Peers', () => {
     const push = eventSource(ctx)
     const guest = ctx.connection.createPeer({ principal: GUEST })
     const abort = new AbortController()
-    const guestEvents = (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), guest, abort.signal))[Symbol.asyncIterator]()
+    const guestEvents = (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), guest, abort.signal))[
+      Symbol.asyncIterator
+    ]()
     const guestReady = await guestEvents.next()
     // A non-owner stream receives the same Host facts but cannot answer, so it does not count as a live Client.
     expect(guestReady.value).toMatchObject({ type: 'ready', host: { home: '/fixture' } })
     expect(ctx.typertGateway.hasLiveClient()).toBe(false)
-    const ownerEvents = (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), ctx.connection.browserPeer, abort.signal))[Symbol.asyncIterator]()
+    const ownerEvents = (
+      await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), ctx.connection.browserPeer, abort.signal)
+    )[Symbol.asyncIterator]()
     await expect(ownerEvents.next()).resolves.toMatchObject({ value: { type: 'ready', host: { home: '/fixture' } } })
     expect(ctx.typertGateway.hasLiveClient()).toBe(true)
 
@@ -731,16 +821,19 @@ describe('Gateway forwarded events for non-owner Peers', () => {
 
     const clientId: unknown = Reflect.get(guestReady.value as object, 'clientId')
     const shared = ctx.connection.createSharedFetchHandler('/api')
-    const refused = await shared.fetch(new Request('http://host/api/$events/result', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        type: 'client-request',
-        rpcId: 'rpc-result',
-        method: '$events/result',
-        payload: { args: { clientId, eventId: 'any', outcome: { kind: 'next' } } },
+    const refused = await shared.fetch(
+      new Request('http://host/api/$events/result', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          type: 'client-request',
+          rpcId: 'rpc-result',
+          method: '$events/result',
+          payload: { args: { clientId, eventId: 'any', outcome: { kind: 'next' } } },
+        }),
       }),
-    }), guest)
+      guest,
+    )
     expect(await refused.json()).toMatchObject({
       result: { ok: false, error: { code: 'gateway/invocation-unavailable', details: { endpoint: '$events/result' } } },
     })
@@ -755,9 +848,16 @@ describe('Gateway forwarded events for non-owner Peers', () => {
     const decisions = recordDecisions()
     const push = eventSource(ctx)
     const abort = new AbortController()
-    const open = async (): Promise<AsyncIterator<unknown>> => (await ctx.typertGateway.wireStream.open(
-      '$events', { args: {} }, (async function* () {})(), ctx.connection.createPeer({ principal: GUEST }), abort.signal,
-    ))[Symbol.asyncIterator]()
+    const open = async (): Promise<AsyncIterator<unknown>> =>
+      (
+        await ctx.typertGateway.wireStream.open(
+          '$events',
+          { args: {} },
+          (async function* () {})(),
+          ctx.connection.createPeer({ principal: GUEST }),
+          abort.signal,
+        )
+      )[Symbol.asyncIterator]()
     const streams = [await open(), await open()]
     for (const events of streams) await events.next()
     const missing = vi.fn(() => undefined)
@@ -780,7 +880,9 @@ describe('Gateway forwarded events for non-owner Peers', () => {
     const push = eventSource(ctx)
     const abort = new AbortController()
     const open = async (peer: PeerScope): Promise<AsyncIterator<unknown>> =>
-      (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, abort.signal))[Symbol.asyncIterator]()
+      (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, abort.signal))[
+        Symbol.asyncIterator
+      ]()
     const revoked = ctx.connection.createPeer({ principal: GUEST })
     const lagging = await open(revoked)
     const other = await open(ctx.connection.createPeer({ principal: GUEST }))
@@ -812,11 +914,17 @@ describe('Gateway forwarded events for non-owner Peers', () => {
     provideBrowserCredentials(ctx)
     await ctx.plugin({ inject: [...connectionInject], apply: applyConnection })
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
-    ctx.remoteAccess.registerPolicy('test-guest', { bindings: () => { throw new Error('binding store unavailable') } })
+    ctx.remoteAccess.registerPolicy('test-guest', {
+      bindings: () => {
+        throw new Error('binding store unavailable')
+      },
+    })
     const push = eventSource(ctx)
     const abort = new AbortController()
     const open = async (peer: PeerScope): Promise<AsyncIterator<unknown>> =>
-      (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, abort.signal))[Symbol.asyncIterator]()
+      (await ctx.typertGateway.wireStream.open('$events', { args: {} }, (async function* () {})(), peer, abort.signal))[
+        Symbol.asyncIterator
+      ]()
     const guestEvents = await open(ctx.connection.createPeer({ principal: GUEST }))
     const ownerEvents = await open(ctx.connection.browserPeer)
     await guestEvents.next()
@@ -827,7 +935,8 @@ describe('Gateway forwarded events for non-owner Peers', () => {
     // The shared source survives the failure: later events still reach the owner.
     await expect(ownerEvents.next()).resolves.toMatchObject({ value: { type: 'emit', event: 'fixture/notice' } })
     expect(warn).toHaveBeenCalledWith(
-      'remote access: the "test-guest" policy failed to list bindings for event:fixture/shelf; its further failures are not logged until access state changes')
+      'remote access: the "test-guest" policy failed to list bindings for event:fixture/shelf; its further failures are not logged until access state changes',
+    )
     const guestNext = guestEvents.next()
     abort.abort()
     await expect(guestNext).resolves.toEqual({ done: true, value: undefined })
@@ -857,29 +966,45 @@ describe('resource resolution', () => {
 
   it('reads a default field from a top-level argument, else from the first object argument, else touches global', async () => {
     const typert = await registry()
-    expect(callResources(typert, undefined, method('roomId'), { roomId: 'r1' }, NEVER))
-      .toEqual([ROOM])
-    expect(callResources(typert, undefined, method('count', 'tags', 'none', 'request'), {
-      count: 1, tags: ['r9'], none: null, request: { roomId: 'r1', deskId: 'd1' },
-    }, NEVER)).toEqual([ROOM, DESK])
+    expect(callResources(typert, undefined, method('roomId'), { roomId: 'r1' }, NEVER)).toEqual([ROOM])
+    expect(
+      callResources(
+        typert,
+        undefined,
+        method('count', 'tags', 'none', 'request'),
+        {
+          count: 1,
+          tags: ['r9'],
+          none: null,
+          request: { roomId: 'r1', deskId: 'd1' },
+        },
+        NEVER,
+      ),
+    ).toEqual([ROOM, DESK])
     // Only the first object argument is read; a later one naming the field does not count.
-    expect(callResources(typert, undefined, method('first', 'second'), { first: {}, second: { roomId: 'r1' } }, NEVER))
-      .toEqual([GLOBAL])
+    expect(callResources(typert, undefined, method('first', 'second'), { first: {}, second: { roomId: 'r1' } }, NEVER)).toEqual([GLOBAL])
     expect(callResources(typert, undefined, method(), {}, NEVER)).toEqual([GLOBAL])
   })
 
   it('lets a reader replace the defaults for its kind, called with the positional wire arguments', async () => {
     const typert = await registry()
     const readers = { 'test-shelf': (ids: unknown) => ids }
-    expect(callResources(typert, readers, method('ids'), { ids: ['r1', 'r2'] }, NEVER))
-      .toEqual([ROOM, { kind: 'test-shelf', id: 'r2' }])
-    expect(callResources(typert, readers, method('ids', 'roomId'), { ids: undefined, roomId: 'r9' }, NEVER))
-      .toEqual([GLOBAL])
+    expect(callResources(typert, readers, method('ids'), { ids: ['r1', 'r2'] }, NEVER)).toEqual([ROOM, { kind: 'test-shelf', id: 'r2' }])
+    expect(callResources(typert, readers, method('ids', 'roomId'), { ids: undefined, roomId: 'r9' }, NEVER)).toEqual([GLOBAL])
     const signal = new AbortController().signal
     const positional = vi.fn((...args: readonly unknown[]) => (args.at(-1) === signal ? args[1] : 'wrong'))
-    expect(callResources(typert, { 'test-desk': positional }, {
-      ...method('first', 'desk'), cancellation: { parameter: 'signal' },
-    }, { first: 'f', desk: 'd1' }, signal)).toEqual([DESK])
+    expect(
+      callResources(
+        typert,
+        { 'test-desk': positional },
+        {
+          ...method('first', 'desk'),
+          cancellation: { parameter: 'signal' },
+        },
+        { first: 'f', desk: 'd1' },
+        signal,
+      ),
+    ).toEqual([DESK])
     expect(positional).toHaveBeenCalledWith('f', 'd1', signal)
   })
 
@@ -894,28 +1019,53 @@ describe('resource resolution', () => {
       resolve: (id: string) => ({ id }),
     })
     typert.contexts.registerHost('gatewayAccessScope', {
-      wire: 'scopeId', wireTypeSymbol: '@fixture/access#ScopeId', resource: 'test-desk', resolve: () => undefined,
+      wire: 'scopeId',
+      wireTypeSymbol: '@fixture/access#ScopeId',
+      resource: 'test-desk',
+      resolve: () => undefined,
     })
     const agent = { name: 'agent', wire: 'agentId', source: 'lookup', lookup: 'gatewayAccessAgent' } as InvocationParameterDescriptor
     const unknownLookup = { name: 'other', wire: 'otherId', source: 'lookup', lookup: 'absentLookup' } as InvocationParameterDescriptor
-    expect(callResources(typert, undefined, { invocation: DIRECT, parameters: [agent, unknownLookup] }, { agentId: undefined, otherId: 'o1' }, NEVER))
-      .toEqual([GLOBAL])
-    expect(callResources(typert, undefined, { invocation: DIRECT, parameters: [agent] }, { agentId: 'd1' }, NEVER))
-      .toEqual([DESK])
-    const scoped = (context: string): InvocationDescriptor['invocation'] => ({ kind: 'context', context, wire: 'scopeId', codec: { mode: 'src-json' } })
-    expect(callResources(typert, undefined, { invocation: scoped('gatewayAccessScope'), parameters: [agent] }, { scopeId: 'd0', agentId: 'd1' }, NEVER))
-      .toEqual([{ kind: 'test-desk', id: 'd0' }, DESK])
+    expect(
+      callResources(
+        typert,
+        undefined,
+        { invocation: DIRECT, parameters: [agent, unknownLookup] },
+        { agentId: undefined, otherId: 'o1' },
+        NEVER,
+      ),
+    ).toEqual([GLOBAL])
+    expect(callResources(typert, undefined, { invocation: DIRECT, parameters: [agent] }, { agentId: 'd1' }, NEVER)).toEqual([DESK])
+    const scoped = (context: string): InvocationDescriptor['invocation'] => ({
+      kind: 'context',
+      context,
+      wire: 'scopeId',
+      codec: { mode: 'src-json' },
+    })
+    expect(
+      callResources(
+        typert,
+        undefined,
+        { invocation: scoped('gatewayAccessScope'), parameters: [agent] },
+        { scopeId: 'd0', agentId: 'd1' },
+        NEVER,
+      ),
+    ).toEqual([{ kind: 'test-desk', id: 'd0' }, DESK])
     // A required Context identity is never omitted, so a missing one is malformed.
-    expect(callResources(typert, undefined, { invocation: scoped('gatewayAccessScope'), parameters: [] }, {}, NEVER))
-      .toBeUndefined()
-    expect(callResources(typert, undefined, { invocation: scoped('absentScope'), parameters: [] }, { scopeId: 'd0' }, NEVER))
-      .toEqual([GLOBAL])
+    expect(callResources(typert, undefined, { invocation: scoped('gatewayAccessScope'), parameters: [] }, {}, NEVER)).toBeUndefined()
+    expect(callResources(typert, undefined, { invocation: scoped('absentScope'), parameters: [] }, { scopeId: 'd0' }, NEVER)).toEqual([
+      GLOBAL,
+    ])
   })
 
   it('reports invalid resources when a reader throws or returns an empty list, or a resource id is not a non-empty string', async () => {
     const typert = await registry()
     const one = method('value')
-    const throwing = { 'test-shelf': () => { throw new TypeError('malformed call') } }
+    const throwing = {
+      'test-shelf': () => {
+        throw new TypeError('malformed call')
+      },
+    }
     expect(callResources(typert, throwing, one, { value: 1 }, NEVER)).toBeUndefined()
     for (const value of ['', 7, ['r1', ''], [null], []]) {
       expect(callResources(typert, { 'test-shelf': (read: unknown) => read }, one, { value }, NEVER)).toBeUndefined()
@@ -930,8 +1080,7 @@ describe('resource resolution', () => {
     expect(eventResources(undefined, ['r1'])).toEqual([GLOBAL])
     expect(eventResources({}, ['r1'])).toEqual([GLOBAL])
     expect(eventResources({ 'test-shelf': (id: unknown) => id }, ['r1'])).toEqual([ROOM])
-    expect(eventResources({ 'test-desk': (_first: unknown, second: unknown) => second }, ['r1', 'd1']))
-      .toEqual([DESK])
+    expect(eventResources({ 'test-desk': (_first: unknown, second: unknown) => second }, ['r1', 'd1'])).toEqual([DESK])
     // An event carries every resource it declares, so a missing one is invalid rather than a global event.
     expect(eventResources({ 'test-shelf': () => undefined }, ['r1'])).toBeUndefined()
     expect(eventResources({ 'test-shelf': () => [] }, ['r1'])).toBeUndefined()

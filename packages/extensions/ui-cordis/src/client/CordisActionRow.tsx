@@ -1,8 +1,6 @@
 /** Localized cards for `cordis_stop` and `cordis_undefine`. */
 
-import {
-  IconInspectOutlineRegular, IconStopFillRegular, IconTrashOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconInspectOutlineRegular, IconStopFillRegular, IconTrashOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ToolCallViewProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import { cordisActionCard } from './card-model.ts'
@@ -16,10 +14,16 @@ export type CordisActionRowProps = ToolCallViewProps & PropsLocale<'cordis'>
 export function CordisActionRow(props: CordisActionRowProps) {
   if (props.phase === 'preparing') {
     const remove = props.toolName === 'cordis_undefine'
-    return <CordisPreparingRow {...props}
-      icon={remove ? <IconTrashOutlineRegular size={14} /> : <IconStopFillRegular size={14} />}
-      title={props.t(remove ? 'row.removeTitle' : 'row.stopTitle')}
-      className={css.card} rowClassName={css.row} titleClassName={css.title} />
+    return (
+      <CordisPreparingRow
+        {...props}
+        icon={remove ? <IconTrashOutlineRegular size={14} /> : <IconStopFillRegular size={14} />}
+        title={props.t(remove ? 'row.removeTitle' : 'row.stopTitle')}
+        className={css.card}
+        rowClassName={css.row}
+        titleClassName={css.title}
+      />
+    )
   }
   return <StartedCordisActionRow {...props} />
 }
@@ -32,9 +36,7 @@ function StartedCordisActionRow({ callId, toolName, block, inspect, t }: Exclude
   return (
     <div className={css.card} data-tool={toolName} data-state={card.state}>
       <div className={css.row}>
-        <span className={css.icon}>
-          {remove ? <IconTrashOutlineRegular size={14} /> : <IconStopFillRegular size={14} />}
-        </span>
+        <span className={css.icon}>{remove ? <IconTrashOutlineRegular size={14} /> : <IconStopFillRegular size={14} />}</span>
         <span className={css.title}>{t(remove ? 'row.removeTitle' : 'row.stopTitle')}</span>
         <span className={css.separator} aria-hidden />
         <span className={card.errorSummary === null ? css.summary : css.error}>{summary}</span>

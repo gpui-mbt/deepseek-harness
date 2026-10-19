@@ -21,7 +21,7 @@ const MANUAL_RECONNECT = new Error('connection: manual reconnect requested')
 const NETWORK_STATE_CHANGED = new Error('connection: browser network state changed')
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const t = setTimeout(done, ms)
     signal.addEventListener('abort', done, { once: true })
     function done(): void {
@@ -34,16 +34,19 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 
 function waitForAbort(signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.resolve()
-  return new Promise((resolve) => {
-    signal.addEventListener('abort', () => { resolve() }, { once: true })
+  return new Promise(resolve => {
+    signal.addEventListener(
+      'abort',
+      () => {
+        resolve()
+      },
+      { once: true },
+    )
   })
 }
 
 /** Connection lifecycle state published after the first attempt has an outcome. */
-export type ConnectionState =
-  | 'connected'
-  | 'disconnected'
-  | 'connecting'
+export type ConnectionState = 'connected' | 'disconnected' | 'connecting'
 
 /** Connection-generation callbacks owned by API Gateway. */
 export interface ConnectionSinks {
@@ -64,10 +67,7 @@ export interface ConnectionSinks {
  * @param ready - one-shot report that incremental delivery is attached.
  * @returns a promise settling only when this generation ends or fails.
  */
-export type ConnectionGenerationSource = (
-  signal: AbortSignal,
-  ready: (host: ConnectionHostInfo) => void,
-) => Promise<void>
+export type ConnectionGenerationSource = (signal: AbortSignal, ready: (host: ConnectionHostInfo) => void) => Promise<void>
 
 /**
  * Opens the registered generation source, reconnecting with exponential backoff on loss.
@@ -194,7 +194,9 @@ export class ConnectionController {
           if (retryDelay.signal.aborted) continue
         }
         console.warn(`[connection] connection lost, retry #${String(attempt)}`)
-        this.callSink(() => { this.sinks.onReconnectRequested?.() })
+        this.callSink(() => {
+          this.sinks.onReconnectRequested?.()
+        })
         if (!this.isRunning()) return
       }
 
@@ -219,7 +221,7 @@ export class ConnectionController {
         resolveReady(host)
       }
 
-      const failed = new Promise<void>((resolve) => {
+      const failed = new Promise<void>(resolve => {
         const settle = (): void => {
           if (gen === this.generation && !ac.signal.aborted) ac.abort()
           resolve()
@@ -234,9 +236,7 @@ export class ConnectionController {
               settle()
             },
             (error: unknown) => {
-              const failure = error instanceof Error
-                ? error
-                : new Error('connection generation failed', { cause: error })
+              const failure = error instanceof Error ? error : new Error('connection generation failed', { cause: error })
               if (!sourceReady) rejectReady(failure)
               rejectSourceLost(failure)
               settle()
@@ -245,16 +245,15 @@ export class ConnectionController {
       })
 
       try {
-        const host = await Promise.race([
-          waitForReady(ready, this.config, ac.signal),
-          sourceLost,
-        ])
+        const host = await Promise.race([waitForReady(ready, this.config, ac.signal), sourceLost])
         if (ac.signal.aborted) throw new Error('generation aborted during readiness handshake')
         this.attempt = 0
         this.emitState('connected')
         // A state sink may synchronously stop this controller.
         if (this.isGenerationActive(ac)) {
-          this.callSink(() => { this.sinks.onConnected?.(host) })
+          this.callSink(() => {
+            this.sinks.onConnected?.(host)
+          })
         }
       } catch (error) {
         if (!ac.signal.aborted) ac.abort(error)
@@ -285,11 +284,7 @@ export class ConnectionController {
 }
 
 /** Report a slow handshake before the hard deadline ends its generation. */
-function waitForReady<T>(
-  ready: Promise<T>,
-  config: Required<ConnectionRecoveryConfig>,
-  signal: AbortSignal,
-): Promise<T> {
+function waitForReady<T>(ready: Promise<T>, config: Required<ConnectionRecoveryConfig>, signal: AbortSignal): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     let settled = false
     const warning = setTimeout(() => {
@@ -314,7 +309,9 @@ function waitForReady<T>(
     }
     signal.addEventListener('abort', aborted, { once: true })
     void ready.then(
-      (value) => { finish({ value }) },
+      value => {
+        finish({ value })
+      },
       (error: unknown) => {
         finish({ error: error as Error })
       },

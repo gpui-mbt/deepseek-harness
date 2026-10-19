@@ -3,7 +3,7 @@
 import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { availableParallelism, cpus, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { runBuiltBenchmarkWorker } from '../support/built-worker.ts'
 import { ciTimeBudget, PERFORMANCE_BUDGET_HEADROOM } from '../support/calibration.ts'
 import { recordTimings, type BenchmarkCase } from '../support/scaling-report.ts'
@@ -42,7 +42,7 @@ const CASES: Readonly<Record<Scenario, BenchmarkCase>> = {
     measures: 'Cold resume of the 800-turn Session, then 20 turns with 8 synthetic tool calls each through the real tool pipeline.',
     affects: 'Continuing a long tool-heavy Session after restarting DSH.',
   },
-  'catalog': {
+  catalog: {
     id: 'agent-continuation/catalog',
     measures: 'First and repeated discovery of 16 inactive fork children with 80-turn histories.',
     affects: 'Listing forks and subagents of a Session that has many children.',
@@ -64,8 +64,10 @@ function workerName(scenario: Scenario): string {
 
 async function run<Output>(root: string, scenario: Scenario, mode: string): Promise<Output> {
   const outcome = await runBuiltBenchmarkWorker<Output>({
-    worker: join(WORKERS, workerName(scenario)), args: [root, mode],
-    timeoutMs: WORKER_TIMEOUT_MS, exposeGc: true,
+    worker: join(WORKERS, workerName(scenario)),
+    args: [root, mode],
+    timeoutMs: WORKER_TIMEOUT_MS,
+    exposeGc: true,
   })
   if (outcome.timedOut || outcome.signal !== null || outcome.exitCode !== 0 || outcome.report === undefined) {
     throw new Error('backend worker failed: ' + JSON.stringify(outcome))
@@ -129,7 +131,7 @@ function assertRequestHistoryBudget(value: number): void {
 
 describe('standard hosted request-history calibration', () => {
   it('accepts the recorded two-CPU samples above the historical budget', () => {
-    const recorded = [183.355397, 184.468253, 185.042397, 182.160790, 182.924728]
+    const recorded = [183.355397, 184.468253, 185.042397, 182.16079, 182.924728]
     const recordedMedian = median(recorded)
 
     expect(recordedMedian).toBe(183.355397)
@@ -181,35 +183,57 @@ describe('continuing tool-heavy Sessions with large histories', () => {
         const root = join(scratch as string, scenario + '-' + String(attempt))
         if (scenario === 'profile-continuation') await mkdir(root)
         else await cp(sources.get(scenario) as string, root, { recursive: true })
-        try { samples.push(await run<Report>(root, scenario, scenario)) }
-        finally { await rm(root, { recursive: true, force: true }) }
+        try {
+          samples.push(await run<Report>(root, scenario, scenario))
+        } finally {
+          await rm(root, { recursive: true, force: true })
+        }
       }
       const totalMs = samples.map(sample => sample.totalMs)
-      const budgetMs = scenario === 'request-history' ? REQUEST_HISTORY_BUDGET_MS
-        : scenario === 'catalog' ? CATALOG_BUDGET_MS
-          : scenario === 'tool-continuation' ? TOOL_CONTINUATION_BUDGET_MS : ciTimeBudget(EXPECTED_MS[scenario])
+      const budgetMs =
+        scenario === 'request-history'
+          ? REQUEST_HISTORY_BUDGET_MS
+          : scenario === 'catalog'
+            ? CATALOG_BUDGET_MS
+            : scenario === 'tool-continuation'
+              ? TOOL_CONTINUATION_BUDGET_MS
+              : ciTimeBudget(EXPECTED_MS[scenario])
       const retainedHeapBudgetMb = EXPECTED_RETAINED_HEAP_MB * PERFORMANCE_BUDGET_HEADROOM
-      console.log(JSON.stringify({
-        benchmark: 'agent-continuation/' + scenario, workload: WORKLOAD,
-        runtime: {
-          cpuModels: [...new Set(cpus().map(cpu => cpu.model))],
-          availableParallelism: availableParallelism(),
-          platform: process.platform, arch: process.arch,
-          node: process.version, v8: process.versions.v8,
+      console.log(
+        JSON.stringify({
+          benchmark: 'agent-continuation/' + scenario,
+          workload: WORKLOAD,
+          runtime: {
+            cpuModels: [...new Set(cpus().map(cpu => cpu.model))],
+            availableParallelism: availableParallelism(),
+            platform: process.platform,
+            arch: process.arch,
+            node: process.version,
+            v8: process.versions.v8,
+          },
+          samples,
+          totalMs: { min: Math.min(...totalMs), median: median(totalMs), max: Math.max(...totalMs) },
+          budgetMs,
+          ...(scenario === 'tool-continuation' ? { retainedHeapBudgetMb } : {}),
+        }),
+      )
+      recordTimings(
+        CASES[scenario],
+        {
+          totalMs:
+            scenario === 'profile-continuation'
+              ? { ms: median(totalMs), ioShare: PROFILE_IO_SHARE }
+              : {
+                  ms: median(totalMs),
+                  cpuMs: median((samples as (ContinuationReport | CatalogReport)[]).map(sample => sample.cpuUserMs + sample.cpuSystemMs)),
+                },
         },
-        samples, totalMs: { min: Math.min(...totalMs), median: median(totalMs), max: Math.max(...totalMs) },
-        budgetMs, ...(scenario === 'tool-continuation' ? { retainedHeapBudgetMb } : {}),
-      }))
-      recordTimings(CASES[scenario], {
-        totalMs: scenario === 'profile-continuation'
-          ? { ms: median(totalMs), ioShare: PROFILE_IO_SHARE }
-          : { ms: median(totalMs), cpuMs: median((samples as (ContinuationReport | CatalogReport)[]).map(sample => sample.cpuUserMs + sample.cpuSystemMs)) },
-      }, { totalMs: budgetMs })
+        { totalMs: budgetMs },
+      )
       if (scenario === 'request-history') assertRequestHistoryBudget(median(totalMs))
       else expectTotalWithinBudget(median(totalMs), budgetMs)
       if (scenario === 'tool-continuation') {
-        expect(median((samples as ContinuationReport[]).map(sample => sample.retainedHeapMb)))
-          .toBeLessThanOrEqual(retainedHeapBudgetMb)
+        expect(median((samples as ContinuationReport[]).map(sample => sample.retainedHeapMb))).toBeLessThanOrEqual(retainedHeapBudgetMb)
       }
     })
   }

@@ -33,35 +33,32 @@ export interface NormalizedImage {
  * @param policy - resolved normalization limits.
  * @returns whether the source can pass through byte-identically.
  */
-export function canPassThroughNormalization(
-  detected: DetectedImage,
-  bytes: number,
-  policy: NormalizationPolicy,
-): boolean {
-  return detected.mediaType !== 'image/gif'
-    && !detected.animated
-    && !detected.carriesMetadata
-    && detected.depth === 'uchar'
-    && detected.space === 'srgb'
-    && bytes <= policy.maxBytes
-    && detected.width * detected.height <= policy.maxPixels
-    && Math.max(detected.width, detected.height) <= policy.maxDimension
+export function canPassThroughNormalization(detected: DetectedImage, bytes: number, policy: NormalizationPolicy): boolean {
+  return (
+    detected.mediaType !== 'image/gif' &&
+    !detected.animated &&
+    !detected.carriesMetadata &&
+    detected.depth === 'uchar' &&
+    detected.space === 'srgb' &&
+    bytes <= policy.maxBytes &&
+    detected.width * detected.height <= policy.maxPixels &&
+    Math.max(detected.width, detected.height) <= policy.maxDimension
+  )
 }
 
 /** Assert that a normalized output is an 8-bit sRGB/sRGBA single-frame image with matching facts. */
-async function verifyNormalizedImage(
-  image: NormalizedImage,
-  expectedAlpha: boolean | undefined,
-): Promise<NormalizedImage> {
+async function verifyNormalizedImage(image: NormalizedImage, expectedAlpha: boolean | undefined): Promise<NormalizedImage> {
   const detected = await detectImage(image.data)
-  if (detected.mediaType !== image.mediaType
-    || detected.width !== image.width
-    || detected.height !== image.height
-    || detected.animated
-    || detected.carriesMetadata
-    || detected.depth !== 'uchar'
-    || detected.space !== 'srgb'
-    || !encodedAlphaIsCompatible(expectedAlpha, detected)) {
+  if (
+    detected.mediaType !== image.mediaType ||
+    detected.width !== image.width ||
+    detected.height !== image.height ||
+    detected.animated ||
+    detected.carriesMetadata ||
+    detected.depth !== 'uchar' ||
+    detected.space !== 'srgb' ||
+    !encodedAlphaIsCompatible(expectedAlpha, detected)
+  ) {
     throw new AttachmentError(
       'Image normalization did not produce a single-frame 8-bit sRGB image with matching metadata.',
       'ATTACHMENT_WRITE_FAILED',
@@ -71,12 +68,7 @@ async function verifyNormalizedImage(
 }
 
 /** Build one fixed-size, oriented, metadata-free sRGB pipeline from submitted bytes. */
-function preparedPipeline(
-  sharp: ReturnType<typeof requireSharp>,
-  data: Uint8Array,
-  width: number,
-  height: number,
-): Sharp {
+function preparedPipeline(sharp: ReturnType<typeof requireSharp>, data: Uint8Array, width: number, height: number): Sharp {
   return sharp(data, { failOn: 'error', limitInputPixels: false })
     .rotate()
     .toColourspace('srgb')
@@ -106,11 +98,7 @@ function initialDimensions(detected: DetectedImage, policy: NormalizationPolicy)
  * @param policy - resolved independent normalization limits.
  * @returns verified provider-independent normalized bytes and metadata.
  */
-export async function normalizeImage(
-  data: Uint8Array,
-  detected: DetectedImage,
-  policy: NormalizationPolicy,
-): Promise<NormalizedImage> {
+export async function normalizeImage(data: Uint8Array, detected: DetectedImage, policy: NormalizationPolicy): Promise<NormalizedImage> {
   if (canPassThroughNormalization(detected, data.byteLength, policy)) {
     return { data, mediaType: detected.mediaType, width: detected.width, height: detected.height }
   }
@@ -125,13 +113,12 @@ export async function normalizeImage(
     return await verifyNormalizedImage(chosen, detected.mediaType === 'image/gif' ? undefined : detected.hasAlpha)
   } catch (error) {
     if (error instanceof AttachmentError) throw error
-    const source = detected.mediaType === 'image/png' && detected.depth !== 'uchar'
-      ? `${detected.depth === 'ushort' ? '16-bit' : detected.depth} PNG`
-      : `${detected.depth} ${detected.mediaType.slice('image/'.length).toUpperCase()}`
-    throw new AttachmentError(
-      `The ${source} could not be converted to the normalized 8-bit sRGB form.`,
-      'ATTACHMENT_WRITE_FAILED',
-      { cause: error },
-    )
+    const source =
+      detected.mediaType === 'image/png' && detected.depth !== 'uchar'
+        ? `${detected.depth === 'ushort' ? '16-bit' : detected.depth} PNG`
+        : `${detected.depth} ${detected.mediaType.slice('image/'.length).toUpperCase()}`
+    throw new AttachmentError(`The ${source} could not be converted to the normalized 8-bit sRGB form.`, 'ATTACHMENT_WRITE_FAILED', {
+      cause: error,
+    })
   }
 }

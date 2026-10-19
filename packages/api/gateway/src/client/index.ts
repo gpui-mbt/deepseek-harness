@@ -8,9 +8,7 @@ import { Service } from '@deepseek-ai/cordis'
 import { RemoteError, isRemoteUplinkItem, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 export type { TypertGatewayFaultDetails } from '../remote-error-codes.ts'
 import type { Context } from '@deepseek-ai/cordis'
-import type {
-  ConnectionHandle,
-} from '@deepseek-ai/dsh-client-connection/client'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type {
   InvocationDescriptor,
   TypertClientEventListener,
@@ -23,25 +21,13 @@ import type {
   TypertRemoteContribution,
   TypertRemoteEvent,
 } from '@deepseek-ai/dsh-typert-protocol'
-import {
-  ClientUplinkQueue,
-  RemoteStreamCarrierError,
-  RemoteStreamMuxClient,
-} from './stream-client.ts'
+import { ClientUplinkQueue, RemoteStreamCarrierError, RemoteStreamMuxClient } from './stream-client.ts'
 import { ClientRemoteEvents } from './remote-events.ts'
-import {
-  RemoteStream,
-  type RemoteStreamOptions,
-} from './remote-stream.ts'
+import { RemoteStream, type RemoteStreamOptions } from './remote-stream.ts'
 
 export { RemoteStreamCarrierError } from './stream-client.ts'
 export { RemoteJournalStream } from './journal-stream.ts'
-export type {
-  RemoteJournalChange,
-  RemoteJournalFrame,
-  RemoteJournalStreamOptions,
-  RemoteStreamFactory,
-} from './journal-stream.ts'
+export type { RemoteJournalChange, RemoteJournalFrame, RemoteJournalStreamOptions, RemoteStreamFactory } from './journal-stream.ts'
 export { RemoteStream } from './remote-stream.ts'
 export type { RemoteStreamItem, RemoteStreamOptions } from './remote-stream.ts'
 export { RemoteSnapshotStream } from './snapshot-stream.ts'
@@ -156,16 +142,9 @@ class ClientRemoteService extends Service implements ClientRemote {
     this.ownerCtx = ctx
     const connection = ctx.get('connection') as ConnectionHandle
     this.connection = connection
-    this.streams = new RemoteStreamMuxClient(
-      path => connection.openWebSocket(path),
-      connection.interactions === 'answer',
-    )
+    this.streams = new RemoteStreamMuxClient(path => connection.openWebSocket(path), connection.interactions === 'answer')
     if (connection.interactions === 'answer') {
-      this.events = new ClientRemoteEvents(
-        ctx,
-        connection,
-        (endpoint, payload, signal) => this.openRemoteStream(endpoint, payload, signal),
-      )
+      this.events = new ClientRemoteEvents(ctx, connection, (endpoint, payload, signal) => this.openRemoteStream(endpoint, payload, signal))
     }
     // API callers retain a lifecycle socket even when they do not receive events.
     // HTTP dispatch never waits for this independent connection attempt.
@@ -176,7 +155,9 @@ class ClientRemoteService extends Service implements ClientRemote {
       if (disposed || connection.interactions === 'none') return
       if (connection.rpc.open === undefined) this.streams.start()
       loop = connection.start({
-        onConnected: () => { this.ownerCtx.emit('connection/reset') },
+        onConnected: () => {
+          this.ownerCtx.emit('connection/reset')
+        },
         onReconnectRequested: () => {
           if (connection.rpc.open === undefined) this.streams.reconnect()
         },
@@ -185,12 +166,15 @@ class ClientRemoteService extends Service implements ClientRemote {
     const loader = ctx.get('loader') as LoaderReadiness | undefined
     if (loader === undefined) start()
     else void loader.await().then(start, () => {})
-    ctx.effect(() => async () => {
-      disposed = true
-      loop?.stop()
-      await this.events?.dispose()
-      await this.streams.close()
-    }, 'api-gateway.client.transport')
+    ctx.effect(
+      () => async () => {
+        disposed = true
+        loop?.stop()
+        await this.events?.dispose()
+        await this.streams.close()
+      },
+      'api-gateway.client.transport',
+    )
   }
 
   $stream<Item>(options: RemoteStreamOptions<Item>): RemoteStream<Item> {
@@ -213,18 +197,20 @@ class ClientRemoteService extends Service implements ClientRemote {
 
   async $mount(contribution: TypertRemoteContribution): ReturnType<TypertClientRemote['$mount']> {
     const callerCtx = this.ctx
-    const owned = callerCtx.effect(async () => {
-      const dispose = await this.enqueue(() => this.mountContribution(callerCtx, contribution))
-      return () => this.enqueue(dispose)
-    }, `api-gateway.client.$mount(${JSON.stringify(contribution.package)})`)
+    const owned = callerCtx.effect(
+      async () => {
+        const dispose = await this.enqueue(() => this.mountContribution(callerCtx, contribution))
+        return () => this.enqueue(dispose)
+      },
+      `api-gateway.client.$mount(${JSON.stringify(contribution.package)})`,
+    )
     await owned
-    return async () => { await owned() }
+    return async () => {
+      await owned()
+    }
   }
 
-  $on<Event extends TypertRemoteEvent>(
-    event: Event,
-    listener: TypertClientEventListener<Event>,
-  ): () => void {
+  $on<Event extends TypertRemoteEvent>(event: Event, listener: TypertClientEventListener<Event>): () => void {
     if (this.events === undefined) throw new Error('client api: forwarded events require interactions=answer')
     return this.events.subscribe(this.ctx, event, listener)
   }
@@ -240,21 +226,19 @@ class ClientRemoteService extends Service implements ClientRemote {
     const connection = this.ownerCtx.get('connection') as ConnectionHandle | undefined
     if (connection === undefined) throw new Error(noConnection)
     const local = connection.rpc.open?.('/api', endpoint, payload, signal, uplink)
-    return local === undefined
-      ? this.streams.open(endpoint, payload, signal, uplink)
-      : normalizeConnectionStream(local)
+    return local === undefined ? this.streams.open(endpoint, payload, signal, uplink) : normalizeConnectionStream(local)
   }
 
   private enqueue<T>(operation: () => T | Promise<T>): Promise<T> {
     const result = this.mutations.then(operation, operation)
-    this.mutations = result.then(() => undefined, () => undefined)
+    this.mutations = result.then(
+      () => undefined,
+      () => undefined,
+    )
     return result
   }
 
-  private async mountContribution(
-    callerCtx: Context,
-    contribution: TypertRemoteContribution,
-  ): Promise<TypertDisposer> {
+  private async mountContribution(callerCtx: Context, contribution: TypertRemoteContribution): Promise<TypertDisposer> {
     this.validateContribution(contribution)
     const disposeRemote = callerCtx.typert.remotes.register(contribution)
     const groups = new Map<string, InvocationDescriptor[]>()
@@ -282,11 +266,7 @@ class ClientRemoteService extends Service implements ClientRemote {
   private validateContribution(contribution: TypertRemoteContribution): void {
     const direct = new Map<string, Set<string>>()
     const scoped = new Map<string, Set<string>>()
-    const add = (
-      table: Map<string, Set<string>>,
-      descriptor: InvocationDescriptor,
-      kind: 'direct' | 'scoped',
-    ): void => {
+    const add = (table: Map<string, Set<string>>, descriptor: InvocationDescriptor, kind: 'direct' | 'scoped'): void => {
       const methods = table.get(descriptor.namespace) ?? new Set<string>()
       if (methods.has(descriptor.method)) {
         throw new Error(`client api: contribution repeats ${kind} method ${endpointOf(descriptor)}`)
@@ -333,14 +313,11 @@ class ClientRemoteService extends Service implements ClientRemote {
    * @param descriptors - Every contribution descriptor naming that namespace.
    * @returns disposer unmounting the group and the namespace once empty.
    */
-  private async installNamespace(
-    name: string,
-    descriptors: readonly InvocationDescriptor[],
-  ): Promise<TypertDisposer> {
+  private async installNamespace(name: string, descriptors: readonly InvocationDescriptor[]): Promise<TypertDisposer> {
     let namespace = this.namespaces.get(name)
     let installed: InstalledMethod[]
     if (namespace === undefined) {
-      ({ namespace, installed } = await this.createNamespace(name, descriptors))
+      ;({ namespace, installed } = await this.createNamespace(name, descriptors))
     } else {
       installed = installMethods(namespace.service, descriptors)
     }
@@ -367,11 +344,7 @@ class ClientRemoteService extends Service implements ClientRemote {
     const fiber = this.ownerCtx.plugin({
       name: remoteServiceKey(name),
       apply: (ctx: Context) => {
-        service = new RemoteNamespaceService(
-          ctx,
-          name,
-          (direct, scoped, caller, args) => this.invokeMethod(direct, scoped, caller, args),
-        )
+        service = new RemoteNamespaceService(ctx, name, (direct, scoped, caller, args) => this.invokeMethod(direct, scoped, caller, args))
         // Same synchronous window as the service registration: a dependent the
         // new service unparks runs only after the methods exist.
         installed = installMethods(service, descriptors)
@@ -408,14 +381,7 @@ class ClientRemoteService extends Service implements ClientRemote {
       const adapter = this.ownerCtx.typert.contexts.getClient(scoped.projection.context)
       const identity = adapter?.identity(callerCtx)
       if (identity !== undefined) {
-        return this.invokeSelected(
-          scoped.descriptor,
-          scoped.projection,
-          scoped.token,
-          callerCtx,
-          values,
-          { value: identity },
-        )
+        return this.invokeSelected(scoped.descriptor, scoped.projection, scoped.token, callerCtx, values, { value: identity })
       }
     }
     if (direct !== undefined) {
@@ -459,9 +425,10 @@ class ClientRemoteService extends Service implements ClientRemote {
       if (!mountActive(token)) return withdrawn(endpoint)
       prepared.signal.throwIfAborted()
       if (!result.ok) return { ok: false, error: rebuiltFailure(result.error) }
-      const value = descriptor.result.mode === 'strict' && descriptor.result.decode !== undefined
-        ? descriptor.result.decode(result.value)
-        : result.value
+      const value =
+        descriptor.result.mode === 'strict' && descriptor.result.decode !== undefined
+          ? descriptor.result.decode(result.value)
+          : result.value
       return { ok: true, value }
     } catch (error) {
       // Carrier throws (offline or abort) are outcomes of the call, not assembly
@@ -487,12 +454,7 @@ class ClientRemoteService extends Service implements ClientRemote {
     const prepared = this.prepareInvocation(descriptor, projection, token, callerCtx, values, boundIdentity)
     const generation = new AbortController()
     const uplink = new ClientUplinkQueue(endpoint)
-    const downlink = this.openRemoteStream(
-      endpoint,
-      { args: prepared.args },
-      AbortSignal.any([prepared.signal, generation.signal]),
-      uplink,
-    )
+    const downlink = this.openRemoteStream(endpoint, { args: prepared.args }, AbortSignal.any([prepared.signal, generation.signal]), uplink)
     return new ClientStreamHandle(endpoint, downlink, uplink, generation, token)
   }
 
@@ -508,24 +470,19 @@ class ClientRemoteService extends Service implements ClientRemote {
     const expected = descriptor.parameters.length - (projection?.parameterIndex === undefined ? 0 : 1)
     const hasCallerSignal = descriptor.cancellation !== undefined && values.length === expected + 1
     if (values.length !== expected && !hasCallerSignal) {
-      const contract = descriptor.cancellation === undefined
-        ? `${String(expected)} argument(s)`
-        : `${String(expected)} business argument(s) plus an optional AbortSignal`
-      throw new Error(
-        `client api: ${endpoint} expected ${contract}, got ${String(values.length)}`,
-      )
+      const contract =
+        descriptor.cancellation === undefined
+          ? `${String(expected)} argument(s)`
+          : `${String(expected)} business argument(s) plus an optional AbortSignal`
+      throw new Error(`client api: ${endpoint} expected ${contract}, got ${String(values.length)}`)
     }
     const args = Object.create(null) as Record<string, unknown>
     if (projection !== undefined) {
-      const adapter = boundIdentity === undefined
-        ? this.ownerCtx.typert.contexts.getClient(projection.context)
-        : undefined
+      const adapter = boundIdentity === undefined ? this.ownerCtx.typert.contexts.getClient(projection.context) : undefined
       if (boundIdentity === undefined && adapter === undefined) {
         throw new Error(`client api: ${endpoint} has no Client Context adapter for ${JSON.stringify(projection.context)}`)
       }
-      const identity = boundIdentity === undefined
-        ? adapter?.identity(callerCtx)
-        : boundIdentity.value
+      const identity = boundIdentity === undefined ? adapter?.identity(callerCtx) : boundIdentity.value
       if (identity === undefined) {
         throw new Error(`client api: ${endpoint} requires a ${JSON.stringify(projection.context)} Context`)
       }
@@ -538,10 +495,8 @@ class ClientRemoteService extends Service implements ClientRemote {
       if (value !== undefined) args[parameter.wire] = value
       valueIndex += 1
     })
-    const callerSignal = hasCallerSignal ? values[expected] as AbortSignal | undefined : undefined
-    const signal = callerSignal === undefined
-      ? token.abort.signal
-      : AbortSignal.any([token.abort.signal, callerSignal])
+    const callerSignal = hasCallerSignal ? (values[expected] as AbortSignal | undefined) : undefined
+    const signal = callerSignal === undefined ? token.abort.signal : AbortSignal.any([token.abort.signal, callerSignal])
     return { endpoint, args, signal }
   }
 }
@@ -572,7 +527,9 @@ class ClientStreamHandle implements RemoteStreamHandle<unknown, unknown> {
     // for the consumer, and a failure waits for it instead of surfacing here;
     // it also terminates the stream, so the queue closes and `send()` throws.
     this.primed = this.downlink.next()
-    void this.primed.catch(() => { this.uplink.close() })
+    void this.primed.catch(() => {
+      this.uplink.close()
+    })
   }
 
   send(item: unknown): void {
@@ -724,10 +681,7 @@ class RemoteNamespaceService extends Service {
  * @param descriptors - Descriptor group of one contribution.
  * @returns per-descriptor records for the group disposer.
  */
-function installMethods(
-  service: RemoteNamespaceService,
-  descriptors: readonly InvocationDescriptor[],
-): InstalledMethod[] {
+function installMethods(service: RemoteNamespaceService, descriptors: readonly InvocationDescriptor[]): InstalledMethod[] {
   const installed: InstalledMethod[] = []
   try {
     for (const descriptor of descriptors) {
@@ -786,12 +740,12 @@ function scopedProjection(descriptor: InvocationDescriptor): ScopedProjection | 
     .map((parameter, index) => ({ parameter, index }))
     .filter(candidate => candidate.parameter.source === 'lookup')
   const selected = lookupParameters.length === 1 ? lookupParameters[0] : undefined
-  if (selected === undefined
-    || selected.parameter.wire !== descriptor.scope.wire
-    || selected.parameter.lookup !== descriptor.scope.context) {
-    throw new Error(
-      `client api: generated Remote ${endpointOf(descriptor)} scope must select its only lookup parameter`,
-    )
+  if (
+    selected === undefined ||
+    selected.parameter.wire !== descriptor.scope.wire ||
+    selected.parameter.lookup !== descriptor.scope.context
+  ) {
+    throw new Error(`client api: generated Remote ${endpointOf(descriptor)} scope must select its only lookup parameter`)
   }
   return {
     context: descriptor.scope.context,
@@ -878,9 +832,9 @@ type MarkedConnectionStreamFailure = Error & {
 }
 
 /** Preserve Gateway error classes across a worker transport's separately bundled page half. */
-async function *normalizeConnectionStream(source: AsyncIterable<unknown>): AsyncGenerator {
+async function* normalizeConnectionStream(source: AsyncIterable<unknown>): AsyncGenerator {
   try {
-    yield * source
+    yield* source
   } catch (error) {
     if (!(error instanceof Error)) throw error
     const marker = (error as MarkedConnectionStreamFailure).dshRemoteStreamFailure

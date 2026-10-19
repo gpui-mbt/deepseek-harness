@@ -86,8 +86,7 @@ export function installWindowDragRecall(options: WindowDragRecallOptions): () =>
     const rows = Array.from(doc.querySelectorAll(ROW_SELECTOR))
     watchBoxes(rows)
     const next = new Map(rows.map(row => [row, readBox(row)] as const))
-    const moved = rows.length !== geometry.size
-      || rows.some(row => geometry.get(row) !== next.get(row))
+    const moved = rows.length !== geometry.size || rows.some(row => geometry.get(row) !== next.get(row))
     geometry = next
     if (moved) {
       doc.body.setAttribute(RECALL_MARK, '')
@@ -149,7 +148,7 @@ export function installWindowDragRecall(options: WindowDragRecallOptions): () =>
     if (movesRows(event.target)) arm()
   }
 
-  const observer = new MutationObserver((records) => {
+  const observer = new MutationObserver(records => {
     if (records.some(record => touchesRows(record, geometry.keys()))) arm()
   })
   observer.observe(doc.body, { subtree: true, childList: true, attributes: true, characterData: true })
@@ -212,7 +211,9 @@ function touchesRows(record: MutationRecord, rows: Iterable<Element>): boolean {
 /** Schedule one frame through the browser's animation frame queue. */
 function defaultScheduleFrame(frame: () => void): () => void {
   const handle = requestAnimationFrame(frame)
-  return () => { cancelAnimationFrame(handle) }
+  return () => {
+    cancelAnimationFrame(handle)
+  }
 }
 
 /** Watch one row's border box where the document has a `ResizeObserver`. */
@@ -220,5 +221,7 @@ function defaultWatchBox(row: Element, changed: () => void): () => void {
   if (typeof ResizeObserver !== 'function') return () => {}
   const observer = new ResizeObserver(changed)
   observer.observe(row)
-  return () => { observer.disconnect() }
+  return () => {
+    observer.disconnect()
+  }
 }

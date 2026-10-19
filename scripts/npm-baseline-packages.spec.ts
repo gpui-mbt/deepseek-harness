@@ -3,13 +3,15 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { PRIVATE_EXPERIMENTAL_PACKAGE_DIRECTORIES } from './experimental-package-policy.ts'
 import { discoverNpmBaselineManifests } from './npm-baseline-packages.ts'
 
 function fixture(manifests: readonly string[]): string {
   const root = mkdtempSync(join(tmpdir(), 'dsh-baseline-discovery-'))
-  onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
+  onTestFinished(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
   for (const manifest of manifests) {
     const file = join(root, manifest)
     mkdirSync(dirname(file), { recursive: true })
@@ -27,22 +29,14 @@ describe('npm baseline package discovery', () => {
       'packages/experimental/new-prototype/package.json',
       'vendor/cordis/package.json',
     ]
-    const root = fixture([
-      ...expected,
-      'package.json',
-      'packages/experimental/new-prototype/nested/package.json',
-      'website/package.json',
-    ])
+    const root = fixture([...expected, 'package.json', 'packages/experimental/new-prototype/nested/package.json', 'website/package.json'])
 
     expect(discoverNpmBaselineManifests(root)).toEqual(expected)
   })
 
   it('excludes every directory in the current publication denylist', () => {
     const allowed = 'packages/experimental/new-prototype/package.json'
-    const root = fixture([
-      allowed,
-      ...PRIVATE_EXPERIMENTAL_PACKAGE_DIRECTORIES.map(directory => `${directory}/package.json`),
-    ])
+    const root = fixture([allowed, ...PRIVATE_EXPERIMENTAL_PACKAGE_DIRECTORIES.map(directory => `${directory}/package.json`)])
 
     expect(discoverNpmBaselineManifests(root)).toEqual([allowed])
   })
@@ -60,10 +54,7 @@ describe('npm baseline package discovery', () => {
   })
 
   it('retains experimental packages when the configured denylist is empty', () => {
-    const manifests = [
-      'packages/experimental/inspector/package.json',
-      'packages/experimental/new-prototype/package.json',
-    ]
+    const manifests = ['packages/experimental/inspector/package.json', 'packages/experimental/new-prototype/package.json']
     expect(discoverNpmBaselineManifests(fixture(manifests), [])).toEqual(manifests)
   })
 

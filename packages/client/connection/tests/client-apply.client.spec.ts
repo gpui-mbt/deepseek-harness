@@ -3,7 +3,7 @@
  * explicit carrier selection, and single-consumer connection-loop ownership.
  */
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import {
   apply,
   type ClientConnectionRpc,
@@ -38,20 +38,21 @@ class BrowserNetworkProbe extends EventTarget {
 class GenerationProbe {
   private readonly active = new Set<() => void>()
 
-  readonly source: ConnectionGenerationSource = (signal, ready) => new Promise<void>((resolve) => {
-    let settled = false
-    const finish = (): void => {
-      if (settled) return
-      settled = true
-      signal.removeEventListener('abort', finish)
-      this.active.delete(finish)
-      resolve()
-    }
-    this.active.add(finish)
-    signal.addEventListener('abort', finish, { once: true })
-    ready({ home: '/h' })
-    if (signal.aborted) finish()
-  })
+  readonly source: ConnectionGenerationSource = (signal, ready) =>
+    new Promise<void>(resolve => {
+      let settled = false
+      const finish = (): void => {
+        if (settled) return
+        settled = true
+        signal.removeEventListener('abort', finish)
+        this.active.delete(finish)
+        resolve()
+      }
+      this.active.add(finish)
+      signal.addEventListener('abort', finish, { once: true })
+      ready({ home: '/h' })
+      if (signal.aborted) finish()
+    })
 
   end(): void {
     for (const finish of [...this.active]) finish()
@@ -76,15 +77,26 @@ describe('connection client apply', () => {
   it('uses Host bootstrap timing when Gateway starts without overrides', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('__DSH_CONNECTION_RECOVERY__', {
-      backoffBaseMs: 10, backoffMaxMs: 10, generationReadyTimeoutMs: 20,
+      backoffBaseMs: 10,
+      backoffMaxMs: 10,
+      generationReadyTimeoutMs: 20,
     })
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const handle = await mount()
     const signals: AbortSignal[] = []
-    handle.registerGenerationSource(signal => new Promise<void>((resolve) => {
-      signals.push(signal)
-      signal.addEventListener('abort', () => { resolve() }, { once: true })
-    }))
+    handle.registerGenerationSource(
+      signal =>
+        new Promise<void>(resolve => {
+          signals.push(signal)
+          signal.addEventListener(
+            'abort',
+            () => {
+              resolve()
+            },
+            { once: true },
+          )
+        }),
+    )
     const loop = handle.start({})
     try {
       await vi.advanceTimersByTimeAsync(20)
@@ -99,12 +111,17 @@ describe('connection client apply', () => {
     }
   })
 
-  it.each([{ generationReadyTimeoutMs: 0 }, { backoffFactor: NaN }])('rejects malformed bootstrap recovery before publishing the service: %j', (recovery) => {
-    vi.stubGlobal('__DSH_CONNECTION_RECOVERY__', recovery)
-    const ctx = new Context()
-    expect(() => { apply(ctx) }).toThrow()
-    expect(ctx.get('connection')).toBeUndefined()
-  })
+  it.each([{ generationReadyTimeoutMs: 0 }, { backoffFactor: NaN }])(
+    'rejects malformed bootstrap recovery before publishing the service: %j',
+    recovery => {
+      vi.stubGlobal('__DSH_CONNECTION_RECOVERY__', recovery)
+      const ctx = new Context()
+      expect(() => {
+        apply(ctx)
+      }).toThrow()
+      expect(ctx.get('connection')).toBeUndefined()
+    },
+  )
 
   it('rejects a NaN start override without acquiring the generation source', async () => {
     const handle = await mount()
@@ -142,8 +159,9 @@ describe('connection client apply', () => {
 
     expect(() => handle.start({})).toThrow('no generation source is registered')
     const unregisterFirst = handle.registerGenerationSource(first.source)
-    expect(() => { handle.registerGenerationSource(second.source) })
-      .toThrow('a generation source is already registered')
+    expect(() => {
+      handle.registerGenerationSource(second.source)
+    }).toThrow('a generation source is already registered')
     unregisterFirst()
     const unregisterSecond = handle.registerGenerationSource(second.source)
     unregisterFirst()
@@ -163,13 +181,19 @@ describe('connection client apply', () => {
     installGeneration(handle)
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const generations: Array<string | undefined> = []
-    const stopThrowing = handle.generation.subscribe(() => { throw new Error('subscriber bug') })
+    const stopThrowing = handle.generation.subscribe(() => {
+      throw new Error('subscriber bug')
+    })
     const stopGeneration = handle.generation.subscribe(() => {
       generations.push(handle.generation.getSnapshot()?.host.home)
     })
     expect(handle.generation.getSnapshot()).toBeUndefined()
     let connected = 0
-    const loop = handle.start({ onConnected: () => { connected++ } })
+    const loop = handle.start({
+      onConnected: () => {
+        connected++
+      },
+    })
     expect(() => handle.start({})).toThrow(/already owned by another consumer/)
     await vi.waitFor(() => {
       expect(handle.generation.getSnapshot()?.host.home).toBe('/h')
@@ -187,9 +211,18 @@ describe('connection client apply', () => {
   it('does not notify state subscribers when a pre-ready loop stops', async () => {
     ;(globalThis as Win).location = { hostname: 'localhost' }
     const handle = await mount()
-    handle.registerGenerationSource(signal => new Promise<void>((resolve) => {
-      signal.addEventListener('abort', () => { resolve() }, { once: true })
-    }))
+    handle.registerGenerationSource(
+      signal =>
+        new Promise<void>(resolve => {
+          signal.addEventListener(
+            'abort',
+            () => {
+              resolve()
+            },
+            { once: true },
+          )
+        }),
+    )
     const listener = vi.fn()
     const unsubscribe = handle.state.subscribe(listener)
     const loop = handle.start({})
@@ -230,16 +263,23 @@ describe('connection client apply', () => {
     installGeneration(handle)
     const requested = vi.fn()
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const loop = handle.start({ onReconnectRequested: requested }, {
-      backoffBaseMs: 60_000,
-      backoffFactor: 2,
-      backoffMaxMs: 120_000,
-      generationReadyTimeoutMs: 500,
-    })
+    const loop = handle.start(
+      { onReconnectRequested: requested },
+      {
+        backoffBaseMs: 60_000,
+        backoffFactor: 2,
+        backoffMaxMs: 120_000,
+        generationReadyTimeoutMs: 500,
+      },
+    )
     try {
-      await vi.waitFor(() => { expect(handle.generation.getSnapshot()?.id).toBe(1) })
+      await vi.waitFor(() => {
+        expect(handle.generation.getSnapshot()?.id).toBe(1)
+      })
       handle.reconnect()
-      await vi.waitFor(() => { expect(handle.generation.getSnapshot()?.id).toBe(2) })
+      await vi.waitFor(() => {
+        expect(handle.generation.getSnapshot()?.id).toBe(2)
+      })
       expect(requested).toHaveBeenCalledOnce()
       loop.stop()
       handle.reconnect()
@@ -257,7 +297,9 @@ describe('connection client apply', () => {
     installGeneration(handle)
     const loop = handle.start({})
     try {
-      await vi.waitFor(() => { expect(handle.state.getSnapshot()).toBe('connected') })
+      await vi.waitFor(() => {
+        expect(handle.state.getSnapshot()).toBe('connected')
+      })
     } finally {
       loop.stop()
     }
@@ -272,20 +314,32 @@ describe('connection client apply', () => {
     ;(globalThis as Win).location = { hostname: 'localhost' }
     const handle = await mount()
     let calls = 0
-    const source: ConnectionGenerationSource = (signal, ready) => new Promise<void>((resolve) => {
-      calls++
-      ready({ home: '/h' })
-      signal.addEventListener('abort', () => { resolve() }, { once: true })
-    })
+    const source: ConnectionGenerationSource = (signal, ready) =>
+      new Promise<void>(resolve => {
+        calls++
+        ready({ home: '/h' })
+        signal.addEventListener(
+          'abort',
+          () => {
+            resolve()
+          },
+          { once: true },
+        )
+      })
     handle.registerGenerationSource(source)
     const states: Array<ConnectionState | undefined> = []
-    const unsubscribe = handle.state.subscribe(() => { states.push(handle.state.getSnapshot()) })
-    const loop = handle.start({}, {
-      backoffBaseMs: 100,
-      backoffFactor: 2,
-      backoffMaxMs: 1_000,
-      generationReadyTimeoutMs: 500,
+    const unsubscribe = handle.state.subscribe(() => {
+      states.push(handle.state.getSnapshot())
     })
+    const loop = handle.start(
+      {},
+      {
+        backoffBaseMs: 100,
+        backoffFactor: 2,
+        backoffMaxMs: 1_000,
+        generationReadyTimeoutMs: 500,
+      },
+    )
     try {
       await vi.advanceTimersByTimeAsync(0)
       expect(handle.state.getSnapshot()).toBe('connected')
@@ -327,7 +381,9 @@ describe('connection client apply', () => {
     const loop = handle.start({ onConnected: connected })
     owner.loop = loop
     try {
-      await vi.waitFor(() => { expect(sawGeneration).toBe(true) })
+      await vi.waitFor(() => {
+        expect(sawGeneration).toBe(true)
+      })
       expect(handle.generation.getSnapshot()).toBeUndefined()
       expect(connected).not.toHaveBeenCalled()
     } finally {
@@ -346,21 +402,28 @@ describe('connection client apply', () => {
       generations.push(handle.generation.getSnapshot()?.host.home)
     })
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const loop = handle.start({
-      onStateChange: (state) => {
-        if (state === 'connecting') {
-          reconnectSnapshots.push(handle.generation.getSnapshot()?.host.home)
-        }
+    const loop = handle.start(
+      {
+        onStateChange: state => {
+          if (state === 'connecting') {
+            reconnectSnapshots.push(handle.generation.getSnapshot()?.host.home)
+          }
+        },
       },
-    }, { backoffBaseMs: 10, backoffFactor: 2, backoffMaxMs: 80, generationReadyTimeoutMs: 500 })
+      { backoffBaseMs: 10, backoffFactor: 2, backoffMaxMs: 80, generationReadyTimeoutMs: 500 },
+    )
     try {
       await vi.waitFor(() => {
         expect(handle.generation.getSnapshot()?.host.home).toBe('/h')
       })
       generation.end()
 
-      await vi.waitFor(() => { expect(reconnectSnapshots).toEqual([undefined]) })
-      await vi.waitFor(() => { expect(generations).toEqual(['/h', undefined, '/h']) })
+      await vi.waitFor(() => {
+        expect(reconnectSnapshots).toEqual([undefined])
+      })
+      await vi.waitFor(() => {
+        expect(generations).toEqual(['/h', undefined, '/h'])
+      })
       expect(handle.generation.getSnapshot()?.host.home).toBe('/h')
     } finally {
       stopGeneration()
@@ -375,27 +438,32 @@ describe('connection client apply', () => {
     const generation = installGeneration(handle)
     const snapshots: Array<ConnectionState | undefined> = []
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    const unsubscribe = handle.state.subscribe(() => { snapshots.push(handle.state.getSnapshot()) })
-    const stopThrowing = handle.state.subscribe(() => { throw new Error('state subscriber failed') })
+    const unsubscribe = handle.state.subscribe(() => {
+      snapshots.push(handle.state.getSnapshot())
+    })
+    const stopThrowing = handle.state.subscribe(() => {
+      throw new Error('state subscriber failed')
+    })
     expect(handle.state.getSnapshot()).toBeUndefined()
 
-    const loop = handle.start({}, {
-      backoffBaseMs: 10,
-      backoffFactor: 2,
-      backoffMaxMs: 80,
-      generationReadyTimeoutMs: 500,
-    })
+    const loop = handle.start(
+      {},
+      {
+        backoffBaseMs: 10,
+        backoffFactor: 2,
+        backoffMaxMs: 80,
+        generationReadyTimeoutMs: 500,
+      },
+    )
     try {
-      await vi.waitFor(() => { expect(handle.state.getSnapshot()).toBe('connected') })
+      await vi.waitFor(() => {
+        expect(handle.state.getSnapshot()).toBe('connected')
+      })
       const connected = handle.state.getSnapshot()
       expect(handle.state.getSnapshot()).toBe(connected)
       generation.end()
       await vi.waitFor(() => {
-        expect(snapshots).toEqual([
-          'connected',
-          'connecting',
-          'connected',
-        ])
+        expect(snapshots).toEqual(['connected', 'connecting', 'connected'])
       })
       expect(errorSpy).toHaveBeenCalledWith('[connection] state listener threw:', expect.any(Error))
     } finally {
@@ -420,9 +488,14 @@ describe('connection client apply', () => {
     })
     const states: ConnectionState[] = []
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
-    const loop = handle.start({
-      onStateChange: (state) => { states.push(state) },
-    }, { backoffBaseMs: 10, backoffFactor: 2, backoffMaxMs: 80, generationReadyTimeoutMs: 500 })
+    const loop = handle.start(
+      {
+        onStateChange: state => {
+          states.push(state)
+        },
+      },
+      { backoffBaseMs: 10, backoffFactor: 2, backoffMaxMs: 80, generationReadyTimeoutMs: 500 },
+    )
     owner.loop = loop
     try {
       await vi.waitFor(() => {
@@ -430,7 +503,9 @@ describe('connection client apply', () => {
       })
       generation.end()
 
-      await vi.waitFor(() => { expect(stoppedOnRetraction).toBe(true) })
+      await vi.waitFor(() => {
+        expect(stoppedOnRetraction).toBe(true)
+      })
       expect(handle.generation.getSnapshot()).toBeUndefined()
       expect(states).toEqual(['connected'])
     } finally {
@@ -462,8 +537,10 @@ describe('connection client apply', () => {
       })
     }
     try {
-      await expect(handle.rpc.call('/api', 'goals/create', { args: { agentId: 'agent-1' } }))
-        .resolves.toEqual({ ok: true, value: { ref: 'goal-1' } })
+      await expect(handle.rpc.call('/api', 'goals/create', { args: { agentId: 'agent-1' } })).resolves.toEqual({
+        ok: true,
+        value: { ref: 'goal-1' },
+      })
     } finally {
       globalThis.fetch = original
       vi.unstubAllGlobals()
@@ -482,20 +559,25 @@ describe('connection client apply', () => {
     ;(globalThis as Win).location = { hostname: 'preview.example' }
     const rpc: ClientConnectionRpc = {
       call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => ({ ok: true as const, value: { endpoint, payload } })),
-      open: vi.fn((_channel: string, endpoint: string) => (async function *(): AsyncGenerator { yield endpoint })()),
+      open: vi.fn((_channel: string, endpoint: string) =>
+        (async function* (): AsyncGenerator {
+          yield endpoint
+        })(),
+      ),
     }
     ;(globalThis as Win).__DSH_TRANSPORT__ = { rpc }
     const handle = await mount()
     expect(handle.rpc).toBe(rpc)
     await expect(handle.rpc.call('/api', 'session/list', { args: [] })).resolves.toEqual({
-      ok: true, value: { endpoint: 'session/list', payload: { args: [] } },
+      ok: true,
+      value: { endpoint: 'session/list', payload: { args: [] } },
     })
   })
 
   it('exposes a worker-local Gateway stream through connection.rpc.open', async () => {
     ;(globalThis as Win).location = { hostname: 'preview.example' }
-    const openStream = vi.fn<NonNullable<ClientTransportHooks['openStream']>>(
-      (endpoint, payload, signal, uplink) => (async function *(): AsyncGenerator {
+    const openStream = vi.fn<NonNullable<ClientTransportHooks['openStream']>>((endpoint, payload, signal, uplink) =>
+      (async function* (): AsyncGenerator {
         signal.throwIfAborted()
         yield { endpoint, payload }
         if (uplink !== undefined) yield* uplink
@@ -515,50 +597,47 @@ describe('connection client apply', () => {
     for await (const value of open('/api', 'session/follow', { args: { sessionId: 'session-1' } }, abort.signal)) {
       values.push(value)
     }
-    expect(values).toEqual([{
-      endpoint: 'session/follow', payload: { args: { sessionId: 'session-1' } },
-    }])
-    expect(openStream).toHaveBeenCalledWith(
-      'session/follow',
-      { args: { sessionId: 'session-1' } },
-      abort.signal,
-      undefined,
-    )
+    expect(values).toEqual([
+      {
+        endpoint: 'session/follow',
+        payload: { args: { sessionId: 'session-1' } },
+      },
+    ])
+    expect(openStream).toHaveBeenCalledWith('session/follow', { args: { sessionId: 'session-1' } }, abort.signal, undefined)
 
-    const uplink = (async function *(): AsyncGenerator<string> { yield 'typed' })()
+    const uplink = (async function* (): AsyncGenerator<string> {
+      yield 'typed'
+    })()
     const echoed = []
     for await (const value of open('/api', 'job/attach', { args: {} }, abort.signal, uplink)) echoed.push(value)
     expect(echoed).toEqual([{ endpoint: 'job/attach', payload: { args: {} } }, 'typed'])
     expect(openStream).toHaveBeenLastCalledWith('job/attach', { args: {} }, abort.signal, uplink)
     expect(handle.isLoopback).toBe(true)
-    expect(() => open('/rpc', 'session/follow', {}, abort.signal))
-      .toThrow('worker-local streams require the /api channel')
-    expect(() => open('/api/path', 'session/follow', {}, abort.signal))
-      .toThrow('invalid RPC target')
+    expect(() => open('/rpc', 'session/follow', {}, abort.signal)).toThrow('worker-local streams require the /api channel')
+    expect(() => open('/api/path', 'session/follow', {}, abort.signal)).toThrow('invalid RPC target')
   })
 
   it('validates generic RPC transport failures, correlation, and targets', async () => {
     ;(globalThis as Win).location = {
-      hostname: 'harness.example', origin: 'https://harness.example',
+      hostname: 'harness.example',
+      origin: 'https://harness.example',
     }
     const handle = await mount()
     const original = globalThis.fetch
     const abort = new AbortController()
     globalThis.fetch = vi.fn().mockResolvedValue(new Response('unavailable', { status: 503 }))
     try {
-      await expect(handle.rpc.call('/api', 'goals/create', {}, abort.signal))
-        .rejects.toThrow('HTTP 503')
-      expect(globalThis.fetch).toHaveBeenCalledWith(
-        'api/goals/create',
-        expect.objectContaining({ signal: abort.signal }),
-      )
+      await expect(handle.rpc.call('/api', 'goals/create', {}, abort.signal)).rejects.toThrow('HTTP 503')
+      expect(globalThis.fetch).toHaveBeenCalledWith('api/goals/create', expect.objectContaining({ signal: abort.signal }))
 
       ;(globalThis as Win).location = { hostname: 'localhost', origin: 'null' }
-      globalThis.fetch = vi.fn().mockResolvedValue(Response.json({
-        type: 'server-response',
-        rpcId: 'different-rpc',
-        result: { ok: true, value: null },
-      }))
+      globalThis.fetch = vi.fn().mockResolvedValue(
+        Response.json({
+          type: 'server-response',
+          rpcId: 'different-rpc',
+          result: { ok: true, value: null },
+        }),
+      )
       await expect(handle.rpc.call('/api', 'goals/create', {})).rejects.toThrow('rpcId mismatch')
       const fetch = vi.mocked(globalThis.fetch)
       expect(fetch.mock.calls[0]?.[0]).toEqual('api/goals/create')
@@ -577,19 +656,15 @@ describe('connection client apply', () => {
         { type: 'server-response', rpcId: 1, result: { ok: true } },
       ]) {
         globalThis.fetch = vi.fn().mockResolvedValue(Response.json(envelope))
-        await expect(handle.rpc.call('/api', 'goals/create', {}))
-          .rejects.toThrow('invalid server-response envelope')
+        await expect(handle.rpc.call('/api', 'goals/create', {})).rejects.toThrow('invalid server-response envelope')
       }
 
       respond(null)
-      await expect(handle.rpc.call('/api', 'goals/create', {}))
-        .rejects.toThrow('invalid server-response result')
+      await expect(handle.rpc.call('/api', 'goals/create', {})).rejects.toThrow('invalid server-response result')
       respond({ ok: 'yes' })
-      await expect(handle.rpc.call('/api', 'goals/create', {}))
-        .rejects.toThrow('invalid server-response result')
+      await expect(handle.rpc.call('/api', 'goals/create', {})).rejects.toThrow('invalid server-response result')
       respond({ ok: false, error: null })
-      await expect(handle.rpc.call('/api', 'goals/create', {}))
-        .rejects.toThrow('invalid server-response result')
+      await expect(handle.rpc.call('/api', 'goals/create', {})).rejects.toThrow('invalid server-response result')
 
       for (const error of [
         { code: 1, message: 'failed', details: {} },
@@ -597,8 +672,7 @@ describe('connection client apply', () => {
         { code: 'failed', message: 'failed', details: [] },
       ]) {
         respond({ ok: false, error })
-        await expect(handle.rpc.call('/api', 'goals/create', {}))
-          .rejects.toThrow('invalid server-response failure')
+        await expect(handle.rpc.call('/api', 'goals/create', {})).rejects.toThrow('invalid server-response failure')
       }
       respond({
         ok: false,
@@ -624,5 +698,4 @@ describe('connection client apply', () => {
       await expect(handle.rpc.call(channel, endpoint, {})).rejects.toThrow('invalid RPC target')
     }
   })
-
 })

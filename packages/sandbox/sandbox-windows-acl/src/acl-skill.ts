@@ -27,9 +27,7 @@ function parseSkill(raw: string, path: string): { description: string; content: 
   const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u.exec(raw)
   if (frontmatter?.[1] === undefined) throw new Error(`dsh-sandbox-windows-acl: ${path} has no YAML frontmatter`)
   const metadata: unknown = parseYaml(frontmatter[1])
-  const description = typeof metadata === 'object' && metadata !== null && 'description' in metadata
-    ? metadata.description
-    : undefined
+  const description = typeof metadata === 'object' && metadata !== null && 'description' in metadata ? metadata.description : undefined
   if (typeof description !== 'string' || description.length === 0) {
     throw new Error(`dsh-sandbox-windows-acl: ${path} has no description`)
   }
@@ -45,7 +43,9 @@ export function registerAclDiagnosisSkill(ctx: Context): void {
   const packaged = fileURLToPath(new URL(`../assets/${ACL_DIAGNOSIS_SKILL}/`, import.meta.url))
   ctx.effect(function* () {
     const directory = mkdtempSync(join(tmpdir(), 'dsh-acl-skill-'))
-    yield async () => { await rm(directory, { recursive: true, force: true }) }
+    yield async () => {
+      await rm(directory, { recursive: true, force: true })
+    }
     mkdirSync(join(directory, 'scripts'))
     for (const path of ['SKILL.md', 'scripts/diagnose-windows-sandbox-acl.ps1']) {
       writeFileSync(join(directory, path), readFileSync(join(packaged, path)), { flag: 'wx', mode: 0o600 })

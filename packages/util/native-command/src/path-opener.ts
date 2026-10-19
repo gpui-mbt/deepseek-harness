@@ -51,14 +51,16 @@ function macBundleForHttps(plist: string): string | undefined {
  * one, or naming it failed — the caller then uses the default application.
  */
 async function openInBrowser(
-  path: string, signal: AbortSignal, platform: NodeJS.Platform,
-  run: PathOpenerRunner, env: NodeJS.ProcessEnv,
+  path: string,
+  signal: AbortSignal,
+  platform: NodeJS.Platform,
+  run: PathOpenerRunner,
+  env: NodeJS.ProcessEnv,
 ): Promise<boolean> {
   if (platform === 'darwin') {
     let bundle: string | undefined
     try {
-      const { stdout } = await run(
-        'defaults', ['read', 'com.apple.LaunchServices/com.apple.launchservices.secure'], signal, 'hidden')
+      const { stdout } = await run('defaults', ['read', 'com.apple.LaunchServices/com.apple.launchservices.secure'], signal, 'hidden')
       bundle = macBundleForHttps(stdout)
     } catch {
       // No LaunchServices record (a fresh account never changed a default):
@@ -176,8 +178,13 @@ async function openNativePathWithIntent(
   const env = internals.env ?? process.env
   const wsl = platform === 'linux' && isWsl(internals)
 
-  if (!wsl && intent === 'default' && BROWSER_DOCUMENTS.has(extname(path).toLowerCase())
-    && await openInBrowser(path, signal, platform, run, env)) return
+  if (
+    !wsl &&
+    intent === 'default' &&
+    BROWSER_DOCUMENTS.has(extname(path).toLowerCase()) &&
+    (await openInBrowser(path, signal, platform, run, env))
+  )
+    return
 
   if (platform === 'darwin') {
     await run('open', intent === 'text-editor' ? ['-t', path] : [path], signal, 'hidden')
@@ -227,11 +234,7 @@ export function canOpenNativePath(internals: PathOpenerInternals = {}): boolean 
  * @param signal - caller/connection lifetime; abort terminates the native command.
  * @param internals - Platform, environment, and runner hooks for deterministic tests.
  */
-export function openNativePath(
-  path: string,
-  signal: AbortSignal,
-  internals: PathOpenerInternals = {},
-): Promise<void> {
+export function openNativePath(path: string, signal: AbortSignal, internals: PathOpenerInternals = {}): Promise<void> {
   return openNativePathWithIntent(path, signal, 'default', internals)
 }
 
@@ -242,9 +245,7 @@ export function openNativePath(
  * @param internals - platform, environment, and runner facts for adapter tests.
  * @returns after the associated application accepts the path.
  */
-export function openNativeAssociatedPath(
-  path: string, signal: AbortSignal, internals: PathOpenerInternals = {},
-): Promise<void> {
+export function openNativeAssociatedPath(path: string, signal: AbortSignal, internals: PathOpenerInternals = {}): Promise<void> {
   return openNativePathWithIntent(path, signal, 'association', internals)
 }
 
@@ -255,11 +256,7 @@ export function openNativeAssociatedPath(
  * @param signal - caller/connection lifetime; abort terminates the native command.
  * @param internals - Platform and runner hooks for deterministic tests.
  */
-export function openNativeTextFile(
-  path: string,
-  signal: AbortSignal,
-  internals: PathOpenerInternals = {},
-): Promise<void> {
+export function openNativeTextFile(path: string, signal: AbortSignal, internals: PathOpenerInternals = {}): Promise<void> {
   return openNativePathWithIntent(path, signal, 'text-editor', internals)
 }
 
@@ -285,9 +282,7 @@ export function nativeFileManager(internals: PathOpenerInternals = {}): NativeFi
  * @param internals - platform, environment, and command runner for adapter tests.
  * @returns after command completion; Explorer exit 1 is accepted as a delegated handoff, not proof of selection.
  */
-export async function revealNativePath(
-  path: string, signal: AbortSignal, internals: PathOpenerInternals = {},
-): Promise<void> {
+export async function revealNativePath(path: string, signal: AbortSignal, internals: PathOpenerInternals = {}): Promise<void> {
   signal.throwIfAborted()
   const platform = internals.platform ?? process.platform
   const run = internals.run ?? runNativeCommand

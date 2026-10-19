@@ -17,12 +17,21 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { homedir, platform as osPlatform } from 'node:os'
 import { dirname, isAbsolute, join } from 'node:path'
 import {
-  canOpenNativePath, openNativePath, runNativeCommand, desktopEntryFields, desktopDataDirectories, type NativeCommandRunner,
+  canOpenNativePath,
+  openNativePath,
+  runNativeCommand,
+  desktopEntryFields,
+  desktopDataDirectories,
+  type NativeCommandRunner,
 } from '@deepseek-ai/dsh-native-command'
 import { scrubbedParentEnv } from '@deepseek-ai/dsh-subprocess'
 import {
-  OPEN_IN_APP_CATALOG, PATH_TOKEN,
-  type OpenInAppApp, type OpenInAppLaunch, type OpenInAppLocator, type OpenInAppPlatformSpec,
+  OPEN_IN_APP_CATALOG,
+  PATH_TOKEN,
+  type OpenInAppApp,
+  type OpenInAppLaunch,
+  type OpenInAppLocator,
+  type OpenInAppPlatformSpec,
 } from './catalog.ts'
 
 /** Where this host holds one resolved application's icon pixels. */
@@ -87,11 +96,20 @@ export const launchDetachedApp: OpenInAppLauncher = (command, args, options) =>
       child.unref()
       outcome()
     }
-    const watch = setTimeout(() => { settle(resolve) }, options.watchMs)
-    child.on('error', (error) => { settle(() => { reject(error) }) })
+    const watch = setTimeout(() => {
+      settle(resolve)
+    }, options.watchMs)
+    child.on('error', error => {
+      settle(() => {
+        reject(error)
+      })
+    })
     child.on('exit', (code, signalName) => {
       if (code === 0) settle(resolve)
-      else settle(() => { reject(new Error(`launcher exited with code ${String(code)}, signal ${String(signalName)}`)) })
+      else
+        settle(() => {
+          reject(new Error(`launcher exited with code ${String(code)}, signal ${String(signalName)}`))
+        })
     })
   })
 
@@ -165,7 +183,10 @@ function assertNever(value: never): never {
  * @returns stdout on exit 0; null on any failure (spawn, nonzero exit, timeout).
  */
 export async function output(
-  command: string, args: readonly string[], timeoutMs: number, internals: ResolvedInternals,
+  command: string,
+  args: readonly string[],
+  timeoutMs: number,
+  internals: ResolvedInternals,
 ): Promise<string | null> {
   try {
     const { stdout } = await internals.run(command, args, AbortSignal.timeout(timeoutMs), 'hidden')
@@ -298,9 +319,7 @@ export function parseRegistryDump(dump: string): ReadonlyMap<string, ReadonlyMap
  * @param internals - completed platform facts.
  * @returns the parsed view.
  */
-export async function readWindowsRegistryView(
-  timeoutMs: number, internals: ResolvedInternals,
-): Promise<WindowsRegistryView> {
+export async function readWindowsRegistryView(timeoutMs: number, internals: ResolvedInternals): Promise<WindowsRegistryView> {
   const appPaths = new Map<string, string>()
   const installRecords: WindowsInstallRecord[] = []
   for (const root of APP_PATHS_ROOTS) {
@@ -335,7 +354,10 @@ export async function readWindowsRegistryView(
 /** Pass-scoped lazy holder so one detection pass reads the registry at most once. */
 class RegistryViewOnce {
   private view: Promise<WindowsRegistryView> | undefined
-  constructor(private readonly timeoutMs: number, private readonly internals: ResolvedInternals) {}
+  constructor(
+    private readonly timeoutMs: number,
+    private readonly internals: ResolvedInternals,
+  ) {}
 
   /** The pass's registry view, read on first use. */
   read(): Promise<WindowsRegistryView> {
@@ -359,9 +381,12 @@ async function recordLauncher(
   }
   if (record.displayIcon !== undefined) {
     // DisplayIcon may carry a `,<index>` suffix and quotes around the path.
-    const bare = record.displayIcon.replace(/,-?\d+$/, '').replace(/^"|"$/g, '').trim()
+    const bare = record.displayIcon
+      .replace(/,-?\d+$/, '')
+      .replace(/^"|"$/g, '')
+      .trim()
     const expanded = expandRegistryValue(bare, internals)
-    if (expanded !== null && expanded.toLowerCase().endsWith('.exe') && await isFile(expanded)) return expanded
+    if (expanded !== null && expanded.toLowerCase().endsWith('.exe') && (await isFile(expanded))) return expanded
   }
   return null
 }
@@ -402,9 +427,7 @@ export function xdgDataDirectories(internals: ResolvedInternals): readonly strin
  * @param internals - completed platform facts.
  * @returns the parsed entry, or null when no directory holds it.
  */
-export async function findDesktopEntry(
-  desktopId: string, internals: ResolvedInternals,
-): Promise<DesktopEntry | null> {
+export async function findDesktopEntry(desktopId: string, internals: ResolvedInternals): Promise<DesktopEntry | null> {
   for (const dataDir of xdgDataDirectories(internals)) {
     const path = join(dataDir, 'applications', `${desktopId}.desktop`)
     try {
@@ -424,7 +447,7 @@ export async function findDesktopEntry(
 async function desktopLauncher(entry: DesktopEntry, internals: ResolvedInternals): Promise<string | null> {
   const candidate = entry.tryExec ?? execCommand(entry.exec)
   if (candidate === null || candidate === '') return null
-  if (isAbsolute(candidate)) return await isFile(candidate) ? candidate : null
+  if (isAbsolute(candidate)) return (await isFile(candidate)) ? candidate : null
   return internals.resolveExecutable(candidate)
 }
 
@@ -448,9 +471,7 @@ export function execCommand(exec: string | undefined): string | null {
  * @returns the declared spec; undefined off the declared three platforms.
  */
 export function specFor(app: OpenInAppApp, platform: NodeJS.Platform): OpenInAppPlatformSpec | undefined {
-  return platform === 'darwin' || platform === 'win32' || platform === 'linux'
-    ? app.platforms[platform]
-    : undefined
+  return platform === 'darwin' || platform === 'win32' || platform === 'linux' ? app.platforms[platform] : undefined
 }
 
 /** Icon source for a resolved executable: Windows extracts from the binary itself. */
@@ -471,11 +492,12 @@ async function locate(
       // than probed (a somehow-missing file surfaces as a 404 at extraction);
       // only an unset variable (`${SystemRoot}`) drops the icon claim.
       const iconPath = expandCandidate(locator.iconPath, internals)
-      const icon = iconPath === null
-        ? undefined
-        : internals.platform === 'win32'
-          ? { kind: 'executable' as const, path: iconPath }
-          : { kind: 'app-bundle' as const, path: iconPath }
+      const icon =
+        iconPath === null
+          ? undefined
+          : internals.platform === 'win32'
+            ? { kind: 'executable' as const, path: iconPath }
+            : { kind: 'app-bundle' as const, path: iconPath }
       return { launch: locator.launch, icon }
     }
     case 'app': {
@@ -496,7 +518,7 @@ async function locate(
       const developer = await output('xcode-select', ['-p'], probeTimeoutMs, internals)
       if (developer === null) return null
       const bundle = dirname(dirname(developer.trim()))
-      if (!bundle.endsWith('.app') || !await isDirectory(bundle)) return null
+      if (!bundle.endsWith('.app') || !(await isDirectory(bundle))) return null
       return {
         launch: { kind: 'argv', command: 'xed', args: [] },
         fallbackLaunch: { kind: 'argv', command: 'open', args: ['-a', bundle] },
@@ -504,10 +526,14 @@ async function locate(
       }
     }
     case 'cli': {
-      if (locator.requiresDesktop === true && !canOpenNativePath({
-        platform: internals.platform,
-        env: { ...internals.env },
-      })) return null
+      if (
+        locator.requiresDesktop === true &&
+        !canOpenNativePath({
+          platform: internals.platform,
+          env: { ...internals.env },
+        })
+      )
+        return null
       const found = await internals.resolveExecutable(locator.name)
       return found === null
         ? null
@@ -516,7 +542,7 @@ async function locate(
     case 'file': {
       for (const candidate of locator.candidates) {
         const path = expandCandidate(candidate, internals)
-        if (path !== null && await isFile(path)) {
+        if (path !== null && (await isFile(path))) {
           return { launch: { kind: 'argv', command: path, args: locator.args }, icon: executableIcon(path, internals) }
         }
       }
@@ -534,7 +560,8 @@ async function locate(
       }
       // Version-suffixed directory names compare numeric-aware, newest first
       // ('2024.1.10' outranks '2024.1.9', which plain lexicographic misses).
-      const versions = entries.filter(entry => entry.startsWith(locator.namePrefix))
+      const versions = entries
+        .filter(entry => entry.startsWith(locator.namePrefix))
         .sort((a, b) => b.localeCompare(a, 'en', { numeric: true }))
       for (const version of versions) {
         const launcher = join(root, version, locator.relativeLauncher)
@@ -546,7 +573,7 @@ async function locate(
     }
     case 'app-paths': {
       const target = (await registry.read()).appPaths.get(locator.exe.toLowerCase())
-      if (target === undefined || !await isFile(target)) return null
+      if (target === undefined || !(await isFile(target))) return null
       return { launch: { kind: 'argv', command: target, args: locator.args }, icon: { kind: 'executable', path: target } }
     }
     case 'install-record': {
@@ -575,7 +602,7 @@ async function locate(
         const directory = join(root, version)
         const executable = join(directory, 'GitHubDesktop.exe')
         const cli = join(directory, 'resources', 'app', 'cli.js')
-        if (await isFile(executable) && await isFile(cli)) {
+        if ((await isFile(executable)) && (await isFile(cli))) {
           return {
             launch: {
               kind: 'argv',
@@ -597,7 +624,8 @@ async function locate(
       return launcher === null ? null : { launch: { kind: 'argv', command: launcher, args: locator.args } }
     }
     /* v8 ignore next -- closed locator union */
-    default: return assertNever(locator)
+    default:
+      return assertNever(locator)
   }
 }
 
@@ -610,7 +638,9 @@ async function locate(
  * @returns the verified launch, or null during SSH launches or when the entry is not installed here.
  */
 export async function resolveLaunch(
-  app: OpenInAppApp, probeTimeoutMs: number, internals: OpenInAppInternals = {},
+  app: OpenInAppApp,
+  probeTimeoutMs: number,
+  internals: OpenInAppInternals = {},
 ): Promise<OpenInAppResolvedLaunch | null> {
   const resolved = resolveInternals(internals)
   if (resolved.ssh) return null
@@ -645,15 +675,17 @@ async function resolveWithRegistry(
  * @returns catalog id to verified launch, in catalog order.
  */
 export async function resolveOpenInAppApps(
-  probeTimeoutMs: number, internals: OpenInAppInternals = {},
+  probeTimeoutMs: number,
+  internals: OpenInAppInternals = {},
 ): Promise<Map<string, OpenInAppResolvedLaunch>> {
   const resolved = resolveInternals(internals)
   if (resolved.ssh) {
     return new Map()
   }
   const registry = new RegistryViewOnce(probeTimeoutMs, resolved)
-  const entries = await Promise.all(OPEN_IN_APP_CATALOG.map(async app =>
-    [app.id, await resolveWithRegistry(app, probeTimeoutMs, registry, resolved)] as const))
+  const entries = await Promise.all(
+    OPEN_IN_APP_CATALOG.map(async app => [app.id, await resolveWithRegistry(app, probeTimeoutMs, registry, resolved)] as const),
+  )
   const map = new Map<string, OpenInAppResolvedLaunch>()
   for (const [id, launch] of entries) {
     if (launch !== null) map.set(id, launch)
@@ -666,9 +698,7 @@ export async function resolveOpenInAppApps(
  * directory when no arg carries one.
  */
 function launchArgs(args: readonly string[], path: string): readonly string[] {
-  return args.some(arg => arg.includes(PATH_TOKEN))
-    ? args.map(arg => arg.replaceAll(PATH_TOKEN, path))
-    : [...args, path]
+  return args.some(arg => arg.includes(PATH_TOKEN)) ? args.map(arg => arg.replaceAll(PATH_TOKEN, path)) : [...args, path]
 }
 
 /** Whether a launch rejection names a missing executable (a stale resolution). */
@@ -683,13 +713,13 @@ function isMissingExecutable(error: unknown): boolean {
  * keeps running (a cold shell opener can outlive the window; its late
  * settlement is swallowed because the request already answered).
  */
-function runShellOpen(
-  path: string, watchMs: number, internals: ResolvedInternals,
-): Promise<OpenInAppLaunchOutcome> {
+function runShellOpen(path: string, watchMs: number, internals: ResolvedInternals): Promise<OpenInAppLaunchOutcome> {
   const opening = openNativePath(path, new AbortController().signal, {
-    platform: internals.platform, run: internals.run, env: internals.env,
+    platform: internals.platform,
+    run: internals.run,
+    env: internals.env,
   })
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const watch = setTimeout(() => {
       opening.catch(() => {
         // Late failure of an opener the window already counted as launched.
@@ -711,7 +741,10 @@ function runShellOpen(
 
 /** Run one launcher and classify how the attempt ended. */
 async function runLaunch(
-  launch: OpenInAppLaunch, path: string, watchMs: number, internals: ResolvedInternals,
+  launch: OpenInAppLaunch,
+  path: string,
+  watchMs: number,
+  internals: ResolvedInternals,
 ): Promise<OpenInAppLaunchOutcome> {
   switch (launch.kind) {
     case 'shell-open':
@@ -732,7 +765,8 @@ async function runLaunch(
         return isMissingExecutable(error) ? 'missing' : 'failed'
       }
     /* v8 ignore next -- closed launch union */
-    default: return assertNever(launch)
+    default:
+      return assertNever(launch)
   }
 }
 
@@ -748,7 +782,10 @@ async function runLaunch(
  *   executable is gone, which tells the caller to re-resolve once.
  */
 export async function launchResolved(
-  resolved: OpenInAppResolvedLaunch, path: string, watchMs: number, internals: OpenInAppInternals = {},
+  resolved: OpenInAppResolvedLaunch,
+  path: string,
+  watchMs: number,
+  internals: OpenInAppInternals = {},
 ): Promise<OpenInAppLaunchOutcome> {
   const completed = resolveInternals(internals)
   const primary = await runLaunch(resolved.launch, path, watchMs, completed)

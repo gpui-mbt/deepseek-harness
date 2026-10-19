@@ -2,7 +2,7 @@ import OTel from '@deepseek-ai/dsh-otel'
 import { Context } from '@deepseek-ai/cordis'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import ProductTelemetry, { Config as TelemetryConfig, type ProductTelemetryRecord } from '@deepseek-ai/dsh-host-product-telemetry-otel'
 import { Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import { CompactionId } from '@deepseek-ai/dsh-compaction'
@@ -11,20 +11,35 @@ import { collectEnvironment, type EnvironmentAttributes } from '../src/environme
 
 vi.mock('../src/environment.ts', () => ({ collectEnvironment: vi.fn() }))
 const environment: EnvironmentAttributes = {
-  os_name: 'windows', os_version: 'win32 10.0.26300', os_version_full: '10.0.26300.9457', os_build: '26300',
-  os_arch: 'arm64', app_arch: 'x64', cpu_model: 'Fixture CPU', cpu_logical_count: 16, cpu_physical_core_count: 8,
-  memory_total_bytes: 34359738368, missing_fields: {},
+  os_name: 'windows',
+  os_version: 'win32 10.0.26300',
+  os_version_full: '10.0.26300.9457',
+  os_build: '26300',
+  os_arch: 'arm64',
+  app_arch: 'x64',
+  cpu_model: 'Fixture CPU',
+  cpu_logical_count: 16,
+  cpu_physical_core_count: 8,
+  memory_total_bytes: 34359738368,
+  missing_fields: {},
 }
 const { missing_fields: _missingFields, ...commonEnvironment } = environment
-beforeEach(() => { vi.resetAllMocks(); vi.mocked(collectEnvironment).mockResolvedValue(environment) })
+beforeEach(() => {
+  vi.resetAllMocks()
+  vi.mocked(collectEnvironment).mockResolvedValue(environment)
+})
 
 const cleanup: (() => Promise<void>)[] = []
-afterEach(async () => { for (const dispose of cleanup.splice(0).reverse()) await dispose() })
+afterEach(async () => {
+  for (const dispose of cleanup.splice(0).reverse()) await dispose()
+})
 
 async function setup(enabled: boolean) {
   const ctx = new Context()
   cleanup.push(() => ctx.fiber.dispose())
-  const getDeviceIdentity = vi.fn().mockResolvedValue({ deviceId: 'login-device', userId: 'user-1', osVersion: 'fixture-os', ignored: 'private-field' })
+  const getDeviceIdentity = vi
+    .fn()
+    .mockResolvedValue({ deviceId: 'login-device', userId: 'user-1', osVersion: 'fixture-os', ignored: 'private-field' })
   const emit = vi.fn<(record: ProductTelemetryRecord) => void>()
   ctx.provide('deepseekAccount', { getDeviceIdentity } as never)
   ctx.provide('webServer', {} as never)
@@ -47,7 +62,9 @@ it('reuses login identity and copies only approved common fields', async () => {
   await b.ctx.productAnalytics.report({ eventName: 'auth_page_click', timestamp: 100, attributes: { button_name: 'sign_in' } })
   expect(b.getDeviceIdentity).toHaveBeenCalledWith()
   expect(b.emit).toHaveBeenCalledExactlyOnceWith({
-    eventName: 'auth_page_click', body: 'auth_page_click', timestamp: 100,
+    eventName: 'auth_page_click',
+    body: 'auth_page_click',
+    timestamp: 100,
     attributes: { ...commonEnvironment, button_name: 'sign_in', device_id: 'login-device', user_id: 'user-1', app_version: 'test-version' },
   })
   expect(JSON.stringify(b.emit.mock.calls)).not.toContain('private-')
@@ -77,11 +94,19 @@ it('writes the selected event through the real exporter to an isolated collector
   const server = createServer((req, res) => {
     const chunks: Buffer[] = []
     req.on('data', (chunk: Buffer) => chunks.push(chunk))
-    req.on('end', () => { captures.push(Buffer.concat(chunks).toString()); res.end('{}') })
+    req.on('end', () => {
+      captures.push(Buffer.concat(chunks).toString())
+      res.end('{}')
+    })
   })
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
-  cleanup.push(async () => { const done = once(server, 'close'); server.close(); server.closeAllConnections(); await done })
+  cleanup.push(async () => {
+    const done = once(server, 'close')
+    server.close()
+    server.closeAllConnections()
+    await done
+  })
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('missing collector port')
   const ctx = new Context()
@@ -90,22 +115,42 @@ it('writes the selected event through the real exporter to an isolated collector
   ctx.provide('deepseekAccount', { getDeviceIdentity: async () => undefined } as never)
   ctx.provide('webServer', {} as never)
   await ctx.plugin(OTel)
-  const exporter = await ctx.plugin(ProductTelemetry, TelemetryConfig({ endpoint: `http://127.0.0.1:${address.port}/v1/logs`, serviceName: 'test', serviceVersion: '1', compression: 'none' }))
+  const exporter = await ctx.plugin(
+    ProductTelemetry,
+    TelemetryConfig({
+      endpoint: `http://127.0.0.1:${address.port}/v1/logs`,
+      serviceName: 'test',
+      serviceVersion: '1',
+      compression: 'none',
+    }),
+  )
   const analytics = await ctx.plugin(Analytics, { enabled: true })
   await ctx.productAnalytics.report({ eventName: 'api_key_save_click', timestamp: 1_800_000_000_000, attributes: {} })
   await analytics.dispose()
   const { cpu_physical_core_count: _cores, ...partialEnvironment } = environment
-  vi.mocked(collectEnvironment).mockResolvedValueOnce({ ...partialEnvironment, os_version_full: '10.0.26300.9458',
+  vi.mocked(collectEnvironment).mockResolvedValueOnce({
+    ...partialEnvironment,
+    os_version_full: '10.0.26300.9458',
     missing_fields: { cpu_physical_core_count: 'timeout' },
   })
   await ctx.plugin(Analytics, { enabled: true })
   await ctx.productAnalytics.report({ eventName: 'api_key_save_click', timestamp: 1_800_000_000_001, attributes: {} })
   await exporter.dispose()
   expect(captures).toHaveLength(1)
-  expect(JSON.parse(captures[0]!)).toMatchObject({ resourceLogs: [{ scopeLogs: [{ logRecords: [
-    { eventName: 'api_key_save_click', timeUnixNano: '1800000000000000000' },
-    { eventName: 'api_key_save_click', timeUnixNano: '1800000000001000000' },
-  ] }] }] })
+  expect(JSON.parse(captures[0]!)).toMatchObject({
+    resourceLogs: [
+      {
+        scopeLogs: [
+          {
+            logRecords: [
+              { eventName: 'api_key_save_click', timeUnixNano: '1800000000000000000' },
+              { eventName: 'api_key_save_click', timeUnixNano: '1800000000001000000' },
+            ],
+          },
+        ],
+      },
+    ],
+  })
   expect(captures[0]).toContain('10.0.26300.9457')
   expect(captures[0]).toContain('10.0.26300.9458')
   expect(captures[0]).toContain('"stringValue":"cpu_physical_core_count=timeout"')
@@ -115,15 +160,22 @@ it('writes the selected event through the real exporter to an isolated collector
   expect(captures[0]).not.toContain('app_version')
 })
 
-it.each([true, false])('collects live manual and automatic compaction only when enabled: %s', async (enabled) => {
+it.each([true, false])('collects live manual and automatic compaction only when enabled: %s', async enabled => {
   const b = await setup(enabled)
   const session = Session.create(SessionId('analytics-compaction'))
   b.ctx.emit('session/event', session, { type: 'turn/start', seq: SessionSeq(0), time: 0, data: { turn: 1 } })
   for (const turn of [null, 1]) {
-    b.ctx.emit('session/event', session, { type: 'compaction/start', seq: SessionSeq(1), time: 1,
-      data: { compactionId: CompactionId('analytics-compaction'), turn } })
+    b.ctx.emit('session/event', session, {
+      type: 'compaction/start',
+      seq: SessionSeq(1),
+      time: 1,
+      data: { compactionId: CompactionId('analytics-compaction'), turn },
+    })
   }
-  if (enabled) await vi.waitFor(() => { expect(b.emit).toHaveBeenCalledTimes(2) })
+  if (enabled)
+    await vi.waitFor(() => {
+      expect(b.emit).toHaveBeenCalledTimes(2)
+    })
   expect(b.emit.mock.calls.map(([event]) => event.attributes?.trigger_type)).toEqual(enabled ? ['manual', 'auto'] : [])
   expect(b.getDeviceIdentity).toHaveBeenCalledTimes(enabled ? 2 : 0)
 })
@@ -133,10 +185,11 @@ it('omits an unavailable account and isolates exporter submission failure', asyn
   b.getDeviceIdentity.mockRejectedValueOnce(new Error('account unavailable'))
   await b.ctx.productAnalytics.report({ eventName: 'desktop_app_launch', timestamp: 1, attributes: {} })
   expect(b.emit.mock.calls[0]![0].attributes).not.toHaveProperty('user_id')
-  b.emit.mockImplementationOnce(() => { throw new Error('exporter unavailable') })
+  b.emit.mockImplementationOnce(() => {
+    throw new Error('exporter unavailable')
+  })
   await expect(b.ctx.productAnalytics.report({ eventName: 'desktop_app_launch', timestamp: 2, attributes: {} })).resolves.toBeUndefined()
 })
-
 
 it('requires the exporter even when collection is disabled', async () => {
   const ctx = new Context()
@@ -178,7 +231,9 @@ it('wakes pending policy readers on disposal and registers hidden settings prese
   const dispose = vi.fn()
   const configure = vi.fn(() => dispose)
   b.ctx.provide('settings', { configure } as never)
-  await vi.waitFor(() => { expect(configure).toHaveBeenCalledWith({ auto: false }, b.fiber) })
+  await vi.waitFor(() => {
+    expect(configure).toHaveBeenCalledWith({ auto: false }, b.fiber)
+  })
   const iterator = b.ctx.productAnalytics.watchPolicy(new AbortController().signal)[Symbol.asyncIterator]()
   await iterator.next()
   const pending = iterator.next()
@@ -221,9 +276,19 @@ it('aborts and awaits environment sampling on disposal without emitting late res
   vi.mocked(collectEnvironment).mockReturnValueOnce(pending.promise)
   const report = b.ctx.productAnalytics.report({ eventName: 'desktop_app_launch', timestamp: 1, attributes: {} })
   const signal = vi.mocked(collectEnvironment).mock.calls[0]![0].signal
-  const aborted = new Promise<void>((resolve) => { signal.addEventListener('abort', () => { resolve() }, { once: true }) })
+  const aborted = new Promise<void>(resolve => {
+    signal.addEventListener(
+      'abort',
+      () => {
+        resolve()
+      },
+      { once: true },
+    )
+  })
   let disposed = false
-  const disposal = b.fiber.dispose().then(() => { disposed = true })
+  const disposal = b.fiber.dispose().then(() => {
+    disposed = true
+  })
   await aborted
   expect(disposed).toBe(false)
   pending.resolve(environment)
@@ -231,10 +296,10 @@ it('aborts and awaits environment sampling on disposal without emitting late res
   expect(b.emit).not.toHaveBeenCalled()
 })
 
-
 it('encodes failed fields as a sorted scalar and omits an empty failure list', async () => {
   const b = await setup(true)
-  vi.mocked(collectEnvironment).mockResolvedValueOnce({ ...environment,
+  vi.mocked(collectEnvironment).mockResolvedValueOnce({
+    ...environment,
     missing_fields: { os_version_full: 'timeout', cpu_physical_core_count: 'query-failed' },
   })
   await b.ctx.productAnalytics.report({ eventName: 'auth_page_view', timestamp: 1, attributes: {} })

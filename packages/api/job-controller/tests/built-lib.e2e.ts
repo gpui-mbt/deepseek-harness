@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 /**
  * Built-artifact smoke for the generated job Remote codecs. This package's
@@ -29,7 +29,7 @@ const row = {
 
 describe.skipIf(!existsSync(artifact))('job Remote built codecs', () => {
   it('accept a row whose kind this program never compiled, and still reject a status outside the lifecycle', async () => {
-    const { TYPERT } = await import(pathToFileURL(artifact).href) as { TYPERT: { invocations: readonly BuiltInvocation[] } }
+    const { TYPERT } = (await import(pathToFileURL(artifact).href)) as { TYPERT: { invocations: readonly BuiltInvocation[] } }
     const schemaOf = (method: string): ReturnType<BuiltInvocation['result']['create']> => {
       const invocation = TYPERT.invocations.find(candidate => candidate.method === method)
       if (invocation === undefined) throw new Error(`no generated job.${method} invocation`)

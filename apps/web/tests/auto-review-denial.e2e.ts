@@ -6,10 +6,16 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { expandOwningTurnProcess, newEnglishPage, saveFailureShot, WEB_FIXTURE_TIME } from './support.ts'
 
@@ -29,19 +35,28 @@ describe.skipIf(MODE === 'record')('web e2e: cold Auto-review denial', () => {
 
   beforeAll(async () => {
     const fixture = await readFile(FIXTURE, 'utf8')
-    const rows = fixture.trim().split(/\r?\n/u).slice(1).map(line => JSON.parse(line) as {
-      type?: string
-      data?: Record<string, unknown>
-    })
+    const rows = fixture
+      .trim()
+      .split(/\r?\n/u)
+      .slice(1)
+      .map(
+        line =>
+          JSON.parse(line) as {
+            type?: string
+            data?: Record<string, unknown>
+          },
+      )
     const result = rows.find(row => row.type === 'tool/result')
     expect(result?.data).toMatchObject({
       message: {
         source: { kind: 'tool', callId: 'auto-review-denied-call' },
-        content: [{
-          type: 'tool-result',
-          toolCallId: 'auto-review-denied-call',
-          isError: true,
-        }],
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'auto-review-denied-call',
+            isError: true,
+          },
+        ],
       },
       error: {
         name: 'AutoReviewDeniedError',
@@ -91,12 +106,10 @@ describe.skipIf(MODE === 'record')('web e2e: cold Auto-review denial', () => {
     expect(await inner.getByText('Rejected by Auto review', { exact: true }).count()).toBe(1)
 
     const access = page.locator('button[aria-label^="Access mode"]').first()
-    await expect.poll(() => access.getAttribute('aria-label'), { timeout: 10_000 })
-      .toBe('Access mode, current: Auto review')
+    await expect.poll(() => access.getAttribute('aria-label'), { timeout: 10_000 }).toBe('Access mode, current: Auto review')
 
     await captureAutoReviewState(page, 'deny-collapsed')
-    const collapsed = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(SEED_ID).join('{{seededId}}')
+    const collapsed = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)).split(SEED_ID).join('{{seededId}}')
 
     await row.click()
     await expect.poll(() => row.getAttribute('aria-expanded')).toBe('true')
@@ -111,8 +124,7 @@ describe.skipIf(MODE === 'record')('web e2e: cold Auto-review denial', () => {
     expect(await call.getByText('hidden-input', { exact: false }).count()).toBe(0)
 
     await captureAutoReviewState(page, 'deny-expanded')
-    const expanded = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(SEED_ID).join('{{seededId}}')
+    const expanded = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)).split(SEED_ID).join('{{seededId}}')
 
     await page.getByRole('tab', { name: 'Trajectory', exact: true }).click()
     const ledger = page.locator('[data-trajectory-scroll]')
@@ -123,21 +135,22 @@ describe.skipIf(MODE === 'record')('web e2e: cold Auto-review denial', () => {
     await expect.poll(() => innerRecord.textContent()).toContain('AUTO_REVIEW_DENIED')
     await innerRecord.click()
     await page.getByRole('tab', { name: 'Result', exact: true }).click()
-    await page.getByRole('tabpanel', { name: 'Result' })
+    await page
+      .getByRole('tabpanel', { name: 'Result' })
       .getByText('AutoReviewDeniedError: AUTO_REVIEW_DENIED', { exact: true })
       .waitFor({ state: 'visible' })
     await captureAutoReviewState(page, 'deny-trajectory')
-    const trajectory = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(SEED_ID).join('{{seededId}}')
-    await compareOrRefreshGolden(UI_EXPECTED,
-      `## Collapsed\n\n${collapsed.trim()}\n\n## Expanded\n\n${expanded.trim()}\n\n## Trajectory\n\n${trajectory.trim()}`, MODE)
+    const trajectory = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)).split(SEED_ID).join('{{seededId}}')
+    await compareOrRefreshGolden(
+      UI_EXPECTED,
+      `## Collapsed\n\n${collapsed.trim()}\n\n## Expanded\n\n${expanded.trim()}\n\n## Trajectory\n\n${trajectory.trim()}`,
+      MODE,
+    )
     expect(tripwire.pageErrors).toEqual([])
     expect(tripwire.warnings).toEqual([])
   }, 60_000)
 
   it('keeps its snapshot inventory closed', async () => {
-    await assertFixtureInventory(SNAPSHOT_DIR, [
-      'ui.expected.md', 'session.v3.jsonl',
-    ])
+    await assertFixtureInventory(SNAPSHOT_DIR, ['ui.expected.md', 'session.v3.jsonl'])
   })
 })

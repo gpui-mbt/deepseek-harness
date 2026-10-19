@@ -22,7 +22,8 @@ export const ja: LocaleDictOf<'model'> = {
   'effort.providerDefault': 'デフォルト',
   'status.loading': 'モデル一覧を更新しています…',
   'error.action': 'モデル操作に失敗しました：{message}',
-  'error.sessionInUse': 'このセッションは既に使用中です（他の dsh web やデスクトップアプリなど、別の DSH が実行中の可能性があります）。他の DSH を終了してから再試行してください',
+  'error.sessionInUse':
+    'このセッションは既に使用中です（他の dsh web やデスクトップアプリなど、別の DSH が実行中の可能性があります）。他の DSH を終了してから再試行してください',
   'action.reload': '再読み込み',
   'warning.groupLoad': '{name} の読み込みに失敗しました：{message}',
   'search.placeholder': 'モデルを検索…',

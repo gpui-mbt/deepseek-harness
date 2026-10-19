@@ -47,12 +47,27 @@ export async function parseIndexInWorker(body: Uint8Array, url: string, signal: 
       // The outcome stands whether or not termination succeeds.
       void worker.terminate().then(finish, finish)
     }
-    const abort = (): void => { settle(() => { reject(signal.reason as Error) }) }
+    const abort = (): void => {
+      settle(() => {
+        reject(signal.reason as Error)
+      })
+    }
     signal.addEventListener('abort', abort, { once: true })
     worker.once('message', (value: unknown) => {
-      settle(() => { if (isResult(value)) resolve(value); else reject(new Error('index parser reported an unexpected value')) })
+      settle(() => {
+        if (isResult(value)) resolve(value)
+        else reject(new Error('index parser reported an unexpected value'))
+      })
     })
-    worker.once('error', (error) => { settle(() => { reject(error) }) })
-    worker.once('exit', (code) => { settle(() => { reject(new Error(`index parser exited before reporting a result (code ${String(code)})`)) }) })
+    worker.once('error', error => {
+      settle(() => {
+        reject(error)
+      })
+    })
+    worker.once('exit', code => {
+      settle(() => {
+        reject(new Error(`index parser exited before reporting a result (code ${String(code)})`))
+      })
+    })
   })
 }

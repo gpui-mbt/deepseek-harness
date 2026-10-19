@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import {
   createSessionFormatCatalog,
   SessionFormatUnsupportedMigrationError,
@@ -41,16 +41,10 @@ function codec(version: number, inheritedEventCount = 0): SessionFormatCodec & S
 function identityMigrationStage(inheritedEventCount: number | undefined) {
   return {
     ...(inheritedEventCount === undefined ? {} : { headerInheritedEventCount: inheritedEventCount }),
-    transformEvent(
-      event: SessionFormatEvent,
-      context: SessionFormatMigrationContext,
-    ) {
+    transformEvent(event: SessionFormatEvent, context: SessionFormatMigrationContext) {
       context.emitEvent(event)
     },
-    transformRun(
-      run: SessionFormatEventRun,
-      context: SessionFormatMigrationContext,
-    ) {
+    transformRun(run: SessionFormatEventRun, context: SessionFormatMigrationContext) {
       context.emitRun(run)
     },
     finish: () => inheritedEventCount ?? 0,
@@ -111,7 +105,8 @@ function throwUnknown(value: unknown): never {
 describe('Session format catalog', () => {
   it('classifies headers and restores physical rows through the compiled chain', () => {
     const createStage = vi.fn(({ sourceInheritedEventCount }: SessionFormatMigrationStageInput) =>
-      identityMigrationStage(sourceInheritedEventCount))
+      identityMigrationStage(sourceInheritedEventCount),
+    )
     const current = catalog(edge({ createStage }))
 
     expect(current.readHeader(oldHeader)).toEqual({
@@ -121,10 +116,14 @@ describe('Session format catalog', () => {
       header: { ...oldHeader, version: 1 },
     })
     expect(current.readHeader({ version: 2 })).toMatchObject({
-      status: 'unsupported', storedVersion: 2, targetVersion: 1,
+      status: 'unsupported',
+      storedVersion: 2,
+      targetVersion: 1,
     })
     expect(current.readHeader({ ...oldHeader, version: 1 })).toMatchObject({
-      status: 'current', storedVersion: 1, targetVersion: 1,
+      status: 'current',
+      storedVersion: 1,
+      targetVersion: 1,
     })
     expect(current.readHeader({ version: 'broken' })).toMatchObject({ status: 'malformed', targetVersion: 1 })
 
@@ -154,30 +153,32 @@ describe('Session format catalog', () => {
     expect(transformed.finish()).toMatchObject({ header: { version: 1 }, events: [event] })
   })
 
-  it.each([
-    new Error('target artifact is incompatible'),
-    'non-Error target artifact refusal',
-  ])('classifies migrated target validation failures as unsupported', (targetFailure) => {
-    const current = createSessionFormatCatalog({
-      currentVersion: 1,
-      codecs: [codec(0), codec(1)],
-      currentEncoder: codec(1),
-      migrations: [edge()],
-      restoreCurrent: artifact => artifact,
-      restoreTransformedCurrent: () => { throw targetFailure },
-      restoreCurrentHeader: header => header,
-    })
-    const restore = current.createRestore(oldHeader, { recovery: 'strict', validation: 'transformed' })
-    restore.decodeRow(event)
+  it.each([new Error('target artifact is incompatible'), 'non-Error target artifact refusal'])(
+    'classifies migrated target validation failures as unsupported',
+    targetFailure => {
+      const current = createSessionFormatCatalog({
+        currentVersion: 1,
+        codecs: [codec(0), codec(1)],
+        currentEncoder: codec(1),
+        migrations: [edge()],
+        restoreCurrent: artifact => artifact,
+        restoreTransformedCurrent: () => {
+          throw targetFailure
+        },
+        restoreCurrentHeader: header => header,
+      })
+      const restore = current.createRestore(oldHeader, { recovery: 'strict', validation: 'transformed' })
+      restore.decodeRow(event)
 
-    try {
-      restore.finish()
-      throw new Error('expected transformed target validation to fail')
-    } catch (error: unknown) {
-      expect(error).toBeInstanceOf(SessionFormatUnsupportedMigrationError)
-      expect((error as Error).cause).toBe(targetFailure)
-    }
-  })
+      try {
+        restore.finish()
+        throw new Error('expected transformed target validation to fail')
+      } catch (error: unknown) {
+        expect(error).toBeInstanceOf(SessionFormatUnsupportedMigrationError)
+        expect((error as Error).cause).toBe(targetFailure)
+      }
+    },
+  )
 
   it('preserves current-validation failures and explicit migration refusals', () => {
     const currentFailure = new Error('installed current validation failed')
@@ -186,7 +187,9 @@ describe('Session format catalog', () => {
       codecs: [codec(0), codec(1)],
       currentEncoder: codec(1),
       migrations: [edge()],
-      restoreCurrent: () => { throw currentFailure },
+      restoreCurrent: () => {
+        throw currentFailure
+      },
       restoreTransformedCurrent: artifact => artifact,
       restoreCurrentHeader: header => header,
     }).createRestore(oldHeader, { recovery: 'strict', validation: 'current' })
@@ -199,7 +202,9 @@ describe('Session format catalog', () => {
       currentEncoder: codec(1),
       migrations: [edge()],
       restoreCurrent: artifact => artifact,
-      restoreTransformedCurrent: () => { throw explicit },
+      restoreTransformedCurrent: () => {
+        throw explicit
+      },
       restoreCurrentHeader: header => header,
     }).createRestore(oldHeader, { recovery: 'strict', validation: 'transformed' })
     expect(() => transformed.finish()).toThrow(explicit)
@@ -212,8 +217,7 @@ describe('Session format catalog', () => {
     }
     const current = catalog(edge(), 1, codec(0), badEncoder)
 
-    expect(() => current.encodeCurrentHeader({ ...oldHeader, version: 1 }, 0))
-      .toThrow(/non-current header/)
+    expect(() => current.encodeCurrentHeader({ ...oldHeader, version: 1 }, 0)).toThrow(/non-current header/)
   })
 
   it('rejects duplicate, missing, and future codec declarations', () => {
@@ -225,53 +229,58 @@ describe('Session format catalog', () => {
       restoreTransformedCurrent: (value: SessionFormatArtifact) => value,
       restoreCurrentHeader: (value: SessionFormatArtifact['header']) => value,
     }
-    expect(() => createSessionFormatCatalog({ ...options, codecs: [codec(0), codec(0), codec(1)] }))
-      .toThrow(/codec v0 is duplicated/)
+    expect(() => createSessionFormatCatalog({ ...options, codecs: [codec(0), codec(0), codec(1)] })).toThrow(/codec v0 is duplicated/)
     expect(() => createSessionFormatCatalog({ ...options, codecs: [codec(0)] })).toThrow(/codec v1 is missing/)
-    expect(() => createSessionFormatCatalog({ ...options, codecs: [codec(0), codec(1), codec(2)] }))
-      .toThrow(/codec v2 is newer/)
+    expect(() => createSessionFormatCatalog({ ...options, codecs: [codec(0), codec(1), codec(2)] })).toThrow(/codec v2 is newer/)
   })
 
   it('preserves unsupported header and migration failures', () => {
     const refusingCodec: SessionFormatCodec = {
       ...codec(0),
-      decodeHeader: () => { throw new Error('bad header') },
-      createDecoder: () => { throw new Error('bad body') },
+      decodeHeader: () => {
+        throw new Error('bad header')
+      },
+      createDecoder: () => {
+        throw new Error('bad body')
+      },
     }
     const current = catalog(edge(), 1, refusingCodec)
     expect(current.readHeader(oldHeader)).toMatchObject({ status: 'malformed', reason: 'bad header' })
-    expect(() => current.createRestore(oldHeader, { recovery: 'strict', validation: 'current' }))
-      .toThrow('bad body')
-    expect(() => current.createRestore({ version: 2 }, { recovery: 'strict', validation: 'current' }))
-      .toThrow(/newer/)
+    expect(() => current.createRestore(oldHeader, { recovery: 'strict', validation: 'current' })).toThrow('bad body')
+    expect(() => current.createRestore({ version: 2 }, { recovery: 'strict', validation: 'current' })).toThrow(/newer/)
 
-    const nonError = catalog({
-      ...edge(),
-    }, 1, {
-      ...codec(0),
-      decodeHeader: () => throwUnknown('non-Error header failure'),
-    })
+    const nonError = catalog(
+      {
+        ...edge(),
+      },
+      1,
+      {
+        ...codec(0),
+        decodeHeader: () => throwUnknown('non-Error header failure'),
+      },
+    )
     expect(nonError.readHeader(oldHeader)).toMatchObject({
-      status: 'malformed', reason: 'non-Error header failure',
+      status: 'malformed',
+      reason: 'non-Error header failure',
     })
   })
 
   it('classifies migrated header refusals as unsupported and current corruption as malformed', () => {
-    const unsupported = catalog(edge({
-      validateTargetHeader: () => { throw new Error('target header lacks marker') },
-    }))
+    const unsupported = catalog(
+      edge({
+        validateTargetHeader: () => {
+          throw new Error('target header lacks marker')
+        },
+      }),
+    )
     expect(unsupported.readHeader(oldHeader)).toMatchObject({
       status: 'unsupported',
       reason: expect.stringContaining('target header lacks marker') as string,
     })
 
-    const malformed = catalog(
-      edge(),
-      1,
-      codec(0),
-      codec(1),
-      () => { throw new Error('current header is corrupt') },
-    )
+    const malformed = catalog(edge(), 1, codec(0), codec(1), () => {
+      throw new Error('current header is corrupt')
+    })
     expect(malformed.readHeader({ ...oldHeader, version: 1 })).toMatchObject({
       status: 'malformed',
       reason: 'current header is corrupt',
@@ -282,8 +291,12 @@ describe('Session format catalog', () => {
     const changedCut = edge({
       createStage: () => ({
         headerInheritedEventCount: 1,
-        transformEvent: (candidate, context) => { context.emitEvent(candidate) },
-        transformRun: (candidate, context) => { context.emitRun(candidate) },
+        transformEvent: (candidate, context) => {
+          context.emitEvent(candidate)
+        },
+        transformRun: (candidate, context) => {
+          context.emitRun(candidate)
+        },
         finish: () => 0,
       }),
     })
@@ -293,20 +306,22 @@ describe('Session format catalog', () => {
     )
     expect(() => changed.finish()).toThrow(/changed its predeclared inherited cut/)
 
-    const trailing = catalog(edge({
-      createStage: () => ({
-        headerInheritedEventCount: 0,
-        transformEvent: () => {},
-        transformRun: () => {},
-        finish: (context) => { context.emitEvent(event); return 0 },
+    const trailing = catalog(
+      edge({
+        createStage: () => ({
+          headerInheritedEventCount: 0,
+          transformEvent: () => {},
+          transformRun: () => {},
+          finish: context => {
+            context.emitEvent(event)
+            return 0
+          },
+        }),
       }),
-    })).createRestore(oldHeader, { recovery: 'strict', validation: 'current' })
+    ).createRestore(oldHeader, { recovery: 'strict', validation: 'current' })
     expect(trailing.finish().events).toEqual([event])
 
-    const wrongVersion = catalog(edge(), 0).createRestore(
-      oldHeader,
-      { recovery: 'strict', validation: 'current' },
-    )
+    const wrongVersion = catalog(edge(), 0).createRestore(oldHeader, { recovery: 'strict', validation: 'current' })
     expect(() => wrongVersion.finish()).toThrow(/returned v0/)
 
     const changedDecoderCut: SessionFormatCodec = {
@@ -320,10 +335,7 @@ describe('Session format catalog', () => {
         }
       },
     }
-    const changedDecoder = catalog(edge(), 1, changedDecoderCut).createRestore(
-      oldHeader,
-      { recovery: 'strict', validation: 'current' },
-    )
+    const changedDecoder = catalog(edge(), 1, changedDecoderCut).createRestore(oldHeader, { recovery: 'strict', validation: 'current' })
     expect(() => changedDecoder.finish()).toThrow(/decoder changed its predeclared inherited cut/)
 
     const deferredCut: SessionFormatCodec = {
@@ -336,15 +348,19 @@ describe('Session format catalog', () => {
         }
       },
     }
-    expect(catalog(edge(), 1, deferredCut).createRestore(
-      oldHeader,
-      { recovery: 'strict', validation: 'current' },
-    ).finish().inheritedEventCount).toBe(0)
+    expect(
+      catalog(edge(), 1, deferredCut).createRestore(oldHeader, { recovery: 'strict', validation: 'current' }).finish().inheritedEventCount,
+    ).toBe(0)
   })
 
   it('expands an unhandled compact run without an intermediate array', () => {
     const run: SessionFormatEventRun = {
-      runType: 'test-run', firstSeq: 0, eventCount: 1, expand: function* () { yield event },
+      runType: 'test-run',
+      firstSeq: 0,
+      eventCount: 1,
+      expand: function* () {
+        yield event
+      },
     }
     const source: SessionFormatCodec = {
       ...codec(0),
@@ -352,15 +368,14 @@ describe('Session format catalog', () => {
         return {
           header: headerValue as SessionFormatArtifact['header'],
           headerInheritedEventCount: 0,
-          decodeRow(_rowValue, context) { context.emitRun(run) },
+          decodeRow(_rowValue, context) {
+            context.emitRun(run)
+          },
           finish: () => 0,
         }
       },
     }
-    const restore = catalog(edge(), 1, source).createRestore(
-      oldHeader,
-      { recovery: 'strict', validation: 'current' },
-    )
+    const restore = catalog(edge(), 1, source).createRestore(oldHeader, { recovery: 'strict', validation: 'current' })
     restore.decodeRow({})
 
     expect(restore.finish().events).toEqual([event])

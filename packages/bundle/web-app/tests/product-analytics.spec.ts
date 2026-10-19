@@ -8,16 +8,28 @@ import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
 import * as Telemetry from '@deepseek-ai/dsh-host-product-telemetry-otel'
 import Analytics from '@deepseek-ai/dsh-client-product-analytics'
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 
-afterEach(() => { vi.unstubAllEnvs() })
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
-it.each(['desktop', 'web'])('limits collection and its shutdown to the Desktop launch: %s', async (profile) => {
+it.each(['desktop', 'web'])('limits collection and its shutdown to the Desktop launch: %s', async profile => {
   const received = Promise.withResolvers<undefined>()
-  const server = createServer((req) => { req.resume(); req.once('end', () => { received.resolve(undefined) }) })
+  const server = createServer(req => {
+    req.resume()
+    req.once('end', () => {
+      received.resolve(undefined)
+    })
+  })
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
-  onTestFinished(async () => { const closed = once(server, 'close'); server.close(); server.closeAllConnections(); await closed })
+  onTestFinished(async () => {
+    const closed = once(server, 'close')
+    server.close()
+    server.closeAllConnections()
+    await closed
+  })
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('missing collector address')
   vi.stubEnv('DSH_CLIENT_VERSION', 'test-version')
@@ -25,8 +37,15 @@ it.each(['desktop', 'web'])('limits collection and its shutdown to the Desktop l
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
   ctx.provide('profileContext', {
-    name: profile, dir: '/profile', patchPath: '/profile/cordis.patch.yml', installAnchor: '/profile/package.json',
-    cwd: '/workspace', home: '/home', startedBundles: [], overlays: [], telemetryDisabledEnv: undefined,
+    name: profile,
+    dir: '/profile',
+    patchPath: '/profile/cordis.patch.yml',
+    installAnchor: '/profile/package.json',
+    cwd: '/workspace',
+    home: '/home',
+    startedBundles: [],
+    overlays: [],
+    telemetryDisabledEnv: undefined,
   })
   const identity = vi.fn().mockResolvedValue(undefined)
   ctx.provide('deepseekAccount', { getDeviceIdentity: identity } as never)
@@ -36,7 +55,8 @@ it.each(['desktop', 'web'])('limits collection and its shutdown to the Desktop l
   ctx.loader.builtins.telemetry = Telemetry
   ctx.loader.builtins.analytics = Analytics
   const rows = loadOverlayPatches('analytics', fileURLToPath(new URL('../cordis.patch.yml', import.meta.url)))
-    .flatMap(patch => patch.insert ?? []).filter(row => row.id === 'desktop-product-telemetry' || row.id === 'product-analytics')
+    .flatMap(patch => patch.insert ?? [])
+    .filter(row => row.id === 'desktop-product-telemetry' || row.id === 'product-analytics')
   const entries = rows.map(row => ({ ...row, name: row.id === 'desktop-product-telemetry' ? 'cordis:telemetry' : 'cordis:analytics' }))
   await ctx.loader.root.update(entries)
   await ctx.loader.await()
@@ -48,19 +68,27 @@ it.each(['desktop', 'web'])('limits collection and its shutdown to the Desktop l
     return
   }
   expect(rows[0]!.config).toMatchObject({
-    scheduledDelayMillis: 30000, timeoutMillis: 15000, exportTimeoutMillis: 20000, shutdownTimeoutMillis: 2000,
+    scheduledDelayMillis: 30000,
+    timeoutMillis: 15000,
+    exportTimeoutMillis: 20000,
+    shutdownTimeoutMillis: 2000,
   })
   const analytics = ctx.productAnalytics
   const analyticsFiber = ctx.loader.resolve('product-analytics').fiber
   const telemetryFiber = entry.fiber
   const lifetime = new AbortController()
-  onTestFinished(() => { lifetime.abort() })
+  onTestFinished(() => {
+    lifetime.abort()
+  })
   const policy = analytics.watchPolicy(lifetime.signal)[Symbol.asyncIterator]()
   expect(await policy.next()).toEqual({ value: true, done: false })
   for (const enabled of [false, true]) {
     const changed = policy.next()
-    await ctx.loader.root.update(entries.map(row => row.id === 'product-analytics'
-      ? { ...row, config: { ...row.config as Record<string, unknown>, enabled } } : row))
+    await ctx.loader.root.update(
+      entries.map(row =>
+        row.id === 'product-analytics' ? { ...row, config: { ...(row.config as Record<string, unknown>), enabled } } : row,
+      ),
+    )
     await ctx.loader.await()
     expect(await changed).toEqual({ value: enabled, done: false })
     expect(ctx.loader.resolve('product-analytics').fiber === analyticsFiber).toBe(true)

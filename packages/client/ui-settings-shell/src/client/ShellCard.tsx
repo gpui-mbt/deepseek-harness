@@ -7,10 +7,7 @@ import { formLabels } from './locales.ts'
 import type { ShellCardFace } from './shell-card-controller.ts'
 
 /** Props the renderer binds for the shell page. */
-export type ShellCardProps =
-  PropsRuntime<'plugins.item'>
-  & PropsLocale<'settings.shell'>
-  & InjectFace<ShellCardFace>
+export type ShellCardProps = PropsRuntime<'plugins.item'> & PropsLocale<'settings.shell'> & InjectFace<ShellCardFace>
 
 /**
  * Render the shell executor's one-liner or its settings form, as the Plugins page asks.
@@ -34,8 +31,12 @@ export function ShellCard(props: ShellCardProps) {
         numeric
         disabled={disabled}
         {...state.timeoutMs}
-        onEdit={(text) => { props.edit('timeoutMs', text) }}
-        onReset={() => { props.resetField('timeoutMs') }}
+        onEdit={text => {
+          props.edit('timeoutMs', text)
+        }}
+        onReset={() => {
+          props.resetField('timeoutMs')
+        }}
       />
       <SettingsValueField
         id="plugin-config-shell-output"
@@ -47,8 +48,12 @@ export function ShellCard(props: ShellCardProps) {
         numeric
         disabled={disabled}
         {...state.maxOutputBytes}
-        onEdit={(text) => { props.edit('maxOutputBytes', text) }}
-        onReset={() => { props.resetField('maxOutputBytes') }}
+        onEdit={text => {
+          props.edit('maxOutputBytes', text)
+        }}
+        onReset={() => {
+          props.resetField('maxOutputBytes')
+        }}
       />
     </SettingsForm>
   )

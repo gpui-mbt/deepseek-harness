@@ -229,7 +229,14 @@ void _rosterSubsetOfUnion
  * the Python side carries via a functional `TypedDict`).
  */
 const WIRE_FRAME_FIELD_ROLES = {
-  BootMessage: { type: 'required', cpuSeconds: 'required', addressSpaceBytes: 'required', maxLogBytes: 'required', maxValueBytes: 'required', namespaces: 'required' },
+  BootMessage: {
+    type: 'required',
+    cpuSeconds: 'required',
+    addressSpaceBytes: 'required',
+    maxLogBytes: 'required',
+    maxValueBytes: 'required',
+    namespaces: 'required',
+  },
   Namespace: { global: 'required', names: 'required', errorClass: 'optional' },
   RunMessage: { type: 'required', program: 'required' },
   BootAckMessage: { type: 'required' },
@@ -251,15 +258,17 @@ const WIRE_FRAME_FIELD_ROLES = {
  * field add, remove, rename, or optionality flip fails typecheck at the roles
  * map, and a Python-side divergence fails the mirror test at runtime.
  */
-export const WIRE_FRAME_FIELDS =
-  Object.fromEntries(
-    Object.entries(WIRE_FRAME_FIELD_ROLES).map(([frame, roles]) => {
-      const required = Object.keys(roles).filter(key => (roles as Record<string, string>)[key] === 'required').sort()
-      const optional = Object.keys(roles).filter(key => (roles as Record<string, string>)[key] === 'optional').sort()
-      return [frame, { required, optional }]
-    }),
-  ) as Record<keyof typeof WIRE_FRAME_FIELD_ROLES, { required: string[]; optional: string[] }>
-
+export const WIRE_FRAME_FIELDS = Object.fromEntries(
+  Object.entries(WIRE_FRAME_FIELD_ROLES).map(([frame, roles]) => {
+    const required = Object.keys(roles)
+      .filter(key => (roles as Record<string, string>)[key] === 'required')
+      .sort()
+    const optional = Object.keys(roles)
+      .filter(key => (roles as Record<string, string>)[key] === 'optional')
+      .sort()
+    return [frame, { required, optional }]
+  }),
+) as Record<keyof typeof WIRE_FRAME_FIELD_ROLES, { required: string[]; optional: string[] }>
 
 /**
  * The in-band marker text announcing that log capture stopped at the byte
@@ -427,7 +436,10 @@ function jsonStringBytesUpTo(text: string, maxBytes: number): number | undefined
  * `{ ok: false, reason }` — `over-budget` once the size exceeds `maxBytes`,
  * `non-lossless` on a non-finite or negative-zero number.
  */
-export function checkDoneValue(value: unknown, maxBytes: number): { ok: true; bytes: number } | { ok: false; reason: 'over-budget' | 'non-lossless' } {
+export function checkDoneValue(
+  value: unknown,
+  maxBytes: number,
+): { ok: true; bytes: number } | { ok: false; reason: 'over-budget' | 'non-lossless' } {
   let bytes = 0
   // A non-lossless number is recorded, not returned on sight: over-budget must
   // win regardless of where in the value each violation sits, so the whole
@@ -569,9 +581,7 @@ export function hasUnsafeIntegerToken(line: string): boolean {
  * bytes can be metered when the entry is reached). A cursor bounds the walk's
  * auxiliary state to O(depth), not O(width).
  */
-type Cursor =
-  | { kind: 'values'; iter: Iterator<unknown> }
-  | { kind: 'entries'; iter: Iterator<readonly [string, unknown]> }
+type Cursor = { kind: 'values'; iter: Iterator<unknown> } | { kind: 'entries'; iter: Iterator<readonly [string, unknown]> }
 
 /**
  * Lazily yield one plain object's own enumerable [key, value] entries. The
@@ -672,8 +682,8 @@ export function validateChildFrame(raw: unknown): ChildToHost | undefined {
       return {
         type: 'log',
         text: m.text,
-        ...m.truncated === true ? { truncated: true } : {},
-        ...m.open === true ? { open: true } : {},
+        ...(m.truncated === true ? { truncated: true } : {}),
+        ...(m.open === true ? { open: true } : {}),
       }
     case 'call': {
       // The id must be a finite number: it is echoed verbatim into the reply
@@ -682,7 +692,14 @@ export function validateChildFrame(raw: unknown): ChildToHost | undefined {
       // it passes `Number.isFinite`, but the reply re-serializes it as `0`
       // (`JSON.stringify({id:-0})` is `{"id":0}`), colliding with a real call
       // whose id is `0` — the honest child never issues `-0`.
-      if (typeof m.id !== 'number' || !Number.isFinite(m.id) || Object.is(m.id, -0) || typeof m.global !== 'string' || typeof m.name !== 'string') return undefined
+      if (
+        typeof m.id !== 'number' ||
+        !Number.isFinite(m.id) ||
+        Object.is(m.id, -0) ||
+        typeof m.global !== 'string' ||
+        typeof m.name !== 'string'
+      )
+        return undefined
       // A forged frame can omit `args` entirely; rebuilding it as `undefined`
       // would invoke the binding with a non-JSON value, bypassing the
       // lossless-JSON argument boundary. Any PRESENT value is JSON-plain by
@@ -708,9 +725,7 @@ export function validateChildFrame(raw: unknown): ChildToHost | undefined {
       const { kind, message } = err as Record<string, unknown>
       if (typeof message !== 'string') return undefined
       if (kind !== 'exception' && kind !== 'invalid-output' && kind !== 'output-limit' && kind !== 'timeout') return undefined
-      return m.value === undefined
-        ? { type: 'done', error: { kind, message } }
-        : { type: 'done', value: m.value, error: { kind, message } }
+      return m.value === undefined ? { type: 'done', error: { kind, message } } : { type: 'done', value: m.value, error: { kind, message } }
     }
     default:
       return undefined

@@ -25,14 +25,17 @@ export function installOfficeEngineResolution(runtimeDir: string): ModuleHooks |
   const root = realpathSync(runtimeDir)
   const archive = dirname(root)
   const source = pathToFileURL(join(root, 'node_modules', '@deepseek-ai', 'libreoffice-kit-')).href
-  const destination = pathToFileURL(join(`${archive}.unpacked`, relative(archive, root), 'node_modules', '@deepseek-ai', 'libreoffice-kit-')).href
+  const destination = pathToFileURL(
+    join(`${archive}.unpacked`, relative(archive, root), 'node_modules', '@deepseek-ai', 'libreoffice-kit-'),
+  ).href
   return registerHooks({
     resolve(specifier, context, nextResolve) {
       const resolved = nextResolve(specifier, context)
       if (!resolved.url.startsWith('file:')) return resolved
       const engineRequest = /^@deepseek-ai\/libreoffice-kit-(?:darwin|win32|linux)-/u.test(specifier)
-      const engineTarget = /\/node_modules\/@deepseek-ai\/libreoffice-kit-(?:darwin|win32|linux)-[^/]+\//u
-        .test(new URL(resolved.url).pathname)
+      const engineTarget = /\/node_modules\/@deepseek-ai\/libreoffice-kit-(?:darwin|win32|linux)-[^/]+\//u.test(
+        new URL(resolved.url).pathname,
+      )
       if (!engineRequest && !engineTarget) return resolved
       const canonical = pathToFileURL(realpathSync(fileURLToPath(resolved.url))).href
       if (!canonical.startsWith(source)) {

@@ -1,6 +1,18 @@
 /** Business data for Chat process groups; source Nodes remain in the Chat store. */
-export type ProcessActivity = 'read' | 'readImage' | 'search' | 'write' | 'edit' | 'commands' | 'code'
-  | 'webSearch' | 'webFetch' | 'subagents' | 'plan' | 'questions' | 'tools'
+export type ProcessActivity =
+  | 'read'
+  | 'readImage'
+  | 'search'
+  | 'write'
+  | 'edit'
+  | 'commands'
+  | 'code'
+  | 'webSearch'
+  | 'webFetch'
+  | 'subagents'
+  | 'plan'
+  | 'questions'
+  | 'tools'
 
 /** Distinct-call category ranking and the current live task detail. */
 export interface ProcessActivitySummary {

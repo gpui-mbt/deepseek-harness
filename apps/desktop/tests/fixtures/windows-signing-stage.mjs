@@ -14,9 +14,16 @@ await withWindowsSigningStage({ stateDirectory: join(root, 'state'), stage: 'fix
     return
   }
   const thumbprint = 'A'.repeat(40)
-  const signer = createCachedSigner({ root: join(root, 'cache'), identity: 'fixture', thumbprint,
+  const signer = createCachedSigner({
+    root: join(root, 'cache'),
+    identity: 'fixture',
+    thumbprint,
     record: event => process.send(event),
-    inspect: async path => ({ status: (await readFile(path, 'utf8')).startsWith('signed:') ? 'Valid' : 'NotSigned', timestamped: true, thumbprint }),
+    inspect: async path => ({
+      status: (await readFile(path, 'utf8')).startsWith('signed:') ? 'Valid' : 'NotSigned',
+      timestamped: true,
+      thumbprint,
+    }),
     sign: async ({ path }) => {
       await appendFile(join(root, 'hardware-calls'), 'call\n')
       await writeFile(path, `signed:${await readFile(path, 'utf8')}`)

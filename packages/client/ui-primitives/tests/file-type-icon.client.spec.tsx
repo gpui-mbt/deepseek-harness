@@ -1,9 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
-import {
-  classifyFileType, fileExtension, FileTypeIcon, type FileTypeKind,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { classifyFileType, fileExtension, FileTypeIcon, type FileTypeKind } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from '../src/FileTypeIcon.module.css'
 
 afterEach(cleanup)
@@ -59,11 +57,9 @@ describe('classifyFileType', () => {
 })
 
 describe('FileTypeIcon', () => {
-  const types: FileTypeKind[] = [
-    'code', 'excel', 'folder', 'html', 'image', 'markdown', 'other', 'pdf', 'ppt', 'video', 'word',
-  ]
+  const types: FileTypeKind[] = ['code', 'excel', 'folder', 'html', 'image', 'markdown', 'other', 'pdf', 'ppt', 'video', 'word']
 
-  it.each(types)('%s renders a distinct aria-hidden svg without literal colors', (type) => {
+  it.each(types)('%s renders a distinct aria-hidden svg without literal colors', type => {
     const { container } = render(<FileTypeIcon kind={type} />)
     const svg = container.querySelector('svg')!
     expect(svg).not.toBeNull()
@@ -76,12 +72,12 @@ describe('FileTypeIcon', () => {
       ['fill', 'stroke'].map(attribute => node.getAttribute(attribute)).filter(value => value !== null),
     )
     expect(paints).toContain('currentColor')
-    expect(paints.every(value => [
-      'currentColor', 'none', 'var(--dsw-static-neutral-00)', 'var(--dsw-static-neutral-400)',
-    ].includes(value))).toBe(true)
+    expect(
+      paints.every(value => ['currentColor', 'none', 'var(--dsw-static-neutral-00)', 'var(--dsw-static-neutral-400)'].includes(value)),
+    ).toBe(true)
   })
 
-  it.each(types)('%s uses a solid sheet fill', (type) => {
+  it.each(types)('%s uses a solid sheet fill', type => {
     const { container } = render(<FileTypeIcon kind={type} />)
     const sheet = container.querySelector('svg > path')!
     expect(sheet.getAttribute('fill')).toBe('currentColor')
@@ -90,41 +86,32 @@ describe('FileTypeIcon', () => {
 
   it('uses white marks and fold for coloured sheets, with a darker grey fold for other', () => {
     const coloured = render(<FileTypeIcon kind="pdf" />).container
-    expect(coloured.querySelector('[data-file-type-mark]')?.getAttribute('color'))
-      .toBe('var(--dsw-static-neutral-00)')
-    expect(coloured.querySelector('svg > path:nth-of-type(2)')?.getAttribute('fill'))
-      .toBe('var(--dsw-static-neutral-00)')
+    expect(coloured.querySelector('[data-file-type-mark]')?.getAttribute('color')).toBe('var(--dsw-static-neutral-00)')
+    expect(coloured.querySelector('svg > path:nth-of-type(2)')?.getAttribute('fill')).toBe('var(--dsw-static-neutral-00)')
 
     const other = render(<FileTypeIcon kind="other" />).container
-    expect(other.querySelector('svg > path:nth-of-type(2)')?.getAttribute('fill'))
-      .toBe('var(--dsw-static-neutral-400)')
+    expect(other.querySelector('svg > path:nth-of-type(2)')?.getAttribute('fill')).toBe('var(--dsw-static-neutral-400)')
   })
 
   it('draws one distinct glyph for every category', () => {
-    const paths = types.map((type) => {
+    const paths = types.map(type => {
       const { container } = render(<FileTypeIcon kind={type} />)
       return [...container.querySelectorAll('path')].map(path => path.getAttribute('d')).join('|')
     })
     expect(new Set(paths).size).toBe(types.length)
   })
 
-  it.each(['folder', 'html', 'image', 'video'] as const)(
-    'enlarges the %s center mark without scaling the file shell',
-    (type) => {
-      const { container } = render(<FileTypeIcon kind={type} />)
-      expect(container.querySelector('[data-file-type-mark]')?.getAttribute('transform')).toContain('scale(1.12)')
-      expect(container.querySelector('svg > path')?.getAttribute('transform')).toBeNull()
-    },
-  )
+  it.each(['folder', 'html', 'image', 'video'] as const)('enlarges the %s center mark without scaling the file shell', type => {
+    const { container } = render(<FileTypeIcon kind={type} />)
+    expect(container.querySelector('[data-file-type-mark]')?.getAttribute('transform')).toContain('scale(1.12)')
+    expect(container.querySelector('svg > path')?.getAttribute('transform')).toBeNull()
+  })
 
-  it.each(['markdown', 'pdf', 'ppt', 'word'] as const)(
-    'gives the %s center mark the larger emphasis scale',
-    (type) => {
-      const { container } = render(<FileTypeIcon kind={type} />)
-      expect(container.querySelector('[data-file-type-mark]')?.getAttribute('transform')).toContain('scale(1.22)')
-      expect(container.querySelector('svg > path')?.getAttribute('transform')).toBeNull()
-    },
-  )
+  it.each(['markdown', 'pdf', 'ppt', 'word'] as const)('gives the %s center mark the larger emphasis scale', type => {
+    const { container } = render(<FileTypeIcon kind={type} />)
+    expect(container.querySelector('[data-file-type-mark]')?.getAttribute('transform')).toContain('scale(1.22)')
+    expect(container.querySelector('svg > path')?.getAttribute('transform')).toBeNull()
+  })
 
   it('uses the supplied unscaled 1.2px table grid for spreadsheet files', () => {
     const { container } = render(<FileTypeIcon kind="excel" />)

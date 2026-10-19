@@ -43,7 +43,12 @@ export class Peer implements PeerScope {
     const lifetime = new AbortController()
     this.signal = lifetime.signal
     // Runs however the scope ends: dispose() or the owner Context unloading.
-    this.ctx.effect(() => () => { lifetime.abort(new Error(`Peer ${this.id} was disposed`)) }, 'client-connection: Peer lifetime')
+    this.ctx.effect(
+      () => () => {
+        lifetime.abort(new Error(`Peer ${this.id} was disposed`))
+      },
+      'client-connection: Peer lifetime',
+    )
   }
 
   /** Tear down every connection-lifetime registration; racing calls share one completion. */

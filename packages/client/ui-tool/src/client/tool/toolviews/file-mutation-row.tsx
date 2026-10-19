@@ -17,8 +17,10 @@ const KILOBYTE = 1024
 function contentKilobytes(block: FileMutationRowProps['block']): number | null {
   const { args } = block
   const open = CONTENT_FIELDS.find(key => args.has(key) && !args.complete(key))
-  const completed = CONTENT_FIELDS.reduce((total, key) => key !== open && args.complete(key)
-    ? total + (args.stringLength(key, { step: KILOBYTE }) ?? 0) : total, 0)
+  const completed = CONTENT_FIELDS.reduce(
+    (total, key) => (key !== open && args.complete(key) ? total + (args.stringLength(key, { step: KILOBYTE }) ?? 0) : total),
+    0,
+  )
   if (open === undefined) {
     return CONTENT_FIELDS.some(key => args.has(key)) ? Math.ceil(completed / KILOBYTE) : null
   }

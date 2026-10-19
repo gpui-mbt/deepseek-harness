@@ -3,7 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { BlockAssembler, LlmRuntime } from '@deepseek-ai/dsh-llm'
 import type { DeepSeekAccount } from '@deepseek-ai/dsh-deepseek-account'
 import * as ApiKey from '@deepseek-ai/dsh-llm-deepseek-api-key'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import * as Account from '../src/index.ts'
 
 const contexts: Context[] = []
@@ -48,21 +48,35 @@ it.each([
 ] as const)('reports a 402 balance rejection on $provider with apiKey "$apiKey" as $code', async ({ provider, apiKey, code }) => {
   vi.stubEnv('DEEPSEEK_API_KEY', apiKey)
   const ctx = await routeFor('account-token', provider)
-  vi.spyOn(globalThis, 'fetch').mockImplementation(messagesOnly(() => new Response(JSON.stringify({
-    error: { code: 'insufficient_balance', message: 'Insufficient balance' },
-  }), { status: 402 })))
+  vi.spyOn(globalThis, 'fetch').mockImplementation(
+    messagesOnly(
+      () =>
+        new Response(
+          JSON.stringify({
+            error: { code: 'insufficient_balance', message: 'Insufficient balance' },
+          }),
+          { status: 402 },
+        ),
+    ),
+  )
   await expect(finishOf(ctx, provider)).resolves.toMatchObject({ kind: 'error', failure: { code } })
 })
 
 it('reports an in-band account balance stream error as ACCOUNT_QUOTA', async () => {
   vi.stubEnv('DEEPSEEK_API_KEY', 'fixture-api-key')
   const ctx = await routeFor('account-token', 'deepseek-account')
-  vi.spyOn(globalThis, 'fetch').mockImplementation(messagesOnly(() => new Response(
-    'event: error\ndata: {"type":"error","error":{"type":"invalid_request_error","code":"insufficient_balance","message":"Insufficient balance"}}\n\n',
-    { status: 200 },
-  )))
+  vi.spyOn(globalThis, 'fetch').mockImplementation(
+    messagesOnly(
+      () =>
+        new Response(
+          'event: error\ndata: {"type":"error","error":{"type":"invalid_request_error","code":"insufficient_balance","message":"Insufficient balance"}}\n\n',
+          { status: 200 },
+        ),
+    ),
+  )
   await expect(finishOf(ctx, 'deepseek-account')).resolves.toMatchObject({
-    kind: 'error', failure: { code: 'ACCOUNT_QUOTA' },
+    kind: 'error',
+    failure: { code: 'ACCOUNT_QUOTA' },
   })
 })
 
@@ -78,7 +92,8 @@ it('still expires the stored credential on an account-route 401', async () => {
   await ctx.plugin(Account)
   vi.spyOn(globalThis, 'fetch').mockImplementation(messagesOnly(() => new Response('Unauthorized', { status: 401 })))
   await expect(finishOf(ctx, 'deepseek-account')).resolves.toMatchObject({
-    kind: 'error', failure: { code: 'ACCOUNT_TOKEN_INVALID' },
+    kind: 'error',
+    failure: { code: 'ACCOUNT_TOKEN_INVALID' },
   })
   expect(rejectToken.mock.calls).toEqual([['account-token']])
 })

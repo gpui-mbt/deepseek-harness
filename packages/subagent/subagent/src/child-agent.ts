@@ -30,7 +30,10 @@ import { SubagentError } from './error.ts'
 
 /** Thrown when starting a child would exceed the requested depth cap. */
 export class SubagentDepthError extends Error {
-  constructor(public readonly attemptedDepth: number, public readonly maxDepth: number) {
+  constructor(
+    public readonly attemptedDepth: number,
+    public readonly maxDepth: number,
+  ) {
     super(`subagent depth ${attemptedDepth} exceeds maxDepth ${maxDepth}`)
     this.name = 'SubagentDepthError'
   }
@@ -68,19 +71,12 @@ export function resolveChildDepth(parent: Agent, maxDepth: number | undefined): 
 export function parentAgentOptionsForDelegation(parent: Agent): AgentOptions {
   const requestConfig = parent.session.requestHeader()?.config
   if (requestConfig === undefined) return { ...parent.options }
-  const {
-    provider: _createdProvider,
-    model: _createdModel,
-    reasoningEffort: _createdReasoningEffort,
-    ...createdOptions
-  } = parent.options
+  const { provider: _createdProvider, model: _createdModel, reasoningEffort: _createdReasoningEffort, ...createdOptions } = parent.options
   return {
     ...createdOptions,
     provider: requestConfig.provider,
     model: requestConfig.model,
-    ...requestConfig.reasoningEffort === undefined
-      ? {}
-      : { reasoningEffort: requestConfig.reasoningEffort },
+    ...(requestConfig.reasoningEffort === undefined ? {} : { reasoningEffort: requestConfig.reasoningEffort }),
   }
 }
 
@@ -95,21 +91,17 @@ export function parentAgentOptionsForDelegation(parent: Agent): AgentOptions {
  * @param childDepth - the resolved delegation depth to stamp.
  * @returns the resolved options for `ctx.agents.create()`.
  */
-export function resolveChildAgentOptions(
-  parent: Agent,
-  requested: AgentOptions | undefined,
-  childDepth: number,
-): AgentOptions {
+export function resolveChildAgentOptions(parent: Agent, requested: AgentOptions | undefined, childDepth: number): AgentOptions {
   const parentOptions = parentAgentOptionsForDelegation(parent)
   const parentProvider = parentOptions.provider
   const parentModel = parentOptions.model
   const parentReasoningEffort = parentOptions.reasoningEffort
   const parentMaxTokens = parentOptions.maxTokens
   const resolved: AgentOptions = {
-    ...parentProvider !== undefined ? { provider: parentProvider } : {},
-    ...parentModel !== undefined ? { model: parentModel } : {},
-    ...parentReasoningEffort !== undefined ? { reasoningEffort: parentReasoningEffort } : {},
-    ...parentMaxTokens !== undefined ? { maxTokens: parentMaxTokens } : {},
+    ...(parentProvider !== undefined ? { provider: parentProvider } : {}),
+    ...(parentModel !== undefined ? { model: parentModel } : {}),
+    ...(parentReasoningEffort !== undefined ? { reasoningEffort: parentReasoningEffort } : {}),
+    ...(parentMaxTokens !== undefined ? { maxTokens: parentMaxTokens } : {}),
     ...requested,
     subagentDepth: childDepth,
   }
@@ -141,8 +133,8 @@ export function childSessionMeta(
   const parentHeader = parent.session.header
   const agentPreset = selectedPreset ?? parent.ctx.get('agentPresets')?.composedPreset(parent.ctx)
   return {
-    ...parentHeader.cwd !== undefined ? { cwd: parentHeader.cwd } : {},
-    ...agentPreset === undefined ? {} : { agentPreset },
+    ...(parentHeader.cwd !== undefined ? { cwd: parentHeader.cwd } : {}),
+    ...(agentPreset === undefined ? {} : { agentPreset }),
     parentSession: parentHeader.id,
     isSeeded,
     // Navigation classification only; the descriptor remains the authority
@@ -168,11 +160,11 @@ export interface ChildComposition {
  * runtime-context contribution rather than a system-prompt section, so the
  * deployment's system prompt stays uniform across parents and children.
  */
-export const SUBAGENT_DELEGATION_CONTEXT
-  = 'You are a delegated subagent: your permission scope was fixed when you were started and cannot be '
-    + 'widened from inside this session — operations that require approval are rejected automatically. '
-    + 'When the task needs access beyond that scope, do not retry the denied operation; state the '
-    + 'limitation in your reply so the delegating agent can handle it.'
+export const SUBAGENT_DELEGATION_CONTEXT =
+  'You are a delegated subagent: your permission scope was fixed when you were started and cannot be ' +
+  'widened from inside this session — operations that require approval are rejected automatically. ' +
+  'When the task needs access beyond that scope, do not retry the denied operation; state the ' +
+  'limitation in your reply so the delegating agent can handle it.'
 
 /**
  * Compose a child before publication and restore historical descriptor overrides.
@@ -183,11 +175,7 @@ export const SUBAGENT_DELEGATION_CONTEXT
  * @param composition - independent preset and any overrides read from a historical descriptor.
  * @returns A promise when mounting an independent preset; otherwise completes synchronously.
  */
-export function applyChildComposition(
-  childCtx: Context,
-  parent: Agent,
-  composition: ChildComposition,
-): void | Promise<void> {
+export function applyChildComposition(childCtx: Context, parent: Agent, composition: ChildComposition): void | Promise<void> {
   if (composition.agentPreset !== undefined) {
     const presets = childCtx.get('agentPresets')
     if (presets === undefined) {
@@ -263,10 +251,7 @@ export function captureDelegatedPolicyOverrides(parent: Agent): DelegatedPolicyO
  * @param childSession - the unpublished child's session.
  * @param overrides - the policy captured at delegation.
  */
-export function appendDelegatedPolicyOverrides(
-  childSession: Session,
-  overrides: DelegatedPolicyOverrides,
-): void {
+export function appendDelegatedPolicyOverrides(childSession: Session, overrides: DelegatedPolicyOverrides): void {
   if (overrides.sandboxMode !== undefined) {
     childSession.append('sandbox/mode', { mode: overrides.sandboxMode, source: 'delegation' })
   }

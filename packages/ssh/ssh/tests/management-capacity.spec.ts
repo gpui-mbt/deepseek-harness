@@ -1,6 +1,6 @@
 /** Independent request capacities keep helper health and cleanup available under ordinary load. */
 import { PassThrough } from 'node:stream'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { z } from 'zod'
 import { SSH_MAX_PROCESS_HANDLES, SSH_MAX_TEXT_STREAMS, SshRpcPeer } from '../src/protocol.ts'
 
@@ -35,18 +35,31 @@ function setup(clientLimit = 1, serverLimit = 1, settleOnAbort = true) {
     if (params.immediate) return null
     const gate = Promise.withResolvers<undefined>()
     const aborted = Promise.withResolvers<undefined>()
-    const entry: Admission = { method, signal, aborted: aborted.promise, release: () => { gate.resolve(undefined) } }
+    const entry: Admission = {
+      method,
+      signal,
+      aborted: aborted.promise,
+      release: () => {
+        gate.resolve(undefined)
+      },
+    }
     handlers.push(gate.promise)
-    signal.addEventListener('abort', () => {
-      aborted.resolve(undefined)
-      if (settleOnAbort) gate.resolve(undefined)
-    }, { once: true })
+    signal.addEventListener(
+      'abort',
+      () => {
+        aborted.resolve(undefined)
+        if (settleOnAbort) gate.resolve(undefined)
+      },
+      { once: true },
+    )
     entered.push(entry)
     admissions.get(params.index)?.resolve(entry)
     await gate.promise
     return null
   })
-  server.once('closed', (error: Error) => { serverClosed.resolve(error) })
+  server.once('closed', (error: Error) => {
+    serverClosed.resolve(error)
+  })
   const client = new SshRpcPeer(inbound, outbound, frameBytes, clientLimit)
   const hold = (method: string, signal?: AbortSignal) => {
     const id = ++index

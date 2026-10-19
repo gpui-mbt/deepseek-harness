@@ -1,18 +1,26 @@
 /** Monotonic idle grace, independent window holds, and retryable terminal ownership. */
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import type { SubprocessTerminalActivity } from '@deepseek-ai/dsh-subprocess'
 import { TerminalRetention, type TerminalRetentionPolicy } from '../src/retention.ts'
 
 const owners: TerminalRetention[] = []
-beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] }) })
-afterEach(async () => { await Promise.allSettled(owners.splice(0).map(owner => owner.dispose())); vi.useRealTimers() })
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] })
+})
+afterEach(async () => {
+  await Promise.allSettled(owners.splice(0).map(owner => owner.dispose()))
+  vi.useRealTimers()
+})
 
 function fixture(policy: Partial<TerminalRetentionPolicy> = {}) {
   const inspect = vi.fn(async (): Promise<SubprocessTerminalActivity> => ({ state: 'idle', revision: 1 }))
   const terminate = vi.fn(async () => {})
   const failed = vi.fn()
   const owner = new TerminalRetention(
-    { unattendedTimeoutMs: 100, activityPollIntervalMs: 10, cleanupRetryMs: 20, ...policy }, inspect, terminate, failed,
+    { unattendedTimeoutMs: 100, activityPollIntervalMs: 10, cleanupRetryMs: 20, ...policy },
+    inspect,
+    terminate,
+    failed,
   )
   owners.push(owner)
   return { owner, inspect, terminate, failed }
@@ -48,7 +56,7 @@ it('retains two independent windows and starts a fresh grace after the last disc
   await second.return?.()
 })
 
-it.each(['busy', 'unknown'] as const)('protects %s work for arbitrarily many deadlines, then gives it the full idle grace', async (state) => {
+it.each(['busy', 'unknown'] as const)('protects %s work for arbitrarily many deadlines, then gives it the full idle grace', async state => {
   const h = fixture()
   h.inspect.mockResolvedValue({ state, revision: 2 })
   await vi.advanceTimersByTimeAsync(1000)
@@ -166,13 +174,19 @@ it('waits for the in-flight observation before reporting a disposal cleanup fail
   const error = new Error('cleanup failed')
   h.terminate.mockRejectedValueOnce(error)
   let settled = false
-  const disposed = h.owner.dispose().catch((reason: unknown) => { settled = true; return reason })
+  const disposed = h.owner.dispose().catch((reason: unknown) => {
+    settled = true
+    return reason
+  })
   try {
     await vi.advanceTimersByTimeAsync(0)
     expect(settled).toBe(false)
     pending.resolve({ state: 'unknown', revision: 1 })
     expect(await disposed).toBe(error)
-  } finally { pending.resolve({ state: 'unknown', revision: 1 }); await disposed }
+  } finally {
+    pending.resolve({ state: 'unknown', revision: 1 })
+    await disposed
+  }
 })
 
 it('waits for pending cleanup when the observation settles first during disposal', async () => {
@@ -183,7 +197,9 @@ it('waits for pending cleanup when the observation settles first during disposal
   h.terminate.mockReturnValueOnce(cleanup.promise)
   await vi.advanceTimersByTimeAsync(0)
   let settled = false
-  const disposed = h.owner.dispose().then(() => { settled = true })
+  const disposed = h.owner.dispose().then(() => {
+    settled = true
+  })
   try {
     observed.resolve({ state: 'unknown', revision: 1 })
     await vi.advanceTimersByTimeAsync(0)
@@ -191,5 +207,9 @@ it('waits for pending cleanup when the observation settles first during disposal
     cleanup.resolve(undefined)
     await disposed
     expect(settled).toBe(true)
-  } finally { observed.resolve({ state: 'unknown', revision: 1 }); cleanup.resolve(undefined); await disposed }
+  } finally {
+    observed.resolve({ state: 'unknown', revision: 1 })
+    cleanup.resolve(undefined)
+    await disposed
+  }
 })

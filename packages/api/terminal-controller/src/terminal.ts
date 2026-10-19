@@ -54,11 +54,16 @@ export class BrowserTerminal {
    * @param failed - diagnostic sink for background cleanup failure.
    */
   monitor(policy: TerminalRetentionPolicy, closing: () => void, closed: () => void, failed: (error: unknown) => void): void {
-    this.retention = new TerminalRetention(policy, () => this.handle.inspectActivity(), async () => {
-      closing()
-      await this.closeProcess()
-      closed()
-    }, failed)
+    this.retention = new TerminalRetention(
+      policy,
+      () => this.handle.inspectActivity(),
+      async () => {
+        closing()
+        await this.closeProcess()
+        closed()
+      },
+      failed,
+    )
   }
 
   /**
@@ -79,14 +84,26 @@ export class BrowserTerminal {
    * @param inputWindow - carrier frame capacity; absent for a carrier without an encoded-frame inbox limit.
    * @returns a screen baseline, output, per-attachment state and ordered command acknowledgements.
    */
-  async *attach(input: AsyncIterable<TerminalInput>, limits: Pick<TerminalEnvironment, 'maxInputBytes' | 'maxCols' | 'maxRows'>, signal: AbortSignal, inputWindow?: RemoteUplinkWindow): AsyncIterable<TerminalFrame> {
+  async *attach(
+    input: AsyncIterable<TerminalInput>,
+    limits: Pick<TerminalEnvironment, 'maxInputBytes' | 'maxCols' | 'maxRows'>,
+    signal: AbortSignal,
+    inputWindow?: RemoteUplinkWindow,
+  ): AsyncIterable<TerminalFrame> {
     signal.throwIfAborted()
     const follower = new TerminalFollower(this.maxBufferedBytes)
     const baseline = await this.enqueue(() => {
       signal.throwIfAborted()
       this.controller = follower
       this.broadcastState()
-      const snapshot: TerminalFrame = { type: 'snapshot', sequence: this.sequence, screen: this.serializer.serialize(), info: this.info, writable: this.writable(follower), ...inputWindow === undefined ? {} : { inputWindow } }
+      const snapshot: TerminalFrame = {
+        type: 'snapshot',
+        sequence: this.sequence,
+        screen: this.serializer.serialize(),
+        info: this.info,
+        writable: this.writable(follower),
+        ...(inputWindow === undefined ? {} : { inputWindow }),
+      }
       this.followers.add(follower)
       return snapshot
     })
@@ -110,7 +127,12 @@ export class BrowserTerminal {
     }
   }
 
-  private async consumeInput(input: AsyncIterator<TerminalInput>, follower: TerminalFollower, limits: Pick<TerminalEnvironment, 'maxInputBytes' | 'maxCols' | 'maxRows'>, signal: AbortSignal): Promise<void> {
+  private async consumeInput(
+    input: AsyncIterator<TerminalInput>,
+    follower: TerminalFollower,
+    limits: Pick<TerminalEnvironment, 'maxInputBytes' | 'maxCols' | 'maxRows'>,
+    signal: AbortSignal,
+  ): Promise<void> {
     let sequence = 0
     while (true) {
       const next = await input.next()
@@ -123,20 +145,29 @@ export class BrowserTerminal {
           this.requireController(follower)
           switch (command.type) {
             case 'write':
-              if (Buffer.byteLength(command.data, 'utf8') > limits.maxInputBytes) throw new Error('Terminal input exceeds the configured limit')
+              if (Buffer.byteLength(command.data, 'utf8') > limits.maxInputBytes)
+                throw new Error('Terminal input exceeds the configured limit')
               this.retention?.invalidate()
               await this.handle.write(command.data)
               break
             case 'resize':
-              if (!Number.isSafeInteger(command.cols) || command.cols < 2 || command.cols > limits.maxCols
-                || !Number.isSafeInteger(command.rows) || command.rows < 1 || command.rows > limits.maxRows) throw new Error('Terminal dimensions exceed the configured limits')
+              if (
+                !Number.isSafeInteger(command.cols) ||
+                command.cols < 2 ||
+                command.cols > limits.maxCols ||
+                !Number.isSafeInteger(command.rows) ||
+                command.rows < 1 ||
+                command.rows > limits.maxRows
+              )
+                throw new Error('Terminal dimensions exceed the configured limits')
               await this.handle.resize(command.cols, command.rows)
               this.screen.resize(command.cols, command.rows)
               this.info = { ...this.info, cols: command.cols, rows: command.rows }
               this.broadcastState()
               break
             /* v8 ignore next -- the Gateway codec validates this closed union. */
-            default: assertNever(command)
+            default:
+              assertNever(command)
           }
         })
         follower.push({ type: 'ack', sequence })
@@ -180,7 +211,9 @@ export class BrowserTerminal {
    * Stop unattended cleanup scheduling and await final process cleanup.
    * @returns after terminal and monitor quiescence.
    */
-  dispose(): Promise<void> { return this.retention?.dispose() ?? this.closeProcess() }
+  dispose(): Promise<void> {
+    return this.retention?.dispose() ?? this.closeProcess()
+  }
 
   private closeProcess(): Promise<void> {
     if (this.closing !== undefined) return this.closing
@@ -190,13 +223,18 @@ export class BrowserTerminal {
       for (const follower of this.followers) follower.finish()
       this.followers.clear()
       this.screen.dispose()
-    })().catch((error: unknown) => { this.closing = undefined; throw error })
+    })().catch((error: unknown) => {
+      this.closing = undefined
+      throw error
+    })
     return this.closing
   }
 
   private requireController(follower: TerminalFollower): void {
-    if (this.exited || this.closing !== undefined || this.info.state !== 'running') throw new RemoteError('terminal/control-unavailable', 'Terminal is not running', { reason: 'not-running' })
-    if (this.controller !== follower || !follower.active) throw new RemoteError('terminal/control-unavailable', 'Terminal input is controlled by another attachment', { reason: 'read-only' })
+    if (this.exited || this.closing !== undefined || this.info.state !== 'running')
+      throw new RemoteError('terminal/control-unavailable', 'Terminal is not running', { reason: 'not-running' })
+    if (this.controller !== follower || !follower.active)
+      throw new RemoteError('terminal/control-unavailable', 'Terminal input is controlled by another attachment', { reason: 'read-only' })
   }
 
   private broadcast(frame: TerminalFrame): void {
@@ -205,13 +243,21 @@ export class BrowserTerminal {
 
   private enqueue<T>(operation: () => T | Promise<T>): Promise<T> {
     const pending = this.operations.then(operation)
-    this.operations = pending.catch(() => { /* The caller owns this operation's failure; later cleanup must still run. */ })
+    this.operations = pending.catch(() => {
+      /* The caller owns this operation's failure; later cleanup must still run. */
+    })
     return pending
   }
 
   private async consume(): Promise<void> {
     const decoder = new TextDecoder('utf-8', { ignoreBOM: true })
-    const outcome = this.handle.done.then((value) => { this.exited = true; return { value } }, (error: unknown) => ({ error }))
+    const outcome = this.handle.done.then(
+      value => {
+        this.exited = true
+        return { value }
+      },
+      (error: unknown) => ({ error }),
+    )
     try {
       for await (const chunk of this.handle.output) {
         // Node Readable's iterator is untyped; this provider explicitly emits Buffer chunks.
@@ -231,7 +277,9 @@ export class BrowserTerminal {
   private async output(data: string): Promise<void> {
     if (data.length === 0) return
     await this.enqueue(async () => {
-      await new Promise<void>((resolve) => { this.screen.write(data, resolve) })
+      await new Promise<void>(resolve => {
+        this.screen.write(data, resolve)
+      })
       this.broadcast({ type: 'output', sequence: ++this.sequence, data })
     })
   }

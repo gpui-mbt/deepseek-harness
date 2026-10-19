@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { ImageLightbox } from '../src/ImageLightbox.tsx'
 
@@ -24,7 +24,9 @@ describe('ImageLightbox', () => {
     try {
       fireEvent.keyDown(close, { key: 'Escape' })
       expect(outerKey).not.toHaveBeenCalled()
-    } finally { document.body.removeEventListener('keydown', outerKey) }
+    } finally {
+      document.body.removeEventListener('keydown', outerKey)
+    }
     fireEvent.click(close)
     expect(onClose).toHaveBeenCalledTimes(2)
     view.unmount()

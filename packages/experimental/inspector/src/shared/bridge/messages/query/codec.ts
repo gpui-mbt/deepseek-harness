@@ -5,11 +5,7 @@ import { isPlainObject } from '../../../json.ts'
 import { exactKeys, exactObject, wireId } from '../../../validation.ts'
 import { INSPECTOR_PROTOCOL_VERSION } from '../../version.ts'
 import type { InspectorQuery, InspectorQueryError, InspectorQueryResult } from './commands.ts'
-import type {
-  InspectorQueryRequestFrame,
-  InspectorQueryRequestId,
-  InspectorQueryResponseFrame,
-} from './frames.ts'
+import type { InspectorQueryRequestFrame, InspectorQueryRequestId, InspectorQueryResponseFrame } from './frames.ts'
 import type { InspectorSourceGeneration, InspectorSourceId } from '../../ids.ts'
 
 /** Correlation fields recoverable before a query body is accepted. */
@@ -133,6 +129,4 @@ function parseOutcome(value: unknown): InspectorQueryResponseFrame['outcome'] {
   }
 }
 
-const QUERY_ERROR_CODES = new Set<InspectorQueryError['code']>([
-  'invalid-request', 'stale-source', 'result-too-large', 'internal-error',
-])
+const QUERY_ERROR_CODES = new Set<InspectorQueryError['code']>(['invalid-request', 'stale-source', 'result-too-large', 'internal-error'])

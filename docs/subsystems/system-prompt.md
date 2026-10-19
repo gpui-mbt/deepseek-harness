@@ -228,7 +228,7 @@ Expert waterfall over the assembled sections, contexts, tools, and variables. Sc
  * @param context - the caller's per-assembly context.
  * @mode waterfall
  */
-'system-prompt/assemble'(this: Scoped<SystemPrompt>, assembly: PromptAssembly, context: AssembleContext, next: () => Promise<PromptAssembly>): Promise<PromptAssembly>
+'system-prompt/assemble'( this: Scoped<SystemPrompt>, assembly: PromptAssembly, context: AssembleContext, next: () => Promise<PromptAssembly>, ): Promise<PromptAssembly>
 ```
 
 Types: [Scoped](scope.md)

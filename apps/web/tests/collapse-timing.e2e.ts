@@ -5,12 +5,21 @@ import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page, Route } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { deriveReplayScript } from '@deepseek-ai/dsh-llm-replay'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, parseSeedFixture, readPersistedEvents, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  parseSeedFixture,
+  readPersistedEvents,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { newEnglishPage, openSettings, saveFailureShot, writeComposerDraft } from './support.ts'
 
@@ -82,7 +91,8 @@ describe.skipIf(MODE === 'record')('web e2e: recorded collapse timing', () => {
     await page.getByRole('menuitem', { name: choice, exact: true }).click()
     await row.getByRole('button', { name: choice, exact: true }).waitFor()
     if (title === 'Work details') {
-      await expect.poll(() => scaffold.ctx.settings.describe().find(row => row.ns === 'ui-chat')?.value, UI_WAIT)
+      await expect
+        .poll(() => scaffold.ctx.settings.describe().find(row => row.ns === 'ui-chat')?.value, UI_WAIT)
         .toMatchObject({ transcriptView: choice.toLowerCase() })
     }
     await dialog.getByRole('button', { name: 'Close', exact: true }).click()
@@ -117,7 +127,7 @@ describe.skipIf(MODE === 'record')('web e2e: recorded collapse timing', () => {
     await selectPreference('Work details', 'Detailed')
     const group = page.getByRole('treeitem').first()
     await group.waitFor()
-    if (await group.getAttribute('aria-expanded') === 'false') await group.click()
+    if ((await group.getAttribute('aria-expanded')) === 'false') await group.click()
     await page.getByRole('treeitem').nth(1).click()
     await page.getByText('DONE', { exact: true }).waitFor()
     await expectProcess(1, false)

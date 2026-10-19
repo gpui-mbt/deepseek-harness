@@ -1,9 +1,14 @@
 import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import {
-  CRASH_REPORTS_RETAINED, crashReportFileName, ERROR_SECTION_MAX_CHARS, pruneCrashReports, renderCrashReport, RendererConsoleTail,
+  CRASH_REPORTS_RETAINED,
+  crashReportFileName,
+  ERROR_SECTION_MAX_CHARS,
+  pruneCrashReports,
+  renderCrashReport,
+  RendererConsoleTail,
   writeCrashReport,
   type CrashReportInput,
 } from '../src/crash-report.ts'
@@ -24,7 +29,10 @@ const input = (overrides: Partial<CrashReportInput> = {}): CrashReportInput => (
   source: 'host',
   phase: 'running',
   error: Object.assign(new Error("ENOENT: no such file or directory, open 'C:\\\\Temp\\\\dsh-subprocess-x\\\\out.log'"), {
-    errno: -4058, code: 'ENOENT', syscall: 'open', path: 'C:\\Temp\\dsh-subprocess-x\\out.log',
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'C:\\Temp\\dsh-subprocess-x\\out.log',
   }),
   rendererConsole: [],
   app: { name: 'DeepSeek Harness', version: '0.1.7', platform: 'win32', arch: 'x64', electron: '44.0.0', node: '24.18.1', locale: 'zh_CN' },
@@ -37,16 +45,22 @@ it('names files by sortable time and source', () => {
 })
 
 it('renders the facts header, the inspected error with its properties and cause, and the renderer console', () => {
-  const text = renderCrashReport(input({
-    error: new Error('wrapper', { cause: input().error }),
-    rendererConsole: ['dsh-app://app/assets/entry.js:12 client-modules: bundle script plugins/??a/client.js&rev=1 failed to load'],
-  }))
-  expect(text).toContain('time: 2026-09-22T10:30:00.123Z\nsource: host\nphase: running\napp: DeepSeek Harness 0.1.7\nplatform: win32 x64\nelectron: 44.0.0\nnode: 24.18.1\nlocale: zh_CN\n')
+  const text = renderCrashReport(
+    input({
+      error: new Error('wrapper', { cause: input().error }),
+      rendererConsole: ['dsh-app://app/assets/entry.js:12 client-modules: bundle script plugins/??a/client.js&rev=1 failed to load'],
+    }),
+  )
+  expect(text).toContain(
+    'time: 2026-09-22T10:30:00.123Z\nsource: host\nphase: running\napp: DeepSeek Harness 0.1.7\nplatform: win32 x64\nelectron: 44.0.0\nnode: 24.18.1\nlocale: zh_CN\n',
+  )
   expect(text).toContain('--- error ---\nError: wrapper')
   expect(text).toContain("syscall: 'open'")
   expect(text).toContain("path: 'C:\\\\Temp\\\\dsh-subprocess-x\\\\out.log'")
   expect(text).toContain('[cause]: Error: ENOENT')
-  expect(text).toContain('--- renderer console (error level, oldest first) ---\ndsh-app://app/assets/entry.js:12 client-modules: bundle script')
+  expect(text).toContain(
+    '--- renderer console (error level, oldest first) ---\ndsh-app://app/assets/entry.js:12 client-modules: bundle script',
+  )
   expect(text.endsWith('\n')).toBe(true)
 })
 
@@ -84,7 +98,8 @@ it('returns undefined and logs when the report cannot be written', async () => {
 it('prunes only the oldest crash reports and leaves other files alone', async () => {
   const root = await scratch()
   const names = Array.from({ length: CRASH_REPORTS_RETAINED + 3 }, (_, index) =>
-    crashReportFileName(new Date(Date.UTC(2026, 8, 1 + index)), 'main'))
+    crashReportFileName(new Date(Date.UTC(2026, 8, 1 + index)), 'main'),
+  )
   for (const name of names) await writeFile(join(root, name), '')
   const foreign = ['crash-notes.txt', 'crash-notes.log', 'crash-2026-09-01T00-00-00-000Z-unknown.log', 'update-journal.jsonl']
   for (const name of foreign) await writeFile(join(root, name), '')

@@ -1,7 +1,5 @@
 import type { ConversationNodeContext } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type {
-  TrajectoryContribution, TrajectoryConversationViewNode,
-} from './trajectory-contract.ts'
+import type { TrajectoryContribution, TrajectoryConversationViewNode } from './trajectory-contract.ts'
 
 /**
  * Wrap one contribution in the Engine-owned target envelope.

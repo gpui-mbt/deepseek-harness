@@ -5,19 +5,21 @@ import type { FileSystem } from '@deepseek-ai/dsh-fs'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 
 /** Deployment-owned worker invocation in the subprocess execution world. */
-export type LaunchConfig = {
-  /** Start a separately installed Node executable and JavaScript bootstrap. */
-  kind: 'node-script'
-  /** Executable name or path resolved by the subprocess provider. */
-  executable: string
-  /** Absolute preinstalled bootstrap; omitted maps this package's bootstrap into the execution world. */
-  bootstrapPath?: string
-} | {
-  /** Start the private PTC worker embedded in a packaged executable. */
-  kind: 'embedded'
-  /** Packaged executable name or path resolved by the subprocess provider. */
-  executable: string
-}
+export type LaunchConfig =
+  | {
+      /** Start a separately installed Node executable and JavaScript bootstrap. */
+      kind: 'node-script'
+      /** Executable name or path resolved by the subprocess provider. */
+      executable: string
+      /** Absolute preinstalled bootstrap; omitted maps this package's bootstrap into the execution world. */
+      bootstrapPath?: string
+    }
+  | {
+      /** Start the private PTC worker embedded in a packaged executable. */
+      kind: 'embedded'
+      /** Packaged executable name or path resolved by the subprocess provider. */
+      executable: string
+    }
 
 /**
  * Resolve the local carrier default or validate an explicit execution-world invocation.
@@ -41,19 +43,29 @@ export function resolveLaunch(config?: LaunchConfig): LaunchConfig {
  * @param persistent - Select the in-memory REPL bootstrap instead of the one-shot evaluator.
  * @returns Arguments following the resolved Node executable.
  */
-export function bootstrapArgs(fs: Pick<FileSystem, 'processPathFromHostPath'>, config: LaunchConfig, maxMessageBytes: number, persistent = false): string[] {
+export function bootstrapArgs(
+  fs: Pick<FileSystem, 'processPathFromHostPath'>,
+  config: LaunchConfig,
+  maxMessageBytes: number,
+  persistent = false,
+): string[] {
   switch (config.kind) {
     case 'embedded':
       if (persistent) throw new Error('Persistent PTC requires a node-script launch')
       return [String(maxMessageBytes)]
-    case 'node-script': return scriptBootstrapArgs(fs, config.bootstrapPath, maxMessageBytes, persistent)
+    case 'node-script':
+      return scriptBootstrapArgs(fs, config.bootstrapPath, maxMessageBytes, persistent)
     /* v8 ignore next -- Callers supply the resolved, closed LaunchConfig union. */
-    default: return assertNever(config)
+    default:
+      return assertNever(config)
   }
 }
 
 function scriptBootstrapArgs(
-  fs: Pick<FileSystem, 'processPathFromHostPath'>, bootstrapPath: string | undefined, maxMessageBytes: number, persistent: boolean,
+  fs: Pick<FileSystem, 'processPathFromHostPath'>,
+  bootstrapPath: string | undefined,
+  maxMessageBytes: number,
+  persistent: boolean,
 ): string[] {
   const moduleName = persistent ? 'persistent-process' : 'process'
   if (bootstrapPath !== undefined) return [bootstrapPath, String(maxMessageBytes)]

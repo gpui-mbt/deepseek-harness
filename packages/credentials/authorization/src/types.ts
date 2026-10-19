@@ -47,19 +47,23 @@ export type AuthorizationPrompt = {
    * whole authorization is cancelled through the request's signal instead.
    */
   signal?: AbortSignal
-} & ({
-  kind: 'text'
-  message: string
-  placeholder?: string
-} | {
-  kind: 'secret'
-  message: string
-  placeholder?: string
-} | {
-  kind: 'select'
-  message: string
-  options: readonly AuthorizationPromptOption[]
-})
+} & (
+  | {
+      kind: 'text'
+      message: string
+      placeholder?: string
+    }
+  | {
+      kind: 'secret'
+      message: string
+      placeholder?: string
+    }
+  | {
+      kind: 'select'
+      message: string
+      options: readonly AuthorizationPromptOption[]
+    }
+)
 
 /** How one authorization attempt ended, as its own caller sees it. */
 export type AuthorizationStatus = 'authorized' | 'cancelled'

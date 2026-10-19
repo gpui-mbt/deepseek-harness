@@ -1,19 +1,10 @@
-import { describe, expectTypeOf, it } from 'vitest'
+import { describe, expectTypeOf, it } from 'vite-plus/test'
 import type { Context } from '@deepseek-ai/cordis'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import type {
-  ToolDispatchExecution,
-  ToolExecution,
-  ToolExecutionInput,
-  ToolRunContext,
-} from '@deepseek-ai/dsh-tools'
+import type { ToolDispatchExecution, ToolExecution, ToolExecutionInput, ToolRunContext } from '@deepseek-ai/dsh-tools'
 
-function inputAndExecutionContracts(
-  input: ToolExecutionInput,
-  execution: ToolExecution,
-  run: ToolRunContext,
-): void {
+function inputAndExecutionContracts(input: ToolExecutionInput, execution: ToolExecution, run: ToolRunContext): void {
   // @ts-expect-error -- every typed invocation must supply a caller-owned signal.
   const missingSignal: ToolExecutionInput = { callId: ToolCallId('missing'), name: 'probe', arguments: {} }
   void missingSignal
@@ -57,7 +48,7 @@ function observerContracts(ctx: Context): void {
     exec.signal = undefined
     return next()
   })
-  ctx.on('tools/result', (exec) => {
+  ctx.on('tools/result', exec => {
     // @ts-expect-error -- result observers see a readonly signal.
     exec.signal = new AbortController().signal
     // @ts-expect-error -- result observers cannot remove the required signal.

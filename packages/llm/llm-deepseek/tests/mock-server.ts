@@ -45,7 +45,9 @@ export async function mockServer(script: Behavior[]): Promise<MockServer> {
   let nextFile = 1
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
     const chunks: Buffer[] = []
-    request.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+    request.on('data', (chunk: Buffer) => {
+      chunks.push(chunk)
+    })
     request.on('end', () => {
       void (async () => {
         const url = new URL(request.url ?? '/', 'http://localhost')
@@ -82,21 +84,26 @@ export async function mockServer(script: Behavior[]): Promise<MockServer> {
         if (url.pathname === '/v1/files' && request.method === 'GET') {
           fileRequests.push({ method: 'GET', path: `${url.pathname}${url.search}` })
           const data = [...files.values()]
-          response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
-            data,
-            first_id: data[0]?.id,
-            last_id: data.at(-1)?.id,
-            has_more: false,
-          }))
+          response.writeHead(200, { 'content-type': 'application/json' }).end(
+            JSON.stringify({
+              data,
+              first_id: data[0]?.id,
+              last_id: data.at(-1)?.id,
+              has_more: false,
+            }),
+          )
           return
         }
         if (url.pathname.startsWith('/v1/files/') && request.method === 'DELETE') {
           const id = decodeURIComponent(url.pathname.slice('/v1/files/'.length))
           files.delete(id)
           fileRequests.push({ method: 'DELETE', path: url.pathname })
-          response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
-            id, type: 'file_deleted',
-          }))
+          response.writeHead(200, { 'content-type': 'application/json' }).end(
+            JSON.stringify({
+              id,
+              type: 'file_deleted',
+            }),
+          )
           return
         }
         if (url.pathname.startsWith('/v1/files/') && request.method === 'GET') {
@@ -104,9 +111,11 @@ export async function mockServer(script: Behavior[]): Promise<MockServer> {
           fileRequests.push({ method: 'GET', path: url.pathname })
           const file = files.get(id)
           if (file === undefined) {
-            response.writeHead(404, { 'content-type': 'application/json' }).end(JSON.stringify({
-              error: { message: 'file not found', code: 'file_not_found' },
-            }))
+            response.writeHead(404, { 'content-type': 'application/json' }).end(
+              JSON.stringify({
+                error: { message: 'file not found', code: 'file_not_found' },
+              }),
+            )
           } else {
             response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(file))
           }
@@ -136,7 +145,12 @@ export async function mockServer(script: Behavior[]): Promise<MockServer> {
             return
           }
           response.write(`data: ${behavior.events[index]}\n\n`)
-          setTimeout(() => { write(index + 1) }, behavior.kind === 'sse' ? behavior.delayMs ?? 0 : 5)
+          setTimeout(
+            () => {
+              write(index + 1)
+            },
+            behavior.kind === 'sse' ? (behavior.delayMs ?? 0) : 5,
+          )
         }
         write(0)
       })().catch((error: unknown) => {
@@ -154,6 +168,11 @@ export async function mockServer(script: Behavior[]): Promise<MockServer> {
     headers,
     fileRequests,
     script,
-    close: () => new Promise(resolve => server.close(() => { resolve() })),
+    close: () =>
+      new Promise(resolve =>
+        server.close(() => {
+          resolve()
+        }),
+      ),
   }
 }

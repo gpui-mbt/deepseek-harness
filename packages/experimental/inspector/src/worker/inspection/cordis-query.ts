@@ -9,9 +9,6 @@ import type { InspectorQuery, InspectorQueryResult } from '../../shared/bridge/m
  * @param query - Validated query command.
  * @returns The result corresponding to the query operation.
  */
-export async function executeInspectorQuery(
-  reader: CordisRuntimeTreeReader,
-  query: InspectorQuery,
-): Promise<InspectorQueryResult> {
+export async function executeInspectorQuery(reader: CordisRuntimeTreeReader, query: InspectorQuery): Promise<InspectorQueryResult> {
   return { op: query.op, tree: await reader.getTree() }
 }

@@ -8,7 +8,15 @@ import { authorizeUrlWithTheme } from './authorize-url.ts'
 import css from './SignInDialog.module.css'
 
 /** @param props - safe account state, localized copy, and user actions. @returns login dialog. */
-export function SignInDialog({ account, colorScheme, start, cancel, close, useApiKey, t }: {
+export function SignInDialog({
+  account,
+  colorScheme,
+  start,
+  cancel,
+  close,
+  useApiKey,
+  t,
+}: {
   account: AccountSnapshot
   /** Resolved scheme of the active application theme; the copied link carries it. */
   colorScheme: 'light' | 'dark'
@@ -22,11 +30,17 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   const [failed, setFailed] = useState(false)
   const [copyResult, setCopyResult] = useState<{ messageKey: 'copiedLink' | 'copyFailed' } | null>(null)
   const attempt = account.view?.attempt
-  useEffect(() => { setCopyResult(null) }, [attempt?.id, attempt?.authorizeUrl])
+  useEffect(() => {
+    setCopyResult(null)
+  }, [attempt?.id, attempt?.authorizeUrl])
   useEffect(() => {
     if (copyResult === null) return
-    const timer = setTimeout(() => { setCopyResult(null) }, 2000)
-    return () => { clearTimeout(timer) }
+    const timer = setTimeout(() => {
+      setCopyResult(null)
+    }, 2000)
+    return () => {
+      clearTimeout(timer)
+    }
   }, [copyResult])
   const authorizeUrl = attempt?.authorizeUrl
   const phase = attempt?.phase
@@ -34,19 +48,30 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   const expired = phase === 'expired'
   const localFailure = failed || account.loginFailed || account.failed
   const error = localFailure || phase === 'failed'
-  const failureKey = !localFailure
-    && phase === 'failed' && attempt?.errorCode === 'no-response' ? 'noResponse' : 'failed'
+  const failureKey = !localFailure && phase === 'failed' && attempt?.errorCode === 'no-response' ? 'noResponse' : 'failed'
   const waiting = active && !error
   const committing = phase === 'committing'
-  useEffect(() => { if (account.view?.status === 'credential-stored') close() }, [account.view?.status, close])
+  useEffect(() => {
+    if (account.view?.status === 'credential-stored') close()
+  }, [account.view?.status, close])
   const run = async (action: () => Promise<void>) => {
     setBusy(true)
     setFailed(false)
-    try { await action() } catch { setFailed(true) } finally { setBusy(false) }
+    try {
+      await action()
+    } catch {
+      setFailed(true)
+    } finally {
+      setBusy(false)
+    }
   }
   const dismiss = () => {
     if (committing || busy) return
-    if (active && attempt) void run(async () => { await cancel(attempt.id); close() })
+    if (active && attempt)
+      void run(async () => {
+        await cancel(attempt.id)
+        close()
+      })
     else close()
   }
   const retry = async () => {
@@ -57,33 +82,59 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
     try {
       await navigator.clipboard.writeText(authorizeUrlWithTheme(authorizeUrl, colorScheme))
       setCopyResult({ messageKey: 'copiedLink' })
-    } catch { setCopyResult({ messageKey: 'copyFailed' }) }
+    } catch {
+      setCopyResult({ messageKey: 'copyFailed' })
+    }
   }
   const title = error ? t('failureTitle') : active ? t('browserTitle') : expired ? t('timeoutTitle') : t('loginTitle')
-  return <Modal open headless title={title} onClose={dismiss} className={css.dialog as string}>
-    <div className={css.content}>
-      <div className={css.header}>
-        <h2 className={css.title}>{title}</h2>
-        <button type="button" className={css.close} aria-label={t('close')} onClick={dismiss}>
-          <IconCloseOutlineRegular size={14} />
-        </button>
+  return (
+    <Modal open headless title={title} onClose={dismiss} className={css.dialog as string}>
+      <div className={css.content}>
+        <div className={css.header}>
+          <h2 className={css.title}>{title}</h2>
+          <button type="button" className={css.close} aria-label={t('close')} onClick={dismiss}>
+            <IconCloseOutlineRegular size={14} />
+          </button>
+        </div>
+        {waiting ? (
+          <p className={css.description}>
+            {t('browserPrompt')}
+            <button
+              type="button"
+              className={css.link}
+              disabled={!authorizeUrl}
+              onClick={
+                authorizeUrl
+                  ? () => {
+                      void copyLink(authorizeUrl)
+                    }
+                  : undefined
+              }
+            >
+              {t(copyResult?.messageKey ?? 'copyLink')}
+            </button>
+            {t('browserDescription')}
+          </p>
+        ) : (
+          <p className={css.description}>{error ? t(failureKey) : expired ? t('timeoutDescription') : t('loginDescription')}</p>
+        )}
       </div>
-      {waiting ? <p className={css.description}>
-        {t('browserPrompt')}<button type="button" className={css.link} disabled={!authorizeUrl}
-          onClick={authorizeUrl ? () => { void copyLink(authorizeUrl) } : undefined}>
-          {t(copyResult?.messageKey ?? 'copyLink')}
-        </button>{t('browserDescription')}
-      </p> : <p className={css.description}>
-        {error ? t(failureKey) : expired ? t('timeoutDescription') : t('loginDescription')}
-      </p>}
-    </div>
-    <div className={css.actions}>
-      <Button variant="outline" className={css.secondaryButton} disabled={committing || busy}
-        onClick={active ? dismiss : useApiKey}>{t(active ? 'cancel' : 'addApiKey')}</Button>
-      <Button variant="primary" className={css.primaryButton} disabled={busy || committing || waiting || account.view === undefined}
-        aria-label={waiting ? t('waiting') : undefined} onClick={() => { void run(retry) }}>
-        {waiting ? <IconLoadingOutlineRegular className={css.spinner} /> : t(expired || error ? 'retry' : 'signIn')}
-      </Button>
-    </div>
-  </Modal>
+      <div className={css.actions}>
+        <Button variant="outline" className={css.secondaryButton} disabled={committing || busy} onClick={active ? dismiss : useApiKey}>
+          {t(active ? 'cancel' : 'addApiKey')}
+        </Button>
+        <Button
+          variant="primary"
+          className={css.primaryButton}
+          disabled={busy || committing || waiting || account.view === undefined}
+          aria-label={waiting ? t('waiting') : undefined}
+          onClick={() => {
+            void run(retry)
+          }}
+        >
+          {waiting ? <IconLoadingOutlineRegular className={css.spinner} /> : t(expired || error ? 'retry' : 'signIn')}
+        </Button>
+      </div>
+    </Modal>
+  )
 }

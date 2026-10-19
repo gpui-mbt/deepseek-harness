@@ -9,13 +9,18 @@
  */
 
 import { Win32Error } from '@deepseek-ai/dsh-win32-process'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import koffi from 'koffi'
 
 import { allocBytes, isNullPtr } from '../src/ffi.ts'
 import type { NativePtr, Win32Bindings } from '../src/ffi.ts'
 import {
-  createRestrictedToken, findLogonSid, makeWellKnownSid, openCurrentProcessToken, restrictTokenIntegrity, setTokenDefaultDaclGrant,
+  createRestrictedToken,
+  findLogonSid,
+  makeWellKnownSid,
+  openCurrentProcessToken,
+  restrictTokenIntegrity,
+  setTokenDefaultDaclGrant,
 } from '../src/token.ts'
 import * as abi from '../src/win32-abi.ts'
 
@@ -325,7 +330,9 @@ describe('setTokenDefaultDaclGrant failure paths', () => {
 
   it('rejects a token that carries no default DACL', () => {
     const api = daclApi({ needed: 8, currentDacl: 0n, newDacl: 0n })
-    expect(() => { setTokenDefaultDaclGrant(api, token, sid) }).toThrow(/no default DACL/u)
+    expect(() => {
+      setTokenDefaultDaclGrant(api, token, sid)
+    }).toThrow(/no default DACL/u)
   })
 
   it('reports a failed SetEntriesInAclW merge', () => {
@@ -379,9 +386,7 @@ describe('setTokenDefaultDaclGrant failure paths', () => {
 describe('restrictTokenIntegrity', () => {
   it('sets TokenIntegrityLevel to the Low label SID with SE_GROUP_INTEGRITY', () => {
     const lowSid = allocBytes(12)
-    const setTokenInformation = vi.fn((
-      _token: unknown, cls: number, info: Buffer, length: number,
-    ) => {
+    const setTokenInformation = vi.fn((_token: unknown, cls: number, info: Buffer, length: number) => {
       expect(cls).toBe(abi.TokenIntegrityLevel)
       expect(length).toBe(abi.TOKEN_MANDATORY_LABEL_SIZE + 12)
       expect(info.readBigUInt64LE(0)).toBe(koffi.address(lowSid))
@@ -429,28 +434,46 @@ describe('restrictTokenIntegrity', () => {
 
 describe('createRestrictedToken failure paths', () => {
   it('builds the read-only restricting list without a write SID', () => {
-    const create = vi.fn((
-      _existing: unknown, _flags: unknown, _dc: unknown, _ds: unknown, _pc: unknown, _pd: unknown,
-      count: number, _sids: unknown, slot: NativePtr,
-    ) => {
-      koffi.encode(slot, PVOID, 9n)
-      expect(count).toBe(2)
-      return 1
-    })
+    const create = vi.fn(
+      (
+        _existing: unknown,
+        _flags: unknown,
+        _dc: unknown,
+        _ds: unknown,
+        _pc: unknown,
+        _pd: unknown,
+        count: number,
+        _sids: unknown,
+        slot: NativePtr,
+      ) => {
+        koffi.encode(slot, PVOID, 9n)
+        expect(count).toBe(2)
+        return 1
+      },
+    )
     const api = { createRestrictedToken: create } as unknown as Win32Bindings
     const logon = allocBytes(12)
     expect(createRestrictedToken(api, 1n as NativePtr, logon, [], { world: 2n as NativePtr }, 'read-only')).toBe(9n)
   })
 
   it('builds the workspace-write restricting list with the write SID', () => {
-    const create = vi.fn((
-      _existing: unknown, _flags: unknown, _dc: unknown, _ds: unknown, _pc: unknown, _pd: unknown,
-      count: number, _sids: unknown, slot: NativePtr,
-    ) => {
-      koffi.encode(slot, PVOID, 9n)
-      expect(count).toBe(3)
-      return 1
-    })
+    const create = vi.fn(
+      (
+        _existing: unknown,
+        _flags: unknown,
+        _dc: unknown,
+        _ds: unknown,
+        _pc: unknown,
+        _pd: unknown,
+        count: number,
+        _sids: unknown,
+        slot: NativePtr,
+      ) => {
+        koffi.encode(slot, PVOID, 9n)
+        expect(count).toBe(3)
+        return 1
+      },
+    )
     const api = { createRestrictedToken: create } as unknown as Win32Bindings
     const logon = allocBytes(12)
     expect(createRestrictedToken(api, 1n as NativePtr, logon, [3n as NativePtr], { world: 2n as NativePtr }, 'workspace-write')).toBe(9n)

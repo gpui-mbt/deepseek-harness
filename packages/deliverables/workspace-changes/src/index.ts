@@ -20,9 +20,7 @@ import { GitRunner } from './git.ts'
 import { TurnRecorder } from './recorder.ts'
 import type { WorkspaceChanges } from './types.ts'
 
-export type {
-  WorkspaceChangedFile, WorkspaceChanges, WorkspaceChangesSummary, WorkspaceDiffHunk, WorkspaceFileDiff,
-} from './types.ts'
+export type { WorkspaceChangedFile, WorkspaceChanges, WorkspaceChangesSummary, WorkspaceDiffHunk, WorkspaceFileDiff } from './types.ts'
 
 /** Stable Loader identity. */
 export const name = 'workspace-changes'
@@ -78,8 +76,11 @@ async function resolveGit(ctx: Context, signal: AbortSignal): Promise<string | n
   }
   if (process.platform !== 'darwin' || executable !== '/usr/bin/git') return executable
   const probe = ctx.subprocess.spawn({
-    argv: ['/usr/bin/xcode-select', '-p'], cwd: homedir(),
-    stdio: { stdin: 'ignore', stdout: { maxBytes: 4096 }, stderr: { maxBytes: 4096 } }, graceMs: 1_000, signal,
+    argv: ['/usr/bin/xcode-select', '-p'],
+    cwd: homedir(),
+    stdio: { stdin: 'ignore', stdout: { maxBytes: 4096 }, stderr: { maxBytes: 4096 } },
+    graceMs: 1_000,
+    signal,
   })
   const outcome = await probe.done.catch(() => ({ exitCode: null }))
   return outcome.exitCode === 0 ? executable : null
@@ -94,8 +95,11 @@ async function resolveGit(ctx: Context, signal: AbortSignal): Promise<string | n
  */
 export function apply(ctx: Context, config: Config): void {
   for (const [field, value] of [
-    ['timeoutMs', config.timeoutMs], ['outputMaxBytes', config.outputMaxBytes], ['maxFiles', config.maxFiles],
-    ['maxFileBytes', config.maxFileBytes], ['diffTimeoutMs', config.diffTimeoutMs],
+    ['timeoutMs', config.timeoutMs],
+    ['outputMaxBytes', config.outputMaxBytes],
+    ['maxFiles', config.maxFiles],
+    ['maxFileBytes', config.maxFileBytes],
+    ['diffTimeoutMs', config.diffTimeoutMs],
   ] as const) {
     if (!Number.isSafeInteger(value) || value < 1) throw new Error(`workspace-changes requires a positive integer ${field}`)
   }
@@ -120,7 +124,7 @@ export function apply(ctx: Context, config: Config): void {
   ctx.provide('workspaceChanges', service)
   let runner: Promise<GitRunner | null> | undefined
   const gitRunner = (): Promise<GitRunner | null> => {
-    runner ??= resolveGit(ctx, lifetime.signal).then((executable) => {
+    runner ??= resolveGit(ctx, lifetime.signal).then(executable => {
       if (executable === null) {
         ctx.logger.info('workspace-changes: git is unavailable; only file-tool edits are summarized')
         return null
@@ -133,9 +137,14 @@ export function apply(ctx: Context, config: Config): void {
     let recorder = recorders.get(session)
     if (recorder === undefined) {
       recorder = new TurnRecorder(session, cwd, {
-        git: gitRunner(), tempRoot: tmpdir(), maxFiles: config.maxFiles,
-        maxFileBytes: config.maxFileBytes, diffTimeoutMs: config.diffTimeoutMs,
-        warn: (message) => { ctx.logger.warn(message) },
+        git: gitRunner(),
+        tempRoot: tmpdir(),
+        maxFiles: config.maxFiles,
+        maxFileBytes: config.maxFileBytes,
+        diffTimeoutMs: config.diffTimeoutMs,
+        warn: message => {
+          ctx.logger.warn(message)
+        },
       })
       recorders.set(session, recorder)
       byId.set(session.id, recorder)
@@ -151,7 +160,9 @@ export function apply(ctx: Context, config: Config): void {
     if (event.type === 'tool/result') recorders.get(session)?.observe(event)
     else if (event.type === 'turn/end') recorders.get(session)?.end(event.data.turn)
   })
-  ctx.on('session/disposed', (session) => { void forget(session) })
+  ctx.on('session/disposed', session => {
+    void forget(session)
+  })
   ctx.on('agent/turn-stopping', async ({ agent, turn }) => {
     await recorders.get(agent.session)?.stopping(turn)
   })
@@ -161,16 +172,24 @@ export function apply(ctx: Context, config: Config): void {
     recorder.capture(ctx.fs.processPath(target))
     await recorder.settled()
   }
-  ctx.on('fs/write-intent', async (target, actor, next) => {
-    const intent = await next()
-    await capture(target, actor)
-    return intent
-  }, { prepend: true })
-  ctx.on('fs/edit-intent', async (target, actor, next) => {
-    const intent = await next()
-    await capture(target, actor)
-    return intent
-  }, { prepend: true })
+  ctx.on(
+    'fs/write-intent',
+    async (target, actor, next) => {
+      const intent = await next()
+      await capture(target, actor)
+      return intent
+    },
+    { prepend: true },
+  )
+  ctx.on(
+    'fs/edit-intent',
+    async (target, actor, next) => {
+      const intent = await next()
+      await capture(target, actor)
+      return intent
+    },
+    { prepend: true },
+  )
   ctx.on('tools/pre-execute', async (exec, next) => {
     const session = exec.agent?.session
     const recorder = session === undefined ? undefined : recorders.get(session)

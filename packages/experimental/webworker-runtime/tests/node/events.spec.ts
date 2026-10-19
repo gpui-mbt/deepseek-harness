@@ -5,7 +5,7 @@
  * `emit` reports, the point at which `once` unregisters, and the listener set an
  * in-flight emit dispatches to.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { EventEmitter } from '../../src/node/builtin_modules/implemented/events.ts'
 
 describe('emit', () => {
@@ -21,8 +21,12 @@ describe('emit', () => {
   it('calls the listeners in registration order with every argument', () => {
     const emitter = new EventEmitter()
     const seen: string[] = []
-    emitter.on('data', (...args) => { seen.push(`first:${args.join(',')}`) })
-    emitter.on('data', (...args) => { seen.push(`second:${args.join(',')}`) })
+    emitter.on('data', (...args) => {
+      seen.push(`first:${args.join(',')}`)
+    })
+    emitter.on('data', (...args) => {
+      seen.push(`second:${args.join(',')}`)
+    })
     emitter.emit('data', 'a', 1, true)
     expect(seen).toEqual(['first:a,1,true', 'second:a,1,true'])
   })
@@ -30,8 +34,12 @@ describe('emit', () => {
   it('puts a prepended listener ahead of the ones already registered', () => {
     const emitter = new EventEmitter()
     const seen: string[] = []
-    emitter.on('data', () => { seen.push('registered') })
-    emitter.prependListener('data', () => { seen.push('prepended') })
+    emitter.on('data', () => {
+      seen.push('registered')
+    })
+    emitter.prependListener('data', () => {
+      seen.push('prepended')
+    })
     emitter.emit('data')
     expect(seen).toEqual(['prepended', 'registered'])
   })
@@ -42,7 +50,9 @@ describe('emit', () => {
     // second listener here.
     const emitter = new EventEmitter()
     const seen: string[] = []
-    const second = (): void => { seen.push('second') }
+    const second = (): void => {
+      seen.push('second')
+    }
     emitter.on('data', () => {
       seen.push('first')
       emitter.off('data', second)
@@ -72,7 +82,9 @@ describe('once', () => {
   it('passes the emit arguments through the wrapper', () => {
     const emitter = new EventEmitter()
     const seen: unknown[][] = []
-    emitter.once('exit', (...args) => { seen.push(args) })
+    emitter.once('exit', (...args) => {
+      seen.push(args)
+    })
     emitter.emit('exit', 3, 'SIGTERM')
     expect(seen).toEqual([[3, 'SIGTERM']])
   })
@@ -82,7 +94,9 @@ describe('once', () => {
     // that never saw the wrapper can still cancel its own registration.
     const emitter = new EventEmitter()
     let calls = 0
-    const listener = (): void => { calls += 1 }
+    const listener = (): void => {
+      calls += 1
+    }
     emitter.once('ready', listener)
     emitter.off('ready', listener)
     expect(emitter.listenerCount('ready')).toBe(0)
@@ -126,9 +140,13 @@ describe('registration bookkeeping', () => {
     // the surviving listeners run.
     const emitter = new EventEmitter()
     const seen: string[] = []
-    const repeated = (): void => { seen.push('repeated') }
+    const repeated = (): void => {
+      seen.push('repeated')
+    }
     emitter.on('data', repeated)
-    emitter.on('data', () => { seen.push('other') })
+    emitter.on('data', () => {
+      seen.push('other')
+    })
     emitter.on('data', repeated)
     emitter.off('data', repeated)
     emitter.emit('data')

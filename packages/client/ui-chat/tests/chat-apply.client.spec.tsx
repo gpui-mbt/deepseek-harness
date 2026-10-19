@@ -1,28 +1,29 @@
 // @vitest-environment jsdom
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { act, fireEvent, render } from '@testing-library/react'
 import { useRef } from 'react'
-import {
-  SlotTestRuntime, stubConfigForm, usePinnedBrowserLanguages,
-} from '@deepseek-ai/dsh-client-test-runtime'
+import { SlotTestRuntime, stubConfigForm, usePinnedBrowserLanguages } from '@deepseek-ai/dsh-client-test-runtime'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { SessionBinding } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
-import {
-  apply as applyConversation, inject as injectConversation,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { apply as applyConversation, inject as injectConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
-  ConversationLocationDataSource, ConversationLocationDataStore, ConversationTurnDataMap,
+  ConversationLocationDataSource,
+  ConversationLocationDataStore,
+  ConversationTurnDataMap,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import {
-  apply as applyChat, EMPTY_CHAT_SNAPSHOT, inject as injectChat,
-} from '@deepseek-ai/dsh-client-ui-chat/client'
+import { apply as applyChat, EMPTY_CHAT_SNAPSHOT, inject as injectChat } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {
-  ChatFlowInjected, ChatNodeInjected, ChatSnapshot, TranscriptViewRowInjected, UseChatNodeTurnData, UseDisclosure,
+  ChatFlowInjected,
+  ChatNodeInjected,
+  ChatSnapshot,
+  TranscriptViewRowInjected,
+  UseChatNodeTurnData,
+  UseDisclosure,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { QuotaNoticeInjected } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { PerformanceUsageRowInjected } from '../src/client/settings/PerformanceUsageRow.tsx'
@@ -48,9 +49,7 @@ async function bench() {
   const chatSettings = stubConfigForm<ChatSettings>()
   runtime.ctx.provide('configForms', {
     developerTools: { enabled: createSnapshotStore(true) },
-    get: (namespace: string) => namespace === CHAT_SETTINGS_NAMESPACE
-      ? chatSettings.scope
-      : stubConfigForm().scope,
+    get: (namespace: string) => (namespace === CHAT_SETTINGS_NAMESPACE ? chatSettings.scope : stubConfigForm().scope),
   } as never)
   runtime.ctx.provide('layout', { openRightbar: vi.fn(), closeRightbar: vi.fn() } as never)
   runtime.ctx.provide('sidebarRight', { openResource: vi.fn(), openTab: vi.fn() } as never)
@@ -74,12 +73,15 @@ async function bench() {
   const locale = new LocaleRuntime(runtime.ctx)
   runtime.ctx.provide('locale', locale)
   runtime.slots.installLocale(locale)
-  await runtime.root.declare({
-    'main': { kind: 'keyed', scope: 'root' },
-    'shell.overlay': { kind: 'list', scope: 'root' },
-    'conversation.approval.detail': { kind: 'single', scope: 'session' },
-    'settings.general.item': { kind: 'list', scope: 'root' },
-  }, (_props: { renderSlot?: unknown }) => null)
+  await runtime.root.declare(
+    {
+      main: { kind: 'keyed', scope: 'root' },
+      'shell.overlay': { kind: 'list', scope: 'root' },
+      'conversation.approval.detail': { kind: 'single', scope: 'session' },
+      'settings.general.item': { kind: 'list', scope: 'root' },
+    },
+    (_props: { renderSlot?: unknown }) => null,
+  )
   const conversation = await runtime.mount({
     inject: [...injectConversation],
     apply: applyConversation,
@@ -134,12 +136,15 @@ describe('Chat apply wiring', () => {
     const views = b.runtime.slots.entries('conversation.view')
     expect(views.map(row => row.options.id)).toEqual(['chat'])
     expect(resolveSlotLabel(views[0]?.options.label)).toBe('对话')
-    expect(b.runtime.slots.spec('conversation.chat.node'))
-      .toMatchObject({ kind: 'keyed', scope: 'session' })
-    expect(b.runtime.slots.entries('conversation.composer.dock').map(row => row.options.id))
-      .toEqual(['stats'])
-    expect(b.runtime.slots.entries('settings.general.item').map(row => row.options.id))
-      .toEqual(['transcript-view', 'link-opening', 'clock-time-zone', 'composer-enter', 'performance-usage'])
+    expect(b.runtime.slots.spec('conversation.chat.node')).toMatchObject({ kind: 'keyed', scope: 'session' })
+    expect(b.runtime.slots.entries('conversation.composer.dock').map(row => row.options.id)).toEqual(['stats'])
+    expect(b.runtime.slots.entries('settings.general.item').map(row => row.options.id)).toEqual([
+      'transcript-view',
+      'link-opening',
+      'clock-time-zone',
+      'composer-enter',
+      'performance-usage',
+    ])
     await b.runtime.dispose()
   })
 
@@ -179,14 +184,24 @@ describe('Chat apply wiring', () => {
   it('lets another registrant replace the composer stats row by id', async () => {
     const b = await bench()
     onTestFinished(() => b.runtime.dispose())
-    function PluginStats() { return null }
-    const dispose = b.runtime.ctx.slots.register({
-      name: 'conversation.composer.dock', id: 'stats', order: 0, priority: -1,
-    }, PluginStats)
-    const winners = (): Record<string, unknown> => Object.fromEntries(
-      b.runtime.slots.entriesOfSlot('conversation.composer.dock')
-        .map((entry): [string, unknown] => [entry.options.id ?? '', entry.component]),
+    function PluginStats() {
+      return null
+    }
+    const dispose = b.runtime.ctx.slots.register(
+      {
+        name: 'conversation.composer.dock',
+        id: 'stats',
+        order: 0,
+        priority: -1,
+      },
+      PluginStats,
     )
+    const winners = (): Record<string, unknown> =>
+      Object.fromEntries(
+        b.runtime.slots
+          .entriesOfSlot('conversation.composer.dock')
+          .map((entry): [string, unknown] => [entry.options.id ?? '', entry.component]),
+      )
     expect(winners()).toEqual({ stats: PluginStats })
     dispose()
     expect(winners()).toEqual({ stats: StatsPills })
@@ -198,12 +213,13 @@ describe('Chat apply wiring', () => {
   ] as const)('mirrors the Host transcript preference into its Settings row (desktop: $desktop)', async ({ desktop, initial, choice }) => {
     if (desktop) {
       vi.stubGlobal('dshDesktop', {})
-      onTestFinished(() => { vi.unstubAllGlobals() })
+      onTestFinished(() => {
+        vi.unstubAllGlobals()
+      })
     }
     const b = await bench()
     onTestFinished(() => b.runtime.dispose())
-    const row = b.runtime.slots.entries('settings.general.item')
-      .find(entry => entry.options.id === 'transcript-view')!
+    const row = b.runtime.slots.entries('settings.general.item').find(entry => entry.options.id === 'transcript-view')!
     const face = (row.inject as unknown as () => TranscriptViewRowInjected)()
 
     expect(face.hooks.transcriptView.getSnapshot()).toBe(initial)
@@ -212,7 +228,10 @@ describe('Chat apply wiring', () => {
     expect(b.chatSettings.set).toHaveBeenCalledWith('transcriptView', choice)
 
     b.chatSettings.publish({
-      status: 'ready', value: { linkOpening: 'sidebar', transcriptView: 'compact', performanceUsage: 'detailed', clockTimeZone: 'local' }, revision: 1, writable: true,
+      status: 'ready',
+      value: { linkOpening: 'sidebar', transcriptView: 'compact', performanceUsage: 'detailed', clockTimeZone: 'local' },
+      revision: 1,
+      writable: true,
     })
     expect(face.hooks.transcriptView.getSnapshot()).toBe('compact')
   })
@@ -220,8 +239,7 @@ describe('Chat apply wiring', () => {
   it('restores saved collapse timing when the Chat plugin remounts', async () => {
     const b = await bench()
     try {
-      const row = b.runtime.slots.entries('settings.general.item')
-        .find(entry => entry.options.id === 'transcript-view')!
+      const row = b.runtime.slots.entries('settings.general.item').find(entry => entry.options.id === 'transcript-view')!
       const face = row.inject!()
       const hooks = face.hooks as TranscriptViewRowInjected['hooks']
       const setCollapseTiming = face.setCollapseTiming as TranscriptViewRowInjected['setCollapseTiming']
@@ -229,25 +247,45 @@ describe('Chat apply wiring', () => {
       setCollapseTiming('next-input')
       expect(hooks.collapseTiming.getSnapshot()).toBe('next-input')
       expect(b.chatSettings.set).toHaveBeenCalledExactlyOnceWith('collapseTiming', 'next-input')
-      b.chatSettings.publish({ status: 'ready', value: { linkOpening: 'sidebar', transcriptView: 'standard', performanceUsage: 'detailed', collapseTiming: 'next-input', clockTimeZone: 'local' }, revision: 1, writable: true })
+      b.chatSettings.publish({
+        status: 'ready',
+        value: {
+          linkOpening: 'sidebar',
+          transcriptView: 'standard',
+          performanceUsage: 'detailed',
+          collapseTiming: 'next-input',
+          clockTimeZone: 'local',
+        },
+        revision: 1,
+        writable: true,
+      })
       expect(hooks.transcriptView.getSnapshot()).toBe('standard')
       expect(hooks.collapseTiming.getSnapshot()).toBe('next-input')
-      expect(b.runtime.slots.entries('settings.general.item').map(entry => entry.options.id))
-        .toEqual(['transcript-view', 'link-opening', 'clock-time-zone', 'composer-enter', 'performance-usage'])
+      expect(b.runtime.slots.entries('settings.general.item').map(entry => entry.options.id)).toEqual([
+        'transcript-view',
+        'link-opening',
+        'clock-time-zone',
+        'composer-enter',
+        'performance-usage',
+      ])
 
       await b.chat.dispose()
       expect(b.runtime.slots.entries('settings.general.item').some(entry => entry.options.id === 'transcript-view')).toBe(false)
       await b.runtime.mount({ inject: [...injectChat], apply: applyChat })
-      const remountedRow = b.runtime.slots.entries('settings.general.item')
-        .find(entry => entry.options.id === 'transcript-view')!
+      const remountedRow = b.runtime.slots.entries('settings.general.item').find(entry => entry.options.id === 'transcript-view')!
       const remounted = remountedRow.inject!()
       const remountedHooks = remounted.hooks as TranscriptViewRowInjected['hooks']
       expect(remountedHooks.collapseTiming).not.toBe(hooks.collapseTiming)
       expect(remountedHooks.collapseTiming.getSnapshot()).toBe('next-input')
       expect(remountedHooks.transcriptView.getSnapshot()).toBe('standard')
       expect(b.chatSettings.set).toHaveBeenCalledExactlyOnceWith('collapseTiming', 'next-input')
-      expect(b.runtime.slots.entries('settings.general.item').map(entry => entry.options.id))
-        .toEqual(['transcript-view', 'link-opening', 'clock-time-zone', 'composer-enter', 'performance-usage'])
+      expect(b.runtime.slots.entries('settings.general.item').map(entry => entry.options.id)).toEqual([
+        'transcript-view',
+        'link-opening',
+        'clock-time-zone',
+        'composer-enter',
+        'performance-usage',
+      ])
     } finally {
       await b.runtime.dispose()
     }
@@ -283,7 +321,9 @@ describe('Chat apply wiring', () => {
     expect(face.hooks.performanceUsage.getSnapshot()).toBe('detailed')
     face.setPerformanceUsage('compact')
     expect(b.chatSettings.set).toHaveBeenCalledWith('performanceUsage', 'compact')
-    b.chatSettings.publish({ value: { linkOpening: 'sidebar', transcriptView: 'compact', performanceUsage: 'compact', clockTimeZone: 'local' } })
+    b.chatSettings.publish({
+      value: { linkOpening: 'sidebar', transcriptView: 'compact', performanceUsage: 'compact', clockTimeZone: 'local' },
+    })
     expect(face.hooks.performanceUsage.getSnapshot()).toBe('compact')
     for (const entry of [
       ...b.runtime.slots.entries('conversation.composer.dock'),
@@ -326,8 +366,7 @@ describe('Chat apply wiring', () => {
       }
       return contribution.hooks.chat
     }
-    const source = b.runtime.ctx.uiSession.adapter.bindingSource(reference).getSnapshot().hooks.chat as
-      ObservableSnapshot<ChatSnapshot>
+    const source = b.runtime.ctx.uiSession.adapter.bindingSource(reference).getSnapshot().hooks.chat as ObservableSnapshot<ChatSnapshot>
     expect(resolveSource(binding)).toBe(source)
     expect(resolveSource(binding)).toBe(source)
     const listener = vi.fn()
@@ -350,23 +389,28 @@ describe('Chat apply wiring', () => {
     const listeners = new Set<() => void>()
     const source: ConversationLocationDataSource<number | undefined> = {
       getSnapshot: () => value,
-      subscribe: (listener) => {
+      subscribe: listener => {
         listeners.add(listener)
-        return () => { listeners.delete(listener) }
+        return () => {
+          listeners.delete(listener)
+        }
       },
     }
     const data = {
       get: () => value,
       source: () => source,
     } as unknown as ConversationLocationDataStore<ConversationTurnDataMap>
-    const useChat = vi.fn(() => { throw new Error('Turn data must not read the Chat snapshot') })
-    const useTurnData = spec.inject.hooks.turnData(
-      { useChat } as unknown as Parameters<typeof spec.inject.hooks.turnData>[0],
-      { turnData: data, disclosureReset: createSnapshotStore(0), useGroupAction: () => { throw new Error('unused group action') } },
-    )
-    const Probe = ({ useData }: { useData: UseChatNodeTurnData }) => (
-      <output>{useData('metric') ?? 'missing'}</output>
-    )
+    const useChat = vi.fn(() => {
+      throw new Error('Turn data must not read the Chat snapshot')
+    })
+    const useTurnData = spec.inject.hooks.turnData({ useChat } as unknown as Parameters<typeof spec.inject.hooks.turnData>[0], {
+      turnData: data,
+      disclosureReset: createSnapshotStore(0),
+      useGroupAction: () => {
+        throw new Error('unused group action')
+      },
+    })
+    const Probe = ({ useData }: { useData: UseChatNodeTurnData }) => <output>{useData('metric') ?? 'missing'}</output>
     const view = render(<Probe useData={useTurnData} />)
 
     expect(view.getByText('42')).toBeTruthy()
@@ -378,10 +422,17 @@ describe('Chat apply wiring', () => {
     })
     expect(view.getByText('43')).toBeTruthy()
 
-    view.rerender(<Probe useData={spec.inject.hooks.turnData(
-      { useChat } as unknown as Parameters<typeof spec.inject.hooks.turnData>[0],
-      { turnData: undefined, disclosureReset: createSnapshotStore(0), useGroupAction: () => { throw new Error('unused group action') } },
-    )} />)
+    view.rerender(
+      <Probe
+        useData={spec.inject.hooks.turnData({ useChat } as unknown as Parameters<typeof spec.inject.hooks.turnData>[0], {
+          turnData: undefined,
+          disclosureReset: createSnapshotStore(0),
+          useGroupAction: () => {
+            throw new Error('unused group action')
+          },
+        })}
+      />,
+    )
     expect(view.getByText('missing')).toBeTruthy()
     expect(useChat).not.toHaveBeenCalled()
 
@@ -408,18 +459,30 @@ describe('Chat apply wiring', () => {
     const useSecond = spec.inject.hooks.groupAction(standard, { motion: second })
     const useFirstHeader = spec.inject.hooks.groupHeaderAction(standard, { motion: first })
     const useSecondHeader = spec.inject.hooks.groupHeaderAction(standard, { motion: second })
-    expect(nodeSpec.inject.hooks.groupAction(standard, {
-      turnData: undefined, disclosureReset: createSnapshotStore(0), useGroupAction: useFirst,
-    })).toBe(useFirst)
+    expect(
+      nodeSpec.inject.hooks.groupAction(standard, {
+        turnData: undefined,
+        disclosureReset: createSnapshotStore(0),
+        useGroupAction: useFirst,
+      }),
+    ).toBe(useFirst)
     const reveal = vi.fn()
     function Probe({ useHidden, hidden, label }: { useHidden: UseGroupAction; hidden: boolean; label: string }) {
       const ref = useHidden(hidden, reveal)
-      return <div ref={ref} data-testid={label}>{label}</div>
+      return (
+        <div ref={ref} data-testid={label}>
+          {label}
+        </div>
+      )
     }
     function Header({ useHeader, hidden, label }: { useHeader: UseGroupHeaderAction; hidden: boolean; label: string }) {
       const ref = useRef<HTMLDivElement>(null)
       useHeader(ref, hidden)
-      return <div ref={ref} data-testid={label}>{label}</div>
+      return (
+        <div ref={ref} data-testid={label}>
+          {label}
+        </div>
+      )
     }
     const rows = (firstHidden: boolean, secondHidden: boolean, firstHeaderHidden = false, secondHeaderHidden = false) => (
       <div data-chat-motion="">
@@ -445,34 +508,48 @@ describe('Chat apply wiring', () => {
       expect(firstRow.hasAttribute('hidden')).toBe(false)
       expect(first.foldActive()).toBe(true)
       expect(second.foldActive()).toBe(false)
-      await act(async () => { await Promise.resolve() })
+      await act(async () => {
+        await Promise.resolve()
+      })
       expect(driverFirst).toHaveBeenCalledTimes(1)
       expect(driverSecond).not.toHaveBeenCalled()
       view.rerender(rows(true, true))
       expect(second.foldActive()).toBe(true)
-      await act(async () => { await Promise.resolve() })
+      await act(async () => {
+        await Promise.resolve()
+      })
       expect(driverFirst).toHaveBeenCalledTimes(1)
       expect(driverSecond).toHaveBeenCalledTimes(1)
       const finished = new Event('transitionend', { bubbles: true })
       Object.defineProperty(finished, 'propertyName', { value: 'height' })
-      act(() => { firstRow.dispatchEvent(finished) })
+      act(() => {
+        firstRow.dispatchEvent(finished)
+      })
       expect(first.foldActive()).toBe(false)
       expect(second.foldActive()).toBe(true)
       expect(firstRow.getAttribute('hidden')).toBe('until-found')
       expect(secondRow.hasAttribute('hidden')).toBe(false)
-      act(() => { vi.runAllTimers() })
+      act(() => {
+        vi.runAllTimers()
+      })
       expect(secondRow.getAttribute('hidden')).toBe('until-found')
       expect(view.getByTestId('first')).toBe(firstRow)
       expect(view.getByTestId('second')).toBe(secondRow)
-      act(() => { firstRow.dispatchEvent(new Event('beforematch')) })
+      act(() => {
+        firstRow.dispatchEvent(new Event('beforematch'))
+      })
       expect(reveal).toHaveBeenCalledOnce()
       view.rerender(rows(true, true, true, false))
       expect(first.foldActive()).toBe(true)
       expect(second.foldActive()).toBe(false)
       view.rerender(rows(true, true, true, true))
       expect(second.foldActive()).toBe(true)
-      await act(async () => { await Promise.resolve() })
-      act(() => { vi.runAllTimers() })
+      await act(async () => {
+        await Promise.resolve()
+      })
+      act(() => {
+        vi.runAllTimers()
+      })
       expect(firstHeader.getAttribute('hidden')).toBe('')
       expect(secondHeader.getAttribute('hidden')).toBe('')
       view.rerender(rows(true, true, false, true))
@@ -495,20 +572,29 @@ describe('Chat apply wiring', () => {
     try {
       const spec = b.runtime.slots.spec('conversation.chat.node') as { inject: ChatNodeInjected }
       const reset = createSnapshotStore(0)
-      const useDisclosure = spec.inject.hooks.disclosure(
-        {} as Parameters<typeof spec.inject.hooks.disclosure>[0],
-        { turnData: undefined, disclosureReset: reset, useGroupAction: () => { throw new Error('unused group action') } },
-      )
+      const useDisclosure = spec.inject.hooks.disclosure({} as Parameters<typeof spec.inject.hooks.disclosure>[0], {
+        turnData: undefined,
+        disclosureReset: reset,
+        useGroupAction: () => {
+          throw new Error('unused group action')
+        },
+      })
       function Probe({ useDisclosure }: { useDisclosure: UseDisclosure }) {
         const { expanded, toggle } = useDisclosure()
-        return <button aria-expanded={expanded} onClick={toggle}>Details</button>
+        return (
+          <button aria-expanded={expanded} onClick={toggle}>
+            Details
+          </button>
+        )
       }
       const view = render(<Probe useDisclosure={useDisclosure} />)
       try {
         const button = view.getByRole('button', { name: 'Details' })
         fireEvent.click(button)
         expect(button.getAttribute('aria-expanded')).toBe('true')
-        act(() => { reset.set(1) })
+        act(() => {
+          reset.set(1)
+        })
         expect(button.getAttribute('aria-expanded')).toBe('false')
         expect(view.getByRole('button', { name: 'Details' })).toBe(button)
       } finally {

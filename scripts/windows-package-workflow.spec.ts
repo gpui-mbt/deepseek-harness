@@ -3,26 +3,29 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
 import yaml from 'js-yaml'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
 const root = resolve(import.meta.dirname, '..')
 const workflow = yaml.load(readFileSync(resolve(root, '.github/workflows/windows-package.yml'), 'utf8')) as {
   on: Record<string, { inputs: Record<string, { required?: boolean; default?: string; description?: string }> }>
   permissions: Record<string, string>
   concurrency: { group: string; 'cancel-in-progress': boolean }
-  jobs: Record<string, {
-    'runs-on': string
-    env: Record<string, string>
-    steps: Array<{
-      id?: string
-      name?: string
-      uses?: string
-      run?: string
-      if?: string
-      env?: Record<string, string>
-      with?: Record<string, unknown>
-    }>
-  }>
+  jobs: Record<
+    string,
+    {
+      'runs-on': string
+      env: Record<string, string>
+      steps: Array<{
+        id?: string
+        name?: string
+        uses?: string
+        run?: string
+        if?: string
+        env?: Record<string, string>
+        with?: Record<string, unknown>
+      }>
+    }
+  >
 }
 const job = workflow.jobs.package!
 
@@ -38,11 +41,12 @@ it.skipIf(process.platform !== 'win32')('resets only the allocated checkout with
     symlinkSync(external, resolve(workspace, 'node_modules'), 'junction')
     const script = resolve(directory, 'reset.ps1')
     writeFileSync(script, job.steps.find(step => step.name === 'Reset packaging checkout')!.run!)
-    const run = (target: string) => execFileSync('pwsh', ['-NoProfile', '-File', script], {
-      cwd: directory,
-      env: { ...process.env, RUNNER_WORKSPACE: parent, GITHUB_WORKSPACE: target },
-      stdio: 'pipe',
-    })
+    const run = (target: string) =>
+      execFileSync('pwsh', ['-NoProfile', '-File', script], {
+        cwd: directory,
+        env: { ...process.env, RUNNER_WORKSPACE: parent, GITHUB_WORKSPACE: target },
+        stdio: 'pipe',
+      })
     run(workspace)
     expect(existsSync(workspace)).toBe(true)
     expect(existsSync(resolve(workspace, 'node_modules'))).toBe(false)
@@ -64,7 +68,13 @@ it('routes manual packaging to the dedicated runner with explicit preset and sig
   expect(workflow.concurrency).toEqual({ group: 'windows-desktop-package', 'cancel-in-progress': false })
   expect(workflow.permissions).toEqual({ contents: 'read' })
   expect(Object.keys(workflow.on.workflow_dispatch!.inputs).sort()).toEqual([
-    'build_version', 'preset', 'signing', 'source_ref', 'test_release_id', 'update_channel', 'version_mode',
+    'build_version',
+    'preset',
+    'signing',
+    'source_ref',
+    'test_release_id',
+    'update_channel',
+    'version_mode',
   ])
   expect(workflow.on.workflow_dispatch!.inputs.signing!.default).toBe('signed')
   expect(workflow.on.workflow_dispatch!.inputs.build_version!.required).toBe(false)
@@ -76,9 +86,14 @@ it('routes manual packaging to the dedicated runner with explicit preset and sig
   expect(job.env.DSH_DESKTOP_UPDATE_CHANNEL).toBe('${{ inputs.update_channel }}')
   expect(job.env.DSH_PACKAGING_PRESET).toBe('${{ inputs.preset }}')
   expect(job.env.PACKAGE_SIGNING).toBe('${{ inputs.signing }}')
-  expect(job.steps.find(step => step.id === 'checkout')!.with).toMatchObject({ clean: true, 'persist-credentials': false, ref: '${{ inputs.source_ref }}' })
-  expect(job.steps.find(step => step.uses?.startsWith('pnpm/action-setup@'))?.with?.dest)
-    .toBe('${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}')
+  expect(job.steps.find(step => step.id === 'checkout')!.with).toMatchObject({
+    clean: true,
+    'persist-credentials': false,
+    ref: '${{ inputs.source_ref }}',
+  })
+  expect(job.steps.find(step => step.uses?.startsWith('pnpm/action-setup@'))?.with?.dest).toBe(
+    '${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}',
+  )
 })
 
 it('validates before building and passes the same mode and version to checks and packaging', () => {

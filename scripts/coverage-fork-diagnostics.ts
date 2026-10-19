@@ -21,17 +21,21 @@ class DiagnosticForkWorker extends ForksPoolWorker {
     super(options)
     const report = (child: ChildProcess | undefined, code: number | null, signal: NodeJS.Signals | null | undefined): void => {
       if (this.expectedExit) return
-      options.project.vitest.logger.error(`coverage-worker-exit: ${JSON.stringify({
-        pid: child?.pid ?? null,
-        project: options.project.name,
-        workerId: this.request?.context.workerId ?? null,
-        files: this.request?.context.files.map(file => file.filepath) ?? [],
-        exitCode: code,
-        signalCode: signal ?? null,
-      })}`)
+      options.project.vitest.logger.error(
+        `coverage-worker-exit: ${JSON.stringify({
+          pid: child?.pid ?? null,
+          project: options.project.name,
+          workerId: this.request?.context.workerId ?? null,
+          files: this.request?.context.files.map(file => file.filepath) ?? [],
+          exitCode: code,
+          signalCode: signal ?? null,
+        })}`,
+      )
     }
     // ForksPoolWorker.on forwards Node ChildProcess events and their receiver.
-    this.reportExit = function (code, signal) { report(this, code, signal) }
+    this.reportExit = function (code, signal) {
+      report(this, code, signal)
+    }
     this.observeError = () => {
       // A channel that closed under a send means the worker is not shutting down
       // orderly, so the exit that follows keeps its code and signal. A stop
@@ -56,9 +60,14 @@ class DiagnosticForkWorker extends ForksPoolWorker {
   /** Vitest routes worker responses here; completion covers the whole run/collect request. */
   override deserialize(data: unknown): unknown {
     const response = super.deserialize(data)
-    if (typeof response === 'object' && response !== null
-      && '__vitest_worker_response__' in response && response.__vitest_worker_response__ === true
-      && 'type' in response && response.type === FINISHED_RESPONSE_TYPE) {
+    if (
+      typeof response === 'object' &&
+      response !== null &&
+      '__vitest_worker_response__' in response &&
+      response.__vitest_worker_response__ === true &&
+      'type' in response &&
+      response.type === FINISHED_RESPONSE_TYPE
+    ) {
       this.request = undefined
     }
     return response

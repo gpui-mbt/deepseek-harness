@@ -20,6 +20,14 @@ export function chatNodeWithLocation(): ChatConversationViewNode {
   const location = index.locationOf(step)
   if (location.kind !== 'step') throw new Error('Expected a Step Location')
   location.step.data.source('inspector-test')
-  return { key: 'assistant:long-node-identity', kind: 'assistant', id: 'node-identity', target: 'chat',
-    anchorSeq: 2, location, visibility: 'visible', data: { text: 'node content' } }
+  return {
+    key: 'assistant:long-node-identity',
+    kind: 'assistant',
+    id: 'node-identity',
+    target: 'chat',
+    anchorSeq: 2,
+    location,
+    visibility: 'visible',
+    data: { text: 'node content' },
+  }
 }

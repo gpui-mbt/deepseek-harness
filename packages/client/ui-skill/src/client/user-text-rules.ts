@@ -27,9 +27,13 @@ export const skillReferenceRule: UserTextRule<'skill'> = {
         if (names === undefined || names.length === 0) return undefined
       }
       const name = token[1] as string
-      if (names.includes(name)) return {
-        id: 'skill', start: token.index, end: token.index + token[0].length, data: { name },
-      }
+      if (names.includes(name))
+        return {
+          id: 'skill',
+          start: token.index,
+          end: token.index + token[0].length,
+          data: { name },
+        }
     }
     return undefined
   },

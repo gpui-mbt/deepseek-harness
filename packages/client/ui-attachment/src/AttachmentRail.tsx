@@ -3,9 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import clsx from 'clsx'
-import {
-  IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './AttachmentRail.module.css'
 
 /** One ordered draft attachment rendered by the rail owner. */
@@ -53,7 +51,11 @@ function pageBehavior(): ScrollBehavior {
  * @param props.renderItem - render one attachment card in draft order.
  * @returns the rail group with its paging arrows.
  */
-export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, renderItem }: {
+export function AttachmentRail<T extends AttachmentRailItem>({
+  items,
+  labels,
+  renderItem,
+}: {
   items: readonly T[]
   labels: AttachmentRailLabels
   renderItem: (item: T) => ReactNode
@@ -71,7 +73,7 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, re
     // 1px slack: engines report fractional scroll positions at the edges.
     const left = el.scrollLeft > 1
     const right = el.scrollLeft < el.scrollWidth - el.clientWidth - 1
-    setEdges(prev => prev.left === left && prev.right === right ? prev : { left, right })
+    setEdges(prev => (prev.left === left && prev.right === right ? prev : { left, right }))
   }, [])
   useLayoutEffect(() => {
     const grew = countRef.current !== null && items.length > countRef.current
@@ -95,7 +97,9 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, re
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(updateEdges)
       observer.observe(el)
-      disconnect = () => { observer.disconnect() }
+      disconnect = () => {
+        observer.disconnect()
+      }
     }
     // The rail scrolls horizontally ONLY: any wheel tick with a vertical
     // component is consumed — without preventDefault it would also scroll the
@@ -108,14 +112,11 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, re
     // native.
     const onWheel = (event: globalThis.WheelEvent): void => {
       if (event.deltaY === 0) return
-      const scale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
-        ? WHEEL_LINE_PX
-        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? el.clientWidth : 1
+      const scale =
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE ? WHEEL_LINE_PX : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? el.clientWidth : 1
       event.preventDefault()
       el.scrollBy({
-        left: event.deltaX !== 0
-          ? event.deltaX * scale
-          : Math.sign(event.deltaY) * Math.min(Math.abs(event.deltaY) * scale, 60),
+        left: event.deltaX !== 0 ? event.deltaX * scale : Math.sign(event.deltaY) * Math.min(Math.abs(event.deltaY) * scale, 60),
         behavior: 'auto',
       })
     }
@@ -140,20 +141,18 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, re
           type="button"
           className={clsx(css.arrow, css.arrowLeft)}
           aria-label={labels.scrollLeft}
-          onClick={() => { page(-1) }}
+          onClick={() => {
+            page(-1)
+          }}
         >
           <IconChevronLeftOutlineRegular />
         </button>
       )}
-      <div
-        ref={railRef}
-        className={css.rail}
-        role="group"
-        aria-label={labels.group}
-        onScroll={updateEdges}
-      >
+      <div ref={railRef} className={css.rail} role="group" aria-label={labels.group} onScroll={updateEdges}>
         {items.map(item => (
-          <div key={item.id} className={css.item}>{renderItem(item)}</div>
+          <div key={item.id} className={css.item}>
+            {renderItem(item)}
+          </div>
         ))}
       </div>
       {edges.right && (
@@ -161,7 +160,9 @@ export function AttachmentRail<T extends AttachmentRailItem>({ items, labels, re
           type="button"
           className={clsx(css.arrow, css.arrowRight)}
           aria-label={labels.scrollRight}
-          onClick={() => { page(1) }}
+          onClick={() => {
+            page(1)
+          }}
         >
           <IconChevronRightOutlineRegular />
         </button>

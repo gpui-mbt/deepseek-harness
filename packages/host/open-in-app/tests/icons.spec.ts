@@ -7,7 +7,7 @@
 import { mkdtemp, mkdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import type { NativeCommandRunner } from '@deepseek-ai/dsh-native-command'
 import { OPEN_IN_APP_CATALOG, type OpenInAppApp } from '../src/catalog.ts'
 import { extractAppIcon } from '../src/icons.ts'
@@ -81,18 +81,30 @@ describe('macOS bundle icons', () => {
 
   it('uses the declared CFBundleIconFile, appending .icns when omitted', async () => {
     const bundle = await bundleWith('AppIcon.icns')
-    const icon = await extractAppIcon(byId('cursor'), withIcon('app-bundle', bundle), TIMEOUT_MS, bare({
-      platform: 'darwin', run: iconRunner(JSON.stringify({ CFBundleIconFile: 'AppIcon' })),
-    }))
+    const icon = await extractAppIcon(
+      byId('cursor'),
+      withIcon('app-bundle', bundle),
+      TIMEOUT_MS,
+      bare({
+        platform: 'darwin',
+        run: iconRunner(JSON.stringify({ CFBundleIconFile: 'AppIcon' })),
+      }),
+    )
     expect(icon).toEqual({ bytes: Buffer.from('png-bytes'), contentType: 'image/png' })
   })
 
   it('scans Resources for the first .icns when the plist declares none or answers non-JSON', async () => {
     const bundle = await bundleWith('Fallback.icns')
     for (const plist of [JSON.stringify({}), 'not json']) {
-      const icon = await extractAppIcon(byId('cursor'), withIcon('app-bundle', bundle), TIMEOUT_MS, bare({
-        platform: 'darwin', run: iconRunner(plist),
-      }))
+      const icon = await extractAppIcon(
+        byId('cursor'),
+        withIcon('app-bundle', bundle),
+        TIMEOUT_MS,
+        bare({
+          platform: 'darwin',
+          run: iconRunner(plist),
+        }),
+      )
       expect(icon?.bytes.toString()).toBe('png-bytes')
     }
   })
@@ -100,47 +112,65 @@ describe('macOS bundle icons', () => {
   it('resolves null for a missing Resources directory, no .icns, a declared icon absent from disk, and a failed conversion', async () => {
     const root = await tempRoot()
     const darwin = (run: NativeCommandRunner): OpenInAppInternals => bare({ platform: 'darwin', run })
-    await expect(extractAppIcon(
-      byId('cursor'), withIcon('app-bundle', join(root, 'Missing.app')), TIMEOUT_MS, darwin(iconRunner(null)),
-    )).resolves.toBeNull()
+    await expect(
+      extractAppIcon(byId('cursor'), withIcon('app-bundle', join(root, 'Missing.app')), TIMEOUT_MS, darwin(iconRunner(null))),
+    ).resolves.toBeNull()
 
     const bareBundle = await bundleWith(null)
-    await expect(extractAppIcon(
-      byId('cursor'), withIcon('app-bundle', bareBundle), TIMEOUT_MS, darwin(iconRunner(null)),
-    )).resolves.toBeNull()
+    await expect(
+      extractAppIcon(byId('cursor'), withIcon('app-bundle', bareBundle), TIMEOUT_MS, darwin(iconRunner(null))),
+    ).resolves.toBeNull()
 
     const declaredMissing = await bundleWith(null)
-    await expect(extractAppIcon(
-      byId('cursor'), withIcon('app-bundle', declaredMissing), TIMEOUT_MS,
-      darwin(iconRunner(JSON.stringify({ CFBundleIconFile: 'Ghost.icns' }))),
-    )).resolves.toBeNull()
+    await expect(
+      extractAppIcon(
+        byId('cursor'),
+        withIcon('app-bundle', declaredMissing),
+        TIMEOUT_MS,
+        darwin(iconRunner(JSON.stringify({ CFBundleIconFile: 'Ghost.icns' }))),
+      ),
+    ).resolves.toBeNull()
 
     const bundle = await bundleWith('AppIcon.icns')
-    const noSips: NativeCommandRunner = command => command === 'plutil'
-      ? Promise.resolve({ stdout: JSON.stringify({}), stderr: '' })
-      : Promise.reject(new Error('no sips'))
-    await expect(extractAppIcon(byId('cursor'), withIcon('app-bundle', bundle), TIMEOUT_MS, darwin(noSips)))
-      .resolves.toBeNull()
+    const noSips: NativeCommandRunner = command =>
+      command === 'plutil' ? Promise.resolve({ stdout: JSON.stringify({}), stderr: '' }) : Promise.reject(new Error('no sips'))
+    await expect(extractAppIcon(byId('cursor'), withIcon('app-bundle', bundle), TIMEOUT_MS, darwin(noSips))).resolves.toBeNull()
   })
 
   it('resolves null when sips exits 0 without writing, and removes its temp directory either way', async () => {
     const bundle = await bundleWith('AppIcon.icns')
     const outs: string[] = []
-    const capture = (write: boolean): NativeCommandRunner => async (command, args) => {
-      if (command === 'plutil') return { stdout: JSON.stringify({}), stderr: '' }
-      const out = args[args.length - 1]
-      if (typeof out !== 'string') throw new Error('missing sips --out')
-      outs.push(out)
-      if (write) await writeFile(out, 'png-bytes')
-      return { stdout: '', stderr: '' }
-    }
-    const written = await extractAppIcon(byId('cursor'), withIcon('app-bundle', bundle), TIMEOUT_MS, bare({
-      platform: 'darwin', run: capture(true),
-    }))
+    const capture =
+      (write: boolean): NativeCommandRunner =>
+      async (command, args) => {
+        if (command === 'plutil') return { stdout: JSON.stringify({}), stderr: '' }
+        const out = args[args.length - 1]
+        if (typeof out !== 'string') throw new Error('missing sips --out')
+        outs.push(out)
+        if (write) await writeFile(out, 'png-bytes')
+        return { stdout: '', stderr: '' }
+      }
+    const written = await extractAppIcon(
+      byId('cursor'),
+      withIcon('app-bundle', bundle),
+      TIMEOUT_MS,
+      bare({
+        platform: 'darwin',
+        run: capture(true),
+      }),
+    )
     expect(written?.bytes.toString()).toBe('png-bytes')
-    await expect(extractAppIcon(byId('cursor'), withIcon('app-bundle', bundle), TIMEOUT_MS, bare({
-      platform: 'darwin', run: capture(false),
-    }))).resolves.toBeNull()
+    await expect(
+      extractAppIcon(
+        byId('cursor'),
+        withIcon('app-bundle', bundle),
+        TIMEOUT_MS,
+        bare({
+          platform: 'darwin',
+          run: capture(false),
+        }),
+      ),
+    ).resolves.toBeNull()
     expect(outs).toHaveLength(2)
     for (const out of outs) {
       await expect(stat(dirname(out))).rejects.toThrow()
@@ -148,9 +178,9 @@ describe('macOS bundle icons', () => {
   })
 
   it('resolves null when the resolution carries no icon source', async () => {
-    await expect(extractAppIcon(
-      byId('finder'), { launch: { kind: 'argv', command: 'open', args: [] } }, TIMEOUT_MS, bare({ platform: 'darwin' }),
-    )).resolves.toBeNull()
+    await expect(
+      extractAppIcon(byId('finder'), { launch: { kind: 'argv', command: 'open', args: [] } }, TIMEOUT_MS, bare({ platform: 'darwin' })),
+    ).resolves.toBeNull()
   })
 })
 
@@ -174,7 +204,9 @@ describe('Windows executable icons', () => {
   it('extracts through the generated script, passing source and target as positional args', async () => {
     const outs: string[] = []
     const icon = await extractAppIcon(
-      byId('vscode'), withIcon('executable', 'C:\\apps\\Code.exe'), TIMEOUT_MS,
+      byId('vscode'),
+      withIcon('executable', 'C:\\apps\\Code.exe'),
+      TIMEOUT_MS,
       bare({ platform: 'win32', run: powershellRunner(outs, true) }),
     )
     expect(icon).toEqual({ bytes: Buffer.from('png-bytes'), contentType: 'image/png' })
@@ -182,15 +214,19 @@ describe('Windows executable icons', () => {
   })
 
   it('resolves null on a failed extraction and on an exit-0 run that wrote nothing, cleaning up its temp directory', async () => {
-    await expect(extractAppIcon(
-      byId('vscode'), withIcon('executable', 'C:\\apps\\Code.exe'), TIMEOUT_MS, bare({ platform: 'win32' }),
-    )).resolves.toBeNull()
+    await expect(
+      extractAppIcon(byId('vscode'), withIcon('executable', 'C:\\apps\\Code.exe'), TIMEOUT_MS, bare({ platform: 'win32' })),
+    ).resolves.toBeNull()
 
     const outs: string[] = []
-    await expect(extractAppIcon(
-      byId('vscode'), withIcon('executable', 'C:\\apps\\Code.exe'), TIMEOUT_MS,
-      bare({ platform: 'win32', run: powershellRunner(outs, false) }),
-    )).resolves.toBeNull()
+    await expect(
+      extractAppIcon(
+        byId('vscode'),
+        withIcon('executable', 'C:\\apps\\Code.exe'),
+        TIMEOUT_MS,
+        bare({ platform: 'win32', run: powershellRunner(outs, false) }),
+      ),
+    ).resolves.toBeNull()
     expect(outs).toHaveLength(1)
     for (const out of outs) {
       await expect(stat(dirname(out))).rejects.toThrow()
@@ -214,9 +250,16 @@ describe('Linux desktop-entry icons', () => {
     const applications = join(home, '.local', 'share', 'applications')
     await mkdir(applications, { recursive: true })
     await writeFile(join(applications, 'kitty.desktop'), `[Desktop Entry]\nIcon=${svg}\n`)
-    const icon = await extractAppIcon(byId('kitty'), { launch: { kind: 'argv', command: 'kitty', args: [] } }, TIMEOUT_MS, bare({
-      platform: 'linux', home, env: linuxEnv(home),
-    }))
+    const icon = await extractAppIcon(
+      byId('kitty'),
+      { launch: { kind: 'argv', command: 'kitty', args: [] } },
+      TIMEOUT_MS,
+      bare({
+        platform: 'linux',
+        home,
+        env: linuxEnv(home),
+      }),
+    )
     expect(icon).toEqual({ bytes: Buffer.from('<svg/>'), contentType: 'image/svg+xml' })
   })
 
@@ -239,18 +282,32 @@ describe('Linux desktop-entry icons', () => {
     const scalableData = join(scalableHome, '.local', 'share')
     await mkdir(join(scalableData, 'icons', 'hicolor', 'scalable', 'apps'), { recursive: true })
     await writeFile(join(scalableData, 'icons', 'hicolor', 'scalable', 'apps', 'kitty.svg'), '<svg/>')
-    const scalable = await extractAppIcon(kitty, resolved, TIMEOUT_MS, bare({
-      platform: 'linux', home: scalableHome, env: linuxEnv(scalableHome),
-    }))
+    const scalable = await extractAppIcon(
+      kitty,
+      resolved,
+      TIMEOUT_MS,
+      bare({
+        platform: 'linux',
+        home: scalableHome,
+        env: linuxEnv(scalableHome),
+      }),
+    )
     expect(scalable?.contentType).toBe('image/svg+xml')
 
     const pixmapHome = await desktopHome('kitty')
     const pixmapData = join(pixmapHome, '.local', 'share')
     await mkdir(join(pixmapData, 'pixmaps'), { recursive: true })
     await writeFile(join(pixmapData, 'pixmaps', 'kitty.png'), 'pixmap')
-    const pixmap = await extractAppIcon(kitty, resolved, TIMEOUT_MS, bare({
-      platform: 'linux', home: pixmapHome, env: linuxEnv(pixmapHome),
-    }))
+    const pixmap = await extractAppIcon(
+      kitty,
+      resolved,
+      TIMEOUT_MS,
+      bare({
+        platform: 'linux',
+        home: pixmapHome,
+        env: linuxEnv(pixmapHome),
+      }),
+    )
     expect(pixmap?.bytes.toString()).toBe('pixmap')
   })
 

@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { inspectDshPackageLicenses } from './verify-dsh-package-licenses.ts'
 
 const roots: string[] = []
@@ -42,9 +42,7 @@ describe('DSH package license gate', () => {
 
     expect(inspectDshPackageLicenses(root)).toEqual({
       packageCount: 3,
-      failures: [
-        'packages/core/agent/package.json: @deepseek-ai/dsh-agent must declare "license": "MIT"; found "BSD-3-Clause".',
-      ],
+      failures: ['packages/core/agent/package.json: @deepseek-ai/dsh-agent must declare "license": "MIT"; found "BSD-3-Clause".'],
     })
   })
 

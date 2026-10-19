@@ -16,7 +16,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { remoteMethods, type PeerId, type PeerScope, type Principal, type RemoteInvocation } from '@deepseek-ai/dsh-typert-protocol'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type SessionController from '../src/index.ts'
 import { ApiSessionList } from '../src/list.ts'
 import type { SessionControlFrame, SessionRequestId, SessionSearchValue } from '../src/types.ts'
@@ -38,7 +38,9 @@ const PRIVATE = SessionId('private-session')
 const LISTER: RemoteAccessRole<'global'> = { name: 'test:session-lister', resource: 'global', actions: ['session/list', 'session/control'] }
 /** Reads one Session: its list row, its control projections, and its stored projections. */
 const READER: RemoteAccessRole<'session'> = {
-  name: 'test:session-reader', resource: 'session', actions: ['session/list', 'session/control', 'session/projections'],
+  name: 'test:session-reader',
+  resource: 'session',
+  actions: ['session/list', 'session/control', 'session/projections'],
 }
 const LIST_CALLS: RemoteAccessBinding = { role: LISTER, resource: { kind: 'global' } }
 const READS_SHARED: RemoteAccessBinding = { role: READER, resource: { kind: 'session', id: SHARED } }
@@ -69,7 +71,14 @@ function guestPolicy(ctx: Context, ...bindings: RemoteAccessBinding[]): RemoteAc
 
 /** Invoke `session/<method>` as the guest through the Gateway. */
 function guestCall(ctx: Context, method: string, args: Readonly<Record<string, unknown>>): Promise<unknown> {
-  const peer: PeerScope = { id: 'session-access-peer' as PeerId, ctx, principal: GUEST, interactions: 'answer', signal: new AbortController().signal, dispose: async () => {} }
+  const peer: PeerScope = {
+    id: 'session-access-peer' as PeerId,
+    ctx,
+    principal: GUEST,
+    interactions: 'answer',
+    signal: new AbortController().signal,
+    dispose: async () => {},
+  }
   return ctx.typertGateway.invoke({ peer, namespace: 'session', method, args })
 }
 
@@ -93,7 +102,14 @@ async function harness(): Promise<{
     const invocation: RemoteInvocation = {
       request: { namespace: 'session', method, args: {} },
       service: 'sessionController',
-      peer: { id: 'session-access-peer' as PeerId, ctx, principal, interactions: 'answer', signal: new AbortController().signal, dispose: async () => {} },
+      peer: {
+        id: 'session-access-peer' as PeerId,
+        ctx,
+        principal,
+        interactions: 'answer',
+        signal: new AbortController().signal,
+        dispose: async () => {},
+      },
       signal: new AbortController().signal,
       uplink: <In>(): AsyncIterable<In> => ({ [Symbol.asyncIterator]: () => ({ next: async () => ({ done: true, value: undefined }) }) }),
     }
@@ -127,7 +143,7 @@ describe('Session Controller access', () => {
     await ctx.plugin(TypertGatewayService)
     const held = guestPolicy(ctx, LIST_CALLS, READS_SHARED)
     const rows = async (): Promise<SessionId[]> => {
-      const value = await guestCall(ctx, 'list', { _request: {} }) as { readonly items: readonly { readonly sessionId: SessionId }[] }
+      const value = (await guestCall(ctx, 'list', { _request: {} })) as { readonly items: readonly { readonly sessionId: SessionId }[] }
       return value.items.map(item => item.sessionId)
     }
     await expect(rows()).resolves.toEqual([SHARED])
@@ -137,7 +153,8 @@ describe('Session Controller access', () => {
     // A Session role alone does not admit the call: the global resource does not inherit from it.
     held.splice(0, held.length, READS_SHARED)
     await expect(rows()).rejects.toMatchObject({
-      code: 'remote-access/denied', details: { action: 'session/list', reason: 'no-allow' },
+      code: 'remote-access/denied',
+      details: { action: 'session/list', reason: 'no-allow' },
     })
     const owner = await as(OWNER, 'list').sessionController.list({}, new AbortController().signal)
     expect(owner.items.map(item => item.sessionId).sort()).toEqual([PRIVATE, SHARED].sort())
@@ -148,7 +165,10 @@ describe('Session Controller access', () => {
     await ctx.plugin(TypertGatewayService)
     guestPolicy(ctx, SEARCH_CALLS, SEARCHES_SHARED)
     const hits: SessionSearchValue = {
-      items: [{ sessionId: PRIVATE, snippet: 'private hit' }, { sessionId: SHARED, snippet: 'shared hit' }],
+      items: [
+        { sessionId: PRIVATE, snippet: 'private hit' },
+        { sessionId: SHARED, snippet: 'shared hit' },
+      ],
       hasMore: true,
     }
     vi.spyOn(ApiSessionList.prototype, 'search').mockResolvedValue(hits)
@@ -192,17 +212,22 @@ describe('Session Controller access', () => {
   it('records a non-owner caller on the prompt source and leaves owner sources unchanged', async () => {
     const { shared, as } = await harness()
     const signal = new AbortController().signal
-    const prompt = (principal: Principal, requestId: string) => as(principal, 'prompt').sessionController.prompt({
-      sessionId: SHARED,
-      requestId: requestId as SessionRequestId,
-      mode: 'queue',
-      content: [{ type: 'text', text: `from ${principal.kind}` }],
-    }, signal)
+    const prompt = (principal: Principal, requestId: string) =>
+      as(principal, 'prompt').sessionController.prompt(
+        {
+          sessionId: SHARED,
+          requestId: requestId as SessionRequestId,
+          mode: 'queue',
+          content: [{ type: 'text', text: `from ${principal.kind}` }],
+        },
+        signal,
+      )
     await expect(prompt(GUEST, 'guest-1')).resolves.toEqual({ accepted: true })
     await expect(prompt(OWNER, 'owner-1')).resolves.toEqual({ accepted: true })
     // The durable Inbox splice records each accepted message with its source.
-    const logged = shared.session.snapshotEvents()
-      .flatMap(event => event.type === 'agent/inbox/spliced' ? event.data.inserted.map(item => item.source) : [])
+    const logged = shared.session
+      .snapshotEvents()
+      .flatMap(event => (event.type === 'agent/inbox/spliced' ? event.data.inserted.map(item => item.source) : []))
     expect(logged).toEqual([
       { kind: 'user', rpcId: 'guest-1', principal: GUEST },
       { kind: 'user', rpcId: 'owner-1' },
@@ -216,7 +241,8 @@ describe('Session Controller access', () => {
     const projections = (sessionId: SessionId): Promise<unknown> => guestCall(ctx, 'projections', { request: { sessionId } })
     await expect(projections(SHARED)).resolves.toMatchObject({ kind: 'sequenced' })
     await expect(projections(PRIVATE)).rejects.toMatchObject({
-      code: 'remote-access/denied', details: { action: 'session/projections', reason: 'no-allow' },
+      code: 'remote-access/denied',
+      details: { action: 'session/projections', reason: 'no-allow' },
     })
   })
 })

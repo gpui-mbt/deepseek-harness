@@ -8,8 +8,15 @@
 
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 import {
-  DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, FONT_ROLES, FONT_SIZE_SPECS, fontFamilyVariable, normalizeFontFamily,
-  type FontFamilies, type FontSizes, type ThemePreference,
+  DEFAULT_FONT_SIZES,
+  DEFAULT_PREFERENCE,
+  FONT_ROLES,
+  FONT_SIZE_SPECS,
+  fontFamilyVariable,
+  normalizeFontFamily,
+  type FontFamilies,
+  type FontSizes,
+  type ThemePreference,
 } from './theme-settings.ts'
 
 const LIGHT_BACKGROUND = '#fff'
@@ -26,9 +33,11 @@ function bootThemeStyle(preference: ThemePreference): string {
 
 /** Build the body script that installs the palette selector and font variables. */
 function bootThemeBodyScript(preference: ThemePreference, fontSizes: FontSizes, fontFamilies: FontFamilies): string {
-  const sizes = FONT_ROLES.map(role =>
-    `\n  document.body.style.setProperty(${JSON.stringify(FONT_SIZE_SPECS[role].variable)}, ${JSON.stringify(`${fontSizes[role]}px`)})`).join('')
-  const families = FONT_ROLES.flatMap((kind) => {
+  const sizes = FONT_ROLES.map(
+    role =>
+      `\n  document.body.style.setProperty(${JSON.stringify(FONT_SIZE_SPECS[role].variable)}, ${JSON.stringify(`${fontSizes[role]}px`)})`,
+  ).join('')
+  const families = FONT_ROLES.flatMap(kind => {
     const list = normalizeFontFamily(fontFamilies[kind])
     return list === '' ? [] : [`\n  document.body.style.setProperty(${JSON.stringify(fontFamilyVariable(kind))}, ${JSON.stringify(list)})`]
   }).join('')

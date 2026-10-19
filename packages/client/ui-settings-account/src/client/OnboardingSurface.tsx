@@ -33,10 +33,11 @@ export function OnboardingSurface({ children, exiting = false }: { children: Rea
     if (root !== null) root.element.style.opacity = exiting ? root.opacity : '0'
   }, [exiting])
 
-  return createPortal((
+  return createPortal(
     <div className={css.onboardingOverlay} data-exiting={exiting || undefined} role="presentation">
       <div className={css.dragBand} data-window-drag aria-hidden="true" />
       <div className={css.onboardingStage}>{children}</div>
-    </div>
-  ), document.body)
+    </div>,
+    document.body,
+  )
 }

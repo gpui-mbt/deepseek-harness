@@ -34,11 +34,7 @@ import {
   translationStructureDiff,
   translationStructureSignature,
 } from './translation-pairing.ts'
-import {
-  hasLanguageSwitcher,
-  normalizeTranslationMarkdownLinks,
-  translationLinkLocaleViolations,
-} from './translation-links.ts'
+import { hasLanguageSwitcher, normalizeTranslationMarkdownLinks, translationLinkLocaleViolations } from './translation-links.ts'
 
 const root = resolve(import.meta.dirname, '..')
 let request: ReturnType<typeof parseTranslationPairingCliArgs>
@@ -59,7 +55,9 @@ const contentCache = new Map<string, Buffer | undefined>()
 function readRepositoryFile(file: string): Buffer | undefined {
   if (contentCache.has(file)) return contentCache.get(file)
   const content = indexMode
-    ? indexFiles?.has(file) ? readGitIndexBlob(root, file) : undefined
+    ? indexFiles?.has(file)
+      ? readGitIndexBlob(root, file)
+      : undefined
     : existsSync(join(root, file)) && statSync(join(root, file)).isFile()
       ? readFileSync(join(root, file))
       : undefined
@@ -73,12 +71,7 @@ function repositoryFileExists(file: string): boolean {
 }
 
 /** Discover source Markdown and pairing sidecars before applying the corpus predicate. */
-const SCOPE_PATTERNS = [
-  '**/*.md',
-  '**/*.i18n.yaml',
-  '.agents/notes/**/*.md',
-  '.agents/notes/**/*.i18n.yaml',
-]
+const SCOPE_PATTERNS = ['**/*.md', '**/*.i18n.yaml', '.agents/notes/**/*.md', '.agents/notes/**/*.i18n.yaml']
 
 const manifestContent = readRepositoryFile('scripts/translation-pairing.manifest.json')
 if (manifestContent === undefined) {
@@ -127,13 +120,15 @@ const sources = [...files].filter(f => f.endsWith('.md') && !f.endsWith('.zh.md'
 
 if (request.scope === 'pairs') {
   const rejected = request.anchors.filter(anchor => !isTranslationScopeFile(anchor) || isExcluded(anchor))
-  const absent = request.anchors.filter((anchor) => {
+  const absent = request.anchors.filter(anchor => {
     const { source, zh, meta } = translationPairPaths(anchor)
     return ![source, zh, meta].some(repositoryFileExists)
   })
   if (rejected.length > 0 || (!indexMode && absent.length > 0)) {
     for (const anchor of rejected) {
-      console.error(`verify-translation-pairing: ${anchor} is not an in-scope pair (excluded or outside the documentation corpus; see docs/i18n/README.md)`)
+      console.error(
+        `verify-translation-pairing: ${anchor} is not an in-scope pair (excluded or outside the documentation corpus; see docs/i18n/README.md)`,
+      )
     }
     for (const anchor of absent) {
       console.error(`verify-translation-pairing: ${anchor} names no pair on disk (none of its three files exist)`)
@@ -163,12 +158,10 @@ if (writeMode) {
     if (sourceContent === undefined || zhContent === undefined) throw new Error(`${source}: complete pair became unreadable`)
     let record: string
     try {
-      record = renderTranslationPairingRecord(paths, computeTranslationPairingRecord(
+      record = renderTranslationPairingRecord(
         paths,
-        sourceContent.toString('utf8'),
-        zhContent.toString('utf8'),
-        recordContext,
-      ))
+        computeTranslationPairingRecord(paths, sourceContent.toString('utf8'), zhContent.toString('utf8'), recordContext),
+      )
     } catch (error) {
       console.error(`verify-translation-pairing: cannot record ${source}: ${error instanceof Error ? error.message : String(error)}`)
       process.exit(2)
@@ -212,11 +205,14 @@ for (const source of [...pairAnchors].sort()) {
   }
 
   if (isExcluded(source)) {
-    if (have.zh) errors.push(`${zh}: ${source} is excluded from pairing (generated or bilingual-by-construction); this translation must not exist`)
+    if (have.zh)
+      errors.push(`${zh}: ${source} is excluded from pairing (generated or bilingual-by-construction); this translation must not exist`)
     if (have.meta) errors.push(`${meta}: ${source} is excluded from pairing; this consistency record must not exist`)
     continue
   }
-  const missing = Object.entries(have).filter(([, ok]) => !ok).map(([k]) => (k === 'source' ? source : k === 'zh' ? zh : meta))
+  const missing = Object.entries(have)
+    .filter(([, ok]) => !ok)
+    .map(([k]) => (k === 'source' ? source : k === 'zh' ? zh : meta))
   if (missing.length > 0) {
     errors.push(`${source}: incomplete pair — missing ${missing.join(', ')} (pairs merge whole: both languages plus the .i18n.yaml record)`)
     continue
@@ -230,7 +226,9 @@ for (const source of [...pairAnchors].sort()) {
   }
   const record = parseTranslationPairingRecord(metaContent.toString('utf8'))
   if (record === undefined) {
-    errors.push(`${meta}: malformed consistency record (expected \`/<section path>:\` entries, each followed by \`  en: <16-hex>\` and \`  zh: <16-hex>\`)`)
+    errors.push(
+      `${meta}: malformed consistency record (expected \`/<section path>:\` entries, each followed by \`  en: <16-hex>\` and \`  zh: <16-hex>\`)`,
+    )
     state.set(source, 'out-of-sync')
     continue
   }
@@ -249,9 +247,9 @@ for (const source of [...pairAnchors].sort()) {
     state.set(source, 'out-of-sync')
     continue
   }
-  const recordErrors = translationPairingRecordDiff(record, current).map(message => (
-    `${meta}: out of sync — ${message} (bring the other side along, then re-record with --write)`
-  ))
+  const recordErrors = translationPairingRecordDiff(record, current).map(
+    message => `${meta}: out of sync — ${message} (bring the other side along, then re-record with --write)`,
+  )
   if (recordErrors.length === 0 && renderTranslationPairingRecord(paths, current) !== metaContent.toString('utf8')) {
     recordErrors.push(`${meta}: not in canonical form (re-record with --write)`)
   }
@@ -263,20 +261,32 @@ for (const source of [...pairAnchors].sort()) {
   const sourceSwitcherTargets = languageSwitcherTargets(source)
   const zhSwitcherTargets = languageSwitcherTargets(zh)
   for (const violation of [
-    ...translationLinkLocaleViolations(sourceText, {
-      repoRoot: root,
-      sourcePath: source,
-      isTranslationPairSource,
-      repositoryFileExists,
-    }, zhSwitcherTargets, sourceTree),
-    ...translationLinkLocaleViolations(zhText, {
-      repoRoot: root,
-      sourcePath: zh,
-      isTranslationPairSource,
-      repositoryFileExists,
-    }, sourceSwitcherTargets, zhTree),
+    ...translationLinkLocaleViolations(
+      sourceText,
+      {
+        repoRoot: root,
+        sourcePath: source,
+        isTranslationPairSource,
+        repositoryFileExists,
+      },
+      zhSwitcherTargets,
+      sourceTree,
+    ),
+    ...translationLinkLocaleViolations(
+      zhText,
+      {
+        repoRoot: root,
+        sourcePath: zh,
+        isTranslationPairSource,
+        repositoryFileExists,
+      },
+      sourceSwitcherTargets,
+      zhTree,
+    ),
   ]) {
-    errors.push(`${violation.sourcePath}:${violation.line}: link target ${JSON.stringify(violation.url)} uses the wrong locale; expected ${JSON.stringify(violation.expectedUrl)}`)
+    errors.push(
+      `${violation.sourcePath}:${violation.line}: link target ${JSON.stringify(violation.url)} uses the wrong locale; expected ${JSON.stringify(violation.expectedUrl)}`,
+    )
     state.set(source, 'out-of-sync')
   }
 
@@ -294,20 +304,26 @@ for (const source of [...pairAnchors].sort()) {
     state.set(source, 'out-of-sync')
     continue
   }
-  const normalizedSourceRegions = sourceRegions.map(region => normalizeTranslationMarkdownLinks(region, {
-    repoRoot: root,
-    sourcePath: source,
-    isTranslationPairSource,
-    repositoryFileExists,
-  }))
-  const normalizedZhRegions = zhRegions.map(region => normalizeTranslationMarkdownLinks(region, {
-    repoRoot: root,
-    sourcePath: zh,
-    isTranslationPairSource,
-    repositoryFileExists,
-  }))
-  if (normalizedSourceRegions.length !== normalizedZhRegions.length
-    || normalizedSourceRegions.some((region, index) => region !== normalizedZhRegions[index])) {
+  const normalizedSourceRegions = sourceRegions.map(region =>
+    normalizeTranslationMarkdownLinks(region, {
+      repoRoot: root,
+      sourcePath: source,
+      isTranslationPairSource,
+      repositoryFileExists,
+    }),
+  )
+  const normalizedZhRegions = zhRegions.map(region =>
+    normalizeTranslationMarkdownLinks(region, {
+      repoRoot: root,
+      sourcePath: zh,
+      isTranslationPairSource,
+      repositoryFileExists,
+    }),
+  )
+  if (
+    normalizedSourceRegions.length !== normalizedZhRegions.length ||
+    normalizedSourceRegions.some((region, index) => region !== normalizedZhRegions[index])
+  ) {
     errors.push(`${source} ↔ ${zh}: generated regions differ beyond paired-document locale paths — regenerate both sides`)
     state.set(source, 'out-of-sync')
   }
@@ -350,16 +366,20 @@ if (listMode) {
   for (const [file, status] of rows) {
     console.log(`${status.padEnd(11)} ${file}${status === 'missing' ? '  (required)' : ''}`)
   }
-  const counts = { 'ok': 0, 'out-of-sync': 0, 'missing': 0 }
+  const counts = { ok: 0, 'out-of-sync': 0, missing: 0 }
   for (const status of state.values()) counts[status]++
-  console.log(`verify-translation-pairing: ${counts.ok} ok, ${counts['out-of-sync']} out-of-sync, ${counts.missing} missing (of ${state.size} in scope)`)
+  console.log(
+    `verify-translation-pairing: ${counts.ok} ok, ${counts['out-of-sync']} out-of-sync, ${counts.missing} missing (of ${state.size} in scope)`,
+  )
   process.exit(0)
 }
 
 if (errors.length === 0) {
-  console.log(request.scope === 'pairs'
-    ? `verify-translation-pairing: ${pairAnchors.size} named ${indexMode ? 'staged ' : ''}pair(s) consistent; the corpus-wide check still runs in doc-sync.`
-    : `verify-translation-pairing: ${pairAnchors.size} pair(s) checked across all in-scope documentation, all consistent.`)
+  console.log(
+    request.scope === 'pairs'
+      ? `verify-translation-pairing: ${pairAnchors.size} named ${indexMode ? 'staged ' : ''}pair(s) consistent; the corpus-wide check still runs in doc-sync.`
+      : `verify-translation-pairing: ${pairAnchors.size} pair(s) checked across all in-scope documentation, all consistent.`,
+  )
   process.exit(0)
 }
 

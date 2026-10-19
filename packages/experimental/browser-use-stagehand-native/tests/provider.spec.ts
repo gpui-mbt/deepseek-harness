@@ -1,6 +1,6 @@
 /** Native browser ownership through real Agent, Session, and ToolRuntime services. */
 
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { StagehandDrainError } from '../src/native.ts'
 import type { NativeBrowserConfig } from '../src/native.ts'
 import { Context } from '@deepseek-ai/cordis'
@@ -15,16 +15,18 @@ import * as Provider from '../src/index.ts'
 import { fixture, nativeModel, resetFixture } from './fixtures/stagehand.ts'
 
 const acquisition = vi.hoisted(() => ({
-  signal: undefined as AbortSignal | undefined, warning: undefined as string | undefined,
-  closeError: undefined as Error | undefined, chromiumCloseError: undefined as Error | undefined,
+  signal: undefined as AbortSignal | undefined,
+  warning: undefined as string | undefined,
+  closeError: undefined as Error | undefined,
+  chromiumCloseError: undefined as Error | undefined,
 }))
 
 vi.mock('@browserbasehq/stagehand', async importActual => ({
-  ...await importActual<typeof import('@browserbasehq/stagehand')>(),
-  ...await import('./fixtures/stagehand.ts'),
+  ...(await importActual<typeof import('@browserbasehq/stagehand')>()),
+  ...(await import('./fixtures/stagehand.ts')),
 }))
 vi.mock('@puppeteer/browsers', async () => import('./fixtures/chromium.ts'))
-vi.mock('../src/launch.ts', async (importActual) => {
+vi.mock('../src/launch.ts', async importActual => {
   const actual = await importActual<typeof import('../src/launch.ts')>()
   return {
     async launchChromium(...args: Parameters<typeof actual.launchChromium>) {
@@ -46,17 +48,24 @@ vi.mock('../src/worker-client.ts', async () => {
       acquisition.signal = signal
       const native = await openNativeBrowser(config)
       let closing: Promise<void> | undefined
-      const close = () => closing ??= (async () => {
-        if (acquisition.warning !== undefined) warn(acquisition.warning)
-        if (acquisition.closeError !== undefined) throw acquisition.closeError
-        await native.close()
-      })()
+      const close = () =>
+        (closing ??= (async () => {
+          if (acquisition.warning !== undefined) warn(acquisition.warning)
+          if (acquisition.closeError !== undefined) throw acquisition.closeError
+          await native.close()
+        })())
       return {
         async execute(method: import('../src/native.ts').BrowserMethod, args: unknown, signal?: AbortSignal) {
           if (closing !== undefined) throw new Error('Fixture connection is closed')
-          const cancel = () => { void close().catch(() => {}) }
+          const cancel = () => {
+            void close().catch(() => {})
+          }
           signal?.addEventListener('abort', cancel, { once: true })
-          try { return await native.execute(method, args) } finally { signal?.removeEventListener('abort', cancel) }
+          try {
+            return await native.execute(method, args)
+          } finally {
+            signal?.removeEventListener('abort', cancel)
+          }
         },
         close,
       }
@@ -69,7 +78,9 @@ let first: Agent
 let second: Agent
 
 class IndependentSessionModel extends LlmAdapter {
-  async * stream(): AsyncIterable<StreamChunk> { throw new Error('Stagehand called the Session model') }
+  async *stream(): AsyncIterable<StreamChunk> {
+    throw new Error('Stagehand called the Session model')
+  }
 }
 
 beforeEach(async () => {
@@ -87,7 +98,9 @@ beforeEach(async () => {
   second = await harness.create(SessionId('stagehand-second'), { provider: 'fixture', model: 'structured' })
 })
 
-afterEach(async () => { await ctx.fiber.dispose() })
+afterEach(async () => {
+  await ctx.fiber.dispose()
+})
 
 function execute(agent: Agent, suffix: string, args: unknown, signal = new AbortController().signal) {
   return ctx.tools.execute({ agent, name: `stagehand_${suffix}`, arguments: args, callId: ToolCallId(`test-${suffix}`), signal })
@@ -108,7 +121,9 @@ it('lazily launches distinct browsers and preserves each Session tab state', asy
   expect((await execute(first, 'tabs', { action: 'new', url: 'https://new.example' })).isError).toBe(false)
   expect((await execute(first, 'tabs', { action: 'select', pageId: 'tab-1' })).isError).toBe(false)
   expect((await execute(first, 'tabs', { action: 'close', pageId: 'tab-2' })).isError).toBe(false)
-  expect((await execute(first, 'tabs', { action: 'list' })).content).toEqual([{ type: 'text', text: '{"tabs":[{"pageId":"tab-1","url":"https://first.example","title":"Fixture heading","active":true}]}' }])
+  expect((await execute(first, 'tabs', { action: 'list' })).content).toEqual([
+    { type: 'text', text: '{"tabs":[{"pageId":"tab-1","url":"https://first.example","title":"Fixture heading","active":true}]}' },
+  ])
   await provider.dispose()
   expect(fixture.browsers.every(browser => browser.closed && browser.stagehandClosed)).toBe(true)
   expect(ctx.browserUse.providerName).toBeUndefined()
@@ -148,9 +163,30 @@ it('uses its independent model for actions, observations, and a caller-selected 
 it('refuses unavailable tabs and calls without an exact live Agent', async () => {
   await ctx.plugin(Provider, { model: nativeModel, mode: 'launch' })
   expect((await execute(first, 'navigate', { url: 'https://example.com', pageId: 'missing' })).isError).toBe(true)
-  expect((await ctx.tools.execute({ name: 'stagehand_tabs', arguments: { action: 'list' }, callId: ToolCallId('agentless'), signal: new AbortController().signal })).isError).toBe(true)
-  ctx.tools.register({ name: 'unrelated', description: 'An independent tool.', parameters: { type: 'object' }, output: { schema: { type: 'boolean' }, render: () => [{ type: 'text', text: 'independent' }] }, execute: async () => true })
-  const unrelated = await ctx.tools.execute({ agent: first, name: 'unrelated', arguments: {}, callId: ToolCallId('unrelated'), signal: new AbortController().signal })
+  expect(
+    (
+      await ctx.tools.execute({
+        name: 'stagehand_tabs',
+        arguments: { action: 'list' },
+        callId: ToolCallId('agentless'),
+        signal: new AbortController().signal,
+      })
+    ).isError,
+  ).toBe(true)
+  ctx.tools.register({
+    name: 'unrelated',
+    description: 'An independent tool.',
+    parameters: { type: 'object' },
+    output: { schema: { type: 'boolean' }, render: () => [{ type: 'text', text: 'independent' }] },
+    execute: async () => true,
+  })
+  const unrelated = await ctx.tools.execute({
+    agent: first,
+    name: 'unrelated',
+    arguments: {},
+    callId: ToolCallId('unrelated'),
+    signal: new AbortController().signal,
+  })
   expect(unrelated.isError).toBe(false)
 })
 
@@ -173,7 +209,10 @@ it('connects to a WebSocket endpoint without a configured extension id', async (
 it('holds the provider reservation until browser cleanup settles', async () => {
   const started: PromiseWithResolvers<void> = Promise.withResolvers()
   const settle: PromiseWithResolvers<void> = Promise.withResolvers()
-  fixture.browserClose = async () => { started.resolve(); await settle.promise }
+  fixture.browserClose = async () => {
+    started.resolve()
+    await settle.promise
+  }
   const provider = ctx.plugin(Provider, { model: nativeModel, mode: 'launch' })
   await provider
   await execute(first, 'tabs', { action: 'list' })
@@ -192,7 +231,10 @@ it('holds the provider reservation until browser cleanup settles', async () => {
 it('cancels queued work without navigating while an earlier call settles', async () => {
   const started: PromiseWithResolvers<void> = Promise.withResolvers()
   const settle: PromiseWithResolvers<void> = Promise.withResolvers()
-  fixture.navigate = async () => { started.resolve(); await settle.promise }
+  fixture.navigate = async () => {
+    started.resolve()
+    await settle.promise
+  }
   await ctx.plugin(Provider, { model: nativeModel, mode: 'launch' })
   const pending = execute(first, 'navigate', { url: 'https://first.example' })
   await started.promise
@@ -211,24 +253,31 @@ it.each([
   { model: nativeModel, mode: 'attach', cdpEndpoint: 'file:///tmp/browser' },
   { model: nativeModel, mode: 'launch', cdpEndpoint: 'http://localhost:9222' },
   { model: nativeModel, mode: 'attach', cdpEndpoint: 'http://localhost:9222', executablePath: '/chrome' },
-] satisfies Provider.Config[])('rejects inconsistent connection configuration %j before acquiring a browser', async (config) => {
+] satisfies Provider.Config[])('rejects inconsistent connection configuration %j before acquiring a browser', async config => {
   await expect(ctx.plugin(Provider, config)).rejects.toThrow()
   expect(fixture.browsers).toEqual([])
 })
 
-it.each(['cancel', 'dispose'] as const)('drains native inference before completing browser %s', async (reason) => {
+it.each(['cancel', 'dispose'] as const)('drains native inference before completing browser %s', async reason => {
   const started: PromiseWithResolvers<void> = Promise.withResolvers()
   const release: PromiseWithResolvers<void> = Promise.withResolvers()
   const closeStarted: PromiseWithResolvers<void> = Promise.withResolvers()
-  fixture.inference = async () => { started.resolve(); await release.promise }
-  fixture.stagehandClose = () => { closeStarted.resolve() }
+  fixture.inference = async () => {
+    started.resolve()
+    await release.promise
+  }
+  fixture.stagehandClose = () => {
+    closeStarted.resolve()
+  }
   const provider = ctx.plugin(Provider, { model: nativeModel, mode: 'attach', cdpEndpoint: 'http://fixture' })
   await provider
   const controller = new AbortController()
   const operation = execute(first, 'extract', { instruction: 'Read the heading' }, controller.signal)
   await started.promise
   let operationSettled = false
-  void operation.then(() => { operationSettled = true })
+  void operation.then(() => {
+    operationSettled = true
+  })
   let disposal: Promise<void> | undefined
   try {
     if (reason === 'dispose') disposal = provider.dispose()
@@ -246,10 +295,7 @@ it.each(['cancel', 'dispose'] as const)('drains native inference before completi
   expect(fixture.browsers[0]?.closed).toBe(false)
 })
 
-it.each([
-  { shutdownGraceMs: 2 ** 31 },
-  { operationTimeoutMs: 2 ** 31 - 10000 },
-])('rejects timer overflow %j', (settings) => {
+it.each([{ shutdownGraceMs: 2 ** 31 }, { operationTimeoutMs: 2 ** 31 - 10000 }])('rejects timer overflow %j', settings => {
   expect(() => Provider.Config({ model: nativeModel, mode: 'launch', ...settings })).toThrow()
 })
 
@@ -257,12 +303,21 @@ it('releases an attachment whose initialization completes after provider disposa
   const started: PromiseWithResolvers<void> = Promise.withResolvers()
   const release: PromiseWithResolvers<void> = Promise.withResolvers()
   const aborted: PromiseWithResolvers<void> = Promise.withResolvers()
-  fixture.create = async () => { started.resolve(); await release.promise }
+  fixture.create = async () => {
+    started.resolve()
+    await release.promise
+  }
   const provider = ctx.plugin(Provider, { model: nativeModel, mode: 'attach', cdpEndpoint: 'http://fixture' })
   await provider
   const operation = execute(first, 'tabs', { action: 'list' })
   await started.promise
-  acquisition.signal!.addEventListener('abort', () => { aborted.resolve() }, { once: true })
+  acquisition.signal!.addEventListener(
+    'abort',
+    () => {
+      aborted.resolve()
+    },
+    { once: true },
+  )
   const closing = provider.dispose()
   try {
     await aborted.promise
@@ -277,21 +332,32 @@ it('releases an attachment whose initialization completes after provider disposa
   }
 })
 
-
-it.each([false, true])('disposes a real AgentHandle while its screenshot waits, with prior user cancel %s', async (cancelFirst) => {
+it.each([false, true])('disposes a real AgentHandle while its screenshot waits, with prior user cancel %s', async cancelFirst => {
   const entered: PromiseWithResolvers<void> = Promise.withResolvers()
   const stopped: PromiseWithResolvers<void> = Promise.withResolvers()
-  fixture.screenshot = async () => { entered.resolve(); await stopped.promise }
-  fixture.browserClose = async () => { stopped.resolve() }
+  fixture.screenshot = async () => {
+    entered.resolve()
+    await stopped.promise
+  }
+  fixture.browserClose = async () => {
+    stopped.resolve()
+  }
   class ScreenshotModel extends LlmAdapter {
-    async * stream(): AsyncIterable<StreamChunk> {
-      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: ToolCallId('blocked-screenshot'), name: 'stagehand_screenshot', arguments: '{}' } }
+    async *stream(): AsyncIterable<StreamChunk> {
+      yield {
+        type: 'block-end',
+        index: 0,
+        block: { type: 'tool-call', id: ToolCallId('blocked-screenshot'), name: 'stagehand_screenshot', arguments: '{}' },
+      }
       yield { type: 'finish', reason: { kind: 'tool-calls' } }
     }
   }
   ctx.llm.registerAdapter(['screenshot'], new ScreenshotModel())
   await ctx.plugin(Provider, { model: nativeModel, mode: 'launch' })
-  const owner = await ctx.agents.create({ sessionId: SessionId('screenshot-disposal'), agentOptions: { provider: 'screenshot', model: 'fixture' } })
+  const owner = await ctx.agents.create({
+    sessionId: SessionId('screenshot-disposal'),
+    agentOptions: { provider: 'screenshot', model: 'fixture' },
+  })
   try {
     owner.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Take a screenshot.' }], source: { kind: 'user' } }))
     await entered.promise
@@ -307,7 +373,6 @@ it.each([false, true])('disposes a real AgentHandle while its screenshot waits, 
     await owner.dispose()
   }
 })
-
 
 it('releases the provider after a terminated connection reports an SDK cleanup warning', async () => {
   const warning = vi.spyOn(ctx.logger, 'warn')
@@ -331,11 +396,13 @@ it('closes owned Chromium but retains the reservation if its Worker fails to ter
   expect(ctx.browserUse.providerName).toBe('stagehand-native')
 })
 
-
 it('reconnects after cancellation while preserving the owned browser and its tabs', async () => {
   const entered: PromiseWithResolvers<void> = Promise.withResolvers()
   const stopped: PromiseWithResolvers<void> = Promise.withResolvers()
-  fixture.screenshot = async () => { entered.resolve(); await stopped.promise }
+  fixture.screenshot = async () => {
+    entered.resolve()
+    await stopped.promise
+  }
   await ctx.plugin(Provider, { model: nativeModel, mode: 'launch' })
   await execute(first, 'navigate', { url: 'https://kept.example/' })
   const controller = new AbortController()
@@ -362,7 +429,7 @@ it.each([
   { modelName: 'openai/gpt-5.4-mini', apiKey: ' ' },
   { modelName: 'deepseek/deepseek-chat', apiKey: 'fixture' },
   { modelName: 'openai/gpt-5.4-mini', apiKey: 'fixture', baseURL: 'https://fixture' },
-])('rejects unsupported native model configuration before browser acquisition: %j', async (model) => {
+])('rejects unsupported native model configuration before browser acquisition: %j', async model => {
   await expect(ctx.plugin(Provider, { mode: 'launch', model } as Provider.Config)).rejects.toThrow()
   expect(fixture.browsers).toEqual([])
 })
@@ -375,9 +442,9 @@ it('forwards explicit native model headers without changing the Session model', 
   expect(first.options).toMatchObject({ provider: 'fixture', model: 'structured' })
 })
 
-it.each(['launch', 'attach'] as const)('releases an undrained extension only after owned Chromium has stopped (%s)', async (mode) => {
+it.each(['launch', 'attach'] as const)('releases an undrained extension only after owned Chromium has stopped (%s)', async mode => {
   acquisition.closeError = new StagehandDrainError('Extension request did not drain')
-  const provider = ctx.plugin(Provider, { model: nativeModel, mode, ...mode === 'attach' ? { cdpEndpoint: 'http://fixture' } : {} })
+  const provider = ctx.plugin(Provider, { model: nativeModel, mode, ...(mode === 'attach' ? { cdpEndpoint: 'http://fixture' } : {}) })
   await provider
   await execute(first, 'tabs', { action: 'list' })
   await provider.dispose()
@@ -399,7 +466,10 @@ it('retains ownership when both SDK drainage and owned Chromium cleanup fail', a
 it('blocks reconnection and another owner after canceled native work fails to drain', async () => {
   const entered: PromiseWithResolvers<void> = Promise.withResolvers()
   const release: PromiseWithResolvers<void> = Promise.withResolvers()
-  fixture.inference = async () => { entered.resolve(); await release.promise }
+  fixture.inference = async () => {
+    entered.resolve()
+    await release.promise
+  }
   acquisition.closeError = new StagehandDrainError('Extension request did not drain')
   const provider = ctx.plugin(Provider, { model: nativeModel, mode: 'attach', cdpEndpoint: 'http://fixture' })
   await provider

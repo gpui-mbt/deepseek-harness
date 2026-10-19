@@ -3,12 +3,16 @@
  * cycle fail-soft (every entry always emitted, no infinite walk).
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionId, SessionSummary } from '@deepseek-ai/dsh-api-remotes/client'
 import { flattenLineage } from '../src/client/sessions/lineage.ts'
 
-const s = (id: string, updatedAt: number, parent?: string): SessionSummary => ({ agentAvailable: true,
-  sessionId: id as SessionId, updatedAt, running: false, blank: false,
+const s = (id: string, updatedAt: number, parent?: string): SessionSummary => ({
+  agentAvailable: true,
+  sessionId: id as SessionId,
+  updatedAt,
+  running: false,
+  blank: false,
   ...(parent !== undefined ? { parentSessionId: parent as SessionId } : {}),
 })
 
@@ -22,13 +26,20 @@ describe('Session lineage flattening', () => {
       s('grandkid', 5, 'kid-new'),
     ])
     expect(out.map(e => [e.sessionId, e.depth])).toEqual([
-      ['old-root', 0], ['new-root', 0], ['kid-old', 1], ['kid-new', 1], ['grandkid', 2],
+      ['old-root', 0],
+      ['new-root', 0],
+      ['kid-old', 1],
+      ['kid-new', 1],
+      ['grandkid', 2],
     ])
   })
 
   it('degrades an orphan (absent parent) to root level without dropping it', () => {
     const out = flattenLineage([s('orphan', 20, 'ghost-parent'), s('root', 10)])
-    expect(out.map(e => [e.sessionId, e.depth])).toEqual([['orphan', 0], ['root', 0]])
+    expect(out.map(e => [e.sessionId, e.depth])).toEqual([
+      ['orphan', 0],
+      ['root', 0],
+    ])
   })
 
   it('fails soft on a two-node cycle: all entries emitted, warn fired, no hang', () => {

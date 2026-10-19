@@ -80,12 +80,18 @@ export function resolveConfig(config: Config): ResolvedConfig {
   return {
     ...(config as Required<Config>),
     shellDialect,
-    shellPath: config.shellPath !== undefined && config.shellPath.length > 0
-      ? config.shellPath
-      : (shellDialect === 'pwsh' ? resolvePwshPath() : DEFAULT_BASH_SHELL),
-    shellArgs: config.shellArgs !== undefined && config.shellArgs.length > 0
-      ? config.shellArgs
-      : (shellDialect === 'pwsh' ? DEFAULT_PWSH_ARGS : DEFAULT_BASH_ARGS),
+    shellPath:
+      config.shellPath !== undefined && config.shellPath.length > 0
+        ? config.shellPath
+        : shellDialect === 'pwsh'
+          ? resolvePwshPath()
+          : DEFAULT_BASH_SHELL,
+    shellArgs:
+      config.shellArgs !== undefined && config.shellArgs.length > 0
+        ? config.shellArgs
+        : shellDialect === 'pwsh'
+          ? DEFAULT_PWSH_ARGS
+          : DEFAULT_BASH_ARGS,
   }
 }
 
@@ -126,8 +132,10 @@ export function validateConfig(config: Config): asserts config is ResolvedConfig
       throw new Error(`terminal-bash: ${name} must be a positive safe integer`)
     }
   }
-  if (typeof resolved.promptTailGraceMs === 'number'
-    && (!Number.isSafeInteger(resolved.promptTailGraceMs) || resolved.promptTailGraceMs < 0)) {
+  if (
+    typeof resolved.promptTailGraceMs === 'number' &&
+    (!Number.isSafeInteger(resolved.promptTailGraceMs) || resolved.promptTailGraceMs < 0)
+  ) {
     throw new Error('terminal-bash: promptTailGraceMs must be a non-negative safe integer')
   }
   if (resolved.maxReadBytes > resolved.scrollbackMaxBytes) {
@@ -137,6 +145,8 @@ export function validateConfig(config: Config): asserts config is ResolvedConfig
     throw new Error('terminal-bash: handoffGraceMs must be at least pollIntervalMs so one readiness poll runs inside the grace window')
   }
   if (resolved.promptTailGraceMs !== 0 && resolved.promptTailGraceMs < resolved.pollIntervalMs) {
-    throw new Error('terminal-bash: promptTailGraceMs must be zero or at least pollIntervalMs so a nonzero tolerance contains one readiness poll')
+    throw new Error(
+      'terminal-bash: promptTailGraceMs must be zero or at least pollIntervalMs so a nonzero tolerance contains one readiness poll',
+    )
   }
 }

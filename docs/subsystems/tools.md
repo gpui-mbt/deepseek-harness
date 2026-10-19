@@ -259,9 +259,7 @@ The agent loop asks the registry for each pending call's execution mode and uses
  * Scheduling mode for one pending call. `parallel` may overlap with siblings;
  * `exclusive` runs alone and forms an ordering barrier.
  */
-type ToolExecutionMode =
-  | { kind: 'parallel' }
-  | { kind: 'exclusive' }
+type ToolExecutionMode = { kind: 'parallel' } | { kind: 'exclusive' }
 ```
 
 PTC bindings freeze their ToolSchema at construction and pass it through the scheduler into `ToolExecution.schema`; it is transient execution metadata. Before policy, each actually started sub-dispatch records only pairing ids, name, and normalized arguments. Neither start nor settle events serialize description, parameters, or schema. The bridge later exposes the settled call to the `tools/ptc-dispatch-log` waterfall, which may change the durable content copy while preserving the program value, model-visible outer result, and structured failure identity:
@@ -641,7 +639,7 @@ Around-dispatch waterfall for timeout, retry, or metrics. `next()` returns a nor
  * @param exec - the allowed call about to dispatch (name, parsed arguments, caller agent, signal).
  * @mode waterfall
  */
-'tools/execute'(this: Scoped<ToolRuntime>, exec: ToolDispatchExecution, next: () => Promise<ToolExecutionResult>): Promise<ToolExecutionResult>
+'tools/execute'( this: Scoped<ToolRuntime>, exec: ToolDispatchExecution, next: () => Promise<ToolExecutionResult>, ): Promise<ToolExecutionResult>
 ```
 
 Types: [Scoped](scope.md)
@@ -666,7 +664,7 @@ Accept, replace, enrich, or block a normalized dispatch result. `next()` accepts
  * @param result - the dispatch outcome a listener may accept, replace, or block.
  * @mode waterfall
  */
-'tools/post-execute'(this: Scoped<ToolRuntime>, exec: ToolExecution, result: Readonly<ToolExecutionResult>, next: () => Promise<PostToolDecision>): Promise<PostToolDecision>
+'tools/post-execute'( this: Scoped<ToolRuntime>, exec: ToolExecution, result: Readonly<ToolExecutionResult>, next: () => Promise<PostToolDecision>, ): Promise<PostToolDecision>
 ```
 
 Types: [Scoped](scope.md)
@@ -717,7 +715,7 @@ Allow a listener to replace content in the DURABLE LOG COPY of one `run_code` su
  * @param dispatch - the parent execution, sub-call identity, and the settled content to log.
  * @mode waterfall
  */
-'tools/ptc-dispatch-log'(this: Scoped<ToolRuntime>, dispatch: PtcDispatchLog, next: () => Promise<ContentBlock[]>): Promise<ContentBlock[]>
+'tools/ptc-dispatch-log'( this: Scoped<ToolRuntime>, dispatch: PtcDispatchLog, next: () => Promise<ContentBlock[]>, ): Promise<ContentBlock[]>
 ```
 
 Types: [ContentBlock](llm-streaming.md) · [Scoped](scope.md)

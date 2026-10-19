@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
 import { cleanup, fireEvent, render } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
@@ -50,7 +50,12 @@ interface ReadMetaFixture {
 }
 
 const readMeta = (over?: Partial<ReadMetaFixture>): ReadMetaFixture => ({
-  path: 'src/a.ts', offset: 41, lines: sampleLines, totalLines: 180, lang: 'ts', ...over,
+  path: 'src/a.ts',
+  offset: 41,
+  lines: sampleLines,
+  totalLines: 180,
+  lang: 'ts',
+  ...over,
 })
 
 const readContent = (body = 'export const a = 1'): string => `<path>src/a.ts</path>\n<type>file</type>\n<content>\n${body}\n</content>`
@@ -58,27 +63,45 @@ const readContent = (body = 'export const a = 1'): string => `<path>src/a.ts</pa
 const running = (over?: Partial<StartedToolCall>): StartedToolCall => {
   const argsRaw = over?.argsRaw ?? ARGS
   return {
-    phase: 'start' as const, args: PartialArguments.fromText(argsRaw), callId: 'c1', name: 'read', argsRaw,
-    turn: 1, step: 1, time: 1_000, subCalls: [], ...over,
+    phase: 'start' as const,
+    args: PartialArguments.fromText(argsRaw),
+    callId: 'c1',
+    name: 'read',
+    argsRaw,
+    turn: 1,
+    step: 1,
+    time: 1_000,
+    subCalls: [],
+    ...over,
   }
 }
 
 const settled = (over?: Partial<ToolResultNode>): ToolResultNode => {
   const call = over?.call === undefined ? { name: 'read', argsRaw: ARGS } : over.call
   return {
-    kind: 'tool-result', seq: 10, time: 2_000, callId: 'c1',
-    name: call?.name ?? '', args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
+    kind: 'tool-result',
+    seq: 10,
+    time: 2_000,
+    callId: 'c1',
+    name: call?.name ?? '',
+    args: call === null ? PartialArguments.EMPTY : PartialArguments.fromText(call.argsRaw),
     call,
     callTime: 1_000,
-    content: [{ type: 'text', text: readContent() }], isError: false,
-    meta: readMeta(), subCalls: [], ...over,
+    content: [{ type: 'text', text: readContent() }],
+    isError: false,
+    meta: readMeta(),
+    subCalls: [],
+    ...over,
   }
 }
 
 describe('readCardModel', () => {
   it('derives the card from settled read metadata and its raw envelope', () => {
     expect(readCardModel(settled())).toEqual({
-      label: 'src/a.ts', lines: sampleLines, totalLines: 180, lang: 'ts',
+      label: 'src/a.ts',
+      lines: sampleLines,
+      totalLines: 180,
+      lang: 'ts',
     })
   })
 
@@ -91,23 +114,21 @@ describe('readCardModel', () => {
 
   it('relativizes a workspace-rooted path label, and leaves others as authored', () => {
     // A workspace-rooted absolute path shows its short form.
-    expect(readCardModel(settled({ meta: readMeta({ path: '/w/app/src/a.ts' }) }), '/w/app')?.label)
-      .toBe('src/a.ts')
+    expect(readCardModel(settled({ meta: readMeta({ path: '/w/app/src/a.ts' }) }), '/w/app')?.label).toBe('src/a.ts')
     // A path outside the workspace stays as authored.
-    expect(readCardModel(settled({ meta: readMeta({ path: '/srv/other.ts' }) }), '/w/app')?.label)
-      .toBe('/srv/other.ts')
+    expect(readCardModel(settled({ meta: readMeta({ path: '/srv/other.ts' }) }), '/w/app')?.label).toBe('/srv/other.ts')
     // With no session cwd there is nothing to relativize against.
-    expect(readCardModel(settled({ meta: readMeta({ path: '/w/app/src/a.ts' }) }))?.label)
-      .toBe('/w/app/src/a.ts')
+    expect(readCardModel(settled({ meta: readMeta({ path: '/w/app/src/a.ts' }) }))?.label).toBe('/w/app/src/a.ts')
   })
 
   it('abbreviates a leftover POSIX home path label', () => {
-    expect(readCardModel(settled({ meta: readMeta({ path: '/Users/u/notes.md' }) }), '/tmp/ws', '/Users/u')?.label)
-      .toBe('~/notes.md')
-    expect(readCardModel(settled({ meta: readMeta({ path: '/Users/u/app/src/a.ts' }) }), '/Users/u/app', '/Users/u')?.label)
-      .toBe('src/a.ts')
-    expect(readCardModel(settled({ meta: readMeta({ path: 'C:\\Users\\u\\a.ts' }) }), '/tmp/ws', '/Users/u')?.label)
-      .toBe('C:\\Users\\u\\a.ts')
+    expect(readCardModel(settled({ meta: readMeta({ path: '/Users/u/notes.md' }) }), '/tmp/ws', '/Users/u')?.label).toBe('~/notes.md')
+    expect(readCardModel(settled({ meta: readMeta({ path: '/Users/u/app/src/a.ts' }) }), '/Users/u/app', '/Users/u')?.label).toBe(
+      'src/a.ts',
+    )
+    expect(readCardModel(settled({ meta: readMeta({ path: 'C:\\Users\\u\\a.ts' }) }), '/tmp/ws', '/Users/u')?.label).toBe(
+      'C:\\Users\\u\\a.ts',
+    )
   })
 
   it('carries an omitted language through as undefined', () => {
@@ -174,7 +195,12 @@ describe('readCallLine', () => {
 describe('GenericToolCard read body', () => {
   const ownerProps = (block: StartedToolCall | ToolResultNode): GenericToolCardProps => ({
     loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
-    useDisclosure, callId: 'c1', toolName: 'read', ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(), t,
+    useDisclosure,
+    callId: 'c1',
+    toolName: 'read',
+    ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+    openFile: vi.fn(),
+    t,
   })
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
@@ -195,11 +221,23 @@ describe('GenericToolCard read body', () => {
   })
 
   it('a non-read tool renders the bare row with no read card', () => {
-    const view = render(<GenericToolCard {...({
-      useDisclosure, callId: 'c1', toolName: 'echo', phase: 'result' as const, block: settled({
-        call: { name: 'echo', argsRaw: '{"text":"x"}' }, meta: undefined,
-      }), openFile: vi.fn(), loadImage: vi.fn(() => Promise.reject(new Error('not used'))), t,
-    })} />)
+    const view = render(
+      <GenericToolCard
+        {...{
+          useDisclosure,
+          callId: 'c1',
+          toolName: 'echo',
+          phase: 'result' as const,
+          block: settled({
+            call: { name: 'echo', argsRaw: '{"text":"x"}' },
+            meta: undefined,
+          }),
+          openFile: vi.fn(),
+          loadImage: vi.fn(() => Promise.reject(new Error('not used'))),
+          t,
+        }}
+      />,
+    )
     toggleRow(view)
     expect(view.container.querySelector('[data-read]')).toBeNull()
   })
@@ -211,18 +249,25 @@ describe('GenericToolCard read body', () => {
 })
 
 describe('ReadRow keyed toolview', () => {
-  const list = () => createSnapshotStore<SessionListState>({
-    ids: [SID],
-    byId: { [SID]: { id: SID, displayTitle: 'r', running: false, retainedBy: {}, blank: false, updatedAt: 0, cwd: '/w/app' } },
-    phase: 'ready',
-    projectionsBySession: {},
-  })
+  const list = () =>
+    createSnapshotStore<SessionListState>({
+      ids: [SID],
+      byId: { [SID]: { id: SID, displayTitle: 'r', running: false, retainedBy: {}, blank: false, updatedAt: 0, cwd: '/w/app' } },
+      phase: 'ready',
+      projectionsBySession: {},
+    })
 
-  const rowProps = (block: StartedToolCall | ToolResultNode): Parameters<typeof ReadRow>[0] => ({
-    useDisclosure, callId: 'c1', toolName: 'read', ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }), openFile: vi.fn(),
-    sessionId: SID, useSessions: bindSnapshotSelector(list()),
-    t,
-  } as Parameters<typeof ReadRow>[0])
+  const rowProps = (block: StartedToolCall | ToolResultNode): Parameters<typeof ReadRow>[0] =>
+    ({
+      useDisclosure,
+      callId: 'c1',
+      toolName: 'read',
+      ...('kind' in block ? { phase: 'result' as const, block: block } : { phase: block.phase, block: block }),
+      openFile: vi.fn(),
+      sessionId: SID,
+      useSessions: bindSnapshotSelector(list()),
+      t,
+    }) as Parameters<typeof ReadRow>[0]
 
   /** The whole summary row is the expand toggle (ToolRow's unified interaction). */
   const toggleRow = (view: { container: HTMLElement }) => {
@@ -265,29 +310,47 @@ describe('ReadRow keyed toolview', () => {
   })
 
   it('an error read result shows the error state and no read card', () => {
-    const view = render(<ReadRow {...rowProps(settled({
-      isError: true,
-      content: [{ type: 'text', text: 'ENOENT' }],
-    }))} />)
+    const view = render(
+      <ReadRow
+        {...rowProps(
+          settled({
+            isError: true,
+            content: [{ type: 'text', text: 'ENOENT' }],
+          }),
+        )}
+      />,
+    )
     expect(view.container.querySelector('[data-variant="read"]')?.getAttribute('data-state')).toBe('error')
     expect(view.container.querySelector('[data-state="error"] svg')).not.toBeNull()
     expect(view.container.querySelector('[data-read]')).toBeNull()
   })
 
   it('an interrupted read shows the stopped state', () => {
-    const view = render(<ReadRow {...rowProps(settled({
-      isError: true, error: { name: 'ToolError', code: 'interrupted' },
-    }))} />)
+    const view = render(
+      <ReadRow
+        {...rowProps(
+          settled({
+            isError: true,
+            error: { name: 'ToolError', code: 'interrupted' },
+          }),
+        )}
+      />,
+    )
     expect(view.container.querySelector('[data-variant="read"]')?.getAttribute('data-state')).toBe('stopped')
     expect(view.container.querySelector('[data-state="stopped"] svg')).not.toBeNull()
   })
 
   it('registers under the read key of the keyed toolview slot', () => {
     const registered: { name: unknown; key?: unknown }[] = []
-    const ctx = { slots: {
-      inject: (_name: string, callback: () => () => void) => callback(),
-      register: (options: { name: unknown; key?: unknown }) => { registered.push(options); return () => undefined },
-    } } as unknown as Context
+    const ctx = {
+      slots: {
+        inject: (_name: string, callback: () => () => void) => callback(),
+        register: (options: { name: unknown; key?: unknown }) => {
+          registered.push(options)
+          return () => undefined
+        },
+      },
+    } as unknown as Context
     readToolview.apply(ctx)
     // The row composes ToolRow, so it declares its locale namespace at the seat.
     expect(registered).toEqual([{ name: 'tool.call.toolview', key: 'read', locale: 'conversation' }])

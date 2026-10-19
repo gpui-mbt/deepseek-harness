@@ -21,10 +21,10 @@
  * developer messages; `projectToolUpdates` selects what each route receives.
  */
 interface ContentBlockMap {
-  'text': TextBlock
-  'reasoning': ReasoningBlock
-  'image': ImageBlock
-  'file': FileBlock
+  text: TextBlock
+  reasoning: ReasoningBlock
+  image: ImageBlock
+  file: FileBlock
   'tool-call': ToolCallBlock
   'tool-addition': ToolAdditionBlock
   'tool-removal': ToolRemovalBlock
@@ -149,15 +149,15 @@ type ContextFormed =
   | { readonly form: 'instructions' }
   | { readonly form: 'catalog' }
   | {
-    readonly form: 'snapshot'
-    /** The named contributions this snapshot assembled, in order. */
-    readonly sections: readonly ContextSnapshotSection[]
-  }
+      readonly form: 'snapshot'
+      /** The named contributions this snapshot assembled, in order. */
+      readonly sections: readonly ContextSnapshotSection[]
+    }
   | {
-    readonly form: 'notice'
-    /** One-line account of what happened, shown without expanding the row. */
-    readonly summary: string
-  }
+      readonly form: 'notice'
+      /** One-line account of what happened, shown without expanding the row. */
+      readonly summary: string
+    }
   | { readonly form: 'relay' }
   | { readonly form: 'recall' }
 ```
@@ -208,11 +208,11 @@ type StreamChunk =
   | { type: 'block-end'; index: number; block: ContentBlock }
   | { type: 'usage'; usage: TokenUsage }
   | {
-    type: 'finish'
-    reason: FinishReason
-    /** Replay metadata for a successful response; see {@link ReplayEnvelope}. */
-    replayState?: ReplayEnvelope
-  }
+      type: 'finish'
+      reason: FinishReason
+      /** Replay metadata for a successful response; see {@link ReplayEnvelope}. */
+      replayState?: ReplayEnvelope
+    }
 ```
 
 <a id="compact-assistant-streams"></a>
@@ -714,11 +714,11 @@ interface GenerateOptions {
  * Merge-extensible so adapters can surface provider-specific reasons.
  */
 interface FinishReasonMap {
-  'stop': { kind: 'stop' }
+  stop: { kind: 'stop' }
   'tool-calls': { kind: 'tool-calls' }
   'max-tokens': { kind: 'max-tokens' }
-  'aborted': { kind: 'aborted'; failure: LlmFailure }
-  'error': { kind: 'error'; failure: LlmFailure }
+  aborted: { kind: 'aborted'; failure: LlmFailure }
+  error: { kind: 'error'; failure: LlmFailure }
 }
 ```
 
@@ -842,10 +842,7 @@ interface LlmCallConfig extends LlmCallControls {
  * @param model - detached, deeply frozen metadata from the captured adapter generation.
  * @returns concrete controls; omitted fields receive the route's defaults.
  */
-type ConfigureCall = (
-  controls: Readonly<LlmCallControls>,
-  model: Readonly<LlmResolvedModelInfo>,
-) => LlmCallControls
+type ConfigureCall = (controls: Readonly<LlmCallControls>, model: Readonly<LlmResolvedModelInfo>) => LlmCallControls
 ```
 
 ```ts type-equiv
@@ -954,11 +951,7 @@ declare abstract class LlmAdapter {
    *   implementations must settle promptly after it aborts.
    * @returns provider/model identity plus any context, call-default, and reasoning metadata.
    */
-  resolveModel(
-    provider: string,
-    model: string,
-    _signal?: AbortSignal,
-  ): Promise<LlmResolvedModelInfo>;
+  resolveModel(provider: string, model: string, _signal?: AbortSignal): Promise<LlmResolvedModelInfo>;
   /**
    * Bind exact model metadata and the eventual request dispatch to one adapter generation.
    * Dynamic adapters override this so settings changes between preparation and
@@ -1065,7 +1058,7 @@ registerConfigurableProviders(entries: readonly LlmConfigurableProvider[]): Dire
  * @param discover - interrogates one endpoint and must honor the supplied signal.
  * @returns the disposer that withdraws the offer.
  */
-registerModelDiscovery( settingsNs: string, discover: ( request: LlmModelDiscoveryRequest, signal?: AbortSignal, ) => Promise<readonly LlmDiscoveredModel[]>, ): () => void
+registerModelDiscovery( settingsNs: string, discover: (request: LlmModelDiscoveryRequest, signal?: AbortSignal) => Promise<readonly LlmDiscoveredModel[]>, ): () => void
 
 /**
  * Interrogate one provider endpoint for the models it advertises. The
@@ -1077,7 +1070,7 @@ registerModelDiscovery( settingsNs: string, discover: ( request: LlmModelDiscove
  * @param signal - caller cancellation.
  * @returns the advertised models, deduplicated in endpoint order.
  */
-async discoverModels( settingsNs: string, request: LlmModelDiscoveryRequest, signal?: AbortSignal, ): Promise<LlmDiscoveredModel[]>
+async discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal?: AbortSignal): Promise<LlmDiscoveredModel[]>
 
 /**
  * Remote adapter for one draft provider interrogation.
@@ -1087,7 +1080,7 @@ async discoverModels( settingsNs: string, request: LlmModelDiscoveryRequest, sig
  * @returns advertised models in endpoint order.
  * @throws RemoteError with `llm/model-discovery-rejected` when discovery refuses or fails.
  */
-@Remote('discoverModels') async remoteDiscoverModels( settingsNs: string, request: LlmModelDiscoveryRequest, signal: AbortSignal, ): Promise<LlmDiscoveredModel[]>
+@Remote('discoverModels') async remoteDiscoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal: AbortSignal): Promise<LlmDiscoveredModel[]>
 
 /**
  * Resolve the retry policy captured when one provider route was registered.
@@ -1142,7 +1135,7 @@ async listModels(provider: string): Promise<LlmModelInfo[]>
  * @param signal - optional cancellation for adapter-owned asynchronous lookup.
  * @returns exact model identity plus available context and reasoning metadata.
  */
-async resolveModelInfo( provider: string, model: string, signal?: AbortSignal, ): Promise<LlmResolvedModelInfo>
+async resolveModelInfo(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo>
 
 /**
  * Validate a conversation call config against its exact model capability and
@@ -1168,7 +1161,7 @@ async resolveCallConfig(config: LlmCallConfig, signal?: AbortSignal): Promise<Ll
  * @param configure - pure control selection, called once before defaults and validation.
  * @returns a prepared config and its registration-bound stream entry point.
  */
-async prepareCall( config: LlmCallConfig, signal?: AbortSignal, configure?: ConfigureCall, ): Promise<PreparedLlmCall>
+async prepareCall(config: LlmCallConfig, signal?: AbortSignal, configure?: ConfigureCall): Promise<PreparedLlmCall>
 
 /**
  * Stream one model call as raw chunks (token-level deltas). Replay state is

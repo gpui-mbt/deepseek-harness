@@ -1,5 +1,5 @@
 import { Context, Service } from '@deepseek-ai/cordis'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { RemoteStreamOptions } from '@deepseek-ai/dsh-api-gateway/client'
 import * as Analytics from '../src/client/index.ts'
 
@@ -22,30 +22,63 @@ async function setup(enabled = true) {
       while (!disposed) {
         if (failure !== undefined) throw failure
         const value = values.shift()
-        if (value !== undefined) { yield { value, accept: () => {} }; continue }
-        await new Promise<void>((resolve) => { wake = resolve })
+        if (value !== undefined) {
+          yield { value, accept: () => {} }
+          continue
+        }
+        await new Promise<void>(resolve => {
+          wake = resolve
+        })
       }
     },
-    dispose: async () => { disposed = true; wake?.() },
+    dispose: async () => {
+      disposed = true
+      wake?.()
+    },
   }
   const remote = {
     productAnalytics: { report, watchPolicy: vi.fn() },
-    $stream: (value: RemoteStreamOptions<boolean>) => { options = value; return stream },
+    $stream: (value: RemoteStreamOptions<boolean>) => {
+      options = value
+      return stream
+    },
   }
   class TracedRemote extends Service {
-    constructor(ctx: Context) { super(ctx, 'remote') }
+    constructor(ctx: Context) {
+      super(ctx, 'remote')
+    }
     $stream = remote.$stream
   }
   await ctx.plugin(TracedRemote)
-  await ctx.plugin({ apply(child: Context) { child.provide('remote.productAnalytics', remote.productAnalytics as never) } })
+  await ctx.plugin({
+    apply(child: Context) {
+      child.provide('remote.productAnalytics', remote.productAnalytics as never)
+    },
+  })
   await ctx.plugin(Analytics)
-  if ('dshDesktop' in globalThis) await vi.waitFor(() => { expect(ctx.productAnalytics.enabled).toBe(enabled) })
-  return { ctx, report, options: () => options!,
-    async fail() { failure = new Error('terminal'); wake?.(); await vi.waitFor(() => { expect(ctx.productAnalytics.enabled).toBe(false) }) },
+  if ('dshDesktop' in globalThis)
+    await vi.waitFor(() => {
+      expect(ctx.productAnalytics.enabled).toBe(enabled)
+    })
+  return {
+    ctx,
+    report,
+    options: () => options!,
+    async fail() {
+      failure = new Error('terminal')
+      wake?.()
+      await vi.waitFor(() => {
+        expect(ctx.productAnalytics.enabled).toBe(false)
+      })
+    },
     async policy(enabled: boolean) {
-      values.push(enabled); wake?.()
-      await vi.waitFor(() => { expect(ctx.productAnalytics.enabled).toBe(enabled) })
-    } }
+      values.push(enabled)
+      wake?.()
+      await vi.waitFor(() => {
+        expect(ctx.productAnalytics.enabled).toBe(enabled)
+      })
+    },
+  }
 }
 it('never collects in Web even when the Host advertises analytics', async () => {
   const b = await setup()
@@ -60,7 +93,11 @@ it('drops disabled events and has no backfill when enabled', async () => {
   expect(b.report).not.toHaveBeenCalled()
   await b.policy(true)
   b.ctx.productAnalytics.track('auth_page_click', { button_name: 'sign_in' })
-  expect(b.report).toHaveBeenCalledExactlyOnceWith({ eventName: 'auth_page_click', timestamp: expect.any(Number) as number, attributes: { button_name: 'sign_in' } })
+  expect(b.report).toHaveBeenCalledExactlyOnceWith({
+    eventName: 'auth_page_click',
+    timestamp: expect.any(Number) as number,
+    attributes: { button_name: 'sign_in' },
+  })
 })
 it('does not retry or propagate transport rejection', async () => {
   vi.stubGlobal('dshDesktop', {})
@@ -74,8 +111,12 @@ it('does not retry or propagate transport rejection', async () => {
 it('does not interrupt an action when Remote access fails synchronously', async () => {
   vi.stubGlobal('dshDesktop', {})
   const b = await setup()
-  b.report.mockImplementationOnce(() => { throw new Error('Remote namespace detached') })
-  expect(() => { b.ctx.productAnalytics.track('auth_page_view', {}) }).not.toThrow()
+  b.report.mockImplementationOnce(() => {
+    throw new Error('Remote namespace detached')
+  })
+  expect(() => {
+    b.ctx.productAnalytics.track('auth_page_view', {})
+  }).not.toThrow()
   await Promise.resolve()
   expect(b.report).toHaveBeenCalledOnce()
 })
@@ -116,6 +157,8 @@ it('reports from a consumer without granting it the analytics Remote namespace',
   })
   click()
   expect(b.report).toHaveBeenCalledExactlyOnceWith({
-    eventName: 'sidebar_menu_click', timestamp: expect.any(Number) as number, attributes: { menu_name: 'plugin' },
+    eventName: 'sidebar_menu_click',
+    timestamp: expect.any(Number) as number,
+    attributes: { menu_name: 'plugin' },
   })
 })

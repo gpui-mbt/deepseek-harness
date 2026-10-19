@@ -7,9 +7,7 @@ function translator(dictionary: Record<string, string>): TrajectoryTranslate {
     const template = dictionary[key] ?? key
     return template.replace(/\{(\w+)\}/g, (_match, name: string) => {
       const value = params[name]
-      return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-        ? String(value)
-        : ''
+      return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? String(value) : ''
     })
   }
 }

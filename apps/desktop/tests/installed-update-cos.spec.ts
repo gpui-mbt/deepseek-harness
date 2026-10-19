@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type COS from 'cos-nodejs-sdk-v5'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { createInstalledUpdateCos } from '../scripts/installed-update-cos.ts'
 import { answer, cosError, startCosLoopback, type CosLoopback, type CosLoopbackResponder } from './cos-loopback.ts'
 
@@ -12,19 +12,27 @@ const state = vi.hoisted(() => ({
   redirect: undefined as ((cos: COS) => void) | undefined,
 }))
 
-vi.mock('../scripts/desktop-package-environment.mjs', () => ({ loadDesktopPackageEnvironment: () => ({
-  DSH_DESKTOP_AUTO_UPDATE_ENV: state.settings, DOWNLOAD_TEST_ORIGIN: 'https://download-test.deepseek.com',
-  DOWNLOAD_TEST_COS_BUCKET: 'bj-toc-download-test-1320056602', DOWNLOAD_TEST_COS_SECRET_ID: 'fixture-id',
-  DOWNLOAD_TEST_COS_SECRET_KEY: 'fixture-key', DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'fixture-pin-not-for-sdk',
-}) }))
+vi.mock('../scripts/desktop-package-environment.mjs', () => ({
+  loadDesktopPackageEnvironment: () => ({
+    DSH_DESKTOP_AUTO_UPDATE_ENV: state.settings,
+    DOWNLOAD_TEST_ORIGIN: 'https://download-test.deepseek.com',
+    DOWNLOAD_TEST_COS_BUCKET: 'bj-toc-download-test-1320056602',
+    DOWNLOAD_TEST_COS_SECRET_ID: 'fixture-id',
+    DOWNLOAD_TEST_COS_SECRET_KEY: 'fixture-key',
+    DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'fixture-pin-not-for-sdk',
+  }),
+}))
 
-vi.mock('../scripts/desktop-cos.ts', async (original) => {
+vi.mock('../scripts/desktop-cos.ts', async original => {
   const actual = await original<typeof import('../scripts/desktop-cos.ts')>()
-  return { ...actual, createDesktopCos: (credentials: Parameters<typeof actual.createDesktopCos>[0]) => {
-    const cos = actual.createDesktopCos(credentials)
-    state.redirect?.(cos)
-    return cos
-  } }
+  return {
+    ...actual,
+    createDesktopCos: (credentials: Parameters<typeof actual.createDesktopCos>[0]) => {
+      const cos = actual.createDesktopCos(credentials)
+      state.redirect?.(cos)
+      return cos
+    },
+  }
 })
 
 const loopbacks: CosLoopback[] = []
@@ -36,10 +44,14 @@ afterEach(async () => {
   state.settings = 'test'
   state.redirect = undefined
   try {
-    try { await Promise.all(closers.map(loopback => loopback.close())) }
-    finally { vi.unstubAllGlobals() }
+    try {
+      await Promise.all(closers.map(loopback => loopback.close()))
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  } finally {
+    await Promise.all(paths.map(path => rm(path, { recursive: true, force: true })))
   }
-  finally { await Promise.all(paths.map(path => rm(path, { recursive: true, force: true }))) }
 })
 
 const BUCKET = 'bj-toc-download-test-1320056602'
@@ -49,7 +61,9 @@ const key = `dsh-desk/bin/qualification/${'a'.repeat(24)}/win-x64/package.exe`
 async function store(responder: CosLoopbackResponder) {
   const loopback = await startCosLoopback(responder)
   loopbacks.push(loopback)
-  state.redirect = (cos) => { loopback.redirect(cos) }
+  state.redirect = cos => {
+    loopback.redirect(cos)
+  }
   return { store: createInstalledUpdateCos(), loopback }
 }
 
@@ -63,8 +77,14 @@ describe('qualification COS transport with real SDK serialization over a loopbac
       answer(response, 200, '', { 'x-cos-request-id': 'fixture-request' })
     })
     expect(loopback.requests).toHaveLength(0)
-    expect(await cos.put(key, { source: { contents: 'bytes' }, size: 5,
-      sha512: createHash('sha512').update('bytes').digest('base64'), forbidOverwrite: true })).toEqual({ requestId: 'fixture-request' })
+    expect(
+      await cos.put(key, {
+        source: { contents: 'bytes' },
+        size: 5,
+        sha512: createHash('sha512').update('bytes').digest('base64'),
+        forbidOverwrite: true,
+      }),
+    ).toEqual({ requestId: 'fixture-request' })
     expect(loopback.requests).toHaveLength(1)
     const request = loopback.requests[0]!
     expect(request.method).toBe('PUT')
@@ -87,13 +107,21 @@ describe('qualification COS transport with real SDK serialization over a loopbac
   })
 
   it('streams a file-backed object with its declared length', async () => {
-    const { store: cos, loopback } = await store((_request, response) => { answer(response, 200) })
+    const { store: cos, loopback } = await store((_request, response) => {
+      answer(response, 200)
+    })
     const root = await mkdtemp(join(tmpdir(), 'dsh-cos-file-'))
     roots.push(root)
     const path = join(root, 'package.exe')
     await writeFile(path, 'file bytes')
-    expect(await cos.put(key, { source: { path }, size: 10,
-      sha512: createHash('sha512').update('file bytes').digest('base64'), forbidOverwrite: true })).toEqual({})
+    expect(
+      await cos.put(key, {
+        source: { path },
+        size: 10,
+        sha512: createHash('sha512').update('file bytes').digest('base64'),
+        forbidOverwrite: true,
+      }),
+    ).toEqual({})
     expect(loopback.requests).toHaveLength(1)
     expect(loopback.requests[0]!.body.toString('utf8')).toBe('file bytes')
     expect(loopback.requests[0]!.headers['content-length']).toBe('10')
@@ -107,8 +135,12 @@ describe('qualification COS transport with real SDK serialization over a loopbac
     ['<Status>Suspended</Status>', false],
   ] as const)('reads bucket versioning %j as disabled=%s', async (status, disabled) => {
     const { store: cos, loopback } = await store((_request, response) => {
-      answer(response, 200, `<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">${status}</VersioningConfiguration>`,
-        { 'content-type': 'application/xml' })
+      answer(
+        response,
+        200,
+        `<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">${status}</VersioningConfiguration>`,
+        { 'content-type': 'application/xml' },
+      )
     })
     expect(await cos.versioningDisabled()).toBe(disabled)
     expect(loopback.requests).toHaveLength(1)
@@ -119,23 +151,38 @@ describe('qualification COS transport with real SDK serialization over a loopbac
     const { store: cos, loopback } = await store((_request, response) => {
       answer(response, 500, cosError('InternalError'), { 'content-type': 'application/xml', 'x-cos-request-id': 'fixture-request' })
     })
-    await expect(cos.put(key, { source: { contents: 'x' }, size: 1,
-      sha512: createHash('sha512').update('x').digest('base64'), forbidOverwrite: true })).rejects.toThrow()
+    await expect(
+      cos.put(key, {
+        source: { contents: 'x' },
+        size: 1,
+        sha512: createHash('sha512').update('x').digest('base64'),
+        forbidOverwrite: true,
+      }),
+    ).rejects.toThrow()
     expect(loopback.requests).toHaveLength(1)
   })
 
-  it.each(['versioning', 'read', 'put'] as const)('enforces the qualification %s total deadline', async (operation) => {
+  it.each(['versioning', 'read', 'put'] as const)('enforces the qualification %s total deadline', async operation => {
     const received = Promise.withResolvers<undefined>()
     const closed = Promise.withResolvers<undefined>()
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const { store: cos, loopback } = await store((_request, response) => {
-      response.once('close', () => { closed.resolve(undefined) })
+      response.once('close', () => {
+        closed.resolve(undefined)
+      })
       received.resolve(undefined)
     })
-    const pending = operation === 'versioning' ? cos.versioningDisabled()
-      : operation === 'read' ? cos.read(key)
-        : cos.put(key, { source: { contents: 'x' }, size: 1,
-          sha512: createHash('sha512').update('x').digest('base64'), forbidOverwrite: true })
+    const pending =
+      operation === 'versioning'
+        ? cos.versioningDisabled()
+        : operation === 'read'
+          ? cos.read(key)
+          : cos.put(key, {
+              source: { contents: 'x' },
+              size: 1,
+              sha512: createHash('sha512').update('x').digest('base64'),
+              forbidOverwrite: true,
+            })
     const rejected = expect(pending).rejects.toMatchObject({ name: 'TimeoutError' })
     await received.promise
     vi.advanceTimersByTime(operation === 'versioning' ? 30_000 : 900_000)
@@ -145,7 +192,9 @@ describe('qualification COS transport with real SDK serialization over a loopbac
   })
 
   it('hashes exact received object bytes without buffering the whole object', async () => {
-    const { store: cos, loopback } = await store((_request, response) => { answer(response, 200, 'object bytes') })
+    const { store: cos, loopback } = await store((_request, response) => {
+      answer(response, 200, 'object bytes')
+    })
     expect(await cos.read(key)).toEqual({ size: 12, sha512: createHash('sha512').update('object bytes').digest('base64') })
     expect(loopback.requests).toHaveLength(1)
     expect(loopback.requests[0]!.method).toBe('GET')
@@ -155,8 +204,10 @@ describe('qualification COS transport with real SDK serialization over a loopbac
   it('distinguishes confirmed object absence from permission errors', async () => {
     const { store: cos, loopback } = await store((_request, response) => {
       const status = loopback.requests.length === 1 ? 404 : 403
-      answer(response, status, cosError(status === 404 ? 'NoSuchKey' : 'AccessDenied'),
-        { 'content-type': 'application/xml', 'x-cos-request-id': 'fixture-request' })
+      answer(response, status, cosError(status === 404 ? 'NoSuchKey' : 'AccessDenied'), {
+        'content-type': 'application/xml',
+        'x-cos-request-id': 'fixture-request',
+      })
     })
     expect(await cos.read(key)).toBeNull()
     await expect(cos.read(key)).rejects.toThrow()
@@ -176,7 +227,9 @@ describe('qualification COS transport with real SDK serialization over a loopbac
   it('hashes public response bytes at the exact URL and rejects redirects or unrelated destinations', async () => {
     const fetch = vi.fn(async () => new Response('public bytes'))
     vi.stubGlobal('fetch', fetch)
-    const { store: cos } = await store((_request, response) => { answer(response) })
+    const { store: cos } = await store((_request, response) => {
+      answer(response)
+    })
     const url = `https://download-test.deepseek.com/${key}`
     expect(await cos.publicRead(url)).toEqual({ size: 12, sha512: createHash('sha512').update('public bytes').digest('base64') })
     expect(fetch).toHaveBeenCalledWith(url, expect.objectContaining({ redirect: 'error', cache: 'no-store' }))
@@ -187,17 +240,24 @@ describe('qualification COS transport with real SDK serialization over a loopbac
 
   it('refuses production settings without creating a request', async () => {
     state.settings = 'production'
-    const loopback = await startCosLoopback((_request, response) => { answer(response) })
+    const loopback = await startCosLoopback((_request, response) => {
+      answer(response)
+    })
     loopbacks.push(loopback)
-    state.redirect = (cos) => { loopback.redirect(cos) }
+    state.redirect = cos => {
+      loopback.redirect(cos)
+    }
     expect(() => createInstalledUpdateCos()).toThrow('test upload settings')
     expect(loopback.requests).toHaveLength(0)
   })
 
   it('rejects mismatched upload bytes and unsafe keys before sending a request', async () => {
-    const { store: cos, loopback } = await store((_request, response) => { answer(response) })
-    await expect(cos.put(key, { source: { contents: 'changed' }, size: 1, sha512: 'wrong', forbidOverwrite: true }))
-      .rejects.toThrow('input bytes changed')
+    const { store: cos, loopback } = await store((_request, response) => {
+      answer(response)
+    })
+    await expect(cos.put(key, { source: { contents: 'changed' }, size: 1, sha512: 'wrong', forbidOverwrite: true })).rejects.toThrow(
+      'input bytes changed',
+    )
     await expect(cos.read(key.replace('package.exe', '..'))).rejects.toThrow('qualification namespace')
     expect(loopback.requests).toHaveLength(0)
   })

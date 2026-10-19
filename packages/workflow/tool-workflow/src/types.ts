@@ -6,9 +6,7 @@
  */
 
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type {
-  WorkflowAgentOutcome, WorkflowRunId, WorkflowStopReason,
-} from '@deepseek-ai/dsh-workflow/types'
+import type { WorkflowAgentOutcome, WorkflowRunId, WorkflowStopReason } from '@deepseek-ai/dsh-workflow/types'
 
 /** Opens one durable top-level workflow run record. */
 export interface ToolWorkflowRunStartData {

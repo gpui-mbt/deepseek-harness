@@ -26,14 +26,17 @@ import type {} from '@deepseek-ai/dsh-ptc-runtime'
 import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 
-
 /** Native executable and per-operation resource bounds. */
 export interface CuaConfig {
   /** Signed applications explicitly approved for future tasks in this profile. */
-  allowedApps: Volatile<Array<Omit<CuaApplicationGrant, 'id'> & {
-    /** Unbranded digest at the profile configuration boundary; admitted by the Config schema. */
-    id: string
-  }>>
+  allowedApps: Volatile<
+    Array<
+      Omit<CuaApplicationGrant, 'id'> & {
+        /** Unbranded digest at the profile configuration boundary; admitted by the Config schema. */
+        id: string
+      }
+    >
+  >
   /** Absolute native helper override; omission prepares the package-owned executable. */
   helperPath?: string
   /** Maximum time in milliseconds for native component preparation. */
@@ -72,29 +75,72 @@ export interface CuaConfig {
 
 /** Validated host configuration; no driver is downloaded at runtime. */
 export const CuaConfig = Schema.object({
-  allowedApps: Schema.array(Schema.object({
-    id: Schema.string().pattern(/^[a-f0-9]{64}$/).required(),
-    name: Schema.string().required(), executablePath: Schema.string().min(1).required(),
-  })).default([]).volatile(),
+  allowedApps: Schema.array(
+    Schema.object({
+      id: Schema.string()
+        .pattern(/^[a-f0-9]{64}$/)
+        .required(),
+      name: Schema.string().required(),
+      executablePath: Schema.string().min(1).required(),
+    }),
+  )
+    .default([])
+    .volatile(),
   helperPath: Schema.string(),
-  buildTimeoutMs: Schema.number().step(1).min(1).max(2 ** 31 - 1).default(300_000),
-  timeoutMs: Schema.number().step(1).min(1).max(2 ** 31 - 1).default(30_000),
-  connectTimeoutMs: Schema.number().step(1).min(1).max(2 ** 31 - 1).default(5000),
-  screenshotTimeoutMs: Schema.number().step(1).min(1).max(2 ** 31 - 1).default(5000),
-  axTimeoutMs: Schema.number().step(1).min(1).max(2 ** 31 - 1).default(3000),
+  buildTimeoutMs: Schema.number()
+    .step(1)
+    .min(1)
+    .max(2 ** 31 - 1)
+    .default(300_000),
+  timeoutMs: Schema.number()
+    .step(1)
+    .min(1)
+    .max(2 ** 31 - 1)
+    .default(30_000),
+  connectTimeoutMs: Schema.number()
+    .step(1)
+    .min(1)
+    .max(2 ** 31 - 1)
+    .default(5000),
+  screenshotTimeoutMs: Schema.number()
+    .step(1)
+    .min(1)
+    .max(2 ** 31 - 1)
+    .default(5000),
+  axTimeoutMs: Schema.number()
+    .step(1)
+    .min(1)
+    .max(2 ** 31 - 1)
+    .default(3000),
   maxAppMatches: Schema.number().step(1).min(1).max(1000).default(20),
-  maxClipboardBytes: Schema.number().step(1).min(1024).default(32 * 1024 * 1024),
-  pasteReadTimeoutMs: Schema.number().step(1).min(1).max(2 ** 31 - 1).default(1000),
-  maxRequestBytes: Schema.number().step(1).min(1024).default(1024 * 1024),
+  maxClipboardBytes: Schema.number()
+    .step(1)
+    .min(1024)
+    .default(32 * 1024 * 1024),
+  pasteReadTimeoutMs: Schema.number()
+    .step(1)
+    .min(1)
+    .max(2 ** 31 - 1)
+    .default(1000),
+  maxRequestBytes: Schema.number()
+    .step(1)
+    .min(1024)
+    .default(1024 * 1024),
   dragDurationMs: Schema.number().step(1).min(1).max(5000).default(400),
   dragSteps: Schema.number().step(1).min(1).max(240).default(20),
-  maxResponseBytes: Schema.number().step(1).min(1024).default(32 * 1024 * 1024),
+  maxResponseBytes: Schema.number()
+    .step(1)
+    .min(1024)
+    .default(32 * 1024 * 1024),
   textEventIntervalMs: Schema.number().min(0).max(1000).default(0.25),
-  graceMs: Schema.number().step(1).min(1).max(2 ** 31 - 1).default(3000),
+  graceMs: Schema.number()
+    .step(1)
+    .min(1)
+    .max(2 ** 31 - 1)
+    .default(3000),
   maxElements: Schema.number().step(1).min(1).max(10000).default(2000),
   maxDepth: Schema.number().step(1).min(1).max(100).default(25),
 }) satisfies Schema<Record<string, unknown>, CuaConfig>
-
 
 function executionAgent(execution: Readonly<ToolExecution>): Agent {
   if (!execution.agent) throw new Error('dsh-cua requires an agent-owned execution')
@@ -107,14 +153,16 @@ interface CuaExecution extends ToolExecution {
   coordinates: CuaCoordinates
 }
 
-
 type ScreenshotValue = z.infer<typeof ScreenshotResult> & { attachment: { [K in keyof ImageAttachmentRef]: ImageAttachmentRef[K] } }
 
 /** Native values stay available to programs; only metadata and the stored image enter model content. */
 function renderResult(args: unknown, value: JsonValue): ContentBlock[] {
   if ((args as CuaOperation).method !== 'screenshot') return [{ type: 'text', text: JSON.stringify(value) }]
   const { data: _data, mimeType: _mimeType, attachment, ...metadata } = value as ScreenshotValue
-  return [{ type: 'text', text: JSON.stringify(metadata) }, { type: 'image', attachment }]
+  return [
+    { type: 'text', text: JSON.stringify(metadata) },
+    { type: 'image', attachment },
+  ]
 }
 
 /** Resolve the exact calling model and attachment store before requesting a screenshot. */
@@ -126,7 +174,8 @@ async function screenshotStore(ctx: Context, execution: Readonly<CuaExecution>) 
   const provider = routed?.provider ?? agent.options.provider
   const model = routed?.model ?? agent.options.model
   const llm = ctx.get('llm')
-  if (provider === undefined || model === undefined || llm === undefined) throw new Error('CUA screenshot model route could not be resolved')
+  if (provider === undefined || model === undefined || llm === undefined)
+    throw new Error('CUA screenshot model route could not be resolved')
   const info = await llm.resolveModelInfo(provider, model, execution.signal)
   execution.signal.throwIfAborted()
   if (!info.inputModalities?.includes('image')) throw new Error(`CUA screenshots require model "${model}" to declare image input`)
@@ -150,9 +199,15 @@ export interface CuaBackend {
 export function installCua(ctx: Context, config: CuaConfig, backend: CuaBackend): void {
   const { helperPath } = backend
   const native: NativeClientConfig = {
-    helperPath, cwd: process.cwd(), timeoutMs: config.timeoutMs, axTimeoutMs: config.axTimeoutMs,
-    connectTimeoutMs: config.connectTimeoutMs, screenshotTimeoutMs: config.screenshotTimeoutMs,
-    maxRequestBytes: config.maxRequestBytes, maxResponseBytes: config.maxResponseBytes, graceMs: config.graceMs,
+    helperPath,
+    cwd: process.cwd(),
+    timeoutMs: config.timeoutMs,
+    axTimeoutMs: config.axTimeoutMs,
+    connectTimeoutMs: config.connectTimeoutMs,
+    screenshotTimeoutMs: config.screenshotTimeoutMs,
+    maxRequestBytes: config.maxRequestBytes,
+    maxResponseBytes: config.maxResponseBytes,
+    graceMs: config.graceMs,
     textEventIntervalMs: config.textEventIntervalMs,
   }
   const entryId = ctx.fiber.entry?.options.id
@@ -172,12 +227,15 @@ export function installCua(ctx: Context, config: CuaConfig, backend: CuaBackend)
   const clients = new Map<Agent, NativeClient>()
   const lifetime = new AbortController()
   const pending = new Map<Promise<unknown>, Agent>()
-  const ownerCleanups = new Map<Agent, {
-    close: () => Promise<void>
-    release: () => Promise<void>
-    signal: AbortSignal
-    coordinates: CuaCoordinates
-  }>()
+  const ownerCleanups = new Map<
+    Agent,
+    {
+      close: () => Promise<void>
+      release: () => Promise<void>
+      signal: AbortSignal
+      coordinates: CuaCoordinates
+    }
+  >()
   const closedOwners = new WeakSet<Agent>()
   function ownerFor(agent: Agent) {
     if (closedOwners.has(agent) || ctx.agents.get(agent.id) !== agent) throw new Error('dsh-cua agent has been disposed')
@@ -188,7 +246,7 @@ export function installCua(ctx: Context, config: CuaConfig, backend: CuaBackend)
     const close = (): Promise<void> => {
       closedOwners.add(agent)
       controller.abort()
-      return closing ??= Promise.resolve().then(async () => {
+      return (closing ??= Promise.resolve().then(async () => {
         try {
           await clients.get(agent)?.dispose()
         } finally {
@@ -197,7 +255,7 @@ export function installCua(ctx: Context, config: CuaConfig, backend: CuaBackend)
           access.forget(agent)
           ownerCleanups.delete(agent)
         }
-      })
+      }))
     }
     const release = agent.ctx.effect(() => close, 'dsh-cua.agent')
     const owner = { close, release, signal: controller.signal, coordinates: new CuaCoordinates() }
@@ -214,7 +272,7 @@ export function installCua(ctx: Context, config: CuaConfig, backend: CuaBackend)
       const results = await Promise.allSettled(owners.map(owner => owner.close()))
       const releases = await Promise.allSettled(owners.map(owner => owner.release()))
       const errors: unknown[] = []
-      for (const result of [...await permissions, ...results, ...releases]) if (result.status === 'rejected') errors.push(result.reason)
+      for (const result of [...(await permissions), ...results, ...releases]) if (result.status === 'rejected') errors.push(result.reason)
       if (errors.length > 0) throw new AggregateError(errors, 'dsh-cua helper cleanup failed')
     }
     const callNative = async (request: CuaOperation, execution: Readonly<CuaExecution>) => {
@@ -224,15 +282,22 @@ export function installCua(ctx: Context, config: CuaConfig, backend: CuaBackend)
       const signal = execution.signal
       signal.throwIfAborted()
       const client = execution.nativeClient
-      const nativeParams = method === 'findApps'
-        ? { ...params, maxAppMatches: config.maxAppMatches }
-        : method === 'paste'
-          ? { ...params, maxClipboardBytes: config.maxClipboardBytes, pasteReadTimeoutMs: config.pasteReadTimeoutMs,
-            maxElements: config.maxElements, maxDepth: config.maxDepth }
-          : method === 'getState'
-            ? { ...params, maxElements: config.maxElements, maxDepth: config.maxDepth }
-            : method === 'drag' ? { ...params, durationMs: config.dragDurationMs, steps: config.dragSteps }
-              : params
+      const nativeParams =
+        method === 'findApps'
+          ? { ...params, maxAppMatches: config.maxAppMatches }
+          : method === 'paste'
+            ? {
+                ...params,
+                maxClipboardBytes: config.maxClipboardBytes,
+                pasteReadTimeoutMs: config.pasteReadTimeoutMs,
+                maxElements: config.maxElements,
+                maxDepth: config.maxDepth,
+              }
+            : method === 'getState'
+              ? { ...params, maxElements: config.maxElements, maxDepth: config.maxDepth }
+              : method === 'drag'
+                ? { ...params, durationMs: config.dragDurationMs, steps: config.dragSteps }
+                : params
       const requestNative = () => client.request(method, nativeParams, signal, execution.callId)
       if (method === 'screenshot') {
         const { attachments, target } = await screenshotStore(ctx, execution)
@@ -248,21 +313,33 @@ export function installCua(ctx: Context, config: CuaConfig, backend: CuaBackend)
         const image = await attachments.readImageRequest(attachment, target(attachment), signal)
         signal.throwIfAborted()
         execution.coordinates.screenshot(parsedParams.appHandle as CuaAppHandle, screenshot.windowId, screenshot.bounds, image)
-        return { ...screenshot, mimeType: image.mediaType, data: Buffer.from(image.data).toString('base64'),
-          pixelWidth: image.width, pixelHeight: image.height, coordinateSpace: 'screenshot-pixels', attachment }
+        return {
+          ...screenshot,
+          mimeType: image.mediaType,
+          data: Buffer.from(image.data).toString('base64'),
+          pixelWidth: image.width,
+          pixelHeight: image.height,
+          coordinateSpace: 'screenshot-pixels',
+          attachment,
+        }
       }
-      const result = method === 'paste'
-        ? await withFileLock(join(tmpdir(), 'dsh-cua-system-clipboard'), requestNative, { waitMs: config.timeoutMs, signal })
-        : await requestNative()
+      const result =
+        method === 'paste'
+          ? await withFileLock(join(tmpdir(), 'dsh-cua-system-clipboard'), requestNative, { waitMs: config.timeoutMs, signal })
+          : await requestNative()
       if (method === 'getApp') {
         const prepared = AppResult.extend({ pid: AppResult.shape.pid.nullable() }).parse(result)
         const { authorization } = z.object({ authorization: ApplicationAuthorizationResult }).parse(result)
         await access.select(agent, client, prepared.appHandle, authorization, signal)
         signal.throwIfAborted()
-        const selected = prepared.pid === null
-          ? AppResult.parse(await access.run(client, prepared.appHandle, signal,
-            signal => client.request('launchApp', { appHandle: prepared.appHandle }, signal, execution.callId)))
-          : AppResult.parse(prepared)
+        const selected =
+          prepared.pid === null
+            ? AppResult.parse(
+                await access.run(client, prepared.appHandle, signal, signal =>
+                  client.request('launchApp', { appHandle: prepared.appHandle }, signal, execution.callId),
+                ),
+              )
+            : AppResult.parse(prepared)
         if (selected.appHandle !== prepared.appHandle) throw new NativeError('NATIVE_PROTOCOL', 'Launched application has another handle')
         return selected
       }
@@ -277,7 +354,8 @@ export function installCua(ctx: Context, config: CuaConfig, backend: CuaBackend)
       return result
     }
     yield ctx.tools.register({
-      name: 'cua', description: backend.description,
+      name: 'cua',
+      description: backend.description,
       parameters: { ...z.record(z.string(), z.json()).parse(z.toJSONSchema(Request)), type: 'object' },
       output: { schema: {}, render: renderResult },
       async execute(args, execution) {
@@ -297,7 +375,9 @@ export function installCua(ctx: Context, config: CuaConfig, backend: CuaBackend)
             throw new NativeError('APP_ACCESS_REQUIRED', 'Select the application with getApp before reading or controlling it')
           }
           if (!client || (client.disposed && !('appHandle' in request.params))) {
-            client = new NativeClient(ctx, native, backend.createChannel, (message) => { ctx.logger.debug(message) })
+            client = new NativeClient(ctx, native, backend.createChannel, message => {
+              ctx.logger.debug(message)
+            })
             clients.set(agent, client)
             owner.coordinates = new CuaCoordinates()
           }
@@ -321,8 +401,12 @@ export function installCua(ctx: Context, config: CuaConfig, backend: CuaBackend)
       },
     })
     yield ctx.systemPrompt.section({
-      name: 'computer-use:dsh-cua', order: ctx.systemPrompt.getSectionOrder('TOOL_COMPUTER_USE'),
-      text: () => ctx.get('ptcRuntime')?.programFormat !== 'repl' ? backend.guidance : `${backend.guidance}
+      name: 'computer-use:dsh-cua',
+      order: ctx.systemPrompt.getSectionOrder('TOOL_COMPUTER_USE'),
+      text: () =>
+        ctx.get('ptcRuntime')?.programFormat !== 'repl'
+          ? backend.guidance
+          : `${backend.guidance}
 
 Persistent PTC initialization:
 var { connectCua } = await import(${JSON.stringify(new URL('../lib/bridge.js', import.meta.url).href)});

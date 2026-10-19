@@ -16,7 +16,11 @@ function freshProgress(): OnboardingProgress {
 export class DesktopOnboardingController {
   /** Private observable projected into the shell overlay's framework hook. */
   readonly state = createSnapshotStore<DesktopOnboardingState>({
-    status: 'loading', visible: false, progress: freshProgress(), error: null, creditFunded: false,
+    status: 'loading',
+    visible: false,
+    progress: freshProgress(),
+    error: null,
+    creditFunded: false,
   })
   private readonly disposers: (() => void)[]
   private saving = false
@@ -48,10 +52,18 @@ export class DesktopOnboardingController {
     private readonly settings: SettingsDescribeFace,
   ) {
     this.disposers = [
-      settings.subscribe(() => { this.derive() }),
-      progress.subscribe(() => { this.derive() }),
-      chat.subscribe(() => { this.derive() }),
-      account.subscribe(() => { this.derive() }),
+      settings.subscribe(() => {
+        this.derive()
+      }),
+      progress.subscribe(() => {
+        this.derive()
+      }),
+      chat.subscribe(() => {
+        this.derive()
+      }),
+      account.subscribe(() => {
+        this.derive()
+      }),
     ]
     this.derive()
   }
@@ -74,19 +86,27 @@ export class DesktopOnboardingController {
    * @returns whether Host settings accepted the complete next progress value.
    */
   async update(change: OnboardingChange): Promise<boolean> {
-    if (this.completing || (this.saving && this.draft === undefined) || this.disposed || this.account.getSnapshot().view?.status !== 'credential-stored') return false
+    if (
+      this.completing ||
+      (this.saving && this.draft === undefined) ||
+      this.disposed ||
+      this.account.getSnapshot().view?.status !== 'credential-stored'
+    )
+      return false
     const current = this.draft ?? this.readProgress()
     if (current === undefined || current.step === 'done') return false
     const next = { ...current, ...change }
     this.draft = next
     this.error = null
-    const pending = this.updates.then(async () => {
-      if (this.disposed || this.account.getSnapshot().view?.status !== 'credential-stored') return false
-      return this.save(next, false)
-    }).finally(() => {
-      if (this.draft === next) this.draft = undefined
-      this.derive()
-    })
+    const pending = this.updates
+      .then(async () => {
+        if (this.disposed || this.account.getSnapshot().view?.status !== 'credential-stored') return false
+        return this.save(next, false)
+      })
+      .finally(() => {
+        if (this.draft === next) this.draft = undefined
+        this.derive()
+      })
     this.updates = pending
     this.derive()
     return pending
@@ -102,7 +122,7 @@ export class DesktopOnboardingController {
     this.completing = true
     this.derive()
     try {
-      if (!await this.updates) return false
+      if (!(await this.updates)) return false
       return await this.finish(reason)
     } finally {
       this.completing = false
@@ -117,11 +137,17 @@ export class DesktopOnboardingController {
     const office = reason === 'completed' && current.purpose === 'office'
     const development = reason === 'completed' && !office
     if (development && current.process === null) return false
-    return this.save({
-      ...current, step: 'done', completion: reason,
-      process: office ? 'compact' : reason === 'skipped' ? 'standard' : current.process,
-      usage: development ? 'detailed' : 'compact', developerTools: development,
-    }, true)
+    return this.save(
+      {
+        ...current,
+        step: 'done',
+        completion: reason,
+        process: office ? 'compact' : reason === 'skipped' ? 'standard' : current.process,
+        usage: development ? 'detailed' : 'compact',
+        developerTools: development,
+      },
+      true,
+    )
   }
 
   /**
@@ -129,7 +155,14 @@ export class DesktopOnboardingController {
    * @returns whether the read or pending write succeeded; false when nothing can be retried.
    */
   async retry(): Promise<boolean> {
-    if (this.saving || this.completing || this.draft !== undefined || this.disposed || this.account.getSnapshot().view?.status !== 'credential-stored') return false
+    if (
+      this.saving ||
+      this.completing ||
+      this.draft !== undefined ||
+      this.disposed ||
+      this.account.getSnapshot().view?.status !== 'credential-stored'
+    )
+      return false
     if (this.settings.getSnapshot().error !== null && this.progress.getSnapshot().status === 'loading') {
       await this.settings.ensure()
       return this.progress.getSnapshot().status === 'ready'
@@ -150,9 +183,14 @@ export class DesktopOnboardingController {
 
   private readProgress(): OnboardingProgress | undefined {
     const value = this.progress.getSnapshot().value
-    return value === undefined ? undefined : {
-      ...value, purpose: value.purpose ?? null, process: value.process ?? null, completion: value.completion ?? null,
-    }
+    return value === undefined
+      ? undefined
+      : {
+          ...value,
+          purpose: value.purpose ?? null,
+          process: value.process ?? null,
+          completion: value.completion ?? null,
+        }
   }
 
   private async save(next: OnboardingProgress, applyPreferences: boolean): Promise<boolean> {
@@ -168,18 +206,20 @@ export class DesktopOnboardingController {
           { op: 'set', path: ['performanceUsage'], value: next.usage },
         ])
         const saved = this.chat.getSnapshot().value
-        if (!accepted || saved?.transcriptView !== mode || saved.performanceUsage !== next.usage) throw new Error('Chat preferences were not saved')
+        if (!accepted || saved?.transcriptView !== mode || saved.performanceUsage !== next.usage)
+          throw new Error('Chat preferences were not saved')
         if (this.disposed || this.account.getSnapshot().view?.status !== accountStatus) return false
         await this.setDeveloperTools(next.developerTools)
       }
       if (this.disposed || this.account.getSnapshot().view?.status !== accountStatus) return false
       const fields = Object.keys(next) as (keyof OnboardingProgress)[]
-      const accepted = await this.progress.mutate(
-        fields.map(field => ({ op: 'set' as const, path: [field], value: next[field] })),
-      )
+      const accepted = await this.progress.mutate(fields.map(field => ({ op: 'set' as const, path: [field], value: next[field] })))
       const saved = this.readProgress()
-      if (!accepted || saved === undefined
-        || Object.entries(next).some(([field, value]) => saved[field as keyof OnboardingProgress] !== value)) {
+      if (
+        !accepted ||
+        saved === undefined ||
+        Object.entries(next).some(([field, value]) => saved[field as keyof OnboardingProgress] !== value)
+      ) {
         throw new Error('onboarding progress was not saved')
       }
       this.failedWrite = undefined
@@ -219,28 +259,48 @@ export class DesktopOnboardingController {
       progress: shallowEqual(previous.progress, progress) ? previous.progress : progress,
       creditFunded: this.creditFunded ?? false,
       visible: !done && signedIn && !unavailable,
-      status: this.completing || (this.saving && this.draft === undefined) ? 'saving' : unavailable || readFailed || accountFailed || this.error !== null ? 'error'
-        : host.status === 'loading' || account === undefined ? 'loading' : 'ready',
+      status:
+        this.completing || (this.saving && this.draft === undefined)
+          ? 'saving'
+          : unavailable || readFailed || accountFailed || this.error !== null
+            ? 'error'
+            : host.status === 'loading' || account === undefined
+              ? 'loading'
+              : 'ready',
       error: unavailable || readFailed ? 'settings' : this.error,
     }
     if (!shallowEqual(previous, next)) this.state.set(next)
-    if (done || this.saving || this.completing || this.draft !== undefined || unavailable || host.status !== 'ready' || this.chat.getSnapshot().status !== 'ready'
-      || account?.status !== 'signed-out') return
+    if (
+      done ||
+      this.saving ||
+      this.completing ||
+      this.draft !== undefined ||
+      unavailable ||
+      host.status !== 'ready' ||
+      this.chat.getSnapshot().status !== 'ready' ||
+      account?.status !== 'signed-out'
+    )
+      return
     if (this.hasApiKey === true && this.error === null) {
-      void this.save({ ...progress, step: 'done', process: 'standard', usage: 'detailed', developerTools: true, completion: 'api-key' }, true)
+      void this.save(
+        { ...progress, step: 'done', process: 'standard', usage: 'detailed', developerTools: true, completion: 'api-key' },
+        true,
+      )
     } else if (this.hasApiKey === undefined && !this.checkingKeys) {
       this.checkingKeys = true
       const generation = this.credentialGeneration
-      void this.readApiKeyPresence().then((present) => {
-        if (this.disposed || generation !== this.credentialGeneration) return
-        this.hasApiKey = present
-        this.checkingKeys = false
-        this.derive()
-      }).catch(() => {
-        if (this.disposed || generation !== this.credentialGeneration) return
-        this.checkingKeys = false
-        this.hasApiKey = false
-      })
+      void this.readApiKeyPresence()
+        .then(present => {
+          if (this.disposed || generation !== this.credentialGeneration) return
+          this.hasApiKey = present
+          this.checkingKeys = false
+          this.derive()
+        })
+        .catch(() => {
+          if (this.disposed || generation !== this.credentialGeneration) return
+          this.checkingKeys = false
+          this.hasApiKey = false
+        })
     }
   }
 }

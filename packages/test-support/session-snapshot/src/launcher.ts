@@ -122,26 +122,23 @@ export function launchAcpTestAgent(options: AcpTestLaunchOptions): LaunchedAcpTe
   const launch = resolveExampleLaunch({
     srcBin: agent.binScript,
     libBin: agent.libBinScript,
-    configArgs: agent.profile === undefined
-      ? ['--config', selectedConfig]
-      : profileArgs(agent.profile, agent.configPath, selectedConfig, options.env?.DSH_SNAPSHOT, cwd),
+    configArgs:
+      agent.profile === undefined
+        ? ['--config', selectedConfig]
+        : profileArgs(agent.profile, agent.configPath, selectedConfig, options.env?.DSH_SNAPSHOT, cwd),
     tsconfigPath: agent.tsconfigPath,
-    ...agent.profile === undefined ? {} : { sourceImport: 'tsx/esm' },
+    ...(agent.profile === undefined ? {} : { sourceImport: 'tsx/esm' }),
     env: {
       ...options.env,
       DSH_HOME: join(cwd, '.dsh'),
       DSH_AGENTS_HOME: join(cwd, '.agents'),
     },
   })
-  const child = spawn(
-    launch.command,
-    launch.args,
-    {
-      cwd,
-      env: { ...process.env, ...launch.env },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    },
-  )
+  const child = spawn(launch.command, launch.args, {
+    cwd,
+    env: { ...process.env, ...launch.env },
+    stdio: ['pipe', 'pipe', 'pipe'],
+  })
   // A spawn-level failure is an asynchronous `error` event. Observe it in the
   // same tick as spawn so a missing cwd or OS rejection cannot crash the test
   // runner, then make startup and shutdown surface the original error.
@@ -151,7 +148,9 @@ export function launchAcpTestAgent(options: AcpTestLaunchOptions): LaunchedAcpTe
   const childFailure = new Promise<Error>(resolve => child.on('error', resolve))
   const spawned = Promise.race([
     new Promise<void>(resolve => child.once('spawn', resolve)),
-    childFailure.then((error): never => { throw error }),
+    childFailure.then((error): never => {
+      throw error
+    }),
   ])
   // `spawned` is public and close() also awaits it, but a caller may ignore both.
   // Keep that misuse from turning the already-observed child error into an
@@ -191,12 +190,13 @@ export function launchAcpTestAgent(options: AcpTestLaunchOptions): LaunchedAcpTe
   const trackClientCallback = <T>(callback: () => T | PromiseLike<T>): Promise<T> => {
     const pending = Promise.resolve().then(callback)
     inFlightClientCallbacks.add(pending)
-    const untrack = (): void => { inFlightClientCallbacks.delete(pending) }
+    const untrack = (): void => {
+      inFlightClientCallbacks.delete(pending)
+    }
     void pending.then(untrack, untrack)
     return pending
   }
-  const requestPermission = options.requestPermission
-    ?? (() => Promise.resolve({ outcome: { outcome: 'cancelled' as const } }))
+  const requestPermission = options.requestPermission ?? (() => Promise.resolve({ outcome: { outcome: 'cancelled' as const } }))
   const clientApp = createAcpClientApp({ name: 'deepseek-harness-acp-test-client' })
     .onNotification(methods.client.session.update, ({ params }) => {
       return trackClientCallback(() => {
@@ -219,9 +219,7 @@ export function launchAcpTestAgent(options: AcpTestLaunchOptions): LaunchedAcpTe
         }
       })
     })
-    .onRequest(methods.client.session.requestPermission, ({ params }) => (
-      trackClientCallback(() => requestPermission(params))
-    ))
+    .onRequest(methods.client.session.requestPermission, ({ params }) => trackClientCallback(() => requestPermission(params)))
   const connection = clientApp.connect(stream)
   const context = connection.agent
   const client: AcpTestClient = {
@@ -244,7 +242,11 @@ export function launchAcpTestAgent(options: AcpTestLaunchOptions): LaunchedAcpTe
   // crossing the SDK parser. Node's `close` follows stdio closure; the SDK's
   // `closed` follows parser exhaustion. Capture both eagerly so a caller that
   // invokes close after process exit still joins the complete drain boundary.
-  const stdioClosed = new Promise<void>(resolve => child.once('close', () => { resolve() }))
+  const stdioClosed = new Promise<void>(resolve =>
+    child.once('close', () => {
+      resolve()
+    }),
+  )
   const drained = Promise.all([stdioClosed, connection.closed]).then(async () => {
     // The ACP SDK's readable loop dispatches client callbacks without awaiting
     // them. Once `closed` settles no new callbacks can start, but callbacks
@@ -285,10 +287,7 @@ export function launchAcpTestAgent(options: AcpTestLaunchOptions): LaunchedAcpTe
       const exited = waitForExit(child)
       if (signal === undefined) child.stdin.end()
       else child.kill(signal)
-      const failure = await Promise.race([
-        exited.then((): undefined => undefined),
-        childFailure,
-      ])
+      const failure = await Promise.race([exited.then((): undefined => undefined), childFailure])
       if (failure === undefined) {
         await drained
         closeUpdateStream()
@@ -302,38 +301,34 @@ export function launchAcpTestAgent(options: AcpTestLaunchOptions): LaunchedAcpTe
       }
       // Windows implements the supported signal names as forced termination. The exit markers
       // may therefore arrive after the error wins the race above but before fallback begins.
-      if (!isRunning(child) || await exitMarkerWithinGrace(exited)) return propagateFailureAfterDrain()
+      if (!isRunning(child) || (await exitMarkerWithinGrace(exited))) return propagateFailureAfterDrain()
 
       // An `error` after spawn is not an exit edge: in particular, a failed
       // signal can leave the subprocess live. Force termination, await the
       // already-observed exit edge, and only then propagate the child error so
       // callers may safely remove cwd/session resources after close rejects.
       const fallbackError = Promise.withResolvers<Error>()
-      const observeFallbackError = (error: Error): void => { fallbackError.resolve(error) }
+      const observeFallbackError = (error: Error): void => {
+        fallbackError.resolve(error)
+      }
       child.once('error', observeFallbackError)
       if (!child.kill('SIGKILL')) {
         child.off('error', observeFallbackError)
         // A successful earlier signal may win between the live check and this fallback call.
         // In that case `kill()` correctly reports no process to signal; the original child error
         // remains the shutdown result once inherited stdio and callbacks have drained.
-        if (!isRunning(child) || await exitMarkerWithinGrace(exited)) return propagateFailureAfterDrain()
+        if (!isRunning(child) || (await exitMarkerWithinGrace(exited))) return propagateFailureAfterDrain()
         closeUpdateStream()
         throw new AggregateError(
           [failure, new Error('Fallback SIGKILL was not accepted by the child process')],
           'ACP test agent failed and fallback termination was refused',
         )
       }
-      const fallbackFailure = await Promise.race([
-        exited.then((): undefined => undefined),
-        fallbackError.promise,
-      ])
+      const fallbackFailure = await Promise.race([exited.then((): undefined => undefined), fallbackError.promise])
       child.off('error', observeFallbackError)
       if (fallbackFailure !== undefined) {
         closeUpdateStream()
-        throw new AggregateError(
-          [failure, fallbackFailure],
-          'ACP test agent failed and fallback termination was refused',
-        )
+        throw new AggregateError([failure, fallbackFailure], 'ACP test agent failed and fallback termination was refused')
       }
       return propagateFailureAfterDrain()
     },
@@ -341,20 +336,12 @@ export function launchAcpTestAgent(options: AcpTestLaunchOptions): LaunchedAcpTe
 }
 
 /** Build one dsh profile invocation from the base and optional scenario patches. */
-function profileArgs(
-  profile: string,
-  basePatch: string,
-  selectedPatch: string,
-  snapshotMode: string | undefined,
-  cwd: string,
-): string[] {
+function profileArgs(profile: string, basePatch: string, selectedPatch: string, snapshotMode: string | undefined, cwd: string): string[] {
   const base = resolve(cwd, basePatch)
   const selected = resolve(cwd, selectedPatch)
   // Replay siblings already contain the selected scenario's complete delta
   // over the base patch; live scenario patches are not also applied.
-  const patches = snapshotMode === 'replay'
-    ? [base, replayPatchPath(selected)]
-    : [...new Set([base, selected])]
+  const patches = snapshotMode === 'replay' ? [base, replayPatchPath(selected)] : [...new Set([base, selected])]
   const materializedRoot = join(cwd, '.dsh-profile-patches')
   mkdirSync(materializedRoot, { recursive: true })
   const materializedDir = mkdtempSync(join(materializedRoot, 'launch-'))
@@ -414,9 +401,7 @@ function linkProfilePackage(source: string, cwd: string, profile: string, packag
  * @param index - stable patch ordinal used in the output filename.
  * @returns absolute materialized patch path.
  */
-export function materializeProfilePatch(
-  source: string, cwd: string, profile: string, targetDir: string, index: number,
-): string {
+export function materializeProfilePatch(source: string, cwd: string, profile: string, targetDir: string, index: number): string {
   const parsed = yaml.load(readFileSync(source, 'utf8'), { schema: entryListSchema })
   if (!Array.isArray(parsed)) throw new Error(`snapshot profile patch must be a top-level array: ${source}`)
   const patches = parsed as PatchOptions[]
@@ -424,9 +409,7 @@ export function materializeProfilePatch(
   const resolveName = (value: string): string => {
     const packageName = barePackageName(value)
     if (packageName !== undefined) linkProfilePackage(source, cwd, profile, packageName)
-    return value.startsWith('./') || value.startsWith('../')
-      ? pathToFileURL(resolve(baseDir, value)).href
-      : value
+    return value.startsWith('./') || value.startsWith('../') ? pathToFileURL(resolve(baseDir, value)).href : value
   }
   const visitEntry = (entry: ProfilePatchEntry): void => {
     entry.name = resolveName(entry.name)
@@ -445,15 +428,21 @@ export function materializeProfilePatch(
 
 /** Resolve once a running child exits. */
 function waitForExit(child: ChildProcessWithoutNullStreams): Promise<void> {
-  return new Promise<void>(resolve => child.once('exit', () => { resolve() }))
+  return new Promise<void>(resolve =>
+    child.once('exit', () => {
+      resolve()
+    }),
+  )
 }
 
 /** Give an accepted Windows termination request a bounded window to publish its exit marker. */
 function exitMarkerWithinGrace(exited: Promise<void>): Promise<boolean> {
   return Promise.race([
     exited.then(() => true),
-    new Promise<false>((resolve) => {
-      const timer = setTimeout(() => { resolve(false) }, EXIT_MARKER_GRACE_MS)
+    new Promise<false>(resolve => {
+      const timer = setTimeout(() => {
+        resolve(false)
+      }, EXIT_MARKER_GRACE_MS)
       timer.unref()
     }),
   ])

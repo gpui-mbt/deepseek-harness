@@ -27,10 +27,7 @@ export const MENU_CLOSED: MenuState = { open: false, hit: null, generation: 0, g
  * @param sources - Sources registered for the hit trigger, in menu order.
  * @returns State carrying the new pending roster; highlight cleared.
  */
-export function seedGroups(
-  state: MenuState,
-  sources: readonly Pick<InputTriggerSource, 'name' | 'showGroupTitle'>[],
-): MenuState {
+export function seedGroups(state: MenuState, sources: readonly Pick<InputTriggerSource, 'name' | 'showGroupTitle'>[]): MenuState {
   return {
     ...state,
     groups: sources.map(source => ({
@@ -75,8 +72,7 @@ function positions(groups: MenuState['groups']): { source: string; index: number
 }
 
 /** True when every group is ready with zero items (the auto-close condition). */
-const allReadyEmpty = (groups: MenuState['groups']): boolean =>
-  groups.every(g => g.status === 'ready' && g.items.length === 0)
+const allReadyEmpty = (groups: MenuState['groups']): boolean => groups.every(g => g.status === 'ready' && g.items.length === 0)
 
 /**
  * Pure menu reducer. `hit` opens a new generation over the seeded roster
@@ -113,8 +109,7 @@ export const menuReduce: MenuReduce = (state, ev) => {
       const idx = state.groups.findIndex(g => g.source === ev.source)
       if (idx < 0) return state
       const items: readonly InputTriggerCandidate[] = ev.items ?? []
-      const groups = state.groups.map((g, i) =>
-        i === idx ? { ...g, status: 'ready' as const, items } : g)
+      const groups = state.groups.map((g, i) => (i === idx ? { ...g, status: 'ready' as const, items } : g))
       if (allReadyEmpty(groups)) return closed(state)
       const highlight = validHighlight(state.highlight, groups) ?? firstHighlight(groups)
       return { ...state, groups, highlight }
@@ -133,9 +128,7 @@ export const menuReduce: MenuReduce = (state, ev) => {
       if (pos.length === 0) return state
       const hl = state.highlight
       const at = hl ? pos.findIndex(p => p.source === hl.source && p.index === hl.index) : -1
-      const next = pos[at < 0
-        ? (ev.dir === 1 ? 0 : pos.length - 1)
-        : (at + ev.dir + pos.length) % pos.length]
+      const next = pos[at < 0 ? (ev.dir === 1 ? 0 : pos.length - 1) : (at + ev.dir + pos.length) % pos.length]
       if (next === undefined) return state
       if (hl && next.source === hl.source && next.index === hl.index) return state
       return { ...state, highlight: next }

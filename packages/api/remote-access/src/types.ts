@@ -4,12 +4,7 @@
  * @module @deepseek-ai/dsh-api-remote-access/types
  */
 
-import type {
-  Principal,
-  RemoteAccessResource,
-  RemoteAccessResourceKind,
-  RemoteAccessResourceOf,
-} from '@deepseek-ai/dsh-typert-protocol'
+import type { Principal, RemoteAccessResource, RemoteAccessResourceKind, RemoteAccessResourceOf } from '@deepseek-ai/dsh-typert-protocol'
 
 export type {
   RemoteAccessResource,
@@ -36,9 +31,7 @@ export interface RemoteAccessRole<K extends RemoteAccessResourceKind> {
 }
 
 /** Answer of `decide()` and of a condition. */
-export type RemoteAccessDecision =
-  | { readonly kind: 'allow' }
-  | { readonly kind: 'deny'; readonly reason: string }
+export type RemoteAccessDecision = { readonly kind: 'allow' } | { readonly kind: 'deny'; readonly reason: string }
 
 /**
  * Refines one binding for one action on its resource. Called synchronously,

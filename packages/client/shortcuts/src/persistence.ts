@@ -42,8 +42,14 @@ export interface DesktopShortcutsApi {
  * @returns a fresh configuration with no accepted persisted state.
  */
 export function initialShortcutConfig(): ShortcutConfigSnapshot {
-  return { revision: randomUUID() as ShortcutRevision, sequence: 0, document: { schemaVersion: 1, profiles: {} },
-    status: 'loading', error: null, usingDefaults: true }
+  return {
+    revision: randomUUID() as ShortcutRevision,
+    sequence: 0,
+    document: { schemaVersion: 1, profiles: {} },
+    status: 'loading',
+    error: null,
+    usingDefaults: true,
+  }
 }
 
 /** Single-writer coordinator shared by localStorage and Electron's atomic file adapter. */
@@ -54,9 +60,13 @@ export class ShortcutPersistence {
   private definitions: readonly ShortcutDefinition[] | null = null
   private active = true
 
-  constructor(private readonly storage: ShortcutStorage, private readonly runtime: ShortcutRuntime,
-    private readonly platform: ShortcutPlatform, private readonly rereadBeforeWrite: boolean,
-    private readonly publish: (snapshot: ShortcutConfigSnapshot) => void) {}
+  constructor(
+    private readonly storage: ShortcutStorage,
+    private readonly runtime: ShortcutRuntime,
+    private readonly platform: ShortcutPlatform,
+    private readonly rereadBeforeWrite: boolean,
+    private readonly publish: (snapshot: ShortcutConfigSnapshot) => void,
+  ) {}
 
   /**
    * Install or revoke a product catalog and invalidate drafts from its previous lifetime.
@@ -68,7 +78,9 @@ export class ShortcutPersistence {
   }
 
   /** Stop accepting edits or publishing late completions. */
-  dispose(): void { this.active = false }
+  dispose(): void {
+    this.active = false
+  }
 
   /**
    * Read the current file; failures retain the last accepted document and disable ordinary writes.
@@ -91,16 +103,21 @@ export class ShortcutPersistence {
       if (!this.active || this.definitions === null || this.snapshot.status === 'loading') return result('not-ready')
       if (revision !== this.snapshot.revision) return result('stale')
       if (this.snapshot.status === 'unreadable') return result('unreadable')
-      if ((edit.type === 'set' || edit.type === 'reset') && !this.definitions.some(row => row.id === edit.id && row.fixed === undefined)) return result('not-ready')
+      if ((edit.type === 'set' || edit.type === 'reset') && !this.definitions.some(row => row.id === edit.id && row.fixed === undefined))
+        return result('not-ready')
       const document = editShortcutDocument(this.snapshot.document, edit, this.runtime, this.platform)
       const rows = effectiveShortcuts(this.definitions, document, this.runtime, this.platform)
-      const invalid = rows.find(row => (edit.type === 'reset-all' || row.id === edit.id)
-        && (row.issue !== null || row.conflicts.length > 0))
+      const invalid = rows.find(
+        row => (edit.type === 'reset-all' || row.id === edit.id) && (row.issue !== null || row.conflicts.length > 0),
+      )
       // An explicit edit must not silently disable another command's default binding.
       const displaced = edit.type === 'set' ? rows.find(row => row.conflicts.includes(edit.id)) : undefined
-      if (invalid !== undefined || displaced !== undefined) return { ...result('conflict'),
-        ...(invalid?.issue ? { issue: invalid.issue } : {}),
-        conflicts: invalid?.conflicts.length ? invalid.conflicts : displaced === undefined ? [] : [displaced.id] }
+      if (invalid !== undefined || displaced !== undefined)
+        return {
+          ...result('conflict'),
+          ...(invalid?.issue ? { issue: invalid.issue } : {}),
+          conflicts: invalid?.conflicts.length ? invalid.conflicts : displaced === undefined ? [] : [displaced.id],
+        }
       try {
         const raw = `${JSON.stringify(document, null, 2)}\n`
         await this.storage.write(raw)
@@ -123,7 +140,11 @@ export class ShortcutPersistence {
   private accept(snapshot: ShortcutConfigSnapshot): void {
     this.snapshot = { ...snapshot, sequence: this.snapshot.sequence + 1, revision: randomUUID() as ShortcutRevision }
     if (!this.active) return
-    try { this.publish(this.snapshot) } catch (error) { console.error('Shortcut configuration subscriber failed:', error) }
+    try {
+      this.publish(this.snapshot)
+    } catch (error) {
+      console.error('Shortcut configuration subscriber failed:', error)
+    }
   }
 
   private async read(): Promise<ShortcutConfigSnapshot> {

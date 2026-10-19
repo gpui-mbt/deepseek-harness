@@ -35,9 +35,7 @@ function selection(settings: { provider: string; model: string; reasoningEffort?
   return {
     provider: settings.provider,
     model: settings.model,
-    ...settings.reasoningEffort === undefined
-      ? {}
-      : { reasoningEffort: ReasoningEffortId(settings.reasoningEffort) },
+    ...(settings.reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(settings.reasoningEffort) }),
   }
 }
 
@@ -54,10 +52,15 @@ export class AgentDefaultModelConfig extends Service {
     reasoningEffort: z.string().volatile(),
   })
 
-  constructor(private readonly ownerContext: Context, private config: Config) {
+  constructor(
+    private readonly ownerContext: Context,
+    private config: Config,
+  ) {
     super(ownerContext, 'agentDefaultModel')
 
-    ownerContext.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ownerContext.fiber)) })
+    ownerContext.inject(['settings'], child => {
+      child.effect(() => child.settings.configure({ auto: false }, ownerContext.fiber))
+    })
   }
 
   /**
@@ -67,8 +70,9 @@ export class AgentDefaultModelConfig extends Service {
   currentSelection(): ModelSelection {
     const reasoningEffort = this.config.reasoningEffort.get()
     return selection({
-      provider: this.config.provider.get(), model: this.config.model.get(),
-      ...reasoningEffort === undefined ? {} : { reasoningEffort },
+      provider: this.config.provider.get(),
+      model: this.config.model.get(),
+      ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
     })
   }
 
@@ -85,8 +89,9 @@ export class AgentDefaultModelConfig extends Service {
     const editor = this.ctx.get('configEditor')
     if (editor === undefined) return
     const config = {
-      provider: next.provider, model: next.model,
-      ...next.reasoningEffort === undefined ? {} : { reasoningEffort: String(next.reasoningEffort) },
+      provider: next.provider,
+      model: next.model,
+      ...(next.reasoningEffort === undefined ? {} : { reasoningEffort: String(next.reasoningEffort) }),
     }
     const saved = this.saves.then(() => editor.edit(entry, () => config))
     this.saves = saved.catch(() => {})

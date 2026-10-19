@@ -2,7 +2,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vite-plus/test'
 import { Context, LoggerLevel } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import DeepSeekLlmApiExtensionRegistry from '@deepseek-ai/dsh-deepseek-llm-api-extensions'
@@ -46,13 +46,15 @@ async function withSerializationOverflow<T>(
   const overflow = new RangeError('Invalid string length')
   const stringify = JSON.stringify.bind(JSON)
   let attempts = 0
-  const spy = vi.spyOn(JSON, 'stringify').mockImplementation((value: unknown, replacer?: (number | string)[] | null, space?: string | number) => {
-    if (typeof value === 'object' && value !== null && Object.hasOwn(value, field)) {
-      attempts++
-      throw overflow
-    }
-    return stringify(value, replacer, space)
-  })
+  const spy = vi
+    .spyOn(JSON, 'stringify')
+    .mockImplementation((value: unknown, replacer?: (number | string)[] | null, space?: string | number) => {
+      if (typeof value === 'object' && value !== null && Object.hasOwn(value, field)) {
+        attempts++
+        throw overflow
+      }
+      return stringify(value, replacer, space)
+    })
   try {
     const result = await work()
     return { result, overflow, attempts }
@@ -73,7 +75,7 @@ describe('Messages request extensions', () => {
     let request: DeepSeekLlmApiExtensionRequest | undefined
     const accepted = vi.fn()
     ctx.deepseekLlmApiExtensions.register('dsh_messages_test', {
-      prepare: (value) => {
+      prepare: value => {
         request = value
         return { value: { value: 'inventory' }, accept: accepted }
       },
@@ -89,7 +91,8 @@ describe('Messages request extensions', () => {
       if (chunk.type === 'finish') expect(chunk.reason.kind).toBe('stop')
     }
     expect(request).toMatchObject({
-      sessionId: 'session-parity', purpose: 'compaction',
+      sessionId: 'session-parity',
+      purpose: 'compaction',
       body: { thinking: { type: 'enabled' }, messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }] },
     })
     expect(request?.body).not.toHaveProperty('dsh_messages_test')
@@ -101,7 +104,11 @@ describe('Messages request extensions', () => {
 
   it('sends the request without a field whose preparation throws', async () => {
     const ctx = await boot()
-    ctx.deepseekLlmApiExtensions.register('dsh_messages_test', { prepare() { throw new Error('inventory unavailable') } })
+    ctx.deepseekLlmApiExtensions.register('dsh_messages_test', {
+      prepare() {
+        throw new Error('inventory unavailable')
+      },
+    })
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(sse(textEvents)))
     vi.stubGlobal('fetch', fetch)
     const result = await assemble(ctx.llm.stream(options()))
@@ -109,44 +116,70 @@ describe('Messages request extensions', () => {
     expect(sentBody(fetch)).not.toHaveProperty('dsh_messages_test')
   })
 
-  it.each(['http', 'transport', 'stream'] as const)('records acceptance only for HTTP success despite a later %s failure', async (failure) => {
-    const ctx = await boot()
-    const accept = vi.fn()
-    ctx.deepseekLlmApiExtensions.register('dsh_messages_test', { prepare: () => ({ value: { value: 'log' }, accept }) })
-    vi.stubGlobal('fetch', vi.fn<typeof globalThis.fetch>().mockImplementation(() => {
-      if (failure === 'transport') return Promise.reject(new Error('connection lost'))
-      if (failure === 'http') return Promise.resolve(Response.json({ error: { message: 'rejected' } }, { status: 400 }))
-      return Promise.resolve(new Response(''))
-    }))
-    const result = await assemble(ctx.llm.stream(options()))
-    expect(result.assembler.finish.kind).toBe('error')
-    expect(accept).toHaveBeenCalledTimes(failure === 'stream' ? 1 : 0)
-  })
+  it.each(['http', 'transport', 'stream'] as const)(
+    'records acceptance only for HTTP success despite a later %s failure',
+    async failure => {
+      const ctx = await boot()
+      const accept = vi.fn()
+      ctx.deepseekLlmApiExtensions.register('dsh_messages_test', { prepare: () => ({ value: { value: 'log' }, accept }) })
+      vi.stubGlobal(
+        'fetch',
+        vi.fn<typeof globalThis.fetch>().mockImplementation(() => {
+          if (failure === 'transport') return Promise.reject(new Error('connection lost'))
+          if (failure === 'http') return Promise.resolve(Response.json({ error: { message: 'rejected' } }, { status: 400 }))
+          return Promise.resolve(new Response(''))
+        }),
+      )
+      const result = await assemble(ctx.llm.stream(options()))
+      expect(result.assembler.finish.kind).toBe('error')
+      expect(accept).toHaveBeenCalledTimes(failure === 'stream' ? 1 : 0)
+    },
+  )
 
   it('logs an acceptance failure once per route and still streams the response', async () => {
     const ctx = await boot()
     const warnings: unknown[][] = []
-    ctx.logger.exporter({ levels: { default: LoggerLevel.WARN }, export: (message) => { if (message.type === 'warn') warnings.push(message.args) } })
+    ctx.logger.exporter({
+      levels: { default: LoggerLevel.WARN },
+      export: message => {
+        if (message.type === 'warn') warnings.push(message.args)
+      },
+    })
     const failure = new Error('watermark storage failed')
     ctx.deepseekLlmApiExtensions.register('dsh_messages_test', {
-      prepare: () => ({ value: { value: 'log' }, accept() { throw failure } }),
+      prepare: () => ({
+        value: { value: 'log' },
+        accept() {
+          throw failure
+        },
+      }),
     })
-    vi.stubGlobal('fetch', vi.fn<typeof globalThis.fetch>().mockImplementation(() => Promise.resolve(new Response(sse(textEvents)))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof globalThis.fetch>().mockImplementation(() => Promise.resolve(new Response(sse(textEvents)))),
+    )
     for (let request = 0; request < 2; request++) {
       const result = await assemble(ctx.llm.stream(options()))
       expect(result.assembler.finish.kind).toBe('stop')
     }
-    expect(warnings).toEqual([[
-      'llm-deepseek: route "deepseek-official/deepseek-v4-flash" request extension acceptance failed;'
-        + ' contributors resend on a later request: %o',
-      failure,
-    ]])
+    expect(warnings).toEqual([
+      [
+        'llm-deepseek: route "deepseek-official/deepseek-v4-flash" request extension acceptance failed;' +
+          ' contributors resend on a later request: %o',
+        failure,
+      ],
+    ])
   })
 
   it('sends the base request without extension fields when they fail to serialize', async () => {
     const ctx = await boot()
     const warnings: unknown[][] = []
-    ctx.logger.exporter({ levels: { default: LoggerLevel.WARN }, export: (message) => { if (message.type === 'warn') warnings.push(message.args) } })
+    ctx.logger.exporter({
+      levels: { default: LoggerLevel.WARN },
+      export: message => {
+        if (message.type === 'warn') warnings.push(message.args)
+      },
+    })
     const accept = vi.fn()
     ctx.deepseekLlmApiExtensions.register('dsh_messages_test', { prepare: () => ({ value: { value: 'log' }, accept }) })
     const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(() => Promise.resolve(new Response(sse(textEvents))))
@@ -160,18 +193,23 @@ describe('Messages request extensions', () => {
     expect(accept).not.toHaveBeenCalled()
     expect(sentBody(fetch)).toMatchObject({ messages: [{ role: 'user', content: [{ type: 'text', text: 'hello' }] }] })
     expect(sentBody(fetch)).not.toHaveProperty('dsh_messages_test')
-    expect(warnings).toEqual([[
-      'llm-deepseek: sending route "deepseek-official/deepseek-v4-flash" without request extension fields dsh_messages_test'
-        + ' because they failed to serialize: %o',
-      overflow,
-    ]])
+    expect(warnings).toEqual([
+      [
+        'llm-deepseek: sending route "deepseek-official/deepseek-v4-flash" without request extension fields dsh_messages_test' +
+          ' because they failed to serialize: %o',
+        overflow,
+      ],
+    ])
   })
 
   it('omits unserializable extension fields when the adapter has no reporter', async () => {
     const accept = vi.fn(() => Promise.resolve())
-    const llm = adapter({ baseURL: 'https://messages.example.test' }, {
-      prepareExtensions: () => Promise.resolve({ fields: { dsh_messages_test: { value: 'log' } }, accept }),
-    })
+    const llm = adapter(
+      { baseURL: 'https://messages.example.test' },
+      {
+        prepareExtensions: () => Promise.resolve({ fields: { dsh_messages_test: { value: 'log' } }, accept }),
+      },
+    )
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(new Response(sse(textEvents)))
     vi.stubGlobal('fetch', fetch)
     const { result } = await withSerializationOverflow('dsh_messages_test', () => assemble(llm.stream(options())))
@@ -183,7 +221,12 @@ describe('Messages request extensions', () => {
   it('fails the request without reporting omitted fields when the base body cannot serialize', async () => {
     const ctx = await boot()
     const warnings: unknown[][] = []
-    ctx.logger.exporter({ levels: { default: LoggerLevel.WARN }, export: (message) => { if (message.type === 'warn') warnings.push(message.args) } })
+    ctx.logger.exporter({
+      levels: { default: LoggerLevel.WARN },
+      export: message => {
+        if (message.type === 'warn') warnings.push(message.args)
+      },
+    })
     const accept = vi.fn()
     ctx.deepseekLlmApiExtensions.register('dsh_messages_test', { prepare: () => ({ value: { value: 'log' }, accept }) })
     const fetch = vi.fn<typeof globalThis.fetch>()

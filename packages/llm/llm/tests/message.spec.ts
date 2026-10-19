@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vite-plus/test'
 import {
   ToolCallId,
   boundContextSummary,
@@ -61,7 +61,7 @@ describe('message construction', () => {
     input.content[0]!.text = 'caller mutation'
     expect(message.content).toEqual([{ type: 'text', text: 'original' }])
     expect(() => {
-      (message.content[0] as { text: string }).text = 'observer mutation'
+      ;(message.content[0] as { text: string }).text = 'observer mutation'
     }).toThrow()
   })
 

@@ -4,9 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import { installModelSelection } from '@deepseek-ai/dsh-agent'
-import type {
-  Agent, AgentOptions, AgentSetup, ModelSelection as AgentModelSelection, ModelSelectionRef,
-} from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentOptions, AgentSetup, ModelSelection as AgentModelSelection, ModelSelectionRef } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-agent-preset-registry'
 import { brandString } from '@deepseek-ai/dsh-brand'
@@ -91,9 +89,7 @@ interface ApiSessionComposition {
 export type ApiSessionAgentError = RemoteError<'session/not-found' | 'session/agent-busy' | 'session/writer-held' | 'gateway/internal'>
 
 /** Result of resolving one ordinary Session identity to its live Agent. */
-export type ApiSessionAgentResult =
-  | { readonly agent: Agent }
-  | { readonly error: ApiSessionAgentError }
+export type ApiSessionAgentResult = { readonly agent: Agent } | { readonly error: ApiSessionAgentError }
 
 type InstalledSelection = ModelSelectionRef & {
   current: AgentModelSelection
@@ -107,11 +103,7 @@ type InstalledSelection = ModelSelectionRef & {
  * @param agent - live Agent when one exists for the Session.
  * @returns whether subagent routing owns the Session identity.
  */
-export function hasApiSessionSubagentOwner(
-  ctx: Context,
-  session: Pick<Session, 'header'>,
-  agent: Agent | undefined,
-): boolean {
+export function hasApiSessionSubagentOwner(ctx: Context, session: Pick<Session, 'header'>, agent: Agent | undefined): boolean {
   if (session.header.origin === 'subagent') return true
   const parentId = session.header.parentSession
   if (parentId === undefined || agent === undefined) return false
@@ -125,11 +117,9 @@ export function hasApiSessionSubagentOwner(
  * @returns a stable Session-domain failure.
  */
 export function apiSessionSubagentOwnershipError(sessionId: SessionId): ApiSessionAgentError {
-  return new RemoteError(
-    'session/agent-busy',
-    `session "${sessionId}" is owned by subagent routing`,
-    { reason: 'use subagent delivery for this child session' },
-  )
+  return new RemoteError('session/agent-busy', `session "${sessionId}" is owned by subagent routing`, {
+    reason: 'use subagent delivery for this child session',
+  })
 }
 
 /**
@@ -139,11 +129,7 @@ export function apiSessionSubagentOwnershipError(sessionId: SessionId): ApiSessi
  * @param signal - optional cancellation for persistence reads.
  * @returns the persisted header and complete event prefix.
  */
-export async function inspectApiSession(
-  ctx: Context,
-  sessionId: SessionId,
-  signal?: AbortSignal,
-): Promise<SessionInspection> {
+export async function inspectApiSession(ctx: Context, sessionId: SessionId, signal?: AbortSignal): Promise<SessionInspection> {
   try {
     using observation = await ctx.sessionQuery.observeSession(sessionId, {
       ...(signal === undefined ? {} : { signal }),
@@ -158,8 +144,7 @@ export async function inspectApiSession(
       events: [...observation.events],
     }
   } catch (error: unknown) {
-    if (error instanceof SessionQueryError
-      && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
+    if (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
       throw new ApiSessionNotFound(`session "${sessionId}" not found`)
     }
     throw error
@@ -210,10 +195,7 @@ export class ApiSessionAgentController {
     return this.resolve(observation.header.id, observation)
   }
 
-  private async resolve(
-    sessionId: SessionId,
-    observation?: SessionObservation,
-  ): Promise<ApiSessionAgentResult> {
+  private async resolve(sessionId: SessionId, observation?: SessionObservation): Promise<ApiSessionAgentResult> {
     const live = this.liveAgent(sessionId)
     if (live !== undefined) return live
     const attached = this.ctx.sessions.get(sessionId)
@@ -223,7 +205,9 @@ export class ApiSessionAgentController {
 
     let resume = this.resumes.get(sessionId)
     if (resume === undefined) {
-      resume = this.resume(sessionId, observation).finally(() => { this.resumes.delete(sessionId) })
+      resume = this.resume(sessionId, observation).finally(() => {
+        this.resumes.delete(sessionId)
+      })
       this.resumes.set(sessionId, resume)
     }
     try {
@@ -249,11 +233,7 @@ export class ApiSessionAgentController {
         return { error: new RemoteError('session/writer-held', error.message, { sessionId }) }
       }
       return {
-        error: new RemoteError(
-          'gateway/internal',
-          `resume failed for session "${sessionId}": ${String(error)}`,
-          {},
-        ),
+        error: new RemoteError('gateway/internal', `resume failed for session "${sessionId}": ${String(error)}`, {}),
       }
     }
   }
@@ -293,9 +273,7 @@ export class ApiSessionAgentController {
     if (projectionState === undefined) {
       throw new Error('api-session: required modelSelection projection is not registered')
     }
-    let picked = projectionState.pending === null
-      ? undefined
-      : agentModelSelection(projectionState.pending)
+    let picked = projectionState.pending === null ? undefined : agentModelSelection(projectionState.pending)
     const defaultModel = this.ctx.agentDefaultModel
     const selection: InstalledSelection = {
       get current(): AgentModelSelection {
@@ -308,8 +286,7 @@ export class ApiSessionAgentController {
           model: logged.model,
           // An effort the adapter defaulted is not a conversation choice: restoring
           // it as one would make an unchanged default read as a request change.
-          ...(logged.reasoningEffort === undefined
-            || loggedHeader.adapterDefaults?.reasoningEffort === true
+          ...(logged.reasoningEffort === undefined || loggedHeader.adapterDefaults?.reasoningEffort === true
             ? {}
             : { reasoningEffort: logged.reasoningEffort }),
         }
@@ -318,9 +295,7 @@ export class ApiSessionAgentController {
         picked = next
       },
       consume(provider: string, model: string, reasoningEffort: string | undefined): boolean {
-        if (picked?.provider !== provider
-          || picked.model !== model
-          || picked.reasoningEffort !== reasoningEffort) return false
+        if (picked?.provider !== provider || picked.model !== model || picked.reasoningEffort !== reasoningEffort) return false
         picked = undefined
         return true
       },
@@ -349,12 +324,7 @@ export class ApiSessionAgentController {
    * @param reasoningEffort - adapter-owned effort used by the request.
    * @returns whether the pending selection was consumed.
    */
-  consumeSelection(
-    agent: Agent,
-    provider: string,
-    model: string,
-    reasoningEffort: string | undefined,
-  ): boolean {
+  consumeSelection(agent: Agent, provider: string, model: string, reasoningEffort: string | undefined): boolean {
     return this.selections.get(agent)?.consume(provider, model, reasoningEffort) ?? false
   }
 
@@ -375,7 +345,13 @@ export class ApiSessionAgentController {
    */
   serializeImageAdmission<Value>(agent: Agent, operation: () => Promise<Value>): Promise<Value> {
     const result = (this.imageAdmissionChains.get(agent) ?? Promise.resolve()).then(operation)
-    this.imageAdmissionChains.set(agent, result.then(() => undefined, () => undefined))
+    this.imageAdmissionChains.set(
+      agent,
+      result.then(
+        () => undefined,
+        () => undefined,
+      ),
+    )
     return result
   }
 
@@ -387,7 +363,11 @@ export class ApiSessionAgentController {
   async composeAgent(presetId: string | undefined): Promise<ApiSessionComposition> {
     const presets = this.ctx.get('agentPresets')
     if (presets === undefined) {
-      return { setup: (_agentCtx, agent) => { this.installSelection(agent) } }
+      return {
+        setup: (_agentCtx, agent) => {
+          this.installSelection(agent)
+        },
+      }
     }
     const resolvedId = (await presets.resolve(presetId)).id
     return {
@@ -402,9 +382,7 @@ export class ApiSessionAgentController {
   private liveAgent(sessionId: SessionId): ApiSessionAgentResult | undefined {
     const agent = this.ctx.agents.get(sessionId)
     if (agent === undefined) return undefined
-    return hasApiSessionSubagentOwner(this.ctx, agent.session, agent)
-      ? { error: apiSessionSubagentOwnershipError(sessionId) }
-      : { agent }
+    return hasApiSessionSubagentOwner(this.ctx, agent.session, agent) ? { error: apiSessionSubagentOwnershipError(sessionId) } : { agent }
   }
 
   private async resume(sessionId: SessionId, supplied?: SessionObservation): Promise<Agent> {
@@ -413,18 +391,14 @@ export class ApiSessionAgentController {
       using observation = await this.ctx.sessionQuery.observeSession(sessionId)
       return await this.resumeObserved(sessionId, observation)
     } catch (error: unknown) {
-      if (error instanceof SessionQueryError
-        && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
+      if (error instanceof SessionQueryError && error.code === 'SESSION_QUERY_SESSION_NOT_FOUND') {
         throw new ApiSessionNotFound(`session "${sessionId}" not found`)
       }
       throw error
     }
   }
 
-  private async resumeObserved(
-    sessionId: SessionId,
-    observation: SessionObservation,
-  ): Promise<Agent> {
+  private async resumeObserved(sessionId: SessionId, observation: SessionObservation): Promise<Agent> {
     if (observation.header.id !== sessionId || observation.header.cwd === undefined) {
       throw new ApiSessionNotFound(`session "${sessionId}" not found`)
     }
@@ -437,16 +411,21 @@ export class ApiSessionAgentController {
     if (published !== undefined && hasApiSessionSubagentOwner(this.ctx, published, live)) {
       throw new ApiSessionSubagentOwnership(sessionId)
     }
-    return (await this.ctx.agents.resume({
-      resumeSessionId: sessionId,
-      agentOptions: this.agentOptions(),
-      setup: composition.setup,
-    })).agent
+    return (
+      await this.ctx.agents.resume({
+        resumeSessionId: sessionId,
+        agentOptions: this.agentOptions(),
+        setup: composition.setup,
+      })
+    ).agent
   }
 
   private async inOrder<Value>(sessionId: SessionId, operation: () => Promise<Value>): Promise<Value> {
     const result = (this.claims.get(sessionId) ?? Promise.resolve()).then(operation)
-    const settled = result.then(() => undefined, () => undefined)
+    const settled = result.then(
+      () => undefined,
+      () => undefined,
+    )
     this.claims.set(sessionId, settled)
     try {
       return await result
@@ -467,7 +446,7 @@ export class ApiSessionAgentController {
         throw new ApiSessionCwdConflict(live.id, request.cwd, live.session.header.cwd)
       }
       const composition = await this.composeAgent(request.agentPreset)
-      return await this.reuseLive(live, request, composition) ?? this.createMinted(request.cwd, composition)
+      return (await this.reuseLive(live, request, composition)) ?? this.createMinted(request.cwd, composition)
     }
     let observation: SessionObservation
     try {
@@ -491,27 +470,23 @@ export class ApiSessionAgentController {
     if (!reusable) return this.createMinted(request.cwd, composition)
     this.assertPresetApplicable(sessionId, request.agentPreset)
     try {
-      return (await this.ctx.agents.resume({
-        resumeSessionId: sessionId,
-        agentOptions: this.agentOptions(),
-        setup: this.reuseSetup(composition),
-      })).agent
+      return (
+        await this.ctx.agents.resume({
+          resumeSessionId: sessionId,
+          agentOptions: this.agentOptions(),
+          setup: this.reuseSetup(composition),
+        })
+      ).agent
     } catch (error: unknown) {
       if (error instanceof ApiSessionStartedSinceObserved) return this.createMinted(request.cwd, composition)
       if (!(error instanceof Error) || error.name !== 'SessionAlreadyOwnedError') throw error
       // Another resume in this process may hold the writer for the Agent it published.
-      return this.ctx.agents.get(sessionId) === undefined
-        ? this.createMinted(request.cwd, composition)
-        : this.claim(sessionId, request)
+      return this.ctx.agents.get(sessionId) === undefined ? this.createMinted(request.cwd, composition) : this.claim(sessionId, request)
     }
   }
 
   /** @returns the live blank Session under the requested preset, or undefined when it cannot be reused. */
-  private async reuseLive(
-    live: Agent,
-    request: ApiSessionCreateRequest,
-    composition: ApiSessionComposition,
-  ): Promise<Agent | undefined> {
+  private async reuseLive(live: Agent, request: ApiSessionCreateRequest, composition: ApiSessionComposition): Promise<Agent | undefined> {
     if (!request.reusable(live.id) || !this.isBlank(live.session)) return undefined
     this.assertPresetApplicable(live.id, request.agentPreset)
     const current = this.presetForSession(live.session)
@@ -566,15 +541,17 @@ export class ApiSessionAgentController {
     } catch (error: unknown) {
       throw new Error(`failed to ensure project directory "${cwd}": ${String(error)}`, { cause: error })
     }
-    return (await this.ctx.agents.create({
-      sessionId,
-      agentOptions: this.agentOptions(),
-      meta: {
-        cwd,
-        ...(composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset }),
-      },
-      setup: composition.setup,
-    })).agent
+    return (
+      await this.ctx.agents.create({
+        sessionId,
+        agentOptions: this.agentOptions(),
+        meta: {
+          cwd,
+          ...(composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset }),
+        },
+        setup: composition.setup,
+      })
+    ).agent
   }
 
   private agentOptions(): AgentOptions {
@@ -603,8 +580,6 @@ function agentModelSelection(selection: ModelSelection): AgentModelSelection {
   return {
     provider: selection.provider,
     model: selection.model,
-    ...(selection.reasoningEffort === undefined
-      ? {}
-      : { reasoningEffort: ReasoningEffortId(selection.reasoningEffort) }),
+    ...(selection.reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(selection.reasoningEffort) }),
   }
 }

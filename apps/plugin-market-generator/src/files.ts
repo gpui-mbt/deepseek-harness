@@ -60,7 +60,7 @@ export class PackageFiles {
       segments.forEach((name, depth) => {
         const dir = segments.slice(0, depth).join('/')
         let children = this.#children.get(dir)
-        if (children === undefined) this.#children.set(dir, children = { directories: new Set(), files: [] })
+        if (children === undefined) this.#children.set(dir, (children = { directories: new Set(), files: [] }))
         if (depth === segments.length - 1) children.files.push(name)
         else children.directories.add(name)
       })
@@ -105,7 +105,7 @@ export class PackageFiles {
    * @returns the names of the directories directly inside `dir`, sorted.
    */
   directories(dir: string): string[] {
-    return [...this.#children.get(dir)?.directories ?? []].sort()
+    return [...(this.#children.get(dir)?.directories ?? [])].sort()
   }
 
   /**
@@ -113,7 +113,7 @@ export class PackageFiles {
    * @returns the names of the regular files directly inside `dir`, sorted.
    */
   fileNames(dir: string): string[] {
-    return [...this.#children.get(dir)?.files ?? []].sort()
+    return [...(this.#children.get(dir)?.files ?? [])].sort()
   }
 
   /**
@@ -123,7 +123,9 @@ export class PackageFiles {
   within(dir: string): PackageFiles {
     if (dir === '') return this
     const prefix = `${dir}/`
-    const inside = [...this.#files].flatMap(([path, entry]) => path.startsWith(prefix) ? [[path.slice(prefix.length), entry] as const] : [])
+    const inside = [...this.#files].flatMap(([path, entry]) =>
+      path.startsWith(prefix) ? [[path.slice(prefix.length), entry] as const] : [],
+    )
     return new PackageFiles(new Map(inside))
   }
 }

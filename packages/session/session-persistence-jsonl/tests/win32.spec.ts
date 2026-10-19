@@ -4,7 +4,7 @@
  * tests keep the Win32 error mapping and race handling covered on every host.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -39,7 +39,9 @@ async function importWithMove(moveFileExW: MoveFileExW): Promise<typeof import('
   vi.resetModules()
   vi.doMock('koffi', () => {
     let lastError = 0
-    const setLastError = (code: number): void => { lastError = code }
+    const setLastError = (code: number): void => {
+      lastError = code
+    }
     const move: MoveFileExW = (existing, replacement, flags, setError) => {
       const ok = moveFileExW(existing, replacement, flags, setError)
       lastError = ok === 0 ? lastError : 0
@@ -49,11 +51,12 @@ async function importWithMove(moveFileExW: MoveFileExW): Promise<typeof import('
       default: {
         load: () => ({
           func: (_convention: string, name: string, result: string) => {
-            if (name === 'MoveFileExW') return (existing: string, replacement: string, flags: number) => {
-              expect(result).toBe('int')
-              const ok = move(existing, replacement, flags, setLastError)
-              return ok
-            }
+            if (name === 'MoveFileExW')
+              return (existing: string, replacement: string, flags: number) => {
+                expect(result).toBe('int')
+                const ok = move(existing, replacement, flags, setLastError)
+                return ok
+              }
             return () => lastError
           },
         }),
@@ -83,8 +86,14 @@ async function importWithFilesystemMove(): Promise<typeof import('../src/win32.t
     expect(flags).toBe(MOVEFILE_WRITE_THROUGH)
     const from = stripNamespace(existing)
     const to = stripNamespace(replacement)
-    if (!existsSync(from)) { setLastError(ERROR_FILE_NOT_FOUND); return 0 }
-    if (existsSync(to)) { setLastError(ERROR_ALREADY_EXISTS); return 0 }
+    if (!existsSync(from)) {
+      setLastError(ERROR_FILE_NOT_FOUND)
+      return 0
+    }
+    if (existsSync(to)) {
+      setLastError(ERROR_ALREADY_EXISTS)
+      return 0
+    }
     renameSync(from, to)
     return 1
   })
@@ -102,7 +111,7 @@ describe('Windows durable namespace helpers', () => {
   it('keeps drive-root probes native while namespacing descendants', async () => {
     const probes: string[] = []
     vi.resetModules()
-    vi.doMock('node:fs/promises', async (importOriginal) => {
+    vi.doMock('node:fs/promises', async importOriginal => {
       const actual = await importOriginal<typeof import('node:fs/promises')>()
       return {
         ...actual,
@@ -112,7 +121,7 @@ describe('Windows durable namespace helpers', () => {
         },
       }
     })
-    vi.doMock('node:path', async (importOriginal) => {
+    vi.doMock('node:path', async importOriginal => {
       const actual = await importOriginal<typeof import('node:path')>()
       return {
         ...actual,
@@ -170,8 +179,14 @@ describe('Windows durable namespace helpers', () => {
         setLastError(ERROR_ALREADY_EXISTS)
         return 0
       }
-      if (!existsSync(from)) { setLastError(ERROR_FILE_NOT_FOUND); return 0 }
-      if (existsSync(to)) { setLastError(ERROR_ALREADY_EXISTS); return 0 }
+      if (!existsSync(from)) {
+        setLastError(ERROR_FILE_NOT_FOUND)
+        return 0
+      }
+      if (existsSync(to)) {
+        setLastError(ERROR_ALREADY_EXISTS)
+        return 0
+      }
       renameSync(from, to)
       return 1
     })
@@ -252,7 +267,12 @@ describe('Windows write-lock semaphore', () => {
     // no filesystem footprint, and case-insensitive like Windows paths.
     expect(created[0]).toMatchObject({ initial: 1, maximum: 1 })
     expect(created[0]?.name).toMatch(/^Local\\dsh-session-lock-[0-9a-f]{64}$/)
-    const upper = await importWithLock({ createSemaphoreW: (name) => { created.push({ name, initial: 1, maximum: 1 }); return 7 } })
+    const upper = await importWithLock({
+      createSemaphoreW: name => {
+        created.push({ name, initial: 1, maximum: 1 })
+        return 7
+      },
+    })
     await upper.acquireLockHandleWin32('C:\\S\\SESSION.LOCK')
     expect(created[1]?.name).toBe(created[0]?.name)
   })
@@ -261,7 +281,10 @@ describe('Windows write-lock semaphore', () => {
     const closed: number[] = []
     const { acquireLockHandleWin32 } = await importWithLock({
       waitResult: 0x102,
-      closeHandle: (handle) => { closed.push(handle); return 1 },
+      closeHandle: handle => {
+        closed.push(handle)
+        return 1
+      },
     })
     await expect(acquireLockHandleWin32('C:\\s\\session.lock')).rejects.toMatchObject({ code: 'EBUSY' })
     expect(closed).toEqual([7])
@@ -277,8 +300,14 @@ describe('Windows write-lock semaphore', () => {
   it('releases by restoring the count and closing, surfacing a failed release', async () => {
     const order: string[] = []
     const working = await importWithLock({
-      releaseSemaphore: (handle) => { order.push(`release:${handle}`); return 1 },
-      closeHandle: (handle) => { order.push(`close:${handle}`); return 1 },
+      releaseSemaphore: handle => {
+        order.push(`release:${handle}`)
+        return 1
+      },
+      closeHandle: handle => {
+        order.push(`close:${handle}`)
+        return 1
+      },
     })
     await working.releaseLockHandleWin32(7)
     expect(order).toEqual(['release:7', 'close:7'])

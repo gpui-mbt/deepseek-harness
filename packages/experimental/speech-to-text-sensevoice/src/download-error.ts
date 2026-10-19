@@ -7,7 +7,10 @@ type FailureKind = Pick<SpeechDownloadFailure, 'reason' | 'code'>
 const codes: readonly [SpeechDownloadFailure['reason'], RegExp][] = [
   ['dns', /^(ENOTFOUND|EAI_AGAIN)$/],
   ['timeout', /^(ETIMEDOUT|ERR_SOCKET_CONNECTION_TIMEOUT|UND_ERR_(CONNECT|HEADERS|BODY)_TIMEOUT)$/],
-  ['certificate', /^(CERT_[A-Z_]+|ERR_TLS_CERT_ALTNAME_INVALID|DEPTH_ZERO_SELF_SIGNED_CERT|SELF_SIGNED_CERT_IN_CHAIN|UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT_LOCALLY)$/],
+  [
+    'certificate',
+    /^(CERT_[A-Z_]+|ERR_TLS_CERT_ALTNAME_INVALID|DEPTH_ZERO_SELF_SIGNED_CERT|SELF_SIGNED_CERT_IN_CHAIN|UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT_LOCALLY)$/,
+  ],
   ['storage', /^(ENOSPC|EDQUOT|EACCES|EPERM|EROFS)$/],
   ['network', /^(ECONNREFUSED|ECONNRESET|ENETUNREACH|EHOSTUNREACH|EPIPE|UND_ERR_SOCKET)$/],
 ]
@@ -18,7 +21,8 @@ const codes: readonly [SpeechDownloadFailure['reason'], RegExp][] = [
  * @returns an actionable category and recognized diagnostic code, or a generic failure.
  */
 export function classifyDownloadFailure(failure: unknown): FailureKind {
-  const pending: unknown[] = [failure], visited = new Set<Error>()
+  const pending: unknown[] = [failure],
+    visited = new Set<Error>()
   let reason: SpeechDownloadFailure['reason'] = 'unknown'
   while (pending.length > 0) {
     const error = pending.shift()
@@ -40,7 +44,13 @@ export function classifyDownloadFailure(failure: unknown): FailureKind {
 
 /** A preparation error whose public details exclude raw causes, credentials, signed URLs and local paths. */
 export class SpeechDownloadError extends Error {
-  constructor(readonly download: SpeechDownloadFailure, options?: ErrorOptions) {
-    super(`Unable to prepare ${download.resource} from ${download.source}: ${download.reason}${download.code ? ` (${download.code})` : ''}${download.status === undefined ? '' : ` (HTTP ${download.status})`}`, options)
+  constructor(
+    readonly download: SpeechDownloadFailure,
+    options?: ErrorOptions,
+  ) {
+    super(
+      `Unable to prepare ${download.resource} from ${download.source}: ${download.reason}${download.code ? ` (${download.code})` : ''}${download.status === undefined ? '' : ` (HTTP ${download.status})`}`,
+      options,
+    )
   }
 }

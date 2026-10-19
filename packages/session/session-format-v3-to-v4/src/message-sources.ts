@@ -16,7 +16,7 @@ function source(message: Readonly<Record<string, unknown>>): void {
  * @param event - complete native V4 event before Session adoption.
  */
 export function assertV4MessageSources(event: SessionFormatEvent): void {
-  mapEventMessages(event, (message) => {
+  mapEventMessages(event, message => {
     source(message)
     return message
   })
@@ -29,10 +29,16 @@ export function assertV4MessageSources(event: SessionFormatEvent): void {
 export function assertV4SourceRowAdmission(row: unknown): void {
   if (!isSessionFormatJsonObject(row) || !isSessionFormatJsonObject(row['data'])) return
   const data = row['data']
-  const messages = row['type'] === 'user/message' ? [data]
-    : row['type'] === 'system/message' || row['type'] === 'assistant/message' || row['type'] === 'tool/result' ? [data['message']]
-      : row['type'] === 'agent/inbox/spliced' ? data['inserted']
-        : row['type'] === 'session/title-llm-request' ? data['messages'] : []
+  const messages =
+    row['type'] === 'user/message'
+      ? [data]
+      : row['type'] === 'system/message' || row['type'] === 'assistant/message' || row['type'] === 'tool/result'
+        ? [data['message']]
+        : row['type'] === 'agent/inbox/spliced'
+          ? data['inserted']
+          : row['type'] === 'session/title-llm-request'
+            ? data['messages']
+            : []
   if (!Array.isArray(messages)) return
   for (const message of messages) {
     if (!isSessionFormatJsonObject(message)) continue

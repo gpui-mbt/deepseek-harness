@@ -26,9 +26,14 @@ export function apply(ctx: Context, config: Config): void {
   const estimatedBytes = config.precision === 'int8' ? 1_000_000_000 : 2_000_000_000
   ctx.effect(() => {
     const unregister = ctx.speechToText.register({
-      info: { id: config.providerId as SpeechProviderId, name: `SenseVoiceSmall (${config.precision.toUpperCase()})`, location: 'host-local', languages, downloadSources: worker.downloadSources,
-        setupEstimate: { recommendedDiskBytes: estimatedBytes, expectedMemoryBytes: estimatedBytes,
-          minimumMinutes: 1, maximumMinutes: 10 } },
+      info: {
+        id: config.providerId as SpeechProviderId,
+        name: `SenseVoiceSmall (${config.precision.toUpperCase()})`,
+        location: 'host-local',
+        languages,
+        downloadSources: worker.downloadSources,
+        setupEstimate: { recommendedDiskBytes: estimatedBytes, expectedMemoryBytes: estimatedBytes, minimumMinutes: 1, maximumMinutes: 10 },
+      },
       preparation: worker,
       transcribe: async (input, signal) => await worker.transcribe(input, signal),
     })

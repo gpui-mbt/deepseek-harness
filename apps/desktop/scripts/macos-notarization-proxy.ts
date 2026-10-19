@@ -29,20 +29,32 @@ const RECOVERY = 'pnpm --dir apps/desktop run restore:mac-proxy'
 const NETWORKSETUP = '/usr/sbin/networksetup'
 const operations: ProxyOperations = {
   command(executable, args) {
-    return execFileSync(executable, [...args], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin:/usr/sbin:/sbin', LANG: 'C' }, timeout: 15_000 })
+    return execFileSync(executable, [...args], {
+      encoding: 'utf8',
+      env: { PATH: '/usr/bin:/bin:/usr/sbin:/sbin', LANG: 'C' },
+      timeout: 15_000,
+    })
   },
   reachable(url) {
     return new Promise((resolveConnection, reject) => {
       const socket = connect({ host: url.hostname.replace(/^\[|\]$/gu, ''), port: Number(url.port || '80') })
       let failure: Error | undefined
       socket.setTimeout(5000, () => socket.destroy(new Error('desktop package: notarization proxy connection timed out')))
-      socket.once('error', () => { failure = new Error('desktop package: notarization proxy is unreachable') })
+      socket.once('error', () => {
+        failure = new Error('desktop package: notarization proxy is unreachable')
+      })
       socket.once('connect', () => socket.destroy())
-      socket.once('close', () => { if (failure) reject(failure); else resolveConnection() })
+      socket.once('close', () => {
+        if (failure) reject(failure)
+        else resolveConnection()
+      })
     })
   },
   ownerAlive(pid) {
-    try { process.kill(pid, 0); return true } catch (error) {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false
       throw error
     }
@@ -55,13 +67,17 @@ async function withProxyLock<T>(lock: string, action: () => Promise<T>): Promise
   // Keep this inode across transactions: unlinking it would allow two independent locks.
   const fd = openSync(`${lock}.flock`, 'a', 0o600)
   try {
-    try { await tryLockExclusive(fd) } catch (error) {
+    try {
+      await tryLockExclusive(fd)
+    } catch (error) {
       const code = (error as NodeJS.ErrnoException).code
       if (code !== 'EAGAIN' && code !== 'EWOULDBLOCK') throw error
       throw new Error('desktop package: another run or proxy recovery is active; wait for it to finish')
     }
     return await action()
-  } finally { closeSync(fd) }
+  } finally {
+    closeSync(fd)
+  }
 }
 
 function readProxy(service: string, secure: boolean, ops: ProxyOperations): ProxyState {
@@ -69,8 +85,13 @@ function readProxy(service: string, secure: boolean, ops: ProxyOperations): Prox
   const enabled = /^Enabled: (Yes|No)$/mu.exec(output)?.[1]
   const server = /^Server:[ \t]?(.*)$/mu.exec(output)?.[1]
   const port = /^Port: (\d+)$/mu.exec(output)?.[1]
-  if (enabled === undefined || server === undefined || port === undefined
-    || !/^Authenticated Proxy Enabled: 0$/mu.test(output) || Number(port) > 65535) {
+  if (
+    enabled === undefined ||
+    server === undefined ||
+    port === undefined ||
+    !/^Authenticated Proxy Enabled: 0$/mu.test(output) ||
+    Number(port) > 65535
+  ) {
     throw new Error('desktop package: cannot preserve system proxy settings; authenticated proxies are unsupported')
   }
   return { enabled: enabled === 'Yes', server, port: Number(port) }
@@ -80,8 +101,7 @@ function activeService(ops: ProxyOperations): string {
   const route = ops.command('/sbin/route', ['-n', 'get', 'default'])
   const device = /^\s*interface: (\S+)$/mu.exec(route)?.[1]
   const services = ops.command(NETWORKSETUP, ['-listnetworkserviceorder'])
-  const matches = [...services.matchAll(/^\(\d+\) (.+)\n\(Hardware Port: .+, Device: ([^)]+)\)$/gmu)]
-    .filter(match => match[2] === device)
+  const matches = [...services.matchAll(/^\(\d+\) (.+)\n\(Hardware Port: .+, Device: ([^)]+)\)$/gmu)].filter(match => match[2] === device)
   if (!device || matches.length !== 1) throw new Error('desktop package: cannot identify one active network service for notarization proxy')
   return matches[0]![1]!
 }
@@ -95,13 +115,18 @@ function setProxy(service: string, secure: boolean, state: ProxyState, ops: Prox
 
 function restore(record: ProxyRecord, ops: ProxyOperations): void {
   const errors: unknown[] = []
-  for (const [secure, state] of [[false, record.http], [true, record.https]] as const) {
+  for (const [secure, state] of [
+    [false, record.http],
+    [true, record.https],
+  ] as const) {
     try {
       if (!state.enabled && state.server === '' && state.port === 0) {
         ops.command(NETWORKSETUP, [secure ? '-setsecurewebproxystate' : '-setwebproxystate', record.service, 'off'])
         if (readProxy(record.service, secure, ops).enabled) throw new Error('desktop package: system proxy disable did not take effect')
       } else setProxy(record.service, secure, state, ops)
-    } catch (error) { errors.push(error) }
+    } catch (error) {
+      errors.push(error)
+    }
   }
   if (errors.length) throw new AggregateError(errors, `desktop package: proxy restoration failed; retry ${RECOVERY}`)
 }
@@ -111,13 +136,27 @@ function readRecord(lock: string): ProxyRecord {
   function isState(state: unknown): state is ProxyState {
     if (state === null || typeof state !== 'object') return false
     const s = state as Partial<ProxyState>
-    return typeof s.enabled === 'boolean' && typeof s.server === 'string' && !/[\r\n\0]/u.test(s.server)
-      && typeof s.port === 'number' && Number.isInteger(s.port) && s.port >= 0 && s.port <= 65535
+    return (
+      typeof s.enabled === 'boolean' &&
+      typeof s.server === 'string' &&
+      !/[\r\n\0]/u.test(s.server) &&
+      typeof s.port === 'number' &&
+      Number.isInteger(s.port) &&
+      s.port >= 0 &&
+      s.port <= 65535
+    )
   }
   if (value === null || typeof value !== 'object') throw new Error('desktop package: invalid proxy recovery record')
   const record = value as Partial<ProxyRecord>
-  if (!Number.isSafeInteger(record.pid) || record.pid! <= 0 || typeof record.service !== 'string'
-    || !record.service || /[\r\n\0]/u.test(record.service) || !isState(record.http) || !isState(record.https)) {
+  if (
+    !Number.isSafeInteger(record.pid) ||
+    record.pid! <= 0 ||
+    typeof record.service !== 'string' ||
+    !record.service ||
+    /[\r\n\0]/u.test(record.service) ||
+    !isState(record.http) ||
+    !isState(record.https)
+  ) {
     throw new Error('desktop package: invalid proxy recovery record')
   }
   return record as ProxyRecord
@@ -155,11 +194,16 @@ export async function withMacOSNotarizationProxy<T>(
   ops: ProxyOperations = operations,
   report: (status: 'not-used' | 'restoration-pending' | 'enabled' | 'restored' | 'restore-failed') => void = () => {},
 ): Promise<T> {
-  if (proxyUrl === undefined) { report('not-used'); return action() }
+  if (proxyUrl === undefined) {
+    report('not-used')
+    return action()
+  }
   const url = new URL(proxyUrl)
   await ops.reachable(url)
   return withProxyLock(lock, async () => {
-    try { mkdirSync(lock, { mode: 0o700 }) } catch (error) {
+    try {
+      mkdirSync(lock, { mode: 0o700 })
+    } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
       throw new Error(`desktop package: another run or interrupted proxy record exists; after its owner exits, run ${RECOVERY}`)
     }
@@ -180,7 +224,9 @@ export async function withMacOSNotarizationProxy<T>(
       const discovery = ops.command(NETWORKSETUP, ['-getproxyautodiscovery', service])
       const socks = ops.command(NETWORKSETUP, ['-getsocksfirewallproxy', service])
       if (!/^Enabled: No$/mu.test(pac) || !/^Auto Proxy Discovery: Off$/mu.test(discovery) || !/^Enabled: No$/mu.test(socks)) {
-        throw new Error('desktop package: disable PAC, proxy discovery and SOCKS on the active service before configuring a notarization proxy')
+        throw new Error(
+          'desktop package: disable PAC, proxy discovery and SOCKS on the active service before configuring a notarization proxy',
+        )
       }
       original = { pid: process.pid, service, http: readProxy(service, false, ops), https: readProxy(service, true, ops) }
       writeFileSync(join(lock, 'original.json'), `${JSON.stringify(original)}\n`, { flag: 'wx', mode: 0o600, flush: true })
@@ -199,7 +245,12 @@ export async function withMacOSNotarizationProxy<T>(
     } finally {
       try {
         if (saved && original) {
-          try { restore(original, ops) } catch (error) { report('restore-failed'); throw error }
+          try {
+            restore(original, ops)
+          } catch (error) {
+            report('restore-failed')
+            throw error
+          }
           report('restored')
         }
         rmSync(lock, { recursive: true })

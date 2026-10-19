@@ -8,13 +8,9 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
-import {
-  openNativeTextFile,
-} from '@deepseek-ai/dsh-native-command'
+import { openNativeTextFile } from '@deepseek-ai/dsh-native-command'
 import type { SettingsDescriptor, SettingsPathOp, SettingsForms } from '@deepseek-ai/dsh-settings'
-import type {
-  SettingsDescribeValue, SettingsNamespaceView, SettingsPathOpView,
-} from '@deepseek-ai/dsh-settings/types'
+import type { SettingsDescribeValue, SettingsNamespaceView, SettingsPathOpView } from '@deepseek-ai/dsh-settings/types'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { z } from 'zod'
@@ -51,8 +47,8 @@ function namespaceView(descriptor: SettingsDescriptor): SettingsNamespaceView {
     autoGenerate: descriptor.autoGenerate,
     schema: descriptor.schema as JsonValue,
     value: descriptor.value as JsonValue,
-    ...descriptor.base === undefined ? {} : { base: descriptor.base as JsonValue },
-    ...descriptor.user === undefined ? {} : { user: descriptor.user as JsonValue },
+    ...(descriptor.base === undefined ? {} : { base: descriptor.base as JsonValue }),
+    ...(descriptor.user === undefined ? {} : { user: descriptor.user as JsonValue }),
     applies: descriptor.applies,
     secrets: (descriptor.secrets ?? []).map(secret => ({ path: [...secret.path], set: secret.set })),
     revision: descriptor.revision,
@@ -113,11 +109,7 @@ export class SettingsController extends TypertRemoteService {
    * @throws RemoteError when the request is invalid, no provider is mounted, or the provider refuses the write.
    */
   @Remote
-  update(
-    ns: string,
-    patch: Record<string, JsonValue>,
-    expectedRevision: number | undefined,
-  ): Promise<SettingsNamespaceView> {
+  update(ns: string, patch: Record<string, JsonValue>, expectedRevision: number | undefined): Promise<SettingsNamespaceView> {
     return this.write(ns, 'update', patch, expectedRevision)
   }
 
@@ -130,11 +122,7 @@ export class SettingsController extends TypertRemoteService {
    * @throws RemoteError when the request is invalid, no provider is mounted, or the provider refuses the write.
    */
   @Remote
-  replace(
-    ns: string,
-    section: Record<string, JsonValue>,
-    expectedRevision: number | undefined,
-  ): Promise<SettingsNamespaceView> {
+  replace(ns: string, section: Record<string, JsonValue>, expectedRevision: number | undefined): Promise<SettingsNamespaceView> {
     return this.write(ns, 'replace', section, expectedRevision)
   }
 
@@ -149,11 +137,7 @@ export class SettingsController extends TypertRemoteService {
    * @throws RemoteError when the request is invalid, no provider is mounted, or the provider refuses the write.
    */
   @Remote
-  async mutate(
-    ns: string,
-    ops: SettingsPathOpView[],
-    expectedRevision: number | undefined,
-  ): Promise<SettingsNamespaceView> {
+  async mutate(ns: string, ops: SettingsPathOpView[], expectedRevision: number | undefined): Promise<SettingsNamespaceView> {
     return this.write(ns, 'mutate', ops, expectedRevision)
   }
 
@@ -239,10 +223,13 @@ interface SettingsConflict {
 
 function settingsConflictOf(error: unknown): SettingsConflict | undefined {
   if (typeof error !== 'object' || error === null) return undefined
-  if (Reflect.get(error, 'code') !== 'SETTINGS_CONFLICT'
-    || typeof Reflect.get(error, 'message') !== 'string'
-    || typeof Reflect.get(error, 'expected') !== 'number'
-    || typeof Reflect.get(error, 'actual') !== 'number') return undefined
+  if (
+    Reflect.get(error, 'code') !== 'SETTINGS_CONFLICT' ||
+    typeof Reflect.get(error, 'message') !== 'string' ||
+    typeof Reflect.get(error, 'expected') !== 'number' ||
+    typeof Reflect.get(error, 'actual') !== 'number'
+  )
+    return undefined
   return error as SettingsConflict
 }
 

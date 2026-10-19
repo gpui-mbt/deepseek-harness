@@ -45,14 +45,23 @@ export function compareText(before: string | null, after: string | null, timeout
     coarse = true
     const oldLines = lines(oldText)
     const newLines = lines(newText)
-    hunks = [{
-      oldStart: 1, oldLines: oldLines.length,
-      newStart: 1, newLines: newLines.length,
-      lines: [...oldLines.map(line => `-${line}`), ...newLines.map(line => `+${line}`)],
-    }]
+    hunks = [
+      {
+        oldStart: 1,
+        oldLines: oldLines.length,
+        newStart: 1,
+        newLines: newLines.length,
+        lines: [...oldLines.map(line => `-${line}`), ...newLines.map(line => `+${line}`)],
+      },
+    ]
   } else {
-    hunks = patch.hunks.map(({ oldStart, oldLines, newStart, newLines, lines: body }) =>
-      ({ oldStart, oldLines, newStart, newLines, lines: body }))
+    hunks = patch.hunks.map(({ oldStart, oldLines, newStart, newLines, lines: body }) => ({
+      oldStart,
+      oldLines,
+      newStart,
+      newLines,
+      lines: body,
+    }))
   }
   let added = 0
   let deleted = 0

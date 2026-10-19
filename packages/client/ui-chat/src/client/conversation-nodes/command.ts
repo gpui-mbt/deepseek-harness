@@ -1,6 +1,10 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  CommandNode, CompactionSummaryNode, ConversationMatch, ConversationNodeContext, ConversationNodeDefinition,
+  CommandNode,
+  CompactionSummaryNode,
+  ConversationMatch,
+  ConversationNodeContext,
+  ConversationNodeDefinition,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { CompactionCheckpointSource } from '@deepseek-ai/dsh-compaction/checkpoint'
 import type {} from '@deepseek-ai/dsh-compaction/types'
@@ -50,11 +54,10 @@ function commandFromRun(match: ConversationMatch): CommandNode {
 function commandFromDone(match: ConversationMatch, previous?: CommandNode): CommandNode {
   if (match.event.type !== 'command/done') throw new Error('command update requires command/done')
   const data = match.event.data
-  const sourceEventSeq = data.kind === 'success'
-    && data.sourceEventSeq !== undefined
-    && Number.isSafeInteger(data.sourceEventSeq) && data.sourceEventSeq >= 0
-    ? data.sourceEventSeq
-    : undefined
+  const sourceEventSeq =
+    data.kind === 'success' && data.sourceEventSeq !== undefined && Number.isSafeInteger(data.sourceEventSeq) && data.sourceEventSeq >= 0
+      ? data.sourceEventSeq
+      : undefined
   return {
     kind: 'command',
     seq: previous?.seq ?? match.event.seq,
@@ -64,8 +67,8 @@ function commandFromDone(match: ConversationMatch, previous?: CommandNode): Comm
     args: previous?.args ?? null,
     outcome: {
       kind: data.kind,
-      ...data.text === undefined ? {} : { text: data.text },
-      ...sourceEventSeq === undefined ? {} : { sourceEventSeq },
+      ...(data.text === undefined ? {} : { text: data.text }),
+      ...(sourceEventSeq === undefined ? {} : { sourceEventSeq }),
     },
   }
 }
@@ -75,10 +78,12 @@ function commandFromDone(match: ConversationMatch, previous?: CommandNode): Comm
  * @param event - candidate Session event.
  * @returns correlated compaction and optional command identity.
  */
-function compactSource(event: Parameters<ConversationNodeDefinition['match']>[0]): {
-  compactionId: string
-  sourceCommandId?: CommandId
-} | undefined {
+function compactSource(event: Parameters<ConversationNodeDefinition['match']>[0]):
+  | {
+      compactionId: string
+      sourceCommandId?: CommandId
+    }
+  | undefined {
   if (event.type !== 'user/message' || !isReplacementSurfaceEvent(event)) return undefined
   const source = event.data.source as {
     kind?: unknown
@@ -88,7 +93,7 @@ function compactSource(event: Parameters<ConversationNodeDefinition['match']>[0]
   if (source.kind !== COMPACT_KIND || typeof source.compactionId !== 'string') return undefined
   return {
     compactionId: source.compactionId,
-    ...source.sourceCommandId === undefined ? {} : { sourceCommandId: source.sourceCommandId },
+    ...(source.sourceCommandId === undefined ? {} : { sourceCommandId: source.sourceCommandId }),
   }
 }
 
@@ -105,19 +110,14 @@ function compactSummary(match: ConversationMatch | undefined, checkpoint: Conver
   if (match?.event.type === 'compaction/summary') {
     const data = match.event.data
     if (Array.isArray(data.summary)) {
-      const text = data.summary
-        .map(block => block.type === 'text' ? block.text : '')
-        .join('')
+      const text = data.summary.map(block => (block.type === 'text' ? block.text : '')).join('')
       summary = text.trim() === '' ? null : text
     }
-    shadowedItemCount = Array.isArray(data.shadowedSeqs)
-      && data.shadowedSeqs.every(seq => Number.isSafeInteger(seq) && seq >= 0)
-      ? data.shadowedSeqs.length
-      : null
-    shadowedTokenCount = Number.isSafeInteger(data.shadowedTokenCount)
-      && data.shadowedTokenCount >= 0
-      ? data.shadowedTokenCount
-      : null
+    shadowedItemCount =
+      Array.isArray(data.shadowedSeqs) && data.shadowedSeqs.every(seq => Number.isSafeInteger(seq) && seq >= 0)
+        ? data.shadowedSeqs.length
+        : null
+    shadowedTokenCount = Number.isSafeInteger(data.shadowedTokenCount) && data.shadowedTokenCount >= 0 ? data.shadowedTokenCount : null
   }
   return {
     kind: 'compaction',
@@ -137,21 +137,22 @@ function fallbackState(context: ConversationNodeContext<CommandState>): CommandS
   if (checkpoint === undefined) return done === undefined ? undefined : { command: commandFromDone(done) }
   const source = compactSource(checkpoint.event)
   if (source?.sourceCommandId === undefined) return done === undefined ? undefined : { command: commandFromDone(done) }
-  const fallbackCommand = done === undefined
-    ? {
-      kind: 'command' as const,
-      seq: checkpoint.event.seq,
-      time: checkpoint.event.time,
-      commandId: source.sourceCommandId,
-      name: 'compact',
-      args: null,
-      outcome: null,
-    }
-    : { ...commandFromDone(done), name: 'compact' }
+  const fallbackCommand =
+    done === undefined
+      ? {
+          kind: 'command' as const,
+          seq: checkpoint.event.seq,
+          time: checkpoint.event.time,
+          commandId: source.sourceCommandId,
+          name: 'compact',
+          args: null,
+          outcome: null,
+        }
+      : { ...commandFromDone(done), name: 'compact' }
   return {
     command: fallbackCommand,
     checkpoint,
-    ...summary === undefined ? {} : { summary },
+    ...(summary === undefined ? {} : { summary }),
   }
 }
 
@@ -161,10 +162,7 @@ function fallbackState(context: ConversationNodeContext<CommandState>): CommandS
  * @param match - next compaction lifecycle Match.
  * @returns adopted State, preserving reference identity when the Match adds no evidence.
  */
-export function updateCompactionState<State extends CompactionEvidence>(
-  state: State,
-  match: ConversationMatch,
-): State {
+export function updateCompactionState<State extends CompactionEvidence>(state: State, match: ConversationMatch): State {
   if (match.event.type === 'compaction/summary') return { ...state, summary: match }
   if (compactSource(match.event) !== undefined) return { ...state, checkpoint: match }
   return state
@@ -174,7 +172,7 @@ export function updateCompactionState<State extends CompactionEvidence>(
 export const commandDefinition: ConversationNodeDefinition<CommandState> = {
   kind: 'command',
   target: 'chat',
-  match: (event) => {
+  match: event => {
     if (event.type === 'command/run') {
       return { id: String(event.data.commandId), role: 'start' }
     }
@@ -185,9 +183,7 @@ export const commandDefinition: ConversationNodeDefinition<CommandState> = {
     if (checkpoint?.sourceCommandId !== undefined) {
       return { id: String(checkpoint.sourceCommandId), role: 'update' }
     }
-    if (event.type === 'compaction/start'
-      || event.type === 'compaction/summary'
-      || event.type === 'compaction/end') {
+    if (event.type === 'compaction/start' || event.type === 'compaction/summary' || event.type === 'compaction/end') {
       if (event.data.sourceCommandId !== undefined) {
         return { id: String(event.data.sourceCommandId), role: 'update' }
       }
@@ -201,15 +197,13 @@ export const commandDefinition: ConversationNodeDefinition<CommandState> = {
     }
     return updateCompactionState(context.state, match)
   },
-  buildViewNode: (context) => {
+  buildViewNode: context => {
     const state = context.state ?? fallbackState(context)
     if (state === undefined) return null
     if (state.command.name !== 'compact') {
       return chatNode(context, 'command', state.command.seq, state.command)
     }
-    const compaction = state.checkpoint === undefined
-      ? null
-      : compactSummary(state.summary, state.checkpoint)
+    const compaction = state.checkpoint === undefined ? null : compactSummary(state.summary, state.checkpoint)
     const data: ManualCompactionChatData = { command: state.command, compaction }
     return chatNode(context, 'manual-compaction', compaction?.seq ?? state.command.seq, data)
   },

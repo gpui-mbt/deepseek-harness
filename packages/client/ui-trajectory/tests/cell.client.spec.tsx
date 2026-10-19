@@ -3,7 +3,7 @@
  * TrajectoryCell presentation: kind tags, ellipsis-hosting text, Message
  * metric columns, own-duration formatting, and selected ring.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { cleanup, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import {
@@ -52,14 +52,7 @@ describe('formatElapsedSeconds', () => {
 
 describe('TrajectoryCell', () => {
   it('renders index, kind tag, text, and time for a Tool row', () => {
-    render(
-      <TrajectoryCell
-        index={6}
-        kind="tool"
-        text="bash · Read src/index.ts"
-        timeSeconds={5}
-      />,
-    )
+    render(<TrajectoryCell index={6} kind="tool" text="bash · Read src/index.ts" timeSeconds={5} />)
     expect(screen.getByText('#6')).toBeTruthy()
     expect(screen.getByText('TOOL')).toBeTruthy()
     expect(screen.getByText('bash · Read src/index.ts')).toBeTruthy()
@@ -90,9 +83,7 @@ describe('TrajectoryCell', () => {
   })
 
   it('selected marks the row for the brand-primary inset ring', () => {
-    const { container } = render(
-      <TrajectoryCell index={15} kind="message" text="pictur..." timeSeconds={123.6} selected />,
-    )
+    const { container } = render(<TrajectoryCell index={15} kind="message" text="pictur..." timeSeconds={123.6} selected />)
     expect(container.firstElementChild?.getAttribute('data-selected')).toBe('true')
   })
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseCodexConfig, CODEX_EVENTS } from '@deepseek-ai/dsh-hooks-codex/src/config.ts'
 
 describe('parseCodexConfig', () => {
@@ -25,14 +25,15 @@ describe('parseCodexConfig', () => {
 
   it('skips non-command and async:true hooks (recorded)', () => {
     const { config, skipped } = parseCodexConfig({
-      PreToolUse: [{ hooks: [
-        { type: 'prompt' },
-        { type: 'command', command: 'sync.sh' },
-        { type: 'command', command: 'bg.sh', async: true },
-      ] }],
+      PreToolUse: [
+        { hooks: [{ type: 'prompt' }, { type: 'command', command: 'sync.sh' }, { type: 'command', command: 'bg.sh', async: true }] },
+      ],
     })
     expect(config.PreToolUse).toEqual([{ hooks: [{ command: 'sync.sh' }] }])
-    expect(skipped).toEqual([{ event: 'PreToolUse', reason: 'unsupported "prompt" hook' }, { event: 'PreToolUse', reason: 'async hook' }])
+    expect(skipped).toEqual([
+      { event: 'PreToolUse', reason: 'unsupported "prompt" hook' },
+      { event: 'PreToolUse', reason: 'async hook' },
+    ])
   })
 
   it('parses the { hooks: … } wrapper and the bare map identically', () => {
@@ -67,9 +68,11 @@ describe('parseCodexConfig', () => {
   })
 
   it('rejects an invalid regex matcher with its event name', () => {
-    expect(() => parseCodexConfig({
-      PreToolUse: [{ matcher: '[', hooks: [{ type: 'command', command: 's.sh' }] }],
-    })).toThrow('invalid codex regex matcher "[" on event "PreToolUse"')
+    expect(() =>
+      parseCodexConfig({
+        PreToolUse: [{ matcher: '[', hooks: [{ type: 'command', command: 's.sh' }] }],
+      }),
+    ).toThrow('invalid codex regex matcher "[" on event "PreToolUse"')
   })
 
   it('discards matcher fields on events without matcher subjects before validation', () => {

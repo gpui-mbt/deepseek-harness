@@ -21,12 +21,5 @@ export type PluginRefreshToastProps = InjectFace<PluginRefreshToastFace> & Props
 export function PluginRefreshToast({ usePluginManager, dismissNotice, t }: PluginRefreshToastProps): ReactNode {
   const notice = usePluginManager(state => state.notice)
   if (notice?.kind !== 'refresh-failed') return null
-  return (
-    <Toast
-      key={notice.seq}
-      text={noticeText(notice, t)}
-      icon={<IconWarningOutlineRegular />}
-      onDone={dismissNotice}
-    />
-  )
+  return <Toast key={notice.seq} text={noticeText(notice, t)} icon={<IconWarningOutlineRegular />} onDone={dismissNotice} />
 }

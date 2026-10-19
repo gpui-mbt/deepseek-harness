@@ -1,7 +1,11 @@
-vi.mock('../src/web-document.ts', () => ({ authenticateWebHost: async () => 'test-cookie', serveWebDocument: vi.fn(), forwardWebRequest: vi.fn() }))
+vi.mock('../src/web-document.ts', () => ({
+  authenticateWebHost: async () => 'test-cookie',
+  serveWebDocument: vi.fn(),
+  forwardWebRequest: vi.fn(),
+}))
 /** Welcome startup uses the Host before transitioning to the workspace. */
 
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { BrowserWindowConstructorOptions } from 'electron'
 import type { DesktopLocale } from '../src/locale.ts'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
@@ -17,7 +21,9 @@ const state = vi.hoisted(() => ({
   expiryListener: undefined as (() => void) | undefined,
   accountListener: undefined as ((value: AccountView) => void) | undefined,
   accountState: vi.fn<() => Promise<AccountView>>().mockResolvedValue({
-    status: 'signed-out', attempt: null, links: { usageUrl: '', topUpUrl: '' },
+    status: 'signed-out',
+    attempt: null,
+    links: { usageUrl: '', topUpUrl: '' },
   }),
   quit: vi.fn(),
   startHost: vi.fn().mockResolvedValue({ url: 'http://127.0.0.1:3080/?token=test', injections: [] }),
@@ -42,7 +48,7 @@ const state = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/crash-report.ts', async importOriginal => ({
-  ...await importOriginal<typeof import('../src/crash-report.ts')>(),
+  ...(await importOriginal<typeof import('../src/crash-report.ts')>()),
   writeCrashReport: vi.fn(async () => undefined),
   pruneCrashReports: vi.fn(async () => {}),
 }))
@@ -58,67 +64,112 @@ vi.mock('electron', () => ({
     getVersion: () => '1.0.0',
     setAboutPanelOptions: vi.fn(),
     getAppPath: () => '/development-app',
-    getPath: (name: string) => name === 'userData' ? '/desktop-user-data' : `/development-${name}`,
+    getPath: (name: string) => (name === 'userData' ? '/desktop-user-data' : `/development-${name}`),
     setAppLogsPath: vi.fn(),
     getPreferredSystemLanguages: () => ['en-US'],
-    on: (name: string, callback: (...args: unknown[]) => void) => { state.appListeners.set(name, callback) },
+    on: (name: string, callback: (...args: unknown[]) => void) => {
+      state.appListeners.set(name, callback)
+    },
     quit: state.quit,
     exit: vi.fn(),
   },
   powerMonitor: { on: vi.fn(), off: vi.fn() },
   BrowserWindow: class {
-    constructor(options: BrowserWindowConstructorOptions) { state.windowOptions = options }
+    constructor(options: BrowserWindowConstructorOptions) {
+      state.windowOptions = options
+    }
     private ready: (() => void) | undefined
-    webContents = { mainFrame: { url: 'dsh-app://app/' }, setWindowOpenHandler: vi.fn(),
-      on: vi.fn(), once: vi.fn(), send: vi.fn(), openDevTools: state.openDevTools }
-    static getAllWindows() { return [] }
-    once(name: string, callback: () => void) { if (name === 'ready-to-show') this.ready = callback; return this }
-    on() { return this }
-    isDestroyed() { return false }
-    isMinimized() { return false }
+    webContents = {
+      mainFrame: { url: 'dsh-app://app/' },
+      setWindowOpenHandler: vi.fn(),
+      on: vi.fn(),
+      once: vi.fn(),
+      send: vi.fn(),
+      openDevTools: state.openDevTools,
+    }
+    static getAllWindows() {
+      return []
+    }
+    once(name: string, callback: () => void) {
+      if (name === 'ready-to-show') this.ready = callback
+      return this
+    }
+    on() {
+      return this
+    }
+    isDestroyed() {
+      return false
+    }
+    isMinimized() {
+      return false
+    }
     restore = vi.fn()
     focus = state.focusWorkspace
     moveTop = state.moveTopWorkspace
     hide = vi.fn()
     show = state.showWorkspace
     showInactive = state.showInactiveWorkspace
-    async loadURL(url: string) { state.contents = this.webContents; await state.loadWorkspace(url); this.ready?.() }
+    async loadURL(url: string) {
+      state.contents = this.webContents
+      await state.loadWorkspace(url)
+      this.ready?.()
+    }
   },
   net: { fetch: vi.fn() },
   nativeTheme: state.nativeTheme,
-  session: { defaultSession: {
-    setPermissionCheckHandler: vi.fn(), setPermissionRequestHandler: vi.fn(), webRequest: { onBeforeSendHeaders: vi.fn() },
-  } },
+  session: {
+    defaultSession: {
+      setPermissionCheckHandler: vi.fn(),
+      setPermissionRequestHandler: vi.fn(),
+      webRequest: { onBeforeSendHeaders: vi.fn() },
+    },
+  },
   protocol: { registerSchemesAsPrivileged: vi.fn(), handle: vi.fn() },
   ipcMain: {
-    handle: (name: string, callback: (...args: unknown[]) => unknown) => { state.handlers.set(name, callback) },
-    on: (name: string, callback: (...args: unknown[]) => void) => { state.listeners.set(name, callback) },
+    handle: (name: string, callback: (...args: unknown[]) => unknown) => {
+      state.handlers.set(name, callback)
+    },
+    on: (name: string, callback: (...args: unknown[]) => void) => {
+      state.listeners.set(name, callback)
+    },
   },
   dialog: { showErrorBox: vi.fn(), showMessageBox: vi.fn() },
   Menu: { buildFromTemplate: state.menu, setApplicationMenu: vi.fn() },
   nativeImage: { createFromPath: (path: string) => ({ path }) },
 }))
 // The Windows tray relabels through Menu as well; keep the menu call counts below platform-neutral.
-vi.mock('../src/tray.ts', () => ({ DesktopTray: class { relabel() {} dispose() {} } }))
+vi.mock('../src/tray.ts', () => ({
+  DesktopTray: class {
+    relabel() {}
+    dispose() {}
+  },
+}))
 
 vi.mock('../src/paths.ts', () => ({ resolveDesktopPaths: () => ({ profile: '/profile' }) }))
 vi.mock('../src/settings.ts', () => ({ readDesktopSettings: () => ({ updates: { allowTestAuthPopupWindow: false } }) }))
 vi.mock('../src/login-shell-environment.ts', async importOriginal => ({
-  ...await importOriginal<typeof import('../src/login-shell-environment.ts')>(),
+  ...(await importOriginal<typeof import('../src/login-shell-environment.ts')>()),
   readDesktopLoginShellEnvironment: async (base: NodeJS.ProcessEnv) => ({ environment: base, failures: [] }),
 }))
-vi.mock('../src/project-manager.ts', () => ({ DesktopProjectManager: class {
-  applyRelease = vi.fn(async () => {})
-  canRecoverProfile = vi.fn(() => true)
-} }))
+vi.mock('../src/project-manager.ts', () => ({
+  DesktopProjectManager: class {
+    applyRelease = vi.fn(async () => {})
+    canRecoverProfile = vi.fn(() => true)
+  },
+}))
 vi.mock('../src/host-process.ts', () => ({
   DesktopHostProcess: class {
     start = state.startHost
     stop = state.stopHost
     fetch() {
-      return Promise.resolve(Response.json({
-        loggedIn: false, hasApiKey: state.hasApiKey, writable: true, localePreference: state.preference,
-      }))
+      return Promise.resolve(
+        Response.json({
+          loggedIn: false,
+          hasApiKey: state.hasApiKey,
+          writable: true,
+          localePreference: state.preference,
+        }),
+      )
     }
   },
 }))
@@ -142,25 +193,37 @@ vi.mock('../src/welcome-backend.ts', () => ({
   }),
 }))
 vi.mock('node:fs/promises', async importOriginal => ({
-  ...await importOriginal<typeof import('node:fs/promises')>(),
+  ...(await importOriginal<typeof import('node:fs/promises')>()),
   readFile: vi.fn(async () => '{}'),
 }))
-vi.mock('../src/update-dialog.ts', () => ({ DesktopUpdateDialog: class {
-  constructor(_preload: string, locale: () => DesktopLocale) { state.dialogLocale = locale }
-  dispose() {}
-} }))
-vi.mock('../src/update-coordinator.ts', () => ({ DesktopUpdateCoordinator: class {
-  state = { phase: 'idle' }
-  check = vi.fn(async () => this.state)
-  dispose = vi.fn()
-} }))
+vi.mock('../src/update-dialog.ts', () => ({
+  DesktopUpdateDialog: class {
+    constructor(_preload: string, locale: () => DesktopLocale) {
+      state.dialogLocale = locale
+    }
+    dispose() {}
+  },
+}))
+vi.mock('../src/update-coordinator.ts', () => ({
+  DesktopUpdateCoordinator: class {
+    state = { phase: 'idle' }
+    check = vi.fn(async () => this.state)
+    dispose = vi.fn()
+  },
+}))
 vi.mock('../src/welcome-window.ts', () => ({
   openWelcomeWindow: async (locale: DesktopLocale, operations: WelcomeOperations) => {
     state.welcomeLocale = locale
     state.operations = operations
     await state.beforeWelcome()
-    return { once: vi.fn(), close: state.closeWelcome, isDestroyed: () => false,
-      show: vi.fn(), focus: vi.fn(), webContents: { send: vi.fn() } }
+    return {
+      once: vi.fn(),
+      close: state.closeWelcome,
+      isDestroyed: () => false,
+      show: vi.fn(),
+      focus: vi.fn(),
+      webContents: { send: vi.fn() },
+    }
   },
 }))
 
@@ -172,7 +235,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it.each([false, true])('starts welcome onboarding without carrying update focus into login or skip (Windows update=%s)', async (updated) => {
+it.each([false, true])('starts welcome onboarding without carrying update focus into login or skip (Windows update=%s)', async updated => {
   vi.resetModules()
   vi.clearAllMocks()
   state.preference = 'zh'
@@ -200,19 +263,25 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
     state.appListeners.get('open-url')!({ preventDefault: vi.fn() }, 'dsh://open')
   }
   await import('../src/main.ts')
-  await vi.waitFor(() => { expect(state.beforeRead).toHaveBeenCalledOnce() })
+  await vi.waitFor(() => {
+    expect(state.beforeRead).toHaveBeenCalledOnce()
+  })
   try {
     activate()
     expect(state.showWorkspace).not.toHaveBeenCalled()
     reading.resolve(undefined)
-    await vi.waitFor(() => { expect(state.beforeWelcome).toHaveBeenCalledOnce() })
+    await vi.waitFor(() => {
+      expect(state.beforeWelcome).toHaveBeenCalledOnce()
+    })
     activate()
     expect(state.showWorkspace).not.toHaveBeenCalled()
   } finally {
     reading.resolve(undefined)
     loading.resolve(undefined)
   }
-  await vi.waitFor(() => { expect(state.operations).toBeDefined() })
+  await vi.waitFor(() => {
+    expect(state.operations).toBeDefined()
+  })
   expect(state.startHost).toHaveBeenCalledOnce()
   expect(state.loadWorkspace).toHaveBeenCalledExactlyOnceWith('dsh-app://app/')
   expect(state.showWorkspace).not.toHaveBeenCalled()
@@ -221,8 +290,11 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   expect(await state.operations!.takeNotice()).toBeUndefined()
   expect(state.dialogLocale!().id).toBe('zh-CN')
   const attemptId = 'login' as NonNullable<AccountView['attempt']>['id']
-  const account: AccountView = { status: 'signed-out', links: { usageUrl: '', topUpUrl: '' },
-    attempt: { id: attemptId, phase: 'waiting-browser', authorizeUrl: 'https://example.test/login' } }
+  const account: AccountView = {
+    status: 'signed-out',
+    links: { usageUrl: '', topUpUrl: '' },
+    attempt: { id: attemptId, phase: 'waiting-browser', authorizeUrl: 'https://example.test/login' },
+  }
   state.accountState.mockResolvedValue(account)
   await state.operations!.copySignInLink(attemptId)
   expect(state.copy).toHaveBeenCalledExactlyOnceWith('https://example.test/login?theme=light')
@@ -276,7 +348,9 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   state.accountListener!({ ...account, status: 'credential-stored', attempt: null })
   state.accountListener!({ ...account, status: 'signed-out', attempt: null })
   state.expiryListener!()
-  await vi.waitFor(() => { expect(state.beforeWelcome).toHaveBeenCalledTimes(welcomeCount + 1) })
+  await vi.waitFor(() => {
+    expect(state.beforeWelcome).toHaveBeenCalledTimes(welcomeCount + 1)
+  })
   expect(await state.operations!.takeNotice()).toBe('session-expired')
   expect(await state.operations!.takeNotice()).toBeUndefined()
   state.accountListener!({ ...account, status: 'signed-out', attempt: null })
@@ -290,7 +364,9 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   state.focusWorkspace.mockClear()
   vi.stubEnv('DSH_DESKTOP_OPEN_DEVTOOLS', '1')
   state.accountListener!({ ...account, status: 'credential-stored', attempt: { id: attemptId, phase: 'succeeded' } })
-  await vi.waitFor(() => { expect(state.showInactiveWorkspace).toHaveBeenCalledOnce() })
+  await vi.waitFor(() => {
+    expect(state.showInactiveWorkspace).toHaveBeenCalledOnce()
+  })
   expect(state.showWorkspace).not.toHaveBeenCalled()
   expect(state.focusWorkspace).not.toHaveBeenCalled()
   expect(state.moveTopWorkspace).not.toHaveBeenCalled()
@@ -298,5 +374,4 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   state.appListeners.get('open-url')!({ preventDefault: vi.fn() }, 'dsh://open')
   expect(state.showWorkspace).toHaveBeenCalledOnce()
   expect(state.focusWorkspace).toHaveBeenCalledOnce()
-
 })

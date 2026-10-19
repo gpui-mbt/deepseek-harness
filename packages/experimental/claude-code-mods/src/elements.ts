@@ -114,7 +114,8 @@ export function treeProblem(node: UiNode): string | undefined {
       if (typeof child === 'string') continue
       if (child.type === 'Button') {
         if (typeof child.props['label'] !== 'string') return 'a Button needs a string label'
-        if (child.props['onPress'] !== undefined && typeof child.props['onPress'] !== 'function') return 'a Button onPress must be a function'
+        if (child.props['onPress'] !== undefined && typeof child.props['onPress'] !== 'function')
+          return 'a Button onPress must be a function'
         continue
       }
       const nested = treeProblem(child.props['children'] as UiNode)
@@ -143,7 +144,7 @@ export function serializeTree(node: UiNode, holdAction: (callback: () => unknown
         type: 'Button',
         props: scalarProps(child.props),
         children: [],
-        ...typeof onPress === 'function' ? { actionId: holdAction(onPress as () => unknown) } : {},
+        ...(typeof onPress === 'function' ? { actionId: holdAction(onPress as () => unknown) } : {}),
       }
     }
     return { type: child.type, props: scalarProps(child.props), children: serializeTree(child.props['children'] as UiNode, holdAction) }
@@ -154,7 +155,9 @@ export function serializeTree(node: UiNode, holdAction: (callback: () => unknown
 function textOf(node: UiElement | string): string {
   if (typeof node === 'string') return node
   if (node.type === 'Button') return String(node.props['label'])
-  return childrenOf(node.props['children'] as UiNode).map(textOf).join('')
+  return childrenOf(node.props['children'] as UiNode)
+    .map(textOf)
+    .join('')
 }
 
 /** What a tree search matches on. */
@@ -182,7 +185,8 @@ export function findAll(node: UiNode, pattern: TreePattern): UiElement[] {
     if (typeof child === 'string') return
     const matchesType = pattern.type === undefined || child.type === pattern.type
     const matchesText = pattern.text === undefined || textMatches(pattern.text, textOf(child))
-    const matchesLabel = pattern.label === undefined || (child.type === 'Button' && textMatches(pattern.label, String(child.props['label'])))
+    const matchesLabel =
+      pattern.label === undefined || (child.type === 'Button' && textMatches(pattern.label, String(child.props['label'])))
     if (matchesType && matchesText && matchesLabel) found.push(child)
     if (child.type !== 'Button') for (const grandchild of childrenOf(child.props['children'] as UiNode)) visit(grandchild)
   }

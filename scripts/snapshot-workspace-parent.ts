@@ -7,7 +7,7 @@ import { canonicalPath, writableRoots } from '@deepseek-ai/dsh-sandbox'
 
 function contains(root: string, path: string): boolean {
   const suffix = relative(root, path)
-  return suffix === '' || suffix !== '..' && !suffix.startsWith('..' + sep) && !isAbsolute(suffix)
+  return suffix === '' || (suffix !== '..' && !suffix.startsWith('..' + sep) && !isAbsolute(suffix))
 }
 
 /**

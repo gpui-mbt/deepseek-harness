@@ -1,7 +1,7 @@
 import { z } from 'zod'
 /** Real SDK negotiation, subscription, and cancellation through the connection supervisor. */
 
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { InMemoryTransport, type Transport } from '@modelcontextprotocol/client'
 import { McpServer } from '@modelcontextprotocol/server'
@@ -17,8 +17,14 @@ const { mockTransport } = vi.hoisted(() => ({ mockTransport: vi.fn<() => Transpo
 vi.mock('../src/transport.ts', () => ({ createTransport: mockTransport }))
 
 const config: Config = {
-  transport: 'stdio', serverName: 'fixture', command: 'fixture', args: [], env: {}, cwd: '',
-  toolCallTimeoutMs: 60_000, failOnStartupError: true,
+  transport: 'stdio',
+  serverName: 'fixture',
+  command: 'fixture',
+  args: [],
+  env: {},
+  cwd: '',
+  toolCallTimeoutMs: 60_000,
+  failOnStartupError: true,
 }
 
 async function connect(server: McpServer, options?: { resources: true }): Promise<Context> {
@@ -59,29 +65,33 @@ describe('modern MCP connections', () => {
     }))
     const ctx = await connect(server, { resources: true })
     const names = ctx.tools.schemas().map(tool => tool.name)
-    expect(names.toSorted()).toEqual([
-      'list_mcp_resource_templates', 'list_mcp_resources', 'mcp__fixture__ping', 'read_mcp_resource',
-    ])
+    expect(names.toSorted()).toEqual(['list_mcp_resource_templates', 'list_mcp_resources', 'mcp__fixture__ping', 'read_mcp_resource'])
     for (const [name, expected] of [
       ['list_mcp_resources', { resources: [] }],
       ['list_mcp_resource_templates', { resourceTemplates: [] }],
     ] as const) {
       const result = await ctx.tools.execute({
-        name, arguments: { server: 'fixture' },
-        callId: ToolCallId(name), signal: new AbortController().signal,
+        name,
+        arguments: { server: 'fixture' },
+        callId: ToolCallId(name),
+        signal: new AbortController().signal,
       })
       expect(result).toMatchObject({ isError: false, value: expected })
     }
     const read = await ctx.tools.execute({
-      name: 'read_mcp_resource', arguments: { server: 'fixture', uri: 'memo://readme' },
-      callId: ToolCallId('unsupported-resource-read'), signal: new AbortController().signal,
+      name: 'read_mcp_resource',
+      arguments: { server: 'fixture', uri: 'memo://readme' },
+      callId: ToolCallId('unsupported-resource-read'),
+      signal: new AbortController().signal,
     })
     expect(read.isError).toBe(true)
     if (read.isError) expect(read.error.message).toContain('Method not found')
     expect(ctx.tools.schemas().map(tool => tool.name)).toEqual(names)
     const ping = await ctx.tools.execute({
-      name: 'mcp__fixture__ping', arguments: {},
-      callId: ToolCallId('ping-after-resource-errors'), signal: new AbortController().signal,
+      name: 'mcp__fixture__ping',
+      arguments: {},
+      callId: ToolCallId('ping-after-resource-errors'),
+      signal: new AbortController().signal,
     })
     expect(ping).toMatchObject({ isError: false, value: { content: [{ type: 'text', text: 'pong' }] } })
   })
@@ -92,12 +102,12 @@ describe('modern MCP connections', () => {
       contents: [{ uri: 'memo://readme', text: 'memo' }],
     }))
     const seen: (string | undefined)[] = []
-    server.server.setRequestHandler('resources/list', async (request) => {
+    server.server.setRequestHandler('resources/list', async request => {
       const cursor = request.params?.cursor
       seen.push(cursor)
       return { resources: [{ name: 'memo', uri: 'memo://readme' }] }
     })
-    server.server.setRequestHandler('resources/templates/list', async (request) => {
+    server.server.setRequestHandler('resources/templates/list', async request => {
       seen.push(request.params?.cursor)
       return { resourceTemplates: [] }
     })
@@ -105,16 +115,20 @@ describe('modern MCP connections', () => {
     for (const name of ['list_mcp_resources', 'list_mcp_resource_templates']) {
       for (const cursor of [undefined, 'opaque-page']) {
         const result = await ctx.tools.execute({
-          name, arguments: { server: 'fixture', ...cursor === undefined ? {} : { cursor } },
-          callId: ToolCallId(name), signal: new AbortController().signal,
+          name,
+          arguments: { server: 'fixture', ...(cursor === undefined ? {} : { cursor }) },
+          callId: ToolCallId(name),
+          signal: new AbortController().signal,
         })
         expect(result.isError).toBe(false)
       }
     }
     expect(seen).toEqual([undefined, 'opaque-page', undefined, 'opaque-page'])
     const read = await ctx.tools.execute({
-      name: 'read_mcp_resource', arguments: { server: 'fixture', uri: 'memo://readme' },
-      callId: ToolCallId('read-resource'), signal: new AbortController().signal,
+      name: 'read_mcp_resource',
+      arguments: { server: 'fixture', uri: 'memo://readme' },
+      callId: ToolCallId('read-resource'),
+      signal: new AbortController().signal,
     })
     expect(read).toMatchObject({ isError: false, value: { contents: [{ uri: 'memo://readme', text: 'memo' }] } })
   })
@@ -125,7 +139,9 @@ describe('modern MCP connections', () => {
     const ctx = await connect(server)
     expect(ctx.tools.get('mcp__fixture__first')).toBeDefined()
     server.registerTool('second', { inputSchema: z.object({}) }, async () => ({ content: [] }))
-    await vi.waitFor(() => { expect(ctx.tools.get('mcp__fixture__second')).toBeDefined() })
+    await vi.waitFor(() => {
+      expect(ctx.tools.get('mcp__fixture__second')).toBeDefined()
+    })
   })
 
   it('delivers caller cancellation to an executing modern tool', async () => {
@@ -134,7 +150,13 @@ describe('modern MCP connections', () => {
     const server = new McpServer({ name: 'cancel', version: '1' })
     server.registerTool('wait', { inputSchema: z.object({}) }, async (_args, context) => {
       const signal = context.mcpReq.signal
-      signal.addEventListener('abort', () => { cancelled.resolve() }, { once: true })
+      signal.addEventListener(
+        'abort',
+        () => {
+          cancelled.resolve()
+        },
+        { once: true },
+      )
       entered.resolve()
       await cancelled.promise
       return { content: [] }
@@ -142,7 +164,10 @@ describe('modern MCP connections', () => {
     const ctx = await connect(server)
     const controller = new AbortController()
     const result = ctx.tools.execute({
-      callId: ToolCallId('cancel'), name: 'mcp__fixture__wait', arguments: {}, signal: controller.signal,
+      callId: ToolCallId('cancel'),
+      name: 'mcp__fixture__wait',
+      arguments: {},
+      signal: controller.signal,
     })
     await entered.promise
     controller.abort(new Error('caller stopped'))

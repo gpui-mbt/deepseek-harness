@@ -14,7 +14,10 @@ const Reply = z.union([
 
 const screenshotPrefix = '[cua-screenshot] '
 const ScreenshotDiagnostic = z.object({
-  requestId: z.string(), stage: z.string(), elapsedMs: z.number().nonnegative(), errorCode: z.string().optional(),
+  requestId: z.string(),
+  stage: z.string(),
+  elapsedMs: z.number().nonnegative(),
+  errorCode: z.string().optional(),
 })
 const WireReply = z.union([Reply, ScreenshotDiagnostic.extend({ type: z.literal('diagnostic') })])
 
@@ -25,7 +28,11 @@ export class NativeError extends Error {
    * @param message - Actionable diagnostic, without its code prefix.
    * @param options - Original failure when available.
    */
-  constructor(readonly code: string, message: string, options?: ErrorOptions) {
+  constructor(
+    readonly code: string,
+    message: string,
+    options?: ErrorOptions,
+  ) {
     super(`${code}: ${message}`, options)
     this.name = 'NativeError'
   }
@@ -61,9 +68,7 @@ export interface NativeChannel {
  * @param config - Executable, operation limits, and deadlines.
  * @returns Agent-owned native byte stream and its cleanup acknowledgement.
  */
-export type NativeChannelFactory = (
-  owner: { subprocess: Pick<SubprocessRuntime, 'spawn'> }, config: NativeClientConfig,
-) => NativeChannel
+export type NativeChannelFactory = (owner: { subprocess: Pick<SubprocessRuntime, 'spawn'> }, config: NativeClientConfig) => NativeChannel
 
 /** One Agent owns this connection and its native handles; other Agents use independent connections. */
 export class NativeClient {
@@ -84,18 +89,36 @@ export class NativeClient {
    * @param createChannel - Platform-owned connection and process lifecycle.
    * @param reportDiagnostic - Optional Host diagnostic sink; never receives captured content.
    */
-  constructor(owner: { subprocess: Pick<SubprocessRuntime, 'spawn'> }, config: NativeClientConfig, createChannel: NativeChannelFactory,
-    private readonly reportDiagnostic?: (message: string) => void) {
+  constructor(
+    owner: { subprocess: Pick<SubprocessRuntime, 'spawn'> },
+    config: NativeClientConfig,
+    createChannel: NativeChannelFactory,
+    private readonly reportDiagnostic?: (message: string) => void,
+  ) {
     this.config = config
     this.handle = createChannel(owner, config)
-    this.handle.stdout.on('data', (chunk: Buffer) => { this.receive(chunk) })
-    this.handle.stdout.on('error', (error: Error) => { this.fail(new NativeError('NATIVE_IO', `Native connection failed: ${error.message}`, { cause: error })) })
-    this.handle.stdout.on('end', () => { this.fail(new NativeError('NATIVE_EOF', 'Native connection ended; acquire fresh application handles')) })
-    this.handle.stdout.on('close', () => { this.fail(new NativeError('NATIVE_EOF', 'Native connection closed; acquire fresh application handles')) })
-    this.handle.stdin.on('error', (error: Error) => { this.fail(new NativeError('NATIVE_IO', 'Writing native requests failed', { cause: error })) })
+    this.handle.stdout.on('data', (chunk: Buffer) => {
+      this.receive(chunk)
+    })
+    this.handle.stdout.on('error', (error: Error) => {
+      this.fail(new NativeError('NATIVE_IO', `Native connection failed: ${error.message}`, { cause: error }))
+    })
+    this.handle.stdout.on('end', () => {
+      this.fail(new NativeError('NATIVE_EOF', 'Native connection ended; acquire fresh application handles'))
+    })
+    this.handle.stdout.on('close', () => {
+      this.fail(new NativeError('NATIVE_EOF', 'Native connection closed; acquire fresh application handles'))
+    })
+    this.handle.stdin.on('error', (error: Error) => {
+      this.fail(new NativeError('NATIVE_IO', 'Writing native requests failed', { cause: error }))
+    })
     void this.handle.done.then(
-      () => { this.fail(new NativeError('NATIVE_EXITED', 'Native connection closed; acquire fresh application handles')) },
-      (error: unknown) => { this.fail(new NativeError('NATIVE_EXITED', 'Native connection failed', { cause: error })) },
+      () => {
+        this.fail(new NativeError('NATIVE_EXITED', 'Native connection closed; acquire fresh application handles'))
+      },
+      (error: unknown) => {
+        this.fail(new NativeError('NATIVE_EXITED', 'Native connection failed', { cause: error }))
+      },
     )
   }
 
@@ -107,7 +130,12 @@ export class NativeClient {
    * @param callId - Logged tool invocation ID, when this request belongs to a tool execution.
    * @returns The validated helper result, after failure cleanup when needed.
    */
-  async request(method: string, params: Record<string, JsonValue>, signal: AbortSignal, callId?: ToolExecution['callId']): Promise<JsonValue> {
+  async request(
+    method: string,
+    params: Record<string, JsonValue>,
+    signal: AbortSignal,
+    callId?: ToolExecution['callId'],
+  ): Promise<JsonValue> {
     if (signal.aborted) throw new NativeError('NATIVE_CANCELLED', 'Operation was cancelled before dispatch')
     if (this.disposed) {
       await this.dispose()
@@ -128,23 +156,36 @@ export class NativeClient {
       throw new NativeError('NATIVE_REQUEST_LIMIT', 'Request exceeded the configured byte limit before dispatch')
     }
     const outcome = Promise.withResolvers<JsonValue>()
-    this.active = { id, resolve: outcome.resolve, reject: (error) => { nativeFailure = error; outcome.reject(error) } }
+    this.active = {
+      id,
+      resolve: outcome.resolve,
+      reject: error => {
+        nativeFailure = error
+        outcome.reject(error)
+      },
+    }
     if (capture) this.diagnostic(screenshotPrefix + JSON.stringify({ requestId: id, stage: 'host.dispatch', elapsedMs: 0 }))
     const interrupt = (error: NativeError): void => {
       if (interruption || this.active?.id !== id) return
       interruption = error
       cancellationTimer = setTimeout(() => {
-        this.fail(new NativeError('NATIVE_CLEANUP', 'Native operation did not acknowledge cancellation; acquire fresh application handles', { cause: error }))
+        this.fail(
+          new NativeError('NATIVE_CLEANUP', 'Native operation did not acknowledge cancellation; acquire fresh application handles', {
+            cause: error,
+          }),
+        )
       }, this.config.graceMs)
       try {
-        this.handle.stdin.write(`${JSON.stringify({ type: 'cancel', id })}\n`, (failure) => {
+        this.handle.stdin.write(`${JSON.stringify({ type: 'cancel', id })}\n`, failure => {
           if (failure) this.fail(new NativeError('NATIVE_IO', 'Sending native cancellation failed', { cause: failure }))
         })
       } catch (failure) {
         this.fail(new NativeError('NATIVE_IO', 'Sending native cancellation failed', { cause: failure }))
       }
     }
-    const abort = (): void => { interrupt(new NativeError('NATIVE_CANCELLED', 'Operation cancelled; inspect fresh state before retrying input')) }
+    const abort = (): void => {
+      interrupt(new NativeError('NATIVE_CANCELLED', 'Operation cancelled; inspect fresh state before retrying input'))
+    }
     signal.addEventListener('abort', abort, { once: true })
     const timeoutMs = capture ? Math.min(this.config.timeoutMs, this.config.screenshotTimeoutMs) : this.config.timeoutMs
     const timer = setTimeout(() => {
@@ -152,7 +193,7 @@ export class NativeClient {
     }, timeoutMs)
     try {
       try {
-        this.handle.stdin.write(frame, (error) => {
+        this.handle.stdin.write(frame, error => {
           if (error) this.fail(new NativeError('NATIVE_IO', 'Writing a helper request failed', { cause: error }))
         })
       } catch (error) {
@@ -161,9 +202,15 @@ export class NativeClient {
       const result = await outcome.promise
       if (this.failure) throw this.failure
       if (interruption) throw interruption
-      if (capture) this.diagnostic(screenshotPrefix + JSON.stringify({
-        requestId: id, stage: 'host.reply', elapsedMs: performance.now() - started,
-      }))
+      if (capture)
+        this.diagnostic(
+          screenshotPrefix +
+            JSON.stringify({
+              requestId: id,
+              stage: 'host.reply',
+              elapsedMs: performance.now() - started,
+            }),
+        )
       return result
     } catch (error) {
       if (interruption && !this.failure) throw interruption
@@ -180,9 +227,14 @@ export class NativeClient {
           const failure = this.failure ?? interruption ?? nativeFailure
           if (failure && diagnostics) failure.message += `\nScreenshot diagnostics:\n${diagnostics}`
           if (diagnostics) this.diagnostic(diagnostics)
-          this.diagnostic(screenshotPrefix + JSON.stringify({
-            requestId: id, stage: 'host.settled', elapsedMs: performance.now() - started,
-          }))
+          this.diagnostic(
+            screenshotPrefix +
+              JSON.stringify({
+                requestId: id,
+                stage: 'host.settled',
+                elapsedMs: performance.now() - started,
+              }),
+          )
         }
       }
     }
@@ -190,7 +242,8 @@ export class NativeClient {
 
   private screenshotDiagnostics(): string {
     const records = [...this.diagnostics]
-    if (this.discardedDiagnostics) records.unshift('[Earlier screenshot diagnostic records were discarded from the bounded diagnostic buffer.]')
+    if (this.discardedDiagnostics)
+      records.unshift('[Earlier screenshot diagnostic records were discarded from the bounded diagnostic buffer.]')
     return records.join('\n')
   }
 
@@ -208,18 +261,23 @@ export class NativeClient {
   }
 
   private diagnostic(message: string): void {
-    try { this.reportDiagnostic?.(message) }
-    catch (error) {
+    try {
+      this.reportDiagnostic?.(message)
+    } catch (error) {
       // Diagnostic consumers must not replace the native result or prevent process cleanup.
       void error
     }
   }
 
   /** Whether this Agent's connection has lost its retained native state. */
-  get disposed(): boolean { return this.failure !== undefined }
+  get disposed(): boolean {
+    return this.failure !== undefined
+  }
 
   /** Invalidate this Agent's handles and close its connection; await dispose for native cleanup. */
-  invalidate(): void { this.fail(new NativeError('NATIVE_DISPOSED', 'Helper disposed')) }
+  invalidate(): void {
+    this.fail(new NativeError('NATIVE_DISPOSED', 'Helper disposed'))
+  }
 
   /** Stop this Agent's pending work and await its native connection cleanup. */
   dispose(): Promise<void> {
@@ -282,7 +340,9 @@ export class NativeClient {
         active.reject(error)
       } else active.resolve(reply.result)
     } catch (error) {
-      this.fail(new NativeError('NATIVE_PROTOCOL', 'Helper returned an invalid response; acquire fresh application handles', { cause: error }))
+      this.fail(
+        new NativeError('NATIVE_PROTOCOL', 'Helper returned an invalid response; acquire fresh application handles', { cause: error }),
+      )
     }
   }
 }

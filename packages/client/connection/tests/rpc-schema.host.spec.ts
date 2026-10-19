@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { RpcId, transportError } from '../src/rpc.ts'
 import {
   clientRequestSchema,
@@ -29,15 +29,17 @@ describe('Connection RPC schema', () => {
   })
 
   it('validates generic failures and both result branches', () => {
-    expect(rpcErrorSchema.parse({ code: 'domain-failure', message: 'failed', details: { id: 'x' } }))
-      .toEqual({ code: 'domain-failure', message: 'failed', details: { id: 'x' } })
+    expect(rpcErrorSchema.parse({ code: 'domain-failure', message: 'failed', details: { id: 'x' } })).toEqual({
+      code: 'domain-failure',
+      message: 'failed',
+      details: { id: 'x' },
+    })
     expect(() => rpcErrorSchema.parse({ code: 1, message: 'failed', details: {} })).toThrow()
     expect(() => rpcErrorSchema.parse({ code: 'failed', message: 'failed', details: [] })).toThrow()
 
     const schema = rpcResultSchema(z.object({ n: z.number() }))
     expect(schema.parse({ ok: true, value: { n: 1 } })).toEqual({ ok: true, value: { n: 1 } })
-    expect(schema.parse({ ok: false, error: { code: 'failed', message: 'x', details: {} } }))
-      .toMatchObject({ ok: false })
+    expect(schema.parse({ ok: false, error: { code: 'failed', message: 'x', details: {} } })).toMatchObject({ ok: false })
     expect(() => schema.parse({ ok: true, error: {} })).toThrow()
   })
 
@@ -51,8 +53,12 @@ describe('Connection RPC schema', () => {
     expect(() => clientRequestSchema.parse({ type: 'client-request', rpcId: 'r1' })).toThrow()
     expect(() => serverResponseSchema.parse({ type: 'server-response', rpcId: 'r1' })).toThrow()
     expect(() => serverResponseSchema.parse({ type: 'server-response', rpcId: 'r1', result: {} })).toThrow()
-    expect(serverResponseSchema.parse({
-      type: 'server-response', rpcId: 'r1', result: { ok: true },
-    }).rpcId).toBe('r1')
+    expect(
+      serverResponseSchema.parse({
+        type: 'server-response',
+        rpcId: 'r1',
+        result: { ok: true },
+      }).rpcId,
+    ).toBe('r1')
   })
 })

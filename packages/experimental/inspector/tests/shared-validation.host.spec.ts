@@ -1,16 +1,9 @@
 /** Shared JSON and exact-field validation behavior. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { inspectorId } from '../src/shared/identity.ts'
 import { isJsonValue, isPlainObject, jsonByteLength, requireJsonObject } from '../src/shared/json.ts'
-import {
-  exactKeys,
-  exactObject,
-  optionalBoolean,
-  optionalNonNegativeNumber,
-  optionalString,
-  wireId,
-} from '../src/shared/validation.ts'
+import { exactKeys, exactObject, optionalBoolean, optionalNonNegativeNumber, optionalString, wireId } from '../src/shared/validation.ts'
 
 describe('Inspector JSON values', () => {
   it('accepts every lossless JSON category and measures UTF-8 bytes', () => {
@@ -34,8 +27,17 @@ describe('Inspector JSON values', () => {
     const accessor = {}
     Object.defineProperty(accessor, 'value', { get: () => 1, enumerable: true })
     const rejected = [
-      undefined, () => undefined, Number.NaN, -0, cyclic, arrayWithField,
-      inheritedArray, new Date(), symbolObject, hidden, accessor,
+      undefined,
+      () => undefined,
+      Number.NaN,
+      -0,
+      cyclic,
+      arrayWithField,
+      inheritedArray,
+      new Date(),
+      symbolObject,
+      hidden,
+      accessor,
     ]
     for (const value of rejected) {
       expect(isJsonValue(value)).toBe(false)
@@ -51,7 +53,9 @@ describe('Inspector exact-field readers', () => {
   it('accepts declared fields and optional values', () => {
     const record = { text: 'value', enabled: true, timeout: 0 }
     expect(exactObject(record, ['text', 'enabled', 'timeout'], 'record')).toBe(record)
-    expect(() => { exactKeys(record, ['text', 'enabled', 'timeout'], 'record') }).not.toThrow()
+    expect(() => {
+      exactKeys(record, ['text', 'enabled', 'timeout'], 'record')
+    }).not.toThrow()
     expect(optionalString(record, 'text')).toEqual({ text: 'value' })
     expect(optionalBoolean(record, 'enabled')).toEqual({ enabled: true })
     expect(optionalNonNegativeNumber(record, 'timeout')).toEqual({ timeout: 0 })
@@ -64,8 +68,12 @@ describe('Inspector exact-field readers', () => {
 
   it('rejects unknown, symbolic, and wrongly typed fields', () => {
     expect(() => exactObject([], [], 'record')).toThrow('record must be an object')
-    expect(() => { exactKeys({ extra: true }, [], 'record') }).toThrow('unknown field')
-    expect(() => { exactKeys({ [Symbol('extra')]: true }, [], 'record') }).toThrow('unknown field')
+    expect(() => {
+      exactKeys({ extra: true }, [], 'record')
+    }).toThrow('unknown field')
+    expect(() => {
+      exactKeys({ [Symbol('extra')]: true }, [], 'record')
+    }).toThrow('unknown field')
     expect(() => wireId<'ProbeId'>(1, 'probeId')).toThrow('probeId must be a string')
     expect(() => inspectorId<'ProbeId'>('', 'probeId')).toThrow('1 to 256 characters')
     expect(() => inspectorId<'ProbeId'>('x'.repeat(257), 'probeId')).toThrow('1 to 256 characters')

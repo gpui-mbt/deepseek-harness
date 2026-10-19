@@ -6,11 +6,7 @@ import type { InspectorSourceDescriptor } from '../../../../shared/bridge/messag
 import type { InspectorObjectReference } from '../../../../shared/cordis/object-reference.ts'
 import type { InspectorRealmDescriptor } from '../../../inspection/realm.ts'
 import { cdpNumericId, type CdpBackendNodeId } from '../../ids.ts'
-import type {
-  CordisTreeObjectRoute,
-  CordisTreeSourceSnapshot,
-  CordisTreeStore,
-} from '../../../inspection/cordis-store.ts'
+import type { CordisTreeObjectRoute, CordisTreeSourceSnapshot, CordisTreeStore } from '../../../inspection/cordis-store.ts'
 
 /** One backend-owned node independent of any DevTools connection. */
 export interface CordisDomNode {
@@ -35,32 +31,32 @@ export interface CordisDomDocument {
 export type CordisDomMutation =
   | { readonly type: 'document-updated' }
   | {
-    readonly type: 'child-inserted'
-    readonly parentBackendNodeId: CdpBackendNodeId
-    readonly previousBackendNodeId: CdpBackendNodeId | 0
-    readonly node: CordisDomNode
-  }
+      readonly type: 'child-inserted'
+      readonly parentBackendNodeId: CdpBackendNodeId
+      readonly previousBackendNodeId: CdpBackendNodeId | 0
+      readonly node: CordisDomNode
+    }
   | {
-    readonly type: 'child-removed'
-    readonly parentBackendNodeId: CdpBackendNodeId
-    readonly node: CordisDomNode
-  }
+      readonly type: 'child-removed'
+      readonly parentBackendNodeId: CdpBackendNodeId
+      readonly node: CordisDomNode
+    }
   | {
-    readonly type: 'children-replaced'
-    readonly parentBackendNodeId: CdpBackendNodeId
-    readonly children: readonly CordisDomNode[]
-  }
+      readonly type: 'children-replaced'
+      readonly parentBackendNodeId: CdpBackendNodeId
+      readonly children: readonly CordisDomNode[]
+    }
   | {
-    readonly type: 'attribute-modified'
-    readonly backendNodeId: CdpBackendNodeId
-    readonly name: string
-    readonly value: string
-  }
+      readonly type: 'attribute-modified'
+      readonly backendNodeId: CdpBackendNodeId
+      readonly name: string
+      readonly value: string
+    }
   | {
-    readonly type: 'attribute-removed'
-    readonly backendNodeId: CdpBackendNodeId
-    readonly name: string
-  }
+      readonly type: 'attribute-removed'
+      readonly backendNodeId: CdpBackendNodeId
+      readonly name: string
+    }
 
 /** A visible incremental mutation or an in-place source availability change. */
 export type CordisDomChange =
@@ -81,9 +77,12 @@ export class CordisDomBackend {
    * @param trees - Shared store; this backend owns only its subscription and projection.
    * @param clientSourceId - Restrict Clients to this source; omission includes every retained Client.
    */
-  constructor(private readonly trees: CordisTreeStore, private readonly clientSourceId?: InspectorSourceId) {
+  constructor(
+    private readonly trees: CordisTreeStore,
+    private readonly clientSourceId?: InspectorSourceId,
+  ) {
     this.documentValue = this.build()
-    this.unsubscribe = trees.subscribe((event) => {
+    this.unsubscribe = trees.subscribe(event => {
       const previous = this.documentValue
       this.documentValue = this.build()
       if (event.type === 'source-disconnected' && this.includesSource(event.source)) {
@@ -118,7 +117,9 @@ export class CordisDomBackend {
    */
   subscribe(listener: (event: CordisDomChange) => void): () => void {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /** Release only this backend's store subscription and listeners. */
@@ -179,9 +180,8 @@ export class CordisDomBackend {
     const clients = this.node('clients', 'clients', [], '<clients>')
     for (const clientTree of tree.clients) {
       if (!this.includesSource(clientTree.source)) continue
-      const attributes: readonly (readonly [string, string])[] = clientTree.connection.state === 'disconnected'
-        ? [['disconnected', '']]
-        : []
+      const attributes: readonly (readonly [string, string])[] =
+        clientTree.connection.state === 'disconnected' ? [['disconnected', '']] : []
       const client = this.node(`client:${clientTree.source.sourceId}`, 'client', attributes, elementDescription('client', attributes))
       client.children.push(this.entity(clientTree, clientTree.snapshot.root))
       clients.children.push(client)
@@ -193,10 +193,14 @@ export class CordisDomBackend {
       retainedKeys.add(value.key)
       byBackendId.set(value.backendNodeId, value)
       if (parent !== undefined) parentByBackendId.set(value.backendNodeId, parent.backendNodeId)
-      if (value.object?.connection.state === 'connected') this.nodeByObject.set(objectKey(value.object.source, {
-        registryId: value.object.snapshot.objectRegistryId,
-        handle: value.object.node.objectHandle,
-      }), value)
+      if (value.object?.connection.state === 'connected')
+        this.nodeByObject.set(
+          objectKey(value.object.source, {
+            registryId: value.object.snapshot.objectRegistryId,
+            handle: value.object.node.objectHandle,
+          }),
+          value,
+        )
       return value
     }
     const frozenRoot = freeze(root)
@@ -206,16 +210,11 @@ export class CordisDomBackend {
     return { revision: this.nextRevision++, root: frozenRoot, byBackendId, parentByBackendId }
   }
 
-  private entity(
-    tree: CordisTreeSourceSnapshot,
-    node: CordisTreeNode,
-  ): MutableDomNode {
+  private entity(tree: CordisTreeSourceSnapshot, node: CordisTreeNode): MutableDomNode {
     const { source, snapshot } = tree
     const key = `entity:${objectKey(source, { registryId: snapshot.objectRegistryId, handle: node.objectHandle })}`
     const object = { ...tree, node }
-    const attributes: readonly (readonly [string, string])[] = node.kind === 'fiber'
-      ? [['uid', String(node.uid)]]
-      : []
+    const attributes: readonly (readonly [string, string])[] = node.kind === 'fiber' ? [['uid', String(node.uid)]] : []
     const projected = this.node(key, node.kind, attributes, elementDescription(node.kind, attributes), object)
     projected.children.push(...node.children.map(child => this.entity(tree, child)))
     return projected
@@ -252,7 +251,7 @@ interface MutableDomNode extends Omit<CordisDomNode, 'children'> {
 }
 
 function elementDescription(name: string, attributes: readonly (readonly [string, string])[]): string {
-  const rendered = attributes.map(([key, value]) => value === '' ? key : `${key}=${JSON.stringify(value)}`).join(' ')
+  const rendered = attributes.map(([key, value]) => (value === '' ? key : `${key}=${JSON.stringify(value)}`)).join(' ')
   return `<${name}${rendered === '' ? '' : ` ${rendered}`}>`
 }
 
@@ -262,9 +261,7 @@ function objectKey(source: InspectorSourceDescriptor, reference: InspectorObject
 
 function diffDocument(previous: CordisDomDocument, current: CordisDomDocument): CordisDomMutation[] {
   const mutations: CordisDomMutation[] = []
-  return diffNode(previous.root, current.root, mutations)
-    ? mutations
-    : [{ type: 'document-updated' }]
+  return diffNode(previous.root, current.root, mutations) ? mutations : [{ type: 'document-updated' }]
 }
 
 function diffNode(previous: CordisDomNode, current: CordisDomNode, mutations: CordisDomMutation[]): boolean {

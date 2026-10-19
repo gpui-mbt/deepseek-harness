@@ -5,8 +5,15 @@
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 import type { MainPanelId } from './service.ts'
 import {
-  clampWidth, RIGHTBAR_DEFAULT_RATIO, RIGHTBAR_MAX_RATIO, RIGHTBAR_MIN,
-  SIDEBAR_AUTO_COLLAPSE, SIDEBAR_DEFAULT, SIDEBAR_MAX, SIDEBAR_MIN,
+  clampWidth,
+  MOBILE_MAX,
+  RIGHTBAR_DEFAULT_RATIO,
+  RIGHTBAR_MAX_RATIO,
+  RIGHTBAR_MIN,
+  SIDEBAR_AUTO_COLLAPSE,
+  SIDEBAR_DEFAULT,
+  SIDEBAR_MAX,
+  SIDEBAR_MIN,
 } from './columns.ts'
 
 /**
@@ -25,6 +32,11 @@ type LayoutInfo = {
   sidebar: number
   /** Last positive frame measurement; window width bootstraps the first render. */
   viewportWidth: number
+  /**
+   * Whether the narrow navigation is expanded by the user: a drawer over the
+   * centre below MOBILE_MAX, an over-the-centre column between MOBILE_MAX and
+   * SIDEBAR_AUTO_COLLAPSE. The wide column ignores it.
+   */
   narrowExpanded: boolean
   /**
    * Saved right panel width in px, or null before its first opening. Resizing
@@ -75,7 +87,7 @@ type LayoutActions = {
  * override; opening the right panel clears that override.
  * @returns the store handle (spec + type + identity + factory in one).
  */
-export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutActions>  {
+export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutActions> {
   const handle = defineStore({
     init: (): LayoutState => ({
       panelInfo: { activePanelId: null },
@@ -105,19 +117,20 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
       },
       // Narrow toggles flip only the override: the width preference survives
       // untouched, so re-widening restores the pre-squeeze layout.
-      toggleSidebar: (d) => {
+      toggleSidebar: d => {
         d.layoutInfo.rightbarInstant = false
         if (d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) d.layoutInfo.narrowExpanded = !d.layoutInfo.narrowExpanded
         else d.layoutInfo.sidebar = d.layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : 0
       },
-      // Crossing the breakpoint in either direction drops the override: the
-      // narrow default is auto-collapsed, the wide state is the preference.
+      // Crossing either breakpoint in either direction drops the override: the
+      // narrow default is auto-collapsed, the wide state is the preference, and
+      // the navigation is a different surface on the other side of MOBILE_MAX.
       setViewportWidth: (d, width: number) => {
         if (d.layoutInfo.viewportWidth === width) return
         d.layoutInfo.rightbarInstant = false
-        if ((d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) !== (width < SIDEBAR_AUTO_COLLAPSE)) {
-          d.layoutInfo.narrowExpanded = false
-        }
+        const crossedMobile = d.layoutInfo.viewportWidth < MOBILE_MAX !== width < MOBILE_MAX
+        const crossedNarrow = d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE !== width < SIDEBAR_AUTO_COLLAPSE
+        if (crossedMobile || crossedNarrow) d.layoutInfo.narrowExpanded = false
         d.layoutInfo.viewportWidth = width
       },
       setRightbar: (d, px: number) => {
@@ -134,7 +147,7 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
         d.layoutInfo.rightbarTrack = track
         d.layoutInfo.rightbarFullscreen = fullscreen
       },
-      closeRightbar: (d) => {
+      closeRightbar: d => {
         if (d.layoutInfo.rightbarShown) d.layoutInfo.rightbarInstant = d.layoutInfo.rightbarFullscreen
         d.layoutInfo.rightbarShown = false
         d.layoutInfo.rightbarTrack = false

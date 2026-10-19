@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { browserFaceSources, findRouteResolutionViolations, type RouteGateFace } from './verify-client-route-resolution.ts'
 
 function patterns(file: string, source: string, face?: RouteGateFace): string[] {
@@ -19,7 +19,10 @@ const PRODUCER_FILE = 'packages/client/modules/src/index.ts'
 
 describe('browser app-route guard', () => {
   it('accepts document-relative request targets and routes that are not targets', () => {
-    expect(patterns(CLIENT_FILE, `
+    expect(
+      patterns(
+        CLIENT_FILE,
+        `
       export const PRESENT_OPEN_PATH = '/api/present.open'
       const CHANNEL = '/api'
       export async function load(id: string) {
@@ -34,11 +37,16 @@ describe('browser app-route guard', () => {
         const asset = '/assets/app.js'
         return [bundle, icon, file.href, CHANNEL, identity, foreign, asset]
       }
-    `)).toEqual([])
+    `,
+      ),
+    ).toEqual([])
   })
 
   it('rejects every request target that binds a route to one mount', () => {
-    expect(findRouteResolutionViolations(CLIENT_FILE, `
+    expect(
+      findRouteResolutionViolations(
+        CLIENT_FILE,
+        `
       export async function load(id: string) {
         const origin = window.location.origin
         await fetch('/api/remote.mux')
@@ -50,14 +58,24 @@ describe('browser app-route guard', () => {
         document.querySelector('script').src = '//harness.example/api/file'
         return id
       }
-    `).map(violation => [violation.line, violation.rule])).toEqual([
-      [4, 'request-target'], [5, 'request-target'], [6, 'request-target'], [7, 'request-target'],
-      [8, 'request-target'], [9, 'request-target'], [10, 'request-target'],
+    `,
+      ).map(violation => [violation.line, violation.rule]),
+    ).toEqual([
+      [4, 'request-target'],
+      [5, 'request-target'],
+      [6, 'request-target'],
+      [7, 'request-target'],
+      [8, 'request-target'],
+      [9, 'request-target'],
+      [10, 'request-target'],
     ])
   })
 
   it('rejects a root-absolute app route in a JSX resource attribute', () => {
-    expect(findRouteResolutionViolations(CLIENT_FILE, `
+    expect(
+      findRouteResolutionViolations(
+        CLIENT_FILE,
+        `
       export function View({ id }: { id: string }) {
         return <div>
           <img src="/api/file?path=x" />
@@ -67,7 +85,9 @@ describe('browser app-route guard', () => {
           <a href="https://cdn.example/app.js">cdn</a>
         </div>
       }
-    `).map(violation => violation.line)).toEqual([4, 5, 6])
+    `,
+      ).map(violation => violation.line),
+    ).toEqual([4, 5, 6])
   })
 
   it('rejects a shared host route key used without stripping its leading slash', () => {
@@ -82,27 +102,40 @@ describe('browser app-route guard', () => {
   })
 
   it('rejects a relative app route resolved against a location read', () => {
-    expect(findRouteResolutionViolations(CLIENT_FILE, `
+    expect(
+      findRouteResolutionViolations(
+        CLIENT_FILE,
+        `
       const url = new URL('api/session.export?sessionId=s1', window.location.origin)
       const ok = new URL('api/session.export?sessionId=s1', document.baseURI)
       const mapped = new URL(input, globalThis.location.origin)
       return [url, ok, mapped]
-    `).map(violation => [violation.line, violation.rule])).toEqual([[2, 'location-base']])
+    `,
+      ).map(violation => [violation.line, violation.rule]),
+    ).toEqual([[2, 'location-base']])
   })
 
   it('leaves identity and transport reads of location alone', () => {
-    expect(patterns(CLIENT_FILE, `
+    expect(
+      patterns(
+        CLIENT_FILE,
+        `
       const trusted = window.location.hostname === 'localhost'
       const requested = new URL(location.href).searchParams.get('source')
       const { origin } = document.location
       return [trusted, requested, origin]
-    `)).toEqual([])
+    `,
+      ),
+    ).toEqual([])
   })
 })
 
 describe('browser-reference producers', () => {
   it('rejects a root-absolute app route stamped into a field the browser resolves', () => {
-    expect(findRouteResolutionViolations(PRODUCER_FILE, `
+    expect(
+      findRouteResolutionViolations(
+        PRODUCER_FILE,
+        `
       const bootstrap = { phase: 'bootstrap', url: \`/plugins/??\${resources}&rev=\${rev}\`, rev, entries }
       const row = { id, url: 'plugins/boot.js', initialUrl: '/plugins/all.js', rev }
       const map = { src: 'https://harness.example/plugins/??a/client.js.map&rev=r' }
@@ -110,39 +143,52 @@ describe('browser-reference producers', () => {
       const script = { src: '//harness.example/plugins/a.js' }
       const key = \`/plugins/\${comboSearch(ids, rev)}\`
       return [bootstrap, row, map, link, script, key]
-    `, 'reference-producer').map(violation => [violation.line, violation.rule])).toEqual(
-      [2, 3, 4, 5, 6].map(line => [line, 'reference-producer']),
-    )
+    `,
+        'reference-producer',
+      ).map(violation => [violation.line, violation.rule]),
+    ).toEqual([2, 3, 4, 5, 6].map(line => [line, 'reference-producer']))
   })
 
   it('leaves internal route keys and generated source names alone', () => {
-    expect(patterns(PRODUCER_FILE, `
+    expect(
+      patterns(
+        PRODUCER_FILE,
+        `
       const PLUGIN_ROUTE = '/plugins'
       const key = \`\${PLUGIN_ROUTE}/\${comboSearch(ids, rev)}\`
       const section = { map: { sources: [\`/plugins/\${record.entry.id}/client.js\`] } }
       return [key, section]
-    `, 'reference-producer')).toEqual([])
+    `,
+        'reference-producer',
+      ),
+    ).toEqual([])
   })
-
 })
 
 /**
  * Write one fixture project: its config, its source files, and its declared
  * libraries. The `src` tree the discovery anchors on always exists.
  */
-function writeProject(root: string, name: string, options: {
-  lib: readonly string[]
-  /** Project-relative source paths to write. */
-  sources: readonly string[]
-  /** Config `include` patterns; defaults to the `src` tree. */
-  include?: readonly string[]
-}): void {
+function writeProject(
+  root: string,
+  name: string,
+  options: {
+    lib: readonly string[]
+    /** Project-relative source paths to write. */
+    sources: readonly string[]
+    /** Config `include` patterns; defaults to the `src` tree. */
+    include?: readonly string[]
+  },
+): void {
   const dir = join(root, name)
   mkdirSync(join(dir, 'src'), { recursive: true })
-  writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify({
-    compilerOptions: { lib: options.lib, noEmit: true },
-    include: [...options.include ?? ['src']],
-  }))
+  writeFileSync(
+    join(dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: { lib: options.lib, noEmit: true },
+      include: [...(options.include ?? ['src'])],
+    }),
+  )
   for (const source of options.sources) {
     mkdirSync(dirname(join(dir, source)), { recursive: true })
     writeFileSync(join(dir, source), 'export {}\n')
@@ -167,10 +213,16 @@ describe('browser face discovery', () => {
       // plain `src` (the node half) is out of scope.
       writeProject(root, 'packages/client/dual-package', { lib: ['ES2024', 'DOM'], sources: ['src/client/View.tsx', 'src/node.ts'] })
       writeProject(root, 'packages/client/host-package', { lib: ['ES2024'], sources: ['src/host.ts'] })
-      writeFaceAggregates(root, [
-        'packages/client/browser-package', 'packages/client/shared-package',
-        'packages/client/dual-package', 'packages/client/host-package',
-      ], ['packages/client/shared-package', 'packages/client/dual-package', 'packages/client/host-package'])
+      writeFaceAggregates(
+        root,
+        [
+          'packages/client/browser-package',
+          'packages/client/shared-package',
+          'packages/client/dual-package',
+          'packages/client/host-package',
+        ],
+        ['packages/client/shared-package', 'packages/client/dual-package', 'packages/client/host-package'],
+      )
 
       expect(browserFaceSources(root)).toEqual([
         'packages/client/browser-package/src/view.ts',

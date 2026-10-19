@@ -17,13 +17,12 @@
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const SHEETS = ['MessageFeedbackActions', 'FeedbackDialog'] as const
-const sheets = Object.fromEntries(SHEETS.map(name => [name, readFileSync(
-  fileURLToPath(new URL(`../src/client/${name}.module.css`, import.meta.url)),
-  'utf8',
-)])) as Record<(typeof SHEETS)[number], string>
+const sheets = Object.fromEntries(
+  SHEETS.map(name => [name, readFileSync(fileURLToPath(new URL(`../src/client/${name}.module.css`, import.meta.url)), 'utf8')]),
+) as Record<(typeof SHEETS)[number], string>
 // The theme package maps `./styles/*` to `./src/styles/*`, so the declarations
 // stay on the source plane rather than needing a build. Every theme sheet, not
 // just the platform tokens: font and scrollbar variables are declared in
@@ -46,7 +45,7 @@ function block(sheetName: (typeof SHEETS)[number], selector: string): string {
   return match[1] ?? ''
 }
 
-describe.each(SHEETS)('%s theme styles', (name) => {
+describe.each(SHEETS)('%s theme styles', name => {
   const sheet = sheets[name]
 
   it('names only theme variables the token sheet defines', () => {
@@ -89,8 +88,7 @@ describe('MessageFeedbackActions row styles', () => {
   })
 
   it('uses the tertiary label colour for recorded rating icons', () => {
-    expect(block('MessageFeedbackActions', '.action[data-active]'))
-      .toMatch(/color:\s*var\(--dsw-alias-label-tertiary\)/)
+    expect(block('MessageFeedbackActions', '.action[data-active]')).toMatch(/color:\s*var\(--dsw-alias-label-tertiary\)/)
   })
 })
 

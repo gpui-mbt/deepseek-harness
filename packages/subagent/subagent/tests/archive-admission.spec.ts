@@ -1,5 +1,5 @@
 import { mountWorkingDirectoryFixture } from './working-directory-fixture.ts'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import type { Agent, AgentCancelCause, AgentStatus, CancelOptions } from '@deepseek-ai/dsh-agent'
@@ -35,17 +35,23 @@ async function liveAgent(ctx: Context, session: Session, initial: AgentStatus): 
     options: {},
     session,
     inbox: unsupportedInbox(),
-    get status() { return status },
+    get status() {
+      return status
+    },
     ctx,
     send: () => {},
     followup: () => {},
     steer: () => {},
     inject: () => {},
-    cancel: (cause, options) => { cancels.push([cause, options]) },
+    cancel: (cause, options) => {
+      cancels.push([cause, options])
+    },
     runMaintenance: task => task(new AbortController().signal),
     whenIdle: () => Promise.resolve(),
     cancels,
-    setStatus: (next) => { status = next },
+    setStatus: next => {
+      status = next
+    },
   }
   await ctx.agents.register(agent)
   return agent
@@ -105,7 +111,12 @@ describe('Subagent archive admission: reporting', () => {
     await liveAgent(ctx, damagedParent, 'idle')
     const damaged = ctx.sessions.create(SessionId('damaged-child'), { meta: { parentSession: damagedParent.id, origin: 'subagent' } })
     // A current-version payload whose label is not a string fails the descriptor parse.
-    damaged.append('subagent/descriptor', { version: SUBAGENT_DESCRIPTOR_VERSION, mode: 'continuable', provider: 'spawn', label: 7 } as never)
+    damaged.append('subagent/descriptor', {
+      version: SUBAGENT_DESCRIPTOR_VERSION,
+      mode: 'continuable',
+      provider: 'spawn',
+      label: 7,
+    } as never)
     await liveAgent(ctx, damaged, 'running')
     expect(await ask(ctx, damagedParent.id)).toEqual([{ kind: 'subagent', items: [{ id: 'damaged-child' }] }])
   })
@@ -146,15 +157,15 @@ describe('Subagent archive admission: stopping', () => {
     const parent = ctx.sessions.create(SessionId('stubborn'))
     await liveAgent(ctx, parent, 'running')
     const stubborn = await liveAgent(ctx, childOf(ctx, 'stubborn-child', parent.id), 'running')
-    stubborn.cancel = () => { throw new Error('child refuses cancel') }
+    stubborn.cancel = () => {
+      throw new Error('child refuses cancel')
+    }
     const quiet = await liveAgent(ctx, childOf(ctx, 'quiet-child', parent.id), 'running')
     const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
 
     await stop(ctx, parent.id)
     expect(quiet.cancels).toEqual([[{ kind: 'parent' }, undefined]])
-    expect(warn.mock.calls.map(([message]) => String(message))).toEqual([
-      expect.stringContaining('cancelling "stubborn-child"'),
-    ])
+    expect(warn.mock.calls.map(([message]) => String(message))).toEqual([expect.stringContaining('cancelling "stubborn-child"')])
   })
 })
 

@@ -15,9 +15,16 @@ export { SlotRegistry } from './registry.ts'
 export type { RootOwnerProps } from './registry.ts'
 
 export type {
-  ChainRenderOpts, HostObservable, RenderOpts, SnapshotSelectorHook, SlotRenderer,
-  ScopedStandardSourceBinding, SlotRendererHost, SlotScopeAdapter,
-  StandardSourceBinding, StoreInstanceLike,
+  ChainRenderOpts,
+  HostObservable,
+  RenderOpts,
+  SnapshotSelectorHook,
+  SlotRenderer,
+  ScopedStandardSourceBinding,
+  SlotRendererHost,
+  SlotScopeAdapter,
+  StandardSourceBinding,
+  StoreInstanceLike,
 } from '@deepseek-ai/dsh-client-ui-slots'
 
 /** Mount operation exposed to the framework-free boot kernel. */
@@ -59,7 +66,9 @@ interface BootSnapshot {
 /** Hydrate the kernel-owned loading DOM before replacing it with the application. */
 function BootHandoff(props: { app: () => ReactNode; boot: BootSnapshot }): ReactNode {
   const [ready, setReady] = useState(false)
-  useLayoutEffect(() => { setReady(true) }, [])
+  useLayoutEffect(() => {
+    setReady(true)
+  }, [])
   if (ready) return props.app()
   return createElement('div', {
     className: props.boot.className,
@@ -72,13 +81,18 @@ function BootHandoff(props: { app: () => ReactNode; boot: BootSnapshot }): React
 function mountApp(container: HTMLElement, app: () => ReactNode): Root {
   const boot = container.querySelector<HTMLElement>(':scope > [data-dsh-boot]')
   if (boot !== null) {
-    return hydrateRoot(container, createElement(BootHandoff, {
-      app,
-      boot: { className: boot.className, html: boot.innerHTML },
-    }))
+    return hydrateRoot(
+      container,
+      createElement(BootHandoff, {
+        app,
+        boot: { className: boot.className, html: boot.innerHTML },
+      }),
+    )
   }
   const root = createRoot(container)
-  flushSync(() => { root.render(app()) })
+  flushSync(() => {
+    root.render(app())
+  })
   return root
 }
 
@@ -92,7 +106,9 @@ export function apply(ctx: Context): void {
   ctx.reflect.provide('uiRenderer', {
     mount: (container: HTMLElement): (() => void) => {
       const root = mountApp(container, buildRenderApp({ ctx }))
-      return () => { root.unmount() }
+      return () => {
+        root.unmount()
+      }
     },
   })
 }

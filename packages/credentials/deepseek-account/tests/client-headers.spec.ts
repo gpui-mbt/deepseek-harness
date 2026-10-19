@@ -1,13 +1,18 @@
 /** Platform client identity headers derived from one call's metadata. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { platformClientHeaders } from '../src/index.ts'
 
 it.each([
-  ['darwin', 'desktop-mac'], ['win32', 'desktop-win'], [null, 'web'],
+  ['darwin', 'desktop-mac'],
+  ['win32', 'desktop-win'],
+  [null, 'web'],
 ] as const)('maps %s to %s and leaves the bundle ID empty', (platform, expected) => {
   expect(platformClientHeaders(platform, { version: '1.2.3', locale: 'zh-CN', timezoneOffsetSeconds: 28_800 })).toEqual({
-    'x-client-bundle-id': '', 'x-client-platform': expected, 'x-client-version': '1.2.3',
-    'x-client-locale': 'zh_CN', 'x-client-timezone-offset': '28800',
+    'x-client-bundle-id': '',
+    'x-client-platform': expected,
+    'x-client-version': '1.2.3',
+    'x-client-locale': 'zh_CN',
+    'x-client-timezone-offset': '28800',
   })
 })
 

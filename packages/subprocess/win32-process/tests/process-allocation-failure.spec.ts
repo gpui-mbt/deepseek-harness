@@ -1,11 +1,6 @@
 import koffi from 'koffi'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  drainPipe,
-  spawnInheritedJobProcess,
-  spawnPipedProcess,
-  waitForProcessExit,
-} from '../src/index.ts'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
+import { drainPipe, spawnInheritedJobProcess, spawnPipedProcess, waitForProcessExit } from '../src/index.ts'
 import * as ffi from '../src/ffi.ts'
 import { processInformationType } from '../src/ffi.ts'
 import * as koffiLoader from '../src/koffi.ts'
@@ -36,13 +31,17 @@ describe('spawnInheritedJobProcess allocation cleanup', () => {
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32ProcessBindings
     const free = vi.spyOn(koffi, 'free')
-    vi.mocked(ffi.allocProcessInfo).mockImplementationOnce(() => { throw new Error('process-info allocation failed') })
-    expect(() => spawnInheritedJobProcess(api, {
-      command: 'cmd.exe',
-      args: [],
-      cwd: 'C:\\',
-      token: 70n as NativePtr,
-    })).toThrow('process-info allocation failed')
+    vi.mocked(ffi.allocProcessInfo).mockImplementationOnce(() => {
+      throw new Error('process-info allocation failed')
+    })
+    expect(() =>
+      spawnInheritedJobProcess(api, {
+        command: 'cmd.exe',
+        args: [],
+        cwd: 'C:\\',
+        token: 70n as NativePtr,
+      }),
+    ).toThrow('process-info allocation failed')
     expect(free).toHaveBeenCalledOnce()
   })
 
@@ -68,12 +67,14 @@ describe('spawnInheritedJobProcess allocation cleanup', () => {
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32ProcessBindings
     const free = vi.spyOn(koffi, 'free')
-    expect(spawnInheritedJobProcess(api, {
-      command: 'cmd.exe',
-      args: [],
-      cwd: 'C:\\',
-      token: 70n as NativePtr,
-    })).toEqual({ pid: 1234, process: 60n, job: 50n })
+    expect(
+      spawnInheritedJobProcess(api, {
+        command: 'cmd.exe',
+        args: [],
+        cwd: 'C:\\',
+        token: 70n as NativePtr,
+      }),
+    ).toEqual({ pid: 1234, process: 60n, job: 50n })
     expect(free).toHaveBeenCalledTimes(2)
   })
 })
@@ -102,12 +103,14 @@ describe('shared process allocation cleanup', () => {
       formatMessageW: vi.fn(() => 0),
     } as unknown as Win32ProcessBindings
     const free = vi.spyOn(koffi, 'free')
-    expect(spawnPipedProcess(api, {
-      command: 'cmd.exe',
-      args: [],
-      cwd: 'C:\\',
-      token: 70n as NativePtr,
-    })).toMatchObject({ pid: 1234, process: 60n })
+    expect(
+      spawnPipedProcess(api, {
+        command: 'cmd.exe',
+        args: [],
+        cwd: 'C:\\',
+        token: 70n as NativePtr,
+      }),
+    ).toMatchObject({ pid: 1234, process: 60n })
     expect(free).toHaveBeenCalledTimes(8)
   })
 

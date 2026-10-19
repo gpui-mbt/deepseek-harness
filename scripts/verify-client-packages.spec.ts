@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import {
   collectClientPackageViolations,
   collectLocalSourceSpecifiers,
@@ -25,10 +25,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
-function declaration(
-  short: string,
-  fields: Partial<Omit<ClientDeclaration, 'name' | 'manifest'>> = {},
-): ClientDeclaration {
+function declaration(short: string, fields: Partial<Omit<ClientDeclaration, 'name' | 'manifest'>> = {}): ClientDeclaration {
   return {
     name: short.startsWith('@') ? short : '@deepseek-ai/dsh-client-' + short,
     manifest: 'packages/client/' + short.replace(/^.*\//, '') + '/package.json',
@@ -41,10 +38,7 @@ function declaration(
   }
 }
 
-function pkg(
-  short: string,
-  fields: Partial<Omit<ClientPackage, 'name' | 'manifest'>> = {},
-): ClientPackage {
+function pkg(short: string, fields: Partial<Omit<ClientPackage, 'name' | 'manifest'>> = {}): ClientPackage {
   return {
     ...declaration(short),
     staticLinked: false,
@@ -57,20 +51,14 @@ function pkg(
   }
 }
 
-function facts(
-  packages: readonly ClientPackage[],
-  options: Partial<Omit<ClientPackageFacts, 'packages'>> = {},
-): ClientPackageFacts {
+function facts(packages: readonly ClientPackage[], options: Partial<Omit<ClientPackageFacts, 'packages'>> = {}): ClientPackageFacts {
   return {
     packages,
     declarations: options.declarations ?? packages,
-    staticLinkedPackages: options.staticLinkedPackages ?? new Set(
-      packages.filter(item => item.staticLinked).map(item => item.name),
-    ),
+    staticLinkedPackages: options.staticLinkedPackages ?? new Set(packages.filter(item => item.staticLinked).map(item => item.name)),
     platformModules: options.platformModules ?? [],
     preloadedExternals: options.preloadedExternals ?? [],
-    parserPreloadIds: options.parserPreloadIds
-      ?? (options.preloadedExternals ?? []).map(value => value.replace(/\/client$/, '')),
+    parserPreloadIds: options.parserPreloadIds ?? (options.preloadedExternals ?? []).map(value => value.replace(/\/client$/, '')),
     malformed: options.malformed ?? [],
   }
 }
@@ -90,55 +78,67 @@ describe('source package uses', () => {
     ].join('\n')
     expect([...collectRuntimeLocalSourceSpecifiers('feature.ts', source)]).toEqual(['./local.ts'])
     expect([...collectRuntimeLocalSourceSpecifiers('feature.ts', source, true)]).toEqual([
-      './local.ts', '/src/value.ts', '/src/export.ts', '/src/lazy.ts', '/src/legacy.ts',
+      './local.ts',
+      '/src/value.ts',
+      '/src/export.ts',
+      '/src/lazy.ts',
+      '/src/legacy.ts',
     ])
   })
 
   it('counts type imports, module augmentations, dynamic imports, and JSX', () => {
-    const uses = collectSourcePackageUses('feature.tsx', [
-      "import type { A } from '@deepseek-ai/dsh-a/subpath'",
-      "declare module '@deepseek-ai/dsh-client-ui-slots' {}",
-      "const load = () => import('@deepseek-ai/dsh-b/remote')",
-      'export const view = <div />',
-      "export type { Local } from './local.ts'",
-    ].join('\n'))
+    const uses = collectSourcePackageUses(
+      'feature.tsx',
+      [
+        "import type { A } from '@deepseek-ai/dsh-a/subpath'",
+        "declare module '@deepseek-ai/dsh-client-ui-slots' {}",
+        "const load = () => import('@deepseek-ai/dsh-b/remote')",
+        'export const view = <div />',
+        "export type { Local } from './local.ts'",
+      ].join('\n'),
+    )
 
-    expect([...uses].sort()).toEqual([
-      '@deepseek-ai/dsh-a',
-      '@deepseek-ai/dsh-b',
-      '@deepseek-ai/dsh-client-ui-slots',
-      'react',
-    ])
-    expect([...collectRuntimeSourcePackageUses('feature.tsx', [
-      "import type { A } from '@deepseek-ai/dsh-a/subpath'",
-      "declare module '@deepseek-ai/dsh-client-ui-slots' {}",
-      "const load = () => import('@deepseek-ai/dsh-b')",
-      'export const view = <div />',
-    ].join('\n'))].sort()).toEqual([
-      '@deepseek-ai/dsh-b',
-      'react',
-    ])
-    expect([...collectRuntimeSourceSpecifiers('feature.tsx', [
-      "import type { A } from '@deepseek-ai/dsh-a/subpath'",
-      "const load = () => import('@deepseek-ai/dsh-b/remote')",
-      'export const view = <div />',
-    ].join('\n'))].sort()).toEqual([
-      '@deepseek-ai/dsh-b/remote',
-      'react',
-    ])
-    expect([...collectLocalSourceSpecifiers('feature.ts', [
-      "import type { A } from './types.ts'",
-      "export { value } from './value.ts'",
-      "const load = () => import('./lazy.ts')",
-      "const legacy = require('./legacy.ts')",
-      "declare module './augmentation.ts' {}",
-      "import '@deepseek-ai/dsh-a'",
-    ].join('\n'))].sort()).toEqual([
-      './lazy.ts',
-      './legacy.ts',
-      './types.ts',
-      './value.ts',
-    ])
+    expect([...uses].sort()).toEqual(['@deepseek-ai/dsh-a', '@deepseek-ai/dsh-b', '@deepseek-ai/dsh-client-ui-slots', 'react'])
+    expect(
+      [
+        ...collectRuntimeSourcePackageUses(
+          'feature.tsx',
+          [
+            "import type { A } from '@deepseek-ai/dsh-a/subpath'",
+            "declare module '@deepseek-ai/dsh-client-ui-slots' {}",
+            "const load = () => import('@deepseek-ai/dsh-b')",
+            'export const view = <div />',
+          ].join('\n'),
+        ),
+      ].sort(),
+    ).toEqual(['@deepseek-ai/dsh-b', 'react'])
+    expect(
+      [
+        ...collectRuntimeSourceSpecifiers(
+          'feature.tsx',
+          [
+            "import type { A } from '@deepseek-ai/dsh-a/subpath'",
+            "const load = () => import('@deepseek-ai/dsh-b/remote')",
+            'export const view = <div />',
+          ].join('\n'),
+        ),
+      ].sort(),
+    ).toEqual(['@deepseek-ai/dsh-b/remote', 'react'])
+    expect(
+      [
+        ...collectLocalSourceSpecifiers(
+          'feature.ts',
+          [
+            "import type { A } from './types.ts'",
+            "export { value } from './value.ts'",
+            "const load = () => import('./lazy.ts')",
+            "const legacy = require('./legacy.ts')",
+            "declare module './augmentation.ts' {}",
+            "import '@deepseek-ai/dsh-a'",
+          ].join('\n'),
+        ),
+      ].sort(),
+    ).toEqual(['./lazy.ts', './legacy.ts', './types.ts', './value.ts'])
   })
 })
 
@@ -161,11 +161,13 @@ describe('package modes', () => {
   it('requires seeded workspace packages to use staticLinked and preloads to name dynamic rows', () => {
     const slots = declaration('ui-slots', { dynamic: false })
     const bootstrap = declaration('bootstrap', { dynamic: false })
-    const found = collectClientPackageViolations(facts([], {
-      declarations: [slots, bootstrap],
-      platformModules: [slots.name],
-      preloadedExternals: [bootstrap.name + '/client'],
-    }))
+    const found = collectClientPackageViolations(
+      facts([], {
+        declarations: [slots, bootstrap],
+        platformModules: [slots.name],
+        preloadedExternals: [bootstrap.name + '/client'],
+      }),
+    )
     expect(found).toHaveLength(2)
     expect(found.join('\n')).toContain('does not use the staticLinked preset')
     expect(found.join('\n')).toContain('has no dynamic dsh.client row')
@@ -173,14 +175,18 @@ describe('package modes', () => {
 
   it('requires every preloaded external to have a parser preload row', () => {
     const bootstrap = declaration('bootstrap')
-    expect(collectClientPackageViolations(facts([], {
-      declarations: [bootstrap],
-      preloadedExternals: [bootstrap.name + '/client'],
-      parserPreloadIds: [],
-    }))).toEqual([
-      'packages/client/web/src/platform.ts: parser-preloaded external '
-      + '"@deepseek-ai/dsh-client-bootstrap/client" has no matching PARSER_PRELOAD_IDS row in '
-      + 'packages/client/modules/src/index.ts',
+    expect(
+      collectClientPackageViolations(
+        facts([], {
+          declarations: [bootstrap],
+          preloadedExternals: [bootstrap.name + '/client'],
+          parserPreloadIds: [],
+        }),
+      ),
+    ).toEqual([
+      'packages/client/web/src/platform.ts: parser-preloaded external ' +
+        '"@deepseek-ai/dsh-client-bootstrap/client" has no matching PARSER_PRELOAD_IDS row in ' +
+        'packages/client/modules/src/index.ts',
     ])
   })
 })
@@ -195,62 +201,82 @@ describe('module requests', () => {
     })
     const slots = declaration('slots')
     expect(collectClientPackageViolations(facts([], { declarations: [ui, slots] }))).toEqual([
-      ui.manifest + ': client feature package requests runtime external '
-      + '"@deepseek-ai/dsh-client-slots/client"; import shared types only or call an injected Cordis service',
+      ui.manifest +
+        ': client feature package requests runtime external ' +
+        '"@deepseek-ai/dsh-client-slots/client"; import shared types only or call an injected Cordis service',
     ])
   })
 
   it('rejects stale externals and accepts a runtime import outside client feature packages', () => {
     const gateway = {
-      ...declaration('@deepseek-ai/dsh-api-gateway'), manifest: 'packages/api/gateway/package.json',
+      ...declaration('@deepseek-ai/dsh-api-gateway'),
+      manifest: 'packages/api/gateway/package.json',
     }
-    const stale = { ...declaration('@deepseek-ai/dsh-api-stale', {
-      external: ['@deepseek-ai/dsh-api-gateway/client'],
-    }), manifest: 'packages/api/stale/package.json' }
-    const live = { ...declaration('@deepseek-ai/dsh-api-live', {
-      external: ['@deepseek-ai/dsh-api-gateway/client'],
-      runtimeSourceUses: {
-        '@deepseek-ai/dsh-api-gateway': ['packages/api/live/src/client/index.ts'],
-      },
-      runtimeSourceSpecifiers: {
-        '@deepseek-ai/dsh-api-gateway/client': ['packages/api/live/src/client/index.ts'],
-      },
-    }), manifest: 'packages/api/live/package.json' }
-    expect(collectClientPackageViolations(facts([], {
-      declarations: [gateway, stale, live],
-    }))).toEqual([
-      stale.manifest + ': dsh.client.external "@deepseek-ai/dsh-api-gateway/client"'
-      + ' has no runtime import or re-export in production source; remove the stale declaration',
+    const stale = {
+      ...declaration('@deepseek-ai/dsh-api-stale', {
+        external: ['@deepseek-ai/dsh-api-gateway/client'],
+      }),
+      manifest: 'packages/api/stale/package.json',
+    }
+    const live = {
+      ...declaration('@deepseek-ai/dsh-api-live', {
+        external: ['@deepseek-ai/dsh-api-gateway/client'],
+        runtimeSourceUses: {
+          '@deepseek-ai/dsh-api-gateway': ['packages/api/live/src/client/index.ts'],
+        },
+        runtimeSourceSpecifiers: {
+          '@deepseek-ai/dsh-api-gateway/client': ['packages/api/live/src/client/index.ts'],
+        },
+      }),
+      manifest: 'packages/api/live/package.json',
+    }
+    expect(
+      collectClientPackageViolations(
+        facts([], {
+          declarations: [gateway, stale, live],
+        }),
+      ),
+    ).toEqual([
+      stale.manifest +
+        ': dsh.client.external "@deepseek-ai/dsh-api-gateway/client"' +
+        ' has no runtime import or re-export in production source; remove the stale declaration',
     ])
   })
 
   it('requires the exact external subpath to be imported at runtime', () => {
     const gateway = {
-      ...declaration('@deepseek-ai/dsh-api-gateway'), manifest: 'packages/api/gateway/package.json',
+      ...declaration('@deepseek-ai/dsh-api-gateway'),
+      manifest: 'packages/api/gateway/package.json',
     }
-    const subject = { ...declaration('@deepseek-ai/dsh-api-session-controller', {
-      external: ['@deepseek-ai/dsh-api-gateway/client'],
-      runtimeSourceUses: {
-        '@deepseek-ai/dsh-api-gateway': ['packages/api/session-controller/src/client/index.ts'],
-      },
-      runtimeSourceSpecifiers: {
-        '@deepseek-ai/dsh-api-gateway/remote': ['packages/api/session-controller/src/client/index.ts'],
-      },
-    }), manifest: 'packages/api/session-controller/package.json' }
+    const subject = {
+      ...declaration('@deepseek-ai/dsh-api-session-controller', {
+        external: ['@deepseek-ai/dsh-api-gateway/client'],
+        runtimeSourceUses: {
+          '@deepseek-ai/dsh-api-gateway': ['packages/api/session-controller/src/client/index.ts'],
+        },
+        runtimeSourceSpecifiers: {
+          '@deepseek-ai/dsh-api-gateway/remote': ['packages/api/session-controller/src/client/index.ts'],
+        },
+      }),
+      manifest: 'packages/api/session-controller/package.json',
+    }
     expect(collectClientPackageViolations(facts([], { declarations: [gateway, subject] }))).toEqual([
-      subject.manifest + ': dsh.client.external "@deepseek-ai/dsh-api-gateway/client"'
-      + ' has no runtime import or re-export in production source; remove the stale declaration',
+      subject.manifest +
+        ': dsh.client.external "@deepseek-ai/dsh-api-gateway/client"' +
+        ' has no runtime import or re-export in production source; remove the stale declaration',
     ])
   })
 
   it('rejects an explicit baseline request', () => {
     const ui = declaration('ui', { external: ['react'] })
-    expect(collectClientPackageViolations(facts([], {
-      declarations: [ui],
-      platformModules: ['react'],
-    }))).toEqual([
-      ui.manifest + ': dsh.client.external repeats baseline module "react"; remove the explicit declaration',
-    ])
+    expect(
+      collectClientPackageViolations(
+        facts([], {
+          declarations: [ui],
+          platformModules: ['react'],
+        }),
+      ),
+    ).toEqual([ui.manifest + ': dsh.client.external repeats baseline module "react"; remove the explicit declaration'])
   })
 
   it('rejects duplicates, empty values, self-requests, and missing suppliers', () => {
@@ -267,18 +293,24 @@ describe('module requests', () => {
   })
 
   it('rejects synchronous module-request cycles but ignores inject cycles', () => {
-    const a = { ...declaration('@deepseek-ai/dsh-api-a', {
-      external: ['@deepseek-ai/dsh-api-b'],
-      inject: ['@deepseek-ai/dsh-api-b'],
-      runtimeSourceUses: { '@deepseek-ai/dsh-api-b': ['packages/api/a/src/client.ts'] },
-      runtimeSourceSpecifiers: { '@deepseek-ai/dsh-api-b': ['packages/api/a/src/client.ts'] },
-    }), manifest: 'packages/api/a/package.json' }
-    const b = { ...declaration('@deepseek-ai/dsh-api-b', {
-      external: ['@deepseek-ai/dsh-api-a'],
-      inject: ['@deepseek-ai/dsh-api-a'],
-      runtimeSourceUses: { '@deepseek-ai/dsh-api-a': ['packages/client/b/src/client.ts'] },
-      runtimeSourceSpecifiers: { '@deepseek-ai/dsh-api-a': ['packages/client/b/src/client.ts'] },
-    }), manifest: 'packages/api/b/package.json' }
+    const a = {
+      ...declaration('@deepseek-ai/dsh-api-a', {
+        external: ['@deepseek-ai/dsh-api-b'],
+        inject: ['@deepseek-ai/dsh-api-b'],
+        runtimeSourceUses: { '@deepseek-ai/dsh-api-b': ['packages/api/a/src/client.ts'] },
+        runtimeSourceSpecifiers: { '@deepseek-ai/dsh-api-b': ['packages/api/a/src/client.ts'] },
+      }),
+      manifest: 'packages/api/a/package.json',
+    }
+    const b = {
+      ...declaration('@deepseek-ai/dsh-api-b', {
+        external: ['@deepseek-ai/dsh-api-a'],
+        inject: ['@deepseek-ai/dsh-api-a'],
+        runtimeSourceUses: { '@deepseek-ai/dsh-api-a': ['packages/client/b/src/client.ts'] },
+        runtimeSourceSpecifiers: { '@deepseek-ai/dsh-api-a': ['packages/client/b/src/client.ts'] },
+      }),
+      manifest: 'packages/api/b/package.json',
+    }
     const found = collectClientPackageViolations(facts([], { declarations: [a, b] }))
     expect(found).toHaveLength(1)
     expect(found[0]).toContain('synchronous dsh.client.external cycle')
@@ -291,7 +323,8 @@ describe('manifest declarations', () => {
     roots.push(root)
     const files: Record<string, unknown> = {
       'packages/g/a/package.json': {
-        name: '@f/a', dsh: { client: { external: 'react', inject: ['@f/b', 1] } },
+        name: '@f/a',
+        dsh: { client: { external: 'react', inject: ['@f/b', 1] } },
       },
       'packages/g/b/package.json': { name: '@f/b', dsh: { client: {} } },
     }
@@ -340,11 +373,16 @@ describe('manifest declarations', () => {
     writeFileSync(join(root, subject.manifest), JSON.stringify(manifest))
     writeFileSync(join(root, 'package.json'), JSON.stringify({ private: true }))
 
-    expect(fixClientPackageManifests(root, facts([subject], {
-      declarations: [subject, slots],
-      staticLinkedPackages: new Set([slots.name]),
-      platformModules: ['react', slots.name],
-    }))).toEqual([subject.manifest])
+    expect(
+      fixClientPackageManifests(
+        root,
+        facts([subject], {
+          declarations: [subject, slots],
+          staticLinkedPackages: new Set([slots.name]),
+          platformModules: ['react', slots.name],
+        }),
+      ),
+    ).toEqual([subject.manifest])
 
     const fixed = JSON.parse(readFileSync(join(root, subject.manifest), 'utf8')) as {
       dsh: { client: { external: string[]; inject: string[] } }

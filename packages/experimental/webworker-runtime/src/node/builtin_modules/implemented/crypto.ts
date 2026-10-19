@@ -117,10 +117,15 @@ export const __esModule = true
  * only a typed-array view, the values WebCrypto can fill, where Node's
  * declaration also admits a bare `ArrayBuffer`.
  */
-type NodeFace = Partial<Omit<typeof import('node:crypto'), 'createHash' | 'getRandomValues' | 'webcrypto'>>
-  & Record<'createHash' | 'getRandomValues' | 'webcrypto', unknown>
+type NodeFace = Partial<Omit<typeof import('node:crypto'), 'createHash' | 'getRandomValues' | 'webcrypto'>> &
+  Record<'createHash' | 'getRandomValues' | 'webcrypto', unknown>
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
-  createHash, randomBytes, randomUUID, getRandomValues, randomInt, webcrypto,
+  createHash,
+  randomBytes,
+  randomUUID,
+  getRandomValues,
+  randomInt,
+  webcrypto,
 } satisfies NodeFace

@@ -8,7 +8,7 @@
  * rather than trusted: a diagnostic that runs nothing is a diagnostic that
  * silently stops working.
  */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { installLogSink, type LogExporter, type LogMessage } from '../src/worker-host.ts'
 
 /** Capture the exporter the sink registers, and the cordis renderer it asks for. */
@@ -17,7 +17,12 @@ function harness(): { register: () => LogExporter; requested: string[] } {
   let registered: LogExporter | undefined
   const ctx = {
     loader: { internal: undefined },
-    logger: { exporter: (exporter: LogExporter) => { registered = exporter; return undefined } },
+    logger: {
+      exporter: (exporter: LogExporter) => {
+        registered = exporter
+        return undefined
+      },
+    },
     get: () => undefined,
     provide: () => {},
     plugin: async () => undefined,
@@ -39,7 +44,9 @@ const message = (type: LogMessage['type'], name: string, ...args: unknown[]): Lo
 
 // Console spies are installed on one shared object, so a surviving spy would
 // carry the previous case's calls into the counting case below.
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('worker host log sink', () => {
   it('registers one exporter and renders through cordis', () => {
@@ -64,13 +71,17 @@ describe('worker host log sink', () => {
 
   it('reports a warning with its logger name, the way a skipped provider arrives', () => {
     const warned = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    harness().register().export(message('warn', 'skill', 'provider "local" skipped: FS_IO_ERROR'))
+    harness()
+      .register()
+      .export(message('warn', 'skill', 'provider "local" skipped: FS_IO_ERROR'))
     expect(warned).toHaveBeenCalledWith('skill: rendered(provider "local" skipped: FS_IO_ERROR)')
   })
 
   it('reports an error on the error channel', () => {
     const failed = vi.spyOn(console, 'error').mockImplementation(() => {})
-    harness().register().export(message('error', 'loader', 'boom'))
+    harness()
+      .register()
+      .export(message('error', 'loader', 'boom'))
     expect(failed).toHaveBeenCalledWith('loader: rendered(boom)')
   })
 

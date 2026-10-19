@@ -1,5 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -10,16 +10,21 @@ import type { SessionLogDownloadHeaderInjected } from '../src/client/HeaderActio
 
 const SID = 'session-export-apply' as SessionId
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 function declare(slots: SlotRegistry): () => void {
-  return slots.register({
-    name: 'root',
-    children: {
-      'conversation.session.header.actions': { kind: 'list', scope: 'session' },
-      'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
-    },
-  } as never, () => null)
+  return slots.register(
+    {
+      name: 'root',
+      children: {
+        'conversation.session.header.actions': { kind: 'list', scope: 'session' },
+        'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+      },
+    } as never,
+    () => null,
+  )
 }
 
 async function bench() {
@@ -42,20 +47,29 @@ describe('session-log-download browser plugin', () => {
     injected.openFeedback(SID)
 
     const openSession = vi.fn()
-    const feedback = b.ctx.plugin((ctx) => { ctx.provide('feedbackUi', { openSession }) })
+    const feedback = b.ctx.plugin(ctx => {
+      ctx.provide('feedbackUi', { openSession })
+    })
     await feedback.await()
-    await vi.waitFor(() => { expect(injected.hooks.feedbackAvailable.getSnapshot()).toBe(true) })
+    await vi.waitFor(() => {
+      expect(injected.hooks.feedbackAvailable.getSnapshot()).toBe(true)
+    })
     injected.openFeedback(SID)
     expect(openSession).toHaveBeenCalledWith(SID)
 
     await feedback.dispose()
-    await vi.waitFor(() => { expect(injected.hooks.feedbackAvailable.getSnapshot()).toBe(false) })
+    await vi.waitFor(() => {
+      expect(injected.hooks.feedbackAvailable.getSnapshot()).toBe(false)
+    })
     expect(b.slots.entries('conversation.session.header.utilities')).toHaveLength(1)
     await b.fiber.dispose()
   })
 
   it('provides one controller and removes its Header contribution on disposal', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 500 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 500 })),
+    )
     const b = await bench()
     expect(inject).toEqual(['slots', 'locale'])
     expect(b.ctx.sessionLogDownload).toBeDefined()

@@ -47,7 +47,9 @@ export interface AlsRuntime {
  */
 export function createAlsRuntime(causality?: AlsCausality): AlsRuntime {
   const snapshot = (): AlsSnapshot => causality?.snapshot()
-  const restore = (value: AlsSnapshot): void => { causality?.restore(value) }
+  const restore = (value: AlsSnapshot): void => {
+    causality?.restore(value)
+  }
   return {
     snapshot,
     pause: (value: unknown): Promise<AlsToken> => {
@@ -81,7 +83,7 @@ export function createAlsRuntime(causality?: AlsCausality): AlsRuntime {
       // Async-from-sync: a sync iterator's values may be promises the loop awaits.
       return {
         next: async (...args: [] | [unknown]): Promise<IteratorResult<unknown>> => {
-          const step = inner.next(...args as [unknown])
+          const step = inner.next(...(args as [unknown]))
           return { done: step.done ?? false, value: await step.value }
         },
         return: async (sent?: unknown): Promise<IteratorResult<unknown>> => {

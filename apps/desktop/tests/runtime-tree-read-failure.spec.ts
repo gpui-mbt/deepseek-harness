@@ -2,12 +2,12 @@ import { mkdtempSync, readFile, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setImmediate } from 'node:timers/promises'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import { verifyDesktopRuntime } from '../src/runtime-tree.ts'
 import { runtimeFixture } from './runtime-fixture.ts'
 
 vi.mock('node:fs', async importOriginal => ({
-  ...await importOriginal<typeof import('node:fs')>(),
+  ...(await importOriginal<typeof import('node:fs')>()),
   readFile: vi.fn(),
 }))
 
@@ -19,13 +19,19 @@ it('drains outstanding reads before rejecting and stops scheduling after a read 
     const callback = args.at(-1)
     if (typeof path !== 'string' || typeof callback !== 'function') throw new Error('unexpected readFile arguments')
     const complete = callback as (error: Error | null, body: Buffer | undefined) => void
-    pending.push((error) => { complete(error ?? null, error === undefined ? readFileSync(path) : undefined) })
+    pending.push(error => {
+      complete(error ?? null, error === undefined ? readFileSync(path) : undefined)
+    })
   })
   let outcome: Promise<unknown> | undefined
   try {
     runtimeFixture(root)
     let settled = false
-    outcome = verifyDesktopRuntime(root, '1.0.0').finally(() => { settled = true }).catch((error: unknown) => error)
+    outcome = verifyDesktopRuntime(root, '1.0.0')
+      .finally(() => {
+        settled = true
+      })
+      .catch((error: unknown) => error)
     const inFlight = pending.length
     expect(inFlight).toBeGreaterThan(1)
     const failure = new Error('runtime read failed')

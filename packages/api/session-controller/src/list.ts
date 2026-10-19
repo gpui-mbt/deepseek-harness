@@ -11,13 +11,14 @@ import type {} from '@deepseek-ai/dsh-session-projection-cache'
 import { SessionQueryError, type SessionRecord, type SessionSearchCursor } from '@deepseek-ai/dsh-session-query'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { z } from 'zod'
-import {
-  SESSION_SEARCH_RESULT_LIMIT,
-  SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS,
-} from './types.ts'
+import { SESSION_SEARCH_RESULT_LIMIT, SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS } from './types.ts'
 import type {
-  SessionListMetadata, SessionProjectionHints, SessionProjectionValues, SessionSearchItem,
-  SessionSearchValue, SessionSummary,
+  SessionListMetadata,
+  SessionProjectionHints,
+  SessionProjectionValues,
+  SessionSearchItem,
+  SessionSearchValue,
+  SessionSummary,
 } from './types.ts'
 
 const SEARCH_PROVIDER_CALL_LIMIT = 100
@@ -44,17 +45,10 @@ const imageLimitsSchema = z.object({
  * @param event - next committed Session event.
  * @returns the original or advanced metadata value.
  */
-export function applySessionListMetadata(
-  state: SessionListMetadata,
-  event: SessionEvent,
-): SessionListMetadata {
+export function applySessionListMetadata(state: SessionListMetadata, event: SessionEvent): SessionListMetadata {
   const blank = state.blank && event.type !== 'turn/start'
-  const lastPromptAt = event.type === 'user/message' && event.data.source.kind === 'user'
-    ? event.time
-    : state.lastPromptAt
-  return blank === state.blank && lastPromptAt === state.lastPromptAt
-    ? state
-    : { blank, lastPromptAt }
+  const lastPromptAt = event.type === 'user/message' && event.data.source.kind === 'user' ? event.time : state.lastPromptAt
+  return blank === state.blank && lastPromptAt === state.lastPromptAt ? state : { blank, lastPromptAt }
 }
 
 /**
@@ -80,7 +74,10 @@ export class ApiSessionList {
    * @param ctx - Host context carrying Session, query, persistence, and projection services.
    * @param workSliceMs - Resolved positive integral list-work budget in milliseconds.
    */
-  constructor(private readonly ctx: Context, private readonly workSliceMs: number) {
+  constructor(
+    private readonly ctx: Context,
+    private readonly workSliceMs: number,
+  ) {
     ctx.sessionProjections.register<'sessionListMetadata', SessionListMetadata>({
       key: 'sessionListMetadata',
       stateSchema: sessionListMetadataSchema,
@@ -89,7 +86,7 @@ export class ApiSessionList {
       wire: { viewSchema: sessionListMetadataSchema, view: state => state },
       stateVersion: 1,
     })
-    ctx.inject(['attachments'], (attachmentCtx) => {
+    ctx.inject(['attachments'], attachmentCtx => {
       ctx.sessionProjections.register<'imageLimits', null>({
         key: 'imageLimits',
         stateSchema: z.null(),
@@ -200,9 +197,7 @@ export class ApiSessionList {
     try {
       const visible = await provider.listSessions(signal)
       signal.throwIfAborted()
-      const visibleIds = new Set(visible
-        .filter(record => record.header.cwd !== undefined)
-        .map(record => record.header.id))
+      const visibleIds = new Set(visible.filter(record => record.header.cwd !== undefined).map(record => record.header.id))
       if (visibleIds.size === 0) return { items: [], hasMore: false }
       const authorized: SessionSearchItem[] = []
       const acceptedIds = new Set<SessionId>()
@@ -220,28 +215,31 @@ export class ApiSessionList {
         const requestedLimit = pageLimit
         let page
         try {
-          page = await provider.searchSessions({
-            query: normalizedQuery,
-            eventFilters: [
-              { kind: 'type', values: ['user/message', 'assistant/message'] },
-              { kind: 'surface', values: ['current'] },
-            ],
-            limit: requestedLimit,
-            ...(requestedCursor === undefined ? {} : { cursor: requestedCursor }),
-          }, { signal })
+          page = await provider.searchSessions(
+            {
+              query: normalizedQuery,
+              eventFilters: [
+                { kind: 'type', values: ['user/message', 'assistant/message'] },
+                { kind: 'surface', values: ['current'] },
+              ],
+              limit: requestedLimit,
+              ...(requestedCursor === undefined ? {} : { cursor: requestedCursor }),
+            },
+            { signal },
+          )
           signal.throwIfAborted()
         } catch (error: unknown) {
           signal.throwIfAborted()
-          if (requestedCursor === undefined
-            && error instanceof SessionQueryError
-            && error.code === 'SESSION_QUERY_INVALID_LIMIT'
-            && requestedLimit > 1) {
+          if (
+            requestedCursor === undefined &&
+            error instanceof SessionQueryError &&
+            error.code === 'SESSION_QUERY_INVALID_LIMIT' &&
+            requestedLimit > 1
+          ) {
             pageLimit = Math.max(1, Math.floor(requestedLimit / 2))
             continue
           }
-          if (requestedCursor !== undefined
-            && error instanceof SessionQueryError
-            && error.code === 'SESSION_QUERY_STALE_CURSOR') {
+          if (requestedCursor !== undefined && error instanceof SessionQueryError && error.code === 'SESSION_QUERY_STALE_CURSOR') {
             authorized.length = 0
             acceptedIds.clear()
             seenCursors.clear()
@@ -255,11 +253,14 @@ export class ApiSessionList {
         }
         for (const hit of page.items) {
           if (authorized.length > SESSION_SEARCH_RESULT_LIMIT) continue
-          if (!visibleIds.has(hit.header.id)
-            || hit.bestMatch.sessionId !== hit.header.id
-            || hit.bestMatch.surface !== 'current'
-            || !MESSAGE_TYPES.has(hit.bestMatch.type)
-            || acceptedIds.has(hit.header.id)) continue
+          if (
+            !visibleIds.has(hit.header.id) ||
+            hit.bestMatch.sessionId !== hit.header.id ||
+            hit.bestMatch.surface !== 'current' ||
+            !MESSAGE_TYPES.has(hit.bestMatch.type) ||
+            acceptedIds.has(hit.header.id)
+          )
+            continue
           acceptedIds.add(hit.header.id)
           authorized.push({
             sessionId: hit.header.id,
@@ -288,10 +289,7 @@ export class ApiSessionList {
     }
   }
 
-  private projectionsFor(
-    header: SessionHeader,
-    session: Session | undefined,
-  ): SessionProjectionHints | undefined {
+  private projectionsFor(header: SessionHeader, session: Session | undefined): SessionProjectionHints | undefined {
     try {
       if (session !== undefined) {
         // The live registry computed the block for this Session: its watermark
@@ -304,9 +302,7 @@ export class ApiSessionList {
       const cache = this.ctx.get('sessionProjectionCache')
       return hintsOf('cached', cache?.cachedSnapshot(header) ?? cache?.cachedPredecessorTitle(header))
     } catch (error) {
-      this.ctx.logger.warn(
-        `api-session.list: projection column for "${header.id}" failed; serving the row without it: ${String(error)}`,
-      )
+      this.ctx.logger.warn(`api-session.list: projection column for "${header.id}" failed; serving the row without it: ${String(error)}`)
       return undefined
     }
   }
@@ -318,10 +314,7 @@ export class ApiSessionList {
  * @param block - the block, or `undefined` when no source served one.
  * @returns the hints, or `undefined` when the block is absent or carries no value.
  */
-function hintsOf(
-  kind: SessionProjectionHints['kind'],
-  block: ProjectionSnapshot | undefined,
-): SessionProjectionHints | undefined {
+function hintsOf(kind: SessionProjectionHints['kind'], block: ProjectionSnapshot | undefined): SessionProjectionHints | undefined {
   if (block === undefined || Object.keys(block.values).length === 0) return undefined
   // Listing hints contain every wire value the source currently holds but
   // remain partial: missing cells and cache rows are never materialized here.

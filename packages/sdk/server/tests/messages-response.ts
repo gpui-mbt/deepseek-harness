@@ -8,4 +8,6 @@ export const MESSAGES_RESPONSE = [
   { type: 'content_block_stop', index: 0 },
   { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 1 } },
   { type: 'message_stop' },
-].map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('')
+]
+  .map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
+  .join('')

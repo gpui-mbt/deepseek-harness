@@ -11,7 +11,9 @@ const CJS_LOADER = 'internal/modules/cjs/loader'
 
 /** `Module` with the static members HMR reads and replaces. */
 export const Module = Object.assign(
-  function Module(): never { throw notAvailableError(CJS_LOADER, 'Module') },
+  function Module(): never {
+    throw notAvailableError(CJS_LOADER, 'Module')
+  },
   {
     /** Empty: the Worker loader keeps its own resolution cache. */
     _pathCache: Object.create(null) as Record<string, string>,

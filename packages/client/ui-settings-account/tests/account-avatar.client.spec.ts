@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { AccountAvatarLoader, type AccountAvatarSnapshot } from '../src/client/account-avatar.ts'
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 function imagesOf() {
   const images: HTMLImageElement[] = []
@@ -12,8 +14,12 @@ function imagesOf() {
     return image
   })
   const states: Array<AccountAvatarSnapshot | undefined> = []
-  const loader = new AccountAvatarLoader((state) => { states.push(state) })
-  onTestFinished(() => { loader.dispose() })
+  const loader = new AccountAvatarLoader(state => {
+    states.push(state)
+  })
+  onTestFinished(() => {
+    loader.dispose()
+  })
   return { images, states, loader }
 }
 
@@ -73,9 +79,15 @@ it('discards replaced and disposed image callbacks, including the same URL after
 
 it('does not start a load when publication releases its owner', () => {
   const image = document.createElement('img')
-  vi.stubGlobal('Image', function () { return image })
-  const loader = new AccountAvatarLoader(() => { loader.dispose() })
-  onTestFinished(() => { loader.dispose() })
+  vi.stubGlobal('Image', function () {
+    return image
+  })
+  const loader = new AccountAvatarLoader(() => {
+    loader.dispose()
+  })
+  onTestFinished(() => {
+    loader.dispose()
+  })
   loader.setUrl('https://example.test/avatar.png')
   expect(image.getAttribute('src')).toBeNull()
   expect(image.onload).toBeNull()

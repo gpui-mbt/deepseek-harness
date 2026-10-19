@@ -67,7 +67,7 @@ function readMeta(meta: unknown): ReadMeta | null {
     offset,
     lines: narrowed,
     totalLines,
-    ...lang === undefined ? {} : { lang },
+    ...(lang === undefined ? {} : { lang }),
   }
 }
 
@@ -97,11 +97,7 @@ export function readCallLine(block: ToolCallBlock): number | undefined {
  * @param home - host account home; a leftover POSIX home path displays as `~`.
  * @returns the read-card props, or null for the generic path.
  */
-export function readCardModel(
-  block: ToolCallBlock,
-  sessionCwd?: string,
-  home?: string,
-): ReadCardModel | null {
+export function readCardModel(block: ToolCallBlock, sessionCwd?: string, home?: string): ReadCardModel | null {
   if (block.parentCallId !== undefined || !('kind' in block) || block.isError) return null
   if (!validReadCall(block)) return null
   const meta = readMeta(block.meta)

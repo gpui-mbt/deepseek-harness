@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { OwnerOf } from '@deepseek-ai/dsh-client-ui-slots'
@@ -16,45 +16,77 @@ import { documentSlots, ABSOLUTE_PATH, FILE, harness, page, settle, TAB_ID } fro
 afterEach(cleanup)
 
 const binary: DocumentPreviewDefinition = {
-  id: 'complete-document', extensions: ['md'], title: () => 'Complete document', loading: 'bytes-complete',
+  id: 'complete-document',
+  extensions: ['md'],
+  title: () => 'Complete document',
+  loading: 'bytes-complete',
 }
 
 function codeProps(h: ReturnType<typeof harness>): TextPreviewProps {
   const props = h.props()
   const definition: DocumentPreviewDefinition = {
-    id: 'code', extensions: ['md'], title: () => 'Code', loading: 'text-pages', wrap: true,
+    id: 'code',
+    extensions: ['md'],
+    title: () => 'Code',
+    loading: 'text-pages',
+    wrap: true,
   }
   return {
     ...props,
     useDocumentPreviews: selector => selector([definition]),
-    renderSlot: documentSlots((_key, owner) => <CodeBody {...props} {...owner as unknown as OwnerOf<'sidebar.right.tab.document'>} t={key => key} />),
+    renderSlot: documentSlots((_key, owner) => (
+      <CodeBody {...props} {...(owner as unknown as OwnerOf<'sidebar.right.tab.document'>)} t={key => key} />
+    )),
   }
 }
 
 describe('document toolbar', () => {
   it.each([
-    ['report.doc', false], ['sheet.xls', false], ['slides.ppt', false],
-    ['report.docx', false], ['sheet.xlsx', false], ['slides.pptx', false],
-    ['report.pdf', false], ['image.png', false], ['image.SVG', true], ['page.html', true],
+    ['report.doc', false],
+    ['sheet.xls', false],
+    ['slides.ppt', false],
+    ['report.docx', false],
+    ['sheet.xlsx', false],
+    ['slides.pptx', false],
+    ['report.pdf', false],
+    ['image.png', false],
+    ['image.SVG', true],
+    ['page.html', true],
   ])('offers plain text for %s only when supported', async (path, supportsText) => {
     const h = harness()
     const props = h.props()
     const info = props.useTabInfo()
     const definitions = [
-      textBodyDefinition(() => 'Plain text'), pdfBodyDefinition(() => 'PDF'),
-      imageBodyDefinition(() => 'Image'), htmlBodyDefinition(() => 'HTML'),
-      { ...binary, extensions: ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'], binaryExtensions: ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'] },
+      textBodyDefinition(() => 'Plain text'),
+      pdfBodyDefinition(() => 'PDF'),
+      imageBodyDefinition(() => 'Image'),
+      htmlBodyDefinition(() => 'HTML'),
+      {
+        ...binary,
+        extensions: ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'],
+        binaryExtensions: ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'],
+      },
     ]
-    h.bytes.mockResolvedValue({ ok: true, value: {
-      absolutePath: path, version: 'v1', offset: 0, data: new TextEncoder().encode('all'), bytes: 3, eof: true,
-    } })
+    h.bytes.mockResolvedValue({
+      ok: true,
+      value: {
+        absolutePath: path,
+        version: 'v1',
+        offset: 0,
+        data: new TextEncoder().encode('all'),
+        bytes: 3,
+        eof: true,
+      },
+    })
     if (!supportsText) h.instance.actions.selected(TAB_ID, PLAIN_BODY_ID)
-    const view = render(<TextPreview
-      {...props}
-      useTabInfo={() => ({ ...info, tab: { ...info.tab, contentId: `dsh-resource://file/session/s-1/${path}` } })}
-      useDocumentPreviews={selector => selector(definitions)}
-      renderSlot={() => null}
-    />)
+    const view = render(
+      <TextPreview
+        {...props}
+        useTabInfo={() => ({ ...info, tab: { ...info.tab, contentId: `dsh-resource://file/session/s-1/${path}` } })}
+        useDocumentPreviews={selector => selector(definitions)}
+        renderSlot={() => null}
+      />,
+    )
     await settle()
     const picker = view.queryByRole('button', { name: 'openWith' })
     expect(picker !== null).toBe(supportsText)
@@ -96,7 +128,10 @@ describe('document toolbar', () => {
     expect(view.getByRole('status').textContent).toBe('loading')
     expect(view.container.querySelector('[data-textpreview-more]')).toBeNull()
 
-    await act(async () => { first.resolve(page(1, ['const prefix = 1;'], false)); await first.promise })
+    await act(async () => {
+      first.resolve(page(1, ['const prefix = 1;'], false))
+      await first.promise
+    })
     const renderer = view.container.querySelector('[data-code-preview]')
     expect(renderer).not.toBeNull()
     expect(renderer?.querySelector('pre')?.textContent).toBe('const prefix = 1;')
@@ -105,7 +140,10 @@ describe('document toolbar', () => {
     expect(view.container.querySelector('[data-code-preview]')).toBe(renderer)
     expect(renderer?.querySelector('pre')?.textContent).toBe('const prefix = 1;')
     expect(view.getByRole('status').closest('[data-textpreview-more]')).not.toBeNull()
-    await act(async () => { next.resolve(page(2, ['const tail = 2;'], true)); await next.promise })
+    await act(async () => {
+      next.resolve(page(2, ['const tail = 2;'], true))
+      await next.promise
+    })
     expect(view.container.querySelector('[data-code-preview]')).toBe(renderer)
     expect(renderer?.querySelector('pre')?.textContent).toBe('const prefix = 1;\nconst tail = 2;')
     expect(view.queryByRole('status')).toBeNull()
@@ -116,7 +154,10 @@ describe('document toolbar', () => {
     expect(renderer?.isConnected).toBe(false)
     expect(body?.firstElementChild).toBe(view.getByRole('status'))
     expect(view.container.querySelector('[data-textpreview-more]')).toBeNull()
-    await act(async () => { reload.resolve(page(1, ['const refreshed = 3;'], true, 'v2')); await reload.promise })
+    await act(async () => {
+      reload.resolve(page(1, ['const refreshed = 3;'], true, 'v2'))
+      await reload.promise
+    })
     expect(view.container.querySelector('[data-code-preview] pre')?.textContent).toBe('const refreshed = 3;')
     expect(view.queryByRole('status')).toBeNull()
   })
@@ -133,7 +174,10 @@ describe('document toolbar', () => {
     const view = render(<TextPreview {...codeProps(h)} />)
     expect(view.container.querySelector('[data-code-preview]')).toBeNull()
     expect(view.getByRole('status').getAttribute('aria-label')).toBe('loading')
-    await act(async () => { pending.resolve(page(1, [], true)); await pending.promise })
+    await act(async () => {
+      pending.resolve(page(1, [], true))
+      await pending.promise
+    })
     expect(view.container.querySelector('[data-code-preview]')).not.toBeNull()
     expect(view.container.querySelector('[data-code-preview] pre')?.textContent).toBe('')
     expect(h.instance.getSnapshot().byTab[TAB_ID]?.pages).toEqual({ 1: { text: '', lines: 0 } })
@@ -144,7 +188,10 @@ describe('document toolbar', () => {
   it('shows the shared loading indicator until a complete read settles', async () => {
     const h = harness()
     const pending = Promise.withResolvers<Awaited<ReturnType<typeof h.bytes>>>()
-    const result = { ok: true as const, value: { absolutePath: ABSOLUTE_PATH, version: 'v1', offset: 0, data: new TextEncoder().encode('all'), bytes: 3, eof: true } }
+    const result = {
+      ok: true as const,
+      value: { absolutePath: ABSOLUTE_PATH, version: 'v1', offset: 0, data: new TextEncoder().encode('all'), bytes: 3, eof: true },
+    }
     onTestFinished(async () => {
       h.controller.abort()
       pending.resolve(result)
@@ -172,26 +219,46 @@ describe('document toolbar', () => {
     const view = render(<TextPreview {...h.props()} />)
     await settle()
     const renderSlot = vi.fn(() => null)
-    view.rerender(<TextPreview {...h.props()} useDocumentPreviews={selector => selector([{ ...binary, loading: 'renderer' }])} renderSlot={renderSlot} />)
+    view.rerender(
+      <TextPreview
+        {...h.props()}
+        useDocumentPreviews={selector => selector([{ ...binary, loading: 'renderer' }])}
+        renderSlot={renderSlot}
+      />,
+    )
     expect(view.container.textContent).not.toContain('previous reader content')
     const rendererContentMatcher: unknown = expect.objectContaining({ kind: 'renderer' })
-    expect(renderSlot).toHaveBeenCalledWith('sidebar.right.tab.document', expect.objectContaining({
-      content: rendererContentMatcher,
-    }), expect.any(Object))
+    expect(renderSlot).toHaveBeenCalledWith(
+      'sidebar.right.tab.document',
+      expect.objectContaining({
+        content: rendererContentMatcher,
+      }),
+      expect.any(Object),
+    )
     expect(h.instance.getSnapshot().byTab[TAB_ID]?.complete).toBeUndefined()
     expect(h.bytes).not.toHaveBeenCalled()
   })
 
   it('retries and refreshes complete content when metadata lookup fails', async () => {
     const h = harness()
-    const result = { ok: true as const, value: { absolutePath: ABSOLUTE_PATH, version: 'v1', offset: 0, data: new TextEncoder().encode('all'), bytes: 3, eof: true } }
-    const read = h.bytes.mockResolvedValueOnce({
-      ok: false, error: new RemoteError('gateway/internal', 'socket closed', {}),
-    }).mockResolvedValue(result)
-    h.useResource.mockReturnValue({ status: 'failed', value: undefined,
-      failure: new RemoteError('workspace-file/not-found', 'Missing file', { path: ABSOLUTE_PATH }) })
+    const result = {
+      ok: true as const,
+      value: { absolutePath: ABSOLUTE_PATH, version: 'v1', offset: 0, data: new TextEncoder().encode('all'), bytes: 3, eof: true },
+    }
+    const read = h.bytes
+      .mockResolvedValueOnce({
+        ok: false,
+        error: new RemoteError('gateway/internal', 'socket closed', {}),
+      })
+      .mockResolvedValue(result)
+    h.useResource.mockReturnValue({
+      status: 'failed',
+      value: undefined,
+      failure: new RemoteError('workspace-file/not-found', 'Missing file', { path: ABSOLUTE_PATH }),
+    })
     const props: TextPreviewProps = {
-      ...h.props(), useDocumentPreviews: selector => selector([binary]),
+      ...h.props(),
+      useDocumentPreviews: selector => selector([binary]),
     }
     const view = render(<TextPreview {...props} />)
     await settle()
@@ -224,12 +291,30 @@ describe('document toolbar', () => {
 
   it('drops the plain-text fallback for a declared binary suffix and hides the viewer control entirely', async () => {
     const h = harness()
-    h.bytes.mockResolvedValue({ ok: true, value: { absolutePath: '/host/project/work/photo.png', version: 'v1', offset: 0, data: new TextEncoder().encode('x'), bytes: 1, eof: true } })
+    h.bytes.mockResolvedValue({
+      ok: true,
+      value: {
+        absolutePath: '/host/project/work/photo.png',
+        version: 'v1',
+        offset: 0,
+        data: new TextEncoder().encode('x'),
+        bytes: 1,
+        eof: true,
+      },
+    })
     const image: DocumentPreviewDefinition = {
-      id: 'image', extensions: ['png', 'svg'], binaryExtensions: ['png'], title: () => 'Image', loading: 'bytes-complete',
+      id: 'image',
+      extensions: ['png', 'svg'],
+      binaryExtensions: ['png'],
+      title: () => 'Image',
+      loading: 'bytes-complete',
     }
     const plain: DocumentPreviewDefinition = {
-      id: PLAIN_BODY_ID, extensions: [], title: () => 'viewer.text', loading: 'text-pages', wrap: true,
+      id: PLAIN_BODY_ID,
+      extensions: [],
+      title: () => 'viewer.text',
+      loading: 'text-pages',
+      wrap: true,
     }
     const base = h.props()
     const info = base.useTabInfo()
@@ -249,12 +334,30 @@ describe('document toolbar', () => {
 
   it('keeps the plain-text fallback in the picker for a non-binary suffix of the same viewer', async () => {
     const h = harness()
-    h.bytes.mockResolvedValue({ ok: true, value: { absolutePath: '/host/project/work/logo.svg', version: 'v1', offset: 0, data: new TextEncoder().encode('<svg/>'), bytes: 6, eof: true } })
+    h.bytes.mockResolvedValue({
+      ok: true,
+      value: {
+        absolutePath: '/host/project/work/logo.svg',
+        version: 'v1',
+        offset: 0,
+        data: new TextEncoder().encode('<svg/>'),
+        bytes: 6,
+        eof: true,
+      },
+    })
     const image: DocumentPreviewDefinition = {
-      id: 'image', extensions: ['png', 'svg'], binaryExtensions: ['png'], title: () => 'Image', loading: 'bytes-complete',
+      id: 'image',
+      extensions: ['png', 'svg'],
+      binaryExtensions: ['png'],
+      title: () => 'Image',
+      loading: 'bytes-complete',
     }
     const plain: DocumentPreviewDefinition = {
-      id: PLAIN_BODY_ID, extensions: [], title: () => 'viewer.text', loading: 'text-pages', wrap: true,
+      id: PLAIN_BODY_ID,
+      extensions: [],
+      title: () => 'viewer.text',
+      loading: 'text-pages',
+      wrap: true,
     }
     const base = h.props()
     const info = base.useTabInfo()
@@ -276,9 +379,12 @@ describe('document toolbar', () => {
   it('dismisses the implementation picker with Escape without changing the selected implementation', async () => {
     const h = harness({ 1: page(1, ['held'], true) })
     const props = codeProps(h)
-    const view = render(<TextPreview {...props} useDocumentPreviews={selector => selector([
-      ...props.useDocumentPreviews(value => value), textBodyDefinition(() => 'viewer.text'),
-    ])} />)
+    const view = render(
+      <TextPreview
+        {...props}
+        useDocumentPreviews={selector => selector([...props.useDocumentPreviews(value => value), textBodyDefinition(() => 'viewer.text')])}
+      />,
+    )
     await settle()
     fireEvent.click(view.container.querySelector('[data-document-viewer-menu]')!)
     expect(screen.getByRole('menuitem', { name: 'viewer.text' })).toBeDefined()
@@ -308,7 +414,9 @@ describe('document toolbar', () => {
     const header = view.container.querySelector('[data-textpreview-path]')?.parentElement
     expect(header?.querySelector('[data-slot="sidebar.right.tab.document.actions"]')?.getAttribute('data-slot-path')).toBe(ABSOLUTE_PATH)
     const empty = view.container.querySelector('[data-textpreview-unsupported]')
-    expect(empty?.querySelector('[data-slot="sidebar.right.tab.document.unpreviewable"]')?.getAttribute('data-slot-path')).toBe(ABSOLUTE_PATH)
+    expect(empty?.querySelector('[data-slot="sidebar.right.tab.document.unpreviewable"]')?.getAttribute('data-slot-path')).toBe(
+      ABSOLUTE_PATH,
+    )
     expect(h.read).not.toHaveBeenCalled()
     expect(h.bytes).not.toHaveBeenCalled()
     h.controller.abort()

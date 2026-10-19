@@ -24,10 +24,13 @@ export class ClientBridgeLifecycle {
     if (this.reconnectTimer !== undefined || this.closed) return
     const cap = Math.min(this.maxDelayMs, this.baseDelayMs * 2 ** this.reconnectAttempt)
     this.reconnectAttempt++
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = undefined
-      connect()
-    }, cap / 2 + Math.random() * cap / 2)
+    this.reconnectTimer = setTimeout(
+      () => {
+        this.reconnectTimer = undefined
+        connect()
+      },
+      cap / 2 + (Math.random() * cap) / 2,
+    )
   }
 
   /** Stop pending and future reconnect attempts. */

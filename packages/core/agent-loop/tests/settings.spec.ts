@@ -1,6 +1,6 @@
 /** The `agent-loop` settings section layered over the composition entry. */
 
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import SessionStore from '@deepseek-ai/dsh-session'
@@ -22,7 +22,6 @@ async function boot() {
   onTestFinished(() => ctx.fiber.dispose())
   const live = await liveConfig(ctx, AgentLoop, { agents: [], maxParallelToolCalls: 4 })
   return { ctx, live }
-
 }
 
 it('updates future scheduler budgets while preserving composed agents and the running loop', async () => {

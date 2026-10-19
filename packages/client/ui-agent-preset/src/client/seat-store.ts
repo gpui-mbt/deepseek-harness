@@ -39,7 +39,11 @@ export interface AgentPresetSeatState {
 }
 
 const INITIAL: AgentPresetSeatState = {
-  options: [], current: '', error: null, busy: false, introduce: false,
+  options: [],
+  current: '',
+  error: null,
+  busy: false,
+  introduce: false,
 }
 
 /** Mutable one-shot preset choice shared across Provider-bound seat controllers. */
@@ -69,10 +73,7 @@ export class AgentPresetSeatController {
   constructor(
     private readonly ctx: ClientContext,
     /** The session the hero is about to hand over to, when there is one. */
-    private readonly currentSession: () => Pick<
-      SessionSummary,
-      'id' | 'blank' | 'projectionValues'
-    > | undefined,
+    private readonly currentSession: () => Pick<SessionSummary, 'id' | 'blank' | 'projectionValues'> | undefined,
     private readonly staged: AgentPresetStage = { id: undefined, introduce: false },
   ) {}
 
@@ -87,8 +88,8 @@ export class AgentPresetSeatController {
 
   /**
    * Read the roster and open the chip on the Host-effective default.
-  * @returns once the snapshot reflects the host.
-  */
+   * @returns once the snapshot reflects the host.
+   */
   async load(): Promise<void> {
     const generation = ++this.loadGeneration
     const roster = await readRoster(this.ctx)
@@ -110,7 +111,7 @@ export class AgentPresetSeatController {
       // an applied stage was consumed — the chip mounts (and loads) only
       // once the flow's session is current, so the reply can arrive after
       // apply() already composed it.
-      current: this.staged.id ?? (session === undefined ? this.fallback : presetOf(session) ?? ''),
+      current: this.staged.id ?? (session === undefined ? this.fallback : (presetOf(session) ?? '')),
       error: typeof error === 'object' ? error : null,
       introduce: this.staged.introduce,
     })
@@ -174,10 +175,7 @@ export class AgentPresetSeatController {
    * @param id - the effective default that the write persisted.
    * @returns the Host refusal text, or undefined when applied or no longer relevant.
    */
-  async syncBlankSession(
-    expectedSessionId: SessionSummary['id'],
-    id: string,
-  ): Promise<string | undefined> {
+  async syncBlankSession(expectedSessionId: SessionSummary['id'], id: string): Promise<string | undefined> {
     while (this.pendingSelection !== undefined) await this.pendingSelection
     const session = this.currentSession()
     if (session === undefined || !session.blank || session.id !== expectedSessionId) return undefined
@@ -205,7 +203,7 @@ export class AgentPresetSeatController {
     const staged = this.staged.id
     const session = this.currentSession()
     if (staged === undefined) {
-      const current = session === undefined ? this.fallback : presetOf(session) ?? ''
+      const current = session === undefined ? this.fallback : (presetOf(session) ?? '')
       const shown = this.store.getSnapshot()
       if (current !== shown.current) this.set({ current })
       return
@@ -233,9 +231,7 @@ export class AgentPresetSeatController {
       if (!result.ok) {
         const { error } = result
         // Prefer the bare cause; the Toast already names the rejected preset.
-        const refusal = 'reason' in error.details && typeof error.details.reason === 'string'
-          ? error.details.reason
-          : error.message
+        const refusal = 'reason' in error.details && typeof error.details.reason === 'string' ? error.details.reason : error.message
         return refuse(refusal)
       }
       this.set({ current: this.staged.id ?? result.value })
@@ -249,9 +245,7 @@ export class AgentPresetSeatController {
   }
 }
 
-function presetOf(
-  session: Pick<SessionSummary, 'projectionValues'> | undefined,
-): string | undefined {
+function presetOf(session: Pick<SessionSummary, 'projectionValues'> | undefined): string | undefined {
   const value = session?.projectionValues?.agentPreset
   return typeof value === 'string' ? value : undefined
 }

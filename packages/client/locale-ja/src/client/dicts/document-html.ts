@@ -5,8 +5,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar-documentpreview/src/clie
 
 /** `documentHtml` copy in Japanese, complete against the owner's key union. */
 export const ja: LocaleDictOf<'documentHtml'> = {
-  'title': 'HTML',
-  'frame': 'HTML ドキュメントプレビュー',
-  'loading': 'HTML プレビューを準備しています…',
-  'failed': 'この HTML ドキュメントをプレビューできません。',
+  title: 'HTML',
+  frame: 'HTML ドキュメントプレビュー',
+  loading: 'HTML プレビューを準備しています…',
+  failed: 'この HTML ドキュメントをプレビューできません。',
 }

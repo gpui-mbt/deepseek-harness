@@ -1,5 +1,5 @@
 /** The `stat` endpoint: the same gates as `read`, answering identity and freshness without content. */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdir, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { FsVersion } from '@deepseek-ai/dsh-fs'
@@ -43,7 +43,7 @@ describe('workspaceFiles.stat', () => {
     await expect(harness.endpoint().stat(harness.scope, 'notes.txt', controller.signal)).rejects.toThrow()
   })
 
-  it('resolves the workspace root and then the file under the caller\'s signal', async () => {
+  it("resolves the workspace root and then the file under the caller's signal", async () => {
     await writeFile(join(harness.workspace, 'notes.txt'), 'hello\n', 'utf8')
     const fs = harness.ctx.fs
     const original = fs.resolve.bind(fs)

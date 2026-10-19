@@ -1,6 +1,6 @@
 /** Registration/capability behavior of the native backend (the seam's cordis half). */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import NativeDirectoryPicker from '../src/index.ts'
 

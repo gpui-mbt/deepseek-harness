@@ -54,15 +54,18 @@ export function useModalLayer(dialog: RefObject<HTMLElement | null>, open: boole
     const previous = document.activeElement
     const stack = layers.get(document) ?? []
     layers.set(document, stack)
-    const layer = { element, close: () => { close.current() } }
+    const layer = {
+      element,
+      close: () => {
+        close.current()
+      },
+    }
     stack.push(layer)
-    const initial = element.querySelector<HTMLElement>('[data-modal-autofocus]')
-      ?? element.querySelector<HTMLElement>(focusable) ?? element
+    const initial = element.querySelector<HTMLElement>('[data-modal-autofocus]') ?? element.querySelector<HTMLElement>(focusable) ?? element
     if (!element.contains(document.activeElement)) focusWithoutRing(initial)
     const keydown = (event: KeyboardEvent): void => {
       const composing = composition.guards(event)
-      if (stack.at(-1) !== layer || event.defaultPrevented || composing
-        || event.ctrlKey || event.altKey || event.metaKey) return
+      if (stack.at(-1) !== layer || event.defaultPrevented || composing || event.ctrlKey || event.altKey || event.metaKey) return
       if (event.key === 'Escape' && !event.shiftKey) {
         event.preventDefault()
         if (!event.repeat) close.current()
@@ -70,8 +73,7 @@ export function useModalLayer(dialog: RefObject<HTMLElement | null>, open: boole
       if (event.key !== 'Tab') return
       // Portaled menus own their traversal while they contain focus.
       if (document.activeElement?.closest('[role="menu"]')) return
-      const items = [...element.querySelectorAll<HTMLElement>(focusable)]
-        .filter(item => !item.closest('[inert], [hidden]'))
+      const items = [...element.querySelectorAll<HTMLElement>(focusable)].filter(item => !item.closest('[inert], [hidden]'))
       const first = items[0] ?? element
       const last = items.at(-1) ?? element
       const atEdge = event.shiftKey ? document.activeElement === first : document.activeElement === last

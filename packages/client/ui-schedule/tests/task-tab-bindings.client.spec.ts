@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** Task tab bindings recover the task one restored tab page last showed. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ScheduleId } from '@deepseek-ai/dsh-schedule/client'
 import { TaskTabBindings, type TaskTabPage, type TaskTabTarget } from '../src/client/task-tab-bindings.ts'
@@ -67,12 +67,16 @@ it('keeps only the last task one page showed', () => {
 it('stores only the page identity and the task target', () => {
   const bindings = new TaskTabBindings()
   bindings.write(session, page('tab1'), target('task-1'))
-  expect(localStorage.getItem(storedKey())).toBe(JSON.stringify({
-    tab1: {
-      kind: 'scheduleTask', contentId: 'sidebar://scheduleTask',
-      sessionId: session, id: 'task-1',
-    },
-  }))
+  expect(localStorage.getItem(storedKey())).toBe(
+    JSON.stringify({
+      tab1: {
+        kind: 'scheduleTask',
+        contentId: 'sidebar://scheduleTask',
+        sessionId: session,
+        id: 'task-1',
+      },
+    }),
+  )
 })
 
 const reusedPage: readonly (readonly [string, TaskTabPage])[] = [
@@ -137,7 +141,7 @@ it('removes one page entry and the Session key with its last entry', () => {
   expect(bindings.read(session, page('tab2'))).toBeUndefined()
 })
 
-it.each(['{broken', 'null', '42', '"text"', '[]'])('ignores an unreadable stored document %s', (raw) => {
+it.each(['{broken', 'null', '42', '"text"', '[]'])('ignores an unreadable stored document %s', raw => {
   const bindings = new TaskTabBindings()
   bindings.write(session, page('tab1'), target('task-1'))
   localStorage.setItem(storedKey(), raw)
@@ -147,20 +151,25 @@ it.each(['{broken', 'null', '42', '"text"', '[]'])('ignores an unreadable stored
 it('keeps well-formed entries beside malformed ones', () => {
   const bindings = new TaskTabBindings()
   bindings.write(session, page('tab1'), target('task-1'))
-  localStorage.setItem(storedKey(), JSON.stringify({
-    badKind: { kind: 1, contentId: 'content', sessionId: 'session', id: 'task' },
-    badContent: { kind: 'kind', contentId: 2, sessionId: 'session', id: 'task' },
-    badSession: { kind: 'kind', contentId: 'content', sessionId: 3, id: 'task' },
-    badId: { kind: 'kind', contentId: 'content', sessionId: 'session', id: 4 },
-    short: { kind: 'kind', contentId: 'content' },
-    scalar: 7,
-    list: [],
-    empty: null,
-    tab1: {
-      kind: 'scheduleTask', contentId: 'sidebar://scheduleTask',
-      sessionId: session, id: 'task-9',
-    },
-  }))
+  localStorage.setItem(
+    storedKey(),
+    JSON.stringify({
+      badKind: { kind: 1, contentId: 'content', sessionId: 'session', id: 'task' },
+      badContent: { kind: 'kind', contentId: 2, sessionId: 'session', id: 'task' },
+      badSession: { kind: 'kind', contentId: 'content', sessionId: 3, id: 'task' },
+      badId: { kind: 'kind', contentId: 'content', sessionId: 'session', id: 4 },
+      short: { kind: 'kind', contentId: 'content' },
+      scalar: 7,
+      list: [],
+      empty: null,
+      tab1: {
+        kind: 'scheduleTask',
+        contentId: 'sidebar://scheduleTask',
+        sessionId: session,
+        id: 'task-9',
+      },
+    }),
+  )
   const reloaded = new TaskTabBindings()
   expect(reloaded.read(session, page('tab1'))).toEqual(target('task-9'))
   for (const id of ['badKind', 'badContent', 'badSession', 'badId', 'short', 'scalar', 'list', 'empty']) {
@@ -170,11 +179,17 @@ it('keeps well-formed entries beside malformed ones', () => {
 
 it('keeps this window working when storage is absent or rejects writes', () => {
   const bindings = new TaskTabBindings()
-  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('Storage blocked') })
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    throw new Error('Storage blocked')
+  })
   expect(bindings.read(session, page('tab1'))).toBeUndefined()
   const reported = vi.spyOn(console, 'error').mockImplementation(() => {})
-  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('Storage full') })
-  vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('Storage blocked') })
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new Error('Storage full')
+  })
+  vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+    throw new Error('Storage blocked')
+  })
   bindings.write(session, page('tab1'), target('task-1'))
   expect(bindings.read(session, page('tab1'))).toEqual(target('task-1'))
   bindings.forget(session, page('tab1'))

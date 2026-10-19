@@ -65,9 +65,7 @@ export interface ProjectionsBaseline {
  * stored seq is comparable with the log the client later opens, so it carries
  * none and yields to every sequenced write.
  */
-type Row =
-  | { kind: 'cached'; value: unknown }
-  | { kind: 'sequenced'; value: unknown; seq: SessionSeqCursor }
+type Row = { kind: 'cached'; value: unknown } | { kind: 'sequenced'; value: unknown; seq: SessionSeqCursor }
 
 /** Per-key notification channel: the bare face plus its batching notifier. */
 interface Channel {
@@ -133,9 +131,7 @@ export class ProjectionValueStore {
    */
   values(): Readonly<Partial<SessionProjectionMap>> {
     if (this.valuesCache === undefined) {
-      this.valuesCache = Object.freeze(Object.fromEntries(
-        [...this.rows].map(([key, row]) => [key, row.value]),
-      ))
+      this.valuesCache = Object.freeze(Object.fromEntries([...this.rows].map(([key, row]) => [key, row.value])))
     }
     return this.valuesCache
   }

@@ -36,8 +36,17 @@ const VIEWPORT_MARGIN = 8
  * @returns anchor wrapper with the conditional portaled card.
  */
 export function HoverCard({
-  anchor, content, openDelayMs = 500, disabled = false, grouped = false,
-  copyText, copyLabel, copiedLabel, variant = 'compact', widthAnchorRef, inline = false,
+  anchor,
+  content,
+  openDelayMs = 500,
+  disabled = false,
+  grouped = false,
+  copyText,
+  copyLabel,
+  copiedLabel,
+  variant = 'compact',
+  widthAnchorRef,
+  inline = false,
 }: {
   anchor: ReactNode
   /** Inline media preview using the shared menu material and keyboard focus. */
@@ -48,11 +57,14 @@ export function HoverCard({
   grouped?: boolean
   variant?: 'compact' | 'preview'
   widthAnchorRef?: RefObject<HTMLElement | null>
-} & ({ copyText?: string | undefined; copyLabel: string; copiedLabel: string } | {
-  copyText?: undefined
-  copyLabel?: string
-  copiedLabel?: string
-})) {
+} & (
+  | { copyText?: string | undefined; copyLabel: string; copiedLabel: string }
+  | {
+      copyText?: undefined
+      copyLabel?: string
+      copiedLabel?: string
+    }
+)) {
   const rootRef = useRef<HTMLSpanElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -83,7 +95,7 @@ export function HoverCard({
   const close = useCallback(() => {
     copyEpochRef.current += 1
     clearCopied()
-    setPhase(current => variant === 'preview' && current !== 'closed' ? 'closing' : 'closed')
+    setPhase(current => (variant === 'preview' && current !== 'closed' ? 'closing' : 'closed'))
   }, [clearCopied, variant])
 
   const { arm: armClose, cancel: cancelClose } = usePointerGrace(close)
@@ -108,13 +120,19 @@ export function HoverCard({
     if (!groupVisible || group === null) return
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- The visible card's ref is attached before layout effects.
     group.shown(groupOwner, dismissImmediately, cardRef.current!)
-    return () => { group.release(groupOwner) }
+    return () => {
+      group.release(groupOwner)
+    }
   }, [group, groupOwner, groupVisible, dismissImmediately])
 
   useEffect(() => {
     if (!closing) return
-    const timer = setTimeout(() => { setPhase('closed') }, PREVIEW_FADE_MS)
-    return () => { clearTimeout(timer) }
+    const timer = setTimeout(() => {
+      setPhase('closed')
+    }, PREVIEW_FADE_MS)
+    return () => {
+      clearTimeout(timer)
+    }
   }, [closing])
 
   // Owner disabling mid-hover (menu opened, drag started) starts dismissal.
@@ -148,13 +166,18 @@ export function HoverCard({
       close()
     }
     window.addEventListener('keydown', dismiss, inline)
-    return () => { window.removeEventListener('keydown', dismiss, inline) }
+    return () => {
+      window.removeEventListener('keydown', dismiss, inline)
+    }
   }, [open, variant, inline, cancelClose, close])
 
   // Fixed-position from the anchor rect before paint; track the anchor while
   // open (capture-phase scroll catches nested panes), as in Menu portal mode.
   useLayoutEffect(() => {
-    if (!open) { setPos(null); return }
+    if (!open) {
+      setPos(null)
+      return
+    }
     const place = () => {
       const wrapper = rootRef.current
       /* v8 ignore next -- the ref is attached before the layout effect runs and the listeners die with it. */
@@ -173,7 +196,8 @@ export function HoverCard({
         setPos({
           left: Math.max(VIEWPORT_MARGIN, Math.min(bounds.left + PREVIEW_INSET, window.innerWidth - width - VIEWPORT_MARGIN)),
           top: onTop ? Math.max(topMargin, r.top - Math.min(h, maxHeight) - ANCHOR_GAP) : belowTop,
-          width, maxHeight,
+          width,
+          maxHeight,
         })
         return
       }
@@ -189,7 +213,8 @@ export function HoverCard({
         setPos({
           left: Math.max(VIEWPORT_MARGIN, Math.min(r.left, window.innerWidth - width - VIEWPORT_MARGIN)),
           top: onTop ? r.top - ANCHOR_GAP - Math.min(height, maxHeight) : belowTop,
-          width, maxHeight,
+          width,
+          maxHeight,
         })
         return
       }
@@ -247,35 +272,54 @@ export function HoverCard({
   const card = open && pos !== null && (
     <div
       ref={cardRef}
-      className={clsx(css.card, variant === 'preview' && css.preview, inline && css.media, copyable && css.copyable, copied && css.feedback)}
+      className={clsx(
+        css.card,
+        variant === 'preview' && css.preview,
+        inline && css.media,
+        copyable && css.copyable,
+        copied && css.feedback,
+      )}
       data-closing={closing || undefined}
-      style={{
-        ...pos, minHeight: copied && copyHeightRef.current !== null ? copyHeightRef.current : undefined,
-        '--dsh-hover-preview-fade': `${PREVIEW_FADE_MS}ms`,
-      } as CSSProperties}
+      style={
+        {
+          ...pos,
+          minHeight: copied && copyHeightRef.current !== null ? copyHeightRef.current : undefined,
+          '--dsh-hover-preview-fade': `${PREVIEW_FADE_MS}ms`,
+        } as CSSProperties
+      }
       role={copyable ? 'button' : undefined}
       tabIndex={copyable ? 0 : undefined}
       aria-label={copyable ? `${copyLabel}: ${copyText}` : undefined}
-      onClick={copyable
-        ? (e) => {
-          const selection = window.getSelection()
-          if (selection !== null && !selection.isCollapsed) {
-            for (let i = 0; i < selection.rangeCount; i += 1) {
-              if (selection.getRangeAt(i).intersectsNode(e.currentTarget)) return
+      onClick={
+        copyable
+          ? e => {
+              const selection = window.getSelection()
+              if (selection !== null && !selection.isCollapsed) {
+                for (let i = 0; i < selection.rangeCount; i += 1) {
+                  if (selection.getRangeAt(i).intersectsNode(e.currentTarget)) return
+                }
+              }
+              void copy(copyText)
             }
-          }
-          void copy(copyText)
-        }
-        : undefined}
-      onKeyDown={copyable
-        ? (e) => {
-          if (e.key !== 'Enter' && e.key !== ' ') return
-          e.preventDefault()
-          void copy(copyText)
-        }
-        : undefined}
+          : undefined
+      }
+      onKeyDown={
+        copyable
+          ? e => {
+              if (e.key !== 'Enter' && e.key !== ' ') return
+              e.preventDefault()
+              void copy(copyText)
+            }
+          : undefined
+      }
     >
-      {copied ? <span className={css.copied} aria-hidden="true">{copiedLabel}</span> : content}
+      {copied ? (
+        <span className={css.copied} aria-hidden="true">
+          {copiedLabel}
+        </span>
+      ) : (
+        content
+      )}
     </div>
   )
 
@@ -283,21 +327,42 @@ export function HoverCard({
     <span
       ref={rootRef}
       className={clsx(css.root, inline && css.inline)}
-      onFocus={inline ? (event) => {
-        if (!disabled && event.target.matches(':focus-visible')) { cancelClose(); setPhase('open') }
-      } : undefined}
-      onBlur={inline ? (event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) { clearTimer(); cancelClose(); close() }
-      } : undefined}
-      onPointerEnter={(event) => {
+      onFocus={
+        inline
+          ? event => {
+              if (!disabled && event.target.matches(':focus-visible')) {
+                cancelClose()
+                setPhase('open')
+              }
+            }
+          : undefined
+      }
+      onBlur={
+        inline
+          ? event => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                clearTimer()
+                cancelClose()
+                close()
+              }
+            }
+          : undefined
+      }
+      onPointerEnter={event => {
         if (disabled || (inline && event.pointerType === 'touch')) return
         // Coming back inside during the grace (the gap, or the card itself)
         // keeps the current card rather than restarting the dwell.
         cancelClose()
-        if (open) { setPhase('open'); return }
+        if (open) {
+          setPhase('open')
+          return
+        }
         clearTimer()
         if (group?.isWarm()) setPhase('open')
-        else timerRef.current = setTimeout(() => { setPhase('open') }, openDelayMs)
+        else
+          timerRef.current = setTimeout(() => {
+            setPhase('open')
+          }, openDelayMs)
       }}
       onPointerLeave={() => {
         clearTimer()
@@ -309,7 +374,11 @@ export function HoverCard({
       onClickCapture={dismissFromAnchor}
     >
       {anchor}
-      {open && copyable && <span className={css.status} role="status">{copied ? copiedLabel : ''}</span>}
+      {open && copyable && (
+        <span className={css.status} role="status">
+          {copied ? copiedLabel : ''}
+        </span>
+      )}
       {card !== false && createPortal(card, document.body)}
     </span>
   )

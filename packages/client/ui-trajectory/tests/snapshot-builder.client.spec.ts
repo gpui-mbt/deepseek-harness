@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { RequestView } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import type {
-  TrajectoryContribution, TrajectoryConversationViewNode, TrajectoryRequestHeaderState,
+  TrajectoryContribution,
+  TrajectoryConversationViewNode,
+  TrajectoryRequestHeaderState,
 } from '../src/client/trajectory-contract.ts'
 import { TrajectorySnapshotBuilder } from '../src/client/trajectory-snapshot-builder.ts'
 
@@ -21,13 +23,13 @@ function assistantRequest(startSeq: number, step: number): Extract<RequestView, 
   }
 }
 
-function contribution(
-  key: string,
-  anchorSeq: number,
-  data: TrajectoryContribution,
-): TrajectoryConversationViewNode {
+function contribution(key: string, anchorSeq: number, data: TrajectoryContribution): TrajectoryConversationViewNode {
   return {
-    key, kind: key, id: key, target: 'trajectory', anchorSeq,
+    key,
+    kind: key,
+    id: key,
+    target: 'trajectory',
+    anchorSeq,
     location: { kind: 'session' },
     data,
   }
@@ -105,12 +107,14 @@ describe('TrajectorySnapshotBuilder', () => {
 
     const snapshot = new TrajectorySnapshotBuilder().replace({ nodes })
 
-    expect(snapshot.requests.map(request => request.purpose === 'assistant'
-      ? request.prompt?.system
-      : undefined)).toEqual(['one initial prompt', 'one initial prompt'])
-    expect(snapshot.requests.map(request => request.purpose === 'assistant'
-      ? request.promptChange?.kind
-      : undefined)).toEqual(['initial', undefined])
+    expect(snapshot.requests.map(request => (request.purpose === 'assistant' ? request.prompt?.system : undefined))).toEqual([
+      'one initial prompt',
+      'one initial prompt',
+    ])
+    expect(snapshot.requests.map(request => (request.purpose === 'assistant' ? request.promptChange?.kind : undefined))).toEqual([
+      'initial',
+      undefined,
+    ])
   })
 
   it('retains a same-step prompt change when a later series header supplies the latest snapshot', () => {
@@ -164,12 +168,11 @@ describe('TrajectorySnapshotBuilder', () => {
 
     const snapshot = new TrajectorySnapshotBuilder().replace({ nodes })
 
-    expect(snapshot.requests.map(request => request.purpose === 'assistant'
-      ? request.prompt?.system
-      : undefined)).toEqual(['initial prompt', 'changed prompt'])
-    expect(snapshot.requests.map(request => request.purpose === 'assistant'
-      ? request.promptChange?.seq
-      : undefined)).toEqual([2, 5])
+    expect(snapshot.requests.map(request => (request.purpose === 'assistant' ? request.prompt?.system : undefined))).toEqual([
+      'initial prompt',
+      'changed prompt',
+    ])
+    expect(snapshot.requests.map(request => (request.purpose === 'assistant' ? request.promptChange?.seq : undefined))).toEqual([2, 5])
   })
 
   it('indexes exact step headers and the active tool schema without backward scans', () => {
@@ -217,7 +220,9 @@ describe('TrajectorySnapshotBuilder', () => {
       contribution('tool', 7, {
         kind: 'tool',
         root: {
-          phase: 'start' as const, args: PartialArguments.fromText('{}'), callId: 'call-edit',
+          phase: 'start' as const,
+          args: PartialArguments.fromText('{}'),
+          callId: 'call-edit',
           name: 'edit',
           argsRaw: '{}',
           turn: 1,
@@ -230,19 +235,18 @@ describe('TrajectorySnapshotBuilder', () => {
 
     const snapshot = new TrajectorySnapshotBuilder().replace({ nodes })
 
-    expect(snapshot.requests.map(request => request.purpose === 'assistant'
-      ? request.prompt?.system
-      : undefined)).toEqual(['base prompt', 'exact prompt'])
+    expect(snapshot.requests.map(request => (request.purpose === 'assistant' ? request.prompt?.system : undefined))).toEqual([
+      'base prompt',
+      'exact prompt',
+    ])
     expect(snapshot.callSchemas.get('call-edit')).toEqual(exactPrompt.tools[0])
   })
 
   it('applies session boundaries and turn errors with linear request indexes', () => {
     const nodes: TrajectoryConversationViewNode[] = [
-      ...[assistantRequest(1, 1), assistantRequest(3, 2)].map(request => contribution(
-        `assistant:${request.step}`,
-        request.startSeq,
-        { kind: 'assistant', partial: null, request },
-      )),
+      ...[assistantRequest(1, 1), assistantRequest(3, 2)].map(request =>
+        contribution(`assistant:${request.step}`, request.startSeq, { kind: 'assistant', partial: null, request }),
+      ),
       contribution('turn-end', 5, {
         kind: 'turn-end',
         turn: 1,
@@ -267,7 +271,11 @@ describe('TrajectorySnapshotBuilder', () => {
     expect(snapshot.requests).toMatchObject([
       { purpose: 'assistant', step: 1, status: 'complete' },
       {
-        purpose: 'assistant', step: 2, status: 'error', error: 'turn failed', errorCode: 'AUTH',
+        purpose: 'assistant',
+        step: 2,
+        status: 'error',
+        error: 'turn failed',
+        errorCode: 'AUTH',
       },
       { purpose: 'compaction', startSeq: 10, status: 'error', completedAt: 16 },
       { purpose: 'compaction', startSeq: 12, status: 'error', completedAt: 14 },
@@ -277,26 +285,29 @@ describe('TrajectorySnapshotBuilder', () => {
   it('keeps cached contribution order across content updates and structural inserts', () => {
     const builder = new TrajectorySnapshotBuilder()
     const first = contribution('assistant:1', 1, {
-      kind: 'assistant', partial: null, request: assistantRequest(1, 1),
+      kind: 'assistant',
+      partial: null,
+      request: assistantRequest(1, 1),
     })
     const last = contribution('assistant:3', 5, {
-      kind: 'assistant', partial: null, request: assistantRequest(5, 3),
+      kind: 'assistant',
+      partial: null,
+      request: assistantRequest(5, 3),
     })
-    expect(builder.replace({ nodes: [last, first] }).requests.map(request => request.startSeq))
-      .toEqual([1, 5])
+    expect(builder.replace({ nodes: [last, first] }).requests.map(request => request.startSeq)).toEqual([1, 5])
 
     const updatedLast = contribution('assistant:3', 5, {
       kind: 'assistant',
       partial: null,
       request: { ...assistantRequest(5, 3), status: 'error', error: 'failed' },
     })
-    expect(builder.apply({ upserts: [updatedLast] }).requests.map(request => request.startSeq))
-      .toEqual([1, 5])
+    expect(builder.apply({ upserts: [updatedLast] }).requests.map(request => request.startSeq)).toEqual([1, 5])
 
     const middle = contribution('assistant:2', 3, {
-      kind: 'assistant', partial: null, request: assistantRequest(3, 2),
+      kind: 'assistant',
+      partial: null,
+      request: assistantRequest(3, 2),
     })
-    expect(builder.apply({ upserts: [middle] }).requests.map(request => request.startSeq))
-      .toEqual([1, 3, 5])
+    expect(builder.apply({ upserts: [middle] }).requests.map(request => request.startSeq)).toEqual([1, 3, 5])
   })
 })

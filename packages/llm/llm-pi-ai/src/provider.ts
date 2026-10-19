@@ -77,10 +77,11 @@ export function supportedProtocols(): readonly string[] {
 function harnessApiKeyAuth(name: string): ApiKeyAuth {
   return {
     name,
-    resolve: ({ credential }) => Promise.resolve({
-      auth: credential?.key === undefined ? {} : { apiKey: credential.key },
-      source: name,
-    }),
+    resolve: ({ credential }) =>
+      Promise.resolve({
+        auth: credential?.key === undefined ? {} : { apiKey: credential.key },
+        source: name,
+      }),
   }
 }
 
@@ -148,7 +149,7 @@ function reuseCatalogProvider(base: Provider, spec: ProviderSpec): Provider {
   return {
     id: spec.provider,
     name: spec.displayName,
-    ...baseUrl === undefined ? {} : { baseUrl },
+    ...(baseUrl === undefined ? {} : { baseUrl }),
     auth: routeAuth(spec, base),
     getModels: () => spec.models,
     // Delegated rather than copied: the catalog provider stays the receiver, so
@@ -177,14 +178,14 @@ export function buildProvider(spec: ProviderSpec): Provider {
   const factory = spec.api === undefined ? undefined : PROTOCOLS[spec.api]
   if (factory === undefined) {
     throw new PiAiCatalogError(
-      `llm-pi-ai: provider "${spec.provider}" names api "${spec.api}", which this build cannot serve;`
-      + ` supported protocols are ${supportedProtocols().join(', ')}`,
+      `llm-pi-ai: provider "${spec.provider}" names api "${spec.api}", which this build cannot serve;` +
+        ` supported protocols are ${supportedProtocols().join(', ')}`,
     )
   }
   return createProvider({
     id: spec.provider,
     name: spec.displayName,
-    ...spec.baseURL === undefined ? {} : { baseUrl: spec.baseURL },
+    ...(spec.baseURL === undefined ? {} : { baseUrl: spec.baseURL }),
     auth: routeAuth(spec, catalog),
     models: spec.models,
     api: factory(),

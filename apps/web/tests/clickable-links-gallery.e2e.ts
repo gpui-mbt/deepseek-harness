@@ -20,7 +20,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { ToolCallId, createAssistantMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, Session, SessionId } from '@deepseek-ai/dsh-session'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
@@ -78,7 +78,8 @@ interface GalleryCall {
 /** The five successful writes; docs/press.md and src/tokens.css join via other tools. */
 const WRITES = ['site/report.html', 'a/style.css', 'b/style.css', 'site/index.html', 'site/app.js']
 
-const LONG_COMMAND_DESCRIPTION = 'Check every generated stylesheet and component theme against the shared design tokens, inspect the application pages for inconsistent colors, and report all remaining lint failures before publishing the production build'
+const LONG_COMMAND_DESCRIPTION =
+  'Check every generated stylesheet and component theme against the shared design tokens, inspect the application pages for inconsistent colors, and report all remaining lint failures before publishing the production build'
 
 /** The gallery turn's tool calls, in surface order. */
 const CALLS: GalleryCall[] = [
@@ -96,11 +97,13 @@ const CALLS: GalleryCall[] = [
     },
     result: 'Edited src/tokens.css',
     meta: {
-      diffs: [{
-        path: 'src/tokens.css',
-        oldText: '--inline-code: #EBEEF2;\n',
-        newText: '--inline-code: #F5F5F5;\n',
-      }],
+      diffs: [
+        {
+          path: 'src/tokens.css',
+          oldText: '--inline-code: #EBEEF2;\n',
+          newText: '--inline-code: #F5F5F5;\n',
+        },
+      ],
     },
   },
   {
@@ -124,8 +127,7 @@ const CALLS: GalleryCall[] = [
       '<path>docs/guide.md</path>',
       '<type>file</type>',
       '<content>',
-      ...Array.from({ length: 12 }, (_, index) =>
-        index === 0 ? '# Link style guide' : `guide line ${String(index + 1)}`),
+      ...Array.from({ length: 12 }, (_, index) => (index === 0 ? '# Link style guide' : `guide line ${String(index + 1)}`)),
       '</content>',
     ].join('\n'),
     meta: {
@@ -212,10 +214,14 @@ const CALLS: GalleryCall[] = [
 function galleryFixture(imageUrl: string): string {
   const session = Session.create(SessionId('clickable-links-gallery-source'))
   session.append('turn/start', { turn: 1 })
-  const user = session.append('user/message', createUserMessage({
-    content: text('Assemble the link gallery: write the report and styles, inspect the sources, and summarize.'),
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  const user = session.append(
+    'user/message',
+    createUserMessage({
+      content: text('Assemble the link gallery: write the report and styles, inspect the sources, and summarize.'),
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
   session.append('session/title', {
     title: 'Clickable links gallery',
     messageSeqs: [user.seq],
@@ -227,20 +233,24 @@ function galleryFixture(imageUrl: string): string {
     callId: ToolCallId(`gallery-${String(index)}`),
     argsJson: JSON.stringify(call.args),
   }))
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 1,
-    message: createAssistantMessage({
-      content: calls.map(call => ({
-        type: 'tool-call' as const,
-        id: call.callId,
-        name: call.name,
-        arguments: call.argsJson,
-      })),
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 1,
+      message: createAssistantMessage({
+        content: calls.map(call => ({
+          type: 'tool-call' as const,
+          id: call.callId,
+          name: call.name,
+          arguments: call.argsJson,
+        })),
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   for (const call of calls) {
     const source = session.append('tool/call', {
       turn: 1,
@@ -249,53 +259,63 @@ function galleryFixture(imageUrl: string): string {
       name: call.name,
       arguments: call.argsJson,
     })
-    session.append('tool/result', {
-      turn: 1,
-      step: 1,
-      message: createToolResultMessage({
-        callId: call.callId,
-        content: text(call.result),
-        isError: call.isError === true,
-      }),
-      ...(call.meta === undefined ? {} : { meta: call.meta }),
-    }, { surfaceOp: 'append', sourceEventSeqs: [source.seq] })
+    session.append(
+      'tool/result',
+      {
+        turn: 1,
+        step: 1,
+        message: createToolResultMessage({
+          callId: call.callId,
+          content: text(call.result),
+          isError: call.isError === true,
+        }),
+        ...(call.meta === undefined ? {} : { meta: call.meta }),
+      },
+      { surfaceOp: 'append', sourceEventSeqs: [source.seq] },
+    )
   }
   session.append('step/end', { turn: 1, step: 1 })
   session.append('step/start', { turn: 1, step: 2 })
-  session.append('assistant/message', {
-    stream: [],
-    turn: 1,
-    step: 2,
-    message: createAssistantMessage({
-      content: text([
-        '## Link gallery',
-        '',
-        `Docs: [style guide](${GUIDE_URL}) and \`${API_URL}\`; see [the release notes][rel], `
-        + `contact [the maintainer](${MAILTO_URL}), and check the fine print[^1].`,
-        '',
-        `Preview: [plain HTTP](${HTTP_URL}).`,
-        '',
-        `Upstream: [the repository](${REPO_URL}).`,
-        '',
-        `Inert contrasts: \`curl ${API_URL}\`, \`javascript:alert(1)\`, and \`pnpm run build\`.`,
-        '',
-        'Wrote `report.html` plus two `style.css` copies; `notes.md` untouched.',
-        '',
-        `![Token preview](${imageUrl})`,
-        '',
-        '```css',
-        '--inline-code: #F5F5F5;',
-        '```',
-        '',
-        DONE,
-        '',
-        `[rel]: ${RELEASES_URL}`,
-        '',
-        '[^1]: Footnote references stay inert superscripts.',
-      ].join('\n')),
-      source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
-    }),
-  }, { surfaceOp: 'append' })
+  session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn: 1,
+      step: 2,
+      message: createAssistantMessage({
+        content: text(
+          [
+            '## Link gallery',
+            '',
+            `Docs: [style guide](${GUIDE_URL}) and \`${API_URL}\`; see [the release notes][rel], ` +
+              `contact [the maintainer](${MAILTO_URL}), and check the fine print[^1].`,
+            '',
+            `Preview: [plain HTTP](${HTTP_URL}).`,
+            '',
+            `Upstream: [the repository](${REPO_URL}).`,
+            '',
+            `Inert contrasts: \`curl ${API_URL}\`, \`javascript:alert(1)\`, and \`pnpm run build\`.`,
+            '',
+            'Wrote `report.html` plus two `style.css` copies; `notes.md` untouched.',
+            '',
+            `![Token preview](${imageUrl})`,
+            '',
+            '```css',
+            '--inline-code: #F5F5F5;',
+            '```',
+            '',
+            DONE,
+            '',
+            `[rel]: ${RELEASES_URL}`,
+            '',
+            '[^1]: Footnote references stay inert superscripts.',
+          ].join('\n'),
+        ),
+        source: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      }),
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('step/end', { turn: 1, step: 2 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 
@@ -309,10 +329,12 @@ function galleryFixture(imageUrl: string): string {
       isSeeded: false,
       delegationDepth: 0,
     }),
-    ...session.snapshotEvents().map(event => JSON.stringify({
-      ...event,
-      time: GALLERY_TIME + event.seq * 1_000,
-    })),
+    ...session.snapshotEvents().map(event =>
+      JSON.stringify({
+        ...event,
+        time: GALLERY_TIME + event.seq * 1_000,
+      }),
+    ),
     '',
   ].join('\n')
 }
@@ -330,10 +352,12 @@ describe('web e2e: clickable links gallery', () => {
     await seedSession(scaffold, galleryFixture(imageUrl), SEED_ID, undefined, { createdAt: GALLERY_TIME })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
-    await page.context().route(/https?:\/\/docs\.example\.test\/.*/u, async route => route.fulfill({
-      contentType: 'text/html',
-      body: `<h1>${new URL(route.request().url()).pathname}</h1>`,
-    }))
+    await page.context().route(/https?:\/\/docs\.example\.test\/.*/u, async route =>
+      route.fulfill({
+        contentType: 'text/html',
+        body: `<h1>${new URL(route.request().url()).pathname}</h1>`,
+      }),
+    )
     await page.clock.setFixedTime(GALLERY_TIME + 60_000)
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
@@ -345,221 +369,238 @@ describe('web e2e: clickable links gallery', () => {
     await scaffold?.close()
   })
 
-  it.skipIf(MODE === 'record')('renders every clickable link and artifact form of the settled turn', async () => {
-    onTestFailed(() => saveFailureShot(page, 'web-e2e-clickable-links-gallery'))
-    const groupRow = page.locator('[role="treeitem"]').first()
-    await groupRow.waitFor({ timeout: 15_000 })
-    await groupRow.click()
-    const sessionRow = page.locator('[role="treeitem"]').nth(1)
-    await sessionRow.waitFor({ timeout: 10_000 })
-    await sessionRow.click()
-    await expect.poll(() => page.getByText(DONE, { exact: true }).count(), { timeout: 15_000 }).toBe(1)
+  it.skipIf(MODE === 'record')(
+    'renders every clickable link and artifact form of the settled turn',
+    async () => {
+      onTestFailed(() => saveFailureShot(page, 'web-e2e-clickable-links-gallery'))
+      const groupRow = page.locator('[role="treeitem"]').first()
+      await groupRow.waitFor({ timeout: 15_000 })
+      await groupRow.click()
+      const sessionRow = page.locator('[role="treeitem"]').nth(1)
+      await sessionRow.waitFor({ timeout: 10_000 })
+      await sessionRow.click()
+      await expect.poll(() => page.getByText(DONE, { exact: true }).count(), { timeout: 15_000 }).toBe(1)
 
-    // Markdown prose: plain, reference-style, and mailto links plus the
-    // inline-code URL are anchors; the URL-with-flags code, the javascript:
-    // destination, and plain command code stay inert.
-    const markdown = page.locator('[class*="markdown"]')
-    await expect.poll(() => markdown.locator(`a[href="${GUIDE_URL}"]`).count(), { timeout: 10_000 }).toBe(1)
-    expect(await markdown.locator(`a[href="${RELEASES_URL}"]`).count()).toBe(1)
-    expect(await markdown.locator(`a[href="${HTTP_URL}"]`).count()).toBe(1)
-    expect(await markdown.locator(`a[href="${MAILTO_URL}"]`).count()).toBe(1)
-    const inlineCodeLink = markdown.locator(`code a[href="${API_URL}"]`)
-    expect(await inlineCodeLink.count()).toBe(1)
-    expect(await inlineCodeLink.getAttribute('target')).toBe('_blank')
-    expect(await page.getByText(`curl ${API_URL}`, { exact: true }).locator('a').count()).toBe(0)
-    expect(await page.getByText('javascript:alert(1)', { exact: true }).locator('a').count()).toBe(0)
-    expect(await markdown.locator(`img[src="${imageUrl}"]`).count()).toBe(1)
+      // Markdown prose: plain, reference-style, and mailto links plus the
+      // inline-code URL are anchors; the URL-with-flags code, the javascript:
+      // destination, and plain command code stay inert.
+      const markdown = page.locator('[class*="markdown"]')
+      await expect.poll(() => markdown.locator(`a[href="${GUIDE_URL}"]`).count(), { timeout: 10_000 }).toBe(1)
+      expect(await markdown.locator(`a[href="${RELEASES_URL}"]`).count()).toBe(1)
+      expect(await markdown.locator(`a[href="${HTTP_URL}"]`).count()).toBe(1)
+      expect(await markdown.locator(`a[href="${MAILTO_URL}"]`).count()).toBe(1)
+      const inlineCodeLink = markdown.locator(`code a[href="${API_URL}"]`)
+      expect(await inlineCodeLink.count()).toBe(1)
+      expect(await inlineCodeLink.getAttribute('target')).toBe('_blank')
+      expect(await page.getByText(`curl ${API_URL}`, { exact: true }).locator('a').count()).toBe(0)
+      expect(await page.getByText('javascript:alert(1)', { exact: true }).locator('a').count()).toBe(0)
+      expect(await markdown.locator(`img[src="${imageUrl}"]`).count()).toBe(1)
 
-    // Produced files: one unique-basename mention links; the shared basename
-    // and the unwritten file stay inert code. The seeded session carries no
-    // recorded change summary, so no changed-files card follows the prose.
-    const mentions = markdown.locator('code button')
-    expect(await mentions.count()).toBe(1)
-    expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
-    expect(await page.locator('[data-changed-files]').count()).toBe(0)
-    expect(await page.locator('button[aria-label="Open c/broken.css"]').count()).toBe(0)
+      // Produced files: one unique-basename mention links; the shared basename
+      // and the unwritten file stay inert code. The seeded session carries no
+      // recorded change summary, so no changed-files card follows the prose.
+      const mentions = markdown.locator('code button')
+      expect(await mentions.count()).toBe(1)
+      expect(await mentions.first().getAttribute('title')).toBe('site/report.html')
+      expect(await page.locator('[data-changed-files]').count()).toBe(0)
+      expect(await page.locator('button[aria-label="Open c/broken.css"]').count()).toBe(0)
 
-    // Tool rows: five writes, the edit, and the read carry the dotted file
-    // link; the failed write row does not, and neither does str_replace_editor
-    // — TOOL_VARIANTS has no entry for it, so it falls to the generic row with
-    // no openable path even though its create still joins the produced chips.
-    expect(await page.locator('button[class*="fileLink"]').count()).toBe(7)
-    // The collapsed web-fetch row's summary is its URL, opened in a new tab.
-    const fetchSummaryLink = page.locator(`a[class*="fileLink"][href="${FETCH_URL}"]`)
-    expect(await fetchSummaryLink.count()).toBe(1)
-    expect(await fetchSummaryLink.getAttribute('target')).toBe('_blank')
+      // Tool rows: five writes, the edit, and the read carry the dotted file
+      // link; the failed write row does not, and neither does str_replace_editor
+      // — TOOL_VARIANTS has no entry for it, so it falls to the generic row with
+      // no openable path even though its create still joins the produced chips.
+      expect(await page.locator('button[class*="fileLink"]').count()).toBe(7)
+      // The collapsed web-fetch row's summary is its URL, opened in a new tab.
+      const fetchSummaryLink = page.locator(`a[class*="fileLink"][href="${FETCH_URL}"]`)
+      expect(await fetchSummaryLink.count()).toBe(1)
+      expect(await fetchSummaryLink.getAttribute('target')).toBe('_blank')
 
-    await expandTurnProcesses(page)
-    const failedCommands = [
-      { description: 'Run the lint gate', long: false },
-      { description: LONG_COMMAND_DESCRIPTION, long: true },
-    ].map(({ description, long }) => ({
-      row: page.locator('[data-sample="bash"]').filter({ hasText: description }),
-      long,
-    }))
-    try {
-      for (const colorScheme of ['light', 'dark'] as const) {
-        await page.emulateMedia({ colorScheme })
-        await expect.poll(() => page.locator('body').evaluate(element => element.hasAttribute('data-ds-dark-theme'))).toBe(colorScheme === 'dark')
-        for (const { row, long } of failedCommands) {
-          const exitBadge = row.getByText('exit code 1', { exact: true })
-          await exitBadge.waitFor()
-          for (const width of ['760px', '260px']) {
-            await row.evaluate((element, value) => { element.style.width = value }, width)
-            const geometry = await exitBadge.evaluate((badge) => {
-              const description = badge.previousElementSibling!
-              const row = badge.closest('[data-sample]')!
-              const textRect = description.getBoundingClientRect()
-              const badgeRect = badge.getBoundingClientRect()
-              const rowRect = row.getBoundingClientRect()
-              return {
-                neutral: getComputedStyle(description).color === getComputedStyle(row).color,
-                fits: badgeRect.right <= rowRect.right + 1 && badgeRect.bottom <= rowRect.bottom + 1,
-                inline: Math.abs(badgeRect.top - textRect.top) < 5,
-                truncated: description.scrollWidth > description.clientWidth,
-                ellipsis: getComputedStyle(description).textOverflow === 'ellipsis',
-                singleLine: Math.abs(rowRect.height - textRect.height) < 1,
-                height: rowRect.height,
-                gap: badgeRect.left - textRect.right,
-              }
-            })
-            const context = JSON.stringify({ width, colorScheme, long, ...geometry })
-            expect(geometry.neutral, context).toBe(true)
-            expect(geometry.fits, context).toBe(true)
-            expect(geometry.inline, context).toBe(true)
-            expect(geometry.singleLine, context).toBe(true)
-            expect(geometry.height, context).toBeCloseTo(24, 0)
-            if (long || width === '760px') expect(geometry.truncated, context).toBe(long)
-            expect(geometry.ellipsis, context).toBe(true)
-            expect(geometry.gap, context).toBeCloseTo(8, 0)
+      await expandTurnProcesses(page)
+      const failedCommands = [
+        { description: 'Run the lint gate', long: false },
+        { description: LONG_COMMAND_DESCRIPTION, long: true },
+      ].map(({ description, long }) => ({
+        row: page.locator('[data-sample="bash"]').filter({ hasText: description }),
+        long,
+      }))
+      try {
+        for (const colorScheme of ['light', 'dark'] as const) {
+          await page.emulateMedia({ colorScheme })
+          await expect
+            .poll(() => page.locator('body').evaluate(element => element.hasAttribute('data-ds-dark-theme')))
+            .toBe(colorScheme === 'dark')
+          for (const { row, long } of failedCommands) {
+            const exitBadge = row.getByText('exit code 1', { exact: true })
+            await exitBadge.waitFor()
+            for (const width of ['760px', '260px']) {
+              await row.evaluate((element, value) => {
+                element.style.width = value
+              }, width)
+              const geometry = await exitBadge.evaluate(badge => {
+                const description = badge.previousElementSibling!
+                const row = badge.closest('[data-sample]')!
+                const textRect = description.getBoundingClientRect()
+                const badgeRect = badge.getBoundingClientRect()
+                const rowRect = row.getBoundingClientRect()
+                return {
+                  neutral: getComputedStyle(description).color === getComputedStyle(row).color,
+                  fits: badgeRect.right <= rowRect.right + 1 && badgeRect.bottom <= rowRect.bottom + 1,
+                  inline: Math.abs(badgeRect.top - textRect.top) < 5,
+                  truncated: description.scrollWidth > description.clientWidth,
+                  ellipsis: getComputedStyle(description).textOverflow === 'ellipsis',
+                  singleLine: Math.abs(rowRect.height - textRect.height) < 1,
+                  height: rowRect.height,
+                  gap: badgeRect.left - textRect.right,
+                }
+              })
+              const context = JSON.stringify({ width, colorScheme, long, ...geometry })
+              expect(geometry.neutral, context).toBe(true)
+              expect(geometry.fits, context).toBe(true)
+              expect(geometry.inline, context).toBe(true)
+              expect(geometry.singleLine, context).toBe(true)
+              expect(geometry.height, context).toBeCloseTo(24, 0)
+              if (long || width === '760px') expect(geometry.truncated, context).toBe(long)
+              expect(geometry.ellipsis, context).toBe(true)
+              expect(geometry.gap, context).toBeCloseTo(8, 0)
+            }
           }
         }
+      } finally {
+        for (const { row } of failedCommands)
+          await row.evaluate(element => {
+            element.style.width = ''
+          })
+        await page.emulateMedia({ colorScheme: null })
       }
-    } finally {
-      for (const { row } of failedCommands) await row.evaluate((element) => { element.style.width = '' })
-      await page.emulateMedia({ colorScheme: null })
-    }
-    // Clicking the collapsed summary link opens the page without expanding the row.
-    const fetchPopupPromise = page.waitForEvent('popup')
-    await fetchSummaryLink.click()
-    const fetchPopup = await fetchPopupPromise
-    try {
-      await fetchPopup.waitForURL(FETCH_URL)
-    } finally {
-      await fetchPopup.close()
-    }
-    expect(await page.locator('[data-web="fetch"]').count()).toBe(0)
-    // A row-center click can hit a nested summary link and invoke its opener;
-    // right-edge clicks expand the card itself.
-    for (const row of [
-      /^Search clickable link styles/,
-      /^Fetch /,
-      /^Read docs\/guide\.md/,
-      /^Edit src\/tokens\.css/,
-      /^Grep linkColor/,
-      /Run the lint gate|pnpm run lint/,
-      /Build the site/,
-    ]) {
-      const toggle = page.getByRole('button', { name: row }).first()
-      await toggle.waitFor({ timeout: 10_000 })
-      const box = await toggle.boundingBox()
-      await toggle.click(box === null ? {} : { position: { x: box.width - 8, y: box.height / 2 } })
-    }
-    const noExitCommand = page.locator('[data-sample="bash"]').filter({ hasText: 'Build the site' })
-    expect(await noExitCommand.getAttribute('data-state')).toBe('error')
-    expect(await noExitCommand.getByText('no exit code', { exact: true }).count()).toBe(1)
-    const noExitTerminal = page.locator('[data-terminal]').filter({ hasText: 'pnpm run build' })
-    expect(await noExitTerminal.getByText('no exit code', { exact: true }).count()).toBe(1)
-    expect(await noExitTerminal.getByText('[timed out after 100ms]', { exact: true }).count()).toBe(1)
-    expect(await noExitTerminal.getByText('[exit code: null]', { exact: true }).count()).toBe(0)
-    // Both generic rows (the unclassified str_replace_editor and the unknown
-    // design_tokens_sync) expand to their IN/OUT surfaces.
-    const genericRows = page.getByRole('button', { name: /^Tool call/ })
-    for (let index = 0; index < await genericRows.count(); index += 1) {
-      const toggle = genericRows.nth(index)
-      const box = await toggle.boundingBox()
-      await toggle.click(box === null ? {} : { position: { x: box.width - 8, y: box.height / 2 } })
-    }
-    const sourceLink = page.locator(`a[href="${SOURCE_URL}"]`)
-    await expect.poll(() => sourceLink.count(), { timeout: 10_000 }).toBe(1)
-    expect(await page.locator('a[href^="ftp:"]').count()).toBe(0)
-    expect(await page.locator(`a[href="${FETCH_URL}"]`).count()).toBe(2)
-    expect(await page.locator(`a[href="${GUIDE_URL}"]`).count()).toBe(2)
+      // Clicking the collapsed summary link opens the page without expanding the row.
+      const fetchPopupPromise = page.waitForEvent('popup')
+      await fetchSummaryLink.click()
+      const fetchPopup = await fetchPopupPromise
+      try {
+        await fetchPopup.waitForURL(FETCH_URL)
+      } finally {
+        await fetchPopup.close()
+      }
+      expect(await page.locator('[data-web="fetch"]').count()).toBe(0)
+      // A row-center click can hit a nested summary link and invoke its opener;
+      // right-edge clicks expand the card itself.
+      for (const row of [
+        /^Search clickable link styles/,
+        /^Fetch /,
+        /^Read docs\/guide\.md/,
+        /^Edit src\/tokens\.css/,
+        /^Grep linkColor/,
+        /Run the lint gate|pnpm run lint/,
+        /Build the site/,
+      ]) {
+        const toggle = page.getByRole('button', { name: row }).first()
+        await toggle.waitFor({ timeout: 10_000 })
+        const box = await toggle.boundingBox()
+        await toggle.click(box === null ? {} : { position: { x: box.width - 8, y: box.height / 2 } })
+      }
+      const noExitCommand = page.locator('[data-sample="bash"]').filter({ hasText: 'Build the site' })
+      expect(await noExitCommand.getAttribute('data-state')).toBe('error')
+      expect(await noExitCommand.getByText('no exit code', { exact: true }).count()).toBe(1)
+      const noExitTerminal = page.locator('[data-terminal]').filter({ hasText: 'pnpm run build' })
+      expect(await noExitTerminal.getByText('no exit code', { exact: true }).count()).toBe(1)
+      expect(await noExitTerminal.getByText('[timed out after 100ms]', { exact: true }).count()).toBe(1)
+      expect(await noExitTerminal.getByText('[exit code: null]', { exact: true }).count()).toBe(0)
+      // Both generic rows (the unclassified str_replace_editor and the unknown
+      // design_tokens_sync) expand to their IN/OUT surfaces.
+      const genericRows = page.getByRole('button', { name: /^Tool call/ })
+      for (let index = 0; index < (await genericRows.count()); index += 1) {
+        const toggle = genericRows.nth(index)
+        const box = await toggle.boundingBox()
+        await toggle.click(box === null ? {} : { position: { x: box.width - 8, y: box.height / 2 } })
+      }
+      const sourceLink = page.locator(`a[href="${SOURCE_URL}"]`)
+      await expect.poll(() => sourceLink.count(), { timeout: 10_000 }).toBe(1)
+      expect(await page.locator('a[href^="ftp:"]').count()).toBe(0)
+      expect(await page.locator(`a[href="${FETCH_URL}"]`).count()).toBe(2)
+      expect(await page.locator(`a[href="${GUIDE_URL}"]`).count()).toBe(2)
 
-    const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(SEED_ID).join('{{seededId}}')
-      .split(imageUrl).join('{{imageUrl}}')
-    await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
-    expect(tripwire.pageErrors).toEqual([])
-    expect(tripwire.warnings).toEqual([])
-    await assertFixtureInventory(SNAPSHOT_DIR, ['ui.expected.md'])
+      const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
+        .split(SEED_ID)
+        .join('{{seededId}}')
+        .split(imageUrl)
+        .join('{{imageUrl}}')
+      await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
+      expect(tripwire.pageErrors).toEqual([])
+      expect(tripwire.warnings).toEqual([])
+      await assertFixtureInventory(SNAPSHOT_DIR, ['ui.expected.md'])
 
-    // The link language itself — ARIA records none of it, so pin the computed
-    // styles: link-blue 500-weight text, no underline at rest, dotted underline
-    // on hover, and a leading currentColor glyph. Light theme, so the link
-    // alias resolves to deepseek-500.
-    const LINK_BLUE = 'rgb(65, 118, 230)'
-    const styleOf = async (target: ReturnType<Page['locator']>, property: string): Promise<string> =>
-      target.evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), property)
-    const guideLink = markdown.locator(`a[href="${GUIDE_URL}"]`).first()
-    for (const [name, link] of [
-      ['markdown anchor', guideLink],
-      ['file mention', mentions.first()],
-      ['search source', sourceLink.first()],
-      ['fetch url', page.locator(`[data-web="fetch"] a[href="${FETCH_URL}"]`)],
-    ] as const) {
-      expect.soft(await styleOf(link, 'color'), `${name} color`).toBe(LINK_BLUE)
-      expect.soft(await styleOf(link, 'font-weight'), `${name} weight`).toBe('500')
-      expect.soft(await styleOf(link, 'text-decoration-line'), `${name} at rest`).toBe('none')
-      expect.soft(await link.locator('svg').count(), `${name} glyph`).toBe(1)
-    }
-    // A mapped host leads with its own mark; the unmapped docs host keeps the
-    // globe in the same seat.
-    const repoLink = markdown.locator(`a[href="${REPO_URL}"]`)
-    expect(await repoLink.count()).toBe(1)
-    const repoMark = await repoLink.locator('svg path').first().getAttribute('d')
-    const globeMark = await guideLink.locator('svg path').first().getAttribute('d')
-    expect(repoMark).not.toBe(globeMark)
-    await guideLink.hover()
-    expect(await styleOf(guideLink, 'text-decoration-line')).toBe('underline')
-    expect(await styleOf(guideLink, 'text-decoration-style')).toBe('dotted')
-    expect(await styleOf(guideLink, 'text-underline-offset')).toBe('3px')
-    await mentions.first().hover()
-    expect(await styleOf(mentions.first(), 'text-decoration-style')).toBe('dotted')
-    // The excluded grey affordance: tool-row file links keep their own color.
-    expect(await styleOf(page.locator('button[class*="fileLink"]').first(), 'color')).not.toBe(LINK_BLUE)
+      // The link language itself — ARIA records none of it, so pin the computed
+      // styles: link-blue 500-weight text, no underline at rest, dotted underline
+      // on hover, and a leading currentColor glyph. Light theme, so the link
+      // alias resolves to deepseek-500.
+      const LINK_BLUE = 'rgb(65, 118, 230)'
+      const styleOf = async (target: ReturnType<Page['locator']>, property: string): Promise<string> =>
+        target.evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), property)
+      const guideLink = markdown.locator(`a[href="${GUIDE_URL}"]`).first()
+      for (const [name, link] of [
+        ['markdown anchor', guideLink],
+        ['file mention', mentions.first()],
+        ['search source', sourceLink.first()],
+        ['fetch url', page.locator(`[data-web="fetch"] a[href="${FETCH_URL}"]`)],
+      ] as const) {
+        expect.soft(await styleOf(link, 'color'), `${name} color`).toBe(LINK_BLUE)
+        expect.soft(await styleOf(link, 'font-weight'), `${name} weight`).toBe('500')
+        expect.soft(await styleOf(link, 'text-decoration-line'), `${name} at rest`).toBe('none')
+        expect.soft(await link.locator('svg').count(), `${name} glyph`).toBe(1)
+      }
+      // A mapped host leads with its own mark; the unmapped docs host keeps the
+      // globe in the same seat.
+      const repoLink = markdown.locator(`a[href="${REPO_URL}"]`)
+      expect(await repoLink.count()).toBe(1)
+      const repoMark = await repoLink.locator('svg path').first().getAttribute('d')
+      const globeMark = await guideLink.locator('svg path').first().getAttribute('d')
+      expect(repoMark).not.toBe(globeMark)
+      await guideLink.hover()
+      expect(await styleOf(guideLink, 'text-decoration-line')).toBe('underline')
+      expect(await styleOf(guideLink, 'text-decoration-style')).toBe('dotted')
+      expect(await styleOf(guideLink, 'text-underline-offset')).toBe('3px')
+      await mentions.first().hover()
+      expect(await styleOf(mentions.first(), 'text-decoration-style')).toBe('dotted')
+      // The excluded grey affordance: tool-row file links keep their own color.
+      expect(await styleOf(page.locator('button[class*="fileLink"]').first(), 'color')).not.toBe(LINK_BLUE)
 
-    // Ordinary message HTTP(S) links delegate to the right Sidebar Browser.
-    await guideLink.click()
-    const browserAddress = page.locator('[data-rightbar-col]').getByRole('textbox', { name: 'Enter an HTTP(S) address' })
-    await expect.poll(() => browserAddress.inputValue()).toBe(GUIDE_URL)
-    await markdown.locator(`a[href="${HTTP_URL}"]`).click()
-    await expect.poll(() => browserAddress.inputValue()).toBe(HTTP_URL)
+      // Ordinary message HTTP(S) links delegate to the right Sidebar Browser.
+      await guideLink.click()
+      const browserAddress = page.locator('[data-rightbar-col]').getByRole('textbox', { name: 'Enter an HTTP(S) address' })
+      await expect.poll(() => browserAddress.inputValue()).toBe(GUIDE_URL)
+      await markdown.locator(`a[href="${HTTP_URL}"]`).click()
+      await expect.poll(() => browserAddress.inputValue()).toBe(HTTP_URL)
 
-    await openSettings(page, 'en')
-    await page.getByRole('button', { name: 'In-App Sidebar', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Default Browser', exact: true }).click()
-    await expect.poll(() => scaffold.ctx.settings.describe().find(row => row.ns === 'ui-chat')?.value).toMatchObject({ linkOpening: 'new-tab' })
-    await page.keyboard.press('Escape')
-    const popupPromise = page.waitForEvent('popup')
-    await guideLink.click()
-    const popup = await popupPromise
-    try {
-      await popup.waitForURL(GUIDE_URL)
-      expect(await popup.evaluate(() => window.opener === null)).toBe(true)
-      expect(await browserAddress.inputValue()).toBe(HTTP_URL)
-    } finally {
-      await popup.close()
-    }
+      await openSettings(page, 'en')
+      await page.getByRole('button', { name: 'In-App Sidebar', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Default Browser', exact: true }).click()
+      await expect
+        .poll(() => scaffold.ctx.settings.describe().find(row => row.ns === 'ui-chat')?.value)
+        .toMatchObject({ linkOpening: 'new-tab' })
+      await page.keyboard.press('Escape')
+      const popupPromise = page.waitForEvent('popup')
+      await guideLink.click()
+      const popup = await popupPromise
+      try {
+        await popup.waitForURL(GUIDE_URL)
+        expect(await popup.evaluate(() => window.opener === null)).toBe(true)
+        expect(await browserAddress.inputValue()).toBe(HTTP_URL)
+      } finally {
+        await popup.close()
+      }
 
-    await page.reload()
-    await openSettings(page, 'en')
-    await page.getByRole('button', { name: 'Default Browser', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'In-App Sidebar', exact: true }).click()
-    await expect.poll(() => scaffold.ctx.settings.describe().find(row => row.ns === 'ui-chat')?.value).toMatchObject({ linkOpening: 'sidebar' })
-    await page.keyboard.press('Escape')
-    await guideLink.click()
-    await expect.poll(() => browserAddress.inputValue()).toBe(GUIDE_URL)
-    expect(tripwire.pageErrors).toEqual([])
-  }, 90_000)
+      await page.reload()
+      await openSettings(page, 'en')
+      await page.getByRole('button', { name: 'Default Browser', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'In-App Sidebar', exact: true }).click()
+      await expect
+        .poll(() => scaffold.ctx.settings.describe().find(row => row.ns === 'ui-chat')?.value)
+        .toMatchObject({ linkOpening: 'sidebar' })
+      await page.keyboard.press('Escape')
+      await guideLink.click()
+      await expect.poll(() => browserAddress.inputValue()).toBe(GUIDE_URL)
+      expect(tripwire.pageErrors).toEqual([])
+    },
+    90_000,
+  )
 })

@@ -1,6 +1,6 @@
 /** Inbox projection delivery and queue-operation transport. */
 
-import { describe, expect, onTestFinished } from 'vitest'
+import { describe, expect, onTestFinished } from 'vite-plus/test'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { InboxState } from '@deepseek-ai/dsh-agent/types'
 import type { SessionControlFrame } from '@deepseek-ai/dsh-api-session-controller/types'
@@ -62,11 +62,19 @@ describe('Inbox projection intake', () => {
       const manager = makeManager(remote)
       const empty = { 'next-turn': [], 'next-step': [] }
       const stale = { ...empty, 'next-turn': [message('removed', 'already removed')] }
-      const result = ok({ items: [{
-        sessionId: SID, updatedAt: 1, running: false, blank: false, agentAvailable: false,
-        // The Session is attached: the Host's live registry served the block.
-        projections: { kind: 'sequenced' as const, asOfSeq: 21, values: { inbox: empty } },
-      }] })
+      const result = ok({
+        items: [
+          {
+            sessionId: SID,
+            updatedAt: 1,
+            running: false,
+            blank: false,
+            agentAvailable: false,
+            // The Session is attached: the Host's live registry served the block.
+            projections: { kind: 'sequenced' as const, asOfSeq: 21, values: { inbox: empty } },
+          },
+        ],
+      })
       let refreshed: Promise<void> | undefined
 
       try {
@@ -79,9 +87,14 @@ describe('Inbox projection intake', () => {
 
         manager.handleControlFrame({
           type: 'baseline',
-          value: { projections: { [SID]: {
-            asOfSeq: 20, values: key === 'included' ? { inbox: stale } : {},
-          } } },
+          value: {
+            projections: {
+              [SID]: {
+                asOfSeq: 20,
+                values: key === 'included' ? { inbox: stale } : {},
+              },
+            },
+          },
         })
 
         expect(face.getSnapshot()).toEqual(empty)
@@ -108,12 +121,26 @@ describe('Inbox projection intake', () => {
       manager.handleControlFrame({ ...inboxFrame(empty), sessionId: hiddenSessionId, seq: 20 })
       const face = manager.get(SID).projections.faceOf('inbox')
       const baseline = { type: 'baseline', value: { projections: {} } } as const
-      const result = ok({ items: [
-        { sessionId: SID, updatedAt: 1, running: false, blank: false, agentAvailable: false,
-          projections: { kind: 'cached' as const, asOfSeq: 1, values: { inbox: empty } } },
-        { sessionId: hiddenSessionId, updatedAt: 1, running: false, blank: false, agentAvailable: false,
-          projections: { kind: 'cached' as const, asOfSeq: 1, values: { inbox: restored } } },
-      ] })
+      const result = ok({
+        items: [
+          {
+            sessionId: SID,
+            updatedAt: 1,
+            running: false,
+            blank: false,
+            agentAvailable: false,
+            projections: { kind: 'cached' as const, asOfSeq: 1, values: { inbox: empty } },
+          },
+          {
+            sessionId: hiddenSessionId,
+            updatedAt: 1,
+            running: false,
+            blank: false,
+            agentAvailable: false,
+            projections: { kind: 'cached' as const, asOfSeq: 1, values: { inbox: restored } },
+          },
+        ],
+      })
       let refreshed: Promise<void> | undefined
 
       try {
@@ -138,10 +165,12 @@ describe('Inbox projection intake', () => {
 
   it('retains only the highest-seq value received before Session materialization', ({ remote }) => {
     const manager = makeManager(remote)
-    manager.handleControlFrame(inboxFrame({
-      'next-turn': [message('old', 'old')],
-      'next-step': [],
-    }))
+    manager.handleControlFrame(
+      inboxFrame({
+        'next-turn': [message('old', 'old')],
+        'next-step': [],
+      }),
+    )
     const latest = {
       'next-turn': [message('latest', 'latest')],
       'next-step': [],
@@ -161,8 +190,10 @@ describe('queue operation transport', () => {
     manager.handleControlFrame(inboxFrame(initial))
     const session = manager.get(SID)
 
-    await expect(session.updateQueue(pending.id, { kind: 'edit', content: text('after') }))
-      .resolves.toEqual({ ok: true, value: { accepted: true } })
+    await expect(session.updateQueue(pending.id, { kind: 'edit', content: text('after') })).resolves.toEqual({
+      ok: true,
+      value: { accepted: true },
+    })
     expect(remote.session.updateQueue).toHaveBeenCalledExactlyOnceWith({
       sessionId: SID,
       itemId: pending.id,

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { useState, type ComponentProps } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { allowAllAccess, bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { Menu, MenuItemButton } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -18,27 +18,55 @@ function unusedHook(): never {
 
 function view(roster: Partial<AgentPresetSettingsState> = {}, inMenu = false) {
   const agentPresets = createSnapshotStore<AgentPresetSettingsState>({
-    status: 'ready', error: null, options: [{ id: 'standard' }, { id: 'cordis' }], ...roster,
+    status: 'ready',
+    error: null,
+    options: [{ id: 'standard' }, { id: 'cordis' }],
+    ...roster,
   })
   const calls: string[] = []
-  const startCreatorDraft = vi.fn(() => { calls.push('start') })
-  const onDismiss = vi.fn(() => { calls.push('dismiss') })
+  const startCreatorDraft = vi.fn(() => {
+    calls.push('start')
+  })
+  const onDismiss = vi.fn(() => {
+    calls.push('dismiss')
+  })
   const load = vi.fn(async () => {})
   const props: ComponentProps<typeof CreatePluginMenuItem> = {
     t: key => translations.get(key) ?? key,
     useAgentPresets: bindSnapshotSelector(agentPresets),
-    usePanelInfo: unusedHook, useSessions: unusedHook, useSessionStatus: unusedHook,
-    useSessionRetainInfo: unusedHook, useWorkspaces: unusedHook, useResource: unusedHook,
+    usePanelInfo: unusedHook,
+    useSessions: unusedHook,
+    useSessionStatus: unusedHook,
+    useSessionRetainInfo: unusedHook,
+    useWorkspaces: unusedHook,
+    useResource: unusedHook,
     ...allowAllAccess,
-    load, startCreatorDraft, onDismiss,
+    load,
+    startCreatorDraft,
+    onDismiss,
   }
   function TestMenu() {
     const [open, setOpen] = useState(true)
-    return <Menu open={open} items={[]} autoFocus onClose={() => { setOpen(false) }}
-      anchor={<button type="button">Add plugin</button>}>
-      <MenuItemButton onSelect={() => {}}>Install a third-party plugin</MenuItemButton>
-      <CreatePluginMenuItem {...props} onDismiss={() => { onDismiss(); setOpen(false) }} />
-    </Menu>
+    return (
+      <Menu
+        open={open}
+        items={[]}
+        autoFocus
+        onClose={() => {
+          setOpen(false)
+        }}
+        anchor={<button type="button">Add plugin</button>}
+      >
+        <MenuItemButton onSelect={() => {}}>Install a third-party plugin</MenuItemButton>
+        <CreatePluginMenuItem
+          {...props}
+          onDismiss={() => {
+            onDismiss()
+            setOpen(false)
+          }}
+        />
+      </Menu>
+    )
   }
   render(inMenu ? <TestMenu /> : <CreatePluginMenuItem {...props} />)
   return { agentPresets, load, startCreatorDraft, onDismiss, calls }
@@ -70,7 +98,7 @@ describe('Create plugin menu item', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it.each(['idle', 'loading', 'error', 'unavailable'] as const)('keeps a disabled entry while the roster is %s', (status) => {
+  it.each(['idle', 'loading', 'error', 'unavailable'] as const)('keeps a disabled entry while the roster is %s', status => {
     const actions = view({ status })
     expect(item()).toHaveProperty('disabled', true)
     const description = status === 'idle' || status === 'loading' ? en.createPluginChecking : en.createPluginUnavailable
@@ -82,7 +110,9 @@ describe('Create plugin menu item', () => {
   it('disables the same entry when Creator leaves the roster', () => {
     const actions = view()
     const original = item()
-    act(() => { actions.agentPresets.set({ status: 'ready', error: null, options: [{ id: 'standard' }] }) })
+    act(() => {
+      actions.agentPresets.set({ status: 'ready', error: null, options: [{ id: 'standard' }] })
+    })
     expect(item()).toBe(original)
     expect(item()).toHaveProperty('disabled', true)
     expect(item().textContent).toContain(en.createPluginMissing)
@@ -98,7 +128,9 @@ describe('Create plugin menu item', () => {
     expect(before[1]).toBe(original)
     expect(original).toHaveProperty('disabled', false)
 
-    act(() => { actions.agentPresets.set({ ...actions.agentPresets.getSnapshot(), status: 'loading' }) })
+    act(() => {
+      actions.agentPresets.set({ ...actions.agentPresets.getSnapshot(), status: 'loading' })
+    })
     expect(screen.getByRole('menu')).toBe(menu)
     expect(screen.getAllByRole('menuitem')).toEqual(before)
     expect(item()).toBe(original)
@@ -107,7 +139,9 @@ describe('Create plugin menu item', () => {
     fireEvent.click(original)
     expect(actions.calls).toEqual([])
 
-    act(() => { actions.agentPresets.set({ ...actions.agentPresets.getSnapshot(), status: 'ready' }) })
+    act(() => {
+      actions.agentPresets.set({ ...actions.agentPresets.getSnapshot(), status: 'ready' })
+    })
     expect(screen.getByRole('menu')).toBe(menu)
     expect(screen.getAllByRole('menuitem')).toEqual(before)
     expect(item()).toBe(original)

@@ -44,8 +44,9 @@ export function installExternalBrowserHooks() {
 export function wrapStagehandWorkerEntry(filename) {
   const sourceWorker = new URL('src/worker.ts', packageRoot).href
   const builtWorker = new URL('lib/worker.js', packageRoot).href
-  const stagehand = filename instanceof URL && (filename.href === builtWorker
-    || filename.protocol === 'data:' && filename.href.includes(encodeURIComponent(sourceWorker)))
+  const stagehand =
+    filename instanceof URL &&
+    (filename.href === builtWorker || (filename.protocol === 'data:' && filename.href.includes(encodeURIComponent(sourceWorker))))
   if (!stagehand) return filename
   const bootstrap = `import { installExternalBrowserHooks } from ${JSON.stringify(import.meta.url)}; installExternalBrowserHooks(); await import(${JSON.stringify(filename.href)});`
   return new URL(`data:text/javascript,${encodeURIComponent(bootstrap)}`)
@@ -73,6 +74,7 @@ export async function apply(ctx) {
   ctx.effect(installBrowserFixtureHooks, 'browser-use-stagehand-native-fixture.module')
   const provider = await import('@deepseek-ai/dsh-experimental-browser-use-stagehand-native')
   await ctx.plugin(provider, {
-    mode: 'launch', model: { modelName: 'openai/gpt-5.4-mini', apiKey: 'snapshot-placeholder' },
+    mode: 'launch',
+    model: { modelName: 'openai/gpt-5.4-mini', apiKey: 'snapshot-placeholder' },
   })
 }

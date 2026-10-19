@@ -22,8 +22,11 @@ export function convertXls(bytes: Uint8Array<ArrayBuffer>, limits: ExcelLimits):
   const biff = bytes[0] === 0x09 && biffVersion !== undefined && [0x00, 0x02, 0x04, 0x08].includes(biffVersion)
   if (!compound && !biff) throw new ExcelPreviewError('invalid')
   let workbook: ReturnType<typeof read>
-  try { workbook = read(bytes, { type: 'array', cellNF: true, cellStyles: true, cellFormula: true, sheetStubs: true }) }
-  catch (error) { throw new ExcelPreviewError('invalid', { cause: error }) }
+  try {
+    workbook = read(bytes, { type: 'array', cellNF: true, cellStyles: true, cellFormula: true, sheetStubs: true })
+  } catch (error) {
+    throw new ExcelPreviewError('invalid', { cause: error })
+  }
   return mapXlsWorkbook(workbook, limits)
 }
 
@@ -52,10 +55,14 @@ export function mapXlsWorkbook(workbook: WorkBook, limits: ExcelLimits): ExcelPr
     area += row * column
     if (!Number.isSafeInteger(area) || area > limits.maxCells) throw new ExcelPreviewError('tooLarge')
     const config: Required<Pick<SheetConfig, 'merge' | 'rowlen' | 'columnlen' | 'rowhidden' | 'colhidden'>> = {
-      merge: {}, rowlen: {}, columnlen: {}, rowhidden: {}, colhidden: {},
+      merge: {},
+      rowlen: {},
+      columnlen: {},
+      rowhidden: {},
+      colhidden: {},
     }
     source['!rows']?.forEach((value, index) => {
-      const height = value.hpx ?? (value.hpt === undefined ? undefined : value.hpt * 96 / 72)
+      const height = value.hpx ?? (value.hpt === undefined ? undefined : (value.hpt * 96) / 72)
       if (height !== undefined) config.rowlen[index] = height
       if (value.hidden) config.rowhidden[index] = 0
     })
@@ -82,18 +89,29 @@ export function mapXlsWorkbook(workbook: WorkBook, limits: ExcelLimits): ExcelPr
     for (const { s, e } of source['!merges'] ?? []) {
       const merge = { r: s.r, c: s.c, rs: e.r - s.r + 1, cs: e.c - s.c + 1 }
       config.merge[`${s.r}_${s.c}`] = merge
-      for (let r = s.r; r <= e.r; r += 1) for (let c = s.c; c <= e.c; c += 1) {
-        const key = `${r}_${c}`
-        const cell = cells.get(key) ?? { r, c, v: {} }
-        if (r === s.r && c === s.c) cell.v.mc = merge
-        else cell.v = { mc: { r: s.r, c: s.c } }
-        cells.set(key, cell)
-      }
+      for (let r = s.r; r <= e.r; r += 1)
+        for (let c = s.c; c <= e.c; c += 1) {
+          const key = `${r}_${c}`
+          const cell = cells.get(key) ?? { r, c, v: {} }
+          if (r === s.r && c === s.c) cell.v.mc = merge
+          else cell.v = { mc: { r: s.r, c: s.c } }
+          cells.set(key, cell)
+        }
     }
     const visible = visibleSheets[order] === true
     const status = order === activeOrder ? 1 : 0
-    return { id: String(order + 1), name, order, status, hide: visible ? 0 : 1, row, column,
-      config, celldata: [...cells.values()], luckysheet_select_save: initialSelection(config) }
+    return {
+      id: String(order + 1),
+      name,
+      order,
+      status,
+      hide: visible ? 0 : 1,
+      row,
+      column,
+      config,
+      celldata: [...cells.values()],
+      luckysheet_select_save: initialSelection(config),
+    }
   })
   return { sheets, missingResults, unsupportedFeatures: [] }
 }

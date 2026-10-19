@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import ExcelJS from 'exceljs'
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Config } from '../src/config.ts'
 import { convertExcel } from '../src/client/excel/convert.ts'
 import { XlsxPreviewArchive } from '../src/client/excel/xlsx-archive.ts'
@@ -14,8 +14,11 @@ const require = createRequire(import.meta.url)
 const browserExcel = require('exceljs/dist/exceljs.js') as typeof ExcelJS
 const limits = Config({}).excel
 
-describe.each([['Node', ExcelJS], ['browser bundle', browserExcel]] as const)('%s opening regressions', (_name, parser) => {
-  it.each(excelOpeningCases)('opens %s with cells, styles, comments, Tables and hyperlinks', async (name) => {
+describe.each([
+  ['Node', ExcelJS],
+  ['browser bundle', browserExcel],
+] as const)('%s opening regressions', (_name, parser) => {
+  it.each(excelOpeningCases)('opens %s with cells, styles, comments, Tables and hyperlinks', async name => {
     const source = await excelOpeningFixture(name)
     const original = source.slice()
     const retained = new XlsxPreviewArchive(source).withoutDrawings()
@@ -35,7 +38,7 @@ describe.each([['Node', ExcelJS], ['browser bundle', browserExcel]] as const)('%
     expect(source).toEqual(original)
   })
 
-  it.each(['xl/workbook.xml', '_rels/.rels'])('rejects ambiguous ASCII case-equivalent entries for %s', async (path) => {
+  it.each(['xl/workbook.xml', '_rels/.rels'])('rejects ambiguous ASCII case-equivalent entries for %s', async path => {
     const files = unzipSync(await excelOpcFixture('combined'))
     const bytes = files[path]
     assert.ok(bytes)
@@ -45,7 +48,7 @@ describe.each([['Node', ExcelJS], ['browser bundle', browserExcel]] as const)('%
   })
 })
 
-it.each(excelOpeningCases)('preserves the complete preview and referenced-content notices for %s', async (name) => {
+it.each(excelOpeningCases)('preserves the complete preview and referenced-content notices for %s', async name => {
   const expected = await convertExcel(await excelOpcFixture('combined'), 'xlsx', limits)
   if (name === 'orphan-drawing') expected.unsupportedFeatures = ['conditionalFormatting']
   expect(await convertExcel(await excelOpeningFixture(name), 'xlsx', limits)).toEqual(expected)

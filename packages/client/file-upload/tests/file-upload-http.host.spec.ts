@@ -1,17 +1,19 @@
 import { runInNewContext } from 'node:vm'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
-import { describe, expect, it, vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
+import type { Mock } from 'vite-plus/test'
 import { handleFileUploadHttp } from '../src/http-route.ts'
 import type { FileUploads } from '../src/index.ts'
 
-function request(input: {
-  method?: string
-  sessionId?: string
-  name?: string
-  contentType?: string
-  body?: Uint8Array
-} = {}): Request {
+function request(
+  input: {
+    method?: string
+    sessionId?: string
+    name?: string
+    contentType?: string
+    body?: Uint8Array
+  } = {},
+): Request {
   const query = new URLSearchParams()
   if (input.sessionId !== undefined) query.set('sessionId', input.sessionId)
   if (input.name !== undefined) query.set('name', input.name)
@@ -28,9 +30,9 @@ function uploads(result: unknown): FileUploads & {
   uploadedChunks: Uint8Array[]
 } {
   const uploadedChunks: Uint8Array[] = []
-  const uploadStream = vi.fn<FileUploads['uploadStream']>(async (input) => {
+  const uploadStream = vi.fn<FileUploads['uploadStream']>(async input => {
     for await (const chunk of input.data) uploadedChunks.push(chunk)
-    return await result as Awaited<ReturnType<FileUploads['uploadStream']>>
+    return (await result) as Awaited<ReturnType<FileUploads['uploadStream']>>
   })
   return {
     uploadedChunks,
@@ -44,9 +46,17 @@ function uploads(result: unknown): FileUploads & {
 describe('background file upload Fetch route', () => {
   it('accepts one authenticated streaming POST request', async () => {
     const service = uploads(Promise.resolve({}))
-    expect((await handleFileUploadHttp(service, request({
-      sessionId: 's1', contentType: 'application/octet-stream',
-    }))).status).toBe(200)
+    expect(
+      (
+        await handleFileUploadHttp(
+          service,
+          request({
+            sessionId: 's1',
+            contentType: 'application/octet-stream',
+          }),
+        )
+      ).status,
+    ).toBe(200)
   })
 
   it('rejects the wrong method, media type, and missing Session id without storing', async () => {
@@ -59,10 +69,7 @@ describe('background file upload Fetch route', () => {
     expect(wrongType.status).toBe(415)
     expect(await wrongType.text()).toBe('content type must be application/octet-stream')
 
-    const missingSession = await handleFileUploadHttp(
-      service,
-      request({ contentType: 'application/octet-stream' }),
-    )
+    const missingSession = await handleFileUploadHttp(service, request({ contentType: 'application/octet-stream' }))
     expect(missingSession.status).toBe(400)
     expect(await missingSession.text()).toBe('sessionId is required')
     expect(service.uploadStream).not.toHaveBeenCalled()
@@ -74,12 +81,15 @@ describe('background file upload Fetch route', () => {
       file: { attachmentId: 'file-1', name: 'large & final.bin', bytes: 4 },
     }
     const service = uploads(Promise.resolve(value))
-    const response = await handleFileUploadHttp(service, request({
-      sessionId: 's1',
-      name: 'large & final.bin',
-      contentType: 'application/octet-stream; charset=binary',
-      body: Uint8Array.of(1, 2, 3, 4),
-    }))
+    const response = await handleFileUploadHttp(
+      service,
+      request({
+        sessionId: 's1',
+        name: 'large & final.bin',
+        contentType: 'application/octet-stream; charset=binary',
+        body: Uint8Array.of(1, 2, 3, 4),
+      }),
+    )
     expect(service.uploadStream).toHaveBeenCalledOnce()
     const upload = service.uploadStream.mock.calls[0]?.[0]
     expect(upload).toMatchObject({ sessionId: 's1', name: 'large & final.bin' })
@@ -92,12 +102,14 @@ describe('background file upload Fetch route', () => {
   })
 
   it('returns business and internal storage failures and keeps an absent name absent', async () => {
-    const business = uploads(Promise.reject(new RemoteError(
-      'session/attachment-invalid', 'denied', { reason: 'NOPE' },
-    )))
-    const businessResponse = await handleFileUploadHttp(business, request({
-      sessionId: 's1', contentType: 'application/octet-stream',
-    }))
+    const business = uploads(Promise.reject(new RemoteError('session/attachment-invalid', 'denied', { reason: 'NOPE' })))
+    const businessResponse = await handleFileUploadHttp(
+      business,
+      request({
+        sessionId: 's1',
+        contentType: 'application/octet-stream',
+      }),
+    )
     expect(business.uploadStream).toHaveBeenCalledOnce()
     const upload = business.uploadStream.mock.calls[0]?.[0]
     expect(upload).toMatchObject({ sessionId: 's1' })
@@ -109,18 +121,36 @@ describe('background file upload Fetch route', () => {
     })
 
     const internal = uploads(Promise.reject(new Error('disk offline')))
-    expect(await (await handleFileUploadHttp(internal, request({
-      sessionId: 's1', contentType: 'application/octet-stream',
-    }))).json()).toEqual({
-      ok: false, error: { code: 'gateway/internal', message: 'disk offline', details: {} },
+    expect(
+      await (
+        await handleFileUploadHttp(
+          internal,
+          request({
+            sessionId: 's1',
+            contentType: 'application/octet-stream',
+          }),
+        )
+      ).json(),
+    ).toEqual({
+      ok: false,
+      error: { code: 'gateway/internal', message: 'disk offline', details: {} },
     })
 
     const foreignError = runInNewContext('new Error("disk exception")') as unknown as Error
     const exception = uploads(Promise.reject(foreignError))
-    expect(await (await handleFileUploadHttp(exception, request({
-      sessionId: 's1', contentType: 'application/octet-stream',
-    }))).json()).toEqual({
-      ok: false, error: { code: 'gateway/internal', message: 'Error: disk exception', details: {} },
+    expect(
+      await (
+        await handleFileUploadHttp(
+          exception,
+          request({
+            sessionId: 's1',
+            contentType: 'application/octet-stream',
+          }),
+        )
+      ).json(),
+    ).toEqual({
+      ok: false,
+      error: { code: 'gateway/internal', message: 'Error: disk exception', details: {} },
     })
   })
 })

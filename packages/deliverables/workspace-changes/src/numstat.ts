@@ -42,7 +42,7 @@ export function parseNumstat(output: string): NumstatEntry[] {
     const binary = added === '-'
     entries.push({
       path: target,
-      ...oldPath === undefined ? {} : { oldPath },
+      ...(oldPath === undefined ? {} : { oldPath }),
       added: binary ? 0 : Number(added),
       deleted: binary ? 0 : Number(deleted),
       binary,

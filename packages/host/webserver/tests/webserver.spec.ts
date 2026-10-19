@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Duplex } from 'node:stream'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context, FiberState } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -32,8 +32,18 @@ const tlsReadGate = vi.hoisted(() => {
     arm() {
       const entered = Promise.withResolvers<undefined>()
       const resumed = Promise.withResolvers<undefined>()
-      held = { entered: () => { entered.resolve(undefined) }, resume: resumed.promise }
-      return { entered: entered.promise, release: () => { resumed.resolve(undefined) } }
+      held = {
+        entered: () => {
+          entered.resolve(undefined)
+        },
+        resume: resumed.promise,
+      }
+      return {
+        entered: entered.promise,
+        release: () => {
+          resumed.resolve(undefined)
+        },
+      }
     },
     async hold(path: string): Promise<void> {
       if (held === undefined || !path.endsWith('.pem')) return
@@ -45,7 +55,7 @@ const tlsReadGate = vi.hoisted(() => {
   }
 })
 
-vi.mock('node:fs/promises', async (importOriginal) => {
+vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...actual,
@@ -64,10 +74,12 @@ let tlsRoot: string | undefined
 afterEach(async () => {
   const loaded = compositions
   compositions = []
-  await Promise.all(loaded.map(async ({ context, root }) => {
-    await context.fiber.dispose()
-    await rm(root, { recursive: true, force: true })
-  }))
+  await Promise.all(
+    loaded.map(async ({ context, root }) => {
+      await context.fiber.dispose()
+      await rm(root, { recursive: true, force: true })
+    }),
+  )
   if (tlsRoot !== undefined) await rm(tlsRoot, { recursive: true, force: true })
   tlsRoot = undefined
 })
@@ -84,46 +96,36 @@ async function tlsFixture(): Promise<TlsFixture> {
  * for an explicit empty `tls:` (what a user's `tls:` with no value parses to),
  * or undefined to omit the field entirely.
  */
-async function loadComposition(
-  port = 0,
-  gzip = false,
-  host = '127.0.0.1',
-  tls?: Partial<TlsConfig> | null,
-): Promise<Context> {
+async function loadComposition(port = 0, gzip = false, host = '127.0.0.1', tls?: Partial<TlsConfig> | null): Promise<Context> {
   const root = await mkdtemp(join(tmpdir(), 'dsh-webserver-loader-'))
   const configPath = join(root, 'cordis.yml')
-  await writeFile(configPath, [
-    "- name: '@deepseek-ai/dsh-host-webserver'",
-    '  config:',
-    `    host: '${host}'`,
-    `    port: ${String(port)}`,
-    ...(tls === undefined
-      ? []
-      : tls === null
-        ? ['    tls:']
-        : [
-          '    tls:',
-          ...(tls.certFile === undefined ? [] : [`      certFile: '${tls.certFile}'`]),
-          ...(tls.keyFile === undefined ? [] : [`      keyFile: '${tls.keyFile}'`]),
-        ]),
-    ...(gzip
-      ? [
-        '    compression: gzip',
-        '    compressionLevel: 1',
-        '    compressionThresholdBytes: 16',
-      ]
-      : []),
-    '',
-  ].join('\n'))
+  await writeFile(
+    configPath,
+    [
+      "- name: '@deepseek-ai/dsh-host-webserver'",
+      '  config:',
+      `    host: '${host}'`,
+      `    port: ${String(port)}`,
+      ...(tls === undefined
+        ? []
+        : tls === null
+          ? ['    tls:']
+          : [
+              '    tls:',
+              ...(tls.certFile === undefined ? [] : [`      certFile: '${tls.certFile}'`]),
+              ...(tls.keyFile === undefined ? [] : [`      keyFile: '${tls.keyFile}'`]),
+            ]),
+      ...(gzip ? ['    compression: gzip', '    compressionLevel: 1', '    compressionThresholdBytes: 16'] : []),
+      '',
+    ].join('\n'),
+  )
 
   const context = new Context()
   compositions.push({ context, root })
   context.baseUrl = pathToFileURL(root).href + '/'
   await context.plugin(Loader)
   context.loader.builtins.include = Include
-  const modules = new Map<string, unknown>([
-    ['@deepseek-ai/dsh-host-webserver', HttpServer],
-  ])
+  const modules = new Map<string, unknown>([['@deepseek-ai/dsh-host-webserver', HttpServer]])
   context.loader.internal = {
     version: 'v2',
     async import(specifier: string) {
@@ -166,15 +168,8 @@ async function upgrade(listenerPort: number | undefined, path: string): Promise<
   const socket = connect(port, '127.0.0.1')
   await once(socket, 'connect')
   const response = once(socket, 'data')
-  socket.write([
-    `GET ${path} HTTP/1.1`,
-    `Host: 127.0.0.1:${String(port)}`,
-    'Connection: Upgrade',
-    'Upgrade: dsh-test',
-    '',
-    '',
-  ].join('\r\n'))
-  const [data] = await response as [Buffer]
+  socket.write([`GET ${path} HTTP/1.1`, `Host: 127.0.0.1:${String(port)}`, 'Connection: Upgrade', 'Upgrade: dsh-test', '', ''].join('\r\n'))
+  const [data] = (await response) as [Buffer]
   expect(String(data)).toContain('101 Switching Protocols')
   return socket
 }
@@ -183,25 +178,27 @@ async function upgrade(listenerPort: number | undefined, path: string): Promise<
  * GET one path over TLS. `ca` is the client's trust anchor, and a call without
  * it trusts nothing, so it only succeeds if the listener really speaks TLS.
  */
-function tlsRequest(
-  port: number | undefined,
-  path: string,
-  ca?: string,
-  agent?: Agent,
-): Promise<{ status: number; body: string }> {
+function tlsRequest(port: number | undefined, path: string, ca?: string, agent?: Agent): Promise<{ status: number; body: string }> {
   const { promise, resolve, reject } = Promise.withResolvers<{ status: number; body: string }>()
-  const request = httpsRequest({
-    host: '127.0.0.1',
-    port: boundPort(port),
-    path,
-    ...(ca === undefined ? {} : { ca }),
-    ...(agent === undefined ? {} : { agent }),
-  }, (response) => {
-    let body = ''
-    response.setEncoding('utf8')
-    response.on('data', (chunk: string) => { body += chunk })
-    response.on('end', () => { resolve({ status: response.statusCode ?? 0, body }) })
-  })
+  const request = httpsRequest(
+    {
+      host: '127.0.0.1',
+      port: boundPort(port),
+      path,
+      ...(ca === undefined ? {} : { ca }),
+      ...(agent === undefined ? {} : { agent }),
+    },
+    response => {
+      let body = ''
+      response.setEncoding('utf8')
+      response.on('data', (chunk: string) => {
+        body += chunk
+      })
+      response.on('end', () => {
+        resolve({ status: response.statusCode ?? 0, body })
+      })
+    },
+  )
   request.on('error', reject)
   request.end()
   return promise
@@ -227,7 +224,20 @@ function tlsUpgrade(port: number | undefined, path: string, ca: string): Promise
 
 describe('real Loader composition', () => {
   it('accepts one concrete IP literal, keeping an IPv6 zone for listen', () => {
-    for (const host of ['127.0.0.1', '10.1.2.3', '0.1.2.3', '::1', 'fd00::1', '::ffff:10.1.2.3', '::ffff:0.1.2.3', '0:0:0:0:0:0:0:1', 'fe80::1%lo', '::0.0.0.1', '::0.0.0.1%lo', '::127.0.0.1']) {
+    for (const host of [
+      '127.0.0.1',
+      '10.1.2.3',
+      '0.1.2.3',
+      '::1',
+      'fd00::1',
+      '::ffff:10.1.2.3',
+      '::ffff:0.1.2.3',
+      '0:0:0:0:0:0:0:1',
+      'fe80::1%lo',
+      '::0.0.0.1',
+      '::0.0.0.1%lo',
+      '::127.0.0.1',
+    ]) {
       expect(HttpServer.Config({ host, port: 0 }).host).toBe(host)
     }
   })
@@ -237,17 +247,26 @@ describe('real Loader composition', () => {
     // IPv4 any, IPv6 any in long and short forms, IPv4-compatible, and the
     // IPv4-mapped forms of IPv4 any, with or without a zone.
     for (const host of [
-      '0.0.0.0', '::', '::0', '0000::', '0::', '0:0:0:0:0:0:0:0', '::0.0.0.0', '::0.0.0.0%lo', '::%lo',
-      '::ffff:0.0.0.0', '::ffff:0:0', '::ffff:0000:0000', '0:0:0:0:0:ffff:0:0',
-      '0:0:0:0:0:ffff:0.0.0.0', '::ffff:0.0.0.0%eth0',
+      '0.0.0.0',
+      '::',
+      '::0',
+      '0000::',
+      '0::',
+      '0:0:0:0:0:0:0:0',
+      '::0.0.0.0',
+      '::0.0.0.0%lo',
+      '::%lo',
+      '::ffff:0.0.0.0',
+      '::ffff:0:0',
+      '::ffff:0000:0000',
+      '0:0:0:0:0:ffff:0:0',
+      '0:0:0:0:0:ffff:0.0.0.0',
+      '::ffff:0.0.0.0%eth0',
     ]) {
-      expect(() => HttpServer.Config({ host, port: 0 })).toThrow(
-        /is an unspecified \(wildcard\) address, which is not supported/,
-      )
+      expect(() => HttpServer.Config({ host, port: 0 })).toThrow(/is an unspecified \(wildcard\) address, which is not supported/)
     }
     for (const host of ['localhost', 'example.com', '*', '[::]', '[fd00::1]', '10.1.2.3/8']) {
-      expect(() => HttpServer.Config({ host, port: 0 }))
-        .toThrow(/is not a concrete IPv4 or IPv6 address literal/)
+      expect(() => HttpServer.Config({ host, port: 0 })).toThrow(/is not a concrete IPv4 or IPv6 address literal/)
     }
   })
 
@@ -261,12 +280,33 @@ describe('real Loader composition', () => {
   })
 
   it('classifies loopback bind addresses from the parsed value, including mapped and zone forms', () => {
-    for (const host of ['127.0.0.1', '127.8.9.10', '127.5.5.5', '::1', '0:0:0:0:0:0:0:1', '::ffff:127.0.0.1', '::ffff:7f00:1', '::1%lo', '::0.0.0.1', '::0.0.0.1%lo']) {
+    for (const host of [
+      '127.0.0.1',
+      '127.8.9.10',
+      '127.5.5.5',
+      '::1',
+      '0:0:0:0:0:0:0:1',
+      '::ffff:127.0.0.1',
+      '::ffff:7f00:1',
+      '::1%lo',
+      '::0.0.0.1',
+      '::0.0.0.1%lo',
+    ]) {
       expect(isLoopbackHost(host)).toBe(true)
     }
     // A dotted-quad tail is the address's own low 32 bits, never an IPv4 tail:
     // ::127.0.0.1 is the unrelated IPv6 address ::7f00:1, not IPv4 loopback.
-    for (const host of ['10.1.2.3', '::ffff:10.1.2.3', 'fd00::1', 'fe80::1%lo', '::2', 'localhost', '::127.0.0.1', '::127.0.0.1%lo', '::0.0.0.2']) {
+    for (const host of [
+      '10.1.2.3',
+      '::ffff:10.1.2.3',
+      'fd00::1',
+      'fe80::1%lo',
+      '::2',
+      'localhost',
+      '::127.0.0.1',
+      '::127.0.0.1%lo',
+      '::0.0.0.2',
+    ]) {
       expect(isLoopbackHost(host)).toBe(false)
     }
   })
@@ -303,12 +343,13 @@ describe('real Loader composition', () => {
   })
 
   it('reports no origin before binding or for a bind address that no URL can express', () => {
-    expect(() => new HttpServer(new Context(), HttpServer.Config({ host: '127.0.0.1', port: 0 })).getOrigin())
-      .toThrow('webserver: origin read before the listener bound a port')
-    expect(() => new HttpServer(new Context(), HttpServer.Config({ host: 'fe80::1%eth0', port: 0 })).getOrigin())
-      .toThrow('webserver: bind address "fe80::1%eth0" carries an interface zone id, which no URL can express')
+    expect(() => new HttpServer(new Context(), HttpServer.Config({ host: '127.0.0.1', port: 0 })).getOrigin()).toThrow(
+      'webserver: origin read before the listener bound a port',
+    )
+    expect(() => new HttpServer(new Context(), HttpServer.Config({ host: 'fe80::1%eth0', port: 0 })).getOrigin()).toThrow(
+      'webserver: bind address "fe80::1%eth0" carries an interface zone id, which no URL can express',
+    )
   })
-
 
   it('applies gzip only to eligible socket-backed HTTP responses', { timeout: 60_000 }, async () => {
     expect(HttpServer.Config({ host: '127.0.0.1', port: 0 })).toEqual({
@@ -318,9 +359,13 @@ describe('real Loader composition', () => {
       compressionLevel: 1,
       compressionThresholdBytes: 1024,
     })
-    expect(() => HttpServer.Config({
-      host: '127.0.0.1', port: 0, compressionLevel: 10,
-    })).toThrow()
+    expect(() =>
+      HttpServer.Config({
+        host: '127.0.0.1',
+        port: 0,
+        compressionLevel: 10,
+      }),
+    ).toThrow()
 
     const loaded = await loadComposition(0, true)
     const server = loaded.webServer
@@ -386,20 +431,16 @@ describe('real Loader composition', () => {
     const streamed = await request(server.port, '/stream', { headers: { 'accept-encoding': 'gzip' } })
     expect(streamed).toMatchObject({ body: body.slice(0, 80) })
     expect(streamed.headers.get('content-encoding')).toBe('gzip')
-    expect((await request(server.port, '/small', { headers: { 'accept-encoding': 'gzip' } }))
-      .headers.get('content-encoding')).toBeNull()
+    expect((await request(server.port, '/small', { headers: { 'accept-encoding': 'gzip' } })).headers.get('content-encoding')).toBeNull()
 
     const identity = await request(server.port, '/text', {
       headers: { 'accept-encoding': 'gzip;q=0.5, identity;q=1' },
     })
     expect(identity.headers.get('content-encoding')).toBeNull()
     expect(identity.headers.get('vary')).toBe('Accept-Encoding')
-    expect((await request(server.port, '/events', { headers: { 'accept-encoding': 'gzip' } }))
-      .headers.get('content-encoding')).toBeNull()
-    expect((await request(server.port, '/archive', { headers: { 'accept-encoding': 'gzip' } }))
-      .headers.get('content-encoding')).toBeNull()
-    expect((await request(server.port, '/range', { headers: { 'accept-encoding': 'gzip' } }))
-      .headers.get('content-encoding')).toBeNull()
+    expect((await request(server.port, '/events', { headers: { 'accept-encoding': 'gzip' } })).headers.get('content-encoding')).toBeNull()
+    expect((await request(server.port, '/archive', { headers: { 'accept-encoding': 'gzip' } })).headers.get('content-encoding')).toBeNull()
+    expect((await request(server.port, '/range', { headers: { 'accept-encoding': 'gzip' } })).headers.get('content-encoding')).toBeNull()
   })
 
   // Real-Loader composition resolves workspace packages through tsx at test
@@ -420,9 +461,30 @@ describe('real Loader composition', () => {
     // Routing precedence: exact beats prefix, longest prefix wins, a prefix
     // route answers its own path, and routes own their method handling
     // (POST reaches a registered prefix; 405 is fallback-only semantics).
-    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
-    server.register({ kind: 'prefix', path: '/api', handler: (_req, res) => { res.writeHead(200); res.end('API') } })
-    server.register({ kind: 'prefix', path: '/api/deep', handler: (_req, res) => { res.writeHead(200); res.end('DEEP') } })
+    server.register({
+      kind: 'exact',
+      path: '/probe',
+      handler: (_req, res) => {
+        res.writeHead(200)
+        res.end('EXACT')
+      },
+    })
+    server.register({
+      kind: 'prefix',
+      path: '/api',
+      handler: (_req, res) => {
+        res.writeHead(200)
+        res.end('API')
+      },
+    })
+    server.register({
+      kind: 'prefix',
+      path: '/api/deep',
+      handler: (_req, res) => {
+        res.writeHead(200)
+        res.end('DEEP')
+      },
+    })
     expect(await request(port, '/probe')).toMatchObject({ status: 200, body: 'EXACT' })
     expect(await request(port, '/api/anything')).toMatchObject({ status: 200, body: 'API' })
     expect(await request(port, '/api/deep/leaf')).toMatchObject({ status: 200, body: 'DEEP' })
@@ -455,9 +517,15 @@ describe('real Loader composition', () => {
 
     // Duplicate (kind, path) is a misconfiguration and throws; the disposer
     // restores registrability (register/disposer symmetry).
-    expect(() => server.register({ kind: 'exact', path: '/probe', handler: () => {} }))
-      .toThrow(/duplicate exact route/)
-    const disposeOnce = server.register({ kind: 'exact', path: '/once', handler: (_req, res) => { res.writeHead(200); res.end('ONCE') } })
+    expect(() => server.register({ kind: 'exact', path: '/probe', handler: () => {} })).toThrow(/duplicate exact route/)
+    const disposeOnce = server.register({
+      kind: 'exact',
+      path: '/once',
+      handler: (_req, res) => {
+        res.writeHead(200)
+        res.end('ONCE')
+      },
+    })
     expect(await request(port, '/once')).toMatchObject({ status: 200, body: 'ONCE' })
     disposeOnce()
     expect((await request(port, '/once')).body).toContain('shell') // back to the fallback owner
@@ -475,12 +543,13 @@ describe('real Loader composition', () => {
     const disposeUpgrade = server.registerUpgrade({
       path: '/events',
       handler: (_req, socket) => {
-        socket.once('close', () => { upgradedServerClosed = true })
+        socket.once('close', () => {
+          upgradedServerClosed = true
+        })
         socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: dsh-test\r\n\r\n')
       },
     })
-    expect(() => server.registerUpgrade({ path: '/events', handler: () => {} }))
-      .toThrow(/duplicate upgrade route/)
+    expect(() => server.registerUpgrade({ path: '/events', handler: () => {} })).toThrow(/duplicate upgrade route/)
     const upgraded = await upgrade(port, '/events?stream=mux')
     disposeUpgrade()
     expect(() => server.registerUpgrade({ path: '/events', handler: () => {} })).not.toThrow()
@@ -495,17 +564,14 @@ describe('real Loader composition', () => {
       },
     })
     const failedUpgrade = connect(boundPort(port), '127.0.0.1')
-    failedUpgrade.on('error', () => { /* The server-side reset is the fixture outcome. */ })
+    failedUpgrade.on('error', () => {
+      /* The server-side reset is the fixture outcome. */
+    })
     await once(failedUpgrade, 'connect')
     const failedUpgradeClosed = once(failedUpgrade, 'close')
-    failedUpgrade.write([
-      'GET /upgrade-error HTTP/1.1',
-      `Host: 127.0.0.1:${String(port)}`,
-      'Connection: Upgrade',
-      'Upgrade: dsh-test',
-      '',
-      '',
-    ].join('\r\n'))
+    failedUpgrade.write(
+      ['GET /upgrade-error HTTP/1.1', `Host: 127.0.0.1:${String(port)}`, 'Connection: Upgrade', 'Upgrade: dsh-test', '', ''].join('\r\n'),
+    )
     await failedUpgradeClosed
     expect(await request(port, '/probe')).toMatchObject({ status: 200, body: 'EXACT' })
 
@@ -520,7 +586,7 @@ describe('real Loader composition', () => {
     const loaded = await loadComposition()
     const server = loaded.webServer
     let flag = 'dark'
-    loaded.on('webserver/index-inject', (table) => {
+    loaded.on('webserver/index-inject', table => {
       table.push(
         { kind: 'script', placement: 'head', text: 'window.__Q__=1' },
         { kind: 'script-src', placement: 'head', src: '/plugins/a.js?rev="1"&x=<y>' },
@@ -561,11 +627,15 @@ describe('real Loader composition', () => {
 
     // Tag-less fragments: head rows prepend, body rows append, and the
     // boot-readiness tail lands after the last body row.
-    expect(renderIndexInjections('<main>x</main>', [
-      { kind: 'script', placement: 'head', text: 'H' },
-      { kind: 'script', placement: 'body', text: 'B' },
-    ])).toBe('<script>H</script><main>x</main><script>B</script>'
-      + '<script>(globalThis.__DSH_BOOT_READY__ ??= Promise.withResolvers()).resolve()</script>')
+    expect(
+      renderIndexInjections('<main>x</main>', [
+        { kind: 'script', placement: 'head', text: 'H' },
+        { kind: 'script', placement: 'body', text: 'B' },
+      ]),
+    ).toBe(
+      '<script>H</script><main>x</main><script>B</script>' +
+        '<script>(globalThis.__DSH_BOOT_READY__ ??= Promise.withResolvers()).resolve()</script>',
+    )
   })
 
   it('serves HTTPS to a verifying client and reports the https protocol', { timeout: 60_000 }, async () => {
@@ -610,7 +680,14 @@ describe('real Loader composition', () => {
     const server = loaded.webServer
     expect(server.protocol).toBe('http:')
     expect(server.getOrigin()).toBe(`http://127.0.0.1:${String(server.port)}`)
-    server.register({ kind: 'exact', path: '/plain', handler: (_req, res) => { res.writeHead(200); res.end('PLAIN') } })
+    server.register({
+      kind: 'exact',
+      path: '/plain',
+      handler: (_req, res) => {
+        res.writeHead(200)
+        res.end('PLAIN')
+      },
+    })
     expect(await request(server.port, '/plain')).toMatchObject({ status: 200, body: 'PLAIN' })
     await expect(tlsRequest(server.port, '/plain')).rejects.toThrow()
   })
@@ -619,8 +696,7 @@ describe('real Loader composition', () => {
     const fixture = await tlsFixture()
     const directory = dirname(fixture.certFile)
     // A valid key that pairs with nothing, plus an empty and an absent file.
-    const otherKey = generateKeyPairSync('rsa', { modulusLength: 2048 })
-      .privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+    const otherKey = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
     const otherKeyFile = join(directory, 'tls-other-key.pem')
     const emptyFile = join(directory, 'tls-empty.pem')
     await writeFile(otherKeyFile, otherKey)
@@ -662,7 +738,10 @@ describe('real Loader composition', () => {
         const fiber = webserverFiber(denied)
         expect(fiber?.state, label).toBe(FiberState.FAILED)
         if (fiber === undefined) throw new Error(`${label}: webserver row is missing from the composition`)
-        const failure = await fiber.await().then(() => '', (error: unknown) => error instanceof Error ? error.message : String(error))
+        const failure = await fiber.await().then(
+          () => '',
+          (error: unknown) => (error instanceof Error ? error.message : String(error)),
+        )
         expect(failure, label).toMatch(expected)
         expect(failure, label).not.toMatch(/EADDRINUSE/)
         // Diagnostics carry the paths that failed and never the material itself.
@@ -684,27 +763,41 @@ describe('real Loader composition', () => {
     server.registerUpgrade({
       path: '/events',
       handler: (_req, socket) => {
-        socket.once('close', () => { upgradeClosed = true })
+        socket.once('close', () => {
+          upgradeClosed = true
+        })
         socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: dsh-test\r\n\r\n')
       },
     })
-    server.register({ kind: 'exact', path: '/probe', handler: (_req, res) => { res.writeHead(200); res.end('EXACT') } })
+    server.register({
+      kind: 'exact',
+      path: '/probe',
+      handler: (_req, res) => {
+        res.writeHead(200)
+        res.end('EXACT')
+      },
+    })
 
     const clients = new Map<Duplex, Promise<void>>()
     const clientErrors: Error[] = []
     const observeClient = (socket: Duplex): void => {
-      const onError = (error: Error): void => { clientErrors.push(error) }
+      const onError = (error: Error): void => {
+        clientErrors.push(error)
+      }
       socket.on('error', onError)
       // Destruction may emit ECONNRESET before close; only close confirms release.
-      clients.set(socket, new Promise<void>((resolve) => {
-        socket.once('close', () => {
-          socket.off('error', onError)
-          resolve()
-        })
-      }))
+      clients.set(
+        socket,
+        new Promise<void>(resolve => {
+          socket.once('close', () => {
+            socket.off('error', onError)
+            resolve()
+          })
+        }),
+      )
     }
     const agent = new Agent({ keepAlive: true, ca: fixture.ca, maxSockets: 1 })
-    const idleReady = new Promise<void>((resolve) => {
+    const idleReady = new Promise<void>(resolve => {
       agent.once('free', (socket: Duplex) => {
         observeClient(socket)
         resolve()

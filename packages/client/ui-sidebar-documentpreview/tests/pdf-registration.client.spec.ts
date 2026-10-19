@@ -3,7 +3,7 @@
 import { createElement } from 'react'
 import { Context } from '@deepseek-ai/cordis'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
@@ -18,13 +18,18 @@ import { apply, PDF_BODY_ID } from '../src/client/pdf/index.ts'
 import { LazyPdfBody } from '../src/client/pdf/LazyPdfBody.tsx'
 import { en, zh } from '../src/client/pdf/locales.ts'
 
-afterEach(() => { cleanup(); renderedPdf.mockClear() })
+afterEach(() => {
+  cleanup()
+  renderedPdf.mockClear()
+})
 
 describe('PDF registration', () => {
   it('shows localized loading feedback while the PDF chunk resolves', async () => {
     render(createElement(LazyPdfBody, { t: makeTranslate(en) } as never))
     expect(screen.getByRole('status', { name: en.loading })).toBeDefined()
-    await waitFor(() => { expect(renderedPdf).toHaveBeenCalledOnce() })
+    await waitFor(() => {
+      expect(renderedPdf).toHaveBeenCalledOnce()
+    })
   })
 
   it('registers a builtin complete-bytes body and removes all contributions and retained view state on dispose', async () => {
@@ -38,18 +43,26 @@ describe('PDF registration', () => {
       store: ReturnType<typeof createPdfStore>
       inject: (sessionId: SessionId, actions: ReturnType<ReturnType<typeof createPdfStore>['create']>['actions']) => PdfBodyInjected
     }> = []
-    const register = vi.fn((options: typeof entries[number], component: unknown) => {
+    const register = vi.fn((options: (typeof entries)[number], component: unknown) => {
       expect(component).toBe(LazyPdfBody)
       entries.push(options)
-      return () => { entries.splice(entries.indexOf(options), 1) }
+      return () => {
+        entries.splice(entries.indexOf(options), 1)
+      }
     })
     ctx.provide('documentPreviews', previews)
     ctx.provide('locale', {
-      register: (name: string, value: unknown) => { dictionaries.set(name, value); return () => { dictionaries.delete(name) } },
+      register: (name: string, value: unknown) => {
+        dictionaries.set(name, value)
+        return () => {
+          dictionaries.delete(name)
+        }
+      },
       bind: () => makeTranslate(en),
     } as never)
     ctx.provide('slots', {
-      inject: (_name: string, callback: () => () => void) => callback(), register,
+      inject: (_name: string, callback: () => () => void) => callback(),
+      register,
     } as never)
     const fiber = ctx.plugin({ apply })
     try {

@@ -1,10 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
-import {
-  RemoteStreamCarrierError,
-  RemoteStream,
-} from '../src/client/index.ts'
+import { RemoteStreamCarrierError, RemoteStream } from '../src/client/index.ts'
 
 const GENERATION = { id: 1, host: { home: '/home/fixture' } }
 
@@ -18,13 +15,15 @@ function hostSource(initiallyAvailable: boolean): {
     connection: {
       generation: {
         getSnapshot: () => current,
-        subscribe: (listener) => {
+        subscribe: listener => {
           listeners.add(listener)
-          return () => { listeners.delete(listener) }
+          return () => {
+            listeners.delete(listener)
+          }
         },
       },
     },
-    publish: (available) => {
+    publish: available => {
       current = available ? GENERATION : undefined
       for (const listener of listeners) listener()
     },
@@ -41,7 +40,7 @@ interface Generation<Item> {
 
 function scripted<Item>(generations: Generation<Item>[], opened?: () => void) {
   return (signal: AbortSignal): AsyncIterable<Item> => ({
-    async * [Symbol.asyncIterator](): AsyncIterator<Item> {
+    async *[Symbol.asyncIterator](): AsyncIterator<Item> {
       const generation = generations.shift()
       if (generation === undefined) throw new Error('fixture has no stream generation')
       opened?.()
@@ -49,8 +48,14 @@ function scripted<Item>(generations: Generation<Item>[], opened?: () => void) {
         for (const value of generation.values ?? []) yield await value
         if (generation.terminal !== undefined) throw generation.terminal
         if (generation.hold === true && !signal.aborted) {
-          await new Promise<void>((resolve) => {
-            signal.addEventListener('abort', () => { resolve() }, { once: true })
+          await new Promise<void>(resolve => {
+            signal.addEventListener(
+              'abort',
+              () => {
+                resolve()
+              },
+              { once: true },
+            )
           })
         }
         if (generation.afterAbortError !== undefined) throw generation.afterAbortError
@@ -69,9 +74,8 @@ function supervisor<Item>(
   return new RemoteStream(connection, {
     name: 'fixture stream',
     open: scripted(generations),
-    ended: accepted => accepted
-      ? new RemoteStreamCarrierError('accepted generation ended')
-      : new Error('generation ended before acceptance'),
+    ended: accepted =>
+      accepted ? new RemoteStreamCarrierError('accepted generation ended') : new Error('generation ended before acceptance'),
     ...(carrierFailed === undefined ? {} : { carrierFailed }),
   })
 }
@@ -102,10 +106,7 @@ describe('RemoteStream', () => {
     const first = new RemoteStreamCarrierError('first carrier failure')
     const repeated = new RemoteStreamCarrierError('isolated retry failed')
     const carrierFailed = vi.fn<(error: RemoteStreamCarrierError) => void>()
-    const stream = supervisor(source.connection, [
-      { terminal: first },
-      { terminal: repeated },
-    ], carrierFailed)
+    const stream = supervisor(source.connection, [{ terminal: first }, { terminal: repeated }], carrierFailed)
 
     await expect(stream[Symbol.asyncIterator]().next()).rejects.toMatchObject({
       isDSHRemoteError: true,
@@ -149,25 +150,28 @@ describe('RemoteStream', () => {
     const subscribed = Promise.withResolvers<undefined>()
     const connection = {
       generation: {
-        getSnapshot: () => available ? GENERATION : undefined,
+        getSnapshot: () => (available ? GENERATION : undefined),
         subscribe: (value: () => void) => {
           listener = value
           subscribed.resolve(undefined)
-          return () => { listener = undefined }
+          return () => {
+            listener = undefined
+          }
         },
       },
     }
     let opened = 0
     const stream = new RemoteStream(connection, {
       name: 'fixture stream',
-      open: scripted([
-        { terminal: new RemoteStreamCarrierError('offline') },
-        { values: ['ready'], hold: true },
-      ], () => { opened++ }),
+      open: scripted([{ terminal: new RemoteStreamCarrierError('offline') }, { values: ['ready'], hold: true }], () => {
+        opened++
+      }),
       ended: () => new Error('ended'),
     })
     const pending = stream[Symbol.asyncIterator]().next()
-    await vi.waitFor(() => { expect(opened).toBe(1) })
+    await vi.waitFor(() => {
+      expect(opened).toBe(1)
+    })
     await subscribed.promise
 
     listener?.()
@@ -186,13 +190,15 @@ describe('RemoteStream', () => {
     let opened = 0
     const stream = new RemoteStream(source.connection, {
       name: 'fixture stream',
-      open: scripted([
-        { terminal: new RemoteStreamCarrierError('offline') },
-      ], () => { opened++ }),
+      open: scripted([{ terminal: new RemoteStreamCarrierError('offline') }], () => {
+        opened++
+      }),
       ended: () => new Error('ended'),
     })
     const pending = stream[Symbol.asyncIterator]().next()
-    await vi.waitFor(() => { expect(opened).toBe(1) })
+    await vi.waitFor(() => {
+      expect(opened).toBe(1)
+    })
     source.publish(false)
 
     await stream.dispose()
@@ -204,17 +210,16 @@ describe('RemoteStream', () => {
     let disposed = 0
     const connection = {
       generation: {
-        getSnapshot: () => reads++ === 0 ? undefined : GENERATION,
+        getSnapshot: () => (reads++ === 0 ? undefined : GENERATION),
         subscribe: (listener: () => void) => {
           listener()
-          return () => { disposed++ }
+          return () => {
+            disposed++
+          }
         },
       },
     }
-    const stream = supervisor(connection, [
-      { terminal: new RemoteStreamCarrierError('offline') },
-      { values: ['ready'], hold: true },
-    ])
+    const stream = supervisor(connection, [{ terminal: new RemoteStreamCarrierError('offline') }, { values: ['ready'], hold: true }])
 
     await expect(stream[Symbol.asyncIterator]().next()).resolves.toMatchObject({
       value: { generation: 2, value: 'ready' },
@@ -269,11 +274,14 @@ describe('RemoteStream', () => {
   it('honors replacement requested by carrier diagnostics', async () => {
     const source = hostSource(true)
     const holder: { stream?: RemoteStream<string> } = {}
-    const carrierFailed = vi.fn(() => { holder.stream?.restart() })
-    const stream = supervisor(source.connection, [
-      { terminal: new RemoteStreamCarrierError('replace this generation') },
-      { values: ['ready'], hold: true },
-    ], carrierFailed)
+    const carrierFailed = vi.fn(() => {
+      holder.stream?.restart()
+    })
+    const stream = supervisor(
+      source.connection,
+      [{ terminal: new RemoteStreamCarrierError('replace this generation') }, { values: ['ready'], hold: true }],
+      carrierFailed,
+    )
     holder.stream = stream
 
     await expect(stream[Symbol.asyncIterator]().next()).resolves.toMatchObject({
@@ -296,10 +304,7 @@ describe('RemoteStream', () => {
         },
       },
     }
-    const stream = supervisor(connection, [
-      { terminal: new RemoteStreamCarrierError('offline') },
-      { values: ['ready'], hold: true },
-    ])
+    const stream = supervisor(connection, [{ terminal: new RemoteStreamCarrierError('offline') }, { values: ['ready'], hold: true }])
     holder.stream = stream
 
     await expect(stream[Symbol.asyncIterator]().next()).resolves.toMatchObject({
@@ -313,14 +318,16 @@ describe('RemoteStream', () => {
     const source = hostSource(true)
     const release = Promise.withResolvers<undefined>()
     let closed = false
-    const stream = supervisor(source.connection, [{
-      values: ['ready'],
-      hold: true,
-      close: async () => {
-        await release.promise
-        closed = true
+    const stream = supervisor(source.connection, [
+      {
+        values: ['ready'],
+        hold: true,
+        close: async () => {
+          await release.promise
+          closed = true
+        },
       },
-    }])
+    ])
     const iterator = stream[Symbol.asyncIterator]()
     await iterator.next()
     const pending = iterator.next()

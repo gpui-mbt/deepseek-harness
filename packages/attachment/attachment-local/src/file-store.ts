@@ -4,12 +4,8 @@ import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { join } from 'node:path'
 import { AttachmentError, AttachmentId } from '@deepseek-ai/dsh-attachment'
-import type {
-  FileAttachmentRef, SaveFileAttachment, SaveFileStreamAttachment,
-} from '@deepseek-ai/dsh-attachment'
-import {
-  publishImmutableAlias, publishImmutableObject, publishImmutableObjectStream,
-} from './store.ts'
+import type { FileAttachmentRef, SaveFileAttachment, SaveFileStreamAttachment } from '@deepseek-ai/dsh-attachment'
+import { publishImmutableAlias, publishImmutableObject, publishImmutableObjectStream } from './store.ts'
 
 const FILE_ID_PATTERN = /^sha256:([a-f0-9]{64})$/
 const WINDOWS_DEVICE_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])$/iu
@@ -88,10 +84,7 @@ function storedFileObjectPath(root: string, sha256: string): string {
  * @param input - exact bytes and optional display name.
  * @returns the durable content-addressed file reference.
  */
-export async function saveFileVerbatim(
-  root: string,
-  input: SaveFileAttachment,
-): Promise<FileAttachmentRef> {
+export async function saveFileVerbatim(root: string, input: SaveFileAttachment): Promise<FileAttachmentRef> {
   const sha256 = createHash('sha256').update(input.data).digest('hex')
   const ref: FileAttachmentRef = {
     attachmentId: AttachmentId(`sha256:${sha256}`),
@@ -110,29 +103,16 @@ export async function saveFileVerbatim(
  * @param input - ordered exact bytes, optional cancellation, and display name.
  * @returns the durable content-addressed file reference.
  */
-export async function saveFileStreamVerbatim(
-  root: string,
-  input: SaveFileStreamAttachment,
-): Promise<FileAttachmentRef> {
+export async function saveFileStreamVerbatim(root: string, input: SaveFileStreamAttachment): Promise<FileAttachmentRef> {
   const name = fileLeafName(input.name)
-  const stored = await publishImmutableObjectStream(
-    root,
-    input.data,
-    sha256 => storedFileObjectPath(root, sha256),
-    input.signal,
-  )
+  const stored = await publishImmutableObjectStream(root, input.data, sha256 => storedFileObjectPath(root, sha256), input.signal)
   const ref: FileAttachmentRef = {
     attachmentId: AttachmentId(`sha256:${stored.sha256}`),
     name,
     bytes: stored.bytes,
   }
   input.signal?.throwIfAborted()
-  await publishImmutableAlias(
-    root,
-    storedFileObjectPath(root, stored.sha256),
-    storedFilePath(root, ref),
-    stored.sha256,
-  )
+  await publishImmutableAlias(root, storedFileObjectPath(root, stored.sha256), storedFilePath(root, ref), stored.sha256)
   input.signal?.throwIfAborted()
   return ref
 }
@@ -144,11 +124,7 @@ export async function saveFileStreamVerbatim(
  * @param signal - optional cancellation for filesystem reads.
  * @returns exact stored bytes in order; integrity failures reject after the final chunk.
  */
-export async function* readFileStreamVerbatim(
-  root: string,
-  ref: FileAttachmentRef,
-  signal?: AbortSignal,
-): AsyncIterable<Uint8Array> {
+export async function* readFileStreamVerbatim(root: string, ref: FileAttachmentRef, signal?: AbortSignal): AsyncIterable<Uint8Array> {
   signal?.throwIfAborted()
   const sha256 = ensureFileReference(ref)
   const stream = createReadStream(storedFilePath(root, ref), {

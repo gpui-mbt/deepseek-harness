@@ -21,7 +21,8 @@ import type { SessionEvent, SessionSeq as SessionSeqType } from './types.ts'
 export function buildForkSeed(events: readonly SessionEvent[], boundary: SessionSeqType): SessionEvent[] {
   const prefix = events.slice(0, boundary + 1)
   prefix.push({
-    type: 'session/end-seed', seq: SessionSeq(boundary + 1),
+    type: 'session/end-seed',
+    seq: SessionSeq(boundary + 1),
     // oxlint-disable-next-line typescript/no-non-null-assertion -- the caller validated this exact source event.
     time: events[boundary]!.time,
     data: { inherited: true },

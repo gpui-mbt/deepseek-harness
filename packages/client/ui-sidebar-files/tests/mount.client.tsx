@@ -8,8 +8,8 @@
 import { useSyncExternalStore } from 'react'
 import { render } from '@testing-library/react'
 import type { RenderResult } from '@testing-library/react'
-import { onTestFinished, vi } from 'vitest'
-import type { Mock } from 'vitest'
+import { onTestFinished, vi } from 'vite-plus/test'
+import type { Mock } from 'vite-plus/test'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -81,10 +81,15 @@ function harness(cwd: string | null, refreshShortcut?: ReturnType<FilesBodyProps
       sidebar: { expanded: true, fullscreen: false },
       panel: { id: 'pane-1' },
       tab: {
-        id: TAB, kind: 'files', contentId: 'files', title: zh['type.label'], visible: true,
+        id: TAB,
+        kind: 'files',
+        contentId: 'files',
+        title: zh['type.label'],
+        visible: true,
         navigation: { address: 'files', params: undefined, revision: 1 },
         signal: controller.signal,
-        actions: tabActions, refreshShortcut,
+        actions: tabActions,
+        refreshShortcut,
       },
     }),
     renderSlot: () => null,
@@ -103,8 +108,11 @@ function harness(cwd: string | null, refreshShortcut?: ReturnType<FilesBodyProps
  * @param cwd - the session's working directory as `useSessions` reports it; `null` for a session without one.
  * @param refreshShortcut - effective binding advertised by the tab owner.
  */
-export function mountBody(cwd: string | null = ROOT, refreshShortcut?: ReturnType<FilesBodyProps['useTabInfo']>['tab']['refreshShortcut']): Mounted {
+export function mountBody(
+  cwd: string | null = ROOT,
+  refreshShortcut?: ReturnType<FilesBodyProps['useTabInfo']>['tab']['refreshShortcut'],
+): Mounted {
   const { shared, ...hands } = harness(cwd, refreshShortcut)
-  const view = render(<FilesBody {...shared as unknown as FilesBodyProps} />)
-  return { ...hands, view, remount: () => render(<FilesBody {...shared as unknown as FilesBodyProps} />) }
+  const view = render(<FilesBody {...(shared as unknown as FilesBodyProps)} />)
+  return { ...hands, view, remount: () => render(<FilesBody {...(shared as unknown as FilesBodyProps)} />) }
 }

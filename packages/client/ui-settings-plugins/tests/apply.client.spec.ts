@@ -1,7 +1,7 @@
 /** What the browser half registers, and that it all leaves with the fiber. */
 
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -24,10 +24,13 @@ async function bench() {
 
 /** The Settings shell's section slot, as its owner declares it. */
 function declareRoot(slots: SlotRegistry): () => void {
-  return slots.register({
-    name: 'root',
-    children: { 'settings.section': { kind: 'list', scope: 'root' } },
-  } as never, () => null)
+  return slots.register(
+    {
+      name: 'root',
+      children: { 'settings.section': { kind: 'list', scope: 'root' } },
+    } as never,
+    () => null,
+  )
 }
 
 describe('ui-settings-plugins apply', () => {
@@ -81,7 +84,9 @@ describe('ui-settings-plugins apply', () => {
 
     declareRoot(slots)
 
-    await vi.waitFor(() => { expect(slots.entries('settings.section')).toHaveLength(1) })
+    await vi.waitFor(() => {
+      expect(slots.entries('settings.section')).toHaveLength(1)
+    })
   })
 
   it('collapses the section on teardown', async () => {

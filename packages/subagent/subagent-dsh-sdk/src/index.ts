@@ -103,16 +103,16 @@ const SDK_START_CAPABILITIES: SubagentCapabilities = Object.freeze({
 })
 
 /** Merge the request's supported route fields over this provider instance's defaults. */
-function resolveSdkRoute(config: ResolvedConfig, requested: AgentOptions | undefined): Pick<
-  SdkRunSpec,
-  'provider' | 'model' | 'reasoningEffort' | 'maxTokens'
-> {
+function resolveSdkRoute(
+  config: ResolvedConfig,
+  requested: AgentOptions | undefined,
+): Pick<SdkRunSpec, 'provider' | 'model' | 'reasoningEffort' | 'maxTokens'> {
   const maxTokens = requested?.maxTokens ?? config.maxTokens
   return {
     provider: requested?.provider ?? config.provider,
     model: requested?.model ?? config.model,
-    ...requested?.reasoningEffort === undefined ? {} : { reasoningEffort: requested.reasoningEffort },
-    ...maxTokens === undefined ? {} : { maxTokens },
+    ...(requested?.reasoningEffort === undefined ? {} : { reasoningEffort: requested.reasoningEffort }),
+    ...(maxTokens === undefined ? {} : { maxTokens }),
   }
 }
 
@@ -127,7 +127,11 @@ class SdkSubagentProvider implements SubagentProvider {
   // Context contract: an out-of-process SDK child starts fresh — no parent conversation crosses the process boundary.
   readonly inheritsParentContext = false
 
-  constructor(readonly name: string, private readonly ctx: Context, private readonly config: ResolvedConfig) {
+  constructor(
+    readonly name: string,
+    private readonly ctx: Context,
+    private readonly config: ResolvedConfig,
+  ) {
     this.agentRouteDefaults = Object.freeze({ provider: config.provider, model: config.model })
   }
 
@@ -145,7 +149,7 @@ class SdkSubagentProvider implements SubagentProvider {
     }
     const route = resolveSdkRoute(this.config, request.agentOptions)
     const spec: SdkRunSpec = {
-      ...this.config.dshBin === undefined ? {} : { dshBin: this.config.dshBin },
+      ...(this.config.dshBin === undefined ? {} : { dshBin: this.config.dshBin }),
       profile: this.config.profile,
       patches: this.config.patches,
       dshHome: this.config.dshHome,
@@ -179,7 +183,7 @@ export function apply(ctx: Context, config: Config): void {
   const launchPaths: ResolvedConfig = {
     ...resolved,
     patches: resolved.patches.map((path, index) => resolveConfiguredFile(`patches[${String(index)}]`, path)),
-    ...resolved.dshBin === undefined ? {} : { dshBin: resolveConfiguredFile('dshBin', resolved.dshBin) },
+    ...(resolved.dshBin === undefined ? {} : { dshBin: resolveConfiguredFile('dshBin', resolved.dshBin) }),
   }
   ctx.subagents.registerProvider(new SdkSubagentProvider(launchPaths.providerName, ctx, launchPaths))
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { pathToFileURL } from 'node:url'
 import { join, resolve } from 'node:path'
 import {
@@ -30,13 +30,11 @@ describe('parseLspArgs', () => {
   })
 
   it('rejects an unknown operation', () => {
-    expect(() => parseLspArgs({ operation: 'rename', file_path: 'a.ts', line: 1, character: 1 }))
-      .toThrow(/operation must be one of/)
+    expect(() => parseLspArgs({ operation: 'rename', file_path: 'a.ts', line: 1, character: 1 })).toThrow(/operation must be one of/)
   })
 
   it('rejects a blank file_path', () => {
-    expect(() => parseLspArgs({ operation: 'hover', file_path: '   ', line: 1, character: 1 }))
-      .toThrow(/file_path/)
+    expect(() => parseLspArgs({ operation: 'hover', file_path: '   ', line: 1, character: 1 })).toThrow(/file_path/)
   })
 
   it('rejects non-positive or non-integer coordinates', () => {

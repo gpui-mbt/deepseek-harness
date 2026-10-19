@@ -7,12 +7,7 @@
  */
 
 import { WebError } from '@deepseek-ai/dsh-web'
-import type {
-  WebSearchProvider,
-  WebSearchRequest,
-  WebSearchResult,
-  WebSearchSource,
-} from '@deepseek-ai/dsh-web'
+import type { WebSearchProvider, WebSearchRequest, WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
 import type { ExaError, ExaResult, ExaSearchResponse } from './types.ts'
 
 /** Stable id this provider registers under. */
@@ -58,9 +53,9 @@ export function mapExaResult(result: ExaResult): WebSearchSource | undefined {
   if (snippet === undefined) return undefined
   return {
     url: result.url,
-    ...result.title != null && result.title.length > 0 ? { title: result.title } : {},
+    ...(result.title != null && result.title.length > 0 ? { title: result.title } : {}),
     snippet,
-    ...result.publishedDate != null && result.publishedDate.length > 0 ? { publishedAt: result.publishedDate } : {},
+    ...(result.publishedDate != null && result.publishedDate.length > 0 ? { publishedAt: result.publishedDate } : {}),
   }
 }
 
@@ -72,9 +67,7 @@ export function mapExaResult(result: ExaResult): WebSearchSource | undefined {
  *   ({@link mapExaResult}).
  */
 export function mapExaResponse(response: ExaSearchResponse): WebSearchResult {
-  const sources = (response.results ?? [])
-    .map(mapExaResult)
-    .filter((source): source is WebSearchSource => source !== undefined)
+  const sources = (response.results ?? []).map(mapExaResult).filter((source): source is WebSearchSource => source !== undefined)
   // Exa returns no generated answer, so `content` is omitted. The web service owns the
   // final `maxResults` truncation, so this provider reports `truncated: false`.
   return { sources, truncated: false }
@@ -87,10 +80,12 @@ export class ExaSearchProvider implements WebSearchProvider {
   constructor(private readonly options: ExaSearchProviderOptions) {}
 
   available(): boolean {
-    return this.options.apiKey.length > 0
-      && isValidBaseUrl(this.options.baseURL)
-      && isPositiveInteger(this.options.highlightsPerResult)
-      && (this.options.numResults === undefined || isPositiveInteger(this.options.numResults))
+    return (
+      this.options.apiKey.length > 0 &&
+      isValidBaseUrl(this.options.baseURL) &&
+      isPositiveInteger(this.options.highlightsPerResult) &&
+      (this.options.numResults === undefined || isPositiveInteger(this.options.numResults))
+    )
   }
 
   async search(request: WebSearchRequest, signal?: AbortSignal): Promise<WebSearchResult> {
@@ -103,18 +98,18 @@ export class ExaSearchProvider implements WebSearchProvider {
         method: 'POST',
         redirect: 'error',
         headers: {
-          'authorization': `Bearer ${this.options.apiKey}`,
+          authorization: `Bearer ${this.options.apiKey}`,
           'content-type': 'application/json',
-          'accept': 'application/json',
+          accept: 'application/json',
           'user-agent': USER_AGENT,
         },
         body: JSON.stringify({
           query: request.query,
           type: this.options.searchType,
           contents: { highlights: { highlightsPerUrl: this.options.highlightsPerResult } },
-          ...numResults !== undefined ? { numResults } : {},
+          ...(numResults !== undefined ? { numResults } : {}),
         }),
-        ...signal !== undefined ? { signal } : {},
+        ...(signal !== undefined ? { signal } : {}),
       })
     } catch (error: unknown) {
       if (isAbortError(error)) throw new WebError('Exa search aborted', 'WEB_ABORTED', { cause: error })
@@ -125,7 +120,7 @@ export class ExaSearchProvider implements WebSearchProvider {
       const status = response.status
       let message = `Exa API error (HTTP ${status})`
       try {
-        const parsed = await response.json() as ExaError
+        const parsed = (await response.json()) as ExaError
         const detail = parsed.error ?? parsed.message
         if (detail !== undefined && detail.length > 0) message = detail
       } catch (error: unknown) {
@@ -141,7 +136,7 @@ export class ExaSearchProvider implements WebSearchProvider {
     }
 
     try {
-      const payload = await response.json() as ExaSearchResponse
+      const payload = (await response.json()) as ExaSearchResponse
       return mapExaResponse(payload)
     } catch (error: unknown) {
       if (isAbortError(error)) throw new WebError('Exa search aborted', 'WEB_ABORTED', { cause: error })

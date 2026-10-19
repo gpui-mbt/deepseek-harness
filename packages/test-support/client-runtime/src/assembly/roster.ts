@@ -42,12 +42,14 @@ export function graphFromRoster(rows: readonly ClientRosterRow[]): WebBootGraph 
   return {
     rev: LOCAL_REV,
     entries,
-    batches: [{
-      phase: 'application',
-      url: 'plugins/local.js',
-      rev: LOCAL_REV,
-      entries: entries.map(entry => entry.id),
-    }],
+    batches: [
+      {
+        phase: 'application',
+        url: 'plugins/local.js',
+        rev: LOCAL_REV,
+        entries: entries.map(entry => entry.id),
+      },
+    ],
   }
 }
 
@@ -125,9 +127,7 @@ export class ClientRoster {
     const rostered = this.rows.map(row => row.name)
     const unknown = names.filter(name => !rostered.includes(name))
     if (unknown.length > 0) {
-      throw new Error(
-        `client-test-runtime: ${operation}() names outside the roster: ${unknown.join(', ')}; roster: ${rostered.join(', ')}`,
-      )
+      throw new Error(`client-test-runtime: ${operation}() names outside the roster: ${unknown.join(', ')}; roster: ${rostered.join(', ')}`)
     }
     return new Set(names)
   }
@@ -156,8 +156,6 @@ export function assertPlan(plan: AssemblyPlan): void {
   const rostered = plan.roster.rows.map(row => row.name)
   const unknown = Object.keys(plan.provide ?? {}).filter(name => !rostered.includes(name))
   if (unknown.length > 0) {
-    throw new Error(
-      `client-test-runtime: provide names rows outside the roster: ${unknown.join(', ')}; roster: ${rostered.join(', ')}`,
-    )
+    throw new Error(`client-test-runtime: provide names rows outside the roster: ${unknown.join(', ')}; roster: ${rostered.join(', ')}`)
   }
 }

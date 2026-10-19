@@ -1,12 +1,13 @@
 /** Paragraph completion, provider failures, and disclosure-owned cancellation. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { ReasoningTranslation, reasoningFragments, type TranslateText, type TranslationState } from '../src/client/translation.ts'
 
 function fixture(maxTextChars = 4000) {
   const states: TranslationState[] = []
   const translate = vi.fn<TranslateText>(async ({ text }) => `译:${text}`)
-  const controller = new ReasoningTranslation({ provider: 'google', targetLanguage: 'zh' }, maxTextChars, translate,
-    (state) => { states.push(state) })
+  const controller = new ReasoningTranslation({ provider: 'google', targetLanguage: 'zh' }, maxTextChars, translate, state => {
+    states.push(state)
+  })
   return { controller, translate, states }
 }
 
@@ -22,9 +23,13 @@ describe('reasoning translation', () => {
     const b = fixture()
     try {
       b.controller.update(text, running)
-      await vi.waitFor(() => { expect(b.states.at(-1)?.pending).toBe(false) })
+      await vi.waitFor(() => {
+        expect(b.states.at(-1)?.pending).toBe(false)
+      })
       expect(b.translate.mock.calls.map(([request]) => request.text)).toEqual(expected)
-    } finally { b.controller.dispose() }
+    } finally {
+      b.controller.dispose()
+    }
   })
 
   it('retains exact whitespace and keeps every chunk within the configured Unicode-safe cap', () => {
@@ -43,12 +48,18 @@ describe('reasoning translation', () => {
     const b = fixture(4)
     try {
       b.controller.update('abcdefghij', true)
-      await vi.waitFor(() => { expect(b.states.at(-1)).toEqual({ text: '译:abcd译:efghij', pending: false, failed: false }) })
+      await vi.waitFor(() => {
+        expect(b.states.at(-1)).toEqual({ text: '译:abcd译:efghij', pending: false, failed: false })
+      })
       expect(b.translate.mock.calls.map(([request]) => request.text)).toEqual(['abcd', 'efgh'])
       b.controller.update('abcdefghij', false)
-      await vi.waitFor(() => { expect(b.translate).toHaveBeenCalledTimes(3) })
+      await vi.waitFor(() => {
+        expect(b.translate).toHaveBeenCalledTimes(3)
+      })
       expect(b.translate.mock.calls[2]?.[0]).toMatchObject({ provider: 'google', targetLanguage: 'zh', text: 'ij' })
-    } finally { b.controller.dispose() }
+    } finally {
+      b.controller.dispose()
+    }
   })
 
   it('does not restart an in-flight paragraph on streaming updates and caches repeated completed text', async () => {
@@ -60,26 +71,37 @@ describe('reasoning translation', () => {
       b.controller.update('First\n\nTail continues', true)
       expect(b.translate).toHaveBeenCalledTimes(1)
       pending.resolve('第一段')
-      await vi.waitFor(() => { expect(b.states.at(-1)?.text).toBe('第一段\n\nTail continues') })
+      await vi.waitFor(() => {
+        expect(b.states.at(-1)?.text).toBe('第一段\n\nTail continues')
+      })
       b.controller.update('First\n\nFirst\n\nTail continues', true)
       expect(b.translate).toHaveBeenCalledTimes(1)
       expect(b.states.at(-1)?.text).toBe('第一段\n\n第一段\n\nTail continues')
-    } finally { pending.resolve('第一段'); b.controller.dispose() }
+    } finally {
+      pending.resolve('第一段')
+      b.controller.dispose()
+    }
   })
 
   it('keeps a repeated unfinished tail original until the paragraph completes', async () => {
     const b = fixture()
     try {
       b.controller.update('First\n\nFirst', true)
-      await vi.waitFor(() => { expect(b.states.at(-1)?.pending).toBe(false) })
+      await vi.waitFor(() => {
+        expect(b.states.at(-1)?.pending).toBe(false)
+      })
       expect(b.states.at(-1)?.text).toBe('译:First\n\nFirst')
       b.controller.update('First\n\nFirst words', true)
       expect(b.states.at(-1)?.text).toBe('译:First\n\nFirst words')
       expect(b.translate.mock.calls.map(([request]) => request.text)).toEqual(['First'])
       b.controller.update('First\n\nFirst words', false)
-      await vi.waitFor(() => { expect(b.states.at(-1)?.text).toBe('译:First\n\n译:First words') })
+      await vi.waitFor(() => {
+        expect(b.states.at(-1)?.text).toBe('译:First\n\n译:First words')
+      })
       expect(b.translate.mock.calls.map(([request]) => request.text)).toEqual(['First', 'First words'])
-    } finally { b.controller.dispose() }
+    } finally {
+      b.controller.dispose()
+    }
   })
 
   it('requires an explicit retry after failure and does not publish provider messages', async () => {
@@ -87,17 +109,23 @@ describe('reasoning translation', () => {
     b.translate.mockRejectedValueOnce(new Error('sensitive provider response'))
     try {
       b.controller.update('First', false)
-      await vi.waitFor(() => { expect(b.states.at(-1)?.failed).toBe(true) })
+      await vi.waitFor(() => {
+        expect(b.states.at(-1)?.failed).toBe(true)
+      })
       b.controller.update('First\n\nSecond', false)
       expect(b.translate).toHaveBeenCalledTimes(1)
       expect(JSON.stringify(b.states)).not.toContain('sensitive')
       b.controller.retry()
-      await vi.waitFor(() => { expect(b.states.at(-1)).toEqual({ text: '译:First\n\n译:Second', failed: false, pending: false }) })
+      await vi.waitFor(() => {
+        expect(b.states.at(-1)).toEqual({ text: '译:First\n\n译:Second', failed: false, pending: false })
+      })
       expect(b.translate).toHaveBeenCalledTimes(3)
-    } finally { b.controller.dispose() }
+    } finally {
+      b.controller.dispose()
+    }
   })
 
-  it.each(['resolve', 'reject'] as const)('aborts on disposal and ignores a late %s', async (outcome) => {
+  it.each(['resolve', 'reject'] as const)('aborts on disposal and ignores a late %s', async outcome => {
     const pending = Promise.withResolvers<string>()
     const b = fixture()
     b.translate.mockImplementationOnce(() => pending.promise)

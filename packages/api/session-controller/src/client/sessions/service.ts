@@ -6,14 +6,17 @@ import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import { SESSION_SEARCH_RESULT_LIMIT } from '../../types.ts'
 import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
-import {
-  createSnapshotStore, notifySubscribers, type ObservableSnapshot, type SnapshotStore,
-} from '@deepseek-ai/dsh-client-store'
+import { createSnapshotStore, notifySubscribers, type ObservableSnapshot, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type { SessionEventSource } from '../contract/events.ts'
 import type { SessionFace } from '../contract/session.ts'
 import type {
-  AgentContext, ISessions, SessionReference, SessionRetainInfo, SessionRetainOptions, SessionTarget,
+  AgentContext,
+  ISessions,
+  SessionReference,
+  SessionRetainInfo,
+  SessionRetainOptions,
+  SessionTarget,
 } from '../contract/sessions.ts'
 import type { SessionReferenceSource } from '../index.ts'
 import { createScope, scopeIdentityOf, scopeOf as scopeTagOf } from '../scope.ts'
@@ -170,7 +173,9 @@ interface RetentionObserver {
 async function waitForOpen(opening: Promise<void>, signal?: AbortSignal): Promise<void> {
   if (signal === undefined) return opening
   const aborted = Promise.withResolvers<never>()
-  const onAbort = (): void => { aborted.reject(signal.reason) }
+  const onAbort = (): void => {
+    aborted.reject(signal.reason)
+  }
   signal.addEventListener('abort', onAbort, { once: true })
   try {
     if (signal.aborted) onAbort()
@@ -199,9 +204,7 @@ class ClientSessionReference implements SessionReference {
   }
 
   attachOpening(opening: Promise<void>, signal?: AbortSignal): void {
-    const waitSignal = signal === undefined
-      ? this.released.signal
-      : AbortSignal.any([this.released.signal, signal])
+    const waitSignal = signal === undefined ? this.released.signal : AbortSignal.any([this.released.signal, signal])
     void waitForOpen(opening, waitSignal).then(
       () => {
         try {
@@ -211,7 +214,9 @@ class ClientSessionReference implements SessionReference {
           this.readiness.reject(error)
         }
       },
-      (error: unknown) => { this.readiness.reject(error) },
+      (error: unknown) => {
+        this.readiness.reject(error)
+      },
     )
   }
 
@@ -259,26 +264,34 @@ export class ClientSessions implements ISessions {
   ) {
     this.manager = new SessionManager(remote)
     this.list = createSnapshotStore<SessionListState>({
-      ids: [], byId: {}, phase: 'pending', projectionsBySession: {},
+      ids: [],
+      byId: {},
+      phase: 'pending',
+      projectionsBySession: {},
     })
-    const disposeManagerProjection = this.manager.subscribe(() => { this.projectList() })
-    rootCtx.effect(() => async () => {
-      this.closed = true
-      disposeManagerProjection()
-      const scopes = [...this.scopes]
-      this.scopes.clear()
-      for (const [, record] of scopes) {
-        record.live = false
-        record.session.unbindScope()
-      }
-      const managerDisposal = this.manager.dispose()
-      for (const [id, record] of scopes) {
-        this.startScopeDrop(id, record)
-        this.publishRetention(id)
-      }
-      await this.drainScopeDrops()
-      await managerDisposal
-    }, 'session-controller.client.sessions')
+    const disposeManagerProjection = this.manager.subscribe(() => {
+      this.projectList()
+    })
+    rootCtx.effect(
+      () => async () => {
+        this.closed = true
+        disposeManagerProjection()
+        const scopes = [...this.scopes]
+        this.scopes.clear()
+        for (const [, record] of scopes) {
+          record.live = false
+          record.session.unbindScope()
+        }
+        const managerDisposal = this.manager.dispose()
+        for (const [id, record] of scopes) {
+          this.startScopeDrop(id, record)
+          this.publishRetention(id)
+        }
+        await this.drainScopeDrops()
+        await managerDisposal
+      },
+      'session-controller.client.sessions',
+    )
     rootCtx.reflect.provide('sessions', this, undefined)
   }
 
@@ -320,9 +333,11 @@ export class ClientSessions implements ISessions {
         published: this.retentionSnapshot(id),
         source: {
           getSnapshot: () => this.retentionSnapshot(id),
-          subscribe: (listener) => {
+          subscribe: listener => {
             listeners.add(listener)
-            return () => { listeners.delete(listener) }
+            return () => {
+              listeners.delete(listener)
+            }
           },
         },
       }
@@ -364,10 +379,7 @@ export class ClientSessions implements ISessions {
    * @param signal - cancellation for a superseded search.
    * @returns bounded results or a business/transport error.
    */
-  search(
-    query: string,
-    signal: AbortSignal,
-  ): Promise<RemoteResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>> {
+  search(query: string, signal: AbortSignal): Promise<RemoteResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>> {
     return this.manager.search(query, signal)
   }
 
@@ -431,12 +443,14 @@ export class ClientSessions implements ISessions {
    * @returns the created or reused session id.
    * @throws {SessionCreateError} with the requested id.
    */
-  async create(opts: {
-    workspaceId?: WorkspaceId
-    cwd?: string
-    sessionId?: SessionId
-    agentPreset?: string
-  } = {}): Promise<SessionId> {
+  async create(
+    opts: {
+      workspaceId?: WorkspaceId
+      cwd?: string
+      sessionId?: SessionId
+      agentPreset?: string
+    } = {},
+  ): Promise<SessionId> {
     const result = await this.manager.create(opts)
     if (!result.ok) throw new SessionCreateError(result.error, opts.sessionId)
     this.projectList()
@@ -463,9 +477,7 @@ export class ClientSessions implements ISessions {
     onCreated?: (childId: SessionId) => void
     allowMigration?: boolean
   }): Promise<SessionId> {
-    const sourceTitle = opts.increaseTitle
-      ? this.list.getSnapshot().byId[opts.sessionId]?.title
-      : undefined
+    const sourceTitle = opts.increaseTitle ? this.list.getSnapshot().byId[opts.sessionId]?.title : undefined
     const result = await this.manager.fork({
       sessionId: opts.sessionId,
       ...(opts.atSeq === undefined ? {} : { atSeq: SessionSeq(opts.atSeq) }),
@@ -526,9 +538,7 @@ export class ClientSessions implements ISessions {
     const id = scopeTagOf(ctx)
     if (id === undefined) return undefined
     const record = this.scopes.get(id)
-    return record !== undefined && scopeIdentityOf(record.ctx) === scopeIdentityOf(ctx)
-      ? record.binding.session
-      : undefined
+    return record !== undefined && scopeIdentityOf(record.ctx) === scopeIdentityOf(ctx) ? record.binding.session : undefined
   }
 
   /**
@@ -552,9 +562,8 @@ export class ClientSessions implements ISessions {
       const count = record.retention.referenceCount - 1
       const { [source]: sourceCount = 0, ...otherSources } = record.retention.retainedBy
       const retainedBy = sourceCount > 1 ? { ...otherSources, [source]: sourceCount - 1 } : otherSources
-      record.retention = count === 0
-        ? EMPTY_RETAIN_INFO
-        : Object.freeze({ referenceCount: count, retainedBy: freezeRetainedBy(retainedBy) })
+      record.retention =
+        count === 0 ? EMPTY_RETAIN_INFO : Object.freeze({ referenceCount: count, retainedBy: freezeRetainedBy(retainedBy) })
       if (count === 0) this.retireScope(id, record)
       else this.publishRetention(id)
     })
@@ -611,16 +620,19 @@ export class ClientSessions implements ISessions {
       live: true,
     }
     this.scopes.set(id, record)
-    ctx.effect(() => () => { this.retireScope(id, record, false) }, 'session-controller: exact generation')
+    ctx.effect(
+      () => () => {
+        this.retireScope(id, record, false)
+      },
+      'session-controller: exact generation',
+    )
     return record
   }
 
   /** Project the manager's list snapshot into the store (title derivation is display-only). */
   private projectList(): void {
     const previousById = this.list.getSnapshot().byId
-    const {
-      items, phase, projectionsBySession,
-    } = this.manager.getListSnapshot()
+    const { items, phase, projectionsBySession } = this.manager.getListSnapshot()
     const ids: SessionId[] = []
     const byId: Record<SessionId, SessionSummary> = {}
     for (const entry of items) {
@@ -633,9 +645,7 @@ export class ClientSessions implements ISessions {
         blank: entry.blank,
         updatedAt: entry.updatedAt,
         formatStatus: entry.formatStatus,
-        ...(entry.projectionValues === undefined
-          ? {}
-          : { projectionValues: entry.projectionValues }),
+        ...(entry.projectionValues === undefined ? {} : { projectionValues: entry.projectionValues }),
         ...(entry.title !== undefined ? { title: entry.title } : {}),
         ...(entry.cwd !== undefined ? { cwd: entry.cwd } : {}),
         ...(entry.parentSessionId !== undefined ? { parentId: entry.parentSessionId } : {}),
@@ -653,8 +663,13 @@ export class ClientSessions implements ISessions {
         const displayTitle = title ?? child.label ?? childId
         if (summary === undefined) {
           byId[childId] = {
-            id: childId, displayTitle, parentId: parentId as SessionId,
-            origin: 'subagent', running: this.scopes.get(childId)?.session.getSnapshot().running ?? false, blank: false, updatedAt: 0,
+            id: childId,
+            displayTitle,
+            parentId: parentId as SessionId,
+            origin: 'subagent',
+            running: this.scopes.get(childId)?.session.getSnapshot().running ?? false,
+            blank: false,
+            updatedAt: 0,
             retainedBy: this.retentionSnapshot(childId).retainedBy,
             ...(projectionValues === undefined ? {} : { projectionValues }),
             ...(title === undefined ? {} : { title }),
@@ -700,8 +715,12 @@ export class ClientSessions implements ISessions {
     const drop = this.dropScope(record, disposeFiber, sessionDisposal)
     this.scopeDrops.add(drop)
     void drop.then(
-      () => { this.scopeDrops.delete(drop) },
-      () => { this.scopeDrops.delete(drop) },
+      () => {
+        this.scopeDrops.delete(drop)
+      },
+      () => {
+        this.scopeDrops.delete(drop)
+      },
     )
   }
 
@@ -712,11 +731,7 @@ export class ClientSessions implements ISessions {
   }
 
   /** Await the already-withdrawn Session and scoped cleanup to quiescence. */
-  private async dropScope(
-    record: ScopeRecord,
-    disposeFiber: boolean,
-    sessionDisposal: Promise<void>,
-  ): Promise<void> {
-    await Promise.allSettled([sessionDisposal, ...disposeFiber ? [record.fiber.dispose()] : []])
+  private async dropScope(record: ScopeRecord, disposeFiber: boolean, sessionDisposal: Promise<void>): Promise<void> {
+    await Promise.allSettled([sessionDisposal, ...(disposeFiber ? [record.fiber.dispose()] : [])])
   }
 }

@@ -175,5 +175,5 @@ export function truncateJsonStringBytes(text: string, maxBytes: number): string 
     end += character.length
     index += character.length
   }
-  return end === text.length ? text : intrinsicReflectApply(intrinsicStringSlice, text, [0, end]) as string
+  return end === text.length ? text : (intrinsicReflectApply(intrinsicStringSlice, text, [0, end]) as string)
 }

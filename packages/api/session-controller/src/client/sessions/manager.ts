@@ -55,7 +55,6 @@ export interface SessionListSnapshot {
   phase: SessionListPhase
   error: RemoteFailure | null
   projectionsBySession: Readonly<Record<SessionId, SessionProjectionSnapshot>>
-
 }
 
 /** Shared projection values and the lifecycle of their explicit baseline read. */
@@ -111,7 +110,6 @@ export class SessionManager {
   private readonly projectionLoads = new Map<SessionId, ProjectionLoad>()
   private readonly projectionInflight = new Map<SessionId, ProjectionInflight>()
 
-
   private listSnapshotCache: SessionListSnapshot
   /** Entry-identity cache (reference stability): list rebuilds reuse the previous entry
    *  object when every field matches — wire refreshes mint all-new summary objects, so identity
@@ -135,19 +133,16 @@ export class SessionManager {
   resolveTarget(target: SessionTarget): SessionId {
     const id = typeof target === 'string' ? target : target.childSessionId
     const address = typeof target === 'string' ? this.subagentAddress(id) : target
-    if (typeof target === 'string'
-      && !this.sessions.has(id)
-      && !this.summaries.some(summary => summary.sessionId === id)
-      && address === undefined) {
+    if (
+      typeof target === 'string' &&
+      !this.sessions.has(id) &&
+      !this.summaries.some(summary => summary.sessionId === id) &&
+      address === undefined
+    ) {
       throw new Error(`sessions.retain: unknown session ${id}`)
     }
     if (address !== undefined) this.addresses.set(id, address)
-    this.sessions.get(id)?.configureSubagent(
-      address,
-      address === undefined
-        ? undefined
-        : this.agentAvailable(address.parentSessionId),
-    )
+    this.sessions.get(id)?.configureSubagent(address, address === undefined ? undefined : this.agentAvailable(address.parentSessionId))
     return id
   }
 
@@ -161,8 +156,10 @@ export class SessionManager {
     const retained = this.addresses.get(sessionId)
     if (retained !== undefined) return retained
     for (const parentSessionId of this.projectionStores.keys()) {
-      const child = this.projectionStores.get(parentSessionId)?.values().subagentCatalog
-        ?.find(entry => entry.id === sessionId)
+      const child = this.projectionStores
+        .get(parentSessionId)
+        ?.values()
+        .subagentCatalog?.find(entry => entry.id === sessionId)
       if (child !== undefined && child.mode !== 'external') {
         return {
           parentSessionId,
@@ -221,8 +218,12 @@ export class SessionManager {
     const disposal = session.dispose()
     this.sessionDisposals.add(disposal)
     void disposal.then(
-      () => { this.sessionDisposals.delete(disposal) },
-      () => { this.sessionDisposals.delete(disposal) },
+      () => {
+        this.sessionDisposals.delete(disposal)
+      },
+      () => {
+        this.sessionDisposals.delete(disposal)
+      },
     )
     return disposal
   }
@@ -253,8 +254,13 @@ export class SessionManager {
         session.handleRunning(summary.running)
       } else {
         const address = this.addresses.get(sessionId)
-        const child = address === undefined ? undefined : this.projectionStores.get(address.parentSessionId)?.values().subagentCatalog
-          ?.find(entry => entry.id === sessionId)
+        const child =
+          address === undefined
+            ? undefined
+            : this.projectionStores
+                .get(address.parentSessionId)
+                ?.values()
+                .subagentCatalog?.find(entry => entry.id === sessionId)
         if (child !== undefined && child.mode !== 'external') {
           // A catalogued child exists only after its delegated session has
           // durable history, even though child rows do not carry `blank`.
@@ -271,17 +277,17 @@ export class SessionManager {
 
   private createSession(sessionId: SessionId): Session {
     const address = this.addresses.get(sessionId)
-    const parentAvailable = address === undefined
-      ? undefined
-      : this.agentAvailable(address.parentSessionId)
+    const parentAvailable = address === undefined ? undefined : this.agentAvailable(address.parentSessionId)
     return new Session(sessionId, this.remote, {
-      ...(address === undefined ? {} : {
-        address,
-        ...parentAvailable === undefined ? {} : { parentAvailable },
-      }),
+      ...(address === undefined
+        ? {}
+        : {
+            address,
+            ...(parentAvailable === undefined ? {} : { parentAvailable }),
+          }),
       // The sender's local first-send flip mirrors into the list row so the
       // session surfaces (lists filter on blank) before any host frame lands.
-      onEngaged: (engaged) => {
+      onEngaged: engaged => {
         if (this.disposed || !this.retainedIds(this.summaries).has(engaged.sessionId)) return
         // An identity already on the ledger needs no second row mutation.
         if (!this.engagedSessions.has(engaged.sessionId)) {
@@ -396,8 +402,9 @@ export class SessionManager {
   }
 
   private agentAvailable(sessionId: SessionId): boolean | undefined {
-    return this.summaries.find(summary => summary.sessionId === sessionId)?.agentAvailable
-      ?? (this.listPhase === 'ready' ? false : undefined)
+    return (
+      this.summaries.find(summary => summary.sessionId === sessionId)?.agentAvailable ?? (this.listPhase === 'ready' ? false : undefined)
+    )
   }
 
   private updateParentAvailability(): void {
@@ -423,9 +430,10 @@ export class SessionManager {
         const result = await this.remote.session.list({})
         if (this.listMutations !== mutations) return
         if (result.ok) {
-          const baseline: SessionSummary[] = this.listPhase === 'pending'
-            ? [...result.value.items]
-            : mergeOrderedBaseline(established, result.value.items, summary => summary.sessionId)
+          const baseline: SessionSummary[] =
+            this.listPhase === 'pending'
+              ? [...result.value.items]
+              : mergeOrderedBaseline(established, result.value.items, summary => summary.sessionId)
           // A removal supersedes running observed in the pull, including after re-addition.
           const removedSincePull = new Set<SessionId>()
           for (const mutation of mutations) {
@@ -483,10 +491,7 @@ export class SessionManager {
    * @param signal - cancellation for superseded UI queries.
    * @returns the Host result or a folded transport error.
    */
-  async search(
-    query: string,
-    signal: AbortSignal,
-  ): Promise<RemoteResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>> {
+  async search(query: string, signal: AbortSignal): Promise<RemoteResult<{ items: SessionSearchResultItem[]; hasMore: boolean }>> {
     const result = await this.remote.session.search({ query }, signal)
     if (!result.ok) return result
     return {
@@ -504,7 +509,7 @@ export class SessionManager {
    * (entity birth precedes the first message).
    * @param opts - target workspace or working directory, an optional blank Session to reuse, and an optional Agent preset.
    * @returns the create result, naming the Session the Host created or reused.
-  */
+   */
   async create(
     opts: {
       workspaceId?: WorkspaceId
@@ -517,27 +522,33 @@ export class SessionManager {
       ...(opts.sessionId === undefined ? {} : { sessionId: opts.sessionId }),
       ...(opts.agentPreset === undefined ? {} : { agentPreset: opts.agentPreset }),
     }
-    const payload = opts.workspaceId !== undefined
-      ? { workspaceId: opts.workspaceId, ...shared }
-      : { ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }), ...shared }
+    const payload =
+      opts.workspaceId !== undefined
+        ? { workspaceId: opts.workspaceId, ...shared }
+        : { ...(opts.cwd === undefined ? {} : { cwd: opts.cwd }), ...shared }
     const result = await this.remote.session.create(payload)
     if (result.ok) {
-      this.recordMutation({ kind: 'placeholder', summary: { agentAvailable: true,
-        sessionId: result.value.sessionId, updatedAt: Date.now(), running: false, blank: true,
-        ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
-      } })
+      this.recordMutation({
+        kind: 'placeholder',
+        summary: {
+          agentAvailable: true,
+          sessionId: result.value.sessionId,
+          updatedAt: Date.now(),
+          running: false,
+          blank: true,
+          ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
+        },
+      })
     } else {
       const publishedSessionId = workspaceAttachSessionId(result.error)
       // Publication precedes attachment. The error's id is a real Session,
       // so expose it immediately as Ungrouped while the caller keeps the
       // prompt buffer and decides whether to retry attachment.
       if (publishedSessionId !== undefined) {
-        this.recordMutation({ kind: 'placeholder', summary: { agentAvailable: true,
-          sessionId: publishedSessionId,
-          updatedAt: Date.now(),
-          running: false,
-          blank: true,
-        } })
+        this.recordMutation({
+          kind: 'placeholder',
+          summary: { agentAvailable: true, sessionId: publishedSessionId, updatedAt: Date.now(), running: false, blank: true },
+        })
       }
     }
     return result
@@ -553,24 +564,31 @@ export class SessionManager {
    * @param opts - source session, optional exact inclusive boundary seq, and permission to start migration.
    * @returns the fork result (the child session id).
    */
-  async fork(
-    opts: { sessionId: SessionId; atSeq?: SessionSeq; allowMigration?: boolean },
-  ): Promise<RemoteResult<{ sessionId: SessionId }>> {
+  async fork(opts: {
+    sessionId: SessionId
+    atSeq?: SessionSeq
+    allowMigration?: boolean
+  }): Promise<RemoteResult<{ sessionId: SessionId }>> {
     const source = this.summaries.find(s => s.sessionId === opts.sessionId)
     const result = await this.remote.session.fork({
       sessionId: opts.sessionId,
-      ...opts.atSeq === undefined ? {} : { atSeq: opts.atSeq },
-      ...opts.allowMigration === undefined ? {} : { allowMigration: opts.allowMigration },
+      ...(opts.atSeq === undefined ? {} : { atSeq: opts.atSeq }),
+      ...(opts.allowMigration === undefined ? {} : { allowMigration: opts.allowMigration }),
     })
-    const childId = result.ok
-      ? result.value.sessionId
-      : workspaceAttachSessionId(result.error)
+    const childId = result.ok ? result.value.sessionId : workspaceAttachSessionId(result.error)
     if (childId !== undefined) {
-      this.recordMutation({ kind: 'placeholder', summary: { agentAvailable: true,
-        sessionId: childId, updatedAt: Date.now(), running: false, blank: true,
-        parentSessionId: opts.sessionId,
-        ...(source?.cwd !== undefined ? { cwd: source.cwd } : {}),
-      } })
+      this.recordMutation({
+        kind: 'placeholder',
+        summary: {
+          agentAvailable: true,
+          sessionId: childId,
+          updatedAt: Date.now(),
+          running: false,
+          blank: true,
+          parentSessionId: opts.sessionId,
+          ...(source?.cwd !== undefined ? { cwd: source.cwd } : {}),
+        },
+      })
     }
     return result
   }
@@ -651,7 +669,6 @@ export class SessionManager {
   }
 
   private replaceControlBaseline(baseline: SessionControlBaseline): void {
-
     for (const [sessionId, block] of Object.entries(baseline.projections)) {
       const store = this.projectionStore(sessionId as SessionId)
       const asOfSeq = sessionSeqCursor(block.asOfSeq)
@@ -700,11 +717,12 @@ export class SessionManager {
    * @param sessionId - removed Session identity.
    */
   handleSessionRemoved(sessionId: SessionId): void {
-    const durableSubagent = this.subagentAddress(sessionId) !== undefined
-      || this.summaries.some(summary => summary.sessionId === sessionId && summary.origin === 'subagent')
-    this.recordMutation(durableSubagent
-      ? { kind: 'status', sessionId, running: false, agentAvailable: false }
-      : { kind: 'remove', sessionId })
+    const durableSubagent =
+      this.subagentAddress(sessionId) !== undefined ||
+      this.summaries.some(summary => summary.sessionId === sessionId && summary.origin === 'subagent')
+    this.recordMutation(
+      durableSubagent ? { kind: 'status', sessionId, running: false, agentAvailable: false } : { kind: 'remove', sessionId },
+    )
     if (durableSubagent) this.sessions.get(sessionId)?.handleRunning(false)
     else this.sessions.get(sessionId)?.handleRemoved()
     const catalog = this.projectionStores.get(sessionId)?.values().subagentCatalog
@@ -775,7 +793,7 @@ export class SessionManager {
   }
 
   private buildListSnapshot(): SessionListSnapshot {
-    const merged: TitledSessionSummary[] = this.summaries.map((summary) => {
+    const merged: TitledSessionSummary[] = this.summaries.map(summary => {
       // List rows read the generic 'title' projection key (host-computed unit
       // value; there is no dedicated title frame).
       const projectionStore = this.projectionStores.get(summary.sessionId)
@@ -792,16 +810,22 @@ export class SessionManager {
       }
     })
     const fresh = flattenLineage(merged)
-    const items = fresh.map((entry) => {
+    const items = fresh.map(entry => {
       const prev = this.entryCache.get(entry.sessionId)
       if (
-        prev !== undefined && prev.updatedAt === entry.updatedAt && prev.running === entry.running
-        && prev.blank === entry.blank
-        && prev.parentSessionId === entry.parentSessionId && prev.cwd === entry.cwd
-        && prev.origin === entry.origin && prev.title === entry.title && prev.depth === entry.depth
-        && prev.formatStatus === entry.formatStatus
-        && prev.projectionValues === entry.projectionValues
-      ) return prev
+        prev !== undefined &&
+        prev.updatedAt === entry.updatedAt &&
+        prev.running === entry.running &&
+        prev.blank === entry.blank &&
+        prev.parentSessionId === entry.parentSessionId &&
+        prev.cwd === entry.cwd &&
+        prev.origin === entry.origin &&
+        prev.title === entry.title &&
+        prev.depth === entry.depth &&
+        prev.formatStatus === entry.formatStatus &&
+        prev.projectionValues === entry.projectionValues
+      )
+        return prev
       this.entryCache.set(entry.sessionId, entry)
       return entry
     })
@@ -816,10 +840,12 @@ export class SessionManager {
       state: this.listState,
       phase: this.listPhase,
       error: this.listError,
-      projectionsBySession: Object.fromEntries([...this.projectionStores].map(([sessionId, store]) => [
-        sessionId,
-        { values: store.values(), state: 'idle', error: null, ...this.projectionLoads.get(sessionId) },
-      ])),
+      projectionsBySession: Object.fromEntries(
+        [...this.projectionStores].map(([sessionId, store]) => [
+          sessionId,
+          { values: store.values(), state: 'idle', error: null, ...this.projectionLoads.get(sessionId) },
+        ]),
+      ),
     }
   }
 }
@@ -836,42 +862,49 @@ function applyMutation(summaries: readonly SessionSummary[], mutation: SessionLi
         // Blank only lowers: a stale true (session-added racing the local
         // first send) never re-hides an already-surfaced session.
         blank: existing.blank && mutation.summary.blank,
-        ...(mutation.kind === 'upsert' ? {
-          agentAvailable: mutation.summary.agentAvailable,
-          running: mutation.summary.running,
-          ...(mutation.summary.formatStatus === undefined ? {} : { formatStatus: mutation.summary.formatStatus }),
-        } : {}),
+        ...(mutation.kind === 'upsert'
+          ? {
+              agentAvailable: mutation.summary.agentAvailable,
+              running: mutation.summary.running,
+              ...(mutation.summary.formatStatus === undefined ? {} : { formatStatus: mutation.summary.formatStatus }),
+            }
+          : {}),
         ...(existing.cwd === undefined && mutation.summary.cwd !== undefined ? { cwd: mutation.summary.cwd } : {}),
         ...(existing.parentSessionId === undefined && mutation.summary.parentSessionId !== undefined
-          ? { parentSessionId: mutation.summary.parentSessionId } : {}),
-        ...(existing.origin === undefined && mutation.summary.origin !== undefined
-          ? { origin: mutation.summary.origin } : {}),
+          ? { parentSessionId: mutation.summary.parentSessionId }
+          : {}),
+        ...(existing.origin === undefined && mutation.summary.origin !== undefined ? { origin: mutation.summary.origin } : {}),
       }
-      if (filled.cwd === existing.cwd && filled.parentSessionId === existing.parentSessionId
-        && filled.origin === existing.origin && filled.blank === existing.blank
-        && filled.agentAvailable === existing.agentAvailable && filled.running === existing.running
-        && filled.formatStatus === existing.formatStatus
-      ) return [...summaries]
-      return summaries.map(summary => summary.sessionId === mutation.summary.sessionId ? filled : summary)
+      if (
+        filled.cwd === existing.cwd &&
+        filled.parentSessionId === existing.parentSessionId &&
+        filled.origin === existing.origin &&
+        filled.blank === existing.blank &&
+        filled.agentAvailable === existing.agentAvailable &&
+        filled.running === existing.running &&
+        filled.formatStatus === existing.formatStatus
+      )
+        return [...summaries]
+      return summaries.map(summary => (summary.sessionId === mutation.summary.sessionId ? filled : summary))
     }
     case 'remove':
       return summaries.filter(summary => summary.sessionId !== mutation.sessionId)
     case 'status':
       // Running converts display state; it does not establish durable history.
-      return summaries.map(summary => summary.sessionId === mutation.sessionId
-        && (summary.running !== mutation.running
-          || summary.agentAvailable !== mutation.agentAvailable || (mutation.running && summary.blank))
-        ? { ...summary, running: mutation.running, agentAvailable: mutation.agentAvailable, blank: summary.blank && !mutation.running }
-        : summary)
+      return summaries.map(summary =>
+        summary.sessionId === mutation.sessionId &&
+        (summary.running !== mutation.running || summary.agentAvailable !== mutation.agentAvailable || (mutation.running && summary.blank))
+          ? { ...summary, running: mutation.running, agentAvailable: mutation.agentAvailable, blank: summary.blank && !mutation.running }
+          : summary,
+      )
     case 'activity':
-      return summaries.map(summary => summary.sessionId === mutation.sessionId
-        && mutation.updatedAt > summary.updatedAt
-        ? { ...summary, updatedAt: mutation.updatedAt }
-        : summary)
+      return summaries.map(summary =>
+        summary.sessionId === mutation.sessionId && mutation.updatedAt > summary.updatedAt
+          ? { ...summary, updatedAt: mutation.updatedAt }
+          : summary,
+      )
     case 'engaged':
-      return summaries.map(summary => summary.sessionId === mutation.sessionId && summary.blank
-        ? { ...summary, blank: false }
-        : summary)
+      return summaries.map(summary => (summary.sessionId === mutation.sessionId && summary.blank ? { ...summary, blank: false } : summary))
   }
 }
 

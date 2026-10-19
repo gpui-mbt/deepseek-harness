@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Deque } from '@deepseek-ai/dsh-deque'
 
 function backingStorage<T>(deque: Deque<T>): readonly (T | undefined)[] {

@@ -6,13 +6,12 @@
  * @module @deepseek-ai/dsh-client-web/src/boot
  */
 import { Context } from '@deepseek-ai/cordis'
-import type {
-  BootManifest, ClientModuleCreateOptions, ClientModuleSystem, DshWindow,
-} from '@deepseek-ai/dsh-client-modules/client'
+import type { BootManifest, ClientModuleCreateOptions, ClientModuleSystem, DshWindow } from '@deepseek-ai/dsh-client-modules/client'
 import { bootClient } from './boot-client.ts'
 import { BootPage } from './boot-page.ts'
 import { mountClient } from './mount.ts'
 import { getStaticModules } from './seed.ts'
+import { installViewportProjection } from './viewport.ts'
 import { installWindowDragRecall } from './window-drag/recall.ts'
 import './base.css'
 
@@ -26,6 +25,7 @@ export class AppWebEntry {
   private readonly page: BootPage
   private ctx: Context | undefined
   private stopDragRecall: (() => void) | undefined
+  private stopViewportProjection: (() => void) | undefined
   private modules!: ClientModuleSystem
   private manifest!: BootManifest
 
@@ -48,6 +48,11 @@ export class AppWebEntry {
    */
   async run(onFailure?: (reason: unknown) => void): Promise<void> {
     try {
+      // The shell's mount height follows the visual viewport from the first
+      // boot-page frame: the frame is a fixed-height application, and on iOS
+      // Safari the layout viewport keeps its height while the keyboard and the
+      // collapsing toolbar change what the user can see.
+      this.stopViewportProjection = installViewportProjection({ document: this.container.ownerDocument })
       // Boot-readiness gate: whichever bootstrap applies the injection table
       // settles this deferred once every row has taken effect — the served
       // index resolves it in the rendered tail, so the await returns on the
@@ -65,13 +70,15 @@ export class AppWebEntry {
       // is `ClientTransportHooks`, owned by @deepseek-ai/dsh-client-connection;
       // this structural slice reads one optional member without adding a
       // package edge.
-      const transport = (globalThis as {
-        __DSH_TRANSPORT__?: { loadBundle?: ClientModuleCreateOptions['loadBundle'] }
-      }).__DSH_TRANSPORT__
+      const transport = (
+        globalThis as {
+          __DSH_TRANSPORT__?: { loadBundle?: ClientModuleCreateOptions['loadBundle'] }
+        }
+      ).__DSH_TRANSPORT__
       this.modules = moduleLoader.create({
         boot: win.__DSH_BOOT__,
         staticModules: getStaticModules(),
-        ...transport?.loadBundle === undefined ? {} : { loadBundle: transport.loadBundle },
+        ...(transport?.loadBundle === undefined ? {} : { loadBundle: transport.loadBundle }),
         ...this.seams,
       })
       this.manifest = this.modules.manifest
@@ -106,6 +113,8 @@ export class AppWebEntry {
   async dispose(): Promise<void> {
     this.stopDragRecall?.()
     this.stopDragRecall = undefined
+    this.stopViewportProjection?.()
+    this.stopViewportProjection = undefined
     const ctx = this.ctx
     this.ctx = undefined
     if (ctx !== undefined) await ctx.fiber.dispose()
@@ -114,10 +123,14 @@ export class AppWebEntry {
 
   /** Prefetch stage-one bundles and their dynamic requests before concurrent plugin imports. */
   private async prefetchImmediateTier(): Promise<void> {
-    await Promise.all(this.manifest.plugins
-      .filter(row => row.immediately)
-      .map(row => this.modules.prefetch(row.id).catch((_prefetchError: unknown) => {
-        // Prefetch only starts transport early; the Loader import retries and reports this bundle failure.
-      })))
+    await Promise.all(
+      this.manifest.plugins
+        .filter(row => row.immediately)
+        .map(row =>
+          this.modules.prefetch(row.id).catch((_prefetchError: unknown) => {
+            // Prefetch only starts transport early; the Loader import retries and reports this bundle failure.
+          }),
+        ),
+    )
   }
 }

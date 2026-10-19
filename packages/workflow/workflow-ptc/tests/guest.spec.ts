@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { setImmediate } from 'node:timers/promises'
 import { promisify } from 'node:util'
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vite-plus/test'
 import { runWorkflowGuest } from '../src/guest.ts'
 import { WORKFLOW_GUEST_SOURCE } from '../src/guest-source.ts'
 import type { WorkflowGuestHost, WorkflowProgress } from '../src/guest-types.ts'
@@ -24,8 +24,14 @@ function fixture(body: string, overrides: Partial<WorkflowGuestHost> = {}, limit
       return { callId: requests.length, childId: `child-${requests.length}` }
     },
     childResult: async ({ callId }) => ({ output: [{ type: 'text', text: requests[callId - 1]!.prompt }], stopReason: 'completed' }),
-    async disposeChild({ callId }) { disposed.push(callId); return null },
-    async progress(batch) { events.push(...batch); return null },
+    async disposeChild({ callId }) {
+      disposed.push(callId)
+      return null
+    },
+    async progress(batch) {
+      events.push(...batch)
+      return null
+    },
     ...overrides,
   }
   return { host, init, requests, events, disposed }
@@ -33,11 +39,14 @@ function fixture(body: string, overrides: Partial<WorkflowGuestHost> = {}, limit
 
 describe('workflow guest callbacks', () => {
   it('runs the six-global script API and forwards structured child options and progress', async () => {
-    const test = fixture(`
+    const test = fixture(
+      `
       phase('Read')
       log('starting')
       return await agent(args.prompt, { label: 'Answer', provider: 'openai', model: 'small', schema: { type: 'object' } })
-    `, { childResult: async () => ({ output: [], structured: { answer: 42 }, stopReason: 'completed' }) })
+    `,
+      { childResult: async () => ({ output: [], structured: { answer: 42 }, stopReason: 'completed' }) },
+    )
     await expect(runWorkflowGuest(test.host)).resolves.toEqual({ value: { answer: 42 }, stopReason: 'completed', agentsStarted: 1 })
     expect(test.requests).toEqual([{ prompt: 'answer this', provider: 'openai', model: 'small', schema: { type: 'object' } }])
     expect(test.events).toEqual([
@@ -55,7 +64,10 @@ describe('workflow guest callbacks', () => {
       const second = await pipeline([1, 2, 3], (prev, item, index) => prev + item + index, value => { if (value === 5) throw 'skip'; return value * 2 })
       return { first, second }
     `)
-    await expect(runWorkflowGuest(host)).resolves.toMatchObject({ value: { first: ['a', null, null], second: [4, null, 16] }, stopReason: 'completed' })
+    await expect(runWorkflowGuest(host)).resolves.toMatchObject({
+      value: { first: ['a', null, null], second: [4, null, 16] },
+      stopReason: 'completed',
+    })
   })
 
   it('does not expose ambient Node globals and maps a missing return to null', async () => {
@@ -70,10 +82,20 @@ describe('workflow guest callbacks', () => {
   ])('waits for progress before publishing script settlement: %s', async (settlement, stopReason) => {
     const entered = Promise.withResolvers<undefined>()
     const delivered = Promise.withResolvers<null>()
-    onTestFinished(() => { delivered.resolve(null) })
-    const test = fixture(`log("last"); ${settlement}`, { progress: () => { entered.resolve(undefined); return delivered.promise } })
+    onTestFinished(() => {
+      delivered.resolve(null)
+    })
+    const test = fixture(`log("last"); ${settlement}`, {
+      progress: () => {
+        entered.resolve(undefined)
+        return delivered.promise
+      },
+    })
     let finished = false
-    const active = runWorkflowGuest(test.host).then((result) => { finished = true; return result })
+    const active = runWorkflowGuest(test.host).then(result => {
+      finished = true
+      return result
+    })
     await entered.promise
     expect(finished).toBe(false)
     delivered.resolve(null)
@@ -82,7 +104,9 @@ describe('workflow guest callbacks', () => {
 
   it('retains a progress failure that arrives before script completion', async () => {
     const { host } = fixture('log("progress"); await agent("work"); return 42', {
-      progress: async () => { throw new Error('progress delivery failed') },
+      progress: async () => {
+        throw new Error('progress delivery failed')
+      },
     })
     const result = await runWorkflowGuest(host)
     expect(result).toMatchObject({ value: null, stopReason: 'error', agentsStarted: 1 })
@@ -110,8 +134,15 @@ describe('workflow guest callbacks', () => {
       },
     })
     let settled = false
-    const active = runWorkflowGuest(test.host).then((result) => { settled = true; return result })
-    onTestFinished(async () => { firstAck.resolve(null); secondAck.resolve(null); await active })
+    const active = runWorkflowGuest(test.host).then(result => {
+      settled = true
+      return result
+    })
+    onTestFinished(async () => {
+      firstAck.resolve(null)
+      secondAck.resolve(null)
+      await active
+    })
     await first.promise
     expect(batches).toHaveLength(1)
     expect(batches[0]).toEqual([{ type: 'log', message: '0' }])
@@ -138,7 +169,10 @@ describe('workflow guest callbacks', () => {
       },
     })
     const active = runWorkflowGuest(test.host)
-    onTestFinished(async () => { acknowledgement.resolve(null); await active })
+    onTestFinished(async () => {
+      acknowledgement.resolve(null)
+      await active
+    })
     await entered.promise
     acknowledgement.reject(new Error('progress batch rejected'))
     const result = await active
@@ -159,7 +193,10 @@ describe('workflow guest callbacks', () => {
       },
     })
     const active = runWorkflowGuest(test.host)
-    onTestFinished(async () => { firstAck.resolve(null); await active })
+    onTestFinished(async () => {
+      firstAck.resolve(null)
+      await active
+    })
     // All child callbacks are fulfilled promises; the next turn drains their microtasks.
     await setImmediate()
     expect(test.requests).toHaveLength(1)
@@ -172,7 +209,11 @@ describe('workflow guest callbacks', () => {
   })
 
   it('reports initialization failure before any child or progress call', async () => {
-    const test = fixture('return 42', { begin: async () => { throw new Error('run already cancelled') } })
+    const test = fixture('return 42', {
+      begin: async () => {
+        throw new Error('run already cancelled')
+      },
+    })
     await expect(runWorkflowGuest(test.host)).rejects.toThrow('run already cancelled')
     expect(test.requests).toEqual([])
     expect(test.events).toEqual([])
@@ -199,7 +240,9 @@ describe('workflow guest callbacks', () => {
   })
 
   it('loads the shipped generated module from a data URL and retains fresh VM state per run', async () => {
-    const guest = await import(`data:text/javascript,${encodeURIComponent(WORKFLOW_GUEST_SOURCE)}`) as { runWorkflowGuest: typeof runWorkflowGuest }
+    const guest = (await import(`data:text/javascript,${encodeURIComponent(WORKFLOW_GUEST_SOURCE)}`)) as {
+      runWorkflowGuest: typeof runWorkflowGuest
+    }
     const test = fixture('globalThis.count = (globalThis.count ?? 0) + 1; return await agent(String(globalThis.count))')
     await expect(guest.runWorkflowGuest(test.host)).resolves.toMatchObject({ value: '1', stopReason: 'completed' })
     await expect(guest.runWorkflowGuest(test.host)).resolves.toMatchObject({ value: '1', stopReason: 'completed' })
@@ -207,7 +250,12 @@ describe('workflow guest callbacks', () => {
 
   it('names generated helper frames without exposing the encoded guest module in errors', async () => {
     // Vitest replaces stack formatting; plain Node must honor the guest's sourceURL.
-    const active = promisify(execFile)(process.execPath, ['--input-type=module', '--eval', `
+    const active = promisify(execFile)(
+      process.execPath,
+      [
+        '--input-type=module',
+        '--eval',
+        `
       let source = ''
       for await (const chunk of process.stdin) source += chunk
       const { runWorkflowGuest } = await import('data:text/javascript,' + encodeURIComponent(source))
@@ -219,8 +267,14 @@ describe('workflow guest callbacks', () => {
         }),
       })
       process.stdout.write(JSON.stringify(result))
-    `], { encoding: 'utf8', timeout: 30_000 })
-    onTestFinished(async () => { active.child.kill(); await active.catch(() => {}) })
+    `,
+      ],
+      { encoding: 'utf8', timeout: 30_000 },
+    )
+    onTestFinished(async () => {
+      active.child.kill()
+      await active.catch(() => {})
+    })
     active.child.stdin!.end(WORKFLOW_GUEST_SOURCE)
     const { stdout } = await active
     const result = JSON.parse(stdout) as { stopReason: string; error: string }
@@ -243,9 +297,19 @@ describe('workflow child results', () => {
 
   it('returns text blocks and derives a short first-line label unless options override it', async () => {
     const long = 'x'.repeat(70)
-    const test = fixture(`phase('default'); await agent(${JSON.stringify(`${long}\nsecond line`)}); return await agent('short', {phase: 'override'})`, {
-      childResult: async () => ({ output: [{ type: 'text', text: 'a' }, { type: 'reasoning', text: 'private reasoning' }, { type: 'text', text: 'b' }], stopReason: 'completed' }),
-    })
+    const test = fixture(
+      `phase('default'); await agent(${JSON.stringify(`${long}\nsecond line`)}); return await agent('short', {phase: 'override'})`,
+      {
+        childResult: async () => ({
+          output: [
+            { type: 'text', text: 'a' },
+            { type: 'reasoning', text: 'private reasoning' },
+            { type: 'text', text: 'b' },
+          ],
+          stopReason: 'completed',
+        }),
+      },
+    )
     await expect(runWorkflowGuest(test.host)).resolves.toMatchObject({ value: 'ab', stopReason: 'completed' })
     expect(test.events.filter(event => event.type === 'agent-start')).toMatchObject([
       { info: { label: `${'x'.repeat(47)}…`, phase: 'default' } },
@@ -255,7 +319,9 @@ describe('workflow child results', () => {
 
   it('propagates child-start infrastructure failure through a combinator', async () => {
     const test = fixture('return await parallel([() => agent("work")])', {
-      startChild: async () => { throw new Error('provider unavailable') },
+      startChild: async () => {
+        throw new Error('provider unavailable')
+      },
     })
     const result = await runWorkflowGuest(test.host)
     expect(result.stopReason).toBe('error')
@@ -265,7 +331,9 @@ describe('workflow child results', () => {
 
   it('pairs and disposes a child whose result rejects, preserving a fatal pipeline failure', async () => {
     const test = fixture('return await pipeline([1], () => agent("work"))', {
-      childResult: async () => { throw new Error('provider result failed') },
+      childResult: async () => {
+        throw new Error('provider result failed')
+      },
     })
     const result = await runWorkflowGuest(test.host)
     expect(result.stopReason).toBe('error')
@@ -276,7 +344,9 @@ describe('workflow child results', () => {
 
   it('contains the rejection of an agent() promise the script dropped', async () => {
     const droppedDisposed = Promise.withResolvers<undefined>()
-    onTestFinished(() => { droppedDisposed.resolve(undefined) })
+    onTestFinished(() => {
+      droppedDisposed.resolve(undefined)
+    })
     const test = fixture('agent("dropped"); return await agent("kept")', {
       async childResult({ callId }) {
         if (callId === 1) throw new Error('dropped child failed')
@@ -290,17 +360,24 @@ describe('workflow child results', () => {
     })
     await expect(runWorkflowGuest(test.host)).resolves.toMatchObject({ value: 'kept result', stopReason: 'completed' })
     expect(test.events).toContainEqual({
-      type: 'agent-end', info: { seq: 1, label: 'dropped', childId: 'child-1', outcome: 'failed' },
+      type: 'agent-end',
+      info: { seq: 1, label: 'dropped', childId: 'child-1', outcome: 'failed' },
     })
   })
 
   it('admits queued child calls in FIFO order after each previous child finishes', async () => {
     const starts = [Promise.withResolvers<undefined>(), Promise.withResolvers<undefined>(), Promise.withResolvers<undefined>()]
     const results = [Promise.withResolvers<ChildResult>(), Promise.withResolvers<ChildResult>(), Promise.withResolvers<ChildResult>()]
-    onTestFinished(() => { for (const result of results) result.resolve({ output: [], stopReason: 'cancelled' }) })
-    const test = fixture('return await parallel([() => agent("one"), () => agent("two"), () => agent("three")])', {}, { maxConcurrentAgents: 1 })
+    onTestFinished(() => {
+      for (const result of results) result.resolve({ output: [], stopReason: 'cancelled' })
+    })
+    const test = fixture(
+      'return await parallel([() => agent("one"), () => agent("two"), () => agent("three")])',
+      {},
+      { maxConcurrentAgents: 1 },
+    )
     const startChild = test.host.startChild.bind(test.host)
-    test.host.startChild = async (request) => {
+    test.host.startChild = async request => {
       const child = await startChild(request)
       starts[child.callId - 1]!.resolve(undefined)
       return child

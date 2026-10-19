@@ -8,19 +8,22 @@ import { Context, type Plugin } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Timer from '@deepseek-ai/cordis-plugin-timer'
 import { FSWatcher, type ChokidarOptions } from 'chokidar'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import Hmr from '../src/index.ts'
 
 const watchers = vi.hoisted(() => [] as FSWatcher[])
 // File notifications are delivered only when a test emits them.
-vi.mock('chokidar', async (original) => {
+vi.mock('chokidar', async original => {
   const actual = await original<typeof import('chokidar')>()
-  return { ...actual, watch: (_paths: string | string[], options: ChokidarOptions = {}) => {
-    const watcher = new actual.FSWatcher(options)
-    watchers.push(watcher)
-    queueMicrotask(() => watcher.emit('ready'))
-    return watcher
-  } }
+  return {
+    ...actual,
+    watch: (_paths: string | string[], options: ChokidarOptions = {}) => {
+      const watcher = new actual.FSWatcher(options)
+      watchers.push(watcher)
+      queueMicrotask(() => watcher.emit('ready'))
+      return watcher
+    },
+  }
 })
 
 function file(path: string, source: string): void {
@@ -45,7 +48,11 @@ async function fixture(source = plugin('a'), options: { lateHmr?: boolean; packa
   const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-hmr-manifest-dispatch-')))
   const ctx = new Context()
   onTestFinished(async () => {
-    try { await ctx.fiber.dispose() } finally { rmSync(root, { recursive: true, force: true }) }
+    try {
+      await ctx.fiber.dispose()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
   const pkg = join(root, 'plugins', 'addon')
   file(join(pkg, 'package.json'), options.packageJson ?? manifest('a', 'dep-1'))
@@ -69,9 +76,11 @@ async function fixture(source = plugin('a'), options: { lateHmr?: boolean; packa
   const initialHmr = options.lateHmr ? undefined : await startHmr()
   const entry = ctx.loader.resolve(await ctx.loader.create({ name: 'addon' }))
   await ctx.loader.await()
-  let hmr = initialHmr ?? await startHmr()
+  let hmr = initialHmr ?? (await startHmr())
   const warn = vi.spyOn(ctx.logger, 'warn')
-  onTestFinished(() => { warn.mockRestore() })
+  onTestFinished(() => {
+    warn.mockRestore()
+  })
   const restartHmr = async () => {
     await hmr.fiber.dispose()
     hmr = await startHmr()
@@ -80,7 +89,9 @@ async function fixture(source = plugin('a'), options: { lateHmr?: boolean; packa
     const dispatch = vi.spyOn(ctx.hmr, 'runExclusive')
     try {
       for (const path of paths) hmr.watcher.emit('change', path)
-      await vi.waitFor(() => { expect(dispatch).toHaveBeenCalledOnce() })
+      await vi.waitFor(() => {
+        expect(dispatch).toHaveBeenCalledOnce()
+      })
       const result = dispatch.mock.results[0]!
       expect(result.type).toBe('return')
       await result.value
@@ -125,7 +136,9 @@ it('requests a host reload for a changed manifest in the host module graph', asy
   const externals = Reflect.get(f.ctx.hmr, 'externals') as Set<string>
   externals.add(pathToFileURL(filename).href)
   const exit = vi.spyOn(f.ctx.loader, 'exit').mockImplementation(() => {})
-  onTestFinished(() => { exit.mockRestore() })
+  onTestFinished(() => {
+    exit.mockRestore()
+  })
   file(filename, manifest('a', 'dep-2'))
   await f.emit(filename)
   expect(exit).toHaveBeenCalledOnce()
@@ -168,32 +181,41 @@ it('leaves manifests below node_modules to their package lifecycle', async () =>
   const installed = join(dirname(f.pkg), 'node_modules', 'dep', 'package.json')
   file(installed, '{"name":"dep"}')
   const invalidate = vi.spyOn(Reflect.get(f.ctx.hmr, 'manifests') as { invalidate(path: string): void }, 'invalidate')
-  onTestFinished(() => { invalidate.mockRestore() })
+  onTestFinished(() => {
+    invalidate.mockRestore()
+  })
   await f.emit(installed)
   expect(invalidate).not.toHaveBeenCalled()
 })
 
-it.each(['exports', 'main'] as const)('keeps reloading the loaded entry after %s moves and selects the new entry on restart', async (field) => {
-  const packageJson = (entry: string, dep: string) => JSON.stringify({
-    name: 'addon', type: 'module', [field]: `./${entry}.mjs`, imports: { '#dep': `./${dep}.mjs` },
-  })
-  const f = await fixture(plugin('a'), { packageJson: packageJson('a', 'dep-1') })
-  const originalNamespace = f.entry.moduleNamespace
-  file(join(f.pkg, 'package.json'), packageJson('b', 'dep-2'))
-  await f.emit(join(f.pkg, 'package.json'))
-  expect(f.trace).toEqual(['start:a:1'])
-  expect(f.entry.moduleNamespace).toBe(originalNamespace)
-  file(join(f.pkg, 'a.mjs'), plugin('a-edited'))
-  await f.emit(join(f.pkg, 'a.mjs'))
-  expect(f.trace).toEqual(['start:a:1', 'stop:a', 'start:a-edited:2'])
-  expect(f.entry.moduleNamespace).not.toBe(originalNamespace)
-  expect(f.entry.moduleNamespace).toBe(await f.ctx.loader.import(pathToFileURL(join(f.pkg, 'a.mjs')).href))
-  await f.entry.update({ disabled: true })
-  await f.entry.update({ disabled: false })
-  await f.ctx.loader.await()
-  expect(f.trace).toEqual(['start:a:1', 'stop:a', 'start:a-edited:2', 'stop:a-edited', 'start:b:2'])
-  expect(f.warn).not.toHaveBeenCalled()
-})
+it.each(['exports', 'main'] as const)(
+  'keeps reloading the loaded entry after %s moves and selects the new entry on restart',
+  async field => {
+    const packageJson = (entry: string, dep: string) =>
+      JSON.stringify({
+        name: 'addon',
+        type: 'module',
+        [field]: `./${entry}.mjs`,
+        imports: { '#dep': `./${dep}.mjs` },
+      })
+    const f = await fixture(plugin('a'), { packageJson: packageJson('a', 'dep-1') })
+    const originalNamespace = f.entry.moduleNamespace
+    file(join(f.pkg, 'package.json'), packageJson('b', 'dep-2'))
+    await f.emit(join(f.pkg, 'package.json'))
+    expect(f.trace).toEqual(['start:a:1'])
+    expect(f.entry.moduleNamespace).toBe(originalNamespace)
+    file(join(f.pkg, 'a.mjs'), plugin('a-edited'))
+    await f.emit(join(f.pkg, 'a.mjs'))
+    expect(f.trace).toEqual(['start:a:1', 'stop:a', 'start:a-edited:2'])
+    expect(f.entry.moduleNamespace).not.toBe(originalNamespace)
+    expect(f.entry.moduleNamespace).toBe(await f.ctx.loader.import(pathToFileURL(join(f.pkg, 'a.mjs')).href))
+    await f.entry.update({ disabled: true })
+    await f.entry.update({ disabled: false })
+    await f.ctx.loader.await()
+    expect(f.trace).toEqual(['start:a:1', 'stop:a', 'start:a-edited:2', 'stop:a-edited', 'start:b:2'])
+    expect(f.warn).not.toHaveBeenCalled()
+  },
+)
 
 it('retains the loaded entry through repeated reloads when the new entry is already cached', async () => {
   const f = await fixture()
@@ -212,7 +234,7 @@ it('retains the loaded entry through repeated reloads when the new entry is alre
   expect(f.warn).not.toHaveBeenCalled()
 })
 
-it.each(['apply', 'apply as default'])('retains a re-export entry using its namespace when it exports %s', async (exported) => {
+it.each(['apply', 'apply as default'])('retains a re-export entry using its namespace when it exports %s', async exported => {
   const f = await fixture(`export { ${exported} } from './b.mjs';\n`)
   const implementation: unknown = await f.ctx.loader.import(pathToFileURL(join(f.pkg, 'b.mjs')).href)
   expect(implementation).toMatchObject({ apply: f.entry.fiber?.runtime?.callback })
@@ -257,9 +279,12 @@ it('keeps entry identity when HMR is recreated between source reloads', async ()
 
 it('leaves an unimported disabled entry without a Node cache entry alone', async () => {
   const f = await fixture()
-  const disabled = f.ctx.loader.resolve(await f.ctx.loader.create({
-    name: pathToFileURL(join(f.pkg, 'b.mjs')).href, disabled: true,
-  }))
+  const disabled = f.ctx.loader.resolve(
+    await f.ctx.loader.create({
+      name: pathToFileURL(join(f.pkg, 'b.mjs')).href,
+      disabled: true,
+    }),
+  )
   expect(disabled.moduleNamespace).toBeUndefined()
   file(join(f.pkg, 'a.mjs'), plugin('a-edited'))
   await f.emit(join(f.pkg, 'a.mjs'))
@@ -322,22 +347,27 @@ it('reports a recorded namespace missing from the cache while reloading another 
   expect(Map.prototype.delete.call(f.ctx.loader.internal!.loadCache, pathToFileURL(join(f.pkg, 'a.mjs')).href)).toBe(true)
   file(join(f.pkg, 'b.mjs'), plugin('b-edited'))
   await f.emit(join(f.pkg, 'b.mjs'))
-  expect(f.warn).toHaveBeenCalledWith(expect.objectContaining({
-    message: `HMR cannot locate the loaded module for addon from ${f.ctx.baseUrl}`,
-  }))
+  expect(f.warn).toHaveBeenCalledWith(
+    expect.objectContaining({
+      message: `HMR cannot locate the loaded module for addon from ${f.ctx.baseUrl}`,
+    }),
+  )
   expect(f.entry.fiber).toBe(originalFiber)
   expect(f.entry.moduleNamespace).toBe(originalNamespace)
   expect(f.trace).toEqual(['start:a:1', 'start:b:1', 'stop:b', 'start:b-edited:1'])
 })
 
-it.each(['import', 'activation'] as const)('retains the prior namespace after replacement %s fails and can reload again', async (phase) => {
+it.each(['import', 'activation'] as const)('retains the prior namespace after replacement %s fails and can reload again', async phase => {
   const f = await fixture()
   const originalNamespace = f.entry.moduleNamespace
   const originalCallback = f.entry.fiber?.runtime?.callback
   const message = `replacement ${phase} failed`
-  file(join(f.pkg, 'a.mjs'), phase === 'import'
-    ? `throw new Error(${JSON.stringify(message)});\n${plugin('failed')}`
-    : `export function apply() { throw new Error(${JSON.stringify(message)}); }`)
+  file(
+    join(f.pkg, 'a.mjs'),
+    phase === 'import'
+      ? `throw new Error(${JSON.stringify(message)});\n${plugin('failed')}`
+      : `export function apply() { throw new Error(${JSON.stringify(message)}); }`,
+  )
   await expect(f.emit(join(f.pkg, 'a.mjs'))).rejects.toThrow(message)
   expect(f.entry.moduleNamespace).toBe(originalNamespace)
   expect(await f.ctx.loader.import('addon')).toBe(originalNamespace)
@@ -373,19 +403,32 @@ it('handles an entry still evaluating while another entry reloads', async () => 
   const entered = Promise.withResolvers<undefined>()
   const release = Promise.withResolvers<undefined>()
   const key = 'dsh-hmr-pending-entry-' + randomUUID()
-  Reflect.set(globalThis, key, { entered: () => { entered.resolve(undefined) }, wait: release.promise })
-  f.ctx.provide('releasePendingEntry', () => { release.resolve(undefined) })
+  Reflect.set(globalThis, key, {
+    entered: () => {
+      entered.resolve(undefined)
+    },
+    wait: release.promise,
+  })
+  f.ctx.provide('releasePendingEntry', () => {
+    release.resolve(undefined)
+  })
   const filename = join(f.pkg, 'pending.mjs')
   file(filename, `const gate = globalThis[${JSON.stringify(key)}]; gate.entered(); await gate.wait;\n${plugin('pending')}`)
   const loading = f.ctx.loader.create({ name: pathToFileURL(filename).href })
   onTestFinished(async () => {
     release.resolve(undefined)
-    try { await loading } finally { Reflect.deleteProperty(globalThis, key) }
+    try {
+      await loading
+    } finally {
+      Reflect.deleteProperty(globalThis, key)
+    }
   })
   try {
     await entered.promise
-    file(join(f.pkg, 'a.mjs'), plugin('a-edited').replace('export function apply(ctx) {',
-      "export function apply(ctx) { ctx.get('releasePendingEntry')();"))
+    file(
+      join(f.pkg, 'a.mjs'),
+      plugin('a-edited').replace('export function apply(ctx) {', "export function apply(ctx) { ctx.get('releasePendingEntry')();"),
+    )
     await f.emit(join(f.pkg, 'a.mjs'))
     const entry = f.ctx.loader.resolve(await loading)
     await f.ctx.loader.await()
@@ -400,10 +443,7 @@ it('handles an entry still evaluating while another entry reloads', async () => 
 
 it('keeps an active entry namespace when a later same-name entry has never been enabled', async () => {
   const f = await fixture()
-  await f.ctx.loader.root.update([
-    ...f.ctx.loader.root.data,
-    { id: 'disabled-shadow', name: 'addon', disabled: true },
-  ])
+  await f.ctx.loader.root.update([...f.ctx.loader.root.data, { id: 'disabled-shadow', name: 'addon', disabled: true }])
   await f.ctx.loader.await()
   const disabled = f.ctx.loader.resolve('disabled-shadow')
   expect(disabled.moduleNamespace).toBeUndefined()
@@ -442,9 +482,7 @@ function liveFibers(runtime: Plugin.Runtime | null | undefined) {
 }
 
 async function sharedEntryFixture(kind: 'default' | 'named') {
-  const source = kind === 'default'
-    ? "export { apply as default } from './b.mjs';\n"
-    : "export { apply } from './b.mjs';\n"
+  const source = kind === 'default' ? "export { apply as default } from './b.mjs';\n" : "export { apply } from './b.mjs';\n"
   const f = await fixture(source)
   const secondFile = kind === 'default' ? 'c.mjs' : 'b.mjs'
   if (kind === 'default') file(join(f.pkg, secondFile), source)
@@ -493,9 +531,7 @@ it('reloads both active namespaces for one package name independently after expo
   expect(second.moduleNamespace).toBe(cachedNamespace(f, 'b.mjs'))
   expect(liveFibers(f.entry.fiber?.runtime)).toHaveLength(1)
   expect(liveFibers(second.fiber?.runtime)).toHaveLength(1)
-  expect(f.trace).toEqual([
-    'start:a:1', 'start:b:2', 'stop:a', 'start:a-independent:2', 'stop:b', 'start:b-independent:2',
-  ])
+  expect(f.trace).toEqual(['start:a:1', 'start:b:2', 'stop:a', 'start:a-independent:2', 'stop:b', 'start:b-independent:2'])
   expect(f.warn).not.toHaveBeenCalled()
 })
 
@@ -538,15 +574,12 @@ it('refreshes named re-export and implementation namespaces sharing a callback w
   expect(f.entry.fiber?.runtime).toBe(f.second.fiber?.runtime)
   expect(liveFibers(f.entry.fiber?.runtime)).toHaveLength(2)
   expect(oldFibers.every(fiber => fiber.uid === null)).toBe(true)
-  expect(f.trace.slice(before).sort()).toEqual([
-    'start:implementation-updated:1', 'start:implementation-updated:1', 'stop:b', 'stop:b',
-  ])
+  expect(f.trace.slice(before).sort()).toEqual(['start:implementation-updated:1', 'start:implementation-updated:1', 'stop:b', 'stop:b'])
   expect(f.warn).not.toHaveBeenCalled()
 })
 
 function activeTraceCount(trace: string[], marker: string): number {
-  return trace.filter(event => event.startsWith(`start:${marker}:`)).length
-    - trace.filter(event => event === `stop:${marker}`).length
+  return trace.filter(event => event.startsWith(`start:${marker}:`)).length - trace.filter(event => event === `stop:${marker}`).length
 }
 
 it('assigns each entry its own replacement when a shared runtime splits into distinct callbacks', async () => {
@@ -601,44 +634,50 @@ it('restores shared entries and a programmatic instance when split replacements 
   expect(activeTraceCount(f.trace, 'c-split')).toBe(0)
 })
 
-it.each(['import', 'activation'] as const)('restores every shared entry when one replacement %s fails and can reload again', async (phase) => {
-  const f = await sharedEntryFixture('default')
-  const firstNamespace = f.entry.moduleNamespace
-  const secondNamespace = f.second.moduleNamespace
-  const message = `shared replacement ${phase} failed`
-  file(join(f.pkg, 'a.mjs'), plugin('a-replacement'))
-  file(join(f.pkg, 'c.mjs'), phase === 'import'
-    ? `throw new Error(${JSON.stringify(message)});\n${plugin('c-failed')}`
-    : `export function apply() { throw new Error(${JSON.stringify(message)}); }`)
-  await expect(f.emit(join(f.pkg, 'a.mjs'), join(f.pkg, 'c.mjs'))).rejects.toThrow(message)
+it.each(['import', 'activation'] as const)(
+  'restores every shared entry when one replacement %s fails and can reload again',
+  async phase => {
+    const f = await sharedEntryFixture('default')
+    const firstNamespace = f.entry.moduleNamespace
+    const secondNamespace = f.second.moduleNamespace
+    const message = `shared replacement ${phase} failed`
+    file(join(f.pkg, 'a.mjs'), plugin('a-replacement'))
+    file(
+      join(f.pkg, 'c.mjs'),
+      phase === 'import'
+        ? `throw new Error(${JSON.stringify(message)});\n${plugin('c-failed')}`
+        : `export function apply() { throw new Error(${JSON.stringify(message)}); }`,
+    )
+    await expect(f.emit(join(f.pkg, 'a.mjs'), join(f.pkg, 'c.mjs'))).rejects.toThrow(message)
 
-  expect(f.entry.moduleNamespace).toBe(firstNamespace)
-  expect(f.second.moduleNamespace).toBe(secondNamespace)
-  expect(cachedNamespace(f, 'a.mjs')).toBe(firstNamespace)
-  expect(cachedNamespace(f, 'c.mjs')).toBe(secondNamespace)
-  const restored = f.ctx.registry.get(f.firstPlugin)
-  expect(f.entry.fiber?.runtime).toBe(restored)
-  expect(f.second.fiber?.runtime).toBe(restored)
-  expect(liveFibers(restored)).toHaveLength(2)
-  expect(activeTraceCount(f.trace, 'b')).toBe(2)
-  expect(activeTraceCount(f.trace, 'a-replacement')).toBe(0)
-  expect(activeTraceCount(f.trace, 'c-failed')).toBe(0)
+    expect(f.entry.moduleNamespace).toBe(firstNamespace)
+    expect(f.second.moduleNamespace).toBe(secondNamespace)
+    expect(cachedNamespace(f, 'a.mjs')).toBe(firstNamespace)
+    expect(cachedNamespace(f, 'c.mjs')).toBe(secondNamespace)
+    const restored = f.ctx.registry.get(f.firstPlugin)
+    expect(f.entry.fiber?.runtime).toBe(restored)
+    expect(f.second.fiber?.runtime).toBe(restored)
+    expect(liveFibers(restored)).toHaveLength(2)
+    expect(activeTraceCount(f.trace, 'b')).toBe(2)
+    expect(activeTraceCount(f.trace, 'a-replacement')).toBe(0)
+    expect(activeTraceCount(f.trace, 'c-failed')).toBe(0)
 
-  file(join(f.pkg, 'c.mjs'), plugin('c-recovered'))
-  await f.emit(join(f.pkg, 'a.mjs'), join(f.pkg, 'c.mjs'))
-  expect(f.entry.moduleNamespace).not.toBe(firstNamespace)
-  expect(f.second.moduleNamespace).not.toBe(secondNamespace)
-  expect(f.entry.moduleNamespace).toBe(cachedNamespace(f, 'a.mjs'))
-  expect(f.second.moduleNamespace).toBe(cachedNamespace(f, 'c.mjs'))
-  expect(f.entry.moduleNamespace).toMatchObject({ apply: f.entry.fiber?.runtime?.callback })
-  expect(f.second.moduleNamespace).toMatchObject({ apply: f.second.fiber?.runtime?.callback })
-  expect(f.entry.fiber?.runtime).not.toBe(f.second.fiber?.runtime)
-  expect(liveFibers(f.entry.fiber?.runtime)).toHaveLength(1)
-  expect(liveFibers(f.second.fiber?.runtime)).toHaveLength(1)
-  expect(activeTraceCount(f.trace, 'b')).toBe(0)
-  expect(activeTraceCount(f.trace, 'a-replacement')).toBe(1)
-  expect(activeTraceCount(f.trace, 'c-recovered')).toBe(1)
-})
+    file(join(f.pkg, 'c.mjs'), plugin('c-recovered'))
+    await f.emit(join(f.pkg, 'a.mjs'), join(f.pkg, 'c.mjs'))
+    expect(f.entry.moduleNamespace).not.toBe(firstNamespace)
+    expect(f.second.moduleNamespace).not.toBe(secondNamespace)
+    expect(f.entry.moduleNamespace).toBe(cachedNamespace(f, 'a.mjs'))
+    expect(f.second.moduleNamespace).toBe(cachedNamespace(f, 'c.mjs'))
+    expect(f.entry.moduleNamespace).toMatchObject({ apply: f.entry.fiber?.runtime?.callback })
+    expect(f.second.moduleNamespace).toMatchObject({ apply: f.second.fiber?.runtime?.callback })
+    expect(f.entry.fiber?.runtime).not.toBe(f.second.fiber?.runtime)
+    expect(liveFibers(f.entry.fiber?.runtime)).toHaveLength(1)
+    expect(liveFibers(f.second.fiber?.runtime)).toHaveLength(1)
+    expect(activeTraceCount(f.trace, 'b')).toBe(0)
+    expect(activeTraceCount(f.trace, 'a-replacement')).toBe(1)
+    expect(activeTraceCount(f.trace, 'c-recovered')).toBe(1)
+  },
+)
 
 it('deduplicates a repeated namespace without activating a same-name uninitialized entry', async () => {
   const f = await fixture()
@@ -662,8 +701,6 @@ it('deduplicates a repeated namespace without activating a same-name uninitializ
   expect(liveFibers(f.entry.fiber?.runtime)).toHaveLength(2)
   expect(disabled.moduleNamespace).toBeUndefined()
   expect(disabled.fiber).toBeUndefined()
-  expect(f.trace.slice(before).sort()).toEqual([
-    'start:deduplicated:2', 'start:deduplicated:2', 'stop:a', 'stop:a',
-  ])
+  expect(f.trace.slice(before).sort()).toEqual(['start:deduplicated:2', 'start:deduplicated:2', 'stop:a', 'stop:a'])
   expect(f.warn).not.toHaveBeenCalled()
 })

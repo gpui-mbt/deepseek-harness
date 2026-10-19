@@ -178,7 +178,10 @@ export function readWorkspacePackages(root: string): Map<string, WorkspacePackag
     throw new Error('pnpm-workspace.yaml must list package patterns')
   }
   const packages = new Map<string, WorkspacePackage>()
-  const paths = globSync(patterns.map(pattern => `${pattern}/package.json`), { cwd: root })
+  const paths = globSync(
+    patterns.map(pattern => `${pattern}/package.json`),
+    { cwd: root },
+  )
     .map(path => path.replaceAll('\\', '/'))
     .sort()
   for (const path of paths) {
@@ -280,9 +283,9 @@ export function hostPlatform(): PlatformConstraint {
  * @returns True when the package may run here.
  */
 export function matchesPlatform(constraint: PlatformConstraint, host: PlatformConstraint): boolean {
-  return allowsValue(constraint.os, host.os?.[0])
-    && allowsValue(constraint.cpu, host.cpu?.[0])
-    && allowsValue(constraint.libc, host.libc?.[0])
+  return (
+    allowsValue(constraint.os, host.os?.[0]) && allowsValue(constraint.cpu, host.cpu?.[0]) && allowsValue(constraint.libc, host.libc?.[0])
+  )
 }
 
 /**
@@ -332,9 +335,9 @@ export function selectBundleDependencies(options: {
     if (matchesPlatform(platformConstraint(member.manifest), platform)) continue
     if (reachedByRequiredEdge(name, entries, selected)) {
       throw new Error(
-        `${dependencyPath(name, parents, entries)} requires ${name}, which targets`
-        + ` ${describePlatform(platformConstraint(member.manifest))}; this host is ${describePlatform(platform)}.`
-        + ' This run cannot supply a matching artifact for that package.',
+        `${dependencyPath(name, parents, entries)} requires ${name}, which targets` +
+          ` ${describePlatform(platformConstraint(member.manifest))}; this host is ${describePlatform(platform)}.` +
+          ' This run cannot supply a matching artifact for that package.',
       )
     }
     foreign.push(name)
@@ -365,14 +368,20 @@ export async function packBundleArtifacts(options: {
   if (members.length === 0) throw new Error('no local packages were selected to pack')
   await mkdir(destination, { recursive: true })
   const invocation = pnpmInvocationFor([
-    'pack', '--recursive', `--workspace-concurrency=${String(Math.min(4, members.length))}`,
-    ...members.map(member => `--filter=${member.name}`), '--pack-destination', destination,
+    'pack',
+    '--recursive',
+    `--workspace-concurrency=${String(Math.min(4, members.length))}`,
+    ...members.map(member => `--filter=${member.name}`),
+    '--pack-destination',
+    destination,
   ])
   let result
   try {
     result = await execa(invocation.command, invocation.args, {
-      cwd: root, reject: false, killDescendants: true,
-      ...options.signal === undefined ? {} : { cancelSignal: options.signal },
+      cwd: root,
+      reject: false,
+      killDescendants: true,
+      ...(options.signal === undefined ? {} : { cancelSignal: options.signal }),
     })
   } catch (error) {
     if (isCanceled(error)) throw new Error('packing was cancelled')
@@ -405,7 +414,7 @@ export function readPackedArtifacts(options: {
   readonly release: ReadonlyMap<string, ReleaseEntry>
 }): BundleArtifact[] {
   const { destination, members, release } = options
-  const packed = members.map((member) => {
+  const packed = members.map(member => {
     const entry = release.get(member.name)
     if (entry === undefined) {
       throw new Error(`${member.name}: not a public release member; the local registry does not republish a private or unreleased package`)
@@ -439,7 +448,7 @@ export function readPackedArtifacts(options: {
       shasum: createHash('sha1').update(bytes).digest('hex'),
       manifest,
       platform: platformConstraint(manifest),
-      ...distTag === undefined ? {} : { distTag },
+      ...(distTag === undefined ? {} : { distTag }),
       packedAt: new Date().toISOString(),
     }
   })
@@ -534,7 +543,7 @@ export async function startBundleRegistry(options: {
     const path = query === -1 ? raw : raw.slice(0, query)
     const prefix = `/${namespace}/`
     if (!path.startsWith(prefix)) {
-      respond(response, 404, { error: 'Not found', reason: 'request is outside this run\'s registry namespace' }, head)
+      respond(response, 404, { error: 'Not found', reason: "request is outside this run's registry namespace" }, head)
       return
     }
     const suffix = path.slice(prefix.length)
@@ -553,10 +562,15 @@ export async function startBundleRegistry(options: {
       return
     }
     if (owned.has(requested.name)) {
-      respond(response, 404, {
-        error: 'Not found',
-        reason: `${requested.name} is repository-owned but not part of this run's local closure; rebuild the registry after changing the catalog`,
-      }, head)
+      respond(
+        response,
+        404,
+        {
+          error: 'Not found',
+          reason: `${requested.name} is repository-owned but not part of this run's local closure; rebuild the registry after changing the catalog`,
+        },
+        head,
+      )
       return
     }
     // Only package publication is local: third-party metadata and payloads keep npm's real bytes.
@@ -848,7 +862,9 @@ function serveTarball(
   const stream = createReadStream(join(directory, artifact.file))
   // A client that disconnects mid-archive must not fail an unrelated request.
   response.on('close', () => stream.destroy())
-  stream.on('error', (error) => { response.destroy(error) })
+  stream.on('error', error => {
+    response.destroy(error)
+  })
   stream.pipe(response)
 }
 
@@ -878,19 +894,29 @@ function serveMetadata(
     },
   }
   if (version === undefined) {
-    respond(response, 200, {
-      name: artifact.name,
-      'dist-tags': tags,
-      versions: { [artifact.version]: document },
-      time: { created: artifact.packedAt, modified: artifact.packedAt, [artifact.version]: artifact.packedAt },
-    }, head)
+    respond(
+      response,
+      200,
+      {
+        name: artifact.name,
+        'dist-tags': tags,
+        versions: { [artifact.version]: document },
+        time: { created: artifact.packedAt, modified: artifact.packedAt, [artifact.version]: artifact.packedAt },
+      },
+      head,
+    )
     return
   }
   if (version !== artifact.version && !Object.hasOwn(tags, version)) {
-    respond(response, 404, {
-      error: 'Not found',
-      reason: `this run serves ${artifact.name}@${artifact.version} only`,
-    }, head)
+    respond(
+      response,
+      404,
+      {
+        error: 'Not found',
+        reason: `this run serves ${artifact.name}@${artifact.version} only`,
+      },
+      head,
+    )
     return
   }
   respond(response, 200, document, head)
@@ -921,7 +947,7 @@ function respond(response: ServerResponse, status: number, body: unknown, head: 
 function closeServer(server: Server): Promise<void> {
   return new Promise<void>((resolveClose, rejectClose) => {
     server.closeAllConnections()
-    server.close((error) => {
+    server.close(error => {
       if (error === undefined) resolveClose()
       else rejectClose(error)
     })

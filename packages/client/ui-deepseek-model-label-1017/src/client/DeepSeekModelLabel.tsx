@@ -24,11 +24,15 @@ const MODEL_NAME = 'DeepSeek-V4.1-Flash'
  * @param props - Provider and model identity plus the badge dictionary.
  * @returns The base name with a badge, or the untouched catalog name.
  */
-export function DeepSeekModelLabel({ provider, model, t }:
-  PropsRuntime<'conversation.input.model.label'> & PropsLocale<'deepseek-model-label-1017'>,
-) {
+export function DeepSeekModelLabel({
+  provider,
+  model,
+  t,
+}: PropsRuntime<'conversation.input.model.label'> & PropsLocale<'deepseek-model-label-1017'>) {
   if (BATCH_MODEL_IDS[provider.id] !== model.id || model.name !== MODEL_NAME) return model.name
-  return <span className={css.label}>
-    <span>{model.name}</span>{' '}<Tag tone="info">{t('badge.label')}</Tag>
-  </span>
+  return (
+    <span className={css.label}>
+      <span>{model.name}</span> <Tag tone="info">{t('badge.label')}</Tag>
+    </span>
+  )
 }

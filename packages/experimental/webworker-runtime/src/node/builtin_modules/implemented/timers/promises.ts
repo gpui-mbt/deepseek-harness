@@ -13,11 +13,7 @@ const abortError = (): DOMException => new DOMException('The operation was abort
  * @param options - abort support, as Node provides.
  * @returns the value after the delay, or a rejection when the signal aborts.
  */
-export function setTimeout<T = void>(
-  delayMs?: number,
-  value?: T,
-  options?: TimerOptions,
-): Promise<T> {
+export function setTimeout<T = void>(delayMs?: number, value?: T, options?: TimerOptions): Promise<T> {
   return new Promise((resolve, reject) => {
     // A signal that has already aborted emits no further `abort` event, so the
     // timer must not be armed at all; Node rejects such a call straight away.
@@ -25,11 +21,17 @@ export function setTimeout<T = void>(
       reject(abortError())
       return
     }
-    const timer = globalThis.setTimeout(() => { resolve(value as T) }, delayMs)
-    options?.signal?.addEventListener('abort', () => {
-      globalThis.clearTimeout(timer)
-      reject(abortError())
-    }, { once: true })
+    const timer = globalThis.setTimeout(() => {
+      resolve(value as T)
+    }, delayMs)
+    options?.signal?.addEventListener(
+      'abort',
+      () => {
+        globalThis.clearTimeout(timer)
+        reject(abortError())
+      },
+      { once: true },
+    )
   })
 }
 
@@ -47,7 +49,9 @@ export const scheduler = {
   wait: async (delayMs?: number, options?: TimerOptions): Promise<void> => {
     await setTimeout(delayMs, undefined, options)
   },
-  yield: async (): Promise<void> => { await setTimeout(0) },
+  yield: async (): Promise<void> => {
+    await setTimeout(0)
+  },
 }
 
 /** CommonJS interop marker: the worker loader hands `default` to default imports (see ./builtins.ts). */

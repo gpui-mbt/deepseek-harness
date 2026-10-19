@@ -23,18 +23,29 @@ export class TimedQuestionWait {
   }
 
   /** Cancellation shared with the foreground waterfall, not with the calling Turn. */
-  get signal(): AbortSignal { return this.controller.signal }
+  get signal(): AbortSignal {
+    return this.controller.signal
+  }
 
   /** Settles when the wait is cancelled, expires, or is disposed. */
-  get done(): Promise<void> { return this.completion.promise }
+  get done(): Promise<void> {
+    return this.completion.promise
+  }
 
-  private readonly parentAborted = (): void => { this.close(this.parent?.reason) }
+  private readonly parentAborted = (): void => {
+    this.close(this.parent?.reason)
+  }
 
   private schedule(): void {
     clearTimeout(this.timer)
     this.timer = undefined
     if (this.signal.aborted || this.claims.size > 0) return
-    this.timer = setTimeout(() => { this.close(this.timeout) }, Math.max(0, this.deadline - Date.now()))
+    this.timer = setTimeout(
+      () => {
+        this.close(this.timeout)
+      },
+      Math.max(0, this.deadline - Date.now()),
+    )
   }
 
   /**

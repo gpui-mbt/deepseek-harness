@@ -45,7 +45,7 @@ async function onlyRootAgent(ctx: Context): Promise<Agent> {
   // before publication), so a settled Loader does not imply a registered
   // agent yet; wait for the first publication instead of requiring it.
   if (registry.roots().length === 0) {
-    await new Promise<void>((resolve) => {
+    await new Promise<void>(resolve => {
       const dispose = ctx.on('agent/created', () => {
         dispose()
         resolve()
@@ -80,8 +80,7 @@ export async function runFixtureTurn(ctx: Context, options: FixtureTurnOptions):
   const disposeListener = ctx.on('session/event', (session, event) => {
     if (session !== agent.session) return
     if (!received) {
-      if (event.type !== 'agent/inbox/spliced'
-        || !event.data.inserted.some(inserted => inserted.id === message.id)) return
+      if (event.type !== 'agent/inbox/spliced' || !event.data.inserted.some(inserted => inserted.id === message.id)) return
       received = true
     }
     options.onEvent?.(session.id, event)
@@ -91,8 +90,7 @@ export async function runFixtureTurn(ctx: Context, options: FixtureTurnOptions):
         usageByStep.set(`${event.data.turn}/${event.data.step}`, event.data.usage)
       }
     } else if (event.type === 'assistant/attempt') {
-      const usage = expandAssistantStream(event.data.stream)
-        .findLast(member => member.chunk.type === 'usage')?.chunk
+      const usage = expandAssistantStream(event.data.stream).findLast(member => member.chunk.type === 'usage')?.chunk
       if (usage?.type === 'usage') {
         usageByStep.set(`${event.data.turn}/${event.data.step}`, usage.usage)
       }
@@ -111,6 +109,6 @@ export async function runFixtureTurn(ctx: Context, options: FixtureTurnOptions):
     type: 'result',
     sessionId: agent.session.id,
     output,
-    ...usage === undefined ? {} : { usage },
+    ...(usage === undefined ? {} : { usage }),
   }
 }

@@ -32,34 +32,37 @@ const asPath = (path: PathArg): string => {
   return resolve(new TextDecoder().decode(path))
 }
 
-const missingStats = (bigint: boolean): WatchStats => ({
-  size: bigint ? 0n : 0,
-  ino: bigint ? 0n : 0,
-  mtimeMs: bigint ? 0n : 0,
-  ctimeMs: bigint ? 0n : 0,
-  atimeMs: bigint ? 0n : 0,
-  birthtimeMs: bigint ? 0n : 0,
-  mtime: new Date(0),
-  mode: bigint ? 0n : 0,
-  ...bigint ? {
-    dev: 0n,
-    nlink: 0n,
-    mtimeNs: 0n,
-    ctimeNs: 0n,
-    atimeNs: 0n,
-    birthtimeNs: 0n,
-    ctime: new Date(0),
-    atime: new Date(0),
-    birthtime: new Date(0),
-  } : {},
-  isFile: () => false,
-  isDirectory: () => false,
-  isSymbolicLink: () => false,
-  isFIFO: () => false,
-  isSocket: () => false,
-  isBlockDevice: () => false,
-  isCharacterDevice: () => false,
-}) as WatchStats
+const missingStats = (bigint: boolean): WatchStats =>
+  ({
+    size: bigint ? 0n : 0,
+    ino: bigint ? 0n : 0,
+    mtimeMs: bigint ? 0n : 0,
+    ctimeMs: bigint ? 0n : 0,
+    atimeMs: bigint ? 0n : 0,
+    birthtimeMs: bigint ? 0n : 0,
+    mtime: new Date(0),
+    mode: bigint ? 0n : 0,
+    ...(bigint
+      ? {
+          dev: 0n,
+          nlink: 0n,
+          mtimeNs: 0n,
+          ctimeNs: 0n,
+          atimeNs: 0n,
+          birthtimeNs: 0n,
+          ctime: new Date(0),
+          atime: new Date(0),
+          birthtime: new Date(0),
+        }
+      : {}),
+    isFile: () => false,
+    isDirectory: () => false,
+    isSymbolicLink: () => false,
+    isFIFO: () => false,
+    isSocket: () => false,
+    isBlockDevice: () => false,
+    isCharacterDevice: () => false,
+  }) as WatchStats
 
 const statOrMissing = (path: string, bigint: boolean): WatchStats => {
   try {
@@ -71,15 +74,14 @@ const statOrMissing = (path: string, bigint: boolean): WatchStats => {
 }
 
 const statsChanged = (left: WatchStats, right: WatchStats): boolean =>
-  left.size !== right.size
-  || left.mtimeMs !== right.mtimeMs
-  || left.mode !== right.mode
-  || left.ino !== right.ino
-  || left.isFile() !== right.isFile()
-  || left.isDirectory() !== right.isDirectory()
+  left.size !== right.size ||
+  left.mtimeMs !== right.mtimeMs ||
+  left.mode !== right.mode ||
+  left.ino !== right.ino ||
+  left.isFile() !== right.isFile() ||
+  left.isDirectory() !== right.isDirectory()
 
-const contains = (parent: string, child: string): boolean =>
-  parent === '/' || child === parent || child.startsWith(`${parent}${sep}`)
+const contains = (parent: string, child: string): boolean => parent === '/' || child === parent || child.startsWith(`${parent}${sep}`)
 
 const overlaps = (left: string, right: string): boolean => contains(left, right) || contains(right, left)
 
@@ -91,7 +93,9 @@ const overlaps = (left: string, right: string): boolean => contains(left, right)
  * @param callback - Event dispatch.
  */
 const dispatchInWatcherContext = (context: ReturnType<typeof captureAsyncContext>, callback: () => void): void => {
-  runAtAsyncContextRoot(() => { runWithAsyncContext(context, callback) })
+  runAtAsyncContextRoot(() => {
+    runWithAsyncContext(context, callback)
+  })
 }
 
 /** `fs.FSWatcher` over VFS mutations. */
@@ -112,19 +116,24 @@ export class FSWatcher extends EventEmitter {
     this.referenced = options.persistent ?? true
     const context = captureAsyncContext()
     if (listener !== undefined) this.on('change', listener as (...args: unknown[]) => void)
-    this.disposeMutation = requireActiveVfs().subscribe((mutation) => {
+    this.disposeMutation = requireActiveVfs().subscribe(mutation => {
       if (!this.matches(mutation)) return
-      const eventType = mutation.kind === 'write' && !mutation.entryChanged || mutation.kind === 'chmod'
-        ? 'change'
-        : 'rename'
+      const eventType = (mutation.kind === 'write' && !mutation.entryChanged) || mutation.kind === 'chmod' ? 'change' : 'rename'
       const filename = this.filename(mutation.path)
       queueMicrotask(() => {
         if (this.closed) return
-        dispatchInWatcherContext(context, () => { this.emit('change', eventType, filename) })
+        dispatchInWatcherContext(context, () => {
+          this.emit('change', eventType, filename)
+        })
       })
     })
     this.signal = options.signal
-    this.onAbort = options.signal === undefined ? undefined : () => { this.close() }
+    this.onAbort =
+      options.signal === undefined
+        ? undefined
+        : () => {
+            this.close()
+          }
     if (options.signal?.aborted === true) {
       this.close()
       return
@@ -143,9 +152,12 @@ export class FSWatcher extends EventEmitter {
 
   private filename(path: string): string | Buffer {
     const relativePath = relative(this.target, path)
-    const value = this.directory && contains(this.target, path)
-      ? this.options.recursive === true ? relativePath : relativePath.split(sep)[0] ?? ''
-      : basename(this.target)
+    const value =
+      this.directory && contains(this.target, path)
+        ? this.options.recursive === true
+          ? relativePath
+          : (relativePath.split(sep)[0] ?? '')
+        : basename(this.target)
     return this.options.encoding === 'buffer' ? Buffer.from(value) : value
   }
 
@@ -155,7 +167,9 @@ export class FSWatcher extends EventEmitter {
     this.closed = true
     this.disposeMutation()
     if (this.onAbort !== undefined) this.signal?.removeEventListener('abort', this.onAbort)
-    queueMicrotask(() => { this.emit('close') })
+    queueMicrotask(() => {
+      this.emit('close')
+    })
   }
 
   /**
@@ -197,9 +211,8 @@ export function watch(
   optionsOrListener?: WatchOptions | BufferEncoding | 'buffer' | WatchListener,
   maybeListener?: WatchListener,
 ): FSWatcher {
-  const options: WatchOptions = typeof optionsOrListener === 'object'
-    ? optionsOrListener
-    : typeof optionsOrListener === 'string' ? { encoding: optionsOrListener } : {}
+  const options: WatchOptions =
+    typeof optionsOrListener === 'object' ? optionsOrListener : typeof optionsOrListener === 'string' ? { encoding: optionsOrListener } : {}
   const listener = typeof optionsOrListener === 'function' ? optionsOrListener : maybeListener
   const target = asPath(path)
   const stats = requireActiveVfs().statSync(target)
@@ -217,14 +230,17 @@ export class StatWatcher extends EventEmitter {
   private readonly interval: number
   private readonly bigint: boolean
 
-  constructor(readonly path: string, options: WatchFileOptions) {
+  constructor(
+    readonly path: string,
+    options: WatchFileOptions,
+  ) {
     super()
     this.referenced = options.persistent ?? true
     this.interval = options.interval ?? 5007
     this.bigint = options.bigint ?? false
     this.previous = statOrMissing(path, this.bigint)
     this.context = captureAsyncContext()
-    this.disposeMutation = requireActiveVfs().subscribe((mutation) => {
+    this.disposeMutation = requireActiveVfs().subscribe(mutation => {
       if (overlaps(path, mutation.path)) this.schedule()
     })
     if (!this.previous.isFile() && !this.previous.isDirectory()) this.schedule(true)
@@ -239,7 +255,9 @@ export class StatWatcher extends EventEmitter {
       const previous = this.previous
       this.previous = current
       if (initialMissing || statsChanged(current, previous)) {
-        dispatchInWatcherContext(this.context, () => { this.emit('change', current, previous) })
+        dispatchInWatcherContext(this.context, () => {
+          this.emit('change', current, previous)
+        })
       }
     }, this.interval)
     if (!this.referenced) timerUnref(this.timer)
@@ -287,7 +305,6 @@ export class StatWatcher extends EventEmitter {
   hasRef(): boolean {
     return this.referenced
   }
-
 }
 
 type RefTimer = { ref?: () => unknown; unref?: () => unknown }
@@ -311,11 +328,7 @@ const statWatchers = new Map<string, StatWatcher>()
  * @param maybeListener - Change listener when the second argument carries options.
  * @returns The path's shared stat watcher.
  */
-export function watchFile(
-  path: PathArg,
-  optionsOrListener: WatchFileOptions | StatListener,
-  maybeListener?: StatListener,
-): StatWatcher {
+export function watchFile(path: PathArg, optionsOrListener: WatchFileOptions | StatListener, maybeListener?: StatListener): StatWatcher {
   const options = typeof optionsOrListener === 'function' ? {} : optionsOrListener
   const listener = typeof optionsOrListener === 'function' ? optionsOrListener : maybeListener
   if (listener === undefined) throw new TypeError('The "listener" argument must be of type function')
@@ -324,7 +337,9 @@ export function watchFile(
   if (watcher === undefined) {
     watcher = new StatWatcher(target, options)
     statWatchers.set(target, watcher)
-    watcher.once('stop', () => { statWatchers.delete(target) })
+    watcher.once('stop', () => {
+      statWatchers.delete(target)
+    })
   }
   watcher.on('change', listener as (...args: unknown[]) => void)
   return watcher
@@ -380,7 +395,9 @@ export function watchAsync(
     else failed.reject(error)
     for (const pending of waiting.splice(0)) pending.resolve({ done: true, value: undefined })
   }
-  const onAbort = (): void => { settleFailure(abortError(options.signal?.reason)) }
+  const onAbort = (): void => {
+    settleFailure(abortError(options.signal?.reason))
+  }
   const start = (): void => {
     if (watcher !== undefined || closed || failure !== undefined) return
     if (options.signal?.aborted === true) {
@@ -423,7 +440,9 @@ export function watchAsync(
       const event = queued.shift()
       if (event !== undefined) return Promise.resolve({ done: false, value: event })
       if (closed) return Promise.resolve({ done: true, value: undefined })
-      return new Promise<IteratorResult<WatchEvent>>((resolve, reject) => { waiting.push({ resolve, reject }) })
+      return new Promise<IteratorResult<WatchEvent>>((resolve, reject) => {
+        waiting.push({ resolve, reject })
+      })
     },
     return(): Promise<IteratorResult<WatchEvent>> {
       close()

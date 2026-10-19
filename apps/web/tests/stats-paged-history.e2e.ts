@@ -11,10 +11,16 @@ import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { createSystemMessage } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
-  launchWebScaffold, seedSession, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  seedSession,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -35,10 +41,17 @@ const FULL_COUNTS = `${TURNS} turns ${TURNS} steps`
  * @returns session.jsonl text for {@link seedSession}.
  */
 function buildSeed(turns: number): string {
-  const lines = [JSON.stringify({
-    type: 'session', version: SESSION_FORMAT_VERSION, id: '{{sessionId}}',
-    createdAt: 1784974100000, cwd: '{{cwd}}/workspace', isSeeded: false, delegationDepth: 0,
-  })]
+  const lines = [
+    JSON.stringify({
+      type: 'session',
+      version: SESSION_FORMAT_VERSION,
+      id: '{{sessionId}}',
+      createdAt: 1784974100000,
+      cwd: '{{cwd}}/workspace',
+      isSeeded: false,
+      delegationDepth: 0,
+    }),
+  ]
   let seq = 0
   let time = 1784974100000
   const at = (event: Record<string, unknown>): void => {
@@ -138,8 +151,7 @@ describe('web e2e: whole-session stats survive history paging', () => {
 
   it('matches the paged-stats aria golden', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-stats-paged-aria'))
-    const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd))
-      .split(SEED_ID).join('{{seededId}}')
+    const snapshot = (await captureStableAria(page, '[class*="centerCol"]', scaffold.workspaceCwd)).split(SEED_ID).join('{{seededId}}')
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
   })
 

@@ -47,7 +47,7 @@ export async function apply(ctx) {
       response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
       response.end('not found')
     },
-    onListening: (address) => {
+    onListening: address => {
       const transportEndpoint = `http://127.0.0.1:${String(address.port)}/anthropic/v1/messages`
       const originalFetch = globalThis.fetch
       const fixtureFetch = async (input, init) => originalFetch(transportInput(input, transportEndpoint), init)

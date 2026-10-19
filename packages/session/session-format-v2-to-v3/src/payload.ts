@@ -1,13 +1,35 @@
 /** Audited V2 migration admission and V3 payload validation, independent of installed core Session types. */
 
-import { SessionFormatError, SessionFormatUnsupportedMigrationError, isSessionFormatJsonObject, sessionFormatCount, sessionFormatSafeInteger } from '@deepseek-ai/dsh-session-format'
+import {
+  SessionFormatError,
+  SessionFormatUnsupportedMigrationError,
+  isSessionFormatJsonObject,
+  sessionFormatCount,
+  sessionFormatSafeInteger,
+} from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatEvent, SessionFormatJsonObject, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
 import { assertReleasedPayloadSemantics, assertReleasedSurfaceMetadata } from '@deepseek-ai/dsh-session-format-v0-to-v1'
 import { RELEASED_V2_EVENT_DISPOSITIONS } from '@deepseek-ai/dsh-session-format-v1-to-v2'
 
 /** Audited surface event names; all other admitted events are log-only. */
 export const SURFACE_TYPES: ReadonlySet<string> = new Set(['system/message', 'user/message', 'assistant/message', 'tool/result'])
-const SOURCE_KINDS = new Set(['user', 'plugin', 'model', 'tool', 'agent-instructions', 'session-reference', 'team-message', 'goal', 'skill-invocation', 'skill-catalog', 'coordinator', 'subagent-report', 'subagent-settled', 'webhook', 'agent-message'])
+const SOURCE_KINDS = new Set([
+  'user',
+  'plugin',
+  'model',
+  'tool',
+  'agent-instructions',
+  'session-reference',
+  'team-message',
+  'goal',
+  'skill-invocation',
+  'skill-catalog',
+  'coordinator',
+  'subagent-report',
+  'subagent-settled',
+  'webhook',
+  'agent-message',
+])
 
 /**
  * Require a JSON object at the durable input boundary.
@@ -168,7 +190,9 @@ function assertOwnedContent(event: SessionFormatEvent, data: SessionFormatJsonOb
 
 function assertContentKind(kind: SessionFormatJsonValue | undefined, label: string): void {
   if (typeof kind !== 'string' || !CONTENT_KINDS.has(kind)) {
-    throw new SessionFormatUnsupportedMigrationError(label + ': cannot safely transform unclassified message content kind ' + JSON.stringify(kind))
+    throw new SessionFormatUnsupportedMigrationError(
+      label + ': cannot safely transform unclassified message content kind ' + JSON.stringify(kind),
+    )
   }
 }
 
@@ -180,23 +204,32 @@ function assertContentBlock(value: SessionFormatJsonValue | undefined, label: st
   const block = record(value, label)
   assertContentKind(block['type'], label)
   if (block['type'] === 'tool-result') {
-    if (!Array.isArray(block['content'])) throw new SessionFormatError(label + '.content: invalid message content kind "tool-result": content must be an array')
+    if (!Array.isArray(block['content']))
+      throw new SessionFormatError(label + '.content: invalid message content kind "tool-result": content must be an array')
     assertContentKinds(block['content'], label + '.content')
   }
   if (block['type'] === 'file') {
     keys(block, ['type', 'attachment'], [], label + ' kind "file"')
     const attachment = record(block['attachment'], label + ' kind "file" attachment')
     keys(attachment, ['attachmentId', 'name', 'bytes'], [], label + ' kind "file" attachment')
-    if (typeof attachment['attachmentId'] !== 'string' || attachment['attachmentId'].length === 0
-      || typeof attachment['name'] !== 'string') throw new SessionFormatError(label + ' kind "file": file attachment requires attachmentId and name')
+    if (typeof attachment['attachmentId'] !== 'string' || attachment['attachmentId'].length === 0 || typeof attachment['name'] !== 'string')
+      throw new SessionFormatError(label + ' kind "file": file attachment requires attachmentId and name')
     sessionFormatCount(attachment['bytes'], label + ' kind "file" attachment bytes')
     return
   }
   // Reuse frozen field rules without recursively revisiting tool-result children or interpreting opaque JSON.
   const leaf = block['type'] === 'tool-result' ? { ...block, content: [] } : block
-  const probe: SessionFormatEvent = { type: 'user/message', seq: 0, time: 0, data: {
-    id: 'content-admission', role: 'user', source: { kind: 'user' }, content: [leaf],
-  } }
+  const probe: SessionFormatEvent = {
+    type: 'user/message',
+    seq: 0,
+    time: 0,
+    data: {
+      id: 'content-admission',
+      role: 'user',
+      source: { kind: 'user' },
+      content: [leaf],
+    },
+  }
   try {
     assertReleasedPayloadSemantics(probe, 2)
   } catch (error) {
@@ -249,7 +282,8 @@ function assertFeedback(type: string, data: SessionFormatJsonObject): void {
   }
   const item = record(data['item'], 'feedback item')
   keys(item, ['messageId', 'rating', 'version', 'createdAt', 'updatedAt'], ['note'], 'feedback item')
-  for (const key of ['messageId', 'version']) if (typeof item[key] !== 'string') throw new SessionFormatError('feedback ' + key + ' must be a string')
+  for (const key of ['messageId', 'version'])
+    if (typeof item[key] !== 'string') throw new SessionFormatError('feedback ' + key + ' must be a string')
   if (item['rating'] !== 'positive' && item['rating'] !== 'negative') throw new SessionFormatError('invalid feedback rating')
   if (item['note'] !== undefined && typeof item['note'] !== 'string') throw new SessionFormatError('feedback note must be a string')
   sessionFormatCount(item['createdAt'], 'feedback createdAt')
@@ -266,14 +300,22 @@ export function assertV3Event(event: SessionFormatEvent, knownEventTypes?: Reado
   const value = record(event, 'format v3 event')
   const subject = `format v3 ${event.type} at seq ${event.seq}`
   const obsolete = event.type === 'tool/code-dispatch-start' || event.type === 'tool/code-dispatch'
-  const known = !obsolete && (SURFACE_TYPES.has(event.type)
-    || RELEASED_V2_EVENT_DISPOSITIONS[event.type] !== undefined
-    || event.type === 'tool/ptc-dispatch-start' || event.type === 'tool/ptc-dispatch'
-    || event.type === 'feedback/message-put' || event.type === 'feedback/message-delete'
-    || knownEventTypes?.has(event.type) === true)
+  const known =
+    !obsolete &&
+    (SURFACE_TYPES.has(event.type) ||
+      RELEASED_V2_EVENT_DISPOSITIONS[event.type] !== undefined ||
+      event.type === 'tool/ptc-dispatch-start' ||
+      event.type === 'tool/ptc-dispatch' ||
+      event.type === 'feedback/message-put' ||
+      event.type === 'feedback/message-delete' ||
+      knownEventTypes?.has(event.type) === true)
   const opaque = !known
-  keys(value, ['type', 'seq', 'time', 'data'],
-    SURFACE_TYPES.has(event.type) || opaque ? ['ignorable', 'surfaceOp', 'sourceEventSeqs'] : ['ignorable'], subject)
+  keys(
+    value,
+    ['type', 'seq', 'time', 'data'],
+    SURFACE_TYPES.has(event.type) || opaque ? ['ignorable', 'surfaceOp', 'sourceEventSeqs'] : ['ignorable'],
+    subject,
+  )
   if (typeof event.type !== 'string') throw new SessionFormatError(`${subject} type must be a string`)
   sessionFormatCount(event.seq, `${subject} seq`)
   sessionFormatSafeInteger(event.time, `${subject} time`)
@@ -285,8 +327,12 @@ export function assertV3Event(event: SessionFormatEvent, knownEventTypes?: Reado
     if (operation === undefined) throw new SessionFormatError(`${subject} requires a surfaceOp marker`)
     if (operation !== 'append') {
       const replace = record(operation, `${subject} surfaceOp`)
-      if (Object.keys(replace).length !== 3 || replace['op'] !== 'replace'
-        || !Object.hasOwn(replace, 'startSeq') || !Object.hasOwn(replace, 'endSeq')) {
+      if (
+        Object.keys(replace).length !== 3 ||
+        replace['op'] !== 'replace' ||
+        !Object.hasOwn(replace, 'startSeq') ||
+        !Object.hasOwn(replace, 'endSeq')
+      ) {
         throw new SessionFormatError(`${subject} requires exact replace fields op/startSeq/endSeq`)
       }
       for (const key of ['startSeq', 'endSeq']) {
@@ -320,8 +366,10 @@ function assertCanonicalPayload(event: SessionFormatEvent): void {
   if (event.type === 'request/header') {
     const data = record(event.data, `${subject} data`)
     const header = record(data['header'], `${subject} header`)
-    if (Array.isArray(header['tools']) && header['tools'].length === 0
-      || isSessionFormatJsonObject(header['adapterDefaults']) && Object.keys(header['adapterDefaults']).length === 0) {
+    if (
+      (Array.isArray(header['tools']) && header['tools'].length === 0) ||
+      (isSessionFormatJsonObject(header['adapterDefaults']) && Object.keys(header['adapterDefaults']).length === 0)
+    ) {
       throw new SessionFormatError(`${subject} empty optional header fields must be omitted`)
     }
   }
@@ -330,8 +378,13 @@ function assertCanonicalPayload(event: SessionFormatEvent): void {
   if (data['error'] === undefined) return
   const message = record(data['message'], `${subject} message`)
   const content = message['content']
-  if (!Array.isArray(content) || content.length !== 1 || !isSessionFormatJsonObject(content[0])
-    || content[0]['type'] !== 'tool-result' || content[0]['isError'] !== true) {
+  if (
+    !Array.isArray(content) ||
+    content.length !== 1 ||
+    !isSessionFormatJsonObject(content[0]) ||
+    content[0]['type'] !== 'tool-result' ||
+    content[0]['isError'] !== true
+  ) {
     throw new SessionFormatError(`${subject} carries error metadata for a non-error tool result`)
   }
 }
@@ -346,21 +399,31 @@ export function canonicalizeTransformedEvent(event: SessionFormatEvent): Session
   const operation = event['surfaceOp']
   if (operation !== undefined && operation !== 'append') {
     const replace = record(operation, `format v2 ${event.type} at seq ${event.seq} surfaceOp`)
-    if (Object.keys(replace).length !== 3 || replace['op'] !== 'replace'
-      || !Object.hasOwn(replace, 'start') || !Object.hasOwn(replace, 'end')) {
+    if (
+      Object.keys(replace).length !== 3 ||
+      replace['op'] !== 'replace' ||
+      !Object.hasOwn(replace, 'start') ||
+      !Object.hasOwn(replace, 'end')
+    ) {
       throw new SessionFormatError(`format v2 ${event.type} at seq ${event.seq} requires exact replace fields op/start/end`)
     }
-    target = { ...event, surfaceOp: {
-      op: 'replace',
-      startSeq: sessionFormatCount(replace['start'], `format v2 ${event.type} at seq ${event.seq} replace start`),
-      endSeq: sessionFormatCount(replace['end'], `format v2 ${event.type} at seq ${event.seq} replace end`),
-    } }
+    target = {
+      ...event,
+      surfaceOp: {
+        op: 'replace',
+        startSeq: sessionFormatCount(replace['start'], `format v2 ${event.type} at seq ${event.seq} replace start`),
+        endSeq: sessionFormatCount(replace['end'], `format v2 ${event.type} at seq ${event.seq} replace end`),
+      },
+    }
   }
   if (event.type === 'request/header') {
     const data = record(event.data, `format v2 request/header at seq ${event.seq} data`)
     const header = record(data['header'], `format v2 request/header at seq ${event.seq} header`)
-    const empty = Object.keys(header).filter(key => key === 'tools' && Array.isArray(header[key]) && header[key].length === 0
-      || key === 'adapterDefaults' && isSessionFormatJsonObject(header[key]) && Object.keys(header[key]).length === 0)
+    const empty = Object.keys(header).filter(
+      key =>
+        (key === 'tools' && Array.isArray(header[key]) && header[key].length === 0) ||
+        (key === 'adapterDefaults' && isSessionFormatJsonObject(header[key]) && Object.keys(header[key]).length === 0),
+    )
     if (empty.length > 0) {
       const canonical = Object.fromEntries(Object.entries(header).filter(([key]) => !empty.includes(key)))
       target = { ...target, data: { ...data, header: canonical } }

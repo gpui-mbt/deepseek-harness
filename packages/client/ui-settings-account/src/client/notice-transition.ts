@@ -12,8 +12,7 @@ export function dismissNotice(card: HTMLElement, dismiss: () => void): void {
     return
   }
   const stack = card.parentElement as HTMLElement
-  const before = [...stack.querySelectorAll<HTMLElement>('aside')]
-    .map(element => ({ element, rect: element.getBoundingClientRect() }))
+  const before = [...stack.querySelectorAll<HTMLElement>('aside')].map(element => ({ element, rect: element.getBoundingClientRect() }))
   for (const { element } of before) {
     for (const animation of element.getAnimations()) animation.cancel()
     element.style.transition = 'none'
@@ -25,10 +24,15 @@ export function dismissNotice(card: HTMLElement, dismiss: () => void): void {
     element.style.transform = 'none'
     const next = element.getBoundingClientRect()
     element.style.transform = ''
-    element.animate([
-      { transform: `translate(${rect.x + rect.width / 2 - next.x - next.width / 2}px, ${rect.y - next.y}px) scale(${rect.width / next.width}, ${rect.height / next.height})` },
-      { transform },
-    ], { duration: 250, easing: 'ease-out' })
+    element.animate(
+      [
+        {
+          transform: `translate(${rect.x + rect.width / 2 - next.x - next.width / 2}px, ${rect.y - next.y}px) scale(${rect.width / next.width}, ${rect.height / next.height})`,
+        },
+        { transform },
+      ],
+      { duration: 250, easing: 'ease-out' },
+    )
     element.style.transition = ''
   }
 }

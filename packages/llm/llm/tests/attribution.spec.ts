@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { APP_IDENTITY, attributionHeaders, userAgent } from '@deepseek-ai/dsh-llm'
 import type { AppIdentity } from '@deepseek-ai/dsh-llm'
 
@@ -28,9 +28,7 @@ describe('APP_IDENTITY', () => {
 
 describe('userAgent', () => {
   it('renders product/version with the +url comment', () => {
-    expect(userAgent()).toBe(
-      `deepseek-harness/${manifest.version} (+https://github.com/deepseek-ai/deepseek-harness)`,
-    )
+    expect(userAgent()).toBe(`deepseek-harness/${manifest.version} (+https://github.com/deepseek-ai/deepseek-harness)`)
   })
 
   it('renders a custom identity', () => {

@@ -5,9 +5,9 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 
 /** `settings.plugins` copy in Japanese, complete against the owner's key union. */
 export const ja: LocaleDictOf<'settings.plugins'> = {
-  'nav': '組み込みプラグイン',
-  'title': '組み込みプラグイン',
-  'intro': 'このデプロイに同梱されているプラグインを確認します。',
-  'tabs': 'プラグインビュー',
-  'empty': 'このデプロイには表示できるプラグインビューがありません。',
+  nav: '組み込みプラグイン',
+  title: '組み込みプラグイン',
+  intro: 'このデプロイに同梱されているプラグインを確認します。',
+  tabs: 'プラグインビュー',
+  empty: 'このデプロイには表示できるプラグインビューがありません。',
 }

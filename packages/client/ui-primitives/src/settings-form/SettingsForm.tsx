@@ -51,21 +51,34 @@ export function SettingsForm(props: SettingsFormProps) {
   const { state, labels } = props
   const discard = useRef(props.onDiscard)
   discard.current = props.onDiscard
-  useEffect(() => () => { discard.current() }, [])
-  if (!state.available) return <p className={css.unavailable} role="status">{labels.unavailable}</p>
+  useEffect(
+    () => () => {
+      discard.current()
+    },
+    [],
+  )
+  if (!state.available)
+    return (
+      <p className={css.unavailable} role="status">
+        {labels.unavailable}
+      </p>
+    )
   const blocked = !state.dirty || state.invalid || state.saving
   return (
     <div className={css.form}>
-      {!state.writable ? <p className={css.readOnly} role="status">{labels.readOnly}</p> : null}
+      {!state.writable ? (
+        <p className={css.readOnly} role="status">
+          {labels.readOnly}
+        </p>
+      ) : null}
       {props.children}
       <div className={css.footer}>
-        {state.failed ? <p className={css.failed} role="status">{labels.saveFailed}</p> : null}
-        <button
-          type="button"
-          className={css.save}
-          disabled={blocked}
-          onClick={props.onSave}
-        >
+        {state.failed ? (
+          <p className={css.failed} role="status">
+            {labels.saveFailed}
+          </p>
+        ) : null}
+        <button type="button" className={css.save} disabled={blocked} onClick={props.onSave}>
           {state.saving ? labels.saving : labels.save}
         </button>
       </div>

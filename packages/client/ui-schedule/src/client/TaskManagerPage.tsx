@@ -2,7 +2,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
-  Button, IconClockOutlineRegular, IconCloseOutlineRegular, IconPlusOutlineRegular, IconSearchOutlineRegular, Input,
+  Button,
+  IconClockOutlineRegular,
+  IconCloseOutlineRegular,
+  IconPlusOutlineRegular,
+  IconSearchOutlineRegular,
+  Input,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostObservable, InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -27,9 +32,7 @@ export interface TaskManagerInjected extends TaskDetailInjected {
 }
 
 /** Root-scoped task catalog props derived from the framework and injected actions. */
-export type TaskManagerPageProps = PropsRuntime<'main'>
-  & InjectFace<TaskManagerInjected>
-  & PropsLocale<'schedule.manager'>
+export type TaskManagerPageProps = PropsRuntime<'main'> & InjectFace<TaskManagerInjected> & PropsLocale<'schedule.manager'>
 
 type StatusFilter = 'all' | ScheduleCatalogEntry['status']
 
@@ -56,19 +59,20 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
   const confirming = records.find(record => record.id === confirmId)
   const rows = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return records.filter(record => (
-      (statusFilter === 'all' || record.status === statusFilter)
-      && (record.prompt.toLowerCase().includes(query)
-        || record.sessionId.toLowerCase().includes(query)
-        || taskName(record).toLowerCase().includes(query))
-    )).toSorted((left, right) =>
-      Date.parse(left.scheduledAt) - Date.parse(right.scheduledAt))
+    return records
+      .filter(
+        record =>
+          (statusFilter === 'all' || record.status === statusFilter) &&
+          (record.prompt.toLowerCase().includes(query) ||
+            record.sessionId.toLowerCase().includes(query) ||
+            taskName(record).toLowerCase().includes(query)),
+      )
+      .toSorted((left, right) => Date.parse(left.scheduledAt) - Date.parse(right.scheduledAt))
   }, [records, search, statusFilter])
 
   // An inactive-only filter is its own empty state: no task is inactive, rather than no task matched.
-  const emptyTitle = statusFilter === 'inactive' && search.trim() === ''
-    ? 'list.emptyInactive'
-    : records.length === 0 ? 'list.empty' : 'list.noMatches'
+  const emptyTitle =
+    statusFilter === 'inactive' && search.trim() === '' ? 'list.emptyInactive' : records.length === 0 ? 'list.empty' : 'list.noMatches'
   // The list's frequency line omits a rule zone equal to the host's and otherwise
   // names it, the same way the detail's Repeat row does.
   const systemZone = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -101,7 +105,7 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
       className={clsx(css.page, selected !== undefined && css.hasDetails)}
       aria-label={t('title')}
       data-testid="task-manager-page"
-      onKeyDown={(event) => {
+      onKeyDown={event => {
         // A dropdown that closed on this Escape has already consumed the key: the
         // Menu primitive closes from the document capture phase and calls
         // preventDefault there, before React dispatches this handler.
@@ -115,9 +119,19 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
         <div className={css.pageScroll}>
           <div className={css.pageContent}>
             <div className={css.pageHeading}>
-              <h1 ref={headingRef} tabIndex={-1}>{t('title')}</h1>
+              <h1 ref={headingRef} tabIndex={-1}>
+                {t('title')}
+              </h1>
               <div className={css.creationActions}>
-                <Button variant="primary" size="sm" className={css.newButton} icon={<IconPlusOutlineRegular size={13} />} onClick={onNewTask}>{t('new.action')}</Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className={css.newButton}
+                  icon={<IconPlusOutlineRegular size={13} />}
+                  onClick={onNewTask}
+                >
+                  {t('new.action')}
+                </Button>
               </div>
             </div>
             <div className={css.filters}>
@@ -128,7 +142,9 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
                     type="button"
                     className={clsx(css.filterTab, statusFilter === value && css.filterTabActive)}
                     aria-pressed={statusFilter === value}
-                    onClick={() => { setStatusFilter(value) }}
+                    onClick={() => {
+                      setStatusFilter(value)
+                    }}
                   >
                     {t(value === 'all' ? 'statusFilter.all' : `status.${value}`)}
                   </button>
@@ -142,36 +158,48 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
                 aria-label={t('search.label')}
                 placeholder={t('search.placeholder')}
                 value={search}
-                onChange={(event) => { setSearch(event.target.value) }}
+                onChange={event => {
+                  setSearch(event.target.value)
+                }}
               />
-              {search !== '' && <Button size="sm" className={css.searchClear} aria-label={t('search.clear')} onClick={() => { setSearch('') }}>
-                <IconCloseOutlineRegular />
-              </Button>}
+              {search !== '' && (
+                <Button
+                  size="sm"
+                  className={css.searchClear}
+                  aria-label={t('search.clear')}
+                  onClick={() => {
+                    setSearch('')
+                  }}
+                >
+                  <IconCloseOutlineRegular />
+                </Button>
+              )}
             </div>
             <div className={css.list}>
               {selected === undefined && <CatalogFeedback status={status} populated={rows.length > 0} onRetry={onRetry} t={t} />}
-              {status === 'ready' && rows.length === 0 && <div className={css.empty} role="status">
-                <IconClockOutlineRegular size={24} className={css.emptyGlyph} />
-                <h2>{t(emptyTitle)}</h2>
-                <Button variant="outline" className={css.emptyAction} onClick={onNewTask}>
-                  {t('empty.action')}
-                </Button>
-              </div>}
+              {status === 'ready' && rows.length === 0 && (
+                <div className={css.empty} role="status">
+                  <IconClockOutlineRegular size={24} className={css.emptyGlyph} />
+                  <h2>{t(emptyTitle)}</h2>
+                  <Button variant="outline" className={css.emptyAction} onClick={onNewTask}>
+                    {t('empty.action')}
+                  </Button>
+                </div>
+              )}
               <ul className={css.listRows} aria-label={t('list.label')} aria-busy={status === 'loading'}>
-                {rows.map((record) => {
+                {rows.map(record => {
                   // One pair per row: the same absolute stamp and distance reach
                   // both halves, from one formatting call.
                   const nextRun = nextRunParts(record.scheduledAt, t('time.locale'), now, t)
                   return (
                     <li key={record.id}>
                       <Button
-                        className={clsx(css.row, selectedId === record.id && css.selectedRow,
-                          record.status === 'inactive' && css.endedRow)}
+                        className={clsx(css.row, selectedId === record.id && css.selectedRow, record.status === 'inactive' && css.endedRow)}
                         aria-label={taskName(record)}
                         aria-describedby={`${detailId}-metadata-${record.id}`}
                         aria-expanded={selectedId === record.id}
                         aria-controls={selectedId === record.id ? detailId : undefined}
-                        onClick={(event) => {
+                        onClick={event => {
                           rowRef.current = event.currentTarget
                           setSelectedId(record.id)
                           setTab('rule')
@@ -181,15 +209,15 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
                         <span className={css.rowContent}>
                           <span className={css.rowTitle}>{taskName(record)}</span>
                           <span className={css.rowSummary} id={`${detailId}-metadata-${record.id}`}>
-                            {record.status === 'inactive'
-                              && <span className={css.metadata}>{t('status.inactive')}</span>}
+                            {record.status === 'inactive' && <span className={css.metadata}>{t('status.inactive')}</span>}
                             <span className={css.metadata}>{frequency(record)}</span>
-                            {record.status === 'active' && <span className={css.metadata}>
-                              {t('list.nextPrefix')}<time dateTime={record.scheduledAt}>
-                                {nextRun.absolute}
-                              </time>
-                              {' '}<span className={css.nextRunRelative}>{nextRun.relative}</span>
-                            </span>}
+                            {record.status === 'active' && (
+                              <span className={css.metadata}>
+                                {t('list.nextPrefix')}
+                                <time dateTime={record.scheduledAt}>{nextRun.absolute}</time>{' '}
+                                <span className={css.nextRunRelative}>{nextRun.relative}</span>
+                              </span>
+                            )}
                           </span>
                         </span>
                       </Button>
@@ -201,13 +229,15 @@ export function TaskManagerPage(props: TaskManagerPageProps) {
           </div>
         </div>
       </div>
-      {selected !== undefined && <TaskDetail
-        {...detail.props}
-        task={selected}
-        authoritative={catalogRecord !== undefined}
-        onDeleted={closeDetails}
-        onClose={closeDetails}
-      />}
+      {selected !== undefined && (
+        <TaskDetail
+          {...detail.props}
+          task={selected}
+          authoritative={catalogRecord !== undefined}
+          onDeleted={closeDetails}
+          onClose={closeDetails}
+        />
+      )}
     </section>
   )
 }

@@ -5,7 +5,7 @@
  * every entry drops its snapshot and prewarms), the warm hook's cold/failed
  * gate, and the per-key ensureReady strong-wait policy.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { CommandDefinitionId } from '@deepseek-ai/dsh-commands/brand'
 import type { CommandDescriptor } from '../src/client/directory.ts'
@@ -18,7 +18,10 @@ const S2 = sid('s2')
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej })
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
   return { promise, resolve, reject }
 }
 
@@ -27,16 +30,13 @@ const CMDS: CommandDescriptor[] = [
   { name: 'goal', description: 'set goal', input: { hint: 'goal text' } },
 ]
 
-const S2_CMDS: CommandDescriptor[] = [
-  ...CMDS,
-  { name: 'attach', description: 'attach a file', input: { hint: 'path' } },
-]
+const S2_CMDS: CommandDescriptor[] = [...CMDS, { name: 'attach', description: 'attach a file', input: { hint: 'path' } }]
 
 /** Directory over per-key pull queues: each fetch appends a hand-settled deferred. */
 function bench() {
   const pulls = new Map<SessionId, Array<ReturnType<typeof deferred<readonly CommandDescriptor[]>>>>()
   const calls: SessionId[] = []
-  const dir = new CommandDirectory((key) => {
+  const dir = new CommandDirectory(key => {
     calls.push(key)
     const d = deferred<readonly CommandDescriptor[]>()
     const queue = pulls.get(key) ?? []

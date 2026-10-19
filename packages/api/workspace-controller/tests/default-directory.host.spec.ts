@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { NativeCommandRunner } from '@deepseek-ai/dsh-native-command'
 import { defaultWorkspaceDirectory, validateDocumentsDirectory } from '../src/default-directory.ts'
 
@@ -16,28 +16,31 @@ describe('system Documents directory', () => {
 
   it('uses the configured directory without a system lookup', async () => {
     const run = vi.fn<NativeCommandRunner>()
-    await expect(defaultWorkspaceDirectory('/documents', new AbortController().signal, { platform: 'linux', run }))
-      .resolves.toBe('/documents/deepseek-harness/default-workspace')
+    await expect(defaultWorkspaceDirectory('/documents', new AbortController().signal, { platform: 'linux', run })).resolves.toBe(
+      '/documents/deepseek-harness/default-workspace',
+    )
     expect(run).not.toHaveBeenCalled()
   })
 
-  it.each(['', '\r\n', '/home/a\n'])('rejects an unavailable XDG directory %j', async (stdout) => {
+  it.each(['', '\r\n', '/home/a\n'])('rejects an unavailable XDG directory %j', async stdout => {
     const run: NativeCommandRunner = async () => ({ stdout, stderr: '' })
-    await expect(defaultWorkspaceDirectory(undefined, new AbortController().signal, { platform: 'linux', home: '/home/a', run }))
-      .rejects.toThrow('unavailable')
+    await expect(
+      defaultWorkspaceDirectory(undefined, new AbortController().signal, { platform: 'linux', home: '/home/a', run }),
+    ).rejects.toThrow('unavailable')
   })
 
   it('propagates lookup failure and cancellation', async () => {
-    const run: NativeCommandRunner = async () => { throw new Error('lookup denied') }
-    await expect(defaultWorkspaceDirectory(undefined, new AbortController().signal, { platform: 'darwin', run }))
-      .rejects.toThrow('lookup denied')
-    await expect(defaultWorkspaceDirectory('/documents', AbortSignal.abort(), { platform: 'linux' }))
-      .rejects.toThrow()
-    await expect(defaultWorkspaceDirectory(undefined, new AbortController().signal, { platform: 'freebsd' }))
-      .rejects.toThrow('unavailable')
+    const run: NativeCommandRunner = async () => {
+      throw new Error('lookup denied')
+    }
+    await expect(defaultWorkspaceDirectory(undefined, new AbortController().signal, { platform: 'darwin', run })).rejects.toThrow(
+      'lookup denied',
+    )
+    await expect(defaultWorkspaceDirectory('/documents', AbortSignal.abort(), { platform: 'linux' })).rejects.toThrow()
+    await expect(defaultWorkspaceDirectory(undefined, new AbortController().signal, { platform: 'freebsd' })).rejects.toThrow('unavailable')
   })
 
-  it.each(['relative', 'C:relative', '\\rooted'])('rejects a Windows path without a fully qualified root: %s', (path) => {
+  it.each(['relative', 'C:relative', '\\rooted'])('rejects a Windows path without a fully qualified root: %s', path => {
     expect(() => validateDocumentsDirectory(path, 'win32')).toThrow('fully qualified')
   })
 

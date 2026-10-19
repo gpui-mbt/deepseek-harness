@@ -23,7 +23,12 @@ import { findTabPane } from '@deepseek-ai/dsh-client-ui-dockkit'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SidebarRightNavigationParams } from './contract/params.ts'
-import type { SidebarRightTabActions, SidebarRightTabCommands, SidebarRightTabNavigation, SidebarRightTabPlacement } from './contract/slots.ts'
+import type {
+  SidebarRightTabActions,
+  SidebarRightTabCommands,
+  SidebarRightTabNavigation,
+  SidebarRightTabPlacement,
+} from './contract/slots.ts'
 import type { SidebarRightOpenResourceOptions, SidebarRightOpenTabOptions, SidebarRightPlacement } from './service.ts'
 
 /**
@@ -166,12 +171,10 @@ export class TabDomain {
     // have been dragged since: `replaceTab: true` names this tab; otherwise the
     // pane holding it, unless the caller named another.
     const place = (placement: SidebarRightTabPlacement): SidebarRightPlacement => ({
-      ...placement.replaceTab === true
-        ? { replaceTab: tabId }
-        : held.paneId === undefined ? {} : { paneId: held.paneId },
-      ...placement.paneId === undefined ? {} : { paneId: placement.paneId },
-      ...placement.preferNewPane === undefined ? {} : { preferNewPane: placement.preferNewPane },
-      ...placement.revealIfOpened === undefined ? {} : { revealIfOpened: placement.revealIfOpened },
+      ...(placement.replaceTab === true ? { replaceTab: tabId } : held.paneId === undefined ? {} : { paneId: held.paneId }),
+      ...(placement.paneId === undefined ? {} : { paneId: placement.paneId }),
+      ...(placement.preferNewPane === undefined ? {} : { preferNewPane: placement.preferNewPane }),
+      ...(placement.revealIfOpened === undefined ? {} : { revealIfOpened: placement.revealIfOpened }),
     })
     const held: Held = {
       id: randomUUID() as SidebarRightOccurrenceId,
@@ -184,7 +187,7 @@ export class TabDomain {
       paneId: undefined,
       pinned: false,
       tabActions: {
-        bindCommands: (commands) => {
+        bindCommands: commands => {
           if (controller.signal.aborted) return () => {}
           held.commands = commands
           const release = (): void => {
@@ -200,7 +203,9 @@ export class TabDomain {
         openTab: (kind, options = {}) => {
           navigator.openTabIn(sessionId, kind, { ...place(options), params: options.params })
         },
-        close: () => { navigator.closeIn(sessionId, tabId) },
+        close: () => {
+          navigator.closeIn(sessionId, tabId)
+        },
       },
     }
     this.session(sessionId).set(tabId, held)

@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chromium } from 'playwright'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import type { Fiber } from '@deepseek-ai/cordis'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
@@ -35,7 +35,7 @@ function spawnSpec(argv: readonly string[], cwd: string, env?: Record<string, st
     cwd,
     stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe' },
     graceMs: 5_000,
-    ...env === undefined ? {} : { env },
+    ...(env === undefined ? {} : { env }),
   }
 }
 
@@ -66,14 +66,19 @@ function waitForOutput(child: SubprocessHandle, pattern: RegExp, label: string):
       if (match === null) return
       resolveOnce(match[1] ?? match[0])
     }
-    const timer = setTimeout(() => { rejectOnce(new Error(`${label} not ready:\n${output}`)) }, 60_000)
+    const timer = setTimeout(() => {
+      rejectOnce(new Error(`${label} not ready:\n${output}`))
+    }, 60_000)
     child.stdout?.on('data', onData)
     child.stderr?.on('data', onData)
-    void child.done.then((outcome) => {
-      rejectOnce(new Error(`${label} exited before ready (${JSON.stringify(outcome)}):\n${output}`))
-    }, (error: unknown) => {
-      rejectOnce(new Error(`${label} failed before ready:\n${output}`, { cause: error }))
-    })
+    void child.done.then(
+      outcome => {
+        rejectOnce(new Error(`${label} exited before ready (${JSON.stringify(outcome)}):\n${output}`))
+      },
+      (error: unknown) => {
+        rejectOnce(new Error(`${label} failed before ready:\n${output}`, { cause: error }))
+      },
+    )
   })
 }
 
@@ -90,8 +95,7 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
   const binPath = join(REPO_ROOT, 'apps/cli/lib/bin.js')
   if (!existsSync(binPath)) throw new Error('HMR browser test needs the built dsh bin; run pnpm run build first')
   const clientBuildEnvironment = readClientBuildRecord(REPO_ROOT).environment
-  const originalClientArtifacts = await Promise.all(clientArtifactPaths()
-    .map(async path => [path, await readFile(path)] as const))
+  const originalClientArtifacts = await Promise.all(clientArtifactPaths().map(async path => [path, await readFile(path)] as const))
   const originalClientArtifactPaths = new Set(originalClientArtifacts.map(([path]) => path))
   const originalSource = await readFile(sourcePath)
   const oldText = 'Into the Unknown'
@@ -110,20 +114,16 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
     subprocessFiber = await subprocessCtx.plugin(LocalSubprocessRuntime)
     // Watchers only: the built `dsh web` below is the server under test, and the
     // built tree is this lane's precondition rather than something to rebuild.
-    watcher = subprocessCtx.subprocess.spawn(spawnSpec(
-      ['pnpm', 'run', 'dev:web', '--skip-build', '--no-serve'],
-      REPO_ROOT,
-      { ...clientBuildEnvironment },
-    ))
+    watcher = subprocessCtx.subprocess.spawn(
+      spawnSpec(['pnpm', 'run', 'dev:web', '--skip-build', '--no-serve'], REPO_ROOT, { ...clientBuildEnvironment }),
+    )
     await waitForOutput(watcher, /dev-web: watching/, 'pnpm run dev:web --skip-build --no-serve')
-    host = subprocessCtx.subprocess.spawn(spawnSpec(
-      [process.execPath, binPath, 'web', '--no-open', '--port', '0'],
-      world,
-      {
+    host = subprocessCtx.subprocess.spawn(
+      spawnSpec([process.execPath, binPath, 'web', '--no-open', '--port', '0'], world, {
         DEEPSEEK_API_KEY: 'keyless-hmr-no-call',
         DSH_HOME: join(world, '.dsh'),
-      },
-    ))
+      }),
+    )
     const baseUrl = await waitForOutput(host, /dsh web: (http:\/\/[^\s]+)/, 'built dsh web')
     browser = await chromium.launch()
     const page = await browser.newPage()
@@ -141,8 +141,7 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
 
     await writeFile(sourcePath, updatedSource)
     await page.getByText(newText, { exact: true }).waitFor({ timeout: 30_000 })
-    expect(await page.evaluate(() => (window as Window & { __dshHmrPageIdentity?: string }).__dshHmrPageIdentity))
-      .toBe(pageIdentity)
+    expect(await page.evaluate(() => (window as Window & { __dshHmrPageIdentity?: string }).__dshHmrPageIdentity)).toBe(pageIdentity)
     expect(pageErrors).toEqual([])
   } catch (error) {
     failures.push(error)
@@ -152,13 +151,18 @@ it('hot-reloads a real client-plugin source edit without refreshing the page', a
     if (host !== undefined) await stopTree(host).catch((error: unknown) => failures.push(error))
     await browser?.close().catch((error: unknown) => failures.push(error))
     await subprocessFiber?.dispose().catch((error: unknown) => failures.push(error))
-    await Promise.all(clientArtifactPaths()
-      .filter(path => !originalClientArtifactPaths.has(path))
-      .map(async (path) => { await rm(path, { force: true }) }))
-      .catch((error: unknown) => failures.push(error))
-    await Promise.all(originalClientArtifacts.map(async ([path, content]) => {
-      await writeFile(path, content)
-    })).catch((error: unknown) => failures.push(error))
+    await Promise.all(
+      clientArtifactPaths()
+        .filter(path => !originalClientArtifactPaths.has(path))
+        .map(async path => {
+          await rm(path, { force: true })
+        }),
+    ).catch((error: unknown) => failures.push(error))
+    await Promise.all(
+      originalClientArtifacts.map(async ([path, content]) => {
+        await writeFile(path, content)
+      }),
+    ).catch((error: unknown) => failures.push(error))
     try {
       readClientBuildRecord(REPO_ROOT)
     } catch (error) {

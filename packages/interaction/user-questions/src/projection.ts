@@ -7,7 +7,14 @@ import type {} from '@deepseek-ai/dsh-agent/types'
 import type {} from '@deepseek-ai/dsh-tools/types'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, ToolSchema } from '@deepseek-ai/dsh-llm'
-import type { AskUserQuestionAnswerItem, AskUserQuestionItem, AskUserQuestionOption, PendingUserQuestion, SettledUserQuestion, UserQuestionProjectionView } from './types.ts'
+import type {
+  AskUserQuestionAnswerItem,
+  AskUserQuestionItem,
+  AskUserQuestionOption,
+  PendingUserQuestion,
+  SettledUserQuestion,
+  UserQuestionProjectionView,
+} from './types.ts'
 
 /**
  * The pure fold state: whether the request header in effect declares the
@@ -35,76 +42,103 @@ export const ASK_USER_QUESTION_TOOL = 'ask_user_question'
  */
 export const TIMED_WAIT_PARAMETER = 'timeout'
 
-const toolOptionSchema = z.object({
-  label: z.string(),
-  description: z.string().optional(),
-}).loose()
+const toolOptionSchema = z
+  .object({
+    label: z.string(),
+    description: z.string().optional(),
+  })
+  .loose()
 
-const toolQuestionSchema = z.object({
-  id: z.string(),
-  question: z.string(),
-  header: z.string().optional(),
-  options: z.array(toolOptionSchema).optional(),
-  multi_select: z.boolean().optional(),
-}).loose()
+const toolQuestionSchema = z
+  .object({
+    id: z.string(),
+    question: z.string(),
+    header: z.string().optional(),
+    options: z.array(toolOptionSchema).optional(),
+    multi_select: z.boolean().optional(),
+  })
+  .loose()
 
-const toolArgumentsSchema = z.object({
-  questions: z.array(toolQuestionSchema).min(1),
-}).loose()
+const toolArgumentsSchema = z
+  .object({
+    questions: z.array(toolQuestionSchema).min(1),
+  })
+  .loose()
 
-const optionSchema = z.object({
-  label: z.string(),
-  description: z.string().optional(),
-}).strict().transform((option): AskUserQuestionOption => ({
-  label: option.label,
-  ...(option.description === undefined ? {} : { description: option.description }),
-}))
+const optionSchema = z
+  .object({
+    label: z.string(),
+    description: z.string().optional(),
+  })
+  .strict()
+  .transform((option): AskUserQuestionOption => ({
+    label: option.label,
+    ...(option.description === undefined ? {} : { description: option.description }),
+  }))
 
-const questionSchema = z.object({
-  id: z.string(),
-  question: z.string(),
-  detail: z.string().optional(),
-  header: z.string().optional(),
-  options: z.array(optionSchema).optional(),
-  multiSelect: z.boolean().optional(),
-}).strict().transform((question): AskUserQuestionItem => ({
-  id: question.id,
-  question: question.question,
-  ...(question.detail === undefined ? {} : { detail: question.detail }),
-  ...(question.header === undefined ? {} : { header: question.header }),
-  ...(question.options === undefined ? {} : { options: question.options }),
-  ...(question.multiSelect === undefined ? {} : { multiSelect: question.multiSelect }),
-}))
+const questionSchema = z
+  .object({
+    id: z.string(),
+    question: z.string(),
+    detail: z.string().optional(),
+    header: z.string().optional(),
+    options: z.array(optionSchema).optional(),
+    multiSelect: z.boolean().optional(),
+  })
+  .strict()
+  .transform((question): AskUserQuestionItem => ({
+    id: question.id,
+    question: question.question,
+    ...(question.detail === undefined ? {} : { detail: question.detail }),
+    ...(question.header === undefined ? {} : { header: question.header }),
+    ...(question.options === undefined ? {} : { options: question.options }),
+    ...(question.multiSelect === undefined ? {} : { multiSelect: question.multiSelect }),
+  }))
 
-const pendingQuestionsSchema: z.ZodType<readonly PendingUserQuestion[]> = z.array(z.object({
-  callId: z.string().min(1).transform(ToolCallId),
-  questions: z.array(questionSchema).min(1),
-  state: z.enum(['open', 'continued']),
-}).strict()).superRefine((active, context) => {
-  if (new Set(active.map(question => question.callId)).size !== active.length) {
-    context.addIssue({ code: 'custom', message: 'callIds must be unique' })
-  }
-})
+const pendingQuestionsSchema: z.ZodType<readonly PendingUserQuestion[]> = z
+  .array(
+    z
+      .object({
+        callId: z.string().min(1).transform(ToolCallId),
+        questions: z.array(questionSchema).min(1),
+        state: z.enum(['open', 'continued']),
+      })
+      .strict(),
+  )
+  .superRefine((active, context) => {
+    if (new Set(active.map(question => question.callId)).size !== active.length) {
+      context.addIssue({ code: 'custom', message: 'callIds must be unique' })
+    }
+  })
 
-const answerSchema = z.object({
-  id: z.string(),
-  selected: z.array(z.string()),
-  custom: z.string().optional(),
-}).strict().transform((answer): AskUserQuestionAnswerItem => ({
-  id: answer.id,
-  selected: answer.selected,
-  ...(answer.custom === undefined ? {} : { custom: answer.custom }),
-}))
+const answerSchema = z
+  .object({
+    id: z.string(),
+    selected: z.array(z.string()),
+    custom: z.string().optional(),
+  })
+  .strict()
+  .transform((answer): AskUserQuestionAnswerItem => ({
+    id: answer.id,
+    selected: answer.selected,
+    ...(answer.custom === undefined ? {} : { custom: answer.custom }),
+  }))
 
-const settledQuestionsSchema: z.ZodType<readonly SettledUserQuestion[]> = z.array(z.object({
-  callId: z.string().min(1).transform(ToolCallId),
-  answers: z.array(answerSchema),
-}).strict())
+const settledQuestionsSchema: z.ZodType<readonly SettledUserQuestion[]> = z.array(
+  z
+    .object({
+      callId: z.string().min(1).transform(ToolCallId),
+      answers: z.array(answerSchema),
+    })
+    .strict(),
+)
 
-const projectionViewSchema: z.ZodType<UserQuestionProjectionView> = z.object({
-  active: pendingQuestionsSchema,
-  settled: settledQuestionsSchema,
-}).strict()
+const projectionViewSchema: z.ZodType<UserQuestionProjectionView> = z
+  .object({
+    active: pendingQuestionsSchema,
+    settled: settledQuestionsSchema,
+  })
+  .strict()
 
 /** The `answers` batch as both the in-time tool result and the steered late reply spell it. */
 const answerBatchSchema = z.object({ answers: z.array(answerSchema) }).loose()
@@ -152,11 +186,11 @@ export function questionsOf(argumentsText: string): readonly AskUserQuestionItem
     ...(question.options === undefined
       ? {}
       : {
-        options: question.options.map(option => ({
-          label: option.label,
-          ...(option.description === undefined ? {} : { description: option.description }),
-        })),
-      }),
+          options: question.options.map(option => ({
+            label: option.label,
+            ...(option.description === undefined ? {} : { description: option.description }),
+          })),
+        }),
     ...(question.multi_select === undefined ? {} : { multiSelect: question.multi_select }),
   }))
 }
@@ -239,9 +273,15 @@ export function applyUserQuestionEvent(fold: UserQuestionFold, event: SessionEve
       // The log records the exact schema list the model saw; a seeded or
       // tool-less header carries none, which reads as the legacy tool.
       const tools: unknown = event.data.header.tools
-      const timed = Array.isArray(tools) && tools.some((tool: unknown) =>
-        isRecord(tool) && typeof tool.name === 'string' && isRecord(tool.parameters)
-        && isTimedAskUserQuestionSchema({ name: tool.name, parameters: tool.parameters }))
+      const timed =
+        Array.isArray(tools) &&
+        tools.some(
+          (tool: unknown) =>
+            isRecord(tool) &&
+            typeof tool.name === 'string' &&
+            isRecord(tool.parameters) &&
+            isTimedAskUserQuestionSchema({ name: tool.name, parameters: tool.parameters }),
+        )
       return timed === fold.timed ? fold : { ...fold, timed }
     }
     case 'tool/call': {
@@ -265,18 +305,18 @@ export function applyUserQuestionEvent(fold: UserQuestionFold, event: SessionEve
           ...fold,
           questions: {
             ...view,
-            active: view.active.map(question => question.callId === callId ? { ...question, state: 'continued' } : question),
+            active: view.active.map(question => (question.callId === callId ? { ...question, state: 'continued' } : question)),
           },
         }
       }
-      const answers = event.data.error === undefined && event.data.message.isError !== true
-        ? answerBatchOf(event.data.message.content)
-        : null
+      const answers =
+        event.data.error === undefined && event.data.message.isError !== true ? answerBatchOf(event.data.message.content) : null
       return {
         ...fold,
-        questions: answers === null
-          ? { ...view, active: view.active.filter(question => question.callId !== callId) }
-          : settleQuestion(view, callId, answers),
+        questions:
+          answers === null
+            ? { ...view, active: view.active.filter(question => question.callId !== callId) }
+            : settleQuestion(view, callId, answers),
       }
     }
     case 'tool/ptc-dispatch': {
@@ -315,11 +355,13 @@ export function foldUserQuestions(events: readonly SessionEvent[]): UserQuestion
 /** Session projection exposing open, continued, and settled timed questions to every Client. */
 export const userQuestionProjectionDefinition = {
   key: 'userQuestions',
-  stateSchema: z.object({
-    inheritedEventCount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionLogOffset),
-    timed: z.boolean(),
-    questions: projectionViewSchema,
-  }).strict(),
+  stateSchema: z
+    .object({
+      inheritedEventCount: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionLogOffset),
+      timed: z.boolean(),
+      questions: projectionViewSchema,
+    })
+    .strict(),
   init: (_header, inheritedEventCount) => ({ inheritedEventCount, ...initialFold }),
   apply: (state, event) => {
     if (event.seq < state.inheritedEventCount) return state

@@ -19,7 +19,10 @@ function replaceOnce(source, before, after) {
  */
 export function directoryInstallSection(source) {
   let result = source.replaceAll('\r\n', '\n')
-  result = replaceOnce(result, '!include installer.nsh', `!include installer.nsh
+  result = replaceOnce(
+    result,
+    '!include installer.nsh',
+    `!include installer.nsh
 !macroundef extractUsing7za
 !macro extractUsing7za FILE
   !insertmacro dshExtractPayload "\${FILE}"
@@ -34,10 +37,19 @@ export function directoryInstallSection(source) {
     Push "\${ROOT_KEY}"
     Call uninstallOldVersion
   \${EndIf}
-!macroend`)
-  result = replaceOnce(result, '!insertmacro setLinkVars', `!insertmacro setLinkVars
-!insertmacro dshStageApplication`)
-  result = replaceOnce(result, '!insertmacro installApplicationFiles', 'Call dshPromoteDirectories\nIfErrors 0 +3\n  SetErrorLevel 2\n  Quit')
+!macroend`,
+  )
+  result = replaceOnce(
+    result,
+    '!insertmacro setLinkVars',
+    `!insertmacro setLinkVars
+!insertmacro dshStageApplication`,
+  )
+  result = replaceOnce(
+    result,
+    '!insertmacro installApplicationFiles',
+    'Call dshPromoteDirectories\nIfErrors 0 +3\n  SetErrorLevel 2\n  Quit',
+  )
   result = replaceOnce(result, '!ifdef UNINSTALLER_ICON\n  File /oname=uninstallerIcon.ico "${UNINSTALLER_ICON}"\n!endif\n', '')
   // The staging macro uses the upstream installer macro, including its signed uninstaller.
   return result

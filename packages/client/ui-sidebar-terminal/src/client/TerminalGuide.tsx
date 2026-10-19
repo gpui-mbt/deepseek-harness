@@ -19,7 +19,9 @@ export interface TerminalGuideInjected {
 }
 
 /** Session guide owner props, framework hooks and terminal actions. */
-export type TerminalGuideProps = PropsRuntime<'sidebar.right.tab.guide.entry'> & PropsLocale<'sidebarTerminal'> & InjectFace<TerminalGuideInjected>
+export type TerminalGuideProps = PropsRuntime<'sidebar.right.tab.guide.entry'> &
+  PropsLocale<'sidebarTerminal'> &
+  InjectFace<TerminalGuideInjected>
 
 type MenuState = { phase: 'loading' } | { phase: 'ready'; choices: TerminalLaunchShells } | { phase: 'failed'; message: string }
 
@@ -30,7 +32,14 @@ type MenuState = { phase: 'loading' } | { phase: 'ready'; choices: TerminalLaunc
  * @returns separate launch and menu buttons within one guide card.
  */
 export function TerminalGuide({
-  title, description, kind, useTabInfo, loadShells, selectShell, t, useShortcuts,
+  title,
+  description,
+  kind,
+  useTabInfo,
+  loadShells,
+  selectShell,
+  t,
+  useShortcuts,
 }: TerminalGuideProps): ReactNode {
   const shortcut = useShortcuts(entries => entries.find(entry => entry.id === 'terminal.new'))
   const { tab } = useTabInfo()
@@ -40,44 +49,91 @@ export function TerminalGuide({
   useEffect(() => {
     if (!open) return
     const lifetime = new AbortController()
-    void loadShells(lifetime.signal).then((choices) => {
-      if (!lifetime.signal.aborted) setState({ phase: 'ready', choices })
-    }, (error: unknown) => {
-      if (!lifetime.signal.aborted) setState({ phase: 'failed', message: error instanceof Error ? error.message : String(error) })
-    })
-    return () => { lifetime.abort() }
+    void loadShells(lifetime.signal).then(
+      choices => {
+        if (!lifetime.signal.aborted) setState({ phase: 'ready', choices })
+      },
+      (error: unknown) => {
+        if (!lifetime.signal.aborted) setState({ phase: 'failed', message: error instanceof Error ? error.message : String(error) })
+      },
+    )
+    return () => {
+      lifetime.abort()
+    }
   }, [open, attempt, loadShells])
-  const items = state.phase === 'ready'
-    ? state.choices.shells.map(shell => ({ id: shell.path, label: shell.name }))
-    : state.phase === 'loading'
-      ? [{ id: 'loading', label: t('shellLoading'), disabled: true }]
-      : [{ id: 'error', label: t('failed', { message: state.message }), disabled: true }, { id: 'retry', label: t('retry') }]
-  return <div className={css.entry} data-sidebar-right-guide-entry={kind}>
-    <Button variant="ghost" className={css.main} aria-label={description === undefined ? title : `${title} ${description}`} aria-keyshortcuts={shortcut?.aria}
-      onClick={() => { tab.actions.openTab('terminal', { replaceTab: true }) }} />
-    <span className={css.icon} aria-hidden="true"><PluginArtworkTerminal size={description === undefined ? 22 : 26} /></span>
-    <span className={css.text}>
-      <span className={css.titleRow}>
-        <span className={css.title} aria-hidden="true">{title}</span>
-        <Menu
-          open={open} portal autoFocus align="end" className={css.menu}
-          items={items.length === 0 ? [{ id: 'empty', label: t('shellEmpty'), disabled: true }] : items}
-          selectedId={state.phase === 'ready' ? state.choices.selectedShell : undefined}
-          onClose={() => { setOpen(false) }}
-          onSelect={(path) => {
-            if (state.phase === 'failed') { setState({ phase: 'loading' }); setAttempt(value => value + 1); return }
-            selectShell(path)
-            setOpen(false)
-            tab.actions.openTab('terminal', { replaceTab: true, params: { shellPath: path } })
-          }}
-          anchor={<Button variant="ghost" className={css.trigger} aria-label={t('shell')} aria-haspopup="menu" aria-expanded={open}
-            onClick={() => { setState({ phase: 'loading' }); setOpen(value => !value) }}>
-            <IconChevronDownOutlineRegular />
-          </Button>}
-        />
+  const items =
+    state.phase === 'ready'
+      ? state.choices.shells.map(shell => ({ id: shell.path, label: shell.name }))
+      : state.phase === 'loading'
+        ? [{ id: 'loading', label: t('shellLoading'), disabled: true }]
+        : [
+            { id: 'error', label: t('failed', { message: state.message }), disabled: true },
+            { id: 'retry', label: t('retry') },
+          ]
+  return (
+    <div className={css.entry} data-sidebar-right-guide-entry={kind}>
+      <Button
+        variant="ghost"
+        className={css.main}
+        aria-label={description === undefined ? title : `${title} ${description}`}
+        aria-keyshortcuts={shortcut?.aria}
+        onClick={() => {
+          tab.actions.openTab('terminal', { replaceTab: true })
+        }}
+      />
+      <span className={css.icon} aria-hidden="true">
+        <PluginArtworkTerminal size={description === undefined ? 22 : 26} />
       </span>
-      {description !== undefined && <span className={css.description} aria-hidden="true">{description}</span>}
-    </span>
-    {shortcut !== undefined && shortcut.keys.length > 0 && <ShortcutKeys keys={shortcut.keys} className={css.shortcut} />}
-  </div>
+      <span className={css.text}>
+        <span className={css.titleRow}>
+          <span className={css.title} aria-hidden="true">
+            {title}
+          </span>
+          <Menu
+            open={open}
+            portal
+            autoFocus
+            align="end"
+            className={css.menu}
+            items={items.length === 0 ? [{ id: 'empty', label: t('shellEmpty'), disabled: true }] : items}
+            selectedId={state.phase === 'ready' ? state.choices.selectedShell : undefined}
+            onClose={() => {
+              setOpen(false)
+            }}
+            onSelect={path => {
+              if (state.phase === 'failed') {
+                setState({ phase: 'loading' })
+                setAttempt(value => value + 1)
+                return
+              }
+              selectShell(path)
+              setOpen(false)
+              tab.actions.openTab('terminal', { replaceTab: true, params: { shellPath: path } })
+            }}
+            anchor={
+              <Button
+                variant="ghost"
+                className={css.trigger}
+                aria-label={t('shell')}
+                aria-haspopup="menu"
+                aria-expanded={open}
+                onClick={() => {
+                  setState({ phase: 'loading' })
+                  setOpen(value => !value)
+                }}
+              >
+                <IconChevronDownOutlineRegular />
+              </Button>
+            }
+          />
+        </span>
+        {description !== undefined && (
+          <span className={css.description} aria-hidden="true">
+            {description}
+          </span>
+        )}
+      </span>
+      {shortcut !== undefined && shortcut.keys.length > 0 && <ShortcutKeys keys={shortcut.keys} className={css.shortcut} />}
+    </div>
+  )
 }

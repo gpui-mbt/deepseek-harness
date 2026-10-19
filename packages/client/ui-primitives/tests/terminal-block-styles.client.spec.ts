@@ -1,10 +1,12 @@
 /** Terminal status positioning relative to the command's first visual line. */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 
-const css = readFileSync(fileURLToPath(new URL('../src/TerminalBlock.module.css', import.meta.url)), 'utf8')
-  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+const css = readFileSync(fileURLToPath(new URL('../src/TerminalBlock.module.css', import.meta.url)), 'utf8').replace(
+  /\/\*[\s\S]*?\*\//g,
+  ' ',
+)
 
 it('centers the status dot on one command line rather than the wrapped prompt height', () => {
   const state = /\.runState\s*\{([^{}]*)\}/.exec(css)?.[1]

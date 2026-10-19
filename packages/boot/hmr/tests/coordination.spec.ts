@@ -8,26 +8,32 @@ import Loader, { ModuleLoader } from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import Timer from '@deepseek-ai/cordis-plugin-timer'
 import { FSWatcher } from 'chokidar'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import Hmr from '../src/index.ts'
 
 const watchers = vi.hoisted(() => [] as FSWatcher[])
 const watchState = vi.hoisted(() => ({ error: undefined as Error | undefined }))
-vi.mock('chokidar', async (original) => {
+vi.mock('chokidar', async original => {
   const native = await original<typeof import('chokidar')>()
-  return { ...native, watch: () => {
-    const watcher = new native.FSWatcher()
-    watchers.push(watcher)
-    queueMicrotask(() => watchState.error === undefined ? watcher.emit('ready') : watcher.emit('error', watchState.error))
-    return watcher
-  } }
+  return {
+    ...native,
+    watch: () => {
+      const watcher = new native.FSWatcher()
+      watchers.push(watcher)
+      queueMicrotask(() => (watchState.error === undefined ? watcher.emit('ready') : watcher.emit('error', watchState.error)))
+      return watcher
+    },
+  }
 })
 
 async function fixture(config: Partial<Hmr.Config> = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'dsh-hmr-coordination-'))
   const ctx = new Context()
   ctx.baseUrl = pathToFileURL(dir).href + '/'
-  onTestFinished(async () => { await ctx.fiber.dispose(); rmSync(dir, { recursive: true, force: true }) })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+    rmSync(dir, { recursive: true, force: true })
+  })
   await ctx.plugin(Loader)
   await ctx.plugin(Timer)
   const provider = await ctx.plugin(Hmr, { root: [], ignored: [], debounce: 0, ...config })
@@ -37,7 +43,9 @@ async function fixture(config: Partial<Hmr.Config> = {}) {
 it('serializes mutations, rejects nesting and keeps the queue usable after failure', async () => {
   const { hmr } = await fixture()
   const release = Promise.withResolvers<undefined>()
-  onTestFinished(() => { release.resolve(undefined) })
+  onTestFinished(() => {
+    release.resolve(undefined)
+  })
   const entered = Promise.withResolvers<undefined>()
   const order: number[] = []
   const first = hmr.runExclusive(async () => {
@@ -71,7 +79,9 @@ it('holds configuration handlers behind configuration mutations', async () => {
   })
   await expect(hmr.watchConfig(filename, async () => {})).rejects.toThrow('already registered')
   const release = Promise.withResolvers<undefined>()
-  onTestFinished(() => { release.resolve(undefined) })
+  onTestFinished(() => {
+    release.resolve(undefined)
+  })
   const entered = Promise.withResolvers<undefined>()
   const change = hmr.runExclusive(async () => {
     entered.resolve(undefined)
@@ -91,9 +101,13 @@ it('holds configuration handlers behind configuration mutations', async () => {
 it('reports unrelated lock-file notifications without reloading', async () => {
   const { ctx, dir, hmr } = await fixture()
   const loaded = vi.spyOn(ctx.loader, 'await')
-  onTestFinished(() => { loaded.mockRestore() })
+  onTestFinished(() => {
+    loaded.mockRestore()
+  })
   const observed = Promise.withResolvers<string>()
-  ctx.on('hmr/change', (url) => { observed.resolve(url) })
+  ctx.on('hmr/change', url => {
+    observed.resolve(url)
+  })
   watchers.at(-1)!.emit('change', 'package.json.lock')
   expect(await observed.promise).toBe(pathToFileURL(join(realpathSync(dir), 'package.json.lock')).href)
   await hmr.runExclusive(async () => {})
@@ -102,10 +116,11 @@ it('reports unrelated lock-file notifications without reloading', async () => {
 
 it('can dispose HMR from its own transaction without waiting on itself', async () => {
   const { ctx, hmr } = await fixture()
-  await hmr.runExclusive(async () => { await ctx.fiber.dispose() })
+  await hmr.runExclusive(async () => {
+    await ctx.fiber.dispose()
+  })
   await expect(hmr.runExclusive(async () => {})).rejects.toThrow('disposed')
 })
-
 
 it('refreshes an Include through the queue and skips registered exact paths', async () => {
   const { ctx, dir, hmr } = await fixture()
@@ -113,18 +128,26 @@ it('refreshes an Include through the queue and skips registered exact paths', as
   const file = join(dir, 'nested.yml')
   writeFileSync(file, '[]\n')
   const imported = vi.spyOn(ctx.loader, 'import').mockResolvedValue(Include)
-  onTestFinished(() => { imported.mockRestore() })
+  onTestFinished(() => {
+    imported.mockRestore()
+  })
   const id = await ctx.loader.create({ name: 'include', config: { path: pathToFileURL(file).href } })
   await ctx.loader.await()
   const include = ctx.loader.resolve(id).subtree as Include
   const refresh = vi.spyOn(include, 'refresh')
   moduleWatcher.emit('change', file)
-  await vi.waitFor(() => { expect(refresh).toHaveBeenCalledOnce() })
+  await vi.waitFor(() => {
+    expect(refresh).toHaveBeenCalledOnce()
+  })
   await hmr.runExclusive(async () => {})
   const refreshed = Promise.withResolvers<undefined>()
-  const registered = await hmr.watchConfig(file, async () => { refreshed.resolve(undefined) })
+  const registered = await hmr.watchConfig(file, async () => {
+    refreshed.resolve(undefined)
+  })
   const observed = Promise.withResolvers<string>()
-  ctx.on('hmr/change', (url) => { observed.resolve(url) })
+  ctx.on('hmr/change', url => {
+    observed.resolve(url)
+  })
   moduleWatcher.emit('change', file)
   moduleWatcher.emit('change', 'ack.txt')
   await observed.promise
@@ -140,17 +163,31 @@ it('queues cached module replacements behind configuration mutations and recover
   const file = join(dir, 'source.mjs')
   writeFileSync(file, 'export {}')
   const cached = vi.spyOn(ctx.loader.internal!.loadCache, 'has').mockReturnValue(true)
-  onTestFinished(() => { cached.mockRestore() })
+  onTestFinished(() => {
+    cached.mockRestore()
+  })
   const complete = Promise.withResolvers<undefined>()
-  const replacement = vi.spyOn(hmr as unknown as { partialReload(): Promise<void> }, 'partialReload')
-    .mockImplementation(async () => { complete.resolve(undefined); throw new Error('module failed') })
+  const replacement = vi.spyOn(hmr as unknown as { partialReload(): Promise<void> }, 'partialReload').mockImplementation(async () => {
+    complete.resolve(undefined)
+    throw new Error('module failed')
+  })
   const warning = Promise.withResolvers<undefined>()
-  const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => { warning.resolve(undefined) })
-  onTestFinished(() => { replacement.mockRestore(); warn.mockRestore() })
+  const warn = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {
+    warning.resolve(undefined)
+  })
+  onTestFinished(() => {
+    replacement.mockRestore()
+    warn.mockRestore()
+  })
   const release = Promise.withResolvers<undefined>()
-  onTestFinished(() => { release.resolve(undefined) })
+  onTestFinished(() => {
+    release.resolve(undefined)
+  })
   const entered = Promise.withResolvers<undefined>()
-  const operation = hmr.runExclusive(async () => { entered.resolve(undefined); await release.promise })
+  const operation = hmr.runExclusive(async () => {
+    entered.resolve(undefined)
+    await release.promise
+  })
   await entered.promise
   watchers.at(-1)!.emit('change', file)
   expect(replacement).not.toHaveBeenCalled()
@@ -168,30 +205,39 @@ it('requests the host full-reload hook for framework files', async () => {
   writeFileSync(file, 'export {}')
   ;(hmr as unknown as { externals: Set<string> }).externals.add(pathToFileURL(join(realpathSync(dir), 'framework.mjs')).href)
   const called = Promise.withResolvers<undefined>()
-  const exit = vi.spyOn(ctx.loader, 'exit').mockImplementation(() => { called.resolve(undefined) })
-  onTestFinished(() => { exit.mockRestore() })
+  const exit = vi.spyOn(ctx.loader, 'exit').mockImplementation(() => {
+    called.resolve(undefined)
+  })
+  onTestFinished(() => {
+    exit.mockRestore()
+  })
   watchers.at(-1)!.emit('change', file)
   await called.promise
   await hmr.runExclusive(async () => {})
   expect(exit).toHaveBeenCalledOnce()
 })
 
-
 it('closes an exact watcher from its running transaction', async () => {
   const { hmr, dir } = await fixture()
   const dispose = await hmr.watchConfig(join(dir, 'missing.yml'), async () => {})
-  await hmr.runExclusive(async () => { await dispose() })
+  await hmr.runExclusive(async () => {
+    await dispose()
+  })
 })
 
 it('rejects unavailable Node internals before starting a watcher', async () => {
   const native = vi.spyOn(ModuleLoader, 'fromInternal').mockReturnValue(undefined)
-  onTestFinished(() => { native.mockRestore() })
+  onTestFinished(() => {
+    native.mockRestore()
+  })
   await expect(fixture()).rejects.toThrow('--expose-internals')
 })
 
 it('rejects watcher startup failure and logs later watcher errors', async () => {
   watchState.error = new Error('watch startup failed')
-  onTestFinished(() => { watchState.error = undefined })
+  onTestFinished(() => {
+    watchState.error = undefined
+  })
   await expect(fixture({ root: ['.'] })).rejects.toThrow('watch startup failed')
   watchState.error = undefined
   const { ctx } = await fixture({ base: '.', root: ['.'] })
@@ -203,7 +249,9 @@ it('rejects watcher startup failure and logs later watcher errors', async () => 
 it('starts without a process entry module', async () => {
   const argv = process.argv
   process.argv = []
-  onTestFinished(() => { process.argv = argv })
+  onTestFinished(() => {
+    process.argv = argv
+  })
   const { hmr } = await fixture()
   await hmr.runExclusive(async () => {})
 })
@@ -213,7 +261,7 @@ it('rebinds configuration handlers when its provider is reconfigured within a re
   const file = join(dir, 'profile.yml')
   writeFileSync(file, '[]')
   const refresh = vi.fn(async () => {})
-  const binding = ctx.inject(['hmr'], async (owner) => {
+  const binding = ctx.inject(['hmr'], async owner => {
     await owner.effect(() => owner.hmr.watchConfig(file, refresh))
   })
   await binding.await()
@@ -225,5 +273,7 @@ it('rebinds configuration handlers when its provider is reconfigured within a re
   expect(ctx.hmr).not.toBe(hmr)
   const current = watchers.at(-1)
   current?.emit('change', file)
-  await vi.waitFor(() => { expect(refresh).toHaveBeenCalledOnce() })
+  await vi.waitFor(() => {
+    expect(refresh).toHaveBeenCalledOnce()
+  })
 })

@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:f
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import COS from 'cos-nodejs-sdk-v5'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { createDesktopCos, DESKTOP_COS_REGION } from '../scripts/desktop-cos.ts'
 import { uploadDesktopRelease } from '../scripts/desktop-upload-run.ts'
 import type { DesktopUploadPlan } from '../scripts/desktop-upload-plan.ts'
@@ -14,8 +14,11 @@ const loopbacks: CosLoopback[] = []
 afterEach(async () => {
   const closers = loopbacks.splice(0)
   const paths = roots.splice(0)
-  try { await Promise.all(closers.map(loopback => loopback.close())) }
-  finally { await Promise.all(paths.map(path => rm(path, { recursive: true, force: true }))) }
+  try {
+    await Promise.all(closers.map(loopback => loopback.close()))
+  } finally {
+    await Promise.all(paths.map(path => rm(path, { recursive: true, force: true })))
+  }
 })
 
 const BINARY_BYTES = 'binary fixture'
@@ -28,12 +31,23 @@ async function fixture(environment: 'test' | 'production' = 'test') {
   await writeFile(binary, BINARY_BYTES)
   const bucket = `${environment}-fixture-1250000000`
   const plan: DesktopUploadPlan = {
-    environment, target: 'win-x64', version: '1.2.3', bucket,
-    publicUrl: `https://${environment}.invalid/feed/`, secretIdEnvName: 'UNREAD_ID', secretKeyEnvName: 'UNREAD_KEY',
+    environment,
+    target: 'win-x64',
+    version: '1.2.3',
+    bucket,
+    publicUrl: `https://${environment}.invalid/feed/`,
+    secretIdEnvName: 'UNREAD_ID',
+    secretKeyEnvName: 'UNREAD_KEY',
     artifacts: [
       { path: binary, filename: 'package.exe', key: 'bin/package.exe', contentType: 'application/octet-stream', channelMetadata: false },
-      { path: join(root, 'nightly.yml'), filename: 'nightly.yml', key: 'feeds/nightly.yml', contentType: 'application/yaml', channelMetadata: true,
-        contents: FEED_BYTES },
+      {
+        path: join(root, 'nightly.yml'),
+        filename: 'nightly.yml',
+        key: 'feeds/nightly.yml',
+        contentType: 'application/yaml',
+        channelMetadata: true,
+        contents: FEED_BYTES,
+      },
     ],
   }
   const records = join(root, 'records')
@@ -56,10 +70,15 @@ interface RecordedPlan {
   sourceSha256: Record<string, string>
 }
 
-async function json<T = unknown>(path: string): Promise<T> { return JSON.parse(await readFile(path, 'utf8')) as T }
+async function json<T = unknown>(path: string): Promise<T> {
+  return JSON.parse(await readFile(path, 'utf8')) as T
+}
 
 async function journal(path: string): Promise<{ type: string; time: string }[]> {
-  return (await readFile(path, 'utf8')).trim().split('\n').map(line => JSON.parse(line) as { type: string; time: string })
+  return (await readFile(path, 'utf8'))
+    .trim()
+    .split('\n')
+    .map(line => JSON.parse(line) as { type: string; time: string })
 }
 
 /** Assert the wire form shared by every upload: exact bytes, one content-length, no transfer encoding. */
@@ -78,51 +97,64 @@ function expectExactObject(request: CosLoopbackRequest, expected: string, conten
 }
 
 describe('release upload audit with the real COS SDK and an isolated loopback origin', () => {
-  it.each(['test', 'production'] as const)('retains %s plan, feed bytes, intent, receipt and hashes before advancing', async (environment) => {
-    const f = await fixture(environment)
-    const { cos, loopback } = await transport(async (request, response) => {
-      const directory = await f.directory()
+  it.each(['test', 'production'] as const)(
+    'retains %s plan, feed bytes, intent, receipt and hashes before advancing',
+    async environment => {
+      const f = await fixture(environment)
+      const { cos, loopback } = await transport(async (request, response) => {
+        const directory = await f.directory()
+        const plan = await json<RecordedPlan>(join(directory, 'plan.json'))
+        expect(plan.environment).toBe(environment)
+        expect(plan.artifacts[1]!.contents).toBe(FEED_BYTES)
+        const lines = await journal(join(directory, 'events.jsonl'))
+        expect(lines.at(-1)).toMatchObject({ type: 'put-intent', key: f.plan.artifacts[loopback.requests.length - 1]!.key })
+        expect(request.headers['content-md5']).toBe(plan.artifacts[loopback.requests.length - 1]!.md5)
+        answer(response, 200, '', { 'x-cos-request-id': 'fixture-request' })
+      })
+      const directory = await uploadDesktopRelease(f.plan, cos, f.records)
+      expect(loopback.requests).toHaveLength(2)
+      expectExactObject(loopback.requests[0]!, BINARY_BYTES, 'application/octet-stream', f.bucket)
+      expectExactObject(loopback.requests[1]!, FEED_BYTES, 'application/yaml', f.bucket)
+      expect(loopback.requests[0]!.path).toBe('/bin/package.exe')
+      expect(loopback.requests[1]!.path).toBe('/feeds/nightly.yml')
+      for (const request of loopback.requests) {
+        const authorization = String(request.headers.authorization)
+        expect(authorization).toContain('q-sign-algorithm=sha1')
+        expect(authorization).toContain('content-md5')
+        expect(authorization).not.toContain('test-credential-secret')
+      }
       const plan = await json<RecordedPlan>(join(directory, 'plan.json'))
-      expect(plan.environment).toBe(environment)
-      expect(plan.artifacts[1]!.contents).toBe(FEED_BYTES)
-      const lines = await journal(join(directory, 'events.jsonl'))
-      expect(lines.at(-1)).toMatchObject({ type: 'put-intent', key: f.plan.artifacts[loopback.requests.length - 1]!.key })
-      expect(request.headers['content-md5']).toBe(plan.artifacts[loopback.requests.length - 1]!.md5)
-      answer(response, 200, '', { 'x-cos-request-id': 'fixture-request' })
-    })
-    const directory = await uploadDesktopRelease(f.plan, cos, f.records)
-    expect(loopback.requests).toHaveLength(2)
-    expectExactObject(loopback.requests[0]!, BINARY_BYTES, 'application/octet-stream', f.bucket)
-    expectExactObject(loopback.requests[1]!, FEED_BYTES, 'application/yaml', f.bucket)
-    expect(loopback.requests[0]!.path).toBe('/bin/package.exe')
-    expect(loopback.requests[1]!.path).toBe('/feeds/nightly.yml')
-    for (const request of loopback.requests) {
-      const authorization = String(request.headers.authorization)
-      expect(authorization).toContain('q-sign-algorithm=sha1')
-      expect(authorization).toContain('content-md5')
-      expect(authorization).not.toContain('test-credential-secret')
-    }
-    const plan = await json<RecordedPlan>(join(directory, 'plan.json'))
-    expect(plan.artifacts[0]!.sha512).toBe(createHash('sha512').update(BINARY_BYTES).digest('base64'))
-    expect(plan.sourceSha256['upload-target.ts']).toBe(createHash('sha256')
-      .update(await readFile(join(import.meta.dirname, '../scripts/upload-target.ts'))).digest('hex'))
-    expect(plan.sourceSha256['desktop-cos.ts']).toBe(createHash('sha256')
-      .update(await readFile(join(import.meta.dirname, '../scripts/desktop-cos.ts'))).digest('hex'))
-    const result = await json(join(directory, 'result.json'))
-    expect(result).toMatchObject({ success: true, stage: 'complete', confirmedPuts: 2, publicReadback: 'not-performed' })
-    const events = await journal(join(directory, 'events.jsonl'))
-    expect(`${events.map(event => event.type).join('\n')}\n`).toBe(await readFile(join(import.meta.dirname, 'expected/desktop-upload-audit.txt'), 'utf8'))
-    expect(events[2]).toMatchObject({ httpStatus: 200, requestId: 'fixture-request', attempts: 1 })
-    for (const event of events) expect(Number.isFinite(Date.parse(event.time))).toBe(true)
-    expect(JSON.stringify({ plan, result, events })).not.toMatch(/test-credential|authorization|UNREAD_KEY/iu)
-  })
+      expect(plan.artifacts[0]!.sha512).toBe(createHash('sha512').update(BINARY_BYTES).digest('base64'))
+      expect(plan.sourceSha256['upload-target.ts']).toBe(
+        createHash('sha256')
+          .update(await readFile(join(import.meta.dirname, '../scripts/upload-target.ts')))
+          .digest('hex'),
+      )
+      expect(plan.sourceSha256['desktop-cos.ts']).toBe(
+        createHash('sha256')
+          .update(await readFile(join(import.meta.dirname, '../scripts/desktop-cos.ts')))
+          .digest('hex'),
+      )
+      const result = await json(join(directory, 'result.json'))
+      expect(result).toMatchObject({ success: true, stage: 'complete', confirmedPuts: 2, publicReadback: 'not-performed' })
+      const events = await journal(join(directory, 'events.jsonl'))
+      expect(`${events.map(event => event.type).join('\n')}\n`).toBe(
+        await readFile(join(import.meta.dirname, 'expected/desktop-upload-audit.txt'), 'utf8'),
+      )
+      expect(events[2]).toMatchObject({ httpStatus: 200, requestId: 'fixture-request', attempts: 1 })
+      for (const event of events) expect(Number.isFinite(Date.parse(event.time))).toBe(true)
+      expect(JSON.stringify({ plan, result, events })).not.toMatch(/test-credential|authorization|UNREAD_KEY/iu)
+    },
+  )
 
-  it.each([1, 2])('retains failure at PUT %s without retry or later upload, excluding raw SDK diagnostics', async (failAt) => {
+  it.each([1, 2])('retains failure at PUT %s without retry or later upload, excluding raw SDK diagnostics', async failAt => {
     const f = await fixture()
     const { cos, loopback } = await transport((_request, response) => {
       if (loopback.requests.length === failAt) {
-        answer(response, 500, cosError('InternalError', 'test-credential-secret'),
-          { 'content-type': 'application/xml', 'x-cos-request-id': 'fixture-request' })
+        answer(response, 500, cosError('InternalError', 'test-credential-secret'), {
+          'content-type': 'application/xml',
+          'x-cos-request-id': 'fixture-request',
+        })
         return
       }
       answer(response, 200, '', { 'x-cos-request-id': 'fixture-request' })
@@ -131,7 +163,12 @@ describe('release upload audit with the real COS SDK and an isolated loopback or
     expect(loopback.requests).toHaveLength(failAt)
     const directory = await f.directory()
     const result = await json(join(directory, 'result.json'))
-    expect(result).toMatchObject({ success: false, confirmedPuts: failAt - 1, stage: 'put', failure: { errorCode: 'InternalError', httpStatus: 500, requestId: 'fixture-request' } })
+    expect(result).toMatchObject({
+      success: false,
+      confirmedPuts: failAt - 1,
+      stage: 'put',
+      failure: { errorCode: 'InternalError', httpStatus: 500, requestId: 'fixture-request' },
+    })
     expect(await readFile(join(directory, 'result.json'), 'utf8')).not.toContain('test-credential-secret')
     expect((await readFile(join(directory, 'events.jsonl'), 'utf8')).trim().split('\n')).toHaveLength(failAt * 2)
   })
@@ -150,10 +187,13 @@ describe('release upload audit with the real COS SDK and an isolated loopback or
     expect(loopback.requests[0]!.body.toString('utf8')).toBe(BINARY_BYTES)
   })
 
-  it.each([1, 2])('reports a dropped connection at PUT %s once without sending the object again', async (dropAt) => {
+  it.each([1, 2])('reports a dropped connection at PUT %s once without sending the object again', async dropAt => {
     const f = await fixture()
     const { cos, loopback } = await transport((_request, response) => {
-      if (loopback.requests.length === dropAt) { response.destroy(); return }
+      if (loopback.requests.length === dropAt) {
+        response.destroy()
+        return
+      }
       answer(response, 200, '', { 'x-cos-request-id': 'fixture-request' })
     })
     await expect(uploadDesktopRelease(f.plan, cos, f.records)).rejects.toThrow('stopped at put')
@@ -179,7 +219,11 @@ describe('release upload audit with the real COS SDK and an isolated loopback or
     })
     await expect(uploadDesktopRelease(f.plan, cos, f.records)).rejects.toThrow('stopped at record-response')
     expect(loopback.requests).toHaveLength(1)
-    expect(await json(join(await f.directory(), 'result.json'))).toMatchObject({ success: false, stage: 'record-response', confirmedPuts: 1 })
+    expect(await json(join(await f.directory(), 'result.json'))).toMatchObject({
+      success: false,
+      stage: 'record-response',
+      confirmedPuts: 1,
+    })
   })
 
   it('keeps independent runs without overwriting prior evidence', async () => {

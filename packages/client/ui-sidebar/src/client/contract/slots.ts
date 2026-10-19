@@ -134,9 +134,8 @@ export type SidebarRootInjected = {
  * render shares, this package's injected callbacks, and the standard locale
  * seat. Panel metadata arrives through an injected observable.
  */
-export type SidebarRootComponentProps =
-  PropsRuntime<'sidebar'>
-  & PropsRenderSlots<
+export type SidebarRootComponentProps = PropsRuntime<'sidebar'> &
+  PropsRenderSlots<
     | 'sidebar.brand.mark'
     | 'sidebar.brand.name'
     | 'sidebar.toggle.badge'
@@ -144,5 +143,6 @@ export type SidebarRootComponentProps =
     | 'sidebar.workspaces'
     | 'sidebar.settings'
     | 'sidebar.footer.action'
-  >
-  & InjectFace<SidebarRootInjected> & PropsLocale<'sidebar'>
+  > &
+  InjectFace<SidebarRootInjected> &
+  PropsLocale<'sidebar'>

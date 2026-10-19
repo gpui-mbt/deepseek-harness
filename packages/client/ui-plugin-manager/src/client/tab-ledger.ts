@@ -34,9 +34,11 @@ export function tabLedgerSource(ctx: ClientContext): HostObservable<readonly Plu
       }
       return tabs
     },
-    subscribe: (listener) => {
+    subscribe: listener => {
       const offs = [ctx.slots.subscribe('plugins.tab', listener), ctx.locale.subscribe(listener)]
-      return () => { for (const off of offs) off() }
+      return () => {
+        for (const off of offs) off()
+      }
     },
   }
 }

@@ -40,10 +40,16 @@ export class CuaCoordinates {
    * @param image - encoded model-request image dimensions.
    */
   screenshot(
-    appHandle: CuaAppHandle, windowId: number, bounds: { width: number; height: number }, image: { width: number; height: number },
+    appHandle: CuaAppHandle,
+    windowId: number,
+    bounds: { width: number; height: number },
+    image: { width: number; height: number },
   ): void {
     let frames = this.applications.get(appHandle)
-    if (!frames) { frames = new Map(); this.applications.set(appHandle, frames) }
+    if (!frames) {
+      frames = new Map()
+      this.applications.set(appHandle, frames)
+    }
     frames.set(windowId, { width: bounds.width, height: bounds.height, image: { width: image.width, height: image.height } })
   }
 
@@ -57,20 +63,26 @@ export class CuaCoordinates {
     const native = z.record(z.string(), z.json()).parse(params)
     if (!('x' in params) && !('fromX' in params)) return native
     const frame = this.applications.get(params.appHandle as CuaAppHandle)?.get(params.windowId)
-    if (!frame || frame.width <= 0 || frame.height <= 0) throw new NativeError('STALE_SNAPSHOT', 'Read fresh window state before coordinate input')
+    if (!frame || frame.width <= 0 || frame.height <= 0)
+      throw new NativeError('STALE_SNAPSHOT', 'Read fresh window state before coordinate input')
     const relative = params.relative === true
-    if (!relative && !frame.image) throw new NativeError('SCREENSHOT_REQUIRED', 'Take a fresh screenshot before using absolute pixel coordinates')
+    if (!relative && !frame.image)
+      throw new NativeError('SCREENSHOT_REQUIRED', 'Take a fresh screenshot before using absolute pixel coordinates')
     const convert = (value: number, axis: 'width' | 'height'): number => {
       const pixels = frame.image?.[axis] ?? frame[axis]
-      if (relative) return Math.min(value / 1000 * frame[axis], Math.max(0, frame[axis] - 1))
+      if (relative) return Math.min((value / 1000) * frame[axis], Math.max(0, frame[axis] - 1))
       if (value >= pixels) throw new NativeError('INVALID_ARGUMENT', 'Coordinate is outside the latest screenshot')
-      return value * frame[axis] / pixels
+      return (value * frame[axis]) / pixels
     }
     delete native.relative
-    if ('x' in params) { native.x = convert(params.x, 'width'); native.y = convert(params.y, 'height') }
-    else {
-      native.fromX = convert(params.fromX, 'width'); native.fromY = convert(params.fromY, 'height')
-      native.toX = convert(params.toX, 'width'); native.toY = convert(params.toY, 'height')
+    if ('x' in params) {
+      native.x = convert(params.x, 'width')
+      native.y = convert(params.y, 'height')
+    } else {
+      native.fromX = convert(params.fromX, 'width')
+      native.fromY = convert(params.fromY, 'height')
+      native.toX = convert(params.toX, 'width')
+      native.toY = convert(params.toY, 'height')
     }
     return native
   }

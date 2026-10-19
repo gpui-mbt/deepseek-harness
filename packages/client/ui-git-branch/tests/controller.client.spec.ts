@@ -1,7 +1,7 @@
 /** Controller polling, visibility, settling, and lifecycle behavior. */
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { WorkspaceGitGithub, WorkspaceGitStatus } from '@deepseek-ai/dsh-api-workspace-git/types'
@@ -96,6 +96,19 @@ describe('GitBranchController watches', () => {
     controller.dispose()
   })
 
+  it('re-reads one watched Session immediately and ignores an unwatched one', async () => {
+    const { controller, calls } = bench()
+    controller.acquire(SESSION)
+    await settle()
+    controller.refresh(OTHER)
+    await settle()
+    expect(calls).toEqual([SESSION])
+    controller.refresh(SESSION)
+    await settle()
+    expect(calls).toEqual([SESSION, SESSION])
+    controller.dispose()
+  })
+
   it('polls on the interval only while the page is visible and refreshes when it returns', async () => {
     const { controller, calls } = bench()
     controller.acquire(SESSION)
@@ -146,7 +159,12 @@ describe('GitBranchController watches', () => {
 
   it('skips a poll while a read is in flight', async () => {
     let answer!: (result: StatusAnswer) => void
-    const { controller, calls } = bench(() => new Promise<StatusAnswer>((resolve) => { answer = resolve }))
+    const { controller, calls } = bench(
+      () =>
+        new Promise<StatusAnswer>(resolve => {
+          answer = resolve
+        }),
+    )
     controller.acquire(SESSION)
     vi.advanceTimersByTime(GIT_BRANCH_POLL_MS * 3)
     expect(calls).toHaveLength(1)
@@ -164,8 +182,20 @@ describe('GitBranchController publishing', () => {
       { kind: 'branch', name: 'main', worktree: 'moqt-js', root: '/srv/moqt-js', github: GITHUB },
       { kind: 'branch', name: 'main', worktree: 'moqt-js', root: '/srv/moqt-js', github: GITHUB },
       { kind: 'branch', name: 'main', worktree: 'moqt-js-2', root: '/srv/moqt-js-2', github: GITHUB },
-      { kind: 'branch', name: 'main', worktree: 'moqt-js-2', root: '/srv/moqt-js-2', github: { ...GITHUB, url: 'https://github.com/elsewhere' } },
-      { kind: 'branch', name: 'main', worktree: 'moqt-js-2', root: '/srv/moqt-js-2', github: { slug: 'elsewhere/moqt-js', url: 'https://github.com/elsewhere/moqt-js' } },
+      {
+        kind: 'branch',
+        name: 'main',
+        worktree: 'moqt-js-2',
+        root: '/srv/moqt-js-2',
+        github: { ...GITHUB, url: 'https://github.com/elsewhere' },
+      },
+      {
+        kind: 'branch',
+        name: 'main',
+        worktree: 'moqt-js-2',
+        root: '/srv/moqt-js-2',
+        github: { slug: 'elsewhere/moqt-js', url: 'https://github.com/elsewhere/moqt-js' },
+      },
       { kind: 'branch', name: 'topic', worktree: null, root: null, github: null },
       { kind: 'detached', head: 'abc1234', worktree: null, root: null, github: null },
       { kind: 'detached', head: 'abc1234', worktree: null, root: null, github: null },
@@ -174,7 +204,9 @@ describe('GitBranchController publishing', () => {
     ]
     const { controller } = bench(async () => ({ ok: true, value: answers.shift() ?? { kind: 'none' } }))
     let updates = 0
-    controller.branches.subscribe(() => { updates += 1 })
+    controller.branches.subscribe(() => {
+      updates += 1
+    })
     controller.acquire(SESSION)
     await settle()
     for (let poll = 1; poll < 10; poll += 1) {
@@ -199,14 +231,21 @@ describe('GitBranchController publishing', () => {
   })
 
   it('publishes nothing for a rejected call and for a read that settled after release', async () => {
-    const rejects = bench(async () => { throw new Error('down') })
+    const rejects = bench(async () => {
+      throw new Error('down')
+    })
     rejects.controller.acquire(SESSION)
     await settle()
     expect(rejects.controller.branches.getSnapshot()[SESSION]).toBeUndefined()
     rejects.controller.dispose()
 
     let answer!: (result: StatusAnswer) => void
-    const released = bench(() => new Promise<StatusAnswer>((resolve) => { answer = resolve }))
+    const released = bench(
+      () =>
+        new Promise<StatusAnswer>(resolve => {
+          answer = resolve
+        }),
+    )
     released.controller.acquire(SESSION)
     released.controller.release(SESSION)
     answer({ ok: true, value: BRANCH })
@@ -217,7 +256,12 @@ describe('GitBranchController publishing', () => {
 
   it('drops a late settlement from a re-acquired Session', async () => {
     const answers: ((result: StatusAnswer) => void)[] = []
-    const { controller, calls } = bench(() => new Promise<StatusAnswer>((resolve) => { answers.push(resolve) }))
+    const { controller, calls } = bench(
+      () =>
+        new Promise<StatusAnswer>(resolve => {
+          answers.push(resolve)
+        }),
+    )
     controller.acquire(SESSION)
     controller.release(SESSION)
     controller.acquire(SESSION)
@@ -233,7 +277,12 @@ describe('GitBranchController publishing', () => {
 describe('GitBranchController disposal', () => {
   it('aborts in-flight reads and stops the clock', async () => {
     let answer!: (result: StatusAnswer) => void
-    const { controller, calls, signals } = bench(() => new Promise<StatusAnswer>((resolve) => { answer = resolve }))
+    const { controller, calls, signals } = bench(
+      () =>
+        new Promise<StatusAnswer>(resolve => {
+          answer = resolve
+        }),
+    )
     controller.dispose()
     controller.acquire(SESSION)
     controller.dispose()

@@ -31,8 +31,8 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
   const rememberEditor = (event: FocusEvent): void => {
     const target = event.composedPath()[0]
     if (!(target instanceof HTMLElement) || target === host || shadow.contains(target)) return
-    if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement)
-      && !target.matches('[contenteditable="true"]')) return
+    if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLTextAreaElement) && !target.matches('[contenteditable="true"]'))
+      return
     const selection = document.getSelection()
     const ranges = selection === null ? [] : Array.from({ length: selection.rangeCount }, (_, i) => selection.getRangeAt(i).cloneRange())
     const input = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ? target : undefined
@@ -57,19 +57,29 @@ export function installWindowsMenu(): { update(): void; dispose(): void } {
     button.setAttribute('aria-haspopup', 'menu')
     button.setAttribute('aria-expanded', 'false')
     button.tabIndex = index === 0 ? 0 : -1
-    button.addEventListener('pointerdown', (event) => { event.preventDefault() })
-    button.addEventListener('mousedown', (event) => { event.preventDefault() })
+    button.addEventListener('pointerdown', event => {
+      event.preventDefault()
+    })
+    button.addEventListener('mousedown', event => {
+      event.preventDefault()
+    })
     const open = async (): Promise<void> => {
       if (button.getAttribute('aria-expanded') === 'true') return
       const rect = button.getBoundingClientRect()
       button.setAttribute('aria-expanded', 'true')
       if (document.activeElement === host) restoreEditor()
-      try { await ipcRenderer.invoke(DESKTOP_IPC.windowsMenu, name, rect.left, rect.bottom) }
-      catch (error) { console.error('Desktop caption menu failed', error) }
-      finally { button.setAttribute('aria-expanded', 'false') }
+      try {
+        await ipcRenderer.invoke(DESKTOP_IPC.windowsMenu, name, rect.left, rect.bottom)
+      } catch (error) {
+        console.error('Desktop caption menu failed', error)
+      } finally {
+        button.setAttribute('aria-expanded', 'false')
+      }
     }
-    button.addEventListener('click', () => { void open() })
-    button.addEventListener('keydown', (event) => {
+    button.addEventListener('click', () => {
+      void open()
+    })
+    button.addEventListener('keydown', event => {
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
         event.preventDefault()
         const next = buttons[index === 0 ? 1 : 0]

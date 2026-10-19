@@ -59,7 +59,10 @@ function WidthHandle(props: {
     return base.current + outward * 2
   }
   const cancelFrame = () => {
-    if (frame.current !== null) { cancelAnimationFrame(frame.current); frame.current = null }
+    if (frame.current !== null) {
+      cancelAnimationFrame(frame.current)
+      frame.current = null
+    }
   }
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
@@ -145,38 +148,41 @@ export function ConversationWidthControls({ container, phase }: ConversationWidt
 
   useLayoutEffect(() => {
     if (container === null) return
-    const observer = new ResizeObserver(() => { publishWidths(container) })
+    const observer = new ResizeObserver(() => {
+      publishWidths(container)
+    })
     observer.observe(container)
     publishWidths(container)
-    return () => { observer.disconnect() }
+    return () => {
+      observer.disconnect()
+    }
   }, [container, publishWidths])
 
   const onStart = useCallback((): number => {
     if (container === null) return 680
     return resolveContentWidth(container.offsetWidth, readWidthPreference())
   }, [container])
-  const onDrag = useCallback((width: number): void => {
-    if (container === null) return
-    const target = container.parentElement ?? container
-    target.style.setProperty('--dsh-chat-user-width', `${resolveContentWidth(container.offsetWidth, width)}px`)
-  }, [container])
-  const onCommit = useCallback((width: number): void => {
-    if (container === null) return
-    localStorage.setItem(WIDTH_PREF_KEY, `${resolveContentWidth(container.offsetWidth, width)}`)
-  }, [container])
+  const onDrag = useCallback(
+    (width: number): void => {
+      if (container === null) return
+      const target = container.parentElement ?? container
+      target.style.setProperty('--dsh-chat-user-width', `${resolveContentWidth(container.offsetWidth, width)}px`)
+    },
+    [container],
+  )
+  const onCommit = useCallback(
+    (width: number): void => {
+      if (container === null) return
+      localStorage.setItem(WIDTH_PREF_KEY, `${resolveContentWidth(container.offsetWidth, width)}`)
+    },
+    [container],
+  )
   const onEnd = useCallback((): void => {
     if (container !== null) publishWidths(container)
   }, [container, publishWidths])
 
   if (container === null || phase !== 'active') return null
   return (['left', 'right'] as const).map(side => (
-    <WidthHandle
-      key={side}
-      side={side}
-      onStart={onStart}
-      onDrag={onDrag}
-      onCommit={onCommit}
-      onEnd={onEnd}
-    />
+    <WidthHandle key={side} side={side} onStart={onStart} onDrag={onDrag} onCommit={onCommit} onEnd={onEnd} />
   ))
 }

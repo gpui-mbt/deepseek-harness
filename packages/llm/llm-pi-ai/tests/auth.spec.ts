@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LocalCredentialProvider from '@deepseek-ai/dsh-credentials-local'
 import { credentialKey, credentialRef } from '@deepseek-ai/dsh-credentials'
@@ -11,7 +11,7 @@ import { authContextFrom, credentialStoreFrom, recordKeyFor } from '../src/auth.
 const home = vi.hoisted(() => ({ unavailable: false }))
 
 // libuv throws when HOME is unset and the process UID has no passwd entry.
-vi.mock('node:os', async (importOriginal) => {
+vi.mock('node:os', async importOriginal => {
   const os = await importOriginal<typeof import('node:os')>()
   return {
     ...os,
@@ -37,7 +37,9 @@ async function stored(
   if (layers !== undefined) ctx.provide(DSH_LAUNCH_ENVIRONMENT_KEY, createLaunchEnvironmentSnapshot(layers))
   const path = join(dir, '.credentials.yaml')
   if (initialRefs !== undefined) {
-    const refs = Object.entries(initialRefs).map(([name, value]) => `  ${name}: ${value}`).join('\n')
+    const refs = Object.entries(initialRefs)
+      .map(([name, value]) => `  ${name}: ${value}`)
+      .join('\n')
     await writeFile(path, `version: 1\nrefs:\n${refs}\n`, { mode: 0o600 })
   }
   await ctx.plugin(LocalCredentialProvider, { path, watch: false })
@@ -61,13 +63,14 @@ describe('pi-ai credential store over harness records', () => {
     const ctx = await stored()
     const store = credentialStoreFrom(ctx)
 
-    await store.modify('cloudflare', () =>
-      Promise.resolve({ type: 'api_key', key: 'sk-live', env: { ACCOUNT_ID: 'acct-1' } }))
+    await store.modify('cloudflare', () => Promise.resolve({ type: 'api_key', key: 'sk-live', env: { ACCOUNT_ID: 'acct-1' } }))
 
-    await expect(store.read('cloudflare'))
-      .resolves.toEqual({ type: 'api_key', key: 'sk-live', env: { ACCOUNT_ID: 'acct-1' } })
-    await expect(ctx.credentials.readRecord(recordKeyFor('cloudflare')))
-      .resolves.toEqual({ kind: 'api-key', key: 'sk-live', env: { ACCOUNT_ID: 'acct-1' } })
+    await expect(store.read('cloudflare')).resolves.toEqual({ type: 'api_key', key: 'sk-live', env: { ACCOUNT_ID: 'acct-1' } })
+    await expect(ctx.credentials.readRecord(recordKeyFor('cloudflare'))).resolves.toEqual({
+      kind: 'api-key',
+      key: 'sk-live',
+      env: { ACCOUNT_ID: 'acct-1' },
+    })
   })
 
   it('stores an api-key credential carrying neither a key nor env', async () => {
@@ -119,24 +122,22 @@ describe('pi-ai credential store over harness records', () => {
     })
   })
 
-  it('passes a genuinely unstorable grant value through to the store\'s loud refusal', async () => {
+  it("passes a genuinely unstorable grant value through to the store's loud refusal", async () => {
     const ctx = await stored()
     const store = credentialStoreFrom(ctx)
     // A foreign-prototype member is not the undefined idiom: the image leaves
     // it untouched and the record validator still refuses the write.
     const granted = { type: 'oauth' as const, access: 'at', refresh: 'rt', expires: 42, issued: new Date(0) }
 
-    await expect(store.modify('github-copilot', () => Promise.resolve(granted)))
-      .rejects.toThrow(/JSON cannot represent/)
+    await expect(store.modify('github-copilot', () => Promise.resolve(granted))).rejects.toThrow(/JSON cannot represent/)
   })
 
   it('shows the mutation the current credential and leaves it alone when declined', async () => {
     const store = credentialStoreFrom(await stored())
-    await store.modify('openai-codex', () =>
-      Promise.resolve({ type: 'oauth', access: 'first', refresh: 'r', expires: 1 }))
+    await store.modify('openai-codex', () => Promise.resolve({ type: 'oauth', access: 'first', refresh: 'r', expires: 1 }))
     const seen: unknown[] = []
 
-    const unchanged = await store.modify('openai-codex', (current) => {
+    const unchanged = await store.modify('openai-codex', current => {
       seen.push(current)
       return Promise.resolve(undefined)
     })
@@ -148,13 +149,13 @@ describe('pi-ai credential store over harness records', () => {
   it('lists only the records this adapter family owns', async () => {
     const ctx = await stored()
     const store = credentialStoreFrom(ctx)
-    await store.modify('openai-codex', () =>
-      Promise.resolve({ type: 'oauth', access: 'at', refresh: 'rt', expires: 1 }))
+    await store.modify('openai-codex', () => Promise.resolve({ type: 'oauth', access: 'at', refresh: 'rt', expires: 1 }))
     await store.modify('cloudflare', () => Promise.resolve({ type: 'api_key', key: 'k' }))
     // Another plugin's record for a provider name this one also serves: its
     // payload is written in a format pi-ai never agreed to.
     await ctx.credentials.modifyRecord(credentialKey('llm-kimi', 'openai-codex'), () =>
-      Promise.resolve({ kind: 'grant', payload: { theirs: true } }))
+      Promise.resolve({ kind: 'grant', payload: { theirs: true } }),
+    )
 
     await expect(store.list()).resolves.toEqual([
       { providerId: 'openai-codex', type: 'oauth' },
@@ -164,8 +165,7 @@ describe('pi-ai credential store over harness records', () => {
 
   it('forgets a credential on delete, and stays quiet when there was none', async () => {
     const store = credentialStoreFrom(await stored())
-    await store.modify('openai-codex', () =>
-      Promise.resolve({ type: 'oauth', access: 'at', refresh: 'rt', expires: 1 }))
+    await store.modify('openai-codex', () => Promise.resolve({ type: 'oauth', access: 'at', refresh: 'rt', expires: 1 }))
 
     await store.delete('openai-codex')
     await store.delete('openai-codex')
@@ -178,8 +178,9 @@ describe('pi-ai credential store over harness records', () => {
 
     await expect(store.read('openai-codex')).resolves.toBeUndefined()
     await expect(store.list()).resolves.toEqual([])
-    await expect(store.modify('openai-codex', () => Promise.resolve({ type: 'api_key', key: 'k' })))
-      .rejects.toThrow(/mounts no credentials service/)
+    await expect(store.modify('openai-codex', () => Promise.resolve({ type: 'api_key', key: 'k' }))).rejects.toThrow(
+      /mounts no credentials service/,
+    )
     await expect(store.delete('openai-codex')).rejects.toThrow(/mounts no credentials service/)
   })
 
@@ -193,8 +194,9 @@ describe('pi-ai credential store over harness records', () => {
     // …nothing can ever be stored under it, so a logout has nothing to remove…
     await expect(store.delete('My_Proxy')).resolves.toBeUndefined()
     // …while a write that cannot land must refuse rather than report success.
-    await expect(store.modify('My_Proxy', () => Promise.resolve({ type: 'api_key', key: 'k' })))
-      .rejects.toThrow(/cannot address a stored credential record/)
+    await expect(store.modify('My_Proxy', () => Promise.resolve({ type: 'api_key', key: 'k' }))).rejects.toThrow(
+      /cannot address a stored credential record/,
+    )
   })
 })
 
@@ -211,11 +213,14 @@ describe('pi-ai ambient auth context', () => {
   })
 
   it('gives a stored credential priority over every launch layer', async () => {
-    const ctx = await stored([
-      { source: 'process', values: { OPENAI_API_KEY: 'from-launch' } },
-      { source: 'project-env', path: '/work/.env', values: { OPENAI_API_KEY: 'from-project' } },
-      { source: 'user-env', path: '/home/.dsh/.env', values: { OPENAI_API_KEY: 'from-home' } },
-    ], { OPENAI_API_KEY: 'from-credentials' })
+    const ctx = await stored(
+      [
+        { source: 'process', values: { OPENAI_API_KEY: 'from-launch' } },
+        { source: 'project-env', path: '/work/.env', values: { OPENAI_API_KEY: 'from-project' } },
+        { source: 'user-env', path: '/home/.dsh/.env', values: { OPENAI_API_KEY: 'from-home' } },
+      ],
+      { OPENAI_API_KEY: 'from-credentials' },
+    )
 
     await expect(authContextFrom(ctx).env('OPENAI_API_KEY')).resolves.toBe('from-credentials')
   })

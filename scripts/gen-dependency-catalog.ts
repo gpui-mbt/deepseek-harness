@@ -82,8 +82,12 @@ function parseEntry(value: unknown, location: string): PackageEntry {
   }
   for (const key of ['dependencies', 'optionalDependencies'] as const) {
     if (raw[key] === undefined) continue
-    entry[key] = Object.fromEntries(Object.entries(record(raw[key], `${location} ${key}`))
-      .map(([name, spec]) => [string(name, 'dependency name'), string(spec, `${location} ${name}`)]))
+    entry[key] = Object.fromEntries(
+      Object.entries(record(raw[key], `${location} ${key}`)).map(([name, spec]) => [
+        string(name, 'dependency name'),
+        string(spec, `${location} ${name}`),
+      ]),
+    )
   }
   for (const key of ['os', 'cpu', 'libc'] as const) {
     const values = raw[key]
@@ -108,14 +112,16 @@ export function collectDependencies(input: unknown): { version: string; rows: De
   if (Object.keys(requested).length !== 1 || requested[PACKAGE] !== 'latest') {
     throw new Error(`dependency-catalog: consumer must request only ${PACKAGE}@latest`)
   }
-  const entries = new Map(Object.entries(packages).filter(([location]) => location !== '')
-    .map(([location, entry]) => [location, parseEntry(entry, location)]))
+  const entries = new Map(
+    Object.entries(packages)
+      .filter(([location]) => location !== '')
+      .map(([location, entry]) => [location, parseEntry(entry, location)]),
+  )
   const cli = entries.get(ENTRY)
   if (cli === undefined || cli.dev) throw new Error(`dependency-catalog: missing production ${PACKAGE}`)
   const direct = new Set<string>()
   for (const name of Object.keys({ ...cli.dependencies, ...cli.optionalDependencies })) {
-    const location = [`${ENTRY}/node_modules/${name}`, `node_modules/${name}`]
-      .find(candidate => entries.has(candidate))
+    const location = [`${ENTRY}/node_modules/${name}`, `node_modules/${name}`].find(candidate => entries.has(candidate))
     if (location === undefined) {
       if (cli.optionalDependencies?.[name] !== undefined) continue
       throw new Error(`dependency-catalog: missing direct dependency ${name}`)
@@ -142,8 +148,9 @@ export function collectDependencies(input: unknown): { version: string; rows: De
     })
   }
   if (rows.length === 0) throw new Error('dependency-catalog: empty dependency tree')
-  rows.sort((a, b) => a.name.localeCompare(b.name, 'en')
-    || a.version.localeCompare(b.version, 'en') || a.location.localeCompare(b.location, 'en'))
+  rows.sort(
+    (a, b) => a.name.localeCompare(b.name, 'en') || a.version.localeCompare(b.version, 'en') || a.location.localeCompare(b.location, 'en'),
+  )
   return { version: cli.version, rows }
 }
 
@@ -173,19 +180,21 @@ export function deduplicateDependencies(rows: readonly DependencyRow[]): {
   version: string
   installations: Omit<DependencyRow, 'name' | 'version'>[]
 }[] {
-  const packages = new Map<string, {
-    name: string
-    version: string
-    installations: Omit<DependencyRow, 'name' | 'version'>[]
-  }>()
+  const packages = new Map<
+    string,
+    {
+      name: string
+      version: string
+      installations: Omit<DependencyRow, 'name' | 'version'>[]
+    }
+  >()
   for (const { name, version, ...installation } of rows) {
     const key = JSON.stringify([name, version])
     const dependency = packages.get(key) ?? { name, version, installations: [] }
     dependency.installations.push(installation)
     packages.set(key, dependency)
   }
-  const sorted = [...packages.values()].sort((a, b) => a.name.localeCompare(b.name, 'en')
-    || a.version.localeCompare(b.version, 'en'))
+  const sorted = [...packages.values()].sort((a, b) => a.name.localeCompare(b.name, 'en') || a.version.localeCompare(b.version, 'en'))
   for (const dependency of sorted) {
     dependency.installations.sort((a, b) => a.location.localeCompare(b.location, 'en'))
   }
@@ -194,13 +203,17 @@ export function deduplicateDependencies(rows: readonly DependencyRow[]): {
 
 function renderCatalog(lock: unknown, metadata: ResolutionMetadata): string {
   const { version, rows } = collectDependencies(lock)
-  return `${JSON.stringify({
-    package: PACKAGE,
-    version,
-    requested: `${PACKAGE}@latest`,
-    resolution: metadata,
-    dependencies: deduplicateDependencies(rows),
-  }, null, 2)}\n`
+  return `${JSON.stringify(
+    {
+      package: PACKAGE,
+      version,
+      requested: `${PACKAGE}@latest`,
+      resolution: metadata,
+      dependencies: deduplicateDependencies(rows),
+    },
+    null,
+    2,
+  )}\n`
 }
 
 /**
@@ -218,8 +231,7 @@ export function computeDependencyCatalog(scanRoot: string = ROOT): string {
  * @returns Whether the catalog exists and matches its inputs byte for byte.
  */
 export function isDependencyCatalogCurrent(scanRoot: string = ROOT): boolean {
-  return existsSync(resolve(scanRoot, OUT))
-    && readFileSync(resolve(scanRoot, OUT), 'utf8') === computeDependencyCatalog(scanRoot)
+  return existsSync(resolve(scanRoot, OUT)) && readFileSync(resolve(scanRoot, OUT), 'utf8') === computeDependencyCatalog(scanRoot)
 }
 
 /**
@@ -228,10 +240,7 @@ export function isDependencyCatalogCurrent(scanRoot: string = ROOT): boolean {
  * @param inherited - Environment whose non-npm settings remain available to the child.
  * @returns Complete child environment, including isolated user/global configuration and cache paths.
  */
-export function createNpmResolutionEnvironment(
-  temporary: string,
-  inherited: NodeJS.ProcessEnv = process.env,
-): NodeJS.ProcessEnv {
+export function createNpmResolutionEnvironment(temporary: string, inherited: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const userConfig = join(temporary, '.npmrc-user')
   const globalConfig = join(temporary, '.npmrc-global')
   writeFileSync(userConfig, '')
@@ -248,7 +257,9 @@ export function createNpmResolutionEnvironment(
 
 async function runNpm(args: readonly string[], cwd: string, env: NodeJS.ProcessEnv): Promise<string> {
   const result = await runCommandWithTimeout(process.platform === 'win32' ? 'npm.cmd' : 'npm', args, {
-    cwd, env, timeoutMs: 300_000,
+    cwd,
+    env,
+    timeoutMs: 300_000,
   })
   if (result.timedOut || result.status !== 0) {
     throw new Error(`dependency-catalog: npm failed (timedOut=${result.timedOut}, status=${String(result.status)}): ${result.output}`)
@@ -259,20 +270,49 @@ async function runNpm(args: readonly string[], cwd: string, env: NodeJS.ProcessE
 async function refreshResolution(): Promise<void> {
   const temporary = await mkdtemp(join(tmpdir(), 'dsh-dependency-catalog-'))
   try {
-    writeFileSync(join(temporary, 'package.json'), `${JSON.stringify({
-      name: 'dsh-dependency-catalog', version: '0.0.0', private: true, dependencies: { [PACKAGE]: 'latest' },
-    }, null, 2)}\n`)
+    writeFileSync(
+      join(temporary, 'package.json'),
+      `${JSON.stringify(
+        {
+          name: 'dsh-dependency-catalog',
+          version: '0.0.0',
+          private: true,
+          dependencies: { [PACKAGE]: 'latest' },
+        },
+        null,
+        2,
+      )}\n`,
+    )
     const environment = createNpmResolutionEnvironment(temporary)
     const npm = await runNpm(['--version'], temporary, environment)
-    await runNpm([
-      'install', '--package-lock-only', '--lockfile-version=3', '--ignore-scripts', '--no-audit', '--no-fund',
-      '--include=prod', '--include=optional', '--include=peer', '--legacy-peer-deps=false',
-      '--install-strategy=hoisted', '--loglevel=error', `--registry=${REGISTRY}`,
-    ], temporary, environment)
+    await runNpm(
+      [
+        'install',
+        '--package-lock-only',
+        '--lockfile-version=3',
+        '--ignore-scripts',
+        '--no-audit',
+        '--no-fund',
+        '--include=prod',
+        '--include=optional',
+        '--include=peer',
+        '--legacy-peer-deps=false',
+        '--install-strategy=hoisted',
+        '--loglevel=error',
+        `--registry=${REGISTRY}`,
+      ],
+      temporary,
+      environment,
+    )
     const lock = readFileSync(join(temporary, 'package-lock.json'), 'utf8')
     const metadata: ResolutionMetadata = {
-      capturedAt: new Date().toISOString(), npm, node: process.versions.node,
-      platform: process.platform, arch: process.arch, registry: REGISTRY, installStrategy: 'hoisted',
+      capturedAt: new Date().toISOString(),
+      npm,
+      node: process.versions.node,
+      platform: process.platform,
+      arch: process.arch,
+      registry: REGISTRY,
+      installStrategy: 'hoisted',
     }
     const catalog = renderCatalog(JSON.parse(lock), metadata)
     mkdirSync(resolve(ROOT, dirname(LOCK)), { recursive: true })

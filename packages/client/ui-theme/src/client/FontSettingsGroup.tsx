@@ -22,9 +22,10 @@ export interface FontSettingsInjected {
 }
 
 /** Full component props: runtime share + store share + locale seat + injected face. */
-export type FontSettingsGroupProps =
-  PropsRuntime<'settings.general.item'> & PropsStore<ReturnType<typeof createFontRowStore>>
-  & PropsLocale<'settings.theme'> & FontSettingsInjected
+export type FontSettingsGroupProps = PropsRuntime<'settings.general.item'> &
+  PropsStore<ReturnType<typeof createFontRowStore>> &
+  PropsLocale<'settings.theme'> &
+  FontSettingsInjected
 
 /**
  * Render the text font-size row and its expandable font settings.
@@ -35,14 +36,33 @@ export function FontSettingsGroup({ setFontFamily, setFontSize, ...shared }: Fon
   const [open, setOpen] = useState(false)
   const regionId = useId()
   const family = (role: FontRole) => (
-    <FontFamilyRow {...shared} role={role} setFontFamily={(value) => { setFontFamily(role, value) }} />
+    <FontFamilyRow
+      {...shared}
+      role={role}
+      setFontFamily={value => {
+        setFontFamily(role, value)
+      }}
+    />
   )
   const size = (role: FontRole, expander?: FontSizeRowExpander) => (
-    <FontSizeRow {...shared} role={role} expander={expander} setFontSize={(px) => { setFontSize(role, px) }} />
+    <FontSizeRow
+      {...shared}
+      role={role}
+      expander={expander}
+      setFontSize={px => {
+        setFontSize(role, px)
+      }}
+    />
   )
   return (
     <div className={css.group}>
-      {size('text', { open, controls: regionId, onToggle: () => { setOpen(value => !value) } })}
+      {size('text', {
+        open,
+        controls: regionId,
+        onToggle: () => {
+          setOpen(value => !value)
+        },
+      })}
       {open && (
         <div id={regionId}>
           {family('text')}

@@ -1,5 +1,5 @@
 /** Waiting for one run's tree is decided by platform and target, without starting a real process. */
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { awaitTreeGone, leadsOwnGroup, type RunTree } from '../src/run-tree.ts'
 
 /** One run's process or process group. */
@@ -19,15 +19,26 @@ it.each([
 
 it('waits for a tree that disappears on its own', async () => {
   let alive = true
-  await expect(awaitTreeGone(tree(42), {
-    platform: 'linux',
-    alive: () => { const first = alive; alive = false; return first },
-  })).resolves.toBeUndefined()
+  await expect(
+    awaitTreeGone(tree(42), {
+      platform: 'linux',
+      alive: () => {
+        const first = alive
+        alive = false
+        return first
+      },
+    }),
+  ).resolves.toBeUndefined()
 })
 
 it('probes the group a run leads and the process it does not', async () => {
   const probes: number[] = []
-  const gone = { alive: (target: number) => { probes.push(target); return false } }
+  const gone = {
+    alive: (target: number) => {
+      probes.push(target)
+      return false
+    },
+  }
   await expect(awaitTreeGone(tree(42), { ...gone, platform: 'linux' })).resolves.toBeUndefined()
   await expect(awaitTreeGone(tree(42, false), { ...gone, platform: 'linux' })).resolves.toBeUndefined()
   await expect(awaitTreeGone(tree(42), { ...gone, platform: 'win32' })).resolves.toBeUndefined()
@@ -35,7 +46,13 @@ it('probes the group a run leads and the process it does not', async () => {
 })
 
 it('returns at once for a tree with no process id or one already gone', async () => {
-  await expect(awaitTreeGone(tree(undefined), { alive: () => { throw new Error('never probed') } })).resolves.toBeUndefined()
+  await expect(
+    awaitTreeGone(tree(undefined), {
+      alive: () => {
+        throw new Error('never probed')
+      },
+    }),
+  ).resolves.toBeUndefined()
   // The host platform answers for a run that names none, and the default probe reports a vanished process.
   await expect(awaitTreeGone(tree(99_999_999, false))).resolves.toBeUndefined()
   await expect(awaitTreeGone(tree(99_999_999, false), { platform: 'linux' })).resolves.toBeUndefined()

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Rolldown } from 'tsdown'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vite-plus/test'
 import {
   importPackageName,
   isBareSpecifier,
@@ -34,13 +34,18 @@ describe('desktop bundle imports', () => {
   })
 
   it('accepts Node builtins and packaged dependencies, including their subpaths, for the main process', () => {
-    expect(unpackagedImports([
-      'node:fs/promises',
-      'crypto',
-      'electron',
-      'electron-updater/out/electronHttpExecutor.js',
-      '@deepseek-ai/dsh-api-gateway/stream-protocol',
-    ], MAIN)).toEqual([])
+    expect(
+      unpackagedImports(
+        [
+          'node:fs/promises',
+          'crypto',
+          'electron',
+          'electron-updater/out/electronHttpExecutor.js',
+          '@deepseek-ai/dsh-api-gateway/stream-protocol',
+        ],
+        MAIN,
+      ),
+    ).toEqual([])
   })
 
   it('rejects Node builtins outside the sandbox polyfill for a preload', () => {
@@ -48,29 +53,42 @@ describe('desktop bundle imports', () => {
   })
 
   it('reports each specifier the packaged application cannot resolve once, in import order', () => {
-    expect(unpackagedImports([
+    expect(unpackagedImports(['@deepseek-ai/dsh-home-paths', 'ws', '@deepseek-ai/dsh-home-paths', 'electron'], MAIN)).toEqual([
       '@deepseek-ai/dsh-home-paths',
       'ws',
-      '@deepseek-ai/dsh-home-paths',
-      'electron',
-    ], MAIN)).toEqual(['@deepseek-ai/dsh-home-paths', 'ws'])
+    ])
   })
 })
 
 describe('packaged imports plugin', () => {
   const root = mkdtempSync(join(tmpdir(), 'dsh-desktop-bundle-imports-'))
   const entries = {
-    static: ['import { app } from "electron";', 'import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";', 'export const home = resolveDshHome(app);'],
-    dynamic: ['import { app } from "electron";', 'export const home = () => import("@deepseek-ai/dsh-home-paths").then(m => m.resolveDshHome(app));'],
+    static: [
+      'import { app } from "electron";',
+      'import { resolveDshHome } from "@deepseek-ai/dsh-home-paths";',
+      'export const home = resolveDshHome(app);',
+    ],
+    dynamic: [
+      'import { app } from "electron";',
+      'export const home = () => import("@deepseek-ai/dsh-home-paths").then(m => m.resolveDshHome(app));',
+    ],
     require: ['import { app } from "electron";', 'export const home = () => require("@deepseek-ai/dsh-home-paths").resolveDshHome(app);'],
-    builtin: ['import { contextBridge } from "electron";', 'import { readFileSync } from "node:fs";', 'contextBridge.exposeInMainWorld("x", readFileSync);'],
+    builtin: [
+      'import { contextBridge } from "electron";',
+      'import { readFileSync } from "node:fs";',
+      'contextBridge.exposeInMainWorld("x", readFileSync);',
+    ],
   } as const
   for (const [name, lines] of Object.entries(entries)) writeFileSync(join(root, `${name}.js`), lines.join('\n'))
   afterAll(() => {
     rmSync(root, { recursive: true, force: true })
   })
 
-  async function generate(entry: keyof typeof entries, policy: BundleImportPolicy, format: 'esm' | 'cjs' = 'esm'): Promise<Rolldown.RolldownOutput> {
+  async function generate(
+    entry: keyof typeof entries,
+    policy: BundleImportPolicy,
+    format: 'esm' | 'cjs' = 'esm',
+  ): Promise<Rolldown.RolldownOutput> {
     // Every import stays external, which is what an unresolved workspace lib/ output produces.
     const bundle = await Rolldown.rolldown({
       input: join(root, `${entry}.js`),

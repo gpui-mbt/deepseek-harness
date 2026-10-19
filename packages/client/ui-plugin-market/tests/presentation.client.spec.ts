@@ -1,27 +1,65 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { MarketListingEntry, MarketListingVersion } from '@deepseek-ai/dsh-api-remotes/client'
 import type { LocalizedText } from '@deepseek-ai/dsh-package-manifest'
-import { declaredQuery, displayDeclarations, indexLabel, INITIAL_QUERY, presentedVersion, sourceFacts, withText } from '../src/client/presentation.ts'
+import {
+  declaredQuery,
+  displayDeclarations,
+  indexLabel,
+  INITIAL_QUERY,
+  presentedVersion,
+  sourceFacts,
+  withText,
+} from '../src/client/presentation.ts'
 
-const resolveText = (text: LocalizedText): string => typeof text === 'string' ? text : text.zh ?? text.en
+const resolveText = (text: LocalizedText): string => (typeof text === 'string' ? text : (text.zh ?? text.en))
 
 function release(version: string, fields: Partial<MarketListingVersion> = {}): MarketListingVersion {
-  return { version, publishTimestamp: 0, source: { type: 'npm' }, engines: {}, install: { spec: `x@${version}` }, compatibility: { compatible: true }, ...fields }
+  return {
+    version,
+    publishTimestamp: 0,
+    source: { type: 'npm' },
+    engines: {},
+    install: { spec: `x@${version}` },
+    compatibility: { compatible: true },
+    ...fields,
+  }
 }
 
-function entry(name: string, fields: Partial<MarketListingEntry> = {}, metadata: Partial<MarketListingEntry['metadata']> = {}): MarketListingEntry {
+function entry(
+  name: string,
+  fields: Partial<MarketListingEntry> = {},
+  metadata: Partial<MarketListingEntry['metadata']> = {},
+): MarketListingEntry {
   return {
-    name, versions: [release('1.0.0')], defaultVersion: '1.0.0', installation: { status: 'not-installed' },
-    ...fields, metadata: { keywords: [], labels: [], sortKeys: {}, ...metadata },
+    name,
+    versions: [release('1.0.0')],
+    defaultVersion: '1.0.0',
+    installation: { status: 'not-installed' },
+    ...fields,
+    metadata: { keywords: [], labels: [], sortKeys: {}, ...metadata },
   }
 }
 
 describe('displayDeclarations', () => {
   it('orders by localized title, then by id', () => {
-    expect(displayDeclarations({
-      b: { title: 'Beta' }, a: { title: { en: 'Alpha', zh: 'Beta' } }, c: { title: 'Alpha' },
-    }, resolveText, 'en').map(({ id, title }) => ({ id, title }))).toEqual([{ id: 'c', title: 'Alpha' }, { id: 'a', title: 'Beta' }, { id: 'b', title: 'Beta' }])
-    expect(displayDeclarations({ z: { title: 'X' }, x: { title: 'X' }, y: { title: 'X' } }, resolveText, 'en').map(item => item.id)).toEqual(['x', 'y', 'z'])
+    expect(
+      displayDeclarations(
+        {
+          b: { title: 'Beta' },
+          a: { title: { en: 'Alpha', zh: 'Beta' } },
+          c: { title: 'Alpha' },
+        },
+        resolveText,
+        'en',
+      ).map(({ id, title }) => ({ id, title })),
+    ).toEqual([
+      { id: 'c', title: 'Alpha' },
+      { id: 'a', title: 'Beta' },
+      { id: 'b', title: 'Beta' },
+    ])
+    expect(
+      displayDeclarations({ z: { title: 'X' }, x: { title: 'X' }, y: { title: 'X' } }, resolveText, 'en').map(item => item.id),
+    ).toEqual(['x', 'y', 'z'])
   })
 })
 
@@ -40,13 +78,21 @@ describe('withText', () => {
 })
 
 describe('declaredQuery', () => {
-  const metadata = { categories: { tools: { title: 'Tools' } }, labels: { ui: { title: 'UI' } }, sortKeys: { downloads: { title: 'Downloads', order: 'desc' as const } } }
+  const metadata = {
+    categories: { tools: { title: 'Tools' } },
+    labels: { ui: { title: 'UI' } },
+    sortKeys: { downloads: { title: 'Downloads', order: 'desc' as const } },
+  }
   it('keeps a declared query as is, and drops undeclared ids', () => {
     const declared = { text: 'x', category: 'tools', labels: ['ui'], sort: { kind: 'key', id: 'downloads', direction: 'asc' } } as const
     expect(declaredQuery(declared, metadata)).toBe(declared)
     expect(declaredQuery(INITIAL_QUERY, metadata)).toBe(INITIAL_QUERY)
-    expect(declaredQuery({ ...declared, category: 'gone', labels: ['ui', 'gone'], sort: { kind: 'key', id: 'gone', direction: 'asc' } }, metadata))
-      .toEqual({ text: 'x', category: null, labels: ['ui'], sort: { kind: 'index' } })
+    expect(
+      declaredQuery(
+        { ...declared, category: 'gone', labels: ['ui', 'gone'], sort: { kind: 'key', id: 'gone', direction: 'asc' } },
+        metadata,
+      ),
+    ).toEqual({ text: 'x', category: null, labels: ['ui'], sort: { kind: 'index' } })
     expect(declaredQuery({ ...declared, labels: ['gone'] }, metadata)).toEqual({ ...declared, labels: [] })
   })
 })
@@ -65,11 +111,18 @@ describe('sourceFacts', () => {
     const commit = 'abcdef0'.padEnd(40, '1')
     expect(sourceFacts('dsh-a', release('1.0.0'))).toEqual([{ kind: 'package', value: 'dsh-a@1.0.0' }])
     const registry = release('1.0.0', { source: { type: 'npm', registry: 'https://registry.example:8443/npm/' } })
-    expect(sourceFacts('dsh-a', registry)).toEqual([{ kind: 'package', value: 'dsh-a@1.0.0' }, { kind: 'registry', value: 'https://registry.example:8443/npm/' }])
+    expect(sourceFacts('dsh-a', registry)).toEqual([
+      { kind: 'package', value: 'dsh-a@1.0.0' },
+      { kind: 'registry', value: 'https://registry.example:8443/npm/' },
+    ])
     const git = release('1.0.0', { source: { type: 'git', url: 'https://github.com/o/r', commit } })
-    expect(sourceFacts('dsh-a', git)).toEqual([{ kind: 'repository', value: 'https://github.com/o/r' }, { kind: 'commit', value: commit }])
-    expect(sourceFacts('dsh-a', release('1.0.0', { source: { type: 'git', url: 'https://github.com/o/r', commit, path: 'packages/a' } })).at(-1))
-      .toEqual({ kind: 'directory', value: 'packages/a' })
+    expect(sourceFacts('dsh-a', git)).toEqual([
+      { kind: 'repository', value: 'https://github.com/o/r' },
+      { kind: 'commit', value: commit },
+    ])
+    expect(
+      sourceFacts('dsh-a', release('1.0.0', { source: { type: 'git', url: 'https://github.com/o/r', commit, path: 'packages/a' } })).at(-1),
+    ).toEqual({ kind: 'directory', value: 'packages/a' })
   })
 })
 

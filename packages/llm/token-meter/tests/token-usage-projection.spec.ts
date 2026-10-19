@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { TokenUsage } from '@deepseek-ai/dsh-llm'
@@ -13,7 +13,7 @@ import { CompactionId } from '@deepseek-ai/dsh-compaction'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -40,12 +40,7 @@ function startStep(session: Session, turn: number, step: number): void {
   session.append('step/start', { turn, step })
 }
 
-function usageChunk(
-  session: Session,
-  usage: TokenUsage,
-  turn: number,
-  step: number,
-): SessionSeq {
+function usageChunk(session: Session, usage: TokenUsage, turn: number, step: number): SessionSeq {
   return session.append('assistant/attempt', {
     turn,
     step,
@@ -53,23 +48,22 @@ function usageChunk(
   }).seq
 }
 
-function finalUsage(
-  session: Session,
-  usage: TokenUsage,
-  turn: number,
-  step: number,
-): void {
-  session.append('assistant/message', {
-    stream: [{ type: 'chunk', time: 0, chunk: { type: 'usage', usage } }],
-    turn,
-    step,
-    message: createMessage({
-      role: 'assistant',
-      content: [],
-      source: { kind: 'model', provider: 'mock', model: 'mock' },
-    }),
-    usage,
-  }, { surfaceOp: 'append' })
+function finalUsage(session: Session, usage: TokenUsage, turn: number, step: number): void {
+  session.append(
+    'assistant/message',
+    {
+      stream: [{ type: 'chunk', time: 0, chunk: { type: 'usage', usage } }],
+      turn,
+      step,
+      message: createMessage({
+        role: 'assistant',
+        content: [],
+        source: { kind: 'model', provider: 'mock', model: 'mock' },
+      }),
+      usage,
+    },
+    { surfaceOp: 'append' },
+  )
   session.append('step/end', { turn, step })
 }
 
@@ -142,17 +136,27 @@ describe('tokenUsage session projection', () => {
   it('replaces an earlier same-step chunk sample with the final usage', async () => {
     const { ctx, session } = await harness()
     startStep(session, 1, 1)
-    usageChunk(session, {
-      inputTokens: 10,
-      outputTokens: 2,
-      cacheReadTokens: 3,
-    }, 1, 1)
-    finalUsage(session, {
-      inputTokens: 14,
-      outputTokens: 5,
-      cacheReadTokens: 8,
-      cacheWriteTokens: 1,
-    }, 1, 1)
+    usageChunk(
+      session,
+      {
+        inputTokens: 10,
+        outputTokens: 2,
+        cacheReadTokens: 3,
+      },
+      1,
+      1,
+    )
+    finalUsage(
+      session,
+      {
+        inputTokens: 14,
+        outputTokens: 5,
+        cacheReadTokens: 8,
+        cacheWriteTokens: 1,
+      },
+      1,
+      1,
+    )
 
     expect(projected(ctx, session)).toEqual({
       uncachedInputTokens: 14,
@@ -167,22 +171,29 @@ describe('tokenUsage session projection', () => {
     const retryId = RetryId('token-meter-retry')
     session.append('turn/start', { turn: 1 })
     startStep(session, 1, 1)
-    usageChunk(session, {
-      inputTokens: 10,
-      outputTokens: 2,
-      cacheReadTokens: 3,
-    }, 1, 1)
+    usageChunk(
+      session,
+      {
+        inputTokens: 10,
+        outputTokens: 2,
+        cacheReadTokens: 3,
+      },
+      1,
+      1,
+    )
     session.append('assistant/attempt', {
       turn: 1,
       step: 1,
-      stream: [{
-        type: 'chunk',
-        time: 1,
-        chunk: {
-          type: 'finish',
-          reason: { kind: 'error', failure: { code: 'RATE_LIMIT', message: 'busy', status: 429 } },
+      stream: [
+        {
+          type: 'chunk',
+          time: 1,
+          chunk: {
+            type: 'finish',
+            reason: { kind: 'error', failure: { code: 'RATE_LIMIT', message: 'busy', status: 429 } },
+          },
         },
-      }],
+      ],
     })
     session.append('llm/retry', {
       retryId,
@@ -197,17 +208,27 @@ describe('tokenUsage session projection', () => {
       failure: { code: 'RATE_LIMIT', message: 'busy', status: 429 },
     })
     session.append('llm/retry-started', { retryId, turn: 1, step: 1, retry: 1 })
-    usageChunk(session, {
-      inputTokens: 12,
-      outputTokens: 4,
-      cacheReadTokens: 6,
-    }, 1, 1)
-    finalUsage(session, {
-      inputTokens: 14,
-      outputTokens: 5,
-      cacheReadTokens: 8,
-      cacheWriteTokens: 1,
-    }, 1, 1)
+    usageChunk(
+      session,
+      {
+        inputTokens: 12,
+        outputTokens: 4,
+        cacheReadTokens: 6,
+      },
+      1,
+      1,
+    )
+    finalUsage(
+      session,
+      {
+        inputTokens: 14,
+        outputTokens: 5,
+        cacheReadTokens: 8,
+        cacheWriteTokens: 1,
+      },
+      1,
+      1,
+    )
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
 
     expect(projected(ctx, session)).toEqual({
@@ -221,31 +242,51 @@ describe('tokenUsage session projection', () => {
   it('accumulates disjoint buckets across steps without adding reasoning twice', async () => {
     const { ctx, session } = await harness()
     startStep(session, 1, 1)
-    usageChunk(session, {
-      inputTokens: 10,
-      outputTokens: 6,
-      reasoningTokens: 5,
-      cacheReadTokens: 2,
-    }, 1, 1)
-    finalUsage(session, {
-      inputTokens: 10,
-      outputTokens: 6,
-      reasoningTokens: 5,
-      cacheReadTokens: 2,
-    }, 1, 1)
+    usageChunk(
+      session,
+      {
+        inputTokens: 10,
+        outputTokens: 6,
+        reasoningTokens: 5,
+        cacheReadTokens: 2,
+      },
+      1,
+      1,
+    )
+    finalUsage(
+      session,
+      {
+        inputTokens: 10,
+        outputTokens: 6,
+        reasoningTokens: 5,
+        cacheReadTokens: 2,
+      },
+      1,
+      1,
+    )
     startStep(session, 1, 2)
-    usageChunk(session, {
-      inputTokens: 20,
-      outputTokens: 9,
-      reasoningTokens: 7,
-      cacheWriteTokens: 4,
-    }, 1, 2)
-    finalUsage(session, {
-      inputTokens: 20,
-      outputTokens: 9,
-      reasoningTokens: 7,
-      cacheWriteTokens: 4,
-    }, 1, 2)
+    usageChunk(
+      session,
+      {
+        inputTokens: 20,
+        outputTokens: 9,
+        reasoningTokens: 7,
+        cacheWriteTokens: 4,
+      },
+      1,
+      2,
+    )
+    finalUsage(
+      session,
+      {
+        inputTokens: 20,
+        outputTokens: 9,
+        reasoningTokens: 7,
+        cacheWriteTokens: 4,
+      },
+      1,
+      2,
+    )
 
     expect(projected(ctx, session)).toEqual({
       uncachedInputTokens: 30,
@@ -273,18 +314,26 @@ describe('tokenUsage session projection', () => {
     startStep(session, 1, 1)
     usageChunk(session, { inputTokens: 12, outputTokens: 3 }, 1, 1)
     finalUsage(session, { inputTokens: 12, outputTokens: 3 }, 1, 1)
-    const before = session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'before compaction' }],
-      source: { kind: 'user' },
-    }), { surfaceOp: 'append' })
+    const before = session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'before compaction' }],
+        source: { kind: 'user' },
+      }),
+      { surfaceOp: 'append' },
+    )
     appendSummaryMeter(ctx, session, before.seq, before.seq)
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'compacted' }],
-      source: { kind: 'test' },
-    }), {
-      surfaceOp: { op: 'replace', startSeq: before.seq, endSeq: before.seq },
-      sourceEventSeqs: [before.seq],
-    })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'compacted' }],
+        source: { kind: 'test' },
+      }),
+      {
+        surfaceOp: { op: 'replace', startSeq: before.seq, endSeq: before.seq },
+        sourceEventSeqs: [before.seq],
+      },
+    )
 
     expect(projected(ctx, session)).toEqual({
       uncachedInputTokens: 12,
@@ -298,9 +347,9 @@ describe('tokenUsage session projection', () => {
     const { ctx, session, meterFiber } = await harness()
     startStep(session, 1, 1)
     usageChunk(session, { inputTokens: 8, outputTokens: 2, cacheReadTokens: 5 }, 1, 1)
-    const checkpoint = JSON.parse(JSON.stringify(
-      ctx.sessionProjections.checkpoint(session),
-    )) as ReturnType<typeof ctx.sessionProjections.checkpoint>
+    const checkpoint = JSON.parse(JSON.stringify(ctx.sessionProjections.checkpoint(session))) as ReturnType<
+      typeof ctx.sessionProjections.checkpoint
+    >
 
     await meterFiber.dispose()
     expect(ctx.sessionProjections.snapshot(session).values).not.toHaveProperty('tokenUsage')
@@ -325,37 +374,39 @@ function recordContext(session: Session, model: string, contextWindow?: number):
   session.append('request/context', {
     provider: 'mock',
     model,
-    ...contextWindow === undefined ? {} : { contextWindow },
+    ...(contextWindow === undefined ? {} : { contextWindow }),
   })
 }
 
 /** Append one model-visible user turn and return its surface seq. */
 function appendUser(session: Session, text: string): SessionSeq {
-  return session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' }).seq
+  return session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  ).seq
 }
 
 /** Append one finalized assistant turn carrying its provider usage. */
-function appendAssistant(
-  session: Session,
-  text: string,
-  usage: TokenUsage,
-  turn: number,
-  step: number,
-): SessionSeq {
-  return session.append('assistant/message', {
-    stream: [],
-    turn,
-    step,
-    message: createMessage({
-      role: 'assistant',
-      content: [{ type: 'text', text }],
-      source: { kind: 'model', provider: 'mock', model: 'mock' },
-    }),
-    usage,
-  }, { surfaceOp: 'append' }).seq
+function appendAssistant(session: Session, text: string, usage: TokenUsage, turn: number, step: number): SessionSeq {
+  return session.append(
+    'assistant/message',
+    {
+      stream: [],
+      turn,
+      step,
+      message: createMessage({
+        role: 'assistant',
+        content: [{ type: 'text', text }],
+        source: { kind: 'model', provider: 'mock', model: 'mock' },
+      }),
+      usage,
+    },
+    { surfaceOp: 'append' },
+  ).seq
 }
 
 describe('contextPressure session projection', () => {
@@ -374,12 +425,17 @@ describe('contextPressure session projection', () => {
   it('sums prompt-side buckets and excludes response output', async () => {
     const { ctx, session } = await harness()
     startStep(session, 1, 1)
-    usageChunk(session, {
-      inputTokens: 100,
-      outputTokens: 4_000,
-      cacheReadTokens: 20,
-      cacheWriteTokens: 5,
-    }, 1, 1)
+    usageChunk(
+      session,
+      {
+        inputTokens: 100,
+        outputTokens: 4_000,
+        cacheReadTokens: 20,
+        cacheWriteTokens: 5,
+      },
+      1,
+      1,
+    )
     // Output is deliberately absent: occupancy describes the prompt that was
     // sent, so it holds still while the response streams.
     expect(pressure(ctx, session).pressureTokens).toBe(125)
@@ -401,11 +457,15 @@ describe('contextPressure session projection', () => {
     recordContext(session, 'small', 64_000)
     usageChunk(session, { inputTokens: 100, outputTokens: 10 }, 1, 1)
     expect(pressure(ctx, session)).toEqual({
-      pressureTokens: 100, projectedTokens: 100, contextWindow: 64_000,
+      pressureTokens: 100,
+      projectedTokens: 100,
+      contextWindow: 64_000,
     })
     recordContext(session, 'large', 256_000)
     expect(pressure(ctx, session)).toEqual({
-      pressureTokens: 100, projectedTokens: 100, contextWindow: 256_000,
+      pressureTokens: 100,
+      projectedTokens: 100,
+      contextWindow: 256_000,
     })
   })
 
@@ -426,7 +486,9 @@ describe('contextPressure session projection', () => {
     recordContext(session, 'small', 64_000)
     usageChunk(session, { inputTokens: 100, outputTokens: 10 }, 1, 1)
     const changed: string[] = []
-    ctx.sessionProjections.onChanged((_session, key) => { changed.push(key) })
+    ctx.sessionProjections.onChanged((_session, key) => {
+      changed.push(key)
+    })
 
     session.append('session/end-seed', {})
     expect(changed).not.toContain('contextPressure')
@@ -443,9 +505,9 @@ describe('contextPressure session projection', () => {
     startStep(session, 1, 1)
     recordContext(session, 'small', 64_000)
     usageChunk(session, { inputTokens: 42, outputTokens: 2 }, 1, 1)
-    const checkpoint = JSON.parse(JSON.stringify(
-      ctx.sessionProjections.checkpoint(session),
-    )) as ReturnType<typeof ctx.sessionProjections.checkpoint>
+    const checkpoint = JSON.parse(JSON.stringify(ctx.sessionProjections.checkpoint(session))) as ReturnType<
+      typeof ctx.sessionProjections.checkpoint
+    >
     expect(checkpoint.contextPressure?.ver).toBe(5)
 
     await meterFiber.dispose()
@@ -481,28 +543,37 @@ describe('contextPressure session projection', () => {
     // Compaction reports no usage of its own, so `pressureTokens` cannot move;
     // the projected figure must shrink anyway — the defect this field fixes.
     appendSummaryMeter(ctx, session, question, grown)
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'summary' }],
-      source: { kind: 'test' },
-    }), {
-      surfaceOp: { op: 'replace', startSeq: question, endSeq: grown },
-      sourceEventSeqs: [question, answer, grown],
-    })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'summary' }],
+        source: { kind: 'test' },
+      }),
+      {
+        surfaceOp: { op: 'replace', startSeq: question, endSeq: grown },
+        sourceEventSeqs: [question, answer, grown],
+      },
+    )
     const compacted = pressure(ctx, session)
     expect(compacted.pressureTokens).toBe(900)
     expect(compacted.projectedTokens).toBeLessThan(beforeCompaction!)
   })
 
-  it.each(['start', 'end'] as const)('rejects a shadow claim with a mismatched %s endpoint', async (endpoint) => {
+  it.each(['start', 'end'] as const)('rejects a shadow claim with a mismatched %s endpoint', async endpoint => {
     const { ctx, session } = await harness()
     try {
       const first = appendUser(session, 'first')
       const last = appendUser(session, 'last')
       appendSummaryMeter(ctx, session, first, last)
       const target = endpoint === 'start' ? last : first
-      session.append('user/message', createUserMessage({
-        content: [{ type: 'text', text: 'summary' }], source: { kind: 'test' },
-      }), { surfaceOp: { op: 'replace', startSeq: target, endSeq: target }, sourceEventSeqs: [target] })
+      session.append(
+        'user/message',
+        createUserMessage({
+          content: [{ type: 'text', text: 'summary' }],
+          source: { kind: 'test' },
+        }),
+        { surfaceOp: { op: 'replace', startSeq: target, endSeq: target }, sourceEventSeqs: [target] },
+      )
       expect(() => pressure(ctx, session)).toThrow('has no adjacent shadow price')
     } finally {
       await ctx.fiber.dispose()
@@ -517,13 +588,17 @@ describe('contextPressure session projection', () => {
     session.append('step/end', { turn: 1, step: 1 })
     const before = pressure(ctx, session)
 
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: 'summary without a preceding claim' }],
-      source: { kind: 'test' },
-    }), {
-      surfaceOp: { op: 'replace', startSeq: question, endSeq: question },
-      sourceEventSeqs: [question],
-    })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: 'summary without a preceding claim' }],
+        source: { kind: 'test' },
+      }),
+      {
+        surfaceOp: { op: 'replace', startSeq: question, endSeq: question },
+        sourceEventSeqs: [question],
+      },
+    )
 
     expect(pressure(ctx, session)).toEqual(before)
   })
@@ -538,13 +613,17 @@ describe('contextPressure session projection', () => {
     appendAssistant(session, 'ok', { inputTokens: 3, outputTokens: 1 }, 1, 1)
     session.append('step/end', { turn: 1, step: 1 })
     appendSummaryMeter(ctx, session, question, question)
-    session.append('user/message', createUserMessage({
-      content: [{ type: 'text', text: '.' }],
-      source: { kind: 'test' },
-    }), {
-      surfaceOp: { op: 'replace', startSeq: question, endSeq: question },
-      sourceEventSeqs: [question],
-    })
+    session.append(
+      'user/message',
+      createUserMessage({
+        content: [{ type: 'text', text: '.' }],
+        source: { kind: 'test' },
+      }),
+      {
+        surfaceOp: { op: 'replace', startSeq: question, endSeq: question },
+        sourceEventSeqs: [question],
+      },
+    )
     expect(pressure(ctx, session).projectedTokens).toBe(0)
   })
 })

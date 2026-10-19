@@ -14,12 +14,12 @@ interface UnansweredQuestionCardItem {
 /** Validated, localized data rendered by the ask-user transcript card. */
 export type AskQuestionCardModel =
   | {
-    kind: 'answered'
-    questions: readonly AnsweredQuestionCardItem[]
-    skippedLabel: string
-  }
+      kind: 'answered'
+      questions: readonly AnsweredQuestionCardItem[]
+      skippedLabel: string
+    }
   | {
-    kind: 'unanswered'
-    questions: readonly UnansweredQuestionCardItem[]
-    verdict: string
-  }
+      kind: 'unanswered'
+      questions: readonly UnansweredQuestionCardItem[]
+      verdict: string
+    }

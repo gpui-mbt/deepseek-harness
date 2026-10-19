@@ -9,9 +9,10 @@ class NestedAdapter extends LlmAdapter {
     return Promise.resolve({ provider, id: model, name: model })
   }
 
-  async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
-    const messages = options.messages.flatMap(message => message.content
-      .filter(block => block.type === 'text').map(block => block.text)).join('\n')
+  async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+    const messages = options.messages
+      .flatMap(message => message.content.filter(block => block.type === 'text').map(block => block.text))
+      .join('\n')
     let answer: string
     if (messages.includes('nested-child-task')) {
       writeFileSync(process.env.DSH_TEST_CHILD_READY!, 'ready\n')

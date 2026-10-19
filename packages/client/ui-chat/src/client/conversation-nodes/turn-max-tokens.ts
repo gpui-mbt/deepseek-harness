@@ -1,6 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ConversationMatch, ConversationNodeContext, ConversationNodeDefinition, TurnMaxTokensNode,
+  ConversationMatch,
+  ConversationNodeContext,
+  ConversationNodeDefinition,
+  TurnMaxTokensNode,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { CHAT_SYNTHETIC_SEQ_OFFSETS, chatNode } from './common.ts'
 
@@ -33,9 +36,7 @@ function noticeAnchor(context: ConversationNodeContext<TurnMaxTokensState>, seq:
   const location = context.start?.location ?? context.matches[0]?.location
   if (location?.kind !== 'turn' && location?.kind !== 'step') return seq
   const closing = location.turn.data.get('turn-tail')?.closing
-  return closing === null || closing === undefined
-    ? seq
-    : closing.finalNode.seq + CHAT_SYNTHETIC_SEQ_OFFSETS.maxTokensNotice
+  return closing === null || closing === undefined ? seq : closing.finalNode.seq + CHAT_SYNTHETIC_SEQ_OFFSETS.maxTokensNotice
 }
 
 function stateFrom(match: ConversationMatch): TurnMaxTokensState | undefined {
@@ -47,7 +48,7 @@ function stateFrom(match: ConversationMatch): TurnMaxTokensState | undefined {
 export const turnMaxTokensDefinition: ConversationNodeDefinition<TurnMaxTokensState> = {
   kind: 'turn-max-tokens',
   target: 'chat',
-  match: (event) => {
+  match: event => {
     if (event.type === 'turn/end' && event.data.reason.kind === 'max-tokens') {
       return { id: String(event.data.turn), role: 'start' }
     }
@@ -59,7 +60,7 @@ export const turnMaxTokensDefinition: ConversationNodeDefinition<TurnMaxTokensSt
     return state
   },
   update: context => context.state,
-  buildViewNode: (context) => {
+  buildViewNode: context => {
     const state = context.state
     if (state === undefined) return null
     const node: TurnMaxTokensNode = {

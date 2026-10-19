@@ -7,7 +7,7 @@
 // echoes the prompt requestId as the durable source's rpcId, so the retirement
 // path here is the production correlation, not a test hook.
 import { fireEvent, screen, waitFor } from '@testing-library/react'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { createAssembledSessionComposer, installAssembledBootEnv, mountAssembledApp } from './assembled-boot.ts'
 
 installAssembledBootEnv()
@@ -22,15 +22,20 @@ it('paints the submission echo on the send keystroke and swaps it for the durabl
       getData: () => '',
     },
   })
-  await waitFor(() => {
-    if (document.querySelector('[role="group"][aria-label="Pending attachments"] img') === null) {
-      throw new Error('attachment rail missing')
-    }
-  }, { timeout: 5_000 })
+  await waitFor(
+    () => {
+      if (document.querySelector('[role="group"][aria-label="Pending attachments"] img') === null) {
+        throw new Error('attachment rail missing')
+      }
+    },
+    { timeout: 5_000 },
+  )
   fireEvent.paste(composer, {
     clipboardData: { items: [], getData: () => '回显这条消息' },
   })
-  await waitFor(() => { expect(composer.textContent).toBe('回显这条消息') })
+  await waitFor(() => {
+    expect(composer.textContent).toBe('回显这条消息')
+  })
   fireEvent.keyDown(composer, { key: 'Enter' })
 
   // Synchronously after the keystroke: the echo bubble is in the flow with
@@ -48,15 +53,21 @@ it('paints the submission echo on the send keystroke and swaps it for the durabl
   // The fixture's durable user/message (source.rpcId echoes the prompt
   // requestId) replaces the echo: one bubble, no marker left, and the image
   // now renders from the durable gallery.
-  await waitFor(() => {
-    if (document.querySelector('[data-submission-echo]') !== null) {
-      throw new Error('submission echo still present after the durable node arrived')
-    }
-  }, { timeout: 10_000 })
+  await waitFor(
+    () => {
+      if (document.querySelector('[data-submission-echo]') !== null) {
+        throw new Error('submission echo still present after the durable node arrived')
+      }
+    },
+    { timeout: 10_000 },
+  )
   expect(screen.getAllByText('回显这条消息')).toHaveLength(1)
-  await waitFor(() => {
-    if (document.querySelector('[data-align="end"] img') === null) {
-      throw new Error('durable user gallery missing')
-    }
-  }, { timeout: 10_000 })
+  await waitFor(
+    () => {
+      if (document.querySelector('[data-align="end"] img') === null) {
+        throw new Error('durable user gallery missing')
+      }
+    },
+    { timeout: 10_000 },
+  )
 })

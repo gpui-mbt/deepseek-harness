@@ -105,9 +105,11 @@ export function createCatalogSource<Item extends { readonly id: ScheduleId } = S
       return
     }
     if (current !== epoch) return
-    publish(result.ok
-      ? { ...snapshot, records: result.value, status: 'ready', settled: true, readSettled: request }
-      : { ...snapshot, status: 'error' })
+    publish(
+      result.ok
+        ? { ...snapshot, records: result.value, status: 'ready', settled: true, readSettled: request }
+        : { ...snapshot, status: 'error' },
+    )
   }
   let batching = false
   let inFlight: Promise<void> | undefined
@@ -126,7 +128,9 @@ export function createCatalogSource<Item extends { readonly id: ScheduleId } = S
     if (!supersede && batching && inFlight !== undefined && inFlightRequest > since) return inFlight
     if (!batching) {
       batching = true
-      void Promise.resolve().then(() => { batching = false })
+      void Promise.resolve().then(() => {
+        batching = false
+      })
     }
     const current = ++epoch
     const pending = read(request, current)
@@ -134,13 +138,17 @@ export function createCatalogSource<Item extends { readonly id: ScheduleId } = S
     inFlight = pending
     // Only this read may clear the field: a newer request can replace it while it
     // is still in flight, and that handle stays joinable.
-    void pending.finally(() => { if (inFlight === pending) inFlight = undefined })
+    void pending.finally(() => {
+      if (inFlight === pending) inFlight = undefined
+    })
     return pending
   }
   // A change or a reset states that the connection moved, so its read supersedes
   // whatever is in flight instead of joining it; only consumers asking for a
   // current answer - the created-task cards - share a read with their commit.
-  const invalidate = (): void => { void refresh(true) }
+  const invalidate = (): void => {
+    void refresh(true)
+  }
   const remove = async (id: ScheduleId): Promise<CatalogDeleteOutcome> => {
     if (snapshot.deleting.includes(id)) return 'pending'
     const started = lifecycle

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /** The switch follows accepted Host state, including refused and delayed saves. */
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -14,20 +14,34 @@ afterEach(cleanup)
 
 function fixture(writable = true) {
   const formState = createSnapshotStore<ConfigFormSnapshot<UploadSettings>>({
-    status: 'ready', value: { enabled: true }, base: {}, user: {}, revision: 0, writable,
+    status: 'ready',
+    value: { enabled: true },
+    base: {},
+    user: {},
+    revision: 0,
+    writable,
   })
   const set = vi.fn(async (_field: string, enabled: unknown) => {
-    formState.update((state) => { state.value = { enabled: enabled === true } })
+    formState.update(state => {
+      state.value = { enabled: enabled === true }
+    })
     return true
   })
   const form: ConfigForm<UploadSettings> = {
-    getSnapshot: () => formState.getSnapshot(), subscribe: listener => formState.subscribe(listener),
-    set, unset: vi.fn(), mutate: vi.fn(),
+    getSnapshot: () => formState.getSnapshot(),
+    subscribe: listener => formState.subscribe(listener),
+    set,
+    unset: vi.fn(),
+    mutate: vi.fn(),
   }
   const preference = new UploadPreference(form)
   const props = {
-    useUpload: bindSnapshotSelector(formState), useMutation: bindSnapshotSelector(preference.state),
-    setEnabled: (enabled: boolean) => preference.setEnabled(enabled), dismiss: () => { preference.dismiss() },
+    useUpload: bindSnapshotSelector(formState),
+    useMutation: bindSnapshotSelector(preference.state),
+    setEnabled: (enabled: boolean) => preference.setEnabled(enabled),
+    dismiss: () => {
+      preference.dismiss()
+    },
     t: (key: keyof typeof en) => en[key],
   } as ComponentProps<typeof UploadRow>
   return { formState, set, preference, props }
@@ -38,17 +52,24 @@ it('shows a saved preference and keeps its notice after the row unmounts', async
   const row = render(<UploadRow {...props} />)
   render(<UploadToast {...props} />)
   fireEvent.click(screen.getByRole('switch', { name: en.title }))
-  await waitFor(() => { expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('false') })
+  await waitFor(() => {
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('false')
+  })
   expect(set).toHaveBeenCalledWith('enabled', false)
   row.unmount()
   expect(screen.getByText(en.saved)).toBeTruthy()
 })
 
-it.each(['refused', 'rejected'] as const)('retains accepted state after a %s write', async (failure) => {
+it.each(['refused', 'rejected'] as const)('retains accepted state after a %s write', async failure => {
   const { props, set } = fixture()
   if (failure === 'refused') set.mockResolvedValue(false)
   else set.mockRejectedValue(new Error('Disconnected'))
-  render(<><UploadRow {...props} /><UploadToast {...props} /></>)
+  render(
+    <>
+      <UploadRow {...props} />
+      <UploadToast {...props} />
+    </>,
+  )
   fireEvent.click(screen.getByRole('switch'))
   await screen.findByText(en.failed)
   expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true')
@@ -64,7 +85,9 @@ it('disables input until a pending write settles', async () => {
   await preference.setEnabled(true)
   expect(set).toHaveBeenCalledTimes(1)
   pending.resolve(false)
-  await waitFor(() => { expect(screen.getByRole('switch').hasAttribute('disabled')).toBe(false) })
+  await waitFor(() => {
+    expect(screen.getByRole('switch').hasAttribute('disabled')).toBe(false)
+  })
 })
 
 it('shows the Chinese label and cannot edit read-only settings', async () => {

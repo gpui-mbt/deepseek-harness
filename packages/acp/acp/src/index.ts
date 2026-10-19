@@ -125,7 +125,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
   const notify = async (notification: SessionNotification): Promise<void> => {
     try {
       await conn.notify(methods.client.session.update, notification)
-    /* v8 ignore start -- the ACP SDK contains notification-handler failures; only a transport write failure reaches this guard. */
+      /* v8 ignore start -- the ACP SDK contains notification-handler failures; only a transport write failure reaches this guard. */
     } catch (error: unknown) {
       logger.warn(`acp: session/update failed: ${String(error)}`)
     }
@@ -160,20 +160,23 @@ export function apply(ctx: Context, config: AcpConfig): void {
     const record = ownedRecord(request.agent)
     if (record === undefined || request.callId === undefined) return next()
     const callId = request.callId
-    return record.drainUpdates().then(() => {
-      const params: RequestPermissionRequest = {
-        sessionId: record.agent.session.id,
-        toolCall: { toolCallId: callId },
-        options: [
-          { optionId: 'allow-once', name: 'Allow once', kind: 'allow_once' },
-          { optionId: 'reject-once', name: 'Reject', kind: 'reject_once' },
-        ],
-      }
-      return conn.request(methods.client.session.requestPermission, params)
-    }).then(({ outcome }) => {
-      if (outcome.outcome === 'cancelled') return 'cancelled'
-      return outcome.optionId === 'allow-once' ? 'allowed-once' : 'rejected'
-    })
+    return record
+      .drainUpdates()
+      .then(() => {
+        const params: RequestPermissionRequest = {
+          sessionId: record.agent.session.id,
+          toolCall: { toolCallId: callId },
+          options: [
+            { optionId: 'allow-once', name: 'Allow once', kind: 'allow_once' },
+            { optionId: 'reject-once', name: 'Reject', kind: 'reject_once' },
+          ],
+        }
+        return conn.request(methods.client.session.requestPermission, params)
+      })
+      .then(({ outcome }) => {
+        if (outcome.outcome === 'cancelled') return 'cancelled'
+        return outcome.optionId === 'allow-once' ? 'allowed-once' : 'rejected'
+      })
   })
 
   const implementation = {
@@ -253,7 +256,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
         if (persisted === undefined || persisted.origin === 'subagent' || persisted.parentSession !== undefined) {
           throw invalidParams(`session is not resumable: ${sessionId}`)
         }
-        if (!await sameDirectory(persisted.cwd, params.cwd)) {
+        if (!(await sameDirectory(persisted.cwd, params.cwd))) {
           throw invalidParams(`session cwd does not match: ${params.cwd}`)
         }
         let record: AcpSession
@@ -272,7 +275,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
           throw error
         }
         /* v8 ignore start -- the persisted header was checked before resume; the factory restores that exact header. */
-        if (!await sameDirectory(record.agent.session.header.cwd, params.cwd)) {
+        if (!(await sameDirectory(record.agent.session.header.cwd, params.cwd))) {
           await record.close('session/resume cwd mismatch')
           throw invalidParams(`session cwd does not match: ${params.cwd}`)
         }
@@ -290,7 +293,9 @@ export function apply(ctx: Context, config: AcpConfig): void {
           await record.close('session/resume option discovery failed')
           throw error
         }
-      })().finally(() => { activating.delete(sessionId) })
+      })().finally(() => {
+        activating.delete(sessionId)
+      })
     },
 
     async listSessions(params: ListSessionsRequest, signal: AbortSignal): Promise<ListSessionsResponse> {
@@ -305,39 +310,37 @@ export function apply(ctx: Context, config: AcpConfig): void {
         throw invalidParams((error as Error).message)
       }
       const listed = await persistence.list({ signal })
-      const filtered = await Promise.all(listed.map(async ({ header }) => {
-        if (
-          sessions.has(header.id)
-            || activating.has(header.id)
-            || ctx.sessions.get(header.id) !== undefined
-            || header.origin === 'subagent'
-            || header.parentSession !== undefined
-            || header.cwd === undefined
-            || !isAbsolute(header.cwd)
-        ) return undefined
-        if (params.cwd !== undefined && params.cwd !== null && !await sameDirectory(header.cwd, params.cwd)) {
-          return undefined
-        }
-        return { sessionId: header.id, cwd: header.cwd, createdAt: header.createdAt }
-      }))
+      const filtered = await Promise.all(
+        listed.map(async ({ header }) => {
+          if (
+            sessions.has(header.id) ||
+            activating.has(header.id) ||
+            ctx.sessions.get(header.id) !== undefined ||
+            header.origin === 'subagent' ||
+            header.parentSession !== undefined ||
+            header.cwd === undefined ||
+            !isAbsolute(header.cwd)
+          )
+            return undefined
+          if (params.cwd !== undefined && params.cwd !== null && !(await sameDirectory(header.cwd, params.cwd))) {
+            return undefined
+          }
+          return { sessionId: header.id, cwd: header.cwd, createdAt: header.createdAt }
+        }),
+      )
       const entries = filtered
         .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined)
         .sort((left, right) => right.createdAt - left.createdAt || compareSessionIds(left.sessionId, right.sessionId))
-      const remaining = cursor === undefined
-        ? entries
-        : entries.filter(entry => isAfterSessionListCursor(entry, cursor))
+      const remaining = cursor === undefined ? entries : entries.filter(entry => isAfterSessionListCursor(entry, cursor))
       const page = remaining.slice(0, sessionListPageSize)
       const next = remaining.length > page.length ? page.at(-1) : undefined
       return {
         sessions: page.map(({ sessionId, cwd }) => ({ sessionId, cwd })),
-        ...next === undefined ? {} : { nextCursor: encodeSessionListCursor(next) },
+        ...(next === undefined ? {} : { nextCursor: encodeSessionListCursor(next) }),
       }
     },
 
-    async setSessionConfigOption(
-      params: SetSessionConfigOptionRequest,
-      signal: AbortSignal,
-    ): Promise<SetSessionConfigOptionResponse> {
+    async setSessionConfigOption(params: SetSessionConfigOptionRequest, signal: AbortSignal): Promise<SetSessionConfigOptionResponse> {
       assertOpen()
       const record = requireSession(brandString<SessionId>(params.sessionId))
       try {
@@ -375,10 +378,9 @@ export function apply(ctx: Context, config: AcpConfig): void {
   }
 
   /* v8 ignore next 4 -- production stdio wiring; tests inject config.stream. */
-  const stream: Stream = config.stream ?? ndJsonStream(
-    Writable.toWeb(process.stdout) as WritableStream<Uint8Array>,
-    Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>,
-  )
+  const stream: Stream =
+    config.stream ??
+    ndJsonStream(Writable.toWeb(process.stdout) as WritableStream<Uint8Array>, Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>)
   const app = createAcpAgentApp({ name: 'deepseek-harness-acp' })
     .onRequest(methods.agent.initialize, ({ params }) => implementation.initialize(params))
     .onRequest(methods.agent.authenticate, async ({ params }) => {
@@ -417,10 +419,7 @@ export function apply(ctx: Context, config: AcpConfig): void {
         // which renders only its message. Embed every per-session diagnostic,
         // including nested causes and aggregate members, in that message.
         const detail = failures.map(failure => errorChain(failure)).join('; ')
-        throw new AggregateError(
-          failures,
-          `ACP agent teardown failed for ${failures.length} session(s): ${detail}`,
-        )
+        throw new AggregateError(failures, `ACP agent teardown failed for ${failures.length} session(s): ${detail}`)
       }
     })()
     return quiescing
@@ -447,16 +446,14 @@ export function apply(ctx: Context, config: AcpConfig): void {
  */
 function agentOptions(config: AcpConfig): { provider?: string; model?: string } {
   return {
-    ...config.provider !== undefined ? { provider: config.provider } : {},
-    ...config.model !== undefined ? { model: config.model } : {},
+    ...(config.provider !== undefined ? { provider: config.provider } : {}),
+    ...(config.model !== undefined ? { model: config.model } : {}),
   }
 }
 
 /** Initial session selection when both deployment fields are present. */
 function initialSelection(config: AcpConfig): ModelSelection | undefined {
-  return config.provider === undefined || config.model === undefined
-    ? undefined
-    : { provider: config.provider, model: config.model }
+  return config.provider === undefined || config.model === undefined ? undefined : { provider: config.provider, model: config.model }
 }
 
 interface SessionListCursor {
@@ -484,14 +481,15 @@ function decodeSessionListCursor(value: string | null | undefined): SessionListC
     const createdAt: unknown = Array.isArray(decoded) ? decoded[0] : undefined
     const sessionId: unknown = Array.isArray(decoded) ? decoded[1] : undefined
     if (
-      !Array.isArray(decoded)
-      || decoded.length !== 2
-      || typeof createdAt !== 'number'
-      || !Number.isSafeInteger(createdAt)
-      || createdAt < 0
-      || typeof sessionId !== 'string'
-      || sessionId.length === 0
-    ) throw new Error('invalid cursor fields')
+      !Array.isArray(decoded) ||
+      decoded.length !== 2 ||
+      typeof createdAt !== 'number' ||
+      !Number.isSafeInteger(createdAt) ||
+      createdAt < 0 ||
+      typeof sessionId !== 'string' ||
+      sessionId.length === 0
+    )
+      throw new Error('invalid cursor fields')
     const canonical = Buffer.from(JSON.stringify(decoded), 'utf8').toString('base64url')
     if (canonical !== value) throw new Error('non-canonical cursor')
     return { createdAt, sessionId }
@@ -507,8 +505,9 @@ function encodeSessionListCursor(entry: SessionListCursor): string {
 
 /** Test whether an entry follows the cursor in newest-first list order. */
 function isAfterSessionListCursor(entry: SessionListCursor, cursor: SessionListCursor): boolean {
-  return entry.createdAt < cursor.createdAt
-    || (entry.createdAt === cursor.createdAt && compareSessionIds(entry.sessionId, cursor.sessionId) > 0)
+  return (
+    entry.createdAt < cursor.createdAt || (entry.createdAt === cursor.createdAt && compareSessionIds(entry.sessionId, cursor.sessionId) > 0)
+  )
 }
 
 /** Compare opaque session ids by stable UTF-8 bytes, independent of process locale. */
@@ -519,11 +518,7 @@ function compareSessionIds(left: string, right: string): number {
 /** Reject workspace features outside the automation contract. */
 function validateWorkspaceParams(params: { cwd: string; additionalDirectories?: string[] | null }): void {
   if (!isAbsolute(params.cwd)) throw invalidParams(`cwd must be an absolute path: ${params.cwd}`)
-  if (
-    params.additionalDirectories !== undefined
-    && params.additionalDirectories !== null
-    && params.additionalDirectories.length > 0
-  ) {
+  if (params.additionalDirectories !== undefined && params.additionalDirectories !== null && params.additionalDirectories.length > 0) {
     throw invalidParams('additionalDirectories is not supported')
   }
 }

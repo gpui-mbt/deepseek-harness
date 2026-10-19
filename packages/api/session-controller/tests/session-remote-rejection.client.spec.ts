@@ -5,7 +5,7 @@
  * prompt error. Carrier failures never reject: they arrive as folded results,
  * covered by session.client.spec.ts.
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-api-remotes/client'
 import { Session } from '../src/client/sessions/session.ts'
 import type { SessionRemotes } from '../src/client/sessions/remotes.ts'
@@ -17,7 +17,9 @@ const PARENT = 'fk-parent' as SessionId
 function rejecting(message: string): SessionRemotes {
   const reject = (): Promise<never> => Promise.reject(new Error(message))
   return {
-    $stream: () => { throw new Error('unused') },
+    $stream: () => {
+      throw new Error('unused')
+    },
     commands: { execute: reject },
     session: { prompt: reject, cancel: reject },
     subagents: { list: reject, prompt: reject, interruptByParent: reject },

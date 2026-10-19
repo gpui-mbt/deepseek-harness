@@ -29,9 +29,7 @@ function dimensions(svg: SVGSVGElement): { width: number; height: number } | und
  * @param viewer Shared modal owner for images and diagrams.
  * @returns Resources owned by the mounted theme.
  */
-export function installMermaidViewer(
-  doc: Document, language: () => string, viewer: Pick<MediaViewer, 'open'>,
-): MermaidViewer {
+export function installMermaidViewer(doc: Document, language: () => string, viewer: Pick<MediaViewer, 'open'>): MermaidViewer {
   const entries = new Map<Element, { svg: SVGSVGElement; button: HTMLButtonElement }>()
   let active: SVGSVGElement | undefined
   let close: (() => void) | undefined
@@ -66,14 +64,18 @@ export function installMermaidViewer(
         const size = dimensions(svg)
         if (!size) return
         const copy = language().startsWith('zh') ? messages.zh : messages.en
-        close = viewer.open({
-          element: svg.cloneNode(true) as SVGSVGElement,
-          ...size,
-          title: doc.querySelector('.vp-doc h1')?.textContent.trim() || copy.title,
-        }, trigger, () => {
-          close = undefined
-          active = undefined
-        })
+        close = viewer.open(
+          {
+            element: svg.cloneNode(true) as SVGSVGElement,
+            ...size,
+            title: doc.querySelector('.vp-doc h1')?.textContent.trim() || copy.title,
+          },
+          trigger,
+          () => {
+            close = undefined
+            active = undefined
+          },
+        )
         active = svg
       })
       container.prepend(trigger)

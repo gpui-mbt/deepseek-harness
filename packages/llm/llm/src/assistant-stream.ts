@@ -19,28 +19,28 @@ export interface TimedStreamChunk {
 /** Lossless compact records embedded in durable Assistant attempt events. */
 export type AssistantStreamRecord =
   | {
-    readonly type: 'text-chunks'
-    readonly time0: number
-    readonly index: number
-    readonly dt: readonly number[]
-    readonly texts: readonly string[]
-  }
+      readonly type: 'text-chunks'
+      readonly time0: number
+      readonly index: number
+      readonly dt: readonly number[]
+      readonly texts: readonly string[]
+    }
   | {
-    readonly type: 'reasoning-chunks'
-    readonly time0: number
-    readonly index: number
-    readonly dt: readonly number[]
-    readonly texts: readonly string[]
-  }
+      readonly type: 'reasoning-chunks'
+      readonly time0: number
+      readonly index: number
+      readonly dt: readonly number[]
+      readonly texts: readonly string[]
+    }
   | {
-    readonly type: 'tool-call-chunks'
-    readonly time0: number
-    readonly index: number
-    readonly dt: readonly number[]
-    readonly id: ToolCallId
-    readonly name?: string
-    readonly args: readonly string[]
-  }
+      readonly type: 'tool-call-chunks'
+      readonly time0: number
+      readonly index: number
+      readonly dt: readonly number[]
+      readonly id: ToolCallId
+      readonly name?: string
+      readonly args: readonly string[]
+    }
   | { readonly type: 'chunk'; readonly time: number; readonly chunk: StreamChunk }
 
 /** One packed delta run: every compact record except a raw `chunk`. */
@@ -54,23 +54,23 @@ export type RawStreamChunkType = Exclude<StreamChunk['type'], 'text-delta' | 're
 
 type MutableRecord =
   | {
-    type: 'text-chunks' | 'reasoning-chunks'
-    time0: number
-    index: number
-    dt: number[]
-    texts: string[]
-    lastTime: number
-  }
+      type: 'text-chunks' | 'reasoning-chunks'
+      time0: number
+      index: number
+      dt: number[]
+      texts: string[]
+      lastTime: number
+    }
   | {
-    type: 'tool-call-chunks'
-    time0: number
-    index: number
-    dt: number[]
-    id: ToolCallId
-    name?: string
-    args: string[]
-    lastTime: number
-  }
+      type: 'tool-call-chunks'
+      time0: number
+      index: number
+      dt: number[]
+      id: ToolCallId
+      name?: string
+      args: string[]
+      lastTime: number
+    }
   | { type: 'chunk'; time: number; chunk: StreamChunk }
 
 function safeTime(value: number): number {
@@ -140,14 +140,17 @@ export class AssistantStreamAccumulator {
           return timed
         }
         const gap = previous?.type === 'tool-call-chunks' ? safeGap(previous.lastTime, time) : undefined
-        const sameName = previous?.type === 'tool-call-chunks'
-          && Object.hasOwn(previous, 'name') === Object.hasOwn(chunk, 'name')
-          && previous.name === chunk.name
-        if (previous?.type === 'tool-call-chunks'
-          && previous.index === chunk.index
-          && previous.id === chunk.id
-          && sameName
-          && gap !== undefined) {
+        const sameName =
+          previous?.type === 'tool-call-chunks' &&
+          Object.hasOwn(previous, 'name') === Object.hasOwn(chunk, 'name') &&
+          previous.name === chunk.name
+        if (
+          previous?.type === 'tool-call-chunks' &&
+          previous.index === chunk.index &&
+          previous.id === chunk.id &&
+          sameName &&
+          gap !== undefined
+        ) {
           previous.dt.push(gap)
           previous.args.push(chunk.argumentsDelta)
           previous.lastTime = time
@@ -158,7 +161,7 @@ export class AssistantStreamAccumulator {
             index: chunk.index,
             dt: [],
             id: chunk.id,
-            ...Object.hasOwn(chunk, 'name') ? { name: chunk.name } : {},
+            ...(Object.hasOwn(chunk, 'name') ? { name: chunk.name } : {}),
             args: [chunk.argumentsDelta],
             lastTime: time,
           })
@@ -221,7 +224,7 @@ export function expandAssistantStream(stream: readonly AssistantStreamRecord[]):
           type: 'tool-call-delta',
           index: record.index,
           id: record.id,
-          ...Object.hasOwn(record, 'name') ? { name: record.name } : {},
+          ...(Object.hasOwn(record, 'name') ? { name: record.name } : {}),
           argumentsDelta: members[index] as string,
         }
       }
@@ -332,9 +335,7 @@ export function runFirstVisibleTime(run: AssistantStreamRun): number | undefined
  */
 export function assistantStreamFirstTokenTime(stream: readonly AssistantStreamRecord[]): number | undefined {
   for (const record of stream) {
-    const time = record.type === 'chunk'
-      ? (isTokenDelta(record.chunk) ? record.time : undefined)
-      : runFirstTokenTime(record)
+    const time = record.type === 'chunk' ? (isTokenDelta(record.chunk) ? record.time : undefined) : runFirstTokenTime(record)
     if (time !== undefined) return time
   }
   return undefined
@@ -347,9 +348,7 @@ export function assistantStreamFirstTokenTime(stream: readonly AssistantStreamRe
  * @returns whether a transcript reader would see anything from this stream.
  */
 export function assistantStreamHasVisibleContent(stream: readonly AssistantStreamRecord[]): boolean {
-  return stream.some(record => record.type === 'chunk'
-    ? isVisibleChunk(record.chunk)
-    : runFirstVisibleTime(record) !== undefined)
+  return stream.some(record => (record.type === 'chunk' ? isVisibleChunk(record.chunk) : runFirstVisibleTime(record) !== undefined))
 }
 
 /**
@@ -359,9 +358,9 @@ export function assistantStreamHasVisibleContent(stream: readonly AssistantStrea
  * @returns whether the stream contributes visible text.
  */
 export function assistantStreamHasVisibleText(stream: readonly AssistantStreamRecord[]): boolean {
-  return stream.some(record => record.type === 'text-chunks'
-    ? record.texts.some(hasNonWhitespace)
-    : record.type === 'chunk' && chunkHasVisibleText(record.chunk))
+  return stream.some(record =>
+    record.type === 'text-chunks' ? record.texts.some(hasNonWhitespace) : record.type === 'chunk' && chunkHasVisibleText(record.chunk),
+  )
 }
 
 /**
@@ -422,10 +421,7 @@ export function joinAssistantStreamText(stream: readonly AssistantStreamRecord[]
  * @param assembler - assembler to feed; a fresh one by default.
  * @returns the same assembler after every record was pushed.
  */
-export function assembleAssistantStream(
-  stream: readonly AssistantStreamRecord[],
-  assembler = new BlockAssembler(),
-): BlockAssembler {
+export function assembleAssistantStream(stream: readonly AssistantStreamRecord[], assembler = new BlockAssembler()): BlockAssembler {
   for (const record of stream) {
     switch (record.type) {
       case 'chunk':
@@ -442,7 +438,7 @@ export function assembleAssistantStream(
           type: 'tool-call-delta',
           index: record.index,
           id: record.id,
-          ...record.name === undefined ? {} : { name: record.name },
+          ...(record.name === undefined ? {} : { name: record.name }),
           argumentsDelta: record.args.join(''),
         })
         break
@@ -486,9 +482,7 @@ function validateRecord(value: unknown): AssistantStreamRecord {
     case 'chunk': {
       exactKeys(record, ['type', 'time', 'chunk'], 'chunk')
       const time = safeTime(record.time as number)
-      if (typeof record.chunk !== 'object'
-        || record.chunk === null
-        || Array.isArray(record.chunk)) {
+      if (typeof record.chunk !== 'object' || record.chunk === null || Array.isArray(record.chunk)) {
         throw new TypeError('Assistant stream raw chunk must be a lossless JSON object')
       }
       let chunk: StreamChunk

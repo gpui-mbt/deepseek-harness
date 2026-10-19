@@ -55,12 +55,18 @@ export class ClientTerminals extends Service {
    * @param ctx - Client root Context with Gateway and terminal Remote namespace.
    * @param remote - generated terminal namespace.
    */
-  constructor(ctx: Context, private readonly remote: TerminalRemote) {
+  constructor(
+    ctx: Context,
+    private readonly remote: TerminalRemote,
+  ) {
     super(ctx, 'webTerminals')
     const connection = ctx.get('connection') as ConnectionHandle
     let connected = connection.generation.getSnapshot() !== undefined
     ctx.on('connection/reset', () => {
-      if (!connected) { connected = true; return }
+      if (!connected) {
+        connected = true
+        return
+      }
       for (const [sessionId, inventory] of this.inventories) {
         void inventory.reset()?.catch((error: unknown) => {
           if (!this.disposed) {
@@ -69,17 +75,20 @@ export class ClientTerminals extends Service {
         })
       }
     })
-    ctx.effect(() => async () => {
-      this.disposed = true
-      const listing = [...this.inventories.values()].map(inventory => inventory.dispose())
-      this.inventories.clear()
-      const detaching = [...this.views.values()].flatMap(views => [...views.values()].map(view => view.dispose()))
-      this.views.clear()
-      this.bindings.clear()
-      const holds = [...this.holds.values()].flatMap(holds => [...holds.values()].map(hold => hold.dispose()))
-      this.holds.clear()
-      await Promise.all([...listing, ...detaching, ...holds, ...this.releasing, ...this.closing.values()])
-    }, 'terminal-controller.client.views')
+    ctx.effect(
+      () => async () => {
+        this.disposed = true
+        const listing = [...this.inventories.values()].map(inventory => inventory.dispose())
+        this.inventories.clear()
+        const detaching = [...this.views.values()].flatMap(views => [...views.values()].map(view => view.dispose()))
+        this.views.clear()
+        this.bindings.clear()
+        const holds = [...this.holds.values()].flatMap(holds => [...holds.values()].map(hold => hold.dispose()))
+        this.holds.clear()
+        await Promise.all([...listing, ...detaching, ...holds, ...this.releasing, ...this.closing.values()])
+      },
+      'terminal-controller.client.views',
+    )
     for (const request of this.requests.pending()) this.cleanup(request)
   }
 
@@ -94,14 +103,25 @@ export class ClientTerminals extends Service {
    */
   view(sessionId: SessionId, key: string, contentId: string, terminalId?: WebTerminalId, shellPath?: string): TerminalView {
     let views = this.views.get(sessionId)
-    if (views === undefined) { views = new Map(); this.views.set(sessionId, views) }
+    if (views === undefined) {
+      views = new Map()
+      this.views.set(sessionId, views)
+    }
     let view = views.get(key)
     if (view === undefined) {
       const saved = terminalId ?? this.bindings.get(sessionId, contentId)
-      const id = saved ?? randomUUID() as WebTerminalId
+      const id = saved ?? (randomUUID() as WebTerminalId)
       this.bindings.set(sessionId, contentId, id)
-      view = new TerminalView(sessionId, this.remote, this.ctx.remote, this.inventory(sessionId), id, saved === undefined, shellPath,
-        signal => this.hold(sessionId, id).ready(signal))
+      view = new TerminalView(
+        sessionId,
+        this.remote,
+        this.ctx.remote,
+        this.inventory(sessionId),
+        id,
+        saved === undefined,
+        shellPath,
+        signal => this.hold(sessionId, id).ready(signal),
+      )
       views.set(key, view)
       this.reconcileHolds()
       void view.refresh()
@@ -135,7 +155,9 @@ export class ClientTerminals extends Service {
    * Remember the guide selection before allocating its terminal tab.
    * @param path - shell selected from Host discovery.
    */
-  selectShell(path: string): void { rememberShell(path) }
+  selectShell(path: string): void {
+    rememberShell(path)
+  }
 
   /**
    * Save a close intent and release the tab immediately; cleanup outlives DOM unmount and reload.
@@ -170,7 +192,10 @@ export class ClientTerminals extends Service {
 
   private hold(sessionId: SessionId, id: WebTerminalId): TerminalWindowHold {
     let holds = this.holds.get(sessionId)
-    if (holds === undefined) { holds = new Map(); this.holds.set(sessionId, holds) }
+    if (holds === undefined) {
+      holds = new Map()
+      this.holds.set(sessionId, holds)
+    }
     let hold = holds.get(id)
     if (hold === undefined || hold.failed) {
       if (hold !== undefined) this.release(hold)
@@ -187,7 +212,10 @@ export class ClientTerminals extends Service {
       const id = this.bindings.get(tab.sessionId, tab.contentId)
       if (id === undefined || this.closed.has(id)) continue
       let ids = wanted.get(tab.sessionId)
-      if (ids === undefined) { ids = new Set(); wanted.set(tab.sessionId, ids) }
+      if (ids === undefined) {
+        ids = new Set()
+        wanted.set(tab.sessionId, ids)
+      }
       ids.add(id)
       const view = this.views.get(tab.sessionId)?.get(tab.tabId)
       if (view === undefined || view.state.getSnapshot().info !== undefined) {
@@ -196,16 +224,23 @@ export class ClientTerminals extends Service {
     }
     for (const [sessionId, holds] of this.holds) {
       for (const [id, hold] of holds) {
-        if (!wanted.get(sessionId)?.has(id)) { holds.delete(id); this.release(hold) }
+        if (!wanted.get(sessionId)?.has(id)) {
+          holds.delete(id)
+          this.release(hold)
+        }
       }
       if (holds.size === 0) this.holds.delete(sessionId)
     }
   }
 
   private release(hold: TerminalWindowHold): void {
-    const releasing = hold.dispose().finally(() => { this.releasing.delete(releasing) })
+    const releasing = hold.dispose().finally(() => {
+      this.releasing.delete(releasing)
+    })
     this.releasing.add(releasing)
-    void releasing.catch((error: unknown) => { this.ctx.logger.warn('Terminal hold release failed', error) })
+    void releasing.catch((error: unknown) => {
+      this.ctx.logger.warn('Terminal hold release failed', error)
+    })
   }
 
   /**
@@ -241,19 +276,26 @@ export class ClientTerminals extends Service {
       }
       this.inventories.get(record.sessionId)?.remove(record.id)
       this.requests.remove(record.id)
-    })().catch((error: unknown) => {
-      if (remoteErrorOf(error)?.code === 'session/not-found') {
-        this.requests.remove(record.id)
-        return
-      }
-      if (!this.disposed) this.closeFailures.set([...this.closeFailures.getSnapshot(), {
-        id: record.id, title: record.title,
-        message: error instanceof Error ? error.message : String(error),
-      }])
-    }).then(async () => {
-      await view?.dispose()
-      this.closing.delete(record.id)
-    })
+    })()
+      .catch((error: unknown) => {
+        if (remoteErrorOf(error)?.code === 'session/not-found') {
+          this.requests.remove(record.id)
+          return
+        }
+        if (!this.disposed)
+          this.closeFailures.set([
+            ...this.closeFailures.getSnapshot(),
+            {
+              id: record.id,
+              title: record.title,
+              message: error instanceof Error ? error.message : String(error),
+            },
+          ])
+      })
+      .then(async () => {
+        await view?.dispose()
+        this.closing.delete(record.id)
+      })
     this.closing.set(record.id, pending)
   }
 }

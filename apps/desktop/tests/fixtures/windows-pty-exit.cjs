@@ -5,7 +5,11 @@ const { resolve } = require('node:path')
 const pty = createRequire(resolve(__dirname, '../../../../packages/subprocess/subprocess-local/package.json'))('node-pty')
 const killWhileRunning = process.argv[2] === 'kill'
 const terminal = pty.spawn(process.env.ComSpec, ['/d', '/c', killWhileRunning ? 'echo pty-ready & pause >nul' : 'echo pty-complete'], {
-  cwd: __dirname, env: process.env, cols: 80, rows: 24, useConptyDll: true,
+  cwd: __dirname,
+  env: process.env,
+  cols: 80,
+  rows: 24,
+  useConptyDll: true,
 })
 let output = ''
 let killed = false

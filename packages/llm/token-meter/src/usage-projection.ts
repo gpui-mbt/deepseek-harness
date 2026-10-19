@@ -26,10 +26,10 @@ const bucketsFrom = (usage: TokenUsage): TokenUsageProjection => ({
 })
 
 const bucketsEqual = (left: TokenUsageProjection, right: TokenUsageProjection): boolean =>
-  left.uncachedInputTokens === right.uncachedInputTokens
-  && left.outputTokens === right.outputTokens
-  && left.cacheReadTokens === right.cacheReadTokens
-  && left.cacheWriteTokens === right.cacheWriteTokens
+  left.uncachedInputTokens === right.uncachedInputTokens &&
+  left.outputTokens === right.outputTokens &&
+  left.cacheReadTokens === right.cacheReadTokens &&
+  left.cacheWriteTokens === right.cacheWriteTokens
 
 const addReplacing = (
   totals: TokenUsageProjection,
@@ -42,41 +42,49 @@ const addReplacing = (
   cacheWriteTokens: totals.cacheWriteTokens - (previous?.cacheWriteTokens ?? 0) + next.cacheWriteTokens,
 })
 
-const projectionSchema = z.object({
-  uncachedInputTokens: z.number().int().nonnegative(),
-  outputTokens: z.number().int().nonnegative(),
-  cacheReadTokens: z.number().int().nonnegative(),
-  cacheWriteTokens: z.number().int().nonnegative(),
-}).strict()
+const projectionSchema = z
+  .object({
+    uncachedInputTokens: z.number().int().nonnegative(),
+    outputTokens: z.number().int().nonnegative(),
+    cacheReadTokens: z.number().int().nonnegative(),
+    cacheWriteTokens: z.number().int().nonnegative(),
+  })
+  .strict()
 
 /**
  * The token-usage unit's state schema — the one definition of the state
  * shape; the state type is inferred from it.
  */
-const tokenUsageStateSchema = z.object({
-  totals: projectionSchema,
-  last: z.object({
-    turn: z.number().int().nonnegative(),
-    step: z.number().int().nonnegative(),
-    buckets: projectionSchema,
-  }).nullable(),
-}).strict()
+const tokenUsageStateSchema = z
+  .object({
+    totals: projectionSchema,
+    last: z
+      .object({
+        turn: z.number().int().nonnegative(),
+        step: z.number().int().nonnegative(),
+        buckets: projectionSchema,
+      })
+      .nullable(),
+  })
+  .strict()
 
 type TokenUsageState = z.infer<typeof tokenUsageStateSchema>
 
-const pressureSchema: z.ZodType<ContextPressureProjection> = z.object({
-  pressureTokens: z.number().int().nonnegative().optional(),
-  projectedTokens: z.number().int().nonnegative().optional(),
-  contextWindow: z.number().int().positive().optional(),
-}).strict().transform(({ pressureTokens, projectedTokens, contextWindow }) => ({
-  ...pressureTokens === undefined ? {} : { pressureTokens },
-  ...projectedTokens === undefined ? {} : { projectedTokens },
-  ...contextWindow === undefined ? {} : { contextWindow },
-}))
+const pressureSchema: z.ZodType<ContextPressureProjection> = z
+  .object({
+    pressureTokens: z.number().int().nonnegative().optional(),
+    projectedTokens: z.number().int().nonnegative().optional(),
+    contextWindow: z.number().int().positive().optional(),
+  })
+  .strict()
+  .transform(({ pressureTokens, projectedTokens, contextWindow }) => ({
+    ...(pressureTokens === undefined ? {} : { pressureTokens }),
+    ...(projectedTokens === undefined ? {} : { projectedTokens }),
+    ...(contextWindow === undefined ? {} : { contextWindow }),
+  }))
 
 /** Prompt-side pressure of one request: input plus cache traffic, no output. */
-const pressureFrom = (usage: TokenUsage): number =>
-  usage.inputTokens + (usage.cacheReadTokens ?? 0) + (usage.cacheWriteTokens ?? 0)
+const pressureFrom = (usage: TokenUsage): number => usage.inputTokens + (usage.cacheReadTokens ?? 0) + (usage.cacheWriteTokens ?? 0)
 
 /** The usage one durable Assistant settlement reports for its attempt, if any. */
 function usageOf(event: SessionEvent): TokenUsage | undefined {
@@ -93,17 +101,21 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
 }
 
 /** The context-pressure state schema and source of its inferred type. */
-const contextPressureStateSchema = z.object({
-  contextWindow: z.number().int().positive().optional(),
-  pressureTokens: z.number().int().nonnegative().optional(),
-  surfaceTokens: z.number().int().nonnegative(),
-  sampledSurfaceTokens: z.number().int().nonnegative().optional(),
-  claim: z.object({
-    start: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
-    end: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
-    tokens: z.number().int().nonnegative(),
-  }).optional(),
-}).strict()
+const contextPressureStateSchema = z
+  .object({
+    contextWindow: z.number().int().positive().optional(),
+    pressureTokens: z.number().int().nonnegative().optional(),
+    surfaceTokens: z.number().int().nonnegative(),
+    sampledSurfaceTokens: z.number().int().nonnegative().optional(),
+    claim: z
+      .object({
+        start: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
+        end: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).transform(SessionSeq),
+        tokens: z.number().int().nonnegative(),
+      })
+      .optional(),
+  })
+  .strict()
 
 type ContextPressureState = z.infer<typeof contextPressureStateSchema>
 
@@ -121,9 +133,7 @@ export const tokenUsageProjectionDefinition = {
   init: () => ({ totals: zeroBuckets(), last: null }),
   apply: (state, event) => {
     if (event.type === 'llm/retry-started') {
-      return state.last?.turn === event.data.turn && state.last.step === event.data.step
-        ? { ...state, last: null }
-        : state
+      return state.last?.turn === event.data.turn && state.last.step === event.data.step ? { ...state, last: null } : state
     }
     if (event.type !== 'assistant/message' && event.type !== 'assistant/attempt') {
       return state
@@ -134,11 +144,7 @@ export const tokenUsageProjectionDefinition = {
     const usage: TokenUsage = sample
 
     const buckets = bucketsFrom(usage)
-    const previous = state.last !== null
-      && state.last.turn === turn
-      && state.last.step === step
-      ? state.last.buckets
-      : undefined
+    const previous = state.last !== null && state.last.turn === turn && state.last.step === step ? state.last.buckets : undefined
     if (previous !== undefined && bucketsEqual(previous, buckets)) return state
 
     return {
@@ -208,11 +214,11 @@ export const contextPressureProjectionDefinition = {
   wire: {
     viewSchema: pressureSchema,
     view: ({ contextWindow, pressureTokens, surfaceTokens, sampledSurfaceTokens }) => ({
-      ...contextWindow === undefined ? {} : { contextWindow },
-      ...pressureTokens === undefined ? {} : { pressureTokens },
-      ...pressureTokens === undefined || sampledSurfaceTokens === undefined
+      ...(contextWindow === undefined ? {} : { contextWindow }),
+      ...(pressureTokens === undefined ? {} : { pressureTokens }),
+      ...(pressureTokens === undefined || sampledSurfaceTokens === undefined
         ? {}
-        : { projectedTokens: Math.max(0, pressureTokens + surfaceTokens - sampledSurfaceTokens) },
+        : { projectedTokens: Math.max(0, pressureTokens + surfaceTokens - sampledSurfaceTokens) }),
     }),
   },
 } satisfies ProjectionDefinition<'contextPressure', ContextPressureState>

@@ -1,5 +1,5 @@
 /** Card and waterfall settlement edges the composer and plugin specs do not reach. */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
 import { createWaterfallRequest, PendingQuestion } from '../src/client/contract/slots.ts'
@@ -10,7 +10,9 @@ const QUESTIONS = [{ id: 'mode', question: 'Choose a mode' }]
 const ANSWER = { answers: [{ id: 'mode', selected: ['Fast'] }] }
 
 function attached(card: PendingQuestion, deadline?: number) {
-  const request = createWaterfallRequest(deadline, undefined, (channel) => { card.detachWaterfall(channel) })
+  const request = createWaterfallRequest(deadline, undefined, channel => {
+    card.detachWaterfall(channel)
+  })
   card.attachWaterfall(request.channel)
   return { card, request }
 }
@@ -38,7 +40,7 @@ describe('createWaterfallRequest', () => {
 })
 
 describe('PendingQuestion', () => {
-  it.each([true, false])('retains focus before a deadline arrives only while still focused: %s', (stillFocused) => {
+  it.each([true, false])('retains focus before a deadline arrives only while still focused: %s', stillFocused => {
     vi.useFakeTimers()
     const card = new PendingQuestion(SID, QUESTIONS, CALL)
     try {
@@ -147,14 +149,19 @@ describe('PendingQuestion', () => {
   it('turns a throwing settlement into the rejected submission', async () => {
     const boom = new Error('subscriber failed')
     const first = attached(new PendingQuestion(SID, QUESTIONS, CALL))
-    first.card.subscribe(() => { throw boom })
+    first.card.subscribe(() => {
+      throw boom
+    })
     await expect(first.card.answer(ANSWER)).rejects.toBe(boom)
 
     const second = attached(new PendingQuestion(SID, QUESTIONS))
     const cancelled = expect(second.request.result).rejects.toMatchObject({ code: 'ASK_CANCELLED' })
-    second.card.subscribe(() => { throw 'not an error' })
+    second.card.subscribe(() => {
+      throw 'not an error'
+    })
     await expect(second.card.dismiss()).rejects.toMatchObject({
-      message: 'pending question cancellation failed', cause: 'not an error',
+      message: 'pending question cancellation failed',
+      cause: 'not an error',
     })
     await cancelled
   })

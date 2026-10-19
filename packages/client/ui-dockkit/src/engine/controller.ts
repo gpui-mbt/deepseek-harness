@@ -12,14 +12,22 @@
  * The controller holds no host concepts: what a seeded tab contains arrives as a
  * factory, and a tab's `kind` is an opaque string.
  */
-import type {
-  DockMode, DockZone, FloatRect, LayoutOp, LayoutState, PaneId, SplitId, TabId,
-} from '../contract/types.ts'
+import type { DockMode, DockZone, FloatRect, LayoutOp, LayoutState, PaneId, SplitId, TabId } from '../contract/types.ts'
 import { canSplit } from './constraints.ts'
 import { createIdMinter, createInitialState, type IdMinter, type TabFactory } from './initial.ts'
 import {
-  activeDockPaneId as dockedActivePane, planAddTab, planDropTab, planDuplicateTab, planFloatTab, planOpenContent, planPlaceTab,
-  planResizeSplit, planSetExpanded, planSetMode, planSplitPane, planUnfloatPane,
+  activeDockPaneId as dockedActivePane,
+  planAddTab,
+  planDropTab,
+  planDuplicateTab,
+  planFloatTab,
+  planOpenContent,
+  planPlaceTab,
+  planResizeSplit,
+  planSetExpanded,
+  planSetMode,
+  planSplitPane,
+  planUnfloatPane,
   type OpenContentInput,
 } from './planner.ts'
 import type { Mint } from './planner.ts'
@@ -73,7 +81,9 @@ export class DockController {
    */
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
+    return () => {
+      this.listeners.delete(listener)
+    }
   }
 
   /** Current snapshot; the same reference until the layout changes. */
@@ -105,7 +115,9 @@ export class DockController {
     return this.sequencer.state
   }
 
-  private get mint(): Mint { return this.minter.next }
+  private get mint(): Mint {
+    return this.minter.next
+  }
 
   /**
    * Record a planned intent as one history entry.

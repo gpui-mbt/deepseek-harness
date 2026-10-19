@@ -10,12 +10,8 @@
  */
 import type { ReactNode, RefObject } from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import {
-  Button, IconFolderCloseRegular, IconPlusOutlineRegular, Menu, Modal, type MenuEntry,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import type {
-  WorkspaceId, WorkspaceSnapshot, WorkspaceView,
-} from '@deepseek-ai/dsh-api-workspace-controller/client'
+import { Button, IconFolderCloseRegular, IconPlusOutlineRegular, Menu, Modal, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { WorkspaceId, WorkspaceSnapshot, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import { workspaceDisplayTitle } from '@deepseek-ai/dsh-api-workspace-controller/default-workspace'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DirectoryFlowOwnerProps, WorkspacePickerProps } from './contract/slots.ts'
@@ -75,10 +71,7 @@ export function WorkspacePickFlow({
 }: WorkspacePickFlowProps) {
   const workspaceSnapshot = useWorkspaces(state => state)
   const workspaces = workspaceSnapshot.items
-  const getAnchorRect = useCallback(
-    () => anchorRef?.current?.getBoundingClientRect() ?? null,
-    [anchorRef],
-  )
+  const getAnchorRect = useCallback(() => anchorRef?.current?.getBoundingClientRect() ?? null, [anchorRef])
   const [errorOpen, setErrorOpen] = useState(false)
   const [modalError, setModalError] = useState<string | null>(null)
   const [flowOpen, setFlowOpen] = useState(false)
@@ -88,7 +81,9 @@ export function WorkspacePickFlow({
   // menu action stays disabled — a late outcome must not race a concurrent
   // selection or adoption.
   const flowBusy = flowOpen || pickingFolder
-  useEffect(() => { onBusyChange?.(flowBusy) }, [flowBusy, onBusyChange])
+  useEffect(() => {
+    onBusyChange?.(flowBusy)
+  }, [flowBusy, onBusyChange])
 
   // The occupied hole gates the picking affordance: with no composed flow the
   // entry simply is not there (the seam's documented no-flow default). The
@@ -111,11 +106,11 @@ export function WorkspacePickFlow({
   const pinAdd = !addOnly && workspaces.length > 0
   const items: MenuEntry[] = pinAdd
     ? workspaces.map(workspace => ({
-      id: workspace.workspaceId,
-      label: workspaceDisplayTitle(workspace.title, t('workspace.defaultName')),
-      icon: <IconFolderCloseRegular size={16} />,
-      disabled: flowBusy,
-    }))
+        id: workspace.workspaceId,
+        label: workspaceDisplayTitle(workspace.title, t('workspace.defaultName')),
+        icon: <IconFolderCloseRegular size={16} />,
+        disabled: flowBusy,
+      }))
     : addEntries
   // Nothing listed and nothing to add with (a composition that mounts this
   // package without any directory-picker): an empty popover would claim a
@@ -129,14 +124,16 @@ export function WorkspacePickFlow({
 
   /** Adopt a picked directory; failures land in the folder-error dialog (Choose again reopens the flow). */
   const adoptDirectory = (path: string): Promise<void> =>
-    createWorkspace({ path }).then((workspace) => {
-      setFlowOpen(false)
-      onPick(workspace.workspaceId)
-    }).catch((reason: unknown) => {
-      setModalError(reason instanceof Error ? reason.message : String(reason))
-      setFlowOpen(false)
-      setErrorOpen(true)
-    })
+    createWorkspace({ path })
+      .then(workspace => {
+        setFlowOpen(false)
+        onPick(workspace.workspaceId)
+      })
+      .catch((reason: unknown) => {
+        setModalError(reason instanceof Error ? reason.message : String(reason))
+        setFlowOpen(false)
+        setErrorOpen(true)
+      })
 
   const openDirectoryFlow = useCallback((): void => {
     onClose()
@@ -165,12 +162,16 @@ export function WorkspacePickFlow({
   const flowOwner: DirectoryFlowOwnerProps = {
     open: flowOpen,
     busy: pickingFolder,
-    onPicked: (path) => {
+    onPicked: path => {
       setPickingFolder(true)
-      void adoptDirectory(path).finally(() => { setPickingFolder(false) })
+      void adoptDirectory(path).finally(() => {
+        setPickingFolder(false)
+      })
     },
-    onCancel: () => { setFlowOpen(false) },
-    onError: (message) => {
+    onCancel: () => {
+      setFlowOpen(false)
+    },
+    onError: message => {
       setFlowOpen(false)
       setModalError(message)
       setErrorOpen(true)
@@ -191,7 +192,7 @@ export function WorkspacePickFlow({
         open={open && !addIsTheOnlyEntry && !menuIsEmpty}
         anchor={null}
         items={items}
-        {...pinAdd ? { footer: addEntries } : {}}
+        {...(pinAdd ? { footer: addEntries } : {})}
         selectedId={selectedId}
         onSelect={handleSelect}
         onClose={onClose}
@@ -199,23 +200,33 @@ export function WorkspacePickFlow({
         portal
         getAnchorRect={getAnchorRect}
       />
-      {open && !addIsTheOnlyEntry && !menuIsEmpty && workspaceSnapshot.phase === 'pending' && <div className={css.menuStatus} role="status">{t('picker.loading')}</div>}
+      {open && !addIsTheOnlyEntry && !menuIsEmpty && workspaceSnapshot.phase === 'pending' && (
+        <div className={css.menuStatus} role="status">
+          {t('picker.loading')}
+        </div>
+      )}
       {renderDirectoryFlow(flowOwner)}
       <Modal
         open={errorOpen}
         onClose={closeModal}
         closeLabel={t('close')}
         title={t('folderError.title')}
-        footer={(
+        footer={
           <>
-            <Button variant="outline" className={css.modalAction} onClick={closeModal}>{t('cancel')}</Button>
+            <Button variant="outline" className={css.modalAction} onClick={closeModal}>
+              {t('cancel')}
+            </Button>
             {/* Retrying needs an occupant to serve the flow; without one the
-              * button would open a flow nobody can answer or cancel. */}
-            <Button variant="primary" className={css.modalAction} disabled={!flowAvailable} onClick={openDirectoryFlow}>{t('folderError.retry')}</Button>
+             * button would open a flow nobody can answer or cancel. */}
+            <Button variant="primary" className={css.modalAction} disabled={!flowAvailable} onClick={openDirectoryFlow}>
+              {t('folderError.retry')}
+            </Button>
           </>
-        )}
+        }
       >
-        <div className={css.modalError} role="alert">{modalError}</div>
+        <div className={css.modalError} role="alert">
+          {modalError}
+        </div>
       </Modal>
     </>
   )

@@ -1,5 +1,5 @@
 /** Recorded todo predecessors follow incremental history repair and nested invocations. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { ConversationNodeAssembler } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { SessionLiveEventEntry } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -12,15 +12,35 @@ import type { ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 
 const t = makeTranslate(en, commonEn)
-const first = [{ content: 'Build', status: 'in_progress' }, { content: 'Review', status: 'pending' }, { content: 'Old task', status: 'pending' }] as const
-const second = [{ content: 'Build', status: 'completed' }, { content: 'Review', status: 'pending' }, { content: 'Publish', status: 'pending' }] as const
+const first = [
+  { content: 'Build', status: 'in_progress' },
+  { content: 'Review', status: 'pending' },
+  { content: 'Old task', status: 'pending' },
+] as const
+const second = [
+  { content: 'Build', status: 'completed' },
+  { content: 'Review', status: 'pending' },
+  { content: 'Publish', status: 'pending' },
+] as const
 
 function entry(seq: number, type: string, data: unknown): SessionLiveEventEntry {
   return { type: 'event', event: { seq, time: 1000 + seq, type, data } as SessionEvent }
 }
 
 function call(todos: unknown): ToolResultNode {
-  return { kind: 'tool-result', seq: 20, time: 2000, callTime: 1000, callId: 'second', name: 'todo_write', args: PartialArguments.fromText(JSON.stringify({ todos })), call: { name: 'todo_write', argsRaw: JSON.stringify({ todos }) }, content: [], isError: false, subCalls: [] }
+  return {
+    kind: 'tool-result',
+    seq: 20,
+    time: 2000,
+    callTime: 1000,
+    callId: 'second',
+    name: 'todo_write',
+    args: PartialArguments.fromText(JSON.stringify({ todos })),
+    call: { name: 'todo_write', argsRaw: JSON.stringify({ todos }) },
+    content: [],
+    isError: false,
+    subCalls: [],
+  }
 }
 
 function runtime() {
@@ -40,14 +60,25 @@ function history(assembler: ConversationNodeAssembler): TodoHistory {
 describe('recorded todo history', () => {
   it('repairs a missing predecessor on prepend and keeps earlier cards fixed after a later write', () => {
     const assembler = runtime()
-    assembler.replaceWindow([entry(10, 'tool/call', { callId: 'second', name: 'todo_write', arguments: JSON.stringify({ todos: second }), turn: 1, step: 1 })], true)
+    assembler.replaceWindow(
+      [entry(10, 'tool/call', { callId: 'second', name: 'todo_write', arguments: JSON.stringify({ todos: second }), turn: 1, step: 1 })],
+      true,
+    )
     expect(todoDiffModel(call(second), history(assembler).get('second'), true, t)?.summary).toBeNull()
     assembler.prepend([entry(5, 'todo/write', { todos: first })], false)
     const baseline = history(assembler).get('second')
     expect(todoDiffModel(call(second), baseline, false, t)?.summary).toBe('1 added · 1 updated · 1 removed')
     assembler.append(entry(11, 'todo/write', { todos: second }))
     expect(history(assembler).get('second')).toEqual(baseline)
-    assembler.append(entry(12, 'tool/ptc-dispatch-start', { parentCallId: 'root', rootCallId: 'root', subCallId: 'nested', name: 'todo_write', arguments: { todos: [] } }))
+    assembler.append(
+      entry(12, 'tool/ptc-dispatch-start', {
+        parentCallId: 'root',
+        rootCallId: 'root',
+        subCallId: 'nested',
+        name: 'todo_write',
+        arguments: { todos: [] },
+      }),
+    )
     expect(history(assembler).get('nested')?.todos).toEqual(second)
     assembler.replaceWindow([], false)
     expect(history(assembler).get('second')).toBeUndefined()

@@ -22,7 +22,9 @@ declare module '@deepseek-ai/cordis' {
 }
 
 interface ErasedProvider {
-  prepare(request: DeepSeekLlmApiExtensionRequest):
+  prepare(
+    request: DeepSeekLlmApiExtensionRequest,
+  ):
     | { readonly value: DeepSeekLlmApiJson; accept?(): void | Promise<void> }
     | undefined
     | Promise<{ readonly value: DeepSeekLlmApiJson; accept?(): void | Promise<void> } | undefined>
@@ -51,7 +53,9 @@ async function acceptAll(callbacks: readonly (() => void | Promise<void>)[]): Pr
 async function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
   signal.throwIfAborted()
   const aborted = Promise.withResolvers<never>()
-  const onAbort = (): void => { aborted.reject(signal.reason) }
+  const onAbort = (): void => {
+    aborted.reject(signal.reason)
+  }
   signal.addEventListener('abort', onAbort, { once: true })
   try {
     const result = await Promise.race([work, aborted.promise])
@@ -88,15 +92,18 @@ export class DeepSeekLlmApiExtensionRegistry extends Service {
     }
     const providers = this.providers
     const erased = provider as ErasedProvider
-    const dispose = this.ctx.effect(() => {
-      if (providers.has(fieldName)) {
-        throw new Error(`deepseek-llm-api-extensions: field ${JSON.stringify(fieldName)} is already registered`)
-      }
-      providers.set(fieldName, erased)
-      return () => {
-        providers.delete(fieldName)
-      }
-    }, `deepseekLlmApiExtensions.register(${JSON.stringify(fieldName)})`)
+    const dispose = this.ctx.effect(
+      () => {
+        if (providers.has(fieldName)) {
+          throw new Error(`deepseek-llm-api-extensions: field ${JSON.stringify(fieldName)} is already registered`)
+        }
+        providers.set(fieldName, erased)
+        return () => {
+          providers.delete(fieldName)
+        }
+      },
+      `deepseekLlmApiExtensions.register(${JSON.stringify(fieldName)})`,
+    )
     return dispose
   }
 
@@ -111,18 +118,26 @@ export class DeepSeekLlmApiExtensionRegistry extends Service {
   async prepare(request: DeepSeekLlmApiExtensionRequest): Promise<PreparedDeepSeekLlmApiExtensions> {
     request.signal.throwIfAborted()
     const entries = [...this.providers.entries()]
-    const prepared = await abortable(Promise.all(entries.map(async ([field, provider]) => {
-      try {
-        const result = await provider.prepare(request)
-        return result === undefined ? undefined : { field, value: freezeJson(structuredClone(result.value)), result }
-      } catch (error) {
-        if (!request.signal.aborted && !this.warnedFields.has(field)) {
-          this.warnedFields.add(field)
-          this.ctx.logger.warn(`deepseek-llm-api-extensions: omitting field ${JSON.stringify(field)} from this request because its preparation failed: %o`, error)
-        }
-        return undefined
-      }
-    })), request.signal)
+    const prepared = await abortable(
+      Promise.all(
+        entries.map(async ([field, provider]) => {
+          try {
+            const result = await provider.prepare(request)
+            return result === undefined ? undefined : { field, value: freezeJson(structuredClone(result.value)), result }
+          } catch (error) {
+            if (!request.signal.aborted && !this.warnedFields.has(field)) {
+              this.warnedFields.add(field)
+              this.ctx.logger.warn(
+                `deepseek-llm-api-extensions: omitting field ${JSON.stringify(field)} from this request because its preparation failed: %o`,
+                error,
+              )
+            }
+            return undefined
+          }
+        }),
+      ),
+      request.signal,
+    )
     const fields: Record<string, DeepSeekLlmApiJson> = Object.create(null) as Record<string, DeepSeekLlmApiJson>
     const callbacks: Array<() => void | Promise<void>> = []
     for (const item of prepared) {
@@ -136,7 +151,7 @@ export class DeepSeekLlmApiExtensionRegistry extends Service {
     let acceptance: Promise<void> | undefined
     return {
       fields,
-      accept: () => acceptance ??= acceptAll(callbacks),
+      accept: () => (acceptance ??= acceptAll(callbacks)),
     }
   }
 }

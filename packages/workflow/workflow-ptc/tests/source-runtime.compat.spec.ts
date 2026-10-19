@@ -2,7 +2,7 @@ import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-test
 /** The Node compatibility matrix runs this complete source-entry smoke. */
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
+import { expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import type { SandboxMode } from '@deepseek-ai/dsh-sandbox'
@@ -35,10 +35,12 @@ it('runs the default workflow config through the source PTC runtime', async () =
   try {
     const result = await run.result
     expect(result, result.error).toMatchObject({ value: 42, stopReason: 'completed', agentsStarted: 0 })
-  } finally { await run.dispose() }
+  } finally {
+    await run.dispose()
+  }
 })
 
-it.each(['per-call', 'persistent-in-memory'] as const)('enforces workspace writes in %s workflows', async (executionMode) => {
+it.each(['per-call', 'persistent-in-memory'] as const)('enforces workspace writes in %s workflows', async executionMode => {
   const mode = 'workspace-write'
   const { ctx, parent, root, cwd } = await setup(mode, executionMode)
   const outside = join(root, 'outside.txt')
@@ -60,5 +62,7 @@ return 42`,
     expect(await readFile(outside, 'utf8')).toBe('unchanged')
     if (mode === 'workspace-write') expect(await readFile(inside, 'utf8')).toBe('inside')
     else await expect(readFile(inside, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
-  } finally { await run.dispose() }
+  } finally {
+    await run.dispose()
+  }
 })

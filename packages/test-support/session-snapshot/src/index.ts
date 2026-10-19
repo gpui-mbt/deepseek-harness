@@ -17,9 +17,7 @@
  * @module @deepseek-ai/dsh-session-snapshot
  */
 
-export {
-  redactSessionSnapshotIds,
-} from './identity.ts'
+export { redactSessionSnapshotIds } from './identity.ts'
 export {
   runScenario,
   snapshotSpillRoot,

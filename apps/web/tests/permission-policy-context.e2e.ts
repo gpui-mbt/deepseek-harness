@@ -9,14 +9,20 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import { canonicalPath } from '@deepseek-ai/dsh-sandbox'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type { WebTerminalId } from '@deepseek-ai/dsh-api-terminal-controller/types'
 import type {} from '@deepseek-ai/dsh-api-terminal-controller'
 import {
-  assertFinalWorkspaceSnapshot, assertFixtureInventory, fixtureUserPrompts, launchWebScaffold, recordFixture,
-  watchConsole, webSnapshotMode, type WebScaffold,
+  assertFinalWorkspaceSnapshot,
+  assertFixtureInventory,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot, writeComposerDraft } from './support.ts'
 
@@ -34,24 +40,26 @@ const PROMPTS = [
 const PRESET_LABELS = ['Read Only', 'Full access', 'Workspace Write'] as const
 
 function systemPrompts(events: readonly SessionEvent[]): string[] {
-  return events.flatMap((event) => {
+  return events.flatMap(event => {
     if (event.type !== 'system/message') return []
-    return [event.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('')]
+    return [event.data.message.content.flatMap(block => (block.type === 'text' ? [block.text] : [])).join('')]
   })
 }
 
 function runtimeContexts(events: readonly SessionEvent[]): string[] {
-  return events.flatMap((event) => {
-    if (event.type !== 'user/message'
-      || event.data.source.kind !== 'runtime-context') return []
-    return event.data.content.flatMap(block => block.type === 'text' ? [block.text] : [])
+  return events.flatMap(event => {
+    if (event.type !== 'user/message' || event.data.source.kind !== 'runtime-context') return []
+    return event.data.content.flatMap(block => (block.type === 'text' ? [block.text] : []))
   })
 }
 
 function assistantTexts(events: readonly SessionEvent[]): string[] {
-  return events.flatMap((event) => {
+  return events.flatMap(event => {
     if (event.type !== 'assistant/message') return []
-    const text = event.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('').replaceAll('**', '')
+    const text = event.data.message.content
+      .flatMap(block => (block.type === 'text' ? [block.text] : []))
+      .join('')
+      .replaceAll('**', '')
     return text.length === 0 ? [] : [text]
   })
 }
@@ -73,10 +81,12 @@ describe('web e2e: current sandbox policy reaches the model before tools', () =>
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold({
-      ...MODE === 'record' ? {} : { replayFixture: FIXTURE, compareReplaySession: true },
-      ...process.platform === 'win32' ? {} : {
-        extraOverlayPath: fileURLToPath(new URL('./fixtures/sidebar-terminal.patch.yml', import.meta.url)),
-      },
+      ...(MODE === 'record' ? {} : { replayFixture: FIXTURE, compareReplaySession: true }),
+      ...(process.platform === 'win32'
+        ? {}
+        : {
+            extraOverlayPath: fileURLToPath(new URL('./fixtures/sidebar-terminal.patch.yml', import.meta.url)),
+          }),
     })
     outsideWorkspace = await mkdtemp(join(tmpdir(), 'dsh-user-terminal-'))
     disposeApproval = scaffold.ctx.on('approval/request', () => Promise.resolve('allowed-once'), { prepend: true })
@@ -93,9 +103,13 @@ describe('web e2e: current sandbox policy reaches the model before tools', () =>
   }, 120_000)
 
   afterAll(async () => {
-    try { await browser?.close() } finally {
+    try {
+      await browser?.close()
+    } finally {
       disposeApproval?.()
-      try { await scaffold?.close() } finally {
+      try {
+        await scaffold?.close()
+      } finally {
         if (outsideWorkspace !== undefined) await rm(outsideWorkspace, { recursive: true, force: true })
       }
     }
@@ -107,11 +121,15 @@ describe('web e2e: current sandbox policy reaches the model before tools', () =>
     if (terminalId === undefined) {
       const expand = page.locator('[data-sidebar-right-expand]')
       if (await expand.isVisible()) await expand.click()
-      await page.locator('[data-sidebar-right-guide-entry="terminal"]').getByRole('button', { name: /^New terminal/u }).click()
+      await page
+        .locator('[data-sidebar-right-guide-entry="terminal"]')
+        .getByRole('button', { name: /^New terminal/u })
+        .click()
       await expect.poll(() => page.locator('.xterm-rows:visible').innerText()).toContain('bash-')
     }
     const agent = scaffold.ctx.agents.list()[0]
-    if (agent === undefined || sessionWorkspace === undefined || outsideWorkspace === undefined) throw new Error('Terminal test has no Session workspace')
+    if (agent === undefined || sessionWorkspace === undefined || outsideWorkspace === undefined)
+      throw new Error('Terminal test has no Session workspace')
     const terminals = scaffold.ctx.terminalController.list(agent.id)
     expect(terminals).toHaveLength(1)
     terminalId ??= terminals[0]!.id
@@ -127,12 +145,17 @@ describe('web e2e: current sandbox policy reaches the model before tools', () =>
     expect(sessionEvents).toHaveLength(beforeInput)
     await page.keyboard.insertText('rm terminal-access.txt')
     await page.keyboard.press('Enter')
-    await expect.poll(async () => {
-      try { await readFile(join(sessionWorkspace!, 'terminal-access.txt')); return false } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-        return true
-      }
-    }).toBe(true)
+    await expect
+      .poll(async () => {
+        try {
+          await readFile(join(sessionWorkspace!, 'terminal-access.txt'))
+          return false
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+          return true
+        }
+      })
+      .toBe(true)
   }
 
   it('switches read-only, danger-full-access, and workspace-write through the real GUI command path', async () => {
@@ -146,8 +169,7 @@ describe('web e2e: current sandbox policy reaches the model before tools', () =>
     for (const [index, preset] of ['read-only', 'danger-full-access', 'workspace-write'].entries()) {
       await writeComposerDraft(page, input, `/permission ${preset}`)
       await input.press('Enter')
-      await page.getByRole('button', { name: `Access mode, current: ${PRESET_LABELS[index]}` })
-        .waitFor({ timeout: 10_000 })
+      await page.getByRole('button', { name: `Access mode, current: ${PRESET_LABELS[index]}` }).waitFor({ timeout: 10_000 })
 
       const settled = scaffold.whenTurnSettled()
       await writeComposerDraft(page, input, PROMPTS[index] as string)
@@ -181,14 +203,20 @@ describe('web e2e: current sandbox policy reaches the model before tools', () =>
 
     const contexts = runtimeContexts(sessionEvents)
     expect(contexts).toHaveLength(4)
-    expect(contexts[0]).toContain('Current DSH file policy: read-only. Any available operation enforced by the DSH file sandbox cannot modify files in the standing mode.')
+    expect(contexts[0]).toContain(
+      'Current DSH file policy: read-only. Any available operation enforced by the DSH file sandbox cannot modify files in the standing mode.',
+    )
     expect(contexts[0]).toContain('Do not refuse a required modification from this policy alone')
     expect(contexts[0]).toContain('Approval policy: ask.')
-    expect(contexts[1]).toContain('Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.')
+    expect(contexts[1]).toContain(
+      'Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.',
+    )
     expect(contexts[1]).toContain('Approval prompts are disabled in this session')
 
     if (sessionWorkspace === undefined) throw new Error('permission-policy scenario observed no session workspace')
-    expect(contexts[2]).toContain(`Current DSH file policy: workspace-write. Any available operation enforced by the DSH file sandbox may modify files under the session workspace: ${JSON.stringify(canonicalPath(sessionWorkspace))}. Some platform temporary areas may also be writable.`)
+    expect(contexts[2]).toContain(
+      `Current DSH file policy: workspace-write. Any available operation enforced by the DSH file sandbox may modify files under the session workspace: ${JSON.stringify(canonicalPath(sessionWorkspace))}. Some platform temporary areas may also be writable.`,
+    )
     expect(contexts[2]).toContain('Approval policy: ask.')
     expect(contexts[2]).not.toContain('Approval prompts are disabled in this session')
     expect(contexts[3]).toContain('Current DSH file policy: read-only.')
@@ -198,17 +226,18 @@ describe('web e2e: current sandbox policy reaches the model before tools', () =>
     expect(answers[0]).toMatch(/read-only.*(?:denied|cannot modify|cannot create or edit)/i)
     expect(answers[1]).toMatch(/does not restrict.*(?:file operations|(?:write\/edit tools|write and edit tools).*one-shot bash commands)/i)
     expect(answers[2]).toBe('WORKSPACE_POLICY_SEEN')
-    const calls = sessionEvents.filter(
-      (event): event is Extract<SessionEvent, { type: 'tool/call' }> => event.type === 'tool/call',
-    )
+    const calls = sessionEvents.filter((event): event is Extract<SessionEvent, { type: 'tool/call' }> => event.type === 'tool/call')
     expect(calls.every(call => call.data.turn === 4)).toBe(true)
     expect(calls.length).toBeGreaterThanOrEqual(2)
     const firstCall = calls[0]
     if (firstCall === undefined) throw new Error('neutral policy task produced no tool call')
     expect(callArgs(firstCall)['sandbox_permissions']).toBeUndefined()
     expect(calls.some(call => callArgs(call)['sandbox_permissions'] !== undefined)).toBe(true)
-    expect(sessionEvents.some(event => event.type === 'tool/result'
-      && JSON.stringify(event.data).includes('[sandbox: file access denied under read-only mode]'))).toBe(true)
+    expect(
+      sessionEvents.some(
+        event => event.type === 'tool/result' && JSON.stringify(event.data).includes('[sandbox: file access denied under read-only mode]'),
+      ),
+    ).toBe(true)
     expect(sessionEvents.some(event => event.type === 'approval/asked')).toBe(true)
     if (sessionWorkspace === undefined) throw new Error('permission-policy scenario observed no session workspace')
     expect(await readFile(join(sessionWorkspace, 'policy-neutral.txt'), 'utf8')).toBe('POLICY_NEUTRAL_OK')

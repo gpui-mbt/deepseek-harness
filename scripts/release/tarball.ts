@@ -28,7 +28,9 @@ export interface PackedIdentity {
  */
 export function tarballFiles(tarball: string): string[] {
   // GNU tar reads the colon in a Windows drive path as a remote-host separator, so tar runs beside the tarball.
-  return capture('tar', ['-tzf', basename(tarball)], { cwd: dirname(tarball) }).split(/\r?\n/u).filter(line => line !== '')
+  return capture('tar', ['-tzf', basename(tarball)], { cwd: dirname(tarball) })
+    .split(/\r?\n/u)
+    .filter(line => line !== '')
 }
 
 /**
@@ -59,5 +61,7 @@ export function packedIdentity(tarball: string): PackedIdentity {
  * @returns Tarball filenames in upload order.
  */
 export function readPublishOrder(directory: string): string[] {
-  return readFileSync(join(directory, PUBLISH_ORDER_FILE), 'utf8').split('\n').filter(line => line !== '')
+  return readFileSync(join(directory, PUBLISH_ORDER_FILE), 'utf8')
+    .split('\n')
+    .filter(line => line !== '')
 }

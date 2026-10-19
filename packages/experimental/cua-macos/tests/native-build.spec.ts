@@ -2,9 +2,15 @@
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { expect, it, onTestFinished, vi } from 'vitest'
+import { expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { SubprocessHandle, SubprocessOutcome, SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
-import { buildNativeExecutable, isSourcePackage, nativeExecutablePath, nativeHostArchitecture, prepareNativeExecutable } from '../src/native-build.ts'
+import {
+  buildNativeExecutable,
+  isSourcePackage,
+  nativeExecutablePath,
+  nativeHostArchitecture,
+  prepareNativeExecutable,
+} from '../src/native-build.ts'
 
 async function fixture(diagnostics = true) {
   const root = await mkdtemp(join(tmpdir(), 'cua-native-build-'))
@@ -20,11 +26,16 @@ async function fixture(diagnostics = true) {
   const spawn = vi.fn((request: SubprocessSpawnSpec): SubprocessHandle => {
     const scratch = request.argv[request.argv.indexOf('--scratch-path') + 1]!
     return {
-      stdin: undefined, stdout: undefined, stderr: undefined, control: undefined,
-      collected: diagnostics ? {
-        stdout: { readFrom: () => ({ text: 'build output', nextOffset: 12, lossy: false }) },
-        stderr: { readFrom: () => ({ text: 'compiler diagnostic', nextOffset: 19, lossy: false }) },
-      } : {},
+      stdin: undefined,
+      stdout: undefined,
+      stderr: undefined,
+      control: undefined,
+      collected: diagnostics
+        ? {
+            stdout: { readFrom: () => ({ text: 'build output', nextOffset: 12, lossy: false }) },
+            stderr: { readFrom: () => ({ text: 'compiler diagnostic', nextOffset: 19, lossy: false }) },
+          }
+        : {},
       done: (async () => {
         await beforeExit()
         if (outcome.exitCode === 0) {
@@ -32,14 +43,36 @@ async function fixture(diagnostics = true) {
           await writeFile(join(scratch, 'release/dsh-cua-native'), output)
         }
         return outcome
-      })(), terminate, waitForExit,
+      })(),
+      terminate,
+      waitForExit,
     }
   })
-  const spec = { packageRoot, architecture: 'arm64' as const, subprocess: { spawn }, signal: controller.signal, timeoutMs: 60_000, graceMs: 100 }
-  return { root, spec, spawn, output, controller, terminate, waitForExit,
-    setOutput: (value: Buffer) => { output = value },
-    setOutcome: (value: SubprocessOutcome) => { outcome = value },
-    beforeExit: (callback: () => Promise<void>) => { beforeExit = callback },
+  const spec = {
+    packageRoot,
+    architecture: 'arm64' as const,
+    subprocess: { spawn },
+    signal: controller.signal,
+    timeoutMs: 60_000,
+    graceMs: 100,
+  }
+  return {
+    root,
+    spec,
+    spawn,
+    output,
+    controller,
+    terminate,
+    waitForExit,
+    setOutput: (value: Buffer) => {
+      output = value
+    },
+    setOutcome: (value: SubprocessOutcome) => {
+      outcome = value
+    },
+    beforeExit: (callback: () => Promise<void>) => {
+      beforeExit = callback
+    },
   }
 }
 
@@ -48,17 +81,26 @@ it('recognizes only the repository-owned package location as a source build', as
   expect(await isSourcePackage(f.spec.packageRoot)).toBe(false)
   for (const value of [null, 2, {}, { name: 'another-project' }, { name: '@deepseek-ai/dsh-root' }]) {
     await writeFile(join(f.root, 'package.json'), JSON.stringify(value))
-    expect(await isSourcePackage(f.spec.packageRoot)).toBe(typeof value === 'object' && value !== null && 'name' in value && value.name === '@deepseek-ai/dsh-root')
+    expect(await isSourcePackage(f.spec.packageRoot)).toBe(
+      typeof value === 'object' && value !== null && 'name' in value && value.name === '@deepseek-ai/dsh-root',
+    )
   }
   expect(await isSourcePackage(join(f.root, 'node_modules/@deepseek-ai/dsh-cua'))).toBe(false)
   await writeFile(join(f.root, 'package.json'), '{')
   await expect(isSourcePackage(f.spec.packageRoot)).rejects.toThrow()
 })
 
-it.each([['darwin', 'arm64'], ['darwin', 'x64']])('selects the %s/%s executable', (platform, architecture) => {
+it.each([
+  ['darwin', 'arm64'],
+  ['darwin', 'x64'],
+])('selects the %s/%s executable', (platform, architecture) => {
   expect(nativeHostArchitecture(platform, architecture)).toBe(architecture)
 })
-it.each([['linux', 'arm64'], ['win32', 'x64'], ['darwin', 'ia32']])('refuses unsupported %s/%s hosts', (platform, architecture) => {
+it.each([
+  ['linux', 'arm64'],
+  ['win32', 'x64'],
+  ['darwin', 'ia32'],
+])('refuses unsupported %s/%s hosts', (platform, architecture) => {
   expect(() => nativeHostArchitecture(platform, architecture)).toThrow('requires macOS')
 })
 
@@ -105,7 +147,9 @@ it('keeps the previous executable when a build fails and reports compiler output
 
 it('awaits compiler cleanup and refuses to publish after cancellation', async () => {
   const f = await fixture()
-  f.beforeExit(async () => { f.controller.abort() })
+  f.beforeExit(async () => {
+    f.controller.abort()
+  })
   await expect(buildNativeExecutable(f.spec)).rejects.toThrow()
   expect(f.waitForExit).toHaveBeenCalledTimes(1)
   await expect(readFile(nativeExecutablePath(f.spec.packageRoot, 'arm64'))).rejects.toMatchObject({ code: 'ENOENT' })
@@ -124,8 +168,13 @@ it('serializes publication and cancels a competing preparation without starting 
   const f = await fixture()
   const release: PromiseWithResolvers<void> = Promise.withResolvers()
   const entered: PromiseWithResolvers<void> = Promise.withResolvers()
-  onTestFinished(() => { release.resolve() })
-  f.beforeExit(async () => { entered.resolve(); await release.promise })
+  onTestFinished(() => {
+    release.resolve()
+  })
+  f.beforeExit(async () => {
+    entered.resolve()
+    await release.promise
+  })
   const first = buildNativeExecutable(f.spec)
   await entered.promise
   const competing = new AbortController()
@@ -135,7 +184,10 @@ it('serializes publication and cancels a competing preparation without starting 
   try {
     await rejected
     expect(f.spawn).toHaveBeenCalledTimes(1)
-  } finally { release.resolve(); await first }
+  } finally {
+    release.resolve()
+    await first
+  }
   expect(await readFile(nativeExecutablePath(f.spec.packageRoot, 'arm64'))).toEqual(f.output)
 })
 

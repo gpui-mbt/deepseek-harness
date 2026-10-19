@@ -52,11 +52,7 @@ const MIME: Record<string, string> = {
   '.gz': 'application/gzip',
 }
 
-const STATIC_MISS_CODES: ReadonlySet<string | undefined> = new Set([
-  'ENOENT',
-  'EISDIR',
-  'ENOTDIR',
-])
+const STATIC_MISS_CODES: ReadonlySet<string | undefined> = new Set(['ENOENT', 'EISDIR', 'ENOTDIR'])
 
 /**
  * Serve one GET/HEAD static request from the dist root.
@@ -69,7 +65,10 @@ const STATIC_MISS_CODES: ReadonlySet<string | undefined> = new Set([
  * rendering) for the dist root and configured index path.
  */
 export async function serveStatic(
-  pathname: string, res: ServerResponse, distRoot: string, distIndex: string,
+  pathname: string,
+  res: ServerResponse,
+  distRoot: string,
+  distIndex: string,
   authorizeIndex: () => boolean,
   renderIndex: () => Promise<string>,
 ): Promise<void> {
@@ -118,23 +117,20 @@ export function apply(ctx: Context, config: Config): void {
     const body = ctx.webServer.renderIndex(await readFile(distIndex, 'utf8'))
     return body.replace(/<head(?:\s[^>]*)?>/i, open => `${open}<base href="./">`)
   }
-  ctx.effect(() => ctx.webServer.registerFallback(async (req, res) => {
-    // Non-GET/HEAD without a matching named route is 405 (fallback-only
-    // semantics: named routes own their method handling).
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      res.writeHead(405)
-      res.end()
-      return
-    }
-    /* v8 ignore next -- node:http always sets url on server requests */
-    const rawPath = new URL(req.url ?? '/', 'http://x').pathname
-    await serveStatic(
-      decodeURIComponent(rawPath),
-      res,
-      distRoot,
-      distIndex,
-      () => ctx.connection.authorizeIndex(req, res),
-      renderIndex,
-    )
-  }), 'frontend-static: fallback seat')
+  ctx.effect(
+    () =>
+      ctx.webServer.registerFallback(async (req, res) => {
+        // Non-GET/HEAD without a matching named route is 405 (fallback-only
+        // semantics: named routes own their method handling).
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+          res.writeHead(405)
+          res.end()
+          return
+        }
+        /* v8 ignore next -- node:http always sets url on server requests */
+        const rawPath = new URL(req.url ?? '/', 'http://x').pathname
+        await serveStatic(decodeURIComponent(rawPath), res, distRoot, distIndex, () => ctx.connection.authorizeIndex(req, res), renderIndex)
+      }),
+    'frontend-static: fallback seat',
+  )
 }

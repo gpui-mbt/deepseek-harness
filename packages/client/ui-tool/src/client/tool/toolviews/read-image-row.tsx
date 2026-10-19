@@ -51,11 +51,15 @@ export const readImageToolview = {
    */
   apply(ctx: Context): void {
     ctx.slots.inject('tool.call.toolview', () =>
-      ctx.slots.register({
-        name: 'tool.call.toolview',
-        key: 'read_image',
-        locale: NS,
-        children: { 'tool.call.images': { kind: 'single', scope: 'session' } },
-      }, ReadImageRow))
+      ctx.slots.register(
+        {
+          name: 'tool.call.toolview',
+          key: 'read_image',
+          locale: NS,
+          children: { 'tool.call.images': { kind: 'single', scope: 'session' } },
+        },
+        ReadImageRow,
+      ),
+    )
   },
 }

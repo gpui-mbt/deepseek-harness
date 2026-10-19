@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto'
 import { readFile, rm } from 'node:fs/promises'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { SshSubprocessRuntime } from '@deepseek-ai/dsh-subprocess-ssh'
 import { createHelperHarness } from './fixtures/helper.ts'
 import { doneSchema, preparedSchema } from '../src/schemas.ts'
@@ -16,10 +16,16 @@ describe.skipIf(process.platform === 'win32')('SSH collected output', () => {
     let spill: string | undefined
     try {
       const payload = 'abcdef'.repeat(12000)
-      const prepared = await helper.client.request('process.prepare', {
-        argv: [process.execPath, '-e', `process.stdout.write(${JSON.stringify(payload)})`], cwd: helper.root, graceMs: 500,
-        stdio: { stdin: 'ignore', stdout: { maxBytes: 16, spill: { maxBytes: 100000 } }, stderr: 'pipe' },
-      }, preparedSchema)
+      const prepared = await helper.client.request(
+        'process.prepare',
+        {
+          argv: [process.execPath, '-e', `process.stdout.write(${JSON.stringify(payload)})`],
+          cwd: helper.root,
+          graceMs: 500,
+          stdio: { stdin: 'ignore', stdout: { maxBytes: 16, spill: { maxBytes: 100000 } }, stderr: 'pipe' },
+        },
+        preparedSchema,
+      )
       const output = await helper.connectStream(prepared.streams.stdout!)
       const error = await helper.connectStream(prepared.streams.stderr!)
       error.end()
@@ -50,7 +56,9 @@ describe.skipIf(process.platform === 'win32')('SSH collected output', () => {
     try {
       const bytes = Buffer.from([0x61, 0x62, 0x63, 0x64, 0xff, 0x65, 0x66, 0x67])
       const handle = ctx.subprocess.spawn({
-        argv: [process.execPath, '-e', `process.stdout.write(Buffer.from(${JSON.stringify([...bytes])}))`], cwd: helper.root, graceMs: 500,
+        argv: [process.execPath, '-e', `process.stdout.write(Buffer.from(${JSON.stringify([...bytes])}))`],
+        cwd: helper.root,
+        graceMs: 500,
         stdio: { stdin: 'ignore', stdout: { maxBytes: 4, spill: { maxBytes: 16 } }, stderr: { maxBytes: 8 } },
       })
       expect(await handle.done).toEqual({ exitCode: 0, signal: null })

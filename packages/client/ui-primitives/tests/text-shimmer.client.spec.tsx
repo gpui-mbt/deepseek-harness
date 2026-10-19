@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { TextShimmer } from '../src/TextShimmer.tsx'
 
 afterEach(cleanup)
@@ -23,7 +23,9 @@ describe('TextShimmer', () => {
     const row = (active: boolean, title: string) => (
       <TextShimmer active={active}>
         <TextShimmer>{title}</TextShimmer>
-        <button type="button" onClick={open}><TextShimmer>file.ts</TextShimmer></button>
+        <button type="button" onClick={open}>
+          <TextShimmer>file.ts</TextShimmer>
+        </button>
       </TextShimmer>
     )
     const view = render(row(true, 'Read'))
@@ -32,8 +34,10 @@ describe('TextShimmer', () => {
     const decoration = view.container.querySelector('[inert]')!
     expect(decoration.getAttribute('aria-hidden')).toBe('true')
     expect(view.container.querySelectorAll('[inert]')).toHaveLength(1)
-    expect([...decoration.querySelectorAll('[data-shimmer-text]')].map(node => node.getAttribute('data-shimmer-text')))
-      .toEqual(['Read', 'file.ts'])
+    expect([...decoration.querySelectorAll('[data-shimmer-text]')].map(node => node.getAttribute('data-shimmer-text'))).toEqual([
+      'Read',
+      'file.ts',
+    ])
     expect(view.container.textContent).toBe('Readfile.ts')
     fireEvent.click(button)
     expect(open).toHaveBeenCalledOnce()

@@ -18,10 +18,26 @@ import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import { SlotCore, StaleAuthorizationError, standardHookPropName } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
-  HostObservable, LiveCompositionNode, LocaleFace, OwnerOf, RegisterFactory, SlotEntryDef, SlotMap, SlotRenderer, SlotRendererHost,
-  RootStandardSourceContribution, ScopedStandardSourceBinding, SlotScope, SlotScopeAdapter, SlotSpec,
-  StandardSourceBinding, StoredFactory,
-  StoreDecl, StoreFactory, StoredEntry, StoreInstanceLike,
+  HostObservable,
+  LiveCompositionNode,
+  LocaleFace,
+  OwnerOf,
+  RegisterFactory,
+  SlotEntryDef,
+  SlotMap,
+  SlotRenderer,
+  SlotRendererHost,
+  RootStandardSourceContribution,
+  ScopedStandardSourceBinding,
+  SlotScope,
+  SlotScopeAdapter,
+  SlotSpec,
+  StandardSourceBinding,
+  StoredFactory,
+  StoreDecl,
+  StoreFactory,
+  StoredEntry,
+  StoreInstanceLike,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotAssemblyError } from './errors.ts'
 
@@ -41,12 +57,14 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
      * app, register into `shell.overlay` instead (a list slot: additive, and
      * click-through until your entry opts into pointer events).
      */
-    'root': { kind: 'single'; scope: 'root'; owner: RootOwnerProps }
+    root: { kind: 'single'; scope: 'root'; owner: RootOwnerProps }
   }
 }
 
 /** Root owner share: the shell supplies nothing — the frame is inject-assembled. */
-export interface RootOwnerProps { children?: never }
+export interface RootOwnerProps {
+  children?: never
+}
 
 /** Instance key for root-scoped store records (session records key by session id, so the literal cannot collide). */
 const ROOT_INSTANCE_KEY = 'root'
@@ -110,8 +128,12 @@ interface ErasedFactoryOptions {
 }
 
 /** Erased core call face (the service re-erases at its own boundary; the core's typed face targets end callers). */
-interface ErasedCore { register(options: object, component: unknown): () => void }
-interface ErasedFactoryCore { registerFactory(options: object, component: unknown): () => void }
+interface ErasedCore {
+  register(options: object, component: unknown): () => void
+}
+interface ErasedFactoryCore {
+  registerFactory(options: object, component: unknown): () => void
+}
 
 /** One synchronous effect installed while an injected slot declaration is live. */
 type SlotInjectionEffect = (() => void) | Iterable<() => void, void, void>
@@ -139,7 +161,9 @@ export class SlotRegistry extends Service {
     getSnapshot: (): StandardSourceBinding => this._rootBinding,
     subscribe: (listener: () => void): (() => void) => {
       this._rootListeners.add(listener)
-      return () => { this._rootListeners.delete(listener) }
+      return () => {
+        this._rootListeners.delete(listener)
+      }
     },
   }
   private readonly _scopes = new Map<Exclude<SlotScope, 'root' | 'session-maybe'>, SlotScopeAdapter>()
@@ -147,9 +171,11 @@ export class SlotRegistry extends Service {
   private readonly _scopeListeners = new Set<() => void>()
   private readonly _scopeRevisionSource: HostObservable<number> = {
     getSnapshot: () => this._scopeRevision,
-    subscribe: (listener) => {
+    subscribe: listener => {
       this._scopeListeners.add(listener)
-      return () => { this._scopeListeners.delete(listener) }
+      return () => {
+        this._scopeListeners.delete(listener)
+      }
     },
   }
 
@@ -158,7 +184,9 @@ export class SlotRegistry extends Service {
    */
   constructor(ctx: Context) {
     super(ctx, 'slots')
-    this._core.onMutate((key) => { ctx.emit('slots/changed', key) })
+    this._core.onMutate(key => {
+      ctx.emit('slots/changed', key)
+    })
   }
 
   /**
@@ -208,66 +236,75 @@ export class SlotRegistry extends Service {
    */
   inject(key: keyof SlotMap & string, callback: () => SlotInjectionEffect): () => void {
     const ctx = this.ctx
-    const disposeController = ctx.effect(() => {
-      let active: (() => void) | undefined
-      let activeEpoch: number | undefined
-      let stopped = false
-      let unsubscribe = (): void => {}
+    const disposeController = ctx.effect(
+      () => {
+        let active: (() => void) | undefined
+        let activeEpoch: number | undefined
+        let stopped = false
+        let unsubscribe = (): void => {}
 
-      const stop = (): void => {
-        if (stopped) return
-        // Failure callers retire the injection permanently: a delayed setup
-        // failure never retries on a later declaration.
-        stopped = true
-        unsubscribe()
-        const dispose = active
-        active = undefined
-        activeEpoch = undefined
-        dispose?.()
-      }
+        const stop = (): void => {
+          if (stopped) return
+          // Failure callers retire the injection permanently: a delayed setup
+          // failure never retries on a later declaration.
+          stopped = true
+          unsubscribe()
+          const dispose = active
+          active = undefined
+          activeEpoch = undefined
+          dispose?.()
+        }
 
-      const reconcile = (): void => {
-        if (stopped) return
-        const spec = this._core.specDynamic(key)
-        const epoch = this._core.declarationEpoch(key)
-        if (active !== undefined && activeEpoch === epoch) return
-        const dispose = active
-        active = undefined
-        activeEpoch = undefined
-        dispose?.()
-        if (spec === undefined) return
-        // A declaration lifetime is a nested Cordis effect. This gives
-        // generator callbacks the same transactional setup, reverse teardown,
-        // diagnostics tree, and idempotence as every other plugin effect.
-        const disposeEffect = ctx.effect(callback, `slots.inject(${JSON.stringify(key)}): declaration`)
-        active = () => { void disposeEffect() }
-        activeEpoch = epoch
-      }
+        const reconcile = (): void => {
+          if (stopped) return
+          const spec = this._core.specDynamic(key)
+          const epoch = this._core.declarationEpoch(key)
+          if (active !== undefined && activeEpoch === epoch) return
+          const dispose = active
+          active = undefined
+          activeEpoch = undefined
+          dispose?.()
+          if (spec === undefined) return
+          // A declaration lifetime is a nested Cordis effect. This gives
+          // generator callbacks the same transactional setup, reverse teardown,
+          // diagnostics tree, and idempotence as every other plugin effect.
+          const disposeEffect = ctx.effect(callback, `slots.inject(${JSON.stringify(key)}): declaration`)
+          active = () => {
+            void disposeEffect()
+          }
+          activeEpoch = epoch
+        }
 
-      const changed = (): void => {
+        const changed = (): void => {
+          try {
+            reconcile()
+          } catch (error) {
+            if ((error as { code?: unknown } | null)?.code === 'INACTIVE_EFFECT') {
+              stop()
+              return
+            }
+            stop()
+            const failure = error instanceof Error ? error : new Error(String(error))
+            queueMicrotask(() => {
+              throw failure
+            })
+          }
+        }
+
+        unsubscribe = this._core.subscribeDeclaration(key, changed)
         try {
           reconcile()
         } catch (error) {
-          if ((error as { code?: unknown } | null)?.code === 'INACTIVE_EFFECT') {
-            stop()
-            return
-          }
           stop()
-          const failure = error instanceof Error ? error : new Error(String(error))
-          queueMicrotask(() => { throw failure })
+          throw error
         }
-      }
-
-      unsubscribe = this._core.subscribeDeclaration(key, changed)
-      try {
-        reconcile()
-      } catch (error) {
-        stop()
-        throw error
-      }
-      return stop
-    }, `slots.inject(${JSON.stringify(key)})`)
-    return () => { void disposeController() }
+        return stop
+      },
+      `slots.inject(${JSON.stringify(key)})`,
+    )
+    return () => {
+      void disposeController()
+    }
   }
 
   /**
@@ -325,7 +362,9 @@ export class SlotRegistry extends Service {
         this.rebuildRootBinding()
       }
     }, 'slots.provideRoot()')
-    return () => { void dispose() }
+    return () => {
+      void dispose()
+    }
   }
 
   /**
@@ -334,21 +373,21 @@ export class SlotRegistry extends Service {
    * @param scope - strict scope name.
    * @param adapter - current/resolved binding source and release notifications.
    */
-  installScope(
-    scope: Exclude<SlotScope, 'root' | 'session-maybe'>,
-    adapter: SlotScopeAdapter,
-  ): void {
+  installScope(scope: Exclude<SlotScope, 'root' | 'session-maybe'>, adapter: SlotScopeAdapter): void {
     if (this._scopes.has(scope)) throw new Error(`slot scope '${scope}' already has an adapter`)
-    this.ctx.effect(() => {
-      this._scopes.set(scope, adapter)
-      this.publishScopeRevision()
-      return () => {
-        if (this._scopes.get(scope) === adapter) {
-          this._scopes.delete(scope)
-          this.publishScopeRevision()
+    this.ctx.effect(
+      () => {
+        this._scopes.set(scope, adapter)
+        this.publishScopeRevision()
+        return () => {
+          if (this._scopes.get(scope) === adapter) {
+            this._scopes.delete(scope)
+            this.publishScopeRevision()
+          }
         }
-      }
-    }, `slots.installScope(${JSON.stringify(scope)})`)
+      },
+      `slots.installScope(${JSON.stringify(scope)})`,
+    )
   }
 
   /**
@@ -364,11 +403,14 @@ export class SlotRegistry extends Service {
     if (current === binding.ctx) return
     if (current !== undefined) this.releaseStoreScope(binding.key)
     this._storeScopeOwners.set(binding.key, binding.ctx)
-    binding.ctx.effect(() => () => {
-      if (this._storeScopeOwners.get(binding.key) !== binding.ctx) return
-      this._storeScopeOwners.delete(binding.key)
-      this.releaseStoreScope(binding.key)
-    }, `slots: store scope ${binding.key}`)
+    binding.ctx.effect(
+      () => () => {
+        if (this._storeScopeOwners.get(binding.key) !== binding.ctx) return
+        this._storeScopeOwners.delete(binding.key)
+        this.releaseStoreScope(binding.key)
+      },
+      `slots: store scope ${binding.key}`,
+    )
   }
 
   /**
@@ -435,12 +477,9 @@ export class SlotRegistry extends Service {
    * registration, cause, and whether an ordinary entry was retired.
    * @returns unsubscribe.
    */
-  onEntryError(fn: (
-    key: string,
-    registration: StoredEntry | StoredFactory,
-    error: unknown,
-    info: { abdicated: boolean },
-  ) => void): () => void {
+  onEntryError(
+    fn: (key: string, registration: StoredEntry | StoredFactory, error: unknown, info: { abdicated: boolean }) => void,
+  ): () => void {
     return this._core.onEntryError(fn)
   }
 
@@ -544,18 +583,18 @@ export class SlotRegistry extends Service {
       getVersion: key => this._core.getVersion(key),
       entriesOf: key => this._core.entries(key),
       entriesOfSlot: key => this._core.entriesOfSlot(key),
-      reportEntryError: (key, entry, error, info) => { this._core.reportEntryError(key, entry, error, info) },
-      reportFactoryError: (name, registration, error) => { this._core.reportFactoryError(name, registration, error) },
+      reportEntryError: (key, entry, error, info) => {
+        this._core.reportEntryError(key, entry, error, info)
+      },
+      reportFactoryError: (name, registration, error) => {
+        this._core.reportFactoryError(name, registration, error)
+      },
       specOf: key => this._core.specDynamic(key),
       isLive: entry => this._core.isLive(entry),
       storeOf: (entry, scopeBinding) =>
-        entry.store === undefined
-          ? undefined
-          : this.resolveStore(entry.store as EngineStoreHandle, scopeBinding),
-      factoryStoreOf: (definition, scopeBinding, occurrence) =>
-        this.resolveFactoryStore(definition, scopeBinding, occurrence),
-      retainFactoryOccurrence: (definition, occurrence) =>
-        this.retainFactoryOccurrence(definition, occurrence),
+        entry.store === undefined ? undefined : this.resolveStore(entry.store as EngineStoreHandle, scopeBinding),
+      factoryStoreOf: (definition, scopeBinding, occurrence) => this.resolveFactoryStore(definition, scopeBinding, occurrence),
+      retainFactoryOccurrence: (definition, occurrence) => this.retainFactoryOccurrence(definition, occurrence),
       subscribeFactory: (name, fn) => this._core.subscribeFactory(name, fn),
       getFactoryVersion: name => this._core.factoryVersion(name),
       factoryOf: name => this._core.factory(name),
@@ -563,7 +602,9 @@ export class SlotRegistry extends Service {
       root: this._rootSource,
       scopeRevision: this._scopeRevisionSource,
       scope: scope => service._scopes.get(scope === 'session-maybe' ? 'session' : scope),
-      get locale() { return service._locale },
+      get locale() {
+        return service._locale
+      },
     }
     return this._host
   }
@@ -602,10 +643,7 @@ export class SlotRegistry extends Service {
   }
 
   /** Resolve (create or reuse) the store instance for a registered handle under a scope key. */
-  private resolveStore(
-    handle: EngineStoreHandle,
-    scopeBinding: ScopedStandardSourceBinding | undefined,
-  ): StoreInstanceLike {
+  private resolveStore(handle: EngineStoreHandle, scopeBinding: ScopedStandardSourceBinding | undefined): StoreInstanceLike {
     const record = this._stores.get(handle)
     if (record === undefined) throw new Error('store handle is not registered (entry unloaded, or the handle never went through register)')
     let key: string
@@ -640,26 +678,21 @@ export class SlotRegistry extends Service {
       return this.resolveStore(declaration, scopeBinding)
     }
     const axis = this._factoryStores.get(definition) as FactoryStoreAxis
-    const scopeKey = definition.scope === 'root'
-      ? ROOT_INSTANCE_KEY
-      : requireScopeKey(definition, scopeBinding)
+    const scopeKey = definition.scope === 'root' ? ROOT_INSTANCE_KEY : requireScopeKey(definition, scopeBinding)
     if (scopeBinding !== undefined && definition.scope !== 'root') this.bindStoreScope(scopeBinding)
     let record = axis.occurrences.get(occurrence)
     if (record === undefined) {
       const handle = declaration()
       if (handle.spec.persist !== undefined) {
-        throw new SlotAssemblyError(
-          `exclusive store for factory "${definition.name}" cannot declare persistence`,
-        )
+        throw new SlotAssemblyError(`exclusive store for factory "${definition.name}" cannot declare persistence`)
       }
       record = { handle, instances: new Map(), retainers: 0 }
       axis.occurrences.set(occurrence, record)
     }
     const existing = record.instances.get(scopeKey)
     if (existing !== undefined) return existing
-    const instance = definition.scope === 'root' || scopeBinding === undefined
-      ? record.handle.create()
-      : record.handle.create(scopeBinding.key)
+    const instance =
+      definition.scope === 'root' || scopeBinding === undefined ? record.handle.create() : record.handle.create(scopeBinding.key)
     record.instances.set(scopeKey, instance)
     return instance
   }
@@ -737,26 +770,26 @@ function copyUnique<T>(
 // inside the class — see its JSDoc for why it must live on the prototype).
 // Element access reaches the private _register legally and keeps it a
 // TS-visible read.
-;(SlotRegistry.prototype as { register: (options: object, component: unknown) => () => void }).register
-  = function register(this: SlotRegistry, rawOptions: object, component: unknown): () => void {
-    // The core's overloads proved the shares; the implementation works on
-    // the erased view (same pattern as the core's own implementation arm).
-    const options = rawOptions as ErasedRegisterOptions
-    // oxlint-disable-next-line typescript/no-misused-promises -- synchronous cleanup; direct return preserves disposer identity
-    return this.ctx.effect(() => this['_register'](options, component), 'slots.register()')
-  }
+;(SlotRegistry.prototype as { register: (options: object, component: unknown) => () => void }).register = function register(
+  this: SlotRegistry,
+  rawOptions: object,
+  component: unknown,
+): () => void {
+  // The core's overloads proved the shares; the implementation works on
+  // the erased view (same pattern as the core's own implementation arm).
+  const options = rawOptions as ErasedRegisterOptions
+  // oxlint-disable-next-line typescript/no-misused-promises -- synchronous cleanup; direct return preserves disposer identity
+  return this.ctx.effect(() => this['_register'](options, component), 'slots.register()')
+}
 
-;(SlotRegistry.prototype as { registerFactory: (options: object, component: unknown) => () => void }).registerFactory
-  = function registerFactory(this: SlotRegistry, rawOptions: object, component: unknown): () => void {
+;(SlotRegistry.prototype as { registerFactory: (options: object, component: unknown) => () => void }).registerFactory =
+  function registerFactory(this: SlotRegistry, rawOptions: object, component: unknown): () => void {
     const options = rawOptions as ErasedFactoryOptions
     // oxlint-disable-next-line typescript/no-misused-promises -- synchronous cleanup; direct return preserves disposer identity
     return this.ctx.effect(() => this['_registerFactory'](options, component), 'slots.registerFactory()')
   }
 
-function requireScopeKey(
-  definition: StoredFactory,
-  binding: ScopedStandardSourceBinding | undefined,
-): string {
+function requireScopeKey(definition: StoredFactory, binding: ScopedStandardSourceBinding | undefined): string {
   if (binding === undefined) {
     throw new Error(`${definition.scope} factory store resolution requires a session id`)
   }

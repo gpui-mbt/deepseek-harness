@@ -39,7 +39,14 @@
  * retain every listed Session.
  */
 import type {
-  HostObservable, InjectFace, PropsHooks, PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore, SlotHookFactory,
+  HostObservable,
+  InjectFace,
+  PropsHooks,
+  PropsLocale,
+  PropsRenderSlots,
+  PropsRuntime,
+  PropsStore,
+  SlotHookFactory,
 } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pull the owner SlotMap merges into programs that resolve the
 // runtime shares below.
@@ -100,8 +107,8 @@ export type UseMenuOpenState = () => MenuOpenState
  * @param state - the menu's open-state pair from the render occurrence.
  * @returns the hook the entry calls.
  */
-export const menuOpenStateFactory: SlotHookFactory<'sidebar.workspaces.session.menu.item', UseMenuOpenState> =
-  (_standard, state) => () => state
+export const menuOpenStateFactory: SlotHookFactory<'sidebar.workspaces.session.menu.item', UseMenuOpenState> = (_standard, state) => () =>
+  state
 
 /**
  * Owner share of the two Session-row schedule seats. Both receive only the
@@ -173,10 +180,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
       scope: 'root'
       owner: SessionRowOwnerProps
       hookContext: MenuOpenState
-      inject: { hooks: {
-        menuOpenState: SlotHookFactory<'sidebar.workspaces.session.menu.item', UseMenuOpenState>
-        shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
-      } }
+      inject: {
+        hooks: {
+          menuOpenState: SlotHookFactory<'sidebar.workspaces.session.menu.item', UseMenuOpenState>
+          shortcuts: HostObservable<readonly ShortcutCatalogEntry[]>
+        }
+      }
     }
     /**
      * The hover buttons at the end of one Session row, in ascending `order`,
@@ -191,9 +200,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 
 /** The two directory-flow holes; a flow package's client half registers its one component into both. */
-export type DirectoryFlowSlotName =
-  | 'conversation.hero.workspace.directoryFlow'
-  | 'sidebar.workspaces.directoryFlow'
+export type DirectoryFlowSlotName = 'conversation.hero.workspace.directoryFlow' | 'sidebar.workspaces.directoryFlow'
 
 /**
  * Directory-picking share both trigger surfaces consume. Occupancy rides the
@@ -249,10 +256,7 @@ export type WorkspaceBrowserInjected = {
    * Search current visible conversation messages. The Host fixes the result
    * bound; `hasMore` means the query needs narrowing.
    */
-  searchSessions: (
-    query: string,
-    signal: AbortSignal,
-  ) => Promise<{ items: readonly SessionSearchResultItem[]; hasMore: boolean }>
+  searchSessions: (query: string, signal: AbortSignal) => Promise<{ items: readonly SessionSearchResultItem[]; hasMore: boolean }>
   /** Maximum number of merged rows rendered for one search. */
   searchResultLimit: number
   /** Open the Session rename dialog (a row title double-click); the rename action entry raises the same request. */
@@ -278,16 +282,14 @@ export type WorkspaceBrowserInjected = {
 export type WorkspaceViewStoreHandle = ReturnType<typeof createWorkspaceViewStore>
 
 /** Props of one shipped row-menu entry: owner share + locale seat + the entry's own injected share. */
-export type SessionMenuItemProps<Injected extends object = object> =
-  PropsRuntime<'sidebar.workspaces.session.menu.item'>
-  & PropsLocale<'workspace'>
-  & InjectFace<Injected>
+export type SessionMenuItemProps<Injected extends object = object> = PropsRuntime<'sidebar.workspaces.session.menu.item'> &
+  PropsLocale<'workspace'> &
+  InjectFace<Injected>
 
 /** Props of one shipped row hover button: owner share + locale seat + the entry's own injected share. */
-export type SessionRowActionProps<Injected extends object = object> =
-  PropsRuntime<'sidebar.workspaces.session.row.action'>
-  & PropsLocale<'workspace'>
-  & InjectFace<Injected>
+export type SessionRowActionProps<Injected extends object = object> = PropsRuntime<'sidebar.workspaces.session.row.action'> &
+  PropsLocale<'workspace'> &
+  InjectFace<Injected>
 
 /** One transient Workspace notice rendered by the overlay toast entry. */
 export type RowToast =
@@ -444,40 +446,36 @@ export interface RowToastActions {
 }
 
 /** Props of the rename dialog entry in `shell.overlay`. */
-export type SessionRenameDialogProps =
-  PropsRuntime<'shell.overlay'>
-  & PropsLocale<'workspace'>
-  & Omit<SessionRenameDialogInjected, 'hooks'>
-  & PropsHooks<SessionRenameDialogInjected['hooks']>
+export type SessionRenameDialogProps = PropsRuntime<'shell.overlay'> &
+  PropsLocale<'workspace'> &
+  Omit<SessionRenameDialogInjected, 'hooks'> &
+  PropsHooks<SessionRenameDialogInjected['hooks']>
 
 /** Props of the stop-and-archive dialog entry in `shell.overlay`. */
-export type SessionArchiveConfirmProps =
-  PropsRuntime<'shell.overlay'>
-  & PropsLocale<'workspace'>
-  & Omit<SessionArchiveConfirmInjected, 'hooks'>
-  & PropsHooks<SessionArchiveConfirmInjected['hooks']>
+export type SessionArchiveConfirmProps = PropsRuntime<'shell.overlay'> &
+  PropsLocale<'workspace'> &
+  Omit<SessionArchiveConfirmInjected, 'hooks'> &
+  PropsHooks<SessionArchiveConfirmInjected['hooks']>
 
 /** Props of the existing overlay's keyed notice dispatcher. */
-export type RowToastProps =
-  PropsRuntime<'shell.overlay'>
-  & PropsRenderSlots<'workspace.toast'>
-  & Pick<RowToastInjected, 'dismissToast'>
-  & PropsHooks<RowToastInjected['hooks']>
+export type RowToastProps = PropsRuntime<'shell.overlay'> &
+  PropsRenderSlots<'workspace.toast'> &
+  Pick<RowToastInjected, 'dismissToast'> &
+  PropsHooks<RowToastInjected['hooks']>
 
 /** Full browser props: shell owner share + viewing store + injected actions + the locale seat. */
-export type WorkspaceBrowserProps =
-  PropsRuntime<'sidebar.workspaces'>
-  & PropsRenderSlots<
+export type WorkspaceBrowserProps = PropsRuntime<'sidebar.workspaces'> &
+  PropsRenderSlots<
     | 'sidebar.workspaces.directoryFlow'
     | 'sidebar.workspaces.session.menu.item'
     | 'sidebar.workspaces.session.row.action'
     | 'sidebar.session.row.leading'
     | 'sidebar.session.row.hover'
-  >
-  & PropsStore<WorkspaceViewStoreHandle>
-  & Omit<WorkspaceBrowserInjected, 'hooks'>
-  & PropsHooks<WorkspaceBrowserInjected['hooks']>
-  & PropsLocale<'workspace'>
+  > &
+  PropsStore<WorkspaceViewStoreHandle> &
+  Omit<WorkspaceBrowserInjected, 'hooks'> &
+  PropsHooks<WorkspaceBrowserInjected['hooks']> &
+  PropsLocale<'workspace'>
 
 /**
  * Picker-private injected share. Pick semantics remain in the owner's onPick
@@ -494,9 +492,8 @@ export type WorkspacePickerInjected = DirectoryPickingInjected & {
  * locale seat. The two picker holes (blank-session hero / New-Session view)
  * share one owner currency, so one composed type serves both registrations.
  */
-export type WorkspacePickerProps =
-  PropsRuntime<'conversation.hero.workspace'>
-  & PropsRenderSlots<'conversation.hero.workspace.directoryFlow'>
-  & Omit<WorkspacePickerInjected, 'hooks'>
-  & PropsHooks<WorkspacePickerInjected['hooks']>
-  & PropsLocale<'workspace'>
+export type WorkspacePickerProps = PropsRuntime<'conversation.hero.workspace'> &
+  PropsRenderSlots<'conversation.hero.workspace.directoryFlow'> &
+  Omit<WorkspacePickerInjected, 'hooks'> &
+  PropsHooks<WorkspacePickerInjected['hooks']> &
+  PropsLocale<'workspace'>

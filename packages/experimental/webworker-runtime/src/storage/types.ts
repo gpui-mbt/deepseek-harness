@@ -178,13 +178,13 @@ export interface VfsOpenFile {
  */
 export type VfsMutation =
   | {
-    readonly kind: 'write'
-    readonly path: string
-    readonly bytes: Uint8Array
-    readonly mode: number
-    readonly entryChanged: boolean
-    readonly appendedFrom?: number
-  }
+      readonly kind: 'write'
+      readonly path: string
+      readonly bytes: Uint8Array
+      readonly mode: number
+      readonly entryChanged: boolean
+      readonly appendedFrom?: number
+    }
   | { readonly kind: 'mkdir'; readonly path: string; readonly mode: number }
   | { readonly kind: 'remove'; readonly path: string }
   | { readonly kind: 'chmod'; readonly path: string; readonly mode: number }

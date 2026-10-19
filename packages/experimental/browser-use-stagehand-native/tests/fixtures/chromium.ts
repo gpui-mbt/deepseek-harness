@@ -10,7 +10,8 @@ export const computeSystemExecutablePath = () => '/fixture/chromium'
 
 export function launch(options: { executablePath: string; args: string[] }) {
   const browser = new FixtureBrowser('launched', {
-    executablePath: options.executablePath, headless: options.args.includes('--headless=new'),
+    executablePath: options.executablePath,
+    headless: options.args.includes('--headless=new'),
   })
   fixture.browsers.push(browser)
   const endpoint = `http://fixture/${fixture.browsers.length}`
@@ -19,6 +20,10 @@ export function launch(options: { executablePath: string; args: string[] }) {
   return {
     nodeProcess,
     waitForLineOutput: () => Promise.resolve(endpoint),
-    kill() { void browser.close().then(() => { nodeProcess.emit('close', 0) }) },
+    kill() {
+      void browser.close().then(() => {
+        nodeProcess.emit('close', 0)
+      })
+    },
   }
 }

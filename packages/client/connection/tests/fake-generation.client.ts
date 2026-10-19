@@ -44,20 +44,19 @@ export class FakeGenerationSource {
     return this.connections.length
   }
 
-  private async open(
-    signal: AbortSignal,
-    onReady: (host: { readonly home: string }) => void,
-  ): Promise<void> {
+  private async open(signal: AbortSignal, onReady: (host: { readonly home: string }) => void): Promise<void> {
     const inbox: StreamItem[] = []
     let wake: (() => void) | null = null
     const connection: StreamConnection = {
-      feed: (item) => {
+      feed: item => {
         inbox.push(item)
         wake?.()
       },
     }
     this.connections.push(connection)
-    const ready = (): void => { onReady({ home: '/h' }) }
+    const ready = (): void => {
+      onReady({ home: '/h' })
+    }
     if (this.holdReady) this.heldReady.push(ready)
     else if (!this.suppressReady) ready()
     try {
@@ -67,9 +66,15 @@ export class FakeGenerationSource {
           if (item.kind === 'end') return
           if (item.kind === 'fail') throw item.error
         }
-        await new Promise<void>((resolve) => {
+        await new Promise<void>(resolve => {
           wake = resolve
-          signal.addEventListener('abort', () => { resolve() }, { once: true })
+          signal.addEventListener(
+            'abort',
+            () => {
+              resolve()
+            },
+            { once: true },
+          )
         })
         wake = null
       }

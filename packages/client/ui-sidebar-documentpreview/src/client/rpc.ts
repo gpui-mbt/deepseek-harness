@@ -22,12 +22,7 @@ export interface WorkspaceFilesReadRemote {
      * @param signal - cancels the call.
      * @returns the page, or the failure the Host declares.
      */
-    read(
-      sessionId: SessionId,
-      path: string,
-      range: WorkspaceFileRange,
-      signal?: AbortSignal,
-    ): Promise<RemoteResult<WorkspaceFileText>>
+    read(sessionId: SessionId, path: string, range: WorkspaceFileRange, signal?: AbortSignal): Promise<RemoteResult<WorkspaceFileText>>
   }
 }
 

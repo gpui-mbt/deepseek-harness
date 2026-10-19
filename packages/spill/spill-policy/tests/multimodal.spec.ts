@@ -2,7 +2,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { provideWorkingDirectoryFixture } from '@deepseek-ai/dsh-agent-loop-testkit'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -23,21 +23,37 @@ import type { PtcRunRequest, PtcRunSpec, PtcRunResult } from '@deepseek-ai/dsh-p
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import * as SpillPolicy from '../src/index.ts'
 
-const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWNgZGIGAAAOAAeCcsnOAAAAAElFTkSuQmCC', 'base64')
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWNgZGIGAAAOAAeCcsnOAAAAAElFTkSuQmCC',
+  'base64',
+)
 
 class TestAttachments extends AttachmentStore {
   readonly imageLimits = {
-    maxImageBytes: 1024, maxImagesPerMessage: 10, maxMessageImageBytes: 10240,
-    maxImagePixels: 1024, maxImageDimension: 1024,
+    maxImageBytes: 1024,
+    maxImagesPerMessage: 10,
+    maxMessageImageBytes: 10240,
+    maxImagePixels: 1024,
+    maxImageDimension: 1024,
     mediaTypes: ['image/png'] as const,
   }
   private ordinal = 0
-  constructor(ctx: Context, readonly root: string) { super(ctx) }
-  validateImage(): Promise<void> { return Promise.resolve() }
+  constructor(
+    ctx: Context,
+    readonly root: string,
+  ) {
+    super(ctx)
+  }
+  validateImage(): Promise<void> {
+    return Promise.resolve()
+  }
   async saveImage(input: SaveImageAttachment): Promise<ImageAttachmentRef> {
     const ref: ImageAttachmentRef = {
       attachmentId: AttachmentId(`sha256:${String(++this.ordinal).padStart(64, '0')}`),
-      mediaType: input.mediaType, bytes: input.data.byteLength, width: 1, height: 1,
+      mediaType: input.mediaType,
+      bytes: input.data.byteLength,
+      width: 1,
+      height: 1,
     }
     await writeFile(this.imageHostPath(ref), input.data, { flag: 'wx' })
     return ref
@@ -55,11 +71,17 @@ class VisionAdapter extends LlmAdapter {
     return Promise.resolve({ provider, id: model, name: model, inputModalities: ['text', 'image'] })
   }
   override imageRequestPricing(): LlmImageRequestPricing {
-    return { priceImages: images => images.map(({ attachment }) => ({
-      visualTokens: deepSeekImageTokens(attachment.width, attachment.height), text: '',
-    })) }
+    return {
+      priceImages: images =>
+        images.map(({ attachment }) => ({
+          visualTokens: deepSeekImageTokens(attachment.width, attachment.height),
+          text: '',
+        })),
+    }
   }
-  stream(_options: GenerateOptions): AsyncIterable<StreamChunk> { throw new Error('fixture does not stream') }
+  stream(_options: GenerateOptions): AsyncIterable<StreamChunk> {
+    throw new Error('fixture does not stream')
+  }
 }
 
 async function setup(content: JsonValue[], maxInlineTokens: number, mode: 'native' | 'ptc' = 'native') {
@@ -67,7 +89,11 @@ async function setup(content: JsonValue[], maxInlineTokens: number, mode: 'nativ
   const ctx = new Context()
   provideWorkingDirectoryFixture(ctx, root)
   onTestFinished(async () => {
-    try { await ctx.fiber.dispose() } finally { await rm(root, { recursive: true, force: true }) }
+    try {
+      await ctx.fiber.dispose()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime, { mode })
@@ -77,16 +103,25 @@ async function setup(content: JsonValue[], maxInlineTokens: number, mode: 'nativ
   await ctx.plugin(LlmRuntime)
   ctx.llm.registerAdapter(['vision'], new VisionAdapter())
   await ctx.plugin(SpillPolicy, { maxInlineTokens })
-  ctx.tools.register(createMcpToolDefinition(ctx, {
-    name: 'inspect', rawName: 'inspect', description: 'Return text and screenshots',
-    inputSchema: { type: 'object' }, call: async () => ({ content }),
-  }))
+  ctx.tools.register(
+    createMcpToolDefinition(ctx, {
+      name: 'inspect',
+      rawName: 'inspect',
+      description: 'Return text and screenshots',
+      inputSchema: { type: 'object' },
+      call: async () => ({ content }),
+    }),
+  )
   const session = Session.create(SessionId('mixed-spill'))
   const agent = { ctx, session, options: { provider: 'vision', model: 'vision' } } as Agent
-  const execute = (name = 'inspect') => ctx.tools.execute({
-    signal: new AbortController().signal, callId: ToolCallId('mixed-call'), name,
-    arguments: name === 'run_code' ? { code: 'return await tools.inspect({})', description: 'Inspect a window' } : {}, agent,
-  })
+  const execute = (name = 'inspect') =>
+    ctx.tools.execute({
+      signal: new AbortController().signal,
+      callId: ToolCallId('mixed-call'),
+      name,
+      arguments: name === 'run_code' ? { code: 'return await tools.inspect({})', description: 'Inspect a window' } : {},
+      agent,
+    })
   return { ctx, execute, session, fsFiber }
 }
 
@@ -115,7 +150,8 @@ describe('multimodal spill', () => {
     const paths = [...saved.matchAll(/\[Image: ("[^"\n]+")/g)].map(match => JSON.parse(match[1]!) as string)
     expect(paths).toHaveLength(2)
     for (const path of paths) expect(await readFile(path)).toEqual(PNG)
-    const visual = result.content.filter((block): block is ImageBlock => block.type === 'image')
+    const visual = result.content
+      .filter((block): block is ImageBlock => block.type === 'image')
       .reduce((total, block) => total + deepSeekImageTokens(block.attachment.width, block.attachment.height) + 4, 0)
     expect(visual + estimateContent(result.content.filter(block => block.type === 'text'))).toBeLessThanOrEqual(1000)
   })
@@ -158,13 +194,23 @@ describe('multimodal spill', () => {
   it('preserves direct programmatic image results without an active model route', async () => {
     const { ctx } = await setup([], 200)
     const attachment = await ctx.attachments.saveImage({ data: PNG, mediaType: 'image/png' })
-    ctx.tools.register(defineContentToolFixture({
-      name: 'offline_image', description: 'Read a durable image', parameters: {},
-      async execute() { return [{ type: 'image', attachment }] },
-    }))
+    ctx.tools.register(
+      defineContentToolFixture({
+        name: 'offline_image',
+        description: 'Read a durable image',
+        parameters: {},
+        async execute() {
+          return [{ type: 'image', attachment }]
+        },
+      }),
+    )
     const warning = vi.spyOn(ctx.logger, 'warn').mockImplementation(() => {})
-    const result = await ctx.tools.execute({ signal: new AbortController().signal,
-      callId: ToolCallId('offline'), name: 'offline_image', arguments: {} })
+    const result = await ctx.tools.execute({
+      signal: new AbortController().signal,
+      callId: ToolCallId('offline'),
+      name: 'offline_image',
+      arguments: {},
+    })
     expect(result.content).toEqual([{ type: 'image', attachment }])
     expect(warning).toHaveBeenCalledWith(expect.stringContaining('no image token calculator'))
   })
@@ -178,7 +224,7 @@ describe('multimodal spill', () => {
     expect(warning).toHaveBeenCalledWith(expect.stringContaining('inconsistent occurrence count'))
   })
 
-  it.each([false, true])('forwards omitted-image recovery only for successful PTC results (failure: %s)', async (failure) => {
+  it.each([false, true])('forwards omitted-image recovery only for successful PTC results (failure: %s)', async failure => {
     const original = [text('A'.repeat(4000)), image(), text('C'.repeat(4000))]
     const { ctx, execute, session } = await setup(original, 200, 'ptc')
     if (failure) {
@@ -186,16 +232,23 @@ describe('multimodal spill', () => {
       ctx.on('tools/execute', async (exec, next) => {
         if (exec.name !== 'inspect') return next()
         await next()
-        return { isError: true, error: { message: 'capture failed' }, content: [
-          { type: 'text', text: 'A'.repeat(4000) }, { type: 'image', attachment },
-          { type: 'text', text: 'C'.repeat(4000) },
-        ] }
+        return {
+          isError: true,
+          error: { message: 'capture failed' },
+          content: [
+            { type: 'text', text: 'A'.repeat(4000) },
+            { type: 'image', attachment },
+            { type: 'text', text: 'C'.repeat(4000) },
+          ],
+        }
       })
     }
     class BindingRuntime extends PtcRuntime {
       readonly language = 'typescript'
       readonly isolation = 'fixture'
-      resolve(request: PtcRunRequest): PtcRunSpec { return { ...request, cwd: process.cwd(), timeoutMs: 120000 } }
+      resolve(request: PtcRunRequest): PtcRunSpec {
+        return { ...request, cwd: process.cwd(), timeoutMs: 120000 }
+      }
       async run(spec: PtcRunSpec): Promise<PtcRunResult> {
         const binding = spec.bindings.find(item => item.global === 'tools')?.functions.inspect
         if (binding === undefined) throw new Error('missing inspect binding')

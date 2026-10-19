@@ -1,7 +1,7 @@
 /** Workspace byte reads traverse Gateway lookup and Connection's binary RPC response. */
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { beforeEach, afterEach, expect, it, vi } from 'vitest'
+import { beforeEach, afterEach, expect, it, vi } from 'vite-plus/test'
 import SessionStore from '@deepseek-ai/dsh-session'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 import TypertGateway from '@deepseek-ai/dsh-api-gateway'
@@ -22,7 +22,9 @@ beforeEach(async () => {
   await ctx.plugin(TypertRegistry)
   await ctx.plugin(RemoteAccessService)
   await ctx.plugin(TypertGateway)
-  await ctx.plugin((scope) => { new HostConnectionService(scope, [], {} as BrowserAuth) })
+  await ctx.plugin(scope => {
+    new HostConnectionService(scope, [], {} as BrowserAuth)
+  })
   await ctx.plugin(WorkspaceFiles, { maxBytes: 8, maxFileBytes: 4, maxLines: 100, maxEntries: 100 })
   ctx.sessions.create(harness.scope.sessionId, { meta: { cwd: harness.workspace, origin: 'subagent' } })
   const connection = ctx.get('connection') as HostConnectionService
@@ -56,7 +58,8 @@ it.each([
   const complete = vi.spyOn(harness.ctx.fs, 'readBytes')
   const window = vi.spyOn(harness.ctx.fs, 'readByteRange')
   expect(await read('large.bin', { baseFile: 'base.html', range })).toMatchObject({
-    ok: true, value: { offset, eof, bytes: 10, data: new Uint8Array(data) },
+    ok: true,
+    value: { offset, eof, bytes: 10, data: new Uint8Array(data) },
   })
   expect(window).toHaveBeenCalledExactlyOnceWith(expect.anything(), { offset, length: 8 }, expect.any(AbortSignal))
   expect(complete).not.toHaveBeenCalled()
@@ -64,12 +67,16 @@ it.each([
 
 it('preserves full-file size failures and Gateway Session lookup failures', async () => {
   await writeFile(join(harness.workspace, 'large'), '12345')
-  expect(await read('large', {})).toMatchObject({ ok: false, error: { code: 'workspace-file/too-large', details: { path: 'large', limit: 4 } } })
-  expect(await rpc.call('/api', 'workspaceFiles/readBytes', { args: { workspaceFileScopeId: 'missing', path: 'large', options: {} } }))
-    .toMatchObject({ ok: false, error: { code: 'gateway/lookup-not-found' } })
+  expect(await read('large', {})).toMatchObject({
+    ok: false,
+    error: { code: 'workspace-file/too-large', details: { path: 'large', limit: 4 } },
+  })
+  expect(
+    await rpc.call('/api', 'workspaceFiles/readBytes', { args: { workspaceFileScopeId: 'missing', path: 'large', options: {} } }),
+  ).toMatchObject({ ok: false, error: { code: 'gateway/lookup-not-found' } })
 })
 
-it.each([{}, { range: {} }])('propagates cancellation into the filesystem for options %j', async (options) => {
+it.each([{}, { range: {} }])('propagates cancellation into the filesystem for options %j', async options => {
   await writeFile(join(harness.workspace, 'file'), 'data')
   const entered = Promise.withResolvers<undefined>()
   const controller = new AbortController()
@@ -77,7 +84,13 @@ it.each([{}, { range: {} }])('propagates cancellation into the filesystem for op
     if (signal === undefined) throw new Error('read did not receive cancellation')
     entered.resolve(undefined)
     return new Promise((_resolve, reject) => {
-      signal.addEventListener('abort', () => { reject(signal.reason as Error) }, { once: true })
+      signal.addEventListener(
+        'abort',
+        () => {
+          reject(signal.reason as Error)
+        },
+        { once: true },
+      )
     })
   }
   if ('range' in options) vi.spyOn(harness.ctx.fs, 'readByteRange').mockImplementation((_target, _range, signal) => abortable(signal))

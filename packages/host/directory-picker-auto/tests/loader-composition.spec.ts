@@ -13,7 +13,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -22,7 +22,9 @@ import type { DirectoryPicker } from '@deepseek-ai/dsh-host-directory-picker'
 import BrowseDirectoryPicker from '@deepseek-ai/dsh-host-directory-picker-browse'
 import NativeDirectoryPicker from '@deepseek-ai/dsh-host-directory-picker-native'
 import {
-  createLaunchEnvironmentSnapshot, DSH_LAUNCH_ENVIRONMENT_KEY, type LaunchEnvironmentSnapshot,
+  createLaunchEnvironmentSnapshot,
+  DSH_LAUNCH_ENVIRONMENT_KEY,
+  type LaunchEnvironmentSnapshot,
 } from '@deepseek-ai/dsh-launch-environment'
 import { probeNonLoopbackIpv4 } from '../../../../scripts/test-non-loopback-address.ts'
 import * as DirectoryPickerAuto from '../src/index.ts'
@@ -34,7 +36,7 @@ const renameControl = vi.hoisted(() => ({
   remainingFailures: 0,
 }))
 
-vi.mock('node:fs/promises', async (importOriginal) => {
+vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...actual,
@@ -111,14 +113,12 @@ async function loadComposition(
 ): Promise<{ ctx: Context; configPath: string }> {
   root = await mkdtemp(join(tmpdir(), 'dsh-directory-picker-auto-'))
   const configPath = join(root, 'cordis.yml')
-  await writeFile(configPath, [
-    "- name: '@deepseek-ai/dsh-host-webserver'",
-    '  config:',
-    `    host: '${bindHost}'`,
-    '    port: 0',
-    `- name: '${AUTO}'`,
-    '',
-  ].join('\n'))
+  await writeFile(
+    configPath,
+    ["- name: '@deepseek-ai/dsh-host-webserver'", '  config:', `    host: '${bindHost}'`, '    port: 0', `- name: '${AUTO}'`, ''].join(
+      '\n',
+    ),
+  )
 
   context = new Context()
   context.provide('connection', { allowsRemoteAuthorities: options.remoteAuthorities === true } as never)
@@ -159,8 +159,7 @@ function entryNames(ctx: Context): string[] {
 
 /** The Include tree that backs the booted `cordis.yml` file. */
 function includeTree(ctx: Context): Include {
-  const include = [...ctx.loader.entries()]
-    .find(entry => entry.options.name === 'cordis:include')?.subtree as Include | undefined
+  const include = [...ctx.loader.entries()].find(entry => entry.options.name === 'cordis:include')?.subtree as Include | undefined
   if (include === undefined) throw new Error('expected the root Include tree')
   return include
 }
@@ -182,7 +181,7 @@ function stubAttendedHost(): void {
 }
 
 describe('real Loader composition', () => {
-  it.each(['project-env', 'user-env'] as const)('keeps the native backend with materialized SSH markers from %s', async (source) => {
+  it.each(['project-env', 'user-env'] as const)('keeps the native backend with materialized SSH markers from %s', async source => {
     stubAttendedHost()
     vi.stubEnv('SSH_CONNECTION', 'stale-connection')
     vi.stubEnv('SSH_TTY', '/dev/pts/stale')
@@ -223,13 +222,17 @@ describe('real Loader composition', () => {
     const backendEntry = [...ctx.loader.entries()].find(entry => entry.options.name === NATIVE)!
     const cleanupStarted = Promise.withResolvers<undefined>()
     const releaseCleanup = Promise.withResolvers<undefined>()
-    onTestFinished(() => { releaseCleanup.resolve(undefined) })
+    onTestFinished(() => {
+      releaseCleanup.resolve(undefined)
+    })
     backendEntry.fiber!.ctx.effect(() => async () => {
       cleanupStarted.resolve(undefined)
       await releaseCleanup.promise
     })
     let disposed = false
-    const disposal = autoEntry.fiber!.dispose().then(() => { disposed = true })
+    const disposal = autoEntry.fiber!.dispose().then(() => {
+      disposed = true
+    })
     await cleanupStarted.promise
     await Promise.resolve()
     expect(disposed).toBe(false)
@@ -252,28 +255,36 @@ describe('real Loader composition', () => {
   it.each([
     { signal: 'a trust policy that admits a remote authority', remoteAuthorities: true },
     { signal: 'an SSH launch', ssh: '10.0.0.2 55 10.0.0.9 22' },
-  ])('mounts the browse backend under $signal even on an attended loopback host', { timeout: 60_000 }, async ({ remoteAuthorities, ssh }) => {
-    stubAttendedHost()
-    if (ssh !== undefined) vi.stubEnv('SSH_CONNECTION', ssh)
-    const { ctx } = await loadComposition('127.0.0.1', { remoteAuthorities: remoteAuthorities ?? false })
+  ])(
+    'mounts the browse backend under $signal even on an attended loopback host',
+    { timeout: 60_000 },
+    async ({ remoteAuthorities, ssh }) => {
+      stubAttendedHost()
+      if (ssh !== undefined) vi.stubEnv('SSH_CONNECTION', ssh)
+      const { ctx } = await loadComposition('127.0.0.1', { remoteAuthorities: remoteAuthorities ?? false })
 
-    expect(entryNames(ctx)).toContain(BROWSE)
-    expect(entryNames(ctx)).toContain(BROWSE_SURFACE)
-    expect(entryNames(ctx)).not.toContain(NATIVE)
-    expect(entryNames(ctx)).not.toContain(NATIVE_SURFACE)
-    const picker = ctx.get('directoryPicker') as DirectoryPicker
-    expect(picker.capability().kind).toBe('browse')
-  })
+      expect(entryNames(ctx)).toContain(BROWSE)
+      expect(entryNames(ctx)).toContain(BROWSE_SURFACE)
+      expect(entryNames(ctx)).not.toContain(NATIVE)
+      expect(entryNames(ctx)).not.toContain(NATIVE_SURFACE)
+      const picker = ctx.get('directoryPicker') as DirectoryPicker
+      expect(picker.capability().kind).toBe('browse')
+    },
+  )
 
-  it.skipIf(NON_LOOPBACK_IPV4 === undefined)('mounts the browse backend for a non-loopback bind even on an attended host', { timeout: 60_000 }, async () => {
-    stubAttendedHost()
-    const { ctx } = await loadComposition(NON_LOOPBACK_IPV4!)
+  it.skipIf(NON_LOOPBACK_IPV4 === undefined)(
+    'mounts the browse backend for a non-loopback bind even on an attended host',
+    { timeout: 60_000 },
+    async () => {
+      stubAttendedHost()
+      const { ctx } = await loadComposition(NON_LOOPBACK_IPV4!)
 
-    expect(entryNames(ctx)).toContain(BROWSE)
-    expect(entryNames(ctx)).toContain(BROWSE_SURFACE)
-    expect(entryNames(ctx)).not.toContain(NATIVE)
-    expect(entryNames(ctx)).not.toContain(NATIVE_SURFACE)
-  })
+      expect(entryNames(ctx)).toContain(BROWSE)
+      expect(entryNames(ctx)).toContain(BROWSE_SURFACE)
+      expect(entryNames(ctx)).not.toContain(NATIVE)
+      expect(entryNames(ctx)).not.toContain(NATIVE_SURFACE)
+    },
+  )
 
   it('unmounts the backend when the surface entry fails to load', { timeout: 60_000 }, async () => {
     stubAttendedHost()

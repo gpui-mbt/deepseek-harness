@@ -11,10 +11,9 @@ export class HostNativeDomainSession {
     private readonly transport: CdpTransport,
     private readonly target: NativeDomainBackend,
   ) {
-    this.unsubscribe = target.subscribe((message) => {
-      if (!this.owns(message.method)
-        || message.method === 'Runtime.consoleAPICalled'
-        || message.method === 'Runtime.exceptionThrown') return
+    this.unsubscribe = target.subscribe(message => {
+      if (!this.owns(message.method) || message.method === 'Runtime.consoleAPICalled' || message.method === 'Runtime.exceptionThrown')
+        return
       if (message.method === 'Runtime.executionContextCreated') {
         const context = message.params?.context
         if (typeof context !== 'object' || context === null || !('auxData' in context)) return
@@ -49,7 +48,6 @@ export class HostNativeDomainSession {
   close(): void {
     this.unsubscribe()
   }
-
 }
 
 const NATIVE_DOMAINS = new Set(['Runtime', 'Profiler', 'HeapProfiler', 'Schema'])

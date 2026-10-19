@@ -22,9 +22,15 @@ export function apply(ctx: Context, config: Config): void {
   // oxlint-disable-next-line typescript/unbound-method -- preserve method identity for restoration; calls bind the receiver.
   const execute = shell.execute
   ctx.effect(() => {
-    shell.execute = spec => execute.call(shell, spec.command === config.command
-      ? { ...spec, command: spec.command.replaceAll(config.recordedPath, "'" + config.livePath.replaceAll("'", "'\"'\"'") + "'") }
-      : spec)
-    return () => { shell.execute = execute }
+    shell.execute = spec =>
+      execute.call(
+        shell,
+        spec.command === config.command
+          ? { ...spec, command: spec.command.replaceAll(config.recordedPath, "'" + config.livePath.replaceAll("'", "'\"'\"'") + "'") }
+          : spec,
+      )
+    return () => {
+      shell.execute = execute
+    }
   })
 }

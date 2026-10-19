@@ -4,12 +4,20 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-user-approval'
 import {
-  assertFinalWorkspaceSnapshot, assertFixtureInventory, captureStableAria, compareOrRefreshGolden, fixtureUserPrompts,
-  launchWebScaffold, recordFixture, watchConsole, webSnapshotMode, type WebScaffold,
+  assertFinalWorkspaceSnapshot,
+  assertFixtureInventory,
+  captureStableAria,
+  compareOrRefreshGolden,
+  fixtureUserPrompts,
+  launchWebScaffold,
+  recordFixture,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -17,11 +25,12 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('../../../snapshots/web/ptc-escalatio
 const FIXTURE = join(SNAPSHOT_DIR, 'session.v3.jsonl')
 const UI_EXPECTED = join(SNAPSHOT_DIR, 'approval.expected.md')
 const MODE = webSnapshotMode()
-const PROMPT = 'Use run_code with timeoutMs 120000 and direct Node filesystem access to create approved.txt in the working directory containing exactly "approved\\n". '
-  + 'Use await import("node:fs/promises") and writeFile; do not call nested tools. First attempt the write under the current read-only sandbox without escalation. '
-  + 'In that first program, catch only filesystem errors with code EPERM, EACCES or EROFS and return exactly "EXPECTED_SANDBOX_DENIAL"; rethrow any other error. '
-  + 'If the sandbox denies it, explicitly retry the program with sandbox_permissions "workspace-write" and justification "Create the file requested by the user". '
-  + 'I will answer the approval prompt. After the file is written, reply DONE and stop.'
+const PROMPT =
+  'Use run_code with timeoutMs 120000 and direct Node filesystem access to create approved.txt in the working directory containing exactly "approved\\n". ' +
+  'Use await import("node:fs/promises") and writeFile; do not call nested tools. First attempt the write under the current read-only sandbox without escalation. ' +
+  'In that first program, catch only filesystem errors with code EPERM, EACCES or EROFS and return exactly "EXPECTED_SANDBOX_DENIAL"; rethrow any other error. ' +
+  'If the sandbox denies it, explicitly retry the program with sandbox_permissions "workspace-write" and justification "Create the file requested by the user". ' +
+  'I will answer the approval prompt. After the file is written, reply DONE and stop.'
 
 describe('web e2e: PTC program sandbox escalation', () => {
   let scaffold: WebScaffold
@@ -36,7 +45,9 @@ describe('web e2e: PTC program sandbox escalation', () => {
       compareReplaySession: true,
       ...(MODE === 'record' ? {} : { replayFixture: FIXTURE, paceMs: 15 }),
     })
-    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => { events.push(event) })
+    scaffold.ctx.on('session/event', (_session, event: SessionEvent) => {
+      events.push(event)
+    })
     browser = await chromium.launch()
     page = await newEnglishPage(browser)
     tripwire = watchConsole(page)

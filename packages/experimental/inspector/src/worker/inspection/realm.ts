@@ -25,11 +25,11 @@ export interface InspectorRealmDescriptor {
 export type InspectorRealmContext =
   | { readonly kind: 'native' }
   | {
-    readonly kind: 'synthetic'
-    readonly id: number
-    readonly uniqueId: string
-    readonly origin: string
-  }
+      readonly kind: 'synthetic'
+      readonly id: number
+      readonly uniqueId: string
+      readonly origin: string
+    }
 
 /** Capabilities bound to one realm and one DevTools connection. */
 export interface InspectorRealmSession {

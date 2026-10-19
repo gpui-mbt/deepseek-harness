@@ -14,7 +14,12 @@ import { writeDesktopRuntime, type DesktopRuntimeDescriptor } from '../src/runti
  * @param source - ESM entry contents.
  * @returns Installed package directory.
  */
-export function writePackage(modules: string, name: string, fields: Record<string, unknown> = {}, source = 'export const identity = {}\n'): string {
+export function writePackage(
+  modules: string,
+  name: string,
+  fields: Record<string, unknown> = {},
+  source = 'export const identity = {}\n',
+): string {
   const path = join(modules, name)
   mkdirSync(path, { recursive: true })
   writeFileSync(join(path, 'package.json'), JSON.stringify({ name, version: '1.0.0', type: 'module', exports: './index.js', ...fields }))
@@ -30,7 +35,13 @@ export function writePackage(modules: string, name: string, fields: Record<strin
  * @returns Sealed runtime metadata.
  */
 export function runtimeFixture(root: string, version = '1.0.0', nodeVersion = '24.17.0'): DesktopRuntimeDescriptor {
-  const names = ['@deepseek-ai/dsh', '@deepseek-ai/dsh-desktop-host', '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/cordis']
+  const names = [
+    '@deepseek-ai/dsh',
+    '@deepseek-ai/dsh-desktop-host',
+    '@deepseek-ai/dsh-base',
+    '@deepseek-ai/dsh-web-app',
+    '@deepseek-ai/cordis',
+  ]
   for (const name of names) {
     const bundle = name === '@deepseek-ai/dsh-base' || name === '@deepseek-ai/dsh-web-app'
     const path = writePackage(join(root, 'node_modules'), name, {
@@ -46,5 +57,9 @@ export function runtimeFixture(root: string, version = '1.0.0', nodeVersion = '2
     writeFileSync(path, '')
   }
   writeFileSync(join(root, 'package.json'), '{"type":"module"}\n')
-  return writeDesktopRuntime(root, { schemaVersion: 1, version, nodeVersion, pnpmVersion: '11.7.0', hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION }, names)
+  return writeDesktopRuntime(
+    root,
+    { schemaVersion: 1, version, nodeVersion, pnpmVersion: '11.7.0', hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION },
+    names,
+  )
 }

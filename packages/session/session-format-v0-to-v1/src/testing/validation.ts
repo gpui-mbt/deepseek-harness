@@ -1,11 +1,7 @@
 import type { SessionFormatArtifact } from '@deepseek-ai/dsh-session-format'
 import { RELEASED_V0_EVENT_DISPOSITIONS } from '../dispositions.ts'
 import { assertReleasedArtifactRelationships } from '../relationships.ts'
-import {
-  assertReleasedArtifactCoordinates,
-  assertReleasedEventPayload,
-  assertReleasedSessionFormatHeader,
-} from '../validation.ts'
+import { assertReleasedArtifactCoordinates, assertReleasedEventPayload, assertReleasedSessionFormatHeader } from '../validation.ts'
 
 const RELEASED_V0_EVENT_TYPE_SET: ReadonlySet<string> = new Set(Object.keys(RELEASED_V0_EVENT_DISPOSITIONS))
 

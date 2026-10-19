@@ -131,8 +131,9 @@ export class PermissionCatalogDirectory {
   private startRead(generationId: number): void {
     const epoch = ++this.epoch
     this.failure = new Error('permission catalog has no complete value')
-    const operation = this.ctx.remote.permissionPresets.catalog()
-      .then((result) => {
+    const operation = this.ctx.remote.permissionPresets
+      .catalog()
+      .then(result => {
         if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
         if (!this.accepts(epoch, generationId)) return
         this.store.set({ value: result.value })
@@ -150,9 +151,11 @@ export class PermissionCatalogDirectory {
 
   /** Fence by disposal, refresh epoch, and the actual Connection generation. */
   private accepts(epoch: number, generationId: number): boolean {
-    return !this.disposed
-      && epoch === this.epoch
-      && generationId === this.generationId
-      && this.connection.generation.getSnapshot()?.id === generationId
+    return (
+      !this.disposed &&
+      epoch === this.epoch &&
+      generationId === this.generationId &&
+      this.connection.generation.getSnapshot()?.id === generationId
+    )
   }
 }

@@ -17,7 +17,14 @@ import css from './InlineEditor.module.css'
  * @param props.className - extra class for the editor's placement.
  * @returns the textarea.
  */
-export function InlineEditor({ value, label, onChange, onSave, onCancel, className }: {
+export function InlineEditor({
+  value,
+  label,
+  onChange,
+  onSave,
+  onCancel,
+  className,
+}: {
   value: string
   label: string
   onChange: (value: string) => void
@@ -39,7 +46,9 @@ export function InlineEditor({ value, label, onChange, onSave, onCancel, classNa
     // A width change rewraps the text; the refit height leaves the width unchanged.
     const observer = new ResizeObserver(fit)
     observer.observe(node)
-    return () => { observer.disconnect() }
+    return () => {
+      observer.disconnect()
+    }
   }, [value])
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -62,7 +71,9 @@ export function InlineEditor({ value, label, onChange, onSave, onCancel, classNa
       className={clsx(css.editor, className)}
       aria-label={label}
       value={value}
-      onChange={(event) => { onChange(event.currentTarget.value) }}
+      onChange={event => {
+        onChange(event.currentTarget.value)
+      }}
       onKeyDown={onKeyDown}
     />
   )

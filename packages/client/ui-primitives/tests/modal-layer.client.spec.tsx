@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Modal } from '../src/Modal.tsx'
 import { closeTopModal, isBehindModal } from '../src/useModalLayer.ts'
@@ -11,49 +11,108 @@ function Nested({ withSearch = true }: { withSearch?: boolean }) {
   const [settings, setSettings] = useState(false)
   const [reference, setReference] = useState(false)
   const [menu, setMenu] = useState(false)
-  return <>
-    <button onClick={() => { setSettings(true) }}>Settings</button>
-    <Modal open={settings} title="Settings" closeLabel="Close settings" onClose={() => { setSettings(false) }}>
-      <button onClick={() => { setReference(true) }}>Reference</button>
-    </Modal>
-    <Modal open={reference} title="Reference" closeLabel="Close reference" onClose={() => { setReference(false) }}>
-      {withSearch && <input data-modal-autofocus aria-label="Search" />}
-      <Menu open={menu} autoFocus anchor={<button onClick={() => { setMenu(true) }}>Menu</button>}
-        items={[{ id: 'item', label: 'Item' }]} onSelect={() => { setMenu(false) }} onClose={() => { setMenu(false) }} />
-    </Modal>
-  </>
+  return (
+    <>
+      <button
+        onClick={() => {
+          setSettings(true)
+        }}
+      >
+        Settings
+      </button>
+      <Modal
+        open={settings}
+        title="Settings"
+        closeLabel="Close settings"
+        onClose={() => {
+          setSettings(false)
+        }}
+      >
+        <button
+          onClick={() => {
+            setReference(true)
+          }}
+        >
+          Reference
+        </button>
+      </Modal>
+      <Modal
+        open={reference}
+        title="Reference"
+        closeLabel="Close reference"
+        onClose={() => {
+          setReference(false)
+        }}
+      >
+        {withSearch && <input data-modal-autofocus aria-label="Search" />}
+        <Menu
+          open={menu}
+          autoFocus
+          anchor={
+            <button
+              onClick={() => {
+                setMenu(true)
+              }}
+            >
+              Menu
+            </button>
+          }
+          items={[{ id: 'item', label: 'Item' }]}
+          onSelect={() => {
+            setMenu(false)
+          }}
+          onClose={() => {
+            setMenu(false)
+          }}
+        />
+      </Modal>
+    </>
+  )
 }
 const escape = (init = {}) => fireEvent.keyDown(document.activeElement ?? document, { key: 'Escape', code: 'Escape', ...init })
 it('closes only the top modal through application commands and restores each opener', () => {
   render(<Nested />)
-  const settings = screen.getByRole('button', { name: 'Settings' }); settings.focus(); fireEvent.click(settings)
-  const reference = screen.getByRole('button', { name: 'Reference' }); reference.focus(); fireEvent.click(reference)
-  act(() => { closeTopModal(document) })
+  const settings = screen.getByRole('button', { name: 'Settings' })
+  settings.focus()
+  fireEvent.click(settings)
+  const reference = screen.getByRole('button', { name: 'Reference' })
+  reference.focus()
+  fireEvent.click(reference)
+  act(() => {
+    closeTopModal(document)
+  })
   expect(screen.queryByRole('dialog', { name: 'Reference' })).toBeNull()
   expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy()
   expect(document.activeElement).toBe(reference)
-  act(() => { closeTopModal(document) })
+  act(() => {
+    closeTopModal(document)
+  })
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(document.activeElement).toBe(settings)
   closeTopModal(document)
   expect(document.activeElement).toBe(settings)
 })
 
-it.each(['menu', 'dialog'])('does not dismiss a modal behind a newer %s', (role) => {
+it.each(['menu', 'dialog'])('does not dismiss a modal behind a newer %s', role => {
   const onClose = vi.fn()
   render(<Modal open title="Settings" closeLabel="Close" onClose={onClose} />)
   const overlay = document.createElement('div')
   overlay.setAttribute('role', role)
   overlay.setAttribute('aria-modal', 'true')
   document.body.append(overlay)
-  try { closeTopModal(document); expect(onClose).not.toHaveBeenCalled() }
-  finally { overlay.remove() }
+  try {
+    closeTopModal(document)
+    expect(onClose).not.toHaveBeenCalled()
+  } finally {
+    overlay.remove()
+  }
   closeTopModal(document)
   expect(onClose).toHaveBeenCalledTimes(1)
 })
 
 it('uses the latest close callback and retains a modal whose owner declines dismissal', () => {
-  const first = vi.fn(), busy = vi.fn()
+  const first = vi.fn(),
+    busy = vi.fn()
   const view = render(<Modal open title="Settings" closeLabel="Close" onClose={first} />)
   view.rerender(<Modal open title="Settings" closeLabel="Close" onClose={busy} />)
   closeTopModal(document)
@@ -65,14 +124,20 @@ it('uses the latest close callback and retains a modal whose owner declines dism
 it('closes one layer per Escape, honors local menus and IME, and restores the real opener', () => {
   expect(isBehindModal(null)).toBe(false)
   render(<Nested />)
-  const settings = screen.getByRole('button', { name: 'Settings' }); settings.focus(); fireEvent.click(settings)
-  const reference = screen.getByRole('button', { name: 'Reference' }); reference.focus(); fireEvent.click(reference)
+  const settings = screen.getByRole('button', { name: 'Settings' })
+  settings.focus()
+  fireEvent.click(settings)
+  const reference = screen.getByRole('button', { name: 'Reference' })
+  reference.focus()
+  fireEvent.click(reference)
   expect(document.activeElement).toBe(screen.getByRole('textbox'))
   fireEvent.compositionStart(screen.getByRole('textbox'))
   escape()
   fireEvent.compositionEnd(screen.getByRole('textbox'))
   escape()
-  escape({ isComposing: true }); escape({ ctrlKey: true }); escape({ repeat: true })
+  escape({ isComposing: true })
+  escape({ ctrlKey: true })
+  escape({ repeat: true })
   expect(screen.getAllByRole('dialog')).toHaveLength(2)
   fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
   fireEvent.compositionStart(document.activeElement!)
@@ -94,7 +159,8 @@ it('closes one layer per Escape, honors local menus and IME, and restores the re
 it('keeps Tab within the top dialog and releases listeners after unmount', () => {
   const view = render(<Nested />)
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
-  const last = screen.getByRole('button', { name: 'Reference' }); last.focus()
+  const last = screen.getByRole('button', { name: 'Reference' })
+  last.focus()
   fireEvent.keyDown(last, { key: 'Tab' })
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close settings' }))
   fireEvent.keyDown(document.activeElement!, { key: 'Tab', shiftKey: true })
@@ -135,21 +201,28 @@ it('keeps focus in a headless empty dialog and leaves portaled menu traversal to
   const menu = document.createElement('div')
   menu.setAttribute('role', 'menu')
   const button = document.createElement('button')
-  menu.append(button); document.body.append(menu)
+  menu.append(button)
+  document.body.append(menu)
   try {
     button.focus()
     expect(fireEvent.keyDown(button, { key: 'Tab' })).toBe(true)
     fireEvent.blur(window)
-  } finally { menu.remove() }
+  } finally {
+    menu.remove()
+  }
 })
 
 it('does not steal focus when a lower layer disappears and restores a remaining parent after opener removal', () => {
-  const tree = (parent: boolean, child: boolean, opener: boolean) => <>
-    <Modal open={parent} title="Parent" closeLabel="Close parent" onClose={() => {}}>
-      {opener && <button>Child opener</button>}
-    </Modal>
-    <Modal open={child} title="Child" closeLabel="Close child" onClose={() => {}}><input data-modal-autofocus aria-label="Child input" /></Modal>
-  </>
+  const tree = (parent: boolean, child: boolean, opener: boolean) => (
+    <>
+      <Modal open={parent} title="Parent" closeLabel="Close parent" onClose={() => {}}>
+        {opener && <button>Child opener</button>}
+      </Modal>
+      <Modal open={child} title="Child" closeLabel="Close child" onClose={() => {}}>
+        <input data-modal-autofocus aria-label="Child input" />
+      </Modal>
+    </>
+  )
   const view = render(tree(true, false, true))
   screen.getByRole('button', { name: 'Child opener' }).focus()
   view.rerender(tree(true, true, true))
@@ -169,13 +242,31 @@ it('does not steal focus when a lower layer disappears and restores a remaining 
 it('gives a new modal Escape ahead of an older menu', () => {
   let menuClosed = false
   let childClosed = false
-  render(<>
-    <Modal open title="Parent" closeLabel="Close parent" onClose={() => {}}>
-      <Menu open anchor={<button>Menu</button>} items={[{ id: 'item', label: 'Item' }]}
-        onSelect={() => {}} onClose={() => { menuClosed = true }} />
-    </Modal>
-    <Modal open title="Child" closeLabel="Close child" onClose={() => { childClosed = true }}><input data-modal-autofocus /></Modal>
-  </>)
+  render(
+    <>
+      <Modal open title="Parent" closeLabel="Close parent" onClose={() => {}}>
+        <Menu
+          open
+          anchor={<button>Menu</button>}
+          items={[{ id: 'item', label: 'Item' }]}
+          onSelect={() => {}}
+          onClose={() => {
+            menuClosed = true
+          }}
+        />
+      </Modal>
+      <Modal
+        open
+        title="Child"
+        closeLabel="Close child"
+        onClose={() => {
+          childClosed = true
+        }}
+      >
+        <input data-modal-autofocus />
+      </Modal>
+    </>,
+  )
   escape()
   expect(menuClosed).toBe(false)
   expect(childClosed).toBe(true)

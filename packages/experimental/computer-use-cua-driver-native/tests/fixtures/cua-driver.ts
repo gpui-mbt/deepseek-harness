@@ -1,7 +1,8 @@
 /** External native SDK fixture usable by Vitest and test-only Node module hooks. */
 
 /** A valid one-pixel PNG keeps image admission on the real attachment path. */
-export const screenshotBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWNgZGIGAAAOAAeCcsnOAAAAAElFTkSuQmCC'
+export const screenshotBase64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADElEQVQImWNgZGIGAAAOAAeCcsnOAAAAAElFTkSuQmCC'
 
 /** Fixture-native tool inventory, using the upstream catalog fields. */
 export const catalog = {
@@ -11,13 +12,25 @@ export const catalog = {
     {
       name: 'get_window_state',
       description: 'Capture a Cua Driver window screenshot.',
-      inputSchema: { type: 'object', properties: { pid: { type: 'integer' }, window_id: { type: 'integer' } }, required: ['pid', 'window_id'] },
-      outputSchema: { type: 'object', properties: { window_id: { type: 'integer' }, clicked: { type: 'boolean' } }, required: ['window_id', 'clicked'] },
+      inputSchema: {
+        type: 'object',
+        properties: { pid: { type: 'integer' }, window_id: { type: 'integer' } },
+        required: ['pid', 'window_id'],
+      },
+      outputSchema: {
+        type: 'object',
+        properties: { window_id: { type: 'integer' }, clicked: { type: 'boolean' } },
+        required: ['window_id', 'clicked'],
+      },
     },
     {
       name: 'click',
       description: 'Click the selected Cua Driver window.',
-      inputSchema: { type: 'object', properties: { pid: { type: 'integer' }, window_id: { type: 'integer' } }, required: ['pid', 'window_id'] },
+      inputSchema: {
+        type: 'object',
+        properties: { pid: { type: 'integer' }, window_id: { type: 'integer' } },
+        required: ['pid', 'window_id'],
+      },
     },
     {
       name: 'check_permissions',
@@ -67,19 +80,25 @@ export class CuaDriver {
 
   async callTool(name: string, argsJson: string, options?: { signal: AbortSignal }): Promise<{ rawJson: string }> {
     const args = JSON.parse(argsJson) as Record<string, unknown>
-    fixture.calls.push({ name, args, ...options ? { signal: options.signal } : {} })
+    fixture.calls.push({ name, args, ...(options ? { signal: options.signal } : {}) })
     if (fixture.call) return { rawJson: JSON.stringify(await fixture.call(name, args, options?.signal)) }
     if (name === 'get_window_state') {
-      return { rawJson: JSON.stringify({
-        content: [
-          { type: 'text', text: 'Cua Driver fixture window.' },
-          { type: 'image', mimeType: 'image/png', data: screenshotBase64 },
-        ],
-        structuredContent: { window_id: 7, clicked: fixture.clicked },
-      }) }
+      return {
+        rawJson: JSON.stringify({
+          content: [
+            { type: 'text', text: 'Cua Driver fixture window.' },
+            { type: 'image', mimeType: 'image/png', data: screenshotBase64 },
+          ],
+          structuredContent: { window_id: 7, clicked: fixture.clicked },
+        }),
+      }
     }
     if (name === 'click') fixture.clicked = true
-    return { rawJson: JSON.stringify({ content: [{ type: 'text', text: name === 'click' ? 'Cua Driver fixture clicked.' : 'Desktop permissions granted.' }] }) }
+    return {
+      rawJson: JSON.stringify({
+        content: [{ type: 'text', text: name === 'click' ? 'Cua Driver fixture clicked.' : 'Desktop permissions granted.' }],
+      }),
+    }
   }
 
   async shutdown(): Promise<void> {

@@ -39,7 +39,7 @@ export async function bootClient(options: ClientBootOptions): Promise<void> {
   const loader = ctx.loader
   loader.internal = options.modules as never
 
-  ctx.on('internal/status', (fiber) => {
+  ctx.on('internal/status', fiber => {
     const entry = fiber.entry
     if (entry === undefined || entry.fiber === undefined) return
     onEntryState?.(entry.options.name, STATE_LABELS[entry.fiber.state])
@@ -69,9 +69,11 @@ export function assertEntriesActive(ctx: Context, modules: Pick<ClientModuleLoad
     const name = entry.options.name
     if (entry.fiber === undefined) {
       const importError = modules.importError(name)
-      failures.push(importError === undefined
-        ? `${name}: import failed (see console for the import error)`
-        : `${name}: import failed: ${importError.message}`)
+      failures.push(
+        importError === undefined
+          ? `${name}: import failed (see console for the import error)`
+          : `${name}: import failed: ${importError.message}`,
+      )
       continue
     }
     const state = STATE_LABELS[entry.fiber.state]
@@ -84,6 +86,8 @@ export function assertEntriesActive(ctx: Context, modules: Pick<ClientModuleLoad
     }
   }
   if (failures.length > 0) {
-    throw new Error(`web boot: ${String(failures.length)} entr${failures.length === 1 ? 'y' : 'ies'} did not activate\n${failures.join('\n')}`)
+    throw new Error(
+      `web boot: ${String(failures.length)} entr${failures.length === 1 ? 'y' : 'ies'} did not activate\n${failures.join('\n')}`,
+    )
   }
 }

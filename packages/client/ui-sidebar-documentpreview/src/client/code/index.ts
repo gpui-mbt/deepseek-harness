@@ -12,15 +12,19 @@ const NS = 'sidebarCodePreview'
 export function apply(ctx: Context): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }))
   const t = ctx.locale.bind(NS)
-  ctx.effect(() => ctx.documentPreviews.register({
-    id: ID,
-    extensions: CODE_HIGHLIGHT_EXTENSIONS,
-    priority: 'builtin',
-    title: () => t('title'),
-    loading: 'text-pages',
-    wrap: true,
-  }))
-  ctx.effect(() => ctx.slots.inject('sidebar.right.tab.document', () => ctx.slots.register(
-    { name: 'sidebar.right.tab.document', key: ID, locale: NS }, CodeBody,
-  )))
+  ctx.effect(() =>
+    ctx.documentPreviews.register({
+      id: ID,
+      extensions: CODE_HIGHLIGHT_EXTENSIONS,
+      priority: 'builtin',
+      title: () => t('title'),
+      loading: 'text-pages',
+      wrap: true,
+    }),
+  )
+  ctx.effect(() =>
+    ctx.slots.inject('sidebar.right.tab.document', () =>
+      ctx.slots.register({ name: 'sidebar.right.tab.document', key: ID, locale: NS }, CodeBody),
+    ),
+  )
 }

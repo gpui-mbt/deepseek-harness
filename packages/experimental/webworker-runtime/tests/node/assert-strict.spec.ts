@@ -1,5 +1,5 @@
 /** Strict assertion resolution and execution through the Worker image loader. */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { lowerModuleSource } from '../../src/compile/transform.ts'
 import { MODULE_PROXIES } from '../../src/module-proxies.ts'
 import { WorkerModuleLoader } from '../../src/module-system/module-loader.ts'
@@ -9,31 +9,43 @@ import { isBuiltin } from '../../src/node/builtin_modules/implemented/module.ts'
 import { MemoryVfs } from '../../src/storage/memory.ts'
 
 describe('Worker strict assertions', () => {
-  it.each([true, 1, 'present', {}, []])('accepts truthy value %j', (value) => {
-    expect(() => { assert(value) }).not.toThrow()
+  it.each([true, 1, 'present', {}, []])('accepts truthy value %j', value => {
+    expect(() => {
+      assert(value)
+    }).not.toThrow()
   })
 
-  it.each([false, 0, '', null, undefined, NaN])('rejects falsy value %j with assertion fields', (value) => {
-    expect(() => { assert(value, 'HMR pending module is missing') }).toThrow(expect.objectContaining({
-      name: 'AssertionError',
-      code: 'ERR_ASSERTION',
-      message: 'HMR pending module is missing',
-      actual: value,
-      expected: true,
-      operator: '==',
-      generatedMessage: false,
-    }))
+  it.each([false, 0, '', null, undefined, NaN])('rejects falsy value %j with assertion fields', value => {
+    expect(() => {
+      assert(value, 'HMR pending module is missing')
+    }).toThrow(
+      expect.objectContaining({
+        name: 'AssertionError',
+        code: 'ERR_ASSERTION',
+        message: 'HMR pending module is missing',
+        actual: value,
+        expected: true,
+        operator: '==',
+        generatedMessage: false,
+      }),
+    )
   })
 
   it('generates a message when none is supplied', () => {
-    expect(() => { assert(false) }).toThrow(expect.objectContaining({
-      message: 'The expression evaluated to a falsy value.',
-      generatedMessage: true,
-    }))
+    expect(() => {
+      assert(false)
+    }).toThrow(
+      expect.objectContaining({
+        message: 'The expression evaluated to a falsy value.',
+        generatedMessage: true,
+      }),
+    )
   })
 
   it('preserves an explicitly empty message', () => {
-    expect(() => { assert(false, '') }).toThrow(expect.objectContaining({ message: '', generatedMessage: false }))
+    expect(() => {
+      assert(false, '')
+    }).toThrow(expect.objectContaining({ message: '', generatedMessage: false }))
   })
 
   it('throws a supplied Error unchanged', () => {
@@ -44,7 +56,9 @@ describe('Worker strict assertions', () => {
     } catch (reason) {
       expect(reason).toBe(error)
     }
-    expect(() => { assert(true, error) }).not.toThrow()
+    expect(() => {
+      assert(true, error)
+    }).not.toThrow()
   })
 
   it('shares the callable default and ok exports', () => {
@@ -52,7 +66,7 @@ describe('Worker strict assertions', () => {
     expect(assert.ok).toBe(ok)
   })
 
-  it.each(['node:assert/strict', 'assert/strict'])('resolves and executes a lowered default import from %s', (specifier) => {
+  it.each(['node:assert/strict', 'assert/strict'])('resolves and executes a lowered default import from %s', specifier => {
     const vfs = new MemoryVfs()
     vfs.seedDirectory('/dsh')
     const loader = new WorkerModuleLoader({ vfs, root: '/dsh', staticModules: createNodeBuiltins() })

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vite-plus/test'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import type { NotarizeOptions } from '@electron/notarize'
@@ -8,10 +8,7 @@ import {
   resolveMacOSSigningEnvironment,
 } from '../scripts/desktop-release-environment.mjs'
 import { notarizeMacOSDiskImageArtifact } from '../scripts/notarize-macos-disk-images.mjs'
-import {
-  assertMacOSRuntimeSignatureDetails,
-  assertMacOSSignatureDetails,
-} from '../scripts/verify-macos-signature.mjs'
+import { assertMacOSRuntimeSignatureDetails, assertMacOSSignatureDetails } from '../scripts/verify-macos-signature.mjs'
 
 const require = createRequire(import.meta.url)
 const { validateConfiguration } = require('app-builder-lib/out/util/config/config.js') as {
@@ -29,7 +26,8 @@ const RELEASE_ENVIRONMENT = {
   APPLE_API_KEY: '/private/credentials/AuthKey_TEST123456.p8',
   APPLE_API_KEY_ID: 'TEST123456',
   APPLE_API_ISSUER: '11111111-2222-3333-4444-555555555555',
-  DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com', DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
+  DOWNLOAD_TEST_ORIGIN: 'https://desktop-updates.example.com',
+  DOWNLOAD_TEST_RELEASE_ID: '0123456789abcdef0123456789abcdef',
 }
 
 function portablePath(value: string): string {
@@ -53,8 +51,12 @@ describe('desktop macOS release signature', () => {
     expect(config.mac.extendInfo.NSMicrophoneUsageDescription).toContain('microphone')
     expect(config.mac.entitlementsInherit).toBe(config.mac.entitlements)
     const entitlements = readFileSync(config.mac.entitlements, 'utf8')
-    for (const key of ['com.apple.security.cs.allow-jit', 'com.apple.security.cs.allow-unsigned-executable-memory',
-      'com.apple.security.cs.disable-library-validation', 'com.apple.security.device.audio-input']) {
+    for (const key of [
+      'com.apple.security.cs.allow-jit',
+      'com.apple.security.cs.allow-unsigned-executable-memory',
+      'com.apple.security.cs.disable-library-validation',
+      'com.apple.security.device.audio-input',
+    ]) {
       expect(entitlements).toContain(`<key>${key}</key>\n    <true/>`)
     }
     expect(config.extraResources).toHaveLength(2)
@@ -68,28 +70,31 @@ describe('desktop macOS release signature', () => {
     expect(dshFiles.to).toBe('dsh')
     expect(portablePath(dshNodeModules.from)).toContain('/.desktop-build/targets/mac-arm64/dsh/node_modules')
     expect(dshNodeModules.to).toBe('dsh/node_modules')
-    expect(config.asarUnpack).toEqual(expect.arrayContaining([
-      '**/*.{node,dylib,dll,so,exe}',
-      '**/@vscode/ripgrep-*/bin/rg',
-    ]))
+    expect(config.asarUnpack).toEqual(expect.arrayContaining(['**/*.{node,dylib,dll,so,exe}', '**/@vscode/ripgrep-*/bin/rg']))
     expect(config).toMatchObject({
       appId: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
       mac: {
         identity: RELEASE_ENVIRONMENT.DSH_DESKTOP_MACOS_SIGNING_IDENTITY,
         forceCodeSigning: true,
         notarize: true,
-        signIgnore: ['/Contents/Resources/app\\.asar\\.unpacked/dsh(?:/|$)', '/Contents/Resources/runtime/primary-runtime(?:/|$)', '\\.pak$'],
+        signIgnore: [
+          '/Contents/Resources/app\\.asar\\.unpacked/dsh(?:/|$)',
+          '/Contents/Resources/runtime/primary-runtime(?:/|$)',
+          '\\.pak$',
+        ],
       },
       dmg: {
         format: 'ULMO',
         sign: true,
         writeUpdateInfo: false,
       },
-      publish: [{
-        provider: 'generic',
-        url: 'https://desktop-updates.example.com/dsh-desk/0123456789abcdef0123456789abcdef/feeds/mac-arm64/',
-        channel: 'nightly',
-      }],
+      publish: [
+        {
+          provider: 'generic',
+          url: 'https://desktop-updates.example.com/dsh-desk/0123456789abcdef0123456789abcdef/feeds/mac-arm64/',
+          channel: 'nightly',
+        },
+      ],
     })
     expect(typeof config.artifactBuildCompleted).toBe('function')
   })
@@ -98,17 +103,20 @@ describe('desktop macOS release signature', () => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     for (const arch of ['arm64', 'x64']) {
       for (const unsigned of ['0', '1']) {
-        const config = createElectronBuilderConfig({
-          ...RELEASE_ENVIRONMENT,
-          DSH_DESKTOP_TARGET_ARCH: arch,
-          DSH_DESKTOP_UNSIGNED: unsigned,
-        }, 'darwin', arch)
+        const config = createElectronBuilderConfig(
+          {
+            ...RELEASE_ENVIRONMENT,
+            DSH_DESKTOP_TARGET_ARCH: arch,
+            DSH_DESKTOP_UNSIGNED: unsigned,
+          },
+          'darwin',
+          arch,
+        )
         expect(config.dmg.format).toBe('ULMO')
         await expect(validateConfiguration(config, { isEnabled: false })).resolves.toBeUndefined()
       }
     }
-    await expect(validateConfiguration({ dmg: { format: 'invalid' } }, { isEnabled: false }))
-      .rejects.toThrow('configuration.dmg.format')
+    await expect(validateConfiguration({ dmg: { format: 'invalid' } }, { isEnabled: false })).rejects.toThrow('configuration.dmg.format')
   })
 
   it('seals PAK resources with their enclosing bundle while signing executable code', async () => {
@@ -123,28 +131,38 @@ describe('desktop macOS release signature', () => {
       '/App.app/Contents/Frameworks/Electron.framework/Versions/A/library.dylib',
       '/App.app/Contents/Frameworks/Electron.framework',
       '/App.app',
-    ]) expect(ignored(path)).toBe(false)
+    ])
+      expect(ignored(path)).toBe(false)
   })
 
   it('validates Windows signing without requiring macOS identifiers for a Windows target', async () => {
     const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
-    expect(() => createElectronBuilderConfig({
-      DSH_DESKTOP_APP_ID: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
-      DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
-      DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
-      DSH_DESKTOP_TARGET_PLATFORM: 'win32',
-    }, 'win32')).toThrow(/DSH_DESKTOP_WINDOWS_CER_FILE/u)
+    expect(() =>
+      createElectronBuilderConfig(
+        {
+          DSH_DESKTOP_APP_ID: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
+          DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
+          DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
+          DSH_DESKTOP_TARGET_PLATFORM: 'win32',
+        },
+        'win32',
+      ),
+    ).toThrow(/DSH_DESKTOP_WINDOWS_CER_FILE/u)
   })
 
   it('isolates unsigned Windows artifacts and omits updater metadata without release credentials', async () => {
     const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
-    const config = createElectronBuilderConfig({
-      DSH_DESKTOP_APP_ID: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
-      DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
-      DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
-      DSH_DESKTOP_TARGET_PLATFORM: 'win32',
-      DSH_DESKTOP_UNSIGNED: '1',
-    }, 'win32', 'x64')
+    const config = createElectronBuilderConfig(
+      {
+        DSH_DESKTOP_APP_ID: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
+        DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
+        DSH_DESKTOP_MANDATORY_UPDATE_CONFIG: JSON.stringify({ allowedAuthOrigins: ['https://login.example.com'] }),
+        DSH_DESKTOP_TARGET_PLATFORM: 'win32',
+        DSH_DESKTOP_UNSIGNED: '1',
+      },
+      'win32',
+      'x64',
+    )
     expect(portablePath(config.directories.output)).toContain('/targets/win-x64/unsigned-artifacts')
     expect(portablePath(config.nsis.include)).toMatch(/\/scripts\/installer\.nsh$/u)
     expect(config).toMatchObject({
@@ -153,12 +171,16 @@ describe('desktop macOS release signature', () => {
     })
   })
 
-  it.each(['arm64', 'x64'])('builds local macOS %s DMGs without release credentials or update metadata', async (arch) => {
+  it.each(['arm64', 'x64'])('builds local macOS %s DMGs without release credentials or update metadata', async arch => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
-    const config = createElectronBuilderConfig({
-      DSH_DESKTOP_APP_ID: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
-      DSH_DESKTOP_UNSIGNED: '1',
-    }, 'darwin', arch)
+    const config = createElectronBuilderConfig(
+      {
+        DSH_DESKTOP_APP_ID: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
+        DSH_DESKTOP_UNSIGNED: '1',
+      },
+      'darwin',
+      arch,
+    )
     expect(portablePath(config.directories.output)).toContain(`/targets/mac-${arch}/unsigned-artifacts`)
     expect(config.artifactName).toBe('deepseek-harness-${version}-${os}-${arch}-unsigned.${ext}')
     expect(config.mac).toMatchObject({ identity: '-', forceCodeSigning: false, notarize: false, target: ['dmg'] })
@@ -178,17 +200,16 @@ describe('desktop macOS release signature', () => {
 
   it('rejects malformed signing modes', async () => {
     const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
-    expect(() => createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: 'yes' }))
-      .toThrow(/must be 0 or 1/u)
+    expect(() => createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: 'yes' })).toThrow(/must be 0 or 1/u)
   })
 
   it('accepts the configured authority and team', () => {
     const expected = resolveMacOSSigningEnvironment(RELEASE_ENVIRONMENT)
     expect(() => {
-      assertMacOSSignatureDetails([
-        `Authority=Developer ID Application: ${expected.signingIdentity}`,
-        `TeamIdentifier=${expected.teamId}`,
-      ].join('\n'), expected)
+      assertMacOSSignatureDetails(
+        [`Authority=Developer ID Application: ${expected.signingIdentity}`, `TeamIdentifier=${expected.teamId}`].join('\n'),
+        expected,
+      )
     }).not.toThrow()
   })
 
@@ -200,9 +221,11 @@ describe('desktop macOS release signature', () => {
       'Timestamp=31 Aug 2026 at 20:00:00',
       'CodeDirectory v=20500 size=773 flags=0x10000(runtime) hashes=13+7 location=embedded',
     ].join('\n')
-    expect(() => { assertMacOSRuntimeSignatureDetails(details, expected) }).not.toThrow()
     expect(() => {
-      assertMacOSRuntimeSignatureDetails(details.replace(/^Timestamp=.*\n/um, ''), expected)
+      assertMacOSRuntimeSignatureDetails(details, expected)
+    }).not.toThrow()
+    expect(() => {
+      assertMacOSRuntimeSignatureDetails(details.replace(/^Timestamp=.*\n/mu, ''), expected)
     }).toThrow(/secure timestamp/u)
     expect(() => {
       assertMacOSRuntimeSignatureDetails(details.replace('flags=0x10000(runtime)', 'flags=0x0(none)'), expected)
@@ -212,20 +235,20 @@ describe('desktop macOS release signature', () => {
   it('rejects another developer identity', () => {
     const expected = resolveMacOSSigningEnvironment(RELEASE_ENVIRONMENT)
     expect(() => {
-      assertMacOSSignatureDetails([
-        'Authority=Developer ID Application: Other Company (OTHERID123)',
-        'TeamIdentifier=OTHERID123',
-      ].join('\n'), expected)
+      assertMacOSSignatureDetails(
+        ['Authority=Developer ID Application: Other Company (OTHERID123)', 'TeamIdentifier=OTHERID123'].join('\n'),
+        expected,
+      )
     }).toThrow(/release identity/u)
   })
 
   it('rejects an unexpected team even when the authority is present', () => {
     const expected = resolveMacOSSigningEnvironment(RELEASE_ENVIRONMENT)
     expect(() => {
-      assertMacOSSignatureDetails([
-        `Authority=Developer ID Application: ${expected.signingIdentity}`,
-        'TeamIdentifier=OTHERID123',
-      ].join('\n'), expected)
+      assertMacOSSignatureDetails(
+        [`Authority=Developer ID Application: ${expected.signingIdentity}`, 'TeamIdentifier=OTHERID123'].join('\n'),
+        expected,
+      )
     }).toThrow(`TeamIdentifier=${expected.teamId}`)
   })
 
@@ -233,14 +256,18 @@ describe('desktop macOS release signature', () => {
     expect(() => resolveDesktopAppId({})).toThrow(/DSH_DESKTOP_APP_ID/u)
     expect(() => resolveDesktopAppId({ DSH_DESKTOP_APP_ID: 'not-a-bundle-id' })).toThrow(/reverse-DNS/u)
     expect(() => resolveMacOSSigningEnvironment({})).toThrow(/DSH_DESKTOP_MACOS_SIGNING_IDENTITY/u)
-    expect(() => resolveMacOSSigningEnvironment({
-      DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Developer ID Application: Example Company (TEAMID1234)',
-      DSH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
-    })).toThrow(/must omit/u)
-    expect(() => resolveMacOSSigningEnvironment({
-      DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
-      DSH_DESKTOP_MACOS_TEAM_ID: 'short',
-    })).toThrow(/10 uppercase/u)
+    expect(() =>
+      resolveMacOSSigningEnvironment({
+        DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Developer ID Application: Example Company (TEAMID1234)',
+        DSH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
+      }),
+    ).toThrow(/must omit/u)
+    expect(() =>
+      resolveMacOSSigningEnvironment({
+        DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
+        DSH_DESKTOP_MACOS_TEAM_ID: 'short',
+      }),
+    ).toThrow(/10 uppercase/u)
   })
 
   it('requires one complete notarization credential strategy', () => {
@@ -249,18 +276,24 @@ describe('desktop macOS release signature', () => {
       appleApiKeyId: RELEASE_ENVIRONMENT.APPLE_API_KEY_ID,
       appleApiIssuer: RELEASE_ENVIRONMENT.APPLE_API_ISSUER,
     })
-    expect(resolveMacOSNotarizationEnvironment({
-      APPLE_KEYCHAIN_PROFILE: 'dsh-notary',
-    })).toEqual({ keychainProfile: 'dsh-notary' })
+    expect(
+      resolveMacOSNotarizationEnvironment({
+        APPLE_KEYCHAIN_PROFILE: 'dsh-notary',
+      }),
+    ).toEqual({ keychainProfile: 'dsh-notary' })
     expect(() => resolveMacOSNotarizationEnvironment({})).toThrow(/macOS packaging requires/u)
     expect(() => resolveMacOSNotarizationEnvironment({ APPLE_API_KEY: '/tmp/key.p8' })).toThrow(/APPLE_API_KEY_ID/u)
   })
 
   it('notarizes and qualifies a DMG before electron-builder publishes it', async () => {
     const submitted: string[] = []
-    const submit = vi.fn(async (options: NotarizeOptions) => { submitted.push(options.appPath) })
+    const submit = vi.fn(async (options: NotarizeOptions) => {
+      submitted.push(options.appPath)
+    })
     const verified: string[] = []
-    const verify = vi.fn((path: string) => { verified.push(path) })
+    const verify = vi.fn((path: string) => {
+      verified.push(path)
+    })
     await notarizeMacOSDiskImageArtifact(
       { file: '/tmp/release.dmg' },
       RELEASE_ENVIRONMENT,
@@ -282,16 +315,31 @@ describe('desktop macOS release signature', () => {
 
 it('signs debugging artifacts without Apple credentials and isolates them from releases', async () => {
   const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
-  const config = createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT,
-    APPLE_API_KEY: undefined, APPLE_API_KEY_ID: undefined, APPLE_API_ISSUER: undefined,
-    DSH_DESKTOP_MACOS_SKIP_NOTARIZATION: '1',
-  }, 'darwin', 'arm64')
+  const config = createElectronBuilderConfig(
+    {
+      ...RELEASE_ENVIRONMENT,
+      APPLE_API_KEY: undefined,
+      APPLE_API_KEY_ID: undefined,
+      APPLE_API_ISSUER: undefined,
+      DSH_DESKTOP_MACOS_SKIP_NOTARIZATION: '1',
+    },
+    'darwin',
+    'arm64',
+  )
   expect(config.mac.forceCodeSigning).toBe(true)
   expect(config.mac.notarize).toBe(false)
   expect(config.dmg.sign).toBe(true)
   expect(config.mac).toMatchObject({ target: ['dmg', 'zip'] })
   expect(config.artifactName).toContain('-unnotarized.')
   expect(portablePath(config.directories.output)).toContain('/unnotarized-artifacts')
-  expect(() => createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_MACOS_SKIP_NOTARIZATION: 'yes' }, 'darwin', 'arm64')).toThrow(/must be 0 or 1/u)
-  expect(() => createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_MACOS_SKIP_NOTARIZATION: '1', DSH_DESKTOP_UNSIGNED: '1' }, 'darwin', 'arm64')).toThrow(/requires a signed macOS build/u)
+  expect(() =>
+    createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_MACOS_SKIP_NOTARIZATION: 'yes' }, 'darwin', 'arm64'),
+  ).toThrow(/must be 0 or 1/u)
+  expect(() =>
+    createElectronBuilderConfig(
+      { ...RELEASE_ENVIRONMENT, DSH_DESKTOP_MACOS_SKIP_NOTARIZATION: '1', DSH_DESKTOP_UNSIGNED: '1' },
+      'darwin',
+      'arm64',
+    ),
+  ).toThrow(/requires a signed macOS build/u)
 })

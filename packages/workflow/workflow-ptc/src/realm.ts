@@ -7,7 +7,10 @@
 
 /** Thrown by {@link materializeFromRealm}; the caller wraps it into the right `WorkflowError` code. */
 export class MaterializeError extends Error {
-  constructor(public readonly path: string, public readonly reason: string) {
+  constructor(
+    public readonly path: string,
+    public readonly reason: string,
+  ) {
     super(`${path}: ${reason}`)
     this.name = 'MaterializeError'
   }

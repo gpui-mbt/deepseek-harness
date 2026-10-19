@@ -46,8 +46,12 @@ export class JsonChannel {
     this.finishWrites(error)
     if (!this.closed) this.failure(error, 'io')
   }
-  private readonly onClose = (): void => { this.finishWrites(new Error('control channel closed during a write')) }
-  private readonly onEnd = (): void => { if (!this.closed) this.failure(new Error('control channel ended before the program settled'), 'io') }
+  private readonly onClose = (): void => {
+    this.finishWrites(new Error('control channel closed during a write'))
+  }
+  private readonly onEnd = (): void => {
+    if (!this.closed) this.failure(new Error('control channel ended before the program settled'), 'io')
+  }
   private readonly onData = (chunk: Buffer): void => {
     if (this.closed) return
     try {
@@ -100,7 +104,7 @@ export class JsonChannel {
     const completion = Promise.withResolvers<void>()
     const write: PendingWrite = {
       promise: completion.promise,
-      finish: (error) => {
+      finish: error => {
         if (!this.writes.delete(write)) return
         this.queuedBytes -= body.length
         if (error) completion.reject(error)
@@ -112,7 +116,9 @@ export class JsonChannel {
       // Writable preserves frame order; a Promise queue would delay logs behind a model hot loop.
       this.stream.cork()
       this.stream.write(header)
-      this.stream.write(body, (error) => { write.finish(error ?? undefined) })
+      this.stream.write(body, error => {
+        write.finish(error ?? undefined)
+      })
       this.stream.uncork()
     } catch (error: unknown) {
       write.finish(error instanceof Error ? error : new Error(String(error)))
@@ -136,5 +142,7 @@ export class JsonChannel {
   }
 
   /** Wait for accepted writes to finish or fail. */
-  async drain(): Promise<void> { await Promise.allSettled([...this.writes].map(write => write.promise)) }
+  async drain(): Promise<void> {
+    await Promise.allSettled([...this.writes].map(write => write.promise))
+  }
 }

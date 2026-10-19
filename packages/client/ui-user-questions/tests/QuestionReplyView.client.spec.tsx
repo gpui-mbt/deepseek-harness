@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { ComponentProps } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
 import { zh } from '../src/client/locales.ts'
@@ -14,8 +14,14 @@ afterEach(cleanup)
 function renderView(data: QuestionReplyData) {
   const props: Partial<ComponentProps<typeof QuestionReplyView>> = {
     node: {
-      key: 'reply:1', id: 'msg-1', kind: 'question-reply', target: 'chat', anchorSeq: 7,
-      location: { kind: 'session' }, visibility: 'visible', data,
+      key: 'reply:1',
+      id: 'msg-1',
+      kind: 'question-reply',
+      target: 'chat',
+      anchorSeq: 7,
+      location: { kind: 'session' },
+      visibility: 'visible',
+      data,
     },
     openFile: vi.fn(),
     inspectCall: vi.fn(),
@@ -26,17 +32,22 @@ function renderView(data: QuestionReplyData) {
     useTurnData: () => undefined,
     t,
   }
-  return render(<QuestionReplyView {...props as ComponentProps<typeof QuestionReplyView>} />)
+  return render(<QuestionReplyView {...(props as ComponentProps<typeof QuestionReplyView>)} />)
 }
 
 const t = makeTranslate(zh)
 const data = {
   callId: 'call-reply',
   outcome: 'answered',
-  questions: [{
-    id: 'goal', question: 'What should we build?', header: 'What should we build?', detail: 'Choose the first milestone.',
-    options: [{ label: 'A dashboard', description: 'A focused web surface.' }, { label: 'A CLI' }],
-  }],
+  questions: [
+    {
+      id: 'goal',
+      question: 'What should we build?',
+      header: 'What should we build?',
+      detail: 'Choose the first milestone.',
+      options: [{ label: 'A dashboard', description: 'A focused web surface.' }, { label: 'A CLI' }],
+    },
+  ],
   answers: [{ id: 'goal', selected: ['A dashboard'] }],
   text: '{"questions":[],"answers":[]}',
   time: 1,
@@ -85,17 +96,19 @@ describe('QuestionReplyView', () => {
   })
 
   it('shows a distinct header, marks an unanswered question skipped, and falls back to the raw text', () => {
-    render(<QuestionReplyBubble
-      data={{
-        ...data,
-        questions: [
-          { id: 'goal', question: 'What should we build?', header: 'Goal' },
-          { id: 'notes', question: 'Any notes?', options: [{ label: 'None' }] },
-        ],
-        answers: [{ id: 'goal', selected: [], custom: '  ' }],
-      }}
-      t={t}
-    />)
+    render(
+      <QuestionReplyBubble
+        data={{
+          ...data,
+          questions: [
+            { id: 'goal', question: 'What should we build?', header: 'Goal' },
+            { id: 'notes', question: 'Any notes?', options: [{ label: 'None' }] },
+          ],
+          answers: [{ id: 'goal', selected: [], custom: '  ' }],
+        }}
+        t={t}
+      />,
+    )
     fireEvent.click(screen.getByRole('button', { name: /展开问题详情/ }))
     expect(screen.getByText('Goal')).toBeTruthy()
     expect(screen.getByText('None')).toBeTruthy()
@@ -129,7 +142,9 @@ describe('QuestionReplyView', () => {
       fireEvent.click(screen.getByRole('button', { name: 'copied' }))
       expect(writeText).toHaveBeenCalledTimes(2)
 
-      act(() => { vi.advanceTimersByTime(1000) })
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
       expect(screen.getByRole('button', { name: 'copy' })).toBeTruthy()
     } finally {
       vi.useRealTimers()

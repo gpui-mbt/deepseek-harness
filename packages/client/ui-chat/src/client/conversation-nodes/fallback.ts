@@ -1,7 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type {
-  ConversationNodeDefinition, UnknownSurfaceNode,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationNodeDefinition, UnknownSurfaceNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { isAppendSurfaceEvent } from '@deepseek-ai/dsh-session/surface'
 import { chatNode } from './common.ts'
 
@@ -16,9 +14,7 @@ declare module '../contract/chat-nodes.ts' {
 export const unknownFallbackDefinition: ConversationNodeDefinition<UnknownSurfaceNode> = {
   kind: 'unknown-surface',
   target: 'chat',
-  match: event => event.type !== 'assistant/live-chunk' && isAppendSurfaceEvent(event)
-    ? { id: String(event.seq), role: 'start' }
-    : null,
+  match: event => (event.type !== 'assistant/live-chunk' && isAppendSurfaceEvent(event) ? { id: String(event.seq), role: 'start' } : null),
   start: (_context, match) => ({
     kind: 'unknown',
     seq: match.event.seq,
@@ -27,9 +23,7 @@ export const unknownFallbackDefinition: ConversationNodeDefinition<UnknownSurfac
     data: match.event.data,
   }),
   update: context => context.state,
-  buildViewNode: context => context.state === undefined
-    ? null
-    : chatNode(context, 'unknown', context.state.seq, context.state),
+  buildViewNode: context => (context.state === undefined ? null : chatNode(context, 'unknown', context.state.seq, context.state)),
 }
 
 /**

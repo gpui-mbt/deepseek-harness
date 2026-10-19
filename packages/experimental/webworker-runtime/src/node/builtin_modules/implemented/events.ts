@@ -120,7 +120,7 @@ export class EventEmitter {
    * @returns a copy of the listener list.
    */
   listeners(event: string): Listener[] {
-    return [...this.registry.get(event) ?? []]
+    return [...(this.registry.get(event) ?? [])]
   }
 
   /**

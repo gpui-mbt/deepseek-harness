@@ -72,24 +72,45 @@ interface OptionDoc {
 const REGISTER_OPTIONS: Readonly<Record<(typeof KINDS)[number], readonly OptionDoc[]>> = {
   single: [],
   list: [
-    { name: 'id', requirement: 'required', type: 'string', doc: 'Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.' },
+    {
+      name: 'id',
+      requirement: 'required',
+      type: 'string',
+      doc: 'Your cell key. Use an id of your own: a fresh id is added beside the shipped entries, while reusing a shipped id puts you in THAT cell and replaces it. Owners that filter by id address you by it.',
+    },
     { name: 'order', requirement: 'optional', type: 'number', doc: 'Position among the entries, ascending (default 0).' },
-    { name: 'label', requirement: 'optional', type: 'string | (() => string)', doc: 'Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.' },
+    {
+      name: 'label',
+      requirement: 'optional',
+      type: 'string | (() => string)',
+      doc: 'Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.',
+    },
   ],
   keyed: [
-    { name: 'key', requirement: 'required', type: 'string', doc: 'Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.' },
+    {
+      name: 'key',
+      requirement: 'required',
+      type: 'string',
+      doc: 'Your cell key: the entry renders where the owner dispatches this exact key. Registering an already-occupied key replaces that occupant.',
+    },
   ],
   chain: [
-    { name: 'select', requirement: 'required', type: '(owner) => unknown | null', doc: 'Pure routing selector. Entries are tried in ascending order; the first non-null result wins and arrives as the component\'s `matched` prop. All-null falls through to the owner\'s fallback.' },
+    {
+      name: 'select',
+      requirement: 'required',
+      type: '(owner) => unknown | null',
+      doc: "Pure routing selector. Entries are tried in ascending order; the first non-null result wins and arrives as the component's `matched` prop. All-null falls through to the owner's fallback.",
+    },
   ],
 }
 
 /** The one register option a dynamic package must NOT pass, and why. */
-const PRIORITY_NOTE = 'Do NOT pass `priority`: the browser-half facade assigns one automatically, and it is LOWER than every shipped entry — in a single or keyed cell that means your entry is the one that renders.'
+const PRIORITY_NOTE =
+  'Do NOT pass `priority`: the browser-half facade assigns one automatically, and it is LOWER than every shipped entry — in a single or keyed cell that means your entry is the one that renders.'
 
 /** Cross-cutting rules a registrant needs once, not per slot. */
 const CLIENT_NOTES: readonly string[] = [
-  'Contribute UI only through `ctx.slots.register(options, Component)`; declare `inject: [\'slots\']` in your returned plugin (object form) or the seat is withheld.',
+  "Contribute UI only through `ctx.slots.register(options, Component)`; declare `inject: ['slots']` in your returned plugin (object form) or the seat is withheld.",
   'Wrap every registration in `ctx.slots.inject(key, () => ctx.slots.register(...))`. A slot exists only while the entry that declared it is mounted, and registering into an undeclared slot throws; `inject` runs your registration when the declaration is (or becomes) live and re-runs it if the owner remounts.',
   PRIORITY_NOTE,
   'You cannot `import` anything, so the design-system components are out of reach: build markup with `React.createElement` and ship CSS through `styles.insert(css)`. Use the theme CSS variables (`var(--dsw-alias-bg-layer-1)`, `var(--dsw-alias-label-primary)`, …) instead of literal colors, or your contribution breaks in the other color scheme.',
@@ -99,8 +120,8 @@ const CLIENT_NOTES: readonly string[] = [
 
 /** Standard-kit interface that applies to each scope, beyond the global one. */
 const SCOPE_KIT: Readonly<Record<(typeof SCOPES)[number], string | undefined>> = {
-  'root': undefined,
-  'session': 'SessionStandardProps',
+  root: undefined,
+  session: 'SessionStandardProps',
   'session-maybe': 'SessionMaybeStandardProps',
 }
 
@@ -139,13 +160,17 @@ export function collectSlotEntries(scanRoot: string): SlotEntry[] {
   const types = indexExportedTypes(scanRoot, SOURCE_GLOBS)
   const problems = validateSlotContracts(declarations, registrations, types)
   if (problems.length > 0) {
-    throw new Error(`gen-client-catalog: ${String(problems.length)} contract violation(s):\n${problems.map(problem => `  ${problem}`).join('\n')}`)
+    throw new Error(
+      `gen-client-catalog: ${String(problems.length)} contract violation(s):\n${problems.map(problem => `  ${problem}`).join('\n')}`,
+    )
   }
   const entries = resolveSlotEntries(declarations, registrations, types, standardKits(files))
   const oversized = oversizedSlotReports(entries)
   if (oversized.length > 0) {
-    throw new Error(`gen-client-catalog: ${String(oversized.length)} slot(s) exceed the per-slot report budget `
-      + `of ${String(MAX_ENTRY_LINES)} lines:\n${oversized.map(problem => `  ${problem}`).join('\n')}`)
+    throw new Error(
+      `gen-client-catalog: ${String(oversized.length)} slot(s) exceed the per-slot report budget ` +
+        `of ${String(MAX_ENTRY_LINES)} lines:\n${oversized.map(problem => `  ${problem}`).join('\n')}`,
+    )
   }
   return entries
 }
@@ -159,16 +184,23 @@ export function collectSlotEntries(scanRoot: string): SlotEntry[] {
 export function oversizedSlotReports(entries: readonly SlotEntry[]): string[] {
   return entries
     .filter(entry => entryLines(entry) > MAX_ENTRY_LINES)
-    .map(entry => `slot '${entry.key}' (${entry.source}) reports ${String(entryLines(entry))} lines. `
-      + 'Narrow the owner share it passes down (a slot hands a registrant a share, not a subsystem) or tighten '
-      + 'its prose, so asking about one slot stays cheaper than asking about all of them.')
+    .map(
+      entry =>
+        `slot '${entry.key}' (${entry.source}) reports ${String(entryLines(entry))} lines. ` +
+        'Narrow the owner share it passes down (a slot hands a registrant a share, not a subsystem) or tighten ' +
+        'its prose, so asking about one slot stays cheaper than asking about all of them.',
+    )
 }
 
 /** Line count of one entry's variable-length content, the proxy for its rendered report. */
 function entryLines(entry: SlotEntry): number {
   const blocks = [entry.doc, entry.example, ...entry.ownerProps, ...entry.registerOptions.map(option => option.doc)]
-  return blocks.reduce((total, block) => total + block.split('\n').length, 0)
-    + entry.standardProps.length + entry.ownerPropsReferences.length + entry.occupants.length
+  return (
+    blocks.reduce((total, block) => total + block.split('\n').length, 0) +
+    entry.standardProps.length +
+    entry.ownerPropsReferences.length +
+    entry.occupants.length
+  )
 }
 
 /**
@@ -191,28 +223,38 @@ export function validateSlotContracts(
     const where = `slot '${declaration.key}' (${declaration.source})`
     const previous = byKey.get(declaration.key)
     if (previous !== undefined) {
-      problems.push(`${where} is also declared at ${previous.source}; SlotMap merges duplicates silently, so the catalog cannot tell which documentation wins.`)
+      problems.push(
+        `${where} is also declared at ${previous.source}; SlotMap merges duplicates silently, so the catalog cannot tell which documentation wins.`,
+      )
       continue
     }
     byKey.set(declaration.key, declaration)
     if (!(KINDS as readonly string[]).includes(declaration.kind)) {
-      problems.push(`${where} has no literal 'kind'; the catalog derives the register options from it, so it must be one of ${KINDS.join('/')}.`)
+      problems.push(
+        `${where} has no literal 'kind'; the catalog derives the register options from it, so it must be one of ${KINDS.join('/')}.`,
+      )
     }
     if (!(SCOPES as readonly string[]).includes(declaration.scope)) {
-      problems.push(`${where} has no literal 'scope'; the catalog derives the framework props from it, so it must be one of ${SCOPES.join('/')}.`)
+      problems.push(
+        `${where} has no literal 'scope'; the catalog derives the framework props from it, so it must be one of ${SCOPES.join('/')}.`,
+      )
     }
     if (docProse(declaration.jsDoc) === '') {
-      problems.push(`${where} has no JSDoc prose. Write it from the REGISTRANT's side: what to pass, what the component receives, whom a registration replaces, and what absence looks like (packages/client/ui-settings/src/client/contract/slots.ts is the template).`)
+      problems.push(
+        `${where} has no JSDoc prose. Write it from the REGISTRANT's side: what to pass, what the component receives, whom a registration replaces, and what absence looks like (packages/client/ui-settings/src/client/contract/slots.ts is the template).`,
+      )
     }
-    if (declaration.ownerType !== undefined
-      && /^[A-Za-z_$][\w$]*$/.test(declaration.ownerType)
-      && !types.has(declaration.ownerType)) {
-      problems.push(`${where} names owner props '${declaration.ownerType}' that no exported declaration provides; export the interface so the catalog can show what the component receives.`)
+    if (declaration.ownerType !== undefined && /^[A-Za-z_$][\w$]*$/.test(declaration.ownerType) && !types.has(declaration.ownerType)) {
+      problems.push(
+        `${where} names owner props '${declaration.ownerType}' that no exported declaration provides; export the interface so the catalog can show what the component receives.`,
+      )
     }
   }
   for (const registration of registrations) {
     if (registration.factory !== true && !byKey.has(registration.key)) {
-      problems.push(`registration into '${registration.key}' (${registration.source}) targets a slot no SlotMap merge declares; either the scan has a blind spot or the registration is dead.`)
+      problems.push(
+        `registration into '${registration.key}' (${registration.source}) targets a slot no SlotMap merge declares; either the scan has a blind spot or the registration is dead.`,
+      )
     }
     for (const child of registration.children) {
       if (!byKey.has(child)) {
@@ -258,7 +300,7 @@ function standardKits(files: readonly ScannedFile[]): ReadonlyMap<string, readon
   for (const scope of SCOPES) {
     const extra = SCOPE_KIT[scope]
     // A scope-kit member replaces the global member of the same name, so each seat is listed once.
-    kits.set(scope, [...new Set([...global, ...extra === undefined ? [] : standardKitMembers(files, extra)])])
+    kits.set(scope, [...new Set([...global, ...(extra === undefined ? [] : standardKitMembers(files, extra))])])
   }
   return kits
 }
@@ -271,10 +313,8 @@ function entryOf(
   types: ReadonlyMap<string, TypeDeclaration>,
   kits: ReadonlyMap<string, readonly string[]>,
 ): SlotEntry {
-  const occupants = registrations.filter(registration =>
-    registration.factory !== true && registration.key === declaration.key)
-  const cellOccupied = occupants.some(occupant =>
-    declaration.kind === 'single' || occupant.entryKey !== undefined)
+  const occupants = registrations.filter(registration => registration.factory !== true && registration.key === declaration.key)
+  const cellOccupied = occupants.some(occupant => declaration.kind === 'single' || occupant.entryKey !== undefined)
   const doc = docProse(declaration.jsDoc)
   const owner = ownerShapes(declaration.ownerType, types)
   return {
@@ -290,20 +330,21 @@ function entryOf(
     keyDomain: keyDomainOf(declaration, occupants),
     hookContext: declaration.hookContext ?? '',
     slotInject: declaration.injectType ?? '',
-    declaredBy: declaredBy === undefined
-      ? 'the runtime itself (built in; always present)'
-      : declaredBy.factory === true
-        ? `factory '${declaredBy.key}' (${shortPackage(declaredBy.package)}), so it exists while that definition is registered`
-        : `an entry in '${declaredBy.key}' (${shortPackage(declaredBy.package)}), so it exists while that entry is mounted`,
-    occupants: occupants.map(occupant => [
-      shortPackage(occupant.package),
-      occupant.component,
-      ...occupant.id === undefined ? [] : [`id '${occupant.id}'`],
-      ...occupant.entryKey === undefined ? [] : [`key '${occupant.entryKey}'`],
-    ].join(' ')),
-    replaceRisk: cellOccupied && (declaration.kind === 'single' || declaration.kind === 'keyed')
-      ? 'shadows-shipped-ui'
-      : 'none',
+    declaredBy:
+      declaredBy === undefined
+        ? 'the runtime itself (built in; always present)'
+        : declaredBy.factory === true
+          ? `factory '${declaredBy.key}' (${shortPackage(declaredBy.package)}), so it exists while that definition is registered`
+          : `an entry in '${declaredBy.key}' (${shortPackage(declaredBy.package)}), so it exists while that entry is mounted`,
+    occupants: occupants.map(occupant =>
+      [
+        shortPackage(occupant.package),
+        occupant.component,
+        ...(occupant.id === undefined ? [] : [`id '${occupant.id}'`]),
+        ...(occupant.entryKey === undefined ? [] : [`key '${occupant.entryKey}'`]),
+      ].join(' '),
+    ),
+    replaceRisk: cellOccupied && (declaration.kind === 'single' || declaration.kind === 'keyed') ? 'shadows-shipped-ui' : 'none',
     example: exampleOf(declaration),
     source: declaration.source,
   }
@@ -318,8 +359,7 @@ function ownerShapes(
   types: ReadonlyMap<string, TypeDeclaration>,
 ): { declarations: TypeDeclaration[]; references: string[] } {
   if (ownerType === undefined) return { declarations: [], references: [] }
-  const own = new Map(declaredTypes(referencedTypeNames([ownerType], types), types)
-    .map(declaration => [declaration.name, declaration]))
+  const own = new Map(declaredTypes(referencedTypeNames([ownerType], types), types).map(declaration => [declaration.name, declaration]))
   for (const declaration of own.values()) {
     const source = ts.createSourceFile(declaration.source, declaration.text, ts.ScriptTarget.Latest, true)
     const alias = source.statements.find(ts.isTypeAliasDeclaration)
@@ -329,8 +369,10 @@ function ownerShapes(
     }
   }
   const declarations = [...own.values()].sort((left, right) => left.name.localeCompare(right.name))
-  const references = referencedTypeNames(declarations.map(declaration => declaration.text), types)
-    .filter(name => !own.has(name))
+  const references = referencedTypeNames(
+    declarations.map(declaration => declaration.text),
+    types,
+  ).filter(name => !own.has(name))
   return { declarations, references }
 }
 
@@ -347,7 +389,7 @@ function ownerCompositionNames(type: ts.TypeNode): string[] {
 /** How a keyed slot's key domain is constrained, '' for the other kinds. */
 function keyDomainOf(declaration: SlotDeclaration, occupants: readonly SlotRegistration[]): string {
   if (declaration.kind !== 'keyed') return ''
-  const taken = [...new Set(occupants.flatMap(occupant => occupant.entryKey === undefined ? [] : [occupant.entryKey]))].sort()
+  const taken = [...new Set(occupants.flatMap(occupant => (occupant.entryKey === undefined ? [] : [occupant.entryKey])))].sort()
   const shipped = taken.length === 0 ? 'none are taken yet' : `already taken: ${taken.join(', ')}`
   return declaration.keyProps === undefined
     ? `open: any string the owner dispatches (no compile-time key set), ${shipped}`
@@ -358,7 +400,7 @@ function keyDomainOf(declaration: SlotDeclaration, occupants: readonly SlotRegis
 function exampleOf(declaration: SlotDeclaration): string {
   const authored = blockTag(declaration.jsDoc, 'example')
   if (authored !== undefined) return authored
-  const options = [`name: '${declaration.key}'`, ...KIND_EXAMPLE[declaration.kind] ?? []].join(', ')
+  const options = [`name: '${declaration.key}'`, ...(KIND_EXAMPLE[declaration.kind] ?? [])].join(', ')
   return [
     'return {',
     "  inject: ['slots'],",
@@ -374,7 +416,10 @@ function exampleOf(declaration: SlotDeclaration): string {
 
 /** One multiline JSDoc block tag, without comment decoration. */
 function blockTag(jsDoc: string, name: string): string | undefined {
-  const lines = jsDoc.replace(/^\/\*\*/, '').replace(/\*\/$/, '').split('\n')
+  const lines = jsDoc
+    .replace(/^\/\*\*/, '')
+    .replace(/\*\/$/, '')
+    .split('\n')
     .map(line => line.replace(/^\s*\*?\s?/, '').replace(/\s+$/, ''))
   const start = lines.findIndex(line => line === `@${name}` || line.startsWith(`@${name} `))
   if (start < 0) return undefined
@@ -402,21 +447,26 @@ function shortPackage(name: string): string {
 
 /** Truncate an over-long declaration, naming the truncation. */
 function truncate(text: string): string {
-  return text.length > MAX_DECL_CHARS
-    ? `${text.slice(0, MAX_DECL_CHARS)} /* …truncated — full shape in source */`
-    : text
+  return text.length > MAX_DECL_CHARS ? `${text.slice(0, MAX_DECL_CHARS)} /* …truncated — full shape in source */` : text
 }
 
 /** JSDoc prose: comment markers and block tags removed, paragraphs kept. */
 function docProse(jsDoc: string): string {
-  const lines = jsDoc.replace(/^\/\*\*/, '').replace(/\*\/$/, '').split('\n')
+  const lines = jsDoc
+    .replace(/^\/\*\*/, '')
+    .replace(/\*\/$/, '')
+    .split('\n')
     .map(line => line.replace(/^\s*\*?\s?/, '').replace(/\s+$/, ''))
   const kept: string[] = []
   for (const line of lines) {
     if (line.trimStart().startsWith('@')) break
     kept.push(line)
   }
-  return kept.join('\n').replace(/\{@link\s+([^}]+)\}/g, '$1').replace(/\n{3,}/g, '\n\n').trim()
+  return kept
+    .join('\n')
+    .replace(/\{@link\s+([^}]+)\}/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 /** First sentence of a prose block, for the compact listing. */
@@ -449,7 +499,7 @@ export function renderClientCatalog(entries: readonly SlotEntry[]): string {
     ' * `pnpm run gen-client-catalog` to regenerate (freshness-gated by',
     ' * `pnpm run verify-client-catalog` in doc-sync).',
     ' *',
-    ' * The compile-time contract of the shipped web bundle\'s slot surface, as',
+    " * The compile-time contract of the shipped web bundle's slot surface, as",
     ' * `cordis_inspect what:"client"` serves it to the model: every SlotMap key a',
     ' * browser half can register into, what that register call must pass, what the',
     ' * component receives, who already occupies the seat, and which owner has to be',
@@ -468,13 +518,13 @@ export function renderClientCatalog(entries: readonly SlotEntry[]): string {
     '  requirement: string',
     '  /** Accepted type, in source spelling. */',
     '  type: string',
-    '  /** What it does, from the registrant\'s side. */',
+    "  /** What it does, from the registrant's side. */",
     '  doc: string',
     '}',
     '',
     '/** One browser-half slot a dynamic package can contribute UI into. */',
     'export interface ClientSlotEntry {',
-    '  /** SlotMap key passed as the register call\'s `name`. */',
+    "  /** SlotMap key passed as the register call's `name`. */",
     '  key: string',
     '  /** Cardinality: `single`, `list`, `keyed`, or `chain`. */',
     '  kind: string',

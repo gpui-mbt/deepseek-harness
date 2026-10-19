@@ -7,7 +7,7 @@
  * the cost of one extra tree propagation).
  */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 import { tempWriteSid, workspaceWriteSid } from '../src/index.ts'
 
@@ -23,7 +23,7 @@ describe('workspaceWriteSid', () => {
     expect(workspaceWriteSid('C:\\Users\\agent\\repo-a')).not.toBe(workspaceWriteSid('C:\\Users\\agent\\repo-b'))
   })
 
-  it('is byte-sensitive: the canonical path is the caller\'s contract (an alias spelling derives a second identity)', () => {
+  it("is byte-sensitive: the canonical path is the caller's contract (an alias spelling derives a second identity)", () => {
     expect(workspaceWriteSid('C:\\Repo')).not.toBe(workspaceWriteSid('c:\\repo'))
     expect(workspaceWriteSid('C:\\Repo\\')).not.toBe(workspaceWriteSid('C:\\Repo'))
   })

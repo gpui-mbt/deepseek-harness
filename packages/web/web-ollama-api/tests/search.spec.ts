@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import WebRuntime from '@deepseek-ai/dsh-web'
 import {
@@ -18,8 +18,7 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 }
 
 /** Construct the provider over a fixed options value; production passes a live thunk. */
-const providerOf = (value: OllamaSearchProviderOptions): OllamaSearchProvider =>
-  new OllamaSearchProvider(() => value)
+const providerOf = (value: OllamaSearchProviderOptions): OllamaSearchProvider => new OllamaSearchProvider(() => value)
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -27,11 +26,13 @@ afterEach(() => {
 
 describe('Ollama result mapping', () => {
   it('maps a full result entry with a trimmed snippet', () => {
-    expect(mapOllamaResult({
-      url: 'https://a.test',
-      title: 'A',
-      content: '  page excerpt  ',
-    })).toEqual({ url: 'https://a.test', title: 'A', snippet: 'page excerpt' })
+    expect(
+      mapOllamaResult({
+        url: 'https://a.test',
+        title: 'A',
+        content: '  page excerpt  ',
+      }),
+    ).toEqual({ url: 'https://a.test', title: 'A', snippet: 'page excerpt' })
   })
 
   it('drops an entry with an empty URL', () => {
@@ -39,19 +40,13 @@ describe('Ollama result mapping', () => {
   })
 
   it('omits null/empty optional fields and a blank snippet rather than emitting them', () => {
-    expect(mapOllamaResult({ url: 'https://a.test', title: null, content: null }))
-      .toEqual({ url: 'https://a.test' })
-    expect(mapOllamaResult({ url: 'https://a.test', title: '', content: '   ' }))
-      .toEqual({ url: 'https://a.test' })
+    expect(mapOllamaResult({ url: 'https://a.test', title: null, content: null })).toEqual({ url: 'https://a.test' })
+    expect(mapOllamaResult({ url: 'https://a.test', title: '', content: '   ' })).toEqual({ url: 'https://a.test' })
   })
 
   it('maps a response to a result with no content and filtered sources', () => {
     const result = mapOllamaResponse({
-      results: [
-        { url: 'https://a.test', content: 'one' },
-        { url: '' },
-        { url: 'https://c.test', title: 'C', content: 'three' },
-      ],
+      results: [{ url: 'https://a.test', content: 'one' }, { url: '' }, { url: 'https://c.test', title: 'C', content: 'three' }],
     })
     expect(result).toEqual({
       sources: [
@@ -134,74 +129,169 @@ describe('OllamaSearchProvider request mapping', () => {
 
 describe('OllamaSearchProvider error handling', () => {
   it('maps an HTTP error to WEB_PROVIDER_ERROR with the provider detail', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: 'bad key' }, { status: 401 })))
-    const error = await providerOf(options).search({ query: 'q' }).catch((caught: unknown) => caught)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ error: 'bad key' }, { status: 401 })),
+    )
+    const error = await providerOf(options)
+      .search({ query: 'q' })
+      .catch((caught: unknown) => caught)
     expect(error).toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
     expect((error as Error).message).toContain('Ollama Cloud API error (HTTP 401): bad key')
   })
 
   it('reads a `message` detail when `error` is absent', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ message: 'rate limited' }, { status: 429 })))
-    const error = await providerOf(options).search({ query: 'q' }).catch((caught: unknown) => caught)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ message: 'rate limited' }, { status: 429 })),
+    )
+    const error = await providerOf(options)
+      .search({ query: 'q' })
+      .catch((caught: unknown) => caught)
     expect((error as Error).message).toContain('Ollama Cloud API error (HTTP 429): rate limited')
   })
 
   it('keeps the status-line message when the error body is not JSON', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('gateway down', { status: 502 })))
-    const error = await providerOf(options).search({ query: 'q' }).catch((caught: unknown) => caught)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('gateway down', { status: 502 })),
+    )
+    const error = await providerOf(options)
+      .search({ query: 'q' })
+      .catch((caught: unknown) => caught)
     expect((error as Error).message).toContain('Ollama Cloud API error (HTTP 502)')
   })
 
   it('names the endpoint and settings page on every post-dispatch failure', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({}, { status: 500 })))
-    const error = await providerOf(options).search({ query: 'q' }).catch((caught: unknown) => caught)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({}, { status: 500 })),
+    )
+    const error = await providerOf(options)
+      .search({ query: 'q' })
+      .catch((caught: unknown) => caught)
     expect((error as Error).message).toContain('used endpoint "https://ollama.test/api/web_search"')
     expect((error as Error).message).toContain('Settings > Plugins > Ollama Cloud search')
   })
 
   it('maps a network failure to WEB_PROVIDER_ERROR', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('connection refused'))))
-    await expect(providerOf(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('connection refused'))),
+    )
+    await expect(providerOf(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
   })
 
   it('maps an abort to WEB_ABORTED', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new DOMException('aborted', 'AbortError'))))
-    await expect(providerOf(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new DOMException('aborted', 'AbortError'))),
+    )
+    await expect(providerOf(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
+  })
+
+  it('reports a missing key without a resolver and names the configured credential ref', async () => {
+    const provider = providerOf({ ...options, apiKey: '', apiKeyEnv: 'MY_OLLAMA_KEY' as never })
+    const error = await provider.search({ query: 'q' }).catch((caught: unknown) => caught)
+    expect(error).toMatchObject({ code: 'WEB_PROVIDER_CREDENTIAL_MISSING' })
+    expect((error as Error).message).toContain('"MY_OLLAMA_KEY"')
+  })
+
+  it('names the default credential ref when the config omits one', async () => {
+    const error = await providerOf({ ...options, apiKey: '' })
+      .search({ query: 'q' })
+      .catch((caught: unknown) => caught)
+    expect((error as Error).message).toContain('"OLLAMA_CLOUD_API_KEY"')
+  })
+
+  it('rejects an already-aborted search before dispatch', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    await expect(providerOf(options).search({ query: 'q' }, controller.signal)).rejects.toMatchObject({ code: 'WEB_ABORTED' })
+  })
+
+  it('maps a credential resolver failure to WEB_PROVIDER_ERROR', async () => {
+    const provider = providerOf({
+      ...options,
+      apiKey: '',
+      resolveApiKey: () => Promise.reject(new Error('vault down')),
+    })
+    const error = await provider.search({ query: 'q' }, new AbortController().signal).catch((caught: unknown) => caught)
+    expect(error).toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
+    expect((error as Error).message).toContain('credential resolution failed: Error: vault down')
+  })
+
+  it('resolves a credential under a live signal', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
+    vi.stubGlobal('fetch', fetchMock)
+    await providerOf({ ...options, apiKey: '', resolveApiKey: () => Promise.resolve('resolved-key') }).search(
+      { query: 'q' },
+      new AbortController().signal,
+    )
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer resolved-key')
+  })
+
+  it('aborts a pending credential resolution', async () => {
+    const controller = new AbortController()
+    const provider = providerOf({ ...options, apiKey: '', resolveApiKey: () => new Promise(() => {}) })
+    const pending = provider.search({ query: 'q' }, controller.signal)
+    controller.abort()
+    await expect(pending).rejects.toMatchObject({ code: 'WEB_ABORTED' })
+  })
+
+  it('rejects when the resolver aborts after resolution starts', async () => {
+    const controller = new AbortController()
+    const provider = providerOf({
+      ...options,
+      apiKey: '',
+      resolveApiKey: async () => {
+        controller.abort()
+        return 'resolved-key'
+      },
+    })
+    await expect(provider.search({ query: 'q' }, controller.signal)).rejects.toMatchObject({ code: 'WEB_ABORTED' })
   })
 
   it('maps an unparseable success body to WEB_PROVIDER_ERROR', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('not json', { status: 200 })))
-    await expect(providerOf(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('not json', { status: 200 })),
+    )
+    await expect(providerOf(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
   })
 
   it('surfaces an abort during success-body parse as WEB_ABORTED, not provider error', async () => {
     const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: true, status: 200 }
-    vi.stubGlobal('fetch', vi.fn(async () => body as unknown as Response))
-    await expect(providerOf(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => body as unknown as Response),
+    )
+    await expect(providerOf(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
   })
 
   it('surfaces an abort during error-body parse as WEB_ABORTED', async () => {
     const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: false, status: 500 }
-    vi.stubGlobal('fetch', vi.fn(async () => body as unknown as Response))
-    await expect(providerOf(options).search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => body as unknown as Response),
+    )
+    await expect(providerOf(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
   })
 })
 
 describe('web-ollama-api plugin registration', () => {
   it('registers the provider into ctx.web and withdraws it with the fiber', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ results: [] })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ results: [] })),
+    )
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: OLLAMA_PROVIDER_ID })
     const fiber = await ctx.plugin(ollamaPlugin, { apiKey: 'ollama-key' })
     await expect(ctx.web.search({ query: 'q' })).resolves.toMatchObject({ sources: [], truncated: false })
     await fiber.dispose()
-    await expect(ctx.web.search({ query: 'q' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_CONFIGURED_MISSING' }))
+    await expect(ctx.web.search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_CONFIGURED_MISSING' }))
   })
 
   it('has no default export (namespace plugin export shape)', () => {
@@ -239,6 +329,21 @@ describe('web-ollama-api plugin registration', () => {
     } finally {
       if (prev === undefined) delete process.env.OLLAMA_CLOUD_API_KEY
       else process.env.OLLAMA_CLOUD_API_KEY = prev
+    }
+  })
+
+  it('falls through to the credential seam when it resolves no value', async () => {
+    const prev = process.env.OLLAMA_CLOUD_API_KEY
+    delete process.env.OLLAMA_CLOUD_API_KEY
+    try {
+      const ctx = new Context()
+      ctx.provide('credentials', { resolve: async () => undefined } as never)
+      await ctx.plugin(WebRuntime, { searchProvider: OLLAMA_PROVIDER_ID })
+      await ctx.plugin(ollamaPlugin, {})
+      const error = await ctx.web.search({ query: 'q' }).catch((caught: unknown) => caught)
+      expect(error).toMatchObject({ code: 'WEB_PROVIDER_CREDENTIAL_MISSING' })
+    } finally {
+      if (prev !== undefined) process.env.OLLAMA_CLOUD_API_KEY = prev
     }
   })
 

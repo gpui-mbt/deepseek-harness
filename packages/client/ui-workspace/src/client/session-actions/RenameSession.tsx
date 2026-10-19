@@ -7,7 +7,11 @@
 import { useRef, useState } from 'react'
 import { Button, IconEditOutlineRegular, MenuItemButton, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  RenameSessionInjected, SessionMenuItemProps, SessionRenameDialogInjected, SessionRenameDialogProps, SessionRenameTarget,
+  RenameSessionInjected,
+  SessionMenuItemProps,
+  SessionRenameDialogInjected,
+  SessionRenameDialogProps,
+  SessionRenameTarget,
 } from '../contract/slots.ts'
 import css from '../rows/WorkspaceBrowser.module.css'
 
@@ -17,7 +21,12 @@ import css from '../rows/WorkspaceBrowser.module.css'
  * @returns the row.
  */
 export function RenameSessionMenuItem({
-  sessionId, displayTitle, useMenuOpenState, useShortcuts, requestSessionRename, t,
+  sessionId,
+  displayTitle,
+  useMenuOpenState,
+  useShortcuts,
+  requestSessionRename,
+  t,
 }: SessionMenuItemProps<RenameSessionInjected>) {
   const [, setMenuOpen] = useMenuOpenState()
   const shortcut = useShortcuts(rows => rows.find(row => row.id === 'session.rename'))
@@ -47,19 +56,16 @@ export function RenameSessionMenuItem({
 export function SessionRenameDialog({ useRenameRequest, settleSessionRename, renameSession, t }: SessionRenameDialogProps) {
   const request = useRenameRequest(pending => pending)
   if (request === null) return null
-  return (
-    <RenameForm
-      key={request.sessionId}
-      request={request}
-      renameSession={renameSession}
-      onSettle={settleSessionRename}
-      t={t}
-    />
-  )
+  return <RenameForm key={request.sessionId} request={request} renameSession={renameSession} onSettle={settleSessionRename} t={t} />
 }
 
 /** One request's dialog: the draft seeds from the request on mount; in-flight and error state die with it. */
-function RenameForm({ request, renameSession, onSettle, t }: {
+function RenameForm({
+  request,
+  renameSession,
+  onSettle,
+  t,
+}: {
   request: SessionRenameTarget
   renameSession: SessionRenameDialogInjected['renameSession']
   onSettle: () => void
@@ -80,13 +86,15 @@ function RenameForm({ request, renameSession, onSettle, t }: {
     if (blocked) return
     setRenaming(true)
     setError(null)
-    renameSession(request.sessionId, trimmed).then(() => {
-      setRenaming(false)
-      onSettle()
-    }).catch((reason: unknown) => {
-      setRenaming(false)
-      setError(reason instanceof Error ? reason.message : String(reason))
-    })
+    renameSession(request.sessionId, trimmed)
+      .then(() => {
+        setRenaming(false)
+        onSettle()
+      })
+      .catch((reason: unknown) => {
+        setRenaming(false)
+        setError(reason instanceof Error ? reason.message : String(reason))
+      })
   }
   return (
     <Modal
@@ -94,12 +102,16 @@ function RenameForm({ request, renameSession, onSettle, t }: {
       onClose={close}
       closeLabel={t('close')}
       title={t('rename.session.title')}
-      footer={(
+      footer={
         <>
-          <Button variant="outline" disabled={renaming} onClick={close}>{t('cancel')}</Button>
-          <Button variant="primary" disabled={blocked} onClick={confirm}>{t('rename')}</Button>
+          <Button variant="outline" disabled={renaming} onClick={close}>
+            {t('cancel')}
+          </Button>
+          <Button variant="primary" disabled={blocked} onClick={confirm}>
+            {t('rename')}
+          </Button>
         </>
-      )}
+      }
     >
       <input
         className={css.renameInput}
@@ -107,18 +119,31 @@ function RenameForm({ request, renameSession, onSettle, t }: {
         aria-label={t('field.sessionName')}
         data-modal-autofocus
         disabled={renaming}
-        onFocus={(e) => { e.target.select() }}
-        onChange={(e) => { setDraft(e.target.value); setError(null) }}
-        onCompositionStart={() => { composingRef.current = true }}
-        onCompositionEnd={() => { composingRef.current = false }}
-        onKeyDown={(e) => {
+        onFocus={e => {
+          e.target.select()
+        }}
+        onChange={e => {
+          setDraft(e.target.value)
+          setError(null)
+        }}
+        onCompositionStart={() => {
+          composingRef.current = true
+        }}
+        onCompositionEnd={() => {
+          composingRef.current = false
+        }}
+        onKeyDown={e => {
           if (e.key === 'Enter' && !composingRef.current) {
             e.preventDefault()
             confirm()
           }
         }}
       />
-      {error !== null && <div className={css.renameError} role="alert">{error}</div>}
+      {error !== null && (
+        <div className={css.renameError} role="alert">
+          {error}
+        </div>
+      )}
     </Modal>
   )
 }

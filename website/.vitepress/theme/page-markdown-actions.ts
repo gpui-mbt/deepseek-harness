@@ -30,7 +30,10 @@ const messages = {
     requestFailed: '无法加载 Markdown，请打开页面操作菜单，选择“以 Markdown 格式查看”后手动复制。',
     clipboardFailed: '复制失败，请打开页面操作菜单，选择“以 Markdown 格式查看”后手动复制。',
   },
-} satisfies Record<'en' | 'zh', Record<Exclude<CopyState, 'idle'> | 'copy' | 'copyDescription' | 'view' | 'viewDescription' | 'newTab' | 'menu' | 'more', string>>
+} satisfies Record<
+  'en' | 'zh',
+  Record<Exclude<CopyState, 'idle'> | 'copy' | 'copyDescription' | 'view' | 'viewDescription' | 'newTab' | 'menu' | 'more', string>
+>
 
 const icons = {
   copy: 'M9 8h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2ZM16 4V3a1 1 0 0 0-1-1H5a2 2 0 0 0-2 2v11',
@@ -40,9 +43,21 @@ const icons = {
 }
 
 function icon(name: keyof typeof icons) {
-  return h('svg', { class: `page-markdown-icon page-markdown-icon-${name}`, viewBox: '0 0 24 24', fill: 'none',
-    stroke: 'currentColor', 'stroke-width': 1.7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-    'aria-hidden': 'true', focusable: 'false' }, [h('path', { d: icons[name] })])
+  return h(
+    'svg',
+    {
+      class: `page-markdown-icon page-markdown-icon-${name}`,
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': 1.7,
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    },
+    [h('path', { d: icons[name] })],
+  )
 }
 
 /**
@@ -58,7 +73,9 @@ export const PageMarkdownActions = defineComponent({
   },
   setup(props) {
     const interactive = ref(false)
-    onMounted(() => { interactive.value = true })
+    onMounted(() => {
+      interactive.value = true
+    })
     const state = ref<CopyState>('idle')
     const open = ref(false)
     const root = ref<HTMLElement>()
@@ -85,15 +102,20 @@ export const PageMarkdownActions = defineComponent({
         if (event.target instanceof Node && !root.value?.contains(event.target)) closeMenu()
       }
       document.addEventListener('pointerdown', dismiss, true)
-      onCleanup(() => { document.removeEventListener('pointerdown', dismiss, true) })
+      onCleanup(() => {
+        document.removeEventListener('pointerdown', dismiss, true)
+      })
     })
 
     function menuKeydown(event: KeyboardEvent) {
       const items = [menuCopy.value, menuView.value]
       const index = items.findIndex(item => item === event.target)
       const movement: Partial<Record<string, number>> = {
-        ArrowDown: (index + 1) % items.length, ArrowUp: (index + items.length - 1) % items.length,
-        Home: 0, End: items.length - 1 }
+        ArrowDown: (index + 1) % items.length,
+        ArrowUp: (index + items.length - 1) % items.length,
+        Home: 0,
+        End: items.length - 1,
+      }
       const target = movement[event.key]
       if (target !== undefined) {
         event.preventDefault()
@@ -122,7 +144,7 @@ export const PageMarkdownActions = defineComponent({
       controller = request
       const outcome = { requestFailed: false }
       const content = fetch(`${props.path}?dsh-raw=1`, { signal: request.signal })
-        .then(async (response) => {
+        .then(async response => {
           const type = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase()
           if (!response.ok || (type !== 'text/markdown' && type !== 'text/plain')) {
             throw new Error('Markdown response unavailable')
@@ -154,62 +176,139 @@ export const PageMarkdownActions = defineComponent({
       const text = messages[props.lang.startsWith('zh') ? 'zh' : 'en']
       if (!interactive.value) {
         return h('div', { class: 'page-markdown-actions' }, [
-          h('a', { class: 'page-markdown-static', href: props.path, target: '_blank', rel: 'noopener', 'aria-label': text.newTab },
-            [text.view, icon('external')]),
+          h('a', { class: 'page-markdown-static', href: props.path, target: '_blank', rel: 'noopener', 'aria-label': text.newTab }, [
+            text.view,
+            icon('external'),
+          ]),
         ])
       }
-      return h('div', {
-        ref: root, class: 'page-markdown-actions',
-        onFocusout: (event: FocusEvent) => {
-          if (!(event.relatedTarget instanceof Node) || !root.value?.contains(event.relatedTarget)) closeMenu()
+      return h(
+        'div',
+        {
+          ref: root,
+          class: 'page-markdown-actions',
+          onFocusout: (event: FocusEvent) => {
+            if (!(event.relatedTarget instanceof Node) || !root.value?.contains(event.relatedTarget)) closeMenu()
+          },
+          onKeydown: (event: KeyboardEvent) => {
+            if (open.value && event.key === 'Escape') {
+              event.preventDefault()
+              event.stopPropagation()
+              closeMenu(true)
+            }
+          },
         },
-        onKeydown: (event: KeyboardEvent) => {
-          if (open.value && event.key === 'Escape') {
-            event.preventDefault()
-            event.stopPropagation()
-            closeMenu(true)
-          }
-        },
-      }, [
-        h('div', { class: 'page-markdown-actions-dropdown' }, [
-          h('div', { class: 'page-markdown-actions-controls' }, [
-            h('button', { class: 'page-markdown-copy', type: 'button',
-              'aria-disabled': state.value === 'copying', 'aria-busy': state.value === 'copying', onClick: copy },
-            [icon('copy'), state.value === 'copying' ? text.copying : text.copy]),
-            h('button', { ref: toggle, class: 'page-markdown-toggle', type: 'button', 'aria-label': text.more,
-              'aria-haspopup': 'menu', 'aria-expanded': open.value, 'aria-controls': menuId,
-              onMousedown: (event: MouseEvent) => { if (open.value) event.preventDefault() },
-              onClick: () => { if (open.value) closeMenu(true); else openMenu() },
-              onKeydown: (event: KeyboardEvent) => {
-                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                  event.preventDefault()
-                  openMenu(event.key === 'ArrowUp')
-                }
-              },
-            }, [icon('chevron')]),
+        [
+          h('div', { class: 'page-markdown-actions-dropdown' }, [
+            h('div', { class: 'page-markdown-actions-controls' }, [
+              h(
+                'button',
+                {
+                  class: 'page-markdown-copy',
+                  type: 'button',
+                  'aria-disabled': state.value === 'copying',
+                  'aria-busy': state.value === 'copying',
+                  onClick: copy,
+                },
+                [icon('copy'), state.value === 'copying' ? text.copying : text.copy],
+              ),
+              h(
+                'button',
+                {
+                  ref: toggle,
+                  class: 'page-markdown-toggle',
+                  type: 'button',
+                  'aria-label': text.more,
+                  'aria-haspopup': 'menu',
+                  'aria-expanded': open.value,
+                  'aria-controls': menuId,
+                  onMousedown: (event: MouseEvent) => {
+                    if (open.value) event.preventDefault()
+                  },
+                  onClick: () => {
+                    if (open.value) closeMenu(true)
+                    else openMenu()
+                  },
+                  onKeydown: (event: KeyboardEvent) => {
+                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                      event.preventDefault()
+                      openMenu(event.key === 'ArrowUp')
+                    }
+                  },
+                },
+                [icon('chevron')],
+              ),
+            ]),
+            open.value
+              ? h(
+                  'div',
+                  {
+                    id: menuId,
+                    role: 'menu',
+                    'aria-label': text.menu,
+                    class: 'page-markdown-menu',
+                    onKeydown: menuKeydown,
+                    // Keep focus until click activation in browsers that do not focus pressed controls.
+                    onMousedown: (event: MouseEvent) => {
+                      event.preventDefault()
+                    },
+                  },
+                  [
+                    h(
+                      'button',
+                      {
+                        ref: menuCopy,
+                        role: 'menuitem',
+                        type: 'button',
+                        tabindex: -1,
+                        'aria-label': text.copy,
+                        'aria-describedby': `${menuId}-copy`,
+                        'aria-disabled': state.value === 'copying',
+                        'aria-busy': state.value === 'copying',
+                        onClick: copy,
+                      },
+                      [
+                        h('span', { class: 'page-markdown-menu-icon' }, [icon('copy')]),
+                        h('span', { class: 'page-markdown-menu-text' }, [
+                          h('span', { class: 'page-markdown-menu-title' }, text.copy),
+                          h('span', { id: `${menuId}-copy`, class: 'page-markdown-menu-description' }, text.copyDescription),
+                        ]),
+                      ],
+                    ),
+                    h(
+                      'a',
+                      {
+                        ref: menuView,
+                        role: 'menuitem',
+                        tabindex: -1,
+                        href: props.path,
+                        target: '_blank',
+                        rel: 'noopener',
+                        'aria-label': text.newTab,
+                        'aria-describedby': `${menuId}-view`,
+                        onClick: () => {
+                          closeMenu(true)
+                        },
+                      },
+                      [
+                        h('span', { class: 'page-markdown-menu-icon' }, [icon('markdown')]),
+                        h('span', { class: 'page-markdown-menu-text' }, [
+                          h('span', { class: 'page-markdown-menu-title' }, [text.view, icon('external')]),
+                          h('span', { id: `${menuId}-view`, class: 'page-markdown-menu-description' }, text.viewDescription),
+                        ]),
+                      ],
+                    ),
+                  ],
+                )
+              : null,
           ]),
-          open.value ? h('div', { id: menuId, role: 'menu', 'aria-label': text.menu,
-            class: 'page-markdown-menu', onKeydown: menuKeydown,
-            // Keep focus until click activation in browsers that do not focus pressed controls.
-            onMousedown: (event: MouseEvent) => { event.preventDefault() } }, [
-            h('button', { ref: menuCopy, role: 'menuitem', type: 'button', tabindex: -1,
-              'aria-label': text.copy, 'aria-describedby': `${menuId}-copy`, 'aria-disabled': state.value === 'copying',
-              'aria-busy': state.value === 'copying', onClick: copy }, [
-              h('span', { class: 'page-markdown-menu-icon' }, [icon('copy')]),
-              h('span', { class: 'page-markdown-menu-text' }, [h('span', { class: 'page-markdown-menu-title' }, text.copy),
-                h('span', { id: `${menuId}-copy`, class: 'page-markdown-menu-description' }, text.copyDescription)]),
-            ]),
-            h('a', { ref: menuView, role: 'menuitem', tabindex: -1, href: props.path, target: '_blank', rel: 'noopener',
-              'aria-label': text.newTab, 'aria-describedby': `${menuId}-view`, onClick: () => { closeMenu(true) } }, [
-              h('span', { class: 'page-markdown-menu-icon' }, [icon('markdown')]),
-              h('span', { class: 'page-markdown-menu-text' }, [h('span', { class: 'page-markdown-menu-title' }, [text.view, icon('external')]),
-                h('span', { id: `${menuId}-view`, class: 'page-markdown-menu-description' }, text.viewDescription)]),
-            ]),
-          ]) : null,
-        ]),
-        h('p', { class: 'page-markdown-actions-status', role: 'status', 'aria-atomic': 'true' },
-          state.value === 'idle' ? '' : text[state.value]),
-      ])
+          h(
+            'p',
+            { class: 'page-markdown-actions-status', role: 'status', 'aria-atomic': 'true' },
+            state.value === 'idle' ? '' : text[state.value],
+          ),
+        ],
+      )
     }
   },
 })

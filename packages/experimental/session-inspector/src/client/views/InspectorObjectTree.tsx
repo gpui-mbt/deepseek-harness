@@ -15,11 +15,13 @@ export type InspectorObjectTreeProps = PropsLocale<'session-inspector'> & {
 
 interface ValueTreeProps extends PropsLocale<'session-inspector'> {
   readonly value: unknown
-  readonly navigation?: {
-    readonly objects: InspectorObjects
-    readonly navigate: InspectorObjectTreeProps['navigate']
-    readonly revision: object
-  } | undefined
+  readonly navigation?:
+    | {
+        readonly objects: InspectorObjects
+        readonly navigate: InspectorObjectTreeProps['navigate']
+        readonly revision: object
+      }
+    | undefined
 }
 
 interface BranchProps extends ValueTreeProps {
@@ -64,35 +66,118 @@ function ObjectBranch({ value, name, path, ancestors, root, accessor, absent, na
     return next
   }, [ancestors, value, path])
   const field = <span className={css.objectField}>{name}: </span>
-  if (content.error !== undefined) return <li role="alert">{field}{content.error}</li>
-  if (absent) return <li>{field}<span className={css.objectMuted}>{t('object.absent')}</span></li>
-  if (accessor) return <li>{field}<span className={css.objectMuted}>{t('object.accessor')}</span></li>
+  if (content.error !== undefined)
+    return (
+      <li role="alert">
+        {field}
+        {content.error}
+      </li>
+    )
+  if (absent)
+    return (
+      <li>
+        {field}
+        <span className={css.objectMuted}>{t('object.absent')}</span>
+      </li>
+    )
+  if (accessor)
+    return (
+      <li>
+        {field}
+        <span className={css.objectMuted}>{t('object.accessor')}</span>
+      </li>
+    )
   const reference = content.reference
-  const link = reference === undefined || navigation === undefined ? undefined : <button type="button" className={css.objectReference}
-    onClick={(event) => { event.preventDefault(); event.stopPropagation(); navigation.navigate(reference) }}>
-    ↗ {t(`object.${reference.kind}`)} · {reference.identity}
-  </button>
-  if (reference !== undefined && (reference.kind !== 'nodeData' || content.circular !== undefined)) return <li>{field}{link}</li>
-  if (content.circular !== undefined) return <li>{field}<span className={css.objectMuted}>↩ {content.circular}</span></li>
+  const link =
+    reference === undefined || navigation === undefined ? undefined : (
+      <button
+        type="button"
+        className={css.objectReference}
+        onClick={event => {
+          event.preventDefault()
+          event.stopPropagation()
+          navigation.navigate(reference)
+        }}
+      >
+        ↗ {t(`object.${reference.kind}`)} · {reference.identity}
+      </button>
+    )
+  if (reference !== undefined && (reference.kind !== 'nodeData' || content.circular !== undefined))
+    return (
+      <li>
+        {field}
+        {link}
+      </li>
+    )
+  if (content.circular !== undefined)
+    return (
+      <li>
+        {field}
+        <span className={css.objectMuted}>↩ {content.circular}</span>
+      </li>
+    )
   // oxlint-disable-next-line typescript/no-non-null-assertion -- Accessors, references, cycles, and read errors return above.
   const display = content.display!
-  if (!display.expandable) return <li>{field}<span className={css.objectValue}>{display.label}</span></li>
-  return <li><details open={expanded} onToggle={(event) => { setExpanded(event.currentTarget.open) }}>
-    <summary>{field}{link} <span className={css.objectMuted}>{display.label}</span></summary>
-    {expanded && <ul>
-      {content.entries.slice(0, limit).map(({ key, properties, ...entry }) => <ObjectBranch key={key} {...entry}
-        name={properties ? t('object.properties') : entry.name}
-        path={properties ? path : `${path}.${entry.name}`} ancestors={children} navigation={navigation} t={t} />)}
-      {content.entries.length === 0 && <li className={css.objectMuted}>{t('object.empty')}</li>}
-      {content.entries.length > limit && <li><button type="button" className={css.objectReference}
-        onClick={() => { setLimit(value => value + PAGE_SIZE) }}>{t('object.more')}</button></li>}
-    </ul>}
-  </details></li>
+  if (!display.expandable)
+    return (
+      <li>
+        {field}
+        <span className={css.objectValue}>{display.label}</span>
+      </li>
+    )
+  return (
+    <li>
+      <details
+        open={expanded}
+        onToggle={event => {
+          setExpanded(event.currentTarget.open)
+        }}
+      >
+        <summary>
+          {field}
+          {link} <span className={css.objectMuted}>{display.label}</span>
+        </summary>
+        {expanded && (
+          <ul>
+            {content.entries.slice(0, limit).map(({ key, properties, ...entry }) => (
+              <ObjectBranch
+                key={key}
+                {...entry}
+                name={properties ? t('object.properties') : entry.name}
+                path={properties ? path : `${path}.${entry.name}`}
+                ancestors={children}
+                navigation={navigation}
+                t={t}
+              />
+            ))}
+            {content.entries.length === 0 && <li className={css.objectMuted}>{t('object.empty')}</li>}
+            {content.entries.length > limit && (
+              <li>
+                <button
+                  type="button"
+                  className={css.objectReference}
+                  onClick={() => {
+                    setLimit(value => value + PAGE_SIZE)
+                  }}
+                >
+                  {t('object.more')}
+                </button>
+              </li>
+            )}
+          </ul>
+        )}
+      </details>
+    </li>
+  )
 }
 
 function ValueTree(props: ValueTreeProps) {
   const ancestors = useMemo(() => new Map<object, string>(), [])
-  return <ul className={css.objectTree}><ObjectBranch {...props} name="$" path="$" ancestors={ancestors} root /></ul>
+  return (
+    <ul className={css.objectTree}>
+      <ObjectBranch {...props} name="$" path="$" ancestors={ancestors} root />
+    </ul>
+  )
 }
 
 /**
@@ -101,7 +186,7 @@ function ValueTree(props: ValueTreeProps) {
  * @returns The same value tree as Chat details, without collection paging or runtime-object links.
  */
 export function InspectorJsonTree({ text, t }: PropsLocale<'session-inspector'> & { readonly text: string }) {
-  const value = useMemo<unknown>(() => text === '' ? undefined : JSON.parse(text), [text])
+  const value = useMemo<unknown>(() => (text === '' ? undefined : JSON.parse(text)), [text])
   return <ValueTree value={value} t={t} />
 }
 
@@ -117,6 +202,5 @@ export function InspectorObjectTree(props: InspectorObjectTreeProps) {
   const subscribe = useCallback((listener: () => void) => updates.subscribe(listener), [updates])
   const getRevision = useCallback(() => updates.getSnapshot(), [updates])
   const revision = useSyncExternalStore(subscribe, getRevision)
-  return <ValueTree value={props.value} t={props.t}
-    navigation={{ objects: props.objects, navigate: props.navigate, revision }} />
+  return <ValueTree value={props.value} t={props.t} navigation={{ objects: props.objects, navigate: props.navigate, revision }} />
 }

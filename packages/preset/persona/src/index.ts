@@ -60,16 +60,24 @@ export const Config: z<Config> = z.object({
  * @param config - the prefix, suffix, and complete-prompt policy.
  */
 export function apply(ctx: Context, config: Config): void {
-  ctx.effect(() => ctx.systemPrompt.section({
-    name: PERSONA_PREFIX_SECTION,
-    order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX'),
-    text: config.prefix,
-    ...(config.complete ? { complete: true } : {}),
-  }), 'persona.section()')
-  ctx.effect(() => ctx.systemPrompt.section({
-    name: PERSONA_SUFFIX_SECTION,
-    order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_SUFFIX'),
-    text: config.suffix ?? '',
-  }), 'persona.suffix()')
+  ctx.effect(
+    () =>
+      ctx.systemPrompt.section({
+        name: PERSONA_PREFIX_SECTION,
+        order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX'),
+        text: config.prefix,
+        ...(config.complete ? { complete: true } : {}),
+      }),
+    'persona.section()',
+  )
+  ctx.effect(
+    () =>
+      ctx.systemPrompt.section({
+        name: PERSONA_SUFFIX_SECTION,
+        order: ctx.systemPrompt.getSectionOrder('DEPLOYMENT_PERSONA_SUFFIX'),
+        text: config.suffix ?? '',
+      }),
+    'persona.suffix()',
+  )
   if (!(config.includeRuntimeContext ?? true)) ctx.systemPrompt.suppressRuntimeContext()
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** Explicit file actions preserve their destination, availability, and independent failure state. */
 import { cleanup, fireEvent, render } from '@testing-library/react'
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { PresentedFileCard } from '../src/client/PresentedFileCard.tsx'
 import { en, zh } from '../src/client/locales.ts'
@@ -26,7 +26,6 @@ it('localizes reveal failures and accurately reports a directory-only action', (
   expect(view.getByText(en['presented.revealed'])).toBeTruthy()
 })
 
-
 it('shows the basename while retaining the full location for hover and actions', () => {
   const p = props()
   const path = '/work/reports/result.pdf'
@@ -48,8 +47,7 @@ it.each([
   expect(view.queryByText(description)).toBeNull()
 })
 
-
-it.each([en, zh])('distinguishes directory-only progress and errors in each locale', (dictionary) => {
+it.each([en, zh])('distinguishes directory-only progress and errors in each locale', dictionary => {
   const p = { ...props(), t: makeTranslate(dictionary) }
   const view = render(<PresentedFileCard {...p} phase="revealing" />)
   expect(view.getByText(dictionary['presented.revealing'])).toBeTruthy()
@@ -59,11 +57,19 @@ it.each([en, zh])('distinguishes directory-only progress and errors in each loca
   expect(view.getByText(dictionary['presented.directoryError'])).toBeTruthy()
 })
 
-
 it('renders the supplied action independently from the card preview', () => {
   const p = props()
   const native = vi.fn()
-  const view = render(<PresentedFileCard {...p} actions={<button type="button" onClick={native}>Native file action</button>} />)
+  const view = render(
+    <PresentedFileCard
+      {...p}
+      actions={
+        <button type="button" onClick={native}>
+          Native file action
+        </button>
+      }
+    />,
+  )
   fireEvent.click(view.getByRole('button', { name: 'Native file action' }))
   expect(native).toHaveBeenCalledOnce()
   expect(p.onPreview).not.toHaveBeenCalled()

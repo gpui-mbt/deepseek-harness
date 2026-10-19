@@ -1,9 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SelectOption } from '../src/client/contract.ts'
 import type { PopupSpec, TokenSegment } from '../src/client/popup.ts'
 import { filterOptions, PopupSelectController } from '../src/client/popup.ts'
 
-interface Ctx { readonly session: string }
+interface Ctx {
+  readonly session: string
+}
 const CTX_A: Ctx = { session: 'A' }
 
 const OPTIONS: SelectOption[] = [
@@ -91,8 +93,25 @@ describe('open and options load', () => {
   it('publishes pending immediately, ready when options land', async () => {
     const popup = new PopupSelectController<Ctx>(makeDeps())
     let release!: (options: readonly SelectOption[]) => void
-    popup.open('theme', spec({ options: () => new Promise((resolve) => { release = resolve }) }), CTX_A, SEGMENT)
-    expect(popup.state.getSnapshot()).toMatchObject({ open: true, command: 'theme', status: 'pending', search: '', submitting: false, error: null })
+    popup.open(
+      'theme',
+      spec({
+        options: () =>
+          new Promise(resolve => {
+            release = resolve
+          }),
+      }),
+      CTX_A,
+      SEGMENT,
+    )
+    expect(popup.state.getSnapshot()).toMatchObject({
+      open: true,
+      command: 'theme',
+      status: 'pending',
+      search: '',
+      submitting: false,
+      error: null,
+    })
     release(OPTIONS)
     await Promise.resolve()
     // The highlight parks on the row the list marks as the current value
@@ -101,7 +120,10 @@ describe('open and options load', () => {
   })
 
   it('parks the highlight on the top row when no row marks the current value', async () => {
-    const rows: SelectOption[] = [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }]
+    const rows: SelectOption[] = [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+    ]
     const popup = new PopupSelectController<Ctx>(makeDeps())
     popup.open('theme', spec({ options: () => Promise.resolve(rows) }), CTX_A, SEGMENT)
     await Promise.resolve()
@@ -144,12 +166,19 @@ describe('open and options load', () => {
     const popup = new PopupSelectController<Ctx>(makeDeps())
     let firstSignal!: AbortSignal
     let releaseFirst!: (options: readonly SelectOption[]) => void
-    popup.open('alpha', spec({
-      options: (_ctx, signal) => {
-        firstSignal = signal
-        return new Promise((resolve) => { releaseFirst = resolve })
-      },
-    }), CTX_A, SEGMENT)
+    popup.open(
+      'alpha',
+      spec({
+        options: (_ctx, signal) => {
+          firstSignal = signal
+          return new Promise(resolve => {
+            releaseFirst = resolve
+          })
+        },
+      }),
+      CTX_A,
+      SEGMENT,
+    )
     popup.open('beta', spec(), CTX_A, SEGMENT)
     expect(firstSignal.aborted).toBe(true)
     releaseFirst([{ id: 'stale', label: 'stale' }])
@@ -163,12 +192,19 @@ describe('open and options load', () => {
     const popup = new PopupSelectController<Ctx>(makeDeps())
     let signal!: AbortSignal
     let release!: (options: readonly SelectOption[]) => void
-    popup.open('theme', spec({
-      options: (_ctx, s) => {
-        signal = s
-        return new Promise((resolve) => { release = resolve })
-      },
-    }), CTX_A, SEGMENT)
+    popup.open(
+      'theme',
+      spec({
+        options: (_ctx, s) => {
+          signal = s
+          return new Promise(resolve => {
+            release = resolve
+          })
+        },
+      }),
+      CTX_A,
+      SEGMENT,
+    )
     popup.dispose()
     expect(signal.aborted).toBe(true)
     expect(popup.state.getSnapshot().open).toBe(false)
@@ -270,7 +306,10 @@ describe('select', () => {
     const { popup } = await readyPopup({ options: () => Promise.resolve([GATED]), onSelect }, deps)
     await popup.select(0)
     expect(popup.state.getSnapshot()).toMatchObject({
-      open: true, confirming: GATED, acknowledged: false, submitting: false,
+      open: true,
+      confirming: GATED,
+      acknowledged: false,
+      submitting: false,
     })
     expect(onSelect).not.toHaveBeenCalled()
     await popup.confirm()
@@ -290,7 +329,10 @@ describe('select', () => {
     popup.acknowledge(true)
     popup.cancelConfirmation()
     expect(popup.state.getSnapshot()).toMatchObject({
-      open: true, confirming: null, acknowledged: false, submitting: false,
+      open: true,
+      confirming: null,
+      acknowledged: false,
+      submitting: false,
     })
     expect(onSelect).not.toHaveBeenCalled()
     expect(deps.consume).not.toHaveBeenCalled()
@@ -299,9 +341,14 @@ describe('select', () => {
   it('runs onSelect with the filtered option and the open-time context, consumes, closes, refocuses', async () => {
     const seen: Array<{ option: SelectOption; context: Ctx }> = []
     const deps = makeDeps()
-    const { popup } = await readyPopup({
-      onSelect: (option, context) => { seen.push({ option, context }) },
-    }, deps)
+    const { popup } = await readyPopup(
+      {
+        onSelect: (option, context) => {
+          seen.push({ option, context })
+        },
+      },
+      deps,
+    )
     popup.setSearch('light')
     await popup.select(0)
     expect(seen).toEqual([{ option: OPTIONS[1], context: CTX_A }])
@@ -312,7 +359,12 @@ describe('select', () => {
 
   it('is single-flight: the first call enters submitting, later Enter/click calls no-op', async () => {
     let release!: () => void
-    const onSelect = vi.fn(() => new Promise<void>((resolve) => { release = resolve }))
+    const onSelect = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          release = resolve
+        }),
+    )
     const deps = makeDeps()
     const { popup } = await readyPopup({ onSelect }, deps)
     const first = popup.select(0)
@@ -342,18 +394,26 @@ describe('select', () => {
   it('an onSelect failure keeps the shell open with search/highlight/token intact, no consumption, and select re-arms', async () => {
     let attempts = 0
     const deps = makeDeps()
-    const { popup } = await readyPopup({
-      onSelect: () => {
-        attempts += 1
-        if (attempts === 1) throw new Error('host rejected')
-        return undefined
+    const { popup } = await readyPopup(
+      {
+        onSelect: () => {
+          attempts += 1
+          if (attempts === 1) throw new Error('host rejected')
+          return undefined
+        },
       },
-    }, deps)
+      deps,
+    )
     popup.setSearch('a')
     popup.move(1)
     await popup.select(1)
     expect(popup.state.getSnapshot()).toMatchObject({
-      open: true, status: 'ready', submitting: false, error: 'host rejected', search: 'a', active: 1,
+      open: true,
+      status: 'ready',
+      submitting: false,
+      error: 'host rejected',
+      search: 'a',
+      active: 1,
     })
     expect(deps.consume).not.toHaveBeenCalled()
     await popup.select(1) // retry = selecting again
@@ -380,9 +440,15 @@ describe('select', () => {
   it('a dismiss racing a succeeding onSelect revokes it: no consume, no focus, state stays closed', async () => {
     let release!: () => void
     const deps = makeDeps()
-    const { popup } = await readyPopup({
-      onSelect: () => new Promise<void>((resolve) => { release = resolve }),
-    }, deps)
+    const { popup } = await readyPopup(
+      {
+        onSelect: () =>
+          new Promise<void>(resolve => {
+            release = resolve
+          }),
+      },
+      deps,
+    )
     const selecting = popup.select(0)
     popup.dismiss()
     release()
@@ -395,9 +461,15 @@ describe('select', () => {
   it('a dispose racing a failing onSelect revokes its error write', async () => {
     let reject!: (error: Error) => void
     const deps = makeDeps()
-    const { popup } = await readyPopup({
-      onSelect: () => new Promise<void>((_resolve, rej) => { reject = rej }),
-    }, deps)
+    const { popup } = await readyPopup(
+      {
+        onSelect: () =>
+          new Promise<void>((_resolve, rej) => {
+            reject = rej
+          }),
+      },
+      deps,
+    )
     const selecting = popup.select(0)
     popup.dispose()
     reject(new Error('late'))
@@ -409,9 +481,15 @@ describe('select', () => {
   it('a reopen racing a succeeding onSelect keeps the new shell: no consume of the old segment', async () => {
     let release!: () => void
     const deps = makeDeps()
-    const { popup } = await readyPopup({
-      onSelect: () => new Promise<void>((resolve) => { release = resolve }),
-    }, deps)
+    const { popup } = await readyPopup(
+      {
+        onSelect: () =>
+          new Promise<void>(resolve => {
+            release = resolve
+          }),
+      },
+      deps,
+    )
     const selecting = popup.select(0)
     popup.open('other', spec(), CTX_A, { via: 'enter', token: '/other' })
     release()
@@ -427,12 +505,17 @@ describe('dismiss / dispose', () => {
     const deps = makeDeps()
     const popup = new PopupSelectController<Ctx>(deps)
     let signal!: AbortSignal
-    popup.open('theme', spec({
-      options: (_ctx, s) => {
-        signal = s
-        return new Promise(() => {})
-      },
-    }), CTX_A, SEGMENT)
+    popup.open(
+      'theme',
+      spec({
+        options: (_ctx, s) => {
+          signal = s
+          return new Promise(() => {})
+        },
+      }),
+      CTX_A,
+      SEGMENT,
+    )
     popup.dismiss()
     expect(signal.aborted).toBe(true)
     expect(popup.state.getSnapshot().open).toBe(false)

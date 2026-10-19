@@ -14,12 +14,8 @@ import { homedir } from 'node:os'
 import { basename, dirname, join, posix, resolve, win32 } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import {
-  DirectoryPicker, DirectoryPickerError,
-} from '@deepseek-ai/dsh-host-directory-picker'
-import type {
-  DirectoryEntry, DirectoryListing, DirectoryPickerCapability,
-} from '@deepseek-ai/dsh-host-directory-picker'
+import { DirectoryPicker, DirectoryPickerError } from '@deepseek-ai/dsh-host-directory-picker'
+import type { DirectoryEntry, DirectoryListing, DirectoryPickerCapability } from '@deepseek-ai/dsh-host-directory-picker'
 
 /**
  * Ancestor chain from the filesystem root to `target` inclusive — the
@@ -121,7 +117,7 @@ export function raceAbort<T>(operation: Promise<T>, signal: AbortSignal | undefi
     }
     signal.addEventListener('abort', onAbort, { once: true })
     operation.then(
-      (value) => {
+      value => {
         signal.removeEventListener('abort', onAbort)
         resolve(value)
       },
@@ -155,7 +151,11 @@ function messageOf(error: unknown): string {
  * shows what can be entered, and a broken link cannot).
  */
 async function directoryRow(
-  parent: string, name: string, isDirectory: boolean, isSymbolicLink: boolean, signal: AbortSignal | undefined,
+  parent: string,
+  name: string,
+  isDirectory: boolean,
+  isSymbolicLink: boolean,
+  signal: AbortSignal | undefined,
 ): Promise<DirectoryEntry | null> {
   const path = join(parent, name)
   let enterable = isDirectory
@@ -202,7 +202,10 @@ export default class BrowseDirectoryPicker extends DirectoryPicker {
     createDirectory: (path, name) => this.createDirectory(path, name),
   }
 
-  constructor(ctx: Context, private readonly config: Config) {
+  constructor(
+    ctx: Context,
+    private readonly config: Config,
+  ) {
     super(ctx)
   }
 
@@ -245,9 +248,12 @@ export default class BrowseDirectoryPicker extends DirectoryPicker {
         // race against opendir's own rejection has nothing to close, and
         // the close's own failure is swallowed — the request already
         // returned, so a cleanup error has no consumer.)
-        void opening.then(dir => dir.close().catch(swallowCloseFailure), () => {
-          // Already rejected: raceAbort surfaced or swallowed it.
-        })
+        void opening.then(
+          dir => dir.close().catch(swallowCloseFailure),
+          () => {
+            // Already rejected: raceAbort surfaced or swallowed it.
+          },
+        )
         throw error
       })
       try {

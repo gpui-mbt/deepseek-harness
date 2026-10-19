@@ -4,7 +4,7 @@ import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises'
 import { createConnection, type Socket } from 'node:net'
 import { once } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import LocalSubprocessRuntime from '@deepseek-ai/dsh-subprocess-local'
 import LocalSandboxProvider from '@deepseek-ai/dsh-sandbox-local'
@@ -25,27 +25,37 @@ describe.skipIf(process.platform === 'win32')('SSH stream pathname replacement',
     const sockets: Socket[] = []
     let attacker: SubprocessHandle | undefined
     try {
-      try { await ctx.sandbox.confine(['true'], { mode: 'workspace-write', workspaceRoot: root }) }
-      catch (error) {
+      try {
+        await ctx.sandbox.confine(['true'], { mode: 'workspace-write', workspaceRoot: root })
+      } catch (error) {
         if (error instanceof SandboxUnavailableError) skip('No local process confinement backend is available')
         throw error
       }
       const prepared = await owner.prepare({
-        argv: [process.execPath, '-e', 'const s=new(require(\'node:net\').Socket)({fd:7,readable:true,writable:true});const chunks=[];s.on(\'data\',v=>chunks.push(v));s.on(\'end\',()=>s.end(Buffer.concat(chunks)));'],
-        cwd: root, graceMs: 500,
+        argv: [
+          process.execPath,
+          '-e',
+          "const s=new(require('node:net').Socket)({fd:7,readable:true,writable:true});const chunks=[];s.on('data',v=>chunks.push(v));s.on('end',()=>s.end(Buffer.concat(chunks)));",
+        ],
+        cwd: root,
+        graceMs: 500,
         stdio: { stdin: 'ignore', stdout: 'pipe', stderr: 'pipe', control: 'pipe' },
       })
       const endpoint = prepared.streams.control!
       const capture = `${root}/captured-tls`
-      const relay = 'const fs=require(\'node:fs\'),net=require(\'node:net\'),p=process.argv[1];fs.renameSync(p,p+\'.saved\');net.createServer({allowHalfOpen:true},front=>{const back=net.createConnection({path:p+\'.saved\',allowHalfOpen:true});front.on(\'data\',v=>fs.appendFileSync(process.argv[2],v));back.on(\'data\',v=>fs.appendFileSync(process.argv[2],v));front.on(\'error\',()=>back.destroy());back.on(\'error\',()=>front.destroy());front.pipe(back).pipe(front)}).listen(p,()=>process.stdout.write(\'rebound\\n\'));'
+      const relay =
+        "const fs=require('node:fs'),net=require('node:net'),p=process.argv[1];fs.renameSync(p,p+'.saved');net.createServer({allowHalfOpen:true},front=>{const back=net.createConnection({path:p+'.saved',allowHalfOpen:true});front.on('data',v=>fs.appendFileSync(process.argv[2],v));back.on('data',v=>fs.appendFileSync(process.argv[2],v));front.on('error',()=>back.destroy());back.on('error',()=>front.destroy());front.pipe(back).pipe(front)}).listen(p,()=>process.stdout.write('rebound\\n'));"
       const confined = await ctx.sandbox.confine([process.execPath, '-e', relay, endpoint.path, capture], {
-        mode: 'workspace-write', workspaceRoot: root,
+        mode: 'workspace-write',
+        workspaceRoot: root,
       })
       attacker = ctx.subprocess.spawn({
-        argv: confined.argv, cwd: root, graceMs: 500,
+        argv: confined.argv,
+        cwd: root,
+        graceMs: 500,
         stdio: { stdin: 'ignore', stdout: 'pipe', stderr: { maxBytes: 4096 } },
       })
-      const [ready] = await once(attacker.stdout!, 'data') as [Buffer]
+      const [ready] = (await once(attacker.stdout!, 'data')) as [Buffer]
       expect(Buffer.from(ready).toString()).toBe('rebound\n')
       let control: Socket | undefined
       for (const [name, value] of Object.entries(prepared.streams)) {
@@ -54,11 +64,16 @@ describe.skipIf(process.platform === 'win32')('SSH stream pathname replacement',
         const secured = await authenticateStream(raw, value.capability, 5000)
         sockets.push(secured)
         if (name === 'control') control = secured
-        else { secured.end(); secured.resume() }
+        else {
+          secured.end()
+          secured.resume()
+        }
       }
       const secret = `private-process-payload-${randomUUID()}`
       const received: Buffer[] = []
-      const reading = (async () => { for await (const bytes of control!) received.push(Buffer.from(bytes as Uint8Array)) })()
+      const reading = (async () => {
+        for await (const bytes of control!) received.push(Buffer.from(bytes as Uint8Array))
+      })()
       await owner.start(prepared.id)
       control!.end(secret)
       await reading

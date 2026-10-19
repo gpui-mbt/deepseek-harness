@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, win32 } from 'node:path'
 import { build } from 'tsdown'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import { workspacePackageGlobs } from './workspace-package-globs.ts'
 
 it('selects workspace packages from Windows and POSIX manifest paths', async () => {
@@ -16,8 +16,8 @@ it('selects workspace packages from Windows and POSIX manifest paths', async () 
     await writeFile(join(cwd, directory, 'src/index.ts'), `export const value = ${index}\n`)
   }
   const options = { cwd, config: false as const, entry: ['src/index.ts'], write: false, dts: false, logLevel: 'silent' as const }
-  const selected = await build({ ...options, workspace: workspacePackageGlobs(manifests) })
+  const selected = (await build({ ...options, workspace: workspacePackageGlobs(manifests) })).bundles
   expect(selected).toHaveLength(2)
-  const unnormalized = await build({ ...options, workspace: manifests.map(path => win32.dirname(path)) })
+  const unnormalized = (await build({ ...options, workspace: manifests.map(path => win32.dirname(path)) })).bundles
   expect(unnormalized.map(bundle => bundle.config.name)).toEqual(['fixture-1'])
 })

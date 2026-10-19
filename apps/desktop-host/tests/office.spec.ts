@@ -9,7 +9,7 @@ import AgentRegistry from '@deepseek-ai/dsh-agent'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import SkillRegistry from '@deepseek-ai/dsh-skill'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import { expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vite-plus/test'
 import * as desktopOffice from '../src/office.ts'
 
 it('loads Desktop Office CLI paths and removes them on disposal', async () => {
@@ -29,8 +29,11 @@ it('loads Desktop Office CLI paths and removes them on disposal', async () => {
     expect('default' in desktopOffice).toBe(false)
     expect(ctx.loader.unwrapExports(desktopOffice)).toBe(desktopOffice)
     const modules = new Map<string, unknown>([
-      ['agents', AgentRegistry], ['systemPrompt', SystemPrompt], ['tools', ToolRuntime],
-      ['skills', SkillRegistry], ['office', desktopOffice],
+      ['agents', AgentRegistry],
+      ['systemPrompt', SystemPrompt],
+      ['tools', ToolRuntime],
+      ['skills', SkillRegistry],
+      ['office', desktopOffice],
     ])
     ctx.loader.internal = {
       version: 'v2',
@@ -40,17 +43,37 @@ it('loads Desktop Office CLI paths and removes them on disposal', async () => {
       },
     } as unknown as NonNullable<typeof ctx.loader.internal>
     const config = join(root, 'cordis.yml')
-    await writeFile(config, [
-      '- name: agents', '- name: systemPrompt', '- name: tools', '- name: skills', '- name: office',
-      '  config:', `    source: ${JSON.stringify(join(root, 'runtime', 'primary-runtime'))}`,
-      `    root: ${JSON.stringify(join(root, 'installed'))}`,
-      `    runtimeDir: ${JSON.stringify(join(root, 'dsh'))}`, '',
-    ].join('\n'))
+    await writeFile(
+      config,
+      [
+        '- name: agents',
+        '- name: systemPrompt',
+        '- name: tools',
+        '- name: skills',
+        '- name: office',
+        '  config:',
+        `    source: ${JSON.stringify(join(root, 'runtime', 'primary-runtime'))}`,
+        `    root: ${JSON.stringify(join(root, 'installed'))}`,
+        `    runtimeDir: ${JSON.stringify(join(root, 'dsh'))}`,
+        '',
+      ].join('\n'),
+    )
     await ctx.loader.create({ name: 'cordis:include', config: { path: pathToFileURL(config).href } })
     await ctx.loader.await()
     for (const entry of ctx.loader.entries()) await entry.fiber?.await()
-    expect((await ctx.skills.list()).map(skill => skill.name)).toEqual(['office', 'office-docx', 'office-export-pdf', 'office-pptx', 'office-recalculate', 'office-render', 'office-xlsx'])
-    expect((await ctx.skills.get('office-pptx'))?.resourceBase).toEqual({ kind: 'directory', path: join(assets, 'office-pptx').split(sep).join('/') })
+    expect((await ctx.skills.list()).map(skill => skill.name)).toEqual([
+      'office',
+      'office-docx',
+      'office-export-pdf',
+      'office-pptx',
+      'office-recalculate',
+      'office-render',
+      'office-xlsx',
+    ])
+    expect((await ctx.skills.get('office-pptx'))?.resourceBase).toEqual({
+      kind: 'directory',
+      path: join(assets, 'office-pptx').split(sep).join('/'),
+    })
     expect((await ctx.skills.get('office-pptx'))?.content).toContain('office-render')
     expect((await ctx.skills.get('office-pptx'))?.content).not.toContain(nodeDirectory)
     expect(ctx.tools.schemas().map(tool => tool.name)).toEqual(['load_workspace_dependencies'])
@@ -60,8 +83,9 @@ it('loads Desktop Office CLI paths and removes them on disposal', async () => {
     expect(await ctx.skills.list()).toEqual([])
     expect(ctx.tools.schemas()).toEqual([])
   } finally {
-    try { await ctx.fiber.dispose() }
-    finally {
+    try {
+      await ctx.fiber.dispose()
+    } finally {
       vi.unstubAllEnvs()
       await rm(root, { recursive: true, force: true })
     }

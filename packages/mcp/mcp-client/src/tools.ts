@@ -54,12 +54,7 @@ const INVALID_NAME_CHARS = /[^A-Za-z0-9_-]/g
 const HASH_LENGTH = 12
 
 /** Raster formats supported by the durable attachment vocabulary. */
-const IMAGE_MEDIA_TYPES: readonly ImageMediaType[] = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-]
+const IMAGE_MEDIA_TYPES: readonly ImageMediaType[] = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
 
 /** Canonical RFC 4648 base64, excluding whitespace and URL-safe aliases. */
 const CANONICAL_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
@@ -110,36 +105,32 @@ export function publicToolName(serverName: string, rawName: string): string {
  * @returns A map of registered public tool names to their unregister
  *   disposers — the exact set of live registrations owned by this server.
  */
-export async function syncTools(
-  client: Client,
-  ctx: Context,
-  opts: ToolBridgeOptions,
-  previous: ToolDisposers,
-): Promise<ToolDisposers> {
+export async function syncTools(client: Client, ctx: Context, opts: ToolBridgeOptions, previous: ToolDisposers): Promise<ToolDisposers> {
   // Phase 1: fetch and build the next generation without touching the registry.
   const definitions = new Map<string, ToolDefinition>()
-  const response = client.getServerCapabilities()?.tools === undefined
-    ? { tools: [] }
-    : await client.listTools(undefined, { cacheMode: 'refresh' })
+  const response =
+    client.getServerCapabilities()?.tools === undefined ? { tools: [] } : await client.listTools(undefined, { cacheMode: 'refresh' })
   for (const tool of response.tools) {
     const publicName = publicToolName(opts.serverName, tool.name)
     if (definitions.has(publicName)) {
-      throw new Error(
-        `mcp-client(${opts.serverName}): server listed tool "${tool.name}" more than once — invalid tool list`,
-      )
+      throw new Error(`mcp-client(${opts.serverName}): server listed tool "${tool.name}" more than once — invalid tool list`)
     }
-    definitions.set(publicName, createMcpToolDefinition(ctx, {
-      name: publicName,
-      rawName: tool.name,
-      description: tool.description ?? '',
-      inputSchema: tool.inputSchema,
-      outputSchema: tool.outputSchema,
-      taskRequired: tool.execution?.taskSupport === 'required',
-      call: (args, execution) => client.callTool(
-        { name: tool.name, arguments: args },
-        { signal: execution.signal, timeout: opts.toolCallTimeoutMs, toolDefinition: tool },
-      ),
-    }))
+    definitions.set(
+      publicName,
+      createMcpToolDefinition(ctx, {
+        name: publicName,
+        rawName: tool.name,
+        description: tool.description ?? '',
+        inputSchema: tool.inputSchema,
+        outputSchema: tool.outputSchema,
+        taskRequired: tool.execution?.taskSupport === 'required',
+        call: (args, execution) =>
+          client.callTool(
+            { name: tool.name, arguments: args },
+            { signal: execution.signal, timeout: opts.toolCallTimeoutMs, toolDefinition: tool },
+          ),
+      }),
+    )
   }
 
   // Phase 2: swap generations.
@@ -222,10 +213,7 @@ export interface McpToolDefinitionOptions {
  * @param options - upstream tool fields and its raw-result callback.
  * @returns the unregistered ToolRuntime definition.
  */
-export function createMcpToolDefinition(
-  ctx: Context,
-  options: McpToolDefinitionOptions,
-): ToolDefinition {
+export function createMcpToolDefinition(ctx: Context, options: McpToolDefinitionOptions): ToolDefinition {
   const { name, rawName, description, inputSchema } = options
   const projections = new WeakMap<ToolExecution, PreparedProjection>()
   return {
@@ -300,9 +288,7 @@ function createExecutor(
 
     const value: McpResult = {
       content,
-      ...result.structuredContent !== undefined
-        ? { structuredContent: result.structuredContent as JsonValue }
-        : {},
+      ...(result.structuredContent !== undefined ? { structuredContent: result.structuredContent as JsonValue } : {}),
     }
     if (containsImage(content)) {
       const fallback: ContentBlock[] = [{ type: 'text', text: extractText(content, rawName) }]
@@ -383,12 +369,7 @@ function imageDiagnostic(block: McpContentBlock, reason: string): string {
  * Any refusal projects every image as text while retaining the canonical raw
  * value for programmatic callers.
  */
-async function prepareImageProjection(
-  ctx: Context,
-  exec: ToolExecution,
-  content: JsonValue[],
-  toolName: string,
-): Promise<ContentBlock[]> {
+async function prepareImageProjection(ctx: Context, exec: ToolExecution, content: JsonValue[], toolName: string): Promise<ContentBlock[]> {
   const decoded: SaveImageAttachment[] = []
   const validationErrors = new Map<number, string>()
   const imageIndexes: number[] = []
@@ -405,10 +386,7 @@ async function prepareImageProjection(
   if (validationErrors.size > 0) {
     return projectContent(content, toolName, (block, index) => ({
       type: 'text',
-      text: imageDiagnostic(
-        block,
-        validationErrors.get(index) ?? 'another image in the same result was invalid',
-      ),
+      text: imageDiagnostic(block, validationErrors.get(index) ?? 'another image in the same result was invalid'),
     }))
   }
 
@@ -495,7 +473,9 @@ function projectContent(
         }
         break
       case 'audio':
-        text.push(`[audio result unsupported: ${block.mimeType ?? 'unknown media type'}; raw audio data remains available to programmatic callers]`)
+        text.push(
+          `[audio result unsupported: ${block.mimeType ?? 'unknown media type'}; raw audio data remains available to programmatic callers]`,
+        )
         break
       case 'resource':
         text.push('[embedded resource unsupported; raw resource data remains available to programmatic callers]')
@@ -505,7 +485,5 @@ function projectContent(
     }
   }
   flushText()
-  return projected.length > 0
-    ? projected
-    : [{ type: 'text', text: `(${toolName} returned no model-visible content)` }]
+  return projected.length > 0 ? projected : [{ type: 'text', text: `(${toolName} returned no model-visible content)` }]
 }

@@ -64,7 +64,9 @@ export function createSyntheticExchange(frame: TunnelRequestFrame, sink: Respons
     url: frame.url,
     method: frame.method,
     headers: frame.headers,
-    destroy: (): void => { aborted = true },
+    destroy: (): void => {
+      aborted = true
+    },
     async *[Symbol.asyncIterator](): AsyncGenerator<Uint8Array> {
       if (frame.body === undefined) return
       if (frame.body instanceof Blob) {

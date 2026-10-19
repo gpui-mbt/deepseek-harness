@@ -3,39 +3,47 @@ import { Context } from '@deepseek-ai/cordis'
 import { FsTargetKey, FsVersion } from '@deepseek-ai/dsh-fs'
 import { dirname, join, resolve } from 'node:path'
 import * as chokidar from 'chokidar'
-import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import { LocalFileSystem } from '../src/index.ts'
 
-vi.mock('chokidar', async (importOriginal) => {
+vi.mock('chokidar', async importOriginal => {
   const original = await importOriginal<typeof import('chokidar')>()
   return { ...original, watch: vi.fn(original.watch) }
 })
 
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 async function setup(kind: 'file' | 'directory' | 'missing' = 'file') {
   const watcher = new chokidar.FSWatcher()
   onTestFinished(() => watcher.close())
   const started = Promise.withResolvers<undefined>()
-  const watch = vi.mocked(chokidar.watch).mockReset().mockImplementation(() => {
-    started.resolve(undefined)
-    return watcher
-  })
+  const watch = vi
+    .mocked(chokidar.watch)
+    .mockReset()
+    .mockImplementation(() => {
+      started.resolve(undefined)
+      return watcher
+    })
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
   await ctx.plugin(LocalFileSystem)
   const path = resolve('/workspace/file.txt')
   const target = { targetKey: FsTargetKey(path), displayPath: 'file.txt' }
-  const stat = vi.spyOn(ctx.fs, 'stat').mockResolvedValue(kind === 'missing'
-    ? undefined : { type: kind, version: FsVersion('v1'), size: 1 })
+  const stat = vi
+    .spyOn(ctx.fs, 'stat')
+    .mockResolvedValue(kind === 'missing' ? undefined : { type: kind, version: FsVersion('v1'), size: 1 })
   const changed = vi.fn<(error?: Error) => void>()
   const controller = new AbortController()
-  onTestFinished(() => { controller.abort() })
+  onTestFinished(() => {
+    controller.abort()
+  })
   return { watcher, watch, fs: ctx.fs, target, changed, controller, path, stat, started: started.promise }
 }
 
 describe('local filesystem watch', () => {
-  it.each(['file', 'missing'] as const)('waits for the parent watch of a %s target and awaits closure', async (kind) => {
+  it.each(['file', 'missing'] as const)('waits for the parent watch of a %s target and awaits closure', async kind => {
     const h = await setup(kind)
     const pending = h.fs.watch(h.target, h.changed, h.controller.signal)
     await h.started
@@ -46,7 +54,9 @@ describe('local filesystem watch', () => {
     expect(ignored(h.path)).toBe(false)
     expect(ignored(join(dirname(h.path), 'unrelated.txt'))).toBe(true)
     let ready = false
-    void pending.then(() => { ready = true })
+    void pending.then(() => {
+      ready = true
+    })
     await Promise.resolve(undefined)
     expect(ready).toBe(false)
     h.watcher.emit('ready')
@@ -57,9 +67,14 @@ describe('local filesystem watch', () => {
     h.watcher.emit('all', 'change', h.path)
     expect(h.changed).toHaveBeenCalledExactlyOnceWith()
     const closed = Promise.withResolvers<undefined>()
-    onTestFinished(() => { closed.resolve(undefined) })
+    onTestFinished(() => {
+      closed.resolve(undefined)
+    })
     const nativeClose = h.watcher.close.bind(h.watcher)
-    vi.spyOn(h.watcher, 'close').mockImplementationOnce(async () => { await closed.promise; await nativeClose() })
+    vi.spyOn(h.watcher, 'close').mockImplementationOnce(async () => {
+      await closed.promise
+      await nativeClose()
+    })
     const closing = close()
     try {
       expect(h.watcher.closed).toBe(false)

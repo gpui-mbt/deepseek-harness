@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { parseHookOutput } from '@deepseek-ai/dsh-hook-protocol'
 
 describe('parseHookOutput — exit code semantics', () => {
@@ -39,9 +39,15 @@ describe('parseHookOutput — exit code semantics', () => {
 
 describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   it('parses top-level continue/stopReason/systemMessage', () => {
-    const out = parseHookOutput(0, JSON.stringify({
-      continue: false, stopReason: 'budget exceeded', systemMessage: 'heads up',
-    }), '')
+    const out = parseHookOutput(
+      0,
+      JSON.stringify({
+        continue: false,
+        stopReason: 'budget exceeded',
+        systemMessage: 'heads up',
+      }),
+      '',
+    )
     expect(out.continue).toBe(false)
     expect(out.stopReason).toBe('budget exceeded')
     expect(out.systemMessage).toBe('heads up')
@@ -67,10 +73,14 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   })
 
   it('hookSpecificOutput.permissionDecision OVERRIDES the legacy top-level decision', () => {
-    const out = parseHookOutput(0, JSON.stringify({
-      decision: 'approve',
-      hookSpecificOutput: { permissionDecision: 'deny', permissionDecisionReason: 'denied by policy' },
-    }), '')
+    const out = parseHookOutput(
+      0,
+      JSON.stringify({
+        decision: 'approve',
+        hookSpecificOutput: { permissionDecision: 'deny', permissionDecisionReason: 'denied by policy' },
+      }),
+      '',
+    )
     expect(out.decision).toBe('deny')
     expect(out.reason).toBe('denied by policy')
   })
@@ -81,9 +91,13 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   })
 
   it('parses additionalContext and updatedInput from hookSpecificOutput', () => {
-    const out = parseHookOutput(0, JSON.stringify({
-      hookSpecificOutput: { additionalContext: 'remember X', updatedInput: { command: 'safe' } },
-    }), '')
+    const out = parseHookOutput(
+      0,
+      JSON.stringify({
+        hookSpecificOutput: { additionalContext: 'remember X', updatedInput: { command: 'safe' } },
+      }),
+      '',
+    )
     expect(out.additionalContext).toBe('remember X')
     expect(out.updatedInput).toEqual({ command: 'safe' })
   })
@@ -95,9 +109,20 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   it('DISCARDS a hookSpecificOutput block whose hookEventName mismatches the firing event', () => {
     // A PreToolUse block emitted on a Stop hook is malformed — its event-scoped
     // fields must not take effect (a stray PreToolUse deny must not deny the Stop).
-    const out = parseHookOutput(0, JSON.stringify({
-      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: 'no', additionalContext: 'x', updatedInput: { command: 'y' } },
-    }), '', 'Stop')
+    const out = parseHookOutput(
+      0,
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason: 'no',
+          additionalContext: 'x',
+          updatedInput: { command: 'y' },
+        },
+      }),
+      '',
+      'Stop',
+    )
     expect(out.hookEventName).toBe('PreToolUse') // still recorded for the log
     expect(out.decision).toBeUndefined() // event-scoped fields discarded
     expect(out.reason).toBeUndefined()
@@ -106,17 +131,26 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
   })
 
   it('APPLIES a hookSpecificOutput block whose hookEventName matches the firing event', () => {
-    const out = parseHookOutput(0, JSON.stringify({
-      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', additionalContext: 'x' },
-    }), '', 'PreToolUse')
+    const out = parseHookOutput(
+      0,
+      JSON.stringify({
+        hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', additionalContext: 'x' },
+      }),
+      '',
+      'PreToolUse',
+    )
     expect(out.decision).toBe('deny')
     expect(out.additionalContext).toBe('x')
   })
 
   it('applies the block when expectedEventName is omitted (opt-out) even if it names an event', () => {
-    const out = parseHookOutput(0, JSON.stringify({
-      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny' },
-    }), '')
+    const out = parseHookOutput(
+      0,
+      JSON.stringify({
+        hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny' },
+      }),
+      '',
+    )
     expect(out.decision).toBe('deny')
   })
 
@@ -124,9 +158,14 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
     // Under the keyed schema a missing discriminator is as malformed as a
     // mismatched one: a discriminator-less block must not apply its event-scoped
     // permission fields to whatever event happens to be firing.
-    const out = parseHookOutput(0, JSON.stringify({
-      hookSpecificOutput: { permissionDecision: 'deny', additionalContext: 'x' },
-    }), '', 'Stop')
+    const out = parseHookOutput(
+      0,
+      JSON.stringify({
+        hookSpecificOutput: { permissionDecision: 'deny', additionalContext: 'x' },
+      }),
+      '',
+      'Stop',
+    )
     expect(out.hookEventName).toBeUndefined() // none to record
     expect(out.decision).toBeUndefined() // event-scoped fields discarded
     expect(out.additionalContext).toBeUndefined()
@@ -134,18 +173,30 @@ describe('parseHookOutput — structured stdout (exit 0 only)', () => {
 
   it('applies a discriminator-less block when expectedEventName is omitted (opt-out)', () => {
     // With no firing event to validate against, the block applies as-is.
-    const out = parseHookOutput(0, JSON.stringify({
-      hookSpecificOutput: { permissionDecision: 'deny' },
-    }), '')
+    const out = parseHookOutput(
+      0,
+      JSON.stringify({
+        hookSpecificOutput: { permissionDecision: 'deny' },
+      }),
+      '',
+    )
     expect(out.decision).toBe('deny')
   })
 
   it('a mismatched block does NOT discard the event-agnostic top-level decision/continue', () => {
     // Only the per-event block is scoped; top-level fields are event-agnostic.
-    const out = parseHookOutput(0, JSON.stringify({
-      decision: 'block', reason: 'top', continue: false, stopReason: 'halt',
-      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' },
-    }), '', 'Stop')
+    const out = parseHookOutput(
+      0,
+      JSON.stringify({
+        decision: 'block',
+        reason: 'top',
+        continue: false,
+        stopReason: 'halt',
+        hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow' },
+      }),
+      '',
+      'Stop',
+    )
     expect(out.decision).toBe('block') // top-level survives; the allow block was discarded
     expect(out.reason).toBe('top')
     expect(out.continue).toBe(false)

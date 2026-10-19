@@ -16,11 +16,13 @@ export function apply(ctx, config) {
   ctx.on('agent/pre-step', async ({ agent }, next) => {
     const decision = await next()
     if (agent.id !== config.parentSessionId || injected || decision.kind === 'reject') return decision
-    const content = await ctx.attachments.admitPromptContent([{
-      type: 'image',
-      mediaType: 'image/png',
-      data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
-    }])
+    const content = await ctx.attachments.admitPromptContent([
+      {
+        type: 'image',
+        mediaType: 'image/png',
+        data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
+      },
+    ])
     injected = true
     return {
       ...decision,
@@ -35,9 +37,14 @@ export function apply(ctx, config) {
     failed = true
     yield {
       type: 'finish',
-      reason: { kind: 'error', failure: {
-        code: 'IMAGE_OFFLOAD_REQUIRED', message: 'authored image budget failure', offloadImages: 1,
-      } },
+      reason: {
+        kind: 'error',
+        failure: {
+          code: 'IMAGE_OFFLOAD_REQUIRED',
+          message: 'authored image budget failure',
+          offloadImages: 1,
+        },
+      },
     }
   })
 }

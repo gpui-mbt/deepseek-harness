@@ -1,7 +1,17 @@
 /** Fixed-pitch virtual turn rail with independent activation and scroll controls. */
 import {
-  forwardRef, memo, useCallback, useEffect, useId, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState,
-  type CSSProperties, type ForwardedRef,
+  forwardRef,
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ForwardedRef,
 } from 'react'
 import { defaultRangeExtractor, elementScroll, observeElementOffset, useVirtualizer, type Range } from '@tanstack/react-virtual'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
@@ -33,9 +43,7 @@ const RAIL_INSET_PX = 6
 const FADE_PX = 24
 
 function preferredScrollBehavior(): 'auto' | 'smooth' {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
-    ? 'auto'
-    : 'smooth'
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
 }
 
 interface TurnMarkProps extends Pick<TurnNavigatorProps, 'onNavigate' | 't'> {
@@ -50,7 +58,16 @@ interface TurnMarkProps extends Pick<TurnNavigatorProps, 'onNavigate' | 't'> {
 }
 
 const TurnMark = memo(function TurnMark({
-  item, index, active, busy, previewId, registerElement, onNavigate, onPreview, onFocusChange, t,
+  item,
+  index,
+  active,
+  busy,
+  previewId,
+  registerElement,
+  onNavigate,
+  onPreview,
+  onFocusChange,
+  t,
 }: TurnMarkProps) {
   const classes = [css.mark]
   if (item.anchor.kind === 'unloaded') classes.push(css.markUnloaded)
@@ -63,25 +80,27 @@ const TurnMark = memo(function TurnMark({
       data-index={index}
       type="button"
       className={classes.join(' ')}
-      aria-label={t(
-        item.anchor.kind === 'loaded' ? 'chat.turnNavigation.jump' : 'chat.turnNavigation.jumpLoad',
-        { turn: item.turn },
-      )}
+      aria-label={t(item.anchor.kind === 'loaded' ? 'chat.turnNavigation.jump' : 'chat.turnNavigation.jumpLoad', { turn: item.turn })}
       aria-current={active ? 'true' : undefined}
       aria-busy={busy ? 'true' : undefined}
       aria-describedby={previewId}
-      onPointerMove={() => { onPreview(item.turn) }}
-      onClick={() => { onNavigate(item) }}
-      onFocus={() => { onFocusChange(item.turn) }}
-      onBlur={() => { onFocusChange(null) }}
+      onPointerMove={() => {
+        onPreview(item.turn)
+      }}
+      onClick={() => {
+        onNavigate(item)
+      }}
+      onFocus={() => {
+        onFocusChange(item.turn)
+      }}
+      onBlur={() => {
+        onFocusChange(null)
+      }}
     />
   )
 })
 
-function TurnNavigatorRail(
-  { items, activeTurn, busyTurn, onNavigate, t }: TurnNavigatorProps,
-  ref: ForwardedRef<TurnNavigatorHandle>,
-) {
+function TurnNavigatorRail({ items, activeTurn, busyTurn, onNavigate, t }: TurnNavigatorProps, ref: ForwardedRef<TurnNavigatorHandle>) {
   const [previewTurn, setPreviewTurn] = useState<number | null>(null)
   const [focusedTurn, setFocusedTurn] = useState<number | null>(null)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
@@ -96,11 +115,15 @@ function TurnNavigatorRail(
   const previewId = useId()
   const turnIndexes = useMemo(() => {
     const indexes = new Map<number, number>()
-    items.forEach((item, index) => { indexes.set(item.turn, index) })
+    items.forEach((item, index) => {
+      indexes.set(item.turn, index)
+    })
     return indexes
   }, [items])
   const activeIndex = activeTurn === null ? undefined : turnIndexes.get(activeTurn)
-  useLayoutEffect(() => { initialization.current.index = activeIndex ?? 0 }, [activeIndex])
+  useLayoutEffect(() => {
+    initialization.current.index = activeIndex ?? 0
+  }, [activeIndex])
   const focusedIndex = focusedTurn === null ? undefined : turnIndexes.get(focusedTurn)
   const previewIndex = previewTurn === null ? undefined : turnIndexes.get(previewTurn)
   const onFocusChange = useCallback((turn: number | null) => {
@@ -156,58 +179,68 @@ function TurnNavigatorRail(
         notify(rect)
       })
       observer.observe(element, { box: 'border-box' })
-      return () => { observer.disconnect() }
+      return () => {
+        observer.disconnect()
+      }
     },
     paddingStart: RAIL_INSET_PX - TURN_SPACING_PX / 2,
     paddingEnd: RAIL_INSET_PX - TURN_SPACING_PX / 2,
     scrollPaddingStart: FADE_PX,
     scrollPaddingEnd: FADE_PX,
     overscan: 3,
-    rangeExtractor: useCallback((range: Range) => {
-      const indexes = defaultRangeExtractor(range)
-      if (focusedIndex !== undefined) {
-        const last = Math.min(range.count - 1, focusedIndex + 1)
-        for (let index = Math.max(0, focusedIndex - 1); index <= last; index++) {
-          if (!indexes.includes(index)) indexes.push(index)
+    rangeExtractor: useCallback(
+      (range: Range) => {
+        const indexes = defaultRangeExtractor(range)
+        if (focusedIndex !== undefined) {
+          const last = Math.min(range.count - 1, focusedIndex + 1)
+          for (let index = Math.max(0, focusedIndex - 1); index <= last; index++) {
+            if (!indexes.includes(index)) indexes.push(index)
+          }
+          indexes.sort((left, right) => left - right)
         }
-        indexes.sort((left, right) => left - right)
-      }
-      return indexes
-    }, [focusedIndex]),
+        return indexes
+      },
+      [focusedIndex],
+    ),
   })
   const scrollTop = virtualizer.scrollOffset ?? 0
   const viewHeight = virtualizer.scrollRect?.height ?? 0
   const virtualItems = virtualizer.getVirtualItems()
 
-  const scrollToIndex = useCallback((
-    index: number, reveal: 'if-needed' | 'always', behavior: 'auto' | 'smooth' | 'instant' = preferredScrollBehavior(),
-  ): void => {
-    const item = virtualizer.measurementsCache[index]
-    const height = virtualizer.scrollRect?.height ?? 0
-    if (item === undefined || height <= 0) return
-    const current = virtualizer.scrollOffset ?? 0
-    const center = item.start + item.size / 2
-    if (reveal === 'if-needed') {
-      const { scrollPaddingStart, scrollPaddingEnd } = virtualizer.options
-      if (center >= current + scrollPaddingStart && center <= current + height - scrollPaddingEnd) return
-    }
-    const target = center - height / 2
-    const max = Math.max(0, virtualizer.getTotalSize() - height)
-    const delta = Math.max(0, Math.min(max, target)) - current
-    if (delta !== 0) virtualizer.scrollBy(delta, { behavior })
-  }, [virtualizer])
+  const scrollToIndex = useCallback(
+    (index: number, reveal: 'if-needed' | 'always', behavior: 'auto' | 'smooth' | 'instant' = preferredScrollBehavior()): void => {
+      const item = virtualizer.measurementsCache[index]
+      const height = virtualizer.scrollRect?.height ?? 0
+      if (item === undefined || height <= 0) return
+      const current = virtualizer.scrollOffset ?? 0
+      const center = item.start + item.size / 2
+      if (reveal === 'if-needed') {
+        const { scrollPaddingStart, scrollPaddingEnd } = virtualizer.options
+        if (center >= current + scrollPaddingStart && center <= current + height - scrollPaddingEnd) return
+      }
+      const target = center - height / 2
+      const max = Math.max(0, virtualizer.getTotalSize() - height)
+      const delta = Math.max(0, Math.min(max, target)) - current
+      if (delta !== 0) virtualizer.scrollBy(delta, { behavior })
+    },
+    [virtualizer],
+  )
 
-  useImperativeHandle(ref, (): TurnNavigatorHandle => ({
-    activateTurn(turn) {
-      const index = turnIndexes.get(turn)
-      const item = index === undefined ? undefined : items[index]
-      if (item !== undefined) onNavigate(item)
-    },
-    scrollToTurn(turn) {
-      const index = turnIndexes.get(turn)
-      if (index !== undefined) scrollToIndex(index, 'always')
-    },
-  }), [items, turnIndexes, onNavigate, scrollToIndex])
+  useImperativeHandle(
+    ref,
+    (): TurnNavigatorHandle => ({
+      activateTurn(turn) {
+        const index = turnIndexes.get(turn)
+        const item = index === undefined ? undefined : items[index]
+        if (item !== undefined) onNavigate(item)
+      },
+      scrollToTurn(turn) {
+        const index = turnIndexes.get(turn)
+        if (index !== undefined) scrollToIndex(index, 'always')
+      },
+    }),
+    [items, turnIndexes, onNavigate, scrollToIndex],
+  )
 
   useEffect(() => {
     if (viewHeight <= 0) {
@@ -218,9 +251,7 @@ function TurnNavigatorRail(
     const previous = initialization.current.follow
     if (previous?.index === activeIndex && previous.count === items.length && previous.height === viewHeight) return
     initialization.current.follow = { index: activeIndex, count: items.length, height: viewHeight }
-    const behavior = previous?.count === items.length && previous.height === viewHeight
-      ? preferredScrollBehavior()
-      : 'instant'
+    const behavior = previous?.count === items.length && previous.height === viewHeight ? preferredScrollBehavior() : 'instant'
     scrollToIndex(activeIndex, 'if-needed', behavior)
   }, [activeIndex, items.length, viewHeight, scrollToIndex])
 
@@ -235,7 +266,9 @@ function TurnNavigatorRail(
       <nav
         className={css.frame}
         aria-label={t('chat.turnNavigation.label')}
-        onPointerEnter={() => { pointerInsideRef.current = true }}
+        onPointerEnter={() => {
+          pointerInsideRef.current = true
+        }}
         onPointerLeave={() => {
           pointerInsideRef.current = false
           setPreviewTurn(null)
@@ -269,13 +302,13 @@ function TurnNavigatorRail(
             id={previewId}
             role="tooltip"
             className={css.preview}
-            style={{
-              '--turn-preview-center': `${String(previewPosition.start + previewPosition.size / 2 - scrollTop)}px`,
-            } as CSSProperties}
+            style={
+              {
+                '--turn-preview-center': `${String(previewPosition.start + previewPosition.size / 2 - scrollTop)}px`,
+              } as CSSProperties
+            }
           >
-            <div className={css.previewPrompt}>
-              {preview.prompt || t('chat.turnNavigation.turn', { turn: preview.turn })}
-            </div>
+            <div className={css.previewPrompt}>{preview.prompt || t('chat.turnNavigation.turn', { turn: preview.turn })}</div>
             {preview.response !== '' && <div className={css.previewResponse}>{preview.response}</div>}
           </div>
         )}

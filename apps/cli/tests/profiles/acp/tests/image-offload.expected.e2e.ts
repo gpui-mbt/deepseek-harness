@@ -2,11 +2,8 @@ import { fileURLToPath } from 'node:url'
 import { createServer } from 'node:http'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
-import { expect, it } from 'vitest'
-import {
-  runScenario,
-  type InputScript,
-} from '@deepseek-ai/dsh-session-snapshot'
+import { expect, it } from 'vite-plus/test'
+import { runScenario, type InputScript } from '@deepseek-ai/dsh-session-snapshot'
 
 const AGENT = {
   binScript: fileURLToPath(new URL('../../../../src/bin.ts', import.meta.url)),
@@ -26,7 +23,9 @@ it('pins Messages Files offload and inline fallback in assembled requests', asyn
   let rejectFiles = false
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
     const chunks: Buffer[] = []
-    request.on('data', (chunk: Buffer) => { chunks.push(chunk) })
+    request.on('data', (chunk: Buffer) => {
+      chunks.push(chunk)
+    })
     request.on('end', () => {
       void (async () => {
         const url = new URL(request.url ?? '/', 'http://localhost')
@@ -37,26 +36,32 @@ it('pins Messages Files offload and inline fallback in assembled requests', asyn
             if (value !== undefined) headers.set(name, Array.isArray(value) ? value.join(', ') : value)
           }
           const form = await new Request('http://localhost/files', {
-            method: 'POST', headers, body,
+            method: 'POST',
+            headers,
+            body,
           }).formData()
           const file = form.get('file')
           if (!(file instanceof Blob)) throw new Error('snapshot Files upload omitted file')
           fileRequests.push({ method: 'POST', path: url.pathname, bytes: file.size })
           if (rejectFiles) {
-            response.writeHead(503, { 'content-type': 'application/json' }).end(JSON.stringify({
-              error: { message: 'Files temporarily unavailable' },
-            }))
+            response.writeHead(503, { 'content-type': 'application/json' }).end(
+              JSON.stringify({
+                error: { message: 'Files temporarily unavailable' },
+              }),
+            )
             return
           }
           const createdAt = Math.floor(Date.now() / 1_000)
-          response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
-            id: 'file-api-snapshot-1',
-            type: 'file',
-            size_bytes: file.size,
-            created_at: new Date(createdAt * 1_000).toISOString(),
-            filename: 'dsh-snapshot.png',
-            mime_type: file.type,
-          }))
+          response.writeHead(200, { 'content-type': 'application/json' }).end(
+            JSON.stringify({
+              id: 'file-api-snapshot-1',
+              type: 'file',
+              size_bytes: file.size,
+              created_at: new Date(createdAt * 1_000).toISOString(),
+              filename: 'dsh-snapshot.png',
+              mime_type: file.type,
+            }),
+          )
           return
         }
         if (url.pathname !== modelPath) {
@@ -67,10 +72,17 @@ it('pins Messages Files offload and inline fallback in assembled requests', asyn
         response.writeHead(200, { 'content-type': 'text/event-stream' })
         const toolCall = requests.length === 1
         const events = [
-          { type: 'message_start', message: { id: 'offload-response', model: 'deepseek-v4-flash-vision-exp', usage: { input_tokens: 3, output_tokens: 0 } } },
-          { type: 'content_block_start', index: 0, content_block: toolCall
-            ? { type: 'tool_use', id: 'native-read-image', name: 'read_image', input: { file_path: 'red.png' } }
-            : { type: 'text', text: 'DONE' } },
+          {
+            type: 'message_start',
+            message: { id: 'offload-response', model: 'deepseek-v4-flash-vision-exp', usage: { input_tokens: 3, output_tokens: 0 } },
+          },
+          {
+            type: 'content_block_start',
+            index: 0,
+            content_block: toolCall
+              ? { type: 'tool_use', id: 'native-read-image', name: 'read_image', input: { file_path: 'red.png' } }
+              : { type: 'text', text: 'DONE' },
+          },
           { type: 'content_block_stop', index: 0 },
           { type: 'message_delta', delta: { stop_reason: toolCall ? 'tool_use' : 'end_turn' }, usage: { output_tokens: 1 } },
           { type: 'message_stop' },
@@ -122,27 +134,22 @@ it('pins Messages Files offload and inline fallback in assembled requests', asyn
     const attachmentDigest = 'b1ff9c8ea3a780bad09b346c423d2d0e46815926879b18e841d928376a946640'
     const attachmentId = `sha256:${attachmentDigest}`
     const accessText = (cwd: string): string => {
-      const attachmentPath = join(
-        cwd,
-        '.dsh',
-        'attachments',
-        'v1',
-        'objects',
-        attachmentDigest.slice(0, 2),
-        attachmentDigest,
+      const attachmentPath = join(cwd, '.dsh', 'attachments', 'v1', 'objects', attachmentDigest.slice(0, 2), attachmentDigest)
+      return (
+        ` Normalized copy (read-only; may be resized or re-encoded): ${JSON.stringify(attachmentPath)} (1x1px, image/png).` +
+        ' Source dimensions, format, and byte size may differ.' +
+        ' Copy to a writable path ending in .png before editing.'
       )
-      return ` Normalized copy (read-only; may be resized or re-encoded): ${JSON.stringify(attachmentPath)} (1x1px, image/png).`
-        + ' Source dimensions, format, and byte size may differ.'
-        + ' Copy to a writable path ending in .png before editing.'
     }
     const normalizedAccess = accessText(result.cwd)
     const fileImage = { type: 'image', source: { type: 'file', file_id: 'file-api-snapshot-1' } }
     const offloadedImage = `[image omitted to fit request image limits; ${attachmentId}.${normalizedAccess}]`
     const imageHandle = `Image ${attachmentId}; request preview 1x1px.${normalizedAccess}`
-    const runtimeContext = (cwd: string): string => 'Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\n'
-      + `Current working directory: ${JSON.stringify(cwd)}.\n\n`
-      + 'Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.\n\n'
-      + 'Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).'
+    const runtimeContext = (cwd: string): string =>
+      'Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\n' +
+      `Current working directory: ${JSON.stringify(cwd)}.\n\n` +
+      'Current DSH file policy: danger-full-access. The DSH file sandbox does not restrict file modifications by available operations.\n\n' +
+      'Approval prompts are disabled in this session: actions that require approval are rejected automatically — do not request sandbox escalation (do not set `sandbox_permissions`).'
     const messages = requests[0]?.messages as { content?: unknown }[] | undefined
     const offloaded = messages?.find(message => JSON.stringify(message.content).includes('[image omitted'))
     expect(offloaded?.content).toEqual([
@@ -159,9 +166,10 @@ it('pins Messages Files offload and inline fallback in assembled requests', asyn
     expect(followup).toHaveLength(3)
     expect(followup[0]?.content.filter(block => block.type === 'image')).toEqual([])
     expect(followup[0]?.content.filter(block => block.text === offloadedImage)).toHaveLength(2)
-    expect(followup[1]).toEqual({ role: 'assistant', content: [
-      { type: 'tool_use', id: 'native-read-image', name: 'read_image', input: { file_path: 'red.png' } },
-    ] })
+    expect(followup[1]).toEqual({
+      role: 'assistant',
+      content: [{ type: 'tool_use', id: 'native-read-image', name: 'read_image', input: { file_path: 'red.png' } }],
+    })
     expect(followup[2]?.role).toBe('user')
     expect(followup[2]?.content).toHaveLength(1)
     const toolResult = followup[2]!.content[0]!
@@ -206,6 +214,10 @@ it('pins Messages Files offload and inline fallback in assembled requests', asyn
       { type: 'text', text: runtimeContext(fallback.cwd) },
     ])
   } finally {
-    await new Promise<void>(resolve => server.close(() => { resolve() }))
+    await new Promise<void>(resolve =>
+      server.close(() => {
+        resolve()
+      }),
+    )
   }
 }, 45_000)

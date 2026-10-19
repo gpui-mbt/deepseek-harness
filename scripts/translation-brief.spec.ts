@@ -1,6 +1,6 @@
 /** Regression tests for the minimal-update briefing assembly. */
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import {
   changedSpanIndices,
   computeMechanicalUpdate,
@@ -59,12 +59,7 @@ describe('markdown spans', () => {
 
   it('lists heading sections with a preamble span and heading labels', () => {
     const sections = sectionSpans(DOC)
-    expect(sections.map(span => span.label)).toEqual([
-      '(preamble before the first heading)',
-      'Title',
-      'First',
-      'Second',
-    ])
+    expect(sections.map(span => span.label)).toEqual(['(preamble before the first heading)', 'Title', 'First', 'Second'])
     expect(sections[0]).toMatchObject({ startLine: 1, endLine: 2 })
     expect(sections[2]).toMatchObject({ startLine: 7, endLine: 14 })
   })
@@ -144,10 +139,11 @@ describe('terminology', () => {
   })
 
   it('selects rows for the changed text per direction', () => {
-    expect(relevantTerminologyRows(TERMINOLOGY, 'en-to-zh', 'All agents write a session log.').map(row => row.english))
-      .toEqual(['agent', 'session log'])
-    expect(relevantTerminologyRows(TERMINOLOGY, 'zh-to-en', '门禁在提交时运行。').map(row => row.english))
-      .toEqual(['gate'])
+    expect(relevantTerminologyRows(TERMINOLOGY, 'en-to-zh', 'All agents write a session log.').map(row => row.english)).toEqual([
+      'agent',
+      'session log',
+    ])
+    expect(relevantTerminologyRows(TERMINOLOGY, 'zh-to-en', '门禁在提交时运行。').map(row => row.english)).toEqual(['gate'])
     expect(relevantTerminologyRows(TERMINOLOGY, 'en-to-zh', 'delegate the work')).toEqual([])
   })
 })
@@ -158,9 +154,7 @@ describe('first-occurrence tracking', () => {
   const rows = parseTerminologyRows(TERMINOLOGY).filter(row => row.english === 'agent')
 
   it('flags a moved first occurrence and pulls the vacated span in', () => {
-    const context = firstOccurrenceContext(
-      before, after, markdownUnits(before), markdownUnits(after), rows, new Set([1]),
-    )
+    const context = firstOccurrenceContext(before, after, markdownUnits(before), markdownUnits(after), rows, new Set([1]))
     expect(context.notes).toHaveLength(1)
     expect(context.notes[0]).toContain('moved from #2 to #1')
     expect(context.extraSpanIndices).toEqual([2])
@@ -168,9 +162,7 @@ describe('first-occurrence tracking', () => {
 
   it('stays silent when the first occurrence does not move', () => {
     const unmoved = before.replace('Alpha paragraph.', 'Alpha paragraph, revised.')
-    const context = firstOccurrenceContext(
-      before, unmoved, markdownUnits(before), markdownUnits(unmoved), rows, new Set([1]),
-    )
+    const context = firstOccurrenceContext(before, unmoved, markdownUnits(before), markdownUnits(unmoved), rows, new Set([1]))
     expect(context.notes).toEqual([])
     expect(context.extraSpanIndices).toEqual([])
   })
@@ -178,9 +170,7 @@ describe('first-occurrence tracking', () => {
   it('ignores rows without a first-occurrence rendering', () => {
     const bare = parseTerminologyRows(TERMINOLOGY).filter(row => row.english === 'gate')
     const withGate = after.replace('The agent runs.', 'The gate runs.')
-    const context = firstOccurrenceContext(
-      before, withGate, markdownUnits(before), markdownUnits(withGate), bare, new Set([2]),
-    )
+    const context = firstOccurrenceContext(before, withGate, markdownUnits(before), markdownUnits(withGate), bare, new Set([2]))
     expect(context.notes).toEqual([])
   })
 })
@@ -205,7 +195,13 @@ describe('brief rendering', () => {
   it('renders unit bundles with three-way context and line anchors', () => {
     const brief = renderTranslationBrief({
       ...base,
-      scope: { kind: 'units', bundles: [bundle], firstOccurrenceNotes: ['agent: the document-wide first occurrence moved from #2 to #1; the agent（智能体） form moves with it (later occurrences drop the annotation).'] },
+      scope: {
+        kind: 'units',
+        bundles: [bundle],
+        firstOccurrenceNotes: [
+          'agent: the document-wide first occurrence moved from #2 to #1; the agent（智能体） form moves with it (later occurrences drop the annotation).',
+        ],
+      },
     })
     expect(brief).toContain('# Translation update briefing: docs/foo.md')
     expect(brief).toContain('## Changed units')
@@ -252,7 +248,11 @@ describe('brief rendering', () => {
   it('renders the document fallback with its reason and no bundles', () => {
     const brief = renderTranslationBrief({
       ...base,
-      scope: { kind: 'document', reason: 'BOTH sides changed since the pair was last confirmed consistent, so no side is a trustworthy mapping anchor; decide which side owns each divergence.' },
+      scope: {
+        kind: 'document',
+        reason:
+          'BOTH sides changed since the pair was last confirmed consistent, so no side is a trustworthy mapping anchor; decide which side owns each divergence.',
+      },
     })
     expect(brief).toContain('## Whole-document update required')
     expect(brief).toContain('BOTH sides changed')

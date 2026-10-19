@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore, {
@@ -16,9 +16,14 @@ import type { PluginRequestFixture } from './plugin-records.type-test.ts'
 /** One user turn opening, so a record lands between model-visible events. */
 function openTurn(session: Session): void {
   session.append('turn/start', { turn: 1 })
-  session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'hello' }], source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'hello' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
 }
 
 describe('plugin records', () => {
@@ -90,23 +95,23 @@ describe('plugin records', () => {
     'plugin:-test',
     'plugin:test state',
     'turn/start',
-  ])('rejects the record type %j without changing the log', (type) => {
+  ])('rejects the record type %j without changing the log', type => {
     const session = Session.create(SessionId('grammar'))
     const name: string = type
 
     expect(() => {
       // @ts-expect-error -- runtime callers can supply names outside the declared map.
       appendPluginRecord(session, name, {})
-    })
-      .toThrow(`plugin record type "${type}" must be "plugin:" followed by lowercase slash-separated segments`)
+    }).toThrow(`plugin record type "${type}" must be "plugin:" followed by lowercase slash-separated segments`)
     expect(session.seq).toBe(0)
   })
 
   it('rejects data that is not losslessly JSON-serializable without changing the log', () => {
     const session = Session.create(SessionId('lossy'))
 
-    expect(() => appendPluginRecord(session, 'plugin:test/number', Number.NaN))
-      .toThrow('plugin record "plugin:test/number" carries non-JSON-serializable data')
+    expect(() => appendPluginRecord(session, 'plugin:test/number', Number.NaN)).toThrow(
+      'plugin record "plugin:test/number" carries non-JSON-serializable data',
+    )
     expect(session.seq).toBe(0)
   })
 
@@ -114,11 +119,17 @@ describe('plugin records', () => {
     const ctx = new Context()
     await ctx.plugin(SessionStore)
     const warnings: string[] = []
-    ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
+    ctx.logger.warn = ((message: unknown) => {
+      warnings.push(String(message))
+    }) as typeof ctx.logger.warn
     const session = ctx.sessions.create(SessionId('observed-record'))
     const heard: SessionEvent[] = []
-    ctx.on('session/event', (observed) => { appendPluginRecord(observed, 'plugin:test/echo', {}) })
-    ctx.on('session/event', (_observed, event) => { heard.push(event) })
+    ctx.on('session/event', observed => {
+      appendPluginRecord(observed, 'plugin:test/echo', {})
+    })
+    ctx.on('session/event', (_observed, event) => {
+      heard.push(event)
+    })
 
     appendPluginRecord(session, 'plugin:test/state', { count: 1 })
 
@@ -141,8 +152,12 @@ describe('plugin records', () => {
     const child = Session.create(SessionId('child'), buildForkSeed(events, SessionSeq(2)))
 
     for (const copy of [restored, reopened, child]) {
-      expect(pluginRecordOf(copy.snapshotEvents()[2] as SessionEvent))
-        .toEqual({ type: 'plugin:test/state', seq: 2, time: events[2]?.time, data: { count: 1 } })
+      expect(pluginRecordOf(copy.snapshotEvents()[2] as SessionEvent)).toEqual({
+        type: 'plugin:test/state',
+        seq: 2,
+        time: events[2]?.time,
+        data: { count: 1 },
+      })
       expect(copy.deriveMessages()).toEqual(session.deriveMessages())
     }
   })

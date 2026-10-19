@@ -18,10 +18,7 @@ export async function startHttpMcpFixture(): Promise<HttpMcpFixture> {
   const calls: string[] = []
   const authorization: Array<string | undefined> = []
   const handler = createMcpHandler(() => {
-    const mcp = new McpServer(
-      { name: 'http-fixture', version: '1.0.0' },
-      { capabilities: { tools: {} } },
-    )
+    const mcp = new McpServer({ name: 'http-fixture', version: '1.0.0' }, { capabilities: { tools: {} } })
     mcp.registerTool('ping', { description: 'Replies pong.', inputSchema: z.object({}) }, async (): Promise<CallToolResult> => {
       calls.push('ping')
       return { content: [{ type: 'text', text: 'pong' }] }
@@ -51,7 +48,10 @@ export async function startHttpMcpFixture(): Promise<HttpMcpFixture> {
     close: async () => {
       await handler.close()
       await new Promise<void>((resolve, reject) => {
-        server.close((error) => { if (error === undefined) resolve(); else reject(error) })
+        server.close(error => {
+          if (error === undefined) resolve()
+          else reject(error)
+        })
       })
     },
   }

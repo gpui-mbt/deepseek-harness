@@ -12,7 +12,7 @@ import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import { codePointLength } from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 import SkillRegistry, { renderSkillContent } from '@deepseek-ai/dsh-skill'
 import * as SkillFileSystem from '@deepseek-ai/dsh-skill-filesystem'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 
 const skills = fileURLToPath(new URL('../skills/', import.meta.url))
 const names = readdirSync(skills)
@@ -59,7 +59,8 @@ describe('the shipped creator skills', () => {
     test.onTestFinished(() => ctx.fiber.dispose())
     await ctx.plugin(SkillRegistry)
     await ctx.plugin(SkillFileSystem, {
-      includeDefaultRoots: false, watch: false,
+      includeDefaultRoots: false,
+      watch: false,
       customSkillDirs: [source === 'package' ? skills : repositorySkills],
     })
     expect((await ctx.skills.list()).map(skill => skill.name)).toContain('agent-experience')
@@ -71,7 +72,10 @@ describe('the shipped creator skills', () => {
   it('render below the pruner threshold and name only files that exist', () => {
     for (const name of names) {
       const rendered = renderSkillContent({
-        name, provider: 'filesystem', resourceBase: { kind: 'directory', path: join(skills, name) }, content: body(name),
+        name,
+        provider: 'filesystem',
+        resourceBase: { kind: 'directory', path: join(skills, name) },
+        content: body(name),
       })
       expect(codePointLength(rendered), name).toBeLessThan(PRUNER_THRESHOLD_CHARS)
       const referenced = [...body(name).matchAll(/`((?:references|templates)\/[^`]+)`/g)].map(match => match[1] ?? match[0])
@@ -122,13 +126,20 @@ describe('the shipped creator skills', () => {
         expect(locale.meta.title).toMatch(/\S/u)
         expect(locale.meta.description).toMatch(/\S/u)
       }
-      const resources = new Set([...Object.values(manifest.exports).filter(file => !file.includes('*')),
-        ...locales, manifest.dsh.bundle.patch])
+      const resources = new Set([
+        ...Object.values(manifest.exports).filter(file => !file.includes('*')),
+        ...locales,
+        manifest.dsh.bundle.patch,
+      ])
       for (const resource of resources) {
         const file = resource.replace(/^\.\//u, '')
         expect(body('cordis-plugin-development'), file).toContain(`\`templates/${name}/${file}\``)
         expect(statSync(join(dir, file)).isFile(), file).toBe(true)
-        if (file !== 'package.json') expect(manifest.files.some(pattern => matchesGlob(file, pattern)), file).toBe(true)
+        if (file !== 'package.json')
+          expect(
+            manifest.files.some(pattern => matchesGlob(file, pattern)),
+            file,
+          ).toBe(true)
       }
     }
   })

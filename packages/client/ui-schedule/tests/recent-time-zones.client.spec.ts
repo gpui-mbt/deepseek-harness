@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { loadRecentTimeZones, rememberTimeZone } from '../src/client/recent-time-zones.ts'
 
-afterEach(() => { localStorage.clear() })
+afterEach(() => {
+  localStorage.clear()
+})
 
 describe('recent time zones', () => {
   it('seeds the device zone and UTC without inferring location from language', () => {
@@ -37,8 +39,7 @@ describe('recent time zones', () => {
     vi.stubGlobal('localStorage', undefined)
     try {
       expect(loadRecentTimeZones('Asia/Shanghai')).toEqual(['Asia/Shanghai', 'UTC'])
-      expect(rememberTimeZone(['Europe/Berlin', 'UTC'], 'Asia/Tokyo'))
-        .toEqual(['Asia/Tokyo', 'Europe/Berlin', 'UTC'])
+      expect(rememberTimeZone(['Europe/Berlin', 'UTC'], 'Asia/Tokyo')).toEqual(['Asia/Tokyo', 'Europe/Berlin', 'UTC'])
     } finally {
       vi.unstubAllGlobals()
     }

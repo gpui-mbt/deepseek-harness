@@ -16,9 +16,7 @@ export interface EncodedImage {
 }
 
 async function encode(pipeline: Sharp, mediaType: EncodedImage['mediaType'], quality: number): Promise<EncodedImage> {
-  const encoded = mediaType === 'image/webp'
-    ? pipeline.webp({ quality, effort: WEBP_ENCODING_EFFORT })
-    : pipeline.jpeg({ quality })
+  const encoded = mediaType === 'image/webp' ? pipeline.webp({ quality, effort: WEBP_ENCODING_EFFORT }) : pipeline.jpeg({ quality })
   const { data, info } = await encoded.toBuffer({ resolveWithObject: true })
   return { data: new Uint8Array(data), mediaType, width: info.width, height: info.height }
 }
@@ -32,9 +30,7 @@ async function encode(pipeline: Sharp, mediaType: EncodedImage['mediaType'], qua
  */
 export function encodingLadder(prepared: Sharp, hasAlpha: boolean): Array<() => Promise<EncodedImage>> {
   const mediaType = hasAlpha ? 'image/webp' : 'image/jpeg'
-  return IMAGE_ENCODING_QUALITIES.map(quality => (
-    () => encode(prepared.clone(), mediaType, quality)
-  ))
+  return IMAGE_ENCODING_QUALITIES.map(quality => () => encode(prepared.clone(), mediaType, quality))
 }
 
 /** One encoded candidate carrying its complete bytes. */
@@ -76,8 +72,6 @@ export async function encodeFirstWithinLimit<T extends EncodedCandidate>(
  * @param result - first fitting candidate or exhausted result.
  * @returns whether every candidate exceeded the byte target.
  */
-export function isExhaustedEncoding<T extends EncodedCandidate>(
-  result: T | ExhaustedEncoding<T>,
-): result is ExhaustedEncoding<T> {
+export function isExhaustedEncoding<T extends EncodedCandidate>(result: T | ExhaustedEncoding<T>): result is ExhaustedEncoding<T> {
   return 'smallest' in result
 }

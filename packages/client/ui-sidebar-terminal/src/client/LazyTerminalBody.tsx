@@ -10,5 +10,9 @@ const LoadedTerminalBody = lazy(async () => ({ default: (await import('./termina
  * @returns the deferred terminal renderer.
  */
 export function LazyTerminalBody(props: TerminalBodyProps): ReactNode {
-  return <Suspense fallback={null}><LoadedTerminalBody {...props} /></Suspense>
+  return (
+    <Suspense fallback={null}>
+      <LoadedTerminalBody {...props} />
+    </Suspense>
+  )
 }

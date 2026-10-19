@@ -5,7 +5,7 @@
  * a newer file version arriving past the first line restarts the walk. The read
  * runs under the session the file names, not the one the face was injected for.
  */
-import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vite-plus/test'
 import type { RemoteResult } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { sessionFileAddress } from '@deepseek-ai/dsh-util-workspace-path'
@@ -105,7 +105,14 @@ function bench(sessionId = 'other-session' as SessionId) {
     await call.promise
   }
   return {
-    instance, read, face, forget, settle, bytes, controller, resources,
+    instance,
+    read,
+    face,
+    forget,
+    settle,
+    bytes,
+    controller,
+    resources,
     settleAll: whole.settle,
     outstandingAll: whole.outstanding,
     outstanding: () => pending.map(call => call.offset),
@@ -156,7 +163,9 @@ describe('textFace', () => {
     const { read, face, forget, settle, tab } = bench()
     const controller = new AbortController()
     const armed = vi.spyOn(controller.signal, 'addEventListener')
-    onTestFinished(() => { armed.mockRestore() })
+    onTestFinished(() => {
+      armed.mockRestore()
+    })
     face.loadPage(TAB_1, FILE, 1, controller.signal)
     await settle(page(1, ['a'], false))
     face.loadPage(TAB_1, FILE, 2, controller.signal)
@@ -268,8 +277,14 @@ describe('textFace', () => {
     const result = complete('v2', new Uint8Array([2, 3, 255]))
     await settleAll(result)
     expect(tab()).toMatchObject({
-      complete: result.value, version: 'v2', loading: false, eof: true,
-      rendererId: 'test/whole-file', scrollTop: 77, wrap: false, revision: 3,
+      complete: result.value,
+      version: 'v2',
+      loading: false,
+      eof: true,
+      rendererId: 'test/whole-file',
+      scrollTop: 77,
+      wrap: false,
+      revision: 3,
     })
   })
 
@@ -280,13 +295,16 @@ describe('textFace', () => {
     face.reloadAll(TAB_1, FILE, controller.signal)
     await settleAll(bytesFailure())
     expect(tab()).toMatchObject({
-      mode: 'bytes-complete', loading: false, version: undefined, eof: false,
+      mode: 'bytes-complete',
+      loading: false,
+      version: undefined,
+      eof: false,
       failure: { code: 'workspace-file/outside-workspace' },
     })
     expect(tab()?.complete).toBeUndefined()
   })
 
-  it.each(['loadAll', 'reloadAll'] as const)('%s does not request or create state for an ended tab', (method) => {
+  it.each(['loadAll', 'reloadAll'] as const)('%s does not request or create state for an ended tab', method => {
     const { face, bytes, forget, tab, controller } = bench()
     controller.abort()
     face[method](TAB_1, FILE, controller.signal)
@@ -295,7 +313,7 @@ describe('textFace', () => {
     expect(tab()).toBeUndefined()
   })
 
-  it.each(['success', 'failure'] as const)('ignores complete-read %s after tab abort', async (outcome) => {
+  it.each(['success', 'failure'] as const)('ignores complete-read %s after tab abort', async outcome => {
     const { instance, face, bytes, forget, settleAll, tab, controller } = bench()
     face.loadAll(TAB_1, FILE, controller.signal)
     face.reloadAll(TAB_1, FILE, controller.signal)
@@ -333,8 +351,8 @@ describe('textFace', () => {
     expect(tab()).toMatchObject({ complete: current.value, version: 'v2', loading: false, failure: undefined })
   })
 
-  describe.each(['text-pages', 'bytes-complete'] as const)('switching away from %s', (mode) => {
-    it.each(settlements)('ignores the previous mode\'s $outcome ($order)', async ({ outcome, order }) => {
+  describe.each(['text-pages', 'bytes-complete'] as const)('switching away from %s', mode => {
+    it.each(settlements)("ignores the previous mode's $outcome ($order)", async ({ outcome, order }) => {
       const { instance, face, settle, settleAll, outstanding, outstandingAll, tab, controller } = bench()
       const { signal } = controller
       if (mode === 'text-pages') {
@@ -386,34 +404,36 @@ describe('textFace', () => {
     expect(tab()).toMatchObject({ mode: 'bytes-complete', complete: complete('v2', new Uint8Array([2, 3, 255])).value, pages: {} })
   })
 
-
-  it.each([PATH, ABSOLUTE_PATH, 'C:/w/notes.md', '//host/share/notes.md'])('uses the addressed Session for %s in both reading modes', async (path) => {
-    const first = bench()
-    const secondSession = 'second-caller-session' as SessionId
-    const second = bench(secondSession)
-    const address = sessionFileAddress(SESSION, path)
-    const firstFile = hostFileOf(address)
-    const secondFile = hostFileOf(address)
-    expect(firstFile).toEqual({ sessionId: SESSION, path })
-    expect(secondFile).toEqual(firstFile)
-    first.face.loadPage(TAB_1, firstFile, 1, first.controller.signal)
-    second.face.reloadPages(TAB_1, secondFile, second.controller.signal)
-    expect(first.read).toHaveBeenCalledExactlyOnceWith(firstFile.sessionId, firstFile.path, 1, first.controller.signal)
-    expect(second.read).toHaveBeenCalledExactlyOnceWith(secondFile.sessionId, secondFile.path, 1, second.controller.signal)
-    await first.settle(page(1, ['first'], true))
-    await second.settle(page(1, ['second'], true))
-    first.face.loadAll(TAB_1, firstFile, first.controller.signal)
-    second.face.reloadAll(TAB_1, secondFile, second.controller.signal)
-    expect(first.bytes).toHaveBeenCalledExactlyOnceWith(firstFile, expect.any(AbortSignal))
-    expect(second.bytes).toHaveBeenCalledExactlyOnceWith(secondFile, expect.any(AbortSignal))
-    await first.settleAll(complete('v1'))
-    await second.settleAll(complete('v2'))
-    expect(first.tab()?.version).toBe('v1')
-    expect(second.tab()?.version).toBe('v2')
-  })
+  it.each([PATH, ABSOLUTE_PATH, 'C:/w/notes.md', '//host/share/notes.md'])(
+    'uses the addressed Session for %s in both reading modes',
+    async path => {
+      const first = bench()
+      const secondSession = 'second-caller-session' as SessionId
+      const second = bench(secondSession)
+      const address = sessionFileAddress(SESSION, path)
+      const firstFile = hostFileOf(address)
+      const secondFile = hostFileOf(address)
+      expect(firstFile).toEqual({ sessionId: SESSION, path })
+      expect(secondFile).toEqual(firstFile)
+      first.face.loadPage(TAB_1, firstFile, 1, first.controller.signal)
+      second.face.reloadPages(TAB_1, secondFile, second.controller.signal)
+      expect(first.read).toHaveBeenCalledExactlyOnceWith(firstFile.sessionId, firstFile.path, 1, first.controller.signal)
+      expect(second.read).toHaveBeenCalledExactlyOnceWith(secondFile.sessionId, secondFile.path, 1, second.controller.signal)
+      await first.settle(page(1, ['first'], true))
+      await second.settle(page(1, ['second'], true))
+      first.face.loadAll(TAB_1, firstFile, first.controller.signal)
+      second.face.reloadAll(TAB_1, secondFile, second.controller.signal)
+      expect(first.bytes).toHaveBeenCalledExactlyOnceWith(firstFile, expect.any(AbortSignal))
+      expect(second.bytes).toHaveBeenCalledExactlyOnceWith(secondFile, expect.any(AbortSignal))
+      await first.settleAll(complete('v1'))
+      await second.settleAll(complete('v2'))
+      expect(first.tab()?.version).toBe('v1')
+      expect(second.tab()?.version).toBe('v2')
+    },
+  )
 })
 
-it.each([new Error('invalid bytes'), 'invalid bytes'])('reports an active complete-read decoding failure: %s', async (failure) => {
+it.each([new Error('invalid bytes'), 'invalid bytes'])('reports an active complete-read decoding failure: %s', async failure => {
   const instance = createTextStore().create()
   const controller = new AbortController()
   const read = vi.fn<ReadDocumentBytes>().mockRejectedValue(failure)
@@ -421,7 +441,9 @@ it.each([new Error('invalid bytes'), 'invalid bytes'])('reports an active comple
     textFace(vi.fn(), read, createResources())(SESSION, instance.actions).loadAll(TAB_1, FILE, controller.signal)
     await Promise.resolve()
     expect(instance.getSnapshot().byTab[TAB_1]?.failure).toMatchObject({ code: 'gateway/internal', message: 'invalid bytes' })
-  } finally { controller.abort() }
+  } finally {
+    controller.abort()
+  }
 })
 
 it('ignores a complete-read rejection after renderer-owned loading takes over', async () => {
@@ -435,5 +457,7 @@ it('ignores a complete-read rejection after renderer-owned loading takes over', 
     pending.reject(new Error('retired'))
     await pending.promise.catch(() => {})
     expect(instance.getSnapshot().byTab[TAB_1]?.failure).toBeUndefined()
-  } finally { controller.abort() }
+  } finally {
+    controller.abort()
+  }
 })

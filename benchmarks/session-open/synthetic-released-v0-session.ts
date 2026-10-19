@@ -68,42 +68,47 @@ class ReleasedV0FixtureBuilder {
   private appendTurn(turn: number, reasoningDeltaCount: number, textDeltaCount: number): void {
     this.appendEvent('turn/start', { turn })
     this.appendEvent('step/start', { turn, step: 1 })
-    this.appendEvent('user/message', {
-      id: `user-${String(turn)}`,
-      role: 'user',
-      content: [{ type: 'text', text: `prompt ${String(turn)}` }],
-      source: { kind: 'user' },
-    }, { surfaceOp: 'append' })
-    const firstChunkSeq = this.appendChunk(turn, { type: 'block-start', index: 0, blockType: 'reasoning' })
-    const reasoningDeltas = Array.from(
-      { length: reasoningDeltaCount },
-      (_, index) => `r${String(index)} `,
+    this.appendEvent(
+      'user/message',
+      {
+        id: `user-${String(turn)}`,
+        role: 'user',
+        content: [{ type: 'text', text: `prompt ${String(turn)}` }],
+        source: { kind: 'user' },
+      },
+      { surfaceOp: 'append' },
     )
+    const firstChunkSeq = this.appendChunk(turn, { type: 'block-start', index: 0, blockType: 'reasoning' })
+    const reasoningDeltas = Array.from({ length: reasoningDeltaCount }, (_, index) => `r${String(index)} `)
     this.appendDeltas('reasoning', turn, 0, reasoningDeltas)
     const reasoning = reasoningDeltas.join('')
     this.appendChunk(turn, { type: 'block-end', index: 0, block: { type: 'reasoning', text: reasoning } })
     this.appendChunk(turn, { type: 'block-start', index: 1, blockType: 'text' })
-    const textDeltas = Array.from(
-      { length: textDeltaCount },
-      (_, index) => `w${String(index)} `,
-    )
+    const textDeltas = Array.from({ length: textDeltaCount }, (_, index) => `w${String(index)} `)
     this.appendDeltas('text', turn, 1, textDeltas)
     const text = textDeltas.join('')
     this.appendChunk(turn, { type: 'block-end', index: 1, block: { type: 'text', text } })
     const usage = { inputTokens: 100, outputTokens: textDeltaCount }
     this.appendChunk(turn, { type: 'usage', usage })
     const lastChunkSeq = this.appendChunk(turn, { type: 'finish', reason: { kind: 'stop' } })
-    this.appendEvent('assistant/message', {
-      turn,
-      step: 1,
-      message: {
-        id: `assistant-${String(turn)}`,
-        role: 'assistant',
-        content: [{ type: 'reasoning', text: reasoning }, { type: 'text', text }],
-        source: { kind: 'model', provider: 'bench', model: 'bench' },
+    this.appendEvent(
+      'assistant/message',
+      {
+        turn,
+        step: 1,
+        message: {
+          id: `assistant-${String(turn)}`,
+          role: 'assistant',
+          content: [
+            { type: 'reasoning', text: reasoning },
+            { type: 'text', text },
+          ],
+          source: { kind: 'model', provider: 'bench', model: 'bench' },
+        },
+        usage,
       },
-      usage,
-    }, { sourceEventSeqs: [[firstChunkSeq, lastChunkSeq]], surfaceOp: 'append' })
+      { sourceEventSeqs: [[firstChunkSeq, lastChunkSeq]], surfaceOp: 'append' },
+    )
     this.appendEvent('step/end', { turn, step: 1 })
     this.appendEvent('turn/end', { turn, reason: { kind: 'completed' } })
   }
@@ -112,12 +117,7 @@ class ReleasedV0FixtureBuilder {
     return this.appendEvent('assistant/chunk', { turn, step: 1, chunk })
   }
 
-  private appendDeltas(
-    kind: 'reasoning' | 'text',
-    turn: number,
-    index: number,
-    deltas: readonly string[],
-  ): void {
+  private appendDeltas(kind: 'reasoning' | 'text', turn: number, index: number, deltas: readonly string[]): void {
     if (deltas.length < 3) {
       for (const delta of deltas) {
         this.appendChunk(turn, {
@@ -144,11 +144,7 @@ class ReleasedV0FixtureBuilder {
     this.time += deltas.length
   }
 
-  private appendEvent(
-    type: string,
-    data: unknown,
-    extra: Readonly<Record<string, unknown>> = {},
-  ): number {
+  private appendEvent(type: string, data: unknown, extra: Readonly<Record<string, unknown>> = {}): number {
     const seq = this.seq
     this.rows.push({ type, seq, time: this.time, data, ...extra })
     this.seq += 1
@@ -163,10 +159,7 @@ class ReleasedV0FixtureBuilder {
  * @param shape - workload size.
  * @returns physical and logical workload facts.
  */
-export async function writeSyntheticReleasedV0Session(
-  root: string,
-  shape: SyntheticV0SessionShape,
-): Promise<SyntheticV0SessionWrite> {
+export async function writeSyntheticReleasedV0Session(root: string, shape: SyntheticV0SessionShape): Promise<SyntheticV0SessionWrite> {
   const fixture = new ReleasedV0FixtureBuilder()
   fixture.appendTurns(shape)
   const header = {
@@ -186,10 +179,7 @@ export async function writeSyntheticReleasedV0Session(
     logicalBytes += Buffer.byteLength(text)
     bodyFrames.push(await compressZstdFrame(text))
   }
-  const physical = Buffer.concat([
-    await compressZstdFrame(headerLine),
-    ...bodyFrames,
-  ])
+  const physical = Buffer.concat([await compressZstdFrame(headerLine), ...bodyFrames])
   const directory = join(root, SYNTHETIC_SESSION_DIRECTORY)
   await mkdir(directory, { recursive: true })
   const path = join(directory, SYNTHETIC_V0_FILENAME)

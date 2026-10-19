@@ -32,9 +32,11 @@ export class ReleaseChangeGate {
   /** Prompt-worthy release change; undefined while the Host serves the boot release or a dismissed one. */
   readonly change: ObservableSnapshot<ClientReleaseChange | undefined> = {
     getSnapshot: () => this.snapshot,
-    subscribe: (listener) => {
+    subscribe: listener => {
       this.listeners.add(listener)
-      return () => { this.listeners.delete(listener) }
+      return () => {
+        this.listeners.delete(listener)
+      }
     },
   }
   private snapshot: ClientReleaseChange | undefined
@@ -68,7 +70,9 @@ export class ReleaseChangeGate {
     if (quiet) {
       if (this.snapshot !== undefined) this.publish(undefined)
     } else if (this.snapshot === undefined || !sameRelease(this.snapshot.host, release)) {
-      console.warn(`client-modules: Host release changed from ${describeRelease(previous)} to ${describeRelease(release)}; plugin updates pause until this page reloads`)
+      console.warn(
+        `client-modules: Host release changed from ${describeRelease(previous)} to ${describeRelease(release)}; plugin updates pause until this page reloads`,
+      )
       this.publish({ page: this.page, previous, host: release })
     }
     return this.matches

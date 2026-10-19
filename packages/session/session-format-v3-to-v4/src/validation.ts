@@ -1,7 +1,12 @@
 /** Native V4 metadata and generation-owned relationship validation. */
 
 import { isAbsolute } from 'node:path'
-import { SessionFormatError, SessionFormatUnsupportedMigrationError, isSessionFormatJsonObject, sessionFormatCount } from '@deepseek-ai/dsh-session-format'
+import {
+  SessionFormatError,
+  SessionFormatUnsupportedMigrationError,
+  isSessionFormatJsonObject,
+  sessionFormatCount,
+} from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatArtifact, SessionFormatEvent } from '@deepseek-ai/dsh-session-format'
 import { assertV4DeveloperData } from './developer.ts'
 import { assertV4LifecycleRelationships } from './relationships.ts'
@@ -67,8 +72,8 @@ export function restoreReleasedV4Artifact(artifact: SessionFormatArtifact, known
     assertV4SystemMessageFields(event)
     assertV4ToolResultMessage(event)
     assertV4ForkResult(event)
-    if (event.type === 'session/end-seed' && isSessionFormatJsonObject(event.data)
-      && event.data['inherited'] === true) lastInheritedMarker = index
+    if (event.type === 'session/end-seed' && isSessionFormatJsonObject(event.data) && event.data['inherited'] === true)
+      lastInheritedMarker = index
   }
   if (artifact.header.isSeeded && lastInheritedMarker !== cut) {
     throw new SessionFormatError('format v4 seeded header disagrees with its last inherited end-seed marker')
@@ -90,7 +95,10 @@ export function validateDeliveryAccepted(event: SessionFormatEvent, currentVersi
   if (event.type !== 'session-log-deepseek/delivery-accepted') return undefined
   const data = event.data
   if (!isSessionFormatJsonObject(data)) throw new SessionFormatError('delivery-accepted data must be an object')
-  const version = sessionFormatCount(data['sessionFormatVersion'] === undefined ? 0 : data['sessionFormatVersion'], 'delivery sessionFormatVersion')
+  const version = sessionFormatCount(
+    data['sessionFormatVersion'] === undefined ? 0 : data['sessionFormatVersion'],
+    'delivery sessionFormatVersion',
+  )
   if (version !== currentVersion) return undefined
   const throughSeq = sessionFormatCount(data['throughSeq'], 'delivery throughSeq')
   if (throughSeq >= event.seq) throw new SessionFormatError('delivery throughSeq must precede its marker')
@@ -114,9 +122,11 @@ export function assertReleasedV4Relationships(artifact: SessionFormatArtifact, k
     assertV4DeveloperData(event)
     assertV4MessageSources(event)
     const deliveryId = validateDeliveryAccepted(event, 4)
-    if (deliveryId !== undefined
-      && !(artifact.header.parentSession !== undefined && event.seq < artifact.inheritedEventCount)
-      && deliveryId !== artifact.header.id) {
+    if (
+      deliveryId !== undefined &&
+      !(artifact.header.parentSession !== undefined && event.seq < artifact.inheritedEventCount) &&
+      deliveryId !== artifact.header.id
+    ) {
       throw new SessionFormatError('current-generation delivery marker names the wrong Session')
     }
     if (event.type === 'subagent/catalog' && event.seq >= artifact.inheritedEventCount) {

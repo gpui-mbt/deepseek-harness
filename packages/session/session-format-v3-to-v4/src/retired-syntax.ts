@@ -9,7 +9,10 @@ function assertBlock(block: unknown, subject: string): void {
 }
 
 function assertContent(content: unknown, subject: string): void {
-  if (Array.isArray(content)) content.forEach((block) => { assertBlock(block, subject) })
+  if (Array.isArray(content))
+    content.forEach(block => {
+      assertBlock(block, subject)
+    })
 }
 
 function assertMessageContent(message: unknown, subject: string): void {
@@ -50,7 +53,10 @@ export function assertV4RetiredSyntax(row: unknown): void {
     case 'agent/inbox/spliced':
     case 'session/title-llm-request': {
       const messages = data[row['type'] === 'agent/inbox/spliced' ? 'inserted' : 'messages']
-      if (Array.isArray(messages)) messages.forEach((message) => { assertMessageContent(message, subject) })
+      if (Array.isArray(messages))
+        messages.forEach(message => {
+          assertMessageContent(message, subject)
+        })
       break
     }
     case 'compaction/summary':

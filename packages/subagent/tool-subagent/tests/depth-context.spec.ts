@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { assembleContextFor } from '@deepseek-ai/dsh-agent'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { Context } from '@deepseek-ai/cordis'
@@ -33,15 +33,20 @@ describe('delegation depth context', () => {
     const assembly = await ctx.systemPrompt.assemble(assembleContextFor(agent))
     expect(assembly.sections).toEqual(baseline.sections)
     expect(assembly.tools).toEqual(baseline.tools)
-    expect(await depthContext(ctx, agent)).toEqual(remaining === 0 ? [
-      `Delegation depth for \`subagent\`: current ${depth}, maximum ${maxDepth}, remaining levels 0.`
-        + ' Do not call `subagent` at this depth; carry out the work directly.',
-    ] : [])
+    expect(await depthContext(ctx, agent)).toEqual(
+      remaining === 0
+        ? [
+            `Delegation depth for \`subagent\`: current ${depth}, maximum ${maxDepth}, remaining levels 0.` +
+              ' Do not call `subagent` at this depth; carry out the work directly.',
+          ]
+        : [],
+    )
     const restore = agent.ctx.systemPrompt.suppressRuntimeContext()
     try {
       expect(await depthContext(ctx, agent)).toEqual([])
-      expect(ctx.systemPrompt.refreshContext(assembly, assembleContextFor(agent))
-        .contexts.some(part => part.name.endsWith(':depth'))).toBe(false)
+      expect(ctx.systemPrompt.refreshContext(assembly, assembleContextFor(agent)).contexts.some(part => part.name.endsWith(':depth'))).toBe(
+        false,
+      )
     } finally {
       restore()
     }
@@ -75,7 +80,9 @@ describe('delegation depth context', () => {
     const { agent } = await ctx.agents.create({
       sessionId: SessionId('scoped-depth-policy'),
       meta: { delegationDepth: 1 },
-      setup: async (agentCtx) => { await agentCtx.plugin(tool, { provider: 'mock', maxDepth: 1 }) },
+      setup: async agentCtx => {
+        await agentCtx.plugin(tool, { provider: 'mock', maxDepth: 1 })
+      },
     })
     expect(await depthContext(ctx, agent)).toEqual([
       'Delegation depth for `subagent`: current 1, maximum 1, remaining levels 0. Do not call `subagent` at this depth; carry out the work directly.',

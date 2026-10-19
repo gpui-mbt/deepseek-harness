@@ -28,19 +28,9 @@ export { createScope, scopeOf } from './scope.ts'
 export type { AgentContext, AgentScopeHandle } from './scope.ts'
 export { SessionCreateError, SessionForkError } from './sessions/service.ts'
 export type { SessionBinding, SessionListState, SessionSummary } from './sessions/service.ts'
-export type {
-  SessionListPhase,
-  SessionListSnapshot,
-  SessionSearchResultItem,
-  SessionProjectionSnapshot,
-} from './sessions/manager.ts'
+export type { SessionListPhase, SessionListSnapshot, SessionSearchResultItem, SessionProjectionSnapshot } from './sessions/manager.ts'
 export type { Session } from './sessions/session.ts'
-export type {
-  ProjectionsBaseline,
-  ProjectionValueStore,
-  SessionProjectionMap,
-  UseProjection,
-} from './sessions/projection-store.ts'
+export type { ProjectionsBaseline, ProjectionValueStore, SessionProjectionMap, UseProjection } from './sessions/projection-store.ts'
 export type {
   BeginSubmissionInput,
   ISession,
@@ -49,9 +39,7 @@ export type {
   SessionFace,
   SubmissionHandle,
 } from './contract/session.ts'
-export type {
-  ISessions, SessionReference, SessionRetainInfo, SessionRetainOptions, SessionTarget,
-} from './contract/sessions.ts'
+export type { ISessions, SessionReference, SessionRetainInfo, SessionRetainOptions, SessionTarget } from './contract/sessions.ts'
 export { MutableSessionEventSource } from './contract/events.ts'
 export type {
   AssistantLiveChunkEvent,
@@ -95,15 +83,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 /** Required Remote and Context projection services. */
-export const inject = [
-  'connection',
-  'fileUpload',
-  'typert',
-  'remote',
-  'remote.commands',
-  'remote.session',
-  'remote.subagents',
-]
+export const inject = ['connection', 'fileUpload', 'typert', 'remote', 'remote.commands', 'remote.session', 'remote.subagents']
 
 /**
  * Install Client Session state and its reconnecting control stream.
@@ -113,8 +93,12 @@ export function apply(ctx: Context): void {
   const remotes = ctx.remote as unknown as SessionRemotes
   const connection = ctx.get('connection') as ConnectionHandle
   const sessions = new ClientSessions(ctx, remotes)
-  ctx.remote.$on('api-session/added', (summary) => { sessions.handleSessionAdded(summary) })
-  ctx.remote.$on('api-session/removed', (sessionId) => { sessions.handleSessionRemoved(sessionId) })
+  ctx.remote.$on('api-session/added', summary => {
+    sessions.handleSessionAdded(summary)
+  })
+  ctx.remote.$on('api-session/removed', sessionId => {
+    sessions.handleSessionRemoved(sessionId)
+  })
   ctx.remote.$on('api-session/status', (sessionId, running) => {
     sessions.handleSessionStatus(sessionId, running)
   })
@@ -126,8 +110,12 @@ export function apply(ctx: Context): void {
   })
 
   const control = createSessionControlStream(remotes, {
-    accept: (frame) => { sessions.handleControlFrame(frame) },
-    failed: (error) => { console.error('[session-controller] control stream failed:', error) },
+    accept: frame => {
+      sessions.handleControlFrame(frame)
+    },
+    failed: error => {
+      console.error('[session-controller] control stream failed:', error)
+    },
   })
   const connected = (): void => {
     if (connection.generation.getSnapshot() === undefined) return
@@ -140,10 +128,17 @@ export function apply(ctx: Context): void {
   connected()
   ctx.typert.contexts.registerClient('agent', {
     identity: candidate => sessions.sessionOf(candidate)?.sessionId,
-    resolve: (sessionId) => {
+    resolve: sessionId => {
       const reference = sessions.retainAgentScope(sessionId)
-      return typertOwnedValue(reference.binding.ctx, () => { reference.release() })
+      return typertOwnedValue(reference.binding.ctx, () => {
+        reference.release()
+      })
     },
   })
-  ctx.effect(() => async () => { await control.dispose() }, 'session-controller.client.control')
+  ctx.effect(
+    () => async () => {
+      await control.dispose()
+    },
+    'session-controller.client.control',
+  )
 }

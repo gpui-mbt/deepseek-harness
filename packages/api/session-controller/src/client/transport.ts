@@ -20,19 +20,12 @@ import type {
   SessionPageRequest,
   SessionProjectionBaseline,
 } from '../types.ts'
-import {
-  historyEntries,
-  historyRecordFirstSeq,
-  historyRecordLastSeq,
-} from './sessions/history-records.ts'
+import { historyEntries, historyRecordFirstSeq, historyRecordLastSeq } from './sessions/history-records.ts'
 import type { SessionEventLikeEntry, SessionLiveEventEntry } from './contract/events.ts'
 import type { SessionRemotes } from './sessions/remotes.ts'
 import { assertSessionWireEvent } from './session-wire-event.ts'
 
-export {
-  SESSION_SEARCH_RESULT_LIMIT,
-  SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS,
-} from '../types.ts'
+export { SESSION_SEARCH_RESULT_LIMIT, SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS } from '../types.ts'
 
 /** Pagination fields bound to an already-addressed Session journal. */
 export type ClientSessionPageRequest = Omit<SessionPageRequest, 'address' | 'throughSeq'>
@@ -49,18 +42,16 @@ interface SessionJournalPage extends SessionPage {
 /** One complete publication from the Session journal stream. */
 export type SessionJournalChange =
   | {
-    readonly type: 'replace' | 'prepend'
-    readonly page: SessionJournalPage
-    readonly entries: readonly SessionEventLikeEntry[]
-    readonly hasMore: boolean
-  }
+      readonly type: 'replace' | 'prepend'
+      readonly page: SessionJournalPage
+      readonly entries: readonly SessionEventLikeEntry[]
+      readonly hasMore: boolean
+    }
   | { readonly type: 'append'; readonly entry: SessionLiveEventEntry }
   | { readonly type: 'assistant-stream'; readonly frame: SessionAssistantStreamFrame }
 
 function toSessionJournalChange(
-  change: RemoteJournalChange<
-    SessionJournalPage, SessionHistoryRecord, SessionAssistantStreamFrame
-  >,
+  change: RemoteJournalChange<SessionJournalPage, SessionHistoryRecord, SessionAssistantStreamFrame>,
 ): SessionJournalChange {
   switch (change.type) {
     case 'replace':
@@ -81,10 +72,7 @@ type SessionControlBaselineFrame = Extract<SessionControlFrame, { type: 'baselin
 type SessionControlDeltaFrame = Exclude<SessionControlFrame, SessionControlBaselineFrame>
 
 /** Gateway-owned control snapshot stream configured for Session frames. */
-export type SessionControlStream = RemoteSnapshotStream<
-  SessionControlBaselineFrame,
-  SessionControlDeltaFrame
->
+export type SessionControlStream = RemoteSnapshotStream<SessionControlBaselineFrame, SessionControlDeltaFrame>
 
 /** Domain sinks used by the Host-wide Session control stream. */
 export interface SessionControlStreamOptions {
@@ -112,16 +100,14 @@ export interface SessionEventStreamOptions {
  * @param options - Session state destinations.
  * @returns an unstarted stream owned by the Client Session runtime.
  */
-export function createSessionControlStream(
-  remote: SessionRemotes,
-  options: SessionControlStreamOptions,
-): SessionControlStream {
+export function createSessionControlStream(remote: SessionRemotes, options: SessionControlStreamOptions): SessionControlStream {
   const stream = remote.$stream<SessionControlFrame>({
     name: 'session control stream',
     open: signal => remote.session.control(signal),
-    ended: accepted => accepted
-      ? new RemoteStreamCarrierError('session control stream ended without a terminal result')
-      : new Error('session control stream ended before its opening snapshot'),
+    ended: accepted =>
+      accepted
+        ? new RemoteStreamCarrierError('session control stream ended without a terminal result')
+        : new Error('session control stream ended before its opening snapshot'),
     ...(options.carrierFailed === undefined ? {} : { carrierFailed: options.carrierFailed }),
   })
   return new RemoteSnapshotStream(stream, {
@@ -160,35 +146,32 @@ export class SessionEventStream extends RemoteJournalStream<
       last: historyRecordLastSeq,
       compare: (left, right) => left - right,
       follows: (left, right) => right === left + 1,
-      publish: (change) => { options.publish(toSessionJournalChange(change)) },
-      ...(options.carrierFailed === undefined
-        ? {}
-        : { carrierFailed: options.carrierFailed }),
+      publish: change => {
+        options.publish(toSessionJournalChange(change))
+      },
+      ...(options.carrierFailed === undefined ? {} : { carrierFailed: options.carrierFailed }),
       failed: options.failed,
     })
   }
 
   /** @inheritdoc */
-  protected override async * follow(
+  protected override async *follow(
     request: ClientSessionPageRequest,
     signal: AbortSignal,
-  ): AsyncIterable<RemoteJournalFrame<
-    SessionHistoryRecord, number, SessionJournalPage, SessionAssistantStreamFrame
-  >> {
+  ): AsyncIterable<RemoteJournalFrame<SessionHistoryRecord, number, SessionJournalPage, SessionAssistantStreamFrame>> {
     let assistantRevision: number | undefined
-    for await (const frame of this.remote.session.follow({
-      address: this.address,
-      assistantStream: true,
-      ...this.repairRequest(request),
-    }, signal)) {
+    for await (const frame of this.remote.session.follow(
+      {
+        address: this.address,
+        assistantStream: true,
+        ...this.repairRequest(request),
+      },
+      signal,
+    )) {
       if (frame.type === 'snapshot') {
         for (const record of frame.records) assertSessionWireEvent(record.event)
         if (frame.assistantStream === undefined) {
-          throw new RemoteError(
-            'gateway/internal',
-            'session assistant stream omitted its opted-in opening baseline',
-            {},
-          )
+          throw new RemoteError('gateway/internal', 'session assistant stream omitted its opted-in opening baseline', {})
         }
         assistantRevision = frame.assistantStream.revision
         yield {
@@ -206,9 +189,7 @@ export class SessionEventStream extends RemoteJournalStream<
       if (frame.type === 'assistant-stream') {
         const expected = (assistantRevision ?? 0) + 1
         if (frame.frame.revision !== expected) {
-          throw new RemoteStreamCarrierError(
-            `session assistant stream skipped revision ${String(expected)}`,
-          )
+          throw new RemoteStreamCarrierError(`session assistant stream skipped revision ${String(expected)}`)
         }
         assistantRevision = frame.frame.revision
         yield { type: 'notification', notification: frame.frame }
@@ -225,19 +206,14 @@ export class SessionEventStream extends RemoteJournalStream<
     throughSeq: number,
     signal: AbortSignal,
   ): Promise<SessionJournalPage> {
-    const result = await this.remote.session.page(
-      { address: this.address, throughSeq, ...request },
-      signal,
-    )
+    const result = await this.remote.session.page({ address: this.address, throughSeq, ...request }, signal)
     if (!result.ok) throw result.error
     for (const record of result.value.records) assertSessionWireEvent(record.event)
     return result.value
   }
 
   /** @inheritdoc */
-  protected override repairRequest(
-    request: ClientSessionPageRequest,
-  ): ClientSessionPageRequest {
+  protected override repairRequest(request: ClientSessionPageRequest): ClientSessionPageRequest {
     return {
       ...(request.maxMessages === undefined ? {} : { maxMessages: request.maxMessages }),
       ...(request.turnWindow === undefined ? {} : { turnWindow: request.turnWindow }),

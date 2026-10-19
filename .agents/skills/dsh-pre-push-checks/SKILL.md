@@ -55,7 +55,7 @@ This applies to these pnpm scripts; npm and other launchers retain their own arg
 Test selection and coverage selection are separate. A Vitest file filter chooses which tests run, while the repository configuration otherwise measures every `packages/*/*/src/**/*.ts` file. When unit coverage is relevant, name both the owning tests and the source files or package whose coverage those tests must prove:
 
 ```sh
-pnpm exec vitest run packages/<group>/<package>/tests/<behavior>.spec.ts \
+pnpm exec vp test --config vitest.config.ts packages/<group>/<package>/tests/<behavior>.spec.ts \
   --coverage \
   --coverage.include='packages/<group>/<package>/src/**/*.ts'
 ```
@@ -65,8 +65,8 @@ Use an exact source file when the behavior is truly confined to one module. Repe
 When the owning tests are unclear, use Vitest's dependency graph to discover a candidate set, then inspect the selected tests before treating the run as evidence:
 
 ```sh
-pnpm exec vitest related packages/<group>/<package>/src/<changed>.ts \
-  --run \
+pnpm exec vp test related packages/<group>/<package>/src/<changed>.ts \
+  --config vitest.config.ts \
   --coverage \
   --coverage.include='packages/<group>/<package>/src/<changed>.ts'
 ```

@@ -9,4 +9,9 @@ const ctx = await bootProductionProfile({ binName: 'product-telemetry-shutdown-t
 const telemetry = ctx.get('productTelemetry')
 if (telemetry === undefined) throw new Error('product telemetry did not activate')
 telemetry.emit({ eventName: 'telemetry.synthetic', timestamp: 1_800_000_000_000, body: 'Synthetic test' })
-await createProcessShutdown(() => ctx.fiber.dispose(), () => { process.exit(2) }).shutdown(0)
+await createProcessShutdown(
+  () => ctx.fiber.dispose(),
+  () => {
+    process.exit(2)
+  },
+).shutdown(0)

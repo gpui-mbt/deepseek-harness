@@ -57,7 +57,9 @@ function createReleasedCodec(version: 0 | 1) {
       return {
         header: physical.header,
         headerInheritedEventCount: physical.inheritedEventCount,
-        decodeRow: (rowValue, context) => { scanner.decodeRow(rowValue, context) },
+        decodeRow: (rowValue, context) => {
+          scanner.decodeRow(rowValue, context)
+        },
         finish(_context) {
           scanner.finish(physical.inheritedEventCount)
           return physical.inheritedEventCount
@@ -67,13 +69,8 @@ function createReleasedCodec(version: 0 | 1) {
   } satisfies SessionFormatCodec)
 }
 
-function scanRows(
-  recoverable: boolean,
-): {
-  decodeRow(
-    rowValue: unknown,
-    context: SessionFormatMigrationContext,
-  ): void
+function scanRows(recoverable: boolean): {
+  decodeRow(rowValue: unknown, context: SessionFormatMigrationContext): void
   finish(inheritedEventCount: number): void
 } {
   let rowIndex = 0
@@ -95,9 +92,10 @@ function scanRows(
           decoded = decodeEvent(record, currentRow)
         }
       } catch (error: unknown) {
-        const current = error instanceof SessionFormatError
-          ? error
-          : new SessionFormatError(`released Session row ${currentRow} is malformed`, { cause: error })
+        const current =
+          error instanceof SessionFormatError
+            ? error
+            : new SessionFormatError(`released Session row ${currentRow} is malformed`, { cause: error })
         if (!recoverable) throw current
         issue ??= current
         return
@@ -106,13 +104,9 @@ function scanRows(
         if (!packed && (decoded as SessionFormatEvent).type === 'turn/end') throw issue
         return
       }
-      const seq = packed
-        ? (decoded as ReleasedAssistantChunkRun).firstSeq
-        : (decoded as SessionFormatEvent).seq
+      const seq = packed ? (decoded as ReleasedAssistantChunkRun).firstSeq : (decoded as SessionFormatEvent).seq
       if (seq !== eventCount) {
-        const gap = new SessionFormatError(
-          `released Session row ${currentRow} has seq gap (expected ${eventCount}, got ${seq})`,
-        )
+        const gap = new SessionFormatError(`released Session row ${currentRow} has seq gap (expected ${eventCount}, got ${seq})`)
         if (!recoverable) throw gap
         issue = gap
         if (!packed && (decoded as SessionFormatEvent).type === 'turn/end') throw gap
@@ -139,30 +133,18 @@ function decodeHeader(value: unknown, version: 0 | 1): SessionFormatHeader {
   return decodePhysicalHeader(value, version).header
 }
 
-function decodePhysicalHeader(
-  value: unknown,
-  version: 0 | 1,
-): { header: SessionFormatHeader; inheritedEventCount: number } {
+function decodePhysicalHeader(value: unknown, version: 0 | 1): { header: SessionFormatHeader; inheritedEventCount: number } {
   const source = snapshotSessionFormatJson(value, `released v${version} physical header`)
   const record = releasedV0Record(source, `released v${version} physical header`)
-  assertReleasedV0Keys(
-    record,
-    PHYSICAL_HEADER_REQUIRED,
-    PHYSICAL_HEADER_OPTIONAL,
-    `released v${version} physical header`,
-  )
+  assertReleasedV0Keys(record, PHYSICAL_HEADER_REQUIRED, PHYSICAL_HEADER_OPTIONAL, `released v${version} physical header`)
   if (record['type'] !== 'session' || record['version'] !== version) {
     throw new SessionFormatError(`expected released v${version} physical Session header`)
   }
   if (typeof record['id'] !== 'string') throw new SessionFormatError(`released v${version} header id must be a string`)
   const createdAt = sessionFormatCount(record['createdAt'], `released v${version} header createdAt`)
-  const delegationDepth = sessionFormatCount(
-    record['delegationDepth'],
-    `released v${version} header delegationDepth`,
-  )
-  const seedLength = record['seedLength'] === undefined
-    ? 0
-    : sessionFormatCount(record['seedLength'], `released v${version} header seedLength`)
+  const delegationDepth = sessionFormatCount(record['delegationDepth'], `released v${version} header delegationDepth`)
+  const seedLength =
+    record['seedLength'] === undefined ? 0 : sessionFormatCount(record['seedLength'], `released v${version} header seedLength`)
   for (const key of ['cwd', 'parentSession', 'agentPreset'] as const) {
     if (record[key] !== undefined && typeof record[key] !== 'string') {
       throw new SessionFormatError(`released v${version} header ${key} must be a string`)
@@ -186,10 +168,7 @@ function decodePhysicalHeader(
   return { header, inheritedEventCount: seedLength }
 }
 
-function decodeEvent(
-  record: Record<string, SessionFormatJsonValue>,
-  rowIndex: number,
-): SessionFormatEvent {
+function decodeEvent(record: Record<string, SessionFormatJsonValue>, rowIndex: number): SessionFormatEvent {
   if (record['sourceEventSeqs'] !== undefined) {
     const seq = sessionFormatCount(record['seq'], `released Session row ${rowIndex} seq`)
     return {
@@ -200,11 +179,7 @@ function decodeEvent(
   return record as SessionFormatEvent
 }
 
-function decodePackedRun(
-  row: Record<string, SessionFormatJsonValue>,
-  type: string,
-  rowIndex: number,
-): ReleasedAssistantChunkRun {
+function decodePackedRun(row: Record<string, SessionFormatJsonValue>, type: string, rowIndex: number): ReleasedAssistantChunkRun {
   const label = `released ${type} row ${rowIndex}`
   assertReleasedV0Keys(row, ['type', 'seq0', 'time0', 'data'], [], label)
   const seq0 = sessionFormatCount(row['seq0'], `${label} seq0`)
@@ -233,23 +208,26 @@ function decodePackedRun(
   const turn = sessionFormatCount(data['turn'], `${label} turn`)
   const step = sessionFormatCount(data['step'], `${label} step`)
   const chunkIndex = sessionFormatCount(data['index'], `${label} index`)
-  if (isTool && (typeof data['id'] !== 'string'
-    || data['id'].length === 0
-    || (data['name'] !== undefined && typeof data['name'] !== 'string'))) {
+  if (
+    isTool &&
+    (typeof data['id'] !== 'string' || data['id'].length === 0 || (data['name'] !== undefined && typeof data['name'] !== 'string'))
+  ) {
     throw new SessionFormatError(`${label} id and optional name must be strings`)
   }
   const lastSeq = sessionFormatCount(seq0 + payload.length - 1, `${label} final seq`)
-  const stream = (type === 'tool-call-chunks'
-    ? {
-      type,
-      time0,
-      index: chunkIndex,
-      dt: gaps,
-      id: data['id'],
-      ...(data['name'] === undefined ? {} : { name: data['name'] }),
-      args: payload,
-    }
-    : { type, time0, index: chunkIndex, dt: gaps, texts: payload }) as SessionFormatJsonObject
+  const stream = (
+    type === 'tool-call-chunks'
+      ? {
+          type,
+          time0,
+          index: chunkIndex,
+          dt: gaps,
+          id: data['id'],
+          ...(data['name'] === undefined ? {} : { name: data['name'] }),
+          args: payload,
+        }
+      : { type, time0, index: chunkIndex, dt: gaps, texts: payload }
+  ) as SessionFormatJsonObject
   const run: ReleasedAssistantChunkRun = {
     runType: 'released-assistant-chunks',
     firstSeq: seq0,
@@ -267,24 +245,23 @@ function decodePackedRun(
 function* expandAssistantChunkRun(run: ReleasedAssistantChunkRun): Iterable<SessionFormatEvent> {
   const stream = run.stream
   const gaps = stream['dt'] as readonly number[]
-  const members = stream['type'] === 'tool-call-chunks'
-    ? stream['args'] as readonly string[]
-    : stream['texts'] as readonly string[]
+  const members = stream['type'] === 'tool-call-chunks' ? (stream['args'] as readonly string[]) : (stream['texts'] as readonly string[])
   let time = run.stream['time0'] as number
   for (let index = 0; index < members.length; index += 1) {
     if (index > 0) time += gaps[index - 1] as number
     const member = members[index] as string
-    const chunk = stream['type'] === 'text-chunks'
-      ? { type: 'text-delta', index: stream['index'], text: member }
-      : stream['type'] === 'reasoning-chunks'
-        ? { type: 'reasoning-delta', index: stream['index'], text: member }
-        : {
-          type: 'tool-call-delta',
-          index: stream['index'],
-          id: stream['id'],
-          ...(stream['name'] === undefined ? {} : { name: stream['name'] }),
-          argumentsDelta: member,
-        }
+    const chunk =
+      stream['type'] === 'text-chunks'
+        ? { type: 'text-delta', index: stream['index'], text: member }
+        : stream['type'] === 'reasoning-chunks'
+          ? { type: 'reasoning-delta', index: stream['index'], text: member }
+          : {
+              type: 'tool-call-delta',
+              index: stream['index'],
+              id: stream['id'],
+              ...(stream['name'] === undefined ? {} : { name: stream['name'] }),
+              argumentsDelta: member,
+            }
     yield {
       type: 'assistant/chunk',
       seq: run.firstSeq + index,

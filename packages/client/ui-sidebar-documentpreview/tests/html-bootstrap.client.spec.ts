@@ -1,20 +1,29 @@
 // @vitest-environment jsdom
 /** Bootstrap serialization and resource creation in the receiving document's environment. */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { runInNewContext } from 'node:vm'
 import { createHtmlDocument } from '../src/client/html/bootstrap.ts'
 import { decodeText, encodeText } from '../src/client/html/bytes.ts'
 
-afterEach(() => { vi.restoreAllMocks() })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 function run(html: string) {
   const open = vi.fn()
   const write = vi.fn<(html: string) => void>()
   const close = vi.fn()
-  const createObjectURL = vi.fn<(blob: Blob) => string>().mockImplementation(() => `blob:null/resource-${createObjectURL.mock.calls.length}`)
+  const createObjectURL = vi
+    .fn<(blob: Blob) => string>()
+    .mockImplementation(() => `blob:null/resource-${createObjectURL.mock.calls.length}`)
   const script = html.slice(html.indexOf('<script>') + '<script>'.length, html.lastIndexOf('</script>'))
   runInNewContext(script, {
-    document: { open, write, close }, URL: { createObjectURL }, Blob, DOMParser, atob, TextDecoder,
+    document: { open, write, close },
+    URL: { createObjectURL },
+    Blob,
+    DOMParser,
+    atob,
+    TextDecoder,
   })
   return { open, write, close, createObjectURL, document: new DOMParser().parseFromString(write.mock.calls[0]![0], 'text/html') }
 }
@@ -35,15 +44,26 @@ describe('HTML bootstrap', () => {
   })
 
   it('creates local resources in the frame and preserves base, inline code and script order attributes', () => {
-    const source = '<!doctype html><html lang="en"><head><base href="https://example.invalid/assets/"><link rel="stylesheet" href="./main.css"></head><body><script src="./one.js"></script><script>window.next=1</script><script defer src="./one.js"></script><script async src="https://example.invalid/remote.js"></script></body></html>'
-    const result = run(createHtmlDocument({ data: utf8(source), assets: [
-      { kind: 'script', reference: './one.js', data: utf8('window.first=1') },
-      { kind: 'stylesheet', reference: './main.css', data: utf8('body{color:red}') },
-    ] }))
+    const source =
+      '<!doctype html><html lang="en"><head><base href="https://example.invalid/assets/"><link rel="stylesheet" href="./main.css"></head><body><script src="./one.js"></script><script>window.next=1</script><script defer src="./one.js"></script><script async src="https://example.invalid/remote.js"></script></body></html>'
+    const result = run(
+      createHtmlDocument({
+        data: utf8(source),
+        assets: [
+          { kind: 'script', reference: './one.js', data: utf8('window.first=1') },
+          { kind: 'stylesheet', reference: './main.css', data: utf8('body{color:red}') },
+        ],
+      }),
+    )
     expect(result.createObjectURL).toHaveBeenCalledTimes(2)
     expect(result.createObjectURL.mock.calls.map(([blob]) => blob.type)).toEqual(['application/javascript', 'text/css'])
     const scripts = [...result.document.querySelectorAll('script')]
-    expect(scripts.map(script => script.getAttribute('src'))).toEqual(['blob:null/resource-1', null, 'blob:null/resource-1', 'https://example.invalid/remote.js'])
+    expect(scripts.map(script => script.getAttribute('src'))).toEqual([
+      'blob:null/resource-1',
+      null,
+      'blob:null/resource-1',
+      'https://example.invalid/remote.js',
+    ])
     expect(scripts[1]?.textContent).toBe('window.next=1')
     expect(scripts[2]?.defer).toBe(true)
     expect(scripts[3]?.hasAttribute('async')).toBe(true)
@@ -53,7 +73,9 @@ describe('HTML bootstrap', () => {
   })
 
   it('rejects non-UTF-8 root and asset bytes before creating an iframe document', () => {
-    expect(() => createHtmlDocument({ data: utf8('<p>root</p>'), assets: [{ kind: 'script', reference: 'bad.js', data: new Uint8Array([255]) }] })).toThrow()
+    expect(() =>
+      createHtmlDocument({ data: utf8('<p>root</p>'), assets: [{ kind: 'script', reference: 'bad.js', data: new Uint8Array([255]) }] }),
+    ).toThrow()
     expect(() => createHtmlDocument({ data: new Uint8Array([255]), assets: [] })).toThrow()
     expect(decodeText(utf8('雪\u2028\u2029'))).toBe('雪\u2028\u2029')
   })

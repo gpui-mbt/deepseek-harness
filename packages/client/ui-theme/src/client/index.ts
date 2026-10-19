@@ -27,10 +27,23 @@ import { createAppearanceRowStore, createFontRowStore } from './settings-store.t
 import { installThemeStyles } from './styles.ts'
 import { en, zh, type ThemeKey } from './locales.ts'
 import {
-  DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, FONT_FAMILY_FIELDS, FONT_ROLES, FONT_SIZE_SPECS,
-  fontFamilyVariable, isFontSize, isThemePreference, normalizeFontFamily, sectionFontSizes,
-  THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE,
-  type FontFamilies, type FontRole, type FontSizes, type ThemePreference, type ThemeSettings,
+  DEFAULT_FONT_SIZES,
+  DEFAULT_PREFERENCE,
+  FONT_FAMILY_FIELDS,
+  FONT_ROLES,
+  FONT_SIZE_SPECS,
+  fontFamilyVariable,
+  isFontSize,
+  isThemePreference,
+  normalizeFontFamily,
+  sectionFontSizes,
+  THEME_PREFERENCE_FIELD,
+  THEME_SETTINGS_NAMESPACE,
+  type FontFamilies,
+  type FontRole,
+  type FontSizes,
+  type ThemePreference,
+  type ThemeSettings,
 } from '../theme-settings.ts'
 
 export type { AppearanceRowComponentProps, AppearanceRowInjected } from './AppearanceRow.tsx'
@@ -135,20 +148,104 @@ const BUILTIN_THEMES: readonly ThemeDefinition[] = Object.freeze([
 ])
 
 const BUILTIN_INSPECT_TOKENS: readonly ThemeTokenInspection[] = Object.freeze([
-  { name: '--dsw-alias-bg-base', description: 'Application base background.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-bg-base' },
-  { name: '--dsw-alias-bg-layer-1', description: 'Primary raised surface background.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-bg-layer-1' },
-  { name: '--dsw-alias-bg-layer-2', description: 'Secondary nested surface background.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-bg-layer-2' },
-  { name: '--dsw-alias-bg-overlay', description: 'Overlay and popover background.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-bg-overlay' },
-  { name: '--dsw-alias-border-l1', description: 'Primary subtle border.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-border-l1' },
-  { name: '--dsw-alias-border-l2', description: 'Secondary stronger border.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-border-l2' },
-  { name: '--dsw-alias-brand-primary', description: 'Primary brand accent.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-brand-primary' },
-  { name: '--dsw-alias-label-primary', description: 'Primary text color.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-label-primary' },
-  { name: '--dsw-alias-label-secondary', description: 'Secondary text color.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-label-secondary' },
-  { name: '--dsw-alias-state-error-primary', description: 'Primary error state color.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-state-error-primary' },
-  { name: '--dsw-alias-state-idle-primary', description: 'Primary inactive state color.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-state-idle-primary' },
-  { name: '--dsw-alias-state-success-primary', description: 'Primary success state color.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-state-success-primary' },
-  { name: '--dsw-alias-state-warn-primary', description: 'Primary warning state color.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-alias-state-warn-primary' },
-  { name: '--dsw-specific-sidebar-fill', description: 'Sidebar column and title-row background.', valueType: 'CSS color', requiresLightAndDark: true, cssVariable: '--dsw-specific-sidebar-fill' },
+  {
+    name: '--dsw-alias-bg-base',
+    description: 'Application base background.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-bg-base',
+  },
+  {
+    name: '--dsw-alias-bg-layer-1',
+    description: 'Primary raised surface background.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-bg-layer-1',
+  },
+  {
+    name: '--dsw-alias-bg-layer-2',
+    description: 'Secondary nested surface background.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-bg-layer-2',
+  },
+  {
+    name: '--dsw-alias-bg-overlay',
+    description: 'Overlay and popover background.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-bg-overlay',
+  },
+  {
+    name: '--dsw-alias-border-l1',
+    description: 'Primary subtle border.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-border-l1',
+  },
+  {
+    name: '--dsw-alias-border-l2',
+    description: 'Secondary stronger border.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-border-l2',
+  },
+  {
+    name: '--dsw-alias-brand-primary',
+    description: 'Primary brand accent.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-brand-primary',
+  },
+  {
+    name: '--dsw-alias-label-primary',
+    description: 'Primary text color.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-label-primary',
+  },
+  {
+    name: '--dsw-alias-label-secondary',
+    description: 'Secondary text color.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-label-secondary',
+  },
+  {
+    name: '--dsw-alias-state-error-primary',
+    description: 'Primary error state color.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-state-error-primary',
+  },
+  {
+    name: '--dsw-alias-state-idle-primary',
+    description: 'Primary inactive state color.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-state-idle-primary',
+  },
+  {
+    name: '--dsw-alias-state-success-primary',
+    description: 'Primary success state color.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-state-success-primary',
+  },
+  {
+    name: '--dsw-alias-state-warn-primary',
+    description: 'Primary warning state color.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-alias-state-warn-primary',
+  },
+  {
+    name: '--dsw-specific-sidebar-fill',
+    description: 'Sidebar column and title-row background.',
+    valueType: 'CSS color',
+    requiresLightAndDark: true,
+    cssVariable: '--dsw-specific-sidebar-fill',
+  },
 ])
 
 /**
@@ -198,12 +295,22 @@ export class ThemeRuntime {
       }
       ctx.effect(() => {
         media.addEventListener('change', onChange)
-        return () => { media.removeEventListener('change', onChange) }
+        return () => {
+          media.removeEventListener('change', onChange)
+        }
       }, 'ui-theme: prefers-color-scheme listener')
     }
-    ctx.effect(() => host.subscribe(() => { this.adopt() }), 'ui-theme: settings scope adoption')
+    ctx.effect(
+      () =>
+        host.subscribe(() => {
+          this.adopt()
+        }),
+      'ui-theme: settings scope adoption',
+    )
     this.adopt()
-    installFontSizeShortcuts(ctx, (delta) => { this.adjustFontSizes(delta) })
+    installFontSizeShortcuts(ctx, delta => {
+      this.adjustFontSizes(delta)
+    })
   }
 
   /**
@@ -317,8 +424,11 @@ export class ThemeRuntime {
     if (section === undefined) return
     const fontFamilies = durableFontFamilies(section)
     const fontSizes = sectionFontSizes(section)
-    if (this.preference === section.preference
-      && FONT_ROLES.every(role => this.fontSizes[role] === fontSizes[role] && this.fontFamilies[role] === fontFamilies[role])) return
+    if (
+      this.preference === section.preference &&
+      FONT_ROLES.every(role => this.fontSizes[role] === fontSizes[role] && this.fontFamilies[role] === fontFamilies[role])
+    )
+      return
     this.preference = section.preference
     this.fontSizes = fontSizes
     this.fontFamilies = fontFamilies
@@ -378,9 +488,7 @@ export class ThemeRuntime {
   }
 
   private buildSnapshot(): ThemeSnapshot {
-    const resolvedId = this.preference === 'system'
-      ? (this.media?.matches === true ? 'dark' : 'light')
-      : this.preference
+    const resolvedId = this.preference === 'system' ? (this.media?.matches === true ? 'dark' : 'light') : this.preference
     // Both built-ins always exist; a registered preference id resolves or has
     // been reset by its disposer, so the lookup cannot miss.
     const active = this.themes.find(t => t.id === resolvedId)
@@ -463,18 +571,21 @@ function durableFontFamilies(section: ThemeSettings): FontFamilies {
  * untyped JS through the dynamic-package façade, so the static type cannot
  * enforce the pair shape there). Returns a defensive per-token copy so later
  * caller mutation cannot reach the stored layer.
- */function validateOverrides(source: string, tokens: ThemeTokenOverrides): ThemeTokenOverrides {
+ */ function validateOverrides(source: string, tokens: ThemeTokenOverrides): ThemeTokenOverrides {
   const validated: ThemeTokenOverrides = {}
   for (const [name, value] of Object.entries<unknown>(tokens)) {
     if (typeof value === 'string') {
       throw new TypeError(
-        `theme override "${name}" from "${source}" is a bare string — pass { light: ${JSON.stringify(value)}, dark: ${JSON.stringify(value)} } `
-        + '(repeat the value when it is the same in both palettes); a single value goes illegible when the user switches color scheme',
+        `theme override "${name}" from "${source}" is a bare string — pass { light: ${JSON.stringify(value)}, dark: ${JSON.stringify(value)} } ` +
+          '(repeat the value when it is the same in both palettes); a single value goes illegible when the user switches color scheme',
       )
     }
-    if (typeof value !== 'object' || value === null
-      || typeof (value as { light?: unknown }).light !== 'string'
-      || typeof (value as { dark?: unknown }).dark !== 'string') {
+    if (
+      typeof value !== 'object' ||
+      value === null ||
+      typeof (value as { light?: unknown }).light !== 'string' ||
+      typeof (value as { dark?: unknown }).dark !== 'string'
+    ) {
       throw new TypeError(
         `theme override "${name}" from "${source}" must map to a { light, dark } pair of strings — one value per color scheme`,
       )
@@ -497,34 +608,50 @@ function dynamicToken(name: string): ThemeTokenInspection {
 
 /** Register desktop font-size keys when keyboard and locale services are available. */
 function installFontSizeShortcuts(ctx: ClientContext, adjust: (delta: 1 | -1) => void): void {
-  ctx.inject(['shortcuts', 'locale'], (scope) => {
+  ctx.inject(['shortcuts', 'locale'], scope => {
     if (scope.shortcuts.runtime !== 'desktop') return
     const t = scope.locale.bind(SETTINGS_NS)
     const combinations: { binding: NormalizedBinding; delta: 1 | -1 }[] = []
     // Fixed bindings drive both reservation and matching.
-    for (const [direction, code, delta] of [['increase', 'Equal', 1], ['decrease', 'Minus', -1]] as const) {
+    for (const [direction, code, delta] of [
+      ['increase', 'Equal', 1],
+      ['decrease', 'Minus', -1],
+    ] as const) {
       const binding = { code, modifiers: ['primary'] as const }
-      const bindings = direction === 'increase'
-        ? [binding, { code, modifiers: ['primary', 'shift'] as const }] as const : [binding] as const
+      const bindings =
+        direction === 'increase' ? ([binding, { code, modifiers: ['primary', 'shift'] as const }] as const) : ([binding] as const)
       for (const candidate of bindings) {
         combinations.push({ binding: scope.shortcuts.describeBinding(candidate).binding as NormalizedBinding, delta })
       }
-      scope.effect(() => scope.shortcuts.registerFixed({
-        id: `fontSize.${direction}` as ShortcutCommandId, label: () => t(`fontSize.text.${direction}`),
-        keys: scope.shortcuts.describeBinding(binding).keys,
-        bindings, group: 'application',
-      }), `ui-theme: ${direction} font size reference`)
+      scope.effect(
+        () =>
+          scope.shortcuts.registerFixed({
+            id: `fontSize.${direction}` as ShortcutCommandId,
+            label: () => t(`fontSize.text.${direction}`),
+            keys: scope.shortcuts.describeBinding(binding).keys,
+            bindings,
+            group: 'application',
+          }),
+        `ui-theme: ${direction} font size reference`,
+      )
     }
-    scope.effect(() => scope.shortcuts.observeFixedInput((input) => {
-      if (input.type === 'reset') return
-      const { gesture, context } = input
-      if (gesture.composing || gesture.defaultPrevented || gesture.repeat || context.region === 'terminal') return
-      const matched = combinations.find(({ binding }) => binding.code === gesture.code
-        && (['control', 'alt', 'shift', 'meta'] as const).every(modifier => gesture[modifier] === binding.modifiers.includes(modifier)))
-      if (matched === undefined) return
-      input.consume()
-      adjust(matched.delta)
-    }), 'ui-theme: font size input')
+    scope.effect(
+      () =>
+        scope.shortcuts.observeFixedInput(input => {
+          if (input.type === 'reset') return
+          const { gesture, context } = input
+          if (gesture.composing || gesture.defaultPrevented || gesture.repeat || context.region === 'terminal') return
+          const matched = combinations.find(
+            ({ binding }) =>
+              binding.code === gesture.code &&
+              (['control', 'alt', 'shift', 'meta'] as const).every(modifier => gesture[modifier] === binding.modifiers.includes(modifier)),
+          )
+          if (matched === undefined) return
+          input.consume()
+          adjust(matched.delta)
+        }),
+      'ui-theme: font size input',
+    )
   })
 }
 
@@ -564,31 +691,47 @@ export function apply(ctx: ClientContext): void {
     // first render (the store's revision guard drops stale duplicates).
     sync(theme.getTheme())
     return {
-      setTheme: (id) => { theme.setTheme(id) },
+      setTheme: id => {
+        theme.setTheme(id)
+      },
     }
   }
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'appearance',
-    order: 10,
-    store,
-    locale: SETTINGS_NS,
-    inject: injected,
-  }, AppearanceRow))
+  ctx.slots.inject('settings.general.item', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.general.item',
+        id: 'appearance',
+        order: 10,
+        store,
+        locale: SETTINGS_NS,
+        inject: injected,
+      },
+      AppearanceRow,
+    ),
+  )
 
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'font-size',
-    order: 11,
-    store: fontStore,
-    locale: SETTINGS_NS,
-    inject: (actions: BoundActions<typeof fontStore>): FontSettingsInjected => {
-      fontBound = actions
-      sync(theme.getTheme())
-      return {
-        setFontFamily: (role, value) => { theme.setFontFamily(role, value) },
-        setFontSize: (role, px) => { theme.setFontSize(role, px) },
-      }
-    },
-  }, FontSettingsGroup))
+  ctx.slots.inject('settings.general.item', () =>
+    ctx.slots.register(
+      {
+        name: 'settings.general.item',
+        id: 'font-size',
+        order: 11,
+        store: fontStore,
+        locale: SETTINGS_NS,
+        inject: (actions: BoundActions<typeof fontStore>): FontSettingsInjected => {
+          fontBound = actions
+          sync(theme.getTheme())
+          return {
+            setFontFamily: (role, value) => {
+              theme.setFontFamily(role, value)
+            },
+            setFontSize: (role, px) => {
+              theme.setFontSize(role, px)
+            },
+          }
+        },
+      },
+      FontSettingsGroup,
+    ),
+  )
 }

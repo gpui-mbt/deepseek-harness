@@ -32,11 +32,7 @@ export type IndexInjection =
 
 /** Escape a row value before placing it in a quoted HTML attribute. */
 function escapeHtmlAttribute(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
+  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
 }
 
 function assertNever(row: never): never {
@@ -50,9 +46,7 @@ function renderRow(row: IndexInjection): { placement: IndexInjectionPlacement; m
       // `<` is escaped in JSON so a row-controlled string cannot break out of
       // the script element.
       const name = JSON.stringify(row.name).replaceAll('<', '\\u003c')
-      const value = row.value === undefined
-        ? 'undefined'
-        : JSON.stringify(row.value).replaceAll('<', '\\u003c')
+      const value = row.value === undefined ? 'undefined' : JSON.stringify(row.value).replaceAll('<', '\\u003c')
       return { placement: 'head', markup: `<script>globalThis[${name}] = ${value}</script>` }
     }
     case 'script':

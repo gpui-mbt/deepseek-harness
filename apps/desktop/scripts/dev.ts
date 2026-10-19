@@ -8,9 +8,7 @@ import { parseArgs } from 'node:util'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 import type { DesktopRelease } from '../src/release.ts'
 import { developmentRuntimeDirectory, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
-import { prepareDevelopmentProject } from './development-project.ts'
 import { prepareDevelopmentApp } from './development-app.ts'
-import { preparePrimaryRuntime } from './prepare-primary-runtime.ts'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
@@ -56,6 +54,32 @@ async function runPackageScript(script: string, cwd: string): Promise<void> {
   await run(process.execPath, [packageManager, 'run', script], cwd)
 }
 
+/**
+ * Build the Electron command line for an unpackaged development launch.
+ * Linux disables the Chromium sandbox by default because the pnpm-installed Electron
+ * distribution cannot provide the setuid `chrome-sandbox` helper; set
+ * `DSH_DESKTOP_ELECTRON_SANDBOX=1` when the host provides a usable sandbox.
+ * @param options - Development ports, browser data directory, and platform.
+ * @returns Electron arguments, including the application root.
+ */
+export function electronDevelopmentArguments(options: {
+  readonly mainPort: number
+  readonly rendererPort: number
+  readonly userData: string
+  readonly appRoot?: string
+  readonly platform?: NodeJS.Platform
+  readonly sandbox?: string | undefined
+}): string[] {
+  const platform = options.platform ?? process.platform
+  return [
+    `--inspect=127.0.0.1:${String(options.mainPort)}`,
+    `--remote-debugging-port=${String(options.rendererPort)}`,
+    ...(platform === 'linux' && options.sandbox !== '1' ? ['--no-sandbox'] : []),
+    `--user-data-dir=${options.userData}`,
+    options.appRoot ?? APP_ROOT,
+  ]
+}
+
 async function launchElectron(): Promise<void> {
   const require = createRequire(import.meta.url)
   const electron: unknown = require('electron')
@@ -77,17 +101,36 @@ async function launchElectron(): Promise<void> {
   console.log(`desktop development: userData=${userData}`)
   console.log(`desktop development: inspectors main=${String(mainPort)}, renderer=${String(rendererPort)}, host=${String(hostPort)}`)
   if (process.platform === 'darwin') {
-    const executable = prepareDevelopmentApp({ electron, appRoot: APP_ROOT, directory: DEVELOPMENT_ROOT, home, userData,
-      mainPort, rendererPort, hostPort, openDevtools: environment.DSH_DESKTOP_OPEN_DEVTOOLS! })
+    const executable = prepareDevelopmentApp({
+      electron,
+      appRoot: APP_ROOT,
+      directory: DEVELOPMENT_ROOT,
+      home,
+      userData,
+      mainPort,
+      rendererPort,
+      hostPort,
+      openDevtools: environment.DSH_DESKTOP_OPEN_DEVTOOLS!,
+    })
     await run(executable, [], APP_ROOT, environment)
     return
   }
-  await run(electron, [
-    `--inspect=127.0.0.1:${String(mainPort)}`,
-    `--remote-debugging-port=${String(rendererPort)}`,
-    `--user-data-dir=${userData}`,
+  if (process.platform === 'linux' && process.env.DSH_DESKTOP_ELECTRON_SANDBOX !== '1') {
+    console.warn(
+      'desktop development: Chromium sandbox disabled for Linux; set DSH_DESKTOP_ELECTRON_SANDBOX=1 when the host provides a usable chrome-sandbox helper',
+    )
+  }
+  await run(
+    electron,
+    electronDevelopmentArguments({
+      mainPort,
+      rendererPort,
+      userData,
+      sandbox: process.env.DSH_DESKTOP_ELECTRON_SANDBOX,
+    }),
     APP_ROOT,
-  ], APP_ROOT, environment)
+    environment,
+  )
 }
 
 async function main(): Promise<void> {
@@ -96,20 +139,23 @@ async function main(): Promise<void> {
     await runPackageScript('build:artifacts', REPOSITORY_ROOT)
     await runPackageScript('build', APP_ROOT)
   }
-  for (const path of [
-    join(APP_ROOT, 'lib', 'main.js'),
-    join(REPOSITORY_ROOT, 'apps', 'desktop-host', 'lib', 'index.js'),
-  ]) {
+  for (const path of [join(APP_ROOT, 'lib', 'main.js'), join(REPOSITORY_ROOT, 'apps', 'desktop-host', 'lib', 'index.js')]) {
     if (!existsSync(path)) throw new Error(`desktop development: missing built artifact ${path}`)
   }
+  // These modules reach workspace packages through their built lib/ output, so
+  // they can only load after the artifact check above.
+  const { prepareDevelopmentProject } = await import('./development-project.ts')
+  const { preparePrimaryRuntime } = await import('./prepare-primary-runtime.ts')
   const version = packageVersion(join(APP_ROOT, 'package.json'), 'desktop package')
   const pnpmVersion = packageVersion(join(APP_ROOT, 'node_modules', 'pnpm', 'package.json'), 'pnpm package')
   const release: DesktopRelease = {
     schemaVersion: 1,
     version,
     hostProtocolVersion: DESKTOP_HOST_PROTOCOL_VERSION,
-    nodeVersion: execFileSync(createRequire(import.meta.url)('electron') as string, ['-p', 'process.versions.node'],
-      { encoding: 'utf8', env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } }).trim(),
+    nodeVersion: execFileSync(createRequire(import.meta.url)('electron') as string, ['-p', 'process.versions.node'], {
+      encoding: 'utf8',
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    }).trim(),
     pnpmVersion,
   }
   prepareDevelopmentProject({
@@ -124,7 +170,9 @@ async function main(): Promise<void> {
   await launchElectron()
 }
 
-await main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error)
-  process.exitCode = 1
-})
+if (import.meta.main) {
+  await main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error)
+    process.exitCode = 1
+  })
+}

@@ -5,7 +5,12 @@ import css from './JsonBlock.module.css'
 
 const MAX_CHARS = 20_000
 
-export function JsonBlock({ label, payload, defaultOpen = false, truncatedLabel }: {
+export function JsonBlock({
+  label,
+  payload,
+  defaultOpen = false,
+  truncatedLabel,
+}: {
   label: string
   payload: unknown
   defaultOpen?: boolean
@@ -27,7 +32,13 @@ export function JsonBlock({ label, payload, defaultOpen = false, truncatedLabel 
   }, [open, payload, truncatedLabel])
   return (
     <div className={css.root}>
-      <button type="button" className={css.toggle} onClick={() => { setOpen(v => !v) }}>
+      <button
+        type="button"
+        className={css.toggle}
+        onClick={() => {
+          setOpen(v => !v)
+        }}
+      >
         {open ? '▾' : '▸'} {label}
       </button>
       {open && <pre className={css.body}>{body}</pre>}

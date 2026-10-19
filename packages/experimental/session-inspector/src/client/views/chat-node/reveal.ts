@@ -46,7 +46,10 @@ export class InspectorChatRevealer {
         if (hidden.length > 0 || visibleChatRect(initial) === undefined) {
           root.closest('[data-conversation-scroll]')?.dispatchEvent(new Event('beforematch'))
         }
-        for (const element of hidden.reverse()) flushSync(() => { element.dispatchEvent(new Event('beforematch')) })
+        for (const element of hidden.reverse())
+          flushSync(() => {
+            element.dispatchEvent(new Event('beforematch'))
+          })
         if (this.getRoot() !== root) return
         const row = root.contains(initial) ? initial : findChatTargets(root, targets).find(hasRenderedBox)
         if (row === undefined || !hasRenderedBox(row)) continue
@@ -81,7 +84,10 @@ export class InspectorChatRevealer {
   private queueFlash(row: HTMLElement, root: HTMLElement, targets: readonly InspectorChatTarget[]): void {
     this.frame = requestAnimationFrame(() => {
       this.frame = undefined
-      if (this.getRoot() !== root) { this.dispose(); return }
+      if (this.getRoot() !== root) {
+        this.dispose()
+        return
+      }
       if (this.flash(row)) return
       for (const candidate of findChatTargets(root, targets)) {
         if (candidate !== row && this.flash(candidate)) return
@@ -160,7 +166,10 @@ export class InspectorChatRevealer {
   }
 
   private flash(row: HTMLElement): boolean {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { this.dispose(); return true }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      this.dispose()
+      return true
+    }
     if (!displayed(row)) return false
     const overlay = document.createElement('div')
     if (!placeChatHighlight(overlay, row)) return false
@@ -172,7 +181,9 @@ export class InspectorChatRevealer {
     this.overlay = overlay
     const animation = overlay.animate([{ opacity: 0.65 }, { opacity: 0.1 }, { opacity: 0.5 }, { opacity: 0 }], { duration: 700 })
     this.animation = animation
-    animation.onfinish = () => { if (this.animation === animation) this.dispose() }
+    animation.onfinish = () => {
+      if (this.animation === animation) this.dispose()
+    }
     return true
   }
 }

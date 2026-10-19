@@ -41,15 +41,20 @@ const idOf = (handle: unknown): number | undefined => {
   return undefined
 }
 
-const wrapScheduler = (schedule: Scheduler): ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => TimerHandle) =>
-  (handler, timeout, ...args) => handleOf(schedule(bindHandler(handler), timeout, ...args))
+const wrapScheduler =
+  (schedule: Scheduler): ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => TimerHandle) =>
+  (handler, timeout, ...args) =>
+    handleOf(schedule(bindHandler(handler), timeout, ...args))
 
 /** Bind a timer handler to its registration context; string handlers have none to bind. */
 const bindHandler = (handler: TimerHandler): TimerHandler =>
   typeof handler === 'function' ? bindAsyncContext(handler as (...args: never[]) => unknown) : handler
 
-const wrapClear = (clear: Clear): ((handle?: unknown) => void) =>
-  (handle) => { clear(idOf(handle)) }
+const wrapClear =
+  (clear: Clear): ((handle?: unknown) => void) =>
+  handle => {
+    clear(idOf(handle))
+  }
 
 /** Replace the worker's timer globals with the Node-shaped wrappers. */
 export function installTimerGlobals(): void {
@@ -62,7 +67,6 @@ export function installTimerGlobals(): void {
   scope.setInterval = wrapScheduler(setIntervalRaw)
   scope.clearTimeout = wrapClear(clearTimeoutRaw)
   scope.clearInterval = wrapClear(clearIntervalRaw)
-  scope.setImmediate = (handler: TimerHandler, ...args: unknown[]) =>
-    handleOf(setTimeoutRaw(bindHandler(handler), 0, ...args))
+  scope.setImmediate = (handler: TimerHandler, ...args: unknown[]) => handleOf(setTimeoutRaw(bindHandler(handler), 0, ...args))
   scope.clearImmediate = wrapClear(clearTimeoutRaw)
 }

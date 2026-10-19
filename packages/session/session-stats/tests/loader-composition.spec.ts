@@ -9,7 +9,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
@@ -74,8 +74,7 @@ describe('real Loader composition', () => {
     session.append('step/start', { turn: 1, step: 1 })
     session.append('step/end', { turn: 1, step: 1 })
     session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
-    expect(loaded.sessionProjections.snapshot(session).values.sessionStats)
-      .toMatchObject({ turns: 1, steps: 1 })
+    expect(loaded.sessionProjections.snapshot(session).values.sessionStats).toMatchObject({ turns: 1, steps: 1 })
   })
 
   it('keeps the function-plugin namespace free of a default export', () => {

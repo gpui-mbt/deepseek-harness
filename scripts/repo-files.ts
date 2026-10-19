@@ -206,7 +206,7 @@ function expandGlob(
   }
 
   visit(root, '.', 0, false)
-  return out.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0)
+  return out.sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
 }
 
 /** Whether a pattern segment contains `*` or `?` and is therefore wildcard. */
@@ -249,7 +249,7 @@ export function uniqueRepoFiles(
     for (const { path: repoPath, viaSymlink } of expandGlob(root, pattern, listDirectory, skipDirectory)) {
       if (isExcluded(repoPath)) continue
       const abs = resolve(root, repoPath)
-      const real = viaSymlink ? realpathSync(abs) : join(realRoot ??= realpathSync(root), repoPath)
+      const real = viaSymlink ? realpathSync(abs) : join((realRoot ??= realpathSync(root)), repoPath)
       if (seen.has(real)) continue
       seen.add(real)
       files.push({ abs, real })

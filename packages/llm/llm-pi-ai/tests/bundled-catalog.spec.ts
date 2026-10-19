@@ -4,7 +4,7 @@
  * while every configured field keeps winning over it.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
@@ -52,7 +52,7 @@ describe('bundled catalog', () => {
     expect(models.map(model => model.id)).toContain('kimi-k3')
   })
 
-  it('serves the pinned 1017 build under DeepSeek\'s own name and no untagged entry', async () => {
+  it("serves the pinned 1017 build under DeepSeek's own name and no untagged entry", async () => {
     const ctx = await harness({ providers: { 'ollama-cloud': { apiKeyEnv: KEY_ENV } } })
     const info = await ctx.llm.resolveModelInfo('ollama-cloud', 'deepseek-v4.1-flash:1017')
 
@@ -68,8 +68,7 @@ describe('bundled catalog', () => {
     expect(model?.maxTokens).toBe(393_216)
     // The pinned tag is the route's Flash entry: a deployment goes through one
     // selectable model rather than two names for the same weights.
-    expect((await ctx.llm.listModels('ollama-cloud')).map(entry => entry.id))
-      .not.toContain('deepseek-v4.1-flash')
+    expect((await ctx.llm.listModels('ollama-cloud')).map(entry => entry.id)).not.toContain('deepseek-v4.1-flash')
   })
 
   it('reports the model context window rather than the 262,144 route default', async () => {
@@ -91,9 +90,7 @@ describe('bundled catalog', () => {
     const ctx = await harness({ providers: { 'ollama-cloud': { apiKeyEnv: KEY_ENV } } })
     const info = await ctx.llm.resolveModelInfo('ollama-cloud', 'deepseek-v4.1-flash:1017')
 
-    expect(info.reasoning?.efforts.map(effort => effort.id)).toEqual([
-      'off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max',
-    ])
+    expect(info.reasoning?.efforts.map(effort => effort.id)).toEqual(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
   })
 
   it('withholds the off level from a model whose endpoint keeps thinking', async () => {
@@ -164,8 +161,7 @@ describe('bundled catalog', () => {
     // renders; the resolved route is what a configured row and the model
     // picker name.
     const dormant = await harness({})
-    expect(dormant.llm.listConfigurableProviders().find(entry => entry.provider === 'ollama-cloud')?.displayName)
-      .toBe('ollama-cloud')
+    expect(dormant.llm.listConfigurableProviders().find(entry => entry.provider === 'ollama-cloud')?.displayName).toBe('ollama-cloud')
 
     const configured = await harness({ providers: { 'ollama-cloud': { apiKeyEnv: KEY_ENV } } })
     expect(configured.llm.listProviders()).toContainEqual({ id: 'ollama-cloud', name: 'Ollama Cloud' })
@@ -203,9 +199,10 @@ describe('bundled catalog', () => {
   it('sends a bundled model to the route endpoint under its own protocol', async () => {
     const server = await mockServer([{ status: 401, body: JSON.stringify({ error: { message: 'expected mock failure' } }) }])
     const adapter = new LlmPiAi.PiAiAdapter({
-      profiles: () => resolveProfiles({
-        'ollama-cloud': { apiKeyEnv: KEY_ENV, baseURL: `${server.url}/v1` },
-      }),
+      profiles: () =>
+        resolveProfiles({
+          'ollama-cloud': { apiKeyEnv: KEY_ENV, baseURL: `${server.url}/v1` },
+        }),
       resolveApiKey: () => Promise.resolve('test-key'),
       auth: memoryAuth(),
     })

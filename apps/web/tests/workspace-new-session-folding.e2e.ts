@@ -5,7 +5,7 @@ import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
   assertFixtureInventory,
   captureStableAria,
@@ -35,11 +35,7 @@ describe('web e2e: blank New Session folding quota', () => {
     const fixture = await readFile(SEED, 'utf8')
     const sessionIds = []
     for (let index = 1; index <= EXISTING_SESSION_COUNT; index += 1) {
-      sessionIds.push(await seedSession(
-        scaffold,
-        fixture,
-        `workspace-new-session-folding-${String(index).padStart(2, '0')}`,
-      ))
+      sessionIds.push(await seedSession(scaffold, fixture, `workspace-new-session-folding-${String(index).padStart(2, '0')}`))
     }
     const workspace = await scaffold.ctx.workspaceRegistry.create(scaffold.workspaceCwd)
     for (const sessionId of sessionIds) await workspace.attachSession(sessionId)
@@ -51,14 +47,12 @@ describe('web e2e: blank New Session folding quota', () => {
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
 
     const workspaceTitle = basename(scaffold.workspaceCwd)
-    const workspaceRow = page.getByText(workspaceTitle, { exact: true }).first()
-      .locator('xpath=ancestor::*[@role="treeitem"][1]')
+    const workspaceRow = page.getByText(workspaceTitle, { exact: true }).first().locator('xpath=ancestor::*[@role="treeitem"][1]')
     await workspaceRow.waitFor({ timeout: 15_000 })
-    if (await workspaceRow.getAttribute('aria-expanded') !== 'true') await workspaceRow.click()
+    if ((await workspaceRow.getAttribute('aria-expanded')) !== 'true') await workspaceRow.click()
     await workspaceRow.hover()
     await page.getByRole('button', { name: `New session in ${workspaceTitle}` }).click()
-    await page.getByRole('tree', { name: 'Sessions' })
-      .getByText('New Session', { exact: true }).waitFor({ timeout: 15_000 })
+    await page.getByRole('tree', { name: 'Sessions' }).getByText('New Session', { exact: true }).waitFor({ timeout: 15_000 })
   }, 120_000)
 
   afterAll(async () => {

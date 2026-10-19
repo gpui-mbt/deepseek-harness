@@ -107,10 +107,7 @@ function boundValue(value: unknown, maxBytes: number, state: BoundState, depth =
  * @param maxStringBytes - per-string and per-key byte cap.
  * @returns a copy with every over-long string and key truncated.
  */
-function boundJsonEvent(
-  event: Record<string, unknown>,
-  maxStringBytes: number = MAX_STRING_BYTES,
-): Record<string, unknown> {
+function boundJsonEvent(event: Record<string, unknown>, maxStringBytes: number = MAX_STRING_BYTES): Record<string, unknown> {
   const state: BoundState = { truncated: false }
   const bounded = boundValue(event, maxStringBytes, state) as Record<string, unknown>
   if (state.truncated) bounded.truncated = true
@@ -171,8 +168,7 @@ function parseArguments(raw: string): unknown {
 /** Join the text blocks of a tool result's model-facing content. */
 function resultText(blocks: readonly { type: string; text?: string }[]): string {
   return blocks
-    .filter((block): block is { type: string; text: string } =>
-      block.type === 'text' && typeof block.text === 'string')
+    .filter((block): block is { type: string; text: string } => block.type === 'text' && typeof block.text === 'string')
     .map(block => block.text)
     .join('')
 }
@@ -207,8 +203,7 @@ function addUsage(state: StepUsageState, next: StepUsage | undefined): StepUsage
   if (next === undefined) return { usage: state.usage, complete: false }
   if (state.usage === undefined) return { usage: next, complete: state.complete }
   const total = state.usage
-  const sum = (a: number | undefined, b: number | undefined): number | undefined =>
-    a === undefined || b === undefined ? undefined : a + b
+  const sum = (a: number | undefined, b: number | undefined): number | undefined => (a === undefined || b === undefined ? undefined : a + b)
   const totalTokens = sum(total.totalTokens, next.totalTokens)
   const cacheReadTokens = sum(total.cacheReadTokens, next.cacheReadTokens)
   const cacheWriteTokens = sum(total.cacheWriteTokens, next.cacheWriteTokens)
@@ -217,10 +212,10 @@ function addUsage(state: StepUsageState, next: StepUsage | undefined): StepUsage
     usage: {
       inputTokens: total.inputTokens + next.inputTokens,
       outputTokens: total.outputTokens + next.outputTokens,
-      ...totalTokens === undefined ? {} : { totalTokens },
-      ...cacheReadTokens === undefined ? {} : { cacheReadTokens },
-      ...cacheWriteTokens === undefined ? {} : { cacheWriteTokens },
-      ...reasoningTokens === undefined ? {} : { reasoningTokens },
+      ...(totalTokens === undefined ? {} : { totalTokens }),
+      ...(cacheReadTokens === undefined ? {} : { cacheReadTokens }),
+      ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
+      ...(reasoningTokens === undefined ? {} : { reasoningTokens }),
     },
     complete: state.complete,
   }
@@ -240,12 +235,7 @@ function addUsage(state: StepUsageState, next: StepUsage | undefined): StepUsage
  * @param options - projection tunables.
  * @returns the projection handle that finishes or disposes the stream.
  */
-export function projectJsonRun(
-  ctx: Context,
-  agent: Agent,
-  sink: JsonSink,
-  options: JsonProjectionOptions = {},
-): JsonProjection {
+export function projectJsonRun(ctx: Context, agent: Agent, sink: JsonSink, options: JsonProjectionOptions = {}): JsonProjection {
   const maxStringBytes = options.maxStringBytes ?? MAX_STRING_BYTES
   let disposed = false
   let stepUsage: StepUsageState = { usage: undefined, complete: true }
@@ -279,10 +269,13 @@ export function projectJsonRun(
         const { usage, complete } = stepUsage
         stepUsage = { usage: undefined, complete: true }
         write({
-          type: 'status', phase: 'step_end', turn: event.data.turn, step: event.data.step,
+          type: 'status',
+          phase: 'step_end',
+          turn: event.data.turn,
+          step: event.data.step,
           // A partial sum would read as an exact total, so omit it entirely
           // when any attempt in the step failed to report usage.
-          ...complete && usage !== undefined ? { usage } : {},
+          ...(complete && usage !== undefined ? { usage } : {}),
         })
         return
       }

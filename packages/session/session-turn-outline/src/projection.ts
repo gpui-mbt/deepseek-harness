@@ -58,26 +58,34 @@ function preview(content: MessageContent, limit: number): string {
   return unread ? `${normalized}…` : normalized
 }
 
-const turnOutlineEntriesSchema: ZodType<readonly TurnOutlineEntry[]> = z.array(z.object({
-  turn: z.number().int().nonnegative(),
-  seq: z.number().int().nonnegative().transform(SessionSeq),
-  prompt: z.string().max(PROMPT_PREVIEW_LIMIT),
-  response: z.string().max(RESPONSE_PREVIEW_LIMIT),
-}).strict()).superRefine((turns, context) => {
-  let previous = -1
-  for (const entry of turns) {
-    if (entry.turn <= previous) {
-      context.addIssue({ code: 'custom', message: 'turn outline entries must be strictly increasing by turn' })
-      return
+const turnOutlineEntriesSchema: ZodType<readonly TurnOutlineEntry[]> = z
+  .array(
+    z
+      .object({
+        turn: z.number().int().nonnegative(),
+        seq: z.number().int().nonnegative().transform(SessionSeq),
+        prompt: z.string().max(PROMPT_PREVIEW_LIMIT),
+        response: z.string().max(RESPONSE_PREVIEW_LIMIT),
+      })
+      .strict(),
+  )
+  .superRefine((turns, context) => {
+    let previous = -1
+    for (const entry of turns) {
+      if (entry.turn <= previous) {
+        context.addIssue({ code: 'custom', message: 'turn outline entries must be strictly increasing by turn' })
+        return
+      }
+      previous = entry.turn
     }
-    previous = entry.turn
-  }
-})
+  })
 
-const turnOutlineStateSchema: ZodType<TurnOutlineState> = z.object({
-  turns: turnOutlineEntriesSchema,
-  draft: z.string().max(RESPONSE_PREVIEW_LIMIT),
-}).strict()
+const turnOutlineStateSchema: ZodType<TurnOutlineState> = z
+  .object({
+    turns: turnOutlineEntriesSchema,
+    draft: z.string().max(RESPONSE_PREVIEW_LIMIT),
+  })
+  .strict()
 
 const EMPTY_OUTLINE: TurnOutlineState = { turns: [], draft: '' }
 

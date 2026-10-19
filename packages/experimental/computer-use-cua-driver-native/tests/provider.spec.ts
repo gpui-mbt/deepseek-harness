@@ -1,6 +1,6 @@
 /** Native SDK lifecycle and catalog behavior without desktop access. */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import ComputerUseRegistry from '@deepseek-ai/dsh-computer-use'
 import { ComputerUseProviderName } from '@deepseek-ai/dsh-computer-use/brand'
@@ -102,7 +102,9 @@ describe('Cua Driver native provider', () => {
     const fiber = ctx.plugin(NativeProvider)
     await fiber
     ctx.tools.register({
-      name: 'unrelated', description: 'Independent tool.', parameters: { type: 'object' },
+      name: 'unrelated',
+      description: 'Independent tool.',
+      parameters: { type: 'object' },
       output: { schema: { type: 'boolean' }, render: () => [{ type: 'text', text: 'Done.' }] },
       execute(_args, exec) {
         started.resolve(exec.signal)
@@ -110,7 +112,10 @@ describe('Cua Driver native provider', () => {
       },
     })
     const result = ctx.tools.execute({
-      name: 'unrelated', callId: ToolCallId('unrelated'), arguments: {}, signal: controller.signal,
+      name: 'unrelated',
+      callId: ToolCallId('unrelated'),
+      arguments: {},
+      signal: controller.signal,
     })
     try {
       const signal = await started.promise
@@ -166,7 +171,10 @@ describe('Cua Driver native provider', () => {
     expect(fixture.destroys).toBe(1)
   })
 
-  it.each([['tools', ToolRuntime], ['systemPrompt', SystemPrompt]] as const)('closes the old native runtime before %s restarts it', async (_name, service) => {
+  it.each([
+    ['tools', ToolRuntime],
+    ['systemPrompt', SystemPrompt],
+  ] as const)('closes the old native runtime before %s restarts it', async (_name, service) => {
     const shutdownStarted: PromiseWithResolvers<void> = Promise.withResolvers()
     const shutdownSettled: PromiseWithResolvers<void> = Promise.withResolvers()
     fixture.shutdown = async () => {
@@ -187,7 +195,9 @@ describe('Cua Driver native provider', () => {
       await restart
       await fiber
     }
-    await vi.waitFor(() => { expect(fixture.creates).toBe(2) })
+    await vi.waitFor(() => {
+      expect(fixture.creates).toBe(2)
+    })
     expect(fixture.shutdowns).toBe(1)
     expect(fixture.destroys).toBe(1)
     expect((await execute('check_permissions')).isError).toBe(false)
@@ -198,10 +208,17 @@ describe('Cua Driver native provider', () => {
 
   it('interrupts discovery when unloaded during startup', async () => {
     const started: PromiseWithResolvers<void> = Promise.withResolvers()
-    fixture.list = signal => new Promise((_resolve, reject) => {
-      started.resolve()
-      signal?.addEventListener('abort', () => { reject(new Error('Native discovery aborted')) }, { once: true })
-    })
+    fixture.list = signal =>
+      new Promise((_resolve, reject) => {
+        started.resolve()
+        signal?.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('Native discovery aborted'))
+          },
+          { once: true },
+        )
+      })
     const fiber = ctx.plugin(NativeProvider)
     const readiness = Promise.resolve(fiber).catch(() => undefined)
     await started.promise
@@ -214,7 +231,9 @@ describe('Cua Driver native provider', () => {
   })
 
   it('keeps the reservation when native shutdown cannot prove completion', async () => {
-    fixture.shutdown = async () => { throw new Error('Native shutdown failed') }
+    fixture.shutdown = async () => {
+      throw new Error('Native shutdown failed')
+    }
     const fiber = ctx.plugin(NativeProvider)
     await fiber
     await fiber.dispose()

@@ -29,8 +29,11 @@ export function prunePrimaryRuntimePythonTests(sitePackages: string): void {
   for (const name of ['numpy', 'pandas'] as const) {
     const record = join(sitePackages, `${name}-${lock.pythonPackages[name]}.dist-info`, 'RECORD')
     const { data, errors } = Papa.parse<string[]>(readFileSync(record, 'utf8'), { delimiter: ',', skipEmptyLines: true })
-    if (errors.length > 0 || data.length === 0
-      || !data.every((row): row is [string, string, string] => row.length === 3 && Boolean(row[0]))) {
+    if (
+      errors.length > 0 ||
+      data.length === 0 ||
+      !data.every((row): row is [string, string, string] => row.length === 3 && Boolean(row[0]))
+    ) {
       throw new Error(`primary runtime: invalid wheel RECORD: ${record}`)
     }
     const removed = removeTestDirectories(sitePackages, name)

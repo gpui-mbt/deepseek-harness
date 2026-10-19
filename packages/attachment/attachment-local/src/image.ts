@@ -37,9 +37,11 @@ export function encodedAlphaIsCompatible(
   sourceHasAlpha: boolean | undefined,
   output: Pick<DetectedImage, 'mediaType' | 'hasAlpha'>,
 ): boolean {
-  return sourceHasAlpha === undefined
-    || output.hasAlpha === sourceHasAlpha
-    || (sourceHasAlpha && !output.hasAlpha && output.mediaType === 'image/webp')
+  return (
+    sourceHasAlpha === undefined ||
+    output.hasAlpha === sourceHasAlpha ||
+    (sourceHasAlpha && !output.hasAlpha && output.mediaType === 'image/webp')
+  )
 }
 
 const MEDIA_TYPES: Readonly<Record<string, ImageMediaType>> = {
@@ -50,14 +52,16 @@ const MEDIA_TYPES: Readonly<Record<string, ImageMediaType>> = {
 }
 
 function carriesRetainedMetadata(metadata: Awaited<ReturnType<Sharp['metadata']>>): boolean {
-  return metadata.exif !== undefined
-    || metadata.xmp !== undefined
-    || metadata.iptc !== undefined
-    || metadata.icc !== undefined
-    || metadata.hasProfile
-    || metadata.tifftagPhotoshop !== undefined
-    || metadata.comments !== undefined
-    || metadata.orientation !== undefined
+  return (
+    metadata.exif !== undefined ||
+    metadata.xmp !== undefined ||
+    metadata.iptc !== undefined ||
+    metadata.icc !== undefined ||
+    metadata.hasProfile ||
+    metadata.tifftagPhotoshop !== undefined ||
+    metadata.comments !== undefined ||
+    metadata.orientation !== undefined
+  )
 }
 
 async function imageMetadata(image: Sharp): Promise<DetectedImage> {

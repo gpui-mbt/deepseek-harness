@@ -4,13 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type Page } from 'playwright'
-import { expect, it, onTestFinished } from 'vitest'
+import { expect, it, onTestFinished } from 'vite-plus/test'
 import type { InboxState } from '@deepseek-ai/dsh-agent/types'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import { deriveReplayScript, parseSessionLog } from '@deepseek-ai/dsh-llm-replay'
-import {
-  parseRemoteStreamClientMessage, parseRemoteStreamServerMessage,
-} from '@deepseek-ai/dsh-api-gateway/stream-protocol'
+import { parseRemoteStreamClientMessage, parseRemoteStreamServerMessage } from '@deepseek-ai/dsh-api-gateway/stream-protocol'
 import { launchWebScaffold, seedSession, watchConsole, webSnapshotMode } from './scaffold.ts'
 import { newEnglishPage } from './support.ts'
 
@@ -33,49 +31,65 @@ class HistoryDeliveryGate {
   holding = false
 
   async install(page: Page): Promise<void> {
-    await page.routeWebSocket('**/api/remote.mux', (socket) => {
+    await page.routeWebSocket('**/api/remote.mux', socket => {
       const server = socket.connectToServer()
-      socket.onMessage((message) => {
+      socket.onMessage(message => {
         const frame = parseRemoteStreamClientMessage(String(message))
         if (frame.type === 'open') this.streams.set(frame.streamId, frame.endpoint)
         server.send(message)
       })
-      server.onMessage((message) => {
+      server.onMessage(message => {
         const frame = parseRemoteStreamServerMessage(String(message))
         const endpoint = this.streams.get(frame.streamId)
         if (!this.holding || (endpoint !== 'session/control' && endpoint !== 'session/follow')) {
           socket.send(message)
           return
         }
-        const control = endpoint === 'session/control' && frame.type === 'item'
-          ? frame.value as { type: string; sessionId?: string; key?: string; value?: InboxState } : undefined
-        const inbox = control?.type === 'projection' && control.sessionId === SESSION_ID && control.key === 'inbox'
-          ? control.value : undefined
-        const follow = endpoint === 'session/follow' && frame.type === 'item'
-          ? frame.value as { type: string; event?: SessionEvent } : undefined
-        this.buffered.push({ stream: frame.streamId, send: () => { socket.send(message) },
-          ...follow?.event === undefined ? {} : { event: follow.event }, ...inbox === undefined ? {} : { inbox } })
+        const control =
+          endpoint === 'session/control' && frame.type === 'item'
+            ? (frame.value as { type: string; sessionId?: string; key?: string; value?: InboxState })
+            : undefined
+        const inbox =
+          control?.type === 'projection' && control.sessionId === SESSION_ID && control.key === 'inbox' ? control.value : undefined
+        const follow =
+          endpoint === 'session/follow' && frame.type === 'item' ? (frame.value as { type: string; event?: SessionEvent }) : undefined
+        this.buffered.push({
+          stream: frame.streamId,
+          send: () => {
+            socket.send(message)
+          },
+          ...(follow?.event === undefined ? {} : { event: follow.event }),
+          ...(inbox === undefined ? {} : { inbox }),
+        })
       })
     })
   }
 
   inboxDelivery(queued: boolean, text = TEXT): Delivery | undefined {
-    return this.buffered.find(item => item.inbox !== undefined && item.inbox['next-turn'].some(message =>
-      message.content.some(block => block.type === 'text' && block.text === text)) === queued)
+    return this.buffered.find(
+      item =>
+        item.inbox !== undefined &&
+        item.inbox['next-turn'].some(message => message.content.some(block => block.type === 'text' && block.text === text)) === queued,
+    )
   }
 
   admissionDelivery(text = TEXT): Delivery | undefined {
-    return this.buffered.find(item => item.event?.type === 'user/message'
-      && item.event.data.content.some(block => block.type === 'text' && block.text === text))
+    return this.buffered.find(
+      item => item.event?.type === 'user/message' && item.event.data.content.some(block => block.type === 'text' && block.text === text),
+    )
   }
 
-  turnStartDelivery(): Delivery | undefined { return this.buffered.find(item => item.event?.type === 'turn/start') }
+  turnStartDelivery(): Delivery | undefined {
+    return this.buffered.find(item => item.event?.type === 'turn/start')
+  }
 
-  turnEndDelivery(): Delivery | undefined { return this.buffered.find(item => item.event?.type === 'turn/end') }
+  turnEndDelivery(): Delivery | undefined {
+    return this.buffered.find(item => item.event?.type === 'turn/end')
+  }
 
   releaseThrough(target: Delivery): void {
     let reached = false
-    this.buffered = this.buffered.filter((item) => {
+    this.buffered = this.buffered.filter(item => {
       if (reached || item.stream !== target.stream) return true
       item.send()
       reached = item === target
@@ -103,9 +117,9 @@ function whenTurnSettled(scaffold: Awaited<ReturnType<typeof launchWebScaffold>>
 }
 
 async function placement(page: Page, input = TEXT) {
-  return page.evaluate((text) => {
-    const matching = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)]
-      .filter(element => element.textContent?.includes(text))
+  return page.evaluate(text => {
+    const matching = (selector: string) =>
+      [...document.querySelectorAll<HTMLElement>(selector)].filter(element => element.textContent?.includes(text))
     const echo = matching('[data-submission-echo]')
     const dock = matching('[data-queue-dock] li')
     const durable = matching('[data-chat-flow-kind="user"]')
@@ -120,7 +134,8 @@ async function placement(page: Page, input = TEXT) {
 }
 
 it.skipIf(webSnapshotMode() === 'record').each(['inbox-first', 'transcript-first'] as const)(
-  'keeps an idle submission in Chat under CPU throttling (%s)', async (order) => {
+  'keeps an idle submission in Chat under CPU throttling (%s)',
+  async order => {
     const scaffold = await launchWebScaffold({ replayFixture: FIXTURE, compareReplaySession: false })
     onTestFinished(() => scaffold.close())
     const releasePrompt = Promise.withResolvers<undefined>()
@@ -140,11 +155,15 @@ it.skipIf(webSnapshotMode() === 'record').each(['inbox-first', 'transcript-first
       await page.getByRole('button', { name: 'Send message', exact: true }).waitFor()
       const cdp = await page.context().newCDPSession(page)
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 })
-      await page.route('**/api/session/prompt', async (route) => {
-        promptBlocked.resolve(undefined)
-        await releasePrompt.promise
-        await route.continue()
-      }, { times: 1 })
+      await page.route(
+        '**/api/session/prompt',
+        async route => {
+          promptBlocked.resolve(undefined)
+          await releasePrompt.promise
+          await route.continue()
+        },
+        { times: 1 },
+      )
       const trace: Array<{ phase: string } & Awaited<ReturnType<typeof placement>>> = []
       gate.holding = true
       const input = page.locator('[data-composer-input]').first()
@@ -152,7 +171,7 @@ it.skipIf(webSnapshotMode() === 'record').each(['inbox-first', 'transcript-first
       await input.press('Enter')
       await promptBlocked.promise
       await poll(() => placement(page)).toMatchObject({ echo: 1, dock: 0, durable: 0 })
-      trace.push({ phase: 'optimistic', ...await placement(page) })
+      trace.push({ phase: 'optimistic', ...(await placement(page)) })
       const settled = whenTurnSettled(scaffold)
       releasePrompt.resolve(undefined)
 
@@ -161,34 +180,42 @@ it.skipIf(webSnapshotMode() === 'record').each(['inbox-first', 'transcript-first
         gate.releaseThrough(gate.turnStartDelivery()!)
         await page.locator('[data-chat-flow-kind="turn-process"]').last().waitFor({ state: 'attached' })
         await poll(() => placement(page)).toMatchObject({ echo: 1, dock: 0, durable: 0 })
-        trace.push({ phase: 'turn-start', ...await placement(page) })
+        trace.push({ phase: 'turn-start', ...(await placement(page)) })
         await poll(() => gate.admissionDelivery()).toBeDefined()
         gate.releaseThrough(gate.admissionDelivery()!)
         await poll(() => placement(page)).toMatchObject({ echo: 0, dock: 0, durable: 1 })
-        trace.push({ phase: 'durable-before-inbox', ...await placement(page) })
+        trace.push({ phase: 'durable-before-inbox', ...(await placement(page)) })
       }
 
       await poll(() => gate.inboxDelivery(true)).toBeDefined()
       gate.releaseThrough(gate.inboxDelivery(true)!)
-      await poll(() => placement(page)).toMatchObject({ echo: order === 'inbox-first' ? 1 : 0, dock: 0, durable: order === 'transcript-first' ? 1 : 0 })
-      trace.push({ phase: 'inbox', ...await placement(page) })
+      await poll(() => placement(page)).toMatchObject({
+        echo: order === 'inbox-first' ? 1 : 0,
+        dock: 0,
+        durable: order === 'transcript-first' ? 1 : 0,
+      })
+      trace.push({ phase: 'inbox', ...(await placement(page)) })
 
       await poll(() => gate.inboxDelivery(false)).toBeDefined()
       gate.releaseThrough(gate.inboxDelivery(false)!)
-      await poll(() => placement(page)).toMatchObject({ echo: order === 'inbox-first' ? 1 : 0, dock: 0, durable: order === 'transcript-first' ? 1 : 0 })
-      trace.push({ phase: 'claim-projection', ...await placement(page) })
+      await poll(() => placement(page)).toMatchObject({
+        echo: order === 'inbox-first' ? 1 : 0,
+        dock: 0,
+        durable: order === 'transcript-first' ? 1 : 0,
+      })
+      trace.push({ phase: 'claim-projection', ...(await placement(page)) })
 
       if (order === 'inbox-first') {
         await poll(() => gate.turnStartDelivery()).toBeDefined()
         gate.releaseThrough(gate.turnStartDelivery()!)
         await page.locator('[data-chat-flow-kind="turn-process"]').last().waitFor({ state: 'attached' })
         await poll(() => placement(page)).toMatchObject({ echo: 1, dock: 0, durable: 0 })
-        trace.push({ phase: 'turn-start', ...await placement(page) })
+        trace.push({ phase: 'turn-start', ...(await placement(page)) })
       }
 
       gate.releaseAll()
       await poll(() => placement(page)).toMatchObject({ echo: 0, dock: 0, durable: 1 })
-      trace.push({ phase: 'durable', ...await placement(page) })
+      trace.push({ phase: 'durable', ...(await placement(page)) })
       for (const entry of trace) {
         expect(entry.messageTop, entry.phase).toBe(trace[0]?.messageTop)
         expect(entry.composerTop, entry.phase).toBe(trace[0]?.composerTop)
@@ -205,7 +232,8 @@ it.skipIf(webSnapshotMode() === 'record').each(['inbox-first', 'transcript-first
 )
 
 it.skipIf(webSnapshotMode() === 'record').each(['ABC', 'ACB', 'BAC', 'BCA', 'CAB', 'CBA'])(
-  'hands off three rapid submissions through all Turns in Host order %s', async (hostOrder) => {
+  'hands off three rapid submissions through all Turns in Host order %s',
+  async hostOrder => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-input-handoff-'))
     onTestFinished(() => rm(root, { recursive: true, force: true }))
     const releases = new Map(['A', 'B', 'C'].map(id => [id, Promise.withResolvers<undefined>()]))
@@ -231,7 +259,7 @@ it.skipIf(webSnapshotMode() === 'record').each(['ABC', 'ACB', 'BAC', 'BCA', 'CAB
       await page.locator('[data-chat-flow-kind="user"]').first().waitFor()
       await page.getByRole('button', { name: 'Send message', exact: true }).waitFor()
       const text = (id: string) => `RAPID_INPUT_${id}`
-      await page.route('**/api/session/prompt', async (route) => {
+      await page.route('**/api/session/prompt', async route => {
         const request = route.request().postData() ?? ''
         const id = [...releases.keys()].find(id => request.includes(text(id)))
         if (id === undefined) throw new Error('unexpected prompt in rapid input fixture')
@@ -259,7 +287,9 @@ it.skipIf(webSnapshotMode() === 'record').each(['ABC', 'ACB', 'BAC', 'BCA', 'CAB
         for (const candidate of releases.keys()) {
           const admitted = entered.includes(candidate)
           await poll(() => placement(page, text(candidate))).toMatchObject({
-            echo: admitted ? 0 : 1, dock: 0, durable: admitted ? 1 : 0,
+            echo: admitted ? 0 : 1,
+            dock: 0,
+            durable: admitted ? 1 : 0,
           })
         }
         await poll(() => gate.inboxDelivery(true, text(id))).toBeDefined()
@@ -273,8 +303,9 @@ it.skipIf(webSnapshotMode() === 'record').each(['ABC', 'ACB', 'BAC', 'BCA', 'CAB
       }
       gate.releaseAll()
       const actual = await page.locator('[data-chat-flow-kind="user"]').allTextContents()
-      expect(actual.filter(value => value.includes('RAPID_INPUT_')).map(value =>
-        [...releases.keys()].find(id => value.includes(text(id))))).toEqual(hostOrder.split(''))
+      expect(
+        actual.filter(value => value.includes('RAPID_INPUT_')).map(value => [...releases.keys()].find(id => value.includes(text(id)))),
+      ).toEqual(hostOrder.split(''))
       expect(await page.locator('[data-submission-echo]').count()).toBe(0)
       expect(await page.locator('[data-queue-dock]').count()).toBe(0)
       expect(tripwire.pageErrors).toEqual([])

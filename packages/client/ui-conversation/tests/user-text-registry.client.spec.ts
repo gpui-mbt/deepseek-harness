@@ -1,8 +1,6 @@
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vitest'
-import type {
-  UserTextDataMap, UserTextEvaluator, UserTextNode, UserTextRule,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import { describe, expect, expectTypeOf, it, onTestFinished, vi } from 'vite-plus/test'
+import type { UserTextDataMap, UserTextEvaluator, UserTextNode, UserTextRule } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import { UserTextRegistry } from '../src/client/conversation/user-text-registry.ts'
 
 type JsonValue = string | number | null | readonly string[] | { readonly value: string }
@@ -39,12 +37,16 @@ declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
 }
 
 declare module '@deepseek-ai/cordis' {
-  interface Context { userTextTestRegistry: UserTextRegistry }
+  interface Context {
+    userTextTestRegistry: UserTextRegistry
+  }
 }
 
 function setup(): { ctx: Context; registry: UserTextRegistry } {
   const ctx = new Context()
-  onTestFinished(async () => { await ctx.fiber.dispose() })
+  onTestFinished(async () => {
+    await ctx.fiber.dispose()
+  })
   return { ctx, registry: new UserTextRegistry(ctx) }
 }
 
@@ -55,10 +57,14 @@ function plain(text: string, start = 0): UserTextNode<'text'> {
 }
 
 function rule(id: TestId, order: number, needle: string): UserTextRule<TestId> {
-  return { id, order, match(text, from) {
-    const start = text.indexOf(needle, from)
-    return start < 0 ? undefined : { id, start, end: start + needle.length, data: { label: id } }
-  } }
+  return {
+    id,
+    order,
+    match(text, from) {
+      const start = text.indexOf(needle, from)
+      return start < 0 ? undefined : { id, start, end: start + needle.length, data: { label: id } }
+    },
+  }
 }
 
 function assertCoverage(text: string, nodes: readonly UserTextNode[]): void {
@@ -84,7 +90,10 @@ describe('UserTextRegistry candidate rules', () => {
     const text = '  原文\r\n\t🙂e\u0301 /path @name  '
     const nodes = evaluate({ text, facts: {} })
     expect(nodes).toEqual([plain(text)])
-    expect(match.mock.calls.map(([text, from]) => [text, from])).toEqual([['', 0], [text, 0]])
+    expect(match.mock.calls.map(([text, from]) => [text, from])).toEqual([
+      ['', 0],
+      [text, 0],
+    ])
     assertCoverage(text, nodes)
   })
 
@@ -112,15 +121,25 @@ describe('UserTextRegistry candidate rules', () => {
     expectTypeOf<Parameters<UserTextRule['match']>[0]>().toEqualTypeOf<string>()
     expectTypeOf<Parameters<UserTextRule['match']>[1]>().toEqualTypeOf<number>()
     const { registry } = setup()
-    registry.register({ id: 'text.replacement', order: 10, match: (text, from) => from > 1 ? undefined : {
-      id: 'text', start: 1, end: 2, data: { text: text.slice(1, 2), display: 'B' },
-    } })
+    registry.register({
+      id: 'text.replacement',
+      order: 10,
+      match: (text, from) =>
+        from > 1
+          ? undefined
+          : {
+              id: 'text',
+              start: 1,
+              end: 2,
+              data: { text: text.slice(1, 2), display: 'B' },
+            },
+    })
     const nodes = registry.createEvaluator()({ text: 'abc', facts: {} })
     expect(nodes).toEqual([plain('a'), { ...plain('b', 1), data: { text: 'b', display: 'B' } }, plain('c', 2)])
     assertCoverage('abc', nodes)
   })
 
-  it.each(['xyz', '', 'ab'])('rejects a Text candidate whose raw value is %j for the original abc', (raw) => {
+  it.each(['xyz', '', 'ab'])('rejects a Text candidate whose raw value is %j for the original abc', raw => {
     const { registry } = setup()
     registry.register({ id: 'text.bad', order: 0, match: () => ({ id: 'text', start: 0, end: 3, data: { text: raw, display: 'abc' } }) })
     expect(() => registry.createEvaluator()({ text: 'abc', facts: {} })).toThrow(/text.bad/)
@@ -132,7 +151,8 @@ describe('UserTextRegistry candidate rules', () => {
     const { registry } = setup()
     const nested = { values: ['borrowed'] }
     const definition: UserTextRule<'test.annotation'> = {
-      id: 'test.annotation', order: 0,
+      id: 'test.annotation',
+      order: 0,
       match: (_text, from, context) => {
         if (from > 0) return undefined
         const value = context.read('testNested')
@@ -149,13 +169,15 @@ describe('UserTextRegistry candidate rules', () => {
 
   it('reuses equivalent nested JSON despite key order and changes only unequal payloads', () => {
     const { registry } = setup()
-    const match = vi.fn((_text: string, from: number, context: Parameters<UserTextRule['match']>[2]): UserTextNode<'test.annotation'> | undefined => {
-      if (from > 0) return undefined
-      const label = context.read('testLabel') ?? 'same'
-      const version = context.read('testOther') ?? 0
-      const nested = { values: ['文字', 3, true, null] }
-      return { id: 'test.annotation', start: 0, end: 3, data: version % 2 ? { nested, label } : { label, nested } }
-    })
+    const match = vi.fn(
+      (_text: string, from: number, context: Parameters<UserTextRule['match']>[2]): UserTextNode<'test.annotation'> | undefined => {
+        if (from > 0) return undefined
+        const label = context.read('testLabel') ?? 'same'
+        const version = context.read('testOther') ?? 0
+        const nested = { values: ['文字', 3, true, null] }
+        return { id: 'test.annotation', start: 0, end: 3, data: version % 2 ? { nested, label } : { label, nested } }
+      },
+    )
     registry.register({ id: 'test.annotation', order: 0, match })
     const evaluate = registry.createEvaluator()
     const original = evaluate({ text: 'abc', facts: {} })
@@ -169,10 +191,12 @@ describe('UserTextRegistry candidate rules', () => {
 
   it('distinguishes arrays, objects, null and primitive payloads while reusing equal values', () => {
     const { registry } = setup()
-    const match = vi.fn((_text: string, from: number, context: Parameters<UserTextRule['match']>[2]): UserTextNode<'test.json'> | undefined => {
-      if (from > 0) return undefined
-      return { id: 'test.json', start: 0, end: 1, data: { value: context.read('testJson') ?? null } }
-    })
+    const match = vi.fn(
+      (_text: string, from: number, context: Parameters<UserTextRule['match']>[2]): UserTextNode<'test.json'> | undefined => {
+        if (from > 0) return undefined
+        return { id: 'test.json', start: 0, end: 1, data: { value: context.read('testJson') ?? null } }
+      },
+    )
     registry.register({ id: 'test.json', order: 0, match })
     const evaluate = registry.createEvaluator()
     let previous = evaluate({ text: 'x', facts: { testJson: ['value'] } })
@@ -198,14 +222,21 @@ describe('UserTextRegistry candidate rules', () => {
   })
 
   it.each([
-    [-1, 1], [0, 0], [2, 1], [0, 4], [0.5, 1], [0, 1.5], [NaN, 1], [0, Infinity],
+    [-1, 1],
+    [0, 0],
+    [2, 1],
+    [0, 4],
+    [0.5, 1],
+    [0, 1.5],
+    [NaN, 1],
+    [0, Infinity],
   ])('rejects invalid UTF-16 range [%s, %s)', (start, end) => {
     const { registry } = setup()
     registry.register({ id: 'test.a', order: 0, match: () => ({ id: 'test.a', start, end, data: { label: 'bad' } }) })
     expect(() => registry.createEvaluator()({ text: 'abc', facts: {} })).toThrow(/test\.a/)
   })
 
-  it.each([Infinity, -Infinity, NaN])('rejects invalid order %s before publication', (order) => {
+  it.each([Infinity, -Infinity, NaN])('rejects invalid order %s before publication', order => {
     const { registry } = setup()
     const revision = registry.getSnapshot()
     const listener = vi.fn()
@@ -233,7 +264,9 @@ describe('UserTextRegistry candidate rules', () => {
     const revision = registry.getSnapshot()
     expectTypeOf(revision).toEqualTypeOf<number>()
     const seen: number[] = []
-    const unsubscribe = registry.subscribe(() => { seen.push(registry.getSnapshot()) })
+    const unsubscribe = registry.subscribe(() => {
+      seen.push(registry.getSnapshot())
+    })
     const dispose = registry.register(rule('test.a', 0, 'a'))
     expect(registry.getSnapshot()).toBeGreaterThan(revision)
     const input = { text: 'abc', facts: {} }
@@ -255,7 +288,7 @@ describe('UserTextRegistry candidate rules', () => {
     const { ctx, registry } = setup()
     ctx.provide('userTextTestRegistry', registry)
     registry.register(rule('test.a', 0, 'a'))
-    const feature = ctx.inject(['userTextTestRegistry'], (featureCtx) => {
+    const feature = ctx.inject(['userTextTestRegistry'], featureCtx => {
       featureCtx.userTextTestRegistry.register(rule('test.z', 0, 'b'))
     })
     await feature.await()
@@ -277,7 +310,8 @@ describe('sessionReferenceRule', () => {
     const text = `看看 ${wire} 的结论`
     const nodes = registry.createEvaluator()({ text, facts: {} })
     expect(nodes).toEqual([
-      plain('看看 '), { id: 'session', start: 3, end: 3 + wire.length, data: { label: '查看并分析图片' } },
+      plain('看看 '),
+      { id: 'session', start: 3, end: 3 + wire.length, data: { label: '查看并分析图片' } },
       plain(' 的结论', 3 + wire.length),
     ])
     assertCoverage(text, nodes)
@@ -290,11 +324,11 @@ describe('sessionReferenceRule', () => {
     const evaluate = registry.createEvaluator()
     const text = '@会话一 收尾 @会话一， @会话 @未知'
     const nodes = evaluate({ text, facts: { sessionLabels: ['会话', '会话一', '会话一'] } })
-    expect(nodes.filter(node => node.id === 'session').map(node => ({ raw: text.slice(node.start, node.end), data: node.data })))
-      .toEqual([
-        { raw: '@会话一', data: { label: '会话一' } }, { raw: '@会话一', data: { label: '会话一' } },
-        { raw: '@会话', data: { label: '会话' } },
-      ])
+    expect(nodes.filter(node => node.id === 'session').map(node => ({ raw: text.slice(node.start, node.end), data: node.data }))).toEqual([
+      { raw: '@会话一', data: { label: '会话一' } },
+      { raw: '@会话一', data: { label: '会话一' } },
+      { raw: '@会话', data: { label: '会话' } },
+    ])
     assertCoverage(text, nodes)
     expect(evaluate({ text: '@会话', facts: {} })).toEqual([plain('@会话')])
   })

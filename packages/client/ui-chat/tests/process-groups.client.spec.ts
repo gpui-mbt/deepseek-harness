@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { ConversationTimelineSnapshot, TurnLocation } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -11,40 +11,80 @@ import { ConversationGroupStore } from '../../ui-conversation/src/client/convers
 import type { ProcessGroupData } from '../src/client/contract/process-groups.ts'
 
 const turn: TurnLocation = {
-  turn: 1, status: 'open', steps: [], end: undefined,
+  turn: 1,
+  status: 'open',
+  steps: [],
+  end: undefined,
   start: { type: 'turn/start', seq: SessionSeq(1), time: 1, data: { turn: 1 } },
   data: { get: () => undefined, source: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }) },
 }
 const timeline: ConversationTimelineSnapshot = { turnOrder: [1], turns: new Map([[1, turn]]) }
 const secondTurn: TurnLocation = {
-  ...turn, turn: 2,
+  ...turn,
+  turn: 2,
   start: { type: 'turn/start', seq: SessionSeq(10), time: 10, data: { turn: 2 } },
 }
-const twoTurns: ConversationTimelineSnapshot = { turnOrder: [1, 2], turns: new Map([[1, turn], [2, secondTurn]]) }
+const twoTurns: ConversationTimelineSnapshot = {
+  turnOrder: [1, 2],
+  turns: new Map([
+    [1, turn],
+    [2, secondTurn],
+  ]),
+}
 
 function assistant(text: string, response = ''): ChatNode<'assistant-step'> {
   return {
-    key: 'assistant', id: 'assistant', kind: 'assistant-step', target: 'chat', anchorSeq: 2,
-    location: { kind: 'turn', turn }, visibility: 'visible',
+    key: 'assistant',
+    id: 'assistant',
+    kind: 'assistant-step',
+    target: 'chat',
+    anchorSeq: 2,
+    location: { kind: 'turn', turn },
+    visibility: 'visible',
     data: {
-      status: 'running', turn: 1, step: 1, time: 2,
-      blocks: [{ kind: 'reasoning', text }, ...response === '' ? [] : [{ kind: 'text' as const, text: response }]],
+      status: 'running',
+      turn: 1,
+      step: 1,
+      time: 2,
+      blocks: [{ kind: 'reasoning', text }, ...(response === '' ? [] : [{ kind: 'text' as const, text: response }])],
     },
   }
 }
 
 function tool(key: string, seq: number, name = 'bash', owner = turn): ChatNode<'tool-call'> {
   return {
-    key, id: key, kind: 'tool-call', target: 'chat', anchorSeq: seq,
-    location: { kind: 'turn', turn: owner }, visibility: 'visible',
-    data: { root: { phase: 'start' as const, args: PartialArguments.fromText('{"command":"pwd"}'), callId: key, name, argsRaw: '{"command":"pwd"}', turn: owner.turn, step: 1, time: seq, subCalls: [] } },
+    key,
+    id: key,
+    kind: 'tool-call',
+    target: 'chat',
+    anchorSeq: seq,
+    location: { kind: 'turn', turn: owner },
+    visibility: 'visible',
+    data: {
+      root: {
+        phase: 'start' as const,
+        args: PartialArguments.fromText('{"command":"pwd"}'),
+        callId: key,
+        name,
+        argsRaw: '{"command":"pwd"}',
+        turn: owner.turn,
+        step: 1,
+        time: seq,
+        subCalls: [],
+      },
+    },
   }
 }
 
 function separator(seq: number, inTurn: boolean): ChatNode<'user'> | ChatNode<'steering'> {
   const user: ChatNode<'user'> = {
-    key: `user:${seq}`, id: `user:${seq}`, kind: 'user', target: 'chat', anchorSeq: seq,
-    location: inTurn ? { kind: 'turn', turn } : { kind: 'session' }, visibility: 'visible',
+    key: `user:${seq}`,
+    id: `user:${seq}`,
+    kind: 'user',
+    target: 'chat',
+    anchorSeq: seq,
+    location: inTurn ? { kind: 'turn', turn } : { kind: 'session' },
+    visibility: 'visible',
     // Neither location is the Step 1 that opens an exchange.
     groupTree: 'input',
     data: { kind: 'user', seq, time: seq, content: [{ type: 'text', text: 'continue' }], source: null },
@@ -109,7 +149,7 @@ describe('Definition-owned Chat process groups', () => {
     }
   })
 
-  it.each([false, true])('waits for a low surrogate across deltas before truncating (escaped=%s)', (escaped) => {
+  it.each([false, true])('waits for a low surrogate across deltas before truncating (escaped=%s)', escaped => {
     const command = '👩‍💻'.repeat(87) + '☀️' + 'a'.repeat(71) + '👩‍💻'
     const args = new PartialArguments()
     args.append(`{"command":"${command.slice(0, 511)}${escaped ? '\\ud83d' : command[511]}`)
@@ -126,7 +166,7 @@ describe('Definition-owned Chat process groups', () => {
     expect(processActivity([node]).runningDetail).toBe(`${command.slice(0, -5)}…`)
   })
 
-  it.each(['"}', 'x"}'])('counts an unpaired surrogate once its continuation is known (%s)', (ending) => {
+  it.each(['"}', 'x"}'])('counts an unpaired surrogate once its continuation is known (%s)', ending => {
     const command = '👩‍💻'.repeat(87) + '☀️' + 'a'.repeat(71) + '👩‍\ud83d'
     const args = new PartialArguments()
     args.append(`{"command":"${command}`)
@@ -150,7 +190,7 @@ describe('Definition-owned Chat process groups', () => {
     const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
     const segment = segmenter.segment.bind(segmenter)
     let visited = 0
-    const spy = vi.spyOn(Intl.Segmenter.prototype, 'segment').mockImplementation((input) => {
+    const spy = vi.spyOn(Intl.Segmenter.prototype, 'segment').mockImplementation(input => {
       const segments = segment(input)
       const iterator = segments[Symbol.iterator]()
       segments[Symbol.iterator] = function* () {
@@ -180,7 +220,9 @@ describe('Definition-owned Chat process groups', () => {
   it('clears preparation from a closed group while retaining its recorded activity', () => {
     const preparing: ChatNode<'tool-call'> = {
       ...tool('call', 2, 'write'),
-      data: { root: { phase: 'preparing', args: PartialArguments.EMPTY, callId: 'call', name: 'write', turn: 1, step: 1, time: 2, subCalls: [] } },
+      data: {
+        root: { phase: 'preparing', args: PartialArguments.EMPTY, callId: 'call', name: 'write', turn: 1, step: 1, time: 2, subCalls: [] },
+      },
     }
     const h = harness([preparing])
     const group = h.store.entries[0]!
@@ -190,15 +232,25 @@ describe('Definition-owned Chat process groups', () => {
     h.builder.apply({ upserts: [separator(3, true)], timeline })
     h.commit()
     expect(source.getSnapshot()?.data).toEqual({
-      turn: 1, closed: true,
+      turn: 1,
+      closed: true,
       summary: { counts: [{ kind: 'write', count: 1 }], running: undefined, runningDetail: '' },
     })
   })
 
   it.each([
-    ['read', 'read'], ['read_image', 'readImage'], ['write', 'write'], ['edit', 'edit'], ['apply_patch', 'edit'],
-    ['todo_write', 'plan'], ['create_goal', 'plan'], ['update_goal', 'plan'], ['get_goal', 'plan'],
-    ['list_mcp_resources', 'tools'], ['list_mcp_resource_templates', 'tools'], ['read_mcp_resource', 'tools'],
+    ['read', 'read'],
+    ['read_image', 'readImage'],
+    ['write', 'write'],
+    ['edit', 'edit'],
+    ['apply_patch', 'edit'],
+    ['todo_write', 'plan'],
+    ['create_goal', 'plan'],
+    ['update_goal', 'plan'],
+    ['get_goal', 'plan'],
+    ['list_mcp_resources', 'tools'],
+    ['list_mcp_resource_templates', 'tools'],
+    ['read_mcp_resource', 'tools'],
   ] as const)('%s keeps its activity category through preparation, dispatch, and result', (name, kind) => {
     const started = tool('call', 2, name)
     const args = new PartialArguments()
@@ -211,7 +263,10 @@ describe('Definition-owned Chat process groups', () => {
     if (group.kind !== 'group') throw new Error('expected group')
     const source = h.store.groupSource(group.key)
     expect(source.getSnapshot()?.data.summary).toEqual({
-      counts: [{ kind, count: 1 }], running: kind, preparing: true, runningDetail: '',
+      counts: [{ kind, count: 1 }],
+      running: kind,
+      preparing: true,
+      runningDetail: '',
     })
     args.append('{}')
     h.builder.apply({ upserts: [{ ...preparing, data: { root: { ...preparing.data.root } } }], timeline })
@@ -222,20 +277,30 @@ describe('Definition-owned Chat process groups', () => {
     expect(source.getSnapshot()?.data.summary).toEqual({ counts: [{ kind, count: 1 }], running: kind, runningDetail: 'pwd' })
     const settled: ChatNode<'tool-call'> = {
       ...started,
-      data: { root: {
-        kind: 'tool-result', callId: 'call', seq: 3, time: 3, callTime: 2,
-        name, args: PartialArguments.fromText('{"command":"pwd"}'),
-        call: { name, argsRaw: '{"command":"pwd"}' }, content: [], isError: false, subCalls: [],
-      } },
+      data: {
+        root: {
+          kind: 'tool-result',
+          callId: 'call',
+          seq: 3,
+          time: 3,
+          callTime: 2,
+          name,
+          args: PartialArguments.fromText('{"command":"pwd"}'),
+          call: { name, argsRaw: '{"command":"pwd"}' },
+          content: [],
+          isError: false,
+          subCalls: [],
+        },
+      },
     }
     h.builder.apply({ upserts: [settled], timeline })
     h.commit()
     expect(source.getSnapshot()?.data.summary).toEqual({ counts: [{ kind, count: 1 }], running: undefined, runningDetail: '' })
   })
 
-  it.each(['process', 'turn', 'input'] as const)('ends the group at a Node declared at %s, whatever its kind', (position) => {
+  it.each(['process', 'turn', 'input'] as const)('ends the group at a Node declared at %s, whatever its kind', position => {
     const h = harness([tool('before', 4), { ...tool('standalone', 5), groupTree: position }, tool('after', 8)])
-    expect(h.store.entries.map(entry => entry.kind === 'group' ? 'group' : entry.key)).toEqual(['group', 'standalone', 'group'])
+    expect(h.store.entries.map(entry => (entry.kind === 'group' ? 'group' : entry.key))).toEqual(['group', 'standalone', 'group'])
   })
 
   it('regroups when a Node changes its position without changing its kind', () => {
@@ -244,16 +309,29 @@ describe('Definition-owned Chat process groups', () => {
     expect(h.store.entries.map(entry => entry.kind)).toEqual(['group'])
     h.builder.apply({ upserts: [{ ...middle, groupTree: 'process' }], timeline })
     h.commit()
-    expect(h.store.entries.map(entry => entry.kind === 'group' ? 'group' : entry.key)).toEqual(['group', 'middle', 'group'])
+    expect(h.store.entries.map(entry => (entry.kind === 'group' ? 'group' : entry.key))).toEqual(['group', 'middle', 'group'])
   })
 
   it('keeps the Turn control as an independent root before the process it folds', () => {
     const control: ChatNode<'turn-process'> = {
-      key: 'control', id: '1', kind: 'turn-process', target: 'chat', anchorSeq: 0.9,
-      location: { kind: 'turn', turn }, visibility: 'visible', groupTree: 'turn',
+      key: 'control',
+      id: '1',
+      kind: 'turn-process',
+      target: 'chat',
+      anchorSeq: 0.9,
+      location: { kind: 'turn', turn },
+      visibility: 'visible',
+      groupTree: 'turn',
       data: {
-        turn: 1, controlAnchorSeq: 1, processStartSeq: 1, answerAnchorSeq: null,
-        answerStep: null, inlineReasoning: false, messageCount: 0, toolCallCount: 1, subagentCount: 0,
+        turn: 1,
+        controlAnchorSeq: 1,
+        processStartSeq: 1,
+        answerAnchorSeq: null,
+        answerStep: null,
+        inlineReasoning: false,
+        messageCount: 0,
+        toolCallCount: 1,
+        subagentCount: 0,
       },
     }
     const h = harness([control, tool('first', 6), tool('after', 8)])
@@ -264,11 +342,24 @@ describe('Definition-owned Chat process groups', () => {
   it('sorts a later-anchored Turn control before the process of a Turn without opening input', () => {
     // A Turn opened by a reply that declares no position: the control's own anchor follows the reply.
     const control: ChatNode<'turn-process'> = {
-      key: 'control', id: '1', kind: 'turn-process', target: 'chat', anchorSeq: 6.9,
-      location: { kind: 'turn', turn }, visibility: 'visible', groupTree: 'turn',
+      key: 'control',
+      id: '1',
+      kind: 'turn-process',
+      target: 'chat',
+      anchorSeq: 6.9,
+      location: { kind: 'turn', turn },
+      visibility: 'visible',
+      groupTree: 'turn',
       data: {
-        turn: 1, controlAnchorSeq: 6, processStartSeq: 1, answerAnchorSeq: null,
-        answerStep: null, inlineReasoning: false, messageCount: 0, toolCallCount: 1, subagentCount: 0,
+        turn: 1,
+        controlAnchorSeq: 6,
+        processStartSeq: 1,
+        answerAnchorSeq: null,
+        answerStep: null,
+        inlineReasoning: false,
+        messageCount: 0,
+        toolCallCount: 1,
+        subagentCount: 0,
       },
     }
     const h = harness([tool('reply', 6), control, tool('after', 8)])
@@ -277,7 +368,12 @@ describe('Definition-owned Chat process groups', () => {
     expect(h.store.entries[0]).toEqual({ kind: 'node', key: control.key })
     const group = h.store.entries[1]!
     if (group.kind !== 'group') throw new Error('expected group')
-    expect(h.store.groupSource(group.key).getSnapshot()?.members.map(member => member.key)).toEqual(['reply', 'after'])
+    expect(
+      h.store
+        .groupSource(group.key)
+        .getSnapshot()
+        ?.members.map(member => member.key),
+    ).toEqual(['reply', 'after'])
   })
 
   it('retains a group through repeated prepends and a later append', () => {
@@ -304,14 +400,13 @@ describe('Definition-owned Chat process groups', () => {
     expect(source.getSnapshot()?.members.map(member => member.key)).toEqual(['earlier', 'a', 'b', 'c', 'later'])
   })
 
-  it.each(['reply', 'steering'] as const)('keeps a %s boundary between newly loaded work and an existing group', (boundary) => {
+  it.each(['reply', 'steering'] as const)('keeps a %s boundary between newly loaded work and an existing group', boundary => {
     const h = harness([tool('retained', 4)])
     const first = h.store.entries[0]!
     if (first.kind !== 'group') throw new Error('expected group')
     const source = h.store.groupSource(first.key)
     const previous = source.getSnapshot()
-    const upserts = boundary === 'reply' ? [assistant('older thought', 'older reply')]
-      : [assistant('older thought'), separator(3, true)]
+    const upserts = boundary === 'reply' ? [assistant('older thought', 'older reply')] : [assistant('older thought'), separator(3, true)]
     h.builder.apply({ upserts, timeline })
     h.commit()
     expect(h.store.entries.map(entry => entry.kind)).toEqual(['group', 'node', 'group'])
@@ -328,8 +423,14 @@ describe('Definition-owned Chat process groups', () => {
     expect(h.store.entries.map(entry => entry.kind)).toEqual(['group', 'node', 'group'])
     const groups = h.store.entries.filter(entry => entry.kind === 'group')
     expect(new Set(groups.map(group => group.key)).size).toBe(2)
-    expect(groups.map(group => h.store.groupSource(group.key).getSnapshot()?.members.map(member => member.key)))
-      .toEqual([['a', 'b'], ['c']])
+    expect(
+      groups.map(group =>
+        h.store
+          .groupSource(group.key)
+          .getSnapshot()
+          ?.members.map(member => member.key),
+      ),
+    ).toEqual([['a', 'b'], ['c']])
   })
 
   it('resegments only the changed Turn without notifying historical Node or Group sources', () => {
@@ -368,11 +469,20 @@ describe('Definition-owned Chat process groups', () => {
     const h = harness([tool('history', 2), tool('live', 12, 'bash', secondTurn)], twoTurns)
     const roots = h.store.entries
     const ended: TurnLocation = {
-      ...secondTurn, status: 'closed',
+      ...secondTurn,
+      status: 'closed',
       end: { type: 'turn/end', seq: SessionSeq(14), time: 14, data: { turn: 2, reason: { kind: 'completed' } } },
     }
     h.builder.apply({
-      upserts: [], timeline: { turnOrder: [1, 2], turns: new Map([[1, turn], [2, ended]]) }, changedTurns: [2],
+      upserts: [],
+      timeline: {
+        turnOrder: [1, 2],
+        turns: new Map([
+          [1, turn],
+          [2, ended],
+        ]),
+      },
+      changedTurns: [2],
     })
     const input = h.builder.groupInput()
     const readNode = vi.fn(input.readNode)
@@ -402,7 +512,12 @@ describe('Definition-owned Chat process groups', () => {
     expect(h.store.entries.map(entry => entry.kind)).toEqual(['group'])
     const first = h.store.entries[0]!
     if (first.kind !== 'group') throw new Error('expected group')
-    expect(h.store.groupSource(first.key).getSnapshot()?.members.map(member => member.key)).toEqual(['a', 'b'])
+    expect(
+      h.store
+        .groupSource(first.key)
+        .getSnapshot()
+        ?.members.map(member => member.key),
+    ).toEqual(['a', 'b'])
   })
 
   it('moves a group head between Turns in one atomic group update', () => {
@@ -413,7 +528,12 @@ describe('Definition-owned Chat process groups', () => {
     h.commit()
     expect(h.store.entries).toEqual([first])
     expect(h.store.groupSource(first.key).getSnapshot()?.data.turn).toBe(2)
-    expect(h.store.groupSource(first.key).getSnapshot()?.members.map(member => member.key)).toEqual(['moving', 'second'])
+    expect(
+      h.store
+        .groupSource(first.key)
+        .getSnapshot()
+        ?.members.map(member => member.key),
+    ).toEqual(['moving', 'second'])
   })
 
   it('rereads only the changed group on a content update', () => {
@@ -423,7 +543,12 @@ describe('Definition-owned Chat process groups', () => {
     const previous = h.store.groupSource(history.key).getSnapshot()
     const live = tool('live', 4)
     h.builder.apply({
-      upserts: [{ ...live, data: { root: { ...live.data.root, argsRaw: '{"command":"ls"}', args: PartialArguments.fromText('{"command":"ls"}') } } }],
+      upserts: [
+        {
+          ...live,
+          data: { root: { ...live.data.root, argsRaw: '{"command":"ls"}', args: PartialArguments.fromText('{"command":"ls"}') } },
+        },
+      ],
       timeline,
     })
     const input = h.builder.groupInput()
@@ -449,12 +574,14 @@ describe('Definition-owned Chat process groups', () => {
     if (first.kind !== 'group' || last.kind !== 'group') throw new Error('expected groups')
     const lastSnapshot = h.store.groupSource(last.key).getSnapshot()
     expect(h.store.groupSource(first.key).getSnapshot()?.data.summary.counts).toEqual([
-      { kind: 'commands', count: 2 }, { kind: 'read', count: 1 },
+      { kind: 'commands', count: 2 },
+      { kind: 'read', count: 1 },
     ])
     h.builder.apply({ upserts: [{ ...c, visibility: 'hidden' }], timeline })
     h.commit()
     expect(h.store.groupSource(first.key).getSnapshot()?.data.summary.counts).toEqual([
-      { kind: 'read', count: 1 }, { kind: 'commands', count: 1 },
+      { kind: 'read', count: 1 },
+      { kind: 'commands', count: 1 },
     ])
     expect(h.store.groupSource(last.key).getSnapshot()).toBe(lastSnapshot)
   })
@@ -479,12 +606,20 @@ describe('Definition-owned Chat process groups', () => {
     expect(store.entries.map(entry => entry.kind)).toEqual(['node', 'group', 'node', 'group', 'node', 'group'])
     const groups = store.entries.filter(entry => entry.kind === 'group')
     expect(groups).toHaveLength(3)
-    expect(store.groupSource(groups[0]!.key).getSnapshot()?.members).toEqual([
-      { kind: 'node', key: 'assistant', groupPart: 'reasoning' },
-    ])
+    expect(store.groupSource(groups[0]!.key).getSnapshot()?.members).toEqual([{ kind: 'node', key: 'assistant', groupPart: 'reasoning' }])
     expect(store.entries[2]).toEqual({ kind: 'node', key: 'assistant', groupPart: 'response' })
-    expect(store.groupSource(groups[1]!.key).getSnapshot()?.members.map(member => member.key)).toEqual(['a'])
-    expect(store.groupSource(groups[2]!.key).getSnapshot()?.members.map(member => member.key)).toEqual(['b'])
+    expect(
+      store
+        .groupSource(groups[1]!.key)
+        .getSnapshot()
+        ?.members.map(member => member.key),
+    ).toEqual(['a'])
+    expect(
+      store
+        .groupSource(groups[2]!.key)
+        .getSnapshot()
+        ?.members.map(member => member.key),
+    ).toEqual(['b'])
   })
 
   it('updates live detail without replacing roots or members and closes on the first reply', () => {
@@ -539,7 +674,8 @@ describe('Definition-owned Chat process groups', () => {
     if (first.kind !== 'group') throw new Error('expected group')
     const source = h.store.groupSource(first.key)
     const ended: TurnLocation = {
-      ...turn, status: 'closed',
+      ...turn,
+      status: 'closed',
       end: { type: 'turn/end', seq: SessionSeq(3), time: 3, data: { turn: 1, reason: { kind: 'completed' } } },
     }
     h.builder.apply({ upserts: [], timeline: { turnOrder: [1], turns: new Map([[1, ended]]) }, changedTurns: [1] })

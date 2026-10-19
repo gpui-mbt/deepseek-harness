@@ -22,10 +22,14 @@ import { fileURLToPath } from 'node:url'
 import { join } from 'node:path'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
-import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vite-plus/test'
 import {
-  assertFixtureInventory, compareOrRefreshGolden, launchWebScaffold, watchConsole,
-  webSnapshotMode, type WebScaffold,
+  assertFixtureInventory,
+  compareOrRefreshGolden,
+  launchWebScaffold,
+  watchConsole,
+  webSnapshotMode,
+  type WebScaffold,
 } from './scaffold.ts'
 import { connectFreshWorkspace, newEnglishPage, saveFailureShot } from './support.ts'
 
@@ -102,38 +106,41 @@ interface ComposerMetrics {
  * @returns the offset, the cap, and where the draft's first and last lines sit.
  */
 function measureComposer(page: Page): Promise<ComposerMetrics> {
-  return page.evaluate(({ first, last }) => {
-    const input = document.querySelector<HTMLElement>('[data-composer-input][contenteditable="true"]')
-    if (input === null) throw new Error('no live composer surface in the DOM')
-    const scroll = input.closest<HTMLElement>('[data-input-scroll]')
-    if (scroll === null) throw new Error('the composer surface is not inside a draft scrollport')
-    const lineHeight = Number.parseFloat(getComputedStyle(input).lineHeight)
-    /** Where the surface paints the line holding `marker`, in viewport coordinates. */
-    const glyphTop = (marker: string): number => {
-      const walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT)
-      for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-        const text = node as Text
-        const at = text.data.indexOf(marker)
-        if (at < 0) continue
-        const range = document.createRange()
-        range.setStart(text, at)
-        range.setEnd(text, at + marker.length)
-        return range.getBoundingClientRect().top
+  return page.evaluate(
+    ({ first, last }) => {
+      const input = document.querySelector<HTMLElement>('[data-composer-input][contenteditable="true"]')
+      if (input === null) throw new Error('no live composer surface in the DOM')
+      const scroll = input.closest<HTMLElement>('[data-input-scroll]')
+      if (scroll === null) throw new Error('the composer surface is not inside a draft scrollport')
+      const lineHeight = Number.parseFloat(getComputedStyle(input).lineHeight)
+      /** Where the surface paints the line holding `marker`, in viewport coordinates. */
+      const glyphTop = (marker: string): number => {
+        const walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT)
+        for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+          const text = node as Text
+          const at = text.data.indexOf(marker)
+          if (at < 0) continue
+          const range = document.createRange()
+          range.setStart(text, at)
+          range.setEnd(text, at + marker.length)
+          return range.getBoundingClientRect().top
+        }
+        throw new Error(`marker ${marker} missing from the composer text`)
       }
-      throw new Error(`marker ${marker} missing from the composer text`)
-    }
-    const box = scroll.getBoundingClientRect()
-    return {
-      overflows: scroll.scrollHeight > scroll.clientHeight,
-      clientHeight: scroll.clientHeight,
-      visibleLines: Math.floor(scroll.clientHeight / lineHeight),
-      scrollTop: scroll.scrollTop,
-      scrollMax: scroll.scrollHeight - scroll.clientHeight,
-      surfaceScrollable: input.scrollHeight - input.clientHeight,
-      lastLineOffset: glyphTop(last) - box.top,
-      firstLineOffset: glyphTop(first) - box.top,
-    }
-  }, { first: FIRST_MARKER, last: LAST_MARKER })
+      const box = scroll.getBoundingClientRect()
+      return {
+        overflows: scroll.scrollHeight > scroll.clientHeight,
+        clientHeight: scroll.clientHeight,
+        visibleLines: Math.floor(scroll.clientHeight / lineHeight),
+        scrollTop: scroll.scrollTop,
+        scrollMax: scroll.scrollHeight - scroll.clientHeight,
+        surfaceScrollable: input.scrollHeight - input.clientHeight,
+        lastLineOffset: glyphTop(last) - box.top,
+        firstLineOffset: glyphTop(first) - box.top,
+      }
+    },
+    { first: FIRST_MARKER, last: LAST_MARKER },
+  )
 }
 
 /**
@@ -151,9 +158,7 @@ function measureComposer(page: Page): Promise<ComposerMetrics> {
  * @param pasted - metrics right after a long block was pasted at the draft's end.
  * @returns the golden body, without a trailing newline.
  */
-function renderGeometry(
-  top: ComposerMetrics, bottom: ComposerMetrics, trailingNewline: ComposerMetrics, pasted: ComposerMetrics,
-): string {
+function renderGeometry(top: ComposerMetrics, bottom: ComposerMetrics, trailingNewline: ComposerMetrics, pasted: ComposerMetrics): string {
   return [
     '# Composer draft scrolling (14-line cap, one editable surface, one scrollport)',
     '',
@@ -182,10 +187,10 @@ function renderGeometry(
     '## Right after pasting a long block at the end',
     '',
     `- the composer scrolled to the caret it left: ${String(pasted.scrollTop > 0)}`,
-    `- the pasted block's last line is on screen: ${String(
-      pasted.lastLineOffset >= 0 && pasted.lastLineOffset < pasted.clientHeight,
-    )}`,
-  ].join('\n').trimEnd()
+    `- the pasted block's last line is on screen: ${String(pasted.lastLineOffset >= 0 && pasted.lastLineOffset < pasted.clientHeight)}`,
+  ]
+    .join('\n')
+    .trimEnd()
 }
 
 describe('web e2e: composer draft scrolling', () => {
@@ -240,8 +245,7 @@ describe('web e2e: composer draft scrolling', () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-composer-draft-scroll-wheel'))
     await surface(page).hover()
     await page.mouse.wheel(0, 240)
-    await expect.poll(async () => (await measureComposer(page)).scrollTop, { timeout: 10_000 })
-      .toBeGreaterThan(0)
+    await expect.poll(async () => (await measureComposer(page)).scrollTop, { timeout: 10_000 }).toBeGreaterThan(0)
     const scrolled = await measureComposer(page)
     expect(scrolled.firstLineOffset).toBeLessThan(0)
     expect(tripwire.pageErrors).toEqual([])
@@ -261,10 +265,15 @@ describe('web e2e: composer draft scrolling', () => {
     await page.mouse.wheel(0, -2000)
     await expect.poll(async () => (await measureComposer(page)).scrollTop, { timeout: 10_000 }).toBe(0)
     await page.keyboard.insertText(' typed-at-end')
-    await expect.poll(async () => {
-      const m = await measureComposer(page)
-      return m.lastLineOffset >= 0 && m.lastLineOffset < m.clientHeight
-    }, { timeout: 10_000 }).toBe(true)
+    await expect
+      .poll(
+        async () => {
+          const m = await measureComposer(page)
+          return m.lastLineOffset >= 0 && m.lastLineOffset < m.clientHeight
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true)
     expect(tripwire.pageErrors).toEqual([])
   }, 60_000)
 
@@ -276,10 +285,15 @@ describe('web e2e: composer draft scrolling', () => {
     await expect.poll(async () => (await measureComposer(page)).overflows, { timeout: 10_000 }).toBe(true)
     await surface(page).hover()
     await page.mouse.wheel(0, 4000)
-    await expect.poll(async () => {
-      const m = await measureComposer(page)
-      return m.scrollTop === m.scrollMax
-    }, { timeout: 10_000 }).toBe(true)
+    await expect
+      .poll(
+        async () => {
+          const m = await measureComposer(page)
+          return m.scrollTop === m.scrollMax
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true)
     const bottom = await measureComposer(page)
     // At the very bottom the draft's own last line — the one before the empty
     // final line — is on screen.
@@ -299,25 +313,32 @@ describe('web e2e: composer draft scrolling', () => {
     const top = await measureComposer(page)
     await surface(page).hover()
     await page.mouse.wheel(0, 2000)
-    await expect.poll(async () => (await measureComposer(page)).scrollTop, { timeout: 10_000 })
-      .toBeGreaterThan(0)
+    await expect.poll(async () => (await measureComposer(page)).scrollTop, { timeout: 10_000 }).toBeGreaterThan(0)
     const bottom = await measureComposer(page)
     await typeDraft(page, [...DRAFT_ROWS, ''])
     await surface(page).hover()
     await page.mouse.wheel(0, 4000)
-    await expect.poll(async () => {
-      const m = await measureComposer(page)
-      return m.scrollTop === m.scrollMax
-    }, { timeout: 10_000 }).toBe(true)
+    await expect
+      .poll(
+        async () => {
+          const m = await measureComposer(page)
+          return m.scrollTop === m.scrollMax
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true)
     const trailingNewline = await measureComposer(page)
     // The paste path, measured the way a user meets it: a short draft, the
     // caret at its end, one long block pasted in.
     await typeDraft(page, ['one short line'])
-    await surface(page).evaluate((el, text) => {
-      const data = new DataTransfer()
-      data.setData('text/plain', text)
-      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
-    }, `\n${DRAFT_ROWS.join('\n')}`)
+    await surface(page).evaluate(
+      (el, text) => {
+        const data = new DataTransfer()
+        data.setData('text/plain', text)
+        el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
+      },
+      `\n${DRAFT_ROWS.join('\n')}`,
+    )
     await expect.poll(async () => (await measureComposer(page)).overflows, { timeout: 10_000 }).toBe(true)
     await expect.poll(async () => (await measureComposer(page)).scrollTop, { timeout: 10_000 }).toBeGreaterThan(0)
     const pasted = await measureComposer(page)

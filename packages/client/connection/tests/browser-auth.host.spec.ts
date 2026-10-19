@@ -1,7 +1,7 @@
 /** Browser launch-token and persistent-cookie behavior. */
 
 import { createHmac } from 'node:crypto'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import type { PeerId } from '@deepseek-ai/dsh-typert-protocol'
 import { BrowserAuth } from '../src/browser-auth.ts'
@@ -9,9 +9,10 @@ import type { ConnectionIndexRequest, ConnectionIndexResponse } from '../src/rpc
 import { RecordCredentials } from './browser-credentials.ts'
 
 function signedCookie(store: RecordCredentials, name: string, payload: unknown): string {
-  const body = typeof payload === 'string'
-    ? Buffer.from(payload, 'utf8').toString('base64url')
-    : Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
+  const body =
+    typeof payload === 'string'
+      ? Buffer.from(payload, 'utf8').toString('base64url')
+      : Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
   return signedBodyCookie(store, name, body)
 }
 
@@ -52,24 +53,24 @@ function credentials(store: RecordCredentials): CredentialProvider {
   return store as unknown as CredentialProvider
 }
 
-function createAuth(
-  store: RecordCredentials,
-  maxAgeDays = 30,
-  processOwner: object = {},
-): Promise<BrowserAuth> {
+function createAuth(store: RecordCredentials, maxAgeDays = 30, processOwner: object = {}): Promise<BrowserAuth> {
   return BrowserAuth.create(processOwner, credentials(store), maxAgeDays)
 }
 
-function request(url: string, authority = '127.0.0.1:3080', init?: {
-  cookie?: string
-  method?: string
-}): ConnectionIndexRequest {
+function request(
+  url: string,
+  authority = '127.0.0.1:3080',
+  init?: {
+    cookie?: string
+    method?: string
+  },
+): ConnectionIndexRequest {
   return {
     method: init?.method ?? 'GET',
     url,
     headers: {
       host: authority,
-      ...init?.cookie === undefined ? {} : { cookie: init.cookie },
+      ...(init?.cookie === undefined ? {} : { cookie: init.cookie }),
     },
   }
 }
@@ -117,13 +118,18 @@ describe('API credentials', () => {
     const issuedAt = Date.now()
     const publish = vi.fn(() => id)
     const res = response()
-    auth.authorizeConnect(request(auth.authenticatedUrl(`http://${authority}/connect`)), {
-      ...res.value,
-      writeHead(status, headers) {
-        expect(publish).toHaveBeenCalledExactlyOnceWith('none')
-        return res.value.writeHead(status, headers)
+    auth.authorizeConnect(
+      request(auth.authenticatedUrl(`http://${authority}/connect`)),
+      {
+        ...res.value,
+        writeHead(status, headers) {
+          expect(publish).toHaveBeenCalledExactlyOnceWith('none')
+          return res.value.writeHead(status, headers)
+        },
       },
-    }, false, publish)
+      false,
+      publish,
+    )
     const cookie = res.state.headers?.['set-cookie']?.split(';', 1)[0]
     if (cookie === undefined) throw new Error('API connect did not set a cookie')
     const [name, value] = cookie.split('=') as [string, string]
@@ -170,16 +176,18 @@ describe('BrowserAuth', () => {
       status: 303,
       headers: {
         'cache-control': 'no-store',
-        'location': './',
+        location: './',
         'referrer-policy': 'no-referrer',
       },
     })
     expect(login.state.headers?.['set-cookie']).toMatch(/; Max-Age=2592000; Path=\/; Expires=.*; HttpOnly; SameSite=Strict$/u)
     expect(login.state.headers?.['set-cookie']).not.toContain('Secure')
     expect(first.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
-    expect(first.isAuthenticated({
-      headers: new Headers({ host: '127.0.0.1:3080', cookie: login.cookie }),
-    })).toBe(true)
+    expect(
+      first.isAuthenticated({
+        headers: new Headers({ host: '127.0.0.1:3080', cookie: login.cookie }),
+      }),
+    ).toBe(true)
     expect(first.isAuthenticated({ headers: new Headers() })).toBe(false)
     expect(first.isAuthenticated(request('/', 'localhost:3080', { cookie: login.cookie }))).toBe(false)
     expect(first.isAuthenticated(request('/', '127.0.0.1:3081', { cookie: login.cookie }))).toBe(false)
@@ -189,21 +197,23 @@ describe('BrowserAuth', () => {
     expect(reloaded.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
 
     const restarted = await createAuth(store)
-    expect(new URL(restarted.authenticatedUrl('http://127.0.0.1:3080')).searchParams.get('token'))
-      .not.toBe(new URL(login.launchUrl).searchParams.get('token'))
+    expect(new URL(restarted.authenticatedUrl('http://127.0.0.1:3080')).searchParams.get('token')).not.toBe(
+      new URL(login.launchUrl).searchParams.get('token'),
+    )
     expect(restarted.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: login.cookie }))).toBe(true)
     const staleUrl = new URL(login.launchUrl)
     const redirected = response()
-    expect(restarted.authorizeIndex(request(
-      `${staleUrl.pathname}${staleUrl.search}`,
-      '127.0.0.1:3080',
-      { cookie: login.cookie },
-    ), redirected.value)).toBe(false)
+    expect(
+      restarted.authorizeIndex(
+        request(`${staleUrl.pathname}${staleUrl.search}`, '127.0.0.1:3080', { cookie: login.cookie }),
+        redirected.value,
+      ),
+    ).toBe(false)
     expect(redirected.state).toEqual({
       status: 303,
       headers: {
         'cache-control': 'no-store',
-        'location': './',
+        location: './',
         'referrer-policy': 'no-referrer',
       },
     })
@@ -255,9 +265,7 @@ describe('BrowserAuth', () => {
     expect(auth.authorizeIndex(request(`/?token=${String(token)}`, 'gateway.example'), exchanged.value)).toBe(false)
     const setCookie = exchanged.state.headers?.['set-cookie']
     if (setCookie === undefined) throw new Error('mount exchange did not set a cookie')
-    expect(auth.isAuthenticated(request(
-      '/', 'gateway.example', { cookie: setCookie.split(';', 1)[0]! },
-    ))).toBe(true)
+    expect(auth.isAuthenticated(request('/', 'gateway.example', { cookie: setCookie.split(';', 1)[0]! }))).toBe(true)
   })
 
   it('accepts the cookie for index serving and gives every unauthenticated request one response', async () => {
@@ -281,9 +289,9 @@ describe('BrowserAuth', () => {
         'cache-control': 'no-store',
         'content-type': 'text/plain; charset=utf-8',
       })
-      expect(denied.state.body).toBe(candidate.method === 'HEAD'
-        ? undefined
-        : 'dsh web authentication required; reopen the URL printed by dsh web.\n')
+      expect(denied.state.body).toBe(
+        candidate.method === 'HEAD' ? undefined : 'dsh web authentication required; reopen the URL printed by dsh web.\n',
+      )
     }
   })
 
@@ -298,9 +306,13 @@ describe('BrowserAuth', () => {
     expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: `${name}=broken` }))).toBe(false)
     expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: `${name}=${value.slice(0, -1)}x` }))).toBe(false)
     expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', { cookie: `${name}=%` }))).toBe(false)
-    expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', {
-      cookie: signedBodyCookie(store, name, 'a'),
-    }))).toBe(false)
+    expect(
+      auth.isAuthenticated(
+        request('/', '127.0.0.1:3080', {
+          cookie: signedBodyCookie(store, name, 'a'),
+        }),
+      ),
+    ).toBe(false)
     expect(auth.isAuthenticated({ headers: {} })).toBe(false)
     expect(auth.isAuthenticated({ headers: { host: 'bad host', cookie } })).toBe(false)
     expect(auth.isAuthenticated({ headers: { host: '127.0.0.1:3080' } })).toBe(false)
@@ -314,9 +326,13 @@ describe('BrowserAuth', () => {
       { version: 1, authority: '127.0.0.1:3080', issuedAt: Date.now(), expiresAt: 'later' },
     ]
     for (const payload of invalidPayloads) {
-      expect(auth.isAuthenticated(request('/', '127.0.0.1:3080', {
-        cookie: signedCookie(store, name, payload),
-      }))).toBe(false)
+      expect(
+        auth.isAuthenticated(
+          request('/', '127.0.0.1:3080', {
+            cookie: signedCookie(store, name, payload),
+          }),
+        ),
+      ).toBe(false)
     }
 
     const shorter = await createAuth(store, 1)
@@ -364,7 +380,6 @@ describe('BrowserAuth', () => {
     discarded.discardWrites = true
     await expect(createAuth(discarded)).rejects.toThrow(/was not created/u)
 
-    await expect(createAuth(new RecordCredentials(), Number.MAX_SAFE_INTEGER))
-      .rejects.toThrow(/safe timestamp range/u)
+    await expect(createAuth(new RecordCredentials(), Number.MAX_SAFE_INTEGER)).rejects.toThrow(/safe timestamp range/u)
   })
 })

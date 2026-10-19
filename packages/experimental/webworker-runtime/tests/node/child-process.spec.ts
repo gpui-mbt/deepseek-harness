@@ -12,22 +12,24 @@
  * reason the worker does it: the subprocess service polls process-group
  * liveness through it, and on a test host those pids belong to real processes.
  */
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 import { MemoryVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/memory.ts'
 import { setActiveVfs } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/storage/active.ts'
 import { spawn, spawnSync } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/child_process.ts'
-import {
-  LAUNCHER_FAILURE_EXIT, grantArgs, launcherPath, probe,
-} from '@deepseek-ai/node-addon-system/landlock-run'
+import { LAUNCHER_FAILURE_EXIT, grantArgs, launcherPath, probe } from '@deepseek-ai/node-addon-system/landlock-run'
 import { processAlive, signalProcess } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/node/process-table.ts'
 import { hostFileSystem } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/shell/fs-access.ts'
 import {
-  LANDLOCK_EXECUTABLE, landlockFileSystem, parseLandlockArguments,
+  LANDLOCK_EXECUTABLE,
+  landlockFileSystem,
+  parseLandlockArguments,
 } from '@deepseek-ai/dsh-experimental-webworker-runtime/src/shell/process/landlock.ts'
 import { spawnSubprocess } from '@deepseek-ai/dsh-subprocess-local/src/spawn.ts'
 
-vi.mock('node:child_process', async () =>
-  await import('@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/child_process.ts'))
+vi.mock(
+  'node:child_process',
+  async () => await import('@deepseek-ai/dsh-experimental-webworker-runtime/src/node/builtin_modules/implemented/child_process.ts'),
+)
 
 const WORKSPACE = '/dsh/workspace'
 const HOME = '/dsh/home'
@@ -61,10 +63,16 @@ afterEach(() => {
 async function collect(child: ReturnType<typeof spawn>): Promise<{ stdout: string; stderr: string; code: number | null }> {
   let stdout = ''
   let stderr = ''
-  child.stdout?.on('data', (chunk: unknown) => { stdout += String(chunk) })
-  child.stderr?.on('data', (chunk: unknown) => { stderr += String(chunk) })
+  child.stdout?.on('data', (chunk: unknown) => {
+    stdout += String(chunk)
+  })
+  child.stderr?.on('data', (chunk: unknown) => {
+    stderr += String(chunk)
+  })
   const code = await new Promise<number | null>((settle, fail) => {
-    child.on('close', (value: unknown) => { settle(value as number | null) })
+    child.on('close', (value: unknown) => {
+      settle(value as number | null)
+    })
     child.on('error', fail)
   })
   return { stdout, stderr, code }
@@ -88,8 +96,10 @@ it('fails a program the command table does not hold the way a missing binary doe
   // reach the ENOENT, not a TypeError on the configuration line.
   child.stdout?.setEncoding()
   child.stderr?.setEncoding()
-  const error = await new Promise<NodeJS.ErrnoException>((settle) => {
-    child.on('error', (value: unknown) => { settle(value as NodeJS.ErrnoException) })
+  const error = await new Promise<NodeJS.ErrnoException>(settle => {
+    child.on('error', (value: unknown) => {
+      settle(value as NodeJS.ErrnoException)
+    })
   })
   expect(error.code).toBe('ENOENT')
   expect(error.syscall).toBe('spawn nowhere-binary')
@@ -106,8 +116,7 @@ it('reports that a synchronous run cannot happen, without throwing at the probe'
     status: 0,
     stdout: Buffer.from('landlock: fully enforced\n'),
   })
-  expect(spawnSync(launcherPath(), ['--ro', '/', '--', 'echo', 'x']).error?.message)
-    .toContain('commands run asynchronously')
+  expect(spawnSync(launcherPath(), ['--ro', '/', '--', 'echo', 'x']).error?.message).toContain('commands run asynchronously')
   const failedProbe = spawnSync(launcherPath(), ['--probe', '--'])
   expect(failedProbe.status).toBe(LAUNCHER_FAILURE_EXIT)
   expect(Buffer.isBuffer(failedProbe.stderr)).toBe(true)
@@ -120,7 +129,9 @@ it('keeps the native Landlock package API and CLI failure contract', async () =>
   expect(launcherPath(() => '/ignored/package.json')).toBe('/ignored/bin/landlock-run')
   expect(LAUNCHER_FAILURE_EXIT).toBe(125)
   expect(await collect(spawn(launcherPath(), ['--probe']))).toEqual({
-    stdout: 'landlock: fully enforced\n', stderr: '', code: 0,
+    stdout: 'landlock: fully enforced\n',
+    stderr: '',
+    code: 0,
   })
   const malformed = spawn(launcherPath(), ['--rw'], { cwd: WORKSPACE })
   expect(await collect(malformed)).toEqual({
@@ -145,9 +156,7 @@ it('keeps the native Landlock package API and CLI failure contract', async () =>
 
 it('enforces every ShellFileSystem operation and virtual device edge', async () => {
   vfs.writeFileSync(`${HOME}/private.txt`, 'private\n')
-  const invocation = parseLandlockArguments([
-    ...grantArgs({ readOnly: ['/dev'], readWrite: [WORKSPACE, '/dev/null'] }), '--', 'true',
-  ])
+  const invocation = parseLandlockArguments([...grantArgs({ readOnly: ['/dev'], readWrite: [WORKSPACE, '/dev/null'] }), '--', 'true'])
   if (invocation.kind !== 'run') throw new Error('expected a confined run invocation')
   const guarded = await landlockFileSystem(hostFileSystem(), invocation, WORKSPACE)
 
@@ -179,15 +188,15 @@ it('enforces every ShellFileSystem operation and virtual device edge', async () 
 
 it('turns an unexpected virtual-launcher preparation failure into exit 125', async () => {
   const base = hostFileSystem()
-  const result = await LANDLOCK_EXECUTABLE.prepare(
-    ['--ro', '/', '--', 'true'],
-    {
-      cwd: WORKSPACE,
-      filesystem: { ...base, stat: () => Promise.reject(new Error('storage unavailable')) },
-    },
-  )
+  const result = await LANDLOCK_EXECUTABLE.prepare(['--ro', '/', '--', 'true'], {
+    cwd: WORKSPACE,
+    filesystem: { ...base, stat: () => Promise.reject(new Error('storage unavailable')) },
+  })
   expect(result).toEqual({
-    kind: 'exit', exitCode: 125, stdout: '', stderr: 'landlock-run: Error: storage unavailable\n',
+    kind: 'exit',
+    exitCode: 125,
+    stdout: '',
+    stderr: 'landlock-run: Error: storage unavailable\n',
   })
 })
 
@@ -206,20 +215,34 @@ it.each([
 
 it('enforces read-only and workspace-write grants over the VFS', async () => {
   vfs.writeFileSync(`${HOME}/readable.txt`, 'visible\n')
-  const readOnly = spawn(launcherPath(), [
-    ...grantArgs({ readOnly: ['/'], readWrite: ['/dev/null'] }),
-    '--', 'bash', '-c', `cat ${HOME}/readable.txt; echo discarded > /dev/null; echo denied > ${WORKSPACE}/denied.txt`,
-  ], { cwd: WORKSPACE })
+  const readOnly = spawn(
+    launcherPath(),
+    [
+      ...grantArgs({ readOnly: ['/'], readWrite: ['/dev/null'] }),
+      '--',
+      'bash',
+      '-c',
+      `cat ${HOME}/readable.txt; echo discarded > /dev/null; echo denied > ${WORKSPACE}/denied.txt`,
+    ],
+    { cwd: WORKSPACE },
+  )
   const strict = await collect(readOnly)
   expect(strict.code).toBe(1)
   expect(strict.stdout).toBe('visible\n')
   expect(strict.stderr.toLowerCase()).toContain('permission denied')
   expect(vfs.existsSync(`${WORKSPACE}/denied.txt`)).toBe(false)
 
-  const workspaceWrite = spawn(launcherPath(), [
-    ...grantArgs({ readOnly: ['/'], readWrite: ['/dev/null', '/tmp', WORKSPACE] }),
-    '--', 'bash', '-c', `echo workspace > ${WORKSPACE}/allowed.txt; echo temporary > /tmp/temp.txt; cat /tmp/temp.txt`,
-  ], { cwd: WORKSPACE })
+  const workspaceWrite = spawn(
+    launcherPath(),
+    [
+      ...grantArgs({ readOnly: ['/'], readWrite: ['/dev/null', '/tmp', WORKSPACE] }),
+      '--',
+      'bash',
+      '-c',
+      `echo workspace > ${WORKSPACE}/allowed.txt; echo temporary > /tmp/temp.txt; cat /tmp/temp.txt`,
+    ],
+    { cwd: WORKSPACE },
+  )
   expect(await collect(workspaceWrite)).toEqual({ stdout: 'temporary\n', stderr: '', code: 0 })
   expect(vfs.readFileSync(`${WORKSPACE}/allowed.txt`, 'utf8')).toBe('workspace\n')
   expect(vfs.readFileSync(`${TMP}/temp.txt`, 'utf8')).toBe('temporary\n')
@@ -230,10 +253,17 @@ it('normalizes relative grants and denies sibling-prefix escapes and unreadable 
   vfs.mkdirSync(`${WORKSPACE}/nested`)
   vfs.mkdirSync(`${WORKSPACE}-other`)
   vfs.writeFileSync(`${HOME}/private.txt`, 'private\n')
-  const child = spawn(launcherPath(), [
-    ...grantArgs({ readOnly: [WORKSPACE], readWrite: ['.'] }),
-    '--', 'bash', '-c', `echo kept > nested/relative.txt; echo escaped > ${WORKSPACE}-other/escape.txt; cat ${HOME}/private.txt`,
-  ], { cwd: WORKSPACE })
+  const child = spawn(
+    launcherPath(),
+    [
+      ...grantArgs({ readOnly: [WORKSPACE], readWrite: ['.'] }),
+      '--',
+      'bash',
+      '-c',
+      `echo kept > nested/relative.txt; echo escaped > ${WORKSPACE}-other/escape.txt; cat ${HOME}/private.txt`,
+    ],
+    { cwd: WORKSPACE },
+  )
   const result = await collect(child)
   expect(result.code).toBe(1)
   expect(result.stderr.toLowerCase()).toContain('permission denied')
@@ -251,20 +281,22 @@ it('treats trailing-slash grants as the same subtree', async () => {
 })
 
 it('presents the virtual device directory without storing it in the VFS', async () => {
-  const child = spawn(launcherPath(), [
-    ...grantArgs({ readOnly: ['/'], readWrite: ['/dev/null'] }),
-    '--', 'bash', '-c', 'ls /dev; cat /dev/null',
-  ], { cwd: WORKSPACE })
+  const child = spawn(
+    launcherPath(),
+    [...grantArgs({ readOnly: ['/'], readWrite: ['/dev/null'] }), '--', 'bash', '-c', 'ls /dev; cat /dev/null'],
+    { cwd: WORKSPACE },
+  )
   expect(await collect(child)).toEqual({ stdout: 'null\n', stderr: '', code: 0 })
   expect(vfs.existsSync('/dev')).toBe(false)
 })
 
 it('requires both rename paths to be writable', async () => {
   vfs.writeFileSync(`${WORKSPACE}/source.txt`, 'kept\n')
-  const child = spawn(launcherPath(), [
-    ...grantArgs({ readOnly: ['/'], readWrite: [WORKSPACE] }),
-    '--', 'mv', `${WORKSPACE}/source.txt`, `${HOME}/moved.txt`,
-  ], { cwd: WORKSPACE })
+  const child = spawn(
+    launcherPath(),
+    [...grantArgs({ readOnly: ['/'], readWrite: [WORKSPACE] }), '--', 'mv', `${WORKSPACE}/source.txt`, `${HOME}/moved.txt`],
+    { cwd: WORKSPACE },
+  )
   const result = await collect(child)
   expect(result.code).toBe(1)
   expect(result.stderr.toLowerCase()).toContain('permission denied')
@@ -273,14 +305,22 @@ it('requires both rename paths to be writable', async () => {
 })
 
 it('keeps concurrent Landlock grants process-local', async () => {
-  const strict = spawn(launcherPath(), [
-    ...grantArgs({ readOnly: ['/'], readWrite: ['/dev/null'] }),
-    '--', 'bash', '-c', `sleep 0.02; echo denied > ${WORKSPACE}/strict.txt`,
-  ], { cwd: WORKSPACE })
-  const writable = spawn(launcherPath(), [
-    ...grantArgs({ readOnly: ['/'], readWrite: ['/dev/null', WORKSPACE] }),
-    '--', 'bash', '-c', `echo allowed > ${WORKSPACE}/writable.txt`,
-  ], { cwd: WORKSPACE })
+  const strict = spawn(
+    launcherPath(),
+    [...grantArgs({ readOnly: ['/'], readWrite: ['/dev/null'] }), '--', 'bash', '-c', `sleep 0.02; echo denied > ${WORKSPACE}/strict.txt`],
+    { cwd: WORKSPACE },
+  )
+  const writable = spawn(
+    launcherPath(),
+    [
+      ...grantArgs({ readOnly: ['/'], readWrite: ['/dev/null', WORKSPACE] }),
+      '--',
+      'bash',
+      '-c',
+      `echo allowed > ${WORKSPACE}/writable.txt`,
+    ],
+    { cwd: WORKSPACE },
+  )
   const [strictResult, writableResult] = await Promise.all([collect(strict), collect(writable)])
   expect(strictResult.code).toBe(1)
   expect(strictResult.stderr.toLowerCase()).toContain('permission denied')

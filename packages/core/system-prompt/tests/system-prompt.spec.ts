@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt, {
-  AssembleContext, PromptAssembly, renderContextSections, renderContextSnapshot, renderPrompt,
+  AssembleContext,
+  PromptAssembly,
+  renderContextSections,
+  renderContextSnapshot,
+  renderPrompt,
 } from '@deepseek-ai/dsh-system-prompt'
 import type { PromptContextOrderName, PromptSectionOrderName } from '@deepseek-ai/dsh-system-prompt'
 
@@ -14,19 +18,45 @@ import type { PromptContextOrderName, PromptSectionOrderName } from '@deepseek-a
 const BUILT_IN = ['harness:identity', 'deployment:persona-prefix', 'deployment:persona-suffix']
 const IDENTITY = 'You are an AI agent powered by DeepSeek Harness.'
 const SECTION_ORDER_NAMES = [
-  'HARNESS_IDENTITY', 'DEPLOYMENT_PERSONA_PREFIX',
-  'PLAN_POLICY', 'TEAM_POLICY', 'PTC_ONLY', 'FILE_REFERENCE', 'TOOL_BASH',
-  'TOOL_PWSH', 'TOOL_READ', 'TOOL_WRITE', 'TOOL_EDIT', 'TOOL_GLOB',
-  'TOOL_GREP', 'TOOL_JOBS', 'TOOL_PTY', 'TOOL_WEB_SEARCH', 'TOOL_WEB_FETCH',
-  'TOOL_LSP', 'TOOL_SESSION_QUERY', 'TOOL_GOAL', 'TOOL_WORKFLOW',
-  'TOOL_RALPH', 'TOOL_SUBAGENT', 'TOOL_REPORT', 'TOOLS_SDK',
-  'DELIVERABLE_FILE_REFERENCES', 'STRUCTURED_OUTPUT',
-  'HARNESS_SOURCE', 'WEB_SURFACE', 'DEPLOYMENT_PERSONA_SUFFIX',
+  'HARNESS_IDENTITY',
+  'DEPLOYMENT_PERSONA_PREFIX',
+  'PLAN_POLICY',
+  'TEAM_POLICY',
+  'PTC_ONLY',
+  'FILE_REFERENCE',
+  'TOOL_BASH',
+  'TOOL_PWSH',
+  'TOOL_READ',
+  'TOOL_WRITE',
+  'TOOL_EDIT',
+  'TOOL_GLOB',
+  'TOOL_GREP',
+  'TOOL_JOBS',
+  'TOOL_PTY',
+  'TOOL_WEB_SEARCH',
+  'TOOL_WEB_FETCH',
+  'TOOL_LSP',
+  'TOOL_SESSION_QUERY',
+  'TOOL_GOAL',
+  'TOOL_WORKFLOW',
+  'TOOL_RALPH',
+  'TOOL_SUBAGENT',
+  'TOOL_REPORT',
+  'TOOLS_SDK',
+  'DELIVERABLE_FILE_REFERENCES',
+  'STRUCTURED_OUTPUT',
+  'HARNESS_SOURCE',
+  'WEB_SURFACE',
+  'DEPLOYMENT_PERSONA_SUFFIX',
 ] as const satisfies readonly PromptSectionOrderName[]
 const CONTEXT_ORDER_NAMES = [
   'WORKING_DIRECTORY',
-  'SANDBOX_POLICY', 'APPROVAL_POLICY', 'SUBAGENT_DELEGATION', 'TEAM_IDENTITY',
-  'HARNESS_SOURCE', 'WEB_SURFACE',
+  'SANDBOX_POLICY',
+  'APPROVAL_POLICY',
+  'SUBAGENT_DELEGATION',
+  'TEAM_IDENTITY',
+  'HARNESS_SOURCE',
+  'WEB_SURFACE',
 ] as const satisfies readonly PromptContextOrderName[]
 function contributed(assembly: PromptAssembly): PromptAssembly['sections'] {
   return assembly.sections.filter(section => !BUILT_IN.includes(section.name))
@@ -38,7 +68,13 @@ describe('SystemPrompt', () => {
     try {
       await ctx.plugin(SystemPrompt, { includeRuntimeContext: false })
       ctx.systemPrompt.context({ name: 'directory', order: 0, required: true, text: 'Directory: /project' })
-      ctx.systemPrompt.context({ name: 'optional', order: 1, text: () => { throw new Error('suppressed provider ran') } })
+      ctx.systemPrompt.context({
+        name: 'optional',
+        order: 1,
+        text: () => {
+          throw new Error('suppressed provider ran')
+        },
+      })
       ctx.on('system-prompt/assemble', async (assembly, _context, next) => {
         assembly.contexts.push({ name: 'unregistered', text: 'should stay suppressed' })
         return next()
@@ -60,8 +96,14 @@ describe('SystemPrompt', () => {
       let tools = 0
       let variables = 0
       ctx.systemPrompt.context({ name: 'live', order: 0, text: () => current, interpolate: false })
-      ctx.systemPrompt.variable('fixed', () => { variables++; return current })
-      ctx.systemPrompt.tools(() => { tools++; return { schemas: [{ name: 'accepted_tool', description: current, parameters: {}, deferLoading: true }] } })
+      ctx.systemPrompt.variable('fixed', () => {
+        variables++
+        return current
+      })
+      ctx.systemPrompt.tools(() => {
+        tools++
+        return { schemas: [{ name: 'accepted_tool', description: current, parameters: {}, deferLoading: true }] }
+      })
       ctx.on('system-prompt/assemble', async (_assembly, _context, next) => {
         assemblies++
         const accepted = await next()
@@ -71,7 +113,8 @@ describe('SystemPrompt', () => {
       current = 'after'
       const refreshed = ctx.systemPrompt.refreshContext(accepted)
       expect(refreshed.contexts).toEqual([
-        { name: 'live', text: 'after', interpolate: false }, { name: 'expert', text: 'accepted only' },
+        { name: 'live', text: 'after', interpolate: false },
+        { name: 'expert', text: 'accepted only' },
       ])
       expect(accepted.contexts[0]?.text).toBe('before')
       expect(refreshed.sections).toBe(accepted.sections)
@@ -84,7 +127,7 @@ describe('SystemPrompt', () => {
     }
   })
 
-  it.each([false, true])('restores missing required contexts before a later registered context=%s', async (later) => {
+  it.each([false, true])('restores missing required contexts before a later registered context=%s', async later => {
     const ctx = new Context()
     try {
       await ctx.plugin(SystemPrompt)
@@ -92,9 +135,15 @@ describe('SystemPrompt', () => {
       ctx.systemPrompt.context({ name: 'later', order: 10, text: 'last' })
       const accepted = await ctx.systemPrompt.assemble()
       accepted.contexts = later ? [{ name: 'expert', text: 'extra' }, accepted.contexts[1]!] : []
-      expect(ctx.systemPrompt.refreshContext(accepted).contexts).toEqual(later
-        ? [{ name: 'expert', text: 'extra' }, { name: 'required', text: 'fresh' }, { name: 'later', text: 'last' }]
-        : [{ name: 'required', text: 'fresh' }])
+      expect(ctx.systemPrompt.refreshContext(accepted).contexts).toEqual(
+        later
+          ? [
+              { name: 'expert', text: 'extra' },
+              { name: 'required', text: 'fresh' },
+              { name: 'later', text: 'last' },
+            ]
+          : [{ name: 'required', text: 'fresh' }],
+      )
     } finally {
       await ctx.fiber.dispose()
     }
@@ -106,10 +155,14 @@ describe('SystemPrompt', () => {
       await ctx.plugin(SystemPrompt)
       let suppressed = false
       ctx.systemPrompt.context({ name: 'required', order: 0, text: () => 'current', required: true })
-      ctx.systemPrompt.context({ name: 'optional', order: 10, text: () => {
-        if (suppressed) throw new Error('suppressed context was evaluated')
-        return 'optional'
-      } })
+      ctx.systemPrompt.context({
+        name: 'optional',
+        order: 10,
+        text: () => {
+          if (suppressed) throw new Error('suppressed context was evaluated')
+          return 'optional'
+        },
+      })
       const accepted = await ctx.systemPrompt.assemble()
       accepted.contexts.push({ name: 'expert', text: 'accepted optional' })
       const restore = ctx.systemPrompt.suppressRuntimeContext()
@@ -141,8 +194,9 @@ describe('SystemPrompt', () => {
         { name: 'template', text: 'expanded' },
         { name: 'default', text: 'expanded' },
       ])
-      expect(renderContextSnapshot(assembly))
-        .toBe(`Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\n${literal}\n\nexpanded\n\nexpanded`)
+      expect(renderContextSnapshot(assembly)).toBe(
+        `Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\n${literal}\n\nexpanded\n\nexpanded`,
+      )
     } finally {
       await ctx.fiber.dispose()
     }
@@ -166,16 +220,22 @@ describe('SystemPrompt', () => {
       for (const key of ['model', 'cwd', 'platform'] as const) {
         ctx.systemPrompt.variable(key, () => environment[key])
       }
-      const reusable = SECTION_ORDER_NAMES.filter(name =>
-        !['HARNESS_IDENTITY', 'DEPLOYMENT_PERSONA_PREFIX', 'HARNESS_SOURCE', 'WEB_SURFACE', 'DEPLOYMENT_PERSONA_SUFFIX'].includes(name))
+      const reusable = SECTION_ORDER_NAMES.filter(
+        name =>
+          !['HARNESS_IDENTITY', 'DEPLOYMENT_PERSONA_PREFIX', 'HARNESS_SOURCE', 'WEB_SURFACE', 'DEPLOYMENT_PERSONA_SUFFIX'].includes(name),
+      )
       for (const name of [...reusable].reverse()) {
         ctx.systemPrompt.section({ name, order: ctx.systemPrompt.getSectionOrder(name), text: name })
       }
       ctx.systemPrompt.section({
-        name: 'source', order: ctx.systemPrompt.getSectionOrder('HARNESS_SOURCE'), text: () => environment.source,
+        name: 'source',
+        order: ctx.systemPrompt.getSectionOrder('HARNESS_SOURCE'),
+        text: () => environment.source,
       })
       ctx.systemPrompt.section({
-        name: 'web', order: ctx.systemPrompt.getSectionOrder('WEB_SURFACE'), text: () => environment.url,
+        name: 'web',
+        order: ctx.systemPrompt.getSectionOrder('WEB_SURFACE'),
+        text: () => environment.url,
       })
       const first = renderPrompt(await ctx.systemPrompt.assemble())
       environment = { model: 'model-a', cwd: 'C:/bob/project', platform: 'win32', source: 'C:/bob/dsh', url: 'http://127.0.0.1:4080' }
@@ -184,8 +244,7 @@ describe('SystemPrompt', () => {
       expect(first).toBe(prefix + '/alice/dsh\n\nhttp://127.0.0.1:3080\n\nIn /alice/project on darwin.')
       expect(second).toBe(prefix + 'C:/bob/dsh\n\nhttp://127.0.0.1:4080\n\nIn C:/bob/project on win32.')
       environment.model = 'model-b'
-      expect(renderPrompt(await ctx.systemPrompt.assemble()))
-        .toBe(second.replace('Model model-a.', 'Model model-b.'))
+      expect(renderPrompt(await ctx.systemPrompt.assemble())).toBe(second.replace('Model model-a.', 'Model model-b.'))
     } finally {
       await ctx.fiber.dispose()
     }
@@ -207,11 +266,9 @@ describe('SystemPrompt', () => {
         ctx.systemPrompt.variable('model', () => 'm')
         ctx.systemPrompt.section({ name: 'guidance', order: 100, text: 'Use tools.' })
         const unresolved = await ctx.systemPrompt.assemble()
-        expect(() => renderPrompt(unresolved))
-          .toThrow('unknown prompt variable "{{cwd}}" in section "deployment:persona-suffix"')
+        expect(() => renderPrompt(unresolved)).toThrow('unknown prompt variable "{{cwd}}" in section "deployment:persona-suffix"')
         ctx.systemPrompt.variable('cwd', () => '/work')
-        expect(renderPrompt(await ctx.systemPrompt.assemble()))
-          .toBe(`${IDENTITY}\n\nModel m.\n\nUse tools.\n\nWorkspace /work.`)
+        expect(renderPrompt(await ctx.systemPrompt.assemble())).toBe(`${IDENTITY}\n\nModel m.\n\nUse tools.\n\nWorkspace /work.`)
       } finally {
         await ctx.fiber.dispose()
       }
@@ -222,15 +279,12 @@ describe('SystemPrompt', () => {
       await ctx.plugin(SystemPrompt, { personaPrefix: 'You are DeepSeek Harness.' })
 
       const assembly = await ctx.systemPrompt.assemble()
-      expect(assembly.sections.map(s => s.name)).toEqual([
-        'harness:identity',
-        'deployment:persona-prefix',
-        'deployment:persona-suffix',
-      ])
+      expect(assembly.sections.map(s => s.name)).toEqual(['harness:identity', 'deployment:persona-prefix', 'deployment:persona-suffix'])
       expect(renderPrompt(assembly)).toBe(`${IDENTITY}\n\nYou are DeepSeek Harness.`)
       // The names are reserved by the plugin — one owner per section.
-      expect(() => ctx.systemPrompt.section({ name: 'deployment:persona-prefix', order: 0, text: 'imposter' }))
-        .toThrow('prompt section "deployment:persona-prefix" is already registered')
+      expect(() => ctx.systemPrompt.section({ name: 'deployment:persona-prefix', order: 0, text: 'imposter' })).toThrow(
+        'prompt section "deployment:persona-prefix" is already registered',
+      )
     })
 
     it('renders no persona section for a persona-less deployment (empty default)', async () => {
@@ -290,7 +344,13 @@ describe('SystemPrompt', () => {
     ctx.systemPrompt.tools(() => ({ schemas: [{ name: 'echo', description: 'echo back', parameters: {} }] }))
 
     const assembly = await ctx.systemPrompt.assemble()
-    expect(assembly.sections.map(s => s.name)).toEqual(['harness:identity', 'deployment:persona-prefix', 'rules', 'cwd', 'deployment:persona-suffix'])
+    expect(assembly.sections.map(s => s.name)).toEqual([
+      'harness:identity',
+      'deployment:persona-prefix',
+      'rules',
+      'cwd',
+      'deployment:persona-suffix',
+    ])
     expect(assembly.sections.map(s => s.text)).toEqual([IDENTITY, 'You are DeepSeek Harness.', 'Be precise.', 'cwd: /tmp', ''])
     expect(assembly.contexts).toEqual([
       { name: 'earlier', text: 'context 1' },
@@ -299,11 +359,16 @@ describe('SystemPrompt', () => {
     expect(assembly.tools).toEqual([{ name: 'echo', description: 'echo back', parameters: {} }])
     expect(assembly.variables).toEqual({})
     expect(renderPrompt(assembly)).toBe(`${IDENTITY}\n\nYou are DeepSeek Harness.\n\nBe precise.\n\ncwd: /tmp`)
-    expect(renderContextSnapshot(assembly)).toBe('Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\ncontext 1\n\ncontext 2')
+    expect(renderContextSnapshot(assembly)).toBe(
+      'Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\ncontext 1\n\ncontext 2',
+    )
   })
 
   it('breaks equal section orders by code-unit name regardless of registration order', async () => {
-    for (const names of [['äther', 'zeta'], ['zeta', 'äther']] as const) {
+    for (const names of [
+      ['äther', 'zeta'],
+      ['zeta', 'äther'],
+    ] as const) {
       const ctx = new Context()
       await ctx.plugin(SystemPrompt)
       for (const name of names) ctx.systemPrompt.section({ name, order: 10, text: name })
@@ -331,12 +396,17 @@ describe('SystemPrompt', () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
 
-    const fiber = await ctx.plugin(Object.assign((inner: Context) => {
-      inner.systemPrompt.section({ name: 'scoped', order: 0, text: 'scoped section' })
-      inner.systemPrompt.context({ name: 'scoped-context', order: 0, text: 'scoped context' })
-      inner.systemPrompt.tools(() => ({ schemas: [{ name: 'scoped-tool', description: '', parameters: {} }] }))
-      inner.systemPrompt.variable('scoped_var', () => 'v')
-    }, { inject: ['systemPrompt'] }))
+    const fiber = await ctx.plugin(
+      Object.assign(
+        (inner: Context) => {
+          inner.systemPrompt.section({ name: 'scoped', order: 0, text: 'scoped section' })
+          inner.systemPrompt.context({ name: 'scoped-context', order: 0, text: 'scoped context' })
+          inner.systemPrompt.tools(() => ({ schemas: [{ name: 'scoped-tool', description: '', parameters: {} }] }))
+          inner.systemPrompt.variable('scoped_var', () => 'v')
+        },
+        { inject: ['systemPrompt'] },
+      ),
+    )
 
     const before = await ctx.systemPrompt.assemble()
     expect(contributed(before)).toHaveLength(1)
@@ -356,8 +426,7 @@ describe('SystemPrompt', () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.section({ name: 'dup', order: 0, text: 'first' })
-    expect(() => ctx.systemPrompt.section({ name: 'dup', order: 1, text: 'second' }))
-      .toThrow('prompt section "dup" is already registered')
+    expect(() => ctx.systemPrompt.section({ name: 'dup', order: 1, text: 'second' })).toThrow('prompt section "dup" is already registered')
     // The failed registration leaked nothing; the original stays intact.
     const assembly = await ctx.systemPrompt.assemble()
     expect(contributed(assembly).map(s => s.text)).toEqual(['first'])
@@ -366,8 +435,7 @@ describe('SystemPrompt', () => {
   it('rejects a non-finite section order', async () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
-    expect(() => ctx.systemPrompt.section({ name: 'bad-order', order: Number.NaN, text: 'x' }))
-      .toThrow('order must be a finite number')
+    expect(() => ctx.systemPrompt.section({ name: 'bad-order', order: Number.NaN, text: 'x' })).toThrow('order must be a finite number')
     expect(contributed(await ctx.systemPrompt.assemble())).toEqual([])
   })
 
@@ -375,10 +443,12 @@ describe('SystemPrompt', () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.context({ name: 'policy', order: 1, text: 'first' })
-    expect(() => ctx.systemPrompt.context({ name: 'policy', order: 2, text: 'second' }))
-      .toThrow('prompt context "policy" is already registered')
-    expect(() => ctx.systemPrompt.context({ name: 'bad', order: Number.NaN, text: 'x' }))
-      .toThrow('prompt context "bad" order must be a finite number')
+    expect(() => ctx.systemPrompt.context({ name: 'policy', order: 2, text: 'second' })).toThrow(
+      'prompt context "policy" is already registered',
+    )
+    expect(() => ctx.systemPrompt.context({ name: 'bad', order: Number.NaN, text: 'x' })).toThrow(
+      'prompt context "bad" order must be a finite number',
+    )
     expect((await ctx.systemPrompt.assemble()).contexts).toEqual([{ name: 'policy', text: 'first' }])
   })
 
@@ -391,7 +461,10 @@ describe('SystemPrompt', () => {
     // a single-shot guard isolates the register's own emit.
     let threw = false
     const off = ctx.on('system-prompt/change', () => {
-      if (!threw) { threw = true; throw new Error('boom change listener') }
+      if (!threw) {
+        threw = true
+        throw new Error('boom change listener')
+      }
     })
 
     expect(() => ctx.systemPrompt.section({ name: 'p', order: 0, text: 'persona' })).toThrow('boom change listener')
@@ -409,10 +482,15 @@ describe('SystemPrompt', () => {
 
     let threw = false
     const off = ctx.on('system-prompt/change', () => {
-      if (!threw) { threw = true; throw new Error('boom change listener') }
+      if (!threw) {
+        threw = true
+        throw new Error('boom change listener')
+      }
     })
 
-    expect(() => ctx.systemPrompt.tools(() => ({ schemas: [{ name: 't', description: '', parameters: {} }] }))).toThrow('boom change listener')
+    expect(() => ctx.systemPrompt.tools(() => ({ schemas: [{ name: 't', description: '', parameters: {} }] }))).toThrow(
+      'boom change listener',
+    )
     expect((await ctx.systemPrompt.assemble()).tools).toHaveLength(0) // nothing leaked
 
     off()
@@ -444,7 +522,10 @@ describe('SystemPrompt', () => {
 
     let threw = false
     const off = ctx.on('system-prompt/change', () => {
-      if (!threw) { threw = true; throw new Error('boom change listener') }
+      if (!threw) {
+        threw = true
+        throw new Error('boom change listener')
+      }
     })
 
     expect(() => ctx.systemPrompt.variable('v', () => 'x')).toThrow('boom change listener')
@@ -477,7 +558,13 @@ describe('SystemPrompt', () => {
     const passed: AssembleContext = {}
     const assembly = await ctx.systemPrompt.assemble(passed)
     expect(seen).toEqual([['harness:identity', 'deployment:persona-prefix', 'base', 'deployment:persona-suffix', 'from-a']])
-    expect(assembly.sections.map(s => s.name)).toEqual(['harness:identity', 'deployment:persona-prefix', 'base', 'deployment:persona-suffix', 'from-a'])
+    expect(assembly.sections.map(s => s.name)).toEqual([
+      'harness:identity',
+      'deployment:persona-prefix',
+      'base',
+      'deployment:persona-suffix',
+      'from-a',
+    ])
     expect(contexts[0]).toBe(passed) // the caller's context reaches listeners
   })
 
@@ -499,17 +586,19 @@ describe('SystemPrompt', () => {
     await ctx.plugin(SystemPrompt)
     ctx.systemPrompt.section({ name: 'complete', order: 10, text: 'Exact prompt.', complete: true })
     ctx.systemPrompt.section({ name: 'extra', order: 20, text: 'extra' })
-    ctx.on('system-prompt/assemble', async (assembly, _context, next) => {
-      const complete = assembly.sections.find(section => section.name === 'complete')
-      if (complete === undefined) throw new Error('complete section missing before waterfall')
-      complete.text = 'mutated'
-      assembly.sections.push({ name: 'late', text: 'late' })
-      return next()
-    }, { prepend: true })
+    ctx.on(
+      'system-prompt/assemble',
+      async (assembly, _context, next) => {
+        const complete = assembly.sections.find(section => section.name === 'complete')
+        if (complete === undefined) throw new Error('complete section missing before waterfall')
+        complete.text = 'mutated'
+        assembly.sections.push({ name: 'late', text: 'late' })
+        return next()
+      },
+      { prepend: true },
+    )
 
-    expect((await ctx.systemPrompt.assemble()).sections).toEqual([
-      { name: 'complete', text: 'Exact prompt.' },
-    ])
+    expect((await ctx.systemPrompt.assemble()).sections).toEqual([{ name: 'complete', text: 'Exact prompt.' }])
   })
 
   it('rejects multiple effective complete sections', async () => {
@@ -518,8 +607,7 @@ describe('SystemPrompt', () => {
     ctx.systemPrompt.section({ name: 'first', order: 10, text: 'first', complete: true })
     ctx.systemPrompt.section({ name: 'second', order: 20, text: 'second', complete: true })
 
-    await expect(ctx.systemPrompt.assemble())
-      .rejects.toThrow('multiple complete prompt sections are active: "first", "second"')
+    await expect(ctx.systemPrompt.assemble()).rejects.toThrow('multiple complete prompt sections are active: "first", "second"')
   })
 
   it('assembles snapshots so one-step mutations do not leak into future assemblies', async () => {
@@ -537,7 +625,12 @@ describe('SystemPrompt', () => {
     firstParameters.properties['leak'] = { type: 'string' }
 
     const second = await ctx.systemPrompt.assemble()
-    expect(second.sections.map(section => section.name)).toEqual(['harness:identity', 'deployment:persona-prefix', 'base', 'deployment:persona-suffix'])
+    expect(second.sections.map(section => section.name)).toEqual([
+      'harness:identity',
+      'deployment:persona-prefix',
+      'base',
+      'deployment:persona-suffix',
+    ])
     expect(second.sections[0]!.text).toBe(IDENTITY)
     expect(second.contexts).toEqual([])
     expect(second.tools).toEqual([{ name: 't', description: 'tool', parameters: { type: 'object', properties: {} } }])
@@ -563,17 +656,20 @@ describe('SystemPrompt', () => {
     expect(renderContextSnapshot(await ctx.systemPrompt.assemble())).toBe('')
     ctx.systemPrompt.variable('mode', () => 'read-only')
     ctx.systemPrompt.context({ name: 'policy', order: 1, text: 'Mode: {{mode}}.' })
-    expect(renderContextSnapshot(await ctx.systemPrompt.assemble()))
-      .toBe('Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nMode: read-only.')
+    expect(renderContextSnapshot(await ctx.systemPrompt.assemble())).toBe(
+      'Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nMode: read-only.',
+    )
   })
 
   it('attributes context interpolation failures to the contributing context', () => {
-    expect(() => renderContextSnapshot({
-      sections: [],
-      contexts: [{ name: 'policy', text: 'Mode: {{missing}}.' }],
-      tools: [],
-      variables: {},
-    })).toThrow('unknown prompt variable "{{missing}}" in context "policy"; registered variables: (none)')
+    expect(() =>
+      renderContextSnapshot({
+        sections: [],
+        contexts: [{ name: 'policy', text: 'Mode: {{missing}}.' }],
+        tools: [],
+        variables: {},
+      }),
+    ).toThrow('unknown prompt variable "{{missing}}" in context "policy"; registered variables: (none)')
   })
 
   it('emits system-prompt/change when a tool provider is registered and disposed', async () => {
@@ -607,9 +703,14 @@ describe('SystemPrompt', () => {
     const ctx = new Context()
     await ctx.plugin(SystemPrompt)
 
-    const fiber = await ctx.plugin(Object.assign((inner: Context) => {
-      inner.systemPrompt.tools(() => ({ schemas: [{ name: 'fiber-tool', description: '', parameters: {} }] }))
-    }, { inject: ['systemPrompt'] }))
+    const fiber = await ctx.plugin(
+      Object.assign(
+        (inner: Context) => {
+          inner.systemPrompt.tools(() => ({ schemas: [{ name: 'fiber-tool', description: '', parameters: {} }] }))
+        },
+        { inject: ['systemPrompt'] },
+      ),
+    )
 
     expect((await ctx.systemPrompt.assemble()).tools).toHaveLength(1)
     await fiber.dispose()
@@ -679,10 +780,8 @@ describe('SystemPrompt', () => {
       const ctx = new Context()
       await ctx.plugin(SystemPrompt)
       ctx.systemPrompt.variable('model', () => 'm1')
-      expect(() => ctx.systemPrompt.variable('model', () => 'm2'))
-        .toThrow('prompt variable "model" is already registered')
-      expect(() => ctx.systemPrompt.variable('Not Valid', () => 'x'))
-        .toThrow('invalid prompt variable name "Not Valid"')
+      expect(() => ctx.systemPrompt.variable('model', () => 'm2')).toThrow('prompt variable "model" is already registered')
+      expect(() => ctx.systemPrompt.variable('Not Valid', () => 'x')).toThrow('invalid prompt variable name "Not Valid"')
       // Neither failed registration leaked.
       expect((await ctx.systemPrompt.assemble()).variables).toEqual({ model: 'm1' })
     })
@@ -708,8 +807,7 @@ describe('SystemPrompt', () => {
         ctx.systemPrompt.variable('model', () => 'actual-model')
         const text = '{{item}} {{model}} {{ model }} {{nested{{item}}}}'
         ctx.systemPrompt.section({ name: 'literal', order: 1, text: dynamic ? () => text : text, interpolate: false, complete })
-        expect(renderPrompt(await ctx.systemPrompt.assemble()))
-          .toBe(complete ? text : `actual-model\n\n${text}`)
+        expect(renderPrompt(await ctx.systemPrompt.assemble())).toBe(complete ? text : `actual-model\n\n${text}`)
       } finally {
         await ctx.fiber.dispose()
       }
@@ -731,31 +829,37 @@ describe('SystemPrompt', () => {
       await ctx.plugin(SystemPrompt)
       ctx.systemPrompt.section({ name: 'persona', order: 0, text: 'on {{modle}}' })
       ctx.systemPrompt.variable('model', () => 'm')
-      await expect(async () => renderPrompt(await ctx.systemPrompt.assemble()))
-        .rejects.toThrow('unknown prompt variable "{{modle}}" in section "persona"; registered variables: model')
+      await expect(async () => renderPrompt(await ctx.systemPrompt.assemble())).rejects.toThrow(
+        'unknown prompt variable "{{modle}}" in section "persona"; registered variables: model',
+      )
     })
 
     it('names "(none)" when no variables are registered at all', () => {
-      expect(() => renderPrompt({ sections: [{ name: 's', text: '{{x}}' }], contexts: [], tools: [], variables: {} }))
-        .toThrow('unknown prompt variable "{{x}}" in section "s"; registered variables: (none)')
+      expect(() => renderPrompt({ sections: [{ name: 's', text: '{{x}}' }], contexts: [], tools: [], variables: {} })).toThrow(
+        'unknown prompt variable "{{x}}" in section "s"; registered variables: (none)',
+      )
     })
 
     it('throws when a referenced variable has no value for this assembly', () => {
-      expect(() => renderPrompt({
-        sections: [{ name: 'persona', text: 'in {{cwd}}' }],
-        contexts: [],
-        tools: [],
-        variables: { cwd: undefined },
-      })).toThrow('prompt variable "{{cwd}}" has no value for this assembly (section "persona")')
+      expect(() =>
+        renderPrompt({
+          sections: [{ name: 'persona', text: 'in {{cwd}}' }],
+          contexts: [],
+          tools: [],
+          variables: { cwd: undefined },
+        }),
+      ).toThrow('prompt variable "{{cwd}}" has no value for this assembly (section "persona")')
     })
 
     it('throws on a malformed complete reference, e.g. inner spaces', () => {
-      expect(() => renderPrompt({
-        sections: [{ name: 's', text: 'on {{ model }}' }],
-        contexts: [],
-        tools: [],
-        variables: { model: 'm' },
-      })).toThrow('malformed prompt variable reference "{{ model }}" in section "s"')
+      expect(() =>
+        renderPrompt({
+          sections: [{ name: 's', text: 'on {{ model }}' }],
+          contexts: [],
+          tools: [],
+          variables: { model: 'm' },
+        }),
+      ).toThrow('malformed prompt variable reference "{{ model }}" in section "s"')
     })
 
     it('leaves a lone {{ verbatim only when NO }} follows anywhere after it', () => {
@@ -772,23 +876,27 @@ describe('SystemPrompt', () => {
       { text: '{{{model}}}', label: 'extra outer braces' },
       { text: 'x {{a{b}} y {{model}}', label: 'nested brace inside a would-be group' },
     ])('throws on a mangled reference with a }} still following ($label)', ({ text }) => {
-      expect(() => renderPrompt({
-        sections: [{ name: 's', text }],
-        contexts: [],
-        tools: [],
-        variables: { model: 'm' },
-      })).toThrow('malformed prompt variable reference at')
+      expect(() =>
+        renderPrompt({
+          sections: [{ name: 's', text }],
+          contexts: [],
+          tools: [],
+          variables: { model: 'm' },
+        }),
+      ).toThrow('malformed prompt variable reference at')
     })
 
     it('rejects {{constructor}} as UNKNOWN — prototype properties are not variables', () => {
       // `in` would find Object.prototype.constructor and splice function
       // source into the prompt; Object.hasOwn must reject it instead.
-      expect(() => renderPrompt({
-        sections: [{ name: 's', text: 'on {{constructor}}' }],
-        contexts: [],
-        tools: [],
-        variables: { model: 'm' },
-      })).toThrow('unknown prompt variable "{{constructor}}"')
+      expect(() =>
+        renderPrompt({
+          sections: [{ name: 's', text: 'on {{constructor}}' }],
+          contexts: [],
+          tools: [],
+          variables: { model: 'm' },
+        }),
+      ).toThrow('unknown prompt variable "{{constructor}}"')
     })
 
     it('a variable NAMED like a prototype property works once actually registered', async () => {

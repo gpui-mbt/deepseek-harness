@@ -135,8 +135,7 @@ export function sessionHeaderVersion(content: string, label: string): number {
   } catch (error) {
     throw new Error(`${label}: session header contains invalid JSON`, { cause: error })
   }
-  if (value === null || typeof value !== 'object' || Array.isArray(value)
-    || (value as { type?: unknown }).type !== 'session') {
+  if (value === null || typeof value !== 'object' || Array.isArray(value) || (value as { type?: unknown }).type !== 'session') {
     throw new Error(`${label}: first record must be a Session header`)
   }
   const version = (value as { version?: unknown }).version
@@ -164,9 +163,13 @@ export function assertSessionFixtureVersion(name: string, content: string): numb
     } catch {
       projected = undefined
     }
-    if (projected !== null && typeof projected === 'object' && !Array.isArray(projected)
-      && (projected as { type?: unknown }).type === 'session'
-      && !Object.hasOwn(projected, 'version')) {
+    if (
+      projected !== null &&
+      typeof projected === 'object' &&
+      !Array.isArray(projected) &&
+      (projected as { type?: unknown }).type === 'session' &&
+      !Object.hasOwn(projected, 'version')
+    ) {
       if (fixture.version !== 0) {
         throw new Error(`${name}: a versionless projected Session header is format v0`)
       }
@@ -175,9 +178,7 @@ export function assertSessionFixtureVersion(name: string, content: string): numb
   }
   const headerVersion = sessionHeaderVersion(content, name)
   if (headerVersion !== fixture.version) {
-    throw new Error(
-      `${name}: filename declares Session format v${fixture.version}, header declares v${headerVersion}`,
-    )
+    throw new Error(`${name}: filename declares Session format v${fixture.version}, header declares v${headerVersion}`)
   }
   return headerVersion
 }
@@ -189,10 +190,7 @@ export function assertSessionFixtureVersion(name: string, content: string): numb
  * @param compression - Backend compression mode.
  * @returns The canonical persistence basename.
  */
-export function persistedSessionFilename(
-  version: number,
-  compression: 'raw' | 'zstd' = 'raw',
-): string {
+export function persistedSessionFilename(version: number, compression: 'raw' | 'zstd' = 'raw'): string {
   return `${sessionFormatLogFilename(version)}${compression === 'zstd' ? '.zstd' : ''}`
 }
 
@@ -216,10 +214,7 @@ export function parsePersistedSessionFilename(name: string): PersistedSessionFil
  * @param compression - Compression selected by the snapshot composition.
  * @returns Stable path order with older generations and filesystem noise omitted.
  */
-export function latestPersistedSessionPaths(
-  paths: readonly string[],
-  compression: 'raw' | 'zstd' = 'raw',
-): string[] {
+export function latestPersistedSessionPaths(paths: readonly string[], compression: 'raw' | 'zstd' = 'raw'): string[] {
   const selected = new Map<string, { path: string; version: number }>()
   for (const path of paths) {
     const parsed = parsePersistedSessionFilename(basename(path))
@@ -245,9 +240,7 @@ export function assertPersistedSessionVersion(name: string, content: string): nu
   if (persisted === undefined) throw new Error(`not a canonical Session persistence filename: ${name}`)
   const headerVersion = sessionHeaderVersion(content, name)
   if (headerVersion !== persisted.version) {
-    throw new Error(
-      `${name}: filename declares Session format v${persisted.version}, header declares v${headerVersion}`,
-    )
+    throw new Error(`${name}: filename declares Session format v${persisted.version}, header declares v${headerVersion}`)
   }
   return headerVersion
 }

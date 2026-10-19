@@ -42,11 +42,12 @@ class ControlSurfaceAdapter extends LlmAdapter {
     })
   }
 
-  override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     const lastUserIndex = options.messages.findLastIndex(message => message.role === 'user' && message.source?.kind === 'user')
     const current = options.messages.slice(lastUserIndex)
-    const userText = current.flatMap(message => message.content)
-      .flatMap(block => block.type === 'text' ? [block.text] : [])
+    const userText = current
+      .flatMap(message => message.content)
+      .flatMap(block => (block.type === 'text' ? [block.text] : []))
       .join('')
     const hasToolResult = current.some(message => message.role === 'tool')
     if (!hasToolResult) {
@@ -84,7 +85,13 @@ class ControlSurfaceAdapter extends LlmAdapter {
           reject(new Error('cancelled'))
           return
         }
-        options.signal?.addEventListener('abort', () => { reject(new Error('cancelled')) }, { once: true })
+        options.signal?.addEventListener(
+          'abort',
+          () => {
+            reject(new Error('cancelled'))
+          },
+          { once: true },
+        )
       })
       return
     }

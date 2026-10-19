@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import { gitIndexPaths, readGitIndexBlob } from './translation-pairing-git.ts'
 import { normalizeTranslationMarkdownLinkEdits } from './translation-links.ts'
 import {
@@ -36,27 +36,22 @@ import {
 const fixturePairSource = (): boolean => true
 
 function signature(markdown: string) {
-  return translationStructureSignature(
-    parseTranslationMarkdown(markdown),
-    'counterpart.zh.md',
-    {
-      repoRoot: process.cwd(), sourcePath: 'counterpart.md',
-      isTranslationPairSource: fixturePairSource, repositoryFileExists: () => true, markdown,
-    },
-  )
+  return translationStructureSignature(parseTranslationMarkdown(markdown), 'counterpart.zh.md', {
+    repoRoot: process.cwd(),
+    sourcePath: 'counterpart.md',
+    isTranslationPairSource: fixturePairSource,
+    repositoryFileExists: () => true,
+    markdown,
+  })
 }
 
-function fixtureSignature(
-  root: string,
-  sourcePath: string,
-  markdown: string,
-  switcherTarget: string,
-) {
-  return translationStructureSignature(
-    parseTranslationMarkdown(markdown),
-    switcherTarget,
-    { repoRoot: root, sourcePath, isTranslationPairSource: fixturePairSource, markdown },
-  )
+function fixtureSignature(root: string, sourcePath: string, markdown: string, switcherTarget: string) {
+  return translationStructureSignature(parseTranslationMarkdown(markdown), switcherTarget, {
+    repoRoot: root,
+    sourcePath,
+    isTranslationPairSource: fixturePairSource,
+    markdown,
+  })
 }
 
 describe('translation pairing index reads', () => {
@@ -90,10 +85,7 @@ describe('translation pairing index reads', () => {
       writeFileSync(join(root, 'docs/reference.zh.md'), '# 参考\n')
       execFileSync('git', ['-C', root, 'add', 'docs'])
 
-      expect(gitIndexPaths(root)).toEqual(new Set([
-        'docs/reference.md',
-        'docs/reference.zh.md',
-      ]))
+      expect(gitIndexPaths(root)).toEqual(new Set(['docs/reference.md', 'docs/reference.zh.md']))
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -102,9 +94,11 @@ describe('translation pairing index reads', () => {
 
 describe('translation pairing manifest', () => {
   it('accepts an exclusions-only manifest', () => {
-    const manifest = parseTranslationPairingManifest(JSON.stringify({
-      excluded: ['docs/generated/'],
-    }))
+    const manifest = parseTranslationPairingManifest(
+      JSON.stringify({
+        excluded: ['docs/generated/'],
+      }),
+    )
     expect(manifest).toEqual({
       excluded: ['docs/generated/'],
     })
@@ -119,17 +113,25 @@ describe('translation pairing manifest', () => {
     ['requiredClasses', ['readme']],
     ['requiredSince', '2026-07-14'],
   ] as const)('rejects obsolete policy field %s instead of accepting an inert requirement', (field, value) => {
-    expect(() => parseTranslationPairingManifest(JSON.stringify({
-      excluded: [],
-      [field]: value,
-    }))).toThrow(`unsupported field(s): ${field}; every in-scope document is required`)
+    expect(() =>
+      parseTranslationPairingManifest(
+        JSON.stringify({
+          excluded: [],
+          [field]: value,
+        }),
+      ),
+    ).toThrow(`unsupported field(s): ${field}; every in-scope document is required`)
   })
 
   it('rejects a missing or non-string exclusion list', () => {
     expect(() => parseTranslationPairingManifest('{}')).toThrow('excluded must be an array of strings')
-    expect(() => parseTranslationPairingManifest(JSON.stringify({
-      excluded: [42],
-    }))).toThrow('excluded must be an array of strings')
+    expect(() =>
+      parseTranslationPairingManifest(
+        JSON.stringify({
+          excluded: [42],
+        }),
+      ),
+    ).toThrow('excluded must be an array of strings')
   })
 })
 
@@ -145,25 +147,28 @@ describe('translation pairing switchers', () => {
 
   it('accepts only the canonical public URL for an absolute switcher', () => {
     const targets = languageSwitcherTargets('python/sdk/README.zh.md')
-    const canonicalMarkdown = '# README\n\nEnglish | [中文](https://github.com/deepseek-ai/deepseek-harness/blob/master/python/sdk/README.zh.md)\n'
+    const canonicalMarkdown =
+      '# README\n\nEnglish | [中文](https://github.com/deepseek-ai/deepseek-harness/blob/master/python/sdk/README.zh.md)\n'
     const canonical = parseTranslationMarkdown(canonicalMarkdown)
     const wrongMarkdown = '# README\n\nEnglish | [中文](https://github.com/deepseek-ai/deepseek-harness/blob/master/other/README.zh.md)\n'
     const wrongPath = parseTranslationMarkdown(wrongMarkdown)
 
-    expect(translationStructureSignature(canonical, targets, {
-      repoRoot: process.cwd(),
-      sourcePath: 'python/sdk/README.md',
-      isTranslationPairSource: fixturePairSource,
-      markdown: canonicalMarkdown,
-    }).links).toEqual([])
-    expect(translationStructureSignature(wrongPath, targets, {
-      repoRoot: process.cwd(),
-      sourcePath: 'python/sdk/README.md',
-      isTranslationPairSource: fixturePairSource,
-      markdown: wrongMarkdown,
-    }).links).toEqual([
-      'https://github.com/deepseek-ai/deepseek-harness/blob/master/other/README.zh.md',
-    ])
+    expect(
+      translationStructureSignature(canonical, targets, {
+        repoRoot: process.cwd(),
+        sourcePath: 'python/sdk/README.md',
+        isTranslationPairSource: fixturePairSource,
+        markdown: canonicalMarkdown,
+      }).links,
+    ).toEqual([])
+    expect(
+      translationStructureSignature(wrongPath, targets, {
+        repoRoot: process.cwd(),
+        sourcePath: 'python/sdk/README.md',
+        isTranslationPairSource: fixturePairSource,
+        markdown: wrongMarkdown,
+      }).links,
+    ).toEqual(['https://github.com/deepseek-ai/deepseek-harness/blob/master/other/README.zh.md'])
   })
 
   it('excludes only the header switcher from the structural links', () => {
@@ -172,14 +177,14 @@ describe('translation pairing switchers', () => {
       writeFileSync(join(root, 'guide.md'), '# Guide\n')
       writeFileSync(join(root, 'guide.zh.md'), '# 指南\n')
       const markdown = '# 指南\n\n[English](guide.md) | 中文\n\n[正文](guide.md)\n'
-      expect(translationStructureSignature(
-        parseTranslationMarkdown(markdown),
-        languageSwitcherTargets('guide.md'),
-        {
-          repoRoot: root, sourcePath: 'guide.zh.md',
-          isTranslationPairSource: fixturePairSource, markdown,
-        },
-      ).links).toEqual(['dsh-translation-target:guide.md'])
+      expect(
+        translationStructureSignature(parseTranslationMarkdown(markdown), languageSwitcherTargets('guide.md'), {
+          repoRoot: root,
+          sourcePath: 'guide.zh.md',
+          isTranslationPairSource: fixturePairSource,
+          markdown,
+        }).links,
+      ).toEqual(['dsh-translation-target:guide.md'])
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -190,54 +195,81 @@ describe('translation pairing link language parity', () => {
   it('compares a .zh.md target and its .md sibling as the same document', () => {
     const en = 'See [docs](persistence.md) and [notes](note.md#anchor).'
     const zh = '参见[文档](persistence.zh.md)与[笔记](note.zh.md#anchor)。'
-    expect(
-      translationStructureDiff(
-        signature(en),
-        signature(zh),
-      ),
-    ).toEqual([])
+    expect(translationStructureDiff(signature(en), signature(zh))).toEqual([])
   })
 
   it('still rejects a genuinely different target', () => {
     const en = 'See [docs](persistence.md).'
     const zh = '参见[文档](other.md)。'
-    expect(
-      translationStructureDiff(
-        signature(en),
-        signature(zh),
-      ),
-    ).not.toEqual([])
+    expect(translationStructureDiff(signature(en), signature(zh))).not.toEqual([])
   })
 })
 
 describe('translation pairing records', () => {
   const paths = translationPairPaths('docs/foo.md')
   const context = { repoRoot: process.cwd(), isTranslationPairSource: fixturePairSource, repositoryFileExists: () => true }
-  const record = (en: string, zh: string): TranslationPairingRecord => (
-    computeTranslationPairingRecord(paths, en, zh, context)
-  )
+  const record = (en: string, zh: string): TranslationPairingRecord => computeTranslationPairingRecord(paths, en, zh, context)
   const en = [
-    '# Guide', '', 'English | [中文](foo.zh.md)', '', 'Intro.', '',
-    '## Events', '', 'Event table.', '', '| Event | Mode |', '| --- | --- |', '| `a` | `emit` |', '| `b` | `emit` |', '',
-    '## Code', '', '```sh', 'pnpm run x', '```', '',
+    '# Guide',
+    '',
+    'English | [中文](foo.zh.md)',
+    '',
+    'Intro.',
+    '',
+    '## Events',
+    '',
+    'Event table.',
+    '',
+    '| Event | Mode |',
+    '| --- | --- |',
+    '| `a` | `emit` |',
+    '| `b` | `emit` |',
+    '',
+    '## Code',
+    '',
+    '```sh',
+    'pnpm run x',
+    '```',
+    '',
   ].join('\n')
   const zh = [
-    '# 指南', '', '[English](foo.md) | 中文', '', '简介。', '',
-    '## 事件', '', '事件表。', '', '| Event | Mode |', '| --- | --- |', '| `a` | `emit` |', '| `b` | `emit` |', '',
-    '## 代码', '', '```sh', 'pnpm run x', '```', '',
+    '# 指南',
+    '',
+    '[English](foo.md) | 中文',
+    '',
+    '简介。',
+    '',
+    '## 事件',
+    '',
+    '事件表。',
+    '',
+    '| Event | Mode |',
+    '| --- | --- |',
+    '| `a` | `emit` |',
+    '| `b` | `emit` |',
+    '',
+    '## 代码',
+    '',
+    '```sh',
+    'pnpm run x',
+    '```',
+    '',
   ].join('\n')
 
   it('keys sections by English heading path and hashes everything outside code blocks and generated regions', () => {
     const computed = record(en, zh)
     expect([...computed.keys()]).toEqual(['/guide', '/guide/events', '/guide/code'])
     expect(record(en.replace('pnpm run x', 'pnpm run y'), zh.replace('pnpm run x', 'pnpm run y'))).toEqual(computed)
-    expect(record(
-      en.replace('| `b` | `emit` |', '| `b` | `emit` |\n| `c` | `emit` |'),
-      zh.replace('| `b` | `emit` |', '| `b` | `emit` |\n| `c` | `emit` |'),
-    )).not.toEqual(computed)
+    expect(
+      record(
+        en.replace('| `b` | `emit` |', '| `b` | `emit` |\n| `c` | `emit` |'),
+        zh.replace('| `b` | `emit` |', '| `b` | `emit` |\n| `c` | `emit` |'),
+      ),
+    ).not.toEqual(computed)
     const region = (rows: string): string => renderGeneratedRegion('events', `| Event |\n| --- |\n${rows}`)
-    expect(record(`${en}\n${region('| `a` |')}\n`, `${zh}\n${region('| `a` |')}\n`))
-      .toEqual(record(`${en}\n${region('| `b` |')}\n`, `${zh}\n${region('| `b` |')}\n`))
+    expect(record(`${en}\n${region('| `a` |')}\n`, `${zh}\n${region('| `a` |')}\n`)).toEqual(
+      record(`${en}\n${region('| `b` |')}\n`, `${zh}\n${region('| `b` |')}\n`),
+    )
     expect(record(`${en}\n## \`x\`\n\nshared\n`, `${zh}\n## \`x\`\n\nshared\n`).has('/guide/x')).toBe(true)
     const packaged = renderGeneratedRegion('pkg', '## `x`\n\n- `inject`: `a`\n\n```sh\nx\n```')
     expect(record(`${en}\n${packaged}\n`, `${zh}\n${packaged}\n`).has('/guide/x')).toBe(false)
@@ -249,8 +281,9 @@ describe('translation pairing records', () => {
       `---\nkind: 指南\n---\n${zh}\nSee [bar](bar.zh.md).\n\n## 事件\n\n再次。\n`,
     )
     expect([...computed.keys()]).toEqual(['/', '/guide', '/guide/events', '/guide/code', '/guide/events~2'])
-    expect(record(`${en}\nSee [bar](bar.md).\n`, `${zh}\nSee [bar](bar.zh.md).\n`))
-      .toEqual(record(`${en}\nSee [bar](bar.zh.md).\n`, `${zh}\nSee [bar](bar.md).\n`))
+    expect(record(`${en}\nSee [bar](bar.md).\n`, `${zh}\nSee [bar](bar.zh.md).\n`)).toEqual(
+      record(`${en}\nSee [bar](bar.zh.md).\n`, `${zh}\nSee [bar](bar.md).\n`),
+    )
   })
 
   it('retains section hashes after normalized links move later heading offsets', () => {
@@ -280,29 +313,60 @@ describe('translation pairing records', () => {
 
   it('places normalized nodes from the authored parse when every rewritten destination is parse-neutral', () => {
     const english = [
-      '# Guide', '', 'See [bar](<bar.md>) and [baz][b], [q](./bar.md#x_y).', '', '[b]: baz.md', '',
-      '## Tail', '', '| [a](bar.md) | b |', '| --- | --- |', '',
+      '# Guide',
+      '',
+      'See [bar](<bar.md>) and [baz][b], [q](./bar.md#x_y).',
+      '',
+      '[b]: baz.md',
+      '',
+      '## Tail',
+      '',
+      '| [a](bar.md) | b |',
+      '| --- | --- |',
+      '',
     ].join('\n')
     const chinese = [
-      '# 指南', '', '参见[bar](<bar.zh.md>)和[baz][b]、[q](./bar.zh.md#x_y)。', '', '[b]: baz.zh.md', '',
-      '## 尾部', '', '| [a](bar.zh.md) | b |', '| --- | --- |', '',
+      '# 指南',
+      '',
+      '参见[bar](<bar.zh.md>)和[baz][b]、[q](./bar.zh.md#x_y)。',
+      '',
+      '[b]: baz.zh.md',
+      '',
+      '## 尾部',
+      '',
+      '| [a](bar.zh.md) | b |',
+      '| --- | --- |',
+      '',
     ].join('\n')
     const tree = parseTranslationMarkdown(english)
     const normalized = normalizeTranslationMarkdownLinkEdits(english, { ...context, sourcePath: paths.source }, [], tree)
     const reparsed = parseTranslationMarkdown(normalized.content)
 
     expect(normalized.edits).toHaveLength(4)
-    expect(normalizedTopLevelBlocks(english, tree, normalized.edits)?.map(({ node, start, end, line }) => [node.type, start, end, line]))
-      .toEqual('children' in reparsed && reparsed.children.map(node => [
-        node.type, node.position?.start.offset, node.position?.end.offset, node.position?.start.line,
-      ]))
-    expect(computeTranslationPairingRecord(paths, english, chinese, context, { en: tree, zh: parseTranslationMarkdown(chinese) }))
-      .toEqual(record(english, chinese))
+    expect(
+      normalizedTopLevelBlocks(english, tree, normalized.edits)?.map(({ node, start, end, line }) => [node.type, start, end, line]),
+    ).toEqual(
+      'children' in reparsed &&
+        reparsed.children.map(node => [node.type, node.position?.start.offset, node.position?.end.offset, node.position?.start.line]),
+    )
+    expect(computeTranslationPairingRecord(paths, english, chinese, context, { en: tree, zh: parseTranslationMarkdown(chinese) })).toEqual(
+      record(english, chinese),
+    )
   })
 
   it.each([
-    ['a space that unlinks a heading', '# [Guide](a%20b.md)\n\nBody.\n', '# [指南](a%20b.zh.md)\n\n正文。\n', ['/guide-dsh-translation-target-docs-a-b-md']],
-    ['a pipe that turns a paragraph into a table', '# Guide\n\nSee [a](a%7Cb.md)\n| --- | --- |\n', '# 指南\n\n参见 [a](a%7Cb.zh.md)\n| --- | --- |\n', ['/guide']],
+    [
+      'a space that unlinks a heading',
+      '# [Guide](a%20b.md)\n\nBody.\n',
+      '# [指南](a%20b.zh.md)\n\n正文。\n',
+      ['/guide-dsh-translation-target-docs-a-b-md'],
+    ],
+    [
+      'a pipe that turns a paragraph into a table',
+      '# Guide\n\nSee [a](a%7Cb.md)\n| --- | --- |\n',
+      '# 指南\n\n参见 [a](a%7Cb.zh.md)\n| --- | --- |\n',
+      ['/guide'],
+    ],
     ['a title', '# Guide\n\nSee [bar](bar.md "Bar").\n', '# 指南\n\n参见[bar](bar.zh.md "Bar")。\n', ['/guide']],
     ['a destination on the next line', '# Guide\n\nSee [bar](\nbar.md).\n', '# 指南\n\n参见[bar](\nbar.zh.md)。\n', ['/guide']],
     ['an entity in the query', '# Guide\n\n[bar](bar.md?x=1&amp;y=2)\n', '# 指南\n\n[bar](bar.zh.md?x=1&amp;y=2)\n', ['/guide']],
@@ -327,30 +391,30 @@ describe('translation pairing records', () => {
     expect(parseTranslationPairingRecord(text)).toEqual(computed)
     expect(parseTranslationPairingRecord(`/a:\n  en: ${'1'.repeat(16)}\n`)).toBeUndefined()
     expect(parseTranslationPairingRecord(`/a:\n  zh: ${'1'.repeat(16)}\n  en: ${'1'.repeat(16)}\n`)).toBeUndefined()
-    expect(parseTranslationPairingRecord(
-      `/a:\n  en: ${'1'.repeat(16)}\n  zh: ${'1'.repeat(16)}\n`.repeat(2),
-    )).toBeUndefined()
+    expect(parseTranslationPairingRecord(`/a:\n  en: ${'1'.repeat(16)}\n  zh: ${'1'.repeat(16)}\n`.repeat(2))).toBeUndefined()
     expect(parseTranslationPairingRecord('foo.md: 3f786850e387550fdab836ed7e6dc881de23001b\n')).toBeUndefined()
   })
 
   it('names changed, unconfirmed, and removed sections', () => {
     const confirmed = record(en, zh)
     expect(translationPairingRecordDiff(confirmed, confirmed)).toEqual([])
-    expect(translationPairingRecordDiff(confirmed, record(en.replace('Intro.', 'Intro!'), zh)))
-      .toEqual(['section /guide changed since confirmation (en)'])
-    expect(translationPairingRecordDiff(confirmed, record(`${en}\n## Tail\n\nx\n`, `${zh}\n## 尾部\n\ny\n`)))
-      .toEqual(['section /guide/tail has unconfirmed translated content'])
-    expect(translationPairingRecordDiff(
-      new Map([...confirmed, ['/gone', { en: '0'.repeat(16), zh: '0'.repeat(16) }]]),
-      confirmed,
-    )).toEqual(['section /gone is recorded but no longer has translated content'])
+    expect(translationPairingRecordDiff(confirmed, record(en.replace('Intro.', 'Intro!'), zh))).toEqual([
+      'section /guide changed since confirmation (en)',
+    ])
+    expect(translationPairingRecordDiff(confirmed, record(`${en}\n## Tail\n\nx\n`, `${zh}\n## 尾部\n\ny\n`))).toEqual([
+      'section /guide/tail has unconfirmed translated content',
+    ])
+    expect(translationPairingRecordDiff(new Map([...confirmed, ['/gone', { en: '0'.repeat(16), zh: '0'.repeat(16) }]]), confirmed)).toEqual(
+      ['section /gone is recorded but no longer has translated content'],
+    )
   })
 
   it('merges records of edits to different sections with the default text merge', () => {
-    const edit = (heading: string, english: string, chinese: string): string => renderTranslationPairingRecord(
-      paths,
-      record(en.replace(heading, english), zh.replace(heading === 'Intro.' ? '简介。' : '事件表。', chinese)),
-    )
+    const edit = (heading: string, english: string, chinese: string): string =>
+      renderTranslationPairingRecord(
+        paths,
+        record(en.replace(heading, english), zh.replace(heading === 'Intro.' ? '简介。' : '事件表。', chinese)),
+      )
     const root = mkdtempSync(join(tmpdir(), 'dsh-translation-pairing-merge-'))
     try {
       writeFileSync(join(root, 'base'), renderTranslationPairingRecord(paths, record(en, zh)))
@@ -358,10 +422,15 @@ describe('translation pairing records', () => {
       writeFileSync(join(root, 'other'), edit('Event table.', 'New table.', '新表。'))
       const merged = spawnSync('git', ['merge-file', '-p', 'current', 'base', 'other'], { cwd: root, encoding: 'utf8' })
       expect(merged.status).toBe(0)
-      expect(merged.stdout).toBe(renderTranslationPairingRecord(paths, record(
-        en.replace('Intro.', 'New intro.').replace('Event table.', 'New table.'),
-        zh.replace('简介。', '新简介。').replace('事件表。', '新表。'),
-      )))
+      expect(merged.stdout).toBe(
+        renderTranslationPairingRecord(
+          paths,
+          record(
+            en.replace('Intro.', 'New intro.').replace('Event table.', 'New table.'),
+            zh.replace('简介。', '新简介。').replace('事件表。', '新表。'),
+          ),
+        ),
+      )
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -389,7 +458,7 @@ describe('translation scope discovery', () => {
     'python/guide.md',
     'python/sdk-runtime/README.md',
     'python/sdk-runtime/src/deepseek_harness_runtime/README.md',
-  ])('includes %s', (file) => {
+  ])('includes %s', file => {
     expect(isTranslationScopeFile(file)).toBe(true)
   })
 
@@ -407,7 +476,7 @@ describe('translation scope discovery', () => {
     'python/sdk-runtime/src/deepseek_harness_runtime/runtime/deepseek-harness-sdk-runtime-macos-arm64/README.md',
     'python/sdk-runtime/src/deepseek_harness_runtime/runtime/node/README.md',
     'python/sdk-runtime/src/deepseek_harness_runtime/runtime/macos-arm64/office-skills/office-docx/SKILL.md',
-  ])('excludes non-source or non-README path %s', (file) => {
+  ])('excludes non-source or non-README path %s', file => {
     expect(isTranslationScopeFile(file)).toBe(false)
   })
 })
@@ -447,23 +516,15 @@ describe('translation structural signature', () => {
     try {
       writeFileSync(join(root, 'reference.md'), '# Reference\n')
       writeFileSync(join(root, 'reference.zh.md'), '# 参考\n')
-      const markdown = [
-        '[Reference][doc]',
-        '',
-        '![Preview][asset]',
-        '',
-        '[doc]: reference.md',
-        '[asset]: reference.zh.md',
-        '',
-      ].join('\n')
-      expect(translationStructureSignature(
-        parseTranslationMarkdown(markdown),
-        'guide.zh.md',
-        {
-          repoRoot: root, sourcePath: 'guide.md',
-          isTranslationPairSource: fixturePairSource, markdown,
-        },
-      ).links).toEqual(['dsh-translation-target:reference.md'])
+      const markdown = ['[Reference][doc]', '', '![Preview][asset]', '', '[doc]: reference.md', '[asset]: reference.zh.md', ''].join('\n')
+      expect(
+        translationStructureSignature(parseTranslationMarkdown(markdown), 'guide.zh.md', {
+          repoRoot: root,
+          sourcePath: 'guide.md',
+          isTranslationPairSource: fixturePairSource,
+          markdown,
+        }).links,
+      ).toEqual(['dsh-translation-target:reference.md'])
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
@@ -590,18 +651,18 @@ describe('generated regions', () => {
 
   it('locates marker-delimited regions with their slugs and marker lines', () => {
     const doc = `# T\n\nprose\n\n${BEGIN}\ninjected\n${END}\ntail\n`
-    expect(generatedRegions(doc)).toEqual([
-      { slug: 'cordis-surface', begin: 4, end: 6, text: `${BEGIN}\ninjected\n${END}` },
-    ])
+    expect(generatedRegions(doc)).toEqual([{ slug: 'cordis-surface', begin: 4, end: 6, text: `${BEGIN}\ninjected\n${END}` }])
     expect(generatedRegions('# T\n\nprose\n')).toEqual([])
   })
 
   it('replaces exactly one region with the same slug', () => {
     const doc = `a\n${renderGeneratedRegion('x', 'old')}\n${renderGeneratedRegion('y', 'keep')}\nb\n`
-    expect(spliceGeneratedRegion(doc, renderGeneratedRegion('x', 'new\nlines')))
-      .toBe(`a\n${renderGeneratedRegion('x', 'new\nlines')}\n${renderGeneratedRegion('y', 'keep')}\nb\n`)
-    expect(() => spliceGeneratedRegion('a\n', renderGeneratedRegion('x', 'new')))
-      .toThrow("expected exactly 1 generated region 'x', found 0")
+    expect(spliceGeneratedRegion(doc, renderGeneratedRegion('x', 'new\nlines'))).toBe(
+      `a\n${renderGeneratedRegion('x', 'new\nlines')}\n${renderGeneratedRegion('y', 'keep')}\nb\n`,
+    )
+    expect(() => spliceGeneratedRegion('a\n', renderGeneratedRegion('x', 'new'))).toThrow(
+      "expected exactly 1 generated region 'x', found 0",
+    )
   })
 
   it('rejects unbalanced or nested markers', () => {
@@ -611,11 +672,12 @@ describe('generated regions', () => {
   })
 
   it('rejects mismatched slugs and malformed marker lines', () => {
-    expect(() => generatedRegions('<!-- BEGIN GENERATED a -->\nx\n<!-- END GENERATED b -->\n'))
-      .toThrow("END slug 'b' does not match its BEGIN slug 'a'")
-    expect(() => generatedRegions('<!-- BEGIN GENERATED a --> trailing\nx\n<!-- END GENERATED a -->\n'))
-      .toThrow('malformed generated region marker line')
-    expect(() => generatedRegions('x\n<!-- END GENERATED a --> tail\n'))
-      .toThrow('malformed generated region marker line')
+    expect(() => generatedRegions('<!-- BEGIN GENERATED a -->\nx\n<!-- END GENERATED b -->\n')).toThrow(
+      "END slug 'b' does not match its BEGIN slug 'a'",
+    )
+    expect(() => generatedRegions('<!-- BEGIN GENERATED a --> trailing\nx\n<!-- END GENERATED a -->\n')).toThrow(
+      'malformed generated region marker line',
+    )
+    expect(() => generatedRegions('x\n<!-- END GENERATED a --> tail\n')).toThrow('malformed generated region marker line')
   })
 })

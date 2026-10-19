@@ -20,7 +20,9 @@ import type { JobChunk, JobHooks, JobOutcome, JobOutputSource } from '@deepseek-
  */
 function sandboxNotes(sandbox: ShellSandboxInfo | undefined, escalationModes: readonly SandboxMode[]): string[] {
   if (sandbox?.runnerFailed) {
-    return [`[sandbox: the sandbox runner itself failed under ${sandbox.mode} mode — the command did not run; this is a sandbox problem, not a command failure]`]
+    return [
+      `[sandbox: the sandbox runner itself failed under ${sandbox.mode} mode — the command did not run; this is a sandbox problem, not a command failure]`,
+    ]
   }
   if (sandbox?.denied) {
     const notes = [sandboxDenialMarker(sandbox.mode)]
@@ -47,9 +49,10 @@ export function processOutcome(proc: ShellProcess, escalationModes: readonly San
   // runner failures expose sandbox.runnerFailed, but unconfined spawn failures
   // still alias a signal-less kill; real nonzero command exits must remain
   // `completed`.
-  const base: JobOutcome = proc.status === 'killed'
-    ? { status: 'killed', detail: proc.signal !== null ? `signal: ${proc.signal}` : 'killed before exit' }
-    : { status: 'completed', detail: `exit code: ${proc.exitCode ?? 0}` }
+  const base: JobOutcome =
+    proc.status === 'killed'
+      ? { status: 'killed', detail: proc.signal !== null ? `signal: ${proc.signal}` : 'killed before exit' }
+      : { status: 'completed', detail: `exit code: ${proc.exitCode ?? 0}` }
   const notes = sandboxNotes(proc.sandbox, escalationModes)
   return notes.length === 0 ? base : { ...base, detail: `${base.detail}; ${notes.join(' ')}` }
 }
@@ -67,7 +70,7 @@ export function processOutcome(proc: ShellProcess, escalationModes: readonly San
 export function processSources(proc: () => Pick<ShellProcess, 'observed'> | undefined): JobOutputSource[] {
   const source = (channel: 'stdout' | 'stderr'): JobOutputSource => ({
     channel,
-    read: (fromByte) => {
+    read: fromByte => {
       const live = proc()
       return live === undefined ? { text: '', nextOffset: fromByte, lossy: false } : live.observed[channel].readFrom(fromByte)
     },
@@ -84,8 +87,14 @@ export function processSources(proc: () => Pick<ShellProcess, 'observed'> | unde
  * @returns the delta text, possibly empty.
  */
 export function ringDelta(chunks: readonly JobChunk[]): string {
-  const out = chunks.filter(chunk => chunk.channel !== 'stderr').map(chunk => chunk.text).join('')
-  const err = chunks.filter(chunk => chunk.channel === 'stderr').map(chunk => chunk.text).join('')
+  const out = chunks
+    .filter(chunk => chunk.channel !== 'stderr')
+    .map(chunk => chunk.text)
+    .join('')
+  const err = chunks
+    .filter(chunk => chunk.channel === 'stderr')
+    .map(chunk => chunk.text)
+    .join('')
   const separator = out.length > 0 && !out.endsWith('\n') ? '\n' : ''
   return out + (err.length > 0 ? `${separator}[stderr]\n${err}` : '')
 }
@@ -119,7 +128,7 @@ export function processJob(
     }
   })()
   return {
-    cancel: (reason) => {
+    cancel: reason => {
       if (controller.signal.aborted) return
       controller.abort(reason)
       process?.kill()

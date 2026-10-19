@@ -1,15 +1,9 @@
 /** Client-face Runtime behavior. */
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { ClientRuntimeExecutor } from '../src/client/cdp/runtime.ts'
-import type {
-  ClientRuntimeCommand,
-  ClientRuntimeRequestFrame,
-  ClientRuntimeResult,
-} from '../src/shared/bridge/messages/runtime/index.ts'
-import {
-  inspectorId,
-} from '../src/shared/bridge/ids.ts'
+import type { ClientRuntimeCommand, ClientRuntimeRequestFrame, ClientRuntimeResult } from '../src/shared/bridge/messages/runtime/index.ts'
+import { inspectorId } from '../src/shared/bridge/ids.ts'
 
 const sourceId = inspectorId<'InspectorSourceId'>('client-test', 'sourceId')
 const generation = inspectorId<'InspectorSourceGeneration'>('generation-test', 'generation')
@@ -46,33 +40,48 @@ describe('Client Runtime executor', () => {
       maxResponseBytes: 32_768,
     })
 
-    const evaluated = success(await runtime.execute(frame({
-      op: 'evaluate',
-      expression: 'globalThis.__clientRuntimeFixture',
-      objectGroup: 'console',
-      generatePreview: true,
-    })), 'evaluate')
+    const evaluated = success(
+      await runtime.execute(
+        frame({
+          op: 'evaluate',
+          expression: 'globalThis.__clientRuntimeFixture',
+          objectGroup: 'console',
+          generatePreview: true,
+        }),
+      ),
+      'evaluate',
+    )
     const handle = evaluated.completion.result.object?.handle
     if (handle === undefined) throw new Error('evaluate did not return a Client object handle')
 
-    const properties = success(await runtime.execute(frame({
-      op: 'get-properties',
-      handle,
-      ownProperties: true,
-    })), 'get-properties')
+    const properties = success(
+      await runtime.execute(
+        frame({
+          op: 'get-properties',
+          handle,
+          ownProperties: true,
+        }),
+      ),
+      'get-properties',
+    )
     const valueProperty = properties.properties.find(property => property.name === 'value')
     const getterProperty = properties.properties.find(property => property.name === 'dangerous')
     expect(valueProperty?.value).toMatchObject({ descriptor: { type: 'number', value: 4 } })
     expect(getterProperty?.get).toMatchObject({ descriptor: { type: 'function' } })
     expect(Reflect.get(globalThis, '__clientRuntimeGetterCalls')).toBe(0)
 
-    const called = success(await runtime.execute(frame({
-      op: 'call-function',
-      functionDeclaration: 'function (increment) { return this.value + increment }',
-      receiver: handle,
-      arguments: [{ kind: 'value', value: 3 }],
-      returnByValue: true,
-    })), 'call-function')
+    const called = success(
+      await runtime.execute(
+        frame({
+          op: 'call-function',
+          functionDeclaration: 'function (increment) { return this.value + increment }',
+          receiver: handle,
+          arguments: [{ kind: 'value', value: 3 }],
+          returnByValue: true,
+        }),
+      ),
+      'call-function',
+    )
     expect(called.completion.result).toMatchObject({ descriptor: { type: 'number', value: 7 } })
 
     success(await runtime.execute(frame({ op: 'release-object-group', objectGroup: 'console' })), 'release-object-group')
@@ -89,10 +98,15 @@ describe('Client Runtime executor', () => {
       maxPropertiesPerResult: 100,
       maxResponseBytes: 32_768,
     })
-    const result = success(await runtime.execute(frame({
-      op: 'evaluate',
-      expression: 'throw new TypeError("bad value")',
-    })), 'evaluate')
+    const result = success(
+      await runtime.execute(
+        frame({
+          op: 'evaluate',
+          expression: 'throw new TypeError("bad value")',
+        }),
+      ),
+      'evaluate',
+    )
     expect(result.completion.exceptionDetails).toMatchObject({
       text: 'Uncaught',
       exception: { descriptor: { type: 'object', subtype: 'error' } },
@@ -116,20 +130,27 @@ describe('Client Runtime executor', () => {
       const result = success(await runtime.execute(frame({ op: 'evaluate', expression })), 'evaluate')
       expect(result.completion.result).toMatchObject(expected)
     }
-    const fn = success(await runtime.execute(frame({
-      op: 'evaluate',
-      expression: '(value) => value',
-      generatePreview: true,
-    })), 'evaluate')
+    const fn = success(
+      await runtime.execute(
+        frame({
+          op: 'evaluate',
+          expression: '(value) => value',
+          generatePreview: true,
+        }),
+      ),
+      'evaluate',
+    )
     expect(fn.completion.result).toMatchObject({ descriptor: { type: 'function' } })
     expect(fn.completion.result.descriptor.preview).toBeUndefined()
 
-    const timedOut = await runtime.execute(frame({
-      op: 'evaluate',
-      expression: 'new Promise(() => {})',
-      awaitPromise: true,
-      timeoutMs: 1,
-    }))
+    const timedOut = await runtime.execute(
+      frame({
+        op: 'evaluate',
+        expression: 'new Promise(() => {})',
+        awaitPromise: true,
+        timeoutMs: 1,
+      }),
+    )
     expect(timedOut.outcome).toMatchObject({ ok: false, error: { code: 'timeout' } })
   })
 
@@ -139,27 +160,40 @@ describe('Client Runtime executor', () => {
       maxPropertiesPerResult: 100,
       maxResponseBytes: 32_768,
     })
-    const blocked = runtime.execute(frame({
-      op: 'evaluate',
-      expression: 'new Promise(() => {})',
-      awaitPromise: true,
-      timeoutMs: 10,
-    }))
-    const completed = success(await runtime.execute(frame({
-      op: 'evaluate',
-      expression: '({ retainedByConcurrentRequest: true })',
-    })), 'evaluate')
+    const blocked = runtime.execute(
+      frame({
+        op: 'evaluate',
+        expression: 'new Promise(() => {})',
+        awaitPromise: true,
+        timeoutMs: 10,
+      }),
+    )
+    const completed = success(
+      await runtime.execute(
+        frame({
+          op: 'evaluate',
+          expression: '({ retainedByConcurrentRequest: true })',
+        }),
+      ),
+      'evaluate',
+    )
     const handle = completed.completion.result.object?.handle
     if (handle === undefined) throw new Error('concurrent evaluation did not retain an object')
 
     await expect(blocked).resolves.toMatchObject({ outcome: { ok: false, error: { code: 'timeout' } } })
-    const properties = success(await runtime.execute(frame({
-      op: 'get-properties',
-      handle,
-      ownProperties: true,
-    })), 'get-properties')
-    expect(properties.properties.find(property => property.name === 'retainedByConcurrentRequest')?.value)
-      .toMatchObject({ descriptor: { value: true } })
+    const properties = success(
+      await runtime.execute(
+        frame({
+          op: 'get-properties',
+          handle,
+          ownProperties: true,
+        }),
+      ),
+      'get-properties',
+    )
+    expect(properties.properties.find(property => property.name === 'retainedByConcurrentRequest')?.value).toMatchObject({
+      descriptor: { value: true },
+    })
   })
 
   it('rolls back a canceled function call instead of returning its cancellation as a JavaScript exception', async () => {
@@ -169,18 +203,25 @@ describe('Client Runtime executor', () => {
       maxResponseBytes: 32_768,
     })
     const controller = new AbortController()
-    const pending = runtime.execute(frame({
-      op: 'call-function',
-      functionDeclaration: 'function () { return new Promise(() => {}) }',
-      awaitPromise: true,
-    }), controller.signal)
+    const pending = runtime.execute(
+      frame({
+        op: 'call-function',
+        functionDeclaration: 'function () { return new Promise(() => {}) }',
+        awaitPromise: true,
+      }),
+      controller.signal,
+    )
     controller.abort()
 
     await expect(pending).resolves.toMatchObject({ outcome: { ok: false, error: { code: 'timeout' } } })
-    await expect(runtime.execute(frame({
-      op: 'evaluate',
-      expression: '({ retainedAfterCancellation: true })',
-    }))).resolves.toMatchObject({ outcome: { ok: true } })
+    await expect(
+      runtime.execute(
+        frame({
+          op: 'evaluate',
+          expression: '({ retainedAfterCancellation: true })',
+        }),
+      ),
+    ).resolves.toMatchObject({ outcome: { ok: true } })
   })
 
   it('keeps response handles provisional until the Worker accepts or cancels them', async () => {
@@ -194,21 +235,27 @@ describe('Client Runtime executor', () => {
     const canceledHandle = canceled.completion.result.object?.handle
     if (canceledHandle === undefined) throw new Error('deferred response did not retain an object')
     runtime.cancel(canceledFrame.sessionId, canceledFrame.requestId)
-    expect((await runtime.execute(frame({ op: 'get-properties', handle: canceledHandle }))).outcome)
-      .toMatchObject({ ok: false, error: { code: 'object-not-found' } })
+    expect((await runtime.execute(frame({ op: 'get-properties', handle: canceledHandle }))).outcome).toMatchObject({
+      ok: false,
+      error: { code: 'object-not-found' },
+    })
 
     const acceptedFrame = frame({ op: 'evaluate', expression: '({ accepted: true })' })
     const accepted = success(await runtime.execute(acceptedFrame, undefined, true), 'evaluate')
     const acceptedHandle = accepted.completion.result.object?.handle
     if (acceptedHandle === undefined) throw new Error('deferred response did not retain an object')
     runtime.acknowledge(acceptedFrame.sessionId, acceptedFrame.requestId)
-    const properties = success(await runtime.execute(frame({
-      op: 'get-properties',
-      handle: acceptedHandle,
-      ownProperties: true,
-    })), 'get-properties')
-    expect(properties.properties.find(property => property.name === 'accepted')?.value)
-      .toMatchObject({ descriptor: { value: true } })
+    const properties = success(
+      await runtime.execute(
+        frame({
+          op: 'get-properties',
+          handle: acceptedHandle,
+          ownProperties: true,
+        }),
+      ),
+      'get-properties',
+    )
+    expect(properties.properties.find(property => property.name === 'accepted')?.value).toMatchObject({ descriptor: { value: true } })
   })
 
   it('rejects oversized by-value results before they enter the source transport', async () => {
@@ -217,11 +264,13 @@ describe('Client Runtime executor', () => {
       maxPropertiesPerResult: 100,
       maxResponseBytes: 256,
     })
-    const response = await runtime.execute(frame({
-      op: 'evaluate',
-      expression: '"x".repeat(1000)',
-      returnByValue: true,
-    }))
+    const response = await runtime.execute(
+      frame({
+        op: 'evaluate',
+        expression: '"x".repeat(1000)',
+        returnByValue: true,
+      }),
+    )
     expect(response.outcome).toMatchObject({ ok: false, error: { code: 'result-too-large' } })
   })
 
@@ -231,10 +280,15 @@ describe('Client Runtime executor', () => {
       maxPropertiesPerResult: 100,
       maxResponseBytes: 32_768,
     })
-    const evaluated = success(await runtime.execute(frame({
-      op: 'evaluate',
-      expression: '({ retained: true })',
-    })), 'evaluate')
+    const evaluated = success(
+      await runtime.execute(
+        frame({
+          op: 'evaluate',
+          expression: '({ retained: true })',
+        }),
+      ),
+      'evaluate',
+    )
     const handle = evaluated.completion.result.object?.handle
     if (handle === undefined) throw new Error('evaluate did not return a Client object handle')
 
@@ -260,21 +314,21 @@ describe('Client Runtime executor', () => {
     if (firstHandle === undefined || secondHandle === undefined) throw new Error('Console object was not retained')
 
     runtime.releaseObjectGroup(sessionId, 'console')
-    expect((await runtime.execute(frame({ op: 'get-properties', handle: firstHandle }))).outcome)
-      .toMatchObject({ ok: false, error: { code: 'object-not-found' } })
-    const properties = success(await runtime.execute(
-      frame({ op: 'get-properties', handle: secondHandle }, secondSessionId),
-    ), 'get-properties').properties
+    expect((await runtime.execute(frame({ op: 'get-properties', handle: firstHandle }))).outcome).toMatchObject({
+      ok: false,
+      error: { code: 'object-not-found' },
+    })
+    const properties = success(
+      await runtime.execute(frame({ op: 'get-properties', handle: secondHandle }, secondSessionId)),
+      'get-properties',
+    ).properties
     expect(properties.find(property => property.name === 'owner')?.value?.descriptor.value).toBe('console')
   })
 })
 
 let nextRequestId = 0
 
-function frame(
-  command: ClientRuntimeCommand,
-  owner: ClientRuntimeRequestFrame['sessionId'] = sessionId,
-): ClientRuntimeRequestFrame {
+function frame(command: ClientRuntimeCommand, owner: ClientRuntimeRequestFrame['sessionId'] = sessionId): ClientRuntimeRequestFrame {
   return {
     v: 0,
     t: 'client-runtime/request',

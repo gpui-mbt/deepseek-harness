@@ -32,10 +32,15 @@ interface Schema extends Record<string, unknown> {
  * @returns an acyclic schema in the tool-schema subset.
  */
 export function projectToolSchema(
-  renderer: TypeGraphRenderer, type: TypeNodeId, closedObjects = false, optional = false,
+  renderer: TypeGraphRenderer,
+  type: TypeNodeId,
+  closedObjects = false,
+  optional = false,
 ): Record<string, unknown> {
   const active = new Set<TypeNodeId>()
-  const fail = (subject: string): never => { throw new ToolSchemaError(`typert tool schema: ${subject}`) }
+  const fail = (subject: string): never => {
+    throw new ToolSchemaError(`typert tool schema: ${subject}`)
+  }
   const project = (id: TypeNodeId, optional = false): Schema => {
     const node = renderer.node(id)
     if (node.json) return {}
@@ -51,28 +56,35 @@ export function projectToolSchema(
           if (typeof node.value === 'bigint') return fail('bigint is not JSON')
           return { type: node.value === null ? 'null' : typeof node.value, const: node.value }
         }
-        case 'parenthesized': return project(node.type, optional)
-        case 'array': return { type: 'array', items: project(node.element) }
-        case 'object': return object(node.members)
+        case 'parenthesized':
+          return project(node.type, optional)
+        case 'array':
+          return { type: 'array', items: project(node.element) }
+        case 'object':
+          return object(node.members)
         case 'reference': {
           if (node.target.kind !== 'declaration' || node.arguments.length !== 0) {
             return fail(`unsupported selected reference ${node.name}`)
           }
           const declaration = renderer.declaration(node.target.symbol)
-          const schema = declaration.kind === 'alias' && declaration.type !== undefined
-            ? project(declaration.type, optional)
-            : object(declaration.members)
+          const schema =
+            declaration.kind === 'alias' && declaration.type !== undefined
+              ? project(declaration.type, optional)
+              : object(declaration.members)
           if (declaration.extends.length > 0) return fail('unresolved inherited selected type')
           return declaration.description === undefined ? schema : { ...schema, description: declaration.description }
         }
         case 'union': {
-          const branches = node.types.filter((item) => {
-            const branch = renderer.node(item)
-            return !(optional && branch.kind === 'keyword' && branch.name === 'undefined')
-          }).map(item => project(item))
+          const branches = node.types
+            .filter(item => {
+              const branch = renderer.node(item)
+              return !(optional && branch.kind === 'keyword' && branch.name === 'undefined')
+            })
+            .map(item => project(item))
           return union(branches)
         }
-        default: return fail(`unsupported selected ${node.kind} type`)
+        default:
+          return fail(`unsupported selected ${node.kind} type`)
       }
     } finally {
       active.delete(id)
@@ -86,8 +98,7 @@ export function projectToolSchema(
       if (member.static || member.visibility !== 'public' || member.computed === 'symbol') continue
       if (member.kind === 'index') {
         const key = member.signature.parameters[0]
-        if (key === undefined || project(key.type).type !== 'string'
-          || Object.keys(project(member.signature.returns)).length !== 0) {
+        if (key === undefined || project(key.type).type !== 'string' || Object.keys(project(member.signature.returns)).length !== 0) {
           return fail('selected dictionaries require string keys and unconstrained JSON values')
         }
         indexed = true
@@ -107,7 +118,10 @@ export function projectToolSchema(
     for (const branch of input) {
       const scalar = branch.type !== undefined && !['object', 'array'].includes(branch.type)
       const previous = scalar ? branches.find(candidate => candidate.type === branch.type) : undefined
-      if (previous === undefined) { branches.push(branch); continue }
+      if (previous === undefined) {
+        branches.push(branch)
+        continue
+      }
       const values = literals(previous)
       const next = literals(branch)
       if (values === undefined || next === undefined) {
@@ -140,7 +154,7 @@ function disjoint(left: Schema, right: Schema): boolean {
   if (right.oneOf !== undefined) return right.oneOf.every(branch => disjoint(left, branch))
   if (left.type !== right.type) return left.type !== undefined && right.type !== undefined
   if (left.type !== 'object' || right.type !== 'object') return false
-  return (left.required ?? []).some((name) => {
+  return (left.required ?? []).some(name => {
     if (!right.required?.includes(name)) return false
     const a = left.properties?.[name]
     const b = right.properties?.[name]

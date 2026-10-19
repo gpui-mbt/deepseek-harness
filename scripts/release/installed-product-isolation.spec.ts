@@ -3,7 +3,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vite-plus/test'
 import { EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS } from '../experimental-package-policy.ts'
 import { verifyInstalledProductIsolation } from './installed-product-isolation.ts'
 
@@ -27,82 +27,82 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
-describe.each([experimental, ...Object.values(EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS)])('installed default-product isolation: %s', (experimental) => {
-  it('ignores development dependencies and unrelated installed experimental packages', () => {
-    const root = fixture()
-    const entry = writePackage(root, '@deepseek-ai/dsh', {
-      dependencies: { core: '1.0.0' },
-      devDependencies: { [experimental]: '1.0.0' },
+describe.each([experimental, ...Object.values(EXPERIMENTAL_PACKAGE_NAME_EXCEPTIONS)])(
+  'installed default-product isolation: %s',
+  experimental => {
+    it('ignores development dependencies and unrelated installed experimental packages', () => {
+      const root = fixture()
+      const entry = writePackage(root, '@deepseek-ai/dsh', {
+        dependencies: { core: '1.0.0' },
+        devDependencies: { [experimental]: '1.0.0' },
+      })
+      writePackage(root, 'core', { peerDependencies: { '@deepseek-ai/dsh': '1.0.0' } })
+      writePackage(root, experimental, {})
+
+      expect(verifyInstalledProductIsolation(entry)).toBe(2)
     })
-    writePackage(root, 'core', { peerDependencies: { '@deepseek-ai/dsh': '1.0.0' } })
-    writePackage(root, experimental, {})
 
-    expect(verifyInstalledProductIsolation(entry)).toBe(2)
-  })
-
-  it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])(
-    'rejects a transitive experimental %s',
-    (section) => {
+    it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])('rejects a transitive experimental %s', section => {
       const root = fixture()
       const entry = writePackage(root, '@deepseek-ai/dsh', { dependencies: { thirdParty: '1.0.0' } })
       writePackage(root, 'thirdParty', { [section]: { [experimental]: '1.0.0' } })
 
-      expect(() => verifyInstalledProductIsolation(entry)).toThrow(
-        `@deepseek-ai/dsh -> thirdParty -> ${experimental}`,
+      expect(() => verifyInstalledProductIsolation(entry)).toThrow(`@deepseek-ai/dsh -> thirdParty -> ${experimental}`)
+    })
+
+    it("skips the entry package's optional bundles, which must be installed, and still rejects other experimental edges", () => {
+      const root = fixture()
+      const entry = writePackage(root, '@deepseek-ai/dsh', { dependencies: { core: '1.0.0', [experimental]: '1.0.0' } })
+      writePackage(root, 'core', {})
+      writePackage(root, experimental, { dependencies: { '@deepseek-ai/dsh-experimental-inner': '1.0.0' } })
+      expect(verifyInstalledProductIsolation(entry, [experimental])).toBe(2)
+
+      writePackage(root, 'core', { dependencies: { [experimental]: '1.0.0' } })
+      expect(() => verifyInstalledProductIsolation(entry, [experimental])).toThrow(`core -> ${experimental}`)
+
+      const missing = writePackage(root, '@deepseek-ai/dsh-missing', { dependencies: { absent: '1.0.0' } })
+      expect(() => verifyInstalledProductIsolation(missing, ['absent'])).toThrow(
+        'optional bundle is missing: @deepseek-ai/dsh-missing -> absent',
       )
-    },
-  )
-
-  it('skips the entry package\'s optional bundles, which must be installed, and still rejects other experimental edges', () => {
-    const root = fixture()
-    const entry = writePackage(root, '@deepseek-ai/dsh', { dependencies: { core: '1.0.0', [experimental]: '1.0.0' } })
-    writePackage(root, 'core', {})
-    writePackage(root, experimental, { dependencies: { '@deepseek-ai/dsh-experimental-inner': '1.0.0' } })
-    expect(verifyInstalledProductIsolation(entry, [experimental])).toBe(2)
-
-    writePackage(root, 'core', { dependencies: { [experimental]: '1.0.0' } })
-    expect(() => verifyInstalledProductIsolation(entry, [experimental])).toThrow(`core -> ${experimental}`)
-
-    const missing = writePackage(root, '@deepseek-ai/dsh-missing', { dependencies: { absent: '1.0.0' } })
-    expect(() => verifyInstalledProductIsolation(missing, ['absent'])).toThrow('optional bundle is missing: @deepseek-ai/dsh-missing -> absent')
-  })
-
-  it('rejects experimental identities hidden behind an installed alias', () => {
-    const root = fixture()
-    const entry = writePackage(root, '@deepseek-ai/dsh', { dependencies: { safeName: 'file:../prototype' } })
-    writePackage(root, 'safeName', { name: experimental })
-
-    expect(() => verifyInstalledProductIsolation(entry)).toThrow(experimental)
-  })
-
-  it('rejects experimental npm aliases even when an optional package is omitted', () => {
-    const root = fixture()
-    const entry = writePackage(root, '@deepseek-ai/dsh', {
-      optionalDependencies: { safeName: `npm:${experimental}@1.0.0` },
     })
 
-    expect(() => verifyInstalledProductIsolation(entry)).toThrow(experimental)
-  })
+    it('rejects experimental identities hidden behind an installed alias', () => {
+      const root = fixture()
+      const entry = writePackage(root, '@deepseek-ai/dsh', { dependencies: { safeName: 'file:../prototype' } })
+      writePackage(root, 'safeName', { name: experimental })
 
-  it('follows nested installations rather than an unrelated hoisted package', () => {
-    const root = fixture()
-    const entry = writePackage(root, '@deepseek-ai/dsh', { dependencies: { core: '1.0.0' } })
-    writePackage(root, 'core', {})
-    writePackage(entry, 'core', { dependencies: { [experimental]: '1.0.0' } })
-
-    expect(() => verifyInstalledProductIsolation(entry)).toThrow(experimental)
-  })
-
-  it('permits missing optional packages and optional peers but rejects missing dependencies', () => {
-    const root = fixture()
-    const entry = writePackage(root, '@deepseek-ai/dsh', {
-      dependencies: { optional: '1.0.0' },
-      optionalDependencies: { optional: '1.0.0' },
-      peerDependencies: { peer: '1.0.0' },
-      peerDependenciesMeta: { peer: { optional: true } },
+      expect(() => verifyInstalledProductIsolation(entry)).toThrow(experimental)
     })
-    expect(verifyInstalledProductIsolation(entry)).toBe(1)
-    writePackage(root, '@deepseek-ai/dsh', { dependencies: { missing: '1.0.0' } })
-    expect(() => verifyInstalledProductIsolation(entry)).toThrow('dependency is missing')
-  })
-})
+
+    it('rejects experimental npm aliases even when an optional package is omitted', () => {
+      const root = fixture()
+      const entry = writePackage(root, '@deepseek-ai/dsh', {
+        optionalDependencies: { safeName: `npm:${experimental}@1.0.0` },
+      })
+
+      expect(() => verifyInstalledProductIsolation(entry)).toThrow(experimental)
+    })
+
+    it('follows nested installations rather than an unrelated hoisted package', () => {
+      const root = fixture()
+      const entry = writePackage(root, '@deepseek-ai/dsh', { dependencies: { core: '1.0.0' } })
+      writePackage(root, 'core', {})
+      writePackage(entry, 'core', { dependencies: { [experimental]: '1.0.0' } })
+
+      expect(() => verifyInstalledProductIsolation(entry)).toThrow(experimental)
+    })
+
+    it('permits missing optional packages and optional peers but rejects missing dependencies', () => {
+      const root = fixture()
+      const entry = writePackage(root, '@deepseek-ai/dsh', {
+        dependencies: { optional: '1.0.0' },
+        optionalDependencies: { optional: '1.0.0' },
+        peerDependencies: { peer: '1.0.0' },
+        peerDependenciesMeta: { peer: { optional: true } },
+      })
+      expect(verifyInstalledProductIsolation(entry)).toBe(1)
+      writePackage(root, '@deepseek-ai/dsh', { dependencies: { missing: '1.0.0' } })
+      expect(() => verifyInstalledProductIsolation(entry)).toThrow('dependency is missing')
+    })
+  },
+)

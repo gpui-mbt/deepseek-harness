@@ -33,5 +33,10 @@ type NodeFace = Partial<typeof import('node:vm')>
 
 /** CommonJS default export: the members `require()` hands a caller of this module. */
 export default {
-  Script, createContext, runInContext, runInNewContext, runInThisContext, isContext,
+  Script,
+  createContext,
+  runInContext,
+  runInNewContext,
+  runInThisContext,
+  isContext,
 } satisfies NodeFace

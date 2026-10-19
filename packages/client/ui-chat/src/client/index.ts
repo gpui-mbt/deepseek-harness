@@ -14,18 +14,49 @@ export type {} from './conversation-nodes/turn-process.ts'
 export type {} from './conversation-nodes/turn-tail.ts'
 
 export type {
-  AssistantBlock, AssistantMessageNode, AssistantProviderMetadataView, AssistantRequestConfig,
-  AssistantTiming, ChatLocationNodeIndex, ChatNodeProcessSource, ChatNodeSource, ChatNodeStore,
-  ChatSnapshot, ChatTurnNavigationIndex, ChatTurnProcessPresentation,
-  CommandNode, CompactionSummaryNode, ContextMessageNode, ConversationNode,
-  LegacyConversationSlice, ModelRetryNode, PartialAssistant, PreparingToolCall, RunningToolCall, StartedToolCall,
-  SteeringMessageNode, ToolArgs, ToolCallBlock, ToolResultNode, TurnErrorNode, TurnMaxTokensNode,
-  TurnNavigationItem, UnknownSurfaceNode, UserMessageNode,
+  AssistantBlock,
+  AssistantMessageNode,
+  AssistantProviderMetadataView,
+  AssistantRequestConfig,
+  AssistantTiming,
+  ChatLocationNodeIndex,
+  ChatNodeProcessSource,
+  ChatNodeSource,
+  ChatNodeStore,
+  ChatSnapshot,
+  ChatTurnNavigationIndex,
+  ChatTurnProcessPresentation,
+  CommandNode,
+  CompactionSummaryNode,
+  ContextMessageNode,
+  ConversationNode,
+  LegacyConversationSlice,
+  ModelRetryNode,
+  PartialAssistant,
+  PreparingToolCall,
+  RunningToolCall,
+  StartedToolCall,
+  SteeringMessageNode,
+  ToolArgs,
+  ToolCallBlock,
+  ToolResultNode,
+  TurnErrorNode,
+  TurnMaxTokensNode,
+  TurnNavigationItem,
+  UnknownSurfaceNode,
+  UserMessageNode,
 } from './contract/snapshot.ts'
 export type {
-  AssistantChatData, ChatConversationViewNode, ChatNode, ChatNodeKind,
-  FinalAssistantChatData, ManualCompactionChatData, RetryChatData, ToolChatData,
-  TurnProcessChatData, TurnTailChatData,
+  AssistantChatData,
+  ChatConversationViewNode,
+  ChatNode,
+  ChatNodeKind,
+  FinalAssistantChatData,
+  ManualCompactionChatData,
+  RetryChatData,
+  ToolChatData,
+  TurnProcessChatData,
+  TurnTailChatData,
 } from './contract/chat-nodes.ts'
 export type { ChatGroupTree } from './contract/group-tree.ts'
 export type { ChatStoreState, ToolCallId, TurnProcessViewEntry } from './contract/store.ts'
@@ -35,24 +66,54 @@ export type { TranscriptViewMode } from '../chat-settings.ts'
 export type { ClockTimeZone } from '../chat-settings.ts'
 export type { ChatPresentationPolicy } from './presentation-policy.ts'
 export type {
-  AssistantActionOwnerProps, ChatFileMentions, ChatNodeHookContext, ChatNodeInjected, ChatNodeOwnerProps,
-  ChatNodeViewProps, ChatScrollPosition, ChatStore, ChatViewInjected, ChatViewSlotProps,
-  ChatFlowDataInjected, ChatFlowHookContext, ChatFlowInjected, ChatFlowOwnerProps, ChatFlowSlotProps, UseGroupHeaderAction,
-  CommandRowOwnerProps, CommandRowProps, MessageImagesProps, OpenFileOptions, PresentationInjected,
-  QuotaNoticeCode, QuotaNoticeHostProps, QuotaNoticeInjected, QuotaNoticeOwnerProps, QuotaNoticeState,
-  ReasoningBodyOwnerProps, ReasoningContentInput, UserContentAttachment, UserContentData, UserContentInput,
-  TurnProcessOwnerProps, TurnTailOwnerProps, UseChat, UseChatNodeTurnData, UseDisclosure, UsePresentation, UseGroupAction,
+  AssistantActionOwnerProps,
+  ChatFileMentions,
+  ChatNodeHookContext,
+  ChatNodeInjected,
+  ChatNodeOwnerProps,
+  ChatNodeViewProps,
+  ChatScrollPosition,
+  ChatStore,
+  ChatViewInjected,
+  ChatViewSlotProps,
+  ChatFlowDataInjected,
+  ChatFlowHookContext,
+  ChatFlowInjected,
+  ChatFlowOwnerProps,
+  ChatFlowSlotProps,
+  UseGroupHeaderAction,
+  CommandRowOwnerProps,
+  CommandRowProps,
+  MessageImagesProps,
+  OpenFileOptions,
+  PresentationInjected,
+  QuotaNoticeCode,
+  QuotaNoticeHostProps,
+  QuotaNoticeInjected,
+  QuotaNoticeOwnerProps,
+  QuotaNoticeState,
+  ReasoningBodyOwnerProps,
+  ReasoningContentInput,
+  UserContentAttachment,
+  UserContentData,
+  UserContentInput,
+  TurnProcessOwnerProps,
+  TurnTailOwnerProps,
+  UseChat,
+  UseChatNodeTurnData,
+  UseDisclosure,
+  UsePresentation,
+  UseGroupAction,
 } from './contract/slots.ts'
-export type {
-  TurnProcessSpec,
-} from './contract/turn-process.ts'
+export type { TurnProcessSpec } from './contract/turn-process.ts'
 export type { ChatKey } from './locale.ts'
 export type { ConversationContext, ConversationContextOriginKind } from './model/conversation-context.ts'
+export type { ContextProducerView, ContextRole, KnownContextForm } from '@deepseek-ai/dsh-client-ui-conversation/client'
 export type {
-  ContextProducerView, ContextRole, KnownContextForm,
-} from '@deepseek-ai/dsh-client-ui-conversation/client'
-export type {
-  ConversationPromptSnapshot, RequestInspectionSnapshot, RequestPromptChange, RequestView,
+  ConversationPromptSnapshot,
+  RequestInspectionSnapshot,
+  RequestPromptChange,
+  RequestView,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 
 export { isRunningTool, isSettledTool } from './contract/chat-nodes.ts'

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { WorkerTunnel } from '../../src/client/client.ts'
 
 type StubListener = (event: { data?: unknown }) => void
@@ -16,10 +16,14 @@ function stubWorker(): {
       addEventListener: (type: string, listener: StubListener) => {
         if (type === 'message') listeners.push(listener)
       },
-      postMessage: (frame: unknown) => { sent.push(frame as { t: string; id: number; url: string }) },
+      postMessage: (frame: unknown) => {
+        sent.push(frame as { t: string; id: number; url: string })
+      },
     } as unknown as Worker,
     sent,
-    deliver: (frame) => { for (const listener of listeners) listener({ data: frame }) },
+    deliver: frame => {
+      for (const listener of listeners) listener({ data: frame })
+    },
   }
 }
 
@@ -49,7 +53,10 @@ it('loads a combo map through the tunnel and embeds it in the blob script', asyn
   vi.stubGlobal('URL', StubURL)
   vi.spyOn(document.head, 'append').mockImplementation((...nodes) => {
     for (const node of nodes) {
-      if (typeof node !== 'string') queueMicrotask(() => { node.dispatchEvent(new Event('load')) })
+      if (typeof node !== 'string')
+        queueMicrotask(() => {
+          node.dispatchEvent(new Event('load'))
+        })
     }
   })
 
@@ -65,7 +72,9 @@ it('loads a combo map through the tunnel and embeds it in the blob script', asyn
     headers: { 'content-type': 'text/javascript' },
     body: new TextEncoder().encode(`factory();\n//# sourceMappingURL=${mapUrl}\n`).buffer,
   })
-  await vi.waitFor(() => { expect(sent).toHaveLength(2) })
+  await vi.waitFor(() => {
+    expect(sent).toHaveLength(2)
+  })
   expect(sent[1]?.url).toBe(`http://localhost:3000/plugins/${mapUrl}`)
   const map = '{"version":3,"sections":[]}'
   deliver({

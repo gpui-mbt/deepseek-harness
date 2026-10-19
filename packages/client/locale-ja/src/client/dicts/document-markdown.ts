@@ -8,5 +8,5 @@ export const ja: LocaleDictOf<'documentMarkdown'> = {
   'viewer.label': 'Markdown',
   'code.copy': 'コピー',
   'code.copied': 'コピーしました',
-  'footnotes': '脚注',
+  footnotes: '脚注',
 }

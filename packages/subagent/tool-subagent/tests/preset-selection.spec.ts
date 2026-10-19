@@ -8,7 +8,7 @@ import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-test
 import AgentPresets from '@deepseek-ai/dsh-agent-preset-registry'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import { SessionId } from '@deepseek-ai/dsh-session'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import * as tool from '../src/index.ts'
 import { SubagentPresetSelection } from '../src/preset-selection.ts'
 import { mountScriptedProvider, type Config as ProviderConfig } from './scripted-provider.ts'
@@ -35,13 +35,20 @@ async function setup(config: Omit<tool.Config, 'provider'>, providerConfig: Part
   await ctx.plugin(SubagentRuntime)
   const onStart = vi.fn()
   const provider = await mountScriptedProvider(ctx, {
-    name: 'custom-spawn', capabilities: { agentPreset: true }, onStart, ...providerConfig,
+    name: 'custom-spawn',
+    capabilities: { agentPreset: true },
+    onStart,
+    ...providerConfig,
   })
   ctx.loader.builtins.subagentTool = tool
-  await ctx.loader.root.update([{
-    id: 'tool', name: 'cordis:subagentTool', inject: ['agentPresets'],
-    config: { provider: 'custom-spawn', ...config },
-  }])
+  await ctx.loader.root.update([
+    {
+      id: 'tool',
+      name: 'cordis:subagentTool',
+      inject: ['agentPresets'],
+      config: { provider: 'custom-spawn', ...config },
+    },
+  ])
   for (const entry of ctx.loader.entries()) await entry.fiber?.await()
   return { ctx, onStart, provider, presets }
 }
@@ -57,9 +64,11 @@ describe('spawn preset selection', () => {
     expect(JSON.stringify(schema)).toContain('agent_preset')
     expect(JSON.stringify(schema)).toContain('reviewer persona')
     expect((await callSubagent(ctx, { ...args, agent_preset: 'reviewer' })).isError).not.toBe(true)
-    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({
-      agentPreset: 'reviewer',
-    }))
+    expect(onStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentPreset: 'reviewer',
+      }),
+    )
   })
 
   it('uses a default without exposing a model selector', async () => {
@@ -73,11 +82,14 @@ describe('spawn preset selection', () => {
     expect(onStart).toHaveBeenCalledTimes(1)
   })
 
-  it.each([{}, { allowedAgentPresets: ['writer', 'reviewer'] }])('preserves inheritance when no default or argument is supplied: %j', async (config) => {
-    const { ctx, onStart } = await setup(config)
-    await callSubagent(ctx, args)
-    expect(onStart.mock.calls[0]?.[0]).not.toHaveProperty('agentPreset')
-  })
+  it.each([{}, { allowedAgentPresets: ['writer', 'reviewer'] }])(
+    'preserves inheritance when no default or argument is supplied: %j',
+    async config => {
+      const { ctx, onStart } = await setup(config)
+      await callSubagent(ctx, args)
+      expect(onStart.mock.calls[0]?.[0]).not.toHaveProperty('agentPreset')
+    },
+  )
 
   it('uses the default when a selectable argument is omitted and rejects unlisted ids', async () => {
     const { ctx, onStart } = await setup({ agentPreset: 'reviewer', allowedAgentPresets: ['writer', 'reviewer'] })
@@ -94,16 +106,16 @@ describe('spawn preset selection', () => {
     { agentPreset: 'writer', allowedAgentPresets: ['reviewer'] },
     { agentPreset: 'absent' },
     { agentPreset: '' },
-  ])('rejects invalid deployment choices before registration: %j', async (config) => {
+  ])('rejects invalid deployment choices before registration: %j', async config => {
     await expect(setup(config)).rejects.toThrow()
   })
 
-  it.each([
-    { inheritsParentContext: true },
-    { capabilities: { agentPreset: false } },
-  ])('rejects providers that cannot independently compose a child: %j', async (providerConfig) => {
-    await expect(setup({ agentPreset: 'reviewer' }, providerConfig)).rejects.toThrow(/independent agent preset/)
-  })
+  it.each([{ inheritsParentContext: true }, { capabilities: { agentPreset: false } }])(
+    'rejects providers that cannot independently compose a child: %j',
+    async providerConfig => {
+      await expect(setup({ agentPreset: 'reviewer' }, providerConfig)).rejects.toThrow(/independent agent preset/)
+    },
+  )
 
   it('rejects forced selection at the model JSON resolver', () => {
     const selection = new SubagentPresetSelection({ allowedAgentPresets: ['writer'] })
@@ -123,31 +135,41 @@ describe('spawn preset selection', () => {
     const { ctx, presets } = await setup({})
     await presets.get('reviewer')!()
     await ctx.agentPresets.register({
-      id: 'reviewer', description: 'Review with unavailable tools.',
+      id: 'reviewer',
+      description: 'Review with unavailable tools.',
       plugins: [{ name: 'cordis:missing-plugin' }],
     })
     const selection = new SubagentPresetSelection({ allowedAgentPresets: ['reviewer'] })
     await selection.validate(ctx)
     expect(selection.description).toContain('reviewer: Review with unavailable tools.')
-    await expect(ctx.agents.create({
-      sessionId: SessionId('broken-preset'),
-      setup: async (agentCtx) => { await ctx.agentPresets.mount(agentCtx, 'reviewer') },
-    })).rejects.toMatchObject({ code: 'agent-preset/invalid' })
+    await expect(
+      ctx.agents.create({
+        sessionId: SessionId('broken-preset'),
+        setup: async agentCtx => {
+          await ctx.agentPresets.mount(agentCtx, 'reviewer')
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'agent-preset/invalid' })
     expect(ctx.agents.list()).toEqual([])
   })
 
   it('creates an Agent from a preset whose delegation tool selects itself', async () => {
     const { ctx } = await setup({})
     await ctx.agentPresets.register({
-      id: 'self', description: 'Self-selected composition.',
-      plugins: [{
-        name: 'cordis:subagentTool',
-        config: { provider: 'custom-spawn', toolName: 'self_delegate', allowedAgentPresets: ['self'] },
-      }],
+      id: 'self',
+      description: 'Self-selected composition.',
+      plugins: [
+        {
+          name: 'cordis:subagentTool',
+          config: { provider: 'custom-spawn', toolName: 'self_delegate', allowedAgentPresets: ['self'] },
+        },
+      ],
     })
     const handle = await ctx.agents.create({
       sessionId: SessionId('self-selecting-preset'),
-      setup: async (agentCtx) => { await ctx.agentPresets.mount(agentCtx, 'self') },
+      setup: async agentCtx => {
+        await ctx.agentPresets.mount(agentCtx, 'self')
+      },
     })
     const schema = ctx.tools.schemas(handle.agent).find(schema => schema.name === 'self_delegate')
     expect(schema).toHaveProperty('parameters.properties.agent_preset.enum', ['self'])
@@ -155,24 +177,30 @@ describe('spawn preset selection', () => {
   })
 
   it.each([
-    ['alpha', 'beta'], ['beta', 'alpha'],
+    ['alpha', 'beta'],
+    ['beta', 'alpha'],
   ])('creates Agents from mutually selecting presets registered in %s/%s order', async (first, second) => {
     const { ctx } = await setup({})
     for (const id of [first, second]) {
       const other = id === 'alpha' ? 'beta' : 'alpha'
       await ctx.agentPresets.register({
-        id, description: `${id} composition.`,
-        plugins: [{
-          name: 'cordis:subagentTool',
-          config: { provider: 'custom-spawn', toolName: 'peer_delegate', allowedAgentPresets: [other] },
-        }],
+        id,
+        description: `${id} composition.`,
+        plugins: [
+          {
+            name: 'cordis:subagentTool',
+            config: { provider: 'custom-spawn', toolName: 'peer_delegate', allowedAgentPresets: [other] },
+          },
+        ],
       })
     }
     for (const id of [first, second]) {
       const other = id === 'alpha' ? 'beta' : 'alpha'
       const handle = await ctx.agents.create({
         sessionId: SessionId(`mutually-selecting-${id}`),
-        setup: async (agentCtx) => { await ctx.agentPresets.mount(agentCtx, id) },
+        setup: async agentCtx => {
+          await ctx.agentPresets.mount(agentCtx, id)
+        },
       })
       const schema = ctx.tools.schemas(handle.agent).find(schema => schema.name === 'peer_delegate')
       expect(schema).toHaveProperty('parameters.properties.agent_preset.enum', [other])
@@ -184,17 +212,23 @@ describe('spawn preset selection', () => {
     const { ctx } = await setup({})
     await ctx.agentPresets.register({
       id: 'missing-reference',
-      plugins: [{
-        name: 'cordis:subagentTool',
-        config: { provider: 'custom-spawn', toolName: 'missing_delegate', agentPreset: 'absent' },
-      }],
+      plugins: [
+        {
+          name: 'cordis:subagentTool',
+          config: { provider: 'custom-spawn', toolName: 'missing_delegate', agentPreset: 'absent' },
+        },
+      ],
     })
     const published = vi.fn()
     ctx.on('agent/created', published)
-    await expect(ctx.agents.create({
-      sessionId: SessionId('unpublished-preset'),
-      setup: async (agentCtx) => { await ctx.agentPresets.mount(agentCtx, 'missing-reference') },
-    })).rejects.toThrow('Unknown agent preset: absent')
+    await expect(
+      ctx.agents.create({
+        sessionId: SessionId('unpublished-preset'),
+        setup: async agentCtx => {
+          await ctx.agentPresets.mount(agentCtx, 'missing-reference')
+        },
+      }),
+    ).rejects.toThrow('Unknown agent preset: absent')
     expect(published).not.toHaveBeenCalled()
     expect(ctx.agents.list()).toEqual([])
     expect(ctx.sessions.list()).toEqual([])
@@ -209,5 +243,4 @@ describe('spawn preset selection', () => {
     await selection.validate(ctx)
     expect(selection.description).not.toContain('Available presets:')
   })
-
 })

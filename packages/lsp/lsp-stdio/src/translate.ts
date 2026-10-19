@@ -5,12 +5,7 @@
  * @module @deepseek-ai/dsh-lsp-stdio/translate
  */
 
-import type {
-  LspHover,
-  LspLocation,
-  LspOperation,
-  LspRange,
-} from '@deepseek-ai/dsh-lsp'
+import type { LspHover, LspLocation, LspOperation, LspRange } from '@deepseek-ai/dsh-lsp'
 import { LspError } from '@deepseek-ai/dsh-lsp'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import type {
@@ -31,24 +26,34 @@ import type {
  */
 export function requestMethod(operation: LspOperation): string {
   switch (operation) {
-    case 'goToDefinition': return 'textDocument/definition'
-    case 'findReferences': return 'textDocument/references'
-    case 'goToImplementation': return 'textDocument/implementation'
-    case 'hover': return 'textDocument/hover'
+    case 'goToDefinition':
+      return 'textDocument/definition'
+    case 'findReferences':
+      return 'textDocument/references'
+    case 'goToImplementation':
+      return 'textDocument/implementation'
+    case 'hover':
+      return 'textDocument/hover'
     /* v8 ignore next -- exhaustive over the closed LspOperation union; unreachable. */
-    default: return assertNever(operation, 'requestMethod')
+    default:
+      return assertNever(operation, 'requestMethod')
   }
 }
 
 /** The `ServerCapabilities` provider field backing each operation. */
 function capabilityValue(capabilities: WireServerCapabilities, operation: LspOperation): WireProviderCapability {
   switch (operation) {
-    case 'goToDefinition': return capabilities.definitionProvider
-    case 'findReferences': return capabilities.referencesProvider
-    case 'goToImplementation': return capabilities.implementationProvider
-    case 'hover': return capabilities.hoverProvider
+    case 'goToDefinition':
+      return capabilities.definitionProvider
+    case 'findReferences':
+      return capabilities.referencesProvider
+    case 'goToImplementation':
+      return capabilities.implementationProvider
+    case 'hover':
+      return capabilities.hoverProvider
     /* v8 ignore next -- exhaustive over the closed LspOperation union; unreachable. */
-    default: return assertNever(operation, 'capabilityValue')
+    default:
+      return assertNever(operation, 'capabilityValue')
   }
 }
 
@@ -200,10 +205,12 @@ function renderHoverContents(contents: unknown): string {
   }
   if (typeof contents === 'string') return contents
   if (Array.isArray(contents)) {
-    return contents.map((value) => {
-      if (isMarkedString(value)) return renderMarkedString(value)
-      throw malformedResponse('LSP hover contents contained a malformed MarkedString')
-    }).join('\n\n')
+    return contents
+      .map(value => {
+        if (isMarkedString(value)) return renderMarkedString(value)
+        throw malformedResponse('LSP hover contents contained a malformed MarkedString')
+      })
+      .join('\n\n')
   }
   if (typeof contents !== 'object') {
     throw malformedResponse('LSP hover contents were not MarkupContent, MarkedString, or an array')

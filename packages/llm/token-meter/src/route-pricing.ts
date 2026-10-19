@@ -38,7 +38,7 @@ export function priceSurface(
   const hasFiles = fileText !== undefined && nodes.some(node => node.files.length > 0)
   if ((pricing === undefined || images.length === 0) && !hasFiles) {
     let surfaceTokens = 0
-    const publicNodes = nodes.map((node) => {
+    const publicNodes = nodes.map(node => {
       surfaceTokens += node.heuristicTokens
       return { seq: node.seq, tokens: node.heuristicTokens, heuristicTokens: node.heuristicTokens }
     })
@@ -46,13 +46,11 @@ export function priceSurface(
   }
   const prices = pricing === undefined ? [] : pricing.priceImages(images)
   if (pricing !== undefined && prices.length !== images.length) {
-    throw new Error(
-      `token meter: route image pricing answered ${prices.length} prices for ${images.length} occurrences`,
-    )
+    throw new Error(`token meter: route image pricing answered ${prices.length} prices for ${images.length} occurrences`)
   }
   let cursor = 0
   let surfaceTokens = 0
-  const publicNodes = nodes.map((node) => {
+  const publicNodes = nodes.map(node => {
     let tokens = node.heuristicTokens
     if (fileText !== undefined && node.files.length > 0) {
       tokens -= node.fileStructuralTokens

@@ -54,11 +54,13 @@ async function matchesAsset(path: string, asset: Asset, signal: AbortSignal): Pr
 
 function resolveRuntime(config: Config) {
   const supported = ['darwin-arm64', 'darwin-x64', 'linux-arm64', 'linux-x64', 'win32-x64']
-  if (!supported.includes(`${process.platform}-${process.arch}`)) throw new Error(`Local speech is unavailable for ${process.platform}-${process.arch}`)
+  if (!supported.includes(`${process.platform}-${process.arch}`))
+    throw new Error(`Local speech is unavailable for ${process.platform}-${process.arch}`)
   const lock = JSON.parse(readFileSync(new URL('../runtime/assets.json', import.meta.url), 'utf8')) as RuntimeLock
   const modelRoot = config.modelDirectory ?? join(config.dataRoot, 'models', 'sensevoice-onnx')
   const paths: RuntimePaths = {
-    model: join(modelRoot, lock.models[config.precision].name), tokens: join(modelRoot, lock.tokens.name),
+    model: join(modelRoot, lock.models[config.precision].name),
+    tokens: join(modelRoot, lock.tokens.name),
     vad: config.vadModelPath ?? join(config.dataRoot, 'models', 'silero', lock.vad.name),
     /* v8 ignore next -- built worker resolution is exercised by real Node and Electron process smokes */
     worker: fileURLToPath(new URL(import.meta.url.endsWith('.ts') ? './worker.ts' : './worker.js', import.meta.url)),
@@ -68,16 +70,22 @@ function resolveRuntime(config: Config) {
 
 async function verifyRuntime(config: Config, paths: RuntimePaths, lock: RuntimeLock, signal: AbortSignal): Promise<boolean> {
   signal.throwIfAborted()
-  try { await Promise.all([paths.model, paths.tokens, paths.vad].map(path => access(path))) }
-  catch (error) {
+  try {
+    await Promise.all([paths.model, paths.tokens, paths.vad].map(path => access(path)))
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     return false
   }
   const verified = [
-    ...config.modelDirectory === undefined ? [[paths.model, lock.models[config.precision]], [paths.tokens, lock.tokens]] as const : [],
-    ...config.vadModelPath === undefined ? [[paths.vad, lock.vad]] as const : [],
+    ...(config.modelDirectory === undefined
+      ? ([
+          [paths.model, lock.models[config.precision]],
+          [paths.tokens, lock.tokens],
+        ] as const)
+      : []),
+    ...(config.vadModelPath === undefined ? ([[paths.vad, lock.vad]] as const) : []),
   ]
-  for (const [path, asset] of verified) if (!await matchesAsset(path, asset, signal)) return false
+  for (const [path, asset] of verified) if (!(await matchesAsset(path, asset, signal))) return false
   signal.throwIfAborted()
   return true
 }
@@ -90,7 +98,7 @@ async function verifyRuntime(config: Config, paths: RuntimePaths, lock: RuntimeL
  */
 export async function inspectRuntime(config: Config, signal: AbortSignal): Promise<RuntimePaths | undefined> {
   const { lock, paths } = resolveRuntime(config)
-  return await verifyRuntime(config, paths, lock, signal) ? paths : undefined
+  return (await verifyRuntime(config, paths, lock, signal)) ? paths : undefined
 }
 
 /**
@@ -101,8 +109,12 @@ export async function inspectRuntime(config: Config, signal: AbortSignal): Promi
  * @param report - Host-owned progress publisher.
  * @returns verified local file path; failures carry localized-UI diagnostics through SpeechDownloadError.
  */
-export async function downloadAsset(asset: Asset, root: string, signal: AbortSignal,
-  report: (state: SpeechPreparationState) => void = () => {}): Promise<string> {
+export async function downloadAsset(
+  asset: Asset,
+  root: string,
+  signal: AbortSignal,
+  report: (state: SpeechPreparationState) => void = () => {},
+): Promise<string> {
   signal.throwIfAborted()
   const destination = join(root, asset.name)
   const partial = `${destination}.${randomUUID()}.part`
@@ -119,15 +131,22 @@ export async function downloadAsset(asset: Asset, root: string, signal: AbortSig
       }
       const digest = createHash('sha256')
       let completedBytes = 0
-      const publish = (): void => { report({ phase: 'downloading', resource: asset.name, completedBytes, totalBytes: asset.bytes }) }
+      const publish = (): void => {
+        report({ phase: 'downloading', resource: asset.name, completedBytes, totalBytes: asset.bytes })
+      }
       publish()
-      const hashing = new Transform({ transform(chunk: Buffer, _encoding, callback) {
-        completedBytes += chunk.length
-        if (completedBytes > asset.bytes) {
-          callback(new SpeechDownloadError({ resource: asset.name, source, reason: 'integrity' })); return
-        }
-        digest.update(chunk); publish(); callback(null, chunk)
-      } })
+      const hashing = new Transform({
+        transform(chunk: Buffer, _encoding, callback) {
+          completedBytes += chunk.length
+          if (completedBytes > asset.bytes) {
+            callback(new SpeechDownloadError({ resource: asset.name, source, reason: 'integrity' }))
+            return
+          }
+          digest.update(chunk)
+          publish()
+          callback(null, chunk)
+        },
+      })
       await pipeline(response.body, hashing, createWriteStream(partial, { flags: 'wx', mode: 0o600 }), { signal })
       if (completedBytes !== asset.bytes || digest.digest('hex') !== asset.sha256) {
         throw new SpeechDownloadError({ resource: asset.name, source, reason: 'integrity' })
@@ -140,10 +159,11 @@ export async function downloadAsset(asset: Asset, root: string, signal: AbortSig
     }
   } catch (error) {
     const timedOut = timeoutOf(signal)
-    if (signal.aborted && !timedOut || error instanceof SpeechDownloadError) throw error
-    throw new SpeechDownloadError({ resource: asset.name, source,
-      ...timedOut ? { reason: 'timeout' } : classifyDownloadFailure(error),
-    }, { cause: error })
+    if ((signal.aborted && !timedOut) || error instanceof SpeechDownloadError) throw error
+    throw new SpeechDownloadError(
+      { resource: asset.name, source, ...(timedOut ? { reason: 'timeout' } : classifyDownloadFailure(error)) },
+      { cause: error },
+    )
   }
 }
 
@@ -155,8 +175,12 @@ export async function downloadAsset(asset: Asset, root: string, signal: AbortSig
  * @param report - Host-owned progress publisher.
  * @returns verified model and worker paths.
  */
-export async function prepareRuntime(_ctx: Context, config: Config, signal: AbortSignal,
-  report: (state: SpeechPreparationState) => void = () => {}): Promise<RuntimePaths> {
+export async function prepareRuntime(
+  _ctx: Context,
+  config: Config,
+  signal: AbortSignal,
+  report: (state: SpeechPreparationState) => void = () => {},
+): Promise<RuntimePaths> {
   const { lock, modelRoot, paths } = resolveRuntime(config)
   const download = async (asset: Asset, root: string, step: 'model' | 'vad'): Promise<void> => {
     if (await matchesAsset(join(root, asset.name), asset, signal)) return
@@ -164,11 +188,19 @@ export async function prepareRuntime(_ctx: Context, config: Config, signal: Abor
     const urls = await orderModelSources(asset.url, origins, config.modelProbeTimeoutMs, signal)
     for (const [index, url] of urls.entries()) {
       try {
-        await downloadAsset({ ...asset, url }, root, signal, (state) => { report({ ...state, step }) })
+        await downloadAsset({ ...asset, url }, root, signal, state => {
+          report({ ...state, step })
+        })
         return
       } catch (error) {
-        if (signal.aborted || !(error instanceof SpeechDownloadError) || error.download.reason === 'storage'
-          || error.download.reason === 'unknown' || index === urls.length - 1) throw error
+        if (
+          signal.aborted ||
+          !(error instanceof SpeechDownloadError) ||
+          error.download.reason === 'storage' ||
+          error.download.reason === 'unknown' ||
+          index === urls.length - 1
+        )
+          throw error
       }
     }
   }
@@ -182,6 +214,7 @@ export async function prepareRuntime(_ctx: Context, config: Config, signal: Abor
     await download(lock.vad, join(config.dataRoot, 'models', 'silero'), 'vad')
   }
   report({ phase: 'checking', step: 'verify', startedAt: Date.now() })
-  if (!await verifyRuntime(config, paths, lock, signal)) throw new Error('Speech model verification failed: missing or corrupted model files')
+  if (!(await verifyRuntime(config, paths, lock, signal)))
+    throw new Error('Speech model verification failed: missing or corrupted model files')
   return paths
 }

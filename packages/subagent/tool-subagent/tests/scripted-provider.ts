@@ -63,7 +63,10 @@ class ScriptedSubagentProvider implements SubagentProvider {
     const stopReason = this.config.stopReason ?? 'completed'
     const state = { cancelled: false }
     const cancelled = Promise.withResolvers<undefined>()
-    const onAbort = (): void => { state.cancelled = true; cancelled.resolve(undefined) }
+    const onAbort = (): void => {
+      state.cancelled = true
+      cancelled.resolve(undefined)
+    }
     request.signal.addEventListener('abort', onAbort, { once: true })
     await Promise.resolve()
     if (state.cancelled) {
@@ -75,17 +78,17 @@ class ScriptedSubagentProvider implements SubagentProvider {
       const terminal = state.cancelled ? 'aborted' : stopReason
       return {
         output,
-        ...wantsStructured ? { structured: this.config.structured ?? { reply } } : {},
-        ...this.config.diagnostic !== undefined && terminal !== 'completed'
-          ? { diagnostic: this.config.diagnostic }
-          : {},
+        ...(wantsStructured ? { structured: this.config.structured ?? { reply } } : {}),
+        ...(this.config.diagnostic !== undefined && terminal !== 'completed' ? { diagnostic: this.config.diagnostic } : {}),
         stopReason: terminal,
       }
     }
     const gate = Promise.resolve(this.config.onStart?.(request))
-    const result = Promise.race([gate, cancelled.promise]).then(resultFor).finally(() => {
-      request.signal.removeEventListener('abort', onAbort)
-    })
+    const result = Promise.race([gate, cancelled.promise])
+      .then(resultFor)
+      .finally(() => {
+        request.signal.removeEventListener('abort', onAbort)
+      })
 
     return {
       id: SessionId(`scripted-subagent:${this.name}:${request.parent.id}:${++this.started}`),
@@ -112,9 +115,9 @@ export function mountScriptedProvider(ctx: Context, config: Config) {
     inject: ['subagents'],
     apply(pluginCtx: Context): void {
       const provider = new ScriptedSubagentProvider(config.name, config)
-      pluginCtx.subagents.registerProvider(config.agentRouteDefaults === undefined
-        ? provider
-        : Object.assign(provider, { agentRouteDefaults: config.agentRouteDefaults }))
+      pluginCtx.subagents.registerProvider(
+        config.agentRouteDefaults === undefined ? provider : Object.assign(provider, { agentRouteDefaults: config.agentRouteDefaults }),
+      )
     },
   })
 }

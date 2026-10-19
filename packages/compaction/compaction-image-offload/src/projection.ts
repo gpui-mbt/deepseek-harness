@@ -47,8 +47,13 @@ export const imageOffloadProjection: SessionMessageProjection<'image/offload'> =
     const messages = new Map<SessionSeq, Message>()
     const nodes = new Set(context.nodes)
     for (const target of data['targets'] as unknown[]) {
-      if (!isRecord(target) || Object.keys(target).length !== 2 || !isIndex(target['seq'])
-        || !Array.isArray(target['imageIndexes']) || target['imageIndexes'].length === 0) {
+      if (
+        !isRecord(target) ||
+        Object.keys(target).length !== 2 ||
+        !isIndex(target['seq']) ||
+        !Array.isArray(target['imageIndexes']) ||
+        target['imageIndexes'].length === 0
+      ) {
         throw new Error('image/offload: each target must contain a seq and nonempty imageIndexes')
       }
       const seq = target['seq']
@@ -65,8 +70,7 @@ export const imageOffloadProjection: SessionMessageProjection<'image/offload'> =
         }
         previous = index
       }
-      const message = context.messages.get(seq)
-        ?? (source.type === 'user/message' ? source.data : source.data.message)
+      const message = context.messages.get(seq) ?? (source.type === 'user/message' ? source.data : source.data.message)
       messages.set(seq, offloadMessageImages(message, target['imageIndexes'] as number[]))
     }
     return messages

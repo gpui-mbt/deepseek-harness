@@ -8,7 +8,7 @@
  * access after such a failure.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry, { agentEvents } from '@deepseek-ai/dsh-agent'
 import type { Agent, AgentStatus } from '@deepseek-ai/dsh-agent'
@@ -23,7 +23,7 @@ import { unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    'test': { kind: 'test' } & ContextFormed
+    test: { kind: 'test' } & ContextFormed
   }
 }
 
@@ -44,14 +44,20 @@ async function liveAgent(ctx: Context, session: Session): Promise<Agent> {
     session,
     inbox: unsupportedInbox(),
     ctx,
-    get status() { return status },
+    get status() {
+      return status
+    },
     send: () => {},
     followup: () => {},
     steer: () => ({ outcome: Promise.resolve({ status: 'rejected' as const }) }),
-    inject: () => { throw new Error('goal projection tests do not inject model context') },
+    inject: () => {
+      throw new Error('goal projection tests do not inject model context')
+    },
     cancel() {},
     runMaintenance: task => task(new AbortController().signal),
-    whenIdle() { return Promise.resolve() },
+    whenIdle() {
+      return Promise.resolve()
+    },
   }
   await ctx.agents.register(agent)
   return agent
@@ -76,10 +82,14 @@ async function harness(withGoal: boolean): Promise<Bench> {
 
 /** One paginable message so the tail is non-degenerate. */
 function seedMessage(session: Session): void {
-  session.append('user/message', createUserMessage({
-    content: [{ type: 'text', text: 'hi' }],
-    source: { kind: 'user' },
-  }), { surfaceOp: 'append' })
+  session.append(
+    'user/message',
+    createUserMessage({
+      content: [{ type: 'text', text: 'hi' }],
+      source: { kind: 'user' },
+    }),
+    { surfaceOp: 'append' },
+  )
 }
 
 describe('goal projection unit', () => {
@@ -137,12 +147,13 @@ describe('goal projection unit', () => {
     bench.session.append('agent/inbox/spliced', {
       target: 'next-step',
       start: 0,
-      inserted: [createUserMessage({
-        content: [{ type: 'text', text: 'unrelated pending context' }],
-        source: { kind: 'test' },
-      })],
+      inserted: [
+        createUserMessage({
+          content: [{ type: 'text', text: 'unrelated pending context' }],
+          source: { kind: 'test' },
+        }),
+      ],
     })
-
 
     expect(bench.tailValues().goal).toBeNull()
     expect(foldGoal(bench.session.snapshotEvents()).goal).toBeUndefined()
@@ -167,19 +178,25 @@ describe('goal projection unit', () => {
     }
     expect(goalProjectionDefinition.stateSchema.parse(state)).toEqual(state)
     expect(goalProjectionDefinition.stateSchema.safeParse({ ...state, seenGoalIds: [] }).success).toBe(false)
-    expect(goalProjectionDefinition.stateSchema.safeParse({
-      ...state,
-      current: { ...current, createdAt: 2, updatedAt: 1 },
-    }).success).toBe(false)
-    expect(goalProjectionDefinition.stateSchema.safeParse({
-      ...state,
-      current: { ...current, roundsStarted: current.goal.maxGoalRounds + 1 },
-    }).success).toBe(false)
+    expect(
+      goalProjectionDefinition.stateSchema.safeParse({
+        ...state,
+        current: { ...current, createdAt: 2, updatedAt: 1 },
+      }).success,
+    ).toBe(false)
+    expect(
+      goalProjectionDefinition.stateSchema.safeParse({
+        ...state,
+        current: { ...current, roundsStarted: current.goal.maxGoalRounds + 1 },
+      }).success,
+    ).toBe(false)
     const empty = goalProjectionDefinition.init()
     expect(goalProjectionDefinition.stateSchema.parse(empty)).toEqual(empty)
     expect(applyGoalProjection(empty, user)).toBe(empty)
     const admittedRound = {
-      type: 'user/message', seq: 1, time: 2,
+      type: 'user/message',
+      seq: 1,
+      time: 2,
       data: createUserMessage({
         content: [{ type: 'text', text: 'continue' }],
         source: { kind: 'goal', goalId: 'g1', revision: 1, round: 1 } as never,
@@ -190,24 +207,36 @@ describe('goal projection unit', () => {
       current: { ...current, roundsStarted: 1 },
     })
     const queuedUser = {
-      type: 'agent/inbox/spliced', seq: 1, time: 2,
+      type: 'agent/inbox/spliced',
+      seq: 1,
+      time: 2,
       data: { target: 'next-step', start: 0, inserted: [plainUser] },
     } as never
     expect(applyGoalProjection(state, queuedUser)).toBe(state)
 
     const malformed = {
-      type: 'goal/change', seq: 1, time: 2,
+      type: 'goal/change',
+      seq: 1,
+      time: 2,
       data: { kind: 'goal/change', version: 1, operation: 'create' },
     } as never
     expect(applyGoalProjection(state, malformed).failure).toMatch(/goal snapshot change must have exactly/)
     expect(applyGoalProjection(empty, malformed).failure).toMatch(/goal snapshot change must have exactly/)
 
     const queuedRound = {
-      type: 'agent/inbox/spliced', seq: 3, time: 4,
-      data: { target: 'next-step', start: 0, inserted: [createUserMessage({
-        content: [{ type: 'text', text: 'later round' }],
-        source: { kind: 'goal', goalId: 'g1', revision: 1, round: 1 } as never,
-      })] },
+      type: 'agent/inbox/spliced',
+      seq: 3,
+      time: 4,
+      data: {
+        target: 'next-step',
+        start: 0,
+        inserted: [
+          createUserMessage({
+            content: [{ type: 'text', text: 'later round' }],
+            source: { kind: 'goal', goalId: 'g1', revision: 1, round: 1 } as never,
+          }),
+        ],
+      },
     } as never
     expect(applyGoalProjection(state, queuedRound)).toBe(state)
 
@@ -227,8 +256,7 @@ describe('goal projection unit', () => {
       ...state,
       current: { ...current, createdAt: undefined, updatedAt: undefined },
     } as never
-    expect(applyGoalProjection(missingTimestamps, admittedRound).failure)
-      .toMatch(/current goal fold lacks timestamps/)
+    expect(applyGoalProjection(missingTimestamps, admittedRound).failure).toMatch(/current goal fold lacks timestamps/)
   })
 
   it('fails host goal access when the projection retained a replay failure', async () => {
@@ -239,8 +267,7 @@ describe('goal projection unit', () => {
     expect(state).toBeDefined()
     Object.assign(state!, { failure })
 
-    await expect(agentEvents(bench.ctx, bench.agent).serial('agent/created', { source: 'resume' }))
-      .resolves.toBeUndefined()
+    await expect(agentEvents(bench.ctx, bench.agent).serial('agent/created', { source: 'resume' })).resolves.toBeUndefined()
     expect(() => bench.ctx.goals.get(bench.agent)).toThrow(failure)
     expect(bench.tailValues().goal).toMatchObject({ goal: { objective: 'poisoned replay' } })
   })

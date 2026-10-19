@@ -5,7 +5,11 @@
  */
 
 /** Resolved widths for one frame. */
-export interface Columns { sidebar: number; center: number; rightbar: number }
+export interface Columns {
+  sidebar: number
+  center: number
+  rightbar: number
+}
 
 /** Center width protected while the normal right column is open. */
 export const CENTER_MIN = 400
@@ -21,6 +25,14 @@ export const SIDEBAR_COLLAPSED = 56
  * LG breakpoint); a manual toggle below it re-expands over the squeezed center
  * (stores.ts narrowExpanded). */
 export const SIDEBAR_AUTO_COLLAPSE = 1024
+/** Viewport width below which the left navigation is a drawer over the center
+ * instead of a column, with no collapsed rail. Matches the right panel's
+ * automatic-fullscreen width, so a phone-width frame presents both sidebars as
+ * overlays. */
+export const MOBILE_MAX = 768
+/** Narrow drawer width ceiling: the default column width, unless the frame is
+ * too narrow to leave the conversation visible beside it. */
+export const DRAWER_MAX_RATIO = 0.85
 /** Right column drag clamp floor. */
 export const RIGHTBAR_MIN = 300
 /** Maximum normal right panel width as a fraction of the frame. */
@@ -52,8 +64,7 @@ export function clampWidth(px: number, min: number, max: number): number {
 export function computeColumns(viewport: number, sidebar: number, rightbar: number, collapsedWidth = SIDEBAR_COLLAPSED): Columns {
   const s = sidebar === 0 ? collapsedWidth : clampWidth(sidebar, SIDEBAR_MIN, SIDEBAR_MAX)
   const available = viewport - s - CENTER_MIN
-  const r = rightbar === 0 || available < RIGHTBAR_MIN
-    ? 0
-    : Math.min(available, clampWidth(rightbar, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO))
+  const r =
+    rightbar === 0 || available < RIGHTBAR_MIN ? 0 : Math.min(available, clampWidth(rightbar, RIGHTBAR_MIN, viewport * RIGHTBAR_MAX_RATIO))
   return { sidebar: s, center: Math.max(0, viewport - s - r), rightbar: r }
 }

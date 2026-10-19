@@ -3,7 +3,7 @@
 import { renderFileActions } from './file-actions.tsx'
 import { useSyncExternalStore } from 'react'
 import { act, cleanup, fireEvent, render } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
 import type { SidebarRightTabActions } from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
@@ -12,14 +12,17 @@ import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { fileAddressFor } from '@deepseek-ai/dsh-util-workspace-path'
 import type { WorkspaceDiffHunk } from '@deepseek-ai/dsh-workspace-changes/types'
 import {
-  changesDiffUrl, changesReviewAddress, changesSummaryUrl, parseChangesReviewAddress, type ChangesDiff, type ChangesSummary,
+  changesDiffUrl,
+  changesReviewAddress,
+  changesSummaryUrl,
+  parseChangesReviewAddress,
+  type ChangesDiff,
+  type ChangesSummary,
 } from '../src/changes.ts'
 import { ChangesDiffStore } from '../src/client/changes-diff.ts'
 import { ChangesSummaryStore } from '../src/client/changes-summary.ts'
 import { PresentedOpenController } from '../src/client/present-open.ts'
-import {
-  ReviewTab, type ReviewInjected, type ReviewTabProps,
-} from '../src/client/ReviewTab.tsx'
+import { ReviewTab, type ReviewInjected, type ReviewTabProps } from '../src/client/ReviewTab.tsx'
 import { hunkRows, MAX_RENDERED_LINES, renderedHunks, splitRows } from '../src/client/FileDiff.tsx'
 import { changesReviewDefinition } from '../src/client/review-definition.ts'
 import { createReviewStore } from '../src/client/review-store.ts'
@@ -37,7 +40,10 @@ const ADDRESS = changesReviewAddress(COORDINATES)
 const SUMMARY_URL = changesSummaryUrl(SESSION, 5)
 
 const summary: ChangesSummary = {
-  turn: 2, total: 4, added: 4, deleted: 2,
+  turn: 2,
+  total: 4,
+  added: 4,
+  deleted: 2,
   files: [
     { path: 'src/app/main.ts', display: 'src/app/main.ts', added: 3, deleted: 1 },
     { path: '/tmp/out/big.bin', display: '~/out/big.bin', added: 0, deleted: 0, oversized: true },
@@ -47,7 +53,12 @@ const summary: ChangesSummary = {
 }
 
 const text: ChangesDiff = {
-  kind: 'text', path: 'src/app/main.ts', display: 'src/app/main.ts', before: true, after: true, coarse: false,
+  kind: 'text',
+  path: 'src/app/main.ts',
+  display: 'src/app/main.ts',
+  before: true,
+  after: true,
+  coarse: false,
   hunks: [
     { oldStart: 1, oldLines: 3, newStart: 1, newLines: 4, lines: [' a', '-b', '+B', '+c', ' d'] },
     { oldStart: 10, oldLines: 1, newStart: 11, newLines: 1, lines: ['-x', '+y'] },
@@ -71,9 +82,12 @@ describe('review addresses', () => {
     expect(definition.canOpen?.(ADDRESS)).toBe(true)
     expect(definition.title(ADDRESS)).toBe('第 2 轮改动')
     for (const bad of [
-      'dsh-resource://file/session/viewed/a.ts', 'dsh-resource://changes-review/session/viewed/5',
-      'dsh-resource://changes-review/session//5/2', 'dsh-resource://changes-review/session/viewed/x/2',
-      'dsh-resource://changes-review/session/viewed/5/0', 'dsh-resource://changes-review/session/%E0%A4%A/5/2',
+      'dsh-resource://file/session/viewed/a.ts',
+      'dsh-resource://changes-review/session/viewed/5',
+      'dsh-resource://changes-review/session//5/2',
+      'dsh-resource://changes-review/session/viewed/x/2',
+      'dsh-resource://changes-review/session/viewed/5/0',
+      'dsh-resource://changes-review/session/%E0%A4%A/5/2',
     ]) {
       expect(parseChangesReviewAddress(bad)).toBeUndefined()
       expect(definition.canOpen?.(bad)).toBe(false)
@@ -94,7 +108,9 @@ describe('review store', () => {
     expect(store.getSnapshot().byTab[TAB]).toEqual({ index: 1, split: false, wrap: true, navigated: 2 })
     store.actions.forget(TAB)
     expect(store.getSnapshot().byTab[TAB]).toBeUndefined()
-    expect(() => { store.actions.selected(TAB, 0) }).toThrow('no review state')
+    expect(() => {
+      store.actions.selected(TAB, 0)
+    }).toThrow('no review state')
   })
 })
 
@@ -115,14 +131,19 @@ describe('hunk rows', () => {
     ])
     // A trailing run of deletions with no additions ends the hunk on the left alone.
     expect(splitRows({ oldStart: 1, oldLines: 2, newStart: 1, newLines: 0, lines: ['-p', '-q'] })).toEqual([
-      { left: { no: 1, text: 'p', kind: 'del' } }, { left: { no: 2, text: 'q', kind: 'del' } },
+      { left: { no: 1, text: 'p', kind: 'del' } },
+      { left: { no: 2, text: 'q', kind: 'del' } },
     ])
   })
 
   it('cuts the drawn hunks at the rendered-line cap', () => {
     const long = (count: number): string[] => Array.from({ length: count }, (_, at) => `+line ${at}`)
     const whole: WorkspaceDiffHunk = {
-      oldStart: 1, oldLines: 0, newStart: 1, newLines: MAX_RENDERED_LINES + 2, lines: long(MAX_RENDERED_LINES + 2),
+      oldStart: 1,
+      oldLines: 0,
+      newStart: 1,
+      newLines: MAX_RENDERED_LINES + 2,
+      lines: long(MAX_RENDERED_LINES + 2),
     }
     const cut = renderedHunks([whole])
     expect(cut.truncated).toBe(true)
@@ -136,16 +157,18 @@ describe('hunk rows', () => {
 })
 
 describe('ReviewTab', () => {
-  function mount(options: {
-    summaries?: ChangesSummaryStore
-    diffs?: ChangesDiffStore
-    controller?: PresentedOpenController
-    locale?: typeof en
-    params?: unknown
-    revision?: number
-    address?: string
-    cwd?: string | undefined
-  } = {}) {
+  function mount(
+    options: {
+      summaries?: ChangesSummaryStore
+      diffs?: ChangesDiffStore
+      controller?: PresentedOpenController
+      locale?: typeof en
+      params?: unknown
+      revision?: number
+      address?: string
+      cwd?: string | undefined
+    } = {},
+  ) {
     const summaries = options.summaries ?? new ChangesSummaryStore()
     const diffs = options.diffs ?? new ChangesDiffStore()
     const controller = options.controller ?? new PresentedOpenController()
@@ -164,16 +187,36 @@ describe('ReviewTab', () => {
     }
     const sessions: SessionListState = {
       ids: [SESSION],
-      byId: { [SESSION]: { id: SESSION, displayTitle: 'Workspace', cwd: options.cwd ?? '/work/app',
-        running: false, retainedBy: {}, blank: false, updatedAt: 0 } },
-      phase: 'ready', projectionsBySession: {},
+      byId: {
+        [SESSION]: {
+          id: SESSION,
+          displayTitle: 'Workspace',
+          cwd: options.cwd ?? '/work/app',
+          running: false,
+          retainedBy: {},
+          blank: false,
+          updatedAt: 0,
+        },
+      },
+      phase: 'ready',
+      projectionsBySession: {},
     }
     const navigation = { address: options.address ?? ADDRESS, params: options.params, revision: options.revision ?? 1 }
     const runtime = {
       renderSlot: renderFileActions,
       useTabInfo: () => ({
-        sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane-1' },
-        tab: { id: TAB, kind: 'changes-review', contentId: options.address ?? ADDRESS, title: 'Review', visible: true, navigation, signal: aborter.signal, actions: tabActions },
+        sidebar: { expanded: true, fullscreen: false },
+        panel: { id: 'pane-1' },
+        tab: {
+          id: TAB,
+          kind: 'changes-review',
+          contentId: options.address ?? ADDRESS,
+          title: 'Review',
+          visible: true,
+          navigation,
+          signal: aborter.signal,
+          actions: tabActions,
+        },
       }),
       sessionId: SESSION,
       useSessions: <T,>(select: (state: SessionListState) => T): T => select(sessions),
@@ -188,8 +231,17 @@ describe('ReviewTab', () => {
     } as ReviewTabProps
     const view = render(<ReviewTab {...runtime} />)
     return {
-      view, injected, tabActions, store, aborter, summaries, diffs, controller,
-      rerender: () => { view.rerender(<ReviewTab {...runtime} />) },
+      view,
+      injected,
+      tabActions,
+      store,
+      aborter,
+      summaries,
+      diffs,
+      controller,
+      rerender: () => {
+        view.rerender(<ReviewTab {...runtime} />)
+      },
     }
   }
 
@@ -201,7 +253,9 @@ describe('ReviewTab', () => {
     expect(injected.reloadPresentedHost).toHaveBeenCalledTimes(1)
     expect(view.container.querySelector('[data-changes-review]')?.getAttribute('data-review-state')).toBe('loading')
     expect(view.getByText('Review · turn 2')).toBeTruthy()
-    act(() => { summaries.state.set({ [SUMMARY_URL]: summary }) })
+    act(() => {
+      summaries.state.set({ [SUMMARY_URL]: summary })
+    })
     expect(store.getSnapshot().byTab[TAB]).toMatchObject({ index: 2, navigated: 1 })
     const selector = view.getByRole('button', { name: en['review.selectFile'] })
     expect(selector.getAttribute('data-review-file')).toBe('notes.txt')
@@ -215,13 +269,18 @@ describe('ReviewTab', () => {
     fireEvent.click(view.getByRole('button', { name: en['review.selectFile'] }))
     const items = view.getAllByRole('menuitem')
     expect(items.map(item => item.textContent)).toEqual([
-      'src/app/main.ts+3-1', '~/out/big.bin' + en['changes.oversized'], 'notes.txt+1-1', 'logo.png' + en['changes.binary'],
+      'src/app/main.ts+3-1',
+      '~/out/big.bin' + en['changes.oversized'],
+      'notes.txt+1-1',
+      'logo.png' + en['changes.binary'],
     ])
     fireEvent.click(items[0]!)
     expect(store.getSnapshot().byTab[TAB]?.index).toBe(0)
     expect(view.getByRole('button', { name: en['review.selectFile'] }).getAttribute('data-review-file')).toBe('src/app/main.ts')
     expect(injected.loadChangesDiff).toHaveBeenLastCalledWith('viewed', 5, 0)
-    act(() => { diffs.state.set({ [changesDiffUrl(SESSION, 5, 0)]: text }) })
+    act(() => {
+      diffs.state.set({ [changesDiffUrl(SESSION, 5, 0)]: text })
+    })
     expect(view.container.querySelector('[data-review-view]')?.getAttribute('data-review-view')).toBe('split')
     fireEvent.click(view.getByRole('button', { name: en['review.splitAria'] }))
     const lines = [...view.container.querySelectorAll('[data-diff-line]')]
@@ -286,13 +345,17 @@ describe('ReviewTab', () => {
     for (const wrap of [true, false]) {
       if (!wrap) fireEvent.click(view.getByRole('button', { name: en['review.wrapAria'] }))
       for (const hunk of oneSidedHunks) {
-        act(() => { diffs.state.set({ [changesDiffUrl(SESSION, 5, 0)]: { ...text, hunks: [hunk] } }) })
+        act(() => {
+          diffs.state.set({ [changesDiffUrl(SESSION, 5, 0)]: { ...text, hunks: [hunk] } })
+        })
         expect(view.container.querySelector('[data-review-view]')?.getAttribute('data-review-view')).toBe('unified')
         expect(view.container.querySelectorAll('[data-diff-line]')).toHaveLength(hunk.lines.length)
         expect(view.getByRole('button', { name: en['review.splitAria'] }).getAttribute('aria-pressed')).toBe('true')
         expect(store.getSnapshot().byTab[TAB]).toMatchObject({ split: true, wrap })
       }
-      act(() => { diffs.state.set({ [changesDiffUrl(SESSION, 5, 0)]: { ...text, hunks: oneSidedHunks } }) })
+      act(() => {
+        diffs.state.set({ [changesDiffUrl(SESSION, 5, 0)]: { ...text, hunks: oneSidedHunks } })
+      })
       expect(view.container.querySelector('[data-review-view]')?.getAttribute('data-review-view')).toBe('split')
     }
   })
@@ -342,10 +405,16 @@ describe('ReviewTab', () => {
     expect(tabActions.openResource).toHaveBeenCalledWith(fileAddressFor(SESSION, '/work/app', '/tmp/out/big.bin'))
     fireEvent.click(view.getByRole('button', { name: 'Native file action' }))
     expect(injected.openChanged).toHaveBeenCalledWith('viewed', 5, 1, 'open', undefined)
-    act(() => { controller.state.set({ 'api/changes.open?sessionId=viewed&seq=5&index=1': 'opening' }) })
+    act(() => {
+      controller.state.set({ 'api/changes.open?sessionId=viewed&seq=5&index=1': 'opening' })
+    })
     expect((view.getByRole('button', { name: 'Native file action' }) as HTMLButtonElement).disabled).toBe(true)
-    act(() => { controller.state.set({ 'api/changes.open?sessionId=viewed&seq=5&index=1': 'error' }) })
-    act(() => { controller.state.set({ 'api/changes.open?sessionId=viewed&seq=5&index=1': 'nativeUnavailable' }) })
+    act(() => {
+      controller.state.set({ 'api/changes.open?sessionId=viewed&seq=5&index=1': 'error' })
+    })
+    act(() => {
+      controller.state.set({ 'api/changes.open?sessionId=viewed&seq=5&index=1': 'nativeUnavailable' })
+    })
     expect(view.queryByRole('button', { name: 'Native file action' })).toBeNull()
     act(() => {
       controller.state.set({})
@@ -367,21 +436,35 @@ describe('ReviewTab', () => {
     const { view, injected } = mount({ summaries, diffs, locale: zh })
     const url = changesDiffUrl(SESSION, 5, 0)
     expect(view.getByRole('status').textContent).toBe(zh['diff.loading'])
-    act(() => { diffs.state.set({ [url]: 'error' }) })
+    act(() => {
+      diffs.state.set({ [url]: 'error' })
+    })
     fireEvent.click(view.getByRole('button', { name: zh['presented.retry'] }))
     expect(injected.loadChangesDiff).toHaveBeenCalledTimes(2)
-    act(() => { diffs.state.set({ [url]: 'missing' }) })
+    act(() => {
+      diffs.state.set({ [url]: 'missing' })
+    })
     expect(view.getByText(zh['diff.missing'])).toBeTruthy()
-    act(() => { diffs.state.set({ [url]: { kind: 'binary', path: 'p', display: 'p' } }) })
+    act(() => {
+      diffs.state.set({ [url]: { kind: 'binary', path: 'p', display: 'p' } })
+    })
     expect(view.getByText(zh['diff.binary'])).toBeTruthy()
-    act(() => { diffs.state.set({ [url]: { kind: 'oversized', path: 'p', display: 'p' } }) })
+    act(() => {
+      diffs.state.set({ [url]: { kind: 'oversized', path: 'p', display: 'p' } })
+    })
     expect(view.getByText(zh['diff.oversized'])).toBeTruthy()
-    act(() => { diffs.state.set({ [url]: { ...text, before: false, coarse: true } }) })
+    act(() => {
+      diffs.state.set({ [url]: { ...text, before: false, coarse: true } })
+    })
     expect(view.getByText(zh['diff.created'])).toBeTruthy()
     expect(view.container.querySelector('[data-diff-coarse]')?.textContent).toBe(zh['diff.coarse'])
-    act(() => { diffs.state.set({ [url]: { ...text, after: false } }) })
+    act(() => {
+      diffs.state.set({ [url]: { ...text, after: false } })
+    })
     expect(view.getByText(zh['diff.deleted'])).toBeTruthy()
-    act(() => { diffs.state.set({ [url]: { ...text, hunks: [] } }) })
+    act(() => {
+      diffs.state.set({ [url]: { ...text, hunks: [] } })
+    })
     expect(view.getByText(zh['diff.unchanged'])).toBeTruthy()
     const long = Array.from({ length: MAX_RENDERED_LINES + 1 }, (_, at) => `+line ${at}`)
     act(() => {

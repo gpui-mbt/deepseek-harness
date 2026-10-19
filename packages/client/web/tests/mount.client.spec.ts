@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import { mountClient } from '../src/mount.ts'
 
 /** Provide a fake `uiRenderer` from its own plugin fiber so it can be replaced. */
 function provideRenderer(ctx: Context, mount: (container: HTMLElement) => () => void) {
-  return ctx.plugin({ apply: (scope: Context) => { scope.reflect.provide('uiRenderer', { mount }) } })
+  return ctx.plugin({
+    apply: (scope: Context) => {
+      scope.reflect.provide('uiRenderer', { mount })
+    },
+  })
 }
 
 describe('mountClient', () => {
@@ -34,13 +38,17 @@ describe('mountClient', () => {
     expect(first.mount).not.toHaveBeenCalled()
 
     const renderer = provideRenderer(ctx, first.mount)
-    await vi.waitFor(() => { expect(first.mount).toHaveBeenCalledExactlyOnceWith(container) })
+    await vi.waitFor(() => {
+      expect(first.mount).toHaveBeenCalledExactlyOnceWith(container)
+    })
 
     await renderer.dispose()
     expect(first.unmount).toHaveBeenCalledOnce()
 
     provideRenderer(ctx, second.mount)
-    await vi.waitFor(() => { expect(second.mount).toHaveBeenCalledExactlyOnceWith(container) })
+    await vi.waitFor(() => {
+      expect(second.mount).toHaveBeenCalledExactlyOnceWith(container)
+    })
     await ctx.fiber.dispose()
     expect(second.unmount).toHaveBeenCalledOnce()
   })

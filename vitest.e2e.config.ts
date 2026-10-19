@@ -1,5 +1,5 @@
 import tsconfigPaths from 'vite-tsconfig-paths'
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vite-plus'
 import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
 
 // Real-API suite, separate because it spends tokens. Each test self-skips without
@@ -37,16 +37,16 @@ export default defineConfig({
   // subprocesses and createRequire lookups, which bypass vite resolution
   // entirely.
   plugins: [tsconfigPaths({ projects: ['./tsconfig.base.json'] }), standardDecoratorPlugin()],
+  resolve: { dedupe: ['vitest', '@vitest/spy', 'vite-plus'] },
   test: {
+    // Preserve Vitest 4 mock-history behavior for setup and cross-test calls.
+    clearMocks: false,
     execArgv: vitestExecArgv,
     setupFiles: ['./scripts/test-proxy-environment.ts'],
     // Explicit Node app owners only: apps/web/tests/*.e2e.ts needs the built
     // frontend dist and runs under vitest.web.config.ts (the test:web job).
     include: ['packages/*/*/tests/**/*.e2e.ts', 'apps/cli/tests/**/*.e2e.ts', 'apps/desktop/tests/**/*.e2e.ts'],
-    exclude: [
-      '**/*.expected.e2e.ts',
-      'packages/experimental/inspector/tests/client-browser.e2e.ts',
-    ],
+    exclude: ['**/*.expected.e2e.ts', 'packages/experimental/inspector/tests/client-browser.e2e.ts'],
     // Real model calls: generous timeouts, and retries for transient flakes
     // (the shared internal key hits concurrency quotas). No coverage — the
     // unit suites own the coverage gate.

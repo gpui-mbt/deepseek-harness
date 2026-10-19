@@ -23,7 +23,9 @@ export class AssistantLogStream {
    * Count all received chunks, including children of folded blocks.
    * @returns Number of original chunks received by this stream.
    */
-  get length(): number { return this.count }
+  get length(): number {
+    return this.count
+  }
 
   /**
    * Add one original chunk and update the matching block's disclosure state.
@@ -47,8 +49,10 @@ export class AssistantLogStream {
     let block: StreamEntry | undefined
     if (chunk.type === 'block-start') {
       block = {
-        row: { ...row, disclosure: 'open' }, offset: index, children: 0,
-        ...chunk.blockType === 'reasoning' ? { reasoningText: '' } : {},
+        row: { ...row, disclosure: 'open' },
+        offset: index,
+        children: 0,
+        ...(chunk.blockType === 'reasoning' ? { reasoningText: '' } : {}),
       }
       row = block.row
       this.blocks.set(chunk.index, block)
@@ -69,10 +73,23 @@ export class AssistantLogStream {
         }
       }
     }
-    return { key, index, position, row, ...header === undefined ? {} : { header },
-      ...block?.reasoningText === undefined ? {} : { collapsed: {
-        key: block.row.key,
-        summary: `blockType: reasoning${block.reasoningText === '' ? '' : ` · ${block.reasoningText}`}`.slice(0, INSPECTOR_PREVIEW_LIMIT),
-      } } }
+    return {
+      key,
+      index,
+      position,
+      row,
+      ...(header === undefined ? {} : { header }),
+      ...(block?.reasoningText === undefined
+        ? {}
+        : {
+            collapsed: {
+              key: block.row.key,
+              summary: `blockType: reasoning${block.reasoningText === '' ? '' : ` · ${block.reasoningText}`}`.slice(
+                0,
+                INSPECTOR_PREVIEW_LIMIT,
+              ),
+            },
+          }),
+    }
   }
 }

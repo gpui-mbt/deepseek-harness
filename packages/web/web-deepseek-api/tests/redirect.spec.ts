@@ -3,7 +3,7 @@
  * request-init assertions alone cannot observe that boundary.
  */
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { createServer, type IncomingMessage, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { dispatchDeepSeekWeb } from '../src/transport.ts'
@@ -22,10 +22,13 @@ let redirectOrigin: string
 let targetOrigin: string
 
 const targetServer = createServer((request, response) => {
-  void captureRequest(request).then((received) => {
-    targetRequests.push(received)
-    response.writeHead(204).end()
-  }, (error: unknown) => response.destroy(asError(error)))
+  void captureRequest(request).then(
+    received => {
+      targetRequests.push(received)
+      response.writeHead(204).end()
+    },
+    (error: unknown) => response.destroy(asError(error)),
+  )
 })
 
 const redirectServer = createServer((request, response) => {
@@ -44,13 +47,26 @@ afterAll(async () => {
 })
 
 describe('dispatchDeepSeekWeb redirect policy', () => {
-  it.each([301, 302, 303, 307, 308])('rejects HTTP %i before contacting Location', async (status) => {
+  it.each([301, 302, 303, 307, 308])('rejects HTTP %i before contacting Location', async status => {
     targetRequests.length = 0
-    await expect(dispatchDeepSeekWeb({ apiKey: TEST_API_KEY }, {
-      endpoint: `${redirectOrigin}/${status}`, body: { query: TEST_QUERY }, decode: value => value,
-      apiKeyHeaders: key => ({ 'x-api-key': key }),
-      guidance: { subject: 'Search', plugin: 'web-search-deepseek', field: 'baseURL', label: 'Messages API base URL', page: 'Web search' },
-    })).rejects.toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
+    await expect(
+      dispatchDeepSeekWeb(
+        { apiKey: TEST_API_KEY },
+        {
+          endpoint: `${redirectOrigin}/${status}`,
+          body: { query: TEST_QUERY },
+          decode: value => value,
+          apiKeyHeaders: key => ({ 'x-api-key': key }),
+          guidance: {
+            subject: 'Search',
+            plugin: 'web-search-deepseek',
+            field: 'baseURL',
+            label: 'Messages API base URL',
+            page: 'Web search',
+          },
+        },
+      ),
+    ).rejects.toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
     expect(targetRequests).toHaveLength(0)
   })
 
@@ -61,7 +77,7 @@ describe('dispatchDeepSeekWeb redirect policy', () => {
       method: 'POST',
       headers: {
         'x-api-key': TEST_API_KEY,
-        'authorization': `Bearer ${TEST_API_KEY}`,
+        authorization: `Bearer ${TEST_API_KEY}`,
         'content-type': 'application/json',
       },
       body,
@@ -84,7 +100,7 @@ function captureRequest(request: IncomingMessage): Promise<ReceivedRequest> {
     request.once('error', reject)
     request.once('end', () => {
       resolve({
-        ...request.method !== undefined ? { method: request.method } : {},
+        ...(request.method !== undefined ? { method: request.method } : {}),
         headers: request.headers,
         body: Buffer.concat(chunks).toString('utf8'),
       })
@@ -105,10 +121,12 @@ async function listen(server: Server): Promise<string> {
 /** Close a listening fixture server after every request has settled. */
 async function close(server: Server): Promise<void> {
   if (!server.listening) return
-  await new Promise<void>((resolve, reject) => server.close((error) => {
-    if (error === undefined) resolve()
-    else reject(error)
-  }))
+  await new Promise<void>((resolve, reject) =>
+    server.close(error => {
+      if (error === undefined) resolve()
+      else reject(error)
+    }),
+  )
 }
 
 /** Normalize an unknown fixture failure for `ServerResponse.destroy`. */

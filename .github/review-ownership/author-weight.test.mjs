@@ -24,10 +24,19 @@ test('follows cursors, deduplicates overlapping pages, and stops at 100', async 
   let calls = 0
   const count = await countMergedAuthorPulls(pull, async (path, { body }) => {
     calls++
-    if (calls === 1) return page(Array.from({ length: 100 }, (_, i) => entry(i + 1, i < 50 ? pull.authorId : 'another-id')), true, 'next')
+    if (calls === 1)
+      return page(
+        Array.from({ length: 100 }, (_, i) => entry(i + 1, i < 50 ? pull.authorId : 'another-id')),
+        true,
+        'next',
+      )
     assert.equal(calls, 2)
     assert.equal(body.variables.after, 'next')
-    return page(Array.from({ length: 100 }, (_, i) => entry(i + 51)), true, 'unused')
+    return page(
+      Array.from({ length: 100 }, (_, i) => entry(i + 51)),
+      true,
+      'unused',
+    )
   })
   assert.equal(count, 100)
   assert.equal(calls, 2)
@@ -35,13 +44,29 @@ test('follows cursors, deduplicates overlapping pages, and stops at 100', async 
 
 test('returns zero only for a complete empty history', async () => {
   assert.equal(await countMergedAuthorPulls(pull, async () => page([])), 0)
-  for (const response of [{}, { errors: [{ message: 'rate limited' }], ...page([]) },
-    page([null]), page([{ number: 1 }]), page([], true, null)]) {
-    await assert.rejects(countMergedAuthorPulls(pull, async () => response), /GitHub/u)
+  for (const response of [
+    {},
+    { errors: [{ message: 'rate limited' }], ...page([]) },
+    page([null]),
+    page([{ number: 1 }]),
+    page([], true, null),
+  ]) {
+    await assert.rejects(
+      countMergedAuthorPulls(pull, async () => response),
+      /GitHub/u,
+    )
   }
-  await assert.rejects(countMergedAuthorPulls(pull, async () => { throw new Error('offline') }), /offline/u)
+  await assert.rejects(
+    countMergedAuthorPulls(pull, async () => {
+      throw new Error('offline')
+    }),
+    /offline/u,
+  )
 })
 
 test('rejects a repeated cursor instead of looping over a partial history', async () => {
-  await assert.rejects(countMergedAuthorPulls(pull, async () => page([], true, 'same')), /did not advance/u)
+  await assert.rejects(
+    countMergedAuthorPulls(pull, async () => page([], true, 'same')),
+    /did not advance/u,
+  )
 })

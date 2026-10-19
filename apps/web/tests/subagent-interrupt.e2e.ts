@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vite-plus/test'
 import { SessionId as sessionId, type SessionId } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-agent'
 import { launchWebScaffold, readPersistedEvents, webSnapshotMode, type WebScaffold } from './scaffold.ts'
@@ -23,11 +23,7 @@ const WAKING = 'And add one concrete example.'
 type RpcResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
 
 /** POST one generated Remote unary through the API Gateway carrier. */
-async function remote<T>(
-  scaffold: WebScaffold,
-  endpoint: string,
-  args: Readonly<Record<string, unknown>>,
-): Promise<RpcResult<T>> {
+async function remote<T>(scaffold: WebScaffold, endpoint: string, args: Readonly<Record<string, unknown>>): Promise<RpcResult<T>> {
   const response = await scaffold.hostFetch(`/api/${endpoint}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -39,7 +35,7 @@ async function remote<T>(
     }),
   })
   if (!response.ok) throw new Error(`${endpoint} failed over HTTP ${response.status}: ${await response.text()}`)
-  return (await response.json() as { result: RpcResult<T> }).result
+  return ((await response.json()) as { result: RpcResult<T> }).result
 }
 
 /** POST one generated Session Remote unary through the API Gateway carrier. */
@@ -83,17 +79,13 @@ describe.skipIf(MODE === 'record')('web e2e: subagents/interruptByParent over th
     // Whole-script replacement: the child's three model calls are the hang
     // (turn 1, interrupted), the parked follow-up's turn, and the waking turn.
     // The parent never runs a turn, so the child claims this primary script.
-    await writeFile(join(sidecarRoot, 'replay.override.json'), JSON.stringify([
-      { kind: 'hang', readyFile },
-      textCompletion('resumed response one'),
-      textCompletion('resumed response two'),
-    ]))
+    await writeFile(
+      join(sidecarRoot, 'replay.override.json'),
+      JSON.stringify([{ kind: 'hang', readyFile }, textCompletion('resumed response one'), textCompletion('resumed response two')]),
+    )
     // Header-only primary fixture: the bare-array override replaces the
     // derived script entirely; the path only anchors replay installation.
-    await writeFile(
-      join(sidecarRoot, 'session.jsonl'),
-      '{"type":"session","version":0,"id":"primary","createdAt":0}\n',
-    )
+    await writeFile(join(sidecarRoot, 'session.jsonl'), '{"type":"session","version":0,"id":"primary","createdAt":0}\n')
     scaffold = await launchWebScaffold({
       replayFixture: join(sidecarRoot, 'session.jsonl'),
       replayOverride: join(sidecarRoot, 'replay.override.json'),
@@ -161,8 +153,11 @@ describe.skipIf(MODE === 'record')('web e2e: subagents/interruptByParent over th
     expect(child!.status).toBe('idle')
     expect(child!.inbox.nextTurn).toHaveLength(1)
     expect(child!.session.snapshotEvents().filter(event => event.type === 'turn/start')).toHaveLength(1)
-    const lastEnd = child!.session.snapshotEvents().filter(event => event.type === 'turn/end').at(-1)
-    expect((lastEnd)?.data.reason.kind).toBe('aborted')
+    const lastEnd = child!.session
+      .snapshotEvents()
+      .filter(event => event.type === 'turn/end')
+      .at(-1)
+    expect(lastEnd?.data.reason.kind).toBe('aborted')
 
     // Only an explicit waking send resumes the parked queue, FIFO, then the
     // child runs both turns to completion and settles.
@@ -184,16 +179,15 @@ describe.skipIf(MODE === 'record')('web e2e: subagents/interruptByParent over th
     const events = await readPersistedEvents(scaffold, childId)
     // Human-origin messages only: the real composition also injects
     // runtime-context snapshots as non-user-source messages.
-    const userTexts = events.flatMap(event => event.type === 'user/message'
-      && event.data.source.kind === 'user'
-      ? event.data.content.flatMap(block => block.type === 'text' ? [block.text] : [])
-      : [])
+    const userTexts = events.flatMap(event =>
+      event.type === 'user/message' && event.data.source.kind === 'user'
+        ? event.data.content.flatMap(block => (block.type === 'text' ? [block.text] : []))
+        : [],
+    )
     expect(userTexts[0]).toBe(INITIAL)
     expect(userTexts[1]).toMatch(/^Your parent agent id is .+send_message\(\{ agent_id: /)
     expect(userTexts.slice(2)).toEqual([FOLLOWUP, WAKING])
-    const turnEndKinds = events
-      .filter(event => event.type === 'turn/end')
-      .map(event => (event).data.reason.kind)
+    const turnEndKinds = events.filter(event => event.type === 'turn/end').map(event => event.data.reason.kind)
     expect(turnEndKinds).toEqual(['aborted', 'completed', 'completed'])
   }, 120_000)
 })

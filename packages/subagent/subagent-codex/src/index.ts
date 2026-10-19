@@ -53,8 +53,7 @@ export const Config: z<Config> = z.object({
   providerName: z.string().min(1).default(DEFAULT_PROVIDER_NAME),
   model: z.string().min(1),
   env: z.dict(z.string()).default({}),
-  permissionMode: z.union([...CODEX_PERMISSION_MODES])
-    .default(DEFAULT_CODEX_PERMISSION_MODE),
+  permissionMode: z.union([...CODEX_PERMISSION_MODES]).default(DEFAULT_CODEX_PERMISSION_MODE),
   disposeGraceMs: z.number().default(DEFAULT_DISPOSE_GRACE_MS),
 })
 
@@ -76,23 +75,19 @@ class CodexProvider implements SubagentProvider {
       cwd = assertUsableCwd('subagent-codex', 'child cwd', request.cwd)
     } catch (error: unknown) {
       if (request.signal.aborted) {
-        throw new Error(
-          'subagent-codex: request was aborted before app-server startup',
-        )
+        throw new Error('subagent-codex: request was aborted before app-server startup')
       }
       throw codexStartupFailure(error)
     }
     const spec: CodexRunSpec = {
       cwd,
-      ...this.config.model === undefined ? {} : { model: this.config.model },
+      ...(this.config.model === undefined ? {} : { model: this.config.model }),
       permissionMode: this.config.permissionMode,
       env: this.config.env,
       disposeGraceMs: this.config.disposeGraceMs,
       spawn: spawnSpec => this.ctx.subprocess.spawn(spawnSpec),
       onError: (error, stopReason) => {
-        this.ctx.logger.warn(
-          `subagent-codex "${this.name}": child run failed (${stopReason}): ${error.message}`,
-        )
+        this.ctx.logger.warn(`subagent-codex "${this.name}": child run failed (${stopReason}): ${error.message}`)
       },
     }
     return startCodexRun(request, spec)
@@ -107,24 +102,14 @@ class CodexProvider implements SubagentProvider {
 export function apply(ctx: Context, config: Config): void {
   const resolved: ResolvedConfig = {
     providerName: config.providerName ?? DEFAULT_PROVIDER_NAME,
-    ...config.model === undefined ? {} : { model: config.model },
+    ...(config.model === undefined ? {} : { model: config.model }),
     env: config.env as Record<string, string>,
     permissionMode: config.permissionMode ?? DEFAULT_CODEX_PERMISSION_MODE,
     disposeGraceMs: config.disposeGraceMs as number,
   }
-  assertPositiveFinite(
-    'subagent-codex',
-    'disposeGraceMs',
-    resolved.disposeGraceMs,
-  )
+  assertPositiveFinite('subagent-codex', 'disposeGraceMs', resolved.disposeGraceMs)
   if (resolved.disposeGraceMs > MAX_TIMER_DELAY_MS) {
-    throw new Error(
-      `subagent-codex: disposeGraceMs must be no greater than ${MAX_TIMER_DELAY_MS}`,
-    )
+    throw new Error(`subagent-codex: disposeGraceMs must be no greater than ${MAX_TIMER_DELAY_MS}`)
   }
-  ctx.subagents.registerProvider(new CodexProvider(
-    resolved.providerName,
-    ctx,
-    resolved,
-  ))
+  ctx.subagents.registerProvider(new CodexProvider(resolved.providerName, ctx, resolved))
 }

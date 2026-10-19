@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { PROTOCOL_VERSION } from '@agentclientprotocol/sdk'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { StreamChunk } from '@deepseek-ai/dsh-llm'
@@ -23,7 +23,9 @@ describe('ACP connection ownership', () => {
     const { sessionId } = await harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })
     const agent = harness.ctx.agents.get(SessionId(sessionId))!
     const prompt = harness.client.prompt({ sessionId, prompt: [{ type: 'text', text: 'go' }] })
-    await vi.waitFor(() => { expect(agent.status).toBe('running') })
+    await vi.waitFor(() => {
+      expect(agent.status).toBe('running')
+    })
 
     await harness.acpFiber.dispose()
     await expect(prompt).resolves.toEqual({ stopReason: 'cancelled' })
@@ -52,7 +54,9 @@ describe('ACP connection ownership', () => {
     await readStarted.promise
 
     let disposed = false
-    const disposal = harness.acpFiber.dispose().finally(() => { disposed = true })
+    const disposal = harness.acpFiber.dispose().finally(() => {
+      disposed = true
+    })
     await Promise.resolve()
     expect(disposed).toBe(false)
 
@@ -78,7 +82,9 @@ describe('ACP connection ownership', () => {
     await harness.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
     const { sessionId } = await harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })
     const agent = harness.ctx.agents.get(SessionId(sessionId))!
-    harness.ctx.on('agent/disposed', () => { order.push('agent disposed') })
+    harness.ctx.on('agent/disposed', () => {
+      order.push('agent disposed')
+    })
 
     await harness.acpFiber.dispose()
 
@@ -102,7 +108,9 @@ describe('ACP connection ownership', () => {
     const { sessionId } = await harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })
     const agent = harness.ctx.agents.get(SessionId(sessionId))!
     void harness.client.prompt({ sessionId, prompt: [{ type: 'text', text: 'go' }] }).catch(() => {})
-    await vi.waitFor(() => { expect(agent.status).toBe('running') })
+    await vi.waitFor(() => {
+      expect(agent.status).toBe('running')
+    })
     const cancel = agent.cancel.bind(agent)
     let cancelObserved = false
     vi.spyOn(agent, 'cancel').mockImplementation((...args) => {
@@ -116,7 +124,9 @@ describe('ACP connection ownership', () => {
     const disposal = harness.acpFiber.dispose()
     // A drain can block on persistence, so the bridge's own turn must already be
     // cancelled rather than running for its whole duration.
-    await vi.waitFor(() => { expect(order).toContain('drain started') })
+    await vi.waitFor(() => {
+      expect(order).toContain('drain started')
+    })
     expect(order).toEqual(['parent cancelled', 'drain started'])
     release.resolve(undefined)
     await disposal
@@ -126,7 +136,9 @@ describe('ACP connection ownership', () => {
   it('reports a failed continuable drain and still disposes its sessions', async () => {
     harness = await makeBridgeHarness()
     const warnings: string[] = []
-    harness.ctx.logger.warn = (message: string) => { warnings.push(message) }
+    harness.ctx.logger.warn = (message: string) => {
+      warnings.push(message)
+    }
     harness.ctx.provide('subagents', {
       drainDescendants: () => Promise.reject(new Error('activation teardown failed')),
     } as never)
@@ -147,17 +159,19 @@ describe('ACP connection ownership', () => {
     const warnings: string[] = []
     let created = 0
     let secondStarted = false
-    harness.ctx.logger.warn = (message: string) => { warnings.push(message) }
-    const createSpy = vi.spyOn(harness.ctx.agents, 'create').mockImplementation(async (options) => {
+    harness.ctx.logger.warn = (message: string) => {
+      warnings.push(message)
+    }
+    const createSpy = vi.spyOn(harness.ctx.agents, 'create').mockImplementation(async options => {
       const handle = await create(options)
       const originalDispose = handle.dispose.bind(handle)
       if (created++ === 0) {
         handle.dispose = async () => {
           await originalDispose()
-          throw new AggregateError([
-            new Error('scope cleanup failed', { cause: new Error('sqlite busy') }),
-            new Error('hook cleanup failed'),
-          ], 'first session cleanup failed')
+          throw new AggregateError(
+            [new Error('scope cleanup failed', { cause: new Error('sqlite busy') }), new Error('hook cleanup failed')],
+            'first session cleanup failed',
+          )
         }
       } else {
         handle.dispose = async () => {
@@ -173,16 +187,21 @@ describe('ACP connection ownership', () => {
     const second = await harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })
 
     await harness.closeClientTransport()
-    await vi.waitFor(() => { expect(secondStarted).toBe(true) })
+    await vi.waitFor(() => {
+      expect(secondStarted).toBe(true)
+    })
     expect(warnings.some(warning => warning.includes('connection-close teardown failed'))).toBe(false)
 
     releaseSecond.resolve(undefined)
     await vi.waitFor(() => {
-      expect(warnings.some(warning =>
-        warning.includes(
-          'ACP agent teardown failed for 1 session(s): '
-          + 'first session cleanup failed [scope cleanup failed: sqlite busy; hook cleanup failed]',
-        ))).toBe(true)
+      expect(
+        warnings.some(warning =>
+          warning.includes(
+            'ACP agent teardown failed for 1 session(s): ' +
+              'first session cleanup failed [scope cleanup failed: sqlite busy; hook cleanup failed]',
+          ),
+        ),
+      ).toBe(true)
       expect(harness!.ctx.agents.get(SessionId(first.sessionId))).toBeUndefined()
       expect(harness!.ctx.agents.get(SessionId(second.sessionId))).toBeUndefined()
     })
@@ -197,8 +216,7 @@ describe('ACP connection ownership', () => {
     harness = await makeBridgeHarness()
     await harness.client.initialize({ protocolVersion: PROTOCOL_VERSION, clientCapabilities: {} })
     await harness.acpFiber.dispose()
-    await expect(harness.client.newSession({ cwd: process.cwd(), mcpServers: [] }))
-      .rejects.toThrow(/disposed/)
+    await expect(harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })).rejects.toThrow(/disposed/)
     expect(harness.ctx.agents.list()).toHaveLength(0)
   })
 
@@ -211,9 +229,11 @@ describe('ACP connection ownership', () => {
     const create = bridge.ctx.agents.create.bind(bridge.ctx.agents)
     const disposalStarted = Promise.withResolvers<undefined>()
     const releaseDisposal = Promise.withResolvers<undefined>()
-    releaseBlockedDisposal = () => { releaseDisposal.resolve(undefined) }
+    releaseBlockedDisposal = () => {
+      releaseDisposal.resolve(undefined)
+    }
     const disposalCompleted = Promise.withResolvers<undefined>()
-    const createSpy = vi.spyOn(bridge.ctx.agents, 'create').mockImplementation(async (options) => {
+    const createSpy = vi.spyOn(bridge.ctx.agents, 'create').mockImplementation(async options => {
       const handle = await create(options)
       const dispose = handle.dispose.bind(handle)
       handle.dispose = () => {
@@ -262,7 +282,9 @@ describe('ACP connection ownership', () => {
     const { sessionId } = await harness.client.newSession({ cwd: process.cwd(), mcpServers: [] })
     const agent = harness.ctx.agents.get(SessionId(sessionId))!
     void harness.client.prompt({ sessionId, prompt: [{ type: 'text', text: 'go' }] }).catch(() => {})
-    await vi.waitFor(() => { expect(agent.status).toBe('running') })
+    await vi.waitFor(() => {
+      expect(agent.status).toBe('running')
+    })
 
     await Promise.all([harness.closeClientTransport(), harness.acpFiber.dispose()])
     expect(agent.status).toBe('idle')

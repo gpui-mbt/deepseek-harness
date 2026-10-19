@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vite-plus/test'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -39,11 +39,17 @@ describe('child Agent options', () => {
   })
 
   it('keeps an explicit child effort when the child route changes', () => {
-    expect(resolveChildAgentOptions(parentAgent(), {
-      provider: 'child-provider',
-      model: 'child-model',
-      reasoningEffort: ReasoningEffortId('max'),
-    }, 1)).toEqual({
+    expect(
+      resolveChildAgentOptions(
+        parentAgent(),
+        {
+          provider: 'child-provider',
+          model: 'child-model',
+          reasoningEffort: ReasoningEffortId('max'),
+        },
+        1,
+      ),
+    ).toEqual({
       provider: 'child-provider',
       model: 'child-model',
       reasoningEffort: 'max',
@@ -76,7 +82,7 @@ describe('child Agent options', () => {
 })
 
 describe('delegation depth limits', () => {
-  it.each([-1, -0, 0.5, Number.NaN, Number.POSITIVE_INFINITY])('rejects an invalid runtime depth %s', (depth) => {
+  it.each([-1, -0, 0.5, Number.NaN, Number.POSITIVE_INFINITY])('rejects an invalid runtime depth %s', depth => {
     const parent = parentAgent()
     parent.options.subagentDepth = depth
     expect(() => resolveChildDepth(parent, undefined)).toThrow('agent subagentDepth must be a non-negative safe integer')

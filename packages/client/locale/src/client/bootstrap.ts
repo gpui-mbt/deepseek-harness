@@ -22,9 +22,15 @@ export interface LocaleBridge {
  * @returns language initialization with no persistence side effects.
  */
 export function parseLocaleBootstrap(value: unknown): LocaleBootstrap {
-  if (typeof value !== 'object' || value === null || !('languages' in value) || !Array.isArray(value.languages)
-    || !value.languages.every((language: unknown) => typeof language === 'string')
-    || !('preference' in value) || (value.preference !== null && typeof value.preference !== 'string')) {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('languages' in value) ||
+    !Array.isArray(value.languages) ||
+    !value.languages.every((language: unknown) => typeof language === 'string') ||
+    !('preference' in value) ||
+    (value.preference !== null && typeof value.preference !== 'string')
+  ) {
     throw new TypeError('locale: invalid native initialization data')
   }
   return { languages: value.languages, preference: value.preference }

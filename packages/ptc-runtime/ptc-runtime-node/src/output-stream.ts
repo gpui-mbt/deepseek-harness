@@ -11,7 +11,7 @@ import type { SubprocessHandle } from '@deepseek-ai/dsh-subprocess'
 export function drainOutput(stream: Readable | undefined, graceMs: number): Promise<boolean> {
   if (stream === undefined || stream.readableEnded) return Promise.resolve(true)
   if (stream.destroyed) return Promise.resolve(false)
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const finish = (complete: boolean): void => {
       clearTimeout(timer)
       stream.off('end', onEnd)
@@ -19,10 +19,18 @@ export function drainOutput(stream: Readable | undefined, graceMs: number): Prom
       stream.off('error', onError)
       resolve(complete)
     }
-    const onEnd = (): void => { finish(true) }
-    const onClose = (): void => { finish(false) }
-    const onError = (): void => { finish(false) }
-    const timer = setTimeout(() => { finish(false) }, graceMs)
+    const onEnd = (): void => {
+      finish(true)
+    }
+    const onClose = (): void => {
+      finish(false)
+    }
+    const onError = (): void => {
+      finish(false)
+    }
+    const timer = setTimeout(() => {
+      finish(false)
+    }, graceMs)
     stream.once('end', onEnd)
     stream.once('close', onClose)
     stream.once('error', onError)

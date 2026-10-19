@@ -12,7 +12,9 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {
-  ApprovalRequestId, CordisDynamicPluginId, DynamicCordisInvokeResult,
+  ApprovalRequestId,
+  CordisDynamicPluginId,
+  DynamicCordisInvokeResult,
   DynamicCordisInventoryRow,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { ClientModuleSystem } from '@deepseek-ai/dsh-client-modules/client'
@@ -33,16 +35,27 @@ import type { CordisObservable, DynamicCordisRenderFailure } from './runtime.ts'
 export { CordisRunOrchestrator } from './orchestrator.ts'
 export { ClientCordisInspectRegistry } from './inspect-registry.ts'
 export type {
-  ClientCordisInspectHost, ClientCordisInspectProviderRegistration, ClientCordisInspectQueryContext,
+  ClientCordisInspectHost,
+  ClientCordisInspectProviderRegistration,
+  ClientCordisInspectQueryContext,
 } from './inspect-registry.ts'
 export type {
-  CordisRunActivity, CordisRunFailure, CordisRunHostSeam,
-  CordisRunOrchestratorEnv, CordisRunRequest, CordisUserRunRequest,
+  CordisRunActivity,
+  CordisRunFailure,
+  CordisRunHostSeam,
+  CordisRunOrchestratorEnv,
+  CordisRunRequest,
+  CordisUserRunRequest,
 } from './orchestrator.ts'
 export { DynamicCordisPackageRunner } from './runtime.ts'
 export type {
-  CordisObservable, DynamicCordisClientHalf, DynamicCordisLivePackage, DynamicCordisLoadErrorCause,
-  DynamicCordisLoadResult, DynamicCordisRenderFailure, DynamicCordisRunnerEnv,
+  CordisObservable,
+  DynamicCordisClientHalf,
+  DynamicCordisLivePackage,
+  DynamicCordisLoadErrorCause,
+  DynamicCordisLoadResult,
+  DynamicCordisRenderFailure,
+  DynamicCordisRunnerEnv,
 } from './runtime.ts'
 
 export { DynamicCordisStyles, evaluateClientHalf, isDynamicCordisPlugin } from './evaluator.ts'
@@ -53,10 +66,12 @@ export { ClientTimerService } from './timer.ts'
 // Re-exported so consumers of the service face and the two events can name
 // their subjects without reaching into the wire contract themselves.
 export type {
-  ApprovalRequestId, CordisDynamicPackageId, CordisDynamicPluginId, CordisDynamicPluginRunId,
+  ApprovalRequestId,
+  CordisDynamicPackageId,
+  CordisDynamicPluginId,
+  CordisDynamicPluginRunId,
   DynamicCordisPackage,
 } from '@deepseek-ai/dsh-api-remotes/client'
-
 
 /**
  * What a run surface reads and calls. The activity map is the single home of
@@ -146,11 +161,7 @@ function invokeFailure(pluginId: CordisDynamicPluginId, method: string, result: 
 }
 
 /** Preserve a Host handler's stack while adding the Client call site diagnosis. */
-function invokeError(
-  pluginId: CordisDynamicPluginId,
-  method: string,
-  result: Extract<DynamicCordisInvokeResult, { ok: false }>,
-): Error {
+function invokeError(pluginId: CordisDynamicPluginId, method: string, result: Extract<DynamicCordisInvokeResult, { ok: false }>): Error {
   const error = new Error(invokeFailure(pluginId, method, result))
   if (result.stack !== undefined) error.stack = `${error.stack ?? error.message}\nHost stack:\n${result.stack}`
   return error
@@ -165,9 +176,11 @@ function invokeError(
  */
 function wireFailure(id: CordisDynamicPluginId, method: string, error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
-  return `host.call("${method}") on ${id} did not complete: ${message}\n`
-    + 'Both directions carry JSON only: pass plain JSON data as the argument — or omit it, and the handler receives '
-    + `null — and answer from harness.handle("${method}", fn) with JSON (\`return null\` when there is nothing to report).`
+  return (
+    `host.call("${method}") on ${id} did not complete: ${message}\n` +
+    'Both directions carry JSON only: pass plain JSON data as the argument — or omit it, and the handler receives ' +
+    `null — and answer from harness.handle("${method}", fn) with JSON (\`return null\` when there is nothing to report).`
+  )
 }
 
 /** Stable Cordis plugin name. */
@@ -188,7 +201,7 @@ export const inject = ['loader', 'modules', 'slots', 'remote', 'remote.dynamicCo
 export function apply(ctx: Context): void {
   provideClientTimer(ctx)
   const inspect = new ClientCordisInspectRegistry({
-    sync: async (providers) => {
+    sync: async providers => {
       const answered = await ctx.remote.dynamicCordisRunner.syncInspectManifest(providers)
       if (!answered.ok) throw new Error(`${answered.error.code}: ${answered.error.message}`)
     },
@@ -201,7 +214,9 @@ export function apply(ctx: Context): void {
   for (const provider of clientInspectProviders(ctx)) {
     ctx.effect(() => inspect.register(provider), `cordis-client-runner: inspect ${provider.manifest.id}`)
   }
-  ctx.on('connection/reset', () => { inspect.publish() })
+  ctx.on('connection/reset', () => {
+    inspect.publish()
+  })
 
   const runner = new DynamicCordisPackageRunner({
     ctx,
@@ -213,8 +228,11 @@ export function apply(ctx: Context): void {
       // generated codec is what validates them as JSON, and its rejection is a
       // bare field name — this is the only place that still knows which call it
       // belonged to, so the teaching has to be added here.
-      const answered = await ctx.remote.dynamicCordisRunner.invoke(pluginId, pluginRunId, method, args as JsonValue)
-        .catch((error: unknown) => { throw new Error(wireFailure(pluginId, method, error)) })
+      const answered = await ctx.remote.dynamicCordisRunner
+        .invoke(pluginId, pluginRunId, method, args as JsonValue)
+        .catch((error: unknown) => {
+          throw new Error(wireFailure(pluginId, method, error))
+        })
       // Two failure layers, and they teach different things: the carrier's error
       // branch means the call never reached the host half, while the namespace's
       // own `ok: false` is that half answering with a refusal.
@@ -227,22 +245,28 @@ export function apply(ctx: Context): void {
     // belongs to was answered before it ever rendered, so nothing waits on this
     // and a failed report must not turn one crash into two.
     reportRenderFailure: (agentId, pluginId, pluginRunId, failure) => {
-      void ctx.remote.dynamicCordisRunner.reportRenderFailure(agentId, pluginId, pluginRunId, failure).then((result) => {
-        if (!result.ok) {
-          console.error(`[cordis-client-runner] reporting a render failure of ${pluginId} failed:`, result.error)
-        }
-      }, (error: unknown) => {
-        console.error(`[cordis-client-runner] reporting a render failure of ${pluginId} failed:`, error)
-      })
+      void ctx.remote.dynamicCordisRunner.reportRenderFailure(agentId, pluginId, pluginRunId, failure).then(
+        result => {
+          if (!result.ok) {
+            console.error(`[cordis-client-runner] reporting a render failure of ${pluginId} failed:`, result.error)
+          }
+        },
+        (error: unknown) => {
+          console.error(`[cordis-client-runner] reporting a render failure of ${pluginId} failed:`, error)
+        },
+      )
     },
     reportGuardFailure: (agentId, pluginId, pluginRunId, failure) => {
-      void ctx.remote.dynamicCordisRunner.reportClientGuardFailure(agentId, pluginId, pluginRunId, failure).then((result) => {
-        if (!result.ok) {
-          console.error(`[cordis-client-runner] reporting a guard failure of ${pluginId} failed:`, result.error)
-        }
-      }, (error: unknown) => {
-        console.error(`[cordis-client-runner] reporting a guard failure of ${pluginId} failed:`, error)
-      })
+      void ctx.remote.dynamicCordisRunner.reportClientGuardFailure(agentId, pluginId, pluginRunId, failure).then(
+        result => {
+          if (!result.ok) {
+            console.error(`[cordis-client-runner] reporting a guard failure of ${pluginId} failed:`, result.error)
+          }
+        },
+        (error: unknown) => {
+          console.error(`[cordis-client-runner] reporting a guard failure of ${pluginId} failed:`, error)
+        },
+      )
     },
   })
   const orchestrator = new CordisRunOrchestrator({
@@ -253,7 +277,12 @@ export function apply(ctx: Context): void {
       // message for a start, a throw where the caller has a catch of its own.
       runHostHalf: async (agentId, pluginId, packageId, mode, requestId, approveFutureVersions) => {
         const answered = await ctx.remote.dynamicCordisRunner.runHostHalf(
-          agentId, pluginId, packageId, mode, requestId, approveFutureVersions,
+          agentId,
+          pluginId,
+          packageId,
+          mode,
+          requestId,
+          approveFutureVersions,
         )
         return answered.ok ? answered.value : { ok: false, message: `${answered.error.code}: ${answered.error.message}` }
       },
@@ -280,7 +309,9 @@ export function apply(ctx: Context): void {
     activeRuns: orchestrator.activeRuns,
     lastRunError: orchestrator.lastRunError,
     renderFailures: runner.renderFailures,
-    reconcileApprovals: (rows) => { orchestrator.reconcileApprovals(rows) },
+    reconcileApprovals: rows => {
+      orchestrator.reconcileApprovals(rows)
+    },
     approve: (requestId, approveFutureVersions) => orchestrator.approve(requestId, approveFutureVersions),
     decline: requestId => orchestrator.decline(requestId),
     startUserRun: request => orchestrator.startUserRun(request),
@@ -289,21 +320,30 @@ export function apply(ctx: Context): void {
     isLoaded: id => runner.isLoaded(id),
   }
   ctx.provide('dynamicCordisRunner', face)
-  ctx.effect(() => () => { void runner.dispose() }, 'cordis-client-runner: dynamic package runner')
+  ctx.effect(
+    () => () => {
+      void runner.dispose()
+    },
+    'cordis-client-runner: dynamic package runner',
+  )
 
   // Forwarded Host events: `$on` hands the listener the Host's own argument list,
   // so these read the request itself rather than a transport envelope.
-  ctx.remote.$on('cordis/request-run', (request) => {
+  ctx.remote.$on('cordis/request-run', request => {
     orchestrator.open(request)
   })
-  ctx.remote.$on('cordis/request-run-resolved', (resolved) => { orchestrator.close(resolved.requestId) })
-  ctx.remote.$on('cordis/dynamic-retract', (retracted) => {
+  ctx.remote.$on('cordis/request-run-resolved', resolved => {
+    orchestrator.close(resolved.requestId)
+  })
+  ctx.remote.$on('cordis/dynamic-retract', retracted => {
     runner.retract(retracted.pluginId, retracted.pluginRunId)
   })
-  ctx.remote.$on('cordis/inspect-query', (request) => {
+  ctx.remote.$on('cordis/inspect-query', request => {
     void inspect.query(request).catch((error: unknown) => {
       console.error(`[cordis-client-runner] inspect query ${request.provider}.${request.method} failed:`, error)
     })
   })
-  ctx.remote.$on('cordis/inspect-query-resolved', (resolved) => { inspect.close(resolved.requestId) })
+  ctx.remote.$on('cordis/inspect-query-resolved', resolved => {
+    inspect.close(resolved.requestId)
+  })
 }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vite-plus/test'
 import { SlotTestRuntime } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
@@ -72,7 +72,10 @@ it('retires only unselected Views without retained bodies and rejects released r
   const release = vi.spyOn(a.reference, 'release')
   a.retainTab(TAB, lifetime.signal)
   views.select(B)
-  expect(views.source.getSnapshot().map(view => [view.sessionId, view.selected])).toEqual([[A, false], [B, true]])
+  expect(views.source.getSnapshot().map(view => [view.sessionId, view.selected])).toEqual([
+    [A, false],
+    [B, true],
+  ])
   lifetime.abort()
   expect(views.source.getSnapshot().map(view => view.sessionId)).toEqual([B])
   expect(release).not.toHaveBeenCalled()
@@ -91,13 +94,19 @@ it('reports opening failure and releases Views even when committed roots are sti
   const r = await runtime()
   const reference = r.sessions.retain(A, { source: 'sidebarView' })
   const failure = new Error('opening failed')
-  const release = vi.fn(() => { reference.release() })
+  const release = vi.fn(() => {
+    reference.release()
+  })
   vi.spyOn(r.sessions, 'retain').mockReturnValueOnce({
     sessionId: reference.sessionId,
-    get binding() { return reference.binding },
+    get binding() {
+      return reference.binding
+    },
     ready: Promise.reject(failure),
     release,
-    [Symbol.dispose]: () => { reference.release() },
+    [Symbol.dispose]: () => {
+      reference.release()
+    },
   })
   const error = vi.spyOn(console, 'error').mockImplementation(() => {})
   const views = new SidebarSessionViews(r.sessions)
