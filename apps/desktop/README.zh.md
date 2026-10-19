@@ -194,6 +194,8 @@ macOS 和 Linux 从图形界面启动的程序只继承会话管理器提供的�
 pnpm run dev:desktop
 ```
 
+开发构建目标跟随宿主平台：Linux 宿主使用 `linux-x64` 或 `linux-arm64`。Linux 仅作为开发目标；Desktop 打包仍只支持 macOS 和 Windows。Linux 开发启动会传入 `--no-sandbox`，因为 pnpm 安装的 Electron 分发无法提供 setuid `chrome-sandbox` 助手；当宿主提供可用助手时，设置 `DSH_DESKTOP_ELECTRON_SANDBOX=1`。打包构建仍保留 Chromium 沙箱。
+
 开发 Harness 状态默认写入 `apps/desktop/.desktop-build/development/home`，一次性 npm 项目位于 `apps/desktop/.desktop-build/development/project`，Electron 浏览器数据则位于 `apps/desktop/.desktop-build/development/electron-user-data`。因此，会话、设置、凭据、包链接和浏览器数据都不会进入用户正常使用的 Harness home；显式 `DSH_HOME` 只会替换开发 Harness home。Renderer DevTools 默认自动打开，Main、Renderer 和 dsh Host 调试端口依次为 9229、9222 和 9230。`DSH_DESKTOP_MAIN_INSPECT_PORT`、`DSH_DESKTOP_RENDERER_DEBUG_PORT` 与 `DSH_DESKTOP_HOST_INSPECT_PORT` 可以替换这些端口，`DSH_DESKTOP_OPEN_DEVTOOLS=0` 则保持 Renderer 调试窗口关闭。
 
 显式构建完成后，`start:desktop` 会重新生成一次性项目，并跳过构建直接启动已有产物：

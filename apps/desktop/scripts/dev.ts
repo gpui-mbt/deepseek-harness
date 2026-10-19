@@ -54,6 +54,32 @@ async function runPackageScript(script: string, cwd: string): Promise<void> {
   await run(process.execPath, [packageManager, 'run', script], cwd)
 }
 
+/**
+ * Build the Electron command line for an unpackaged development launch.
+ * Linux disables the Chromium sandbox by default because the pnpm-installed Electron
+ * distribution cannot provide the setuid `chrome-sandbox` helper; set
+ * `DSH_DESKTOP_ELECTRON_SANDBOX=1` when the host provides a usable sandbox.
+ * @param options - Development ports, browser data directory, and platform.
+ * @returns Electron arguments, including the application root.
+ */
+export function electronDevelopmentArguments(options: {
+  readonly mainPort: number
+  readonly rendererPort: number
+  readonly userData: string
+  readonly appRoot?: string
+  readonly platform?: NodeJS.Platform
+  readonly sandbox?: string | undefined
+}): string[] {
+  const platform = options.platform ?? process.platform
+  return [
+    `--inspect=127.0.0.1:${String(options.mainPort)}`,
+    `--remote-debugging-port=${String(options.rendererPort)}`,
+    ...(platform === 'linux' && options.sandbox !== '1' ? ['--no-sandbox'] : []),
+    `--user-data-dir=${options.userData}`,
+    options.appRoot ?? APP_ROOT,
+  ]
+}
+
 async function launchElectron(): Promise<void> {
   const require = createRequire(import.meta.url)
   const electron: unknown = require('electron')
@@ -89,9 +115,19 @@ async function launchElectron(): Promise<void> {
     await run(executable, [], APP_ROOT, environment)
     return
   }
+  if (process.platform === 'linux' && process.env.DSH_DESKTOP_ELECTRON_SANDBOX !== '1') {
+    console.warn(
+      'desktop development: Chromium sandbox disabled for Linux; set DSH_DESKTOP_ELECTRON_SANDBOX=1 when the host provides a usable chrome-sandbox helper',
+    )
+  }
   await run(
     electron,
-    [`--inspect=127.0.0.1:${String(mainPort)}`, `--remote-debugging-port=${String(rendererPort)}`, `--user-data-dir=${userData}`, APP_ROOT],
+    electronDevelopmentArguments({
+      mainPort,
+      rendererPort,
+      userData,
+      sandbox: process.env.DSH_DESKTOP_ELECTRON_SANDBOX,
+    }),
     APP_ROOT,
     environment,
   )
@@ -134,7 +170,9 @@ async function main(): Promise<void> {
   await launchElectron()
 }
 
-await main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : error)
-  process.exitCode = 1
-})
+if (import.meta.main) {
+  await main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error)
+    process.exitCode = 1
+  })
+}

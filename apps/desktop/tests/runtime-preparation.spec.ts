@@ -8,7 +8,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vite-plus/test'
 
 const state = vi.hoisted(() => ({
   root: '',
-  target: 'mac-arm64' as 'mac-arm64' | 'mac-x64' | 'win-x64',
+  target: 'mac-arm64' as 'mac-arm64' | 'mac-x64' | 'win-x64' | 'linux-x64',
   pnpm: '11.7.0' as string | undefined,
   failure: undefined as 'electron' | 'primary' | 'cli' | undefined,
   preparePrimary: vi.fn(),
@@ -71,7 +71,7 @@ beforeEach(() => {
       join(root, 'runtime.json'),
       JSON.stringify({
         desktopVersion: '1.0.0',
-        platform: state.target === 'win-x64' ? 'win32' : 'darwin',
+        platform: state.target === 'win-x64' ? 'win32' : state.target.startsWith('linux-') ? 'linux' : 'darwin',
         arch: state.target === 'mac-arm64' ? 'arm64' : 'x64',
         python: '3.12.14',
         node: '24.17.0',
@@ -88,28 +88,32 @@ afterEach(async () => {
   await rm(state.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 })
 })
 
-it.each(['mac-arm64', 'mac-x64', 'win-x64'] as const)('prepares %s with one pnpm distribution and its CLI resources', async target => {
-  state.target = target
-  const windows = target === 'win-x64'
-  if (windows) process.argv.push('--defer-primary-runtime-smoke')
-  const runtime = join(state.root, 'runtime')
-  mkdirSync(join(runtime, 'pnpm'), { recursive: true })
-  await import('../scripts/prepare-runtime.ts')
-  expect(existsSync(join(runtime, 'pnpm'))).toBe(false)
-  expect(existsSync(join(runtime, 'primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs'))).toBe(true)
-  expect(existsSync(join(runtime, 'bin', 'node'))).toBe(true)
-  expect(existsSync(join(runtime, 'cli', 'bin', windows ? 'dsh.cmd' : 'dsh'))).toBe(true)
-  expect(readFileSync(join(runtime, 'cli', 'command-manager.js'), 'utf8')).toBe('command manager fixture')
-  expect(existsSync(join(runtime, 'cli', 'command-path.ps1'))).toBe(true)
-  expect(JSON.parse(readFileSync(join(runtime, 'versions.json'), 'utf8'))).toEqual({
-    schemaVersion: 1,
-    node: '24.18.1',
-    pnpm: '11.7.0',
-  })
-  expect(state.preparePrimary).toHaveBeenCalledWith({ deferSmoke: windows })
-  if (windows) expect(state.commandLink).not.toHaveBeenCalled()
-  else expect(state.commandLink).toHaveBeenCalledWith(join(runtime, 'cli'), target === 'mac-arm64' ? 'arm64' : 'x64', '12.0')
-})
+it.each(['mac-arm64', 'mac-x64', 'win-x64', 'linux-x64'] as const)(
+  'prepares %s with one pnpm distribution and its CLI resources',
+  async target => {
+    state.target = target
+    const windows = target === 'win-x64'
+    const macOS = target === 'mac-arm64' || target === 'mac-x64'
+    if (windows) process.argv.push('--defer-primary-runtime-smoke')
+    const runtime = join(state.root, 'runtime')
+    mkdirSync(join(runtime, 'pnpm'), { recursive: true })
+    await import('../scripts/prepare-runtime.ts')
+    expect(existsSync(join(runtime, 'pnpm'))).toBe(false)
+    expect(existsSync(join(runtime, 'primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs'))).toBe(true)
+    expect(existsSync(join(runtime, 'bin', 'node'))).toBe(true)
+    expect(existsSync(join(runtime, 'cli', 'bin', windows ? 'dsh.cmd' : 'dsh'))).toBe(true)
+    expect(readFileSync(join(runtime, 'cli', 'command-manager.js'), 'utf8')).toBe('command manager fixture')
+    expect(existsSync(join(runtime, 'cli', 'command-path.ps1'))).toBe(true)
+    expect(JSON.parse(readFileSync(join(runtime, 'versions.json'), 'utf8'))).toEqual({
+      schemaVersion: 1,
+      node: '24.18.1',
+      pnpm: '11.7.0',
+    })
+    expect(state.preparePrimary).toHaveBeenCalledWith({ deferSmoke: windows })
+    if (macOS) expect(state.commandLink).toHaveBeenCalledWith(join(runtime, 'cli'), target === 'mac-arm64' ? 'arm64' : 'x64', '12.0')
+    else expect(state.commandLink).not.toHaveBeenCalled()
+  },
+)
 
 it.each([
   ['electron', 'Electron extraction failed'],
