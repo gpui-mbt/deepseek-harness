@@ -1,5 +1,8 @@
 import type { DesktopAutoUpdateTarget } from './desktop-auto-update-environment.mjs'
 
+/** Supported Desktop build target, including development-only Linux targets. */
+export type DesktopBuildTarget = DesktopAutoUpdateTarget | 'linux-x64' | 'linux-arm64'
+
 /** Mutable target directories plus the shared immutable download cache. */
 export interface DesktopTargetBuildPaths {
   readonly root: string
@@ -18,33 +21,29 @@ export interface DesktopTargetBuildPaths {
 }
 
 /**
- * Resolve the fixed build target selected by a packaging environment.
- * @param env - Packaging environment.
+ * Resolve the fixed build target selected by a packaging or development environment.
+ * @param env - Packaging or development environment.
  * @param hostPlatform - Build-host platform used when no target override exists.
  * @param hostArch - Build-host architecture used when no target override exists.
- * @returns Supported Desktop target name.
+ * @returns Supported Desktop build target name.
  */
-export function resolveDesktopBuildTarget(
-  env?: NodeJS.ProcessEnv,
-  hostPlatform?: NodeJS.Platform,
-  hostArch?: string,
-): DesktopAutoUpdateTarget
+export function resolveDesktopBuildTarget(env?: NodeJS.ProcessEnv, hostPlatform?: NodeJS.Platform, hostArch?: string): DesktopBuildTarget
 
 /**
- * Return the mutable preparation and artifact directories owned by one release target.
- * @param target - Supported Desktop target name.
+ * Return the mutable preparation and artifact directories owned by one build target.
+ * @param target - Supported Desktop build target name.
  * @returns Target paths plus the shared immutable download cache.
  */
-export function desktopTargetBuildPaths(target: DesktopAutoUpdateTarget): DesktopTargetBuildPaths
+export function desktopTargetBuildPaths(target: DesktopBuildTarget): DesktopTargetBuildPaths
 
 /**
- * Return the platform and architecture of the payload one release target prepares.
+ * Return the platform and architecture of the payload one build target prepares.
  * Windows is prepared as x64 only, so this differs from the build host on an arm64 Windows machine.
- * @param target - Supported Desktop target name.
+ * @param target - Supported Desktop build target name.
  * @returns Platform and architecture of the prepared payload.
  */
-export function desktopTargetPlatform(target: DesktopAutoUpdateTarget): {
-  readonly platform: 'darwin' | 'win32'
+export function desktopTargetPlatform(target: DesktopBuildTarget): {
+  readonly platform: 'darwin' | 'win32' | 'linux'
   readonly arch: 'arm64' | 'x64'
 }
 
