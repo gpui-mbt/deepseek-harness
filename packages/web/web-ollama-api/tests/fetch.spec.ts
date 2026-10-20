@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { Context } from '@deepseek-ai/cordis'
 import WebRuntime from '@deepseek-ai/dsh-web'
 import {
@@ -16,8 +16,7 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 }
 
 /** Construct the provider over a fixed options value; production passes a live thunk. */
-const providerOf = (value: OllamaFetchProviderOptions): OllamaFetchProvider =>
-  new OllamaFetchProvider(() => value)
+const providerOf = (value: OllamaFetchProviderOptions): OllamaFetchProvider => new OllamaFetchProvider(() => value)
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -25,11 +24,13 @@ afterEach(() => {
 
 describe('OllamaFetchProvider', () => {
   it('posts the URL to /api/web_fetch and returns its Markdown body', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({
-      title: 'Ollama',
-      content: '[Cloud models](https://ollama.com/blog/cloud-models) are now available.',
-      links: ['https://ollama.com/'],
-    }))
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        title: 'Ollama',
+        content: '[Cloud models](https://ollama.com/blog/cloud-models) are now available.',
+        links: ['https://ollama.com/'],
+      }),
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await providerOf(options).fetch({ url: 'https://ollama.com' })
@@ -57,27 +58,45 @@ describe('OllamaFetchProvider', () => {
   })
 
   it('reports its own endpoint and settings page on a post-dispatch failure', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ error: 'nope' }, { status: 500 })))
-    const error = await providerOf(options).fetch({ url: 'https://a.test' }).catch((caught: unknown) => caught)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ error: 'nope' }, { status: 500 })),
+    )
+    const error = await providerOf(options)
+      .fetch({ url: 'https://a.test' })
+      .catch((caught: unknown) => caught)
     expect((error as Error).message).toContain('Ollama Cloud API error (HTTP 500)')
     expect((error as Error).message).toContain('used endpoint "https://ollama.test/api/web_fetch"')
     expect((error as Error).message).toContain('Settings > Plugins > Ollama Cloud search')
   })
 
   it('maps a network failure to WEB_PROVIDER_ERROR and a cancellation to WEB_ABORTED', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('connection refused'))))
-    await expect(providerOf(options).fetch({ url: 'https://a.test' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('connection refused'))),
+    )
+    await expect(providerOf(options).fetch({ url: 'https://a.test' })).rejects.toThrow(
+      expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }),
+    )
 
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new DOMException('aborted', 'AbortError'))))
-    const aborted = await providerOf(options).fetch({ url: 'https://a.test' }).catch((caught: unknown) => caught)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new DOMException('aborted', 'AbortError'))),
+    )
+    const aborted = await providerOf(options)
+      .fetch({ url: 'https://a.test' })
+      .catch((caught: unknown) => caught)
     expect(aborted).toMatchObject({ code: 'WEB_ABORTED', message: 'Ollama Cloud web request aborted' })
   })
 
   it('maps a body without page content to WEB_PROVIDER_ERROR', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ title: 'no content' })))
-    await expect(providerOf(options).fetch({ url: 'https://a.test' }))
-      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ title: 'no content' })),
+    )
+    await expect(providerOf(options).fetch({ url: 'https://a.test' })).rejects.toThrow(
+      expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }),
+    )
   })
 
   it('is unavailable without a credential or with an unparseable endpoint', () => {

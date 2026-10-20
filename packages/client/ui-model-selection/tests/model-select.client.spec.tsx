@@ -1220,13 +1220,15 @@ describe('routing window evaluation', () => {
 
   it('skips a window limited to weekdays on the weekend', () => {
     const weekdays = {
-      windows: [{
-        from: '21:00',
-        to: '03:00',
-        timeZone: 'UTC',
-        provider: 'opencode-go',
-        days: ['mon', 'tue', 'wed', 'thu', 'fri'],
-      }],
+      windows: [
+        {
+          from: '21:00',
+          to: '03:00',
+          timeZone: 'UTC',
+          provider: 'opencode-go',
+          days: ['mon', 'tue', 'wed', 'thu', 'fri'],
+        },
+      ],
     }
     // 2026-01-01 is a Thursday: 22:00Z is Thursday, 2026-01-03 02:00Z is Saturday.
     expect(activeRoutingWindow(weekdays, Date.UTC(2026, 0, 1, 22, 0))?.provider).toBe('opencode-go')

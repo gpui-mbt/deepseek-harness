@@ -12,10 +12,9 @@ import css from './OllamaSearchCard.module.css'
 import type { OllamaSearchCardFace } from './ollama-search-card-controller.ts'
 
 /** Props the renderer binds for the Ollama Cloud web page. */
-export type OllamaSearchCardProps =
-  PropsRuntime<'plugins.item'>
-  & PropsLocale<'settings.webSearchOllama'>
-  & InjectFace<OllamaSearchCardFace>
+export type OllamaSearchCardProps = PropsRuntime<'plugins.item'> &
+  PropsLocale<'settings.webSearchOllama'> &
+  InjectFace<OllamaSearchCardFace>
 
 /**
  * Render the Ollama Cloud web provider's one-liner or its settings form, as the Plugins page asks.
@@ -29,22 +28,22 @@ export function OllamaSearchCard(props: OllamaSearchCardProps) {
   const disabled = !state.writable
   return (
     <SettingsForm labels={formLabels(t)} state={state} onSave={props.save} onDiscard={props.discard}>
-      {state.switchAvailable
-        ? (
-          <div className={css.feature}>
-            <label className={css.toggleRow}>
-              <span>{t('useOllama')}</span>
-              <Switch
-                checked={state.useOllama}
-                label={t('useOllama')}
-                disabled={disabled}
-                onChange={(checked) => { props.setOllama(checked) }}
-              />
-            </label>
-            <p className={css.hint}>{t('useOllamaHint')}</p>
-          </div>
-        )
-        : null}
+      {state.switchAvailable ? (
+        <div className={css.feature}>
+          <label className={css.toggleRow}>
+            <span>{t('useOllama')}</span>
+            <Switch
+              checked={state.useOllama}
+              label={t('useOllama')}
+              disabled={disabled}
+              onChange={checked => {
+                props.setOllama(checked)
+              }}
+            />
+          </label>
+          <p className={css.hint}>{t('useOllamaHint')}</p>
+        </div>
+      ) : null}
       <SettingsSecretField
         id="plugin-config-ollama-search-key"
         label={t('apiKey')}
@@ -57,7 +56,9 @@ export function OllamaSearchCard(props: OllamaSearchCardProps) {
         text={state.apiKey.text}
         configured={state.apiKeyConfigured}
         stateLabel={state.apiKeyConfigured ? t('apiKeySet') : t('apiKeyUnset')}
-        onEdit={(text) => { props.edit('apiKey', text) }}
+        onEdit={text => {
+          props.edit('apiKey', text)
+        }}
       />
       <SettingsValueField
         id="plugin-config-ollama-search-endpoint"
@@ -69,8 +70,12 @@ export function OllamaSearchCard(props: OllamaSearchCardProps) {
         placeholder={state.searchPlaceholder}
         disabled={disabled}
         {...state.searchBaseURL}
-        onEdit={(text) => { props.edit('searchBaseURL', text) }}
-        onReset={() => { props.resetField('searchBaseURL') }}
+        onEdit={text => {
+          props.edit('searchBaseURL', text)
+        }}
+        onReset={() => {
+          props.resetField('searchBaseURL')
+        }}
       />
       <SettingsValueField
         id="plugin-config-ollama-fetch-endpoint"
@@ -82,8 +87,12 @@ export function OllamaSearchCard(props: OllamaSearchCardProps) {
         placeholder={state.fetchPlaceholder}
         disabled={disabled}
         {...state.fetchBaseURL}
-        onEdit={(text) => { props.edit('fetchBaseURL', text) }}
-        onReset={() => { props.resetField('fetchBaseURL') }}
+        onEdit={text => {
+          props.edit('fetchBaseURL', text)
+        }}
+        onReset={() => {
+          props.resetField('fetchBaseURL')
+        }}
       />
       <SettingsValueField
         id="plugin-config-ollama-search-results"
@@ -95,8 +104,12 @@ export function OllamaSearchCard(props: OllamaSearchCardProps) {
         numeric
         disabled={disabled}
         {...state.maxResults}
-        onEdit={(text) => { props.edit('maxResults', text) }}
-        onReset={() => { props.resetField('maxResults') }}
+        onEdit={text => {
+          props.edit('maxResults', text)
+        }}
+        onReset={() => {
+          props.resetField('maxResults')
+        }}
       />
     </SettingsForm>
   )

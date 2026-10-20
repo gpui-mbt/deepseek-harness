@@ -68,7 +68,8 @@ function swipe(fromX: number, toX: number, y = 300, target: EventTarget = docume
 }
 
 /** Browser-owned animation completion controlled independently of the test clock. */
-function transition(property = 'transform') {  const done = Promise.withResolvers<Animation>()
+function transition(property = 'transform') {
+  const done = Promise.withResolvers<Animation>()
   let state: AnimationPlayState = 'running'
   const animation = {
     transitionProperty: property,

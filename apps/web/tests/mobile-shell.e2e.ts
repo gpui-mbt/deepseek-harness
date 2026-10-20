@@ -164,9 +164,7 @@ it('lays the shipped composition out for a 390px phone frame', async () => {
     await page.keyboard.type('line one')
     await page.keyboard.press('Enter')
     await page.keyboard.type('line two')
-    await expect
-      .poll(async () => input.evaluate(element => (element as HTMLElement).innerText))
-      .toMatch(/line one\n+line two/u)
+    await expect.poll(async () => input.evaluate(element => (element as HTMLElement).innerText)).toMatch(/line one\n+line two/u)
 
     // 7. The right panel is the full viewport at this width, and the trailing
     //    edge reveals it too, after the header control collapses it again.
@@ -181,14 +179,10 @@ it('lays the shipped composition out for a 390px phone frame', async () => {
     await page.getByRole('button', { name: 'Collapse right sidebar', exact: true }).click()
     await expect.poll(() => page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]').count()).toBe(0)
     await swipe(page, 386, 240)
-    await expect
-      .poll(() => page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]').count())
-      .toBe(1)
+    await expect.poll(() => page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]').count()).toBe(1)
     // The panel itself sends it back toward the edge it came from.
     await swipe(page, 120, 260, 400, '[data-sidebar-right-panel="fullscreen"]')
-    await expect
-      .poll(() => page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]').count())
-      .toBe(0)
+    await expect.poll(() => page.locator('[data-sidebar-right-panel="fullscreen"][data-sidebar-right-open]').count()).toBe(0)
 
     // 8. The mount height follows the published visible height (what the shell
     //    observer does when a software keyboard shrinks the visual viewport).

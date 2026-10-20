@@ -4,7 +4,11 @@ import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { installEdgeSwipe, installSwipeDismiss } from '../src/swipe.ts'
 
 /** One dispatched touch event carrying the coordinates the gesture reads. */
-function touch(type: 'touchstart' | 'touchmove' | 'touchend' | 'touchcancel', touches: readonly { x: number; y: number }[], target: EventTarget = document.body): Event {
+function touch(
+  type: 'touchstart' | 'touchmove' | 'touchend' | 'touchcancel',
+  touches: readonly { x: number; y: number }[],
+  target: EventTarget = document.body,
+): Event {
   const event = new Event(type, { bubbles: true, cancelable: true })
   const list = touches.map(point => ({ clientX: point.x, clientY: point.y, target }))
   Object.defineProperty(event, 'touches', { value: type === 'touchend' || type === 'touchcancel' ? [] : list })

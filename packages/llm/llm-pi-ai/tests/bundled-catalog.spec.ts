@@ -52,7 +52,7 @@ describe('bundled catalog', () => {
     expect(models.map(model => model.id)).toContain('kimi-k3')
   })
 
-  it('serves the pinned 1017 build under DeepSeek\'s own name and no untagged entry', async () => {
+  it("serves the pinned 1017 build under DeepSeek's own name and no untagged entry", async () => {
     const ctx = await harness({ providers: { 'ollama-cloud': { apiKeyEnv: KEY_ENV } } })
     const info = await ctx.llm.resolveModelInfo('ollama-cloud', 'deepseek-v4.1-flash:1017')
 
@@ -68,8 +68,7 @@ describe('bundled catalog', () => {
     expect(model?.maxTokens).toBe(393_216)
     // The pinned tag is the route's Flash entry: a deployment goes through one
     // selectable model rather than two names for the same weights.
-    expect((await ctx.llm.listModels('ollama-cloud')).map(entry => entry.id))
-      .not.toContain('deepseek-v4.1-flash')
+    expect((await ctx.llm.listModels('ollama-cloud')).map(entry => entry.id)).not.toContain('deepseek-v4.1-flash')
   })
 
   it('reports the model context window rather than the 262,144 route default', async () => {
