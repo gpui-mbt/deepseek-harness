@@ -6,10 +6,7 @@
  */
 
 import type { WebFetchProvider, WebFetchRequest, WebFetchResult } from '@deepseek-ai/dsh-web'
-import {
-  dispatchOllamaWeb, hasOllamaCredential, invalidResponse, isRecord, ollamaEndpoint,
-  type OllamaWebAuth,
-} from './transport.ts'
+import { dispatchOllamaWeb, hasOllamaCredential, invalidResponse, isRecord, ollamaEndpoint, type OllamaWebAuth } from './transport.ts'
 
 /** Stable id this provider registers under in the fetch registry. */
 export const OLLAMA_FETCH_PROVIDER_ID = 'ollama-cloud-fetch'
@@ -41,19 +38,23 @@ export class OllamaFetchProvider implements WebFetchProvider {
 
   fetch(request: WebFetchRequest, signal?: AbortSignal): Promise<WebFetchResult> {
     const options = this.resolveOptions()
-    return dispatchOllamaWeb(options, {
-      endpoint: ollamaEndpoint(options.fetchBaseURL, 'web_fetch'),
-      body: { url: request.url },
-      decode: (payload): WebFetchResult => {
-        if (!isRecord(payload) || typeof payload.content !== 'string') throw invalidResponse()
-        return {
-          url: request.url,
-          statusCode: 200,
-          body: { kind: 'text', content: payload.content },
-          truncated: false,
-        }
+    return dispatchOllamaWeb(
+      options,
+      {
+        endpoint: ollamaEndpoint(options.fetchBaseURL, 'web_fetch'),
+        body: { url: request.url },
+        decode: (payload): WebFetchResult => {
+          if (!isRecord(payload) || typeof payload.content !== 'string') throw invalidResponse()
+          return {
+            url: request.url,
+            statusCode: 200,
+            body: { kind: 'text', content: payload.content },
+            truncated: false,
+          }
+        },
+        subject: 'fetch',
       },
-      subject: 'fetch',
-    }, signal)
+      signal,
+    )
   }
 }

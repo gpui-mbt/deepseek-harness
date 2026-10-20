@@ -16,11 +16,13 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 // Type-only: pulls the ctx.remote merge into this program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
-import {
-  SettingsFormModel, settingsNumberField, settingsTextField,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { SettingsFormModel, settingsNumberField, settingsTextField } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  SettingsFieldState, SettingsFormActions, SettingsFormScope, SettingsFormScopeSnapshot, SettingsFormShell,
+  SettingsFieldState,
+  SettingsFormActions,
+  SettingsFormScope,
+  SettingsFormScopeSnapshot,
+  SettingsFormShell,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 
 /** Settings namespace of the Ollama Cloud web provider (its Loader row id). */
@@ -139,22 +141,30 @@ export class OllamaSearchCardController {
     private readonly scopes: OllamaSearchCardScopes,
     private readonly ctx: ClientContext,
   ) {
-    this.provider = new SettingsFormModel(scopes.provider, [
-      settingsTextField('searchBaseURL'),
-      settingsTextField('fetchBaseURL'),
-      settingsNumberField('maxResults'),
-    ], [{ field: API_KEY_FIELD, write: text => this.writeKey(text) }])
-    this.selection = new SettingsFormModel(scopes.web, [
-      settingsTextField('searchProvider'), settingsTextField('fetchProvider'),
-    ])
+    this.provider = new SettingsFormModel(
+      scopes.provider,
+      [settingsTextField('searchBaseURL'), settingsTextField('fetchBaseURL'), settingsNumberField('maxResults')],
+      [{ field: API_KEY_FIELD, write: text => this.writeKey(text) }],
+    )
+    this.selection = new SettingsFormModel(scopes.web, [settingsTextField('searchProvider'), settingsTextField('fetchProvider')])
     this.store = createSnapshotStore(this.projection())
     this.unsubscribe = [
       // The forms publish drafts and section reads; the credential answer
       // publishes nothing there, so every projection is written from here.
-      ...[this.provider, this.selection].map(form => form.bind(() => form.shell()).subscribe(() => { this.store.set(this.projection()) })),
+      ...[this.provider, this.selection].map(form =>
+        form
+          .bind(() => form.shell())
+          .subscribe(() => {
+            this.store.set(this.projection())
+          }),
+      ),
       // A staged switch can change which section names the key, without any
       // scope publishing; a scope change can rename the reference itself.
-      ...[scopes.web, scopes.provider].map(scope => scope.subscribe(() => { void this.readCredential() })),
+      ...[scopes.web, scopes.provider].map(scope =>
+        scope.subscribe(() => {
+          void this.readCredential()
+        }),
+      ),
     ]
     void this.readCredential()
   }
@@ -247,14 +257,22 @@ export class OllamaSearchCardController {
   inject(): OllamaSearchCardFace {
     return {
       hooks: { ollamaSearchCard: this.store },
-      edit: (field, text) => { this.formOf(field).actions().edit(field, text) },
-      resetField: (field) => { this.formOf(field).actions().resetField(field) },
-      save: () => { void this.save() },
+      edit: (field, text) => {
+        this.formOf(field).actions().edit(field, text)
+      },
+      resetField: field => {
+        this.formOf(field).actions().resetField(field)
+      },
+      save: () => {
+        void this.save()
+      },
       discard: () => {
         this.provider.actions().discard()
         this.selection.actions().discard()
       },
-      setOllama: (enabled) => { this.select(enabled) },
+      setOllama: enabled => {
+        this.select(enabled)
+      },
     }
   }
 

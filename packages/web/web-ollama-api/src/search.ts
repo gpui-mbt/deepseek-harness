@@ -7,10 +7,7 @@
  */
 
 import type { WebSearchProvider, WebSearchRequest, WebSearchResult, WebSearchSource } from '@deepseek-ai/dsh-web'
-import {
-  dispatchOllamaWeb, hasOllamaCredential, invalidResponse, isRecord, ollamaEndpoint,
-  type OllamaWebAuth,
-} from './transport.ts'
+import { dispatchOllamaWeb, hasOllamaCredential, invalidResponse, isRecord, ollamaEndpoint, type OllamaWebAuth } from './transport.ts'
 import type { OllamaResult } from './types.ts'
 
 /** Stable id this provider registers under. */
@@ -39,8 +36,8 @@ export function mapOllamaResult(result: OllamaResult): WebSearchSource | undefin
   const snippet = result.content?.trim()
   return {
     url: result.url,
-    ...result.title != null && result.title.length > 0 ? { title: result.title } : {},
-    ...snippet !== undefined && snippet.length > 0 ? { snippet } : {},
+    ...(result.title != null && result.title.length > 0 ? { title: result.title } : {}),
+    ...(snippet !== undefined && snippet.length > 0 ? { snippet } : {}),
   }
 }
 
@@ -87,12 +84,16 @@ export class OllamaSearchProvider implements WebSearchProvider {
     const options = this.resolveOptions()
     // A per-request bound wins over the configured default; either may be absent.
     const maxResults = request.maxResults ?? options.maxResults
-    return dispatchOllamaWeb(options, {
-      endpoint: ollamaEndpoint(options.searchBaseURL, 'web_search'),
-      body: { query: request.query, max_results: maxResults },
-      decode: mapOllamaResponse,
-      subject: 'search',
-    }, signal)
+    return dispatchOllamaWeb(
+      options,
+      {
+        endpoint: ollamaEndpoint(options.searchBaseURL, 'web_search'),
+        body: { query: request.query, max_results: maxResults },
+        decode: mapOllamaResponse,
+        subject: 'search',
+      },
+      signal,
+    )
   }
 }
 

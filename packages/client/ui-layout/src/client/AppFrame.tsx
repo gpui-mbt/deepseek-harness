@@ -334,9 +334,7 @@ export function AppFrame({ useStore, useSessions, usePanelInfo, actions, renderS
   }, [closeDrawer, drawerOpen])
   // Choosing a Session or a global panel reveals the surface the reader picked.
   const activePanelId = usePanelInfo(info => info.activePanelId)
-  const activeSessionId = useSessions(state =>
-    Object.values(state.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id,
-  )
+  const activeSessionId = useSessions(state => Object.values(state.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id)
   const navigationKey = `${activePanelId ?? ''}|${activeSessionId ?? ''}`
   const previousNavigation = useRef(navigationKey)
   useLayoutEffect(() => {

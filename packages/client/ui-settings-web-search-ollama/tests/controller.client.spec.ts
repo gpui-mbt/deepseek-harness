@@ -1,15 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vite-plus/test'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError, stubConfigForm, type StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
 import {
   OllamaSearchCardController,
-  type OllamaSearchSettings, type WebProviderSelection,
+  type OllamaSearchSettings,
+  type WebProviderSelection,
 } from '../src/client/ollama-search-card-controller.ts'
 
 /** Make the stub behave like a Host that accepts every write. */
 function acceptWrites<T>(host: StubConfigForm<T>): void {
-  const section = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().value as object })
-  const layer = (): Record<string, unknown> => ({ ...host.scope.getSnapshot().user as object })
+  const section = (): Record<string, unknown> => ({ ...(host.scope.getSnapshot().value as object) })
+  const layer = (): Record<string, unknown> => ({ ...(host.scope.getSnapshot().user as object) })
   host.mutate.mockImplementation((ops: readonly SettingsPathOpView[]) => {
     const value = { ...section() }
     const user = { ...layer() }
@@ -34,10 +35,12 @@ function ctxWith(namespaces: object) {
 }
 
 function credentialsApi(configured: boolean) {
-  const describe = vi.fn((refs: readonly string[]) => Promise.resolve({
-    ok: true as const,
-    value: Object.fromEntries(refs.map(ref => [ref, { configured, writable: true }])),
-  }))
+  const describe = vi.fn((refs: readonly string[]) =>
+    Promise.resolve({
+      ok: true as const,
+      value: Object.fromEntries(refs.map(ref => [ref, { configured, writable: true }])),
+    }),
+  )
   const set = vi.fn(() => Promise.resolve({ ok: true as const, value: undefined }))
   return { ctx: ctxWith({ credentials: { describe, set } }), describe, set }
 }
@@ -58,9 +61,7 @@ function bench(options: { accept?: boolean; configured?: boolean; ctx?: never } 
     acceptWrites(web)
   }
   const credentials = credentialsApi(options.configured ?? true)
-  const controller = new OllamaSearchCardController(
-    { web: web.scope, provider: provider.scope }, options.ctx ?? credentials.ctx,
-  )
+  const controller = new OllamaSearchCardController({ web: web.scope, provider: provider.scope }, options.ctx ?? credentials.ctx)
   const face = controller.inject()
   return { provider, web, credentials, controller, face, state: () => face.hooks.ollamaSearchCard.getSnapshot() }
 }
@@ -74,9 +75,13 @@ function serve(b: ReturnType<typeof bench>, selection: WebProviderSelection = SH
 describe('OllamaSearchCardController credential', () => {
   it('reads the credential state for the reference the section names, and defaults it', async () => {
     const b = bench()
-    await vi.waitFor(() => { expect(b.credentials.describe).toHaveBeenCalledWith(['OLLAMA_CLOUD_API_KEY']) })
+    await vi.waitFor(() => {
+      expect(b.credentials.describe).toHaveBeenCalledWith(['OLLAMA_CLOUD_API_KEY'])
+    })
     serve(b)
-    await vi.waitFor(() => { expect(b.state().apiKeyConfigured).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.state().apiKeyConfigured).toBe(true)
+    })
     expect(b.state()).toMatchObject({
       searchBaseURL: { text: '', overridden: false },
       fetchBaseURL: { text: '', overridden: false },
@@ -94,14 +99,21 @@ describe('OllamaSearchCardController credential', () => {
     b.face.edit('apiKey', ' ollama-secret ')
     expect(b.state().dirty).toBe(true)
     expect(b.credentials.set).not.toHaveBeenCalled()
-    b.credentials.describe.mockImplementation((refs: readonly string[]) => Promise.resolve({
-      ok: true as const, value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
-    }))
+    b.credentials.describe.mockImplementation((refs: readonly string[]) =>
+      Promise.resolve({
+        ok: true as const,
+        value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
+      }),
+    )
     b.face.save()
-    await vi.waitFor(() => { expect(b.credentials.set).toHaveBeenCalledWith('OLLAMA_CLOUD_API_KEY', 'ollama-secret') })
+    await vi.waitFor(() => {
+      expect(b.credentials.set).toHaveBeenCalledWith('OLLAMA_CLOUD_API_KEY', 'ollama-secret')
+    })
     expect(b.provider.mutate).not.toHaveBeenCalled()
     expect(b.web.mutate).not.toHaveBeenCalled()
-    await vi.waitFor(() => { expect(b.state()).toMatchObject({ dirty: false, apiKeyConfigured: true }) })
+    await vi.waitFor(() => {
+      expect(b.state()).toMatchObject({ dirty: false, apiKeyConfigured: true })
+    })
     b.controller.dispose()
   })
 
@@ -118,15 +130,22 @@ describe('OllamaSearchCardController credential', () => {
   it('re-reads only when the Host reports the watched reference changed', async () => {
     const b = bench({ configured: false })
     serve(b)
-    await vi.waitFor(() => { expect(b.credentials.describe).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(b.credentials.describe).toHaveBeenCalled()
+    })
     b.credentials.describe.mockClear()
     b.controller.refreshCredential('OTHER_KEY')
     expect(b.credentials.describe).not.toHaveBeenCalled()
-    b.credentials.describe.mockImplementation((refs: readonly string[]) => Promise.resolve({
-      ok: true as const, value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
-    }))
+    b.credentials.describe.mockImplementation((refs: readonly string[]) =>
+      Promise.resolve({
+        ok: true as const,
+        value: Object.fromEntries(refs.map(ref => [ref, { configured: true, writable: true }])),
+      }),
+    )
     b.controller.refreshCredential('OLLAMA_CLOUD_API_KEY')
-    await vi.waitFor(() => { expect(b.state().apiKeyConfigured).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.state().apiKeyConfigured).toBe(true)
+    })
     b.controller.dispose()
   })
 
@@ -134,10 +153,14 @@ describe('OllamaSearchCardController credential', () => {
     const b = bench({ accept: true })
     serve(b)
     b.provider.publish({ value: { apiKeyEnv: 'TEAM_OLLAMA_KEY', maxResults: 5 } })
-    await vi.waitFor(() => { expect(b.credentials.describe).toHaveBeenLastCalledWith(['TEAM_OLLAMA_KEY']) })
+    await vi.waitFor(() => {
+      expect(b.credentials.describe).toHaveBeenLastCalledWith(['TEAM_OLLAMA_KEY'])
+    })
     b.face.edit('apiKey', 'ollama-secret')
     b.face.save()
-    await vi.waitFor(() => { expect(b.credentials.set).toHaveBeenCalledWith('TEAM_OLLAMA_KEY', 'ollama-secret') })
+    await vi.waitFor(() => {
+      expect(b.credentials.set).toHaveBeenCalledWith('TEAM_OLLAMA_KEY', 'ollama-secret')
+    })
     b.controller.dispose()
   })
 
@@ -146,23 +169,30 @@ describe('OllamaSearchCardController credential', () => {
     serve(b)
     b.face.edit('apiKey', 'ollama-secret')
     b.face.save()
-    await vi.waitFor(() => { expect(b.state()).toMatchObject({ failed: true, dirty: true }) })
+    await vi.waitFor(() => {
+      expect(b.state()).toMatchObject({ failed: true, dirty: true })
+    })
     b.controller.dispose()
   })
 
   it('keeps the card usable when the credential read and write are refused', async () => {
-    const refusal = () => Promise.resolve({
-      ok: false as const,
-      error: new RemoteError('credential/rejected', 'offline', { ref: 'OLLAMA_CLOUD_API_KEY' }),
-    })
+    const refusal = () =>
+      Promise.resolve({
+        ok: false as const,
+        error: new RemoteError('credential/rejected', 'offline', { ref: 'OLLAMA_CLOUD_API_KEY' }),
+      })
     const describe = vi.fn(refusal)
     const set = vi.fn(refusal)
     const b = bench({ ctx: ctxWith({ credentials: { describe, set } }) })
-    await vi.waitFor(() => { expect(describe).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(describe).toHaveBeenCalled()
+    })
     serve(b)
     b.face.edit('apiKey', 'ollama-secret')
     b.face.save()
-    await vi.waitFor(() => { expect(set).toHaveBeenCalled() })
+    await vi.waitFor(() => {
+      expect(set).toHaveBeenCalled()
+    })
     expect(b.state()).toMatchObject({ available: true, apiKeyConfigured: false, searchBaseURL: { text: '' } })
     b.controller.dispose()
   })
@@ -170,7 +200,12 @@ describe('OllamaSearchCardController credential', () => {
   it('drops a credential answer for a reference that changed while it was pending', async () => {
     type Answer = { ok: true; value: Record<string, { configured: boolean; writable: boolean }> }
     let answer: (value: Answer) => void = () => {}
-    const describe = vi.fn(() => new Promise<Answer>((resolve) => { answer = resolve }))
+    const describe = vi.fn(
+      () =>
+        new Promise<Answer>(resolve => {
+          answer = resolve
+        }),
+    )
     const b = bench({ ctx: ctxWith({ credentials: { describe, set: vi.fn() } }) })
     serve(b)
     b.provider.publish({ value: { apiKeyEnv: 'RENAMED_KEY', maxResults: 5 } })
@@ -189,12 +224,17 @@ describe('OllamaSearchCardController sections', () => {
     b.face.edit('fetchBaseURL', 'https://fetch.entry.test')
     b.face.edit('maxResults', '20')
     b.face.save()
-    await vi.waitFor(() => { expect(b.provider.mutate).toHaveBeenCalledTimes(1) })
-    expect(b.provider.mutate).toHaveBeenCalledWith([
-      { op: 'set', path: ['searchBaseURL'], value: 'https://search.entry.test' },
-      { op: 'set', path: ['fetchBaseURL'], value: 'https://fetch.entry.test' },
-      { op: 'set', path: ['maxResults'], value: 20 },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(b.provider.mutate).toHaveBeenCalledTimes(1)
+    })
+    expect(b.provider.mutate).toHaveBeenCalledWith(
+      [
+        { op: 'set', path: ['searchBaseURL'], value: 'https://search.entry.test' },
+        { op: 'set', path: ['fetchBaseURL'], value: 'https://fetch.entry.test' },
+        { op: 'set', path: ['maxResults'], value: 20 },
+      ],
+      undefined,
+    )
     expect(b.web.mutate).not.toHaveBeenCalled()
     b.controller.dispose()
   })
@@ -206,13 +246,17 @@ describe('OllamaSearchCardController sections', () => {
     expect(b.state().fetchBaseURL).toEqual({ text: composed.fetchBaseURL, overridden: false, invalid: false })
     b.face.edit('fetchBaseURL', 'https://gateway.test')
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
     expect(b.provider.mutate).toHaveBeenLastCalledWith([{ op: 'set', path: ['fetchBaseURL'], value: 'https://gateway.test' }], undefined)
     expect(b.state().fetchBaseURL).toMatchObject({ text: 'https://gateway.test', overridden: true })
     b.face.resetField('fetchBaseURL')
     expect(b.state().fetchBaseURL).toMatchObject({ text: composed.fetchBaseURL, overridden: false })
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
     expect(b.provider.mutate).toHaveBeenLastCalledWith([{ op: 'unset', path: ['fetchBaseURL'] }], undefined)
     // One reset addresses one field: the search endpoint was never touched.
     expect(b.state().searchBaseURL).toMatchObject({ text: composed.searchBaseURL, overridden: false })
@@ -235,13 +279,22 @@ describe('OllamaSearchCardController sections', () => {
     expect(b.state().available).toBe(false)
     serve(b)
     let release: (accepted: boolean) => void = () => {}
-    b.provider.mutate.mockImplementation(() => new Promise<boolean>((resolve) => { release = resolve }))
+    b.provider.mutate.mockImplementation(
+      () =>
+        new Promise<boolean>(resolve => {
+          release = resolve
+        }),
+    )
     b.face.edit('maxResults', '3')
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().saving).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.state().saving).toBe(true)
+    })
     b.face.save()
     release(true)
-    await vi.waitFor(() => { expect(b.state().saving).toBe(false) })
+    await vi.waitFor(() => {
+      expect(b.state().saving).toBe(false)
+    })
     expect(b.provider.mutate).toHaveBeenCalledTimes(1)
     b.controller.dispose()
   })
@@ -267,40 +320,56 @@ describe('OllamaSearchCardController switch', () => {
     expect(b.state().useOllama).toBe(false)
     b.face.setOllama(true)
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
-    expect(b.web.mutate).toHaveBeenLastCalledWith([
-      { op: 'set', path: ['searchProvider'], value: 'ollama-cloud' },
-      { op: 'set', path: ['fetchProvider'], value: 'ollama-cloud-fetch' },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
+    expect(b.web.mutate).toHaveBeenLastCalledWith(
+      [
+        { op: 'set', path: ['searchProvider'], value: 'ollama-cloud' },
+        { op: 'set', path: ['fetchProvider'], value: 'ollama-cloud-fetch' },
+      ],
+      undefined,
+    )
     expect(b.state().useOllama).toBe(true)
     b.face.setOllama(false)
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
-    expect(b.web.mutate).toHaveBeenLastCalledWith([
-      { op: 'unset', path: ['searchProvider'] },
-      { op: 'unset', path: ['fetchProvider'] },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
+    expect(b.web.mutate).toHaveBeenLastCalledWith(
+      [
+        { op: 'unset', path: ['searchProvider'] },
+        { op: 'unset', path: ['fetchProvider'] },
+      ],
+      undefined,
+    )
     expect(b.state().useOllama).toBe(false)
     expect(b.provider.mutate).not.toHaveBeenCalled()
     b.controller.dispose()
   })
 
-  it('restores the deployment\'s own selection when it composes something else', async () => {
+  it("restores the deployment's own selection when it composes something else", async () => {
     const exa = { searchProvider: 'exa', fetchProvider: 'http' }
     const b = bench({ accept: true })
-    b.web.publish({ status: 'ready', writable: true, value: { searchProvider: 'ollama-cloud' }, base: exa, user: { searchProvider: 'ollama-cloud' } })
+    b.web.publish({
+      status: 'ready',
+      writable: true,
+      value: { searchProvider: 'ollama-cloud' },
+      base: exa,
+      user: { searchProvider: 'ollama-cloud' },
+    })
     b.provider.publish({ status: 'ready', writable: true, value: { maxResults: 5 }, base: {}, user: {} })
     expect(b.state().useOllama).toBe(true)
     b.face.setOllama(false)
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
     // Clearing the override is what restores Exa: writing the shipped DeepSeek
     // id here would silently replace the deployment's own search provider.
     // Only the overridden field carries a write: the fetch selection already
     // resolves to the deployment's own value, so clearing it changes nothing.
-    expect(b.web.mutate).toHaveBeenLastCalledWith([
-      { op: 'unset', path: ['searchProvider'] },
-    ], undefined)
+    expect(b.web.mutate).toHaveBeenLastCalledWith([{ op: 'unset', path: ['searchProvider'] }], undefined)
     b.controller.dispose()
   })
 
@@ -312,18 +381,28 @@ describe('OllamaSearchCardController switch', () => {
     expect(b.state().useOllama).toBe(true)
     b.face.setOllama(false)
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
-    expect(b.web.mutate).toHaveBeenLastCalledWith([
-      { op: 'set', path: ['searchProvider'], value: 'deepseek-official' },
-      { op: 'set', path: ['fetchProvider'], value: 'http' },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
+    expect(b.web.mutate).toHaveBeenLastCalledWith(
+      [
+        { op: 'set', path: ['searchProvider'], value: 'deepseek-official' },
+        { op: 'set', path: ['fetchProvider'], value: 'http' },
+      ],
+      undefined,
+    )
     b.face.setOllama(true)
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
-    expect(b.web.mutate).toHaveBeenLastCalledWith([
-      { op: 'unset', path: ['searchProvider'] },
-      { op: 'unset', path: ['fetchProvider'] },
-    ], undefined)
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
+    expect(b.web.mutate).toHaveBeenLastCalledWith(
+      [
+        { op: 'unset', path: ['searchProvider'] },
+        { op: 'unset', path: ['fetchProvider'] },
+      ],
+      undefined,
+    )
     b.controller.dispose()
   })
 
@@ -331,14 +410,22 @@ describe('OllamaSearchCardController switch', () => {
     const b = bench({ accept: true })
     serve(b)
     const order: string[] = []
-    for (const [name, host] of [['provider', b.provider], ['web', b.web]] as const) {
+    for (const [name, host] of [
+      ['provider', b.provider],
+      ['web', b.web],
+    ] as const) {
       const accept = host.mutate.getMockImplementation()!
-      host.mutate.mockImplementation((ops, revision) => { order.push(name); return accept(ops, revision) })
+      host.mutate.mockImplementation((ops, revision) => {
+        order.push(name)
+        return accept(ops, revision)
+      })
     }
     b.face.setOllama(true)
     b.face.edit('searchBaseURL', 'https://search.entry.test')
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().dirty).toBe(false) })
+    await vi.waitFor(() => {
+      expect(b.state().dirty).toBe(false)
+    })
     expect(order).toEqual(['provider', 'web'])
     b.controller.dispose()
   })
@@ -350,7 +437,9 @@ describe('OllamaSearchCardController switch', () => {
     b.face.setOllama(true)
     b.face.edit('maxResults', '20')
     b.face.save()
-    await vi.waitFor(() => { expect(b.state().failed).toBe(true) })
+    await vi.waitFor(() => {
+      expect(b.state().failed).toBe(true)
+    })
     expect(b.web.mutate).not.toHaveBeenCalled()
     expect(b.state()).toMatchObject({ useOllama: true, dirty: true })
     b.controller.dispose()

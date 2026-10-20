@@ -13,8 +13,7 @@ import type { OllamaFetchProviderOptions, OllamaSearchProviderOptions } from '@d
 
 const searchProvider = (options: OllamaSearchProviderOptions): OllamaSearchProvider => new OllamaSearchProvider(() => options)
 
-const fetchProvider = (options: OllamaFetchProviderOptions): OllamaFetchProvider =>
-  new OllamaFetchProvider(() => options)
+const fetchProvider = (options: OllamaFetchProviderOptions): OllamaFetchProvider => new OllamaFetchProvider(() => options)
 
 const TEST_API_KEY = 'redirect-test-key'
 const TEST_QUERY = 'private redirect query'
@@ -67,7 +66,6 @@ describe('OllamaSearchProvider redirect policy', () => {
     expect(targetRequests).toHaveLength(0)
   })
 
-
   it('shows default 307 following forwards the custom credential and POST body', async () => {
     targetRequests.length = 0
     const body = JSON.stringify({ query: TEST_QUERY })
@@ -89,15 +87,14 @@ describe('OllamaSearchProvider redirect policy', () => {
 })
 
 describe('OllamaFetchProvider redirect policy', () => {
-  it.each([301, 302, 303, 307, 308])('rejects HTTP %i before contacting Location', async (status) => {
+  it.each([301, 302, 303, 307, 308])('rejects HTTP %i before contacting Location', async status => {
     targetRequests.length = 0
     const provider = fetchProvider({
       apiKey: TEST_API_KEY,
       fetchBaseURL: `${redirectOrigin}/${status}`,
     })
 
-    await expect(provider.fetch({ url: 'https://ollama.com' }))
-      .rejects.toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
+    await expect(provider.fetch({ url: 'https://ollama.com' })).rejects.toMatchObject({ code: 'WEB_PROVIDER_ERROR' })
     expect(targetRequests).toHaveLength(0)
   })
 })

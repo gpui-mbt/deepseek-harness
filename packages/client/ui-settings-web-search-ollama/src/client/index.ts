@@ -19,16 +19,17 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { OllamaSearchCard } from './OllamaSearchCard.tsx'
-import {
-  WEB_OLLAMA_NS, WEB_NS, OllamaSearchCardController,
-} from './ollama-search-card-controller.ts'
+import { WEB_OLLAMA_NS, WEB_NS, OllamaSearchCardController } from './ollama-search-card-controller.ts'
 import type { OllamaSearchSettings, WebProviderSelection } from './ollama-search-card-controller.ts'
 import { en, zh, type OllamaSearchSettingsLocaleKey } from './locales.ts'
 
 export type { OllamaSearchCardProps } from './OllamaSearchCard.tsx'
 export type {
-  OllamaSearchCardFace, OllamaSearchCardScopes, OllamaSearchCardState,
-  OllamaSearchSettings, WebProviderSelection,
+  OllamaSearchCardFace,
+  OllamaSearchCardScopes,
+  OllamaSearchCardState,
+  OllamaSearchSettings,
+  WebProviderSelection,
 } from './ollama-search-card-controller.ts'
 export type { OllamaSearchSettingsLocaleKey } from './locales.ts'
 
@@ -52,19 +53,46 @@ export const inject = ['slots', 'locale', 'remote', 'remote.credentials', 'confi
 export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NS)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-web-search-ollama: dictionaries')
-  const card = new OllamaSearchCardController({
-    web: ctx.configForms.get<WebProviderSelection>(WEB_NS),
-    provider: ctx.configForms.get<OllamaSearchSettings>(WEB_OLLAMA_NS),
-  }, ctx)
-  ctx.effect(() => () => { card.dispose() }, 'ui-settings-web-search-ollama: form subscription')
+  const card = new OllamaSearchCardController(
+    {
+      web: ctx.configForms.get<WebProviderSelection>(WEB_NS),
+      provider: ctx.configForms.get<OllamaSearchSettings>(WEB_OLLAMA_NS),
+    },
+    ctx,
+  )
+  ctx.effect(
+    () => () => {
+      card.dispose()
+    },
+    'ui-settings-web-search-ollama: form subscription',
+  )
   // The credential the page reports is not part of any settings section, so
   // no scope publishes when one is written. This is the only signal that a key
   // written on another surface reached the Host.
   ctx.effect(
-    () => ctx.remote.$on('credentials/reference-updated', (ref) => { card.refreshCredential(ref) }),
+    () =>
+      ctx.remote.$on('credentials/reference-updated', ref => {
+        card.refreshCredential(ref)
+      }),
     'ui-settings-web-search-ollama: credential invalidations',
   )
-  ctx.effect(() => ctx.configForms.whileServed([WEB_OLLAMA_NS], () => ctx.slots.inject('plugins.item', () => ctx.slots.register({
-    name: 'plugins.item', id: 'web-ollama-api', order: 21, label: () => t('title'), locale: NS, inject: () => card.inject(),
-  }, OllamaSearchCard))), 'ui-settings-web-search-ollama: page')
+  ctx.effect(
+    () =>
+      ctx.configForms.whileServed([WEB_OLLAMA_NS], () =>
+        ctx.slots.inject('plugins.item', () =>
+          ctx.slots.register(
+            {
+              name: 'plugins.item',
+              id: 'web-ollama-api',
+              order: 21,
+              label: () => t('title'),
+              locale: NS,
+              inject: () => card.inject(),
+            },
+            OllamaSearchCard,
+          ),
+        ),
+      ),
+    'ui-settings-web-search-ollama: page',
+  )
 }

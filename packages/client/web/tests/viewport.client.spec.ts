@@ -1,11 +1,7 @@
 // @vitest-environment jsdom
 /** Visual-viewport projection: the shell's mount height and keyboard mark. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test'
-import {
-  installViewportProjection,
-  SOFT_KEYBOARD_ATTRIBUTE,
-  VIEWPORT_HEIGHT_VARIABLE,
-} from '../src/viewport.ts'
+import { installViewportProjection, SOFT_KEYBOARD_ATTRIBUTE, VIEWPORT_HEIGHT_VARIABLE } from '../src/viewport.ts'
 
 /** The visual viewport jsdom does not implement. */
 class VisualViewportStub extends EventTarget {

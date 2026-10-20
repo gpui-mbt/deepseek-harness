@@ -95,9 +95,7 @@ export function invalidResponse(): WebError {
  * @param signal - Caller cancellation signal.
  * @returns The validated provider result.
  */
-export async function dispatchOllamaWeb<T>(
-  options: OllamaWebAuth, request: OllamaWebRequest<T>, signal?: AbortSignal,
-): Promise<T> {
+export async function dispatchOllamaWeb<T>(options: OllamaWebAuth, request: OllamaWebRequest<T>, signal?: AbortSignal): Promise<T> {
   const { endpoint, body, decode, subject } = request
   const apiKey = await resolveApiKey(options, signal)
   throwIfAborted(signal)
@@ -107,29 +105,24 @@ export async function dispatchOllamaWeb<T>(
       method: 'POST',
       redirect: 'error',
       headers: {
-        'authorization': `Bearer ${apiKey}`,
+        authorization: `Bearer ${apiKey}`,
         'content-type': 'application/json',
-        'accept': 'application/json',
+        accept: 'application/json',
         'user-agent': USER_AGENT,
       },
       body: JSON.stringify(body),
-      ...signal !== undefined ? { signal } : {},
+      ...(signal !== undefined ? { signal } : {}),
     })
   } catch (error: unknown) {
     if (signal?.aborted === true || isAbortError(error)) throw operationAborted(signal, error)
-    throw endpointError(
-      subject,
-      endpoint,
-      `Ollama Cloud ${subject} request failed: ${String(error)}`,
-      error,
-    )
+    throw endpointError(subject, endpoint, `Ollama Cloud ${subject} request failed: ${String(error)}`, error)
   }
 
   if (!response.ok) {
     const status = response.status
     let message = `Ollama Cloud API error (HTTP ${status})`
     try {
-      const parsed = await response.json() as OllamaError
+      const parsed = (await response.json()) as OllamaError
       const detail = parsed.error ?? parsed.message
       if (detail !== undefined && detail.length > 0) message += `: ${detail}`
     } catch (error: unknown) {
@@ -150,9 +143,7 @@ export async function dispatchOllamaWeb<T>(
     return decode(payload)
   } catch (error: unknown) {
     if (signal?.aborted === true || isAbortError(error)) throw operationAborted(signal, error)
-    const message = error instanceof WebError
-      ? error.message
-      : `Ollama Cloud returned an unprocessable response body: ${String(error)}`
+    const message = error instanceof WebError ? error.message : `Ollama Cloud returned an unprocessable response body: ${String(error)}`
     throw endpointError(subject, endpoint, message, error)
   }
 }
@@ -171,9 +162,9 @@ async function resolveApiKey(options: OllamaWebAuth, signal?: AbortSignal): Prom
   if (resolved !== undefined && resolved.length > 0) return resolved
   const ref = options.apiKeyEnv ?? OLLAMA_DEFAULT_API_KEY_ENV
   throw new WebError(
-    `Ollama Cloud web access has no API key for "${ref}"; store it through the credentials service`
-    + ' (the Ollama Cloud search settings page writes it), export it in the launching environment, or set a literal'
-    + ' "apiKey" in the web-ollama-api config',
+    `Ollama Cloud web access has no API key for "${ref}"; store it through the credentials service` +
+      ' (the Ollama Cloud search settings page writes it), export it in the launching environment, or set a literal' +
+      ' "apiKey" in the web-ollama-api config',
     'WEB_PROVIDER_CREDENTIAL_MISSING',
   )
 }
@@ -186,34 +177,26 @@ async function resolveApiKey(options: OllamaWebAuth, signal?: AbortSignal): Prom
  * @returns the resolved credential, or undefined when the resolver supplied none.
  * @throws {@link WebError} `WEB_ABORTED` on cancellation, `WEB_PROVIDER_ERROR` when the resolver fails.
  */
-async function resolveCredential(
-  resolve: () => Promise<string | undefined>, signal?: AbortSignal,
-): Promise<string | undefined> {
+async function resolveCredential(resolve: () => Promise<string | undefined>, signal?: AbortSignal): Promise<string | undefined> {
   throwIfAborted(signal)
   try {
     return await abortable(resolve(), signal)
   } catch (error: unknown) {
     if (signal?.aborted === true || isAbortError(error)) throw operationAborted(signal, error)
-    throw new WebError(
-      `Ollama Cloud credential resolution failed: ${String(error)}`,
-      'WEB_PROVIDER_ERROR',
-      { cause: error },
-    )
+    throw new WebError(`Ollama Cloud credential resolution failed: ${String(error)}`, 'WEB_PROVIDER_ERROR', { cause: error })
   }
 }
 
 /** Add endpoint recovery instructions to failures that occur after request dispatch begins. */
-function endpointError(
-  subject: OllamaWebSubject, endpoint: string, message: string, cause?: unknown,
-): WebError {
+function endpointError(subject: OllamaWebSubject, endpoint: string, message: string, cause?: unknown): WebError {
   return new WebError(
-    `${message}\n\nThe web ${subject} request used endpoint ${JSON.stringify(endpoint)}. `
-    + `${subject === 'search' ? 'Search' : 'Fetch'} endpoint configuration is separate from chat. `
-    + 'If that endpoint is not intended, '
-    + 'guide the user to Settings > Plugins > Ollama Cloud search, where they can '
-    + 'change and save Search API base URL. If that settings page is unavailable, the user can set '
-    + 'OLLAMA_SEARCH_BASE_URL or configure web-ollama-api.baseURL to a trusted Ollama Cloud base. '
-    + 'Only the user should choose or change the endpoint.',
+    `${message}\n\nThe web ${subject} request used endpoint ${JSON.stringify(endpoint)}. ` +
+      `${subject === 'search' ? 'Search' : 'Fetch'} endpoint configuration is separate from chat. ` +
+      'If that endpoint is not intended, ' +
+      'guide the user to Settings > Plugins > Ollama Cloud search, where they can ' +
+      'change and save Search API base URL. If that settings page is unavailable, the user can set ' +
+      'OLLAMA_SEARCH_BASE_URL or configure web-ollama-api.baseURL to a trusted Ollama Cloud base. ' +
+      'Only the user should choose or change the endpoint.',
     'WEB_PROVIDER_ERROR',
     cause === undefined ? undefined : { cause },
   )
@@ -228,10 +211,12 @@ function abortable<T>(operation: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (signal === undefined) return operation
   if (signal.aborted) return Promise.reject(operationAborted(signal))
   return new Promise<T>((resolve, reject) => {
-    const onAbort = (): void => { reject(operationAborted(signal)) }
+    const onAbort = (): void => {
+      reject(operationAborted(signal))
+    }
     signal.addEventListener('abort', onAbort, { once: true })
     void operation.then(
-      (value) => {
+      value => {
         signal.removeEventListener('abort', onAbort)
         resolve(value)
       },

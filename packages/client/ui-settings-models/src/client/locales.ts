@@ -93,7 +93,8 @@ export const en = {
   routingWindow: 'Peak window',
   routingWeekdays: 'weekdays (Mon–Fri)',
   routingHint: 'Choose a destination provider and model to route this model.',
-  routingPeakNote: 'Ollama Cloud bills peak only on weekdays 12:00–18:00 UTC. Weekends are off-peak all day, so they are never part of this window.',
+  routingPeakNote:
+    'Ollama Cloud bills peak only on weekdays 12:00–18:00 UTC. Weekends are off-peak all day, so they are never part of this window.',
   addModel: 'Add model',
   removeModel: 'Delete model',
   modelsEmpty: 'No models will be shown in the selector. Unlisted IDs can still be sent directly.',

@@ -935,9 +935,7 @@ describe('PluginManagerController', () => {
       .fn()
       .mockResolvedValueOnce(ok({ status: 'refused', problem: 'already-installed', reason: 'dsh-x is already installed' }))
       .mockResolvedValueOnce(ok({ ...INSPECTED, name: 'dsh-x', version: '2.0.0' }))
-    const installBundle = vi
-      .fn()
-      .mockResolvedValue(ok({ ...APPLIED, target: 'dsh-x', bundle: 'dsh-x', version: '2.0.0' }))
+    const installBundle = vi.fn().mockResolvedValue(ok({ ...APPLIED, target: 'dsh-x', bundle: 'dsh-x', version: '2.0.0' }))
     const { plugins, face, state, controller } = bench({ inspect, installBundle })
     await controller.load()
     face.openInstall()

@@ -14,18 +14,17 @@ import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import type {} from '@deepseek-ai/dsh-web'
 import { OllamaFetchProvider } from './fetch.ts'
 import { OLLAMA_DEFAULT_MAX_RESULTS, OllamaSearchProvider } from './search.ts'
-import {
-  OLLAMA_DEFAULT_API_KEY_ENV,
-  OLLAMA_DEFAULT_BASE_URL,
-  type OllamaWebAuth,
-} from './transport.ts'
+import { OLLAMA_DEFAULT_API_KEY_ENV, OLLAMA_DEFAULT_BASE_URL, type OllamaWebAuth } from './transport.ts'
 
 export { OllamaFetchProvider, OLLAMA_FETCH_PROVIDER_ID } from './fetch.ts'
 export type { OllamaFetchProviderOptions } from './fetch.ts'
 export { mapOllamaResponse, mapOllamaResult, OLLAMA_DEFAULT_MAX_RESULTS, OLLAMA_PROVIDER_ID, OllamaSearchProvider } from './search.ts'
 export type { OllamaSearchProviderOptions } from './search.ts'
 export {
-  OLLAMA_DEFAULT_API_KEY_ENV, OLLAMA_DEFAULT_BASE_URL, OLLAMA_DEFAULT_FETCH_URL, OLLAMA_DEFAULT_SEARCH_URL,
+  OLLAMA_DEFAULT_API_KEY_ENV,
+  OLLAMA_DEFAULT_BASE_URL,
+  OLLAMA_DEFAULT_FETCH_URL,
+  OLLAMA_DEFAULT_SEARCH_URL,
   ollamaEndpoint,
 } from './transport.ts'
 export type { OllamaWebAuth, OllamaWebSubject } from './transport.ts'
@@ -87,14 +86,13 @@ export const WEB_SEARCH_OLLAMA_SETTINGS_NAMESPACE = 'web-ollama-api'
  * @returns options for one operation.
  */
 function resolveOptions(
-  ctx: Context, config: { [K in keyof Config]: ReturnType<Config[K]['get']> },
+  ctx: Context,
+  config: { [K in keyof Config]: ReturnType<Config[K]['get']> },
 ): OllamaWebAuth & { searchBaseURL: string; fetchBaseURL: string; maxResults: number } {
   const apiKeyEnv = credentialRef(config.apiKeyEnv)
-  const literalApiKey = config.apiKey !== undefined && config.apiKey.length > 0
-    ? config.apiKey
-    : undefined
+  const literalApiKey = config.apiKey !== undefined && config.apiKey.length > 0 ? config.apiKey : undefined
   return {
-    ...literalApiKey === undefined ? {} : { apiKey: literalApiKey },
+    ...(literalApiKey === undefined ? {} : { apiKey: literalApiKey }),
     resolveApiKey: async () => {
       const credentials = ctx.get('credentials')
       if (credentials !== undefined) return (await credentials.resolve(apiKeyEnv))?.value
@@ -103,22 +101,22 @@ function resolveOptions(
       return ambient !== undefined && ambient.value.length > 0 ? ambient.value : undefined
     },
     apiKeyEnv,
-    searchBaseURL: config.searchBaseURL
-      ?? launchEnvironmentOf(ctx).get(SEARCH_BASE_URL_ENV)?.value
-      ?? OLLAMA_DEFAULT_BASE_URL,
-    fetchBaseURL: config.fetchBaseURL
-      ?? launchEnvironmentOf(ctx).get(FETCH_BASE_URL_ENV)?.value
-      ?? OLLAMA_DEFAULT_BASE_URL,
+    searchBaseURL: config.searchBaseURL ?? launchEnvironmentOf(ctx).get(SEARCH_BASE_URL_ENV)?.value ?? OLLAMA_DEFAULT_BASE_URL,
+    fetchBaseURL: config.fetchBaseURL ?? launchEnvironmentOf(ctx).get(FETCH_BASE_URL_ENV)?.value ?? OLLAMA_DEFAULT_BASE_URL,
     maxResults: config.maxResults,
   }
 }
 
 /** Register the Ollama Cloud search and fetch providers with `ctx.web`. */
 export function apply(ctx: Context, config: Config): void {
-  const options = () => resolveOptions(ctx, {
-    apiKey: config.apiKey.get(), apiKeyEnv: config.apiKeyEnv.get(), searchBaseURL: config.searchBaseURL.get(),
-    fetchBaseURL: config.fetchBaseURL.get(), maxResults: config.maxResults.get(),
-  })
+  const options = () =>
+    resolveOptions(ctx, {
+      apiKey: config.apiKey.get(),
+      apiKeyEnv: config.apiKeyEnv.get(),
+      searchBaseURL: config.searchBaseURL.get(),
+      fetchBaseURL: config.fetchBaseURL.get(),
+      maxResults: config.maxResults.get(),
+    })
   ctx.web.registerSearchProvider(new OllamaSearchProvider(options))
   ctx.web.registerFetchProvider(new OllamaFetchProvider(options))
 }
