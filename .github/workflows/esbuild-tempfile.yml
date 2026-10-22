@@ -65,3 +65,7 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: pnpm run doc-sync
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        env:
+          # The macOS runner's default 2 GiB heap cannot hold the source graph.
+          NODE_OPTIONS: ${{ matrix.os == 'macos-15' && '--max-old-space-size=4096' || '' }}
+          DSH_GATE_CONCURRENCY: ${{ matrix.os == 'macos-15' && '1' || '' }}
