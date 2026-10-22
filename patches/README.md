@@ -1,5 +1,7 @@
 # esbuild Windows input transport
 
+English | [中文](README.zh.md)
+
 The esbuild patches keep large Windows transform inputs on the existing IPC path because restricted native children cannot delete input temporary files. macOS and Linux retain upstream file transport; target and minification options are unchanged. Native output-file handling is unchanged: Node reads and removes those files.
 
 The pinned versions are 0.21.5 (VitePress/Vite 5), 0.25.12 (Web/Vite 6), and 0.28.1/0.28.2 (build tooling). Registry inspection on 2026-10-22 found 0.21.5 and 0.25.12 already at the top of their compatible minor ranges. The latest release, 0.28.2, retains the same input-file optimization, and the unpatched Windows-transport regression fails for all four versions.
