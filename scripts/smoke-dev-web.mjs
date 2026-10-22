@@ -56,7 +56,12 @@ try {
     signal: AbortSignal.timeout(30_000),
   })
   assert.equal(response.status, 200)
-  assert.match(await response.text(), /window\.__DSH_BOOT__/)
+  const html = await response.text()
+  const bootScript = html.match(/<script>globalThis\["__DSH_BOOT__"\] = ([\s\S]*?)<\/script>/)
+  assert.ok(bootScript, 'Authenticated page must contain the injected boot data')
+  const boot = JSON.parse(bootScript[1])
+  assert.equal(typeof boot.rev, 'string')
+  assert.ok(Array.isArray(boot.entries) && boot.entries.length > 0)
   assert.equal(child.exitCode, null)
   console.log('dev:web watchers and authenticated HTTP 200 with window.__DSH_BOOT__: PASS')
 } catch (error) {

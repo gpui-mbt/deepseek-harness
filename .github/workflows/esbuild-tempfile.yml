@@ -50,7 +50,8 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - id: install
+        run: pnpm install --frozen-lockfile
       - run: pnpm run test:esbuild-tempfile
       - name: Reinstall and recheck patches
         run: pnpm install --frozen-lockfile --force
@@ -59,5 +60,8 @@ jobs:
       - name: Initial build, watchers and authenticated Web response
         run: node scripts/smoke-dev-web.mjs
       - run: pnpm run build:check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: pnpm run build:web
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: pnpm run doc-sync
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
