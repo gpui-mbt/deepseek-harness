@@ -119,3 +119,7 @@ patchedDependencies:
   app-builder-lib@26.17.0: patches/app-builder-lib@26.17.0.patch
   exceljs@4.4.0: patches/exceljs@4.4.0.patch
   node-pty@1.2.0-beta.15: patches/node-pty@1.2.0-beta.15.patch
+  esbuild@0.21.5: patches/esbuild@0.21.5.patch
+  esbuild@0.25.12: patches/esbuild@0.25.12.patch
+  esbuild@0.28.1: patches/esbuild@0.28.1.patch
+  esbuild@0.28.2: patches/esbuild@0.28.2.patch

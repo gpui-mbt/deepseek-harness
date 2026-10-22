@@ -1,0 +1,13 @@
+diff --git a/lib/main.js b/lib/main.js
+--- a/lib/main.js
++++ b/lib/main.js
+@@ -1054,7 +1054,8 @@
+         });
+       }
+     };
+-    if ((typeof input === "string" || input instanceof Uint8Array) && input.length > 1024 * 1024) {
++    // Restricted Windows children cannot remove input files; use the existing IPC fallback.
++    if (process.platform !== "win32" && (typeof input === "string" || input instanceof Uint8Array) && input.length > 1024 * 1024) {
+       let next = start;
+       start = () => fs3.writeFile(input, next);
+     }
