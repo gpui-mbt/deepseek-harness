@@ -44,7 +44,17 @@ try {
     child.stderr.on('data', consume)
   })
   assert.ok(url)
-  const response = await fetch(url, { signal: AbortSignal.timeout(30_000) })
+  const exchange = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(30_000) })
+  assert.equal(exchange.status, 303)
+  const setCookie = exchange.headers.get('set-cookie')
+  const location = exchange.headers.get('location')
+  assert.ok(setCookie, 'Launch URL must set the browser authentication cookie')
+  assert.ok(location, 'Launch URL must redirect to the clean application URL')
+  await exchange.body?.cancel()
+  const response = await fetch(new URL(location, url), {
+    headers: { cookie: setCookie.split(';', 1)[0] },
+    signal: AbortSignal.timeout(30_000),
+  })
   assert.equal(response.status, 200)
   assert.match(await response.text(), /window\.__DSH_BOOT__/)
   assert.equal(child.exitCode, null)
