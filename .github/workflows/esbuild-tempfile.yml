@@ -1,0 +1,71 @@
+name: esbuild Windows tempfile regression
+
+on:
+  pull_request:
+    paths:
+      - 'patches/esbuild@*.patch'
+      - 'patches/README.md'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+      - 'scripts/esbuild-tempfile.test.mjs'
+      - 'scripts/fixtures/esbuild-tempfile-probe.cjs'
+      - 'scripts/smoke-dev-web.mjs'
+      - '.github/workflows/esbuild-tempfile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: esbuild-tempfile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            shell: bash
+          - os: windows-2025
+            shell: pwsh
+          - os: macos-15
+            shell: bash
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    env:
+      DSH_TELEMETRY_DISABLED: '1'
+      DSH_BUILD_CLIENT_PROFILE: official
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v5.0.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - id: install
+        run: pnpm install --frozen-lockfile
+      - run: pnpm run test:esbuild-tempfile
+      - name: Reinstall and recheck patches
+        run: pnpm install --frozen-lockfile --force
+      - name: Regression after reinstall
+        run: pnpm run test:esbuild-tempfile
+      - name: Initial build, watchers and authenticated Web response
+        run: node scripts/smoke-dev-web.mjs
+      - run: pnpm run build:check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+      - run: pnpm run build:web
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+      - run: pnpm run doc-sync
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        env:
+          # The macOS runner's default 2 GiB heap cannot hold the source graph.
+          NODE_OPTIONS: ${{ matrix.os == 'macos-15' && '--max-old-space-size=4096' || '' }}
+          DSH_GATE_CONCURRENCY: ${{ matrix.os == 'macos-15' && '1' || '' }}
