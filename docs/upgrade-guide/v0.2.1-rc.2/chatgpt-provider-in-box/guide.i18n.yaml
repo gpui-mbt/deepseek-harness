@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.2.1-rc.2/chatgpt-provider-in-box/guide.md
+/:
+  en: dbe3ec5f38b11c57
+  zh: 0b96408bb03deac4
+/the-chatgpt-provider-ships-in-box:
+  en: 7f684c8b64f0885d
+  zh: 015089001963ea46
+/the-chatgpt-provider-ships-in-box/change:
+  en: 2ab5e3ede307a14b
+  zh: abc103469ab44832
+/the-chatgpt-provider-ships-in-box/migration:
+  en: 5c93cdd683729b20
+  zh: 8555a1e0a85732ae

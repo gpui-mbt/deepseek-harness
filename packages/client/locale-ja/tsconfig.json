@@ -160,6 +160,9 @@
     },
     {
       "path": "../../session-query/session-log-export/tsconfig.client.json"
+    },
+    {
+      "path": "../ui-chatgpt"
     }
   ]
 }

@@ -706,6 +706,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     declaredBy: 'an entry in \'conversation.composer.bar\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
       'client-ui-chat StatsPills id \'stats\'',
+      'client-ui-chatgpt UsageIndicator id \'chatgpt-usage\'',
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.composer.dock\', () => ctx.slots.register(\n      { name: \'conversation.composer.dock\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
@@ -2657,6 +2658,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'main\' (client-ui-plugin-manager), so it exists while that entry is mounted',
     occupants: [
+      'client-ui-chatgpt ChatGptSettingsSection id \'chatgpt\'',
       'client-ui-settings-agent-loop AgentLoopCard id \'agent-loop\'',
       'client-ui-settings-shell ShellCard id \'shell\'',
       'client-ui-settings-subagent SubagentCard id \'subagent\'',

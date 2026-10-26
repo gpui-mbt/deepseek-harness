@@ -253,6 +253,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Adapters register provider implementations; the loop and compaction call the provider-neutral stream service.',
   },
   {
+    key: 'chatgptController',
+    pkg: 'llm-chatgpt',
+    title: 'ChatGPT account and catalog Remote',
+    mode: 'service',
+    consumers: ['client-ui-chatgpt'],
+    note: 'Connects, switches, and signs out ChatGPT accounts while the provider route serves their catalog and credentials.',
+  },
+  {
     key: 'deepseekLlmApiExtensions',
     pkg: 'deepseek-llm-api-extensions',
     title: 'Official DeepSeek request extensions',

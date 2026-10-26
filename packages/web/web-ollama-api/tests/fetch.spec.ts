@@ -15,6 +15,11 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' }, ...init })
 }
 
+/** Recorded first fetch call, narrowed to the argument positions these assertions read. */
+function firstFetchCall(mock: { mock: { calls: readonly unknown[][] } }): [string, RequestInit] {
+  return mock.mock.calls[0] as [string, RequestInit]
+}
+
 /** Construct the provider over a fixed options value; production passes a live thunk. */
 const providerOf = (value: OllamaFetchProviderOptions): OllamaFetchProvider => new OllamaFetchProvider(() => value)
 
@@ -35,7 +40,7 @@ describe('OllamaFetchProvider', () => {
 
     const result = await providerOf(options).fetch({ url: 'https://ollama.com' })
 
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const [url, init] = firstFetchCall(fetchMock)
     expect(url).toBe('https://ollama.test/api/web_fetch')
     expect(init).toMatchObject({ method: 'POST', redirect: 'error' })
     expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer ollama-key')
@@ -53,7 +58,7 @@ describe('OllamaFetchProvider', () => {
     const fetchMock = vi.fn(async () => jsonResponse({ content: 'body' }))
     vi.stubGlobal('fetch', fetchMock)
     await providerOf({ ...options, fetchBaseURL: 'https://ollama.test/api/web_fetch' }).fetch({ url: 'https://a.test' })
-    const [url] = fetchMock.mock.calls[0] as unknown as [string]
+    const [url] = firstFetchCall(fetchMock)
     expect(url).toBe('https://ollama.test/api/web_fetch')
   })
 
@@ -113,7 +118,7 @@ describe('OllamaFetchProvider', () => {
     const fiber = await ctx.plugin(ollamaPlugin, { apiKey: 'ollama-key' })
     const result = await ctx.web.fetch({ url: 'https://a.test' })
     expect(result.body).toEqual({ kind: 'text', content: '# Page' })
-    const [url] = fetchMock.mock.calls[0] as unknown as [string]
+    const [url] = firstFetchCall(fetchMock)
     expect(url).toBe(`${OLLAMA_DEFAULT_BASE_URL}/api/web_fetch`)
     await fiber.dispose()
   })
@@ -128,7 +133,7 @@ describe('OllamaFetchProvider', () => {
       await ctx.plugin(WebRuntime, { fetchProvider: OLLAMA_FETCH_PROVIDER_ID })
       ollamaPlugin.apply(ctx, ollamaPlugin.Config({ apiKey: 'k' }))
       await ctx.web.fetch({ url: 'https://a.test' })
-      const [url] = fetchMock.mock.calls[0] as unknown as [string]
+      const [url] = firstFetchCall(fetchMock)
       expect(url).toBe('https://fetch-env.test/api/web_fetch')
       await ctx.fiber.dispose()
     } finally {

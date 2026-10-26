@@ -78,6 +78,7 @@ kind: "package-group"
 | [`ui-settings/`](ui-settings/README.zh.md) | 承载设置界面及其扩展区域 | — |
 | [`ui-settings-general/`](ui-settings-general/README.zh.md) | 提供常规设置分区 | — |
 | [`ui-settings-models/`](ui-settings-models/README.zh.md) | 提供模型提供方配置与 DeepSeek 引导 | — |
+| [`ui-chatgpt/`](ui-chatgpt/README.zh.md) | 连接 ChatGPT 账号、编辑其模型能力，并显示输入区套餐提示 | — |
 | [`ui-settings-shell/`](ui-settings-shell/README.zh.md) | 在插件页提供终端设置页 | — |
 | [`ui-settings-agent-loop/`](ui-settings-agent-loop/README.zh.md) | 在插件页提供 Agent 循环设置页 | — |
 | [`ui-settings-session-log/`](ui-settings-session-log/README.zh.md) | 在通用设置中控制随 API 上传会话日志 | — |

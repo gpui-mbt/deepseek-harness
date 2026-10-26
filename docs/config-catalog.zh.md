@@ -1745,6 +1745,56 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-jobs-local -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-chatgpt -->
+<a id="deepseek-aidsh-llm-chatgpt"></a>
+
+## `@deepseek-ai/dsh-llm-chatgpt`
+
+- `inject`: `credentials` · `authorization` · `llm`
+- `refs`: [`ModelModality`](../packages/llm/llm/src/index.ts) · `Volatile` (`@deepseek-ai/cordis`)
+- `source`: [`packages/llm/llm-chatgpt/src/config.ts:7`](../packages/llm/llm-chatgpt/src/config.ts)
+
+```ts config-catalog
+/** Values stored in the profile patch; account tokens live in Credentials instead. */
+export interface Config {
+  /** Active account selection for this profile. */
+  readonly activeAccountId: Volatile<string | undefined>
+  /** Whether a Client has acknowledged the first-login welcome view. */
+  readonly welcomeAcknowledged: Volatile<boolean>
+  /** Start the loopback sign-in flow before a headless task when no account exists. */
+  readonly authorizeOnStart: Volatile<boolean>
+  /** Per-model capability overrides, also usable from headless profile patches. */
+  readonly modelOverrides: Volatile<ChatGptModelOverride[]>
+  /** Maximum token/OAuth request duration in milliseconds. */
+  readonly requestTimeoutMs: Volatile<number>
+  /** Deadline for one sign-in callback after the browser URL is published. */
+  readonly loginTimeoutMs: Volatile<number>
+  /** Delay between Client snapshots while a sign-in callback is pending. */
+  readonly loginPollIntervalMs: Volatile<number>
+  /** Quiet period after which an unfinished response stream fails; zero disables the check. */
+  readonly streamIdleTimeoutMs: Volatile<number>
+}
+
+/** One per-profile model override keyed by an exact catalog slug. */
+export interface ChatGptModelOverride extends ChatGptModelConfig {
+  /** Exact model slug returned by OpenAI. */
+  readonly model: string
+}
+
+/** Model capabilities the user can override through cordis.yml or settings. */
+export interface ChatGptModelConfig {
+  /** Maximum combined request and response context, required for unknown models. */
+  readonly contextWindow?: number | undefined
+  /** Model request modalities; omitted uses the official model metadata. */
+  readonly inputModalities?: readonly ModelModality[] | undefined
+  /** Selectable reasoning values for a model with provider-supported effort. */
+  readonly reasoningEfforts?: readonly string[] | undefined
+  /** Default reasoning effort; omitted leaves the provider default in effect. */
+  readonly defaultReasoningEffort?: string | undefined
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-llm-chatgpt -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-llm-deepseek-account -->
 <a id="deepseek-aidsh-llm-deepseek-account"></a>
 
@@ -4689,6 +4739,7 @@ export interface Config {
 | `@deepseek-ai/dsh-client-ui-attachment` | — | [`packages/client/ui-attachment/src/index.ts`](../packages/client/ui-attachment/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-brand-official` | — | [`packages/client/ui-brand-official/src/index.ts`](../packages/client/ui-brand-official/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-chat` | — | [`packages/client/ui-chat/src/index.ts`](../packages/client/ui-chat/src/index.ts) |
+| `@deepseek-ai/dsh-client-ui-chatgpt` | — | [`packages/client/ui-chatgpt/src/index.ts`](../packages/client/ui-chatgpt/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-commands` | — | [`packages/client/ui-commands/src/index.ts`](../packages/client/ui-commands/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-conversation` | — | [`packages/client/ui-conversation/src/index.ts`](../packages/client/ui-conversation/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-cordis` | — | [`packages/extensions/ui-cordis/src/index.ts`](../packages/extensions/ui-cordis/src/index.ts) |

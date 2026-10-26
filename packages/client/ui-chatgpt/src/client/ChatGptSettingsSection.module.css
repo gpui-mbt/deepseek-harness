@@ -1,0 +1,306 @@
+.section {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 820px);
+  min-width: 0;
+  color: var(--dsw-alias-label-primary);
+}
+
+.header {
+  display: grid;
+  gap: 6px;
+}
+
+.intro,
+.empty,
+.secondary {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.intro,
+.empty {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.card {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.cardHeader,
+.account,
+.accountActions,
+.modelSummary,
+.modelActions,
+.planInfo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cardHeader h3,
+.modelBody h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.accountList,
+.modelList {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account {
+  align-items: flex-start;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.accountInfo,
+.accountLabel,
+.modelIdentity {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.accountLabel {
+  overflow-wrap: anywhere;
+}
+
+.secondary {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.accountActions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.activeSelect,
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.activeSelect select,
+.field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+}
+
+.activeSelect select:focus-visible,
+.field input:focus-visible,
+.checkbox input:focus-visible,
+.inlineLink:focus-visible,
+.manageLink:focus-visible {
+  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+.statusReady,
+.statusNeedsAction {
+  display: inline-flex;
+  align-self: start;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  corner-shape: round;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.statusReady {
+  background: var(--dsw-alias-state-success-tertiary);
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.statusNeedsAction {
+  background: var(--dsw-alias-state-warn-tertiary);
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.loginStatus,
+.error,
+.success,
+.warning {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--dsw-radius-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.loginStatus {
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.error {
+  background: var(--dsw-alias-interactive-bg-hover-danger);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.success {
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.warning {
+  background: var(--dsw-alias-state-warn-tertiary);
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.inlineLink {
+  color: var(--dsw-alias-label-primary-bluish);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.model {
+  min-width: 0;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-base);
+}
+
+.modelSummary {
+  padding: 12px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.modelSummary::marker {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.modelIdentity code {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.modelBody {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fieldset legend {
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.validation {
+  color: var(--dsw-alias-state-error-primary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  cursor: pointer;
+}
+
+.checkbox input {
+  accent-color: var(--dsw-alias-state-business-primary);
+}
+
+.modelActions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.planInfo {
+  flex-wrap: wrap;
+  padding: 10px 4px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.planInfo p {
+  margin: 0;
+}
+
+.manageLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.manageLink:hover {
+  background: var(--dsw-alias-button-primary-hover);
+}
+
+@media (max-width: 560px) {
+  .card {
+    padding: 12px;
+  }
+
+  .account {
+    flex-direction: column;
+  }
+
+  .accountActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .modelSummary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

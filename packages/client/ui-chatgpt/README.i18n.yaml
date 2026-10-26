@@ -1,0 +1,37 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/client/ui-chatgpt/README.md
+/:
+  en: f1f4c5367b97bef9
+  zh: f2a2328718959a5c
+/deepseek-ai-dsh-client-ui-chatgpt:
+  en: 462e09725eb4f5a8
+  zh: 318d9b0d493a3b93
+/deepseek-ai-dsh-client-ui-chatgpt/summary:
+  en: d58a5afb2543cad3
+  zh: 92422f807933ff10
+/deepseek-ai-dsh-client-ui-chatgpt/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 991dffd97661cd7e
+/deepseek-ai-dsh-client-ui-chatgpt/use-this-package:
+  en: 7764c032d92b052d
+  zh: 768536dfe49dc632
+/deepseek-ai-dsh-client-ui-chatgpt/understand-the-implementation:
+  en: ca48c81967d42efe
+  zh: 94a6dc549b10b491
+/deepseek-ai-dsh-client-ui-chatgpt/further-exploration:
+  en: 90bc466eaf91fab4
+  zh: dce2aafae9261e97
+/deepseek-ai-dsh-client-ui-chatgpt/model-experience:
+  en: 7425f44b56232a5b
+  zh: a118da23fc3c2460
+/deepseek-ai-dsh-client-ui-chatgpt/model-experience/kv-cache-effect:
+  en: 258d6659c6cb3789
+  zh: 3a91a369876afab1
+/deepseek-ai-dsh-client-ui-chatgpt/known-limitations-and-deferred-work:
+  en: 6503891648456bbc
+  zh: a0280e23ba5f8484
+/deepseek-ai-dsh-client-ui-chatgpt/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: e88aeb617ffb74ea

@@ -1,0 +1,34 @@
+# Bilingual-pair consistency record for 2026-10-26-chatgpt-provider-in-box.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-26-chatgpt-provider-in-box.md
+/agent-note-the-chatgpt-provider-is-an-in-box-package:
+  en: d9843b39f8184361
+  zh: ecb93d0f4bc3fc27
+/agent-note-the-chatgpt-provider-is-an-in-box-package/problem:
+  en: 87f5811d203be286
+  zh: 9692d74111da480c
+/agent-note-the-chatgpt-provider-is-an-in-box-package/decision:
+  en: a15c7c13f167e5ac
+  zh: ff261e3705c47ff0
+/agent-note-the-chatgpt-provider-is-an-in-box-package/decision/provider-in-dsh-base-page-in-dsh-web-app:
+  en: d7c51e627a806d6d
+  zh: b6d31d0900e3f839
+/agent-note-the-chatgpt-provider-is-an-in-box-package/decision/sign-in-commits-through-the-authorization-seam:
+  en: 36eb504c6d463838
+  zh: 5f324c65170961f2
+/agent-note-the-chatgpt-provider-is-an-in-box-package/decision/remote-namespace-mounts-centrally:
+  en: bd9df06a7f683784
+  zh: 32797856a0faa98e
+/agent-note-the-chatgpt-provider-is-an-in-box-package/decision/replay-items-are-serialized-locally:
+  en: a84ac258b00c3bde
+  zh: 2913622016a74f51
+/agent-note-the-chatgpt-provider-is-an-in-box-package/decision/provider-hooks-that-had-defaults-now-state-them:
+  en: d1769ae7481c1610
+  zh: fbb495ff131d6e0a
+/agent-note-the-chatgpt-provider-is-an-in-box-package/alternatives-considered:
+  en: bca26b064e87b63c
+  zh: 091f962512a1be82
+/agent-note-the-chatgpt-provider-is-an-in-box-package/consequences:
+  en: 59d6550467a017d6
+  zh: f4fb97e76bf3826f

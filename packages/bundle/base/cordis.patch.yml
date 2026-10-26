@@ -34,6 +34,11 @@
     - id: llm
       name: '@deepseek-ai/dsh-llm'
 
+    # Sign in with ChatGPT provider: the route mounts dormant (no models until
+    # an account connects), so a fresh install advertises nothing from it.
+    - id: llm-chatgpt
+      name: '@deepseek-ai/dsh-llm-chatgpt'
+
     - id: deepseek-llm-api-extensions
       name: '@deepseek-ai/dsh-deepseek-llm-api-extensions'
 

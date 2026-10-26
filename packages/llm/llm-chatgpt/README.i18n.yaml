@@ -1,0 +1,37 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/llm/llm-chatgpt/README.md
+/:
+  en: e5189e88b03d4a40
+  zh: a7ddcd15552e7e62
+/deepseek-ai-dsh-llm-chatgpt:
+  en: d049b2874220a735
+  zh: f1ba377c4820fd6d
+/deepseek-ai-dsh-llm-chatgpt/summary:
+  en: a10c51e3c3bfc3e8
+  zh: a3bbb17c48d5fcf0
+/deepseek-ai-dsh-llm-chatgpt/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 991dffd97661cd7e
+/deepseek-ai-dsh-llm-chatgpt/use-this-package:
+  en: 5a35b25ad49e3d5f
+  zh: 1283a66780d53b15
+/deepseek-ai-dsh-llm-chatgpt/understand-the-implementation:
+  en: 208fe4fc2dfc4dae
+  zh: 7ecc51a25520a2b7
+/deepseek-ai-dsh-llm-chatgpt/further-exploration:
+  en: 688493e23e13a344
+  zh: 35c6af59e609a341
+/deepseek-ai-dsh-llm-chatgpt/model-experience:
+  en: 96df40ca6908a6bf
+  zh: ac0e04313bbeeb34
+/deepseek-ai-dsh-llm-chatgpt/model-experience/kv-cache-effect:
+  en: 48460dba1b518c6f
+  zh: 42824d22931f51e9
+/deepseek-ai-dsh-llm-chatgpt/known-limitations-and-deferred-work:
+  en: 11ef0e50c2c7c36f
+  zh: ebee0177df7cdc3a
+/deepseek-ai-dsh-llm-chatgpt/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: e88aeb617ffb74ea

@@ -5,6 +5,7 @@
 import { ja as agentTeam } from './agent-team.ts'
 import { ja as approval } from './approval.ts'
 import { ja as chat } from './chat.ts'
+import { ja as chatgpt } from './chatgpt.ts'
 import { ja as command } from './command.ts'
 import { ja as common } from './common.ts'
 import { ja as conversation } from './conversation.ts'
@@ -68,6 +69,7 @@ export const DICTIONARIES: readonly { ns: string; dict: Record<string, string> }
   { ns: 'agent-team', dict: agentTeam },
   { ns: 'approval', dict: approval },
   { ns: 'chat', dict: chat },
+  { ns: 'chatgpt', dict: chatgpt },
   { ns: 'command', dict: command },
   { ns: 'common', dict: common },
   { ns: 'conversation', dict: conversation },

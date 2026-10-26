@@ -1,0 +1,40 @@
+# Bilingual-pair consistency record for chatgpt-accounts.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/subsystems/chatgpt-accounts.md
+/:
+  en: 17e3fc67176f3305
+  zh: 8e9bbfe35c904ea1
+/chatgpt-accounts:
+  en: ee4615440e6a333d
+  zh: 3d9de90116c72034
+/chatgpt-accounts/summary:
+  en: c9abb87dc37b9a11
+  zh: af066b2ab5ff3664
+/chatgpt-accounts/table-of-contents:
+  en: 18e2db163dcc3a79
+  zh: ee257c54f276b1e6
+/chatgpt-accounts/account-records:
+  en: fd3e150895059d7a
+  zh: 89d24bc13501c7a0
+/chatgpt-accounts/host-identity:
+  en: 00fc3e9fb5e206cf
+  zh: f50360f585618e37
+/chatgpt-accounts/authorization:
+  en: 0a00f90e7d680564
+  zh: 24d735b66e33cc1b
+/chatgpt-accounts/model-catalog-and-capabilities:
+  en: 8581f75fe5794ec4
+  zh: 9bdacccaedd47239
+/chatgpt-accounts/requests-and-replay:
+  en: c9abc678dbacd42f
+  zh: 12989f1324ae29bc
+/chatgpt-accounts/failures:
+  en: be78a9798c6d5830
+  zh: 32c805125a000e6e
+/chatgpt-accounts/configuration:
+  en: bd7ea5e85d8366e9
+  zh: bcbd035e7983112e
+/chatgpt-accounts/known-limitations-and-deferred-work:
+  en: da728e38299d26e7
+  zh: e466911fb02e627d

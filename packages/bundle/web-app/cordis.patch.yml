@@ -350,6 +350,11 @@
     - id: ui-settings-models
       name: '@deepseek-ai/dsh-client-ui-settings-models'
 
+    # ChatGPT provider page in the Plugins page Official group, plus the
+    # composer plan notice it contributes.
+    - id: ui-chatgpt
+      name: '@deepseek-ai/dsh-client-ui-chatgpt'
+
     # Plugin management: the sidebar Plugins page installs, enables, disables,
     # and removes the profile's bundles through the `pluginManager` Remote.
     # Without a profile-backed Host it reports itself unavailable.

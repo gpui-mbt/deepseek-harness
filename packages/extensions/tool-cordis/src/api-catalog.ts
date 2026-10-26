@@ -562,6 +562,58 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'chatgptController',
+    summary: 'Typed Remote operations for profile ChatGPT accounts, catalogs and sign-in.',
+    description: 'Typed Remote operations for profile ChatGPT accounts, catalogs and sign-in.',
+    methods: [
+      {
+        signature: '@Remote getState(): Promise<ChatGptState>',
+        description: 'Read account, catalog and sign-in state without exposing credentials.',
+        parameters: [],
+        returns: 'the redacted account and OAuth-attempt snapshot.',
+      },
+      {
+        signature: '@Remote beginLogin(request: ChatGptLoginRequest): Promise<ChatGptLoginTicket>',
+        description: 'Start a Host-owned OAuth callback and return the URL for the system browser.',
+        parameters: [{ name: 'request', description: 'a saved account for reauthorization, or an empty request for a new registration.' }],
+        returns: 'the safe attempt handle and authorization URL.',
+      },
+      {
+        signature: '@Remote cancelLogin(request: ChatGptCancelLoginRequest): Promise<void>',
+        description: 'Cancel an unfinished local sign-in attempt.',
+        parameters: [{ name: 'request', description: 'opaque attempt handle returned by {@link beginLogin}.' }],
+      },
+      {
+        signature: '@Remote setActiveAccount(request: ChatGptAccountRequest): Promise<void>',
+        description: 'Select the profile\'s ChatGPT account for future model requests.',
+        parameters: [{ name: 'request', description: 'the saved account to activate.' }],
+      },
+      {
+        signature: '@Remote signOut(request: ChatGptAccountRequest): Promise<ChatGptSignOutResult>',
+        description: 'Remove an account and revoke its refresh token when possible.',
+        parameters: [{ name: 'request', description: 'account to disconnect.' }],
+        returns: 'whether OpenAI confirmed token revocation.',
+      },
+      {
+        signature: '@Remote refreshModels(request: ChatGptAccountRequest): Promise<ChatGptState>',
+        description: 'Refresh one saved account\'s list-visible model catalog.',
+        parameters: [{ name: 'request', description: 'account whose catalog should be refreshed.' }],
+        returns: 'the updated redacted state.',
+      },
+      {
+        signature: '@Remote setModelConfig(update: ChatGptModelConfigUpdate): Promise<ChatGptState>',
+        description: 'Store or clear one profile capability override.',
+        parameters: [{ name: 'update', description: 'exact account catalog slug and its replacement override.' }],
+        returns: 'updated redacted state.',
+      },
+      {
+        signature: '@Remote acknowledgeWelcome(): Promise<void>',
+        description: 'Remember that a Client has shown the initial account welcome view.',
+        parameters: [],
+      },
+    ],
+  },
+  {
     key: 'claudeCodeMods',
     summary: 'The bridge service: loaded mods, their hooks, and the harness listeners that raise their events.',
     description: 'The bridge service: loaded mods, their hooks, and the harness listeners that raise their events. Mods join through ClaudeCodeMods.add, which defineMod calls when a mod plugin mounts. The Remote methods let a Client draw each session\'s band above the prompt and press its buttons.',
@@ -5005,6 +5057,58 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ChangeResult',
     declaration: 'export interface ChangeResult {\n    changed: boolean;\n    application: \'applied\' | \'restart-required\' | \'overridden\' | \'failed\' | \'cancelled\';\n    restartReason?: RestartReason;\n    stage: \'install\' | \'enable\' | \'remove\';\n    target: string;\n    enabled?: boolean;\n    error?: ManagementError;\n    warnings?: string[];\n    packageResult?: PackageResult;\n    bundle?: string;\n    version?: string;\n    pendingBuilds?: string[];\n    approvedBuilds?: string[];\n    registries?: Registry[];\n    failedAt?: \'registry\' | \'spec-host\';\n}',
+  },
+  {
+    name: 'ChatGptAccountId',
+    declaration: 'export type ChatGptAccountId = Branded<\'ChatGptAccountId\'>;',
+  },
+  {
+    name: 'ChatGptAccountRequest',
+    declaration: 'export interface ChatGptAccountRequest {\n    readonly accountId: ChatGptAccountId;\n}',
+  },
+  {
+    name: 'ChatGptAccountView',
+    declaration: 'export interface ChatGptAccountView {\n    readonly id: ChatGptAccountId;\n    readonly label: string;\n    readonly email?: string;\n    readonly active: boolean;\n    readonly status: \'connected\' | \'needs-registration\' | \'needs-sign-in\';\n    readonly models: readonly ChatGptModelView[];\n}',
+  },
+  {
+    name: 'ChatGptCancelLoginRequest',
+    declaration: 'export interface ChatGptCancelLoginRequest {\n    readonly attemptId: ChatGptLoginAttemptId;\n}',
+  },
+  {
+    name: 'ChatGptLoginAttemptId',
+    declaration: 'export type ChatGptLoginAttemptId = Branded<\'ChatGptLoginAttemptId\'>;',
+  },
+  {
+    name: 'ChatGptLoginAttemptView',
+    declaration: 'export interface ChatGptLoginAttemptView {\n    readonly id: ChatGptLoginAttemptId;\n    readonly phase: \'awaiting-browser\' | \'exchanging\' | \'complete\' | \'failed\' | \'cancelled\';\n    readonly message?: string;\n}',
+  },
+  {
+    name: 'ChatGptLoginRequest',
+    declaration: 'export interface ChatGptLoginRequest {\n    readonly accountId?: ChatGptAccountId;\n}',
+  },
+  {
+    name: 'ChatGptLoginTicket',
+    declaration: 'export interface ChatGptLoginTicket {\n    readonly attemptId: ChatGptLoginAttemptId;\n    readonly authorizationUrl: string;\n}',
+  },
+  {
+    name: 'ChatGptModelConfig',
+    declaration: 'export interface ChatGptModelConfig {\n    readonly contextWindow?: number | undefined;\n    readonly inputModalities?: readonly ModelModality[] | undefined;\n    readonly reasoningEfforts?: readonly string[] | undefined;\n    readonly defaultReasoningEffort?: string | undefined;\n}',
+  },
+  {
+    name: 'ChatGptModelConfigUpdate',
+    declaration: 'export interface ChatGptModelConfigUpdate {\n    readonly accountId: ChatGptAccountId;\n    readonly model: string;\n    readonly config: ChatGptModelConfig | null;\n}',
+  },
+  {
+    name: 'ChatGptModelView',
+    declaration: 'export interface ChatGptModelView extends ChatGptModelConfig {\n    readonly slug: string;\n    readonly displayName: string;\n    readonly usable: boolean;\n    readonly overridden: boolean;\n}',
+  },
+  {
+    name: 'ChatGptSignOutResult',
+    declaration: 'export interface ChatGptSignOutResult {\n    readonly revocationConfirmed: boolean;\n}',
+  },
+  {
+    name: 'ChatGptState',
+    declaration: 'export interface ChatGptState {\n    readonly accounts: readonly ChatGptAccountView[];\n    readonly activeAccountId?: ChatGptAccountId;\n    readonly welcomeAcknowledged: boolean;\n    readonly loginAttempts: readonly ChatGptLoginAttemptView[];\n    readonly loginPollIntervalMs: number;\n}',
   },
   {
     name: 'ClientArtifactBaseline',
