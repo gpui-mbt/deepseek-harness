@@ -141,6 +141,14 @@
     - id: session-controller
       name: '@deepseek-ai/dsh-api-session-controller'
 
+    # Persistent named agents: durable dots, their home sessions, the
+    # execution guard, and the `dots` Remote namespace.
+    - id: dots
+      name: '@deepseek-ai/dsh-dots'
+
+    - id: tool-dots
+      name: '@deepseek-ai/dsh-tool-dots'
+
     # One background job's observation record streamed over Typert Remote;
     # the roster rides the session control stream above.
     - id: job-controller
@@ -354,6 +362,10 @@
     # composer plan notice it contributes.
     - id: ui-chatgpt
       name: '@deepseek-ai/dsh-client-ui-chatgpt'
+
+    # Persistent dots panel: sidebar entry and the dot detail view.
+    - id: ui-dots
+      name: '@deepseek-ai/dsh-client-ui-dots'
 
     # Plugin management: the sidebar Plugins page installs, enables, disables,
     # and removes the profile's bundles through the `pluginManager` Remote.

@@ -81,6 +81,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@deepseek-ai/dsh-client-ui-deliverables` | no | Changed-files card with per-file comparison tabs, delivery cards, and clickable final-response file references for Web |
 | `@deepseek-ai/dsh-client-ui-directory-picker-browse` | no | In-app directory browsing surface: the workspace directory-flow owner rendering the host's listing and creation primitives |
 | `@deepseek-ai/dsh-client-ui-directory-picker-native` | no | Native directory-picker surface: the renderless workspace directory-flow occupant driving the local Desktop or Host OS chooser |
+| `@deepseek-ai/dsh-client-ui-dots` | no | Dots page on the dsh web client: persistent named agents, their live status, assignments, memory, allowed tools, and schedules |
 | `@deepseek-ai/dsh-client-ui-git-branch` | no | Composer stats-row chip showing the checkout the current Session workspace lives in (GitHub repository, branch, worktree) over the workspaceGit Remote namespace |
 | `@deepseek-ai/dsh-client-ui-goal` | no | Session goal surface: GoalBar docked above the composer, read from the goal session projection |
 | `@deepseek-ai/dsh-client-ui-input-trigger` | no | Input trigger pipeline: '/' and '@' detection, candidate menu, pick routing to registered sources |
@@ -184,6 +185,13 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@deepseek-ai/dsh-office-to-pdf` | yes | Shared Office-to-PDF conversion with bounded queues and caching |
+
+## dots
+
+| Package | Config | Description |
+|---|---|---|
+| `@deepseek-ai/dsh-dots` | yes | Persistent named agents with their own workspace, home session, durable memory, and schedules |
+| `@deepseek-ai/dsh-tool-dots` | no | Model-facing dot_create, dot_list, dot_assign, dot_update, dot_schedule, and dot_archive tools |
 
 ## experimental
 

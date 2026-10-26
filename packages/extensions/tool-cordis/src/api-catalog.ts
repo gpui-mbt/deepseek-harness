@@ -1105,6 +1105,55 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'dotsController',
+    summary: 'Remote API over one deployment\'s durable dots.',
+    description: 'Remote API over one deployment\'s durable dots.',
+    methods: [
+      {
+        signature: '@Remote(\'list\') async list(request: DotsListRequest, signal?: AbortSignal): Promise<DotsListValue>',
+        description: 'List dots with live status.',
+        parameters: [{ name: 'request', description: 'whether to include archived records.' }, { name: 'signal', description: 'optional caller cancellation.' }],
+        returns: 'visible dots in storage order.',
+      },
+      {
+        signature: '@Remote(\'create\') async create(request: DotsCreateRequest, signal?: AbortSignal): Promise<DotsCreateValue>',
+        description: 'Create one dot with its workspace directory and home session.',
+        parameters: [{ name: 'request', description: 'name, purpose, and optional preset/permissions/model.' }, { name: 'signal', description: 'optional caller cancellation.' }],
+        returns: 'the created dot and non-fatal warnings.',
+      },
+      {
+        signature: '@Remote(\'assign\') async assign(request: DotsAssignRequest, signal?: AbortSignal): Promise<AssignResult>',
+        description: 'Queue one assignment on a dot\'s home session.',
+        parameters: [{ name: 'request', description: 'dot reference, task text, and optional caller identity.' }, { name: 'signal', description: 'optional caller cancellation.' }],
+        returns: 'acceptance, not completion.',
+      },
+      {
+        signature: '@Remote(\'update\') async update(request: DotsUpdateRequest, signal?: AbortSignal): Promise<DotView>',
+        description: 'Update one dot\'s purpose, memory, or execution allowlist.',
+        parameters: [{ name: 'request', description: 'dot reference and the changes to apply.' }, { name: 'signal', description: 'optional caller cancellation.' }],
+        returns: 'the updated dot.',
+      },
+      {
+        signature: '@Remote(\'archive\') async archive(request: DotsArchiveRequest, signal?: AbortSignal): Promise<ArchiveResult>',
+        description: 'Archive one dot, stopping its schedules and live turn.',
+        parameters: [{ name: 'request', description: 'dot reference and whether to stop its schedules.' }, { name: 'signal', description: 'optional caller cancellation.' }],
+        returns: 'the archive summary.',
+      },
+      {
+        signature: '@Remote(\'scheduleList\') async scheduleList(request: DotsScheduleListRequest, signal?: AbortSignal): Promise<DotsScheduleListValue>',
+        description: 'List one dot\'s active schedules.',
+        parameters: [{ name: 'request', description: 'dot reference.' }, { name: 'signal', description: 'optional caller cancellation.' }],
+        returns: 'active schedules bound to the dot\'s home session.',
+      },
+      {
+        signature: '@Remote(\'scheduleCreate\') async scheduleCreate(request: DotsScheduleCreateRequest, signal?: AbortSignal): Promise<ScheduleResult>',
+        description: 'Create one durable schedule on a dot\'s home session.',
+        parameters: [{ name: 'request', description: 'dot reference plus title, prompt, and exactly one timing selector.' }, { name: 'signal', description: 'optional caller cancellation.' }],
+        returns: 'the created schedule summary.',
+      },
+    ],
+  },
+  {
     key: 'fileReferences',
     summary: 'Host capability for cancellable file-reference discovery.',
     description: 'Host capability for cancellable file-reference discovery.',
@@ -4875,6 +4924,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ApprovalRequestEvent {\n    readonly agent: Agent;\n    readonly toolName: string;\n    readonly callId?: ToolCallId;\n    readonly reason?: string;\n    readonly displayReason?: {\n        readonly en: string;\n        readonly [locale: string]: string;\n    };\n    readonly signal?: AbortSignal;\n}',
   },
   {
+    name: 'ArchiveResult',
+    declaration: 'export interface ArchiveResult {\n    readonly archived: true;\n    readonly dotId: DotId;\n    readonly deletedSchedules: number;\n    readonly warnings?: readonly string[];\n}',
+  },
+  {
     name: 'ArchiveSessionOptions',
     declaration: 'export interface ArchiveSessionOptions {\n    readonly stopActivity?: boolean;\n}',
   },
@@ -4921,6 +4974,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AssembledSection',
     declaration: 'export interface AssembledSection {\n    name: string;\n    text: string;\n    interpolate?: boolean;\n}',
+  },
+  {
+    name: 'AssignResult',
+    declaration: 'export interface AssignResult {\n    readonly accepted: true;\n    readonly dotId: DotId;\n    readonly sessionId: string;\n    readonly status: \'queued\';\n}',
   },
   {
     name: 'AssistantMessage',
@@ -5533,6 +5590,62 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'DomainTableSpec',
     declaration: 'export interface DomainTableSpec<K extends string = string, V = unknown> {\n    readonly valueSchema: ZodType<V>;\n    readonly __key?: K;\n}',
+  },
+  {
+    name: 'DotId',
+    declaration: 'export type DotId = Branded<\'DotId\'>;',
+  },
+  {
+    name: 'DotModelSelection',
+    declaration: 'export interface DotModelSelection {\n    readonly provider: string;\n    readonly model: string;\n    readonly reasoningEffort?: string;\n}',
+  },
+  {
+    name: 'DotsArchiveRequest',
+    declaration: 'export interface DotsArchiveRequest {\n    readonly dot: string;\n    readonly stopSchedules?: boolean;\n}',
+  },
+  {
+    name: 'DotsAssignRequest',
+    declaration: 'export interface DotsAssignRequest {\n    readonly dot: string;\n    readonly task: string;\n    readonly from?: string;\n}',
+  },
+  {
+    name: 'DotsCreateRequest',
+    declaration: 'export interface DotsCreateRequest {\n    readonly name: string;\n    readonly purpose: string;\n    readonly preset?: string;\n    readonly permissionPreset?: string;\n    readonly allowedTools?: readonly string[];\n    readonly model?: DotModelSelection;\n}',
+  },
+  {
+    name: 'DotsCreateValue',
+    declaration: 'export interface DotsCreateValue {\n    readonly view: DotView;\n    readonly warnings: readonly string[];\n}',
+  },
+  {
+    name: 'DotsListRequest',
+    declaration: 'export interface DotsListRequest {\n    readonly includeArchived?: boolean;\n}',
+  },
+  {
+    name: 'DotsListValue',
+    declaration: 'export interface DotsListValue {\n    readonly dots: readonly DotView[];\n}',
+  },
+  {
+    name: 'DotsScheduleCreateRequest',
+    declaration: 'export interface DotsScheduleCreateRequest extends ScheduleCreateRequest {\n    readonly dot: string;\n}',
+  },
+  {
+    name: 'DotsScheduleListRequest',
+    declaration: 'export interface DotsScheduleListRequest {\n    readonly dot: string;\n}',
+  },
+  {
+    name: 'DotsScheduleListValue',
+    declaration: 'export interface DotsScheduleListValue {\n    readonly schedules: readonly ScheduleRecordLike[];\n}',
+  },
+  {
+    name: 'DotStatus',
+    declaration: 'export type DotStatus = \'running\' | \'idle\' | \'asleep\' | \'missing\';',
+  },
+  {
+    name: 'DotsUpdateRequest',
+    declaration: 'export interface DotsUpdateRequest {\n    readonly dot: string;\n    readonly purpose?: string;\n    readonly addMemory?: string;\n    readonly allowedTools?: readonly string[];\n}',
+  },
+  {
+    name: 'DotView',
+    declaration: 'export interface DotView {\n    readonly id: DotId;\n    readonly name: string;\n    readonly purpose: string;\n    readonly directory: string;\n    readonly sessionId: string;\n    readonly workspaceId?: string;\n    readonly preset: string;\n    readonly permissionPreset?: string;\n    readonly allowedTools?: readonly string[];\n    readonly model?: DotModelSelection;\n    readonly createdAt: number;\n    readonly updatedAt: number;\n    readonly lastAssignedAt?: number;\n    readonly assignmentCount: number;\n    readonly archivedAt?: number;\n    readonly status: DotStatus;\n}',
   },
   {
     name: 'DshEnvironment',
@@ -6999,10 +7112,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ScheduleCatalogEntry = ScheduleRecord & {\n    readonly sessionId: SessionId;\n    readonly status: \'active\' | \'inactive\';\n    readonly lastDelivery?: ScheduleDeliveryReceipt;\n};',
   },
   {
-    name: 'ScheduleCreateRequest',
-    declaration: 'export interface ScheduleCreateRequest {\n    prompt: string;\n    title: string;\n    after_seconds?: number;\n    at?: AtInput;\n    every_seconds?: number;\n    daily?: DailyInput;\n    weekly?: WeeklyInput;\n    cron?: CronInput;\n}',
-  },
-  {
     name: 'ScheduleDeleteRequest',
     declaration: 'export interface ScheduleDeleteRequest extends ScheduleListRequest {\n    id: ScheduleId;\n}',
   },
@@ -7045,6 +7154,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ScheduleRecord',
     declaration: 'export type ScheduleRecord = OneShotScheduleRecord | RecurringScheduleRecord;',
+  },
+  {
+    name: 'ScheduleRecordLike',
+    declaration: 'export interface ScheduleRecordLike {\n    readonly id: string;\n    readonly kind: string;\n    readonly title: string;\n    readonly scheduledAt: string;\n}',
+  },
+  {
+    name: 'ScheduleResult',
+    declaration: 'export interface ScheduleResult {\n    readonly id: string;\n    readonly kind: string;\n    readonly title: string;\n    readonly scheduledAt: string;\n}',
   },
   {
     name: 'ScheduleTimingChange',
@@ -8385,10 +8502,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ToolFailure',
     declaration: 'export interface ToolFailure {\n    message: string;\n    info?: ToolErrorInfo;\n}',
-  },
-  {
-    name: 'ToolGuard',
-    declaration: 'export type ToolGuard = (execution: Readonly<ToolExecution>) => string | undefined;',
   },
   {
     name: 'ToolHistory',

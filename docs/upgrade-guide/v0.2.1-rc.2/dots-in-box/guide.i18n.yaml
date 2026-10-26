@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for guide.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/upgrade-guide/v0.2.1-rc.2/dots-in-box/guide.md
+/:
+  en: 408c831cb2db9c13
+  zh: 901c83591725da7c
+/persistent-dots-ship-in-box:
+  en: e1305873ca0a4f50
+  zh: f879d10b3a724c5a
+/persistent-dots-ship-in-box/change:
+  en: 14685c851f45662b
+  zh: 8044579d8320d281
+/persistent-dots-ship-in-box/migration:
+  en: 5ba267cc827aa005
+  zh: 692e693d97592be8

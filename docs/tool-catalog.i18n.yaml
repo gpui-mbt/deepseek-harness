@@ -9,8 +9,8 @@
   en: 6cc2cd9ced70bb09
   zh: 1c0e6cb4ba2ed637
 /tool-schema-catalog/tool-package-map:
-  en: e72ad7af437fa362
-  zh: d8f3683a4efe01b0
+  en: 7778dbcdc66afe3f
+  zh: ce73a8035691d333
 /tool-schema-catalog/deepseek-ai-dsh-plugin-manager:
   en: e0143916bb634762
   zh: e0143916bb634762
@@ -84,8 +84,29 @@
   en: f656575e6df094f6
   zh: f656575e6df094f6
 /tool-schema-catalog/deepseek-ai-dsh-tool-present/present:
-  en: 24ef5efe4c0edf50
-  zh: a2914d345bd8eefa
+  en: d25e011358c33689
+  zh: f3eae14f23f0824f
+/tool-schema-catalog/deepseek-ai-dsh-tool-dots:
+  en: a90d698c9fb3d8d2
+  zh: a90d698c9fb3d8d2
+/tool-schema-catalog/deepseek-ai-dsh-tool-dots/dot-archive:
+  en: eb29aef19fd0ce40
+  zh: f29e27944a9d9368
+/tool-schema-catalog/deepseek-ai-dsh-tool-dots/dot-assign:
+  en: ab5d963ae6b7c26a
+  zh: 90eb5140b9a2325d
+/tool-schema-catalog/deepseek-ai-dsh-tool-dots/dot-create:
+  en: 636d65014ebd26c3
+  zh: 7b9f660c39373872
+/tool-schema-catalog/deepseek-ai-dsh-tool-dots/dot-list:
+  en: 7adc32fa1c3d6a34
+  zh: 5651305017a99933
+/tool-schema-catalog/deepseek-ai-dsh-tool-dots/dot-schedule:
+  en: 26ab8f009d8b4dbe
+  zh: 00e74f95fbb929fc
+/tool-schema-catalog/deepseek-ai-dsh-tool-dots/dot-update:
+  en: 989fcbe524540f82
+  zh: 4cbe176969384b20
 /tool-schema-catalog/deepseek-ai-dsh-tool-pwsh:
   en: b222fc05f3f8ee4a
   zh: b222fc05f3f8ee4a

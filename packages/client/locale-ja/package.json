@@ -58,6 +58,7 @@
     "@deepseek-ai/dsh-client-ui-conversation": "workspace:*",
     "@deepseek-ai/dsh-client-ui-cordis": "workspace:*",
     "@deepseek-ai/dsh-client-ui-deliverables": "workspace:*",
+    "@deepseek-ai/dsh-client-ui-dots": "workspace:*",
     "@deepseek-ai/dsh-client-ui-git-branch": "workspace:*",
     "@deepseek-ai/dsh-client-ui-goal": "workspace:*",
     "@deepseek-ai/dsh-client-ui-input-trigger": "workspace:*",

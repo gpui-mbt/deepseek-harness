@@ -1,0 +1,34 @@
+# Bilingual-pair consistency record for 2026-10-26-dots-in-box.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-10-26-dots-in-box.md
+/agent-note-persistent-dots-are-in-box-packages:
+  en: 206bdcc87d2e8da1
+  zh: ab726994dca86b12
+/agent-note-persistent-dots-are-in-box-packages/problem:
+  en: 69b2a72a677f1d27
+  zh: 9f4d4cbf5c107461
+/agent-note-persistent-dots-are-in-box-packages/decision:
+  en: a15c7c13f167e5ac
+  zh: 63b885322cb441de
+/agent-note-persistent-dots-are-in-box-packages/decision/single-host-web-app-rows:
+  en: 53857768da5e4bd3
+  zh: 9e70c2d65d490d67
+/agent-note-persistent-dots-are-in-box-packages/decision/records-move-to-a-storage-domain-with-a-one-time-import:
+  en: 2cc40498b8d8e2cd
+  zh: d8d13d9f417c0f08
+/agent-note-persistent-dots-are-in-box-packages/decision/assignments-are-queued-prompts:
+  en: 825dd494c205907d
+  zh: 27c08eb79e4cb216
+/agent-note-persistent-dots-are-in-box-packages/decision/the-guard-extends-to-a-dot-s-descendants:
+  en: 8fabf579a78456b3
+  zh: 8b126f257a5a76d6
+/agent-note-persistent-dots-are-in-box-packages/decision/remote-surface-is-deliberately-small:
+  en: f8078d6e2f2cd02b
+  zh: bbadb1271dae24de
+/agent-note-persistent-dots-are-in-box-packages/alternatives-considered:
+  en: 2a658128556c0dbb
+  zh: a867c7db624a7bc6
+/agent-note-persistent-dots-are-in-box-packages/consequences:
+  en: 75b4e8a169c118c2
+  zh: fd0a8e011cfc9f53

@@ -30,6 +30,7 @@ import terminalRemote from '@deepseek-ai/dsh-api-terminal-controller/remote'
 import workspaceFilesRemote from '@deepseek-ai/dsh-api-workspace-files/remote'
 import workspaceGitRemote from '@deepseek-ai/dsh-api-workspace-git/remote'
 import chatgptRemote from '@deepseek-ai/dsh-llm-chatgpt/remote'
+import dotsRemote from '@deepseek-ai/dsh-dots/remote'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
 
 export type { ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
@@ -83,7 +84,9 @@ export type {} from '@deepseek-ai/dsh-schedule/remote'
 export type {} from '@deepseek-ai/dsh-office-to-pdf/remote'
 export type {} from '@deepseek-ai/dsh-llm/remote'
 export type {} from '@deepseek-ai/dsh-llm-chatgpt/remote'
+export type {} from '@deepseek-ai/dsh-dots/remote'
 export type * from '@deepseek-ai/dsh-llm-chatgpt/types'
+export type * from '@deepseek-ai/dsh-dots/types'
 export type {} from '@deepseek-ai/dsh-host-plugin-inventory/remote'
 export type {} from '@deepseek-ai/dsh-message-feedback/remote'
 export type {} from '@deepseek-ai/dsh-permission-presets/remote'
@@ -250,6 +253,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
       userQuestionsRemote,
       workspaceGitRemote,
       chatgptRemote,
+      dotsRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }

@@ -1,0 +1,97 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/dots/dots/README.md
+/:
+  en: a17a5532bc3831d9
+  zh: fde8bbf0f2b4106d
+/deepseek-ai-dsh-dots:
+  en: 64c0732bb7661b10
+  zh: 59949376c4c924ba
+/deepseek-ai-dsh-dots/summary:
+  en: ac3f8200c55c9734
+  zh: 96be3bc9ca2131f2
+/deepseek-ai-dsh-dots/table-of-contents:
+  en: 23386452a66b2fbd
+  zh: 4a8d91b2f313fead
+/deepseek-ai-dsh-dots/use-this-package:
+  en: e6d75030d71a82cf
+  zh: 50bd14769b3dac9c
+/deepseek-ai-dsh-dots/use-this-package/configuration:
+  en: c77303ea1a0c2927
+  zh: 2996c490f39a9073
+/deepseek-ai-dsh-dots/use-this-package/remote-operations:
+  en: 2f9453d98d4f6793
+  zh: a2211cec9e48b52f
+/deepseek-ai-dsh-dots/use-this-package/creation:
+  en: 002d82477469f52b
+  zh: 60999b58508efa14
+/deepseek-ai-dsh-dots/use-this-package/assignment-delivery:
+  en: 64a2def0bbff4efc
+  zh: fde7d90b507c3b1d
+/deepseek-ai-dsh-dots/use-this-package/persistence-and-the-legacy-registry:
+  en: e3992a108b3a18ce
+  zh: 9063e02a522b4bd9
+/deepseek-ai-dsh-dots/use-this-package/scheduling:
+  en: ceae34cd9998548a
+  zh: b1141a71a64fd2d0
+/deepseek-ai-dsh-dots/use-this-package/permissions-and-guardrails:
+  en: 852071c2eff2e93c
+  zh: 68d2373d51194db9
+/deepseek-ai-dsh-dots/understand-the-implementation:
+  en: 42b15ac6321706aa
+  zh: 1b15d3d4f76191dd
+/deepseek-ai-dsh-dots/understand-the-implementation/design-philosophy:
+  en: 52fcb3c489e3b1a7
+  zh: 510a93f062c11032
+/deepseek-ai-dsh-dots/understand-the-implementation/source-map:
+  en: 092870cdc5fe12d8
+  zh: 0a1e6420321e54bd
+/deepseek-ai-dsh-dots/understand-the-implementation/storage-domain:
+  en: 58939157905a4f57
+  zh: a4e4e98fd80553af
+/deepseek-ai-dsh-dots/understand-the-implementation/host-ports:
+  en: 2028a557a8807663
+  zh: 7c7187e0efe6f8c5
+/deepseek-ai-dsh-dots/understand-the-implementation/export-shape:
+  en: cb7863b65426e2f3
+  zh: fdfcef000c220897
+/deepseek-ai-dsh-dots/further-exploration:
+  en: 96b0dc5ede863b79
+  zh: 0e8d038c359c9279
+/deepseek-ai-dsh-dots/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-dots/model-experience/dot-assignment-prompt:
+  en: bbf4074eb393868a
+  zh: c318c12981fdfc51
+/deepseek-ai-dsh-dots/model-experience/dot-assignment-prompt/what-the-model-sees:
+  en: ad7e844f911a9235
+  zh: 0e6349db533dbf34
+/deepseek-ai-dsh-dots/model-experience/dot-assignment-prompt/what-the-model-sees/assignment-frame:
+  en: ed9cdabfcd5c2530
+  zh: 73e9cf8ddc10cdf8
+/deepseek-ai-dsh-dots/model-experience/dot-assignment-prompt/token-effect:
+  en: 7a55007b7b312067
+  zh: 306123771eb4a257
+/deepseek-ai-dsh-dots/model-experience/dot-assignment-prompt/kv-cache-effect:
+  en: 823db3edb73acc07
+  zh: dfb2fd8dba304f3e
+/deepseek-ai-dsh-dots/model-experience/tool-guard-denial:
+  en: 47089a45f6c62faa
+  zh: c3b456ca495e0a8e
+/deepseek-ai-dsh-dots/model-experience/tool-guard-denial/what-the-model-sees:
+  en: 9c311c78e1a8d78e
+  zh: 11122ced21af381d
+/deepseek-ai-dsh-dots/model-experience/tool-guard-denial/token-effect:
+  en: 97d6729a22d692f5
+  zh: e8f0df87a43ba7ee
+/deepseek-ai-dsh-dots/model-experience/tool-guard-denial/kv-cache-effect:
+  en: 8ca5d6c6bd3d034f
+  zh: f2693af7ddb5b3eb
+/deepseek-ai-dsh-dots/known-limitations-and-deferred-work:
+  en: 215984ec1abd8adc
+  zh: 8d55379100dd9e83
+/deepseek-ai-dsh-dots/known-limitations-and-deferred-work/dev-note:
+  en: 4227342ffb9a264e
+  zh: 3677619bc16532d2

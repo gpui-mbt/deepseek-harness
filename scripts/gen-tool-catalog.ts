@@ -50,6 +50,7 @@ import * as ToolPwshPersistent from '@deepseek-ai/dsh-tool-pwsh-persistent'
 import CordisHostRunner from '@deepseek-ai/dsh-cordis-host-runner'
 import * as ToolCordis from '@deepseek-ai/dsh-tool-cordis'
 import * as ToolPresent from '@deepseek-ai/dsh-tool-present'
+import * as ToolDots from '@deepseek-ai/dsh-tool-dots'
 import * as ToolFs from '@deepseek-ai/dsh-tool-fs'
 import * as ToolFsSearch from '@deepseek-ai/dsh-tool-fs-search'
 import * as ToolStrReplaceEditor from '@deepseek-ai/dsh-tool-str-replace-editor'
@@ -69,6 +70,7 @@ import type TeamService from '@deepseek-ai/dsh-experimental-agent-team'
 import * as ToolTeam from '@deepseek-ai/dsh-experimental-tool-agent-team'
 import * as ToolTodo from '@deepseek-ai/dsh-tool-todo'
 import type PluginManager from '@deepseek-ai/dsh-plugin-manager'
+import type { DotsController } from '@deepseek-ai/dsh-dots'
 import * as PluginManagerTools from '@deepseek-ai/dsh-plugin-manager/tools'
 import type PluginMarket from '@deepseek-ai/dsh-plugin-market'
 import * as PluginMarketTools from '@deepseek-ai/dsh-plugin-market/tools'
@@ -312,6 +314,19 @@ const TOOL_PACKAGES: ToolPackage[] = [
       await ctx.plugin(ToolPresent)
     },
     note: 'Deliveries belong to the calling Session; Web ui-deliverables supplies source-file opening and cards.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-dots',
+    dir: 'tool-dots',
+    source: 'packages/dots/tool-dots/src/tools.ts',
+    requires: ['ctx.tools', 'ctx.dotsController'],
+    writes: ['tool/call', 'tool/result', 'user/message when dot_assign queues work'],
+    async mount(ctx) {
+      // Schema harvest never touches storage, sessions, or schedules.
+      ctx.provide('dotsController', {} as DotsController)
+      await ctx.plugin(ToolDots)
+    },
+    note: 'The six dot tools are thin adapters over the dotsController Remote service; lifecycle, storage, and the execution guard live in @deepseek-ai/dsh-dots.',
   },
   {
     pkg: '@deepseek-ai/dsh-tool-pwsh',
