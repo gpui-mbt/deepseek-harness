@@ -1,7 +1,11 @@
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm/brand'
 import {
-  BlockAssembler, createAssistantMessage, createDeveloperMessage, createSystemMessage, createToolResultMessage,
+  BlockAssembler,
+  createAssistantMessage,
+  createDeveloperMessage,
+  createSystemMessage,
+  createToolResultMessage,
 } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
 import { describe, expect, it, vi } from 'vite-plus/test'
@@ -142,7 +146,7 @@ function eventFetch(
 ): typeof fetch {
   return async (input, init) => {
     const request = input instanceof Request ? input : new Request(input, init)
-    const body = await request.clone().json() as Record<string, unknown>
+    const body = (await request.clone().json()) as Record<string, unknown>
     onRequest?.(request, body)
     const stream = events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('')
     return new Response(stream, {
@@ -168,18 +172,26 @@ describe('ChatGPT Responses adapter provider metadata', () => {
 
   it('fails a stalled stream when no event arrives within the idle bound', async () => {
     const encoder = new TextEncoder()
-    const stalled = (): typeof fetch => async () => new Response(new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-          type: 'response.output_text.delta',
-          sequence_number: 0,
-          output_index: 0,
-          content_index: 0,
-          delta: 'partial',
-          item_id: 'item-1',
-        })}\n\n`))
-      },
-    }), { status: 200, headers: { 'content-type': 'text/event-stream' } })
+    const stalled = (): typeof fetch => async () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: 'response.output_text.delta',
+                  sequence_number: 0,
+                  output_index: 0,
+                  content_index: 0,
+                  delta: 'partial',
+                  item_id: 'item-1',
+                })}\n\n`,
+              ),
+            )
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'text/event-stream' } },
+      )
     const adapter = new ChatGptResponsesAdapter(hostFor(undefined, 'account-test' as ChatGptAccountId, 20), {
       fetch: stalled(),
     })
@@ -209,18 +221,21 @@ describe('ChatGPT Responses adapter', () => {
       }),
     })
 
-    const chunks = await collect(adapter, options({
-      messages: [
-        createSystemMessage('Follow the system instruction.'),
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Describe this image.' },
-            { type: 'image', attachment: imageRef },
-          ],
-        },
-      ],
-    }))
+    const chunks = await collect(
+      adapter,
+      options({
+        messages: [
+          createSystemMessage('Follow the system instruction.'),
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Describe this image.' },
+              { type: 'image', attachment: imageRef },
+            ],
+          },
+        ],
+      }),
+    )
 
     expect(capturedUrl).toBe('https://api.openai.com/v1/responses')
     expect(capturedAuthorization).toBe('Bearer exchanged-access-token')
@@ -239,9 +254,7 @@ describe('ChatGPT Responses adapter', () => {
     expect(input[1]).toMatchObject({ type: 'message', role: 'developer' })
     expect(input[2]).toMatchObject({ type: 'message', role: 'user' })
     expect(input[2]?.content).toContainEqual({ type: 'input_image', detail: 'auto', image_url: 'data:image/png;base64,AQI=' })
-    expect(chunks.map(chunk => chunk.type)).toEqual([
-      'block-start', 'text-delta', 'block-end', 'usage', 'finish',
-    ])
+    expect(chunks.map(chunk => chunk.type)).toEqual(['block-start', 'text-delta', 'block-end', 'usage', 'finish'])
     expect(chunks.find(chunk => chunk.type === 'block-end')).toMatchObject({
       block: { type: 'text', text: 'Hello.' },
     })
@@ -261,7 +274,9 @@ describe('ChatGPT Responses adapter', () => {
   ] as const)('rejects explicit %s before transport', async (_name, override) => {
     let requests = 0
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([], () => { requests += 1 }),
+      fetch: eventFetch([], () => {
+        requests += 1
+      }),
     })
 
     await expect(collect(adapter, options(override))).rejects.toMatchObject({ code: 'UNSUPPORTED_PARAMETER' })
@@ -274,7 +289,9 @@ describe('ChatGPT Responses adapter', () => {
   ] as const)('omits max_output_tokens for the DSH %s auxiliary call', async (purpose, maxTokens) => {
     let capturedBody: Record<string, unknown> | undefined
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch(completedTextEvents('Done.'), (_request, body) => { capturedBody = body }),
+      fetch: eventFetch(completedTextEvents('Done.'), (_request, body) => {
+        capturedBody = body
+      }),
     })
 
     await collect(adapter, options({ purpose, maxTokens }))
@@ -285,18 +302,23 @@ describe('ChatGPT Responses adapter', () => {
   it('replays the exact completed encrypted reasoning item with its assistant response', async () => {
     const bodies: Record<string, unknown>[] = []
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch(completedReasoningEvents(), (_request, body) => { bodies.push(body) }),
+      fetch: eventFetch(completedReasoningEvents(), (_request, body) => {
+        bodies.push(body)
+      }),
     })
     const prior = await assistantFromResponse(adapter)
 
-    await collect(adapter, options({
-      messages: [
-        createSystemMessage('Follow the system instruction.'),
-        { role: 'user', content: [{ type: 'text', text: 'First question.' }] },
-        prior,
-        { role: 'user', content: [{ type: 'text', text: 'Continue.' }] },
-      ],
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [
+          createSystemMessage('Follow the system instruction.'),
+          { role: 'user', content: [{ type: 'text', text: 'First question.' }] },
+          prior,
+          { role: 'user', content: [{ type: 'text', text: 'Continue.' }] },
+        ],
+      }),
+    )
 
     const secondInput = bodies[1]?.input as Array<Record<string, unknown>>
     expect(secondInput).toContainEqual({
@@ -359,17 +381,22 @@ describe('ChatGPT Responses adapter', () => {
     ]
     const bodies: Record<string, unknown>[] = []
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch(events, (_request, body) => { bodies.push(body) }),
+      fetch: eventFetch(events, (_request, body) => {
+        bodies.push(body)
+      }),
     })
     const prior = await assistantFromResponse(adapter)
 
-    await collect(adapter, options({
-      messages: [
-        { role: 'user', content: [{ type: 'text', text: 'First question.' }] },
-        prior,
-        { role: 'user', content: [{ type: 'text', text: 'Continue.' }] },
-      ],
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: 'First question.' }] },
+          prior,
+          { role: 'user', content: [{ type: 'text', text: 'Continue.' }] },
+        ],
+      }),
+    )
 
     const secondInput = bodies[1]?.input as Array<Record<string, unknown>>
     expect(secondInput).toContainEqual(configuration)
@@ -426,17 +453,22 @@ describe('ChatGPT Responses adapter', () => {
     ]
     const bodies: Record<string, unknown>[] = []
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch(events, (_request, body) => { bodies.push(body) }),
+      fetch: eventFetch(events, (_request, body) => {
+        bodies.push(body)
+      }),
     })
     const prior = await assistantFromResponse(adapter)
 
-    await collect(adapter, options({
-      messages: [
-        { role: 'user', content: [{ type: 'text', text: 'First question.' }] },
-        prior,
-        { role: 'user', content: [{ type: 'text', text: 'Continue.' }] },
-      ],
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: 'First question.' }] },
+          prior,
+          { role: 'user', content: [{ type: 'text', text: 'Continue.' }] },
+        ],
+      }),
+    )
 
     const secondInput = bodies[1]?.input as Array<Record<string, unknown>>
     expect(secondInput.slice(-5)).toEqual([
@@ -586,24 +618,29 @@ describe('ChatGPT Responses adapter', () => {
     const host: ChatGptAdapterHost = {
       ...baseHost,
       prepareCall: async (requestedModel, signal) => ({
-        ...await baseHost.prepareCall(requestedModel, signal),
+        ...(await baseHost.prepareCall(requestedModel, signal)),
         accountId,
       }),
     }
     const bodies: Record<string, unknown>[] = []
     const adapter = new ChatGptResponsesAdapter(host, {
-      fetch: eventFetch(completedReasoningEvents(), (_request, body) => { bodies.push(body) }),
+      fetch: eventFetch(completedReasoningEvents(), (_request, body) => {
+        bodies.push(body)
+      }),
     })
     const prior = await assistantFromResponse(adapter)
     accountId = 'account-other' as ChatGptAccountId
 
-    await collect(adapter, options({
-      messages: [
-        { role: 'user', content: [{ type: 'text', text: 'First question.' }] },
-        prior,
-        { role: 'user', content: [{ type: 'text', text: 'Continue.' }] },
-      ],
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: 'First question.' }] },
+          prior,
+          { role: 'user', content: [{ type: 'text', text: 'Continue.' }] },
+        ],
+      }),
+    )
 
     expect(JSON.stringify(bodies[1]?.input)).not.toContain('opaque-encrypted-reasoning')
   })
@@ -613,17 +650,22 @@ describe('ChatGPT Responses adapter', () => {
     const prior = await assistantFromResponse(firstAdapter)
     const bodies: Record<string, unknown>[] = []
     const secondAdapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch(completedTextEvents('Done.'), (_request, body) => { bodies.push(body) }),
+      fetch: eventFetch(completedTextEvents('Done.'), (_request, body) => {
+        bodies.push(body)
+      }),
     })
 
-    await collect(secondAdapter, options({
-      provider: 'chatgpt-other',
-      messages: [
-        { role: 'user', content: [{ type: 'text', text: 'First question.' }] },
-        prior,
-        { role: 'user', content: [{ type: 'text', text: 'Continue.' }] },
-      ],
-    }))
+    await collect(
+      secondAdapter,
+      options({
+        provider: 'chatgpt-other',
+        messages: [
+          { role: 'user', content: [{ type: 'text', text: 'First question.' }] },
+          prior,
+          { role: 'user', content: [{ type: 'text', text: 'Continue.' }] },
+        ],
+      }),
+    )
 
     expect(JSON.stringify(bodies[0]?.input)).not.toContain('opaque-encrypted-reasoning')
   })
@@ -637,18 +679,31 @@ describe('ChatGPT Responses adapter', () => {
     })
     let capturedBody: Record<string, unknown> | undefined
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch(completedTextEvents('Done.'), (_request, body) => { capturedBody = body }),
+      fetch: eventFetch(completedTextEvents('Done.'), (_request, body) => {
+        capturedBody = body
+      }),
     })
 
-    await collect(adapter, options({
-      messages: [createSystemMessage('Context.'), { role: 'user', content: [{ type: 'text', text: 'Go.' }] }, update],
-      tools: [baselineTool, addedTool],
-      toolHistory: { tools: [baselineTool], updates: [{ messageId: update.id, additions: [addedTool] }] },
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [createSystemMessage('Context.'), { role: 'user', content: [{ type: 'text', text: 'Go.' }] }, update],
+        tools: [baselineTool, addedTool],
+        toolHistory: { tools: [baselineTool], updates: [{ messageId: update.id, additions: [addedTool] }] },
+      }),
+    )
 
     const input = capturedBody?.input as Array<Record<string, unknown>>
     expect(input.filter(item => item.type === 'additional_tools').map(item => item.tools)).toEqual([
-      [{ type: 'function', name: baselineTool.name, description: baselineTool.description, parameters: baselineTool.parameters, strict: false }],
+      [
+        {
+          type: 'function',
+          name: baselineTool.name,
+          description: baselineTool.description,
+          parameters: baselineTool.parameters,
+          strict: false,
+        },
+      ],
       [{ type: 'function', name: addedTool.name, description: addedTool.description, parameters: addedTool.parameters, strict: false }],
     ])
     expect(input.map(item => item.type)).toEqual(['additional_tools', 'message', 'message', 'additional_tools'])
@@ -704,17 +759,21 @@ describe('ChatGPT Responses adapter', () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(events) })
 
     const chunks = await collect(adapter, options())
-    expect(chunks).toContainEqual(expect.objectContaining({
-      type: 'tool-call-delta',
-      id: 'call_1',
-      name: 'lookup',
-      argumentsDelta: '',
-    }))
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call-delta',
+        id: 'call_1',
+        name: 'lookup',
+        argumentsDelta: '',
+      }),
+    )
     expect(chunks).toContainEqual(expect.objectContaining({ type: 'tool-call-delta', argumentsDelta: '{"term":' }))
-    expect(chunks).toContainEqual(expect.objectContaining({
-      type: 'block-end',
-      block: { type: 'tool-call', id: 'call_1', name: 'lookup', arguments: '{"term":"moon"}' },
-    }))
+    expect(chunks).toContainEqual(
+      expect.objectContaining({
+        type: 'block-end',
+        block: { type: 'tool-call', id: 'call_1', name: 'lookup', arguments: '{"term":"moon"}' },
+      }),
+    )
     expect(chunks.at(-1)).toMatchObject({ type: 'finish', reason: { kind: 'tool-calls' } })
   })
 
@@ -749,10 +808,11 @@ describe('ChatGPT Responses adapter', () => {
 
   it('does not infer a subscription limit from HTTP 402 alone', async () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: async () => new Response(JSON.stringify({ error: { message: 'Account request refused', code: null } }), {
-        status: 402,
-        headers: { 'content-type': 'application/json', 'x-request-id': 'req_402' },
-      }),
+      fetch: async () =>
+        new Response(JSON.stringify({ error: { message: 'Account request refused', code: null } }), {
+          status: 402,
+          headers: { 'content-type': 'application/json', 'x-request-id': 'req_402' },
+        }),
     })
 
     const error: unknown = await collect(adapter, options()).catch((value: unknown) => value)
@@ -773,7 +833,9 @@ describe('ChatGPT Responses adapter', () => {
   it('aborts an in-flight request when the host revokes the account grant', async () => {
     const controller = new AbortController()
     let notifyStarted: (() => void) | undefined
-    const started = new Promise<void>(resolve => { notifyStarted = resolve })
+    const started = new Promise<void>(resolve => {
+      notifyStarted = resolve
+    })
     const adapter = new ChatGptResponsesAdapter(hostFor(controller.signal), {
       fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
         notifyStarted?.()
@@ -816,13 +878,15 @@ describe('ChatGPT Responses adapter', () => {
       ['none', 'low', 'medium', 'high', 'xhigh', 'max'],
       ['none', 'low', 'medium', 'high', 'xhigh', 'max'],
     ])
-    expect(OFFICIAL_OPENAI_MODELS.map(item => item.defaultReasoningEffort === undefined ? undefined : String(item.defaultReasoningEffort))).toEqual([
-      undefined, 'medium', 'medium', 'medium', 'medium', 'medium', 'medium',
-    ])
-    expect(OFFICIAL_OPENAI_MODELS.map(item => {
-      const resolved = toOpenAiResolvedModelInfo(provider, item)
-      return resolved.reasoning?.defaultEffort === undefined ? undefined : String(resolved.reasoning.defaultEffort)
-    })).toEqual([undefined, 'medium', 'medium', 'medium', 'medium', 'medium', 'medium'])
+    expect(
+      OFFICIAL_OPENAI_MODELS.map(item => (item.defaultReasoningEffort === undefined ? undefined : String(item.defaultReasoningEffort))),
+    ).toEqual([undefined, 'medium', 'medium', 'medium', 'medium', 'medium', 'medium'])
+    expect(
+      OFFICIAL_OPENAI_MODELS.map(item => {
+        const resolved = toOpenAiResolvedModelInfo(provider, item)
+        return resolved.reasoning?.defaultEffort === undefined ? undefined : String(resolved.reasoning.defaultEffort)
+      }),
+    ).toEqual([undefined, 'medium', 'medium', 'medium', 'medium', 'medium', 'medium'])
     expect(OFFICIAL_OPENAI_MODELS.every(item => !('defaultMaxTokens' in toOpenAiResolvedModelInfo(provider, item)))).toBe(true)
     expect(model.context?.contextWindow).toBe(1_050_000)
     expect(model.toolUpdate).toBe('addition-only')
@@ -835,9 +899,7 @@ describe('ChatGPT Responses adapter', () => {
       listModels: async () => [{ provider: 'host-placeholder', id: officialModel.id, name: officialModel.name }],
     })
 
-    await expect(adapter.listModels(provider)).resolves.toEqual([
-      { provider, id: officialModel.id, name: officialModel.name },
-    ])
+    await expect(adapter.listModels(provider)).resolves.toEqual([{ provider, id: officialModel.id, name: officialModel.name }])
   })
 
   it('refuses exact routes without a known context cap', async () => {
@@ -885,16 +947,19 @@ describe('ChatGPT Responses request conversion', () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
       fetch: eventFetch(completedTextEvents('ok'), (_request, body) => captured.push(body)),
     })
-    await collect(adapter, options({
-      tools: [],
-      toolHistory: { tools: [], updates: [] },
-      messages: [
-        createSystemMessage('s'),
-        { role: 'user', content: [{ type: 'text', text: 'q' }] },
-        createToolResultMessage({ callId: 'call-1' as never, content: [{ type: 'text', text: 'result' }], isError: false }),
-        createToolResultMessage({ callId: 'call-2' as never, content: [], isError: true }),
-      ],
-    }))
+    await collect(
+      adapter,
+      options({
+        tools: [],
+        toolHistory: { tools: [], updates: [] },
+        messages: [
+          createSystemMessage('s'),
+          { role: 'user', content: [{ type: 'text', text: 'q' }] },
+          createToolResultMessage({ callId: 'call-1' as never, content: [{ type: 'text', text: 'result' }], isError: false }),
+          createToolResultMessage({ callId: 'call-2' as never, content: [], isError: true }),
+        ],
+      }),
+    )
     const input = captured[0]?.input as readonly Record<string, unknown>[]
     expect(input).toContainEqual({ type: 'function_call_output', call_id: 'call-1', output: 'result' })
     expect(input).toContainEqual({ type: 'function_call_output', call_id: 'call-2', output: 'Tool execution failed.' })
@@ -902,12 +967,21 @@ describe('ChatGPT Responses request conversion', () => {
 
   it('rejects a tool result that carries a tool call', async () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(completedTextEvents('ok')) })
-    await expect(collect(adapter, options({
-      messages: [
-        createSystemMessage('s'),
-        createToolResultMessage({ callId: 'call-1' as never, content: [{ type: 'tool-call', id: 'c' as never, name: 'x', arguments: '{}' }], isError: false }),
-      ],
-    }))).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
+    await expect(
+      collect(
+        adapter,
+        options({
+          messages: [
+            createSystemMessage('s'),
+            createToolResultMessage({
+              callId: 'call-1' as never,
+              content: [{ type: 'tool-call', id: 'c' as never, name: 'x', arguments: '{}' }],
+              isError: false,
+            }),
+          ],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
   })
 
   it('converts assistant tool calls, skips tool removals, and writes an empty message body', async () => {
@@ -915,21 +989,24 @@ describe('ChatGPT Responses request conversion', () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
       fetch: eventFetch(completedTextEvents('ok'), (_request, body) => captured.push(body)),
     })
-    await collect(adapter, options({
-      tools: [],
-      toolHistory: { tools: [], updates: [] },
-      messages: [
-        createSystemMessage('s'),
-        createAssistantMessage({
-          source: { provider: 'chatgpt', model: officialModel.id },
-          content: [
-            { type: 'tool-call', id: 'call-9' as never, name: 'lookup', arguments: '{"id":1}' },
-            { type: 'tool-removal', toolName: 'gone' },
-          ] as never,
-        }),
-        { role: 'user', content: [] },
-      ],
-    }))
+    await collect(
+      adapter,
+      options({
+        tools: [],
+        toolHistory: { tools: [], updates: [] },
+        messages: [
+          createSystemMessage('s'),
+          createAssistantMessage({
+            source: { provider: 'chatgpt', model: officialModel.id },
+            content: [
+              { type: 'tool-call', id: 'call-9' as never, name: 'lookup', arguments: '{"id":1}' },
+              { type: 'tool-removal', toolName: 'gone' },
+            ] as never,
+          }),
+          { role: 'user', content: [] },
+        ],
+      }),
+    )
     const input = captured[0]?.input as readonly Record<string, unknown>[]
     expect(input).toContainEqual({ type: 'function_call', call_id: 'call-9', name: 'lookup', arguments: '{"id":1}' })
     expect(input).toContainEqual({ type: 'message', role: 'user', content: '' })
@@ -941,16 +1018,29 @@ describe('ChatGPT Responses request conversion', () => {
       fetch: eventFetch(completedTextEvents('ok'), (_request, body) => captured.push(body)),
     })
     const attachment = { attachmentId: AttachmentId('file-1'), name: 'note.txt', bytes: 10 }
-    const image = { attachmentId: AttachmentId('image-2'), mediaType: 'image/png' as never, bytes: 4, width: 1, height: 1, name: 'shot.png' }
-    await collect(adapter, options({
-      messages: [
-        createSystemMessage('s'),
-        { role: 'user', content: [
-          { type: 'file', attachment },
-          { type: 'image', attachment: image, offloaded: true },
-        ] },
-      ],
-    }))
+    const image = {
+      attachmentId: AttachmentId('image-2'),
+      mediaType: 'image/png' as never,
+      bytes: 4,
+      width: 1,
+      height: 1,
+      name: 'shot.png',
+    }
+    await collect(
+      adapter,
+      options({
+        messages: [
+          createSystemMessage('s'),
+          {
+            role: 'user',
+            content: [
+              { type: 'file', attachment },
+              { type: 'image', attachment: image, offloaded: true },
+            ],
+          },
+        ],
+      }),
+    )
     const serialized = JSON.stringify(captured[0]?.input)
     expect(serialized).toContain('note.txt')
     expect(serialized).toContain('image omitted because this model accepts text only')
@@ -965,8 +1055,9 @@ describe('ChatGPT Responses request conversion', () => {
 
   it('rejects a reasoning effort the model does not declare or Responses cannot encode', async () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(completedTextEvents('ok')) })
-    await expect(collect(adapter, options({ reasoningEffort: 'none' as never })))
-      .rejects.toMatchObject({ code: 'UNSUPPORTED_REASONING_EFFORT' })
+    await expect(collect(adapter, options({ reasoningEffort: 'none' as never }))).rejects.toMatchObject({
+      code: 'UNSUPPORTED_REASONING_EFFORT',
+    })
   })
 
   it('rejects a prepared call with an empty token, invalid timeout, or mismatched model', async () => {
@@ -985,12 +1076,21 @@ describe('ChatGPT Responses request conversion', () => {
       prepareCall: async () => ({ ...base, accessToken: '' }),
       readImage: async (ref: never) => ({ ref, data: Uint8Array.from([1]) }),
     }
-    await expect(new ChatGptResponsesAdapter(host).prepareCall('chatgpt', officialModel.id))
-      .rejects.toMatchObject({ code: 'INVALID_CREDENTIAL' })
-    await expect(new ChatGptResponsesAdapter({ ...host, prepareCall: async () => ({ ...base, requestTimeoutMs: 0 }) })
-      .prepareCall('chatgpt', officialModel.id)).rejects.toMatchObject({ code: 'INVALID_REQUEST_TIMEOUT' })
-    await expect(new ChatGptResponsesAdapter({ ...host, prepareCall: async () => ({ ...base, model: { ...model, id: 'gpt-other' } as never }) })
-      .prepareCall('chatgpt', officialModel.id)).rejects.toMatchObject({ code: 'MODEL_ID_MISMATCH' })
+    await expect(new ChatGptResponsesAdapter(host).prepareCall('chatgpt', officialModel.id)).rejects.toMatchObject({
+      code: 'INVALID_CREDENTIAL',
+    })
+    await expect(
+      new ChatGptResponsesAdapter({ ...host, prepareCall: async () => ({ ...base, requestTimeoutMs: 0 }) }).prepareCall(
+        'chatgpt',
+        officialModel.id,
+      ),
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST_TIMEOUT' })
+    await expect(
+      new ChatGptResponsesAdapter({
+        ...host,
+        prepareCall: async () => ({ ...base, model: { ...model, id: 'gpt-other' } as never }),
+      }).prepareCall('chatgpt', officialModel.id),
+    ).rejects.toMatchObject({ code: 'MODEL_ID_MISMATCH' })
   })
 })
 
@@ -1002,7 +1102,9 @@ function refusalItem(text: string): unknown {
 }
 function reasoningItem(summary: string, content: string): unknown {
   return {
-    id: 'rs_b', type: 'reasoning', status: 'completed',
+    id: 'rs_b',
+    type: 'reasoning',
+    status: 'completed',
     summary: [{ type: 'summary_text', text: summary }],
     content: [{ type: 'reasoning_text', text: content }],
     encrypted_content: 'encrypted',
@@ -1012,7 +1114,12 @@ function reasoningItem(summary: string, content: string): unknown {
 describe('ChatGPT Responses stream branches', () => {
   it('streams a refusal as text and replays the completed item', async () => {
     const events = [
-      { type: 'response.output_item.added', output_index: 0, sequence_number: 1, item: { id: 'msg_r', type: 'message', role: 'assistant', status: 'in_progress', content: [] } },
+      {
+        type: 'response.output_item.added',
+        output_index: 0,
+        sequence_number: 1,
+        item: { id: 'msg_r', type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+      },
       { type: 'response.refusal.delta', item_id: 'msg_r', output_index: 0, content_index: 0, sequence_number: 2, delta: 'I cannot.' },
       { type: 'response.output_item.done', output_index: 0, sequence_number: 3, item: refusalItem('I cannot.') },
       completedEvent([refusalItem('I cannot.')]),
@@ -1024,8 +1131,20 @@ describe('ChatGPT Responses stream branches', () => {
 
   it('streams reasoning summary and reasoning content deltas', async () => {
     const events = [
-      { type: 'response.output_item.added', output_index: 0, sequence_number: 1, item: { id: 'rs_b', type: 'reasoning', status: 'in_progress', summary: [] } },
-      { type: 'response.reasoning_summary_text.delta', item_id: 'rs_b', output_index: 0, summary_index: 0, sequence_number: 2, delta: 'Plan.' },
+      {
+        type: 'response.output_item.added',
+        output_index: 0,
+        sequence_number: 1,
+        item: { id: 'rs_b', type: 'reasoning', status: 'in_progress', summary: [] },
+      },
+      {
+        type: 'response.reasoning_summary_text.delta',
+        item_id: 'rs_b',
+        output_index: 0,
+        summary_index: 0,
+        sequence_number: 2,
+        delta: 'Plan.',
+      },
       { type: 'response.reasoning_text.delta', item_id: 'rs_b', output_index: 0, content_index: 0, sequence_number: 3, delta: 'Think.' },
       { type: 'response.output_item.done', output_index: 0, sequence_number: 4, item: reasoningItem('Plan.', 'Think.') },
       completedEvent([reasoningItem('Plan.', 'Think.')]),
@@ -1045,60 +1164,96 @@ describe('ChatGPT Responses stream branches', () => {
   })
 
   it('maps failed and incomplete terminal events to provider errors', async () => {
-    const failed = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([{ type: 'response.failed', sequence_number: 1, response: { id: 'r', status: 'failed', error: { code: 'server_error', message: 'upstream' } } }]),
-    }), options()).catch((error: unknown) => error)
+    const failed = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          {
+            type: 'response.failed',
+            sequence_number: 1,
+            response: { id: 'r', status: 'failed', error: { code: 'server_error', message: 'upstream' } },
+          },
+        ]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(failed).toMatchObject({ code: 'OPENAI_RESPONSES_ERROR' })
-    const incomplete = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([{ type: 'response.incomplete', sequence_number: 1, response: { id: 'r', status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } } }]),
-    }), options()).catch((error: unknown) => error)
+    const incomplete = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          {
+            type: 'response.incomplete',
+            sequence_number: 1,
+            response: { id: 'r', status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' } },
+          },
+        ]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(incomplete).toMatchObject({ code: 'INCOMPLETE_RESPONSE' })
   })
 
   it('rejects a completed event with a non-completed status or empty output', async () => {
-    const wrongStatus = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([completedEvent([messageItem('x')], { status: 'failed' })]),
-    }), options()).catch((error: unknown) => error)
+    const wrongStatus = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([completedEvent([messageItem('x')], { status: 'failed' })]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(wrongStatus).toMatchObject({ code: 'MALFORMED_RESPONSE' })
-    const empty = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([completedEvent([])]),
-    }), options()).catch((error: unknown) => error)
+    const empty = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([completedEvent([])]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(empty).toMatchObject({ code: 'EMPTY_RESPONSE' })
   })
 
   it('rejects tool arguments before their function item and a completed item without an index', async () => {
-    const beforeItem = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.function_call_arguments.delta', item_id: 'call_x', output_index: 0, sequence_number: 1, delta: '{}' },
-        completedEvent([messageItem('x')]),
-      ]),
-    }), options()).catch((error: unknown) => error)
+    const beforeItem = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.function_call_arguments.delta', item_id: 'call_x', output_index: 0, sequence_number: 1, delta: '{}' },
+          completedEvent([messageItem('x')]),
+        ]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(beforeItem).toMatchObject({ code: 'MALFORMED_RESPONSE' })
-    const missingIndex = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_item.done', sequence_number: 1, item: messageItem('x') },
-        completedEvent([messageItem('x')]),
-      ]),
-    }), options()).catch((error: unknown) => error)
+    const missingIndex = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.output_item.done', sequence_number: 1, item: messageItem('x') },
+          completedEvent([messageItem('x')]),
+        ]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(missingIndex).toMatchObject({ code: 'MALFORMED_RESPONSE' })
   })
 
   it('rejects a non-replayable completed item and a terminal output mismatch', async () => {
     const unknownItem = { id: 'weird', type: 'future_private_item' }
-    const unsupported = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: messageItem('Hello.') },
-        { type: 'response.output_item.done', output_index: 1, sequence_number: 2, item: unknownItem },
-        completedEvent([messageItem('Hello.'), unknownItem]),
-      ]),
-    }), options()).catch((error: unknown) => error)
+    const unsupported = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: messageItem('Hello.') },
+          { type: 'response.output_item.done', output_index: 1, sequence_number: 2, item: unknownItem },
+          completedEvent([messageItem('Hello.'), unknownItem]),
+        ]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(unsupported).toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
-    const mismatch = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: messageItem('Hello.') },
-        completedEvent([reasoningItem('Plan.', 'Think.')]),
-      ]),
-    }), options()).catch((error: unknown) => error)
+    const mismatch = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: messageItem('Hello.') },
+          completedEvent([reasoningItem('Plan.', 'Think.')]),
+        ]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(mismatch).toMatchObject({ code: 'MALFORMED_RESPONSE' })
   })
 })
@@ -1118,14 +1273,27 @@ describe('ChatGPT Responses preparation and late events', () => {
     const controller = new AbortController()
     const encoder = new TextEncoder()
     const adapter = new ChatGptResponsesAdapter(hostFor(controller.signal), {
-      fetch: async () => new Response(new ReadableStream<Uint8Array>({
-        start(streamController) {
-          streamController.enqueue(encoder.encode(`data: ${JSON.stringify({
-            type: 'response.output_text.delta', item_id: 'i', output_index: 0, content_index: 0, sequence_number: 1, delta: 'x',
-          })}\n\n`))
-          controller.abort(new Error('account signed out'))
-        },
-      }), { status: 200, headers: { 'content-type': 'text/event-stream', 'x-request-id': 'req_abort' } }),
+      fetch: async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(streamController) {
+              streamController.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: 'response.output_text.delta',
+                    item_id: 'i',
+                    output_index: 0,
+                    content_index: 0,
+                    sequence_number: 1,
+                    delta: 'x',
+                  })}\n\n`,
+                ),
+              )
+              controller.abort(new Error('account signed out'))
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'text/event-stream', 'x-request-id': 'req_abort' } },
+        ),
     })
     await expect(collect(adapter, options())).rejects.toMatchObject({
       code: 'ABORTED',
@@ -1135,7 +1303,12 @@ describe('ChatGPT Responses preparation and late events', () => {
 
   it('ignores late deltas for closed blocks and starts blocks that only a completed item mentions', async () => {
     const events = [
-      { type: 'response.output_item.added', output_index: 0, sequence_number: 1, item: { id: 'msg_late', type: 'message', role: 'assistant', status: 'in_progress', content: [] } },
+      {
+        type: 'response.output_item.added',
+        output_index: 0,
+        sequence_number: 1,
+        item: { id: 'msg_late', type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+      },
       { type: 'response.output_item.done', output_index: 0, sequence_number: 2, item: messageItem('Done.') },
       { type: 'response.output_text.delta', item_id: 'msg_late', output_index: 0, content_index: 0, sequence_number: 3, delta: 'late' },
       completedEvent([messageItem('Done.')]),
@@ -1146,53 +1319,77 @@ describe('ChatGPT Responses preparation and late events', () => {
 
   it('rejects an unsupported content block and an unknown event type still completes', async () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(completedTextEvents('ok')) })
-    await expect(collect(adapter, options({
-      messages: [
-        createSystemMessage('s'),
-        createToolResultMessage({ callId: 'call-1' as never, content: [{ type: 'tool-addition', toolName: 'x' }], isError: false }),
-      ],
-    }))).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
-    const unknownEvents = [
-      { type: 'response.some_future_event', sequence_number: 1 },
-      ...completedTextEvents('ok'),
-    ]
-    await expect(collect(new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(unknownEvents) }), options()))
-      .resolves.toContainEqual({ type: 'block-end', index: 0, block: { type: 'text', text: 'ok' } })
+    await expect(
+      collect(
+        adapter,
+        options({
+          messages: [
+            createSystemMessage('s'),
+            createToolResultMessage({ callId: 'call-1' as never, content: [{ type: 'tool-addition', toolName: 'x' }], isError: false }),
+          ],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
+    const unknownEvents = [{ type: 'response.some_future_event', sequence_number: 1 }, ...completedTextEvents('ok')]
+    await expect(collect(new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(unknownEvents) }), options())).resolves.toContainEqual({
+      type: 'block-end',
+      index: 0,
+      block: { type: 'text', text: 'ok' },
+    })
   })
 
   it('fails on an error event and on a terminal output length mismatch', async () => {
-    const errorEvent = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([{ type: 'error', code: 'invalid_request_error', message: 'bad request' }]),
-    }), options()).catch((error: unknown) => error)
+    const errorEvent = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([{ type: 'error', code: 'invalid_request_error', message: 'bad request' }]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(errorEvent).toMatchObject({ code: 'OPENAI_RESPONSES_ERROR' })
-    const lengthMismatch = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: messageItem('Hello.') },
-        completedEvent([messageItem('Hello.'), messageItem('Extra.')]),
-      ]),
-    }), options()).catch((error: unknown) => error)
+    const lengthMismatch = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: messageItem('Hello.') },
+          completedEvent([messageItem('Hello.'), messageItem('Extra.')]),
+        ]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(lengthMismatch).toMatchObject({ code: 'MALFORMED_RESPONSE' })
   })
 
   it('treats an item without a usable type name as unknown and refuses it for replay', async () => {
     const unknownItem = { id: 'weird' }
-    const result = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: messageItem('Hello.') },
-        { type: 'response.output_item.done', output_index: 1, sequence_number: 2, item: unknownItem },
-        completedEvent([messageItem('Hello.'), unknownItem]),
-      ]),
-    }), options()).catch((error: unknown) => error)
+    const result = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: messageItem('Hello.') },
+          { type: 'response.output_item.done', output_index: 1, sequence_number: 2, item: unknownItem },
+          completedEvent([messageItem('Hello.'), unknownItem]),
+        ]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(result).toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
   })
 
   it('rejects a response whose completed output has no replayable items', async () => {
-    const result = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_text.delta', item_id: 'msg_none', output_index: 0, content_index: 0, sequence_number: 1, delta: 'Hello.' },
-        completedEvent([]),
-      ]),
-    }), options()).catch((error: unknown) => error)
+    const result = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          {
+            type: 'response.output_text.delta',
+            item_id: 'msg_none',
+            output_index: 0,
+            content_index: 0,
+            sequence_number: 1,
+            delta: 'Hello.',
+          },
+          completedEvent([]),
+        ]),
+      }),
+      options(),
+    ).catch((error: unknown) => error)
     expect(result).toMatchObject({ code: 'UNSUPPORTED_CONTENT' })
   })
 })
@@ -1204,79 +1401,111 @@ describe('ChatGPT Responses replay and usage validation', () => {
     ['unknown item type', [{ type: 'mystery' }]],
     ['configuration update without id', [{ type: 'configuration_update' }]],
     ['configuration update with non-object reasoning', [{ type: 'configuration_update', id: 'c', reasoning: 5 }]],
-    ['message refusal with a non-string body', [{ type: 'message', id: 'm', role: 'assistant', content: [{ type: 'refusal', refusal: 5 }] }]],
+    [
+      'message refusal with a non-string body',
+      [{ type: 'message', id: 'm', role: 'assistant', content: [{ type: 'refusal', refusal: 5 }] }],
+    ],
   ])('drops replay state with a %s', async (_label, output) => {
     const captured: Record<string, unknown>[] = []
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
       fetch: eventFetch(completedTextEvents('ok'), (_request, body) => captured.push(body)),
     })
-    const replayState = { response: { adapter: 'openai-responses-v1', provider: 'chatgpt', accountId: 'account-test', model: officialModel.id, output } }
-    await collect(adapter, options({
-      messages: [
-        createSystemMessage('s'),
-        createAssistantMessage({ content: [{ type: 'text', text: 'old' }], source: { provider: 'chatgpt', model: officialModel.id, replayState } }),
-        { role: 'user', content: [{ type: 'text', text: 'next' }] },
-      ],
-    }))
+    const replayState = {
+      response: { adapter: 'openai-responses-v1', provider: 'chatgpt', accountId: 'account-test', model: officialModel.id, output },
+    }
+    await collect(
+      adapter,
+      options({
+        messages: [
+          createSystemMessage('s'),
+          createAssistantMessage({
+            content: [{ type: 'text', text: 'old' }],
+            source: { provider: 'chatgpt', model: officialModel.id, replayState },
+          }),
+          { role: 'user', content: [{ type: 'text', text: 'next' }] },
+        ],
+      }),
+    )
     expect(JSON.stringify(captured[0]?.input)).not.toContain('opaque')
   })
 
   it('omits usage when counters are incomplete or cached tokens exceed the input', async () => {
-    const partial = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_text.delta', item_id: 'msg_u', output_index: 0, content_index: 0, sequence_number: 1, delta: 'x' },
-        completedEvent([messageItem('x')], {
-          usage: { input_tokens: 5, output_tokens: undefined, input_tokens_details: null, output_tokens_details: null, total_tokens: 5 },
-        }),
-      ]),
-    }), options())
+    const partial = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.output_text.delta', item_id: 'msg_u', output_index: 0, content_index: 0, sequence_number: 1, delta: 'x' },
+          completedEvent([messageItem('x')], {
+            usage: { input_tokens: 5, output_tokens: undefined, input_tokens_details: null, output_tokens_details: null, total_tokens: 5 },
+          }),
+        ]),
+      }),
+      options(),
+    )
     expect(partial.some(chunk => chunk.type === 'usage')).toBe(false)
-    const inconsistent = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_text.delta', item_id: 'msg_u', output_index: 0, content_index: 0, sequence_number: 1, delta: 'x' },
-        completedEvent([messageItem('x')], {
-          usage: {
-            input_tokens: 5, output_tokens: 2, total_tokens: 7,
-            input_tokens_details: { cached_tokens: 4, cache_write_tokens: 4 },
-            output_tokens_details: { reasoning_tokens: 0 },
-          },
-        }),
-      ]),
-    }), options())
+    const inconsistent = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.output_text.delta', item_id: 'msg_u', output_index: 0, content_index: 0, sequence_number: 1, delta: 'x' },
+          completedEvent([messageItem('x')], {
+            usage: {
+              input_tokens: 5,
+              output_tokens: 2,
+              total_tokens: 7,
+              input_tokens_details: { cached_tokens: 4, cache_write_tokens: 4 },
+              output_tokens_details: { reasoning_tokens: 0 },
+            },
+          }),
+        ]),
+      }),
+      options(),
+    )
     expect(inconsistent.some(chunk => chunk.type === 'usage')).toBe(false)
   })
 })
 
 describe('ChatGPT Responses HTTP error mapping', () => {
   function errorFetch(status: number, body: unknown, headers: Record<string, string> = {}): typeof fetch {
-    return async () => new Response(JSON.stringify(body), {
-      status, headers: { 'content-type': 'application/json', ...headers },
-    })
+    return async () =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { 'content-type': 'application/json', ...headers },
+      })
   }
 
   it.each([
     [401, { error: { message: 'no', code: 'invalid_api_key' } }, 'AUTH'],
     [429, { error: { message: 'slow down', code: 'rate_limit_exceeded' } }, 'RATE_LIMIT'],
-    [400, { error: { message: "This model's maximum context length is 100 tokens", code: 'invalid_request_error' } }, 'CONTEXT_WINDOW_EXCEEDED'],
+    [
+      400,
+      { error: { message: "This model's maximum context length is 100 tokens", code: 'invalid_request_error' } },
+      'CONTEXT_WINDOW_EXCEEDED',
+    ],
     [400, { error: { message: 'bad', code: 'invalid_request_error' } }, 'INVALID_REQUEST'],
     [503, { error: { message: 'down', code: 'server_error' } }, 'SERVER'],
   ])('maps HTTP %s to %s', async (status, body, code) => {
-    const error = await collect(new ChatGptResponsesAdapter(hostFor(), { fetch: errorFetch(status, body) }), options())
-      .catch((value: unknown) => value)
+    const error = await collect(new ChatGptResponsesAdapter(hostFor(), { fetch: errorFetch(status, body) }), options()).catch(
+      (value: unknown) => value,
+    )
     expect(error).toMatchObject({ code })
   })
 
   it('keeps a provider retry hint and a string error detail', async () => {
-    const numeric = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: errorFetch(429, { error: { message: 'slow', code: 'rate_limit_exceeded' } }, { 'retry-after': '2' }),
-    }), options()).catch((value: unknown) => value)
+    const numeric = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: errorFetch(429, { error: { message: 'slow', code: 'rate_limit_exceeded' } }, { 'retry-after': '2' }),
+      }),
+      options(),
+    ).catch((value: unknown) => value)
     expect(numeric).toMatchObject({ code: 'RATE_LIMIT', failure: { providerRetryAfterMs: 2_000 } })
   })
 })
 
 describe('ChatGPT Responses late and completed-only items', () => {
   it('rejects a model-declared reasoning effort that Responses cannot encode', async () => {
-    const ultra = { ...toOpenAiResolvedModelInfo(provider, officialModel), reasoning: { efforts: [{ id: ReasoningEffortId('ultra'), name: 'Ultra' }], defaultEffort: ReasoningEffortId('ultra') } }
+    const ultra = {
+      ...toOpenAiResolvedModelInfo(provider, officialModel),
+      reasoning: { efforts: [{ id: ReasoningEffortId('ultra'), name: 'Ultra' }], defaultEffort: ReasoningEffortId('ultra') },
+    }
     const base = {
       accountId: 'account-test' as ChatGptAccountId,
       accessToken: 'token',
@@ -1290,44 +1519,107 @@ describe('ChatGPT Responses late and completed-only items', () => {
       prepareCall: async () => ({ ...base, model: ultra }),
     }
     const adapter = new ChatGptResponsesAdapter(host, { fetch: eventFetch(completedTextEvents('ok')) })
-    await expect(collect(adapter, options({ model: officialModel.id, reasoningEffort: 'ultra' as never })))
-      .rejects.toMatchObject({ code: 'UNSUPPORTED_REASONING_EFFORT' })
+    await expect(collect(adapter, options({ model: officialModel.id, reasoningEffort: 'ultra' as never }))).rejects.toMatchObject({
+      code: 'UNSUPPORTED_REASONING_EFFORT',
+    })
   })
 
   it('ignores deltas that arrive after their block closed', async () => {
     const events = [
-      { type: 'response.output_item.added', output_index: 0, sequence_number: 1, item: { id: 'msg_b', type: 'message', role: 'assistant', status: 'in_progress', content: [] } },
+      {
+        type: 'response.output_item.added',
+        output_index: 0,
+        sequence_number: 1,
+        item: { id: 'msg_b', type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+      },
       { type: 'response.output_text.delta', item_id: 'msg_b', output_index: 0, content_index: 0, sequence_number: 2, delta: 'A' },
       { type: 'response.output_item.done', output_index: 0, sequence_number: 3, item: messageItem('A') },
       { type: 'response.output_text.delta', item_id: 'msg_b', output_index: 0, content_index: 0, sequence_number: 4, delta: 'late' },
       { type: 'response.refusal.delta', item_id: 'msg_r', output_index: 1, content_index: 0, sequence_number: 5, delta: 'No.' },
       { type: 'response.output_item.done', output_index: 1, sequence_number: 6, item: refusalItem('No.') },
       { type: 'response.refusal.delta', item_id: 'msg_r', output_index: 1, content_index: 0, sequence_number: 7, delta: 'late' },
-      { type: 'response.reasoning_summary_text.delta', item_id: 'rs_b', output_index: 2, summary_index: 0, sequence_number: 8, delta: 'Plan.' },
+      {
+        type: 'response.reasoning_summary_text.delta',
+        item_id: 'rs_b',
+        output_index: 2,
+        summary_index: 0,
+        sequence_number: 8,
+        delta: 'Plan.',
+      },
       { type: 'response.reasoning_text.delta', item_id: 'rs_b', output_index: 2, content_index: 0, sequence_number: 9, delta: 'Think.' },
       { type: 'response.output_item.done', output_index: 2, sequence_number: 10, item: reasoningItem('Plan.', 'Think.') },
-      { type: 'response.reasoning_summary_text.delta', item_id: 'rs_b', output_index: 2, summary_index: 0, sequence_number: 11, delta: 'late' },
+      {
+        type: 'response.reasoning_summary_text.delta',
+        item_id: 'rs_b',
+        output_index: 2,
+        summary_index: 0,
+        sequence_number: 11,
+        delta: 'late',
+      },
       { type: 'response.reasoning_text.delta', item_id: 'rs_b', output_index: 2, content_index: 0, sequence_number: 12, delta: 'late' },
       completedEvent([messageItem('A'), refusalItem('No.'), reasoningItem('Plan.', 'Think.')]),
     ]
     const chunks = await collect(new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(events) }), options())
     expect(chunks).toContainEqual({ type: 'block-end', index: 0, block: { type: 'text', text: 'A' } })
     expect(chunks).toContainEqual({ type: 'block-end', index: 1, block: { type: 'text', text: 'No.' } })
-    expect(chunks.some(chunk => chunk.type === 'block-end'
-      && (chunk.block.type === 'reasoning' ? chunk.block.text.includes('late') : false))).toBe(false)
+    expect(
+      chunks.some(chunk => chunk.type === 'block-end' && (chunk.block.type === 'reasoning' ? chunk.block.text.includes('late') : false)),
+    ).toBe(false)
   })
 
   it('starts refusal and reasoning blocks that only a completed item mentions', async () => {
     const events = [
-      { type: 'response.output_item.added', output_index: 0, sequence_number: 1, item: { id: 'msg_r2', type: 'message', role: 'assistant', status: 'in_progress', content: [] } },
+      {
+        type: 'response.output_item.added',
+        output_index: 0,
+        sequence_number: 1,
+        item: { id: 'msg_r2', type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+      },
       { type: 'response.output_item.done', output_index: 0, sequence_number: 2, item: refusalItem('No.') },
-      { type: 'response.output_item.added', output_index: 1, sequence_number: 3, item: { id: 'rs_2', type: 'reasoning', status: 'in_progress', summary: [] } },
+      {
+        type: 'response.output_item.added',
+        output_index: 1,
+        sequence_number: 3,
+        item: { id: 'rs_2', type: 'reasoning', status: 'in_progress', summary: [] },
+      },
       { type: 'response.output_item.done', output_index: 1, sequence_number: 4, item: reasoningItem('Plan.', 'Think.') },
       completedEvent([refusalItem('No.'), reasoningItem('Plan.', 'Think.')]),
     ]
     const chunks = await collect(new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(events) }), options())
     expect(chunks).toContainEqual({ type: 'block-end', index: 0, block: { type: 'text', text: 'No.' } })
     expect(chunks.some(chunk => chunk.type === 'block-end' && chunk.block.type === 'reasoning')).toBe(true)
+  })
+
+  it('retains opaque replay when an alias resolves to a provider snapshot model', async () => {
+    const captured: Record<string, unknown>[] = []
+    const output = [{ type: 'reasoning', id: 'rs_alias', encrypted_content: 'opaque-alias', summary: [] }, messageItem('old')]
+    const adapter = new ChatGptResponsesAdapter(hostFor(), {
+      fetch: eventFetch(
+        [
+          { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: output[0] },
+          { type: 'response.output_item.done', output_index: 1, sequence_number: 2, item: output[1] },
+          completedEvent(output, { model: `${officialModel.id}-2026-10-01` }),
+        ],
+        (_request, body) => captured.push(body),
+      ),
+    })
+    const first = await collect(adapter, options())
+    const finish = first.find(chunk => chunk.type === 'finish')
+    if (finish?.type !== 'finish') throw new Error('missing finish')
+    expect(finish.replayState).toMatchObject({ response: { model: officialModel.id, responseModel: `${officialModel.id}-2026-10-01` } })
+    await collect(
+      adapter,
+      options({
+        messages: [
+          createAssistantMessage({
+            content: [{ type: 'text', text: 'old' }],
+            source: { provider: 'chatgpt', model: officialModel.id, replayState: finish.replayState },
+          }),
+          { role: 'user', content: [{ type: 'text', text: 'next' }] },
+        ],
+      }),
+    )
+    expect(JSON.stringify(captured[1]?.input)).toContain('opaque-alias')
   })
 
   it('replays a valid stored response instead of resending the message', async () => {
@@ -1349,34 +1641,43 @@ describe('ChatGPT Responses late and completed-only items', () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
       fetch: eventFetch(completedTextEvents('ok'), (_request, body) => captured.push(body)),
     })
-    await collect(adapter, options({
-      messages: [
-        createSystemMessage('s'),
-        createAssistantMessage({
-          source: { provider: 'chatgpt', model: officialModel.id, replayState },
-          content: [{ type: 'text', text: 'old' }],
-        }),
-        { role: 'user', content: [{ type: 'text', text: 'next' }] },
-      ],
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [
+          createSystemMessage('s'),
+          createAssistantMessage({
+            source: { provider: 'chatgpt', model: officialModel.id, replayState },
+            content: [{ type: 'text', text: 'old' }],
+          }),
+          { role: 'user', content: [{ type: 'text', text: 'next' }] },
+        ],
+      }),
+    )
     expect(JSON.stringify(captured[0]?.input)).toContain('opaque-replay')
   })
 })
 
 describe('ChatGPT Responses transport failures', () => {
   it('normalizes a thrown transport error', async () => {
-    const error = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: async () => { throw new Error('network down') },
-    }), options()).catch((value: unknown) => value)
+    const error = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: async () => {
+          throw new Error('network down')
+        },
+      }),
+      options(),
+    ).catch((value: unknown) => value)
     expect(error).toMatchObject({ code: 'OPENAI_RESPONSES_ERROR' })
   })
 
   it('reports a string-valued failure detail from the stream', async () => {
-    const error = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.failed', sequence_number: 1, response: { id: 'r', status: 'failed', error: 'oops' } },
-      ]),
-    }), options()).catch((value: unknown) => value)
+    const error = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([{ type: 'response.failed', sequence_number: 1, response: { id: 'r', status: 'failed', error: 'oops' } }]),
+      }),
+      options(),
+    ).catch((value: unknown) => value)
     expect(error).toMatchObject({ code: 'OPENAI_RESPONSES_ERROR', message: 'oops' })
   })
 })
@@ -1386,36 +1687,50 @@ describe('ChatGPT Responses mid-iteration cancellation', () => {
     const controller = new AbortController()
     const encoder = new TextEncoder()
     const event = {
-      type: 'response.output_text.delta', item_id: 'msg_abort', output_index: 0, content_index: 0, sequence_number: 1, delta: 'x',
+      type: 'response.output_text.delta',
+      item_id: 'msg_abort',
+      output_index: 0,
+      content_index: 0,
+      sequence_number: 1,
+      delta: 'x',
     }
     const adapter = new ChatGptResponsesAdapter(hostFor(controller.signal), {
       fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
         const signal = init?.signal
-        return new Response(new ReadableStream<Uint8Array>({
-          start(stream) {
-            stream.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
-          },
-          pull(stream) {
-            return new Promise<void>((_resolve, reject) => {
-              if (signal?.aborted === true) {
-                stream.error(signal.reason)
-                reject(new Error('aborted'))
-                return
-              }
-              signal?.addEventListener('abort', () => {
-                stream.error(signal.reason)
-                reject(new Error('aborted'))
-              }, { once: true })
-            })
-          },
-        }), { status: 200, headers: { 'content-type': 'text/event-stream' } })
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(stream) {
+              stream.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+            },
+            pull(stream) {
+              return new Promise<void>((_resolve, reject) => {
+                if (signal?.aborted === true) {
+                  stream.error(signal.reason)
+                  reject(new Error('aborted'))
+                  return
+                }
+                signal?.addEventListener(
+                  'abort',
+                  () => {
+                    stream.error(signal.reason)
+                    reject(new Error('aborted'))
+                  },
+                  { once: true },
+                )
+              })
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'text/event-stream' } },
+        )
       },
     })
-    await expect((async () => {
-      for await (const chunk of adapter.stream(options())) {
-        if (chunk.type === 'text-delta') controller.abort(new Error('account signed out'))
-      }
-    })()).rejects.toMatchObject({ code: 'ABORTED' })
+    await expect(
+      (async () => {
+        for await (const chunk of adapter.stream(options())) {
+          if (chunk.type === 'text-delta') controller.abort(new Error('account signed out'))
+        }
+      })(),
+    ).rejects.toMatchObject({ code: 'ABORTED' })
   })
 })
 
@@ -1426,8 +1741,7 @@ describe('ChatGPT Responses reasoning and replay edge cases', () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(controller.signal), {
       fetch: eventFetch(completedTextEvents('ok')),
     })
-    await expect(collect(adapter, options({ signal: controller.signal })))
-      .rejects.toMatchObject({ code: 'ABORTED' })
+    await expect(collect(adapter, options({ signal: controller.signal }))).rejects.toMatchObject({ code: 'ABORTED' })
   })
 
   it('encodes a supported reasoning effort into the request', async () => {
@@ -1443,24 +1757,28 @@ describe('ChatGPT Responses reasoning and replay edge cases', () => {
     const captured: Record<string, unknown>[] = []
     const replayState = {
       response: {
-        adapter: 'openai-responses-v1', provider: 'chatgpt', accountId: 'account-test', model: officialModel.id,
-        output: [
-          { type: 'configuration_update', id: 5 },
-        ],
+        adapter: 'openai-responses-v1',
+        provider: 'chatgpt',
+        accountId: 'account-test',
+        model: officialModel.id,
+        output: [{ type: 'configuration_update', id: 5 }],
       },
     }
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
       fetch: eventFetch(completedTextEvents('ok'), (_request, body) => captured.push(body)),
     })
-    await collect(adapter, options({
-      messages: [
-        createSystemMessage('s'),
-        createAssistantMessage({
-          source: { provider: 'chatgpt', model: officialModel.id, replayState },
-          content: [{ type: 'text', text: 'old' }],
-        }),
-      ],
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [
+          createSystemMessage('s'),
+          createAssistantMessage({
+            source: { provider: 'chatgpt', model: officialModel.id, replayState },
+            content: [{ type: 'text', text: 'old' }],
+          }),
+        ],
+      }),
+    )
     expect(JSON.stringify(captured[0]?.input)).toContain('old')
   })
 
@@ -1468,38 +1786,49 @@ describe('ChatGPT Responses reasoning and replay edge cases', () => {
     const captured: Record<string, unknown>[] = []
     const replayState = {
       response: {
-        adapter: 'openai-responses-v1', provider: 'chatgpt', accountId: 'account-test', model: officialModel.id,
+        adapter: 'openai-responses-v1',
+        provider: 'chatgpt',
+        accountId: 'account-test',
+        model: officialModel.id,
         output: [{ type: 'message', id: 'msg_x', role: 'assistant', content: ['not-an-object'] }],
       },
     }
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
       fetch: eventFetch(completedTextEvents('ok'), (_request, body) => captured.push(body)),
     })
-    await collect(adapter, options({
-      messages: [
-        createSystemMessage('s'),
-        createAssistantMessage({
-          source: { provider: 'chatgpt', model: officialModel.id, replayState },
-          content: [{ type: 'text', text: 'old' }],
-        }),
-      ],
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [
+          createSystemMessage('s'),
+          createAssistantMessage({
+            source: { provider: 'chatgpt', model: officialModel.id, replayState },
+            content: [{ type: 'text', text: 'old' }],
+          }),
+        ],
+      }),
+    )
     expect(JSON.stringify(captured[0]?.input)).toContain('old')
   })
 
   it('omits usage when cached-token details are absent', async () => {
-    const chunks = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_text.delta', item_id: 'msg_c', output_index: 0, content_index: 0, sequence_number: 1, delta: 'x' },
-        completedEvent([messageItem('x')], {
-          usage: {
-            input_tokens: 5, output_tokens: 2, total_tokens: 7,
-            input_tokens_details: { cached_tokens: undefined, cache_write_tokens: undefined },
-            output_tokens_details: { reasoning_tokens: 0 },
-          },
-        }),
-      ]),
-    }), options())
+    const chunks = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.output_text.delta', item_id: 'msg_c', output_index: 0, content_index: 0, sequence_number: 1, delta: 'x' },
+          completedEvent([messageItem('x')], {
+            usage: {
+              input_tokens: 5,
+              output_tokens: 2,
+              total_tokens: 7,
+              input_tokens_details: { cached_tokens: undefined, cache_write_tokens: undefined },
+              output_tokens_details: { reasoning_tokens: 0 },
+            },
+          }),
+        ]),
+      }),
+      options(),
+    )
     expect(chunks.some(chunk => chunk.type === 'usage')).toBe(false)
   })
 })
@@ -1519,15 +1848,14 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
   it('omits instructions and tool declarations the caller does not supply', async () => {
     let capturedBody: Record<string, unknown> | undefined
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch(completedTextEvents('Bare.'), (_request, body) => { capturedBody = body }),
+      fetch: eventFetch(completedTextEvents('Bare.'), (_request, body) => {
+        capturedBody = body
+      }),
     })
     const bare: GenerateOptions = {
       provider,
       model: officialModel.id,
-      messages: [
-        createSystemMessage('History instruction.'),
-        { role: 'user', content: [{ type: 'text', text: 'Hello.' }] },
-      ],
+      messages: [createSystemMessage('History instruction.'), { role: 'user', content: [{ type: 'text', text: 'Hello.' }] }],
     }
 
     await collect(adapter, bare)
@@ -1543,20 +1871,29 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
       fetch: eventFetch(completedTextEvents('ok'), (_request, body) => captured.push(body)),
     })
-    await collect(adapter, options({
-      messages: [
-        createSystemMessage('s'),
-        createToolResultMessage({
-          callId: 'call-parts' as never,
-          content: [{ type: 'text', text: 'first' }, { type: 'text', text: 'second' }],
-          isError: false,
-        }),
-      ],
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [
+          createSystemMessage('s'),
+          createToolResultMessage({
+            callId: 'call-parts' as never,
+            content: [
+              { type: 'text', text: 'first' },
+              { type: 'text', text: 'second' },
+            ],
+            isError: false,
+          }),
+        ],
+      }),
+    )
     expect(captured[0]?.input).toContainEqual({
       type: 'function_call_output',
       call_id: 'call-parts',
-      output: [{ type: 'input_text', text: 'first' }, { type: 'input_text', text: 'second' }],
+      output: [
+        { type: 'input_text', text: 'first' },
+        { type: 'input_text', text: 'second' },
+      ],
     })
   })
 
@@ -1568,26 +1905,33 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
     })
     let capturedBody: Record<string, unknown> | undefined
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch(completedTextEvents('Done.'), (_request, body) => { capturedBody = body }),
+      fetch: eventFetch(completedTextEvents('Done.'), (_request, body) => {
+        capturedBody = body
+      }),
     })
 
-    await collect(adapter, options({
-      messages: [createSystemMessage('Context.'), update],
-      tools: [addedTool],
-      toolHistory: { tools: [], updates: [] },
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [createSystemMessage('Context.'), update],
+        tools: [addedTool],
+        toolHistory: { tools: [], updates: [] },
+      }),
+    )
 
     const input = capturedBody?.input as Array<Record<string, unknown>>
     expect(input).toContainEqual({
       type: 'additional_tools',
       role: 'developer',
-      tools: [{
-        type: 'function',
-        name: addedTool.name,
-        description: addedTool.description,
-        parameters: addedTool.parameters,
-        strict: false,
-      }],
+      tools: [
+        {
+          type: 'function',
+          name: addedTool.name,
+          description: addedTool.description,
+          parameters: addedTool.parameters,
+          strict: false,
+        },
+      ],
     })
   })
 
@@ -1598,14 +1942,19 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
     })
     let capturedBody: Record<string, unknown> | undefined
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch(completedTextEvents('Done.'), (_request, body) => { capturedBody = body }),
+      fetch: eventFetch(completedTextEvents('Done.'), (_request, body) => {
+        capturedBody = body
+      }),
     })
 
-    await collect(adapter, options({
-      messages: [createSystemMessage('Context.'), update],
-      tools: [],
-      toolHistory: { tools: [], updates: [] },
-    }))
+    await collect(
+      adapter,
+      options({
+        messages: [createSystemMessage('Context.'), update],
+        tools: [],
+        toolHistory: { tools: [], updates: [] },
+      }),
+    )
 
     const input = capturedBody?.input as Array<Record<string, unknown>>
     expect(input.some(item => item.type === 'additional_tools')).toBe(false)
@@ -1641,33 +1990,42 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
     const host: ChatGptAdapterHost = {
       ...base,
       prepareCall: async (requestedModel, signal) => ({
-        ...await base.prepareCall(requestedModel, signal),
+        ...(await base.prepareCall(requestedModel, signal)),
         model: withoutReasoning,
       }),
     }
     const adapter = new ChatGptResponsesAdapter(host, { fetch: eventFetch(completedTextEvents('ok')) })
 
-    await expect(collect(adapter, options({ reasoningEffort: 'low' as never })))
-      .rejects.toMatchObject({ code: 'UNSUPPORTED_REASONING_EFFORT' })
+    await expect(collect(adapter, options({ reasoningEffort: 'low' as never }))).rejects.toMatchObject({
+      code: 'UNSUPPORTED_REASONING_EFFORT',
+    })
   })
 
   it('reports the request id when a response stalls after its headers', async () => {
     const encoder = new TextEncoder()
-    const stalled = (): typeof fetch => async () => new Response(new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-          type: 'response.output_text.delta',
-          sequence_number: 0,
-          output_index: 0,
-          content_index: 0,
-          delta: 'partial',
-          item_id: 'item-idle-id',
-        })}\n\n`))
-      },
-    }), {
-      status: 200,
-      headers: { 'content-type': 'text/event-stream', 'x-request-id': 'req_idle' },
-    })
+    const stalled = (): typeof fetch => async () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: 'response.output_text.delta',
+                  sequence_number: 0,
+                  output_index: 0,
+                  content_index: 0,
+                  delta: 'partial',
+                  item_id: 'item-idle-id',
+                })}\n\n`,
+              ),
+            )
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream', 'x-request-id': 'req_idle' },
+        },
+      )
     const adapter = new ChatGptResponsesAdapter(hostFor(undefined, 'account-test' as ChatGptAccountId, 20), {
       fetch: stalled(),
     })
@@ -1690,41 +2048,59 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
   })
 
   it('maps failed and incomplete responses without provider details', async () => {
-    const failed = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.failed', sequence_number: 1, response: { id: 'r', status: 'failed', error: null, incomplete_details: null } },
-      ]),
-    }), options()).catch((value: unknown) => value)
+    const failed = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.failed', sequence_number: 1, response: { id: 'r', status: 'failed', error: null, incomplete_details: null } },
+        ]),
+      }),
+      options(),
+    ).catch((value: unknown) => value)
     expect(failed).toMatchObject({ code: 'OPENAI_RESPONSES_ERROR', message: 'OpenAI Responses stream failed' })
 
-    const incomplete = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.incomplete', sequence_number: 1, response: { id: 'r', status: 'incomplete', error: null, incomplete_details: null } },
-      ]),
-    }), options()).catch((value: unknown) => value)
+    const incomplete = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          {
+            type: 'response.incomplete',
+            sequence_number: 1,
+            response: { id: 'r', status: 'incomplete', error: null, incomplete_details: null },
+          },
+        ]),
+      }),
+      options(),
+    ).catch((value: unknown) => value)
     expect(incomplete).toMatchObject({ code: 'INCOMPLETE_RESPONSE', message: 'OpenAI Responses stream failed' })
   })
 
   it('reports a failure detail that is neither an object nor a string', async () => {
-    const error = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.failed', sequence_number: 1, response: { id: 'r', status: 'failed', error: 7 } },
-      ]),
-    }), options()).catch((value: unknown) => value)
+    const error = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([{ type: 'response.failed', sequence_number: 1, response: { id: 'r', status: 'failed', error: 7 } }]),
+      }),
+      options(),
+    ).catch((value: unknown) => value)
 
     expect(error).toMatchObject({ code: 'OPENAI_RESPONSES_ERROR', message: 'OpenAI Responses stream failed' })
   })
 
   it('omits the request id when a failed response carries no request id header', async () => {
-    const error = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        {
-          type: 'response.failed',
-          sequence_number: 1,
-          response: { id: 'r', status: 'failed', error: { code: 'server_error', message: 'upstream' } },
-        },
-      ], undefined, null),
-    }), options()).catch((value: unknown) => value)
+    const error = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch(
+          [
+            {
+              type: 'response.failed',
+              sequence_number: 1,
+              response: { id: 'r', status: 'failed', error: { code: 'server_error', message: 'upstream' } },
+            },
+          ],
+          undefined,
+          null,
+        ),
+      }),
+      options(),
+    ).catch((value: unknown) => value)
 
     expect(error).toMatchObject({ code: 'OPENAI_RESPONSES_ERROR' })
     expect(error).not.toHaveProperty('failure.requestId')
@@ -1732,10 +2108,11 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
 
   it('ignores a retry hint that is neither numeric nor a date', async () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: async () => new Response(JSON.stringify({ error: { message: 'slow down', code: 'rate_limit_exceeded' } }), {
-        status: 429,
-        headers: { 'content-type': 'application/json', 'retry-after': 'soon' },
-      }),
+      fetch: async () =>
+        new Response(JSON.stringify({ error: { message: 'slow down', code: 'rate_limit_exceeded' } }), {
+          status: 429,
+          headers: { 'content-type': 'application/json', 'retry-after': 'soon' },
+        }),
     })
 
     const error = await collect(adapter, options()).catch((value: unknown) => value)
@@ -1745,26 +2122,29 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
   })
 
   it('omits zero cache, cache-write, reasoning, and absent total counters', async () => {
-    const chunks = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        {
-          type: 'response.output_text.delta',
-          item_id: 'msg_zero',
-          output_index: 0,
-          content_index: 0,
-          sequence_number: 1,
-          delta: 'x',
-        },
-        completedEvent([messageItem('x')], {
-          usage: {
-            input_tokens: 5,
-            input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 },
-            output_tokens: 2,
-            output_tokens_details: { reasoning_tokens: 0 },
+    const chunks = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          {
+            type: 'response.output_text.delta',
+            item_id: 'msg_zero',
+            output_index: 0,
+            content_index: 0,
+            sequence_number: 1,
+            delta: 'x',
           },
-        }),
-      ]),
-    }), options())
+          completedEvent([messageItem('x')], {
+            usage: {
+              input_tokens: 5,
+              input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 },
+              output_tokens: 2,
+              output_tokens_details: { reasoning_tokens: 0 },
+            },
+          }),
+        ]),
+      }),
+      options(),
+    )
 
     expect(chunks.find(chunk => chunk.type === 'usage')).toEqual({
       type: 'usage',
@@ -1775,14 +2155,17 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
   it('reports replayable and unknown type names for items it cannot replay', async () => {
     const invalidMessage = { id: 'msg_invalid', type: 'message', role: 'user', content: [] }
     const invalidType = { id: 'weird', type: 'future item!' }
-    const error = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: messageItem('Hello.') },
-        { type: 'response.output_item.done', output_index: 1, sequence_number: 2, item: invalidMessage },
-        { type: 'response.output_item.done', output_index: 2, sequence_number: 3, item: invalidType },
-        completedEvent([]),
-      ]),
-    }), options()).catch((value: unknown) => value)
+    const error = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: messageItem('Hello.') },
+          { type: 'response.output_item.done', output_index: 1, sequence_number: 2, item: invalidMessage },
+          { type: 'response.output_item.done', output_index: 2, sequence_number: 3, item: invalidType },
+          completedEvent([]),
+        ]),
+      }),
+      options(),
+    ).catch((value: unknown) => value)
 
     expect(error).toMatchObject({
       code: 'UNSUPPORTED_CONTENT',
@@ -1802,31 +2185,36 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
       })),
       completedEvent([]),
     ]
-    const error = await collect(new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(events) }), options())
-      .catch((value: unknown) => value)
+    const error = await collect(new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(events) }), options()).catch(
+      (value: unknown) => value,
+    )
 
     expect(error).toMatchObject({
       code: 'UNSUPPORTED_CONTENT',
-      message: 'OpenAI Responses output item types cannot be replayed with store:false: future_a, future_b, future_c, future_d, future_e, future_f, future_g, future_h, and 1 more',
+      message:
+        'OpenAI Responses output item types cannot be replayed with store:false: future_a, future_b, future_c, future_d, future_e, future_f, future_g, future_h, and 1 more',
     })
   })
 
   it('refuses to replay a completed message item without an id', async () => {
-    const error = await collect(new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        {
-          type: 'response.output_item.done',
-          output_index: 0,
-          sequence_number: 1,
-          item: {
-            type: 'message',
-            role: 'assistant',
-            content: [{ type: 'output_text', text: 'No id.', annotations: [] }],
+    const error = await collect(
+      new ChatGptResponsesAdapter(hostFor(), {
+        fetch: eventFetch([
+          {
+            type: 'response.output_item.done',
+            output_index: 0,
+            sequence_number: 1,
+            item: {
+              type: 'message',
+              role: 'assistant',
+              content: [{ type: 'output_text', text: 'No id.', annotations: [] }],
+            },
           },
-        },
-        completedEvent([]),
-      ]),
-    }), options()).catch((value: unknown) => value)
+          completedEvent([]),
+        ]),
+      }),
+      options(),
+    ).catch((value: unknown) => value)
 
     expect(error).toMatchObject({
       code: 'UNSUPPORTED_CONTENT',
@@ -1911,10 +2299,7 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
   it('closes a function item without arguments using an empty placeholder', async () => {
     const sparse = { id: 'fc_sparse', type: 'function_call', status: 'completed', call_id: 'call_sparse', name: 'lookup' }
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: eventFetch([
-        { type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: sparse },
-        completedEvent([]),
-      ]),
+      fetch: eventFetch([{ type: 'response.output_item.done', output_index: 0, sequence_number: 1, item: sparse }, completedEvent([])]),
     })
     const chunks: StreamChunk[] = []
     const error: unknown = await (async () => {
@@ -1957,19 +2342,76 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
       encrypted_content: 'encrypted',
     }
     const events = [
-      { type: 'response.output_item.added', output_index: 0, sequence_number: 1, item: { id: 'msg_multi', type: 'message', role: 'assistant', status: 'in_progress', content: [] } },
+      {
+        type: 'response.output_item.added',
+        output_index: 0,
+        sequence_number: 1,
+        item: { id: 'msg_multi', type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+      },
       { type: 'response.output_text.delta', item_id: 'msg_multi', output_index: 0, content_index: 0, sequence_number: 2, delta: 'Hello ' },
       { type: 'response.output_text.delta', item_id: 'msg_multi', output_index: 0, content_index: 0, sequence_number: 3, delta: 'world' },
       { type: 'response.output_item.done', output_index: 0, sequence_number: 4, item: textOutput },
-      { type: 'response.output_item.added', output_index: 1, sequence_number: 5, item: { id: 'msg_multi_refusal', type: 'message', role: 'assistant', status: 'in_progress', content: [] } },
-      { type: 'response.refusal.delta', item_id: 'msg_multi_refusal', output_index: 1, content_index: 0, sequence_number: 6, delta: 'I cannot ' },
-      { type: 'response.refusal.delta', item_id: 'msg_multi_refusal', output_index: 1, content_index: 0, sequence_number: 7, delta: 'answer.' },
+      {
+        type: 'response.output_item.added',
+        output_index: 1,
+        sequence_number: 5,
+        item: { id: 'msg_multi_refusal', type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+      },
+      {
+        type: 'response.refusal.delta',
+        item_id: 'msg_multi_refusal',
+        output_index: 1,
+        content_index: 0,
+        sequence_number: 6,
+        delta: 'I cannot ',
+      },
+      {
+        type: 'response.refusal.delta',
+        item_id: 'msg_multi_refusal',
+        output_index: 1,
+        content_index: 0,
+        sequence_number: 7,
+        delta: 'answer.',
+      },
       { type: 'response.output_item.done', output_index: 1, sequence_number: 8, item: refusalOutput },
-      { type: 'response.output_item.added', output_index: 2, sequence_number: 9, item: { id: 'rs_multi', type: 'reasoning', status: 'in_progress', summary: [] } },
-      { type: 'response.reasoning_summary_text.delta', item_id: 'rs_multi', output_index: 2, summary_index: 0, sequence_number: 10, delta: 'Plan ' },
-      { type: 'response.reasoning_summary_text.delta', item_id: 'rs_multi', output_index: 2, summary_index: 0, sequence_number: 11, delta: 'then act.' },
-      { type: 'response.reasoning_text.delta', item_id: 'rs_multi', output_index: 2, content_index: 0, sequence_number: 12, delta: 'Think ' },
-      { type: 'response.reasoning_text.delta', item_id: 'rs_multi', output_index: 2, content_index: 0, sequence_number: 13, delta: 'carefully.' },
+      {
+        type: 'response.output_item.added',
+        output_index: 2,
+        sequence_number: 9,
+        item: { id: 'rs_multi', type: 'reasoning', status: 'in_progress', summary: [] },
+      },
+      {
+        type: 'response.reasoning_summary_text.delta',
+        item_id: 'rs_multi',
+        output_index: 2,
+        summary_index: 0,
+        sequence_number: 10,
+        delta: 'Plan ',
+      },
+      {
+        type: 'response.reasoning_summary_text.delta',
+        item_id: 'rs_multi',
+        output_index: 2,
+        summary_index: 0,
+        sequence_number: 11,
+        delta: 'then act.',
+      },
+      {
+        type: 'response.reasoning_text.delta',
+        item_id: 'rs_multi',
+        output_index: 2,
+        content_index: 0,
+        sequence_number: 12,
+        delta: 'Think ',
+      },
+      {
+        type: 'response.reasoning_text.delta',
+        item_id: 'rs_multi',
+        output_index: 2,
+        content_index: 0,
+        sequence_number: 13,
+        delta: 'carefully.',
+      },
       { type: 'response.output_item.done', output_index: 2, sequence_number: 14, item: reasoningOutput },
       completedEvent([textOutput, refusalOutput, reasoningOutput]),
     ]
@@ -1977,10 +2419,18 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
     const chunks = await collect(new ChatGptResponsesAdapter(hostFor(), { fetch: eventFetch(events) }), options())
 
     expect(chunks.filter(chunk => chunk.type === 'block-start')).toHaveLength(4)
-    expect(chunks.filter(chunk => chunk.type === 'text-delta').map(chunk => chunk.text))
-      .toEqual(['Hello ', 'world', 'I cannot ', 'answer.'])
-    expect(chunks.filter(chunk => chunk.type === 'reasoning-delta').map(chunk => chunk.text))
-      .toEqual(['Plan ', 'then act.', 'Think ', 'carefully.'])
+    expect(chunks.filter(chunk => chunk.type === 'text-delta').map(chunk => chunk.text)).toEqual([
+      'Hello ',
+      'world',
+      'I cannot ',
+      'answer.',
+    ])
+    expect(chunks.filter(chunk => chunk.type === 'reasoning-delta').map(chunk => chunk.text)).toEqual([
+      'Plan ',
+      'then act.',
+      'Think ',
+      'carefully.',
+    ])
     expect(chunks.filter(chunk => chunk.type === 'block-end').map(chunk => chunk.block)).toEqual([
       { type: 'text', text: 'Hello world' },
       { type: 'text', text: 'I cannot answer.' },
@@ -2078,13 +2528,26 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
     } as const
     const host: ChatGptAdapterHost = {
       ...hostFor(),
-      readImage: async () => { throw new Error('image read failed') },
+      readImage: async () => {
+        throw new Error('image read failed')
+      },
     }
     const adapter = new ChatGptResponsesAdapter(host, { fetch: eventFetch(completedTextEvents('unused')) })
 
-    const error = await collect(adapter, options({
-      messages: [{ role: 'user', content: [{ type: 'text', text: 'Describe.' }, { type: 'image', attachment: image }] }],
-    })).catch((value: unknown) => value)
+    const error = await collect(
+      adapter,
+      options({
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Describe.' },
+              { type: 'image', attachment: image },
+            ],
+          },
+        ],
+      }),
+    ).catch((value: unknown) => value)
 
     expect(error).toMatchObject({ code: 'OPENAI_RESPONSES_ERROR', message: 'image read failed' })
     expect(error).not.toHaveProperty('failure.requestId')
@@ -2092,10 +2555,11 @@ describe('ChatGPT Responses optional request fields and wire fallbacks', () => {
 
   it('normalizes malformed stream JSON after headers with its request id', async () => {
     const adapter = new ChatGptResponsesAdapter(hostFor(), {
-      fetch: async () => new Response('data: {not-json}\n\n', {
-        status: 200,
-        headers: { 'content-type': 'text/event-stream', 'x-request-id': 'req_malformed' },
-      }),
+      fetch: async () =>
+        new Response('data: {not-json}\n\n', {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream', 'x-request-id': 'req_malformed' },
+        }),
     })
 
     const error = await collect(adapter, options()).catch((value: unknown) => value)

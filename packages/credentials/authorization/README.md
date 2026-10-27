@@ -162,3 +162,5 @@ The limitations above name the open directions — resumable attempts, server-si
 </details>
 
 A flow can use session.commit(record) to refuse writes after cancellation. Once commit is admitted, cancel() leaves it running until persistence and flow settlement complete. Flows that write through their own credential adapter remain responsible for their own cancellation ordering.
+
+For atomic reauthorization, `session.commit(current => record)` runs the builder inside the credential store mutation lock. Validate the current identity and grant generation there; a rejected builder leaves the stored record unchanged. A snapshot checked before `commit` alone cannot prevent another Host from signing out between locks.

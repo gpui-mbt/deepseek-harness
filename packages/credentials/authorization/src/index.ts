@@ -104,10 +104,10 @@ export interface AuthorizationSession {
   readonly signal: AbortSignal
   /**
    * Commit a record while rejecting cancelled attempts. Once admitted, cancellation waits for completion.
-   * @param record - credential owned by this flow.
+   * @param record - credential owned by this flow, or a builder that validates the current record under the store lock.
    * @returns after the credential store commits the record.
    */
-  commit(record: CredentialRecord): Promise<void>
+  commit(record: CredentialRecord | ((current: CredentialRecord | undefined) => CredentialRecord)): Promise<void>
   /**
    * Report progress, or tell the human what to do next. Fire-and-forget: a
    * surface that cannot render a notice must not stall the flow.
@@ -413,7 +413,9 @@ export class AuthorizationService extends Service {
             throw new AuthorizationError('authorization attempt is no longer active', 'CANCELLED')
           }
           attempt.committing = true
-          await this.ctx.credentials.modifyRecord(flow.key, () => Promise.resolve(record))
+          await this.ctx.credentials.modifyRecord(flow.key, current =>
+            Promise.resolve(typeof record === 'function' ? record(current) : record),
+          )
         },
         notify: notice => {
           try {

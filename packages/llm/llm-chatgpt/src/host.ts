@@ -12,13 +12,28 @@ import type { ImageAttachmentRef, StoredImageAttachment } from '@deepseek-ai/dsh
 import type { Config } from './config.ts'
 import type { ChatGptAdapterHost, ChatGptPreparedCall } from './adapter-contract.ts'
 import {
-  authorizationUrl, exchangeAuthorizationCode, OAuthError, randomOAuthValue,
-  randomPkceVerifier, pkceChallenge, refreshGrant, revokeRefreshToken,
+  authorizationUrl,
+  exchangeAuthorizationCode,
+  OAuthError,
+  randomOAuthValue,
+  randomPkceVerifier,
+  pkceChallenge,
+  refreshGrant,
+  revokeRefreshToken,
 } from './oauth.ts'
 import type { OAuthGrant, OAuthIdentityExpectation, OAuthRegistration } from './oauth.ts'
 import { officialOpenAiModel, toOpenAiModelInfo, toOpenAiResolvedModelInfo } from './models.ts'
 import type { OpenAiModelFacts } from './models.ts'
-import type { ChatGptAccountId, ChatGptAccountView, ChatGptLoginAttemptId, ChatGptLoginAttemptView, ChatGptModelConfig, ChatGptModelOverride, ChatGptModelView, ChatGptState } from './types.ts'
+import type {
+  ChatGptAccountId,
+  ChatGptAccountView,
+  ChatGptLoginAttemptId,
+  ChatGptLoginAttemptView,
+  ChatGptModelConfig,
+  ChatGptModelOverride,
+  ChatGptModelView,
+  ChatGptState,
+} from './types.ts'
 import type {} from '@deepseek-ai/dsh-config-editor'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 
@@ -107,9 +122,13 @@ export class ChatGptHost implements ChatGptAdapterHost {
   private readonly accountControllers = new Map<string, AbortController>()
   private activeInMemoryAccountId: ChatGptAccountId | undefined
   private disposed = false
+  private readonly lifetime = new AbortController()
 
   /** @param ctx - Host context with Credentials, Authorization, and LLM services. @param config - profile settings. */
-  constructor(private readonly ctx: Context, private readonly config: Config) {}
+  constructor(
+    private readonly ctx: Context,
+    private readonly config: Config,
+  ) {}
 
   /** Ensure the installation has one durable host identity before it registers an account. */
   async initialize(): Promise<void> {
@@ -160,45 +179,48 @@ export class ChatGptHost implements ChatGptAdapterHost {
       }
       this.registerAccountFlow(selectedAccountId)
       const activeKey = key
-      const run = this.ctx.authorization.begin({
-        key,
-        signal: startController.signal,
-        interaction: {
-          notify: (notice: AuthorizationNotice): void => {
-            /* v8 ignore next -- the flow's first notice always carries the authorization URL. */
-            if (notice.url === undefined) return
-            attempt = this.activeAttemptsByKey.get(activeKey)
-            publishAuthorizationUrl(notice.url)
+      const run = this.ctx.authorization
+        .begin({
+          key,
+          signal: startController.signal,
+          interaction: {
+            notify: (notice: AuthorizationNotice): void => {
+              /* v8 ignore next -- the flow's first notice always carries the authorization URL. */
+              if (notice.url === undefined) return
+              attempt = this.activeAttemptsByKey.get(activeKey)
+              publishAuthorizationUrl(notice.url)
+            },
+            /* v8 ignore next 2 -- the ChatGPT flow never prompts; the seam requires the method. */
+            prompt: (): Promise<string> =>
+              Promise.reject(new Error('ChatGPT sign-in does not request input through the authorization prompt.')),
           },
-          /* v8 ignore next 2 -- the ChatGPT flow never prompts; the seam requires the method. */
-          prompt: (): Promise<string> =>
-            Promise.reject(new Error('ChatGPT sign-in does not request input through the authorization prompt.')),
-        },
-      }).then(async outcome => {
-        /* v8 ignore start -- settlement races: the callback owns every normal outcome, and the
-         * AuthorizationService cancels the flow only after this host has already finished the
-         * attempt, so these containment arms run only when a profile cancellation bypasses it. */
-        if (attempt === undefined) {
-          rejectAuthorizationUrl(new Error('ChatGPT sign-in was cancelled before its callback was ready.'))
-          return
-        }
-        if (outcome.status === 'cancelled' && attempt.committing) {
-          await attempt.completion
-          return
-        }
-        if (outcome.status === 'cancelled' && !isTerminal(attempt.phase)) {
-          await this.finishAttempt(attempt, 'cancelled', 'ChatGPT sign-in was cancelled.')
-        }
-        if (outcome.status === 'authorized' && attempt.phase !== 'complete') {
-          await this.finishAttempt(attempt, 'failed', 'ChatGPT authorization ended before its grant was stored.')
-        }
-        /* v8 ignore stop */
-      }).catch(async (error: unknown) => {
-        const message = safeLoginError(error)
-        rejectAuthorizationUrl(new Error(message))
-        /* v8 ignore next -- only an AuthorizationService-driven rejection reaches this catch. */
-        if (attempt !== undefined && !isTerminal(attempt.phase)) await this.finishAttempt(attempt, 'failed', message)
-      })
+        })
+        .then(async outcome => {
+          /* v8 ignore start -- settlement races: the callback owns every normal outcome, and the
+           * AuthorizationService cancels the flow only after this host has already finished the
+           * attempt, so these containment arms run only when a profile cancellation bypasses it. */
+          if (attempt === undefined) {
+            rejectAuthorizationUrl(new Error('ChatGPT sign-in was cancelled before its callback was ready.'))
+            return
+          }
+          if (outcome.status === 'cancelled' && attempt.committing) {
+            await attempt.completion
+            return
+          }
+          if (outcome.status === 'cancelled' && !isTerminal(attempt.phase)) {
+            await this.finishAttempt(attempt, 'cancelled', 'ChatGPT sign-in was cancelled.')
+          }
+          if (outcome.status === 'authorized' && attempt.phase !== 'complete') {
+            await this.finishAttempt(attempt, 'failed', 'ChatGPT authorization ended before its grant was stored.')
+          }
+          /* v8 ignore stop */
+        })
+        .catch(async (error: unknown) => {
+          const message = safeLoginError(error)
+          rejectAuthorizationUrl(new Error(message))
+          /* v8 ignore next -- only an AuthorizationService-driven rejection reaches this catch. */
+          if (attempt !== undefined && !isTerminal(attempt.phase)) await this.finishAttempt(attempt, 'failed', message)
+        })
       authorizationRun = run
       const authorize = await awaitWithAbort(authorizationUrlReady, startController.signal)
       /* v8 ignore next -- awaitWithAbort resolves only after the notify callback created the attempt. */
@@ -283,7 +305,9 @@ export class ChatGptHost implements ChatGptAdapterHost {
     }
     const redirectUri = `http://127.0.0.1:${String(address.port)}${CALLBACK_PATH}`
     let complete!: () => void
-    const completion = new Promise<void>(resolve => { complete = resolve })
+    const completion = new Promise<void>(resolve => {
+      complete = resolve
+    })
     const attemptId = brandString<ChatGptLoginAttemptId>(`login-${randomUUID()}`)
     const attempt: LoginAttempt = {
       id: attemptId,
@@ -464,8 +488,7 @@ export class ChatGptHost implements ChatGptAdapterHost {
     })
     if (next === undefined) throw new Error(ACCOUNT_REQUEST_ERROR)
     this.invalidateCatalog(String(accountId))
-    if (this.config.activeAccountId.get() === String(accountId)
-      || String(this.activeInMemoryAccountId) === String(accountId)) {
+    if (this.config.activeAccountId.get() === String(accountId) || String(this.activeInMemoryAccountId) === String(accountId)) {
       this.activeInMemoryAccountId = undefined
       await this.persistConfig({ activeAccountId: undefined })
     }
@@ -554,21 +577,24 @@ export class ChatGptHost implements ChatGptAdapterHost {
     const override = modelOverrides.find(candidate => candidate.model === model)
     if (override === undefined) return resolved
     const reasoningEfforts = override.reasoningEfforts?.map(value => ReasoningEffortId(value))
-    const defaultEffort = override.defaultReasoningEffort === undefined
-      ? resolved.reasoning?.defaultEffort
-      : ReasoningEffortId(override.defaultReasoningEffort)
+    const defaultEffort =
+      override.defaultReasoningEffort === undefined ? resolved.reasoning?.defaultEffort : ReasoningEffortId(override.defaultReasoningEffort)
     return {
       ...resolved,
       ...(override.contextWindow === undefined ? {} : { context: { contextWindow: override.contextWindow } }),
       ...(override.inputModalities === undefined ? {} : { inputModalities: override.inputModalities }),
-      ...override.reasoningEfforts === undefined && defaultEffort === undefined ? {} : {
-        reasoning: {
-          /* v8 ignore next -- toOpenAiResolvedModelInfo always materializes reasoning.efforts, so the empty fallback only satisfies the optional type. */
-          efforts: (reasoningEfforts ?? resolved.reasoning?.efforts.map(effort => effort.id) ?? [])
-            .map(id => ({ id, name: String(id) })),
-          ...(defaultEffort === undefined ? {} : { defaultEffort }),
-        },
-      },
+      ...(override.reasoningEfforts === undefined && defaultEffort === undefined
+        ? {}
+        : {
+            reasoning: {
+              /* v8 ignore next -- toOpenAiResolvedModelInfo always materializes reasoning.efforts, so the empty fallback only satisfies the optional type. */
+              efforts: (reasoningEfforts ?? resolved.reasoning?.efforts.map(effort => effort.id) ?? []).map(id => ({
+                id,
+                name: String(id),
+              })),
+              ...(defaultEffort === undefined ? {} : { defaultEffort }),
+            },
+          }),
     }
   }
 
@@ -580,13 +606,7 @@ export class ChatGptHost implements ChatGptAdapterHost {
     const accountSignal = this.accountSignal(account.accountId)
     const requestSignal = signal === undefined ? accountSignal : AbortSignal.any([signal, accountSignal])
     requestSignal.throwIfAborted()
-    const resolved = await this.resolveModelForAccount(
-      account,
-      model,
-      requestSignal,
-      snapshot.modelOverrides,
-      snapshot.requestTimeoutMs,
-    )
+    const resolved = await this.resolveModelForAccount(account, model, requestSignal, snapshot.modelOverrides, snapshot.requestTimeoutMs)
     const latest = await this.accessGrant(account.accountId, requestSignal, snapshot.requestTimeoutMs)
     requestSignal.throwIfAborted()
     const current = await this.readAccount(accountIdOf(account.accountId))
@@ -616,6 +636,7 @@ export class ChatGptHost implements ChatGptAdapterHost {
   async dispose(): Promise<void> {
     if (this.disposed) return
     this.disposed = true
+    this.lifetime.abort(new Error('ChatGPT Host is stopping'))
     for (const controller of this.loginStarts.keys()) controller.abort(new Error('ChatGPT Host is stopping'))
     const pending = [...this.attempts.values()].filter(attempt => !isTerminal(attempt.phase))
     for (const attempt of pending) {
@@ -624,10 +645,12 @@ export class ChatGptHost implements ChatGptAdapterHost {
     for (const key of this.authorizationFlows.keys()) this.unregisterAccountFlow(key)
     for (const controller of this.accountControllers.values()) controller.abort(new Error('ChatGPT Host is stopping'))
     this.accountControllers.clear()
-    await Promise.all(pending.map(async attempt => {
-      await attempt.completion
-      await attempt.authorizationRun
-    }))
+    await Promise.all(
+      pending.map(async attempt => {
+        await attempt.completion
+        await attempt.authorizationRun
+      }),
+    )
     await Promise.all(this.authorizationRuns.values())
   }
 
@@ -651,7 +674,11 @@ export class ChatGptHost implements ChatGptAdapterHost {
     }
     const returnedState = url.searchParams.get('state')
     if (returnedState === null || !sameSecret(returnedState, attempt.state)) {
-      writeCallbackResponse(response, 400, 'The ChatGPT sign-in response did not match this request. Return to DeepSeek Harness and try again.')
+      writeCallbackResponse(
+        response,
+        400,
+        'The ChatGPT sign-in response did not match this request. Return to DeepSeek Harness and try again.',
+      )
       return
     }
     const oauthError = url.searchParams.get('error')
@@ -733,11 +760,7 @@ export class ChatGptHost implements ChatGptAdapterHost {
   }
 
   /** Cancel a flow only before its locked credential commit begins. */
-  private async stopAttempt(
-    attempt: LoginAttempt,
-    phase: 'failed' | 'cancelled',
-    message: string,
-  ): Promise<void> {
+  private async stopAttempt(attempt: LoginAttempt, phase: 'failed' | 'cancelled', message: string): Promise<void> {
     if (isTerminal(attempt.phase)) return
     /* v8 ignore start -- cancellation during the seam's commit latch: the lock test covers the
      * pre-commit arm, and once commit starts the seam refuses cancellation itself. */
@@ -763,11 +786,7 @@ export class ChatGptHost implements ChatGptAdapterHost {
    * @param attempt - running sign-in attempt.
    * @returns the record to commit.
    */
-  private async grantRecord(
-    accountId: ChatGptAccountId,
-    grant: OAuthGrant,
-    attempt: LoginAttempt,
-  ): Promise<CredentialRecord> {
+  private async grantRecord(accountId: ChatGptAccountId, grant: OAuthGrant, attempt: LoginAttempt): Promise<CredentialRecord> {
     attempt.controller.signal.throwIfAborted()
     attempt.session?.signal.throwIfAborted()
     const current = await this.reconciledRecord(attempt.key)
@@ -777,8 +796,11 @@ export class ChatGptHost implements ChatGptAdapterHost {
     if (expected !== undefined) {
       if (current === undefined) throw new Error(ACCOUNT_REQUEST_ERROR)
       const previous = readAccount(current, String(accountId))
-      if (previous.clientId !== expected.clientId || previous.subject !== expected.subject
-        || previous.grantGeneration !== attempt.expectedGrantGeneration) {
+      if (
+        previous.clientId !== expected.clientId ||
+        previous.subject !== expected.subject ||
+        previous.grantGeneration !== attempt.expectedGrantGeneration
+      ) {
         throw new Error('The saved ChatGPT registration changed before reauthorization completed.')
       }
     } else if (current !== undefined) {
@@ -856,18 +878,37 @@ export class ChatGptHost implements ChatGptAdapterHost {
     if (session === undefined) throw new Error('The ChatGPT sign-in session is unavailable.')
     attempt.committing = true
     clearTimeout(attempt.timeout)
-    await session.commit(record)
+    await session.commit(current => {
+      const expected = attempt.expectedIdentity
+      if (expected === undefined) {
+        if (current !== undefined) throw new Error('The new ChatGPT account id is already in use.')
+      } else {
+        if (current === undefined) throw new Error(ACCOUNT_REQUEST_ERROR)
+        const previous = readAccount(current, String(attempt.accountId))
+        if (
+          previous.clientId !== expected.clientId ||
+          previous.subject !== expected.subject ||
+          previous.grantGeneration !== attempt.expectedGrantGeneration
+        ) {
+          throw new Error('The saved ChatGPT registration changed before reauthorization completed.')
+        }
+      }
+      return record
+    })
   }
 
   private async accountRecords(): Promise<StoredAccount[]> {
     const entries = await this.ctx.credentials.listRecords()
-    const accounts = await Promise.all(entries
-      .filter(entry => credentialKeyScope(entry.key) === CREDENTIAL_SCOPE && credentialKeyId(entry.key).startsWith(ACCOUNT_ID_PREFIX))
-      .map(async entry => {
-        const record = await this.ctx.credentials.readRecord(entry.key)
-        return record === undefined ? undefined : readAccount(record, credentialKeyId(entry.key))
-      }))
-    return accounts.filter((account): account is StoredAccount => account !== undefined)
+    const accounts = await Promise.all(
+      entries
+        .filter(entry => credentialKeyScope(entry.key) === CREDENTIAL_SCOPE && credentialKeyId(entry.key).startsWith(ACCOUNT_ID_PREFIX))
+        .map(async entry => {
+          const record = await this.ctx.credentials.readRecord(entry.key)
+          return record === undefined ? undefined : readAccount(record, credentialKeyId(entry.key))
+        }),
+    )
+    return accounts
+      .filter((account): account is StoredAccount => account !== undefined)
       .sort((left, right) => left.createdAt - right.createdAt || left.accountId.localeCompare(right.accountId))
   }
 
@@ -881,7 +922,8 @@ export class ChatGptHost implements ChatGptAdapterHost {
     const accounts = await this.accountRecords()
     const connected = accounts.filter(account => account.status === 'connected')
     const selected = this.selectActive(connected, selection)
-    if (selected === undefined) throw new LlmError('Connect a ChatGPT account before using the ChatGPT model provider', 'CHATGPT_SIGN_IN_REQUIRED')
+    if (selected === undefined)
+      throw new LlmError('Connect a ChatGPT account before using the ChatGPT model provider', 'CHATGPT_SIGN_IN_REQUIRED')
     return selected
   }
 
@@ -906,11 +948,13 @@ export class ChatGptHost implements ChatGptAdapterHost {
   }
 
   private requestSettingsSnapshot(): RequestSettingsSnapshot {
-    const modelOverrides = this.config.modelOverrides.get().map(override => Object.freeze({
-      ...override,
-      ...(override.inputModalities === undefined ? {} : { inputModalities: Object.freeze([...override.inputModalities]) }),
-      ...(override.reasoningEfforts === undefined ? {} : { reasoningEfforts: Object.freeze([...override.reasoningEfforts]) }),
-    }))
+    const modelOverrides = this.config.modelOverrides.get().map(override =>
+      Object.freeze({
+        ...override,
+        ...(override.inputModalities === undefined ? {} : { inputModalities: Object.freeze([...override.inputModalities]) }),
+        ...(override.reasoningEfforts === undefined ? {} : { reasoningEfforts: Object.freeze([...override.reasoningEfforts]) }),
+      }),
+    )
     return Object.freeze({
       accountSelection: Object.freeze(this.accountSelection()),
       modelOverrides: Object.freeze(modelOverrides),
@@ -919,7 +963,11 @@ export class ChatGptHost implements ChatGptAdapterHost {
     })
   }
 
-  private async accessGrant(accountId: string, signal?: AbortSignal, requestTimeoutMs = this.config.requestTimeoutMs.get()): Promise<StoredAccount> {
+  private async accessGrant(
+    accountId: string,
+    signal?: AbortSignal,
+    requestTimeoutMs = this.config.requestTimeoutMs.get(),
+  ): Promise<StoredAccount> {
     signal?.throwIfAborted()
     let refreshFailure: OAuthError | undefined
     const key = accountKey(accountIdOf(accountId))
@@ -928,7 +976,8 @@ export class ChatGptHost implements ChatGptAdapterHost {
       if (current === undefined) throw new LlmError('The ChatGPT account registration is missing', 'CHATGPT_ACCOUNT_MISSING')
       const account = readAccount(current, accountId)
       /* v8 ignore next -- selection admits only connected accounts. */
-      if (account.status !== 'connected') throw new LlmError('Sign in to the ChatGPT account again before making a request', 'CHATGPT_SIGN_IN_REQUIRED')
+      if (account.status !== 'connected')
+        throw new LlmError('Sign in to the ChatGPT account again before making a request', 'CHATGPT_SIGN_IN_REQUIRED')
       /* v8 ignore next -- readAccount rejects a connected record without a numeric expiresAt, so the zero fallback is unreachable. */
       if ((account.expiresAt ?? 0) > Date.now() + 30_000) return current
       try {
@@ -963,7 +1012,10 @@ export class ChatGptHost implements ChatGptAdapterHost {
       }
     })
     signal?.throwIfAborted()
-    if (refreshFailure !== undefined) throw new LlmError('Sign in to the ChatGPT account again before making a request', 'CHATGPT_SIGN_IN_REQUIRED', { cause: refreshFailure })
+    if (refreshFailure !== undefined)
+      throw new LlmError('Sign in to the ChatGPT account again before making a request', 'CHATGPT_SIGN_IN_REQUIRED', {
+        cause: refreshFailure,
+      })
     /* v8 ignore next 2 -- modifyRecord always returns the record its callback wrote. */
     if (record === undefined) throw new LlmError('The ChatGPT account registration is missing', 'CHATGPT_ACCOUNT_MISSING')
     const account = readAccount(record, accountId)
@@ -974,7 +1026,11 @@ export class ChatGptHost implements ChatGptAdapterHost {
     return account
   }
 
-  private async loadCatalog(account: StoredAccount, signal?: AbortSignal, requestTimeoutMs = this.config.requestTimeoutMs.get()): Promise<readonly CatalogModel[]> {
+  private async loadCatalog(
+    account: StoredAccount,
+    signal?: AbortSignal,
+    requestTimeoutMs = this.config.requestTimeoutMs.get(),
+  ): Promise<readonly CatalogModel[]> {
     const accountId = account.accountId
     signal?.throwIfAborted()
     const accountSignal = this.accountSignal(accountId)
@@ -995,8 +1051,11 @@ export class ChatGptHost implements ChatGptAdapterHost {
         signal: requestSignal,
       })
       let body: unknown
-      try { body = await response.json() }
-      catch { throw new Error('ChatGPT returned an unreadable model catalog.') }
+      try {
+        body = await response.json()
+      } catch {
+        throw new Error('ChatGPT returned an unreadable model catalog.')
+      }
       if (!response.ok) throw new Error(`ChatGPT model catalog request failed with HTTP ${String(response.status)}.`)
       const models = readCatalog(body)
       if (epoch === (this.catalogEpochs.get(accountId) ?? 0) && !accountSignal.aborted) {
@@ -1005,8 +1064,9 @@ export class ChatGptHost implements ChatGptAdapterHost {
       return models
     })()
     this.catalogLoads.set(accountId, load)
-    try { return await load }
-    finally {
+    try {
+      return await load
+    } finally {
       if (this.catalogLoads.get(accountId) === load) this.catalogLoads.delete(accountId)
     }
   }
@@ -1035,7 +1095,9 @@ export class ChatGptHost implements ChatGptAdapterHost {
       ...(inputModalities === undefined ? {} : { inputModalities }),
       reasoningEfforts,
       ...(override?.defaultReasoningEffort === undefined
-        ? official?.defaultReasoningEffort === undefined ? {} : { defaultReasoningEffort: official.defaultReasoningEffort }
+        ? official?.defaultReasoningEffort === undefined
+          ? {}
+          : { defaultReasoningEffort: official.defaultReasoningEffort }
         : { defaultReasoningEffort: ReasoningEffortId(override.defaultReasoningEffort) }),
     }
   }
@@ -1043,8 +1105,11 @@ export class ChatGptHost implements ChatGptAdapterHost {
   private async accountView(account: StoredAccount, activeId: string | undefined): Promise<ChatGptAccountView> {
     let catalog: readonly CatalogModel[] = []
     if (account.status === 'connected') {
-      try { catalog = await this.loadCatalog(account) }
-      catch (error: unknown) { this.ctx.logger.warn(`ChatGPT model catalog is unavailable: ${safeLoginError(error)}`) }
+      try {
+        catalog = await this.loadCatalog(account)
+      } catch (error: unknown) {
+        this.ctx.logger.warn(`ChatGPT model catalog is unavailable: ${safeLoginError(error)}`)
+      }
     }
     const overrides = new Map(this.config.modelOverrides.get().map(override => [override.model, override]))
     const models: ChatGptModelView[] = catalog.map(row => {
@@ -1053,12 +1118,26 @@ export class ChatGptHost implements ChatGptAdapterHost {
       return {
         slug: row.id,
         displayName: row.displayName || official?.name || row.id,
-        ...(override?.contextWindow === undefined ? official?.contextWindow === undefined ? {} : { contextWindow: official.contextWindow } : { contextWindow: override.contextWindow }),
-        ...(override?.inputModalities === undefined ? official?.inputModalities === undefined ? {} : { inputModalities: official.inputModalities } : { inputModalities: override.inputModalities }),
-        ...(override?.reasoningEfforts === undefined ? official === undefined ? {} : { reasoningEfforts: official.reasoningEfforts.map(String) } : { reasoningEfforts: override.reasoningEfforts }),
+        ...(override?.contextWindow === undefined
+          ? official?.contextWindow === undefined
+            ? {}
+            : { contextWindow: official.contextWindow }
+          : { contextWindow: override.contextWindow }),
+        ...(override?.inputModalities === undefined
+          ? official?.inputModalities === undefined
+            ? {}
+            : { inputModalities: official.inputModalities }
+          : { inputModalities: override.inputModalities }),
+        ...(override?.reasoningEfforts === undefined
+          ? official === undefined
+            ? {}
+            : { reasoningEfforts: official.reasoningEfforts.map(String) }
+          : { reasoningEfforts: override.reasoningEfforts }),
         ...(override?.defaultReasoningEffort !== undefined
           ? { defaultReasoningEffort: override.defaultReasoningEffort }
-          : official?.defaultReasoningEffort === undefined ? {} : { defaultReasoningEffort: String(official.defaultReasoningEffort) }),
+          : official?.defaultReasoningEffort === undefined
+            ? {}
+            : { defaultReasoningEffort: String(official.defaultReasoningEffort) }),
         usable: override?.contextWindow !== undefined || official !== undefined,
         overridden: override !== undefined,
       }
@@ -1074,12 +1153,13 @@ export class ChatGptHost implements ChatGptAdapterHost {
   }
 
   private accountSignal(accountId: string): AbortSignal {
+    this.assertRunning()
     let controller = this.accountControllers.get(accountId)
     if (controller === undefined) {
       controller = new AbortController()
       this.accountControllers.set(accountId, controller)
     }
-    return controller.signal
+    return AbortSignal.any([controller.signal, this.lifetime.signal])
   }
 
   private async persistConfig(change: Record<string, unknown>): Promise<void> {
@@ -1087,8 +1167,7 @@ export class ChatGptHost implements ChatGptAdapterHost {
     if (editor === undefined) throw new Error('The active profile does not expose saved configuration editing.')
     const own = this.ctx.fiber.entry?.options
     if (own === undefined) throw new Error('The ChatGPT plugin profile entry cannot be edited.')
-    const entry = editor.entries().find(candidate =>
-      candidate.options.id === own.id && candidate.options.name === own.name)
+    const entry = editor.entries().find(candidate => candidate.options.id === own.id && candidate.options.name === own.name)
     /* v8 ignore next -- the profile editor lists every mounted row, including this one. */
     if (entry === undefined) throw new Error('The ChatGPT plugin profile entry cannot be edited.')
     await editor.edit(entry, current => ({ ...current, ...change }))
@@ -1123,19 +1202,31 @@ function readHost(record: CredentialRecord | undefined): StoredHost {
 
 function readAccount(record: CredentialRecord, accountId: string): StoredAccount {
   const payload = grantPayload(record, 'ChatGPT account')
-  if (payload.version !== 1 || payload.accountId !== accountId || typeof payload.clientId !== 'string'
-    || typeof payload.subject !== 'string' || typeof payload.createdAt !== 'number'
-    || (payload.status !== 'connected' && payload.status !== 'needs-sign-in')) {
+  if (
+    payload.version !== 1 ||
+    payload.accountId !== accountId ||
+    typeof payload.clientId !== 'string' ||
+    typeof payload.subject !== 'string' ||
+    typeof payload.createdAt !== 'number' ||
+    (payload.status !== 'connected' && payload.status !== 'needs-sign-in')
+  ) {
     throw new Error('The saved ChatGPT account record is invalid.')
   }
-  if (payload.grantGeneration !== undefined
-    && (typeof payload.grantGeneration !== 'number' || !Number.isSafeInteger(payload.grantGeneration) || payload.grantGeneration < 0)) {
+  if (
+    payload.grantGeneration !== undefined &&
+    (typeof payload.grantGeneration !== 'number' || !Number.isSafeInteger(payload.grantGeneration) || payload.grantGeneration < 0)
+  ) {
     throw new Error('The saved ChatGPT account record has an invalid grant generation.')
   }
-  if (payload.status === 'connected' && (typeof payload.accessToken !== 'string'
-    || typeof payload.refreshToken !== 'string' || typeof payload.idToken !== 'string'
-    || typeof payload.expiresAt !== 'number' || !Array.isArray(payload.scopes)
-    || !payload.scopes.every(scope => typeof scope === 'string'))) {
+  if (
+    payload.status === 'connected' &&
+    (typeof payload.accessToken !== 'string' ||
+      typeof payload.refreshToken !== 'string' ||
+      typeof payload.idToken !== 'string' ||
+      typeof payload.expiresAt !== 'number' ||
+      !Array.isArray(payload.scopes) ||
+      !payload.scopes.every(scope => typeof scope === 'string'))
+  ) {
     throw new Error('The saved ChatGPT grant is incomplete.')
   }
   return {
@@ -1149,9 +1240,7 @@ function readAccount(record: CredentialRecord, accountId: string): StoredAccount
     ...(typeof payload.refreshToken === 'string' ? { refreshToken: payload.refreshToken } : {}),
     ...(typeof payload.idToken === 'string' ? { idToken: payload.idToken } : {}),
     ...(typeof payload.expiresAt === 'number' ? { expiresAt: payload.expiresAt } : {}),
-    ...(Array.isArray(payload.scopes) && payload.scopes.every(scope => typeof scope === 'string')
-      ? { scopes: payload.scopes }
-      : {}),
+    ...(Array.isArray(payload.scopes) && payload.scopes.every(scope => typeof scope === 'string') ? { scopes: payload.scopes } : {}),
     createdAt: payload.createdAt,
     status: payload.status,
   }
@@ -1207,13 +1296,16 @@ function awaitWithAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<
       reject(signal.reason instanceof Error ? signal.reason : new Error('ChatGPT sign-in was cancelled.'))
     }
     signal.addEventListener('abort', onAbort, { once: true })
-    operation.then(value => {
-      cleanup()
-      resolve(value)
-    }, (error: unknown) => {
-      cleanup()
-      reject(error instanceof Error ? error : new Error('ChatGPT sign-in failed.', { cause: error }))
-    })
+    operation.then(
+      value => {
+        cleanup()
+        resolve(value)
+      },
+      (error: unknown) => {
+        cleanup()
+        reject(error instanceof Error ? error : new Error('ChatGPT sign-in failed.', { cause: error }))
+      },
+    )
     /* v8 ignore next -- cancelLogin needs the returned ticket, so the start signal cannot
      * already be aborted when the wait begins. */
     if (signal.aborted) onAbort()
@@ -1264,8 +1356,14 @@ function readCatalog(value: unknown): readonly CatalogModel[] {
 
 function connectedGrant(account: StoredAccount): OAuthGrant {
   /* v8 ignore next 3 -- readAccount admits a connected record only with every grant field. */
-  if (account.status !== 'connected' || account.accessToken === undefined || account.refreshToken === undefined
-    || account.idToken === undefined || account.expiresAt === undefined || account.scopes === undefined) {
+  if (
+    account.status !== 'connected' ||
+    account.accessToken === undefined ||
+    account.refreshToken === undefined ||
+    account.idToken === undefined ||
+    account.expiresAt === undefined ||
+    account.scopes === undefined
+  ) {
     throw new LlmError('Sign in to the ChatGPT account again before making a request', 'CHATGPT_SIGN_IN_REQUIRED')
   }
   return {
