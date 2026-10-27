@@ -69,6 +69,63 @@ describe('web e2e: in-box ChatGPT settings (isolated fake account)', () => {
     await page.getByRole('heading', { name: 'Accounts', exact: true }).waitFor()
   }
 
+  it('records Chromium close policy with a minimal opener-isolated cross-origin control', async () => {
+    const context = await browser.newContext()
+    const warnings: string[] = []
+    const outcomes: { isolated: boolean; closeAccepted: boolean; closed: boolean; openerNull: boolean }[] = []
+    try {
+      await context.route('https://popup-origin.invalid/**', route =>
+        route.fulfill({ contentType: 'text/html', body: '<button id="open">Open fixture</button>' }),
+      )
+      await context.route('https://popup-provider.invalid/**', route =>
+        route.fulfill({ contentType: 'text/html', body: '<p>Inert fixture</p>' }),
+      )
+      for (const isolated of [false, true]) {
+        const origin = await context.newPage()
+        origin.on('console', message => {
+          if (message.type() === 'warning' || message.type() === 'error') warnings.push(message.text())
+        })
+        await origin.goto('https://popup-origin.invalid/')
+        await origin.evaluate(isolated => {
+          document.querySelector('button')!.onclick = () => {
+            const popup = window.open('about:blank', '_blank')!
+            if (isolated) popup.opener = null
+            Object.assign(window, { fixturePopup: popup })
+            popup.location.replace('https://popup-provider.invalid/')
+          }
+        }, isolated)
+        const opened = origin.waitForEvent('popup')
+        await origin.getByRole('button', { name: 'Open fixture' }).click()
+        const popup = await opened
+        await popup.waitForURL('https://popup-provider.invalid/')
+        const openerNull = await popup.evaluate(() => window.opener === null)
+        expect(openerNull).toBe(isolated)
+        const closeAccepted = await origin.evaluate(() => {
+          const fixtureWindow: typeof window & { fixturePopup?: Window } = window
+          const popup = fixtureWindow.fixturePopup
+          if (popup === undefined) throw new Error('The fixture did not retain its popup')
+          popup.close()
+          return popup.closed
+        })
+        expect(closeAccepted).toBe(!isolated)
+        if (!isolated) await expect.poll(() => popup.isClosed(), { timeout: 10_000 }).toBe(true)
+        else {
+          // The fixture has no product busy state, attempt map or React lifecycle.
+          // This negative control distinguishes browser policy from a product race.
+          // Chromium sets WindowProxy.closed synchronously when close is accepted;
+          // the returned false above is not a short-delay timing inference.
+          expect(popup.isClosed()).toBe(false)
+        }
+        outcomes.push({ isolated, closeAccepted, closed: popup.isClosed(), openerNull })
+        if (!popup.isClosed()) await popup.close()
+        await origin.close()
+      }
+    } finally {
+      await writeFile(join(evidenceDir, 'popup-policy.json'), JSON.stringify({ browser: browser.version(), outcomes, warnings }, null, 2))
+      await context.close()
+    }
+  })
+
   it('cancels repeated real Host callback flows, persists model settings, and clears local credentials on sign-out', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-chatgpt-settings'))
     await writeFile(
@@ -83,6 +140,7 @@ describe('web e2e: in-box ChatGPT settings (isolated fake account)', () => {
       await page.getByRole('button', { name: 'Continue with ChatGPT', exact: true }).click()
       const popup = await popupPromise
       await popup.waitForURL('https://auth.openai.com/**')
+      expect(await popup.evaluate(() => window.opener === null)).toBe(true)
       const authorize = new URL(popup.url())
       expect(authorize.pathname).toBe('/api/accounts/authorize')
       expect(authorize.searchParams.get('code_challenge_method')).toBe('S256')
@@ -90,12 +148,41 @@ describe('web e2e: in-box ChatGPT settings (isolated fake account)', () => {
       expect(authorize.searchParams.get('state')).toBeTruthy()
       states.add(authorize.searchParams.get('state')!)
       await page.getByRole('button', { name: 'Cancel sign-in', exact: true }).click()
-      await expect.poll(() => popup.isClosed(), { timeout: 10_000 }).toBe(true)
       await expect
         .poll(async () => (await scaffold.ctx.chatgptController.getState()).loginAttempts.every(attempt => attempt.phase === 'cancelled'), {
           timeout: 10_000,
         })
         .toBe(true)
+      await expect
+        .poll(() => page.getByText('Sign-in cancelled. If the browser sign-in tab is still open, close it.', { exact: true }).count(), {
+          timeout: 10_000,
+        })
+        .toBe(index + 1)
+      expect((await scaffold.ctx.chatgptController.getState()).accounts).toEqual([])
+      const callback = new URL(authorize.searchParams.get('redirect_uri')!)
+      callback.searchParams.set('state', authorize.searchParams.get('state')!)
+      callback.searchParams.set('error', 'access_denied')
+      // An actual late OS HTTP delivery must fail because cancellation closed the listener.
+      await expect
+        .poll(
+          async () => {
+            try {
+              await fetch(callback, { signal: AbortSignal.timeout(2_000) })
+              return 'listener-still-open'
+            } catch (error) {
+              return (error as { cause?: { code?: string } }).cause?.code
+            }
+          },
+          { timeout: 10_000 },
+        )
+        .toBe('ECONNREFUSED')
+      expect((await scaffold.ctx.chatgptController.getState()).accounts).toEqual([])
+      // Harness cleanup only AFTER the security assertions. Browser policy may retain
+      // the disowned provider tab; product copy explicitly asks the user to close it.
+      if (!popup.isClosed()) {
+        expect(await popup.evaluate(() => window.opener === null)).toBe(true)
+        await popup.close()
+      }
     }
     expect(states.size).toBe(2)
 

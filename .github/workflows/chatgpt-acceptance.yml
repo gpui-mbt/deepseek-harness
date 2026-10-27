@@ -6,6 +6,8 @@ on:
       - 'packages/llm/llm-chatgpt/**'
       - 'packages/credentials/authorization/**'
       - 'packages/client/ui-chatgpt/**'
+      - 'packages/client/locale-ja/src/client/dicts/chatgpt.ts'
+      - 'packages/client/locale-ja/tests/**'
       - 'apps/web/tests/chatgpt-settings.*'
       - 'apps/web/tests/scaffold.ts'
       - 'apps/web/tests/support.ts'
@@ -57,7 +59,8 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -o pipefail
-          node --max-old-space-size=4096 node_modules/typescript/bin/tsc -p tsconfig.host.json 2>&1 | tee .artifacts/chatgpt-ci/host-types.log
+          (free -m; node -p 'JSON.stringify({node:process.version,heapMiB:6144})') | tee .artifacts/chatgpt-ci/host-memory.log
+          node --max-old-space-size=6144 node_modules/typescript/bin/tsc -p tsconfig.host.json 2>&1 | tee .artifacts/chatgpt-ci/host-types.log
       - name: Required documentation checks
         id: docs
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
@@ -69,7 +72,7 @@ jobs:
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -o pipefail
-          env -u NODE_USE_ENV_PROXY pnpm exec vp test --config vitest.config.ts packages/credentials/authorization/tests packages/llm/llm-chatgpt/tests 2>&1 | tee .artifacts/chatgpt-ci/safety.log
+          env -u NODE_USE_ENV_PROXY pnpm exec vp test --config vitest.config.ts packages/credentials/authorization/tests packages/llm/llm-chatgpt/tests packages/client/ui-chatgpt/tests packages/client/locale-ja/tests 2>&1 | tee .artifacts/chatgpt-ci/safety.log
       - name: Install lockfile-pinned Playwright Chromium
         id: chromium
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}

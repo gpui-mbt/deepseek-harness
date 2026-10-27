@@ -59,6 +59,15 @@ function remoteValue<T>(result: RemoteResult<T>): T {
   return result.value
 }
 
+/** Try browser-owned popup cleanup without blocking Host authorization cancellation.
+ * Opener-isolated provider tabs may reject parent-driven close after navigation.
+ * @param popup - retained preopened window, if available.
+ */
+function closeLoginPopup(popup: Window | null | undefined): void {
+  try { popup?.close() }
+  catch { /* Browser policy owns the tab; the cancelled-state copy requests manual closure. */ }
+}
+
 /** Render the account and model configuration section.
  * @param props - localized settings and Remote operations.
  * @returns the account, login, and model settings view.
@@ -88,7 +97,7 @@ export function ChatGptSettingsSection(props: ChatGptSettingsProps): ReactNode {
       if (!loginPending(attempt.phase)) {
         finishAttempt(attempt.id)
         pendingAttempts.current.delete(attempt.id)
-        popupWindows.current.get(attempt.id)?.close()
+        closeLoginPopup(popupWindows.current.get(attempt.id))
         popupWindows.current.delete(attempt.id)
         setLoginTickets(current => {
           if (!current.has(attempt.id)) return current
@@ -116,8 +125,8 @@ export function ChatGptSettingsSection(props: ChatGptSettingsProps): ReactNode {
     return () => {
       live.current = false
       requestGeneration.current += 1
-      for (const popup of pendingPopups.current) popup.close()
-      for (const popup of popupWindows.current.values()) popup.close()
+      for (const popup of pendingPopups.current) closeLoginPopup(popup)
+      for (const popup of popupWindows.current.values()) closeLoginPopup(popup)
       pendingPopups.current.clear()
       popupWindows.current.clear()
       for (const attemptId of pendingAttempts.current) {
@@ -211,14 +220,14 @@ export function ChatGptSettingsSection(props: ChatGptSettingsProps): ReactNode {
       if (!live.current || requestGeneration.current !== generation) {
         try { remoteValue(await remote.cancelLogin({ attemptId: ticket.attemptId })) }
         catch (_error) { /* The attempt may have completed while the view was closing. */ }
-        popup?.close()
+        closeLoginPopup(popup)
         if (popup !== null) pendingPopups.current.delete(popup)
         /* v8 ignore next -- the stale branch above implies this generation check fails. */
         if (isLive() && requestGeneration.current === generation) setBusy(false)
         return
       }
     } catch (_error) {
-      popup?.close()
+      closeLoginPopup(popup)
       if (popup !== null) pendingPopups.current.delete(popup)
       if (live.current && requestGeneration.current === generation) {
         setError('actionFailed')
@@ -233,7 +242,7 @@ export function ChatGptSettingsSection(props: ChatGptSettingsProps): ReactNode {
       pendingPopups.current.delete(popup)
       popupWindows.current.set(ticket.attemptId, popup)
       try { popup.location.replace(ticket.authorizationUrl) }
-      catch (_error) { popup.close(); popupWindows.current.delete(ticket.attemptId) }
+      catch (_error) { closeLoginPopup(popup); popupWindows.current.delete(ticket.attemptId) }
     } else {
       try { window.open(ticket.authorizationUrl, '_blank', 'noopener,noreferrer') }
       catch (_error) { /* The visible link below remains available. */ }
@@ -251,7 +260,7 @@ export function ChatGptSettingsSection(props: ChatGptSettingsProps): ReactNode {
     /* v8 ignore next -- the cancel control is disabled while busy. */
     if (busy) return
     const popup = popupWindows.current.get(attemptId)
-    popup?.close()
+    closeLoginPopup(popup)
     popupWindows.current.delete(attemptId)
     const result = await mutate(async () => {
       remoteValue(await remote.cancelLogin({ attemptId }))
