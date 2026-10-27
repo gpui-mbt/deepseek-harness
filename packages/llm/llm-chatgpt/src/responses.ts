@@ -1,10 +1,6 @@
 /** ChatGPT Sign in with ChatGPT adapter for the OpenAI Responses API. */
 
-import {
-  APIError,
-  OpenAI,
-  type ClientOptions,
-} from 'openai'
+import { APIError, OpenAI, type ClientOptions } from 'openai'
 import type {
   ResponseCreateParamsStreaming,
   ResponseInputItem,
@@ -14,14 +10,7 @@ import type {
   ResponseStreamEvent,
   ResponseUsage,
 } from 'openai/resources/responses/responses'
-import {
-  attributionHeaders,
-  isContextWindowExceededError,
-  LlmAdapter,
-  LlmError,
-  ProviderRequestId,
-  ToolCallId,
-} from '@deepseek-ai/dsh-llm'
+import { attributionHeaders, isContextWindowExceededError, LlmAdapter, LlmError, ProviderRequestId, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type {
   ContentBlock,
   GenerateOptions,
@@ -96,11 +85,7 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
   }
 
   /** @returns exact model metadata with a required known context capacity. */
-  override async resolveModel(
-    provider: string,
-    model: string,
-    signal?: AbortSignal,
-  ): Promise<LlmResolvedModelInfo> {
+  override async resolveModel(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo> {
     return exactModel(provider, model, await this.host.resolveModel(model, signal))
   }
 
@@ -122,10 +107,7 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
     yield* this.streamPrepared(options, prepared)
   }
 
-  private async *streamPrepared(
-    options: GenerateOptions,
-    prepared: ChatGptPreparedCall,
-  ): AsyncGenerator<StreamChunk> {
+  private async *streamPrepared(options: GenerateOptions, prepared: ChatGptPreparedCall): AsyncGenerator<StreamChunk> {
     assertSupportedOptions(options)
     validatePreparedCall(prepared)
     const model = exactModel(options.provider, options.model, prepared.model)
@@ -136,15 +118,13 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
       if (prepared.streamIdleTimeoutMs <= 0) return
       if (idleTimer !== undefined) clearTimeout(idleTimer)
       idleTimer = setTimeout(() => {
-        idle.abort(new LlmError(
-          `ChatGPT response stream was idle for ${String(prepared.streamIdleTimeoutMs)}ms`,
-          'STREAM_IDLE_TIMEOUT',
-        ))
+        idle.abort(new LlmError(`ChatGPT response stream was idle for ${String(prepared.streamIdleTimeoutMs)}ms`, 'STREAM_IDLE_TIMEOUT'))
       }, prepared.streamIdleTimeoutMs)
     }
-    const signal = options.signal === undefined
-      ? AbortSignal.any([prepared.accountSignal, idle.signal])
-      : AbortSignal.any([prepared.accountSignal, options.signal, idle.signal])
+    const signal =
+      options.signal === undefined
+        ? AbortSignal.any([prepared.accountSignal, idle.signal])
+        : AbortSignal.any([prepared.accountSignal, options.signal, idle.signal])
     if (signal.aborted) {
       throw new LlmError('ChatGPT account request was aborted', 'ABORTED', { cause: signal.reason })
     }
@@ -165,9 +145,11 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
         ...(this.fetch === undefined ? {} : { fetch: this.fetch }),
       })
       activity()
-      const { data: events, request_id } = await sdk.responses.create(request, {
-        signal,
-      }).withResponse()
+      const { data: events, request_id } = await sdk.responses
+        .create(request, {
+          signal,
+        })
+        .withResponse()
       requestId = request_id ?? undefined
       yield* translateEvents(events, requestId, replayScope, activity)
     } catch (error: unknown) {
@@ -204,11 +186,12 @@ function exactModel(provider: string, model: string, info: LlmResolvedModelInfo)
     throw new LlmError(`ChatGPT host resolved "${info.id}" for requested model "${model}"`, 'MODEL_ID_MISMATCH')
   }
   const contextWindow = info.context?.contextWindow
-  if (!Number.isSafeInteger(contextWindow) || /* v8 ignore next -- Number.isSafeInteger already rejects a nullish contextWindow, so this fallback is dead. */ (contextWindow ?? 0) <= 0) {
-    throw new LlmError(
-      `ChatGPT model "${model}" needs an official or configured context-window limit`,
-      'MODEL_CONTEXT_REQUIRED',
-    )
+  if (
+    !Number.isSafeInteger(contextWindow) ||
+    /* v8 ignore next -- Number.isSafeInteger already rejects a nullish contextWindow, so this fallback is dead. */ (contextWindow ?? 0) <=
+      0
+  ) {
+    throw new LlmError(`ChatGPT model "${model}" needs an official or configured context-window limit`, 'MODEL_CONTEXT_REQUIRED')
   }
   const { defaultMaxTokens: _defaultMaxTokens, toolUpdate, ...resolved } = info
   return {
@@ -237,10 +220,7 @@ function assertReasoningEffort(options: GenerateOptions, model: LlmResolvedModel
   const selected = String(options.reasoningEffort)
   const supported = model.reasoning?.efforts.some(effort => effort.id === options.reasoningEffort) ?? false
   if (!supported) {
-    throw new LlmError(
-      `ChatGPT model "${model.id}" does not declare reasoning effort "${selected}"`,
-      'UNSUPPORTED_REASONING_EFFORT',
-    )
+    throw new LlmError(`ChatGPT model "${model.id}" does not declare reasoning effort "${selected}"`, 'UNSUPPORTED_REASONING_EFFORT')
   }
   if (!isResponsesReasoningEffort(selected)) {
     throw new LlmError(`OpenAI Responses does not accept reasoning effort "${selected}"`, 'UNSUPPORTED_REASONING_EFFORT')
@@ -248,13 +228,15 @@ function assertReasoningEffort(options: GenerateOptions, model: LlmResolvedModel
 }
 
 function isResponsesReasoningEffort(value: string): value is ResponsesReasoningEffort {
-  return value === 'none'
-    || value === 'minimal'
-    || value === 'low'
-    || value === 'medium'
-    || value === 'high'
-    || value === 'xhigh'
-    || value === 'max'
+  return (
+    value === 'none' ||
+    value === 'minimal' ||
+    value === 'low' ||
+    value === 'medium' ||
+    value === 'high' ||
+    value === 'xhigh' ||
+    value === 'max'
+  )
 }
 
 async function createRequest(
@@ -294,8 +276,10 @@ async function createInput(
   const input: ResponseInput = []
   const history = options.toolHistory
   const supportsAdditionalTools = model.toolUpdate === 'addition-only'
-  const hasCompleteToolHistory = supportsAdditionalTools && history !== undefined
-    && !history.updates.some(update => !options.messages.some(message => message.role === 'developer' && message.id === update.messageId))
+  const hasCompleteToolHistory =
+    supportsAdditionalTools &&
+    history !== undefined &&
+    !history.updates.some(update => !options.messages.some(message => message.role === 'developer' && message.id === update.messageId))
   const currentTools = new Map((options.tools ?? []).map(tool => [tool.name, tool]))
   const definitions = new Map<string, ToolSchema>()
   if (history !== undefined) {
@@ -356,9 +340,7 @@ async function appendMessage(
     input.push({
       type: 'function_call_output',
       call_id: String(message.toolCallId),
-      output: contents.length === 1 && contents[0]?.type === 'input_text'
-        ? contents[0].text
-        : contents,
+      output: contents.length === 1 && contents[0]?.type === 'input_text' ? contents[0].text : contents,
     })
     return
   }
@@ -386,8 +368,8 @@ async function appendMessage(
       flush()
       if (toolState.supportsAdditionalTools && toolState.hasCompleteToolHistory && toolState.currentTools.has(block.toolName)) {
         const historical = toolState.history?.updates
-          .find(update => update.messageId === message.id)?.additions
-          .find(tool => tool.name === block.toolName)
+          .find(update => update.messageId === message.id)
+          ?.additions.find(tool => tool.name === block.toolName)
         const definition = historical ?? toolState.definitions.get(block.toolName)
         /* v8 ignore else -- currentTools is built from options.tools and definitions already contains every options.tools entry. */
         if (definition !== undefined) appendAdditionalTools(input, [definition])
@@ -395,7 +377,7 @@ async function appendMessage(
       continue
     }
     if (block.type === 'tool-removal') continue
-    content.push(...await blockToInput(block, host, signal))
+    content.push(...(await blockToInput(block, host, signal)))
   }
 
   flush()
@@ -423,15 +405,11 @@ async function blocksToInput(
   signal?: AbortSignal,
 ): Promise<ResponseInputContent[]> {
   const result: ResponseInputContent[] = []
-  for (const block of blocks) result.push(...await blockToInput(block, host, signal))
+  for (const block of blocks) result.push(...(await blockToInput(block, host, signal)))
   return result
 }
 
-async function blockToInput(
-  block: ContentBlock,
-  host: ChatGptAdapterHost,
-  signal?: AbortSignal,
-): Promise<ResponseInputContent[]> {
+async function blockToInput(block: ContentBlock, host: ChatGptAdapterHost, signal?: AbortSignal): Promise<ResponseInputContent[]> {
   switch (block.type) {
     case 'text':
       return [{ type: 'input_text', text: block.text }]
@@ -441,11 +419,13 @@ async function blockToInput(
       if (block.offloaded) return [{ type: 'input_text', text: textOnlyImageText(block.attachment) }]
       const image = await host.readImage(block.attachment, signal)
       const data = Buffer.from(image.data).toString('base64')
-      return [{
-        type: 'input_image',
-        detail: 'auto',
-        image_url: `data:${image.ref.mediaType};base64,${data}`,
-      }]
+      return [
+        {
+          type: 'input_image',
+          detail: 'auto',
+          image_url: `data:${image.ref.mediaType};base64,${data}`,
+        },
+      ]
     }
     case 'file':
       return [{ type: 'input_text', text: fileHandleText(block.attachment, undefined) }]
@@ -692,14 +672,13 @@ async function* translateEvents(
         if (blocks.size === 0) throw new LlmError(`OpenAI model "${replayScope.model}" returned no content`, 'EMPTY_RESPONSE')
         const replayItems: ResponseInputItem[] = []
         const unsupportedOutputTypes: string[] = []
-        const streamedOutputItems = completedOutputItems.size > 0
-          ? orderedCompletedOutputItems(completedOutputItems)
-          : undefined
+        const streamedOutputItems = completedOutputItems.size > 0 ? orderedCompletedOutputItems(completedOutputItems) : undefined
         if (streamedOutputItems !== undefined) {
           validateTerminalOutputSummary(streamedOutputItems, event.response.output)
         }
-        const outputItems = streamedOutputItems
-          ?? event.response.output.map(item => ({
+        const outputItems =
+          streamedOutputItems ??
+          event.response.output.map(item => ({
             replayItem: replayableOutputItem(item),
             typeName: outputTypeName(item),
           }))
@@ -726,7 +705,8 @@ async function* translateEvents(
               accountId: replayScope.accountId,
               ...(requestId === undefined ? {} : { requestId }),
               id: event.response.id,
-              model: event.response.model,
+              model: replayScope.model,
+              responseModel: event.response.model,
               status: event.response.status,
               output: replayItems,
             },
@@ -778,9 +758,7 @@ function replayableOutputItem(item: ResponseOutputItem): ResponseInputItem | und
   }
 }
 
-function orderedCompletedOutputItems(
-  items: ReadonlyMap<number, CompletedStreamOutputItem>,
-): readonly CompletedStreamOutputItem[] {
+function orderedCompletedOutputItems(items: ReadonlyMap<number, CompletedStreamOutputItem>): readonly CompletedStreamOutputItem[] {
   const ordered = [...items.entries()].sort(([left], [right]) => left - right)
   return ordered.map(([index, item], expectedIndex) => {
     if (index !== expectedIndex) {
@@ -829,14 +807,17 @@ function readReplayItems(
 ): readonly ResponseInputItem[] | undefined {
   if (!isRecord(replayState) || !isRecord(replayState.response)) return undefined
   const response = replayState.response
-  if (response.adapter !== 'openai-responses-v1'
-    || response.provider !== scope.provider
-    || provider !== scope.provider
-    || response.accountId !== scope.accountId
-    || response.model !== scope.model
-    || model !== scope.model
-    || !Array.isArray(response.output)
-    || !response.output.every(isReplayInputItem)) return undefined
+  if (
+    response.adapter !== 'openai-responses-v1' ||
+    response.provider !== scope.provider ||
+    provider !== scope.provider ||
+    response.accountId !== scope.accountId ||
+    response.model !== scope.model ||
+    model !== scope.model ||
+    !Array.isArray(response.output) ||
+    !response.output.every(isReplayInputItem)
+  )
+    return undefined
   return response.output
 }
 
@@ -849,11 +830,13 @@ function isReplayInputItem(value: unknown): value is ResponseInputItem {
     return typeof value.encrypted_content === 'string' && optionalItemId(value.id)
   }
   if (value.type === 'function_call') {
-    return typeof value.call_id === 'string'
-      && typeof value.name === 'string'
-      && typeof value.arguments === 'string'
-      && optionalItemId(value.id)
-      && optionalItemStatus(value.status)
+    return (
+      typeof value.call_id === 'string' &&
+      typeof value.name === 'string' &&
+      typeof value.arguments === 'string' &&
+      optionalItemId(value.id) &&
+      optionalItemStatus(value.status)
+    )
   }
   return false
 }
@@ -863,27 +846,30 @@ function isConfigurationUpdateItem(value: Record<string, unknown>): boolean {
   if (value.reasoning === undefined) return true
   if (!isRecord(value.reasoning)) return false
   const effort = value.reasoning.effort
-  return effort === undefined || effort === null
-    || (typeof effort === 'string' && isResponsesReasoningEffort(effort))
+  return effort === undefined || effort === null || (typeof effort === 'string' && isResponsesReasoningEffort(effort))
 }
 
 function isReasoningInputItem(value: Record<string, unknown>): boolean {
-  return value.type === 'reasoning'
-    && typeof value.id === 'string'
-    && Array.isArray(value.summary)
-    && value.summary.every(isReasoningSummary)
-    && (value.content === undefined || (Array.isArray(value.content) && value.content.every(isReasoningContent)))
-    && (value.encrypted_content === undefined || value.encrypted_content === null || typeof value.encrypted_content === 'string')
-    && optionalItemStatus(value.status)
+  return (
+    value.type === 'reasoning' &&
+    typeof value.id === 'string' &&
+    Array.isArray(value.summary) &&
+    value.summary.every(isReasoningSummary) &&
+    (value.content === undefined || (Array.isArray(value.content) && value.content.every(isReasoningContent))) &&
+    (value.encrypted_content === undefined || value.encrypted_content === null || typeof value.encrypted_content === 'string') &&
+    optionalItemStatus(value.status)
+  )
 }
 
 function isAssistantOutputMessage(value: Record<string, unknown>): boolean {
-  return value.type === 'message'
-    && value.role === 'assistant'
-    && typeof value.id === 'string'
-    && optionalItemStatus(value.status, false)
-    && Array.isArray(value.content)
-    && value.content.every(isOutputMessageContent)
+  return (
+    value.type === 'message' &&
+    value.role === 'assistant' &&
+    typeof value.id === 'string' &&
+    optionalItemStatus(value.status, false) &&
+    Array.isArray(value.content) &&
+    value.content.every(isOutputMessageContent)
+  )
 }
 
 function isReasoningSummary(value: unknown): boolean {
@@ -901,8 +887,7 @@ function isOutputMessageContent(value: unknown): boolean {
 }
 
 function optionalItemStatus(value: unknown, nullable = true): boolean {
-  return value === undefined || (nullable && value === null)
-    || value === 'in_progress' || value === 'completed' || value === 'incomplete'
+  return value === undefined || (nullable && value === null) || value === 'in_progress' || value === 'completed' || value === 'incomplete'
 }
 
 function optionalItemId(value: unknown): boolean {
@@ -925,9 +910,7 @@ function mapUsage(usage: ResponseUsage | null | undefined): TokenUsage | undefin
   const reasoningTokens = readCount(usage.output_tokens_details.reasoning_tokens)
   if (cachedTokens + cacheWriteTokens > inputTokens) return undefined
   const aggregateTokens = inputTokens + outputTokens
-  const consistentTotal = totalTokens !== undefined
-    && Number.isSafeInteger(aggregateTokens)
-    && totalTokens === aggregateTokens
+  const consistentTotal = totalTokens !== undefined && Number.isSafeInteger(aggregateTokens) && totalTokens === aggregateTokens
   return {
     inputTokens: inputTokens - cachedTokens - cacheWriteTokens,
     outputTokens,
@@ -954,28 +937,27 @@ function normalizeError(error: unknown, fallbackRequestId?: string): LlmError {
     const rawHeaders: unknown = error.headers
     const retryAfter = rawHeaders instanceof Headers ? rawHeaders.get('retry-after') : null
     const delay = retryAfterMs(retryAfter)
-    return new LlmError(/* v8 ignore next -- APIError.makeMessage always yields a non-empty message, so the fallback is unreachable. */ error.message || 'OpenAI Responses request failed', code, {
-      cause: error,
-      ...(status === undefined ? {} : { status }),
-      ...(id === undefined ? {} : { requestId: ProviderRequestId(id) }),
-      ...(delay === undefined ? {} : { providerRetryAfterMs: delay }),
-    })
+    return new LlmError(
+      /* v8 ignore next -- APIError.makeMessage always yields a non-empty message, so the fallback is unreachable. */ error.message ||
+        'OpenAI Responses request failed',
+      code,
+      {
+        cause: error,
+        ...(status === undefined ? {} : { status }),
+        ...(id === undefined ? {} : { requestId: ProviderRequestId(id) }),
+        ...(delay === undefined ? {} : { providerRetryAfterMs: delay }),
+      },
+    )
   }
   /* v8 ignore next 4 -- the SDK wraps transport failures in Error instances that carry a message. */
-  const message = error instanceof Error && error.message !== ''
-    ? error.message
-    : 'OpenAI Responses stream failed'
+  const message = error instanceof Error && error.message !== '' ? error.message : 'OpenAI Responses stream failed'
   return new LlmError(message, 'OPENAI_RESPONSES_ERROR', {
     cause: error,
     ...(fallbackRequestId === undefined ? {} : { requestId: ProviderRequestId(fallbackRequestId) }),
   })
 }
 
-function responseEventError(
-  detail: unknown,
-  requestId: string | undefined,
-  fallbackCode = 'OPENAI_RESPONSES_ERROR',
-): LlmError {
+function responseEventError(detail: unknown, requestId: string | undefined, fallbackCode = 'OPENAI_RESPONSES_ERROR'): LlmError {
   /* v8 ignore next -- stream events arrive as parsed JSON, never as an LlmError instance. */
   if (detail instanceof LlmError) return detail
   const parts: string[] = []
@@ -1018,8 +1000,6 @@ function nonEmpty(value: string | null | undefined): string | undefined {
 
 function retryAfterMs(value: string | null | undefined): number | undefined {
   if (value === null || value === undefined) return undefined
-  const delay = /^\d+(?:\.\d+)?$/u.test(value)
-    ? Number(value) * 1000
-    : Date.parse(value) - Date.now()
+  const delay = /^\d+(?:\.\d+)?$/u.test(value) ? Number(value) * 1000 : Date.parse(value) - Date.now()
   return Number.isFinite(delay) && delay > 0 ? delay : undefined
 }

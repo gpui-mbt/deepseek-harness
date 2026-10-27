@@ -1,0 +1,131 @@
+name: ChatGPT keyless acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'packages/llm/llm-chatgpt/**'
+      - 'packages/credentials/authorization/**'
+      - 'packages/client/ui-chatgpt/**'
+      - 'apps/web/tests/chatgpt-settings.*'
+      - 'apps/web/tests/scaffold.ts'
+      - 'apps/web/tests/support.ts'
+      - 'apps/web/cordis.yml'
+      - 'pnpm-lock.yaml'
+      - 'apps/web/tsconfig.json'
+      - 'tsconfig.host.json'
+      - '.github/workflows/chatgpt-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chatgpt-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  keyless:
+    # Deliberately independent of the upstream enterprise runner pools.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DSH_TELEMETRY_DISABLED: '1'
+      DSH_SNAPSHOT: replay
+      DSH_GATE_CONCURRENCY: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prepare evidence directory
+        run: mkdir -p .artifacts/chatgpt-ci
+      - uses: pnpm/action-setup@v5.0.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+      - name: Install locked dependencies
+        id: dependencies
+        run: |
+          set -o pipefail
+          pnpm install --frozen-lockfile 2>&1 | tee .artifacts/chatgpt-ci/install.log
+      - name: Build real Host and Web artifacts
+        id: build
+        run: |
+          set -o pipefail
+          pnpm run build:artifacts 2>&1 | tee .artifacts/chatgpt-ci/build.log
+      - name: Type-check Host tests including browser acceptance
+        id: host_types
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          node --max-old-space-size=4096 node_modules/typescript/bin/tsc -p tsconfig.host.json 2>&1 | tee .artifacts/chatgpt-ci/host-types.log
+      - name: Required documentation checks
+        id: docs
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          pnpm run doc-sync 2>&1 | tee .artifacts/chatgpt-ci/docs.log
+      - name: Keyless authorization and ChatGPT regressions
+        id: safety
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          env -u NODE_USE_ENV_PROXY pnpm exec vp test --config vitest.config.ts packages/credentials/authorization/tests packages/llm/llm-chatgpt/tests 2>&1 | tee .artifacts/chatgpt-ci/safety.log
+      - name: Install lockfile-pinned Playwright Chromium
+        id: chromium
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install --with-deps chromium 2>&1 | tee .artifacts/chatgpt-ci/chromium.log
+      - name: Real Chromium settings acceptance with fake provider boundary
+        id: browser
+        if: ${{ !cancelled() && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          env -u NODE_USE_ENV_PROXY pnpm exec vp test --config vitest.web.config.ts apps/web/tests/chatgpt-settings.e2e.ts 2>&1 | tee .artifacts/chatgpt-ci/browser.log
+      - name: Record explicit outcomes (never infer a pass from skipped tests)
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          DOCS_OUTCOME: ${{ steps.docs.outcome }}
+          HOST_TYPES_OUTCOME: ${{ steps.host_types.outcome }}
+          SAFETY_OUTCOME: ${{ steps.safety.outcome }}
+          CHROMIUM_OUTCOME: ${{ steps.chromium.outcome }}
+          BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+        run: |
+          mkdir -p .artifacts/chatgpt-ci
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          def status(key):
+              value = os.environ.get(key, '')
+              return {'success': 'PASS', 'failure': 'FAIL'}.get(value, 'NOT_RUN')
+          report = {
+              'sha': os.environ['GITHUB_SHA'],
+              'build': status('BUILD_OUTCOME'),
+              'doc_sync': status('DOCS_OUTCOME'),
+              'host_test_types': status('HOST_TYPES_OUTCOME'),
+              'authorization_and_chatgpt_regressions': status('SAFETY_OUTCOME'),
+              'chromium_install': status('CHROMIUM_OUTCOME'),
+              'keyless_browser_acceptance': status('BROWSER_OUTCOME') if Path('.artifacts/chatgpt-ci/browser-started.json').exists() else 'NOT_RUN',
+              'browser_step_outcome': os.environ.get('BROWSER_OUTCOME', 'skipped'),
+              'live_oauth_login': 'NOT_RUN',
+              'live_responses_generation': 'NOT_RUN',
+              'recorded_session_snapshots': 'NOT_RUN',
+              'scope': 'Real Host and Chromium; isolated fake account/provider boundary only. FAIL can include setup failure; inspect logs. No live credentials or provider calls.',
+          }
+          text = json.dumps(report, indent=2) + '\n'
+          Path('.artifacts/chatgpt-ci/status.json').write_text(text)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('## ChatGPT keyless acceptance\n```json\n' + text + '```\n')
+          PY
+      - name: Upload bounded evidence only (never the credentials/profile directory)
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: chatgpt-keyless-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .artifacts/chatgpt-ci/
+            .artifacts/web-e2e-chatgpt-settings.png
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7

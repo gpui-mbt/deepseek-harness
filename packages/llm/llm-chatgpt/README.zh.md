@@ -47,9 +47,9 @@ kind: "package-reference"
 
 **账号与授权。** 每个账号是 `dsh-chatgpt` 作用域下的一条 `grant` 凭据记录：client id、已校验的 subject、离线授权，以及一个 `grantGeneration` 计数器，用于在本地退出登录后使进行中的工作失效。另有一条 `dsh-chatgpt/host` 记录保存安装的 `urn:uuid:` host id，授权请求以 `ext_agent_host_id` 呈现它。旧记录若未带该前缀，会在激活时就地修复。
 
-**授权流程。** `ChatGptHost` 为每个已保存账号注册一条 `authorization` 流程，并为每次尝试在 `127.0.0.1` 上启动一个回环服务器。回调校验 `state`，用捕获的 PKCE verifier 交换代码，通过授权源发布的 JWKS 校验签名的 ID token（issuer、audience、nonce、有效期、subject，以及存在时的 `azp`），再通过 `AuthorizationSession.commit` 提交记录。不完整的授权——缺少套餐作用域或没有刷新令牌——只保存已校验的注册信息而不保存令牌，并报告失败尝试，以便下次登录重新授权同一账号。新的登录会在提交前校验将被替换的记录与预期的授权代数，因此并发的退出登录或另一 Host 的账号变更会拒绝这次写入。
+**授权流程。** `ChatGptHost` 为每个已保存账号注册一条 `authorization` 流程，并为每次尝试在 `127.0.0.1` 上启动一个回环服务器。回调校验 `state`，用捕获的 PKCE verifier 交换代码，通过授权源发布的 JWKS 校验签名的 ID token（issuer、audience、nonce、有效期、subject，以及存在时的 `azp`），再通过 `AuthorizationSession.commit` 提交记录。不完整的授权——缺少套餐作用域或没有刷新令牌——只保存已校验的注册信息而不保存令牌，并报告失败尝试，以便下次登录重新授权同一账号。新的登录会在最终凭据提交锁内校验将被替换的记录与预期的授权代数，因此并发的退出登录或另一 Host 的账号变更会拒绝这次写入。
 
-**请求。** 适配器每轮向 Responses API 发送完整会话，使用 `store: false`、`stream: true` 与 `include: ['reasoning.encrypted_content']`。工具以 `additional_tools` developer 条目发送，而不是顶层 `tools` 字段；当提供方、模型与账号仍然匹配时，每条助手消息重放其 `replayState` 中保存的输出条目。流事件映射为 harness 的块词汇；终止的 `response.completed` 是必需的，且流式与终止输出条目必须一致。只有提供方计数器完整且内部一致时，用量才成为 token 用量块。
+**请求。** 适配器每轮向 Responses API 发送完整会话，使用 `store: false`、`stream: true` 与 `include: ['reasoning.encrypted_content']`。工具以 `additional_tools` developer 条目发送，而不是顶层 `tools` 字段；当提供方、模型与账号仍然匹配时，每条助手消息重放其 `replayState` 中保存的输出条目。重放身份使用请求的模型路由；提供方返回的快照模型另存为 `responseModel`，因此别名解析不会丢弃不透明推理。Host 关闭时中止现有请求，并拒绝异步账号发现之后的新请求准入。流事件映射为 harness 的块词汇；终止的 `response.completed` 是必需的，且流式与终止输出条目必须一致。只有提供方计数器完整且内部一致时，用量才成为 token 用量块。
 
 **失败。** 提供方 HTTP 失败映射到共享 LLM 代码（`AUTH`、`RATE_LIMIT`、`CONTEXT_WINDOW_EXCEEDED`、`INVALID_REQUEST`、`SERVER`），保留套餐的精确代码 `subscription_sharing_usage_limit_exceeded`，并保留 `retry-after`。刷新遇到 `invalid_grant` 时把记录降级为 `needs-sign-in` 并报告 `CHATGPT_SIGN_IN_REQUIRED`；退出登录会在写入无令牌记录前中止该账号进行中的工作。
 

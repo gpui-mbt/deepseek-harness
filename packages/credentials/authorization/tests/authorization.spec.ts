@@ -596,3 +596,37 @@ it('rejects a settled session commit before and during the next attempt', async 
   }
   expect(await ctx.credentials.readRecord(KEY)).toMatchObject({ payload: { token: 'grant-2' } })
 })
+
+it('evaluates a commit builder against the current record and preserves it on rejection', async () => {
+  const ctx = await harness()
+  const current = { kind: 'grant' as const, payload: { generation: 2 } }
+  await ctx.credentials.modifyRecord(KEY, async () => current)
+  ctx.authorization.registerFlow({
+    key: KEY,
+    label: 'Account',
+    methods: [{ id: 'browser', label: 'Browser' }],
+    run: session =>
+      session.commit(saved => {
+        expect(saved).toEqual(current)
+        throw new Error('registration changed')
+      }),
+  })
+  await expect(ctx.authorization.begin({ key: KEY, interaction: surface() })).rejects.toThrow('registration changed')
+  expect(await ctx.credentials.readRecord(KEY)).toEqual(current)
+})
+
+it('commits the record returned by a builder under the credential store lock', async () => {
+  const ctx = await harness()
+  ctx.authorization.registerFlow({
+    key: KEY,
+    label: 'Account',
+    methods: [{ id: 'browser', label: 'Browser' }],
+    run: session =>
+      session.commit(saved => {
+        expect(saved).toBeUndefined()
+        return { kind: 'grant', payload: { token: 'built' } }
+      }),
+  })
+  await expect(ctx.authorization.begin({ key: KEY, interaction: surface() })).resolves.toEqual({ status: 'authorized' })
+  expect(await ctx.credentials.readRecord(KEY)).toEqual({ kind: 'grant', payload: { token: 'built' } })
+})
