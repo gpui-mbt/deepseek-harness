@@ -1,4 +1,9 @@
-import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { Context } from '@deepseek-ai/cordis'
+import Storage from '@deepseek-ai/dsh-storage'
+import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
+import { JsonStorageBackend } from '../../../storage/storage-json/src/index.ts'
+import { dotsDomain } from '../src/storage.ts'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -43,6 +48,23 @@ function record(root: string, name: string, sessionId = 'sess-1'): DotRecord {
     updatedAt: 1,
     assignmentCount: 0,
   }
+}
+
+async function persistentDomain(root: string) {
+  const ctx = new Context()
+  await ctx.plugin(Storage)
+  const backend = new JsonStorageBackend(join(root, 'data'))
+  ctx.storage.backend.register('json', backend)
+  const facility = new DomainFacility(ctx, { backend: 'json', routes: {} })
+  ctx.storage.mount('domain', facility)
+  const domain = await facility.open(dotsDomain)
+  const close = async () => {
+    await domain.close()
+    await backend.close()
+    await ctx.fiber.dispose()
+  }
+  cleanups.push(close)
+  return { domain, close }
 }
 
 describe('legacy registry import', () => {
@@ -133,5 +155,56 @@ describe('legacy registry import', () => {
     await expect(importLegacyRegistry(memory.domain.table('dots'), file)).rejects.toMatchObject({
       code: 'dots/registry-corrupt',
     })
+  })
+  it('recovers a durable prefix after reopening the real JSON backend', async () => {
+    const { root, file } = await fixture()
+    const records = [record(root, 'first'), record(root, 'second', 'sess-2')]
+    const text = JSON.stringify({ version: 1, dots: records })
+    await writeFile(file, text)
+    const first = await persistentDomain(root)
+    const table = first.domain.table('dots')
+    const put = table.put.bind(table)
+    vi.spyOn(table, 'put').mockImplementation(async (id, value) => {
+      if (id === records[1]!.id) throw new Error('simulated interruption')
+      await put(id, value)
+    })
+    await expect(importLegacyRegistry(table, file)).rejects.toThrow('simulated interruption')
+    expect(table.size).toBe(1)
+    expect(await readFile(`${file}.importing`, 'utf8')).toBe(text)
+    await first.close()
+    const reopened = await persistentDomain(root)
+    await expect(importLegacyRegistry(reopened.domain.table('dots'), file)).resolves.toEqual({ imported: 2, leftInPlace: false })
+    expect([...reopened.domain.table('dots').entries()].map(([, value]) => value)).toEqual(records)
+    expect(await readFile(`${file}.imported`, 'utf8')).toBe(text)
+    await expect(readFile(`${file}.importing`)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it.each(['foreign', 'changed'])('blocks a %s record beside a pending journal', async kind => {
+    const { root, file, memory } = await fixture()
+    const original = record(root, 'first')
+    await writeFile(`${file}.importing`, JSON.stringify({ version: 1, dots: [original] }))
+    const existing = kind === 'foreign' ? record(root, 'foreign') : { ...original, purpose: 'changed' }
+    await memory.domain.table('dots').put(existing.id, existing)
+    await expect(importLegacyRegistry(memory.domain.table('dots'), file)).rejects.toMatchObject({ code: 'dots/registry-corrupt' })
+    expect(memory.domain.table('dots').get(existing.id)).toEqual(existing)
+  })
+
+  it('preserves ambiguous source and pending journals without activating', async () => {
+    const { file, memory } = await fixture()
+    await writeFile(file, 'source')
+    await writeFile(`${file}.importing`, 'pending')
+    await expect(importLegacyRegistry(memory.domain.table('dots'), file)).rejects.toMatchObject({ code: 'dots/registry-corrupt' })
+    expect(await readFile(file, 'utf8')).toBe('source')
+    expect(await readFile(`${file}.importing`, 'utf8')).toBe('pending')
+  })
+
+  it('preserves a distinct imported backup and retains a recoverable journal', async () => {
+    const { root, file, memory } = await fixture()
+    const text = JSON.stringify({ version: 1, dots: [record(root, 'first')] })
+    await writeFile(file, text)
+    await writeFile(`${file}.imported`, 'older backup')
+    await expect(importLegacyRegistry(memory.domain.table('dots'), file)).rejects.toMatchObject({ code: 'dots/unavailable' })
+    expect(await readFile(`${file}.imported`, 'utf8')).toBe('older backup')
+    expect(await readFile(`${file}.importing`, 'utf8')).toBe(text)
   })
 })

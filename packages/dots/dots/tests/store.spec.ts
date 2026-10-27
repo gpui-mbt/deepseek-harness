@@ -75,6 +75,15 @@ describe('DotStore', () => {
     expect(new DotStore(reopened).list()).toEqual([row])
   })
 
+  it('retains quarantine records despite an occupied active name and cap', async () => {
+    const { root, store } = await fixture()
+    await store.add(record(root, 'same'), 1)
+    const quarantine = { ...record(root, 'same', makeDotId('same', 'bbbbbb'), 'session-q'), archivedAt: 2 }
+    await expect(store.add(quarantine, 1)).resolves.toEqual(quarantine)
+    expect(store.list()).toHaveLength(1)
+    expect(store.findBySession('session-q')).toEqual(quarantine)
+  })
+
   it('rejects duplicate active names and the active cap', async () => {
     const { root, store } = await fixture()
     await store.add(record(root, 'one'), 2)

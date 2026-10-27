@@ -72,11 +72,11 @@ export class DotStore {
     return await this.enqueue(async () => {
       const current = this.list(true)
       const active = current.filter(item => item.archivedAt === undefined)
-      if (active.length >= maxDots) {
+      if (record.archivedAt === undefined && active.length >= maxDots) {
         throw new DotError('dots/limit', `The dot limit (${maxDots}) has been reached.`)
       }
       const key = record.name.toLocaleLowerCase()
-      if (active.some(item => item.name.toLocaleLowerCase() === key)) {
+      if (record.archivedAt === undefined && active.some(item => item.name.toLocaleLowerCase() === key)) {
         throw new DotError('dots/conflict', `A dot named "${record.name}" already exists.`)
       }
       if (current.some(item => item.id === record.id)) {

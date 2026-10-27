@@ -64,7 +64,7 @@ A dot reference is its exact id or its case-insensitive name. Every mutating met
 
 ### Creation
 
-Creation validates the name, purpose, allowlist, and model against the live catalog, then creates `$DSH_HOME/dots/<dot-id>/` with `AGENTS.md`, `MEMORY.md`, and `.dsh-dot/manifest.json`. It registers a Workspace for that directory when the registry is mounted, creates the home Session with the requested preset, titles the Session after the dot, applies the permission preset, and selects the requested model. A failed Workspace registration or rename becomes a warning; a failed Session creation removes a directory that produced no Workspace or Session and reports the surviving path otherwise.
+Creation validates the name, purpose, allowlist, and model against the live catalog, then creates `$DSH_HOME/dots/<dot-id>/` with `AGENTS.md`, `MEMORY.md`, and `.dsh-dot/manifest.json`. It registers a Workspace for that directory when the registry is mounted, creates the home Session with the requested preset, titles the Session after the dot, applies the permission preset, and selects the requested model. If a requested permission preset fails, creation fails closed: the surviving home Session is durably quarantined as an archived dot, no unapplied permission preset is recorded, all its tools are denied, and the error identifies its directory and Session. A failed Workspace registration or rename becomes a warning; a failed Session creation removes a directory that produced no Workspace or Session and reports the surviving path otherwise.
 
 ### Assignment delivery
 
@@ -76,7 +76,7 @@ The assignment is recorded with the Session controller's ordinary `user-rpc` mes
 
 Records live in the `dots` storage domain, version 1, table `dots`, keyed by the dot id. Every stored row is decoded with the same checks that the old file registry applied, and a malformed row rejects opening the domain instead of entering the lifecycle.
 
-At activation, when `$DSH_HOME/dots/registry.json` exists and the table is empty, every record in it is validated and imported once; the file is then renamed to `registry.json.imported`. A file that survives beside a non-empty table is reported in the log and left untouched — never merged, never deleted.
+At activation, when `$DSH_HOME/dots/registry.json` exists and the table is empty, every record is validated, then the file is renamed to `registry.json.importing` before any row is written. This journal survives interruption: activation verifies every existing row against it, resumes missing rows, and only then renames it to `registry.json.imported`. Conflicting rows, simultaneous source and journal files, or a distinct existing imported backup block activation without deleting evidence. A file that survives beside a non-empty table is reported in the log and left untouched — never merged, never deleted.
 
 ### Scheduling
 
@@ -84,7 +84,7 @@ At activation, when `$DSH_HOME/dots/registry.json` exists and the table is empty
 
 ### Permissions and guardrails
 
-A dot home Session can carry any configured permission preset. `allowedTools` is enforced by a `tools/pre-execute` listener: exact tool names and trailing `*` prefixes are accepted, and an empty array denies every tool. Tool schemas stay visible; only execution is denied. A dot can never call a `dot_*` tool, and a live subagent Session of a dot inherits both rules through its ancestor chain. Archiving stops the dot's schedules, cancels its running turn, and removes it from the active list.
+A dot home Session can carry any configured permission preset. `allowedTools` is enforced by a `tools/pre-execute` listener: exact tool names and trailing `*` prefixes are accepted, and an empty array denies every tool. Tool schemas stay visible; only execution is denied. A dot can never call a `dot_*` tool, and a live subagent Session of a dot inherits both rules through its ancestor chain. Archiving stops the dot's schedules, cancels its running turn, and removes it from the active list. Archived home Sessions and their live descendants remain guarded: every tool is denied even when schedule removal or cancellation failed, or schedules were intentionally retained.
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
@@ -175,7 +175,7 @@ The frame is a new user message appended to the dot's history, so it preserves t
 
 #### What the model sees
 
-A denied call returns `Error: <reason>` and never reaches the tool. Dot management calls return `A dot cannot create or manage other dots.`; an allowlist refusal returns `Tool "<name>" is not allowed for dot "<dot name>". Allowed: <patterns or "(none)">.`
+Archived dots return `Archived dots cannot execute tools.`. A denied call returns `Error: <reason>` and never reaches the tool. Dot management calls return `A dot cannot create or manage other dots.`; an allowlist refusal returns `Tool "<name>" is not allowed for dot "<dot name>". Allowed: <patterns or "(none)">.`
 
 #### Token effect
 

@@ -64,7 +64,7 @@ dot 引用可以是精确 id，也可以是不区分大小写的名称。每个�
 
 ### 创建
 
-创建会校验名称、目的、白名单，并对照实时目录校验模型，然后创建 `$DSH_HOME/dots/<dot-id>/`，其中包含 `AGENTS.md`、`MEMORY.md` 与 `.dsh-dot/manifest.json`。当注册表已挂载时，会为该目录注册工作区，使用请求的 preset 创建主会话，以 dot 名称命名会话，应用权限 preset，并选择请求的模型。工作区注册或重命名失败会变成警告；会话创建失败时，若既未产生工作区也未产生会话，目录会被删除，否则会报告保留下来的路径。
+创建会校验名称、目的、白名单，并对照实时目录校验模型，然后创建 `$DSH_HOME/dots/<dot-id>/`，其中包含 `AGENTS.md`、`MEMORY.md` 与 `.dsh-dot/manifest.json`。当注册表已挂载时，会为该目录注册工作区，使用请求的 preset 创建主会话，以 dot 名称命名会话，应用权限 preset，并选择请求的模型。请求的权限 preset 应用失败时，创建会安全失败：已创建的主会话以归档 dot 持久隔离，不记录未应用的权限 preset，拒绝其全部工具，并在错误中报告目录与会话。工作区注册或重命名失败会变成警告；会话创建失败时，若既未产生工作区也未产生会话，目录会被删除，否则会报告保留下来的路径。
 
 ### 派发投递
 
@@ -76,7 +76,7 @@ dot 引用可以是精确 id，也可以是不区分大小写的名称。每个�
 
 记录存放在 `dots` 存储域（版本 1，表 `dots`，以 dot id 为键）。每条已存储记录都用与旧文件注册表相同的检查解码，格式错误的记录会拒绝打开存储域，而不会进入生命周期。
 
-激活时，若 `$DSH_HOME/dots/registry.json` 存在且表为空，则其中每条记录都会先校验、再一次性导入，随后文件被重命名为 `registry.json.imported`。若文件在表非空时仍然存在，会在日志中报告并原样保留——既不合并，也不删除。
+激活时，若 `$DSH_HOME/dots/registry.json` 存在且表为空，则先校验全部记录，再在任何行写入前将文件重命名为 `registry.json.importing`。该日志保留中断恢复所需的原始内容：激活时逐一核对已有行，补齐缺失行，最后才重命名为 `registry.json.imported`。已有行冲突、源文件与日志同时存在，或已有不同的导入备份时，激活会失败并保留证据。若文件在表非空时仍然存在，会在日志中报告并原样保留——既不合并，也不删除。
 
 ### 调度
 
@@ -84,7 +84,7 @@ dot 引用可以是精确 id，也可以是不区分大小写的名称。每个�
 
 ### 权限与护栏
 
-dot 主会话可以携带任意已配置的权限 preset。`allowedTools` 由 `tools/pre-execute` 监听器强制执行：接受精确工具名与结尾 `*` 前缀，空数组拒绝所有工具。工具 schema 保持可见，仅执行被拒绝。dot 永远不能调用 `dot_*` 工具，dot 的活跃子代理会话会通过祖先链同时继承这两条规则。归档会停止该 dot 的调度、取消其运行中的轮次，并将其从活跃列表移除。
+dot 主会话可以携带任意已配置的权限 preset。`allowedTools` 由 `tools/pre-execute` 监听器强制执行：接受精确工具名与结尾 `*` 前缀，空数组拒绝所有工具。工具 schema 保持可见，仅执行被拒绝。dot 永远不能调用 `dot_*` 工具，dot 的活跃子代理会话会通过祖先链同时继承这两条规则。归档会停止该 dot 的调度、取消其运行中的轮次，并将其从活跃列表移除。归档主会话及其活跃后代仍受守卫约束：即使调度删除或取消失败，或刻意保留调度，也拒绝全部工具。
 
 <a id="understand-the-implementation"></a>
 ## 理解实现
@@ -176,7 +176,7 @@ dot 空闲请求中为零成本。一次派发在进入主会话收件箱时增�
 
 #### 模型看到的内容
 
-被拒绝的调用返回 `Error: <reason>`，且永远不会到达工具。dot 管理类调用返回 `A dot cannot create or manage other dots.`；白名单拒绝返回 `Tool "<name>" is not allowed for dot "<dot name>". Allowed: <patterns or "(none)">.`
+归档 dot 返回 `Archived dots cannot execute tools.`。被拒绝的调用返回 `Error: <reason>`，且永远不会到达工具。dot 管理类调用返回 `A dot cannot create or manage other dots.`；白名单拒绝返回 `Tool "<name>" is not allowed for dot "<dot name>". Allowed: <patterns or "(none)">.`
 
 #### Token 影响
 

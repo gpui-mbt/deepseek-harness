@@ -93,10 +93,7 @@ export class DotController {
     const requestedPreset = (input.preset ?? this.config.defaultPreset).trim()
     if (requestedPreset.length === 0) throw new DotError('dots/invalid', 'Agent preset must not be blank.')
     const preset = requireAllowedPreset(this.config, requestedPreset)
-    const permissionPreset = requireAllowedPermissionPreset(
-      this.config,
-      input.permissionPreset ?? this.config.defaultPermissionPreset,
-    )
+    const permissionPreset = requireAllowedPermissionPreset(this.config, input.permissionPreset ?? this.config.defaultPermissionPreset)
     const allowedTools = normalizeAllowedTools(input.allowedTools)
     if (input.model !== undefined) await this.validateModel(input.model)
     signal?.throwIfAborted()
@@ -116,6 +113,7 @@ export class DotController {
     let sessionId = ''
     let workspaceId: string | undefined
     let appliedModel: DotModelSelection | undefined
+    let permissionFailure: string | undefined
 
     await mkdir(this.root, { recursive: true, mode: 0o700 })
     try {
@@ -189,11 +187,11 @@ export class DotController {
       try {
         await this.host.setPermissionPreset(sessionId, permissionPreset)
       } catch (error: unknown) {
-        warnings.push(`Permission preset "${permissionPreset}" could not be applied: ${String(error)}`)
+        permissionFailure = `Permission preset "${permissionPreset}" could not be applied: ${String(error)}`
       }
     }
 
-    if (input.model !== undefined) {
+    if (input.model !== undefined && permissionFailure === undefined) {
       try {
         await this.host.selectModel(sessionId, input.model)
         appliedModel = input.model
@@ -211,8 +209,9 @@ export class DotController {
       sessionId,
       ...(workspaceId === undefined ? {} : { workspaceId }),
       preset,
-      ...(permissionPreset === undefined ? {} : { permissionPreset }),
+      ...(permissionPreset === undefined || permissionFailure !== undefined ? {} : { permissionPreset }),
       ...(allowedTools === undefined ? {} : { allowedTools }),
+      ...(permissionFailure === undefined ? {} : { archivedAt: now }),
       ...(appliedModel === undefined ? {} : { model: appliedModel }),
       createdAt: now,
       updatedAt: now,
@@ -221,6 +220,19 @@ export class DotController {
 
     try {
       const stored = await this.store.add(record, this.config.maxDots)
+      if (permissionFailure !== undefined) {
+        try {
+          this.host.getAgent(sessionId)?.cancel({ kind: 'user' })
+        } catch {
+          /* Durable quarantine denies subsequent tools even if cancellation fails. */
+        }
+        try {
+          await writeFile(paths.contract, renderContract({ name, purpose, preset, allowedTools: [] }), { encoding: 'utf8', mode: 0o600 })
+        } catch (error: unknown) {
+          permissionFailure += ` The contract could not be corrected: ${String(error)}`
+        }
+        throw new DotError('dots/unavailable', `${permissionFailure} Dot ${id} was quarantined and cannot accept work.`)
+      }
       return { view: this.view(stored, 'idle'), warnings }
     } catch (error: unknown) {
       const failure = asDotError(error)
@@ -302,10 +314,8 @@ export class DotController {
     if (input.purpose === undefined && input.addMemory === undefined && input.allowedTools === undefined) {
       throw new DotError('dots/invalid', 'Provide purpose, addMemory, or allowedTools.')
     }
-    const purpose =
-      input.purpose === undefined ? record.purpose : normalizePurpose(input.purpose, this.config.maxPurposeBytes)
-    const allowedTools =
-      input.allowedTools === undefined ? record.allowedTools : normalizeAllowedTools(input.allowedTools)
+    const purpose = input.purpose === undefined ? record.purpose : normalizePurpose(input.purpose, this.config.maxPurposeBytes)
+    const allowedTools = input.allowedTools === undefined ? record.allowedTools : normalizeAllowedTools(input.allowedTools)
     const paths = dotPaths(this.root, record.id)
     signal?.throwIfAborted()
 
@@ -363,14 +373,9 @@ export class DotController {
       throw new DotError('dots/invalid', 'Schedule title must be 1-120 characters.')
     }
     if (prompt.length === 0) throw new DotError('dots/invalid', 'Schedule prompt must not be blank.')
-    const selectors = [
-      request.after_seconds,
-      request.at,
-      request.every_seconds,
-      request.daily,
-      request.weekly,
-      request.cron,
-    ].filter(value => value !== undefined)
+    const selectors = [request.after_seconds, request.at, request.every_seconds, request.daily, request.weekly, request.cron].filter(
+      value => value !== undefined,
+    )
     if (selectors.length !== 1) {
       throw new DotError('dots/invalid', 'Provide exactly one schedule selector.')
     }
@@ -382,11 +387,7 @@ Before starting, read AGENTS.md and MEMORY.md in your workspace.
 ## Task
 ${prompt}
 `
-    const created = await this.host.createSchedule(
-      record.sessionId,
-      { ...request, title, prompt: framedPrompt },
-      signal,
-    )
+    const created = await this.host.createSchedule(record.sessionId, { ...request, title, prompt: framedPrompt }, signal)
     return {
       id: created.id,
       kind: created.kind,
@@ -461,19 +462,16 @@ ${prompt}
    */
   guardDenial(sessionId: string, toolName: string): string | undefined {
     const record = this.recordOfSession(sessionId)
-    if (record === undefined || record.archivedAt !== undefined) return undefined
+    if (record === undefined) return undefined
+    if (record.archivedAt !== undefined) return 'Archived dots cannot execute tools.'
     if (toolName.startsWith('dot_')) {
       return 'A dot cannot create or manage other dots.'
     }
     if (!this.config.enforceToolAllowlist) return undefined
     const patterns = record.allowedTools
     if (patterns === undefined) return undefined
-    const allowed = patterns.some(pattern =>
-      pattern.endsWith('*') ? toolName.startsWith(pattern.slice(0, -1)) : toolName === pattern,
-    )
-    return allowed
-      ? undefined
-      : `Tool "${toolName}" is not allowed for dot "${record.name}". Allowed: ${patterns.join(', ') || '(none)'}.`
+    const allowed = patterns.some(pattern => (pattern.endsWith('*') ? toolName.startsWith(pattern.slice(0, -1)) : toolName === pattern))
+    return allowed ? undefined : `Tool "${toolName}" is not allowed for dot "${record.name}". Allowed: ${patterns.join(', ') || '(none)'}.`
   }
 
   /**
@@ -570,13 +568,7 @@ ${prompt}
    * @param from - caller session identity.
    * @returns the complete user-role prompt text.
    */
-  private assignmentFrame(
-    record: DotRecord,
-    task: string,
-    memory: string,
-    assignmentId: string,
-    from: string | undefined,
-  ): string {
+  private assignmentFrame(record: DotRecord, task: string, memory: string, assignmentId: string, from: string | undefined): string {
     return `[DOT ASSIGNMENT]
 Dot: ${record.name}
 Dot id: ${record.id}

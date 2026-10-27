@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import type { ToolExecution } from '@deepseek-ai/dsh-tools'
 import { DotController } from '../src/controller.ts'
 import { createToolGuard } from '../src/guard.ts'
@@ -17,13 +17,7 @@ async function setup() {
   const memory = await memoryDomain()
   cleanups.push(memory.close)
   const host = new FakeHost()
-  const controller = new DotController(
-    testConfig(),
-    host,
-    new DotStore(memory.domain),
-    temp.root,
-    () => undefined,
-  )
+  const controller = new DotController(testConfig(), host, new DotStore(memory.domain), temp.root, () => undefined)
   const created = await controller.create({ name: 'researcher', purpose: 'Research.' })
   return { controller, host, sessionId: created.view.sessionId }
 }
@@ -83,18 +77,25 @@ describe('dot tool guard', () => {
     const { controller, host, sessionId } = await setup()
     host.parents.set('child-session', [sessionId])
     const guard = createToolGuard(controller)
-    await expect(
-      guard(execution('child-session', 'dot_archive'), async () => ({ kind: 'allow' as const })),
-    ).resolves.toMatchObject({ kind: 'deny' })
-  })
-
-  it('stops denying after the dot is archived', async () => {
-    const { controller, sessionId } = await setup()
-    await controller.archive('researcher')
-    const guard = createToolGuard(controller)
-    await expect(guard(execution(sessionId, 'dot_create'), async () => ({ kind: 'allow' as const }))).resolves.toEqual({
-      kind: 'allow',
+    await expect(guard(execution('child-session', 'dot_archive'), async () => ({ kind: 'allow' as const }))).resolves.toMatchObject({
+      kind: 'deny',
     })
   })
 
+  it.each([false, true])('keeps home and descendant tools blocked after archive (stop schedules: %s)', async stopSchedules => {
+    const { controller, host, sessionId } = await setup()
+    host.parents.set('child-session', [sessionId])
+    host.schedules.set(sessionId, [{ id: 'retained', kind: 'once', title: 'Retained', scheduledAt: '2026-10-28T00:00:00Z' }])
+    vi.spyOn(host, 'deleteSchedule').mockRejectedValue(new Error('cannot delete'))
+    await controller.archive('researcher', stopSchedules)
+    expect(host.schedules.get(sessionId)).toHaveLength(1)
+    const guard = createToolGuard(controller)
+    const next = vi.fn(async () => ({ kind: 'allow' as const }))
+    for (const caller of [sessionId, 'child-session']) {
+      for (const tool of ['read', 'write', 'dot_create']) {
+        await expect(guard(execution(caller, tool), next)).resolves.toMatchObject({ kind: 'deny' })
+      }
+    }
+    expect(next).not.toHaveBeenCalled()
+  })
 })

@@ -57,10 +57,7 @@ interface StubSession {
 function sessionControllerStub(): SessionController {
   const sessions = new Map<string, StubSession>()
   let next = 1
-  const stub: Pick<
-    SessionController,
-    'create' | 'rename' | 'list' | 'modelCatalog' | 'prompt' | 'selectModel'
-  > = {
+  const stub: Pick<SessionController, 'create' | 'rename' | 'list' | 'modelCatalog' | 'prompt' | 'selectModel'> = {
     async create(_request: SessionCreateRequest) {
       const sessionId = SessionId(`session-${next++}`)
       sessions.set(sessionId, { sessionId, running: false, agentAvailable: true })
@@ -146,9 +143,7 @@ function dotsTestServices() {
  *   whether the row omits `root` so the default root resolves from `$DSH_HOME`.
  * @returns the booted context.
  */
-async function loadComposition(
-  options: { readonly legacy?: unknown; readonly omitRoot?: boolean } = {},
-): Promise<Context> {
+async function loadComposition(options: { readonly legacy?: unknown; readonly omitRoot?: boolean } = {}): Promise<Context> {
   const root = await mkdtemp(join(tmpdir(), 'dsh-dots-composition-'))
   roots.push(root)
   lastRoot = root
@@ -242,15 +237,11 @@ describe('dots real Loader composition', () => {
       .map(entry => entry.options.name)
     expect(unloaded).toEqual([])
     expect(ctx.dotsController).toBeInstanceOf(DotsController)
-    expect(remoteMethods(ctx.dotsController).map(marker => marker.exportName ?? marker.method).sort()).toEqual([
-      'archive',
-      'assign',
-      'create',
-      'list',
-      'scheduleCreate',
-      'scheduleList',
-      'update',
-    ])
+    expect(
+      remoteMethods(ctx.dotsController)
+        .map(marker => marker.exportName ?? marker.method)
+        .sort(),
+    ).toEqual(['archive', 'assign', 'create', 'list', 'scheduleCreate', 'scheduleList', 'update'])
   })
 
   it('registers the six model-facing tools', async () => {
@@ -296,20 +287,28 @@ describe('dots real Loader composition', () => {
     expect((await ctx.dotsController.list({ includeArchived: true })).dots).toHaveLength(1)
   })
 
-  it('creates a dot with every optional field and imports a legacy registry once', async () => {
+  it('creates a dot with optional model and allowlist', async () => {
     const ctx = await loadComposition()
     const created = await ctx.dotsController.create({
       name: 'configured',
       purpose: 'Configured dot.',
       preset: 'standard',
-      permissionPreset: 'workspace-write',
       allowedTools: ['read'],
       model: { provider: 'mock', model: 'mock-model' },
     })
-    // The composition mounts no permission-preset service, so the warning path runs.
-    expect(created.warnings.join(' ')).toMatch(/Permission preset/u)
+    expect(created.warnings).toEqual([])
     expect(created.view.model).toEqual({ provider: 'mock', model: 'mock-model' })
     expect(created.view.allowedTools).toEqual(['read'])
+  })
+
+  it('rejects creation when a requested permission service is missing', async () => {
+    const ctx = await loadComposition()
+    await expect(
+      ctx.dotsController.create({ name: 'restricted', purpose: 'Restricted.', permissionPreset: 'workspace-write' }),
+    ).rejects.toThrow('quarantined')
+    expect((await ctx.dotsController.list({})).dots).toEqual([])
+    const [record] = (await ctx.dotsController.list({ includeArchived: true })).dots
+    expect(record).not.toHaveProperty('permissionPreset')
   })
 
   it('creates, lists, and stops a dot schedule through the Remote service', async () => {
@@ -333,9 +332,7 @@ describe('dots real Loader composition', () => {
     await expect(readFile(join(lastRoot!, 'dots', 'registry.json'), 'utf8')).rejects.toMatchObject({
       code: 'ENOENT',
     })
-    await expect(readFile(join(lastRoot!, 'dots', 'registry.json.imported'), 'utf8')).resolves.toContain(
-      '"dots"',
-    )
+    await expect(readFile(join(lastRoot!, 'dots', 'registry.json.imported'), 'utf8')).resolves.toContain('"dots"')
   })
 
   it('leaves a legacy file in place beside stored records', async () => {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vite-plus/test'
+import { afterEach, describe, expect, it, vi } from 'vite-plus/test'
 import { readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { validatePresetAllowlists } from '../src/config.ts'
 import { DotError, asDotError } from '../src/errors.ts'
@@ -30,9 +30,7 @@ async function setup(overrides: Partial<Config> = {}, host = new FakeHost()): Pr
   cleanups.push(memory.close)
   const config = testConfig(overrides)
   const warnings: string[] = []
-  const controller = new DotController(config, host, new DotStore(memory.domain), temp.root, message =>
-    warnings.push(message),
-  )
+  const controller = new DotController(config, host, new DotStore(memory.domain), temp.root, message => warnings.push(message))
   return { root: temp.root, host, controller, config, warnings }
 }
 
@@ -95,6 +93,25 @@ describe('DotController lifecycle', () => {
     expect(fixture.host.live.size).toBe(0)
   })
 
+  it('quarantines a Session when its requested permission preset fails', async () => {
+    const fixture = await setup({ enforceToolAllowlist: false })
+    vi.spyOn(fixture.host, 'setPermissionPreset').mockRejectedValue(new Error('preset unavailable'))
+    await expect(fixture.controller.create({ name: 'restricted', purpose: 'Research.', permissionPreset: 'read-only' })).rejects.toThrow(
+      'quarantined',
+    )
+    expect(await fixture.controller.list()).toEqual([])
+    const [quarantined] = await fixture.controller.list(true)
+    expect(quarantined).toBeDefined()
+    expect(quarantined).not.toHaveProperty('permissionPreset')
+    expect(fixture.host.live.get(quarantined!.sessionId)?.cancelled).toBe(true)
+    fixture.host.parents.set('child', [quarantined!.sessionId])
+    for (const sessionId of [quarantined!.sessionId, 'child']) {
+      expect(fixture.controller.guardDenial(sessionId, 'write')).toBeDefined()
+    }
+    await expect(fixture.controller.assign({ ref: 'restricted', task: 'do work' })).rejects.toMatchObject({ code: 'dots/not-found' })
+    expect(fixture.host.prompts).toEqual([])
+  })
+
   it('applies a permission preset to the home session', async () => {
     const fixture = await setup()
     const created = await fixture.controller.create({
@@ -103,9 +120,7 @@ describe('DotController lifecycle', () => {
       permissionPreset: 'workspace-write',
     })
     expect(created.warnings).toEqual([])
-    expect(fixture.host.permissions).toEqual([
-      { sessionId: created.view.sessionId, name: 'workspace-write' },
-    ])
+    expect(fixture.host.permissions).toEqual([{ sessionId: created.view.sessionId, name: 'workspace-write' }])
   })
 
   it('falls back to the dot directory when workspace registration fails', async () => {
@@ -129,9 +144,7 @@ describe('DotController lifecycle', () => {
     const fixture = await setup({ maxDots: 1 })
     await createOne(fixture)
     await expect(createOne(fixture)).rejects.toMatchObject({ code: 'dots/conflict' })
-    await expect(
-      fixture.controller.create({ name: 'other', purpose: 'Other.' }),
-    ).rejects.toMatchObject({ code: 'dots/limit' })
+    await expect(fixture.controller.create({ name: 'other', purpose: 'Other.' })).rejects.toMatchObject({ code: 'dots/limit' })
   })
 
   it('reports model validation failures and a failed catalog read', async () => {
@@ -206,27 +219,21 @@ describe('DotController lifecycle', () => {
     const memory = await memoryDomain()
     cleanups.push(memory.close)
     const host = new FakeHost()
-    const controller = new DotController(testConfig(), host, new DotStore(memory.domain), temp.root, () =>
-      undefined,
-    )
+    const controller = new DotController(testConfig(), host, new DotStore(memory.domain), temp.root, () => undefined)
     memory.pool.failNextWrites = 1
-    await expect(controller.create({ name: 'unwritten', purpose: 'Unwritten.' })).rejects.toThrow(
-      /The created directory is/u,
-    )
+    await expect(controller.create({ name: 'unwritten', purpose: 'Unwritten.' })).rejects.toThrow(/The created directory is/u)
   })
 
   it('rejects a blank preset, blank memory notes, and oversized notes', async () => {
     const fixture = await setup({ maxTaskBytes: 10 })
-    await expect(
-      fixture.controller.create({ name: 'blank', purpose: 'Blank.', preset: '   ' }),
-    ).rejects.toMatchObject({ code: 'dots/invalid' })
+    await expect(fixture.controller.create({ name: 'blank', purpose: 'Blank.', preset: '   ' })).rejects.toMatchObject({
+      code: 'dots/invalid',
+    })
     const created = await createOne(fixture)
     await expect(fixture.controller.update(created.view.id, { addMemory: '   ' })).rejects.toMatchObject({
       code: 'dots/invalid',
     })
-    await expect(
-      fixture.controller.update(created.view.id, { addMemory: 'x'.repeat(20) }),
-    ).rejects.toMatchObject({ code: 'dots/invalid' })
+    await expect(fixture.controller.update(created.view.id, { addMemory: 'x'.repeat(20) })).rejects.toMatchObject({ code: 'dots/invalid' })
   })
 
   it('recreates the memory file and injects an empty excerpt when it is missing', async () => {
@@ -244,9 +251,9 @@ describe('DotController lifecycle', () => {
   it('rejects a blank schedule prompt and reports a schedule deletion failure', async () => {
     const fixture = await setup()
     const created = await createOne(fixture)
-    await expect(
-      fixture.controller.schedule(created.view.id, { title: 'Blank', prompt: '   ', every_seconds: 60 }),
-    ).rejects.toMatchObject({ code: 'dots/invalid' })
+    await expect(fixture.controller.schedule(created.view.id, { title: 'Blank', prompt: '   ', every_seconds: 60 })).rejects.toMatchObject({
+      code: 'dots/invalid',
+    })
     await fixture.controller.schedule(created.view.id, {
       title: 'Check',
       prompt: 'Check.',
@@ -261,12 +268,8 @@ describe('DotController lifecycle', () => {
 
   it('enforces configured preset allowlists', async () => {
     const fixture = await setup({ allowedPresets: ['standard'], allowedPermissionPresets: ['workspace-write'] })
-    await expect(
-      fixture.controller.create({ name: 'other', purpose: 'Other.', preset: 'creator' }),
-    ).rejects.toThrow(/not allowed/u)
-    await expect(
-      fixture.controller.create({ name: 'other', purpose: 'Other.', permissionPreset: 'auto' }),
-    ).rejects.toThrow(/not allowed/u)
+    await expect(fixture.controller.create({ name: 'other', purpose: 'Other.', preset: 'creator' })).rejects.toThrow(/not allowed/u)
+    await expect(fixture.controller.create({ name: 'other', purpose: 'Other.', permissionPreset: 'auto' })).rejects.toThrow(/not allowed/u)
     const created = await createOne(fixture)
     expect(created.view.preset).toBe('standard')
   })
@@ -276,9 +279,7 @@ describe('DotController lifecycle', () => {
       validatePresetAllowlists(testConfig({ allowedPresets: ['creator'] }))
     }).toThrow(/defaultPreset/u)
     expect(() => {
-      validatePresetAllowlists(
-        testConfig({ defaultPermissionPreset: 'auto', allowedPermissionPresets: ['workspace-write'] }),
-      )
+      validatePresetAllowlists(testConfig({ defaultPermissionPreset: 'auto', allowedPermissionPresets: ['workspace-write'] }))
     }).toThrow(/defaultPermissionPreset/u)
     expect(() => {
       validatePresetAllowlists(testConfig({ defaultPreset: 'standard', allowedPresets: ['standard'] }))
@@ -295,9 +296,7 @@ describe('DotController lifecycle', () => {
       code: 'dots/fallback',
       message: 'failed',
     })
-    expect(() => normalizeAllowedTools(Array.from({ length: 65 }, (_, index) => `tool-${index}`))).toThrow(
-      /At most 64/u,
-    )
+    expect(() => normalizeAllowedTools(Array.from({ length: 65 }, (_, index) => `tool-${index}`))).toThrow(/At most 64/u)
     expect(normalizeAllowedTools(['read', 'read', 'write'])).toEqual(['read', 'write'])
   })
 
@@ -390,9 +389,9 @@ describe('DotController lifecycle', () => {
         cron: { expression: '* * * * *', time_zone: 'UTC' },
       }),
     ).rejects.toMatchObject({ code: 'dots/invalid' })
-    await expect(
-      fixture.controller.schedule(created.view.id, { title: '', prompt: 'x', every_seconds: 60 }),
-    ).rejects.toMatchObject({ code: 'dots/invalid' })
+    await expect(fixture.controller.schedule(created.view.id, { title: '', prompt: 'x', every_seconds: 60 })).rejects.toMatchObject({
+      code: 'dots/invalid',
+    })
   })
 
   it('archives by stopping schedules and cancelling the live turn', async () => {
