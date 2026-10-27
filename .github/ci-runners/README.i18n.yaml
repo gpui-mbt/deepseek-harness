@@ -1,10 +1,10 @@
 # Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
-#   pnpm run verify-translation-pairing --write .github/workflows/README.md
+#   pnpm run verify-translation-pairing --write .github/ci-runners/README.md
 /ci-runner-defaults:
-  en: d03874341b501696
-  zh: f466bbeada1ff178
+  en: eb4de664a36b0a00
+  zh: d9d9f6035f9bb5da
 /ci-runner-defaults/fork-ci-runners:
-  en: f8a9c2512e723476
-  zh: f12900ba6a339940
+  en: 0244aa515bd5b9a1
+  zh: 8765de005438f689

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 import * as yaml from 'js-yaml'
 import { describe, expect, it } from 'vite-plus/test'
@@ -16,7 +16,45 @@ function resolve(value: string): unknown {
   return value.startsWith('${{') ? runInNewContext(value.trim().slice(3, -2), context, { timeout: 1000 }) : value
 }
 
+/** Placement guard only; GitHub remains the complete workflow schema validator. */
+function isWorkflow(value: unknown): boolean {
+  if (value === null || typeof value !== 'object' || !('on' in value) || !('jobs' in value)) return false
+  const trigger = value.on
+  const validTrigger =
+    typeof trigger === 'string'
+      ? trigger.trim().length > 0
+      : Array.isArray(trigger)
+        ? trigger.length > 0 && trigger.every(item => typeof item === 'string' && item.trim().length > 0)
+        : trigger !== null && typeof trigger === 'object' && Object.keys(trigger).length > 0
+  return (
+    validTrigger &&
+    value.jobs !== null &&
+    typeof value.jobs === 'object' &&
+    !Array.isArray(value.jobs) &&
+    Object.keys(value.jobs).length > 0
+  )
+}
+
 describe('fork standard-hosted CI', () => {
+  it('keeps non-workflow YAML outside the Actions discovery directory', () => {
+    const directory = new URL('../.github/workflows/', import.meta.url)
+    const files = readdirSync(directory).filter(name => /\.ya?ml$/u.test(name))
+    expect(files.length).toBeGreaterThan(0)
+    for (const file of files) {
+      expect(isWorkflow(yaml.load(readFileSync(new URL(file, directory), 'utf8'))), file).toBe(true)
+    }
+    // The former README.i18n.yaml was valid YAML but not a workflow. Its
+    // placement must fail even though ordinary YAML syntax validation passes.
+    expect(isWorkflow(yaml.load('/heading:\n  en: abc\n  zh: def\n'))).toBe(false)
+    expect(isWorkflow(yaml.load('on: push\njobs: {}\n'))).toBe(false)
+    expect(isWorkflow(yaml.load('on: null\njobs: {test: {runs-on: ubuntu-latest}}\n'))).toBe(false)
+    expect(isWorkflow(yaml.load('on: []\njobs: {test: {runs-on: ubuntu-latest}}\n'))).toBe(false)
+    expect(isWorkflow(yaml.load('on: push\njobs: [test]\n'))).toBe(false)
+    expect(
+      isWorkflow(yaml.load('name: CI\non: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n')),
+    ).toBe(true)
+  })
+
   it.each([
     ['node-24', 'ubuntu-24.04', 'pnpm run check:ci:static'],
     ['node-24-coverage', 'ubuntu-24.04', 'pnpm run check:ci:coverage'],
