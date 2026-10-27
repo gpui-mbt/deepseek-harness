@@ -2067,10 +2067,6 @@
     "37c9617ff75d6a383f58dd63f939a88803e4ff5e1676bfe7e1c0cc340fc65014": 8,
     "598014dcfe77101781e3c6a02709097e3b0151a335e909c44719fac08fdea433": 2
   },
-  "packages/web/web-search-ollama/tests/ollama.spec.ts": {
-    "37c9617ff75d6a383f58dd63f939a88803e4ff5e1676bfe7e1c0cc340fc65014": 6,
-    "598014dcfe77101781e3c6a02709097e3b0151a335e909c44719fac08fdea433": 2
-  },
   "packages/web/web-search-perplexity/tests/perplexity.spec.ts": {
     "37c9617ff75d6a383f58dd63f939a88803e4ff5e1676bfe7e1c0cc340fc65014": 6,
     "598014dcfe77101781e3c6a02709097e3b0151a335e909c44719fac08fdea433": 2,
