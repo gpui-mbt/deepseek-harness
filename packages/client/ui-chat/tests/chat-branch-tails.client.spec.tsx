@@ -1266,7 +1266,7 @@ describe('message clock rendering', () => {
   })
 
   it('follows a zone change without remounting the row', () => {
-    const time = new Date(2026, 6, 29, 14, 24, 10).getTime()
+    const time = Date.UTC(2026, 6, 29, 5, 24, 10)
     const node = {
       kind: 'user',
       seq: 1,
@@ -1274,8 +1274,8 @@ describe('message clock rendering', () => {
       content: [{ type: 'text', text: 'local bubble' }] as never,
       source: null,
     } as const
-    const view = render(<MessageItem t={t} clockTimeZone="local" node={node} />)
-    expect(view.getByText('2026-07-29T14:24:10')).toBeTruthy()
+    const view = render(<MessageItem t={t} clockTimeZone="jst" node={node} />)
+    expect(view.getByText('2026-07-29T14:24:10 (JST)')).toBeTruthy()
     view.rerender(<MessageItem t={t} clockTimeZone="utc" node={node} />)
     expect(view.getByText('2026-07-29T05:24:10 (UTC)')).toBeTruthy()
   })
