@@ -22,7 +22,7 @@ export const ja: LocaleDictOf<'chatgpt'> = {
   loginExchanging: 'ログインを完了しています…',
   loginComplete: 'ログインが完了しました',
   loginFailed: 'ログインを完了できませんでした。',
-  loginCancelled: 'ログインをキャンセルしました',
+  loginCancelled: 'ログインをキャンセルしました。ブラウザーのログインタブがまだ開いている場合は閉じてください。',
   connected: '接続済み',
   registrationRequired: '登録が必要です',
   signInRequired: '再ログインが必要です',

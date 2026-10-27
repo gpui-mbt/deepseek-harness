@@ -478,6 +478,86 @@ describe('ChatGptSettingsSection interactions', () => {
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
   })
 
+  it.each(['no-op', 'throws'] as const)('cancels the Host attempt when isolated popup close %s', async behavior => {
+    const attemptId = brandString<ChatGptLoginAttemptId>('attempt-1')
+    let phase: 'awaiting-browser' | 'cancelled' | undefined
+    const remote = remoteFor(async () => state({ loginAttempts: phase === undefined ? [] : [{ id: attemptId, phase }] }))
+    vi.mocked(remote.beginLogin).mockImplementation(async () => {
+      phase = 'awaiting-browser'
+      return success({ attemptId, authorizationUrl: 'https://auth.openai.com/oauth/authorize' })
+    })
+    vi.mocked(remote.cancelLogin).mockImplementation(async () => {
+      phase = 'cancelled'
+      return success(undefined)
+    })
+    const close = vi.fn(() => {
+      if (behavior === 'throws') throw new DOMException('Browser denied close', 'SecurityError')
+    })
+    const popup = { closed: false, opener: window, location: { replace: vi.fn() }, close }
+    vi.spyOn(window, 'open').mockReturnValue(popup as never)
+    mount(remote)
+    fireEvent.click(await screen.findByRole('button', { name: en.continueWithChatGPT }))
+    await waitFor(() => {
+      expect(popup.location.replace).toHaveBeenCalled()
+    })
+    expect(popup.opener).toBeNull()
+    fireEvent.click(await screen.findByRole('button', { name: en.cancelLogin }))
+    await waitFor(() => {
+      expect(remote.cancelLogin).toHaveBeenCalledExactlyOnceWith({ attemptId })
+    })
+    expect(await screen.findByText(en.loginCancelled)).toBeDefined()
+    expect(close).toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: en.cancelLogin })).toBeNull()
+  })
+
+  it('does not report cancellation success when the Host rejects cancellation and permits retry', async () => {
+    const attemptId = brandString<ChatGptLoginAttemptId>('attempt-1')
+    let cancelled = false
+    const remote = remoteFor(async () => state({ loginAttempts: [{ id: attemptId, phase: cancelled ? 'cancelled' : 'awaiting-browser' }] }))
+    vi.mocked(remote.cancelLogin)
+      .mockRejectedValueOnce(new Error('Host unavailable'))
+      .mockImplementationOnce(async () => {
+        cancelled = true
+        return success(undefined)
+      })
+    const finishAttempt = vi.fn()
+    mount(remote, 'page', { finishAttempt })
+    fireEvent.click(await screen.findByRole('button', { name: en.cancelLogin }))
+    expect(await screen.findByText(en.actionFailed)).toBeDefined()
+    expect(screen.queryByText(en.loginCancelled)).toBeNull()
+    expect(finishAttempt).not.toHaveBeenCalled()
+    const retry = screen.getByRole('button', { name: en.cancelLogin })
+    expect((retry as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(retry)
+    expect(await screen.findByText(en.loginCancelled)).toBeDefined()
+    expect(remote.cancelLogin).toHaveBeenCalledTimes(2)
+    expect(finishAttempt).toHaveBeenCalledWith(attemptId)
+  })
+
+  it('still cancels on unmount when browser popup closure throws', async () => {
+    const remote = remoteFor(async () => state())
+    const popup = {
+      closed: false,
+      opener: null,
+      location: { replace: vi.fn() },
+      close: vi.fn(() => {
+        throw new DOMException('denied', 'SecurityError')
+      }),
+    }
+    vi.spyOn(window, 'open').mockReturnValue(popup as never)
+    const view = mount(remote)
+    fireEvent.click(await screen.findByRole('button', { name: en.continueWithChatGPT }))
+    await waitFor(() => {
+      expect(popup.location.replace).toHaveBeenCalled()
+    })
+    expect(() => {
+      view.unmount()
+    }).not.toThrow()
+    await waitFor(() => {
+      expect(remote.cancelLogin).toHaveBeenCalledExactlyOnceWith({ attemptId: brandString<ChatGptLoginAttemptId>('attempt-1') })
+    })
+  })
+
   it('cancels a pending attempt reported by the Host', async () => {
     const pending = { id: brandString<ChatGptLoginAttemptId>('attempt-9'), phase: 'awaiting-browser' as const }
     const remote = remoteFor(async () => state({

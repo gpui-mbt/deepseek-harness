@@ -23,6 +23,7 @@ describe('locale-ja apply', () => {
     expect(locale.getSnapshot().locales.find(entry => entry.id === 'ja')).toMatchObject({ label: '日本語', fallback: 'en' })
     locale.setLocale('ja')
     expect(locale.bind('common')('cancel')).toBe('キャンセル')
+    expect(locale.bind('chatgpt')('loginCancelled')).toBe('ログインをキャンセルしました。ブラウザーのログインタブがまだ開いている場合は閉じてください。')
     expect(locale.bind('settings.locale')('language.title')).toBe('言語')
     expect(locale.bind('settings.theme')('fontFamily.text.title')).toBe('本文フォント')
   })
@@ -58,6 +59,7 @@ describe('locale-ja apply', () => {
     const { locale, fiber } = await bench()
     locale.setLocale('ja')
     expect(locale.bind('common')('cancel')).toBe('キャンセル')
+    expect(locale.bind('chatgpt')('loginCancelled')).toBe('ログインをキャンセルしました。ブラウザーのログインタブがまだ開いている場合は閉じてください。')
     await fiber.dispose()
     expect(locale.getSnapshot().locales.map(entry => entry.id)).toEqual(['zh', 'en'])
     // Dictionary disposal: translation falls back to the bare key.

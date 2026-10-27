@@ -53,3 +53,24 @@ as `NOT_RUN`, including browser-launch or setup failures. A successful test save
 `browser-settings.png`; that screenshot alone is not proof that every assertion
 passed. Read the test exit status alongside it. Live OAuth, live Responses and
 recorded-session snapshots remain explicitly `NOT_RUN` in this lane.
+
+## Opener-isolated popup cancellation contract
+
+Chromium's close policy can keep a cross-origin provider tab open after its
+opener has been cleared. The negative/control browser test uses inert `.invalid`
+origins and no product state: it contrasts a retained opener with the exact
+preopen → clear opener → cross-origin navigate → parent close sequence and records
+`popup-policy.json` (browser version, observed closure and warnings). This separates
+browser policy from a product busy-state or popup-map race.
+
+The product must keep opener isolation, contain all popup-close exceptions, and
+complete Host cancellation independently. Acceptance verifies cancelled Host state,
+no credentials, actual connection refusal at the cancelled callback listener, and
+conditional manual-close guidance before harness-owned tab cleanup. The harness
+closing a remaining tab is not evidence of product automatic closure. A failed Host
+cancel must remain retryable and must not display successful cancellation.
+
+Primary references: [HTML close algorithm](https://html.spec.whatwg.org/multipage/nav-history-apis.html#dom-window-close),
+[familiarity](https://html.spec.whatwg.org/multipage/document-sequences.html#familiar-with).
+The revised negative/control and acceptance checks still require a new CI execution;
+local component tests do not substitute for that browser result.
