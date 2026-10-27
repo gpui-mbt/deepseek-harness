@@ -3,9 +3,10 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import test from 'node:test'
+import test, { beforeEach, afterEach } from 'node:test'
+import config from './config.json' with { type: 'json' }
 
-import { api, graphql, initializeIssueStartDate, issueSnapshot } from './github.mjs'
+import { api, graphql, initializeIssueStartDate, issueSnapshot, projectContext } from './github.mjs'
 import { auditIssue, initializePullRequestStartDates, repairIssueLabels, runLifecycle } from './lifecycle.mjs'
 import { lifecyclePullRequestSnapshot, pullRequestSnapshot, runPullRequestCheck, runPullRequestPreflight } from './pull-request.mjs'
 import {
@@ -18,6 +19,11 @@ import {
   validateIssue,
   validatePullRequest,
 } from './rules.mjs'
+
+// Synthetic Project metadata exists only in tests; the fork has no configured Project.
+const unconfiguredProject = { organization: config.projectOrganization, number: config.projectNumber, title: config.projectTitle }
+beforeEach(() => { config.projectOrganization = 'synthetic-project-owner'; config.projectNumber = 1; config.projectTitle = 'DSH Issue Management' })
+afterEach(() => { config.projectOrganization = unconfiguredProject.organization; config.projectNumber = unconfiguredProject.number; config.projectTitle = unconfiguredProject.title })
 
 const projectGraphqlData = ({
   projectItem = true,
@@ -257,11 +263,11 @@ test('removes reserved labels from Issues before validation', async t => {
   assert.deepEqual(validateIssue(repaired), [])
   assert.deepEqual(requests, [
     {
-      url: 'https://api.github.com/repos/deepseek-harness/deepseek-harness/issues/42/labels/kind%2Fbug-fix',
+      url: 'https://api.github.com/repos/gpui-mbt/deepseek-harness/issues/42/labels/kind%2Fbug-fix',
       method: 'DELETE',
     },
     {
-      url: 'https://api.github.com/repos/deepseek-harness/deepseek-harness/issues/42/labels/bug-fix',
+      url: 'https://api.github.com/repos/gpui-mbt/deepseek-harness/issues/42/labels/bug-fix',
       method: 'DELETE',
     },
   ])
@@ -305,18 +311,18 @@ test('deletes a stale audit comment after repairing its only violation', async t
   assert.deepEqual(
     requests.map(({ url, method }) => ({ path: new URL(url).pathname + new URL(url).search, method })),
     [
-      { path: '/repos/deepseek-harness/deepseek-harness/issues/42', method: 'GET' },
+      { path: '/repos/gpui-mbt/deepseek-harness/issues/42', method: 'GET' },
       { path: '/graphql', method: 'POST' },
       {
-        path: '/repos/deepseek-harness/deepseek-harness/issues/42/labels/kind%2Fbug-fix',
+        path: '/repos/gpui-mbt/deepseek-harness/issues/42/labels/kind%2Fbug-fix',
         method: 'DELETE',
       },
       {
-        path: '/repos/deepseek-harness/deepseek-harness/issues/42/comments?per_page=100',
+        path: '/repos/gpui-mbt/deepseek-harness/issues/42/comments?per_page=100',
         method: 'GET',
       },
       {
-        path: '/repos/deepseek-harness/deepseek-harness/issues/comments/99',
+        path: '/repos/gpui-mbt/deepseek-harness/issues/comments/99',
         method: 'DELETE',
       },
     ],
@@ -414,25 +420,27 @@ test('reads Priority and Status from Project custom fields', async t => {
 
   assert.equal(issue.priority, 'P1')
   assert.equal(issue.status, 'Inbox')
-  assert.deepEqual(urls, ['https://api.github.com/repos/deepseek-harness/deepseek-harness/issues/42', 'https://api.github.com/graphql'])
+  assert.deepEqual(urls, ['https://api.github.com/repos/gpui-mbt/deepseek-harness/issues/42', 'https://api.github.com/graphql'])
 })
 
 test('writes an empty Project Start Date with the configured field', async t => {
   const requests = mockGraphql(t, request => {
-    if (request.query.includes('query(')) return projectGraphqlData()
+    if (/\bquery\s*\(/.test(request.query)) return projectGraphqlData()
     return { updateProjectV2ItemFieldValue: { projectV2Item: { id: 'item-id' } } }
   })
 
   await initializeIssueStartDate(42, '2026-08-28')
 
   assert.equal(requests.length, 2)
+  assert.equal(requests[0].variables.organization, 'gpui-mbt')
+  assert.equal(requests[0].variables.projectOrganization, 'synthetic-project-owner')
   assert.match(requests[0].query, /isIssueField/)
   assert.doesNotMatch(requests[0].query, /issueField\s*\{/)
   assert.match(requests[0].query, /priorityValue: fieldValueByName/)
   assert.equal(requests[0].variables.priorityField, 'Priority')
   assert.match(requests[0].query, /ProjectV2ItemFieldDateValue/)
   assert.match(requests[1].query, /updateProjectV2ItemFieldValue/)
-  assert.match(requests[1].query, /value: \{date: \$date\}/)
+  assert.match(requests[1].query, /value: \{\s*date: \$date\s*\}/)
   assert.deepEqual(requests[1].variables, {
     projectId: 'project-id',
     itemId: 'item-id',
@@ -451,7 +459,7 @@ test('preserves an existing Project Start Date', async t => {
 
 test('adds a referenced Issue to the Project before setting Start Date', async t => {
   const requests = mockGraphql(t, request => {
-    if (request.query.includes('query(')) return projectGraphqlData({ projectItem: false })
+    if (/\bquery\s*\(/.test(request.query)) return projectGraphqlData({ projectItem: false })
     if (request.query.includes('addProjectV2ItemById')) {
       return { addProjectV2ItemById: { item: { id: 'new-item-id' } } }
     }
@@ -995,7 +1003,7 @@ test('reads policy snapshots in reference order and only resolving Project prior
       [4, { priority: null }],
     ]),
   })
-  const repo = '/repos/deepseek-harness/deepseek-harness'
+  const repo = '/repos/gpui-mbt/deepseek-harness'
   assert.deepEqual(fixture.requests, [
     repo + '/pulls/10',
     repo + '/pulls/10/requested_reviewers',
@@ -1022,7 +1030,7 @@ test('reads lifecycle references for draft Bot PRs without review or Project req
     ]),
     createdAt: '2026-08-27T16:00:00Z',
   })
-  const repo = '/repos/deepseek-harness/deepseek-harness'
+  const repo = '/repos/gpui-mbt/deepseek-harness'
   assert.deepEqual(fixture.requests, [repo + '/pulls/10', repo + '/issues/2', repo + '/issues/4'])
   assert.deepEqual(fixture.output, [])
 })
@@ -1044,4 +1052,31 @@ test('allows missing Priority only when resolving Issues are also unprioritized'
       '有 Priority 的解决型 PR 要求每个被解决 Issue 都设置 Priority',
     ),
   )
+})
+
+
+test('fork Project remains explicitly unconfigured and fails before any GraphQL or mutation', async t => {
+  assert.equal(config.organization, 'gpui-mbt')
+  assert.deepEqual(unconfiguredProject, { organization: null, number: null, title: null })
+  config.projectNumber = null
+  config.projectTitle = null
+  t.mock.method(globalThis, 'fetch', () => { throw new Error('must not contact GitHub') })
+  await assert.rejects(projectContext(42), /Project is not configured/)
+})
+
+
+test('lifecycle validates trusted fork Project configuration before requesting an App token', () => {
+  const source = readFileSync(new URL('../workflows/issue-lifecycle.yml', import.meta.url), 'utf8')
+  assert.ok(source.indexOf('Validate trusted Project configuration') < source.indexOf('Create project token'))
+  assert.match(source, /ref: \$\{\{ github.event.repository.default_branch \}\}/)
+  assert.match(source, /requireProjectConfiguration\(\)/)
+  assert.match(source, /owner: gpui-mbt/)
+  assert.doesNotMatch(source, /pull_request.head|pull_request_target/)
+})
+
+test('unconfigured resolving-Issue preflight fails before enabling token minting', async t => {
+  const fixture = mockPolicyApi(t, { pull: { body: 'Fixes #2' }, issues: { 2: {} } })
+  config.projectNumber = null
+  await assert.rejects(runPullRequestPreflight({ pull_request: { number: 10 } }), /Project is not configured/)
+  assert.throws(() => fixture.workflowOutput(), { code: 'ENOENT' })
 })

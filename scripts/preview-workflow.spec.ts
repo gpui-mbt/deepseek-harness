@@ -12,7 +12,7 @@ const workflow = yaml.load(readFileSync(resolve(import.meta.dirname, '../.github
     'preview',
     {
       'runs-on': string
-      steps: Array<{ name?: string; uses?: string; run?: string; with?: Record<string, unknown>; env?: Record<string, string> }>
+      steps: Array<{ name?: string; uses?: string; run?: string; if?: string; with?: Record<string, unknown>; env?: Record<string, string> }>
     }
   >
 }
@@ -48,7 +48,9 @@ describe('PR preview workflow', () => {
       group: 'build-preview-cloudflare-${{ github.event.pull_request.number }}',
       'cancel-in-progress': true,
     })
-    expect(workflow.env.CF_PROJECT).toBe('dsh-build-preview')
+    expect(workflow.env.CF_PROJECT).toBe('${{ vars.CF_PROJECT }}')
+    const availability = preview.steps.find(step => step.name === 'Determine preview deployment availability')!
+    expect(availability.run).toContain('Preview deployment: NOT_RUN')
     const shape = preview.steps.find(step => step.name === 'Shape the upload')!
     expect(shape.run).toContain("find apps/web/dist -name '*.map' -delete")
     expect(shape.run).toContain('cp apps/web/dist/preview.html apps/web/dist/index.html')
@@ -64,5 +66,6 @@ describe('PR preview workflow', () => {
     const comment = preview.steps.find(step => step.name === 'Comment the preview URL')!
     expect(comment.run).toContain('<!-- dsh-preview-url -->')
     expect(comment.run).toContain('gh pr comment "$PR" --body-file -')
+    for (const step of [deploy, verify, comment]) expect(step.if).toBe("${{ steps.deployment.outputs.enabled == 'true' }}")
   })
 })

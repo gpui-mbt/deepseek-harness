@@ -54,6 +54,8 @@ PR 打开时，工作流按配置时区中的 PR 创建日期，为每个被引�
 
 [config.json](config.json)选择仓库、Project、字段名、状态、生命周期操作者和时区。策略读取 Project 自定义单选 `Priority` 字段，而非组织原生 Issue Priority 字段。Project 本地规划字段不需要另行授予组织 Issue Fields 权限。维护者手动设置 Project Priority；指引编辑原生 Issue 字段的 skill 不会填充该值。Issue 审计先移除 PR 专用 kind 标签和已停用的标签别名，再校验其余元数据。不提供字段迁移或 Priority 同步。
 
+本 fork 从 `gpui-mbt/deepseek-harness` 读取 Issue 和 PR。`projectOrganization`、`projectNumber` 和 `projectTitle` 明确未配置（`null`）；维护者必须提供已核实的 Project 值和 App 配置，才能运行解决 Issue 的检查或生命周期操作。Project 所属组织与 REST 仓库所有者分开配置。Project 配置缺失会在请求 App 令牌前失败关闭；仅含信息性引用的检查仍只读取 REST。两个工作流都不检出 PR 中的策略代码：只有经过评审的配置落入可信默认分支后，更改才会生效。这些工作流不会创建 App、Project、secret 或仓库权限。
+
 删除旧的组织字段前，必须逐一核对其中的值与对应的 Project 值，包括已归档的 Project item。
 
 生命周期处理由事件驱动，不是协调器。被省略的事件不会修复 Project 状态，并发 Project mutation 也没有原子比较并交换保护。选择性求值不重新设计必需检查的权威来源，也不保证已测得的 Actions 分钟节省。[已归档的选择性求值决策](../../.agents/notes/archived/process/2026-09-07-selective-issue-policy-evaluation.md)记录取舍。
@@ -82,7 +84,7 @@ PR 打开时，工作流按配置时区中的 PR 创建日期，为每个被引�
 在仓库根目录运行聚焦的无密钥策略测试：
 
 ```sh
-node --test .github/issue-management/policy.test.mjs
+node --test .github/issue-management/policy.test.mjs .github/issue-management/fork-preview.test.mjs
 ```
 
 [工作流测试](../../scripts/ci-workflow.spec.ts)验证触发器与权限声明。本地测试不能证明 GitHub 实际事件交付、App 安装访问权限或实际 runner 成本；仓库维护者在 Actions 中验证这些内容。

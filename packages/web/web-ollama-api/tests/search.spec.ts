@@ -22,6 +22,7 @@ const providerOf = (value: OllamaSearchProviderOptions): OllamaSearchProvider =>
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('Ollama result mapping', () => {
@@ -88,13 +89,14 @@ describe('OllamaSearchProvider availability', () => {
 
 describe('OllamaSearchProvider request mapping', () => {
   it('posts the query and result count with bearer auth', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ results: [{ url: 'https://a.test', content: 'hi' }] }))
+    const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse({ results: [{ url: 'https://a.test', content: 'hi' }] }))
     vi.stubGlobal('fetch', fetchMock)
 
     await providerOf(options).search({ query: 'hello' })
 
     expect(fetchMock).toHaveBeenCalledOnce()
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const [url, init] = fetchMock.mock.calls[0]!
+    if (init === undefined) throw new Error('Expected fetch request options')
     expect(url).toBe('https://ollama.test/api/web_search')
     expect(init).toMatchObject({ method: 'POST', redirect: 'error' })
     expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer ollama-key')
@@ -102,27 +104,29 @@ describe('OllamaSearchProvider request mapping', () => {
   })
 
   it('uses a configured full endpoint as-is instead of appending the operation path twice', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
+    const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await providerOf({ ...options, searchBaseURL: 'https://ollama.test/api/web_search' }).search({ query: 'q' })
-    const [url] = fetchMock.mock.calls[0] as unknown as [string]
+    const [url] = fetchMock.mock.calls[0]!
     expect(url).toBe('https://ollama.test/api/web_search')
   })
 
   it('lets a request maxResults win over the configured default', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
+    const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await providerOf({ ...options, maxResults: 7 }).search({ query: 'q', maxResults: 2 })
-    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const [, init] = fetchMock.mock.calls[0]!
+    if (init === undefined) throw new Error('Expected fetch request options')
     expect(JSON.parse(init.body as string)).toMatchObject({ max_results: 2 })
   })
 
   it('forwards the abort signal', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
+    const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
     const controller = new AbortController()
     await providerOf(options).search({ query: 'q' }, controller.signal)
-    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const [, init] = fetchMock.mock.calls[0]!
+    if (init === undefined) throw new Error('Expected fetch request options')
     expect(init.signal).toBe(controller.signal)
   })
 })
@@ -222,13 +226,14 @@ describe('OllamaSearchProvider error handling', () => {
   })
 
   it('resolves a credential under a live signal', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
+    const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
     await providerOf({ ...options, apiKey: '', resolveApiKey: () => Promise.resolve('resolved-key') }).search(
       { query: 'q' },
       new AbortController().signal,
     )
-    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const [, init] = fetchMock.mock.calls[0]!
+    if (init === undefined) throw new Error('Expected fetch request options')
     expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer resolved-key')
   })
 
@@ -262,19 +267,21 @@ describe('OllamaSearchProvider error handling', () => {
   })
 
   it('surfaces an abort during success-body parse as WEB_ABORTED, not provider error', async () => {
-    const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: true, status: 200 }
+    const body = new Response(null, { status: 200 })
+    vi.spyOn(body, 'json').mockRejectedValue(new DOMException('aborted', 'AbortError'))
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => body as unknown as Response),
+      vi.fn<typeof fetch>(async () => body),
     )
     await expect(providerOf(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
   })
 
   it('surfaces an abort during error-body parse as WEB_ABORTED', async () => {
-    const body = { json: () => Promise.reject(new DOMException('aborted', 'AbortError')), ok: false, status: 500 }
+    const body = new Response(null, { status: 500 })
+    vi.spyOn(body, 'json').mockRejectedValue(new DOMException('aborted', 'AbortError'))
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => body as unknown as Response),
+      vi.fn<typeof fetch>(async () => body),
     )
     await expect(providerOf(options).search({ query: 'q' })).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
   })
@@ -299,13 +306,14 @@ describe('web-ollama-api plugin registration', () => {
   })
 
   it('threads the configured maxResults and search endpoint into the request', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
+    const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse({ results: [] }))
     vi.stubGlobal('fetch', fetchMock)
     const ctx = new Context()
     await ctx.plugin(WebRuntime, { searchProvider: OLLAMA_PROVIDER_ID })
     const fiber = await ctx.plugin(ollamaPlugin, { apiKey: 'ollama-key', searchBaseURL: 'https://proxy.test', maxResults: 9 })
     await ctx.web.search({ query: 'q' })
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const [url, init] = fetchMock.mock.calls[0]!
+    if (init === undefined) throw new Error('Expected fetch request options')
     expect(url).toBe('https://proxy.test/api/web_search')
     expect(JSON.parse(init.body as string)).toMatchObject({ max_results: 9 })
     await fiber.dispose()
@@ -315,13 +323,14 @@ describe('web-ollama-api plugin registration', () => {
     const prev = process.env.OLLAMA_CLOUD_API_KEY
     process.env.OLLAMA_CLOUD_API_KEY = 'env-key'
     try {
-      const fetchMock = vi.fn(async () => jsonResponse({ results: [] }))
+      const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse({ results: [] }))
       vi.stubGlobal('fetch', fetchMock)
       const ctx = new Context()
       await ctx.plugin(WebRuntime, { searchProvider: OLLAMA_PROVIDER_ID })
       ollamaPlugin.apply(ctx, ollamaPlugin.Config({}))
       await ctx.web.search({ query: 'q' })
-      const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+      const [url, init] = fetchMock.mock.calls[0]!
+      if (init === undefined) throw new Error('Expected fetch request options')
       expect(url).toBe(`${OLLAMA_DEFAULT_BASE_URL}/api/web_search`)
       expect((init.headers as Record<string, string>)['authorization']).toBe('Bearer env-key')
       expect(JSON.parse(init.body as string)).toMatchObject({ max_results: OLLAMA_DEFAULT_MAX_RESULTS })
