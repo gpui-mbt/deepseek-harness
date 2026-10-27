@@ -26,7 +26,9 @@
 
 ## 发布语义
 
-运行器选择不改变 PR 事件、按 PR 取消、不可变安装、只恢复的依赖缓存、完整工作区构建、预览打包、sourcemap 删除，以及复制到部署根目录的预览页面。Cloudflare 仅将构建站点上传至 PR 分支别名。受保护镜像检查要求 HTTP 200、无传输内容编码及 gzip 魔数字节；URL 评论保持幂等。Dependabot 与其他 PR 作者仍使用 GitHub 托管机器。
+运行器选择不改变 PR 事件、按 PR 取消、不可变安装、只恢复的依赖缓存、完整工作区构建、预览打包、sourcemap 删除，以及复制到部署根目录的预览页面。部署需要仓库变量 `CF_PROJECT` 及全部四个 secret：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`CF_ACCESS_CLIENT_ID` 和 `CF_ACCESS_CLIENT_SECRET`。配置缺失或为空时，仅跳过上传、受保护镜像验证和 URL 评论；摘要将部署记为 `NOT_RUN`，而不是部署成功。工作区与预览/VFS 构建仍会运行，失败时仍使任务失败。不默认使用上游项目名，也不会创建凭据或权限。
+
+配置齐全时，Cloudflare 仅将构建站点上传至 PR 分支别名。受保护镜像检查要求 HTTP 200、无传输内容编码及 gzip 魔数字节；URL 评论保持幂等。Dependabot 与其他 PR 作者仍使用 GitHub 托管机器。
 
 <a id="dev-note"></a>
 

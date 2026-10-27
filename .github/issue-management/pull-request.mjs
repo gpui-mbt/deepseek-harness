@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import process from 'node:process'
 
 import config from './config.json' with { type: 'json' }
-import { api, projectContext } from './github.mjs'
+import { api, projectContext, requireProjectConfiguration } from './github.mjs'
 import { parseReferences, retainIssueReferences, requiresPullRequestPolicy, validatePullRequest } from './rules.mjs'
 
 /**
@@ -90,6 +90,7 @@ export async function runPullRequestPreflight(event) {
   const pull = await pullRequestSnapshot(event.pull_request.number, false)
   const eligible = requiresPullRequestPolicy(pull)
   const needsProject = eligible && pull.references.resolving.length > 0
+  if (needsProject) requireProjectConfiguration()
   if (process.env.GITHUB_OUTPUT) {
     fs.appendFileSync(process.env.GITHUB_OUTPUT, `eligible=${eligible}\nexempt=${!eligible}\nneeds-project=${needsProject}\n`)
   }

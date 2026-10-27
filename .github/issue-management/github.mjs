@@ -62,6 +62,15 @@ export async function graphql(query, variables) {
   return result.data
 }
 
+/** Reject missing fork Project metadata before minting tokens or querying Projects. */
+export function requireProjectConfiguration() {
+  if (typeof config.projectOrganization !== 'string' || !config.projectOrganization.trim()
+    || !Number.isSafeInteger(config.projectNumber) || config.projectNumber < 1
+    || typeof config.projectTitle !== 'string' || !config.projectTitle.trim()) {
+    throw new Error('Issue Project is not configured for this repository; set verified projectOrganization/projectNumber/projectTitle in trusted config.json. Project policy is not bypassed.')
+  }
+}
+
 /**
  * Read one Issue together with its Project planning values.
  * @param {number} number Same-repository Issue number.
@@ -92,10 +101,12 @@ export async function issueSnapshot(number, status = undefined) {
  * @returns {Promise<object>} Project, Issue, fields, optional item, and status actor; never writes.
  */
 export async function projectContext(number, includeStatusActor = false, includeStartDate = false) {
+  requireProjectConfiguration()
   const data = await graphql(
     `
       query (
         $organization: String!
+        $projectOrganization: String!
         $repository: String!
         $number: Int!
         $project: Int!
@@ -104,7 +115,7 @@ export async function projectContext(number, includeStatusActor = false, include
         $priorityField: String!
         $startDateField: String!
       ) {
-        organization(login: $organization) {
+        organization(login: $projectOrganization) {
           projectV2(number: $project) {
             id
             title
@@ -177,6 +188,7 @@ export async function projectContext(number, includeStatusActor = false, include
     `,
     {
       organization: config.organization,
+      projectOrganization: config.projectOrganization,
       repository: config.repository,
       number,
       project: config.projectNumber,

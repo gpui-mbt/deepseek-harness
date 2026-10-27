@@ -54,6 +54,8 @@ PR opening initializes an empty Project `Start Date` for every referenced Issue,
 
 [config.json](config.json) selects the repository, Project, field names, statuses, lifecycle actor, and time zone. The policy reads the Project custom single-select `Priority` field, not a native organization Issue Priority field. Project-local planning fields need no separate organization Issue Fields permission. Maintainers set Project Priority manually; skill guidance that directs edits to native Issue fields does not populate this value. Issue audits remove PR-only kinds and retired label aliases before validating the remaining metadata. There is no field migration or Priority synchronization.
 
+This fork reads Issues and PRs from `gpui-mbt/deepseek-harness`. `projectOrganization`, `projectNumber`, and `projectTitle` are explicitly unconfigured (`null`); maintainers must supply verified Project values and the App configuration before resolving-Issue checks or lifecycle operations can run. Project ownership is separate from the REST repository owner. Missing Project configuration fails closed before requesting an App token; informational-only checks retain their existing REST-only behavior. Neither workflow checks out PR policy code: this change takes effect only after the reviewed configuration lands on the trusted default branch. No App, Project, secret, or repository permission is provisioned by these workflows.
+
 Before removing a legacy organization field, compare every value with its Project value, including archived Project items.
 
 Lifecycle processing is event-driven, not a reconciler. Omitted events do not repair Project state, and concurrent Project mutations have no atomic compare-and-swap. Selective evaluation does not redesign required-check authority or guarantee measured Actions-minute savings. The [archived selective-evaluation decision](../../.agents/notes/archived/process/2026-09-07-selective-issue-policy-evaluation.md) records the trade-offs.
@@ -82,7 +84,7 @@ Maintainers reuse the owning module directly; [policy.mjs](policy.mjs) only read
 The focused, keyless policy suite runs from the repository root:
 
 ```sh
-node --test .github/issue-management/policy.test.mjs
+node --test .github/issue-management/policy.test.mjs .github/issue-management/fork-preview.test.mjs
 ```
 
 [Workflow tests](../../scripts/ci-workflow.spec.ts) verify trigger and permission declarations. Local tests do not establish live GitHub delivery, App installation access, or actual runner cost; repository maintainers verify those in Actions.
