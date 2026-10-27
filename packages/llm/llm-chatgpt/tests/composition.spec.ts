@@ -1,5 +1,5 @@
 /** Real Loader composition: the ChatGPT row boots dormant in a base-shaped profile. */
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
@@ -10,6 +10,7 @@ import Loader, { type ModuleLoaderV2 } from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
 import AuthorizationService from '@deepseek-ai/dsh-authorization'
 import LocalCredentialProvider from '@deepseek-ai/dsh-credentials-local'
+import { readProfilePatches, reconcileProfilePatches } from '@deepseek-ai/dsh-app-boot'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import * as ChatGptPlugin from '../src/index.ts'
@@ -161,6 +162,60 @@ describe('llm-chatgpt real dormant composition', () => {
     await expect(ctx.llm.listModels('chatgpt')).resolves.toContainEqual(
       expect.objectContaining({ id: 'gpt-6-astra' }),
     )
+  })
+
+  it('persists active-account removal after unconfirmed revocation through the real profile editor', async () => {
+    const { ctx, patchPath } = await loadComposition()
+    const accountId = `account-${randomUUID()}` as Parameters<typeof ctx.chatgptController.setActiveAccount>[0]['accountId']
+    await ctx.credentials.modifyRecord(credentialKey('dsh-chatgpt', String(accountId)), async () => ({
+      kind: 'grant',
+      payload: {
+        version: 1,
+        accountId,
+        clientId: 'client-composition',
+        subject: 'subject-composition',
+        grantGeneration: 0,
+        accessToken: 'composition-access',
+        refreshToken: 'composition-refresh',
+        idToken: 'composition-id',
+        expiresAt: Date.now() + 3_600_000,
+        scopes: ['openid', 'profile', 'email', 'offline_access', 'resource.invoke', 'chatgpt.tokens.use.direct'],
+        createdAt: Date.now(),
+        status: 'connected',
+      },
+    }))
+    const requests: string[] = []
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : String(input)
+      requests.push(url)
+      if (url === 'https://api.openai.com/v1/models') return Response.json({ models: [] })
+      if (url === 'https://auth.openai.com/.well-known/openid-configuration') return new Response('', { status: 503 })
+      throw new Error('Unexpected provider request in isolated sign-out regression')
+    })
+    try {
+      await ctx.chatgptController.setActiveAccount({ accountId })
+      await ctx.chatgptController.acknowledgeWelcome()
+      expect(await readFile(patchPath, 'utf8')).toContain(String(accountId))
+      // Inspect durable erasure even on the historical post-write editor failure.
+      const result: unknown = await ctx.chatgptController.signOut({ accountId }).catch((error: unknown) => error)
+      expect(requests).toContain('https://auth.openai.com/.well-known/openid-configuration')
+      const record = await ctx.credentials.readRecord(credentialKey('dsh-chatgpt', String(accountId)))
+      if (record?.kind !== 'grant') throw new Error('Expected retained account registration')
+      expect(record.payload).toMatchObject({ status: 'needs-sign-in', grantGeneration: 1 })
+      for (const field of ['accessToken', 'refreshToken', 'idToken']) expect(record.payload).not.toHaveProperty(field)
+      expect(result).toEqual({ revocationConfirmed: false })
+      const state = await ctx.chatgptController.getState()
+      expect(state.activeAccountId).toBeUndefined()
+      expect(state.welcomeAcknowledged).toBe(true)
+      const patch = await readFile(patchPath, 'utf8')
+      expect(patch).not.toContain('activeAccountId')
+      expect(patch).toContain('welcomeAcknowledged: true')
+      // Re-read and reconcile persisted YAML, not just the in-memory selection.
+      await reconcileProfilePatches(ctx, readProfilePatches('test', ctx.profileContext), 'test')
+      expect((await ctx.chatgptController.getState()).activeAccountId).toBeUndefined()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('rejects account mutations for an id with no connected record', async () => {
