@@ -38,12 +38,15 @@ jobs:
           pnpm run build:artifacts 2>&1 | tee .artifacts/dots-ci/build.log
       - name: Required aggregate type checks
         id: types
-        env:
-          NODE_OPTIONS: --max-old-space-size=6144
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           set -o pipefail
-          pnpm run build:check 2>&1 | tee .artifacts/dots-ci/types.log
+          # Equivalent to build:check's two aggregateCheckArgs commands, except
+          # Host receives 6 GiB explicitly (its helper fixes CLI heap at 4 GiB).
+          {
+            node --max-old-space-size=6144 node_modules/typescript/bin/tsc -p tsconfig.host.json &&
+            node node_modules/typescript/bin/tsc -p tsconfig.client.json
+          } 2>&1 | tee .artifacts/dots-ci/types.log
       - name: Required documentation checks
         id: docs
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
