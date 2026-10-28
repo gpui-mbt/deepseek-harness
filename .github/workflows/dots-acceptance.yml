@@ -1,0 +1,88 @@
+name: Dots keyless safety
+on:
+  pull_request:
+    paths:
+      - 'packages/dots/**'
+      - 'packages/storage/**'
+      - 'packages/client/ui-dots/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/dots-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: dots-safety-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  keyless:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DSH_TELEMETRY_DISABLED: '1'
+      DSH_GATE_CONCURRENCY: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v5.0.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+      - run: mkdir -p .artifacts/dots-ci
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build artifacts
+        id: build
+        run: |
+          set -o pipefail
+          pnpm run build:artifacts 2>&1 | tee .artifacts/dots-ci/build.log
+      - name: Required aggregate type checks
+        id: types
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          # Equivalent to build:check's two aggregateCheckArgs commands, except
+          # Host receives 6 GiB explicitly (its helper fixes CLI heap at 4 GiB).
+          {
+            node --max-old-space-size=6144 node_modules/typescript/bin/tsc -p tsconfig.host.json &&
+            node node_modules/typescript/bin/tsc -p tsconfig.client.json
+          } 2>&1 | tee .artifacts/dots-ci/types.log
+      - name: Required documentation checks
+        id: docs
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          pnpm run doc-sync 2>&1 | tee .artifacts/dots-ci/docs.log
+      - name: Keyless Dots regressions including persistent backend recovery
+        id: tests
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          set -o pipefail
+          env -u NODE_USE_ENV_PROXY pnpm exec vp test --config vitest.config.ts packages/dots/dots/tests 2>&1 | tee .artifacts/dots-ci/tests.log
+      - name: Record explicit outcomes
+        if: always()
+        env:
+          BUILD_RESULT: ${{ steps.build.outcome }}
+          DOCS_RESULT: ${{ steps.docs.outcome }}
+          TYPES_RESULT: ${{ steps.types.outcome }}
+          TESTS_RESULT: ${{ steps.tests.outcome }}
+        run: |
+          mkdir -p .artifacts/dots-ci
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          def status(name):
+              return {'success':'PASS','failure':'FAIL'}.get(os.environ.get(name), 'NOT_RUN')
+          report = {'sha':os.environ['GITHUB_SHA'], 'artifacts':status('BUILD_RESULT'), 'doc_sync':status('DOCS_RESULT'), 'aggregate_types':status('TYPES_RESULT'), 'dots_regressions':status('TESTS_RESULT'), 'live_provider':'NOT_RUN', 'browser_e2e':'NOT_RUN', 'recorded_session_snapshots':'NOT_RUN'}
+          text = json.dumps(report, indent=2) + '\n'
+          Path('.artifacts/dots-ci/status.json').write_text(text)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f: f.write('## Dots keyless safety\n```json\n'+text+'```\n')
+          PY
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: dots-keyless-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .artifacts/dots-ci/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7

@@ -56,6 +56,10 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
     kind: 'none',
     reason: 'The provider page and composer notice render account state without contributing model context.',
   },
+  'packages/client/ui-dots': {
+    kind: 'none',
+    reason: 'The dots panel renders and mutates dot records over the Remote namespace without contributing model context.',
+  },
   'packages/experimental/client-ui-cot-translation': {
     kind: 'indirect',
     reason: 'The translator owns optional paid queries; normal Session activation delegates startup context to the preset.',

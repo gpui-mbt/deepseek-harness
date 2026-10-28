@@ -113,6 +113,7 @@
     { "path": "./packages/client/ui-secret-mask" },
     { "path": "./packages/client/ui-subagent" },
     { "path": "./packages/client/ui-chatgpt" },
+    { "path": "./packages/client/ui-dots" },
     { "path": "./packages/experimental/client-ui-agent-team" },
     { "path": "./packages/client/ui-dockkit" },
     { "path": "./packages/client/ui-sidebar-right" },

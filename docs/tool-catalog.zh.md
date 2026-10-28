@@ -28,6 +28,7 @@
 | `@deepseek-ai/dsh-plan-mode` | `exit_plan_mode` | `ctx.tools`、`ctx.systemPrompt`、`ctx.userQuestions (execution time, opportunistic)` | `tool/call`、`plan/mode inactive on an approved review`、`tool/result` | - | 规划未激活时，exit_plan_mode 仍保留在面向模型的 schema 中，这样状态转换不会在规划策略变更之外额外造成工具目录变动。其执行路径会拒绝规划模式之外的调用；在规划模式下，它通过用户交互 seam 提交计划（批准／根据反馈继续规划），批准后会在步骤边界记录规划模式已停用。 |
 | `@deepseek-ai/dsh-tool-bash` | `bash` | `ctx.workingDirectory`、`ctx.tools`、`ctx.shell`、`ctx.systemPrompt`、`ctx.shellEnv`、`ctx.jobs for run_in_background and the job-backed foreground path` | `tool/call`、`tool/result` | - | bash 工具是 bash 执行器 seam 面向模型的消费方。组合中有 job 注册表时，每次调用一启动就注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具（来自 `@deepseek-ai/dsh-tool-jobs`）收集／停止；没有注册表或 `enableRunInBackground: false` 时，工具注册不带 `run_in_background` 参数的纯前台 schema。 |
 | `@deepseek-ai/dsh-tool-present` | `present` | `ctx.workingDirectory`、`ctx.tools`, `ctx.fs`, `ctx.sessionProjections` | `tool/call`, `deliverables/presented 在成功的最终结果之后`, `tool/result` | - | 交付归调用方 Session 所有；Web ui-deliverables 提供源文件打开与卡片。 |
+| `@deepseek-ai/dsh-tool-dots` | `dot_archive`、`dot_assign`、`dot_create`、`dot_list`、`dot_schedule`、`dot_update` | `ctx.tools`、`ctx.dotsController` | `tool/call`、`tool/result`、`dot_assign` が作業をキューイングするときの `user/message` | - | 6 つの dot ツールは dotsController Remote サービスの薄いアダプタであり、ライフサイクル・ストレージ・実行ガードは @deepseek-ai/dsh-dots にある。 |
 | `@deepseek-ai/dsh-tool-pwsh` | `pwsh` | `ctx.workingDirectory`、`ctx.tools`、`ctx.shell`、`ctx.systemPrompt`、`ctx.shellEnv`、`ctx.jobs for run_in_background and the job-backed foreground path` | `tool/call`、`tool/result` | - | pwsh 工具是 Windows 组合中 bash 执行器 seam 的 PowerShell 方言消费方（由 `@deepseek-ai/dsh-pwsh-local` 等 PowerShell 执行器为 `ctx.shell` 提供后端）；除沙箱接口外，它逐项对应 bash 工具调用。使用 `run_in_background` 的运行会注册到通用 `ctx.jobs` 运行时，并通过 `job_*` 工具收集／停止；托管的 `DSH_*` 环境来自 `@deepseek-ai/dsh-shell-env`。每次调用都在新进程中运行，不使用持久 PTY 会话。路径采用原生 `C:\...` 形式，变量采用 `$env:NAME`。 |
 | `@deepseek-ai/dsh-tool-cordis` | `cordis_inspect_list`, `cordis_inspect_query` | `ctx.tools`, `ctx.cordisInspect` | `tool/call`, `tool/result` | - | 创造模式提供两个只读运行时检查工具。Cordis host runner 提供检查注册表；Client 查询需要已连接页面。持久化变更编写为组合包，再通过 plugin_manager 安装。 |
 | `@deepseek-ai/dsh-tool-bash-persistent` | `bash` | `ctx.workingDirectory`、`ctx.tools`、`ctx.terminals`、`an owning Agent at execution time` | `tool/call`、`PTY shell state`、`tool/result` | - | 一个按所有者隔离的持久 bash 工具；部署组合提供 PTY 后端，并可覆盖面向模型的环境描述。 |
@@ -740,6 +741,228 @@ bash 工具是 bash 执行器 seam 面向模型的消费方。组合中有 job �
 来源： [`packages/deliverables/tool-present/src/index.ts`](../packages/deliverables/tool-present/src/index.ts)
 
 交付归调用方 Session 所有；Web ui-deliverables 提供源文件打开与卡片。
+
+<a id="deepseek-aidsh-tool-dots"></a>
+
+
+## `@deepseek-ai/dsh-tool-dots`
+
+### `dot_archive`
+
+dot をアーカイブする: 有効なスケジュールを停止し、実行中のターンをキャンセルし、アクティブ一覧から外す。ファイルとセッション履歴は保持される。
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "dot": {
+      "type": "string",
+      "description": "Dot id or name."
+    },
+    "stop_schedules": {
+      "type": "boolean",
+      "description": "Delete active schedules first; defaults to true."
+    }
+  },
+  "required": [
+    "dot"
+  ]
+}
+```
+
+来源： [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+### `dot_assign`
+
+dot に 1 つのタスクをキューイングする。割り当てが dot の受信箱に入った時点で戻り、タスクの完了を意味しない。実行中の dot は後のターンで受け取る。
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "dot": {
+      "type": "string",
+      "description": "Dot id or name."
+    },
+    "task": {
+      "type": "string",
+      "description": "What the dot should do, with acceptance criteria."
+    }
+  },
+  "required": [
+    "dot",
+    "task"
+  ]
+}
+```
+
+来源： [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+### `dot_create`
+
+独自のワークスペースとホームセッションを持つ永続的な名前付き dot を作成する。割り当てをまたいで続く作業に dot を使う。dot はサイドバーの Workspace と Session として現れる。
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Short unique dot name."
+    },
+    "purpose": {
+      "type": "string",
+      "description": "The dot's responsibility: outcome, sources of truth, quality bar, and escalation rules."
+    },
+    "preset": {
+      "type": "string",
+      "description": "Agent preset; defaults to the deployment dot preset."
+    },
+    "provider": {
+      "type": "string",
+      "description": "Model provider id; pair with model."
+    },
+    "model": {
+      "type": "string",
+      "description": "Exact model id; pair with provider."
+    },
+    "reasoning_effort": {
+      "type": "string",
+      "description": "Optional reasoning effort id for the selected model."
+    },
+    "permission_preset": {
+      "type": "string",
+      "description": "Permission preset to apply to the home session."
+    },
+    "allowed_tools": {
+      "type": "array",
+      "description": "Execution allowlist of tool names or trailing-* prefixes. Omit for all tools.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "name",
+    "purpose"
+  ]
+}
+```
+
+来源： [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+### `dot_list`
+
+dot をライブ状態（running、idle、asleep、missing）とともに一覧する。参照を正確にするため、作業を割り当てる前に使う。
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "include_archived": {
+      "type": "boolean",
+      "description": "Include archived dots."
+    }
+  }
+}
+```
+
+来源： [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+### `dot_schedule`
+
+dot を起床させてタスクを届ける耐久スケジュールを作成する。タイミングセレクタをちょうど 1 つ指定する。スケジュールは再起動を越えて存続し、期限到来時にコールドセッションから dot を復元する。
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "dot": {
+      "type": "string",
+      "description": "Dot id or name."
+    },
+    "title": {
+      "type": "string",
+      "description": "Schedule name, 1-120 characters."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "Task delivered when due."
+    },
+    "after_seconds": {
+      "type": "number",
+      "description": "One-shot delay in seconds."
+    },
+    "every_seconds": {
+      "type": "number",
+      "description": "Fixed interval in seconds, at least 60."
+    },
+    "at": {
+      "description": "Absolute one-shot target: RFC 3339 string or {date,time,time_zone}."
+    },
+    "daily": {
+      "description": "Daily selector: {time:\"HH:mm:ss\", time_zone:\"Area/City\"}."
+    },
+    "weekly": {
+      "description": "Weekly selector: {time, time_zone, weekdays:[1..7]}."
+    },
+    "cron": {
+      "description": "Cron selector: {expression:\"m h dom mon dow\", time_zone}."
+    }
+  },
+  "required": [
+    "dot",
+    "title",
+    "prompt"
+  ]
+}
+```
+
+来源： [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+### `dot_update`
+
+dot の管理された目的を更新し、耐久メモリを追記し、実行許可リストを置き換える。将来のセッションを越えて残すべきユーザーフィードバックは add_memory で記録する。
+
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "dot": {
+      "type": "string",
+      "description": "Dot id or name."
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Replacement purpose; regenerates AGENTS.md."
+    },
+    "add_memory": {
+      "type": "string",
+      "description": "Dated note appended to MEMORY.md."
+    },
+    "allowed_tools": {
+      "type": "array",
+      "description": "Replacement allowlist; pass an empty array to deny all tools.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "dot"
+  ]
+}
+```
+
+来源： [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+6 つの dot ツールは dotsController Remote サービスの薄いアダプタであり、ライフサイクル・ストレージ・実行ガードは @deepseek-ai/dsh-dots にある。
 
 <a id="deepseek-aidsh-tool-pwsh"></a>
 

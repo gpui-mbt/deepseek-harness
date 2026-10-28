@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/dots/README.md
+/:
+  en: 7de175d2ba7ce9a8
+  zh: 4c48be557033578c
+/dots-persistent-named-agents:
+  en: 49299ecf2958ce03
+  zh: a4aae2cfe240104d
+/dots-persistent-named-agents/summary:
+  en: f21b25e2e2ba5929
+  zh: 5adb6644930612bd
+/dots-persistent-named-agents/table-of-contents:
+  en: 1eb35b015a6c423f
+  zh: a8a3dceee2c9e943
+/dots-persistent-named-agents/packages:
+  en: 43a43faab4f1a6cf
+  zh: ee6d3672d3c65af6
+/dots-persistent-named-agents/related-documentation:
+  en: daaad6060d480eb6
+  zh: 3924cd0471513707
+/dots-persistent-named-agents/dev-note:
+  en: 7f5e3f4269dcdeff
+  zh: 3721b64df9d3db92

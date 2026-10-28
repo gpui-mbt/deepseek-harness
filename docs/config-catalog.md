@@ -854,6 +854,41 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-deepseek-account-platform -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-dots -->
+<a id="deepseek-aidsh-dots"></a>
+
+## `@deepseek-ai/dsh-dots`
+
+- `inject`: `tools` · `sessionController` · `storageDomain`
+- `source`: [`packages/dots/dots/src/config.ts:14`](../packages/dots/dots/src/config.ts)
+
+```ts config-catalog
+/** Bundle configuration. */
+export interface Config {
+  /** Dot root; defaults to `$DSH_HOME/dots`. */
+  readonly root?: string
+  /** Agent preset used by a new dot when `dot_create` omits one. */
+  readonly defaultPreset: string
+  /** Permission preset applied to a new dot when `dot_create` omits one. */
+  readonly defaultPermissionPreset?: string
+  /** Maximum active dots. Defaults to 32. */
+  readonly maxDots: number
+  /** Maximum UTF-8 bytes in one assignment or memory note. Defaults to 20,000. */
+  readonly maxTaskBytes: number
+  /** Maximum UTF-8 bytes in a dot purpose. Defaults to 4,000. */
+  readonly maxPurposeBytes: number
+  /** Maximum UTF-8 bytes of `MEMORY.md` injected into one assignment. Defaults to 8,192. */
+  readonly maxMemoryBytes: number
+  /** Enforce each dot's `allowedTools` at execution time. Defaults to true. */
+  readonly enforceToolAllowlist: boolean
+  /** Agent presets a dot may request; an omitted or empty list admits every configured preset. */
+  readonly allowedPresets?: readonly string[]
+  /** Permission presets a dot may request; an omitted or empty list admits every configured preset. */
+  readonly allowedPermissionPresets?: readonly string[]
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-dots -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-experimental-agent-team -->
 <a id="deepseek-aidsh-experimental-agent-team"></a>
 
@@ -4745,6 +4780,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-client-ui-deliverables` | `systemPrompt` · `connection` · `sessionQuery` · `sessionController` · `workspaceFiles` · `fs` · `sandboxPolicy` · `workspaceChanges` | [`packages/client/ui-deliverables/src/index.ts`](../packages/client/ui-deliverables/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-directory-picker-browse` | — | [`packages/client/ui-directory-picker-browse/src/index.ts`](../packages/client/ui-directory-picker-browse/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-directory-picker-native` | — | [`packages/client/ui-directory-picker-native/src/index.ts`](../packages/client/ui-directory-picker-native/src/index.ts) |
+| `@deepseek-ai/dsh-client-ui-dots` | — | [`packages/client/ui-dots/src/index.ts`](../packages/client/ui-dots/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-git-branch` | — | [`packages/client/ui-git-branch/src/index.ts`](../packages/client/ui-git-branch/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-goal` | — | [`packages/client/ui-goal/src/index.ts`](../packages/client/ui-goal/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-input-trigger` | — | [`packages/client/ui-input-trigger/src/index.ts`](../packages/client/ui-input-trigger/src/index.ts) |
@@ -4825,6 +4861,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-terminal` | — | [`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts) |
 | `@deepseek-ai/dsh-tool-call-timeout-policy` | `tools` | [`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts) |
 | `@deepseek-ai/dsh-tool-cordis` | `tools` · `cordisInspect` | [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts) |
+| `@deepseek-ai/dsh-tool-dots` | `tools` · `dotsController` | [`packages/dots/tool-dots/src/index.ts`](../packages/dots/tool-dots/src/index.ts) |
 | `@deepseek-ai/dsh-tool-schedule` | `tools` | [`packages/schedule/tool-schedule/src/index.ts`](../packages/schedule/tool-schedule/src/index.ts) |
 | `@deepseek-ai/dsh-tool-subagent-control` | `tools` · `subagents` | [`packages/subagent/tool-subagent-control/src/index.ts`](../packages/subagent/tool-subagent-control/src/index.ts) |
 | `@deepseek-ai/dsh-tool-working-directory` | `tools` · `workingDirectory` | [`packages/session/tool-working-directory/src/index.ts`](../packages/session/tool-working-directory/src/index.ts) |

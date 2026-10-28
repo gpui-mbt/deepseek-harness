@@ -24,6 +24,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-plan-mode` | `exit_plan_mode` | `ctx.tools`, `ctx.systemPrompt`, `ctx.userQuestions (execution time, opportunistic)` | `tool/call`, `plan/mode inactive on an approved review`, `tool/result` | - | exit_plan_mode stays in the model-facing schema while planning is inactive so transitions add no tool-catalog churn on top of the plan-policy change. Its execute path rejects calls outside plan mode; in plan mode it presents the plan over the user-questions seam (approve / keep planning with feedback), and approval logs plan mode inactive at the step boundary. |
 | `@deepseek-ai/dsh-tool-bash` | `bash` | `ctx.workingDirectory`, `ctx.tools`, `ctx.shell`, `ctx.systemPrompt`, `ctx.shellEnv`, `ctx.jobs for run_in_background and the job-backed foreground path` | `tool/call`, `tool/result` | - | The bash tool is the model-facing consumer of the bash executor seam. With a job registry composed every call registers with the generic `ctx.jobs` runtime as it starts, collected/stopped through the `job_*` tools from `@deepseek-ai/dsh-tool-jobs`; without one, or with `enableRunInBackground: false`, the tool registers a foreground-only schema without the `run_in_background` parameter. |
 | `@deepseek-ai/dsh-tool-present` | `present` | `ctx.workingDirectory`, `ctx.tools`, `ctx.fs`, `ctx.sessionProjections` | `tool/call`, `deliverables/presented after a successful final result`, `tool/result` | - | Deliveries belong to the calling Session; Web ui-deliverables supplies source-file opening and cards. |
+| `@deepseek-ai/dsh-tool-dots` | `dot_archive`, `dot_assign`, `dot_create`, `dot_list`, `dot_schedule`, `dot_update` | `ctx.tools`, `ctx.dotsController` | `tool/call`, `tool/result`, `user/message when dot_assign queues work` | - | The six dot tools are thin adapters over the dotsController Remote service; lifecycle, storage, and the execution guard live in @deepseek-ai/dsh-dots. |
 | `@deepseek-ai/dsh-tool-pwsh` | `pwsh` | `ctx.workingDirectory`, `ctx.tools`, `ctx.shell`, `ctx.systemPrompt`, `ctx.shellEnv`, `ctx.jobs for run_in_background and the job-backed foreground path` | `tool/call`, `tool/result` | - | The pwsh tool is the PowerShell-dialect consumer of the bash executor seam for Windows compositions (a PowerShell executor such as `@deepseek-ai/dsh-pwsh-local` backs `ctx.shell`); it mirrors the bash tool call-for-call minus sandbox controls — `run_in_background` runs register with the generic `ctx.jobs` runtime and are collected/stopped through the `job_*` tools, and the managed `DSH_*` environment comes from `@deepseek-ai/dsh-shell-env`. Each call runs in a fresh process (no persistent PTY session), with native `C:\...` paths and `$env:NAME` variables. |
 | `@deepseek-ai/dsh-tool-cordis` | `cordis_inspect_list`, `cordis_inspect_query` | `ctx.tools`, `ctx.cordisInspect` | `tool/call`, `tool/result` | - | Creator mode provides two read-only runtime inspection tools. The Cordis host runner supplies the inspection registry; Client queries require a connected page. Author persistent changes as bundles and install them with plugin_manager. |
 | `@deepseek-ai/dsh-tool-bash-persistent` | `bash` | `ctx.workingDirectory`, `ctx.tools`, `ctx.terminals`, `an owning Agent at execution time` | `tool/call`, `PTY shell state`, `tool/result` | - | One owner-isolated persistent bash tool; deployment composition supplies the PTY backend and may override the model-facing environment description. |
@@ -736,6 +737,221 @@ Declare existing files as final deliverables for the user. Use it when the user 
 Source: [`packages/deliverables/tool-present/src/index.ts`](../packages/deliverables/tool-present/src/index.ts)
 
 Deliveries belong to the calling Session; Web ui-deliverables supplies source-file opening and cards.
+
+<a id="deepseek-aidsh-tool-dots"></a>
+
+## `@deepseek-ai/dsh-tool-dots`
+
+### `dot_archive`
+
+Archive a dot: stop its active schedules, cancel its running turn, and remove it from the active list. Files and session history are retained.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "dot": {
+      "type": "string",
+      "description": "Dot id or name."
+    },
+    "stop_schedules": {
+      "type": "boolean",
+      "description": "Delete active schedules first; defaults to true."
+    }
+  },
+  "required": [
+    "dot"
+  ]
+}
+```
+
+Source: [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+### `dot_assign`
+
+Queue one task for a dot. This returns when the assignment enters the dot's inbox; it does not mean the task is complete. A running dot receives it on a later turn.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "dot": {
+      "type": "string",
+      "description": "Dot id or name."
+    },
+    "task": {
+      "type": "string",
+      "description": "What the dot should do, with acceptance criteria."
+    }
+  },
+  "required": [
+    "dot",
+    "task"
+  ]
+}
+```
+
+Source: [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+### `dot_create`
+
+Create a persistent named dot with its own workspace and home session. Use a dot for ongoing work that should continue across assignments. The dot appears as a Workspace and Session in the sidebar.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Short unique dot name."
+    },
+    "purpose": {
+      "type": "string",
+      "description": "The dot's responsibility: outcome, sources of truth, quality bar, and escalation rules."
+    },
+    "preset": {
+      "type": "string",
+      "description": "Agent preset; defaults to the deployment dot preset."
+    },
+    "provider": {
+      "type": "string",
+      "description": "Model provider id; pair with model."
+    },
+    "model": {
+      "type": "string",
+      "description": "Exact model id; pair with provider."
+    },
+    "reasoning_effort": {
+      "type": "string",
+      "description": "Optional reasoning effort id for the selected model."
+    },
+    "permission_preset": {
+      "type": "string",
+      "description": "Permission preset to apply to the home session."
+    },
+    "allowed_tools": {
+      "type": "array",
+      "description": "Execution allowlist of tool names or trailing-* prefixes. Omit for all tools.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "name",
+    "purpose"
+  ]
+}
+```
+
+Source: [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+### `dot_list`
+
+List dots with live status (running, idle, asleep, missing). Use it before assigning work so the reference is exact.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "include_archived": {
+      "type": "boolean",
+      "description": "Include archived dots."
+    }
+  }
+}
+```
+
+Source: [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+### `dot_schedule`
+
+Create a durable schedule that wakes a dot and delivers a task. Provide exactly one timing selector. The schedule survives restarts and restores the dot from a cold session when due.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "dot": {
+      "type": "string",
+      "description": "Dot id or name."
+    },
+    "title": {
+      "type": "string",
+      "description": "Schedule name, 1-120 characters."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "Task delivered when due."
+    },
+    "after_seconds": {
+      "type": "number",
+      "description": "One-shot delay in seconds."
+    },
+    "every_seconds": {
+      "type": "number",
+      "description": "Fixed interval in seconds, at least 60."
+    },
+    "at": {
+      "description": "Absolute one-shot target: RFC 3339 string or {date,time,time_zone}."
+    },
+    "daily": {
+      "description": "Daily selector: {time:\"HH:mm:ss\", time_zone:\"Area/City\"}."
+    },
+    "weekly": {
+      "description": "Weekly selector: {time, time_zone, weekdays:[1..7]}."
+    },
+    "cron": {
+      "description": "Cron selector: {expression:\"m h dom mon dow\", time_zone}."
+    }
+  },
+  "required": [
+    "dot",
+    "title",
+    "prompt"
+  ]
+}
+```
+
+Source: [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+### `dot_update`
+
+Update a dot's managed purpose, append durable memory, or replace its execution allowlist. Use add_memory to record user feedback that should survive future sessions.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "dot": {
+      "type": "string",
+      "description": "Dot id or name."
+    },
+    "purpose": {
+      "type": "string",
+      "description": "Replacement purpose; regenerates AGENTS.md."
+    },
+    "add_memory": {
+      "type": "string",
+      "description": "Dated note appended to MEMORY.md."
+    },
+    "allowed_tools": {
+      "type": "array",
+      "description": "Replacement allowlist; pass an empty array to deny all tools.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "dot"
+  ]
+}
+```
+
+Source: [`packages/dots/tool-dots/src/tools.ts`](../packages/dots/tool-dots/src/tools.ts)
+
+The six dot tools are thin adapters over the dotsController Remote service; lifecycle, storage, and the execution guard live in @deepseek-ai/dsh-dots.
 
 <a id="deepseek-aidsh-tool-pwsh"></a>
 

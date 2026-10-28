@@ -253,6 +253,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Adapters register provider implementations; the loop and compaction call the provider-neutral stream service.',
   },
   {
+    key: 'dotsController',
+    pkg: 'dots',
+    title: 'Persistent dot lifecycle Remote',
+    mode: 'service',
+    consumers: ['tool-dots', 'client-ui-dots'],
+    note: 'Creates, assigns, updates, archives, and schedules persistent named agents while the tool guard enforces their allowlists.',
+  },
+  {
     key: 'chatgptController',
     pkg: 'llm-chatgpt',
     title: 'ChatGPT account and catalog Remote',

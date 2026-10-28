@@ -1,0 +1,43 @@
+# Bilingual-pair consistency record for dots.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/subsystems/dots.md
+/:
+  en: f43406d0f771d182
+  zh: 18b4c3ab599e195c
+/dots:
+  en: c6e40e4839837c58
+  zh: e21d46f6473b7dec
+/dots/summary:
+  en: 51c20b9d2cb233cc
+  zh: 4013e0f98d71982b
+/dots/table-of-contents:
+  en: d71e69256a8cb3fe
+  zh: 1e88f15ad5a11667
+/dots/records-and-storage:
+  en: 1a9b4c5d296b375a
+  zh: ec04a7377d9499c7
+/dots/creation:
+  en: 3fac9615edb6e28f
+  zh: b1d364d6477efe59
+/dots/assignment-delivery:
+  en: 30135490ed298417
+  zh: 0c203bce2ea93034
+/dots/status:
+  en: e7e1be8b7e379f51
+  zh: dc7a9919bc6b6599
+/dots/workspace-files:
+  en: 0cab6390c871ad15
+  zh: 4aa6029c1395a6e4
+/dots/execution-time-tool-policy:
+  en: f2d6f828da94a963
+  zh: 57c5a7b29effa815
+/dots/schedules:
+  en: 91a09805bcfdef3b
+  zh: ab4c043d501f995a
+/dots/remote-api:
+  en: 64bae688082d589d
+  zh: 9c8d0a073abded0a
+/dots/known-limitations-and-deferred-work:
+  en: 2c6c7f0a1e3a63fd
+  zh: 56f4a981630a5bbf

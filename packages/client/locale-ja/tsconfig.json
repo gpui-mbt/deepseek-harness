@@ -163,6 +163,9 @@
     },
     {
       "path": "../ui-chatgpt"
+    },
+    {
+      "path": "../ui-dots"
     }
   ]
 }
