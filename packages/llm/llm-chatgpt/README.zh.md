@@ -51,7 +51,7 @@ kind: "package-reference"
 
 **请求。** 适配器每轮向 Responses API 发送完整会话，使用 `store: false`、`stream: true` 与 `include: ['reasoning.encrypted_content']`。工具以 `additional_tools` developer 条目发送，而不是顶层 `tools` 字段；当提供方、模型与账号仍然匹配时，每条助手消息重放其 `replayState` 中保存的输出条目。重放身份使用请求的模型路由；提供方返回的快照模型另存为 `responseModel`，因此别名解析不会丢弃不透明推理。Host 关闭时中止现有请求，并拒绝异步账号发现之后的新请求准入。流事件映射为 harness 的块词汇；终止的 `response.completed` 是必需的，且流式与终止输出条目必须一致。只有提供方计数器完整且内部一致时，用量才成为 token 用量块。
 
-**失败。** 提供方 HTTP 失败映射到共享 LLM 代码（`AUTH`、`RATE_LIMIT`、`CONTEXT_WINDOW_EXCEEDED`、`INVALID_REQUEST`、`SERVER`），保留套餐的精确代码 `subscription_sharing_usage_limit_exceeded`，并保留 `retry-after`。刷新遇到 `invalid_grant` 时把记录降级为 `needs-sign-in` 并报告 `CHATGPT_SIGN_IN_REQUIRED`；退出登录会在写入无令牌记录前中止该账号进行中的工作。
+**失败。** 提供方 HTTP 失败映射到共享 LLM 代码（`AUTH`、`RATE_LIMIT`、`CONTEXT_WINDOW_EXCEEDED`、`INVALID_REQUEST`、`SERVER`），保留套餐的精确代码 `subscription_sharing_usage_limit_exceeded`，并保留 `retry-after`。刷新遇到 `invalid_grant` 时把记录降级为 `needs-sign-in` 并报告 `CHATGPT_SIGN_IN_REQUIRED`；退出登录会先中止该账号进行中的工作，再写入无令牌记录，若该账号是活动账号，则从已保存的配置中移除其活动账号选择。提供方未确认令牌撤销不会阻止本地退出登录完成；客户端会显示警告。
 
 <a id="further-exploration"></a>
 ## 延伸阅读

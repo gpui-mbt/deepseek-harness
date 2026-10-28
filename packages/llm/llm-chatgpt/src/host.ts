@@ -1170,7 +1170,11 @@ export class ChatGptHost implements ChatGptAdapterHost {
     const entry = editor.entries().find(candidate => candidate.options.id === own.id && candidate.options.name === own.name)
     /* v8 ignore next -- the profile editor lists every mounted row, including this one. */
     if (entry === undefined) throw new Error('The ChatGPT plugin profile entry cannot be edited.')
-    await editor.edit(entry, current => ({ ...current, ...change }))
+    // YAML omits undefined-valued keys. Omit them explicitly so the editor's
+    // round-trip/overlay check compares the same persisted configuration.
+    await editor.edit(entry, current => Object.fromEntries(
+      Object.entries({ ...current, ...change }).filter(([, value]) => value !== undefined),
+    ))
   }
 
   private pruneAttempts(): void {
