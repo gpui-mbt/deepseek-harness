@@ -9,6 +9,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { BootManifest, ClientModuleCreateOptions, ClientModuleSystem, DshWindow } from '@deepseek-ai/dsh-client-modules/client'
 import { bootClient } from './boot-client.ts'
 import { BootPage } from './boot-page.ts'
+import { installConsoleErrorExporter } from './console-logger.ts'
 import { mountClient } from './mount.ts'
 import { getStaticModules } from './seed.ts'
 import { installViewportProjection } from './viewport.ts'
@@ -86,6 +87,10 @@ export class AppWebEntry {
       const prefetching = this.prefetchImmediateTier()
       const ctx = new Context()
       this.ctx = ctx
+      // Errors reach the console before any plugin loads: a plugin whose apply
+      // throws is reported by the activation audit, and the carrier's crash
+      // report keeps the renderer console tail.
+      installConsoleErrorExporter(ctx)
       this.page.setTotal(this.manifest.plugins.length)
       await prefetching
       await bootClient({

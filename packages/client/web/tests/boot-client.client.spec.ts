@@ -113,7 +113,7 @@ describe('bootClient', () => {
 describe('assertEntriesActive', () => {
   interface FakeEntry {
     name: string
-    fiber?: { state: number; inject: Record<string, null> }
+    fiber?: { state: number; inject: Record<string, null>; await?: () => Promise<unknown> }
   }
 
   /** Loader-shaped double: entries with scripted fiber states, services by name. */
@@ -130,50 +130,67 @@ describe('assertEntriesActive', () => {
 
   const silent = { importError: () => undefined }
 
-  it('passes when every entry is active', () => {
-    expect(() => {
-      assertEntriesActive(auditCtx([{ name: 'a', fiber: { state: FIBER_STATE.ACTIVE, inject: {} } }]), silent)
-    }).not.toThrow()
+  it('passes when every entry is active', async () => {
+    await expect(
+      assertEntriesActive(auditCtx([{ name: 'a', fiber: { state: FIBER_STATE.ACTIVE, inject: {} } }]), silent),
+    ).resolves.toBeUndefined()
   })
 
-  it('names import failures, missing services, and other non-active states', () => {
+  it('names import failures, missing services, and the error each failed entry recorded', async () => {
     const ctx = auditCtx(
       [
         { name: 'lost' },
         { name: 'waiting', fiber: { state: FIBER_STATE.PENDING, inject: { present: null, a: null, b: null } } },
         { name: 'opaque', fiber: { state: FIBER_STATE.PENDING, inject: {} } },
-        { name: 'broken', fiber: { state: FIBER_STATE.FAILED, inject: {} } },
+        {
+          name: 'broken',
+          fiber: {
+            state: FIBER_STATE.FAILED,
+            inject: {},
+            await: () => Promise.reject(new Error('client api: direct method chatgpt/acknowledgeWelcome is already mounted')),
+          },
+        },
       ],
       { present: {} },
     )
 
-    expect(() => {
-      assertEntriesActive(ctx, silent)
-    }).toThrow(
+    await expect(assertEntriesActive(ctx, silent)).rejects.toThrow(
       [
         'web boot: 4 entries did not activate',
         'lost: import failed (see console for the import error)',
         'waiting: pending (waiting for services: a, b)',
         'opaque: pending (waiting for services: unknown)',
-        'broken: failed',
+        'broken: failed: client api: direct method chatgpt/acknowledgeWelcome is already mounted',
       ].join('\n'),
     )
   })
 
-  it('uses the singular form for one failing entry', () => {
-    expect(() => {
-      assertEntriesActive(auditCtx([{ name: 'lost' }]), silent)
-    }).toThrow('web boot: 1 entry did not activate\n')
+  it('states the state alone when a failed entry settled without a recorded error', async () => {
+    // A plugin may reject with any value, and Cordis rethrows it unchanged, so
+    // the audit renders a non-Error rejection as well.
+    const rejectString = (): Promise<never> =>
+      // oxlint-disable-next-line typescript/prefer-promise-reject-errors -- the fiber rethrows the plugin's own rejection value.
+      Promise.reject('client api: namespace "x" failed')
+    const ctx = auditCtx([
+      { name: 'blank', fiber: { state: FIBER_STATE.FAILED, inject: {}, await: () => Promise.resolve() } },
+      { name: 'thrown', fiber: { state: FIBER_STATE.FAILED, inject: {}, await: rejectString } },
+    ])
+
+    await expect(assertEntriesActive(ctx, silent)).rejects.toThrow(
+      ['web boot: 2 entries did not activate', 'blank: failed', 'thrown: failed: client api: namespace "x" failed'].join('\n'),
+    )
   })
 
-  it('names the recorded import error of a fiberless entry when the module system is supplied', () => {
+  it('uses the singular form for one failing entry', async () => {
+    await expect(assertEntriesActive(auditCtx([{ name: 'lost' }]), silent)).rejects.toThrow('web boot: 1 entry did not activate\n')
+  })
+
+  it('names the recorded import error of a fiberless entry when the module system is supplied', async () => {
     const recorded = new Map([
       ['lost', new Error('client-modules: could not load "lost": plugins/??lost/client.js&rev=0: bundle script failed to load')],
     ])
     const modules = { importError: (id: string) => recorded.get(id) }
-    expect(() => {
-      assertEntriesActive(auditCtx([{ name: 'lost' }, { name: 'quiet' }]), modules)
-    }).toThrow(
+    await expect(assertEntriesActive(auditCtx([{ name: 'lost' }, { name: 'quiet' }]), modules)).rejects.toThrow(
       [
         'web boot: 2 entries did not activate',
         'lost: import failed: client-modules: could not load "lost": plugins/??lost/client.js&rev=0: bundle script failed to load',

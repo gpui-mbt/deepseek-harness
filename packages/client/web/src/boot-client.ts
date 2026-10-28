@@ -4,7 +4,7 @@
  * activation. `AppWebEntry` and the whole-client test carrier both call it.
  * @module @deepseek-ai/dsh-client-web/src/boot-client
  */
-import type { Context } from '@deepseek-ai/cordis'
+import type { Context, Fiber } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import type { BootManifest, ClientModuleLoader } from '@deepseek-ai/dsh-client-modules/client'
 import { STATE_LABELS } from './loader-status.ts'
@@ -53,7 +53,7 @@ export async function bootClient(options: ClientBootOptions): Promise<void> {
   }
 
   await loader.await()
-  assertEntriesActive(ctx, options.modules)
+  await assertEntriesActive(ctx, options.modules)
 }
 
 /**
@@ -61,9 +61,10 @@ export async function bootClient(options: ClientBootOptions): Promise<void> {
  * @param ctx - root Context carrying the Loader.
  * @param modules - the module system whose recorded import failures name why an entry
  *   has no fiber; a row with no record points at the console.
+ * @returns resolves after every entry is active.
  * @throws {Error} listing every non-active entry with its reason.
  */
-export function assertEntriesActive(ctx: Context, modules: Pick<ClientModuleLoader, 'importError'>): void {
+export async function assertEntriesActive(ctx: Context, modules: Pick<ClientModuleLoader, 'importError'>): Promise<void> {
   const failures: string[] = []
   for (const entry of ctx.loader.entries()) {
     const name = entry.options.name
@@ -82,7 +83,7 @@ export function assertEntriesActive(ctx: Context, modules: Pick<ClientModuleLoad
       const missing = Object.keys(entry.fiber.inject).filter(service => ctx.get(service) === undefined)
       failures.push(`${name}: pending (waiting for service${missing.length === 1 ? '' : 's'}: ${missing.join(', ') || 'unknown'})`)
     } else {
-      failures.push(`${name}: ${state}`)
+      failures.push(`${name}: ${state}${await failureReason(entry.fiber)}`)
     }
   }
   if (failures.length > 0) {
@@ -90,4 +91,21 @@ export function assertEntriesActive(ctx: Context, modules: Pick<ClientModuleLoad
       `web boot: ${String(failures.length)} entr${failures.length === 1 ? 'y' : 'ies'} did not activate\n${failures.join('\n')}`,
     )
   }
+}
+
+/**
+ * Name the error a failed fiber recorded. Cordis keeps it private and rethrows
+ * it from the public settle, so the audit reads it the same way the Host's
+ * startup diagnostics do instead of depending on fiber internals.
+ * @param fiber - entry fiber that is neither active nor waiting for a service.
+ * @returns `: <message>` for a recorded error, or an empty string when the fiber
+ *   settled without one.
+ */
+async function failureReason(fiber: Fiber): Promise<string> {
+  try {
+    await fiber.await()
+  } catch (error) {
+    return `: ${error instanceof Error ? error.message : String(error)}`
+  }
+  return ''
 }

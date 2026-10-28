@@ -89,6 +89,7 @@ The boot kernel delegates manifest entry creation to Client Modules so live grap
 | [`src/index.ts`](src/index.ts) | Library entry: `AppWebEntry`, `getStaticModules`, platform tables |
 | [`src/boot.ts`](src/boot.ts) | `AppWebEntry`: module stage, boot page, immediate-tier prefetch, window drag-rect watcher install, then `bootClient` + `mountClient` |
 | [`src/boot-client.ts`](src/boot-client.ts) | `bootClient` / `assertEntriesActive`: Loader mount, one entry per manifest row, activation audit |
+| [`src/console-logger.ts`](src/console-logger.ts) | `installConsoleErrorExporter`: error-level client records to the renderer console, which the carrier's crash report retains |
 | [`src/mount.ts`](src/mount.ts) | `mountClient`: renderer handoff through a `uiRenderer` dependency fiber |
 | [`src/boot-page.ts`](src/boot-page.ts) | Framework-free boot page: spinner, per-entry status, failure rendering |
 | [`src/viewport.ts`](src/viewport.ts) | Visual viewport projection: `--dsh-viewport-height` and the software-keyboard mark |

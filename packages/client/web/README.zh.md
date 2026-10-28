@@ -89,6 +89,7 @@ Web 和 Desktop 的数学公式渲染要求支持 WOFF2。[Web 构建](../../../
 | [`src/index.ts`](src/index.ts) | 库入口：`AppWebEntry`、`getStaticModules`、平台表 |
 | [`src/boot.ts`](src/boot.ts) | `AppWebEntry`：模块阶段、启动页、immediately 层级预取、安装窗口拖拽矩形 watcher，随后调用 `bootClient` + `mountClient` |
 | [`src/boot-client.ts`](src/boot-client.ts) | `bootClient` / `assertEntriesActive`：挂载 Loader、每个 manifest 行一个 entry、激活审计 |
+| [`src/console-logger.ts`](src/console-logger.ts) | `installConsoleErrorExporter`：把 error 级别的客户端记录写入渲染进程 console，由载体的崩溃报告保留 |
 | [`src/mount.ts`](src/mount.ts) | `mountClient`：经 `uiRenderer` 依赖 fiber 完成渲染器交接 |
 | [`src/boot-page.ts`](src/boot-page.ts) | 无框架启动页：spinner、逐 entry 状态、失败渲染 |
 | [`src/viewport.ts`](src/viewport.ts) | 视觉视口投影：`--dsh-viewport-height` 与软键盘标记 |
